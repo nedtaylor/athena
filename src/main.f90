@@ -7,6 +7,7 @@
 !!! ... adaptive learning rate using a momentum factor
 program ConvolutionalNeuralNetwork
   use constants, only: real12
+  use infile_tools, only: stop_check
   use normalisation, only: linear_renormalise
   use inputs
   use ConvolutionLayer, cv_init => initialise, cv_forward => forward, &
@@ -63,30 +64,41 @@ program ConvolutionalNeuralNetwork
   integer :: i
 
 
-
+!!!-----------------------------------------------------------------------------
+!!! initialise global variables
+!!!-----------------------------------------------------------------------------
   call set_global_vars()
 
 
+!!!-----------------------------------------------------------------------------
+!!! read training dataset
+!!!-----------------------------------------------------------------------------
   train_file = '/nutanix/gpshome/ntt203/DCoding/DTest_dir/DMNIST/MNIST_train.txt'
   call read_mnist(train_file,input_images, labels)
   image_size = size(input_images, 1)
   num_samples = size(input_images, 4)
   input_channels = size(input_images, 3)
   input_images = input_images/255.0
+  num_pool = (image_size - pool_kernel_size) / pool_stride + 1
+  input_size = num_pool**2 * cv_num_filters * input_channels
+  num_batches = num_samples / batch_size
 
 
+!!!-----------------------------------------------------------------------------
+!!! read testing dataset
+!!!-----------------------------------------------------------------------------
   test_file = '/nutanix/gpshome/ntt203/DCoding/DTest_dir/DMNIST/MNIST_test.txt'
   call read_mnist(test_file,test_images, test_labels)
   num_samples_test = size(test_images, 4)
   test_images = test_images/255.0
 
+
+!!!-----------------------------------------------------------------------------
+!!! initialise loss and loss history
+!!!-----------------------------------------------------------------------------
   allocate(loss_history(10))
   loss_history = -huge(1._real12)
   loss_threshold = 2._real12
-
-
-  num_pool = (image_size - pool_kernel_size) / pool_stride + 1
-  input_size = num_pool**2 * cv_num_filters * input_channels
 
 
 !!!-----------------------------------------------------------------------------
@@ -98,16 +110,21 @@ program ConvolutionalNeuralNetwork
   call random_seed(put=seed_arr)
 
 
+!!!-----------------------------------------------------------------------------
+!!! reformulate fully connected layers to include input and output layers
+!!! ... user provides only hidden layers
+!!!-----------------------------------------------------------------------------
   fc_num_layers = size(fc_num_hidden,dim=1) + 2
   allocate(tmp_num_hidden(fc_num_layers))
   tmp_num_hidden(1) = input_size
   tmp_num_hidden(2:fc_num_layers-1) = fc_num_hidden
   tmp_num_hidden(fc_num_layers) = num_classes
-
   call move_alloc(tmp_num_hidden, fc_num_hidden)
-  !allocate(fc_num_hidden(fc_num_layers))
-  !fc_num_hidden = [input_size,40,num_classes]
 
+
+!!!-----------------------------------------------------------------------------
+!!! initialise convolutional neural network layers
+!!!-----------------------------------------------------------------------------
   write(6,*) "Initialising CNN..."
   !! Initialise the convolution layer
   call cv_init(image_size, seed, num_layers = cv_num_filters, &
@@ -122,6 +139,9 @@ program ConvolutionalNeuralNetwork
   write(6,*) "CNN initialised"
 
 
+!!!-----------------------------------------------------------------------------
+!!! allocate and initialise layer outputs and gradients
+!!!-----------------------------------------------------------------------------
   allocate(cv_output(image_size, image_size, cv_num_filters*input_channels))
   allocate(pl_output(num_pool, num_pool, cv_num_filters*input_channels))
   allocate(fc_output(num_classes))
@@ -153,15 +173,18 @@ program ConvolutionalNeuralNetwork
   comb_fc_gradients = 0.0
 
 
-  num_batches = num_samples / batch_size
 
+!!!-----------------------------------------------------------------------------
+!!! training loop
+!!! ... loops over num_epoch number of epochs
+!!! ... i.e. it trains on the same datapoints num_epoch times
+!!!-----------------------------------------------------------------------------
   write(6,*) "Starting training..."
-  !! Training loop
-  !! ... loops over num_epoch number of epochs
-  !! ... i.e. it trains on the same datapoints num_epoch times
   epoch_loop: do epoch = 1, num_epochs
-     !! Batch loop
+     !!-------------------------------------------------------------------------
+     !! batch loop
      !! ... split data up into minibatches for training
+     !!-------------------------------------------------------------------------
      batch_loop: do batch = 1, num_batches
         start_index = (batch - 1) * batch_size + 1
         end_index = batch * batch_size
@@ -169,17 +192,26 @@ program ConvolutionalNeuralNetwork
         sum_loss = 0.0
         sum_accuracy = 0.0
 
+        !! reset (zero) summed gradients
+        !! ... UNCOMMENT if running mini-batch training 
+        !!----------------------------------------------------------------------
+        call fc_reset_delta()
         comb_cv_gradients = 0._real12
         comb_fc_gradients = 0._real12
 
-        call fc_reset_delta()
 
         !!-------------!!
         !! parallelise !!
         !!-------------!!
+
+        !!----------------------------------------------------------------------
+        !! sample loop
+        !! ... test each sample and get gradients and losses from each
+        !!----------------------------------------------------------------------
         train_loop: do sample = start_index, end_index
 
            !! Forward pass
+           !!-------------------------------------------------------------------
            cv_output = 0._real12
            pl_output = 0._real12
            fc_input  = 0._real12
@@ -188,8 +220,6 @@ program ConvolutionalNeuralNetwork
            call pl_forward(cv_output, pl_output)
            fc_input = reshape(pl_output, [input_size])
            call linear_renormalise(fc_input)
-           !write(0,*) "MIN", minval(fc_input)
-           !write(0,*) "MAX", maxval(fc_input)
            call fc_forward(fc_input, fc_output)
            call sm_forward(fc_output, sm_output)
 
@@ -202,6 +232,8 @@ program ConvolutionalNeuralNetwork
            !write(0,*) labels(sample)-1
 
 
+           !! check for NaN and infinity
+           !!----------------------------------------------------------------------
            if(any(isnan(sm_output)))then
               write(0,*) "ERROR: Softmax outputs are NaN"
               stop
@@ -210,20 +242,18 @@ program ConvolutionalNeuralNetwork
               write(0,*) fc_output
            end if
 
+           
+           !! compute loss and accuracy (for monitoring)
+           !!----------------------------------------------------------------------
            expected = labels(sample)
-
-           !! Compute loss and accuracy (for monitoring purposes)
            loss = categorical_cross_entropy(sm_output, expected)
            accuracy = compute_accuracy(sm_output, expected)
-
            sum_loss = sum_loss + loss
            sum_accuracy = sum_accuracy + accuracy
 
-           !write(0,*) fc_output
-           !write(0,*) sm_output
-           !write(0,*) "loss",sample,loss,sum_loss
 
            !! Backward pass
+           !!----------------------------------------------------------------------
            sm_gradients = 0._real12
            fc_gradients = 0._real12
            fc_gradients_rs = 0._real12
@@ -235,19 +265,28 @@ program ConvolutionalNeuralNetwork
            call pl_backward(cv_output, fc_gradients_rs, pl_gradients)
            call cv_backward(input_images(:,:,:,sample), pl_gradients, cv_gradients, cv_clip)
 
-           !! Update weights and biases using optimization algorithm (e.g., gradient descent)
-           call cv_update(learning_rate, input_images(:,:,:,sample), cv_gradients, &
-                l1_lambda, l2_lambda, momentum)
-           call fc_update(learning_rate, fc_input, fc_gradients, &
-                l1_lambda, l2_lambda, momentum, l_batch=.false.)
-           
+
+           !! update weights and biases using optimization algorithm
+           !! ... (gradient descent)
+           !! ... COMMENT if running mini-batch training
+           !!----------------------------------------------------------------------
+           !call cv_update(learning_rate, input_images(:,:,:,sample), cv_gradients, &
+           !     l1_lambda, l2_lambda, momentum)
+           !call fc_update(learning_rate, fc_input, fc_gradients, &
+           !     l1_lambda, l2_lambda, momentum, l_batch=.false.)
+
+
+           !! sum gradients for mini-batch training
+           !! ... UNCOMMENT if running mini-batch training
+           !!----------------------------------------------------------------------
            comb_cv_gradients = comb_cv_gradients + cv_gradients
            comb_fc_gradients = comb_fc_gradients + fc_gradients
 
         end do train_loop
 
-        !! Error checking and handling
 
+        !! Error checking and handling
+        !!-------------------------------------------------------------------------
         if(sum(abs(comb_fc_gradients)).lt.1.D-8)then
            write(0,*) "ERROR: FullyConnected gradients are zero"
            write(0,*) "Exiting..."
@@ -272,22 +311,30 @@ program ConvolutionalNeuralNetwork
            exit epoch_loop
         end if
 
-        !! Update weights and biases using optimization algorithm (e.g., gradient descent)
+
+        !! update weights and biases using optimization algorithm
+        !! ... (gradient descent)
+        !! ... UNCOMMENT if running mini-batch training
+        !!-------------------------------------------------------------------------
         comb_cv_gradients = comb_cv_gradients/batch_size
         comb_fc_gradients = comb_fc_gradients/batch_size
         call fc_norm_delta(batch_size)        
-
-        !call cv_update(learning_rate, input_images(:,:,:,sample), comb_cv_gradients, &
-        !     l1_lambda, l2_lambda, momentum)
-        !call fc_update(learning_rate, fc_input, comb_fc_gradients, &
-        !     l1_lambda, l2_lambda, momentum, l_batch=.true.)
-
+        call cv_update(learning_rate, input_images(:,:,:,sample), comb_cv_gradients, &
+             l1_lambda, l2_lambda, momentum)
+        call fc_update(learning_rate, fc_input, comb_fc_gradients, &
+             l1_lambda, l2_lambda, momentum, l_batch=.true.)
+!!! NOTE:
 !!! FC DOESN'T ACTUALLY USE THE GRADIENTS SUPPLIED !!!
 !!! comb_fc_gradients ALSO ONLY HAS THE GRADIENTS FOR THE FINAL LAYER !!!
 
-        !write(6,'("epoch=",I0,", batch=",I0", lrate=",F0.3,", error=",F0.3)') epoch, batch, learning_rate, sum_accuracy
+
+        !! print batch results
+        !!-------------------------------------------------------------------------
         write(6,'("epoch=",I0,", batch=",I0", lrate=",F0.3,", error=",F0.3)') epoch, batch, learning_rate, sum_loss
 
+
+        !! check for user-name stop file
+        !!-------------------------------------------------------------------------
         if(stop_check())then
            write(0,*) "STOPCAR ENCOUNTERED"
            write(0,*) "Exiting training loop..."
@@ -295,15 +342,19 @@ program ConvolutionalNeuralNetwork
         end if
 
      end do batch_loop
-     if(mod(epoch,20).eq.0.E0)then
-        write(6,'("epoch=",I0,", batch=",I0", lrate=",F0.3,", error=",F0.3)') epoch, batch, learning_rate, sum_loss
-        !write(6,'("epoch=",I0,", lrate=",F0.3,", error=",F0.3)') epoch, learning_rate, sum_accuracy
-     end if
+
+
+     !! print epoch summary results
+     !!----------------------------------------------------------------------------
+     if(mod(epoch,20).eq.0.E0) &
+          write(6,'("epoch=",I0,", batch=",I0", lrate=",F0.3,", error=",F0.3)') epoch, batch, learning_rate, sum_loss
 
   end do epoch_loop
 
 
-  !! Print weights and biases of CNN to file
+!!!-----------------------------------------------------------------------------
+!!! print weights and biases of CNN to file
+!!!-----------------------------------------------------------------------------
   cnn_file = '../cnn_layers.txt'
   open(unit=10,file=cnn_file,status='replace')
   close(10)
@@ -311,23 +362,30 @@ program ConvolutionalNeuralNetwork
   call fc_write(cnn_file)
 
 
-  !! Testing loop
+!!!-----------------------------------------------------------------------------
+!!! testing loop
+!!!-----------------------------------------------------------------------------
   test_loop: do sample = 1, num_samples_test
 
      call cv_forward(test_images(:,:,:,sample), cv_output)
      call pl_forward(cv_output, pl_output)
      fc_input = reshape(pl_output, [input_size])
+     call linear_renormalise(fc_input)
      call fc_forward(fc_input, fc_output)
      call sm_forward(fc_output, sm_output)
 
-     expected = test_labels(sample)
 
-     ! Compute loss and accuracy (for monitoring purposes)
+     !! compute loss and accuracy (for monitoring)
+     !!-------------------------------------------------------------------------
+     expected = test_labels(sample)
      loss = categorical_cross_entropy(sm_output, expected)
      accuracy = compute_accuracy(sm_output, expected)
-
      sum_loss = sum_loss + loss
      sum_accuracy = sum_accuracy + accuracy
+
+
+     !! print testing results
+     !!-------------------------------------------------------------------------
      write(6,'(I4," Expected=",I3,", Got=",I3,", Accuracy=",F0.3)') sample,expected-1, maxloc(sm_output,dim=1)-1, accuracy
      write(0,*) sm_output
      write(0,*)
@@ -340,11 +398,18 @@ program ConvolutionalNeuralNetwork
 
 
 
-!!!###################################################################################
+!!!#############################################################################
+!!!#############################################################################
+!!! * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *  !!!
+!!!#############################################################################
+!!!#############################################################################
 
 contains
 
-
+!!!#############################################################################
+!!! compute losses
+!!! method: custom: RMSE-like???
+!!!#############################################################################
   function compute_loss(output, expected) result(loss)
     implicit none
     real(real12), dimension(:), intent(in) :: output
@@ -367,7 +432,13 @@ contains
     loss = total
 
   end function compute_loss
+!!!#############################################################################
 
+
+!!!#############################################################################
+!!! compute losses
+!!! method: categorical cross entropy
+!!!#############################################################################
   function categorical_cross_entropy(output, expected) result(loss)
     implicit none
     real(real12), dimension(:), intent(in) :: output
@@ -378,8 +449,14 @@ contains
     loss = -1._real12/real(size(output, dim=1),real12) * log(output(expected)+epsilon)
 
   end function categorical_cross_entropy
+!!!#############################################################################
 
-  !! this is handled by the softmax backward subroutine
+
+!!!#############################################################################
+!!! compute loss derivative
+!!! method: categorical cross entropy
+!!! this is handled by the softmax backward subroutine
+!!!#############################################################################
   subroutine categorical_cross_entropy_derivative(output, expected, gradient)
     implicit none
     integer, intent(in) :: expected
@@ -390,7 +467,13 @@ contains
     gradient(expected) = output(expected) - 1._real12
 
   end subroutine categorical_cross_entropy_derivative
+!!!#############################################################################
 
+
+!!!#############################################################################
+!!! compute accuracy
+!!! this only works (and is only valid for?) categorisation problems
+!!!#############################################################################
   function compute_accuracy(output, expected) result(accuracy)
     implicit none
     real(real12), dimension(:), intent(in) :: output
@@ -415,7 +498,12 @@ contains
     end if
 
   end function compute_accuracy
+!!!#############################################################################
 
+
+!!!#############################################################################
+!!! read mnist dataset
+!!!#############################################################################
   subroutine read_mnist(file,images,labels)
     use misc, only: icount
     implicit none
@@ -460,32 +548,7 @@ contains
     write(0,*) "READING DONE"
 
   end subroutine read_mnist
-
-
-  logical function stop_check()
-    implicit none
-    integer :: Reason
-    integer :: unit=201
-    logical :: lfound
-    character(7) :: file="STOPCAR"
-    character(128) :: buffer
-
-    stop_check = .false.
-    inquire(file=trim(file),exist=stop_check)
-    file_if: if(lfound)then
-       open(unit=unit, file=trim(file))
-       file_loop: do
-          read(unit,'(A)',iostat=Reason) buffer
-          if(Reason.ne.0) exit file_loop
-          if(index(buffer,"LSTOP=.TRUE.").ne.0)then
-             stop_check = .true.
-             exit file_loop
-          end if
-       end do file_loop
-       close(unit,status='delete')
-    end if file_if
-    
-  end function stop_check
+!!!#############################################################################
 
 end program ConvolutionalNeuralNetwork
 !!!###################################################################################
