@@ -388,35 +388,35 @@ contains
     logical :: lfound
     logical :: output
     character(*), optional, intent(in) :: file
-    character(248) :: _file
+    character(248) :: t_file
     character(128) :: buffer, tagname
 
-    file = "STOPCAR"
-    if(present(file)) _file = file
+    t_file = "STOPCAR"
+    if(present(file)) t_file = file
 
-    stop_check = .false.
+    output = .false.
     !! check if file exists
-    inquire(file=trim(_file),exist=lfound)
+    inquire(file=trim(t_file),exist=lfound)
     file_if: if(lfound)then
        itmp1 = 0
-       open(unit=unit, file=trim(_file))
+       open(unit=unit, file=trim(t_file))
        !! read line-by-line
        file_loop: do
           read(unit,'(A)',iostat=Reason) buffer
           if(Reason.ne.0) exit file_loop
-          call rm_comments(buffer,count)
+          call rm_comments(buffer)
           if(trim(buffer).eq.'') cycle file_loop
           tagname=trim(adjustl(buffer))
           if(scan(buffer,"=").ne.0) tagname=trim(tagname(:scan(tagname,"=")-1))
           select case(trim(tagname))
           case("LSTOP")
-             call assign(buffer,output,itmp1)
+             call assignL(buffer,output,itmp1)
              exit file_loop
           case("LABORT")
-             call assign(buffer,output,itmp1)
+             call assignL(buffer,output,itmp1)
              if(output)then
                 close(unit,status='delete')
-                stop "LABORT ENCOUNTERED IN STOP FILE (",trim(_file),")"
+                stop "LABORT ENCOUNTERED IN STOP FILE ("//trim(t_file)//")"
              end if
           end select
        end do file_loop
