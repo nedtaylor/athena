@@ -5,7 +5,7 @@
 !!!#############################################################################
 module inputs
   use constants, only: real12,ierror
-  use nn_types, only: clip_type
+  use custom_types, only: clip_type
   use misc, only: icount,flagmaker,file_check
   implicit none
   integer :: seed  ! random seed

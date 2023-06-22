@@ -5,7 +5,7 @@
 !!!#############################################################################
 module FullyConnectedLayer
   use constants, only: real12
-  use nn_types, only: network_type, clip_type
+  use custom_types, only: network_type, clip_type
   implicit none
 
   type(network_type), allocatable, dimension(:) :: network

@@ -5,7 +5,7 @@
 !!!#############################################################################
 module ConvolutionLayer
   use constants, only: real12
-  use nn_types, only: clip_type
+  use custom_types, only: clip_type, convolution_type
   implicit none
 
   integer, allocatable, dimension(:) :: half
@@ -15,16 +15,6 @@ module ConvolutionLayer
   end type index_type
   type(index_type), allocatable, dimension(:) :: idx_list
 
-  type convolution_type
-     integer :: kernel_size
-     integer :: stride
-     real(real12) :: delta
-     real(real12) :: bias
-     !! DO THE WEIGHTS NEED TO BE DIFFERENT PER INPUT CHANNEL?
-     !! IF SO, 3 DIMENSIONS. IF NOT, 2 DIMENSIONS
-     real(real12), allocatable, dimension(:,:) :: weight, weight_incr
-     !real(real12), allocatable, dimension(:,:,:) :: output
-  end type convolution_type
   type(convolution_type), allocatable, dimension(:) :: convolution
 
 !!! NEED TO MAKE A TYPE TO HANDLE THE OUTPUT OF EACH CONVOLUTION LAYER
