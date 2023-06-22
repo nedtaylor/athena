@@ -330,7 +330,7 @@ program ConvolutionalNeuralNetwork
 
         !! print batch results
         !!-------------------------------------------------------------------------
-        write(6,'("epoch=",I0,", batch=",I0", lrate=",F0.3,", error=",F0.3)') epoch, batch, learning_rate, sum_loss
+        write(6,'("epoch=",I0,", batch=",I0", learning_rate=",F0.3,", loss=",F0.3)') epoch, batch, learning_rate, sum_loss
 
 
         !! check for user-name stop file
@@ -347,7 +347,7 @@ program ConvolutionalNeuralNetwork
      !! print epoch summary results
      !!----------------------------------------------------------------------------
      if(mod(epoch,20).eq.0.E0) &
-          write(6,'("epoch=",I0,", batch=",I0", lrate=",F0.3,", error=",F0.3)') epoch, batch, learning_rate, sum_loss
+          write(6,'("epoch=",I0,", batch=",I0", learning_rate=",F0.3,", loss=",F0.3)') epoch, batch, learning_rate, sum_loss
 
   end do epoch_loop
 
