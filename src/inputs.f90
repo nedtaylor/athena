@@ -276,7 +276,7 @@ contains
     clip_norm = ""
 
 
-    read(unit,NML=pool,iostat=Reason)
+    read(unit,NML=pooling,iostat=Reason)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
        stop "THERE WAS AN ERROR IN READING POOL SETTINGS"
     end if
