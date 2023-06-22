@@ -7,7 +7,7 @@ wandb.login()
 
 sweep_id = '8qcw0m55'
 file_template = "template.in"
-curdir = os.getcwd() # "../"
+curdir = getcwd() # "../"
 if not exists(file_template):
     f = open(file_template,"x")
     # write out example file
@@ -32,14 +32,6 @@ param_dict = {
     'pooling': {},
     'fullyconnected': {}
 }
-
-
-wandb.init('cnn_mnist_test')
-wandb.agent(sweep_id, function=main, count=1)
-sweep_config = wandb.config
-
-print(sweep_config)
-print(sweep_config.learning_rate)
 
 
 def main():
@@ -104,7 +96,7 @@ def main():
     workdir = "D_"+sweep_id
     stdout = "stdout.o"
     stderr = "stdout.e"
-    os.chdir(workdir)
+    chdir(workdir)
     subprocess.call(["/home/links/ntt203/DCoding/DGitlab/convolutional_neural_network/bin/cnn","-f"+file_out,">"+stdout,"2>"+stderr])
 
     # read from output file
@@ -119,8 +111,15 @@ def main():
                     result_dict[key.strip()] = value.strip()
                 wandb.log(result_dict)
 
-    os.chdir(curdir)
+    chdir(curdir)
 
+
+#wandb.init(project='cnn_mnist_test')
+wandb.agent(sweep_id, function=main, count=2)
+#sweep_config = wandb.config
+
+#print(sweep_config)
+#print(sweep_config.learning_rate)
 
 
 wandb.finish()
