@@ -237,7 +237,7 @@ contains
          shuffle_dataset
     namelist /convolution/ cv_num_filters, kernel_size, stride, &
          clip_min, clip_max, clip_norm
-    namelist /pool/ kernel_size, stride
+    namelist /pooling/ kernel_size, stride
     namelist /fully_connected/ hidden_layers, &
          clip_min, clip_max, clip_norm
 
