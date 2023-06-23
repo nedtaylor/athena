@@ -4,10 +4,11 @@
 !!! Code part of the ARTEMIS group
 !!!#############################################################################
 module inputs
-  use constants, only: real12,ierror
+  use constants, only: real12, ierror
   use custom_types, only: clip_type
-  use misc, only: icount,flagmaker,file_check
+  use misc, only: icount, flagmaker, file_check, to_lower
   implicit none
+  integer :: verbosity  !verbose printing
   integer :: seed  ! random seed
   real(real12) :: loss_threshold ! threshold at which loss convergence has been achieved
   real(real12) :: learning_rate  ! rate of learning (larger = faster)
@@ -27,6 +28,8 @@ module inputs
 
   integer, allocatable, dimension(:) :: fc_num_hidden  ! number of fully connected hidden layers
   type(clip_type) :: fc_clip                           ! fully connected clipping thresholds
+  character(len=10) :: activation_function
+
 
   real(real12) :: train_size  ! fraction of data to train on (NOT YET USED) 
   logical :: shuffle_dataset  ! shuffle train and test data (NOT YET USED)
@@ -39,7 +42,7 @@ module inputs
 
   private
 
-  public :: seed
+  public :: seed, verbosity
   public :: shuffle_dataset, train_size
 
   public :: loss_threshold
@@ -48,17 +51,18 @@ module inputs
   public :: num_epochs, batch_size
 
   public :: cv_num_filters, cv_kernel_size, cv_stride
-  public :: cv_clip !_min, cv_clip_max, cv_clip_norm
+  public :: cv_clip
 
   public :: pool_kernel_size, pool_stride
 
   public :: fc_num_hidden
-  public :: fc_clip !_min, fc_clip_max, fc_clip_norm
+  public :: fc_clip
+  public :: activation_function
 
   public :: set_global_vars
 
 
-!!!updated  2023/06/21
+!!!updated  2023/06/23
 
 
 contains
@@ -77,6 +81,7 @@ contains
 !!! initialises variables
 !!!-----------------------------------------------------------------------------
     call system_clock(count=seed)
+    verbosity = 0
 
     loss_threshold = 0.1_real12
     shuffle_dataset = .true.
@@ -105,6 +110,8 @@ contains
     fc_clip%min  = -huge(1._real12)
     fc_clip%max  =  huge(1._real12)
     fc_clip%norm =  huge(1._real12)
+    activation_function = "relu"
+    !! relu, leaky_relu, sigmoid, tanh
 
 
 !!!-----------------------------------------------------------------------------
@@ -231,7 +238,7 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! set up namelists for input file
 !!!-----------------------------------------------------------------------------
-    namelist /setup/ seed !, dir
+    namelist /setup/ seed, verbosity !, dir
     namelist /training/ num_epochs, batch_size, loss_threshold, &
          learning_rate, momentum, l1_lambda, l2_lambda, &
          shuffle_dataset
@@ -239,7 +246,8 @@ contains
          clip_min, clip_max, clip_norm
     namelist /pooling/ kernel_size, stride
     namelist /fully_connected/ hidden_layers, &
-         clip_min, clip_max, clip_norm
+         clip_min, clip_max, clip_norm, &
+         activation_function
 
 
 !!!-----------------------------------------------------------------------------
@@ -292,6 +300,7 @@ contains
        stop "THERE WAS AN ERROR IN READING FULLY_CONNECTED SETTINGS"
     end if
     call get_clip(clip_min, clip_max, clip_norm, fc_clip)
+    activation_function = to_lower(activation_function)
 
 
 !!!-----------------------------------------------------------------------------

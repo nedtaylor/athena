@@ -9,6 +9,11 @@ LIB_DIR := ./lib
 BUILD_DIR = ./obj
 LIBS := mod_constants.f90 \
 	mod_types.f90 \
+	mod_activation_linear.f90 \
+	mod_activation_relu.f90 \
+	mod_activation_leaky_relu.f90 \
+	mod_activation_sigmoid.f90 \
+	mod_activation_tanh.f90 \
 	mod_misc.f90 \
 	mod_tools_infile.f90
 OBJS := $(addprefix $(LIB_DIR)/,$(LIBS))

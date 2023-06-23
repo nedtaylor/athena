@@ -5,10 +5,18 @@
 !!!#############################################################################
 module FullyConnectedLayer
   use constants, only: real12
-  use custom_types, only: network_type, clip_type
+  use custom_types, only: network_type, clip_type, activation_type
+  use activation_linear, only: linear_setup
+  use activation_relu, only: relu_setup
+  use activation_leaky_relu, only: leaky_relu_setup
+  use activation_sigmoid, only: sigmoid_setup
+  use activation_tanh, only: tanh_setup
   implicit none
 
   type(network_type), allocatable, dimension(:) :: network
+  
+  class(activation_type), allocatable :: transfer!activation
+
 
   private
 
@@ -24,14 +32,16 @@ contains
 !!!#############################################################################
 !!!
 !!!#############################################################################
-  subroutine initialise(seed, num_layers, num_inputs, num_hidden, file)
+  subroutine initialise(seed, num_layers, num_inputs, num_hidden, &
+       activation_function, file)
     implicit none
     integer, intent(in), optional :: seed
     integer, intent(in), optional :: num_layers, num_inputs
     integer, dimension(:), intent(in), optional :: num_hidden
-    character(*), optional, intent(in) :: file
+    character(*), optional, intent(in) :: file, activation_function
 
     integer :: itmp1,nseed
+    character(len=10) :: t_activation_function
     integer, allocatable, dimension(:) :: seed_arr
 
     integer :: l,i
@@ -93,6 +103,30 @@ contains
        write(0,*) "Exiting..."
        stop
     end if
+
+    !!-----------------------------------------------------------------------
+    !! set activation and derivative functions based on input name
+    !!-----------------------------------------------------------------------
+    if(present(activation_function))then
+       t_activation_function = activation_function
+    else
+       t_activation_function = "relu"
+    end if
+    select case(trim(t_activation_function))
+    case ("linear")
+       transfer = linear_setup() !provide and define scale 
+    case ("relu")
+       transfer = relu_setup()
+    case ("leaky_relu")
+       transfer = leaky_relu_setup()
+    case ("sigmoid")
+       transfer = sigmoid_setup()
+    case ("tanh")
+       transfer = tanh_setup()
+    case default
+       transfer = relu_setup()
+    end select
+ 
 
   end subroutine initialise                              
 !!!#############################################################################
@@ -270,7 +304,7 @@ contains
        num_neurons=size(network(l)%neuron)
        do j=1,num_neurons
           activation = activate(network(l)%neuron(j)%weight,new_inputs)
-          network(l)%neuron(j)%output = relu(activation)
+          network(l)%neuron(j)%output = transfer%activate(activation)
        end do
        deallocate(new_inputs)
        if(l.lt.num_layers)then
@@ -324,14 +358,17 @@ contains
              !! the errors are summed from the delta of the ...
              !! ... 'child' node * 'child' weight
              do k=1,size(network(l+1)%neuron)
-                errors(j) = errors(j) + (network(l+1)%neuron(k)%weight(j) * network(l+1)%neuron(k)%delta)
+                errors(j) = errors(j) + &
+                     ( network(l+1)%neuron(k)%weight(j) * &
+                     network(l+1)%neuron(k)%delta )
              end do
           end do
        end if
        !! the delta values are the error multipled by the derivative ...
        !! ... of the transfer function
        do j=1,num_neurons
-          network(l)%neuron(j)%delta = errors(j) * relu_derivative(network(l)%neuron(j)%output)
+          network(l)%neuron(j)%delta = errors(j) * &
+               transfer%differentiate(network(l)%neuron(j)%output)
        end do
        deallocate(errors)
     end do
@@ -348,7 +385,8 @@ contains
     do l=1,num_layers
        num_neurons = size(network(l)%neuron)
        do j=1,num_neurons
-          network(l)%neuron(j)%delta_batch = network(l)%neuron(j)%delta_batch + network(l)%neuron(j)%delta
+          network(l)%neuron(j)%delta_batch = &
+               network(l)%neuron(j)%delta_batch + network(l)%neuron(j)%delta
        end do
     end do
 
@@ -557,166 +595,5 @@ contains
   end function activate
 !!!#############################################################################
 
-
-!!!#############################################################################
-!!! Linear transfer function
-!!! f = gradient * x
-!!!#############################################################################
-  function linear(val, gradient) result(output)
-    implicit none
-    real(real12), intent(in) :: val
-    real(real12), optional, intent(in) :: gradient
-    real(real12) :: output
-
-    if(present(gradient))then
-       output = gradient * val
-    else
-       output = 0.05_real12 * val
-    end if
-  end function linear
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! RELU transfer function
-!!! f = max(0, x)
-!!!#############################################################################
-  function relu(val) result(output)
-    implicit none
-    real(real12), intent(in) :: val
-    real(real12) :: output
-
-    output = max(0._real12, val)
-  end function relu
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! leaky RELU transfer function
-!!! f = max(0, x)
-!!!#############################################################################
-  function leaky_relu(val) result(output)
-    implicit none
-    real(real12), intent(in) :: val
-    real(real12) :: output
-
-    output = max(0.01_real12*val, val)
-  end function leaky_relu
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! sigmoid transfer function
-!!! f = 1/(1+exp(-x))
-!!!#############################################################################
-  function sigmoid(val) result(output)
-    implicit none
-    real(real12), intent(in) :: val
-    real(real12) :: output
-
-    output = 1._real12 /(1._real12 + exp(-val))
-  end function sigmoid
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! tanh transfer function
-!!! f = (exp(x) - exp(-x))/(exp(x) + exp(-x))
-!!!#############################################################################
-  function tanh(val) result(output)
-    implicit none
-    real(real12), intent(in) :: val
-    real(real12) :: output
-
-    output = (exp(val) - exp(-val))/(exp(val) + exp(-val))
-  end function tanh
-!!!#############################################################################
-    
-
-!!!#############################################################################
-!!! derivative of RELU transfer function
-!!! e.g. df/dx (gradient * x) = gradient
-!!! we are performing the derivative to identify what weight ...
-!!! ... results in the minimum error
-!!!#############################################################################
-  function linear_derivative(val, gradient) result(derivative)
-    implicit none
-    real(real12), intent(in) :: val
-    real(real12), optional, intent(in) :: gradient
-    real(real12) :: derivative
-
-    if(present(gradient))then
-       derivative = gradient * val
-    else
-       derivative = 0.05_real12 * val
-    end if
-  end function linear_derivative
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! derivative of RELU transfer function
-!!! e.g. df/dx (1*x) = 1
-!!! we are performing the derivative to identify what weight ...
-!!! ... results in the minimum error
-!!!#############################################################################
-  function relu_derivative(val) result(derivative)
-    implicit none
-    real(real12), intent(in) :: val
-    real(real12) :: derivative
-
-    if(val.ge.0._real12)then
-       derivative = 1._real12
-    else
-       derivative = 0._real12
-    end if
-  end function relu_derivative
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! derivative of RELU transfer function
-!!! e.g. df/dx (0.05*x) = 0.05
-!!! we are performing the derivative to identify what weight ...
-!!! ... results in the minimum error
-!!!#############################################################################
-  function leaky_relu_derivative(val) result(derivative)
-    implicit none
-    real(real12), intent(in) :: val
-    real(real12) :: derivative
-
-    if(val.ge.0._real12)then
-       derivative = 1._real12
-    else
-       derivative = 0.01_real12
-    end if
-  end function leaky_relu_derivative
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! derivative of sigmoid function
-!!!#############################################################################
-  function sigmoid_derivative(val) result(output)
-    implicit none
-    real(real12), intent(in) :: val
-    real(real12) :: output
-
-    output = sigmoid(val) * (1._real12 - sigmoid(val))
-  end function sigmoid_derivative
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! derivative of tanh function
-!!!#############################################################################
-  function tanh_derivative(val) result(output)
-    implicit none
-    real(real12), intent(in) :: val
-    real(real12) :: output
-
-    output = 1._real12 - tanh(val) ** 2._real12
-  end function tanh_derivative
-!!!#############################################################################
 
 end module FullyConnectedLayer
