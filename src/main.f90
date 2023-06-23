@@ -4,6 +4,7 @@
 program ConvolutionalNeuralNetwork
   use constants, only: real12
   use misc, only: shuffle
+  !use misc_maths, only: mean
   use infile_tools, only: stop_check
   use normalisation, only: linear_renormalise
   use inputs
@@ -28,8 +29,9 @@ program ConvolutionalNeuralNetwork
   integer :: nseed=1
   integer, allocatable, dimension(:) :: seed_arr
 
-  !! loss and accuracy for monitory
+  !! training and testing monitoring
   real(real12) :: loss, accuracy, sum_loss, sum_accuracy, overall_loss
+  real(real12), dimension(2) :: exploding_check
   real(real12), dimension(:), allocatable :: loss_history
 
   !! data loading and preoprocessing
@@ -58,6 +60,7 @@ program ConvolutionalNeuralNetwork
   real(real12), dimension(:,:,:), allocatable :: comb_cv_gradients
 
   integer :: i
+  real(real12) :: rtmp1
 
 
 !!!-----------------------------------------------------------------------------
@@ -90,11 +93,16 @@ program ConvolutionalNeuralNetwork
 
 
 !!!-----------------------------------------------------------------------------
-!!! initialise loss and loss history
+!!! initialise monitoring variables
 !!!-----------------------------------------------------------------------------
   allocate(loss_history(10))
   loss_history = -huge(1._real12)
   loss_threshold = 2._real12
+  if(batch_learning)then
+     exploding_check = 0._real12
+  else
+     exploding_check = 1._real12
+  end if
 
 
 !!!-----------------------------------------------------------------------------
@@ -109,7 +117,9 @@ program ConvolutionalNeuralNetwork
 !!! shuffle dataset
 !!!-----------------------------------------------------------------------------
   if(shuffle_dataset)then
+     write(6,*) "Shuffling training dataset..."
      call shuffle(input_images, labels, 4, seed)
+     write(6,*) "Training dataset shuffled"
   end if
 
 
@@ -233,9 +243,23 @@ program ConvolutionalNeuralNetwork
            if(any(isnan(sm_output)))then
               write(0,*) "ERROR: Softmax outputs are NaN"
               stop
-           elseif(any(fc_output.gt.1.E9))then
-              write(0,*) "WARNING: FC outputs growing beyond 1E9"
-              write(0,*) fc_output
+           end if
+           if(batch_learning)then
+              exploding_check(1) = exploding_check(1) + sum(fc_output)
+           else
+              exploding_check(2) = exploding_check(1)
+              exploding_check(1) = sum(fc_output)
+              !exploding_check=mean(fc_output)/exploding_check
+              rtmp1 = abs(exploding_check(1)/exploding_check(2))
+              if(rtmp1.gt.1.E3_real12)then
+                 write(0,*) "WARNING: FC outputs are expanding too quickly!"
+                 write(0,*) "check:", sample, exploding_check              
+                 write(0,*) "outputs:", fc_output
+              elseif(rtmp1.lt.1.E-3_real12)then
+                 write(0,*) "WARNING: FC outputs are vanishing too quickly!"
+                 write(0,*) "check:", sample, exploding_check
+                 write(0,*) "outputs:", fc_output
+              end if
            end if
 
            
@@ -296,7 +320,7 @@ program ConvolutionalNeuralNetwork
            write(6,*) "Convergence achieved, accuracy threshold reached"
            write(6,*) "Exiting training loop"
            exit epoch_loop
-        elseif(all(abs(loss_history-sum_loss).lt.1.E-1))then
+        elseif(all(abs(loss_history-sum_loss).lt.plateau_threshold))then
            write(0,*) "sm_output", sm_output
            write(0,*) "sm_grad", sm_gradients
            write(0,*) "fc_gradients", fc_gradients
@@ -312,6 +336,20 @@ program ConvolutionalNeuralNetwork
         !! ... (gradient descent)
         !!-------------------------------------------------------------------------
         if(batch_learning)then
+           exploding_check(1) = (exploding_check(1)/batch_size)
+           if(epoch.gt.1.or.batch.gt.1)then
+              rtmp1 = abs(exploding_check(1)/exploding_check(2))
+              if(rtmp1.gt.1.E3_real12)then
+                 write(0,*) "WARNING: FC outputs are expanding too quickly!"
+                 write(0,*) "check:", sample, exploding_check
+              elseif(rtmp1.lt.1.E-3_real12)then
+                 write(0,*) "WARNING: FC outputs are vanishing too quickly!"
+                 write(0,*) "check:", exploding_check
+              end if
+           end if
+           exploding_check(2) = exploding_check(1)
+           exploding_check(1) = 0._real12
+           
            comb_cv_gradients = comb_cv_gradients/batch_size
            comb_fc_gradients = comb_fc_gradients/batch_size
            call fc_norm_delta(batch_size)        

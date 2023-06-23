@@ -10,9 +10,10 @@ module inputs
   implicit none
   integer :: verbosity  !verbose printing
   integer :: seed  ! random seed
-  real(real12) :: loss_threshold ! threshold at which loss convergence has been achieved
-  real(real12) :: learning_rate  ! rate of learning (larger = faster)
-  real(real12) :: momentum       ! fraction of momentum based learning
+  real(real12) :: loss_threshold     ! threshold for loss convergence
+  real(real12) :: plateau_threshold  ! threshold for plateau checking
+  real(real12) :: learning_rate      ! rate of learning (larger = faster)
+  real(real12) :: momentum           ! fraction of momentum based learning
   real(real12) :: l1_lambda, l2_lambda  ! l1 and l2 regularisation parameters
   logical :: batch_learning
 
@@ -48,6 +49,7 @@ module inputs
 
   public :: batch_learning
   public :: loss_threshold
+  public :: plateau_threshold
 
   public :: learning_rate, momentum, l1_lambda, l2_lambda
   public :: num_epochs, batch_size
@@ -85,7 +87,8 @@ contains
     call system_clock(count=seed)
     verbosity = 0
 
-    loss_threshold = 0.1_real12
+    loss_threshold = 1.E-1_real12
+    plateau_threshold = 1.E-3_real12
     shuffle_dataset = .false.
     batch_learning = .true.
 
@@ -242,7 +245,8 @@ contains
 !!! set up namelists for input file
 !!!-----------------------------------------------------------------------------
     namelist /setup/ seed, verbosity !, dir
-    namelist /training/ num_epochs, batch_size, loss_threshold, &
+    namelist /training/ num_epochs, batch_size, &
+         plateau_threshold, loss_threshold, &
          learning_rate, momentum, l1_lambda, l2_lambda, &
          shuffle_dataset, batch_learning
     namelist /convolution/ cv_num_filters, kernel_size, stride, &
