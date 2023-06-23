@@ -14,6 +14,7 @@ module inputs
   real(real12) :: learning_rate  ! rate of learning (larger = faster)
   real(real12) :: momentum       ! fraction of momentum based learning
   real(real12) :: l1_lambda, l2_lambda  ! l1 and l2 regularisation parameters
+  logical :: batch_learning
 
   integer :: num_epochs  ! number of epochs
   integer :: batch_size  ! size of mini batches
@@ -34,17 +35,18 @@ module inputs
   real(real12) :: train_size  ! fraction of data to train on (NOT YET USED) 
   logical :: shuffle_dataset  ! shuffle train and test data (NOT YET USED)
   
-!!! HAVE VARIABLE TO DEFINE WHAT TRANSFER/ACTIVATION FUNCTION IS TO BE USED IN FC
-!!! i.e. linear, ReLU, leaky_ReLU, sigmoid, tanh
+
 !!! HAVE VARIABLE TO DEFINE WHAT LOSS FUNCTION IS TO BE USED IN SOFTMAX
 !!! i.e. binary, categorical, sparse (surely others, such as MAE, RMSE)
 !!! ADD A WAY TO SELECT NORMALISATION AFTER THE POOLING LAYER
+!!! PARALLELISE
 
   private
 
   public :: seed, verbosity
   public :: shuffle_dataset, train_size
 
+  public :: batch_learning
   public :: loss_threshold
 
   public :: learning_rate, momentum, l1_lambda, l2_lambda
@@ -84,7 +86,8 @@ contains
     verbosity = 0
 
     loss_threshold = 0.1_real12
-    shuffle_dataset = .true.
+    shuffle_dataset = .false.
+    batch_learning = .true.
 
     learning_rate = 0.025_real12
     momentum = 0.75_real12
@@ -241,7 +244,7 @@ contains
     namelist /setup/ seed, verbosity !, dir
     namelist /training/ num_epochs, batch_size, loss_threshold, &
          learning_rate, momentum, l1_lambda, l2_lambda, &
-         shuffle_dataset
+         shuffle_dataset, batch_learning
     namelist /convolution/ cv_num_filters, kernel_size, stride, &
          clip_min, clip_max, clip_norm
     namelist /pooling/ kernel_size, stride
@@ -264,10 +267,21 @@ contains
     if(Reason.ne.0)then
        write(0,*) "THERE WAS AN ERROR IN READING SETUP"
     end if
+    
     read(unit,NML=training,iostat=Reason)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
        stop "THERE WAS AN ERROR IN READING TRAINING SETTINGS"
     end if
+    if(batch_size.eq.1.and.batch_learning)then
+       write(0,*) "WARNING: batch_learning=True whilst batch_size=1"
+       write(0,*) " Changing to batch_learning=False"
+       write(0,*) "(note: currently no input file way to specify alternative)"
+    end if
+    !if(shuffle_dataset)then
+    !   write(0,*) "WARNING: shuffle_dataset=True currently does nothing"
+    !   write(0,*) " shuffling has not yet been coded in, due to large size of &
+    !        &MNIST dataset"
+    !end if
 
     read(unit,NML=convolution,iostat=Reason)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then

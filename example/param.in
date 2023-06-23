@@ -9,7 +9,9 @@
  learning_rate = 0.01,
  momentum = 0.8,
  l1_lambda = 0.6,
- l2_lambda = 0.0
+ l2_lambda = 0.0,
+ shuffle_dataset = .true.,
+ batch_learning = .true.
 /
 
 &convolution
@@ -26,5 +28,6 @@
 
 &fully_connected
  hidden_layers = 100,
- clip_norm = 2.E1
+ clip_norm = 2.E1,
+ activation_function = 'leaky_relu'
 /

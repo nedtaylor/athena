@@ -1,12 +1,9 @@
 !!!#############################################################################
 !!! 
 !!!#############################################################################
-!!! NEED TO INCLUDE:
-!!! ... gradient clipping
-!!! ... L1 and L2 normalisation
-!!! ... adaptive learning rate using a momentum factor
 program ConvolutionalNeuralNetwork
   use constants, only: real12
+  use misc, only: shuffle
   use infile_tools, only: stop_check
   use normalisation, only: linear_renormalise
   use inputs
@@ -27,30 +24,29 @@ program ConvolutionalNeuralNetwork
 
   implicit none
 
+  !! seed variables
   integer :: nseed=1
   integer, allocatable, dimension(:) :: seed_arr
 
+  !! loss and accuracy for monitory
+  real(real12) :: loss, accuracy, sum_loss, sum_accuracy, overall_loss
   real(real12), dimension(:), allocatable :: loss_history
 
-  real(real12) :: loss, accuracy, sum_loss, sum_accuracy, overall_loss
-
-  ! ... data loading and preprocessing ...
-
+  !! data loading and preoprocessing
   real(real12), dimension(:,:,:,:), allocatable :: input_images, test_images
   integer, dimension(:), allocatable :: labels, test_labels
   character(1024) :: train_file, test_file, cnn_file
 
+  !! neural network size and shape variables
   integer, parameter :: num_classes = 10    ! Number of output classes
   integer :: input_channels  ! Number of input channels (i.e. RGB)
   integer :: image_size
   integer :: input_size
   integer :: num_pool
-  integer :: fc_num_layers
-  
+  integer :: fc_num_layers  
   integer, allocatable, dimension(:) :: tmp_num_hidden
 
-  ! ... training loop ...
-
+  !! training loop variables
   integer :: num_batches, num_samples, num_samples_test
   integer :: epoch, batch, sample, start_index, end_index
   integer :: expected
@@ -108,6 +104,13 @@ program ConvolutionalNeuralNetwork
   allocate(seed_arr(nseed))
   seed_arr = seed
   call random_seed(put=seed_arr)
+
+!!!-----------------------------------------------------------------------------
+!!! shuffle dataset
+!!!-----------------------------------------------------------------------------
+  if(shuffle_dataset)then
+     call shuffle(input_images, labels, 4, seed)
+  end if
 
 
 !!!-----------------------------------------------------------------------------
@@ -224,15 +227,7 @@ program ConvolutionalNeuralNetwork
            call fc_forward(fc_input, fc_output)
            call sm_forward(fc_output, sm_output)
 
-           !write(0,*) "CV output NaN?", any(isnan(cv_output))
-           !write(0,*) "PL output NaN?", any(isnan(pl_output))
-           !write(0,*) "FC input NaN?", any(isnan(fc_input))
-           !write(0,*) "FC output NaN?", any(isnan(fc_output))
-           !write(0,*) fc_output
-           !write(0,*) sm_output
-           !write(0,*) labels(sample)-1
-
-
+  
            !! check for NaN and infinity
            !!----------------------------------------------------------------------
            if(any(isnan(sm_output)))then
@@ -267,21 +262,22 @@ program ConvolutionalNeuralNetwork
            call cv_backward(input_images(:,:,:,sample), pl_gradients, cv_gradients, cv_clip)
 
 
-           !! update weights and biases using optimization algorithm
+           !! if mini-batch ...
+           !! ... sum gradients for mini-batch training
+           !! if not mini-batch
+           !! ... update weights and biases using optimization algorithm
            !! ... (gradient descent)
-           !! ... COMMENT if running mini-batch training
            !!----------------------------------------------------------------------
-           !call cv_update(learning_rate, input_images(:,:,:,sample), cv_gradients, &
-           !     l1_lambda, l2_lambda, momentum)
-           !call fc_update(learning_rate, fc_input, fc_gradients, &
-           !     l1_lambda, l2_lambda, momentum, l_batch=.false.)
+           if(batch_learning)then
+              comb_cv_gradients = comb_cv_gradients + cv_gradients
+              comb_fc_gradients = comb_fc_gradients + fc_gradients
+           else
+              call cv_update(learning_rate, input_images(:,:,:,sample), cv_gradients, &
+                   l1_lambda, l2_lambda, momentum)
+           call fc_update(learning_rate, fc_input, fc_gradients, &
+                l1_lambda, l2_lambda, momentum, l_batch=batch_learning)
+        end if
 
-
-           !! sum gradients for mini-batch training
-           !! ... UNCOMMENT if running mini-batch training
-           !!----------------------------------------------------------------------
-           comb_cv_gradients = comb_cv_gradients + cv_gradients
-           comb_fc_gradients = comb_fc_gradients + fc_gradients
 
         end do train_loop
 
@@ -301,8 +297,6 @@ program ConvolutionalNeuralNetwork
            write(6,*) "Exiting training loop"
            exit epoch_loop
         elseif(all(abs(loss_history-sum_loss).lt.1.E-1))then
-           !write(0,*) "fc_input", fc_input
-           !write(0,*) "fc_output", fc_output
            write(0,*) "sm_output", sm_output
            write(0,*) "sm_grad", sm_gradients
            write(0,*) "fc_gradients", fc_gradients
@@ -313,17 +307,20 @@ program ConvolutionalNeuralNetwork
         end if
 
 
-        !! update weights and biases using optimization algorithm
+        !! if mini-batch ...
+        !! ... update weights and biases using optimization algorithm
         !! ... (gradient descent)
-        !! ... UNCOMMENT if running mini-batch training
         !!-------------------------------------------------------------------------
-        comb_cv_gradients = comb_cv_gradients/batch_size
-        comb_fc_gradients = comb_fc_gradients/batch_size
-        call fc_norm_delta(batch_size)        
-        call cv_update(learning_rate, input_images(:,:,:,sample), comb_cv_gradients, &
-             l1_lambda, l2_lambda, momentum)
-        call fc_update(learning_rate, fc_input, comb_fc_gradients, &
-             l1_lambda, l2_lambda, momentum, l_batch=.true.)
+        if(batch_learning)then
+           comb_cv_gradients = comb_cv_gradients/batch_size
+           comb_fc_gradients = comb_fc_gradients/batch_size
+           call fc_norm_delta(batch_size)        
+           call cv_update(learning_rate, input_images(:,:,:,sample), comb_cv_gradients, &
+                l1_lambda, l2_lambda, momentum)
+           call fc_update(learning_rate, fc_input, comb_fc_gradients, &
+                l1_lambda, l2_lambda, momentum, l_batch=batch_learning)
+        end if
+
 !!! NOTE:
 !!! FC DOESN'T ACTUALLY USE THE GRADIENTS SUPPLIED !!!
 !!! comb_fc_gradients ALSO ONLY HAS THE GRADIENTS FOR THE FINAL LAYER !!!
@@ -539,6 +536,10 @@ contains
 
     rewind(unit)
     allocate(labels(num_samples))
+    !! dim=1: image width in pixels
+    !! dim=2: image height in pixels
+    !! dim=3: image number of channels (1 due to black-white images)
+    !! dim=4: number of images
     allocate(images(image_size, image_size, 1, num_samples))
     do i=1,num_samples
        read(unit,*) labels(i), ((images(j,k,1,i),k=1,image_size),j=1,image_size)
