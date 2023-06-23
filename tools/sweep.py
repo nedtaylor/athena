@@ -1,13 +1,17 @@
 from os.path import exists
-from os import chdir, getcwd
+from os import chdir, getcwd, makedirs
+import subprocess
 import fileinput
 import sys
 import wandb
-wandb.login()
 
+## define global variables
 sweep_id = '8qcw0m55'
 file_template = "template.in"
 curdir = getcwd() # "../"
+
+## check whether template file exists
+## ... if not, exit
 if not exists(file_template):
     f = open(file_template,"x")
     # write out example file
@@ -17,43 +21,51 @@ if not exists(file_template):
     sys.exit()
 
 
-l_dict = {
-    'setup': False,
-    'training': False,
-    'convolution': False,
-    'pooling': False,
-    'fullyconnected': False
-}
-
-param_dict = {
-    'setup': {},
-    'training': {},
-    'convolution': {},
-    'pooling': {},
-    'fullyconnected': {}
-}
-
-
 def main():
 
-    param_dict['training'] = {
-        'learning_rate': sweep_config.learning_rate,
-        'momentum': sweep_config.momentum,
-        'l1_lambda': sweep_config.l1_lambda,
-        'l2_lambda': sweep_config.l2_lambda,
-        'batch_size': sweep_config.batch_size,
-        'num_epochs': sweep_config.num_epochs
+    #run = wandb.init(project='cnn_mnist_test')
+
+    ## initialise run
+    wandb.init()
+
+    ## set up logical dictionary for file card editing
+    l_dict = {
+        'setup': False,
+        'training': False,
+        'convolution': False,
+        'pooling': False,
+        'fullyconnected': False
     }
-    param_dict['convolution'] = {
-        'cv_num_filters': sweep_config.cv_num_filters,
-        'clip_norm': sweep_config.cv_clip_norm
-    }
-    param_dict['fullyconnected'] = {
-        'clip_norm': sweep_config.fc_clip_norm,
-        'hidden_layers': sweep_config.hidden_layers
+    
+    ## set up parameter dictionary for file editing
+    param_dict = {
+        'setup': {},
+        'training': {},
+        'convolution': {},
+        'pooling': {},
+        'fullyconnected': {}
     }
 
-    with open(file, 'r') as file:
+    ## populate parameter dictionary
+    param_dict['training'] = {
+        'learning_rate': wandb.config.learning_rate,
+        'momentum': wandb.config.momentum,
+        'l1_lambda': wandb.config.l1_lambda,
+        'l2_lambda': wandb.config.l2_lambda,
+        'batch_size': wandb.config.batch_size,
+        'num_epochs': wandb.config.num_epochs
+    }
+    param_dict['convolution'] = {
+        'cv_num_filters': wandb.config.cv_num_filters,
+        'clip_norm': wandb.config.cv_clip_norm
+    }
+    param_dict['fullyconnected'] = {
+        'clip_norm': wandb.config.fc_clip_norm,
+        'hidden_layers': wandb.config.hidden_layers
+    }
+
+    ## open template input file and save to string
+    with open(file_template, 'r') as file:
         newline=[]
         for line in file.readlines():
             if '&' in line:
@@ -87,19 +99,27 @@ def main():
                         break
             if not edited:
                 newline.append(line)
-        
+
+    ## make working directory and cd
+    workdir = "D_"+sweep_id
+    makedirs(workdir, exist_ok=True)
+    chdir(workdir)
+
+    ## make parameter file for run
     file_out = "param_"+sweep_id+".in"
+    print("id",sweep_id)
+    print("out",file_out)
     with open(file_out,"w") as file:
         for line in newline:
             file.writelines(line)
 
-    workdir = "D_"+sweep_id
-    stdout = "stdout.o"
-    stderr = "stdout.e"
-    chdir(workdir)
-    subprocess.call(["/home/links/ntt203/DCoding/DGitlab/convolutional_neural_network/bin/cnn","-f"+file_out,">"+stdout,"2>"+stderr])
+    ## set output file names and run fortran executable
+    stdout = "stdout_"+sweep_id+".o"
+    stderr = "stdout_"+sweep_id+".e"
+    p = subprocess.run(["/home/links/ntt203/DCoding/DGitlab/convolutional_neural_network/bin/cnn","-f"+file_out,">"+stdout,"2>"+stderr])
+    exit_code = p.wait()
 
-    # read from output file
+    ## read from output file and log to wandb
     with open(stdout,'r') as file:
         for line in file.readlines():
             if 'epoch' in line:
@@ -111,15 +131,17 @@ def main():
                     result_dict[key.strip()] = value.strip()
                 wandb.log(result_dict)
 
+    ## return to parent directory
     chdir(curdir)
 
 
-#wandb.init(project='cnn_mnist_test')
-wandb.agent(sweep_id, function=main, count=2)
-#sweep_config = wandb.config
-
-#print(sweep_config)
-#print(sweep_config.learning_rate)
+## set up sweep agents
+print("Logging in...")
+wandb.login()
+#run = wandb.init(project='cnn_mnist_test')
+print("Setting off agents")
+wandb.agent(sweep_id=sweep_id, function=main, count=1, project='cnn_mnist_test')
+print("All agents complete")
 
 
 wandb.finish()
