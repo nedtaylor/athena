@@ -133,7 +133,8 @@ program ConvolutionalNeuralNetwork
   call pl_init(pool_kernel_size, pool_stride)
   !! Initialise the fully connected layer
   call fc_init(seed, num_layers=fc_num_layers, &
-       num_inputs=input_size, num_hidden=fc_num_hidden)
+       num_inputs=input_size, num_hidden=fc_num_hidden, &
+       activation_function=activation_function)
   !! Initialise the softmax layer
   call sm_init(num_classes)
   write(6,*) "CNN initialised"
