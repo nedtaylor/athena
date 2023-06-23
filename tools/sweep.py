@@ -6,7 +6,9 @@ import sys
 import wandb
 
 ## define global variables
+project='cnn_mnist_test'
 sweep_id = '8qcw0m55'
+count=20
 file_template = "template.in"
 curdir = getcwd() # "../"
 
@@ -23,7 +25,7 @@ if not exists(file_template):
 
 def main():
 
-    #run = wandb.init(project='cnn_mnist_test')
+    #run = wandb.init(project=project)
 
     ## initialise run
     wandb.init()
@@ -138,9 +140,9 @@ def main():
 ## set up sweep agents
 print("Logging in...")
 wandb.login()
-#run = wandb.init(project='cnn_mnist_test')
+#run = wandb.init(project=project)
 print("Setting off agents")
-wandb.agent(sweep_id=sweep_id, function=main, count=1, project='cnn_mnist_test')
+wandb.agent(sweep_id=sweep_id, function=main, count=count, project=project)
 print("All agents complete")
 
 
