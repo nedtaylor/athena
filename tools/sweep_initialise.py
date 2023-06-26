@@ -16,10 +16,10 @@ sweep_configuration = {
         'momentum': {'max': 0.9, 'min': 0.0},
         'l1_lambda': {'max': 0.75, 'min': 0.0},
         'l2_lambda': {'max': 0.75, 'min': 0.0},
-        'cv_num_filters': {'max': 32, 'min': 5},
+        'cv_num_filters': {'max': 32, 'min': 2},
         'cv_clip_norm': {'max': 50.0, 'min': 1.0},
         'fc_clip_norm': {'max': 50.0, 'min': 1.0},
-        'hidden_layers': {'max': 100, 'min': 10}
+        'num_hidden_layers': {'max': 4, 'min': 1}
     }
 }
 

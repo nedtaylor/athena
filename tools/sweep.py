@@ -7,10 +7,12 @@ import wandb
 
 ## define global variables
 project='cnn_mnist_test'
-sweep_id = '8qcw0m55'
+sweep_id = 'emjb3nsc' #'8qcw0m55'
 count=20
 file_template = "template.in"
 curdir = getcwd() # "../"
+min_neurons = 2
+max_neurons = 100
 
 ## check whether template file exists
 ## ... if not, exit
@@ -48,6 +50,10 @@ def main():
         'fullyconnected': {}
     }
 
+    hidden_layers = [random.randinit(min_neurons,max_neurons) 
+                     for _ in range(wandb.confignum_hidden_layers)]
+    wandb.config.update({"hidden_layers":hidden_layers})
+    
     ## populate parameter dictionary
     param_dict['training'] = {
         'learning_rate': wandb.config.learning_rate,
@@ -63,7 +69,8 @@ def main():
     }
     param_dict['fullyconnected'] = {
         'clip_norm': wandb.config.fc_clip_norm,
-        'hidden_layers': wandb.config.hidden_layers
+        'hidden_layers': "'"+", ".join(
+            str(num) for num in wandb.config.hidden_layers)+"'" #wandb.config.hidden_layers
     }
 
     ## open template input file and save to string
@@ -135,7 +142,7 @@ def main():
             #    index = lines.index(lastLine,start=index)
             if lines[-1] != lastLine:
                 for i in range(index+1,len(lines)):
-                    if 'epoch' in lines[i]:
+                    if 'epoch=' in lines[i]:
                         result_dict = {}
                         pairs = lastLine.split(",")
                         for pair in pairs:
