@@ -32,7 +32,7 @@ program ConvolutionalNeuralNetwork
 
   !! training and testing monitoring
   real(real12) :: loss, accuracy, sum_loss, sum_accuracy, overall_loss
-  real(real12), dimension(2) :: exploding_check
+  real(real12) :: exploding_check, exploding_check_old
   real(real12), allocatable, dimension(:) :: loss_history
 
   !! data loading and preoprocessing
@@ -217,8 +217,8 @@ program ConvolutionalNeuralNetwork
         start_index = (batch - 1) * batch_size + 1
         end_index = batch * batch_size
 
-        sum_loss = 0._real12
-        sum_accuracy = 0._real12
+        loss = 0._real12
+        accuracy = 0._real12
 
         !! reset (zero) summed gradients
         !! ... UNCOMMENT if running mini-batch training 
@@ -240,10 +240,9 @@ program ConvolutionalNeuralNetwork
         !! ... test each sample and get gradients and losses from each
         !!----------------------------------------------------------------------
         !$OMP PARALLEL DO &
-        !$OMP DEFAULT(NONE) &        
+        !$OMP DEFAULT(NONE) &
         !$OMP SHARED(image_slice,label_slice,input_size) &
         !$OMP SHARED(fc_clip, cv_clip,batch_learning) &
-        !$OMP SHARED(learning_rate,l1_lambda,l2_lambda,momentum) &
         !$OMP PRIVATE(sample,cv_output,pl_output,fc_input,fc_output,sm_output) &
         !$OMP PRIVATE(rtmp1,expected) &
         !$OMP PRIVATE(sm_gradients,fc_gradients,fc_gradients_rs,pl_gradients,cv_gradients) &
@@ -272,21 +271,8 @@ program ConvolutionalNeuralNetwork
               stop
            end if
            if(batch_learning)then
-              exploding_check(1) = sum(fc_output)
-           else
-              exploding_check(2) = exploding_check(1)
-              exploding_check(1) = sum(fc_output)
-              !exploding_check=mean(fc_output)/exploding_check
-              rtmp1 = abs(exploding_check(1)/exploding_check(2))
-              if(rtmp1.gt.1.E3_real12)then
-                 write(0,*) "WARNING: FC outputs are expanding too quickly!"
-                 write(0,*) "check:", sample, exploding_check              
-                 write(0,*) "outputs:", fc_output
-              elseif(rtmp1.lt.1.E-3_real12)then
-                 write(0,*) "WARNING: FC outputs are vanishing too quickly!"
-                 write(0,*) "check:", sample, exploding_check
-                 write(0,*) "outputs:", fc_output
-              end if
+              exploding_check = sum(fc_output)
+              stop "ERROR: non-batch learning not yet parallelised"
            end if
 
            
@@ -316,13 +302,6 @@ program ConvolutionalNeuralNetwork
            if(batch_learning)then
               comb_cv_gradients = cv_gradients
               comb_fc_gradients = fc_gradients
-           else
-              !call cv_update(learning_rate, input_images(:,:,:,sample), cv_gradients, &
-              !     l1_lambda, l2_lambda, momentum)
-              call cv_update(learning_rate, image_slice(:,:,:,sample), cv_gradients, &
-                   l1_lambda, l2_lambda, momentum)
-              call fc_update(learning_rate, fc_input, fc_gradients, &
-                   l1_lambda, l2_lambda, momentum, l_batch=batch_learning)
            end if
            
 
@@ -330,8 +309,6 @@ program ConvolutionalNeuralNetwork
         !$OMP END PARALLEL DO
         !$OMP BARRIER
 
-        sum_loss = loss
-        sum_accuracy = accuracy
 
         !! Error checking and handling
         !!-------------------------------------------------------------------------
@@ -341,13 +318,13 @@ program ConvolutionalNeuralNetwork
            stop
         end if
         loss_history = cshift(loss_history, shift=-1, dim=1)
-        loss_history(1) = sum_loss
+        loss_history(1) = loss
         
         if(abs(sum(loss_history)).lt.loss_threshold)then
            write(6,*) "Convergence achieved, accuracy threshold reached"
            write(6,*) "Exiting training loop"
            exit epoch_loop
-        elseif(all(abs(loss_history-sum_loss).lt.plateau_threshold))then
+        elseif(all(abs(loss_history-loss).lt.plateau_threshold))then
            write(0,*) "sm_output", sm_output
            write(0,*) "sm_grad", sm_gradients
            write(0,*) "fc_gradients", fc_gradients
@@ -363,19 +340,19 @@ program ConvolutionalNeuralNetwork
         !! ... (gradient descent)
         !!-------------------------------------------------------------------------
         if(batch_learning)then
-           exploding_check(1) = (exploding_check(1)/batch_size)
+           exploding_check = (exploding_check/batch_size)
            if(epoch.gt.1.or.batch.gt.1)then
-              rtmp1 = abs(exploding_check(1)/exploding_check(2))
+              rtmp1 = abs(exploding_check/exploding_check_old)
               if(rtmp1.gt.1.E3_real12)then
                  write(0,*) "WARNING: FC outputs are expanding too quickly!"
-                 write(0,*) "check:", sample, exploding_check
+                 write(0,*) "check:", sample, exploding_check, exploding_check_old
               elseif(rtmp1.lt.1.E-3_real12)then
                  write(0,*) "WARNING: FC outputs are vanishing too quickly!"
-                 write(0,*) "check:", exploding_check
+                 write(0,*) "check:", exploding_check, exploding_check_old
               end if
            end if
-           exploding_check(2) = exploding_check(1)
-           exploding_check(1) = 0._real12
+           exploding_check_old = exploding_check
+           exploding_check = 0._real12
            
            comb_cv_gradients = comb_cv_gradients/batch_size
            comb_fc_gradients = comb_fc_gradients/batch_size
@@ -393,7 +370,7 @@ program ConvolutionalNeuralNetwork
 
         !! print batch results
         !!-------------------------------------------------------------------------
-        write(6,'("epoch=",I0,", batch=",I0", learning_rate=",F0.3,", loss=",F0.3)') epoch, batch, learning_rate, sum_loss
+        write(6,'("epoch=",I0,", batch=",I0", learning_rate=",F0.3,", loss=",F0.3)') epoch, batch, learning_rate, loss
 
 
         !! check for user-name stop file
@@ -410,7 +387,7 @@ program ConvolutionalNeuralNetwork
      !! print epoch summary results
      !!----------------------------------------------------------------------------
      if(mod(epoch,20).eq.0.E0) &
-          write(6,'("epoch=",I0,", batch=",I0", learning_rate=",F0.3,", loss=",F0.3)') epoch, batch, learning_rate, sum_loss
+          write(6,'("epoch=",I0,", batch=",I0", learning_rate=",F0.3,", loss=",F0.3)') epoch, batch, learning_rate, loss
 
   end do epoch_loop
 

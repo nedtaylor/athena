@@ -30,7 +30,7 @@ program ConvolutionalNeuralNetwork
   integer, allocatable, dimension(:) :: seed_arr
 
   !! training and testing monitoring
-  real(real12) :: loss, accuracy, sum_loss, sum_accuracy, overall_loss
+  real(real12) :: accuracy, sum_loss, sum_accuracy, overall_loss
   real(real12), dimension(2) :: exploding_check
   real(real12), dimension(:), allocatable :: loss_history
 
@@ -235,10 +235,6 @@ program ConvolutionalNeuralNetwork
 
            !! Forward pass
            !!-------------------------------------------------------------------
-           !cv_output = 0._real12
-           !pl_output = 0._real12
-           !fc_input  = 0._real12
-           !fc_output = 0._real12
            call cv_forward(input_images(:,:,:,sample), cv_output)
            call pl_forward(cv_output, pl_output)
            fc_input = reshape(pl_output, [input_size])
@@ -275,19 +271,12 @@ program ConvolutionalNeuralNetwork
            !! compute loss and accuracy (for monitoring)
            !!----------------------------------------------------------------------
            expected = labels(sample)
-           loss = categorical_cross_entropy(sm_output, expected)
-           accuracy = compute_accuracy(sm_output, expected)
-           sum_loss = sum_loss + loss
-           sum_accuracy = sum_accuracy + accuracy
+           sum_loss = sum_loss + categorical_cross_entropy(sm_output, expected)
+           sum_accuracy = compute_accuracy(sm_output, expected)
 
 
            !! Backward pass
            !!----------------------------------------------------------------------
-           !sm_gradients = 0._real12
-           !fc_gradients = 0._real12
-           !fc_gradients_rs = 0._real12
-           !pl_gradients = 0._real12
-           !cv_gradients = 0._real12
            call sm_backward(sm_output, expected, sm_gradients)
            call fc_backward(fc_input, sm_gradients, fc_gradients, fc_clip)
            fc_gradients_rs = reshape(fc_gradients, shape(fc_gradients_rs))
@@ -307,9 +296,9 @@ program ConvolutionalNeuralNetwork
            else
               call cv_update(learning_rate, input_images(:,:,:,sample), cv_gradients, &
                    l1_lambda, l2_lambda, momentum)
-           call fc_update(learning_rate, fc_input, fc_gradients, &
-                l1_lambda, l2_lambda, momentum, l_batch=batch_learning)
-        end if
+              call fc_update(learning_rate, fc_input, fc_gradients, &
+                   l1_lambda, l2_lambda, momentum, l_batch=batch_learning)
+           end if
 
 
         end do train_loop
@@ -423,10 +412,8 @@ program ConvolutionalNeuralNetwork
      !! compute loss and accuracy (for monitoring)
      !!-------------------------------------------------------------------------
      expected = test_labels(sample)
-     loss = categorical_cross_entropy(sm_output, expected)
+     sum_loss = sum_loss + categorical_cross_entropy(sm_output, expected)
      accuracy = compute_accuracy(sm_output, expected)
-     sum_loss = sum_loss + loss
-     sum_accuracy = sum_accuracy + accuracy
 
 
      !! print testing results
