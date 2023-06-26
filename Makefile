@@ -24,8 +24,13 @@ SRCS := inputs.f90 \
 	pool.f90 \
 	fullyconnected.f90 \
 	softmax.f90 \
-	main.f90
-SRCS := $(OBJS) $(SRCS)
+
+MAIN_MP := main_mp.f90
+SRCS_MP := $(OBJS) $(SRCS) $(MAIN_MP)
+OBJS_MP := $(addprefix $(SRC_DIR)/,$(SRCS_MP))
+
+MAIN := main.f90
+SRCS := $(OBJS) $(SRCS) $(MAIN)
 OBJS := $(addprefix $(SRC_DIR)/,$(SRCS))
 
 
@@ -71,8 +76,9 @@ LLAPACK = $(MKLROOT)/libmkl_lapack95_lp64.a \
 INSTALL_DIR?=$(HOME)/bin
 NAME = cnn
 programs = $(BIN_DIR)/$(NAME)
+programs_mp = $(BIN_DIR)/$(NAME)_mp
 
-.PHONY: all debug install uninstall dev mpi clean
+.PHONY: all debug install uninstall dev mp mp_dev clean
 
 all: $(programs)
 
@@ -94,11 +100,11 @@ debug: $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
 dev: $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
 	$(FC) $(MEMFLAG) $(DEVFLAGS) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(programs)
 
-mpi_dev: $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
-	$(FC) $(MEMFLAG) $(DEVFLAGS) $(MPIFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(programs)
+mp_dev: $(OBJS_MP) | $(BIN_DIR) $(BUILD_DIR)
+	$(FC) $(MEMFLAG) $(DEVFLAGS) $(MPIFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS_MP) -o $(programs_mp)
 
-mpi: $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
-	$(FC) $(MEMFLAG) $(MPIFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(programs)
+mp: $(OBJS_MP) | $(BIN_DIR) $(BUILD_DIR)
+	$(FC) $(MEMFLAG) $(MPIFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS_MP) -o $(programs_mp)
 
 clean: $(BUILD_DIR) $(BIN_DIR)
 	rm -r $(BUILD_DIR)/ $(BIN_DIR)/
