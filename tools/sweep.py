@@ -118,20 +118,46 @@ def main():
     ## set output file names and run fortran executable
     stdout = "stdout_"+sweep_id+".o"
     stderr = "stdout_"+sweep_id+".e"
-    p = subprocess.run(["/home/links/ntt203/DCoding/DGitlab/convolutional_neural_network/bin/cnn","-f"+file_out,">"+stdout,"2>"+stderr])
-    exit_code = p.wait()
+    p = subprocess.run(["/home/links/ntt203/DCoding/DGitlab/convolutional_neural_network/bin/cnn","-f"+file_out,stdout=stdout,stderr=stderr])
+    #exit_code = p.wait()
+
+    ## read from the output file and log to wandb
+    ## ... do this interactively with the fortran code running
+    ## ... check every 1 second for an updated line
+    lastLine = None
+    with open(stdout,'r') as f:
+        while p.poll() is None:
+            lines = f.readlines()
+            if lastLine is None:
+                lastLine = lines[0]
+                index = -1
+            #else:
+            #    index = lines.index(lastLine,start=index)
+            if lines[-1] != lastLine:
+                for i in range(index+1,len(lines)):
+                    if 'epoch' in lines[i]:
+                        result_dict = {}
+                        pairs = lastLine.split(",")
+                        for pair in pairs:
+                            key, value = pair.split("=")
+                            result_dict[key.strip()] = value.strip()
+                            wandb.log(result_dict)
+                    index = i
+                lastLine = lines[-1]
+            time.sleep(5)
+                
 
     ## read from output file and log to wandb
-    with open(stdout,'r') as file:
-        for line in file.readlines():
-            if 'epoch' in line:
-                ##epoch=1, batch=1, lrate=.010, error=67.023
-                result_dict = {}
-                pairs = line.split(",")
-                for pair in pairs:
-                    key, value = pair.split("=")
-                    result_dict[key.strip()] = value.strip()
-                wandb.log(result_dict)
+    #with open(stdout,'r') as file:
+    #    for line in file.readlines():
+    #        if 'epoch' in line:
+    #            ##epoch=1, batch=1, lrate=.010, error=67.023
+    #            result_dict = {}
+    #            pairs = line.split(",")
+    #            for pair in pairs:
+    #                key, value = pair.split("=")
+    #                result_dict[key.strip()] = value.strip()
+    #            wandb.log(result_dict)
 
     ## return to parent directory
     chdir(curdir)
