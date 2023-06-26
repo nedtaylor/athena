@@ -309,10 +309,10 @@ contains
        do m=1,input_channels
           ichannel = ichannel + 1
 
-          do i=1,output_size
-             istride = (i-1)*convolution(l)%stride-half(l)
-             do j=1,output_size
-                jstride = (j-1)*convolution(l)%stride-half(l)
+          do j=1,output_size
+             jstride = (j-1)*convolution(l)%stride-half(l)
+             do i=1,output_size
+                istride = (i-1)*convolution(l)%stride-half(l)
 
                 output(i,j,ichannel) = convolution(l)%bias
 
@@ -349,7 +349,7 @@ contains
     integer :: input_channels, output_channels, ichannel, num_layers
     integer :: i, j, k, l, m, n, x, y, x180, y180
     integer :: istride, jstride
-    real(real12) :: gradient_norm
+    real(real12) :: rtmp1
     integer :: output_size
 
     !! Initialise input_gradients to zero
@@ -365,10 +365,11 @@ contains
     do l=1,num_layers
        do m=1,input_channels
           ichannel = ichannel + 1
-          do i=1,output_size
-             istride = (i-1)*convolution(l)%stride-half(l)
-             do j=1,output_size
-                jstride = (j-1)*convolution(l)%stride-half(l)
+          do j=1,output_size
+             jstride = (j-1)*convolution(l)%stride-half(l)
+             do i=1,output_size
+                istride = (i-1)*convolution(l)%stride-half(l)
+                rtmp1 = output_gradients(i,j,ichannel)
 
                 do x=1,convolution(l)%kernel_size
                    x180 = convolution(l)%kernel_size - x + 1
@@ -382,7 +383,7 @@ contains
                            idx_list(l)%idx(istride+x),&
                            idx_list(l)%idx(jstride+y), m) + &
                            convolution(l)%weight(x180,y180) * &
-                           output_gradients(i,j,ichannel)
+                           rtmp1
                            !convolution(l)%weight(x,y) * &
                            !output_gradients(i,j,ichannel)
 
@@ -453,10 +454,10 @@ contains
           ichannel = ichannel + 1
           sum_gradients = sum_gradients + sum(gradients(:,:,ichannel))
 
-          do i=1,grad_size
-             istride = (i-1)*convolution(l)%stride-half(l)
-             do j=1,grad_size
-                jstride = (j-1)*convolution(l)%stride-half(l)
+          do j=1,grad_size
+             jstride = (j-1)*convolution(l)%stride-half(l)
+             do i=1,grad_size
+                istride = (i-1)*convolution(l)%stride-half(l)
                 
                 do x=1,convolution(l)%kernel_size
                    !x180 = convolution(l)%kernel_size - x + 1
@@ -511,9 +512,6 @@ contains
 
        end do
 
-       !do i=1,size(weights,4)
-       !   weights(:,:,:,i) = weights(:,:,:,i) - learning_rate * gradients
-       !end do
        if(any(isnan(convolution(l)%weight)).or.any(convolution(l)%weight.gt.huge(1.E0)))then
           write(0,*) "ERROR: weights in ConvolutionLayer has encountered NaN"
           write(0,*) "Layer:",l

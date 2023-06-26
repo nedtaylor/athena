@@ -350,9 +350,6 @@ contains
        if (l.eq.num_layers)then
           !errors(:) = network(l)%neuron(:)%output - expected
           errors(:) = expected
-          !write(0,*) "output", network(l)%neuron(:)%output
-          !write(0,*) "expected", expected
-          !write(0,*) "errors", errors
        else
           do j=1,num_neurons
              !! the errors are summed from the delta of the ...
@@ -412,8 +409,8 @@ contains
     logical, optional, intent(in) :: l_batch
 
     integer :: j,k,l
-    integer :: num_layers,num_weights
-    real(real12) :: gradient
+    integer :: num_layers, num_weights, num_neurons, num_inputs
+    real(real12) :: lr_gradient, lr_l1_lambda, lr_l2_lambda, weight_incr
     logical :: use_batch
     real(real12), allocatable, dimension(:) :: new_inputs
 
@@ -423,83 +420,73 @@ contains
     if(present(l_batch))then
        use_batch=l_batch
     end if
-    num_layers=size(network)
+    num_layers=size(network,dim=1)
+    lr_l1_lambda = learning_rate * l1_lambda
+    lr_l2_lambda = learning_rate * l2_lambda
 
-    !write(0,*) network(num_layers)%neuron(:)%delta_batch
-    !write(0,*) network(num_layers-1)%neuron(:)%output
-    !write(0,*) input!network(1)%neuron(:)%output
-    !write(0,*) (network(1)%neuron(j)%weight(:),j=1,size(network(1)%neuron,1))
 
     !! loop through the layers in reverse
     do l=1,num_layers,1
        !! inputs are equal to the ouputs of the 'parent' nodes
        if (l.ne.1)then
-          allocate(new_inputs(size(network(l-1)%neuron)))
-          do j=1,size(network(l-1)%neuron)
-             new_inputs(j) = network(l-1)%neuron(j)%output
-          end do
+          allocate(new_inputs(num_neurons))!size(network(l-1)%neuron, dim=1)))
+          new_inputs = network(l-1)%neuron(:)%output
        else
           allocate(new_inputs(size(input)))
           new_inputs = input
        end if
+       num_inputs = size(new_inputs, dim=1)
+       num_weights = size(network(l)%neuron(1)%weight, dim=1)
+       num_neurons = size(network(l)%neuron, dim=1)
        do j=1,size(network(l)%neuron)
           !! for each path, update the weight based on the delta ...
           !! ... and the learning rate
 
           if(use_batch)then
-             gradient = network(l)%neuron(j)%delta_batch
+             lr_gradient = learning_rate * network(l)%neuron(j)%delta_batch
           else
-             gradient = network(l)%neuron(j)%delta
+             lr_gradient = learning_rate * network(l)%neuron(j)%delta
           end if
           
-          do k=1,size(new_inputs)
+          do k=1,num_inputs
+
+             weight_incr = network(l)%neuron(j)%weight_incr(k) 
 
              !! momentum-based learning
              if(present(momentum))then
-                
-                network(l)%neuron(j)%weight_incr(k) = &
-                     learning_rate * gradient * new_inputs(k) + &
-                     momentum * network(l)%neuron(j)%weight_incr(k)
-
-                !network(l)%neuron(j)%weight(k) = network(l)%neuron(j)%weight(k) - &
-                !     network(l)%neuron(j)%weight_incr(k)
+                weight_incr = lr_gradient * new_inputs(k) + &
+                     momentum * weight_incr
              else
-                !network(l)%neuron(j)%weight(k) = network(l)%neuron(j)%weight(k) - &
-                !     learning_rate * network(l)%neuron(j)%delta_batch * new_inputs(k)
-                network(l)%neuron(j)%weight_incr(k) = &
-                     learning_rate * gradient * new_inputs(k)
+                weight_incr = lr_gradient * new_inputs(k)
              end if
 
              !! L1 regularisation
              if(present(l1_lambda))then
                 !network(l)%neuron(j)%weight(k) = network(l)%neuron(j)%weight(k) - &
                 !     learning_rate * l1_lambda * sign(1._real12,network(l)%neuron(j)%weight(k))
-                network(l)%neuron(j)%weight_incr(k) = &
-                     network(l)%neuron(j)%weight_incr(k) + &
-                     learning_rate * l1_lambda * sign(1._real12,network(l)%neuron(j)%weight(k))
+                weight_incr = weight_incr + &
+                     lr_l1_lambda * sign(1._real12,network(l)%neuron(j)%weight(k))
              end if
 
              !! L2 regularisation
              if(present(l2_lambda))then
                 !network(l)%neuron(j)%weight(k) = network(l)%neuron(j)%weight(k) * &
                 !     (1._real12 - learning_rate * l2_lambda)
-                network(l)%neuron(j)%weight_incr(k) = &
-                     network(l)%neuron(j)%weight_incr(k) + &
-                     learning_rate * l2_lambda * network(l)%neuron(j)%weight(k)
+                weight_incr = weight_incr + &
+                     lr_l2_lambda * network(l)%neuron(j)%weight(k)
              end if
 
 
+             network(l)%neuron(j)%weight_incr(k) = weight_incr
              network(l)%neuron(j)%weight(k) = network(l)%neuron(j)%weight(k) - &
-                  network(l)%neuron(j)%weight_incr(k)
-
-
-
+                  weight_incr
 
           end do
-          num_weights = size(network(l)%neuron(j)%weight)
+
+          !! update biases
           network(l)%neuron(j)%weight(num_weights) = &
                network(l)%neuron(j)%weight(num_weights) - &
-               learning_rate * gradient
+               lr_gradient
        end do
        deallocate(new_inputs)
     end do

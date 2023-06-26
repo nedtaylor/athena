@@ -45,12 +45,14 @@ ifeq ($(FC),ifort)
 	MODULEFLAG = -module
 	DEVFLAGS = -check all -warn #all
 	DEBUGFLAGS = -check all -fpe0 -warn -tracekback -debug extended # -check bounds
+	OPTIMFLAG = -O3
 else
 	MPIFLAG = -fopenmp
 	MODULEFLAG = -J
 	DEVFLAGS = -g -fbacktrace -fcheck=all -fbounds-check #-g -static -ffpe-trap=invalid
 	DEBUGFLAGS = -fbounds-check
 	MEMFLAG = -mcmodel=large
+	OPTIMFLAG = -O3 -march=native
 endif
 
 
@@ -78,7 +80,7 @@ NAME = cnn
 programs = $(BIN_DIR)/$(NAME)
 programs_mp = $(BIN_DIR)/$(NAME)_mp
 
-.PHONY: all debug install uninstall dev mp mp_dev clean
+.PHONY: all debug install uninstall dev optim mp mp_dev clean
 
 all: $(programs)
 
@@ -99,6 +101,9 @@ debug: $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
 
 dev: $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
 	$(FC) $(MEMFLAG) $(DEVFLAGS) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(programs)
+
+optim: $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
+	$(FC) $(OPTIMFLAG) $(DEVFLAGS) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(programs)
 
 mp_dev: $(OBJS_MP) | $(BIN_DIR) $(BUILD_DIR)
 	$(FC) $(MEMFLAG) $(DEVFLAGS) $(MPIFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS_MP) -o $(programs_mp)
