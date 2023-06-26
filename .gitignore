@@ -6,3 +6,4 @@ obj/
 *.out
 *.o
 *.e
+wandb/
