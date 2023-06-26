@@ -55,8 +55,8 @@ contains
 !!!#############################################################################
   subroutine backward(output, expected, input_gradients)
     implicit none
+    integer, intent(in) :: expected
     real(real12), dimension(:), intent(in) :: output
-    integer :: expected
     real(real12), dimension(:), intent(out) :: input_gradients
 
     integer :: i
