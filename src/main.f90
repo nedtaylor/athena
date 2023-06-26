@@ -120,6 +120,14 @@ program ConvolutionalNeuralNetwork
      write(6,*) "Shuffling training dataset..."
      call shuffle(input_images, labels, 4, seed)
      write(6,*) "Training dataset shuffled"
+     if(verbosity.gt.0)then
+        write(6,*) "Check fort.11 and fort.12 to ensure data shuffling &
+             &executed properly"
+        do i=1,batch_size*2
+           write(11,*) input_images(:,:,:,i) 
+        end do
+        write(12,*) labels
+     end if
   end if
 
 
@@ -160,31 +168,31 @@ program ConvolutionalNeuralNetwork
   allocate(pl_output(num_pool, num_pool, cv_num_filters*input_channels))
   allocate(fc_output(num_classes))
   allocate(sm_output(num_classes))
-  cv_output = 0.0
-  pl_output = 0.0
-  fc_output = 0.0
-  sm_output = 0.0
+  cv_output = 0._real12
+  pl_output = 0._real12
+  fc_output = 0._real12
+  sm_output = 0._real12
 
   allocate(fc_input(input_size))
   allocate(pl_output_rs(input_size))
   allocate(fc_gradients(input_size))
-  fc_input = 0.0
-  pl_output_rs = 0.0
-  fc_gradients = 0.0
+  fc_input = 0._real12
+  pl_output_rs = 0._real12
+  fc_gradients = 0._real12
 
   allocate(cv_gradients(image_size, image_size, cv_num_filters*input_channels))
   allocate(pl_gradients,mold=cv_output)
   allocate(fc_gradients_rs,mold=pl_output)
   allocate(sm_gradients(num_classes))
-  cv_gradients = 0.0
-  pl_gradients = 0.0
-  fc_gradients_rs = 0.0
-  sm_gradients = 0.0
+  cv_gradients = 0._real12
+  pl_gradients = 0._real12
+  fc_gradients_rs = 0._real12
+  sm_gradients = 0._real12
 
   allocate(comb_cv_gradients(image_size, image_size, cv_num_filters*input_channels))
   allocate(comb_fc_gradients(input_size))
-  comb_cv_gradients = 0.0
-  comb_fc_gradients = 0.0
+  comb_cv_gradients = 0._real12
+  comb_fc_gradients = 0._real12
 
 
 
@@ -203,8 +211,8 @@ program ConvolutionalNeuralNetwork
         start_index = (batch - 1) * batch_size + 1
         end_index = batch * batch_size
 
-        sum_loss = 0.0
-        sum_accuracy = 0.0
+        sum_loss = 0._real12
+        sum_accuracy = 0._real12
 
         !! reset (zero) summed gradients
         !! ... UNCOMMENT if running mini-batch training 
@@ -218,6 +226,7 @@ program ConvolutionalNeuralNetwork
         !! parallelise !!
         !!-------------!!
 
+
         !!----------------------------------------------------------------------
         !! sample loop
         !! ... test each sample and get gradients and losses from each
@@ -226,10 +235,10 @@ program ConvolutionalNeuralNetwork
 
            !! Forward pass
            !!-------------------------------------------------------------------
-           cv_output = 0._real12
-           pl_output = 0._real12
-           fc_input  = 0._real12
-           fc_output = 0._real12
+           !cv_output = 0._real12
+           !pl_output = 0._real12
+           !fc_input  = 0._real12
+           !fc_output = 0._real12
            call cv_forward(input_images(:,:,:,sample), cv_output)
            call pl_forward(cv_output, pl_output)
            fc_input = reshape(pl_output, [input_size])
@@ -274,11 +283,11 @@ program ConvolutionalNeuralNetwork
 
            !! Backward pass
            !!----------------------------------------------------------------------
-           sm_gradients = 0._real12
-           fc_gradients = 0._real12
-           fc_gradients_rs = 0._real12
-           pl_gradients = 0._real12
-           cv_gradients = 0._real12
+           !sm_gradients = 0._real12
+           !fc_gradients = 0._real12
+           !fc_gradients_rs = 0._real12
+           !pl_gradients = 0._real12
+           !cv_gradients = 0._real12
            call sm_backward(sm_output, expected, sm_gradients)
            call fc_backward(fc_input, sm_gradients, fc_gradients, fc_clip)
            fc_gradients_rs = reshape(fc_gradients, shape(fc_gradients_rs))
@@ -523,9 +532,9 @@ contains
 
     ! Compute the accuracy
     if (output(expected).eq.maxval(output)) then
-       accuracy = 1.0
+       accuracy = 1._real12
     else
-       accuracy = 0.0
+       accuracy = 0._real12
     end if
 
     if(isnan(accuracy))then
