@@ -316,7 +316,7 @@ program ConvolutionalNeuralNetwork
 
   
            !! check for NaN and infinity
-           !!----------------------------------------------------------------------
+           !!-------------------------------------------------------------------
            if(any(isnan(sm_output)))then
               write(0,*) "ERROR: Softmax outputs are NaN"
               stop
@@ -342,7 +342,7 @@ program ConvolutionalNeuralNetwork
 
            
            !! compute loss and accuracy (for monitoring)
-           !!----------------------------------------------------------------------
+           !!-------------------------------------------------------------------
 #ifdef _OPENMP
            expected = label_slice(sample)
 #else
@@ -370,7 +370,7 @@ program ConvolutionalNeuralNetwork
            !! if not mini-batch
            !! ... update weights and biases using optimization algorithm
            !! ... (gradient descent)
-           !!----------------------------------------------------------------------
+           !!-------------------------------------------------------------------
            if(batch_learning)then
               comb_cv_gradients = comb_cv_gradients + cv_gradients
               do l=1,fc_num_layers
@@ -391,7 +391,7 @@ program ConvolutionalNeuralNetwork
 
 
         !! Error checking and handling
-        !!-------------------------------------------------------------------------
+        !!----------------------------------------------------------------------
         rtmp1 = 0._real12
         do l=1,fc_num_layers
            rtmp1 = rtmp1 + sum(abs(comb_fc_gradients(l)%val))
@@ -422,7 +422,7 @@ program ConvolutionalNeuralNetwork
         !! if mini-batch ...
         !! ... update weights and biases using optimization algorithm
         !! ... (gradient descent)
-        !!-------------------------------------------------------------------------
+        !!----------------------------------------------------------------------
         if(batch_learning)then
            exploding_check = (exploding_check/batch_size)
            if(epoch.gt.1.or.batch.gt.1)then
@@ -451,13 +451,13 @@ program ConvolutionalNeuralNetwork
 
 
         !! print batch results
-        !!-------------------------------------------------------------------------
+        !!----------------------------------------------------------------------
         write(6,'("epoch=",I0,", batch=",I0", learning_rate=",F0.3,", loss=",F0.3)') &
              epoch, batch, learning_rate, sum_loss
 
 
         !! time check
-        !!-------------------------------------------------------------------------
+        !!----------------------------------------------------------------------
         if(verbosity.eq.2)then
            time_old = time
            call system_clock(time)
@@ -467,7 +467,7 @@ program ConvolutionalNeuralNetwork
 
 
         !! check for user-name stop file
-        !!-------------------------------------------------------------------------
+        !!----------------------------------------------------------------------
         if(stop_check())then
            write(0,*) "STOPCAR ENCOUNTERED"
            write(0,*) "Exiting training loop..."
@@ -478,7 +478,7 @@ program ConvolutionalNeuralNetwork
 
 
      !! print epoch summary results
-     !!----------------------------------------------------------------------------
+     !!-------------------------------------------------------------------------
      if(mod(epoch,20).eq.0.E0) &
           write(6,'("epoch=",I0,", batch=",I0", learning_rate=",F0.3,", loss=",F0.3)') epoch, batch, learning_rate, sum_loss
 
