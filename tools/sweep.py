@@ -135,7 +135,7 @@ def main():
     stderr = "stdout.e"
     stdout_file = open(stdout, 'w')
     stderr_file = open(stderr, 'w')
-    p = subprocess.run(args=["/home/links/ntt203/DCoding/DGitlab/convolutional_neural_network/bin/cnn_mp",
+    p = subprocess.Popen(args=["/home/links/ntt203/DCoding/DGitlab/convolutional_neural_network/bin/cnn_mp",
                              "-f"+file_param],
                        stdout=stdout_file,
                        stderr=stderr_file
@@ -166,6 +166,10 @@ def main():
                     index = i
                 lastLine = lines[-1]
             time.sleep(5)
+
+    ## close stdout and stderr files
+    stdout_file.close()
+    stderr_file.close()
     
     ## read from output file and log to wandb
     #with open(stdout,'r') as file:
