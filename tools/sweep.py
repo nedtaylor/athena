@@ -125,7 +125,10 @@ def main():
     ## set output file names and run fortran executable
     stdout = "stdout_"+sweep_id+".o"
     stderr = "stdout_"+sweep_id+".e"
-    p = subprocess.run(["/home/links/ntt203/DCoding/DGitlab/convolutional_neural_network/bin/cnn_mp","-f"+file_out,stdout=stdout,stderr=stderr])
+    p = subprocess.run(["/home/links/ntt203/DCoding/DGitlab/convolutional_neural_network/bin/cnn_mp",
+                        "-f"+file_out],
+                        stdout=stdout,
+                        stderr=stderr)
     #exit_code = p.wait()
 
     ## read from the output file and log to wandb
