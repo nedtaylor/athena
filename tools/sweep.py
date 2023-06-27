@@ -2,6 +2,7 @@ from os.path import exists
 from os import chdir, getcwd, makedirs
 import subprocess
 import fileinput
+import random
 import sys
 import wandb
 
