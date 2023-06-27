@@ -2,6 +2,9 @@
 !!! 
 !!!#############################################################################
 program ConvolutionalNeuralNetwork
+#ifdef _OPENMP
+  use omp_lib
+#endif
   use constants, only: real12
   use misc, only: shuffle
   !use misc_maths, only: mean
@@ -17,9 +20,7 @@ program ConvolutionalNeuralNetwork
   use FullyConnectedLayer, fc_init => initialise, fc_forward => forward, &
        fc_backward => backward, &
        fc_update => update_weights_and_biases, &
-       fc_write => write_file, &
-       fc_norm_delta => normalise_delta_batch, &
-       fc_reset_delta => reset_delta_batch
+       fc_write => write_file
   use SoftmaxLayer, sm_init => initialise, sm_forward => forward, &
        sm_backward => backward
 
@@ -30,13 +31,13 @@ program ConvolutionalNeuralNetwork
   integer, allocatable, dimension(:) :: seed_arr
 
   !! training and testing monitoring
-  real(real12) :: accuracy, sum_loss, sum_accuracy, overall_loss
-  real(real12), dimension(2) :: exploding_check
-  real(real12), dimension(:), allocatable :: loss_history
+  real(real12) :: accuracy, sum_accuracy, sum_loss, overall_loss
+  real(real12) :: exploding_check, exploding_check_old
+  real(real12), allocatable, dimension(:) :: loss_history
 
   !! data loading and preoprocessing
-  real(real12), dimension(:,:,:,:), allocatable :: input_images, test_images
-  integer, dimension(:), allocatable :: labels, test_labels
+  real(real12), allocatable, dimension(:,:,:,:) :: input_images, test_images
+  integer, allocatable, dimension(:) :: labels, test_labels
   character(1024) :: train_file, test_file, cnn_file
 
   !! neural network size and shape variables
@@ -52,21 +53,40 @@ program ConvolutionalNeuralNetwork
   integer :: num_batches, num_samples, num_samples_test
   integer :: epoch, batch, sample, start_index, end_index
   integer :: expected
-  real(real12), dimension(:), allocatable :: fc_input, fc_output, sm_output, pl_output_rs
-  real(real12), dimension(:), allocatable :: fc_gradients, sm_gradients
-  real(real12), dimension(:,:,:), allocatable :: cv_output, pl_output
-  real(real12), dimension(:,:,:), allocatable :: cv_gradients, pl_gradients, fc_gradients_rs
-  real(real12), dimension(:), allocatable :: comb_fc_gradients
-  real(real12), dimension(:,:,:), allocatable :: comb_cv_gradients
+  real(real12), allocatable, dimension(:) :: fc_input, fc_output, sm_output, pl_output_rs
+  real(real12), allocatable, dimension(:) :: sm_gradients
+  type(network_gradient_type), allocatable, dimension(:) :: fc_gradients, comb_fc_gradients
+  real(real12), allocatable, dimension(:,:,:) :: cv_output, pl_output
+  real(real12), allocatable, dimension(:,:,:) :: cv_gradients, pl_gradients, fc_gradients_rs
+  real(real12), allocatable, dimension(:,:,:) :: comb_cv_gradients
 
-  integer :: i
+  integer :: i, l, time, time_old, clock_rate
   real(real12) :: rtmp1
+
+#ifdef _OPENMP
+  integer, allocatable, dimension(:) :: label_slice
+  real(real12), allocatable, dimension(:,:,:,:) :: image_slice
+#endif
+
+
+!!!-----------------------------------------------------------------------------
+!!! set up reduction for gradient custom type
+!!! ...
+!! https://www.openmp.org/spec-html/5.0/openmpsu107.html
+!! https://stackoverflow.com/questions/61141297/openmp-reduction-on-user-defined-fortran-type-containing-allocatable-array
+!! https://fortran-lang.discourse.group/t/openmp-reduction-on-operator/5887
+!!!-----------------------------------------------------------------------------
+  !$omp declare reduction(sum_operator:network_gradient_type:gradient_sum(omp_out,omp_in)) &
+  !$omp& initializer(omp_priv = omp_orig)
 
 
 !!!-----------------------------------------------------------------------------
 !!! initialise global variables
 !!!-----------------------------------------------------------------------------
   call set_global_vars()
+#ifdef _OPENMP
+  call omp_set_num_threads(num_threads)
+#endif
 
 
 !!!-----------------------------------------------------------------------------
@@ -100,8 +120,10 @@ program ConvolutionalNeuralNetwork
   loss_threshold = 2._real12
   if(batch_learning)then
      exploding_check = 0._real12
+     exploding_check_old = 0._real12
   else
      exploding_check = 1._real12
+     exploding_check_old = 1._real12
   end if
 
 
@@ -120,7 +142,7 @@ program ConvolutionalNeuralNetwork
      write(6,*) "Shuffling training dataset..."
      call shuffle(input_images, labels, 4, seed)
      write(6,*) "Training dataset shuffled"
-     if(verbosity.gt.0)then
+     if(verbosity.eq.1)then
         write(6,*) "Check fort.11 and fort.12 to ensure data shuffling &
              &executed properly"
         do i=1,batch_size*2
@@ -175,10 +197,8 @@ program ConvolutionalNeuralNetwork
 
   allocate(fc_input(input_size))
   allocate(pl_output_rs(input_size))
-  allocate(fc_gradients(input_size))
   fc_input = 0._real12
   pl_output_rs = 0._real12
-  fc_gradients = 0._real12
 
   allocate(cv_gradients(image_size, image_size, cv_num_filters*input_channels))
   allocate(pl_gradients,mold=cv_output)
@@ -190,10 +210,31 @@ program ConvolutionalNeuralNetwork
   sm_gradients = 0._real12
 
   allocate(comb_cv_gradients(image_size, image_size, cv_num_filters*input_channels))
-  allocate(comb_fc_gradients(input_size))
   comb_cv_gradients = 0._real12
-  comb_fc_gradients = 0._real12
 
+  allocate(fc_gradients(fc_num_layers))
+  allocate(comb_fc_gradients(fc_num_layers))
+  do l=1,fc_num_layers
+     allocate(fc_gradients(l)%val(fc_num_hidden(l)))
+     allocate(comb_fc_gradients(l)%val(fc_num_hidden(l)))
+     fc_gradients(l)%val = 0._real12
+     comb_fc_gradients(l)%val(:) = 0._real12
+  end do
+
+
+!!!-----------------------------------------------------------------------------
+!!! if parallel, initialise slices
+!!!-----------------------------------------------------------------------------
+#ifdef _OPENMP
+  allocate(image_slice(image_size,image_size,size(input_images,dim=3),batch_size))
+  allocate(label_slice(batch_size))
+#endif
+
+
+!!!-----------------------------------------------------------------------------
+!!! query system clock
+!!!-----------------------------------------------------------------------------
+  call system_clock(time, count_rate = clock_rate)
 
 
 !!!-----------------------------------------------------------------------------
@@ -208,34 +249,61 @@ program ConvolutionalNeuralNetwork
      !! ... split data up into minibatches for training
      !!-------------------------------------------------------------------------
      batch_loop: do batch = 1, num_batches
+
+
+        !! set batch start and end index
+        !!----------------------------------------------------------------------
         start_index = (batch - 1) * batch_size + 1
         end_index = batch * batch_size
+#ifdef _OPENMP
+        image_slice(:,:,:,:) = input_images(:,:,:,start_index:end_index)
+        label_slice(:) = labels(start_index:end_index)
+        start_index = 1
+        end_index = batch_size
+#endif
 
-        sum_loss = 0._real12
-        sum_accuracy = 0._real12
 
         !! reset (zero) summed gradients
         !! ... UNCOMMENT if running mini-batch training 
         !!----------------------------------------------------------------------
-        call fc_reset_delta()
-        comb_cv_gradients = 0._real12
-        comb_fc_gradients = 0._real12
+        if(batch_learning)then
+           comb_cv_gradients = 0._real12
+           do l=1,fc_num_layers
+              comb_fc_gradients(l)%val(:) = 0._real12
+           end do
+        end if
 
 
-        !!-------------!!
-        !! parallelise !!
-        !!-------------!!
+        !! reinitialise variables
+        !!----------------------------------------------------------------------
+        sum_loss = 0._real12
+        sum_accuracy = 0._real12
 
 
         !!----------------------------------------------------------------------
         !! sample loop
         !! ... test each sample and get gradients and losses from each
         !!----------------------------------------------------------------------
+        !$OMP PARALLEL DO & !! ORDERED
+        !$OMP& DEFAULT(NONE) &
+        !$OMP& SHARED(network, convolution) &
+        !$OMP& SHARED(image_slice,label_slice,input_size,batch_size) &
+        !$OMP& SHARED(fc_clip, cv_clip,batch_learning,fc_num_layers) &
+        !$OMP& PRIVATE(sample,l,cv_output,pl_output,fc_input,fc_output,sm_output) &
+        !$OMP& PRIVATE(rtmp1,expected,exploding_check_old) &
+        !$OMP& PRIVATE(sm_gradients,fc_gradients,fc_gradients_rs,pl_gradients,cv_gradients) &
+        !$OMP& REDUCTION(+:comb_cv_gradients,sum_loss,sum_accuracy,exploding_check) &
+        !$OMP& REDUCTION(sum_operator:comb_fc_gradients)
         train_loop: do sample = start_index, end_index
+
 
            !! Forward pass
            !!-------------------------------------------------------------------
+#ifdef _OPENMP
+           call cv_forward(image_slice(:,:,:,sample), cv_output)
+#else
            call cv_forward(input_images(:,:,:,sample), cv_output)
+#endif
            call pl_forward(cv_output, pl_output)
            fc_input = reshape(pl_output, [input_size])
            call linear_renormalise(fc_input)
@@ -250,19 +318,20 @@ program ConvolutionalNeuralNetwork
               stop
            end if
            if(batch_learning)then
-              exploding_check(1) = exploding_check(1) + sum(fc_output)
+              exploding_check = exploding_check + sum(fc_output)
            else
-              exploding_check(2) = exploding_check(1)
-              exploding_check(1) = sum(fc_output)
+              stop "ERROR: non-batch learning not yet parallelised"
+              exploding_check_old = exploding_check
+              exploding_check = sum(fc_output)
               !exploding_check=mean(fc_output)/exploding_check
-              rtmp1 = abs(exploding_check(1)/exploding_check(2))
+              rtmp1 = abs(exploding_check/exploding_check_old)
               if(rtmp1.gt.1.E3_real12)then
                  write(0,*) "WARNING: FC outputs are expanding too quickly!"
-                 write(0,*) "check:", sample, exploding_check              
+                 write(0,*) "check:", sample, exploding_check, exploding_check_old      
                  write(0,*) "outputs:", fc_output
               elseif(rtmp1.lt.1.E-3_real12)then
                  write(0,*) "WARNING: FC outputs are vanishing too quickly!"
-                 write(0,*) "check:", sample, exploding_check
+                 write(0,*) "check:", sample, exploding_check, exploding_check_old
                  write(0,*) "outputs:", fc_output
               end if
            end if
@@ -270,18 +339,26 @@ program ConvolutionalNeuralNetwork
            
            !! compute loss and accuracy (for monitoring)
            !!----------------------------------------------------------------------
+#ifdef _OPENMP
+           expected = label_slice(sample)
+#else
            expected = labels(sample)
+#endif
            sum_loss = sum_loss + categorical_cross_entropy(sm_output, expected)
-           sum_accuracy = compute_accuracy(sm_output, expected)
+           sum_accuracy = sum_accuracy + compute_accuracy(sm_output, expected)
 
 
            !! Backward pass
            !!----------------------------------------------------------------------
            call sm_backward(sm_output, expected, sm_gradients)
            call fc_backward(fc_input, sm_gradients, fc_gradients, fc_clip)
-           fc_gradients_rs = reshape(fc_gradients, shape(fc_gradients_rs))
+           fc_gradients_rs = reshape(fc_gradients(1)%val, shape(fc_gradients_rs))
            call pl_backward(cv_output, fc_gradients_rs, pl_gradients)
+#ifdef _OPENMP
+           call cv_backward(image_slice(:,:,:,sample), pl_gradients, cv_gradients, cv_clip)
+#else
            call cv_backward(input_images(:,:,:,sample), pl_gradients, cv_gradients, cv_clip)
+#endif
 
 
            !! if mini-batch ...
@@ -292,21 +369,30 @@ program ConvolutionalNeuralNetwork
            !!----------------------------------------------------------------------
            if(batch_learning)then
               comb_cv_gradients = comb_cv_gradients + cv_gradients
-              comb_fc_gradients = comb_fc_gradients + fc_gradients
+              do l=1,fc_num_layers
+                 comb_fc_gradients(l)%val = comb_fc_gradients(l)%val + fc_gradients(l)%val
+              end do
+#ifndef _OPENMP
            else
               call cv_update(learning_rate, input_images(:,:,:,sample), cv_gradients, &
                    l1_lambda, l2_lambda, momentum)
               call fc_update(learning_rate, fc_input, fc_gradients, &
                    l1_lambda, l2_lambda, momentum, l_batch=batch_learning)
+#endif
            end if
 
 
         end do train_loop
+        !$OMP END PARALLEL DO
 
 
         !! Error checking and handling
         !!-------------------------------------------------------------------------
-        if(sum(abs(comb_fc_gradients)).lt.1.D-8)then
+        rtmp1 = 0._real12
+        do l=1,fc_num_layers
+           rtmp1 = rtmp1 + sum(abs(comb_fc_gradients(l)%val))
+        end do
+        if(rtmp1.lt.1.D-8)then
            write(0,*) "ERROR: FullyConnected gradients are zero"
            write(0,*) "Exiting..."
            stop
@@ -321,7 +407,7 @@ program ConvolutionalNeuralNetwork
         elseif(all(abs(loss_history-sum_loss).lt.plateau_threshold))then
            write(0,*) "sm_output", sm_output
            write(0,*) "sm_grad", sm_gradients
-           write(0,*) "fc_gradients", fc_gradients
+           write(0,*) "fc_gradients", fc_gradients(1)%val
            write(0,*) "ERROR: accuracy has remained constant for 10 runs"
            write(0,*) "Exiting..."
            stop
@@ -334,37 +420,46 @@ program ConvolutionalNeuralNetwork
         !! ... (gradient descent)
         !!-------------------------------------------------------------------------
         if(batch_learning)then
-           exploding_check(1) = (exploding_check(1)/batch_size)
+           exploding_check = (exploding_check/batch_size)
            if(epoch.gt.1.or.batch.gt.1)then
-              rtmp1 = abs(exploding_check(1)/exploding_check(2))
+              rtmp1 = abs(exploding_check/exploding_check_old)
               if(rtmp1.gt.1.E3_real12)then
                  write(0,*) "WARNING: FC outputs are expanding too quickly!"
-                 write(0,*) "check:", sample, exploding_check
+                 write(0,*) "check:", sample, exploding_check, exploding_check_old
               elseif(rtmp1.lt.1.E-3_real12)then
                  write(0,*) "WARNING: FC outputs are vanishing too quickly!"
-                 write(0,*) "check:", exploding_check
+                 write(0,*) "check:", exploding_check, exploding_check_old
               end if
            end if
-           exploding_check(2) = exploding_check(1)
-           exploding_check(1) = 0._real12
+           exploding_check_old = exploding_check
+           exploding_check = 0._real12
            
            comb_cv_gradients = comb_cv_gradients/batch_size
-           comb_fc_gradients = comb_fc_gradients/batch_size
-           call fc_norm_delta(batch_size)        
-           call cv_update(learning_rate, input_images(:,:,:,sample), comb_cv_gradients, &
+           do l=1,fc_num_layers
+              comb_fc_gradients(l)%val = comb_fc_gradients(l)%val/batch_size
+           end do
+           call cv_update(learning_rate, input_images(:,:,:,sample), &
+                comb_cv_gradients, &
                 l1_lambda, l2_lambda, momentum)
            call fc_update(learning_rate, fc_input, comb_fc_gradients, &
                 l1_lambda, l2_lambda, momentum, l_batch=batch_learning)
         end if
 
-!!! NOTE:
-!!! FC DOESN'T ACTUALLY USE THE GRADIENTS SUPPLIED !!!
-!!! comb_fc_gradients ALSO ONLY HAS THE GRADIENTS FOR THE FINAL LAYER !!!
-
 
         !! print batch results
         !!-------------------------------------------------------------------------
-        write(6,'("epoch=",I0,", batch=",I0", learning_rate=",F0.3,", loss=",F0.3)') epoch, batch, learning_rate, sum_loss
+        write(6,'("epoch=",I0,", batch=",I0", learning_rate=",F0.3,", loss=",F0.3)') &
+             epoch, batch, learning_rate, sum_loss
+
+
+        !! time check
+        !!-------------------------------------------------------------------------
+        if(verbosity.eq.2)then
+           time_old = time
+           call system_clock(time)
+           write(6,'("time check: ",I0," seconds")') (time-time_old)/clock_rate
+           time_old = time
+        end if
 
 
         !! check for user-name stop file
@@ -418,7 +513,8 @@ program ConvolutionalNeuralNetwork
 
      !! print testing results
      !!-------------------------------------------------------------------------
-     write(6,'(I4," Expected=",I3,", Got=",I3,", Accuracy=",F0.3)') sample,expected-1, maxloc(sm_output,dim=1)-1, accuracy
+     write(6,'(I4," Expected=",I3,", Got=",I3,", Accuracy=",F0.3)') &
+          sample,expected-1, maxloc(sm_output,dim=1)-1, accuracy
      write(0,*) sm_output
      write(0,*)
 

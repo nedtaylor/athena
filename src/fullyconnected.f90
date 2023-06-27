@@ -13,6 +13,15 @@ module FullyConnectedLayer
   use activation_tanh, only: tanh_setup
   implicit none
 
+
+  type network_gradient_type
+     real(real12), allocatable, dimension(:) :: val
+  end type network_gradient_type
+  
+  !interface sum_operator !operator(+)
+  !   module procedure :: gradient_sum
+  !end interface sum_operator !operator(+)
+
   type(network_type), allocatable, dimension(:) :: network
   
   class(activation_type), allocatable :: transfer!activation
@@ -21,6 +30,8 @@ module FullyConnectedLayer
   private
 
   public :: network
+  public :: network_gradient_type, gradient_sum
+
   public :: initialise, forward, backward
   public :: update_weights_and_biases
   public :: write_file
@@ -28,6 +39,21 @@ module FullyConnectedLayer
 
 
 contains
+
+!!!#############################################################################
+!!! custom operation for summing network_gradient_type
+!!!#############################################################################
+  subroutine gradient_sum(output, input)
+    type(network_gradient_type), dimension(:), intent(in) :: input
+    type(network_gradient_type), dimension(:), intent(inout) :: output
+    integer :: i
+    
+    do i=1,size(output,dim=1)
+       output(i)%val = output(i)%val + input(i)%val
+    end do
+  end subroutine gradient_sum
+!!!#############################################################################
+
 
 !!!#############################################################################
 !!!
@@ -325,7 +351,8 @@ contains
     implicit none
     real(real12), dimension(:), intent(in) :: input
     real(real12), dimension(:), intent(in) :: expected !is this just output_gradients?
-    real(real12), dimension(:), intent(out) :: input_gradients
+    !real(real12), dimension(:), intent(out) :: input_gradients
+    type(network_gradient_type), dimension(:) :: input_gradients
     type(clip_type), optional, intent(in) :: clip
     
     integer :: j, k, l
@@ -333,8 +360,11 @@ contains
     real(real12), allocatable, dimension(:) :: errors
 
     !! Initialise input_gradients to zero
-    input_gradients = 0._real12
     num_layers=size(network,dim=1)
+    !input_gradients = 0._real12
+    do l=1,num_layers
+       input_gradients(l)%val = 0._real12
+    end do
 
     !write(0,*) "delta start"
     !write(0,*) network(num_layers)%neuron(:)%delta
@@ -357,39 +387,42 @@ contains
              do k=1,size(network(l+1)%neuron)
                 errors(j) = errors(j) + &
                      ( network(l+1)%neuron(k)%weight(j) * &
-                     network(l+1)%neuron(k)%delta )
+                     input_gradients(l+1)%val(k) ) !network(l+1)%neuron(k)%delta )
              end do
           end do
        end if
        !! the delta values are the error multipled by the derivative ...
        !! ... of the transfer function
        do j=1,num_neurons
-          network(l)%neuron(j)%delta = errors(j) * &
+          input_gradients(l)%val(j) = errors(j) * &
                transfer%differentiate(network(l)%neuron(j)%output)
+          !network(l)%neuron(j)%delta = errors(j) * &
+          !     transfer%differentiate(network(l)%neuron(j)%output)
        end do
        deallocate(errors)
     end do
 
     !! apply gradient clipping
     if(present(clip))then
-       if(clip%l_min_max) call gradient_clip(&
+       if(clip%l_min_max) call gradient_clip(input_gradients,&
             clip_min=clip%min,clip_max=clip%max)
-       if(clip%l_norm) call gradient_clip(&
+       if(clip%l_norm) call gradient_clip(input_gradients,&
             clip_norm=clip%norm)
     end if
 
     !! mini batch gradients
-    do l=1,num_layers
-       num_neurons = size(network(l)%neuron)
-       do j=1,num_neurons
-          network(l)%neuron(j)%delta_batch = &
-               network(l)%neuron(j)%delta_batch + network(l)%neuron(j)%delta
-       end do
-    end do
+    !do l=1,num_layers
+    !   num_neurons = size(network(l)%neuron)
+    !   do j=1,num_neurons
+    !      network(l)%neuron(j)%delta_batch = &
+    !           network(l)%neuron(j)%delta_batch + network(l)%neuron(j)%delta
+    !   end do
+    !   input_gradients(l)%val(:) = network(l)%neuron(:)%delta
+    !end do
 
     !! store gradients in input_gradients
     !! ... not currently used
-    input_gradients = network(1)%neuron(:)%delta
+    !input_gradients = network(1)%neuron(:)%delta
 
   end subroutine backward
 !!!#############################################################################
@@ -405,7 +438,8 @@ contains
     real(real12), optional, intent(in) :: l1_lambda, l2_lambda, momentum
     real(real12), intent(in) :: learning_rate
     real(real12), dimension(:), intent(in) :: input
-    real(real12), dimension(:), optional, intent(in) :: gradients
+    !real(real12), dimension(:), optional, intent(in) :: gradients
+    type(network_gradient_type), dimension(:), intent(in) :: gradients
     logical, optional, intent(in) :: l_batch
 
     integer :: j,k,l
@@ -443,9 +477,9 @@ contains
           !! ... and the learning rate
 
           if(use_batch)then
-             lr_gradient = learning_rate * network(l)%neuron(j)%delta_batch
+             lr_gradient = learning_rate * gradients(l)%val(j) !network(l)%neuron(j)%delta_batch
           else
-             lr_gradient = learning_rate * network(l)%neuron(j)%delta
+             lr_gradient = learning_rate * gradients(l)%val(j) !network(l)%neuron(j)%delta
           end if
           
           do k=1,num_inputs
@@ -530,28 +564,31 @@ contains
 !!!#############################################################################
 !!! gradient clipping
 !!!#############################################################################
-  subroutine gradient_clip(clip_min,clip_max,clip_norm)
+  subroutine gradient_clip(gradients,clip_min,clip_max,clip_norm)
     implicit none
     real(real12), optional, intent(in) :: clip_min, clip_max, clip_norm
+    type(network_gradient_type), dimension(:) :: gradients
 
     integer :: j, l, num_layers, num_neurons
     real(real12) :: norm
 
-    num_layers = size(network,dim=1)
+    num_layers = size(gradients,dim=1)
     if(present(clip_norm))then
        do l=1,num_layers
-          norm = norm2(network(l)%neuron(:)%delta)
+          norm = norm2(gradients(l)%val(:)) !network(l)%neuron(:)%delta)
           if(norm.gt.clip_norm)then
-             network(l)%neuron(:)%delta = &
-                  network(l)%neuron(:)%delta * clip_norm/norm
+             !network(l)%neuron(:)%delta = &
+             !     network(l)%neuron(:)%delta * clip_norm/norm
+             gradients(l)%val(:) = &
+                  gradients(l)%val(:) * clip_norm/norm
           end if
        end do
     elseif(present(clip_min).and.present(clip_max))then
        do l=1,num_layers
-          num_neurons = size(network(l)%neuron)   
+          num_neurons = size(gradients(l)%val)
           do j=1,num_neurons
-             network(l)%neuron(j)%delta = &
-                  max(clip_min,min(clip_max,network(l)%neuron(j)%delta))
+             gradients(l)%val(j) = &
+                  max(clip_min,min(clip_max,gradients(l)%val(j)))
           end do
        end do
     end if

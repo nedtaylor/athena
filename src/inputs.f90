@@ -8,8 +8,9 @@ module inputs
   use custom_types, only: clip_type
   use misc, only: icount, flagmaker, file_check, to_lower
   implicit none
-  integer :: verbosity  !verbose printing
-  integer :: seed  ! random seed
+  integer :: verbosity    ! verbose printing
+  integer :: seed         ! random seed
+  integer :: num_threads  ! number of threads (FOR OPENMP PARALLEL ONLY!)
   real(real12) :: loss_threshold     ! threshold for loss convergence
   real(real12) :: plateau_threshold  ! threshold for plateau checking
   real(real12) :: learning_rate      ! rate of learning (larger = faster)
@@ -44,7 +45,7 @@ module inputs
 
   private
 
-  public :: seed, verbosity
+  public :: seed, verbosity, num_threads
   public :: shuffle_dataset, train_size
 
   public :: batch_learning
@@ -86,6 +87,7 @@ contains
 !!!-----------------------------------------------------------------------------
     call system_clock(count=seed)
     verbosity = 0
+    num_threads = 1
 
     loss_threshold = 1.E-1_real12
     plateau_threshold = 1.E-3_real12
@@ -244,7 +246,7 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! set up namelists for input file
 !!!-----------------------------------------------------------------------------
-    namelist /setup/ seed, verbosity !, dir
+    namelist /setup/ seed, verbosity, num_threads !, dir
     namelist /training/ num_epochs, batch_size, &
          plateau_threshold, loss_threshold, &
          learning_rate, momentum, l1_lambda, l2_lambda, &

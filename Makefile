@@ -23,12 +23,7 @@ SRCS := inputs.f90 \
 	convolution.f90 \
 	pool.f90 \
 	fullyconnected.f90 \
-	softmax.f90 \
-
-MAIN_MP := main_mp.f90
-SRCS_MP := $(OBJS) $(SRCS) $(MAIN_MP)
-OBJS_MP := $(addprefix $(SRC_DIR)/,$(SRCS_MP))
-
+	softmax.f90
 MAIN := main.f90
 SRCS := $(OBJS) $(SRCS) $(MAIN)
 OBJS := $(addprefix $(SRC_DIR)/,$(SRCS))
@@ -41,13 +36,15 @@ FFLAGS = -O2
 #PPFLAGS = -cpp
 FC=gfortran
 ifeq ($(FC),ifort)
-	MPIFLAG = -qopenmp
+	PPFLAG = -cpp
+	MPFLAG = -qopenmp
 	MODULEFLAG = -module
 	DEVFLAGS = -check all -warn #all
 	DEBUGFLAGS = -check all -fpe0 -warn -tracekback -debug extended # -check bounds
 	OPTIMFLAG = -O3
 else
-	MPIFLAG = -fopenmp
+	PPFLAG = -cpp
+	MPFLAG = -fopenmp
 	MODULEFLAG = -J
 	DEVFLAGS = -g -fbacktrace -fcheck=all -fbounds-check #-g -static -ffpe-trap=invalid
 	DEBUGFLAGS = -fbounds-check
@@ -80,7 +77,7 @@ NAME = cnn
 programs = $(BIN_DIR)/$(NAME)
 programs_mp = $(BIN_DIR)/$(NAME)_mp
 
-.PHONY: all debug install uninstall dev optim mp mp_dev clean
+.PHONY: all debug install uninstall dev optim mp mp_optim mp_dev clean
 
 all: $(programs)
 
@@ -91,25 +88,28 @@ $(BUILD_DIR):
 	mkdir -p $@
 
 $(BIN_DIR)/$(NAME): $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
-	$(FC) $(MEMFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $@
+	$(FC) $(PPFLAG) $(MEMFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $@
 
 install: $(OBJS) | $(INSTALL_DIR) $(BUILD_DIR)
-	$(FC) $(MEMFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(INSTALL_DIR)/$(NAME)
+	$(FC) $(PPFLAG) $(MEMFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(INSTALL_DIR)/$(NAME)
 
 debug: $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
-	$(FC) $(MEMFLAG) $(DEBUGFLAGS) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(programs)
+	$(FC) $(PPFLAG) $(MEMFLAG) $(DEBUGFLAGS) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(programs)
 
 dev: $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
-	$(FC) $(MEMFLAG) $(DEVFLAGS) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(programs)
+	$(FC) $(PPFLAG) $(MEMFLAG) $(DEVFLAGS) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(programs)
 
 optim: $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
-	$(FC) $(OPTIMFLAG) $(DEVFLAGS) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(programs)
+	$(FC) $(PPFLAG) $(OPTIMFLAG) $(DEVFLAGS) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(programs)
 
-mp_dev: $(OBJS_MP) | $(BIN_DIR) $(BUILD_DIR)
-	$(FC) $(MEMFLAG) $(DEVFLAGS) $(MPIFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS_MP) -o $(programs_mp)
+mp_dev: $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
+	$(FC) $(PPFLAG) $(MEMFLAG) $(DEVFLAGS) $(MPFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(programs_mp)
 
-mp: $(OBJS_MP) | $(BIN_DIR) $(BUILD_DIR)
-	$(FC) $(MEMFLAG) $(MPIFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS_MP) -o $(programs_mp)
+mp: $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
+	$(FC) $(PPFLAG) $(MEMFLAG) $(MPFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(programs_mp)
+
+mp_optim: $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
+	$(FC) $(PPFLAG) $(OPTIMFLAG) $(MPFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(programs_mp)
 
 clean: $(BUILD_DIR) $(BIN_DIR)
 	rm -r $(BUILD_DIR)/ $(BIN_DIR)/
