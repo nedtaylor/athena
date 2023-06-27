@@ -1,0 +1,9 @@
+{
+  "default_charts": [
+    {
+      "x": "step",
+      "y": "loss",
+      "series": "train"
+    }
+  ]
+}
