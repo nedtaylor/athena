@@ -11,7 +11,7 @@ project='cnn_mnist_test'
 sweep_id = 'emjb3nsc' #'8qcw0m55'
 count=20
 file_template = "template.in"
-curdir = getcwd() # "../"
+workdir = getcwd() # "../"
 min_neurons = 2
 max_neurons = 100
 
@@ -26,12 +26,20 @@ if not exists(file_template):
     sys.exit()
 
 
+## make sweep directory and cd
+sweepdir = workdir+"/D_"+sweep_id
+makedirs(sweepdir, exist_ok=True)
+chdir(sweepdir)
+
+
 def main():
 
     #run = wandb.init(project=project)
 
     ## initialise run
     wandb.init()
+    agent_id = wandb.run.id
+    agent_name = wandb.run.name
 
     ## set up logical dictionary for file card editing
     l_dict = {
@@ -51,7 +59,7 @@ def main():
         'fullyconnected': {}
     }
 
-    hidden_layers = [random.randinit(min_neurons,max_neurons) 
+    hidden_layers = [random.randint(min_neurons,max_neurons) 
                      for _ in range(wandb.config.num_hidden_layers)]
     wandb.config.update({"hidden_layers":hidden_layers})
     
@@ -75,7 +83,7 @@ def main():
     }
 
     ## open template input file and save to string
-    with open(file_template, 'r') as file:
+    with open(workdir+"/"+file_template, 'r') as file:
         newline=[]
         for line in file.readlines():
             if '&' in line:
@@ -110,26 +118,28 @@ def main():
             if not edited:
                 newline.append(line)
 
-    ## make working directory and cd
-    workdir = "D_"+sweep_id
-    makedirs(workdir, exist_ok=True)
-    chdir(workdir)
+                
+    ## make agent directory and cd
+    curdir = sweepdir+"/D_"+agent_name
+    makedirs(curdir, exist_ok=True)
+    chdir(curdir)
 
     ## make parameter file for run
-    file_out = "param_"+sweep_id+".in"
-    print("id",sweep_id)
-    print("out",file_out)
-    with open(file_out,"w") as file:
+    file_param = "param.in"
+    with open(file_param,"w") as file:
         for line in newline:
             file.writelines(line)
 
     ## set output file names and run fortran executable
-    stdout = "stdout_"+sweep_id+".o"
-    stderr = "stdout_"+sweep_id+".e"
-    p = subprocess.run(["/home/links/ntt203/DCoding/DGitlab/convolutional_neural_network/bin/cnn_mp",
-                        "-f"+file_out],
-                        stdout=stdout,
-                        stderr=stderr)
+    stdout = "stdout.o"
+    stderr = "stdout.e"
+    stdout_file = open(stdout, 'w')
+    stderr_file = open(stderr, 'w')
+    p = subprocess.run(args=["/home/links/ntt203/DCoding/DGitlab/convolutional_neural_network/bin/cnn_mp",
+                             "-f"+file_param],
+                       stdout=stdout_file,
+                       stderr=stderr_file
+    )
     #exit_code = p.wait()
 
     ## read from the output file and log to wandb
@@ -156,8 +166,7 @@ def main():
                     index = i
                 lastLine = lines[-1]
             time.sleep(5)
-                
-
+    
     ## read from output file and log to wandb
     #with open(stdout,'r') as file:
     #    for line in file.readlines():
@@ -171,7 +180,7 @@ def main():
     #            wandb.log(result_dict)
 
     ## return to parent directory
-    chdir(curdir)
+    chdir(sweepdir)
 
 
 ## set up sweep agents
