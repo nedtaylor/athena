@@ -4,12 +4,13 @@ import subprocess
 import fileinput
 import random
 import sys
+import time
 import wandb
 
 ## define global variables
 project='cnn_mnist_test'
 sweep_id = 'emjb3nsc' #'8qcw0m55'
-count=20
+count=1
 file_template = "template.in"
 workdir = getcwd() # "../"
 min_neurons = 2
@@ -47,7 +48,7 @@ def main():
         'training': False,
         'convolution': False,
         'pooling': False,
-        'fullyconnected': False
+        'fully_connected': False
     }
     
     ## set up parameter dictionary for file editing
@@ -56,7 +57,7 @@ def main():
         'training': {},
         'convolution': {},
         'pooling': {},
-        'fullyconnected': {}
+        'fully_connected': {}
     }
 
     hidden_layers = [random.randint(min_neurons,max_neurons) 
@@ -76,7 +77,7 @@ def main():
         'cv_num_filters': wandb.config.cv_num_filters,
         'clip_norm': wandb.config.cv_clip_norm
     }
-    param_dict['fullyconnected'] = {
+    param_dict['fully_connected'] = {
         'clip_norm': wandb.config.fc_clip_norm,
         'hidden_layers': "'"+", ".join(
             str(num) for num in wandb.config.hidden_layers)+"'" #wandb.config.hidden_layers
@@ -117,7 +118,6 @@ def main():
                         break
             if not edited:
                 newline.append(line)
-
                 
     ## make agent directory and cd
     curdir = sweepdir+"/D_"+agent_name
@@ -146,9 +146,14 @@ def main():
     ## ... do this interactively with the fortran code running
     ## ... check every 1 second for an updated line
     lastLine = None
-    with open(stdout,'r') as f:
-        while p.poll() is None:
+    index = -1
+    #time.sleep(5)
+    while p.poll() is None:
+        with open(stdout,'r') as f:
             lines = f.readlines()
+            if lines is None or not lines:
+                time.sleep(5)
+                continue
             if lastLine is None:
                 lastLine = lines[0]
                 index = -1
@@ -158,11 +163,14 @@ def main():
                 for i in range(index+1,len(lines)):
                     if 'epoch=' in lines[i]:
                         result_dict = {}
-                        pairs = lastLine.split(",")
+                        pairs = lines[i].split(",")
                         for pair in pairs:
                             key, value = pair.split("=")
-                            result_dict[key.strip()] = value.strip()
-                            wandb.log(result_dict)
+                            if key == 'epoch' or key == 'batch':
+                                result_dict[key.strip()] = int(value.strip())
+                            else:
+                                result_dict[key.strip()] = float(value.strip())
+                        wandb.log(result_dict)
                     index = i
                 lastLine = lines[-1]
             time.sleep(5)
