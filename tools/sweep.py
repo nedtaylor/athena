@@ -51,7 +51,7 @@ def main():
     }
 
     hidden_layers = [random.randinit(min_neurons,max_neurons) 
-                     for _ in range(wandb.confignum_hidden_layers)]
+                     for _ in range(wandb.config.num_hidden_layers)]
     wandb.config.update({"hidden_layers":hidden_layers})
     
     ## populate parameter dictionary
