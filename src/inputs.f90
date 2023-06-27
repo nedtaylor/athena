@@ -27,7 +27,8 @@ module inputs
   type(clip_type) :: cv_clip               ! convolution clipping thresholds
 
   integer :: pool_kernel_size    ! pooling size (assume square)
-  integer :: pool_stride  ! pooling stride
+  integer :: pool_stride         ! pooling stride
+  logical :: normalise_pooling   ! normalise output of pooling
 
   integer, allocatable, dimension(:) :: fc_num_hidden  ! number of fully connected hidden layers
   type(clip_type) :: fc_clip                           ! fully connected clipping thresholds
@@ -41,7 +42,6 @@ module inputs
 !!! HAVE VARIABLE TO DEFINE WHAT LOSS FUNCTION IS TO BE USED IN SOFTMAX
 !!! i.e. binary, categorical, sparse (surely others, such as MAE, RMSE)
 !!! ADD A WAY TO SELECT NORMALISATION AFTER THE POOLING LAYER
-!!! PARALLELISE
 
   private
 
@@ -59,6 +59,7 @@ module inputs
   public :: cv_clip
 
   public :: pool_kernel_size, pool_stride
+  public :: normalise_pooling
 
   public :: fc_num_hidden
   public :: fc_clip
@@ -112,6 +113,7 @@ contains
     
     pool_kernel_size = 2
     pool_stride = 2
+    normalise_pooling = .true.
 
     fc_clip%l_min_max = .false.
     fc_clip%l_norm    = .false.
@@ -253,7 +255,7 @@ contains
          shuffle_dataset, batch_learning
     namelist /convolution/ cv_num_filters, kernel_size, stride, &
          clip_min, clip_max, clip_norm
-    namelist /pooling/ kernel_size, stride
+    namelist /pooling/ kernel_size, stride, normalise_pooling
     namelist /fully_connected/ hidden_layers, &
          clip_min, clip_max, clip_norm, &
          activation_function

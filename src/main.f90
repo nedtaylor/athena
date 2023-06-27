@@ -53,11 +53,14 @@ program ConvolutionalNeuralNetwork
   integer :: num_batches, num_samples, num_samples_test
   integer :: epoch, batch, sample, start_index, end_index
   integer :: expected
-  real(real12), allocatable, dimension(:) :: fc_input, fc_output, sm_output, pl_output_rs
+  real(real12), allocatable, dimension(:) :: fc_input, fc_output, sm_output, &
+       pl_output_rs
   real(real12), allocatable, dimension(:) :: sm_gradients
-  type(network_gradient_type), allocatable, dimension(:) :: fc_gradients, comb_fc_gradients
+  type(network_gradient_type), allocatable, dimension(:) :: fc_gradients, &
+       comb_fc_gradients
   real(real12), allocatable, dimension(:,:,:) :: cv_output, pl_output
-  real(real12), allocatable, dimension(:,:,:) :: cv_gradients, pl_gradients, fc_gradients_rs
+  real(real12), allocatable, dimension(:,:,:) :: cv_gradients, pl_gradients, &
+       fc_gradients_rs
   real(real12), allocatable, dimension(:,:,:) :: comb_cv_gradients
 
   integer :: i, l, time, time_old, clock_rate
@@ -306,7 +309,8 @@ program ConvolutionalNeuralNetwork
 #endif
            call pl_forward(cv_output, pl_output)
            fc_input = reshape(pl_output, [input_size])
-           call linear_renormalise(fc_input)
+           if(normalise_pooling)&
+                call linear_renormalise(fc_input)
            call fc_forward(fc_input, fc_output)
            call sm_forward(fc_output, sm_output)
 
