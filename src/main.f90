@@ -97,7 +97,8 @@ program ConvolutionalNeuralNetwork
 !!! read training dataset
 !!!-----------------------------------------------------------------------------
   train_file = '/nutanix/gpshome/ntt203/DCoding/DTest_dir/DMNIST/MNIST_train.txt'
-  call read_mnist(train_file,input_images, labels)
+  call read_mnist(train_file,input_images, labels, &
+       max(cv_kernel_size), padding_type)
   image_size = size(input_images, 1)
   num_samples = size(input_images, 4)
   input_channels = size(input_images, 3)
@@ -112,7 +113,8 @@ program ConvolutionalNeuralNetwork
 !!! read testing dataset
 !!!-----------------------------------------------------------------------------
   test_file = '/nutanix/gpshome/ntt203/DCoding/DTest_dir/DMNIST/MNIST_test.txt'
-  call read_mnist(test_file,test_images, test_labels)
+  call read_mnist(test_file,test_images, test_labels, &
+       max(cv_kernel_size), padding_type)
   num_samples_test = size(test_images, 4)
   test_images = test_images/255.0
 
@@ -582,7 +584,7 @@ contains
     integer :: i
     real(real12) :: loss, total
 
-    ! Compute the cross-entropy loss
+    !! Compute the cross-entropy loss
     total = 0._real12
     do i=1,size(output)
        if(i.eq.expected)then
@@ -650,7 +652,7 @@ contains
     !   stop
     !end if
 
-    ! Compute the accuracy
+    !! Compute the accuracy
     if (output(expected).eq.maxval(output)) then
        accuracy = 1._real12
     else
@@ -669,20 +671,32 @@ contains
 !!!#############################################################################
 !!! read mnist dataset
 !!!#############################################################################
-  subroutine read_mnist(file,images,labels)
+  subroutine read_mnist(file,images,labels,kernel_size,padding_type)
     use misc, only: icount
+    use misc_ml, only: get_padding_half
     implicit none
     integer :: i, j, k, Reason, unit
-    integer :: num_samples, num_pixels, image_size
+    integer :: num_samples, num_pixels, image_size, padding
     character(2048) :: buffer
+    character(:), allocatable :: t_padding_type
 
-    character(1024) :: file
+    integer, optional, intent(in) :: kernel_size
+    character(*), optional, intent(in) :: padding_type
+    character(1024), intent(in) :: file
     real(real12), dimension(:,:,:,:), allocatable, intent(out) :: images
     integer, dimension(:), allocatable, intent(out) :: labels
 
+
+!!!-----------------------------------------------------------------------------
+!!! open file
+!!!-----------------------------------------------------------------------------
     unit = 10
     open(unit=unit,file=file)
 
+
+!!!-----------------------------------------------------------------------------
+!!! count number of samples
+!!!-----------------------------------------------------------------------------
     i = 0
     line_count: do
        i = i + 1
@@ -699,22 +713,172 @@ contains
        end if
     end do line_count
 
+
+!!!-----------------------------------------------------------------------------
+!!! calculate size of image
+!!!-----------------------------------------------------------------------------
     image_size = nint(sqrt(real(num_pixels,real12)))
 
+
+!!!-----------------------------------------------------------------------------
+!!! rewind file and allocate labels
+!!!-----------------------------------------------------------------------------
     rewind(unit)
     allocate(labels(num_samples))
+
+
+!!!-----------------------------------------------------------------------------
+!!! handle padding type name
+!!!-----------------------------------------------------------------------------
+    !! none  = alt. name for 'valid'
+    !! zero  = alt. name for 'same'
+    !! symmetric = alt.name for 'replication'
+    !! valid = no padding
+    !! same  = maintain spatial dimensions
+    !!         ... (i.e. padding added = (kernel_size - 1)/2)
+    !!         ... defaults to zeros in the padding
+    !! full  = enough padding for filter to slide over every possible position
+    !!         ... (i.e. padding added = (kernel_size - 1)
+    !! circular = maintain spatial dimensions
+    !!            ... wraps data around for padding (periodic)
+    !! reflection = maintains spatial dimensions
+    !!              ... reflect data (about boundary index)
+    !! replication = maintains spatial dimensions
+    !!               ... reflect data (boundary included)
+    if(present(padding_type))then
+       t_padding_type = trim(padding_type)
+100    select case(t_padding_type)
+       case("none")
+          t_padding_type = "valid"
+          goto 100
+       case("zero")
+          t_padding_type = "same"
+          goto 100
+       case("symmetric")
+          t_padding_type = "replication"
+          goto 100
+       case("valid")
+          write(6,*) "Pad method: 'valid' (all possible positions)"
+       case("same")
+          write(6,*) "Pad method: 'same' (pad with zeros)"
+       case("circular")
+          write(6,*) "Pad method: 'same' (circular padding)"
+       case("full")
+          write(6,*) "Pad method: 'full' (all possible positions)"
+       case("reflection")
+          write(6,*) "Pad method: 'reflection' (reflect on boundary)"
+       case("replication")
+          write(6,*) "Pad method 'replication' (reflect after boundary)"
+       case default
+          stop "ERROR: pad method '"//t_padding_type//"' not known"
+       end select
+    else
+       t_padding_type = "same"
+    end if
+    
+
+!!!-----------------------------------------------------------------------------
+!!! allocate data set
+!!! ... if appropriate, add padding
+!!!-----------------------------------------------------------------------------
     !! dim=1: image width in pixels
     !! dim=2: image height in pixels
     !! dim=3: image number of channels (1 due to black-white images)
     !! dim=4: number of images
-    allocate(images(image_size, image_size, 1, num_samples))
+    if(t_padding_type.eq."valid")then
+       padding = 0
+       allocate(images(image_size, image_size, 1, num_samples))
+    elseif(present(kernel_size))then
+
+       !! calculate padding width
+       !!-----------------------------------------------------------------------
+       select case(t_padding_type)
+       case ("same")
+          padding = get_padding_half(kernel_size)
+       case("circular")
+          padding = get_padding_half(kernel_size)
+       case("reflection")
+          padding = get_padding_half(kernel_size)
+       case("replication")
+          padding = get_padding_half(kernel_size)
+       case("full")
+          padding = kernel_size - 1
+       end select
+
+       allocate(images(&
+            -padding+1:image_size+padding,&
+            -padding+1:image_size+padding,&
+            1, num_samples))
+
+       !! initialise padding for constant padding types (i.e. zeros)
+       !!-----------------------------------------------------------------------
+!!! LATER MAKE THE CONSTANT AN OPTIONAL VALUE
+       select case(t_padding_type)
+       case ("same")
+          images = 0._real12
+       case("full")
+          images = 0._real12
+       end select
+       
+    else
+       stop "ERROR: kernel_size not provided to read_mnist for padding &
+            &method "//t_padding_type
+    end if
+
+
+!!!-----------------------------------------------------------------------------
+!!! read in dataset
+!!!-----------------------------------------------------------------------------
     do i=1,num_samples
        read(unit,*) labels(i), ((images(j,k,1,i),k=1,image_size),j=1,image_size)
     end do
+
     close(unit)
 
+
+!!!-----------------------------------------------------------------------------
+!!! populate padding
+!!!-----------------------------------------------------------------------------
+    select case(t_padding_type)
+    case ("circular")
+       images(-padding+1:0:1, 1:image_size, :, :) = &
+            images(image_size-padding+1:image_size:1, 1:image_size, :, :)
+       images(image_size+1:image_size+padding:1, 1:image_size, :, :) = &
+            images(1:1+padding-1:1, 1:image_size, :, :)
+
+       images(:, -padding+1:0:1, :, :) = &
+            images(:, image_size-padding+1:image_size:1, :, :)
+       images(:, image_size+1:image_size+padding:1, :, :) = &
+            images(:, 1:1+padding-1:1, :, :)
+    case("reflection")
+       images(0:-padding+1:-1, 1:image_size, :, :) = &
+            images(2:2+padding-1:1, 1:image_size, :, :)
+       images(image_size+1:image_size+padding:1, 1:image_size, :, :) = &
+            images(image_size-1:image_size-padding:-1, 1:image_size, :, :)
+
+       images(:, 0:-padding+1:-1, :, :) = &
+            images(:, 2:2+padding-1:1, :, :)
+       images(:, image_size+1:image_size+padding:1, :, :) = &
+            images(:, image_size-1:image_size-padding:-1, :, :)
+    case("replication")
+       images(0:-padding+1:-1, 1:image_size, :, :) = &
+            images(1:1+padding-1:1, 1:image_size, :, :)
+       images(image_size+1:image_size+padding:1, 1:image_size, :, :) = &
+            images(image_size:image_size-padding+1:-1, 1:image_size, :, :)
+
+       images(:, 0:-padding+1:-1, :, :) = &
+            images(:, 1:1+padding-1:1, :, :)
+       images(:, image_size+1:image_size+padding:1, :, :) = &
+            images(:, image_size:image_size-padding+1:-1, :, :)
+    end select
+    
+
+!!!-----------------------------------------------------------------------------
+!!! increase label values to match fortran indices
+!!!-----------------------------------------------------------------------------
     labels = labels + 1
-    write(0,*) "READING DONE"
+    write(6,*) "Data read"
+
 
   end subroutine read_mnist
 !!!#############################################################################

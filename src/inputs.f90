@@ -22,9 +22,12 @@ module inputs
   integer :: batch_size  ! size of mini batches
 
   integer :: cv_num_filters                ! number of convolution filters
+  character(:), allocatable :: convolution_type        ! type of convolution
+  character(:), allocatable :: padding_type             ! type of convolution padding
+  type(clip_type) :: cv_clip               ! convolution clipping thresholds
   integer, allocatable, dimension(:) :: cv_kernel_size  ! kernel size for each convolution layer (assume square)
   integer, allocatable, dimension(:) :: cv_stride       ! stride of kernels for convolution
-  type(clip_type) :: cv_clip               ! convolution clipping thresholds
+
 
   integer :: pool_kernel_size    ! pooling size (assume square)
   integer :: pool_stride         ! pooling stride
@@ -41,7 +44,6 @@ module inputs
 
 !!! HAVE VARIABLE TO DEFINE WHAT LOSS FUNCTION IS TO BE USED IN SOFTMAX
 !!! i.e. binary, categorical, sparse (surely others, such as MAE, RMSE)
-!!! ADD A WAY TO SELECT NORMALISATION AFTER THE POOLING LAYER
 
   private
 
@@ -57,6 +59,7 @@ module inputs
 
   public :: cv_num_filters, cv_kernel_size, cv_stride
   public :: cv_clip
+  public :: convolution_type, padding_type
 
   public :: pool_kernel_size, pool_stride
   public :: normalise_pooling
@@ -87,7 +90,7 @@ contains
 !!! initialises variables
 !!!-----------------------------------------------------------------------------
     call system_clock(count=seed)
-    verbosity = 0
+    verbosity = 1
     num_threads = 1
 
     loss_threshold = 1.E-1_real12
@@ -206,6 +209,34 @@ contains
     if(trim(input_file).ne."")then
        call read_input_file(input_file)
     end if
+    if(.not.allocated(convolution_type)) &
+         convolution_type = "standard"
+    !! https://towardsdatascience.com/types-of-convolutions-in-deep-learning-717013397f4d
+    !! standard   = dot product operation between kernel and input data
+    !! dilated    = spacing (dilation rate) between kernel values
+    !! transposed = upsampling, sort of reverse of dilated
+    !! depthwise  = separate filter to each input channel
+    !! pointwise  = linear transform to adjust number of channels in feature map
+    !!              ... 1x1 filter, not affecting spatial dimensions
+    if(.not.allocated(padding_type)) &
+         padding_type = "same"
+    !! none  = alt. name for 'valid'
+    !! zero  = alt. name for 'same'
+    !! symmetric = alt.name for 'replication'
+    !! valid = no padding
+    !! same  = maintain spatial dimensions
+    !!         ... (i.e. odd filter width, padding = (kernel_size - 1)/2)
+    !!         ... (i.e. even filter width, padding = (kernel_size - 2)/2)
+    !!         ... defaults to zeros in the padding
+    !! full  = enough padding for filter to slide over every possible position
+    !!         ... (i.e. padding = (kernel_size - 1)
+    !! circular = maintain spatial dimensions
+    !!            ... wraps data around for padding (periodic)
+    !! reflection = maintains spatial dimensions
+    !!              ... reflect data (about boundary index)
+    !! replication = maintains spatial dimensions
+    !!               ... reflect data (boundary included)
+
 
 
 !!!-----------------------------------------------------------------------------
@@ -254,7 +285,7 @@ contains
          learning_rate, momentum, l1_lambda, l2_lambda, &
          shuffle_dataset, batch_learning
     namelist /convolution/ cv_num_filters, kernel_size, stride, &
-         clip_min, clip_max, clip_norm
+         clip_min, clip_max, clip_norm, convolution_type, padding_type
     namelist /pooling/ kernel_size, stride, normalise_pooling
     namelist /fully_connected/ hidden_layers, &
          clip_min, clip_max, clip_norm, &
