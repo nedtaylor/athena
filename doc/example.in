@@ -16,7 +16,9 @@
  cv_num_filters = 32,
  kernel_size = 3,
  stride = 1,
- clip_norm = 2.E1
+ clip_norm = 2.E1,
+ padding_type = "same",
+ convolution_type = "standard"
 /
 
 &pool
