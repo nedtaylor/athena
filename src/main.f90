@@ -419,6 +419,7 @@ program ConvolutionalNeuralNetwork
         sum_loss = sum_loss / batch_size
         loss_history = cshift(loss_history, shift=-1, dim=1)
         loss_history(1) = sum_loss
+        sum_accuracy = sum_accuracy / batch_size
 
 
         !! Check loss convergence
@@ -472,8 +473,8 @@ program ConvolutionalNeuralNetwork
         !! print batch results
         !!----------------------------------------------------------------------
         write(6,'("epoch=",I0,", batch=",I0,&
-             &", learning_rate=",F0.3,", loss=",F0.3)') &
-             epoch, batch, learning_rate, sum_loss
+             &", learning_rate=",F0.3,", loss=",F0.3,", accuracy=",F0.3)') &
+             epoch, batch, learning_rate, sum_loss, sum_accuracy
 
 
         !! time check
