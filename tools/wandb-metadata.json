@@ -1,9 +1,19 @@
 {
   "default_charts": [
-    {
-      "x": "step",
-      "y": "loss",
-      "series": "train"
-    }
+      {
+	  "x": "step",
+	  "y": "loss",
+	  "series": "train"
+      },
+      {
+	  "x": "step",
+	  "y": "accuracy",
+	  "series": "train"
+      },
+      {
+	  "x": "step",
+	  "y": "accuracy",
+	  "series": "test"
+      }
   ]
 }
