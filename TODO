@@ -1,6 +1,6 @@
 TODO list:
 - HAVE VARIABLE TO DEFINE WHAT LOSS FUNCTION IS TO BE USED IN SOFTMAX
 - i.e. binary, categorical, sparse (surely others, such as MAE, RMSE)
-- ADD A WAY TO SELECT NORMALISATION AFTER THE POOLING LAYER
 - Different verbosity printing levels
 - Allow selection of padded vs full convolution
+- Add piecewise and gaussian activation functions
