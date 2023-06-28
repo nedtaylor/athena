@@ -17,8 +17,8 @@ contains
     integer, intent(in) :: width
     integer :: output
     
-    output = ( width - mod(width,2) - 1 ) / 2
-    
+    output = ( width - (1 - mod(width,2)) - 1 ) / 2
+        
   end function get_padding_half
 !!!########################################################################
 
