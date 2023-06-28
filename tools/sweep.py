@@ -10,7 +10,7 @@ import wandb
 ## define global variables
 project='cnn_mnist_test'
 sweep_id = 'emjb3nsc' #'8qcw0m55'
-count=1
+count=20
 file_template = "template.in"
 workdir = getcwd() # "../"
 min_neurons = 2
@@ -41,6 +41,10 @@ def main():
     wandb.init()
     agent_id = wandb.run.id
     agent_name = wandb.run.name
+
+    ## set multiple metrics
+    wandb.define_metric("loss",summary="min")
+    wandb.define_metric("accuracy",summary="max")
 
     ## set up logical dictionary for file card editing
     l_dict = {
@@ -171,6 +175,10 @@ def main():
                             else:
                                 result_dict[key.strip()] = float(value.strip())
                         wandb.log(result_dict)
+                        #wandb.log({"train": result_dict})
+                    elif 'Overall accuracy' in lines[i]:
+                        key, value = lines[i].split("=")
+                        wandb.run.summary["test accuracy"] = value                        
                     index = i
                 lastLine = lines[-1]
             time.sleep(5)
