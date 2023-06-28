@@ -22,8 +22,8 @@ module inputs
   integer :: batch_size  ! size of mini batches
 
   integer :: cv_num_filters                ! number of convolution filters
-  character(:), allocatable :: convolution_type        ! type of convolution
-  character(:), allocatable :: padding_type             ! type of convolution padding
+  character(:), allocatable :: convolution_method        ! type of convolution
+  character(:), allocatable :: padding_method             ! type of convolution padding
   type(clip_type) :: cv_clip               ! convolution clipping thresholds
   integer, allocatable, dimension(:) :: cv_kernel_size  ! kernel size for each convolution layer (assume square)
   integer, allocatable, dimension(:) :: cv_stride       ! stride of kernels for convolution
@@ -59,7 +59,7 @@ module inputs
 
   public :: cv_num_filters, cv_kernel_size, cv_stride
   public :: cv_clip
-  public :: convolution_type, padding_type
+  public :: convolution_method, padding_method
 
   public :: pool_kernel_size, pool_stride
   public :: normalise_pooling
@@ -71,7 +71,7 @@ module inputs
   public :: set_global_vars
 
 
-!!!updated  2023/06/23
+!!!updated  2023/06/28
 
 
 contains
@@ -209,34 +209,6 @@ contains
     if(trim(input_file).ne."")then
        call read_input_file(input_file)
     end if
-    if(.not.allocated(convolution_type)) &
-         convolution_type = "standard"
-    !! https://towardsdatascience.com/types-of-convolutions-in-deep-learning-717013397f4d
-    !! standard   = dot product operation between kernel and input data
-    !! dilated    = spacing (dilation rate) between kernel values
-    !! transposed = upsampling, sort of reverse of dilated
-    !! depthwise  = separate filter to each input channel
-    !! pointwise  = linear transform to adjust number of channels in feature map
-    !!              ... 1x1 filter, not affecting spatial dimensions
-    if(.not.allocated(padding_type)) &
-         padding_type = "same"
-    !! none  = alt. name for 'valid'
-    !! zero  = alt. name for 'same'
-    !! symmetric = alt.name for 'replication'
-    !! valid = no padding
-    !! same  = maintain spatial dimensions
-    !!         ... (i.e. odd filter width, padding = (kernel_size - 1)/2)
-    !!         ... (i.e. even filter width, padding = (kernel_size - 2)/2)
-    !!         ... defaults to zeros in the padding
-    !! full  = enough padding for filter to slide over every possible position
-    !!         ... (i.e. padding = (kernel_size - 1)
-    !! circular = maintain spatial dimensions
-    !!            ... wraps data around for padding (periodic)
-    !! reflection = maintains spatial dimensions
-    !!              ... reflect data (about boundary index)
-    !! replication = maintains spatial dimensions
-    !!               ... reflect data (boundary included)
-
 
 
 !!!-----------------------------------------------------------------------------
@@ -270,6 +242,7 @@ contains
     integer :: Reason,unit
     character(512) :: hidden_layers=""
 
+    character(20) :: padding_type, convolution_type
     character(64) :: clip_min="", clip_max="", clip_norm=""
     character(512) :: kernel_size="", stride=""
 
@@ -297,6 +270,8 @@ contains
 !!!-----------------------------------------------------------------------------
     unit=20
     call file_check(unit,file_name)
+    convolution_type = ""
+    padding_type = ""
 
 
 !!!-----------------------------------------------------------------------------
@@ -366,6 +341,46 @@ contains
 !!! convert hidden_layers string to dynamic array
 !!!-----------------------------------------------------------------------------
     call get_list(hidden_layers, fc_num_hidden)
+
+
+!!!-----------------------------------------------------------------------------
+!!! handle convolution and padding types
+!!!-----------------------------------------------------------------------------
+    if(trim(convolution_type).eq."")then
+       convolution_method = "standard"
+    else
+       convolution_method = to_lower(trim(convolution_type))
+    end if
+    !! https://towardsdatascience.com/types-of-convolutions-in-deep-learning-717013397f4d
+    !! standard   = dot product operation between kernel and input data
+    !! dilated    = spacing (dilation rate) between kernel values
+    !! transposed = upsampling, sort of reverse of dilated
+    !! depthwise  = separate filter to each input channel
+    !! pointwise  = linear transform to adjust number of channels in feature map
+    !!              ... 1x1 filter, not affecting spatial dimensions
+    if(trim(padding_type).eq."")then
+       padding_method = "same"
+    else
+       padding_method = to_lower(trim(padding_type))
+    end if
+    !! none = alt. name for 'valid'
+    !! zero = alt. name for 'same'
+    !! half = alt. name for 'same'
+    !! symmetric = alt.name for 'replication'
+    !! valid = no padding
+    !! same  = maintain spatial dimensions
+    !!         ... (i.e. odd filter width, padding = (kernel_size - 1)/2)
+    !!         ... (i.e. even filter width, padding = (kernel_size - 2)/2)
+    !!         ... defaults to zeros in the padding
+    !! full  = enough padding for filter to slide over every possible position
+    !!         ... (i.e. padding = (kernel_size - 1)
+    !! circular = maintain spatial dimensions
+    !!            ... wraps data around for padding (periodic)
+    !! reflection = maintains spatial dimensions
+    !!              ... reflect data (about boundary index)
+    !! replication = maintains spatial dimensions
+    !!               ... reflect data (boundary included)
+
 
 
     return

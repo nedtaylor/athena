@@ -6,14 +6,16 @@
 module ConvolutionLayer
   use constants, only: real12
   use custom_types, only: clip_type, convolution_type
+  use misc_ml, only: get_padding_half
   implicit none
 
-  integer, allocatable, dimension(:) :: half
+  integer :: padding_lw
+  !integer, allocatable, dimension(:) :: half
 
-  type index_type
-     integer, allocatable, dimension(:) :: idx
-  end type index_type
-  type(index_type), allocatable, dimension(:) :: idx_list
+  !type index_type
+  !   integer, allocatable, dimension(:) :: idx
+  !end type index_type
+  !type(index_type), allocatable, dimension(:) :: idx_list
 
   type(convolution_type), allocatable, dimension(:) :: convolution
 
@@ -52,22 +54,30 @@ contains
 !!!#############################################################################
 !!!
 !!!#############################################################################
-  subroutine initialise(input_size, seed, num_layers, kernel_size, stride, file)
+  subroutine initialise(seed, num_layers, kernel_size, stride, file, full_padding)
     implicit none
-    integer, intent(in) :: input_size
     integer, intent(in), optional :: seed
     integer, intent(in), optional :: num_layers
     integer, dimension(:), intent(in), optional :: kernel_size, stride
     character(*), optional, intent(in) :: file
-
-    integer :: itmp1,itmp2,nseed
-    integer, allocatable, dimension(:) :: seed_arr
+    logical, optional, intent(in) :: full_padding
 
     integer :: l,i
+    integer :: itmp1,itmp2,nseed
+    integer :: start_idx, end_idx
+    logical :: t_full_padding
+    integer, allocatable, dimension(:) :: seed_arr
+
     
 
 !!!! num_layers has taken over for output_channels (or cv_num_filters)
 
+
+    if(present(full_padding))then
+       t_full_padding = full_padding
+    else
+       t_full_padding = .false.
+    end if
 
     !! if file, read in weights and biases
     !! ... if no file is given, weights and biases to a default
@@ -102,10 +112,23 @@ contains
           if(size(stride,dim=1).gt.1)      itmp2 = stride(l)
           convolution(l)%kernel_size = itmp1
           convolution(l)%stride      = itmp2
-          allocate(convolution(l)%weight(itmp1,itmp1))
+          
+          !! padding width
+          if(t_full_padding)then
+             convolution(l)%pad  = itmp1 - 1
+          else
+             convolution(l)%pad = get_padding_half(itmp1)
+          end if
+       
+          !! odd or even kernel/filter size
+          convolution(l)%centre_width = 2 - mod(itmp1,2)
+       
+          start_idx = -convolution(l)%pad
+          end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
+          allocate(convolution(l)%weight(start_idx:end_idx,start_idx:end_idx))
           call random_number(convolution(l)%bias)
           call random_number(convolution(l)%weight)
-          allocate(convolution(l)%weight_incr(itmp1,itmp1))
+          allocate(convolution(l)%weight_incr(start_idx:end_idx,start_idx:end_idx))
           convolution(l)%weight_incr(:,:) = 0._real12
        end do
     else
@@ -118,26 +141,26 @@ contains
 
 
     !! get stride information
-    if(.not.allocated(idx_list).or..not.allocated(half))then
-       allocate(half(num_layers))
-       allocate(idx_list(num_layers))
-       do l=1,num_layers
-          half(l) = convolution(l)%kernel_size/2
-          allocate(idx_list(l)%idx(1-half(l):input_size+half(l)))
-          do i=1-half(l),input_size+half(l),1
-             if(i.lt.1)then
-                idx_list(l)%idx(i) = input_size + i
-             elseif(i.gt.input_size)then
-                idx_list(l)%idx(i) = i - input_size
-             else
-                idx_list(l)%idx(i) = i
-             end if
-          end do
-       end do
-    end if
+    !if(.not.allocated(idx_list).or..not.allocated(half))then
+    !   allocate(half(num_layers))
+    !   allocate(idx_list(num_layers))
+    !   do l=1,num_layers
+    !      half(l) = convolution(l)%kernel_size/2
+    !      allocate(idx_list(l)%idx(1-half(l):input_size+half(l)))
+    !      do i=1-half(l),input_size+half(l),1
+    !         if(i.lt.1)then
+    !            idx_list(l)%idx(i) = input_size + i
+    !         elseif(i.gt.input_size)then
+    !            idx_list(l)%idx(i) = i - input_size
+    !         else
+    !            idx_list(l)%idx(i) = i
+    !         end if
+    !      end do
+    !   end do
+    !end if
+    padding_lw = -maxval(convolution(:)%pad) + 1
     
-
- 
+    
   end subroutine initialise
 !!!#############################################################################
 
@@ -289,40 +312,43 @@ contains
 !!!#############################################################################
   subroutine forward(input, output)
     implicit none
-    real(real12), dimension(:,:,:), intent(in) :: input
+    real(real12), dimension(padding_lw:,padding_lw:,:), intent(in) :: input
     real(real12), dimension(:,:,:), intent(out) :: output
 
     integer :: input_channels, num_layers
-    integer :: input_size, output_size
+    integer :: output_size
     integer :: i, j, l, m, x, y, ichannel, istride, jstride
+    integer :: start_idx, end_idx
 
     !! get size of the input and output feature maps
     num_layers = size(convolution, dim=1)
-    input_size = size(input, 1)
     input_channels = size(input, 3)
     output_size = size(output, 1)
+
 
     !! Perform the convolution operation
     ichannel = 0
     output = 0._real12
     do l=1,num_layers
+       start_idx = -convolution(l)%pad
+       end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
        do m=1,input_channels
           ichannel = ichannel + 1
 
           do j=1,output_size
-             jstride = (j-1)*convolution(l)%stride-half(l)
+             jstride = (j-1)*convolution(l)%stride + 1
              do i=1,output_size
-                istride = (i-1)*convolution(l)%stride-half(l)
+                istride = (i-1)*convolution(l)%stride + 1
 
                 output(i,j,ichannel) = convolution(l)%bias
+                
+                do y=start_idx,end_idx,1
+                   do x=start_idx,end_idx,1
 
-                do x=1,convolution(l)%kernel_size
-                   do y=1,convolution(l)%kernel_size
                       output(i,j,ichannel) = output(i,j,ichannel) + &
-                           input(&
-                           idx_list(l)%idx(istride+x),&
-                           idx_list(l)%idx(jstride+y),&
-                           m) * convolution(l)%weight(x,y)
+                           input(istride+x,jstride+y,m) * &
+                           convolution(l)%weight(x,y)
+
                    end do
                 end do
 
@@ -341,14 +367,15 @@ contains
 !!!#############################################################################
   subroutine backward(input, output_gradients, input_gradients, clip)
     implicit none
-    real(real12), dimension(:,:,:), intent(in) :: input
+    real(real12), dimension(padding_lw:,padding_lw:,:), intent(in) :: input
+    real(real12), dimension(padding_lw:,padding_lw:,:), intent(out) :: input_gradients
     real(real12), dimension(:,:,:), intent(in) :: output_gradients
-    real(real12), dimension(:,:,:), intent(out) :: input_gradients
     type(clip_type), optional, intent(in) :: clip
 
     integer :: input_channels, output_channels, ichannel, num_layers
     integer :: i, j, k, l, m, n, x, y, x180, y180
     integer :: istride, jstride
+    integer :: start_idx, end_idx
     real(real12) :: rtmp1
     integer :: output_size
 
@@ -363,25 +390,25 @@ contains
     !! Perform the convolution operation
     ichannel = 0
     do l=1,num_layers
+       start_idx = -convolution(l)%pad
+       end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
        do m=1,input_channels
           ichannel = ichannel + 1
+
           do j=1,output_size
-             jstride = (j-1)*convolution(l)%stride-half(l)
+             jstride = (j-1)*convolution(l)%stride + 1
              do i=1,output_size
-                istride = (i-1)*convolution(l)%stride-half(l)
+                istride = (i-1)*convolution(l)%stride + 1
+
                 rtmp1 = output_gradients(i,j,ichannel)
 
-                do x=1,convolution(l)%kernel_size
-                   x180 = convolution(l)%kernel_size - x + 1
-                   do y=1,convolution(l)%kernel_size
-                      y180 = convolution(l)%kernel_size - y + 1
+                do y=start_idx,end_idx,1
+                   y180 = end_idx + ( start_idx - y )
+                   do x=start_idx,end_idx,1
+                      x180 = end_idx + ( start_idx - x )
                       !! Compute gradients for input feature map
-                      input_gradients(&
-                           idx_list(l)%idx(istride+x),&
-                           idx_list(l)%idx(jstride+y), m) = &
-                           input_gradients(&
-                           idx_list(l)%idx(istride+x),&
-                           idx_list(l)%idx(jstride+y), m) + &
+                      input_gradients(istride+x,jstride+y,m) = &
+                           input_gradients(istride+x,jstride+y,m) + &
                            convolution(l)%weight(x180,y180) * &
                            rtmp1
                            !convolution(l)%weight(x,y) * &
@@ -392,13 +419,7 @@ contains
 !!! ... dL/dF = CONVOL(input, output_gradients)
 !!! ... dL/dX = FULLCONV(180deg rotated weights, output_gradients)
 !!! ... where: F = filter/weights, X = input
-!!! NOTE:
-!!! CONVOL = filter applied to non-padded input (i.e. size(output) < size(input))
-!!! FULLCONVOL = filter applied to padded input (i.e. size(output) = size(input))
 
-!!! WARNING!
-!!! DOING THE FULL CONVOLUTION THE WAY I HAVE (PERIODICITY) WORKS FOR CHGCARS
-!!! HOWEVER, LIKELY NOT GOOD TO USE THIS WITH IMAGES OF WRITTEN TEXT
 
                    end do
                 end do
@@ -427,12 +448,13 @@ contains
        l1_lambda, l2_lambda, momentum)
     implicit none
     integer :: i,j,l,m,x,y,istride,jstride
-    integer :: input_channels, num_layers, grad_size, ichannel
+    integer :: input_channels, num_layers, input_size, ichannel
+    integer :: start_idx, end_idx
     real(real12) :: sum_gradients
     real(real12), optional, intent(in) :: l1_lambda, l2_lambda, momentum
     real(real12), intent(in) :: learning_rate
-    real(real12), dimension(:,:,:), intent(in) :: input
-    real(real12), dimension(:,:,:), intent(in) :: gradients
+    real(real12), dimension(padding_lw:,padding_lw:,:), intent(in) :: input
+    real(real12), dimension(padding_lw:,padding_lw:,:), intent(in) :: gradients
 
 
     !! Check if gradients total NaN
@@ -444,45 +466,41 @@ contains
     !! Initialise constants
     num_layers = size(convolution, dim=1)
     input_channels = size(gradients,3)/num_layers
-    grad_size = size(gradients,1)
+    input_size = size(gradients,1) - &
+         2 * maxval(convolution(:)%pad) - &
+         ( maxval(convolution(:)%centre_width) - 1 )
     ichannel = 0
     
     !! Update the convolution layer weights using gradient descent
     do l=1,num_layers
        sum_gradients = 0._real12
+       start_idx = -convolution(l)%pad
+       end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
        do m=1,input_channels
           ichannel = ichannel + 1
           sum_gradients = sum_gradients + sum(gradients(:,:,ichannel))
 
-          do j=1,grad_size
-             jstride = (j-1)*convolution(l)%stride-half(l)
-             do i=1,grad_size
-                istride = (i-1)*convolution(l)%stride-half(l)
+          do j=1,input_size
+             jstride = (j-1)*convolution(l)%stride + 1
+             do i=1,input_size
+                istride = (i-1)*convolution(l)%stride + 1
                 
-                do x=1,convolution(l)%kernel_size
-                   !x180 = convolution(l)%kernel_size - x + 1
-                   do y=1,convolution(l)%kernel_size
-                      !y180 = convolution(l)%kernel_size - y + 1
-                     
+                do y=start_idx,end_idx,1
+                   !y180 = convolution(l)%kernel_size - y + 1
+                   do x=start_idx,end_idx,1
+                      !x180 = convolution(l)%kernel_size - x + 1
+
                       
                       !! momentum-based learning
                       if(present(momentum))then
                          convolution(l)%weight_incr(x,y) = &
-                              learning_rate * gradients(&
-                              idx_list(l)%idx(istride+x),&
-                              idx_list(l)%idx(jstride+y), ichannel) + &
+                              learning_rate * &
+                              gradients(istride+x, jstride+y, ichannel) + &
                               momentum * convolution(l)%weight_incr(x,y)
-                         !convolution(l)%weight(x,y) = convolution(l)%weight(x,y) - &
-                         !     convolution(l)%weight_incr(x,y)
                       else
-                         !convolution(l)%weight(x,y) = convolution(l)%weight(x,y) - &
-                         !     learning_rate * gradients(&
-                         !     idx_list(l)%idx(istride+x),&
-                         !     idx_list(l)%idx(jstride+y), ichannel)
                          convolution(l)%weight_incr(x,y) = &
-                              learning_rate * gradients(&
-                              idx_list(l)%idx(istride+x),&
-                              idx_list(l)%idx(jstride+y), ichannel)   
+                              learning_rate * &
+                              gradients(istride+x, jstride+y, ichannel)   
                       end if
     
                       !! L1 regularisation
@@ -533,6 +551,31 @@ contains
     end do
 
   end subroutine update_weights_and_biases
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! determine start and end indices for non-full convolution
+!!!#############################################################################
+  subroutine get_stride_start_end(start_idx,end_idx,width,kernel_size,idx)
+    implicit none
+    integer, intent(inout) :: start_idx, end_idx
+    integer, intent(in) :: width, kernel_size, idx
+
+    if(idx.lt.1)then
+       start_idx = 1-idx
+    else
+       start_idx = 1
+    end if
+
+    if(idx.gt.width)then
+       end_idx = kernel_size + &
+            width-idx
+    else
+       end_idx = kernel_size
+    end if
+
+  end subroutine get_stride_start_end
 !!!#############################################################################
 
 

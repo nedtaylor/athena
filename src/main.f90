@@ -43,7 +43,8 @@ program ConvolutionalNeuralNetwork
   !! neural network size and shape variables
   integer, parameter :: num_classes = 10    ! Number of output classes
   integer :: input_channels  ! Number of input channels (i.e. RGB)
-  integer :: image_size
+  integer :: image_size, lw_image_size, up_image_size
+  integer :: output_size
   integer :: input_size
   integer :: output_channels
   integer :: num_pool
@@ -64,9 +65,10 @@ program ConvolutionalNeuralNetwork
        fc_gradients_rs
   real(real12), allocatable, dimension(:,:,:) :: comb_cv_gradients
 
-  integer :: i, l, time, time_old, clock_rate
+  integer :: i, l, time, time_old, clock_rate, itmp1
   real(real12) :: rtmp1
 
+  real(real12), allocatable, dimension(:,:,:) :: image_sample
 #ifdef _OPENMP
   integer, allocatable, dimension(:) :: label_slice
   real(real12), allocatable, dimension(:,:,:,:) :: image_slice
@@ -98,14 +100,10 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
   train_file = '/nutanix/gpshome/ntt203/DCoding/DTest_dir/DMNIST/MNIST_train.txt'
   call read_mnist(train_file,input_images, labels, &
-       max(cv_kernel_size), padding_type)
-  image_size = size(input_images, 1)
-  num_samples = size(input_images, 4)
+       maxval(cv_kernel_size), image_size, padding_method)
   input_channels = size(input_images, 3)
-  input_images = input_images/255.0
-  num_pool = (image_size - pool_kernel_size) / pool_stride + 1
   output_channels = cv_num_filters * input_channels
-  input_size = num_pool**2 * output_channels
+  num_samples = size(input_images, 4)
   num_batches = num_samples / batch_size
 
 
@@ -114,9 +112,8 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
   test_file = '/nutanix/gpshome/ntt203/DCoding/DTest_dir/DMNIST/MNIST_test.txt'
   call read_mnist(test_file,test_images, test_labels, &
-       max(cv_kernel_size), padding_type)
+       maxval(cv_kernel_size), itmp1, padding_method)
   num_samples_test = size(test_images, 4)
-  test_images = test_images/255.0
 
 
 !!!-----------------------------------------------------------------------------
@@ -162,6 +159,26 @@ program ConvolutionalNeuralNetwork
 
 
 !!!-----------------------------------------------------------------------------
+!!! initialise convolutional and pooling layers
+!!!-----------------------------------------------------------------------------
+  write(6,*) "Initialising CNN..."
+  !! Initialise the convolution layer
+  call cv_init(seed, num_layers = cv_num_filters, &
+       kernel_size = cv_kernel_size, stride = cv_stride, &
+       full_padding = trim(padding_method).eq."full")
+  output_size = floor( (&
+       image_size + 2.0 * maxval(convolution(:)%pad) - maxval(cv_kernel_size)&
+       )/minval(cv_stride) ) + 1
+
+  !! Initialise the pooling layer
+  call pl_init(pool_kernel_size, pool_stride)
+  num_pool = (output_size - pool_kernel_size) / pool_stride + 1
+  input_size = num_pool**2 * output_channels
+  lw_image_size = lbound(input_images,dim=1)
+  up_image_size = ubound(input_images,dim=1)
+
+
+!!!-----------------------------------------------------------------------------
 !!! reformulate fully connected layers to include input and output layers
 !!! ... user provides only hidden layers
 !!!-----------------------------------------------------------------------------
@@ -174,18 +191,13 @@ program ConvolutionalNeuralNetwork
 
 
 !!!-----------------------------------------------------------------------------
-!!! initialise convolutional neural network layers
+!!! initialise fully connected and softmax layers
 !!!-----------------------------------------------------------------------------
-  write(6,*) "Initialising CNN..."
-  !! Initialise the convolution layer
-  call cv_init(image_size, seed, num_layers = cv_num_filters, &
-       kernel_size = cv_kernel_size, stride = cv_stride)
-  !! Initialise the pooling layer
-  call pl_init(pool_kernel_size, pool_stride)
   !! Initialise the fully connected layer
   call fc_init(seed, num_layers=fc_num_layers, &
        num_inputs=input_size, num_hidden=fc_num_hidden, &
        activation_function=activation_function)
+
   !! Initialise the softmax layer
   call sm_init(num_classes)
   write(6,*) "CNN initialised"
@@ -194,7 +206,7 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
 !!! allocate and initialise layer outputs and gradients
 !!!-----------------------------------------------------------------------------
-  allocate(cv_output(image_size, image_size, output_channels))
+  allocate(cv_output(output_size, output_size, output_channels))
   allocate(pl_output(num_pool, num_pool, output_channels))
   allocate(fc_output(num_classes))
   allocate(sm_output(num_classes))
@@ -208,7 +220,10 @@ program ConvolutionalNeuralNetwork
   fc_input = 0._real12
   pl_output_rs = 0._real12
 
-  allocate(cv_gradients(image_size, image_size, output_channels))
+  allocate(cv_gradients(&
+       lw_image_size:up_image_size,&
+       lw_image_size:up_image_size,&
+       output_channels))
   allocate(pl_gradients,mold=cv_output)
   allocate(fc_gradients_rs,mold=pl_output)
   allocate(sm_gradients(num_classes))
@@ -217,7 +232,10 @@ program ConvolutionalNeuralNetwork
   fc_gradients_rs = 0._real12
   sm_gradients = 0._real12
 
-  allocate(comb_cv_gradients(image_size, image_size, output_channels))
+  allocate(comb_cv_gradients(&
+       lw_image_size:up_image_size,&
+       lw_image_size:up_image_size,&
+       output_channels))
   comb_cv_gradients = 0._real12
 
   allocate(fc_gradients(fc_num_layers))
@@ -233,8 +251,16 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
 !!! if parallel, initialise slices
 !!!-----------------------------------------------------------------------------
+  !write(0,*) "IMAGE SIZE", lw_image_size,up_image_size
+  !allocate(image_sample(&
+  !     lw_image_size:up_image_size,&
+  !     lw_image_size:up_image_size,&
+  !     size(input_images,dim=3)))
 #ifdef _OPENMP
-  allocate(image_slice(image_size,image_size,size(input_images,dim=3),batch_size))
+  allocate(image_slice(&
+       lw_image_size:up_image_size,&
+       lw_image_size:up_image_size,&
+       size(input_images,dim=3),batch_size))
   allocate(label_slice(batch_size))
 #endif
 
@@ -312,8 +338,10 @@ program ConvolutionalNeuralNetwork
            !! Forward pass
            !!-------------------------------------------------------------------
 #ifdef _OPENMP
+           !image_sample = image_slice(:,:,:,sample)
            call cv_forward(image_slice(:,:,:,sample), cv_output)
 #else
+           !image_sample = input_images(:,:,:,sample)
            call cv_forward(input_images(:,:,:,sample), cv_output)
 #endif
            call pl_forward(cv_output, pl_output)
@@ -367,13 +395,8 @@ program ConvolutionalNeuralNetwork
            call fc_backward(fc_input, sm_gradients, fc_gradients, fc_clip)
            fc_gradients_rs = reshape(fc_gradients(1)%val,shape(fc_gradients_rs))
            call pl_backward(cv_output, fc_gradients_rs, pl_gradients)
-#ifdef _OPENMP
-           call cv_backward(image_slice(:,:,:,sample), pl_gradients, &
+           call cv_backward(image_sample, pl_gradients, &
                 cv_gradients, cv_clip)
-#else
-           call cv_backward(input_images(:,:,:,sample), pl_gradients, &
-                cv_gradients, cv_clip)
-#endif
 
 
            !! if mini-batch ...
@@ -390,6 +413,9 @@ program ConvolutionalNeuralNetwork
               end do
 #ifndef _OPENMP
            else
+              !call cv_update(learning_rate, image_sample, &
+              !     cv_gradients, &
+              !     l1_lambda, l2_lambda, momentum)
               call cv_update(learning_rate, input_images(:,:,:,sample), &
                    cv_gradients, &
                    l1_lambda, l2_lambda, momentum)
@@ -464,7 +490,7 @@ program ConvolutionalNeuralNetwork
            do l=1,fc_num_layers
               comb_fc_gradients(l)%val = comb_fc_gradients(l)%val/batch_size
            end do
-           call cv_update(learning_rate, input_images(:,:,:,sample), &
+           call cv_update(learning_rate, image_sample, &
                 comb_cv_gradients, &
                 l1_lambda, l2_lambda, momentum)
            call fc_update(learning_rate, fc_input, comb_fc_gradients, &
@@ -671,17 +697,18 @@ contains
 !!!#############################################################################
 !!! read mnist dataset
 !!!#############################################################################
-  subroutine read_mnist(file,images,labels,kernel_size,padding_type)
+  subroutine read_mnist(file,images,labels,kernel_size,image_size,padding_method)
     use misc, only: icount
     use misc_ml, only: get_padding_half
     implicit none
     integer :: i, j, k, Reason, unit
-    integer :: num_samples, num_pixels, image_size, padding
+    integer :: num_samples, num_pixels, padding
     character(2048) :: buffer
-    character(:), allocatable :: t_padding_type
+    character(:), allocatable :: t_padding_method
 
+    integer, intent(out) :: image_size
     integer, optional, intent(in) :: kernel_size
-    character(*), optional, intent(in) :: padding_type
+    character(*), optional, intent(in) :: padding_method
     character(1024), intent(in) :: file
     real(real12), dimension(:,:,:,:), allocatable, intent(out) :: images
     integer, dimension(:), allocatable, intent(out) :: labels
@@ -745,35 +772,38 @@ contains
     !!              ... reflect data (about boundary index)
     !! replication = maintains spatial dimensions
     !!               ... reflect data (boundary included)
-    if(present(padding_type))then
-       t_padding_type = trim(padding_type)
-100    select case(t_padding_type)
+    if(present(padding_method))then
+       t_padding_method = trim(padding_method)
+100    select case(t_padding_method)
        case("none")
-          t_padding_type = "valid"
+          t_padding_method = "valid"
           goto 100
        case("zero")
-          t_padding_type = "same"
+          t_padding_method = "same"
+          goto 100
+       case("half")
+          t_padding_method = "same"
           goto 100
        case("symmetric")
-          t_padding_type = "replication"
+          t_padding_method = "replication"
           goto 100
        case("valid")
-          write(6,*) "Pad method: 'valid' (all possible positions)"
+          write(6,*) "Padding type: 'valid' (all possible positions)"
        case("same")
-          write(6,*) "Pad method: 'same' (pad with zeros)"
+          write(6,*) "Padding type: 'same' (pad with zeros)"
        case("circular")
-          write(6,*) "Pad method: 'same' (circular padding)"
+          write(6,*) "Padding type: 'same' (circular padding)"
        case("full")
-          write(6,*) "Pad method: 'full' (all possible positions)"
+          write(6,*) "Padding type: 'full' (all possible positions)"
        case("reflection")
-          write(6,*) "Pad method: 'reflection' (reflect on boundary)"
+          write(6,*) "Padding type: 'reflection' (reflect on boundary)"
        case("replication")
-          write(6,*) "Pad method 'replication' (reflect after boundary)"
+          write(6,*) "Padding type: 'replication' (reflect after boundary)"
        case default
-          stop "ERROR: pad method '"//t_padding_type//"' not known"
+          stop "ERROR: padding type '"//t_padding_method//"' not known"
        end select
     else
-       t_padding_type = "same"
+       t_padding_method = "same"
     end if
     
 
@@ -785,35 +815,29 @@ contains
     !! dim=2: image height in pixels
     !! dim=3: image number of channels (1 due to black-white images)
     !! dim=4: number of images
-    if(t_padding_type.eq."valid")then
+    if(t_padding_method.eq."valid")then
        padding = 0
        allocate(images(image_size, image_size, 1, num_samples))
     elseif(present(kernel_size))then
 
        !! calculate padding width
        !!-----------------------------------------------------------------------
-       select case(t_padding_type)
-       case ("same")
-          padding = get_padding_half(kernel_size)
-       case("circular")
-          padding = get_padding_half(kernel_size)
-       case("reflection")
-          padding = get_padding_half(kernel_size)
-       case("replication")
-          padding = get_padding_half(kernel_size)
+       select case(t_padding_method)
        case("full")
           padding = kernel_size - 1
+       case default
+          padding = get_padding_half(kernel_size)
        end select
 
        allocate(images(&
-            -padding+1:image_size+padding,&
-            -padding+1:image_size+padding,&
+            -padding+1:image_size+padding + (1-mod(kernel_size,2)),&
+            -padding+1:image_size+padding + (1-mod(kernel_size,2)),&
             1, num_samples))
 
        !! initialise padding for constant padding types (i.e. zeros)
        !!-----------------------------------------------------------------------
 !!! LATER MAKE THE CONSTANT AN OPTIONAL VALUE
-       select case(t_padding_type)
+       select case(t_padding_method)
        case ("same")
           images = 0._real12
        case("full")
@@ -822,7 +846,7 @@ contains
        
     else
        stop "ERROR: kernel_size not provided to read_mnist for padding &
-            &method "//t_padding_type
+            &method "//t_padding_method
     end if
 
 
@@ -839,7 +863,7 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! populate padding
 !!!-----------------------------------------------------------------------------
-    select case(t_padding_type)
+    select case(t_padding_method)
     case ("circular")
        images(-padding+1:0:1, 1:image_size, :, :) = &
             images(image_size-padding+1:image_size:1, 1:image_size, :, :)
@@ -876,6 +900,7 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! increase label values to match fortran indices
 !!!-----------------------------------------------------------------------------
+    images = images/255._real12
     labels = labels + 1
     write(6,*) "Data read"
 

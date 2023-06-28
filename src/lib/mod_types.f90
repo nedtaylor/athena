@@ -32,6 +32,8 @@ module custom_types
   type convolution_type
      integer :: kernel_size
      integer :: stride
+     integer :: pad
+     integer :: centre_width
      real(real12) :: delta
      real(real12) :: bias
      !! DO THE WEIGHTS NEED TO BE DIFFERENT PER INPUT CHANNEL?
