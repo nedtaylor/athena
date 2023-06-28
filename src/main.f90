@@ -45,8 +45,9 @@ program ConvolutionalNeuralNetwork
   integer :: input_channels  ! Number of input channels (i.e. RGB)
   integer :: image_size
   integer :: input_size
+  integer :: output_channels
   integer :: num_pool
-  integer :: fc_num_layers  
+  integer :: fc_num_layers
   integer, allocatable, dimension(:) :: tmp_num_hidden
 
   !! training loop variables
@@ -102,7 +103,8 @@ program ConvolutionalNeuralNetwork
   input_channels = size(input_images, 3)
   input_images = input_images/255.0
   num_pool = (image_size - pool_kernel_size) / pool_stride + 1
-  input_size = num_pool**2 * cv_num_filters * input_channels
+  output_channels = cv_num_filters * input_channels
+  input_size = num_pool**2 * output_channels
   num_batches = num_samples / batch_size
 
 
@@ -137,6 +139,7 @@ program ConvolutionalNeuralNetwork
   allocate(seed_arr(nseed))
   seed_arr = seed
   call random_seed(put=seed_arr)
+
 
 !!!-----------------------------------------------------------------------------
 !!! shuffle dataset
@@ -189,8 +192,8 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
 !!! allocate and initialise layer outputs and gradients
 !!!-----------------------------------------------------------------------------
-  allocate(cv_output(image_size, image_size, cv_num_filters*input_channels))
-  allocate(pl_output(num_pool, num_pool, cv_num_filters*input_channels))
+  allocate(cv_output(image_size, image_size, output_channels))
+  allocate(pl_output(num_pool, num_pool, output_channels))
   allocate(fc_output(num_classes))
   allocate(sm_output(num_classes))
   cv_output = 0._real12
@@ -203,7 +206,7 @@ program ConvolutionalNeuralNetwork
   fc_input = 0._real12
   pl_output_rs = 0._real12
 
-  allocate(cv_gradients(image_size, image_size, cv_num_filters*input_channels))
+  allocate(cv_gradients(image_size, image_size, output_channels))
   allocate(pl_gradients,mold=cv_output)
   allocate(fc_gradients_rs,mold=pl_output)
   allocate(sm_gradients(num_classes))
@@ -212,7 +215,7 @@ program ConvolutionalNeuralNetwork
   fc_gradients_rs = 0._real12
   sm_gradients = 0._real12
 
-  allocate(comb_cv_gradients(image_size, image_size, cv_num_filters*input_channels))
+  allocate(comb_cv_gradients(image_size, image_size, output_channels))
   comb_cv_gradients = 0._real12
 
   allocate(fc_gradients(fc_num_layers))
@@ -290,11 +293,15 @@ program ConvolutionalNeuralNetwork
         !$OMP PARALLEL DO & !! ORDERED
         !$OMP& DEFAULT(NONE) &
         !$OMP& SHARED(network, convolution) &
-        !$OMP& SHARED(image_slice,label_slice,input_size,batch_size) &
-        !$OMP& SHARED(fc_clip, cv_clip,batch_learning,fc_num_layers) &
-        !$OMP& PRIVATE(sample,l,cv_output,pl_output,fc_input,fc_output,sm_output) &
-        !$OMP& PRIVATE(rtmp1,expected,exploding_check_old) &
-        !$OMP& PRIVATE(sm_gradients,fc_gradients,fc_gradients_rs,pl_gradients,cv_gradients) &
+        !$OMP& SHARED(image_slice, label_slice) &
+        !$OMP& SHARED(input_size, batch_size) &
+        !$OMP& SHARED(fc_clip, cv_clip, batch_learning, fc_num_layers) &
+        !$OMP& PRIVATE(sample) &
+        !$OMP& PRIVATE(cv_output, cv_gradients) &
+        !$OMP& PRIVATE(pl_output, pl_gradients) &
+        !$OMP& PRIVATE(fc_input, fc_output,fc_gradients, fc_gradients_rs) &
+        !$OMP& PRIVATE(sm_output, sm_gradients) &
+        !$OMP& PRIVATE(rtmp1, expected, exploding_check_old) &
         !$OMP& REDUCTION(+:comb_cv_gradients,sum_loss,sum_accuracy,exploding_check) &
         !$OMP& REDUCTION(sum_operator:comb_fc_gradients)
         train_loop: do sample = start_index, end_index
@@ -331,11 +338,11 @@ program ConvolutionalNeuralNetwork
               rtmp1 = abs(exploding_check/exploding_check_old)
               if(rtmp1.gt.1.E3_real12)then
                  write(0,*) "WARNING: FC outputs are expanding too quickly!"
-                 write(0,*) "check:", sample, exploding_check, exploding_check_old      
+                 write(0,*) "check:", sample,exploding_check,exploding_check_old      
                  write(0,*) "outputs:", fc_output
               elseif(rtmp1.lt.1.E-3_real12)then
                  write(0,*) "WARNING: FC outputs are vanishing too quickly!"
-                 write(0,*) "check:", sample, exploding_check, exploding_check_old
+                 write(0,*) "check:", sample,exploding_check,exploding_check_old
                  write(0,*) "outputs:", fc_output
               end if
            end if
@@ -353,15 +360,17 @@ program ConvolutionalNeuralNetwork
 
 
            !! Backward pass
-           !!----------------------------------------------------------------------
+           !!-------------------------------------------------------------------
            call sm_backward(sm_output, expected, sm_gradients)
            call fc_backward(fc_input, sm_gradients, fc_gradients, fc_clip)
-           fc_gradients_rs = reshape(fc_gradients(1)%val, shape(fc_gradients_rs))
+           fc_gradients_rs = reshape(fc_gradients(1)%val,shape(fc_gradients_rs))
            call pl_backward(cv_output, fc_gradients_rs, pl_gradients)
 #ifdef _OPENMP
-           call cv_backward(image_slice(:,:,:,sample), pl_gradients, cv_gradients, cv_clip)
+           call cv_backward(image_slice(:,:,:,sample), pl_gradients, &
+                cv_gradients, cv_clip)
 #else
-           call cv_backward(input_images(:,:,:,sample), pl_gradients, cv_gradients, cv_clip)
+           call cv_backward(input_images(:,:,:,sample), pl_gradients, &
+                cv_gradients, cv_clip)
 #endif
 
 
@@ -374,11 +383,13 @@ program ConvolutionalNeuralNetwork
            if(batch_learning)then
               comb_cv_gradients = comb_cv_gradients + cv_gradients
               do l=1,fc_num_layers
-                 comb_fc_gradients(l)%val = comb_fc_gradients(l)%val + fc_gradients(l)%val
+                 comb_fc_gradients(l)%val = comb_fc_gradients(l)%val + &
+                      fc_gradients(l)%val
               end do
 #ifndef _OPENMP
            else
-              call cv_update(learning_rate, input_images(:,:,:,sample), cv_gradients, &
+              call cv_update(learning_rate, input_images(:,:,:,sample), &
+                   cv_gradients, &
                    l1_lambda, l2_lambda, momentum)
               call fc_update(learning_rate, fc_input, fc_gradients, &
                    l1_lambda, l2_lambda, momentum, l_batch=batch_learning)
@@ -401,9 +412,17 @@ program ConvolutionalNeuralNetwork
            write(0,*) "Exiting..."
            stop
         end if
+
+
+        !! Adjust losses to batch size and store
+        !!----------------------------------------------------------------------
+        sum_loss = sum_loss / batch_size
         loss_history = cshift(loss_history, shift=-1, dim=1)
         loss_history(1) = sum_loss
-        
+
+
+        !! Check loss convergence
+        !!----------------------------------------------------------------------
         if(abs(sum(loss_history)).lt.loss_threshold)then
            write(6,*) "Convergence achieved, accuracy threshold reached"
            write(6,*) "Exiting training loop"
@@ -429,7 +448,7 @@ program ConvolutionalNeuralNetwork
               rtmp1 = abs(exploding_check/exploding_check_old)
               if(rtmp1.gt.1.E3_real12)then
                  write(0,*) "WARNING: FC outputs are expanding too quickly!"
-                 write(0,*) "check:", sample, exploding_check, exploding_check_old
+                 write(0,*) "check:", sample,exploding_check,exploding_check_old
               elseif(rtmp1.lt.1.E-3_real12)then
                  write(0,*) "WARNING: FC outputs are vanishing too quickly!"
                  write(0,*) "check:", exploding_check, exploding_check_old
@@ -452,7 +471,8 @@ program ConvolutionalNeuralNetwork
 
         !! print batch results
         !!----------------------------------------------------------------------
-        write(6,'("epoch=",I0,", batch=",I0", learning_rate=",F0.3,", loss=",F0.3)') &
+        write(6,'("epoch=",I0,", batch=",I0,&
+             &", learning_rate=",F0.3,", loss=",F0.3)') &
              epoch, batch, learning_rate, sum_loss
 
 
@@ -479,8 +499,8 @@ program ConvolutionalNeuralNetwork
 
      !! print epoch summary results
      !!-------------------------------------------------------------------------
-     if(mod(epoch,20).eq.0.E0) &
-          write(6,'("epoch=",I0,", batch=",I0", learning_rate=",F0.3,", loss=",F0.3)') epoch, batch, learning_rate, sum_loss
+     !!if(mod(epoch,20).eq.0.E0) &
+     !!     write(6,'("epoch=",I0,", batch=",I0,", learning_rate=",F0.3,", loss=",F0.3)') epoch, batch, learning_rate, sum_loss
 
   end do epoch_loop
 
