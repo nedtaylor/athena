@@ -148,7 +148,7 @@ program ConvolutionalNeuralNetwork
      write(6,*) "Shuffling training dataset..."
      call shuffle(input_images, labels, 4, seed)
      write(6,*) "Training dataset shuffled"
-     if(verbosity.eq.1)then
+     if(verbosity.eq.-1)then
         write(6,*) "Check fort.11 and fort.12 to ensure data shuffling &
              &executed properly"
         do i=1,batch_size*2
@@ -414,7 +414,7 @@ program ConvolutionalNeuralNetwork
         end if
 
 
-        !! Adjust losses to batch size and store
+        !! Average accuracy and loss over batch size and store
         !!----------------------------------------------------------------------
         sum_loss = sum_loss / batch_size
         loss_history = cshift(loss_history, shift=-1, dim=1)
@@ -472,14 +472,16 @@ program ConvolutionalNeuralNetwork
 
         !! print batch results
         !!----------------------------------------------------------------------
-        write(6,'("epoch=",I0,", batch=",I0,&
-             &", learning_rate=",F0.3,", loss=",F0.3,", accuracy=",F0.3)') &
-             epoch, batch, learning_rate, sum_loss, sum_accuracy
+        if(abs(verbosity).gt.0)then
+           write(6,'("epoch=",I0,", batch=",I0,&
+                &", learning_rate=",F0.3,", loss=",F0.3,", accuracy=",F0.3)') &
+                epoch, batch, learning_rate, sum_loss, sum_accuracy
+        end if
 
 
         !! time check
         !!----------------------------------------------------------------------
-        if(verbosity.eq.2)then
+        if(verbosity.eq.-2)then
            time_old = time
            call system_clock(time)
            write(6,'("time check: ",I0," seconds")') (time-time_old)/clock_rate
@@ -500,8 +502,13 @@ program ConvolutionalNeuralNetwork
 
      !! print epoch summary results
      !!-------------------------------------------------------------------------
-     !!if(mod(epoch,20).eq.0.E0) &
-     !!     write(6,'("epoch=",I0,", batch=",I0,", learning_rate=",F0.3,", loss=",F0.3)') epoch, batch, learning_rate, sum_loss
+     if(verbosity.eq.0)then
+        !!if(mod(epoch,20).eq.0.E0) &
+        write(6,'("epoch=",I0,", batch=",I0,&
+             &", learning_rate=",F0.3,", loss=",F0.3,", accuracy=",F0.3)') &
+             epoch, batch, learning_rate, sum_loss, sum_accuracy
+     end if
+
 
   end do epoch_loop
 
@@ -524,7 +531,8 @@ program ConvolutionalNeuralNetwork
      call cv_forward(test_images(:,:,:,sample), cv_output)
      call pl_forward(cv_output, pl_output)
      fc_input = reshape(pl_output, [input_size])
-     call linear_renormalise(fc_input)
+     if(normalise_pooling)&
+          call linear_renormalise(fc_input)
      call fc_forward(fc_input, fc_output)
      call sm_forward(fc_output, sm_output)
 
@@ -538,10 +546,14 @@ program ConvolutionalNeuralNetwork
 
      !! print testing results
      !!-------------------------------------------------------------------------
-     write(6,'(I4," Expected=",I3,", Got=",I3,", Accuracy=",F0.3)') &
-          sample,expected-1, maxloc(sm_output,dim=1)-1, accuracy
-     write(0,*) sm_output
-     write(0,*)
+     if(abs(verbosity).gt.1)then
+        write(6,'(I4," Expected=",I3,", Got=",I3,", Accuracy=",F0.3)') &
+             sample,expected-1, maxloc(sm_output,dim=1)-1, accuracy
+     end if
+     if(verbosity.lt.1)then
+        write(0,*) sm_output
+        write(0,*)
+     end if
 
   end do test_loop
 
