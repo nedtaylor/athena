@@ -419,7 +419,7 @@ program ConvolutionalNeuralNetwork
            expected = labels(sample)
 #endif
            !sum_loss = sum_loss + categorical_cross_entropy(sm_output, expected)
-           sum_loss = sum_loss + negative_loss_likelihood(sm_output, expected)
+           sum_loss = sum_loss + negative_log_likelihood(sm_output, expected)
            sum_accuracy = sum_accuracy + compute_accuracy(sm_output, expected)
 
 
@@ -645,7 +645,7 @@ program ConvolutionalNeuralNetwork
      !!-------------------------------------------------------------------------
      expected = test_labels(sample)
      !sum_loss = sum_loss + categorical_cross_entropy(sm_output, expected)
-     sum_loss = sum_loss + negative_loss_likelihood(sm_output, expected)     
+     sum_loss = sum_loss + negative_log_likelihood(sm_output, expected)     
      accuracy = compute_accuracy(sm_output, expected)
 
 
@@ -709,7 +709,7 @@ contains
 !!! compute losses
 !!! method: categorical cross entropy
 !!!#############################################################################
-  function negative_loss_likelihood(output, expected) result(loss)
+  function negative_log_likelihood(output, expected) result(loss)
     implicit none
     real(real12), dimension(:), intent(in) :: output
     integer, intent(in) :: expected
@@ -726,7 +726,7 @@ contains
        end if
     end do
 
-  end function negative_loss_likelihood
+  end function negative_log_likelihood
 !!!#############################################################################
 
 
