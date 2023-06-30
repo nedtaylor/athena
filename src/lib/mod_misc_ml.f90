@@ -13,6 +13,84 @@ module misc_ml
 
 
 contains
+!!! https://proceedings.neurips.cc/paper/2018/file/7edcfb2d8f6a659ef4cd1e6c9b6d7079-Paper.pdf
+!!! https://pub.towardsai.net/dropblock-a-new-regularization-technique-e926bbc74adb
+
+!!!########################################################################
+!!! DropBlock method for dropping random blocks of data from an image
+!!!########################################################################
+!!! input = input data
+!!!         ... channels are provided independently
+!!!         ... this tries to prevent the network from relying too ...
+!!!         ... heavily one one set of activations
+!!! keep_prob   = probability of keeping a unit, as in traditional dropout
+!!!               ... (default = 0.75-0.95)
+!!! block_size  = width of block (default = 5)
+!!! gamma       = how many activation units to drop
+  subroutine drop_block(input, mask, block_size)
+    implicit none
+    real(real12), dimension(:,:), intent(inout) :: input
+    logical, dimension(:,:), intent(in) :: mask
+    integer, intent(in) :: block_size
+    !real(real12), intent(in) :: keep_prob
+
+    integer :: i, j, x, y, start_idx, end_idx, input_size
+
+    input_size = size(input, dim=1)
+    start_idx = -(block_size - 1)/2 !centre should be zero
+    end_idx = (block_size -1)/2 + (1 - mod(block_size,2)) !centre should be zero
+
+    ! gamma = (1 - keep_prob)/block_size**2 * input_size**2/(input_size - block_size + 1)**2
+
+    do j = 1, input_size
+       do i = 1, input_size
+          if (.not.mask(i, j))then
+             do x=start_idx,end_idx,1
+                do y=start_idx,end_idx,1
+                   input(i + start_idx + x, j + start_idx + y) = 0._real12
+                end do
+             end do
+          endif
+       end do
+    end do
+
+    input = input * size(mask,dim=1) * size(mask,dim=2) / count(mask)
+
+  end subroutine drop_block
+!!!########################################################################
+
+
+!!!########################################################################
+!!! 
+!!!########################################################################
+  subroutine generate_bernoulli_mask(mask, gamma, seed)
+    implicit none
+    logical, dimension(:,:), intent(out) :: mask
+    real, intent(in) :: gamma
+    integer, optional, intent(in) :: seed
+    real(real12), allocatable, dimension(:,:) :: mask_real
+    integer :: i, j
+
+    !! IF seed GIVEN, INITIALISE
+    ! assume random number already seeded and don't need to again
+    !call random_seed()  ! Initialize random number generator
+    allocate(mask_real(size(mask,1), size(mask,2)))
+    call random_number(mask_real)  ! Generate random values in [0,1)
+
+    !! Apply threshold to create binary mask
+    do j = 1, size(mask, dim=2)
+       do i = 1, size(mask, dim=1)
+          if(mask_real(i, j).gt.gamma)then
+             mask(i, j) = .false. !0 = drop
+          else
+             mask(i, j) = .true.  !1 = keep
+          end if
+       end do
+    end do
+    
+  end subroutine generate_bernoulli_mask
+!!!########################################################################
+
 
 !!!########################################################################
 !!! return width of padding from kernel/filter size
@@ -52,7 +130,7 @@ contains
 !!! method: reduce learning rate on plateau
 !!!########################################################################
   subroutine reduce_lr_on_plateau(learning_rate, &
-       metric_value, patience, factor, min_lr, & 
+       metric_value, patience, factor, min_learning_rate, & 
        best_metric_value, wait)
     implicit none
     integer, intent(in) :: patience
@@ -60,7 +138,7 @@ contains
     real(real12), intent(inout) :: learning_rate
     real(real12), intent(in) :: metric_value
     real(real12), intent(in) :: factor
-    real(real12), intent(in) :: min_lr
+    real(real12), intent(in) :: min_learning_rate
     real(real12), intent(inout) :: best_metric_value
 
     !! check if the metric value has improved
@@ -71,8 +149,8 @@ contains
        wait = wait + 1
        if (wait.ge.patience) then
           learning_rate = learning_rate * factor
-          if (learning_rate.lt.min_lr) then
-             learning_rate = min_lr
+          if (learning_rate.lt.min_learning_rate) then
+             learning_rate = min_learning_rate
           endif
           wait = 0
        endif
