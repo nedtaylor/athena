@@ -29,10 +29,15 @@ contains
 !!!#############################################################################
 !!! initialisation
 !!!#############################################################################
-  function initialise()
+  function initialise(scale)
     implicit none
     type(leaky_relu_type) :: initialise    
-    !initialise%scale = 1._real12
+    real(real12), optional, intent(in) :: scale
+    if(present(scale))then
+       initialise%scale = scale
+    else
+       initialise%scale = 1._real12
+    end if
   end function initialise
 !!!#############################################################################
   
@@ -47,7 +52,7 @@ contains
     real(real12), intent(in) :: val
     real(real12) :: output
 
-    output = max(0.01_real12*val, val)
+    output = max(0.01_real12*val, val) * this%scale
   end function leaky_relu_activate
 !!!#############################################################################
 
@@ -65,7 +70,7 @@ contains
     real(real12) :: output
 
     if(val.ge.0._real12)then
-       output = 1._real12
+       output = this%scale
     else
        output = 0.01_real12
     end if

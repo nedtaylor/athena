@@ -8,8 +8,6 @@ module activation_tanh
   use custom_types, only: activation_type
   implicit none
   
-  real(real12) :: limit
-
   type, extends(activation_type) :: tanh_type
    contains
      procedure :: activate => tanh_activate
@@ -31,17 +29,23 @@ contains
 !!!#############################################################################
 !!! initialisation
 !!!#############################################################################
-  function initialise(threshold)
+  function initialise(threshold, scale)
     implicit none
     type(tanh_type) :: initialise
     real(real12), optional, intent(in) :: threshold
+    real(real12), optional, intent(in) :: scale
 
-    !initialise%scale = 1._real12
+    if(present(scale))then
+       initialise%scale = scale
+    else
+       initialise%scale = 1._real12
+    end if
+
     !initialise%name = "tanh"
     if(present(threshold))then
-       limit = threshold
+       initialise%threshold = threshold
     else
-       limit = min(huge(1._real12),32._real12)
+       initialise%threshold = min(huge(1._real12),32._real12)
     end if
 
   end function initialise
@@ -61,10 +65,10 @@ contains
 
     !! fix rounding errors of division of small numbers
     !! alt. could add an epsilon
-    if(abs(val).gt.limit)then
-       output = sign(1._real12, val)
+    if(abs(val).gt.this%threshold)then
+       output = sign(1._real12, val) * this%scale
     else
-       output = (exp(val) - exp(-val))/(exp(val) + exp(-val))
+       output = this%scale * (exp(val) - exp(-val))/(exp(val) + exp(-val))
     end if
 
   end function tanh_activate
@@ -81,7 +85,9 @@ contains
     real(real12), intent(in) :: val
     real(real12) :: output
 
-    output = 1._real12 - this%activate(val) ** 2._real12
+    output = this%scale * &
+         (1._real12 - (this%activate(val)/this%scale) ** 2._real12)
+
   end function tanh_differentiate
 !!!#############################################################################
 

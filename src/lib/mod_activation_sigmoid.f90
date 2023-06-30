@@ -29,9 +29,23 @@ contains
 !!!#############################################################################
 !!! initialisation
 !!!#############################################################################
-  function initialise()
+  function initialise(threshold, scale)
     implicit none
-    type(sigmoid_type) :: initialise    
+    type(sigmoid_type) :: initialise
+    real(real12), optional, intent(in) :: threshold
+    real(real12), optional, intent(in) :: scale
+
+    if(present(scale))then
+       initialise%scale = scale
+    else
+       initialise%scale = 1._real12
+    end if
+
+    if(present(threshold))then
+       initialise%threshold = threshold
+    else
+       initialise%threshold = -min(huge(1._real12),32._real12)
+    end if
     !initialise%scale = 1._real12
   end function initialise
 !!!#############################################################################
@@ -47,7 +61,11 @@ contains
     real(real12), intent(in) :: val
     real(real12) :: output
 
-    output = 1._real12 /(1._real12 + exp(-val))
+    if(val.lt.this%threshold)then
+       output = 0._real12
+    else
+       output = this%scale /(1._real12 + exp(-val))
+    end if
   end function sigmoid_activate
 !!!#############################################################################
 
@@ -62,7 +80,7 @@ contains
     real(real12), intent(in) :: val
     real(real12) :: output
 
-    output = this%activate(val) * (1._real12 - this%activate(val))
+    output = this%scale * this%activate(val) * (this%scale - this%activate(val))
   end function sigmoid_differentiate
 !!!#############################################################################
 

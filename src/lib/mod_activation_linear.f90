@@ -29,13 +29,13 @@ contains
 !!!#############################################################################
 !!! initialisation
 !!!#############################################################################
-  function initialise(val)
+  function initialise(scale)
     implicit none
     type(linear_type) :: initialise
-    real(real12), optional, intent(in) :: val
+    real(real12), optional, intent(in) :: scale
     
-    if(present(val))then
-       initialise%scale = val
+    if(present(scale))then
+       initialise%scale = scale
     else
        initialise%scale = 1._real12 !0.05_real12
     end if
