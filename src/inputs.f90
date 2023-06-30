@@ -17,6 +17,7 @@ module inputs
   real(real12) :: l1_lambda, l2_lambda  ! l1 and l2 regularisation parameters
   type(learning_parameters_type) :: learning_parameters
   logical :: batch_learning
+  character(:), allocatable :: loss_method
 
   integer :: num_epochs  ! number of epochs
   integer :: batch_size  ! size of mini batches
@@ -54,6 +55,7 @@ module inputs
   public :: batch_learning
   public :: loss_threshold
   public :: plateau_threshold
+  public :: loss_method
 
   public :: learning_rate, l1_lambda, l2_lambda
   public :: num_epochs, batch_size
@@ -244,6 +246,7 @@ contains
     real(real12) :: momentum, beta1, beta2, epsilon
     character(512) :: hidden_layers=""
 
+    character(4)  :: loss=""
     character(6)  :: normalisation=""
     character(20) :: adaptive_learning=""
     character(20) :: padding_type, convolution_type
@@ -261,7 +264,7 @@ contains
          plateau_threshold, loss_threshold, &
          learning_rate, momentum, l1_lambda, l2_lambda, &
          shuffle_dataset, batch_learning, adaptive_learning, &
-         beta1, beta2, epsilon
+         beta1, beta2, epsilon, loss
     namelist /convolution/ cv_num_filters, kernel_size, stride, &
          clip_min, clip_max, clip_norm, convolution_type, padding_type
     namelist /pooling/ kernel_size, stride, normalisation
@@ -345,6 +348,20 @@ contains
 !!! close input file
 !!!-----------------------------------------------------------------------------
     close(unit)
+
+
+!!!-----------------------------------------------------------------------------
+!!! handle adaptive learning method
+!!!-----------------------------------------------------------------------------
+    !! ce  = cross entropy (defaults to categorical)
+    !! cce = categorical cross entropy
+    !! mse = mean square error
+    !! nll = negative log likelihood
+    if(trim(loss).eq."")then
+       loss_method = "mse"
+    else
+       loss_method = to_lower(trim(loss))
+    end if
 
 
 !!!-----------------------------------------------------------------------------

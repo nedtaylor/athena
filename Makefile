@@ -20,6 +20,7 @@ LIBS := mod_constants.f90 \
 	mod_misc.f90 \
 	mod_tools_infile.f90 \
 	mod_normalisation.f90 \
+	mod_loss_categorical.f90
 OBJS := $(addprefix $(LIB_DIR)/,$(LIBS))
 #$(info VAR is $(OBJS))
 SRCS := inputs.f90 \

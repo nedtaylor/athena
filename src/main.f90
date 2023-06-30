@@ -12,6 +12,7 @@ program ConvolutionalNeuralNetwork
   use infile_tools, only: stop_check
   use normalisation, only: linear_renormalise, &
        renormalise_norm, renormalise_sum
+  use loss_categorical!, only: loss_mse, loss_nll, loss_cce, loss_type
   use inputs
   use ConvolutionLayer, cv_init => initialise, cv_forward => forward, &
        cv_backward => backward, &
@@ -38,6 +39,8 @@ program ConvolutionalNeuralNetwork
   real(real12) :: exploding_check, exploding_check_old
   logical :: repetitive_predicting
   real(real12), allocatable, dimension(:) :: loss_history
+  !class(loss_type), pointer :: get_loss
+  procedure(compute_loss_function), pointer :: compute_loss
 
   !! learning parameters
   integer :: update_iteration
@@ -262,6 +265,9 @@ program ConvolutionalNeuralNetwork
   end do
 
 
+!!!-----------------------------------------------------------------------------
+!!! initialise fully connected layer gradients
+!!!-----------------------------------------------------------------------------
   select case (learning_parameters%method)
   case("adam")
      do l=1,fc_num_layers
@@ -279,13 +285,27 @@ program ConvolutionalNeuralNetwork
 
 
 !!!-----------------------------------------------------------------------------
+!!! initialise loss method
+!!!-----------------------------------------------------------------------------
+  select case(loss_method)
+  case("cce")
+     compute_loss => compute_loss_cce
+     write(*,*) "Loss method: Categorical Cross Entropy"
+  case("mse")
+     compute_loss => compute_loss_mse
+     write(*,*) "Loss method: Mean Squared Error"
+  case("nll")
+     compute_loss => compute_loss_nll
+     write(*,*) "Loss method: Negative log likelihood"
+  case default
+     write(*,*) "Failed loss method: "//trim(loss_method)
+     stop "ERROR: No loss method provided"
+  end select
+
+
+!!!-----------------------------------------------------------------------------
 !!! if parallel, initialise slices
 !!!-----------------------------------------------------------------------------
-  !write(0,*) "IMAGE SIZE", lw_image_size,up_image_size
-  !allocate(image_sample(&
-  !     lw_image_size:up_image_size,&
-  !     lw_image_size:up_image_size,&
-  !     size(input_images,dim=3)))
 #ifdef _OPENMP
   allocate(image_slice(&
        lw_image_size:up_image_size,&
@@ -358,6 +378,7 @@ program ConvolutionalNeuralNetwork
         !$OMP& SHARED(fc_clip, cv_clip, batch_learning, fc_num_layers) &
         !$OMP& PRIVATE(sample) &
         !$OMP& FIRSTPRIVATE(predicted_old) & 
+        !$OMP& FIRSTPRIVATE(compute_loss) &
         !$OMP& PRIVATE(predicted_new) &
         !$OMP& PRIVATE(cv_output, cv_gradients) &
         !$OMP& PRIVATE(pl_output, pl_gradients) &
@@ -395,7 +416,7 @@ program ConvolutionalNeuralNetwork
   
            !! check for NaN and infinity
            !!-------------------------------------------------------------------
-           write(0,*) sm_output
+           !write(0,*) sm_output
            if(any(isnan(sm_output)))then
               write(0,*) "ERROR: Softmax outputs are NaN"
               write(0,*) fc_input
@@ -430,8 +451,7 @@ program ConvolutionalNeuralNetwork
 #else
            expected = labels(sample)
 #endif
-           !sum_loss = sum_loss + categorical_cross_entropy(sm_output, expected)
-           sum_loss = sum_loss + negative_log_likelihood(sm_output, expected)
+           sum_loss = sum_loss + compute_loss(predicted=sm_output, expected=expected)
            sum_accuracy = sum_accuracy + compute_accuracy(sm_output, expected)
 
 
@@ -663,8 +683,7 @@ program ConvolutionalNeuralNetwork
      !! compute loss and accuracy (for monitoring)
      !!-------------------------------------------------------------------------
      expected = test_labels(sample)
-     !sum_loss = sum_loss + categorical_cross_entropy(sm_output, expected)
-     sum_loss = sum_loss + negative_log_likelihood(sm_output, expected)     
+     sum_loss = sum_loss + compute_loss(predicted=sm_output, expected=expected)     
      accuracy = compute_accuracy(sm_output, expected)
 
 
@@ -694,95 +713,6 @@ program ConvolutionalNeuralNetwork
 !!!#############################################################################
 
 contains
-
-!!!#############################################################################
-!!! compute losses
-!!! method: mean squared error
-!!!#############################################################################
-  function compute_loss(output, expected) result(loss)
-    implicit none
-    real(real12), dimension(:), intent(in) :: output
-    integer, intent(in) :: expected
-    integer :: i
-    real(real12) :: loss, total
-
-    !! Compute the cross-entropy loss
-    total = 0._real12
-    do i=1,size(output)
-       if(i.eq.expected)then
-          total = total + (output(i) - 1._real12)**2.E0
-       else
-          total = total + output(i)**2.E0
-       end if
-    end do
-    !loss = -log(output(expected))
-    !! ERROR: total = 0 means no loss, but log(0) = INF
-    !loss = -log(total)
-    loss = total /(2*size(output))
-
-  end function compute_loss
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! compute losses
-!!! method: categorical cross entropy
-!!!#############################################################################
-  function negative_log_likelihood(output, expected) result(loss)
-    implicit none
-    real(real12), dimension(:), intent(in) :: output
-    integer, intent(in) :: expected
-    integer :: i
-    real(real12) :: loss, epsilon
-
-    epsilon = 1.E-10_real12
-    loss = 0._real12
-    do i=1,size(output)
-       if(i.eq.expected)then
-          loss = loss - log(output(i)+epsilon)
-       else
-          loss = loss - log(1-output(i)+epsilon)
-       end if
-    end do
-
-  end function negative_log_likelihood
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! compute losses
-!!! method: categorical cross entropy
-!!!#############################################################################
-  function categorical_cross_entropy(output, expected) result(loss)
-    implicit none
-    real(real12), dimension(:), intent(in) :: output
-    integer, intent(in) :: expected
-    real(real12) :: loss, epsilon
-
-    epsilon = 1.E-10_real12
-    loss = -1._real12/real(size(output, dim=1),real12) * log(output(expected)+epsilon)
-
-  end function categorical_cross_entropy
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! compute loss derivative
-!!! method: categorical cross entropy
-!!! this is handled by the softmax backward subroutine
-!!!#############################################################################
-  subroutine categorical_cross_entropy_derivative(output, expected, gradient)
-    implicit none
-    integer, intent(in) :: expected
-    real(real12), dimension(:), intent(in) :: output
-    real(real12), dimension(:), intent(out) :: gradient
-    
-    gradient = output
-    gradient(expected) = output(expected) - 1._real12
-
-  end subroutine categorical_cross_entropy_derivative
-!!!#############################################################################
-
 
 !!!#############################################################################
 !!! compute accuracy
