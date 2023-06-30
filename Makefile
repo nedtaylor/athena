@@ -18,11 +18,11 @@ LIBS := mod_constants.f90 \
 	mod_activation_sigmoid.f90 \
 	mod_activation_tanh.f90 \
 	mod_misc.f90 \
-	mod_tools_infile.f90
+	mod_tools_infile.f90 \
+	mod_normalisation.f90 \
 OBJS := $(addprefix $(LIB_DIR)/,$(LIBS))
 #$(info VAR is $(OBJS))
 SRCS := inputs.f90 \
-	normalisation.f90 \
 	convolution.f90 \
 	pooling.f90 \
 	fullyconnected.f90 \
