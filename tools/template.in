@@ -8,18 +8,18 @@
  num_epochs = 20,
  batch_size = 32,
  loss_threshold = 5.E-2,
- plateau_threshold = 1.E-1
+ plateau_threshold = 1.E-1,
  learning_rate = 0.01,
  momentum = 0.8,
  l1_lambda = 0.6,
- l2_lambda = 0.0,
- beta1 = 0.9,
- beta2 = 0.999,
- epsilon = 1.E-8,
+ l2_lambda = 0.1,
  shuffle_dataset = .true.,
  batch_learning = .true.,
- adaptive = "adam",
- loss = "nll"
+ adaptive_learning = "adam",
+ loss = "nll",
+ beta1 = 0.9,
+ beta2 = 0.999,
+ epsilon = 1E-8
 /
 
 &convolution
