@@ -22,7 +22,7 @@ OBJS := $(addprefix $(LIB_DIR)/,$(LIBS))
 SRCS := inputs.f90 \
 	normalisation.f90 \
 	convolution.f90 \
-	pool.f90 \
+	pooling.f90 \
 	fullyconnected.f90 \
 	softmax.f90
 MAIN := main.f90
