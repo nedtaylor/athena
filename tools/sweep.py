@@ -9,12 +9,12 @@ import wandb
 
 ## define global variables
 project='cnn_mnist_test'
-sweep_id = 'emjb3nsc' #'8qcw0m55'
-count=20
+sweep_id = 't6ldlhvz'#'emjb3nsc' #'8qcw0m55'
+count=100
 file_template = "template.in"
 workdir = getcwd() # "../"
-min_neurons = 2
-max_neurons = 100
+min_neurons = 12
+max_neurons = 200
 
 ## check whether template file exists
 ## ... if not, exit
@@ -71,15 +71,22 @@ def main():
     ## populate parameter dictionary
     param_dict['training'] = {
         'learning_rate': wandb.config.learning_rate,
-        'momentum': wandb.config.momentum,
         'l1_lambda': wandb.config.l1_lambda,
         'l2_lambda': wandb.config.l2_lambda,
         'batch_size': wandb.config.batch_size,
-        'num_epochs': wandb.config.num_epochs
+        'num_epochs': wandb.config.num_epochs,
+        'beta1': wandb.config.beta1,
+        'beta2': wandb.config.beta2
     }
     param_dict['convolution'] = {
         'cv_num_filters': wandb.config.cv_num_filters,
-        'clip_norm': wandb.config.cv_clip_norm
+        'clip_norm': wandb.config.cv_clip_norm,
+        'kernel_size': wandb.config.cv_kernel_size,
+        'stride':wandb.config.cv_stride
+    }
+    param_dict['pooling'] = {
+        'kernel_size': wandb.config.pool_kernel_size,
+        'stride':wandb.config.pool_stride
     }
     param_dict['fully_connected'] = {
         'clip_norm': wandb.config.fc_clip_norm,
@@ -139,7 +146,7 @@ def main():
     stderr = "stdout.e"
     stdout_file = open(stdout, 'w')
     stderr_file = open(stderr, 'w')
-    p = subprocess.Popen(args=["/home/links/ntt203/DCoding/DGitlab/convolutional_neural_network/bin/cnn_mp",
+    p = subprocess.Popen(args=["/home/links/ntt203/DCoding/DGitlab/convolutional_neural_network/bin/cnn_wandb",
                              "-f"+file_param],
                        stdout=stdout_file,
                        stderr=stderr_file
