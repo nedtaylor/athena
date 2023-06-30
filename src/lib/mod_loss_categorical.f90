@@ -4,13 +4,6 @@ module loss_categorical
   use constants, only: real12
   implicit none
 
-  !type, abstract :: loss_type
-  !   !real(real12) :: epsilon
-  ! contains
-  !   procedure (compute_loss_function), deferred :: compute
-  !end type loss_type
-
-
   abstract interface
      function compute_loss_function(predicted, expected) result(output)
        import real12
@@ -20,30 +13,6 @@ module loss_categorical
      end function compute_loss_function
   end interface
   
-  
-  !type, extends(loss_type) :: mse_type
-  ! contains
-  !   procedure :: compute => compute_loss_mse
-  !end type mse_type
-  !type(mse_type), target :: loss_mse
-  !
-  !type, extends(loss_type) :: nll_type
-  ! contains
-  !   procedure :: compute => compute_loss_nll
-  !end type nll_type
-  !type(mse_type), target :: loss_nll
-  !
-  !type, extends(loss_type) :: bce_type
-  ! contains
-  !   procedure :: compute => compute_loss_bce
-  !end type bce_type
-  !type(mse_type), target :: loss_bce
-  !
-  !type, extends(loss_type) :: cce_type
-  ! contains
-  !   procedure :: compute => compute_loss_cce
-  !end type cce_type
-  !type(mse_type), target :: loss_cce
 
   private
 
@@ -53,15 +22,8 @@ module loss_categorical
   public :: compute_loss_mse
   public :: compute_loss_nll
 
-  !public :: loss_type
-  !public :: loss_mse
-  !public :: loss_nll
-  !public :: loss_bce
-  !public :: loss_cce
 
 contains
-
-
 
 !!!#############################################################################
 !!! compute losses
