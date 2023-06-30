@@ -7,6 +7,7 @@ program ConvolutionalNeuralNetwork
 #endif
   use constants, only: real12
   use misc, only: shuffle
+  use misc_ml, only: step_decay, reduce_lr_on_plateau
   !use misc_maths, only: mean
   use infile_tools, only: stop_check
   use normalisation, only: linear_renormalise
@@ -31,9 +32,14 @@ program ConvolutionalNeuralNetwork
   integer, allocatable, dimension(:) :: seed_arr
 
   !! training and testing monitoring
+  integer :: predicted_old, predicted_new
   real(real12) :: accuracy, sum_accuracy, sum_loss, overall_loss
   real(real12) :: exploding_check, exploding_check_old
+  logical :: repetitive_predicting
   real(real12), allocatable, dimension(:) :: loss_history
+
+  !! learning parameters
+  integer :: update_iteration
 
   !! data loading and preoprocessing
   real(real12), allocatable, dimension(:,:,:,:) :: input_images, test_images
@@ -119,9 +125,14 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
 !!! initialise monitoring variables
 !!!-----------------------------------------------------------------------------
-  allocate(loss_history(10))
+  if(batch_size.lt.50)then
+     allocate(loss_history(100))
+  elseif(batch_size.lt.num_samples.and.batch_size.lt.500)then
+     allocate(loss_history(2*batch_size))
+  else
+     allocate(loss_history(min(num_samples,100)))
+  end if
   loss_history = -huge(1._real12)
-  loss_threshold = 2._real12
   if(batch_learning)then
      exploding_check = 0._real12
      exploding_check_old = 0._real12
@@ -244,8 +255,25 @@ program ConvolutionalNeuralNetwork
      allocate(fc_gradients(l)%val(fc_num_hidden(l)))
      allocate(comb_fc_gradients(l)%val(fc_num_hidden(l)))
      fc_gradients(l)%val = 0._real12
-     comb_fc_gradients(l)%val(:) = 0._real12
+     comb_fc_gradients(l)%val = 0._real12
   end do
+
+
+  select case (learning_parameters%method)
+  case("")
+  case("adam")
+     do l=1,fc_num_layers
+        allocate(fc_gradients(l)%m(fc_num_hidden(l)))
+        allocate(fc_gradients(l)%v(fc_num_hidden(l)))
+        allocate(comb_fc_gradients(l)%m(fc_num_hidden(l)))
+        allocate(comb_fc_gradients(l)%v(fc_num_hidden(l)))
+        fc_gradients(l)%m = 0._real12
+        fc_gradients(l)%v = 0._real12
+        comb_fc_gradients(l)%m = 0._real12
+        comb_fc_gradients(l)%v = 0._real12
+     end do
+     update_iteration = 1
+  end select
 
 
 !!!-----------------------------------------------------------------------------
@@ -312,6 +340,8 @@ program ConvolutionalNeuralNetwork
         !!----------------------------------------------------------------------
         sum_loss = 0._real12
         sum_accuracy = 0._real12
+        predicted_old = -1
+        repetitive_predicting = .true.
 
 
         !!----------------------------------------------------------------------
@@ -322,14 +352,17 @@ program ConvolutionalNeuralNetwork
         !$OMP& DEFAULT(NONE) &
         !$OMP& SHARED(network, convolution) &
         !$OMP& SHARED(image_slice, label_slice) &
-        !$OMP& SHARED(input_size, batch_size) &
+        !$OMP& SHARED(input_size, batch_size, normalise_pooling) &
         !$OMP& SHARED(fc_clip, cv_clip, batch_learning, fc_num_layers) &
         !$OMP& PRIVATE(sample) &
+        !$OMP& FIRSTPRIVATE(predicted_old) & 
+        !$OMP& PRIVATE(predicted_new) &
         !$OMP& PRIVATE(cv_output, cv_gradients) &
         !$OMP& PRIVATE(pl_output, pl_gradients) &
         !$OMP& PRIVATE(fc_input, fc_output,fc_gradients, fc_gradients_rs) &
         !$OMP& PRIVATE(sm_output, sm_gradients) &
         !$OMP& PRIVATE(rtmp1, expected, exploding_check_old) &
+        !$OMP& REDUCTION(.and.: repetitive_predicting) &
         !$OMP& REDUCTION(+:comb_cv_gradients,sum_loss,sum_accuracy,exploding_check) &
         !$OMP& REDUCTION(sum_operator:comb_fc_gradients)
         train_loop: do sample = start_index, end_index
@@ -385,8 +418,18 @@ program ConvolutionalNeuralNetwork
 #else
            expected = labels(sample)
 #endif
-           sum_loss = sum_loss + categorical_cross_entropy(sm_output, expected)
+           !sum_loss = sum_loss + categorical_cross_entropy(sm_output, expected)
+           sum_loss = sum_loss + negative_loss_likelihood(sm_output, expected)
            sum_accuracy = sum_accuracy + compute_accuracy(sm_output, expected)
+
+
+           !! check that isn't just predicting same value every time
+           !!-------------------------------------------------------------------
+           predicted_new = maxloc(sm_output,dim=1)-1
+           if(repetitive_predicting.and.predicted_old.gt.-1)then
+              repetitive_predicting = predicted_old.eq.predicted_new
+           end if
+           predicted_old = predicted_new
 
 
            !! Backward pass
@@ -395,9 +438,14 @@ program ConvolutionalNeuralNetwork
            call fc_backward(fc_input, sm_gradients, fc_gradients, fc_clip)
            fc_gradients_rs = reshape(fc_gradients(1)%val,shape(fc_gradients_rs))
            call pl_backward(cv_output, fc_gradients_rs, pl_gradients)
-           call cv_backward(image_sample, pl_gradients, &
+#ifdef _OPENMP
+           call cv_backward(image_slice(:,:,:,sample), pl_gradients, &
                 cv_gradients, cv_clip)
-
+#else
+           call cv_backward(input_images(:,:,:,sample), pl_gradients, &
+                cv_gradients, cv_clip)
+#endif
+                      
 
            !! if mini-batch ...
            !! ... sum gradients for mini-batch training
@@ -415,12 +463,12 @@ program ConvolutionalNeuralNetwork
            else
               !call cv_update(learning_rate, image_sample, &
               !     cv_gradients, &
-              !     l1_lambda, l2_lambda, momentum)
+              !     l1_lambda, l2_lambda, learning_parameters%momentum)
               call cv_update(learning_rate, input_images(:,:,:,sample), &
                    cv_gradients, &
-                   l1_lambda, l2_lambda, momentum)
+                   l1_lambda, l2_lambda, learning_parameters%momentum)
               call fc_update(learning_rate, fc_input, fc_gradients, &
-                   l1_lambda, l2_lambda, momentum, l_batch=batch_learning)
+                   l1_lambda, l2_lambda, update_iteration)
 #endif
            end if
 
@@ -429,17 +477,27 @@ program ConvolutionalNeuralNetwork
         !$OMP END PARALLEL DO
 
 
-        !! Error checking and handling
+        !! Check if categorical predicting is stuck on same value
         !!----------------------------------------------------------------------
-        rtmp1 = 0._real12
-        do l=1,fc_num_layers
-           rtmp1 = rtmp1 + sum(abs(comb_fc_gradients(l)%val))
-        end do
-        if(rtmp1.lt.1.D-8)then
-           write(0,*) "ERROR: FullyConnected gradients are zero"
-           write(0,*) "Exiting..."
-           stop
+#ifdef _OPENMP
+        if(repetitive_predicting.and.&
+             all(label_slice(:).eq.label_slice(1))) &
+             repetitive_predicting = .false.
+#else
+        if(repetitive_predicting.and.&
+             all(labels(start_index:end_index).eq.labels(start_index))) &
+             repetitive_predicting = .false.
+#endif
+        if(repetitive_predicting)then
+           write(0,'("WARNING: all predictions in batch ",I0," are the same")') batch
+           write(0,*) "WE SHOULD REALL DO SOMETHING TO KICK IT OUT OF THIS"
+           !do l=1,fc_num_layers
+           !   do i=1,size(comb_fc_gradients(l)%val,dim=1)
+           !      call random_number(comb_fc_gradients(l)%val(i))
+           !   end do
+           !end do
         end if
+
 
 
         !! Average accuracy and loss over batch size and store
@@ -457,13 +515,29 @@ program ConvolutionalNeuralNetwork
            write(6,*) "Exiting training loop"
            exit epoch_loop
         elseif(all(abs(loss_history-sum_loss).lt.plateau_threshold))then
-           write(0,*) "sm_output", sm_output
-           write(0,*) "sm_grad", sm_gradients
-           write(0,*) "fc_gradients", fc_gradients(1)%val
-           write(0,*) "ERROR: accuracy has remained constant for 10 runs"
+           !write(0,*) "sm_output", sm_output
+           !write(0,*) "sm_grad", sm_gradients
+           !write(0,*) "comv_fc_gradients", comb_fc_gradients(1)%val          
+           write(0,*) "ERROR: loss has remained constant for 10 runs"
+           write(0,*) loss_history
            write(0,*) "Exiting..."
            stop
            exit epoch_loop
+        end if
+
+
+        !! Error checking and handling
+        !!----------------------------------------------------------------------
+        if(abs(1._real12-sum_accuracy).gt.1.E-3_real12)then !!! HAVE THIS TIED TO BATCH SIZE
+           do l=1,fc_num_layers
+              if(all(abs(comb_fc_gradients(l)%val).lt.1.E-8_real12))then
+                 write(0,*) "ERROR: FullyConnected gradients are zero"
+                 write(0,*) "Exiting..."
+                 stop
+              end if
+           end do
+        else
+           goto 101
         end if
 
 
@@ -492,15 +566,15 @@ program ConvolutionalNeuralNetwork
            end do
            call cv_update(learning_rate, image_sample, &
                 comb_cv_gradients, &
-                l1_lambda, l2_lambda, momentum)
+                l1_lambda, l2_lambda, learning_parameters%momentum)
            call fc_update(learning_rate, fc_input, comb_fc_gradients, &
-                l1_lambda, l2_lambda, momentum, l_batch=batch_learning)
+                l1_lambda, l2_lambda, update_iteration)
         end if
 
 
         !! print batch results
         !!----------------------------------------------------------------------
-        if(abs(verbosity).gt.0)then
+101     if(abs(verbosity).gt.0)then
            write(6,'("epoch=",I0,", batch=",I0,&
                 &", learning_rate=",F0.3,", loss=",F0.3,", accuracy=",F0.3)') &
                 epoch, batch, learning_rate, sum_loss, sum_accuracy
@@ -544,11 +618,13 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
 !!! print weights and biases of CNN to file
 !!!-----------------------------------------------------------------------------
-  cnn_file = '../cnn_layers.txt'
+  cnn_file = 'cnn_layers.txt'
   open(unit=10,file=cnn_file,status='replace')
   close(10)
   call cv_write(cnn_file)
   call fc_write(cnn_file)
+
+  if(verbosity.gt.1) open(unit=15,file="results_test.out")
 
 
 !!!-----------------------------------------------------------------------------
@@ -568,14 +644,15 @@ program ConvolutionalNeuralNetwork
      !! compute loss and accuracy (for monitoring)
      !!-------------------------------------------------------------------------
      expected = test_labels(sample)
-     sum_loss = sum_loss + categorical_cross_entropy(sm_output, expected)
+     !sum_loss = sum_loss + categorical_cross_entropy(sm_output, expected)
+     sum_loss = sum_loss + negative_loss_likelihood(sm_output, expected)     
      accuracy = compute_accuracy(sm_output, expected)
 
 
      !! print testing results
      !!-------------------------------------------------------------------------
      if(abs(verbosity).gt.1)then
-        write(6,'(I4," Expected=",I3,", Got=",I3,", Accuracy=",F0.3)') &
+        write(15,'(I4," Expected=",I3,", Got=",I3,", Accuracy=",F0.3)') &
              sample,expected-1, maxloc(sm_output,dim=1)-1, accuracy
      end if
      if(verbosity.lt.1)then
@@ -584,7 +661,7 @@ program ConvolutionalNeuralNetwork
      end if
 
   end do test_loop
-
+  if(verbosity.gt.1) close(15)
 
   overall_loss = real(sum_loss)/real(num_samples_test)
   write(6,'("Overall accuracy=",F0.5)') overall_loss
@@ -601,7 +678,7 @@ contains
 
 !!!#############################################################################
 !!! compute losses
-!!! method: custom: RMSE-like???
+!!! method: mean squared error
 !!!#############################################################################
   function compute_loss(output, expected) result(loss)
     implicit none
@@ -622,9 +699,34 @@ contains
     !loss = -log(output(expected))
     !! ERROR: total = 0 means no loss, but log(0) = INF
     !loss = -log(total)
-    loss = total
+    loss = total /(2*size(output))
 
   end function compute_loss
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! compute losses
+!!! method: categorical cross entropy
+!!!#############################################################################
+  function negative_loss_likelihood(output, expected) result(loss)
+    implicit none
+    real(real12), dimension(:), intent(in) :: output
+    integer, intent(in) :: expected
+    integer :: i
+    real(real12) :: loss, epsilon
+
+    epsilon = 1.E-10_real12
+    loss = 0._real12
+    do i=1,size(output)
+       if(i.eq.expected)then
+          loss = loss - log(output(i)+epsilon)
+       else
+          loss = loss - log(1-output(i)+epsilon)
+       end if
+    end do
+
+  end function negative_loss_likelihood
 !!!#############################################################################
 
 
