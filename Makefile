@@ -10,7 +10,9 @@ BUILD_DIR = ./obj
 LIBS := mod_constants.f90 \
 	mod_misc_ml.f90 \
 	mod_types.f90 \
+	mod_activation_gaussian.f90 \
 	mod_activation_linear.f90 \
+	mod_activation_piecewise.f90 \
 	mod_activation_relu.f90 \
 	mod_activation_leaky_relu.f90 \
 	mod_activation_sigmoid.f90 \

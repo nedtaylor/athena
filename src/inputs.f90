@@ -125,7 +125,7 @@ contains
     fc_clip%norm =  huge(1._real12)
     activation_function = "relu"
     activation_scale = 1._real12
-    !! relu, leaky_relu, sigmoid, tanh
+    !! gaussian, relu, piecewise, leaky_relu, sigmoid, tanh
 
 
 !!!-----------------------------------------------------------------------------

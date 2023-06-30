@@ -8,7 +8,9 @@ module FullyConnectedLayer
   use misc_ml, only: adam_optimiser
   use custom_types, only: network_type, clip_type, activation_type, &
        learning_parameters_type
+  use activation_gaussian, only: gaussian_setup
   use activation_linear, only: linear_setup
+  use activation_piecewise, only: piecewise_setup
   use activation_relu, only: relu_setup
   use activation_leaky_relu, only: leaky_relu_setup
   use activation_sigmoid, only: sigmoid_setup
@@ -156,8 +158,12 @@ contains
        scale = 1._real12
     end if
     select case(trim(t_activation_function))
+    case("gaussian")
+       transfer = gaussian_setup(scale = scale)
     case ("linear")
        transfer = linear_setup(scale = scale)
+    case ("piecewise")
+       transfer = piecewise_setup(scale = scale)
     case ("relu")
        transfer = relu_setup(scale = scale)
     case ("leaky_relu")
