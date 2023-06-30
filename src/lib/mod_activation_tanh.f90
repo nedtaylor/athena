@@ -8,6 +8,8 @@ module activation_tanh
   use custom_types, only: activation_type
   implicit none
   
+  real(real12) :: limit
+
   type, extends(activation_type) :: tanh_type
    contains
      procedure :: activate => tanh_activate
@@ -29,11 +31,19 @@ contains
 !!!#############################################################################
 !!! initialisation
 !!!#############################################################################
-  function initialise()
+  function initialise(threshold)
     implicit none
-    type(tanh_type) :: initialise    
+    type(tanh_type) :: initialise
+    real(real12), optional, intent(in) :: threshold
+
     !initialise%scale = 1._real12
     !initialise%name = "tanh"
+    if(present(threshold))then
+       limit = threshold
+    else
+       limit = min(huge(1._real12),32._real12)
+    end if
+
   end function initialise
 !!!#############################################################################
   
@@ -48,7 +58,15 @@ contains
     real(real12), intent(in) :: val
     real(real12) :: output
 
-    output = (exp(val) - exp(-val))/(exp(val) + exp(-val))
+
+    !! fix rounding errors of division of small numbers
+    !! alt. could add an epsilon
+    if(abs(val).gt.limit)then
+       output = sign(1._real12, val)
+    else
+       output = (exp(val) - exp(-val))/(exp(val) + exp(-val))
+    end if
+
   end function tanh_activate
 !!!#############################################################################
 
