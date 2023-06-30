@@ -10,6 +10,30 @@ module custom_types
      real(real12) :: min, max, norm
   end type clip_type
 
+
+!!!------------------------------------------------------------------------
+!!! learning parameter type
+!!!------------------------------------------------------------------------
+  type learning_parameters_type
+     character(:), allocatable :: method
+     !! reduce learning rate on plateau parameters
+     integer :: wait = 0
+     integer :: patience = 0
+     real(real12) :: factor = 0._real12
+     real(real12) :: min_learning_rate = 0._real12
+     !! momentum parameters
+     real(real12) :: momentum = 0._real12  ! fraction of momentum based learning
+     !! step decay parameters
+     real(real12) :: decay_rate = 0._real12
+     real(real12) :: decay_steps = 0._real12
+     !! adam optimiser parameters
+     real(real12) :: beta1 = 0._real12
+     real(real12) :: beta2 = 0._real12
+     real(real12) :: epsilon = 0._real12
+     !real(real12) :: weight_decay  ! L2 regularisation on Adam (AdamW)
+  end type learning_parameters_type
+
+
 !!!------------------------------------------------------------------------
 !!! neural network neuron type
 !!!------------------------------------------------------------------------
@@ -19,12 +43,14 @@ module custom_types
      real(real12), allocatable, dimension(:) :: weight, weight_incr
   end type neuron_type
 
+
 !!!------------------------------------------------------------------------
 !!! fully connected network layer type
 !!!------------------------------------------------------------------------
   type network_type
      type(neuron_type), allocatable, dimension(:) :: neuron
   end type network_type
+
 
 !!!------------------------------------------------------------------------
 !!! convolution layer type
@@ -42,6 +68,7 @@ module custom_types
      !real(real12), allocatable, dimension(:,:,:) :: output
   end type convolution_type
 
+
 !!!------------------------------------------------------------------------
 !!! activation (transfer) function base type
 !!!------------------------------------------------------------------------
@@ -52,6 +79,7 @@ module custom_types
 !!! https://www.adt.unipd.it/corsi/Bianco/www.pcc.qub.ac.uk/tec/courses/f90/stu-notes/F90_notesMIF_12.html
   type, abstract :: activation_type
      real(real12) :: scale
+     real(real12) :: threshold
    contains
      procedure (activation_function), deferred :: activate
      procedure (derivative_function), deferred :: differentiate
@@ -86,5 +114,6 @@ module custom_types
   public :: network_type
   public :: convolution_type
   public :: activation_type
+  public :: learning_parameters_type
 
 end module custom_types
