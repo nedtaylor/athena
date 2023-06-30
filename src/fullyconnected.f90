@@ -5,7 +5,9 @@
 !!!#############################################################################
 module FullyConnectedLayer
   use constants, only: real12
-  use custom_types, only: network_type, clip_type, activation_type
+  use misc_ml, only: adam_optimiser
+  use custom_types, only: network_type, clip_type, activation_type, &
+       learning_parameters_type
   use activation_linear, only: linear_setup
   use activation_relu, only: relu_setup
   use activation_leaky_relu, only: leaky_relu_setup
@@ -16,6 +18,8 @@ module FullyConnectedLayer
 
   type network_gradient_type
      real(real12), allocatable, dimension(:) :: val
+     real(real12), allocatable, dimension(:) :: m
+     real(real12), allocatable, dimension(:) :: v
   end type network_gradient_type
   
   !interface sum_operator !operator(+)
@@ -23,7 +27,8 @@ module FullyConnectedLayer
   !end interface sum_operator !operator(+)
 
   type(network_type), allocatable, dimension(:) :: network
-  
+  type(learning_parameters_type) :: adaptive_parameters
+
   class(activation_type), allocatable :: transfer!activation
 
 
@@ -50,7 +55,10 @@ contains
     
     do i=1,size(output,dim=1)
        output(i)%val = output(i)%val + input(i)%val
+       if(allocated(output(i)%m)) output(i)%m = output(i)%m + input(i)%m
+       if(allocated(output(i)%v)) output(i)%v = output(i)%v + input(i)%v
     end do
+
   end subroutine gradient_sum
 !!!#############################################################################
 
@@ -59,14 +67,17 @@ contains
 !!!
 !!!#############################################################################
   subroutine initialise(seed, num_layers, num_inputs, num_hidden, &
-       activation_function, file)
+       activation_function, activation_scale, learning_parameters, file)
     implicit none
-    integer, intent(in), optional :: seed
-    integer, intent(in), optional :: num_layers, num_inputs
-    integer, dimension(:), intent(in), optional :: num_hidden
+    integer, optional, intent(in) :: seed
+    integer, optional, intent(in):: num_layers, num_inputs
+    integer, dimension(:), optional, intent(in) :: num_hidden
+    real(real12), optional, intent(in) :: activation_scale
     character(*), optional, intent(in) :: file, activation_function
+    type(learning_parameters_type), optional, intent(in) :: learning_parameters
 
     integer :: itmp1,nseed
+    real(real12) :: scale
     character(len=10) :: t_activation_function
     integer, allocatable, dimension(:) :: seed_arr
 
@@ -130,6 +141,7 @@ contains
        stop
     end if
 
+    
     !!-----------------------------------------------------------------------
     !! set activation and derivative functions based on input name
     !!-----------------------------------------------------------------------
@@ -138,21 +150,36 @@ contains
     else
        t_activation_function = "relu"
     end if
+    if(present(activation_scale))then
+       scale = activation_scale
+    else
+       scale = 1._real12
+    end if
     select case(trim(t_activation_function))
     case ("linear")
-       transfer = linear_setup() !provide and define scale 
+       transfer = linear_setup(scale = scale)
     case ("relu")
-       transfer = relu_setup()
+       transfer = relu_setup(scale = scale)
     case ("leaky_relu")
-       transfer = leaky_relu_setup()
+       transfer = leaky_relu_setup(scale = scale)
     case ("sigmoid")
-       transfer = sigmoid_setup()
+       transfer = sigmoid_setup(scale = scale)
     case ("tanh")
-       transfer = tanh_setup()
+       transfer = tanh_setup(scale = scale)
     case default
-       transfer = relu_setup()
+       transfer = relu_setup(scale = scale)
     end select
  
+
+    !!-----------------------------------------------------------------------
+    !! set learning parameters
+    !!-----------------------------------------------------------------------
+    if(present(learning_parameters))then
+       adaptive_parameters = learning_parameters
+    else
+       adaptive_parameters%method = "none"
+    end if
+
 
   end subroutine initialise                              
 !!!#############################################################################
@@ -318,24 +345,24 @@ contains
     integer :: j, l
     integer :: num_layers, num_neurons
     real(real12) :: activation
-    real(real12), allocatable, dimension(:) :: new_inputs
+    real(real12), allocatable, dimension(:) :: new_input
     
     !output = forward_propagate(network, input)
 
-    allocate(new_inputs(size(input)))
-    new_inputs = input
-    num_layers=size(network)
+    allocate(new_input(size(input)))
+    new_input = input
+    num_layers = size(network,dim=1)
     do l=1,num_layers
        
        num_neurons=size(network(l)%neuron)
        do j=1,num_neurons
-          activation = activate(network(l)%neuron(j)%weight,new_inputs)
+          activation = activate(network(l)%neuron(j)%weight,new_input)
           network(l)%neuron(j)%output = transfer%activate(activation)
        end do
-       deallocate(new_inputs)
+       deallocate(new_input)
        if(l.lt.num_layers)then
-          allocate(new_inputs(num_neurons))
-          new_inputs = network(l)%neuron(:)%output
+          allocate(new_input(num_neurons))
+          new_input = network(l)%neuron(:)%output
        end if
     end do
     output = network(num_layers)%neuron(:)%output
@@ -345,13 +372,14 @@ contains
 
 
 !!!#############################################################################
-!!! 
+!!! backward propagation
+!!! method : gradient descent
 !!!#############################################################################
+!!! https://brilliant.org/wiki/backpropagation/
   subroutine backward(input, expected, input_gradients, clip)
     implicit none
     real(real12), dimension(:), intent(in) :: input
     real(real12), dimension(:), intent(in) :: expected !is this just output_gradients?
-    !real(real12), dimension(:), intent(out) :: input_gradients
     type(network_gradient_type), dimension(:) :: input_gradients
     type(clip_type), optional, intent(in) :: clip
     
@@ -359,15 +387,13 @@ contains
     integer :: num_layers, num_neurons
     real(real12), allocatable, dimension(:) :: errors
 
+
     !! Initialise input_gradients to zero
     num_layers=size(network,dim=1)
     !input_gradients = 0._real12
     do l=1,num_layers
        input_gradients(l)%val = 0._real12
     end do
-
-    !write(0,*) "delta start"
-    !write(0,*) network(num_layers)%neuron(:)%delta
 
 
     !! loop through the layers in reverse
@@ -387,7 +413,7 @@ contains
              do k=1,size(network(l+1)%neuron)
                 errors(j) = errors(j) + &
                      ( network(l+1)%neuron(k)%weight(j) * &
-                     input_gradients(l+1)%val(k) ) !network(l+1)%neuron(k)%delta )
+                     input_gradients(l+1)%val(k) )
              end do
           end do
        end if
@@ -396,8 +422,6 @@ contains
        do j=1,num_neurons
           input_gradients(l)%val(j) = errors(j) * &
                transfer%differentiate(network(l)%neuron(j)%output)
-          !network(l)%neuron(j)%delta = errors(j) * &
-          !     transfer%differentiate(network(l)%neuron(j)%output)
        end do
        deallocate(errors)
     end do
@@ -410,20 +434,6 @@ contains
             clip_norm=clip%norm)
     end if
 
-    !! mini batch gradients
-    !do l=1,num_layers
-    !   num_neurons = size(network(l)%neuron)
-    !   do j=1,num_neurons
-    !      network(l)%neuron(j)%delta_batch = &
-    !           network(l)%neuron(j)%delta_batch + network(l)%neuron(j)%delta
-    !   end do
-    !   input_gradients(l)%val(:) = network(l)%neuron(:)%delta
-    !end do
-
-    !! store gradients in input_gradients
-    !! ... not currently used
-    !input_gradients = network(1)%neuron(:)%delta
-
   end subroutine backward
 !!!#############################################################################
 
@@ -433,27 +443,22 @@ contains
 !!! ... is responsible for
 !!!#############################################################################
   subroutine update_weights_and_biases(learning_rate, input, gradients, &
-       l1_lambda, l2_lambda, momentum, l_batch)
+       l1_lambda, l2_lambda, iteration)
     implicit none
-    real(real12), optional, intent(in) :: l1_lambda, l2_lambda, momentum
+    integer, optional, intent(inout) :: iteration
+    real(real12), optional, intent(in) :: l1_lambda, l2_lambda
     real(real12), intent(in) :: learning_rate
     real(real12), dimension(:), intent(in) :: input
     !real(real12), dimension(:), optional, intent(in) :: gradients
-    type(network_gradient_type), dimension(:), intent(in) :: gradients
-    logical, optional, intent(in) :: l_batch
-
+    type(network_gradient_type), dimension(:), intent(inout) :: gradients
+    
     integer :: j,k,l
     integer :: num_layers, num_weights, num_neurons, num_inputs
+    real(real12) :: t_learning_rate
     real(real12) :: lr_gradient, lr_l1_lambda, lr_l2_lambda, weight_incr
-    logical :: use_batch
-    real(real12), allocatable, dimension(:) :: new_inputs
+    real(real12), allocatable, dimension(:) :: new_input
 
     
-!!! GRADIENTS NOT YET USED AS DELTA TAKES ITS PLACE
-    use_batch=.false.
-    if(present(l_batch))then
-       use_batch=l_batch
-    end if
     num_layers=size(network,dim=1)
     lr_l1_lambda = learning_rate * l1_lambda
     lr_l2_lambda = learning_rate * l2_lambda
@@ -463,35 +468,39 @@ contains
     do l=1,num_layers,1
        !! inputs are equal to the ouputs of the 'parent' nodes
        if (l.ne.1)then
-          allocate(new_inputs(num_neurons))!size(network(l-1)%neuron, dim=1)))
-          new_inputs = network(l-1)%neuron(:)%output
+          allocate(new_input(num_neurons))
+          new_input = network(l-1)%neuron(:)%output
        else
-          allocate(new_inputs(size(input)))
-          new_inputs = input
+          allocate(new_input(size(input)))
+          new_input = input
        end if
-       num_inputs = size(new_inputs, dim=1)
+       num_inputs = size(new_input, dim=1)
        num_weights = size(network(l)%neuron(1)%weight, dim=1)
        num_neurons = size(network(l)%neuron, dim=1)
        do j=1,size(network(l)%neuron)
           !! for each path, update the weight based on the delta ...
           !! ... and the learning rate
 
-          if(use_batch)then
-             lr_gradient = learning_rate * gradients(l)%val(j) !network(l)%neuron(j)%delta_batch
-          else
-             lr_gradient = learning_rate * gradients(l)%val(j) !network(l)%neuron(j)%delta
-          end if
-          
+          lr_gradient = learning_rate * gradients(l)%val(j)
+                    
           do k=1,num_inputs
-
+             
+             t_learning_rate = learning_rate
              weight_incr = network(l)%neuron(j)%weight_incr(k) 
 
              !! momentum-based learning
-             if(present(momentum))then
-                weight_incr = lr_gradient * new_inputs(k) + &
-                     momentum * weight_incr
+             !! adam optimiser
+             if(adaptive_parameters%method.eq.'momentum')then
+                weight_incr = lr_gradient * new_input(k) + &
+                     adaptive_parameters%momentum * weight_incr
+             elseif(adaptive_parameters%method.eq.'adam')then
+                call adam_optimiser(t_learning_rate, gradients(l)%val(j), &
+                     gradients(l)%m(j), gradients(l)%v(j), iteration, &
+                     adaptive_parameters%beta1, adaptive_parameters%beta2, &
+                     adaptive_parameters%epsilon)
+                weight_incr = learning_rate * new_input(k) !! unsure about new_input here
              else
-                weight_incr = lr_gradient * new_inputs(k)
+                weight_incr = lr_gradient * new_input(k)
              end if
 
              !! L1 regularisation
@@ -522,8 +531,10 @@ contains
                network(l)%neuron(j)%weight(num_weights) - &
                lr_gradient
        end do
-       deallocate(new_inputs)
+       deallocate(new_input)
     end do
+
+    if(present(iteration)) iteration = iteration + 1
 
 
   end subroutine update_weights_and_biases
