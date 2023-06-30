@@ -1,15 +1,22 @@
 &setup
- seed = 1
+ seed = 1,
+ verbosity = 1,
+ num_threads = 8
 /
 
 &training
  num_epochs = 20,
  batch_size = 32,
  loss_threshold = 1.E-1,
+ plateau_threshold = 1.E-1,
  learning_rate = 0.01,
  momentum = 0.8,
  l1_lambda = 0.6,
- l2_lambda = 0.0
+ l2_lambda = 0.0,
+ shuffle_dataset = .true.,
+ batch_learning = .true.,
+ adaptive_learning = "adam",
+ loss = "mse"
 /
 
 &convolution
@@ -23,10 +30,13 @@
 
 &pool
  kernel_size = 2,
- stride = 2
+ stride = 2,
+ normalisation = "norm"
 /
 
 &fully_connected
- hidden_layers = 100,
- clip_norm = 2.E1
+ hidden_layers = 20,
+ clip_norm = 2.E1,
+ activation_function = 'leaky_relu'
+ activation_scale = 1._real12
 /
