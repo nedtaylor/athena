@@ -5,7 +5,7 @@
 !!!#############################################################################
 module inputs
   use constants, only: real12, ierror
-  use custom_types, only: clip_type
+  use custom_types, only: clip_type, learning_parameters_type
   use misc, only: icount, flagmaker, file_check, to_lower
   implicit none
   integer :: verbosity    ! verbose printing
@@ -14,8 +14,8 @@ module inputs
   real(real12) :: loss_threshold     ! threshold for loss convergence
   real(real12) :: plateau_threshold  ! threshold for plateau checking
   real(real12) :: learning_rate      ! rate of learning (larger = faster)
-  real(real12) :: momentum           ! fraction of momentum based learning
   real(real12) :: l1_lambda, l2_lambda  ! l1 and l2 regularisation parameters
+  type(learning_parameters_type) :: learning_parameters
   logical :: batch_learning
 
   integer :: num_epochs  ! number of epochs
@@ -31,11 +31,12 @@ module inputs
 
   integer :: pool_kernel_size    ! pooling size (assume square)
   integer :: pool_stride         ! pooling stride
-  logical :: normalise_pooling   ! normalise output of pooling
+  character(:), allocatable :: pool_normalisation  ! normalise output of pooling
 
   integer, allocatable, dimension(:) :: fc_num_hidden  ! number of fully connected hidden layers
   type(clip_type) :: fc_clip                           ! fully connected clipping thresholds
   character(len=10) :: activation_function
+  real(real12) :: activation_scale
 
 
   real(real12) :: train_size  ! fraction of data to train on (NOT YET USED) 
@@ -54,19 +55,21 @@ module inputs
   public :: loss_threshold
   public :: plateau_threshold
 
-  public :: learning_rate, momentum, l1_lambda, l2_lambda
+  public :: learning_rate, l1_lambda, l2_lambda
   public :: num_epochs, batch_size
+  public :: learning_parameters
 
   public :: cv_num_filters, cv_kernel_size, cv_stride
   public :: cv_clip
   public :: convolution_method, padding_method
 
   public :: pool_kernel_size, pool_stride
-  public :: normalise_pooling
+  public :: pool_normalisation
 
   public :: fc_num_hidden
   public :: fc_clip
   public :: activation_function
+  public :: activation_scale
 
   public :: set_global_vars
 
@@ -99,15 +102,12 @@ contains
     batch_learning = .true.
 
     learning_rate = 0.025_real12
-    momentum = 0.75_real12
     l1_lambda = 0._real12
     l2_lambda = 0._real12
 
     num_epochs = 20
     batch_size = 20
     cv_num_filters = 32
-    !cv_kernel_size = 3
-    !cv_stride = 1
     cv_clip%l_min_max = .false.
     cv_clip%l_norm    = .false.
     cv_clip%min  = -huge(1._real12)
@@ -116,7 +116,7 @@ contains
     
     pool_kernel_size = 2
     pool_stride = 2
-    normalise_pooling = .true.
+    pool_normalisation = "sum"
 
     fc_clip%l_min_max = .false.
     fc_clip%l_norm    = .false.
@@ -124,6 +124,7 @@ contains
     fc_clip%max  =  huge(1._real12)
     fc_clip%norm =  huge(1._real12)
     activation_function = "relu"
+    activation_scale = 1._real12
     !! relu, leaky_relu, sigmoid, tanh
 
 
@@ -240,8 +241,11 @@ contains
     !use infile_tools, only: assign_val, assing_vec, rm_comments
     implicit none
     integer :: Reason,unit
+    real(real12) :: momentum, beta1, beta2, epsilon
     character(512) :: hidden_layers=""
 
+    character(6)  :: normalisation=""
+    character(20) :: adaptive_learning=""
     character(20) :: padding_type, convolution_type
     character(64) :: clip_min="", clip_max="", clip_norm=""
     character(512) :: kernel_size="", stride=""
@@ -256,13 +260,14 @@ contains
     namelist /training/ num_epochs, batch_size, &
          plateau_threshold, loss_threshold, &
          learning_rate, momentum, l1_lambda, l2_lambda, &
-         shuffle_dataset, batch_learning
+         shuffle_dataset, batch_learning, adaptive_learning, &
+         beta1, beta2, epsilon
     namelist /convolution/ cv_num_filters, kernel_size, stride, &
          clip_min, clip_max, clip_norm, convolution_type, padding_type
-    namelist /pooling/ kernel_size, stride, normalise_pooling
+    namelist /pooling/ kernel_size, stride, normalisation
     namelist /fully_connected/ hidden_layers, &
          clip_min, clip_max, clip_norm, &
-         activation_function
+         activation_function, activation_scale
 
 
 !!!-----------------------------------------------------------------------------
@@ -270,8 +275,13 @@ contains
 !!!-----------------------------------------------------------------------------
     unit=20
     call file_check(unit,file_name)
+    momentum = 0._real12
+    beta1 = 0.9_real12
+    beta2 = 0.999_real12
+    epsilon = 1.E-8_real12
     convolution_type = ""
     padding_type = ""
+!!! ADD weight_decay (L2 penalty for AdamW)
 
 
 !!!-----------------------------------------------------------------------------
@@ -338,19 +348,78 @@ contains
 
 
 !!!-----------------------------------------------------------------------------
-!!! convert hidden_layers string to dynamic array
+!!! handle adaptive learning method
 !!!-----------------------------------------------------------------------------
-    call get_list(hidden_layers, fc_num_hidden)
-
-
-!!!-----------------------------------------------------------------------------
-!!! handle convolution and padding types
-!!!-----------------------------------------------------------------------------
-    if(trim(convolution_type).eq."")then
-       convolution_method = "standard"
+    !! none  = normal (stochastic) gradient descent
+    !! adam  = adaptive moment estimation (adam) adaptive learning
+    !! momentum   = momentum-based learning
+    !! step_decay = step decay
+    !! reduce_lr_on_plateau = reduce learning rate when output metric plateaus
+    if(trim(adaptive_learning).eq."")then
+       if(momentum.gt.0._real12)then
+          learning_parameters%method = "momentum"
+          write(*,*) "Momentum was set, but not adaptive_learning"
+          write(*,*) 'Setting adaptive_learning = "momentum"'
+          write(*,*) 'If this is not desired, rerun with either:'
+          write(*,*) '   adaptive_learning = "none"'
+          write(*,*) '   momentum = 0.0'
+       else
+          learning_parameters%method = "none"
+       end if
     else
-       convolution_method = to_lower(trim(convolution_type))
+       learning_parameters%method = to_lower(trim(adaptive_learning))
     end if
+    select case(learning_parameters%method)
+    case("none")
+       write(*,*) "No adaptive learning method"
+    case("momentum")
+       write(*,*) "Momentum-based adaptive learning method"
+       if(momentum.eq.0._real12)then
+          write(*,*) "ERROR: momentum adaptive learning set with momentum = 0"
+          write(*,*) "Please rerun with either a different adaptive method or &
+               &a larger momentum value"
+          stop "Exiting..."
+       end if
+       write(*,*) "momentum =",momentum
+    case("adam")
+       write(*,*) "Adam-based adaptive learning method"
+       write(*,*) "beta1 =", beta1
+       write(*,*) "beta2 =", beta2
+       write(*,*) "epsilon =", epsilon
+       learning_parameters%beta1 = beta1
+       learning_parameters%beta2 = beta2
+       learning_parameters%epsilon = epsilon
+    case("step_decay")
+       !learning_parameters%decay_rate = decay_rate
+       !learning_parameters%decay_steps = decay_steps
+       stop "step_decay adaptive learning not yet set up"
+    case("reduce_lr_on_plateau")
+       stop "reduce_lr_on_plateau adaptive learning not yet set up"
+    case default
+       write(*,*) "ERROR: adaptive_learning = "//learning_parameters%method//" &
+            &not known"
+       stop "Exiting..."
+    end select
+
+
+!!!-----------------------------------------------------------------------------
+!!! handle pooling normalisation
+!!!-----------------------------------------------------------------------------
+    !! none
+    !! linear
+    !! sum
+    !! norm
+    if(trim(normalisation).eq."")then
+       pool_normalisation = "none"
+    else
+       pool_normalisation = to_lower(trim(normalisation))
+    end if
+
+
+!!!-----------------------------------------------------------------------------
+!!! handle convolution type
+!!!-----------------------------------------------------------------------------
+    !! https://arxiv.org/pdf/1603.07285.pdf
     !! https://towardsdatascience.com/types-of-convolutions-in-deep-learning-717013397f4d
     !! standard   = dot product operation between kernel and input data
     !! dilated    = spacing (dilation rate) between kernel values
@@ -358,11 +427,16 @@ contains
     !! depthwise  = separate filter to each input channel
     !! pointwise  = linear transform to adjust number of channels in feature map
     !!              ... 1x1 filter, not affecting spatial dimensions
-    if(trim(padding_type).eq."")then
-       padding_method = "same"
+    if(trim(convolution_type).eq."")then
+       convolution_method = "standard"
     else
-       padding_method = to_lower(trim(padding_type))
+       convolution_method = to_lower(trim(convolution_type))
     end if
+
+
+!!!-----------------------------------------------------------------------------
+!!! handle padding type
+!!!-----------------------------------------------------------------------------
     !! none = alt. name for 'valid'
     !! zero = alt. name for 'same'
     !! half = alt. name for 'same'
@@ -381,6 +455,17 @@ contains
     !! replication = maintains spatial dimensions
     !!               ... reflect data (boundary included)
 
+    if(trim(padding_type).eq."")then
+       padding_method = "same"
+    else
+       padding_method = to_lower(trim(padding_type))
+    end if
+
+
+!!!-----------------------------------------------------------------------------
+!!! convert hidden_layers string to dynamic array
+!!!-----------------------------------------------------------------------------
+    call get_list(hidden_layers, fc_num_hidden)
 
 
     return

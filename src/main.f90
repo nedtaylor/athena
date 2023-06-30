@@ -10,7 +10,8 @@ program ConvolutionalNeuralNetwork
   use misc_ml, only: step_decay, reduce_lr_on_plateau
   !use misc_maths, only: mean
   use infile_tools, only: stop_check
-  use normalisation, only: linear_renormalise
+  use normalisation, only: linear_renormalise, &
+       renormalise_norm, renormalise_sum
   use inputs
   use ConvolutionLayer, cv_init => initialise, cv_forward => forward, &
        cv_backward => backward, &
@@ -207,7 +208,9 @@ program ConvolutionalNeuralNetwork
   !! Initialise the fully connected layer
   call fc_init(seed, num_layers=fc_num_layers, &
        num_inputs=input_size, num_hidden=fc_num_hidden, &
-       activation_function=activation_function)
+       activation_function=activation_function, &
+       activation_scale=activation_scale,&
+       learning_parameters=learning_parameters)
 
   !! Initialise the softmax layer
   call sm_init(num_classes)
@@ -260,7 +263,6 @@ program ConvolutionalNeuralNetwork
 
 
   select case (learning_parameters%method)
-  case("")
   case("adam")
      do l=1,fc_num_layers
         allocate(fc_gradients(l)%m(fc_num_hidden(l)))
@@ -352,7 +354,7 @@ program ConvolutionalNeuralNetwork
         !$OMP& DEFAULT(NONE) &
         !$OMP& SHARED(network, convolution) &
         !$OMP& SHARED(image_slice, label_slice) &
-        !$OMP& SHARED(input_size, batch_size, normalise_pooling) &
+        !$OMP& SHARED(input_size, batch_size, pool_normalisation) &
         !$OMP& SHARED(fc_clip, cv_clip, batch_learning, fc_num_layers) &
         !$OMP& PRIVATE(sample) &
         !$OMP& FIRSTPRIVATE(predicted_old) & 
@@ -379,16 +381,26 @@ program ConvolutionalNeuralNetwork
 #endif
            call pl_forward(cv_output, pl_output)
            fc_input = reshape(pl_output, [input_size])
-           if(normalise_pooling)&
-                call linear_renormalise(fc_input)
+           select case(pool_normalisation)
+           case("linear")
+              call linear_renormalise(fc_input)
+           case("norm")
+              call renormalise_norm(fc_input, norm=1._real12, mirror=.true.)
+           case("sum")
+              call renormalise_sum(fc_input, norm=1._real12, mirror=.true., magnitude=.true.)
+           end select
            call fc_forward(fc_input, fc_output)
            call sm_forward(fc_output, sm_output)
 
   
            !! check for NaN and infinity
            !!-------------------------------------------------------------------
+           write(0,*) sm_output
            if(any(isnan(sm_output)))then
               write(0,*) "ERROR: Softmax outputs are NaN"
+              write(0,*) fc_input
+              write(0,*) fc_output
+              write(0,*) sm_output
               stop
            end if
            if(batch_learning)then
@@ -630,13 +642,20 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
 !!! testing loop
 !!!-----------------------------------------------------------------------------
+!!! CAN PARALLELISE THIS SECTION AS THEY ARE INDEPENDENT
   test_loop: do sample = 1, num_samples_test
 
      call cv_forward(test_images(:,:,:,sample), cv_output)
      call pl_forward(cv_output, pl_output)
      fc_input = reshape(pl_output, [input_size])
-     if(normalise_pooling)&
-          call linear_renormalise(fc_input)
+     select case(pool_normalisation)
+     case("linear")
+        call linear_renormalise(fc_input)
+     case("norm")
+        call renormalise_norm(fc_input, norm=1._real12, mirror=.true.)
+     case("sum")
+        call renormalise_sum(fc_input, norm=1._real12, mirror=.true., magnitude=.true.)
+     end select
      call fc_forward(fc_input, fc_output)
      call sm_forward(fc_output, sm_output)
 
