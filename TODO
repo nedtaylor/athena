@@ -4,3 +4,4 @@ TODO list:
 - Different verbosity printing levels
 - Add handling of convolution method/type
 - Add piecewise and gaussian activation functions
+- Add DropBlock method
