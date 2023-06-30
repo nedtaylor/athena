@@ -3,5 +3,4 @@ TODO list:
 - i.e. binary, categorical, sparse (surely others, such as MAE, RMSE)
 - Different verbosity printing levels
 - Add handling of convolution method/type
-- Add piecewise and gaussian activation functions
 - Add DropBlock method
