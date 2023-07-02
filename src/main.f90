@@ -7,7 +7,8 @@ program ConvolutionalNeuralNetwork
 #endif
   use constants, only: real12
   use misc, only: shuffle
-  use misc_ml, only: step_decay, reduce_lr_on_plateau
+  use misc_ml, only: step_decay, reduce_lr_on_plateau, &
+       generate_bernoulli_mask, drop_block
   !use misc_maths, only: mean
   use infile_tools, only: stop_check
   use normalisation, only: linear_renormalise, &
@@ -75,8 +76,9 @@ program ConvolutionalNeuralNetwork
        fc_gradients_rs
   real(real12), allocatable, dimension(:,:,:) :: comb_cv_gradients
 
-  integer :: i, l, time, time_old, clock_rate, itmp1
-  real(real12) :: rtmp1
+  integer :: i, l, time, time_old, clock_rate, itmp1, block_size, mask_size
+  real(real12) :: rtmp1, gamma, keep_prob
+  logical, allocatable, dimension(:,:) :: mask
 
   real(real12), allocatable, dimension(:,:,:) :: image_sample
 #ifdef _OPENMP
@@ -315,7 +317,15 @@ program ConvolutionalNeuralNetwork
        size(input_images,dim=3),batch_size))
   allocate(label_slice(batch_size))
 #endif
-
+  allocate(image_sample(&
+       lw_image_size:up_image_size,&
+       lw_image_size:up_image_size,&
+       size(input_images,dim=3)&
+       ))
+  block_size = 5
+  keep_prob = 0.75
+  gamma = keep_prob
+  !gamma = (1 - keep_prob)/block_size**2 * image_size**2/(image_size - block_size + 1)**2
 
 !!!-----------------------------------------------------------------------------
 !!! query system clock
@@ -368,7 +378,11 @@ program ConvolutionalNeuralNetwork
         predicted_new = -1
         repetitive_predicting = .true.
 
+        
+        gamma = (1 - gamma)/block_size**2 * image_size**2/(image_size - block_size + 1)**2
 
+        
+        
         !!----------------------------------------------------------------------
         !! sample loop
         !! ... test each sample and get gradients and losses from each
@@ -379,6 +393,8 @@ program ConvolutionalNeuralNetwork
         !$OMP& SHARED(image_slice, label_slice) &
         !$OMP& SHARED(input_size, batch_size, pool_normalisation) &
         !$OMP& SHARED(fc_clip, cv_clip, batch_learning, fc_num_layers) &
+        !$OMP& SHARED(keep_prob, seed, block_size, output_channels) &
+        !$OMP& PRIVATE(mask, mask_size) &
         !$OMP& PRIVATE(sample) &
         !$OMP& FIRSTPRIVATE(predicted_old) & 
         !$OMP& FIRSTPRIVATE(compute_loss) &
@@ -392,6 +408,9 @@ program ConvolutionalNeuralNetwork
         !$OMP& REDUCTION(+:comb_cv_gradients,sum_loss,sum_accuracy,exploding_check) &
         !$OMP& REDUCTION(sum_operator:comb_fc_gradients)
         train_loop: do sample = start_index, end_index
+           
+
+           !image_sample(:,:,:) = image_slice(:,:,:,sample)
 
 
            !! Forward pass
@@ -403,6 +422,20 @@ program ConvolutionalNeuralNetwork
            !image_sample = input_images(:,:,:,sample)
            call cv_forward(input_images(:,:,:,sample), cv_output)
 #endif
+           !call generate_bernoulli_mask(mask, gamma, seed)
+           if(allocated(mask)) deallocate(mask)
+
+           mask_size = size(cv_output,dim=1) - ( 2*int((block_size -1)/2) + (1 - mod(block_size,2)))
+           allocate(mask(mask_size, mask_size))
+
+           call generate_bernoulli_mask(mask, keep_prob, seed)
+
+           do i=1,output_channels
+              !! need to make cv_output a custom type
+              !! then set the mask to different size based on filter
+              !! or just have a bounding box inside the drop_block
+              call drop_block(cv_output(:,:,i), mask, block_size)
+           end do
            call pl_forward(cv_output, pl_output)
            fc_input = reshape(pl_output, [input_size])
            select case(pool_normalisation)
@@ -497,9 +530,6 @@ program ConvolutionalNeuralNetwork
               end do
 #ifndef _OPENMP
            else
-              !call cv_update(learning_rate, image_sample, &
-              !     cv_gradients, &
-              !     l1_lambda, l2_lambda, learning_parameters%momentum)
               call cv_update(learning_rate, input_images(:,:,:,sample), &
                    cv_gradients, &
                    l1_lambda, l2_lambda, learning_parameters%momentum)
@@ -601,7 +631,9 @@ program ConvolutionalNeuralNetwork
            do l=1,fc_num_layers
               comb_fc_gradients(l)%val = comb_fc_gradients(l)%val/batch_size
            end do
-           call cv_update(learning_rate, image_sample, &
+!!! THIS IS THE WRONG INPUT FOR IMAGE
+!!! I DON'T THINK THAT ANY INPUT SHOULD BE GIVEN !!!
+           call cv_update(learning_rate, input_images(:,:,:,start_index), &
                 comb_cv_gradients, &
                 l1_lambda, l2_lambda, learning_parameters%momentum)
            call fc_update(learning_rate, fc_input, comb_fc_gradients, &
