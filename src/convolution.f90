@@ -403,7 +403,7 @@ contains
        end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
        do m=1,input_channels
           ichannel = ichannel + 1
-
+!!! FIX STRIDE HERE (same as done in update)???
           do j=1,output_size
              jstride = (j-1)*convolution(l)%stride + 1
              do i=1,output_size
