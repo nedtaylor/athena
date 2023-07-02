@@ -94,6 +94,8 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
   !$omp declare reduction(sum_operator:network_gradient_type:gradient_sum(omp_out,omp_in)) &
   !$omp& initializer(omp_priv = omp_orig)
+  !$omp declare reduction(compare_val:integer:compare_val(omp_out,omp_in)) &
+  !$omp& initializer(omp_priv = omp_orig)
 
 
 !!!-----------------------------------------------------------------------------
@@ -363,6 +365,7 @@ program ConvolutionalNeuralNetwork
         sum_loss = 0._real12
         sum_accuracy = 0._real12
         predicted_old = -1
+        predicted_new = -1
         repetitive_predicting = .true.
 
 
@@ -379,12 +382,12 @@ program ConvolutionalNeuralNetwork
         !$OMP& PRIVATE(sample) &
         !$OMP& FIRSTPRIVATE(predicted_old) & 
         !$OMP& FIRSTPRIVATE(compute_loss) &
-        !$OMP& PRIVATE(predicted_new) &
         !$OMP& PRIVATE(cv_output, cv_gradients) &
         !$OMP& PRIVATE(pl_output, pl_gradients) &
         !$OMP& PRIVATE(fc_input, fc_output,fc_gradients, fc_gradients_rs) &
         !$OMP& PRIVATE(sm_output, sm_gradients) &
         !$OMP& PRIVATE(rtmp1, expected, exploding_check_old) &
+        !$OMP& REDUCTION(compare_val:predicted_new) &
         !$OMP& REDUCTION(.and.: repetitive_predicting) &
         !$OMP& REDUCTION(+:comb_cv_gradients,sum_loss,sum_accuracy,exploding_check) &
         !$OMP& REDUCTION(sum_operator:comb_fc_gradients)
@@ -416,13 +419,11 @@ program ConvolutionalNeuralNetwork
   
            !! check for NaN and infinity
            !!-------------------------------------------------------------------
-           !write(0,*) sm_output
            if(any(isnan(sm_output)))then
-              write(0,*) "ERROR: Softmax outputs are NaN"
               write(0,*) fc_input
               write(0,*) fc_output
               write(0,*) sm_output
-              stop
+              stop "ERROR: Softmax outputs are NaN"
            end if
            if(batch_learning)then
               exploding_check = exploding_check + sum(fc_output)
@@ -466,9 +467,12 @@ program ConvolutionalNeuralNetwork
 
            !! Backward pass
            !!-------------------------------------------------------------------
+           !write(0,*) sample
            call sm_backward(sm_output, expected, sm_gradients)
+           !write(0,*) fc_output!sm_gradients
            call fc_backward(fc_input, sm_gradients, fc_gradients, fc_clip)
            fc_gradients_rs = reshape(fc_gradients(1)%val,shape(fc_gradients_rs))
+           !write(0,*) fc_gradients_rs
            call pl_backward(cv_output, fc_gradients_rs, pl_gradients)
 #ifdef _OPENMP
            call cv_backward(image_slice(:,:,:,sample), pl_gradients, &
@@ -520,8 +524,9 @@ program ConvolutionalNeuralNetwork
              all(labels(start_index:end_index).eq.labels(start_index))) &
              repetitive_predicting = .false.
 #endif
-        if(repetitive_predicting)then
-           write(0,'("WARNING: all predictions in batch ",I0," are the same")') batch
+        if(repetitive_predicting.and.predicted_new.gt.0)then
+           write(0,'("WARNING: all predictions in batch ",I0," &
+                &are the same: ", I0)') batch, predicted_new-1
            write(0,*) "WE SHOULD REALL DO SOMETHING TO KICK IT OUT OF THIS"
            !do l=1,fc_num_layers
            !   do i=1,size(comb_fc_gradients(l)%val,dim=1)
@@ -713,6 +718,29 @@ program ConvolutionalNeuralNetwork
 !!!#############################################################################
 
 contains
+
+!!!#############################################################################
+!!! compare two positive input values
+!!! ... -1 = initial, ignore
+!!! ... -2 = different
+!!! +ve    = same and value
+!!!#############################################################################
+  subroutine compare_val(output, input)
+    implicit none
+    integer, intent(in) :: input
+    integer, intent(out) :: output
+
+    if(output.eq.-1)then
+       output = input
+    elseif(output.eq.-2)then
+       return
+    elseif(output.ne.input)then
+       output = -2
+    end if
+    
+  end subroutine compare_val
+!!!#############################################################################
+
 
 !!!#############################################################################
 !!! compute accuracy
