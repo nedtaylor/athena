@@ -11,6 +11,8 @@ module misc_ml
   public :: reduce_lr_on_plateau
   public :: adam_optimiser
 
+  public :: drop_block, generate_bernoulli_mask
+
 
 contains
 !!! https://proceedings.neurips.cc/paper/2018/file/7edcfb2d8f6a659ef4cd1e6c9b6d7079-Paper.pdf
@@ -32,22 +34,21 @@ contains
     real(real12), dimension(:,:), intent(inout) :: input
     logical, dimension(:,:), intent(in) :: mask
     integer, intent(in) :: block_size
-    !real(real12), intent(in) :: keep_prob
 
-    integer :: i, j, x, y, start_idx, end_idx, input_size
+    integer :: i, j, x, y, start_idx, end_idx, mask_size
 
-    input_size = size(input, dim=1)
+    mask_size = size(mask, dim=1)
     start_idx = -(block_size - 1)/2 !centre should be zero
     end_idx = (block_size -1)/2 + (1 - mod(block_size,2)) !centre should be zero
 
     ! gamma = (1 - keep_prob)/block_size**2 * input_size**2/(input_size - block_size + 1)**2
 
-    do j = 1, input_size
-       do i = 1, input_size
+    do j = 1, mask_size
+       do i = 1, mask_size
           if (.not.mask(i, j))then
              do x=start_idx,end_idx,1
                 do y=start_idx,end_idx,1
-                   input(i + start_idx + x, j + start_idx + y) = 0._real12
+                   input(i - start_idx + x, j - start_idx + y) = 0._real12
                 end do
              end do
           endif
