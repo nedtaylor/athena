@@ -503,17 +503,18 @@ contains
              !! momentum-based learning
              !! adam optimiser
              if(adaptive_parameters%method.eq.'momentum')then
-                weight_incr = lr_gradient * new_input(k) + &
+                !weight_incr = lr_gradient * new_input(k) + &
+                weight_incr = lr_gradient + &
                      adaptive_parameters%momentum * weight_incr
              elseif(adaptive_parameters%method.eq.'adam')then
                 call adam_optimiser(t_learning_rate, gradients(l)%val(j), &
                      gradients(l)%m(j), gradients(l)%v(j), iteration, &
                      adaptive_parameters%beta1, adaptive_parameters%beta2, &
                      adaptive_parameters%epsilon)
-                weight_incr = t_learning_rate * new_input(k) !! unsure about new_input here
+                weight_incr = t_learning_rate !* new_input(k) !! unsure about new_input here
                 !write(0,*) "HERE", weight_incr
              else
-                weight_incr = lr_gradient * new_input(k)
+                weight_incr = lr_gradient !* new_input(k)
              end if
 
              !! L1 regularisation
