@@ -57,8 +57,8 @@ contains
     
     do i=1,size(output,dim=1)
        output(i)%val = output(i)%val + input(i)%val
-       if(allocated(output(i)%m)) output(i)%m = output(i)%m + input(i)%m
-       if(allocated(output(i)%v)) output(i)%v = output(i)%v + input(i)%v
+       if(allocated(output(i)%m)) output(i)%m = output(i)%m !+ input(i)%m
+       if(allocated(output(i)%v)) output(i)%v = output(i)%v !+ input(i)%v
     end do
 
   end subroutine gradient_sum
@@ -78,7 +78,7 @@ contains
     character(*), optional, intent(in) :: file, activation_function
     type(learning_parameters_type), optional, intent(in) :: learning_parameters
 
-    integer :: itmp1,nseed
+    integer :: itmp1,nseed, length
     real(real12) :: scale
     character(len=10) :: t_activation_function
     integer, allocatable, dimension(:) :: seed_arr
@@ -106,7 +106,7 @@ contains
           seed_arr = seed
        else
           call system_clock(count=itmp1)
-          seed_arr = itmp1 + 37* (/ (l-1,l=1,nseed) /)
+          seed_arr = itmp1 + 37 * (/ (l-1,l=1,nseed) /)
        end if
        call random_seed(put=seed_arr)
 
@@ -117,23 +117,25 @@ contains
        do l=1,num_layers
           allocate(network(l)%neuron(num_hidden(l)))
           if(l.eq.1)then
-             do i=1,num_hidden(l)
-                allocate(network(l)%neuron(i)%weight(num_inputs+1))
-                call random_number(network(l)%neuron(i)%weight)
-                allocate(network(l)%neuron(i)%weight_incr(num_inputs+1))
-                network(l)%neuron(i)%weight_incr = 0._real12
-             end do
+             length = num_inputs+1
           else
-             do i=1,num_hidden(l)
-                allocate(network(l)%neuron(i)%weight(num_hidden(l-1)+1))
-                call random_number(network(l)%neuron(i)%weight)
-                allocate(network(l)%neuron(i)%weight_incr(num_inputs+1))
-                network(l)%neuron(i)%weight_incr = 0._real12
-                network(l)%neuron(i)%delta = 0._real12
-                network(l)%neuron(i)%delta_batch = 0._real12
-                network(l)%neuron(i)%output = 0._real12
-             end do
+             length = num_hidden(l-1)+1
           end if
+          
+          do i=1,num_hidden(l)
+             allocate(network(l)%neuron(i)%weight(length))
+             call random_number(network(l)%neuron(i)%weight)
+             allocate(network(l)%neuron(i)%weight_incr(length))
+             network(l)%neuron(i)%weight_incr = 0._real12
+             network(l)%neuron(i)%output = 0._real12
+
+             !! normalise weights using He Uniform initialiser
+             scale = sqrt(6._real12/(size(network(l)%neuron(i)%weight,dim=1)))
+             network(l)%neuron(i)%weight = &
+                  (network(l)%neuron(i)%weight) * &
+                  scale
+          end do
+
        end do
     else
        write(0,*) "ERROR: Not enough optional arguments provided to initialse FC"
@@ -386,7 +388,7 @@ contains
     implicit none
     real(real12), dimension(:), intent(in) :: input
     real(real12), dimension(:), intent(in) :: expected !is this just output_gradients?
-    type(network_gradient_type), dimension(:) :: input_gradients
+    type(network_gradient_type), dimension(:), intent(inout) :: input_gradients
     type(clip_type), optional, intent(in) :: clip
     
     integer :: j, k, l
@@ -399,6 +401,10 @@ contains
     !input_gradients = 0._real12
     do l=1,num_layers
        input_gradients(l)%val = 0._real12
+       !! if adams optimiser, then initialise these so as not to interfere ...
+       !! ... with the combined one
+       !if(allocated(input_gradients(l)%m)) input_gradients(l)%m = 0._real12
+       !if(allocated(input_gradients(l)%v)) input_gradients(l)%v = 0._real12
     end do
 
 
@@ -488,7 +494,7 @@ contains
           !! ... and the learning rate
 
           lr_gradient = learning_rate * gradients(l)%val(j)
-                    
+          
           do k=1,num_inputs
              
              t_learning_rate = learning_rate
@@ -504,7 +510,8 @@ contains
                      gradients(l)%m(j), gradients(l)%v(j), iteration, &
                      adaptive_parameters%beta1, adaptive_parameters%beta2, &
                      adaptive_parameters%epsilon)
-                weight_incr = learning_rate * new_input(k) !! unsure about new_input here
+                weight_incr = t_learning_rate * new_input(k) !! unsure about new_input here
+                !write(0,*) "HERE", weight_incr
              else
                 weight_incr = lr_gradient * new_input(k)
              end if

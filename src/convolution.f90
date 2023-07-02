@@ -65,6 +65,7 @@ contains
     integer :: l,i
     integer :: itmp1,itmp2,nseed
     integer :: start_idx, end_idx
+    real(real12) :: scale
     logical :: t_full_padding
     integer, allocatable, dimension(:) :: seed_arr
 
@@ -130,6 +131,14 @@ contains
           call random_number(convolution(l)%weight)
           allocate(convolution(l)%weight_incr(start_idx:end_idx,start_idx:end_idx))
           convolution(l)%weight_incr(:,:) = 0._real12
+
+          !! normalise (kernel_initialise?) to number of input units
+          scale = sqrt(6._real12/(itmp1*itmp1))
+          convolution(l)%weight = (convolution(l)%weight*2._real12 - &
+               1._real12) * scale
+          convolution(l)%bias = (convolution(l)%bias*2._real12 - &
+               1._real12) * scale
+
        end do
     else
        write(0,*) "ERROR: Not enough optional arguments provided to initialse CV"
