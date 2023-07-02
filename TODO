@@ -3,6 +3,7 @@ TODO list:
 - Add handling of convolution method/type
 - Add DropBlock method
 - Add option for multiple convolution layers
+- Add options to weights and biases initialisation (e.g. He normal)
 
 https://carson.math.uwm.edu/trac/cam/files/attachments/ticket/175/17503a6b2326f09fbc4e3a7c03874c7333002038/6ebed2271b85944639eeaf09877f665246da77e8.pdf
 https://stackoverflow.com/questions/48501655/how-to-add-custom-option-to-target-in-makefile
