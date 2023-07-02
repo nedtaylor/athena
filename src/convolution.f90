@@ -459,6 +459,7 @@ contains
     integer :: i,j,l,m,x,y,istride,jstride
     integer :: input_channels, num_layers, input_size, ichannel
     integer :: start_idx, end_idx
+    integer :: end_stride
     real(real12) :: sum_gradients
     real(real12), optional, intent(in) :: l1_lambda, l2_lambda, momentum
     real(real12), intent(in) :: learning_rate
@@ -489,9 +490,10 @@ contains
           ichannel = ichannel + 1
           sum_gradients = sum_gradients + sum(gradients(:,:,ichannel))
 
-          do j=1,input_size
+          end_stride = input_size/convolution(l)%stride
+          do j=1,end_stride
              jstride = (j-1)*convolution(l)%stride + 1
-             do i=1,input_size
+             do i=1,end_stride
                 istride = (i-1)*convolution(l)%stride + 1
                 
                 do y=start_idx,end_idx,1
