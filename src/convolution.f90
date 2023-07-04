@@ -416,9 +416,9 @@ contains
                 rtmp1 = output_gradients(i,j,ichannel)
 
                 do y=start_idx,end_idx,1
-                   y180 = end_idx + ( start_idx - y )
+                   !y180 = end_idx + ( start_idx - y )
                    do x=start_idx,end_idx,1
-                      x180 = end_idx + ( start_idx - x )
+                      !x180 = end_idx + ( start_idx - x )
                       !! Compute gradients for input feature map
                       input_gradients(istride+x,jstride+y,m) = &
                            input_gradients(istride+x,jstride+y,m) + &
