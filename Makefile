@@ -77,7 +77,7 @@ LLAPACK = $(MKLROOT)/libmkl_lapack95_lp64.a \
 # COMPILATION SECTION
 ##########################################
 INSTALL_DIR?=$(HOME)/bin
-NAME = cnn
+NAME = cnn_dev
 programs = $(BIN_DIR)/$(NAME)
 programs_mp = $(BIN_DIR)/$(NAME)_mp
 
