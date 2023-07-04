@@ -66,8 +66,7 @@ program ConvolutionalNeuralNetwork
   integer :: num_batches, num_samples, num_samples_test
   integer :: epoch, batch, sample, start_index, end_index
   integer :: expected
-  real(real12), allocatable, dimension(:) :: fc_input, fc_output, sm_output, &
-       pl_output_rs
+  real(real12), allocatable, dimension(:) :: fc_input, fc_output, sm_output
   real(real12), allocatable, dimension(:) :: sm_gradients
   type(network_gradient_type), allocatable, dimension(:) :: fc_gradients, &
        comb_fc_gradients
@@ -201,10 +200,15 @@ program ConvolutionalNeuralNetwork
 !!! reformulate fully connected layers to include input and output layers
 !!! ... user provides only hidden layers
 !!!-----------------------------------------------------------------------------
-  fc_num_layers = size(fc_num_hidden,dim=1) + 2
+  !fc_num_layers = size(fc_num_hidden,dim=1) + 2
+  !allocate(tmp_num_hidden(fc_num_layers))
+  !tmp_num_hidden(1) = input_size
+  !tmp_num_hidden(2:fc_num_layers-1) = fc_num_hidden
+  !tmp_num_hidden(fc_num_layers) = num_classes
+  !call move_alloc(tmp_num_hidden, fc_num_hidden)
+  fc_num_layers = size(fc_num_hidden,dim=1) + 1
   allocate(tmp_num_hidden(fc_num_layers))
-  tmp_num_hidden(1) = input_size
-  tmp_num_hidden(2:fc_num_layers-1) = fc_num_hidden
+  tmp_num_hidden(1:fc_num_layers-1) = fc_num_hidden
   tmp_num_hidden(fc_num_layers) = num_classes
   call move_alloc(tmp_num_hidden, fc_num_hidden)
 
@@ -237,9 +241,7 @@ program ConvolutionalNeuralNetwork
   sm_output = 0._real12
 
   allocate(fc_input(input_size))
-  allocate(pl_output_rs(input_size))
   fc_input = 0._real12
-  pl_output_rs = 0._real12
 
   allocate(cv_gradients(&
        lw_image_size:up_image_size,&
@@ -262,8 +264,13 @@ program ConvolutionalNeuralNetwork
   allocate(fc_gradients(fc_num_layers))
   allocate(comb_fc_gradients(fc_num_layers))
   do l=1,fc_num_layers
-     allocate(fc_gradients(l)%val(fc_num_hidden(l)))
-     allocate(comb_fc_gradients(l)%val(fc_num_hidden(l)))
+     if(l.eq.1)then
+        itmp1 = input_size + 1
+     else
+        itmp1 = fc_num_hidden(l-1) + 1
+     end if
+     allocate(fc_gradients(l)%val(itmp1))
+     allocate(comb_fc_gradients(l)%val(itmp1))
      fc_gradients(l)%val = 0._real12
      comb_fc_gradients(l)%val = 0._real12
   end do
@@ -275,10 +282,15 @@ program ConvolutionalNeuralNetwork
   select case (learning_parameters%method)
   case("adam")
      do l=1,fc_num_layers
-        allocate(fc_gradients(l)%m(fc_num_hidden(l)))
-        allocate(fc_gradients(l)%v(fc_num_hidden(l)))
-        allocate(comb_fc_gradients(l)%m(fc_num_hidden(l)))
-        allocate(comb_fc_gradients(l)%v(fc_num_hidden(l)))
+        if(l.eq.1)then
+           itmp1 = input_size + 1
+        else
+           itmp1 = fc_num_hidden(l-1) + 1
+        end if
+        allocate(fc_gradients(l)%m(itmp1))
+        allocate(fc_gradients(l)%v(itmp1))
+        allocate(comb_fc_gradients(l)%m(itmp1))
+        allocate(comb_fc_gradients(l)%v(itmp1))
         fc_gradients(l)%m = 0._real12
         fc_gradients(l)%v = 0._real12
         comb_fc_gradients(l)%m = 0._real12
@@ -455,7 +467,7 @@ program ConvolutionalNeuralNetwork
            end select
            call fc_forward(fc_input, fc_output)
            call sm_forward(fc_output, sm_output)
-
+           
   
            !! check for NaN and infinity
            !!-------------------------------------------------------------------
@@ -503,6 +515,7 @@ program ConvolutionalNeuralNetwork
               repetitive_predicting = predicted_old.eq.predicted_new
            end if
            predicted_old = predicted_new
+           !write(0,'(I0,2X,I0,2X,10(1X,F5.3))') expected, predicted_new, sm_output
 
 
            !! Backward pass
@@ -511,7 +524,8 @@ program ConvolutionalNeuralNetwork
            call sm_backward(sm_output, expected, sm_gradients)
            !write(0,*) fc_output!sm_gradients
            call fc_backward(fc_input, sm_gradients, fc_gradients, fc_clip)
-           fc_gradients_rs = reshape(fc_gradients(1)%val,shape(fc_gradients_rs))
+           fc_gradients_rs = reshape(fc_gradients(1)%val(:size(fc_gradients(1)%val,dim=1)-1),&
+                shape(fc_gradients_rs))
            !write(0,*) fc_gradients_rs
            call pl_backward(cv_output, fc_gradients_rs, pl_gradients)
 #ifdef _OPENMP
