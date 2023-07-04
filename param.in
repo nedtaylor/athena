@@ -1,0 +1,48 @@
+&setup
+ seed = 1,
+ verbosity = 2,
+ num_threads = 8
+/
+
+&training
+ num_epochs = 10,
+ batch_size = 32,
+ loss_threshold = 1.E-3,
+ plateau_threshold = 1.E-4,
+ learning_rate = 0.01,
+ momentum = 0.9,
+ !l1_lambda = 0.75,
+ !l2_lambda = 0.2,
+ shuffle_dataset = .true.,
+ batch_learning = .true.,
+ adaptive_learning = "momentum",
+ loss = "cce",
+ beta1 = 0.9,
+ beta2 = 0.999,
+ epsilon = 1E-8
+/
+
+&convolution
+ cv_num_filters = 32,
+ kernel_size = 3,
+ stride = 1,
+ clip_norm = 2.E3,
+ padding_type = "same",
+ convolution_type = "standard",
+ dropout = "none",
+ block_size = 5,
+ keep_prob = 0.6
+/
+
+&pooling
+ kernel_size = 2,
+ stride = 2,
+ normalisation = "norm"
+/
+
+&fully_connected
+ hidden_layers = '100',
+ clip_norm = 2.E3,
+ activation_function = 'relu'
+ activation_scale = 1._real12
+/
