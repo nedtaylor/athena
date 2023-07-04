@@ -5,12 +5,12 @@
 /
 
 &training
- num_epochs = 20,
+ num_epochs = 100,
  batch_size = 32,
  loss_threshold = 5.E-2,
  plateau_threshold = 1.E-1,
  learning_rate = 0.01,
- momentum = 0.8,
+ momentum = 0.9,
  l1_lambda = 0.6,
  l2_lambda = 0.1,
  shuffle_dataset = .true.,
@@ -26,7 +26,7 @@
  cv_num_filters = 32,
  kernel_size = 3,
  stride = 1,
- clip_norm = 2.E1
+ clip_norm = 2.E2
  padding_type = "same",
  convolution_type = "standard"
 /
@@ -39,6 +39,6 @@
 
 &fully_connected
  hidden_layers = 100,
- clip_norm = 2.E1,
+ clip_norm = 2.E3,
  activation_function = "leaky_relu"
 /
