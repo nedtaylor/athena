@@ -344,6 +344,8 @@ contains
        do m=1,input_channels
           ichannel = ichannel + 1
 
+          !! end_stride is the same as output_size
+          !! ... hence, forward does not need the fix
           do j=1,output_size
              jstride = (j-1)*convolution(l)%stride + 1
              do i=1,output_size
@@ -403,7 +405,9 @@ contains
        end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
        do m=1,input_channels
           ichannel = ichannel + 1
-!!! FIX STRIDE HERE (same as done in update)???
+
+          !! end_stride is the same as output_size
+          !! ... hence, backward does not need the fix
           do j=1,output_size
              jstride = (j-1)*convolution(l)%stride + 1
              do i=1,output_size
@@ -418,10 +422,10 @@ contains
                       !! Compute gradients for input feature map
                       input_gradients(istride+x,jstride+y,m) = &
                            input_gradients(istride+x,jstride+y,m) + &
-                           convolution(l)%weight(x180,y180) * &
+                           !convolution(l)%weight(x180,y180) * &
+                           !rtmp1
+                           convolution(l)%weight(x,y) * &
                            rtmp1
-                           !convolution(l)%weight(x,y) * &
-                           !output_gradients(i,j,ichannel)
 
 !!! TWO OPTIONS?
 !!! FIND THE GRADIENT/LOSS OF THE WEIGHTS:
