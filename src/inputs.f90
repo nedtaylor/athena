@@ -28,6 +28,9 @@ module inputs
   type(clip_type) :: cv_clip               ! convolution clipping thresholds
   integer, allocatable, dimension(:) :: cv_kernel_size  ! kernel size for each convolution layer (assume square)
   integer, allocatable, dimension(:) :: cv_stride       ! stride of kernels for convolution
+  character(:), allocatable :: cv_dropout_method
+  integer :: cv_block_size
+  real(real12) :: cv_keep_prob
 
 
   integer :: pool_kernel_size    ! pooling size (assume square)
@@ -64,6 +67,8 @@ module inputs
   public :: cv_num_filters, cv_kernel_size, cv_stride
   public :: cv_clip
   public :: convolution_method, padding_method
+  public :: cv_dropout_method
+  public :: cv_block_size, cv_keep_prob
 
   public :: pool_kernel_size, pool_stride
   public :: pool_normalisation
@@ -94,6 +99,9 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! initialises variables
 !!!-----------------------------------------------------------------------------
+    skip = .false.
+    input_file = ""
+
     call system_clock(count=seed)
     verbosity = 1
     num_threads = 1
@@ -115,6 +123,8 @@ contains
     cv_clip%min  = -huge(1._real12)
     cv_clip%max  =  huge(1._real12)
     cv_clip%norm =  huge(1._real12)
+    cv_block_size = 5
+    cv_keep_prob = 1._real12
     
     pool_kernel_size = 2
     pool_stride = 2
@@ -140,6 +150,7 @@ contains
           cycle flagloop
        end if
        call get_command_argument(i,buffer)
+       write(*,*) "TEST", trim(buffer)
 !!!------------------------------------------------------------------------
 !!! FILE AND DIRECTORY FLAGS
 !!!------------------------------------------------------------------------
@@ -211,6 +222,8 @@ contains
 !!!-----------------------------------------------------------------------------
     if(trim(input_file).ne."")then
        call read_input_file(input_file)
+    else
+       stop "No input file given"
     end if
 
 
@@ -222,9 +235,11 @@ contains
 
     write(6,*) "======PARAMETERS======"
     write(6,*) "shuffle dataset:",shuffle_dataset
-    write(6,*) "hidden layers:",fc_num_hidden
-    write(6,*) "number of epochs:",num_epochs
+    write(6,*) "batch learning:",batch_learning
     write(6,*) "learning rate:",learning_rate
+    write(6,*) "number of epochs:",num_epochs
+    write(6,*) "number of filters:",cv_num_filters
+    write(6,*) "hidden layers:",fc_num_hidden
     !write(6,*) "dataset size:",size(dataset,dim=1)
     !write(6,*) "training size:",nint(train_size*size(dataset,dim=1)),train_size
     write(6,*) "======================"
@@ -243,10 +258,15 @@ contains
     !use infile_tools, only: assign_val, assing_vec, rm_comments
     implicit none
     integer :: Reason,unit
+
+    integer :: block_size
+    real(real12) ::  keep_prob
+
     real(real12) :: momentum, beta1, beta2, epsilon
     character(512) :: hidden_layers=""
 
     character(4)  :: loss=""
+    character(9)  :: dropout=""
     character(6)  :: normalisation=""
     character(20) :: adaptive_learning=""
     character(20) :: padding_type, convolution_type
@@ -266,7 +286,8 @@ contains
          shuffle_dataset, batch_learning, adaptive_learning, &
          beta1, beta2, epsilon, loss
     namelist /convolution/ cv_num_filters, kernel_size, stride, &
-         clip_min, clip_max, clip_norm, convolution_type, padding_type
+         clip_min, clip_max, clip_norm, convolution_type, padding_type, &
+         dropout, block_size, keep_prob
     namelist /pooling/ kernel_size, stride, normalisation
     namelist /fully_connected/ hidden_layers, &
          clip_min, clip_max, clip_norm, &
@@ -284,6 +305,8 @@ contains
     epsilon = 1.E-8_real12
     convolution_type = ""
     padding_type = ""
+    block_size = 5
+    keep_prob = 0.75
 !!! ADD weight_decay (L2 penalty for AdamW)
 
 
@@ -431,6 +454,25 @@ contains
     else
        pool_normalisation = to_lower(trim(normalisation))
     end if
+
+
+!!!-----------------------------------------------------------------------------
+!!! handle dropout method
+!!!-----------------------------------------------------------------------------
+    !! none
+    !! dropblock
+    if(trim(dropout).eq."")then
+       cv_dropout_method = "none"
+    else
+       cv_dropout_method = to_lower(trim(dropout))
+       if(cv_dropout_method.eq."dropblock")then
+          cv_block_size = block_size
+          cv_keep_prob = keep_prob
+          write(*,*) "block_size =",cv_block_size
+          write(*,*) "keep_prob =",cv_keep_prob
+       end if
+    end if
+    write(*,*) "Dropout method: ",cv_dropout_method
 
 
 !!!-----------------------------------------------------------------------------

@@ -76,9 +76,9 @@ program ConvolutionalNeuralNetwork
        fc_gradients_rs
   real(real12), allocatable, dimension(:,:,:) :: comb_cv_gradients
 
-  integer :: i, l, time, time_old, clock_rate, itmp1, block_size, mask_size
+  integer :: i, l, time, time_old, clock_rate, itmp1, block_size, cv_mask_size
   real(real12) :: rtmp1, gamma, keep_prob
-  logical, allocatable, dimension(:,:) :: mask
+  logical, allocatable, dimension(:,:) :: cv_mask
 
   real(real12), allocatable, dimension(:,:,:) :: image_sample
 #ifdef _OPENMP
@@ -393,8 +393,9 @@ program ConvolutionalNeuralNetwork
         !$OMP& SHARED(image_slice, label_slice) &
         !$OMP& SHARED(input_size, batch_size, pool_normalisation) &
         !$OMP& SHARED(fc_clip, cv_clip, batch_learning, fc_num_layers) &
-        !$OMP& SHARED(keep_prob, seed, block_size, output_channels) &
-        !$OMP& PRIVATE(mask, mask_size) &
+        !$OMP& SHARED(cv_keep_prob, seed, cv_block_size, output_channels) &
+        !$OMP& SHARED(cv_dropout_method) &
+        !$OMP& PRIVATE(cv_mask, cv_mask_size) &
         !$OMP& PRIVATE(sample) &
         !$OMP& FIRSTPRIVATE(predicted_old) & 
         !$OMP& FIRSTPRIVATE(compute_loss) &
@@ -422,20 +423,26 @@ program ConvolutionalNeuralNetwork
            !image_sample = input_images(:,:,:,sample)
            call cv_forward(input_images(:,:,:,sample), cv_output)
 #endif
-           !call generate_bernoulli_mask(mask, gamma, seed)
-           if(allocated(mask)) deallocate(mask)
 
-           mask_size = size(cv_output,dim=1) - ( 2*int((block_size -1)/2) + (1 - mod(block_size,2)))
-           allocate(mask(mask_size, mask_size))
+           !! apply a form of dropout regularisation
+           if(cv_dropout_method.eq."dropblock")then
+              !call generate_bernoulli_mask(cv_mask, gamma, seed)
+              if(allocated(cv_mask)) deallocate(cv_mask)
 
-           call generate_bernoulli_mask(mask, keep_prob, seed)
+              cv_mask_size = size(cv_output,dim=1) - &
+                   ( 2*int((cv_block_size -1)/2) + (1 - mod(cv_block_size,2)))
+              allocate(cv_mask(cv_mask_size, cv_mask_size))
 
-           do i=1,output_channels
-              !! need to make cv_output a custom type
-              !! then set the mask to different size based on filter
-              !! or just have a bounding box inside the drop_block
-              call drop_block(cv_output(:,:,i), mask, block_size)
-           end do
+              call generate_bernoulli_mask(cv_mask, cv_keep_prob, seed)
+
+              do i=1,output_channels
+                 !! need to make cv_output a custom type
+                 !! then set the mask to different size based on filter
+                 !! or just have a bounding box inside the drop_block
+                 call drop_block(cv_output(:,:,i), cv_mask, cv_block_size)
+              end do
+           end if
+
            call pl_forward(cv_output, pl_output)
            fc_input = reshape(pl_output, [input_size])
            select case(pool_normalisation)
