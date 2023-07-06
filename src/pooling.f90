@@ -2,6 +2,7 @@
 !!!###################################################################################
 !!!###################################################################################
 module PoolingLayer
+  use constants, only: real12
   implicit none
 
   integer :: pool_size     ! Pooling window size (assumed square)
@@ -22,8 +23,8 @@ contains
 
   subroutine forward(input, output)
     implicit none
-    real, dimension(:,:,:), intent(in) :: input
-    real, dimension(:,:,:), intent(out) :: output
+    real(real12), dimension(:,:,:), intent(in) :: input
+    real(real12), dimension(:,:,:), intent(out) :: output
 
     integer :: i, j, k, l, m, n
     
@@ -48,16 +49,16 @@ contains
 
   subroutine backward(input, output_gradients, input_gradients)
     implicit none
-    real, dimension(:,:,:), intent(in) :: input
-    real, dimension(:,:,:), intent(in) :: output_gradients
-    real, dimension(:,:,:), intent(out) :: input_gradients
+    real(real12), dimension(:,:,:), intent(in) :: input
+    real(real12), dimension(:,:,:), intent(in) :: output_gradients
+    real(real12), dimension(:,:,:), intent(out) :: input_gradients
 
     integer :: i, j, k, l, m, n
     integer :: input_size, output_size
     integer, dimension(2) :: max_index
 
     ! Initialise input_gradients to zero
-    input_gradients = 0.0
+    input_gradients = 0._real12
 
     ! Compute the size of the input and output feature maps
     input_size = size(input, 1)
