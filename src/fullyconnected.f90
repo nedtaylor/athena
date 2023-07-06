@@ -18,12 +18,17 @@ module FullyConnectedLayer
   implicit none
 
 
-  type network_gradient_type
-     real(real12), allocatable, dimension(:) :: val
-     real(real12), allocatable, dimension(:) :: m
-     real(real12), allocatable, dimension(:) :: v
-  end type network_gradient_type
+  type gradient_type
+     real(real12), allocatable, dimension(:) :: delta !error !dE/d(activation)
+     real(real12), allocatable, dimension(:,:) :: weight
+     real(real12), allocatable, dimension(:,:) :: m
+     real(real12), allocatable, dimension(:,:) :: v
+  end type gradient_type
   
+  !type error_type
+  !   real(real12), allocatable, dimension(:) :: neuron
+  !end type error_type
+
   !interface sum_operator !operator(+)
   !   module procedure :: gradient_sum
   !end interface sum_operator !operator(+)
@@ -37,26 +42,28 @@ module FullyConnectedLayer
   private
 
   public :: network
-  public :: network_gradient_type, gradient_sum
+  public :: gradient_type, gradient_sum
 
   public :: initialise, forward, backward
   public :: update_weights_and_biases
   public :: write_file
   public :: normalise_delta_batch, reset_delta_batch
+  public :: initialise_gradients
 
 
 contains
 
 !!!#############################################################################
-!!! custom operation for summing network_gradient_type
+!!! custom operation for summing gradient_type
 !!!#############################################################################
   subroutine gradient_sum(output, input)
-    type(network_gradient_type), dimension(:), intent(in) :: input
-    type(network_gradient_type), dimension(:), intent(inout) :: output
+    type(gradient_type), dimension(:), intent(in) :: input
+    type(gradient_type), dimension(:), intent(inout) :: output
     integer :: i
     
     do i=1,size(output,dim=1)
-       output(i)%val = output(i)%val + input(i)%val
+       output(i)%weight = output(i)%weight + input(i)%weight
+       !output(i)%delta = output(i)%delta + input(i)%delta
        if(allocated(output(i)%m)) output(i)%m = output(i)%m !+ input(i)%m
        if(allocated(output(i)%v)) output(i)%v = output(i)%v !+ input(i)%v
     end do
@@ -190,6 +197,44 @@ contains
 
 
   end subroutine initialise                              
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! 
+!!!#############################################################################
+  subroutine initialise_gradients(gradients, num_features, adam_learning)
+    implicit none
+    logical, optional, intent(in) :: adam_learning
+    integer, intent(in) :: num_features
+    type(gradient_type), allocatable, dimension(:), intent(out) :: gradients
+    integer :: l
+    integer :: num_neurons, num_inputs
+
+    allocate(gradients(0:size(network,dim=1)))
+    allocate(gradients(0)%delta(num_features))
+    gradients(0)%delta = 0._real12
+
+    do l=1,size(network,dim=1)
+       num_neurons = size(network(l)%neuron,dim=1)
+       num_inputs = size(network(l)%neuron(1)%weight,dim=1)
+       allocate(gradients(l)%weight(num_inputs, num_neurons))
+       allocate(gradients(l)%delta(num_neurons))
+       gradients(l)%weight = 0._real12
+       gradients(l)%delta  = 0._real12
+
+       if(present(adam_learning))then
+          if(adam_learning)then
+             allocate(gradients(l)%m(num_inputs, num_neurons))
+             allocate(gradients(l)%v(num_inputs, num_neurons))
+             gradients(l)%m = 0._real12
+             gradients(l)%v = 0._real12
+          end if
+       end if
+    end do
+    
+
+  end subroutine initialise_gradients
 !!!#############################################################################
 
 
@@ -355,8 +400,6 @@ contains
     real(real12) :: activation
     real(real12), allocatable, dimension(:) :: new_input
     
-    !output = forward_propagate(network, input)
-
     allocate(new_input(size(input)))
     new_input = input
     num_layers = size(network,dim=1)
@@ -388,19 +431,21 @@ contains
     implicit none
     real(real12), dimension(:), intent(in) :: input
     real(real12), dimension(:), intent(in) :: expected !is this just output_gradients?
-    type(network_gradient_type), dimension(:), intent(inout) :: input_gradients
+    type(gradient_type), dimension(0:), intent(inout) :: input_gradients
     type(clip_type), optional, intent(in) :: clip
     
     integer :: j, k, l
-    integer :: num_layers, num_neurons
-    real(real12), allocatable, dimension(:) :: errors
+    integer :: num_layers
+    integer :: num_neurons
+    real(real12), allocatable, dimension(:) :: new_input
+    !type(error_type), dimension(size(network,dim=1)) :: delta !!error
 
-
-    !! Initialise input_gradients to zero
-    num_layers=size(network,dim=1)
-    !input_gradients = 0._real12
+    !!! Initialise input_gradients to zero
+    input_gradients(0)%delta = 0._real12
+    num_layers = size(network,dim=1)
     do l=1,num_layers
-       input_gradients(l)%val = 0._real12
+       input_gradients(l)%weight = 0._real12
+       input_gradients(l)%delta = 0._real12
        !! if adams optimiser, then initialise these so as not to interfere ...
        !! ... with the combined one
        !if(allocated(input_gradients(l)%m)) input_gradients(l)%m = 0._real12
@@ -409,33 +454,64 @@ contains
 
 
     !! loop through the layers in reverse
-    do l=num_layers,1,-1
-       num_neurons = size(network(l)%neuron)
-       allocate(errors(num_neurons))
-       errors = 0._real12
+    do l=num_layers,0,-1
+       if(l.eq.0)then
+          num_neurons = size(input,dim=1)
+       else
+          num_neurons = size(network(l)%neuron,dim=1)
+       end if
+
        !! for first layer, the error is the difference between ...
        !! ... predicted and expected
        if (l.eq.num_layers)then
-          !errors(:) = network(l)%neuron(:)%output - expected
-          errors(:) = expected
+          input_gradients(l)%delta(:) = expected
        else
           do j=1,num_neurons
              !! the errors are summed from the delta of the ...
              !! ... 'child' node * 'child' weight
-             do k=1,size(network(l+1)%neuron)
-                errors(j) = errors(j) + &
+             do k=1,size(network(l+1)%neuron,dim=1)
+                input_gradients(l)%delta(j) = input_gradients(l)%delta(j) + &
                      ( network(l+1)%neuron(k)%weight(j) * &
-                     input_gradients(l+1)%val(k) )
+                     input_gradients(l+1)%delta(k) )
              end do
           end do
        end if
        !! the delta values are the error multipled by the derivative ...
        !! ... of the transfer function
-       do j=1,num_neurons
-          input_gradients(l)%val(j) = errors(j) * &
-               transfer%differentiate(network(l)%neuron(j)%output)
-       end do
-       deallocate(errors)
+       !! final layer: error (delta) = activ_diff (g') * error
+       !! other layer: error (delta) = activ_diff (g') * sum(weight(l+1)*error(l+1))
+       if (l.eq.0)then
+          do j=1,num_neurons
+             !! here, the activation of the neuron is the input value
+             !! ... as each neuron is only connected to one input value
+             input_gradients(l)%delta(j) = input_gradients(l)%delta(j) * &
+                  transfer%differentiate(input(j))
+          end do
+       else
+          !! define the input to the neuron
+          if(l.eq.1)then
+             allocate(new_input(size(input,1)))
+             new_input = input
+          else
+             allocate(new_input(size(network(l-1)%neuron(:),1)))
+             new_input = network(l-1)%neuron(:)%output
+          end if
+          do j=1,num_neurons
+             !! activation already calculated and equals the output
+             input_gradients(l)%delta(j) = input_gradients(l)%delta(j) * &
+                  transfer%differentiate(network(l)%neuron(j)%output)
+             do k=1,size(new_input,1)
+                input_gradients(l)%weight(k,j) = input_gradients(l)%delta(j) * new_input(k)
+             end do
+          end do
+          !! bias weight gradient
+          !! ... as the bias neuron = 1._real12, then gradient of the bias ...
+          !! ... is just the delta (error), no need to multiply by 1._real12
+          input_gradients(l)%weight(size(new_input,1)+1,:) = &
+               input_gradients(l)%delta(:)
+          deallocate(new_input)
+       end if
+
     end do
 
     !! apply gradient clipping
@@ -461,13 +537,12 @@ contains
     real(real12), optional, intent(in) :: l1_lambda, l2_lambda
     real(real12), intent(in) :: learning_rate
     real(real12), dimension(:), intent(in) :: input
-    !real(real12), dimension(:), optional, intent(in) :: gradients
-    type(network_gradient_type), dimension(:), intent(inout) :: gradients
+    type(gradient_type), dimension(0:), intent(inout) :: gradients
     
     integer :: j,k,l
     integer :: num_layers, num_weights, num_neurons, num_inputs
     real(real12) :: t_learning_rate
-    real(real12) :: lr_gradient, lr_l1_lambda, lr_l2_lambda, weight_incr
+    real(real12) :: lr_l1_lambda, lr_l2_lambda, weight_incr
     real(real12), allocatable, dimension(:) :: new_input
 
     
@@ -493,8 +568,6 @@ contains
           !! for each path, update the weight based on the delta ...
           !! ... and the learning rate
 
-          lr_gradient = learning_rate * gradients(l)%val(j)
-          
           do k=1,num_inputs
              
              t_learning_rate = learning_rate
@@ -503,18 +576,17 @@ contains
              !! momentum-based learning
              !! adam optimiser
              if(adaptive_parameters%method.eq.'momentum')then
-                !weight_incr = lr_gradient * new_input(k) + &
-                weight_incr = lr_gradient + &
+                weight_incr = learning_rate * gradients(l)%weight(k,j) + &
                      adaptive_parameters%momentum * weight_incr
              elseif(adaptive_parameters%method.eq.'adam')then
-                call adam_optimiser(t_learning_rate, gradients(l)%val(j), &
-                     gradients(l)%m(j), gradients(l)%v(j), iteration, &
+                call adam_optimiser(t_learning_rate, gradients(l)%weight(k,j), &
+                     gradients(l)%m(k,j), gradients(l)%v(k,j), iteration, &
                      adaptive_parameters%beta1, adaptive_parameters%beta2, &
                      adaptive_parameters%epsilon)
                 weight_incr = t_learning_rate !* new_input(k) !! unsure about new_input here
                 !write(0,*) "HERE", weight_incr
              else
-                weight_incr = lr_gradient !* new_input(k)
+                weight_incr = learning_rate * gradients(l)%weight(k,j)
              end if
 
              !! L1 regularisation
@@ -543,7 +615,7 @@ contains
           !! update biases
           network(l)%neuron(j)%weight(num_weights) = &
                network(l)%neuron(j)%weight(num_weights) - &
-               lr_gradient
+               learning_rate * gradients(l)%weight(num_weights,j)
        end do
        deallocate(new_input)
     end do
@@ -592,28 +664,31 @@ contains
   subroutine gradient_clip(gradients,clip_min,clip_max,clip_norm)
     implicit none
     real(real12), optional, intent(in) :: clip_min, clip_max, clip_norm
-    type(network_gradient_type), dimension(:) :: gradients
+    type(gradient_type), dimension(:) :: gradients
 
-    integer :: j, l, num_layers, num_neurons
+    integer :: j, k, l, num_layers, num_neurons
     real(real12) :: norm
 
-    num_layers = size(gradients,dim=1)
+    num_layers = ubound(gradients,dim=1)
     if(present(clip_norm))then
        do l=1,num_layers
-          norm = norm2(gradients(l)%val(:)) !network(l)%neuron(:)%delta)
+          norm = norm2(gradients(l)%weight(:,:))
           if(norm.gt.clip_norm)then
-             !network(l)%neuron(:)%delta = &
-             !     network(l)%neuron(:)%delta * clip_norm/norm
-             gradients(l)%val(:) = &
-                  gradients(l)%val(:) * clip_norm/norm
+             gradients(l)%weight = &
+                  gradients(l)%weight * clip_norm/norm
+             !gradients(l)%delta = gradients(l)%delta  * clip_norm/norm
           end if
        end do
     elseif(present(clip_min).and.present(clip_max))then
        do l=1,num_layers
-          num_neurons = size(gradients(l)%val)
+          num_neurons = size(gradients(l)%weight)
           do j=1,num_neurons
-             gradients(l)%val(j) = &
-                  max(clip_min,min(clip_max,gradients(l)%val(j)))
+             do k=1,size(gradients(l)%weight,dim=1)
+                gradients(l)%weight(k,j) = &
+                     max(clip_min,min(clip_max,gradients(l)%weight(k,j)))
+             end do
+             !gradients(l)%delta(j) = &
+             !     max(clip_min,min(clip_max,gradients(l)%delta(j)))
           end do
        end do
     end if
@@ -629,15 +704,15 @@ contains
 !!!#############################################################################
   function activate(weights, inputs) result(activation)
     implicit none
-    integer :: i, n_weights
+    integer :: i, num_weights
     real(real12), dimension(:), intent(in) :: weights
     real(real12), dimension(:), intent(in) :: inputs
     real(real12) :: activation
     
-    n_weights = size(weights,dim=1)
-    activation = weights(n_weights) !! starts with the bias
+    num_weights = size(weights,dim=1)
+    activation = weights(num_weights) !! starts with the bias
     !! then adds all of the weights multiplied by their respective inputs
-    do i=1,n_weights-1
+    do i=1,num_weights-1
        activation = activation + weights(i) * inputs(i)
     end do
        

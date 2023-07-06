@@ -11,21 +11,33 @@ program ConvolutionalNeuralNetwork
        generate_bernoulli_mask, drop_block
   !use misc_maths, only: mean
   use infile_tools, only: stop_check
+  use batch_norm, only: bn_init => initialise, &
+       bn_forward => forward, &
+       bn_backward => backward, &
+       bn_update => update
   use normalisation, only: linear_renormalise, &
        renormalise_norm, renormalise_sum
   use loss_categorical!, only: loss_mse, loss_nll, loss_cce, loss_type
   use inputs
-  use ConvolutionLayer, cv_init => initialise, cv_forward => forward, &
+  use ConvolutionLayer, only: cv_init => initialise, cv_forward => forward, &
        cv_backward => backward, &
        cv_update => update_weights_and_biases, &
-       cv_write => write_file
-  use PoolingLayer, pl_init => initialise, pl_forward => forward, &
+       cv_write => write_file, &
+       cv_gradient_type => gradient_type, &
+       cv_gradient_add => gradient_add, &
+       cv_gradient_init => initialise_gradients, &
+       convolution
+  use PoolingLayer, only: pl_init => initialise, pl_forward => forward, &
        pl_backward => backward
-  use FullyConnectedLayer, fc_init => initialise, fc_forward => forward, &
+  use FullyConnectedLayer, only: fc_init => initialise, fc_forward => forward, &
        fc_backward => backward, &
        fc_update => update_weights_and_biases, &
-       fc_write => write_file
-  use SoftmaxLayer, sm_init => initialise, sm_forward => forward, &
+       fc_write => write_file, &
+       fc_gradient_type => gradient_type, &
+       fc_gradient_sum => gradient_sum, &
+       fc_gradient_init => initialise_gradients, &
+       network
+  use SoftmaxLayer, only: sm_init => initialise, sm_forward => forward, &
        sm_backward => backward
 
   implicit none
@@ -66,17 +78,18 @@ program ConvolutionalNeuralNetwork
   integer :: num_batches, num_samples, num_samples_test
   integer :: epoch, batch, sample, start_index, end_index
   integer :: expected
-  real(real12), allocatable, dimension(:) :: fc_input, fc_output, sm_output
-  real(real12), allocatable, dimension(:) :: sm_gradients
-  type(network_gradient_type), allocatable, dimension(:) :: fc_gradients, &
-       comb_fc_gradients
-  real(real12), allocatable, dimension(:,:,:) :: cv_output, pl_output
-  real(real12), allocatable, dimension(:,:,:) :: cv_gradients, pl_gradients, &
-       fc_gradients_rs
-  real(real12), allocatable, dimension(:,:,:) :: comb_cv_gradients
+  real(real12), allocatable, dimension(:) :: fc_input, fc_output, &
+       sm_output, sm_gradients
+  real(real12), allocatable, dimension(:,:,:) :: cv_output, pl_output, &
+       pl_gradients, fc_gradients_rs
 
-  integer :: i, l, time, time_old, clock_rate, itmp1, block_size, cv_mask_size
-  real(real12) :: rtmp1, gamma, keep_prob
+  type(cv_gradient_type), allocatable, dimension(:) :: cv_gradients, comb_cv_gradients
+  type(fc_gradient_type), allocatable, dimension(:) :: fc_gradients, &
+       comb_fc_gradients
+
+
+  integer :: i, l, time, time_old, clock_rate, itmp1, cv_mask_size
+  real(real12) :: rtmp1, drop_gamma
   logical, allocatable, dimension(:,:) :: cv_mask
 
   real(real12), allocatable, dimension(:,:,:) :: image_sample
@@ -93,7 +106,11 @@ program ConvolutionalNeuralNetwork
 !! https://stackoverflow.com/questions/61141297/openmp-reduction-on-user-defined-fortran-type-containing-allocatable-array
 !! https://fortran-lang.discourse.group/t/openmp-reduction-on-operator/5887
 !!!-----------------------------------------------------------------------------
-  !$omp declare reduction(sum_operator:network_gradient_type:gradient_sum(omp_out,omp_in)) &
+  !$omp declare reduction(cv_grad_sum:cv_gradient_type:omp_out=cv_gradient_add(omp_out,omp_in)) &
+  !$omp& initializer(omp_priv = omp_orig)
+!!  !$omp declare reduction(cv_grad_sum:cv_gradient_type:cv_gradient_sum(omp_out,omp_in)) &
+!!  !$omp& initializer(omp_priv = omp_orig)
+  !$omp declare reduction(fc_grad_sum:fc_gradient_type:fc_gradient_sum(omp_out,omp_in)) &
   !$omp& initializer(omp_priv = omp_orig)
   !$omp declare reduction(compare_val:integer:compare_val(omp_out,omp_in)) &
   !$omp& initializer(omp_priv = omp_orig)
@@ -239,64 +256,39 @@ program ConvolutionalNeuralNetwork
   pl_output = 0._real12
   fc_output = 0._real12
   sm_output = 0._real12
+  !allocate(cv_output_norm(output_size, output_size, output_channels))
+  !cv_output_norm = 0._real12
+  !allocate(mean(output_channels))
+  !allocate(variance(output_channels))
 
-  allocate(fc_input(input_size))
-  fc_input = 0._real12
 
-  allocate(cv_gradients(&
-       lw_image_size:up_image_size,&
-       lw_image_size:up_image_size,&
-       output_channels))
+!!!-----------------------------------------------------------------------------
+!!! initialise non-fully connected layer gradients
+!!!-----------------------------------------------------------------------------
+  call cv_gradient_init(cv_gradients)
+  call cv_gradient_init(comb_cv_gradients)
   allocate(pl_gradients,mold=cv_output)
-  allocate(fc_gradients_rs,mold=pl_output)
   allocate(sm_gradients(num_classes))
-  cv_gradients = 0._real12
   pl_gradients = 0._real12
-  fc_gradients_rs = 0._real12
   sm_gradients = 0._real12
 
-  allocate(comb_cv_gradients(&
-       lw_image_size:up_image_size,&
-       lw_image_size:up_image_size,&
-       output_channels))
-  comb_cv_gradients = 0._real12
-
-  allocate(fc_gradients(fc_num_layers))
-  allocate(comb_fc_gradients(fc_num_layers))
-  do l=1,fc_num_layers
-     if(l.eq.1)then
-        itmp1 = input_size + 1
-     else
-        itmp1 = fc_num_hidden(l-1) + 1
-     end if
-     allocate(fc_gradients(l)%val(itmp1))
-     allocate(comb_fc_gradients(l)%val(itmp1))
-     fc_gradients(l)%val = 0._real12
-     comb_fc_gradients(l)%val = 0._real12
-  end do
-
 
 !!!-----------------------------------------------------------------------------
-!!! initialise fully connected layer gradients
+!!! initialise fully connected layer inputs and gradients
 !!!-----------------------------------------------------------------------------
-  select case (learning_parameters%method)
+  allocate(fc_input(input_size))
+  fc_input = 0._real12
+  allocate(fc_gradients_rs,mold=pl_output)
+  fc_gradients_rs = 0._real12
+
+  select case(learning_parameters%method)
   case("adam")
-     do l=1,fc_num_layers
-        if(l.eq.1)then
-           itmp1 = input_size + 1
-        else
-           itmp1 = fc_num_hidden(l-1) + 1
-        end if
-        allocate(fc_gradients(l)%m(itmp1))
-        allocate(fc_gradients(l)%v(itmp1))
-        allocate(comb_fc_gradients(l)%m(itmp1))
-        allocate(comb_fc_gradients(l)%v(itmp1))
-        fc_gradients(l)%m = 0._real12
-        fc_gradients(l)%v = 0._real12
-        comb_fc_gradients(l)%m = 0._real12
-        comb_fc_gradients(l)%v = 0._real12
-     end do
+     call fc_gradient_init(fc_gradients, input_size, adam_learning = .true.)
+     call fc_gradient_init(comb_fc_gradients, input_size, adam_learning = .true.)
      update_iteration = 1
+  case default
+     call fc_gradient_init(fc_gradients, input_size)
+     call fc_gradient_init(comb_fc_gradients, input_size)     
   end select
 
 
@@ -334,10 +326,7 @@ program ConvolutionalNeuralNetwork
        lw_image_size:up_image_size,&
        size(input_images,dim=3)&
        ))
-  block_size = 5
-  keep_prob = 0.75
-  gamma = keep_prob
-  !gamma = (1 - keep_prob)/block_size**2 * image_size**2/(image_size - block_size + 1)**2
+  !drop_gamma = (1 - keep_prob)/block_size**2 * image_size**2/(image_size - block_size + 1)**2
 
 !!!-----------------------------------------------------------------------------
 !!! query system clock
@@ -375,9 +364,12 @@ program ConvolutionalNeuralNetwork
         !! ... UNCOMMENT if running mini-batch training 
         !!----------------------------------------------------------------------
         if(batch_learning)then
-           comb_cv_gradients = 0._real12
+           do l=1,cv_num_filters
+              comb_cv_gradients(l)%weight = 0._real12
+              comb_cv_gradients(l)%bias = 0._real12
+           end do
            do l=1,fc_num_layers
-              comb_fc_gradients(l)%val(:) = 0._real12
+              comb_fc_gradients(l)%weight = 0._real12
            end do
         end if
 
@@ -391,7 +383,7 @@ program ConvolutionalNeuralNetwork
         repetitive_predicting = .true.
 
         
-        gamma = (1 - gamma)/block_size**2 * image_size**2/(image_size - block_size + 1)**2
+        !!!drop_gamma = (1 - drop_gamma)/block_size**2 * image_size**2/(image_size - block_size + 1)**2
 
         
         
@@ -401,7 +393,7 @@ program ConvolutionalNeuralNetwork
         !!----------------------------------------------------------------------
         !$OMP PARALLEL DO & !! ORDERED
         !$OMP& DEFAULT(NONE) &
-        !$OMP& SHARED(network, convolution) &
+!!        !$OMP& SHARED(network, convolution) &
         !$OMP& SHARED(image_slice, label_slice) &
         !$OMP& SHARED(input_size, batch_size, pool_normalisation) &
         !$OMP& SHARED(fc_clip, cv_clip, batch_learning, fc_num_layers) &
@@ -418,13 +410,13 @@ program ConvolutionalNeuralNetwork
         !$OMP& PRIVATE(rtmp1, expected, exploding_check_old) &
         !$OMP& REDUCTION(compare_val:predicted_new) &
         !$OMP& REDUCTION(.and.: repetitive_predicting) &
-        !$OMP& REDUCTION(+:comb_cv_gradients,sum_loss,sum_accuracy,exploding_check) &
-        !$OMP& REDUCTION(sum_operator:comb_fc_gradients)
+        !$OMP& REDUCTION(+:sum_loss,sum_accuracy,exploding_check) &
+        !$OMP& REDUCTION(cv_grad_sum:comb_cv_gradients) &
+        !$OMP& REDUCTION(fc_grad_sum:comb_fc_gradients)
         train_loop: do sample = start_index, end_index
            
 
            !image_sample(:,:,:) = image_slice(:,:,:,sample)
-
 
            !! Forward pass
            !!-------------------------------------------------------------------
@@ -437,23 +429,26 @@ program ConvolutionalNeuralNetwork
 #endif
 
            !! apply a form of dropout regularisation
-           if(cv_dropout_method.eq."dropblock")then
-              !call generate_bernoulli_mask(cv_mask, gamma, seed)
-              if(allocated(cv_mask)) deallocate(cv_mask)
+           !if(cv_dropout_method.eq."dropblock")then
+           !   !call generate_bernoulli_mask(cv_mask, drop_gamma, seed)
+           !   if(allocated(cv_mask)) deallocate(cv_mask)
+           !
+           !   cv_mask_size = size(cv_output,dim=1) - &
+           !        ( 2*int((cv_block_size -1)/2) + (1 - mod(cv_block_size,2)))
+           !   allocate(cv_mask(cv_mask_size, cv_mask_size))
+           !
+           !   call generate_bernoulli_mask(cv_mask, cv_keep_prob, seed)
+           !
+           !   do i=1,output_channels
+           !      !! need to make cv_output a custom type
+           !      !! then set the mask to different size based on filter
+           !      !! or just have a bounding box inside the drop_block
+           !      call drop_block(cv_output(:,:,i), cv_mask, cv_block_size)
+           !   end do
+           !end if
 
-              cv_mask_size = size(cv_output,dim=1) - &
-                   ( 2*int((cv_block_size -1)/2) + (1 - mod(cv_block_size,2)))
-              allocate(cv_mask(cv_mask_size, cv_mask_size))
-
-              call generate_bernoulli_mask(cv_mask, cv_keep_prob, seed)
-
-              do i=1,output_channels
-                 !! need to make cv_output a custom type
-                 !! then set the mask to different size based on filter
-                 !! or just have a bounding box inside the drop_block
-                 call drop_block(cv_output(:,:,i), cv_mask, cv_block_size)
-              end do
-           end if
+           !call bn_forward(cv_output, mean, variance, &
+           !     gamma=bn_gamma, beta=bn_beta, input_norm=cv_output_norm)
 
            call pl_forward(cv_output, pl_output)
            fc_input = reshape(pl_output, [input_size])
@@ -480,7 +475,9 @@ program ConvolutionalNeuralNetwork
            if(batch_learning)then
               exploding_check = exploding_check + sum(fc_output)
            else
+#ifdef _OPENMP
               stop "ERROR: non-batch learning not yet parallelised"
+#endif
               exploding_check_old = exploding_check
               exploding_check = sum(fc_output)
               !exploding_check=mean(fc_output)/exploding_check
@@ -524,18 +521,21 @@ program ConvolutionalNeuralNetwork
            call sm_backward(sm_output, expected, sm_gradients)
            !write(0,*) fc_output!sm_gradients
            call fc_backward(fc_input, sm_gradients, fc_gradients, fc_clip)
-           fc_gradients_rs = reshape(fc_gradients(1)%val(:size(fc_gradients(1)%val,dim=1)-1),&
+!!! HAVE AN ISSUE HERE, need to send back the errors, not the weights
+!!! but I have recoded it all to have the gradient weights
+!!! I have it stored as delta, so I can send that back through, if that's easier
+           fc_gradients_rs = reshape(fc_gradients(0)%delta(:size(fc_gradients(0)%delta,dim=1)),&
                 shape(fc_gradients_rs))
            !write(0,*) fc_gradients_rs
            call pl_backward(cv_output, fc_gradients_rs, pl_gradients)
 #ifdef _OPENMP
            call cv_backward(image_slice(:,:,:,sample), pl_gradients, &
-                cv_gradients, cv_clip)
+                cv_gradients, cv_clip, cv_output)
 #else
            call cv_backward(input_images(:,:,:,sample), pl_gradients, &
-                cv_gradients, cv_clip)
+                cv_gradients, cv_clip, cv_output)
 #endif
-                      
+           
 
            !! if mini-batch ...
            !! ... sum gradients for mini-batch training
@@ -544,13 +544,23 @@ program ConvolutionalNeuralNetwork
            !! ... (gradient descent)
            !!-------------------------------------------------------------------
            if(batch_learning)then
-              comb_cv_gradients = comb_cv_gradients + cv_gradients
+              do l=1,cv_num_filters
+                 comb_cv_gradients(l) = comb_cv_gradients(l) + cv_gradients(l)
+              end do
               do l=1,fc_num_layers
-                 comb_fc_gradients(l)%val = comb_fc_gradients(l)%val + &
-                      fc_gradients(l)%val
+                 comb_fc_gradients(l)%weight = comb_fc_gradients(l)%weight + &
+                      fc_gradients(l)%weight
               end do
 #ifndef _OPENMP
            else
+
+              write(*,*) "gradient check",cv_gradients(1)%weight(1,1)
+              !call fc_gradient_check(fc_gradients, fc_input)
+              !write(*,*)
+              !write(*,*)
+              call cv_gradient_check(cv_gradients, input_images(:,:,:,sample))
+              stop
+
               call cv_update(learning_rate, input_images(:,:,:,sample), &
                    cv_gradients, &
                    l1_lambda, l2_lambda, learning_parameters%momentum)
@@ -558,6 +568,7 @@ program ConvolutionalNeuralNetwork
                    l1_lambda, l2_lambda, update_iteration)
 #endif
            end if
+
 
 
         end do train_loop
@@ -618,7 +629,7 @@ program ConvolutionalNeuralNetwork
         !!----------------------------------------------------------------------
         if(abs(1._real12-sum_accuracy).gt.1.E-3_real12)then !!! HAVE THIS TIED TO BATCH SIZE
            do l=1,fc_num_layers
-              if(all(abs(comb_fc_gradients(l)%val).lt.1.E-8_real12))then
+              if(all(abs(comb_fc_gradients(l)%delta).lt.1.E-8_real12))then
                  write(0,*) "ERROR: FullyConnected gradients are zero"
                  write(0,*) "Exiting..."
                  stop
@@ -648,9 +659,12 @@ program ConvolutionalNeuralNetwork
            exploding_check_old = exploding_check
            exploding_check = 0._real12
            
-           comb_cv_gradients = comb_cv_gradients/batch_size
+           do l=1,cv_num_filters
+              comb_cv_gradients(l)%weight = comb_cv_gradients(l)%weight/batch_size
+              comb_cv_gradients(l)%bias   = comb_cv_gradients(l)%bias/batch_size
+           end do
            do l=1,fc_num_layers
-              comb_fc_gradients(l)%val = comb_fc_gradients(l)%val/batch_size
+              comb_fc_gradients(l)%weight = comb_fc_gradients(l)%weight/batch_size
            end do
 !!! THIS IS THE WRONG INPUT FOR IMAGE
 !!! I DON'T THINK THAT ANY INPUT SHOULD BE GIVEN !!!
@@ -1039,6 +1053,185 @@ contains
 
   end subroutine read_mnist
 !!!#############################################################################
+
+
+
+
+!!!#############################################################################
+!!!
+!!!#############################################################################
+  subroutine cv_gradient_check(gradients, image, epsilon)
+    implicit none
+    type(cv_gradient_type), dimension(:) :: gradients
+    real(real12), dimension(:,:,:) :: image
+    real(real12), optional, intent(in) :: epsilon
+
+    integer :: l,i,j
+    ! Initialize a small perturbation value
+    real(real12) :: t_epsilon = 1.E-4_real12
+    ! Compute the loss with the perturbed weight parameter
+    real(real12) :: loss, lossPlus, lossMinus, numericalGradient,computedGradient
+    real(real12) :: weight_store
+    
+    if(present(epsilon))then
+       t_epsilon = epsilon
+    else
+       t_epsilon = 1.E-5_real12
+    end if
+    
+    ! Compute the numerical gradients and compare with computed gradients
+    ! for each weight and bias parameter
+    
+    do l=1,size(gradients,1)
+
+       ! Loop over each weight and bias parameter
+       do i = lbound(gradients(l)%weight,1),ubound(gradients(l)%weight,1)
+          do j = lbound(gradients(l)%weight,2),ubound(gradients(l)%weight,2)
+             weight_store = convolution(l)%weight(i,j)
+
+             ! Perturb the weight parameter slightly
+             convolution(l)%weight(i,j) = weight_store + t_epsilon
+
+             ! Perform a forward pass and compute the loss
+             ! with the perturbed weight parameter
+             call cv_forward(image, cv_output)
+             call pl_forward(cv_output, pl_output)
+             fc_input = reshape(pl_output, [size(fc_input,1)])
+             select case(pool_normalisation)
+             case("linear")
+                call linear_renormalise(fc_input)
+             case("norm")
+                call renormalise_norm(fc_input, norm=1._real12, mirror=.true.)
+             case("sum")
+                call renormalise_sum(fc_input, norm=1._real12, mirror=.true., magnitude=.true.)
+             end select
+             call fc_forward(fc_input, fc_output)
+             call sm_forward(fc_output, sm_output)
+             lossPlus = compute_loss(predicted=sm_output, expected=expected)
+
+
+             ! Perturb the weight parameter in the opposite direction
+             convolution(l)%weight(i,j) = weight_store - t_epsilon
+
+             ! Perform a forward pass and compute the loss
+             ! with the perturbed weight parameter
+             call cv_forward(image, cv_output)
+             call pl_forward(cv_output, pl_output)
+             fc_input = reshape(pl_output, [size(fc_input,1)])
+             select case(pool_normalisation)
+             case("linear")
+                call linear_renormalise(fc_input)
+             case("norm")
+                call renormalise_norm(fc_input, norm=1._real12, mirror=.true.)
+             case("sum")
+                call renormalise_sum(fc_input, norm=1._real12, mirror=.true., magnitude=.true.)
+             end select
+             call fc_forward(fc_input, fc_output)
+             call sm_forward(fc_output, sm_output)
+             lossMinus = compute_loss(predicted=sm_output, expected=expected)
+
+             ! Compute the numerical gradient
+             numericalGradient = (lossPlus - lossMinus) / (2._real12 * t_epsilon)
+
+             ! Restore the original weight parameter value
+             convolution(l)%weight(i,j) = weight_store
+
+
+             ! Compare the numerical gradient with the computed gradient
+             if (abs(numericalGradient - gradients(l)%weight(i,j)) > t_epsilon) then
+                write(*,*) "Gradient check failed for parameter ", i,j,l
+                write(*,*) numericalGradient, gradients(l)%weight(i,j)
+             else
+                write(*,*) "Gradient check passed for parameter ", i,j,l
+                write(*,*) numericalGradient, gradients(l)%weight(i,j)
+             end if
+
+
+          end do
+       end do
+    end do
+
+  end subroutine cv_gradient_check
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!!
+!!!#############################################################################
+  subroutine fc_gradient_check(gradients, input, epsilon)
+    implicit none
+    type(fc_gradient_type), dimension(0:), intent(in) :: gradients
+    real(real12), dimension(:), intent(in) :: input
+    real(real12), optional, intent(in) :: epsilon
+
+    integer :: l,i,j
+    ! Initialize a small perturbation value
+    real(real12) :: t_epsilon = 1.E-4_real12
+    ! Compute the loss with the perturbed weight parameter
+    real(real12) :: loss, lossPlus, lossMinus, numericalGradient,computedGradient
+    real(real12) :: weight_store
+    
+    if(present(epsilon))then
+       t_epsilon = epsilon
+    else
+       t_epsilon = 1.E-3_real12
+    end if
+
+    
+    ! Compute the numerical gradients and compare with computed gradients
+    ! for each weight and bias parameter
+    
+    do l=1,ubound(gradients,1)
+
+       write(*,*) "Layer",l
+       ! Loop over each weight and bias parameter
+       do i = lbound(gradients(l)%weight,2),ubound(gradients(l)%weight,2)
+          do j = lbound(gradients(l)%weight,1),ubound(gradients(l)%weight,1)
+             weight_store = network(l)%neuron(i)%weight(j)
+
+             ! Perturb the weight parameter slightly
+             network(l)%neuron(i)%weight(j) = weight_store + t_epsilon
+
+             ! Perform a forward pass and compute the loss
+             ! with the perturbed weight parameter
+             call fc_forward(input, fc_output)
+             call sm_forward(fc_output, sm_output)
+             lossPlus = compute_loss(predicted=sm_output, expected=expected)
+
+
+             ! Perturb the weight parameter in the opposite direction
+             network(l)%neuron(i)%weight(j) = weight_store - t_epsilon
+
+             ! Perform a forward pass and compute the loss
+             ! with the perturbed weight parameter
+             call fc_forward(input, fc_output)
+             call sm_forward(fc_output, sm_output)
+             lossMinus = compute_loss(predicted=sm_output, expected=expected)
+
+             ! Compute the numerical gradient
+             numericalGradient = (lossPlus - lossMinus) / (2._real12 * t_epsilon)
+
+             ! Restore the original weight parameter value
+             network(l)%neuron(i)%weight(j) = weight_store
+
+
+             ! Compare the numerical gradient with the computed gradient
+             if (abs(numericalGradient - gradients(l)%weight(j,i)).gt.10*t_epsilon) then
+                write(*,*) "Gradient check failed for parameter ", i,j,l
+                write(*,*) numericalGradient, gradients(l)%weight(j,i)
+             !else
+             !   write(*,*) "Gradient check passed for parameter ", i,j,l
+             !   write(*,*) numericalGradient, gradients(l)%weight(j,i)
+             end if
+
+
+          end do
+       end do
+    end do
+
+  end subroutine fc_gradient_check
+!!!#############################################################################
+
 
 end program ConvolutionalNeuralNetwork
 !!!###################################################################################

@@ -5,17 +5,26 @@
 !!!#############################################################################
 module ConvolutionLayer
   use constants, only: real12
-  use custom_types, only: clip_type, convolution_type
+  use custom_types, only: clip_type, convolution_type, activation_type
   use misc_ml, only: get_padding_half
+  use activation_relu, only: relu_setup
   implicit none
 
-  integer :: padding_lw
-  !integer, allocatable, dimension(:) :: half
 
-  !type index_type
-  !   integer, allocatable, dimension(:) :: idx
-  !end type index_type
-  !type(index_type), allocatable, dimension(:) :: idx_list
+  !! https://www.nag.com/nagware/np/r62_doc/manual/compiler_9_2.html
+  !! https://www.intel.com/content/www/us/en/docs/fortran-compiler/developer-guide-reference/2023-0/generic.html
+  type gradient_type
+     real(real12), allocatable, dimension(:,:) :: weight
+     real(real12) :: bias
+   contains
+     procedure :: add_t_t => gradient_add
+     generic, public :: operator(+) => add_t_t
+  end type gradient_type
+
+  class(activation_type), allocatable :: transfer!activation
+
+
+  integer :: padding_lw
 
   type(convolution_type), allocatable, dimension(:) :: convolution
 
@@ -30,10 +39,44 @@ module ConvolutionLayer
   public :: initialise, forward, backward
   public :: update_weights_and_biases
   public :: write_file
+  public :: gradient_type
+  public :: gradient_add
+  public :: initialise_gradients
   
 
 
 contains
+
+!!!#############################################################################
+!!!
+!!!#############################################################################
+  function gradient_add(a,b) result(output)
+    implicit none
+    class(gradient_type), intent(in) :: a,b
+    type(gradient_type) :: output
+  
+    allocate(output%weight,mold=a%weight)
+    output%weight = a%weight + b%weight
+    output%bias = a%bias + b%bias
+        
+  end function gradient_add
+!!!#############################################################################
+
+
+!!!!#############################################################################
+!!!! needs subroutine for omp reduction
+!!!!#############################################################################
+!  subroutine gradient_sum(a,b)
+!    implicit none
+!    type(gradient_type), intent(inout) :: a
+!    type(gradient_type), intent(in) :: b
+!  
+!    a%weight = a%weight + b%weight
+!    a%bias = a%bias + b%bias
+!        
+!  end subroutine gradient_sum
+!!!!#############################################################################
+
 
 !!!#############################################################################
 !!!
@@ -70,6 +113,7 @@ contains
     integer, allocatable, dimension(:) :: seed_arr
 
     
+    transfer = relu_setup()
 
 !!!! num_layers has taken over for output_channels (or cv_num_filters)
 
@@ -133,11 +177,17 @@ contains
           convolution(l)%weight_incr(:,:) = 0._real12
 
           !! normalise (kernel_initialise?) to number of input units
+          !! He uniform initialiser
+          !! make an initialiser that takes in an assumed rank
+          !! it then does product(shape(weight)) OR size(weight)
+          !! could always use select rank(x) statement if needed
+          !! https://keras.io/api/layers/initializers/
           scale = sqrt(6._real12/(itmp1*itmp1))
           convolution(l)%weight = (convolution(l)%weight*2._real12 - &
                1._real12) * scale
-          convolution(l)%bias = (convolution(l)%bias*2._real12 - &
-               1._real12) * scale
+          !convolution(l)%bias = (convolution(l)%bias*2._real12 - &
+          !     1._real12) * scale
+          convolution(l)%bias = 0._real12
 
        end do
     else
@@ -171,6 +221,27 @@ contains
     
     
   end subroutine initialise
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!!
+!!!#############################################################################
+  subroutine initialise_gradients(gradients)
+    implicit none
+    integer :: l, start_idx, end_idx
+    type(gradient_type), allocatable, dimension(:) :: gradients
+
+    allocate(gradients(size(convolution,1)))
+    do l=1,size(convolution,1)
+       start_idx = -convolution(l)%pad
+       end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
+       allocate(gradients(l)%weight(start_idx:end_idx,start_idx:end_idx))
+       gradients(l)%weight = 0._real12
+       gradients(l)%bias = 0._real12
+    end do
+
+  end subroutine initialise_gradients
 !!!#############################################################################
 
 
@@ -358,10 +429,12 @@ contains
 
                       output(i,j,ichannel) = output(i,j,ichannel) + &
                            input(istride+x,jstride+y,m) * &
-                           convolution(l)%weight(x,y)
+                           !convolution(l)%weight(x,y)
+                           convolution(l)%weight(end_idx-(x-start_idx),end_idx-(y-start_idx))
 
                    end do
                 end do
+                output(i,j,ichannel) = transfer%activate(output(i,j,ichannel))
 
              end do
           end do
@@ -376,71 +449,75 @@ contains
 !!!#############################################################################
 !!! 
 !!!#############################################################################
-  subroutine backward(input, output_gradients, input_gradients, clip)
+  subroutine backward(input, output_gradients, input_gradients, clip, output)
     implicit none
     real(real12), dimension(padding_lw:,padding_lw:,:), intent(in) :: input
-    real(real12), dimension(padding_lw:,padding_lw:,:), intent(out) :: input_gradients
-    real(real12), dimension(:,:,:), intent(in) :: output_gradients
+    real(real12), dimension(:,:,:), intent(in) :: output_gradients, output
+    type(gradient_type), dimension(:), intent(inout) :: input_gradients
     type(clip_type), optional, intent(in) :: clip
 
-    integer :: input_channels, output_channels, ichannel, num_layers
-    integer :: i, j, k, l, m, n, x, y, x180, y180
+    integer :: input_channels, ichannel, num_layers, input_ubound
+    integer :: i, j, l, m, x, y
     integer :: istride, jstride
-    integer :: start_idx, end_idx
-    real(real12) :: rtmp1
-    integer :: output_size
+    integer :: start_idx, end_idx, output_size, up_idx
 
     !! Initialise input_gradients to zero
-    input_gradients = 0._real12
+    do l=1,num_layers
+       input_gradients(l)%weight = 0._real12
+       input_gradients(l)%bias = 0._real12
+    end do
 
     !! get size of the input and output feature maps
     num_layers = size(convolution, dim=1)
-    input_channels = size(input, 3)
-    output_size = size(output_gradients, 1)
+    input_channels = size(input, dim=3)
+    output_size = size(output, dim=1)
+    input_ubound = ubound(input, dim=1)
 
     !! Perform the convolution operation
     ichannel = 0
     do l=1,num_layers
        start_idx = -convolution(l)%pad
        end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
+       up_idx = input_ubound - convolution(l)%kernel_size + 1 - start_idx
+
+       
+
        do m=1,input_channels
           ichannel = ichannel + 1
 
-          !! end_stride is the same as output_size
-          !! ... hence, backward does not need the fix
-          do j=1,output_size
-             jstride = (j-1)*convolution(l)%stride + 1
-             do i=1,output_size
-                istride = (i-1)*convolution(l)%stride + 1
+          do y=start_idx,end_idx
+             do x=start_idx,end_idx
 
-                rtmp1 = output_gradients(i,j,ichannel)
+                !! https://www.jefkine.com/general/2016/09/05/backpropagation-in-convolutional-neural-networks/
+                !! need to include stride in this
+                !input_gradients(l)%weight(x,y) = input_gradients(l)%weight(x,y) + &
+                !     sum(input(x+1:up_idx+x,y+1:up_idx+y,m) * &
+                !     output_gradients(output_size:1:-1,output_size:1:-1,ichannel))
 
-                do y=start_idx,end_idx,1
-                   !y180 = end_idx + ( start_idx - y )
-                   do x=start_idx,end_idx,1
-                      !x180 = end_idx + ( start_idx - x )
-                      !! Compute gradients for input feature map
-                      input_gradients(istride+x,jstride+y,m) = &
-                           input_gradients(istride+x,jstride+y,m) + &
-                           !convolution(l)%weight(x180,y180) * &
-                           !rtmp1
-                           convolution(l)%weight(x,y) * &
-                           rtmp1
-
-!!! TWO OPTIONS?
-!!! FIND THE GRADIENT/LOSS OF THE WEIGHTS:
-!!! ... dL/dF = CONVOL(input, output_gradients)
-!!! ... dL/dX = FULLCONV(180deg rotated weights, output_gradients)
-!!! ... where: F = filter/weights, X = input
-
-
+                do j=1,output_size
+                   do i=1,output_size
+                      input_gradients(l)%weight(x,y) = input_gradients(l)%weight(x,y) + &
+                           !output_gradients(output_size-i+1,output_size-j+1,ichannel) * &
+                           output_gradients(i,j,ichannel) * &
+                           input(x+i,y+j,m)
                    end do
                 end do
 
+
+             end do
+          end do
+
+          !! compute gradients for bias
+          !! https://stackoverflow.com/questions/58036461/how-do-you-calculate-the-gradient-of-bias-in-a-conolutional-neural-network
+          do i=1,output_size
+             do j=1,output_size
+                input_gradients(l)%bias = input_gradients(l)%bias + &
+                     transfer%differentiate(output(i,j,ichannel))
              end do
           end do
        end do
     end do
+
     
     if(present(clip))then
        if(clip%l_min_max) call gradient_clip(input_gradients,&
@@ -460,91 +537,82 @@ contains
   subroutine update_weights_and_biases(learning_rate, input, gradients, &
        l1_lambda, l2_lambda, momentum)
     implicit none
-    integer :: i,j,l,m,x,y,istride,jstride
-    integer :: input_channels, num_layers, input_size, ichannel
+    integer :: l,m,x,y
+    integer :: num_layers
     integer :: start_idx, end_idx
     integer :: end_stride
-    real(real12) :: sum_gradients
     real(real12), optional, intent(in) :: l1_lambda, l2_lambda, momentum
     real(real12), intent(in) :: learning_rate
     real(real12), dimension(padding_lw:,padding_lw:,:), intent(in) :: input
-    real(real12), dimension(padding_lw:,padding_lw:,:), intent(in) :: gradients
-
+    type(gradient_type), dimension(:), intent(in) :: gradients
 
     !! Check if gradients total NaN
-    if(isnan(sum(gradients)))then
-       write(0,*) "gradients nan in CV"
-       return
-    end if
+    do l=1,num_layers
+       if(isnan(sum(gradients(l)%weight)).or.isnan(gradients(l)%bias))then
+          write(0,*) "gradients nan in CV"
+          return
+       end if
+    end do
 
     !! Initialise constants
     num_layers = size(convolution, dim=1)
-    input_channels = size(gradients,3)/num_layers
-    input_size = size(gradients,1) - &
-         2 * maxval(convolution(:)%pad) - &
-         ( maxval(convolution(:)%centre_width) - 1 )
-    ichannel = 0
-    
+
     !! Update the convolution layer weights using gradient descent
     do l=1,num_layers
-       sum_gradients = 0._real12
        start_idx = -convolution(l)%pad
        end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
-       do m=1,input_channels
-          ichannel = ichannel + 1
-          sum_gradients = sum_gradients + sum(gradients(:,:,ichannel))
-
-          end_stride = input_size/convolution(l)%stride
-          do j=1,end_stride
-             jstride = (j-1)*convolution(l)%stride + 1
-             do i=1,end_stride
-                istride = (i-1)*convolution(l)%stride + 1
-                
-                do y=start_idx,end_idx,1
-                   !y180 = convolution(l)%kernel_size - y + 1
-                   do x=start_idx,end_idx,1
-                      !x180 = convolution(l)%kernel_size - x + 1
-
-                      
-                      !! momentum-based learning
-                      if(present(momentum))then
-                         convolution(l)%weight_incr(x,y) = &
-                              learning_rate * &
-                              gradients(istride+x, jstride+y, ichannel) + &
-                              momentum * convolution(l)%weight_incr(x,y)
-                      else
-                         convolution(l)%weight_incr(x,y) = &
-                              learning_rate * &
-                              gradients(istride+x, jstride+y, ichannel)   
-                      end if
-    
-                      !! L1 regularisation
-                      if(present(l1_lambda))then
-                         convolution(l)%weight_incr(x,y) = &
-                              convolution(l)%weight_incr(x,y) + &
-                              learning_rate * l1_lambda * &
-                              sign(1._real12,convolution(l)%weight(x,y))
-                      end if
-
-                      !! L2 regularisation
-                      if(present(l2_lambda))then
-                         convolution(l)%weight_incr(x,y) = &
-                              convolution(l)%weight_incr(x,y) + &
-                              learning_rate * l2_lambda * convolution(l)%weight(x,y)
-                      end if
-
-                      convolution(l)%weight(x,y) = convolution(l)%weight(x,y) - &
-                           convolution(l)%weight_incr(x,y)
+       
+       do y=start_idx,end_idx,1
+          !y180 = convolution(l)%kernel_size - y + 1
+          do x=start_idx,end_idx,1
+             !x180 = convolution(l)%kernel_size - x + 1
 
 
-                   end do
-                end do
+             !! momentum-based learning
+             if(present(momentum))then
+                convolution(l)%weight_incr(x,y) = &
+                     learning_rate * &
+                     gradients(l)%weight(x, y) + &
+                     momentum * convolution(l)%weight_incr(x,y)
+             else
+                convolution(l)%weight_incr(x,y) = &
+                     learning_rate * &
+                     gradients(l)%weight(x, y)   
+             end if
 
-             end do
+             !! L1 regularisation
+             if(present(l1_lambda))then
+                convolution(l)%weight_incr(x,y) = &
+                     convolution(l)%weight_incr(x,y) + &
+                     learning_rate * l1_lambda * &
+                     sign(1._real12,convolution(l)%weight(x,y))
+             end if
+
+             !! L2 regularisation
+             if(present(l2_lambda))then
+                convolution(l)%weight_incr(x,y) = &
+                     convolution(l)%weight_incr(x,y) + &
+                     learning_rate * l2_lambda * convolution(l)%weight(x,y)
+             end if
+
+             convolution(l)%weight(x,y) = convolution(l)%weight(x,y) - &
+                  convolution(l)%weight_incr(x,y)
+
+
           end do
-
        end do
-
+       !! Update the convolution layer biases using gradient descent
+       !convolution(l)%bias = convolution(l)%bias - &
+       !     learning_rate * sum_gradients
+       if(present(momentum))then
+          convolution(l)%bias = convolution(l)%bias - ( &
+               learning_rate * gradients(l)%bias + &
+               momentum * convolution(l)%bias )
+       else
+          convolution(l)%bias = convolution(l)%bias - &
+               learning_rate * gradients(l)%bias
+       end if
+       
        if(any(isnan(convolution(l)%weight)).or.any(convolution(l)%weight.gt.huge(1.E0)))then
           write(0,*) "ERROR: weights in ConvolutionLayer has encountered NaN"
           write(0,*) "Layer:",l
@@ -552,11 +620,8 @@ contains
           write(0,*) "Exiting..."
           stop
        end if
-       
-       !! Update the convolution layer biases using gradient descent
-       convolution(l)%bias = convolution(l)%bias - &
-            learning_rate * sum_gradients
-       
+
+
        if(isnan(convolution(l)%bias).or.convolution(l)%bias.gt.huge(1.E0))then
           write(0,*) "ERROR: biases in ConvolutionLayer has encountered NaN"
           write(0,*) "Exiting..."
@@ -599,36 +664,113 @@ contains
 !!!#############################################################################
   subroutine gradient_clip(gradients, clip_min, clip_max, clip_norm)
     implicit none
-    real(real12), dimension(:,:,:) :: gradients
+    type(gradient_type), dimension(:), intent(inout) :: gradients
     real(real12), optional, intent(in) :: clip_min, clip_max, clip_norm
 
     integer :: i,j,k,l, input_channels, num_layers
     real(real12) :: norm
 
     num_layers = size(convolution, dim=1)
-    input_channels = size(gradients,dim=3)/num_layers
     if(present(clip_norm))then
        do l=1,num_layers
-          norm = norm2(gradients(:,:,(l-1)*input_channels+1:l*input_channels))
+          norm = sqrt(sum(gradients(l)%weight(:,:)**2._real12) + &
+               gradients(l)%bias**2._real12)
           if(norm.gt.clip_norm)then
-             gradients(:,:,(l-1)*input_channels+1:l*input_channels) = &
-                  gradients(:,:,(l-1)*input_channels+1:l*input_channels) * clip_norm/norm
+             gradients(l)%weight(:,:) = &
+                  gradients(l)%weight(:,:) * clip_norm/norm
+             gradients(l)%bias = &
+                  gradients(l)%bias * clip_norm/norm
           end if
        end do
     elseif(present(clip_min).and.present(clip_max))then
-       do k=1,size(gradients,dim=3)
-          do j=1,size(gradients,dim=2)
-             do i=1,size(gradients,dim=1)
-                gradients(i,j,k) = &
-                  max(clip_min,min(clip_max,gradients(i,j,k)))
+       do l=1,num_layers
+          do j=lbound(gradients(l)%weight,dim=2),ubound(gradients(l)%weight,dim=2)
+             do i=lbound(gradients(l)%weight,dim=1),ubound(gradients(l)%weight,dim=1)
+                gradients(l)%weight(i,j) = &
+                  max(clip_min,min(clip_max,gradients(l)%weight(i,j)))
              end do
           end do
+          gradients(l)%bias = max(clip_min,min(clip_max,gradients(l)%bias))
        end do
     end if
 
   end subroutine gradient_clip
 !!!#############################################################################
 
+
+!!!!#############################################################################
+!!!!
+!!!!#############################################################################
+!  subroutine gradient_check(gradients, epsilon)
+!    implicit none
+!    real(real12), dimension(:,:,:), intent(out) :: gradients
+!    real(real12), optional, intent(in) :: epsilon
+!
+!    integer :: num_weights
+!    ! Initialize a small perturbation value
+!    real(real12) :: t_epsilon = 1e-4
+!    ! Compute the loss with the perturbed weight parameter
+!    real(real12) :: loss, lossPlus, lossMinus, numericalGradient
+!    real(real12), allocatable, dimension(:,:,:) :: weight_ptb
+!
+!
+!    allocate(weight_ptb(size(gradients,1),size(gradients,2),size(convolution,1)))
+!    do l=1,size(convolution,1)
+!       weight_ptb(i,j,l) = convolution(l)%weight(i,j)
+!    end do
+!
+!    if(present(epsilon))then
+!       t_epsilon = epsilon
+!    else
+!       t_epsilon = 1.E-4_real12
+!    end if
+!    
+!
+!    ! Compute the numerical gradients and compare with computed gradients
+!    ! for each weight and bias parameter
+!
+!    do l=1,size(convolution,1)
+!       
+!       ! Loop over each weight and bias parameter
+!       do i = 1, size(convolution(l)%weight,1)
+!          do j = 1, size(convolution(l)%weight,2)
+!
+!             ! Perturb the weight parameter slightly
+!             weight_ptb(i,j,l) = convolution(l)%weight(i,j) + t_epsilon
+!
+!             ! Perform a forward pass and compute the loss
+!             ! with the perturbed weight parameter
+!             call forwardPass()
+!             lossPlus = loss
+!
+!             ! Perturb the weight parameter in the opposite direction
+!             weight_ptb(i,j,l) = convolution(l)%weight(i,j) - t_epsilon
+!
+!             ! Perform a forward pass and compute the loss
+!             ! with the perturbed weight parameter
+!             call forwardPass()
+!             lossPlus = loss
+!
+!             ! Compute the numerical gradient
+!             gradients(i,j,l) = (lossPlus - lossMinus) / (2._real12 * t_epsilon)
+!
+!             ! Restore the original weight parameter value
+!             weight_ptb(i,j,l) = convolution(l)%weight(i,j)
+!
+!             ! Compare the numerical gradient with the computed gradient
+!             if (abs(numericalGradient - computedGradient) > t_epsilon) then
+!                write(*,*) "Gradient check failed for parameter ", i
+!             else
+!                write(*,*) "Gradient check passed for parameter ", i
+!             end if
+!
+!
+!          end do
+!       end do
+!    end do
+!
+!  end subroutine gradient_check
+!!!!#############################################################################
 
 end module ConvolutionLayer
 !!!#############################################################################
