@@ -14,6 +14,7 @@ module ConvolutionLayer
   !! https://www.nag.com/nagware/np/r62_doc/manual/compiler_9_2.html
   !! https://www.intel.com/content/www/us/en/docs/fortran-compiler/developer-guide-reference/2023-0/generic.html
   type gradient_type
+     real(real12), allocatable, dimension(:,:) :: delta
      real(real12), allocatable, dimension(:,:) :: weight
      real(real12) :: bias
    contains
@@ -113,7 +114,7 @@ contains
     integer, allocatable, dimension(:) :: seed_arr
 
     
-    transfer = relu_setup()
+    transfer = relu_setup(1._real12)
 
 !!!! num_layers has taken over for output_channels (or cv_num_filters)
 
@@ -182,6 +183,7 @@ contains
           !! it then does product(shape(weight)) OR size(weight)
           !! could always use select rank(x) statement if needed
           !! https://keras.io/api/layers/initializers/
+          
           scale = sqrt(6._real12/(itmp1*itmp1))
           convolution(l)%weight = (convolution(l)%weight*2._real12 - &
                1._real12) * scale
@@ -227,18 +229,21 @@ contains
 !!!#############################################################################
 !!!
 !!!#############################################################################
-  subroutine initialise_gradients(gradients)
+  subroutine initialise_gradients(gradients, input_size)
     implicit none
     integer :: l, start_idx, end_idx
-    type(gradient_type), allocatable, dimension(:) :: gradients
+    integer, intent(in) :: input_size
+    type(gradient_type), allocatable, dimension(:), intent(out) :: gradients
 
     allocate(gradients(size(convolution,1)))
     do l=1,size(convolution,1)
        start_idx = -convolution(l)%pad
        end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
        allocate(gradients(l)%weight(start_idx:end_idx,start_idx:end_idx))
+       allocate(gradients(l)%delta(input_size,input_size))
        gradients(l)%weight = 0._real12
        gradients(l)%bias = 0._real12
+       gradients(l)%delta = 0._real12
     end do
 
   end subroutine initialise_gradients
@@ -429,8 +434,8 @@ contains
 
                       output(i,j,ichannel) = output(i,j,ichannel) + &
                            input(istride+x,jstride+y,m) * &
-                           !convolution(l)%weight(x,y)
-                           convolution(l)%weight(end_idx-(x-start_idx),end_idx-(y-start_idx))
+                           !convolution(l)%weight(end_idx-(x-start_idx),end_idx-(y-start_idx))
+                           convolution(l)%weight(x,y)
 
                    end do
                 end do
@@ -456,13 +461,15 @@ contains
     type(gradient_type), dimension(:), intent(inout) :: input_gradients
     type(clip_type), optional, intent(in) :: clip
 
-    integer :: input_channels, ichannel, num_layers, input_ubound
-    integer :: i, j, l, m, x, y
+    integer :: input_channels, ichannel, num_layers
+    integer :: input_lbound, input_ubound
+    integer :: l, m, x, y, ip, jp
     integer :: istride, jstride
     integer :: start_idx, end_idx, output_size, up_idx
 
     !! Initialise input_gradients to zero
     do l=1,num_layers
+       input_gradients(l)%delta = 0._real12
        input_gradients(l)%weight = 0._real12
        input_gradients(l)%bias = 0._real12
     end do
@@ -471,6 +478,7 @@ contains
     num_layers = size(convolution, dim=1)
     input_channels = size(input, dim=3)
     output_size = size(output, dim=1)
+    input_lbound = lbound(input, dim=1)
     input_ubound = ubound(input, dim=1)
 
     !! Perform the convolution operation
@@ -478,45 +486,78 @@ contains
     do l=1,num_layers
        start_idx = -convolution(l)%pad
        end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
-       up_idx = input_ubound - convolution(l)%kernel_size + 1 - start_idx
-
-       
+       !up_idx = input_ubound - convolution(l)%kernel_size + 1 - start_idx
 
        do m=1,input_channels
           ichannel = ichannel + 1
 
-          do y=start_idx,end_idx
-             do x=start_idx,end_idx
+          !! https://www.jefkine.com/general/2016/09/05/backpropagation-in-convolutional-neural-networks/
+          !! need to include stride in this
+          !input_gradients(l)%weight(x,y) = input_gradients(l)%weight(x,y) + &
+          !     sum(input(x+1:up_idx+x,y+1:up_idx+y,m) * &
+          !     output_gradients(output_size:1:-1,output_size:1:-1,ichannel))
+          
+          do jp=1,output_size!input_lbound, input_ubound
+             do ip=1,output_size!input_lbound, input_ubound
 
-                !! https://www.jefkine.com/general/2016/09/05/backpropagation-in-convolutional-neural-networks/
-                !! need to include stride in this
-                !input_gradients(l)%weight(x,y) = input_gradients(l)%weight(x,y) + &
-                !     sum(input(x+1:up_idx+x,y+1:up_idx+y,m) * &
-                !     output_gradients(output_size:1:-1,output_size:1:-1,ichannel))
+                y_weight_loop: do y=start_idx,end_idx
+                   if(jp-y.lt.1.or.jp-y.gt.output_size) cycle y_weight_loop
+                   x_weight_loop: do x=start_idx,end_idx
+                      if(ip-x.lt.1.or.ip-x.gt.output_size) cycle x_weight_loop
 
-                do j=1,output_size
-                   do i=1,output_size
+                      input_gradients(l)%delta(ip,jp) = &
+                           input_gradients(l)%delta(ip,jp) + &
+                           output_gradients(ip-x,jp-y,ichannel) * &
+                           convolution(l)%weight(x,y) * &
+                           transfer%differentiate(input(ip,jp,m))
+                           !input(ip,jp,m)  !! disable transfer for gradient testing
+
+
                       input_gradients(l)%weight(x,y) = input_gradients(l)%weight(x,y) + &
-                           !output_gradients(output_size-i+1,output_size-j+1,ichannel) * &
-                           output_gradients(i,j,ichannel) * &
-                           input(x+i,y+j,m)
-                   end do
-                end do
+                           !output_gradients(output_size-ip+1,output_size-jp+1,ichannel) * &
+                           output_gradients(ip,jp,ichannel) * &
+                           input(ip+x,jp+y,m)
+                   end do x_weight_loop
+                end do y_weight_loop
 
 
-             end do
-          end do
-
-          !! compute gradients for bias
-          !! https://stackoverflow.com/questions/58036461/how-do-you-calculate-the-gradient-of-bias-in-a-conolutional-neural-network
-          do i=1,output_size
-             do j=1,output_size
-                input_gradients(l)%bias = input_gradients(l)%bias + &
-                     transfer%differentiate(output(i,j,ichannel))
              end do
           end do
        end do
+       !! compute gradients for bias
+       !! https://stackoverflow.com/questions/58036461/how-do-you-calculate-the-gradient-of-bias-in-a-conolutional-neural-networo
+       input_gradients(l)%bias = sum(input_gradients(l)%delta)
     end do
+
+
+    !ichannel = 0
+    !do l=1,num_layers
+    !   start_idx = -convolution(l)%pad
+    !   end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
+    !   do m=1,input_channels
+    !      ichannel = ichannel + 1
+    !      !
+    !      !   do y=start_idx,end_idx
+    !      !      do x=start_idx,end_idx
+    !      !         do jp=1,output_size
+    !      !            do ip=1,output_size
+    !      !               input_gradients(l)%weight(x,y) = input_gradients(l)%weight(x,y) + &
+    !      !                    input_gradients(l)%delta(ip,jp) * input(ip+x,jp+y,m)
+    !      !            end do
+    !      !         end do
+    !      !      end do
+    !      !   end do
+    !      !
+    !      !do jp=1,output_size!input_lbound, input_ubound
+    !      !   do ip=1,output_size!input_lbound, input_ubound
+    !      !      input_gradients(l)%bias = input_gradients(l)%bias + &
+    !      !                      !sum(input_gradients(l)%delta)
+    !      !           transfer%differentiate(input(ip,jp,m))
+    !      !   end do
+    !      !end do
+    !   end do
+    !end do
+
 
     
     if(present(clip))then
@@ -546,6 +587,9 @@ contains
     real(real12), dimension(padding_lw:,padding_lw:,:), intent(in) :: input
     type(gradient_type), dimension(:), intent(in) :: gradients
 
+    !! Initialise constants
+    num_layers = size(convolution, dim=1)
+
     !! Check if gradients total NaN
     do l=1,num_layers
        if(isnan(sum(gradients(l)%weight)).or.isnan(gradients(l)%bias))then
@@ -553,9 +597,6 @@ contains
           return
        end if
     end do
-
-    !! Initialise constants
-    num_layers = size(convolution, dim=1)
 
     !! Update the convolution layer weights using gradient descent
     do l=1,num_layers
