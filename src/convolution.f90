@@ -431,7 +431,6 @@ contains
              do i=1,output_size
                 istride = (i-1)*convolution(l)%stride + 1
 
-                
                 output(i,j,ichannel) = convolution(l)%bias + &
                      sum( &                
                      input(&
@@ -464,9 +463,11 @@ contains
 
     integer :: input_channels, ichannel, num_layers
     integer :: input_lbound, input_ubound
-    integer :: l, m, x, y, ip, jp, x180, y180
+    integer :: l, m, i, j, x, y
     integer :: istride, jstride
     integer :: start_idx, end_idx, output_size, up_idx
+    integer :: i_start, i_end, j_start, j_end
+    integer :: x_start, x_end, y_start, y_end
 
 
     !! get size of the input and output feature maps
@@ -496,52 +497,52 @@ contains
           !! https://www.jefkine.com/general/2016/09/05/backpropagation-in-convolutional-neural-networks/
           !!https://www.youtube.com/watch?v=pUCCd2-17vI
 
-          do jp=1,output_size!input_lbound, input_ubound
-             do ip=1,output_size!input_lbound, input_ubound
+          !! apply full convolution to compute input gradients
+          i_input_loop: do j=1,output_size
+             j_start = max(1,j+start_idx)
+             j_end   = min(output_size,j+end_idx)
+             y_start = max(1-j,-end_idx)!max(1-j,start_idx)
+             y_end   = min(output_size-j,-start_idx)!min(output_size-j,end_idx)
+             jstride = (j-1)*convolution(l)%stride + 1
+             j_input_loop: do i=1,output_size
+                i_start = max(1,i+start_idx)
+                i_end   = min(output_size,i+end_idx)
+                x_start = max(1-i,-end_idx)!max(1-i,start_idx)
+                x_end   = min(output_size-i,-start_idx)!min(output_size-i,end_idx)
+                istride = (i-1)*convolution(l)%stride + 1
 
-!!! CONVERT TO CONVOLUTION OR CORRELATION
-                ! input_gradients(l)%delta(ip,jp) = &
-                     
+                input_gradients(l)%delta(istride,jstride) = &
+                     input_gradients(l)%delta(istride,jstride) + &
+                     sum( &
+                     output_gradients(&
+                     i_start:i_end,&
+                     j_start:j_end,ichannel) * &
+                     convolution(l)%weight(x_start:x_end,y_start:y_end) &
+                     ) * &
+                     transfer%differentiate(input(istride,jstride,m))
                 
-                y_weight_loop1: do y=start_idx,end_idx,1
-                   if(jp+y.lt.1.or.jp+y.gt.output_size) cycle y_weight_loop1
-                   x_weight_loop1: do x=start_idx,end_idx,1
-                      if(ip+x.lt.1.or.ip+x.gt.output_size) cycle x_weight_loop1
+             end do j_input_loop
+          end do i_input_loop
 
-
-                      input_gradients(l)%delta(ip,jp) = &
-                           input_gradients(l)%delta(ip,jp) + &
-                           output_gradients(ip+x,jp+y,ichannel) * &
-                           convolution(l)%weight(x,y) * &
-                           transfer%differentiate(input(ip,jp,m))
-                           !!input(ip,jp,m)  !! disable transfer for gradient testing
-
-
-                   end do x_weight_loop1
-                end do y_weight_loop1
-
-             end do
-          end do
-          
-          
-          y_weight_loop3: do y=start_idx,end_idx,1
-             x_weight_loop3: do x=start_idx,end_idx,1
+          !! apply convolution to compute weight gradients
+          y_weight_loop: do y=start_idx,end_idx,1
+             x_weight_loop: do x=start_idx,end_idx,1
                 input_gradients(l)%weight(x,y) = input_gradients(l)%weight(x,y) + &
                      sum(output_gradients(:,:,ichannel) * &
                      input(&
                      x+1:up_idx+x:convolution(l)%stride,&
                      y+1:up_idx+y:convolution(l)%stride,m))
-             end do x_weight_loop3
-          end do y_weight_loop3
+             end do x_weight_loop
+          end do y_weight_loop
        !! compute gradients for bias
        !! https://stackoverflow.com/questions/58036461/how-do-you-calculate-the-gradient-of-bias-in-a-conolutional-neural-networo
-          input_gradients(l)%bias = input_gradients(l)%bias + sum(output_gradients(:,:,ichannel))
+          input_gradients(l)%bias = input_gradients(l)%bias + &
+               sum(output_gradients(:,:,ichannel))
        end do
     end do
 
 
-
-    
+    !! apply gradient clipping
     if(present(clip))then
        if(clip%l_min_max) call gradient_clip(input_gradients,&
             clip_min=clip%min,clip_max=clip%max)
@@ -569,10 +570,10 @@ contains
     real(real12), dimension(padding_lw:,padding_lw:,:), intent(in) :: input
     type(gradient_type), dimension(:), intent(in) :: gradients
 
-    !! Initialise constants
+    !! initialise constants
     num_layers = size(convolution, dim=1)
 
-    !! Check if gradients total NaN
+    !! check if gradients total NaN
     do l=1,num_layers
        if(isnan(sum(gradients(l)%weight)).or.isnan(gradients(l)%bias))then
           write(*,*) gradients(l)%weight
@@ -582,16 +583,13 @@ contains
        end if
     end do
 
-    !! Update the convolution layer weights using gradient descent
+    !! update the convolution layer weights using gradient descent
     do l=1,num_layers
        start_idx = -convolution(l)%pad
        end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
        
        do y=start_idx,end_idx,1
-          !y180 = convolution(l)%kernel_size - y + 1
           do x=start_idx,end_idx,1
-             !x180 = convolution(l)%kernel_size - x + 1
-
 
              !! momentum-based learning
              if(present(momentum))then
@@ -626,9 +624,8 @@ contains
 
           end do
        end do
-       !! Update the convolution layer biases using gradient descent
-       !convolution(l)%bias = convolution(l)%bias - &
-       !     learning_rate * sum_gradients
+
+       !! update the convolution layer biases using gradient descent
        if(present(momentum))then
           convolution(l)%bias = convolution(l)%bias - ( &
                learning_rate * gradients(l)%bias + &
@@ -638,6 +635,7 @@ contains
                learning_rate * gradients(l)%bias
        end if
        
+       !! check for NaNs or infinite in weights
        if(any(isnan(convolution(l)%weight)).or.any(convolution(l)%weight.gt.huge(1.E0)))then
           write(0,*) "ERROR: weights in ConvolutionLayer has encountered NaN"
           write(0,*) "Layer:",l
@@ -647,6 +645,7 @@ contains
        end if
 
 
+       !! check for NaNs or infinite in bias
        if(isnan(convolution(l)%bias).or.convolution(l)%bias.gt.huge(1.E0))then
           write(0,*) "ERROR: biases in ConvolutionLayer has encountered NaN"
           write(0,*) "Exiting..."
