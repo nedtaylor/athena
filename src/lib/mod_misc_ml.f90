@@ -15,12 +15,12 @@ module misc_ml
 
 
 contains
-!!! https://proceedings.neurips.cc/paper/2018/file/7edcfb2d8f6a659ef4cd1e6c9b6d7079-Paper.pdf
-!!! https://pub.towardsai.net/dropblock-a-new-regularization-technique-e926bbc74adb
 
 !!!########################################################################
 !!! DropBlock method for dropping random blocks of data from an image
 !!!########################################################################
+!!! https://proceedings.neurips.cc/paper/2018/file/7edcfb2d8f6a659ef4cd1e6c9b6d7079-Paper.pdf
+!!! https://pub.towardsai.net/dropblock-a-new-regularization-technique-e926bbc74adb
 !!! input = input data
 !!!         ... channels are provided independently
 !!!         ... this tries to prevent the network from relying too ...
