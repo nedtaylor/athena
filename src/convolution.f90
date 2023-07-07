@@ -7,7 +7,15 @@ module ConvolutionLayer
   use constants, only: real12
   use custom_types, only: clip_type, convolution_type, activation_type
   use misc_ml, only: get_padding_half
+  use activation_gaussian, only: gaussian_setup
+  use activation_linear, only: linear_setup
+  use activation_piecewise, only: piecewise_setup
   use activation_relu, only: relu_setup
+  use activation_leaky_relu, only: leaky_relu_setup
+  use activation_sigmoid, only: sigmoid_setup
+  use activation_tanh, only: tanh_setup
+  use activation_none, only: none_setup
+  use weight_initialiser, only: he_uniform, zeros
   implicit none
 
 
@@ -98,12 +106,16 @@ contains
 !!!#############################################################################
 !!!
 !!!#############################################################################
-  subroutine initialise(seed, num_layers, kernel_size, stride, file, full_padding)
+  subroutine initialise(seed, num_layers, kernel_size, stride, file, &
+       full_padding, activation_function, activation_scale, &
+       kernel_initialiser, bias_initialiser)
     implicit none
     integer, intent(in), optional :: seed
     integer, intent(in), optional :: num_layers
+    real(real12), optional, intent(in) :: activation_scale
     integer, dimension(:), intent(in), optional :: kernel_size, stride
-    character(*), optional, intent(in) :: file
+    character(*), optional, intent(in) :: file, activation_function, &
+         kernel_initialiser, bias_initialiser
     logical, optional, intent(in) :: full_padding
 
     integer :: l,i
@@ -111,11 +123,10 @@ contains
     integer :: start_idx, end_idx
     real(real12) :: scale
     logical :: t_full_padding
+    character(len=10) :: t_activation_function
     integer, allocatable, dimension(:) :: seed_arr
 
     
-    transfer = relu_setup(1._real12)
-
 !!!! num_layers has taken over for output_channels (or cv_num_filters)
 
 
@@ -177,23 +188,9 @@ contains
           allocate(convolution(l)%weight_incr(start_idx:end_idx,start_idx:end_idx))
           convolution(l)%weight_incr(:,:) = 0._real12
 
-          !! normalise (kernel_initialise?) to number of input units
-          !! He uniform initialiser
-          !! make an initialiser that takes in an assumed rank
-          !! it then does product(shape(weight)) OR size(weight)
-          !! could always use select rank(x) statement if needed
-          !! https://keras.io/api/layers/initializers/
-          
-          scale = sqrt(6._real12/(itmp1*itmp1))
-          convolution(l)%weight = (convolution(l)%weight*2._real12 - &
-               1._real12) * scale
-          !convolution(l)%bias = (convolution(l)%bias*2._real12 - &
-          !     1._real12) * scale
-          convolution(l)%bias = 0._real12
-
-!!! TESTING !!!
-          !convolution(l)%weight = 0._real12
-          !convolution(l)%bias = 1._real12
+!!! CALL A GENERAL FUNCTION THAT PASES TO THE INTERNAL SUBROUTINE BASED ON THE CASE
+          call he_uniform(convolution(l)%weight, itmp1*itmp1)
+          call zeros(convolution(l)%bias)
 
        end do
     else
@@ -225,7 +222,43 @@ contains
     !end if
     padding_lw = -maxval(convolution(:)%pad) + 1
     
-    
+
+    !!-----------------------------------------------------------------------
+    !! set activation and derivative functions based on input name
+    !!-----------------------------------------------------------------------
+    if(present(activation_function))then
+       t_activation_function = activation_function
+    else
+       t_activation_function = "none"
+    end if
+    if(present(activation_scale))then
+       scale = activation_scale
+    else
+       scale = 1._real12
+    end if
+    select case(trim(t_activation_function))
+    case("gaussian")
+       transfer = gaussian_setup(scale = scale)
+    case ("linear")
+       transfer = linear_setup(scale = scale)
+    case ("piecewise")
+       transfer = piecewise_setup(scale = scale)
+    case ("relu")
+       transfer = relu_setup(scale = scale)
+    case ("leaky_relu")
+       transfer = leaky_relu_setup(scale = scale)
+    case ("sigmoid")
+       transfer = sigmoid_setup(scale = scale)
+    case ("tanh")
+       transfer = tanh_setup(scale = scale)
+    case ("none")
+       transfer = none_setup(scale = scale)
+    case default
+       transfer = none_setup(scale = scale)
+    end select
+
+
+
   end subroutine initialise
 !!!#############################################################################
 
