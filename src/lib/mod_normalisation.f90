@@ -1,6 +1,12 @@
+!!!#############################################################################
+!!! Code written by Ned Thaddeus Taylor
+!!! Code part of the ARTEMIS group (Hepplestone research group)
+!!! Think Hepplestone, think HRG
+!!!#############################################################################
 module normalisation
   use constants, only: real12
   implicit none
+
 
   private
 
@@ -8,8 +14,12 @@ module normalisation
   public :: renormalise_norm
   public :: renormalise_sum
 
+
 contains
 
+!!!########################################################################
+!!! 
+!!!########################################################################
 subroutine linear_renormalise(input, min, max)
   implicit none
   real(real12), dimension(:), intent(inout) :: input
@@ -35,8 +45,12 @@ subroutine linear_renormalise(input, min, max)
   input = lower + width * (input - min_val)/(max_val - min_val)
  
 end subroutine linear_renormalise
+!!!########################################################################
 
 
+!!!########################################################################
+!!!
+!!!########################################################################
 subroutine renormalise_norm(input, norm, mirror)
   implicit none
   real(real12), dimension(:), intent(inout) :: input
@@ -57,8 +71,12 @@ subroutine renormalise_norm(input, norm, mirror)
   input = input * scale/sqrt(dot_product(input,input))
 
 end subroutine renormalise_norm
+!!!########################################################################
 
 
+!!!########################################################################
+!!!
+!!!########################################################################
 subroutine renormalise_sum(input, norm, mirror, magnitude)
   implicit none
   real(real12), dimension(:), intent(inout) :: input
@@ -90,7 +108,8 @@ subroutine renormalise_sum(input, norm, mirror, magnitude)
   input = input * scale
 
 end subroutine renormalise_sum
-
+!!!########################################################################
 
 
 end module normalisation
+!!!#############################################################################
