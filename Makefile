@@ -10,6 +10,7 @@ BUILD_DIR = ./obj
 LIBS := mod_constants.f90 \
 	mod_misc_ml.f90 \
 	mod_types.f90 \
+	mod_weight_initialiser.f90 \
 	mod_activation_gaussian.f90 \
 	mod_activation_linear.f90 \
 	mod_activation_piecewise.f90 \
@@ -17,9 +18,11 @@ LIBS := mod_constants.f90 \
 	mod_activation_leaky_relu.f90 \
 	mod_activation_sigmoid.f90 \
 	mod_activation_tanh.f90 \
+	mod_activation_none.f90 \
 	mod_misc.f90 \
 	mod_tools_infile.f90 \
 	mod_normalisation.f90 \
+	mod_batch_norm.f90 \
 	mod_loss_categorical.f90
 OBJS := $(addprefix $(LIB_DIR)/,$(LIBS))
 #$(info VAR is $(OBJS))
