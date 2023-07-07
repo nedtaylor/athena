@@ -664,7 +664,7 @@ contains
   subroutine gradient_clip(gradients,clip_min,clip_max,clip_norm)
     implicit none
     real(real12), optional, intent(in) :: clip_min, clip_max, clip_norm
-    type(gradient_type), dimension(:) :: gradients
+    type(gradient_type), dimension(0:), intent(inout) :: gradients
 
     integer :: j, k, l, num_layers, num_neurons
     real(real12) :: norm
