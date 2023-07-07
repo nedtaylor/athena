@@ -15,6 +15,7 @@ module FullyConnectedLayer
   use activation_leaky_relu, only: leaky_relu_setup
   use activation_sigmoid, only: sigmoid_setup
   use activation_tanh, only: tanh_setup
+  use weight_initialiser, only: he_uniform, zeros
   implicit none
 
 
@@ -95,13 +96,15 @@ contains
 !!!
 !!!#############################################################################
   subroutine initialise(seed, num_layers, num_inputs, num_hidden, &
-       activation_function, activation_scale, learning_parameters, file)
+       activation_function, activation_scale, learning_parameters, file, &
+       weight_initialiser)
     implicit none
     integer, optional, intent(in) :: seed
     integer, optional, intent(in):: num_layers, num_inputs
     integer, dimension(:), optional, intent(in) :: num_hidden
     real(real12), optional, intent(in) :: activation_scale
-    character(*), optional, intent(in) :: file, activation_function
+    character(*), optional, intent(in) :: file, activation_function, &
+         weight_initialiser
     type(learning_parameters_type), optional, intent(in) :: learning_parameters
 
     integer :: itmp1,nseed, length
@@ -155,11 +158,11 @@ contains
              network(l)%neuron(i)%weight_incr = 0._real12
              network(l)%neuron(i)%output = 0._real12
 
-             !! normalise weights using He Uniform initialiser
-             scale = sqrt(6._real12/(size(network(l)%neuron(i)%weight,dim=1)))
-             network(l)%neuron(i)%weight = &
-                  (network(l)%neuron(i)%weight) * &
-                  scale
+
+!!! CALL A GENERAL FUNCTION THAT PASES TO THE INTERNAL SUBROUTINE BASED ON THE CASE
+             call he_uniform(network(l)%neuron(i)%weight, &
+                  size(network(l)%neuron(i)%weight,dim=1))
+
           end do
 
        end do
