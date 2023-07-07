@@ -725,6 +725,8 @@ program ConvolutionalNeuralNetwork
 !!! testing loop
 !!!-----------------------------------------------------------------------------
 !!! CAN PARALLELISE THIS SECTION AS THEY ARE INDEPENDENT
+  sum_accuracy = 0._real12
+  sum_loss = 0._real12
   test_loop: do sample = 1, num_samples_test
 
      call cv_forward(test_images(:,:,:,sample), cv_output)
@@ -747,6 +749,7 @@ program ConvolutionalNeuralNetwork
      expected = test_labels(sample)
      sum_loss = sum_loss + compute_loss(predicted=sm_output, expected=expected)     
      accuracy = compute_accuracy(sm_output, expected)
+     sum_accuracy = sum_accuracy + accuracy
 
 
      !! print testing results
@@ -764,7 +767,8 @@ program ConvolutionalNeuralNetwork
   if(verbosity.gt.1) close(15)
 
   overall_loss = real(sum_loss)/real(num_samples_test)
-  write(6,'("Overall accuracy=",F0.5)') overall_loss
+  write(6,'("Overall accuracy=",F0.5)') sum_accuracy/real(num_samples_test)
+  write(6,'("Overall loss=",F0.5)') sum_loss/real(num_samples_test)
 
 
 
