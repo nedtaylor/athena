@@ -23,6 +23,9 @@ module FullyConnectedLayer
      real(real12), allocatable, dimension(:,:) :: weight
      real(real12), allocatable, dimension(:,:) :: m
      real(real12), allocatable, dimension(:,:) :: v
+   contains
+     procedure :: add_t_t => gradient_add  !t = type, r = real, i = int
+     generic :: operator(+) => add_t_t !, public
   end type gradient_type
   
   !type error_type
@@ -42,7 +45,7 @@ module FullyConnectedLayer
   private
 
   public :: network
-  public :: gradient_type, gradient_sum
+  public :: gradient_type
 
   public :: initialise, forward, backward
   public :: update_weights_and_biases
@@ -56,20 +59,36 @@ contains
 !!!#############################################################################
 !!! custom operation for summing gradient_type
 !!!#############################################################################
-  subroutine gradient_sum(output, input)
-    type(gradient_type), dimension(:), intent(in) :: input
-    type(gradient_type), dimension(:), intent(inout) :: output
-    integer :: i
+  elemental function gradient_add(a, b) result(output)
+    class(gradient_type), intent(in) :: a,b
+    type(gradient_type) :: output
     
-    do i=1,size(output,dim=1)
-       output(i)%weight = output(i)%weight + input(i)%weight
-       !output(i)%delta = output(i)%delta + input(i)%delta
-       if(allocated(output(i)%m)) output(i)%m = output(i)%m !+ input(i)%m
-       if(allocated(output(i)%v)) output(i)%v = output(i)%v !+ input(i)%v
-    end do
+    if(allocated(a%weight).and.allocated(b%weight))then
+       !allocate(output%weight,mold=a%weight)
+       output%weight = a%weight + b%weight
+       !!output%delta = output%delta + input%delta
+       if(allocated(a%m)) output%m = a%m !+ input%m
+       if(allocated(a%v)) output%v = a%v !+ input%v
+    end if
 
-  end subroutine gradient_sum
+  end function gradient_add
 !!!#############################################################################
+
+
+!!!!!#############################################################################
+!!!! custom operation for summing gradient_type
+!!!!#############################################################################
+!  subroutine gradient_sum(output, input)
+!    type(gradient_type), dimension(0:), intent(in) :: input
+!    type(gradient_type), dimension(0:), intent(inout) :: output
+!    integer :: i
+!    
+!    do i=1,ubound(output, dim=1) !! ignore 0 as that is a delta, which is not summed
+!       output(i) = output(i) + input(i)
+!    end do
+!
+!  end subroutine gradient_sum
+!!!!#############################################################################
 
 
 !!!#############################################################################

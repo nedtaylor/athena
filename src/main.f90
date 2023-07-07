@@ -24,7 +24,6 @@ program ConvolutionalNeuralNetwork
        cv_update => update_weights_and_biases, &
        cv_write => write_file, &
        cv_gradient_type => gradient_type, &
-       cv_gradient_add => gradient_add, &
        cv_gradient_init => initialise_gradients, &
        convolution
   use PoolingLayer, only: pl_init => initialise, pl_forward => forward, &
@@ -34,7 +33,6 @@ program ConvolutionalNeuralNetwork
        fc_update => update_weights_and_biases, &
        fc_write => write_file, &
        fc_gradient_type => gradient_type, &
-       fc_gradient_sum => gradient_sum, &
        fc_gradient_init => initialise_gradients, &
        network
   use SoftmaxLayer, only: sm_init => initialise, sm_forward => forward, &
@@ -106,11 +104,9 @@ program ConvolutionalNeuralNetwork
 !! https://stackoverflow.com/questions/61141297/openmp-reduction-on-user-defined-fortran-type-containing-allocatable-array
 !! https://fortran-lang.discourse.group/t/openmp-reduction-on-operator/5887
 !!!-----------------------------------------------------------------------------
-  !$omp declare reduction(cv_grad_sum:cv_gradient_type:omp_out=cv_gradient_add(omp_out,omp_in)) &
+  !$omp declare reduction(cv_grad_sum:cv_gradient_type:omp_out = omp_out + omp_in) &
   !$omp& initializer(omp_priv = omp_orig)
-!!  !$omp declare reduction(cv_grad_sum:cv_gradient_type:cv_gradient_sum(omp_out,omp_in)) &
-!!  !$omp& initializer(omp_priv = omp_orig)
-  !$omp declare reduction(fc_grad_sum:fc_gradient_type:fc_gradient_sum(omp_out,omp_in)) &
+  !$omp declare reduction(fc_grad_sum:fc_gradient_type:omp_out = omp_out + omp_in) &
   !$omp& initializer(omp_priv = omp_orig)
   !$omp declare reduction(compare_val:integer:compare_val(omp_out,omp_in)) &
   !$omp& initializer(omp_priv = omp_orig)
@@ -266,7 +262,7 @@ program ConvolutionalNeuralNetwork
 !!! initialise non-fully connected layer gradients
 !!!-----------------------------------------------------------------------------
   call cv_gradient_init(cv_gradients,image_size)
-  call cv_gradient_init(comb_cv_gradients,image_size)
+  if(batch_learning) call cv_gradient_init(comb_cv_gradients,image_size)
   allocate(pl_gradients,mold=cv_output)
   allocate(sm_gradients(num_classes))
   pl_gradients = 0._real12
@@ -284,11 +280,12 @@ program ConvolutionalNeuralNetwork
   select case(learning_parameters%method)
   case("adam")
      call fc_gradient_init(fc_gradients, input_size, adam_learning = .true.)
-     call fc_gradient_init(comb_fc_gradients, input_size, adam_learning = .true.)
+     if(batch_learning) &
+          call fc_gradient_init(comb_fc_gradients, input_size, adam_learning = .true.)
      update_iteration = 1
   case default
      call fc_gradient_init(fc_gradients, input_size)
-     call fc_gradient_init(comb_fc_gradients, input_size)     
+     if(batch_learning) call fc_gradient_init(comb_fc_gradients, input_size)     
   end select
 
 
@@ -386,7 +383,6 @@ program ConvolutionalNeuralNetwork
         !!!drop_gamma = (1 - drop_gamma)/block_size**2 * image_size**2/(image_size - block_size + 1)**2
 
         
-        
         !!----------------------------------------------------------------------
         !! sample loop
         !! ... test each sample and get gradients and losses from each
@@ -416,7 +412,6 @@ program ConvolutionalNeuralNetwork
         !$OMP& REDUCTION(fc_grad_sum:comb_fc_gradients)
         train_loop: do sample = start_index, end_index
            
-
            !image_sample(:,:,:) = image_slice(:,:,:,sample)
 
            !! Forward pass
@@ -451,8 +446,6 @@ program ConvolutionalNeuralNetwork
            !call bn_forward(cv_output, mean, variance, &
            !     gamma=bn_gamma, beta=bn_beta, input_norm=cv_output_norm)
 
-
-!!!pl_gradients = cv_output - 1._real12
            call pl_forward(cv_output, pl_output)
            fc_input = reshape(pl_output, [input_size])
            select case(pool_normalisation)
@@ -541,16 +534,8 @@ program ConvolutionalNeuralNetwork
            !! ... (gradient descent)
            !!-------------------------------------------------------------------
            if(batch_learning)then
-              !write(*,*) "NEW SAMPLE",sample
-              do l=1,cv_num_filters
-                 !write(*,*) l
-                 !write(*,*) cv_gradients(l)%weight,cv_gradients(l)%bias
-                 comb_cv_gradients(l) = comb_cv_gradients(l) + cv_gradients(l)
-              end do
-              do l=1,fc_num_layers
-                 comb_fc_gradients(l)%weight = comb_fc_gradients(l)%weight + &
-                      fc_gradients(l)%weight
-              end do
+              comb_cv_gradients = comb_cv_gradients + cv_gradients
+              comb_fc_gradients = comb_fc_gradients + fc_gradients
 #ifndef _OPENMP
            else
               !call fc_gradient_check(fc_gradients, fc_input)
@@ -570,6 +555,7 @@ program ConvolutionalNeuralNetwork
 
         end do train_loop
         !$OMP END PARALLEL DO
+
 
         !! Check if categorical predicting is stuck on same value
         !!----------------------------------------------------------------------

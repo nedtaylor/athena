@@ -19,7 +19,7 @@ module ConvolutionLayer
      real(real12) :: bias
    contains
      procedure :: add_t_t => gradient_add
-     generic, public :: operator(+) => add_t_t
+     generic :: operator(+) => add_t_t !, public
   end type gradient_type
 
   class(activation_type), allocatable :: transfer!activation
@@ -41,7 +41,6 @@ module ConvolutionLayer
   public :: update_weights_and_biases
   public :: write_file
   public :: gradient_type
-  public :: gradient_add
   public :: initialise_gradients
   
 
@@ -64,17 +63,18 @@ contains
 !!!#############################################################################
 
 
+!!!!!#############################################################################
+!!!! custom operation for summing gradient_type
 !!!!#############################################################################
-!!!! needs subroutine for omp reduction
-!!!!#############################################################################
-!  subroutine gradient_sum(a,b)
-!    implicit none
-!    type(gradient_type), intent(inout) :: a
-!    type(gradient_type), intent(in) :: b
-!  
-!    a%weight = a%weight + b%weight
-!    a%bias = a%bias + b%bias
-!        
+!  subroutine gradient_sum(output, input)
+!    type(gradient_type), dimension(:), intent(in) :: input
+!    type(gradient_type), dimension(:), intent(inout) :: output
+!    integer :: i
+!    
+!    do i=lbound(output, dim=1),ubound(output, dim=1)
+!       output(i) = output(i) + input(i)
+!    end do
+!
 !  end subroutine gradient_sum
 !!!!#############################################################################
 
@@ -419,15 +419,10 @@ contains
     ichannel = 0
     output = 0._real12
     do l=1,num_layers
-       !write(*,*) "forward", convolution(l)%weight
        start_idx = -convolution(l)%pad
        end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
        do m=1,input_channels
           ichannel = ichannel + 1
-
-          !write(*,*) "bias",convolution(l)%bias
-          !write(*,*) "input",input(1,1,m)
-          !write(*,*) "weight", convolution(l)%weight
 
           !! end_stride is the same as output_size
           !! ... hence, forward does not need the fix
@@ -445,19 +440,7 @@ contains
                      convolution(l)%weight &
                 )
 
-                !output(i,j,ichannel) = convolution(l)%bias
-                !do y=start_idx,end_idx,1
-                !   do x=start_idx,end_idx,1
-                !
-                !      output(i,j,ichannel) = output(i,j,ichannel) + &
-                !           input(istride+x,jstride+y,m) * &
-                !           !convolution(l)%weight(end_idx-(x-start_idx),end_idx-(y-start_idx))
-                !           convolution(l)%weight(x,y)
-                !
-                !   end do
-                !end do
-
-                !output(i,j,ichannel) = transfer%activate(output(i,j,ichannel))
+                output(i,j,ichannel) = transfer%activate(output(i,j,ichannel))
 
              end do
           end do
@@ -503,8 +486,6 @@ contains
     !! Perform the convolution operation
     ichannel = 0
     do l=1,num_layers
-       !write(*,*) "backward", convolution(l)%weight
-       !write(*,*) "gradients",input_gradients(l)%weight
        start_idx = -convolution(l)%pad
        end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
        up_idx = input_ubound - convolution(l)%kernel_size + 1 - start_idx
@@ -513,10 +494,6 @@ contains
           ichannel = ichannel + 1
 
           !! https://www.jefkine.com/general/2016/09/05/backpropagation-in-convolutional-neural-networks/
-          !! need to include stride in this
-          !input_gradients(l)%weight(x,y) = input_gradients(l)%weight(x,y) + &
-          !     sum(input(x+1:up_idx+x,y+1:up_idx+y,m) * &
-          !     output_gradients(output_size:1:-1,output_size:1:-1,ichannel))
           !!https://www.youtube.com/watch?v=pUCCd2-17vI
 
           do jp=1,output_size!input_lbound, input_ubound
@@ -536,24 +513,12 @@ contains
                            input_gradients(l)%delta(ip,jp) + &
                            output_gradients(ip+x,jp+y,ichannel) * &
                            convolution(l)%weight(x,y) * &
-                           !transfer%differentiate(input(ip,jp,m))
-                           input(ip,jp,m)  !! disable transfer for gradient testing
+                           transfer%differentiate(input(ip,jp,m))
+                           !!input(ip,jp,m)  !! disable transfer for gradient testing
 
 
                    end do x_weight_loop1
                 end do y_weight_loop1
-
-
-                !y_weight_loop2: do y=start_idx,end_idx,1
-                !   y180 = end_idx - (y - start_idx)
-                !   x_weight_loop2: do x=start_idx,end_idx,1
-                !      x180 = end_idx - (x - start_idx)
-                !      input_gradients(l)%weight(x,y) = input_gradients(l)%weight(x,y) + &
-                !           !output_gradients(output_size-ip+1,output_size-jp+1,ichannel) * &
-                !           output_gradients(ip,jp,ichannel) * &
-                !           input(ip+x,jp+y,m)
-                !   end do x_weight_loop2
-                !end do y_weight_loop2
 
              end do
           end do
@@ -562,14 +527,16 @@ contains
           y_weight_loop3: do y=start_idx,end_idx,1
              x_weight_loop3: do x=start_idx,end_idx,1
                 input_gradients(l)%weight(x,y) = input_gradients(l)%weight(x,y) + &
-                     sum(output_gradients(:,:,ichannel) * input(x+1:up_idx+x,y+1:up_idx+y,m))
+                     sum(output_gradients(:,:,ichannel) * &
+                     input(&
+                     x+1:up_idx+x:convolution(l)%stride,&
+                     y+1:up_idx+y:convolution(l)%stride,m))
              end do x_weight_loop3
           end do y_weight_loop3
-          input_gradients(l)%bias = input_gradients(l)%bias + sum(output_gradients(:,:,ichannel))
-       end do
        !! compute gradients for bias
        !! https://stackoverflow.com/questions/58036461/how-do-you-calculate-the-gradient-of-bias-in-a-conolutional-neural-networo
-       !input_gradients(l)%bias = sum(input_gradients(l)%delta)
+          input_gradients(l)%bias = input_gradients(l)%bias + sum(output_gradients(:,:,ichannel))
+       end do
     end do
 
 
