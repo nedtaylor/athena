@@ -32,6 +32,7 @@ module inputs
   integer :: cv_block_size
   real(real12) :: cv_keep_prob
 
+  real(real12) :: bn_gamma, bn_beta  ! batch normalisation learning features
 
   integer :: pool_kernel_size    ! pooling size (assume square)
   integer :: pool_stride         ! pooling stride
@@ -69,6 +70,8 @@ module inputs
   public :: convolution_method, padding_method
   public :: cv_dropout_method
   public :: cv_block_size, cv_keep_prob
+
+  public :: bn_gamma, bn_beta
 
   public :: pool_kernel_size, pool_stride
   public :: pool_normalisation
@@ -150,7 +153,6 @@ contains
           cycle flagloop
        end if
        call get_command_argument(i,buffer)
-       write(*,*) "TEST", trim(buffer)
 !!!------------------------------------------------------------------------
 !!! FILE AND DIRECTORY FLAGS
 !!!------------------------------------------------------------------------
