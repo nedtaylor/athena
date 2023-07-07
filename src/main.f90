@@ -265,8 +265,8 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
 !!! initialise non-fully connected layer gradients
 !!!-----------------------------------------------------------------------------
-  call cv_gradient_init(cv_gradients)
-  call cv_gradient_init(comb_cv_gradients)
+  call cv_gradient_init(cv_gradients,image_size)
+  call cv_gradient_init(comb_cv_gradients,image_size)
   allocate(pl_gradients,mold=cv_output)
   allocate(sm_gradients(num_classes))
   pl_gradients = 0._real12
@@ -396,7 +396,8 @@ program ConvolutionalNeuralNetwork
 !!        !$OMP& SHARED(network, convolution) &
         !$OMP& SHARED(image_slice, label_slice) &
         !$OMP& SHARED(input_size, batch_size, pool_normalisation) &
-        !$OMP& SHARED(fc_clip, cv_clip, batch_learning, fc_num_layers) &
+        !$OMP& SHARED(fc_clip, cv_clip, batch_learning) &
+        !$OMP& SHARED(fc_num_layers,cv_num_filters) &
         !$OMP& SHARED(cv_keep_prob, seed, cv_block_size, output_channels) &
         !$OMP& SHARED(cv_dropout_method) &
         !$OMP& PRIVATE(cv_mask, cv_mask_size) &
@@ -450,6 +451,8 @@ program ConvolutionalNeuralNetwork
            !call bn_forward(cv_output, mean, variance, &
            !     gamma=bn_gamma, beta=bn_beta, input_norm=cv_output_norm)
 
+
+!!!pl_gradients = cv_output - 1._real12
            call pl_forward(cv_output, pl_output)
            fc_input = reshape(pl_output, [input_size])
            select case(pool_normalisation)
@@ -517,23 +520,17 @@ program ConvolutionalNeuralNetwork
 
            !! Backward pass
            !!-------------------------------------------------------------------
-           !write(0,*) sample
            call sm_backward(sm_output, expected, sm_gradients)
-           !write(0,*) fc_output!sm_gradients
            call fc_backward(fc_input, sm_gradients, fc_gradients, fc_clip)
-!!! HAVE AN ISSUE HERE, need to send back the errors, not the weights
-!!! but I have recoded it all to have the gradient weights
-!!! I have it stored as delta, so I can send that back through, if that's easier
            fc_gradients_rs = reshape(fc_gradients(0)%delta(:size(fc_gradients(0)%delta,dim=1)),&
                 shape(fc_gradients_rs))
-           !write(0,*) fc_gradients_rs
            call pl_backward(cv_output, fc_gradients_rs, pl_gradients)
 #ifdef _OPENMP
            call cv_backward(image_slice(:,:,:,sample), pl_gradients, &
-                cv_gradients, cv_clip, cv_output)
+                cv_gradients, cv_clip)
 #else
            call cv_backward(input_images(:,:,:,sample), pl_gradients, &
-                cv_gradients, cv_clip, cv_output)
+                cv_gradients, cv_clip)
 #endif
            
 
@@ -544,7 +541,10 @@ program ConvolutionalNeuralNetwork
            !! ... (gradient descent)
            !!-------------------------------------------------------------------
            if(batch_learning)then
+              !write(*,*) "NEW SAMPLE",sample
               do l=1,cv_num_filters
+                 !write(*,*) l
+                 !write(*,*) cv_gradients(l)%weight,cv_gradients(l)%bias
                  comb_cv_gradients(l) = comb_cv_gradients(l) + cv_gradients(l)
               end do
               do l=1,fc_num_layers
@@ -553,14 +553,11 @@ program ConvolutionalNeuralNetwork
               end do
 #ifndef _OPENMP
            else
-
-              write(*,*) "gradient check",cv_gradients(1)%weight(1,1)
               !call fc_gradient_check(fc_gradients, fc_input)
               !write(*,*)
               !write(*,*)
-              call cv_gradient_check(cv_gradients, input_images(:,:,:,sample))
-              stop
-
+              !call cv_gradient_check(cv_gradients, input_images(:,:,:,sample))
+              !stop
               call cv_update(learning_rate, input_images(:,:,:,sample), &
                    cv_gradients, &
                    l1_lambda, l2_lambda, learning_parameters%momentum)
@@ -573,7 +570,6 @@ program ConvolutionalNeuralNetwork
 
         end do train_loop
         !$OMP END PARALLEL DO
-
 
         !! Check if categorical predicting is stuck on same value
         !!----------------------------------------------------------------------
@@ -629,10 +625,18 @@ program ConvolutionalNeuralNetwork
         !!----------------------------------------------------------------------
         if(abs(1._real12-sum_accuracy).gt.1.E-3_real12)then !!! HAVE THIS TIED TO BATCH SIZE
            do l=1,fc_num_layers
-              if(all(abs(comb_fc_gradients(l)%delta).lt.1.E-8_real12))then
-                 write(0,*) "ERROR: FullyConnected gradients are zero"
-                 write(0,*) "Exiting..."
-                 stop
+              if(batch_learning)then
+                 if(all(abs(comb_fc_gradients(l)%weight).lt.1.E-8_real12))then
+                    write(0,*) "WARNING: FullyConnected gradients are zero"
+                    !write(0,*) "Exiting..."
+                    !stop
+                 end if
+              else
+                 if(all(abs(fc_gradients(l)%weight).lt.1.E-8_real12))then
+                    write(0,*) "WARNING: FullyConnected gradients are zero"
+                    !write(0,*) "Exiting..."
+                    !stop
+                 end if
               end if
            end do
         else
@@ -1076,18 +1080,30 @@ contains
     if(present(epsilon))then
        t_epsilon = epsilon
     else
-       t_epsilon = 1.E-5_real12
+       t_epsilon = 1.E-1_real12
     end if
     
+    
+!!! MAKE UP AN IMAGE WE WANT TO ACHIEVE, i.e. 0's everywhere
+!!! TRY TO LEARN THAT, THEN NO NEED FOR ANYTHING ELSE PAST CV, maybe also pooling
+
+
     ! Compute the numerical gradients and compare with computed gradients
     ! for each weight and bias parameter
-    
+
+    ! with the perturbed weight parameter
+    call cv_forward(image, cv_output)
+    loss = sum(cv_output - 1._real12)
+
+    !write(*,*) "image check", image
     do l=1,size(gradients,1)
+       
 
        ! Loop over each weight and bias parameter
        do i = lbound(gradients(l)%weight,1),ubound(gradients(l)%weight,1)
           do j = lbound(gradients(l)%weight,2),ubound(gradients(l)%weight,2)
              weight_store = convolution(l)%weight(i,j)
+
 
              ! Perturb the weight parameter slightly
              convolution(l)%weight(i,j) = weight_store + t_epsilon
@@ -1095,20 +1111,14 @@ contains
              ! Perform a forward pass and compute the loss
              ! with the perturbed weight parameter
              call cv_forward(image, cv_output)
-             call pl_forward(cv_output, pl_output)
-             fc_input = reshape(pl_output, [size(fc_input,1)])
-             select case(pool_normalisation)
-             case("linear")
-                call linear_renormalise(fc_input)
-             case("norm")
-                call renormalise_norm(fc_input, norm=1._real12, mirror=.true.)
-             case("sum")
-                call renormalise_sum(fc_input, norm=1._real12, mirror=.true., magnitude=.true.)
-             end select
-             call fc_forward(fc_input, fc_output)
-             call sm_forward(fc_output, sm_output)
-             lossPlus = compute_loss(predicted=sm_output, expected=expected)
-
+             !call pl_forward(cv_output, pl_output)
+             !fc_input = reshape(pl_output, [size(fc_input,1)])
+             !call fc_forward(fc_input, fc_output)
+             !call sm_forward(fc_output, sm_output)
+             !lossPlus = compute_loss(predicted=sm_output, expected=expected)
+             lossPlus = sum(cv_output - 1._real12)
+             !write(*,*) cv_output
+             
 
              ! Perturb the weight parameter in the opposite direction
              convolution(l)%weight(i,j) = weight_store - t_epsilon
@@ -1116,29 +1126,22 @@ contains
              ! Perform a forward pass and compute the loss
              ! with the perturbed weight parameter
              call cv_forward(image, cv_output)
-             call pl_forward(cv_output, pl_output)
-             fc_input = reshape(pl_output, [size(fc_input,1)])
-             select case(pool_normalisation)
-             case("linear")
-                call linear_renormalise(fc_input)
-             case("norm")
-                call renormalise_norm(fc_input, norm=1._real12, mirror=.true.)
-             case("sum")
-                call renormalise_sum(fc_input, norm=1._real12, mirror=.true., magnitude=.true.)
-             end select
-             call fc_forward(fc_input, fc_output)
-             call sm_forward(fc_output, sm_output)
-             lossMinus = compute_loss(predicted=sm_output, expected=expected)
+             lossMinus = sum(cv_output - 1._real12)
+
+
+             numericalGradient = (loss - lossMinus) / t_epsilon
+             numericalGradient = numericalGradient + (lossPlus - loss)/t_epsilon
+             numericalGradient = numericalGradient / 2._real12
 
              ! Compute the numerical gradient
-             numericalGradient = (lossPlus - lossMinus) / (2._real12 * t_epsilon)
+             !numericalGradient = (lossPlus - lossMinus) / (2._real12 * t_epsilon)
 
              ! Restore the original weight parameter value
              convolution(l)%weight(i,j) = weight_store
 
 
              ! Compare the numerical gradient with the computed gradient
-             if (abs(numericalGradient - gradients(l)%weight(i,j)) > t_epsilon) then
+             if (abs(numericalGradient - gradients(l)%weight(i,j)).gt.t_epsilon) then
                 write(*,*) "Gradient check failed for parameter ", i,j,l
                 write(*,*) numericalGradient, gradients(l)%weight(i,j)
              else
@@ -1146,9 +1149,47 @@ contains
                 write(*,*) numericalGradient, gradients(l)%weight(i,j)
              end if
 
-
           end do
        end do
+
+
+       weight_store = convolution(l)%bias
+       
+       ! Perturb the weight parameter slightly
+       convolution(l)%bias = weight_store + t_epsilon
+       
+       ! Perform a forward pass and compute the loss
+       ! with the perturbed weight parameter
+       call cv_forward(image, cv_output)
+       lossPlus = sum(cv_output - 1._real12)
+
+       ! Perturb the weight parameter in the opposite direction
+       convolution(l)%bias = weight_store - t_epsilon
+
+       ! Perform a forward pass and compute the loss
+       ! with the perturbed weight parameter
+       call cv_forward(image, cv_output)
+       lossMinus = sum(cv_output - 1._real12)
+
+       
+       numericalGradient = (loss - lossMinus) / t_epsilon
+       numericalGradient = numericalGradient + (lossPlus - loss)/t_epsilon
+       numericalGradient = numericalGradient / 2._real12
+
+       ! Restore the original weight parameter value
+       convolution(l)%bias = weight_store
+
+       
+       ! Compare the numerical gradient with the computed gradient
+       if (abs(numericalGradient - gradients(l)%bias).gt.t_epsilon) then
+          write(*,*) "Gradient check failed for parameter bias", l
+          write(*,*) numericalGradient, gradients(l)%bias
+       else
+          write(*,*) "Gradient check passed for parameter bias", l
+          write(*,*) numericalGradient, gradients(l)%bias
+       end if
+
+
     end do
 
   end subroutine cv_gradient_check
