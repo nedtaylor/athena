@@ -48,7 +48,7 @@ contains
     real(real12), optional, intent(in) :: epsilon
     real(real12), dimension(:,:,:,:), optional, intent(out) :: input_norm
 
-    integer :: i, j, k, n, input_size
+    integer :: k, n, input_size
     integer :: num_samples, num_channels, num_features
     real(real12) :: t_epsilon
     real(real12), dimension(size(mean,1)) :: t_mean, t_variance
@@ -74,8 +74,8 @@ contains
     do k=1,num_channels
 
        !! separate mean and variance for each channel       
-       t_mean(k) = sum(input(:,:,j,:))/real(num_samples,real12)
-       t_variance(k) = sum(input(:,:,j,n) - t_mean(k))/&
+       t_mean(k) = sum(input(:,:,k,:))/real(num_samples,real12)
+       t_variance(k) = sum(input(:,:,k,n) - t_mean(k))/&
             real(num_samples,real12)
        inv_std_dev = 1._real12 / sqrt(t_variance(k) + t_epsilon)
        

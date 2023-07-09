@@ -118,7 +118,7 @@ contains
          kernel_initialiser, bias_initialiser
     logical, optional, intent(in) :: full_padding
 
-    integer :: l,i
+    integer :: l
     integer :: itmp1,itmp2,nseed
     integer :: start_idx, end_idx
     real(real12) :: scale
@@ -294,7 +294,7 @@ contains
     implicit none
     character(*), intent(in) :: file
 
-    integer :: i,j,k,l
+    !integer :: i,j,k,l
     integer :: unit,stat,completed
     character(1024) :: buffer
     logical :: found
@@ -439,7 +439,7 @@ contains
 
     integer :: input_channels, num_layers
     integer :: output_size
-    integer :: i, j, l, m, x, y, ichannel, istride, jstride
+    integer :: i, j, l, m, ichannel, istride, jstride
     integer :: start_idx, end_idx
 
     !! get size of the input and output feature maps
@@ -594,10 +594,9 @@ contains
   subroutine update_weights_and_biases(learning_rate, input, gradients, &
        l1_lambda, l2_lambda, momentum)
     implicit none
-    integer :: l,m,x,y
+    integer :: l,x,y
     integer :: num_layers
     integer :: start_idx, end_idx
-    integer :: end_stride
     real(real12), optional, intent(in) :: l1_lambda, l2_lambda, momentum
     real(real12), intent(in) :: learning_rate
     real(real12), dimension(padding_lw:,padding_lw:,:), intent(in) :: input
@@ -724,7 +723,7 @@ contains
     type(gradient_type), dimension(:), intent(inout) :: gradients
     real(real12), optional, intent(in) :: clip_min, clip_max, clip_norm
 
-    integer :: i,j,k,l, input_channels, num_layers
+    integer :: i,j,l, num_layers
     real(real12) :: norm
 
     num_layers = size(convolution, dim=1)

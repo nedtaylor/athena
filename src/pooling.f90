@@ -26,13 +26,17 @@ contains
     pool_size = size
     pool_stride = stride
   end subroutine initialise
+!!!#############################################################################
 
+!!!#############################################################################
+!!! 
+!!!#############################################################################
   subroutine forward(input, output)
     implicit none
     real(real12), dimension(:,:,:), intent(in) :: input
     real(real12), dimension(:,:,:), intent(out) :: output
 
-    integer :: i, j, k, l, m, n
+    integer :: i, j, l, m
     
     !! compute the size of the input and output feature maps
     integer :: input_size, output_size
@@ -64,7 +68,7 @@ contains
     real(real12), dimension(:,:,:), intent(in) :: output_gradients
     real(real12), dimension(:,:,:), intent(out) :: input_gradients
 
-    integer :: i, j, k, m, n, istride, jstride
+    integer :: i, j, m, istride, jstride
     integer :: input_size, output_size
     integer, dimension(2) :: max_index
 

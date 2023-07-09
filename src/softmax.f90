@@ -24,7 +24,8 @@ contains
     sm_num_classes = num_classes
   end subroutine initialise
 !!!#############################################################################
-  
+
+
 !!!#############################################################################
 !!! 
 !!!#############################################################################
@@ -36,15 +37,15 @@ contains
     integer :: i
     real :: max_val
 
-    ! Compute maximum value for numerical stability
+    !! compute maximum value for numerical stability
     max_val = maxval(input)
 
-    ! Compute softmax values
+    !! compute softmax values
     do i = 1, sm_num_classes
        output(i) = exp(input(i) - max_val)
     end do
 
-    ! Normalize softmax values
+    !! normalize softmax values
     output = output / sum(output)
   end subroutine forward
 !!!#############################################################################
@@ -59,9 +60,7 @@ contains
     real(real12), dimension(:), intent(in) :: output
     real(real12), dimension(:), intent(out) :: input_gradients
 
-    integer :: i
-
-    ! Compute gradients for softmax layer
+    !! compute gradients for softmax layer
     input_gradients = output
     input_gradients(expected) = input_gradients(expected) - 1._real12
 

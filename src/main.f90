@@ -1064,7 +1064,7 @@ contains
     ! Initialize a small perturbation value
     real(real12) :: t_epsilon = 1.E-4_real12
     ! Compute the loss with the perturbed weight parameter
-    real(real12) :: loss, lossPlus, lossMinus, numericalGradient,computedGradient
+    real(real12) :: loss, lossPlus, lossMinus, numericalGradient
     real(real12) :: weight_store
     
     if(present(epsilon))then
@@ -1199,7 +1199,7 @@ contains
     ! Initialize a small perturbation value
     real(real12) :: t_epsilon = 1.E-4_real12
     ! Compute the loss with the perturbed weight parameter
-    real(real12) :: loss, lossPlus, lossMinus, numericalGradient,computedGradient
+    real(real12) :: loss, lossPlus, lossMinus, numericalGradient
     real(real12) :: weight_store
     
     if(present(epsilon))then

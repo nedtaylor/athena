@@ -267,7 +267,7 @@ contains
     implicit none
     character(*), intent(in) :: file
 
-    integer :: i,j,k,l
+    !integer :: i,j,k,l
     integer :: unit,stat,completed
     character(1024) :: buffer
     logical :: found

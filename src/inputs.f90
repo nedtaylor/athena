@@ -91,12 +91,10 @@ contains
 !!!#############################################################################
   subroutine set_global_vars()
     implicit none
-    integer :: Reason
     integer :: i,j
     integer :: num_hidden_layers
-    character(3) :: abc
-    character(1024) :: pattern,buffer,flag,input_file
-    logical :: skip,empty,filefound
+    character(1024) :: buffer,flag,input_file
+    logical :: skip,empty
 
 
 !!!-----------------------------------------------------------------------------
@@ -416,7 +414,7 @@ contains
        write(*,*) "No adaptive learning method"
     case("momentum")
        write(*,*) "Momentum-based adaptive learning method"
-       if(momentum.eq.0._real12)then
+       if(abs(momentum).le.1.E-6_real12)then
           write(*,*) "ERROR: momentum adaptive learning set with momentum = 0"
           write(*,*) "Please rerun with either a different adaptive method or &
                &a larger momentum value"
