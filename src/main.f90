@@ -196,7 +196,11 @@ program ConvolutionalNeuralNetwork
   !! Initialise the convolution layer
   call cv_init(seed, num_layers = cv_num_filters, &
        kernel_size = cv_kernel_size, stride = cv_stride, &
-       full_padding = trim(padding_method).eq."full")
+       full_padding = trim(padding_method).eq."full",&
+       kernel_initialiser=cv_kernel_initialiser,&
+       bias_initialiser=cv_bias_initialiser,&
+       activation_scale=cv_activation_scale,&
+       activation_function=cv_activation_function)
   output_size = floor( (&
        image_size + 2.0 * maxval(convolution(:)%pad) - maxval(cv_kernel_size)&
        )/minval(cv_stride) ) + 1
@@ -232,9 +236,10 @@ program ConvolutionalNeuralNetwork
   !! Initialise the fully connected layer
   call fc_init(seed, num_layers=fc_num_layers, &
        num_inputs=input_size, num_hidden=fc_num_hidden, &
-       activation_function=activation_function, &
-       activation_scale=activation_scale,&
-       learning_parameters=learning_parameters)
+       activation_function=fc_activation_function, &
+       activation_scale=fc_activation_scale,&
+       learning_parameters=learning_parameters,&
+       weight_initialiser=fc_weight_initialiser)
 
   !! Initialise the softmax layer
   call sm_init(num_classes)
@@ -390,6 +395,7 @@ program ConvolutionalNeuralNetwork
         !$OMP PARALLEL DO & !! ORDERED
         !$OMP& DEFAULT(NONE) &
 !!        !$OMP& SHARED(network, convolution) &
+        !$OMP& SHARED(start_index, end_index) &
         !$OMP& SHARED(image_slice, label_slice) &
         !$OMP& SHARED(input_size, batch_size, pool_normalisation) &
         !$OMP& SHARED(fc_clip, cv_clip, batch_learning) &
@@ -1061,9 +1067,7 @@ contains
     real(real12), optional, intent(in) :: epsilon
 
     integer :: l,i,j
-    ! Initialize a small perturbation value
-    real(real12) :: t_epsilon = 1.E-4_real12
-    ! Compute the loss with the perturbed weight parameter
+    real(real12) :: t_epsilon
     real(real12) :: loss, lossPlus, lossMinus, numericalGradient
     real(real12) :: weight_store
     
@@ -1196,9 +1200,7 @@ contains
     real(real12), optional, intent(in) :: epsilon
 
     integer :: l,i,j
-    ! Initialize a small perturbation value
-    real(real12) :: t_epsilon = 1.E-4_real12
-    ! Compute the loss with the perturbed weight parameter
+    real(real12) :: t_epsilon
     real(real12) :: loss, lossPlus, lossMinus, numericalGradient
     real(real12) :: weight_store
     

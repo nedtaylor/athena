@@ -17,6 +17,17 @@ module weight_initialiser
 !!!!! DO THE SAME FOR ACTIVATION (much neater than one per code)
 !!!!! ALSO, HAVE THE CV, PL, FC, etc, LAYERS AS CLASSES
 !!!!! ... they may be able to be appended on to each other
+
+  
+  !! normalise (kernel_initialise?) to number of input units
+  !! He uniform initialiser
+  !! make an initialiser that takes in an assumed rank
+  !! it then does product(shape(weight)) OR size(weight)
+  !! could always use select rank(x) statement if needed
+  !! https://keras.io/api/layers/initializers/
+  
+  
+
 contains
 
 !!!#############################################################################

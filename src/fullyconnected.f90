@@ -61,6 +61,7 @@ contains
 !!! custom operation for summing gradient_type
 !!!#############################################################################
   elemental function gradient_add(a, b) result(output)
+    implicit none
     class(gradient_type), intent(in) :: a,b
     type(gradient_type) :: output
     
@@ -362,11 +363,12 @@ contains
 
     integer :: num_layers,num_inputs,num_weights
     integer :: l,i
-    integer :: unit=10
+    integer :: unit
     character(128) :: fmt
     integer, allocatable, dimension(:) :: num_hidden
     real(real12), allocatable, dimension(:) :: biases
 
+    unit = 10
     open(unit, file=trim(file), access='append')
 
     num_layers = size(network,dim=1)

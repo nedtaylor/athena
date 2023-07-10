@@ -1099,10 +1099,12 @@ contains
   subroutine loadbar(count,div,loaded)
     implicit none
     integer :: count,div !div=10
-    real :: tiny=1.E-5
-    character(1) :: yn,creturn = achar(13)
+    real :: tiny
+    character(1) :: yn,creturn 
     character(1), optional :: loaded
 
+    tiny = 1.E-5
+    creturn = achar(13)
     if(.not.present(loaded)) then
        yn='n'
     else

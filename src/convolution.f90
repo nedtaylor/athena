@@ -397,9 +397,10 @@ contains
 
     integer :: num_layers
     integer :: l
-    integer :: unit=10
+    integer :: unit
     character(128) :: fmt
 
+    unit = 10
     
     open(unit, file=trim(file), access='append')
 
