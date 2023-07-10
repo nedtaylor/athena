@@ -42,7 +42,7 @@ OBJS := $(addprefix $(SRC_DIR)/,$(SRCS))
 FFLAGS = -O2
 #PPFLAGS = -cpp
 FC=gfortran
-ifeq ($(FC),ifort)
+ifeq ($(FC), $(filter $(FC), "ifort" "ifx"))
 	PPFLAG = -cpp
 	MPFLAG = -qopenmp
 	MODULEFLAG = -module
@@ -53,7 +53,8 @@ else
 	PPFLAG = -cpp
 	MPFLAG = -fopenmp
 	MODULEFLAG = -J
-	DEVFLAGS = -g -fbacktrace -fcheck=all -fbounds-check #-g -static -ffpe-trap=invalid
+	WARNFLAGS = -Wall
+	DEVFLAGS = -g -fbacktrace -fcheck=all -fbounds-check -fsanitize=address -Og #-g -static -ffpe-trap=invalid
 	DEBUGFLAGS = -fbounds-check
 	MEMFLAG = -mcmodel=large
 	OPTIMFLAG = -O3 -march=native
