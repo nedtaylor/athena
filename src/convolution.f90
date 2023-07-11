@@ -74,23 +74,6 @@ contains
 !!!#############################################################################
 
 
-!!!!!#############################################################################
-!!!! custom operation for summing gradient_type
-!!!!#############################################################################
-!  subroutine gradient_sum(output, input)
-!    implicit none
-!    type(gradient_type), dimension(:), intent(in) :: input
-!    type(gradient_type), dimension(:), intent(inout) :: output
-!    integer :: i
-!    
-!    do i=lbound(output, dim=1),ubound(output, dim=1)
-!       output(i) = output(i) + input(i)
-!    end do
-!
-!  end subroutine gradient_sum
-!!!!#############################################################################
-
-
 !!!#############################################################################
 !!!
 !!!#############################################################################

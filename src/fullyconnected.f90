@@ -82,34 +82,6 @@ contains
 
 
 !!!#############################################################################
-!!! custom operation for summing gradient_type
-!!! ... attempt to reduce memory leak
-!!!#############################################################################
-  subroutine gradient_sum(output, input)
-    implicit none
-    type(gradient_type), dimension(:), intent(in) :: input
-    type(gradient_type), dimension(:), intent(inout) :: output
-    integer :: i
-
-    !! ignore lbound (which=0) as that is a delta
-    !! delta is only used for backpropagation
-    !! ... it is not used for updating the weights
-    do i=1,ubound(output, dim=1)
-       !!output(i) = output(i) + input(i)
-       if(allocated(output(i)%weight).and.allocated(input(i)%weight))then
-          output(i)%weight = output(i)%weight + input(i)%weight
-          !!output(i)%delta = output(i)%delta + input(i)%delta
-          !if(allocated(output(i)%m)) output(i)%m = output(i)%m !+ input%m
-          !if(allocated(output(i)%v)) output(i)%v = output(i)%v !+ input%v
-       end if
-    end do
-
-    return
-  end subroutine gradient_sum
-!!!#############################################################################
-
-
-!!!#############################################################################
 !!!
 !!!#############################################################################
   subroutine initialise(seed, num_layers, num_inputs, num_hidden, &

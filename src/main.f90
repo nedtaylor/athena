@@ -36,8 +36,7 @@ program ConvolutionalNeuralNetwork
        fc_gradient_type => gradient_type, &
        fc_gradient_alloc => allocate_gradients, &
        fc_gradient_init => initialise_gradients, &
-       network!, &
-       !fc_gradient_sum => gradient_sum
+       network
   use SoftmaxLayer, only: sm_init => initialise, sm_forward => forward, &
        sm_backward => backward
 
@@ -220,12 +219,6 @@ program ConvolutionalNeuralNetwork
 !!! reformulate fully connected layers to include input and output layers
 !!! ... user provides only hidden layers
 !!!-----------------------------------------------------------------------------
-  !fc_num_layers = size(fc_num_hidden,dim=1) + 2
-  !allocate(tmp_num_hidden(fc_num_layers))
-  !tmp_num_hidden(1) = input_size
-  !tmp_num_hidden(2:fc_num_layers-1) = fc_num_hidden
-  !tmp_num_hidden(fc_num_layers) = num_classes
-  !call move_alloc(tmp_num_hidden, fc_num_hidden)
   fc_num_layers = size(fc_num_hidden,dim=1) + 1
   allocate(tmp_num_hidden(fc_num_layers))
   tmp_num_hidden(1:fc_num_layers-1) = fc_num_hidden
@@ -406,8 +399,6 @@ program ConvolutionalNeuralNetwork
         !$OMP& SHARED(compute_loss) &
 !!        !$OMP& PRIVATE(cv_mask, cv_mask_size) &
         !$OMP& PRIVATE(sample) &
-!!        !$OMP& PRIVATE(comb_cv_gradients) &
-!!        !$OMP& PRIVATE(comb_fc_gradients)&
         !$OMP& FIRSTPRIVATE(predicted_old) &
         !$OMP& PRIVATE(fc_gradients, cv_gradients) &
         !$OMP& PRIVATE(cv_output) &
@@ -420,10 +411,6 @@ program ConvolutionalNeuralNetwork
         !$OMP& REDUCTION(+:sum_loss,sum_accuracy,exploding_check) &
         !$OMP& REDUCTION(cv_grad_sum:comb_cv_gradients) &
         !$OMP& REDUCTION(fc_grad_sum:comb_fc_gradients)
-
-!!! ISSUE WHERE DERIVED TYPE REDUCTION CAUSES MEMORY LEAK
-!!! HOW ABOUT, PORTING DATA OVER INTO ANOTHER NON-DERIVED DATA TYPE AND SUMMING IN THAT
-
        train_loop: do sample = start_index, end_index
 
           !image_sample(:,:,:) = image_slice(:,:,:,sample)
@@ -608,7 +595,7 @@ program ConvolutionalNeuralNetwork
         if(abs(sum(loss_history)).lt.loss_threshold)then
            write(6,*) "Convergence achieved, accuracy threshold reached"
            write(6,*) "Exiting training loop"
-           !exit epoch_loop
+           exit epoch_loop
         elseif(all(abs(loss_history-sum_loss).lt.plateau_threshold))then
            !write(0,*) "sm_output", sm_output
            !write(0,*) "sm_grad", sm_gradients
@@ -617,7 +604,7 @@ program ConvolutionalNeuralNetwork
            write(0,*) loss_history
            write(0,*) "Exiting..."
            stop
-           !exit epoch_loop
+           exit epoch_loop
         end if
 
 
