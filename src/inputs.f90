@@ -50,11 +50,9 @@ module inputs
 
 
   real(real12) :: train_size  ! fraction of data to train on (NOT YET USED) 
-  logical :: shuffle_dataset  ! shuffle train and test data (NOT YET USED)
+  logical :: shuffle_dataset  ! shuffle train and test data
   
 
-!!! HAVE VARIABLE TO DEFINE WHAT LOSS FUNCTION IS TO BE USED IN SOFTMAX
-!!! i.e. binary, categorical, sparse (surely others, such as MAE, RMSE)
 
   private
 
@@ -221,7 +219,7 @@ contains
           write(6,'("------------------NETWORK-FLAGS------------------")')
           write(6,'(2X,"-s<INT>         : Random seed (Default = CLOCK).")')
           write(6,'(2X,"-l<INT,INT,...> : Hidden layer node size (Default = (empty) ).")')
-          stop
+          stop 0
        end if
     end do flagloop
 
@@ -267,7 +265,10 @@ contains
     !use infile_tools, only: assign_val, assing_vec, rm_comments
     implicit none
     integer :: Reason,unit
-
+    character(128) :: message
+    
+    integer :: num_filters
+    
     integer :: block_size
     real(real12) ::  keep_prob
     real(real12) :: activation_scale
@@ -299,10 +300,10 @@ contains
          learning_rate, momentum, l1_lambda, l2_lambda, &
          shuffle_dataset, batch_learning, adaptive_learning, &
          beta1, beta2, epsilon, loss
-    namelist /convolution/ cv_num_filters, kernel_size, stride, &
+    namelist /convolution/ num_filters, kernel_size, stride, &
          clip_min, clip_max, clip_norm, convolution_type, padding_type, &
-         dropout, block_size, keep_prob, kernel_initialiser, &
-         bias_initialiser
+         dropout, block_size, keep_prob, activation_function, &
+         kernel_initialiser, bias_initialiser
     namelist /pooling/ kernel_size, stride, normalisation
     namelist /fully_connected/ hidden_layers, &
          clip_min, clip_max, clip_norm, &
@@ -324,9 +325,10 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! read setup namelist
 !!!-----------------------------------------------------------------------------
-    read(unit,NML=setup,iostat=Reason)
+    read(unit,NML=setup,iostat=Reason,iomsg=message)
     if(Reason.ne.0)then
-       write(0,*) "THERE WAS AN ERROR IN READING SETUP"
+       write(0,'("ERROR: Unexpected keyword found input file SETUP card")')
+       stop trim(message)
     end if
     
 
@@ -343,9 +345,10 @@ contains
     keep_prob = 0.75_real12
     dropout="none"
 !!! ADD weight_decay (L2 penalty for AdamW)
-    read(unit,NML=training,iostat=Reason)
+    read(unit,NML=training,iostat=Reason,iomsg=message)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
-       stop "THERE WAS AN ERROR IN READING TRAINING SETTINGS"
+       write(0,'("ERROR: Unexpected keyword found input file TRAINING card")')
+       stop trim(message)
     end if
     if(batch_size.eq.1.and.batch_learning)then
        write(0,*) "WARNING: batch_learning=True whilst batch_size=1"
@@ -364,22 +367,26 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! read convolution namelist
 !!!-----------------------------------------------------------------------------
-    convolution_method  = "standard"; convolution_type    = "standard"
-    padding_method      = "same"; padding_type        = "same"
+    num_filters = 32
+    convolution_type    = "standard"
+    padding_type        = "same"
     kernel_initialiser  = "he_uniform"
     bias_initialiser    = "zeros"
     activation_function = "none"
     activation_scale = 1._real12
     clip_min = ""; clip_max = ""; clip_norm = ""
     kernel_size = ""; stride = ""
-    read(unit,NML=convolution,iostat=Reason)
+    read(unit,NML=convolution,iostat=Reason,iomsg=message)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
-       stop "THERE WAS AN ERROR IN READING CONVOLUTION SETTINGS"
+       write(0,'("ERROR: Unexpected keyword found input file CONVOLUTION &
+            &card")')
+       stop trim(message)
     end if
 
     if(trim(kernel_size).ne."") call get_list(kernel_size, cv_kernel_size, cv_num_filters)
     if(trim(stride).ne."") call get_list(stride, cv_stride, cv_num_filters)
     call get_clip(clip_min, clip_max, clip_norm, cv_clip)
+    cv_num_filters = num_filters
     cv_activation_scale = activation_scale
     cv_activation_function = to_lower(activation_function)
     cv_kernel_initialiser  = to_lower(kernel_initialiser)
@@ -424,9 +431,10 @@ contains
 !!!-----------------------------------------------------------------------------
     normalisation="none"
     kernel_size = ""; stride = ""
-    read(unit,NML=pooling,iostat=Reason)
+    read(unit,NML=pooling,iostat=Reason,iomsg=message)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
-       stop "THERE WAS AN ERROR IN READING POOL SETTINGS"
+       write(0,'("ERROR: Unexpected keyword found input file POOLING card")')
+       stop trim(message)
     end if
 
     if(trim(kernel_size).ne."") read(kernel_size,*) pool_kernel_size
@@ -448,9 +456,11 @@ contains
     activation_scale = 1._real12
     activation_function = "relu"
     clip_min=""; clip_max=""; clip_norm=""
-    read(unit,NML=fully_connected,iostat=Reason)
+    read(unit,NML=fully_connected,iostat=Reason,iomsg=message)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
-       stop "THERE WAS AN ERROR IN READING FULLY_CONNECTED SETTINGS"
+       write(0,'("ERROR: Unexpected keyword found input file FULLY_CONNECTED &
+            &card")')
+       stop trim(message)
     end if
     call get_clip(clip_min, clip_max, clip_norm, fc_clip)
     fc_activation_scale = activation_scale
@@ -567,9 +577,8 @@ contains
 
     if(present(length))then
        if(size(output,dim=1).ne.1.and.size(output,dim=1).ne.length)then
-          write(0,*) "ERROR: LAYER PARAMETER DIMENSION SIZE MUST BE 1 OR &
+          stop "ERROR: LAYER PARAMETER DIMENSION SIZE MUST BE 1 OR &
                &NUMBER OF LAYERS" 
-          stop
        end if
     end if
  

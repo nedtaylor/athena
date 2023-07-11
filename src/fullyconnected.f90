@@ -33,9 +33,9 @@ module FullyConnectedLayer
   !   real(real12), allocatable, dimension(:) :: neuron
   !end type error_type
 
-  !interface sum_operator !operator(+)
-  !   module procedure :: gradient_sum
-  !end interface sum_operator !operator(+)
+  !interface operator(+)
+  !   module procedure :: gradient_add
+  !end interface operator(+)
 
   type(network_type), allocatable, dimension(:) :: network
   type(learning_parameters_type) :: adaptive_parameters
@@ -47,12 +47,13 @@ module FullyConnectedLayer
 
   public :: network
   public :: gradient_type
+  public :: allocate_gradients
+  public :: initialise_gradients
 
   public :: initialise, forward, backward
   public :: update_weights_and_biases
   public :: write_file
   public :: normalise_delta_batch, reset_delta_batch
-  public :: initialise_gradients
 
 
 contains
@@ -72,25 +73,12 @@ contains
        if(allocated(a%m)) output%m = a%m !+ input%m
        if(allocated(a%v)) output%v = a%v !+ input%v
     end if
+    if(allocated(a%delta).and.allocated(b%delta))then
+       output%delta = a%delta + b%delta
+    end if
 
   end function gradient_add
 !!!#############################################################################
-
-
-!!!!!#############################################################################
-!!!! custom operation for summing gradient_type
-!!!!#############################################################################
-!  subroutine gradient_sum(output, input)
-!    type(gradient_type), dimension(0:), intent(in) :: input
-!    type(gradient_type), dimension(0:), intent(inout) :: output
-!    integer :: i
-!    
-!    do i=1,ubound(output, dim=1) !! ignore 0 as that is a delta, which is not summed
-!       output(i) = output(i) + input(i)
-!    end do
-!
-!  end subroutine gradient_sum
-!!!!#############################################################################
 
 
 !!!#############################################################################
@@ -226,28 +214,78 @@ contains
 !!!#############################################################################
 !!! 
 !!!#############################################################################
+  subroutine allocate_gradients(gradients, mold)
+    implicit none
+    type(gradient_type), allocatable, dimension(:), intent(out) :: gradients
+    type(gradient_type), dimension(0:), intent(in) :: mold
+    integer :: l
+    integer :: num_neurons, num_inputs, num_layers, num_features
+
+    
+    num_layers = ubound(mold,dim=1)
+    num_inputs = size(mold(0)%delta,dim=1)
+    if(allocated(gradients)) deallocate(gradients)
+    allocate(gradients(0:num_layers))
+    allocate(gradients(0)%delta(num_inputs))
+    gradients(0)%delta = 0._real12
+    
+    do l=1,num_layers,1
+       num_neurons = size(mold(l)%delta,dim=1)
+       num_inputs = size(mold(l)%weight,dim=1)
+       if(allocated(gradients(l)%weight)) deallocate(gradients(l)%weight)
+       if(allocated(gradients(l)%delta)) deallocate(gradients(l)%delta)
+       allocate(gradients(l)%weight(num_inputs, num_neurons))
+       allocate(gradients(l)%delta(num_neurons))
+       gradients(l)%weight = 0._real12
+       gradients(l)%delta  = 0._real12
+       
+       if(allocated(mold(l)%m))then
+          if(allocated(gradients(l)%m)) deallocate(gradients(l)%m)
+          if(allocated(gradients(l)%v)) deallocate(gradients(l)%v)
+          allocate(gradients(l)%m(num_inputs, num_neurons))
+          allocate(gradients(l)%v(num_inputs, num_neurons))
+          gradients(l)%m = 0._real12
+          gradients(l)%v = 0._real12
+       end if
+    end do
+    
+    return
+  end subroutine allocate_gradients
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! 
+!!!#############################################################################
   subroutine initialise_gradients(gradients, num_features, adam_learning)
     implicit none
     logical, optional, intent(in) :: adam_learning
     integer, intent(in) :: num_features
     type(gradient_type), allocatable, dimension(:), intent(out) :: gradients
     integer :: l
-    integer :: num_neurons, num_inputs
+    integer :: num_neurons, num_inputs, num_layers
 
-    allocate(gradients(0:size(network,dim=1)))
+    
+    num_layers = size(network,dim=1)
+    if(allocated(gradients)) deallocate(gradients)
+    allocate(gradients(0:num_layers))
     allocate(gradients(0)%delta(num_features))
     gradients(0)%delta = 0._real12
-
-    do l=1,size(network,dim=1)
+    
+    do l=1,num_layers
        num_neurons = size(network(l)%neuron,dim=1)
        num_inputs = size(network(l)%neuron(1)%weight,dim=1)
+       if(allocated(gradients(l)%weight)) deallocate(gradients(l)%weight)
+       if(allocated(gradients(l)%delta)) deallocate(gradients(l)%delta)
        allocate(gradients(l)%weight(num_inputs, num_neurons))
        allocate(gradients(l)%delta(num_neurons))
        gradients(l)%weight = 0._real12
        gradients(l)%delta  = 0._real12
-
+    
        if(present(adam_learning))then
           if(adam_learning)then
+             if(allocated(gradients(l)%m)) deallocate(gradients(l)%m)
+             if(allocated(gradients(l)%v)) deallocate(gradients(l)%v)
              allocate(gradients(l)%m(num_inputs, num_neurons))
              allocate(gradients(l)%v(num_inputs, num_neurons))
              gradients(l)%m = 0._real12
@@ -256,7 +294,7 @@ contains
        end if
     end do
     
-
+    return
   end subroutine initialise_gradients
 !!!#############################################################################
 

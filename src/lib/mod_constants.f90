@@ -1,4 +1,4 @@
-MODULE constants
+module constants
   implicit none
   integer, parameter, public :: real12 = Selected_real_kind(6,37)!(15,307)
   real(real12), parameter, public :: k_b = 1.3806503e-23_real12
@@ -18,4 +18,4 @@ MODULE constants
   real(real12), parameter, public :: INF = huge(0._real12)
   complex(real12), parameter, public :: imag=(0._real12, 1._real12)
   integer, public :: ierror = -1
-end MODULE constants
+end module constants

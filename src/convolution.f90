@@ -45,11 +45,13 @@ module ConvolutionLayer
   private
 
   public :: convolution
+  public :: gradient_type
+  public :: allocate_gradients
+  public :: initialise_gradients
+
   public :: initialise, forward, backward
   public :: update_weights_and_biases
   public :: write_file
-  public :: gradient_type
-  public :: initialise_gradients
   
 
 
@@ -65,26 +67,11 @@ contains
   
     allocate(output%weight,mold=a%weight)
     output%weight = a%weight + b%weight
-    output%bias = a%bias + b%bias
+    output%bias  = a%bias + b%bias
+    output%delta = a%delta + b%delta
         
   end function gradient_add
 !!!#############################################################################
-
-
-!!!!!#############################################################################
-!!!! custom operation for summing gradient_type
-!!!!#############################################################################
-!  subroutine gradient_sum(output, input)
-!    type(gradient_type), dimension(:), intent(in) :: input
-!    type(gradient_type), dimension(:), intent(inout) :: output
-!    integer :: i
-!    
-!    do i=lbound(output, dim=1),ubound(output, dim=1)
-!       output(i) = output(i) + input(i)
-!    end do
-!
-!  end subroutine gradient_sum
-!!!!#############################################################################
 
 
 !!!#############################################################################
@@ -266,12 +253,42 @@ contains
 !!!#############################################################################
 !!!
 !!!#############################################################################
+  subroutine allocate_gradients(gradients, mold)
+    implicit none
+    integer :: l, start_idx, end_idx
+    integer :: num_filters, input_size
+    type(gradient_type), dimension(:), intent(in) :: mold
+    type(gradient_type), allocatable, dimension(:), intent(out) :: gradients
+    
+    !if(allocated(gradients)) deallocate(gradients)
+    num_filters = size(mold,dim=1)
+    input_size = size(mold(1)%delta,dim=1)
+    allocate(gradients(num_filters))
+    do l=1,num_filters
+       start_idx = -convolution(l)%pad
+       end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
+       allocate(gradients(l)%weight(start_idx:end_idx,start_idx:end_idx))
+       allocate(gradients(l)%delta(input_size,input_size))
+       gradients(l)%weight = 0._real12
+       gradients(l)%bias = 0._real12
+       gradients(l)%delta = 0._real12
+    end do
+
+    return
+  end subroutine allocate_gradients
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!!
+!!!#############################################################################
   subroutine initialise_gradients(gradients, input_size)
     implicit none
     integer :: l, start_idx, end_idx
     integer, intent(in) :: input_size
     type(gradient_type), allocatable, dimension(:), intent(out) :: gradients
-
+    
+    if(allocated(gradients)) deallocate(gradients)
     allocate(gradients(size(convolution,1)))
     do l=1,size(convolution,1)
        start_idx = -convolution(l)%pad
@@ -283,6 +300,7 @@ contains
        gradients(l)%delta = 0._real12
     end do
 
+    return
   end subroutine initialise_gradients
 !!!#############################################################################
 
