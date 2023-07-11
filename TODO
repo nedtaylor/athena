@@ -35,3 +35,8 @@ https://playground.tensorflow.org/#activation=tanh&batchSize=10&dataset=circle&r
 
 ResNet
 https://blog.roboflow.com/what-is-a-convolutional-neural-network/#:~:text=Activation%20Function%20Layer&text=It%20takes%20in%20the%20weighted,Sigmoid
+
+
+https://www.analyticsvidhya.com/blog/2018/12/guide-convolutional-neural-network-cnn/
+
+https://stackoverflow.com/questions/5134891/how-do-i-use-valgrind-to-find-memory-leaks
