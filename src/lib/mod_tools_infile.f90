@@ -384,13 +384,14 @@ contains
   function stop_check(file) result(output)
     implicit none
     integer :: Reason,itmp1
-    integer :: unit=999
+    integer :: unit
     logical :: lfound
     logical :: output
     character(*), optional, intent(in) :: file
     character(248) :: t_file
     character(128) :: buffer, tagname
 
+    unit = 999
     t_file = "STOPCAR"
     if(present(file)) t_file = file
 

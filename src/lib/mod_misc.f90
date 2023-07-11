@@ -217,17 +217,19 @@ contains
 
     charlen = len(list(1))
     if(present(lcase))then
-       if(lcase)then
-          ludef_case = lcase
-          allocate(character(len=charlen) :: tlist(size(list)))
-          tlist = list
-          do i=1,size(tlist)
-             list(i) = to_upper(list(i))
-          end do
-       end if
+       ludef_case = lcase
     else
        ludef_case = .false.
     end if
+    
+    if(ludef_case)then
+       allocate(character(len=charlen) :: tlist(size(list)))
+       tlist = list
+       do i=1,size(tlist,dim=1)
+          list(i) = to_upper(list(i))
+       end do
+    end if
+
     do i=1,size(list)
        loc = minloc(list(i:),dim=1)
        if(loc.eq.1) cycle
@@ -253,16 +255,17 @@ contains
 
     charlen = len(list(1))
     if(present(lcase))then
-       if(lcase)then
-          ludef_case = lcase
-          allocate(character(len=charlen) :: tlist(size(list)))
-          tlist = list
-          do i=1,size(tlist)
-             list(i) = to_upper(list(i))
-          end do
-       end if
+       ludef_case = lcase
     else
        ludef_case = .false.
+    end if
+
+    if(ludef_case)then
+       allocate(character(len=charlen) :: tlist(size(list)))
+       tlist = list
+       do i=1,size(tlist, dim=1)
+          list(i) = to_upper(list(i))
+       end do
     end if
 
     allocate(torder(size(list)))
@@ -333,7 +336,7 @@ contains
 !!!-----------------------------------------------------
   subroutine rsort1D(arr1,arr2,reverse)
     implicit none
-    integer :: i,dim,loc
+    integer :: i,dim,loc,ibuff
     real(real12) :: rbuff
     logical :: udef_reverse
     real(real12), dimension(:) :: arr1
@@ -358,9 +361,9 @@ contains
        arr1(loc)=rbuff
 
        if(present(arr2)) then
-          rbuff=arr2(i)
+          ibuff=arr2(i)
           arr2(i)=arr2(loc)
-          arr2(loc)=rbuff
+          arr2(loc)=ibuff
        end if
     end do
 
@@ -374,13 +377,16 @@ contains
 !!!#####################################################
   subroutine sort2D(arr,dim)
     implicit none
-    integer :: i,j,dim,loc,istart
+    integer :: i,j,loc,istart
+    real(real12) :: tol
     integer, dimension(3) :: a123
     real(real12), dimension(3) :: buff
-    real(real12), dimension(dim,3) :: arr
+    integer, intent(in) :: dim
+    real(real12), dimension(dim,3), intent(inout) :: arr
 
     a123(:)=(/1,2,3/)
     istart=1
+    tol = 1.E-4
     do j=1,3
        do i=j,dim
           loc=minloc(abs(arr(i:dim,a123(1))),dim=1,mask=(abs(arr(i:dim,a123(1))).gt.1.D-5))+i-1
@@ -390,9 +396,12 @@ contains
        end do
 
        scndrow: do i=j,dim
-          if(abs(arr(j,a123(1))).ne.abs(arr(i,a123(1)))) exit scndrow
+          if(abs( abs(arr(j,a123(1))) - &
+               abs(arr(i,a123(1))) ).gt.tol) exit scndrow
           loc=minloc(abs(arr(i:dim,a123(2)))+abs(arr(i:dim,a123(3))),dim=1,&
-               mask=(abs(arr(j,a123(1))).eq.abs(arr(i:dim,a123(1)))))+i-1
+               mask=(&
+               abs(abs(arr(j,a123(1))) - &
+               abs(arr(i:dim,a123(1)))).lt.tol))+i-1
           buff(:)=arr(i,:)
           arr(i,:)=arr(loc,:)
           arr(loc,:)=buff(:)
@@ -445,7 +454,7 @@ contains
     if(present(tol))then
        tiny = tol
     else
-       tiny = 1.D-4
+       tiny = 1.E-4_real12
     end if
     
     call sort1D(arr)
@@ -1090,10 +1099,12 @@ contains
   subroutine loadbar(count,div,loaded)
     implicit none
     integer :: count,div !div=10
-    real :: tiny=1.E-5
-    character(1) :: yn,creturn = achar(13)
+    real :: tiny
+    character(1) :: yn,creturn 
     character(1), optional :: loaded
 
+    tiny = 1.E-5
+    creturn = achar(13)
     if(.not.present(loaded)) then
        yn='n'
     else

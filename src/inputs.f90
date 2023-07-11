@@ -31,7 +31,12 @@ module inputs
   character(:), allocatable :: cv_dropout_method
   integer :: cv_block_size
   real(real12) :: cv_keep_prob
+  character(:), allocatable :: cv_kernel_initialiser
+  character(:), allocatable :: cv_bias_initialiser
+  real(real12) :: cv_activation_scale
+  character(:), allocatable :: cv_activation_function
 
+  real(real12) :: bn_gamma, bn_beta  ! batch normalisation learning features
 
   integer :: pool_kernel_size    ! pooling size (assume square)
   integer :: pool_stride         ! pooling stride
@@ -39,16 +44,15 @@ module inputs
 
   integer, allocatable, dimension(:) :: fc_num_hidden  ! number of fully connected hidden layers
   type(clip_type) :: fc_clip                           ! fully connected clipping thresholds
-  character(len=10) :: activation_function
-  real(real12) :: activation_scale
+  character(len=10) :: fc_activation_function
+  real(real12) :: fc_activation_scale
+  character(:), allocatable :: fc_weight_initialiser
 
 
   real(real12) :: train_size  ! fraction of data to train on (NOT YET USED) 
-  logical :: shuffle_dataset  ! shuffle train and test data (NOT YET USED)
+  logical :: shuffle_dataset  ! shuffle train and test data
   
 
-!!! HAVE VARIABLE TO DEFINE WHAT LOSS FUNCTION IS TO BE USED IN SOFTMAX
-!!! i.e. binary, categorical, sparse (surely others, such as MAE, RMSE)
 
   private
 
@@ -69,14 +73,20 @@ module inputs
   public :: convolution_method, padding_method
   public :: cv_dropout_method
   public :: cv_block_size, cv_keep_prob
+  public :: cv_activation_scale
+  public :: cv_activation_function
+  public :: cv_kernel_initialiser, cv_bias_initialiser
+
+  public :: bn_gamma, bn_beta
 
   public :: pool_kernel_size, pool_stride
   public :: pool_normalisation
 
   public :: fc_num_hidden
   public :: fc_clip
-  public :: activation_function
-  public :: activation_scale
+  public :: fc_activation_scale
+  public :: fc_activation_function
+  public :: fc_weight_initialiser
 
   public :: set_global_vars
 
@@ -88,12 +98,10 @@ contains
 !!!#############################################################################
   subroutine set_global_vars()
     implicit none
-    integer :: Reason
     integer :: i,j
     integer :: num_hidden_layers
-    character(3) :: abc
-    character(1024) :: pattern,buffer,flag,input_file
-    logical :: skip,empty,filefound
+    character(1024) :: buffer,flag,input_file
+    logical :: skip,empty
 
 
 !!!-----------------------------------------------------------------------------
@@ -135,8 +143,8 @@ contains
     fc_clip%min  = -huge(1._real12)
     fc_clip%max  =  huge(1._real12)
     fc_clip%norm =  huge(1._real12)
-    activation_function = "relu"
-    activation_scale = 1._real12
+    fc_activation_function = "relu"
+    fc_activation_scale = 1._real12
     !! gaussian, relu, piecewise, leaky_relu, sigmoid, tanh
 
 
@@ -150,7 +158,6 @@ contains
           cycle flagloop
        end if
        call get_command_argument(i,buffer)
-       write(*,*) "TEST", trim(buffer)
 !!!------------------------------------------------------------------------
 !!! FILE AND DIRECTORY FLAGS
 !!!------------------------------------------------------------------------
@@ -212,7 +219,7 @@ contains
           write(6,'("------------------NETWORK-FLAGS------------------")')
           write(6,'(2X,"-s<INT>         : Random seed (Default = CLOCK).")')
           write(6,'(2X,"-l<INT,INT,...> : Hidden layer node size (Default = (empty) ).")')
-          stop
+          stop 0
        end if
     end do flagloop
 
@@ -258,20 +265,28 @@ contains
     !use infile_tools, only: assign_val, assing_vec, rm_comments
     implicit none
     integer :: Reason,unit
-
+    character(128) :: message
+    
+    integer :: num_filters
+    
     integer :: block_size
     real(real12) ::  keep_prob
+    real(real12) :: activation_scale
 
     real(real12) :: momentum, beta1, beta2, epsilon
-    character(512) :: hidden_layers=""
+    character(512) :: hidden_layers
 
-    character(4)  :: loss=""
-    character(9)  :: dropout=""
-    character(6)  :: normalisation=""
-    character(20) :: adaptive_learning=""
+    character(4)  :: loss
+    character(9)  :: dropout
+    character(6)  :: normalisation
+    character(20) :: adaptive_learning
     character(20) :: padding_type, convolution_type
-    character(64) :: clip_min="", clip_max="", clip_norm=""
-    character(512) :: kernel_size="", stride=""
+    character(20) :: kernel_initialiser
+    character(20) :: bias_initialiser
+    character(20) :: weight_initialiser
+    character(64) :: clip_min, clip_max, clip_norm
+    character(512) :: kernel_size, stride
+    character(20) :: activation_function
 
     character(*), intent(in) :: file_name
 
@@ -285,13 +300,15 @@ contains
          learning_rate, momentum, l1_lambda, l2_lambda, &
          shuffle_dataset, batch_learning, adaptive_learning, &
          beta1, beta2, epsilon, loss
-    namelist /convolution/ cv_num_filters, kernel_size, stride, &
+    namelist /convolution/ num_filters, kernel_size, stride, &
          clip_min, clip_max, clip_norm, convolution_type, padding_type, &
-         dropout, block_size, keep_prob
+         dropout, block_size, keep_prob, activation_function, &
+         kernel_initialiser, bias_initialiser
     namelist /pooling/ kernel_size, stride, normalisation
     namelist /fully_connected/ hidden_layers, &
          clip_min, clip_max, clip_norm, &
-         activation_function, activation_scale
+         activation_function, activation_scale, &
+         weight_initialiser
 
 
 !!!-----------------------------------------------------------------------------
@@ -299,92 +316,165 @@ contains
 !!!-----------------------------------------------------------------------------
     unit=20
     call file_check(unit,file_name)
+
+
+!!!==========================================================================!!!
+!!!                       read namelists from input file                     !!!
+!!!==========================================================================!!!
+
+!!!-----------------------------------------------------------------------------
+!!! read setup namelist
+!!!-----------------------------------------------------------------------------
+    read(unit,NML=setup,iostat=Reason,iomsg=message)
+    if(Reason.ne.0)then
+       write(0,'("ERROR: Unexpected keyword found input file SETUP card")')
+       stop trim(message)
+    end if
+    
+
+!!!-----------------------------------------------------------------------------
+!!! read training namelist
+!!!-----------------------------------------------------------------------------
+    adaptive_learning = ""
+    loss="mse"
     momentum = 0._real12
     beta1 = 0.9_real12
     beta2 = 0.999_real12
     epsilon = 1.E-8_real12
-    convolution_type = ""
-    padding_type = ""
     block_size = 5
-    keep_prob = 0.75
+    keep_prob = 0.75_real12
+    dropout="none"
 !!! ADD weight_decay (L2 penalty for AdamW)
-
-
-!!!-----------------------------------------------------------------------------
-!!! read namelists from input file
-!!!-----------------------------------------------------------------------------
-    read(unit,NML=setup,iostat=Reason)
-    if(Reason.ne.0)then
-       write(0,*) "THERE WAS AN ERROR IN READING SETUP"
-    end if
-    
-    read(unit,NML=training,iostat=Reason)
+    read(unit,NML=training,iostat=Reason,iomsg=message)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
-       stop "THERE WAS AN ERROR IN READING TRAINING SETTINGS"
+       write(0,'("ERROR: Unexpected keyword found input file TRAINING card")')
+       stop trim(message)
     end if
     if(batch_size.eq.1.and.batch_learning)then
        write(0,*) "WARNING: batch_learning=True whilst batch_size=1"
        write(0,*) " Changing to batch_learning=False"
        write(0,*) "(note: currently no input file way to specify alternative)"
     end if
-    !if(shuffle_dataset)then
-    !   write(0,*) "WARNING: shuffle_dataset=True currently does nothing"
-    !   write(0,*) " shuffling has not yet been coded in, due to large size of &
-    !        &MNIST dataset"
-    !end if
+    !! handle adaptive learning method
+    !!---------------------------------------------------------------------------
+    !! ce  = cross entropy (defaults to categorical)
+    !! cce = categorical cross entropy
+    !! mse = mean square error
+    !! nll = negative log likelihood
+    loss_method = to_lower(trim(loss))
 
-    read(unit,NML=convolution,iostat=Reason)
+
+!!!-----------------------------------------------------------------------------
+!!! read convolution namelist
+!!!-----------------------------------------------------------------------------
+    num_filters = 32
+    convolution_type    = "standard"
+    padding_type        = "same"
+    kernel_initialiser  = "he_uniform"
+    bias_initialiser    = "zeros"
+    activation_function = "none"
+    activation_scale = 1._real12
+    clip_min = ""; clip_max = ""; clip_norm = ""
+    kernel_size = ""; stride = ""
+    read(unit,NML=convolution,iostat=Reason,iomsg=message)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
-       stop "THERE WAS AN ERROR IN READING CONVOLUTION SETTINGS"
+       write(0,'("ERROR: Unexpected keyword found input file CONVOLUTION &
+            &card")')
+       stop trim(message)
     end if
 
     if(trim(kernel_size).ne."") call get_list(kernel_size, cv_kernel_size, cv_num_filters)
     if(trim(stride).ne."") call get_list(stride, cv_stride, cv_num_filters)
-    kernel_size = ""
-    stride = ""
     call get_clip(clip_min, clip_max, clip_norm, cv_clip)
-    clip_min = ""
-    clip_max = ""
-    clip_norm = ""
+    cv_num_filters = num_filters
+    cv_activation_scale = activation_scale
+    cv_activation_function = to_lower(activation_function)
+    cv_kernel_initialiser  = to_lower(kernel_initialiser)
+    cv_bias_initialiser    = to_lower(bias_initialiser)
+    !! handle convolution type
+    !!---------------------------------------------------------------------------
+    !! https://arxiv.org/pdf/1603.07285.pdf
+    !! https://towardsdatascience.com/types-of-convolutions-in-deep-learning-717013397f4d
+    !! standard   = dot product operation between kernel and input data
+    !! dilated    = spacing (dilation rate) between kernel values
+    !! transposed = upsampling, sort of reverse of dilated
+    !! depthwise  = separate filter to each input channel
+    !! pointwise  = linear transform to adjust number of channels in feature map
+    !!              ... 1x1 filter, not affecting spatial dimensions
+    convolution_method = to_lower(trim(convolution_type))
+!!! NOT SET UP YET
+   
+    !! handle padding type
+    !!---------------------------------------------------------------------------
+    !! none = alt. name for 'valid'
+    !! zero = alt. name for 'same'
+    !! half = alt. name for 'same'
+    !! symmetric = alt.name for 'replication'
+    !! valid = no padding
+    !! same  = maintain spatial dimensions
+    !!         ... (i.e. odd filter width, padding = (kernel_size - 1)/2)
+    !!         ... (i.e. even filter width, padding = (kernel_size - 2)/2)
+    !!         ... defaults to zeros in the padding
+    !! full  = enough padding for filter to slide over every possible position
+    !!         ... (i.e. padding = (kernel_size - 1)
+    !! circular = maintain spatial dimensions
+    !!            ... wraps data around for padding (periodic)
+    !! reflection = maintains spatial dimensions
+    !!              ... reflect data (about boundary index)
+    !! replication = maintains spatial dimensions
+    !!               ... reflect data (boundary included)
+    padding_method = to_lower(trim(padding_type))
 
 
-    read(unit,NML=pooling,iostat=Reason)
+!!!-----------------------------------------------------------------------------
+!!! read pooling namelist
+!!!-----------------------------------------------------------------------------
+    normalisation="none"
+    kernel_size = ""; stride = ""
+    read(unit,NML=pooling,iostat=Reason,iomsg=message)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
-       stop "THERE WAS AN ERROR IN READING POOL SETTINGS"
+       write(0,'("ERROR: Unexpected keyword found input file POOLING card")')
+       stop trim(message)
     end if
 
     if(trim(kernel_size).ne."") read(kernel_size,*) pool_kernel_size
     if(trim(stride).ne."") read(stride,*) pool_stride
-    kernel_size = ""
-    stride = ""
+    !! handle pooling normalisation
+    !!--------------------------------------------------------------------------
+    !! none
+    !! linear
+    !! sum
+    !! norm
+    pool_normalisation = to_lower(trim(normalisation))
 
-
-    read(unit,NML=fully_connected,iostat=Reason)
+    
+!!!-----------------------------------------------------------------------------
+!!! read fully connected namelist
+!!!-----------------------------------------------------------------------------
+    weight_initialiser = ""
+    hidden_layers=""
+    activation_scale = 1._real12
+    activation_function = "relu"
+    clip_min=""; clip_max=""; clip_norm=""
+    read(unit,NML=fully_connected,iostat=Reason,iomsg=message)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
-       stop "THERE WAS AN ERROR IN READING FULLY_CONNECTED SETTINGS"
+       write(0,'("ERROR: Unexpected keyword found input file FULLY_CONNECTED &
+            &card")')
+       stop trim(message)
     end if
     call get_clip(clip_min, clip_max, clip_norm, fc_clip)
-    activation_function = to_lower(activation_function)
+    fc_activation_scale = activation_scale
+    fc_activation_function = to_lower(activation_function)
+    fc_weight_initialiser  = to_lower(weight_initialiser)
+    !! convert hidden_layers string to dynamic array
+    !!---------------------------------------------------------------------------
+    call get_list(hidden_layers, fc_num_hidden)
 
 
 !!!-----------------------------------------------------------------------------
 !!! close input file
 !!!-----------------------------------------------------------------------------
     close(unit)
-
-
-!!!-----------------------------------------------------------------------------
-!!! handle adaptive learning method
-!!!-----------------------------------------------------------------------------
-    !! ce  = cross entropy (defaults to categorical)
-    !! cce = categorical cross entropy
-    !! mse = mean square error
-    !! nll = negative log likelihood
-    if(trim(loss).eq."")then
-       loss_method = "mse"
-    else
-       loss_method = to_lower(trim(loss))
-    end if
 
 
 !!!-----------------------------------------------------------------------------
@@ -414,7 +504,7 @@ contains
        write(*,*) "No adaptive learning method"
     case("momentum")
        write(*,*) "Momentum-based adaptive learning method"
-       if(momentum.eq.0._real12)then
+       if(abs(momentum).le.1.E-6_real12)then
           write(*,*) "ERROR: momentum adaptive learning set with momentum = 0"
           write(*,*) "Please rerun with either a different adaptive method or &
                &a larger momentum value"
@@ -443,20 +533,6 @@ contains
 
 
 !!!-----------------------------------------------------------------------------
-!!! handle pooling normalisation
-!!!-----------------------------------------------------------------------------
-    !! none
-    !! linear
-    !! sum
-    !! norm
-    if(trim(normalisation).eq."")then
-       pool_normalisation = "none"
-    else
-       pool_normalisation = to_lower(trim(normalisation))
-    end if
-
-
-!!!-----------------------------------------------------------------------------
 !!! handle dropout method
 !!!-----------------------------------------------------------------------------
     !! none
@@ -473,58 +549,6 @@ contains
        end if
     end if
     write(*,*) "Dropout method: ",cv_dropout_method
-
-
-!!!-----------------------------------------------------------------------------
-!!! handle convolution type
-!!!-----------------------------------------------------------------------------
-    !! https://arxiv.org/pdf/1603.07285.pdf
-    !! https://towardsdatascience.com/types-of-convolutions-in-deep-learning-717013397f4d
-    !! standard   = dot product operation between kernel and input data
-    !! dilated    = spacing (dilation rate) between kernel values
-    !! transposed = upsampling, sort of reverse of dilated
-    !! depthwise  = separate filter to each input channel
-    !! pointwise  = linear transform to adjust number of channels in feature map
-    !!              ... 1x1 filter, not affecting spatial dimensions
-    if(trim(convolution_type).eq."")then
-       convolution_method = "standard"
-    else
-       convolution_method = to_lower(trim(convolution_type))
-    end if
-
-
-!!!-----------------------------------------------------------------------------
-!!! handle padding type
-!!!-----------------------------------------------------------------------------
-    !! none = alt. name for 'valid'
-    !! zero = alt. name for 'same'
-    !! half = alt. name for 'same'
-    !! symmetric = alt.name for 'replication'
-    !! valid = no padding
-    !! same  = maintain spatial dimensions
-    !!         ... (i.e. odd filter width, padding = (kernel_size - 1)/2)
-    !!         ... (i.e. even filter width, padding = (kernel_size - 2)/2)
-    !!         ... defaults to zeros in the padding
-    !! full  = enough padding for filter to slide over every possible position
-    !!         ... (i.e. padding = (kernel_size - 1)
-    !! circular = maintain spatial dimensions
-    !!            ... wraps data around for padding (periodic)
-    !! reflection = maintains spatial dimensions
-    !!              ... reflect data (about boundary index)
-    !! replication = maintains spatial dimensions
-    !!               ... reflect data (boundary included)
-
-    if(trim(padding_type).eq."")then
-       padding_method = "same"
-    else
-       padding_method = to_lower(trim(padding_type))
-    end if
-
-
-!!!-----------------------------------------------------------------------------
-!!! convert hidden_layers string to dynamic array
-!!!-----------------------------------------------------------------------------
-    call get_list(hidden_layers, fc_num_hidden)
 
 
     return
@@ -553,9 +577,8 @@ contains
 
     if(present(length))then
        if(size(output,dim=1).ne.1.and.size(output,dim=1).ne.length)then
-          write(0,*) "ERROR: LAYER PARAMETER DIMENSION SIZE MUST BE 1 OR &
+          stop "ERROR: LAYER PARAMETER DIMENSION SIZE MUST BE 1 OR &
                &NUMBER OF LAYERS" 
-          stop
        end if
     end if
  

@@ -10,6 +10,7 @@ BUILD_DIR = ./obj
 LIBS := mod_constants.f90 \
 	mod_misc_ml.f90 \
 	mod_types.f90 \
+	mod_weight_initialiser.f90 \
 	mod_activation_gaussian.f90 \
 	mod_activation_linear.f90 \
 	mod_activation_piecewise.f90 \
@@ -17,9 +18,11 @@ LIBS := mod_constants.f90 \
 	mod_activation_leaky_relu.f90 \
 	mod_activation_sigmoid.f90 \
 	mod_activation_tanh.f90 \
+	mod_activation_none.f90 \
 	mod_misc.f90 \
 	mod_tools_infile.f90 \
 	mod_normalisation.f90 \
+	mod_batch_norm.f90 \
 	mod_loss_categorical.f90
 OBJS := $(addprefix $(LIB_DIR)/,$(LIBS))
 #$(info VAR is $(OBJS))
@@ -36,24 +39,23 @@ OBJS := $(addprefix $(SRC_DIR)/,$(SRCS))
 ##########################################
 # COMPILER CHOICE SECTION
 ##########################################
-FFLAGS = -O2
-#PPFLAGS = -cpp
 FC=gfortran
-ifeq ($(FC),ifort)
-	PPFLAG = -cpp
-	MPFLAG = -qopenmp
-	MODULEFLAG = -module
+ifeq ($(FC), $(filter $(FC), "ifort" "ifx"))
+	PPFLAGS = -cpp
+	MPFLAGS = -qopenmp
+	MODULEFLAGS = -module
 	DEVFLAGS = -check all -warn #all
 	DEBUGFLAGS = -check all -fpe0 -warn -tracekback -debug extended # -check bounds
-	OPTIMFLAG = -O3
+	OPTIMFLAGS = -O3
 else
-	PPFLAG = -cpp
-	MPFLAG = -fopenmp
-	MODULEFLAG = -J
-	DEVFLAGS = -g -fbacktrace -fcheck=all -fbounds-check #-g -static -ffpe-trap=invalid
+	PPFLAGS = -cpp
+	MPFLAGS = -fopenmp
+	MODULEFLAGS = -J
+	WARNFLAGS = -Wall
+	DEVFLAGS = -g -fbacktrace -fcheck=all -fbounds-check -fsanitize=address -Og #-g -static -ffpe-trap=invalid
 	DEBUGFLAGS = -fbounds-check
-	MEMFLAG = -mcmodel=large
-	OPTIMFLAG = -O3 -march=native
+	MEMFLAGS = -mcmodel=large
+	OPTIMFLAGS = -O3 -march=native
 endif
 
 
@@ -78,10 +80,33 @@ LLAPACK = $(MKLROOT)/libmkl_lapack95_lp64.a \
 ##########################################
 INSTALL_DIR?=$(HOME)/bin
 NAME = cnn_dev
-programs = $(BIN_DIR)/$(NAME)
-programs_mp = $(BIN_DIR)/$(NAME)_mp
 
-.PHONY: all debug install uninstall dev optim mp mp_optim mp_dev clean
+CFLAGS =
+
+ifeq ($(findstring bigmem,$(MAKECMDGOALS)),bigmem)
+	CFLAGS+=$(MEMFLAGS)
+endif
+ifeq ($(findstring debug,$(MAKECMDGOALS)),debug)
+	CFLAGS+=$(DEBUGFLAGS)
+endif
+ifeq ($(findstring dev,$(MAKECMDGOALS)),dev)
+	CFLAGS+=$(DEVFLAGS)
+endif
+ifeq ($(findstring mp,$(MAKECMDGOALS)),mp)
+	CFLAGS+=$(MPFLAGS)
+	NAME:=$(NAME)_mp
+endif
+ifeq ($(findstring memcheck,$(MAKECMDGOALS)),memcheck)
+	CFLAGS+=-fsanitize=leak
+endif
+ifeq ($(findstring optim,$(MAKECMDGOALS)),optim)
+	CFLAGS+=$(OPTIMFLAGS)
+endif
+
+programs = $(BIN_DIR)/$(NAME)
+.PHONY: all mp debug dev optim install uninstall clean memcheck set_cflags bigmem
+
+bigmem debug dev mp memcheck optim: all
 
 all: $(programs)
 
@@ -92,28 +117,10 @@ $(BUILD_DIR):
 	mkdir -p $@
 
 $(BIN_DIR)/$(NAME): $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
-	$(FC) $(PPFLAG) $(MEMFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $@
+	$(FC) $(PPFLAGS) $(CFLAGS) $(MODULEFLAGS) $(BUILD_DIR) $(OBJS) -o $@
 
 install: $(OBJS) | $(INSTALL_DIR) $(BUILD_DIR)
-	$(FC) $(PPFLAG) $(MEMFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(INSTALL_DIR)/$(NAME)
-
-debug: $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
-	$(FC) $(PPFLAG) $(MEMFLAG) $(DEBUGFLAGS) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(programs)
-
-dev: $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
-	$(FC) $(PPFLAG) $(MEMFLAG) $(DEVFLAGS) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(programs)
-
-optim: $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
-	$(FC) $(PPFLAG) $(OPTIMFLAG) $(DEVFLAGS) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(programs)
-
-mp_dev: $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
-	$(FC) $(PPFLAG) $(MEMFLAG) $(DEVFLAGS) $(MPFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(programs_mp)
-
-mp: $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
-	$(FC) $(PPFLAG) $(MEMFLAG) $(MPFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(programs_mp)
-
-mp_optim: $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
-	$(FC) $(PPFLAG) $(OPTIMFLAG) $(MPFLAG) $(MODULEFLAG) $(BUILD_DIR) $(OBJS) -o $(programs_mp)
+	$(FC) $(PPFLAGS) $(CFLAGS) $(MODULEFLAGS) $(BUILD_DIR) $(OBJS) -o $(INSTALL_DIR)/$(NAME)
 
 clean: $(BUILD_DIR) $(BIN_DIR)
 	rm -r $(BUILD_DIR)/ $(BIN_DIR)/

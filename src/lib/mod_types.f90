@@ -1,3 +1,8 @@
+!!!#############################################################################
+!!! Code written by Ned Thaddeus Taylor
+!!! Code part of the ARTEMIS group (Hepplestone research group)
+!!! Think Hepplestone, think HRG
+!!!#############################################################################
 module custom_types
   use constants, only: real12
   implicit none
@@ -85,6 +90,7 @@ module custom_types
      procedure (derivative_function), deferred :: differentiate
   end type activation_type
   
+
   !! interface for activation function
   !!-----------------------------------------------------------------------
   abstract interface
@@ -95,6 +101,7 @@ module custom_types
        real(real12) :: output
      end function activation_function
   end interface
+
 
   !! interface for derivative function
   !!-----------------------------------------------------------------------
@@ -117,3 +124,4 @@ module custom_types
   public :: learning_parameters_type
 
 end module custom_types
+!!!#############################################################################

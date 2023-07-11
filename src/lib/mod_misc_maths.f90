@@ -759,7 +759,6 @@ contains
     logical, optional :: norm
     real(real12), dimension(:), intent(in) :: in_array,distance
     real(real12), dimension(size(distance)) :: s_func
-    real(real12) :: pi = 4.0*atan(1.0)
 
 
     udef_tol=38.0

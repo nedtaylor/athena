@@ -7,38 +7,46 @@
 &training
  num_epochs = 100,
  batch_size = 32,
- loss_threshold = 5.E-2,
- plateau_threshold = 1.E-1,
- learning_rate = 0.01,
+ loss_threshold = 1.E-2,
+ plateau_threshold = 1.E-2,
+ learning_rate = 0.001,
  momentum = 0.9,
- l1_lambda = 0.6,
- l2_lambda = 0.1,
+ l1_lambda = 0.75,
+ l2_lambda = 0.2,
  shuffle_dataset = .true.,
  batch_learning = .true.,
  adaptive_learning = "adam",
- loss = "nll",
+ loss = "cce",
  beta1 = 0.9,
  beta2 = 0.999,
  epsilon = 1E-8
 /
 
 &convolution
- cv_num_filters = 32,
+ num_filters = 32,
  kernel_size = 3,
  stride = 1,
- clip_norm = 2.E2
+ clip_norm = 2.E2,
  padding_type = "same",
- convolution_type = "standard"
+ convolution_type = "standard",
+ activation_function = "relu",
+ kernel_initialiser = "he_uniform",
+ bias_initialiser = "zeros",
+ dropout = "none",
+ !block_size = 5,
+ !keep_prob = 0.75
 /
 
 &pool
  kernel_size = 2,
  stride = 2
- normalisation = "norm"
+ normalisation = "none"
 /
 
 &fully_connected
- hidden_layers = 100,
- clip_norm = 2.E3,
- activation_function = "leaky_relu"
+ hidden_layers = '100',
+ clip_norm = 2.E2,
+ activation_function = 'leaky_relu',
+ activation_scale = 1.E0,
+ weight_initialiser = "he_uniform"
 /
