@@ -24,6 +24,7 @@ program ConvolutionalNeuralNetwork
        cv_update => update_weights_and_biases, &
        cv_write => write_file, &
        cv_gradient_type => gradient_type, &
+       cv_gradient_alloc => allocate_gradients, &
        cv_gradient_init => initialise_gradients, &
        convolution
   use PoolingLayer, only: pl_init => initialise, pl_forward => forward, &
@@ -33,8 +34,10 @@ program ConvolutionalNeuralNetwork
        fc_update => update_weights_and_biases, &
        fc_write => write_file, &
        fc_gradient_type => gradient_type, &
+       fc_gradient_alloc => allocate_gradients, &
        fc_gradient_init => initialise_gradients, &
-       network
+       network!, &
+       !fc_gradient_sum => gradient_sum
   use SoftmaxLayer, only: sm_init => initialise, sm_forward => forward, &
        sm_backward => backward
 
@@ -105,9 +108,9 @@ program ConvolutionalNeuralNetwork
 !! https://fortran-lang.discourse.group/t/openmp-reduction-on-operator/5887
 !!!-----------------------------------------------------------------------------
   !$omp declare reduction(cv_grad_sum:cv_gradient_type:omp_out = omp_out + omp_in) &
-  !$omp& initializer(omp_priv = omp_orig)
+  !$omp& initializer(cv_gradient_alloc(omp_priv,omp_orig))
   !$omp declare reduction(fc_grad_sum:fc_gradient_type:omp_out = omp_out + omp_in) &
-  !$omp& initializer(omp_priv = omp_orig)
+  !$omp& initializer(fc_gradient_alloc(omp_priv,omp_orig))
   !$omp declare reduction(compare_val:integer:compare_val(omp_out,omp_in)) &
   !$omp& initializer(omp_priv = omp_orig)
 
@@ -284,7 +287,7 @@ program ConvolutionalNeuralNetwork
 
   select case(learning_parameters%method)
   case("adam")
-     call fc_gradient_init(fc_gradients, input_size, adam_learning = .true.)
+    call fc_gradient_init(fc_gradients, input_size, adam_learning = .true.)
      if(batch_learning) &
           call fc_gradient_init(comb_fc_gradients, input_size, adam_learning = .true.)
      update_iteration = 1
@@ -349,7 +352,6 @@ program ConvolutionalNeuralNetwork
      !!-------------------------------------------------------------------------
      batch_loop: do batch = 1, num_batches
 
-
         !! set batch start and end index
         !!----------------------------------------------------------------------
         start_index = (batch - 1) * batch_size + 1
@@ -383,7 +385,6 @@ program ConvolutionalNeuralNetwork
         predicted_old = -1
         predicted_new = -1
         repetitive_predicting = .true.
-
         
         !!!drop_gamma = (1 - drop_gamma)/block_size**2 * image_size**2/(image_size - block_size + 1)**2
 
@@ -402,13 +403,16 @@ program ConvolutionalNeuralNetwork
         !$OMP& SHARED(fc_num_layers,cv_num_filters) &
         !$OMP& SHARED(cv_keep_prob, seed, cv_block_size, output_channels) &
         !$OMP& SHARED(cv_dropout_method) &
-        !$OMP& PRIVATE(cv_mask, cv_mask_size) &
+        !$OMP& SHARED(compute_loss) &
+!!        !$OMP& PRIVATE(cv_mask, cv_mask_size) &
         !$OMP& PRIVATE(sample) &
-        !$OMP& FIRSTPRIVATE(predicted_old) & 
-        !$OMP& FIRSTPRIVATE(compute_loss) &
-        !$OMP& PRIVATE(cv_output, cv_gradients) &
+!!        !$OMP& PRIVATE(comb_cv_gradients) &
+!!        !$OMP& PRIVATE(comb_fc_gradients)&
+        !$OMP& FIRSTPRIVATE(predicted_old) &
+        !$OMP& PRIVATE(fc_gradients, cv_gradients) &
+        !$OMP& PRIVATE(cv_output) &
         !$OMP& PRIVATE(pl_output, pl_gradients) &
-        !$OMP& PRIVATE(fc_input, fc_output,fc_gradients, fc_gradients_rs) &
+        !$OMP& PRIVATE(fc_input, fc_output, fc_gradients_rs) &
         !$OMP& PRIVATE(sm_output, sm_gradients) &
         !$OMP& PRIVATE(rtmp1, expected, exploding_check_old) &
         !$OMP& REDUCTION(compare_val:predicted_new) &
@@ -416,12 +420,16 @@ program ConvolutionalNeuralNetwork
         !$OMP& REDUCTION(+:sum_loss,sum_accuracy,exploding_check) &
         !$OMP& REDUCTION(cv_grad_sum:comb_cv_gradients) &
         !$OMP& REDUCTION(fc_grad_sum:comb_fc_gradients)
-        train_loop: do sample = start_index, end_index
-           
-           !image_sample(:,:,:) = image_slice(:,:,:,sample)
 
-           !! Forward pass
-           !!-------------------------------------------------------------------
+!!! ISSUE WHERE DERIVED TYPE REDUCTION CAUSES MEMORY LEAK
+!!! HOW ABOUT, PORTING DATA OVER INTO ANOTHER NON-DERIVED DATA TYPE AND SUMMING IN THAT
+
+       train_loop: do sample = start_index, end_index
+
+          !image_sample(:,:,:) = image_slice(:,:,:,sample)
+
+          !! Forward pass
+          !!-------------------------------------------------------------------
 #ifdef _OPENMP
            !image_sample = image_slice(:,:,:,sample)
            call cv_forward(image_slice(:,:,:,sample), cv_output)
@@ -521,7 +529,7 @@ program ConvolutionalNeuralNetwork
            !!-------------------------------------------------------------------
            call sm_backward(sm_output, expected, sm_gradients)
            call fc_backward(fc_input, sm_gradients, fc_gradients, fc_clip)
-           fc_gradients_rs = reshape(fc_gradients(0)%delta(:size(fc_gradients(0)%delta,dim=1)),&
+           fc_gradients_rs = reshape(fc_gradients(0)%delta,&
                 shape(fc_gradients_rs))
            call pl_backward(cv_output, fc_gradients_rs, pl_gradients)
 #ifdef _OPENMP
@@ -600,7 +608,7 @@ program ConvolutionalNeuralNetwork
         if(abs(sum(loss_history)).lt.loss_threshold)then
            write(6,*) "Convergence achieved, accuracy threshold reached"
            write(6,*) "Exiting training loop"
-           exit epoch_loop
+           !exit epoch_loop
         elseif(all(abs(loss_history-sum_loss).lt.plateau_threshold))then
            !write(0,*) "sm_output", sm_output
            !write(0,*) "sm_grad", sm_gradients
@@ -609,7 +617,7 @@ program ConvolutionalNeuralNetwork
            write(0,*) loss_history
            write(0,*) "Exiting..."
            stop
-           exit epoch_loop
+           !exit epoch_loop
         end if
 
 
@@ -662,8 +670,6 @@ program ConvolutionalNeuralNetwork
            do l=1,fc_num_layers
               comb_fc_gradients(l)%weight = comb_fc_gradients(l)%weight/batch_size
            end do
-!!! THIS IS THE WRONG INPUT FOR IMAGE
-!!! I DON'T THINK THAT ANY INPUT SHOULD BE GIVEN !!!
            call cv_update(learning_rate, input_images(:,:,:,start_index), &
                 comb_cv_gradients, &
                 l1_lambda, l2_lambda, learning_parameters%momentum)
@@ -856,8 +862,8 @@ contains
     integer, optional, intent(in) :: kernel_size
     character(*), optional, intent(in) :: padding_method
     character(1024), intent(in) :: file
-    real(real12), dimension(:,:,:,:), allocatable, intent(out) :: images
-    integer, dimension(:), allocatable, intent(out) :: labels
+    real(real12), allocatable, dimension(:,:,:,:), intent(out) :: images
+    integer, allocatable, dimension(:), intent(out) :: labels
 
 
 !!!-----------------------------------------------------------------------------
@@ -871,6 +877,7 @@ contains
 !!! count number of samples
 !!!-----------------------------------------------------------------------------
     i = 0
+    num_pixels = 0
     line_count: do
        i = i + 1
        read(unit,'(A)',iostat=Reason) buffer
@@ -885,6 +892,9 @@ contains
           num_pixels = icount(buffer,",") - 1
        end if
     end do line_count
+    if(num_pixels.eq.0)then
+       stop "Could not determine number of pixels"
+    end if
 
 
 !!!-----------------------------------------------------------------------------
@@ -897,6 +907,7 @@ contains
 !!! rewind file and allocate labels
 !!!-----------------------------------------------------------------------------
     rewind(unit)
+    if(allocated(labels)) deallocate(labels)
     allocate(labels(num_samples))
 
 
@@ -975,6 +986,7 @@ contains
           padding = get_padding_half(kernel_size)
        end select
 
+       if(allocated(images)) deallocate(images)
        allocate(images(&
             -padding+1:image_size+padding + (1-mod(kernel_size,2)),&
             -padding+1:image_size+padding + (1-mod(kernel_size,2)),&
@@ -1050,7 +1062,7 @@ contains
     labels = labels + 1
     write(6,*) "Data read"
 
-
+    return
   end subroutine read_mnist
 !!!#############################################################################
 
