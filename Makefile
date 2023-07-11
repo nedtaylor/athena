@@ -104,9 +104,9 @@ ifeq ($(findstring optim,$(MAKECMDGOALS)),optim)
 endif
 
 programs = $(BIN_DIR)/$(NAME)
-.PHONY: all mp debug dev optim install uninstall clean memcheck set_cflags bigmem
+.PHONY: all mp debug dev optim install uninstall clean memcheck bigmem
 
-bigmem debug dev mp memcheck optim: all
+bigmem mp optim debug dev memcheck: all
 
 all: $(programs)
 
@@ -116,7 +116,7 @@ $(BIN_DIR):
 $(BUILD_DIR):
 	mkdir -p $@
 
-$(BIN_DIR)/$(NAME): $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
+$(programs): $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
 	$(FC) $(PPFLAGS) $(CFLAGS) $(MODULEFLAGS) $(BUILD_DIR) $(OBJS) -o $@
 
 install: $(OBJS) | $(INSTALL_DIR) $(BUILD_DIR)
