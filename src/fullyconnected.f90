@@ -214,41 +214,61 @@ contains
 !!!#############################################################################
 !!! 
 !!!#############################################################################
-  subroutine allocate_gradients(gradients, mold)
+  subroutine allocate_gradients(gradients, mold, reallocate)
     implicit none
     type(gradient_type), allocatable, dimension(:), intent(out) :: gradients
     type(gradient_type), dimension(0:), intent(in) :: mold
+    logical, optional, intent(in) :: reallocate
     integer :: l
     integer :: num_neurons, num_inputs, num_layers, num_features
+    logical :: t_reallocate
+    
 
+    if(present(reallocate))then
+       t_reallocate = reallocate
+    else
+       t_reallocate = .true.
+    end if
     
     num_layers = ubound(mold,dim=1)
     num_inputs = size(mold(0)%delta,dim=1)
-    if(allocated(gradients)) deallocate(gradients)
-    allocate(gradients(0:num_layers))
-    allocate(gradients(0)%delta(num_inputs))
-    gradients(0)%delta = 0._real12
-    
-    do l=1,num_layers,1
-       num_neurons = size(mold(l)%delta,dim=1)
-       num_inputs = size(mold(l)%weight,dim=1)
-       if(allocated(gradients(l)%weight)) deallocate(gradients(l)%weight)
-       if(allocated(gradients(l)%delta)) deallocate(gradients(l)%delta)
-       allocate(gradients(l)%weight(num_inputs, num_neurons))
-       allocate(gradients(l)%delta(num_neurons))
-       gradients(l)%weight = 0._real12
-       gradients(l)%delta  = 0._real12
-       
-       if(allocated(mold(l)%m))then
-          if(allocated(gradients(l)%m)) deallocate(gradients(l)%m)
-          if(allocated(gradients(l)%v)) deallocate(gradients(l)%v)
-          allocate(gradients(l)%m(num_inputs, num_neurons))
-          allocate(gradients(l)%v(num_inputs, num_neurons))
-          gradients(l)%m = 0._real12
-          gradients(l)%v = 0._real12
-       end if
-    end do
-    
+    if(.not.allocated(gradients).or.t_reallocate)then
+       if(allocated(gradients)) deallocate(gradients)
+       allocate(gradients(0:num_layers))
+       allocate(gradients(0)%delta(num_inputs))
+       gradients(0)%delta = 0._real12
+
+       do l=1,num_layers,1
+          num_neurons = size(mold(l)%delta,dim=1)
+          num_inputs = size(mold(l)%weight,dim=1)
+          if(allocated(gradients(l)%weight)) deallocate(gradients(l)%weight)
+          if(allocated(gradients(l)%delta)) deallocate(gradients(l)%delta)
+          allocate(gradients(l)%weight(num_inputs, num_neurons))
+          allocate(gradients(l)%delta(num_neurons))
+          gradients(l)%weight = 0._real12
+          gradients(l)%delta  = 0._real12
+
+          if(allocated(mold(l)%m))then
+             if(allocated(gradients(l)%m)) deallocate(gradients(l)%m)
+             if(allocated(gradients(l)%v)) deallocate(gradients(l)%v)
+             allocate(gradients(l)%m(num_inputs, num_neurons))
+             allocate(gradients(l)%v(num_inputs, num_neurons))
+             gradients(l)%m = 0._real12
+             gradients(l)%v = 0._real12
+          end if
+       end do
+    else
+       gradients(0)%delta = 0._real12
+       do l=1,num_layers,1
+          gradients(l)%weight = 0._real12
+          gradients(l)%delta  = 0._real12
+          if(allocated(gradients(l)%m))then
+             gradients(l)%m = 0._real12
+             gradients(l)%v = 0._real12
+          end if
+       end do
+    end if
+
     return
   end subroutine allocate_gradients
 !!!#############################################################################

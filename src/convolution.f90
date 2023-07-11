@@ -253,26 +253,43 @@ contains
 !!!#############################################################################
 !!!
 !!!#############################################################################
-  subroutine allocate_gradients(gradients, mold)
+  subroutine allocate_gradients(gradients, mold, reallocate)
     implicit none
+    type(gradient_type), dimension(:), intent(in) :: mold
+    type(gradient_type), allocatable, dimension(:), intent(inout) :: gradients
+    logical, optional, intent(in) :: reallocate
     integer :: l, start_idx, end_idx
     integer :: num_filters, input_size
-    type(gradient_type), dimension(:), intent(in) :: mold
-    type(gradient_type), allocatable, dimension(:), intent(out) :: gradients
+    logical :: t_reallocate
     
-    !if(allocated(gradients)) deallocate(gradients)
+
+    if(present(reallocate))then
+       t_reallocate = reallocate
+    else
+       t_reallocate = .true.
+    end if
+
     num_filters = size(mold,dim=1)
-    input_size = size(mold(1)%delta,dim=1)
-    allocate(gradients(num_filters))
-    do l=1,num_filters
-       start_idx = -convolution(l)%pad
-       end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
-       allocate(gradients(l)%weight(start_idx:end_idx,start_idx:end_idx))
-       allocate(gradients(l)%delta(input_size,input_size))
-       gradients(l)%weight = 0._real12
-       gradients(l)%bias = 0._real12
-       gradients(l)%delta = 0._real12
-    end do
+    if(.not.allocated(gradients).or.t_reallocate)then
+       input_size = size(mold(1)%delta,dim=1)
+       if(allocated(gradients)) deallocate(gradients)
+       allocate(gradients(num_filters))
+       do l=1,num_filters
+          start_idx = -convolution(l)%pad
+          end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
+          allocate(gradients(l)%weight(start_idx:end_idx,start_idx:end_idx))
+          allocate(gradients(l)%delta(input_size,input_size))
+          gradients(l)%weight = 0._real12
+          gradients(l)%bias = 0._real12
+          gradients(l)%delta = 0._real12
+       end do
+    else
+       do l=1,num_filters
+          gradients(l)%weight = 0._real12
+          gradients(l)%bias = 0._real12
+          gradients(l)%delta = 0._real12
+       end do
+    end if
 
     return
   end subroutine allocate_gradients
