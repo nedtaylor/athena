@@ -9,7 +9,8 @@ import wandb
 
 ## define global variables
 project='cnn_mnist_test'
-sweep_id = 't6ldlhvz'#'emjb3nsc' #'8qcw0m55'
+codename='cnn_mp_wandb'
+sweep_id = '8336mo4r'#'emjb3nsc' #'8qcw0m55'
 count=100
 file_template = "template.in"
 workdir = getcwd() # "../"
@@ -146,7 +147,7 @@ def main():
     stderr = "stdout.e"
     stdout_file = open(stdout, 'w')
     stderr_file = open(stderr, 'w')
-    p = subprocess.Popen(args=["/home/links/ntt203/DCoding/DGitlab/convolutional_neural_network/bin/cnn_wandb",
+    p = subprocess.Popen(args=["/home/links/ntt203/DCoding/DGitlab/convolutional_neural_network/bin/"+codename,
                              "-f"+file_param],
                        stdout=stdout_file,
                        stderr=stderr_file

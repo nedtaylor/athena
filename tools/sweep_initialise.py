@@ -23,7 +23,7 @@ sweep_configuration = {
         'pool_stride': {'max': 4, 'min': 2},
         'cv_clip_norm': {'max': 50.0, 'min': 1.0},
         'fc_clip_norm': {'max': 50.0, 'min': 1.0},
-        'num_hidden_layers': {'max': 4, 'min': 1},
+        'num_hidden_layers': {'max': 3, 'min': 1},
         'beta1': {'max':0.9, 'min': 0.5},
         'beta2': {'max':0.999, 'min': 0.7}
     }
