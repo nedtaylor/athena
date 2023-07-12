@@ -10,7 +10,6 @@ BUILD_DIR = ./obj
 LIBS := mod_constants.f90 \
 	mod_misc_ml.f90 \
 	mod_types.f90 \
-	mod_weight_initialiser.f90 \
 	mod_activation_gaussian.f90 \
 	mod_activation_linear.f90 \
 	mod_activation_piecewise.f90 \
@@ -20,6 +19,11 @@ LIBS := mod_constants.f90 \
 	mod_activation_tanh.f90 \
 	mod_activation_none.f90 \
 	mod_misc.f90 \
+	mod_initialiser_glorot.f90 \
+	mod_initialiser_he.f90 \
+	mod_initialiser_lecun.f90 \
+	mod_initialiser_zeros.f90 \
+	mod_initialiser.f90 \
 	mod_tools_infile.f90 \
 	mod_normalisation.f90 \
 	mod_batch_norm.f90 \
@@ -83,6 +87,7 @@ NAME = cnn_dev
 
 CFLAGS =
 
+
 ifeq ($(findstring bigmem,$(MAKECMDGOALS)),bigmem)
 	CFLAGS+=$(MEMFLAGS)
 endif
@@ -103,12 +108,19 @@ ifeq ($(findstring optim,$(MAKECMDGOALS)),optim)
 	CFLAGS+=$(OPTIMFLAGS)
 endif
 
+
+.PHONY: all install build uninstall clean #mp debug dev optim memcheck bigmem
+
 programs = $(BIN_DIR)/$(NAME)
-.PHONY: all mp debug dev optim install uninstall clean memcheck bigmem
-
-bigmem mp optim debug dev memcheck: all
-
 all: $(programs)
+
+
+build: all
+	@:
+
+%:
+	@:
+#	$(FC) $(PPFLAGS) $(CFLAGS) $(MODULEFLAGS) $(BUILD_DIR) $(OBJS) -o $(programs)
 
 $(BIN_DIR):
 	mkdir -p $@
@@ -120,10 +132,10 @@ $(programs): $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
 	$(FC) $(PPFLAGS) $(CFLAGS) $(MODULEFLAGS) $(BUILD_DIR) $(OBJS) -o $@
 
 install: $(OBJS) | $(INSTALL_DIR) $(BUILD_DIR)
-	$(FC) $(PPFLAGS) $(CFLAGS) $(MODULEFLAGS) $(BUILD_DIR) $(OBJS) -o $(INSTALL_DIR)/$(NAME)
+	$(FC) $(PPFLAGS) $(CFLAGS) $(MODULEFLAGS) $(BUILD_DIR) $(OBJS) -o $(programs)
 
-clean: $(BUILD_DIR) $(BIN_DIR)
-	rm -r $(BUILD_DIR)/ $(BIN_DIR)/
+clean: 
+	rm -rf $(BUILD_DIR)/ $(BIN_DIR)/
 
 uninstall: $(INSTALL_DIR)/$(NAME)
 	rm $(INSTALL_DIR)/$(NAME)
