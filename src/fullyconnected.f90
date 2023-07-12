@@ -8,13 +8,7 @@ module FullyConnectedLayer
   use misc_ml, only: adam_optimiser
   use custom_types, only: network_type, clip_type, activation_type, &
        initialiser_type, learning_parameters_type
-  use activation_gaussian, only: gaussian_setup
-  use activation_linear, only: linear_setup
-  use activation_piecewise, only: piecewise_setup
-  use activation_relu, only: relu_setup
-  use activation_leaky_relu, only: leaky_relu_setup
-  use activation_sigmoid, only: sigmoid_setup
-  use activation_tanh, only: tanh_setup
+  use activation,  only: activation_setup
   use initialiser, only: initialiser_setup
   implicit none
 
@@ -100,7 +94,7 @@ contains
     real(real12) :: scale
     character(len=10) :: t_activation_function
     integer, allocatable, dimension(:) :: seed_arr
-    class(initialiser_type), allocatable :: initialiser
+    class(initialiser_type), allocatable :: weight_init
 
     integer :: l,i
 
@@ -151,8 +145,8 @@ contains
 
              !! determine initialisation method and initialise accordingly
              !!-----------------------------------------------------------------
-             initialiser = initialiser_setup(weight_initialiser)
-             call initialiser%initialise(network(l)%neuron(i)%weight, &
+             weight_init = initialiser_setup(weight_initialiser)
+             call weight_init%initialise(network(l)%neuron(i)%weight, &
                   fan_in = size(network(l)%neuron(i)%weight,dim=1), &
                   fan_out = num_hidden(l))
 
@@ -181,24 +175,7 @@ contains
     else
        scale = 1._real12
     end if
-    select case(trim(t_activation_function))
-    case("gaussian")
-       transfer = gaussian_setup(scale = scale)
-    case ("linear")
-       transfer = linear_setup(scale = scale)
-    case ("piecewise")
-       transfer = piecewise_setup(scale = scale)
-    case ("relu")
-       transfer = relu_setup(scale = scale)
-    case ("leaky_relu")
-       transfer = leaky_relu_setup(scale = scale)
-    case ("sigmoid")
-       transfer = sigmoid_setup(scale = scale)
-    case ("tanh")
-       transfer = tanh_setup(scale = scale)
-    case default
-       transfer = relu_setup(scale = scale)
-    end select
+    transfer = activation_setup(t_activation_function, scale)
  
 
     !!-----------------------------------------------------------------------

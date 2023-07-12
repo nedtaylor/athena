@@ -8,14 +8,7 @@ module ConvolutionLayer
   use custom_types, only: clip_type, convolution_type, activation_type, &
        initialiser_type
   use misc_ml, only: get_padding_half
-  use activation_gaussian, only: gaussian_setup
-  use activation_linear, only: linear_setup
-  use activation_piecewise, only: piecewise_setup
-  use activation_relu, only: relu_setup
-  use activation_leaky_relu, only: leaky_relu_setup
-  use activation_sigmoid, only: sigmoid_setup
-  use activation_tanh, only: tanh_setup
-  use activation_none, only: none_setup
+  use activation,  only: activation_setup
   use initialiser, only: initialiser_setup
   implicit none
 
@@ -240,26 +233,7 @@ contains
     else
        scale = 1._real12
     end if
-    select case(trim(t_activation_function))
-    case("gaussian")
-       transfer = gaussian_setup(scale = scale)
-    case ("linear")
-       transfer = linear_setup(scale = scale)
-    case ("piecewise")
-       transfer = piecewise_setup(scale = scale)
-    case ("relu")
-       transfer = relu_setup(scale = scale)
-    case ("leaky_relu")
-       transfer = leaky_relu_setup(scale = scale)
-    case ("sigmoid")
-       transfer = sigmoid_setup(scale = scale)
-    case ("tanh")
-       transfer = tanh_setup(scale = scale)
-    case ("none")
-       transfer = none_setup(scale = scale)
-    case default
-       transfer = none_setup(scale = scale)
-    end select
+    transfer = activation_setup(t_activation_function, scale)
 
 
 
