@@ -107,9 +107,9 @@ program ConvolutionalNeuralNetwork
 !! https://fortran-lang.discourse.group/t/openmp-reduction-on-operator/5887
 !!!-----------------------------------------------------------------------------
   !$omp declare reduction(cv_grad_sum:cv_gradient_type:omp_out = omp_out + omp_in) &
-  !$omp& initializer(cv_gradient_alloc(omp_priv,omp_orig))
+  !$omp& initializer(cv_gradient_alloc(omp_priv,omp_orig, .false.))
   !$omp declare reduction(fc_grad_sum:fc_gradient_type:omp_out = omp_out + omp_in) &
-  !$omp& initializer(fc_gradient_alloc(omp_priv,omp_orig))
+  !$omp& initializer(fc_gradient_alloc(omp_priv,omp_orig, .false.))
   !$omp declare reduction(compare_val:integer:compare_val(omp_out,omp_in)) &
   !$omp& initializer(omp_priv = omp_orig)
 
@@ -551,7 +551,6 @@ program ConvolutionalNeuralNetwork
                    l1_lambda, l2_lambda, update_iteration)
 #endif
            end if
-
 
 
         end do train_loop
