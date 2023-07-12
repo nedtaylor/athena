@@ -5,7 +5,8 @@
 !!!#############################################################################
 module ConvolutionLayer
   use constants, only: real12
-  use custom_types, only: clip_type, convolution_type, activation_type
+  use custom_types, only: clip_type, convolution_type, activation_type, &
+       initialiser_type
   use misc_ml, only: get_padding_half
   use activation_gaussian, only: gaussian_setup
   use activation_linear, only: linear_setup
@@ -15,7 +16,7 @@ module ConvolutionLayer
   use activation_sigmoid, only: sigmoid_setup
   use activation_tanh, only: tanh_setup
   use activation_none, only: none_setup
-  use weight_initialiser, only: he_uniform, zeros
+  use initialiser, only: initialiser_setup
   implicit none
 
 
@@ -111,7 +112,9 @@ contains
     real(real12) :: scale
     logical :: t_full_padding
     character(len=10) :: t_activation_function
+    class(initialiser_type), allocatable :: kernel_init, bias_init
     integer, allocatable, dimension(:) :: seed_arr
+    character(:), allocatable :: t_kernel_initialiser, t_bias_initialiser
 
     
 !!!! num_layers has taken over for output_channels (or cv_num_filters)
@@ -121,6 +124,16 @@ contains
        t_full_padding = full_padding
     else
        t_full_padding = .false.
+    end if
+    if(present(kernel_initialiser))then
+       t_kernel_initialiser = kernel_initialiser
+    else
+       t_kernel_initialiser = "he_uniform"
+    end if
+    if(present(bias_initialiser))then
+       t_bias_initialiser = bias_initialiser
+    else
+       t_bias_initialiser = "zeros"
     end if
 
     !! if file, read in weights and biases
@@ -175,9 +188,13 @@ contains
           allocate(convolution(l)%weight_incr(start_idx:end_idx,start_idx:end_idx))
           convolution(l)%weight_incr(:,:) = 0._real12
 
-!!! CALL A GENERAL FUNCTION THAT PASES TO THE INTERNAL SUBROUTINE BASED ON THE CASE
-          call he_uniform(convolution(l)%weight, itmp1*itmp1)
-          call zeros(convolution(l)%bias)
+
+          !! determine initialisation method and initialise accordingly
+          !!--------------------------------------------------------------------
+          kernel_init = initialiser_setup(t_kernel_initialiser)
+          call kernel_init%initialise(convolution(l)%weight, itmp1*itmp1+1, 1)
+          bias_init = initialiser_setup(t_bias_initialiser)
+          call bias_init%initialise(convolution(l)%bias, itmp1*itmp1+1, 1)
 
        end do
     else

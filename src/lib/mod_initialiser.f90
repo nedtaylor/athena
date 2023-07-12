@@ -3,24 +3,25 @@
 !!! Code part of the ARTEMIS group (Hepplestone research group)
 !!! Think Hepplestone, think HRG
 !!!#############################################################################
-module weight_initialiser
+module initialiser
   use constants, only: real12
+  use misc, only: to_lower
+  use custom_types, only: initialiser_type
+  use initialiser_glorot, only: glorot_uniform, glorot_normal
+  use initialiser_he, only: he_uniform, he_normal
+  use initialiser_lecun, only: lecun_uniform, lecun_normal
+  use initialiser_zeros, only: zeros
   implicit none
 
 
   private
 
-  public :: he_uniform
-  public :: zeros
+  public :: initialiser_setup
 
-!!!!! HAVE A FUNCTION THAT SETS IT UP BASED ON THE NAME PROVIDED
-!!!!! DO THE SAME FOR ACTIVATION (much neater than one per code)
 !!!!! ALSO, HAVE THE CV, PL, FC, etc, LAYERS AS CLASSES
 !!!!! ... they may be able to be appended on to each other
 
   
-  !! normalise (kernel_initialise?) to number of input units
-  !! He uniform initialiser
   !! make an initialiser that takes in an assumed rank
   !! it then does product(shape(weight)) OR size(weight)
   !! could always use select rank(x) statement if needed
@@ -33,46 +34,33 @@ contains
 !!!#############################################################################
 !!! 
 !!!#############################################################################
-  subroutine he_uniform(input, fan_in)
+  function initialiser_setup(name) result(initialiser)
     implicit none
-    integer, intent(in) :: fan_in  !number of input parameters
-    real(real12), dimension(..), intent(out) :: input
-
-    real(real12) :: scale
-!!! HAVE ASSUMED RANK
-
-!!! DO TESTS TO CONFIRM THAT RANDOM NUMBER IS CARRIED THROUGH
-    scale = sqrt(6._real12/real(fan_in,real12))
-    select rank(input)
-    rank(0)
-       call random_number(input)
-       input = (input *2._real12 - 1._real12) * scale
-    rank(1)
-       call random_number(input)
-       input = (input *2._real12 - 1._real12) * scale
-    rank(2)
-       call random_number(input)
-       input = (input *2._real12 - 1._real12) * scale
-    end select
+    class(initialiser_type), allocatable :: initialiser
+    character(*), intent(in) :: name
     
-  end subroutine he_uniform  
+    select case(trim(to_lower(name)))
+    case("glorot_uniform")
+       initialiser = glorot_uniform
+    case("glorot_normal")
+       initialiser = glorot_normal
+    case("he_uniform")
+       initialiser = he_uniform
+    case("he_normal")
+       initialiser = he_normal
+    case("lecun_uniform")
+       initialiser = lecun_uniform
+       !initialiser%initialise() => lecun_uniform()
+    case("lecun_normal")
+       initialiser = lecun_normal
+    case("zeros")
+       initialiser = zeros
+    case default
+       stop "Incorrect initialiser name given"
+    end select
+
+  end function initialiser_setup
 !!!#############################################################################
 
-
-!!!#############################################################################
-!!! 
-!!!#############################################################################
-  subroutine zeros(input)
-    implicit none
-    real(real12), intent(out) :: input
-
-    input = 0._real12
-
-  end subroutine zeros
-!!!#############################################################################
-
-
-
-
-end module weight_initialiser
+end module initialiser
 !!!#############################################################################

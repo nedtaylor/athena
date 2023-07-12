@@ -115,6 +115,28 @@ module custom_types
   end interface
 
 
+!!!------------------------------------------------------------------------
+!!! weights and biases initialiser base type
+!!!------------------------------------------------------------------------
+  type, abstract :: initialiser_type
+   contains
+     procedure (initialiser_subroutine), deferred :: initialise
+  end type initialiser_type
+
+
+  !! interface for initialiser function
+  !!-----------------------------------------------------------------------
+  abstract interface
+     subroutine initialiser_subroutine(this, input, fan_in, fan_out)
+       import initialiser_type, real12
+       class(initialiser_type), intent(inout) :: this
+       real(real12), dimension(..), intent(out) :: input
+       integer, optional, intent(in) :: fan_in, fan_out
+     end subroutine initialiser_subroutine
+  end interface
+
+
+
   private
 
   public :: clip_type
@@ -122,6 +144,7 @@ module custom_types
   public :: convolution_type
   public :: activation_type
   public :: learning_parameters_type
+  public :: initialiser_type
 
 end module custom_types
 !!!#############################################################################

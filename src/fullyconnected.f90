@@ -7,7 +7,7 @@ module FullyConnectedLayer
   use constants, only: real12
   use misc_ml, only: adam_optimiser
   use custom_types, only: network_type, clip_type, activation_type, &
-       learning_parameters_type
+       initialiser_type, learning_parameters_type
   use activation_gaussian, only: gaussian_setup
   use activation_linear, only: linear_setup
   use activation_piecewise, only: piecewise_setup
@@ -15,7 +15,7 @@ module FullyConnectedLayer
   use activation_leaky_relu, only: leaky_relu_setup
   use activation_sigmoid, only: sigmoid_setup
   use activation_tanh, only: tanh_setup
-  use weight_initialiser, only: he_uniform, zeros
+  use initialiser, only: initialiser_setup
   implicit none
 
 
@@ -100,6 +100,7 @@ contains
     real(real12) :: scale
     character(len=10) :: t_activation_function
     integer, allocatable, dimension(:) :: seed_arr
+    class(initialiser_type), allocatable :: initialiser
 
     integer :: l,i
 
@@ -148,9 +149,12 @@ contains
              network(l)%neuron(i)%output = 0._real12
 
 
-!!! CALL A GENERAL FUNCTION THAT PASES TO THE INTERNAL SUBROUTINE BASED ON THE CASE
-             call he_uniform(network(l)%neuron(i)%weight, &
-                  size(network(l)%neuron(i)%weight,dim=1))
+             !! determine initialisation method and initialise accordingly
+             !!-----------------------------------------------------------------
+             initialiser = initialiser_setup(weight_initialiser)
+             call initialiser%initialise(network(l)%neuron(i)%weight, &
+                  fan_in = size(network(l)%neuron(i)%weight,dim=1), &
+                  fan_out = num_hidden(l))
 
           end do
 
