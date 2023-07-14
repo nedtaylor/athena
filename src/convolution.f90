@@ -5,6 +5,7 @@
 !!!#############################################################################
 module ConvolutionLayer
   use constants, only: real12
+  use random, only: random_setup
   use custom_types, only: clip_type, convolution_type, activation_type, &
        initialiser_type
   use misc_ml, only: get_padding_half
@@ -112,7 +113,9 @@ contains
     
 !!!! num_layers has taken over for output_channels (or cv_num_filters)
 
-
+    !!--------------------------------------------------------------------------
+    !! set defaults if not present
+    !!--------------------------------------------------------------------------
     if(present(full_padding))then
        t_full_padding = full_padding
     else
@@ -129,6 +132,7 @@ contains
        t_bias_initialiser = "zeros"
     end if
 
+
     !! if file, read in weights and biases
     !! ... if no file is given, weights and biases to a default
     if(present(file))then
@@ -141,15 +145,11 @@ contains
        !!-----------------------------------------------------------------------
        !! initialise random seed
        !!-----------------------------------------------------------------------
-       call random_seed(size=nseed)
-       allocate(seed_arr(nseed))
        if(present(seed))then
-          seed_arr = seed
+          call random_setup(seed, num_seed=1, restart=.false.)
        else
-          call system_clock(count=itmp1)
-          seed_arr = itmp1 + 37* (/ (l-1,l=1,nseed) /)
+          call random_setup(num_seed=1, restart=.false.)
        end if
-       call random_seed(put=seed_arr)
 
        !!-----------------------------------------------------------------------
        !! randomly initialise convolution layers
@@ -188,6 +188,8 @@ contains
           call kernel_init%initialise(convolution(l)%weight, itmp1*itmp1+1, 1)
           bias_init = initialiser_setup(t_bias_initialiser)
           call bias_init%initialise(convolution(l)%bias, itmp1*itmp1+1, 1)
+          write(*,*) "kernel", convolution(l)%weight(0,0), convolution(l)%bias
+          stop 0 
 
        end do
     else
@@ -197,26 +199,12 @@ contains
        write(0,*) "Exiting..."
        stop
     end if
+    stop
 
 
-    !! get stride information
-    !if(.not.allocated(idx_list).or..not.allocated(half))then
-    !   allocate(half(num_layers))
-    !   allocate(idx_list(num_layers))
-    !   do l=1,num_layers
-    !      half(l) = convolution(l)%kernel_size/2
-    !      allocate(idx_list(l)%idx(1-half(l):input_size+half(l)))
-    !      do i=1-half(l),input_size+half(l),1
-    !         if(i.lt.1)then
-    !            idx_list(l)%idx(i) = input_size + i
-    !         elseif(i.gt.input_size)then
-    !            idx_list(l)%idx(i) = i - input_size
-    !         else
-    !            idx_list(l)%idx(i) = i
-    !         end if
-    !      end do
-    !   end do
-    !end if
+    !!-----------------------------------------------------------------------
+    !! get lower padding width
+    !!-----------------------------------------------------------------------
     padding_lw = -maxval(convolution(:)%pad) + 1
     
 

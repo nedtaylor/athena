@@ -113,15 +113,12 @@ contains
        !!-----------------------------------------------------------------------
        !! initialise random seed
        !!-----------------------------------------------------------------------
-       call random_seed(size=nseed)
-       allocate(seed_arr(nseed))
        if(present(seed))then
-          seed_arr = seed
+          call random_setup(seed, num_seed=1, restart=.false.)
        else
-          call system_clock(count=itmp1)
-          seed_arr = itmp1 + 37 * (/ (l-1,l=1,nseed) /)
+          call random_setup(num_seed=1, restart=.false.)
        end if
-       call random_seed(put=seed_arr)
+
 
        !!-----------------------------------------------------------------------
        !! randomly initialise convolution layers

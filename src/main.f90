@@ -6,6 +6,7 @@ program ConvolutionalNeuralNetwork
   use omp_lib
 #endif
   use constants, only: real12
+  use random, only: random_setup
   use misc, only: shuffle
   use misc_ml, only: step_decay, reduce_lr_on_plateau, &
        generate_bernoulli_mask, drop_block
@@ -167,10 +168,7 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
 !!! initialise random seed
 !!!-----------------------------------------------------------------------------
-  call random_seed(size=nseed)
-  allocate(seed_arr(nseed))
-  seed_arr = seed
-  call random_seed(put=seed_arr)
+  call random_setup(seed, num_seed=1, restart=.false.)
 
 
 !!!-----------------------------------------------------------------------------
@@ -555,6 +553,7 @@ program ConvolutionalNeuralNetwork
 
         end do train_loop
         !$OMP END PARALLEL DO
+        write(*,*) batch, comb_cv_gradients(1)%weight(1,1)
 
 
         !! Check if categorical predicting is stuck on same value
