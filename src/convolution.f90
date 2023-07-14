@@ -188,8 +188,6 @@ contains
           call kernel_init%initialise(convolution(l)%weight, itmp1*itmp1+1, 1)
           bias_init = initialiser_setup(t_bias_initialiser)
           call bias_init%initialise(convolution(l)%bias, itmp1*itmp1+1, 1)
-          write(*,*) "kernel", convolution(l)%weight(0,0), convolution(l)%bias
-          stop 0 
 
        end do
     else

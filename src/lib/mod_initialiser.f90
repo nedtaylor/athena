@@ -38,7 +38,12 @@ contains
     implicit none
     class(initialiser_type), allocatable :: initialiser
     character(*), intent(in) :: name
-    
+    real(real12), dimension(2) :: rnum
+
+
+    !!--------------------------------------------------------------------------
+    !! set initialiser function
+    !!--------------------------------------------------------------------------
     select case(trim(to_lower(name)))
     case("glorot_uniform")
        initialiser = glorot_uniform
