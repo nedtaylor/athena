@@ -5,6 +5,7 @@
 !!!#############################################################################
 module FullyConnectedLayer
   use constants, only: real12
+  use random, only: random_setup
   use misc_ml, only: adam_optimiser
   use custom_types, only: network_type, clip_type, activation_type, &
        initialiser_type, learning_parameters_type
