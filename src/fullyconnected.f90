@@ -14,7 +14,7 @@ module FullyConnectedLayer
   implicit none
 
   type hidden_output_type
-     real(real12), allocatable, dimension(:) :: out
+     real(real12), allocatable, dimension(:) :: val
   end type hidden_output_type
 
   type gradient_type
@@ -143,7 +143,6 @@ contains
              call random_number(network(l)%neuron(i)%weight)
              allocate(network(l)%neuron(i)%weight_incr(length))
              network(l)%neuron(i)%weight_incr = 0._real12
-             network(l)%neuron(i)%output = 0._real12
 
 
              !! determine initialisation method and initialise accordingly
@@ -459,7 +458,6 @@ contains
   subroutine forward(input, output)
     implicit none
     real(real12), dimension(:), intent(in) :: input
-    !real(real12), dimension(:), intent(out) :: output
     type(hidden_output_type), allocatable, dimension(:), intent(out) :: output
 
     integer :: j, l
@@ -467,35 +465,21 @@ contains
     real(real12) :: activation
     real(real12), allocatable, dimension(:) :: new_input
 
-
+    !! initialise ouput (and temporary input) arrays
     allocate(new_input(size(input)))
     new_input = input
     num_layers = size(network,dim=1)
-
-!!!
     if(allocated(output)) deallocate(output)
     allocate(output(num_layers))
-!!!
 
     do l=1,num_layers
-       
        num_neurons=size(network(l)%neuron)
-
-!!!
-       allocate(output(l)%out(num_neurons))
-!!!
-
+       allocate(output(l)%val(num_neurons))
        do j=1,num_neurons
-          !activation = activate(network(l)%neuron(j)%weight,new_input)
           activation = activate(network(l)%neuron(j)%weight,new_input)
-          network(l)%neuron(j)%output = transfer%activate(activation)
-
-!!!
-          output(l)%out(j) = transfer%activate(activation)
-!!!
-
+          output(l)%val(j) = transfer%activate(activation)
        end do
-       !write(*,*) "weight",l, network(l)%neuron(1)%weight(1), output(l)%out(1)!network(l)%neuron(1)%output
+       !write(*,*) "weight",l, network(l)%neuron(1)%weight(1), output(l)%val(1)!network(l)%neuron(1)%output
 
 !!! ISSUE RELATING TO %output BEING SHARED BY ALL THREADS
 !!! SO THEY OVERWRITE EACH OTHER
@@ -503,13 +487,9 @@ contains
        deallocate(new_input)
        if(l.lt.num_layers)then
           allocate(new_input(num_neurons))
-          !new_input = network(l)%neuron(:)%output
-!!!
-          new_input = output(l)%out(:)
-!!!
+          new_input = output(l)%val(:)
        end if
     end do
-!    output = network(num_layers)%neuron(:)%output
 
   end subroutine forward
 !!!#############################################################################
@@ -520,9 +500,10 @@ contains
 !!! method : gradient descent
 !!!#############################################################################
 !!! https://brilliant.org/wiki/backpropagation/
-  subroutine backward(input, expected, input_gradients, clip)
+  subroutine backward(input, output, expected, input_gradients, clip)
     implicit none
     real(real12), dimension(:), intent(in) :: input
+    type(hidden_output_type), allocatable, dimension(:), intent(in) :: output
     real(real12), dimension(:), intent(in) :: expected !is this just output_gradients?
     type(gradient_type), dimension(0:), intent(inout) :: input_gradients
     type(clip_type), optional, intent(in) :: clip
@@ -587,12 +568,12 @@ contains
              new_input = input
           else
              allocate(new_input(size(network(l-1)%neuron(:),1)))
-             new_input = network(l-1)%neuron(:)%output
+             new_input = output(l-1)%val
           end if
           do j=1,num_neurons
              !! activation already calculated and equals the output
              input_gradients(l)%delta(j) = input_gradients(l)%delta(j) * &
-                  transfer%differentiate(network(l)%neuron(j)%output)
+                  transfer%differentiate(output(l)%val(j))
              do k=1,size(new_input,1)
                 input_gradients(l)%weight(k,j) = input_gradients(l)%delta(j) * new_input(k)
              end do

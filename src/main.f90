@@ -255,8 +255,8 @@ program ConvolutionalNeuralNetwork
   sm_output = 0._real12
   allocate(fc_output(fc_num_layers))
   do l=1,fc_num_layers
-     allocate(fc_output(l)%out(fc_num_hidden(l)))
-     fc_output(l)%out = 0._real12
+     allocate(fc_output(l)%val(fc_num_hidden(l)))
+     fc_output(l)%val = 0._real12
   end do
   !allocate(cv_output_norm(output_size, output_size, output_channels))
   !cv_output_norm = 0._real12
@@ -464,8 +464,8 @@ program ConvolutionalNeuralNetwork
               call renormalise_sum(fc_input, norm=1._real12, mirror=.true., magnitude=.true.)
            end select
            call fc_forward(fc_input, fc_output)
-           call sm_forward(fc_output(fc_num_layers)%out, sm_output)
-           !write(*,*) sample, cv_output(14,14,1), pl_output(7,7,1), fc_input(105), fc_output(fc_num_layers)%out(1), sm_output(1)
+           call sm_forward(fc_output(fc_num_layers)%val, sm_output)
+           !write(*,*) sample, cv_output(14,14,1), pl_output(7,7,1), fc_input(105), fc_output(fc_num_layers)%val(1), sm_output(1)
            !call sleep(1)
            !stop
 
@@ -474,28 +474,28 @@ program ConvolutionalNeuralNetwork
            !!-------------------------------------------------------------------
            if(any(isnan(sm_output)))then
               write(0,*) fc_input
-              write(0,*) fc_output(fc_num_layers)%out
+              write(0,*) fc_output(fc_num_layers)%val
               write(0,*) sm_output
               stop "ERROR: Softmax outputs are NaN"
            end if
            if(batch_learning)then
-              exploding_check = exploding_check + sum(fc_output(fc_num_layers)%out)
+              exploding_check = exploding_check + sum(fc_output(fc_num_layers)%val)
            else
 #ifdef _OPENMP
               stop "ERROR: non-batch learning not yet parallelised"
 #endif
               exploding_check_old = exploding_check
-              exploding_check = sum(fc_output(fc_num_layers)%out)
+              exploding_check = sum(fc_output(fc_num_layers)%val)
               !exploding_check=mean(fc_output)/exploding_check
               rtmp1 = abs(exploding_check/exploding_check_old)
               if(rtmp1.gt.1.E3_real12)then
                  write(0,*) "WARNING: FC outputs are expanding too quickly!"
                  write(0,*) "check:", sample,exploding_check,exploding_check_old      
-                 write(0,*) "outputs:", fc_output(fc_num_layers)%out
+                 write(0,*) "outputs:", fc_output(fc_num_layers)%val
               elseif(rtmp1.lt.1.E-3_real12)then
                  write(0,*) "WARNING: FC outputs are vanishing too quickly!"
                  write(0,*) "check:", sample,exploding_check,exploding_check_old
-                 write(0,*) "outputs:", fc_output(fc_num_layers)%out
+                 write(0,*) "outputs:", fc_output(fc_num_layers)%val
               end if
            end if
 
@@ -524,7 +524,7 @@ program ConvolutionalNeuralNetwork
            !! Backward pass
            !!-------------------------------------------------------------------
            call sm_backward(sm_output, expected, sm_gradients)
-           call fc_backward(fc_input, sm_gradients, fc_gradients, fc_clip)
+           call fc_backward(fc_input, fc_output, sm_gradients, fc_gradients, fc_clip)
            fc_gradients_rs = reshape(fc_gradients(0)%delta,&
                 shape(fc_gradients_rs))
            call pl_backward(cv_output, fc_gradients_rs, pl_gradients)
@@ -748,7 +748,7 @@ program ConvolutionalNeuralNetwork
         call renormalise_sum(fc_input, norm=1._real12, mirror=.true., magnitude=.true.)
      end select
      call fc_forward(fc_input, fc_output)
-     call sm_forward(fc_output(fc_num_layers)%out, sm_output)
+     call sm_forward(fc_output(fc_num_layers)%val, sm_output)
 
 
      !! compute loss and accuracy (for monitoring)
@@ -1235,7 +1235,7 @@ contains
              ! Perform a forward pass and compute the loss
              ! with the perturbed weight parameter
              call fc_forward(input, fc_output)
-             call sm_forward(fc_output(size(fc_output,dim=1))%out, sm_output)
+             call sm_forward(fc_output(size(fc_output,dim=1))%val, sm_output)
              lossPlus = compute_loss(predicted=sm_output, expected=expected)
 
 
@@ -1245,7 +1245,7 @@ contains
              ! Perform a forward pass and compute the loss
              ! with the perturbed weight parameter
              call fc_forward(input, fc_output)
-             call sm_forward(fc_output(size(fc_output,dim=1))%out, sm_output)
+             call sm_forward(fc_output(size(fc_output,dim=1))%val, sm_output)
              lossMinus = compute_loss(predicted=sm_output, expected=expected)
 
              ! Compute the numerical gradient
