@@ -491,6 +491,12 @@ contains
           activation = activate(network(l)%neuron(j)%weight,new_input)
           output(l)%val(j) = transfer%activate(activation)
        end do
+
+!!!
+!!! CHECK FOR CONSISTENCY STILL
+!!! ENSURE THAT CHANGING FROM %output HASN'T HAD ANY NEGATIVE EFFECTS
+!!! THEN DO A MERGE ON GIT ONCE CHECKED AND CONFIRMED
+!!!
        !write(*,*) "weight",l, network(l)%neuron(1)%weight(1), output(l)%val(1)!network(l)%neuron(1)%output
 
        deallocate(new_input)
