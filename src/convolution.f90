@@ -131,6 +131,8 @@ contains
     else
        t_bias_initialiser = "zeros"
     end if
+    write(*,'("CV Kernel initialiser: ",A)') t_kernel_initialiser
+    write(*,'("CV Bias initialiser: ",A)')   t_bias_initialiser
 
 
     !! if file, read in weights and biases
@@ -603,7 +605,7 @@ contains
 !!!#############################################################################
 !!! 
 !!!#############################################################################
-  subroutine update_weights_and_biases(learning_rate, input, gradients, &
+  subroutine update_weights_and_biases(learning_rate, gradients, &
        l1_lambda, l2_lambda, momentum)
     implicit none
     integer :: l,x,y
@@ -611,7 +613,6 @@ contains
     integer :: start_idx, end_idx
     real(real12), optional, intent(in) :: l1_lambda, l2_lambda, momentum
     real(real12), intent(in) :: learning_rate
-    real(real12), dimension(padding_lw:,padding_lw:,:), intent(in) :: input
     type(gradient_type), dimension(:), intent(in) :: gradients
 
     !! initialise constants
