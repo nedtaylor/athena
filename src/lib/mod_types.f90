@@ -43,7 +43,6 @@ module custom_types
 !!! neural network neuron type
 !!!------------------------------------------------------------------------
   type neuron_type
-     real(real12) :: output
      real(real12) :: delta, delta_batch
      real(real12), allocatable, dimension(:) :: weight, weight_incr
   end type neuron_type
