@@ -46,13 +46,20 @@ contains
 
     real(real12) :: t_scale
 
+
+    !!--------------------------------------------------------------------------
+    !! set defaults if not present
+    !!--------------------------------------------------------------------------
     if(present(scale))then
        t_scale = scale
     else
        t_scale = 1._real12
     end if
 
-    
+
+    !!--------------------------------------------------------------------------
+    !! select desired activation function
+    !!--------------------------------------------------------------------------
     select case(trim(to_lower(name)))
     case("gaussian")
        transfer = gaussian_setup(scale = t_scale)
