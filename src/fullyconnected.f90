@@ -13,6 +13,9 @@ module FullyConnectedLayer
   use initialiser, only: initialiser_setup
   implicit none
 
+  type hidden_output_type
+     real(real12), allocatable, dimension(:) :: out
+  end type hidden_output_type
 
   type gradient_type
      real(real12), allocatable, dimension(:) :: delta !error !dE/d(activation)
@@ -44,6 +47,8 @@ module FullyConnectedLayer
   public :: gradient_type
   public :: allocate_gradients
   public :: initialise_gradients
+
+  public :: hidden_output_type
 
   public :: initialise, forward, backward
   public :: update_weights_and_biases
@@ -454,30 +459,57 @@ contains
   subroutine forward(input, output)
     implicit none
     real(real12), dimension(:), intent(in) :: input
-    real(real12), dimension(:), intent(out) :: output
+    !real(real12), dimension(:), intent(out) :: output
+    type(hidden_output_type), allocatable, dimension(:), intent(out) :: output
 
     integer :: j, l
     integer :: num_layers, num_neurons
     real(real12) :: activation
     real(real12), allocatable, dimension(:) :: new_input
-    
+
+
     allocate(new_input(size(input)))
     new_input = input
     num_layers = size(network,dim=1)
+
+!!!
+    if(allocated(output)) deallocate(output)
+    allocate(output(num_layers))
+!!!
+
     do l=1,num_layers
        
        num_neurons=size(network(l)%neuron)
+
+!!!
+       allocate(output(l)%out(num_neurons))
+!!!
+
        do j=1,num_neurons
+          !activation = activate(network(l)%neuron(j)%weight,new_input)
           activation = activate(network(l)%neuron(j)%weight,new_input)
           network(l)%neuron(j)%output = transfer%activate(activation)
+
+!!!
+          output(l)%out(j) = transfer%activate(activation)
+!!!
+
        end do
+       !write(*,*) "weight",l, network(l)%neuron(1)%weight(1), output(l)%out(1)!network(l)%neuron(1)%output
+
+!!! ISSUE RELATING TO %output BEING SHARED BY ALL THREADS
+!!! SO THEY OVERWRITE EACH OTHER
+
        deallocate(new_input)
        if(l.lt.num_layers)then
           allocate(new_input(num_neurons))
-          new_input = network(l)%neuron(:)%output
+          !new_input = network(l)%neuron(:)%output
+!!!
+          new_input = output(l)%out(:)
+!!!
        end if
     end do
-    output = network(num_layers)%neuron(:)%output
+!    output = network(num_layers)%neuron(:)%output
 
   end subroutine forward
 !!!#############################################################################
@@ -591,13 +623,12 @@ contains
 !!! update the weights based on how much error the node ...
 !!! ... is responsible for
 !!!#############################################################################
-  subroutine update_weights_and_biases(learning_rate, input, gradients, &
+  subroutine update_weights_and_biases(learning_rate, gradients, &
        l1_lambda, l2_lambda, iteration)
     implicit none
     integer, optional, intent(inout) :: iteration
     real(real12), optional, intent(in) :: l1_lambda, l2_lambda
     real(real12), intent(in) :: learning_rate
-    real(real12), dimension(:), intent(in) :: input
     type(gradient_type), dimension(0:), intent(inout) :: gradients
     
     integer :: j,k,l
@@ -614,15 +645,7 @@ contains
 
     !! loop through the layers in reverse
     do l=1,num_layers,1
-       !! inputs are equal to the ouputs of the 'parent' nodes
-       if (l.ne.1)then
-          allocate(new_input(num_neurons))
-          new_input = network(l-1)%neuron(:)%output
-       else
-          allocate(new_input(size(input)))
-          new_input = input
-       end if
-       num_inputs = size(new_input, dim=1)
+       num_inputs  = size(network(l)%neuron(1)%weight, dim=1)
        num_weights = size(network(l)%neuron(1)%weight, dim=1)
        num_neurons = size(network(l)%neuron, dim=1)
        do j=1,size(network(l)%neuron)
@@ -644,24 +667,19 @@ contains
                      gradients(l)%m(k,j), gradients(l)%v(k,j), iteration, &
                      adaptive_parameters%beta1, adaptive_parameters%beta2, &
                      adaptive_parameters%epsilon)
-                weight_incr = t_learning_rate !* new_input(k) !! unsure about new_input here
-                !write(0,*) "HERE", weight_incr
+                weight_incr = t_learning_rate
              else
                 weight_incr = learning_rate * gradients(l)%weight(k,j)
              end if
 
              !! L1 regularisation
              if(present(l1_lambda))then
-                !network(l)%neuron(j)%weight(k) = network(l)%neuron(j)%weight(k) - &
-                !     learning_rate * l1_lambda * sign(1._real12,network(l)%neuron(j)%weight(k))
                 weight_incr = weight_incr + &
                      lr_l1_lambda * sign(1._real12,network(l)%neuron(j)%weight(k))
              end if
 
              !! L2 regularisation
              if(present(l2_lambda))then
-                !network(l)%neuron(j)%weight(k) = network(l)%neuron(j)%weight(k) * &
-                !     (1._real12 - learning_rate * l2_lambda)
                 weight_incr = weight_incr + &
                      lr_l2_lambda * network(l)%neuron(j)%weight(k)
              end if
@@ -678,7 +696,6 @@ contains
                network(l)%neuron(j)%weight(num_weights) - &
                learning_rate * gradients(l)%weight(num_weights,j)
        end do
-       deallocate(new_input)
     end do
 
     if(present(iteration)) iteration = iteration + 1

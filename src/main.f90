@@ -37,6 +37,7 @@ program ConvolutionalNeuralNetwork
        fc_gradient_type => gradient_type, &
        fc_gradient_alloc => allocate_gradients, &
        fc_gradient_init => initialise_gradients, &
+       fc_hidden_output_type => hidden_output_type, &
        network
   use SoftmaxLayer, only: sm_init => initialise, sm_forward => forward, &
        sm_backward => backward
@@ -79,7 +80,8 @@ program ConvolutionalNeuralNetwork
   integer :: num_batches, num_samples, num_samples_test
   integer :: epoch, batch, sample, start_index, end_index
   integer :: expected
-  real(real12), allocatable, dimension(:) :: fc_input, fc_output, &
+  type(fc_hidden_output_type), allocatable, dimension(:) :: fc_output
+  real(real12), allocatable, dimension(:) :: fc_input, &!fc_output, &
        sm_output, sm_gradients
   real(real12), allocatable, dimension(:,:,:) :: cv_output, pl_output, &
        pl_gradients, fc_gradients_rs
@@ -108,9 +110,9 @@ program ConvolutionalNeuralNetwork
 !! https://fortran-lang.discourse.group/t/openmp-reduction-on-operator/5887
 !!!-----------------------------------------------------------------------------
   !$omp declare reduction(cv_grad_sum:cv_gradient_type:omp_out = omp_out + omp_in) &
-  !$omp& initializer(cv_gradient_alloc(omp_priv,omp_orig, .false.))
+  !$omp& initializer(cv_gradient_alloc(omp_priv, omp_orig, .false.))
   !$omp declare reduction(fc_grad_sum:fc_gradient_type:omp_out = omp_out + omp_in) &
-  !$omp& initializer(fc_gradient_alloc(omp_priv,omp_orig, .false.))
+  !$omp& initializer(fc_gradient_alloc(omp_priv, omp_orig, .false.))
   !$omp declare reduction(compare_val:integer:compare_val(omp_out,omp_in)) &
   !$omp& initializer(omp_priv = omp_orig)
 
@@ -245,12 +247,17 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
   allocate(cv_output(output_size, output_size, output_channels))
   allocate(pl_output(num_pool, num_pool, output_channels))
-  allocate(fc_output(num_classes))
+  !allocate(fc_output(num_classes))
   allocate(sm_output(num_classes))
   cv_output = 0._real12
   pl_output = 0._real12
-  fc_output = 0._real12
+  !fc_output = 0._real12
   sm_output = 0._real12
+  allocate(fc_output(fc_num_layers))
+  do l=1,fc_num_layers
+     allocate(fc_output(l)%out(fc_num_hidden(l)))
+     fc_output(l)%out = 0._real12
+  end do
   !allocate(cv_output_norm(output_size, output_size, output_channels))
   !cv_output_norm = 0._real12
   !allocate(mean(output_channels))
@@ -395,9 +402,10 @@ program ConvolutionalNeuralNetwork
         !$OMP& SHARED(cv_keep_prob, seed, cv_block_size, output_channels) &
         !$OMP& SHARED(cv_dropout_method) &
         !$OMP& SHARED(compute_loss) &
+        !$OMP& FIRSTPRIVATE(network) &
+        !$OMP& FIRSTPRIVATE(predicted_old) &
 !!        !$OMP& PRIVATE(cv_mask, cv_mask_size) &
         !$OMP& PRIVATE(sample) &
-        !$OMP& FIRSTPRIVATE(predicted_old) &
         !$OMP& PRIVATE(fc_gradients, cv_gradients) &
         !$OMP& PRIVATE(cv_output) &
         !$OMP& PRIVATE(pl_output, pl_gradients) &
@@ -456,35 +464,38 @@ program ConvolutionalNeuralNetwork
               call renormalise_sum(fc_input, norm=1._real12, mirror=.true., magnitude=.true.)
            end select
            call fc_forward(fc_input, fc_output)
-           call sm_forward(fc_output, sm_output)
-           
+           call sm_forward(fc_output(fc_num_layers)%out, sm_output)
+           !write(*,*) sample, cv_output(14,14,1), pl_output(7,7,1), fc_input(105), fc_output(fc_num_layers)%out(1), sm_output(1)
+           !call sleep(1)
+           !stop
+
   
            !! check for NaN and infinity
            !!-------------------------------------------------------------------
            if(any(isnan(sm_output)))then
               write(0,*) fc_input
-              write(0,*) fc_output
+              write(0,*) fc_output(fc_num_layers)%out
               write(0,*) sm_output
               stop "ERROR: Softmax outputs are NaN"
            end if
            if(batch_learning)then
-              exploding_check = exploding_check + sum(fc_output)
+              exploding_check = exploding_check + sum(fc_output(fc_num_layers)%out)
            else
 #ifdef _OPENMP
               stop "ERROR: non-batch learning not yet parallelised"
 #endif
               exploding_check_old = exploding_check
-              exploding_check = sum(fc_output)
+              exploding_check = sum(fc_output(fc_num_layers)%out)
               !exploding_check=mean(fc_output)/exploding_check
               rtmp1 = abs(exploding_check/exploding_check_old)
               if(rtmp1.gt.1.E3_real12)then
                  write(0,*) "WARNING: FC outputs are expanding too quickly!"
                  write(0,*) "check:", sample,exploding_check,exploding_check_old      
-                 write(0,*) "outputs:", fc_output
+                 write(0,*) "outputs:", fc_output(fc_num_layers)%out
               elseif(rtmp1.lt.1.E-3_real12)then
                  write(0,*) "WARNING: FC outputs are vanishing too quickly!"
                  write(0,*) "check:", sample,exploding_check,exploding_check_old
-                 write(0,*) "outputs:", fc_output
+                 write(0,*) "outputs:", fc_output(fc_num_layers)%out
               end if
            end if
 
@@ -542,10 +553,9 @@ program ConvolutionalNeuralNetwork
               !write(*,*)
               !call cv_gradient_check(cv_gradients, input_images(:,:,:,sample))
               !stop
-              call cv_update(learning_rate, input_images(:,:,:,sample), &
-                   cv_gradients, &
+              call cv_update(learning_rate, cv_gradients, &
                    l1_lambda, l2_lambda, learning_parameters%momentum)
-              call fc_update(learning_rate, fc_input, fc_gradients, &
+              call fc_update(learning_rate, fc_gradients, &
                    l1_lambda, l2_lambda, update_iteration)
 #endif
            end if
@@ -553,7 +563,8 @@ program ConvolutionalNeuralNetwork
 
         end do train_loop
         !$OMP END PARALLEL DO
-        write(*,*) batch, comb_cv_gradients(1)%weight(1,1)
+        !write(*,*) batch, comb_cv_gradients(1)%weight(1,1), comb_fc_gradients(1)%weight(1,1)
+        !stop 0
 
 
         !! Check if categorical predicting is stuck on same value
@@ -655,10 +666,9 @@ program ConvolutionalNeuralNetwork
            do l=1,fc_num_layers
               comb_fc_gradients(l)%weight = comb_fc_gradients(l)%weight/batch_size
            end do
-           call cv_update(learning_rate, input_images(:,:,:,start_index), &
-                comb_cv_gradients, &
+           call cv_update(learning_rate, comb_cv_gradients, &
                 l1_lambda, l2_lambda, learning_parameters%momentum)
-           call fc_update(learning_rate, fc_input, comb_fc_gradients, &
+           call fc_update(learning_rate, comb_fc_gradients, &
                 l1_lambda, l2_lambda, update_iteration)
         end if
 
@@ -738,7 +748,7 @@ program ConvolutionalNeuralNetwork
         call renormalise_sum(fc_input, norm=1._real12, mirror=.true., magnitude=.true.)
      end select
      call fc_forward(fc_input, fc_output)
-     call sm_forward(fc_output, sm_output)
+     call sm_forward(fc_output(fc_num_layers)%out, sm_output)
 
 
      !! compute loss and accuracy (for monitoring)
@@ -1225,7 +1235,7 @@ contains
              ! Perform a forward pass and compute the loss
              ! with the perturbed weight parameter
              call fc_forward(input, fc_output)
-             call sm_forward(fc_output, sm_output)
+             call sm_forward(fc_output(size(fc_output,dim=1))%out, sm_output)
              lossPlus = compute_loss(predicted=sm_output, expected=expected)
 
 
@@ -1235,7 +1245,7 @@ contains
              ! Perform a forward pass and compute the loss
              ! with the perturbed weight parameter
              call fc_forward(input, fc_output)
-             call sm_forward(fc_output, sm_output)
+             call sm_forward(fc_output(size(fc_output,dim=1))%out, sm_output)
              lossMinus = compute_loss(predicted=sm_output, expected=expected)
 
              ! Compute the numerical gradient
