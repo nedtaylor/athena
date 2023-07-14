@@ -101,9 +101,20 @@ contains
     character(len=10) :: t_activation_function
     integer, allocatable, dimension(:) :: seed_arr
     class(initialiser_type), allocatable :: weight_init
+    character(:), allocatable :: t_weight_initialiser
 
     integer :: l,i
 
+    
+    !!--------------------------------------------------------------------------
+    !! set defaults if not present
+    !!--------------------------------------------------------------------------
+    if(present(weight_initialiser))then
+       t_weight_initialiser = weight_initialiser
+    else
+       t_weight_initialiser = "he_uniform"
+    end if
+    write(*,'("FC weight initialiser: ",A)') t_weight_initialiser
 
 
     !! if file, read in weights and biases
@@ -147,7 +158,7 @@ contains
 
              !! determine initialisation method and initialise accordingly
              !!-----------------------------------------------------------------
-             weight_init = initialiser_setup(weight_initialiser)
+             weight_init = initialiser_setup(t_weight_initialiser)
              call weight_init%initialise(network(l)%neuron(i)%weight, &
                   fan_in = size(network(l)%neuron(i)%weight,dim=1), &
                   fan_out = num_hidden(l))
@@ -472,6 +483,7 @@ contains
     if(allocated(output)) deallocate(output)
     allocate(output(num_layers))
 
+    !! generate outputs from weights, biases, and inputs
     do l=1,num_layers
        num_neurons=size(network(l)%neuron)
        allocate(output(l)%val(num_neurons))
@@ -480,9 +492,6 @@ contains
           output(l)%val(j) = transfer%activate(activation)
        end do
        !write(*,*) "weight",l, network(l)%neuron(1)%weight(1), output(l)%val(1)!network(l)%neuron(1)%output
-
-!!! ISSUE RELATING TO %output BEING SHARED BY ALL THREADS
-!!! SO THEY OVERWRITE EACH OTHER
 
        deallocate(new_input)
        if(l.lt.num_layers)then

@@ -37,9 +37,9 @@
  !keep_prob = 0.75
 /
 
-&pool
+&pooling
  kernel_size = 2,
- stride = 2
+ stride = 2,
  normalisation = "none"
 /
 
