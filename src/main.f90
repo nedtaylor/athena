@@ -474,9 +474,6 @@ program ConvolutionalNeuralNetwork
            end select
            call fc_forward(fc_input, fc_output)
            call sm_forward(fc_output(fc_num_layers)%val, sm_output)
-           !write(*,*) sample, cv_output(14,14,1), pl_output(7,7,1), fc_input(105), fc_output(fc_num_layers)%val(1), sm_output(1)
-           !call sleep(1)
-           !stop
 
   
            !! check for NaN and infinity
@@ -570,8 +567,6 @@ program ConvolutionalNeuralNetwork
 
         end do train_loop
         !$OMP END PARALLEL DO
-        !write(*,*) batch, comb_cv_gradients(1)%weight(1,1), comb_fc_gradients(1)%weight(1,1)
-        !stop 0
 
 
         !! Check if categorical predicting is stuck on same value

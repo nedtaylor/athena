@@ -273,9 +273,10 @@ contains
 !!!#############################################################################
   subroutine initialise_gradients(gradients, num_features, adam_learning)
     implicit none
-    logical, optional, intent(in) :: adam_learning
     integer, intent(in) :: num_features
     type(gradient_type), allocatable, dimension(:), intent(out) :: gradients
+    logical, optional, intent(in) :: adam_learning
+
     integer :: l
     integer :: num_neurons, num_inputs, num_layers
 
@@ -492,13 +493,6 @@ contains
           output(l)%val(j) = transfer%activate(activation)
        end do
 
-!!!
-!!! CHECK FOR CONSISTENCY STILL
-!!! ENSURE THAT CHANGING FROM %output HASN'T HAD ANY NEGATIVE EFFECTS
-!!! THEN DO A MERGE ON GIT ONCE CHECKED AND CONFIRMED
-!!!
-       !write(*,*) "weight",l, network(l)%neuron(1)%weight(1), output(l)%val(1)!network(l)%neuron(1)%output
-
        deallocate(new_input)
        if(l.lt.num_layers)then
           allocate(new_input(num_neurons))
@@ -639,11 +633,8 @@ contains
        num_inputs  = size(network(l)%neuron(1)%weight, dim=1)
        num_neurons = size(network(l)%neuron, dim=1)
        do j=1,size(network(l)%neuron)
-          !! for each path, update the weight based on the delta ...
-          !! ... and the learning rate
-
+          !! update the weights and biases for layer l
           do k=1,num_inputs
-
              if(adaptive_parameters%method.eq.'none')then
                 network(l)%neuron(j)%weight(k) = &
                      network(l)%neuron(j)%weight(k) - &
@@ -667,7 +658,6 @@ contains
                      iteration, &
                      adaptive_parameters)
              end if
-
           end do
 
        end do
