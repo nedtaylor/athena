@@ -35,6 +35,8 @@ contains
     type(piecewise_type) :: initialise
     real(real12), optional, intent(in) :: scale, intercept
     
+    initialise%name = "piecewise"
+
     if(present(scale))then
        initialise%scale = scale
     else

@@ -33,6 +33,9 @@ contains
     implicit none
     type(none_type) :: initialise
     real(real12), optional, intent(in) :: scale
+
+    initialise%name = "none"
+
     if(present(scale))then
        initialise%scale = scale
     else

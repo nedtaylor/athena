@@ -35,6 +35,8 @@ contains
     real(real12), optional, intent(in) :: threshold
     real(real12), optional, intent(in) :: scale
 
+    initialise%name = "sigmoid"
+
     if(present(scale))then
        initialise%scale = scale
     else

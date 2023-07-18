@@ -37,6 +37,8 @@ contains
     real(real12), optional, intent(in) :: scale
     real(real12), optional, intent(in) :: sigma
 
+    initialise%name = "gaussian"
+    
     if(present(scale))then
        initialise%scale = scale
     else

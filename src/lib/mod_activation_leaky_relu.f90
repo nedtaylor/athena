@@ -33,6 +33,9 @@ contains
     implicit none
     type(leaky_relu_type) :: initialise    
     real(real12), optional, intent(in) :: scale
+
+    initialise%name = "leaky_relu"
+
     if(present(scale))then
        initialise%scale = scale
     else
