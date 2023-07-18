@@ -7,8 +7,8 @@ module ConvolutionLayer
   use constants, only: real12
   use random, only: random_setup
   use custom_types, only: clip_type, convolution_type, activation_type, &
-       initialiser_type
-  use misc_ml, only: get_padding_half
+       initialiser_type, learning_parameters_type
+  use misc_ml, only: get_padding_half, update_weight
   use activation,  only: activation_setup
   use initialiser, only: initialiser_setup
   implicit none
@@ -19,7 +19,11 @@ module ConvolutionLayer
   type gradient_type
      real(real12), allocatable, dimension(:,:) :: delta
      real(real12), allocatable, dimension(:,:) :: weight
+     real(real12), allocatable, dimension(:,:) :: m
+     real(real12), allocatable, dimension(:,:) :: v
      real(real12) :: bias
+     real(real12) :: bias_m
+     real(real12) :: bias_v
    contains
      procedure :: add_t_t => gradient_add
      generic :: operator(+) => add_t_t !, public
@@ -31,6 +35,7 @@ module ConvolutionLayer
   integer :: padding_lw
 
   type(convolution_type), allocatable, dimension(:) :: convolution
+  type(learning_parameters_type) :: adaptive_parameters
 
 !!! NEED TO MAKE A TYPE TO HANDLE THE OUTPUT OF EACH CONVOLUTION LAYER
 !!! THIS IS BECAUSE, if we use different stride for ...
@@ -64,6 +69,14 @@ contains
     output%weight = a%weight + b%weight
     output%bias  = a%bias + b%bias
     output%delta = a%delta + b%delta
+    if(allocated(a%m))then
+       output%m = a%m !+ input%m
+       output%bias_m = a%bias_m
+    end if
+    if(allocated(a%v))then
+       output%v = a%v !+ input%v
+       output%bias_v = a%bias_v
+    end if
         
   end function gradient_add
 !!!#############################################################################
@@ -88,7 +101,8 @@ contains
 !!!#############################################################################
 !!!
 !!!#############################################################################
-  subroutine initialise(seed, num_layers, kernel_size, stride, file, &
+  subroutine initialise(seed, num_layers, kernel_size, stride, &
+       learning_parameters, file, &
        full_padding, activation_function, activation_scale, &
        kernel_initialiser, bias_initialiser)
     implicit none
@@ -99,6 +113,7 @@ contains
     character(*), optional, intent(in) :: file, activation_function, &
          kernel_initialiser, bias_initialiser
     logical, optional, intent(in) :: full_padding
+    type(learning_parameters_type), optional, intent(in) :: learning_parameters
 
     integer :: l
     integer :: itmp1,itmp2,nseed
@@ -131,8 +146,8 @@ contains
     else
        t_bias_initialiser = "zeros"
     end if
-    write(*,'("CV Kernel initialiser: ",A)') t_kernel_initialiser
-    write(*,'("CV Bias initialiser: ",A)')   t_bias_initialiser
+    write(*,'("CV kernel initialiser: ",A)') t_kernel_initialiser
+    write(*,'("CV bias initialiser: ",A)')   t_bias_initialiser
 
 
     !! if file, read in weights and biases
@@ -221,6 +236,16 @@ contains
        scale = 1._real12
     end if
     transfer = activation_setup(t_activation_function, scale)
+ 
+
+    !!-----------------------------------------------------------------------
+    !! set learning parameters
+    !!-----------------------------------------------------------------------
+    if(present(learning_parameters))then
+       adaptive_parameters = learning_parameters
+    else
+       adaptive_parameters%method = "none"
+    end if
 
 
 
@@ -260,12 +285,30 @@ contains
           gradients(l)%weight = 0._real12
           gradients(l)%bias = 0._real12
           gradients(l)%delta = 0._real12
+
+          if(allocated(mold(l)%m))then
+             if(allocated(gradients(l)%m)) deallocate(gradients(l)%m)
+             if(allocated(gradients(l)%v)) deallocate(gradients(l)%v)
+             allocate(gradients(l)%m(start_idx:end_idx,start_idx:end_idx))
+             allocate(gradients(l)%v(start_idx:end_idx,start_idx:end_idx))
+             gradients(l)%m = 0._real12
+             gradients(l)%v = 0._real12
+             gradients(l)%bias_m = 0._real12
+             gradients(l)%bias_v = 0._real12
+          end if
+
        end do
     else
        do l=1,num_filters
           gradients(l)%weight = 0._real12
           gradients(l)%bias = 0._real12
           gradients(l)%delta = 0._real12
+          if(allocated(gradients(l)%m))then
+             gradients(l)%m = 0._real12
+             gradients(l)%v = 0._real12
+             gradients(l)%bias_m = 0._real12
+             gradients(l)%bias_v = 0._real12
+          end if
        end do
     end if
 
@@ -277,12 +320,15 @@ contains
 !!!#############################################################################
 !!!
 !!!#############################################################################
-  subroutine initialise_gradients(gradients, input_size)
+  subroutine initialise_gradients(gradients, input_size, adam_learning)
     implicit none
-    integer :: l, start_idx, end_idx
     integer, intent(in) :: input_size
     type(gradient_type), allocatable, dimension(:), intent(out) :: gradients
+    logical, optional, intent(in) :: adam_learning
     
+    integer :: l, start_idx, end_idx
+
+
     if(allocated(gradients)) deallocate(gradients)
     allocate(gradients(size(convolution,1)))
     do l=1,size(convolution,1)
@@ -293,6 +339,20 @@ contains
        gradients(l)%weight = 0._real12
        gradients(l)%bias = 0._real12
        gradients(l)%delta = 0._real12
+    
+       if(present(adam_learning))then
+          if(adam_learning)then
+             if(allocated(gradients(l)%m)) deallocate(gradients(l)%m)
+             if(allocated(gradients(l)%v)) deallocate(gradients(l)%v)
+             allocate(gradients(l)%m(start_idx:end_idx,start_idx:end_idx))
+             allocate(gradients(l)%v(start_idx:end_idx,start_idx:end_idx))
+             gradients(l)%m = 0._real12
+             gradients(l)%v = 0._real12
+             gradients(l)%bias_m = 0._real12
+             gradients(l)%bias_v = 0._real12
+          end if
+       end if
+
     end do
 
     return
@@ -605,15 +665,17 @@ contains
 !!!#############################################################################
 !!! 
 !!!#############################################################################
-  subroutine update_weights_and_biases(learning_rate, gradients, &
-       l1_lambda, l2_lambda, momentum)
+  subroutine update_weights_and_biases(learning_rate, gradients,  iteration)
     implicit none
+    real(real12), intent(in) :: learning_rate
+    type(gradient_type), dimension(:), intent(inout) :: gradients
+    integer, optional, intent(inout) :: iteration
+
     integer :: l,x,y
     integer :: num_layers
     integer :: start_idx, end_idx
-    real(real12), optional, intent(in) :: l1_lambda, l2_lambda, momentum
-    real(real12), intent(in) :: learning_rate
-    type(gradient_type), dimension(:), intent(in) :: gradients
+    real(real12) :: rtmp1, rtmp2
+
 
     !! initialise constants
     num_layers = size(convolution, dim=1)
@@ -636,48 +698,56 @@ contains
        do y=start_idx,end_idx,1
           do x=start_idx,end_idx,1
 
-             !! momentum-based learning
-             if(present(momentum))then
-                convolution(l)%weight_incr(x,y) = &
-                     learning_rate * &
-                     gradients(l)%weight(x, y) + &
-                     momentum * convolution(l)%weight_incr(x,y)
+             if(adaptive_parameters%method.eq.'none')then
+                convolution(l)%weight(x,y) = &
+                     convolution(l)%weight(x,y) - &
+                     learning_rate * gradients(l)%weight(x,y)
+             elseif(adaptive_parameters%method.eq.'adam')then
+                call update_weight(learning_rate,&
+                     convolution(l)%weight(x,y),&
+                     convolution(l)%weight_incr(x,y), &
+                     gradients(l)%weight(x,y), &
+                     gradients(l)%m(x,y), &
+                     gradients(l)%v(x,y), &
+                     iteration, &
+                     adaptive_parameters)
              else
-                convolution(l)%weight_incr(x,y) = &
-                     learning_rate * &
-                     gradients(l)%weight(x, y)   
+                call update_weight(learning_rate,&
+                     convolution(l)%weight(x,y),&
+                     convolution(l)%weight_incr(x,y), &
+                     gradients(l)%weight(x,y), &
+                     rtmp1, &
+                     rtmp2, &
+                     iteration, &
+                     adaptive_parameters)
              end if
-
-             !! L1 regularisation
-             if(present(l1_lambda))then
-                convolution(l)%weight_incr(x,y) = &
-                     convolution(l)%weight_incr(x,y) + &
-                     learning_rate * l1_lambda * &
-                     sign(1._real12,convolution(l)%weight(x,y))
-             end if
-
-             !! L2 regularisation
-             if(present(l2_lambda))then
-                convolution(l)%weight_incr(x,y) = &
-                     convolution(l)%weight_incr(x,y) + &
-                     learning_rate * l2_lambda * convolution(l)%weight(x,y)
-             end if
-
-             convolution(l)%weight(x,y) = convolution(l)%weight(x,y) - &
-                  convolution(l)%weight_incr(x,y)
-
 
           end do
        end do
 
-       !! update the convolution layer biases using gradient descent
-       if(present(momentum))then
-          convolution(l)%bias = convolution(l)%bias - ( &
-               learning_rate * gradients(l)%bias + &
-               momentum * convolution(l)%bias )
-       else
-          convolution(l)%bias = convolution(l)%bias - &
+       !! update the convolution layer biases using gradient descent       
+       if(adaptive_parameters%method.eq.'none')then
+          convolution(l)%bias = &
+               convolution(l)%bias - &
                learning_rate * gradients(l)%bias
+       elseif(adaptive_parameters%method.eq.'adam')then
+          call update_weight(learning_rate,&
+               convolution(l)%bias,&
+               convolution(l)%bias_incr, &
+               gradients(l)%bias, &
+               gradients(l)%bias_m, &
+               gradients(l)%bias_v, &
+               iteration, &
+               adaptive_parameters)
+       else
+          call update_weight(learning_rate,&
+               convolution(l)%bias,&
+               convolution(l)%bias_incr, &
+               gradients(l)%bias, &
+               rtmp1, &
+               rtmp2, &
+               iteration, &
+               adaptive_parameters)
        end if
        
        !! check for NaNs or infinite in weights

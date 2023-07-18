@@ -36,6 +36,9 @@ module custom_types
      real(real12) :: beta2 = 0._real12
      real(real12) :: epsilon = 0._real12
      !real(real12) :: weight_decay  ! L2 regularisation on Adam (AdamW)
+     character(:), allocatable :: regularisation
+     real(real12) :: l1 = 0._real12
+     real(real12) :: l2 = 0._real12
   end type learning_parameters_type
 
 
@@ -65,7 +68,7 @@ module custom_types
      integer :: pad
      integer :: centre_width
      real(real12) :: delta
-     real(real12) :: bias
+     real(real12) :: bias, bias_incr
      !! DO THE WEIGHTS NEED TO BE DIFFERENT PER INPUT CHANNEL?
      !! IF SO, 3 DIMENSIONS. IF NOT, 2 DIMENSIONS
      real(real12), allocatable, dimension(:,:) :: weight, weight_incr

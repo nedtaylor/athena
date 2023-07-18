@@ -199,6 +199,7 @@ program ConvolutionalNeuralNetwork
   call cv_init(seed, num_layers = cv_num_filters, &
        kernel_size = cv_kernel_size, stride = cv_stride, &
        full_padding = trim(padding_method).eq."full",&
+       learning_parameters=learning_parameters,&
        kernel_initialiser=cv_kernel_initialiser,&
        bias_initialiser=cv_bias_initialiser,&
        activation_scale=cv_activation_scale,&
@@ -267,8 +268,16 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
 !!! initialise non-fully connected layer gradients
 !!!-----------------------------------------------------------------------------
-  call cv_gradient_init(cv_gradients,image_size)
-  if(batch_learning) call cv_gradient_init(comb_cv_gradients,image_size)
+  select case(learning_parameters%method)
+  case("adam")
+    call cv_gradient_init(cv_gradients, image_size, adam_learning = .true.)
+     if(batch_learning) &
+          call cv_gradient_init(comb_cv_gradients, image_size, adam_learning = .true.)
+     update_iteration = 1
+  case default
+     call cv_gradient_init(cv_gradients, image_size)
+     if(batch_learning) call cv_gradient_init(comb_cv_gradients, image_size)     
+  end select
   allocate(pl_gradients,mold=cv_output)
   allocate(sm_gradients(num_classes))
   pl_gradients = 0._real12
@@ -553,10 +562,8 @@ program ConvolutionalNeuralNetwork
               !write(*,*)
               !call cv_gradient_check(cv_gradients, input_images(:,:,:,sample))
               !stop
-              call cv_update(learning_rate, cv_gradients, &
-                   l1_lambda, l2_lambda, learning_parameters%momentum)
-              call fc_update(learning_rate, fc_gradients, &
-                   l1_lambda, l2_lambda, update_iteration)
+              call cv_update(learning_rate, cv_gradients, update_iteration)
+              call fc_update(learning_rate, fc_gradients, update_iteration)
 #endif
            end if
 
@@ -666,10 +673,8 @@ program ConvolutionalNeuralNetwork
            do l=1,fc_num_layers
               comb_fc_gradients(l)%weight = comb_fc_gradients(l)%weight/batch_size
            end do
-           call cv_update(learning_rate, comb_cv_gradients, &
-                l1_lambda, l2_lambda, learning_parameters%momentum)
-           call fc_update(learning_rate, comb_fc_gradients, &
-                l1_lambda, l2_lambda, update_iteration)
+           call cv_update(learning_rate, comb_cv_gradients, update_iteration)
+           call fc_update(learning_rate, comb_fc_gradients, update_iteration)
         end if
 
 

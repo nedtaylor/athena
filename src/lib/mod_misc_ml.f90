@@ -1,7 +1,10 @@
 module misc_ml
   use constants, only: real12
+  use custom_types, only: learning_parameters_type
   implicit none
 
+
+  
 
   private
 
@@ -10,6 +13,7 @@ module misc_ml
   public :: step_decay
   public :: reduce_lr_on_plateau
   public :: adam_optimiser
+  public :: update_weight
 
   public :: drop_block, generate_bernoulli_mask
 
@@ -177,7 +181,7 @@ contains
        gradient, m, v, t, &
        beta1, beta2, epsilon)
     implicit none
-    integer, intent(inout) :: t
+    integer, intent(in) :: t
     real(real12), intent(in) :: gradient
     real(real12), intent(inout) :: m, v
     real(real12), intent(inout) :: learning_rate
@@ -201,6 +205,61 @@ contains
     learning_rate = learning_rate * m_norm / (sqrt(v_norm) + epsilon)
 
   end subroutine adam_optimiser
+!!!########################################################################
+
+
+!!!########################################################################
+!!! 
+!!!########################################################################
+subroutine update_weight(learning_rate, weight, weight_incr, &
+     gradient, m, v, iteration, parameters)
+  implicit none
+  integer, intent(in) :: iteration
+  real(real12), intent(in) :: learning_rate
+  real(real12), intent(out) :: weight
+  real(real12), intent(inout) :: weight_incr
+  real(real12), intent(inout) :: gradient, m, v
+  type(learning_parameters_type), intent(in) :: parameters
+
+  real(real12) :: t_learning_rate
+  
+
+  t_learning_rate = learning_rate
+
+  !! momentum-based learning
+  if(parameters%method.eq.'momentum')then
+     weight_incr = t_learning_rate * gradient + &
+          parameters%momentum * weight_incr
+  !! adam optimiser
+  elseif(parameters%method.eq.'adam')then
+     call adam_optimiser(t_learning_rate, gradient, &
+          m, v, iteration, &
+          parameters%beta1, parameters%beta2, &
+          parameters%epsilon)
+     weight_incr = t_learning_rate
+  else
+     weight_incr = t_learning_rate * gradient
+  end if
+
+  !! L1L2 regularisation
+  if(parameters%regularisation.eq.'l1l2')then
+     weight_incr = weight_incr + learning_rate * ( &
+          parameters%l1 * sign(1._real12,weight) + &
+          parameters%l2 * weight )
+  !! L1 regularisation
+  elseif(parameters%regularisation.eq.'l1')then
+     weight_incr = weight_incr + learning_rate * &
+          parameters%l1 * sign(1._real12,weight)
+  !! L2 regularisation
+  elseif(parameters%regularisation.eq.'l2')then
+     weight_incr = weight_incr + learning_rate * &
+          parameters%l2 * weight
+  end if
+
+  weight = weight - weight_incr
+
+
+end subroutine update_weight
 !!!########################################################################
 
 end module misc_ml
