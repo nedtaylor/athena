@@ -58,7 +58,7 @@ module ConvolutionLayer
 contains
 
 !!!#############################################################################
-!!!
+!!! gradient derived type addition
 !!!#############################################################################
   elemental function gradient_add(a,b) result(output)
     implicit none
@@ -83,7 +83,7 @@ contains
 
 
 !!!#############################################################################
-!!!
+!!! print weights
 !!!#############################################################################
   subroutine cv_print_weights(unit)
     implicit none
@@ -99,7 +99,7 @@ contains
 
 
 !!!#############################################################################
-!!!
+!!! initialise convolutional layer
 !!!#############################################################################
   subroutine initialise(seed, num_layers, kernel_size, stride, &
        learning_parameters, file, &
@@ -254,7 +254,7 @@ contains
 
 
 !!!#############################################################################
-!!!
+!!! allocate gradient derived type
 !!!#############################################################################
   subroutine allocate_gradients(gradients, mold, reallocate)
     implicit none
@@ -318,7 +318,7 @@ contains
 
 
 !!!#############################################################################
-!!!
+!!! initialise gradient derived type
 !!!#############################################################################
   subroutine initialise_gradients(gradients, input_size, adam_learning)
     implicit none
@@ -361,97 +361,152 @@ contains
 
 
 !!!#############################################################################
-!!! 
+!!! read convolutional layer from save file
 !!!#############################################################################
   subroutine read_file(file)
+    use misc, only: to_lower
+    use infile_tools, only: assign_val, assign_vec
     implicit none
     character(*), intent(in) :: file
 
-    !integer :: i,j,k,l
-    integer :: unit,stat,completed
-    character(1024) :: buffer
-    logical :: found
+    integer :: i, j, l, istart, istart_weights, itmp1
+    integer :: start_idx, end_idx, num_filters
+    integer :: unit, stat
+    real(real12) :: activation_scale
+    character(:), allocatable :: activation_function
+    character(:), allocatable :: padding_type
+    character(6) :: line_no
+    character(1024) :: buffer, tag
+    logical :: found, found_num_filters
 
 
+    found_num_filters = .false.
     if(len(trim(file)).gt.0)then
        unit = 10
        found = .false.
        open(unit, file=trim(file))
-       do while (.not.found)
+       i = 0
+
+       !! check for start of convolution card
+       card_check: do while (.not.found)
+          i = i + 1
           read(unit,'(A)',iostat=stat) buffer
           if(stat.ne.0)then
-             write(0,*) "ERROR: file hit error (EoF?) before CONV_LAYER section"
+             write(0,*) "ERROR: file hit error (EoF?) before CONVOLUTION section"
              write(0,*) "Exiting..."
              stop
           end if
-          if(trim(adjustl(buffer)).eq."CONV_LAYER") found = .true.
+          if(trim(adjustl(buffer)).eq."CONVOLUTION")then
+             istart = i
+             found = .true.
+          end if
+       end do card_check
+
+       !! loop over tags in convolution card
+       i = istart
+       tag_loop: do
+          i = i + 1
+
+          !! check for end of file
+          read(unit,'(A)',iostat=stat) buffer
+          if(stat.ne.0)then
+             write(0,*) "ERROR: file hit error (EoF?) before encountering END CONVOLUTION"
+             write(0,*) "Exiting..."
+             stop
+          end if
+          found = .false.
+
+          !! check for end of convolution card
+          if(trim(adjustl(buffer)).ne."END CONVOLUTION")then
+             exit tag_loop
+          end if
+          
+          tag=trim(adjustl(buffer))
+          if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
+
+          !! read number of filters from save file
+          select case(trim(tag))
+          case("NUM_FILTERS")
+             if(.not.found_num_filters)then
+                call assign_val(buffer, num_filters, itmp1)
+                found_num_filters = .true.
+                allocate(convolution(num_filters))
+                rewind(unit)
+                do j=1,istart
+                   read(unit,*)
+                end do
+                i = istart
+                 cycle tag_loop
+             end if
+          case default
+             if(.not.found_num_filters) cycle tag_loop
+          end select
+
+          !! read parameters from save file
+          select case(trim(tag))
+          case("ACTIVATION_FUNCTION")
+             call assign_val(buffer, activation_function, itmp1)
+          case("ACTIVATION_SCALE")
+             call assign_val(buffer, activation_scale, itmp1)
+          case("PADDING_TYPE")
+             call assign_val(buffer, padding_type, itmp1)
+             padding_type = to_lower(padding_type)
+          case("KERNEL_SIZE")
+             call assign_vec(buffer, convolution(:)%kernel_size, itmp1)
+          case("STRIDE")
+             call assign_vec(buffer, convolution(:)%stride, itmp1)
+          case("BIAS")
+             call assign_vec(buffer, convolution(:)%bias, itmp1)
+          case("WEIGHTS")
+             istart_weights = i
+             cycle tag_loop
+          case default
+             write(*,*) "Unrecognised line in cnn input file"
+             stop 0
+          end select
+       end do tag_loop
+
+       !! set transfer activation function
+       transfer = activation_setup(activation_function, activation_scale)
+
+       !! allocate convolutional layer
+       do l=1,num_filters
+          !! padding width
+          if(padding_type.eq."full")then
+             convolution(l)%pad  = itmp1 - 1
+          elseif(padding_type.eq."none".or.padding_type.eq."valid")then
+             convolution(l)%pad = 0
+          else
+             convolution(l)%pad = get_padding_half(convolution(l)%kernel_size)
+          end if
+          !! odd or even kernel/filter size
+          convolution(l)%centre_width = 2 - mod(convolution(l)%kernel_size,2)
+          start_idx = -convolution(l)%pad
+          end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
+          allocate(convolution(l)%weight(start_idx:end_idx,start_idx:end_idx))
+          allocate(convolution(l)%weight_incr(start_idx:end_idx,start_idx:end_idx))
+          convolution(l)%bias = 0._real12
+          convolution(l)%bias_incr = 0._real12
+          convolution(l)%weight(:,:) = 0._real12
+          convolution(l)%weight_incr(:,:) = 0._real12
        end do
 
-       !read(unit,*) kernel_size, input_channels, output_channels, stride
-       read(unit,*)
-
-       completed = 0
-       !do while (completed.lt.2)
-       !   
-       !   read(unit,'(A)',iostat=stat) buffer
-       !   if(stat.ne.0)then
-       !      write(0,*) "ERROR: file hit error (EoF?) before encountering END CONV_LAYER"
-       !      write(0,*) "Exiting..."
-       !      stop
-       !   end if
-       !   i = 0
-       !   found = .false.
-       !   if(trim(adjustl(buffer)).eq."WEIGHTS")then
-       !      do while (.not.found)
-       !         read(unit,'(A)',iostat=stat) buffer
-       !         if(stat.ne.0)then
-       !            write(0,*) "ERROR: file hit error (EoF?) before encountering END"
-       !            write(0,*) "Exiting..."
-       !            stop
-       !         end if
-       !         if(index(trim(adjustl(buffer)),"END").ne.1)then
-       !            found = .true.
-       !            completed = completed + 1
-       !            cycle
-       !         end if
-       !         if(trim(adjustl(buffer)).eq."") cycle
-       !
-       !         i = i + 1
-       !         if(i.gt.kernel_size)then
-       !            write(0,*) "ERROR: i exceeded kernel_size in CONV_LAYER"
-       !            write(0,*) "Exiting..."
-       !            stop
-       !         end if
-       !         read(buffer,*) (((weights(i,j,k,l),&
-       !              l=1,output_channels),&
-       !              k=1,input_channels),&
-       !              j=1,kernel_size)
-       !      end do
-       !   elseif(trim(adjustl(buffer)).eq."BIASES")then
-       !      do while (.not.found)
-       !         read(unit,'(A)',iostat=stat) buffer
-       !         if(stat.ne.0)then
-       !            write(0,*) "ERROR: file hit error (EoF?) before encountering END"
-       !            write(0,*) "Exiting..."
-       !            stop
-       !         end if
-       !         if(index(trim(adjustl(buffer)),"END").ne.1)then
-       !            found = .true.
-       !            completed = completed + 1
-       !            cycle
-       !         end if
-       !         if(trim(adjustl(buffer)).eq."") cycle
-       !
-       !         i = i + 1
-       !         if(i.gt.kernel_size)then
-       !            write(0,*) "ERROR: i exceeded kernel_size in CONV_LAYER"
-       !            write(0,*) "Exiting..."
-       !            stop
-       !         end if
-       !         read(buffer,*) (biases(l),l=1,output_channels)
-       !      end do
-       !   end if
-       !end do
+       !! rewind file to WEIGHTS tag
+       rewind(unit)
+       do j=1,istart_weights
+          read(unit,*)
+       end do
+       
+       !! read weights
+       do l=1,num_filters
+          read(unit,'(A)') buffer
+          read(buffer,*) convolution(l)%weight
+       end do
+       read(unit,'(A)') buffer
+       if(trim(adjustl(buffer)).ne."END WEIGHTS")then
+          write(line_no,'(I0)') num_filters + istart_weights + 1
+          stop "ERROR: END WEIGHTS not where expected, line"//trim(line_no)
+       end if
        close(unit)
 
        return
@@ -462,7 +517,7 @@ contains
 
 
 !!!#############################################################################
-!!! 
+!!! write convolutional layer to save file
 !!!#############################################################################
   subroutine write_file(file)
     implicit none
@@ -479,6 +534,8 @@ contains
 
     num_layers = size(convolution,dim=1)
     write(unit,'("CONVOLUTION")')
+    write(unit,'(3X,"ACTIVATION_FUNCTION = ",A)') transfer%name
+    write(unit,'(3X,"ACTIVATION_SCALE = ",F0.9)') transfer%scale
     write(unit,'(3X,"NUM_LAYERS = ",I0)') size(convolution,dim=1)
 
     write(fmt,'("(3X,""STRIDE ="",",I0,"(1X,I0))")') num_layers
@@ -504,7 +561,7 @@ contains
 
 
 !!!#############################################################################
-!!! 
+!!! forward propagation pass
 !!!#############################################################################
   subroutine forward(input, output)
     implicit none
@@ -559,7 +616,7 @@ contains
 
 
 !!!#############################################################################
-!!! 
+!!! backward propagation pass
 !!!#############################################################################
   subroutine backward(input, output_gradients, input_gradients, clip)
     implicit none
@@ -663,9 +720,9 @@ contains
   
 
 !!!#############################################################################
-!!! 
+!!! update weights and biases according to gradient
 !!!#############################################################################
-  subroutine update_weights_and_biases(learning_rate, gradients,  iteration)
+  subroutine update_weights_and_biases(learning_rate, gradients, iteration)
     implicit none
     real(real12), intent(in) :: learning_rate
     type(gradient_type), dimension(:), intent(inout) :: gradients
