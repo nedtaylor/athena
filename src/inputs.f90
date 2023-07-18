@@ -304,7 +304,7 @@ contains
          regularisation
     namelist /convolution/ num_filters, kernel_size, stride, &
          clip_min, clip_max, clip_norm, convolution_type, padding_type, &
-         dropout, block_size, keep_prob, activation_function, &
+         dropout, block_size, keep_prob, activation_function, activation_scale, &
          kernel_initialiser, bias_initialiser
     namelist /pooling/ kernel_size, stride, normalisation
     namelist /fully_connected/ hidden_layers, &
@@ -395,7 +395,7 @@ contains
     if(trim(stride).ne."") call get_list(stride, cv_stride, cv_num_filters)
     call get_clip(clip_min, clip_max, clip_norm, cv_clip)
     cv_num_filters = num_filters
-    cv_activation_scale = activation_scale
+    cv_activation_scale    = activation_scale
     cv_activation_function = to_lower(activation_function)
     cv_kernel_initialiser  = to_lower(kernel_initialiser)
     cv_bias_initialiser    = to_lower(bias_initialiser)
