@@ -695,9 +695,9 @@ contains
        start_idx = -convolution(l)%pad
        end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
        
+       !! update the convolution layer weights using gradient descent
        do y=start_idx,end_idx,1
           do x=start_idx,end_idx,1
-
              if(adaptive_parameters%method.eq.'none')then
                 convolution(l)%weight(x,y) = &
                      convolution(l)%weight(x,y) - &
@@ -721,11 +721,10 @@ contains
                      iteration, &
                      adaptive_parameters)
              end if
-
           end do
        end do
 
-       !! update the convolution layer biases using gradient descent       
+       !! update the convolution layer bias using gradient descent       
        if(adaptive_parameters%method.eq.'none')then
           convolution(l)%bias = &
                convolution(l)%bias - &
