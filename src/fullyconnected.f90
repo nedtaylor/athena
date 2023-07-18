@@ -26,14 +26,6 @@ module FullyConnectedLayer
      procedure :: add_t_t => gradient_add  !t = type, r = real, i = int
      generic :: operator(+) => add_t_t !, public
   end type gradient_type
-  
-  !type error_type
-  !   real(real12), allocatable, dimension(:) :: neuron
-  !end type error_type
-
-  !interface operator(+)
-  !   module procedure :: gradient_add
-  !end interface operator(+)
 
   type(network_type), allocatable, dimension(:) :: network
   type(learning_parameters_type) :: adaptive_parameters
@@ -318,92 +310,146 @@ contains
 !!! 
 !!!#############################################################################
   subroutine read_file(file)
+    use misc, only: to_lower, icount
+    use infile_tools, only: assign_val, assign_vec
     implicit none
     character(*), intent(in) :: file
 
-    !integer :: i,j,k,l
-    integer :: unit,stat,completed
-    character(1024) :: buffer
-    logical :: found
+    integer :: i, j, l, istart, istart_weights, itmp1
+    integer :: num_layers, num_inputs, num_columns
+    integer :: unit, stat
+    real(real12) :: activation_scale
+    character(:), allocatable :: activation_function
+    character(:), allocatable :: padding_type
+    character(6) :: line_no
+    character(1024) :: buffer, tag
+    logical :: found, found_num_layers
+    integer, allocatable, dimension(:) :: num_hidden
 
 
-    !! if file, read in weights and biases
+    found_num_layers = .false.
     if(len(trim(file)).gt.0)then
        unit = 10
        found = .false.
        open(unit, file=trim(file))
-       do while (.not.found)
+       i = 0
+
+       !! check for start of convolution card
+       card_check: do while (.not.found)
+          i = i + 1
           read(unit,'(A)',iostat=stat) buffer
           if(stat.ne.0)then
-             write(0,*) "ERROR: file hit error (EoF?) before FULL_LAYER section"
+             write(0,*) "ERROR: file hit error (EoF?) before FULLYCONNECTED section"
              write(0,*) "Exiting..."
              stop
           end if
-          if(trim(adjustl(buffer)).eq."FULL_LAYER") found = .true.
+          if(trim(adjustl(buffer)).eq."FULLYCONNECTED")then
+             istart = i
+             found = .true.
+          end if
+       end do card_check
+
+       !! loop over tags in convolution card
+       i = istart
+       tag_loop: do
+          i = i + 1
+
+          !! check for end of file
+          read(unit,'(A)',iostat=stat) buffer
+          if(stat.ne.0)then
+             write(0,*) "ERROR: file hit error (EoF?) before encountering END FULLYCONNECTED"
+             write(0,*) "Exiting..."
+             stop
+          end if
+          found = .false.
+
+          !! check for end of card
+          if(trim(adjustl(buffer)).ne."END FULLYCONNECTED")then
+             exit tag_loop
+          end if
+          
+          tag=trim(adjustl(buffer))
+          if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
+
+          !! read number of filters from save file
+          select case(trim(tag))
+          case("NUM_LAYERS")
+             if(.not.found_num_layers)then
+                call assign_val(buffer, num_layers, itmp1)
+                found_num_layers = .true.
+                allocate(network(num_layers))
+                allocate(num_hidden(num_layers))
+                rewind(unit)
+                do j=1,istart
+                   read(unit,*)
+                end do
+                i = istart
+                 cycle tag_loop
+             end if
+          case default
+             if(.not.found_num_layers) cycle tag_loop
+          end select
+
+          !! read parameters from save file
+          select case(trim(tag))
+          case("ACTIVATION_FUNCTION")
+             call assign_val(buffer, activation_function, itmp1)
+          case("ACTIVATION_SCALE")
+             call assign_val(buffer, activation_scale, itmp1)
+          case("NUM_HIDDEN")
+             call assign_vec(buffer, num_hidden, itmp1)
+          case("NUM_INPUTS")
+             call assign_val(buffer, num_inputs, itmp1)
+          case("WEIGHTS")
+             istart_weights = i
+             cycle tag_loop
+          case default
+             write(*,*) "Unrecognised line in cnn input file"
+             stop 0
+          end select
+       end do tag_loop
+
+       !! set transfer activation function
+       transfer = activation_setup(activation_function, activation_scale)
+
+
+       !! rewind file to WEIGHTS tag
+       rewind(unit)
+       do j=1,istart_weights
+          read(unit,*)
+       end do
+       
+       num_columns = 5
+       !! allocate layer and read weights and biases
+       do l=1,num_layers
+          allocate(network(l)%neuron(num_hidden(l)))
+          do i=1,num_hidden(l)
+             allocate(network(l)%neuron(i)%weight(num_inputs))
+             allocate(network(l)%neuron(i)%weight_incr(num_inputs))
+             network(l)%neuron(i)%weight_incr = 0._real12
+             do j=1,ceiling(real(num_inputs)/real(num_columns))
+                read(unit,'(A)') buffer
+                itmp1 = icount(buffer)
+                read(buffer,*) &
+                     network(l)%neuron(i)%weight(&
+                     (j-1)*num_columns+1:(j-1)*num_columns+itmp1)
+             end do
+          end do
+          num_inputs = num_hidden(l)+1
        end do
 
-       !read(unit,*) input_size, output_size, num_layers
-       read(unit,*)
-
-       completed = 0
-       !do while (completed.lt.2)
-       !
-       !   read(unit,'(A)',iostat=stat) buffer
-       !   if(stat.ne.0)then
-       !      write(0,*) "ERROR: file hit error (EoF?) before encountering END FULL_LAYER"
-       !      write(0,*) "Exiting..."
-       !      stop
-       !   end if
-       !   i = 0
-       !   found = .false.
-       !   if(trim(adjustl(buffer)).eq."WEIGHTS")then
-       !      do while (.not.found)
-       !         read(unit,'(A)',iostat=stat) buffer
-       !         if(stat.ne.0)then
-       !            write(0,*) "ERROR: file hit error (EoF?) before encountering END"
-       !            write(0,*) "Exiting..."
-       !            stop
-       !         end if
-       !         if(index(trim(adjustl(buffer)),"END").ne.1)then
-       !            found = .true.
-       !            completed = completed + 1
-       !            cycle
-       !         end if
-       !         if(trim(adjustl(buffer)).eq."") cycle
-       !
-       !         i = i + 1
-       !         if(i.gt.input_size)then
-       !            write(0,*) "ERROR: i exceeded kernel_size in FULL_LAYER"
-       !            write(0,*) "Exiting..."
-       !            stop
-       !         end if
-       !         read(buffer,*) (weights(i,j),j=1,output_size)
-       !      end do
-       !   elseif(trim(adjustl(buffer)).eq."BIASES")then
-       !      do while (.not.found)
-       !         read(unit,'(A)',iostat=stat) buffer
-       !         if(stat.ne.0)then
-       !            write(0,*) "ERROR: file hit error (EoF?) before encountering END"
-       !            write(0,*) "Exiting..."
-       !            stop
-       !         end if
-       !         if(index(trim(adjustl(buffer)),"END").ne.1)then
-       !            found = .true.
-       !            completed = completed + 1
-       !            cycle
-       !         end if
-       !         if(trim(adjustl(buffer)).eq."") cycle
-       !
-       !         read(buffer,*) (biases(j),j=1,output_size)
-       !      end do
-       !   end if
-       !end do
+       !! check for end of weights card
+       read(unit,'(A)') buffer
+       if(trim(adjustl(buffer)).ne."END WEIGHTS")then
+          write(line_no,'(I0)') num_layers + istart_weights + 1
+          stop "ERROR: END WEIGHTS not where expected, line"//trim(line_no)
+       end if
        close(unit)
 
        return
     end if
 
-  end  subroutine read_file
+  end subroutine read_file
 !!!#############################################################################
 
 
@@ -425,35 +471,25 @@ contains
     open(unit, file=trim(file), access='append')
 
     num_layers = size(network,dim=1)
-    num_inputs = size(network(1)%neuron(1)%weight,dim=1)
+    num_inputs = size(network(1)%neuron(1)%weight,dim=1)-1
 
     allocate(num_hidden(num_layers))
     do l=1,num_layers
        num_hidden(l) = size(network(l)%neuron,dim=1)
     end do
     write(unit,'("FULLYCONNECTED")')
-    !write(unit,'(3X,"NUM_LAYERS = ")') num_layers
-    write(fmt,'("(3X,""LAYER_SIZES ="",",I0,"(1X,I0))")') num_layers
-    write(unit,trim(fmt)) num_hidden(:)-1
-
-    write(unit,'("BIASES")')
-    do l=1,num_layers
-       allocate(biases(num_hidden(l)))
-       biases = 0._real12
-       do i=1,num_hidden(l)
-          num_weights = size(network(l)%neuron(i)%weight,dim=1)
-          biases(i) = network(l)%neuron(i)%weight(num_weights)
-       end do
-       write(unit,*) biases(:)
-       deallocate(biases)
-    end do
-    write(unit,'("END BIASES")')
+    write(unit,'(3X,"ACTIVATION_FUNCTION = ",A)') transfer%name
+    write(unit,'(3X,"ACTIVATION_SCALE = ",F0.9)') transfer%scale
+    write(unit,'(3X,"NUM_INPUTS = ",I0)') num_inputs
+    write(unit,'(3X,"NUM_LAYERS = ",I0)') num_layers
+    write(fmt,'("(3X,""NUM_HIDDEN ="",",I0,"(1X,I0))")') num_layers
+    write(unit,trim(fmt)) num_hidden(:)
 
     write(unit,'("WEIGHTS")')
     do l=1,num_layers
+       num_weights = size(network(l)%neuron(1)%weight,dim=1)
        do i=1,num_hidden(l)
-          num_weights = size(network(l)%neuron(i)%weight,dim=1)
-          write(unit,*) network(l)%neuron(i)%weight(:num_weights-1)
+          write(unit,'(2X,5(1X,E15.4))') network(l)%neuron(i)%weight(:num_weights)
        end do
     end do
     write(unit,'("END WEIGHTS")')

@@ -18,6 +18,8 @@ module inputs
   type(learning_parameters_type) :: learning_parameters
   logical :: batch_learning
   character(:), allocatable :: loss_method
+  character(1024) :: output_file
+  logical :: restart
 
   integer :: num_epochs  ! number of epochs
   integer :: batch_size  ! size of mini batches
@@ -57,6 +59,7 @@ module inputs
   private
 
   public :: seed, verbosity, num_threads
+  public :: output_file, restart
   public :: shuffle_dataset, train_size
 
   public :: batch_learning
@@ -109,6 +112,8 @@ contains
 !!!-----------------------------------------------------------------------------
     skip = .false.
     input_file = ""
+    output_file = "cnn_layers.txt"
+    restart = .false.
 
     call system_clock(count=seed)
     verbosity = 1
@@ -295,7 +300,7 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! set up namelists for input file
 !!!-----------------------------------------------------------------------------
-    namelist /setup/ seed, verbosity, num_threads !, dir
+    namelist /setup/ seed, verbosity, num_threads, output_file, restart !, dir
     namelist /training/ num_epochs, batch_size, &
          plateau_threshold, loss_threshold, &
          learning_rate, momentum, l1_lambda, l2_lambda, &

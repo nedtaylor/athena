@@ -469,7 +469,13 @@ contains
        !! set transfer activation function
        transfer = activation_setup(activation_function, activation_scale)
 
-       !! allocate convolutional layer
+       !! rewind file to WEIGHTS tag
+       rewind(unit)
+       do j=1,istart_weights
+          read(unit,*)
+       end do
+
+       !! allocate convolutional layer and read weights
        do l=1,num_filters
           !! padding width
           if(padding_type.eq."full")then
@@ -485,23 +491,13 @@ contains
           end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
           allocate(convolution(l)%weight(start_idx:end_idx,start_idx:end_idx))
           allocate(convolution(l)%weight_incr(start_idx:end_idx,start_idx:end_idx))
-          convolution(l)%bias = 0._real12
           convolution(l)%bias_incr = 0._real12
-          convolution(l)%weight(:,:) = 0._real12
           convolution(l)%weight_incr(:,:) = 0._real12
-       end do
-
-       !! rewind file to WEIGHTS tag
-       rewind(unit)
-       do j=1,istart_weights
-          read(unit,*)
-       end do
-       
-       !! read weights
-       do l=1,num_filters
           read(unit,'(A)') buffer
           read(buffer,*) convolution(l)%weight
        end do
+
+       !! check for end of weights card
        read(unit,'(A)') buffer
        if(trim(adjustl(buffer)).ne."END WEIGHTS")then
           write(line_no,'(I0)') num_filters + istart_weights + 1

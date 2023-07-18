@@ -63,7 +63,7 @@ program ConvolutionalNeuralNetwork
   !! data loading and preoprocessing
   real(real12), allocatable, dimension(:,:,:,:) :: input_images, test_images
   integer, allocatable, dimension(:) :: labels, test_labels
-  character(1024) :: train_file, test_file, cnn_file
+  character(1024) :: train_file, test_file
 
   !! neural network size and shape variables
   integer, parameter :: num_classes = 10    ! Number of output classes
@@ -196,14 +196,20 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
   write(6,*) "Initialising CNN..."
   !! Initialise the convolution layer
-  call cv_init(seed, num_layers = cv_num_filters, &
-       kernel_size = cv_kernel_size, stride = cv_stride, &
-       full_padding = trim(padding_method).eq."full",&
-       learning_parameters=learning_parameters,&
-       kernel_initialiser=cv_kernel_initialiser,&
-       bias_initialiser=cv_bias_initialiser,&
-       activation_scale=cv_activation_scale,&
-       activation_function=cv_activation_function)
+  if(restart)then
+     call cv_init(file = output_file, &
+          learning_parameters=learning_parameters)
+  else
+     call cv_init(seed, num_layers = cv_num_filters, &
+          kernel_size = cv_kernel_size, stride = cv_stride, &
+          full_padding = trim(padding_method).eq."full",&
+          learning_parameters=learning_parameters,&
+          kernel_initialiser=cv_kernel_initialiser,&
+          bias_initialiser=cv_bias_initialiser,&
+          activation_scale=cv_activation_scale,&
+          activation_function=cv_activation_function)
+  end if
+
   output_size = floor( (&
        image_size + 2.0 * maxval(convolution(:)%pad) - maxval(cv_kernel_size)&
        )/minval(cv_stride) ) + 1
@@ -231,12 +237,17 @@ program ConvolutionalNeuralNetwork
 !!! initialise fully connected and softmax layers
 !!!-----------------------------------------------------------------------------
   !! Initialise the fully connected layer
-  call fc_init(seed, num_layers=fc_num_layers, &
-       num_inputs=input_size, num_hidden=fc_num_hidden, &
-       activation_function=fc_activation_function, &
-       activation_scale=fc_activation_scale,&
-       learning_parameters=learning_parameters,&
-       weight_initialiser=fc_weight_initialiser)
+  if(restart)then
+     call fc_init(file = output_file, &
+          learning_parameters=learning_parameters)
+  else
+     call fc_init(seed, num_layers=fc_num_layers, &
+          num_inputs=input_size, num_hidden=fc_num_hidden, &
+          activation_function=fc_activation_function, &
+          activation_scale=fc_activation_scale,&
+          learning_parameters=learning_parameters,&
+          weight_initialiser=fc_weight_initialiser)
+  end if
 
   !! Initialise the softmax layer
   call sm_init(num_classes)
@@ -402,7 +413,7 @@ program ConvolutionalNeuralNetwork
         !!----------------------------------------------------------------------
         !$OMP PARALLEL DO & !! ORDERED
         !$OMP& DEFAULT(NONE) &
-!!        !$OMP& SHARED(network, convolution) &
+        !$OMP& SHARED(network, convolution) &
         !$OMP& SHARED(start_index, end_index) &
         !$OMP& SHARED(image_slice, label_slice) &
         !$OMP& SHARED(input_size, batch_size, pool_normalisation) &
@@ -411,7 +422,7 @@ program ConvolutionalNeuralNetwork
         !$OMP& SHARED(cv_keep_prob, seed, cv_block_size, output_channels) &
         !$OMP& SHARED(cv_dropout_method) &
         !$OMP& SHARED(compute_loss) &
-        !$OMP& FIRSTPRIVATE(network) &
+!!        !$OMP& FIRSTPRIVATE(network) &
         !$OMP& FIRSTPRIVATE(predicted_old) &
 !!        !$OMP& PRIVATE(cv_mask, cv_mask_size) &
         !$OMP& PRIVATE(sample) &
@@ -675,7 +686,8 @@ program ConvolutionalNeuralNetwork
 
         !! print batch results
         !!----------------------------------------------------------------------
-101     if(abs(verbosity).gt.0)then
+101     if(abs(verbosity).gt.0.and.&
+             (batch.eq.1.or.mod(batch,10).eq.0.E0))then
            write(6,'("epoch=",I0,", batch=",I0,&
                 &", learning_rate=",F0.3,", loss=",F0.3,", accuracy=",F0.3)') &
                 epoch, batch, learning_rate, sum_loss, sum_accuracy
@@ -719,11 +731,11 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
 !!! print weights and biases of CNN to file
 !!!-----------------------------------------------------------------------------
-  cnn_file = 'cnn_layers.txt'
-  open(unit=10,file=cnn_file,status='replace')
+  output_file = 'cnn_layers.txt'
+  open(unit=10,file=output_file,status='replace')
   close(10)
-  call cv_write(cnn_file)
-  call fc_write(cnn_file)
+  call cv_write(output_file)
+  call fc_write(output_file)
 
   if(verbosity.gt.1) open(unit=15,file="results_test.out")
 
