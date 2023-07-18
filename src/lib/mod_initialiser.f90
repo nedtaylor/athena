@@ -61,7 +61,7 @@ contains
     case("zeros")
        initialiser = zeros
     case default
-       stop "Incorrect initialiser name given"
+       stop "Incorrect initialiser name given '"//trim(to_lower(name))//"'"
     end select
 
   end function initialiser_setup

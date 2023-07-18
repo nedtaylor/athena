@@ -6,13 +6,16 @@
 module FullyConnectedLayer
   use constants, only: real12
   use random, only: random_setup
-  use misc_ml, only: adam_optimiser
+  use misc_ml, only: update_weight
   use custom_types, only: network_type, clip_type, activation_type, &
        initialiser_type, learning_parameters_type
   use activation,  only: activation_setup
   use initialiser, only: initialiser_setup
   implicit none
 
+  type hidden_output_type
+     real(real12), allocatable, dimension(:) :: val
+  end type hidden_output_type
 
   type gradient_type
      real(real12), allocatable, dimension(:) :: delta !error !dE/d(activation)
@@ -44,6 +47,8 @@ module FullyConnectedLayer
   public :: gradient_type
   public :: allocate_gradients
   public :: initialise_gradients
+
+  public :: hidden_output_type
 
   public :: initialise, forward, backward
   public :: update_weights_and_biases
@@ -96,9 +101,20 @@ contains
     character(len=10) :: t_activation_function
     integer, allocatable, dimension(:) :: seed_arr
     class(initialiser_type), allocatable :: weight_init
+    character(:), allocatable :: t_weight_initialiser
 
     integer :: l,i
 
+    
+    !!--------------------------------------------------------------------------
+    !! set defaults if not present
+    !!--------------------------------------------------------------------------
+    if(present(weight_initialiser))then
+       t_weight_initialiser = weight_initialiser
+    else
+       t_weight_initialiser = "he_uniform"
+    end if
+    write(*,'("FC weight initialiser: ",A)') t_weight_initialiser
 
 
     !! if file, read in weights and biases
@@ -138,12 +154,11 @@ contains
              call random_number(network(l)%neuron(i)%weight)
              allocate(network(l)%neuron(i)%weight_incr(length))
              network(l)%neuron(i)%weight_incr = 0._real12
-             network(l)%neuron(i)%output = 0._real12
 
 
              !! determine initialisation method and initialise accordingly
              !!-----------------------------------------------------------------
-             weight_init = initialiser_setup(weight_initialiser)
+             weight_init = initialiser_setup(t_weight_initialiser)
              call weight_init%initialise(network(l)%neuron(i)%weight, &
                   fan_in = size(network(l)%neuron(i)%weight,dim=1), &
                   fan_out = num_hidden(l))
@@ -258,9 +273,10 @@ contains
 !!!#############################################################################
   subroutine initialise_gradients(gradients, num_features, adam_learning)
     implicit none
-    logical, optional, intent(in) :: adam_learning
     integer, intent(in) :: num_features
     type(gradient_type), allocatable, dimension(:), intent(out) :: gradients
+    logical, optional, intent(in) :: adam_learning
+
     integer :: l
     integer :: num_neurons, num_inputs, num_layers
 
@@ -454,30 +470,35 @@ contains
   subroutine forward(input, output)
     implicit none
     real(real12), dimension(:), intent(in) :: input
-    real(real12), dimension(:), intent(out) :: output
+    type(hidden_output_type), allocatable, dimension(:), intent(out) :: output
 
     integer :: j, l
     integer :: num_layers, num_neurons
     real(real12) :: activation
     real(real12), allocatable, dimension(:) :: new_input
-    
+
+    !! initialise ouput (and temporary input) arrays
     allocate(new_input(size(input)))
     new_input = input
     num_layers = size(network,dim=1)
+    if(allocated(output)) deallocate(output)
+    allocate(output(num_layers))
+
+    !! generate outputs from weights, biases, and inputs
     do l=1,num_layers
-       
        num_neurons=size(network(l)%neuron)
+       allocate(output(l)%val(num_neurons))
        do j=1,num_neurons
           activation = activate(network(l)%neuron(j)%weight,new_input)
-          network(l)%neuron(j)%output = transfer%activate(activation)
+          output(l)%val(j) = transfer%activate(activation)
        end do
+
        deallocate(new_input)
        if(l.lt.num_layers)then
           allocate(new_input(num_neurons))
-          new_input = network(l)%neuron(:)%output
+          new_input = output(l)%val(:)
        end if
     end do
-    output = network(num_layers)%neuron(:)%output
 
   end subroutine forward
 !!!#############################################################################
@@ -488,9 +509,10 @@ contains
 !!! method : gradient descent
 !!!#############################################################################
 !!! https://brilliant.org/wiki/backpropagation/
-  subroutine backward(input, expected, input_gradients, clip)
+  subroutine backward(input, output, expected, input_gradients, clip)
     implicit none
     real(real12), dimension(:), intent(in) :: input
+    type(hidden_output_type), allocatable, dimension(:), intent(in) :: output
     real(real12), dimension(:), intent(in) :: expected !is this just output_gradients?
     type(gradient_type), dimension(0:), intent(inout) :: input_gradients
     type(clip_type), optional, intent(in) :: clip
@@ -555,12 +577,12 @@ contains
              new_input = input
           else
              allocate(new_input(size(network(l-1)%neuron(:),1)))
-             new_input = network(l-1)%neuron(:)%output
+             new_input = output(l-1)%val
           end if
           do j=1,num_neurons
              !! activation already calculated and equals the output
              input_gradients(l)%delta(j) = input_gradients(l)%delta(j) * &
-                  transfer%differentiate(network(l)%neuron(j)%output)
+                  transfer%differentiate(output(l)%val(j))
              do k=1,size(new_input,1)
                 input_gradients(l)%weight(k,j) = input_gradients(l)%delta(j) * new_input(k)
              end do
@@ -591,94 +613,54 @@ contains
 !!! update the weights based on how much error the node ...
 !!! ... is responsible for
 !!!#############################################################################
-  subroutine update_weights_and_biases(learning_rate, input, gradients, &
-       l1_lambda, l2_lambda, iteration)
+  subroutine update_weights_and_biases(learning_rate, gradients, iteration)
     implicit none
     integer, optional, intent(inout) :: iteration
-    real(real12), optional, intent(in) :: l1_lambda, l2_lambda
     real(real12), intent(in) :: learning_rate
-    real(real12), dimension(:), intent(in) :: input
     type(gradient_type), dimension(0:), intent(inout) :: gradients
     
     integer :: j,k,l
-    integer :: num_layers, num_weights, num_neurons, num_inputs
-    real(real12) :: t_learning_rate
-    real(real12) :: lr_l1_lambda, lr_l2_lambda, weight_incr
+    integer :: num_layers, num_neurons, num_inputs
+    real(real12) :: weight_incr, rtmp1, rtmp2
     real(real12), allocatable, dimension(:) :: new_input
 
     
+    !! initialise constants
     num_layers=size(network,dim=1)
-    lr_l1_lambda = learning_rate * l1_lambda
-    lr_l2_lambda = learning_rate * l2_lambda
-
 
     !! loop through the layers in reverse
     do l=1,num_layers,1
-       !! inputs are equal to the ouputs of the 'parent' nodes
-       if (l.ne.1)then
-          allocate(new_input(num_neurons))
-          new_input = network(l-1)%neuron(:)%output
-       else
-          allocate(new_input(size(input)))
-          new_input = input
-       end if
-       num_inputs = size(new_input, dim=1)
-       num_weights = size(network(l)%neuron(1)%weight, dim=1)
+       num_inputs  = size(network(l)%neuron(1)%weight, dim=1)
        num_neurons = size(network(l)%neuron, dim=1)
        do j=1,size(network(l)%neuron)
-          !! for each path, update the weight based on the delta ...
-          !! ... and the learning rate
-
+          !! update the weights and biases for layer l
           do k=1,num_inputs
-             
-             t_learning_rate = learning_rate
-             weight_incr = network(l)%neuron(j)%weight_incr(k) 
-
-             !! momentum-based learning
-             !! adam optimiser
-             if(adaptive_parameters%method.eq.'momentum')then
-                weight_incr = learning_rate * gradients(l)%weight(k,j) + &
-                     adaptive_parameters%momentum * weight_incr
+             if(adaptive_parameters%method.eq.'none')then
+                network(l)%neuron(j)%weight(k) = &
+                     network(l)%neuron(j)%weight(k) - &
+                     learning_rate * gradients(l)%weight(k,j)
              elseif(adaptive_parameters%method.eq.'adam')then
-                call adam_optimiser(t_learning_rate, gradients(l)%weight(k,j), &
-                     gradients(l)%m(k,j), gradients(l)%v(k,j), iteration, &
-                     adaptive_parameters%beta1, adaptive_parameters%beta2, &
-                     adaptive_parameters%epsilon)
-                weight_incr = t_learning_rate !* new_input(k) !! unsure about new_input here
-                !write(0,*) "HERE", weight_incr
+                call update_weight(learning_rate,&
+                     network(l)%neuron(j)%weight(k),&
+                     network(l)%neuron(j)%weight_incr(k), &
+                     gradients(l)%weight(k,j), &
+                     gradients(l)%m(k,j), &
+                     gradients(l)%v(k,j), &
+                     iteration, &
+                     adaptive_parameters)
              else
-                weight_incr = learning_rate * gradients(l)%weight(k,j)
+                call update_weight(learning_rate,&
+                     network(l)%neuron(j)%weight(k),&
+                     network(l)%neuron(j)%weight_incr(k), &
+                     gradients(l)%weight(k,j), &
+                     rtmp1, &
+                     rtmp2, &
+                     iteration, &
+                     adaptive_parameters)
              end if
-
-             !! L1 regularisation
-             if(present(l1_lambda))then
-                !network(l)%neuron(j)%weight(k) = network(l)%neuron(j)%weight(k) - &
-                !     learning_rate * l1_lambda * sign(1._real12,network(l)%neuron(j)%weight(k))
-                weight_incr = weight_incr + &
-                     lr_l1_lambda * sign(1._real12,network(l)%neuron(j)%weight(k))
-             end if
-
-             !! L2 regularisation
-             if(present(l2_lambda))then
-                !network(l)%neuron(j)%weight(k) = network(l)%neuron(j)%weight(k) * &
-                !     (1._real12 - learning_rate * l2_lambda)
-                weight_incr = weight_incr + &
-                     lr_l2_lambda * network(l)%neuron(j)%weight(k)
-             end if
-
-
-             network(l)%neuron(j)%weight_incr(k) = weight_incr
-             network(l)%neuron(j)%weight(k) = network(l)%neuron(j)%weight(k) - &
-                  weight_incr
-
           end do
 
-          !! update biases
-          network(l)%neuron(j)%weight(num_weights) = &
-               network(l)%neuron(j)%weight(num_weights) - &
-               learning_rate * gradients(l)%weight(num_weights,j)
        end do
-       deallocate(new_input)
     end do
 
     if(present(iteration)) iteration = iteration + 1

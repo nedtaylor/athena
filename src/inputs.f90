@@ -278,6 +278,7 @@ contains
 
     character(4)  :: loss
     character(9)  :: dropout
+    character(6)  :: regularisation
     character(6)  :: normalisation
     character(20) :: adaptive_learning
     character(20) :: padding_type, convolution_type
@@ -299,7 +300,8 @@ contains
          plateau_threshold, loss_threshold, &
          learning_rate, momentum, l1_lambda, l2_lambda, &
          shuffle_dataset, batch_learning, adaptive_learning, &
-         beta1, beta2, epsilon, loss
+         beta1, beta2, epsilon, loss, &
+         regularisation
     namelist /convolution/ num_filters, kernel_size, stride, &
          clip_min, clip_max, clip_norm, convolution_type, padding_type, &
          dropout, block_size, keep_prob, activation_function, &
@@ -335,16 +337,22 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! read training namelist
 !!!-----------------------------------------------------------------------------
-    adaptive_learning = ""
     loss="mse"
+    dropout="none"
+    block_size = 5
+    keep_prob = 0.75_real12
+
+    regularisation="" !! none, l1, l2, l1l2
+    l1_lambda = 0._real12
+    l2_lambda = 0._real12
+
+    adaptive_learning = ""
     momentum = 0._real12
     beta1 = 0.9_real12
     beta2 = 0.999_real12
     epsilon = 1.E-8_real12
-    block_size = 5
-    keep_prob = 0.75_real12
-    dropout="none"
 !!! ADD weight_decay (L2 penalty for AdamW)
+
     read(unit,NML=training,iostat=Reason,iomsg=message)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
        write(0,'("ERROR: Unexpected keyword found input file TRAINING card")')
@@ -475,6 +483,83 @@ contains
 !!! close input file
 !!!-----------------------------------------------------------------------------
     close(unit)
+
+
+!!!-----------------------------------------------------------------------------
+!!! handle regularisation method
+!!!-----------------------------------------------------------------------------
+    !! none  = no regularisation
+    !! l1    = l1 regularisation
+    !! l2    = l2 regularisation
+    !! l1l2  = l1 and l2 regularisation
+    if(trim(regularisation).eq."")then
+       if(l1_lambda.gt.0._real12.and.l2_lambda.gt.0._real12)then
+          learning_parameters%regularisation = "l1l2"
+          write(*,*) "l1_lambda and l2_lambda were set, but not regularisation"
+          write(*,*) 'Setting regularisation = "l1l2"'
+          write(*,*) 'If this is not desired, rerun with either:'
+          write(*,*) '   regularisation = "none"'
+          write(*,*) '   l1_lambda = 0.0, l2_lambda = 0.0'
+       elseif(l1_lambda.gt.0._real12)then
+          learning_parameters%regularisation = "l1"
+          write(*,*) "l1_lambda was set, but not regularisation"
+          write(*,*) 'Setting regularisation = "l1"'
+          write(*,*) 'If this is not desired, rerun with either:'
+          write(*,*) '   regularisation = "none"'
+          write(*,*) '   l1_lambda = 0.0'
+       elseif(l2_lambda.gt.0._real12)then
+          learning_parameters%regularisation = "l2"
+          write(*,*) "l2_lambda was set, but not regularisation"
+          write(*,*) 'Setting regularisation = "l2"'
+          write(*,*) 'If this is not desired, rerun with either:'
+          write(*,*) '   regularisation = "none"'
+          write(*,*) '   l2_lambda = 0.0'
+       else
+          learning_parameters%regularisation = "none"
+       end if
+    else
+       learning_parameters%regularisation = to_lower(trim(regularisation))
+    end if
+    select case(learning_parameters%regularisation)
+    case("none")
+       write(*,*) "No regularisation set"
+    case("l1l2")
+       write(*,*) "L1L2 regularisation"
+       if(abs(l1_lambda).le.1.E-8_real12.and.abs(l2_lambda).le.1.E-8_real12)then
+          write(*,*) "ERROR: l1_lambda and l2_lambda set to = 0.0"
+          write(*,*) "Please rerun with either a different regularisation or &
+               &a larger values"
+          stop "Exiting..."
+       end if
+       write(*,*) "l1_lambda =",l1_lambda
+       write(*,*) "l2_lambda =",l2_lambda
+       learning_parameters%l1 = l1_lambda
+       learning_parameters%l2 = l2_lambda
+    case("l1")
+       write(*,*) "L1 regularisation"
+       if(abs(l1_lambda).le.1.E-8_real12)then
+          write(*,*) "ERROR: l1_lambda set to = 0.0"
+          write(*,*) "Please rerun with either a different regularisation or &
+               &a larger values"
+          stop "Exiting..."
+       end if
+       write(*,*) "l1_lambda =",l1_lambda
+       learning_parameters%l1 = l1_lambda
+    case("l2")
+       write(*,*) "L2 regularisation"
+       if(abs(l2_lambda).le.1.E-8_real12)then
+          write(*,*) "ERROR: l2_lambda set to = 0.0"
+          write(*,*) "Please rerun with either a different regularisation or &
+               &a larger values"
+          stop "Exiting..."
+       end if
+       write(*,*) "l2_lambda =",l2_lambda
+       learning_parameters%l2 = l2_lambda
+    case default
+       write(*,*) "ERROR: regularisation = "//learning_parameters%regularisation//" &
+            &not known"
+       stop "Exiting..."
+    end select
 
 
 !!!-----------------------------------------------------------------------------

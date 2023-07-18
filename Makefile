@@ -8,8 +8,9 @@ SRC_DIR := ./src
 LIB_DIR := ./lib
 BUILD_DIR = ./obj
 LIBS := mod_constants.f90 \
-	mod_misc_ml.f90 \
+	mod_random.f90 \
 	mod_types.f90 \
+	mod_misc_ml.f90 \
 	mod_activation_gaussian.f90 \
 	mod_activation_linear.f90 \
 	mod_activation_piecewise.f90 \
@@ -18,11 +19,12 @@ LIBS := mod_constants.f90 \
 	mod_activation_sigmoid.f90 \
 	mod_activation_tanh.f90 \
 	mod_activation_none.f90 \
-	mod_misc.f90 \
 	mod_initialiser_glorot.f90 \
 	mod_initialiser_he.f90 \
 	mod_initialiser_lecun.f90 \
 	mod_initialiser_zeros.f90 \
+	mod_misc.f90 \
+	mod_activation.f90 \
 	mod_initialiser.f90 \
 	mod_tools_infile.f90 \
 	mod_normalisation.f90 \
