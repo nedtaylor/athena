@@ -122,8 +122,9 @@ def main():
                 
             for key, value in param_dict[true_keys[0]].items():
                 #edited = update_tag(line, key, value,end)
-                if key in line:
-                    tag = line.split('=')[0]
+                #if key in line:
+                tag = line.split('=')[0]
+                if key in tag:
                     newline.append(tag+"= "+str(value)+end+'\n')
                     edited = True
                     if edited:
@@ -147,7 +148,7 @@ def main():
     stderr = "stdout.e"
     stdout_file = open(stdout, 'w')
     stderr_file = open(stderr, 'w')
-    p = subprocess.Popen(args=["/home/links/ntt203/DCoding/DGitlab/convolutional_neural_network/bin/"+codename,
+    p = subprocess.Popen(args=["/home/links/ntt203/DCoding/DGitlab/convolutional_neural_network/tools/"+codename,
                              "-f"+file_param],
                        stdout=stdout_file,
                        stderr=stderr_file
