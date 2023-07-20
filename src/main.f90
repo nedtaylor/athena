@@ -197,7 +197,7 @@ program ConvolutionalNeuralNetwork
   write(6,*) "Initialising CNN..."
   !! Initialise the convolution layer
   if(restart)then
-     call cv_init(file = output_file, &
+     call cv_init(file = input_file, &
           learning_parameters=learning_parameters)
   else
      call cv_init(seed, num_layers = cv_num_filters, &
@@ -238,7 +238,7 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
   !! Initialise the fully connected layer
   if(restart)then
-     call fc_init(file = output_file, &
+     call fc_init(file = input_file, &
           learning_parameters=learning_parameters)
   else
      call fc_init(seed, num_layers=fc_num_layers, &
@@ -687,7 +687,7 @@ program ConvolutionalNeuralNetwork
         !! print batch results
         !!----------------------------------------------------------------------
 101     if(abs(verbosity).gt.0.and.&
-             (batch.eq.1.or.mod(batch,10).eq.0.E0))then
+             (batch.eq.1.or.mod(batch,batch_print_step).eq.0.E0))then
            write(6,'("epoch=",I0,", batch=",I0,&
                 &", learning_rate=",F0.3,", loss=",F0.3,", accuracy=",F0.3)') &
                 epoch, batch, learning_rate, sum_loss, sum_accuracy
@@ -731,7 +731,6 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
 !!! print weights and biases of CNN to file
 !!!-----------------------------------------------------------------------------
-  output_file = 'cnn_layers.txt'
   open(unit=10,file=output_file,status='replace')
   close(10)
   call cv_write(output_file)

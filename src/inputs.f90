@@ -11,6 +11,7 @@ module inputs
   integer :: verbosity    ! verbose printing
   integer :: seed         ! random seed
   integer :: num_threads  ! number of threads (FOR OPENMP PARALLEL ONLY!)
+  integer :: batch_print_step
   real(real12) :: loss_threshold     ! threshold for loss convergence
   real(real12) :: plateau_threshold  ! threshold for plateau checking
   real(real12) :: learning_rate      ! rate of learning (larger = faster)
@@ -18,7 +19,7 @@ module inputs
   type(learning_parameters_type) :: learning_parameters
   logical :: batch_learning
   character(:), allocatable :: loss_method
-  character(1024) :: output_file
+  character(1024) :: input_file, output_file
   logical :: restart
 
   integer :: num_epochs  ! number of epochs
@@ -103,7 +104,7 @@ contains
     implicit none
     integer :: i,j
     integer :: num_hidden_layers
-    character(1024) :: buffer,flag,input_file
+    character(1024) :: buffer,flag,param_file
     logical :: skip,empty
 
 
@@ -111,9 +112,11 @@ contains
 !!! initialises variables
 !!!-----------------------------------------------------------------------------
     skip = .false.
+    param_file = ""
     input_file = ""
     output_file = "cnn_layers.txt"
     restart = .false.
+    batch_print_step = 10
 
     call system_clock(count=seed)
     verbosity = 1
@@ -170,13 +173,13 @@ contains
           flag="-f"
           call flagmaker(buffer,flag,i,skip,empty)
           if(.not.empty)then
-             read(buffer,'(A)') input_file
+             read(buffer,'(A)') param_file
           else
              write(6,'("ERROR: No input filename supplied, but the flag ''-f'' was used")')
              infilename_do: do j=1,3
                 write(6,'("Please supply an input filename:")')
-                read(5,'(A)') input_file
-                if(trim(input_file).ne.'')then
+                read(5,'(A)') param_file
+                if(trim(param_file).ne.'')then
                    write(6,'("Input filename supplied")')
                    exit infilename_do
                 else
@@ -232,8 +235,8 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! check if input file was specified and read if true
 !!!-----------------------------------------------------------------------------
-    if(trim(input_file).ne."")then
-       call read_input_file(input_file)
+    if(trim(param_file).ne."")then
+       call read_input_file(param_file)
     else
        stop "No input file given"
     end if
@@ -300,7 +303,9 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! set up namelists for input file
 !!!-----------------------------------------------------------------------------
-    namelist /setup/ seed, verbosity, num_threads, output_file, restart !, dir
+    namelist /setup/ seed, verbosity, num_threads, &
+         input_file, output_file, restart, &
+         batch_print_step!, dir
     namelist /training/ num_epochs, batch_size, &
          plateau_threshold, loss_threshold, &
          learning_rate, momentum, l1_lambda, l2_lambda, &
