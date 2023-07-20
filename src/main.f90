@@ -259,11 +259,9 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
   allocate(cv_output(output_size, output_size, output_channels))
   allocate(pl_output(num_pool, num_pool, output_channels))
-  !allocate(fc_output(num_classes))
   allocate(sm_output(num_classes))
   cv_output = 0._real12
   pl_output = 0._real12
-  !fc_output = 0._real12
   sm_output = 0._real12
   allocate(fc_output(fc_num_layers))
   do l=1,fc_num_layers
@@ -485,7 +483,8 @@ program ConvolutionalNeuralNetwork
            end select
            call fc_forward(fc_input, fc_output)
            call sm_forward(fc_output(fc_num_layers)%val, sm_output)
-
+           !write(*,*) sm_output
+ 
   
            !! check for NaN and infinity
            !!-------------------------------------------------------------------
@@ -726,11 +725,13 @@ program ConvolutionalNeuralNetwork
 
 
   end do epoch_loop
+  write(*,*) "Training finished"
 
 
 !!!-----------------------------------------------------------------------------
 !!! print weights and biases of CNN to file
 !!!-----------------------------------------------------------------------------
+  write(*,*) "Writing CNN learned parameters to output file"
   open(unit=10,file=output_file,status='replace')
   close(10)
   call cv_write(output_file)
@@ -743,6 +744,7 @@ program ConvolutionalNeuralNetwork
 !!! testing loop
 !!!-----------------------------------------------------------------------------
 !!! CAN PARALLELISE THIS SECTION AS THEY ARE INDEPENDENT
+  write(*,*) "Starting testing..."
   sum_accuracy = 0._real12
   sum_loss = 0._real12
   test_loop: do sample = 1, num_samples_test
@@ -783,6 +785,7 @@ program ConvolutionalNeuralNetwork
 
   end do test_loop
   if(verbosity.gt.1) close(15)
+  write(*,*) "Testing finished"
 
   overall_loss = real(sum_loss)/real(num_samples_test)
   write(6,'("Overall accuracy=",F0.5)') sum_accuracy/real(num_samples_test)
@@ -914,7 +917,7 @@ contains
 !!!-----------------------------------------------------------------------------
     rewind(unit)
     if(allocated(labels)) deallocate(labels)
-    allocate(labels(num_samples))
+    allocate(labels(num_samples), source=0)
 
 
 !!!-----------------------------------------------------------------------------
@@ -980,6 +983,7 @@ contains
     !! dim=4: number of images
     if(t_padding_method.eq."valid")then
        padding = 0
+       if(allocated(images)) deallocate(images)
        allocate(images(image_size, image_size, 1, num_samples))
     elseif(present(kernel_size))then
 
@@ -996,7 +1000,7 @@ contains
        allocate(images(&
             -padding+1:image_size+padding + (1-mod(kernel_size,2)),&
             -padding+1:image_size+padding + (1-mod(kernel_size,2)),&
-            1, num_samples))
+            1, num_samples), source=0._real12)
 
        !! initialise padding for constant padding types (i.e. zeros)
        !!-----------------------------------------------------------------------
