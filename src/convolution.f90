@@ -64,18 +64,23 @@ contains
     implicit none
     class(gradient_type), intent(in) :: a,b
     type(gradient_type) :: output
-  
-    allocate(output%weight,mold=a%weight)
-    output%weight = a%weight + b%weight
+
     output%bias  = a%bias + b%bias
-    output%delta = a%delta + b%delta
-    if(allocated(a%m))then
-       output%m = a%m !+ input%m
-       output%bias_m = a%bias_m
+    if(allocated(a%weight).and.allocated(b%weight))then
+       allocate(output%weight,mold=a%weight)
+       output%weight = a%weight + b%weight
+       if(allocated(a%m))then
+          output%m = a%m
+          output%bias_m = a%bias_m
+       end if
+       if(allocated(a%v))then
+          output%v = a%v
+          output%bias_v = a%bias_v
+       end if
     end if
-    if(allocated(a%v))then
-       output%v = a%v !+ input%v
-       output%bias_v = a%bias_v
+    if(allocated(a%delta).and.allocated(b%delta))then
+       allocate(output%delta,mold=a%delta)
+       output%delta = a%delta + b%delta
     end if
         
   end function gradient_add
@@ -238,6 +243,7 @@ contains
        else
           scale = 1._real12
        end if
+       write(*,'("CV activation function: ",A)') trim(t_activation_function)
        transfer = activation_setup(t_activation_function, scale)
 
     else
@@ -688,6 +694,7 @@ contains
     integer :: start_idx, end_idx, output_size, up_idx
     integer :: i_start, i_end, j_start, j_end
     integer :: x_start, x_end, y_start, y_end
+    real(real12) :: bias_diff
 
 
     !! get size of the input and output feature maps
@@ -696,6 +703,7 @@ contains
     output_size = size(output_gradients, dim=1)
     input_lbound = lbound(input, dim=1)
     input_ubound = ubound(input, dim=1)
+    bias_diff = transfer%differentiate(1._real12)
 
     !! Initialise input_gradients to zero
     do l=1,num_layers
@@ -741,6 +749,7 @@ contains
                      ) * &
                      transfer%differentiate(input(istride,jstride,m))
                 
+
              end do j_input_loop
           end do i_input_loop
 
@@ -754,10 +763,13 @@ contains
                      y+1:up_idx+y:convolution(l)%stride,m))
              end do x_weight_loop
           end do y_weight_loop
-       !! compute gradients for bias
-       !! https://stackoverflow.com/questions/58036461/how-do-you-calculate-the-gradient-of-bias-in-a-conolutional-neural-networo
+
+          !! compute gradients for bias
+          !! https://stackoverflow.com/questions/58036461/how-do-you-calculate-the-gradient-of-bias-in-a-conolutional-neural-networo
+          !! https://saturncloud.io/blog/how-to-calculate-the-gradient-of-bias-in-a-convolutional-neural-network/
           input_gradients(l)%bias = input_gradients(l)%bias + &
-               sum(output_gradients(:,:,ichannel))
+               sum(output_gradients(:,:,ichannel)) * bias_diff
+
        end do
     end do
 
