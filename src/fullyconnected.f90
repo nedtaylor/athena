@@ -498,7 +498,7 @@ contains
        num_hidden(l) = size(network(l)%neuron,dim=1)
     end do
     write(unit,'("FULLYCONNECTED")')
-    write(unit,'(3X,"ACTIVATION_FUNCTION = ",A)') transfer%name
+    write(unit,'(3X,"ACTIVATION_FUNCTION = ",A)') trim(transfer%name)
     write(unit,'(3X,"ACTIVATION_SCALE = ",F0.9)') transfer%scale
     write(unit,'(3X,"NUM_INPUTS = ",I0)') num_inputs
     write(unit,'(3X,"NUM_LAYERS = ",I0)') num_layers
@@ -543,7 +543,7 @@ contains
     !! generate outputs from weights, biases, and inputs
     do l=1,num_layers
        num_neurons=size(network(l)%neuron)
-       allocate(output(l)%val(num_neurons))
+       allocate(output(l)%val(num_neurons), source=0._real12)
        do j=1,num_neurons
           activation = activate(network(l)%neuron(j)%weight,new_input)
           output(l)%val(j) = transfer%activate(activation)

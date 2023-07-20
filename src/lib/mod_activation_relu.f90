@@ -41,6 +41,8 @@ contains
     else
        initialise%scale = 1._real12
     end if
+    initialise%threshold = 0._real12
+
   end function initialise
 !!!#############################################################################
   
@@ -55,7 +57,7 @@ contains
     real(real12), intent(in) :: val
     real(real12) :: output
 
-    output = max(0._real12, val) * this%scale
+    output = max(this%threshold, val) * this%scale
   end function relu_activate
 !!!#############################################################################
 
@@ -72,10 +74,10 @@ contains
     real(real12), intent(in) :: val
     real(real12) :: output
 
-    if(val.ge.0._real12)then
+    if(val.ge.this%threshold)then
        output = this%scale
     else
-       output = 0._real12
+       output = this%threshold
     end if
   end function relu_differentiate
 !!!#############################################################################

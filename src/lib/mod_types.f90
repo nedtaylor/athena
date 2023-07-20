@@ -85,7 +85,9 @@ module custom_types
 !!! https://stackoverflow.com/questions/8612466/how-to-alias-a-function-name-in-fortran
 !!! https://www.adt.unipd.it/corsi/Bianco/www.pcc.qub.ac.uk/tec/courses/f90/stu-notes/F90_notesMIF_12.html
   type, abstract :: activation_type
-     character(:), allocatable :: name
+     !! memory leak as allocatable character goes out of bounds
+     !character(:), allocatable :: name
+     character(10) :: name
      real(real12) :: scale
      real(real12) :: threshold
    contains

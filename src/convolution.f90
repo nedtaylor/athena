@@ -590,7 +590,7 @@ contains
     write(unit,'("CONVOLUTION")')
     write(unit,'(3X,"NUM_FILTERS = ",I0)') size(convolution,dim=1)
     write(unit,'(3X,"PADDING_TYPE = ",A)') padding_type
-    write(unit,'(3X,"ACTIVATION_FUNCTION = ",A)') transfer%name
+    write(unit,'(3X,"ACTIVATION_FUNCTION = ",A)') trim(transfer%name)
     write(unit,'(3X,"ACTIVATION_SCALE = ",F0.9)') transfer%scale
 
     write(fmt,'("(3X,""KERNEL_SIZE ="",",I0,"(1X,I0))")') num_layers
@@ -605,7 +605,7 @@ contains
     write(unit,'("WEIGHTS")')
     do l=1,num_layers
        write(unit,'(5(E16.8E2))', advance="no") convolution(l)%weight
-       write(unit,'(E15.8E2)') convolution(l)%bias
+       write(unit,'(E16.8E2)') convolution(l)%bias
     end do
     write(unit,'("END WEIGHTS")')
     write(unit,'("END CONVOLUTION")')
