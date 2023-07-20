@@ -97,16 +97,15 @@ contains
 
     integer :: l,i
 
-    
-    !!--------------------------------------------------------------------------
-    !! set defaults if not present
-    !!--------------------------------------------------------------------------
-    if(present(weight_initialiser))then
-       t_weight_initialiser = weight_initialiser
+
+    !!-----------------------------------------------------------------------
+    !! set learning parameters
+    !!-----------------------------------------------------------------------
+    if(present(learning_parameters))then
+       adaptive_parameters = learning_parameters
     else
-       t_weight_initialiser = "he_uniform"
+       adaptive_parameters%method = "none"
     end if
-    write(*,'("FC weight initialiser: ",A)') t_weight_initialiser
 
 
     !! if file, read in weights and biases
@@ -115,8 +114,8 @@ contains
        !!-----------------------------------------------------------------------
        !! read convolution layer data from file
        !!-----------------------------------------------------------------------
+       write(*,*) "Reading fully connected layers from "//trim(file)
        call read_file(file)
-       return
     elseif(present(num_layers).and.present(num_inputs).and.&
          present(num_hidden))then
        !!-----------------------------------------------------------------------
@@ -128,6 +127,20 @@ contains
           call random_setup(num_seed=1, restart=.false.)
        end if
 
+       !!-----------------------------------------------------------------------
+       !! set weight initialiser if not present
+       !!-----------------------------------------------------------------------
+       if(present(weight_initialiser))then
+          t_weight_initialiser = weight_initialiser
+       else
+          t_weight_initialiser = "he_uniform"
+       end if
+       write(*,'("FC weight initialiser: ",A)') t_weight_initialiser
+
+       !!-----------------------------------------------------------------------
+       !! determine initialisation method
+       !!-----------------------------------------------------------------------
+       weight_init = initialiser_setup(t_weight_initialiser)
 
        !!-----------------------------------------------------------------------
        !! randomly initialise convolution layers
@@ -142,54 +155,40 @@ contains
           end if
           
           do i=1,num_hidden(l)
-             allocate(network(l)%neuron(i)%weight(length))
-             call random_number(network(l)%neuron(i)%weight)
              allocate(network(l)%neuron(i)%weight_incr(length))
              network(l)%neuron(i)%weight_incr = 0._real12
 
-
-             !! determine initialisation method and initialise accordingly
+             !! initialise weights according to defined method
              !!-----------------------------------------------------------------
-             weight_init = initialiser_setup(t_weight_initialiser)
+             allocate(network(l)%neuron(i)%weight(length))
              call weight_init%initialise(network(l)%neuron(i)%weight, &
                   fan_in = size(network(l)%neuron(i)%weight,dim=1), &
                   fan_out = num_hidden(l))
-
           end do
 
        end do
+
+       !!-----------------------------------------------------------------------
+       !! set activation and derivative functions based on input name
+       !!-----------------------------------------------------------------------
+       if(present(activation_function))then
+          t_activation_function = activation_function
+       else
+          t_activation_function = "relu"
+       end if
+       if(present(activation_scale))then
+          scale = activation_scale
+       else
+          scale = 1._real12
+       end if
+       transfer = activation_setup(t_activation_function, scale)
+
     else
        write(0,*) "ERROR: Not enough optional arguments provided to initialse FC"
        write(0,*) "Either provide (file) or (num_layers, num_inputs, and num_hidden)"
        write(0,*) "... seed is also optional for the latter set)"
        write(0,*) "Exiting..."
        stop
-    end if
-
-    
-    !!-----------------------------------------------------------------------
-    !! set activation and derivative functions based on input name
-    !!-----------------------------------------------------------------------
-    if(present(activation_function))then
-       t_activation_function = activation_function
-    else
-       t_activation_function = "relu"
-    end if
-    if(present(activation_scale))then
-       scale = activation_scale
-    else
-       scale = 1._real12
-    end if
-    transfer = activation_setup(t_activation_function, scale)
- 
-
-    !!-----------------------------------------------------------------------
-    !! set learning parameters
-    !!-----------------------------------------------------------------------
-    if(present(learning_parameters))then
-       adaptive_parameters = learning_parameters
-    else
-       adaptive_parameters%method = "none"
     end if
 
 
@@ -315,16 +314,16 @@ contains
     implicit none
     character(*), intent(in) :: file
 
-    integer :: i, j, l, istart, istart_weights, itmp1
-    integer :: num_layers, num_inputs, num_columns
+    integer :: i, j, k, l, c, istart, istart_weights, itmp1
+    integer :: num_layers, num_inputs
     integer :: unit, stat
     real(real12) :: activation_scale
-    character(:), allocatable :: activation_function
-    character(:), allocatable :: padding_type
+    character(20) :: activation_function
     character(6) :: line_no
     character(1024) :: buffer, tag
     logical :: found, found_num_layers
     integer, allocatable, dimension(:) :: num_hidden
+    real(real12), allocatable, dimension(:) :: data_list
 
 
     found_num_layers = .false.
@@ -351,6 +350,7 @@ contains
 
        !! loop over tags in convolution card
        i = istart
+       istart_weights = 0
        tag_loop: do
           i = i + 1
 
@@ -362,9 +362,10 @@ contains
              stop
           end if
           found = .false.
+          if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
           !! check for end of card
-          if(trim(adjustl(buffer)).ne."END FULLYCONNECTED")then
+          if(trim(adjustl(buffer)).eq."END FULLYCONNECTED")then
              exit tag_loop
           end if
           
@@ -384,8 +385,8 @@ contains
                    read(unit,*)
                 end do
                 i = istart
-                 cycle tag_loop
              end if
+             cycle tag_loop
           case default
              if(.not.found_num_layers) cycle tag_loop
           end select
@@ -404,14 +405,23 @@ contains
              istart_weights = i
              cycle tag_loop
           case default
-             write(*,*) "Unrecognised line in cnn input file"
-             stop 0
+             if(scan(to_lower(trim(adjustl(buffer))),&
+                  'abcdfghijklmnopqrstuvwxyz').eq.0)then
+                cycle tag_loop
+             elseif(tag(:3).eq.'END')then
+                cycle tag_loop
+             end if
+             stop "Unrecognised line in cnn input file: "//trim(adjustl(buffer))
           end select
        end do tag_loop
 
        !! set transfer activation function
        transfer = activation_setup(activation_function, activation_scale)
 
+       !! check if WEIGHTS card was found
+       if(istart_weights.le.0)then
+          stop "WEIGHTS card in FULLYCONNECTED not found!"
+       end if
 
        !! rewind file to WEIGHTS tag
        rewind(unit)
@@ -419,30 +429,40 @@ contains
           read(unit,*)
        end do
        
-       num_columns = 5
        !! allocate layer and read weights and biases
+       num_inputs = num_inputs + 1 ! include bias in inputs
        do l=1,num_layers
           allocate(network(l)%neuron(num_hidden(l)))
           do i=1,num_hidden(l)
              allocate(network(l)%neuron(i)%weight(num_inputs))
              allocate(network(l)%neuron(i)%weight_incr(num_inputs))
              network(l)%neuron(i)%weight_incr = 0._real12
-             do j=1,ceiling(real(num_inputs)/real(num_columns))
-                read(unit,'(A)') buffer
-                itmp1 = icount(buffer)
-                read(buffer,*) &
-                     network(l)%neuron(i)%weight(&
-                     (j-1)*num_columns+1:(j-1)*num_columns+itmp1)
-             end do
+             network(l)%neuron(i)%weight = 0._real12
+
+             allocate(data_list(num_inputs))
+             data_list = 0._real12
+             c = 1
+             k = 1
+             data_concat_loop: do while(c.le.num_inputs)
+                read(unit,'(A)',iostat=stat) buffer
+                if(stat.ne.0) exit data_concat_loop
+                k = icount(buffer)
+                read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
+                c = c + k
+             end do data_concat_loop
+             network(l)%neuron(i)%weight = data_list
+             deallocate(data_list)
+
           end do
-          num_inputs = num_hidden(l)+1
+          num_inputs = num_hidden(l) + 1
        end do
 
        !! check for end of weights card
        read(unit,'(A)') buffer
        if(trim(adjustl(buffer)).ne."END WEIGHTS")then
           write(line_no,'(I0)') num_layers + istart_weights + 1
-          stop "ERROR: END WEIGHTS not where expected, line"//trim(line_no)
+          write(*,*) trim(adjustl(buffer))
+          stop "ERROR: END WEIGHTS not where expected, line "//trim(line_no)
        end if
        close(unit)
 
@@ -489,7 +509,7 @@ contains
     do l=1,num_layers
        num_weights = size(network(l)%neuron(1)%weight,dim=1)
        do i=1,num_hidden(l)
-          write(unit,'(2X,5(1X,E15.4))') network(l)%neuron(i)%weight(:num_weights)
+          write(unit,'(5(1X,E15.8E2))') network(l)%neuron(i)%weight(:num_weights)
        end do
     end do
     write(unit,'("END WEIGHTS")')

@@ -128,26 +128,15 @@ contains
     
 !!!! num_layers has taken over for output_channels (or cv_num_filters)
 
-    !!--------------------------------------------------------------------------
-    !! set defaults if not present
-    !!--------------------------------------------------------------------------
-    if(present(full_padding))then
-       t_full_padding = full_padding
+
+    !!-----------------------------------------------------------------------
+    !! set learning parameters
+    !!-----------------------------------------------------------------------
+    if(present(learning_parameters))then
+       adaptive_parameters = learning_parameters
     else
-       t_full_padding = .false.
+       adaptive_parameters%method = "none"
     end if
-    if(present(kernel_initialiser))then
-       t_kernel_initialiser = kernel_initialiser
-    else
-       t_kernel_initialiser = "he_uniform"
-    end if
-    if(present(bias_initialiser))then
-       t_bias_initialiser = bias_initialiser
-    else
-       t_bias_initialiser = "zeros"
-    end if
-    write(*,'("CV kernel initialiser: ",A)') t_kernel_initialiser
-    write(*,'("CV bias initialiser: ",A)')   t_bias_initialiser
 
 
     !! if file, read in weights and biases
@@ -156,9 +145,31 @@ contains
        !!-----------------------------------------------------------------------
        !! read convolution layer data from file
        !!-----------------------------------------------------------------------
+       write(*,*) "Reading convolutional layers from "//trim(file)
        call read_file(file)
-       return
     elseif(present(num_layers).and.present(kernel_size).and.present(stride))then
+       
+       !!-----------------------------------------------------------------------
+       !! set defaults if not present
+       !!-----------------------------------------------------------------------
+       if(present(full_padding))then
+          t_full_padding = full_padding
+       else
+          t_full_padding = .false.
+       end if
+       if(present(kernel_initialiser))then
+          t_kernel_initialiser = kernel_initialiser
+       else
+          t_kernel_initialiser = "he_uniform"
+       end if
+       if(present(bias_initialiser))then
+          t_bias_initialiser = bias_initialiser
+       else
+          t_bias_initialiser = "zeros"
+       end if
+       write(*,'("CV kernel initialiser: ",A)') t_kernel_initialiser
+       write(*,'("CV bias initialiser: ",A)')   t_bias_initialiser
+
        !!-----------------------------------------------------------------------
        !! initialise random seed
        !!-----------------------------------------------------------------------
@@ -167,6 +178,12 @@ contains
        else
           call random_setup(num_seed=1, restart=.false.)
        end if
+
+       !!-----------------------------------------------------------------------
+       !! determine initialisation method
+       !!-----------------------------------------------------------------------
+       kernel_init = initialiser_setup(t_kernel_initialiser)
+       bias_init = initialiser_setup(t_bias_initialiser)
 
        !!-----------------------------------------------------------------------
        !! randomly initialise convolution layers
@@ -181,6 +198,7 @@ contains
           convolution(l)%stride      = itmp2
           
           !! padding width
+          !!--------------------------------------------------------------------
           if(t_full_padding)then
              convolution(l)%pad  = itmp1 - 1
           else
@@ -188,25 +206,40 @@ contains
           end if
        
           !! odd or even kernel/filter size
+          !!--------------------------------------------------------------------
           convolution(l)%centre_width = 2 - mod(itmp1,2)
        
+          !! initialise delta_weight
+          !! ... (weight_incr, store of previous weight incremenet)
+          !!--------------------------------------------------------------------
           start_idx = -convolution(l)%pad
           end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
-          allocate(convolution(l)%weight(start_idx:end_idx,start_idx:end_idx))
-          call random_number(convolution(l)%bias)
-          call random_number(convolution(l)%weight)
           allocate(convolution(l)%weight_incr(start_idx:end_idx,start_idx:end_idx))
           convolution(l)%weight_incr(:,:) = 0._real12
 
-
-          !! determine initialisation method and initialise accordingly
+          !! initialise weights and biases according to defined method
           !!--------------------------------------------------------------------
-          kernel_init = initialiser_setup(t_kernel_initialiser)
+          allocate(convolution(l)%weight(start_idx:end_idx,start_idx:end_idx))
           call kernel_init%initialise(convolution(l)%weight, itmp1*itmp1+1, 1)
-          bias_init = initialiser_setup(t_bias_initialiser)
           call bias_init%initialise(convolution(l)%bias, itmp1*itmp1+1, 1)
 
        end do
+
+       !!-----------------------------------------------------------------------
+       !! set activation and derivative functions based on input name
+       !!-----------------------------------------------------------------------
+       if(present(activation_function))then
+          t_activation_function = activation_function
+       else
+          t_activation_function = "none"
+       end if
+       if(present(activation_scale))then
+          scale = activation_scale
+       else
+          scale = 1._real12
+       end if
+       transfer = activation_setup(t_activation_function, scale)
+
     else
        write(0,*) "ERROR: Not enough optional arguments provided to initialse CV"
        write(0,*) "Either provide (file) or (num_layers, kernel_size, and stride)"
@@ -220,32 +253,6 @@ contains
     !! get lower padding width
     !!-----------------------------------------------------------------------
     padding_lw = -maxval(convolution(:)%pad) + 1
-    
-
-    !!-----------------------------------------------------------------------
-    !! set activation and derivative functions based on input name
-    !!-----------------------------------------------------------------------
-    if(present(activation_function))then
-       t_activation_function = activation_function
-    else
-       t_activation_function = "none"
-    end if
-    if(present(activation_scale))then
-       scale = activation_scale
-    else
-       scale = 1._real12
-    end if
-    transfer = activation_setup(t_activation_function, scale)
- 
-
-    !!-----------------------------------------------------------------------
-    !! set learning parameters
-    !!-----------------------------------------------------------------------
-    if(present(learning_parameters))then
-       adaptive_parameters = learning_parameters
-    else
-       adaptive_parameters%method = "none"
-    end if
 
 
 
@@ -364,20 +371,22 @@ contains
 !!! read convolutional layer from save file
 !!!#############################################################################
   subroutine read_file(file)
-    use misc, only: to_lower
+    use misc, only: to_lower, icount
     use infile_tools, only: assign_val, assign_vec
     implicit none
     character(*), intent(in) :: file
 
-    integer :: i, j, l, istart, istart_weights, itmp1
-    integer :: start_idx, end_idx, num_filters
+    integer :: i, j, k, l, c, istart, istart_weights, itmp1
+    integer :: start_idx, end_idx, num_filters, num_inputs
     integer :: unit, stat
     real(real12) :: activation_scale
-    character(:), allocatable :: activation_function
-    character(:), allocatable :: padding_type
+    character(20) :: activation_function
+    character(20) :: padding_type
     character(6) :: line_no
     character(1024) :: buffer, tag
     logical :: found, found_num_filters
+    integer, allocatable, dimension(:) :: itmp_list
+    real(real12), allocatable, dimension(:) :: data_list
 
 
     found_num_filters = .false.
@@ -404,6 +413,7 @@ contains
 
        !! loop over tags in convolution card
        i = istart
+       istart_weights = 0
        tag_loop: do
           i = i + 1
 
@@ -415,9 +425,10 @@ contains
              stop
           end if
           found = .false.
+          if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
           !! check for end of convolution card
-          if(trim(adjustl(buffer)).ne."END CONVOLUTION")then
+          if(trim(adjustl(buffer)).eq."END CONVOLUTION")then
              exit tag_loop
           end if
           
@@ -431,13 +442,14 @@ contains
                 call assign_val(buffer, num_filters, itmp1)
                 found_num_filters = .true.
                 allocate(convolution(num_filters))
+                allocate(itmp_list(num_filters))
                 rewind(unit)
                 do j=1,istart
                    read(unit,*)
                 end do
                 i = istart
-                 cycle tag_loop
              end if
+             cycle tag_loop
           case default
              if(.not.found_num_filters) cycle tag_loop
           end select
@@ -452,22 +464,36 @@ contains
              call assign_val(buffer, padding_type, itmp1)
              padding_type = to_lower(padding_type)
           case("KERNEL_SIZE")
-             call assign_vec(buffer, convolution(:)%kernel_size, itmp1)
+             call assign_vec(buffer, itmp_list, itmp1)
+             convolution(:)%kernel_size = itmp_list
           case("STRIDE")
-             call assign_vec(buffer, convolution(:)%stride, itmp1)
-          case("BIAS")
-             call assign_vec(buffer, convolution(:)%bias, itmp1)
+             call assign_vec(buffer, itmp_list, itmp1)
+             convolution(:)%stride = itmp_list
+          !case("BIAS")
+          !   call assign_vec(buffer, convolution(:)%bias, itmp1)
           case("WEIGHTS")
              istart_weights = i
              cycle tag_loop
           case default
-             write(*,*) "Unrecognised line in cnn input file"
-             stop 0
+             !! don't look for "e" due to scientific notation of numbers
+             !! ... i.e. exponent (E+00)
+             if(scan(to_lower(trim(adjustl(buffer))),&
+                  'abcdfghijklmnopqrstuvwxyz').eq.0)then
+                cycle tag_loop
+             elseif(tag(:3).eq.'END')then
+                cycle tag_loop
+             end if
+             stop "Unrecognised line in cnn input file: "//trim(adjustl(buffer))
           end select
        end do tag_loop
 
        !! set transfer activation function
-       transfer = activation_setup(activation_function, activation_scale)
+       transfer = activation_setup(trim(activation_function), activation_scale)
+
+       !! check if WEIGHTS card was found
+       if(istart_weights.le.0)then
+          stop "WEIGHTS card in CONVOLUTION not found!"
+       end if
 
        !! rewind file to WEIGHTS tag
        rewind(unit)
@@ -478,9 +504,9 @@ contains
        !! allocate convolutional layer and read weights
        do l=1,num_filters
           !! padding width
-          if(padding_type.eq."full")then
-             convolution(l)%pad  = itmp1 - 1
-          elseif(padding_type.eq."none".or.padding_type.eq."valid")then
+          if(trim(padding_type).eq."full")then
+             convolution(l)%pad  = convolution(l)%kernel_size - 1
+          elseif(trim(padding_type).eq."none".or.padding_type.eq."valid")then
              convolution(l)%pad = 0
           else
              convolution(l)%pad = get_padding_half(convolution(l)%kernel_size)
@@ -493,15 +519,36 @@ contains
           allocate(convolution(l)%weight_incr(start_idx:end_idx,start_idx:end_idx))
           convolution(l)%bias_incr = 0._real12
           convolution(l)%weight_incr(:,:) = 0._real12
-          read(unit,'(A)') buffer
-          read(buffer,*) convolution(l)%weight
+          convolution(l)%bias = 0._real12
+          convolution(l)%weight = 0._real12
+
+          num_inputs = convolution(l)%kernel_size ** 2 + 1 !+1 for bias
+          allocate(data_list(num_inputs))
+
+          c = 1
+          k = 1
+          data_list = 0._real12
+          data_concat_loop: do while(c.le.num_inputs)
+             read(unit,'(A)',iostat=stat) buffer
+             if(stat.ne.0) exit data_concat_loop
+             k = icount(buffer)
+             read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
+             c = c + k
+          end do data_concat_loop
+          convolution(l)%weight(:,:) = &
+               reshape(&
+               data_list(1:num_inputs-1),&
+               shape(convolution(l)%weight(:,:)))
+          convolution(l)%bias = data_list(num_inputs)
+          deallocate(data_list)
        end do
 
        !! check for end of weights card
        read(unit,'(A)') buffer
        if(trim(adjustl(buffer)).ne."END WEIGHTS")then
           write(line_no,'(I0)') num_filters + istart_weights + 1
-          stop "ERROR: END WEIGHTS not where expected, line"//trim(line_no)
+          write(*,*) trim(adjustl(buffer))
+          stop "ERROR: END WEIGHTS not where expected, line "//trim(line_no)
        end if
        close(unit)
 
@@ -523,6 +570,17 @@ contains
     integer :: l
     integer :: unit
     character(128) :: fmt
+    character(:), allocatable :: padding_type
+
+    padding_type = ""
+    if(convolution(1)%pad.eq.convolution(1)%kernel_size-1)then
+       padding_type = "full"
+    elseif(convolution(1)%pad.eq.0)then
+       padding_type = "valid"
+    else
+       padding_type = "same"
+    end if
+       
 
     unit = 10
     
@@ -530,22 +588,24 @@ contains
 
     num_layers = size(convolution,dim=1)
     write(unit,'("CONVOLUTION")')
+    write(unit,'(3X,"NUM_FILTERS = ",I0)') size(convolution,dim=1)
+    write(unit,'(3X,"PADDING_TYPE = ",A)') padding_type
     write(unit,'(3X,"ACTIVATION_FUNCTION = ",A)') transfer%name
     write(unit,'(3X,"ACTIVATION_SCALE = ",F0.9)') transfer%scale
-    write(unit,'(3X,"NUM_LAYERS = ",I0)') size(convolution,dim=1)
 
-    write(fmt,'("(3X,""STRIDE ="",",I0,"(1X,I0))")') num_layers
+    write(fmt,'("(3X,""KERNEL_SIZE ="",",I0,"(1X,I0))")') num_layers
     write(unit,trim(fmt)) convolution(:)%kernel_size
 
     write(fmt,'("(3X,""STRIDE ="",",I0,"(1X,I0))")') num_layers
     write(unit,trim(fmt)) convolution(:)%stride
 
     write(fmt,'("(3X,""BIAS ="",",I0,"(1X,F0.9))")') num_layers
-    write(unit,trim(fmt)) convolution(:)%bias
+    !write(unit,trim(fmt)) convolution(:)%bias
 
     write(unit,'("WEIGHTS")')
     do l=1,num_layers
-       write(unit,*) convolution(l)%weight
+       write(unit,'(5(E16.8E2))', advance="no") convolution(l)%weight
+       write(unit,'(E15.8E2)') convolution(l)%bias
     end do
     write(unit,'("END WEIGHTS")')
     write(unit,'("END CONVOLUTION")')
