@@ -60,8 +60,9 @@ module inputs
   private
 
   public :: seed, verbosity, num_threads
-  public :: output_file, restart
+  public :: input_file, output_file, restart
   public :: shuffle_dataset, train_size
+  public :: batch_print_step
 
   public :: batch_learning
   public :: loss_threshold
