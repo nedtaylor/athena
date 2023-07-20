@@ -104,6 +104,8 @@ ifeq ($(findstring mp,$(MAKECMDGOALS)),mp)
 	NAME:=$(NAME)_mp
 endif
 ifeq ($(findstring memcheck,$(MAKECMDGOALS)),memcheck)
+	CFLAGS:=$(filter-out -fsanitize=address, $(CFLAGS))
+	CFLAGS:=$(filter-out -Og, $(CFLAGS))
 	CFLAGS+=-fsanitize=leak
 endif
 ifeq ($(findstring optim,$(MAKECMDGOALS)),optim)
