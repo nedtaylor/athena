@@ -177,7 +177,7 @@ contains
 !!! t = current iteration
 !!! m = first moment (m = mean of gradients)
 !!! v = second moment (v = variance of the gradients)
-  subroutine adam_optimiser(learning_rate, &
+  elemental subroutine adam_optimiser(learning_rate, &
        gradient, m, v, t, &
        beta1, beta2, epsilon)
     implicit none
@@ -211,12 +211,12 @@ contains
 !!!########################################################################
 !!! 
 !!!########################################################################
-subroutine update_weight(learning_rate, weight, weight_incr, &
+elemental subroutine update_weight(learning_rate, weight, weight_incr, &
      gradient, m, v, iteration, parameters)
   implicit none
   integer, intent(in) :: iteration
   real(real12), intent(in) :: learning_rate
-  real(real12), intent(out) :: weight
+  real(real12), intent(inout) :: weight
   real(real12), intent(inout) :: weight_incr
   real(real12), intent(inout) :: gradient, m, v
   type(learning_parameters_type), intent(in) :: parameters
@@ -224,41 +224,51 @@ subroutine update_weight(learning_rate, weight, weight_incr, &
   real(real12) :: t_learning_rate
   
 
-  t_learning_rate = learning_rate
-
   !! momentum-based learning
   if(parameters%method.eq.'momentum')then
      !! reversed weight applier to match keras, improves convergence
      !! w = w + vel - lr * g
-     weight_incr = t_learning_rate * gradient - &
+     weight_incr = learning_rate * gradient - &
           parameters%momentum * weight_incr
+  !! nesterov momentum
+  elseif(parameters%method.eq.'nesterov')then
+     weight_incr = - parameters%momentum * weight_incr - &
+          learning_rate * gradient
   !! adam optimiser
   elseif(parameters%method.eq.'adam')then
+     t_learning_rate = learning_rate
      call adam_optimiser(t_learning_rate, gradient, &
           m, v, iteration, &
           parameters%beta1, parameters%beta2, &
           parameters%epsilon)
      weight_incr = t_learning_rate
   else
-     weight_incr = t_learning_rate * gradient
+     weight_incr = learning_rate * gradient
   end if
 
-  !! L1L2 regularisation
-  if(parameters%regularisation.eq.'l1l2')then
-     weight_incr = weight_incr + learning_rate * ( &
-          parameters%l1 * sign(1._real12,weight) + &
-          parameters%l2 * weight )
-  !! L1 regularisation
-  elseif(parameters%regularisation.eq.'l1')then
-     weight_incr = weight_incr + learning_rate * &
-          parameters%l1 * sign(1._real12,weight)
-  !! L2 regularisation
-  elseif(parameters%regularisation.eq.'l2')then
-     weight_incr = weight_incr + learning_rate * &
-          parameters%l2 * weight
+  if(.not.parameters%regularisation.eq.'')then
+     !! L1L2 regularisation
+     if(parameters%regularisation.eq.'l1l2')then
+        weight_incr = weight_incr + learning_rate * ( &
+             parameters%l1 * sign(1._real12,weight) + &
+             parameters%l2 * weight )
+     !! L1 regularisation
+     elseif(parameters%regularisation.eq.'l1')then
+        weight_incr = weight_incr + learning_rate * &
+             parameters%l1 * sign(1._real12,weight)
+     !! L2 regularisation
+     elseif(parameters%regularisation.eq.'l2')then
+        weight_incr = weight_incr + learning_rate * &
+             parameters%l2 * weight
+     end if
   end if
 
-  weight = weight - weight_incr
+  if(parameters%method.eq.'nesterov')then
+     weight = weight + parameters%momentum * weight_incr - &
+          learning_rate * gradient
+  else
+     weight = weight - weight_incr
+  end if
 
 
 end subroutine update_weight

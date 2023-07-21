@@ -818,59 +818,24 @@ contains
        end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
        
        !! update the convolution layer weights using gradient descent
-       do y=start_idx,end_idx,1
-          do x=start_idx,end_idx,1
-             if(adaptive_parameters%method.eq.'none')then
-                convolution(l)%weight(x,y) = &
-                     convolution(l)%weight(x,y) - &
-                     learning_rate * gradients(l)%weight(x,y)
-             elseif(adaptive_parameters%method.eq.'adam')then
-                call update_weight(learning_rate,&
-                     convolution(l)%weight(x,y),&
-                     convolution(l)%weight_incr(x,y), &
-                     gradients(l)%weight(x,y), &
-                     gradients(l)%m(x,y), &
-                     gradients(l)%v(x,y), &
-                     iteration, &
-                     adaptive_parameters)
-             else
-                call update_weight(learning_rate,&
-                     convolution(l)%weight(x,y),&
-                     convolution(l)%weight_incr(x,y), &
-                     gradients(l)%weight(x,y), &
-                     rtmp1, &
-                     rtmp2, &
-                     iteration, &
-                     adaptive_parameters)
-             end if
-          end do
-       end do
+       !! update the convolution layer bias using gradient descent
+       call update_weight(learning_rate,&
+            convolution(l)%weight(:,:),&
+            convolution(l)%weight_incr(:,:), &
+            gradients(l)%weight(:,:), &
+            gradients(l)%m(:,:), &
+            gradients(l)%v(:,:), &
+            iteration, &
+            adaptive_parameters)
+       call update_weight(learning_rate,&
+            convolution(l)%bias,&
+            convolution(l)%bias_incr, &
+            gradients(l)%bias, &
+            rtmp1, &
+            rtmp2, &
+            iteration, &
+            adaptive_parameters)
 
-       !! update the convolution layer bias using gradient descent       
-       if(adaptive_parameters%method.eq.'none')then
-          convolution(l)%bias = &
-               convolution(l)%bias - &
-               learning_rate * gradients(l)%bias
-       elseif(adaptive_parameters%method.eq.'adam')then
-          call update_weight(learning_rate,&
-               convolution(l)%bias,&
-               convolution(l)%bias_incr, &
-               gradients(l)%bias, &
-               gradients(l)%bias_m, &
-               gradients(l)%bias_v, &
-               iteration, &
-               adaptive_parameters)
-       else
-          call update_weight(learning_rate,&
-               convolution(l)%bias,&
-               convolution(l)%bias_incr, &
-               gradients(l)%bias, &
-               rtmp1, &
-               rtmp2, &
-               iteration, &
-               adaptive_parameters)
-       end if
-       
        !! check for NaNs or infinite in weights
        if(any(isnan(convolution(l)%weight)).or.any(convolution(l)%weight.gt.huge(1.E0)))then
           write(0,*) "ERROR: weights in ConvolutionLayer has encountered NaN"
