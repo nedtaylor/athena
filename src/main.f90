@@ -80,6 +80,7 @@ program ConvolutionalNeuralNetwork
   integer :: num_batches, num_samples, num_samples_test
   integer :: epoch, batch, sample, start_index, end_index
   integer :: expected
+  integer, allocatable, dimension(:) :: batch_order
   type(fc_hidden_output_type), allocatable, dimension(:) :: fc_output
   real(real12), allocatable, dimension(:) :: fc_input, &!fc_output, &
        sm_output, sm_gradients
@@ -189,6 +190,10 @@ program ConvolutionalNeuralNetwork
         write(12,*) labels
      end if
   end if
+  allocate(batch_order(num_batches))
+  do batch = 1, num_batches
+     batch_order(batch) = batch
+  end do
 
 
 !!!-----------------------------------------------------------------------------
@@ -363,6 +368,13 @@ program ConvolutionalNeuralNetwork
   write(6,*) "Starting training..."
   epoch_loop: do epoch = 1, num_epochs
      !!-------------------------------------------------------------------------
+     !! shuffle batch order at the start of each epoch
+     !!-------------------------------------------------------------------------
+     if(shuffle_dataset)then
+        call shuffle(batch_order)
+     end if
+
+     !!-------------------------------------------------------------------------
      !! batch loop
      !! ... split data up into minibatches for training
      !!-------------------------------------------------------------------------
@@ -370,8 +382,8 @@ program ConvolutionalNeuralNetwork
 
         !! set batch start and end index
         !!----------------------------------------------------------------------
-        start_index = (batch - 1) * batch_size + 1
-        end_index = batch * batch_size
+        start_index = (batch_order(batch) - 1) * batch_size + 1
+        end_index = batch_order(batch) * batch_size
 #ifdef _OPENMP
         image_slice(:,:,:,:) = input_images(:,:,:,start_index:end_index)
         label_slice(:) = labels(start_index:end_index)

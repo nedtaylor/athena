@@ -51,7 +51,9 @@ module misc
   end interface swap
 
   interface shuffle
-     procedure shuffle_2Ddata, shuffle_3Ddata, shuffle_4Ddata, shuffle_4Ddata_1Dlist
+     procedure shuffle_1Dlist, &
+          shuffle_2Ddata, shuffle_3Ddata, shuffle_4Ddata, &
+          shuffle_4Ddata_1Dlist
   end interface shuffle
 
 !!!updated 2023/06/23
@@ -655,6 +657,31 @@ contains
 !!!#####################################################
 !!! shuffle an array along one dimension
 !!!#####################################################
+  subroutine shuffle_1Dlist(list,seed)
+    implicit none
+    integer :: iseed, istart, num_data
+    integer :: itmp1, i, j
+    real(real12) :: r
+    integer, optional, intent(in) :: seed
+    integer, dimension(:), intent(inout) :: list
+    
+    if(present(seed)) iseed = seed
+
+    num_data = size(list,dim=1)
+    call random_seed(iseed)
+    istart=1
+    do i=1,num_data
+       call random_number(r)
+       j = istart + floor((num_data+1-istart)*r)
+       if(i.eq.j) cycle
+       itmp1   = list(j)
+       list(j) = list(i)
+       list(i) = itmp1
+    end do
+
+  end subroutine shuffle_1Dlist
+!!!-----------------------------------------------------
+!!!-----------------------------------------------------
   subroutine shuffle_2Ddata(arr,dim,seed)
     implicit none
     integer :: iseed,istart
