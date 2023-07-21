@@ -702,14 +702,23 @@ contains
        num_neurons = size(network(l)%neuron, dim=1)
        do j=1,num_neurons
           !! update the weights and biases for layer l
-          call update_weight(learning_rate,&
-               network(l)%neuron(j)%weight(:),&
-               network(l)%neuron(j)%weight_incr(:), &
-               gradients(l)%weight(:,j), &
-               gradients(l)%m(:,j), &
-               gradients(l)%v(:,j), &
-               iteration, &
-               adaptive_parameters)
+          if(allocated(gradients(l)%m))then
+             call update_weight(learning_rate,&
+                  network(l)%neuron(j)%weight(:),&
+                  network(l)%neuron(j)%weight_incr(:), &
+                  gradients(l)%weight(:,j), &
+                  iteration, &
+                  adaptive_parameters, &
+                  gradients(l)%m(:,j), &
+                  gradients(l)%v(:,j))
+          else
+             call update_weight(learning_rate,&
+                  network(l)%neuron(j)%weight(:),&
+                  network(l)%neuron(j)%weight_incr(:), &
+                  gradients(l)%weight(:,j), &
+                  iteration, &
+                  adaptive_parameters)
+          end if
        end do
     end do
 

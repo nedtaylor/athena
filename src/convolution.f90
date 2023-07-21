@@ -801,23 +801,32 @@ contains
     !! update the convolution layer weights using gradient descent
     do l=1,num_layers
        !! update the convolution layer weights using gradient descent
-       call update_weight(learning_rate,&
-            convolution(l)%weight(:,:),&
-            convolution(l)%weight_incr(:,:), &
-            gradients(l)%weight(:,:), &
-            gradients(l)%m(:,:), &
-            gradients(l)%v(:,:), &
-            iteration, &
-            adaptive_parameters)
+       if(allocated(gradients(l)%m))then
+          call update_weight(learning_rate,&
+               convolution(l)%weight(:,:),&
+               convolution(l)%weight_incr(:,:), &
+               gradients(l)%weight(:,:), &
+               iteration, &
+               adaptive_parameters, &
+               gradients(l)%m(:,:), &
+               gradients(l)%v(:,:))
+       else
+          call update_weight(learning_rate,&
+               convolution(l)%weight(:,:),&
+               convolution(l)%weight_incr(:,:), &
+               gradients(l)%weight(:,:), &
+               iteration, &
+               adaptive_parameters)          
+       end if
        !! update the convolution layer bias using gradient descent
        call update_weight(learning_rate,&
             convolution(l)%bias,&
             convolution(l)%bias_incr, &
             gradients(l)%bias, &
-            gradients(l)%bias_m, &
-            gradients(l)%bias_v, &
             iteration, &
-            adaptive_parameters)
+            adaptive_parameters, &
+            gradients(l)%bias_m, &
+            gradients(l)%bias_v)
 
        !!! check if gradients total NaN
        !if(isnan(sum(gradients(l)%weight)).or.isnan(convolution(l)%bias))then

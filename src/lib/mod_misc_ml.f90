@@ -212,13 +212,14 @@ contains
 !!! 
 !!!########################################################################
 elemental subroutine update_weight(learning_rate, weight, weight_incr, &
-     gradient, m, v, iteration, parameters)
+     gradient, iteration, parameters, m, v)
   implicit none
   integer, intent(in) :: iteration
   real(real12), intent(in) :: learning_rate
   real(real12), intent(inout) :: weight
   real(real12), intent(inout) :: weight_incr
-  real(real12), intent(inout) :: gradient, m, v
+  real(real12), intent(inout) :: gradient
+  real(real12), optional, intent(inout) :: m, v
   type(learning_parameters_type), intent(in) :: parameters
 
   real(real12) :: t_learning_rate
