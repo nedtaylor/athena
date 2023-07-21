@@ -696,6 +696,7 @@ contains
     !! none  = normal (stochastic) gradient descent
     !! adam  = adaptive moment estimation (adam) adaptive learning
     !! momentum   = momentum-based learning
+    !! nesterov   = nesterov momentum-based learning
     !! step_decay = step decay
     !! reduce_lr_on_plateau = reduce learning rate when output metric plateaus
     if(trim(adaptive_learning).eq."")then
@@ -719,6 +720,16 @@ contains
        write(*,*) "Momentum-based adaptive learning method"
        if(abs(momentum).le.1.E-6_real12)then
           write(*,*) "ERROR: momentum adaptive learning set with momentum = 0"
+          write(*,*) "Please rerun with either a different adaptive method or &
+               &a larger momentum value"
+          stop "Exiting..."
+       end if
+       write(*,*) "momentum =",momentum
+       learning_parameters%momentum = momentum
+    case("nesterov")
+       write(*,*) "Nesterov momentum-based adaptive learning method"
+       if(abs(momentum).le.1.E-6_real12)then
+          write(*,*) "ERROR: nesterov adaptive learning set with momentum = 0"
           write(*,*) "Please rerun with either a different adaptive method or &
                &a larger momentum value"
           stop "Exiting..."
