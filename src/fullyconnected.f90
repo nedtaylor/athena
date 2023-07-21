@@ -15,6 +15,8 @@ module FullyConnectedLayer
 
   type hidden_output_type
      real(real12), allocatable, dimension(:) :: val
+     !contains
+     !  final :: hidden_output_type_destructor
   end type hidden_output_type
 
   type gradient_type
@@ -25,6 +27,7 @@ module FullyConnectedLayer
    contains
      procedure :: add_t_t => gradient_add  !t = type, r = real, i = int
      generic :: operator(+) => add_t_t !, public
+     !final :: gradient_type_destructor
   end type gradient_type
 
   type(network_type), allocatable, dimension(:) :: network
@@ -49,6 +52,22 @@ module FullyConnectedLayer
 
 
 contains
+
+  !subroutine hidden_output_type_destructor(this)
+  !  implicit none
+  !  type(hidden_output_type) :: this
+  !  if(allocated(this%val)) deallocate(this%val)
+  !end subroutine hidden_output_type_destructor
+  !
+  !subroutine gradient_type_destructor(this)
+  !  implicit none
+  !  type(gradient_type) :: this
+  !  
+  !  deallocate(this%delta)
+  !  deallocate(this%weight)
+  !  if(allocated(this%m)) deallocate(this%m)
+  !  if(allocated(this%v)) deallocate(this%v)
+  !end subroutine gradient_type_destructor
 
 !!!#############################################################################
 !!! custom operation for summing gradient_type
@@ -181,6 +200,7 @@ contains
        else
           scale = 1._real12
        end if
+       write(*,'("FC activation function: ",A)') trim(t_activation_function)
        transfer = activation_setup(t_activation_function, scale)
 
     else
@@ -543,7 +563,7 @@ contains
     !! generate outputs from weights, biases, and inputs
     do l=1,num_layers
        num_neurons=size(network(l)%neuron)
-       allocate(output(l)%val(num_neurons), source=0._real12)
+       allocate(output(l)%val(num_neurons))
        do j=1,num_neurons
           activation = activate(network(l)%neuron(j)%weight,new_input)
           output(l)%val(j) = transfer%activate(activation)
@@ -765,7 +785,7 @@ contains
     real(real12), optional, intent(in) :: clip_min, clip_max, clip_norm
     type(gradient_type), dimension(0:), intent(inout) :: gradients
 
-    integer :: j, k, l, num_layers, num_neurons
+    integer :: j, k, l, num_layers, num_neurons, num_inputs
     real(real12) :: norm
 
     num_layers = ubound(gradients,dim=1)
@@ -780,9 +800,10 @@ contains
        end do
     elseif(present(clip_min).and.present(clip_max))then
        do l=1,num_layers
-          num_neurons = size(gradients(l)%weight)
+          num_inputs  = size(gradients(l)%weight,dim=1)
+          num_neurons = size(gradients(l)%weight,dim=2)
           do j=1,num_neurons
-             do k=1,size(gradients(l)%weight,dim=1)
+             do k=1,num_inputs
                 gradients(l)%weight(k,j) = &
                      max(clip_min,min(clip_max,gradients(l)%weight(k,j)))
              end do

@@ -55,6 +55,19 @@ module inputs
   real(real12) :: train_size  ! fraction of data to train on (NOT YET USED) 
   logical :: shuffle_dataset  ! shuffle train and test data
   
+  type metric_dict_type
+     character(10) :: key
+     real(real12) :: val
+     logical :: active
+     real(real12) :: threshold
+     real(real12), allocatable, dimension(:) :: history
+   contains
+     procedure :: check => metric_dict_check
+     procedure :: add_t_t => metric_dict_add  !t = type, r = real, i = int
+     generic :: operator(+) => add_t_t !, public
+  end type metric_dict_type
+  type(metric_dict_type), dimension(2) :: metric_dict
+
 
 
   private
@@ -65,9 +78,9 @@ module inputs
   public :: batch_print_step
 
   public :: batch_learning
-  public :: loss_threshold
   public :: plateau_threshold
   public :: loss_method
+  public :: metric_dict, metric_dict_type, metric_dict_alloc
 
   public :: learning_rate, l1_lambda, l2_lambda
   public :: num_epochs, batch_size
@@ -100,6 +113,85 @@ module inputs
 
 
 contains
+
+!!!#############################################################################
+!!! custom operation for summing metric_dict_type
+!!!#############################################################################
+  elemental function metric_dict_add(a, b) result(output)
+    implicit none
+    class(metric_dict_type), intent(in) :: a,b
+    type(metric_dict_type) :: output
+    
+    output%key = a%key
+    output%val = a%val + b%val
+    output%threshold = a%threshold
+    output%active = a%active
+    if(allocated(a%history)) output%history = a%history
+
+  end function metric_dict_add
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! custom operation for allocating metric_dict_type
+!!!#############################################################################
+  subroutine metric_dict_alloc(input, source, length)
+    implicit none
+    type(metric_dict_type), dimension(:), intent(out) :: input
+    type(metric_dict_type), dimension(:), optional, intent(in) :: source
+    integer, optional, intent(in) :: length
+    integer :: i
+    
+    if(present(length))then
+       do i=1,size(input,dim=1)
+          allocate(input(i)%history(length))
+       end do
+    else
+       do i=1,size(input,dim=1)
+          input(i)%key = source(i)%key
+          allocate(input(i)%history(size(source(i)%history,dim=1)))
+          input(i)%threshold = source(i)%threshold
+       end do
+    end if
+
+  end subroutine metric_dict_alloc
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! custom operation for checking metric convergence
+!!!#############################################################################
+  subroutine metric_dict_check(this,plateau_threshold,converged)
+    implicit none
+    class(metric_dict_type), intent(inout) :: this
+    real(real12), intent(in) :: plateau_threshold
+    integer, intent(out) :: converged
+    
+    converged = 0
+    if(this%active)then
+       this%history = cshift(this%history, shift=-1, dim=1)
+       this%history(1) = this%val
+       if(&
+            (trim(this%key).eq."loss".and.&
+            abs(sum(this%history))/size(this%history,dim=1).lt.this%threshold).or.&
+            (trim(this%key).eq."accuracy".and.&
+            abs(sum(1._real12-this%history))/size(this%history,dim=1).lt.this%threshold) )then
+          write(6,*) "Convergence achieved, "//trim(this%key)//" threshold reached"
+          write(6,*) "Exiting training loop"
+          converged = 1
+       elseif(all(abs(this%history-this%val).lt.plateau_threshold))then        
+          write(0,'("ERROR: ",A," has remained constant for ",I0," runs")') &
+               trim(this%key), size(this%history,dim=1)
+          write(0,*) this%history
+          write(0,*) "Exiting..."
+          converged = -1
+       end if
+    end if
+
+  end subroutine metric_dict_check
+!!!#############################################################################
+
+
 !!!#############################################################################
   subroutine set_global_vars()
     implicit none
@@ -123,7 +215,11 @@ contains
     verbosity = 1
     num_threads = 1
 
-    loss_threshold = 1.E-1_real12
+    metric_dict%active = .false.
+    metric_dict(1)%key = "loss"
+    metric_dict(2)%key = "accuracy"
+    metric_dict%threshold = 1.E-1_real12
+
     plateau_threshold = 1.E-3_real12
     shuffle_dataset = .false.
     batch_learning = .true.
@@ -273,7 +369,7 @@ contains
   subroutine read_input_file(file_name)
     !use infile_tools, only: assign_val, assing_vec, rm_comments
     implicit none
-    integer :: Reason,unit
+    integer :: Reason, unit, i
     character(128) :: message
     
     integer :: num_filters
@@ -284,6 +380,11 @@ contains
 
     real(real12) :: momentum, beta1, beta2, epsilon
     character(512) :: hidden_layers
+
+    integer :: num_metrics
+    real(real12), dimension(2) :: threshold
+    character(100) :: metrics
+    character(10), allocatable, dimension(:) :: metric_list
 
     character(4)  :: loss
     character(9)  :: dropout
@@ -308,11 +409,11 @@ contains
          input_file, output_file, restart, &
          batch_print_step!, dir
     namelist /training/ num_epochs, batch_size, &
-         plateau_threshold, loss_threshold, &
+         plateau_threshold, threshold, &
          learning_rate, momentum, l1_lambda, l2_lambda, &
          shuffle_dataset, batch_learning, adaptive_learning, &
          beta1, beta2, epsilon, loss, &
-         regularisation
+         regularisation, metrics
     namelist /convolution/ num_filters, kernel_size, stride, &
          clip_min, clip_max, clip_norm, convolution_type, padding_type, &
          dropout, block_size, keep_prob, activation_function, activation_scale, &
@@ -362,6 +463,7 @@ contains
     beta1 = 0.9_real12
     beta2 = 0.999_real12
     epsilon = 1.E-8_real12
+    metrics = 'accuracy'
 !!! ADD weight_decay (L2 penalty for AdamW)
 
     read(unit,NML=training,iostat=Reason,iomsg=message)
@@ -381,6 +483,21 @@ contains
     !! mse = mean square error
     !! nll = negative log likelihood
     loss_method = to_lower(trim(loss))
+    num_metrics = icount(metrics)
+    allocate(metric_list(num_metrics))
+    read(metrics,*) metric_list
+    do i=1,num_metrics,1
+       where(trim(metric_list(i)).eq.metric_dict%key)
+          metric_dict%active = .true.
+          metric_dict%threshold = threshold(i)
+       end where
+    end do
+    do i=1,size(metric_dict,dim=1)
+       if(metric_dict(i)%active) &
+            write(*,'("Metric: ",A,", threshold: ",E10.3E2)') &
+            trim(metric_dict(i)%key), metric_dict(i)%threshold
+    end do
+    
 
 
 !!!-----------------------------------------------------------------------------
@@ -690,8 +807,16 @@ contains
     character(*), intent(in) :: min_str, max_str, norm_str
     type(clip_type), intent(inout) :: clip
 
-    if(trim(min_str).ne."") read(min_str,*) clip%min
-    if(trim(max_str).ne."") read(max_str,*) clip%max
+    if(trim(min_str).ne."")then
+       read(min_str,*) clip%min
+    else
+       clip%min = -huge(1._real12)
+    end if
+    if(trim(max_str).ne."")then
+       read(max_str,*) clip%max
+    else
+       clip%max = huge(1._real12)
+    end if
 
     if(trim(min_str).ne."".or.trim(max_str).ne."")then
        clip%l_min_max = .true.

@@ -947,8 +947,8 @@ contains
        end do
     elseif(present(clip_min).and.present(clip_max))then
        do l=1,num_layers
-          do j=lbound(gradients(l)%weight,dim=2),ubound(gradients(l)%weight,dim=2)
-             do i=lbound(gradients(l)%weight,dim=1),ubound(gradients(l)%weight,dim=1)
+          do j=lbound(gradients(l)%weight,dim=2),ubound(gradients(l)%weight,dim=2),1
+             do i=lbound(gradients(l)%weight,dim=1),ubound(gradients(l)%weight,dim=1),1
                 gradients(l)%weight(i,j) = &
                   max(clip_min,min(clip_max,gradients(l)%weight(i,j)))
              end do
