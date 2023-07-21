@@ -724,6 +724,7 @@ contains
           stop "Exiting..."
        end if
        write(*,*) "momentum =",momentum
+       learning_parameters%momentum = momentum
     case("adam")
        write(*,*) "Adam-based adaptive learning method"
        write(*,*) "beta1 =", beta1
