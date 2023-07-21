@@ -50,14 +50,15 @@ program ConvolutionalNeuralNetwork
 
   !! training and testing monitoring
   integer :: predicted_old, predicted_new
-  real(real12) :: accuracy, sum_accuracy, sum_loss, overall_loss
+  real(real12) :: sum_loss, sum_accuracy, accuracy
   real(real12) :: exploding_check, exploding_check_old
   logical :: repetitive_predicting
-  real(real12), allocatable, dimension(:) :: loss_history
   !class(loss_type), pointer :: get_loss
   procedure(compute_loss_function), pointer :: compute_loss
 
   !! learning parameters
+  integer :: converged
+  integer :: history_length
   integer :: update_iteration
 
   !! data loading and preoprocessing
@@ -116,6 +117,8 @@ program ConvolutionalNeuralNetwork
   !$omp& initializer(fc_gradient_alloc(omp_priv, omp_orig, .false.))
   !$omp declare reduction(compare_val:integer:compare_val(omp_out,omp_in)) &
   !$omp& initializer(omp_priv = omp_orig)
+!  !$omp declare reduction(+:metric_dict_type:omp_out = omp_out + omp_in) &
+!  !$omp& initializer(metric_dict_alloc(omp_priv, omp_orig))
 
 
 !!!-----------------------------------------------------------------------------
@@ -151,14 +154,11 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
 !!! initialise monitoring variables
 !!!-----------------------------------------------------------------------------
-  if(batch_size.lt.50)then
-     allocate(loss_history(100))
-  elseif(batch_size.lt.num_samples.and.batch_size.lt.500)then
-     allocate(loss_history(2*batch_size))
-  else
-     allocate(loss_history(min(num_samples,100)))
-  end if
-  loss_history = -huge(1._real12)
+  history_length = max(ceiling(500._real12/batch_size),1)
+  call metric_dict_alloc(metric_dict, length=history_length)
+  do i=1,size(metric_dict,dim=1)
+     metric_dict(i)%history = -huge(1._real12)
+  end do
   if(batch_learning)then
      exploding_check = 0._real12
      exploding_check_old = 0._real12
@@ -408,8 +408,9 @@ program ConvolutionalNeuralNetwork
 
         !! reinitialise variables
         !!----------------------------------------------------------------------
-        sum_loss = 0._real12
+        metric_dict%val = 0._real12
         sum_accuracy = 0._real12
+        sum_loss = 0._real12
         predicted_old = -1
         predicted_new = -1
         repetitive_predicting = .true.
@@ -444,7 +445,8 @@ program ConvolutionalNeuralNetwork
         !$OMP& PRIVATE(rtmp1, expected, exploding_check_old) &
         !$OMP& REDUCTION(compare_val:predicted_new) &
         !$OMP& REDUCTION(.and.: repetitive_predicting) &
-        !$OMP& REDUCTION(+:sum_loss,sum_accuracy,exploding_check) &
+        !$OMP& REDUCTION(+:exploding_check) &
+        !$OMP& REDUCTION(+:sum_loss,sum_accuracy) &
         !$OMP& REDUCTION(cv_grad_sum:comb_cv_gradients) &
         !$OMP& REDUCTION(fc_grad_sum:comb_fc_gradients)
        train_loop: do sample = start_index, end_index
@@ -535,8 +537,10 @@ program ConvolutionalNeuralNetwork
 #else
            expected = labels(sample)
 #endif
-           sum_loss = sum_loss + compute_loss(predicted=sm_output, expected=expected)
-           sum_accuracy = sum_accuracy + compute_accuracy(sm_output, expected)
+           sum_loss = sum_loss + &
+                compute_loss(predicted=sm_output, expected=expected)
+           sum_accuracy = sum_accuracy + &
+                compute_accuracy(sm_output, expected)
 
 
            !! check that isn't just predicting same value every time
@@ -615,35 +619,25 @@ program ConvolutionalNeuralNetwork
 
 
 
-        !! Average accuracy and loss over batch size and store
+        !! Average metric over batch size and store
         !!----------------------------------------------------------------------
-        sum_loss = sum_loss / batch_size
-        loss_history = cshift(loss_history, shift=-1, dim=1)
-        loss_history(1) = sum_loss
-        sum_accuracy = sum_accuracy / batch_size
+        metric_dict(1)%val = sum_loss / batch_size
+        metric_dict(2)%val = sum_accuracy / batch_size
 
 
-        !! Check loss convergence
+        !! Check metric convergence
         !!----------------------------------------------------------------------
-        if(abs(sum(loss_history)).lt.loss_threshold)then
-           write(6,*) "Convergence achieved, accuracy threshold reached"
-           write(6,*) "Exiting training loop"
-           exit epoch_loop
-        elseif(all(abs(loss_history-sum_loss).lt.plateau_threshold))then
-           !write(0,*) "sm_output", sm_output
-           !write(0,*) "sm_grad", sm_gradients
-           !write(0,*) "comv_fc_gradients", comb_fc_gradients(1)%val          
-           write(0,*) "ERROR: loss has remained constant for 10 runs"
-           write(0,*) loss_history
-           write(0,*) "Exiting..."
-           stop
-           exit epoch_loop
-        end if
+        do i=1,size(metric_dict,dim=1)
+           call metric_dict(i)%check(plateau_threshold, converged)
+           if(converged.ne.0)then
+              exit epoch_loop
+           end if
+        end do
 
 
         !! Error checking and handling
         !!----------------------------------------------------------------------
-        if(abs(1._real12-sum_accuracy).gt.1.E-3_real12)then !!! HAVE THIS TIED TO BATCH SIZE
+        if(abs(1._real12-metric_dict(2)%val).gt.1.E-3_real12)then
            do l=1,fc_num_layers
               if(batch_learning)then
                  if(all(abs(comb_fc_gradients(l)%weight).lt.1.E-8_real12))then
@@ -701,7 +695,7 @@ program ConvolutionalNeuralNetwork
              (batch.eq.1.or.mod(batch,batch_print_step).eq.0.E0))then
            write(6,'("epoch=",I0,", batch=",I0,&
                 &", learning_rate=",F0.3,", loss=",F0.3,", accuracy=",F0.3)') &
-                epoch, batch, learning_rate, sum_loss, sum_accuracy
+                epoch, batch, learning_rate, metric_dict(1)%val, metric_dict(2)%val
         end if
 
 
@@ -732,7 +726,7 @@ program ConvolutionalNeuralNetwork
         !!if(mod(epoch,20).eq.0.E0) &
         write(6,'("epoch=",I0,", batch=",I0,&
              &", learning_rate=",F0.3,", loss=",F0.3,", accuracy=",F0.3)') &
-             epoch, batch, learning_rate, sum_loss, sum_accuracy
+             epoch, batch, learning_rate, metric_dict(1)%val, metric_dict(2)%val
      end if
 
 
@@ -757,8 +751,7 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
 !!! CAN PARALLELISE THIS SECTION AS THEY ARE INDEPENDENT
   write(*,*) "Starting testing..."
-  sum_accuracy = 0._real12
-  sum_loss = 0._real12
+  metric_dict%val = 0._real12
   test_loop: do sample = 1, num_samples_test
 
      call cv_forward(test_images(:,:,:,sample), cv_output)
@@ -779,9 +772,11 @@ program ConvolutionalNeuralNetwork
      !! compute loss and accuracy (for monitoring)
      !!-------------------------------------------------------------------------
      expected = test_labels(sample)
-     sum_loss = sum_loss + compute_loss(predicted=sm_output, expected=expected)     
+     metric_dict(1)%val = metric_dict(1)%val + &
+          compute_loss(predicted=sm_output, expected=expected)     
      accuracy = compute_accuracy(sm_output, expected)
-     sum_accuracy = sum_accuracy + accuracy
+     metric_dict(2)%val = metric_dict(2)%val + &
+          accuracy
 
 
      !! print testing results
@@ -799,9 +794,8 @@ program ConvolutionalNeuralNetwork
   if(verbosity.gt.1) close(15)
   write(*,*) "Testing finished"
 
-  overall_loss = real(sum_loss)/real(num_samples_test)
-  write(6,'("Overall accuracy=",F0.5)') sum_accuracy/real(num_samples_test)
-  write(6,'("Overall loss=",F0.5)') sum_loss/real(num_samples_test)
+  write(6,'("Overall accuracy=",F0.5)') metric_dict(2)%val/real(num_samples_test)
+  write(6,'("Overall loss=",F0.5)')     metric_dict(1)%val/real(num_samples_test)
 
 
 
