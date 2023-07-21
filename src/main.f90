@@ -86,7 +86,7 @@ program ConvolutionalNeuralNetwork
   real(real12), allocatable, dimension(:) :: fc_input, &!fc_output, &
        sm_output, sm_gradients
   real(real12), allocatable, dimension(:,:,:) :: cv_output, pl_output, &
-       pl_gradients, fc_gradients_rs
+       pl_gradients
 
   type(cv_gradient_type), allocatable, dimension(:) :: cv_gradients, comb_cv_gradients
   type(fc_gradient_type), allocatable, dimension(:) :: fc_gradients, &
@@ -303,8 +303,6 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
   allocate(fc_input(input_size))
   fc_input = 0._real12
-  allocate(fc_gradients_rs,mold=pl_output)
-  fc_gradients_rs = 0._real12
 
   select case(learning_parameters%method)
   case("adam")
@@ -440,7 +438,7 @@ program ConvolutionalNeuralNetwork
         !$OMP& PRIVATE(fc_gradients, cv_gradients) &
         !$OMP& PRIVATE(cv_output) &
         !$OMP& PRIVATE(pl_output, pl_gradients) &
-        !$OMP& PRIVATE(fc_input, fc_output, fc_gradients_rs) &
+        !$OMP& PRIVATE(fc_input, fc_output) &
         !$OMP& PRIVATE(sm_output, sm_gradients) &
         !$OMP& PRIVATE(expected) &
         !$OMP& REDUCTION(compare_val:predicted_new) &
@@ -556,9 +554,8 @@ program ConvolutionalNeuralNetwork
            !!-------------------------------------------------------------------
            call sm_backward(sm_output, expected, sm_gradients)
            call fc_backward(fc_input, fc_output, sm_gradients, fc_gradients)
-           fc_gradients_rs = reshape(fc_gradients(0)%delta,&
-                shape(fc_gradients_rs))
-           call pl_backward(cv_output, fc_gradients_rs, pl_gradients)
+           call pl_backward(cv_output, reshape(fc_gradients(0)%delta,&
+                shape(pl_output)), pl_gradients)
 #ifdef _OPENMP
            call cv_backward(image_slice(:,:,:,sample), pl_gradients, &
                 cv_gradients)
@@ -694,16 +691,17 @@ program ConvolutionalNeuralNetwork
                 epoch, batch, learning_rate, metric_dict(1)%val, metric_dict(2)%val
         end if
 
-!!!!!! TESTING
-!!!        if(batch.gt.200) stop "THIS IS FOR TESTING PURPOSES"
-!!!!!!
+!!! TESTING
+        if(batch.gt.200) stop "THIS IS FOR TESTING PURPOSES"
+!!!
 
         !! time check
         !!----------------------------------------------------------------------
         if(verbosity.eq.-2)then
            time_old = time
            call system_clock(time)
-           write(6,'("time check: ",I0," seconds")') (time-time_old)/clock_rate
+           !write(*,'("time check: ",I0," seconds")') (time-time_old)/clock_rate
+           write(*,'("time check: ",F5.3," seconds")') real(time-time_old)/clock_rate
            time_old = time
         end if
 
