@@ -680,12 +680,11 @@ contains
 !!!#############################################################################
 !!! backward propagation pass
 !!!#############################################################################
-  subroutine backward(input, output_gradients, input_gradients, clip)
+  subroutine backward(input, output_gradients, input_gradients)
     implicit none
     real(real12), dimension(padding_lw:,padding_lw:,:), intent(in) :: input
     real(real12), dimension(:,:,:), intent(in) :: output_gradients
     type(gradient_type), dimension(:), intent(inout) :: input_gradients
-    type(clip_type), optional, intent(in) :: clip
 
     integer :: input_channels, ichannel, num_layers
     integer :: input_lbound, input_ubound
@@ -773,16 +772,6 @@ contains
        end do
     end do
 
-
-    !! apply gradient clipping
-    if(present(clip))then
-       if(clip%l_min_max) call gradient_clip(input_gradients,&
-            clip_min=clip%min,clip_max=clip%max)
-       if(clip%l_norm) call gradient_clip(input_gradients,&
-            clip_norm=clip%norm)
-    end if
-    
-
   end subroutine backward
 !!!#############################################################################
   
@@ -790,18 +779,26 @@ contains
 !!!#############################################################################
 !!! update weights and biases according to gradient
 !!!#############################################################################
-  subroutine update_weights_and_biases(learning_rate, gradients, iteration)
+  subroutine update_weights_and_biases(learning_rate, gradients, clip, iteration)
     implicit none
     real(real12), intent(in) :: learning_rate
     type(gradient_type), dimension(:), intent(inout) :: gradients
     integer, optional, intent(inout) :: iteration
+    type(clip_type), optional, intent(in) :: clip
 
     integer :: l,x,y
     integer :: num_layers
     integer :: start_idx, end_idx
     real(real12) :: rtmp1, rtmp2
 
-
+    !! apply gradient clipping
+    if(present(clip))then
+       if(clip%l_min_max) call gradient_clip(gradients,&
+            clip_min=clip%min,clip_max=clip%max)
+       if(clip%l_norm) call gradient_clip(gradients,&
+            clip_norm=clip%norm)
+    end if
+    
     !! initialise constants
     num_layers = size(convolution, dim=1)
 
@@ -933,6 +930,7 @@ contains
     integer :: i,j,l, num_layers
     real(real12) :: norm
 
+    !! clipping is not applied to deltas
     num_layers = size(convolution, dim=1)
     if(present(clip_norm))then
        do l=1,num_layers

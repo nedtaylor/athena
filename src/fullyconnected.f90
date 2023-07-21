@@ -48,7 +48,6 @@ module FullyConnectedLayer
   public :: initialise, forward, backward
   public :: update_weights_and_biases
   public :: write_file
-  public :: normalise_delta_batch, reset_delta_batch
 
 
 contains
@@ -585,13 +584,12 @@ contains
 !!! method : gradient descent
 !!!#############################################################################
 !!! https://brilliant.org/wiki/backpropagation/
-  subroutine backward(input, output, expected, input_gradients, clip)
+  subroutine backward(input, output, expected, input_gradients)
     implicit none
     real(real12), dimension(:), intent(in) :: input
     type(hidden_output_type), allocatable, dimension(:), intent(in) :: output
     real(real12), dimension(:), intent(in) :: expected !is this just output_gradients?
     type(gradient_type), dimension(0:), intent(inout) :: input_gradients
-    type(clip_type), optional, intent(in) :: clip
     
     integer :: j, k, l
     integer :: num_layers
@@ -673,14 +671,6 @@ contains
 
     end do
 
-    !! apply gradient clipping
-    if(present(clip))then
-       if(clip%l_min_max) call gradient_clip(input_gradients,&
-            clip_min=clip%min,clip_max=clip%max)
-       if(clip%l_norm) call gradient_clip(input_gradients,&
-            clip_norm=clip%norm)
-    end if
-
   end subroutine backward
 !!!#############################################################################
 
@@ -689,17 +679,26 @@ contains
 !!! update the weights based on how much error the node ...
 !!! ... is responsible for
 !!!#############################################################################
-  subroutine update_weights_and_biases(learning_rate, gradients, iteration)
+  subroutine update_weights_and_biases(learning_rate, gradients, clip, iteration)
     implicit none
     integer, optional, intent(inout) :: iteration
     real(real12), intent(in) :: learning_rate
     type(gradient_type), dimension(0:), intent(inout) :: gradients
+    type(clip_type), optional, intent(in) :: clip
     
     integer :: j,k,l
     integer :: num_layers, num_neurons, num_inputs
     real(real12) :: weight_incr, rtmp1, rtmp2
     real(real12), allocatable, dimension(:) :: new_input
 
+
+    !! apply gradient clipping
+    if(present(clip))then
+       if(clip%l_min_max) call gradient_clip(gradients,&
+            clip_min=clip%min,clip_max=clip%max)
+       if(clip%l_norm) call gradient_clip(gradients,&
+            clip_norm=clip%norm)
+    end if
     
     !! initialise constants
     num_layers=size(network,dim=1)
@@ -747,37 +746,6 @@ contains
 
 
 !!!#############################################################################
-!!! 
-!!!#############################################################################
-  subroutine normalise_delta_batch(batch_size)
-    implicit none
-    integer :: l
-    integer, intent(in) :: batch_size
-
-    do l=1,size(network,dim=1)
-       network(l)%neuron(:)%delta_batch = network(l)%neuron(:)%delta_batch/batch_size
-    end do
-
-  end subroutine normalise_delta_batch
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! 
-!!!#############################################################################
-  subroutine reset_delta_batch()
-    implicit none
-    integer :: l
-
-    do l=1,size(network,dim=1)
-       network(l)%neuron(:)%delta_batch = 0._real12
-    end do
-
-  end subroutine reset_delta_batch
-!!!#############################################################################
-
-
-!!!#############################################################################
 !!! gradient clipping
 !!!#############################################################################
   subroutine gradient_clip(gradients,clip_min,clip_max,clip_norm)
@@ -788,14 +756,15 @@ contains
     integer :: j, k, l, num_layers, num_neurons, num_inputs
     real(real12) :: norm
 
+    !! clipping is not applied to deltas
     num_layers = ubound(gradients,dim=1)
     if(present(clip_norm))then
+       gradients(l)%delta = gradients(l)%delta  * clip_norm/norm
        do l=1,num_layers
           norm = norm2(gradients(l)%weight(:,:))
           if(norm.gt.clip_norm)then
              gradients(l)%weight = &
                   gradients(l)%weight * clip_norm/norm
-             !gradients(l)%delta = gradients(l)%delta  * clip_norm/norm
           end if
        end do
     elseif(present(clip_min).and.present(clip_max))then
@@ -807,8 +776,6 @@ contains
                 gradients(l)%weight(k,j) = &
                      max(clip_min,min(clip_max,gradients(l)%weight(k,j)))
              end do
-             !gradients(l)%delta(j) = &
-             !     max(clip_min,min(clip_max,gradients(l)%delta(j)))
           end do
        end do
     end if

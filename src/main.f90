@@ -428,7 +428,7 @@ program ConvolutionalNeuralNetwork
         !$OMP& SHARED(start_index, end_index) &
         !$OMP& SHARED(image_slice, label_slice) &
         !$OMP& SHARED(input_size, batch_size, pool_normalisation) &
-        !$OMP& SHARED(fc_clip, cv_clip, batch_learning) &
+        !$OMP& SHARED(batch_learning) &
         !$OMP& SHARED(fc_num_layers,cv_num_filters) &
         !$OMP& SHARED(cv_keep_prob, seed, cv_block_size, output_channels) &
         !$OMP& SHARED(cv_dropout_method) &
@@ -556,16 +556,16 @@ program ConvolutionalNeuralNetwork
            !! Backward pass
            !!-------------------------------------------------------------------
            call sm_backward(sm_output, expected, sm_gradients)
-           call fc_backward(fc_input, fc_output, sm_gradients, fc_gradients, fc_clip)
+           call fc_backward(fc_input, fc_output, sm_gradients, fc_gradients)
            fc_gradients_rs = reshape(fc_gradients(0)%delta,&
                 shape(fc_gradients_rs))
            call pl_backward(cv_output, fc_gradients_rs, pl_gradients)
 #ifdef _OPENMP
            call cv_backward(image_slice(:,:,:,sample), pl_gradients, &
-                cv_gradients, cv_clip)
+                cv_gradients)
 #else
            call cv_backward(input_images(:,:,:,sample), pl_gradients, &
-                cv_gradients, cv_clip)
+                cv_gradients)
 #endif
            
 
@@ -684,8 +684,8 @@ program ConvolutionalNeuralNetwork
            do l=1,fc_num_layers
               comb_fc_gradients(l)%weight = comb_fc_gradients(l)%weight/batch_size
            end do
-           call cv_update(learning_rate, comb_cv_gradients, update_iteration)
-           call fc_update(learning_rate, comb_fc_gradients, update_iteration)
+           call cv_update(learning_rate, comb_cv_gradients, cv_clip, update_iteration)
+           call fc_update(learning_rate, comb_fc_gradients, fc_clip, update_iteration)
         end if
 
 
