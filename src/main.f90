@@ -427,9 +427,9 @@ program ConvolutionalNeuralNetwork
         !$OMP& SHARED(network, convolution) &
         !$OMP& SHARED(start_index, end_index) &
         !$OMP& SHARED(image_slice, label_slice) &
-        !$OMP& SHARED(input_size, batch_size, pool_normalisation) &
+        !$OMP& SHARED(input_size, pool_normalisation) &
         !$OMP& SHARED(batch_learning) &
-        !$OMP& SHARED(fc_num_layers,cv_num_filters) &
+        !$OMP& SHARED(fc_num_layers) &
         !$OMP& SHARED(cv_keep_prob, seed, cv_block_size, output_channels) &
         !$OMP& SHARED(cv_dropout_method) &
         !$OMP& SHARED(compute_loss) &
@@ -442,7 +442,7 @@ program ConvolutionalNeuralNetwork
         !$OMP& PRIVATE(pl_output, pl_gradients) &
         !$OMP& PRIVATE(fc_input, fc_output, fc_gradients_rs) &
         !$OMP& PRIVATE(sm_output, sm_gradients) &
-        !$OMP& PRIVATE(rtmp1, expected, exploding_check_old) &
+        !$OMP& PRIVATE(expected) &
         !$OMP& REDUCTION(compare_val:predicted_new) &
         !$OMP& REDUCTION(.and.: repetitive_predicting) &
         !$OMP& REDUCTION(+:exploding_check) &
@@ -497,7 +497,6 @@ program ConvolutionalNeuralNetwork
            end select
            call fc_forward(fc_input, fc_output)
            call sm_forward(fc_output(fc_num_layers)%val, sm_output)
-           !write(*,*) sm_output
  
   
            !! check for NaN and infinity
@@ -513,7 +512,7 @@ program ConvolutionalNeuralNetwork
            else
 #ifdef _OPENMP
               stop "ERROR: non-batch learning not yet parallelised"
-#endif
+#else
               exploding_check_old = exploding_check
               exploding_check = sum(fc_output(fc_num_layers)%val)
               !exploding_check=mean(fc_output)/exploding_check
@@ -527,6 +526,7 @@ program ConvolutionalNeuralNetwork
                  write(0,*) "check:", sample,exploding_check,exploding_check_old
                  write(0,*) "outputs:", fc_output(fc_num_layers)%val
               end if
+#endif
            end if
 
            
@@ -550,7 +550,6 @@ program ConvolutionalNeuralNetwork
               repetitive_predicting = predicted_old.eq.predicted_new
            end if
            predicted_old = predicted_new
-           !write(0,'(I0,2X,I0,2X,10(1X,F5.3))') expected, predicted_new, sm_output
 
 
            !! Backward pass
@@ -580,13 +579,9 @@ program ConvolutionalNeuralNetwork
               comb_fc_gradients = comb_fc_gradients + fc_gradients
 #ifndef _OPENMP
            else
-              !call fc_gradient_check(fc_gradients, fc_input)
-              !write(*,*)
-              !write(*,*)
-              !call cv_gradient_check(cv_gradients, input_images(:,:,:,sample))
-              !stop
               call cv_update(learning_rate, cv_gradients, update_iteration)
               call fc_update(learning_rate, fc_gradients, update_iteration)
+              update_iteration = update_iteration + 1
 #endif
            end if
 
@@ -686,6 +681,7 @@ program ConvolutionalNeuralNetwork
            end do
            call cv_update(learning_rate, comb_cv_gradients, cv_clip, update_iteration)
            call fc_update(learning_rate, comb_fc_gradients, fc_clip, update_iteration)
+           update_iteration = update_iteration + 1
         end if
 
 
@@ -698,6 +694,9 @@ program ConvolutionalNeuralNetwork
                 epoch, batch, learning_rate, metric_dict(1)%val, metric_dict(2)%val
         end if
 
+!!!!!! TESTING
+!!!        if(batch.gt.200) stop "THIS IS FOR TESTING PURPOSES"
+!!!!!!
 
         !! time check
         !!----------------------------------------------------------------------

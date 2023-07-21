@@ -549,29 +549,26 @@ contains
 
     integer :: j, l
     integer :: num_layers, num_neurons
-    real(real12) :: activation
     real(real12), allocatable, dimension(:) :: new_input
 
     !! initialise ouput (and temporary input) arrays
-    allocate(new_input(size(input)))
-    new_input = input
+    allocate(new_input, source=input)
     num_layers = size(network,dim=1)
     if(allocated(output)) deallocate(output)
     allocate(output(num_layers))
 
     !! generate outputs from weights, biases, and inputs
     do l=1,num_layers
-       num_neurons=size(network(l)%neuron)
+       num_neurons=size(network(l)%neuron,dim=1)
        allocate(output(l)%val(num_neurons))
        do j=1,num_neurons
-          activation = activate(network(l)%neuron(j)%weight,new_input)
-          output(l)%val(j) = transfer%activate(activation)
+          output(l)%val(j) = transfer%activate(&
+               activate(network(l)%neuron(j)%weight,new_input))
        end do
 
        deallocate(new_input)
        if(l.lt.num_layers)then
-          allocate(new_input(num_neurons))
-          new_input = output(l)%val(:)
+          allocate(new_input, source=output(l)%val(:))
        end if
     end do
 
@@ -595,7 +592,7 @@ contains
     integer :: num_layers
     integer :: num_neurons
     real(real12), allocatable, dimension(:) :: new_input
-    !type(error_type), dimension(size(network,dim=1)) :: delta !!error
+
 
     !!! Initialise input_gradients to zero
     input_gradients(0)%delta = 0._real12
@@ -608,7 +605,6 @@ contains
        !if(allocated(input_gradients(l)%m)) input_gradients(l)%m = 0._real12
        !if(allocated(input_gradients(l)%v)) input_gradients(l)%v = 0._real12
     end do
-
 
     !! loop through the layers in reverse
     do l=num_layers,0,-1
@@ -647,11 +643,9 @@ contains
        else
           !! define the input to the neuron
           if(l.eq.1)then
-             allocate(new_input(size(input,1)))
-             new_input = input
+             allocate(new_input, source=input)
           else
-             allocate(new_input(size(network(l-1)%neuron(:),1)))
-             new_input = output(l-1)%val
+             allocate(new_input, source=output(l-1)%val)
           end if
           do j=1,num_neurons
              !! activation already calculated and equals the output
@@ -681,14 +675,14 @@ contains
 !!!#############################################################################
   subroutine update_weights_and_biases(learning_rate, gradients, clip, iteration)
     implicit none
-    integer, optional, intent(inout) :: iteration
+    integer, optional, intent(in) :: iteration
     real(real12), intent(in) :: learning_rate
     type(gradient_type), dimension(0:), intent(inout) :: gradients
     type(clip_type), optional, intent(in) :: clip
     
-    integer :: j,k,l
-    integer :: num_layers, num_neurons, num_inputs
-    real(real12) :: weight_incr, rtmp1, rtmp2
+    integer :: j,l
+    integer :: num_layers, num_neurons
+    real(real12) :: weight_incr
     real(real12), allocatable, dimension(:) :: new_input
 
 
@@ -705,9 +699,8 @@ contains
 
     !! loop through the layers in reverse
     do l=1,num_layers,1
-       num_inputs  = size(network(l)%neuron(1)%weight, dim=1)
        num_neurons = size(network(l)%neuron, dim=1)
-       do j=1,size(network(l)%neuron)
+       do j=1,num_neurons
           !! update the weights and biases for layer l
           call update_weight(learning_rate,&
                network(l)%neuron(j)%weight(:),&
@@ -719,9 +712,6 @@ contains
                adaptive_parameters)
        end do
     end do
-
-    if(present(iteration)) iteration = iteration + 1
-
 
   end subroutine update_weights_and_biases
 !!!#############################################################################

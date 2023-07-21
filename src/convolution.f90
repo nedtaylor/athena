@@ -635,15 +635,14 @@ contains
     integer :: i, j, l, m, ichannel, istride, jstride
     integer :: start_idx, end_idx
 
+
     !! get size of the input and output feature maps
     num_layers = size(convolution, dim=1)
-    input_channels = size(input, 3)
-    output_size = size(output, 1)
-
+    input_channels = size(input, dim=3)
+    output_size = size(output, dim=1)
 
     !! Perform the convolution operation
     ichannel = 0
-    output = 0._real12
     do l=1,num_layers
        start_idx = -convolution(l)%pad
        end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
@@ -657,15 +656,13 @@ contains
              do i=1,output_size
                 istride = (i-1)*convolution(l)%stride + 1
 
-                output(i,j,ichannel) = convolution(l)%bias + &
+                output(i,j,ichannel) = transfer%activate(convolution(l)%bias + &
                      sum( &                
                      input(&
                      istride+start_idx:istride+end_idx,&
                      jstride+start_idx:jstride+end_idx,m) * &
                      convolution(l)%weight &
-                )
-
-                output(i,j,ichannel) = transfer%activate(output(i,j,ichannel))
+                ))
 
              end do
           end do
@@ -783,13 +780,12 @@ contains
     implicit none
     real(real12), intent(in) :: learning_rate
     type(gradient_type), dimension(:), intent(inout) :: gradients
-    integer, optional, intent(inout) :: iteration
+    integer, optional, intent(in) :: iteration
     type(clip_type), optional, intent(in) :: clip
 
-    integer :: l,x,y
+    integer :: l
     integer :: num_layers
-    integer :: start_idx, end_idx
-    real(real12) :: rtmp1, rtmp2
+
 
     !! apply gradient clipping
     if(present(clip))then
@@ -802,23 +798,9 @@ contains
     !! initialise constants
     num_layers = size(convolution, dim=1)
 
-    !! check if gradients total NaN
-    do l=1,num_layers
-       if(isnan(sum(gradients(l)%weight)).or.isnan(gradients(l)%bias))then
-          write(*,*) gradients(l)%weight
-          write(*,*) gradients(l)%bias
-          write(0,*) "gradients nan in CV"
-          stop
-       end if
-    end do
-
     !! update the convolution layer weights using gradient descent
     do l=1,num_layers
-       start_idx = -convolution(l)%pad
-       end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
-       
        !! update the convolution layer weights using gradient descent
-       !! update the convolution layer bias using gradient descent
        call update_weight(learning_rate,&
             convolution(l)%weight(:,:),&
             convolution(l)%weight_incr(:,:), &
@@ -827,31 +809,26 @@ contains
             gradients(l)%v(:,:), &
             iteration, &
             adaptive_parameters)
+       !! update the convolution layer bias using gradient descent
        call update_weight(learning_rate,&
             convolution(l)%bias,&
             convolution(l)%bias_incr, &
             gradients(l)%bias, &
-            rtmp1, &
-            rtmp2, &
+            gradients(l)%bias_m, &
+            gradients(l)%bias_v, &
             iteration, &
             adaptive_parameters)
 
-       !! check for NaNs or infinite in weights
-       if(any(isnan(convolution(l)%weight)).or.any(convolution(l)%weight.gt.huge(1.E0)))then
-          write(0,*) "ERROR: weights in ConvolutionLayer has encountered NaN"
-          write(0,*) "Layer:",l
-          write(0,*) convolution(l)%weight
-          write(0,*) "Exiting..."
-          stop
-       end if
-
-
-       !! check for NaNs or infinite in bias
-       if(isnan(convolution(l)%bias).or.convolution(l)%bias.gt.huge(1.E0))then
-          write(0,*) "ERROR: biases in ConvolutionLayer has encountered NaN"
-          write(0,*) "Exiting..."
-          stop
-       end if
+       !!! check if gradients total NaN
+       !if(isnan(sum(gradients(l)%weight)).or.isnan(convolution(l)%bias))then
+       !   write(*,*) gradients(l)%weight
+       !   write(*,*) gradients(l)%bias
+       !   write(0,*) "ERROR: weights or biases in ConvolutionLayer has encountered NaN"
+       !   write(0,*) "Layer:",l
+       !   write(0,*) convolution(l)%weight, convolution(l)%bias
+       !   write(0,*) "Exiting..."
+       !   stop
+       !end if
 
     end do
 
