@@ -228,7 +228,9 @@ subroutine update_weight(learning_rate, weight, weight_incr, &
 
   !! momentum-based learning
   if(parameters%method.eq.'momentum')then
-     weight_incr = t_learning_rate * gradient + &
+     !! reversed weight applier to match keras, improves convergence
+     !! w = w + vel - lr * g
+     weight_incr = t_learning_rate * gradient - &
           parameters%momentum * weight_incr
   !! adam optimiser
   elseif(parameters%method.eq.'adam')then
