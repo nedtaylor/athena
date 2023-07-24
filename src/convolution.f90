@@ -5,12 +5,8 @@
 !!!#############################################################################
 module ConvolutionLayer
   use constants, only: real12
-  use random, only: random_setup
   use custom_types, only: clip_type, convolution_type, activation_type, &
        initialiser_type, learning_parameters_type
-  use misc_ml, only: get_padding_half, update_weight
-  use activation,  only: activation_setup
-  use initialiser, only: initialiser_setup
   implicit none
 
 
@@ -110,6 +106,10 @@ contains
        learning_parameters, file, &
        full_padding, activation_function, activation_scale, &
        kernel_initialiser, bias_initialiser)
+    use random, only: random_setup
+    use misc_ml, only: get_padding_half
+    use activation,  only: activation_setup
+    use initialiser, only: initialiser_setup
     implicit none
     integer, intent(in), optional :: seed
     integer, intent(in), optional :: num_layers
@@ -379,6 +379,8 @@ contains
   subroutine read_file(file)
     use misc, only: to_lower, icount
     use infile_tools, only: assign_val, assign_vec
+    use misc_ml, only: get_padding_half
+    use activation,  only: activation_setup
     implicit none
     character(*), intent(in) :: file
 
@@ -630,20 +632,21 @@ contains
     real(real12), dimension(padding_lw:,padding_lw:,:), intent(in) :: input
     real(real12), dimension(:,:,:), intent(out) :: output
 
-    integer :: input_channels, num_layers
+    integer :: input_channels
     integer :: output_size
     integer :: i, j, l, m, ichannel, istride, jstride
     integer :: start_idx, end_idx
 
 
     !! get size of the input and output feature maps
-    num_layers = size(convolution, dim=1)
     input_channels = size(input, dim=3)
     output_size = size(output, dim=1)
 
+    !! 0 seconds
+
     !! Perform the convolution operation
     ichannel = 0
-    do l=1,num_layers
+    do l=1,size(convolution, dim=1)
        start_idx = -convolution(l)%pad
        end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
        do m=1,input_channels
@@ -655,7 +658,7 @@ contains
              jstride = (j-1)*convolution(l)%stride + 1
              do i=1,output_size
                 istride = (i-1)*convolution(l)%stride + 1
-
+          
                 output(i,j,ichannel) = transfer%activate(convolution(l)%bias + &
                      sum( &                
                      input(&
@@ -663,7 +666,7 @@ contains
                      jstride+start_idx:jstride+end_idx,m) * &
                      convolution(l)%weight &
                 ))
-
+          
              end do
           end do
 
@@ -683,7 +686,7 @@ contains
     real(real12), dimension(:,:,:), intent(in) :: output_gradients
     type(gradient_type), dimension(:), intent(inout) :: input_gradients
 
-    integer :: input_channels, ichannel, num_layers
+    integer :: input_channels, ichannel
     integer :: input_lbound, input_ubound
     integer :: l, m, i, j, x, y
     integer :: istride, jstride
@@ -694,33 +697,30 @@ contains
 
 
     !! get size of the input and output feature maps
-    num_layers = size(convolution, dim=1)
     input_channels = size(input, dim=3)
     output_size = size(output_gradients, dim=1)
     input_lbound = lbound(input, dim=1)
     input_ubound = ubound(input, dim=1)
     bias_diff = transfer%differentiate(1._real12)
 
-    !! Initialise input_gradients to zero
-    do l=1,num_layers
-       input_gradients(l)%delta = 0._real12
-       input_gradients(l)%weight = 0._real12
-       input_gradients(l)%bias = 0._real12
-    end do
+    !! 1 second
 
     !! Perform the convolution operation
     ichannel = 0
-    do l=1,num_layers
+    do l=1,size(convolution, dim=1)
+       input_gradients(l)%delta = 0._real12
+       input_gradients(l)%weight = 0._real12
+       input_gradients(l)%bias = 0._real12
        start_idx = -convolution(l)%pad
        end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
        up_idx = input_ubound - convolution(l)%kernel_size + 1 - start_idx
-
+       
        do m=1,input_channels
           ichannel = ichannel + 1
-
+       
           !! https://www.jefkine.com/general/2016/09/05/backpropagation-in-convolutional-neural-networks/
           !!https://www.youtube.com/watch?v=pUCCd2-17vI
-
+       
           !! apply full convolution to compute input gradients
           i_input_loop: do j=1,output_size
              j_start = max(1,j+start_idx)
@@ -734,7 +734,7 @@ contains
                 x_start = max(1-i,-end_idx)!max(1-i,start_idx)
                 x_end   = min(output_size-i,-start_idx)!min(output_size-i,end_idx)
                 istride = (i-1)*convolution(l)%stride + 1
-
+       
                 input_gradients(l)%delta(istride,jstride) = &
                      input_gradients(l)%delta(istride,jstride) + &
                      sum( &
@@ -745,10 +745,10 @@ contains
                      ) * &
                      transfer%differentiate(input(istride,jstride,m))
                 
-
+       
              end do j_input_loop
           end do i_input_loop
-
+       
           !! apply convolution to compute weight gradients
           y_weight_loop: do y=start_idx,end_idx,1
              x_weight_loop: do x=start_idx,end_idx,1
@@ -759,13 +759,13 @@ contains
                      y+1:up_idx+y:convolution(l)%stride,m))
              end do x_weight_loop
           end do y_weight_loop
-
+       
           !! compute gradients for bias
           !! https://stackoverflow.com/questions/58036461/how-do-you-calculate-the-gradient-of-bias-in-a-conolutional-neural-networo
           !! https://saturncloud.io/blog/how-to-calculate-the-gradient-of-bias-in-a-convolutional-neural-network/
           input_gradients(l)%bias = input_gradients(l)%bias + &
                sum(output_gradients(:,:,ichannel)) * bias_diff
-
+       
        end do
     end do
 
@@ -777,6 +777,7 @@ contains
 !!! update weights and biases according to gradient
 !!!#############################################################################
   subroutine update_weights_and_biases(learning_rate, gradients, clip, iteration)
+    use misc_ml, only: update_weight
     implicit none
     real(real12), intent(in) :: learning_rate
     type(gradient_type), dimension(:), intent(inout) :: gradients
@@ -784,7 +785,6 @@ contains
     type(clip_type), optional, intent(in) :: clip
 
     integer :: l
-    integer :: num_layers
 
 
     !! apply gradient clipping
@@ -795,11 +795,10 @@ contains
             clip_norm=clip%norm)
     end if
     
-    !! initialise constants
-    num_layers = size(convolution, dim=1)
+    !! 0 seconds
 
     !! update the convolution layer weights using gradient descent
-    do l=1,num_layers
+    do l=1,size(convolution, dim=1)
        !! update the convolution layer weights using gradient descent
        if(allocated(gradients(l)%m))then
           call update_weight(learning_rate,&

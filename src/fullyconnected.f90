@@ -5,12 +5,8 @@
 !!!#############################################################################
 module FullyConnectedLayer
   use constants, only: real12
-  use random, only: random_setup
-  use misc_ml, only: update_weight
   use custom_types, only: network_type, clip_type, activation_type, &
        initialiser_type, learning_parameters_type
-  use activation,  only: activation_setup
-  use initialiser, only: initialiser_setup
   implicit none
 
   type hidden_output_type
@@ -97,6 +93,9 @@ contains
   subroutine initialise(seed, num_layers, num_inputs, num_hidden, &
        activation_function, activation_scale, learning_parameters, file, &
        weight_initialiser)
+    use random, only: random_setup
+    use activation,  only: activation_setup
+    use initialiser, only: initialiser_setup
     implicit none
     integer, optional, intent(in) :: seed
     integer, optional, intent(in):: num_layers, num_inputs
@@ -330,6 +329,7 @@ contains
   subroutine read_file(file)
     use misc, only: to_lower, icount
     use infile_tools, only: assign_val, assign_vec
+    use activation,  only: activation_setup
     implicit none
     character(*), intent(in) :: file
 
@@ -545,27 +545,25 @@ contains
   subroutine forward(input, output)
     implicit none
     real(real12), dimension(:), intent(in) :: input
-    type(hidden_output_type), allocatable, dimension(:), intent(out) :: output
+    type(hidden_output_type), dimension(:), intent(inout) :: output
 
     integer :: j, l
-    integer :: num_layers, num_neurons
+    integer :: num_layers
     real(real12), allocatable, dimension(:) :: new_input
 
     !! initialise ouput (and temporary input) arrays
     allocate(new_input, source=input)
     num_layers = size(network,dim=1)
-    if(allocated(output)) deallocate(output)
-    allocate(output(num_layers))
+
+    !! 5-6 seconds
 
     !! generate outputs from weights, biases, and inputs
     do l=1,num_layers
-       num_neurons=size(network(l)%neuron,dim=1)
-       allocate(output(l)%val(num_neurons))
-       do j=1,num_neurons
+       do j=1,size(network(l)%neuron,dim=1)!num_neurons
           output(l)%val(j) = transfer%activate(&
                activate(network(l)%neuron(j)%weight,new_input))
        end do
-
+       
        deallocate(new_input)
        if(l.lt.num_layers)then
           allocate(new_input, source=output(l)%val(:))
@@ -584,27 +582,20 @@ contains
   subroutine backward(input, output, expected, input_gradients)
     implicit none
     real(real12), dimension(:), intent(in) :: input
-    type(hidden_output_type), allocatable, dimension(:), intent(in) :: output
+    type(hidden_output_type), dimension(:), intent(in) :: output
     real(real12), dimension(:), intent(in) :: expected !is this just output_gradients?
     type(gradient_type), dimension(0:), intent(inout) :: input_gradients
     
     integer :: j, k, l
     integer :: num_layers
-    integer :: num_neurons
+    integer :: num_neurons, num_neurons_child
     real(real12), allocatable, dimension(:) :: new_input
 
 
     !!! Initialise input_gradients to zero
-    input_gradients(0)%delta = 0._real12
     num_layers = size(network,dim=1)
-    do l=1,num_layers
-       input_gradients(l)%weight = 0._real12
-       input_gradients(l)%delta = 0._real12
-       !! if adams optimiser, then initialise these so as not to interfere ...
-       !! ... with the combined one
-       !if(allocated(input_gradients(l)%m)) input_gradients(l)%m = 0._real12
-       !if(allocated(input_gradients(l)%v)) input_gradients(l)%v = 0._real12
-    end do
+
+    !! 2 seconds
 
     !! loop through the layers in reverse
     do l=num_layers,0,-1
@@ -619,10 +610,12 @@ contains
        if (l.eq.num_layers)then
           input_gradients(l)%delta(:) = expected
        else
+          num_neurons_child = size(network(l+1)%neuron,dim=1)
           do j=1,num_neurons
+             input_gradients(l)%delta(j) = 0._real12
              !! the errors are summed from the delta of the ...
              !! ... 'child' node * 'child' weight
-             do k=1,size(network(l+1)%neuron,dim=1)
+             do k=1,num_neurons_child
                 input_gradients(l)%delta(j) = input_gradients(l)%delta(j) + &
                      ( network(l+1)%neuron(k)%weight(j) * &
                      input_gradients(l+1)%delta(k) )
@@ -674,6 +667,7 @@ contains
 !!! ... is responsible for
 !!!#############################################################################
   subroutine update_weights_and_biases(learning_rate, gradients, clip, iteration)
+    use misc_ml, only: update_weight
     implicit none
     integer, optional, intent(in) :: iteration
     real(real12), intent(in) :: learning_rate
@@ -681,7 +675,7 @@ contains
     type(clip_type), optional, intent(in) :: clip
     
     integer :: j,l
-    integer :: num_layers, num_neurons
+    integer :: num_layers
     real(real12) :: weight_incr
     real(real12), allocatable, dimension(:) :: new_input
 
@@ -697,10 +691,11 @@ contains
     !! initialise constants
     num_layers=size(network,dim=1)
 
+    !! 4 seconds
+
     !! loop through the layers in reverse
     do l=1,num_layers,1
-       num_neurons = size(network(l)%neuron, dim=1)
-       do j=1,num_neurons
+       do j=1,size(network(l)%neuron, dim=1)
           !! update the weights and biases for layer l
           if(allocated(gradients(l)%m))then
              call update_weight(learning_rate,&
@@ -772,17 +767,15 @@ contains
 !!!#############################################################################
   function activate(weights, inputs) result(activation)
     implicit none
-    integer :: i, num_weights
+    integer :: num_weights
     real(real12), dimension(:), intent(in) :: weights
     real(real12), dimension(:), intent(in) :: inputs
     real(real12) :: activation
     
     num_weights = size(weights,dim=1)
-    activation = weights(num_weights) !! starts with the bias
+    !! starts with the bias
     !! then adds all of the weights multiplied by their respective inputs
-    do i=1,num_weights-1
-       activation = activation + weights(i) * inputs(i)
-    end do
+    activation = weights(num_weights) + dot_product(weights(:num_weights-1),inputs(:num_weights-1))
        
   end function activate
 !!!#############################################################################
