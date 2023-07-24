@@ -11,12 +11,12 @@ module initialiser_lecun
 
   type, extends(initialiser_type) :: lecun_uniform_type
    contains
-     procedure :: initialise => lecun_uniform_initialise
+     procedure, pass(this) :: initialise => lecun_uniform_initialise
   end type lecun_uniform_type
   type(lecun_uniform_type) :: lecun_uniform
   type, extends(initialiser_type) :: lecun_normal_type
    contains
-     procedure :: initialise => lecun_normal_initialise
+     procedure, pass(this) :: initialise => lecun_normal_initialise
   end type lecun_normal_type
   type(lecun_normal_type) :: lecun_normal
 

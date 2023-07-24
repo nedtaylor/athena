@@ -11,12 +11,12 @@ module initialiser_glorot
 
   type, extends(initialiser_type) :: glorot_uniform_type
    contains
-     procedure :: initialise => glorot_uniform_initialise
+     procedure, pass(this) :: initialise => glorot_uniform_initialise
   end type glorot_uniform_type
   type(glorot_uniform_type) :: glorot_uniform
   type, extends(initialiser_type) :: glorot_normal_type
    contains
-     procedure :: initialise => glorot_normal_initialise
+     procedure, pass(this) :: initialise => glorot_normal_initialise
   end type glorot_normal_type
   type(glorot_normal_type) :: glorot_normal
 

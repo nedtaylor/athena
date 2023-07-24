@@ -11,12 +11,12 @@ module initialiser_he
 
   type, extends(initialiser_type) :: he_uniform_type
    contains
-     procedure :: initialise => he_uniform_initialise
+     procedure, pass(this) :: initialise => he_uniform_initialise
   end type he_uniform_type
   type(he_uniform_type) :: he_uniform
   type, extends(initialiser_type) :: he_normal_type
    contains
-     procedure :: initialise => he_normal_initialise
+     procedure, pass(this) :: initialise => he_normal_initialise
   end type he_normal_type
   type(he_normal_type) :: he_normal
 

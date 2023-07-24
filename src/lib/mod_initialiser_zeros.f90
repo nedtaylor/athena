@@ -11,7 +11,7 @@ module initialiser_zeros
 
   type, extends(initialiser_type) :: zeros_type
    contains
-     procedure :: initialise => zeros_initialise
+     procedure, pass(this) :: initialise => zeros_initialise
   end type zeros_type
   type(zeros_type) :: zeros
 
