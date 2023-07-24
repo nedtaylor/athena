@@ -4,8 +4,6 @@ module misc_ml
   implicit none
 
 
-  
-
   private
 
   public :: get_padding_half
@@ -224,44 +222,47 @@ elemental subroutine update_weight(learning_rate, weight, weight_incr, &
 
   real(real12) :: t_learning_rate
   
-
-  !! momentum-based learning
-  if(parameters%method.eq.'momentum')then
+  !! adaptive learning method
+  select case(parameters%method(1:1))
+  case('m')!'momentum')
+     !! momentum-based learning
      !! reversed weight applier to match keras, improves convergence
      !! w = w + vel - lr * g
      weight_incr = learning_rate * gradient - &
           parameters%momentum * weight_incr
-  !! nesterov momentum
-  elseif(parameters%method.eq.'nesterov')then
+  case('n')!('nesterov')
+     !! nesterov momentum
      weight_incr = - parameters%momentum * weight_incr - &
           learning_rate * gradient
-  !! adam optimiser
-  elseif(parameters%method.eq.'adam')then
+  case('a')!('adam')
+     !! adam optimiser
      t_learning_rate = learning_rate
      call adam_optimiser(t_learning_rate, gradient, &
           m, v, iteration, &
           parameters%beta1, parameters%beta2, &
           parameters%epsilon)
      weight_incr = t_learning_rate
-  else
+  case default
      weight_incr = learning_rate * gradient
-  end if
-
-  if(.not.parameters%regularisation.eq.'')then
-     !! L1L2 regularisation
-     if(parameters%regularisation.eq.'l1l2')then
+  end select
+  
+  !! regularisation
+  if(parameters%regularise)then
+     select case(parameters%regularisation)
+     case('l1l2')
+        !! L1L2 regularisation
         weight_incr = weight_incr + learning_rate * ( &
              parameters%l1 * sign(1._real12,weight) + &
              parameters%l2 * weight )
-     !! L1 regularisation
-     elseif(parameters%regularisation.eq.'l1')then
+     case('l1')
+        !! L1 regularisation
         weight_incr = weight_incr + learning_rate * &
              parameters%l1 * sign(1._real12,weight)
-     !! L2 regularisation
-     elseif(parameters%regularisation.eq.'l2')then
+        !! L2 regularisation
+     case('l2')
         weight_incr = weight_incr + learning_rate * &
              parameters%l2 * weight
-     end if
+     end select
   end if
 
   if(parameters%method.eq.'nesterov')then
