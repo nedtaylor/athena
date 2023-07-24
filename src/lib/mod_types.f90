@@ -36,6 +36,7 @@ module custom_types
      real(real12) :: beta2 = 0._real12
      real(real12) :: epsilon = 0._real12
      !real(real12) :: weight_decay  ! L2 regularisation on Adam (AdamW)
+     logical :: regularise = .false.
      character(:), allocatable :: regularisation
      real(real12) :: l1 = 0._real12
      real(real12) :: l2 = 0._real12
@@ -46,7 +47,6 @@ module custom_types
 !!! neural network neuron type
 !!!------------------------------------------------------------------------
   type neuron_type
-     real(real12) :: delta, delta_batch
      real(real12), allocatable, dimension(:) :: weight, weight_incr
   end type neuron_type
 
@@ -72,7 +72,6 @@ module custom_types
      !! DO THE WEIGHTS NEED TO BE DIFFERENT PER INPUT CHANNEL?
      !! IF SO, 3 DIMENSIONS. IF NOT, 2 DIMENSIONS
      real(real12), allocatable, dimension(:,:) :: weight, weight_incr
-     !real(real12), allocatable, dimension(:,:,:) :: output
   end type convolution_type
 
 
@@ -91,8 +90,8 @@ module custom_types
      real(real12) :: scale
      real(real12) :: threshold
    contains
-     procedure (activation_function), deferred :: activate
-     procedure (derivative_function), deferred :: differentiate
+     procedure (activation_function), deferred, pass(this) :: activate
+     procedure (derivative_function), deferred, pass(this) :: differentiate
   end type activation_type
   
 
@@ -125,7 +124,7 @@ module custom_types
 !!!------------------------------------------------------------------------
   type, abstract :: initialiser_type
    contains
-     procedure (initialiser_subroutine), deferred :: initialise
+     procedure (initialiser_subroutine), deferred, pass(this) :: initialise
   end type initialiser_type
 
 
@@ -137,6 +136,7 @@ module custom_types
        class(initialiser_type), intent(inout) :: this
        real(real12), dimension(..), intent(out) :: input
        integer, optional, intent(in) :: fan_in, fan_out
+       real(real12) :: scale
      end subroutine initialiser_subroutine
   end interface
 

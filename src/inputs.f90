@@ -646,6 +646,7 @@ contains
           learning_parameters%regularisation = "none"
        end if
     else
+       learning_parameters%regularise = .true.
        learning_parameters%regularisation = to_lower(trim(regularisation))
     end if
     select case(learning_parameters%regularisation)
