@@ -10,8 +10,8 @@ module activation_tanh
   
   type, extends(activation_type) :: tanh_type
    contains
-     procedure :: activate => tanh_activate
-     procedure :: differentiate => tanh_differentiate
+     procedure, pass(this) :: activate => tanh_activate
+     procedure, pass(this) :: differentiate => tanh_differentiate
   end type tanh_type
   
   interface tanh_setup
@@ -58,7 +58,7 @@ contains
 !!! tanh transfer function
 !!! f = (exp(x) - exp(-x))/(exp(x) + exp(-x))
 !!!#############################################################################
-  function tanh_activate(this, val) result(output)
+  elemental function tanh_activate(this, val) result(output)
     implicit none
     class(tanh_type), intent(in) :: this
     real(real12), intent(in) :: val
@@ -81,7 +81,7 @@ contains
 !!! derivative of tanh function
 !!! df/dx = 1 - f^2
 !!!#############################################################################
-  function tanh_differentiate(this, val) result(output)
+  elemental function tanh_differentiate(this, val) result(output)
     implicit none
     class(tanh_type), intent(in) :: this
     real(real12), intent(in) :: val

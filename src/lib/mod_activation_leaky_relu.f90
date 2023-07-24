@@ -10,8 +10,8 @@ module activation_leaky_relu
   
   type, extends(activation_type) :: leaky_relu_type
    contains
-     procedure :: activate => leaky_relu_activate
-     procedure :: differentiate => leaky_relu_differentiate
+     procedure, pass(this) :: activate => leaky_relu_activate
+     procedure, pass(this) :: differentiate => leaky_relu_differentiate
   end type leaky_relu_type
   
   interface leaky_relu_setup
@@ -49,7 +49,7 @@ contains
 !!! leaky ReLU transfer function
 !!! f = max(0.01*x, x)
 !!!#############################################################################
-  function leaky_relu_activate(this, val) result(output)
+  elemental function leaky_relu_activate(this, val) result(output)
     implicit none
     class(leaky_relu_type), intent(in) :: this
     real(real12), intent(in) :: val
@@ -66,7 +66,7 @@ contains
 !!! we are performing the derivative to identify what weight ...
 !!! ... results in the minimum error
 !!!#############################################################################
-  function leaky_relu_differentiate(this, val) result(output)
+  elemental function leaky_relu_differentiate(this, val) result(output)
     implicit none
     class(leaky_relu_type), intent(in) :: this
     real(real12), intent(in) :: val

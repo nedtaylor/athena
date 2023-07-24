@@ -164,24 +164,16 @@ contains
        !!-----------------------------------------------------------------------
        allocate(network(num_layers))
        do l=1,num_layers
-          allocate(network(l)%neuron(num_hidden(l)))
           if(l.eq.1)then
              length = num_inputs+1
           else
              length = num_hidden(l-1)+1
           end if
-          
-          do i=1,num_hidden(l)
-             allocate(network(l)%neuron(i)%weight_incr(length))
-             network(l)%neuron(i)%weight_incr = 0._real12
-
-             !! initialise weights according to defined method
-             !!-----------------------------------------------------------------
-             allocate(network(l)%neuron(i)%weight(length))
-             call weight_init%initialise(network(l)%neuron(i)%weight, &
-                  fan_in = size(network(l)%neuron(i)%weight,dim=1), &
-                  fan_out = num_hidden(l))
-          end do
+          allocate(network(l)%weight_incr(length,num_hidden(l)), source=0._real12)
+          allocate(network(l)%weight(     length,num_hidden(l)))
+          call weight_init%initialise(network(l)%weight, &
+               fan_in = size(network(l)%weight,dim=1), &
+               fan_out = num_hidden(l))
 
        end do
 
@@ -297,8 +289,8 @@ contains
     gradients(0)%delta = 0._real12
     
     do l=1,num_layers
-       num_neurons = size(network(l)%neuron,dim=1)
-       num_inputs = size(network(l)%neuron(1)%weight,dim=1)
+       num_neurons = size(network(l)%weight,dim=2)
+       num_inputs  = size(network(l)%weight,dim=1)
        if(allocated(gradients(l)%weight)) deallocate(gradients(l)%weight)
        if(allocated(gradients(l)%delta)) deallocate(gradients(l)%delta)
        allocate(gradients(l)%weight(num_inputs, num_neurons))
@@ -451,12 +443,11 @@ contains
        !! allocate layer and read weights and biases
        num_inputs = num_inputs + 1 ! include bias in inputs
        do l=1,num_layers
-          allocate(network(l)%neuron(num_hidden(l)))
+          allocate(network(l)%weight(num_inputs,num_hidden(l)), source = 0._real12)
+          allocate(network(l)%weight_incr(num_inputs,num_hidden(l)), source = 0._real12)
           do i=1,num_hidden(l)
-             allocate(network(l)%neuron(i)%weight(num_inputs))
-             allocate(network(l)%neuron(i)%weight_incr(num_inputs))
-             network(l)%neuron(i)%weight_incr = 0._real12
-             network(l)%neuron(i)%weight = 0._real12
+             !allocate(network(l)%neuron(i)%weight(num_inputs))
+             !allocate(network(l)%neuron(i)%weight_incr(num_inputs))
 
              allocate(data_list(num_inputs))
              data_list = 0._real12
@@ -469,7 +460,7 @@ contains
                 read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
                 c = c + k
              end do data_concat_loop
-             network(l)%neuron(i)%weight = data_list
+             network(l)%weight(:,i) = data_list
              deallocate(data_list)
 
           end do
@@ -510,11 +501,11 @@ contains
     open(unit, file=trim(file), access='append')
 
     num_layers = size(network,dim=1)
-    num_inputs = size(network(1)%neuron(1)%weight,dim=1)-1
+    num_inputs = size(network(1)%weight,dim=1)-1
 
     allocate(num_hidden(num_layers))
     do l=1,num_layers
-       num_hidden(l) = size(network(l)%neuron,dim=1)
+       num_hidden(l) = size(network(l)%weight,dim=2)
     end do
     write(unit,'("FULLYCONNECTED")')
     write(unit,'(3X,"ACTIVATION_FUNCTION = ",A)') trim(transfer%name)
@@ -522,13 +513,13 @@ contains
     write(unit,'(3X,"NUM_INPUTS = ",I0)') num_inputs
     write(unit,'(3X,"NUM_LAYERS = ",I0)') num_layers
     write(fmt,'("(3X,""NUM_HIDDEN ="",",I0,"(1X,I0))")') num_layers
-    write(unit,trim(fmt)) num_hidden(:)
+    write(unit,trim(fmt)) num_hidden
 
     write(unit,'("WEIGHTS")')
     do l=1,num_layers
-       num_weights = size(network(l)%neuron(1)%weight,dim=1)
+       num_weights = size(network(l)%weight,dim=1)
        do i=1,num_hidden(l)
-          write(unit,'(5(1X,E15.8E2))') network(l)%neuron(i)%weight(:num_weights)
+          write(unit,'(5(1X,E15.8E2))') network(l)%weight(:num_weights,i)
        end do
     end do
     write(unit,'("END WEIGHTS")')
@@ -547,7 +538,7 @@ contains
     real(real12), dimension(:), intent(in) :: input
     type(hidden_output_type), dimension(:), intent(inout) :: output
 
-    integer :: j, l
+    integer :: l
     integer :: num_layers
     real(real12), allocatable, dimension(:) :: new_input
 
@@ -555,18 +546,15 @@ contains
     allocate(new_input, source=input)
     num_layers = size(network,dim=1)
 
-    !! 5-6 seconds
-
     !! generate outputs from weights, biases, and inputs
-    do l=1,num_layers
-       do j=1,size(network(l)%neuron,dim=1)!num_neurons
-          output(l)%val(j) = transfer%activate(&
-               activate(network(l)%neuron(j)%weight,new_input))
-       end do
-       
+    do l=1,num_layers,1
+       output(l)%val = transfer%activate(&
+            network(l)%weight(size(network(l)%weight,dim=1),:) + &
+            matmul(new_input,network(l)%weight(:size(network(l)%weight,dim=1)-1,:))&
+            )
        deallocate(new_input)
        if(l.lt.num_layers)then
-          allocate(new_input, source=output(l)%val(:))
+          allocate(new_input, source=output(l)%val)
        end if
     end do
 
@@ -579,60 +567,46 @@ contains
 !!! method : gradient descent
 !!!#############################################################################
 !!! https://brilliant.org/wiki/backpropagation/
-  subroutine backward(input, output, expected, input_gradients)
+  subroutine backward(input, output, output_gradients, input_gradients)
     implicit none
     real(real12), dimension(:), intent(in) :: input
     type(hidden_output_type), dimension(:), intent(in) :: output
-    real(real12), dimension(:), intent(in) :: expected !is this just output_gradients?
+    real(real12), dimension(:), intent(in) :: output_gradients !is this just output_gradients?
     type(gradient_type), dimension(0:), intent(inout) :: input_gradients
     
-    integer :: j, k, l
+    integer :: j, l
     integer :: num_layers
-    integer :: num_neurons, num_neurons_child
     real(real12), allocatable, dimension(:) :: new_input
 
 
     !!! Initialise input_gradients to zero
     num_layers = size(network,dim=1)
 
-    !! 2 seconds
-
     !! loop through the layers in reverse
     do l=num_layers,0,-1
-       if(l.eq.0)then
-          num_neurons = size(input,dim=1)
-       else
-          num_neurons = size(network(l)%neuron,dim=1)
-       end if
 
        !! for first layer, the error is the difference between ...
        !! ... predicted and expected
        if (l.eq.num_layers)then
-          input_gradients(l)%delta(:) = expected
+          input_gradients(l)%delta = output_gradients
        else
-          num_neurons_child = size(network(l+1)%neuron,dim=1)
-          do j=1,num_neurons
-             input_gradients(l)%delta(j) = 0._real12
-             !! the errors are summed from the delta of the ...
-             !! ... 'child' node * 'child' weight
-             do k=1,num_neurons_child
-                input_gradients(l)%delta(j) = input_gradients(l)%delta(j) + &
-                     ( network(l+1)%neuron(k)%weight(j) * &
-                     input_gradients(l+1)%delta(k) )
-             end do
-          end do
+          !! the errors are summed from the delta of the ...
+          !! ... 'child' node * 'child' weight
+          input_gradients(l)%delta = matmul(&
+               network(l+1)%weight(:size(network(l+1)%weight,dim=1)-1,:),&
+               input_gradients(l+1)%delta&
+               )
        end if
+
        !! the delta values are the error multipled by the derivative ...
        !! ... of the transfer function
        !! final layer: error (delta) = activ_diff (g') * error
        !! other layer: error (delta) = activ_diff (g') * sum(weight(l+1)*error(l+1))
        if (l.eq.0)then
-          do j=1,num_neurons
-             !! here, the activation of the neuron is the input value
-             !! ... as each neuron is only connected to one input value
-             input_gradients(l)%delta(j) = input_gradients(l)%delta(j) * &
-                  transfer%differentiate(input(j))
-          end do
+          !! here, the activation of the neuron is the input value
+          !! ... as each neuron is only connected to one input value
+          input_gradients(l)%delta = input_gradients(l)%delta * &
+               transfer%differentiate(input)
        else
           !! define the input to the neuron
           if(l.eq.1)then
@@ -640,19 +614,18 @@ contains
           else
              allocate(new_input, source=output(l-1)%val)
           end if
-          do j=1,num_neurons
-             !! activation already calculated and equals the output
-             input_gradients(l)%delta(j) = input_gradients(l)%delta(j) * &
-                  transfer%differentiate(output(l)%val(j))
-             do k=1,size(new_input,1)
-                input_gradients(l)%weight(k,j) = input_gradients(l)%delta(j) * new_input(k)
-             end do
+          !! activation already calculated and equals the output
+          input_gradients(l)%delta = input_gradients(l)%delta * &
+               transfer%differentiate(output(l)%val)
+          do j=1,size(network(l)%weight,dim=2)
+             input_gradients(l)%weight(:size(new_input,1),j) = &
+                  input_gradients(l)%delta(j) * new_input
           end do
           !! bias weight gradient
           !! ... as the bias neuron = 1._real12, then gradient of the bias ...
           !! ... is just the delta (error), no need to multiply by 1._real12
           input_gradients(l)%weight(size(new_input,1)+1,:) = &
-               input_gradients(l)%delta(:)
+               input_gradients(l)%delta
           deallocate(new_input)
        end if
 
@@ -674,10 +647,7 @@ contains
     type(gradient_type), dimension(0:), intent(inout) :: gradients
     type(clip_type), optional, intent(in) :: clip
     
-    integer :: j,l
-    integer :: num_layers
-    real(real12) :: weight_incr
-    real(real12), allocatable, dimension(:) :: new_input
+    integer :: l
 
 
     !! apply gradient clipping
@@ -687,34 +657,29 @@ contains
        if(clip%l_norm) call gradient_clip(gradients,&
             clip_norm=clip%norm)
     end if
-    
-    !! initialise constants
-    num_layers=size(network,dim=1)
 
-    !! 4 seconds
+    !! 1 second
 
     !! loop through the layers in reverse
-    do l=1,num_layers,1
-       do j=1,size(network(l)%neuron, dim=1)
-          !! update the weights and biases for layer l
-          if(allocated(gradients(l)%m))then
-             call update_weight(learning_rate,&
-                  network(l)%neuron(j)%weight(:),&
-                  network(l)%neuron(j)%weight_incr(:), &
-                  gradients(l)%weight(:,j), &
-                  iteration, &
-                  adaptive_parameters, &
-                  gradients(l)%m(:,j), &
-                  gradients(l)%v(:,j))
-          else
-             call update_weight(learning_rate,&
-                  network(l)%neuron(j)%weight(:),&
-                  network(l)%neuron(j)%weight_incr(:), &
-                  gradients(l)%weight(:,j), &
-                  iteration, &
-                  adaptive_parameters)
-          end if
-       end do
+    do l=1,size(network,dim=1),1
+       !! update the weights and biases for layer l
+       if(allocated(gradients(l)%m))then
+          call update_weight(learning_rate,&
+               network(l)%weight,&
+               network(l)%weight_incr, &
+               gradients(l)%weight, &
+               iteration, &
+               adaptive_parameters, &
+               gradients(l)%m, &
+               gradients(l)%v)
+       else
+          call update_weight(learning_rate,&
+               network(l)%weight,&
+               network(l)%weight_incr, &
+               gradients(l)%weight, &
+               iteration, &
+               adaptive_parameters)
+       end if
     end do
 
   end subroutine update_weights_and_biases
@@ -729,15 +694,14 @@ contains
     real(real12), optional, intent(in) :: clip_min, clip_max, clip_norm
     type(gradient_type), dimension(0:), intent(inout) :: gradients
 
-    integer :: j, k, l, num_layers, num_neurons, num_inputs
+    integer :: j, k, l, num_layers, num_inputs
     real(real12) :: norm
 
     !! clipping is not applied to deltas
     num_layers = ubound(gradients,dim=1)
     if(present(clip_norm))then
-       gradients(l)%delta = gradients(l)%delta  * clip_norm/norm
        do l=1,num_layers
-          norm = norm2(gradients(l)%weight(:,:))
+          norm = norm2(gradients(l)%weight)
           if(norm.gt.clip_norm)then
              gradients(l)%weight = &
                   gradients(l)%weight * clip_norm/norm
@@ -746,8 +710,7 @@ contains
     elseif(present(clip_min).and.present(clip_max))then
        do l=1,num_layers
           num_inputs  = size(gradients(l)%weight,dim=1)
-          num_neurons = size(gradients(l)%weight,dim=2)
-          do j=1,num_neurons
+          do j=1,size(gradients(l)%weight,dim=2)
              do k=1,num_inputs
                 gradients(l)%weight(k,j) = &
                      max(clip_min,min(clip_max,gradients(l)%weight(k,j)))

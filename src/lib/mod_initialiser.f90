@@ -38,7 +38,6 @@ contains
     implicit none
     class(initialiser_type), allocatable :: initialiser
     character(*), intent(in) :: name
-    real(real12), dimension(2) :: rnum
 
 
     !!--------------------------------------------------------------------------

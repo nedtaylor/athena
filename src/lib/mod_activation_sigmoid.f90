@@ -10,8 +10,8 @@ module activation_sigmoid
   
   type, extends(activation_type) :: sigmoid_type
    contains
-     procedure :: activate => sigmoid_activate
-     procedure :: differentiate => sigmoid_differentiate
+     procedure, pass(this) :: activate => sigmoid_activate
+     procedure, pass(this) :: differentiate => sigmoid_differentiate
   end type sigmoid_type
   
   interface sigmoid_setup
@@ -57,7 +57,7 @@ contains
 !!! sigmoid transfer function
 !!! f = 1/(1+exp(-x))
 !!!#############################################################################
-  function sigmoid_activate(this, val) result(output)
+  elemental function sigmoid_activate(this, val) result(output)
     implicit none
     class(sigmoid_type), intent(in) :: this
     real(real12), intent(in) :: val
@@ -76,7 +76,7 @@ contains
 !!! derivative of sigmoid function
 !!! df/dx = f * (1 - f)
 !!!#############################################################################
-  function sigmoid_differentiate(this, val) result(output)
+  elemental function sigmoid_differentiate(this, val) result(output)
     implicit none
     class(sigmoid_type), intent(in) :: this
     real(real12), intent(in) :: val

@@ -10,8 +10,8 @@ module activation_none
   
   type, extends(activation_type) :: none_type
    contains
-     procedure :: activate => none_activate
-     procedure :: differentiate => none_differentiate
+     procedure, pass(this) :: activate => none_activate
+     procedure, pass(this) :: differentiate => none_differentiate
   end type none_type
   
   interface none_setup
@@ -49,7 +49,7 @@ contains
 !!! NONE transfer function
 !!! x
 !!!#############################################################################
-  function none_activate(this, val) result(output)
+  elemental function none_activate(this, val) result(output)
     implicit none
     class(none_type), intent(in) :: this
     real(real12), intent(in) :: val
@@ -66,7 +66,7 @@ contains
 !!! we are performing the derivative to identify what weight ...
 !!! ... results in the minimum error
 !!!#############################################################################
-  function none_differentiate(this, val) result(output)
+  elemental function none_differentiate(this, val) result(output)
     implicit none
     class(none_type), intent(in) :: this
     real(real12), intent(in) :: val

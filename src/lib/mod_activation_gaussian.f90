@@ -11,8 +11,8 @@ module activation_gaussian
   type, extends(activation_type) :: gaussian_type
      real(real12) :: sigma
    contains
-     procedure :: activate => gaussian_activate
-     procedure :: differentiate => gaussian_differentiate
+     procedure, pass(this) :: activate => gaussian_activate
+     procedure, pass(this) :: differentiate => gaussian_differentiate
   end type gaussian_type
   
   interface gaussian_setup
@@ -66,7 +66,7 @@ contains
 !!! gaussian transfer function
 !!! f = 1/(1+exp(-x))
 !!!#############################################################################
-  function gaussian_activate(this, val) result(output)
+  elemental function gaussian_activate(this, val) result(output)
     implicit none
     class(gaussian_type), intent(in) :: this
     real(real12), intent(in) :: val
@@ -86,7 +86,7 @@ contains
 !!! derivative of gaussian function
 !!! df/dx = f * (1 - f)
 !!!#############################################################################
-  function gaussian_differentiate(this, val) result(output)
+  elemental function gaussian_differentiate(this, val) result(output)
     implicit none
     class(gaussian_type), intent(in) :: this
     real(real12), intent(in) :: val

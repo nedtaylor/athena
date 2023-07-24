@@ -10,8 +10,8 @@ module activation_relu
   
   type, extends(activation_type) :: relu_type
    contains
-     procedure :: activate => relu_activate
-     procedure :: differentiate => relu_differentiate
+     procedure, pass(this) :: activate => relu_activate
+     procedure, pass(this) :: differentiate => relu_differentiate
   end type relu_type
   
   interface relu_setup
@@ -51,7 +51,7 @@ contains
 !!! RELU transfer function
 !!! f = max(0, x)
 !!!#############################################################################
-  function relu_activate(this, val) result(output)
+  elemental function relu_activate(this, val) result(output)
     implicit none
     class(relu_type), intent(in) :: this
     real(real12), intent(in) :: val
@@ -68,7 +68,7 @@ contains
 !!! we are performing the derivative to identify what weight ...
 !!! ... results in the minimum error
 !!!#############################################################################
-  function relu_differentiate(this, val) result(output)
+  elemental function relu_differentiate(this, val) result(output)
     implicit none
     class(relu_type), intent(in) :: this
     real(real12), intent(in) :: val

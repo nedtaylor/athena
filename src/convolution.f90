@@ -642,8 +642,6 @@ contains
     input_channels = size(input, dim=3)
     output_size = size(output, dim=1)
 
-    !! 0 seconds
-
     !! Perform the convolution operation
     ichannel = 0
     do l=1,size(convolution, dim=1)
@@ -794,26 +792,24 @@ contains
        if(clip%l_norm) call gradient_clip(gradients,&
             clip_norm=clip%norm)
     end if
-    
-    !! 0 seconds
 
     !! update the convolution layer weights using gradient descent
     do l=1,size(convolution, dim=1)
        !! update the convolution layer weights using gradient descent
        if(allocated(gradients(l)%m))then
           call update_weight(learning_rate,&
-               convolution(l)%weight(:,:),&
-               convolution(l)%weight_incr(:,:), &
-               gradients(l)%weight(:,:), &
+               convolution(l)%weight,&
+               convolution(l)%weight_incr, &
+               gradients(l)%weight, &
                iteration, &
                adaptive_parameters, &
-               gradients(l)%m(:,:), &
-               gradients(l)%v(:,:))
+               gradients(l)%m, &
+               gradients(l)%v)
        else
           call update_weight(learning_rate,&
-               convolution(l)%weight(:,:),&
-               convolution(l)%weight_incr(:,:), &
-               gradients(l)%weight(:,:), &
+               convolution(l)%weight,&
+               convolution(l)%weight_incr, &
+               gradients(l)%weight, &
                iteration, &
                adaptive_parameters)          
        end if
@@ -884,11 +880,11 @@ contains
     num_layers = size(convolution, dim=1)
     if(present(clip_norm))then
        do l=1,num_layers
-          norm = sqrt(sum(gradients(l)%weight(:,:)**2._real12) + &
+          norm = sqrt(sum(gradients(l)%weight**2._real12) + &
                gradients(l)%bias**2._real12)
           if(norm.gt.clip_norm)then
-             gradients(l)%weight(:,:) = &
-                  gradients(l)%weight(:,:) * clip_norm/norm
+             gradients(l)%weight = &
+                  gradients(l)%weight * clip_norm/norm
              gradients(l)%bias = &
                   gradients(l)%bias * clip_norm/norm
           end if

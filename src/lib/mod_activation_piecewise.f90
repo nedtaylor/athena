@@ -11,8 +11,8 @@ module activation_piecewise
   type, extends(activation_type) :: piecewise_type
      real(real12) :: intercept, min, max
    contains
-     procedure :: activate => piecewise_activate
-     procedure :: differentiate => piecewise_differentiate
+     procedure, pass(this) :: activate => piecewise_activate
+     procedure, pass(this) :: differentiate => piecewise_differentiate
   end type piecewise_type
 
   interface piecewise_setup
@@ -59,7 +59,7 @@ contains
 !!! Piecewise transfer function
 !!! f = gradient * x
 !!!#############################################################################
-  function piecewise_activate(this, val) result(output)
+  elemental function piecewise_activate(this, val) result(output)
     implicit none
     class(piecewise_type), intent(in) :: this
     real(real12), intent(in) :: val
@@ -82,7 +82,7 @@ contains
 !!! we are performing the derivative to identify what weight ...
 !!! ... results in the minimum error
 !!!#############################################################################
-  function piecewise_differentiate(this, val) result(output)
+  elemental function piecewise_differentiate(this, val) result(output)
     implicit none
     class(piecewise_type), intent(in) :: this
     real(real12), intent(in) :: val

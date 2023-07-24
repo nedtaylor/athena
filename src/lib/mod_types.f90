@@ -44,18 +44,10 @@ module custom_types
 
 
 !!!------------------------------------------------------------------------
-!!! neural network neuron type
-!!!------------------------------------------------------------------------
-  type neuron_type
-     real(real12), allocatable, dimension(:) :: weight, weight_incr
-  end type neuron_type
-
-
-!!!------------------------------------------------------------------------
 !!! fully connected network layer type
 !!!------------------------------------------------------------------------
   type network_type
-     type(neuron_type), allocatable, dimension(:) :: neuron
+     real(real12), allocatable, dimension(:,:) :: weight, weight_incr
   end type network_type
 
 
@@ -98,7 +90,7 @@ module custom_types
   !! interface for activation function
   !!-----------------------------------------------------------------------
   abstract interface
-     function activation_function(this, val) result(output)
+     elemental function activation_function(this, val) result(output)
        import activation_type, real12
        class(activation_type), intent(in) :: this
        real(real12), intent(in) :: val
@@ -110,7 +102,7 @@ module custom_types
   !! interface for derivative function
   !!-----------------------------------------------------------------------
   abstract interface
-     function derivative_function(this, val) result(output)
+     elemental function derivative_function(this, val) result(output)
        import activation_type, real12
        class(activation_type), intent(in) :: this
        real(real12), intent(in) :: val
