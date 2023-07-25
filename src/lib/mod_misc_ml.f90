@@ -221,19 +221,22 @@ elemental subroutine update_weight(learning_rate, weight, weight_incr, &
   type(learning_parameters_type), intent(in) :: parameters
 
   real(real12) :: t_learning_rate
+  real(real12) :: lr_gradient
   
+  lr_gradient = learning_rate * gradient
+
   !! adaptive learning method
   select case(parameters%method(1:1))
   case('m')!'momentum')
-     !! momentum-based learning
-     !! reversed weight applier to match keras, improves convergence
-     !! w = w + vel - lr * g
-     weight_incr = learning_rate * gradient - &
-          parameters%momentum * weight_incr
+    !! momentum-based learning
+    !! reversed weight applier to match keras, improves convergence
+    !! w = w + vel - lr * g
+    weight_incr = lr_gradient - &
+         parameters%momentum * weight_incr
   case('n')!('nesterov')
      !! nesterov momentum
      weight_incr = - parameters%momentum * weight_incr - &
-          learning_rate * gradient
+          lr_gradient
   case('a')!('adam')
      !! adam optimiser
      t_learning_rate = learning_rate
@@ -243,7 +246,7 @@ elemental subroutine update_weight(learning_rate, weight, weight_incr, &
           parameters%epsilon)
      weight_incr = t_learning_rate
   case default
-     weight_incr = learning_rate * gradient
+     weight_incr = lr_gradient
   end select
   
   !! regularisation
@@ -253,24 +256,25 @@ elemental subroutine update_weight(learning_rate, weight, weight_incr, &
         !! L1L2 regularisation
         weight_incr = weight_incr + learning_rate * ( &
              parameters%l1 * sign(1._real12,weight) + &
-             parameters%l2 * weight )
+             2._real12 * parameters%l2 * weight )
      case('l1')
         !! L1 regularisation
         weight_incr = weight_incr + learning_rate * &
              parameters%l1 * sign(1._real12,weight)
-        !! L2 regularisation
      case('l2')
+        !! L2 regularisation
         weight_incr = weight_incr + learning_rate * &
-             parameters%l2 * weight
+             2._real12 * parameters%l2 * weight
      end select
   end if
-
-  if(parameters%method.eq.'nesterov')then
+  
+  select case(parameters%method(1:1))
+  case('n')!'nesterov')
      weight = weight + parameters%momentum * weight_incr - &
-          learning_rate * gradient
-  else
+          lr_gradient
+  case default
      weight = weight - weight_incr
-  end if
+  end select
 
 
 end subroutine update_weight
