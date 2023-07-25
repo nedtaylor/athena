@@ -62,6 +62,7 @@ else
 	DEBUGFLAGS = -fbounds-check
 	MEMFLAGS = -mcmodel=large
 	OPTIMFLAGS = -O3 -march=native
+	FASTFLAGS = -Ofast -march=native
 endif
 
 
@@ -110,6 +111,12 @@ ifeq ($(findstring memcheck,$(MAKECMDGOALS)),memcheck)
 endif
 ifeq ($(findstring optim,$(MAKECMDGOALS)),optim)
 	CFLAGS+=$(OPTIMFLAGS)
+endif
+ifeq ($(findstring fast,$(MAKECMDGOALS)),fast)
+	CFLAGS+=$(FASTFLAGS)
+#	LIBFILES:=$(addprefix $(SRC_DIR)/$(LIB_DIR)/,$(LIBS))
+#	OBJS:=$(filter-out $(LIBFILES), $(OBJS))
+#	$(FC) -O5 -march=native -ffree-form -c $(LIBFILES) $(MODULEFLAG) $(BUILD_DIR)
 endif
 
 
