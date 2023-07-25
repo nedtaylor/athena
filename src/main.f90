@@ -85,7 +85,7 @@ program ConvolutionalNeuralNetwork
   real(real12), allocatable, dimension(:) :: fc_input, &!fc_output, &
        sm_output, sm_gradients
   real(real12), allocatable, dimension(:,:,:) :: cv_output, pl_output, &
-       pl_gradients
+       pl_gradients !, bn_output, bn_gradients
 
   type(cv_gradient_type), allocatable, dimension(:) :: cv_gradients, comb_cv_gradients
   type(fc_gradient_type), allocatable, dimension(:) :: fc_gradients, &
@@ -93,7 +93,9 @@ program ConvolutionalNeuralNetwork
 
 
   integer :: i, l, time, time_old, clock_rate, itmp1, cv_mask_size
-  real(real12) :: rtmp1, drop_gamma
+  real(real12) :: rtmp1
+  !  real(real12) :: drop_gamma
+  !  real(real12), allocatable, dimension(:) :: mean, variance
   logical, allocatable, dimension(:,:) :: cv_mask
 
   real(real12), allocatable, dimension(:,:,:) :: image_sample
@@ -272,10 +274,9 @@ program ConvolutionalNeuralNetwork
      allocate(fc_output(l)%val(fc_num_hidden(l)))
      fc_output(l)%val = 0._real12
   end do
-  !allocate(cv_output_norm(output_size, output_size, output_channels))
-  !cv_output_norm = 0._real12
-  !allocate(mean(output_channels))
-  !allocate(variance(output_channels))
+!  allocate(bn_output, source=cv_output)
+!  allocate(mean(output_channels))
+!  allocate(variance(output_channels))
 
 
 !!!-----------------------------------------------------------------------------
@@ -295,6 +296,7 @@ program ConvolutionalNeuralNetwork
   allocate(sm_gradients(num_classes))
   pl_gradients = 0._real12
   sm_gradients = 0._real12
+!  allocate(bn_gradients, source=cv_output)
 
 
 !!!-----------------------------------------------------------------------------
@@ -426,18 +428,20 @@ program ConvolutionalNeuralNetwork
         !$OMP& DEFAULT(NONE) &
         !$OMP& SHARED(start_index, end_index) &
         !$OMP& SHARED(image_slice, label_slice) &
-        !$OMP& SHARED(input_size, pool_normalisation) &
+        !$OMP& SHARED(pool_normalisation) &
         !$OMP& SHARED(batch_learning) &
         !$OMP& SHARED(fc_num_layers) &
-        !$OMP& SHARED(cv_keep_prob, seed, cv_block_size, output_channels) &
-        !$OMP& SHARED(cv_dropout_method) &
+!!        !$OMP& SHARED(cv_keep_prob, seed, cv_block_size, output_channels) &
+!!        !$OMP& SHARED(cv_dropout_method) &
         !$OMP& SHARED(compute_loss) &
         !$OMP& FIRSTPRIVATE(predicted_old) &
 !!        !$OMP& PRIVATE(cv_mask, cv_mask_size) &
         !$OMP& PRIVATE(sample) &
         !$OMP& PRIVATE(fc_gradients, cv_gradients) &
         !$OMP& PRIVATE(cv_output) &
+!!        !$OMP& PRIVATE(bn_output, bn_gradients) &
         !$OMP& PRIVATE(pl_output, pl_gradients) &
+!!        !$OMP& PRIVATE(mean, variance) &
         !$OMP& PRIVATE(fc_input, fc_output) &
         !$OMP& PRIVATE(sm_output, sm_gradients) &
         !$OMP& PRIVATE(expected) &
@@ -480,11 +484,11 @@ program ConvolutionalNeuralNetwork
            !   end do
            !end if
 
-           !call bn_forward(cv_output, mean, variance, &
-           !     gamma=bn_gamma, beta=bn_beta, input_norm=cv_output_norm)
+           !call bn_forward(cv_output, bn_output, mean, variance, &
+           !     gamma=bn_gamma, beta=bn_beta)
 
            call pl_forward(cv_output, pl_output)
-           fc_input = reshape(pl_output, [input_size])
+           fc_input = reshape(pl_output, shape(fc_input))
            select case(pool_normalisation)
            case("linear")
               call linear_renormalise(fc_input)
@@ -500,7 +504,7 @@ program ConvolutionalNeuralNetwork
            !! check for NaN and infinity
            !!-------------------------------------------------------------------
            if(any(isnan(sm_output)))then
-              write(0,*) fc_input
+              !write(0,*) fc_input
               write(0,*) fc_output(fc_num_layers)%val
               write(0,*) sm_output
               stop "ERROR: Softmax outputs are NaN"
@@ -556,6 +560,9 @@ program ConvolutionalNeuralNetwork
            call fc_backward(fc_input, fc_output, sm_gradients, fc_gradients)
            call pl_backward(cv_output, reshape(fc_gradients(0)%delta,&
                 shape(pl_output)), pl_gradients)
+           !call bn_backward(cv_output, pl_gradients, bn_gradients, &
+           !     mean, variance)
+
 #ifdef _OPENMP
            call cv_backward(image_slice(:,:,:,sample), pl_gradients, &
                 cv_gradients)
@@ -694,13 +701,13 @@ program ConvolutionalNeuralNetwork
         end if
 
 !!! TESTING
-        if(batch.gt.200)then
-           time_old = time
-           call system_clock(time)
-           !write(*,'("time check: ",I0," seconds")') (time-time_old)/clock_rate
-           write(*,'("time check: ",F8.3," seconds")') real(time-time_old)/clock_rate
-           stop "THIS IS FOR TESTING PURPOSES"
-        end if
+!        if(batch.gt.200)then
+!           time_old = time
+!           call system_clock(time)
+!           !write(*,'("time check: ",I0," seconds")') (time-time_old)/clock_rate
+!           write(*,'("time check: ",F8.3," seconds")') real(time-time_old)/clock_rate
+!           stop "THIS IS FOR TESTING PURPOSES"
+!        end if
 !!!
 
         !! time check
@@ -730,10 +737,10 @@ program ConvolutionalNeuralNetwork
      if(verbosity.eq.0)then
         !!if(mod(epoch,20).eq.0.E0) &
         write(6,'("epoch=",I0,", batch=",I0,&
-             &", learning_rate=",F0.3,", loss=",F0.3,", accuracy=",F0.3)') &
+             &", learning_rate=",F0.3,", val_loss=",F0.3,", val_accuracy=",F0.3)') &
              epoch, batch, learning_rate, &
-             avg_loss/(batch*batch_size),  avg_accuracy/(batch*batch_size)
-        !metric_dict(1)%val, metric_dict(2)%val
+             metric_dict(1)%val, metric_dict(2)%val
+        !     avg_loss/(batch*batch_size),  avg_accuracy/(batch*batch_size)
      end if
 
 
