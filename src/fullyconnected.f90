@@ -72,16 +72,22 @@ contains
     class(gradient_type), intent(in) :: a,b
     type(gradient_type) :: output
     
-    if(allocated(a%weight).and.allocated(b%weight))then
+    select case(allocated(a%weight).and.allocated(b%weight))
+    case(.true.)
+    !if(allocated(a%weight).and.allocated(b%weight))then
        !allocate(output%weight,mold=a%weight)
        output%weight = a%weight + b%weight
        !!output%delta = output%delta + input%delta
-       if(allocated(a%m)) output%m = a%m !+ input%m
-       if(allocated(a%v)) output%v = a%v !+ input%v
-    end if
-    if(allocated(a%delta).and.allocated(b%delta))then
+       select case(allocated(a%m))
+       case(.true.)
+          output%m = a%m !+ input%m
+          output%v = a%v !+ input%v
+       end select
+    !end if
+    !if(allocated(a%delta).and.allocated(b%delta))then
        output%delta = a%delta + b%delta
-    end if
+    !end if
+    end select
 
   end function gradient_add
 !!!#############################################################################
@@ -227,32 +233,32 @@ contains
     
     num_layers = ubound(mold,dim=1)
     num_inputs = size(mold(0)%delta,dim=1)
-    if(.not.allocated(gradients).or.t_reallocate)then
+    select case(.not.allocated(gradients).or.t_reallocate)
+    case(.true.)
        if(allocated(gradients)) deallocate(gradients)
        allocate(gradients(0:num_layers))
-       allocate(gradients(0)%delta(num_inputs))
-       gradients(0)%delta = 0._real12
+       allocate(gradients(0)%delta(num_inputs), source=0._real12)
 
        do l=1,num_layers,1
           num_neurons = size(mold(l)%delta,dim=1)
           num_inputs = size(mold(l)%weight,dim=1)
           if(allocated(gradients(l)%weight)) deallocate(gradients(l)%weight)
           if(allocated(gradients(l)%delta)) deallocate(gradients(l)%delta)
-          allocate(gradients(l)%weight(num_inputs, num_neurons))
-          allocate(gradients(l)%delta(num_neurons))
-          gradients(l)%weight = 0._real12
-          gradients(l)%delta  = 0._real12
+          allocate(gradients(l)%weight(num_inputs, num_neurons),&
+               source=0._real12)
+          allocate(gradients(l)%delta(num_neurons),&
+               source=0._real12)
 
           if(allocated(mold(l)%m))then
              if(allocated(gradients(l)%m)) deallocate(gradients(l)%m)
              if(allocated(gradients(l)%v)) deallocate(gradients(l)%v)
-             allocate(gradients(l)%m(num_inputs, num_neurons))
-             allocate(gradients(l)%v(num_inputs, num_neurons))
-             gradients(l)%m = 0._real12
-             gradients(l)%v = 0._real12
+             allocate(gradients(l)%m(num_inputs, num_neurons), source=0._real12)
+             allocate(gradients(l)%v(num_inputs, num_neurons), source=0._real12)
           end if
+
        end do
-    else
+
+    case default
        gradients(0)%delta = 0._real12
        do l=1,num_layers,1
           gradients(l)%weight = 0._real12
@@ -262,7 +268,7 @@ contains
              gradients(l)%v = 0._real12
           end if
        end do
-    end if
+    end select
 
     return
   end subroutine allocate_gradients
@@ -285,27 +291,24 @@ contains
     num_layers = size(network,dim=1)
     if(allocated(gradients)) deallocate(gradients)
     allocate(gradients(0:num_layers))
-    allocate(gradients(0)%delta(num_features))
-    gradients(0)%delta = 0._real12
+    allocate(gradients(0)%delta(num_features), source=0._real12)
     
     do l=1,num_layers
        num_neurons = size(network(l)%weight,dim=2)
        num_inputs  = size(network(l)%weight,dim=1)
        if(allocated(gradients(l)%weight)) deallocate(gradients(l)%weight)
        if(allocated(gradients(l)%delta)) deallocate(gradients(l)%delta)
-       allocate(gradients(l)%weight(num_inputs, num_neurons))
-       allocate(gradients(l)%delta(num_neurons))
-       gradients(l)%weight = 0._real12
-       gradients(l)%delta  = 0._real12
+       allocate(gradients(l)%weight(num_inputs, num_neurons),&
+            source=0._real12)
+       allocate(gradients(l)%delta(num_neurons),&
+            source=0._real12)
     
        if(present(adam_learning))then
           if(adam_learning)then
              if(allocated(gradients(l)%m)) deallocate(gradients(l)%m)
              if(allocated(gradients(l)%v)) deallocate(gradients(l)%v)
-             allocate(gradients(l)%m(num_inputs, num_neurons))
-             allocate(gradients(l)%v(num_inputs, num_neurons))
-             gradients(l)%m = 0._real12
-             gradients(l)%v = 0._real12
+             allocate(gradients(l)%m(num_inputs, num_neurons), source=0._real12)
+             allocate(gradients(l)%v(num_inputs, num_neurons), source=0._real12)
           end if
        end if
     end do

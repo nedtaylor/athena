@@ -62,22 +62,20 @@ contains
     type(gradient_type) :: output
 
     output%bias  = a%bias + b%bias
-    if(allocated(a%weight).and.allocated(b%weight))then
-       allocate(output%weight,mold=a%weight)
+    select case(allocated(a%weight).and.allocated(b%weight))
+    case(.true.)
+       !allocate(output%weight,mold=a%weight)
        output%weight = a%weight + b%weight
-       if(allocated(a%m))then
+       select case(allocated(a%m))
+       case(.true.)
           output%m = a%m
           output%bias_m = a%bias_m
-       end if
-       if(allocated(a%v))then
           output%v = a%v
           output%bias_v = a%bias_v
-       end if
-    end if
-    if(allocated(a%delta).and.allocated(b%delta))then
+       end select
        allocate(output%delta,mold=a%delta)
        output%delta = a%delta + b%delta
-    end if
+    end select
         
   end function gradient_add
 !!!#############################################################################
@@ -286,32 +284,33 @@ contains
     end if
 
     num_filters = size(mold,dim=1)
-    if(.not.allocated(gradients).or.t_reallocate)then
+    select case(.not.allocated(gradients).or.t_reallocate)
+    case(.true.)
        input_size = size(mold(1)%delta,dim=1)
        if(allocated(gradients)) deallocate(gradients)
        allocate(gradients(num_filters))
        do l=1,num_filters
           start_idx = -convolution(l)%pad
           end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
-          allocate(gradients(l)%weight(start_idx:end_idx,start_idx:end_idx))
-          allocate(gradients(l)%delta(input_size,input_size))
-          gradients(l)%weight = 0._real12
+          allocate(gradients(l)%weight(start_idx:end_idx,start_idx:end_idx),&
+                  source=0._real12)
+          allocate(gradients(l)%delta(input_size,input_size),&
+                  source=0._real12)
           gradients(l)%bias = 0._real12
-          gradients(l)%delta = 0._real12
 
           if(allocated(mold(l)%m))then
              if(allocated(gradients(l)%m)) deallocate(gradients(l)%m)
              if(allocated(gradients(l)%v)) deallocate(gradients(l)%v)
-             allocate(gradients(l)%m(start_idx:end_idx,start_idx:end_idx))
-             allocate(gradients(l)%v(start_idx:end_idx,start_idx:end_idx))
-             gradients(l)%m = 0._real12
-             gradients(l)%v = 0._real12
+             allocate(gradients(l)%m(start_idx:end_idx,start_idx:end_idx),&
+                  source=0._real12)
+             allocate(gradients(l)%v(start_idx:end_idx,start_idx:end_idx),&
+                  source=0._real12)
              gradients(l)%bias_m = 0._real12
              gradients(l)%bias_v = 0._real12
           end if
 
        end do
-    else
+    case default
        do l=1,num_filters
           gradients(l)%weight = 0._real12
           gradients(l)%bias = 0._real12
@@ -323,7 +322,7 @@ contains
              gradients(l)%bias_v = 0._real12
           end if
        end do
-    end if
+    end select
 
     return
   end subroutine allocate_gradients
@@ -347,20 +346,20 @@ contains
     do l=1,size(convolution,1)
        start_idx = -convolution(l)%pad
        end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
-       allocate(gradients(l)%weight(start_idx:end_idx,start_idx:end_idx))
-       allocate(gradients(l)%delta(input_size,input_size))
-       gradients(l)%weight = 0._real12
+       allocate(gradients(l)%weight(start_idx:end_idx,start_idx:end_idx),&
+                  source=0._real12)
+       allocate(gradients(l)%delta(input_size,input_size),&
+                  source=0._real12)
        gradients(l)%bias = 0._real12
-       gradients(l)%delta = 0._real12
     
        if(present(adam_learning))then
           if(adam_learning)then
              if(allocated(gradients(l)%m)) deallocate(gradients(l)%m)
              if(allocated(gradients(l)%v)) deallocate(gradients(l)%v)
-             allocate(gradients(l)%m(start_idx:end_idx,start_idx:end_idx))
-             allocate(gradients(l)%v(start_idx:end_idx,start_idx:end_idx))
-             gradients(l)%m = 0._real12
-             gradients(l)%v = 0._real12
+             allocate(gradients(l)%m(start_idx:end_idx,start_idx:end_idx),&
+                  source=0._real12)
+             allocate(gradients(l)%v(start_idx:end_idx,start_idx:end_idx),&
+                  source=0._real12)
              gradients(l)%bias_m = 0._real12
              gradients(l)%bias_v = 0._real12
           end if
