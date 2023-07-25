@@ -36,22 +36,21 @@ contains
     real(real12), dimension(:,:,:), intent(in) :: input
     real(real12), dimension(:,:,:), intent(out) :: output
 
-    integer :: i, j, l, m
-    
-    !! compute the size of the input and output feature maps
-    integer :: input_size, output_size
-    input_size = size(input, 1)
-    output_size = (input_size - pool_size) / pool_stride + 1
+    integer :: i, j, m, istride, jstride
+    integer :: output_size
 
+    !! compute the size of the output feature maps
+    output_size = (size(input, 1) - pool_size) / pool_stride + 1
+    
     !! perform the pooling operation
     do m = 1, size(input, 3)
-       do l = 1, size(input, 2), pool_stride
-          do j = 1, output_size
-             do i = 1, output_size
-                output(i, j, m) = maxval(&
-                     input((i-1)*pool_stride+1:(i-1)*pool_stride+pool_size, &
-                     (j-1)*pool_stride+1:(j-1)*pool_stride+pool_size, m))
-             end do
+       do j = 1, output_size
+          jstride = (j-1)*pool_stride+1
+          do i = 1, output_size
+             istride = (i-1)*pool_stride+1
+             output(i, j, m) = maxval(&
+                  input(istride:istride+pool_size-1, &
+                  jstride:jstride+pool_size-1, m))
           end do
        end do
     end do
@@ -69,15 +68,14 @@ contains
     real(real12), dimension(:,:,:), intent(out) :: input_gradients
 
     integer :: i, j, m, istride, jstride
-    integer :: input_size, output_size
+    integer :: output_size
     integer, dimension(2) :: max_index
 
     !! initialise input_gradients to zero
     input_gradients = 0._real12
 
-    !! compute the size of the input and output feature maps
-    input_size = size(input, 1)
-    output_size = (input_size - pool_size) / pool_stride + 1
+    !! compute the size of the output feature maps
+    output_size = (size(input, 1) - pool_size) / pool_stride + 1
     
     !! compute gradients for input feature map
     do m = 1, size(input, 3)
@@ -86,11 +84,13 @@ contains
           do i = 1, output_size
              istride = (i-1)*pool_stride
              !! find the index of the maximum value in the corresponding pooling window
-             max_index = maxloc(input(istride+1:istride+pool_size, &
+             max_index = maxloc(input(&
+                  istride+1:istride+pool_size, &
                   jstride+1:jstride+pool_size, m))
 
              !! compute gradients for input feature map
-             input_gradients(istride+max_index(1), &
+             input_gradients(&
+                  istride+max_index(1), &
                   jstride+max_index(2), m) = output_gradients(i, j, m)
 
           end do
