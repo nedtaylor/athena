@@ -652,9 +652,9 @@ contains
 
           !! end_stride is the same as output_size
           !! ... hence, forward does not need the fix
-          do j=1,output_size
+          do j=1,output_size,1
              jstride = (j-1)*convolution(l)%stride + 1
-             do i=1,output_size
+             do i=1,output_size,1
                 istride = (i-1)*convolution(l)%stride + 1
           
                 output(i,j,ichannel) = transfer%activate(convolution(l)%bias + &
@@ -700,8 +700,6 @@ contains
     input_lbound = lbound(input, dim=1)
     input_ubound = ubound(input, dim=1)
     bias_diff = transfer%differentiate(1._real12)
-
-    !! 1 second
 
     !! Perform the convolution operation
     ichannel = 0
@@ -796,7 +794,8 @@ contains
     !! update the convolution layer weights using gradient descent
     do l=1,size(convolution, dim=1)
        !! update the convolution layer weights using gradient descent
-       if(allocated(gradients(l)%m))then
+       select case(allocated(gradients(l)%m))
+       case(.true.)
           call update_weight(learning_rate,&
                convolution(l)%weight,&
                convolution(l)%weight_incr, &
@@ -805,14 +804,14 @@ contains
                adaptive_parameters, &
                gradients(l)%m, &
                gradients(l)%v)
-       else
+       case default
           call update_weight(learning_rate,&
                convolution(l)%weight,&
                convolution(l)%weight_incr, &
                gradients(l)%weight, &
                iteration, &
                adaptive_parameters)          
-       end if
+       end select
        !! update the convolution layer bias using gradient descent
        call update_weight(learning_rate,&
             convolution(l)%bias,&
@@ -874,19 +873,20 @@ contains
     real(real12), optional, intent(in) :: clip_min, clip_max, clip_norm
 
     integer :: i,j,l, num_layers
-    real(real12) :: norm
+    real(real12) :: scale
 
     !! clipping is not applied to deltas
     num_layers = size(convolution, dim=1)
     if(present(clip_norm))then
        do l=1,num_layers
-          norm = sqrt(sum(gradients(l)%weight**2._real12) + &
-               gradients(l)%bias**2._real12)
-          if(norm.gt.clip_norm)then
+          scale = min(1._real12, &
+               clip_norm/sqrt(sum(gradients(l)%weight**2._real12) + &
+               gradients(l)%bias**2._real12))
+          if(scale.lt.1._real12)then
              gradients(l)%weight = &
-                  gradients(l)%weight * clip_norm/norm
+                  gradients(l)%weight * scale
              gradients(l)%bias = &
-                  gradients(l)%bias * clip_norm/norm
+                  gradients(l)%bias * scale
           end if
        end do
     elseif(present(clip_min).and.present(clip_max))then

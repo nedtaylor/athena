@@ -575,19 +575,20 @@ contains
     type(gradient_type), dimension(0:), intent(inout) :: input_gradients
     
     integer :: j, l
-    integer :: num_layers
-    real(real12), allocatable, dimension(:) :: new_input
+    integer :: num_layers, num_inputs
+    real(real12) :: bias_diff
 
 
     !!! Initialise input_gradients to zero
     num_layers = size(network,dim=1)
+    bias_diff = transfer%differentiate(1._real12)
 
     !! loop through the layers in reverse
     do l=num_layers,0,-1
 
        !! for first layer, the error is the difference between ...
        !! ... predicted and expected
-       if (l.eq.num_layers)then
+       if(l.eq.num_layers)then
           input_gradients(l)%delta = output_gradients
        else
           !! the errors are summed from the delta of the ...
@@ -602,32 +603,37 @@ contains
        !! ... of the transfer function
        !! final layer: error (delta) = activ_diff (g') * error
        !! other layer: error (delta) = activ_diff (g') * sum(weight(l+1)*error(l+1))
-       if (l.eq.0)then
+       select case(l)
+       case(0)
           !! here, the activation of the neuron is the input value
           !! ... as each neuron is only connected to one input value
           input_gradients(l)%delta = input_gradients(l)%delta * &
                transfer%differentiate(input)
-       else
-          !! define the input to the neuron
-          if(l.eq.1)then
-             allocate(new_input, source=input)
-          else
-             allocate(new_input, source=output(l-1)%val)
-          end if
+       case default
           !! activation already calculated and equals the output
           input_gradients(l)%delta = input_gradients(l)%delta * &
                transfer%differentiate(output(l)%val)
-          do j=1,size(network(l)%weight,dim=2)
-             input_gradients(l)%weight(:size(new_input,1),j) = &
-                  input_gradients(l)%delta(j) * new_input
-          end do
+
+          num_inputs = size(network(l)%weight,dim=1)
+          !! define the input to the neuron
+          select case(l)
+          case(1)
+             do j=1,size(network(l)%weight,dim=2)
+                input_gradients(l)%weight(:num_inputs-1,j) = &
+                     input_gradients(l)%delta(j) * input
+             end do
+          case default
+             do j=1,size(network(l)%weight,dim=2)
+                input_gradients(l)%weight(:num_inputs-1,j) = &
+                     input_gradients(l)%delta(j) * output(l-1)%val
+             end do
+          end select
           !! bias weight gradient
           !! ... as the bias neuron = 1._real12, then gradient of the bias ...
           !! ... is just the delta (error), no need to multiply by 1._real12
-          input_gradients(l)%weight(size(new_input,1)+1,:) = &
-               input_gradients(l)%delta
-          deallocate(new_input)
-       end if
+          input_gradients(l)%weight(num_inputs,:) = &
+               input_gradients(l)%delta * bias_diff
+       end select
 
     end do
 
@@ -658,12 +664,11 @@ contains
             clip_norm=clip%norm)
     end if
 
-    !! 1 second
-
     !! loop through the layers in reverse
     do l=1,size(network,dim=1),1
        !! update the weights and biases for layer l
-       if(allocated(gradients(l)%m))then
+       select case(allocated(gradients(l)%m))
+       case(.true.)
           call update_weight(learning_rate,&
                network(l)%weight,&
                network(l)%weight_incr, &
@@ -672,14 +677,14 @@ contains
                adaptive_parameters, &
                gradients(l)%m, &
                gradients(l)%v)
-       else
+       case default
           call update_weight(learning_rate,&
                network(l)%weight,&
                network(l)%weight_incr, &
                gradients(l)%weight, &
                iteration, &
                adaptive_parameters)
-       end if
+       end select
     end do
 
   end subroutine update_weights_and_biases
@@ -695,16 +700,17 @@ contains
     type(gradient_type), dimension(0:), intent(inout) :: gradients
 
     integer :: j, k, l, num_layers, num_inputs
-    real(real12) :: norm
+    real(real12) :: scale
 
     !! clipping is not applied to deltas
     num_layers = ubound(gradients,dim=1)
     if(present(clip_norm))then
        do l=1,num_layers
-          norm = norm2(gradients(l)%weight)
-          if(norm.gt.clip_norm)then
+          scale = min(1._real12, &
+               clip_norm/norm2(gradients(l)%weight))
+          if(scale.lt.1._real12)then
              gradients(l)%weight = &
-                  gradients(l)%weight * clip_norm/norm
+                  gradients(l)%weight * scale
           end if
        end do
     elseif(present(clip_min).and.present(clip_max))then
