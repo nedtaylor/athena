@@ -19,18 +19,20 @@ module custom_types
 !!!------------------------------------------------------------------------
 !!! learning parameter type
 !!!------------------------------------------------------------------------
+!!! MAKE THIS AN ABSTRACT TYPE WITH EXTENDED DERIVED TYPES FOR ADAM AND MOMENTUM
+!!! THEN MAKE REGULARISATION A SUBTYPE
   type learning_parameters_type
      character(:), allocatable :: method
      !! reduce learning rate on plateau parameters
-     integer :: wait = 0
-     integer :: patience = 0
-     real(real12) :: factor = 0._real12
-     real(real12) :: min_learning_rate = 0._real12
+     !integer :: wait = 0
+     !integer :: patience = 0
+     !real(real12) :: factor = 0._real12
+     !real(real12) :: min_learning_rate = 0._real12
      !! momentum parameters
      real(real12) :: momentum = 0._real12  ! fraction of momentum based learning
      !! step decay parameters
-     real(real12) :: decay_rate = 0._real12
-     real(real12) :: decay_steps = 0._real12
+     !real(real12) :: decay_rate = 0._real12
+     !real(real12) :: decay_steps = 0._real12
      !! adam optimiser parameters
      real(real12) :: beta1 = 0._real12
      real(real12) :: beta2 = 0._real12
