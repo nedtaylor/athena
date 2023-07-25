@@ -651,6 +651,7 @@ contains
     end if
     select case(learning_parameters%regularisation)
     case("none")
+       learning_parameters%regularise = .false.
        write(*,*) "No regularisation set"
     case("l1l2")
        write(*,*) "L1L2 regularisation"
