@@ -9,10 +9,12 @@ module FullyConnectedLayer
        initialiser_type, learning_parameters_type
   implicit none
 
-  type hidden_output_type
-     real(real12), allocatable, dimension(:) :: val
-     !contains
-     !  final :: hidden_output_type_destructor
+  type hidden_output_type(num_output)
+     integer, len :: num_output
+     real(real12), dimension(num_output) :: val
+     !real(real12), allocatable, dimension(:) :: val
+     !!contains
+     !!  final :: hidden_output_type_destructor
   end type hidden_output_type
 
   type gradient_type
@@ -539,26 +541,23 @@ contains
   subroutine forward(input, output)
     implicit none
     real(real12), dimension(:), intent(in) :: input
-    type(hidden_output_type), dimension(:), intent(inout) :: output
+    type(hidden_output_type(*)), dimension(:), intent(inout) :: output
 
     integer :: l
-    integer :: num_layers
-    real(real12), allocatable, dimension(:) :: new_input
-
-    !! initialise ouput (and temporary input) arrays
-    allocate(new_input, source=input)
-    num_layers = size(network,dim=1)
-
+    
+    output(1)%val = transfer%activate(&
+         network(1)%weight(size(network(1)%weight,dim=1),:) + &
+         matmul(input,network(1)%weight(:size(network(1)%weight,dim=1)-1,:))&
+         )
     !! generate outputs from weights, biases, and inputs
-    do l=1,num_layers,1
+    do l=2,size(network,dim=1),1
        output(l)%val = transfer%activate(&
             network(l)%weight(size(network(l)%weight,dim=1),:) + &
-            matmul(new_input,network(l)%weight(:size(network(l)%weight,dim=1)-1,:))&
+            matmul(&
+            output(l-1)%val,&
+            network(l)%weight(:size(network(l)%weight,dim=1)-1,:)&
+            )&
             )
-       deallocate(new_input)
-       if(l.lt.num_layers)then
-          allocate(new_input, source=output(l)%val)
-       end if
     end do
 
   end subroutine forward
@@ -573,7 +572,7 @@ contains
   subroutine backward(input, output, output_gradients, input_gradients)
     implicit none
     real(real12), dimension(:), intent(in) :: input
-    type(hidden_output_type), dimension(:), intent(in) :: output
+    type(hidden_output_type(*)), dimension(:), intent(in) :: output
     real(real12), dimension(:), intent(in) :: output_gradients !is this just output_gradients?
     type(gradient_type), dimension(0:), intent(inout) :: input_gradients
     

@@ -81,7 +81,7 @@ program ConvolutionalNeuralNetwork
   integer :: epoch, batch, sample, start_index, end_index
   integer :: expected
   integer, allocatable, dimension(:) :: batch_order
-  type(fc_hidden_output_type), allocatable, dimension(:) :: fc_output
+  type(fc_hidden_output_type(:)), allocatable, dimension(:) :: fc_output
   real(real12), allocatable, dimension(:) :: fc_input, &!fc_output, &
        sm_output, sm_gradients
   real(real12), allocatable, dimension(:,:,:) :: cv_output, pl_output, &
@@ -269,11 +269,13 @@ program ConvolutionalNeuralNetwork
   cv_output = 0._real12
   pl_output = 0._real12
   sm_output = 0._real12
-  allocate(fc_output(fc_num_layers))
-  do l=1,fc_num_layers
-     allocate(fc_output(l)%val(fc_num_hidden(l)))
-     fc_output(l)%val = 0._real12
-  end do
+  
+  fc_output = (/ (&
+       fc_hidden_output_type(&
+       num_output = fc_num_hidden(l),&
+       val = (/ (0._real12, i=1,fc_num_hidden(l) ) /)&
+       ), l=1,fc_num_layers) /)
+
 !  allocate(bn_output, source=cv_output)
 !  allocate(mean(output_channels))
 !  allocate(variance(output_channels))
@@ -701,13 +703,13 @@ program ConvolutionalNeuralNetwork
         end if
 
 !!! TESTING
-!        if(batch.gt.200)then
-!           time_old = time
-!           call system_clock(time)
-!           !write(*,'("time check: ",I0," seconds")') (time-time_old)/clock_rate
-!           write(*,'("time check: ",F8.3," seconds")') real(time-time_old)/clock_rate
-!           stop "THIS IS FOR TESTING PURPOSES"
-!        end if
+        if(batch.gt.200)then
+           time_old = time
+           call system_clock(time)
+           !write(*,'("time check: ",I0," seconds")') (time-time_old)/clock_rate
+           write(*,'("time check: ",F8.3," seconds")') real(time-time_old)/clock_rate
+           stop "THIS IS FOR TESTING PURPOSES"
+        end if
 !!!
 
         !! time check
