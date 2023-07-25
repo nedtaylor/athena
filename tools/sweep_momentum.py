@@ -10,7 +10,7 @@ import wandb
 ## define global variables
 project='cnn_mnist_test'
 codename='cnn_mp_wandb'
-sweep_id = 'hfyfmd71' #'8336mo4r' #'emjb3nsc' #'8qcw0m55'
+sweep_id = 'vw5xt1zq' #'hfyfmd71' #'8336mo4r' #'emjb3nsc' #'8qcw0m55'
 count=100
 file_template = "template_momentum.in"
 workdir = getcwd() # "../"
@@ -72,8 +72,8 @@ def main():
     ## populate parameter dictionary
     param_dict['training'] = {
         'learning_rate': wandb.config.learning_rate,
-        'l1_lambda': wandb.config.l1_lambda,
-        'l2_lambda': wandb.config.l2_lambda,
+        #'l1_lambda': wandb.config.l1_lambda,
+        #'l2_lambda': wandb.config.l2_lambda,
         'batch_size': wandb.config.batch_size,
         'num_epochs': wandb.config.num_epochs,
         'momentum': wandb.config.momentum
