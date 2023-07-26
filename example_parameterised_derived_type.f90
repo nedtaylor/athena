@@ -1,28 +1,25 @@
 module my_module
   implicit none
 
-  ! Parameterized derived type
   type, public :: my_type(n)
+     sequence
     integer, len :: n
+    integer :: m=1
     real, dimension(n) :: data
+  !contains
+  !  procedure, pass(this) :: print => print_out
   end type my_type
 
-contains
-  subroutine tester(input)
-    implicit none
-    type(my_type(*)), dimension(0:), intent(in) :: input
-    integer :: i
-
-    write(*,*) "START"
-    do i = lbound(input,dim=1), ubound(input,dim=1)
-       write(*,*) i
-       write(*,*) size(input(i)%data)
-       write(*,*) input(i)%data
-       write(*,*)
-    end do
-
-  end subroutine tester
-
+!contains
+!  subroutine print_out(this)
+!    implicit none
+!    class(my_type(*)), intent(in) :: this
+!  
+!    write(*,*) size(this%data)
+!    write(*,*) this%data
+!    write(*,*)
+!  
+!  end subroutine print_out
 
 end module my_module
 
@@ -33,40 +30,51 @@ program main
   type(my_type(:)), allocatable, dimension(:) :: my_array
   integer :: i, j
   integer, allocatable, dimension(:) :: n_list
-  !real, allocatable, dimension(:) :: tmp_data
-
+  !integer, dimension(4) :: arr
 
   n_list = [1, 4, 3, 2]
-  !allocate(tmp_data(size(n_list,dim=1)), source=0.0)
-
-  !my_array = (/ (&
-  !     my_type(&
-  !     n=n_list(i),&
-  !     data=(/(0.0, j=1,n_list(i))/)&!tmp_data(:n_list(i))&
-  !     ), i=1,size(n_list) ) /)
   allocate(my_array(0:size(n_list)-1), source=(/ (&
        my_type(&
        n=n_list(i),&
-       data=(/(0.0, j=1,n_list(i))/)&!tmp_data(:n_list(i))&
+       data=(/(real(i), j=1,n_list(i))/)&
        ), i=1,size(n_list) ) /))
-  write(*,*) "HERE", lbound(my_array), ubound(my_array)
 
-  ! Allocate the array and initialize each element
-  !allocate(my_array(1:3), n=2)
-  !my_array = [my_type(n=1, data=[0.0,0.0]), my_type(n=2, data=[0.0,0.0])]
-  do i = lbound(my_array,dim=1), ubound(my_array,dim=1)
-     write(*,*) i
-     write(*,*) size(my_array(i)%data)
-     write(*,*) my_array(i)%data
-     write(*,*)
-  end do
-
+  !allocate(my_array(0:4))
+  !do i = lbound(my_array,dim=1), ubound(my_array,dim=1)
+  !   write(*,*) i
+  !   call my_array(i)%print()
+  !end do
   call tester(my_array)
 
+  !arr(5) = 14
+  !write(*,*) arr(5)
 
-  ! ... Use the my_array here ...
+contains
 
-  ! Deallocate the array
-  !deallocate(my_array)
+  subroutine tester(input)
+    implicit none
+    type(my_type(*)), dimension(0:), intent(inout) :: input
+    integer :: i
+    integer, pointer :: p1
+
+    do i = lbound(input,dim=1), ubound(input,dim=1)
+       write(*,*) i
+       write(*,*) size(input(i)%data), input(i)%data
+       !write(*,*) input(i)%data(:)
+       input(i)%data(4) = 16.0*i
+       !write(*,*) input(i)%data(4)
+       write(*,*) size(input(i)%data), input(i)%data(:4)
+       write(*,*) loc(input(i))
+       write(*,*) loc(input(i)%n), loc(input(i)%m)
+       write(*,*) (loc(input(i)%data(j)),j=1,4)!size(input(i)%data,dim=1))
+       !p1 = loc(input(i)%data(4))
+       write(*,*) p1
+       write(*,*) associated(p1)
+!       write(*,*) (findloc(input(i)%data(j)),j=1,size(input(i)%data,dim=1))
+       write(*,*)
+    end do
+
+  end subroutine tester
 
 end program main
+
