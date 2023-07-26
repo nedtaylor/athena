@@ -12,18 +12,18 @@ module FullyConnectedLayer
   type hidden_output_type(num_output)
      integer, len :: num_output
      real(real12), dimension(num_output) :: val
-     !real(real12), allocatable, dimension(:) :: val
      !!contains
      !!  final :: hidden_output_type_destructor
   end type hidden_output_type
 
-  type gradient_type
-     real(real12), allocatable, dimension(:) :: delta !error !dE/d(activation)
-     real(real12), allocatable, dimension(:,:) :: weight
-     real(real12), allocatable, dimension(:,:) :: m
-     real(real12), allocatable, dimension(:,:) :: v
+  type gradient_type(num_inputs, num_neurons) !sequence
+     integer, len :: num_inputs, num_neurons
+     real(real12), dimension(num_neurons) :: delta = 0._real12 !error !dE/d(activation)
+     real(real12), dimension(num_inputs,num_neurons) :: weight = 0._real12 
+     real(real12), dimension(num_inputs,num_neurons) :: m = 0._real12 
+     real(real12), dimension(num_inputs,num_neurons) :: v = 0._real12 
    contains
-     procedure :: add_t_t => gradient_add  !t = type, r = real, i = int
+     procedure, pass(this) :: add_t_t => gradient_add  !t = type, r = real, i = int
      generic :: operator(+) => add_t_t !, public
      !final :: gradient_type_destructor
   end type gradient_type
@@ -69,27 +69,16 @@ contains
 !!!#############################################################################
 !!! custom operation for summing gradient_type
 !!!#############################################################################
-  elemental function gradient_add(a, b) result(output)
+  elemental function gradient_add(this, input) result(output)
     implicit none
-    class(gradient_type), intent(in) :: a,b
-    type(gradient_type) :: output
-    
-    select case(allocated(a%weight).and.allocated(b%weight))
-    case(.true.)
-    !if(allocated(a%weight).and.allocated(b%weight))then
-       !allocate(output%weight,mold=a%weight)
-       output%weight = a%weight + b%weight
-       !!output%delta = output%delta + input%delta
-       select case(allocated(a%m))
-       case(.true.)
-          output%m = a%m !+ input%m
-          output%v = a%v !+ input%v
-       end select
-    !end if
-    !if(allocated(a%delta).and.allocated(b%delta))then
-       output%delta = a%delta + b%delta
-    !end if
-    end select
+    class(gradient_type(num_inputs=*, num_neurons=*)), intent(inout) :: this
+    type(gradient_type(*,*)), intent(in) :: input
+    type(gradient_type(size(this%weight,dim=1), size(this%weight,dim=2))) :: output
+
+    output%weight = this%weight + input%weight
+    output%m = this%m !+ input%m
+    output%v = this%v !+ input%v
+    output%delta = this%delta + input%delta
 
   end function gradient_add
 !!!#############################################################################
@@ -219,8 +208,8 @@ contains
 !!!#############################################################################
   subroutine allocate_gradients(gradients, mold, reallocate)
     implicit none
-    type(gradient_type), allocatable, dimension(:), intent(out) :: gradients
-    type(gradient_type), dimension(0:), intent(in) :: mold
+    type(gradient_type(*, *)), dimension(0:), intent(in) :: mold
+    type(gradient_type(*, *)), allocatable, dimension(:), intent(out) :: gradients
     logical, optional, intent(in) :: reallocate
     integer :: l
     integer :: num_neurons, num_inputs, num_layers, num_features
@@ -234,41 +223,47 @@ contains
     end if
     
     num_layers = ubound(mold,dim=1)
-    num_inputs = size(mold(0)%delta,dim=1)
+    !num_inputs = size(mold(0)%delta,dim=1)
     select case(.not.allocated(gradients).or.t_reallocate)
     case(.true.)
        if(allocated(gradients)) deallocate(gradients)
-       allocate(gradients(0:num_layers))
-       allocate(gradients(0)%delta(num_inputs), source=0._real12)
+       !allocate(gradients(0)%delta(num_inputs), source=0._real12)
 
-       do l=1,num_layers,1
-          num_neurons = size(mold(l)%delta,dim=1)
-          num_inputs = size(mold(l)%weight,dim=1)
-          if(allocated(gradients(l)%weight)) deallocate(gradients(l)%weight)
-          if(allocated(gradients(l)%delta)) deallocate(gradients(l)%delta)
-          allocate(gradients(l)%weight(num_inputs, num_neurons),&
-               source=0._real12)
-          allocate(gradients(l)%delta(num_neurons),&
-               source=0._real12)
+       allocate(gradients(0:num_layers), source=(/ (&
+            gradient_type(&
+            num_inputs = size(mold(l)%weight,dim=1), &
+            num_neurons = size(mold(l)%weight,dim=2) &
+            ), l=0,num_layers ) /) )
 
-          if(allocated(mold(l)%m))then
-             if(allocated(gradients(l)%m)) deallocate(gradients(l)%m)
-             if(allocated(gradients(l)%v)) deallocate(gradients(l)%v)
-             allocate(gradients(l)%m(num_inputs, num_neurons), source=0._real12)
-             allocate(gradients(l)%v(num_inputs, num_neurons), source=0._real12)
-          end if
 
-       end do
+       !do l=1,num_layers,1
+       !   num_neurons = size(mold(l)%delta,dim=1)
+       !   num_inputs = size(mold(l)%weight,dim=1)
+       !   if(allocated(gradients(l)%weight)) deallocate(gradients(l)%weight)
+       !   if(allocated(gradients(l)%delta)) deallocate(gradients(l)%delta)
+       !   allocate(gradients(l)%weight(num_inputs, num_neurons),&
+       !        source=0._real12)
+       !   allocate(gradients(l)%delta(num_neurons),&
+       !        source=0._real12)
+       !
+       !   if(allocated(mold(l)%m))then
+       !      if(allocated(gradients(l)%m)) deallocate(gradients(l)%m)
+       !      if(allocated(gradients(l)%v)) deallocate(gradients(l)%v)
+       !      allocate(gradients(l)%m(num_inputs, num_neurons), source=0._real12)
+       !      allocate(gradients(l)%v(num_inputs, num_neurons), source=0._real12)
+       !   end if
+       !
+       !end do
 
     case default
        gradients(0)%delta = 0._real12
        do l=1,num_layers,1
           gradients(l)%weight = 0._real12
           gradients(l)%delta  = 0._real12
-          if(allocated(gradients(l)%m))then
+          !if(allocated(gradients(l)%m))then
              gradients(l)%m = 0._real12
              gradients(l)%v = 0._real12
-          end if
+          !end if
        end do
     end select
 
@@ -283,7 +278,7 @@ contains
   subroutine initialise_gradients(gradients, num_features, adam_learning)
     implicit none
     integer, intent(in) :: num_features
-    type(gradient_type), allocatable, dimension(:), intent(out) :: gradients
+    type(gradient_type(*, *)), allocatable, dimension(:), intent(out) :: gradients
     logical, optional, intent(in) :: adam_learning
 
     integer :: l
@@ -292,28 +287,33 @@ contains
     
     num_layers = size(network,dim=1)
     if(allocated(gradients)) deallocate(gradients)
-    allocate(gradients(0:num_layers))
-    allocate(gradients(0)%delta(num_features), source=0._real12)
+    !allocate(gradients(0:num_layers))
+    !allocate(gradients(0)%delta(num_features), source=0._real12)
     
-    do l=1,num_layers
-       num_neurons = size(network(l)%weight,dim=2)
-       num_inputs  = size(network(l)%weight,dim=1)
-       if(allocated(gradients(l)%weight)) deallocate(gradients(l)%weight)
-       if(allocated(gradients(l)%delta)) deallocate(gradients(l)%delta)
-       allocate(gradients(l)%weight(num_inputs, num_neurons),&
-            source=0._real12)
-       allocate(gradients(l)%delta(num_neurons),&
-            source=0._real12)
-    
-       if(present(adam_learning))then
-          if(adam_learning)then
-             if(allocated(gradients(l)%m)) deallocate(gradients(l)%m)
-             if(allocated(gradients(l)%v)) deallocate(gradients(l)%v)
-             allocate(gradients(l)%m(num_inputs, num_neurons), source=0._real12)
-             allocate(gradients(l)%v(num_inputs, num_neurons), source=0._real12)
-          end if
-       end if
-    end do
+    allocate(gradients(0:num_layers), source=(/ (&
+         gradient_type(&
+         num_inputs = size(network(l)%weight,dim=1), &
+         num_neurons = size(network(l)%weight,dim=2) &
+         ), l=0,num_layers ) /) )
+    !do l=1,num_layers
+    !   num_neurons = size(network(l)%weight,dim=2)
+    !   num_inputs  = size(network(l)%weight,dim=1)
+    !   if(allocated(gradients(l)%weight)) deallocate(gradients(l)%weight)
+    !   if(allocated(gradients(l)%delta)) deallocate(gradients(l)%delta)
+    !   allocate(gradients(l)%weight(num_inputs, num_neurons),&
+    !        source=0._real12)
+    !   allocate(gradients(l)%delta(num_neurons),&
+    !        source=0._real12)
+    !
+    !   if(present(adam_learning))then
+    !      if(adam_learning)then
+    !         if(allocated(gradients(l)%m)) deallocate(gradients(l)%m)
+    !         if(allocated(gradients(l)%v)) deallocate(gradients(l)%v)
+    !         allocate(gradients(l)%m(num_inputs, num_neurons), source=0._real12)
+    !         allocate(gradients(l)%v(num_inputs, num_neurons), source=0._real12)
+    !      end if
+    !   end if
+    !end do
     
     return
   end subroutine initialise_gradients
@@ -574,7 +574,7 @@ contains
     real(real12), dimension(:), intent(in) :: input
     type(hidden_output_type(*)), dimension(:), intent(in) :: output
     real(real12), dimension(:), intent(in) :: output_gradients !is this just output_gradients?
-    type(gradient_type), dimension(0:), intent(inout) :: input_gradients
+    type(gradient_type(*, *)), dimension(0:), intent(inout) :: input_gradients
     
     integer :: j, l
     integer :: num_layers, num_inputs
@@ -652,7 +652,7 @@ contains
     implicit none
     integer, optional, intent(in) :: iteration
     real(real12), intent(in) :: learning_rate
-    type(gradient_type), dimension(0:), intent(inout) :: gradients
+    type(gradient_type(*, *)), dimension(0:), intent(inout) :: gradients
     type(clip_type), optional, intent(in) :: clip
     
     integer :: l
@@ -669,8 +669,8 @@ contains
     !! loop through the layers in reverse
     do l=1,size(network,dim=1),1
        !! update the weights and biases for layer l
-       select case(allocated(gradients(l)%m))
-       case(.true.)
+       !select case(allocated(gradients(l)%m))
+       !case(.true.)
           call update_weight(learning_rate,&
                network(l)%weight,&
                network(l)%weight_incr, &
@@ -679,14 +679,14 @@ contains
                adaptive_parameters, &
                gradients(l)%m, &
                gradients(l)%v)
-       case default
-          call update_weight(learning_rate,&
-               network(l)%weight,&
-               network(l)%weight_incr, &
-               gradients(l)%weight, &
-               iteration, &
-               adaptive_parameters)
-       end select
+       !case default
+       !   call update_weight(learning_rate,&
+       !        network(l)%weight,&
+       !        network(l)%weight_incr, &
+       !        gradients(l)%weight, &
+       !        iteration, &
+       !        adaptive_parameters)
+       !end select
     end do
 
   end subroutine update_weights_and_biases
@@ -699,7 +699,7 @@ contains
   subroutine gradient_clip(gradients,clip_min,clip_max,clip_norm)
     implicit none
     real(real12), optional, intent(in) :: clip_min, clip_max, clip_norm
-    type(gradient_type), dimension(0:), intent(inout) :: gradients
+    type(gradient_type(*, *)), dimension(0:), intent(inout) :: gradients
 
     integer :: j, k, l, num_layers, num_inputs
     real(real12) :: scale
