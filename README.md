@@ -15,3 +15,28 @@ The software is intended to be developed into an independent Fortran package whi
 The software currently uses a namelist input file system. There is currently no help function. However, an example input file has been provided in example/param.in.
 
 This code has been developed using the gcc 12.2.0 fortran compiler. This has not been tested on ifort (due to outdated ifort compilers on our current setup).
+
+The code has a makefile. You SHOULD be able to build with it. Current methods are:
+
+-- basic make --
+
+make
+
+-- build with intentions --
+
+make build <opt> [opt]
+
+make build mp
+
+make build optim
+
+make build dev
+
+make build mp optim
+
+make build mp dev
+
+make build mp fast
+
+
+To define the compiler, use make FC=<compiler_name>
