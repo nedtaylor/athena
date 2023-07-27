@@ -583,8 +583,8 @@ program ConvolutionalNeuralNetwork
               comb_fc_gradients = comb_fc_gradients + fc_gradients
 #ifndef _OPENMP
            else
-              call cv_update(learning_rate, cv_gradients, update_iteration)
-              call fc_update(learning_rate, fc_gradients, update_iteration)
+              call cv_update(learning_rate, cv_gradients, cv_clip, update_iteration)
+              call fc_update(learning_rate, fc_gradients, fc_clip, update_iteration)
               update_iteration = update_iteration + 1
 #endif
            end if
