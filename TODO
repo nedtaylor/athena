@@ -3,11 +3,15 @@ TODO list:
 - Add handling of convolution method/type
 - Add DropBlock method
 - Add option for multiple convolution layers
-- Add options to weights and biases initialisation (e.g. He normal)
 - Make dropout, block_size, and keep_prob as derived types (easier for namelist)
-- Add metrics specifier (pointer to it)
 - Make convolution functions in mod_misc_convolution.f90
-- Add activation function and initialisation choice for cv and fc
+- Convert all layers to an extended type from an abstract layer type
+  - The 'model' variable will then be an allocatable array of containers, where each container is an extended class/type of the abstract layer type
+  - This should allow for looping over all layers in the model forward, backward, and update
+
+
+USEFUL LINKS TO CONSIDER
+========================
 
 https://carson.math.uwm.edu/trac/cam/files/attachments/ticket/175/17503a6b2326f09fbc4e3a7c03874c7333002038/6ebed2271b85944639eeaf09877f665246da77e8.pdf
 https://stackoverflow.com/questions/48501655/how-to-add-custom-option-to-target-in-makefile
