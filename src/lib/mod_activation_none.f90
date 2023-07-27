@@ -3,25 +3,25 @@
 !!! Code part of the ARTEMIS group (Hepplestone research group)
 !!! Think Hepplestone, think HRG
 !!!#############################################################################
-module activation_leaky_relu
+module activation_none
   use constants, only: real12
   use custom_types, only: activation_type
   implicit none
   
-  type, extends(activation_type) :: leaky_relu_type
+  type, extends(activation_type) :: none_type
    contains
-     procedure, pass(this) :: activate => leaky_relu_activate
-     procedure, pass(this) :: differentiate => leaky_relu_differentiate
-  end type leaky_relu_type
+     procedure, pass(this) :: activate => none_activate
+     procedure, pass(this) :: differentiate => none_differentiate
+  end type none_type
   
-  interface leaky_relu_setup
+  interface none_setup
      procedure initialise
-  end interface leaky_relu_setup
+  end interface none_setup
   
   
   private
   
-  public :: leaky_relu_setup
+  public :: none_setup
   
   
 contains
@@ -31,10 +31,10 @@ contains
 !!!#############################################################################
   function initialise(scale)
     implicit none
-    type(leaky_relu_type) :: initialise    
+    type(none_type) :: initialise
     real(real12), optional, intent(in) :: scale
 
-    initialise%name = "leaky_relu"
+    initialise%name = "none"
 
     if(present(scale))then
        initialise%scale = scale
@@ -44,40 +44,36 @@ contains
   end function initialise
 !!!#############################################################################
   
-
+  
 !!!#############################################################################
-!!! leaky ReLU transfer function
-!!! f = max(0.01*x, x)
+!!! NONE transfer function
+!!! x
 !!!#############################################################################
-  elemental function leaky_relu_activate(this, val) result(output)
+  elemental function none_activate(this, val) result(output)
     implicit none
-    class(leaky_relu_type), intent(in) :: this
+    class(none_type), intent(in) :: this
     real(real12), intent(in) :: val
     real(real12) :: output
 
-    output = max(0.01_real12*val, val) * this%scale
-  end function leaky_relu_activate
+    output = val * this%scale
+  end function none_activate
 !!!#############################################################################
 
 
 !!!#############################################################################
-!!! derivative of leaky ReLU transfer function
-!!! e.g. df/dx (1.0*x) = 1.0
+!!! derivative of NONE transfer function
+!!! e.g. df/dx = x
 !!! we are performing the derivative to identify what weight ...
 !!! ... results in the minimum error
 !!!#############################################################################
-  elemental function leaky_relu_differentiate(this, val) result(output)
+  elemental function none_differentiate(this, val) result(output)
     implicit none
-    class(leaky_relu_type), intent(in) :: this
+    class(none_type), intent(in) :: this
     real(real12), intent(in) :: val
     real(real12) :: output
 
-    if(val.ge.0._real12)then
-       output = this%scale
-    else
-       output = 0.01_real12
-    end if
-  end function leaky_relu_differentiate
+    output = val * this%scale
+  end function none_differentiate
 !!!#############################################################################
 
-end module activation_leaky_relu
+end module activation_none

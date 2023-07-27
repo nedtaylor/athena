@@ -10,8 +10,8 @@ module activation_linear
 
   type, extends(activation_type) :: linear_type
    contains
-     procedure :: activate => linear_activate
-     procedure :: differentiate => linear_differentiate
+     procedure, pass(this) :: activate => linear_activate
+     procedure, pass(this) :: differentiate => linear_differentiate
   end type linear_type
 
   interface linear_setup
@@ -29,13 +29,15 @@ contains
 !!!#############################################################################
 !!! initialisation
 !!!#############################################################################
-  function initialise(val)
+  function initialise(scale)
     implicit none
     type(linear_type) :: initialise
-    real(real12), optional, intent(in) :: val
+    real(real12), optional, intent(in) :: scale
     
-    if(present(val))then
-       initialise%scale = val
+    initialise%name = "linear"
+
+    if(present(scale))then
+       initialise%scale = scale
     else
        initialise%scale = 1._real12 !0.05_real12
     end if
@@ -48,7 +50,7 @@ contains
 !!! Linear transfer function
 !!! f = gradient * x
 !!!#############################################################################
-  function linear_activate(this, val) result(output)
+  elemental function linear_activate(this, val) result(output)
     implicit none
     class(linear_type), intent(in) :: this
     real(real12), intent(in) :: val
@@ -68,7 +70,7 @@ contains
 !!! we are performing the derivative to identify what weight ...
 !!! ... results in the minimum error
 !!!#############################################################################
-  function linear_differentiate(this, val) result(output)
+  elemental function linear_differentiate(this, val) result(output)
     implicit none
     class(linear_type), intent(in) :: this
     real(real12), intent(in) :: val

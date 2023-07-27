@@ -3,81 +3,97 @@
 !!! Code part of the ARTEMIS group (Hepplestone research group)
 !!! Think Hepplestone, think HRG
 !!!#############################################################################
-module activation_leaky_relu
+module activation_piecewise
   use constants, only: real12
   use custom_types, only: activation_type
   implicit none
-  
-  type, extends(activation_type) :: leaky_relu_type
+
+  type, extends(activation_type) :: piecewise_type
+     real(real12) :: intercept, min, max
    contains
-     procedure, pass(this) :: activate => leaky_relu_activate
-     procedure, pass(this) :: differentiate => leaky_relu_differentiate
-  end type leaky_relu_type
-  
-  interface leaky_relu_setup
+     procedure, pass(this) :: activate => piecewise_activate
+     procedure, pass(this) :: differentiate => piecewise_differentiate
+  end type piecewise_type
+
+  interface piecewise_setup
      procedure initialise
-  end interface leaky_relu_setup
-  
+  end interface piecewise_setup
+
   
   private
   
-  public :: leaky_relu_setup
-  
+  public :: piecewise_setup
+
   
 contains
   
 !!!#############################################################################
 !!! initialisation
 !!!#############################################################################
-  function initialise(scale)
+  function initialise(scale, intercept)
     implicit none
-    type(leaky_relu_type) :: initialise    
-    real(real12), optional, intent(in) :: scale
-
-    initialise%name = "leaky_relu"
+    type(piecewise_type) :: initialise
+    real(real12), optional, intent(in) :: scale, intercept
+    
+    initialise%name = "piecewise"
 
     if(present(scale))then
        initialise%scale = scale
     else
-       initialise%scale = 1._real12
+       initialise%scale = 1._real12 !0.05_real12
     end if
+    if(present(intercept))then
+       initialise%intercept = intercept
+    else
+       initialise%intercept = 1._real12 !0.05_real12
+    end if
+
+    initialise%max = initialise%intercept/initialise%scale
+    initialise%min = -initialise%max
+
   end function initialise
 !!!#############################################################################
-  
 
+       
 !!!#############################################################################
-!!! leaky ReLU transfer function
-!!! f = max(0.01*x, x)
+!!! Piecewise transfer function
+!!! f = gradient * x
 !!!#############################################################################
-  elemental function leaky_relu_activate(this, val) result(output)
+  elemental function piecewise_activate(this, val) result(output)
     implicit none
-    class(leaky_relu_type), intent(in) :: this
+    class(piecewise_type), intent(in) :: this
     real(real12), intent(in) :: val
     real(real12) :: output
 
-    output = max(0.01_real12*val, val) * this%scale
-  end function leaky_relu_activate
+    if(val.le.this%min)then
+       output = 0._real12
+    elseif(val.ge.this%max)then
+       output = this%scale
+    else
+       output = this%scale * val + this%intercept
+    end if
+  end function piecewise_activate
 !!!#############################################################################
 
 
 !!!#############################################################################
-!!! derivative of leaky ReLU transfer function
-!!! e.g. df/dx (1.0*x) = 1.0
+!!! derivative of piecewise transfer function
+!!! e.g. df/dx (gradient * x) = gradient
 !!! we are performing the derivative to identify what weight ...
 !!! ... results in the minimum error
 !!!#############################################################################
-  elemental function leaky_relu_differentiate(this, val) result(output)
+  elemental function piecewise_differentiate(this, val) result(output)
     implicit none
-    class(leaky_relu_type), intent(in) :: this
+    class(piecewise_type), intent(in) :: this
     real(real12), intent(in) :: val
     real(real12) :: output
 
-    if(val.ge.0._real12)then
-       output = this%scale
+    if(val.le.this%min.or.val.ge.this%max)then
+       output = 0._real12
     else
-       output = 0.01_real12
+       output = this%scale
     end if
-  end function leaky_relu_differentiate
+  end function piecewise_differentiate
 !!!#############################################################################
 
-end module activation_leaky_relu
+end module activation_piecewise

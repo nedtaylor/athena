@@ -10,12 +10,12 @@ import wandb
 ## define global variables
 project='cnn_mnist_test'
 codename='cnn_mp_wandb'
-sweep_id = '8336mo4r'#'emjb3nsc' #'8qcw0m55'
+sweep_id = 'vw5xt1zq' #'hfyfmd71' #'8336mo4r' #'emjb3nsc' #'8qcw0m55'
 count=100
-file_template = "template.in"
+file_template = "template_momentum.in"
 workdir = getcwd() # "../"
 min_neurons = 12
-max_neurons = 200
+max_neurons = 100
 
 ## check whether template file exists
 ## ... if not, exit
@@ -72,12 +72,11 @@ def main():
     ## populate parameter dictionary
     param_dict['training'] = {
         'learning_rate': wandb.config.learning_rate,
-        'l1_lambda': wandb.config.l1_lambda,
-        'l2_lambda': wandb.config.l2_lambda,
+        #'l1_lambda': wandb.config.l1_lambda,
+        #'l2_lambda': wandb.config.l2_lambda,
         'batch_size': wandb.config.batch_size,
         'num_epochs': wandb.config.num_epochs,
-        'beta1': wandb.config.beta1,
-        'beta2': wandb.config.beta2
+        'momentum': wandb.config.momentum
     }
     param_dict['convolution'] = {
         'cv_num_filters': wandb.config.cv_num_filters,

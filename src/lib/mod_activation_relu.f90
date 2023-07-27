@@ -10,8 +10,8 @@ module activation_relu
   
   type, extends(activation_type) :: relu_type
    contains
-     procedure :: activate => relu_activate
-     procedure :: differentiate => relu_differentiate
+     procedure, pass(this) :: activate => relu_activate
+     procedure, pass(this) :: differentiate => relu_differentiate
   end type relu_type
   
   interface relu_setup
@@ -29,10 +29,20 @@ contains
 !!!#############################################################################
 !!! initialisation
 !!!#############################################################################
-  function initialise()
+  function initialise(scale)
     implicit none
-    type(relu_type) :: initialise    
-    !initialise%scale = 1._real12
+    type(relu_type) :: initialise
+    real(real12), optional, intent(in) :: scale
+
+    initialise%name = "relu"
+
+    if(present(scale))then
+       initialise%scale = scale
+    else
+       initialise%scale = 1._real12
+    end if
+    initialise%threshold = 0._real12
+
   end function initialise
 !!!#############################################################################
   
@@ -41,13 +51,13 @@ contains
 !!! RELU transfer function
 !!! f = max(0, x)
 !!!#############################################################################
-  function relu_activate(this, val) result(output)
+  elemental function relu_activate(this, val) result(output)
     implicit none
     class(relu_type), intent(in) :: this
     real(real12), intent(in) :: val
     real(real12) :: output
 
-    output = max(0._real12, val)
+    output = max(this%threshold, val) * this%scale
   end function relu_activate
 !!!#############################################################################
 
@@ -58,16 +68,16 @@ contains
 !!! we are performing the derivative to identify what weight ...
 !!! ... results in the minimum error
 !!!#############################################################################
-  function relu_differentiate(this, val) result(output)
+  elemental function relu_differentiate(this, val) result(output)
     implicit none
     class(relu_type), intent(in) :: this
     real(real12), intent(in) :: val
     real(real12) :: output
 
-    if(val.ge.0._real12)then
-       output = 1._real12
+    if(val.ge.this%threshold)then
+       output = this%scale
     else
-       output = 0._real12
+       output = this%threshold
     end if
   end function relu_differentiate
 !!!#############################################################################

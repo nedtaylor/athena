@@ -3,25 +3,26 @@
 !!! Code part of the ARTEMIS group (Hepplestone research group)
 !!! Think Hepplestone, think HRG
 !!!#############################################################################
-module activation_sigmoid
-  use constants, only: real12
+module activation_gaussian
+  use constants, only: real12, pi
   use custom_types, only: activation_type
   implicit none
   
-  type, extends(activation_type) :: sigmoid_type
+  type, extends(activation_type) :: gaussian_type
+     real(real12) :: sigma
    contains
-     procedure, pass(this) :: activate => sigmoid_activate
-     procedure, pass(this) :: differentiate => sigmoid_differentiate
-  end type sigmoid_type
+     procedure, pass(this) :: activate => gaussian_activate
+     procedure, pass(this) :: differentiate => gaussian_differentiate
+  end type gaussian_type
   
-  interface sigmoid_setup
+  interface gaussian_setup
      procedure initialise
-  end interface sigmoid_setup
+  end interface gaussian_setup
   
   
   private
   
-  public :: sigmoid_setup
+  public :: gaussian_setup
   
   
 contains
@@ -29,61 +30,70 @@ contains
 !!!#############################################################################
 !!! initialisation
 !!!#############################################################################
-  function initialise(threshold, scale)
+  function initialise(threshold, scale, sigma)
     implicit none
-    type(sigmoid_type) :: initialise
+    type(gaussian_type) :: initialise
     real(real12), optional, intent(in) :: threshold
     real(real12), optional, intent(in) :: scale
+    real(real12), optional, intent(in) :: sigma
 
-    initialise%name = "sigmoid"
-
+    initialise%name = "gaussian"
+    
     if(present(scale))then
        initialise%scale = scale
     else
        initialise%scale = 1._real12
     end if
 
+    if(present(sigma))then
+       initialise%sigma = sigma
+    else
+       initialise%sigma = 1.5_real12
+    end if
+
     if(present(threshold))then
        initialise%threshold = threshold
     else
-       initialise%threshold = -min(huge(1._real12),32._real12)
+       initialise%threshold = min(huge(1._real12),16._real12) * &
+            initialise%sigma
     end if
-    !initialise%scale = 1._real12
+
   end function initialise
 !!!#############################################################################
   
   
 !!!#############################################################################
-!!! sigmoid transfer function
+!!! gaussian transfer function
 !!! f = 1/(1+exp(-x))
 !!!#############################################################################
-  elemental function sigmoid_activate(this, val) result(output)
+  elemental function gaussian_activate(this, val) result(output)
     implicit none
-    class(sigmoid_type), intent(in) :: this
+    class(gaussian_type), intent(in) :: this
     real(real12), intent(in) :: val
     real(real12) :: output
 
-    if(val.lt.this%threshold)then
+    if(abs(val).gt.this%threshold)then
        output = 0._real12
     else
-       output = this%scale /(1._real12 + exp(-val))
+       output = this%scale * 1._real12/(sqrt(2*pi)*this%sigma) * &
+            exp(-0.5_real12 * (val/this%sigma)**2._real12)
     end if
-  end function sigmoid_activate
+  end function gaussian_activate
 !!!#############################################################################
 
 
 !!!#############################################################################
-!!! derivative of sigmoid function
+!!! derivative of gaussian function
 !!! df/dx = f * (1 - f)
 !!!#############################################################################
-  elemental function sigmoid_differentiate(this, val) result(output)
+  elemental function gaussian_differentiate(this, val) result(output)
     implicit none
-    class(sigmoid_type), intent(in) :: this
+    class(gaussian_type), intent(in) :: this
     real(real12), intent(in) :: val
     real(real12) :: output
 
-    output = this%scale * this%activate(val) * (this%scale - this%activate(val))
-  end function sigmoid_differentiate
+    output = -val/this%sigma**2._real12 * this%activate(val)
+  end function gaussian_differentiate
 !!!#############################################################################
 
-end module activation_sigmoid
+end module activation_gaussian
