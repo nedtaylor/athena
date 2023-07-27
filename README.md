@@ -40,3 +40,8 @@ make build mp fast
 
 
 To define the compiler, use make FC=<compiler_name>
+
+
+Training/learning data is currently being logged using wandb (Weights and Biases, a machine learning data tracker). Wandb is a Python module and, as such, a Python interface has been made to call and run the Fortran CNN. The Python interface then reads the Fortran output files and logs the results to the wandb project.
+
+wandb project link: https://wandb.ai/ntaylor/cnn_mnist_test/overview?workspace=user-ntaylor
