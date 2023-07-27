@@ -1,6 +1,7 @@
 This is a program to highlight the uses of convolutional neural networks in Fortran.
 
 It is currently being tested on the MNIST dataset (a set of arund 600,000 hand-written numbers, 0-9). The version used is a text-form one.
+
 The link to the original database is: http://yann.lecun.com/exdb/mnist/
 
 The link to the .txt dabase is: https://github.com/halimb/MNIST-txt/tree/master
