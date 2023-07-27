@@ -6,7 +6,7 @@ The link to the original database is: http://yann.lecun.com/exdb/mnist/
 
 The link to the .txt dabase is: https://github.com/halimb/MNIST-txt/tree/master
 
-**NOTE:** The code is currently hardcoded in main.tex to point to the MNIST files, they are not yet set up as an input file tag. This is simply laziness and because it is a testing version and not meant to train on the MNIST database when complete.
+**NOTE:** The code is currently hardcoded in main.f90 to point to the MNIST files, they are not yet set up as an input file tag. This is simply laziness and because it is a testing version and not meant to train on the MNIST database when complete.
 
 Once it works for 2D systems, which it seems to currently, it will be extended to 3D systems.
 
