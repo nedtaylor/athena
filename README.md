@@ -1,3 +1,7 @@
+Suggested code name (separate one for module and the software that implements it):
+- ATELOS (Adaptive Training and Efficient Learning for Optimising Systems)
+- ATHENA (Adaptive Training for High Efficiency Neural Network Algorithm/Architecture)
+
 This is a program to highlight the uses of convolutional neural networks in Fortran.
 
 It is currently being tested on the MNIST dataset (a set of arund 600,000 hand-written numbers, 0-9). The version used is a text-form one.
