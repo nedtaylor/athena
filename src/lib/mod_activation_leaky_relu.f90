@@ -10,8 +10,10 @@ module activation_leaky_relu
   
   type, extends(activation_type) :: leaky_relu_type
    contains
-     procedure, pass(this) :: activate => leaky_relu_activate
-     procedure, pass(this) :: differentiate => leaky_relu_differentiate
+     procedure, pass(this) :: activate_1d => leaky_relu_activate_1d
+     procedure, pass(this) :: activate_3d => leaky_relu_activate_3d
+     procedure, pass(this) :: differentiate_1d => leaky_relu_differentiate_1d
+     procedure, pass(this) :: differentiate_3d => leaky_relu_differentiate_3d
   end type leaky_relu_type
   
   interface leaky_relu_setup
@@ -49,14 +51,24 @@ contains
 !!! leaky ReLU transfer function
 !!! f = max(0.01*x, x)
 !!!#############################################################################
-  elemental function leaky_relu_activate(this, val) result(output)
+  pure function leaky_relu_activate_1d(this, val) result(output)
     implicit none
     class(leaky_relu_type), intent(in) :: this
-    real(real12), intent(in) :: val
-    real(real12) :: output
+    real(real12), dimension(:), intent(in) :: val
+    real(real12), dimension(size(val,dim=1)) :: output
 
     output = max(0.01_real12*val, val) * this%scale
-  end function leaky_relu_activate
+  end function leaky_relu_activate_1d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function leaky_relu_activate_3d(this, val) result(output)
+    implicit none
+    class(leaky_relu_type), intent(in) :: this
+    real(real12), dimension(:,:,:), intent(in) :: val
+    real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
+
+    output = max(0.01_real12*val, val) * this%scale
+  end function leaky_relu_activate_3d
 !!!#############################################################################
 
 
@@ -66,18 +78,32 @@ contains
 !!! we are performing the derivative to identify what weight ...
 !!! ... results in the minimum error
 !!!#############################################################################
-  elemental function leaky_relu_differentiate(this, val) result(output)
+  pure function leaky_relu_differentiate_1d(this, val) result(output)
     implicit none
     class(leaky_relu_type), intent(in) :: this
-    real(real12), intent(in) :: val
-    real(real12) :: output
+    real(real12), dimension(:), intent(in) :: val
+    real(real12), dimension(size(val,dim=1)) :: output
 
-    if(val.ge.0._real12)then
+    where(val.ge.0._real12)
        output = this%scale
-    else
+    elsewhere
        output = 0.01_real12
-    end if
-  end function leaky_relu_differentiate
+    end where
+  end function leaky_relu_differentiate_1d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function leaky_relu_differentiate_3d(this, val) result(output)
+    implicit none
+    class(leaky_relu_type), intent(in) :: this
+    real(real12), dimension(:,:,:), intent(in) :: val
+    real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
+
+    where(val.ge.0._real12)
+       output = this%scale
+    elsewhere
+       output = 0.01_real12
+    end where
+  end function leaky_relu_differentiate_3d
 !!!#############################################################################
 
 end module activation_leaky_relu

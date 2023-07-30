@@ -3,100 +3,121 @@
 !!! Code part of the ARTEMIS group (Hepplestone research group)
 !!! Think Hepplestone, think HRG
 !!!#############################################################################
-module activation_linear
+module activation_softmax
   use constants, only: real12
   use custom_types, only: activation_type
   implicit none
-
-  type, extends(activation_type) :: linear_type
+  
+  type, extends(activation_type) :: softmax_type
    contains
-     procedure, pass(this) :: activate_1d => linear_activate_1d
-     procedure, pass(this) :: activate_3d => linear_activate_3d
-     procedure, pass(this) :: differentiate_1d => linear_differentiate_1d
-     procedure, pass(this) :: differentiate_3d => linear_differentiate_3d
-  end type linear_type
-
-  interface linear_setup
+     procedure, pass(this) :: activate_1d => softmax_activate_1d
+     procedure, pass(this) :: activate_3d => softmax_activate_3d
+     procedure, pass(this) :: differentiate_1d => softmax_differentiate_1d
+     procedure, pass(this) :: differentiate_3d => softmax_differentiate_3d
+  end type softmax_type
+  
+  interface softmax_setup
      procedure initialise
-  end interface linear_setup
-
+  end interface softmax_setup
+  
   
   private
   
-  public :: linear_setup
-
+  public :: softmax_setup
+  
   
 contains
   
 !!!#############################################################################
 !!! initialisation
 !!!#############################################################################
-  function initialise(scale)
+  function initialise(threshold, scale)
     implicit none
-    type(linear_type) :: initialise
+    type(softmax_type) :: initialise
+    real(real12), optional, intent(in) :: threshold
     real(real12), optional, intent(in) :: scale
-    
-    initialise%name = "linear"
+
+    initialise%name = "softmax"
 
     if(present(scale))then
        initialise%scale = scale
     else
-       initialise%scale = 1._real12 !0.05_real12
+       initialise%scale = 1._real12
     end if
 
+    if(present(threshold))then
+       initialise%threshold = threshold
+    else
+       initialise%threshold = -min(huge(1._real12),32._real12)
+    end if
+    !initialise%scale = 1._real12
   end function initialise
 !!!#############################################################################
-
-       
+  
+  
 !!!#############################################################################
-!!! Linear transfer function
-!!! f = gradient * x
+!!! softmax transfer function
+!!! f = exp(x-max)/sum(exp(x-max))
 !!!#############################################################################
-  pure function linear_activate_1d(this, val) result(output)
+  pure function softmax_activate_1d(this, val) result(output)
     implicit none
-    class(linear_type), intent(in) :: this
+    class(softmax_type), intent(in) :: this
+    real(real12), dimension(:), intent(in) :: val
+    real(real12), dimension(size(val,dim=1)) :: output
+    
+    !! compute softmax values
+    output = exp(val - maxval(val))
+
+    !! normalize softmax values
+    output = output / sum(output)
+
+  end function softmax_activate_1d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function softmax_activate_3d(this, val) result(output)
+    implicit none
+    class(softmax_type), intent(in) :: this
+    real(real12), dimension(:,:,:), intent(in) :: val
+    real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
+    
+    !! compute softmax values
+    output = exp(val - maxval(val))
+
+    !! normalize softmax values
+    output = output / sum(output)
+
+  end function softmax_activate_3d
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! derivative of softmax function
+!!! df/dx = f * (1 - f)
+!!!#############################################################################
+  pure function softmax_differentiate_1d(this, val) result(output)
+    implicit none
+    class(softmax_type), intent(in) :: this
     real(real12), dimension(:), intent(in) :: val
     real(real12), dimension(size(val,dim=1)) :: output
 
-    output = this%scale * val
-  end function linear_activate_1d
+    !! compute gradients for softmax layer
+    output = this%activate_1d(val)
+    output = output * (1._real12 - output)
+
+  end function softmax_differentiate_1d
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
-  pure function linear_activate_3d(this, val) result(output)
+  pure function softmax_differentiate_3d(this, val) result(output)
     implicit none
-    class(linear_type), intent(in) :: this
+    class(softmax_type), intent(in) :: this
     real(real12), dimension(:,:,:), intent(in) :: val
     real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
 
-    output = this%scale * val
-  end function linear_activate_3d
+    !! compute gradients for softmax layer
+    output = this%activate_3d(val)
+    output = output * (1._real12 - output)
+
+  end function softmax_differentiate_3d
 !!!#############################################################################
 
-
-!!!#############################################################################
-!!! derivative of linear transfer function
-!!! e.g. df/dx (gradient * x) = gradient
-!!! we are performing the derivative to identify what weight ...
-!!! ... results in the minimum error
-!!!#############################################################################
-  pure function linear_differentiate_1d(this, val) result(output)
-    implicit none
-    class(linear_type), intent(in) :: this
-    real(real12), dimension(:), intent(in) :: val
-    real(real12), dimension(size(val,dim=1)) :: output
-
-    output = this%scale * val
-  end function linear_differentiate_1d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
-  pure function linear_differentiate_3d(this, val) result(output)
-    implicit none
-    class(linear_type), intent(in) :: this
-    real(real12), dimension(:,:,:), intent(in) :: val
-    real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
-
-    output = this%scale * val
-  end function linear_differentiate_3d
-!!!#############################################################################
-
-end module activation_linear
+end module activation_softmax

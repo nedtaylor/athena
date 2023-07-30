@@ -11,8 +11,10 @@ module activation_gaussian
   type, extends(activation_type) :: gaussian_type
      real(real12) :: sigma
    contains
-     procedure, pass(this) :: activate => gaussian_activate
-     procedure, pass(this) :: differentiate => gaussian_differentiate
+     procedure, pass(this) :: activate_1d => gaussian_activate_1d
+     procedure, pass(this) :: activate_3d => gaussian_activate_3d
+     procedure, pass(this) :: differentiate_1d => gaussian_differentiate_1d
+     procedure, pass(this) :: differentiate_3d => gaussian_differentiate_3d
   end type gaussian_type
   
   interface gaussian_setup
@@ -60,25 +62,38 @@ contains
 
   end function initialise
 !!!#############################################################################
-  
-  
+
+
 !!!#############################################################################
 !!! gaussian transfer function
 !!! f = 1/(1+exp(-x))
 !!!#############################################################################
-  elemental function gaussian_activate(this, val) result(output)
+  pure function gaussian_activate_1d(this, val) result(output)
     implicit none
     class(gaussian_type), intent(in) :: this
-    real(real12), intent(in) :: val
-    real(real12) :: output
+    real(real12), dimension(:), intent(in) :: val
+    real(real12), dimension(size(val,dim=1)) :: output
 
-    if(abs(val).gt.this%threshold)then
-       output = 0._real12
-    else
+    output = 0._real12
+    where(abs(val).le.this%threshold)
        output = this%scale * 1._real12/(sqrt(2*pi)*this%sigma) * &
             exp(-0.5_real12 * (val/this%sigma)**2._real12)
-    end if
-  end function gaussian_activate
+    end where
+  end function gaussian_activate_1d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function gaussian_activate_3d(this, val) result(output)
+    implicit none
+    class(gaussian_type), intent(in) :: this
+    real(real12), dimension(:,:,:), intent(in) :: val
+    real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
+
+    output = 0._real12
+    where(abs(val).le.this%threshold)
+       output = this%scale * 1._real12/(sqrt(2*pi)*this%sigma) * &
+            exp(-0.5_real12 * (val/this%sigma)**2._real12)
+    end where
+  end function gaussian_activate_3d
 !!!#############################################################################
 
 
@@ -86,14 +101,24 @@ contains
 !!! derivative of gaussian function
 !!! df/dx = f * (1 - f)
 !!!#############################################################################
-  elemental function gaussian_differentiate(this, val) result(output)
+  pure function gaussian_differentiate_1d(this, val) result(output)
     implicit none
     class(gaussian_type), intent(in) :: this
-    real(real12), intent(in) :: val
-    real(real12) :: output
+    real(real12), dimension(:), intent(in) :: val
+    real(real12), dimension(size(val,dim=1)) :: output
 
-    output = -val/this%sigma**2._real12 * this%activate(val)
-  end function gaussian_differentiate
+    output = -val/this%sigma**2._real12 * this%activate_1d(val)
+  end function gaussian_differentiate_1d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function gaussian_differentiate_3d(this, val) result(output)
+    implicit none
+    class(gaussian_type), intent(in) :: this
+    real(real12), dimension(:,:,:), intent(in) :: val
+    real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
+
+    output = -val/this%sigma**2._real12 * this%activate_3d(val)
+  end function gaussian_differentiate_3d
 !!!#############################################################################
 
 end module activation_gaussian
