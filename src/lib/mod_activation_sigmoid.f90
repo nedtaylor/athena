@@ -10,8 +10,10 @@ module activation_sigmoid
   
   type, extends(activation_type) :: sigmoid_type
    contains
-     procedure, pass(this) :: activate => sigmoid_activate
-     procedure, pass(this) :: differentiate => sigmoid_differentiate
+     procedure, pass(this) :: activate_1d => sigmoid_activate_1d
+     procedure, pass(this) :: activate_3d => sigmoid_activate_3d
+     procedure, pass(this) :: differentiate_1d => sigmoid_differentiate_1d
+     procedure, pass(this) :: differentiate_3d => sigmoid_differentiate_3d
   end type sigmoid_type
   
   interface sigmoid_setup
@@ -57,18 +59,32 @@ contains
 !!! sigmoid transfer function
 !!! f = 1/(1+exp(-x))
 !!!#############################################################################
-  elemental function sigmoid_activate(this, val) result(output)
+  pure function sigmoid_activate_1d(this, val) result(output)
     implicit none
     class(sigmoid_type), intent(in) :: this
-    real(real12), intent(in) :: val
-    real(real12) :: output
+    real(real12), dimension(:), intent(in) :: val
+    real(real12), dimension(size(val,dim=1)) :: output
 
-    if(val.lt.this%threshold)then
+    where(val.lt.this%threshold)
        output = 0._real12
-    else
+    elsewhere
        output = this%scale /(1._real12 + exp(-val))
-    end if
-  end function sigmoid_activate
+    end where
+  end function sigmoid_activate_1d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function sigmoid_activate_3d(this, val) result(output)
+    implicit none
+    class(sigmoid_type), intent(in) :: this
+    real(real12), dimension(:,:,:), intent(in) :: val
+    real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
+
+    where(val.lt.this%threshold)
+       output = 0._real12
+    elsewhere
+       output = this%scale /(1._real12 + exp(-val))
+    end where
+  end function sigmoid_activate_3d
 !!!#############################################################################
 
 
@@ -76,14 +92,26 @@ contains
 !!! derivative of sigmoid function
 !!! df/dx = f * (1 - f)
 !!!#############################################################################
-  elemental function sigmoid_differentiate(this, val) result(output)
+  pure function sigmoid_differentiate_1d(this, val) result(output)
     implicit none
     class(sigmoid_type), intent(in) :: this
-    real(real12), intent(in) :: val
-    real(real12) :: output
+    real(real12), dimension(:), intent(in) :: val
+    real(real12), dimension(size(val,dim=1)) :: output
 
-    output = this%scale * this%activate(val) * (this%scale - this%activate(val))
-  end function sigmoid_differentiate
+    output = this%activate_1d(val)
+    output = this%scale * output * (this%scale - output)
+  end function sigmoid_differentiate_1d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function sigmoid_differentiate_3d(this, val) result(output)
+    implicit none
+    class(sigmoid_type), intent(in) :: this
+    real(real12), dimension(:,:,:), intent(in) :: val
+    real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
+    
+    output = this%activate_3d(val)
+    output = this%scale * output * (this%scale - output)
+  end function sigmoid_differentiate_3d
 !!!#############################################################################
 
 end module activation_sigmoid

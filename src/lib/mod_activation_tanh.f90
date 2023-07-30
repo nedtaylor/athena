@@ -10,8 +10,10 @@ module activation_tanh
   
   type, extends(activation_type) :: tanh_type
    contains
-     procedure, pass(this) :: activate => tanh_activate
-     procedure, pass(this) :: differentiate => tanh_differentiate
+     procedure, pass(this) :: activate_1d => tanh_activate_1d
+     procedure, pass(this) :: activate_3d => tanh_activate_3d
+     procedure, pass(this) :: differentiate_1d => tanh_differentiate_1d
+     procedure, pass(this) :: differentiate_3d => tanh_differentiate_3d
   end type tanh_type
   
   interface tanh_setup
@@ -58,22 +60,36 @@ contains
 !!! tanh transfer function
 !!! f = (exp(x) - exp(-x))/(exp(x) + exp(-x))
 !!!#############################################################################
-  elemental function tanh_activate(this, val) result(output)
+  pure function tanh_activate_1d(this, val) result(output)
     implicit none
     class(tanh_type), intent(in) :: this
-    real(real12), intent(in) :: val
-    real(real12) :: output
-
+    real(real12), dimension(:), intent(in) :: val
+    real(real12), dimension(size(val,dim=1)) :: output
 
     !! fix rounding errors of division of small numbers
     !! alt. could add an epsilon
-    if(abs(val).gt.this%threshold)then
+    where(abs(val).gt.this%threshold)
        output = sign(1._real12, val) * this%scale
-    else
+    elsewhere
        output = this%scale * (exp(val) - exp(-val))/(exp(val) + exp(-val))
-    end if
+    end where
+  end function tanh_activate_1d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function tanh_activate_3d(this, val) result(output)
+    implicit none
+    class(tanh_type), intent(in) :: this
+    real(real12), dimension(:,:,:), intent(in) :: val
+    real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
 
-  end function tanh_activate
+    !! fix rounding errors of division of small numbers
+    !! alt. could add an epsilon
+    where(abs(val).gt.this%threshold)
+       output = sign(1._real12, val) * this%scale
+    elsewhere
+       output = this%scale * (exp(val) - exp(-val))/(exp(val) + exp(-val))
+    end where
+  end function tanh_activate_3d
 !!!#############################################################################
 
 
@@ -81,16 +97,28 @@ contains
 !!! derivative of tanh function
 !!! df/dx = 1 - f^2
 !!!#############################################################################
-  elemental function tanh_differentiate(this, val) result(output)
+  pure function tanh_differentiate_1d(this, val) result(output)
     implicit none
     class(tanh_type), intent(in) :: this
-    real(real12), intent(in) :: val
-    real(real12) :: output
+    real(real12), dimension(:), intent(in) :: val
+    real(real12), dimension(size(val,dim=1)) :: output
 
     output = this%scale * &
-         (1._real12 - (this%activate(val)/this%scale) ** 2._real12)
+         (1._real12 - (this%activate_1d(val)/this%scale) ** 2._real12)
 
-  end function tanh_differentiate
+  end function tanh_differentiate_1d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function tanh_differentiate_3d(this, val) result(output)
+    implicit none
+    class(tanh_type), intent(in) :: this
+    real(real12), dimension(:,:,:), intent(in) :: val
+    real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
+
+    output = this%scale * &
+         (1._real12 - (this%activate_3d(val)/this%scale) ** 2._real12)
+
+  end function tanh_differentiate_3d
 !!!#############################################################################
 
 end module activation_tanh
