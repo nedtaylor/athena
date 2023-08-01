@@ -84,32 +84,50 @@ module custom_types
      real(real12) :: scale
      real(real12) :: threshold
    contains
-     procedure (activation_function), deferred, pass(this) :: activate
-     procedure (derivative_function), deferred, pass(this) :: differentiate
+     procedure (activation_function_1d), deferred, pass(this) :: activate_1d
+     procedure (derivative_function_1d), deferred, pass(this) :: differentiate_1d
+     procedure (activation_function_3d), deferred, pass(this) :: activate_3d
+     procedure (derivative_function_3d), deferred, pass(this) :: differentiate_3d
+     generic :: act => activate_1d, activate_3d 
+     generic :: dif => differentiate_1d, differentiate_3d
   end type activation_type
   
 
   !! interface for activation function
   !!-----------------------------------------------------------------------
   abstract interface
-     elemental function activation_function(this, val) result(output)
+     pure function activation_function_1d(this, val) result(output)
        import activation_type, real12
        class(activation_type), intent(in) :: this
-       real(real12), intent(in) :: val
-       real(real12) :: output
-     end function activation_function
+       real(real12), dimension(:), intent(in) :: val
+       real(real12), dimension(size(val,1)) :: output
+     end function activation_function_1d
+
+     pure function activation_function_3d(this, val) result(output)
+       import activation_type, real12
+       class(activation_type), intent(in) :: this
+       real(real12), dimension(:,:,:), intent(in) :: val
+       real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
+     end function activation_function_3d
   end interface
 
 
   !! interface for derivative function
   !!-----------------------------------------------------------------------
   abstract interface
-     elemental function derivative_function(this, val) result(output)
+     pure function derivative_function_1d(this, val) result(output)
        import activation_type, real12
        class(activation_type), intent(in) :: this
-       real(real12), intent(in) :: val
-       real(real12) :: output
-     end function derivative_function
+       real(real12), dimension(:), intent(in) :: val
+       real(real12), dimension(size(val,1)) :: output
+     end function derivative_function_1d
+
+     pure function derivative_function_3d(this, val) result(output)
+       import activation_type, real12
+       class(activation_type), intent(in) :: this
+       real(real12), dimension(:,:,:), intent(in) :: val
+       real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
+     end function derivative_function_3d
   end interface
 
 
