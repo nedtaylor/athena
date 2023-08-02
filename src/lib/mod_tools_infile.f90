@@ -73,14 +73,13 @@ contains
 !!!#############################################################################
   subroutine assignI(buffer,variable,found,keyword)
     integer :: found
-    character(1024) :: buffer1,buffer2
+    character(1024) :: buffer2
     character(*) :: buffer
     integer :: variable
     character(*), optional, intent(in) :: keyword
     if(present(keyword))then
        buffer=buffer(index(buffer,keyword):)
     end if
-    buffer1=buffer(:scan(buffer,"=")-1)
     if(scan("=",buffer).ne.0) buffer2=val(buffer)
     if(trim(adjustl(buffer2)).ne.'') then
        found=found+1
@@ -95,11 +94,10 @@ contains
 !!!#############################################################################
   subroutine assignIvec(buffer,variable,found,keyword)
     integer :: found,i
-    character(1024) :: buffer1,buffer2
+    character(1024) :: buffer2
     character(*) :: buffer
     integer, dimension(:) :: variable
     character(*), optional, intent(in) :: keyword
-    buffer1=buffer(:scan(buffer,"=")-1)
     if(scan("=",buffer).ne.0) buffer2=val(buffer)
     if(trim(adjustl(buffer2)).ne.'') then
        found=found+1
@@ -114,11 +112,10 @@ contains
 !!!#############################################################################
   subroutine assignR(buffer,variable,found,keyword)
     integer :: found
-    character(1024) :: buffer1,buffer2
+    character(1024) :: buffer2
     character(*) :: buffer
     real :: variable
     character(*), optional, intent(in) :: keyword
-    buffer1=buffer(:scan(buffer,"=")-1)
     if(scan("=",buffer).ne.0) buffer2=val(buffer)
     if(trim(adjustl(buffer2)).ne.'') then
        found=found+1
@@ -133,11 +130,10 @@ contains
 !!!#############################################################################
   subroutine assignRvec(buffer,variable,found,keyword)
     integer :: found,i
-    character(1024) :: buffer1,buffer2
+    character(1024) :: buffer2
     character(*) :: buffer
     real, dimension(:) :: variable
     character(*), optional, intent(in) :: keyword
-    buffer1=buffer(:scan(buffer,"=")-1)
     if(scan("=",buffer).ne.0) buffer2=val(buffer)
     if(trim(adjustl(buffer2)).ne.'') then
        found=found+1
@@ -152,11 +148,10 @@ contains
 !!!#############################################################################
   subroutine assignD(buffer,variable,found,keyword)
     integer :: found
-    character(1024) :: buffer1,buffer2
+    character(1024) :: buffer2
     character(*) :: buffer
     double precision :: variable
     character(*), optional, intent(in) :: keyword
-    buffer1=buffer(:scan(buffer,"=")-1)
     if(scan("=",buffer).ne.0) buffer2=val(buffer)
     if(trim(adjustl(buffer2)).ne.'') then
        found=found+1
@@ -171,11 +166,10 @@ contains
 !!!#############################################################################
   subroutine assignDvec(buffer,variable,found,keyword)
     integer :: found,i
-    character(1024) :: buffer1,buffer2
+    character(1024) :: buffer2
     character(*) :: buffer
     double precision, dimension(:) :: variable
     character(*), optional, intent(in) :: keyword
-    buffer1=buffer(:scan(buffer,"=")-1)
     if(scan("=",buffer).ne.0) buffer2=val(buffer)
     if(trim(adjustl(buffer2)).ne.'') then
        found=found+1
@@ -190,11 +184,10 @@ contains
 !!!#############################################################################
   subroutine assignS(buffer,variable,found,keyword)
     integer::found
-    character(1024)::buffer1,buffer2
+    character(1024)::buffer2
     character(*) :: buffer
     character(*) :: variable
     character(*), optional, intent(in) :: keyword
-    buffer1=buffer(:scan(buffer,"=")-1)
     if(scan("=",buffer).ne.0) buffer2=val(buffer)
     if(trim(adjustl(buffer2)).ne.'') then
        found=found+1
@@ -209,11 +202,10 @@ contains
 !!!#############################################################################
   subroutine assignL(buffer,variable,found,keyword)
     integer::found
-    character(1024)::buffer1,buffer2
+    character(1024)::buffer2
     character(*)::buffer
     logical::variable
     character(*), optional, intent(in) :: keyword
-    buffer1=buffer(:scan(buffer,"=")-1)
     if(scan("=",buffer).ne.0) buffer2=val(buffer)
     if(trim(adjustl(buffer2)).ne.'') then
        found=found+1
