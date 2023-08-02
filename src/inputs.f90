@@ -399,7 +399,7 @@ contains
     character(512) :: kernel_size, stride
     character(20) :: activation_function
 
-    character(*), intent(in) :: file_name
+    character(*), intent(inout) :: file_name
 
 
 !!!-----------------------------------------------------------------------------
