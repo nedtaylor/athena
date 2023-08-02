@@ -88,8 +88,8 @@ module custom_types
      procedure (derivative_function_1d), deferred, pass(this) :: differentiate_1d
      procedure (activation_function_3d), deferred, pass(this) :: activate_3d
      procedure (derivative_function_3d), deferred, pass(this) :: differentiate_3d
-     generic :: act => activate_1d, activate_3d 
-     generic :: dif => differentiate_1d, differentiate_3d
+     generic :: activate => activate_1d, activate_3d 
+     generic :: differentiate => differentiate_1d, differentiate_3d
   end type activation_type
   
 
