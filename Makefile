@@ -19,6 +19,7 @@ LIBS := mod_constants.f90 \
 	mod_activation_sigmoid.f90 \
 	mod_activation_tanh.f90 \
 	mod_activation_none.f90 \
+	mod_activation_softmax.f90 \
 	mod_initialiser_glorot.f90 \
 	mod_initialiser_he.f90 \
 	mod_initialiser_lecun.f90 \
@@ -29,7 +30,15 @@ LIBS := mod_constants.f90 \
 	mod_tools_infile.f90 \
 	mod_normalisation.f90 \
 	mod_batch_norm.f90 \
-	mod_loss_categorical.f90
+	mod_loss_categorical.f90 \
+	mod_base_layer.f90 \
+	mod_conv2d_layer.f90 \
+	mod_maxpool2d_layer.f90 \
+	mod_full_layer.f90 \
+	mod_flatten2d_layer.f90 \
+	mod_flatten3d_layer.f90 \
+	mod_container_layer.f90 \
+	mod_container_layer_sub.f90
 OBJS := $(addprefix $(LIB_DIR)/,$(LIBS))
 #$(info VAR is $(OBJS))
 SRCS := inputs.f90 \
@@ -46,14 +55,14 @@ OBJS := $(addprefix $(SRC_DIR)/,$(SRCS))
 # COMPILER CHOICE SECTION
 ##########################################
 FC=gfortran
-ifeq ($(FC), $(filter $(FC), "ifort" "ifx"))
-	PPFLAGS = -cpp
+ifeq ($(FC), $(filter $(FC), ifort ifx))
+	PPFLAGS = -stand f18 -cpp
 	MPFLAGS = -qopenmp
 	MODULEFLAGS = -module
 	DEVFLAGS = -check all -warn #all
 	DEBUGFLAGS = -check all -fpe0 -warn -tracekback -debug extended # -check bounds
 	OPTIMFLAGS = -O3
-else
+else ifeq ($(FC), $(filter $(FC), gfortran gcc)) 
 	PPFLAGS = -cpp
 	MPFLAGS = -fopenmp
 	MODULEFLAGS = -J
@@ -63,6 +72,19 @@ else
 	MEMFLAGS = -mcmodel=large
 	OPTIMFLAGS = -O3 -march=native
 	FASTFLAGS = -Ofast -march=native
+else ifeq ($(FC), $(filter $(FC), nag nagfor nagfmcheck)) 
+	PPFLAGS = -f2018 -fpp
+	MPFLAGS = -openmp
+	MODULEFLAGS = -mdir ${BUILD_DIR} -I
+	WARNFLAGS = -Wall
+	DEVFLAGS = -g -mtrace -C=all -colour -O0 #-g -static -ffpe-trap=invalid
+	DEBUGFLAGS = -C=array
+	MEMFLAGS = -mcmodel=large
+	OPTIMFLAGS = -O3
+	FASTFLAGS = -Ofast
+else
+#	echo "Compiler" ${FC} "not known"
+#	exit
 endif
 
 
