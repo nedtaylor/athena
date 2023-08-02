@@ -4,7 +4,6 @@
 !!! Think Hepplestone, think HRG
 !!!#############################################################################
 module initialiser
-  use constants, only: real12
   use misc, only: to_lower
   use custom_types, only: initialiser_type
   use initialiser_glorot, only: glorot_uniform, glorot_normal
