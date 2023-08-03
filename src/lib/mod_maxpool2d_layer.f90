@@ -1,4 +1,4 @@
-!!!#############################################################################
+!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
 !!! Code part of the ARTEMIS group (Hepplestone research group)
 !!! Think Hepplestone, think HRG
@@ -22,10 +22,23 @@ module maxpool2d_layer
      procedure :: backward => backward_rank
      procedure :: forward_3d
      procedure :: backward_3d
-     procedure :: init
-     procedure :: setup
   end type maxpool2d_layer_type
 
+  
+  interface maxpool2d_layer_type
+     pure module function layer_setup( &
+          input_shape, &
+          pool_size, stride) result(layer)
+       integer, dimension(:), intent(in) :: input_shape
+       integer, dimension(..), optional, intent(in) :: pool_size
+       integer, dimension(..), optional, intent(in) :: stride
+       type(maxpool2d_layer_type) :: layer
+     end function layer_setup
+  end interface maxpool2d_layer_type
+
+
+  private
+  public :: maxpool2d_layer_type
 
 
 contains
@@ -63,70 +76,78 @@ contains
 
 !!!#############################################################################
 !!!#############################################################################
-  subroutine setup(this, &
-       pool_size, stride)
+  pure module function layer_setup( &
+       input_shape, &
+       pool_size, stride) result(layer)
     implicit none
-    class(maxpool2d_layer_type), intent(inout) :: this
+    integer, dimension(:), intent(in) :: input_shape
     integer, dimension(..), optional, intent(in) :: pool_size
     integer, dimension(..), optional, intent(in) :: stride
-
-    if(present(pool_size))then
-       select rank(pool_size)
-       rank(0)
-          this%pool_x = pool_size
-          this%pool_y = pool_size
-       rank(1)
-          this%pool_x = pool_size(1)
-          if(size(pool_size,dim=1).eq.1)then
-             this%pool_y = pool_size(1)
-          elseif(size(pool_size,dim=1).eq.2)then
-             this%pool_y = pool_size(2)
-          end if
-       end select
-    else
-       this%pool_x = 3
-       this%pool_y = 3
-    end if
-
-    if(present(stride))then
-       select rank(stride)
-       rank(0)
-          this%stride_x = stride
-          this%stride_y = stride
-       rank(1)
-          this%stride_x = stride(1)
-          if(size(stride,dim=1).eq.1)then
-             this%stride_y = stride(1)
-          elseif(size(stride,dim=1).eq.2)then
-             this%stride_y = stride(2)
-          end if
-       end select
-    else
-       this%stride_x = 1
-       this%stride_y = 1
-    end if
-
-  end subroutine setup
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!!#############################################################################
-  subroutine init(this, input_shape)
-    implicit none
-    class(maxpool2d_layer_type), intent(inout) :: this
-    integer, dimension(:), intent(in) :: input_shape
+    
+    type(maxpool2d_layer_type) :: layer
 
     integer :: xend_idx, yend_idx
 
-    this%num_channels = input_shape(3)
-    this%width  = floor( (input_shape(2)-this%pool_y)/real(this%stride_y) ) + 1
-    this%height = floor( (input_shape(1)-this%pool_x)/real(this%stride_x) ) + 1
+    
+    !!-----------------------------------------------------------------------
+    !! set up pool size
+    !!-----------------------------------------------------------------------
+    if(present(pool_size))then
+       select rank(pool_size)
+       rank(0)
+          layer%pool_x = pool_size
+          layer%pool_y = pool_size
+       rank(1)
+          layer%pool_x = pool_size(1)
+          if(size(pool_size,dim=1).eq.1)then
+             layer%pool_y = pool_size(1)
+          elseif(size(pool_size,dim=1).eq.2)then
+             layer%pool_y = pool_size(2)
+          end if
+       end select
+    else
+       layer%pool_x = 3
+       layer%pool_y = 3
+    end if
 
-    allocate(this%output(this%height,this%width,this%num_channels))
-    allocate(this%di(input_shape(1), input_shape(2), input_shape(3)))
 
-  end subroutine init
+    !!-----------------------------------------------------------------------
+    !! set up stride
+    !!-----------------------------------------------------------------------
+    if(present(stride))then
+       select rank(stride)
+       rank(0)
+          layer%stride_x = stride
+          layer%stride_y = stride
+       rank(1)
+          layer%stride_x = stride(1)
+          if(size(stride,dim=1).eq.1)then
+             layer%stride_y = stride(1)
+          elseif(size(stride,dim=1).eq.2)then
+             layer%stride_y = stride(2)
+          end if
+       end select
+    else
+       layer%stride_x = 1
+       layer%stride_y = 1
+    end if
+
+
+    !!-----------------------------------------------------------------------
+    !! set up number of channels, width, height
+    !!-----------------------------------------------------------------------
+    layer%num_channels = input_shape(3)
+    layer%width  = floor( (input_shape(2)-layer%pool_y)/real(layer%stride_y) ) + 1
+    layer%height = floor( (input_shape(1)-layer%pool_x)/real(layer%stride_x) ) + 1
+
+
+    !!-----------------------------------------------------------------------
+    !! allocate output and gradients
+    !!-----------------------------------------------------------------------
+    allocate(layer%output(layer%height,layer%width,layer%num_channels))
+    allocate(layer%di(input_shape(1), input_shape(2), input_shape(3)))
+
+  end function layer_setup
 !!!#############################################################################
 
 

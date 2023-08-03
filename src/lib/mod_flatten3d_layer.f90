@@ -18,9 +18,18 @@ module flatten3d_layer
    contains
      procedure :: forward  => forward_rank
      procedure :: backward => backward_rank
-     procedure :: init
   end type flatten3d_layer_type
 
+  interface flatten3d_layer_type
+     pure module function layer_setup(input_shape) result(layer)
+       integer, dimension(:), intent(in) :: input_shape
+       type(flatten3d_layer_type) :: layer
+     end function layer_setup
+  end interface flatten3d_layer_type
+
+  
+  private
+  public :: flatten3d_layer_type
 
 
 contains
@@ -56,22 +65,23 @@ contains
 
 !!!#############################################################################
 !!!#############################################################################
-  subroutine init(this, input_shape)
+  pure module function layer_setup(input_shape) result(layer)
     implicit none
-    class(flatten3d_layer_type), intent(inout) :: this
     integer, dimension(:), intent(in) :: input_shape
 
-    allocate(this%input_shape, source=input_shape)
-    this%num_outputs = size(input_shape)
+    type(flatten3d_layer_type) :: layer
 
-    allocate(this%output(this%num_outputs))
-    allocate(this%di(&
+    allocate(layer%input_shape, source=input_shape)
+    layer%num_outputs = size(input_shape)
+
+    allocate(layer%output(layer%num_outputs), source=0._real12)
+    allocate(layer%di(&
          input_shape(1), input_shape(2), &
-         input_shape(3), input_shape(4)))
+         input_shape(3), input_shape(4)), &
+         source=0._real12)
 
-  end subroutine init
+  end function layer_setup
 !!!#############################################################################
-
 
 end module flatten3d_layer
 !!!#############################################################################

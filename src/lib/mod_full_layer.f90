@@ -6,7 +6,7 @@
 module full_layer
   use constants, only: real12
   use base_layer, only: base_layer_type
-  use custom_types, only: activation_type
+  use custom_types, only: activation_type, initialiser_type
   implicit none
   
 
@@ -28,10 +28,25 @@ module full_layer
      procedure :: backward => backward_rank
      procedure :: forward_1d
      procedure :: backward_1d
-     procedure :: init
-     procedure :: setup
   end type full_layer_type
 
+
+  interface full_layer_type
+     module function layer_setup( &
+          num_inputs, num_outputs, &
+          activation_function, activation_scale, &
+          kernel_initialiser, bias_initialiser) result(layer)
+       integer, intent(in) :: num_inputs, num_outputs
+       real(real12), optional, intent(in) :: activation_scale
+       character(*), optional, intent(in) :: activation_function, &
+            kernel_initialiser, bias_initialiser
+       type(full_layer_type) :: layer
+     end function layer_setup
+  end interface full_layer_type
+
+
+  private
+  public :: full_layer_type
 
 
 contains
@@ -69,33 +84,27 @@ contains
 
 !!!#############################################################################
 !!!#############################################################################
-  subroutine setup(this, &
-       num_inputs, num_outputs, activation_scale, activation_function)
+  module function layer_setup( &
+       num_inputs, num_outputs, &
+       activation_scale, activation_function, &
+       kernel_initialiser, bias_initialiser) result(layer)
     use activation,  only: activation_setup
+    use initialiser, only: initialiser_setup
     implicit none
-    class(full_layer_type), intent(inout) :: this
     integer, intent(in) :: num_inputs, num_outputs
-    !integer, dimension(..1), intent(in) :: num_hidden
     real(real12), optional, intent(in) :: activation_scale
-    character(*), optional, intent(in) :: activation_function
+    character(*), optional, intent(in) :: activation_function, &
+         kernel_initialiser, bias_initialiser
+    
+    type(full_layer_type) :: layer
 
     real(real12) :: scale
-    character(len=10) :: t_activation_function
+    character(len=10) :: t_activation_function, initialiser_name
+    class(initialiser_type), allocatable :: initialiser
 
-    this%num_inputs = num_inputs
-    this%num_outputs = num_outputs
 
-    !if(present(num_hidden))then
-    !   select rank(num_hidden)
-    !   rank(0)
-    !      allocate(this%num_hidden(1))
-    !      this%num_hidden(1) = num_hidden
-    !   rank(1)
-    !      allocate(this%num_hidden(size(num_hidden,dim=1))
-    !      this%num_hidden(:) = num_hidden(:)
-    !   end select
-    !end if
-    !this%num_layers = size(this%num_hidden,dim=1)
+    layer%num_inputs  = num_inputs
+    layer%num_outputs = num_outputs
 
     !!--------------------------------------------------------------------------
     !! set activation and derivative functions based on input name
@@ -111,32 +120,38 @@ contains
        scale = 1._real12
     end if
        
-    allocate(this%transfer, source=activation_setup(t_activation_function, scale))
+    allocate(layer%transfer, source=activation_setup(t_activation_function, scale))
 
 
 
-  end subroutine setup
-!!!#############################################################################
+    allocate(layer%dw(layer%num_inputs+1,layer%num_outputs))
+    allocate(layer%output(layer%num_outputs))
+    allocate(layer%di(layer%num_inputs+1)) ! +1 account for bias
+    
 
+    !!--------------------------------------------------------------------------
+    !! initialise kernels and biases
+    !!--------------------------------------------------------------------------
+    allocate(layer%weight(layer%num_inputs+1,layer%num_outputs))
+    allocate(layer%weight_incr(layer%num_inputs+1,layer%num_outputs))
+    if(present(kernel_initialiser))then
+       initialiser_name = kernel_initialiser
+    else
+       initialiser_name = "he_uniform"
+    end if
+    initialiser = initialiser_setup(initialiser_name)
+    call initialiser%initialise(layer%weight(:layer%num_inputs,:), &
+         fan_in=layer%num_inputs+1, fan_out=layer%num_outputs)
+    if(present(bias_initialiser))then
+       initialiser_name = bias_initialiser
+    else
+       initialiser_name= "zeros"
+    end if
+    initialiser = initialiser_setup(initialiser_name)
+    call initialiser%initialise(layer%weight(layer%num_inputs+1,:), &
+         fan_in=layer%num_inputs+1, fan_out=layer%num_outputs)
 
-!!!#############################################################################
-!!!#############################################################################
-  subroutine init(this, input_shape)
-    implicit none
-    class(full_layer_type), intent(inout) :: this
-    integer, dimension(:), intent(in) :: input_shape
-
-    !select rank(input_shape)
-    !rank(0)
-    !   this%num_inputs = input_shape
-    !rank(1)
-    this%num_inputs = input_shape(1)
-    !end select
-
-    allocate(this%weight(this%num_inputs+1,this%num_outputs+1))
-    allocate(this%weight_incr(this%num_inputs+1,this%num_outputs+1))
-
-  end subroutine init
+  end function layer_setup
 !!!#############################################################################
 
 
