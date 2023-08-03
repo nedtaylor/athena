@@ -54,7 +54,10 @@ contains
        input = (input *2._real12 - 1._real12) * scale
     rank(2)
        call random_number(input)
-       input = (input *2._real12 - 1._real12) * scale
+       input = input * scale
+    rank(3)
+       call random_number(input)
+       input = input * scale
     end select
     
   end subroutine he_uniform_initialise
@@ -85,7 +88,10 @@ contains
        input = input * scale
     rank(2)
        call random_number(input)
-       input = input* scale
+       input = input * scale
+    rank(3)
+       call random_number(input)
+       input = input * scale
     end select
     
   end subroutine he_normal_initialise

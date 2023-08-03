@@ -52,7 +52,10 @@ contains
        input = (input *2._real12 - 1._real12) * scale
     rank(2)
        call random_number(input)
-       input = (input *2._real12 - 1._real12) * scale
+       input = input * scale
+    rank(3)
+       call random_number(input)
+       input = input * scale
     end select
     
   end subroutine glorot_uniform_initialise
@@ -83,6 +86,9 @@ contains
     rank(2)
        call random_number(input)
        input = input* scale
+    rank(3)
+       call random_number(input)
+       input = input * scale
     end select
     
   end subroutine glorot_normal_initialise
