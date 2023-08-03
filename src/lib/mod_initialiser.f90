@@ -33,10 +33,11 @@ contains
 !!!#############################################################################
 !!! 
 !!!#############################################################################
-  function initialiser_setup(name) result(initialiser)
+  function initialiser_setup(name, error) result(initialiser)
     implicit none
     class(initialiser_type), allocatable :: initialiser
     character(*), intent(in) :: name
+    integer, optional, intent(out) :: error
 
 
     !!--------------------------------------------------------------------------
@@ -59,7 +60,12 @@ contains
     case("zeros")
        initialiser = zeros
     case default
-       stop "Incorrect initialiser name given '"//trim(to_lower(name))//"'"
+       if(present(error))then
+          error = -1
+          return
+       else
+          stop "Incorrect initialiser name given '"//trim(to_lower(name))//"'"
+       end if
     end select
 
   end function initialiser_setup
