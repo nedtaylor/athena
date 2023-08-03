@@ -32,7 +32,7 @@ contains
 !!!#############################################################################
 !!! initialisation
 !!!#############################################################################
-  function initialise(scale, intercept)
+  pure function initialise(scale, intercept)
     implicit none
     type(piecewise_type) :: initialise
     real(real12), optional, intent(in) :: scale, intercept

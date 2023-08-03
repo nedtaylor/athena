@@ -31,7 +31,7 @@ contains
 !!!#############################################################################
 !!! initialisation
 !!!#############################################################################
-  function initialise(threshold, scale)
+  pure function initialise(threshold, scale)
     implicit none
     type(sigmoid_type) :: initialise
     real(real12), optional, intent(in) :: threshold
