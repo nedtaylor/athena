@@ -7,3 +7,9 @@ obj/
 *.o
 *.e
 wandb/
+*.err
+tools/D_*
+tools/*.txt
+*.yaml
+cnn_*.in
+DTEST*
