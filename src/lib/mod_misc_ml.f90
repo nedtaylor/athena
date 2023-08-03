@@ -6,7 +6,7 @@ module misc_ml
 
   private
 
-  public :: get_padding_half
+  public :: set_padding
 
   public :: step_decay
   public :: reduce_lr_on_plateau
@@ -98,14 +98,81 @@ contains
 !!!########################################################################
 !!! return width of padding from kernel/filter size
 !!!########################################################################
-  function get_padding_half(width) result(output)
+  pure function get_padding_half(width) result(output)
     implicit none
     integer, intent(in) :: width
     integer :: output
     
     output = ( width - (1 - mod(width,2)) - 1 ) / 2
-        
   end function get_padding_half
+!!!########################################################################
+
+
+!!!########################################################################
+!!! return width of padding from kernel/filter size
+!!!########################################################################
+  subroutine set_padding(pad, kernel_size, padding_method)
+    use misc, only: to_lower
+    implicit none
+    integer, intent(out) :: pad
+    integer, intent(in) :: kernel_size
+    character(*), intent(inout) :: padding_method
+    
+
+    !!---------------------------------------------------------------------
+    !! padding method options
+    !!---------------------------------------------------------------------
+    !! none  = alt. name for 'valid'
+    !! zero  = alt. name for 'same'
+    !! symmetric = alt.name for 'replication'
+    !! valid = no padding
+    !! same  = maintain spatial dimensions
+    !!         ... (i.e. padding added = (kernel_size - 1)/2)
+    !!         ... defaults to zeros in the padding
+    !! full  = enough padding for filter to slide over every possible position
+    !!         ... (i.e. padding added = (kernel_size - 1)
+    !! circular = maintain spatial dimensions
+    !!            ... wraps data around for padding (periodic)
+    !! reflection = maintains spatial dimensions
+    !!              ... reflect data (about boundary index)
+    !! replication = maintains spatial dimensions
+    !!               ... reflect data (boundary included)
+100 select case(to_lower(trim(padding_method)))
+    case("none")
+       padding_method = "valid"
+       goto 100
+    case("zero")
+       padding_method = "same"
+       goto 100
+    case("half")
+       padding_method = "same"
+       goto 100
+    case("symmetric")
+       padding_method = "replication"
+       goto 100
+    case("valid")
+       write(6,*) "Padding type: 'valid' (no padding)"
+       pad = 0
+       return
+    case("same")
+       write(6,*) "Padding type: 'same' (pad with zeros)"
+    case("circular")
+       write(6,*) "Padding type: 'same' (circular padding)"
+    case("full")
+       write(6,*) "Padding type: 'full' (all possible positions)"
+       pad = kernel_size - 1
+       return
+    case("reflection")
+       write(6,*) "Padding type: 'reflection' (reflect on boundary)"
+    case("replication")
+       write(6,*) "Padding type: 'replication' (reflect after boundary)"
+    case default
+       stop "ERROR: padding type '"//padding_method//"' not known"
+    end select
+
+    pad = get_padding_half(kernel_size)
+
+  end subroutine set_padding
 !!!########################################################################
 
 
