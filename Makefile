@@ -41,11 +41,11 @@ LIBS := mod_constants.f90 \
 	mod_container_layer_sub.f90
 OBJS := $(addprefix $(LIB_DIR)/,$(LIBS))
 #$(info VAR is $(OBJS))
-SRCS := inputs.f90 \
-	convolution.f90 \
-	pooling.f90 \
-	fullyconnected.f90 \
-	softmax.f90
+SRCS := inputs.f90
+#	convolution.f90 \
+#	pooling.f90 \
+#	fullyconnected.f90 \
+#	softmax.f90
 MAIN := main.f90
 SRCS := $(OBJS) $(SRCS) $(MAIN)
 OBJS := $(addprefix $(SRC_DIR)/,$(SRCS))
