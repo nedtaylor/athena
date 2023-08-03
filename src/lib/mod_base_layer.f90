@@ -13,7 +13,7 @@ module base_layer
   type, abstract :: base_layer_type !! give it parameterised values?
 
    contains
-     procedure(initialise), deferred, pass(this) :: init
+     !procedure(initialise), deferred, pass(this) :: init
      procedure(forward), deferred, pass(this) :: forward
      procedure(backward), deferred, pass(this) :: backward
      !! NO NEED FOR DEFERRED PRODECURES
@@ -29,13 +29,13 @@ module base_layer
   end type base_layer_type
   !! is it a foward subroutine, or a function whose result is the output?
 
-  abstract interface
-     subroutine initialise(this, input_shape)
-       import :: base_layer_type
-       class(base_layer_type), intent(inout) :: this
-       integer, dimension(:), intent(in) :: input_shape
-     end subroutine initialise
-  end interface
+  !abstract interface
+  !   subroutine initialise(this, input_shape)
+  !     import :: base_layer_type
+  !     class(base_layer_type), intent(inout) :: this
+  !     integer, dimension(:), intent(in) :: input_shape
+  !   end subroutine initialise
+  !end interface
 
   abstract interface
      pure subroutine forward(this, input)
