@@ -32,7 +32,7 @@ contains
 !!!#############################################################################
 !!! initialisation
 !!!#############################################################################
-  function initialise(threshold, scale, sigma)
+  pure function initialise(threshold, scale, sigma)
     implicit none
     type(gaussian_type) :: initialise
     real(real12), optional, intent(in) :: threshold

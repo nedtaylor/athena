@@ -38,7 +38,7 @@ contains
 !!!#############################################################################
 !!! 
 !!!#############################################################################
-  function activation_setup(name, scale) result(transfer)
+  pure function activation_setup(name, scale) result(transfer)
     implicit none
     real(real12), optional, intent(in) :: scale
     class(activation_type), allocatable :: transfer

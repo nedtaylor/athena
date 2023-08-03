@@ -31,7 +31,7 @@ contains
 !!!#############################################################################
 !!! initialisation
 !!!#############################################################################
-  function initialise(scale)
+  pure function initialise(scale)
     implicit none
     type(leaky_relu_type) :: initialise    
     real(real12), optional, intent(in) :: scale
