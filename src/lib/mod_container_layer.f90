@@ -6,8 +6,6 @@
 module container_layer
   use constants, only: real12
   use base_layer, only: base_layer_type
-  use conv2d_layer, only: conv2d_layer_type
-  use maxpool2d_layer, only: maxpool2d_layer_type
   implicit none
 
 

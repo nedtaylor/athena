@@ -6,12 +6,11 @@
 module conv2d_layer
   use constants, only: real12
   use base_layer, only: base_layer_type
-  use custom_types, only: activation_type
+  use custom_types, only: activation_type, initialiser_type
   implicit none
   
   
   type, extends(base_layer_type) :: conv2d_layer_type
-
      integer :: kernel_x, kernel_y
      integer :: stride_x, stride_y
      integer :: pad_y, pad_x
@@ -32,9 +31,30 @@ module conv2d_layer
      procedure :: backward => backward_rank
      procedure :: forward_3d
      procedure :: backward_3d
-     procedure :: init
-     procedure :: setup
   end type conv2d_layer_type
+
+  
+  interface conv2d_layer_type
+     module function layer_setup( &
+          input_shape, &
+          num_filters, kernel_size, stride, padding, &
+          activation_function, activation_scale, &
+          kernel_initialiser, bias_initialiser) result(layer)
+       integer, dimension(:), intent(in) :: input_shape
+       integer, optional, intent(in) :: num_filters
+       integer, dimension(..), optional, intent(in) :: kernel_size
+       integer, dimension(..), optional, intent(in) :: stride
+       real(real12), optional, intent(in) :: activation_scale
+       character(*), optional, intent(in) :: activation_function, &
+            kernel_initialiser, bias_initialiser, padding
+       type(conv2d_layer_type) :: layer
+     end function layer_setup
+  end interface conv2d_layer_type
+
+
+  private
+  public :: conv2d_layer_type
+
 
 contains
 
@@ -71,60 +91,102 @@ contains
 
 !!!#############################################################################
 !!!#############################################################################
-  subroutine setup(this, &
-       kernel_size, stride, num_filters, activation_scale, activation_function)
+  module function layer_setup( &
+       input_shape, &
+       num_filters, kernel_size, stride, padding, &
+       activation_function, activation_scale, &
+       kernel_initialiser, bias_initialiser) result(layer)
+    !! add in clipping/constraint options
+    !! add in dilation
+    !! add in padding handler
     use activation,  only: activation_setup
+    use initialiser, only: initialiser_setup
+    use misc_ml, only: set_padding
     implicit none
-    class(conv2d_layer_type), intent(inout) :: this
+    integer, dimension(:), intent(in) :: input_shape
+    integer, optional, intent(in) :: num_filters
     integer, dimension(..), optional, intent(in) :: kernel_size
     integer, dimension(..), optional, intent(in) :: stride
-    integer, optional, intent(in) :: num_filters
     real(real12), optional, intent(in) :: activation_scale
-    character(*), optional, intent(in) :: activation_function
+    character(*), optional, intent(in) :: activation_function, &
+         kernel_initialiser, bias_initialiser, padding
 
+    type(conv2d_layer_type) :: layer
+
+    integer :: xend_idx, yend_idx
     real(real12) :: scale
-    character(len=10) :: t_activation_function
+    character(len=10) :: t_activation_function, initialiser_name
+    character(len=20) :: t_padding
+    class(initialiser_type), allocatable :: initialiser
 
+
+
+    !!-----------------------------------------------------------------------
+    !! set up number of filters
+    !!-----------------------------------------------------------------------
+    if(present(num_filters))then
+       layer%num_filters = num_filters
+    else
+       layer%num_filters = 32
+    end if
+    
+    
+    !!-----------------------------------------------------------------------
+    !! set up kernel size
+    !!-----------------------------------------------------------------------
     if(present(kernel_size))then
        select rank(kernel_size)
        rank(0)
-          this%kernel_x = kernel_size
-          this%kernel_y = kernel_size
+          layer%kernel_x = kernel_size
+          layer%kernel_y = kernel_size
        rank(1)
-          this%kernel_x = kernel_size(1)
+          layer%kernel_x = kernel_size(1)
           if(size(kernel_size,dim=1).eq.1)then
-             this%kernel_y = kernel_size(1)
+             layer%kernel_y = kernel_size(1)
           elseif(size(kernel_size,dim=1).eq.2)then
-             this%kernel_y = kernel_size(2)
+             layer%kernel_y = kernel_size(2)
           end if
        end select
     else
-       this%kernel_x = 3
-       this%kernel_y = 3
+       layer%kernel_x = 3
+       layer%kernel_y = 3
     end if
+    !! odd or even kernel/filter size
+    !!-----------------------------------------------------------------------
+    layer%centre_x = 2 - mod(layer%kernel_x, 2)
+    layer%centre_y = 2 - mod(layer%kernel_y, 2)
 
+    if(present(padding))then
+       t_padding = padding
+    else
+       t_padding = "valid"
+    end if
+    call set_padding(layer%pad_x, layer%kernel_x, t_padding)
+    call set_padding(layer%pad_y, layer%kernel_y, t_padding)
+
+
+    !!-----------------------------------------------------------------------
+    !! set up stride
+    !!-----------------------------------------------------------------------
     if(present(stride))then
        select rank(stride)
        rank(0)
-          this%stride_x = stride
-          this%stride_y = stride
+          layer%stride_x = stride
+          layer%stride_y = stride
        rank(1)
-          this%stride_x = stride(1)
+          layer%stride_x = stride(1)
           if(size(stride,dim=1).eq.1)then
-             this%stride_y = stride(1)
+             layer%stride_y = stride(1)
           elseif(size(stride,dim=1).eq.2)then
-             this%stride_y = stride(2)
+             layer%stride_y = stride(2)
           end if
        end select
     else
-       this%stride_x = 1
-       this%stride_y = 1
-    end if
-
-    if(present(num_filters))then
-       this%num_filters = num_filters
+       layer%stride_x = 1
+       layer%stride_y = 1
     end if
     
+
     !!--------------------------------------------------------------------------
     !! set activation and derivative functions based on input name
     !!--------------------------------------------------------------------------
@@ -139,41 +201,51 @@ contains
        scale = 1._real12
     end if
        
-    allocate(this%transfer, source=activation_setup(t_activation_function, scale))
+    allocate(layer%transfer, source=activation_setup(t_activation_function, scale))
 
 
+    !!--------------------------------------------------------------------------
+    !! set up output, weight, and bias shapes
+    !!--------------------------------------------------------------------------
+    layer%num_channels = input_shape(3)
+    layer%width = floor( (input_shape(2) + 2.0 * layer%pad_y - layer%kernel_y)/&
+         real(layer%stride_y) ) + 1
+    layer%height = floor( (input_shape(1) + 2.0 * layer%pad_x - layer%kernel_x)/&
+         real(layer%stride_x) ) + 1
 
-  end subroutine setup
-!!!#############################################################################
+    allocate(layer%output(layer%height,layer%width,layer%num_channels_out))
+    allocate(layer%bias(layer%num_filters))
+    xend_idx   = layer%pad_x + (layer%centre_x - 1)
+    yend_idx   = layer%pad_y + (layer%centre_y - 1)
+    allocate(layer%weight_incr(&
+         -layer%pad_x:xend_idx,-layer%pad_y:yend_idx,layer%num_filters))
+    layer%weight_incr = 0._real12
 
+    allocate(layer%weight(&
+         -layer%pad_x:xend_idx,-layer%pad_y:yend_idx,layer%num_filters))
+    
 
-!!!#############################################################################
-!!!#############################################################################
-  subroutine init(this, input_shape)
-    implicit none
-    class(conv2d_layer_type), intent(inout) :: this
-    integer, dimension(:), intent(in) :: input_shape
+    !!--------------------------------------------------------------------------
+    !! initialise kernels and biases
+    !!--------------------------------------------------------------------------
+    if(present(kernel_initialiser))then
+       initialiser_name = kernel_initialiser
+    else
+       initialiser_name = "he_uniform"
+    end if
+    initialiser = initialiser_setup(initialiser_name)
+    call initialiser%initialise(layer%weight, &
+         fan_in=layer%kernel_x*layer%kernel_y+1, fan_out=1)
+    if(present(bias_initialiser))then
+       initialiser_name = bias_initialiser
+    else
+       initialiser_name= "zeros"
+    end if
+    initialiser = initialiser_setup(initialiser_name)
+    call initialiser%initialise(layer%bias, &
+         fan_in=layer%kernel_x*layer%kernel_y+1, fan_out=1)
 
-    integer :: xend_idx, yend_idx
-
-    this%num_channels = input_shape(3)
-    this%width = floor( (input_shape(2) + 2.0 * this%pad_y - this%kernel_y)/&
-         real(this%stride_y) ) + 1
-    this%height = floor( (input_shape(1) + 2.0 * this%pad_x - this%kernel_x)/&
-         real(this%stride_x) ) + 1
-
-    allocate(this%output(this%height,this%width,this%num_channels_out))
-    allocate(this%bias(this%num_filters))
-    xend_idx   = this%pad_x + (this%centre_x - 1)
-    yend_idx   = this%pad_y + (this%centre_y - 1)
-    allocate(this%weight_incr(&
-         -this%pad_x:xend_idx,-this%pad_y:yend_idx,this%num_filters))
-    this%weight_incr = 0._real12
-
-    allocate(this%weight(&
-         -this%pad_x:xend_idx,-this%pad_y:yend_idx,this%num_filters))
-
-  end subroutine init
+  end function layer_setup
 !!!#############################################################################
 
 
@@ -182,7 +254,7 @@ contains
   pure subroutine forward_3d(this, input)
     implicit none
     class(conv2d_layer_type), intent(inout) :: this
-    real(real12), dimension(-this%pad_x:,-this%pad_y:,:), intent(in) :: input
+    real(real12), dimension(-this%pad_x+1:,-this%pad_y+1:,:), intent(in) :: input
 
     integer :: i, j, l, m, ichannel, istride, jstride
     integer :: iend_idx, jend_idx, jstart, jend
@@ -233,7 +305,7 @@ contains
   pure subroutine backward_3d(this, input, gradient)
     implicit none
     class(conv2d_layer_type), intent(inout) :: this
-    real(real12), dimension(-this%pad_x:,-this%pad_y:,:), intent(in) :: input
+    real(real12), dimension(-this%pad_x+1:,-this%pad_y+1:,:), intent(in) :: input
     real(real12), dimension(&
          this%height,this%width,this%num_channels_out), intent(in) :: gradient !was output_gradients
 
