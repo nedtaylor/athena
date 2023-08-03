@@ -1227,7 +1227,7 @@ contains
 !!!#####################################################
 !!! converts all characters in string to upper case
 !!!#####################################################
-  function to_upper(buffer) result(upper)
+  pure function to_upper(buffer) result(upper)
     implicit none
     character(*), intent(in) :: buffer
     character(len=:),allocatable :: upper
@@ -1253,7 +1253,7 @@ contains
 !!!#####################################################
 !!! converts all characters in string to lower case
 !!!#####################################################
-  function to_lower(buffer) result(lower)
+  pure function to_lower(buffer) result(lower)
     implicit none
     character(*), intent(in) :: buffer
     character(len=:),allocatable :: lower
