@@ -1,9 +1,9 @@
 program main
   implicit none
 
-  integer :: input_x=5, input_y=5, output_x=2, output_y=2
+  integer :: input_x=6, input_y=5, output_x=3, output_y=2
   integer :: stride_x = 2, stride_y = 2
-  integer :: kernel_x = 3, kernel_y = 3
+  integer :: kernel_x = 4, kernel_y = 3
   integer :: num_channels = 1, num_filters = 1
   integer :: pad_x = 0, pad_y = 0
   
@@ -60,7 +60,7 @@ program main
      j_end   = min(output_y,     jstride + half_y)
      y_start = max(1 - j,       -half_y) !check old vs new, was I use a rotated version?
      y_end   = min(output_y - j, jend_idx)    !check old vs new, was I use a rotated version?
-     if(y_start.gt.y_end) cycle
+     !if(y_start.gt.y_end) cycle
 
      !! apply full convolution to compute input gradients
      write(*,*) i, j
