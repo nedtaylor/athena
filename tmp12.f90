@@ -2,7 +2,7 @@ program main
   implicit none
 
   integer :: input_x=7, input_y=5, output_x=3, output_y=2
-  integer :: stride_x = 2, stride_y = 2
+  integer :: stride_x = 3, stride_y = 2
   integer :: kernel_x = 3, kernel_y = 3
   integer :: num_channels = 1, num_filters = 1
   integer :: pad_x = 0, pad_y = 0
