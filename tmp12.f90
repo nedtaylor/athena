@@ -14,18 +14,18 @@ program main
   integer :: ioffset, joffset, istride, jstride
   integer :: k_x, k_y, int_x, int_y, n_stride_x, n_stride_y
   
-  half_x = (kernel_x-1)/2
-  half_y = (kernel_y-1)/2
+  k_x = kernel_x - 1
+  k_y = kernel_x - 1
+  half_x = (k_x)/2
+  half_y = (k_y)/2
   iend_idx = half_x + (1 - mod(kernel_x,2))
   jend_idx = half_y + (1 - mod(kernel_y,2))
   ioffset  = 1 + half_x - pad_x
   joffset  = 1 + half_y - pad_y
 
-  k_x = kernel_x - 1
-  k_y = kernel_x - 1
   !int_x = kernel_x - input_x + (output_x -1)*stride_x + (2 - kernel_x)
-  int_x = (output_x -1)*stride_x + 1 + iend_idx
-  int_y = (output_y -1)*stride_y + 1 + jend_idx
+  int_x = (output_x - 1)*stride_x + 1 + iend_idx
+  int_y = (output_y - 1)*stride_y + 1 + jend_idx
   n_stride_x = output_x * stride_x
   n_stride_y = output_y * stride_y
   
@@ -56,8 +56,8 @@ program main
 
 
      jstride = (j-joffset)/stride_y + 1
-     i_start = max(1,             jstride)
-     i_end   = min(output_y,      jstride + (j-1)/stride_y )
+     j_start = max(1,             jstride)
+     j_end   = min(output_y,      jstride + (j-1)/stride_y )
      !! max( ...
      !!   ... 1. distance from first output to centre of scanning kernel
      !!   ... 2. current lowest output overlapping with left of kernel (this is a repeating pattern until 1. takes over as min)
