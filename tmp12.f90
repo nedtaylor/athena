@@ -1,7 +1,7 @@
 program main
   implicit none
 
-  integer :: input_x=7, input_y=5, output_x=2, output_y=2
+  integer :: input_x=7, input_y=5, output_x=3, output_y=2
   integer :: stride_x = 2, stride_y = 2
   integer :: kernel_x = 3, kernel_y = 3
   integer :: num_channels = 1, num_filters = 1
@@ -45,8 +45,18 @@ program main
      istride = (i-ioffset)/stride_x + 1
      i_start = max(1,             istride)
      i_end   = min(output_x,      istride + (i-1)/stride_x )
-     x_start = max(k_x-i,        -half_x + mod(abs(i_x-(i-int1)),stride_x))
-     x_end   = min(input_x-i-k_x+1+int1, iend_idx - mod(abs(i_x+(i+int1)),stride_x))
+     !! max( ...
+     !!   ... 1. distance from first output to centre of scanning kernel
+     !!   ... 2. current lowest output overlapping with left of kernel (this is a repeating pattern until 1. takes over as min)
+     !!   ...)
+!!! should it only be kernel_x - 1 - i if it fits perfectly?
+!!! otherwise, it should be kernel_x - 1 + int1
+     x_start = max(k_x-i,        -half_x + mod(input_x*stride_x-i + stride_x-kernel_x,stride_x))
+     !! min( ...
+     !!   ... 1. distance from final output to centre of scanning kernel
+     !!   ... 2. current highest output overlapping with right of kernel (this is a repeating pattern until 1. takes over as min)
+     !!   ...)
+     x_end   = min(input_x-i-k_x+1+int1, iend_idx - mod(stride_x+i-1,stride_x))
      !x_start = max(k_x-i,        -half_x + mod(abs(i_x-(i+1)),stride_x))
      !x_end   = min(input_x-i-k_x, iend_idx - mod(abs(i_x+(i+1)),stride_x))
      !!x_start = max(1-i,     -half_x + mod(i-1,stride_x))
@@ -63,8 +73,8 @@ program main
 
      !! apply full convolution to compute input gradients
      write(*,*) i, j
-     write(*,*) k_x-i,        -half_x + mod((i_x-(i-int1)),stride_x), "max"
-     write(*,*) input_x-i-k_x, iend_idx - mod((i_x+(i+int1)),stride_x), "min",iend_idx
+     write(*,*) k_x-i,        -half_x + mod(input_x*stride_x-i+ stride_x-kernel_x,stride_x), "max"
+     write(*,*) input_x-i-k_x+1+int1, iend_idx - mod(stride_x+i-1,stride_x), "min",iend_idx
      write(*,*) x_end,x_start,-stride_x, "test", (/ (a, a=x_end,x_start,-stride_x) /)
      !write(*,*) y_end,y_start,-stride_y
      write(*,*) 
