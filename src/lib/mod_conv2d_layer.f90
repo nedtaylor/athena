@@ -293,10 +293,10 @@ contains
     iend_idx = this%half_x + (this%centre_x - 1)
     jend_idx = this%half_y + (this%centre_y - 1)
     do concurrent(i=1:this%height:1, j=1:this%width:1)
-       istride = (i-1)*this%stride_x + 1
+       istride = (i-1)*this%stride_x + 1 + (this%pad_x- this%half_x)
        istart  = istride - this%half_x
        iend    = istride + iend_idx
-       jstride = (j-1)*this%stride_y + 1
+       jstride = (j-1)*this%stride_y + 1 + (this%pad_y- this%half_y)
        jstart  = jstride - this%half_y
        jend    = jstride + jend_idx
 
@@ -344,8 +344,8 @@ contains
     !! get size of the input and output feature maps
     k_x = this%kernel_x - 1
     k_y = this%kernel_x - 1
-    iend_idx = this%half_x + (1 - mod(this%kernel_x,2))
-    jend_idx = this%half_y + (1 - mod(this%kernel_y,2))
+    iend_idx = this%half_x + (this%centre_x - 1)
+    jend_idx = this%half_y + (this%centre_y - 1)
     ioffset  = 1 + this%half_x - this%pad_x
     joffset  = 1 + this%half_y - this%pad_y
 
