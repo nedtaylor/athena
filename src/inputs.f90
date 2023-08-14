@@ -5,7 +5,8 @@
 !!!#############################################################################
 module inputs
   use constants, only: real12, ierror
-  use custom_types, only: clip_type, learning_parameters_type
+  use custom_types, only: clip_type
+  use optimiser, only: optimiser_type
   use misc, only: icount, flagmaker, file_check, to_lower
   implicit none
   integer :: verbosity    ! verbose printing
@@ -14,9 +15,7 @@ module inputs
   integer :: batch_print_step
   real(real12) :: loss_threshold     ! threshold for loss convergence
   real(real12) :: plateau_threshold  ! threshold for plateau checking
-  real(real12) :: learning_rate      ! rate of learning (larger = faster)
-  real(real12) :: l1_lambda, l2_lambda  ! l1 and l2 regularisation parameters
-  type(learning_parameters_type) :: learning_parameters
+  type(optimiser_type) :: optimiser
   logical :: batch_learning
   character(:), allocatable :: loss_method
   character(1024) :: input_file, output_file
@@ -82,9 +81,8 @@ module inputs
   public :: loss_method
   public :: metric_dict, metric_dict_type, metric_dict_alloc
 
-  public :: learning_rate, l1_lambda, l2_lambda
   public :: num_epochs, batch_size
-  public :: learning_parameters
+  public :: optimiser
 
   public :: cv_num_filters, cv_kernel_size, cv_stride
   public :: cv_clip
@@ -224,10 +222,6 @@ contains
     shuffle_dataset = .false.
     batch_learning = .true.
 
-    learning_rate = 0.025_real12
-    l1_lambda = 0._real12
-    l2_lambda = 0._real12
-
     num_epochs = 20
     batch_size = 20
     cv_num_filters = 32
@@ -348,7 +342,7 @@ contains
     write(6,*) "======PARAMETERS======"
     write(6,*) "shuffle dataset:",shuffle_dataset
     write(6,*) "batch learning:",batch_learning
-    write(6,*) "learning rate:",learning_rate
+    write(6,*) "learning rate:",optimiser%learning_rate
     write(6,*) "number of epochs:",num_epochs
     write(6,*) "number of filters:",cv_num_filters
     write(6,*) "hidden layers:",fc_num_hidden
@@ -378,6 +372,8 @@ contains
     real(real12) ::  keep_prob
     real(real12) :: activation_scale
 
+    real(real12) :: learning_rate      ! rate of learning (larger = faster)
+    real(real12) :: l1_lambda, l2_lambda  ! l1 and l2 regularisation parameters
     real(real12) :: momentum, beta1, beta2, epsilon
     character(512) :: hidden_layers
 
@@ -454,6 +450,7 @@ contains
     block_size = 5
     keep_prob = 0.75_real12
 
+    learning_rate = 0.025_real12
     regularisation="" !! none, l1, l2, l1l2
     l1_lambda = 0._real12
     l2_lambda = 0._real12
@@ -497,6 +494,7 @@ contains
             write(*,'("Metric: ",A,", threshold: ",E10.3E2)') &
             trim(metric_dict(i)%key), metric_dict(i)%threshold
     end do
+    optimiser%learning_rate = learning_rate
     
 
 
@@ -622,36 +620,36 @@ contains
     !! l1l2  = l1 and l2 regularisation
     if(trim(regularisation).eq."")then
        if(l1_lambda.gt.0._real12.and.l2_lambda.gt.0._real12)then
-          learning_parameters%regularisation = "l1l2"
+          optimiser%regularisation = "l1l2"
           write(*,*) "l1_lambda and l2_lambda were set, but not regularisation"
           write(*,*) 'Setting regularisation = "l1l2"'
           write(*,*) 'If this is not desired, rerun with either:'
           write(*,*) '   regularisation = "none"'
           write(*,*) '   l1_lambda = 0.0, l2_lambda = 0.0'
        elseif(l1_lambda.gt.0._real12)then
-          learning_parameters%regularisation = "l1"
+          optimiser%regularisation = "l1"
           write(*,*) "l1_lambda was set, but not regularisation"
           write(*,*) 'Setting regularisation = "l1"'
           write(*,*) 'If this is not desired, rerun with either:'
           write(*,*) '   regularisation = "none"'
           write(*,*) '   l1_lambda = 0.0'
        elseif(l2_lambda.gt.0._real12)then
-          learning_parameters%regularisation = "l2"
+          optimiser%regularisation = "l2"
           write(*,*) "l2_lambda was set, but not regularisation"
           write(*,*) 'Setting regularisation = "l2"'
           write(*,*) 'If this is not desired, rerun with either:'
           write(*,*) '   regularisation = "none"'
           write(*,*) '   l2_lambda = 0.0'
        else
-          learning_parameters%regularisation = "none"
+          optimiser%regularisation = "none"
        end if
     else
-       learning_parameters%regularise = .true.
-       learning_parameters%regularisation = to_lower(trim(regularisation))
+       optimiser%regularise = .true.
+       optimiser%regularisation = to_lower(trim(regularisation))
     end if
-    select case(learning_parameters%regularisation)
+    select case(optimiser%regularisation)
     case("none")
-       learning_parameters%regularise = .false.
+       optimiser%regularise = .false.
        write(*,*) "No regularisation set"
     case("l1l2")
        write(*,*) "L1L2 regularisation"
@@ -663,8 +661,8 @@ contains
        end if
        write(*,*) "l1_lambda =",l1_lambda
        write(*,*) "l2_lambda =",l2_lambda
-       learning_parameters%l1 = l1_lambda
-       learning_parameters%l2 = l2_lambda
+       optimiser%l1 = l1_lambda
+       optimiser%l2 = l2_lambda
     case("l1")
        write(*,*) "L1 regularisation"
        if(abs(l1_lambda).le.1.E-8_real12)then
@@ -674,7 +672,7 @@ contains
           stop "Exiting..."
        end if
        write(*,*) "l1_lambda =",l1_lambda
-       learning_parameters%l1 = l1_lambda
+       optimiser%l1 = l1_lambda
     case("l2")
        write(*,*) "L2 regularisation"
        if(abs(l2_lambda).le.1.E-8_real12)then
@@ -684,9 +682,9 @@ contains
           stop "Exiting..."
        end if
        write(*,*) "l2_lambda =",l2_lambda
-       learning_parameters%l2 = l2_lambda
+       optimiser%l2 = l2_lambda
     case default
-       write(*,*) "ERROR: regularisation = "//learning_parameters%regularisation//" &
+       write(*,*) "ERROR: regularisation = "//optimiser%regularisation//" &
             &not known"
        stop "Exiting..."
     end select
@@ -703,19 +701,19 @@ contains
     !! reduce_lr_on_plateau = reduce learning rate when output metric plateaus
     if(trim(adaptive_learning).eq."")then
        if(momentum.gt.0._real12)then
-          learning_parameters%method = "momentum"
+          optimiser%method = "momentum"
           write(*,*) "Momentum was set, but not adaptive_learning"
           write(*,*) 'Setting adaptive_learning = "momentum"'
           write(*,*) 'If this is not desired, rerun with either:'
           write(*,*) '   adaptive_learning = "none"'
           write(*,*) '   momentum = 0.0'
        else
-          learning_parameters%method = "none"
+          optimiser%method = "none"
        end if
     else
-       learning_parameters%method = to_lower(trim(adaptive_learning))
+       optimiser%method = to_lower(trim(adaptive_learning))
     end if
-    select case(learning_parameters%method)
+    select case(optimiser%method)
     case("none")
        write(*,*) "No adaptive learning method"
     case("momentum")
@@ -727,7 +725,7 @@ contains
           stop "Exiting..."
        end if
        write(*,*) "momentum =",momentum
-       learning_parameters%momentum = momentum
+       optimiser%momentum = momentum
     case("nesterov")
        write(*,*) "Nesterov momentum-based adaptive learning method"
        if(abs(momentum).le.1.E-6_real12)then
@@ -737,23 +735,23 @@ contains
           stop "Exiting..."
        end if
        write(*,*) "momentum =",momentum
-       learning_parameters%momentum = momentum
+       optimiser%momentum = momentum
     case("adam")
        write(*,*) "Adam-based adaptive learning method"
        write(*,*) "beta1 =", beta1
        write(*,*) "beta2 =", beta2
        write(*,*) "epsilon =", epsilon
-       learning_parameters%beta1 = beta1
-       learning_parameters%beta2 = beta2
-       learning_parameters%epsilon = epsilon
+       optimiser%beta1 = beta1
+       optimiser%beta2 = beta2
+       optimiser%epsilon = epsilon
     case("step_decay")
-       !learning_parameters%decay_rate = decay_rate
-       !learning_parameters%decay_steps = decay_steps
+       !optimiser%decay_rate = decay_rate
+       !optimiser%decay_steps = decay_steps
        stop "step_decay adaptive learning not yet set up"
     case("reduce_lr_on_plateau")
        stop "reduce_lr_on_plateau adaptive learning not yet set up"
     case default
-       write(*,*) "ERROR: adaptive_learning = "//learning_parameters%method//" &
+       write(*,*) "ERROR: adaptive_learning = "//optimiser%method//" &
             &not known"
        stop "Exiting..."
     end select
