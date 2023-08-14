@@ -43,6 +43,8 @@ contains
        input = 0._real12
     rank(3)
        input = 0._real12
+    rank(4)
+       input = 0._real12
     end select
     
   end subroutine zeros_initialise
