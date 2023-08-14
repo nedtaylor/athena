@@ -19,7 +19,7 @@ module container_layer
      !! KEEP THE ACTIVATION IN HERE
    contains
      procedure, pass(this) :: forward
-     procedure, private, pass(this) :: backward
+     procedure, pass(this) :: backward
      
      !generic :: backward => backward_1d, backward_3d !, backward_4D
   end type container_layer_type
@@ -27,21 +27,21 @@ module container_layer
 
 
   interface
-     pure module subroutine forward(this, input) !module?
+     pure module subroutine forward(this, input)
        !import container_layer_type
        class(container_layer_type), intent(inout) :: this
        class(container_layer_type), intent(in) :: input
      end subroutine forward
   end interface
 
-  interface backward
-     pure module subroutine backward (this, input, gradient)
+  interface
+     pure module subroutine backward(this, input, gradient)
        !import container_layer_type, real12
        class(container_layer_type), intent(inout) :: this
        class(container_layer_type), intent(in) :: input !! the input to this layer
        real(real12), dimension(..), intent(in) :: gradient
      end subroutine backward
-  end interface backward
+  end interface
 
 
   private
