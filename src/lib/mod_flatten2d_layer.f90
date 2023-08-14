@@ -72,7 +72,7 @@ contains
     type(flatten2d_layer_type) :: layer
 
     allocate(layer%input_shape, source=input_shape)
-    layer%num_outputs = size(input_shape)
+    layer%num_outputs = product(layer%input_shape)
 
     allocate(layer%output(layer%num_outputs), source=0._real12)
     allocate(layer%di(input_shape(1), input_shape(2), input_shape(3)), &
