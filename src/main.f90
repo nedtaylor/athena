@@ -478,7 +478,6 @@ program ConvolutionalNeuralNetwork
           do i=2,num_layers,1
              call model(i)%forward(model(i-1))
           end do
-
           
           !select type(current => model(num_layers-1)%layer)
           !type is(full_layer_type)
@@ -601,7 +600,6 @@ program ConvolutionalNeuralNetwork
                  call current%update(optimiser,fc_clip)                 
               end select
            end do
-
            !do l=1,cv_num_filters
            !   comb_cv_gradients(l)%weight = comb_cv_gradients(l)%weight/batch_size
            !   comb_cv_gradients(l)%bias   = comb_cv_gradients(l)%bias/batch_size
