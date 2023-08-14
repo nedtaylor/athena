@@ -201,13 +201,13 @@ contains
              istride = (i-1)*this%stride_x+1
              !! find the index of the maximum value in the corresponding pooling window
              max_index = maxloc(input(&
-                  istride+1:istride+this%pool_x, &
-                  jstride+1:jstride+this%pool_y, m))
+                  istride:istride+this%pool_x-1, &
+                  jstride:jstride+this%pool_y-1, m))
 
              !! compute gradients for input feature map
              this%di(&
-                  istride+max_index(1), &
-                  jstride+max_index(2), m) = gradient(i, j, m)
+                  istride+max_index(1)-1, &
+                  jstride+max_index(2)-1, m) = gradient(i, j, m)
 
           end do
        end do
