@@ -591,7 +591,7 @@ contains
 
     unit = 10
     
-    open(unit, file=trim(file), access='append')
+    open(unit, file=trim(file), position='append')
 
     num_layers = size(convolution,dim=1)
     write(unit,'("CONVOLUTION")')
@@ -648,6 +648,7 @@ contains
        end_idx   = convolution(l)%pad + (convolution(l)%centre_width - 1)
        do m=1,input_channels
           ichannel = ichannel + 1
+          output(i,j,ichannel) = convolution(l)%bias
 
           !! end_stride is the same as output_size
           !! ... hence, forward does not need the fix
@@ -656,19 +657,21 @@ contains
              do i=1,output_size,1
                 istride = (i-1)*convolution(l)%stride + 1
           
-                output(i,j,ichannel) = transfer%activate(convolution(l)%bias + &
+                output(i,j,ichannel) = output(i,j,ichannel) + &
                      sum( &                
                      input(&
                      istride+start_idx:istride+end_idx,&
                      jstride+start_idx:jstride+end_idx,m) * &
                      convolution(l)%weight &
-                ))
+                )
           
              end do
           end do
 
        end do
     end do
+
+    output = transfer%activate(output)
 
   end subroutine forward
 !!!#############################################################################
@@ -684,21 +687,20 @@ contains
     type(gradient_type), dimension(:), intent(inout) :: input_gradients
 
     integer :: input_channels, ichannel
-    integer :: input_lbound, input_ubound
+    integer :: input_ubound
     integer :: l, m, i, j, x, y
     integer :: istride, jstride
     integer :: start_idx, end_idx, output_size, up_idx
     integer :: i_start, i_end, j_start, j_end
     integer :: x_start, x_end, y_start, y_end
-    real(real12) :: bias_diff
+    real(real12), dimension(1) :: bias_diff
 
 
     !! get size of the input and output feature maps
     input_channels = size(input, dim=3)
     output_size = size(output_gradients, dim=1)
-    input_lbound = lbound(input, dim=1)
     input_ubound = ubound(input, dim=1)
-    bias_diff = transfer%differentiate(1._real12)
+    bias_diff = transfer%differentiate([1._real12])
 
     !! Perform the convolution operation
     ichannel = 0
@@ -730,15 +732,15 @@ contains
                 x_end   = min(output_size-i,-start_idx)!min(output_size-i,end_idx)
                 istride = (i-1)*convolution(l)%stride + 1
        
-                input_gradients(l)%delta(istride,jstride) = &
-                     input_gradients(l)%delta(istride,jstride) + &
-                     sum( &
-                     output_gradients(&
-                     i_start:i_end,&
-                     j_start:j_end,ichannel) * &
-                     convolution(l)%weight(x_start:x_end,y_start:y_end) &
-                     ) * &
-                     transfer%differentiate(input(istride,jstride,m))
+                !input_gradients(l)%delta(istride,jstride) = &
+                !     input_gradients(l)%delta(istride,jstride) + &
+                !     sum( &
+                !     output_gradients(&
+                !     i_start:i_end,&
+                !     j_start:j_end,ichannel) * &
+                !     convolution(l)%weight(x_start:x_end,y_start:y_end) &
+                !     ) * &
+                !     transfer%differentiate(input(istride,jstride,m))
                 
        
              end do j_input_loop
@@ -759,7 +761,7 @@ contains
           !! https://stackoverflow.com/questions/58036461/how-do-you-calculate-the-gradient-of-bias-in-a-conolutional-neural-networo
           !! https://saturncloud.io/blog/how-to-calculate-the-gradient-of-bias-in-a-convolutional-neural-network/
           input_gradients(l)%bias = input_gradients(l)%bias + &
-               sum(output_gradients(:,:,ichannel)) * bias_diff
+               sum(output_gradients(:,:,ichannel)) * bias_diff(1)
        
        end do
     end do

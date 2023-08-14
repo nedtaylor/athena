@@ -501,7 +501,7 @@ contains
     real(real12), allocatable, dimension(:) :: biases
 
     unit = 10
-    open(unit, file=trim(file), access='append')
+    open(unit, file=trim(file), position='append')
 
     num_layers = size(network,dim=1)
     num_inputs = size(network(1)%weight,dim=1)-1
@@ -579,12 +579,12 @@ contains
     
     integer :: j, l
     integer :: num_layers, num_inputs
-    real(real12) :: bias_diff
+    real(real12), dimension(1) :: bias_diff
 
 
     !!! Initialise input_gradients to zero
     num_layers = size(network,dim=1)
-    bias_diff = transfer%differentiate(1._real12)
+    bias_diff = transfer%differentiate([1._real12])
 
     !! loop through the layers in reverse
     do l=num_layers,0,-1
@@ -635,7 +635,7 @@ contains
           !! ... as the bias neuron = 1._real12, then gradient of the bias ...
           !! ... is just the delta (error), no need to multiply by 1._real12
           input_gradients(l)%weight(num_inputs,:) = &
-               input_gradients(l)%delta * bias_diff
+               input_gradients(l)%delta * bias_diff(1)
        end select
 
     end do
