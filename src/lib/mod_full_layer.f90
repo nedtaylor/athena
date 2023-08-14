@@ -129,7 +129,7 @@ contains
 
     allocate(layer%dw(layer%num_inputs+1,layer%num_outputs), source=0._real12)
     allocate(layer%output(layer%num_outputs), source=0._real12)
-    allocate(layer%di(layer%num_inputs+1), source=0._real12) ! +1 account for bias
+    allocate(layer%di(layer%num_inputs), source=0._real12) ! +1 account for bias
 
 
     !!--------------------------------------------------------------------------
@@ -183,11 +183,11 @@ contains
   pure subroutine backward_1d(this, input, gradient)
     implicit none
     class(full_layer_type), intent(inout) :: this
-    real(real12), dimension(this%num_inputs), intent(in) :: input
+    real(real12), dimension(this%num_inputs,1), intent(in) :: input
     real(real12), dimension(this%num_outputs), intent(in) :: gradient !was output_gradients
     !! NOTE, gradient is di, not dw
 
-    real(real12), dimension(1, this%num_outputs) :: db
+    real(real12), dimension(1,this%num_outputs) :: db
     real(real12), dimension(this%num_inputs, this%num_outputs) :: dw
 
 
@@ -196,11 +196,10 @@ contains
     !! final layer: error (delta) = activ_diff (g') * error
     !! other layer: error (delta) = activ_diff (g') * sum(weight(l+1)*error(l+1))
     db(1,:) = gradient * &
-         this%transfer%differentiate([this%output])
+         this%transfer%differentiate(this%output)
 
     !! define the input to the neuron
-    dw(:this%num_inputs,:) = matmul(&
-         reshape(input, shape=[this%num_inputs, 1]), db)
+    dw(:this%num_inputs,:) = matmul(input, db)
 
     !! bias weight gradient
     !! ... as the bias neuron = 1._real12, then gradient of the bias ...
@@ -210,7 +209,7 @@ contains
 
     !! the errors are summed from the delta of the ...
     !! ... 'child' node * 'child' weight
-    this%di = reshape(matmul(this%weight(:this%num_inputs,:), db), shape=[size(this%di)])
+    this%di = matmul(this%weight(:this%num_inputs,:), db(1,:))
 
     this%dw(:this%num_inputs,:) = this%dw(:this%num_inputs,:) + dw
     this%dw(this%num_inputs+1,:) = this%dw(this%num_inputs+1,:) + db(1,:)
