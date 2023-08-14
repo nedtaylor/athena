@@ -131,9 +131,9 @@ contains
     allocate(layer%output(layer%num_outputs), source=0._real12)
     allocate(layer%dw(layer%num_inputs+1,layer%num_outputs), source=0._real12)
     allocate(layer%di(layer%num_inputs), source=0._real12)
-    layer%weight_incr = 0._real12)
-    layer%dw = 0._real12)
-    layer%di = 0._real12)
+    layer%weight_incr = 0._real12
+    layer%dw = 0._real12
+    layer%di = 0._real12
 
 
     !!--------------------------------------------------------------------------
