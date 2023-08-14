@@ -28,6 +28,7 @@ module full_layer
      procedure :: backward => backward_rank
      procedure :: forward_1d
      procedure :: backward_1d
+     procedure, pass(this) :: update
   end type full_layer_type
 
 
@@ -119,15 +120,17 @@ contains
     else
        scale = 1._real12
     end if
+    write(*,*) "full activation", t_activation_function
        
     allocate(layer%transfer, source=activation_setup(t_activation_function, scale))
+    write(*,*) "full activation after", t_activation_function
 
 
 
-    allocate(layer%dw(layer%num_inputs+1,layer%num_outputs))
-    allocate(layer%output(layer%num_outputs))
-    allocate(layer%di(layer%num_inputs+1)) ! +1 account for bias
-    
+    allocate(layer%dw(layer%num_inputs+1,layer%num_outputs), source=0._real12)
+    allocate(layer%output(layer%num_outputs), source=0._real12)
+    allocate(layer%di(layer%num_inputs+1), source=0._real12) ! +1 account for bias
+
 
     !!--------------------------------------------------------------------------
     !! initialise kernels and biases
@@ -139,17 +142,19 @@ contains
     else
        initialiser_name = "he_uniform"
     end if
-    initialiser = initialiser_setup(initialiser_name)
+    allocate(initialiser, source=initialiser_setup(initialiser_name))
     call initialiser%initialise(layer%weight(:layer%num_inputs,:), &
          fan_in=layer%num_inputs+1, fan_out=layer%num_outputs)
+    deallocate(initialiser)
     if(present(bias_initialiser))then
        initialiser_name = bias_initialiser
     else
        initialiser_name= "zeros"
     end if
-    initialiser = initialiser_setup(initialiser_name)
+    allocate(initialiser, source=initialiser_setup(initialiser_name))
     call initialiser%initialise(layer%weight(layer%num_inputs+1,:), &
          fan_in=layer%num_inputs+1, fan_out=layer%num_outputs)
+    deallocate(initialiser)
 
   end function layer_setup
 !!!#############################################################################
@@ -182,36 +187,74 @@ contains
     real(real12), dimension(this%num_outputs), intent(in) :: gradient !was output_gradients
     !! NOTE, gradient is di, not dw
 
+    real(real12), dimension(1, this%num_outputs) :: db
+    real(real12), dimension(this%num_inputs, this%num_outputs) :: dw
+
 
     !! the delta values are the error multipled by the derivative ...
     !! ... of the transfer function
     !! final layer: error (delta) = activ_diff (g') * error
     !! other layer: error (delta) = activ_diff (g') * sum(weight(l+1)*error(l+1))
-    this%di = gradient * &
+    db(1,:) = gradient * &
          this%transfer%differentiate([this%output])
 
     !! define the input to the neuron
-    this%dw(:this%num_inputs,:) = matmul(&
-         reshape(this%di, [size(this%di,dim=1), 1]),&
-         reshape(input, [1, size(input,dim=1)])&
-         )
+    dw(:this%num_inputs,:) = matmul(&
+         reshape(input, shape=[this%num_inputs, 1]), db)
 
     !! bias weight gradient
     !! ... as the bias neuron = 1._real12, then gradient of the bias ...
     !! ... is just the delta (error), no need to multiply by 1._real12
-    this%dw(this%num_inputs+1,:) = &
-         this%di * this%transfer%differentiate([1._real12])
+    !this%dw(this%num_inputs+1,:) = &
+    !     this%di * this%transfer%differentiate([1._real12])
 
     !! the errors are summed from the delta of the ...
     !! ... 'child' node * 'child' weight
-    this%di = matmul(&
-         this%weight(:this%num_inputs,:),&
-         this%di&
-         )
+    this%di = reshape(matmul(this%weight(:this%num_inputs,:), db), shape=[size(this%di)])
+
+    this%dw(:this%num_inputs,:) = this%dw(:this%num_inputs,:) + dw
+    this%dw(this%num_inputs+1,:) = this%dw(this%num_inputs+1,:) + db(1,:)
 
   end subroutine backward_1d
 !!!#############################################################################
 
+
+!!!#############################################################################
+!!!
+!!!#############################################################################
+  pure subroutine update(this, optimiser, clip)
+    use custom_types, only: clip_type
+    use optimiser, only: optimiser_type
+    use normalisation, only: gradient_clip
+    implicit none
+    class(full_layer_type), intent(inout) :: this
+    type(optimiser_type), intent(in) :: optimiser
+    type(clip_type), optional, intent(in) :: clip
+
+
+    !! apply gradient clipping
+    if(present(clip))then
+       if(clip%l_min_max) call gradient_clip(size(this%dw),&
+            this%dw,&
+            clip_min=clip%min,clip_max=clip%max)
+       if(clip%l_norm) &
+            call gradient_clip(size(this%dw),&
+            this%dw,&
+            clip_norm=clip%norm)
+    end if
+
+    !! update the layer weights and bias using gradient descent
+    call optimiser%optimise(&
+         this%weight,&
+         this%weight_incr, &
+         this%dw)
+
+    !! reset gradients
+    this%di = 0._real12
+    this%dw = 0._real12
+
+  end subroutine update
+!!!#############################################################################
 
 end module full_layer
 !!!#############################################################################
