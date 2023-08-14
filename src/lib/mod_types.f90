@@ -16,34 +16,6 @@ module custom_types
   end type clip_type
 
 
-!!!------------------------------------------------------------------------
-!!! learning parameter type
-!!!------------------------------------------------------------------------
-!!! MAKE THIS AN ABSTRACT TYPE WITH EXTENDED DERIVED TYPES FOR ADAM AND MOMENTUM
-!!! THEN MAKE REGULARISATION A SUBTYPE
-  type learning_parameters_type
-     character(:), allocatable :: method
-     !! reduce learning rate on plateau parameters
-     !integer :: wait = 0
-     !integer :: patience = 0
-     !real(real12) :: factor = 0._real12
-     !real(real12) :: min_learning_rate = 0._real12
-     !! momentum parameters
-     real(real12) :: momentum = 0._real12  ! fraction of momentum based learning
-     !! step decay parameters
-     !real(real12) :: decay_rate = 0._real12
-     !real(real12) :: decay_steps = 0._real12
-     !! adam optimiser parameters
-     real(real12) :: beta1 = 0._real12
-     real(real12) :: beta2 = 0._real12
-     real(real12) :: epsilon = 0._real12
-     !real(real12) :: weight_decay  ! L2 regularisation on Adam (AdamW)
-     logical :: regularise = .false.
-     character(:), allocatable :: regularisation
-     real(real12) :: l1 = 0._real12
-     real(real12) :: l2 = 0._real12
-  end type learning_parameters_type
-
 
 !!!------------------------------------------------------------------------
 !!! fully connected network layer type
@@ -160,7 +132,6 @@ module custom_types
   public :: network_type
   public :: convolution_type
   public :: activation_type
-  public :: learning_parameters_type
   public :: initialiser_type
 
 end module custom_types
