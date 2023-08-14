@@ -8,7 +8,9 @@ SRC_DIR := ./src
 LIB_DIR := ./lib
 BUILD_DIR = ./obj
 LIBS := mod_constants.f90 \
+	mod_misc.f90 \
 	mod_random.f90 \
+	mod_optimiser.f90 \
 	mod_types.f90 \
 	mod_misc_ml.f90 \
 	mod_activation_gaussian.f90 \
@@ -24,7 +26,6 @@ LIBS := mod_constants.f90 \
 	mod_initialiser_he.f90 \
 	mod_initialiser_lecun.f90 \
 	mod_initialiser_zeros.f90 \
-	mod_misc.f90 \
 	mod_activation.f90 \
 	mod_initialiser.f90 \
 	mod_tools_infile.f90 \
@@ -37,6 +38,7 @@ LIBS := mod_constants.f90 \
 	mod_full_layer.f90 \
 	mod_flatten2d_layer.f90 \
 	mod_flatten3d_layer.f90 \
+	mod_input3d_layer.f90 \
 	mod_container_layer.f90 \
 	mod_container_layer_sub.f90
 OBJS := $(addprefix $(LIB_DIR)/,$(LIBS))
@@ -67,7 +69,7 @@ else ifeq ($(FC), $(filter $(FC), gfortran gcc))
 	MPFLAGS = -fopenmp
 	MODULEFLAGS = -J
 	WARNFLAGS = -Wall
-	DEVFLAGS = -g -fbacktrace -fcheck=all -fbounds-check -fsanitize=address -Og #-g -static -ffpe-trap=invalid
+	DEVFLAGS = -g -fbacktrace -fcheck=all -fbounds-check -Og #-g -static -ffpe-trap=invalid
 	DEBUGFLAGS = -fbounds-check
 	MEMFLAGS = -mcmodel=large
 	OPTIMFLAGS = -O3 -march=native
@@ -125,6 +127,10 @@ endif
 ifeq ($(findstring mp,$(MAKECMDGOALS)),mp)
 	CFLAGS+=$(MPFLAGS)
 	NAME:=$(NAME)_mp
+endif
+ifeq ($(findstring address,$(MAKECMDGOALS)),address)
+	CFLAGS:=$(filter-out -fsanitize=leak, $(CFLAGS))
+	CFLAGS+=-fsanitize=address
 endif
 ifeq ($(findstring memcheck,$(MAKECMDGOALS)),memcheck)
 	CFLAGS:=$(filter-out -fsanitize=address, $(CFLAGS))
