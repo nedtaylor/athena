@@ -120,10 +120,8 @@ contains
     else
        scale = 1._real12
     end if
-    write(*,*) "full activation", t_activation_function
        
     allocate(layer%transfer, source=activation_setup(t_activation_function, scale))
-    write(*,*) "full activation after", t_activation_function
 
     allocate(layer%weight(layer%num_inputs+1,layer%num_outputs))
 
@@ -202,12 +200,6 @@ contains
 
     !! define the input to the neuron
     dw(:this%num_inputs,:) = matmul(input, db)
-
-    !! bias weight gradient
-    !! ... as the bias neuron = 1._real12, then gradient of the bias ...
-    !! ... is just the delta (error), no need to multiply by 1._real12
-    !this%dw(this%num_inputs+1,:) = &
-    !     this%di * this%transfer%differentiate([1._real12])
 
     !! the errors are summed from the delta of the ...
     !! ... 'child' node * 'child' weight
