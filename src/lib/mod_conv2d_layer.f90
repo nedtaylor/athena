@@ -247,6 +247,7 @@ contains
          input_shape(1), input_shape(2), input_shape(3)), source=0._real12)
     allocate(layer%dw, mold=layer%weight)
     allocate(layer%db, mold=layer%bias)
+    layer%di = 0._real12
     layer%dw = 0._real12
     layer%db = 0._real12
 
@@ -277,6 +278,7 @@ contains
 
 
 !!!#############################################################################
+!!! 
 !!!#############################################################################
   pure subroutine forward_3d(this, input)
     implicit none
@@ -318,6 +320,7 @@ contains
 
 
 !!!#############################################################################
+!!! 
 !!!#############################################################################
   pure subroutine backward_3d(this, input, gradient)
     implicit none
@@ -351,7 +354,6 @@ contains
     n_stride_x = this%height * this%stride_x
     n_stride_y = this%width  * this%stride_y
 
-
     !! get gradient multiplied by differential of Z
     grad_dz = 0._real12
     grad_dz(1:this%height,1:this%width,:) = gradient * this%transfer%differentiate(this%z)
@@ -366,7 +368,6 @@ contains
          m=1:this%num_channels, &
          l=1:this%num_filters &
          )
-       
        j_start = max(1,           j - this%pad_y)
        j_end   = min(this%width,  j + this%pad_y)
        i_start = max(1,           i - this%pad_x)
@@ -391,14 +392,14 @@ contains
        i_start = max(1,           istride)
        i_end   = min(this%height, istride + (i-1)/this%stride_x )
        !! max( ...
-       !!   ... 1. offset of 1st output index from centre of kernel       (limit)
-       !!   ... 2. lowest output index overlap with leftmost kernel index (repeating pattern)
-       !!   ...)
+       !! ... 1. offset of 1st output idx from centre of krnl     (limit)
+       !! ... 2. lowest output idx overlap with leftmost krnl idx (repeating pattern)
+       !! ...)
        x_start = max(k_x-i,  -this%half_x + mod(n_stride_x+this%kernel_x-i,this%stride_x))
        !! min( ...
-       !!   ... 1. offset of last output index from centre of kernel        (limit)
-       !!   ... 2. highest output index overlap with rightmost kernel index (repeating pattern)
-       !!   ...)
+       !! ... 1. offset of last output idx from centre of krnl       (limit)
+       !! ... 2. highest output idx overlap with rightmost krnl idx (repeating pattern)
+       !! ...)
        x_end   = min(int_x-i, iend_idx    - mod(n_stride_x-1+i,this%stride_x))
        if(x_start.gt.x_end) cycle
 
@@ -407,33 +408,25 @@ contains
        j_start = max(1,          jstride)
        j_end   = min(this%width, jstride + (j-1)/this%stride_y )
        !! max( ...
-       !!   ... 1. distance from first output to centre of scanning kernel
-       !!   ... 2. current lowest output overlapping with left of kernel (this is a repeating pattern until 1. takes over as min)
-       !!   ...)
+       !! ... 1. offset of 1st output idx from centre of krnl       (limit)
+       !! ... 2. lowest output idx overlap with leftmost krnl idx (repeating pattern)
+       !! ...)
        y_start = max(k_y-j,  -this%half_y + mod(n_stride_y+this%kernel_y-j,this%stride_y))
        !! min( ...
-       !!   ... 1. distance from final output to centre of scanning kernel
-       !!   ... 2. current highest output overlapping with right of kernel (this is a repeating pattern until 1. takes over as max)
-       !!   ...)
+       !! ... 1. offset of last output idx from centre of krnl      (limit)
+       !! ... 2. highest output idx overlap with rightmost krnl idx (repeating pattern)
+       !! ...)
        y_end   = min(int_y-j, jend_idx    - mod(n_stride_y-1+j,this%stride_y))
        if(y_start.gt.y_end) cycle
 
+
        !! apply full convolution to compute input gradients
        !! https://medium.com/@mayank.utexas/backpropagation-for-convolution-with-strides-8137e4fc2710
-       !! SHOULDN'T IT HAVE A WIDTH TO IT?
-       !! ... all of the ones within the kernel width but not on strides are not given a gradient
-       !this%di(&
-       !     istride-this%half_x:istride+this%half_x,&
-       !     jstride-this%half_y:jstride+this%half_y,m) = &
-       !     this%di(&
-       !     istride-this%half_x:istride+this%half_x,&
-       !     jstride-this%half_y:jstride+this%half_y,m) + 
-       !! apply the stride to the weights
        this%di(i,j,m) = &
             this%di(i,j,m) + &
             sum( &
-            grad_dz(i_start:i_end,j_start:j_end,l) * &
-            this%weight(x_end:x_start:-this%stride_x,y_end:y_start:-1,m,-this%stride_y) )
+            grad_dz(i_start:i_end:1,j_start:j_end:1,l) * &
+            this%weight(x_end:x_start:-this%stride_x,y_end:y_start:-this%stride_y,m,l) )
 
     end do
 
@@ -472,24 +465,13 @@ contains
        end do
     end if
 
+    !! STORE ADAM VALUES IN OPTIMISER
+
     !! update the convolution layer weights using gradient descent
-    !! update the convolution layer weights using gradient descent
-    !select case(allocated(gradients(l)%m))
-    !case(.true.)
-    !   call update_weight(learning_rate,&
-    !        convolution(l)%weight,&
-    !        convolution(l)%weight_incr, &
-    !        gradients(l)%weight, &
-    !        iteration, &
-    !        adaptive_parameters, &
-    !        gradients(l)%m, &
-    !        gradients(l)%v)
-    !case default
     call optimiser%optimise(&
          this%weight,&
          this%weight_incr, &
          this%dw)
-    !end select
     !! update the convolution layer bias using gradient descent
     call optimiser%optimise(&
          this%bias,&
@@ -498,6 +480,7 @@ contains
     !this%bias_m, &
     !this%bias_v)
 
+    this%di = 0._real12
     this%dw = 0._real12
     this%db = 0._real12
 
