@@ -189,24 +189,18 @@ program ConvolutionalNeuralNetwork
   !! Initialise the convolution layer
   num_layers = 6
   allocate(model(num_layers))
-  write(*,*) "model1"
   allocate(model(1)%layer, source = input3d_layer_type(input_shape = [28,28,1]))
-  write(*,*) "model2"
   allocate(model(2)%layer, source = conv2d_layer_type( &
        input_shape = [28,28,1], &
        num_filters = 32, kernel_size = 3, stride = 1, padding=padding_method, &
        activation_function = "relu"))
-  write(*,*) "model3"
   allocate(model(3)%layer, source = maxpool2d_layer_type(input_shape=[28,28,32], pool_size=2, stride=2))
-  write(*,*) "model4"
   allocate(model(4)%layer, source = flatten2d_layer_type(input_shape=[14,14,32]))
-  write(*,*) "model5"
   allocate(model(5)%layer, source = full_layer_type( &
        num_inputs=product([14,14,32]), &
        num_outputs=100, &
        activation_function = "relu" &
        ))
-  write(*,*) "model6"
   allocate(model(6)%layer, source = full_layer_type( &
        num_inputs=100, &
        num_outputs=10,&
@@ -355,8 +349,6 @@ program ConvolutionalNeuralNetwork
 !!! if parallel, initialise slices
 !!!-----------------------------------------------------------------------------
 #ifdef _OPENMP
-  write(*,*) "LOOK HERE", lw_image_size, up_image_size
-  write(*,*) "test",size(input_images,dim=3)
   allocate(image_slice(&
        lw_image_size:up_image_size,&
        lw_image_size:up_image_size,&
@@ -368,7 +360,6 @@ program ConvolutionalNeuralNetwork
        lw_image_size:up_image_size,&
        size(input_images,dim=3)&
        ))
-  write(*,*) "DONE"
   !drop_gamma = (1 - keep_prob)/block_size**2 * image_size**2/(image_size - block_size + 1)**2
 
 !!!-----------------------------------------------------------------------------
@@ -595,20 +586,14 @@ program ConvolutionalNeuralNetwork
            do i=2,num_layers
               select type(current => model(i)%layer)
               type is(conv2d_layer_type)
+                 current%dw = current%dw/batch_size
+                 current%db = current%db/batch_size
                  call current%update(optimiser,cv_clip)
               type is(full_layer_type)
+                 current%dw = current%dw/batch_size
                  call current%update(optimiser,fc_clip)                 
               end select
            end do
-           !do l=1,cv_num_filters
-           !   comb_cv_gradients(l)%weight = comb_cv_gradients(l)%weight/batch_size
-           !   comb_cv_gradients(l)%bias   = comb_cv_gradients(l)%bias/batch_size
-           !end do
-           !do l=1,fc_num_layers
-           !   comb_fc_gradients(l)%weight = comb_fc_gradients(l)%weight/batch_size
-           !end do
-           !call cv_update(learning_rate, comb_cv_gradients, cv_clip, update_iteration)
-           !call fc_update(learning_rate, comb_fc_gradients, fc_clip, update_iteration)
            optimiser%iter = optimiser%iter + 1
         end if
 
