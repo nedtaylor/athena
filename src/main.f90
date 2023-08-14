@@ -19,6 +19,7 @@ program ConvolutionalNeuralNetwork
   use inputs
 
   use container_layer, only: container_layer_type
+  use input3d_layer,   only: input3d_layer_type
   use full_layer,      only: full_layer_type
   use conv2d_layer,    only: conv2d_layer_type
   use maxpool2d_layer, only: maxpool2d_layer_type
@@ -50,6 +51,7 @@ program ConvolutionalNeuralNetwork
 
   !! data loading and preoprocessing
   real(real12), allocatable, dimension(:,:,:,:) :: input_images, test_images
+  real(real12), allocatable, dimension(:) :: expected_list
   integer, allocatable, dimension(:) :: labels, test_labels
   character(1024) :: train_file, test_file
 
@@ -63,11 +65,11 @@ program ConvolutionalNeuralNetwork
   integer :: num_pool
   integer :: fc_num_layers
   integer, allocatable, dimension(:) :: tmp_num_hidden
+  integer :: num_layers
 
   !! training loop variables
   integer :: num_batches, num_samples, num_samples_test
   integer :: epoch, batch, sample, start_index, end_index
-  integer :: expected
   integer, allocatable, dimension(:) :: batch_order
   real(real12), allocatable, dimension(:) :: fc_input, &!fc_output, &
        sm_output, sm_gradients
@@ -185,23 +187,32 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
   write(6,*) "Initialising CNN..."
   !! Initialise the convolution layer
-  allocate(model(5))
-  model(1)%layer = conv2d_layer_type( &
+  num_layers = 6
+  allocate(model(num_layers))
+  write(*,*) "model1"
+  allocate(model(1)%layer, source = input3d_layer_type(input_shape = [28,28,1]))
+  write(*,*) "model2"
+  allocate(model(2)%layer, source = conv2d_layer_type( &
        input_shape = [28,28,1], &
-       num_filters = 32, kernel_size = 3, stride = 1, padding="valid", &
-       activation_function = "relu")
-  model(2)%layer = maxpool2d_layer_type(input_shape=[28,28,32], pool_size=2, stride=2)
-  model(3)%layer = flatten2d_layer_type(input_shape=[14,14,32])
-  model(4)%layer = full_layer_type( &
+       num_filters = 32, kernel_size = 3, stride = 1, padding=padding_method, &
+       activation_function = "relu"))
+  write(*,*) "model3"
+  allocate(model(3)%layer, source = maxpool2d_layer_type(input_shape=[28,28,32], pool_size=2, stride=2))
+  write(*,*) "model4"
+  allocate(model(4)%layer, source = flatten2d_layer_type(input_shape=[14,14,32]))
+  write(*,*) "model5"
+  allocate(model(5)%layer, source = full_layer_type( &
        num_inputs=product([14,14,32]), &
        num_outputs=100, &
        activation_function = "relu" &
-       )
-  model(5)%layer = full_layer_type( &
+       ))
+  write(*,*) "model6"
+  allocate(model(6)%layer, source = full_layer_type( &
        num_inputs=100, &
        num_outputs=10,&
        activation_function="softmax" &
-       )
+       ))
+  allocate(expected_list(10))
 
 
 !  if(restart)then
@@ -224,10 +235,12 @@ program ConvolutionalNeuralNetwork
 !
 !  !! Initialise the pooling layer
 !  call pl_init(pool_kernel_size, pool_stride)
-!  num_pool = (output_size - pool_kernel_size) / pool_stride + 1
-!  input_size = num_pool**2 * output_channels
-!  lw_image_size = lbound(input_images,dim=1)
-!  up_image_size = ubound(input_images,dim=1)
+  !output_size = 28
+  !write(*,*) "OUTPUT SIZE HARDCODED!!!"
+  !num_pool = (output_size - pool_kernel_size) / pool_stride + 1
+  !input_size = num_pool**2 * output_channels
+  lw_image_size = lbound(input_images,dim=1)
+  up_image_size = ubound(input_images,dim=1)
 !
 !
 !!!!-----------------------------------------------------------------------------
@@ -338,418 +351,329 @@ program ConvolutionalNeuralNetwork
   end select
 
 
-!!!!-----------------------------------------------------------------------------
-!!!! if parallel, initialise slices
-!!!!-----------------------------------------------------------------------------
-!#ifdef _OPENMP
-!  allocate(image_slice(&
-!       lw_image_size:up_image_size,&
-!       lw_image_size:up_image_size,&
-!       size(input_images,dim=3),batch_size))
-!  allocate(label_slice(batch_size))
-!#endif
-!  allocate(image_sample(&
-!       lw_image_size:up_image_size,&
-!       lw_image_size:up_image_size,&
-!       size(input_images,dim=3)&
-!       ))
-!  !drop_gamma = (1 - keep_prob)/block_size**2 * image_size**2/(image_size - block_size + 1)**2
-!
-!!!!-----------------------------------------------------------------------------
-!!!! query system clock
-!!!!-----------------------------------------------------------------------------
-!  call system_clock(time, count_rate = clock_rate)
-!
-!
-!!!!-----------------------------------------------------------------------------
-!!!! training loop
-!!!! ... loops over num_epoch number of epochs
-!!!! ... i.e. it trains on the same datapoints num_epoch times
-!!!!-----------------------------------------------------------------------------
-!  write(6,*) "Starting training..."
-!  epoch_loop: do epoch = 1, num_epochs
-!     !!-------------------------------------------------------------------------
-!     !! shuffle batch order at the start of each epoch
-!     !!-------------------------------------------------------------------------
-!     if(shuffle_dataset)then
-!        call shuffle(batch_order)
-!     end if
-!
-!     avg_loss     = 0._real12
-!     avg_accuracy = 0._real12
-!
-!     !!-------------------------------------------------------------------------
-!     !! batch loop
-!     !! ... split data up into minibatches for training
-!     !!-------------------------------------------------------------------------
-!     batch_loop: do batch = 1, num_batches
-!
-!        !! set batch start and end index
-!        !!----------------------------------------------------------------------
-!        start_index = (batch_order(batch) - 1) * batch_size + 1
-!        end_index = batch_order(batch) * batch_size
-!#ifdef _OPENMP
-!        image_slice(:,:,:,:) = input_images(:,:,:,start_index:end_index)
-!        label_slice(:) = labels(start_index:end_index)
-!        start_index = 1
-!        end_index = batch_size
-!#endif
-!
-!
-!        !! reset (zero) summed gradients
-!        !! ... UNCOMMENT if running mini-batch training 
-!        !!----------------------------------------------------------------------
-!        if(batch_learning)then
-!           do l=1,cv_num_filters
-!              comb_cv_gradients(l)%weight = 0._real12
-!              comb_cv_gradients(l)%bias = 0._real12
-!           end do
-!           do l=1,fc_num_layers
-!              comb_fc_gradients(l)%weight = 0._real12
-!           end do
-!        end if
-!
-!
-!        !! reinitialise variables
-!        !!----------------------------------------------------------------------
-!        metric_dict%val = 0._real12
-!        sum_accuracy = 0._real12
-!        sum_loss = 0._real12
-!        predicted_old = -1
-!        predicted_new = -1
-!        repetitive_predicting = .true.
-!        
-!        !!!drop_gamma = (1 - drop_gamma)/block_size**2 * image_size**2/(image_size - block_size + 1)**2
-!
-!        
-!        !!----------------------------------------------------------------------
-!        !! sample loop
-!        !! ... test each sample and get gradients and losses from each
-!        !!----------------------------------------------------------------------
-!        !$OMP PARALLEL DO & !! ORDERED
-!        !$OMP& DEFAULT(NONE) &
-!        !$OMP& SHARED(start_index, end_index) &
-!        !$OMP& SHARED(image_slice, label_slice) &
-!        !$OMP& SHARED(pool_normalisation) &
-!        !$OMP& SHARED(batch_learning) &
-!        !$OMP& SHARED(fc_num_layers) &
-!!!        !$OMP& SHARED(cv_keep_prob, seed, cv_block_size, output_channels) &
-!!!        !$OMP& SHARED(cv_dropout_method) &
-!        !$OMP& SHARED(compute_loss) &
-!        !$OMP& FIRSTPRIVATE(predicted_old) &
-!!!        !$OMP& PRIVATE(cv_mask, cv_mask_size) &
-!        !$OMP& PRIVATE(sample) &
-!        !$OMP& PRIVATE(fc_gradients, cv_gradients) &
-!        !$OMP& PRIVATE(cv_output) &
-!!!        !$OMP& PRIVATE(bn_output, bn_gradients) &
-!        !$OMP& PRIVATE(pl_output, pl_gradients) &
-!!!        !$OMP& PRIVATE(mean, variance) &
-!        !$OMP& PRIVATE(fc_input, fc_output) &
-!        !$OMP& PRIVATE(sm_output, sm_gradients) &
-!        !$OMP& PRIVATE(expected) &
-!        !$OMP& REDUCTION(compare_val:predicted_new) &
-!        !$OMP& REDUCTION(.and.: repetitive_predicting) &
-!        !$OMP& REDUCTION(+:exploding_check) &
-!        !$OMP& REDUCTION(+:sum_loss,sum_accuracy) &
-!        !$OMP& REDUCTION(cv_grad_sum:comb_cv_gradients) &
-!        !$OMP& REDUCTION(fc_grad_sum:comb_fc_gradients)
-!       train_loop: do sample = start_index, end_index
-!
-!          !image_sample(:,:,:) = image_slice(:,:,:,sample)
-!
-!          !! Forward pass
-!          !!-------------------------------------------------------------------
-!#ifdef _OPENMP
-!           !image_sample = image_slice(:,:,:,sample)
-!           call cv_forward(image_slice(:,:,:,sample), cv_output)
-!#else
-!           !image_sample = input_images(:,:,:,sample)
-!           call cv_forward(input_images(:,:,:,sample), cv_output)
-!#endif
-!
-!           !! apply a form of dropout regularisation
-!           !if(cv_dropout_method.eq."dropblock")then
-!           !   !call generate_bernoulli_mask(cv_mask, drop_gamma, seed)
-!           !   if(allocated(cv_mask)) deallocate(cv_mask)
-!           !
-!           !   cv_mask_size = size(cv_output,dim=1) - &
-!           !        ( 2*int((cv_block_size -1)/2) + (1 - mod(cv_block_size,2)))
-!           !   allocate(cv_mask(cv_mask_size, cv_mask_size))
-!           !
-!           !   call generate_bernoulli_mask(cv_mask, cv_keep_prob, seed)
-!           !
-!           !   do i=1,output_channels
-!           !      !! need to make cv_output a custom type
-!           !      !! then set the mask to different size based on filter
-!           !      !! or just have a bounding box inside the drop_block
-!           !      call drop_block(cv_output(:,:,i), cv_mask, cv_block_size)
-!           !   end do
-!           !end if
-!
-!           !call bn_forward(cv_output, bn_output, mean, variance, &
-!           !     gamma=bn_gamma, beta=bn_beta)
-!
-!           call pl_forward(cv_output, pl_output)
-!           fc_input = reshape(pl_output, shape(fc_input))
-!           select case(pool_normalisation)
-!           case("linear")
-!              call linear_renormalise(fc_input)
-!           case("norm")
-!              call renormalise_norm(fc_input, norm=1._real12, mirror=.true.)
-!           case("sum")
-!              call renormalise_sum(fc_input, norm=1._real12, mirror=.true., magnitude=.true.)
-!           end select
-!           call fc_forward(fc_input, fc_output)
-!           call sm_forward(fc_output(fc_num_layers)%val, sm_output)
-! 
-!  
-!           !! check for NaN and infinity
-!           !!-------------------------------------------------------------------
-!           if(any(isnan(sm_output)))then
-!              !write(0,*) fc_input
-!              write(0,*) fc_output(fc_num_layers)%val
-!              write(0,*) sm_output
-!              stop "ERROR: Softmax outputs are NaN"
-!           end if
-!           if(batch_learning)then
-!              exploding_check = exploding_check + sum(fc_output(fc_num_layers)%val)
-!           else
-!#ifdef _OPENMP
-!              stop "ERROR: non-batch learning not yet parallelised"
-!#else
-!              exploding_check_old = exploding_check
-!              exploding_check = sum(fc_output(fc_num_layers)%val)
-!              !exploding_check=mean(fc_output)/exploding_check
-!              rtmp1 = abs(exploding_check/exploding_check_old)
-!              if(rtmp1.gt.1.E3_real12)then
-!                 write(0,*) "WARNING: FC outputs are expanding too quickly!"
-!                 write(0,*) "check:", sample,exploding_check,exploding_check_old      
-!                 write(0,*) "outputs:", fc_output(fc_num_layers)%val
-!              elseif(rtmp1.lt.1.E-3_real12)then
-!                 write(0,*) "WARNING: FC outputs are vanishing too quickly!"
-!                 write(0,*) "check:", sample,exploding_check,exploding_check_old
-!                 write(0,*) "outputs:", fc_output(fc_num_layers)%val
-!              end if
-!#endif
-!           end if
-!
-!           
-!           !! compute loss and accuracy (for monitoring)
-!           !!-------------------------------------------------------------------
-!#ifdef _OPENMP
-!           expected = label_slice(sample)
-!#else
-!           expected = labels(sample)
-!#endif
-!           sum_loss = sum_loss + &
-!                compute_loss(predicted=sm_output, expected=expected)
-!           sum_accuracy = sum_accuracy + &
-!                compute_accuracy(sm_output, expected)
-!
-!
-!           !! check that isn't just predicting same value every time
-!           !!-------------------------------------------------------------------
-!           predicted_new = maxloc(sm_output,dim=1)-1
-!           if(repetitive_predicting.and.predicted_old.gt.-1)then
-!              repetitive_predicting = predicted_old.eq.predicted_new
-!           end if
-!           predicted_old = predicted_new
-!
-!
-!           !! Backward pass
-!           !!-------------------------------------------------------------------
-!           call sm_backward(sm_output, expected, sm_gradients)
-!           call fc_backward(fc_input, fc_output, sm_gradients, fc_gradients)
-!           call pl_backward(cv_output, reshape(fc_gradients(0)%delta,&
-!                shape(pl_output)), pl_gradients)
-!           !call bn_backward(cv_output, pl_gradients, bn_gradients, &
-!           !     mean, variance)
-!
-!#ifdef _OPENMP
-!           call cv_backward(image_slice(:,:,:,sample), pl_gradients, &
-!                cv_gradients)
-!#else
-!           call cv_backward(input_images(:,:,:,sample), pl_gradients, &
-!                cv_gradients)
-!#endif
-!           
-!
-!           !! if mini-batch ...
-!           !! ... sum gradients for mini-batch training
-!           !! if not mini-batch
-!           !! ... update weights and biases using optimization algorithm
-!           !! ... (gradient descent)
-!           !!-------------------------------------------------------------------
-!           if(batch_learning)then
-!              comb_cv_gradients = comb_cv_gradients + cv_gradients
-!              comb_fc_gradients = comb_fc_gradients + fc_gradients
-!#ifndef _OPENMP
-!           else
-!              call cv_update(learning_rate, cv_gradients, cv_clip, update_iteration)
-!              call fc_update(learning_rate, fc_gradients, fc_clip, update_iteration)
-!              update_iteration = update_iteration + 1
-!#endif
-!           end if
-!
-!
-!        end do train_loop
-!        !$OMP END PARALLEL DO
-!
-!
-!        !! Check if categorical predicting is stuck on same value
-!        !!----------------------------------------------------------------------
-!        if(abs(verbosity).ge.3)then
-!#ifdef _OPENMP
-!           if(repetitive_predicting.and.&
-!                all(label_slice(:).eq.label_slice(1))) &
-!                repetitive_predicting = .false.
-!#else
-!           if(repetitive_predicting.and.&
-!                all(labels(start_index:end_index).eq.labels(start_index))) &
-!                repetitive_predicting = .false.
-!#endif
-!           if(repetitive_predicting.and.predicted_new.gt.0)then
-!              write(0,'("WARNING: all predictions in batch ",I0," &
-!                   &are the same: ", I0)') batch, predicted_new-1
-!              write(0,*) "WE SHOULD REALL DO SOMETHING TO KICK IT OUT OF THIS"
-!           end if
-!        end if
-!
-!
-!
-!        !! Average metric over batch size and store
-!        !!----------------------------------------------------------------------
-!        avg_loss = avg_loss + sum_loss
-!        avg_accuracy = avg_accuracy + sum_accuracy
-!        metric_dict(1)%val = sum_loss / batch_size
-!        metric_dict(2)%val = sum_accuracy / batch_size
-!
-!
-!        !! Check metric convergence
-!        !!----------------------------------------------------------------------
-!        do i=1,size(metric_dict,dim=1)
-!           call metric_dict(i)%check(plateau_threshold, converged)
-!           if(converged.ne.0)then
-!              exit epoch_loop
-!           end if
-!        end do
-!
-!
-!        !! Error checking and handling
-!        !!----------------------------------------------------------------------
-!        if(abs(1._real12-metric_dict(2)%val).gt.1.E-3_real12)then
-!           !do l=1,fc_num_layers
-!           !   if(batch_learning)then
-!           !      if(all(abs(comb_fc_gradients(l)%weight).lt.1.E-8_real12))then
-!           !         write(0,*) "WARNING: FullyConnected gradients are zero"
-!           !         !write(0,*) "Exiting..."
-!           !         !stop
-!           !      end if
-!           !   else
-!           !      if(all(abs(fc_gradients(l)%weight).lt.1.E-8_real12))then
-!           !         write(0,*) "WARNING: FullyConnected gradients are zero"
-!           !         !write(0,*) "Exiting..."
-!           !         !stop
-!           !      end if
-!           !   end if
-!           !end do
-!        else
-!           goto 101
-!        end if
-!
-!
-!        !! if mini-batch ...
-!        !! ... update weights and biases using optimization algorithm
-!        !! ... (gradient descent)
-!        !!----------------------------------------------------------------------
-!        if(batch_learning)then
-!           exploding_check = (exploding_check/batch_size)
-!           if(epoch.gt.1.or.batch.gt.1)then
-!              rtmp1 = abs(exploding_check/exploding_check_old)
-!              if(rtmp1.gt.1.E3_real12)then
-!                 write(0,*) "WARNING: FC outputs are expanding too quickly!"
-!                 write(0,*) "check:", sample,exploding_check,exploding_check_old
-!              elseif(rtmp1.lt.1.E-3_real12)then
-!                 write(0,*) "WARNING: FC outputs are vanishing too quickly!"
-!                 write(0,*) "check:", exploding_check, exploding_check_old
-!              end if
-!           end if
-!           exploding_check_old = exploding_check
-!           exploding_check = 0._real12
-!           
-!           do l=1,cv_num_filters
-!              comb_cv_gradients(l)%weight = comb_cv_gradients(l)%weight/batch_size
-!              comb_cv_gradients(l)%bias   = comb_cv_gradients(l)%bias/batch_size
-!           end do
-!           do l=1,fc_num_layers
-!              comb_fc_gradients(l)%weight = comb_fc_gradients(l)%weight/batch_size
-!           end do
-!           !! 2 seconds
-!           call cv_update(learning_rate, comb_cv_gradients, cv_clip, update_iteration)
-!           call fc_update(learning_rate, comb_fc_gradients, fc_clip, update_iteration)
-!           update_iteration = update_iteration + 1
-!        end if
-!
-!
-!        !! print batch results
-!        !!----------------------------------------------------------------------
-!101     if(abs(verbosity).gt.0.and.&
-!             (batch.eq.1.or.mod(batch,batch_print_step).eq.0.E0))then
-!           write(6,'("epoch=",I0,", batch=",I0,&
-!                &", learning_rate=",F0.3,", loss=",F0.3,", accuracy=",F0.3)') &
-!                epoch, batch, learning_rate, &
-!                avg_loss/(batch*batch_size),  avg_accuracy/(batch*batch_size)
-!           !metric_dict(1)%val, metric_dict(2)%val
-!        end if
-!
-!!!! TESTING
-!!        if(batch.gt.200)then
-!!           time_old = time
-!!           call system_clock(time)
-!!           !write(*,'("time check: ",I0," seconds")') (time-time_old)/clock_rate
-!!           write(*,'("time check: ",F8.3," seconds")') real(time-time_old)/clock_rate
-!!           stop "THIS IS FOR TESTING PURPOSES"
-!!        end if
-!!!!
-!
-!        !! time check
-!        !!----------------------------------------------------------------------
-!        if(verbosity.eq.-2)then
+!!!-----------------------------------------------------------------------------
+!!! if parallel, initialise slices
+!!!-----------------------------------------------------------------------------
+#ifdef _OPENMP
+  write(*,*) "LOOK HERE", lw_image_size, up_image_size
+  write(*,*) "test",size(input_images,dim=3)
+  allocate(image_slice(&
+       lw_image_size:up_image_size,&
+       lw_image_size:up_image_size,&
+       size(input_images,dim=3),batch_size))
+  allocate(label_slice(batch_size))
+#endif
+  allocate(image_sample(&
+       lw_image_size:up_image_size,&
+       lw_image_size:up_image_size,&
+       size(input_images,dim=3)&
+       ))
+  write(*,*) "DONE"
+  !drop_gamma = (1 - keep_prob)/block_size**2 * image_size**2/(image_size - block_size + 1)**2
+
+!!!-----------------------------------------------------------------------------
+!!! query system clock
+!!!-----------------------------------------------------------------------------
+  call system_clock(time, count_rate = clock_rate)
+
+
+!!!-----------------------------------------------------------------------------
+!!! training loop
+!!! ... loops over num_epoch number of epochs
+!!! ... i.e. it trains on the same datapoints num_epoch times
+!!!-----------------------------------------------------------------------------
+  write(6,*) "Starting training..."
+  epoch_loop: do epoch = 1, num_epochs
+     !!-------------------------------------------------------------------------
+     !! shuffle batch order at the start of each epoch
+     !!-------------------------------------------------------------------------
+     if(shuffle_dataset)then
+        call shuffle(batch_order)
+     end if
+
+     avg_loss     = 0._real12
+     avg_accuracy = 0._real12
+
+     !!-------------------------------------------------------------------------
+     !! batch loop
+     !! ... split data up into minibatches for training
+     !!-------------------------------------------------------------------------
+     batch_loop: do batch = 1, num_batches
+
+
+        !! set batch start and end index
+        !!----------------------------------------------------------------------
+        start_index = (batch_order(batch) - 1) * batch_size + 1
+        end_index = batch_order(batch) * batch_size
+#ifdef _OPENMP
+        image_slice(:,:,:,:) = input_images(:,:,:,start_index:end_index)
+        label_slice(:) = labels(start_index:end_index)
+        start_index = 1
+        end_index = batch_size
+#endif
+
+
+        !! reinitialise variables
+        !!----------------------------------------------------------------------
+        metric_dict%val = 0._real12
+        sum_accuracy = 0._real12
+        sum_loss = 0._real12
+        predicted_old = -1
+        predicted_new = -1
+        repetitive_predicting = .true.
+        
+        !!!drop_gamma = (1 - drop_gamma)/block_size**2 * image_size**2/(image_size - block_size + 1)**2
+
+        
+        !!----------------------------------------------------------------------
+        !! sample loop
+        !! ... test each sample and get gradients and losses from each
+        !!----------------------------------------------------------------------
+!!        !$OMP PARALLEL DO & !! ORDERED
+!!        !$OMP& DEFAULT(NONE) &
+!!        !$OMP& SHARED(start_index, end_index) &
+!!        !$OMP& SHARED(image_slice, label_slice) &
+!!        !$OMP& SHARED(pool_normalisation) &
+!!        !$OMP& SHARED(batch_learning) &
+!!        !$OMP& SHARED(fc_num_layers) &
+!!!!        !$OMP& SHARED(cv_keep_prob, seed, cv_block_size, output_channels) &
+!!!!        !$OMP& SHARED(cv_dropout_method) &
+!!        !$OMP& SHARED(compute_loss) &
+!!        !$OMP& FIRSTPRIVATE(predicted_old) &
+!!!!        !$OMP& PRIVATE(cv_mask, cv_mask_size) &
+!!        !$OMP& PRIVATE(sample) &
+!!        !$OMP& PRIVATE(fc_gradients, cv_gradients) &
+!!        !$OMP& PRIVATE(cv_output) &
+!!!!        !$OMP& PRIVATE(bn_output, bn_gradients) &
+!!        !$OMP& PRIVATE(pl_output, pl_gradients) &
+!!!!        !$OMP& PRIVATE(mean, variance) &
+!!        !$OMP& PRIVATE(fc_input, fc_output) &
+!!        !$OMP& PRIVATE(sm_output, sm_gradients) &
+!!        !$OMP& PRIVATE(expected) &
+!!        !$OMP& REDUCTION(compare_val:predicted_new) &
+!!        !$OMP& REDUCTION(.and.: repetitive_predicting) &
+!!        !$OMP& REDUCTION(+:exploding_check) &
+!!        !$OMP& REDUCTION(+:sum_loss,sum_accuracy) &
+!!        !$OMP& REDUCTION(cv_grad_sum:comb_cv_gradients) &
+!!        !$OMP& REDUCTION(fc_grad_sum:comb_fc_gradients)
+       train_loop: do sample = start_index, end_index
+
+#ifdef _OPENMP
+          associate(input => image_slice(:,:,:,sample))
+#else
+          associate(input => input_images(:,:,:,sample))
+#endif
+            !write(*,*) sample, size(input), ubound(input)
+            !write(*,*) input
+            !image_sample(:,:,:) = image_slice(:,:,:,sample)
+            select type(current => model(1)%layer)
+            type is(input3d_layer_type)
+               call current%init(input)
+            end select
+          end associate
+
+
+          !! Forward pass
+          !!-------------------------------------------------------------------
+          do i=2,num_layers,1
+             call model(i)%forward(model(i-1))
+          end do
+
+          
+          !select type(current => model(num_layers-1)%layer)
+          !type is(full_layer_type)
+          !   write(*,*) current%transfer%name
+          !   write(*,*) current%output
+          !   write(*,*)
+          !end select
+          !! compute loss and accuracy (for monitoring)
+          !!-------------------------------------------------------------------
+#ifdef _OPENMP
+          associate(expected => label_slice(sample))
+#else
+          associate(expected => labels(sample))
+#endif
+            select type(current => model(num_layers)%layer)
+            type is(full_layer_type)
+               !write(*,*) current%transfer%name
+               !write(*,*) current%output
+               !stop
+               expected_list = 0._real12
+               expected_list(expected) = 1._real12
+               sum_loss = sum_loss + &
+                    compute_loss(predicted=current%output, expected=expected)
+               sum_accuracy = sum_accuracy + &
+                    compute_accuracy(current%output, expected)
+               call model(num_layers)%backward(model(num_layers-1),expected_list)
+            end select
+          end associate
+
+
+          !! check that isn't just predicting same value every time
+          !!-------------------------------------------------------------------
+          !predicted_new = maxloc(sm_output,dim=1)-1
+          if(repetitive_predicting.and.predicted_old.gt.-1)then
+             repetitive_predicting = predicted_old.eq.predicted_new
+          end if
+          predicted_old = predicted_new
+
+
+          !! Backward pass
+          !!-------------------------------------------------------------------
+          do i=num_layers-1,2,-1
+             select type(next => model(i+1)%layer)
+             type is(conv2d_layer_type)
+                call model(i)%backward(model(i-1),next%di)
+             type is(maxpool2d_layer_type)
+                call model(i)%backward(model(i-1),next%di)
+             type is(full_layer_type)
+                call model(i)%backward(model(i-1),next%di)
+             type is(flatten2d_layer_type)
+                call model(i)%backward(model(i-1),next%di)
+             type is(flatten3d_layer_type)
+                call model(i)%backward(model(i-1),next%di)
+             end select
+          end do
+
+
+           !! if mini-batch ...
+           !! ... sum gradients for mini-batch training
+           !! if not mini-batch
+           !! ... update weights and biases using optimization algorithm
+           !! ... (gradient descent)
+           !!-------------------------------------------------------------------
+!!            if(batch_learning)then
+!!               comb_cv_gradients = comb_cv_gradients + cv_gradients
+!!               comb_fc_gradients = comb_fc_gradients + fc_gradients
+!! #ifndef _OPENMP
+!!            else
+!!               call cv_update(learning_rate, cv_gradients, cv_clip, update_iteration)
+!!               call fc_update(learning_rate, fc_gradients, fc_clip, update_iteration)
+!!               update_iteration = update_iteration + 1
+!! #endif
+!!            end if
+
+
+        end do train_loop
+!!        !$OMP END PARALLEL DO
+
+        !! Average metric over batch size and store
+        !!----------------------------------------------------------------------
+        avg_loss = avg_loss + sum_loss
+        avg_accuracy = avg_accuracy + sum_accuracy
+        metric_dict(1)%val = sum_loss / batch_size
+        metric_dict(2)%val = sum_accuracy / batch_size
+
+
+        !! Check metric convergence
+        !!----------------------------------------------------------------------
+        do i=1,size(metric_dict,dim=1)
+           call metric_dict(i)%check(plateau_threshold, converged)
+           if(converged.ne.0)then
+              exit epoch_loop
+           end if
+        end do
+
+
+        !! if mini-batch ...
+        !! ... update weights and biases using optimization algorithm
+        !! ... (gradient descent)
+        !!----------------------------------------------------------------------
+        if(batch_learning)then
+           exploding_check = (exploding_check/batch_size)
+           if(epoch.gt.1.or.batch.gt.1)then
+              rtmp1 = abs(exploding_check/exploding_check_old)
+              if(rtmp1.gt.1.E3_real12)then
+                 write(0,*) "WARNING: FC outputs are expanding too quickly!"
+                 write(0,*) "check:", sample,exploding_check,exploding_check_old
+              elseif(rtmp1.lt.1.E-3_real12)then
+                 write(0,*) "WARNING: FC outputs are vanishing too quickly!"
+                 write(0,*) "check:", exploding_check, exploding_check_old
+              end if
+           end if
+           exploding_check_old = exploding_check
+           exploding_check = 0._real12
+           do i=2,num_layers
+              select type(current => model(i)%layer)
+              type is(conv2d_layer_type)
+                 call current%update(optimiser,cv_clip)
+              type is(full_layer_type)
+                 call current%update(optimiser,fc_clip)                 
+              end select
+           end do
+
+           !do l=1,cv_num_filters
+           !   comb_cv_gradients(l)%weight = comb_cv_gradients(l)%weight/batch_size
+           !   comb_cv_gradients(l)%bias   = comb_cv_gradients(l)%bias/batch_size
+           !end do
+           !do l=1,fc_num_layers
+           !   comb_fc_gradients(l)%weight = comb_fc_gradients(l)%weight/batch_size
+           !end do
+           !call cv_update(learning_rate, comb_cv_gradients, cv_clip, update_iteration)
+           !call fc_update(learning_rate, comb_fc_gradients, fc_clip, update_iteration)
+           optimiser%iter = optimiser%iter + 1
+        end if
+
+
+        !! print batch results
+        !!----------------------------------------------------------------------
+101     if(abs(verbosity).gt.0.and.&
+             (batch.eq.1.or.mod(batch,batch_print_step).eq.0.E0))then
+           write(6,'("epoch=",I0,", batch=",I0,&
+                &", learning_rate=",F0.3,", loss=",F0.3,", accuracy=",F0.3)') &
+                epoch, batch, optimiser%learning_rate, &
+                avg_loss/(batch*batch_size),  avg_accuracy/(batch*batch_size)
+           !metric_dict(1)%val, metric_dict(2)%val
+        end if
+
+!!! TESTING
+!        if(batch.gt.200)then
 !           time_old = time
 !           call system_clock(time)
 !           !write(*,'("time check: ",I0," seconds")') (time-time_old)/clock_rate
-!           write(*,'("time check: ",F5.3," seconds")') real(time-time_old)/clock_rate
-!           time_old = time
+!           write(*,'("time check: ",F8.3," seconds")') real(time-time_old)/clock_rate
+!           stop "THIS IS FOR TESTING PURPOSES"
 !        end if
-!
-!
-!        !! check for user-name stop file
-!        !!----------------------------------------------------------------------
-!        if(stop_check())then
-!           write(0,*) "STOPCAR ENCOUNTERED"
-!           write(0,*) "Exiting training loop..."
-!           exit epoch_loop
-!        end if
-!
-!     end do batch_loop
-!
-!
-!     !! print epoch summary results
-!     !!-------------------------------------------------------------------------
-!     if(verbosity.eq.0)then
-!        !!if(mod(epoch,20).eq.0.E0) &
-!        write(6,'("epoch=",I0,", batch=",I0,&
-!             &", learning_rate=",F0.3,", val_loss=",F0.3,", val_accuracy=",F0.3)') &
-!             epoch, batch, learning_rate, &
-!             metric_dict(1)%val, metric_dict(2)%val
-!        !     avg_loss/(batch*batch_size),  avg_accuracy/(batch*batch_size)
-!     end if
-!
-!
-!  end do epoch_loop
-!  write(*,*) "Training finished"
-!
-!
+!!!
+
+        !! time check
+        !!----------------------------------------------------------------------
+        if(verbosity.eq.-2)then
+           time_old = time
+           call system_clock(time)
+           !write(*,'("time check: ",I0," seconds")') (time-time_old)/clock_rate
+           write(*,'("time check: ",F5.3," seconds")') real(time-time_old)/clock_rate
+           time_old = time
+        end if
+
+
+        !! check for user-name stop file
+        !!----------------------------------------------------------------------
+        if(stop_check())then
+           write(0,*) "STOPCAR ENCOUNTERED"
+           write(0,*) "Exiting training loop..."
+           exit epoch_loop
+        end if
+
+     end do batch_loop
+
+
+     !! print epoch summary results
+     !!-------------------------------------------------------------------------
+     if(verbosity.eq.0)then
+        !!if(mod(epoch,20).eq.0.E0) &
+        write(6,'("epoch=",I0,", batch=",I0,&
+             &", learning_rate=",F0.3,", val_loss=",F0.3,", val_accuracy=",F0.3)') &
+             epoch, batch, optimiser%learning_rate, &
+             metric_dict(1)%val, metric_dict(2)%val
+        !     avg_loss/(batch*batch_size),  avg_accuracy/(batch*batch_size)
+     end if
+
+
+  end do epoch_loop
+  write(*,*) "Training finished"
+
+
 !!!!-----------------------------------------------------------------------------
 !!!! print weights and biases of CNN to file
 !!!!-----------------------------------------------------------------------------
