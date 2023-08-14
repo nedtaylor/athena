@@ -125,18 +125,20 @@ contains
     allocate(layer%transfer, source=activation_setup(t_activation_function, scale))
     write(*,*) "full activation after", t_activation_function
 
+    allocate(layer%weight(layer%num_inputs+1,layer%num_outputs))
 
-
-    allocate(layer%dw(layer%num_inputs+1,layer%num_outputs), source=0._real12)
+    allocate(layer%weight_incr, mold=layer%weight)
     allocate(layer%output(layer%num_outputs), source=0._real12)
-    allocate(layer%di(layer%num_inputs), source=0._real12) ! +1 account for bias
+    allocate(layer%dw(layer%num_inputs+1,layer%num_outputs), source=0._real12)
+    allocate(layer%di(layer%num_inputs), source=0._real12)
+    layer%weight_incr = 0._real12)
+    layer%dw = 0._real12)
+    layer%di = 0._real12)
 
 
     !!--------------------------------------------------------------------------
     !! initialise kernels and biases
     !!--------------------------------------------------------------------------
-    allocate(layer%weight(layer%num_inputs+1,layer%num_outputs))
-    allocate(layer%weight_incr(layer%num_inputs+1,layer%num_outputs))
     if(present(kernel_initialiser))then
        initialiser_name = kernel_initialiser
     else
