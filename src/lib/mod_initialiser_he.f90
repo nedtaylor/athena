@@ -58,6 +58,9 @@ contains
     rank(3)
        call random_number(input)
        input = input * scale
+    rank(4)
+       call random_number(input)
+       input = input * scale
     end select
     
   end subroutine he_uniform_initialise
@@ -90,6 +93,9 @@ contains
        call random_number(input)
        input = input * scale
     rank(3)
+       call random_number(input)
+       input = input * scale
+    rank(4)
        call random_number(input)
        input = input * scale
     end select
