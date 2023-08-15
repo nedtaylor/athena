@@ -221,6 +221,7 @@ contains
 
     allocate(layer%output(layer%height,layer%width,layer%num_filters))
     allocate(layer%z, mold=layer%output)
+    layer%z = 0._real12
 
     allocate(layer%bias(layer%num_filters))
 
