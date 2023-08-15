@@ -490,8 +490,8 @@ program ConvolutionalNeuralNetwork
                !stop
                expected_list = 0._real12
                expected_list(expected) = 1._real12
-               sum_loss = sum_loss + &
-                    compute_loss(predicted=current%output, expected=expected)
+               expected_list = compute_loss(predicted=current%output, expected=expected_list)
+               sum_loss = sum_loss + sum(expected_list)
                sum_accuracy = sum_accuracy + &
                     compute_accuracy(current%output, expected)
                call model(num_layers)%backward(model(num_layers-1),expected_list)
@@ -583,19 +583,20 @@ program ConvolutionalNeuralNetwork
            end if
            exploding_check_old = exploding_check
            exploding_check = 0._real12
-           do i=2,num_layers
+           do i=num_layers,2,-1
               select type(current => model(i)%layer)
               type is(conv2d_layer_type)
-                 current%dw = current%dw/batch_size
-                 current%db = current%db/batch_size
+                 !current%dw = current%dw/batch_size
+                 !current%db = current%db/batch_size
                  call current%update(optimiser,cv_clip)
               type is(full_layer_type)
-                 current%dw = current%dw/batch_size
+                 !current%dw = current%dw/batch_size
                  call current%update(optimiser,fc_clip)                 
               end select
            end do
            optimiser%iter = optimiser%iter + 1
         end if
+        stop
 
 
         !! print batch results

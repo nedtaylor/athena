@@ -7,12 +7,18 @@ module loss_categorical
   abstract interface
      function compute_loss_function(predicted, expected) result(output)
        import real12
-       real(real12), dimension(:), intent(in) :: predicted
-       integer, intent(in) :: expected
-       real(real12) :: output
+       real(real12), dimension(:), intent(in) :: predicted, expected
+       real(real12), dimension(size(predicted)) :: output
      end function compute_loss_function
   end interface
   
+  abstract interface
+     function total_loss_function(predicted, expected) result(output)
+       import real12
+       real(real12), dimension(:), intent(in) :: predicted, expected
+       real(real12) :: output
+     end function total_loss_function
+  end interface
 
   private
 
@@ -21,6 +27,12 @@ module loss_categorical
   public :: compute_loss_cce
   public :: compute_loss_mse
   public :: compute_loss_nll
+
+  public :: total_loss_function
+  public :: total_loss_bce
+  public :: total_loss_cce
+  public :: total_loss_mse
+  public :: total_loss_nll
 
 
 contains
@@ -31,14 +43,23 @@ contains
 !!!#############################################################################
   function compute_loss_bce(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:), intent(in) :: predicted
-    integer, intent(in) :: expected
-    real(real12) :: output, epsilon
+    real(real12), dimension(:), intent(in) :: predicted, expected
+    real(real12), dimension(size(predicted)) :: output
+    real(real12) :: epsilon
 
     epsilon = 1.E-10_real12
-    output = -log(predicted(expected)+epsilon)
+    output = -expected*log(predicted+epsilon)
 
   end function compute_loss_bce
+!!!-----------------------------------------------------------------------------
+  function total_loss_bce(predicted, expected) result(output)
+    implicit none
+    real(real12), dimension(:), intent(in) :: predicted, expected
+    real(real12) :: output
+
+    output = sum(compute_loss_bce(predicted,expected))
+
+  end function total_loss_bce
 !!!#############################################################################
 
 
@@ -48,14 +69,23 @@ contains
 !!!#############################################################################
   function compute_loss_cce(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:), intent(in) :: predicted
-    integer, intent(in) :: expected
-    real(real12) :: output, epsilon
+    real(real12), dimension(:), intent(in) :: predicted, expected
+    real(real12), dimension(size(predicted)) :: output
+    real(real12) :: epsilon
 
     epsilon = 1.E-10_real12
-    output = -log(predicted(expected)+epsilon)
+    output = -expected*log(predicted+epsilon)
 
   end function compute_loss_cce
+!!!-----------------------------------------------------------------------------
+  function total_loss_cce(predicted, expected) result(output)
+    implicit none
+    real(real12), dimension(:), intent(in) :: predicted, expected
+    real(real12) :: output
+
+    output = sum(compute_loss_cce(predicted,expected))
+    
+  end function total_loss_cce
 !!!#############################################################################
 
 
@@ -83,23 +113,21 @@ contains
 !!!#############################################################################
   function compute_loss_mse(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:), intent(in) :: predicted
-    integer, intent(in) :: expected
-    integer :: i
-    real(real12) :: output, total
+    real(real12), dimension(:), intent(in) :: predicted, expected
+    real(real12), dimension(size(predicted)) :: output
 
-    !! Compute the cross-entropy loss
-    total = 0._real12
-    do i=1,size(predicted)
-       if(i.eq.expected)then
-          total = total + (predicted(i) - 1._real12)**2.E0
-       else
-          total = total + predicted(i)**2.E0
-       end if
-    end do
-    output = total /(2*size(predicted))
+    output = ((predicted - expected)**2._real12) /(2*size(predicted))
 
   end function compute_loss_mse
+!!!-----------------------------------------------------------------------------
+  function total_loss_mse(predicted, expected) result(output)
+    implicit none
+    real(real12), dimension(:), intent(in) :: predicted, expected
+    real(real12) :: output
+
+    output = sum(compute_loss_mse(predicted,expected))
+    
+  end function total_loss_mse
 !!!#############################################################################
 
 
@@ -109,22 +137,22 @@ contains
 !!!#############################################################################
   function compute_loss_nll(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:), intent(in) :: predicted
-    integer, intent(in) :: expected
-    integer :: i
-    real(real12) :: output, epsilon
+    real(real12), dimension(:), intent(in) :: predicted, expected
+    real(real12), dimension(size(predicted)) :: output
+    real(real12) :: epsilon
 
-    epsilon = 1.E-10_real12
-    output = 0._real12
-    do i=1,size(predicted)
-       if(i.eq.expected)then
-          output = output - log(predicted(i)+epsilon)
-       else
-          output = output - log(1-predicted(i)+epsilon)
-       end if
-    end do
+    output = - log(expected - predicted + epsilon)
 
   end function compute_loss_nll
+!!!-----------------------------------------------------------------------------
+  function total_loss_nll(predicted, expected) result(output)
+    implicit none
+    real(real12), dimension(:), intent(in) :: predicted, expected
+    real(real12) :: output
+
+    output = sum(compute_loss_nll(predicted,expected))
+
+  end function total_loss_nll
 !!!#############################################################################
 
 end module loss_categorical
