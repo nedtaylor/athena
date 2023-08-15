@@ -389,19 +389,20 @@ contains
        i_start = max(1,           i - this%pad_x)
        i_end   = min(this%height, i + this%pad_x)
 
-       !! NOT EQUIVALENT
+       !! equivalent
        !! apply convolution to compute weight gradients
-       !this%dw(:,:,m,l) = this%dw(:,:,m,l) + &
-       !     input(i_start:i_end:this%stride_x,j_start:j_end:this%stride_y,m) * grad_dz(i_start:i_end,j_start:j_end,l)
-       do y = -this%kernel_y,jend_idx,1
-          do x = -this%kernel_x,iend_idx,1
-             this%dw(x,y,m,l) = this%dw(x,y,m,l) + &
-                  sum(grad_dz(:,:,l) * &
-                  input(&
-                  x+1:( ubound(input,dim=1)-this%kernel_x+1+this%pad_x )+x:this%stride_x,&
-                  y+1:( ubound(input,dim=2)-this%kernel_y+1+this%pad_y )+y:this%stride_y,m))
-          end do
-       end do
+       this%dw(:,:,m,l) = this%dw(:,:,m,l) + &
+           input(i_start:i_end:this%stride_x,j_start:j_end:this%stride_y,m) * grad_dz(i_start:i_end:1,j_start:j_end:1,l)
+      !  do y = -this%half_y,jend_idx,1
+      !     do x = -this%half_x,iend_idx,1
+      !        this%dw(x,y,m,l) = this%dw(x,y,m,l) + &
+      !             sum(gradient(:,:,l) * & !grad_dz(:,:,l) * &
+      !             input(&
+      !             x+ioffset:x+ioffset -1 + ubound(input,dim=1):this%stride_x, &
+      !             y+joffset:y+joffset -1 + ubound(input,dim=2):this%stride_y,m))
+      !             !! +1 is because the centre for weight is 0, whilst the starting index for input is 1
+      !     end do
+      !  end do
 
     end do
 
