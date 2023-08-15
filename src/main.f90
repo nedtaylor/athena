@@ -596,10 +596,12 @@ program ConvolutionalNeuralNetwork
               type is(conv2d_layer_type)
                  current%dw = current%dw/batch_size
                  current%db = current%db/batch_size
-                 call current%update(optimiser)!,cv_clip)
+                 !write(*,*) current%db
+                 call current%update(optimiser,cv_clip)
               type is(full_layer_type)
                  current%dw = current%dw/batch_size
-                 call current%update(optimiser)!,fc_clip)                 
+                 !write(*,*) current%dw(size(current%dw,dim=1),:)
+                 call current%update(optimiser,fc_clip)                 
               end select
            end do
            optimiser%iter = optimiser%iter + 1
