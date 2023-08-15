@@ -185,8 +185,8 @@ contains
        !!-----------------------------------------------------------------------
        !! determine initialisation method
        !!-----------------------------------------------------------------------
-       kernel_init = initialiser_setup(t_kernel_initialiser)
-       bias_init = initialiser_setup(t_bias_initialiser)
+       allocate(kernel_init, source=initialiser_setup(t_kernel_initialiser))
+       allocate(bias_init, source=initialiser_setup(t_bias_initialiser))
 
        !!-----------------------------------------------------------------------
        !! randomly initialise convolution layers
@@ -242,7 +242,7 @@ contains
           scale = 1._real12
        end if
        write(*,'("CV activation function: ",A)') trim(t_activation_function)
-       transfer = activation_setup(t_activation_function, scale)
+       allocate(transfer, source=activation_setup(t_activation_function, scale))
 
     else
        write(0,*) "ERROR: Not enough optional arguments provided to initialse CV"
@@ -495,7 +495,7 @@ contains
        end do tag_loop
 
        !! set transfer activation function
-       transfer = activation_setup(trim(activation_function), activation_scale)
+       allocate(transfer, source=activation_setup(trim(activation_function), activation_scale))
 
        !! check if WEIGHTS card was found
        if(istart_weights.le.0)then

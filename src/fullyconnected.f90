@@ -163,7 +163,7 @@ contains
        !!-----------------------------------------------------------------------
        !! determine initialisation method
        !!-----------------------------------------------------------------------
-       weight_init = initialiser_setup(t_weight_initialiser)
+       allocate(weight_init, source=initialiser_setup(t_weight_initialiser))
 
        !!-----------------------------------------------------------------------
        !! randomly initialise convolution layers
@@ -197,7 +197,7 @@ contains
           scale = 1._real12
        end if
        write(*,'("FC activation function: ",A)') trim(t_activation_function)
-       transfer = activation_setup(t_activation_function, scale)
+       allocate(transfer, source=activation_setup(t_activation_function, scale))
 
     else
        write(0,*) "ERROR: Not enough optional arguments provided to initialse FC"
@@ -430,7 +430,7 @@ contains
        end do tag_loop
 
        !! set transfer activation function
-       transfer = activation_setup(activation_function, activation_scale)
+       allocate(transfer, source=activation_setup(activation_function, activation_scale))
 
        !! check if WEIGHTS card was found
        if(istart_weights.le.0)then
