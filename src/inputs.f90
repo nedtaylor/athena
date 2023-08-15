@@ -481,6 +481,10 @@ contains
     !! nll = negative log likelihood
     loss_method = to_lower(trim(loss))
     num_metrics = icount(metrics)
+    if(num_metrics.le.0)then
+       write(*,*) "ERROR: No metrics defined to use for convergence"
+       stop "Exiting..."
+    end if
     allocate(metric_list(num_metrics))
     read(metrics,*) metric_list
     do i=1,num_metrics,1
