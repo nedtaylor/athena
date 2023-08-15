@@ -309,6 +309,8 @@ contains
 
        do concurrent(l=1:this%num_filters)
 
+
+          !! equivalent
           this%z(i,j,l) = this%z(i,j,l) + &
                sum( &
                input(&
@@ -387,9 +389,19 @@ contains
        i_start = max(1,           i - this%pad_x)
        i_end   = min(this%height, i + this%pad_x)
 
+       !! NOT EQUIVALENT
        !! apply convolution to compute weight gradients
-       this%dw(:,:,m,l) = this%dw(:,:,m,l) + &
-            input(i_start:i_end,j_start:j_end,m) * grad_dz(i_start:i_end,j_start:j_end,l)
+       !this%dw(:,:,m,l) = this%dw(:,:,m,l) + &
+       !     input(i_start:i_end:this%stride_x,j_start:j_end:this%stride_y,m) * grad_dz(i_start:i_end,j_start:j_end,l)
+       do y = -this%kernel_y,jend_idx,1
+          do x = -this%kernel_x,iend_idx,1
+             this%dw(x,y,m,l) = this%dw(x,y,m,l) + &
+                  sum(grad_dz(:,:,l) * &
+                  input(&
+                  x+1:( ubound(input,dim=1)-this%kernel_x+1+this%pad_x )+x:this%stride_x,&
+                  y+1:( ubound(input,dim=2)-this%kernel_y+1+this%pad_y )+y:this%stride_y,m))
+          end do
+       end do
 
     end do
 
@@ -490,9 +502,7 @@ contains
     call optimiser%optimise(&
          this%bias,&
          this%bias_incr, &
-         this%db)!, &
-    !this%bias_m, &
-    !this%bias_v)
+         this%db)
 
     this%di = 0._real12
     this%dw = 0._real12
