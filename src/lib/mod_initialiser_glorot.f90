@@ -46,19 +46,19 @@ contains
     select rank(input)
     rank(0)
        call random_number(input)
-       input = input * scale
+       input = (input * 2._real12 - 1._real12) * scale
     rank(1)
        call random_number(input)
-       input = input * scale
+       input = (input * 2._real12 - 1._real12) * scale
     rank(2)
        call random_number(input)
-       input = input * scale
+       input = (input * 2._real12 - 1._real12) * scale
     rank(3)
        call random_number(input)
-       input = input * scale
+       input = (input * 2._real12 - 1._real12) * scale
     rank(4)
        call random_number(input)
-       input = input * scale
+       input = (input * 2._real12 - 1._real12) * scale
     end select
     
   end subroutine glorot_uniform_initialise
