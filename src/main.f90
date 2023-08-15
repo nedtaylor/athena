@@ -141,8 +141,8 @@ program ConvolutionalNeuralNetwork
 !!! initialise monitoring variables
 !!!-----------------------------------------------------------------------------
   history_length = max(ceiling(500._real12/batch_size),1)
-  call metric_dict_alloc(metric_dict, length=history_length)
   do i=1,size(metric_dict,dim=1)
+     allocate(metric_dict(i)%history(history_length))
      metric_dict(i)%history = -huge(1._real12)
   end do
   if(batch_learning)then
@@ -189,22 +189,30 @@ program ConvolutionalNeuralNetwork
   !! Initialise the convolution layer
   num_layers = 6
   allocate(model(num_layers))
-  allocate(model(1)%layer, source = input3d_layer_type(input_shape = [28,28,1]))
+  allocate(model(1)%layer, source = input3d_layer_type(&
+       input_shape = [28,28,1]))
   allocate(model(2)%layer, source = conv2d_layer_type( &
        input_shape = [28,28,1], &
-       num_filters = 32, kernel_size = 3, stride = 1, padding=padding_method, &
+       num_filters = cv_num_filters, kernel_size = 3, stride = 1, padding=padding_method, &
        activation_function = "relu"))
-  allocate(model(3)%layer, source = maxpool2d_layer_type(input_shape=[28,28,32], pool_size=2, stride=2))
-  allocate(model(4)%layer, source = flatten2d_layer_type(input_shape=[14,14,32]))
+  allocate(model(3)%layer, source = maxpool2d_layer_type(&
+       input_shape=[28,28,cv_num_filters], &
+       pool_size=2, stride=2))
+  allocate(model(4)%layer, source = flatten2d_layer_type(&
+       input_shape=[14,14,cv_num_filters]))
   allocate(model(5)%layer, source = full_layer_type( &
-       num_inputs=product([14,14,32]), &
+       num_inputs=product([14,14,cv_num_filters]), &
        num_outputs=100, &
-       activation_function = "relu" &
+       activation_function = "relu", &
+       kernel_initialiser="he_uniform", &
+       bias_initialiser="he_uniform" &
        ))
   allocate(model(6)%layer, source = full_layer_type( &
        num_inputs=100, &
        num_outputs=10,&
-       activation_function="softmax" &
+       activation_function="softmax", &
+       kernel_initialiser="glorot_uniform", &
+       bias_initialiser="glorot_uniform" &
        ))
   allocate(expected_list(10))
 
@@ -586,17 +594,17 @@ program ConvolutionalNeuralNetwork
            do i=num_layers,2,-1
               select type(current => model(i)%layer)
               type is(conv2d_layer_type)
-                 !current%dw = current%dw/batch_size
-                 !current%db = current%db/batch_size
-                 call current%update(optimiser,cv_clip)
+                 current%dw = current%dw/batch_size
+                 current%db = current%db/batch_size
+                 call current%update(optimiser)!,cv_clip)
               type is(full_layer_type)
-                 !current%dw = current%dw/batch_size
-                 call current%update(optimiser,fc_clip)                 
+                 current%dw = current%dw/batch_size
+                 call current%update(optimiser)!,fc_clip)                 
               end select
            end do
            optimiser%iter = optimiser%iter + 1
         end if
-        stop
+        !stop
 
 
         !! print batch results
