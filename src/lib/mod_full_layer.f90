@@ -18,7 +18,7 @@ module full_layer
      integer :: num_outputs
      real(real12), allocatable, dimension(:,:) :: weight, weight_incr
      real(real12), allocatable, dimension(:,:) :: dw ! gradient of weight
-     real(real12), allocatable, dimension(:) :: output
+     real(real12), allocatable, dimension(:) :: output, z
      real(real12), allocatable, dimension(:) :: di ! gradient of input (i.e. delta)
      !! then include m and v
 
@@ -127,6 +127,9 @@ contains
 
     allocate(layer%weight_incr, mold=layer%weight)
     allocate(layer%output(layer%num_outputs), source=0._real12)
+    allocate(layer%z, mold=layer%output)
+    layer%z = 0._real12
+
     allocate(layer%dw(layer%num_inputs+1,layer%num_outputs), source=0._real12)
     allocate(layer%di(layer%num_inputs), source=0._real12)
     layer%weight_incr = 0._real12
@@ -168,11 +171,11 @@ contains
     real(real12), dimension(this%num_inputs), intent(in) :: input
 
 
-    !! generate outputs from weights, biases, and inputs    
-    this%output = this%transfer%activate(&
-         this%weight(this%num_inputs+1,:) + &
-         matmul(input,this%weight(:this%num_inputs,:))&
-         )
+    !! generate outputs from weights, biases, and inputs
+    this%z = this%weight(this%num_inputs+1,:) + &
+      matmul(input,this%weight(:this%num_inputs,:))
+      
+    this%output = this%transfer%activate(this%z)
 
   end subroutine forward_1d
 !!!#############################################################################
@@ -195,11 +198,10 @@ contains
     !! ... of the transfer function
     !! final layer: error (delta) = activ_diff (g') * error
     !! other layer: error (delta) = activ_diff (g') * sum(weight(l+1)*error(l+1))
-    db(1,:) = gradient * &
-         this%transfer%differentiate(this%output)
+    db(1,:) = gradient * this%transfer%differentiate(this%z)
 
     !! define the input to the neuron
-    dw(:this%num_inputs,:) = matmul(input, db)
+    dw = matmul(input, db)
 
     !! the errors are summed from the delta of the ...
     !! ... 'child' node * 'child' weight
@@ -238,7 +240,7 @@ contains
 
     !! update the layer weights and bias using gradient descent
     call optimiser%optimise(&
-         this%weight,&
+         this%weight, &
          this%weight_incr, &
          this%dw)
 
