@@ -100,7 +100,8 @@ contains
     type(full_layer_type) :: layer
 
     real(real12) :: scale
-    character(len=10) :: t_activation_function, initialiser_name
+    character(len=10) :: t_activation_function
+    character(len=14) :: initialiser_name
     class(initialiser_type), allocatable :: initialiser
 
 
@@ -120,19 +121,20 @@ contains
     else
        scale = 1._real12
     end if
-       
-    allocate(layer%transfer, source=activation_setup(t_activation_function, scale))
 
+    allocate(layer%transfer, source=activation_setup(t_activation_function, scale))
+    
     allocate(layer%weight(layer%num_inputs+1,layer%num_outputs))
 
     allocate(layer%weight_incr, mold=layer%weight)
     allocate(layer%output(layer%num_outputs), source=0._real12)
     allocate(layer%z, mold=layer%output)
+    layer%weight_incr = 0._real12
+    layer%output = 0._real12
     layer%z = 0._real12
 
     allocate(layer%dw(layer%num_inputs+1,layer%num_outputs), source=0._real12)
     allocate(layer%di(layer%num_inputs), source=0._real12)
-    layer%weight_incr = 0._real12
     layer%dw = 0._real12
     layer%di = 0._real12
 
@@ -142,8 +144,12 @@ contains
     !!--------------------------------------------------------------------------
     if(present(kernel_initialiser))then
        initialiser_name = kernel_initialiser
-    else
+    elseif(trim(t_activation_function).eq."selu")then
+       initialiser_name = "lecun_normal"
+    elseif(index(t_activation_function,"elu").ne.0)then
        initialiser_name = "he_uniform"
+    else
+       initialiser_name = "glorot_uniform"
     end if
     allocate(initialiser, source=initialiser_setup(initialiser_name))
     call initialiser%initialise(layer%weight(:layer%num_inputs,:), &
@@ -193,14 +199,18 @@ contains
     real(real12), dimension(1,this%num_outputs) :: db
     real(real12), dimension(this%num_inputs, this%num_outputs) :: dw
 
+    integer :: j
 
     !! the delta values are the error multipled by the derivative ...
     !! ... of the transfer function
     !! final layer: error (delta) = activ_diff (g') * error
     !! other layer: error (delta) = activ_diff (g') * sum(weight(l+1)*error(l+1))
-    db(1,:) = gradient * this%transfer%differentiate(this%z)
+    db(1,:) = gradient * this%z !this%transfer%differentiate(this%z)
 
     !! define the input to the neuron
+    !do j=1,this%num_outputs
+    !   dw(:,j) = db(1,j) * input(:,1)
+    !end do
     dw = matmul(input, db)
 
     !! the errors are summed from the delta of the ...
