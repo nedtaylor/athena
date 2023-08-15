@@ -258,8 +258,12 @@ contains
     !!--------------------------------------------------------------------------
     if(present(kernel_initialiser))then
        initialiser_name = kernel_initialiser
-    else
+    elseif(trim(t_activation_function).eq."selu")then
+       initialiser_name = "lecun_normal"
+    elseif(index(t_activation_function,"elu").ne.0)then
        initialiser_name = "he_uniform"
+    else
+       initialiser_name = "glorot_uniform"
     end if
     allocate(initialiser, source=initialiser_setup(initialiser_name))
     call initialiser%initialise(layer%weight, &
@@ -291,25 +295,34 @@ contains
 
 
     !! Perform the convolution operation
-    iend_idx = this%half_x + (this%centre_x - 1)
-    jend_idx = this%half_y + (this%centre_y - 1)
+    !iend_idx = this%half_x + (this%centre_x - 1)
+    !jend_idx = this%half_y + (this%centre_y - 1)
     do concurrent(i=1:this%height:1, j=1:this%width:1)
-       istride = (i-1)*this%stride_x + 1 + (this%pad_x- this%half_x)
+       istride = (i-1)*this%stride_x + 1 + (this%half_x - this%pad_x)
        istart  = istride - this%half_x
-       iend    = istride + iend_idx
-       jstride = (j-1)*this%stride_y + 1 + (this%pad_y- this%half_y)
+       !iend    = istart + istride + iend_idx
+       jstride = (j-1)*this%stride_y + 1 + (this%half_y - this%pad_y)
        jstart  = jstride - this%half_y
-       jend    = jstride + jend_idx
+       !jend    = jstart + jstride + jend_idx
 
        this%z(i,j,:) = this%bias(:)
 
        do concurrent(l=1:this%num_filters)
 
           this%z(i,j,l) = this%z(i,j,l) + &
-               sum( &                
-               input(istart:iend,jstart:jend,:) * &
+               sum( &
+               input(&
+               istart:istart + this%kernel_x - 1,&
+               jstart:jstart + this%kernel_y - 1,:) * &
                this%weight(:,:,:,l) &
                )
+          !this%z(i,j,l) = this%z(i,j,l) + &
+          !     sum( &                
+          !     input(&
+          !     istride-this%half_x:istride-this%half_x+this%kernel_x-1,&
+          !     jstride-this%half_y:jstride-this%half_y+this%kernel_y-1,:) * &
+          !     this%weight(:,:,:,l) &
+          !     )
        end do
 
     end do
@@ -357,7 +370,7 @@ contains
 
     !! get gradient multiplied by differential of Z
     grad_dz = 0._real12
-    grad_dz(1:this%height,1:this%width,:) = gradient * this%transfer%differentiate(this%z)
+    grad_dz(1:this%height,1:this%width,:) = gradient * this%z!this%transfer%differentiate(this%z)
     do concurrent(l=1:this%num_filters)
        this%db(l) = this%db(l) + sum(grad_dz(:,:,l))
     end do
@@ -441,7 +454,7 @@ contains
 !!!#############################################################################
 !!!
 !!!#############################################################################
-  pure subroutine update(this, optimiser, clip)
+  subroutine update(this, optimiser, clip)
     use custom_types, only: clip_type
     use optimiser, only: optimiser_type
     use normalisation, only: gradient_clip
