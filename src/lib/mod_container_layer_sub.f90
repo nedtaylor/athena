@@ -43,6 +43,8 @@ contains
     real(real12), dimension(..), intent(in) :: gradient
 
     select type(previous => input%layer)
+    type is(input3d_layer_type)
+       call this%layer%backward(previous%output, gradient)
     type is(conv2d_layer_type)
        call this%layer%backward(previous%output, gradient)
     type is(maxpool2d_layer_type)
