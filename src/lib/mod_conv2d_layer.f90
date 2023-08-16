@@ -205,7 +205,8 @@ contains
     else
        scale = 1._real12
     end if
-       
+    
+    write(*,'("CV activation function: ",A)') trim(t_activation_function)
     allocate(layer%transfer, source=activation_setup(t_activation_function, scale))
 
 
@@ -265,6 +266,7 @@ contains
     else
        initialiser_name = "glorot_uniform"
     end if
+    write(*,'("CV kernel initialiser: ",A)') initialiser_name
     allocate(initialiser, source=initialiser_setup(initialiser_name))
     call initialiser%initialise(layer%weight, &
          fan_in=layer%kernel_x*layer%kernel_y+1, fan_out=1)
@@ -274,6 +276,7 @@ contains
        initialiser_name= "zeros"
     end if
     deallocate(initialiser)
+    write(*,'("CV bias initialiser: ",A)') initialiser_name
     allocate(initialiser, source=initialiser_setup(initialiser_name))
     call initialiser%initialise(layer%bias, &
          fan_in=layer%kernel_x*layer%kernel_y+1, fan_out=1)
@@ -356,6 +359,9 @@ contains
          lbound(this%di,2):ubound(this%di,2),this%num_channels) :: di
     real(real12), dimension(this%height,this%width,this%num_filters) :: grad_dz
 
+    real(real12), dimension(1) :: bias_diff
+
+    bias_diff = this%transfer%differentiate([1._real12])
 
     !! get size of the input and output feature maps
     k_x = this%kernel_x - 1
@@ -372,38 +378,48 @@ contains
 
     !! get gradient multiplied by differential of Z
     grad_dz = 0._real12
-    grad_dz(1:this%height,1:this%width,:) = gradient * this%z!this%transfer%differentiate(this%z)
+    grad_dz(1:this%height,1:this%width,:) = gradient * &
+         this%transfer%differentiate(this%output)!this%z)
     do concurrent(l=1:this%num_filters)
-       this%db(l) = this%db(l) + sum(grad_dz(:,:,l))
+       this%db(l) = this%db(l) + sum(gradient(:,:,l)) * bias_diff(1)
+       !this%db(l) = this%db(l) + sum(grad_dz(:,:,l))
     end do
 
     !! Perform the convolution operation
+    !do concurrent( &
+    !     i=1:this%height:1, &
+    !     j=1:this%width:1, &
+    !     m=1:this%num_channels, &
+    !     l=1:this%num_filters &
+    !     )
+    !   j_start = max(1,           j - this%pad_y)
+    !   j_end   = min(this%width,  j + this%pad_y)
+    !   i_start = max(1,           i - this%pad_x)
+    !   i_end   = min(this%height, i + this%pad_x)
+    !
+    !   !! equivalent
+    !   !! apply convolution to compute weight gradients
+    !   this%dw(:,:,m,l) = this%dw(:,:,m,l) + &
+    !       input(i_start:i_end:this%stride_x,j_start:j_end:this%stride_y,m) * &
+    !       grad_dz(i_start:i_end:1,j_start:j_end:1,l)
+    !
+    !end do
+
     do concurrent( &
-         i=1:this%height:1, &
-         j=1:this%width:1, &
+         y=-this%half_y:jend_idx:1, &
+         x=-this%half_x:iend_idx:1, &
          m=1:this%num_channels, &
          l=1:this%num_filters &
          )
-       j_start = max(1,           j - this%pad_y)
-       j_end   = min(this%width,  j + this%pad_y)
-       i_start = max(1,           i - this%pad_x)
-       i_end   = min(this%height, i + this%pad_x)
-
+    
        !! equivalent
        !! apply convolution to compute weight gradients
-       this%dw(:,:,m,l) = this%dw(:,:,m,l) + &
-           input(i_start:i_end:this%stride_x,j_start:j_end:this%stride_y,m) * grad_dz(i_start:i_end:1,j_start:j_end:1,l)
-      !  do y = -this%half_y,jend_idx,1
-      !     do x = -this%half_x,iend_idx,1
-      !        this%dw(x,y,m,l) = this%dw(x,y,m,l) + &
-      !             sum(gradient(:,:,l) * & !grad_dz(:,:,l) * &
-      !             input(&
-      !             x+ioffset:x+ioffset -1 + ubound(input,dim=1):this%stride_x, &
-      !             y+joffset:y+joffset -1 + ubound(input,dim=2):this%stride_y,m))
-      !             !! +1 is because the centre for weight is 0, whilst the starting index for input is 1
-      !     end do
-      !  end do
-
+       this%dw(x,y,m,l) = this%dw(x,y,m,l) + &
+            sum(gradient(:,:,l) * & !grad_dz(:,:,l) * &
+            input(&
+            x+ioffset:x+ioffset -1 + ubound(input,dim=1):this%stride_x, &
+            y+joffset:y+joffset -1 + ubound(input,dim=2):this%stride_y,m))
+       !! +1 is because the centre for weight is 0, whilst the starting index for input is 1
     end do
 
 
