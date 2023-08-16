@@ -16,7 +16,6 @@ module conv2d_layer
      integer :: pad_y, pad_x
      integer :: half_x, half_y
      integer :: num_channels
-     !integer :: num_channels_out
      integer :: centre_x, centre_y
      integer :: width
      integer :: height
@@ -214,7 +213,6 @@ contains
     !! allocate output, weight, and bias shapes
     !!--------------------------------------------------------------------------
     layer%num_channels = input_shape(3)
-    !layer%num_channels_out = layer%num_channels * layer%num_filters
     layer%width = floor( (input_shape(2) + 2.0 * layer%pad_y - layer%kernel_y)/&
          real(layer%stride_y) ) + 1
     layer%height = floor( (input_shape(1) + 2.0 * layer%pad_x - layer%kernel_x)/&
