@@ -196,34 +196,29 @@ contains
     implicit none
     class(full_layer_type), intent(inout) :: this
     real(real12), dimension(this%num_inputs,1), intent(in) :: input
-    real(real12), dimension(this%num_outputs), intent(in) :: gradient !was output_gradients
-    !! NOTE, gradient is di, not dw
+    real(real12), dimension(this%num_outputs), intent(in) :: gradient
 
-    real(real12), dimension(1,this%num_outputs) :: db
+    real(real12), dimension(1,this%num_outputs) :: delta
     real(real12), dimension(this%num_inputs, this%num_outputs) :: dw
 
     real(real12), dimension(1) :: bias_diff
-
     bias_diff = this%transfer%differentiate([1._real12])
 
     !! the delta values are the error multipled by the derivative ...
     !! ... of the transfer function
-    !! final layer: error (delta) = activ_diff (g') * error
-    !! other layer: error (delta) = activ_diff (g') * sum(weight(l+1)*error(l+1))
-    db(1,:) = gradient * this%transfer%differentiate(this%output)!this%z
+    !! delta = delta(l+1) * g'(a)
+    !! error = error from next layer * differential of activation
+    delta(1,:) = gradient * this%transfer%differentiate(this%z)
 
     !! define the input to the neuron
-    !do j=1,this%num_outputs
-    !   dw(:,j) = db(1,j) * input(:,1)
-    !end do
-    dw = matmul(input, db)
+    dw = matmul(input, delta)
 
     !! the errors are summed from the delta of the ...
     !! ... 'child' node * 'child' weight
-    this%di = matmul(this%weight(:this%num_inputs,:), db(1,:))
+    this%di = matmul(this%weight(:this%num_inputs,:), delta(1,:))
 
     this%dw(:this%num_inputs,:) = this%dw(:this%num_inputs,:) + dw
-    this%dw(this%num_inputs+1,:) = this%dw(this%num_inputs+1,:) + db(1,:) * &
+    this%dw(this%num_inputs+1,:) = this%dw(this%num_inputs+1,:) + delta(1,:) * &
          bias_diff(1)
 
   end subroutine backward_1d
