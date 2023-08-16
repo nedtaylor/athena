@@ -364,7 +364,7 @@ program ConvolutionalNeuralNetwork
         !! sample loop
         !! ... test each sample and get gradients and losses from each
         !!----------------------------------------------------------------------
-        train_loop: do concurrent(sample:start_index:end_index:1)
+        train_loop: do concurrent(sample=start_index:end_index:1)
 
 #ifdef _OPENMP
            associate(input => image_slice(:,:,:,sample))
@@ -502,13 +502,13 @@ program ConvolutionalNeuralNetwork
         end if
 
 !!! TESTING
-        if(batch.gt.200)then
-           time_old = time
-           call system_clock(time)
-           !write(*,'("time check: ",I0," seconds")') (time-time_old)/clock_rate
-           write(*,'("time check: ",F8.3," seconds")') real(time-time_old)/clock_rate
-           stop "THIS IS FOR TESTING PURPOSES"
-        end if
+!!!        if(batch.gt.200)then
+!!!           time_old = time
+!!!           call system_clock(time)
+!!!           !write(*,'("time check: ",I0," seconds")') (time-time_old)/clock_rate
+!!!           write(*,'("time check: ",F8.3," seconds")') real(time-time_old)/clock_rate
+!!!           stop "THIS IS FOR TESTING PURPOSES"
+!!!        end if
 !!!
         
         !! time check
