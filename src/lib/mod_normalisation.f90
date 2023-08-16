@@ -27,7 +27,6 @@ contains
     real(real12), optional, intent(inout) :: bias
     real(real12), optional, intent(in) :: clip_min, clip_max, clip_norm
 
-    integer :: j, k, l
     real(real12) :: scale, t_bias
 
     if(present(bias))then
@@ -50,9 +49,7 @@ contains
        t_bias = max(clip_min,min(clip_max,t_bias))
     end if
 
-    if(present(bias))then
-       bias = t_bias
-    end if
+    if(present(bias)) bias = t_bias
 
   end subroutine gradient_clip
 !!!#############################################################################
