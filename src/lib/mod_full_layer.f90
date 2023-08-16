@@ -202,7 +202,9 @@ contains
     real(real12), dimension(1,this%num_outputs) :: db
     real(real12), dimension(this%num_inputs, this%num_outputs) :: dw
 
-    integer :: j
+    real(real12), dimension(1) :: bias_diff
+
+    bias_diff = this%transfer%differentiate([1._real12])
 
     !! the delta values are the error multipled by the derivative ...
     !! ... of the transfer function
@@ -221,7 +223,8 @@ contains
     this%di = matmul(this%weight(:this%num_inputs,:), db(1,:))
 
     this%dw(:this%num_inputs,:) = this%dw(:this%num_inputs,:) + dw
-    this%dw(this%num_inputs+1,:) = this%dw(this%num_inputs+1,:) + db(1,:)
+    this%dw(this%num_inputs+1,:) = this%dw(this%num_inputs+1,:) + db(1,:) * &
+         bias_diff(1)
 
   end subroutine backward_1d
 !!!#############################################################################
