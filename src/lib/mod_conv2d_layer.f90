@@ -11,6 +11,7 @@ module conv2d_layer
   
   
   type, extends(base_layer_type) :: conv2d_layer_type
+     logical :: calc_input_gradients = .true.
      integer :: kernel_x, kernel_y
      integer :: stride_x, stride_y
      integer :: pad_y, pad_x
@@ -97,7 +98,8 @@ contains
        input_shape, &
        num_filters, kernel_size, stride, padding, &
        activation_function, activation_scale, &
-       kernel_initialiser, bias_initialiser) result(layer)
+       kernel_initialiser, bias_initialiser, &
+       calc_input_gradients) result(layer)
     !! add in clipping/constraint options
     !! add in dilation
     !! add in padding handler
@@ -112,6 +114,7 @@ contains
     real(real12), optional, intent(in) :: activation_scale
     character(*), optional, intent(in) :: activation_function, &
          kernel_initialiser, bias_initialiser, padding
+    logical, optional, intent(in) :: calc_input_gradients
 
     type(conv2d_layer_type) :: layer
 
@@ -121,6 +124,15 @@ contains
     character(len=20) :: t_padding
     class(initialiser_type), allocatable :: initialiser
 
+
+
+    !!-----------------------------------------------------------------------
+    !! set up number of filters
+    !!-----------------------------------------------------------------------
+    if(present(calc_input_gradients))then
+       layer%calc_input_gradients = calc_input_gradients
+       write(*,*) "CV input gradients turned off"
+    end if
 
 
     !!-----------------------------------------------------------------------
@@ -292,44 +304,32 @@ contains
     real(real12), dimension(-this%pad_x+1:,-this%pad_y+1:,:), intent(in) :: input
 
     integer :: i, j, l, istride, jstride
-    integer :: iend_idx, jend_idx, istart, iend, jstart, jend
+    integer :: istart, iend, jstart, jend
 
 
-    !! Perform the convolution operation
-    !iend_idx = this%half_x + (this%centre_x - 1)
-    !jend_idx = this%half_y + (this%centre_y - 1)
+    !! perform the convolution operation
     do concurrent(i=1:this%height:1, j=1:this%width:1)
        istride = (i-1)*this%stride_x + 1 + (this%half_x - this%pad_x)
        istart  = istride - this%half_x
-       !iend    = istart + istride + iend_idx
+       iend    = istart + this%kernel_x - 1
        jstride = (j-1)*this%stride_y + 1 + (this%half_y - this%pad_y)
        jstart  = jstride - this%half_y
-       !jend    = jstart + jstride + jend_idx
+       jend    = jstart + this%kernel_y - 1
 
        this%z(i,j,:) = this%bias(:)
 
        do concurrent(l=1:this%num_filters)
-
-
-          !! equivalent
           this%z(i,j,l) = this%z(i,j,l) + &
                sum( &
                input(&
-               istart:istart + this%kernel_x - 1,&
-               jstart:jstart + this%kernel_y - 1,:) * &
+               istart:iend,&
+               jstart:jend,:) * &
                this%weight(:,:,:,l) &
                )
-          !this%z(i,j,l) = this%z(i,j,l) + &
-          !     sum( &                
-          !     input(&
-          !     istride-this%half_x:istride-this%half_x+this%kernel_x-1,&
-          !     jstride-this%half_y:jstride-this%half_y+this%kernel_y-1,:) * &
-          !     this%weight(:,:,:,l) &
-          !     )
        end do
-
     end do
     
+    !! apply activation function to activation values (z)
     this%output = this%transfer%activate(this%z) 
 
   end subroutine forward_3d
@@ -358,8 +358,8 @@ contains
     real(real12), dimension(this%height,this%width,this%num_filters) :: grad_dz
 
     real(real12), dimension(1) :: bias_diff
-
     bias_diff = this%transfer%differentiate([1._real12])
+
 
     !! get size of the input and output feature maps
     k_x = this%kernel_x - 1
@@ -377,102 +377,79 @@ contains
     !! get gradient multiplied by differential of Z
     grad_dz = 0._real12
     grad_dz(1:this%height,1:this%width,:) = gradient * &
-         this%transfer%differentiate(this%output)!this%z)
+         this%transfer%differentiate(this%z)
     do concurrent(l=1:this%num_filters)
-       this%db(l) = this%db(l) + sum(gradient(:,:,l)) * bias_diff(1)
-       !this%db(l) = this%db(l) + sum(grad_dz(:,:,l))
+       this%db(l) = this%db(l) + sum(grad_dz(:,:,l)) * bias_diff(1)
     end do
 
-    !! Perform the convolution operation
-    !do concurrent( &
-    !     i=1:this%height:1, &
-    !     j=1:this%width:1, &
-    !     m=1:this%num_channels, &
-    !     l=1:this%num_filters &
-    !     )
-    !   j_start = max(1,           j - this%pad_y)
-    !   j_end   = min(this%width,  j + this%pad_y)
-    !   i_start = max(1,           i - this%pad_x)
-    !   i_end   = min(this%height, i + this%pad_x)
-    !
-    !   !! equivalent
-    !   !! apply convolution to compute weight gradients
-    !   this%dw(:,:,m,l) = this%dw(:,:,m,l) + &
-    !       input(i_start:i_end:this%stride_x,j_start:j_end:this%stride_y,m) * &
-    !       grad_dz(i_start:i_end:1,j_start:j_end:1,l)
-    !
-    !end do
-
+    !! apply convolution to compute weight gradients
+    !! offset applied as centre of kernel is 0 ...
+    !! ... whilst the starting index for input is 1
     do concurrent( &
          y=-this%half_y:jend_idx:1, &
          x=-this%half_x:iend_idx:1, &
          m=1:this%num_channels, &
          l=1:this%num_filters &
          )
-    
-       !! equivalent
-       !! apply convolution to compute weight gradients
        this%dw(x,y,m,l) = this%dw(x,y,m,l) + &
-            sum(gradient(:,:,l) * & !grad_dz(:,:,l) * &
+            sum(grad_dz(:,:,l) * &
             input(&
-            x+ioffset:x+ioffset -1 + ubound(input,dim=1):this%stride_x, &
-            y+joffset:y+joffset -1 + ubound(input,dim=2):this%stride_y,m))
-       !! +1 is because the centre for weight is 0, whilst the starting index for input is 1
+            x+ioffset:x+ioffset-1 + ubound(input,dim=1):this%stride_x, &
+            y+joffset:y+joffset-1 + ubound(input,dim=2):this%stride_y,m))
     end do
 
 
-    this%di = 0._real12
-    do concurrent( &
-         i=1:size(this%di,dim=1):1, &
-         j=1:size(this%di,dim=2):1, &
-         m=1:this%num_channels, &
-         l=1:this%num_filters &
-         )
+    !! apply strided convolution to obtain input gradients
+    if(this%calc_input_gradients)then
+       this%di = 0._real12
+       !! all elements of the output are separated by stride_x (stride_y)
+       do concurrent( &
+            i=1:size(this%di,dim=1):1, &
+            j=1:size(this%di,dim=2):1, &
+            m=1:this%num_channels, &
+            l=1:this%num_filters &
+            )
 
-       istride = (i-ioffset)/this%stride_x + 1
-       i_start = max(1,           istride)
-       i_end   = min(this%height, istride + (i-1)/this%stride_x )
-       !! max( ...
-       !! ... 1. offset of 1st output idx from centre of krnl     (limit)
-       !! ... 2. lowest output idx overlap with leftmost krnl idx (repeating pattern)
-       !! ...)
-       x_start = max(k_x-i,  -this%half_x + mod(n_stride_x+this%kernel_x-i,this%stride_x))
-       !! min( ...
-       !! ... 1. offset of last output idx from centre of krnl       (limit)
-       !! ... 2. highest output idx overlap with rightmost krnl idx (repeating pattern)
-       !! ...)
-       x_end   = min(int_x-i, iend_idx    - mod(n_stride_x-1+i,this%stride_x))
-       if(x_start.gt.x_end) cycle
+          istride = (i-ioffset)/this%stride_x + 1
+          !! max( ...
+          !! ... 1. offset of 1st o/p idx from centre of knl     (lim)
+          !! ... 2. lwst o/p idx overlap with <<- knl idx (rpt. pattern)
+          !! ...)
+          x_start = max(k_x-i,  -this%half_x + &
+               mod(n_stride_x+this%kernel_x-i,this%stride_x))
+          !! min( ...
+          !! ... 1. offset of last o/p idx from centre of knl    (lim)
+          !! ... 2. hghst o/p idx overlap with ->> knl idx (rpt. pattern)
+          !! ...)
+          x_end   = min(int_x-i, iend_idx - &
+               mod(n_stride_x-1+i,this%stride_x))
+          if(x_start.gt.x_end) cycle
 
-
-       jstride = (j-joffset)/this%stride_y + 1
-       j_start = max(1,          jstride)
-       j_end   = min(this%width, jstride + (j-1)/this%stride_y )
-       !! max( ...
-       !! ... 1. offset of 1st output idx from centre of krnl       (limit)
-       !! ... 2. lowest output idx overlap with leftmost krnl idx (repeating pattern)
-       !! ...)
-       y_start = max(k_y-j,  -this%half_y + mod(n_stride_y+this%kernel_y-j,this%stride_y))
-       !! min( ...
-       !! ... 1. offset of last output idx from centre of krnl      (limit)
-       !! ... 2. highest output idx overlap with rightmost krnl idx (repeating pattern)
-       !! ...)
-       y_end   = min(int_y-j, jend_idx    - mod(n_stride_y-1+j,this%stride_y))
-       if(y_start.gt.y_end) cycle
+          !! repeat for j what was done for i
+          jstride = (j-joffset)/this%stride_y + 1
+          y_start = max(k_y-j,  -this%half_y + &
+               mod(n_stride_y+this%kernel_y-j,this%stride_y))
+          y_end   = min(int_y-j, jend_idx - &
+               mod(n_stride_y-1+j,this%stride_y))
+          if(y_start.gt.y_end) cycle
 
 
-       !! apply full convolution to compute input gradients
-       !! https://medium.com/@mayank.utexas/backpropagation-for-convolution-with-strides-8137e4fc2710
-       this%di(i,j,m) = &
-            this%di(i,j,m) + &
-            sum( &
-            grad_dz(i_start:i_end:1,j_start:j_end:1,l) * &
-            this%weight(x_end:x_start:-this%stride_x,y_end:y_start:-this%stride_y,m,l) )
+          i_start = max(1,           istride)
+          i_end   = min(this%height, istride + (i-1)/this%stride_x )
+          j_start = max(1,          jstride)
+          j_end   = min(this%width, jstride + (j-1)/this%stride_y )
 
-    end do
 
-    !! all elements of the output are separated by stride_x (stride_y)
-    
+          !! apply full convolution to compute input gradients
+          !! https://medium.com/@mayank.utexas/backpropagation-for-convolution-with-strides-8137e4fc2710
+          this%di(i,j,m) = &
+               this%di(i,j,m) + &
+               sum( &
+               grad_dz(i_start:i_end:1,j_start:j_end:1,l) * &
+               this%weight(x_end:x_start:-this%stride_x,y_end:y_start:-this%stride_y,m,l) )
+
+       end do
+    end if
 
   end subroutine backward_3d
 !!!#############################################################################
@@ -506,8 +483,6 @@ contains
        end do
     end if
 
-    !! STORE ADAM VALUES IN OPTIMISER
-
     !! update the convolution layer weights using gradient descent
     call optimiser%optimise(&
          this%weight,&
@@ -519,6 +494,7 @@ contains
          this%bias_incr, &
          this%db)
 
+    !! reset gradients
     this%di = 0._real12
     this%dw = 0._real12
     this%db = 0._real12
