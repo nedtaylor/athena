@@ -37,10 +37,9 @@ program ConvolutionalNeuralNetwork
   integer, allocatable, dimension(:) :: seed_arr
 
   !! training and testing monitoring
-  integer :: predicted_old, predicted_new
-  real(real12) :: sum_loss, sum_accuracy, accuracy, avg_loss, avg_accuracy
+  real(real12) :: batch_loss, batch_accuracy, accuracy, avg_loss, avg_accuracy
   real(real12) :: exploding_check, exploding_check_old
-  logical :: repetitive_predicting
+  real(real12), allocatable, dimension(:,:) :: y_pred, y_true
   !class(loss_type), pointer :: get_loss
   procedure(compute_loss_function), pointer :: compute_loss
   
@@ -51,7 +50,6 @@ program ConvolutionalNeuralNetwork
 
   !! data loading and preoprocessing
   real(real12), allocatable, dimension(:,:,:,:) :: input_images, test_images
-  real(real12), allocatable, dimension(:) :: expected_list
   integer, allocatable, dimension(:) :: labels, test_labels
   character(1024) :: train_file, test_file
 
@@ -71,10 +69,7 @@ program ConvolutionalNeuralNetwork
   integer :: num_batches, num_samples, num_samples_test
   integer :: epoch, batch, sample, start_index, end_index
   integer, allocatable, dimension(:) :: batch_order
-  real(real12), allocatable, dimension(:) :: fc_input, &!fc_output, &
-       sm_output, sm_gradients
-  real(real12), allocatable, dimension(:,:,:) :: cv_output, pl_output, &
-       pl_gradients !, bn_output, bn_gradients
+  !real(real12), allocatable, dimension(:,:,:) :: bn_output, bn_gradients
 
 
   integer :: i, l, time, time_old, clock_rate, itmp1, cv_mask_size
@@ -216,7 +211,9 @@ program ConvolutionalNeuralNetwork
        kernel_initialiser="glorot_uniform", &
        bias_initialiser="glorot_uniform" &
        ))
-  allocate(expected_list(num_classes))
+
+  allocate(y_pred(batch_size,num_classes), source=0._real12)
+  allocate(y_true(batch_size,num_classes), source=0._real12)
 
 
 !  if(restart)then
@@ -239,8 +236,6 @@ program ConvolutionalNeuralNetwork
 !!!!-----------------------------------------------------------------------------
 !!!! allocate and initialise layer outputs and gradients
 !!!!-----------------------------------------------------------------------------
-  allocate(sm_output(num_classes))
-  allocate(sm_gradients(num_classes))
 !!  allocate(bn_output, source=cv_output)
 !!  allocate(mean(output_channels))
 !!  allocate(variance(output_channels))
@@ -259,9 +254,6 @@ program ConvolutionalNeuralNetwork
 !     call cv_gradient_init(cv_gradients, image_size)
 !     if(batch_learning) call cv_gradient_init(comb_cv_gradients, image_size)     
 !  end select
-!  allocate(pl_gradients,mold=cv_output)
-!  pl_gradients = 0._real12
-!  sm_gradients = 0._real12
 !!  allocate(bn_gradients, source=cv_output)
 !
 !
@@ -363,13 +355,8 @@ program ConvolutionalNeuralNetwork
 
         !! reinitialise variables
         !!----------------------------------------------------------------------
-        metric_dict%val = 0._real12
-        sum_accuracy = 0._real12
-        sum_loss = 0._real12
-        predicted_old = -1
-        predicted_new = -1
-        repetitive_predicting = .true.
-
+        y_true = 0._real12
+        y_pred = 0._real12
 !!!drop_gamma = (1 - drop_gamma)/block_size**2 * image_size**2/(image_size - block_size + 1)**2
         
         
@@ -377,12 +364,14 @@ program ConvolutionalNeuralNetwork
         !! sample loop
         !! ... test each sample and get gradients and losses from each
         !!----------------------------------------------------------------------
-        train_loop: do sample = start_index, end_index
+        train_loop: do concurrent(sample:start_index:end_index:1)
 
 #ifdef _OPENMP
            associate(input => image_slice(:,:,:,sample))
+           y_true(sample-start_index+1,label_slice(sample)) = 1._real12
 #else
            associate(input => input_images(:,:,:,sample))
+           y_true(sample-start_index+1,label(sample)) = 1._real12
 #endif
              select type(current => model(1)%layer)
              type is(input3d_layer_type)
@@ -398,41 +387,22 @@ program ConvolutionalNeuralNetwork
            end do
 
 
-           !! compute loss and accuracy (for monitoring)
+           !! Backward pass (final layer)
            !!-------------------------------------------------------------------
-#ifdef _OPENMP
-           associate(expected => label_slice(sample))
-#else
-           associate(expected => labels(sample))
-#endif
-             select type(current => model(num_layers)%layer)
-             type is(full_layer_type)
-!!!! MAYBE IT ISN'T APPLYING THE SOFTMAX (at all?) OR NOT PROPERLY?
-!!! CROSS ENTROPY REQUIRES THAT IT BE NORMALISED USING SOMETHING LIKE SOFTMAX FIRST
-!!! ... but haven't we already applied softmax, so why twice?
+           select type(current => model(num_layers)%layer)
+           type is(full_layer_type)
+!!! SET UP LOSS TO APPLY A NORMALISER BY DEFAULT IF SOFTMAX NOT PREVIOUS
+!!! (this is what keras does)
+!!! ... USE current%transfer%name TO DETERMINE
 !!! https://www.v7labs.com/blog/cross-entropy-loss-guide
 !!! https://datascience.stackexchange.com/questions/73093/what-does-from-logits-true-do-in-sparsecategoricalcrossentropy-loss-function
 !!! https://math.stackexchange.com/questions/4367458/derivate-of-the-the-negative-log-likelihood-with-composition
-                expected_list = 0._real12
-                expected_list(expected) = 1._real12
-                sum_loss = sum_loss + sum(&
-                     compute_loss(&
-                     predicted=current%output,&
-                     expected=expected_list))
-                sum_accuracy = sum_accuracy + &
-                     compute_accuracy(current%output, expected)
-                call model(num_layers)%backward(model(num_layers-1),compute_loss_derivative(current%output,expected_list))
-             end select
-           end associate
-           
-           
-           !! check that isn't just predicting same value every time
-           !!-------------------------------------------------------------------
-           !predicted_new = maxloc(sm_output,dim=1)-1
-           if(repetitive_predicting.and.predicted_old.gt.-1)then
-              repetitive_predicting = predicted_old.eq.predicted_new
-           end if
-           predicted_old = predicted_new
+              y_pred(sample-start_index+1,:) = current%output
+              call model(num_layers)%backward(&
+                   model(num_layers-1),&
+                   compute_loss_derivative(&
+                   current%output,y_true(sample-start_index+1,:)))
+           end select
 
            
            !! Backward pass
@@ -452,15 +422,27 @@ program ConvolutionalNeuralNetwork
               end select
            end do
            
-           
         end do train_loop
+
+        
+        !! compute loss and accuracy (for monitoring)
+        !!-------------------------------------------------------------------
+        batch_loss = 0._real12
+        batch_accuracy = 0._real12
+        do sample = 1, end_index-start_index+1, 1
+           batch_loss = batch_loss + sum(compute_loss(&
+                y_pred(sample,:),y_true(sample,:)))
+           batch_accuracy = batch_accuracy + compute_accuracy(&
+                y_pred(sample,:),maxloc(y_true(sample,:),dim=1))
+        end do
+
 
         !! Average metric over batch size and store
         !!----------------------------------------------------------------------
-        avg_loss = avg_loss + sum_loss
-        avg_accuracy = avg_accuracy + sum_accuracy
-        metric_dict(1)%val = sum_loss / batch_size
-        metric_dict(2)%val = sum_accuracy / batch_size
+        avg_loss = avg_loss + batch_loss
+        avg_accuracy = avg_accuracy + batch_accuracy
+        metric_dict(1)%val = batch_loss / batch_size
+        metric_dict(2)%val = batch_accuracy / batch_size
 
 
         !! Check metric convergence
@@ -586,6 +568,8 @@ program ConvolutionalNeuralNetwork
   write(*,*) "Starting testing..."
   metric_dict%val = 0._real12
   test_loop: do sample = 1, num_samples_test
+     y_true(1,:) = 0._real12
+     y_true(1,test_labels(sample)) = 1._real12
 
      associate(input => test_images(:,:,:,sample))
        select type(current => model(1)%layer)
@@ -596,7 +580,7 @@ program ConvolutionalNeuralNetwork
 
      
      !! Forward pass
-     !!-------------------------------------------------------------------
+     !!-------------------------------------------------------------------------
      do i=2,num_layers,1
         call model(i)%forward(model(i-1))
      end do
@@ -604,29 +588,22 @@ program ConvolutionalNeuralNetwork
 
      !! compute loss and accuracy (for monitoring)
      !!-------------------------------------------------------------------------
-     associate(expected => test_labels(sample))
-       select type(current => model(num_layers)%layer)
-       type is(full_layer_type)
-          current%output = exp(current%output - maxval(current%output))
-          current%output = current%output/sum(current%output)
-          !write(*,*) current%transfer%name
-          !write(*,*) current%output
-          !stop
-          expected_list = 0._real12
-          expected_list(expected) = 1._real12
-          expected_list = compute_loss(predicted=current%output, expected=expected_list)
-          accuracy = compute_accuracy(current%output, expected)
-
-          metric_dict(1)%val = metric_dict(1)%val + sum(expected_list)
-          metric_dict(2)%val = metric_dict(2)%val + accuracy
-          !! print testing results
-          !!-------------------------------------------------------------------------
-          if(abs(verbosity).gt.1)then
-             write(15,'(I4," Expected=",I3,", Got=",I3,", Accuracy=",F0.3)') &
-                  sample,expected, maxloc(current%output,dim=1)-1, accuracy
-          end if
-       end select
-     end associate
+     select type(current => model(num_layers)%layer)
+     type is(full_layer_type)
+        current%output = exp(current%output - maxval(current%output))
+        current%output = current%output/sum(current%output)
+        accuracy = compute_accuracy(current%output, test_labels(sample))
+        metric_dict(1)%val = metric_dict(1)%val + sum(&
+             compute_loss(&
+             predicted=current%output, expected=y_true(1,:)))
+        metric_dict(2)%val = metric_dict(2)%val + accuracy
+        !! print testing results
+        !!----------------------------------------------------------------------
+        if(abs(verbosity).gt.1)then
+           write(15,'(I4," Expected=",I3,", Got=",I3,", Accuracy=",F0.3)') &
+                sample,test_labels(sample), maxloc(current%output,dim=1)-1, accuracy
+        end if
+     end select
 
   end do test_loop
   if(verbosity.gt.1) close(15)
