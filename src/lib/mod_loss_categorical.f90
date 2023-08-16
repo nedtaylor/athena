@@ -22,6 +22,8 @@ module loss_categorical
 
   private
 
+  public :: compute_loss_derivative
+
   public :: compute_loss_function
   public :: compute_loss_bce
   public :: compute_loss_cce
@@ -38,6 +40,20 @@ module loss_categorical
 contains
 
 !!!#############################################################################
+!!! compute loss derivative
+!!! for all cross entropy (and MSE and NLL) loss functions, the derivative ...
+!!! ... of the loss function is
+!!!#############################################################################
+  function compute_loss_derivative(predicted, expected) result(output)
+    implicit none
+    real(real12), dimension(:), intent(in) :: predicted, expected
+    real(real12), dimension(size(predicted)) :: output
+
+    output = predicted - expected
+  end function compute_loss_derivative
+!!!#############################################################################
+
+!!!#############################################################################
 !!! compute losses
 !!! method: Binary cross entropy
 !!!#############################################################################
@@ -51,6 +67,7 @@ contains
     output = -expected*log(predicted+epsilon)
 
   end function compute_loss_bce
+!!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
   function total_loss_bce(predicted, expected) result(output)
     implicit none
@@ -77,6 +94,7 @@ contains
     output = -expected*log(predicted+epsilon)
 
   end function compute_loss_cce
+!!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
   function total_loss_cce(predicted, expected) result(output)
     implicit none
@@ -120,6 +138,7 @@ contains
 
   end function compute_loss_mse
 !!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
   function total_loss_mse(predicted, expected) result(output)
     implicit none
     real(real12), dimension(:), intent(in) :: predicted, expected
@@ -144,6 +163,7 @@ contains
     output = - log(expected - predicted + epsilon)
 
   end function compute_loss_nll
+!!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
   function total_loss_nll(predicted, expected) result(output)
     implicit none
