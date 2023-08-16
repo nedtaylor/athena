@@ -122,6 +122,7 @@ contains
        scale = 1._real12
     end if
 
+    write(*,'("FC activation function: ",A)') trim(t_activation_function)
     allocate(layer%transfer, source=activation_setup(t_activation_function, scale))
     
     allocate(layer%weight(layer%num_inputs+1,layer%num_outputs))
@@ -151,6 +152,7 @@ contains
     else
        initialiser_name = "glorot_uniform"
     end if
+    write(*,'("FC kernel initialiser: ",A)') trim(initialiser_name)
     allocate(initialiser, source=initialiser_setup(initialiser_name))
     call initialiser%initialise(layer%weight(:layer%num_inputs,:), &
          fan_in=layer%num_inputs+1, fan_out=layer%num_outputs)
@@ -160,6 +162,7 @@ contains
     else
        initialiser_name= "zeros"
     end if
+    write(*,'("FC bias initialiser: ",A)') trim(initialiser_name)
     allocate(initialiser, source=initialiser_setup(initialiser_name))
     call initialiser%initialise(layer%weight(layer%num_inputs+1,:), &
          fan_in=layer%num_inputs+1, fan_out=layer%num_outputs)
@@ -205,7 +208,7 @@ contains
     !! ... of the transfer function
     !! final layer: error (delta) = activ_diff (g') * error
     !! other layer: error (delta) = activ_diff (g') * sum(weight(l+1)*error(l+1))
-    db(1,:) = gradient * this%z !this%transfer%differentiate(this%z)
+    db(1,:) = gradient * this%transfer%differentiate(this%output)!this%z
 
     !! define the input to the neuron
     !do j=1,this%num_outputs
