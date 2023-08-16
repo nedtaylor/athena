@@ -50,7 +50,6 @@ contains
     else
        initialise%threshold = -min(huge(1._real12),32._real12)
     end if
-    !initialise%scale = 1._real12
   end function initialise
 !!!#############################################################################
   
