@@ -163,6 +163,7 @@ contains
     integer :: i, j, m, istride, jstride
 
     
+    this%output = 0._real12
     !! perform the pooling operation
     do m = 1, this%num_channels
        do j = 1, this%width
