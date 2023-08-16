@@ -106,8 +106,8 @@ contains
           end if
        end select
     else
-       layer%pool_x = 3
-       layer%pool_y = 3
+       layer%pool_x = 2
+       layer%pool_y = 2
     end if
 
 
@@ -128,8 +128,8 @@ contains
           end if
        end select
     else
-       layer%stride_x = 1
-       layer%stride_y = 1
+       layer%stride_x = 2
+       layer%stride_y = 2
     end if
 
 
@@ -144,8 +144,10 @@ contains
     !!-----------------------------------------------------------------------
     !! allocate output and gradients
     !!-----------------------------------------------------------------------
-    allocate(layer%output(layer%height,layer%width,layer%num_channels))
-    allocate(layer%di(input_shape(1), input_shape(2), input_shape(3)))
+    allocate(layer%output(layer%height,layer%width,layer%num_channels), &
+         source=0._real12)
+    allocate(layer%di(input_shape(1), input_shape(2), input_shape(3)), &
+         source=0._real12)
 
   end function layer_setup
 !!!#############################################################################
@@ -193,21 +195,22 @@ contains
     integer, dimension(2) :: max_index
 
 
+    this%di = 0._real12
     !! compute gradients for input feature map
     do m = 1, this%num_channels
        do j = 1, this%width
-          jstride = (j-1)*this%stride_y+1
+          jstride = (j-1)*this%stride_y
           do i = 1, this%height
-             istride = (i-1)*this%stride_x+1
+             istride = (i-1)*this%stride_x
              !! find the index of the maximum value in the corresponding pooling window
              max_index = maxloc(input(&
-                  istride:istride+this%pool_x-1, &
-                  jstride:jstride+this%pool_y-1, m))
+                  istride+1:istride+this%pool_x, &
+                  jstride+1:jstride+this%pool_y, m))
 
              !! compute gradients for input feature map
              this%di(&
-                  istride+max_index(1)-1, &
-                  jstride+max_index(2)-1, m) = gradient(i, j, m)
+                  istride+max_index(1), &
+                  jstride+max_index(2), m) = gradient(i, j, m)
 
           end do
        end do
