@@ -11,34 +11,12 @@ module custom_types
 !!! gradient clipping type
 !!!------------------------------------------------------------------------
   type clip_type
-     logical :: l_min_max, l_norm
-     real(real12) :: min, max, norm
+     logical :: l_min_max = .false.
+     logical :: l_norm    = .false.
+     real(real12) :: min  =-huge(1._real12)
+     real(real12) :: max  = huge(1._real12)
+     real(real12) :: norm = huge(1._real12)
   end type clip_type
-
-
-
-!!!------------------------------------------------------------------------
-!!! fully connected network layer type
-!!!------------------------------------------------------------------------
-  type network_type
-     real(real12), allocatable, dimension(:,:) :: weight, weight_incr
-  end type network_type
-
-
-!!!------------------------------------------------------------------------
-!!! convolution layer type
-!!!------------------------------------------------------------------------
-  type convolution_type
-     integer :: kernel_size
-     integer :: stride
-     integer :: pad
-     integer :: centre_width
-     real(real12) :: delta
-     real(real12) :: bias, bias_incr
-     !! DO THE WEIGHTS NEED TO BE DIFFERENT PER INPUT CHANNEL?
-     !! IF SO, 3 DIMENSIONS. IF NOT, 2 DIMENSIONS
-     real(real12), allocatable, dimension(:,:) :: weight, weight_incr
-  end type convolution_type
 
 
 !!!------------------------------------------------------------------------
@@ -129,8 +107,6 @@ module custom_types
   private
 
   public :: clip_type
-  public :: network_type
-  public :: convolution_type
   public :: activation_type
   public :: initialiser_type
 
