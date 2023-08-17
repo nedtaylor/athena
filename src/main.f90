@@ -371,7 +371,7 @@ program ConvolutionalNeuralNetwork
            y_true(sample-start_index+1,label_slice(sample)) = 1._real12
 #else
            associate(input => input_images(:,:,:,sample))
-           y_true(sample-start_index+1,label(sample)) = 1._real12
+           y_true(sample-start_index+1,labels(sample)) = 1._real12
 #endif
              select type(current => model(1)%layer)
              type is(input3d_layer_type)
