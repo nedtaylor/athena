@@ -41,7 +41,8 @@ LIBS := mod_constants.f90 \
 	mod_flatten3d_layer.f90 \
 	mod_input3d_layer.f90 \
 	mod_container_layer.f90 \
-	mod_container_layer_sub.f90
+	mod_container_layer_sub.f90 \
+	mod_network.f90
 OBJS := $(addprefix $(LIB_DIR)/,$(LIBS))
 #$(info VAR is $(OBJS))
 SRCS := inputs.f90
