@@ -71,7 +71,7 @@ contains
 
 !!!#############################################################################
 !!!#############################################################################
-  subroutine init(this, input)
+  pure subroutine init(this, input)
     implicit none
     class(input3d_layer_type), intent(inout) :: this
     real(real12), dimension(:,:,:), intent(in) :: input
