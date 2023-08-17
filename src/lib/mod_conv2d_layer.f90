@@ -267,6 +267,8 @@ contains
     !! allocate output, activation, bias, and weight shapes
     !!--------------------------------------------------------------------------
     layer%num_channels = input_shape(3)
+!!! WARNING, TAKE IN WHAT IS ALREADY IN THE PADDING
+!!! THEN JUST SUBTRACT THE PADDING (or no need
     layer%width = floor( (input_shape(2) + 2.0 * layer%pad_y - layer%kernel_y)/&
          real(layer%stride_y) ) + 1
     layer%height = floor((input_shape(1) + 2.0 * layer%pad_x - layer%kernel_x)/&
@@ -397,7 +399,6 @@ contains
     integer :: l, m, i, j, x, y
     integer :: istride, jstride, ioffset, joffset
     integer :: iend_idx, jend_idx
-    !integer :: input_height, input_width
     integer :: k_x, k_y, int_x, int_y, n_stride_x, n_stride_y
     integer :: i_start, i_end, j_start, j_end
     integer :: x_start, x_end, y_start, y_end
@@ -418,8 +419,8 @@ contains
     jend_idx = this%half_y + (this%centre_y - 1)
     ioffset  = 1 + this%half_x - this%pad_x
     joffset  = 1 + this%half_y - this%pad_y
-    !input_height = size(input,dim=1) - 2*this%pad_x  +ioffset-1
-    !input_width  = size(input,dim=2) - 2*this%pad_y  +joffset-1
+    !input_height = size(input,dim=1) - 2*this%pad_x  +ioffset-2
+    !input_width  = size(input,dim=2) - 2*this%pad_y  +joffset-2
 
     int_x = (this%height - 1) * this%stride_x + 1 + iend_idx
     int_y = (this%width  - 1) * this%stride_y + 1 + jend_idx
@@ -446,8 +447,8 @@ contains
        this%dw(x,y,m,l) = this%dw(x,y,m,l) + &
             sum(grad_dz(:,:,l) * &
             input(&
-            x+ioffset:x+ioffset-1 + ubound(input,dim=1):this%stride_x, &
-            y+joffset:y+joffset-1 + ubound(input,dim=2):this%stride_y,m))
+            x+ioffset:x+ioffset-2 + ubound(input,dim=1):this%stride_x, &
+            y+joffset:y+joffset-2 + ubound(input,dim=2):this%stride_y,m))
             !x+ioffset:x + input_height:this%stride_x, &
             !y+joffset:y + input_width:this%stride_y,m))
     end do
