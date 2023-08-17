@@ -12,6 +12,7 @@ LIBS := mod_constants.f90 \
 	mod_random.f90 \
 	mod_optimiser.f90 \
 	mod_types.f90 \
+	mod_metrics.f90 \
 	mod_misc_ml.f90 \
 	mod_activation_gaussian.f90 \
 	mod_activation_linear.f90 \

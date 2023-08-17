@@ -8,6 +8,7 @@ module inputs
   use custom_types, only: clip_type
   use optimiser, only: optimiser_type
   use misc, only: icount, flagmaker, file_check, to_lower
+  use metrics, only: metric_dict_type, metric_dict_alloc
   implicit none
   integer :: verbosity    ! verbose printing
   integer :: seed         ! random seed
@@ -54,17 +55,6 @@ module inputs
   real(real12) :: train_size  ! fraction of data to train on (NOT YET USED) 
   logical :: shuffle_dataset  ! shuffle train and test data
   
-  type metric_dict_type
-     character(10) :: key
-     real(real12) :: val
-     logical :: active
-     real(real12) :: threshold
-     real(real12), allocatable, dimension(:) :: history
-   contains
-     procedure :: check => metric_dict_check
-     procedure :: add_t_t => metric_dict_add  !t = type, r = real, i = int
-     generic :: operator(+) => add_t_t !, public
-  end type metric_dict_type
   type(metric_dict_type), dimension(2) :: metric_dict
 
 
@@ -111,84 +101,6 @@ module inputs
 
 
 contains
-
-!!!#############################################################################
-!!! custom operation for summing metric_dict_type
-!!!#############################################################################
-  elemental function metric_dict_add(a, b) result(output)
-    implicit none
-    class(metric_dict_type), intent(in) :: a,b
-    type(metric_dict_type) :: output
-    
-    output%key = a%key
-    output%val = a%val + b%val
-    output%threshold = a%threshold
-    output%active = a%active
-    if(allocated(a%history)) output%history = a%history
-
-  end function metric_dict_add
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! custom operation for allocating metric_dict_type
-!!!#############################################################################
-  subroutine metric_dict_alloc(input, source, length)
-    implicit none
-    type(metric_dict_type), dimension(:), intent(out) :: input
-    type(metric_dict_type), dimension(:), optional, intent(in) :: source
-    integer, optional, intent(in) :: length
-    integer :: i
-    
-    if(present(length))then
-       do i=1,size(input,dim=1)
-          allocate(input(i)%history(length))
-       end do
-    else
-       do i=1,size(input,dim=1)
-          input(i)%key = source(i)%key
-          allocate(input(i)%history(size(source(i)%history,dim=1)))
-          input(i)%threshold = source(i)%threshold
-       end do
-    end if
-
-  end subroutine metric_dict_alloc
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! custom operation for checking metric convergence
-!!!#############################################################################
-  subroutine metric_dict_check(this,plateau_threshold,converged)
-    implicit none
-    class(metric_dict_type), intent(inout) :: this
-    real(real12), intent(in) :: plateau_threshold
-    integer, intent(out) :: converged
-    
-    converged = 0
-    if(this%active)then
-       this%history = cshift(this%history, shift=-1, dim=1)
-       this%history(1) = this%val
-       if(&
-            (trim(this%key).eq."loss".and.&
-            abs(sum(this%history))/size(this%history,dim=1).lt.this%threshold).or.&
-            (trim(this%key).eq."accuracy".and.&
-            abs(sum(1._real12-this%history))/size(this%history,dim=1).lt.this%threshold) )then
-          write(6,*) "Convergence achieved, "//trim(this%key)//" threshold reached"
-          write(6,*) "Exiting training loop"
-          converged = 1
-       elseif(all(abs(this%history-this%val).lt.plateau_threshold))then        
-          write(0,'("ERROR: ",A," has remained constant for ",I0," runs")') &
-               trim(this%key), size(this%history,dim=1)
-          write(0,*) this%history
-          write(0,*) "Exiting..."
-          converged = -1
-       end if
-    end if
-
-  end subroutine metric_dict_check
-!!!#############################################################################
-
 
 !!!#############################################################################
   subroutine set_global_vars()
