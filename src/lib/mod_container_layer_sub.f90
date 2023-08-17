@@ -13,7 +13,7 @@ submodule(container_layer) container_layer_submodule
 
 contains
   
-  pure module subroutine forward(this, input) !module?
+  pure module subroutine forward(this, input)
     implicit none
     class(container_layer_type), intent(inout) :: this
     class(container_layer_type), intent(in) :: input
@@ -39,7 +39,7 @@ contains
   pure module subroutine backward(this, input, gradient)
     implicit none
     class(container_layer_type), intent(inout) :: this
-    class(container_layer_type), intent(in) :: input !! the input to this layer
+    class(container_layer_type), intent(in) :: input
     real(real12), dimension(..), intent(in) :: gradient
 
     select type(previous => input%layer)
