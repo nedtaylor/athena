@@ -71,8 +71,8 @@ contains
     case('m')!'momentum')
        !! momentum-based learning
        !! reversed weight applier to match keras, improves convergence
-       !! w = w + vel - lr * g
-       weight_incr = lr_gradient - &
+       !! w = w - vel - lr * g
+       weight_incr = lr_gradient + &
             this%momentum * weight_incr
     case('n')!('nesterov')
        !! nesterov momentum
