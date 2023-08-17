@@ -25,6 +25,7 @@ module network
   implicit none
 
   type :: network_type
+     real(real12) :: accuracy, loss
      integer :: num_layers
      integer :: num_outputs
      type(optimiser_type) :: optimiser
@@ -176,10 +177,10 @@ contains
        type is(conv2d_layer_type)
           current%dw = current%dw/batch_size
           current%db = current%db/batch_size
-          call current%update(this%optimiser)!,cv_clip) !!! CONVERT CLIPS TO LAYER VARIABLES
+          call current%update(this%optimiser)
        type is(full_layer_type)
           current%dw = current%dw/batch_size
-          call current%update(this%optimiser)!,fc_clip) !!! CONVERT CLIPS TO LAYER VARIABLES
+          call current%update(this%optimiser)
        end select
     end do
     this%optimiser%iter = this%optimiser%iter + 1
@@ -253,7 +254,6 @@ contains
     end if
 
 
-
 !!!-----------------------------------------------------------------------------
 !!! initialise monitoring variables
 !!!-----------------------------------------------------------------------------
@@ -289,7 +289,6 @@ contains
     call system_clock(time, count_rate = clock_rate)
 
 
-    write(6,*) "Starting training..."
     epoch_loop: do epoch = 1, num_epochs
        !!-----------------------------------------------------------------------
        !! shuffle batch order at the start of each epoch
@@ -313,14 +312,11 @@ contains
           start_index = (batch_order(batch) - 1) * batch_size + 1
           end_index = batch_order(batch) * batch_size
           
-          
+
           !! reinitialise variables
           !!--------------------------------------------------------------------
-          y_true = 0
           y_pred = 0._real12
-
-
-          y_true(:,1:this%num_outputs) = output(:,start_index:end_index:1)
+          y_true(:,:) = output(:,start_index:end_index:1)
 
           
           !!--------------------------------------------------------------------
@@ -351,7 +347,7 @@ contains
 
              !! Backward pass
              !!-----------------------------------------------------------------
-             call this%backward(real(y_true(:,sample),real12))
+             call this%backward(real(y_true(:,sample-start_index+1),real12))
 
           end do train_loop
 
@@ -362,9 +358,9 @@ contains
           batch_accuracy = 0._real12
           do sample = 1, end_index-start_index+1, 1
              batch_loss = batch_loss + sum(this%get_loss(&
-                  y_pred(sample,:),real(y_true(sample,:),real12)))
+                  y_pred(:,sample),real(y_true(:,sample),real12)))
              batch_accuracy = batch_accuracy + compute_accuracy(&
-                  y_pred(sample,:),y_true(sample,:))
+                  y_pred(:,sample),y_true(:,sample))
           end do
 
 
@@ -438,7 +434,6 @@ contains
 
 
     end do epoch_loop
-    write(*,*) "Training finished"
 
   end subroutine train
 !!!#############################################################################
@@ -494,7 +489,6 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! testing loop
 !!!-----------------------------------------------------------------------------
-    write(*,*) "Starting testing..."
     test_loop: do sample = 1, num_samples
 
        !! Forward pass
@@ -523,10 +517,9 @@ contains
 
     end do test_loop
     if(t_verb.gt.1) close(15)
-    write(*,*) "Testing finished"
 
-    write(6,'("Overall accuracy=",F0.5)') this%metrics(2)%val/real(num_samples)
-    write(6,'("Overall loss=",F0.5)')     this%metrics(1)%val/real(num_samples)
+    this%accuracy = this%metrics(2)%val/real(num_samples)
+    this%loss     = this%metrics(1)%val/real(num_samples)
 
 
   end subroutine test

@@ -6,7 +6,7 @@
 module conv2d_layer
   use constants, only: real12
   use base_layer, only: base_layer_type
-  use custom_types, only: activation_type, initialiser_type
+  use custom_types, only: activation_type, initialiser_type, clip_type
   implicit none
   
   
@@ -21,6 +21,7 @@ module conv2d_layer
      integer :: width
      integer :: height
      integer :: num_filters
+     type(clip_type) :: clip
      real(real12), allocatable, dimension(:) :: bias, bias_incr
      real(real12), allocatable, dimension(:) :: db ! bias gradient
      real(real12), allocatable, dimension(:,:,:,:) :: weight, weight_incr
@@ -110,7 +111,8 @@ contains
        num_filters, kernel_size, stride, padding, &
        activation_function, activation_scale, &
        kernel_initialiser, bias_initialiser, &
-       calc_input_gradients) result(layer)
+       calc_input_gradients, &
+       clip_dict, clip_min, clip_max, clip_norm) result(layer)
     !! add in clipping/constraint options
     !! add in dilation
     !! add in padding handler
@@ -126,6 +128,8 @@ contains
     character(*), optional, intent(in) :: activation_function, &
          kernel_initialiser, bias_initialiser, padding
     logical, optional, intent(in) :: calc_input_gradients
+    type(clip_type), optional, intent(in) :: clip_dict
+    real(real12), optional, intent(in) :: clip_min, clip_max, clip_norm
 
     type(conv2d_layer_type) :: layer
 
@@ -138,11 +142,38 @@ contains
 
 
     !!--------------------------------------------------------------------------
+    !! set up clipping limits
+    !!--------------------------------------------------------------------------
+    if(present(clip_dict))then
+       layer%clip = clip_dict
+       if(present(clip_min).or.present(clip_max).or.present(clip_norm))then
+          write(*,*) "Multiple clip options provided to conv2d layer"
+          write(*,*) "Ignoring all bar clip_dict"
+       end if
+    else
+       if(present(clip_min))then
+          layer%clip%l_min_max = .true.
+          layer%clip%min = clip_min
+       end if
+       if(present(clip_max))then
+          layer%clip%l_min_max = .true.
+          layer%clip%max = clip_max
+       end if
+       if(present(clip_norm))then
+          layer%clip%l_norm = .true.
+          layer%clip%norm = clip_norm
+       end if
+    end if
+
+
+    !!--------------------------------------------------------------------------
     !! set up number of filters
     !!--------------------------------------------------------------------------
     if(present(calc_input_gradients))then
        layer%calc_input_gradients = calc_input_gradients
        write(*,*) "CV input gradients turned off"
+    else
+       layer%calc_input_gradients = .true.
     end if
 
 
@@ -366,6 +397,7 @@ contains
     integer :: l, m, i, j, x, y
     integer :: istride, jstride, ioffset, joffset
     integer :: iend_idx, jend_idx
+    !integer :: input_height, input_width
     integer :: k_x, k_y, int_x, int_y, n_stride_x, n_stride_y
     integer :: i_start, i_end, j_start, j_end
     integer :: x_start, x_end, y_start, y_end
@@ -386,6 +418,8 @@ contains
     jend_idx = this%half_y + (this%centre_y - 1)
     ioffset  = 1 + this%half_x - this%pad_x
     joffset  = 1 + this%half_y - this%pad_y
+    !input_height = size(input,dim=1) - 2*this%pad_x  +ioffset-1
+    !input_width  = size(input,dim=2) - 2*this%pad_y  +joffset-1
 
     int_x = (this%height - 1) * this%stride_x + 1 + iend_idx
     int_y = (this%width  - 1) * this%stride_y + 1 + jend_idx
@@ -414,6 +448,8 @@ contains
             input(&
             x+ioffset:x+ioffset-1 + ubound(input,dim=1):this%stride_x, &
             y+joffset:y+joffset-1 + ubound(input,dim=2):this%stride_y,m))
+            !x+ioffset:x + input_height:this%stride_x, &
+            !y+joffset:y + input_width:this%stride_y,m))
     end do
 
 
@@ -478,28 +514,26 @@ contains
 !!!#############################################################################
 !!! update the weights based on how much error the node is responsible for
 !!!#############################################################################
-  pure subroutine update(this, optimiser, clip)
-    use custom_types, only: clip_type
+  pure subroutine update(this, optimiser)
     use optimiser, only: optimiser_type
     use normalisation, only: gradient_clip
     implicit none
     class(conv2d_layer_type), intent(inout) :: this
     type(optimiser_type), intent(in) :: optimiser
-    type(clip_type), optional, intent(in) :: clip
 
     integer :: l
 
 
     !! apply gradient clipping
-    if(present(clip))then
+    if(this%clip%l_min_max.or.this%clip%l_norm)then
        do l=1,size(this%bias,dim=1)
-          if(clip%l_min_max) call gradient_clip(size(this%dw(:,:,:,l)),&
+          if(this%clip%l_min_max) call gradient_clip(size(this%dw(:,:,:,l)),&
                this%dw(:,:,:,l),this%db(l),&
-               clip_min=clip%min,clip_max=clip%max)
-          if(clip%l_norm) &
+               clip_min=this%clip%min,clip_max=this%clip%max)
+          if(this%clip%l_norm) &
                call gradient_clip(size(this%dw(:,:,:,l)),&
                this%dw(:,:,:,l),this%db(l),&
-               clip_norm=clip%norm)
+               clip_norm=this%clip%norm)
        end do
     end if
 
