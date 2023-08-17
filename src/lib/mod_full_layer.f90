@@ -17,18 +17,16 @@ module full_layer
      integer :: num_inputs
      integer :: num_outputs
      real(real12), allocatable, dimension(:,:) :: weight, weight_incr
-     real(real12), allocatable, dimension(:,:) :: dw ! gradient of weight
-     real(real12), allocatable, dimension(:) :: output, z
-     real(real12), allocatable, dimension(:) :: di ! gradient of input (i.e. delta)
-     !! then include m and v
-
+     real(real12), allocatable, dimension(:,:) :: dw ! weight gradient
+     real(real12), allocatable, dimension(:) :: output, z !output and activation
+     real(real12), allocatable, dimension(:) :: di ! input gradient (i.e. delta)
      class(activation_type), allocatable :: transfer
    contains
-     procedure :: forward  => forward_rank
-     procedure :: backward => backward_rank
-     procedure :: forward_1d
-     procedure :: backward_1d
+     procedure, pass(this) :: forward  => forward_rank
+     procedure, pass(this) :: backward => backward_rank
      procedure, pass(this) :: update
+     procedure, private, pass(this) :: forward_1d
+     procedure, private, pass(this) :: backward_1d
   end type full_layer_type
 
 
@@ -53,6 +51,7 @@ module full_layer
 contains
 
 !!!#############################################################################
+!!! forward propagation assumed rank handler
 !!!#############################################################################
   pure subroutine forward_rank(this, input)
     implicit none
@@ -67,6 +66,7 @@ contains
 
 
 !!!#############################################################################
+!!! backward propagation assumed rank handler
 !!!#############################################################################
   pure subroutine backward_rank(this, input, gradient)
     implicit none
@@ -83,7 +83,13 @@ contains
 !!!#############################################################################
 
 
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
+
 !!!#############################################################################
+!!! set up and initialise network layer
 !!!#############################################################################
   module function layer_setup( &
        num_inputs, num_outputs, &
@@ -123,7 +129,8 @@ contains
     end if
 
     write(*,'("FC activation function: ",A)') trim(t_activation_function)
-    allocate(layer%transfer, source=activation_setup(t_activation_function, scale))
+    allocate(layer%transfer, &
+         source=activation_setup(t_activation_function, scale))
     
     allocate(layer%weight(layer%num_inputs+1,layer%num_outputs))
 
@@ -173,6 +180,7 @@ contains
 
 
 !!!#############################################################################
+!!! forward propagation
 !!!#############################################################################
   pure subroutine forward_1d(this, input)
     implicit none
@@ -184,6 +192,7 @@ contains
     this%z = this%weight(this%num_inputs+1,:) + &
       matmul(input,this%weight(:this%num_inputs,:))
       
+    !! apply activation function to activation
     this%output = this%transfer%activate(this%z)
 
   end subroutine forward_1d
@@ -191,6 +200,8 @@ contains
 
 
 !!!#############################################################################
+!!! backward propagation
+!!! method : gradient descent
 !!!#############################################################################
   pure subroutine backward_1d(this, input, gradient)
     implicit none
@@ -201,22 +212,27 @@ contains
     real(real12), dimension(1,this%num_outputs) :: delta
     real(real12), dimension(this%num_inputs, this%num_outputs) :: dw
 
+
     real(real12), dimension(1) :: bias_diff
     bias_diff = this%transfer%differentiate([1._real12])
 
     !! the delta values are the error multipled by the derivative ...
     !! ... of the transfer function
-    !! delta = delta(l+1) * g'(a)
-    !! error = error from next layer * differential of activation
+    !! delta(l) = g'(a) * dE/dI(l)
+    !! delta(l) = differential of activation * error from next layer
     delta(1,:) = gradient * this%transfer%differentiate(this%z)
 
-    !! define the input to the neuron
+    !! partial derivatives of error wrt weights
+    !! dE/dW = o/p(l-1) * delta
     dw = matmul(input, delta)
 
     !! the errors are summed from the delta of the ...
     !! ... 'child' node * 'child' weight
+    !! dE/dI(l-1) = sum(weight(l) * delta(l))
+    !! this prepares dE/dI for when it is passed into the previous layer
     this%di = matmul(this%weight(:this%num_inputs,:), delta(1,:))
 
+    !! sum weights and biases errors to use in batch gradient descent
     this%dw(:this%num_inputs,:) = this%dw(:this%num_inputs,:) + dw
     this%dw(this%num_inputs+1,:) = this%dw(this%num_inputs+1,:) + delta(1,:) * &
          bias_diff(1)
@@ -226,7 +242,7 @@ contains
 
 
 !!!#############################################################################
-!!!
+!!! update the weights based on how much error the node is responsible for
 !!!#############################################################################
   pure subroutine update(this, optimiser, clip)
     use custom_types, only: clip_type
