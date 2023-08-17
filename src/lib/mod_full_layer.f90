@@ -6,7 +6,7 @@
 module full_layer
   use constants, only: real12
   use base_layer, only: base_layer_type
-  use custom_types, only: activation_type, initialiser_type
+  use custom_types, only: activation_type, initialiser_type, clip_type
   implicit none
   
 
@@ -16,6 +16,7 @@ module full_layer
   type, extends(base_layer_type) :: full_layer_type
      integer :: num_inputs
      integer :: num_outputs
+     type(clip_type) :: clip
      real(real12), allocatable, dimension(:,:) :: weight, weight_incr
      real(real12), allocatable, dimension(:,:) :: dw ! weight gradient
      real(real12), allocatable, dimension(:) :: output, z !output and activation
@@ -97,7 +98,8 @@ contains
   module function layer_setup( &
        num_inputs, num_outputs, &
        activation_scale, activation_function, &
-       kernel_initialiser, bias_initialiser) result(layer)
+       kernel_initialiser, bias_initialiser, &
+       clip_dict, clip_min, clip_max, clip_norm) result(layer)
     use activation,  only: activation_setup
     use initialiser, only: initialiser_setup
     implicit none
@@ -105,6 +107,8 @@ contains
     real(real12), optional, intent(in) :: activation_scale
     character(*), optional, intent(in) :: activation_function, &
          kernel_initialiser, bias_initialiser
+    type(clip_type), optional, intent(in) :: clip_dict
+    real(real12), optional, intent(in) :: clip_min, clip_max, clip_norm
     
     type(full_layer_type) :: layer
 
@@ -112,6 +116,32 @@ contains
     character(len=10) :: t_activation_function
     character(len=14) :: initialiser_name
     class(initialiser_type), allocatable :: initialiser
+
+
+
+    !!--------------------------------------------------------------------------
+    !! set up clipping limits
+    !!--------------------------------------------------------------------------
+    if(present(clip_dict))then
+       layer%clip = clip_dict
+       if(present(clip_min).or.present(clip_max).or.present(clip_norm))then
+          write(*,*) "Multiple clip options provided to conv2d layer"
+          write(*,*) "Ignoring all bar clip_dict"
+       end if
+    else
+       if(present(clip_min))then
+          layer%clip%l_min_max = .true.
+          layer%clip%min = clip_min
+       end if
+       if(present(clip_max))then
+          layer%clip%l_min_max = .true.
+          layer%clip%max = clip_max
+       end if
+       if(present(clip_norm))then
+          layer%clip%l_norm = .true.
+          layer%clip%norm = clip_norm
+       end if
+    end if
 
 
     layer%num_inputs  = num_inputs
@@ -253,26 +283,22 @@ contains
 !!!#############################################################################
 !!! update the weights based on how much error the node is responsible for
 !!!#############################################################################
-  pure subroutine update(this, optimiser, clip)
-    use custom_types, only: clip_type
+  pure subroutine update(this, optimiser)
     use optimiser, only: optimiser_type
     use normalisation, only: gradient_clip
     implicit none
     class(full_layer_type), intent(inout) :: this
     type(optimiser_type), intent(in) :: optimiser
-    type(clip_type), optional, intent(in) :: clip
 
 
     !! apply gradient clipping
-    if(present(clip))then
-       if(clip%l_min_max) call gradient_clip(size(this%dw),&
-            this%dw,&
-            clip_min=clip%min,clip_max=clip%max)
-       if(clip%l_norm) &
-            call gradient_clip(size(this%dw),&
-            this%dw,&
-            clip_norm=clip%norm)
-    end if
+    if(this%clip%l_min_max) call gradient_clip(size(this%dw),&
+         this%dw,&
+         clip_min=this%clip%min,clip_max=this%clip%max)
+    if(this%clip%l_norm) &
+         call gradient_clip(size(this%dw),&
+         this%dw,&
+         clip_norm=this%clip%norm)
 
     !! update the layer weights and bias using gradient descent
     call optimiser%optimise(&
