@@ -398,6 +398,18 @@ contains
                   epoch, batch, this%optimiser%learning_rate, &
                   avg_loss/(batch*batch_size),  avg_accuracy/(batch*batch_size)
           end if
+          
+          
+!!! TESTING
+!!!          if(batch.gt.200)then
+!!!             time_old = time
+!!!             call system_clock(time)
+!!!             !write(*,'("time check: ",I0," seconds")') (time-time_old)/clock_rate
+!!!             write(*,'("time check: ",F8.3," seconds")') real(time-time_old)/clock_rate
+!!!             stop "THIS IS FOR TESTING PURPOSES"
+!!!          end if
+!!!
+
 
           !! time check
           !!----------------------------------------------------------------------
