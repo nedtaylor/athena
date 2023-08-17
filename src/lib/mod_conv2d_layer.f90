@@ -21,22 +21,25 @@ module conv2d_layer
      integer :: width
      integer :: height
      integer :: num_filters
-     real(real12), allocatable, dimension(:) :: bias, bias_incr, db
+     real(real12), allocatable, dimension(:) :: bias, bias_incr
+     real(real12), allocatable, dimension(:) :: db ! bias gradient
      real(real12), allocatable, dimension(:,:,:,:) :: weight, weight_incr
-     real(real12), allocatable, dimension(:,:,:,:) :: dw
+     real(real12), allocatable, dimension(:,:,:,:) :: dw ! weight gradient
      real(real12), allocatable, dimension(:,:,:) :: output, z
-     real(real12), allocatable, dimension(:,:,:) :: di
-
+     real(real12), allocatable, dimension(:,:,:) :: di ! input gradient
      class(activation_type), allocatable :: transfer
    contains
-     procedure :: forward  => forward_rank
-     procedure :: backward => backward_rank
-     procedure :: forward_3d
-     procedure :: backward_3d
+     procedure, pass(this) :: forward  => forward_rank
+     procedure, pass(this) :: backward => backward_rank
      procedure, pass(this) :: update
+     procedure, private, pass(this) :: forward_3d
+     procedure, private, pass(this) :: backward_3d
   end type conv2d_layer_type
 
   
+!!!-----------------------------------------------------------------------------
+!!! interface for layer set up
+!!!-----------------------------------------------------------------------------
   interface conv2d_layer_type
      module function layer_setup( &
           input_shape, &
@@ -62,6 +65,7 @@ module conv2d_layer
 contains
 
 !!!#############################################################################
+!!! forward propagation assumed rank handler
 !!!#############################################################################
   pure subroutine forward_rank(this, input)
     implicit none
@@ -76,6 +80,7 @@ contains
 
 
 !!!#############################################################################
+!!! backward propagation assumed rank handler
 !!!#############################################################################
   pure subroutine backward_rank(this, input, gradient)
     implicit none
@@ -92,7 +97,13 @@ contains
 !!!#############################################################################
 
 
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
+
 !!!#############################################################################
+!!! set up and initialise network layer
 !!!#############################################################################
   module function layer_setup( &
        input_shape, &
@@ -126,18 +137,18 @@ contains
 
 
 
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     !! set up number of filters
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     if(present(calc_input_gradients))then
        layer%calc_input_gradients = calc_input_gradients
        write(*,*) "CV input gradients turned off"
     end if
 
 
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     !! set up number of filters
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     if(present(num_filters))then
        layer%num_filters = num_filters
     else
@@ -145,9 +156,9 @@ contains
     end if
     
     
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     !! set up kernel size
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     if(present(kernel_size))then
        select rank(kernel_size)
        rank(0)
@@ -166,7 +177,7 @@ contains
        layer%kernel_y = 3
     end if
     !! odd or even kernel/filter size
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     layer%centre_x = 2 - mod(layer%kernel_x, 2)
     layer%centre_y = 2 - mod(layer%kernel_y, 2)
     layer%half_x   = (layer%kernel_x-1)/2
@@ -181,9 +192,9 @@ contains
     call set_padding(layer%pad_y, layer%kernel_y, t_padding)
 
 
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     !! set up stride
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     if(present(stride))then
        select rank(stride)
        rank(0)
@@ -216,18 +227,18 @@ contains
     else
        scale = 1._real12
     end if
-    
     write(*,'("CV activation function: ",A)') trim(t_activation_function)
-    allocate(layer%transfer, source=activation_setup(t_activation_function, scale))
+    allocate(layer%transfer, &
+         source=activation_setup(t_activation_function, scale))
 
 
     !!--------------------------------------------------------------------------
-    !! allocate output, weight, and bias shapes
+    !! allocate output, activation, bias, and weight shapes
     !!--------------------------------------------------------------------------
     layer%num_channels = input_shape(3)
     layer%width = floor( (input_shape(2) + 2.0 * layer%pad_y - layer%kernel_y)/&
          real(layer%stride_y) ) + 1
-    layer%height = floor( (input_shape(1) + 2.0 * layer%pad_x - layer%kernel_x)/&
+    layer%height = floor((input_shape(1) + 2.0 * layer%pad_x - layer%kernel_x)/&
          real(layer%stride_x) ) + 1
 
     allocate(layer%output(layer%height,layer%width,layer%num_filters))
@@ -244,7 +255,7 @@ contains
 
 
     !!--------------------------------------------------------------------------
-    !! initialise weights and biases steps
+    !! initialise weights and biases steps (velocities)
     !!--------------------------------------------------------------------------
     allocate(layer%bias_incr, mold=layer%bias)
     allocate(layer%weight_incr, mold=layer%weight)
@@ -265,7 +276,7 @@ contains
 
 
     !!--------------------------------------------------------------------------
-    !! initialise kernels and biases
+    !! initialise weights (kernels)
     !!--------------------------------------------------------------------------
     if(present(kernel_initialiser))then
        initialiser_name = kernel_initialiser
@@ -280,12 +291,15 @@ contains
     allocate(initialiser, source=initialiser_setup(initialiser_name))
     call initialiser%initialise(layer%weight, &
          fan_in=layer%kernel_x*layer%kernel_y+1, fan_out=1)
+    deallocate(initialiser)
+
+    !! initialise biases
+    !!--------------------------------------------------------------------------
     if(present(bias_initialiser))then
        initialiser_name = bias_initialiser
     else
        initialiser_name= "zeros"
     end if
-    deallocate(initialiser)
     write(*,'("CV bias initialiser: ",A)') initialiser_name
     allocate(initialiser, source=initialiser_setup(initialiser_name))
     call initialiser%initialise(layer%bias, &
@@ -296,12 +310,13 @@ contains
 
 
 !!!#############################################################################
-!!! 
+!!! forward propagation
 !!!#############################################################################
   pure subroutine forward_3d(this, input)
     implicit none
     class(conv2d_layer_type), intent(inout) :: this
-    real(real12), dimension(-this%pad_x+1:,-this%pad_y+1:,:), intent(in) :: input
+    real(real12), dimension(-this%pad_x+1:,-this%pad_y+1:,:), intent(in) :: &
+         input
 
     integer :: i, j, l, istride, jstride
     integer :: istart, iend, jstart, jend
@@ -337,14 +352,16 @@ contains
 
 
 !!!#############################################################################
-!!! 
+!!! backward propagation
+!!! method : gradient descent
 !!!#############################################################################
   pure subroutine backward_3d(this, input, gradient)
     implicit none
     class(conv2d_layer_type), intent(inout) :: this
-    real(real12), dimension(-this%pad_x+1:,-this%pad_y+1:,:), intent(in) :: input
+    real(real12), dimension(-this%pad_x+1:,-this%pad_y+1:,:), intent(in) :: &
+         input
     real(real12), dimension(&
-         this%height,this%width,this%num_filters), intent(in) :: gradient !was output_gradients
+         this%height,this%width,this%num_filters), intent(in) :: gradient
 
     integer :: l, m, i, j, x, y
     integer :: istride, jstride, ioffset, joffset
@@ -356,6 +373,7 @@ contains
          lbound(this%di,1):ubound(this%di,1),&
          lbound(this%di,2):ubound(this%di,2),this%num_channels) :: di
     real(real12), dimension(this%height,this%width,this%num_filters) :: grad_dz
+
 
     real(real12), dimension(1) :: bias_diff
     bias_diff = this%transfer%differentiate([1._real12])
@@ -456,7 +474,7 @@ contains
 
 
 !!!#############################################################################
-!!!
+!!! update the weights based on how much error the node is responsible for
 !!!#############################################################################
   subroutine update(this, optimiser, clip)
     use custom_types, only: clip_type

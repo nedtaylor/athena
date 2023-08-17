@@ -10,9 +10,9 @@ module full_layer
   implicit none
   
 
-!!!------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
 !!! fully connected network layer type
-!!!------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
   type, extends(base_layer_type) :: full_layer_type
      integer :: num_inputs
      integer :: num_outputs
@@ -30,6 +30,9 @@ module full_layer
   end type full_layer_type
 
 
+!!!-----------------------------------------------------------------------------
+!!! interface for layer set up
+!!!-----------------------------------------------------------------------------
   interface full_layer_type
      module function layer_setup( &
           num_inputs, num_outputs, &
@@ -127,11 +130,14 @@ contains
     else
        scale = 1._real12
     end if
-
     write(*,'("FC activation function: ",A)') trim(t_activation_function)
     allocate(layer%transfer, &
          source=activation_setup(t_activation_function, scale))
     
+
+    !!--------------------------------------------------------------------------
+    !! allocate weight, weight steps (velocities), output, and activation
+    !!--------------------------------------------------------------------------
     allocate(layer%weight(layer%num_inputs+1,layer%num_outputs))
 
     allocate(layer%weight_incr, mold=layer%weight)
@@ -148,7 +154,7 @@ contains
 
 
     !!--------------------------------------------------------------------------
-    !! initialise kernels and biases
+    !! initialise weights (kernels)
     !!--------------------------------------------------------------------------
     if(present(kernel_initialiser))then
        initialiser_name = kernel_initialiser
@@ -164,6 +170,9 @@ contains
     call initialiser%initialise(layer%weight(:layer%num_inputs,:), &
          fan_in=layer%num_inputs+1, fan_out=layer%num_outputs)
     deallocate(initialiser)
+
+    !! initialise biases
+    !!--------------------------------------------------------------------------
     if(present(bias_initialiser))then
        initialiser_name = bias_initialiser
     else
