@@ -15,13 +15,10 @@ module container_layer
   type :: container_layer_type
      !! conv, full, pool, flat, soft?
      character(4) :: name
-     class(base_layer_type), allocatable :: layer !! probably needs to be allocatable
-     !! KEEP THE ACTIVATION IN HERE
+     class(base_layer_type), allocatable :: layer
    contains
      procedure, pass(this) :: forward
      procedure, pass(this) :: backward
-     
-     !generic :: backward => backward_1d, backward_3d !, backward_4D
   end type container_layer_type
 
 
@@ -38,7 +35,7 @@ module container_layer
      pure module subroutine backward(this, input, gradient)
        !import container_layer_type, real12
        class(container_layer_type), intent(inout) :: this
-       class(container_layer_type), intent(in) :: input !! the input to this layer
+       class(container_layer_type), intent(in) :: input
        real(real12), dimension(..), intent(in) :: gradient
      end subroutine backward
   end interface
