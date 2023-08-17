@@ -105,6 +105,8 @@ contains
     integer :: i
 
 
+    !! Forward pass (first layer)
+    !!--------------------------------------------------------------------------
     select type(current => this%model(1)%layer)
     type is(input3d_layer_type)
        call current%init(input)
@@ -137,8 +139,7 @@ contains
     type is(full_layer_type)
        call this%model(this%num_layers)%backward(&
             this%model(this%num_layers-1),&
-            this%get_loss_deriv(&
-            current%output,output))
+            this%get_loss_deriv(current%output,output))
     end select
 
     !! Backward pass
@@ -200,7 +201,7 @@ contains
     implicit none
     class(network_type), intent(inout) :: this
     real(real12), dimension(:,:,:,:), intent(in) :: input !!!dimension(..), intent(in) :: input
-    integer, dimension(:,:), intent(in) :: output !! CONVER THIS LATER TO ANY TYPE AND ANY RANK
+    integer, dimension(:,:), intent(in) :: output !! CONVERT THIS LATER TO ANY TYPE AND ANY RANK
     integer, intent(in) :: num_epochs, batch_size
 
     real(real12), optional, intent(in) :: plateau_threshold
@@ -324,8 +325,7 @@ contains
           !! ... test each sample and get gradients and losses from each
           !!--------------------------------------------------------------------
           train_loop: do concurrent(sample=start_index:end_index:1)
-             
-             
+                       
              !! Forward pass
              !!-----------------------------------------------------------------
              call this%forward(get_sample(input,sample))
@@ -336,7 +336,10 @@ contains
 !!! https://www.v7labs.com/blog/cross-entropy-loss-guide
 !!! https://datascience.stackexchange.com/questions/73093/what-does-from-logits-true-do-in-sparsecategoricalcrossentropy-loss-function
 !!! https://math.stackexchange.com/questions/4367458/derivate-of-the-the-negative-log-likelihood-with-composition
-             
+
+             !! Backward pass
+             !!-----------------------------------------------------------------
+             call this%backward(real(y_true(:,sample-start_index+1),real12))
 
              !! store predicted output
              !!-----------------------------------------------------------------
@@ -344,10 +347,6 @@ contains
              type is(full_layer_type)
                 y_pred(:,sample-start_index+1) = current%output
              end select
-
-             !! Backward pass
-             !!-----------------------------------------------------------------
-             call this%backward(real(y_true(:,sample-start_index+1),real12))
 
           end do train_loop
 
@@ -537,7 +536,7 @@ contains
     real(real12) :: accuracy
 
     !! Compute the accuracy
-    if (maxval(output).eq.maxval(output)) then
+    if (maxloc(expected,dim=1).eq.maxloc(output,dim=1)) then
        accuracy = 1._real12
     else
        accuracy = 0._real12
