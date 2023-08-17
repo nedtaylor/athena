@@ -464,7 +464,9 @@ contains
                this%di(i,j,m) + &
                sum( &
                grad_dz(i_start:i_end:1,j_start:j_end:1,l) * &
-               this%weight(x_end:x_start:-this%stride_x,y_end:y_start:-this%stride_y,m,l) )
+               this%weight(&
+               x_end:x_start:-this%stride_x,&
+               y_end:y_start:-this%stride_y,m,l) )
 
        end do
     end if
