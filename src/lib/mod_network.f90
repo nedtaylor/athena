@@ -35,6 +35,7 @@ module network
    contains
      procedure, pass(this) :: train
      procedure, pass(this) :: test
+     procedure, pass(this) :: update
 
      procedure, pass(this) :: forward => forward_3d    !! TEMPORARY
      procedure, pass(this) :: backward => backward_1d  !! TEMPORARY
@@ -157,6 +158,33 @@ contains
     end do
 
   end subroutine backward_1d
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! update weights and biases
+!!!#############################################################################
+  pure subroutine update(this, batch_size)
+    implicit none
+    class(network_type), intent(inout) :: this
+    integer, intent(in) :: batch_size
+
+    integer :: i
+    
+    do i=2, this%num_layers,1
+       select type(current => this%model(i)%layer)
+       type is(conv2d_layer_type)
+          current%dw = current%dw/batch_size
+          current%db = current%db/batch_size
+          call current%update(this%optimiser)!,cv_clip) !!! CONVERT CLIPS TO LAYER VARIABLES
+       type is(full_layer_type)
+          current%dw = current%dw/batch_size
+          call current%update(this%optimiser)!,fc_clip) !!! CONVERT CLIPS TO LAYER VARIABLES
+       end select
+    end do
+    this%optimiser%iter = this%optimiser%iter + 1
+
+  end subroutine update
 !!!#############################################################################
 
 
@@ -363,18 +391,7 @@ contains
           !! ... (gradient descent)
           !!--------------------------------------------------------------------
           !! STORE ADAM VALUES IN OPTIMISER
-          do i=2, this%num_layers,1
-             select type(current => this%model(i)%layer)
-             type is(conv2d_layer_type)
-                current%dw = current%dw/batch_size
-                current%db = current%db/batch_size
-                call current%update(this%optimiser)!,cv_clip) !!! CONVERT CLIPS TO LAYER VARIABLES
-             type is(full_layer_type)
-                current%dw = current%dw/batch_size
-                call current%update(this%optimiser)!,fc_clip) !!! CONVERT CLIPS TO LAYER VARIABLES
-             end select
-          end do
-          this%optimiser%iter = this%optimiser%iter + 1
+          call this%update(batch_size)
 
 
           !! print batch results

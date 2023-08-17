@@ -478,7 +478,7 @@ contains
 !!!#############################################################################
 !!! update the weights based on how much error the node is responsible for
 !!!#############################################################################
-  subroutine update(this, optimiser, clip)
+  pure subroutine update(this, optimiser, clip)
     use custom_types, only: clip_type
     use optimiser, only: optimiser_type
     use normalisation, only: gradient_clip
