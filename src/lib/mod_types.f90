@@ -38,8 +38,10 @@ module custom_types
      procedure (derivative_function_1d), deferred, pass(this) :: differentiate_1d
      procedure (activation_function_3d), deferred, pass(this) :: activate_3d
      procedure (derivative_function_3d), deferred, pass(this) :: differentiate_3d
-     generic :: activate => activate_1d, activate_3d 
-     generic :: differentiate => differentiate_1d, differentiate_3d
+     procedure (activation_function_4d), deferred, pass(this) :: activate_4d
+     procedure (derivative_function_4d), deferred, pass(this) :: differentiate_4d
+     generic :: activate => activate_1d, activate_3d , activate_4d 
+     generic :: differentiate => differentiate_1d, differentiate_3d, differentiate_4d
   end type activation_type
   
 
@@ -59,6 +61,14 @@ module custom_types
        real(real12), dimension(:,:,:), intent(in) :: val
        real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
      end function activation_function_3d
+
+     pure function activation_function_4d(this, val) result(output)
+       import activation_type, real12
+       class(activation_type), intent(in) :: this
+       real(real12), dimension(:,:,:,:), intent(in) :: val
+       real(real12), dimension(&
+            size(val,1),size(val,2),size(val,3),size(val,4)) :: output
+     end function activation_function_4d
   end interface
 
 
@@ -78,6 +88,14 @@ module custom_types
        real(real12), dimension(:,:,:), intent(in) :: val
        real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
      end function derivative_function_3d
+
+     pure function derivative_function_4d(this, val) result(output)
+       import activation_type, real12
+       class(activation_type), intent(in) :: this
+       real(real12), dimension(:,:,:,:), intent(in) :: val
+       real(real12), dimension(&
+            size(val,1),size(val,2),size(val,3),size(val,4)) :: output
+     end function derivative_function_4d
   end interface
 
 
