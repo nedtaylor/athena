@@ -5,12 +5,12 @@
 !!!#############################################################################
 module conv2d_layer
   use constants, only: real12
-  use base_layer, only: base_layer_type
+  use base_layer, only: learnable_layer_type
   use custom_types, only: activation_type, initialiser_type, clip_type
   implicit none
   
   
-  type, extends(base_layer_type) :: conv2d_layer_type
+  type, extends(learnable_layer_type) :: conv2d_layer_type
      logical :: calc_input_gradients = .true.
      integer :: kernel_x, kernel_y
      integer :: stride_x, stride_y
@@ -516,16 +516,23 @@ contains
 !!!#############################################################################
 !!! update the weights based on how much error the node is responsible for
 !!!#############################################################################
-  pure subroutine update(this, optimiser)
+  pure subroutine update(this, optimiser, batch_size)
     use optimiser, only: optimiser_type
     use normalisation, only: gradient_clip
     implicit none
     class(conv2d_layer_type), intent(inout) :: this
     type(optimiser_type), intent(in) :: optimiser
+    integer, optional, intent(in) :: batch_size
 
     integer :: l
 
-
+    
+    !! normalise by number of samples
+    if(present(batch_size))then
+       this%dw = this%dw/batch_size
+       this%db = this%db/batch_size
+    end if
+       
     !! apply gradient clipping
     if(this%clip%l_min_max.or.this%clip%l_norm)then
        do l=1,size(this%bias,dim=1)
