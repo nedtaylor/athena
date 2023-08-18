@@ -8,7 +8,6 @@ program ConvolutionalNeuralNetwork
   use constants, only: real12
   use random, only: random_setup
   use misc, only: shuffle
-  !use misc_maths, only: mean
   use infile_tools, only: stop_check
 
   use loss_categorical!, only: loss_mse, loss_nll, loss_cce, loss_type
@@ -20,7 +19,9 @@ program ConvolutionalNeuralNetwork
   use input3d_layer,   only: input3d_layer_type
   use full_layer,      only: full_layer_type
   use conv2d_layer,    only: conv2d_layer_type
+  use conv3d_layer,    only: conv3d_layer_type
   use maxpool2d_layer, only: maxpool2d_layer_type
+  use maxpool3d_layer, only: maxpool3d_layer_type
   use flatten2d_layer, only: flatten2d_layer_type
   use flatten3d_layer, only: flatten3d_layer_type
 
