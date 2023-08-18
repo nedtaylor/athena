@@ -263,10 +263,12 @@ contains
     !! allocate output, activation, bias, and weight shapes
     !!--------------------------------------------------------------------------
     layer%num_channels = input_shape(4)
-    layer%input_shape  = input_shape
+    layer%input_shape  = input_shape(:4)
 !!! WARNING, TAKE IN WHAT IS ALREADY IN THE PADDING
 !!! THEN JUST SUBTRACT THE PADDING (or no need
-    layer%output_shape = floor((input_shape + 2.0 * layer%pad - layer%knl)/&
+    allocate(layer%output_shape(4))
+    layer%output_shape(4) = input_shape(4)
+    layer%output_shape(:3) = floor((input_shape(:3) + 2.0 * layer%pad - layer%knl)/&
          real(layer%stp) ) + 1
 
     allocate(layer%output(&

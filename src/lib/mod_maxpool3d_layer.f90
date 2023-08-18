@@ -132,9 +132,12 @@ contains
     !! set up number of channels, width, height
     !!-----------------------------------------------------------------------
     layer%num_channels = input_shape(4)
-    layer%input_shape  = input_shape
-    layer%output_shape = floor( (input_shape-layer%pool)/real(layer%strd)) + 1
-
+    layer%input_shape  = input_shape(:4)
+    allocate(layer%output_shape(4))
+    layer%output_shape(:3) = &
+         floor( (input_shape(:3)-layer%pool)/real(layer%strd)) + 1
+    layer%output_shape(4) = input_shape(4)
+    
 
     !!-----------------------------------------------------------------------
     !! allocate output and gradients
