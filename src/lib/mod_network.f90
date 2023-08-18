@@ -176,10 +176,7 @@ contains
     
     do i=2, this%num_layers,1
        select type(current => this%model(i)%layer)
-       !type is(learnable_layer_type)
-       type is(conv2d_layer_type)
-          call current%update(this%optimiser, batch_size)
-       type is(full_layer_type)
+       class is(learnable_layer_type)
           call current%update(this%optimiser, batch_size)
        end select
     end do
