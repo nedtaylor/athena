@@ -39,7 +39,7 @@ module network
      procedure, pass(this) :: test
      procedure, pass(this) :: update
 
-     procedure, pass(this) :: forward => forward_3d    !! TEMPORARY
+     procedure, pass(this) :: forward => forward_1d    !! TEMPORARY
      procedure, pass(this) :: backward => backward_1d  !! TEMPORARY
   end type network_type
 
@@ -48,9 +48,9 @@ module network
      procedure compute_accuracy_int, compute_accuracy_real
   end interface compute_accuracy
 
-  interface get_sample
-     procedure get_sample_1d, get_sample_3d, get_sample_4d
-  end interface get_sample
+  !interface get_sample
+  !   procedure get_sample_1d, get_sample_3d, get_sample_4d
+  !end interface get_sample
 
 
   private
@@ -63,45 +63,34 @@ contains
 !!!#############################################################################
 !!! return sample from any rank
 !!!#############################################################################
-  pure function get_sample_1d(input, index) result(output)
+  pure function get_sample(input, index) result(output)
     implicit none
     integer, intent(in) :: index
-    real(real12), dimension(:,:), intent(in) :: input
-    real(real12), dimension(size(input,dim=1)) :: output
+    real(real12), dimension(..), intent(in) :: input
+    real(real12), allocatable, dimension(:) :: output
 
-    output = input(:,index)
-  end function get_sample_1d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
-  pure function get_sample_3d(input, index) result(output)
-    implicit none
-    integer, intent(in) :: index
-    real(real12), dimension(:,:,:,:), intent(in) :: input
-    real(real12), dimension(size(input,1),size(input,2),size(input,3)) :: output
+    select rank(input)
+    rank(2)
+       output = reshape(input(:,index), shape=[size(input(:,1))])
+    rank(3)
+       output = reshape(input(:,:,index), shape=[size(input(:,:,1))])
+    rank(4)
+       output = reshape(input(:,:,:,index), shape=[size(input(:,:,:,1))])
+    rank(5)
+       output = reshape(input(:,:,:,:,index), shape=[size(input(:,:,:,:,1))])
+    end select
 
-    output = input(:,:,:,index)
-  end function get_sample_3d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
-  pure function get_sample_4d(input, index) result(output)
-    implicit none
-    integer, intent(in) :: index
-    real(real12), dimension(:,:,:,:,:), intent(in) :: input
-    real(real12), dimension(&
-         size(input,1),size(input,2),size(input,3),size(input,4)) :: output
-
-    output = input(:,:,:,:,index)
-  end function get_sample_4d
+  end function get_sample
 !!!#############################################################################
 
 
 !!!#############################################################################
 !!! forward pass
 !!!#############################################################################
-  pure subroutine forward_3d(this, input)
+  pure subroutine forward_1d(this, input)
     implicit none
     class(network_type), intent(inout) :: this
-    real(real12), dimension(:,:,:), intent(in) :: input
+    real(real12), dimension(:), intent(in) :: input
     
     integer :: i
 
@@ -119,7 +108,7 @@ contains
        call this%model(i)%forward(this%model(i-1))
     end do
 
-  end subroutine forward_3d
+  end subroutine forward_1d
 !!!#############################################################################
 
 
@@ -196,7 +185,7 @@ contains
     use infile_tools, only: stop_check
     implicit none
     class(network_type), intent(inout) :: this
-    real(real12), dimension(:,:,:,:), intent(in) :: input !!!dimension(..), intent(in) :: input
+    real(real12), dimension(..), intent(in) :: input
     integer, dimension(:,:), intent(in) :: output !! CONVERT THIS LATER TO ANY TYPE AND ANY RANK
     integer, intent(in) :: num_epochs, batch_size
 
@@ -470,7 +459,7 @@ contains
   subroutine test(this, input, output, verbosity)
     implicit none
     class(network_type), intent(inout) :: this
-    real(real12), dimension(:,:,:,:), intent(in) :: input
+    real(real12), dimension(..), intent(in) :: input
     integer, dimension(:,:), intent(in) :: output !! CONVER THIS LATER TO ANY TYPE AND ANY RANK
     integer, optional, intent(in) :: verbosity
 
