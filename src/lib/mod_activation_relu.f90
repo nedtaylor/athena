@@ -12,8 +12,10 @@ module activation_relu
    contains
      procedure, pass(this) :: activate_1d => relu_activate_1d
      procedure, pass(this) :: activate_3d => relu_activate_3d
+     procedure, pass(this) :: activate_4d => relu_activate_4d
      procedure, pass(this) :: differentiate_1d => relu_differentiate_1d
      procedure, pass(this) :: differentiate_3d => relu_differentiate_3d
+     procedure, pass(this) :: differentiate_4d => relu_differentiate_4d
   end type relu_type
   
   interface relu_setup
@@ -71,6 +73,17 @@ contains
 
     output = max(this%threshold, val) * this%scale
   end function relu_activate_3d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function relu_activate_4d(this, val) result(output)
+    implicit none
+    class(relu_type), intent(in) :: this
+    real(real12), dimension(:,:,:,:), intent(in) :: val
+    real(real12), dimension(&
+         size(val,1),size(val,2),size(val,3),size(val,4)) :: output
+
+    output = max(this%threshold, val) * this%scale
+  end function relu_activate_4d
 !!!#############################################################################
 
 
@@ -106,6 +119,21 @@ contains
        output = this%threshold
     end where
   end function relu_differentiate_3d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function relu_differentiate_4d(this, val) result(output)
+    implicit none
+    class(relu_type), intent(in) :: this
+    real(real12), dimension(:,:,:,:), intent(in) :: val
+    real(real12), dimension(&
+         size(val,1),size(val,2),size(val,3),size(val,4)) :: output
+
+    where(val.ge.this%threshold)
+       output = this%scale
+    elsewhere
+       output = this%threshold
+    end where
+  end function relu_differentiate_4d
 !!!#############################################################################
 
 end module activation_relu

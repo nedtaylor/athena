@@ -12,8 +12,10 @@ module activation_tanh
    contains
      procedure, pass(this) :: activate_1d => tanh_activate_1d
      procedure, pass(this) :: activate_3d => tanh_activate_3d
+     procedure, pass(this) :: activate_4d => tanh_activate_4d
      procedure, pass(this) :: differentiate_1d => tanh_differentiate_1d
      procedure, pass(this) :: differentiate_3d => tanh_differentiate_3d
+     procedure, pass(this) :: differentiate_4d => tanh_differentiate_4d
   end type tanh_type
   
   interface tanh_setup
@@ -90,6 +92,23 @@ contains
        output = this%scale * (exp(val) - exp(-val))/(exp(val) + exp(-val))
     end where
   end function tanh_activate_3d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function tanh_activate_4d(this, val) result(output)
+    implicit none
+    class(tanh_type), intent(in) :: this
+    real(real12), dimension(:,:,:,:), intent(in) :: val
+    real(real12), dimension(&
+         size(val,1),size(val,2),size(val,3),size(val,4)) :: output
+
+    !! fix rounding errors of division of small numbers
+    !! alt. could add an epsilon
+    where(abs(val).gt.this%threshold)
+       output = sign(1._real12, val) * this%scale
+    elsewhere
+       output = this%scale * (exp(val) - exp(-val))/(exp(val) + exp(-val))
+    end where
+  end function tanh_activate_4d
 !!!#############################################################################
 
 
@@ -119,6 +138,19 @@ contains
          (1._real12 - (this%activate_3d(val)/this%scale) ** 2._real12)
 
   end function tanh_differentiate_3d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function tanh_differentiate_4d(this, val) result(output)
+    implicit none
+    class(tanh_type), intent(in) :: this
+    real(real12), dimension(:,:,:,:), intent(in) :: val
+    real(real12), dimension(&
+         size(val,1),size(val,2),size(val,3),size(val,4)) :: output
+
+    output = this%scale * &
+         (1._real12 - (this%activate_4d(val)/this%scale) ** 2._real12)
+
+  end function tanh_differentiate_4d
 !!!#############################################################################
 
 end module activation_tanh

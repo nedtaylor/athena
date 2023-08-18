@@ -12,8 +12,10 @@ module activation_softmax
    contains
      procedure, pass(this) :: activate_1d => softmax_activate_1d
      procedure, pass(this) :: activate_3d => softmax_activate_3d
+     procedure, pass(this) :: activate_4d => softmax_activate_4d
      procedure, pass(this) :: differentiate_1d => softmax_differentiate_1d
      procedure, pass(this) :: differentiate_3d => softmax_differentiate_3d
+     procedure, pass(this) :: differentiate_4d => softmax_differentiate_4d
   end type softmax_type
   
   interface softmax_setup
@@ -86,6 +88,22 @@ contains
     output = output / sum(output)
 
   end function softmax_activate_3d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function softmax_activate_4d(this, val) result(output)
+    implicit none
+    class(softmax_type), intent(in) :: this
+    real(real12), dimension(:,:,:,:), intent(in) :: val
+    real(real12), dimension(&
+         size(val,1),size(val,2),size(val,3),size(val,4)) :: output
+    
+    !! compute softmax values
+    output = exp(val - maxval(val))
+
+    !! normalize softmax values
+    output = output / sum(output)
+
+  end function softmax_activate_4d
 !!!#############################################################################
 
 
@@ -117,6 +135,20 @@ contains
     output = output * (1._real12 - output)
 
   end function softmax_differentiate_3d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function softmax_differentiate_4d(this, val) result(output)
+    implicit none
+    class(softmax_type), intent(in) :: this
+    real(real12), dimension(:,:,:,:), intent(in) :: val
+    real(real12), dimension(&
+         size(val,1),size(val,2),size(val,3),size(val,4)) :: output
+
+    !! compute gradients for softmax layer
+    output = this%activate_4d(val)
+    output = output * (1._real12 - output)
+
+  end function softmax_differentiate_4d
 !!!#############################################################################
 
 end module activation_softmax

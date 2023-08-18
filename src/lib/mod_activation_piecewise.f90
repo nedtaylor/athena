@@ -13,8 +13,10 @@ module activation_piecewise
    contains
      procedure, pass(this) :: activate_1d => piecewise_activate_1d
      procedure, pass(this) :: activate_3d => piecewise_activate_3d
+     procedure, pass(this) :: activate_4d => piecewise_activate_4d
      procedure, pass(this) :: differentiate_1d => piecewise_differentiate_1d
      procedure, pass(this) :: differentiate_3d => piecewise_differentiate_3d
+     procedure, pass(this) :: differentiate_4d => piecewise_differentiate_4d
   end type piecewise_type
 
   interface piecewise_setup
@@ -91,6 +93,23 @@ contains
        output = this%scale * val + this%intercept
     end where
   end function piecewise_activate_3d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function piecewise_activate_4d(this, val) result(output)
+    implicit none
+    class(piecewise_type), intent(in) :: this
+    real(real12), dimension(:,:,:,:), intent(in) :: val
+    real(real12), dimension(&
+         size(val,1),size(val,2),size(val,3),size(val,4)) :: output
+
+    where(val.le.this%min)
+       output = 0._real12
+    elsewhere(val.ge.this%max)
+       output = this%scale
+    elsewhere
+       output = this%scale * val + this%intercept
+    end where
+  end function piecewise_activate_4d
 !!!#############################################################################
 
 
@@ -126,6 +145,21 @@ contains
        output = this%scale
     end where
   end function piecewise_differentiate_3d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function piecewise_differentiate_4d(this, val) result(output)
+    implicit none
+    class(piecewise_type), intent(in) :: this
+    real(real12), dimension(:,:,:,:), intent(in) :: val
+    real(real12), dimension(&
+         size(val,1),size(val,2),size(val,3),size(val,4)) :: output
+
+    where(val.le.this%min.or.val.ge.this%max)
+       output = 0._real12
+    elsewhere
+       output = this%scale
+    end where
+  end function piecewise_differentiate_4d
 !!!#############################################################################
 
 end module activation_piecewise

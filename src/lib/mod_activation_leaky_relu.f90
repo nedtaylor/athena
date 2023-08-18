@@ -12,8 +12,10 @@ module activation_leaky_relu
    contains
      procedure, pass(this) :: activate_1d => leaky_relu_activate_1d
      procedure, pass(this) :: activate_3d => leaky_relu_activate_3d
+     procedure, pass(this) :: activate_4d => leaky_relu_activate_4d
      procedure, pass(this) :: differentiate_1d => leaky_relu_differentiate_1d
      procedure, pass(this) :: differentiate_3d => leaky_relu_differentiate_3d
+     procedure, pass(this) :: differentiate_4d => leaky_relu_differentiate_4d
   end type leaky_relu_type
   
   interface leaky_relu_setup
@@ -69,6 +71,17 @@ contains
 
     output = max(0.01_real12*val, val) * this%scale
   end function leaky_relu_activate_3d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function leaky_relu_activate_4d(this, val) result(output)
+    implicit none
+    class(leaky_relu_type), intent(in) :: this
+    real(real12), dimension(:,:,:,:), intent(in) :: val
+    real(real12), dimension(&
+         size(val,1),size(val,2),size(val,3),size(val,4)) :: output
+
+    output = max(0.01_real12*val, val) * this%scale
+  end function leaky_relu_activate_4d
 !!!#############################################################################
 
 
@@ -104,6 +117,21 @@ contains
        output = 0.01_real12
     end where
   end function leaky_relu_differentiate_3d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function leaky_relu_differentiate_4d(this, val) result(output)
+    implicit none
+    class(leaky_relu_type), intent(in) :: this
+    real(real12), dimension(:,:,:,:), intent(in) :: val
+    real(real12), dimension(&
+         size(val,1),size(val,2),size(val,3),size(val,4)) :: output
+
+    where(val.ge.0._real12)
+       output = this%scale
+    elsewhere
+       output = 0.01_real12
+    end where
+  end function leaky_relu_differentiate_4d
 !!!#############################################################################
 
 end module activation_leaky_relu
