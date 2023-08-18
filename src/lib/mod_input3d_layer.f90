@@ -64,6 +64,8 @@ contains
 
     type(input3d_layer_type) :: layer
     
+    layer%input_shape = input_shape
+    layer%output_shape = input_shape
     allocate(layer%output(input_shape(1),input_shape(2),input_shape(3)))
   end function layer_setup
 !!!#############################################################################
@@ -74,7 +76,10 @@ contains
   pure subroutine init(this, input)
     implicit none
     class(input3d_layer_type), intent(inout) :: this
-    real(real12), dimension(:,:,:), intent(in) :: input
+    real(real12), &
+         dimension(&
+         this%output_shape(1),this%output_shape(2),this%output_shape(3)), &
+         intent(in) :: input
 
     this%output = input
 
