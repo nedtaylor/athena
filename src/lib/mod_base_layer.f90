@@ -5,13 +5,14 @@
 !!!#############################################################################
 module base_layer
   use constants, only: real12
+  use optimiser, only: optimiser_type
   implicit none
 
 !!!------------------------------------------------------------------------
 !!! layer abstract type
 !!!------------------------------------------------------------------------
   type, abstract :: base_layer_type !! give it parameterised values?
-
+     integer, allocatable, dimension(:) :: input_shape, output_shape
    contains
      !procedure(initialise), deferred, pass(this) :: init
      procedure(forward), deferred, pass(this) :: forward
@@ -52,6 +53,23 @@ module base_layer
      end subroutine backward
   end interface
 
+
+!!!-----------------------------------------------------------------------------
+!!! learnable derived extended type
+!!!-----------------------------------------------------------------------------
+  type, abstract, extends(base_layer_type) :: learnable_layer_type
+   contains
+     procedure(update), deferred, pass(this) :: update
+  end type learnable_layer_type
+
+  abstract interface
+     pure subroutine update(this, optimiser, batch_size)
+       import :: learnable_layer_type, optimiser_type
+       class(learnable_layer_type), intent(inout) :: this
+       type(optimiser_type), intent(in) :: optimiser
+       integer, optional, intent(in) :: batch_size
+     end subroutine update
+  end interface
 
 
   public :: base_layer_type
