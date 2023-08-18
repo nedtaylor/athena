@@ -11,10 +11,8 @@ module flatten3d_layer
   
   type, extends(base_layer_type) :: flatten3d_layer_type
      integer :: num_outputs
-     integer, allocatable, dimension(:) :: input_shape
      real(real12), allocatable, dimension(:) :: output
-     real(real12), allocatable, dimension(:,:,:,:) :: di ! gradient of input (i.e. delta)
-
+     real(real12), allocatable, dimension(:,:,:,:) :: di
    contains
      procedure :: forward  => forward_rank
      procedure :: backward => backward_rank

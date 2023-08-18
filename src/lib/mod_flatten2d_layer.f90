@@ -11,7 +11,6 @@ module flatten2d_layer
   
   type, extends(base_layer_type) :: flatten2d_layer_type
      integer :: num_outputs
-     integer, allocatable, dimension(:) :: input_shape
      real(real12), allocatable, dimension(:) :: output
      real(real12), allocatable, dimension(:,:,:) :: di ! gradient of input (i.e. delta)
 
