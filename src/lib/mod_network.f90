@@ -14,6 +14,7 @@ module network
        comp_loss_func => compute_loss_function, &
        comp_loss_deriv => compute_loss_derivative
 
+  use base_layer,      only: learnable_layer_type
   use container_layer, only: container_layer_type
   use input3d_layer,   only: input3d_layer_type
   use full_layer,      only: full_layer_type
@@ -175,13 +176,11 @@ contains
     
     do i=2, this%num_layers,1
        select type(current => this%model(i)%layer)
+       !type is(learnable_layer_type)
        type is(conv2d_layer_type)
-          current%dw = current%dw/batch_size
-          current%db = current%db/batch_size
-          call current%update(this%optimiser)
+          call current%update(this%optimiser, batch_size)
        type is(full_layer_type)
-          current%dw = current%dw/batch_size
-          call current%update(this%optimiser)
+          call current%update(this%optimiser, batch_size)
        end select
     end do
     this%optimiser%iter = this%optimiser%iter + 1
@@ -401,13 +400,13 @@ contains
           
           
 !!! TESTING
-!!!          if(batch.gt.200)then
-!!!             time_old = time
-!!!             call system_clock(time)
-!!!             !write(*,'("time check: ",I0," seconds")') (time-time_old)/clock_rate
-!!!             write(*,'("time check: ",F8.3," seconds")') real(time-time_old)/clock_rate
-!!!             stop "THIS IS FOR TESTING PURPOSES"
-!!!          end if
+          if(batch.gt.200)then
+             time_old = time
+             call system_clock(time)
+             !write(*,'("time check: ",I0," seconds")') (time-time_old)/clock_rate
+             write(*,'("time check: ",F8.3," seconds")') real(time-time_old)/clock_rate
+             stop "THIS IS FOR TESTING PURPOSES"
+          end if
 !!!
 
 
