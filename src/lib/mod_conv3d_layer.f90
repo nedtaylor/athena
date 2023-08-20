@@ -269,7 +269,9 @@ contains
     allocate(layer%output_shape(4))
     layer%output_shape(4) = input_shape(4)
     layer%output_shape(:3) = floor((input_shape(:3) + 2.0 * layer%pad - layer%knl)/&
-         real(layer%stp) ) + 1
+        real(layer%stp) ) + 1
+   !  layer%output_shape(:3) = floor((input_shape(:3) - layer%knl)/&
+   !       real(layer%stp) ) + 1 !!padding for now included in input number !! REVERT TO OLD AND FIX CODE
 
     allocate(layer%output(&
          layer%output_shape(1),layer%output_shape(2),layer%output_shape(3),&
@@ -339,7 +341,7 @@ contains
     call initialiser%initialise(layer%bias, &
          fan_in=product(layer%knl)+1, fan_out=1)
 
-  end function layer_setup
+      end function layer_setup
 !!!#############################################################################
 
 
@@ -360,9 +362,7 @@ contains
     !! perform the convolution operation
     !!--------------------------------------------------------------------------
     do concurrent(i=1:this%output_shape(1):1, j=1:this%output_shape(2):1, k=1:this%output_shape(3):1)
-       stp_idx(1) = (i-1)*this%stp(1) + 1 + (this%hlf(1) - this%pad(1))
-       stp_idx(2) = (j-1)*this%stp(2) + 1 + (this%hlf(2) - this%pad(2))
-       stp_idx(3) = (k-1)*this%stp(3) + 1 + (this%hlf(3) - this%pad(3))
+       stp_idx = ([i,j,k]-1)*this%stp + 1 + (this%hlf - this%pad)
        start_idx  = stp_idx - this%hlf
        end_idx    = start_idx + this%knl - 1
 
@@ -412,10 +412,6 @@ contains
     integer :: l, m, i, j, k, x, y, z
     integer, dimension(3) :: stp_idx, offset, end_idx, n_stp
     integer, dimension(2,3) :: lim, lim_w, lim_g
-    real(real12), dimension(&
-         lbound(this%di,1):ubound(this%di,1),&
-         lbound(this%di,2):ubound(this%di,2),&
-         lbound(this%di,3):ubound(this%di,3),this%num_channels) :: di
     real(real12), &
          dimension(&
          this%output_shape(1),&
