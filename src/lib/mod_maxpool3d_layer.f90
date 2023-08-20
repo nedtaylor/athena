@@ -218,9 +218,9 @@ contains
 
        !! compute gradients for input feature map
        this%di(&
-            stride_idx+max_idx(1), &
-            stride_idx+max_idx(2), &
-            stride_idx+max_idx(3), m) = gradient(i, j, k, m)
+            stride_idx(1)+max_idx(1), &
+            stride_idx(2)+max_idx(2), &
+            stride_idx(3)+max_idx(3), m) = gradient(i, j, k, m)
 
     end do
 
