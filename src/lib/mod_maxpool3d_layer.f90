@@ -119,7 +119,7 @@ contains
           layer%strd(1) = stride(1)
           if(size(stride,dim=1).eq.1)then
              layer%strd(2:) = stride(1)
-          elseif(size(stride,dim=1).eq.2)then
+          elseif(size(stride,dim=1).eq.3)then
              layer%strd(2:) = stride(2:)
           end if
        end select
