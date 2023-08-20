@@ -37,6 +37,7 @@ program ConvolutionalNeuralNetwork
 
   !! data loading and preoprocessing
   real(real12), allocatable, dimension(:,:,:,:) :: input_images, test_images
+  real(real12), allocatable, dimension(:,:,:,:,:) :: input_spread
   integer, allocatable, dimension(:) :: labels, test_labels
   integer, allocatable, dimension(:,:) :: input_labels
   character(1024) :: train_file, test_file
@@ -177,14 +178,14 @@ program ConvolutionalNeuralNetwork
   allocate(network%model(1)%layer, source = input4d_layer_type(&
        input_shape = [size(input_images,1),size(input_images,2),3,input_channels]))
   allocate(network%model(2)%layer, source = conv3d_layer_type( &
-       input_shape = [size(input_images,1),size(input_images,2),3,input_channels], &
+       input_shape = [image_size,image_size,1,input_channels], &
        num_filters = cv_num_filters, kernel_size = 3, stride = 1, &
        padding=padding_method, &
        calc_input_gradients = .false., &
        activation_function = "relu", clip_dict = cv_clip))
   allocate(network%model(3)%layer, source = maxpool3d_layer_type(&
        input_shape=[28,28,1,cv_num_filters], &
-       pool_size=2, stride=2))
+       pool_size=[2,2,1], stride=[2,2,1]))
   allocate(network%model(4)%layer, source = flatten3d_layer_type(&
        input_shape=[14,14,1,cv_num_filters]))
   allocate(network%model(5)%layer, source = full_layer_type( &
@@ -204,6 +205,10 @@ program ConvolutionalNeuralNetwork
   network%num_outputs = 10
   network%optimiser = optimiser
   network%metrics = metric_dict
+
+  input_spread = spread(input_images,3,3)
+  input_spread(:,:,1,:,:) = 0._real12
+  input_spread(:,:,3,:,:) = 0._real12
 
 
   !  if(restart)then
@@ -295,9 +300,9 @@ program ConvolutionalNeuralNetwork
   end do
 
   write(6,*) "Starting training..."
-  !!call network%train(input_images, input_labels, num_epochs, batch_size, &
-  !!     plateau_threshold, shuffle_dataset, 20, verbosity)
-  call network%train(spread(input_images,3,3), input_labels, num_epochs, batch_size, &
+  !call network%train(input_images, input_labels, num_epochs, batch_size, &
+  !     plateau_threshold, shuffle_dataset, 20, verbosity)
+  call network%train(input_spread, input_labels, num_epochs, batch_size, &
        plateau_threshold, shuffle_dataset, 20, verbosity)
   write(*,*) "Training finished"
 
