@@ -265,7 +265,7 @@ contains
     layer%num_channels = input_shape(4)
     layer%input_shape  = input_shape(:4)
 !!! WARNING, TAKE IN WHAT IS ALREADY IN THE PADDING
-!!! THEN JUST SUBTRACT THE PADDING (or no need
+!!! THEN JUST SUBTRACT THE PADDING (or add in the padding?)
     allocate(layer%output_shape(4))
     layer%output_shape(4) = input_shape(4)
     layer%output_shape(:3) = floor((input_shape(:3) + 2.0 * layer%pad - layer%knl)/&
@@ -361,7 +361,10 @@ contains
 
     !! perform the convolution operation
     !!--------------------------------------------------------------------------
-    do concurrent(i=1:this%output_shape(1):1, j=1:this%output_shape(2):1, k=1:this%output_shape(3):1)
+    do concurrent(&
+         i=1:this%output_shape(1):1, &
+         j=1:this%output_shape(2):1, &
+         k=1:this%output_shape(3):1)
        stp_idx = ([i,j,k]-1)*this%stp + 1 + (this%hlf - this%pad)
        start_idx  = stp_idx - this%hlf
        end_idx    = start_idx + this%knl - 1
@@ -477,6 +480,7 @@ contains
             l=1:this%num_filters &
             )
 
+          !! set weight bounds
           stp_idx = ([i,j,k]-offset)/this%stp + 1
           !! max( ...
           !! ... 1. offset of 1st o/p idx from centre of knl     (lim)
@@ -492,7 +496,7 @@ contains
                mod(n_stp-1+[i,j,k],this%stp))
           if(any(lim_w(2,:).gt.lim_w(1,:))) cycle
 
-
+          !! set gradient bounds
           lim_g(1,:) = max(1,                 stp_idx)
           lim_g(2,:) = min(this%output_shape, stp_idx + ([i,j,k]-1)/this%stp )
 
