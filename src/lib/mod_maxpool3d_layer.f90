@@ -17,10 +17,10 @@ module maxpool3d_layer
      real(real12), allocatable, dimension(:,:,:,:) :: output
      real(real12), allocatable, dimension(:,:,:,:) :: di ! gradient of input (i.e. delta)
    contains
-     procedure :: forward  => forward_rank
-     procedure :: backward => backward_rank
-     procedure, private :: forward_4d
-     procedure, private :: backward_4d
+     procedure, pass(this) :: forward  => forward_rank
+     procedure, pass(this) :: backward => backward_rank
+     procedure, private, pass(this) :: forward_4d
+     procedure, private, pass(this) :: backward_4d
   end type maxpool3d_layer_type
 
   

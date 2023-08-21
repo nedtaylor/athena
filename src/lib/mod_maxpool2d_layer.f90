@@ -18,10 +18,10 @@ module maxpool2d_layer
      real(real12), allocatable, dimension(:,:,:) :: di ! gradient of input (i.e. delta)
 
    contains
-     procedure :: forward  => forward_rank
-     procedure :: backward => backward_rank
-     procedure, private :: forward_3d
-     procedure, private :: backward_3d
+     procedure, pass(this) :: forward  => forward_rank
+     procedure, pass(this) :: backward => backward_rank
+     procedure, private, pass(this) :: forward_3d
+     procedure, private, pass(this) :: backward_3d
   end type maxpool2d_layer_type
 
   
