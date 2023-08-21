@@ -14,8 +14,8 @@ module flatten3d_layer
      real(real12), allocatable, dimension(:) :: output
      real(real12), allocatable, dimension(:,:,:,:) :: di
    contains
-     procedure :: forward  => forward_rank
-     procedure :: backward => backward_rank
+     procedure, pass(this) :: forward  => forward_rank
+     procedure, pass(this) :: backward => backward_rank
   end type flatten3d_layer_type
 
   interface flatten3d_layer_type

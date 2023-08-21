@@ -15,8 +15,8 @@ module flatten2d_layer
      real(real12), allocatable, dimension(:,:,:) :: di ! gradient of input (i.e. delta)
 
    contains
-     procedure :: forward  => forward_rank
-     procedure :: backward => backward_rank
+     procedure, pass(this) :: forward  => forward_rank
+     procedure, pass(this) :: backward => backward_rank
   end type flatten2d_layer_type
 
   interface flatten2d_layer_type
