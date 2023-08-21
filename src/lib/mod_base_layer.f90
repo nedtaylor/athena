@@ -55,6 +55,24 @@ module base_layer
 
 
 !!!-----------------------------------------------------------------------------
+!!! input derived extended type
+!!!-----------------------------------------------------------------------------
+  type, abstract, extends(base_layer_type) :: input_layer_type
+     integer :: num_outputs
+   contains
+     procedure(init), deferred, pass(this) :: init
+  end type input_layer_type
+
+  abstract interface
+     pure subroutine init(this, input)
+       import :: input_layer_type, real12
+       class(input_layer_type), intent(inout) :: this
+       real(real12), dimension(this%num_outputs), intent(in) :: input
+     end subroutine init
+  end interface
+
+
+!!!-----------------------------------------------------------------------------
 !!! learnable derived extended type
 !!!-----------------------------------------------------------------------------
   type, abstract, extends(base_layer_type) :: learnable_layer_type
@@ -72,7 +90,11 @@ module base_layer
   end interface
 
 
+  private
+
   public :: base_layer_type
+  public :: input_layer_type
+  public :: learnable_layer_type
 
 
 end module base_layer

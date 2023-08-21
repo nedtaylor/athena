@@ -5,18 +5,16 @@
 !!!#############################################################################
 module input4d_layer
   use constants, only: real12
-  use base_layer, only: base_layer_type
+  use base_layer, only: input_layer_type
   implicit none
   
   
-  type, extends(base_layer_type) :: input4d_layer_type
-     integer :: num_outputs
+  type, extends(input_layer_type) :: input4d_layer_type
      real(real12), allocatable, dimension(:,:,:,:) :: output
-
    contains
-     procedure :: forward  => forward_rank
-     procedure :: backward => backward_rank
-     procedure :: init
+     procedure, pass(this) :: forward  => forward_rank
+     procedure, pass(this) :: backward => backward_rank
+     procedure, pass(this) :: init => init_4d
   end type input4d_layer_type
 
   interface input4d_layer_type
@@ -68,26 +66,20 @@ contains
     layer%output_shape = input_shape
     allocate(layer%output(&
          input_shape(1),input_shape(2),input_shape(3),input_shape(4)))
+    layer%num_outputs = product(input_shape)
   end function layer_setup
 !!!#############################################################################
 
 
 !!!#############################################################################
 !!!#############################################################################
-  pure subroutine init(this, input)
+  pure subroutine init_4d(this, input)
     implicit none
     class(input4d_layer_type), intent(inout) :: this
-    real(real12), &
-         dimension(&
-         this%output_shape(1),&
-         this%output_shape(2),&
-         this%output_shape(3),&
-         this%output_shape(4)), &
-         intent(in) :: input
+    real(real12), dimension(this%num_outputs), intent(in) :: input
 
-    this%output = input
-
-  end subroutine init
+    this%output = reshape(input, shape=shape(this%output))
+  end subroutine init_4d
 !!!#############################################################################
 
 
