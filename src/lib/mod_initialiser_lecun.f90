@@ -60,6 +60,9 @@ contains
     rank(4)
        call random_number(input)
        input = (input *2._real12 - 1._real12) * scale
+    rank(5)
+       call random_number(input)
+       input = (input *2._real12 - 1._real12) * scale
     end select
     
   end subroutine lecun_uniform_initialise
@@ -95,6 +98,9 @@ contains
        call random_number(input)
        input = input * scale
     rank(4)
+       call random_number(input)
+       input = input * scale
+    rank(5)
        call random_number(input)
        input = input * scale
     end select
