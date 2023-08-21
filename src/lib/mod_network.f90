@@ -180,7 +180,7 @@ contains
        i = i + 1
     
        input_layer_check: if(i.eq.1)then
-          select type(current => this%model(i)%layer)
+          select type(first => this%model(1)%layer)
           class is(input_layer_type)
              cycle layer_loop
           class default
@@ -188,14 +188,32 @@ contains
                   container_layer_type(name="inpt"),&
                   this%model(1:)&
                   ]
-             select case(size(current%input_shape,dim=1))
-             case(3)
-                allocate(this%model(1)%layer, source=&
-                     input3d_layer_type(input_shape=current%input_shape))                     
-             case(4)
-                allocate(this%model(1)%layer, source=&
-                     input4d_layer_type(input_shape=current%input_shape))  
-             end select
+             associate(next => this%model(2)%layer)
+               write(*,*) allocated(next%input_shape)
+               write(*,*) next%input_shape
+               select case(size(next%input_shape,dim=1))
+               case(3)
+                  select type(next)
+                  type is(conv3d_layer_type)
+                     allocate(this%model(1)%layer, source=&
+                           input3d_layer_type(input_shape=next%input_shape+&
+                           [2*next%pad,0]))  
+                  class default
+                     allocate(this%model(1)%layer, source=&
+                           input3d_layer_type(input_shape=next%input_shape))
+                  end select
+               case(4)
+                  select type(next)
+                  type is(conv3d_layer_type)
+                     allocate(this%model(1)%layer, source=&
+                           input4d_layer_type(input_shape=next%input_shape+&
+                           [2*next%pad,0]))  
+                  class default
+                     allocate(this%model(1)%layer, source=&
+                           input4d_layer_type(input_shape=next%input_shape))
+                  end select
+               end select
+             end associate
              cycle layer_loop
           end select
        end if input_layer_check
