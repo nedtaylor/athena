@@ -146,7 +146,7 @@ program ConvolutionalNeuralNetwork
   !!allocate(network%model(1)%layer, source = input3d_layer_type(&
   !!     input_shape = [size(input_images,1),size(input_images,2),input_channels]))
   !!allocate(network%model(2)%layer, source = conv2d_layer_type( &
-  !!     input_shape = [size(input_images,1),size(input_images,2),input_channels], &
+  !!     input_shape = [image_size,image_size,input_channels], &
   !!     num_filters = cv_num_filters, kernel_size = 3, stride = 1, &
   !!     padding=padding_method, &
   !!     calc_input_gradients = .false., &
@@ -171,15 +171,13 @@ program ConvolutionalNeuralNetwork
   !!     bias_initialiser="glorot_uniform" &
   !!     ))
   
-  write(*,*) "HERE", [size(input_images,1),size(input_images,2),1,input_channels]
   write(*,*) "TEMPORARY! I have had to set dimension 3 width to 3, &
    &to account for padding that I haven't set up for that dimension for the kernel width"
-
   allocate(network%model(1)%layer, source = input4d_layer_type(&
-       input_shape = [size(input_images,1),size(input_images,2),3,input_channels]))
+       input_shape = [size(input_images,1),size(input_images,2),1,input_channels]))
   allocate(network%model(2)%layer, source = conv3d_layer_type( &
        input_shape = [image_size,image_size,1,input_channels], &
-       num_filters = cv_num_filters, kernel_size = 3, stride = 1, &
+       num_filters = cv_num_filters, kernel_size = [3,3,1], stride = 1, &
        padding=padding_method, &
        calc_input_gradients = .false., &
        activation_function = "relu", clip_dict = cv_clip))
@@ -206,9 +204,10 @@ program ConvolutionalNeuralNetwork
   network%optimiser = optimiser
   network%metrics = metric_dict
 
-  input_spread = spread(input_images,3,3)
-  input_spread(:,:,1,:,:) = 0._real12
-  input_spread(:,:,3,:,:) = 0._real12
+  input_spread = spread(input_images,3,1)
+  !input_spread(:,:,1,:,:) = 0._real12
+  !input_spread(:,:,3,:,:) = 0._real12
+  write(*,*) shape(input_spread)
 
 
   !  if(restart)then
@@ -300,8 +299,8 @@ program ConvolutionalNeuralNetwork
   end do
 
   write(6,*) "Starting training..."
-  !call network%train(input_images, input_labels, num_epochs, batch_size, &
-  !     plateau_threshold, shuffle_dataset, 20, verbosity)
+  !!call network%train(input_images, input_labels, num_epochs, batch_size, &
+  !!     plateau_threshold, shuffle_dataset, 20, verbosity)
   call network%train(input_spread, input_labels, num_epochs, batch_size, &
        plateau_threshold, shuffle_dataset, 20, verbosity)
   write(*,*) "Training finished"
