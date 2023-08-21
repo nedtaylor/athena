@@ -27,12 +27,14 @@ module loss_categorical
   public :: compute_loss_function
   public :: compute_loss_bce
   public :: compute_loss_cce
+  public :: compute_loss_mae
   public :: compute_loss_mse
   public :: compute_loss_nll
 
   public :: total_loss_function
   public :: total_loss_bce
   public :: total_loss_cce
+  public :: total_loss_mae
   public :: total_loss_mse
   public :: total_loss_nll
 
@@ -107,22 +109,29 @@ contains
 !!!#############################################################################
 
 
-!!!!#############################################################################
-!!!! compute loss derivative
-!!!! method: categorical cross entropy
-!!!! this is handled by the softmax backward subroutine
-!!!!#############################################################################
-!  subroutine compute_loss_derivative_cce(predicted, expected, gradient)
-!    implicit none
-!    integer, intent(in) :: expected
-!    real(real12), dimension(:), intent(in) :: predicted
-!    real(real12), dimension(:), intent(out) :: gradient
-!    
-!    gradient = predicted
-!    gradient(expected) = predicted(expected) - 1._real12
-!
-!  end subroutine compute_loss_derivative_cce
-!!!!#############################################################################
+!!!#############################################################################
+!!! compute losses
+!!! method: mean absolute error
+!!!#############################################################################
+  pure function compute_loss_mae(predicted, expected) result(output)
+    implicit none
+    real(real12), dimension(:), intent(in) :: predicted, expected
+    real(real12), dimension(size(predicted)) :: output
+
+    output = abs(predicted - expected) /(size(predicted))
+
+  end function compute_loss_mae
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function total_loss_mae(predicted, expected) result(output)
+    implicit none
+    real(real12), dimension(:), intent(in) :: predicted, expected
+    real(real12) :: output
+
+    output = sum(compute_loss_mse(predicted,expected))
+    
+  end function total_loss_mae
+!!!#############################################################################
 
 
 !!!#############################################################################
