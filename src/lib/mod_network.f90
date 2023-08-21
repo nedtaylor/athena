@@ -51,6 +51,7 @@ module network
      procedure, pass(this) :: train
      procedure, pass(this) :: test
      procedure, pass(this) :: update
+     procedure, pass(this) :: compile
 
      procedure, pass(this) :: forward => forward_1d    !! TEMPORARY
      procedure, pass(this) :: backward => backward_1d  !! TEMPORARY
@@ -68,6 +69,182 @@ module network
 
 
 contains
+
+!!!#############################################################################
+!!! set up network
+!!!#############################################################################
+  subroutine compile(this, optimiser, loss, metrics)
+    use misc, only: to_lower
+    use loss_categorical, only: &
+         compute_loss_bce, compute_loss_cce, &
+         compute_loss_mae, compute_loss_mse, &
+         compute_loss_nll
+    implicit none
+    class(network_type), intent(inout) :: this
+    type(optimiser_type) :: optimiser
+    character(*), intent(in) :: loss
+    !type(metric_dict_type), dimension(2) :: metrics
+    class(*), dimension(..) :: metrics
+    
+    integer :: i
+    character(len=:), allocatable :: loss_method
+
+    
+!!!-----------------------------------------------------------------------------
+!!! initialise metrics
+!!!-----------------------------------------------------------------------------
+    this%metrics%active = .false.
+    this%metrics(1)%key = "loss"
+    this%metrics(2)%key = "accuracy"
+    this%metrics%threshold = 1.E-1_real12
+    select rank(metrics)
+    rank(0)
+       select type(metrics)
+       type is(character(*))
+          where(to_lower(trim(metrics)).eq.this%metrics%key)
+             this%metrics%active = .true.
+          end where
+       end select
+    rank(1)
+       select type(metrics)
+       type is(character(*))
+          do i=1,size(metrics,1)
+             where(to_lower(trim(metrics(i))).eq.this%metrics%key)
+                this%metrics%active = .true.
+             end where
+          end do
+       type is(metric_dict_type)
+          if(size(metrics,1).eq.2)then
+             this%metrics(:2) = metrics(:2)
+          else
+             stop "ERROR: invalid length array for metric_dict_type"
+          end if
+       end select
+    rank default
+       stop "ERROR: provided metrics rank in compile invalid"
+    end select
+
+
+!!!-----------------------------------------------------------------------------
+!!! initialise optimiser
+!!!-----------------------------------------------------------------------------
+    this%optimiser = optimiser
+
+
+!!!-----------------------------------------------------------------------------
+!!! initialise loss method
+!!!-----------------------------------------------------------------------------
+    loss_method = to_lower(loss)
+    select case(loss_method)
+    case("binary_crossentropy")
+       loss_method = "bce"
+    case("categorical_crossentropy")
+       loss_method = "cce"
+    case("mean_absolute_error")
+       loss_method = "mae"
+    case("mean_squared_error")
+       loss_method = "mse"
+    case("negative_loss_likelihood")
+       loss_method = "nll"
+    end select
+
+    select case(loss_method)
+    case("bce")
+       this%get_loss => compute_loss_bce
+       write(*,*) "Loss method: Categorical Cross Entropy"
+    case("cce")
+       this%get_loss => compute_loss_cce
+       write(*,*) "Loss method: Categorical Cross Entropy"
+    case("mae")
+       this%get_loss => compute_loss_mae
+       write(*,*) "Loss method: Mean Absolute Error"
+    case("mse")
+       this%get_loss => compute_loss_mse
+       write(*,*) "Loss method: Mean Squared Error"
+    case("nll")
+       this%get_loss => compute_loss_nll
+       write(*,*) "Loss method: Negative log likelihood"
+    case default
+       write(*,*) "Failed loss method: "//trim(loss_method)
+       stop "ERROR: No loss method provided"
+    end select
+    this%get_loss_deriv => comp_loss_deriv
+
+
+!!!-----------------------------------------------------------------------------
+!!! check for required layers
+!!!-----------------------------------------------------------------------------
+    i = 0
+    layer_loop: do
+       if(i.ge.size(this%model,dim=1)) exit layer_loop
+       i = i + 1
+    
+       input_layer_check: if(i.eq.1)then
+          select type(current => this%model(i)%layer)
+          class is(input_layer_type)
+             cycle layer_loop
+          class default
+             this%model = [&
+                  container_layer_type(name="inpt"),&
+                  this%model(1:)&
+                  ]
+             select case(size(current%input_shape,dim=1))
+             case(3)
+                allocate(this%model(1)%layer, source=&
+                     input3d_layer_type(input_shape=current%input_shape))                     
+             case(4)
+                allocate(this%model(1)%layer, source=&
+                     input4d_layer_type(input_shape=current%input_shape))  
+             end select
+             cycle layer_loop
+          end select
+       end if input_layer_check
+    
+       flatten_layer_check: if(i.lt.size(this%model,dim=1))then
+          if(rank(this%model(i+1)%layer%input_shape).ne.&
+               rank(this%model(i)%layer%output_shape))then
+                
+             select type(current => this%model(i)%layer)
+             type is(flatten2d_layer_type)
+                cycle layer_loop
+             type is(flatten3d_layer_type)
+                cycle layer_loop
+             class default
+                this%model = [&
+                     this%model(:i),&
+                     container_layer_type(name="flat"),&
+                     this%model(i+1:)&
+                     ]
+                select case(rank(current%output_shape))
+                case(3)
+                   allocate(this%model(i+1)%layer, source=&
+                        flatten2d_layer_type(input_shape=&
+                        current%output_shape))
+                case(4)
+                   allocate(this%model(i+1)%layer, source=&
+                        flatten3d_layer_type(input_shape=&
+                        current%output_shape))
+                end select
+                i = i + 1
+                cycle layer_loop
+             end select
+          end if
+       end if flatten_layer_check
+    
+    end do layer_loop
+    
+    !! update number of layers
+    !!--------------------------------------------------------------------------
+    this%num_layers = i
+    
+    !! set number of outputs
+    !!--------------------------------------------------------------------------
+    this%num_outputs = product(this%model(this%num_layers)%layer%output_shape)
+
+
+  end subroutine compile
+!!!#############################################################################
+
 
 !!!#############################################################################
 !!! return sample from any rank

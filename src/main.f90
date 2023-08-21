@@ -10,7 +10,7 @@ program ConvolutionalNeuralNetwork
   use misc, only: shuffle
   use infile_tools, only: stop_check
 
-  use loss_categorical!, only: loss_mse, loss_nll, loss_cce, loss_type
+  use loss_categorical
   use inputs
 
   use network, only: network_type
@@ -200,16 +200,16 @@ program ConvolutionalNeuralNetwork
        kernel_initialiser="glorot_uniform", &
        bias_initialiser="glorot_uniform" &
        ))
-  network%num_outputs = 10
-  network%optimiser = optimiser
-  network%metrics = metric_dict
 
+  call network%compile(optimiser=optimiser, loss=loss_method, metrics=metric_dict)
   input_spread = spread(input_images,3,1)
   !input_spread(:,:,1,:,:) = 0._real12
   !input_spread(:,:,3,:,:) = 0._real12
+  
+  write(*,*) "NUM LAYERS",network%num_layers
   write(*,*) shape(input_spread)
 
-
+  
   !  if(restart)then
   !     call cv_init(file = input_file, &
   !          learning_parameters=learning_parameters)
@@ -267,24 +267,6 @@ program ConvolutionalNeuralNetwork
   !  end select
   !
   !
-!!!-----------------------------------------------------------------------------
-!!! initialise loss method
-!!!-----------------------------------------------------------------------------
-  select case(loss_method)
-  case("cce")
-     network%get_loss => compute_loss_cce
-     write(*,*) "Loss method: Categorical Cross Entropy"
-  case("mse")
-     network%get_loss => compute_loss_mse
-     write(*,*) "Loss method: Mean Squared Error"
-  case("nll")
-     network%get_loss => compute_loss_nll
-     write(*,*) "Loss method: Negative log likelihood"
-  case default
-     write(*,*) "Failed loss method: "//trim(loss_method)
-     stop "ERROR: No loss method provided"
-  end select
-  network%get_loss_deriv => compute_loss_derivative
 
 
 !!!-----------------------------------------------------------------------------
