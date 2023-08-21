@@ -447,6 +447,12 @@ contains
     !! apply convolution to compute weight gradients
     !! offset applied as centre of kernel is 0 ...
     !! ... whilst the starting index for input is 1
+    !! -1 needed in input upper bound indices to account for size, i.e. ...
+    !! ...   x + offset : x + offset + size(input)
+    !! ... = 0 + 1      : 0 + 1      + 1 
+    !! ... = 1          : 2
+    !! ... which would be wrong, as size = 1, so it should be 1:1
+    !! ... ergo, we need to subtract 1 from upper index
     !!--------------------------------------------------------------------------
     do concurrent( &
          z=-this%hlf(3):end_idx(3):1, &
@@ -458,9 +464,9 @@ contains
        this%dw(x,y,z,m,l) = this%dw(x,y,z,m,l) + &
             sum(grad_dz(:,:,:,l) * &
             input(&
-            x+offset(1):x+offset(1)-2 + ubound(input,dim=1):this%stp(1), &
-            y+offset(2):y+offset(2)-2 + ubound(input,dim=2):this%stp(2), &
-            z+offset(3):z+offset(3)-2 + ubound(input,dim=3):this%stp(3),m))
+            x+offset(1):x+offset(1)-1+size(input,1)-2*this%pad(1):this%stp(1), &
+            y+offset(2):y+offset(2)-1+size(input,2)-2*this%pad(2):this%stp(2), &
+            z+offset(3):z+offset(3)-1+size(input,3)-2*this%pad(3):this%stp(3),m))
     end do
 
 
