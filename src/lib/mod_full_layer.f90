@@ -145,7 +145,9 @@ contains
 
 
     layer%num_inputs  = num_inputs
+    layer%input_shape = [layer%num_inputs]
     layer%num_outputs = num_outputs
+    layer%output_shape = [layer%num_outputs]
 
     !!--------------------------------------------------------------------------
     !! set activation and derivative functions based on input name
