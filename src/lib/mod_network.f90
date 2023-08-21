@@ -189,8 +189,6 @@ contains
                   this%model(1:)&
                   ]
              associate(next => this%model(2)%layer)
-               write(*,*) allocated(next%input_shape)
-               write(*,*) next%input_shape
                select case(size(next%input_shape,dim=1))
                case(3)
                   select type(next)
@@ -219,8 +217,8 @@ contains
        end if input_layer_check
     
        flatten_layer_check: if(i.lt.size(this%model,dim=1))then
-          if(rank(this%model(i+1)%layer%input_shape).ne.&
-               rank(this%model(i)%layer%output_shape))then
+          if(size(this%model(i+1)%layer%input_shape).ne.&
+               size(this%model(i)%layer%output_shape))then
                 
              select type(current => this%model(i)%layer)
              type is(flatten2d_layer_type)
@@ -229,19 +227,19 @@ contains
                 cycle layer_loop
              class default
                 this%model = [&
-                     this%model(:i),&
+                     this%model(1:i),&
                      container_layer_type(name="flat"),&
-                     this%model(i+1:)&
+                     this%model(i+1:size(this%model))&
                      ]
-                select case(rank(current%output_shape))
+                select case(size(this%model(i)%layer%output_shape))
                 case(3)
                    allocate(this%model(i+1)%layer, source=&
                         flatten2d_layer_type(input_shape=&
-                        current%output_shape))
+                        this%model(i)%layer%output_shape))
                 case(4)
                    allocate(this%model(i+1)%layer, source=&
                         flatten3d_layer_type(input_shape=&
-                        current%output_shape))
+                        this%model(i)%layer%output_shape))
                 end select
                 i = i + 1
                 cycle layer_loop
