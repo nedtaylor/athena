@@ -14,16 +14,26 @@ module network
        comp_loss_func => compute_loss_function, &
        comp_loss_deriv => compute_loss_derivative
 
-  use base_layer,      only: learnable_layer_type
+  use base_layer,      only: input_layer_type, learnable_layer_type
   use container_layer, only: container_layer_type
+
+  !! input layer types
   use input3d_layer,   only: input3d_layer_type
   use input4d_layer,   only: input4d_layer_type
+
+  !! convolution layer types
   use conv2d_layer,    only: conv2d_layer_type
   use conv3d_layer,    only: conv3d_layer_type
+
+  !! pooling layer types
   use maxpool2d_layer, only: maxpool2d_layer_type
   use maxpool3d_layer, only: maxpool3d_layer_type
+
+  !! flatten layer types
   use flatten2d_layer, only: flatten2d_layer_type
   use flatten3d_layer, only: flatten3d_layer_type
+
+  !! fully connected (dense) layer types
   use full_layer,      only: full_layer_type
 
   implicit none
@@ -50,10 +60,6 @@ module network
   interface compute_accuracy
      procedure compute_accuracy_int, compute_accuracy_real
   end interface compute_accuracy
-
-  !interface get_sample
-  !   procedure get_sample_1d, get_sample_3d, get_sample_4d
-  !end interface get_sample
 
 
   private
@@ -101,9 +107,7 @@ contains
     !! Forward pass (first layer)
     !!--------------------------------------------------------------------------
     select type(current => this%model(1)%layer)
-    type is(input4d_layer_type)
-       call current%init(input)
-    type is(input3d_layer_type)
+    class is(input_layer_type)
        call current%init(input)
     end select
 
@@ -175,12 +179,18 @@ contains
 
     integer :: i
     
+
+    !! Update layers of learnable layer types
+    !!-------------------------------------------------------------------
     do i=2, this%num_layers,1
        select type(current => this%model(i)%layer)
        class is(learnable_layer_type)
           call current%update(this%optimiser, batch_size)
        end select
     end do
+
+    !! Increment optimiser iteration counter
+    !!-------------------------------------------------------------------
     this%optimiser%iter = this%optimiser%iter + 1
 
   end subroutine update
