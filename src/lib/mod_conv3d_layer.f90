@@ -444,6 +444,7 @@ contains
        this%db(l) = this%db(l) + sum(grad_dz(:,:,:,l)) * bias_diff(1)
     end do
 
+    
     !! apply convolution to compute weight gradients
     !! offset applied as centre of kernel is 0 ...
     !! ... whilst the starting index for input is 1
