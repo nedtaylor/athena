@@ -10,9 +10,9 @@ module maxpool2d_layer
   
   
   type, extends(base_layer_type) :: maxpool2d_layer_type
-     integer :: pool_x, pool_y
-     integer :: stride_x, stride_y
-     integer :: height, width
+     !! strd = stride (step)
+     !! pool = pool
+     integer, dimension(2) :: pool, strd
      integer :: num_channels
      real(real12), allocatable, dimension(:,:,:) :: output
      real(real12), allocatable, dimension(:,:,:) :: di ! gradient of input (i.e. delta)
@@ -20,8 +20,8 @@ module maxpool2d_layer
    contains
      procedure :: forward  => forward_rank
      procedure :: backward => backward_rank
-     procedure :: forward_3d
-     procedure :: backward_3d
+     procedure, private :: forward_3d
+     procedure, private :: backward_3d
   end type maxpool2d_layer_type
 
   
@@ -86,7 +86,7 @@ contains
     
     type(maxpool2d_layer_type) :: layer
 
-    integer :: xend_idx, yend_idx
+    integer, dimension(2) :: end_idx
 
     
     !!-----------------------------------------------------------------------
@@ -95,19 +95,17 @@ contains
     if(present(pool_size))then
        select rank(pool_size)
        rank(0)
-          layer%pool_x = pool_size
-          layer%pool_y = pool_size
+          layer%pool = pool_size
        rank(1)
-          layer%pool_x = pool_size(1)
+          layer%pool(1) = pool_size(1)
           if(size(pool_size,dim=1).eq.1)then
-             layer%pool_y = pool_size(1)
+             layer%pool(2) = pool_size(1)
           elseif(size(pool_size,dim=1).eq.2)then
-             layer%pool_y = pool_size(2)
+             layer%pool(2) = pool_size(2)
           end if
        end select
     else
-       layer%pool_x = 2
-       layer%pool_y = 2
+       layer%pool = 2
     end if
 
 
@@ -117,19 +115,17 @@ contains
     if(present(stride))then
        select rank(stride)
        rank(0)
-          layer%stride_x = stride
-          layer%stride_y = stride
+          layer%strd = stride
        rank(1)
-          layer%stride_x = stride(1)
+          layer%strd(1) = stride(1)
           if(size(stride,dim=1).eq.1)then
-             layer%stride_y = stride(1)
+             layer%strd(2) = stride(1)
           elseif(size(stride,dim=1).eq.2)then
-             layer%stride_y = stride(2)
+             layer%strd(2) = stride(2)
           end if
        end select
     else
-       layer%stride_x = 2
-       layer%stride_y = 2
+       layer%strd = 2
     end if
 
 
@@ -137,16 +133,23 @@ contains
     !! set up number of channels, width, height
     !!-----------------------------------------------------------------------
     layer%num_channels = input_shape(3)
-    layer%width  = floor( (input_shape(2)-layer%pool_y)/real(layer%stride_y) ) + 1
-    layer%height = floor( (input_shape(1)-layer%pool_x)/real(layer%stride_x) ) + 1
-
+    layer%input_shape  = input_shape(:3)
+    allocate(layer%output_shape(3))
+    layer%output_shape(:2) = &
+         floor( (input_shape(:2)-layer%pool)/real(layer%strd)) + 1
+    layer%output_shape(3) = input_shape(3)
+    
 
     !!-----------------------------------------------------------------------
     !! allocate output and gradients
     !!-----------------------------------------------------------------------
-    allocate(layer%output(layer%height,layer%width,layer%num_channels), &
+    allocate(layer%output(&
+         layer%output_shape(1),&
+         layer%output_shape(2),layer%num_channels), &
          source=0._real12)
-    allocate(layer%di(input_shape(1), input_shape(2), input_shape(3)), &
+    allocate(layer%di(&
+         input_shape(1),&
+         input_shape(2), input_shape(3)), &
          source=0._real12)
 
   end function layer_setup
@@ -160,22 +163,21 @@ contains
     class(maxpool2d_layer_type), intent(inout) :: this
     real(real12), dimension(:,:,:), intent(in) :: input
 
-    integer :: i, j, m, istride, jstride
+    integer :: i, j, m
+    integer, dimension(2) :: stride_idx
 
     
     this%output = 0._real12
     !! perform the pooling operation
-    do m = 1, this%num_channels
-       do j = 1, this%width
-          jstride = (j-1)*this%stride_y+1
-          do i = 1, this%height
-             istride = (i-1)*this%stride_x+1
-             this%output(i, j, m) = maxval(&
-                  input(&
-                  istride:istride+this%pool_x-1, &
-                  jstride:jstride+this%pool_y-1, m))
-          end do
-       end do
+    do concurrent(&
+         m = 1:this%num_channels,&
+         j = 1:this%output_shape(2),&
+         i = 1:this%output_shape(1))
+       stride_idx = ([i,j] - 1) * this%strd + 1
+       this%output(i, j, m) = maxval(&
+            input(&
+            stride_idx(1):stride_idx(1)+this%pool(1)-1, &
+            stride_idx(2):stride_idx(2)+this%pool(2)-1, m))
     end do
 
   end subroutine forward_3d
@@ -188,33 +190,33 @@ contains
     implicit none
     class(maxpool2d_layer_type), intent(inout) :: this
     real(real12), dimension(:,:,:), intent(in) :: input
-    real(real12), dimension(&
-         this%height,this%width,this%num_channels), intent(in) :: gradient !was output_gradients
-    !! NOTE, gradient is di, not dw
+    real(real12), &
+         dimension(&
+         this%output_shape(1),&
+         this%output_shape(2),this%num_channels), &
+         intent(in) :: gradient
 
-    integer :: i, j, m, istride, jstride
-    integer, dimension(2) :: max_index
+    integer :: i, j, m
+    integer, dimension(2) :: stride_idx, max_idx
 
 
     this%di = 0._real12
     !! compute gradients for input feature map
-    do m = 1, this%num_channels
-       do j = 1, this%width
-          jstride = (j-1)*this%stride_y
-          do i = 1, this%height
-             istride = (i-1)*this%stride_x
-             !! find the index of the maximum value in the corresponding pooling window
-             max_index = maxloc(input(&
-                  istride+1:istride+this%pool_x, &
-                  jstride+1:jstride+this%pool_y, m))
+    do concurrent(&
+         m = 1:this%num_channels,&
+         j = 1:this%output_shape(2),&
+         i = 1:this%output_shape(1))
+       stride_idx = ([i,j] - 1) * this%strd
+       !! find the index of the maximum value in the corresponding pooling window
+       max_idx = maxloc(input(&
+            stride_idx(1)+1:stride_idx(1)+this%pool(1), &
+            stride_idx(2)+1:stride_idx(2)+this%pool(2), m))
 
-             !! compute gradients for input feature map
-             this%di(&
-                  istride+max_index(1), &
-                  jstride+max_index(2), m) = gradient(i, j, m)
+       !! compute gradients for input feature map
+       this%di(&
+            stride_idx(1)+max_idx(1), &
+            stride_idx(2)+max_idx(2), m) = gradient(i, j, m)
 
-          end do
-       end do
     end do
 
   end subroutine backward_3d
