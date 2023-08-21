@@ -140,7 +140,7 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
   write(6,*) "Initialising CNN..."
   !! Initialise the convolution layer
-  network%num_layers = 6
+  network%num_layers = 4
   allocate(network%model(network%num_layers))
   
   !!allocate(network%model(1)%layer, source = input3d_layer_type(&
@@ -171,35 +171,44 @@ program ConvolutionalNeuralNetwork
   !!     bias_initialiser="glorot_uniform" &
   !!     ))
   
+  i = 0
   write(*,*) "TEMPORARY! I have had to set dimension 3 width to 3, &
    &to account for padding that I haven't set up for that dimension for the kernel width"
-  allocate(network%model(1)%layer, source = input4d_layer_type(&
-       input_shape = [size(input_images,1),size(input_images,2),1,input_channels]))
-  allocate(network%model(2)%layer, source = conv3d_layer_type( &
+!   i = i + 1
+!   allocate(network%model(i)%layer, source = input4d_layer_type(&
+!        input_shape = [size(input_images,1),size(input_images,2),1,input_channels]))
+   i = i + 1
+  allocate(network%model(i)%layer, source = conv3d_layer_type( &
        input_shape = [image_size,image_size,1,input_channels], &
        num_filters = cv_num_filters, kernel_size = [3,3,1], stride = 1, &
        padding=padding_method, &
        calc_input_gradients = .false., &
        activation_function = "relu", clip_dict = cv_clip))
-  allocate(network%model(3)%layer, source = maxpool3d_layer_type(&
+   i = i + 1
+  allocate(network%model(i)%layer, source = maxpool3d_layer_type(&
        input_shape=[28,28,1,cv_num_filters], &
        pool_size=[2,2,1], stride=[2,2,1]))
-  allocate(network%model(4)%layer, source = flatten3d_layer_type(&
-       input_shape=[14,14,1,cv_num_filters]))
-  allocate(network%model(5)%layer, source = full_layer_type( &
+!    i = i + 1
+!   allocate(network%model(i)%layer, source = flatten3d_layer_type(&
+!        input_shape=[14,14,1,cv_num_filters]))
+   i = i + 1
+  allocate(network%model(i)%layer, source = full_layer_type( &
        num_inputs=product([14,14,1,cv_num_filters]), &
        num_outputs=100, clip_dict = fc_clip, &
        activation_function = "relu", &
        kernel_initialiser="he_uniform", &
        bias_initialiser="he_uniform" &
        ))
-  allocate(network%model(6)%layer, source = full_layer_type( &
+   i = i + 1
+  allocate(network%model(i)%layer, source = full_layer_type( &
        num_inputs=100, &
        num_outputs=10, clip_dict = fc_clip,&
        activation_function="softmax", &
        kernel_initialiser="glorot_uniform", &
        bias_initialiser="glorot_uniform" &
        ))
+
+!!! MAKE AN ADD_LAYER PROCEDURE TO THE NETWORK TYPE
 
   call network%compile(optimiser=optimiser, loss=loss_method, metrics=metric_dict)
   input_spread = spread(input_images,3,1)
