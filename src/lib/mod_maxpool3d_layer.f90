@@ -19,8 +19,8 @@ module maxpool3d_layer
    contains
      procedure :: forward  => forward_rank
      procedure :: backward => backward_rank
-     procedure :: forward_4d
-     procedure :: backward_4d
+     procedure, private :: forward_4d
+     procedure, private :: backward_4d
   end type maxpool3d_layer_type
 
   
@@ -193,10 +193,12 @@ contains
     implicit none
     class(maxpool3d_layer_type), intent(inout) :: this
     real(real12), dimension(:,:,:,:), intent(in) :: input
-    real(real12), dimension(&
+    real(real12), &
+         dimension(&
          this%output_shape(1),&
          this%output_shape(2),&
-         this%output_shape(3),this%num_channels), intent(in) :: gradient
+         this%output_shape(3),this%num_channels), &
+         intent(in) :: gradient
 
     integer :: i, j, k, m
     integer, dimension(3) :: stride_idx, max_idx
