@@ -17,11 +17,14 @@ module network
   use base_layer,      only: learnable_layer_type
   use container_layer, only: container_layer_type
   use input3d_layer,   only: input3d_layer_type
-  use full_layer,      only: full_layer_type
+  use input4d_layer,   only: input4d_layer_type
   use conv2d_layer,    only: conv2d_layer_type
+  use conv3d_layer,    only: conv3d_layer_type
   use maxpool2d_layer, only: maxpool2d_layer_type
+  use maxpool3d_layer, only: maxpool3d_layer_type
   use flatten2d_layer, only: flatten2d_layer_type
   use flatten3d_layer, only: flatten3d_layer_type
+  use full_layer,      only: full_layer_type
 
   implicit none
 
@@ -98,6 +101,8 @@ contains
     !! Forward pass (first layer)
     !!--------------------------------------------------------------------------
     select type(current => this%model(1)%layer)
+    type is(input4d_layer_type)
+       call current%init(input)
     type is(input3d_layer_type)
        call current%init(input)
     end select
@@ -138,13 +143,20 @@ contains
        select type(next => this%model(i+1)%layer)
        type is(conv2d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
+       type is(conv3d_layer_type)
+          call this%model(i)%backward(this%model(i-1),next%di)
+
        type is(maxpool2d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
-       type is(full_layer_type)
+       type is(maxpool3d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
+
        type is(flatten2d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
        type is(flatten3d_layer_type)
+          call this%model(i)%backward(this%model(i-1),next%di)
+
+       type is(full_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
        end select
     end do
@@ -386,13 +398,13 @@ contains
           
           
 !!! TESTING
-          if(batch.gt.200)then
-             time_old = time
-             call system_clock(time)
-             !write(*,'("time check: ",I0," seconds")') (time-time_old)/clock_rate
-             write(*,'("time check: ",F8.3," seconds")') real(time-time_old)/clock_rate
-             stop "THIS IS FOR TESTING PURPOSES"
-          end if
+           if(batch.gt.200)then
+              time_old = time
+              call system_clock(time)
+              !write(*,'("time check: ",I0," seconds")') (time-time_old)/clock_rate
+              write(*,'("time check: ",F8.3," seconds")') real(time-time_old)/clock_rate
+              stop "THIS IS FOR TESTING PURPOSES"
+           end if
 !!!
 
 
