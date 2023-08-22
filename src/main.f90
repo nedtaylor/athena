@@ -138,49 +138,55 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
 !!! initialise convolutional and pooling layers
 !!!-----------------------------------------------------------------------------
-  write(6,*) "Initialising CNN..."
+  if(restart)then
+   write(*,*) "Reading network from file..."
+     call network%read(file=input_file)
+     write(*,*) "Reading finished"
+  else
+     write(6,*) "Initialising CNN..."
 
-  call network%add(conv2d_layer_type( &
-       input_shape = [image_size,image_size,input_channels], &
-       num_filters = cv_num_filters, kernel_size = 3, stride = 1, &
-       padding=padding_method, &
-       calc_input_gradients = .false., &
-       activation_function = "relu", clip_dict = cv_clip))
-  call network%add(maxpool2d_layer_type(&
-       pool_size = 2, stride = 2))
-  call network%add(full_layer_type( &
-       num_outputs = 100, clip_dict = fc_clip, &
-       activation_function = "relu", &
-       kernel_initialiser = "he_uniform", &
-       bias_initialiser = "he_uniform" &
-       ))
-  call network%add(full_layer_type( &
-       num_outputs = 10, clip_dict = fc_clip,&
-       activation_function = "softmax", &
-       kernel_initialiser = "glorot_uniform", &
-       bias_initialiser = "glorot_uniform" &
-       ))
+     call network%add(conv2d_layer_type( &
+           input_shape = [image_size,image_size,input_channels], &
+           num_filters = cv_num_filters, kernel_size = 3, stride = 1, &
+           padding=padding_method, &
+           calc_input_gradients = .false., &
+           activation_function = "relu", clip_dict = cv_clip))
+     call network%add(maxpool2d_layer_type(&
+           pool_size = 2, stride = 2))
+     call network%add(full_layer_type( &
+           num_outputs = 100, clip_dict = fc_clip, &
+           activation_function = "relu", &
+           kernel_initialiser = "he_uniform", &
+           bias_initialiser = "he_uniform" &
+           ))
+     call network%add(full_layer_type( &
+           num_outputs = 10, clip_dict = fc_clip,&
+           activation_function = "softmax", &
+           kernel_initialiser = "glorot_uniform", &
+           bias_initialiser = "glorot_uniform" &
+           ))
 
-  !!call network%add(conv3d_layer_type( &
-  !!     input_shape = [image_size,image_size,1,input_channels], &
-  !!     num_filters = cv_num_filters, kernel_size = [3,3,1], stride = 1, &
-  !!     padding = padding_method, &
-  !!     calc_input_gradients = .false., &
-  !!     activation_function = "relu", clip_dict = cv_clip))
-  !!call network%add(maxpool3d_layer_type(&
-  !!     pool_size = [2,2,1], stride = [2,2,1]))
-  !!call network%add(full_layer_type( &
-  !!     num_outputs = 100, clip_dict = fc_clip, &
-  !!     activation_function = "relu", &
-  !!     kernel_initialiser = "he_uniform", &
-  !!     bias_initialiser = "he_uniform" &
-  !!     ))
-  !!call network%add(full_layer_type( &
-  !!     num_outputs = 10, clip_dict = fc_clip,&
-  !!     activation_function = "softmax", &
-  !!     kernel_initialiser = "glorot_uniform", &
-  !!     bias_initialiser = "glorot_uniform" &
-  !!     ))
+     !!call network%add(conv3d_layer_type( &
+     !!     input_shape = [image_size,image_size,1,input_channels], &
+     !!     num_filters = cv_num_filters, kernel_size = [3,3,1], stride = 1, &
+     !!     padding = padding_method, &
+     !!     calc_input_gradients = .false., &
+     !!     activation_function = "relu", clip_dict = cv_clip))
+     !!call network%add(maxpool3d_layer_type(&
+     !!     pool_size = [2,2,1], stride = [2,2,1]))
+     !!call network%add(full_layer_type( &
+     !!     num_outputs = 100, clip_dict = fc_clip, &
+     !!     activation_function = "relu", &
+     !!     kernel_initialiser = "he_uniform", &
+     !!     bias_initialiser = "he_uniform" &
+     !!     ))
+     !!call network%add(full_layer_type( &
+     !!     num_outputs = 10, clip_dict = fc_clip,&
+     !!     activation_function = "softmax", &
+     !!     kernel_initialiser = "glorot_uniform", &
+     !!     bias_initialiser = "glorot_uniform" &
+     !!     ))
+  end if
 
   call network%compile(optimiser=optimiser, loss=loss_method, metrics=metric_dict)
   input_spread = spread(input_images,3,1)
@@ -188,19 +194,7 @@ program ConvolutionalNeuralNetwork
   write(*,*) "NUMBER OF LAYERS",network%num_layers
 
 
-  !  if(restart)then
-  !     call cv_init(file = input_file, &
-  !          learning_parameters=learning_parameters)
-  !  else
-  !     call cv_init(seed, num_layers = cv_num_filters, &
-  !          kernel_size = cv_kernel_size, stride = cv_stride, &
-  !          full_padding = trim(padding_method).eq."full",&
-  !          learning_parameters=learning_parameters,&
-  !          kernel_initialiser=cv_kernel_initialiser,&
-  !          bias_initialiser=cv_bias_initialiser,&
-  !          activation_scale=cv_activation_scale,&
-  !          activation_function=cv_activation_function)
-  !  end if
+
 
 
 !!!!-----------------------------------------------------------------------------
