@@ -282,6 +282,17 @@ contains
 
 
 !!!-----------------------------------------------------------------------------
+!!! ignore calcuation of input gradients for 1st non-input layer
+!!!-----------------------------------------------------------------------------
+    select type(second => this%model(2)%layer)
+    type is(conv2d_layer_type)
+       this%model(2)%layer%calc_input_gradients = .false.
+    type is(conv3d_layer_type)
+       this%model(2)%layer%calc_input_gradients = .false.
+    end select
+
+
+!!!-----------------------------------------------------------------------------
 !!! initialise layers
 !!!-----------------------------------------------------------------------------
     do i=2,size(this%model,dim=1)
@@ -698,6 +709,7 @@ contains
               call system_clock(time)
               !write(*,'("time check: ",I0," seconds")') (time-time_old)/clock_rate
               write(*,'("time check: ",F8.3," seconds")') real(time-time_old)/clock_rate
+              return
               stop "THIS IS FOR TESTING PURPOSES"
            end if
 !!!
