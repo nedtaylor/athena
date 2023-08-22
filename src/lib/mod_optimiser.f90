@@ -7,9 +7,9 @@ module optimiser
   use constants, only: real12
   implicit none
 
-!!!------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
 !!! learning parameter type
-!!!------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
 !!! MAKE THIS AN ABSTRACT TYPE WITH EXTENDED DERIVED TYPES FOR ADAM AND MOMENTUM
 !!! THEN MAKE REGULARISATION A SUBTYPE
 !!! NO, DON'T MAKE IT AN ABSTRACT TYPE, JUST MAKE IT A TYPE THAT HAS DERIVED TYPES FROM IT
@@ -49,9 +49,9 @@ module optimiser
 
 contains
 
-!!!########################################################################
+!!!#############################################################################
 !!! 
-!!!########################################################################
+!!!#############################################################################
   elemental subroutine optimise(this, weight, weight_incr, &
        gradient, m, v)
     implicit none
@@ -116,14 +116,14 @@ contains
 
 
   end subroutine optimise
-!!!########################################################################
+!!!#############################################################################
 
 
-!!!!########################################################################
+!!!!############################################################################
 !!!! adaptive learning rate
 !!!! method: adam optimiser
 !!!!         ... Adaptive Moment Estimation
-!!!!########################################################################
+!!!!############################################################################
 !!!! learning_rate = initial learning rate hyperparameter
 !!!! beta1 = exponential decay rate for first-moment estimates
 !!!! beta2 = exponential decay rate for second-moment estimates
@@ -157,7 +157,7 @@ contains
 !    learning_rate = learning_rate * m_norm / (sqrt(v_norm) + this%epsilon)
 !
 !  end subroutine adam
-!!!!########################################################################
+!!!!############################################################################
 
   
   
