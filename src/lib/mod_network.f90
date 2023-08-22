@@ -19,6 +19,7 @@ module network
   use container_layer, only: container_layer_type
 
   !! input layer types
+  use input1d_layer,   only: input1d_layer_type
   use input3d_layer,   only: input3d_layer_type
   use input4d_layer,   only: input4d_layer_type
 
@@ -238,78 +239,102 @@ contains
 
 
 !!!-----------------------------------------------------------------------------
-!!! check for required layers
+!!! check for input layer
 !!!-----------------------------------------------------------------------------
-    i = 0
+    if(.not.allocated(this%model(1)%layer%input_shape))then
+       stop "ERROR: input_shape of first layer not defined"
+    end if
+    select type(first => this%model(1)%layer)
+    class is(input_layer_type)
+    class default
+       this%model = [&
+            container_layer_type(name="inpt"),&
+            this%model(1:)&
+            ]
+       associate(next => this%model(2)%layer)
+         select case(size(next%input_shape,dim=1))
+         case(1)
+            allocate(this%model(1)%layer, source=&
+                 input1d_layer_type(input_shape=next%input_shape))
+         case(3)
+            select type(next)
+            type is(conv2d_layer_type)
+               allocate(this%model(1)%layer, source=&
+                    input3d_layer_type(input_shape=next%input_shape+&
+                    [2*next%pad,0]))
+            class default
+               allocate(this%model(1)%layer, source=&
+                    input3d_layer_type(input_shape=next%input_shape))
+            end select
+         case(4)
+            select type(next)
+            type is(conv3d_layer_type)
+               allocate(this%model(1)%layer, source=&
+                    input4d_layer_type(input_shape=next%input_shape+&
+                    [2*next%pad,0]))
+            class default
+               allocate(this%model(1)%layer, source=&
+                    input4d_layer_type(input_shape=next%input_shape))
+            end select
+         end select
+       end associate
+    end select
+
+
+!!!-----------------------------------------------------------------------------
+!!! initialise layers
+!!!-----------------------------------------------------------------------------
+    do i=2,size(this%model,dim=1)
+       if(.not.allocated(this%model(i)%layer%input_shape)) &
+            call this%model(i)%layer%init(this%model(i-1)%layer%output_shape)
+       write(*,*) this%model(i-1)%layer%output_shape
+       write(*,*) this%model(i)%layer%input_shape
+       write(*,*) this%model(i)%layer%output_shape
+       write(*,*)
+    end do
+
+
+!!!-----------------------------------------------------------------------------
+!!! check for required reshape layers
+!!!-----------------------------------------------------------------------------
+    i = 1 !! starting for layer 2
     layer_loop: do
        if(i.ge.size(this%model,dim=1)) exit layer_loop
        i = i + 1
     
-       input_layer_check: if(i.eq.1)then
-          select type(first => this%model(1)%layer)
-          class is(input_layer_type)
-             cycle layer_loop
-          class default
-             this%model = [&
-                  container_layer_type(name="inpt"),&
-                  this%model(1:)&
-                  ]
-             associate(next => this%model(2)%layer)
-               select case(size(next%input_shape,dim=1))
-               case(3)
-                  select type(next)
-                  type is(conv2d_layer_type)
-                     allocate(this%model(1)%layer, source=&
-                           input3d_layer_type(input_shape=next%input_shape+&
-                           [2*next%pad,0]))  
-                  class default
-                     allocate(this%model(1)%layer, source=&
-                           input3d_layer_type(input_shape=next%input_shape))
-                  end select
-               case(4)
-                  select type(next)
-                  type is(conv3d_layer_type)
-                     allocate(this%model(1)%layer, source=&
-                           input4d_layer_type(input_shape=next%input_shape+&
-                           [2*next%pad,0]))
-                  class default
-                     allocate(this%model(1)%layer, source=&
-                           input4d_layer_type(input_shape=next%input_shape))
-                  end select
-               end select
-             end associate
-             cycle layer_loop
-          end select
-       end if input_layer_check
-    
        flatten_layer_check: if(i.lt.size(this%model,dim=1))then
-          if(size(this%model(i+1)%layer%input_shape).ne.&
-               size(this%model(i)%layer%output_shape))then
-                
-             select type(current => this%model(i)%layer)
-             type is(flatten2d_layer_type)
-                cycle layer_loop
-             type is(flatten3d_layer_type)
-                cycle layer_loop
-             class default
-                this%model = [&
-                     this%model(1:i),&
-                     container_layer_type(name="flat"),&
-                     this%model(i+1:size(this%model))&
-                     ]
-                select case(size(this%model(i)%layer%output_shape))
-                case(3)
-                   allocate(this%model(i+1)%layer, source=&
-                        flatten2d_layer_type(input_shape=&
-                        this%model(i)%layer%output_shape))
-                case(4)
-                   allocate(this%model(i+1)%layer, source=&
-                        flatten3d_layer_type(input_shape=&
-                        this%model(i)%layer%output_shape))
+          if(allocated(this%model(i+1)%layer%input_shape).and.&
+               allocated(this%model(i)%layer%output_shape))then
+             if(size(this%model(i+1)%layer%input_shape).ne.&
+                  size(this%model(i)%layer%output_shape))then
+
+                select type(current => this%model(i)%layer)
+                type is(flatten2d_layer_type)
+                   cycle layer_loop
+                type is(flatten3d_layer_type)
+                   cycle layer_loop
+                   class default
+                   this%model = [&
+                        this%model(1:i),&
+                        container_layer_type(name="flat"),&
+                        this%model(i+1:size(this%model))&
+                        ]
+                   select case(size(this%model(i)%layer%output_shape))
+                   case(3)
+                      allocate(this%model(i+1)%layer, source=&
+                           flatten2d_layer_type(input_shape=&
+                           this%model(i)%layer%output_shape))
+                   case(4)
+                      allocate(this%model(i+1)%layer, source=&
+                           flatten3d_layer_type(input_shape=&
+                           this%model(i)%layer%output_shape))
+                   end select
+                   i = i + 1
+                   cycle layer_loop
                 end select
-                i = i + 1
-                cycle layer_loop
-             end select
+             end if
+          else
+             
           end if
        end if flatten_layer_check
     
@@ -318,7 +343,8 @@ contains
     !! update number of layers
     !!--------------------------------------------------------------------------
     this%num_layers = i
-    
+
+
     !! set number of outputs
     !!--------------------------------------------------------------------------
     this%num_outputs = product(this%model(this%num_layers)%layer%output_shape)
@@ -367,7 +393,7 @@ contains
     !!--------------------------------------------------------------------------
     select type(current => this%model(1)%layer)
     class is(input_layer_type)
-       call current%init(input)
+       call current%set(input)
     end select
 
     !! Forward pass
