@@ -14,7 +14,8 @@ module network
        comp_loss_func => compute_loss_function, &
        comp_loss_deriv => compute_loss_derivative
 
-  use base_layer,      only: input_layer_type, learnable_layer_type
+  use base_layer,      only: base_layer_type, &
+       input_layer_type, learnable_layer_type
   use container_layer, only: container_layer_type
 
   !! input layer types
@@ -48,10 +49,11 @@ module network
      procedure(comp_loss_func), nopass, pointer :: get_loss => null()
      procedure(comp_loss_deriv), nopass, pointer :: get_loss_deriv => null()
    contains
+     procedure, pass(this) :: add
+     procedure, pass(this) :: compile
      procedure, pass(this) :: train
      procedure, pass(this) :: test
      procedure, pass(this) :: update
-     procedure, pass(this) :: compile
 
      procedure, pass(this) :: forward => forward_1d    !! TEMPORARY
      procedure, pass(this) :: backward => backward_1d  !! TEMPORARY
@@ -69,6 +71,48 @@ module network
 
 
 contains
+
+!!!#############################################################################
+!!! append layer to network
+!!!#############################################################################
+  subroutine add(this, layer)
+    implicit none
+    class(network_type), intent(inout) :: this
+    class(base_layer_type), intent(in) :: layer
+    
+    character(4) :: name
+    
+    select type(layer)
+    class is(input_layer_type)
+       name = "inpt"
+    type is(conv2d_layer_type)
+       name = "conv"
+    type is(conv3d_layer_type)
+       name = "conv"
+    type is(flatten2d_layer_type)
+       name = "flat"
+    type is(flatten3d_layer_type)
+       name = "flat"
+    type is(maxpool2d_layer_type)
+       name = "pool"
+    type is(maxpool3d_layer_type)
+       name = "pool"
+    type is(full_layer_type)
+       name = "full"
+    class default
+       name = "unkw"
+    end select
+    
+    if(.not.allocated(this%model))then
+       this%model = [container_layer_type(name=name)]
+    else
+       this%model = [this%model(1:), container_layer_type(name=name)]
+    end if
+    allocate(this%model(size(this%model,dim=1))%layer, source=layer)
+       
+  end subroutine add
+!!!#############################################################################
+
 
 !!!#############################################################################
 !!! set up network
@@ -205,7 +249,7 @@ contains
                   type is(conv3d_layer_type)
                      allocate(this%model(1)%layer, source=&
                            input4d_layer_type(input_shape=next%input_shape+&
-                           [2*next%pad,0]))  
+                           [2*next%pad,0]))
                   class default
                      allocate(this%model(1)%layer, source=&
                            input4d_layer_type(input_shape=next%input_shape))
