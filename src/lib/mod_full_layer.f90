@@ -104,6 +104,7 @@ contains
        kernel_initialiser, bias_initialiser, &
        clip_dict, clip_min, clip_max, clip_norm) result(layer)
     use activation,  only: activation_setup
+    use initialiser, only: get_default_initialiser
     implicit none
     integer, intent(in) :: num_outputs
     integer, optional, intent(in) :: num_inputs
@@ -166,18 +167,15 @@ contains
     !!--------------------------------------------------------------------------
     if(present(kernel_initialiser))then
        layer%kernel_initialiser = kernel_initialiser
-    elseif(trim(t_activation_function).eq."selu")then
-       layer%kernel_initialiser = "lecun_normal"
-    elseif(index(t_activation_function,"elu").ne.0)then
-       layer%kernel_initialiser = "he_uniform"
     else
-       layer%kernel_initialiser = "glorot_uniform"
+       layer%kernel_initialiser = get_default_initialiser(t_activation_function)
     end if
     write(*,'("FC kernel initialiser: ",A)') trim(layer%kernel_initialiser)
     if(present(bias_initialiser))then
        layer%bias_initialiser = bias_initialiser
     else
-       layer%bias_initialiser= "zeros"
+       layer%kernel_initialiser = get_default_initialiser(&
+            t_activation_function, is_bias=.true.)       
     end if
     write(*,'("FC bias initialiser: ",A)') trim(layer%bias_initialiser)
 

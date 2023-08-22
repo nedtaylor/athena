@@ -119,6 +119,7 @@ contains
     !! add in dilation
     !! add in padding handler
     use activation,  only: activation_setup
+    use initialiser, only: get_default_initialiser
     use misc_ml, only: set_padding
     implicit none
     integer, dimension(:), optional, intent(in) :: input_shape
@@ -262,18 +263,15 @@ contains
     !!--------------------------------------------------------------------------
     if(present(kernel_initialiser))then
        layer%kernel_initialiser = kernel_initialiser
-    elseif(trim(t_activation_function).eq."selu")then
-       layer%kernel_initialiser = "lecun_normal"
-    elseif(index(t_activation_function,"elu").ne.0)then
-       layer%kernel_initialiser = "he_uniform"
     else
-       layer%kernel_initialiser = "glorot_uniform"
+       layer%kernel_initialiser = get_default_initialiser(t_activation_function)
     end if
     write(*,'("CV kernel initialiser: ",A)') trim(layer%kernel_initialiser)
     if(present(bias_initialiser))then
        layer%bias_initialiser = bias_initialiser
     else
-       layer%bias_initialiser= "zeros"
+       layer%kernel_initialiser = get_default_initialiser(&
+            t_activation_function, is_bias=.true.)       
     end if
     write(*,'("CV bias initialiser: ",A)') trim(layer%bias_initialiser)
 
