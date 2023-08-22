@@ -286,9 +286,9 @@ contains
 !!!-----------------------------------------------------------------------------
     select type(second => this%model(2)%layer)
     type is(conv2d_layer_type)
-       this%model(2)%layer%calc_input_gradients = .false.
+       second%calc_input_gradients = .false.
     type is(conv3d_layer_type)
-       this%model(2)%layer%calc_input_gradients = .false.
+       second%calc_input_gradients = .false.
     end select
 
 
