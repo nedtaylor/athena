@@ -14,6 +14,7 @@ module base_layer
   type, abstract :: base_layer_type !! give it parameterised values?
      integer, allocatable, dimension(:) :: input_shape, output_shape
    contains
+     procedure, pass(this) :: print => print_base
      !procedure(initialise), deferred, pass(this) :: init
      procedure(forward), deferred, pass(this) :: forward
      procedure(backward), deferred, pass(this) :: backward
@@ -96,6 +97,21 @@ module base_layer
   public :: input_layer_type
   public :: learnable_layer_type
 
+
+contains
+
+!!!#############################################################################
+!!! print layer to file (do nothing for a base layer)
+!!!#############################################################################
+  subroutine print_base(this, file)
+    implicit none
+    class(base_layer_type), intent(in) :: this
+    character(*), intent(in) :: file
+
+    !! NO NEED TO WRITE ANYTHING FOR A DEFAULT LAYER
+    return
+  end subroutine print_base
+!!!#############################################################################
 
 end module base_layer
 !!!#############################################################################
