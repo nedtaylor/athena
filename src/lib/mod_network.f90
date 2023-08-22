@@ -258,7 +258,7 @@ contains
                select case(size(next%input_shape,dim=1))
                case(3)
                   select type(next)
-                  type is(conv3d_layer_type)
+                  type is(conv2d_layer_type)
                      allocate(this%model(1)%layer, source=&
                            input3d_layer_type(input_shape=next%input_shape+&
                            [2*next%pad,0]))  
