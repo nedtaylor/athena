@@ -112,8 +112,7 @@ contains
       read(unit,'(A)',iostat=stat) buffer
       if(stat.ne.0)then
          write(0,*) "ERROR: file hit error (EoF?) in network read"
-         write(0,*) "Exiting..."
-         stop
+         stop "Exiting..."
       end if
       if(trim(adjustl(buffer)).eq."") cycle card_loop
 
