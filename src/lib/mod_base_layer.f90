@@ -15,7 +15,7 @@ module base_layer
      integer, allocatable, dimension(:) :: input_shape, output_shape
    contains
      procedure, pass(this) :: print => print_base
-     !procedure(initialise), deferred, pass(this) :: init
+     procedure(initialise), deferred, pass(this) :: init
      procedure(forward), deferred, pass(this) :: forward
      procedure(backward), deferred, pass(this) :: backward
      !! NO NEED FOR DEFERRED PRODECURES
@@ -31,13 +31,13 @@ module base_layer
   end type base_layer_type
   !! is it a foward subroutine, or a function whose result is the output?
 
-  !abstract interface
-  !   subroutine initialise(this, input_shape)
-  !     import :: base_layer_type
-  !     class(base_layer_type), intent(inout) :: this
-  !     integer, dimension(:), intent(in) :: input_shape
-  !   end subroutine initialise
-  !end interface
+  abstract interface
+     subroutine initialise(this, input_shape)
+       import :: base_layer_type
+       class(base_layer_type), intent(inout) :: this
+       integer, dimension(:), intent(in) :: input_shape
+     end subroutine initialise
+  end interface
 
   abstract interface
      pure subroutine forward(this, input)
@@ -61,15 +61,15 @@ module base_layer
   type, abstract, extends(base_layer_type) :: input_layer_type
      integer :: num_outputs
    contains
-     procedure(init), deferred, pass(this) :: init
+     procedure(set), deferred, pass(this) :: set
   end type input_layer_type
 
   abstract interface
-     pure subroutine init(this, input)
+     pure subroutine set(this, input)
        import :: input_layer_type, real12
        class(input_layer_type), intent(inout) :: this
        real(real12), dimension(this%num_outputs), intent(in) :: input
-     end subroutine init
+     end subroutine set
   end interface
 
 
@@ -77,6 +77,7 @@ module base_layer
 !!! learnable derived extended type
 !!!-----------------------------------------------------------------------------
   type, abstract, extends(base_layer_type) :: learnable_layer_type
+     character(len=14) :: kernel_initialiser, bias_initialiser
    contains
      procedure(update), deferred, pass(this) :: update
   end type learnable_layer_type

@@ -17,6 +17,7 @@ module maxpool2d_layer
      real(real12), allocatable, dimension(:,:,:) :: output
      real(real12), allocatable, dimension(:,:,:) :: di ! gradient of input (i.e. delta)
    contains
+     procedure, pass(this) :: init => init_maxpool2d
      procedure, pass(this) :: print => print_maxpool2d
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
@@ -26,10 +27,10 @@ module maxpool2d_layer
 
   
   interface maxpool2d_layer_type
-     pure module function layer_setup( &
+     module function layer_setup( &
           input_shape, &
           pool_size, stride) result(layer)
-       integer, dimension(:), intent(in) :: input_shape
+       integer, dimension(:), optional, intent(in) :: input_shape
        integer, dimension(..), optional, intent(in) :: pool_size
        integer, dimension(..), optional, intent(in) :: stride
        type(maxpool2d_layer_type) :: layer
@@ -82,13 +83,13 @@ contains
 
 
 !!!#############################################################################
-!!! set up and initialise network layer
+!!! set up layer
 !!!#############################################################################
-  pure module function layer_setup( &
+  module function layer_setup( &
        input_shape, &
        pool_size, stride) result(layer)
     implicit none
-    integer, dimension(:), intent(in) :: input_shape
+    integer, dimension(:), optional, intent(in) :: input_shape
     integer, dimension(..), optional, intent(in) :: pool_size
     integer, dimension(..), optional, intent(in) :: stride
     
@@ -137,30 +138,57 @@ contains
     end if
 
 
+    !!--------------------------------------------------------------------------
+    !! initialise layer shape
+    !!--------------------------------------------------------------------------
+    if(present(input_shape)) call layer%init(input_shape=input_shape)
+
+  end function layer_setup
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! initialise layer
+!!!#############################################################################
+  subroutine init_maxpool2d(this, input_shape)
+    implicit none
+    class(maxpool2d_layer_type), intent(inout) :: this
+    integer, dimension(:), intent(in) :: input_shape
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise input shape
+    !!--------------------------------------------------------------------------
+    if(size(input_shape,dim=1).eq.3)then
+       this%input_shape = input_shape
+       this%num_channels = input_shape(3)
+    else
+       stop "ERROR: invalid size of input_shape in maxpool2d, expected (3)"
+    end if
+
+
     !!-----------------------------------------------------------------------
     !! set up number of channels, width, height
     !!-----------------------------------------------------------------------
-    layer%num_channels = input_shape(3)
-    layer%input_shape  = input_shape(:3)
-    allocate(layer%output_shape(3))
-    layer%output_shape(:2) = &
-         floor( (input_shape(:2)-layer%pool)/real(layer%strd)) + 1
-    layer%output_shape(3) = input_shape(3)
+    allocate(this%output_shape(3))
+    this%output_shape(3) = input_shape(3)
+    this%output_shape(:2) = &
+         floor( (input_shape(:2) - this%pool)/real(this%strd)) + 1
     
 
     !!-----------------------------------------------------------------------
     !! allocate output and gradients
     !!-----------------------------------------------------------------------
-    allocate(layer%output(&
-         layer%output_shape(1),&
-         layer%output_shape(2),layer%num_channels), &
+    allocate(this%output(&
+         this%output_shape(1),&
+         this%output_shape(2), this%num_channels), &
          source=0._real12)
-    allocate(layer%di(&
+    allocate(this%di(&
          input_shape(1),&
          input_shape(2), input_shape(3)), &
          source=0._real12)
 
-  end function layer_setup
+  end subroutine init_maxpool2d
 !!!#############################################################################
 
 

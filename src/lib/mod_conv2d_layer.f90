@@ -30,6 +30,7 @@ module conv2d_layer
      real(real12), allocatable, dimension(:,:,:) :: di ! input gradient
      class(activation_type), allocatable :: transfer
    contains
+     procedure, pass(this) :: init => init_conv2d
      procedure, pass(this) :: print => print_conv2d
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
@@ -48,7 +49,7 @@ module conv2d_layer
           num_filters, kernel_size, stride, padding, &
           activation_function, activation_scale, &
           kernel_initialiser, bias_initialiser) result(layer)
-       integer, dimension(:), intent(in) :: input_shape
+       integer, dimension(:), optional, intent(in) :: input_shape
        integer, optional, intent(in) :: num_filters
        integer, dimension(..), optional, intent(in) :: kernel_size
        integer, dimension(..), optional, intent(in) :: stride
@@ -105,7 +106,7 @@ contains
 
 
 !!!#############################################################################
-!!! set up and initialise network layer
+!!! set up layer
 !!!#############################################################################
   module function layer_setup( &
        input_shape, &
@@ -118,10 +119,9 @@ contains
     !! add in dilation
     !! add in padding handler
     use activation,  only: activation_setup
-    use initialiser, only: initialiser_setup
     use misc_ml, only: set_padding
     implicit none
-    integer, dimension(:), intent(in) :: input_shape
+    integer, dimension(:), optional, intent(in) :: input_shape
     integer, optional, intent(in) :: num_filters
     integer, dimension(..), optional, intent(in) :: kernel_size
     integer, dimension(..), optional, intent(in) :: stride
@@ -138,9 +138,6 @@ contains
     real(real12) :: scale
     character(len=10) :: t_activation_function, initialiser_name
     character(len=20) :: t_padding
-    class(initialiser_type), allocatable :: initialiser
-
-    integer, dimension(2) :: end_idx
 
 
     !!--------------------------------------------------------------------------
@@ -261,85 +258,122 @@ contains
 
 
     !!--------------------------------------------------------------------------
+    !! define weights (kernels) and biases initialisers
+    !!--------------------------------------------------------------------------
+    if(present(kernel_initialiser))then
+       layer%kernel_initialiser = kernel_initialiser
+    elseif(trim(t_activation_function).eq."selu")then
+       layer%kernel_initialiser = "lecun_normal"
+    elseif(index(t_activation_function,"elu").ne.0)then
+       layer%kernel_initialiser = "he_uniform"
+    else
+       layer%kernel_initialiser = "glorot_uniform"
+    end if
+    write(*,'("CV kernel initialiser: ",A)') trim(layer%kernel_initialiser)
+    if(present(bias_initialiser))then
+       layer%bias_initialiser = bias_initialiser
+    else
+       layer%bias_initialiser= "zeros"
+    end if
+    write(*,'("CV bias initialiser: ",A)') trim(layer%bias_initialiser)
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise layer shape
+    !!--------------------------------------------------------------------------
+    if(present(input_shape)) call layer%init(input_shape=input_shape)
+
+  end function layer_setup
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! initialise layer
+!!!#############################################################################
+  subroutine init_conv2d(this, input_shape)
+    use initialiser, only: initialiser_setup
+    implicit none
+    class(conv2d_layer_type), intent(inout) :: this
+    integer, dimension(:), intent(in) :: input_shape
+
+    integer, dimension(2) :: end_idx
+    class(initialiser_type), allocatable :: initialiser
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise input shape
+    !!--------------------------------------------------------------------------
+    if(size(input_shape,dim=1).eq.3)then
+       this%input_shape = input_shape
+       this%num_channels = input_shape(3)
+    else
+       stop "ERROR: invalid size of input_shape in conv2d, expected (3)"
+    end if
+
+
+    !!--------------------------------------------------------------------------
     !! allocate output, activation, bias, and weight shapes
     !!--------------------------------------------------------------------------
     !! NOTE: INPUT SHAPE DOES NOT INCLUDE PADDING WIDTH
     !! THIS IS HANDLED AUTOMATICALLY BY THE CODE
     !! ... provide the initial input data shape and let us deal with the padding
-    layer%num_channels = input_shape(3)
-    layer%input_shape  = input_shape(:3)
-    allocate(layer%output_shape(3))
-    layer%output_shape(3) = input_shape(3)
-    layer%output_shape(:2) = floor(&
-         (input_shape(:2) + 2.0 * layer%pad - layer%knl)/real(layer%stp) ) + 1
+    allocate(this%output_shape(3))
+    this%output_shape(3) = this%num_filters
+    this%output_shape(:2) = floor(&
+         (input_shape(:2) + 2.0 * this%pad - this%knl)/real(this%stp) ) + 1
 
-    allocate(layer%output(&
-         layer%output_shape(1),layer%output_shape(2),&
-         layer%num_filters))
-    allocate(layer%z, mold=layer%output)
-    layer%z = 0._real12
+    allocate(this%output(&
+         this%output_shape(1),this%output_shape(2),&
+         this%num_filters))
+    allocate(this%z, mold=this%output)
+    this%z = 0._real12
 
-    allocate(layer%bias(layer%num_filters))
+    allocate(this%bias(this%num_filters))
 
-    end_idx   = layer%hlf + (layer%cen - 1)
-    allocate(layer%weight(&
-         -layer%hlf(1):end_idx(1),&
-         -layer%hlf(2):end_idx(2),&
-         layer%num_channels,layer%num_filters))
+    end_idx   = this%hlf + (this%cen - 1)
+    allocate(this%weight(&
+         -this%hlf(1):end_idx(1),&
+         -this%hlf(2):end_idx(2),&
+         this%num_channels,this%num_filters))
 
 
     !!--------------------------------------------------------------------------
     !! initialise weights and biases steps (velocities)
     !!--------------------------------------------------------------------------
-    allocate(layer%bias_incr, mold=layer%bias)
-    allocate(layer%weight_incr, mold=layer%weight)
-    layer%bias_incr = 0._real12
-    layer%weight_incr = 0._real12
+    allocate(this%bias_incr, mold=this%bias)
+    allocate(this%weight_incr, mold=this%weight)
+    this%bias_incr = 0._real12
+    this%weight_incr = 0._real12
 
 
     !!--------------------------------------------------------------------------
     !! initialise gradients
     !!--------------------------------------------------------------------------
-    allocate(layer%di(&
+    allocate(this%di(&
          input_shape(1), input_shape(2), input_shape(3)), source=0._real12)
-    allocate(layer%dw, mold=layer%weight)
-    allocate(layer%db, mold=layer%bias)
-    layer%di = 0._real12
-    layer%dw = 0._real12
-    layer%db = 0._real12
+    allocate(this%dw, mold=this%weight)
+    allocate(this%db, mold=this%bias)
+    this%di = 0._real12
+    this%dw = 0._real12
+    this%db = 0._real12
 
 
     !!--------------------------------------------------------------------------
     !! initialise weights (kernels)
     !!--------------------------------------------------------------------------
-    if(present(kernel_initialiser))then
-       initialiser_name = kernel_initialiser
-    elseif(trim(t_activation_function).eq."selu")then
-       initialiser_name = "lecun_normal"
-    elseif(index(t_activation_function,"elu").ne.0)then
-       initialiser_name = "he_uniform"
-    else
-       initialiser_name = "glorot_uniform"
-    end if
-    write(*,'("CV kernel initialiser: ",A)') initialiser_name
-    allocate(initialiser, source=initialiser_setup(initialiser_name))
-    call initialiser%initialise(layer%weight, &
-         fan_in=product(layer%knl)+1, fan_out=1)
+    allocate(initialiser, source=initialiser_setup(this%kernel_initialiser))
+    call initialiser%initialise(this%weight, &
+         fan_in=product(this%knl)+1, fan_out=1)
     deallocate(initialiser)
 
     !! initialise biases
     !!--------------------------------------------------------------------------
-    if(present(bias_initialiser))then
-       initialiser_name = bias_initialiser
-    else
-       initialiser_name= "zeros"
-    end if
-    write(*,'("CV bias initialiser: ",A)') initialiser_name
-    allocate(initialiser, source=initialiser_setup(initialiser_name))
-    call initialiser%initialise(layer%bias, &
-         fan_in=product(layer%knl)+1, fan_out=1)
+    allocate(initialiser, source=initialiser_setup(this%bias_initialiser))
+    call initialiser%initialise(this%bias, &
+         fan_in=product(this%knl)+1, fan_out=1)
+    deallocate(initialiser)
 
-  end function layer_setup
+  end subroutine init_conv2d
 !!!#############################################################################
 
 
@@ -359,7 +393,7 @@ contains
     !! handle different width kernels for x, y, z
     !!--------------------------------------------------------------------------
     itmp1 = -1
-    do i=1,3
+    do i=1,2
        if(this%pad(i).gt.itmp1)then
           itmp1 = this%pad(i)
           idx = i

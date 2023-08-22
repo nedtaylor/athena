@@ -14,13 +14,14 @@ module flatten2d_layer
      real(real12), allocatable, dimension(:) :: output
      real(real12), allocatable, dimension(:,:,:) :: di
    contains
+     procedure, pass(this) :: init => init_flatten2d
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
   end type flatten2d_layer_type
 
   interface flatten2d_layer_type
-     pure module function layer_setup(input_shape) result(layer)
-       integer, dimension(:), intent(in) :: input_shape
+     module function layer_setup(input_shape) result(layer)
+       integer, dimension(:), optional, intent(in) :: input_shape
        type(flatten2d_layer_type) :: layer
      end function layer_setup
   end interface flatten2d_layer_type
@@ -69,22 +70,48 @@ contains
 
 
 !!!#############################################################################
-!!! set up and initialise network layer
+!!! set up layer
 !!!#############################################################################
-  pure module function layer_setup(input_shape) result(layer)
+  module function layer_setup(input_shape) result(layer)
     implicit none
-    integer, dimension(:), intent(in) :: input_shape
+    integer, dimension(:), optional, intent(in) :: input_shape
 
     type(flatten2d_layer_type) :: layer
 
-    allocate(layer%input_shape, source=input_shape)
-    layer%num_outputs = product(layer%input_shape)
 
-    allocate(layer%output(layer%num_outputs), source=0._real12)
-    allocate(layer%di(input_shape(1), input_shape(2), input_shape(3)), &
-         source=0._real12)
+    !!--------------------------------------------------------------------------
+    !! initialise layer shape
+    !!--------------------------------------------------------------------------
+    if(present(input_shape)) call layer%init(input_shape=input_shape)
 
   end function layer_setup
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! initialise layer
+!!!#############################################################################
+  subroutine init_flatten2d(this, input_shape)
+    implicit none
+    class(flatten2d_layer_type), intent(inout) :: this
+    integer, dimension(:), intent(in) :: input_shape
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise input shape
+    !!--------------------------------------------------------------------------
+    if(size(input_shape,dim=1).eq.3)then
+       this%input_shape = input_shape
+    else
+       stop "ERROR: invalid size of input_shape in flatten2d, expected (3)"
+    end if
+    
+    this%num_outputs = product(this%input_shape)
+
+    allocate(this%output(this%num_outputs), source=0._real12)
+    allocate(this%di(input_shape(1), input_shape(2), input_shape(3)), &
+         source=0._real12)
+  end subroutine init_flatten2d
 !!!#############################################################################
 
 end module flatten2d_layer

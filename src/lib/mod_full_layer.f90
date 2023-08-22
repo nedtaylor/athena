@@ -24,6 +24,7 @@ module full_layer
      class(activation_type), allocatable :: transfer
    contains
      procedure, pass(this) :: print => print_full
+     procedure, pass(this) :: init => init_full
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
      procedure, pass(this) :: update
@@ -37,10 +38,11 @@ module full_layer
 !!!-----------------------------------------------------------------------------
   interface full_layer_type
      module function layer_setup( &
-          num_inputs, num_outputs, &
+          num_outputs, num_inputs, &
           activation_function, activation_scale, &
           kernel_initialiser, bias_initialiser) result(layer)
-       integer, intent(in) :: num_inputs, num_outputs
+       integer, intent(in) :: num_outputs
+       integer, optional, intent(in) :: num_inputs
        real(real12), optional, intent(in) :: activation_scale
        character(*), optional, intent(in) :: activation_function, &
             kernel_initialiser, bias_initialiser
@@ -94,17 +96,17 @@ contains
 
 
 !!!#############################################################################
-!!! set up and initialise network layer
+!!! set up layer
 !!!#############################################################################
   module function layer_setup( &
-       num_inputs, num_outputs, &
+       num_outputs, num_inputs, &
        activation_scale, activation_function, &
        kernel_initialiser, bias_initialiser, &
        clip_dict, clip_min, clip_max, clip_norm) result(layer)
     use activation,  only: activation_setup
-    use initialiser, only: initialiser_setup
     implicit none
-    integer, intent(in) :: num_inputs, num_outputs
+    integer, intent(in) :: num_outputs
+    integer, optional, intent(in) :: num_inputs
     real(real12), optional, intent(in) :: activation_scale
     character(*), optional, intent(in) :: activation_function, &
          kernel_initialiser, bias_initialiser
@@ -115,9 +117,6 @@ contains
 
     real(real12) :: scale
     character(len=10) :: t_activation_function
-    character(len=14) :: initialiser_name
-    class(initialiser_type), allocatable :: initialiser
-
 
 
     !!--------------------------------------------------------------------------
@@ -144,12 +143,6 @@ contains
        end if
     end if
 
-
-    layer%num_inputs  = num_inputs
-    layer%input_shape = [layer%num_inputs]
-    layer%num_outputs = num_outputs
-    layer%output_shape = [layer%num_outputs]
-
     !!--------------------------------------------------------------------------
     !! set activation and derivative functions based on input name
     !!--------------------------------------------------------------------------
@@ -169,55 +162,97 @@ contains
     
 
     !!--------------------------------------------------------------------------
+    !! define weights (kernels) and biases initialisers
+    !!--------------------------------------------------------------------------
+    if(present(kernel_initialiser))then
+       layer%kernel_initialiser = kernel_initialiser
+    elseif(trim(t_activation_function).eq."selu")then
+       layer%kernel_initialiser = "lecun_normal"
+    elseif(index(t_activation_function,"elu").ne.0)then
+       layer%kernel_initialiser = "he_uniform"
+    else
+       layer%kernel_initialiser = "glorot_uniform"
+    end if
+    write(*,'("FC kernel initialiser: ",A)') trim(layer%kernel_initialiser)
+    if(present(bias_initialiser))then
+       layer%bias_initialiser = bias_initialiser
+    else
+       layer%bias_initialiser= "zeros"
+    end if
+    write(*,'("FC bias initialiser: ",A)') trim(layer%bias_initialiser)
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise layer shape
+    !!--------------------------------------------------------------------------
+    layer%num_outputs = num_outputs
+    layer%output_shape = [layer%num_outputs]
+    if(present(num_inputs)) call layer%init(input_shape=[num_inputs])
+
+  end function layer_setup
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! initialise layer
+!!!#############################################################################
+  subroutine init_full(this, input_shape)
+    use initialiser, only: initialiser_setup
+    implicit none
+    class(full_layer_type), intent(inout) :: this
+    integer, dimension(:), intent(in) :: input_shape
+
+    class(initialiser_type), allocatable :: initialiser
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise number of inputs
+    !!--------------------------------------------------------------------------
+    if(size(input_shape,dim=1).eq.1)then
+       this%input_shape = input_shape
+       this%num_inputs = input_shape(1)
+    else
+       write(*,*) "WARNING: reshaping input_shape to 1D for full layer"
+       this%num_inputs  = product(input_shape)
+       this%input_shape = [this%num_inputs]
+       !stop "ERROR: invalid size of input_shape in full, expected (1)"
+    end if
+
+
+    !!--------------------------------------------------------------------------
     !! allocate weight, weight steps (velocities), output, and activation
     !!--------------------------------------------------------------------------
-    allocate(layer%weight(layer%num_inputs+1,layer%num_outputs))
+    allocate(this%weight(this%num_inputs+1,this%num_outputs))
 
-    allocate(layer%weight_incr, mold=layer%weight)
-    allocate(layer%output(layer%num_outputs), source=0._real12)
-    allocate(layer%z, mold=layer%output)
-    layer%weight_incr = 0._real12
-    layer%output = 0._real12
-    layer%z = 0._real12
+    allocate(this%weight_incr, mold=this%weight)
+    allocate(this%output(this%num_outputs), source=0._real12)
+    allocate(this%z, mold=this%output)
+    this%weight_incr = 0._real12
+    this%output = 0._real12
+    this%z = 0._real12
 
-    allocate(layer%dw(layer%num_inputs+1,layer%num_outputs), source=0._real12)
-    allocate(layer%di(layer%num_inputs), source=0._real12)
-    layer%dw = 0._real12
-    layer%di = 0._real12
+    allocate(this%dw(this%num_inputs+1,this%num_outputs), source=0._real12)
+    allocate(this%di(this%num_inputs), source=0._real12)
+    this%dw = 0._real12
+    this%di = 0._real12
 
 
     !!--------------------------------------------------------------------------
     !! initialise weights (kernels)
     !!--------------------------------------------------------------------------
-    if(present(kernel_initialiser))then
-       initialiser_name = kernel_initialiser
-    elseif(trim(t_activation_function).eq."selu")then
-       initialiser_name = "lecun_normal"
-    elseif(index(t_activation_function,"elu").ne.0)then
-       initialiser_name = "he_uniform"
-    else
-       initialiser_name = "glorot_uniform"
-    end if
-    write(*,'("FC kernel initialiser: ",A)') trim(initialiser_name)
-    allocate(initialiser, source=initialiser_setup(initialiser_name))
-    call initialiser%initialise(layer%weight(:layer%num_inputs,:), &
-         fan_in=layer%num_inputs+1, fan_out=layer%num_outputs)
+    allocate(initialiser, source=initialiser_setup(this%kernel_initialiser))
+    call initialiser%initialise(this%weight(:this%num_inputs,:), &
+         fan_in=this%num_inputs+1, fan_out=this%num_outputs)
     deallocate(initialiser)
 
     !! initialise biases
     !!--------------------------------------------------------------------------
-    if(present(bias_initialiser))then
-       initialiser_name = bias_initialiser
-    else
-       initialiser_name= "zeros"
-    end if
-    write(*,'("FC bias initialiser: ",A)') trim(initialiser_name)
-    allocate(initialiser, source=initialiser_setup(initialiser_name))
-    call initialiser%initialise(layer%weight(layer%num_inputs+1,:), &
-         fan_in=layer%num_inputs+1, fan_out=layer%num_outputs)
+    allocate(initialiser, source=initialiser_setup(this%bias_initialiser))
+    call initialiser%initialise(this%weight(this%num_inputs+1,:), &
+         fan_in=this%num_inputs+1, fan_out=this%num_outputs)
     deallocate(initialiser)
 
-  end function layer_setup
+  end subroutine init_full
 !!!#############################################################################
 
 

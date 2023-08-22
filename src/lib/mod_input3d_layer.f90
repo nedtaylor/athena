@@ -13,14 +13,15 @@ module input3d_layer
      real(real12), allocatable, dimension(:,:,:) :: output
 
    contains
+     procedure, pass(this) :: init => init_input3d
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
-     procedure, pass(this) :: init => init_3d
+     procedure, pass(this) :: set => set_input3d
   end type input3d_layer_type
 
   interface input3d_layer_type
-     pure module function layer_setup(input_shape) result(layer)
-       integer, dimension(:), intent(in) :: input_shape
+     module function layer_setup(input_shape) result(layer)
+       integer, dimension(:), optional, intent(in) :: input_shape
        type(input3d_layer_type) :: layer
      end function layer_setup
   end interface input3d_layer_type
@@ -33,6 +34,8 @@ module input3d_layer
 contains
 
 !!!#############################################################################
+!!! forward propagation assumed rank handler
+!!! placeholder to satisfy deferred
 !!!#############################################################################
   pure subroutine forward_rank(this, input)
     implicit none
@@ -44,6 +47,8 @@ contains
 
 
 !!!#############################################################################
+!!! backward propagation assumed rank handler
+!!! placeholder to satisfy deferred
 !!!#############################################################################
   pure subroutine backward_rank(this, input, gradient)
     implicit none
@@ -55,31 +60,72 @@ contains
 !!!#############################################################################
 
 
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
+
 !!!#############################################################################
+!!! set up layer
 !!!#############################################################################
-  pure module function layer_setup(input_shape) result(layer)
+  module function layer_setup(input_shape) result(layer)
     implicit none
-    integer, dimension(:), intent(in) :: input_shape
+    integer, dimension(:), optional, intent(in) :: input_shape
 
     type(input3d_layer_type) :: layer
-    
-    layer%input_shape = input_shape
-    layer%output_shape = input_shape
-    allocate(layer%output(input_shape(1),input_shape(2),input_shape(3)))
-    layer%num_outputs = product(input_shape)
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise layer shape
+    !!--------------------------------------------------------------------------
+    if(present(input_shape)) call layer%init(input_shape=input_shape)
+
   end function layer_setup
 !!!#############################################################################
 
 
 !!!#############################################################################
+!!! initialise layer
 !!!#############################################################################
-  pure subroutine init_3d(this, input)
+  subroutine init_input3d(this, input_shape)
+    implicit none
+    class(input3d_layer_type), intent(inout) :: this
+    integer, dimension(:), intent(in) :: input_shape
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise input shape
+    !!--------------------------------------------------------------------------
+    if(size(input_shape,dim=1).eq.3)then
+       this%input_shape = input_shape
+       this%output_shape = input_shape
+    else
+       stop "ERROR: invalid size of input_shape in input3d, expected (3)"
+    end if
+    
+    this%num_outputs = product(input_shape)
+
+    allocate(this%output(input_shape(1),input_shape(2),input_shape(3)))
+
+  end subroutine init_input3d
+!!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
+
+!!!#############################################################################
+!!! set input layer values
+!!!#############################################################################
+  pure subroutine set_input3d(this, input)
     implicit none
     class(input3d_layer_type), intent(inout) :: this
     real(real12), dimension(this%num_outputs), intent(in) :: input
 
     this%output = reshape(input, shape=shape(this%output))
-  end subroutine init_3d
+  end subroutine set_input3d
 !!!#############################################################################
 
 
