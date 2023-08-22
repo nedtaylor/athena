@@ -101,7 +101,13 @@ contains
     if(scan("=",buffer).ne.0) buffer2=val(buffer)
     if(trim(adjustl(buffer2)).ne.'') then
        found=found+1
-       read(buffer2,*) (variable(i),i=1,size(variable))
+       if(icount(buffer2).eq.1.and.&
+            icount(buffer2).ne.size(variable))then
+          read(buffer2,*) variable(1)
+          variable = variable(1)
+       else
+          read(buffer2,*) (variable(i),i=1,size(variable))
+       end if
     end if
   end subroutine assignIvec
 !!!#############################################################################
@@ -137,7 +143,13 @@ contains
     if(scan("=",buffer).ne.0) buffer2=val(buffer)
     if(trim(adjustl(buffer2)).ne.'') then
        found=found+1
-       read(buffer2,*) (variable(i),i=1,size(variable))
+       if(icount(buffer2).eq.1.and.&
+            icount(buffer2).ne.size(variable))then
+          read(buffer2,*) variable(1)
+          variable = variable(1)
+       else
+          read(buffer2,*) (variable(i),i=1,size(variable))
+       end if
     end if
   end subroutine assignRvec
 !!!#############################################################################
@@ -173,7 +185,13 @@ contains
     if(scan("=",buffer).ne.0) buffer2=val(buffer)
     if(trim(adjustl(buffer2)).ne.'') then
        found=found+1
-       read(buffer2,*) (variable(i),i=1,size(variable))
+       if(icount(buffer2).eq.1.and.&
+            icount(buffer2).ne.size(variable))then
+          read(buffer2,*) variable(1)
+          variable = variable(1)
+       else
+          read(buffer2,*) (variable(i),i=1,size(variable))
+       end if
     end if
   end subroutine assignDvec
 !!!#############################################################################
