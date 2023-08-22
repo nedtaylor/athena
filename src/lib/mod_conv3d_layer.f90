@@ -273,7 +273,7 @@ contains
     if(present(bias_initialiser))then
        layer%bias_initialiser = bias_initialiser
     else
-       layer%kernel_initialiser = get_default_initialiser(&
+       layer%bias_initialiser = get_default_initialiser(&
             t_activation_function, is_bias=.true.)       
     end if
     write(*,'("CV bias initialiser: ",A)') trim(layer%bias_initialiser)
