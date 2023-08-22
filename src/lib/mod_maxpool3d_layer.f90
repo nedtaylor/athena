@@ -17,6 +17,7 @@ module maxpool3d_layer
      real(real12), allocatable, dimension(:,:,:,:) :: output
      real(real12), allocatable, dimension(:,:,:,:) :: di ! gradient of input (i.e. delta)
    contains
+     procedure, pass(this) :: print => print_maxpool3d
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
      procedure, private, pass(this) :: forward_4d
@@ -43,6 +44,7 @@ module maxpool3d_layer
 contains
 
 !!!#############################################################################
+!!! forward propagation assumed rank handler
 !!!#############################################################################
   pure subroutine forward_rank(this, input)
     implicit none
@@ -57,6 +59,7 @@ contains
 
 
 !!!#############################################################################
+!!! backward propagation assumed rank handler
 !!!#############################################################################
   pure subroutine backward_rank(this, input, gradient)
     implicit none
@@ -73,7 +76,13 @@ contains
 !!!#############################################################################
 
 
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
+
 !!!#############################################################################
+!!! set up and initialise network layer
 !!!#############################################################################
   pure module function layer_setup( &
        input_shape, &
@@ -158,6 +167,52 @@ contains
 
 
 !!!#############################################################################
+!!! print layer to file
+!!!#############################################################################
+  subroutine print_maxpool3d(this, file)
+    implicit none
+    class(maxpool3d_layer_type), intent(in) :: this
+    character(*), intent(in) :: file
+
+    integer :: unit
+
+     integer, dimension(3) :: pool, strd
+     integer :: num_channels
+
+    !! open file with new unit
+    !!--------------------------------------------------------------------------
+    open(newunit=unit, file=trim(file), access='append')
+
+    !! write convolution initial parameters
+    !!--------------------------------------------------------------------------
+    write(unit,'("MAXPOOL3D")')
+    if(all(this%pool.eq.this%pool(1)))then
+       write(unit,'(3X,"POOL_SIZE =",1X,I0)') this%pool(1)
+    else
+       write(unit,'(3X,"POOL_SIZE =",3(1X,I0))') this%pool
+    end if
+    if(all(this%strd.eq.this%strd(1)))then
+       write(unit,'(3X,"STRIDE =",1X,I0)') this%strd(1)
+    else
+       write(unit,'(3X,"STRIDE =",3(1X,I0))') this%strd
+    end if
+    write(unit,'("END MAXPOOL3D")')
+
+    !! close unit
+    !!--------------------------------------------------------------------------
+    close(unit)
+
+  end subroutine print_maxpool3d
+!!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
+
+!!!#############################################################################
+!!! forward propagation
 !!!#############################################################################
   pure subroutine forward_4d(this, input)
     implicit none
@@ -188,6 +243,7 @@ contains
 
 
 !!!#############################################################################
+!!! backward propagation
 !!!#############################################################################
   pure subroutine backward_4d(this, input, gradient)
     implicit none
@@ -228,7 +284,6 @@ contains
 
   end subroutine backward_4d
 !!!#############################################################################
-
 
 end module maxpool3d_layer
 !!!#############################################################################

@@ -30,6 +30,7 @@ module conv3d_layer
      real(real12), allocatable, dimension(:,:,:,:) :: di ! input gradient
      class(activation_type), allocatable :: transfer
    contains
+     procedure, pass(this) :: print => print_conv3d
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
      procedure, pass(this) :: update
@@ -343,6 +344,86 @@ contains
 
       end function layer_setup
 !!!#############################################################################
+
+
+!!!#############################################################################
+!!! print layer to file
+!!!#############################################################################
+  subroutine print_conv3d(this, file)
+    implicit none
+    class(conv3d_layer_type), intent(in) :: this
+    character(*), intent(in) :: file
+
+    integer :: l, i, itmp1, idx
+    integer :: unit
+    character(:), allocatable :: padding_type
+
+
+    !! handle different width kernels for x, y, z
+    !!--------------------------------------------------------------------------
+    itmp1 = -1
+    do i=1,3
+       if(this%pad(i).gt.itmp1)then
+          itmp1 = this%pad(i)
+          idx = i
+       end if
+    end do
+
+    !! determine padding method
+    !!--------------------------------------------------------------------------
+    padding_type = ""
+    if(this%pad(idx).eq.this%knl(idx)-1)then
+       padding_type = "full"
+    elseif(this%pad(idx).eq.0)then
+       padding_type = "valid"
+    else
+       padding_type = "same"
+    end if
+
+    !! open file with new unit
+    !!--------------------------------------------------------------------------
+    open(newunit=unit, file=trim(file), access='append')
+
+    !! write convolution initial parameters
+    !!--------------------------------------------------------------------------
+    write(unit,'("CONV3D")')
+    write(unit,'(3X,"NUM_FILTERS = ",I0)') this%num_filters
+    if(all(this%knl.eq.this%knl(1)))then
+       write(unit,'(3X,"KERNEL_SIZE =",1X,I0)') this%knl(1)
+    else
+       write(unit,'(3X,"KERNEL_SIZE =",3(1X,I0))') this%knl
+    end if
+    if(all(this%knl.eq.this%stp(1)))then
+       write(unit,'(3X,"STRIDE =",1X,I0)') this%stp(1)
+    else
+       write(unit,'(3X,"STRIDE =",3(1X,I0))') this%stp
+    end if
+    write(unit,'(3X,"PADDING = ",A)') padding_type
+
+    write(unit,'(3X,"ACTIVATION = ",A)') trim(this%transfer%name)
+    write(unit,'(3X,"ACTIVATION_SCALE = ",F0.9)') this%transfer%scale
+
+    !! write convolution weights and biases
+    !!--------------------------------------------------------------------------
+    write(unit,'("WEIGHTS")')
+    do l=1,this%num_filters
+       write(unit,'(5(E16.8E2))', advance="no") this%weight(:,:,:,:,l)
+       write(unit,'(E16.8E2)') this%bias(l)
+    end do
+    write(unit,'("END WEIGHTS")')
+    write(unit,'("END CONV3D")')
+
+    !! close unit
+    !!--------------------------------------------------------------------------
+    close(unit)
+
+  end subroutine print_conv3d
+!!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
 
 
 !!!#############################################################################

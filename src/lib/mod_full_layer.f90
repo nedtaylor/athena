@@ -23,6 +23,7 @@ module full_layer
      real(real12), allocatable, dimension(:) :: di ! input gradient (i.e. delta)
      class(activation_type), allocatable :: transfer
    contains
+     procedure, pass(this) :: print => print_full
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
      procedure, pass(this) :: update
@@ -218,6 +219,50 @@ contains
 
   end function layer_setup
 !!!#############################################################################
+
+
+!!!#############################################################################
+!!! print layer to file
+!!!#############################################################################
+  subroutine print_full(this, file)
+    implicit none
+    class(full_layer_type), intent(in) :: this
+    character(*), intent(in) :: file
+
+    integer :: unit
+
+
+    !! open file with new unit
+    !!--------------------------------------------------------------------------
+    open(newunit=unit, file=trim(file), access='append')
+
+    !! write convolution initial parameters
+    !!--------------------------------------------------------------------------
+    write(unit,'("FULL")')
+    write(unit,'(3X,"NUM_INPUTS = ",I0)') this%num_inputs
+    write(unit,'(3X,"NUM_OUTPUTS = ",I0)') this%num_outputs
+
+    write(unit,'(3X,"ACTIVATION = ",A)') trim(this%transfer%name)
+    write(unit,'(3X,"ACTIVATION_SCALE = ",F0.9)') this%transfer%scale
+
+    !! write fully connected weights and biases
+    !!--------------------------------------------------------------------------
+    write(unit,'("WEIGHTS")')
+    write(unit,'(5(E16.8E2))', advance="no") this%weight
+    write(unit,'("END WEIGHTS")')
+    write(unit,'("END FULL")')
+
+    !! close unit
+    !!--------------------------------------------------------------------------
+    close(unit)
+
+  end subroutine print_full
+!!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
 
 
 !!!#############################################################################
