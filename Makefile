@@ -41,6 +41,7 @@ LIBS := mod_constants.f90 \
 	mod_full_layer.f90 \
 	mod_flatten2d_layer.f90 \
 	mod_flatten3d_layer.f90 \
+	mod_input1d_layer.f90 \
 	mod_input3d_layer.f90 \
 	mod_input4d_layer.f90 \
 	mod_container_layer.f90 \
