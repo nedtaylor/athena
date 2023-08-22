@@ -382,10 +382,6 @@ contains
     if(.not.found_weights)then
       write(0,*) "WARNING: WEIGHTS card in FULL not found"
     else
-       !! allocate convolutional layer and read weights
-       layer%weight_incr = 0._real12
-       layer%weight = 0._real12
-
        do i=1,num_outputs
           allocate(data_list((num_inputs+1)), source=0._real12)
           c = 1
