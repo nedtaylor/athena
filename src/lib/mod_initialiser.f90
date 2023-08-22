@@ -46,6 +46,7 @@ contains
     !!--------------------------------------------------------------------------
     if(present(is_bias))then
        if(is_bias) name = "zeros"
+       return
     end if
 
 
