@@ -263,16 +263,15 @@ contains
     !!--------------------------------------------------------------------------
     !! allocate output, activation, bias, and weight shapes
     !!--------------------------------------------------------------------------
+    !! NOTE: INPUT SHAPE DOES NOT INCLUDE PADDING WIDTH
+    !! THIS IS HANDLED AUTOMATICALLY BY THE CODE
+    !! ... provide the initial input data shape and let us deal with the padding
     layer%num_channels = input_shape(4)
     layer%input_shape  = input_shape(:4)
-!!! WARNING, TAKE IN WHAT IS ALREADY IN THE PADDING
-!!! THEN JUST SUBTRACT THE PADDING (or add in the padding?)
     allocate(layer%output_shape(4))
     layer%output_shape(4) = input_shape(4)
-    layer%output_shape(:3) = floor((input_shape(:3) + 2.0 * layer%pad - layer%knl)/&
-        real(layer%stp) ) + 1
-   !  layer%output_shape(:3) = floor((input_shape(:3) - layer%knl)/&
-   !       real(layer%stp) ) + 1 !!padding for now included in input number !! REVERT TO OLD AND FIX CODE
+    layer%output_shape(:3) = floor(&
+         (input_shape(:3) + 2.0 * layer%pad - layer%knl)/real(layer%stp) ) + 1
 
     allocate(layer%output(&
          layer%output_shape(1),layer%output_shape(2),layer%output_shape(3),&
