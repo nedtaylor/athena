@@ -416,6 +416,7 @@ contains
     !! write convolution initial parameters
     !!--------------------------------------------------------------------------
     write(unit,'("CONV2D")')
+    write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
     write(unit,'(3X,"NUM_FILTERS = ",I0)') this%num_filters
     if(all(this%knl.eq.this%knl(1)))then
        write(unit,'(3X,"KERNEL_SIZE =",1X,I0)') this%knl(1)

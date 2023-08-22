@@ -214,6 +214,7 @@ contains
     !! write convolution initial parameters
     !!--------------------------------------------------------------------------
     write(unit,'("MAXPOOL3D")')
+    write(unit,'(3X,"INPUT_SHAPE = ",4(1X,I0))') this%input_shape
     if(all(this%pool.eq.this%pool(1)))then
        write(unit,'(3X,"POOL_SIZE =",1X,I0)') this%pool(1)
     else
