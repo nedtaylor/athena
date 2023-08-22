@@ -51,6 +51,7 @@ module network
      procedure(comp_loss_deriv), nopass, pointer :: get_loss_deriv => null()
    contains
      procedure, pass(this) :: print
+     procedure, pass(this) :: read
      procedure, pass(this) :: add
      procedure, pass(this) :: compile
      procedure, pass(this) :: train
@@ -110,8 +111,10 @@ contains
    card_loop: do
       i = i + 1
       read(unit,'(A)',iostat=stat) buffer
-      if(stat.ne.0)then
-         write(0,*) "ERROR: file hit error (EoF?) in network read"
+      if(stat.lt.0)then
+         exit card_loop
+      elseif(stat.gt.0)then
+         write(0,*) "ERROR: error encountered in network read"
          stop "Exiting..."
       end if
       if(trim(adjustl(buffer)).eq."") cycle card_loop
