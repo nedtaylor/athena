@@ -49,6 +49,7 @@ module network
      procedure(comp_loss_func), nopass, pointer :: get_loss => null()
      procedure(comp_loss_deriv), nopass, pointer :: get_loss_deriv => null()
    contains
+     procedure, pass(this) :: print
      procedure, pass(this) :: add
      procedure, pass(this) :: compile
      procedure, pass(this) :: train
@@ -71,6 +72,27 @@ module network
 
 
 contains
+
+!!!#############################################################################
+!!! print network to file
+!!!#############################################################################
+  subroutine print(this, file)
+    implicit none
+    class(network_type), intent(in) :: this
+    character(*), intent(in) :: file
+    
+    integer :: l, unit
+
+    open(newunit=unit,file=file,status='replace')
+    close(unit)
+    
+    do l=1,this%num_layers
+       call this%model(l)%layer%print(file)
+    end do
+
+  end subroutine print
+!!!#############################################################################
+
 
 !!!#############################################################################
 !!! append layer to network
@@ -691,24 +713,6 @@ contains
     end do epoch_loop
 
   end subroutine train
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! print weights and biases of CNN to file
-!!!#############################################################################
-!  subroutine write()!(this)
-!    implicit none
-!    !class()
-!!  write(*,*) "Writing CNN learned parameters to output file"
-!!  open(unit=10,file=output_file,status='replace')
-!!  close(10)
-!!  call cv_write(output_file)
-!!  call fc_write(output_file)
-!!
-!!  if(verbosity.gt.1) open(unit=15,file="results_test.out")
-!!
-!  end subroutine write
 !!!#############################################################################
 
 
