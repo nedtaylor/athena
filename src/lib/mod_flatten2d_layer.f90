@@ -12,8 +12,7 @@ module flatten2d_layer
   type, extends(base_layer_type) :: flatten2d_layer_type
      integer :: num_outputs
      real(real12), allocatable, dimension(:) :: output
-     real(real12), allocatable, dimension(:,:,:) :: di ! gradient of input (i.e. delta)
-
+     real(real12), allocatable, dimension(:,:,:) :: di
    contains
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
@@ -34,6 +33,7 @@ module flatten2d_layer
 contains
 
 !!!#############################################################################
+!!! forward propagation assumed rank handler
 !!!#############################################################################
   pure subroutine forward_rank(this, input)
     implicit none
@@ -48,6 +48,7 @@ contains
 
 
 !!!#############################################################################
+!!! backward propagation assumed rank handler
 !!!#############################################################################
   pure subroutine backward_rank(this, input, gradient)
     implicit none
@@ -62,7 +63,13 @@ contains
 !!!#############################################################################
 
 
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
+
 !!!#############################################################################
+!!! set up and initialise network layer
 !!!#############################################################################
   pure module function layer_setup(input_shape) result(layer)
     implicit none
