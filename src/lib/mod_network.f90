@@ -590,11 +590,11 @@ contains
 
 
           !! print batch results
-          !!----------------------------------------------------------------------
+          !!--------------------------------------------------------------------
 101       if(abs(t_verb).gt.0.and.&
                (batch.eq.1.or.mod(batch,t_batch_print).eq.0.E0))then
              write(6,'("epoch=",I0,", batch=",I0,&
-                  &", learning_rate=",F0.3,", loss=",F0.3,", accuracy=",F0.3)') &
+                  &", learning_rate=",F0.3,", loss=",F0.3,", accuracy=",F0.3)')&
                   epoch, batch, this%optimiser%learning_rate, &
                   avg_loss/(batch*batch_size),  avg_accuracy/(batch*batch_size)
           end if
@@ -612,7 +612,7 @@ contains
 
 
           !! time check
-          !!----------------------------------------------------------------------
+          !!--------------------------------------------------------------------
           if(t_verb.eq.-2)then
              time_old = time
              call system_clock(time)
@@ -623,7 +623,7 @@ contains
 
 
           !! check for user-name stop file
-          !!----------------------------------------------------------------------
+          !!--------------------------------------------------------------------
           if(stop_check())then
              write(0,*) "STOPCAR ENCOUNTERED"
              write(0,*) "Exiting training loop..."
@@ -634,7 +634,7 @@ contains
 
 
        !! print epoch summary results
-       !!-------------------------------------------------------------------------
+       !!-----------------------------------------------------------------------
        if(t_verb.eq.0)then
           write(6,'("epoch=",I0,", batch=",I0,&
                &", learning_rate=",F0.3,", val_loss=",F0.3,&
@@ -770,4 +770,4 @@ contains
 
 
 end module network
-!!!###################################################################################
+!!!#############################################################################
