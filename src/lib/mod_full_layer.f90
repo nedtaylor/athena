@@ -268,7 +268,7 @@ contains
     class(full_layer_type), intent(in) :: this
     character(*), intent(in) :: file
 
-    integer :: unit
+    integer :: i, unit
 
 
     !! open file with new unit
@@ -287,7 +287,9 @@ contains
     !! write fully connected weights and biases
     !!--------------------------------------------------------------------------
     write(unit,'("WEIGHTS")')
-    write(unit,'(5(E16.8E2))', advance="no") this%weight
+    do i=1,this%num_outputs
+       write(unit,'(5(E16.8E2))') this%weight(:,i)
+    end do
     write(unit,'("END WEIGHTS")')
     write(unit,'("END FULL")')
 
@@ -315,7 +317,7 @@ contains
     integer :: num_inputs, num_outputs
     real(real12) :: activation_scale
     character(256) :: buffer, tag
-    character(:), allocatable :: activation_function
+    character(20) :: activation_function
 
     logical :: found_weights
     real(real12), allocatable, dimension(:) :: data_list
@@ -328,13 +330,14 @@ contains
        !! check for end of file
        read(unit,'(A)',iostat=stat) buffer
        if(stat.ne.0)then
-          write(0,*) "ERROR: file hit error (EoF?) before encountering END FULL"
+         write(0,*) "ERROR: file encountered error (EoF?) before END FULL"
           stop "Exiting..."
        end if
        if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
        !! check for end of convolution card
        if(trim(adjustl(buffer)).eq."END FULL")then
+          backspace(unit)
           exit tag_loop
        end if
 
@@ -347,7 +350,7 @@ contains
           call assign_val(buffer, num_inputs, itmp1)
        case("NUM_OUTPUTS")
           call assign_val(buffer, num_outputs, itmp1)
-       case("ACTIVATION_FUNCTION")
+       case("ACTIVATION")
           call assign_val(buffer, activation_function, itmp1)
        case("ACTIVATION_SCALE")
           call assign_val(buffer, activation_scale, itmp1)
@@ -384,10 +387,10 @@ contains
        layer%weight = 0._real12
 
        do i=1,num_outputs
-          allocate(data_list(num_inputs), source=0._real12)
+          allocate(data_list((num_inputs+1)), source=0._real12)
           c = 1
           k = 1
-          data_concat_loop: do while(c.le.num_inputs)
+          data_concat_loop: do while(c.le.num_inputs+1)
              read(unit,'(A)',iostat=stat) buffer
              if(stat.ne.0) exit data_concat_loop
              k = icount(buffer)

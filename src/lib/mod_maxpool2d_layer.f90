@@ -265,13 +265,14 @@ contains
       !! check for end of file
       read(unit,'(A)',iostat=stat) buffer
       if(stat.ne.0)then
-         write(0,*) "ERROR: file hit error (EoF?) before encountering END maxpool2d"
+         write(0,*) "ERROR: file encountered error (EoF?) before END MAXPOOL2D"
          stop "Exiting..."
       end if
       if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
       !! check for end of convolution card
       if(trim(adjustl(buffer)).eq."END MAXPOOL2D")then
+         backspace(unit)
          exit tag_loop
       end if
 

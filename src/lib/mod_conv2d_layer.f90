@@ -475,7 +475,7 @@ contains
     integer, dimension(3) :: input_shape
     real(real12) :: activation_scale
     character(256) :: buffer, tag
-    character(:), allocatable :: padding, activation_function
+    character(20) :: padding, activation_function
 
     logical :: found_weights
     integer, allocatable, dimension(:) :: itmp_list
@@ -489,13 +489,14 @@ contains
        !! check for end of file
        read(unit,'(A)',iostat=stat) buffer
        if(stat.ne.0)then
-          write(0,*) "ERROR: file hit error (EoF?) before encountering END CONV2D"
+          write(0,*) "ERROR: file encountered error (EoF?) before END CONV2D"
           stop "Exiting..."
        end if
        if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
        !! check for end of convolution card
        if(trim(adjustl(buffer)).eq."END CONV2D")then
+          backspace(unit)
           exit tag_loop
        end if
 
@@ -513,10 +514,10 @@ contains
           call assign_vec(buffer, kernel_size, itmp1)
        case("STRIDE")
           call assign_vec(buffer, stride, itmp1)
-       case("PADDING_TYPE")
+       case("PADDING")
           call assign_val(buffer, padding, itmp1)
           padding = to_lower(padding)
-       case("ACTIVATION_FUNCTION")
+       case("ACTIVATION")
           call assign_val(buffer, activation_function, itmp1)
        case("ACTIVATION_SCALE")
           call assign_val(buffer, activation_scale, itmp1)
@@ -587,7 +588,7 @@ contains
 
     !! check for end of layer card
     read(unit,'(A)') buffer
-    if(trim(adjustl(buffer)).ne."END COVN2D")then
+    if(trim(adjustl(buffer)).ne."END CONV2D")then
        write(*,*) trim(adjustl(buffer))
        stop "ERROR: END CONV2D not where expected"
     end if
