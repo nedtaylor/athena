@@ -24,19 +24,19 @@ module network
   use input4d_layer,   only: input4d_layer_type
 
   !! convolution layer types
-  use conv2d_layer,    only: conv2d_layer_type
-  use conv3d_layer,    only: conv3d_layer_type
+  use conv2d_layer,    only: conv2d_layer_type, read_conv2d_layer
+  use conv3d_layer,    only: conv3d_layer_type, read_conv3d_layer
 
   !! pooling layer types
-  use maxpool2d_layer, only: maxpool2d_layer_type
-  use maxpool3d_layer, only: maxpool3d_layer_type
+  use maxpool2d_layer, only: maxpool2d_layer_type, read_maxpool2d_layer
+  use maxpool3d_layer, only: maxpool3d_layer_type, read_maxpool3d_layer
 
   !! flatten layer types
   use flatten2d_layer, only: flatten2d_layer_type
   use flatten3d_layer, only: flatten3d_layer_type
 
   !! fully connected (dense) layer types
-  use full_layer,      only: full_layer_type
+  use full_layer,      only: full_layer_type, read_full_layer
 
   implicit none
 
@@ -93,6 +93,65 @@ contains
 
   end subroutine print
 !!!#############################################################################
+
+
+!!!#############################################################################
+!!! read network from file
+!!!#############################################################################
+  subroutine read(this, file)
+   implicit none
+   class(network_type), intent(inout) :: this
+   character(*), intent(in) :: file
+   
+   integer :: i, unit, stat
+   character(256) :: buffer
+   open(newunit=unit,file=file,action='read')
+   i = 0
+   card_loop: do
+      i = i + 1
+      read(unit,'(A)',iostat=stat) buffer
+      if(stat.ne.0)then
+         write(0,*) "ERROR: file hit error (EoF?) in network read"
+         write(0,*) "Exiting..."
+         stop
+      end if
+      if(trim(adjustl(buffer)).eq."") cycle card_loop
+
+      !! check if a tag line
+      if(scan(buffer,'=').ne.0)then
+         write(0,*) "WARNING: unexpected line in read file"
+         write(0,*) trim(buffer)
+         write(0,*) " skipping..."
+         cycle card_loop
+      end if
+
+      !! check for card
+      select case(trim(adjustl(buffer)))
+      case("CONV2D")
+         call this%add(read_conv2d_layer(unit))
+      case("CONV3D")
+         call this%add(read_conv3d_layer(unit))
+      case("MAXPOOL2D")
+         call this%add(read_maxpool2d_layer(unit))
+      case("MAXPOOL3D")
+         call this%add(read_maxpool3d_layer(unit))
+      case("FULL")
+         call this%add(read_full_layer(unit))
+      case default
+         write(0,*) "ERROR: unrecognised card '"//&
+              &trim(adjustl(buffer))//"'"
+         stop "Exiting..."
+      end select
+   end do card_loop
+   close(unit)
+
+ end subroutine read
+!!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
 
 
 !!!#############################################################################
