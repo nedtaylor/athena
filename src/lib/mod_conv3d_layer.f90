@@ -545,8 +545,10 @@ contains
     !! set transfer activation function
 
     layer = conv3d_layer_type( &
-         input_shape, &
-         num_filters, kernel_size, stride, padding, &
+         input_shape = input_shape, &
+         num_filters = num_filters, &
+         kernel_size = kernel_size, stride = stride, &
+         padding = padding, &
          activation_function = activation_function, &
          activation_scale = activation_scale, &
          kernel_initialiser="zeros", bias_initialiser="zeros")
@@ -557,17 +559,10 @@ contains
    else
        !! allocate convolutional layer and read weights
        do l=1,num_filters
-          layer%bias_incr = 0._real12
-          layer%weight_incr = 0._real12
-          layer%bias = 0._real12
-          layer%weight = 0._real12
-
           num_inputs = product(layer%knl) + 1 !+1 for bias
-          allocate(data_list(num_inputs))
-
+          allocate(data_list(num_inputs), source=0._real12)
           c = 1
           k = 1
-          data_list = 0._real12
           data_concat_loop: do while(c.le.num_inputs)
              read(unit,'(A)',iostat=stat) buffer
              if(stat.ne.0) exit data_concat_loop
