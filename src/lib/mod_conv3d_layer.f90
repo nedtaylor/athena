@@ -63,6 +63,7 @@ module conv3d_layer
 
   private
   public :: conv3d_layer_type
+  public :: read_conv3d_layer
 
 
 contains
@@ -464,12 +465,13 @@ contains
 !!!#############################################################################
 !!! read layer from file
 !!!#############################################################################
-  subroutine read_conv3d(this, unit)
+  subroutine read_conv3d_layer(unit)
     use infile_tools, only: assign_val, assign_vec
     use misc, only: to_lower, icount
     implicit none
-    class(conv3d_layer_type), allocatable, intent(inout) :: this
     integer, intent(in) :: unit
+
+    class(conv3d_layer_type), allocatable :: layer
 
     integer :: stat
     integer :: j, k, l, c, itmp1
@@ -485,14 +487,14 @@ contains
     real(real12), allocatable, dimension(:) :: data_list
 
 
-    !! loop over tags in convolution card
+    !! loop over tags in layer card
     found_weights = .false.
     tag_loop: do
 
        !! check for end of file
        read(unit,'(A)',iostat=stat) buffer
        if(stat.ne.0)then
-          write(0,*) "ERROR: file hit error (EoF?) before encountering END CONVOLUTION"
+          write(0,*) "ERROR: file hit error (EoF?) before encountering END CONV3D"
           write(0,*) "Exiting..."
           stop
        end if
@@ -536,31 +538,32 @@ contains
           elseif(tag(:3).eq.'END')then
              cycle tag_loop
           end if
-          stop "Unrecognised line in cnn input file: "//trim(adjustl(buffer))
+          stop "Unrecognised line in input file: "//trim(adjustl(buffer))
        end select
     end do tag_loop
 
     !! set transfer activation function
 
-    this = layer_setup( &
+    layer = conv3d_layer_type( &
          input_shape, &
          num_filters, kernel_size, stride, padding, &
-         activation_function, activation_scale, &
+         activation_function = activation_function, &
+         activation_scale = activation_scale, &
          kernel_initialiser="zeros", bias_initialiser="zeros")
 
     !! check if WEIGHTS card was found
     if(.not.found_weights)then
-       stop "WEIGHTS card in CONVOLUTION not found!"
+       stop "WEIGHTS card in CONV3D not found!"
     end if
 
     !! allocate convolutional layer and read weights
     do l=1,num_filters
-       this%bias_incr = 0._real12
-       this%weight_incr = 0._real12
-       this%bias = 0._real12
-       this%weight = 0._real12
+       layer%bias_incr = 0._real12
+       layer%weight_incr = 0._real12
+       layer%bias = 0._real12
+       layer%weight = 0._real12
 
-       num_inputs = product(this%knl) + 1 !+1 for bias
+       num_inputs = product(layer%knl) + 1 !+1 for bias
        allocate(data_list(num_inputs))
 
        c = 1
@@ -573,11 +576,11 @@ contains
           read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
           c = c + k
        end do data_concat_loop
-       this%weight(:,:,:,:,l) = &
+       layer%weight(:,:,:,:,l) = &
             reshape(&
             data_list(1:num_inputs-1),&
-            shape(this%weight(:,:,:,:,l)))
-       this%bias(l) = data_list(num_inputs)
+            shape(layer%weight(:,:,:,:,l)))
+       layer%bias(l) = data_list(num_inputs)
        deallocate(data_list)
     end do
 
@@ -587,9 +590,15 @@ contains
        write(*,*) trim(adjustl(buffer))
        stop "ERROR: END WEIGHTS not where expected"
     end if
-    close(unit)
 
-  end subroutine read_conv3d
+    !! check for end of layer card
+    read(unit,'(A)') buffer
+    if(trim(adjustl(buffer)).ne."END COVN3D")then
+       write(*,*) trim(adjustl(buffer))
+       stop "ERROR: END CONV3D not where expected"
+    end if
+
+  end subroutine read_conv3d_layer
 !!!#############################################################################
 
 

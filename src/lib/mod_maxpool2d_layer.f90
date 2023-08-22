@@ -40,6 +40,7 @@ module maxpool2d_layer
 
   private
   public :: maxpool2d_layer_type
+  public :: read_maxpool2d_layer
 
 
 contains
@@ -192,6 +193,11 @@ contains
 !!!#############################################################################
 
 
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
+
 !!!#############################################################################
 !!! print layer to file
 !!!#############################################################################
@@ -230,6 +236,84 @@ contains
     close(unit)
 
   end subroutine print_maxpool2d
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! read layer from file
+!!!#############################################################################
+  subroutine read_maxpool2d_layer(unit)
+   use infile_tools, only: assign_val, assign_vec
+   use misc, only: to_lower, icount
+   implicit none
+   integer, intent(in) :: unit
+
+   class(maxpool2d_layer_type), allocatable :: layer
+
+   integer :: stat
+   integer :: i, j, k, c, itmp1
+   integer, dimension(2) :: pool_size, stride
+   integer, dimension(3) :: input_shape
+   character(256) :: buffer, tag
+
+   real(real12), allocatable, dimension(:) :: data_list
+
+
+   !! loop over tags in layer card
+   tag_loop: do
+
+      !! check for end of file
+      read(unit,'(A)',iostat=stat) buffer
+      if(stat.ne.0)then
+         write(0,*) "ERROR: file hit error (EoF?) before encountering END maxpool2d"
+         write(0,*) "Exiting..."
+         stop
+      end if
+      if(trim(adjustl(buffer)).eq."") cycle tag_loop
+
+      !! check for end of convolution card
+      if(trim(adjustl(buffer)).eq."END MAXPOOL2D")then
+         exit tag_loop
+      end if
+
+      tag=trim(adjustl(buffer))
+      if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
+
+      !! read parameters from save file
+      select case(trim(tag))
+      case("INPUT_SHAPE")
+         call assign_vec(buffer, input_shape, itmp1)
+      case("POOL_SIZE")
+         call assign_vec(buffer, pool_size, itmp1)
+      case("STRIDE")
+         call assign_vec(buffer, stride, itmp1)
+      case default
+         !! don't look for "e" due to scientific notation of numbers
+         !! ... i.e. exponent (E+00)
+         if(scan(to_lower(trim(adjustl(buffer))),&
+              'abcdfghijklmnopqrstuvwxyz').eq.0)then
+            cycle tag_loop
+         elseif(tag(:3).eq.'END')then
+            cycle tag_loop
+         end if
+         stop "Unrecognised line in input file: "//trim(adjustl(buffer))
+      end select
+   end do tag_loop
+
+   !! set transfer activation function
+
+   layer = maxpool2d_layer_type( input_shape=input_shape, &
+        pool_size = pool_size, stride = stride &
+        )
+
+   !! check for end of layer card
+   read(unit,'(A)') buffer
+   if(trim(adjustl(buffer)).ne."END MAXPOOL2D")then
+      write(*,*) trim(adjustl(buffer))
+      stop "ERROR: END MAXPOOL2D not where expected"
+   end if
+
+ end subroutine read_maxpool2d_layer
 !!!#############################################################################
 
 

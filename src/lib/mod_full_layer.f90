@@ -53,6 +53,7 @@ module full_layer
 
   private
   public :: full_layer_type
+  public :: read_full_layer
 
 
 contains
@@ -126,7 +127,7 @@ contains
     if(present(clip_dict))then
        layer%clip = clip_dict
        if(present(clip_min).or.present(clip_max).or.present(clip_norm))then
-          write(*,*) "Multiple clip options provided to conv2d layer"
+          write(*,*) "Multiple clip options provided to full layer"
           write(*,*) "Ignoring all bar clip_dict"
        end if
     else
@@ -254,6 +255,11 @@ contains
 !!!#############################################################################
 
 
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
+
 !!!#############################################################################
 !!! print layer to file
 !!!#############################################################################
@@ -290,6 +296,125 @@ contains
     close(unit)
 
   end subroutine print_full
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! read layer from file
+!!!#############################################################################
+  subroutine read_full_layer(unit)
+    use infile_tools, only: assign_val, assign_vec
+    use misc, only: to_lower, icount
+    implicit none
+    integer, intent(in) :: unit
+
+    class(full_layer_type), allocatable :: layer
+
+    integer :: stat
+    integer :: i, j, k, c, itmp1
+    integer :: num_inputs, num_outputs
+    real(real12) :: activation_scale
+    character(256) :: buffer, tag
+    character(:), allocatable :: activation_function
+
+    logical :: found_weights
+    real(real12), allocatable, dimension(:) :: data_list
+
+
+    !! loop over tags in layer card
+    found_weights = .false.
+    tag_loop: do
+
+       !! check for end of file
+       read(unit,'(A)',iostat=stat) buffer
+       if(stat.ne.0)then
+          write(0,*) "ERROR: file hit error (EoF?) before encountering END FULL"
+          write(0,*) "Exiting..."
+          stop
+       end if
+       if(trim(adjustl(buffer)).eq."") cycle tag_loop
+
+       !! check for end of convolution card
+       if(trim(adjustl(buffer)).eq."END FULL")then
+          exit tag_loop
+       end if
+
+       tag=trim(adjustl(buffer))
+       if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
+
+       !! read parameters from save file
+       select case(trim(tag))
+       case("NUM_INPUTS")
+          call assign_val(buffer, num_inputs, itmp1)
+       case("NUM_OUTPUTS")
+          call assign_val(buffer, num_outputs, itmp1)
+       case("ACTIVATION_FUNCTION")
+          call assign_val(buffer, activation_function, itmp1)
+       case("ACTIVATION_SCALE")
+          call assign_val(buffer, activation_scale, itmp1)
+       case("WEIGHTS")
+          found_weights = .true.
+          exit tag_loop
+       case default
+          !! don't look for "e" due to scientific notation of numbers
+          !! ... i.e. exponent (E+00)
+          if(scan(to_lower(trim(adjustl(buffer))),&
+               'abcdfghijklmnopqrstuvwxyz').eq.0)then
+             cycle tag_loop
+          elseif(tag(:3).eq.'END')then
+             cycle tag_loop
+          end if
+          stop "Unrecognised line in input file: "//trim(adjustl(buffer))
+       end select
+    end do tag_loop
+
+    !! set transfer activation function
+
+    layer = full_layer_type( &
+         num_outputs = num_outputs, num_inputs = num_inputs, &
+         activation_function = activation_function, &
+         activation_scale = activation_scale, &
+         kernel_initialiser="zeros", bias_initialiser="zeros")
+
+    !! check if WEIGHTS card was found
+    if(.not.found_weights)then
+       stop "WEIGHTS card in full not found!"
+    end if
+
+    !! allocate convolutional layer and read weights
+    layer%weight_incr = 0._real12
+    layer%weight = 0._real12
+
+    do i=1,num_outputs
+       allocate(data_list(num_inputs), source=0._real12)
+         c = 1
+         k = 1
+         data_concat_loop: do while(c.le.num_inputs)
+             read(unit,'(A)',iostat=stat) buffer
+             if(stat.ne.0) exit data_concat_loop
+             k = icount(buffer)
+             read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
+             c = c + k
+         end do data_concat_loop
+         layer%weight(:,i) = data_list
+         deallocate(data_list)
+      end do
+
+    !! check for end of weights card
+    read(unit,'(A)') buffer
+    if(trim(adjustl(buffer)).ne."END WEIGHTS")then
+       write(*,*) trim(adjustl(buffer))
+       stop "ERROR: END WEIGHTS not where expected"
+    end if
+
+    !! check for end of layer card
+    read(unit,'(A)') buffer
+    if(trim(adjustl(buffer)).ne."END FULL")then
+       write(*,*) trim(adjustl(buffer))
+       stop "ERROR: END FULL not where expected"
+    end if
+
+  end subroutine read_full_layer
 !!!#############################################################################
 
 

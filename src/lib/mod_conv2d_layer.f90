@@ -63,6 +63,7 @@ module conv2d_layer
 
   private
   public :: conv2d_layer_type
+  public :: read_conv2d_layer
 
 
 contains
@@ -375,6 +376,11 @@ contains
 !!!#############################################################################
 
 
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
+
 !!!#############################################################################
 !!! print layer to file
 !!!#############################################################################
@@ -448,6 +454,146 @@ contains
     close(unit)
 
   end subroutine print_conv2d
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! read layer from file
+!!!#############################################################################
+  subroutine read_conv2d_layer(unit)
+    use infile_tools, only: assign_val, assign_vec
+    use misc, only: to_lower, icount
+    implicit none
+    integer, intent(in) :: unit
+
+    class(conv2d_layer_type), allocatable :: layer
+
+    integer :: stat
+    integer :: j, k, l, c, itmp1
+    integer :: num_filters, num_inputs
+    integer, dimension(2) :: kernel_size, stride
+    integer, dimension(3) :: input_shape
+    real(real12) :: activation_scale
+    character(256) :: buffer, tag
+    character(:), allocatable :: padding, activation_function
+
+    logical :: found_weights
+    integer, allocatable, dimension(:) :: itmp_list
+    real(real12), allocatable, dimension(:) :: data_list
+
+
+    !! loop over tags in layer card
+    found_weights = .false.
+    tag_loop: do
+
+       !! check for end of file
+       read(unit,'(A)',iostat=stat) buffer
+       if(stat.ne.0)then
+          write(0,*) "ERROR: file hit error (EoF?) before encountering END CONV2D"
+          write(0,*) "Exiting..."
+          stop
+       end if
+       if(trim(adjustl(buffer)).eq."") cycle tag_loop
+
+       !! check for end of convolution card
+       if(trim(adjustl(buffer)).eq."END CONV2D")then
+          exit tag_loop
+       end if
+
+       tag=trim(adjustl(buffer))
+       if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
+
+       !! read parameters from save file
+       select case(trim(tag))
+       case("INPUT_SHAPE")
+          call assign_vec(buffer, input_shape, itmp1)
+       case("NUM_FILTERS")
+          call assign_val(buffer, num_filters, itmp1)
+          !allocate(itmp_list(num_filters))
+       case("KERNEL_SIZE")
+          call assign_vec(buffer, kernel_size, itmp1)
+       case("STRIDE")
+          call assign_vec(buffer, stride, itmp1)
+       case("PADDING_TYPE")
+          call assign_val(buffer, padding, itmp1)
+          padding = to_lower(padding)
+       case("ACTIVATION_FUNCTION")
+          call assign_val(buffer, activation_function, itmp1)
+       case("ACTIVATION_SCALE")
+          call assign_val(buffer, activation_scale, itmp1)
+       case("WEIGHTS")
+          found_weights = .true.
+          exit tag_loop
+       case default
+          !! don't look for "e" due to scientific notation of numbers
+          !! ... i.e. exponent (E+00)
+          if(scan(to_lower(trim(adjustl(buffer))),&
+               'abcdfghijklmnopqrstuvwxyz').eq.0)then
+             cycle tag_loop
+          elseif(tag(:3).eq.'END')then
+             cycle tag_loop
+          end if
+          stop "Unrecognised line in input file: "//trim(adjustl(buffer))
+       end select
+    end do tag_loop
+
+    !! set transfer activation function
+
+    layer = conv2d_layer_type( &
+         input_shape, &
+         num_filters, kernel_size, stride, padding, &
+         activation_function = activation_function, &
+         activation_scale = activation_scale, &
+         kernel_initialiser="zeros", bias_initialiser="zeros")
+
+    !! check if WEIGHTS card was found
+    if(.not.found_weights)then
+       stop "WEIGHTS card in CONV2D not found!"
+    end if
+
+    !! allocate convolutional layer and read weights
+    do l=1,num_filters
+       layer%bias_incr = 0._real12
+       layer%weight_incr = 0._real12
+       layer%bias = 0._real12
+       layer%weight = 0._real12
+
+       num_inputs = product(layer%knl) + 1 !+1 for bias
+       allocate(data_list(num_inputs))
+
+       c = 1
+       k = 1
+       data_list = 0._real12
+       data_concat_loop: do while(c.le.num_inputs)
+          read(unit,'(A)',iostat=stat) buffer
+          if(stat.ne.0) exit data_concat_loop
+          k = icount(buffer)
+          read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
+          c = c + k
+       end do data_concat_loop
+       layer%weight(:,:,:,l) = &
+            reshape(&
+            data_list(1:num_inputs-1),&
+            shape(layer%weight(:,:,:,l)))
+       layer%bias(l) = data_list(num_inputs)
+       deallocate(data_list)
+    end do
+
+    !! check for end of weights card
+    read(unit,'(A)') buffer
+    if(trim(adjustl(buffer)).ne."END WEIGHTS")then
+       write(*,*) trim(adjustl(buffer))
+       stop "ERROR: END WEIGHTS not where expected"
+    end if
+
+    !! check for end of layer card
+    read(unit,'(A)') buffer
+    if(trim(adjustl(buffer)).ne."END COVN2D")then
+       write(*,*) trim(adjustl(buffer))
+       stop "ERROR: END CONV2D not where expected"
+    end if
+
+  end subroutine read_conv2d_layer
 !!!#############################################################################
 
 
