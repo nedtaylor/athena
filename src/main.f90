@@ -147,17 +147,14 @@ program ConvolutionalNeuralNetwork
        calc_input_gradients = .false., &
        activation_function = "relu", clip_dict = cv_clip))
   call network%add(maxpool2d_layer_type(&
-       input_shape = [28,28,cv_num_filters], &
        pool_size = 2, stride = 2))
   call network%add(full_layer_type( &
-       num_inputs = product([14,14,cv_num_filters]), &
        num_outputs = 100, clip_dict = fc_clip, &
        activation_function = "relu", &
        kernel_initialiser = "he_uniform", &
        bias_initialiser = "he_uniform" &
        ))
   call network%add(full_layer_type( &
-       num_inputs = 100, &
        num_outputs = 10, clip_dict = fc_clip,&
        activation_function = "softmax", &
        kernel_initialiser = "glorot_uniform", &
@@ -171,7 +168,7 @@ program ConvolutionalNeuralNetwork
   !!     calc_input_gradients = .false., &
   !!     activation_function = "relu", clip_dict = cv_clip))
   !!call network%add(maxpool3d_layer_type(&
-  !!     input_shape = [28,28,1,cv_num_filters], &
+  !!     input_shape = [image_size,image_size,1,cv_num_filters], &
   !!     pool_size = [2,2,1], stride = [2,2,1]))
   !!call network%add(full_layer_type( &
   !!     num_inputs = product([14,14,1,cv_num_filters]), &
@@ -188,14 +185,10 @@ program ConvolutionalNeuralNetwork
   !!     bias_initialiser = "glorot_uniform" &
   !!     ))
 
-!!! MAKE AN ADD_LAYER PROCEDURE TO THE NETWORK TYPE
-
   call network%compile(optimiser=optimiser, loss=loss_method, metrics=metric_dict)
   input_spread = spread(input_images,3,1)
 
-  write(*,*) "NUM LAYERS",network%num_layers
-  write(*,*) shape(input_images)
-  write(*,*) shape(input_spread)
+  write(*,*) "NUMBER OF LAYERS",network%num_layers
 
 
   !  if(restart)then
