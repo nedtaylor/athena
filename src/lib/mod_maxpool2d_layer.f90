@@ -242,7 +242,7 @@ contains
 !!!#############################################################################
 !!! read layer from file
 !!!#############################################################################
-  subroutine read_maxpool2d_layer(unit)
+  function read_maxpool2d_layer(unit) result(layer)
    use infile_tools, only: assign_val, assign_vec
    use misc, only: to_lower, icount
    implicit none
@@ -313,7 +313,7 @@ contains
       stop "ERROR: END MAXPOOL2D not where expected"
    end if
 
- end subroutine read_maxpool2d_layer
+  end function read_maxpool2d_layer
 !!!#############################################################################
 
 

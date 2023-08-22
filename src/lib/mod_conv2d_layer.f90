@@ -460,7 +460,7 @@ contains
 !!!#############################################################################
 !!! read layer from file
 !!!#############################################################################
-  subroutine read_conv2d_layer(unit)
+  function read_conv2d_layer(unit) result(layer)
     use infile_tools, only: assign_val, assign_vec
     use misc, only: to_lower, icount
     implicit none
@@ -548,42 +548,42 @@ contains
 
     !! check if WEIGHTS card was found
     if(.not.found_weights)then
-       stop "WEIGHTS card in CONV2D not found!"
-    end if
+       write(0,*) "WARNING: WEIGHTS card in CONV2D not found"
+    else
+       !! allocate convolutional layer and read weights
+       do l=1,num_filters
+          layer%bias_incr = 0._real12
+          layer%weight_incr = 0._real12
+          layer%bias = 0._real12
+          layer%weight = 0._real12
 
-    !! allocate convolutional layer and read weights
-    do l=1,num_filters
-       layer%bias_incr = 0._real12
-       layer%weight_incr = 0._real12
-       layer%bias = 0._real12
-       layer%weight = 0._real12
+          num_inputs = product(layer%knl) + 1 !+1 for bias
+          allocate(data_list(num_inputs))
 
-       num_inputs = product(layer%knl) + 1 !+1 for bias
-       allocate(data_list(num_inputs))
+          c = 1
+          k = 1
+          data_list = 0._real12
+          data_concat_loop: do while(c.le.num_inputs)
+             read(unit,'(A)',iostat=stat) buffer
+             if(stat.ne.0) exit data_concat_loop
+             k = icount(buffer)
+             read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
+             c = c + k
+          end do data_concat_loop
+          layer%weight(:,:,:,l) = &
+                reshape(&
+                data_list(1:num_inputs-1),&
+                shape(layer%weight(:,:,:,l)))
+          layer%bias(l) = data_list(num_inputs)
+          deallocate(data_list)
+       end do
 
-       c = 1
-       k = 1
-       data_list = 0._real12
-       data_concat_loop: do while(c.le.num_inputs)
-          read(unit,'(A)',iostat=stat) buffer
-          if(stat.ne.0) exit data_concat_loop
-          k = icount(buffer)
-          read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
-          c = c + k
-       end do data_concat_loop
-       layer%weight(:,:,:,l) = &
-            reshape(&
-            data_list(1:num_inputs-1),&
-            shape(layer%weight(:,:,:,l)))
-       layer%bias(l) = data_list(num_inputs)
-       deallocate(data_list)
-    end do
-
-    !! check for end of weights card
-    read(unit,'(A)') buffer
-    if(trim(adjustl(buffer)).ne."END WEIGHTS")then
-       write(*,*) trim(adjustl(buffer))
-       stop "ERROR: END WEIGHTS not where expected"
+       !! check for end of weights card
+       read(unit,'(A)') buffer
+       if(trim(adjustl(buffer)).ne."END WEIGHTS")then
+          write(*,*) trim(adjustl(buffer))
+          stop "ERROR: END WEIGHTS not where expected"
+       end if
     end if
 
     !! check for end of layer card
@@ -593,7 +593,7 @@ contains
        stop "ERROR: END CONV2D not where expected"
     end if
 
-  end subroutine read_conv2d_layer
+  end function read_conv2d_layer
 !!!#############################################################################
 
 
