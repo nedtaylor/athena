@@ -27,15 +27,14 @@ module base_layer
      !! For every forward, just pass in the whole previous layer container
      !! ... reverse for backward
      !! In each layer container, you know what size you are expecting for the input, so just take that based on a select type (or of a previous?)
-     !! only some extended types have update
   end type base_layer_type
-  !! is it a foward subroutine, or a function whose result is the output?
 
   abstract interface
-     subroutine initialise(this, input_shape)
+     subroutine initialise(this, input_shape, verbose)
        import :: base_layer_type
        class(base_layer_type), intent(inout) :: this
        integer, dimension(:), intent(in) :: input_shape
+       integer, optional, intent(in) :: verbose
      end subroutine initialise
   end interface
 

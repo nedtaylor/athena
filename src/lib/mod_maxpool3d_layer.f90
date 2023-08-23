@@ -151,10 +151,23 @@ contains
 !!!#############################################################################
 !!! initialise layer
 !!!#############################################################################
-  subroutine init_maxpool3d(this, input_shape)
+  subroutine init_maxpool3d(this, input_shape, verbose)
     implicit none
     class(maxpool3d_layer_type), intent(inout) :: this
     integer, dimension(:), intent(in) :: input_shape
+    integer, optional, intent(in) :: verbose
+
+    integer :: t_verb
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise optional arguments
+    !!--------------------------------------------------------------------------
+    if(present(verbose))then
+       t_verb = verbose
+    else
+       t_verb = 0
+    end if
 
 
     !!--------------------------------------------------------------------------

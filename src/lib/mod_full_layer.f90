@@ -163,13 +163,25 @@ contains
 !!!#############################################################################
 !!! initialise layer
 !!!#############################################################################
-  subroutine init_full(this, input_shape)
+  subroutine init_full(this, input_shape, verbose)
     use initialiser, only: initialiser_setup
     implicit none
     class(full_layer_type), intent(inout) :: this
     integer, dimension(:), intent(in) :: input_shape
+    integer, optional, intent(in) :: verbose
 
+    integer :: t_verb
     class(initialiser_type), allocatable :: initialiser
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise optional arguments
+    !!--------------------------------------------------------------------------
+    if(present(verbose))then
+       t_verb = verbose
+    else
+       t_verb = 0
+    end if
 
 
     !!--------------------------------------------------------------------------
