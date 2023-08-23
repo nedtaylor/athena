@@ -100,10 +100,10 @@ contains
 !!!#############################################################################
   subroutine set_global_vars()
     implicit none
-    integer :: i,j
+    integer :: i, j
     integer :: num_hidden_layers
-    character(1024) :: buffer,flag,param_file
-    logical :: skip,empty
+    character(1024) :: buffer, flag,param_file
+    logical :: skip, empty
 
 
 !!!-----------------------------------------------------------------------------
