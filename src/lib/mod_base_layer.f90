@@ -77,7 +77,7 @@ module base_layer
 !!! learnable derived extended type
 !!!-----------------------------------------------------------------------------
   type, abstract, extends(base_layer_type) :: learnable_layer_type
-     character(len=14) :: kernel_initialiser, bias_initialiser
+     character(len=14) :: kernel_initialiser='', bias_initialiser=''
    contains
      procedure(update), deferred, pass(this) :: update
   end type learnable_layer_type

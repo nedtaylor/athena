@@ -254,7 +254,7 @@ contains
     else
        scale = 1._real12
     end if
-    write(*,'("CV activation function: ",A)') trim(t_activation_function)
+    write(*,'("CONV2D activation function: ",A)') trim(t_activation_function)
     allocate(layer%transfer, &
          source=activation_setup(t_activation_function, scale))
 
@@ -262,19 +262,15 @@ contains
     !!--------------------------------------------------------------------------
     !! define weights (kernels) and biases initialisers
     !!--------------------------------------------------------------------------
-    if(present(kernel_initialiser))then
-       layer%kernel_initialiser = kernel_initialiser
-    else
-       layer%kernel_initialiser = get_default_initialiser(t_activation_function)
-    end if
-    write(*,'("CV kernel initialiser: ",A)') trim(layer%kernel_initialiser)
-    if(present(bias_initialiser))then
-       layer%bias_initialiser = bias_initialiser
-    else
-       layer%bias_initialiser = get_default_initialiser(&
-            t_activation_function, is_bias=.true.)       
-    end if
-    write(*,'("CV bias initialiser: ",A)') trim(layer%bias_initialiser)
+    if(present(kernel_initialiser)) layer%kernel_initialiser =kernel_initialiser
+    if(trim(layer%kernel_initialiser).eq.'') &
+         layer%kernel_initialiser=get_default_initialiser(t_activation_function)
+    write(*,'("CONV2D kernel initialiser: ",A)') trim(layer%kernel_initialiser)
+    if(present(bias_initialiser)) layer%bias_initialiser = bias_initialiser
+    if(trim(layer%bias_initialiser).eq.'') &
+         layer%bias_initialiser = get_default_initialiser(&
+         t_activation_function, is_bias=.true.)
+    write(*,'("CONV2D bias initialiser: ",A)') trim(layer%bias_initialiser)
 
 
     !!--------------------------------------------------------------------------
@@ -521,6 +517,10 @@ contains
           call assign_val(buffer, activation_function, itmp1)
        case("ACTIVATION_SCALE")
           call assign_val(buffer, activation_scale, itmp1)
+         case("KERNEL_INITIALISER")
+            call assign_val(buffer, layer%kernel_initialiser, itmp1)
+         case("BIAS_INITIALISER")
+            call assign_val(buffer, layer%bias_initialiser, itmp1)
        case("WEIGHTS")
           found_weights = .true.
           exit tag_loop
