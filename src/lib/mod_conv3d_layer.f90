@@ -21,7 +21,6 @@ module conv3d_layer
      integer, dimension(3) :: knl, stp, hlf, pad, cen
      integer :: num_channels
      integer :: num_filters
-     type(clip_type) :: clip
      real(real12), allocatable, dimension(:) :: bias, bias_incr
      real(real12), allocatable, dimension(:) :: db ! bias gradient
      real(real12), allocatable, dimension(:,:,:,:,:) :: weight, weight_incr

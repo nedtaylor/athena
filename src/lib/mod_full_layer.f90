@@ -16,7 +16,6 @@ module full_layer
   type, extends(learnable_layer_type) :: full_layer_type
      integer :: num_inputs
      integer :: num_outputs
-     type(clip_type) :: clip
      real(real12), allocatable, dimension(:,:) :: weight, weight_incr
      real(real12), allocatable, dimension(:,:) :: dw ! weight gradient
      real(real12), allocatable, dimension(:) :: output, z !output and activation
