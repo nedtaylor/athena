@@ -4,7 +4,7 @@ Suggested code name (separate one for module and the software that implements it
 
 This is a program to highlight the uses of convolutional neural networks in Fortran.
 
-It is currently being tested on the MNIST dataset (a set of arund 600,000 hand-written numbers, 0-9). The version used is a text-form one.
+It is currently being tested on the MNIST dataset (a set of 60,000 hand-written numbers for training and 10,000 for testing, 0-9). The version used is a text-form one.
 
 The link to the original database is: http://yann.lecun.com/exdb/mnist/
 
