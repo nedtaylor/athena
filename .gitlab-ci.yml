@@ -21,6 +21,9 @@ stages:          # List of stages for jobs, and their order of execution
   - test
 #   - deploy
 
+ rules:
+   - when: manual
+
 variables:
   OUTPUT_DIR: output  # Adjust this to your Fortran code's output directory
 
