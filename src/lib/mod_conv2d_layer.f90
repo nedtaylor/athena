@@ -742,8 +742,6 @@ contains
     type(optimiser_type), intent(in) :: optimiser
     integer, optional, intent(in) :: batch_size
 
-    integer :: l
-
     
     !! normalise by number of samples
     if(present(batch_size))then
