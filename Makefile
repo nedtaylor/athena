@@ -47,16 +47,15 @@ LIBS := mod_constants.f90 \
 	mod_container_layer.f90 \
 	mod_container_layer_sub.f90 \
 	mod_network.f90
+SRCS := atelos.f90
 OBJS := $(addprefix $(LIB_DIR)/,$(LIBS))
-#$(info VAR is $(OBJS))
-SRCS := inputs.f90
-#	convolution.f90 \
-#	pooling.f90 \
-#	fullyconnected.f90 \
-#	softmax.f90
-MAIN := main.f90
-SRCS := $(OBJS) $(SRCS) $(MAIN)
-OBJS := $(addprefix $(SRC_DIR)/,$(SRCS))
+OBJS := $(OBJS) $(SRCS)
+OBJS := $(addprefix $(SRC_DIR)/,$(OBJS))
+
+LIBS_mod := $(addprefix $(BUILD_DIR)/,$(LIBS))
+LIBS_mod := $(LIBS_mod:.f90=.o)
+SRCS_mod := $(addprefix $(BUILD_DIR)/,$(SRCS))
+SRCS_mod := $(SRCS_mod:.f90=.o)
 
 
 ##########################################
@@ -116,7 +115,7 @@ LLAPACK = $(MKLROOT)/libmkl_lapack95_lp64.a \
 # COMPILATION SECTION
 ##########################################
 INSTALL_DIR?=$(HOME)/bin
-NAME = cnn_dev
+LIBRARY_NAME = atelos
 
 CFLAGS =
 
@@ -156,8 +155,8 @@ endif
 
 .PHONY: all install build uninstall clean #mp debug dev optim memcheck bigmem
 
-programs = $(BIN_DIR)/$(NAME)
-all: $(programs)
+libraries = $(BIN_DIR)/$(LIBRARY_NAME)
+all: $(libraries)
 
 
 build: all
@@ -165,7 +164,7 @@ build: all
 
 %:
 	@:
-#	$(FC) $(PPFLAGS) $(CFLAGS) $(MODULEFLAGS) $(BUILD_DIR) $(OBJS) -o $(programs)
+#	$(FC) $(PPFLAGS) $(CFLAGS) $(MODULEFLAGS) $(BUILD_DIR) $(OBJS) -o $(libraries)
 
 $(BIN_DIR):
 	mkdir -p $@
@@ -173,11 +172,17 @@ $(BIN_DIR):
 $(BUILD_DIR):
 	mkdir -p $@
 
-$(programs): $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
-	$(FC) $(PPFLAGS) $(CFLAGS) $(MODULEFLAGS) $(BUILD_DIR) $(OBJS) -o $@
+$(libraries): $(LIBS_mod) $(SRCS_mod) | $(BIN_DIR)
+	ar rcs $@ $^
+
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.f90 | $(BUILD_DIR)
+	$(FC) $(PPFLAGS) $(CFLAGS) $(MODULEFLAGS) $(BUILD_DIR) -c $< -o $@
+
+$(BUILD_DIR)/%.o: $(SRC_DIR)/$(LIB_DIR)/%.f90 | $(BUILD_DIR)
+	$(FC) $(PPFLAGS) $(CFLAGS) $(MODULEFLAGS) $(BUILD_DIR) -c $< -o $@
 
 install: $(OBJS) | $(INSTALL_DIR) $(BUILD_DIR)
-	$(FC) $(PPFLAGS) $(CFLAGS) $(MODULEFLAGS) $(BUILD_DIR) $(OBJS) -o $(programs)
+	$(FC) $(PPFLAGS) $(CFLAGS) $(MODULEFLAGS) $(BUILD_DIR) $(OBJS) -o $(libraries)
 
 clean: 
 	rm -rf $(BUILD_DIR)/ $(BIN_DIR)/
