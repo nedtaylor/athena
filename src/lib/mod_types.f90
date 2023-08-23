@@ -7,21 +7,10 @@ module custom_types
   use constants, only: real12
   implicit none
 
-!!!------------------------------------------------------------------------
-!!! gradient clipping type
-!!!------------------------------------------------------------------------
-  type clip_type
-     logical :: l_min_max = .false.
-     logical :: l_norm    = .false.
-     real(real12) :: min  =-huge(1._real12)
-     real(real12) :: max  = huge(1._real12)
-     real(real12) :: norm = huge(1._real12)
-  end type clip_type
 
-
-!!!------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
 !!! activation (transfer) function base type
-!!!------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
 !!! EXAMPLE OF HOW THIS WORKS WAS MODIFIED FROM:
 !!! https://en.wikibooks.org/wiki/Fortran/OOP_in_Fortran
 !!! https://stackoverflow.com/questions/19391094/is-it-possible-to-implement-an-abstract-variable-inside-a-type-in-fortran-2003
@@ -46,7 +35,7 @@ module custom_types
   
 
   !! interface for activation function
-  !!-----------------------------------------------------------------------
+  !!----------------------------------------------------------------------------
   abstract interface
      pure function activation_function_1d(this, val) result(output)
        import activation_type, real12
@@ -73,7 +62,7 @@ module custom_types
 
 
   !! interface for derivative function
-  !!-----------------------------------------------------------------------
+  !!----------------------------------------------------------------------------
   abstract interface
      pure function derivative_function_1d(this, val) result(output)
        import activation_type, real12
@@ -99,9 +88,9 @@ module custom_types
   end interface
 
 
-!!!------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
 !!! weights and biases initialiser base type
-!!!------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
   type, abstract :: initialiser_type
    contains
      procedure (initialiser_subroutine), deferred, pass(this) :: initialise
@@ -109,7 +98,7 @@ module custom_types
 
 
   !! interface for initialiser function
-  !!-----------------------------------------------------------------------
+  !!----------------------------------------------------------------------------
   abstract interface
      subroutine initialiser_subroutine(this, input, fan_in, fan_out)
        import initialiser_type, real12
@@ -124,9 +113,9 @@ module custom_types
 
   private
 
-  public :: clip_type
   public :: activation_type
   public :: initialiser_type
+
 
 end module custom_types
 !!!#############################################################################

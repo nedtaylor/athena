@@ -7,6 +7,17 @@ module optimiser
   use constants, only: real12
   implicit none
 
+!!!------------------------------------------------------------------------
+!!! gradient clipping type
+!!!------------------------------------------------------------------------
+  type clip_type
+     logical :: l_min_max = .false.
+     logical :: l_norm    = .false.
+     real(real12) :: min  =-huge(1._real12)
+     real(real12) :: max  = huge(1._real12)
+     real(real12) :: norm = huge(1._real12)
+  end type clip_type
+
 !!!-----------------------------------------------------------------------------
 !!! learning parameter type
 !!!-----------------------------------------------------------------------------
@@ -36,18 +47,106 @@ module optimiser
      character(:), allocatable :: regularisation
      real(real12) :: l1 = 0._real12
      real(real12) :: l2 = 0._real12
+     type(clip_type) :: clip_dict
    contains
      procedure, pass(this) :: optimise
+     procedure, pass(this) :: set_clip
+     procedure, pass(this) :: clip => clip_gradients
      !procedure, private, pass(this) :: adam
   end type optimiser_type
 
 
   private
 
+  public :: clip_type
   public :: optimiser_type
 
 
 contains
+
+!!!#############################################################################
+!!! gradient norm clipping
+!!!#############################################################################
+  subroutine set_clip(this, clip_dict, clip_min, clip_max, clip_norm)
+    implicit none
+    class(optimiser_type), intent(inout) :: this
+    type(clip_type), optional, intent(in) :: clip_dict
+    real(real12), optional, intent(in) :: clip_min, clip_max, clip_norm
+
+
+    !!--------------------------------------------------------------------------
+    !! set up clipping limits
+    !!--------------------------------------------------------------------------
+    if(present(clip_dict))then
+       this%clip_dict = clip_dict
+       if(present(clip_min).or.present(clip_max).or.present(clip_norm))then
+          write(*,*) "Multiple clip options provided to full layer"
+          write(*,*) "Ignoring all bar clip_dict"
+       end if
+    else
+       if(present(clip_min))then
+          this%clip_dict%l_min_max = .true.
+          this%clip_dict%min = clip_min
+       end if
+       if(present(clip_max))then
+          this%clip_dict%l_min_max = .true.
+          this%clip_dict%max = clip_max
+       end if
+       if(present(clip_norm))then
+          this%clip_dict%l_norm = .true.
+          this%clip_dict%norm = clip_norm
+       end if
+    end if
+
+  end subroutine set_clip
+!!!#############################################################################
+
+!!!#############################################################################
+!!! gradient norm clipping
+!!!#############################################################################
+  pure subroutine clip_gradients(this,length,gradient,bias)
+    implicit none
+    class(optimiser_type), intent(in) :: this
+    integer, intent(in) :: length
+    real(real12), dimension(length), intent(inout) :: gradient
+    real(real12), dimension(:), optional, intent(inout) :: bias
+
+    real(real12) :: scale
+    real(real12), dimension(:), allocatable :: t_bias
+
+    if(present(bias))then
+       t_bias = bias
+    else
+       allocate(t_bias(1), source=0._real12)
+    end if
+
+    !! clip values to within limits of (min,max)
+    if(this%clip_dict%l_min_max)then
+       gradient = max(this%clip_dict%min,min(this%clip_dict%max,gradient))
+       t_bias   = max(this%clip_dict%min,min(this%clip_dict%max,t_bias))
+    end if
+
+    !! clip values to a maximum L2-norm
+    if(this%clip_dict%l_norm)then
+       scale = min(1._real12, &
+            this%clip_dict%norm/sqrt(sum(gradient**2._real12) + &
+            sum(t_bias)**2._real12))
+       if(scale.lt.1._real12)then
+          gradient = gradient * scale
+          t_bias   = t_bias * scale
+       end if
+    end if
+
+    if(present(bias)) bias = t_bias
+
+  end subroutine clip_gradients
+!!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
 
 !!!#############################################################################
 !!! 
@@ -70,7 +169,6 @@ contains
     select case(this%method(1:1))
     case('m')!'momentum')
        !! momentum-based learning
-       !! reversed weight applier to match keras, improves convergence
        !! w = w - vel - lr * g
        weight_incr = lr_gradient + &
             this%momentum * weight_incr

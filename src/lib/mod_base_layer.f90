@@ -6,7 +6,7 @@
 module base_layer
   use constants, only: real12
   use optimiser, only: optimiser_type
-  use custom_types, only: clip_type
+  !use custom_types, only: clip_type
   implicit none
 
 !!!------------------------------------------------------------------------
@@ -79,7 +79,7 @@ module base_layer
 !!!-----------------------------------------------------------------------------
   type, abstract, extends(base_layer_type) :: learnable_layer_type
      character(len=14) :: kernel_initialiser='', bias_initialiser=''
-     type(clip_type) :: clip
+     !type(clip_type) :: clip
    contains
      procedure(update), deferred, pass(this) :: update
   end type learnable_layer_type

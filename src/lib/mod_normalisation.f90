@@ -13,47 +13,8 @@ module normalisation
   public :: linear_renormalise
   public :: renormalise_norm
   public :: renormalise_sum
-  public :: gradient_clip
   
 contains
-
-!!!#############################################################################
-!!! gradient clipping
-!!!#############################################################################
-  pure subroutine gradient_clip(length,gradient,bias,clip_min,clip_max,clip_norm)
-    implicit none
-    integer, intent(in) :: length
-    real(real12), dimension(length), intent(inout) :: gradient
-    real(real12), optional, intent(inout) :: bias
-    real(real12), optional, intent(in) :: clip_min, clip_max, clip_norm
-
-    real(real12) :: scale, t_bias
-
-    if(present(bias))then
-       t_bias = bias
-    else
-       t_bias = 0._real12
-    end if
-
-    !! clipping is not applied to deltas
-    if(present(clip_norm))then
-       scale = min(1._real12, &
-            clip_norm/sqrt(sum(gradient**2._real12) + &
-            t_bias**2._real12))
-       if(scale.lt.1._real12)then
-          gradient = gradient * scale
-          t_bias = t_bias * scale
-       end if
-    elseif(present(clip_min).and.present(clip_max))then
-       gradient = max(clip_min,min(clip_max,gradient))
-       t_bias = max(clip_min,min(clip_max,t_bias))
-    end if
-
-    if(present(bias)) bias = t_bias
-
-  end subroutine gradient_clip
-!!!#############################################################################
-
 
 !!!#############################################################################
 !!! 

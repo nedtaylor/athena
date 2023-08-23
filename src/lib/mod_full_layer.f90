@@ -6,7 +6,7 @@
 module full_layer
   use constants, only: real12
   use base_layer, only: learnable_layer_type
-  use custom_types, only: activation_type, initialiser_type, clip_type
+  use custom_types, only: activation_type, initialiser_type
   implicit none
   
 
@@ -101,8 +101,7 @@ contains
   module function layer_setup( &
        num_outputs, num_inputs, &
        activation_scale, activation_function, &
-       kernel_initialiser, bias_initialiser, &
-       clip_dict, clip_min, clip_max, clip_norm) result(layer)
+       kernel_initialiser, bias_initialiser) result(layer)
     use activation,  only: activation_setup
     use initialiser, only: get_default_initialiser
     implicit none
@@ -111,38 +110,12 @@ contains
     real(real12), optional, intent(in) :: activation_scale
     character(*), optional, intent(in) :: activation_function, &
          kernel_initialiser, bias_initialiser
-    type(clip_type), optional, intent(in) :: clip_dict
-    real(real12), optional, intent(in) :: clip_min, clip_max, clip_norm
     
     type(full_layer_type) :: layer
 
     real(real12) :: scale
     character(len=10) :: t_activation_function
 
-
-    !!--------------------------------------------------------------------------
-    !! set up clipping limits
-    !!--------------------------------------------------------------------------
-    if(present(clip_dict))then
-       layer%clip = clip_dict
-       if(present(clip_min).or.present(clip_max).or.present(clip_norm))then
-          write(*,*) "Multiple clip options provided to full layer"
-          write(*,*) "Ignoring all bar clip_dict"
-       end if
-    else
-       if(present(clip_min))then
-          layer%clip%l_min_max = .true.
-          layer%clip%min = clip_min
-       end if
-       if(present(clip_max))then
-          layer%clip%l_min_max = .true.
-          layer%clip%max = clip_max
-       end if
-       if(present(clip_norm))then
-          layer%clip%l_norm = .true.
-          layer%clip%norm = clip_norm
-       end if
-    end if
 
     !!--------------------------------------------------------------------------
     !! set activation and derivative functions based on input name
@@ -311,10 +284,11 @@ contains
     integer :: i, j, k, c, itmp1
     integer :: num_inputs, num_outputs
     real(real12) :: activation_scale
-    character(256) :: buffer, tag
-    character(20) :: activation_function
-
     logical :: found_weights
+    character(14) :: kernel_initialiser='', bias_initialiser=''
+    character(20) :: activation_function
+    character(256) :: buffer, tag
+
     real(real12), allocatable, dimension(:) :: data_list
 
 
@@ -350,13 +324,13 @@ contains
        case("ACTIVATION_SCALE")
           call assign_val(buffer, activation_scale, itmp1)
        case("KERNEL_INITIALISER")
-          call assign_val(buffer, layer%kernel_initialiser, itmp1)
+          call assign_val(buffer, kernel_initialiser, itmp1)
        case("BIAS_INITIALISER")
-          call assign_val(buffer, layer%bias_initialiser, itmp1)
+          call assign_val(buffer, bias_initialiser, itmp1)
        case("WEIGHTS")
           found_weights = .true.
-          layer%kernel_initialiser = 'zeros'
-          layer%bias_initialiser = 'zeros'
+          kernel_initialiser = 'zeros'
+          bias_initialiser   = 'zeros'
           exit tag_loop
        case default
           !! don't look for "e" due to scientific notation of numbers
@@ -371,12 +345,13 @@ contains
        end select
     end do tag_loop
 
-    !! set transfer activation function
-
+    !! allocate layer
     layer = full_layer_type( &
          num_outputs = num_outputs, num_inputs = num_inputs, &
          activation_function = activation_function, &
-         activation_scale = activation_scale)
+         activation_scale = activation_scale, &
+         kernel_initialiser = kernel_initialiser, &
+         bias_initialiser = bias_initialiser)
 
     !! check if WEIGHTS card was found
     if(.not.found_weights)then
@@ -488,7 +463,6 @@ contains
 !!!#############################################################################
   pure subroutine update(this, optimiser, batch_size)
     use optimiser, only: optimiser_type
-    use normalisation, only: gradient_clip
     implicit none
     class(full_layer_type), intent(inout) :: this
     type(optimiser_type), intent(in) :: optimiser
@@ -499,13 +473,7 @@ contains
     if(present(batch_size)) this%dw = this%dw/batch_size
 
     !! apply gradient clipping
-    if(this%clip%l_min_max) call gradient_clip(size(this%dw),&
-         this%dw,&
-         clip_min=this%clip%min,clip_max=this%clip%max)
-    if(this%clip%l_norm) &
-         call gradient_clip(size(this%dw),&
-         this%dw,&
-         clip_norm=this%clip%norm)
+    call optimiser%clip(size(this%dw),this%dw)
 
     !! update the layer weights and bias using gradient descent
     call optimiser%optimise(&

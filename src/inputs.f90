@@ -5,7 +5,6 @@
 !!!#############################################################################
 module inputs
   use constants, only: real12, ierror
-  use custom_types, only: clip_type
   use optimiser, only: optimiser_type
   use misc, only: icount, flagmaker, file_check, to_lower
   use metrics, only: metric_dict_type, metric_dict_alloc
@@ -28,7 +27,6 @@ module inputs
   integer :: cv_num_filters                ! number of convolution filters
   character(:), allocatable :: convolution_method        ! type of convolution
   character(:), allocatable :: padding_method             ! type of convolution padding
-  type(clip_type) :: cv_clip               ! convolution clipping thresholds
   integer, allocatable, dimension(:) :: cv_kernel_size  ! kernel size for each convolution layer (assume square)
   integer, allocatable, dimension(:) :: cv_stride       ! stride of kernels for convolution
   character(:), allocatable :: cv_dropout_method
@@ -46,7 +44,6 @@ module inputs
   character(:), allocatable :: pool_normalisation  ! normalise output of pooling
 
   integer, allocatable, dimension(:) :: fc_num_hidden  ! number of fully connected hidden layers
-  type(clip_type) :: fc_clip                           ! fully connected clipping thresholds
   character(len=10) :: fc_activation_function
   real(real12) :: fc_activation_scale
   character(:), allocatable :: fc_weight_initialiser
@@ -75,7 +72,6 @@ module inputs
   public :: optimiser
 
   public :: cv_num_filters, cv_kernel_size, cv_stride
-  public :: cv_clip
   public :: convolution_method, padding_method
   public :: cv_dropout_method
   public :: cv_block_size, cv_keep_prob
@@ -89,7 +85,6 @@ module inputs
   public :: pool_normalisation
 
   public :: fc_num_hidden
-  public :: fc_clip
   public :: fc_activation_scale
   public :: fc_activation_function
   public :: fc_weight_initialiser
@@ -137,11 +132,6 @@ contains
     num_epochs = 20
     batch_size = 20
     cv_num_filters = 32
-    cv_clip%l_min_max = .false.
-    cv_clip%l_norm    = .false.
-    cv_clip%min  = -huge(1._real12)
-    cv_clip%max  =  huge(1._real12)
-    cv_clip%norm =  huge(1._real12)
     cv_block_size = 5
     cv_keep_prob = 1._real12
     
@@ -149,11 +139,6 @@ contains
     pool_stride = 2
     pool_normalisation = "sum"
 
-    fc_clip%l_min_max = .false.
-    fc_clip%l_norm    = .false.
-    fc_clip%min  = -huge(1._real12)
-    fc_clip%max  =  huge(1._real12)
-    fc_clip%norm =  huge(1._real12)
     fc_activation_function = "relu"
     fc_activation_scale = 1._real12
     !! gaussian, relu, piecewise, leaky_relu, sigmoid, tanh
@@ -321,14 +306,14 @@ contains
          learning_rate, momentum, l1_lambda, l2_lambda, &
          shuffle_dataset, batch_learning, adaptive_learning, &
          beta1, beta2, epsilon, loss, &
+         clip_min, clip_max, clip_norm, &
          regularisation, metrics
     namelist /convolution/ num_filters, kernel_size, stride, &
-         clip_min, clip_max, clip_norm, convolution_type, padding_type, &
+         convolution_type, padding_type, &
          dropout, block_size, keep_prob, activation_function, activation_scale, &
          kernel_initialiser, bias_initialiser
     namelist /pooling/ kernel_size, stride, normalisation
     namelist /fully_connected/ hidden_layers, &
-         clip_min, clip_max, clip_norm, &
          activation_function, activation_scale, &
          weight_initialiser
 
@@ -375,6 +360,7 @@ contains
     metrics = 'accuracy'
 !!! ADD weight_decay (L2 penalty for AdamW)
 
+    clip_min = ""; clip_max = ""; clip_norm = ""
     read(unit,NML=training,iostat=Reason,iomsg=message)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
        write(0,'("ERROR: Unexpected keyword found input file TRAINING card")')
@@ -385,6 +371,7 @@ contains
        write(0,*) " Changing to batch_learning=False"
        write(0,*) "(note: currently no input file way to specify alternative)"
     end if
+    call get_clip(clip_min, clip_max, clip_norm, optimiser%clip_dict)
     !! handle adaptive learning method
     !!---------------------------------------------------------------------------
     !! ce  = cross entropy (defaults to categorical)
@@ -424,7 +411,6 @@ contains
     bias_initialiser    = "zeros"
     activation_function = "none"
     activation_scale = 1._real12
-    clip_min = ""; clip_max = ""; clip_norm = ""
     kernel_size = ""; stride = ""
     read(unit,NML=convolution,iostat=Reason,iomsg=message)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
@@ -435,7 +421,6 @@ contains
 
     if(trim(kernel_size).ne."") call get_list(kernel_size, cv_kernel_size, cv_num_filters)
     if(trim(stride).ne."") call get_list(stride, cv_stride, cv_num_filters)
-    call get_clip(clip_min, clip_max, clip_norm, cv_clip)
     cv_num_filters = num_filters
     cv_activation_scale    = activation_scale
     cv_activation_function = to_lower(activation_function)
@@ -505,14 +490,12 @@ contains
     hidden_layers=""
     activation_scale = 1._real12
     activation_function = "relu"
-    clip_min=""; clip_max=""; clip_norm=""
     read(unit,NML=fully_connected,iostat=Reason,iomsg=message)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
        write(0,'("ERROR: Unexpected keyword found input file FULLY_CONNECTED &
             &card")')
        stop trim(message)
     end if
-    call get_clip(clip_min, clip_max, clip_norm, fc_clip)
     fc_activation_scale = activation_scale
     fc_activation_function = to_lower(activation_function)
     fc_weight_initialiser  = to_lower(weight_initialiser)
@@ -731,6 +714,7 @@ contains
 !!! get clipping information
 !!!#############################################################################
   subroutine get_clip(min_str, max_str, norm_str, clip)
+    use optimiser, only: clip_type
     implicit none
     character(*), intent(in) :: min_str, max_str, norm_str
     type(clip_type), intent(inout) :: clip
