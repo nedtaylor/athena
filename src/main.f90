@@ -15,18 +15,7 @@ program ConvolutionalNeuralNetwork
   use loss_categorical
   use inputs
 
-  use network, only: network_type
-
-  use container_layer, only: container_layer_type
-  use input3d_layer,   only: input3d_layer_type
-  use input4d_layer,   only: input4d_layer_type
-  use full_layer,      only: full_layer_type
-  use conv2d_layer,    only: conv2d_layer_type
-  use conv3d_layer,    only: conv3d_layer_type
-  use maxpool2d_layer, only: maxpool2d_layer_type
-  use maxpool3d_layer, only: maxpool3d_layer_type
-  use flatten2d_layer, only: flatten2d_layer_type
-  use flatten3d_layer, only: flatten3d_layer_type
+  use atelos
 
 
   implicit none

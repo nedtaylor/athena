@@ -47,17 +47,17 @@ LIBS := mod_constants.f90 \
 	mod_container_layer.f90 \
 	mod_container_layer_sub.f90 \
 	mod_network.f90
-SRCS := atelos.f90
 OBJS := $(addprefix $(LIB_DIR)/,$(LIBS))
-OBJS := $(OBJS) $(SRCS)
-OBJS := $(addprefix $(SRC_DIR)/,$(OBJS))
-
-LIBS_o := $(addprefix $(BUILD_DIR)/,$(LIBS))
-LIBS_o := $(LIBS_o:.f90=.o)
-SRCS_o := $(addprefix $(BUILD_DIR)/,$(SRCS))
-SRCS_o := $(SRCS_o:.f90=.o)
-
-OBJS_mod := $(LIBS_o:.o=.mod) $(SRCS_o:.o=.mod)
+#$(info VAR is $(OBJS))
+SRCS := atelos.f90 \
+        inputs.f90
+#	convolution.f90 \
+#	pooling.f90 \
+#	fullyconnected.f90 \
+#	softmax.f90
+MAIN := main.f90
+SRCS := $(OBJS) $(SRCS) $(MAIN)
+OBJS := $(addprefix $(SRC_DIR)/,$(SRCS))
 
 
 ##########################################
@@ -117,7 +117,7 @@ LLAPACK = $(MKLROOT)/libmkl_lapack95_lp64.a \
 # COMPILATION SECTION
 ##########################################
 INSTALL_DIR?=$(HOME)/bin
-LIBRARY_NAME = libatelos.a
+NAME = cnn_dev
 
 CFLAGS =
 
@@ -155,10 +155,10 @@ ifeq ($(findstring fast,$(MAKECMDGOALS)),fast)
 endif
 
 
-.PHONY: all install build uninstall clean modlist #mp debug dev optim memcheck bigmem
+.PHONY: all install build uninstall clean #mp debug dev optim memcheck bigmem
 
-libraries = $(BIN_DIR)/$(LIBRARY_NAME)
-all: $(libraries)
+programs = $(BIN_DIR)/$(NAME)
+all: $(programs)
 
 
 build: all
@@ -166,7 +166,7 @@ build: all
 
 %:
 	@:
-#	$(FC) $(PPFLAGS) $(CFLAGS) $(MODULEFLAGS) $(BUILD_DIR) $(OBJS) -o $(libraries)
+#	$(FC) $(PPFLAGS) $(CFLAGS) $(MODULEFLAGS) $(BUILD_DIR) $(OBJS) -o $(programs)
 
 $(BIN_DIR):
 	mkdir -p $@
@@ -174,26 +174,11 @@ $(BIN_DIR):
 $(BUILD_DIR):
 	mkdir -p $@
 
-$(libraries): $(LIBS_o) $(SRCS_o) modlist | $(BIN_DIR)
-	@echo "Creating library $@"
-	ar rcs $@ $(LIBS_o) $(SRCS_o) $(shell cat $(BUILD_DIR)/mod_files.txt)
-
-
-# Rule to compile source files into object files
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.f90 | $(BUILD_DIR)
-	$(FC) $(PPFLAGS) $(CFLAGS) $(MODULEFLAGS) $(BUILD_DIR) -c $< -o $@
-
-$(BUILD_DIR)/%.o: $(SRC_DIR)/$(LIB_DIR)/%.f90 | $(BUILD_DIR)
-	$(FC) $(PPFLAGS) $(CFLAGS) $(MODULEFLAGS) $(BUILD_DIR) -c $< -o $@
-
-
-# Rule to generate the list of .mod files
-modlist: | $(BUILD_DIR)
-	@find $(BUILD_DIR) -type f -name "*.mod" > $(BUILD_DIR)/mod_files.txt
-
+$(programs): $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
+	$(FC) $(PPFLAGS) $(CFLAGS) $(MODULEFLAGS) $(BUILD_DIR) $(OBJS) -o $@
 
 install: $(OBJS) | $(INSTALL_DIR) $(BUILD_DIR)
-	$(FC) $(PPFLAGS) $(CFLAGS) $(MODULEFLAGS) $(BUILD_DIR) $(OBJS) -o $(libraries)
+	$(FC) $(PPFLAGS) $(CFLAGS) $(MODULEFLAGS) $(BUILD_DIR) $(OBJS) -o $(programs)
 
 clean: 
 	rm -rf $(BUILD_DIR)/ $(BIN_DIR)/
