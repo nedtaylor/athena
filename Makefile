@@ -177,6 +177,7 @@ $(BUILD_DIR):
 $(libraries): $(LIBS_o) $(SRCS_o) modlist | $(BIN_DIR)
 	@echo "Creating library $@"
 	ar rcs $@ $(LIBS_o) $(SRCS_o) $(shell cat $(BUILD_DIR)/mod_files.txt)
+	cp $(BUILD_DIR)/atelos.mod $(BIN_DIR)/.
 
 
 # Rule to compile source files into object files
