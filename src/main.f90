@@ -1,5 +1,7 @@
 !!!#############################################################################
-!!! 
+!!! Code written by Ned Thaddeus Taylor
+!!! Code part of the ARTEMIS group (Hepplestone research group)
+!!! Think Hepplestone, think HRG
 !!!#############################################################################
 program ConvolutionalNeuralNetwork
 #ifdef _OPENMP
