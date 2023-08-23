@@ -201,7 +201,7 @@ contains
 !!!#############################################################################
 !!! set up network
 !!!#############################################################################
-  subroutine compile(this, optimiser, loss, metrics)
+  subroutine compile(this, optimiser, loss, metrics, verbose)
     use misc, only: to_lower
     use loss_categorical, only: &
          compute_loss_bce, compute_loss_cce, &
@@ -209,13 +209,24 @@ contains
          compute_loss_nll
     implicit none
     class(network_type), intent(inout) :: this
-    type(optimiser_type) :: optimiser
+    type(optimiser_type), intent(in) :: optimiser
     character(*), intent(in) :: loss
-    !type(metric_dict_type), dimension(2) :: metrics
-    class(*), dimension(..) :: metrics
+    class(*), dimension(..), intent(in) :: metrics
+    integer, optional, intent(in) :: verbose
     
     integer :: i
+    integer :: t_verb
     character(len=:), allocatable :: loss_method
+
+
+!!!-----------------------------------------------------------------------------
+!!! initialise optional arguments
+!!!-----------------------------------------------------------------------------
+    if(present(verbose))then
+       t_verb = verbose
+    else
+       t_verb = 0
+    end if
 
     
 !!!-----------------------------------------------------------------------------
@@ -279,21 +290,21 @@ contains
     select case(loss_method)
     case("bce")
        this%get_loss => compute_loss_bce
-       write(*,*) "Loss method: Categorical Cross Entropy"
+       if(t_verb.gt.0) write(*,*) "Loss method: Categorical Cross Entropy"
     case("cce")
        this%get_loss => compute_loss_cce
-       write(*,*) "Loss method: Categorical Cross Entropy"
+       if(t_verb.gt.0) write(*,*) "Loss method: Categorical Cross Entropy"
     case("mae")
        this%get_loss => compute_loss_mae
-       write(*,*) "Loss method: Mean Absolute Error"
+       if(t_verb.gt.0) write(*,*) "Loss method: Mean Absolute Error"
     case("mse")
        this%get_loss => compute_loss_mse
-       write(*,*) "Loss method: Mean Squared Error"
+       if(t_verb.gt.0) write(*,*) "Loss method: Mean Squared Error"
     case("nll")
        this%get_loss => compute_loss_nll
-       write(*,*) "Loss method: Negative log likelihood"
+       if(t_verb.gt.0) write(*,*) "Loss method: Negative log likelihood"
     case default
-       write(*,*) "Failed loss method: "//trim(loss_method)
+       write(0,*) "Failed loss method: "//trim(loss_method)
        stop "ERROR: No loss method provided"
     end select
     this%get_loss_deriv => comp_loss_deriv
@@ -356,13 +367,19 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! initialise layers
 !!!-----------------------------------------------------------------------------
+    if(t_verb.gt.0)then
+       write(*,*) "layer:",1
+       write(*,*) this%model(1)%layer%input_shape
+       write(*,*) this%model(1)%layer%output_shape
+    end if
     do i=2,size(this%model,dim=1)
        if(.not.allocated(this%model(i)%layer%input_shape)) &
             call this%model(i)%layer%init(this%model(i-1)%layer%output_shape)
-       write(*,*) this%model(i-1)%layer%output_shape
-       write(*,*) this%model(i)%layer%input_shape
-       write(*,*) this%model(i)%layer%output_shape
-       write(*,*)
+       if(t_verb.gt.0)then
+          write(*,*) "layer:",i
+          write(*,*) this%model(i)%layer%input_shape
+          write(*,*) this%model(i)%layer%output_shape
+       end if
     end do
 
 
@@ -560,7 +577,7 @@ contains
 !!! ... i.e. it trains on the same datapoints num_epoch times
 !!!#############################################################################
   subroutine train(this, input, output, num_epochs, batch_size, &
-       plateau_threshold, shuffle_batches, batch_print_step, verbosity)
+       plateau_threshold, shuffle_batches, batch_print_step, verbose)
     use infile_tools, only: stop_check
     implicit none
     class(network_type), intent(inout) :: this
@@ -571,7 +588,7 @@ contains
     real(real12), optional, intent(in) :: plateau_threshold
     logical, optional, intent(in) :: shuffle_batches
     integer, optional, intent(in) :: batch_print_step
-    integer, optional, intent(in) :: verbosity
+    integer, optional, intent(in) :: verbose
     
     !! training and testing monitoring
     real(real12) :: batch_loss, batch_accuracy, avg_loss, avg_accuracy
@@ -612,8 +629,8 @@ contains
     else
        t_batch_print = 20
     end if
-    if(present(verbosity))then
-       t_verb = verbosity
+    if(present(verbose))then
+       t_verb = verbose
     else
        t_verb = 0
     end if
@@ -768,7 +785,6 @@ contains
            if(batch.gt.200)then
               time_old = time
               call system_clock(time)
-              !write(*,'("time check: ",I0," seconds")') (time-time_old)/clock_rate
               write(*,'("time check: ",F8.3," seconds")') real(time-time_old)/clock_rate
               return
               stop "THIS IS FOR TESTING PURPOSES"
@@ -818,12 +834,12 @@ contains
 !!!#############################################################################
 !!! testing loop
 !!!#############################################################################
-  subroutine test(this, input, output, verbosity)
+  subroutine test(this, input, output, verbose)
     implicit none
     class(network_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
     integer, dimension(:,:), intent(in) :: output !! CONVER THIS LATER TO ANY TYPE AND ANY RANK
-    integer, optional, intent(in) :: verbosity
+    integer, optional, intent(in) :: verbose
 
     integer :: sample, num_samples
     integer :: t_verb
@@ -833,8 +849,8 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! initialise optional arguments
 !!!-----------------------------------------------------------------------------
-    if(present(verbosity))then
-       t_verb = verbosity
+    if(present(verbose))then
+       t_verb = verbose
     else
        t_verb = 0
     end if

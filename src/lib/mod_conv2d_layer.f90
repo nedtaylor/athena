@@ -427,15 +427,16 @@ contains
 !!!#############################################################################
 !!! read layer from file
 !!!#############################################################################
-  function read_conv2d_layer(unit) result(layer)
+  function read_conv2d_layer(unit, verbose) result(layer)
     use infile_tools, only: assign_val, assign_vec
     use misc, only: to_lower, icount
     implicit none
     integer, intent(in) :: unit
+    integer, optional, intent(in) :: verbose
 
     class(conv2d_layer_type), allocatable :: layer
 
-    integer :: stat
+    integer :: stat, t_verb
     integer :: j, k, l, c, itmp1
     integer :: num_filters, num_inputs
     real(real12) :: activation_scale
@@ -450,11 +451,24 @@ contains
     real(real12), allocatable, dimension(:) :: data_list
 
 
+    !!--------------------------------------------------------------------------
+    !! initialise optional arguments
+    !!--------------------------------------------------------------------------
+    if(present(verbose))then
+       t_verb = verbose
+    else
+       t_verb = 0
+    end if
+
+
+    !!--------------------------------------------------------------------------
     !! loop over tags in layer card
+    !!--------------------------------------------------------------------------
     found_weights = .false.
     tag_loop: do
 
        !! check for end of file
+       !!-----------------------------------------------------------------------
        read(unit,'(A)',iostat=stat) buffer
        if(stat.ne.0)then
           write(0,*) "ERROR: file encountered error (EoF?) before END CONV2D"
@@ -462,7 +476,8 @@ contains
        end if
        if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
-       !! check for end of convolution card
+       !! check for end of layer card
+       !!-----------------------------------------------------------------------
        if(trim(adjustl(buffer)).eq."END CONV2D")then
           backspace(unit)
           exit tag_loop
@@ -472,12 +487,12 @@ contains
        if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
 
        !! read parameters from save file
+       !!-----------------------------------------------------------------------
        select case(trim(tag))
        case("INPUT_SHAPE")
           call assign_vec(buffer, input_shape, itmp1)
        case("NUM_FILTERS")
           call assign_val(buffer, num_filters, itmp1)
-          !allocate(itmp_list(num_filters))
        case("KERNEL_SIZE")
           call assign_vec(buffer, kernel_size, itmp1)
        case("STRIDE")
@@ -511,7 +526,10 @@ contains
        end select
     end do tag_loop
 
+
+    !!--------------------------------------------------------------------------
     !! allocate layer
+    !!--------------------------------------------------------------------------
     layer = conv2d_layer_type( &
          input_shape = input_shape, &
          num_filters = num_filters, &
@@ -522,7 +540,10 @@ contains
          kernel_initialiser = kernel_initialiser, &
          bias_initialiser = bias_initialiser)
 
+
+    !!--------------------------------------------------------------------------
     !! check if WEIGHTS card was found
+    !!--------------------------------------------------------------------------
     if(.not.found_weights)then
        write(0,*) "WARNING: WEIGHTS card in CONV2D not found"
     else
@@ -547,6 +568,7 @@ contains
        end do
 
        !! check for end of weights card
+       !!-----------------------------------------------------------------------
        read(unit,'(A)') buffer
        if(trim(adjustl(buffer)).ne."END WEIGHTS")then
           write(*,*) trim(adjustl(buffer))
@@ -554,7 +576,10 @@ contains
        end if
     end if
 
+
+    !!--------------------------------------------------------------------------
     !! check for end of layer card
+    !!--------------------------------------------------------------------------
     read(unit,'(A)') buffer
     if(trim(adjustl(buffer)).ne."END CONV2D")then
        write(*,*) trim(adjustl(buffer))

@@ -179,7 +179,8 @@ contains
        this%input_shape = input_shape
        this%num_inputs = input_shape(1)
     else
-       write(*,*) "WARNING: reshaping input_shape to 1D for full layer"
+       if(t_verb.gt.0) write(*,*) &
+            "WARNING: reshaping input_shape to 1D for full layer"
        this%num_inputs  = product(input_shape)
        this%input_shape = [this%num_inputs]
        !stop "ERROR: invalid size of input_shape in full, expected (1)"
@@ -272,15 +273,16 @@ contains
 !!!#############################################################################
 !!! read layer from file
 !!!#############################################################################
-  function read_full_layer(unit) result(layer)
+  function read_full_layer(unit, verbose) result(layer)
     use infile_tools, only: assign_val, assign_vec
     use misc, only: to_lower, icount
     implicit none
     integer, intent(in) :: unit
+    integer, optional, intent(in) :: verbose
 
     class(full_layer_type), allocatable :: layer
 
-    integer :: stat
+    integer :: stat, t_verb
     integer :: i, j, k, c, itmp1
     integer :: num_inputs, num_outputs
     real(real12) :: activation_scale
@@ -292,11 +294,24 @@ contains
     real(real12), allocatable, dimension(:) :: data_list
 
 
+    !!--------------------------------------------------------------------------
+    !! initialise optional arguments
+    !!--------------------------------------------------------------------------
+    if(present(verbose))then
+       t_verb = verbose
+    else
+       t_verb = 0
+    end if
+
+    
+    !!--------------------------------------------------------------------------
     !! loop over tags in layer card
+    !!--------------------------------------------------------------------------
     found_weights = .false.
     tag_loop: do
 
        !! check for end of file
+       !!-----------------------------------------------------------------------
        read(unit,'(A)',iostat=stat) buffer
        if(stat.ne.0)then
          write(0,*) "ERROR: file encountered error (EoF?) before END FULL"
@@ -304,7 +319,8 @@ contains
        end if
        if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
-       !! check for end of convolution card
+       !! check for end of layer card
+       !!-----------------------------------------------------------------------
        if(trim(adjustl(buffer)).eq."END FULL")then
           backspace(unit)
           exit tag_loop
@@ -313,7 +329,8 @@ contains
        tag=trim(adjustl(buffer))
        if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
 
-       !! read parameters from save file
+       !! read parameters from file
+       !!-----------------------------------------------------------------------
        select case(trim(tag))
        case("NUM_INPUTS")
           call assign_val(buffer, num_inputs, itmp1)
@@ -345,7 +362,10 @@ contains
        end select
     end do tag_loop
 
+
+    !!--------------------------------------------------------------------------
     !! allocate layer
+    !!--------------------------------------------------------------------------
     layer = full_layer_type( &
          num_outputs = num_outputs, num_inputs = num_inputs, &
          activation_function = activation_function, &
@@ -354,6 +374,7 @@ contains
          bias_initialiser = bias_initialiser)
 
     !! check if WEIGHTS card was found
+    !!--------------------------------------------------------------------------
     if(.not.found_weights)then
       write(0,*) "WARNING: WEIGHTS card in FULL not found"
     else
@@ -373,6 +394,7 @@ contains
        end do
 
        !! check for end of weights card
+       !!-----------------------------------------------------------------------
        read(unit,'(A)') buffer
        if(trim(adjustl(buffer)).ne."END WEIGHTS")then
           write(*,*) trim(adjustl(buffer))
@@ -380,7 +402,10 @@ contains
        end if
     end if
 
+
+    !!--------------------------------------------------------------------------
     !! check for end of layer card
+    !!--------------------------------------------------------------------------
     read(unit,'(A)') buffer
     if(trim(adjustl(buffer)).ne."END FULL")then
        write(*,*) trim(adjustl(buffer))
