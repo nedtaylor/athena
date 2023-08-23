@@ -522,12 +522,14 @@ contains
           call assign_val(buffer, activation_function, itmp1)
        case("ACTIVATION_SCALE")
           call assign_val(buffer, activation_scale, itmp1)
-         case("KERNEL_INITIALISER")
-            call assign_val(buffer, layer%kernel_initialiser, itmp1)
-         case("BIAS_INITIALISER")
-            call assign_val(buffer, layer%bias_initialiser, itmp1)
+       case("KERNEL_INITIALISER")
+          call assign_val(buffer, layer%kernel_initialiser, itmp1)
+       case("BIAS_INITIALISER")
+          call assign_val(buffer, layer%bias_initialiser, itmp1)
        case("WEIGHTS")
           found_weights = .true.
+          layer%kernel_initialiser = 'zeros'
+          layer%bias_initialiser = 'zeros'
           exit tag_loop
        case default
           !! don't look for "e" due to scientific notation of numbers
@@ -550,8 +552,7 @@ contains
          kernel_size = kernel_size, stride = stride, &
          padding = padding, &
          activation_function = activation_function, &
-         activation_scale = activation_scale, &
-         kernel_initialiser="zeros", bias_initialiser="zeros")
+         activation_scale = activation_scale)
 
     !! check if WEIGHTS card was found
     if(.not.found_weights)then
