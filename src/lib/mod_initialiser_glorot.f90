@@ -4,7 +4,7 @@
 !!! Think Hepplestone, think HRG
 !!!#############################################################################
 module initialiser_glorot
-  use constants, only: real12
+  use constants, only: real12, pi
   use custom_types, only: initialiser_type
   implicit none
 
@@ -40,7 +40,6 @@ contains
     integer, optional, intent(in) ::  fan_in, fan_out  !no. in and out params
 
     real(real12) :: scale
-!!! HAVE ASSUMED RANK
 
     scale = sqrt(6._real12/real(fan_in+fan_out,real12))
     select rank(input)
@@ -78,29 +77,36 @@ contains
     real(real12), dimension(..), intent(out) :: input
     integer, optional, intent(in) ::  fan_in, fan_out  !no. in and out params
 
-    real(real12) :: scale
-!!! HAVE ASSUMED RANK
+    real(real12) :: scale, norm
 
-    scale = sqrt(2._real12/real(fan_in+fan_out,real12))
+    scale = sqrt(2._real12/real(fan_in+fan_out,real12)) ! standard deviation
+    scale = 2._real12 * scale**2._real12                ! 2*variance
+    norm  = 1._real12 / (sqrt(pi*scale))                ! normalisation
     select rank(input)
     rank(0)
        call random_number(input)
-       input = input * scale
+       input = norm * &
+            exp( (-(input * 2._real12 - 1._real12)**2._real12) / scale )
     rank(1)
        call random_number(input)
-       input = input * scale
+       input = norm * &
+            exp( (-(input * 2._real12 - 1._real12)**2._real12) / scale )
     rank(2)
        call random_number(input)
-       input = input* scale
+       input = norm * &
+            exp( (-(input * 2._real12 - 1._real12)**2._real12) / scale )
     rank(3)
        call random_number(input)
-       input = input * scale
+       input = norm * &
+            exp( (-(input * 2._real12 - 1._real12)**2._real12) / scale )
     rank(4)
        call random_number(input)
-       input = input * scale
+       input = norm * &
+            exp( (-(input * 2._real12 - 1._real12)**2._real12) / scale )
     rank(5)
        call random_number(input)
-       input = input * scale
+       input = norm * &
+            exp( (-(input * 2._real12 - 1._real12)**2._real12) / scale )
     end select
     
   end subroutine glorot_normal_initialise

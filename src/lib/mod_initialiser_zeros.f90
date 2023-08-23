@@ -32,8 +32,6 @@ contains
     real(real12), dimension(..), intent(out) :: input
     integer, optional, intent(in) :: fan_in, fan_out ! no. in and out params
 
-!!! HAVE ASSUMED RANK
-
     select rank(input)
     rank(0)
        input = 0._real12
