@@ -1,17 +1,14 @@
 module misc_ml
   use constants, only: real12
-  use custom_types, only: learning_parameters_type
   implicit none
 
 
   private
 
-  public :: get_padding_half
+  public :: set_padding
 
   public :: step_decay
   public :: reduce_lr_on_plateau
-  public :: adam_optimiser
-  public :: update_weight
 
   public :: drop_block, generate_bernoulli_mask
 
@@ -98,14 +95,81 @@ contains
 !!!########################################################################
 !!! return width of padding from kernel/filter size
 !!!########################################################################
-  function get_padding_half(width) result(output)
+  pure function get_padding_half(width) result(output)
     implicit none
     integer, intent(in) :: width
     integer :: output
     
     output = ( width - (1 - mod(width,2)) - 1 ) / 2
-        
   end function get_padding_half
+!!!########################################################################
+
+
+!!!########################################################################
+!!! return width of padding from kernel/filter size
+!!!########################################################################
+  subroutine set_padding(pad, kernel_size, padding_method)
+    use misc, only: to_lower
+    implicit none
+    integer, intent(out) :: pad
+    integer, intent(in) :: kernel_size
+    character(*), intent(inout) :: padding_method
+    
+
+    !!---------------------------------------------------------------------
+    !! padding method options
+    !!---------------------------------------------------------------------
+    !! none  = alt. name for 'valid'
+    !! zero  = alt. name for 'same'
+    !! symmetric = alt.name for 'replication'
+    !! valid = no padding
+    !! same  = maintain spatial dimensions
+    !!         ... (i.e. padding added = (kernel_size - 1)/2)
+    !!         ... defaults to zeros in the padding
+    !! full  = enough padding for filter to slide over every possible position
+    !!         ... (i.e. padding added = (kernel_size - 1)
+    !! circular = maintain spatial dimensions
+    !!            ... wraps data around for padding (periodic)
+    !! reflection = maintains spatial dimensions
+    !!              ... reflect data (about boundary index)
+    !! replication = maintains spatial dimensions
+    !!               ... reflect data (boundary included)
+100 select case(to_lower(trim(padding_method)))
+    case("none")
+       padding_method = "valid"
+       goto 100
+    case("zero")
+       padding_method = "same"
+       goto 100
+    case("half")
+       padding_method = "same"
+       goto 100
+    case("symmetric")
+       padding_method = "replication"
+       goto 100
+    case("valid")
+       write(6,*) "Padding type: 'valid' (no padding)"
+       pad = 0
+       return
+    case("same")
+       write(6,*) "Padding type: 'same' (pad with zeros)"
+    case("circular")
+       write(6,*) "Padding type: 'same' (circular padding)"
+    case("full")
+       write(6,*) "Padding type: 'full' (all possible positions)"
+       pad = kernel_size - 1
+       return
+    case("reflection")
+       write(6,*) "Padding type: 'reflection' (reflect on boundary)"
+    case("replication")
+       write(6,*) "Padding type: 'replication' (reflect after boundary)"
+    case default
+       stop "ERROR: padding type '"//padding_method//"' not known"
+    end select
+
+    pad = get_padding_half(kernel_size)
+
+  end subroutine set_padding
 !!!########################################################################
 
 
@@ -160,124 +224,6 @@ contains
     endif
 
   end subroutine reduce_lr_on_plateau
-!!!########################################################################
-
-
-!!!########################################################################
-!!! adaptive learning rate
-!!! method: adam optimiser
-!!!         ... Adaptive Moment Estimation
-!!!########################################################################
-!!! learning_rate = initial learning rate hyperparameter
-!!! beta1 = exponential decay rate for first-moment estimates
-!!! beta2 = exponential decay rate for second-moment estimates
-!!! epsilon = small number for numerical stability
-!!! t = current iteration
-!!! m = first moment (m = mean of gradients)
-!!! v = second moment (v = variance of the gradients)
-  elemental subroutine adam_optimiser(learning_rate, &
-       gradient, m, v, t, &
-       beta1, beta2, epsilon)
-    implicit none
-    integer, intent(in) :: t
-    real(real12), intent(in) :: gradient
-    real(real12), intent(inout) :: m, v
-    real(real12), intent(inout) :: learning_rate
-    real(real12), intent(in) :: beta1, beta2, epsilon
-
-    real :: m_norm, v_norm
-
-    !! update biased first moment estimate
-    m = beta1 * m + (1._real12 - beta1) * gradient
-
-    !! update biased second moment estimate
-    v = beta2 * v + (1._real12 - beta2) * gradient**2
-
-    !! normalised first moment estimate
-    m_norm = m / (1._real12 - beta1**t)
-
-    !! normalised second moment estimate
-    v_norm = v / (1._real12 - beta2**t)
-    
-    !! update learning rate
-    learning_rate = learning_rate * m_norm / (sqrt(v_norm) + epsilon)
-
-  end subroutine adam_optimiser
-!!!########################################################################
-
-
-!!!########################################################################
-!!! 
-!!!########################################################################
-elemental subroutine update_weight(learning_rate, weight, weight_incr, &
-     gradient, iteration, parameters, m, v)
-  implicit none
-  integer, intent(in) :: iteration
-  real(real12), intent(in) :: learning_rate
-  real(real12), intent(inout) :: weight
-  real(real12), intent(inout) :: weight_incr
-  real(real12), intent(inout) :: gradient
-  real(real12), optional, intent(inout) :: m, v
-  type(learning_parameters_type), intent(in) :: parameters
-
-  real(real12) :: t_learning_rate
-  real(real12) :: lr_gradient
-  
-  lr_gradient = learning_rate * gradient
-
-  !! adaptive learning method
-  select case(parameters%method(1:1))
-  case('m')!'momentum')
-    !! momentum-based learning
-    !! reversed weight applier to match keras, improves convergence
-    !! w = w + vel - lr * g
-    weight_incr = lr_gradient - &
-         parameters%momentum * weight_incr
-  case('n')!('nesterov')
-     !! nesterov momentum
-     weight_incr = - parameters%momentum * weight_incr - &
-          lr_gradient
-  case('a')!('adam')
-     !! adam optimiser
-     t_learning_rate = learning_rate
-     call adam_optimiser(t_learning_rate, gradient, &
-          m, v, iteration, &
-          parameters%beta1, parameters%beta2, &
-          parameters%epsilon)
-     weight_incr = t_learning_rate
-  case default
-     weight_incr = lr_gradient
-  end select
-  
-  !! regularisation
-  if(parameters%regularise)then
-     select case(parameters%regularisation)
-     case('l1l2')
-        !! L1L2 regularisation
-        weight_incr = weight_incr + learning_rate * ( &
-             parameters%l1 * sign(1._real12,weight) + &
-             2._real12 * parameters%l2 * weight )
-     case('l1')
-        !! L1 regularisation
-        weight_incr = weight_incr + learning_rate * &
-             parameters%l1 * sign(1._real12,weight)
-     case('l2')
-        !! L2 regularisation
-        weight_incr = weight_incr + learning_rate * &
-             2._real12 * parameters%l2 * weight
-     end select
-  end if
-  
-  select case(parameters%method(1:1))
-  case('n')!'nesterov')
-     weight = weight + parameters%momentum * weight_incr - &
-          lr_gradient
-  case default
-     weight = weight - weight_incr
-  end select
-
-
-end subroutine update_weight
 !!!########################################################################
 
 end module misc_ml

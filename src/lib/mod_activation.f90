@@ -13,6 +13,7 @@ module activation
   use activation_relu, only: relu_setup
   use activation_leaky_relu, only: leaky_relu_setup
   use activation_sigmoid, only: sigmoid_setup
+  use activation_softmax, only: softmax_setup
   use activation_tanh, only: tanh_setup
   use activation_none, only: none_setup
   implicit none
@@ -38,7 +39,7 @@ contains
 !!!#############################################################################
 !!! 
 !!!#############################################################################
-  function activation_setup(name, scale) result(transfer)
+  pure function activation_setup(name, scale) result(transfer)
     implicit none
     real(real12), optional, intent(in) :: scale
     class(activation_type), allocatable :: transfer
@@ -73,6 +74,8 @@ contains
        transfer = leaky_relu_setup(scale = t_scale)
     case ("sigmoid")
        transfer = sigmoid_setup(scale = t_scale)
+    case ("softmax")
+       transfer = softmax_setup(scale = t_scale)
     case ("tanh")
        transfer = tanh_setup(scale = t_scale)
     case ("none")

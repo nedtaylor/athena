@@ -5,8 +5,9 @@
 !!!#############################################################################
 module inputs
   use constants, only: real12, ierror
-  use custom_types, only: clip_type, learning_parameters_type
+  use optimiser, only: optimiser_type
   use misc, only: icount, flagmaker, file_check, to_lower
+  use metrics, only: metric_dict_type, metric_dict_alloc
   implicit none
   integer :: verbosity    ! verbose printing
   integer :: seed         ! random seed
@@ -14,9 +15,7 @@ module inputs
   integer :: batch_print_step
   real(real12) :: loss_threshold     ! threshold for loss convergence
   real(real12) :: plateau_threshold  ! threshold for plateau checking
-  real(real12) :: learning_rate      ! rate of learning (larger = faster)
-  real(real12) :: l1_lambda, l2_lambda  ! l1 and l2 regularisation parameters
-  type(learning_parameters_type) :: learning_parameters
+  type(optimiser_type) :: optimiser
   logical :: batch_learning
   character(:), allocatable :: loss_method
   character(1024) :: input_file, output_file
@@ -28,7 +27,6 @@ module inputs
   integer :: cv_num_filters                ! number of convolution filters
   character(:), allocatable :: convolution_method        ! type of convolution
   character(:), allocatable :: padding_method             ! type of convolution padding
-  type(clip_type) :: cv_clip               ! convolution clipping thresholds
   integer, allocatable, dimension(:) :: cv_kernel_size  ! kernel size for each convolution layer (assume square)
   integer, allocatable, dimension(:) :: cv_stride       ! stride of kernels for convolution
   character(:), allocatable :: cv_dropout_method
@@ -46,7 +44,6 @@ module inputs
   character(:), allocatable :: pool_normalisation  ! normalise output of pooling
 
   integer, allocatable, dimension(:) :: fc_num_hidden  ! number of fully connected hidden layers
-  type(clip_type) :: fc_clip                           ! fully connected clipping thresholds
   character(len=10) :: fc_activation_function
   real(real12) :: fc_activation_scale
   character(:), allocatable :: fc_weight_initialiser
@@ -55,17 +52,6 @@ module inputs
   real(real12) :: train_size  ! fraction of data to train on (NOT YET USED) 
   logical :: shuffle_dataset  ! shuffle train and test data
   
-  type metric_dict_type
-     character(10) :: key
-     real(real12) :: val
-     logical :: active
-     real(real12) :: threshold
-     real(real12), allocatable, dimension(:) :: history
-   contains
-     procedure :: check => metric_dict_check
-     procedure :: add_t_t => metric_dict_add  !t = type, r = real, i = int
-     generic :: operator(+) => add_t_t !, public
-  end type metric_dict_type
   type(metric_dict_type), dimension(2) :: metric_dict
 
 
@@ -82,12 +68,10 @@ module inputs
   public :: loss_method
   public :: metric_dict, metric_dict_type, metric_dict_alloc
 
-  public :: learning_rate, l1_lambda, l2_lambda
   public :: num_epochs, batch_size
-  public :: learning_parameters
+  public :: optimiser
 
   public :: cv_num_filters, cv_kernel_size, cv_stride
-  public :: cv_clip
   public :: convolution_method, padding_method
   public :: cv_dropout_method
   public :: cv_block_size, cv_keep_prob
@@ -101,7 +85,6 @@ module inputs
   public :: pool_normalisation
 
   public :: fc_num_hidden
-  public :: fc_clip
   public :: fc_activation_scale
   public :: fc_activation_function
   public :: fc_weight_initialiser
@@ -113,84 +96,6 @@ module inputs
 
 
 contains
-
-!!!#############################################################################
-!!! custom operation for summing metric_dict_type
-!!!#############################################################################
-  elemental function metric_dict_add(a, b) result(output)
-    implicit none
-    class(metric_dict_type), intent(in) :: a,b
-    type(metric_dict_type) :: output
-    
-    output%key = a%key
-    output%val = a%val + b%val
-    output%threshold = a%threshold
-    output%active = a%active
-    if(allocated(a%history)) output%history = a%history
-
-  end function metric_dict_add
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! custom operation for allocating metric_dict_type
-!!!#############################################################################
-  subroutine metric_dict_alloc(input, source, length)
-    implicit none
-    type(metric_dict_type), dimension(:), intent(out) :: input
-    type(metric_dict_type), dimension(:), optional, intent(in) :: source
-    integer, optional, intent(in) :: length
-    integer :: i
-    
-    if(present(length))then
-       do i=1,size(input,dim=1)
-          allocate(input(i)%history(length))
-       end do
-    else
-       do i=1,size(input,dim=1)
-          input(i)%key = source(i)%key
-          allocate(input(i)%history(size(source(i)%history,dim=1)))
-          input(i)%threshold = source(i)%threshold
-       end do
-    end if
-
-  end subroutine metric_dict_alloc
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! custom operation for checking metric convergence
-!!!#############################################################################
-  subroutine metric_dict_check(this,plateau_threshold,converged)
-    implicit none
-    class(metric_dict_type), intent(inout) :: this
-    real(real12), intent(in) :: plateau_threshold
-    integer, intent(out) :: converged
-    
-    converged = 0
-    if(this%active)then
-       this%history = cshift(this%history, shift=-1, dim=1)
-       this%history(1) = this%val
-       if(&
-            (trim(this%key).eq."loss".and.&
-            abs(sum(this%history))/size(this%history,dim=1).lt.this%threshold).or.&
-            (trim(this%key).eq."accuracy".and.&
-            abs(sum(1._real12-this%history))/size(this%history,dim=1).lt.this%threshold) )then
-          write(6,*) "Convergence achieved, "//trim(this%key)//" threshold reached"
-          write(6,*) "Exiting training loop"
-          converged = 1
-       elseif(all(abs(this%history-this%val).lt.plateau_threshold))then        
-          write(0,'("ERROR: ",A," has remained constant for ",I0," runs")') &
-               trim(this%key), size(this%history,dim=1)
-          write(0,*) this%history
-          write(0,*) "Exiting..."
-          converged = -1
-       end if
-    end if
-
-  end subroutine metric_dict_check
-!!!#############################################################################
-
 
 !!!#############################################################################
   subroutine set_global_vars()
@@ -224,18 +129,9 @@ contains
     shuffle_dataset = .false.
     batch_learning = .true.
 
-    learning_rate = 0.025_real12
-    l1_lambda = 0._real12
-    l2_lambda = 0._real12
-
     num_epochs = 20
     batch_size = 20
     cv_num_filters = 32
-    cv_clip%l_min_max = .false.
-    cv_clip%l_norm    = .false.
-    cv_clip%min  = -huge(1._real12)
-    cv_clip%max  =  huge(1._real12)
-    cv_clip%norm =  huge(1._real12)
     cv_block_size = 5
     cv_keep_prob = 1._real12
     
@@ -243,11 +139,6 @@ contains
     pool_stride = 2
     pool_normalisation = "sum"
 
-    fc_clip%l_min_max = .false.
-    fc_clip%l_norm    = .false.
-    fc_clip%min  = -huge(1._real12)
-    fc_clip%max  =  huge(1._real12)
-    fc_clip%norm =  huge(1._real12)
     fc_activation_function = "relu"
     fc_activation_scale = 1._real12
     !! gaussian, relu, piecewise, leaky_relu, sigmoid, tanh
@@ -348,7 +239,7 @@ contains
     write(6,*) "======PARAMETERS======"
     write(6,*) "shuffle dataset:",shuffle_dataset
     write(6,*) "batch learning:",batch_learning
-    write(6,*) "learning rate:",learning_rate
+    write(6,*) "learning rate:",optimiser%learning_rate
     write(6,*) "number of epochs:",num_epochs
     write(6,*) "number of filters:",cv_num_filters
     write(6,*) "hidden layers:",fc_num_hidden
@@ -378,6 +269,8 @@ contains
     real(real12) ::  keep_prob
     real(real12) :: activation_scale
 
+    real(real12) :: learning_rate      ! rate of learning (larger = faster)
+    real(real12) :: l1_lambda, l2_lambda  ! l1 and l2 regularisation parameters
     real(real12) :: momentum, beta1, beta2, epsilon
     character(512) :: hidden_layers
 
@@ -399,7 +292,7 @@ contains
     character(512) :: kernel_size, stride
     character(20) :: activation_function
 
-    character(*), intent(in) :: file_name
+    character(*), intent(inout) :: file_name
 
 
 !!!-----------------------------------------------------------------------------
@@ -413,14 +306,14 @@ contains
          learning_rate, momentum, l1_lambda, l2_lambda, &
          shuffle_dataset, batch_learning, adaptive_learning, &
          beta1, beta2, epsilon, loss, &
+         clip_min, clip_max, clip_norm, &
          regularisation, metrics
     namelist /convolution/ num_filters, kernel_size, stride, &
-         clip_min, clip_max, clip_norm, convolution_type, padding_type, &
+         convolution_type, padding_type, &
          dropout, block_size, keep_prob, activation_function, activation_scale, &
          kernel_initialiser, bias_initialiser
     namelist /pooling/ kernel_size, stride, normalisation
     namelist /fully_connected/ hidden_layers, &
-         clip_min, clip_max, clip_norm, &
          activation_function, activation_scale, &
          weight_initialiser
 
@@ -454,6 +347,7 @@ contains
     block_size = 5
     keep_prob = 0.75_real12
 
+    learning_rate = 0.025_real12
     regularisation="" !! none, l1, l2, l1l2
     l1_lambda = 0._real12
     l2_lambda = 0._real12
@@ -466,6 +360,7 @@ contains
     metrics = 'accuracy'
 !!! ADD weight_decay (L2 penalty for AdamW)
 
+    clip_min = ""; clip_max = ""; clip_norm = ""
     read(unit,NML=training,iostat=Reason,iomsg=message)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
        write(0,'("ERROR: Unexpected keyword found input file TRAINING card")')
@@ -476,6 +371,7 @@ contains
        write(0,*) " Changing to batch_learning=False"
        write(0,*) "(note: currently no input file way to specify alternative)"
     end if
+    call get_clip(clip_min, clip_max, clip_norm, optimiser%clip_dict)
     !! handle adaptive learning method
     !!---------------------------------------------------------------------------
     !! ce  = cross entropy (defaults to categorical)
@@ -484,6 +380,10 @@ contains
     !! nll = negative log likelihood
     loss_method = to_lower(trim(loss))
     num_metrics = icount(metrics)
+    if(num_metrics.le.0)then
+       write(*,*) "ERROR: No metrics defined to use for convergence"
+       stop "Exiting..."
+    end if
     allocate(metric_list(num_metrics))
     read(metrics,*) metric_list
     do i=1,num_metrics,1
@@ -497,6 +397,7 @@ contains
             write(*,'("Metric: ",A,", threshold: ",E10.3E2)') &
             trim(metric_dict(i)%key), metric_dict(i)%threshold
     end do
+    optimiser%learning_rate = learning_rate
     
 
 
@@ -510,7 +411,6 @@ contains
     bias_initialiser    = "zeros"
     activation_function = "none"
     activation_scale = 1._real12
-    clip_min = ""; clip_max = ""; clip_norm = ""
     kernel_size = ""; stride = ""
     read(unit,NML=convolution,iostat=Reason,iomsg=message)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
@@ -521,7 +421,6 @@ contains
 
     if(trim(kernel_size).ne."") call get_list(kernel_size, cv_kernel_size, cv_num_filters)
     if(trim(stride).ne."") call get_list(stride, cv_stride, cv_num_filters)
-    call get_clip(clip_min, clip_max, clip_norm, cv_clip)
     cv_num_filters = num_filters
     cv_activation_scale    = activation_scale
     cv_activation_function = to_lower(activation_function)
@@ -591,14 +490,12 @@ contains
     hidden_layers=""
     activation_scale = 1._real12
     activation_function = "relu"
-    clip_min=""; clip_max=""; clip_norm=""
     read(unit,NML=fully_connected,iostat=Reason,iomsg=message)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
        write(0,'("ERROR: Unexpected keyword found input file FULLY_CONNECTED &
             &card")')
        stop trim(message)
     end if
-    call get_clip(clip_min, clip_max, clip_norm, fc_clip)
     fc_activation_scale = activation_scale
     fc_activation_function = to_lower(activation_function)
     fc_weight_initialiser  = to_lower(weight_initialiser)
@@ -622,36 +519,36 @@ contains
     !! l1l2  = l1 and l2 regularisation
     if(trim(regularisation).eq."")then
        if(l1_lambda.gt.0._real12.and.l2_lambda.gt.0._real12)then
-          learning_parameters%regularisation = "l1l2"
+          optimiser%regularisation = "l1l2"
           write(*,*) "l1_lambda and l2_lambda were set, but not regularisation"
           write(*,*) 'Setting regularisation = "l1l2"'
           write(*,*) 'If this is not desired, rerun with either:'
           write(*,*) '   regularisation = "none"'
           write(*,*) '   l1_lambda = 0.0, l2_lambda = 0.0'
        elseif(l1_lambda.gt.0._real12)then
-          learning_parameters%regularisation = "l1"
+          optimiser%regularisation = "l1"
           write(*,*) "l1_lambda was set, but not regularisation"
           write(*,*) 'Setting regularisation = "l1"'
           write(*,*) 'If this is not desired, rerun with either:'
           write(*,*) '   regularisation = "none"'
           write(*,*) '   l1_lambda = 0.0'
        elseif(l2_lambda.gt.0._real12)then
-          learning_parameters%regularisation = "l2"
+          optimiser%regularisation = "l2"
           write(*,*) "l2_lambda was set, but not regularisation"
           write(*,*) 'Setting regularisation = "l2"'
           write(*,*) 'If this is not desired, rerun with either:'
           write(*,*) '   regularisation = "none"'
           write(*,*) '   l2_lambda = 0.0'
        else
-          learning_parameters%regularisation = "none"
+          optimiser%regularisation = "none"
        end if
     else
-       learning_parameters%regularise = .true.
-       learning_parameters%regularisation = to_lower(trim(regularisation))
+       optimiser%regularise = .true.
+       optimiser%regularisation = to_lower(trim(regularisation))
     end if
-    select case(learning_parameters%regularisation)
+    select case(optimiser%regularisation)
     case("none")
-       learning_parameters%regularise = .false.
+       optimiser%regularise = .false.
        write(*,*) "No regularisation set"
     case("l1l2")
        write(*,*) "L1L2 regularisation"
@@ -663,8 +560,8 @@ contains
        end if
        write(*,*) "l1_lambda =",l1_lambda
        write(*,*) "l2_lambda =",l2_lambda
-       learning_parameters%l1 = l1_lambda
-       learning_parameters%l2 = l2_lambda
+       optimiser%l1 = l1_lambda
+       optimiser%l2 = l2_lambda
     case("l1")
        write(*,*) "L1 regularisation"
        if(abs(l1_lambda).le.1.E-8_real12)then
@@ -674,7 +571,7 @@ contains
           stop "Exiting..."
        end if
        write(*,*) "l1_lambda =",l1_lambda
-       learning_parameters%l1 = l1_lambda
+       optimiser%l1 = l1_lambda
     case("l2")
        write(*,*) "L2 regularisation"
        if(abs(l2_lambda).le.1.E-8_real12)then
@@ -684,9 +581,9 @@ contains
           stop "Exiting..."
        end if
        write(*,*) "l2_lambda =",l2_lambda
-       learning_parameters%l2 = l2_lambda
+       optimiser%l2 = l2_lambda
     case default
-       write(*,*) "ERROR: regularisation = "//learning_parameters%regularisation//" &
+       write(*,*) "ERROR: regularisation = "//optimiser%regularisation//" &
             &not known"
        stop "Exiting..."
     end select
@@ -703,19 +600,19 @@ contains
     !! reduce_lr_on_plateau = reduce learning rate when output metric plateaus
     if(trim(adaptive_learning).eq."")then
        if(momentum.gt.0._real12)then
-          learning_parameters%method = "momentum"
+          optimiser%method = "momentum"
           write(*,*) "Momentum was set, but not adaptive_learning"
           write(*,*) 'Setting adaptive_learning = "momentum"'
           write(*,*) 'If this is not desired, rerun with either:'
           write(*,*) '   adaptive_learning = "none"'
           write(*,*) '   momentum = 0.0'
        else
-          learning_parameters%method = "none"
+          optimiser%method = "none"
        end if
     else
-       learning_parameters%method = to_lower(trim(adaptive_learning))
+       optimiser%method = to_lower(trim(adaptive_learning))
     end if
-    select case(learning_parameters%method)
+    select case(optimiser%method)
     case("none")
        write(*,*) "No adaptive learning method"
     case("momentum")
@@ -727,7 +624,7 @@ contains
           stop "Exiting..."
        end if
        write(*,*) "momentum =",momentum
-       learning_parameters%momentum = momentum
+       optimiser%momentum = momentum
     case("nesterov")
        write(*,*) "Nesterov momentum-based adaptive learning method"
        if(abs(momentum).le.1.E-6_real12)then
@@ -737,23 +634,23 @@ contains
           stop "Exiting..."
        end if
        write(*,*) "momentum =",momentum
-       learning_parameters%momentum = momentum
+       optimiser%momentum = momentum
     case("adam")
        write(*,*) "Adam-based adaptive learning method"
        write(*,*) "beta1 =", beta1
        write(*,*) "beta2 =", beta2
        write(*,*) "epsilon =", epsilon
-       learning_parameters%beta1 = beta1
-       learning_parameters%beta2 = beta2
-       learning_parameters%epsilon = epsilon
+       optimiser%beta1 = beta1
+       optimiser%beta2 = beta2
+       optimiser%epsilon = epsilon
     case("step_decay")
-       !learning_parameters%decay_rate = decay_rate
-       !learning_parameters%decay_steps = decay_steps
+       !optimiser%decay_rate = decay_rate
+       !optimiser%decay_steps = decay_steps
        stop "step_decay adaptive learning not yet set up"
     case("reduce_lr_on_plateau")
        stop "reduce_lr_on_plateau adaptive learning not yet set up"
     case default
-       write(*,*) "ERROR: adaptive_learning = "//learning_parameters%method//" &
+       write(*,*) "ERROR: adaptive_learning = "//optimiser%method//" &
             &not known"
        stop "Exiting..."
     end select
@@ -817,6 +714,7 @@ contains
 !!! get clipping information
 !!!#############################################################################
   subroutine get_clip(min_str, max_str, norm_str, clip)
+    use optimiser, only: clip_type
     implicit none
     character(*), intent(in) :: min_str, max_str, norm_str
     type(clip_type), intent(inout) :: clip

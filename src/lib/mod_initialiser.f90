@@ -4,7 +4,6 @@
 !!! Think Hepplestone, think HRG
 !!!#############################################################################
 module initialiser
-  use constants, only: real12
   use misc, only: to_lower
   use custom_types, only: initialiser_type
   use initialiser_glorot, only: glorot_uniform, glorot_normal
@@ -16,7 +15,7 @@ module initialiser
 
   private
 
-  public :: initialiser_setup
+  public :: initialiser_setup, get_default_initialiser
 
 !!!!! ALSO, HAVE THE CV, PL, FC, etc, LAYERS AS CLASSES
 !!!!! ... they may be able to be appended on to each other
@@ -32,12 +31,48 @@ module initialiser
 contains
 
 !!!#############################################################################
-!!! 
+!!! get default initialiser based on activation function (and if a bias)
 !!!#############################################################################
-  function initialiser_setup(name) result(initialiser)
+  function get_default_initialiser(activation, is_bias) result(name)
+    implicit none
+    character(*), intent(in) :: activation
+    logical, optional, intent(in) :: is_bias
+
+    character(:), allocatable :: name
+
+
+    !!--------------------------------------------------------------------------
+    !! if bias, use default initialiser of zero
+    !!--------------------------------------------------------------------------
+    if(present(is_bias))then
+       if(is_bias) name = "zeros"
+       return
+    end if
+
+
+    !!--------------------------------------------------------------------------
+    !! 
+    !!--------------------------------------------------------------------------
+    if(trim(activation).eq."selu")then
+       name = "lecun_normal"
+    elseif(index(activation,"elu").ne.0)then
+       name = "he_uniform"
+    else
+       name = "glorot_uniform"
+    end if
+
+  end function get_default_initialiser
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set up initialiser
+!!!#############################################################################
+  function initialiser_setup(name, error) result(initialiser)
     implicit none
     class(initialiser_type), allocatable :: initialiser
     character(*), intent(in) :: name
+    integer, optional, intent(out) :: error
 
 
     !!--------------------------------------------------------------------------
@@ -60,7 +95,12 @@ contains
     case("zeros")
        initialiser = zeros
     case default
-       stop "Incorrect initialiser name given '"//trim(to_lower(name))//"'"
+       if(present(error))then
+          error = -1
+          return
+       else
+          stop "Incorrect initialiser name given '"//trim(to_lower(name))//"'"
+       end if
     end select
 
   end function initialiser_setup

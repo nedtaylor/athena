@@ -10,8 +10,12 @@ module activation_none
   
   type, extends(activation_type) :: none_type
    contains
-     procedure, pass(this) :: activate => none_activate
-     procedure, pass(this) :: differentiate => none_differentiate
+     procedure, pass(this) :: activate_1d => none_activate_1d
+     procedure, pass(this) :: activate_3d => none_activate_3d
+     procedure, pass(this) :: activate_4d => none_activate_4d
+     procedure, pass(this) :: differentiate_1d => none_differentiate_1d
+     procedure, pass(this) :: differentiate_3d => none_differentiate_3d
+     procedure, pass(this) :: differentiate_4d => none_differentiate_4d
   end type none_type
   
   interface none_setup
@@ -29,7 +33,7 @@ contains
 !!!#############################################################################
 !!! initialisation
 !!!#############################################################################
-  function initialise(scale)
+  pure function initialise(scale)
     implicit none
     type(none_type) :: initialise
     real(real12), optional, intent(in) :: scale
@@ -49,14 +53,35 @@ contains
 !!! NONE transfer function
 !!! x
 !!!#############################################################################
-  elemental function none_activate(this, val) result(output)
+  pure function none_activate_1d(this, val) result(output)
     implicit none
     class(none_type), intent(in) :: this
-    real(real12), intent(in) :: val
-    real(real12) :: output
+    real(real12), dimension(:), intent(in) :: val
+    real(real12), dimension(size(val,dim=1)) :: output
 
     output = val * this%scale
-  end function none_activate
+  end function none_activate_1d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function none_activate_3d(this, val) result(output)
+    implicit none
+    class(none_type), intent(in) :: this
+    real(real12), dimension(:,:,:), intent(in) :: val
+    real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
+
+    output = val * this%scale
+  end function none_activate_3d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function none_activate_4d(this, val) result(output)
+    implicit none
+    class(none_type), intent(in) :: this
+    real(real12), dimension(:,:,:,:), intent(in) :: val
+    real(real12), dimension(&
+         size(val,1),size(val,2),size(val,3),size(val,4)) :: output
+
+    output = val * this%scale
+  end function none_activate_4d
 !!!#############################################################################
 
 
@@ -66,14 +91,35 @@ contains
 !!! we are performing the derivative to identify what weight ...
 !!! ... results in the minimum error
 !!!#############################################################################
-  elemental function none_differentiate(this, val) result(output)
+  pure function none_differentiate_1d(this, val) result(output)
     implicit none
     class(none_type), intent(in) :: this
-    real(real12), intent(in) :: val
-    real(real12) :: output
+    real(real12), dimension(:), intent(in) :: val
+    real(real12), dimension(size(val,dim=1)) :: output
 
     output = val * this%scale
-  end function none_differentiate
+  end function none_differentiate_1d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function none_differentiate_3d(this, val) result(output)
+    implicit none
+    class(none_type), intent(in) :: this
+    real(real12), dimension(:,:,:), intent(in) :: val
+    real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
+
+    output = val * this%scale
+  end function none_differentiate_3d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function none_differentiate_4d(this, val) result(output)
+    implicit none
+    class(none_type), intent(in) :: this
+    real(real12), dimension(:,:,:,:), intent(in) :: val
+    real(real12), dimension(&
+         size(val,1),size(val,2),size(val,3),size(val,4)) :: output
+
+    output = val * this%scale
+  end function none_differentiate_4d
 !!!#############################################################################
 
 end module activation_none

@@ -10,8 +10,12 @@ module activation_linear
 
   type, extends(activation_type) :: linear_type
    contains
-     procedure, pass(this) :: activate => linear_activate
-     procedure, pass(this) :: differentiate => linear_differentiate
+     procedure, pass(this) :: activate_1d => linear_activate_1d
+     procedure, pass(this) :: activate_3d => linear_activate_3d
+     procedure, pass(this) :: activate_4d => linear_activate_4d
+     procedure, pass(this) :: differentiate_1d => linear_differentiate_1d
+     procedure, pass(this) :: differentiate_3d => linear_differentiate_3d
+     procedure, pass(this) :: differentiate_4d => linear_differentiate_4d
   end type linear_type
 
   interface linear_setup
@@ -29,7 +33,7 @@ contains
 !!!#############################################################################
 !!! initialisation
 !!!#############################################################################
-  function initialise(scale)
+  pure function initialise(scale)
     implicit none
     type(linear_type) :: initialise
     real(real12), optional, intent(in) :: scale
@@ -50,17 +54,35 @@ contains
 !!! Linear transfer function
 !!! f = gradient * x
 !!!#############################################################################
-  elemental function linear_activate(this, val) result(output)
+  pure function linear_activate_1d(this, val) result(output)
     implicit none
     class(linear_type), intent(in) :: this
-    real(real12), intent(in) :: val
-    real(real12) :: output
+    real(real12), dimension(:), intent(in) :: val
+    real(real12), dimension(size(val,dim=1)) :: output
 
     output = this%scale * val
-    !else
-    !   output = 0.05_real12 * val
-    !end if
-  end function linear_activate
+  end function linear_activate_1d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function linear_activate_3d(this, val) result(output)
+    implicit none
+    class(linear_type), intent(in) :: this
+    real(real12), dimension(:,:,:), intent(in) :: val
+    real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
+
+    output = this%scale * val
+  end function linear_activate_3d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function linear_activate_4d(this, val) result(output)
+    implicit none
+    class(linear_type), intent(in) :: this
+    real(real12), dimension(:,:,:,:), intent(in) :: val
+    real(real12), dimension(&
+         size(val,1),size(val,2),size(val,3),size(val,4)) :: output
+
+    output = this%scale * val
+  end function linear_activate_4d
 !!!#############################################################################
 
 
@@ -70,17 +92,35 @@ contains
 !!! we are performing the derivative to identify what weight ...
 !!! ... results in the minimum error
 !!!#############################################################################
-  elemental function linear_differentiate(this, val) result(output)
+  pure function linear_differentiate_1d(this, val) result(output)
     implicit none
     class(linear_type), intent(in) :: this
-    real(real12), intent(in) :: val
-    real(real12) :: output
+    real(real12), dimension(:), intent(in) :: val
+    real(real12), dimension(size(val,dim=1)) :: output
 
     output = this%scale * val
-    !else
-    !   output = 0.05_real12 * val
-    !end if
-  end function linear_differentiate
+  end function linear_differentiate_1d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function linear_differentiate_3d(this, val) result(output)
+    implicit none
+    class(linear_type), intent(in) :: this
+    real(real12), dimension(:,:,:), intent(in) :: val
+    real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
+
+    output = this%scale * val
+  end function linear_differentiate_3d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function linear_differentiate_4d(this, val) result(output)
+    implicit none
+    class(linear_type), intent(in) :: this
+    real(real12), dimension(:,:,:,:), intent(in) :: val
+    real(real12), dimension(&
+         size(val,1),size(val,2),size(val,3),size(val,4)) :: output
+
+    output = this%scale * val
+  end function linear_differentiate_4d
 !!!#############################################################################
 
 end module activation_linear

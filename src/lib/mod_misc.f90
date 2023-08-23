@@ -43,7 +43,7 @@ module misc
   end interface sort1D
 
   interface set
-     procedure iset,rset, cset
+     procedure iset, rset!, cset
   end interface set
 
   interface swap
@@ -205,94 +205,94 @@ contains
 !!!#####################################################
 
 
-!!!#####################################################
-!!! sorts a character list
-!!!#####################################################
-  subroutine sort_str(list,lcase)
-    implicit none
-    integer :: i,loc
-    integer :: charlen
-    logical :: ludef_case
-    character(*), dimension(:), intent(inout) :: list
-    character(:), allocatable, dimension(:) :: tlist
-    logical, optional, intent(in) :: lcase !default is false
-
-    charlen = len(list(1))
-    if(present(lcase))then
-       ludef_case = lcase
-    else
-       ludef_case = .false.
-    end if
-    
-    if(ludef_case)then
-       allocate(character(len=charlen) :: tlist(size(list)))
-       tlist = list
-       do i=1,size(tlist,dim=1)
-          list(i) = to_upper(list(i))
-       end do
-    end if
-
-    do i=1,size(list)
-       loc = minloc(list(i:),dim=1)
-       if(loc.eq.1) cycle
-       if(ludef_case) call cswap(tlist(i),tlist(loc+i-1))
-       call cswap(list(i),list(loc+i-1))
-    end do
-    if(ludef_case) list=tlist
-    
-    return
-  end subroutine sort_str
-!!!-----------------------------------------------------
-!!!-----------------------------------------------------
-  function sort_str_order(list,lcase) result(order)
-    implicit none
-    integer :: i,loc
-    integer :: charlen
-    logical :: ludef_case
-    character(*), dimension(:), intent(inout) :: list
-    character(:), allocatable, dimension(:) :: tlist
-    logical, optional, intent(in) :: lcase !default is false
-
-    integer, allocatable, dimension(:) :: torder,order
-
-    charlen = len(list(1))
-    if(present(lcase))then
-       ludef_case = lcase
-    else
-       ludef_case = .false.
-    end if
-
-    if(ludef_case)then
-       allocate(character(len=charlen) :: tlist(size(list)))
-       tlist = list
-       do i=1,size(tlist, dim=1)
-          list(i) = to_upper(list(i))
-       end do
-    end if
-
-    allocate(torder(size(list)))
-    do i=1,size(list)
-       torder(i) = i
-    end do
-    
-    do i=1,size(list)
-       loc = minloc(list(i:),dim=1)
-       if(loc.eq.1) cycle
-       if(ludef_case) call cswap(tlist(i),tlist(loc+i-1))
-       call cswap(list(i),list(loc+i-1))
-       call iswap(torder(i),torder(loc+i-1))
-    end do
-    
-    allocate(order(size(list)))
-    do i=1,size(list)
-       order(i) = findloc(torder,i,dim=1)
-    end do
-    
-    if(ludef_case) list=tlist
-    
-    return
-  end function sort_str_order
-!!!#####################################################
+!!!!#####################################################
+!!!! sorts a character list
+!!!!#####################################################
+!  subroutine sort_str(list,lcase)
+!    implicit none
+!    integer :: i,loc
+!    integer :: charlen
+!    logical :: ludef_case
+!    character(*), dimension(:), intent(inout) :: list
+!    character(:), allocatable, dimension(:) :: tlist
+!    logical, optional, intent(in) :: lcase !default is false
+!
+!    charlen = len(list(1))
+!    if(present(lcase))then
+!       ludef_case = lcase
+!    else
+!       ludef_case = .false.
+!    end if
+!    
+!    if(ludef_case)then
+!       allocate(character(len=charlen) :: tlist(size(list)))
+!       tlist = list
+!       do i=1,size(tlist,dim=1)
+!          list(i) = to_upper(list(i))
+!       end do
+!    end if
+!
+!    do i=1,size(list,dim=1)
+!       loc = minloc(list(i:),dim=1)
+!       if(loc.eq.1) cycle
+!       if(ludef_case) call cswap(tlist(i),tlist(loc+i-1))
+!       call cswap(list(i),list(loc+i-1))
+!    end do
+!    if(ludef_case) list=tlist
+!    
+!    return
+!  end subroutine sort_str
+!!!!-----------------------------------------------------
+!!!!-----------------------------------------------------
+!  function sort_str_order(list,lcase) result(order)
+!    implicit none
+!    character(*), dimension(:), intent(inout) :: list
+!    logical, optional, intent(in) :: lcase !default is false
+!    integer, allocatable, dimension(:) :: order
+!
+!    integer :: i,loc
+!    integer :: charlen
+!    logical :: ludef_case
+!    character(len=:), allocatable, dimension(:) :: tlist
+!    integer, allocatable, dimension(:) :: torder
+!
+!    charlen = len(list(1))
+!    if(present(lcase))then
+!       ludef_case = lcase
+!    else
+!       ludef_case = .false.
+!    end if
+!
+!    if(ludef_case)then
+!       allocate(tlist, source=list)
+!       do i=1,size(tlist, dim=1)
+!          list(i) = to_upper(list(i))
+!       end do
+!    end if
+!    
+!    allocate(torder(size(list, dim=1)))
+!    do i=1,size(list)
+!       torder(i) = i
+!    end do
+!    
+!    do i=1,size(list,dim=1)
+!       loc = minloc(list(i:),dim=1)
+!       if(loc.eq.1) cycle
+!       if(ludef_case) call cswap(tlist(i),tlist(loc+i-1))
+!       call cswap(list(i),list(loc+i-1))
+!       call iswap(torder(i),torder(loc+i-1))
+!    end do
+!    
+!    allocate(order(size(list)))
+!    do i=1,size(list)
+!       order(i) = findloc(torder,i,dim=1)
+!    end do
+!    
+!    if(ludef_case) list=tlist
+!    
+!    return
+!  end function sort_str_order
+!!!!#####################################################
 
 
 !!!#####################################################
@@ -379,7 +379,7 @@ contains
 !!!#####################################################
   subroutine sort2D(arr,dim)
     implicit none
-    integer :: i,j,loc,istart
+    integer :: i,j,loc
     real(real12) :: tol
     integer, dimension(3) :: a123
     real(real12), dimension(3) :: buff
@@ -387,7 +387,6 @@ contains
     real(real12), dimension(dim,3), intent(inout) :: arr
 
     a123(:)=(/1,2,3/)
-    istart=1
     tol = 1.E-4
     do j=1,3
        do i=j,dim
@@ -475,94 +474,94 @@ contains
   end subroutine rset
 !!!-----------------------------------------------------
 !!!-----------------------------------------------------
-  subroutine cset(arr,lcase,lkeep_size)
-    implicit none
-    integer :: i, n
-    logical :: ludef_keep_size
-    character(len=:), allocatable, dimension(:) :: tmp_arr
-    character(*), allocatable, dimension(:) :: arr
-    logical, intent(in), optional :: lcase, lkeep_size
-
-    if(present(lcase))then
-       call sort_str(arr,lcase)
-    else
-       call sort_str(arr)
-    end if
-    
-    allocate(character(len=len(arr(1))) :: tmp_arr(size(arr)))
-    tmp_arr(1) = arr(1)
-    n=1
-    
-    do i=2,size(arr)
-       if(trim(arr(i)).eq.trim(tmp_arr(n))) cycle
-       n = n + 1
-       tmp_arr(n) = arr(i)
-    end do
-    if(present(lkeep_size))then
-       ludef_keep_size=lkeep_size
-    else
-       ludef_keep_size=.false.
-    end if
-
-    if(ludef_keep_size)then
-       call move_alloc(tmp_arr,arr)!!!CONSISTENCY WITH OTHER SET FORMS
-    else
-       deallocate(arr)
-       allocate(arr(n))
-       arr(:n) = tmp_arr(:n)
-    end if
-
-  end subroutine cset
-!!!-----------------------------------------------------
-!!!-----------------------------------------------------
-  function set_str_output_order(arr,lcase,lkeep_size) result(order)
-    implicit none
-    integer :: i, n
-    logical :: ludef_keep_size
-    integer, allocatable, dimension(:) :: order
-    character(len=:), allocatable, dimension(:) :: tmp_arr
-    character(*), allocatable, dimension(:) :: arr
-    logical, intent(in), optional :: lcase, lkeep_size
-
-    allocate(order(size(arr)))
-    if(present(lcase))then
-       order=sort_str_order(arr,lcase)
-    else
-       order=sort_str_order(arr)
-    end if
-    
-    allocate(character(len=len(arr(1))) :: tmp_arr(size(arr)))
-    tmp_arr(1) = arr(1)
-    n=1
-
-    do i=2,size(arr)
-       if(trim(arr(i)).eq.trim(tmp_arr(n)))then
-          where(order.gt.order(n))
-             order = order - 1
-          end where
-          cycle
-       end if
-       n = n + 1
-       tmp_arr(n) = arr(i)
-    end do
-    write(0,*) order
-    
-    if(present(lkeep_size))then
-       ludef_keep_size=lkeep_size
-    else
-       ludef_keep_size=.false.
-    end if
-
-    if(ludef_keep_size)then
-       call move_alloc(tmp_arr,arr)!!!CONSISTENCY WITH OTHER SET FORMS
-    else
-       deallocate(arr)
-       allocate(arr(n))
-       arr(:n) = tmp_arr(:n)
-    end if
-
-  end function set_str_output_order
-!!!#####################################################
+!  subroutine cset(arr,lcase,lkeep_size)
+!    implicit none
+!    integer :: i, n
+!    logical :: ludef_keep_size
+!    character(len=:), allocatable, dimension(:) :: tmp_arr
+!    character(*), allocatable, dimension(:) :: arr
+!    logical, intent(in), optional :: lcase, lkeep_size
+!
+!    if(present(lcase))then
+!       call sort_str(arr,lcase)
+!    else
+!       call sort_str(arr)
+!    end if
+!    
+!    allocate(character(len=len(arr(1))) :: tmp_arr(size(arr)))
+!    tmp_arr(1) = arr(1)
+!    n=1
+!    
+!    do i=2,size(arr)
+!       if(trim(arr(i)).eq.trim(tmp_arr(n))) cycle
+!       n = n + 1
+!       tmp_arr(n) = arr(i)
+!    end do
+!    if(present(lkeep_size))then
+!       ludef_keep_size=lkeep_size
+!    else
+!       ludef_keep_size=.false.
+!    end if
+!
+!    if(ludef_keep_size)then
+!       call move_alloc(tmp_arr,arr)!!!CONSISTENCY WITH OTHER SET FORMS
+!    else
+!       deallocate(arr)
+!       allocate(arr(n))
+!       arr(:n) = tmp_arr(:n)
+!    end if
+!
+!  end subroutine cset
+!!!!-----------------------------------------------------
+!!!!-----------------------------------------------------
+!  function set_str_output_order(arr,lcase,lkeep_size) result(order)
+!    implicit none
+!    integer :: i, n
+!    logical :: ludef_keep_size
+!    integer, allocatable, dimension(:) :: order
+!    character(len=:), allocatable, dimension(:) :: tmp_arr
+!    character(*), allocatable, dimension(:) :: arr
+!    logical, intent(in), optional :: lcase, lkeep_size
+!
+!    allocate(order(size(arr)))
+!    if(present(lcase))then
+!       order=sort_str_order(arr,lcase)
+!    else
+!       order=sort_str_order(arr)
+!    end if
+!    
+!    allocate(character(len=len(arr(1))) :: tmp_arr(size(arr)))
+!    tmp_arr(1) = arr(1)
+!    n=1
+!
+!    do i=2,size(arr)
+!       if(trim(arr(i)).eq.trim(tmp_arr(n)))then
+!          where(order.gt.order(n))
+!             order = order - 1
+!          end where
+!          cycle
+!       end if
+!       n = n + 1
+!       tmp_arr(n) = arr(i)
+!    end do
+!    write(0,*) order
+!    
+!    if(present(lkeep_size))then
+!       ludef_keep_size=lkeep_size
+!    else
+!       ludef_keep_size=.false.
+!    end if
+!
+!    if(ludef_keep_size)then
+!       call move_alloc(tmp_arr,arr)!!!CONSISTENCY WITH OTHER SET FORMS
+!    else
+!       deallocate(arr)
+!       allocate(arr(n))
+!       arr(:n) = tmp_arr(:n)
+!    end if
+!
+!  end function set_str_output_order
+!!!!#####################################################
 
 
 !!!#####################################################
@@ -966,11 +965,11 @@ contains
 !!! counts the number of words on a line
 !!!#####################################################
   integer function Icount(full_line,tmpchar)
-    character(*) :: full_line
-    !ONLY WORKS WITH IFORT COMPILER
-    !      character(1) :: fs
-    character(len=:),allocatable :: fs
-    character(*),optional :: tmpchar
+    implicit none
+    character(*), intent(in) :: full_line
+    character(*), optional, intent(in) :: tmpchar
+
+    character(len=:), allocatable :: fs
     integer ::items,pos,k,length
     items=0
     pos=1
@@ -1002,13 +1001,14 @@ contains
 !!! counts the number of words on a line
 !!!#####################################################
   subroutine readcl(full_line,store,tmpchar)
-    character(*) :: full_line
+    implicit none
+    character(*), intent(in) :: full_line
+    character(*), allocatable, dimension(:), optional, intent(inout) :: store
+    character(*), optional, intent(in) :: tmpchar
     !ONLY WORKS WITH IFORT COMPILER
     !      character(1) :: fs
     character(len=:),allocatable :: fs
-    character(*),optional :: tmpchar
     character(100),dimension(1000) :: tmp_store
-    character(*),allocatable,dimension(:),optional :: store
     integer ::items,pos,k,length
     items=0
     pos=1
@@ -1043,15 +1043,19 @@ contains
   end subroutine readcl
 !!!#####################################################
 
+
 !!!#####################################################
 !!! grep 
 !!!#####################################################
 !!! searches a file untill it finds the mattching patern
   subroutine grep(unit,input,lstart)
-    integer :: unit,Reason
-    character(*) :: input
-    character(1024) :: buffer
+    implicit none
+    integer, intent(in) :: unit
+    character(*), intent(in) :: input
     logical, optional, intent(in) :: lstart
+
+    integer :: Reason
+    character(1024) :: buffer
     !  character(1024), intent(out), optional :: linechar
     if(present(lstart))then
        if(lstart) rewind(unit)
@@ -1073,8 +1077,9 @@ contains
 !!!#####################################################
   function count_occ(string,substring)
     implicit none
+    character(*), intent(in) :: string,substring
+
     integer :: pos,i,count_occ
-    character(*) :: string,substring
 
     pos=1
     count_occ=0
@@ -1099,9 +1104,11 @@ contains
 !!!#####################################################
 !!! SHOULD MAKE THIS A FUNCTION INSTEAD !!!
   subroutine flagmaker(buffer,flag,i,skip,empty)
-    integer :: i
-    logical :: skip,empty
-    character(*) :: flag,buffer
+    implicit none
+    integer, intent(in) :: i
+    logical, intent(inout) :: skip, empty
+    character(*), intent(in) :: flag
+    character(*), intent(inout) :: buffer
 
     if(len(trim(buffer)).eq.len(trim(flag))) then
        call get_command_argument(i+1,buffer)
@@ -1125,10 +1132,11 @@ contains
 !!!#####################################################
   subroutine loadbar(count,div,loaded)
     implicit none
-    integer :: count,div !div=10
+    integer, intent(in) :: count,div !div=10
+    character(1), optional, intent(in) :: loaded
+
     real :: tiny
     character(1) :: yn,creturn 
-    character(1), optional :: loaded
 
     tiny = 1.E-5
     creturn = achar(13)
@@ -1158,7 +1166,11 @@ contains
 !!! Jumps UNIT to input line number
 !!!#####################################################
   subroutine jump(unit,linenum)
-    integer :: unit, linenum, move
+    implicit none
+    integer, intent(in) :: unit, linenum
+
+    integer :: move
+
     rewind(unit)
     do move=1,(linenum)
        read(unit,*)
@@ -1171,27 +1183,29 @@ contains
 !!!#####################################################
 !!! File checker
 !!!#####################################################
-  subroutine file_check(UNIT,FILENAME,ACTION)
+  subroutine file_check(unit,filename,action)
     implicit none
-    integer :: i,UNIT,Reason
-    character(len=*) :: FILENAME
+    integer, intent(in) :: unit
+    character(len=*), intent(inout) :: filename
+    character(20), optional, intent(in) :: action
+
+    integer :: i, Reason
     character(20) :: udef_action
-    character(20), optional :: ACTION
     logical :: filefound
 
     udef_action="READWRITE"
-    if(present(ACTION)) udef_action=ACTION
+    if(present(action)) udef_action=action
     udef_action=to_upper(udef_action)
     do i=1,5
-       inquire(file=trim(FILENAME),exist=filefound)
+       inquire(file=trim(filename),exist=filefound)
        if(.not.filefound) then
           write(6,'("File name ",A," not found.")')&
-               "'"//trim(FILENAME)//"'"
+               "'"//trim(filename)//"'"
           write(6,'("Supply another filename: ")')
-          read(*,*) FILENAME
+          read(*,*) filename
        else
           write(6,'("Using file ",A)')  &
-               "'"//trim(FILENAME)//"'"
+               "'"//trim(filename)//"'"
           exit
        end if
        if(i.ge.4) then
@@ -1201,7 +1215,7 @@ contains
     if(trim(adjustl(udef_action)).eq.'NONE')then
        write(6,*) "File found, but not opened."
     else
-       open(unit=UNIT,file=trim(FILENAME),action=trim(udef_action),iostat=Reason)
+       open(unit=unit,file=trim(filename),action=trim(udef_action),iostat=Reason)
     end if
 
 
@@ -1213,11 +1227,12 @@ contains
 !!!#####################################################
 !!! converts all characters in string to upper case
 !!!#####################################################
-  function to_upper(buffer) result(upper)
+  pure function to_upper(buffer) result(upper)
     implicit none
-    integer :: i,j
-    character(*) :: buffer
+    character(*), intent(in) :: buffer
     character(len=:),allocatable :: upper
+
+    integer :: i,j
 
 
     allocate(character(len=len(buffer)) :: upper)
@@ -1238,11 +1253,12 @@ contains
 !!!#####################################################
 !!! converts all characters in string to lower case
 !!!#####################################################
-  function to_lower(buffer) result(lower)
+  pure function to_lower(buffer) result(lower)
     implicit none
-    integer :: i,j
-    character(*) :: buffer
+    character(*), intent(in) :: buffer
     character(len=:),allocatable :: lower
+
+    integer :: i,j
 
 
     allocate(character(len=len(buffer)) :: lower)

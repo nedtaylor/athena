@@ -2,12 +2,9 @@ TODO list:
 - Different verbosity printing levels
 - Add handling of convolution method/type
 - Add DropBlock method
-- Add option for multiple convolution layers
 - Make dropout, block_size, and keep_prob as derived types (easier for namelist)
 - Make convolution functions in mod_misc_convolution.f90
-- Convert all layers to an extended type from an abstract layer type
-  - The 'model' variable will then be an allocatable array of containers, where each container is an extended class/type of the abstract layer type
-  - This should allow for looping over all layers in the model forward, backward, and update
+- Add padding to maxpool methods
 
 
 USEFUL LINKS TO CONSIDER

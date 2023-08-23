@@ -26,13 +26,11 @@ contains
 !!!#############################################################################
 !!! Zeros initialisation
 !!!#############################################################################
-  subroutine zeros_initialise(this, input, fan_in, fan_out)
+  pure subroutine zeros_initialise(this, input, fan_in, fan_out)
     implicit none
     class(zeros_type), intent(inout) :: this
     real(real12), dimension(..), intent(out) :: input
     integer, optional, intent(in) :: fan_in, fan_out ! no. in and out params
-
-!!! HAVE ASSUMED RANK
 
     select rank(input)
     rank(0)
@@ -40,6 +38,12 @@ contains
     rank(1)
        input = 0._real12
     rank(2)
+       input = 0._real12
+    rank(3)
+       input = 0._real12
+    rank(4)
+       input = 0._real12
+    rank(5)
        input = 0._real12
     end select
     
