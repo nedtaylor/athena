@@ -67,23 +67,6 @@ program ConvolutionalNeuralNetwork
 
 
 !!!-----------------------------------------------------------------------------
-!!! set up reduction for gradient custom type
-!!! ...
-!!! https://www.openmp.org/spec-html/5.0/openmpsu107.html
-!!! https://stackoverflow.com/questions/61141297/openmp-reduction-on-user-defined-fortran-type-containing-allocatable-array
-!!! https://fortran-lang.discourse.group/t/openmp-reduction-on-operator/5887
-!!!-----------------------------------------------------------------------------
-  !  !$omp declare reduction(cv_grad_sum:cv_gradient_type:omp_out = omp_out + omp_in) &
-  !  !$omp& initializer(cv_gradient_alloc(omp_priv, omp_orig, .false.))
-  !  !$omp declare reduction(fc_grad_sum:fc_gradient_type:omp_out = omp_out + omp_in) &
-  !  !$omp& initializer(fc_gradient_alloc(omp_priv, omp_orig, .false.))
-  !  !$omp declare reduction(compare_val:integer:compare_val(omp_out,omp_in)) &
-  !  !$omp& initializer(omp_priv = omp_orig)
-  !!  !$omp declare reduction(+:metric_dict_type:omp_out = omp_out + omp_in) &
-  !!  !$omp& initializer(metric_dict_alloc(omp_priv, omp_orig))
-
-
-!!!-----------------------------------------------------------------------------
 !!! initialise global variables
 !!!-----------------------------------------------------------------------------
   call set_global_vars()
@@ -192,53 +175,6 @@ program ConvolutionalNeuralNetwork
   input_spread = spread(input_images,3,1)
 
   write(*,*) "NUMBER OF LAYERS",network%num_layers
-
-
-
-
-
-!!!!-----------------------------------------------------------------------------
-!!!! allocate and initialise layer outputs and gradients
-!!!!-----------------------------------------------------------------------------
-  !!  allocate(bn_output, source=cv_output)
-  !!  allocate(mean(output_channels))
-  !!  allocate(variance(output_channels))
-
-
-!!!!-----------------------------------------------------------------------------
-!!!! initialise non-fully connected layer gradients
-!!!!-----------------------------------------------------------------------------
-  !  select case(learning_parameters%method)
-  !  case("adam")
-  !    call cv_gradient_init(cv_gradients, image_size, adam_learning = .true.)
-  !     if(batch_learning) &
-  !          call cv_gradient_init(comb_cv_gradients, image_size, adam_learning = .true.)
-  !     update_iteration = 1
-  !  case default
-  !     call cv_gradient_init(cv_gradients, image_size)
-  !     if(batch_learning) call cv_gradient_init(comb_cv_gradients, image_size)     
-  !  end select
-  !!  allocate(bn_gradients, source=cv_output)
-  !
-  !
-!!!!-----------------------------------------------------------------------------
-!!!! initialise fully connected layer inputs and gradients
-!!!!-----------------------------------------------------------------------------
-  !  allocate(fc_input(input_size))
-  !  fc_input = 0._real12
-  !
-  !  select case(learning_parameters%method)
-  !  case("adam")
-  !    call fc_gradient_init(fc_gradients, input_size, adam_learning = .true.)
-  !     if(batch_learning) &
-  !          call fc_gradient_init(comb_fc_gradients, input_size, adam_learning = .true.)
-  !     update_iteration = 1
-  !  case default
-  !     call fc_gradient_init(fc_gradients, input_size)
-  !     if(batch_learning) call fc_gradient_init(comb_fc_gradients, input_size)     
-  !  end select
-  !
-  !
 
 
 !!!-----------------------------------------------------------------------------
