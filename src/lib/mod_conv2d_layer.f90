@@ -256,14 +256,26 @@ contains
 !!!#############################################################################
 !!! initialise layer
 !!!#############################################################################
-  subroutine init_conv2d(this, input_shape)
+  subroutine init_conv2d(this, input_shape, verbose)
     use initialiser, only: initialiser_setup
     implicit none
     class(conv2d_layer_type), intent(inout) :: this
     integer, dimension(:), intent(in) :: input_shape
+    integer, optional, intent(in) :: verbose
 
+    integer :: t_verb
     integer, dimension(2) :: end_idx
     class(initialiser_type), allocatable :: initialiser
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise optional arguments
+    !!--------------------------------------------------------------------------
+    if(present(verbose))then
+       t_verb = verbose
+    else
+       t_verb = 0
+    end if
 
 
     !!--------------------------------------------------------------------------
