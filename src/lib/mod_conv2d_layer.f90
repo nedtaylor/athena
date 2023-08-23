@@ -439,10 +439,10 @@ contains
     integer :: j, k, l, c, itmp1
     integer :: num_filters, num_inputs
     real(real12) :: activation_scale
-    character(256) :: buffer, tag
-    character(20) :: padding, activation_function
     logical :: found_weights
-    character(len=14) :: kernel_initialiser='', bias_initialiser=''
+    character(14) :: kernel_initialiser='', bias_initialiser=''
+    character(20) :: padding, activation_function
+    character(256) :: buffer, tag
 
     integer, dimension(2) :: kernel_size, stride
     integer, dimension(3) :: input_shape
