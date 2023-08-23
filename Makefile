@@ -47,7 +47,7 @@ LIBS := mod_constants.f90 \
 	mod_container_layer.f90 \
 	mod_container_layer_sub.f90 \
 	mod_network.f90
-SRCS := atelos.f90
+SRCS := athena.f90
 OBJS := $(addprefix $(LIB_DIR)/,$(LIBS))
 OBJS := $(OBJS) $(SRCS)
 OBJS := $(addprefix $(SRC_DIR)/,$(OBJS))
@@ -117,7 +117,7 @@ LLAPACK = $(MKLROOT)/libmkl_lapack95_lp64.a \
 # COMPILATION SECTION
 ##########################################
 INSTALL_DIR?=$(HOME)/bin
-LIBRARY_NAME = libatelos.a
+LIBRARY_NAME = libathena.a
 
 CFLAGS =
 
@@ -177,7 +177,7 @@ $(BUILD_DIR):
 $(libraries): $(LIBS_o) $(SRCS_o) modlist | $(BIN_DIR)
 	@echo "Creating library $@"
 	ar rcs $@ $(LIBS_o) $(SRCS_o) $(shell cat $(BUILD_DIR)/mod_files.txt)
-	cp $(BUILD_DIR)/atelos.mod $(BIN_DIR)/.
+	cp $(BUILD_DIR)/athena.mod $(BIN_DIR)/.
 
 
 # Rule to compile source files into object files

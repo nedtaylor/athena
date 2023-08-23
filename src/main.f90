@@ -15,7 +15,7 @@ program ConvolutionalNeuralNetwork
   use loss_categorical
   use inputs
 
-  use atelos
+  use athena
 
 
   implicit none

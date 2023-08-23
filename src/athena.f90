@@ -3,7 +3,7 @@
 !!! Code part of the ARTEMIS group (Hepplestone research group)
 !!! Think Hepplestone, think HRG
 !!!#############################################################################
-module atelos
+module athena
   use network, only: network_type
 
   !! input layer types
@@ -32,5 +32,5 @@ module atelos
   public
 
 
-end module atelos
+end module athena
 !!!#############################################################################
