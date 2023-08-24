@@ -69,7 +69,7 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
 !!! read training dataset
 !!!-----------------------------------------------------------------------------
-  train_file = '/nutanix/gpshome/ntt203/DCoding/DTest_dir/DMNIST/MNIST_train.txt'
+  train_file = trim(data_dir)//'/MNIST_train.txt'
   call read_mnist(train_file,input_images, labels, &
        maxval(cv_kernel_size), image_size, padding_method)
   input_channels = size(input_images, 3)
@@ -79,7 +79,7 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
 !!! read testing dataset
 !!!-----------------------------------------------------------------------------
-  test_file = '/nutanix/gpshome/ntt203/DCoding/DTest_dir/DMNIST/MNIST_test.txt'
+  test_file = trim(data_dir)//'/MNIST_test.txt'
   call read_mnist(test_file,test_images, test_labels, &
        maxval(cv_kernel_size), itmp1, padding_method)
   num_samples_test = size(test_images, 4)

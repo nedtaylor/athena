@@ -20,6 +20,7 @@ module inputs
   character(:), allocatable :: loss_method
   character(1024) :: input_file, output_file
   logical :: restart
+  character(:), allocatable :: data_dir
 
   integer :: num_epochs  ! number of epochs
   integer :: batch_size  ! size of mini batches
@@ -36,7 +37,7 @@ module inputs
   character(:), allocatable :: cv_bias_initialiser
   real(real12) :: cv_activation_scale
   character(:), allocatable :: cv_activation_function
-
+  
   real(real12) :: bn_gamma, bn_beta  ! batch normalisation learning features
 
   integer :: pool_kernel_size    ! pooling size (assume square)
@@ -62,6 +63,7 @@ module inputs
   public :: input_file, output_file, restart
   public :: shuffle_dataset, train_size
   public :: batch_print_step
+  public :: data_dir
 
   public :: batch_learning
   public :: plateau_threshold
@@ -258,7 +260,6 @@ contains
 !!! read input file to get variables
 !!!#############################################################################
   subroutine read_input_file(file_name)
-    !use infile_tools, only: assign_val, assing_vec, rm_comments
     implicit none
     integer :: Reason, unit, i
     character(128) :: message
@@ -273,7 +274,8 @@ contains
     real(real12) :: l1_lambda, l2_lambda  ! l1 and l2 regularisation parameters
     real(real12) :: momentum, beta1, beta2, epsilon
     character(512) :: hidden_layers
-
+    character(512) :: dataset_dir
+    
     integer :: num_metrics
     real(real12), dimension(2) :: threshold
     character(100) :: metrics
@@ -300,7 +302,7 @@ contains
 !!!-----------------------------------------------------------------------------
     namelist /setup/ seed, verbosity, num_threads, &
          input_file, output_file, restart, &
-         batch_print_step!, dir
+         batch_print_step, dataset_dir
     namelist /training/ num_epochs, batch_size, &
          plateau_threshold, threshold, &
          learning_rate, momentum, l1_lambda, l2_lambda, &
@@ -332,11 +334,13 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! read setup namelist
 !!!-----------------------------------------------------------------------------
+    data_dir = "/home/links/ntt203/DCoding/DTest_dir/DMNIST"
     read(unit,NML=setup,iostat=Reason,iomsg=message)
     if(Reason.ne.0)then
        write(0,'("ERROR: Unexpected keyword found input file SETUP card")')
        stop trim(message)
     end if
+    data_dir = dataset_dir
     
 
 !!!-----------------------------------------------------------------------------
