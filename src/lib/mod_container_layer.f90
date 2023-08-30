@@ -22,7 +22,6 @@ module container_layer
   end type container_layer_type
 
 
-
   interface
      pure module subroutine forward(this, input)
        !import container_layer_type
