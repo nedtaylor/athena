@@ -156,6 +156,7 @@ contains
           cycle flagloop
        end if
        call get_command_argument(i,buffer)
+       if(trim(buffer).eq.'') cycle flagloop
 !!!------------------------------------------------------------------------
 !!! FILE AND DIRECTORY FLAGS
 !!!------------------------------------------------------------------------
