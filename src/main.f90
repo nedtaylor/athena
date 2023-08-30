@@ -130,7 +130,7 @@ program ConvolutionalNeuralNetwork
            pool_size = 2, stride = 2))
      call network%add(full_layer_type( &
            num_outputs = 100, &
-           num_addit_inputs = 6,&
+           !num_addit_inputs = 6,&
            activation_function = "relu", &
            kernel_initialiser = "he_uniform", &
            bias_initialiser = "he_uniform" &
@@ -186,8 +186,10 @@ program ConvolutionalNeuralNetwork
 
   write(6,*) "Starting training..."
   call network%train(input_images, input_labels, num_epochs, batch_size, &
-       addit_input, 5, &
-       plateau_threshold, shuffle_dataset, 20, verbosity)
+       !addit_input, 5, &
+       plateau_threshold = plateau_threshold, &
+       shuffle_batches = shuffle_dataset, &
+       batch_print_step = batch_print_step, verbose = verbosity)
   !!call network%train(input_spread, input_labels, num_epochs, batch_size, &
   !!     plateau_threshold, shuffle_dataset, 20, verbosity)
   write(*,*) "Training finished"
