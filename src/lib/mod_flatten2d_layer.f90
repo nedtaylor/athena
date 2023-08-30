@@ -10,7 +10,7 @@ module flatten2d_layer
   
   
   type, extends(base_layer_type) :: flatten2d_layer_type
-     integer :: num_outputs
+     integer :: num_outputs, num_addit_inputs = 0
      real(real12), allocatable, dimension(:) :: output
      real(real12), allocatable, dimension(:,:,:) :: di
    contains
@@ -20,8 +20,9 @@ module flatten2d_layer
   end type flatten2d_layer_type
 
   interface flatten2d_layer_type
-     module function layer_setup(input_shape) result(layer)
+     module function layer_setup(input_shape, num_addit_inputs) result(layer)
        integer, dimension(:), optional, intent(in) :: input_shape
+       integer, optional, intent(in) :: num_addit_inputs
        type(flatten2d_layer_type) :: layer
      end function layer_setup
   end interface flatten2d_layer_type
@@ -42,7 +43,7 @@ contains
     real(real12), dimension(..), intent(in) :: input
 
     select rank(input); rank(3)
-       this%output = reshape(input, [this%num_outputs])
+       this%output(:this%num_outputs) = reshape(input, [this%num_outputs])
     end select
   end subroutine forward_rank
 !!!#############################################################################
@@ -58,7 +59,7 @@ contains
     real(real12), dimension(..), intent(in) :: gradient
 
     select rank(gradient); rank(1)
-       this%di = reshape(gradient, shape(this%di))
+       this%di = reshape(gradient(:this%num_outputs), shape(this%di))
     end select
   end subroutine backward_rank
 !!!#############################################################################
@@ -72,9 +73,10 @@ contains
 !!!#############################################################################
 !!! set up layer
 !!!#############################################################################
-  module function layer_setup(input_shape) result(layer)
+  module function layer_setup(input_shape, num_addit_inputs) result(layer)
     implicit none
     integer, dimension(:), optional, intent(in) :: input_shape
+    integer, optional, intent(in) :: num_addit_inputs
 
     type(flatten2d_layer_type) :: layer
 
@@ -82,6 +84,7 @@ contains
     !!--------------------------------------------------------------------------
     !! initialise layer shape
     !!--------------------------------------------------------------------------
+    if(present(num_addit_inputs)) layer%num_addit_inputs = num_addit_inputs
     if(present(input_shape)) call layer%init(input_shape=input_shape)
 
   end function layer_setup
@@ -121,7 +124,8 @@ contains
     
     this%num_outputs = product(this%input_shape)
 
-    allocate(this%output(this%num_outputs), source=0._real12)
+    allocate(this%output(this%num_outputs + this%num_addit_inputs), &
+         source=0._real12)
     allocate(this%di(input_shape(1), input_shape(2), input_shape(3)), &
          source=0._real12)
   end subroutine init_flatten2d
