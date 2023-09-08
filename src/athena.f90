@@ -5,6 +5,8 @@
 !!!#############################################################################
 module athena
   use network, only: network_type
+  use metrics, only: metric_dict_type
+  use optimiser, only: optimiser_type
 
   !! input layer types
   use input1d_layer,   only: input1d_layer_type
