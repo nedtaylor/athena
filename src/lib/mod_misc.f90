@@ -1386,7 +1386,7 @@ contains
        if(i.ge.t_right_num) exit indices_r_loop
        i = i + 1
        if(any(indices_r(:i-1).eq.indices_r(i)))then
-          indices_r(i:t_right_num-num_redos-1) = indices_r(i+1:num_redos)
+          indices_r(i:t_right_num-num_redos-1) = indices_r(i+1:t_right_num-num_redos)
           call random_number(rtmp1)
           indices_r(t_right_num) = floor(rtmp1*size(data,dim)) + 1
           i = i - 1
@@ -1397,8 +1397,9 @@ contains
        if(i.eq.dim)then
           idx(i)%loc = indices_r
        else
-          idx(i)%loc = (/ ( j, j=1,size(data,dim) ) /)
+          idx(i)%loc = (/ ( j, j=1,size(data,i) ) /)
        end if
+       write(*,*) i,"here",idx(i)%loc
     end do
     right_data = data_copy(idx(1)%loc,idx(2)%loc,idx(3)%loc,idx(4)%loc,idx(5)%loc)
     right_list = list_copy(indices_r)
