@@ -1298,7 +1298,6 @@ contains
        else
           idx(i)%loc = (/ ( j, j=1,size(data,i) ) /)
        end if
-       write(*,*) i,"here",idx(i)%loc
     end do
     right_data = data_copy(idx(1)%loc,idx(2)%loc,idx(3)%loc,idx(4)%loc,idx(5)%loc)
     
@@ -1399,7 +1398,6 @@ contains
        else
           idx(i)%loc = (/ ( j, j=1,size(data,i) ) /)
        end if
-       write(*,*) i,"here",idx(i)%loc
     end do
     right_data = data_copy(idx(1)%loc,idx(2)%loc,idx(3)%loc,idx(4)%loc,idx(5)%loc)
     right_list = list_copy(indices_r)
