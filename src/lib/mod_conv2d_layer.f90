@@ -668,7 +668,7 @@ contains
          intent(in) :: gradient
 
     integer :: l, m, i, j, x, y
-    integer, dimension(2) :: stp_idx, offset, end_idx, n_stp
+    integer, dimension(2) :: stp_idx, offset, adjust, end_idx, n_stp
     integer, dimension(2,2) :: lim, lim_w, lim_g
     real(real12), &
          dimension(&
@@ -684,6 +684,7 @@ contains
     !!--------------------------------------------------------------------------
     end_idx = this%hlf + (this%cen - 1)
     offset  = 1 + this%hlf - this%pad
+    adjust  = 2 * max(this%pad, this%hlf)
 
 
     !! get gradient multiplied by differential of Z
@@ -710,8 +711,8 @@ contains
        this%dw(x,y,m,l) = this%dw(x,y,m,l) + &
             sum(grad_dz(:,:,l) * &
             input(&
-            x+offset(1):x+offset(1)-2 + ubound(input,dim=1):this%stp(1), &
-            y+offset(2):y+offset(2)-2 + ubound(input,dim=2):this%stp(2),m))
+            x+offset(1):x+offset(1)-1+size(input,1)-adjust(1):this%stp(1), &
+            y+offset(2):y+offset(2)-1+size(input,1)-adjust(2):this%stp(2),m))
     end do
 
 
