@@ -52,8 +52,8 @@ module misc
 
   interface shuffle
      procedure shuffle_1Dlist, &
-          shuffle_2Ddata, shuffle_3Ddata, shuffle_4Ddata, &
-          shuffle_4Ddata_1Dlist
+          shuffle_2Ddata, shuffle_3Ddata, shuffle_4Ddata, shuffle_5Ddata, &
+          shuffle_4Ddata_1Dlist, shuffle_5Ddata_1Dilist, shuffle_5Ddata_1Drlist
   end interface shuffle
 
 !!!updated 2023/06/23
@@ -873,6 +873,88 @@ contains
   end subroutine shuffle_4Ddata
 !!!-----------------------------------------------------
 !!!-----------------------------------------------------
+  subroutine shuffle_5Ddata(arr,dim,seed)
+    implicit none
+    integer :: iseed,istart
+    integer :: i,j,n_data
+    real(real12) :: r
+    integer, dimension(5) :: idx_s,idx_e,jdx_s,jdx_e
+    integer, dimension(5,2) :: t_size
+    real(real12), allocatable, dimension(:,:,:,:,:) :: tlist
+
+    integer, intent(in) :: dim
+    real(real12), dimension(:,:,:,:,:), intent(inout) :: arr
+
+    integer, optional, intent(in) :: seed
+
+    if(present(seed)) iseed = seed
+
+    call random_seed(iseed)
+    n_data = size(arr,dim=dim)
+    do i=1,5
+       t_size(i,1) = 1
+       jdx_s(i) = 1
+       jdx_e(i) = size(arr,dim=i)
+       idx_s(i) = 1
+       idx_e(i) = size(arr,dim=i)
+       if(i.eq.dim) then
+          t_size(i,2) = 1
+       else
+          t_size(i,2) = size(arr,dim=i)
+       end if
+    end do
+
+    allocate(tlist(&
+         t_size(1,2),t_size(2,2),&
+         t_size(3,2),t_size(4,2),&
+         t_size(5,2)))
+
+    istart=1
+    do i=1,n_data
+       call random_number(r)
+       j = istart + floor((n_data+1-istart)*r)
+       idx_s(dim) = i
+       idx_e(dim) = i
+       jdx_s(dim) = j
+       jdx_e(dim) = j
+       tlist(&
+            t_size(1,1):t_size(1,2),&
+            t_size(2,1):t_size(2,2),&
+            t_size(3,1):t_size(3,2),&
+            t_size(4,1):t_size(4,2),&
+            t_size(5,1):t_size(5,2)) = arr(&
+            idx_s(1):idx_e(1),&
+            idx_s(2):idx_e(2),&
+            idx_s(3):idx_e(3),&
+            idx_s(4):idx_e(4),&
+            idx_s(5):idx_e(5))
+       arr(&
+            idx_s(1):idx_e(1),&
+            idx_s(2):idx_e(2),&
+            idx_s(3):idx_e(3),&
+            idx_s(4):idx_e(4),&
+            idx_s(5):idx_e(5)) = arr(&
+            jdx_s(1):jdx_e(1),&
+            jdx_s(2):jdx_e(2),&
+            jdx_s(3):jdx_e(3),&
+            jdx_s(4):jdx_e(4),&
+            jdx_s(5):jdx_e(5))
+       arr(&
+            jdx_s(1):jdx_e(1),&
+            jdx_s(2):jdx_e(2),&
+            jdx_s(3):jdx_e(3),&
+            jdx_s(4):jdx_e(4),&
+            jdx_s(5):jdx_e(5)) = tlist(&
+            t_size(1,1):t_size(1,2),&
+            t_size(2,1):t_size(2,2),&
+            t_size(3,1):t_size(3,2),&
+            t_size(4,1):t_size(4,2),&
+            t_size(5,1):t_size(5,2))
+    end do
+
+  end subroutine shuffle_5Ddata
+!!!-----------------------------------------------------
+!!!-----------------------------------------------------
   subroutine shuffle_4Ddata_1Dlist(arr,label,dim,seed)
     implicit none
     integer :: iseed,istart
@@ -951,6 +1033,184 @@ contains
     end do
 
   end subroutine shuffle_4Ddata_1Dlist
+!!!-----------------------------------------------------
+!!!-----------------------------------------------------
+  subroutine shuffle_5Ddata_1Dilist(arr,label,dim,seed)
+    implicit none
+    integer :: iseed,istart
+    integer :: i,j,n_data
+    integer :: itmp1
+    real(real12) :: r
+    integer, dimension(5) :: idx_s,idx_e,jdx_s,jdx_e
+    integer, dimension(5,2) :: t_size
+    real(real12), allocatable, dimension(:,:,:,:,:) :: tlist
+
+    integer, intent(in) :: dim
+    real(real12), dimension(:,:,:,:,:), intent(inout) :: arr
+    integer, dimension(:), intent(inout) :: label
+
+    integer, optional, intent(in) :: seed
+
+    if(present(seed)) iseed = seed
+
+    call random_seed(iseed)
+    n_data = size(arr,dim=dim)
+    do i=1,5
+       t_size(i,1) = 1
+       jdx_s(i) = 1
+       jdx_e(i) = size(arr,dim=i)
+       idx_s(i) = 1
+       idx_e(i) = size(arr,dim=i)
+       if(i.eq.dim) then
+          t_size(i,2) = 1
+       else
+          t_size(i,2) = size(arr,dim=i)
+       end if
+    end do
+
+    allocate(tlist(&
+         t_size(1,2),t_size(2,2),&
+         t_size(3,2),t_size(4,2),&
+         t_size(5,2)))
+
+    istart=1
+    do i=1,n_data
+       call random_number(r)
+       j = istart + floor((n_data+1-istart)*r)
+       idx_s(dim) = i
+       idx_e(dim) = i
+       jdx_s(dim) = j
+       jdx_e(dim) = j
+       tlist(&
+            t_size(1,1):t_size(1,2),&
+            t_size(2,1):t_size(2,2),&
+            t_size(3,1):t_size(3,2),&
+            t_size(4,1):t_size(4,2),&
+            t_size(5,1):t_size(5,2)) = arr(&
+            idx_s(1):idx_e(1),&
+            idx_s(2):idx_e(2),&
+            idx_s(3):idx_e(3),&
+            idx_s(4):idx_e(4),&
+            idx_s(5):idx_e(5))
+       arr(&
+            idx_s(1):idx_e(1),&
+            idx_s(2):idx_e(2),&
+            idx_s(3):idx_e(3),&
+            idx_s(4):idx_e(4),&
+            idx_s(5):idx_e(5)) = arr(&
+            jdx_s(1):jdx_e(1),&
+            jdx_s(2):jdx_e(2),&
+            jdx_s(3):jdx_e(3),&
+            jdx_s(4):jdx_e(4),&
+            jdx_s(5):jdx_e(5))
+       arr(&
+            jdx_s(1):jdx_e(1),&
+            jdx_s(2):jdx_e(2),&
+            jdx_s(3):jdx_e(3),&
+            jdx_s(4):jdx_e(4),&
+            jdx_s(5):jdx_e(5)) = tlist(&
+            t_size(1,1):t_size(1,2),&
+            t_size(2,1):t_size(2,2),&
+            t_size(3,1):t_size(3,2),&
+            t_size(4,1):t_size(4,2),&
+            t_size(5,1):t_size(5,2))
+
+       itmp1 = label(i)
+       label(i) = label(j)
+       label(j) = itmp1
+
+    end do
+
+  end subroutine shuffle_5Ddata_1Dilist
+!!!-----------------------------------------------------
+!!!-----------------------------------------------------
+  subroutine shuffle_5Ddata_1Drlist(arr,label,dim,seed)
+    implicit none
+    integer :: iseed,istart
+    integer :: i,j,n_data
+    real(real12) :: rtmp1
+    real(real12) :: r
+    integer, dimension(5) :: idx_s,idx_e,jdx_s,jdx_e
+    integer, dimension(5,2) :: t_size
+    real(real12), allocatable, dimension(:,:,:,:,:) :: tlist
+
+    integer, intent(in) :: dim
+    real(real12), dimension(:,:,:,:,:), intent(inout) :: arr
+    real(real12), dimension(:), intent(inout) :: label
+
+    integer, optional, intent(in) :: seed
+
+    if(present(seed)) iseed = seed
+
+    call random_seed(iseed)
+    n_data = size(arr,dim=dim)
+    do i=1,5
+       t_size(i,1) = 1
+       jdx_s(i) = 1
+       jdx_e(i) = size(arr,dim=i)
+       idx_s(i) = 1
+       idx_e(i) = size(arr,dim=i)
+       if(i.eq.dim) then
+          t_size(i,2) = 1
+       else
+          t_size(i,2) = size(arr,dim=i)
+       end if
+    end do
+
+    allocate(tlist(&
+         t_size(1,2),t_size(2,2),&
+         t_size(3,2),t_size(4,2),&
+         t_size(5,2)))
+
+    istart=1
+    do i=1,n_data
+       call random_number(r)
+       j = istart + floor((n_data+1-istart)*r)
+       idx_s(dim) = i
+       idx_e(dim) = i
+       jdx_s(dim) = j
+       jdx_e(dim) = j
+       tlist(&
+            t_size(1,1):t_size(1,2),&
+            t_size(2,1):t_size(2,2),&
+            t_size(3,1):t_size(3,2),&
+            t_size(4,1):t_size(4,2),&
+            t_size(5,1):t_size(5,2)) = arr(&
+            idx_s(1):idx_e(1),&
+            idx_s(2):idx_e(2),&
+            idx_s(3):idx_e(3),&
+            idx_s(4):idx_e(4),&
+            idx_s(5):idx_e(5))
+       arr(&
+            idx_s(1):idx_e(1),&
+            idx_s(2):idx_e(2),&
+            idx_s(3):idx_e(3),&
+            idx_s(4):idx_e(4),&
+            idx_s(5):idx_e(5)) = arr(&
+            jdx_s(1):jdx_e(1),&
+            jdx_s(2):jdx_e(2),&
+            jdx_s(3):jdx_e(3),&
+            jdx_s(4):jdx_e(4),&
+            jdx_s(5):jdx_e(5))
+       arr(&
+            jdx_s(1):jdx_e(1),&
+            jdx_s(2):jdx_e(2),&
+            jdx_s(3):jdx_e(3),&
+            jdx_s(4):jdx_e(4),&
+            jdx_s(5):jdx_e(5)) = tlist(&
+            t_size(1,1):t_size(1,2),&
+            t_size(2,1):t_size(2,2),&
+            t_size(3,1):t_size(3,2),&
+            t_size(4,1):t_size(4,2),&
+            t_size(5,1):t_size(5,2))
+
+       rtmp1 = label(i)
+       label(i) = label(j)
+       label(j) = rtmp1
+
+    end do
+
+  end subroutine shuffle_5Ddata_1Drlist
 !!!#####################################################
 
 
