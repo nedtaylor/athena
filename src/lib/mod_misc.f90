@@ -1279,40 +1279,40 @@ contains
     num_redos = 0
     allocate(tlist(t_right_num))
     call random_number(tlist)
-    indices_l = floor(tlist*size(data,dim)) + 1
+    indices_r = floor(tlist*size(data,dim)) + 1
     i = 1
-    indices_l_loop: do 
-       if(i.ge.t_right_num) exit indices_l_loop
+    indices_r_loop: do 
+       if(i.ge.t_right_num) exit indices_r_loop
        i = i + 1
-       if(any(indices_l(:i-1).eq.indices_l(i)))then
-          indices_l(i:t_right_num-num_redos-1) = indices_l(i+1:num_redos)
+       if(any(indices_r(:i-1).eq.indices_r(i)))then
+          indices_r(i:t_right_num-num_redos-1) = indices_r(i+1:t_right_num-num_redos)
           call random_number(rtmp1)
-          indices_l(t_right_num) = floor(rtmp1*size(data,dim)) + 1
+          indices_r(t_right_num) = floor(rtmp1*size(data,dim)) + 1
           i = i - 1
        end if
-    end do indices_l_loop
+    end do indices_r_loop
 
     do i=1,5
        if(i.eq.dim)then
-          idx(i)%loc = indices_l
+          idx(i)%loc = indices_r
        else
-          idx(i)%loc = (/ ( j, j=1,size(data,dim) ) /)
+          idx(i)%loc = (/ ( j, j=1,size(data,i) ) /)
        end if
+       write(*,*) i,"here",idx(i)%loc
     end do
-    right = data_copy(idx(1)%loc,idx(2)%loc,idx(3)%loc,idx(4)%loc,idx(5)%loc)
-
+    right_data = data_copy(idx(1)%loc,idx(2)%loc,idx(3)%loc,idx(4)%loc,idx(5)%loc)
     
-    indices_r_loop: do i=1,size(data,dim)
-       if(any(indices_l.eq.i)) cycle indices_r_loop
-       if(allocated(indices_r)) then
-          indices_r = [indices_r(:), i]
+    indices_l_loop: do i=1,size(data,dim)
+       if(any(indices_l.eq.i)) cycle indices_l_loop
+       if(allocated(indices_l)) then
+          indices_l = [indices_l(:), i]
        else
-          indices_r = [i]
+          indices_l = [i]
        end if
-    end do indices_r_loop
-    idx(dim)%loc = indices_r
+    end do indices_l_loop
+    idx(dim)%loc = indices_l
     
-    left = data_copy(idx(1)%loc,idx(2)%loc,idx(3)%loc,idx(4)%loc,idx(5)%loc)
+    left_data = data_copy(idx(1)%loc,idx(2)%loc,idx(3)%loc,idx(4)%loc,idx(5)%loc)
 
   end subroutine split_5Drdata
 !!!-----------------------------------------------------
