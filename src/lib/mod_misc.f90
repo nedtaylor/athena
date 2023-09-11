@@ -56,7 +56,12 @@ module misc
           shuffle_4Ddata_1Dlist, shuffle_5Ddata_1Dilist, shuffle_5Ddata_1Drlist
   end interface shuffle
 
-!!!updated 2023/06/23
+  interface split
+     procedure split_5Drdata, &
+          split_5Drdata_1Drlist
+  end interface split
+
+!!!updated 2023/09/11
 
 
 contains
@@ -1212,6 +1217,207 @@ contains
 
   end subroutine shuffle_5Ddata_1Drlist
 !!!#####################################################
+
+!!!#####################################################
+!!! split an array along a dimension into two
+!!!#####################################################
+  subroutine split_5Drdata(data,left,right,dim,&
+       left_size,right_size,&
+       shuffle,seed)
+    implicit none
+    real(real12), dimension(:,:,:,:,:), intent(in) :: data
+    real(real12), allocatable, dimension(:,:,:,:,:), intent(out) :: left, right
+    integer, intent(in) :: dim
+    real(real12), optional, intent(in) :: left_size, right_size
+    logical, optional, intent(in) :: shuffle
+    integer, optional, intent(in) :: seed
+
+    integer :: t_seed, t_left_num, t_right_num
+    logical :: t_shuffle
+    integer :: i, j
+    integer :: num_redos
+    real(real12) :: rtmp1
+    integer, allocatable, dimension(:) :: indices_l, indices_r
+    real(real12), allocatable, dimension(:) :: tlist
+    real(real12), allocatable, dimension(:,:,:,:,:) :: data_copy
+
+    type idx_type
+       integer, allocatable, dimension(:) :: loc
+    end type idx_type
+    type(idx_type), dimension(5) :: idx
+
+    if(.not.present(left_size).and..not.present(right_size))then
+       stop "ERROR: neither left_size nor right_size provided to split. Expected at least one."
+    elseif(present(left_size).and..not.present(right_size))then
+       t_left_num  = nint(left_size*size(data,dim))
+       t_right_num = size(data,dim) - t_left_num
+    elseif(present(left_size).and..not.present(right_size))then
+       t_right_num = nint(right_size*size(data,dim))
+       t_left_num  = size(data,dim) - t_right_num
+    else
+       t_left_num  = nint(left_size*size(data,dim))
+       t_right_num = nint(right_size*size(data,dim))
+       if(t_left_num + t_right_num .ne. size(data,dim)) &
+            t_right_num = size(data,dim) - t_left_num
+    end if
+
+    if(present(shuffle))then
+       t_shuffle = shuffle
+    else
+       t_shuffle = .false.
+    end if
+
+    if(present(seed))then
+       t_seed = seed
+    else
+       call system_clock(count=t_seed)
+    end if
+
+    data_copy = data
+    if(t_shuffle) call shuffle_5Ddata(data_copy,dim,t_seed)
+    
+    num_redos = 0
+    allocate(tlist(t_right_num))
+    call random_number(tlist)
+    indices_l = floor(tlist*size(data,dim)) + 1
+    i = 1
+    indices_l_loop: do 
+       if(i.ge.t_right_num) exit indices_l_loop
+       i = i + 1
+       if(any(indices_l(:i-1).eq.indices_l(i)))then
+          indices_l(i:t_right_num-num_redos-1) = indices_l(i+1:num_redos)
+          call random_number(rtmp1)
+          indices_l(t_right_num) = floor(rtmp1*size(data,dim)) + 1
+          i = i - 1
+       end if
+    end do indices_l_loop
+
+    do i=1,5
+       if(i.eq.dim)then
+          idx(i)%loc = indices_l
+       else
+          idx(i)%loc = (/ ( j, j=1,size(data,dim) ) /)
+       end if
+    end do
+    right = data_copy(idx(1)%loc,idx(2)%loc,idx(3)%loc,idx(4)%loc,idx(5)%loc)
+
+    
+    indices_r_loop: do i=1,size(data,dim)
+       if(any(indices_l.eq.i)) cycle indices_r_loop
+       if(allocated(indices_r)) then
+          indices_r = [indices_r(:), i]
+       else
+          indices_r = [i]
+       end if
+    end do indices_r_loop
+    idx(dim)%loc = indices_r
+    
+    left = data_copy(idx(1)%loc,idx(2)%loc,idx(3)%loc,idx(4)%loc,idx(5)%loc)
+
+  end subroutine split_5Drdata
+!!!-----------------------------------------------------
+!!!-----------------------------------------------------
+  subroutine split_5Drdata_1Drlist(data,list,left_data,right_data,&
+       left_list,right_list,dim,&
+       left_size,right_size,&
+       shuffle,seed)
+    implicit none
+    real(real12), dimension(:,:,:,:,:), intent(in) :: data
+    real(real12), dimension(:), intent(in) :: list
+    real(real12), allocatable, dimension(:,:,:,:,:), intent(out) :: left_data, right_data
+    real(real12), allocatable, dimension(:), intent(out) :: left_list, right_list
+    integer, intent(in) :: dim
+    real(real12), optional, intent(in) :: left_size, right_size
+    logical, optional, intent(in) :: shuffle
+    integer, optional, intent(in) :: seed
+
+    integer :: t_seed, t_left_num, t_right_num
+    logical :: t_shuffle
+    integer :: i, j
+    integer :: num_redos
+    real(real12) :: rtmp1
+    integer, allocatable, dimension(:) :: indices_l, indices_r
+    real(real12), allocatable, dimension(:) :: tlist
+    real(real12), allocatable, dimension(:) :: list_copy
+    real(real12), allocatable, dimension(:,:,:,:,:) :: data_copy
+
+    type idx_type
+       integer, allocatable, dimension(:) :: loc
+    end type idx_type
+    type(idx_type), dimension(5) :: idx
+
+    if(.not.present(left_size).and..not.present(right_size))then
+       stop "ERROR: neither left_size nor right_size provided to split. Expected at least one."
+    elseif(present(left_size).and..not.present(right_size))then
+       t_left_num  = nint(left_size*size(data,dim))
+       t_right_num = size(data,dim) - t_left_num
+    elseif(present(left_size).and..not.present(right_size))then
+       t_right_num = nint(right_size*size(data,dim))
+       t_left_num  = size(data,dim) - t_right_num
+    else
+       t_left_num  = nint(left_size*size(data,dim))
+       t_right_num = nint(right_size*size(data,dim))
+       if(t_left_num + t_right_num .ne. size(data,dim)) &
+            t_right_num = size(data,dim) - t_left_num
+    end if
+
+    if(present(shuffle))then
+       t_shuffle = shuffle
+    else
+       t_shuffle = .false.
+    end if
+
+    if(present(seed))then
+       t_seed = seed
+    else
+       call system_clock(count=t_seed)
+    end if
+
+    data_copy = data
+    list_copy = list
+    if(t_shuffle) call shuffle_5Ddata_1Drlist(data_copy,list_copy,dim,t_seed)
+    
+    num_redos = 0
+    allocate(tlist(t_right_num))
+    call random_number(tlist)
+    indices_r = floor(tlist*size(data,dim)) + 1
+    i = 1
+    indices_r_loop: do 
+       if(i.ge.t_right_num) exit indices_r_loop
+       i = i + 1
+       if(any(indices_r(:i-1).eq.indices_r(i)))then
+          indices_r(i:t_right_num-num_redos-1) = indices_r(i+1:num_redos)
+          call random_number(rtmp1)
+          indices_r(t_right_num) = floor(rtmp1*size(data,dim)) + 1
+          i = i - 1
+       end if
+    end do indices_r_loop
+
+    do i=1,5
+       if(i.eq.dim)then
+          idx(i)%loc = indices_r
+       else
+          idx(i)%loc = (/ ( j, j=1,size(data,dim) ) /)
+       end if
+    end do
+    right_data = data_copy(idx(1)%loc,idx(2)%loc,idx(3)%loc,idx(4)%loc,idx(5)%loc)
+    right_list = list_copy(indices_r)
+    
+    indices_l_loop: do i=1,size(data,dim)
+       if(any(indices_l.eq.i)) cycle indices_l_loop
+       if(allocated(indices_l)) then
+          indices_l = [indices_l(:), i]
+       else
+          indices_l = [i]
+       end if
+    end do indices_l_loop
+    idx(dim)%loc = indices_l
+    
+    left_data = data_copy(idx(1)%loc,idx(2)%loc,idx(3)%loc,idx(4)%loc,idx(5)%loc)
+    left_list = list_copy(indices_l)
+
+  end subroutine split_5Drdata_1Drlist
+!!!####################e#################################
 
 
 !!!#############################################################################
