@@ -37,7 +37,7 @@ module full_layer
 !!!-----------------------------------------------------------------------------
   interface full_layer_type
      module function layer_setup( &
-          num_outputs, num_inputs, &
+          num_outputs, num_inputs, num_addit_inputs, &
           activation_function, activation_scale, &
           kernel_initialiser, bias_initialiser) result(layer)
        integer, intent(in) :: num_outputs
@@ -100,7 +100,7 @@ contains
 !!!#############################################################################
   module function layer_setup( &
        num_outputs, num_inputs, num_addit_inputs, &
-       activation_scale, activation_function, &
+       activation_function, activation_scale, &
        kernel_initialiser, bias_initialiser) result(layer)
     use activation,  only: activation_setup
     use initialiser, only: get_default_initialiser
