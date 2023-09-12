@@ -78,8 +78,7 @@ contains
     
     converged = 0
     if(this%active)then
-       this%history = cshift(this%history, shift=-1, dim=1)
-       this%history(1) = this%val
+       this%history = eoshift(this%history, shift=-1, dim=1, boundary=this%val)
        if(&
             (trim(this%key).eq."loss".and.&
             abs(sum(this%history))/size(this%history,dim=1).lt.&
