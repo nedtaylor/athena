@@ -1246,6 +1246,8 @@ contains
     end type idx_type
     type(idx_type), dimension(5) :: idx
 
+
+    !! determine number of elements for left and right split
     if(.not.present(left_size).and..not.present(right_size))then
        stop "ERROR: neither left_size nor right_size provided to split. Expected at least one."
     elseif(present(left_size).and..not.present(right_size))then
@@ -1261,6 +1263,8 @@ contains
             t_right_num = size(data,dim) - t_left_num
     end if
 
+
+    !! initialies optional arguments
     if(present(shuffle))then
        t_shuffle = shuffle
     else
@@ -1273,9 +1277,11 @@ contains
        call system_clock(count=t_seed)
     end if
 
+    !! copy input data
     data_copy = data
     if(t_shuffle) call shuffle_5Ddata(data_copy,dim,t_seed)
     
+    !! get list of indices for right split
     num_redos = 0
     allocate(tlist(t_right_num))
     call random_number(tlist)
@@ -1292,6 +1298,7 @@ contains
        end if
     end do indices_r_loop
 
+    !! generate right split
     do i=1,5
        if(i.eq.dim)then
           idx(i)%loc = indices_r
@@ -1301,6 +1308,7 @@ contains
     end do
     right = data_copy(idx(1)%loc,idx(2)%loc,idx(3)%loc,idx(4)%loc,idx(5)%loc)
     
+    !! get list of indices for left split
     indices_l_loop: do i=1,size(data,dim)
        if(any(indices_r.eq.i)) cycle indices_l_loop
        if(allocated(indices_l)) then
@@ -1309,8 +1317,9 @@ contains
           indices_l = [i]
        end if
     end do indices_l_loop
+
+    !! generate left split
     idx(dim)%loc = indices_l
-    
     left = data_copy(idx(1)%loc,idx(2)%loc,idx(3)%loc,idx(4)%loc,idx(5)%loc)
 
   end subroutine split_5Drdata
@@ -1346,6 +1355,7 @@ contains
     type(idx_type), dimension(5) :: idx
 
 
+    !! determine number of elements for left and right split
     if(.not.present(left_size).and..not.present(right_size))then
        stop "ERROR: neither left_size nor right_size provided to split.&
             &Expected at least one."
@@ -1362,6 +1372,7 @@ contains
             t_right_num = size(data,dim) - t_left_num
     end if
 
+    !! initialies optional arguments
     if(present(shuffle))then
        t_shuffle = shuffle
     else
@@ -1374,10 +1385,12 @@ contains
        call system_clock(count=t_seed)
     end if
 
+    !! copy input data
     data_copy = data
     list_copy = list
     if(t_shuffle) call shuffle_5Ddata_1Drlist(data_copy,list_copy,dim,t_seed)
-    
+
+    !! get list of indices for right split
     num_redos = 0
     allocate(tlist(t_right_num))
     call random_number(tlist)
@@ -1395,6 +1408,7 @@ contains
        end if
     end do indices_r_loop
 
+    !! generate right split
     do i=1,5
        if(i.eq.dim)then
           idx(i)%loc = indices_r
@@ -1406,7 +1420,7 @@ contains
          idx(1)%loc,idx(2)%loc,idx(3)%loc,idx(4)%loc,idx(5)%loc)
     right_list = list_copy(indices_r)
 
-
+    !! get list of indices for left split
     indices_l_loop: do i=1,size(data,dim)
        if(any(indices_r.eq.i)) cycle indices_l_loop
        if(allocated(indices_l)) then
@@ -1415,8 +1429,9 @@ contains
           indices_l = [i]
        end if
     end do indices_l_loop
+
+    !! generate left split
     idx(dim)%loc = indices_l
-    
     left_data = data_copy(&
          idx(1)%loc,idx(2)%loc,idx(3)%loc,idx(4)%loc,idx(5)%loc)
     left_list = list_copy(indices_l)
