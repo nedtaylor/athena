@@ -1,6 +1,4 @@
-Suggested code name (separate one for module and the software that implements it):
-- ATELOS (Adaptive Training and Efficient Learning for Optimising Systems)
-- ATHENA (Adaptive Training for High Efficiency Neural Network Algorithm/Architecture)
+ATHENA (Adaptive Training for High Efficiency Neural Network Applications/Algorithm/Architecture)
 
 This is a program to highlight the uses of convolutional neural networks in Fortran.
 
@@ -10,37 +8,35 @@ The link to the original database is: http://yann.lecun.com/exdb/mnist/
 
 The link to the .txt dabase is: https://github.com/halimb/MNIST-txt/tree/master
 
-**NOTE:** The code is currently hardcoded in main.f90 to point to the MNIST files, they are not yet set up as an input file tag. This is simply laziness and because it is a testing version and not meant to train on the MNIST database when complete.
-
-Once it works for 2D systems, which it seems to currently, it will be extended to 3D systems.
+**NOTE:** Whilst the code is now a library (which is built using cmake), there still exists a Makefile.old that uses the src/inputs.f90 and src/main.f90 files to test using the MNIST dataset. The dataset must be downloaded in a text file from above.
 
 The software is intended to be developed into an independent Fortran package which people can include/use in their own codes to add neural network capabilities (likely with a focus on convolutional neural networks, but not exclusively).
 
 The software currently uses a namelist input file system. There is currently no help function. However, an example input file has been provided in example/param.in.
 
-This code has been developed using the gcc 12.2.0 fortran compiler. This has not been tested on ifort (due to outdated ifort compilers on our current setup).
+This code has been developed using the gcc 13.2.0 fortran compiler. This has not been tested on ifort (due to outdated ifort compilers on our current setup).
 
 The code has a makefile. You SHOULD be able to build with it. Current methods are:
 
 -- basic make --
 
-make
+make -f Makefile.old
 
 -- build with intentions --
 
-make build <opt> [opt]
+make build <opt> [opt] -f Makefile.old
 
-make build mp
+make build mp -f Makefile.old
 
-make build optim
+make build optim -f Makefile.old
 
-make build dev
+make build dev -f Makefile.old
 
-make build mp optim
+make build mp optim -f Makefile.old
 
-make build mp dev
+make build mp dev -f Makefile.old
 
-make build mp fast
+make build mp fast -f Makefile.old
 
 
 To define the compiler, use make FC=<compiler_name>
