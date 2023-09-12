@@ -174,6 +174,219 @@ contains
 
 
 !!!########################################################################
+!!! return width of padding from kernel/filter size
+!!!########################################################################
+  subroutine pad_1Ddata(data, kernel_size, padding_method, dim, constant)
+    use misc, only: to_lower
+    implicit none
+    real(real12), allocatable, dimension(:,:,:), intent(inout) :: data
+    integer, dimension(..) :: intent(in) :: kernel_size
+    character(*), intent(inout) :: padding_method
+    real(real12), optional, intent(in) :: constant
+
+    integer, optional, intent(in) :: dim
+    
+    integer :: i, num_samples
+    integer :: t_dim = 0
+    real(real12) :: t_constant = 0._real12
+    integer, allocatable, dimension(:) :: padding
+    integer, allocatable, dimension(:,:) :: data_shape
+
+
+    if(present(constant)) t_constant = constant
+    if(present(dim)) t_dim = dim
+    if(t_dim.gt.0) num_samples = size(data,dim=t_dim)
+
+!!! NEEDS TO ALSO HANDLE CHANNEL DIMENSION
+!!! MAYBE MAKE THIS A FUNCTION THAT OUTPUTS A PADDED VERSION OF THE DATA?
+!!! THEN CYCLE OVER CHANNELS AS A USER?
+
+
+!!!-----------------------------------------------------------------------------
+!!! handle padding type name
+!!!-----------------------------------------------------------------------------
+    !! none  = alt. name for 'valid'
+    !! zero  = alt. name for 'same'
+    !! symmetric = alt.name for 'replication'
+    !! valid = no padding
+    !! same  = maintain spatial dimensions
+    !!         ... (i.e. padding added = (kernel_size - 1)/2)
+    !!         ... defaults to zeros in the padding
+    !! full  = enough padding for filter to slide over every possible position
+    !!         ... (i.e. padding added = (kernel_size - 1)
+    !! circular = maintain spatial dimensions
+    !!            ... wraps data around for padding (periodic)
+    !! reflection = maintains spatial dimensions
+    !!              ... reflect data (about boundary index)
+    !! replication = maintains spatial dimensions
+    !!               ... reflect data (boundary included)
+    select rank(kernel_size)
+    rank(0)
+       allocate(padding(1))
+       call set_padding(padding(1), kernel_size, t_padding_method)
+    rank(1)
+       if(t_dim.eq.0.and.size(kernel_size).ne.rank(data))then
+          stop "ERROR: length of kernel_size not equal to rank of data"
+       elseif(t_dim.gt.0.and.size(kernel_size).ne.rank(data)-1)then
+          stop "ERROR: length of kernel_size not equal to rank of data-1"
+       else
+          allocate(padding(size(kernel_size))
+       end if
+       do i=1,size(kernel_size)
+          call set_padding(padding(i), kernel_size(i), t_padding_method)
+       end do
+    end select
+
+!!!-----------------------------------------------------------------------------
+!!! allocate data set
+!!! ... if appropriate, add padding
+!!!-----------------------------------------------------------------------------
+    if(padding.eq.0) return
+
+    allocate(data_shape(2,rank(data)))
+    data_shape = shape(data)
+    do i=1,size(padding)
+       data_shape(1,i) = lbound(data,dim=i) - padding
+       data_shape(2,i) = ubound(data,dim=i) + padding
+    end do
+
+    allocate(data_copy(&
+         data_shape(1,1):data_shape(2,1),&
+         data_shape(1,2):data_shape(2,2)), source=0._real12)
+
+    !! initialise padding for constant padding types
+    !!-----------------------------------------------------------------------
+    select case(t_padding_method)
+    case ("same")
+       data_copy = t_constant
+    case("full")
+       data_copy = t_constant
+    end select
+
+
+!!!-----------------------------------------------------------------------------
+!!! read in dataset
+!!!-----------------------------------------------------------------------------
+    data_copy(&
+         lbound(data,1):ubound(data,1),&
+         lbound(data,2):ubound(data,2)) = &
+         data(&
+         lbound(data,1):ubound(data,1),&
+         lbound(data,2):ubound(data,2))
+    if(t_dim.gt.0)then
+       select case(t_padding_method)
+       case ("circular")
+          data_copy( &
+               lbound(data_copy,1):lbound(data,1) - 1, &
+               lbound(data,2):ubound(data,2), &
+               :) = &
+               data( &
+               ubound(data,1) - padding(1) + 1:ubound(data,1), &
+               lbound(data,2):ubound(data,2), &
+               :)
+          data_copy( &
+               ubound(data,1) + 1:ubound(data_copy,1), &
+               lbound(data,2):ubound(data,2), &
+               :) = &
+               data(&
+               lbound(data,1):lbound(data,1) + padding(1) - 1, &
+               lbound(data,2):ubound(data,2), &
+               :)
+
+          data_copy( &
+               :, &
+               lbound(data_copy,2):lbound(data,2) - 1, &
+               :) = &
+               data_copy( &
+               :, ubound(data,2) - padding(2) + 1:ubound(data,2), &
+               :)
+          data_copy( &
+               :, &
+               ubound(data,2) + 1:ubound(data,2) + padding(2), &
+               :) = &
+               data_copy( &
+               :, &
+               lbound(data,2):lbound(data,2) + padding(2) - 1, &
+               :)
+       case("reflection")
+          data_copy( &
+               lbound(data,1) - 1 : lbound(data_copy,1) : -1, &
+               lbound(data,2):ubound(data,2), &
+               :) = &
+               data(&
+               lbound(data,1) + 1 : lbound(data,1) + padding(1) : 1, &
+               lbound(data,2):ubound(data,2), &
+               :)
+          data_copy( &
+               ubound(data,1) + 1 : ubound(data,1) + padding(1) : 1, &
+               lbound(data,2) : ubound(data,2), &
+               :) = &
+               data(&
+               ubound(data,1) - 1 : ubound(data,1) - padding(1) : -1, &
+               lbound(data,2) : ubound(data,2), &
+               :)
+
+          data_copy( &
+               :, &
+               lbound(data,2) - 1 : -padding(D) + 1 : -1, &
+               :) = &
+               data_copy(&
+               :, &
+               lbound(data,2) + 1 : lbound(data,2) + padding(2) : 1, &
+               :)
+          data_copy( &
+               :, &
+               ubound(data,2) + 1 : ubound(data,2) + padding(2) : 1, &
+               :) = &
+               data_copy( &
+               :, &
+               ubound(data,2) - 1 : ubound(data,2) - padding(2) : -1, &
+               :)
+       case("replication")
+          data_copy( &
+               lbound(data,1) - 1 : -padding(1) + 1 : -1, &
+               lbound(data,2) : ubound(data,2), &
+               :) = &
+               data( &
+               lbound(data,1) : lbound(data,1) + padding(1) - 1 : 1, &
+               lbound(data,2) : ubound(data,2), &
+               :)
+          data_copy(&
+               ubound(data,1) + 1 : ubound(data,1) + padding(1) : 1, &
+               lbound(data,2) : ubound(data,2), &
+               :) = &
+               data( &
+               ubound(data,1) : ubound(data,1) - padding(1) + 1 : -1, &
+               lbound(data,2) : ubound(data,D), &
+               :)
+
+          data_copy( &
+               :, &
+               lbound(data,2) - 1 : -padding(2) + 1 : -1, &
+               :) = &
+               data_copy( &
+               :, &
+               lbound(data,2) : lbound(data,2) + padding(2) - 1 : 1, &
+               :)
+          data_copy( &
+               :, &
+               ubound(data,2) + 1 : ubound(data,2) + padding(2) : 1, &
+               :) = &
+               data_copy( &
+               :, &
+               ubound(data,2) : ubound(data,2) - padding(2) + 1 :-1, &
+               :)
+       end select
+    end if
+
+
+    data = data_copy
+
+  end subroutine set_padding
+!!!########################################################################
+
+
+!!!########################################################################
 !!! adaptive learning rate
 !!! method: step decay
 !!!########################################################################
