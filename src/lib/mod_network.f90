@@ -217,7 +217,7 @@ contains
     integer, optional, intent(in) :: verbose
     
     integer :: i
-    integer :: t_verb
+    integer :: t_verb, num_addit_inputs
     character(len=:), allocatable :: loss_method
 
 
@@ -404,21 +404,28 @@ contains
                    cycle layer_loop
                 type is(flatten3d_layer_type)
                    cycle layer_loop
-                   class default
+                class default
                    this%model = [&
                         this%model(1:i),&
                         container_layer_type(name="flat"),&
                         this%model(i+1:size(this%model))&
                         ]
+                   num_addit_inputs = 0
+                   select type(next => this%model(i+1)%layer)
+                   type is(full_layer_type)
+                      num_addit_inputs = next%num_addit_inputs
+                   end select
                    select case(size(this%model(i)%layer%output_shape))
                    case(3)
                       allocate(this%model(i+1)%layer, source=&
                            flatten2d_layer_type(input_shape=&
-                           this%model(i)%layer%output_shape))
+                           this%model(i)%layer%output_shape, &
+                           num_addit_outputs = num_addit_inputs))
                    case(4)
                       allocate(this%model(i+1)%layer, source=&
                            flatten3d_layer_type(input_shape=&
-                           this%model(i)%layer%output_shape))
+                           this%model(i)%layer%output_shape, &
+                           num_addit_outputs = num_addit_inputs))
                    end select
                    i = i + 1
                    cycle layer_loop
@@ -472,12 +479,28 @@ contains
 !!!#############################################################################
 !!! forward pass
 !!!#############################################################################
-  pure subroutine forward_1d(this, input)
+  pure subroutine forward_1d(this, input, addit_input, layer)
     implicit none
     class(network_type), intent(inout) :: this
     real(real12), dimension(:), intent(in) :: input
+
+    real(real12), dimension(:), optional, intent(in) :: addit_input
+    integer, optional, intent(in) :: layer
     
     integer :: i
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise optional arguments
+    !!--------------------------------------------------------------------------
+    if(present(layer).and.present(addit_input))then
+       select type(previous => this%model(layer-1)%layer)
+       type is(flatten2d_layer_type)
+          previous%output(size(previous%di)-size(addit_input)+1:) = addit_input
+       type is(flatten3d_layer_type)
+          previous%output(size(previous%di)-size(addit_input)+1:) = addit_input
+       end select
+    end if
 
 
     !! Forward pass (first layer)
@@ -579,6 +602,7 @@ contains
 !!! ... i.e. it trains on the same datapoints num_epoch times
 !!!#############################################################################
   subroutine train(this, input, output, num_epochs, batch_size, &
+       addit_input, addit_layer, &
        plateau_threshold, shuffle_batches, batch_print_step, verbose)
     use infile_tools, only: stop_check
     implicit none
@@ -586,6 +610,9 @@ contains
     real(real12), dimension(..), intent(in) :: input
     integer, dimension(:,:), intent(in) :: output !! CONVERT THIS LATER TO ANY TYPE AND ANY RANK
     integer, intent(in) :: num_epochs, batch_size
+
+    real(real12), dimension(:,:), optional, intent(in) :: addit_input
+    integer, optional, intent(in) :: addit_layer
 
     real(real12), optional, intent(in) :: plateau_threshold
     logical, optional, intent(in) :: shuffle_batches
@@ -711,7 +738,11 @@ contains
                        
              !! Forward pass
              !!-----------------------------------------------------------------
-             call this%forward(get_sample(input,sample))
+             if(present(addit_input).and.present(addit_layer))then
+                call this%forward(get_sample(input,sample),addit_input(:,sample),5)
+             else
+                call this%forward(get_sample(input,sample))
+             end if
 
 !!! SET UP LOSS TO APPLY A NORMALISER BY DEFAULT IF SOFTMAX NOT PREVIOUS
 !!! (this is what keras does)
@@ -836,11 +867,17 @@ contains
 !!!#############################################################################
 !!! testing loop
 !!!#############################################################################
-  subroutine test(this, input, output, verbose)
+  subroutine test(this, input, output, &
+       addit_input, addit_layer, &
+       verbose)
     implicit none
     class(network_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
-    integer, dimension(:,:), intent(in) :: output !! CONVER THIS LATER TO ANY TYPE AND ANY RANK
+    integer, dimension(:,:), intent(in) :: output !! CONVERT THIS LATER TO ANY TYPE AND ANY RANK
+
+    real(real12), dimension(:,:), optional, intent(in) :: addit_input
+    integer, optional, intent(in) :: addit_layer
+
     integer, optional, intent(in) :: verbose
 
     integer :: sample, num_samples
@@ -859,17 +896,20 @@ contains
     this%metrics%val = 0._real12
     num_samples = size(output, dim=2)
 
-!!!! OPEN UNIT 15 !!!! (and use the newunit functionality)
-
 
 !!!-----------------------------------------------------------------------------
 !!! testing loop
 !!!-----------------------------------------------------------------------------
+    if(abs(t_verb).gt.1) open(file="test_output.out",newunit=unit)
     test_loop: do sample = 1, num_samples
 
        !! Forward pass
        !!-----------------------------------------------------------------------
-       call this%forward(get_sample(input,sample))
+       if(present(addit_input).and.present(addit_layer))then
+          call this%forward(get_sample(input,sample),addit_input(:,sample),5)
+       else
+          call this%forward(get_sample(input,sample))
+       end if
 
 
        !! compute loss and accuracy (for monitoring)
@@ -884,7 +924,7 @@ contains
           !! print testing results
           !!--------------------------------------------------------------------
           if(abs(t_verb).gt.1)then
-             write(15,'(I4," Expected=",I3,", Got=",I3,", Accuracy=",F0.3)') &
+             write(unit,'(I4," Expected=",I3,", Got=",I3,", Accuracy=",F0.3)') &
                   sample, &
                   maxloc(output(:,sample)), maxloc(current%output,dim=1)-1, &
                   accuracy
@@ -892,7 +932,7 @@ contains
        end select
 
     end do test_loop
-    if(t_verb.gt.1) close(15)
+    if(abs(t_verb).gt.1) close(unit)
 
     this%accuracy = this%metrics(2)%val/real(num_samples)
     this%loss     = this%metrics(1)%val/real(num_samples)

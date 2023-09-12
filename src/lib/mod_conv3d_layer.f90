@@ -413,7 +413,7 @@ contains
     else
        write(unit,'(3X,"KERNEL_SIZE =",3(1X,I0))') this%knl
     end if
-    if(all(this%knl.eq.this%stp(1)))then
+    if(all(this%stp.eq.this%stp(1)))then
        write(unit,'(3X,"STRIDE =",1X,I0)') this%stp(1)
     else
        write(unit,'(3X,"STRIDE =",3(1X,I0))') this%stp
@@ -428,6 +428,7 @@ contains
     write(unit,'("WEIGHTS")')
     do l=1,this%num_filters
        write(unit,'(5(E16.8E2))', advance="no") this%weight(:,:,:,:,l)
+       if(mod(size(this%weight(:,:,:,:,l)),5).eq.0) write(unit,*)
        write(unit,'(E16.8E2)') this%bias(l)
     end do
     write(unit,'("END WEIGHTS")')
@@ -678,7 +679,7 @@ contains
     !! ... i.e. lim_w(1,:) = ends
     !! ... i.e. lim_w(2,:) = starts
     integer :: l, m, i, j, k, x, y, z
-    integer, dimension(3) :: stp_idx, offset, end_idx, n_stp
+    integer, dimension(3) :: stp_idx, offset, adjust, end_idx, n_stp
     integer, dimension(2,3) :: lim, lim_w, lim_g
     real(real12), &
          dimension(&
@@ -695,6 +696,7 @@ contains
     !!--------------------------------------------------------------------------
     end_idx = this%hlf + (this%cen - 1)
     offset  = 1 + this%hlf - this%pad
+    adjust  = 2 * max(this%pad, this%hlf)
 
 
     !! get gradient multiplied by differential of Z
@@ -730,9 +732,9 @@ contains
        this%dw(x,y,z,m,l) = this%dw(x,y,z,m,l) + &
             sum(grad_dz(:,:,:,l) * &
             input(&
-            x+offset(1):x+offset(1)-1+size(input,1)-2*this%pad(1):this%stp(1), &
-            y+offset(2):y+offset(2)-1+size(input,2)-2*this%pad(2):this%stp(2), &
-            z+offset(3):z+offset(3)-1+size(input,3)-2*this%pad(3):this%stp(3),m))
+            x+offset(1):x+offset(1)-1+size(input,1)-adjust(1):this%stp(1), &
+            y+offset(2):y+offset(2)-1+size(input,2)-adjust(2):this%stp(2), &
+            z+offset(3):z+offset(3)-1+size(input,3)-adjust(3):this%stp(3),m))
     end do
 
 

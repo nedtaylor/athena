@@ -14,7 +14,7 @@ module full_layer
 !!! fully connected network layer type
 !!!-----------------------------------------------------------------------------
   type, extends(learnable_layer_type) :: full_layer_type
-     integer :: num_inputs
+     integer :: num_inputs, num_addit_inputs = 0
      integer :: num_outputs
      real(real12), allocatable, dimension(:,:) :: weight, weight_incr
      real(real12), allocatable, dimension(:,:) :: dw ! weight gradient
@@ -37,11 +37,11 @@ module full_layer
 !!!-----------------------------------------------------------------------------
   interface full_layer_type
      module function layer_setup( &
-          num_outputs, num_inputs, &
+          num_outputs, num_inputs, num_addit_inputs, &
           activation_function, activation_scale, &
           kernel_initialiser, bias_initialiser) result(layer)
        integer, intent(in) :: num_outputs
-       integer, optional, intent(in) :: num_inputs
+       integer, optional, intent(in) :: num_inputs, num_addit_inputs
        real(real12), optional, intent(in) :: activation_scale
        character(*), optional, intent(in) :: activation_function, &
             kernel_initialiser, bias_initialiser
@@ -99,14 +99,14 @@ contains
 !!! set up layer
 !!!#############################################################################
   module function layer_setup( &
-       num_outputs, num_inputs, &
-       activation_scale, activation_function, &
+       num_outputs, num_inputs, num_addit_inputs, &
+       activation_function, activation_scale, &
        kernel_initialiser, bias_initialiser) result(layer)
     use activation,  only: activation_setup
     use initialiser, only: get_default_initialiser
     implicit none
     integer, intent(in) :: num_outputs
-    integer, optional, intent(in) :: num_inputs
+    integer, optional, intent(in) :: num_inputs, num_addit_inputs
     real(real12), optional, intent(in) :: activation_scale
     character(*), optional, intent(in) :: activation_function, &
          kernel_initialiser, bias_initialiser
@@ -154,6 +154,7 @@ contains
     !!--------------------------------------------------------------------------
     layer%num_outputs = num_outputs
     layer%output_shape = [layer%num_outputs]
+    if(present(num_addit_inputs)) layer%num_addit_inputs = num_addit_inputs
     if(present(num_inputs)) call layer%init(input_shape=[num_inputs])
 
   end function layer_setup
@@ -188,15 +189,14 @@ contains
     !! initialise number of inputs
     !!--------------------------------------------------------------------------
     if(size(input_shape,dim=1).eq.1)then
-       this%input_shape = input_shape
-       this%num_inputs = input_shape(1)
+       this%num_inputs = input_shape(1) + this%num_addit_inputs
     else
        if(t_verb.gt.0) write(*,*) &
             "WARNING: reshaping input_shape to 1D for full layer"
-       this%num_inputs  = product(input_shape)
-       this%input_shape = [this%num_inputs]
+       this%num_inputs  = product(input_shape) + this%num_addit_inputs
        !stop "ERROR: invalid size of input_shape in full, expected (1)"
     end if
+    this%input_shape = [this%num_inputs]
 
 
     !!--------------------------------------------------------------------------

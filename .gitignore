@@ -15,3 +15,6 @@ tools/cnn_*
 cnn_*.in
 DTEST*
 network*.in
+.ipynb_checkpoints
+OLD_CMakeLists.txt
+build/

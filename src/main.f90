@@ -15,18 +15,7 @@ program ConvolutionalNeuralNetwork
   use loss_categorical
   use inputs
 
-  use network, only: network_type
-
-  use container_layer, only: container_layer_type
-  use input3d_layer,   only: input3d_layer_type
-  use input4d_layer,   only: input4d_layer_type
-  use full_layer,      only: full_layer_type
-  use conv2d_layer,    only: conv2d_layer_type
-  use conv3d_layer,    only: conv3d_layer_type
-  use maxpool2d_layer, only: maxpool2d_layer_type
-  use maxpool3d_layer, only: maxpool3d_layer_type
-  use flatten2d_layer, only: flatten2d_layer_type
-  use flatten3d_layer, only: flatten3d_layer_type
+  use athena
 
 
   implicit none
@@ -39,6 +28,7 @@ program ConvolutionalNeuralNetwork
 
   !! data loading and preoprocessing
   real(real12), allocatable, dimension(:,:,:,:) :: input_images, test_images
+  real(real12), allocatable, dimension(:,:) :: addit_input
   real(real12), allocatable, dimension(:,:,:,:,:) :: input_spread
   integer, allocatable, dimension(:) :: labels, test_labels
   integer, allocatable, dimension(:,:) :: input_labels
@@ -80,7 +70,7 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
 !!! read training dataset
 !!!-----------------------------------------------------------------------------
-  train_file = '/nutanix/gpshome/ntt203/DCoding/DTest_dir/DMNIST/MNIST_train.txt'
+  train_file = trim(data_dir)//'/MNIST_train.txt'
   call read_mnist(train_file,input_images, labels, &
        maxval(cv_kernel_size), image_size, padding_method)
   input_channels = size(input_images, 3)
@@ -90,7 +80,7 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
 !!! read testing dataset
 !!!-----------------------------------------------------------------------------
-  test_file = '/nutanix/gpshome/ntt203/DCoding/DTest_dir/DMNIST/MNIST_test.txt'
+  test_file = trim(data_dir)//'/MNIST_test.txt'
   call read_mnist(test_file,test_images, test_labels, &
        maxval(cv_kernel_size), itmp1, padding_method)
   num_samples_test = size(test_images, 4)
@@ -140,6 +130,7 @@ program ConvolutionalNeuralNetwork
            pool_size = 2, stride = 2))
      call network%add(full_layer_type( &
            num_outputs = 100, &
+           !num_addit_inputs = 6,&
            activation_function = "relu", &
            kernel_initialiser = "he_uniform", &
            bias_initialiser = "he_uniform" &
@@ -173,7 +164,8 @@ program ConvolutionalNeuralNetwork
      !!     ))
   end if
 
-  call network%compile(optimiser=optimiser, loss=loss_method, metrics=metric_dict)
+  call network%compile(optimiser=optimiser, &
+       loss=loss_method, metrics=metric_dict, verbose = verbosity)
   input_spread = spread(input_images,3,1)
 
   write(*,*) "NUMBER OF LAYERS",network%num_layers
@@ -190,9 +182,14 @@ program ConvolutionalNeuralNetwork
      input_labels(labels(i),i) = 1
   end do
 
+  allocate(addit_input(6,num_samples), source = 1._real12)
+
   write(6,*) "Starting training..."
   call network%train(input_images, input_labels, num_epochs, batch_size, &
-       plateau_threshold, shuffle_dataset, 20, verbosity)
+       !addit_input, 5, &
+       plateau_threshold = plateau_threshold, &
+       shuffle_batches = shuffle_dataset, &
+       batch_print_step = batch_print_step, verbose = verbosity)
   !!call network%train(input_spread, input_labels, num_epochs, batch_size, &
   !!     plateau_threshold, shuffle_dataset, 20, verbosity)
   write(*,*) "Training finished"
