@@ -50,6 +50,18 @@ wandb project link: https://wandb.ai/ntaylor/cnn_mnist_test/overview?workspace=u
 For cmake, run the following commands:
 
 mkdir build
+
 cd build
-cmake -DCMAKE_INSTALL_LIBDIR=$HOME/.local/athena -DCMAKE_BUILD_TYPE="optim;mp" ..
-make
+
+cmake -DCMAKE_BUILD_TYPE="optim;mp" ..
+
+make install
+
+
+This will install athena into ${HOME}/.local/athena
+
+Inside there, you will find
+
+include/athena.mod
+
+lib/libathena.a
