@@ -28,6 +28,7 @@ program ConvolutionalNeuralNetwork
 
   !! data loading and preoprocessing
   real(real12), allocatable, dimension(:,:,:,:) :: input_images, test_images
+  real(real12), allocatable, dimension(:,:) :: addit_input
   real(real12), allocatable, dimension(:,:,:,:,:) :: input_spread
   integer, allocatable, dimension(:) :: labels, test_labels
   integer, allocatable, dimension(:,:) :: input_labels
@@ -129,6 +130,7 @@ program ConvolutionalNeuralNetwork
            pool_size = 2, stride = 2))
      call network%add(full_layer_type( &
            num_outputs = 100, &
+           !num_addit_inputs = 6,&
            activation_function = "relu", &
            kernel_initialiser = "he_uniform", &
            bias_initialiser = "he_uniform" &
@@ -162,7 +164,8 @@ program ConvolutionalNeuralNetwork
      !!     ))
   end if
 
-  call network%compile(optimiser=optimiser, loss=loss_method, metrics=metric_dict)
+  call network%compile(optimiser=optimiser, &
+       loss=loss_method, metrics=metric_dict, verbose = verbosity)
   input_spread = spread(input_images,3,1)
 
   write(*,*) "NUMBER OF LAYERS",network%num_layers
@@ -179,9 +182,14 @@ program ConvolutionalNeuralNetwork
      input_labels(labels(i),i) = 1
   end do
 
+  allocate(addit_input(6,num_samples), source = 1._real12)
+
   write(6,*) "Starting training..."
   call network%train(input_images, input_labels, num_epochs, batch_size, &
-       plateau_threshold, shuffle_dataset, 20, verbosity)
+       !addit_input, 5, &
+       plateau_threshold = plateau_threshold, &
+       shuffle_batches = shuffle_dataset, &
+       batch_print_step = batch_print_step, verbose = verbosity)
   !!call network%train(input_spread, input_labels, num_epochs, batch_size, &
   !!     plateau_threshold, shuffle_dataset, 20, verbosity)
   write(*,*) "Training finished"
