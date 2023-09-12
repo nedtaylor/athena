@@ -1299,10 +1299,10 @@ contains
           idx(i)%loc = (/ ( j, j=1,size(data,i) ) /)
        end if
     end do
-    right_data = data_copy(idx(1)%loc,idx(2)%loc,idx(3)%loc,idx(4)%loc,idx(5)%loc)
+    right = data_copy(idx(1)%loc,idx(2)%loc,idx(3)%loc,idx(4)%loc,idx(5)%loc)
     
     indices_l_loop: do i=1,size(data,dim)
-       if(any(indices_l.eq.i)) cycle indices_l_loop
+       if(any(indices_r.eq.i)) cycle indices_l_loop
        if(allocated(indices_l)) then
           indices_l = [indices_l(:), i]
        else
@@ -1311,7 +1311,7 @@ contains
     end do indices_l_loop
     idx(dim)%loc = indices_l
     
-    left_data = data_copy(idx(1)%loc,idx(2)%loc,idx(3)%loc,idx(4)%loc,idx(5)%loc)
+    left = data_copy(idx(1)%loc,idx(2)%loc,idx(3)%loc,idx(4)%loc,idx(5)%loc)
 
   end subroutine split_5Drdata
 !!!-----------------------------------------------------
@@ -1345,8 +1345,10 @@ contains
     end type idx_type
     type(idx_type), dimension(5) :: idx
 
+
     if(.not.present(left_size).and..not.present(right_size))then
-       stop "ERROR: neither left_size nor right_size provided to split. Expected at least one."
+       stop "ERROR: neither left_size nor right_size provided to split.&
+            &Expected at least one."
     elseif(present(left_size).and..not.present(right_size))then
        t_left_num  = nint(left_size*size(data,dim))
        t_right_num = size(data,dim) - t_left_num
@@ -1385,7 +1387,8 @@ contains
        if(i.ge.t_right_num) exit indices_r_loop
        i = i + 1
        if(any(indices_r(:i-1).eq.indices_r(i)))then
-          indices_r(i:t_right_num-num_redos-1) = indices_r(i+1:t_right_num-num_redos)
+          indices_r(i:t_right_num-num_redos-1) = &
+               indices_r(i+1:t_right_num-num_redos)
           call random_number(rtmp1)
           indices_r(t_right_num) = floor(rtmp1*size(data,dim)) + 1
           i = i - 1
@@ -1399,11 +1402,13 @@ contains
           idx(i)%loc = (/ ( j, j=1,size(data,i) ) /)
        end if
     end do
-    right_data = data_copy(idx(1)%loc,idx(2)%loc,idx(3)%loc,idx(4)%loc,idx(5)%loc)
+    right_data = data_copy(&
+         idx(1)%loc,idx(2)%loc,idx(3)%loc,idx(4)%loc,idx(5)%loc)
     right_list = list_copy(indices_r)
-    
+
+
     indices_l_loop: do i=1,size(data,dim)
-       if(any(indices_l.eq.i)) cycle indices_l_loop
+       if(any(indices_r.eq.i)) cycle indices_l_loop
        if(allocated(indices_l)) then
           indices_l = [indices_l(:), i]
        else
@@ -1412,7 +1417,8 @@ contains
     end do indices_l_loop
     idx(dim)%loc = indices_l
     
-    left_data = data_copy(idx(1)%loc,idx(2)%loc,idx(3)%loc,idx(4)%loc,idx(5)%loc)
+    left_data = data_copy(&
+         idx(1)%loc,idx(2)%loc,idx(3)%loc,idx(4)%loc,idx(5)%loc)
     left_list = list_copy(indices_l)
 
   end subroutine split_5Drdata_1Drlist
