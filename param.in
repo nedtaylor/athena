@@ -6,7 +6,7 @@
  output_file = "network.out",
  restart = .false.,
  batch_print_step = 20,
- dataset_dir = "/Users/nedtaylor/DCoding/DMNIST"
+ dataset_dir = "/home/links/ntt203/DCoding/DTest_dir/DMNIST/"
 /
 
 &training
