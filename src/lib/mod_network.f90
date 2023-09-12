@@ -496,9 +496,9 @@ contains
     if(present(layer).and.present(addit_input))then
        select type(previous => this%model(layer-1)%layer)
        type is(flatten2d_layer_type)
-          previous%output(size(previous%di)+1:) = addit_input
+          previous%output(size(previous%di)-size(addit_input)+1:) = addit_input
        type is(flatten3d_layer_type)
-          previous%output(size(previous%di)+1:) = addit_input
+          previous%output(size(previous%di)-size(addit_input)+1:) = addit_input
        end select
     end if
 
@@ -867,11 +867,17 @@ contains
 !!!#############################################################################
 !!! testing loop
 !!!#############################################################################
-  subroutine test(this, input, output, verbose)
+  subroutine test(this, input, output, &
+       addit_input, addit_layer, &
+       verbose)
     implicit none
     class(network_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
-    integer, dimension(:,:), intent(in) :: output !! CONVER THIS LATER TO ANY TYPE AND ANY RANK
+    integer, dimension(:,:), intent(in) :: output !! CONVERT THIS LATER TO ANY TYPE AND ANY RANK
+
+    real(real12), dimension(:,:), optional, intent(in) :: addit_input
+    integer, optional, intent(in) :: addit_layer
+
     integer, optional, intent(in) :: verbose
 
     integer :: sample, num_samples
@@ -900,7 +906,11 @@ contains
 
        !! Forward pass
        !!-----------------------------------------------------------------------
-       call this%forward(get_sample(input,sample))
+       if(present(addit_input).and.present(addit_layer))then
+          call this%forward(get_sample(input,sample),addit_input(:,sample),5)
+       else
+          call this%forward(get_sample(input,sample))
+       end if
 
 
        !! compute loss and accuracy (for monitoring)
