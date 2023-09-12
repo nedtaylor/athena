@@ -1,7 +1,11 @@
 cmake_minimum_required(VERSION 3.17.5)
 
-set( CMAKE_INSTALL_PREFIX "."
+set( CMAKE_INSTALL_PREFIX "${HOME}/.local/athena"
   CACHE STRING "Select where to install the library." )
+execute_process(COMMAND pwd OUTPUT_VARIABLE CURRENT_WORKING_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+message("Current working directory: ${CURRENT_WORKING_DIR}")
+set( CMAKE_BUILD_PREFIX ${CURRENT_WORKING_DIR}
+  CACHE STRING "Select where to build the library." )
 
 project(athena NONE)
 
@@ -10,7 +14,7 @@ project(athena NONE)
 set( LIB_NAME ${PROJECT_NAME} )
 set( PROJECT_DESCRIPTION
   "Fortran neural network" )
-set( PROJECT_URL "https://https://git.exeter.ac.uk/hepplestone/convolutional_neural_network" )
+set( PROJECT_URL "https://https://git.exeter.ac.uk/hepplestone/athena" )
 set( CMAKE_CONFIGURATION_TYPES "Release" "Dev" )
 set( CMAKE_BUILD_TYPE "Release"
   CACHE STRING "Select which configuration to build." )
@@ -134,11 +138,12 @@ add_compile_options("$<$<CONFIG:mp>:${MPFLAGS}>")
 
 # Create the library
 add_library(athena STATIC ${PREPENDED_LIBS} ${PREPENDED_SRCS})
-set_target_properties(athena PROPERTIES Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
+set(MODULE_DIR ${CMAKE_BUILD_PREFIX}/modules)
+set_target_properties(athena PROPERTIES Fortran_MODULE_DIRECTORY ${MODULE_DIR})
 
-# # Link libraries and compile options
-# target_link_libraries(athena PRIVATE ${CFLAGS})
+# Replace ".f90" with ".mod"
+string(REGEX REPLACE "\\.[^.]*$" ".mod" MODULE_FILES "${SRCS}")
 
 # Installation
-set(INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/bin)  # Change this to your desired installation path
-install(TARGETS athena DESTINATION ${INSTALL_DIR})
+install(FILES ${MODULE_DIR}/${MODULE_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
+install(TARGETS athena DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
