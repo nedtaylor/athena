@@ -408,7 +408,7 @@ contains
     else
        write(unit,'(3X,"KERNEL_SIZE =",2(1X,I0))') this%knl
     end if
-    if(all(this%knl.eq.this%stp(1)))then
+    if(all(this%stp.eq.this%stp(1)))then
        write(unit,'(3X,"STRIDE =",1X,I0)') this%stp(1)
     else
        write(unit,'(3X,"STRIDE =",2(1X,I0))') this%stp
