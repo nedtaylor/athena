@@ -896,12 +896,11 @@ contains
     this%metrics%val = 0._real12
     num_samples = size(output, dim=2)
 
-!!!! OPEN UNIT 15 !!!! (and use the newunit functionality)
-
 
 !!!-----------------------------------------------------------------------------
 !!! testing loop
 !!!-----------------------------------------------------------------------------
+    if(abs(t_verb).gt.1) open(file="test_output.out",newunit=unit)
     test_loop: do sample = 1, num_samples
 
        !! Forward pass
@@ -925,7 +924,7 @@ contains
           !! print testing results
           !!--------------------------------------------------------------------
           if(abs(t_verb).gt.1)then
-             write(15,'(I4," Expected=",I3,", Got=",I3,", Accuracy=",F0.3)') &
+             write(unit,'(I4," Expected=",I3,", Got=",I3,", Accuracy=",F0.3)') &
                   sample, &
                   maxloc(output(:,sample)), maxloc(current%output,dim=1)-1, &
                   accuracy
@@ -933,7 +932,7 @@ contains
        end select
 
     end do test_loop
-    if(t_verb.gt.1) close(15)
+    if(abs(t_verb).gt.1) close(unit)
 
     this%accuracy = this%metrics(2)%val/real(num_samples)
     this%loss     = this%metrics(1)%val/real(num_samples)
