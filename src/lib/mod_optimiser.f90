@@ -50,6 +50,7 @@ module optimiser
      type(clip_type) :: clip_dict
    contains
      procedure, pass(this) :: optimise
+     procedure, pass(this) :: read_clip
      procedure, pass(this) :: set_clip
      procedure, pass(this) :: clip => clip_gradients
      !procedure, private, pass(this) :: adam
@@ -63,6 +64,38 @@ module optimiser
 
 
 contains
+
+
+!!!#############################################################################
+!!! get clipping information
+!!!#############################################################################
+  subroutine read_clip(this, min_str, max_str, norm_str)
+    implicit none
+    class(optimiser_type), intent(inout) :: this
+    character(*), intent(in) :: min_str, max_str, norm_str
+
+    if(trim(min_str).ne."")then
+       read(min_str,*) this%clip_dict%min
+    else
+       this%clip_dict%min = -huge(1._real12)
+    end if
+    if(trim(max_str).ne."")then
+       read(max_str,*) this%clip_dict%max
+    else
+       this%clip_dict%max = huge(1._real12)
+    end if
+
+    if(trim(min_str).ne."".or.trim(max_str).ne."")then
+       this%clip_dict%l_min_max = .true.
+    end if
+    if(trim(norm_str).ne."")then
+       read(norm_str,*) this%clip_dict%norm
+       this%clip_dict%l_norm = .true.
+    end if
+
+  end subroutine read_clip
+!!!#############################################################################
+
 
 !!!#############################################################################
 !!! gradient norm clipping
