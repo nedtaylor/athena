@@ -428,6 +428,7 @@ contains
     write(unit,'("WEIGHTS")')
     do l=1,this%num_filters
        write(unit,'(5(E16.8E2))', advance="no") this%weight(:,:,:,:,l)
+       if(mod(size(this%weight(:,:,:,:,l)),5).eq.0) write(unit,*)
        write(unit,'(E16.8E2)') this%bias(l)
     end do
     write(unit,'("END WEIGHTS")')
