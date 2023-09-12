@@ -1129,7 +1129,7 @@ contains
   end subroutine shuffle_5Ddata_1Dilist
 !!!-----------------------------------------------------
 !!!-----------------------------------------------------
-  subroutine shuffle_5Ddata_1Drlist(arr,label,dim,seed)
+  subroutine shuffle_5Ddata_1Drlist(arr,label,dim,seed,shuffle_list)
     implicit none
     integer :: iseed,istart
     integer :: i,j,n_data
@@ -1144,6 +1144,7 @@ contains
     real(real12), dimension(:), intent(inout) :: label
 
     integer, optional, intent(in) :: seed
+    integer, optional, dimension(size(arr,dim)), intent(out) :: shuffle_list
 
     if(present(seed)) iseed = seed
 
@@ -1171,6 +1172,7 @@ contains
     do i=1,n_data
        call random_number(r)
        j = istart + floor((n_data+1-istart)*r)
+       if(present(shuffle_list)) shuffle_list(i) = j
        idx_s(dim) = i
        idx_e(dim) = i
        jdx_s(dim) = j
@@ -1328,7 +1330,7 @@ contains
   subroutine split_5Drdata_1Drlist(data,list,left_data,right_data,&
        left_list,right_list,dim,&
        left_size,right_size,&
-       shuffle,seed)
+       shuffle,seed,split_list)
     implicit none
     real(real12), dimension(:,:,:,:,:), intent(in) :: data
     real(real12), dimension(:), intent(in) :: list
@@ -1338,6 +1340,7 @@ contains
     real(real12), optional, intent(in) :: left_size, right_size
     logical, optional, intent(in) :: shuffle
     integer, optional, intent(in) :: seed
+    integer, optional, dimension(size(data,dim)), intent(out) :: split_list
 
     integer :: t_seed, t_left_num, t_right_num
     logical :: t_shuffle
@@ -1421,6 +1424,7 @@ contains
     right_list = list_copy(indices_r)
 
     !! get list of indices for left split
+    if(present(split_list)) split_list = 2
     indices_l_loop: do i=1,size(data,dim)
        if(any(indices_r.eq.i)) cycle indices_l_loop
        if(allocated(indices_l)) then
@@ -1428,6 +1432,7 @@ contains
        else
           indices_l = [i]
        end if
+       if(present(split_list)) split_list(i) = 1
     end do indices_l_loop
 
     !! generate left split
