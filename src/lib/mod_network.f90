@@ -881,7 +881,7 @@ contains
     integer, optional, intent(in) :: verbose
 
     integer :: sample, num_samples
-    integer :: t_verb
+    integer :: t_verb, unit
     real(real12) :: accuracy
 
 
