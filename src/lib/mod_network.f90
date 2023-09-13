@@ -826,15 +826,15 @@ contains
           end if
           
           
-!!! TESTING
-           if(batch.gt.200)then
-              time_old = time
-              call system_clock(time)
-              write(*,'("time check: ",F8.3," seconds")') real(time-time_old)/clock_rate
-              return
-              stop "THIS IS FOR TESTING PURPOSES"
-           end if
-!!!
+!!!!!! TESTING
+!!!           if(batch.gt.200)then
+!!!              time_old = time
+!!!              call system_clock(time)
+!!!              write(*,'("time check: ",F8.3," seconds")') real(time-time_old)/clock_rate
+!!!              return
+!!!              stop "THIS IS FOR TESTING PURPOSES"
+!!!           end if
+!!!!!!
 
 
           !! time check
@@ -996,7 +996,8 @@ contains
     real(real12) :: accuracy
 
     !! Compute the accuracy
-    accuracy = sum(expected * output)
+    !accuracy = sum(expected * output) !! looks like it's for list of integers
+    accuracy = sum(abs(expected - output)) !! should be for continuous data
 
   end function compute_accuracy_real
 !!!#############################################################################
