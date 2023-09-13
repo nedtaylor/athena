@@ -15,7 +15,7 @@ set( LIB_NAME ${PROJECT_NAME} )
 set( PROJECT_DESCRIPTION
   "Fortran neural network" )
 set( PROJECT_URL "https://https://git.exeter.ac.uk/hepplestone/athena" )
-set( CMAKE_CONFIGURATION_TYPES "Release" "Dev" )
+set( CMAKE_CONFIGURATION_TYPES "Release" "Parallel" "Serial" "Dev" "Debug" )
 set( CMAKE_BUILD_TYPE "Release"
   CACHE STRING "Select which configuration to build." )
 
@@ -128,12 +128,12 @@ endif()
 set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${PPFLAGS}")
 
 # Add custom build types for different configurations
-add_compile_options("$<$<CONFIG:dev>:${DEVFLAGS}>")
-add_compile_options("$<$<CONFIG:debug>:${DEBUGFLAGS}>")
-add_compile_options("$<$<CONFIG:warn>:${WARNFLAGS}>")
-add_compile_options("$<$<CONFIG:optim>:${OPTIMFLAGS}>")
-add_compile_options("$<$<CONFIG:fast>:${FASTFLAGS}>")
-add_compile_options("$<$<CONFIG:mp>:${MPFLAGS}>")
+# add_compile_options("$<$<CONFIG:dev>:${DEVFLAGS}>")
+# add_compile_options("$<$<CONFIG:debug>:${DEBUGFLAGS}>")
+# add_compile_options("$<$<CONFIG:warn>:${WARNFLAGS}>")
+# add_compile_options("$<$<CONFIG:optim>:${OPTIMFLAGS}>")
+# add_compile_options("$<$<CONFIG:fast>:${FASTFLAGS}>")
+# add_compile_options("$<$<CONFIG:mp>:${MPFLAGS}>")
 
 
 # Create the library
@@ -147,3 +147,10 @@ string(REGEX REPLACE "\\.[^.]*$" ".mod" MODULE_FILES "${SRCS}")
 # Installation
 install(FILES ${MODULE_DIR}/${MODULE_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
 install(TARGETS athena DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+
+
+target_compile_options(athena PUBLIC "$<$<CONFIG:Release>:${OPTIMFLAGS}>")
+target_compile_options(athena PUBLIC "$<$<CONFIG:Release>:${MPFLAGS}>")
+target_compile_options(athena PUBLIC "$<$<CONFIG:Parallel>:${MPFLAGS}>")
+target_compile_options(athena PUBLIC "$<$<CONFIG:Dev>:${DEVFLAGS}>")
+target_compile_options(athena PUBLIC "$<$<CONFIG:Debug>:${DEBUGFLAGS}>")
