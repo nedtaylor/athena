@@ -1,6 +1,6 @@
 !!! https://towardsdatascience.com/cross-entropy-loss-function-f38c4ec8643e#:~:text=Categorical%20cross%2Dentropy%20is%20used,%5D%20for%203%2Dclass%20problem.
 !!! https://stackoverflow.com/questions/8612466/how-to-alias-a-function-name-in-fortran
-module loss_categorical
+module loss
   use constants, only: real12
   implicit none
 
@@ -184,4 +184,4 @@ contains
   end function total_loss_nll
 !!!#############################################################################
 
-end module loss_categorical
+end module loss

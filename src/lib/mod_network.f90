@@ -12,7 +12,7 @@ module network
 
   use metrics, only: metric_dict_type
   use optimiser, only: optimiser_type
-  use loss_categorical, only: &
+  use loss, only: &
        comp_loss_func => compute_loss_function, &
        comp_loss_deriv => compute_loss_derivative
 
@@ -205,7 +205,7 @@ contains
 !!!#############################################################################
   subroutine compile(this, optimiser, loss, metrics, verbose)
     use misc, only: to_lower
-    use loss_categorical, only: &
+    use loss, only: &
          compute_loss_bce, compute_loss_cce, &
          compute_loss_mae, compute_loss_mse, &
          compute_loss_nll
@@ -990,13 +990,13 @@ contains
   end function compute_accuracy_int
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
+!!! works for continuous datasets
   function compute_accuracy_real(output, expected) result(accuracy)
     implicit none
     real(real12), dimension(:), intent(in) :: output, expected
     real(real12) :: accuracy
 
     !! Compute the accuracy
-    !accuracy = sum(expected * output) !! looks like it's for list of integers
     accuracy = sum(abs(expected - output)) !! should be for continuous data
 
   end function compute_accuracy_real

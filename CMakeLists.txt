@@ -54,7 +54,7 @@ set(LIBS
     mod_tools_infile.f90
     mod_normalisation.f90
     mod_batch_norm.f90
-    mod_loss_categorical.f90
+    mod_loss.f90
     mod_base_layer.f90
     mod_conv2d_layer.f90
     mod_conv3d_layer.f90
