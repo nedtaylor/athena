@@ -18,3 +18,5 @@ network*.in
 .ipynb_checkpoints
 OLD_CMakeLists.txt
 build/
+test/bin/
+test/obj/

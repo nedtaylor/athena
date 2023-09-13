@@ -5,7 +5,8 @@
  input_file = "network.in",
  output_file = "acutal_result.out",
  restart = .false.,
- batch_print_step = 20
+ batch_print_step = 20,
+ dataset_dir = "/home/links/ntt203/DCoding/DTest_dir/DMNIST/"
 /
 
 &training
@@ -34,7 +35,7 @@
  convolution_type = "standard",
  kernel_initialiser = 'he_uniform',
  bias_initialiser = 'zeros',
- activation_function = 'relu'
+ activation_function = 'relu',
  activation_scale = 1.E0,
  dropout = "none"
 /
@@ -48,6 +49,6 @@
 &fully_connected
  hidden_layers = '100',
  weight_initialiser = 'he_uniform',
- activation_function = 'relu'
+ activation_function = 'relu',
  activation_scale = 1.E0
 /
