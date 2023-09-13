@@ -1,5 +1,6 @@
 from os.path import exists
 from os import chdir, getcwd, makedirs
+from os import path
 import subprocess
 import fileinput
 import random
@@ -7,12 +8,14 @@ import sys
 import time
 import wandb
 
+
 ## define global variables
-project='cnn_mnist_test'
-codename='cnn_mp_wandb'
+project='athena_mnist_test'
+codename='athena_test'
 sweep_id = 'vw5xt1zq' #'hfyfmd71' #'8336mo4r' #'emjb3nsc' #'8qcw0m55'
 count=100
 file_template = "template_momentum.in"
+script_directory = path.dirname(path.abspath(sys.argv[0]))
 workdir = getcwd() # "../"
 min_neurons = 12
 max_neurons = 100
@@ -147,7 +150,7 @@ def main():
     stderr = "stdout.e"
     stdout_file = open(stdout, 'w')
     stderr_file = open(stderr, 'w')
-    p = subprocess.Popen(args=["/home/links/ntt203/DCoding/DGitlab/convolutional_neural_network/tools/"+codename,
+    p = subprocess.Popen(args=[script_directory+"../test/bin/"+codename,
                              "-f"+file_param],
                        stdout=stdout_file,
                        stderr=stderr_file

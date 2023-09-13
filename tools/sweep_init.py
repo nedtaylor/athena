@@ -31,5 +31,5 @@ sweep_configuration = {
 
 sweep_id = wandb.sweep(
     sweep=sweep_configuration,
-    project='cnn_mnist_test'
+    project='athena_mnist_test'
 )
