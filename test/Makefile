@@ -76,7 +76,7 @@ LATHENA = -I$(ATHENAROOT)/include -L$(ATHENAROOT)/lib -lathena -gdwarf-2
 # COMPILATION SECTION
 ##########################################
 INSTALL_DIR?=$(HOME)/bin
-NAME = cnn_dev
+NAME = athena_test
 
 CFLAGS =
 
