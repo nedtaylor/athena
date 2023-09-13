@@ -8,7 +8,6 @@ program ConvolutionalNeuralNetwork
   use omp_lib
 #endif
   use constants, only: real12
-  use infile_tools, only: stop_check
   use inputs
   use athena
 

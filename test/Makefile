@@ -8,8 +8,7 @@ SRC_DIR := ./src
 LIB_DIR := ./lib
 BUILD_DIR = ./obj
 LIBS := mod_constants.f90 \
-	mod_misc.f90 \
-	mod_tools_infile.f90
+	mod_misc.f90
 OBJS := $(addprefix $(LIB_DIR)/,$(LIBS))
 SRCS := inputs.f90
 MAIN := main.f90
