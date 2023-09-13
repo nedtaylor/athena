@@ -6,15 +6,12 @@ ATHENA is a Fortran library for developing and handling neural networks (with a 
 
 ATHENA is distributed with the following directories:
 
-  doc/       Documentation
-  src/       Source code
-  tools/     Additional shell script tools for automating learning
-  test/      Example input and output file for the test makefile
-
-After ATHENA test is compiled, the following directoires may also exist:
-
-  bin/       Contains binary executable
-  obj/       Contains module/object files (non-linked binary files)
+| Directory | Description |
+|---|---|
+|  _doc/_ |      Documentation  |
+|  _src/_ |      Source code  |
+|  _tools/_ |    Additional shell script tools for automating learning  |
+|  _test/_  |    Example input and output file for the test makefile  |
 
 **There currently does not exist a wiki or a manual. One will be included at a later date**
 
@@ -26,22 +23,22 @@ The library has not been tested on ifort (due to outdated ifort compilers on our
 
 Setup
 -----
-Run the following commands in the directory containing "CMakeLists.txt":
-
-  mkdir build
-  cd build
-  cmake -DCMAKE_BUILD_TYPE="optim;mp" ..
-  make install
-
+Run the following commands in the directory containing _CMakeLists.txt_:
+```
+  mkdir build  
+  cd build  
+  cmake -DCMAKE_BUILD_TYPE="optim;mp" ..  
+  make install  
+```
 This will build the library in the build/ directory. All library files will then be found in:
-
+```
   ${HOME}/.local/athena
-
+```
 Inside this directory, the following files will be generated:
-  
+```
   include/athena.mod
   lib/libathena.a
-
+```
 
 
 Testing
@@ -53,13 +50,20 @@ https://github.com/halimb/MNIST-txt/tree/master
 
 The link to the original MNIST database is: http://yann.lecun.com/exdb/mnist/
 
-To compile and run the test, run the following commands in the directory containing "CMakeLists.txt":
-
+To compile and run the test, run the following commands in the directory containing _CMakeLists.txt_:
+```
   cd test
   make build mp optim
   ./bin/athena_test -f test_job.in
+```
+After the test program is compiled, the following directories will also exist:
 
-The test will perform a train over 200 mini-batch steps. It will then exit prematurely, print its weights and biases to file, and test the partially-trained network on the training set. The output from this cna then be compared to the file "expected_output.txt".
+| Directory | Description |
+|---|---|
+|  _test/bin/_  |     Contains binary executable | 
+|  _test/obj/_  |     Contains module/object files (non-linked binary files)|
+
+The test will perform a train over 200 mini-batch steps. It will then exit prematurely, print its weights and biases to file, and test the partially-trained network on the training set. The output from this cna then be compared to the file _expected_output.txt_.
 
 In the tools/ directory, there exist scripts that take utilise the wandb python package (Weights and Biases, a machine learning data tracker). Wandb is a Python module and, as such, a Python interface has been provided to call and run the Fortran test. The Python interface then reads the Fortran output files and logs the results to the wandb project.
 
@@ -73,13 +77,14 @@ To call/reference the ATHENA library in a program, include the following use sta
   use athena
 
 During compilation, include the following flags in the compilation (gfortran) command:
+```
 -I${HOME}/.local/athena/include -L${HOME}/.local/athena/lib -lathena
-
+```
 
 
 Developers
 ----------
--Ned Thaddeus Taylor
+- Ned Thaddeus Taylor
 
 
 License
@@ -89,40 +94,39 @@ https://creativecommons.org/licenses/by-nc/3.0/
 
 
 
-Source file descriptions
-------------------------
-src/athena.f90           - the module file that imports all necessary user-accessible procedures
-
-src/lib/mod_activation.f90          - generic node activation (transfer) setup
-src/lib/mod_activation_[NAME].f90   - [NAME] activation method
-src/lib/mod_base_layer.f90          - abstract layer construct type
-src/lib/mod_container.f90           - layer container construct for handling multiple layers in a network
-src/lib/mod_container_sub.f90       - layer container submodule
-src/lib/mod_constants.f90           - a set of global constants used in this code
-src/lib/mod_[NAME]_layer.f90        - [NAME] layer-type
-src/lib/mod_initialiser.f90         - generic kernel (and bias) initialiser setup
-src/lib/mod_initialiser_[NAME].f90  - [NAME] kernel initialisation method
-src/lib/mod_loss_categorical.f90    - categorical loss methods and their respective derivatives
-src/lib/mod_metrics.f90             - training convergence metric derived type and procedures
-src/lib/mod_misc.f90                - miscellaneous procedures
-src/lib/mod_misc_ml.f90             - miscellaneous machine learning procedures
-srcs/lib/mod_network.f90            - neural network derived type and procedures
-src/lib/mod_normalisation.f90       - data normalisation procedures
-src/lib/mod_optimiser.f90           - learning optimisation derived type and procedures
-src/lib/mod_random.f90              - random number procedures
-src/lib/mod_tools_infile.f90        - tools to read input files
-src/lib/mod_types.f90               - neural network-associated derived types
-
+|Source file | Description|
+|-----------|------------|
+|src/athena.f90           | the module file that imports all necessary user-accessible procedures  |
+|src/lib/mod_activation.f90          | generic node activation (transfer) setup  |
+|src/lib/mod_activation_[NAME].f90   | [NAME] activation method  |
+|src/lib/mod_base_layer.f90          | abstract layer construct type  |
+|src/lib/mod_container.f90           | layer container construct for handling multiple layers in a network  |
+|src/lib/mod_container_sub.f90       | layer container submodule  |
+|src/lib/mod_constants.f90           | a set of global constants used in this code  |
+|src/lib/mod_[NAME]_layer.f90        | [NAME] layer-type  |
+|src/lib/mod_initialiser.f90         | generic kernel (and bias) initialiser setup  |
+|src/lib/mod_initialiser_[NAME].f90  | [NAME] kernel initialisation method  |
+|src/lib/mod_loss_categorical.f90    | categorical loss methods and their respective derivatives | 
+|src/lib/mod_metrics.f90             | training convergence metric derived type and procedures  |
+|src/lib/mod_misc.f90                | miscellaneous procedures  |
+|src/lib/mod_misc_ml.f90             | miscellaneous machine learning procedures  |
+|srcs/lib/mod_network.f90            | neural network derived type and procedures  |
+|src/lib/mod_normalisation.f90       | data normalisation procedures  |
+|src/lib/mod_optimiser.f90           | learning optimisation derived type and procedures  |
+|src/lib/mod_random.f90              | random number procedures  |
+|src/lib/mod_tools_infile.f90        | tools to read input files  |
+|src/lib/mod_types.f90               | neural network-associated derived types  |
 
 
-Other files
------------
-README.md                  - a readme file with a brief description of the code and files
-CMakeLists.txt             - the makefile used for compiling the library
-LICENCE                    - licence of ATHENA code
-test/expected_output.txt   - expected output from executing test program
-test/test_job.in           - input file for test program
-tools/sweep_init.py        - script to initialise wandb sweep
-tools/sweep_train.py       - script to perform training and log learning to wandb
-tools/template.in          - input file for program in test/bin/ (once compiled)
-tools/wandb-metadata.json  - metadata defining default plots on wandb website
+
+| Additional file | Description |
+|-----|------|
+|README.md                  | a readme file with a brief description of the code and files  |
+|CMakeLists.txt             | the makefile used for compiling the library  |
+|LICENCE                    | licence of ATHENA code  |
+|test/expected_output.txt   | expected output from executing test program  |
+|test/test_job.in           | input file for test program  |
+|tools/sweep_init.py        | script to initialise wandb sweep  |
+|tools/sweep_train.py       | script to perform training and log learning to wandb  |
+|tools/template.in          | input file for program in test/bin/ (once compiled)  |
+|tools/wandb-metadata.json  | metadata defining default plots on wandb website  |
