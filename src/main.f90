@@ -223,60 +223,16 @@ program ConvolutionalNeuralNetwork
 contains
 
 !!!#############################################################################
-!!! compare two positive input values
-!!! ... -1 = initial, ignore
-!!! ... -2 = different
-!!! +ve    = same and value
-!!!#############################################################################
-  subroutine compare_val(output, input)
-    implicit none
-    integer, intent(in) :: input
-    integer, intent(out) :: output
-
-    if(output.eq.-1)then
-       output = input
-    elseif(output.eq.-2)then
-       return
-    elseif(output.ne.input)then
-       output = -2
-    end if
-    
-  end subroutine compare_val
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! compute accuracy
-!!! this only works (and is only valid for?) categorisation problems
-!!!#############################################################################
-  function compute_accuracy(output, expected) result(accuracy)
-    implicit none
-    real(real12), dimension(:), intent(in) :: output
-    integer, intent(in) :: expected
-    real(real12) :: accuracy
-
-    !! Compute the accuracy
-    if (output(expected).eq.maxval(output)) then
-       accuracy = 1._real12
-    else
-       accuracy = 0._real12
-    end if
-
-  end function compute_accuracy
-!!!#############################################################################
-
-
-!!!#############################################################################
 !!! read mnist dataset
 !!!#############################################################################
   subroutine read_mnist(file,images,labels,kernel_size,image_size,padding_method)
     use misc, only: icount
-    use misc_ml, only: set_padding
     implicit none
     integer :: i, j, k, Reason, unit
-    integer :: num_samples, num_pixels, padding
+    integer :: num_samples, num_pixels, padding, t_kernel_size = 1
     character(2048) :: buffer
     character(:), allocatable :: t_padding_method
+    real(real12), allocatable, dimension(:,:,:,:) :: images_padded
 
     integer, intent(out) :: image_size
     integer, optional, intent(in) :: kernel_size
@@ -287,10 +243,19 @@ contains
 
 
 !!!-----------------------------------------------------------------------------
+!!! initialise optional arguments
+!!!-----------------------------------------------------------------------------
+    if(present(padding_method))then
+       t_padding_method = padding_method
+    else
+       t_padding_method = "valid"
+    end if
+
+
+!!!-----------------------------------------------------------------------------
 !!! open file
 !!!-----------------------------------------------------------------------------
-    unit = 10
-    open(unit=unit,file=file)
+    open(newunit=unit,file=file)
 
 
 !!!-----------------------------------------------------------------------------
@@ -332,32 +297,6 @@ contains
 
 
 !!!-----------------------------------------------------------------------------
-!!! handle padding type name
-!!!-----------------------------------------------------------------------------
-    !! none  = alt. name for 'valid'
-    !! zero  = alt. name for 'same'
-    !! symmetric = alt.name for 'replication'
-    !! valid = no padding
-    !! same  = maintain spatial dimensions
-    !!         ... (i.e. padding added = (kernel_size - 1)/2)
-    !!         ... defaults to zeros in the padding
-    !! full  = enough padding for filter to slide over every possible position
-    !!         ... (i.e. padding added = (kernel_size - 1)
-    !! circular = maintain spatial dimensions
-    !!            ... wraps data around for padding (periodic)
-    !! reflection = maintains spatial dimensions
-    !!              ... reflect data (about boundary index)
-    !! replication = maintains spatial dimensions
-    !!               ... reflect data (boundary included)
-    if(present(padding_method))then
-       t_padding_method = trim(padding_method)
-    else
-       t_padding_method = "valid"
-    end if
-    call set_padding(padding, kernel_size, t_padding_method)
-    
-
-!!!-----------------------------------------------------------------------------
 !!! allocate data set
 !!! ... if appropriate, add padding
 !!!-----------------------------------------------------------------------------
@@ -365,31 +304,15 @@ contains
     !! dim=2: image height in pixels
     !! dim=3: image number of channels (1 due to black-white images)
     !! dim=4: number of images
-    if(padding.eq.0)then
-       if(allocated(images)) deallocate(images)
-       allocate(images(image_size, image_size, 1, num_samples))
-    elseif(present(kernel_size))then
-
-       if(allocated(images)) deallocate(images)
-       allocate(images(&
-            -padding+1:image_size+padding + (1-mod(kernel_size,2)),&
-            -padding+1:image_size+padding + (1-mod(kernel_size,2)),&
-            1, num_samples), source=0._real12)
-
-       !! initialise padding for constant padding types (i.e. zeros)
-       !!-----------------------------------------------------------------------
-!!! LATER MAKE THE CONSTANT AN OPTIONAL VALUE
-       select case(t_padding_method)
-       case ("same")
-          images = 0._real12
-       case("full")
-          images = 0._real12
-       end select
-       
-    else
+    if(.not.present(kernel_size))then
        stop "ERROR: kernel_size not provided to read_mnist for padding &
             &method "//t_padding_method
+    else
+       t_kernel_size = kernel_size
     end if
+    
+    if(allocated(images)) deallocate(images)
+    allocate(images(image_size, image_size, 1, num_samples))
 
 
 !!!-----------------------------------------------------------------------------
@@ -405,38 +328,9 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! populate padding
 !!!-----------------------------------------------------------------------------
-    select case(t_padding_method)
-    case ("circular")
-       images(-padding+1:0:1, 1:image_size, :, :) = &
-            images(image_size-padding+1:image_size:1, 1:image_size, :, :)
-       images(image_size+1:image_size+padding:1, 1:image_size, :, :) = &
-            images(1:1+padding-1:1, 1:image_size, :, :)
-
-       images(:, -padding+1:0:1, :, :) = &
-            images(:, image_size-padding+1:image_size:1, :, :)
-       images(:, image_size+1:image_size+padding:1, :, :) = &
-            images(:, 1:1+padding-1:1, :, :)
-    case("reflection")
-       images(0:-padding+1:-1, 1:image_size, :, :) = &
-            images(2:2+padding-1:1, 1:image_size, :, :)
-       images(image_size+1:image_size+padding:1, 1:image_size, :, :) = &
-            images(image_size-1:image_size-padding:-1, 1:image_size, :, :)
-
-       images(:, 0:-padding+1:-1, :, :) = &
-            images(:, 2:2+padding-1:1, :, :)
-       images(:, image_size+1:image_size+padding:1, :, :) = &
-            images(:, image_size-1:image_size-padding:-1, :, :)
-    case("replication")
-       images(0:-padding+1:-1, 1:image_size, :, :) = &
-            images(1:1+padding-1:1, 1:image_size, :, :)
-       images(image_size+1:image_size+padding:1, 1:image_size, :, :) = &
-            images(image_size:image_size-padding+1:-1, 1:image_size, :, :)
-
-       images(:, 0:-padding+1:-1, :, :) = &
-            images(:, 1:1+padding-1:1, :, :)
-       images(:, image_size+1:image_size+padding:1, :, :) = &
-            images(:, image_size:image_size-padding+1:-1, :, :)
-    end select
+    call pad_data(images, images_padded, &
+         t_kernel_size, t_padding_method, 4, 3)
+    images = images_padded
     
 
 !!!-----------------------------------------------------------------------------
