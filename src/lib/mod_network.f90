@@ -608,7 +608,7 @@ contains
     implicit none
     class(network_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
-    integer, dimension(:,:), intent(in) :: output !! CONVERT THIS LATER TO ANY TYPE AND ANY RANK
+    class(*), dimension(:,:), intent(in) :: output
     integer, intent(in) :: num_epochs, batch_size
 
     real(real12), dimension(:,:), optional, intent(in) :: addit_input
@@ -621,8 +621,7 @@ contains
     
     !! training and testing monitoring
     real(real12) :: batch_loss, batch_accuracy, avg_loss, avg_accuracy
-    real(real12), allocatable, dimension(:,:) :: y_pred
-    integer, allocatable, dimension(:,:) ::  y_true
+    real(real12), allocatable, dimension(:,:) :: y_pred, y_true
 
     !! learning parameters
     integer :: num_batches
@@ -680,8 +679,9 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! allocate predicted and true label sets
 !!!-----------------------------------------------------------------------------
-    allocate(y_pred(this%num_outputs,batch_size), source=0._real12)
-    allocate(y_true(this%num_outputs,batch_size), source=0)
+    allocate(y_pred(this%num_outputs,batch_size), source = 0._real12)
+    allocate(y_true(this%num_outputs,batch_size), source = 0._real12)
+
 
 
 !!!-----------------------------------------------------------------------------
@@ -727,7 +727,12 @@ contains
           !! reinitialise variables
           !!--------------------------------------------------------------------
           y_pred = 0._real12
-          y_true(:,:) = output(:,start_index:end_index:1)
+          select type(output)
+          type is(integer)
+             y_true(:,:) = real(output(:,start_index:end_index:1),real12)
+          type is(real)
+             y_true(:,:) = output(:,start_index:end_index:1)
+          end select
 
           
           !!--------------------------------------------------------------------
@@ -753,7 +758,7 @@ contains
 
              !! Backward pass
              !!-----------------------------------------------------------------
-             call this%backward(real(y_true(:,sample-start_index+1),real12))
+             call this%backward(y_true(:,sample-start_index+1))
 
              !! store predicted output
              !!-----------------------------------------------------------------
@@ -771,9 +776,16 @@ contains
           batch_accuracy = 0._real12
           do sample = 1, end_index-start_index+1, 1
              batch_loss = batch_loss + sum(this%get_loss(&
-                  y_pred(:,sample),real(y_true(:,sample),real12)))
-             batch_accuracy = batch_accuracy + compute_accuracy(&
-                  y_pred(:,sample),y_true(:,sample))
+                  y_pred(:,sample),y_true(:,sample)))
+             select type(output)
+             type is(integer)
+                batch_accuracy = batch_accuracy + compute_accuracy(&
+                     y_pred(:,sample),nint(y_true(:,sample)))
+             type is(real)
+                batch_accuracy = batch_accuracy + compute_accuracy(&
+                     y_pred(:,sample),y_true(:,sample))
+             end select
+
           end do
 
 
@@ -873,7 +885,7 @@ contains
     implicit none
     class(network_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
-    integer, dimension(:,:), intent(in) :: output !! CONVERT THIS LATER TO ANY TYPE AND ANY RANK
+    class(*), dimension(:,:), intent(in) :: output
 
     real(real12), dimension(:,:), optional, intent(in) :: addit_input
     integer, optional, intent(in) :: addit_layer
@@ -916,18 +928,34 @@ contains
        !!-----------------------------------------------------------------------
        select type(current => this%model(this%num_layers)%layer)
        type is(full_layer_type)
-          accuracy = compute_accuracy(current%output, output(:,sample))
-          this%metrics(1)%val = this%metrics(1)%val + sum(&
-               this%get_loss(&
-               predicted=current%output,expected=real(output(:,sample),real12)))
+          select type(output)
+          type is(integer)
+             accuracy = compute_accuracy(current%output, output(:,sample))
+             this%metrics(1)%val = this%metrics(1)%val + sum(&
+                  this%get_loss(&
+                  predicted=current%output,expected=real(output(:,sample),real12)))
+          type is(real)
+             accuracy = compute_accuracy(current%output, output(:,sample))
+             this%metrics(1)%val = this%metrics(1)%val + sum(&
+                  this%get_loss(&
+                  predicted=current%output,expected=output(:,sample)))
+          end select
           this%metrics(2)%val = this%metrics(2)%val + accuracy
           !! print testing results
           !!--------------------------------------------------------------------
           if(abs(t_verb).gt.1)then
-             write(unit,'(I4," Expected=",I3,", Got=",I3,", Accuracy=",F0.3)') &
-                  sample, &
-                  maxloc(output(:,sample)), maxloc(current%output,dim=1)-1, &
-                  accuracy
+             select type(output)
+             type is(integer)
+                write(unit,'(I4," Expected=",I3,", Got=",I3,", Accuracy=",F0.3)') &
+                     sample, &
+                     maxloc(output(:,sample)), maxloc(current%output,dim=1)-1, &
+                     accuracy
+             type is(real)
+                write(unit,'(I4," Expected=",I3,", Got=",I3,", Accuracy=",F0.3)') &
+                     sample, &
+                     maxloc(output(:,sample)), maxloc(current%output,dim=1)-1, &
+                     accuracy
+             end select
           end if
        end select
 
