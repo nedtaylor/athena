@@ -108,13 +108,21 @@ contains
 !!!########################################################################
 !!! return width of padding from kernel/filter size
 !!!########################################################################
-  subroutine set_padding(pad, kernel_size, padding_method)
+  subroutine set_padding(pad, kernel_size, padding_method, verbose)
     use misc, only: to_lower
     implicit none
     integer, intent(out) :: pad
     integer, intent(in) :: kernel_size
     character(*), intent(inout) :: padding_method
+    integer, optional, intent(in) :: verbose
     
+    integer :: t_verbose = 0
+
+
+!!!-----------------------------------------------------------------------------
+!!! initialise optional arguments
+!!!-----------------------------------------------------------------------------
+    if(present(verbose)) t_verbose = verbose
 
     !!---------------------------------------------------------------------
     !! padding method options
@@ -148,21 +156,21 @@ contains
        padding_method = "replication"
        goto 100
     case("valid")
-       write(6,*) "Padding type: 'valid' (no padding)"
+       if(t_verbose.gt.0) write(*,*) "Padding type: 'valid' (no padding)"
        pad = 0
        return
     case("same")
-       write(6,*) "Padding type: 'same' (pad with zeros)"
+       if(t_verbose.gt.0) write(*,*) "Padding type: 'same' (pad with zeros)"
     case("circular")
-       write(6,*) "Padding type: 'same' (circular padding)"
+       if(t_verbose.gt.0) write(*,*) "Padding type: 'same' (circular padding)"
     case("full")
-       write(6,*) "Padding type: 'full' (all possible positions)"
+       if(t_verbose.gt.0) write(*,*) "Padding type: 'full' (all possible positions)"
        pad = kernel_size - 1
        return
     case("reflection")
-       write(6,*) "Padding type: 'reflection' (reflect on boundary)"
+       if(t_verbose.gt.0) write(*,*) "Padding type: 'reflection' (reflect on boundary)"
     case("replication")
-       write(6,*) "Padding type: 'replication' (reflect after boundary)"
+       if(t_verbose.gt.0) write(*,*) "Padding type: 'replication' (reflect after boundary)"
     case default
        stop "ERROR: padding type '"//padding_method//"' not known"
     end select
@@ -258,13 +266,13 @@ contains
     rank(0)
        allocate(padding(ndata_dim))
        do i=1,ndata_dim
-          call set_padding(padding(i), kernel_size, padding_method)
+          call set_padding(padding(i), kernel_size, padding_method, verbose=0)
        end do
     rank(1)
        if(size(kernel_size).eq.1.and.ndata_dim.gt.1)then
           allocate(padding(ndata_dim))
           do i=1,ndata_dim
-             call set_padding(padding(i), kernel_size(1), padding_method)
+             call set_padding(padding(i), kernel_size(1), padding_method, verbose=0)
           end do
        else
           if(t_sample_dim.eq.0.and.t_channel_dim.eq.0.and.&
@@ -286,7 +294,7 @@ contains
              allocate(padding(size(kernel_size)))
           end if
           do i=1,size(kernel_size)
-             call set_padding(padding(i), kernel_size(i), padding_method)
+             call set_padding(padding(i), kernel_size(i), padding_method, verbose=0)
           end do
        end if
     end select
