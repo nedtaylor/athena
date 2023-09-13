@@ -176,30 +176,39 @@ contains
 !!!########################################################################
 !!! return width of padding from kernel/filter size
 !!!########################################################################
-  subroutine pad_1Ddata(data, kernel_size, padding_method, dim, constant)
-    use misc, only: to_lower
+  !subroutine pad_data(data, data_padded, kernel_size, padding_method, &
+  subroutine pad_data(data, kernel_size, padding_method, &
+       sample_dim, channel_dim, constant)
     implicit none
-    real(real12), allocatable, dimension(:,:,:), intent(inout) :: data
-    integer, dimension(..) :: intent(in) :: kernel_size
+    real(real12), allocatable, dimension(:,:), intent(inout) :: data
+    !real(real12), allocatable, dimension(..), intent(in) :: data
+    !real(real12), allocatable, dimension(..), intent(out) :: data_padded
+    integer, dimension(..), intent(in) :: kernel_size
     character(*), intent(inout) :: padding_method
     real(real12), optional, intent(in) :: constant
 
-    integer, optional, intent(in) :: dim
+    integer, optional, intent(in) :: sample_dim, channel_dim
     
-    integer :: i, num_samples
-    integer :: t_dim = 0
+    integer :: i, j, idim
+    integer :: num_samples, num_channels, ndim
+    integer :: t_sample_dim = 0, t_channel_dim = 0
     real(real12) :: t_constant = 0._real12
+    integer, dimension(2) :: bound_store
     integer, allocatable, dimension(:) :: padding
-    integer, allocatable, dimension(:,:) :: data_shape
+    integer, allocatable, dimension(:,:) :: trgt_bound, dest_bound
+    integer, allocatable, dimension(:,:) :: tmp_trgt_bound, tmp_dest_bound
+    real(real12), allocatable, dimension(:,:) :: data_copy
 
 
+!!!-----------------------------------------------------------------------------
+!!! initialise optional arguments
+!!!-----------------------------------------------------------------------------
     if(present(constant)) t_constant = constant
-    if(present(dim)) t_dim = dim
-    if(t_dim.gt.0) num_samples = size(data,dim=t_dim)
-
-!!! NEEDS TO ALSO HANDLE CHANNEL DIMENSION
-!!! MAYBE MAKE THIS A FUNCTION THAT OUTPUTS A PADDED VERSION OF THE DATA?
-!!! THEN CYCLE OVER CHANNELS AS A USER?
+    if(present(sample_dim)) t_sample_dim = sample_dim
+    if(present(channel_dim)) t_channel_dim = channel_dim
+    if(t_sample_dim.gt.0) num_samples = size(data,t_sample_dim)
+    if(t_channel_dim.gt.0) num_channels = size(data,t_channel_dim)
+    ndim = rank(data)
 
 
 !!!-----------------------------------------------------------------------------
@@ -223,166 +232,159 @@ contains
     select rank(kernel_size)
     rank(0)
        allocate(padding(1))
-       call set_padding(padding(1), kernel_size, t_padding_method)
+       call set_padding(padding(1), kernel_size, padding_method)
     rank(1)
-       if(t_dim.eq.0.and.size(kernel_size).ne.rank(data))then
+       if(t_sample_dim.eq.0.and.t_channel_dim.eq.0.and.&
+            size(kernel_size).ne.ndim)then
           stop "ERROR: length of kernel_size not equal to rank of data"
-       elseif(t_dim.gt.0.and.size(kernel_size).ne.rank(data)-1)then
+       elseif(t_sample_dim.gt.0.and.t_channel_dim.gt.0.and.&
+            size(kernel_size).ne.ndim-2)then
+          stop "ERROR: length of kernel_size not equal to rank of data-2"
+       elseif((t_sample_dim.gt.0.or.t_channel_dim.gt.0).and.&
+            size(kernel_size).ne.ndim-1)then
           stop "ERROR: length of kernel_size not equal to rank of data-1"
        else
-          allocate(padding(size(kernel_size))
+          allocate(padding(size(kernel_size)))
        end if
        do i=1,size(kernel_size)
-          call set_padding(padding(i), kernel_size(i), t_padding_method)
+          call set_padding(padding(i), kernel_size(i), padding_method)
        end do
     end select
+
 
 !!!-----------------------------------------------------------------------------
 !!! allocate data set
 !!! ... if appropriate, add padding
 !!!-----------------------------------------------------------------------------
-    if(padding.eq.0) return
+    if(all(padding.eq.0)) return
 
-    allocate(data_shape(2,rank(data)))
-    data_shape = shape(data)
-    do i=1,size(padding)
-       data_shape(1,i) = lbound(data,dim=i) - padding
-       data_shape(2,i) = ubound(data,dim=i) + padding
+    allocate(dest_bound(2,ndim))
+    allocate(trgt_bound(2,ndim))
+    i = 0
+    do idim=1,ndim
+       trgt_bound(1,idim) = lbound(data,dim=idim)
+       trgt_bound(2,idim) = ubound(data,dim=idim)
+       dest_bound(:,idim) = trgt_bound(:,idim)
+       if(idim.eq.t_sample_dim.or.idim.eq.t_channel_dim) cycle
+       i = i + 1
+       dest_bound(1,idim) = dest_bound(1,idim) - padding(i)
+       dest_bound(2,idim) = dest_bound(2,idim) + padding(i)
     end do
 
     allocate(data_copy(&
-         data_shape(1,1):data_shape(2,1),&
-         data_shape(1,2):data_shape(2,2)), source=0._real12)
+         dest_bound(1,1):dest_bound(2,1),&
+         dest_bound(1,2):dest_bound(2,2)), source=0._real12)
 
-    !! initialise padding for constant padding types
-    !!-----------------------------------------------------------------------
-    select case(t_padding_method)
+
+!!!-----------------------------------------------------------------------------
+!!! initialise padding for constant padding types
+!!!-----------------------------------------------------------------------------
+    select case(padding_method)
     case ("same")
        data_copy = t_constant
     case("full")
        data_copy = t_constant
+    case("zero")
+       data_copy = 0._real12
     end select
 
 
 !!!-----------------------------------------------------------------------------
-!!! read in dataset
+!!! copy original data
 !!!-----------------------------------------------------------------------------
-    data_copy(&
-         lbound(data,1):ubound(data,1),&
-         lbound(data,2):ubound(data,2)) = &
-         data(&
-         lbound(data,1):ubound(data,1),&
-         lbound(data,2):ubound(data,2))
-    if(t_dim.gt.0)then
-       select case(t_padding_method)
-       case ("circular")
-          data_copy( &
-               lbound(data_copy,1):lbound(data,1) - 1, &
-               lbound(data,2):ubound(data,2), &
-               :) = &
-               data( &
-               ubound(data,1) - padding(1) + 1:ubound(data,1), &
-               lbound(data,2):ubound(data,2), &
-               :)
-          data_copy( &
-               ubound(data,1) + 1:ubound(data_copy,1), &
-               lbound(data,2):ubound(data,2), &
-               :) = &
-               data(&
-               lbound(data,1):lbound(data,1) + padding(1) - 1, &
-               lbound(data,2):ubound(data,2), &
-               :)
+    data_copy( &
+         trgt_bound(1,1):trgt_bound(2,1),&
+         trgt_bound(1,2):trgt_bound(2,2)) = &
+         data( &
+         trgt_bound(1,1):trgt_bound(2,1),&
+         trgt_bound(1,2):trgt_bound(2,2))
 
-          data_copy( &
-               :, &
-               lbound(data_copy,2):lbound(data,2) - 1, &
-               :) = &
-               data_copy( &
-               :, ubound(data,2) - padding(2) + 1:ubound(data,2), &
-               :)
-          data_copy( &
-               :, &
-               ubound(data,2) + 1:ubound(data,2) + padding(2), &
-               :) = &
-               data_copy( &
-               :, &
-               lbound(data,2):lbound(data,2) + padding(2) - 1, &
-               :)
-       case("reflection")
-          data_copy( &
-               lbound(data,1) - 1 : lbound(data_copy,1) : -1, &
-               lbound(data,2):ubound(data,2), &
-               :) = &
-               data(&
-               lbound(data,1) + 1 : lbound(data,1) + padding(1) : 1, &
-               lbound(data,2):ubound(data,2), &
-               :)
-          data_copy( &
-               ubound(data,1) + 1 : ubound(data,1) + padding(1) : 1, &
-               lbound(data,2) : ubound(data,2), &
-               :) = &
-               data(&
-               ubound(data,1) - 1 : ubound(data,1) - padding(1) : -1, &
-               lbound(data,2) : ubound(data,2), &
-               :)
 
-          data_copy( &
-               :, &
-               lbound(data,2) - 1 : -padding(D) + 1 : -1, &
-               :) = &
-               data_copy(&
-               :, &
-               lbound(data,2) + 1 : lbound(data,2) + padding(2) : 1, &
-               :)
-          data_copy( &
-               :, &
-               ubound(data,2) + 1 : ubound(data,2) + padding(2) : 1, &
-               :) = &
-               data_copy( &
-               :, &
-               ubound(data,2) - 1 : ubound(data,2) - padding(2) : -1, &
-               :)
-       case("replication")
-          data_copy( &
-               lbound(data,1) - 1 : -padding(1) + 1 : -1, &
-               lbound(data,2) : ubound(data,2), &
-               :) = &
-               data( &
-               lbound(data,1) : lbound(data,1) + padding(1) - 1 : 1, &
-               lbound(data,2) : ubound(data,2), &
-               :)
-          data_copy(&
-               ubound(data,1) + 1 : ubound(data,1) + padding(1) : 1, &
-               lbound(data,2) : ubound(data,2), &
-               :) = &
-               data( &
-               ubound(data,1) : ubound(data,1) - padding(1) + 1 : -1, &
-               lbound(data,2) : ubound(data,D), &
-               :)
+!!!-----------------------------------------------------------------------------
+!!! insert padding
+!!!-----------------------------------------------------------------------------
+    select case(padding_method)
+    case ("circular")
+       i = 0
+       do idim=1,ndim
+          if(idim.eq.t_sample_dim.or.idim.eq.t_channel_dim) cycle
+          i = i + 1
+          tmp_dest_bound = dest_bound
+          tmp_trgt_bound = dest_bound
+          tmp_dest_bound(:,idim) = [ lbound(data_copy,idim), lbound(data,idim) -1 ]
+          tmp_trgt_bound(:,idim) = [ ubound(data,idim) - padding(i) + 1, ubound(data,idim) ]
+          do j = 1, 2
+             data_copy( &
+                  tmp_dest_bound(1,1):tmp_dest_bound(2,1), &
+                  tmp_dest_bound(1,2):tmp_dest_bound(2,2) ) = &
+                  data_copy( &
+                  tmp_trgt_bound(1,1):tmp_trgt_bound(2,1), &
+                  tmp_trgt_bound(1,2):tmp_trgt_bound(2,2) )
 
-          data_copy( &
-               :, &
-               lbound(data,2) - 1 : -padding(2) + 1 : -1, &
-               :) = &
-               data_copy( &
-               :, &
-               lbound(data,2) : lbound(data,2) + padding(2) - 1 : 1, &
-               :)
-          data_copy( &
-               :, &
-               ubound(data,2) + 1 : ubound(data,2) + padding(2) : 1, &
-               :) = &
-               data_copy( &
-               :, &
-               ubound(data,2) : ubound(data,2) - padding(2) + 1 :-1, &
-               :)
-       end select
-    end if
+             if(j.eq.2) exit
+             bound_store(:) = tmp_dest_bound(:,idim)
+             tmp_dest_bound(:,idim) = tmp_trgt_bound(:,idim) + padding(i)
+             tmp_trgt_bound(:,idim) = bound_store(:) + padding(i)
+             !tmp_dest_bound(:,idim) = [ ubound(data,idim) + 1, ubound(data_copy,idim) ]
+             !tmp_trgt_bound(1,idim) = [ lbound(data,idim), lbound(data,idim) + padding(i) - 1 ]
+          end do
+       end do
+    case("reflection")
+       i = 0
+       do idim=1,ndim
+          if(idim.eq.t_sample_dim.or.idim.eq.t_channel_dim) cycle
+          i = i + 1
+          tmp_dest_bound = dest_bound
+          tmp_trgt_bound = dest_bound
+          tmp_dest_bound(:,idim) = [ lbound(data_copy,idim), lbound(data,idim) - 1 ] 
+          tmp_trgt_bound(:,idim) = [ lbound(data,idim) + 1, lbound(data,idim) + padding(i) ]
+          do j = 1, 2
+             data_copy( &
+                  tmp_dest_bound(1,1):tmp_dest_bound(2,1), &
+                  tmp_dest_bound(1,2):tmp_dest_bound(2,2) ) = &
+                  data_copy( &
+                  tmp_trgt_bound(1,1):tmp_trgt_bound(2,1), &
+                  tmp_trgt_bound(1,2):tmp_trgt_bound(2,2) )
 
+             if(j.eq.2) exit
+             bound_store(:) = tmp_dest_bound(:,idim)
+             tmp_dest_bound(:,idim) = tmp_trgt_bound(:,idim) + size(data,idim) - 1
+             tmp_trgt_bound(:,idim) = bound_store(:) + size(data,idim) - 1
+             !tmp_dest_bound(:,idim) = [ ubound(data,idim) + 1, ubound(data_copy,idim) ]
+             !tmp_trgt_bound(1,idim) = [ ubound(data,idim) - padding(i), ubound(data,idim) - 1 ]
+          end do
+       end do
+    case("replication")
+       i = 0
+       do idim=1,ndim
+          if(idim.eq.t_sample_dim.or.idim.eq.t_channel_dim) cycle
+          i = i + 1
+          tmp_dest_bound = dest_bound
+          tmp_trgt_bound = dest_bound
+          tmp_dest_bound(:,idim) = [ lbound(data_copy,idim), lbound(data,idim) - 1 ] 
+          tmp_trgt_bound(:,idim) = [ lbound(data,idim), lbound(data,idim) + padding(i) - 1 ]
+          do j = 1, 2
+             data_copy( &
+                  tmp_dest_bound(1,1):tmp_dest_bound(2,1), &
+                  tmp_dest_bound(1,2):tmp_dest_bound(2,2) ) = &
+                  data_copy( &
+                  tmp_trgt_bound(1,1):tmp_trgt_bound(2,1), &
+                  tmp_trgt_bound(1,2):tmp_trgt_bound(2,2) )
+
+             if(j.eq.2) exit
+             bound_store(:) = tmp_dest_bound(:,idim)
+             tmp_dest_bound(:,idim) = tmp_trgt_bound(:,idim) + size(data,idim)
+             tmp_trgt_bound(:,idim) = bound_store(:) + size(data,idim)
+             !tmp_dest_bound(:,idim) = [ ubound(data,idim) + 1, ubound(data_copy,idim) ]
+             !tmp_trgt_bound(1,idim) = [ ubound(data,idim) - padding(i) + 1, ubound(data,idim) ]
+          end do
+       end do
+
+    end select
 
     data = data_copy
 
-  end subroutine set_padding
+  end subroutine pad_data
 !!!########################################################################
 
 
