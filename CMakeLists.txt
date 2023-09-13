@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.17.5)
 
-set( CMAKE_INSTALL_PREFIX "${HOME}/.local/athena"
+set( CMAKE_INSTALL_PREFIX "$ENV{HOME}/.local/athena"
   CACHE STRING "Select where to install the library." )
 execute_process(COMMAND pwd OUTPUT_VARIABLE CURRENT_WORKING_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
 message("Current working directory: ${CURRENT_WORKING_DIR}")
