@@ -3,7 +3,7 @@
  verbosity = 2,
  num_threads = 8,
  input_file = "network.in",
- output_file = "acutal_result.out",
+ output_file = "actual_result.out",
  restart = .false.,
  batch_print_step = 20,
  dataset_dir = "/home/links/ntt203/DCoding/DTest_dir/DMNIST/"
