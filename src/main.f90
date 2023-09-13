@@ -8,15 +8,9 @@ program ConvolutionalNeuralNetwork
   use omp_lib
 #endif
   use constants, only: real12
-  use random, only: random_setup
-  use misc, only: shuffle
   use infile_tools, only: stop_check
-
-  use loss_categorical
   use inputs
-
   use athena
-
 
   implicit none
 

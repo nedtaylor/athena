@@ -5,9 +5,8 @@
 !!!#############################################################################
 module inputs
   use constants, only: real12, ierror
-  use optimiser, only: optimiser_type
+  use athena, only: metric_dict_type, optimiser_type
   use misc, only: icount, flagmaker, file_check, to_lower
-  use metrics, only: metric_dict_type, metric_dict_alloc
   implicit none
   integer :: verbosity    ! verbose printing
   integer :: seed         ! random seed
@@ -68,7 +67,7 @@ module inputs
   public :: batch_learning
   public :: plateau_threshold
   public :: loss_method
-  public :: metric_dict, metric_dict_type, metric_dict_alloc
+  public :: metric_dict, metric_dict_type
 
   public :: num_epochs, batch_size
   public :: optimiser
@@ -376,7 +375,7 @@ contains
        write(0,*) " Changing to batch_learning=False"
        write(0,*) "(note: currently no input file way to specify alternative)"
     end if
-    call get_clip(clip_min, clip_max, clip_norm, optimiser%clip_dict)
+    call optimiser%read_clip(clip_min, clip_max, clip_norm)
     !! handle adaptive learning method
     !!---------------------------------------------------------------------------
     !! ce  = cross entropy (defaults to categorical)
@@ -712,38 +711,6 @@ contains
     end if
  
   end subroutine get_list
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! get clipping information
-!!!#############################################################################
-  subroutine get_clip(min_str, max_str, norm_str, clip)
-    use optimiser, only: clip_type
-    implicit none
-    character(*), intent(in) :: min_str, max_str, norm_str
-    type(clip_type), intent(inout) :: clip
-
-    if(trim(min_str).ne."")then
-       read(min_str,*) clip%min
-    else
-       clip%min = -huge(1._real12)
-    end if
-    if(trim(max_str).ne."")then
-       read(max_str,*) clip%max
-    else
-       clip%max = huge(1._real12)
-    end if
-
-    if(trim(min_str).ne."".or.trim(max_str).ne."")then
-       clip%l_min_max = .true.
-    end if
-    if(trim(norm_str).ne."")then
-       read(norm_str,*) clip%norm
-       clip%l_norm = .true.
-    end if
-
-  end subroutine get_clip
 !!!#############################################################################
 
 end module inputs
