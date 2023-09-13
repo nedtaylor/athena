@@ -53,7 +53,7 @@ The link to the original MNIST database is: http://yann.lecun.com/exdb/mnist/
 To compile and run the test, run the following commands in the directory containing _CMakeLists.txt_:
 ```
   cd test
-  make build mp optim
+  make build optim
   ./bin/athena_test -f test_job.in
 ```
 After the test program is compiled, the following directories will also exist:
