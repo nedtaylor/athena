@@ -96,37 +96,37 @@ https://creativecommons.org/licenses/by-nc/3.0/
 
 |Source file | Description|
 |-----------|------------|
-|src/athena.f90           | the module file that imports all necessary user-accessible procedures  |
-|src/lib/mod_activation.f90          | generic node activation (transfer) setup  |
-|src/lib/mod_activation_[NAME].f90   | [NAME] activation method  |
-|src/lib/mod_base_layer.f90          | abstract layer construct type  |
-|src/lib/mod_container.f90           | layer container construct for handling multiple layers in a network  |
-|src/lib/mod_container_sub.f90       | layer container submodule  |
-|src/lib/mod_constants.f90           | a set of global constants used in this code  |
-|src/lib/mod_[NAME]_layer.f90        | [NAME] layer-type  |
-|src/lib/mod_initialiser.f90         | generic kernel (and bias) initialiser setup  |
-|src/lib/mod_initialiser_[NAME].f90  | [NAME] kernel initialisation method  |
-|src/lib/mod_loss_categorical.f90    | categorical loss methods and their respective derivatives | 
-|src/lib/mod_metrics.f90             | training convergence metric derived type and procedures  |
-|src/lib/mod_misc.f90                | miscellaneous procedures  |
-|src/lib/mod_misc_ml.f90             | miscellaneous machine learning procedures  |
-|srcs/lib/mod_network.f90            | neural network derived type and procedures  |
-|src/lib/mod_normalisation.f90       | data normalisation procedures  |
-|src/lib/mod_optimiser.f90           | learning optimisation derived type and procedures  |
-|src/lib/mod_random.f90              | random number procedures  |
-|src/lib/mod_tools_infile.f90        | tools to read input files  |
-|src/lib/mod_types.f90               | neural network-associated derived types  |
+|_src/athena.f90_                      | the module file that imports all necessary user-accessible procedures  |
+|_src/lib/mod_activation.f90_          | generic node activation (transfer) setup  |
+|_src/lib/mod_activation_[NAME].f90_   | [NAME] activation method  |
+|_src/lib/mod_base_layer.f90_          | abstract layer construct type  |
+|_src/lib/mod_container.f90_           | layer container construct for handling multiple layers in a network  |
+|_src/lib/mod_container_sub.f90_       | layer container submodule  |
+|_src/lib/mod_constants.f90_           | a set of global constants used in this code  |
+|_src/lib/mod_[NAME]_layer.f90_        | [NAME] layer-type  |
+|_src/lib/mod_initialiser.f90_         | generic kernel (and bias) initialiser setup  |
+|_src/lib/mod_initialiser_[NAME].f90_  | [NAME] kernel initialisation method  |
+|_src/lib/mod_loss_categorical.f90_    | categorical loss methods and their respective derivatives | 
+|_src/lib/mod_metrics.f90_             | training convergence metric derived type and procedures  |
+|_src/lib/mod_misc.f90_                | miscellaneous procedures  |
+|_src/lib/mod_misc_ml.f90_             | miscellaneous machine learning procedures  |
+|_srcs/lib/mod_network.f90_            | neural network derived type and procedures  |
+|_src/lib/mod_normalisation.f90_       | data normalisation procedures  |
+|_src/lib/mod_optimiser.f90_           | learning optimisation derived type and procedures  |
+|_src/lib/mod_random.f90_              | random number procedures  |
+|_src/lib/mod_tools_infile.f90_        | tools to read input files  |
+|_src/lib/mod_types.f90_               | neural network-associated derived types  |
 
 
 
 | Additional file | Description |
 |-----|------|
-|README.md                  | a readme file with a brief description of the code and files  |
-|CMakeLists.txt             | the makefile used for compiling the library  |
-|LICENCE                    | licence of ATHENA code  |
-|test/expected_output.txt   | expected output from executing test program  |
-|test/test_job.in           | input file for test program  |
-|tools/sweep_init.py        | script to initialise wandb sweep  |
-|tools/sweep_train.py       | script to perform training and log learning to wandb  |
-|tools/template.in          | input file for program in test/bin/ (once compiled)  |
-|tools/wandb-metadata.json  | metadata defining default plots on wandb website  |
+|_README.md_                  | a readme file with a brief description of the code and files  |
+|_CMakeLists.txt_             | the makefile used for compiling the library  |
+|_LICENCE_                    | licence of ATHENA code  |
+|_test/expected_output.txt_   | expected output from executing test program  |
+|_test/test_job.in_           | input file for test program  |
+|_tools/sweep_init.py_        | script to initialise wandb sweep  |
+|_tools/sweep_train.py_       | script to perform training and log learning to wandb  |
+|_tools/template.in_          | input file for program in test/bin/ (once compiled)  |
+|_tools/wandb-metadata.json_  | metadata defining default plots on wandb website  |
