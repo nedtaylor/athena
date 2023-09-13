@@ -98,14 +98,14 @@ https://creativecommons.org/licenses/by-nc/3.0/
 |-----------|------------|
 |_src/athena.f90_                      | the module file that imports all necessary user-accessible procedures  |
 |_src/lib/mod_activation.f90_          | generic node activation (transfer) setup  |
-|_src/lib/mod_activation_[NAME].f90_   | [NAME] activation method  |
+|_src/lib/mod_activation__[_NAME_]_.f90_   | [_NAME_] activation method  |
 |_src/lib/mod_base_layer.f90_          | abstract layer construct type  |
 |_src/lib/mod_container.f90_           | layer container construct for handling multiple layers in a network  |
 |_src/lib/mod_container_sub.f90_       | layer container submodule  |
 |_src/lib/mod_constants.f90_           | a set of global constants used in this code  |
-|_src/lib/mod_[NAME]_layer.f90_        | [NAME] layer-type  |
+|_src/lib/mod__[_NAME_]__layer.f90_        | [_NAME_] layer-type  |
 |_src/lib/mod_initialiser.f90_         | generic kernel (and bias) initialiser setup  |
-|_src/lib/mod_initialiser_[NAME].f90_  | [NAME] kernel initialisation method  |
+|_src/lib/mod_initialiser__[_NAME_]_.f90_  | [_NAME_] kernel initialisation method  |
 |_src/lib/mod_loss_categorical.f90_    | categorical loss methods and their respective derivatives | 
 |_src/lib/mod_metrics.f90_             | training convergence metric derived type and procedures  |
 |_src/lib/mod_misc.f90_                | miscellaneous procedures  |
