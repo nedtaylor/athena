@@ -11,6 +11,7 @@ module initialiser
   use initialiser_lecun, only: lecun_uniform, lecun_normal
   use initialiser_ones, only: ones
   use initialiser_zeros, only: zeros
+  use initialiser_ident, only: ident
   implicit none
 
 
@@ -86,6 +87,8 @@ contains
        initialiser = ones
     case("zeros")
        initialiser = zeros
+    case("ident")
+       initialiser = ident
     case default
        if(present(error))then
           error = -1
