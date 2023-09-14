@@ -21,6 +21,7 @@ module athena
   use conv3d_layer,    only: conv3d_layer_type, read_conv3d_layer
 
   !! dropout layer types
+  use dropout_layer, only: dropout_layer_type, read_dropout_layer
   use dropblock2d_layer, only: dropblock2d_layer_type, read_dropblock2d_layer
   use dropblock3d_layer, only: dropblock3d_layer_type, read_dropblock3d_layer
 
