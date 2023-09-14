@@ -9,6 +9,7 @@ module initialiser
   use initialiser_glorot, only: glorot_uniform, glorot_normal
   use initialiser_he, only: he_uniform, he_normal
   use initialiser_lecun, only: lecun_uniform, lecun_normal
+  use initialiser_ones, only: ones
   use initialiser_zeros, only: zeros
   implicit none
 
@@ -81,6 +82,8 @@ contains
        initialiser = lecun_uniform
     case("lecun_normal")
        initialiser = lecun_normal
+    case("ones")
+       initialiser = ones
     case("zeros")
        initialiser = zeros
     case default

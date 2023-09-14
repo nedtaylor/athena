@@ -48,6 +48,7 @@ set(LIBS
     mod_initialiser_glorot.f90
     mod_initialiser_he.f90
     mod_initialiser_lecun.f90
+    mod_initialiser_ones.f90
     mod_initialiser_zeros.f90
     mod_activation.f90
     mod_initialiser.f90
