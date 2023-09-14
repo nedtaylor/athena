@@ -180,8 +180,11 @@ contains
          input_shape(2) / (input_shape(2) - this%block_size + 1._real12)
     allocate(this%mask(input_shape(1), input_shape(2)), source=.true.)
 
-    call this%generate_mask()
 
+    !!-----------------------------------------------------------------------
+    !! generate mask
+    !!-----------------------------------------------------------------------
+    call this%generate_mask()
 
   end subroutine init_dropblock2d
 !!!#############################################################################
@@ -202,7 +205,7 @@ contains
     !! IF seed GIVEN, INITIALISE
     ! assume random number already seeded and don't need to again
     allocate(mask_real(size(this%mask,1), size(this%mask,2)))
-    call random_number(mask_real)  ! Generate random values in [0,1)
+    call random_number(mask_real)  ! Generate random values in [0..1]
 
     this%mask = .true. !1=keep
 
@@ -214,8 +217,8 @@ contains
                   max(i - this%half, lbound(this%mask,1)), &
                   min(i + this%half, ubound(this%mask,1)) ]
              jlim(:) = [ &
-                  max(j - this%half, lbound(this%mask,1)), &
-                  min(j + this%half, ubound(this%mask,1)) ]
+                  max(j - this%half, lbound(this%mask,2)), &
+                  min(j + this%half, ubound(this%mask,2)) ]
              this%mask(ilim(1):ilim(2), jlim(1):jlim(2)) = .false. !0 = drop
           end if
        end do
@@ -239,7 +242,6 @@ contains
     character(*), intent(in) :: file
 
     integer :: unit
-    real(real12) :: rate
 
 
     !! open file with new unit
@@ -251,6 +253,7 @@ contains
     write(unit,'("DROPBLOCK2D")')
     write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
     write(unit,'(3X,"RATE =",1X)') this%rate
+    write(unit,'(3X,"BLOCK_SIZE =",1X)') this%block_size
     write(unit,'("END DROPBLOCK2D")')
 
     !! close unit
@@ -382,7 +385,7 @@ contains
 
     !! compute gradients for input feature map
     do concurrent(m = 1:this%num_channels)
-       this%di(:,:,m) = merge(gradient(:, :, m), 0._real12, this%mask)
+       this%di(:,:,m) = merge(gradient(:,:,m), 0._real12, this%mask)
     end do
 
   end subroutine backward_3d
