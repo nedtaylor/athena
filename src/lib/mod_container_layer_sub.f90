@@ -9,7 +9,9 @@ submodule(container_layer) container_layer_submodule
   use input4d_layer, only: input4d_layer_type
   use conv2d_layer, only: conv2d_layer_type
   use conv3d_layer, only: conv3d_layer_type
+  use dropout_layer, only: dropout_layer_type
   use dropblock2d_layer, only: dropblock2d_layer_type
+  use dropblock3d_layer, only: dropblock3d_layer_type
   use maxpool2d_layer, only: maxpool2d_layer_type
   use maxpool3d_layer, only: maxpool3d_layer_type
   use flatten2d_layer, only: flatten2d_layer_type
@@ -36,7 +38,11 @@ contains
     type is(conv3d_layer_type)
        call this%layer%forward(previous%output)
 
+    type is(dropout_layer_type)
+       call this%layer%forward(previous%output)
     type is(dropblock2d_layer_type)
+       call this%layer%forward(previous%output)
+    type is(dropblock3d_layer_type)
        call this%layer%forward(previous%output)
 
     type is(maxpool2d_layer_type)
@@ -75,7 +81,11 @@ contains
     type is(conv3d_layer_type)
        call this%layer%backward(previous%output, gradient)
 
+    type is(dropout_layer_type)
+       call this%layer%backward(previous%output, gradient)
     type is(dropblock2d_layer_type)
+       call this%layer%backward(previous%output, gradient)
+    type is(dropblock3d_layer_type)
        call this%layer%backward(previous%output, gradient)
 
     type is(maxpool2d_layer_type)

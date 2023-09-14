@@ -3,50 +3,49 @@
 !!! Code part of the ARTEMIS group (Hepplestone research group)
 !!! Think Hepplestone, think HRG
 !!!#############################################################################
-module dropblock3d_layer
+module dropout_layer
   use constants, only: real12
   use base_layer, only: drop_layer_type
   implicit none
   
   
-  type, extends(drop_layer_type) :: dropblock3d_layer_type
+  type, extends(drop_layer_type) :: dropout_layer_type
+     !! num_masks              -- number of unique masks = number of samples in batch
+     !! idx                    -- temp index of sample (doesn't need to be accurate)
      !! keep_prob              -- typical = 0.75-0.95
      !! rate = 1 - keep_prob   -- typical = 0.05-0.25
-     !! block_size             -- width of block to drop (typical = 5)
-     !! gamma                  -- number of activation units to drop
-     integer :: block_size, half
+     integer :: idx = 0
+     integer :: num_masks
      real(real12) :: rate
-     real(real12) :: gamma
-     integer :: num_channels
-     logical, allocatable, dimension(:,:,:) :: mask
-     real(real12), allocatable, dimension(:,:,:,:) :: output
-     real(real12), allocatable, dimension(:,:,:,:) :: di ! gradient of input (i.e. delta)
+     logical, allocatable, dimension(:,:) :: mask
+     real(real12), allocatable, dimension(:) :: output
+     real(real12), allocatable, dimension(:) :: di ! gradient of input (i.e. delta)
    contains
-     procedure, pass(this) :: init => init_dropblock3d
-     procedure, pass(this) :: print => print_dropblock3d
+     procedure, pass(this) :: init => init_dropout
+     procedure, pass(this) :: print => print_dropout
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
-     procedure, private, pass(this) :: forward_4d
-     procedure, private, pass(this) :: backward_4d
-     procedure, pass(this) :: generate_mask => generate_bernoulli_mask
-  end type dropblock3d_layer_type
+     procedure, private, pass(this) :: forward_1d
+     procedure, private, pass(this) :: backward_1d
+     procedure, pass(this) :: generate_mask => generate_dropout_mask
+  end type dropout_layer_type
 
   
-  interface dropblock3d_layer_type
+  interface dropout_layer_type
      module function layer_setup( &
-          rate, block_size, &
+          rate, num_masks, &
           input_shape) result(layer)
+       integer, intent(in) :: num_masks
        real(real12), intent(in) :: rate
-       integer, intent(in) :: block_size
        integer, dimension(:), optional, intent(in) :: input_shape
-       type(dropblock3d_layer_type) :: layer
+       type(dropout_layer_type) :: layer
      end function layer_setup
-  end interface dropblock3d_layer_type
+  end interface dropout_layer_type
 
 
   private
-  public :: dropblock3d_layer_type
-  public :: read_dropblock3d_layer
+  public :: dropout_layer_type
+  public :: read_dropout_layer
 
 
 contains
@@ -56,11 +55,11 @@ contains
 !!!#############################################################################
   pure subroutine forward_rank(this, input)
     implicit none
-    class(dropblock3d_layer_type), intent(inout) :: this
+    class(dropout_layer_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
 
-    select rank(input); rank(4)
-       call forward_4d(this, input)
+    select rank(input); rank(1)
+       call forward_1d(this, input)
     end select
   end subroutine forward_rank
 !!!#############################################################################
@@ -71,13 +70,13 @@ contains
 !!!#############################################################################
   pure subroutine backward_rank(this, input, gradient)
     implicit none
-    class(dropblock3d_layer_type), intent(inout) :: this
+    class(dropout_layer_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
     real(real12), dimension(..), intent(in) :: gradient
 
-    select rank(input); rank(4)
-    select rank(gradient); rank(4)
-      call backward_4d(this, input, gradient)
+    select rank(input); rank(1)
+    select rank(gradient); rank(1)
+      call backward_1d(this, input, gradient)
     end select
     end select
   end subroutine backward_rank
@@ -93,19 +92,18 @@ contains
 !!! set up layer
 !!!#############################################################################
   module function layer_setup( &
-       rate, block_size, &
+       rate, num_masks, &
        input_shape) result(layer)
     implicit none
+    integer, intent(in) :: num_masks
     real(real12), intent(in) :: rate
-    integer, intent(in) :: block_size
     integer, dimension(:), optional, intent(in) :: input_shape
     
-    type(dropblock3d_layer_type) :: layer
+    type(dropout_layer_type) :: layer
 
 
+    layer%num_masks = num_masks
     layer%rate = rate
-    layer%block_size = block_size
-    layer%half = (layer%block_size-1)/2
 
 
     !!--------------------------------------------------------------------------
@@ -120,9 +118,9 @@ contains
 !!!#############################################################################
 !!! initialise layer
 !!!#############################################################################
-  subroutine init_dropblock3d(this, input_shape, verbose)
+  subroutine init_dropout(this, input_shape, verbose)
     implicit none
-    class(dropblock3d_layer_type), intent(inout) :: this
+    class(dropout_layer_type), intent(inout) :: this
     integer, dimension(:), intent(in) :: input_shape
     integer, optional, intent(in) :: verbose
 
@@ -142,11 +140,10 @@ contains
     !!--------------------------------------------------------------------------
     !! initialise input shape
     !!--------------------------------------------------------------------------
-    if(size(input_shape,dim=1).eq.4)then
+    if(size(input_shape,dim=1).eq.1)then
        this%input_shape = input_shape
-       this%num_channels = input_shape(4)
     else
-       stop "ERROR: invalid size of input_shape in dropblock3d, expected (4)"
+       stop "ERROR: invalid size of input_shape in dropout, expected (1)"
     end if
 
 
@@ -159,16 +156,8 @@ contains
     !!-----------------------------------------------------------------------
     !! allocate output and gradients
     !!-----------------------------------------------------------------------
-    allocate(this%output(&
-         this%output_shape(1),&
-         this%output_shape(2),&
-         this%output_shape(3), this%num_channels), &
-         source=0._real12)
-    allocate(this%di(&
-         input_shape(1),&
-         input_shape(2),&
-         input_shape(3), input_shape(3)), &
-         source=0._real12)
+    allocate(this%output(this%output_shape(1)), source=0._real12)
+    allocate(this%di(input_shape(1)), source=0._real12)
 
 
     !!-----------------------------------------------------------------------
@@ -177,11 +166,7 @@ contains
     !!-----------------------------------------------------------------------
     !! original paper uses keep_prob, we use drop_rate
     !! drop_rate = 1 - keep_prob
-    this%gamma = ( this%rate/this%block_size**3._real12 ) * &
-         input_shape(1) / (input_shape(1) - this%block_size + 1._real12) * &
-         input_shape(2) / (input_shape(2) - this%block_size + 1._real12) * &
-         input_shape(3) / (input_shape(3) - this%block_size + 1._real12)
-    allocate(this%mask(input_shape(1), input_shape(2), input_shape(3)), source=.true.)
+    allocate(this%mask(input_shape(1), this%num_masks), source=.true.)
 
 
     !!-----------------------------------------------------------------------
@@ -189,54 +174,27 @@ contains
     !!-----------------------------------------------------------------------
     call this%generate_mask()
 
-  end subroutine init_dropblock3d
+  end subroutine init_dropout
 !!!#############################################################################
 
 
 !!!#############################################################################
-!!! generate bernoulli mask
+!!! generate masks
 !!!#############################################################################
-  subroutine generate_bernoulli_mask(this)
+  subroutine generate_dropout_mask(this)
     implicit none
-    class(dropblock3d_layer_type), intent(inout) :: this
+    class(dropout_layer_type), intent(inout) :: this
+    real(real12), allocatable, dimension(:,:) :: mask_real
 
-    real(real12), allocatable, dimension(:,:,:) :: mask_real
-    integer :: i, j, k
-    integer, dimension(2) :: ilim, jlim, klim
     
-
-    !! IF seed GIVEN, INITIALISE
-    ! assume random number already seeded and don't need to again
-    allocate(mask_real(&
-         size(this%mask,1), size(this%mask,2), size(this%mask,3)))
+    !! generate masks
+    allocate(mask_real(size(this%mask,1), size(this%mask,2)))
     call random_number(mask_real)  ! Generate random values in [0..1]
+    this%mask = mask_real > this%rate
 
-    this%mask = .true. !1=keep
+    this%idx = 0
 
-    !! Apply threshold to create binary mask
-    do k = 1 + this%half, size(this%mask, dim=3) - this%half
-       do j = 1 + this%half, size(this%mask, dim=2) - this%half
-          do i = 1 + this%half, size(this%mask, dim=1) - this%half
-             if(mask_real(i, j, k).gt.this%gamma)then
-                ilim(:) = [ &
-                     max(i - this%half, lbound(this%mask,1)), &
-                     min(i + this%half, ubound(this%mask,1)) ]
-                jlim(:) = [ &
-                     max(j - this%half, lbound(this%mask,2)), &
-                     min(j + this%half, ubound(this%mask,2)) ]
-                klim(:) = [ &
-                     max(k - this%half, lbound(this%mask,3)), &
-                     min(k + this%half, ubound(this%mask,3)) ]
-                this%mask(&
-                     ilim(1):ilim(2), &
-                     jlim(1):jlim(2), &
-                     klim(1):klim(2)) = .false. !0 = drop
-             end if
-          end do
-       end do
-    end do
-
-  end subroutine generate_bernoulli_mask
+  end subroutine generate_dropout_mask
 !!!#############################################################################
 
 
@@ -248,9 +206,9 @@ contains
 !!!#############################################################################
 !!! print layer to file
 !!!#############################################################################
-  subroutine print_dropblock3d(this, file)
+  subroutine print_dropout(this, file)
     implicit none
-    class(dropblock3d_layer_type), intent(in) :: this
+    class(dropout_layer_type), intent(in) :: this
     character(*), intent(in) :: file
 
     integer :: unit
@@ -262,36 +220,36 @@ contains
 
     !! write convolution initial parameters
     !!--------------------------------------------------------------------------
-    write(unit,'("DROPBLOCK3D")')
-    write(unit,'(3X,"INPUT_SHAPE = ",4(1X,I0))') this%input_shape
+    write(unit,'("DROPOUT")')
+    write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
     write(unit,'(3X,"RATE = ",F0.9)') this%rate
-    write(unit,'(3X,"BLOCK_SIZE = ",I0)') this%block_size
-    write(unit,'("END DROPBLOCK3D")')
+    write(unit,'(3X,"NUM_MASKS = ",I0)') this%num_masks
+    write(unit,'("END DROPOUT")')
 
     !! close unit
     !!--------------------------------------------------------------------------
     close(unit)
 
-  end subroutine print_dropblock3d
+  end subroutine print_dropout
 !!!#############################################################################
 
 
 !!!#############################################################################
 !!! read layer from file
 !!!#############################################################################
-  function read_dropblock3d_layer(unit) result(layer)
+  function read_dropout_layer(unit) result(layer)
    use infile_tools, only: assign_val, assign_vec
    use misc, only: to_lower, icount
    implicit none
    integer, intent(in) :: unit
 
-   class(dropblock3d_layer_type), allocatable :: layer
+   class(dropout_layer_type), allocatable :: layer
 
    integer :: stat
    integer :: itmp1
-   integer :: block_size
+   integer :: num_masks
    real(real12) :: rate
-   integer, dimension(4) :: input_shape
+   integer, dimension(3) :: input_shape
    character(256) :: buffer, tag
 
    real(real12), allocatable, dimension(:) :: data_list
@@ -303,13 +261,13 @@ contains
       !! check for end of file
       read(unit,'(A)',iostat=stat) buffer
       if(stat.ne.0)then
-         write(0,*) "ERROR: file encountered error (EoF?) before END DROPBLOCK3D"
+         write(0,*) "ERROR: file encountered error (EoF?) before END DROPOUT"
          stop "Exiting..."
       end if
       if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
       !! check for end of convolution card
-      if(trim(adjustl(buffer)).eq."END DROPBLOCK3D")then
+      if(trim(adjustl(buffer)).eq."END DROPOUT")then
          backspace(unit)
          exit tag_loop
       end if
@@ -323,8 +281,8 @@ contains
          call assign_vec(buffer, input_shape, itmp1)
       case("RATE")
          call assign_val(buffer, rate, itmp1)
-      case("BLOCK_SIZE")
-         call assign_val(buffer, block_size, itmp1)
+      case("NUM_MASKS")
+         call assign_val(buffer, num_masks, itmp1)
       case default
          !! don't look for "e" due to scientific notation of numbers
          !! ... i.e. exponent (E+00)
@@ -340,17 +298,17 @@ contains
 
    !! set transfer activation function
 
-   layer = dropblock3d_layer_type(rate = rate, block_size = block_size, &
+   layer = dropout_layer_type(rate = rate, num_masks = num_masks, &
         input_shape = input_shape)
 
    !! check for end of layer card
    read(unit,'(A)') buffer
-   if(trim(adjustl(buffer)).ne."END DROPBLOCK3D")then
+   if(trim(adjustl(buffer)).ne."END DROPOUT")then
       write(*,*) trim(adjustl(buffer))
-      stop "ERROR: END DROPBLOCK3D not where expected"
+      stop "ERROR: END DROPOUT not where expected"
    end if
 
-  end function read_dropblock3d_layer
+  end function read_dropout_layer
 !!!#############################################################################
 
 
@@ -362,47 +320,38 @@ contains
 !!!#############################################################################
 !!! forward propagation
 !!!#############################################################################
-  pure subroutine forward_4d(this, input)
+  pure subroutine forward_1d(this, input)
     implicit none
-    class(dropblock3d_layer_type), intent(inout) :: this
-    real(real12), dimension(:,:,:,:), intent(in) :: input
+    class(dropout_layer_type), intent(inout) :: this
+    real(real12), dimension(:), intent(in) :: input
 
-    integer :: m
-
+    real(real12), dimension(size(input,1)) :: mask
     
+    
+    this%idx = this%idx + 1
     !! perform the drop operation
-    do concurrent(m = 1:this%num_channels)
-       this%output(:,:,:,m) = merge(input(:,:,:,m), 0._real12, this%mask)
-    end do
+    this%output(:) = merge(input(:), 0._real12, this%mask(:,this%idx))
 
-  end subroutine forward_4d
+  end subroutine forward_1d
 !!!#############################################################################
 
 
 !!!#############################################################################
 !!! backward propagation
 !!!#############################################################################
-  pure subroutine backward_4d(this, input, gradient)
+  pure subroutine backward_1d(this, input, gradient)
     implicit none
-    class(dropblock3d_layer_type), intent(inout) :: this
-    real(real12), dimension(:,:,:,:), intent(in) :: input
+    class(dropout_layer_type), intent(inout) :: this
+    real(real12), dimension(:), intent(in) :: input
     real(real12), &
-         dimension(&
-         this%output_shape(1),&
-         this%output_shape(2),&
-         this%output_shape(3),this%num_channels), &
-         intent(in) :: gradient
-
-    integer :: m
+         dimension(this%output_shape(1)), intent(in) :: gradient
 
 
     !! compute gradients for input feature map
-    do concurrent(m = 1:this%num_channels)
-       this%di(:,:,:,m) = merge(gradient(:,:,:,m), 0._real12, this%mask)
-    end do
+    this%di(:) = gradient(:)
 
-  end subroutine backward_4d
+  end subroutine backward_1d
 !!!#############################################################################
 
-end module dropblock3d_layer
+end module dropout_layer
 !!!#############################################################################

@@ -5,11 +5,11 @@
 !!!#############################################################################
 module dropblock2d_layer
   use constants, only: real12
-  use base_layer, only: dropblock_layer_type
+  use base_layer, only: drop_layer_type
   implicit none
   
   
-  type, extends(dropblock_layer_type) :: dropblock2d_layer_type
+  type, extends(drop_layer_type) :: dropblock2d_layer_type
      !! keep_prob              -- typical = 0.75-0.95
      !! rate = 1 - keep_prob   -- typical = 0.05-0.25
      !! block_size             -- width of block to drop (typical = 5)
@@ -252,8 +252,8 @@ contains
     !!--------------------------------------------------------------------------
     write(unit,'("DROPBLOCK2D")')
     write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
-    write(unit,'(3X,"RATE =",1X)') this%rate
-    write(unit,'(3X,"BLOCK_SIZE =",1X)') this%block_size
+    write(unit,'(3X,"RATE = ",F0.9)') this%rate
+    write(unit,'(3X,"BLOCK_SIZE = ",I0)') this%block_size
     write(unit,'("END DROPBLOCK2D")')
 
     !! close unit
@@ -276,7 +276,7 @@ contains
    class(dropblock2d_layer_type), allocatable :: layer
 
    integer :: stat
-   integer :: i, j, k, c, itmp1
+   integer :: itmp1
    integer :: block_size
    real(real12) :: rate
    integer, dimension(3) :: input_shape
