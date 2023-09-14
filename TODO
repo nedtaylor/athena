@@ -5,6 +5,8 @@ TODO list:
 - Make dropout, block_size, and keep_prob as derived types (easier for namelist)
 - Make convolution functions in mod_misc_convolution.f90
 - Add padding to maxpool methods
+- Add more initialiser methods
+  !! https://keras.io/api/layers/initializers/ 
 
 
 USEFUL LINKS TO CONSIDER

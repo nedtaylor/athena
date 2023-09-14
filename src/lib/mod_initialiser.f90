@@ -9,7 +9,9 @@ module initialiser
   use initialiser_glorot, only: glorot_uniform, glorot_normal
   use initialiser_he, only: he_uniform, he_normal
   use initialiser_lecun, only: lecun_uniform, lecun_normal
+  use initialiser_ones, only: ones
   use initialiser_zeros, only: zeros
+  use initialiser_ident, only: ident
   implicit none
 
 
@@ -17,16 +19,6 @@ module initialiser
 
   public :: initialiser_setup, get_default_initialiser
 
-!!!!! ALSO, HAVE THE CV, PL, FC, etc, LAYERS AS CLASSES
-!!!!! ... they may be able to be appended on to each other
-
-  
-  !! make an initialiser that takes in an assumed rank
-  !! it then does product(shape(weight)) OR size(weight)
-  !! could always use select rank(x) statement if needed
-  !! https://keras.io/api/layers/initializers/
-  
-  
 
 contains
 
@@ -51,7 +43,7 @@ contains
 
 
     !!--------------------------------------------------------------------------
-    !! 
+    !! set default initialiser based on activation
     !!--------------------------------------------------------------------------
     if(trim(activation).eq."selu")then
        name = "lecun_normal"
@@ -89,11 +81,14 @@ contains
        initialiser = he_normal
     case("lecun_uniform")
        initialiser = lecun_uniform
-       !initialiser%initialise() => lecun_uniform()
     case("lecun_normal")
        initialiser = lecun_normal
+    case("ones")
+       initialiser = ones
     case("zeros")
        initialiser = zeros
+    case("ident")
+       initialiser = ident
     case default
        if(present(error))then
           error = -1
