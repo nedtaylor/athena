@@ -20,6 +20,9 @@ module athena
   use conv2d_layer,    only: conv2d_layer_type, read_conv2d_layer
   use conv3d_layer,    only: conv3d_layer_type, read_conv3d_layer
 
+  !! dropout layer types
+  use dropblock2d_layer, only: dropblock2d_layer_type, read_dropblock2d_layer
+
   !! pooling layer types
   use maxpool2d_layer, only: maxpool2d_layer_type, read_maxpool2d_layer
   use maxpool3d_layer, only: maxpool3d_layer_type, read_maxpool3d_layer

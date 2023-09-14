@@ -29,6 +29,9 @@ module network
   use conv2d_layer,    only: conv2d_layer_type, read_conv2d_layer
   use conv3d_layer,    only: conv3d_layer_type, read_conv3d_layer
 
+  !! dropout layer types
+  use dropblock2d_layer, only: dropblock2d_layer_type, read_dropblock2d_layer
+
   !! pooling layer types
   use maxpool2d_layer, only: maxpool2d_layer_type, read_maxpool2d_layer
   use maxpool3d_layer, only: maxpool3d_layer_type, read_maxpool3d_layer
@@ -135,6 +138,8 @@ contains
          call this%add(read_conv2d_layer(unit))
       case("CONV3D")
          call this%add(read_conv3d_layer(unit))
+      case("DROPBLOCK2D")
+         call this%add(read_dropblock2d_layer(unit))
       case("MAXPOOL2D")
          call this%add(read_maxpool2d_layer(unit))
       case("MAXPOOL3D")
@@ -179,6 +184,8 @@ contains
        name = "flat"
     type is(flatten3d_layer_type)
        name = "flat"
+    type is(dropblock2d_layer_type)
+       name = "drop"
     type is(maxpool2d_layer_type)
        name = "pool"
     type is(maxpool3d_layer_type)
@@ -549,6 +556,9 @@ contains
        type is(conv3d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
 
+       type is(dropblock2d_layer_type)
+          call this%model(i)%backward(this%model(i-1),next%di)
+
        type is(maxpool2d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
        type is(maxpool3d_layer_type)
@@ -571,7 +581,7 @@ contains
 !!!#############################################################################
 !!! update weights and biases
 !!!#############################################################################
-  pure subroutine update(this, batch_size)
+  subroutine update(this, batch_size)
     implicit none
     class(network_type), intent(inout) :: this
     integer, intent(in) :: batch_size
@@ -585,6 +595,8 @@ contains
        select type(current => this%model(i)%layer)
        class is(learnable_layer_type)
           call current%update(this%optimiser, batch_size)
+       class is(dropblock2d_layer_type)
+          call current%generate_mask()
        end select
     end do
 
