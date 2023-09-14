@@ -330,7 +330,8 @@ contains
     
     this%idx = this%idx + 1
     !! perform the drop operation
-    this%output(:) = merge(input(:), 0._real12, this%mask(:,this%idx))
+    this%output(:) = merge(input(:), 0._real12, this%mask(:,this%idx)) / &
+       ( 1._real12 - this%rate )
 
   end subroutine forward_1d
 !!!#############################################################################
