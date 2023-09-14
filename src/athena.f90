@@ -22,6 +22,7 @@ module athena
 
   !! dropout layer types
   use dropblock2d_layer, only: dropblock2d_layer_type, read_dropblock2d_layer
+  use dropblock3d_layer, only: dropblock3d_layer_type, read_dropblock3d_layer
 
   !! pooling layer types
   use maxpool2d_layer, only: maxpool2d_layer_type, read_maxpool2d_layer

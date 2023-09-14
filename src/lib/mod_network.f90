@@ -31,6 +31,7 @@ module network
 
   !! dropout layer types
   use dropblock2d_layer, only: dropblock2d_layer_type, read_dropblock2d_layer
+  use dropblock3d_layer, only: dropblock3d_layer_type, read_dropblock3d_layer
 
   !! pooling layer types
   use maxpool2d_layer, only: maxpool2d_layer_type, read_maxpool2d_layer
@@ -140,6 +141,8 @@ contains
          call this%add(read_conv3d_layer(unit))
       case("DROPBLOCK2D")
          call this%add(read_dropblock2d_layer(unit))
+      case("DROPBLOCK3D")
+         call this%add(read_dropblock3d_layer(unit))
       case("MAXPOOL2D")
          call this%add(read_maxpool2d_layer(unit))
       case("MAXPOOL3D")
@@ -185,6 +188,8 @@ contains
     type is(flatten3d_layer_type)
        name = "flat"
     type is(dropblock2d_layer_type)
+       name = "drop"
+    type is(dropblock3d_layer_type)
        name = "drop"
     type is(maxpool2d_layer_type)
        name = "pool"
@@ -558,6 +563,8 @@ contains
 
        type is(dropblock2d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
+       type is(dropblock3d_layer_type)
+          call this%model(i)%backward(this%model(i-1),next%di)
 
        type is(maxpool2d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
@@ -596,6 +603,8 @@ contains
        class is(learnable_layer_type)
           call current%update(this%optimiser, batch_size)
        class is(dropblock2d_layer_type)
+          call current%generate_mask()
+       class is(dropblock3d_layer_type)
           call current%generate_mask()
        end select
     end do
