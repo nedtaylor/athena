@@ -5,11 +5,11 @@
 !!!#############################################################################
 module dropblock3d_layer
   use constants, only: real12
-  use base_layer, only: base_layer_type
+  use base_layer, only: dropblock_layer_type
   implicit none
   
   
-  type, extends(base_layer_type) :: dropblock3d_layer_type
+  type, extends(dropblock_layer_type) :: dropblock3d_layer_type
      !! keep_prob              -- typical = 0.75-0.95
      !! rate = 1 - keep_prob   -- typical = 0.05-0.25
      !! block_size             -- width of block to drop (typical = 5)

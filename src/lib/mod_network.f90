@@ -17,7 +17,7 @@ module network
        comp_loss_deriv => compute_loss_derivative
 
   use base_layer,      only: base_layer_type, &
-       input_layer_type, learnable_layer_type
+       input_layer_type, dropblock_layer_type, learnable_layer_type
   use container_layer, only: container_layer_type
 
   !! input layer types
@@ -187,9 +187,7 @@ contains
        name = "flat"
     type is(flatten3d_layer_type)
        name = "flat"
-    type is(dropblock2d_layer_type)
-       name = "drop"
-    type is(dropblock3d_layer_type)
+    class is(dropblock_layer_type)
        name = "drop"
     type is(maxpool2d_layer_type)
        name = "pool"
@@ -602,9 +600,7 @@ contains
        select type(current => this%model(i)%layer)
        class is(learnable_layer_type)
           call current%update(this%optimiser, batch_size)
-       class is(dropblock2d_layer_type)
-          call current%generate_mask()
-       class is(dropblock3d_layer_type)
+       class is(dropblock_layer_type)
           call current%generate_mask()
        end select
     end do
