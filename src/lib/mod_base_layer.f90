@@ -73,6 +73,22 @@ module base_layer
 
 
 !!!-----------------------------------------------------------------------------
+!!! dropout derived extended type
+!!!-----------------------------------------------------------------------------
+  type, abstract, extends(base_layer_type) :: drop_layer_type
+   contains
+     procedure(generate_mask), deferred, pass(this) :: generate_mask
+  end type drop_layer_type
+
+  abstract interface
+     subroutine generate_mask(this)
+       import :: drop_layer_type
+       class(drop_layer_type), intent(inout) :: this
+     end subroutine generate_mask
+  end interface
+
+
+!!!-----------------------------------------------------------------------------
 !!! learnable derived extended type
 !!!-----------------------------------------------------------------------------
   type, abstract, extends(base_layer_type) :: learnable_layer_type
@@ -95,6 +111,7 @@ module base_layer
 
   public :: base_layer_type
   public :: input_layer_type
+  public :: drop_layer_type
   public :: learnable_layer_type
 
 

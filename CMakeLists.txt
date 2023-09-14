@@ -60,6 +60,9 @@ set(LIBS
     mod_base_layer.f90
     mod_conv2d_layer.f90
     mod_conv3d_layer.f90
+    mod_dropout_layer.f90
+    mod_dropblock2d_layer.f90
+    mod_dropblock3d_layer.f90
     mod_maxpool2d_layer.f90
     mod_maxpool3d_layer.f90
     mod_full_layer.f90

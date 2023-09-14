@@ -119,6 +119,8 @@ program ConvolutionalNeuralNetwork
            padding=padding_method, &
            calc_input_gradients = .false., &
            activation_function = "relu"))
+     !call network%add(dropblock2d_layer_type( &
+     !     rate = 0.25, block_size = 5))
      call network%add(maxpool2d_layer_type(&
            pool_size = 2, stride = 2))
      call network%add(full_layer_type( &

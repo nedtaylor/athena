@@ -10,87 +10,9 @@ module misc_ml
   public :: step_decay
   public :: reduce_lr_on_plateau
 
-  public :: drop_block, generate_bernoulli_mask
 
 
 contains
-
-!!!########################################################################
-!!! DropBlock method for dropping random blocks of data from an image
-!!!########################################################################
-!!! https://proceedings.neurips.cc/paper/2018/file/7edcfb2d8f6a659ef4cd1e6c9b6d7079-Paper.pdf
-!!! https://pub.towardsai.net/dropblock-a-new-regularization-technique-e926bbc74adb
-!!! input = input data
-!!!         ... channels are provided independently
-!!!         ... this tries to prevent the network from relying too ...
-!!!         ... heavily one one set of activations
-!!! keep_prob   = probability of keeping a unit, as in traditional dropout
-!!!               ... (default = 0.75-0.95)
-!!! block_size  = width of block (default = 5)
-!!! gamma       = how many activation units to drop
-  subroutine drop_block(input, mask, block_size)
-    implicit none
-    real(real12), dimension(:,:), intent(inout) :: input
-    logical, dimension(:,:), intent(in) :: mask
-    integer, intent(in) :: block_size
-
-    integer :: i, j, x, y, start_idx, end_idx, mask_size
-
-    mask_size = size(mask, dim=1)
-    start_idx = -(block_size - 1)/2 !centre should be zero
-    end_idx = (block_size -1)/2 + (1 - mod(block_size,2)) !centre should be zero
-
-    ! gamma = (1 - keep_prob)/block_size**2 * input_size**2/(input_size - block_size + 1)**2
-
-    do j = 1, mask_size
-       do i = 1, mask_size
-          if (.not.mask(i, j))then
-             do x=start_idx,end_idx,1
-                do y=start_idx,end_idx,1
-                   input(i - start_idx + x, j - start_idx + y) = 0._real12
-                end do
-             end do
-          endif
-       end do
-    end do
-
-    input = input * size(mask,dim=1) * size(mask,dim=2) / count(mask)
-
-  end subroutine drop_block
-!!!########################################################################
-
-
-!!!########################################################################
-!!! 
-!!!########################################################################
-  subroutine generate_bernoulli_mask(mask, gamma, seed)
-    implicit none
-    logical, dimension(:,:), intent(out) :: mask
-    real, intent(in) :: gamma
-    integer, optional, intent(in) :: seed
-    real(real12), allocatable, dimension(:,:) :: mask_real
-    integer :: i, j
-
-    !! IF seed GIVEN, INITIALISE
-    ! assume random number already seeded and don't need to again
-    !call random_seed()  ! Initialize random number generator
-    allocate(mask_real(size(mask,1), size(mask,2)))
-    call random_number(mask_real)  ! Generate random values in [0,1)
-
-    !! Apply threshold to create binary mask
-    do j = 1, size(mask, dim=2)
-       do i = 1, size(mask, dim=1)
-          if(mask_real(i, j).gt.gamma)then
-             mask(i, j) = .false. !0 = drop
-          else
-             mask(i, j) = .true.  !1 = keep
-          end if
-       end do
-    end do
-    
-  end subroutine generate_bernoulli_mask
-!!!########################################################################
-
 
 !!!########################################################################
 !!! return width of padding from kernel/filter size
