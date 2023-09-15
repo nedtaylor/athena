@@ -103,7 +103,7 @@ if (CMAKE_Fortran_COMPILER MATCHES ".*gfortran.*" OR CMAKE_Fortran_COMPILER MATC
     set(PPFLAGS -cpp)
     set(MPFLAGS -fopenmp)
     set(WARNFLAGS -Wall)
-    set(DEVFLAGS -fbacktrace -fcheck=all -fbounds-check -Og)
+    set(DEVFLAGS -g -fbacktrace -fcheck=all -fbounds-check -Og)
     set(DEBUGFLAGS -fbounds-check)
     set(MEMFLAGS -mcmodel=large)
     set(OPTIMFLAGS -O3 -march=native)
