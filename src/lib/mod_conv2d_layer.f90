@@ -704,10 +704,10 @@ contains
     !! ... whilst the starting index for input is 1
     !!--------------------------------------------------------------------------
     do concurrent( &
-         y=-this%hlf(2):end_idx(2):1, &
-         x=-this%hlf(1):end_idx(1):1, &
+         l=1:this%num_filters, &
          m=1:this%num_channels, &
-         l=1:this%num_filters &
+         y=-this%hlf(2):end_idx(2):1, &
+         x=-this%hlf(1):end_idx(1):1 &
          )
        this%dw(x,y,m,l) = this%dw(x,y,m,l) + &
             sum(grad_dz(:,:,l) * &
