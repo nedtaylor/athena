@@ -463,33 +463,30 @@ contains
     real(real12), dimension(this%num_inputs,1), intent(in) :: input
     real(real12), dimension(this%num_outputs), intent(in) :: gradient
 
-    real(real12), dimension(1,this%num_outputs) :: delta
+    real(real12), dimension(this%num_outputs,1) :: delta
     real(real12), dimension(this%num_inputs, this%num_outputs) :: dw
 
-
-    real(real12), dimension(1) :: bias_diff
-    bias_diff = this%transfer%differentiate([1._real12])
 
     !! the delta values are the error multipled by the derivative ...
     !! ... of the transfer function
     !! delta(l) = g'(a) * dE/dI(l)
     !! delta(l) = differential of activation * error from next layer
-    delta(1,:) = gradient * this%transfer%differentiate(this%z)
+    delta(:,1) = gradient * this%transfer%differentiate(this%z)
 
     !! partial derivatives of error wrt weights
     !! dE/dW = o/p(l-1) * delta
-    dw = matmul(input, delta)
+    dw = matmul(input, transpose(delta))
 
     !! the errors are summed from the delta of the ...
     !! ... 'child' node * 'child' weight
     !! dE/dI(l-1) = sum(weight(l) * delta(l))
     !! this prepares dE/dI for when it is passed into the previous layer
-    this%di = matmul(this%weight(:this%num_inputs,:), delta(1,:))
+    this%di = matmul(this%weight(:this%num_inputs,:), delta(:,1))
 
     !! sum weights and biases errors to use in batch gradient descent
-    this%dw(:this%num_inputs,:) = this%dw(:this%num_inputs,:) + dw
-    this%dw(this%num_inputs+1,:) = this%dw(this%num_inputs+1,:) + delta(1,:) * &
-         bias_diff(1)
+    this%dw(:this%num_inputs,:)  = this%dw(:this%num_inputs,:)  + dw
+    this%dw(this%num_inputs+1,:) = this%dw(this%num_inputs+1,:) + delta(:,1) * &
+         this%transfer%differentiate([1._real12])
 
   end subroutine backward_1d
 !!!#############################################################################
