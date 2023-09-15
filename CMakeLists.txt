@@ -15,7 +15,7 @@ set( LIB_NAME ${PROJECT_NAME} )
 set( PROJECT_DESCRIPTION
   "Fortran neural network" )
 set( PROJECT_URL "https://https://git.exeter.ac.uk/hepplestone/athena" )
-set( CMAKE_CONFIGURATION_TYPES "Release" "Parallel" "Serial" "Dev" "Debug" )
+set( CMAKE_CONFIGURATION_TYPES "Release" "Parallel" "Serial" "Dev" "Debug" "Parallel_Dev" )
 set( CMAKE_BUILD_TYPE "Release"
   CACHE STRING "Select which configuration to build." )
 
@@ -159,3 +159,5 @@ target_compile_options(athena PUBLIC "$<$<CONFIG:Release>:${MPFLAGS}>")
 target_compile_options(athena PUBLIC "$<$<CONFIG:Parallel>:${MPFLAGS}>")
 target_compile_options(athena PUBLIC "$<$<CONFIG:Dev>:${DEVFLAGS}>")
 target_compile_options(athena PUBLIC "$<$<CONFIG:Debug>:${DEBUGFLAGS}>")
+target_compile_options(athena PUBLIC "$<$<CONFIG:Parallel_Dev>:${MPFLAGS}>")
+target_compile_options(athena PUBLIC "$<$<CONFIG:Parallel_Dev>:${DEVFLAGS}>")
