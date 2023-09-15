@@ -756,7 +756,7 @@ contains
              y_true(:,:) = output(:,start_index:end_index:1)
           end select
 
-          
+
           !!--------------------------------------------------------------------
           !! sample loop
           !! ... test each sample and get gradients and losses from each
@@ -766,7 +766,8 @@ contains
              !! Forward pass
              !!-----------------------------------------------------------------
              if(present(addit_input).and.present(addit_layer))then
-                call this%forward(get_sample(input,sample),addit_input(:,sample),5)
+                call this%forward(get_sample(input,sample),&
+                     addit_input(:,sample),addit_layer)
              else
                 call this%forward(get_sample(input,sample))
              end if
@@ -821,7 +822,7 @@ contains
 
           !! Check metric convergence
           !!--------------------------------------------------------------------
-          do i=1,size(this%metrics,dim=1)
+          do i = 1, size(this%metrics,dim=1)
              call this%metrics(i)%check(t_plateau, converged)
              if(converged.ne.0)then
                 exit epoch_loop
@@ -839,7 +840,7 @@ contains
 
           !! print batch results
           !!--------------------------------------------------------------------
-101       if(abs(t_verb).gt.0.and.&
+          if(abs(t_verb).gt.0.and.&
                (batch.eq.1.or.mod(batch,t_batch_print).eq.0.E0))then
              write(6,'("epoch=",I0,", batch=",I0,&
                   &", learning_rate=",F0.3,", loss=",F0.3,", accuracy=",F0.3)')&
@@ -848,15 +849,15 @@ contains
           end if
           
           
-!!!!!! TESTING
-!!!           if(batch.gt.200)then
-!!!              time_old = time
-!!!              call system_clock(time)
-!!!              write(*,'("time check: ",F8.3," seconds")') real(time-time_old)/clock_rate
-!!!              return
-!!!              stop "THIS IS FOR TESTING PURPOSES"
-!!!           end if
-!!!!!!
+!!! TESTING
+           if(batch.gt.200)then
+              time_old = time
+              call system_clock(time)
+              write(*,'("time check: ",F8.3," seconds")') real(time-time_old)/clock_rate
+              return
+              stop "THIS IS FOR TESTING PURPOSES"
+           end if
+!!!
 
 
           !! time check
