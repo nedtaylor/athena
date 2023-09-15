@@ -460,12 +460,16 @@ contains
   pure subroutine backward_1d(this, input, gradient)
     implicit none
     class(full_layer_type), intent(inout) :: this
-    real(real12), dimension(this%num_inputs,1), intent(in) :: input
+    real(real12), dimension(this%num_inputs, 1), intent(in) :: input
     real(real12), dimension(this%num_outputs), intent(in) :: gradient
 
-    real(real12), dimension(this%num_outputs,1) :: delta
+    real(real12), dimension(this%num_outputs, 1) :: delta
     real(real12), dimension(this%num_inputs, this%num_outputs) :: dw
 
+    real(real12), dimension(1) :: bias_diff
+
+
+    bias_diff = this%transfer%differentiate([1._real12])
 
     !! the delta values are the error multipled by the derivative ...
     !! ... of the transfer function
@@ -486,7 +490,7 @@ contains
     !! sum weights and biases errors to use in batch gradient descent
     this%dw(:this%num_inputs,:)  = this%dw(:this%num_inputs,:)  + dw
     this%dw(this%num_inputs+1,:) = this%dw(this%num_inputs+1,:) + delta(:,1) * &
-         this%transfer%differentiate([1._real12])
+         bias_diff(1)
 
   end subroutine backward_1d
 !!!#############################################################################
