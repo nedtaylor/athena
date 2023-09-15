@@ -36,6 +36,8 @@ module conv2d_layer
      procedure, pass(this) :: update
      procedure, private, pass(this) :: forward_3d
      procedure, private, pass(this) :: backward_3d
+
+     procedure, pass(this) :: reduce => layer_reduction
   end type conv2d_layer_type
 
   
@@ -68,6 +70,29 @@ module conv2d_layer
 
 
 contains
+
+!!!#############################################################################
+!!! layer reduction
+!!!#############################################################################
+  subroutine layer_reduction(this, rhs)
+    implicit none
+    class(conv2d_layer_type), intent(inout) :: this
+    class(learnable_layer_type), intent(in) :: rhs
+
+    select type(rhs)
+    class is(conv2d_layer_type)
+       this%db = this%db + rhs%db
+       this%dw = this%dw + rhs%dw
+    end select
+
+  end subroutine  layer_reduction
+!!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
 
 !!!#############################################################################
 !!! forward propagation assumed rank handler

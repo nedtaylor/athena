@@ -18,7 +18,7 @@ module network
 
   use base_layer,      only: base_layer_type, &
        input_layer_type, drop_layer_type, learnable_layer_type
-  use container_layer, only: container_layer_type
+  use container_layer, only: container_layer_type, container_reduction
 
   !! input layer types
   use input1d_layer,   only: input1d_layer_type
@@ -67,6 +67,10 @@ module network
 
      procedure, pass(this) :: forward => forward_1d    !! TEMPORARY
      procedure, pass(this) :: backward => backward_1d  !! TEMPORARY
+
+     !procedure, pass(this) :: reduce => network_reduction
+     procedure :: add_t_t => network_add  !t = type, r = real, i = int
+     generic :: operator(+) => add_t_t !, public
   end type network_type
 
   
@@ -78,9 +82,97 @@ module network
   private
 
   public :: network_type
-
+  public :: network_reduction
+  public :: network_copy
 
 contains
+
+!!!#############################################################################
+!!! network addition
+!!!#############################################################################
+  subroutine network_reduction(this, rhs)
+    implicit none
+    type(network_type), intent(inout) :: this
+    type(network_type), intent(in) :: rhs
+
+    integer :: i
+
+    write(*,*) "reducing"
+
+  end subroutine network_reduction
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! network addition
+!!!#############################################################################
+  subroutine network_copy(lhs, rhs)
+    implicit none
+    type(network_type), intent(inout) :: lhs
+    type(network_type), intent(in) :: rhs
+
+    integer :: i
+
+    write(*,*) "FOUND?"
+    write(*,*) "FOUND",rhs%accuracy, size(rhs%model)
+    write(*,*) "allocated?", allocated(rhs%model)
+    write(*,*) "allocated?l", allocated(lhs%model), lhs%loss
+    lhs%accuracy = rhs%accuracy
+    !lhs%loss = rhs%loss
+    !lhs%num_layers = rhs%num_layers
+    !lhs%num_outputs = rhs%num_outputs
+    !lhs%optimiser = rhs%optimiser
+    !lhs%metrics = rhs%metrics
+    
+    write(*,*) "past"
+    if(allocated(lhs%model)) deallocate(lhs%model)
+    allocate(lhs%model(size(rhs%model)))
+    write(*,*) "hey", size(lhs%model)
+    do i=1,size(rhs%model)
+       lhs%model(i)%name = rhs%model(i)%name
+       write(*,*) "hee", lhs%model(1)%name
+       allocate(lhs%model(i)%layer, source = rhs%model(i)%layer)
+    end do
+    
+  end subroutine network_copy
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! network addition
+!!!#############################################################################
+  function network_add(a, b) result(output)
+    implicit none
+    class(network_type), intent(in) :: a, b
+    type(network_type) :: output
+
+    integer :: i
+
+    write(*,*) "in here somehow"
+    output = a
+    select case(allocated(output%model))
+    case(.true.)
+       do i = 1, size(output%model)
+          select type(layer_out => output%model(i)%layer)
+          !type is(conv2d_layer_type)
+          !   select type(layer_b => b%model(i)%layer)
+          !   type is(conv2d_layer_type)
+          !      output%model(i) = output%model(i) + b%model(i)
+          !   end select
+
+          type is(full_layer_type)
+             select type(layer_b => b%model(i)%layer)
+             type is(full_layer_type)
+                output%model(i)%layer = layer_out + layer_b
+             end select
+          end select
+       end do
+    end select
+
+
+  end function network_add
+!!!#############################################################################
+
 
 !!!#############################################################################
 !!! print network to file
@@ -561,24 +653,24 @@ contains
           call this%model(i)%backward(this%model(i-1),next%di)
        type is(conv3d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
-
+    
        type is(dropout_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
        type is(dropblock2d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
        type is(dropblock3d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
-
+    
        type is(maxpool2d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
        type is(maxpool3d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
-
+    
        type is(flatten2d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
        type is(flatten3d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
-
+    
        type is(full_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
        end select
@@ -660,6 +752,24 @@ contains
 
     integer :: i, l, time, time_old, clock_rate
 
+#ifdef _OPENMP
+    real(real12), allocatable, dimension(:,:) :: input_slice, addit_input_slice
+#endif
+
+!!  !$omp declare reduction(network_reduce:network_type:omp_out%reduce(omp_in)) &
+!!  !$omp& initializer(omp_priv = omp_orig)
+    !$omp declare reduction(network_reduction:network_type:network_reduction(omp_out, omp_in)) &
+    !$omp& initializer(network_copy(omp_priv,omp_orig))
+
+    !$omp declare reduction(container_reduction:container_layer_type:container_reduction(omp_out, omp_in)) &
+    !$omp& initializer(omp_priv = omp_orig)
+
+!!! NEED TO MOVE THIS OUT OF HERE
+!#ifdef _OPENMP
+!    call omp_num_threads(num_threads)
+!#endif
+
+
 
 !!!-----------------------------------------------------------------------------
 !!! initialise optional arguments
@@ -715,6 +825,30 @@ contains
      batch_order(batch) = batch
   end do
 
+
+!!!-----------------------------------------------------------------------------
+!!! set up parallel samples slices
+!!!-----------------------------------------------------------------------------
+#ifdef _OPENMP
+  select rank(input)
+  rank(2)
+     allocate(input_slice(&
+          size(input,1),&
+          batch_size))
+  rank(4)
+     allocate(input_slice(&
+          size(input,1)*size(input,2)*size(input,3),&
+          batch_size))
+  rank(5)
+     allocate(input_slice(&
+          size(input,1)*size(input,2)*size(input,3)*size(input,4),&
+          batch_size))
+  end select
+  if(present(addit_input))then
+     allocate(addit_input_slice(size(addit_input,1),batch_size))
+  end if
+#endif
+
     
 !!!-----------------------------------------------------------------------------
 !!! query system clock
@@ -756,43 +890,87 @@ contains
              y_true(:,:) = output(:,start_index:end_index:1)
           end select
 
-
+#ifdef _OPENMP
+          do sample=start_index,end_index,1
+             input_slice(:,sample - start_index + 1) = get_sample(input, sample)
+          end do
+          if(present(addit_input))then
+             addit_input_slice(:,:) = addit_input(:,start_index:end_index)
+          end if
+          start_index = 1
+          end_index = batch_size
+#endif
+          write(*,*) "doh"
+          write(*,*) "BEFORE",this%model(1)%name
+          
+          
+          !$OMP PARALLEL DO & !! ORDERED
+          !$OMP& DEFAULT(NONE) &
+          !$OMP& SHARED(start_index, end_index) &
+          !$OMP& SHARED(input_slice) &
+          !$OMP& SHARED(addit_input_slice, addit_layer) &
+          !$OMP& SHARED(y_pred) &
+          !$OMP& SHARED(y_true) &
+          !$OMP& SHARED(addit_input) &
+          !$OMP& PRIVATE(sample) &
+          !$OMP& REDUCTION(network_reduction:this)
           !!--------------------------------------------------------------------
           !! sample loop
           !! ... test each sample and get gradients and losses from each
           !!--------------------------------------------------------------------
-          train_loop: do concurrent(sample=start_index:end_index:1)
-                       
-             !! Forward pass
-             !!-----------------------------------------------------------------
-             if(present(addit_input).and.present(addit_layer))then
-                call this%forward(get_sample(input,sample),&
-                     addit_input(:,sample),addit_layer)
-             else
-                call this%forward(get_sample(input,sample))
-             end if
-
-!!! SET UP LOSS TO APPLY A NORMALISER BY DEFAULT IF SOFTMAX NOT PREVIOUS
-!!! (this is what keras does)
-!!! ... USE current%transfer%name TO DETERMINE
-!!! https://www.v7labs.com/blog/cross-entropy-loss-guide
-!!! https://datascience.stackexchange.com/questions/73093/what-does-from-logits-true-do-in-sparsecategoricalcrossentropy-loss-function
-!!! https://math.stackexchange.com/questions/4367458/derivate-of-the-the-negative-log-likelihood-with-composition
-
-             !! Backward pass
-             !!-----------------------------------------------------------------
-             call this%backward(y_true(:,sample-start_index+1))
-
-             !! store predicted output
-             !!-----------------------------------------------------------------
-             select type(current => this%model(this%num_layers)%layer)
-             type is(full_layer_type)
-                y_pred(:,sample-start_index+1) = current%output
-             end select
+          train_loop: do sample=start_index,end_index,1!concurrent(sample=start_index:end_index:1)
+             write(*,*) "duh"
+             write(*,*) "LOOK",this%model(1)%name
+!             write(*,*) "dee"
+!
+!             write(*,*) "test0", sample, size(y_true,2)
+!             !! Forward pass
+!             !!-----------------------------------------------------------------
+!             if(present(addit_input).and.present(addit_layer))then
+!#ifdef _OPENMP
+!                call this%forward(input_slice(:,sample),&
+!                     addit_input_slice(:,sample),addit_layer)
+!             else
+!                call this%forward(input_slice(:,sample))
+!#else
+!                call this%forward(get_sample(input,sample),&
+!                     addit_input(:,sample),addit_layer)
+!             else
+!                call this%forward(get_sample(input,sample))
+!#endif
+!             end if
+!
+!!!! SET UP LOSS TO APPLY A NORMALISER BY DEFAULT IF SOFTMAX NOT PREVIOUS
+!!!! (this is what keras does)
+!!!! ... USE current%transfer%name TO DETERMINE
+!!!! https://www.v7labs.com/blog/cross-entropy-loss-guide
+!!!! https://datascience.stackexchange.com/questions/73093/what-does-from-logits-true-do-in-sparsecategoricalcrossentropy-loss-function
+!!!! https://math.stackexchange.com/questions/4367458/derivate-of-the-the-negative-log-likelihood-with-composition
+!
+!             !! Backward pass
+!             !!-----------------------------------------------------------------
+!#ifdef _OPENMP
+!             call this%backward(y_true(:,sample))
+!#else
+!             call this%backward(y_true(:,sample-start_index+1))
+!#endif
+!
+!             !! store predicted output
+!             !!-----------------------------------------------------------------
+!             select type(current => this%model(this%num_layers)%layer)
+!             type is(full_layer_type)
+!#ifdef _OPENMP
+!                y_pred(:,sample) = current%output
+!#else
+!                y_pred(:,sample-start_index+1) = current%output
+!#endif
+!             end select
 
           end do train_loop
+          !$OMP END PARALLEL DO
 
 
+          write(*,*) "test3"
           !! compute loss and accuracy (for monitoring)
           !!-------------------------------------------------------------------
           batch_loss = 0._real12

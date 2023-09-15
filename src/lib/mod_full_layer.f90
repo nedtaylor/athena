@@ -29,6 +29,10 @@ module full_layer
      procedure, pass(this) :: update
      procedure, private, pass(this) :: forward_1d
      procedure, private, pass(this) :: backward_1d
+
+     procedure, pass(this) :: reduce => layer_reduction
+     procedure :: add_t_t => layer_add  !t = type, r = real, i = int
+     generic :: operator(+) => add_t_t !, public
   end type full_layer_type
 
 
@@ -56,6 +60,43 @@ module full_layer
 
 
 contains
+
+!!!#############################################################################
+!!! layer reduction
+!!!#############################################################################
+  subroutine layer_reduction(this, rhs)
+    implicit none
+    class(full_layer_type), intent(inout) :: this
+    class(learnable_layer_type), intent(in) :: rhs
+
+    select type(rhs)
+    type is(full_layer_type)
+       this%dw = this%dw + rhs%dw
+    end select
+
+  end subroutine  layer_reduction
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! layer addition
+!!!#############################################################################
+  function layer_add(a, b) result(output)
+    implicit none
+    class(full_layer_type), intent(in) :: a, b
+    type(full_layer_type), allocatable :: output
+
+    output = a 
+    output%dw = output%dw + b%dw
+
+  end function layer_add
+!!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
 
 !!!#############################################################################
 !!! forward propagation assumed rank handler

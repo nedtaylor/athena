@@ -95,6 +95,7 @@ module base_layer
      character(len=14) :: kernel_initialiser='', bias_initialiser=''
    contains
      procedure(update), deferred, pass(this) :: update
+     procedure(layer_reduction), deferred, pass(this) :: reduce
   end type learnable_layer_type
 
   abstract interface
@@ -104,6 +105,14 @@ module base_layer
        type(optimiser_type), intent(in) :: optimiser
        integer, optional, intent(in) :: batch_size
      end subroutine update
+  end interface
+
+  abstract interface
+     subroutine layer_reduction(this, rhs)
+       import :: learnable_layer_type
+       class(learnable_layer_type), intent(inout) :: this
+       class(learnable_layer_type), intent(in) :: rhs
+     end subroutine layer_reduction
   end interface
 
 

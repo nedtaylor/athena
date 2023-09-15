@@ -104,6 +104,16 @@ contains
 
   end subroutine backward
 
+  
+  subroutine container_reduction(this, rhs)
+    implicit none
+    class(container_layer_type), intent(inout) :: this
+    class(container_layer_type), intent(in) :: rhs
+
+    write(*,*) "GOT HERE"
+
+  end subroutine container_reduction
+
 
 end submodule container_layer_submodule
 !!!#############################################################################
