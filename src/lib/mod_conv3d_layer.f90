@@ -38,6 +38,8 @@ module conv3d_layer
      procedure, private, pass(this) :: backward_4d
 
      procedure, pass(this) :: reduce => layer_reduction
+     procedure :: add_t_t => layer_add  !t = type, r = real, i = int
+     generic :: operator(+) => add_t_t !, public
   end type conv3d_layer_type
 
   
@@ -86,6 +88,22 @@ contains
     end select
 
   end subroutine  layer_reduction
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! layer addition
+!!!#############################################################################
+  function layer_add(a, b) result(output)
+    implicit none
+    class(conv3d_layer_type), intent(in) :: a, b
+    type(conv3d_layer_type), allocatable :: output
+
+    output = a
+    output%dw = output%dw + b%dw
+    output%db = output%db + b%db
+
+  end function layer_add
 !!!#############################################################################
 
 
