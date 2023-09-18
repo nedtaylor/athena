@@ -854,7 +854,7 @@ contains
           !! ... test each sample and get gradients and losses from each
           !!--------------------------------------------------------------------
 #ifdef _OPENMP
-          train_loop: do sample=start_index,end_index,1!concurrent(sample=start_index:end_index:1)
+          train_loop: do sample=start_index,end_index,1
 #else
           train_loop: do concurrent(sample=start_index:end_index:1)
 #endif
@@ -882,21 +882,16 @@ contains
 !!! https://datascience.stackexchange.com/questions/73093/what-does-from-logits-true-do-in-sparsecategoricalcrossentropy-loss-function
 !!! https://math.stackexchange.com/questions/4367458/derivate-of-the-the-negative-log-likelihood-with-composition
 
-             !! Backward pass
+
+             !! Backward pass and store predicted output
              !!-----------------------------------------------------------------
 #ifdef _OPENMP
              call this_copy%backward(y_true(:,sample))
-#else
-             call this%backward(y_true(:,sample-start_index+1))
-#endif
-
-             !! store predicted output
-             !!-----------------------------------------------------------------
-#ifdef _OPENMP
              select type(current => this_copy%model(this_copy%num_layers)%layer)
              type is(full_layer_type)
                 y_pred(:,sample) = current%output
 #else
+             call this%backward(y_true(:,sample-start_index+1))
              select type(current => this%model(this%num_layers)%layer)
              type is(full_layer_type)
                 y_pred(:,sample-start_index+1) = current%output
@@ -906,24 +901,19 @@ contains
           end do train_loop
           !$OMP END PARALLEL DO
 
-!#ifdef _OPENMP
-!          !! copy model layers back into original network
-!          !!-------------------------------------------------------------------
-!          this%model = this_copy%model
-!#endif
 
           !! compute loss and accuracy (for monitoring)
           !!-------------------------------------------------------------------
           batch_loss = 0._real12
           batch_accuracy = 0._real12
           do sample = 1, end_index-start_index+1, 1
+             batch_loss = batch_loss + sum(&
 #ifdef _OPENMP
-             batch_loss = batch_loss + sum(this_copy%get_loss(&
-                  y_pred(:,sample),y_true(:,sample)))
+                  this_copy%get_loss(&
 #else
-             batch_loss = batch_loss + sum(this%get_loss(&
-                  y_pred(:,sample),y_true(:,sample)))
+                  this%get_loss(&
 #endif
+                  y_pred(:,sample),y_true(:,sample)))
              select type(output)
              type is(integer)
                 batch_accuracy = batch_accuracy + compute_accuracy(&
@@ -937,24 +927,18 @@ contains
 
 
           !! Average metric over batch size and store
+          !! Check metric convergence
           !!--------------------------------------------------------------------
           avg_loss = avg_loss + batch_loss
           avg_accuracy = avg_accuracy + batch_accuracy
 #ifdef _OPENMP
           this_copy%metrics(1)%val = batch_loss / batch_size
           this_copy%metrics(2)%val = batch_accuracy / batch_size
-#else
-          this%metrics(1)%val = batch_loss / batch_size
-          this%metrics(2)%val = batch_accuracy / batch_size
-#endif
-
-
-          !! Check metric convergence
-          !!--------------------------------------------------------------------
-#ifdef _OPENMP
           do i = 1, size(this_copy%metrics,dim=1)
              call this_copy%metrics(i)%check(t_plateau, converged)
 #else
+          this%metrics(1)%val = batch_loss / batch_size
+          this%metrics(2)%val = batch_accuracy / batch_size
           do i = 1, size(this%metrics,dim=1)
              call this%metrics(i)%check(t_plateau, converged)
 #endif
@@ -981,10 +965,11 @@ contains
                (batch.eq.1.or.mod(batch,t_batch_print).eq.0.E0))then
              write(6,'("epoch=",I0,", batch=",I0,&
                   &", learning_rate=",F0.3,", loss=",F0.3,", accuracy=",F0.3)')&
+                  epoch, batch, &
 #ifdef _OPENMP
-                  epoch, batch, this_copy%optimiser%learning_rate, &
+                  this_copy%optimiser%learning_rate, &
 #else
-                  epoch, batch, this%optimiser%learning_rate, &
+                  this%optimiser%learning_rate, &
 #endif
                   avg_loss/(batch*batch_size),  avg_accuracy/(batch*batch_size)
           end if
@@ -1029,11 +1014,12 @@ contains
           write(6,'("epoch=",I0,", batch=",I0,&
                &", learning_rate=",F0.3,", val_loss=",F0.3,&
                &", val_accuracy=",F0.3)') &
+               epoch, batch, &
 #ifdef _OPENMP
-               epoch, batch, this_copy%optimiser%learning_rate, &
+               this_copy%optimiser%learning_rate, &
                this_copy%metrics(1)%val, this_copy%metrics(2)%val
 #else
-               epoch, batch, this%optimiser%learning_rate, &
+               this%optimiser%learning_rate, &
                this%metrics(1)%val, this%metrics(2)%val
 #endif
        end if
@@ -1042,6 +1028,10 @@ contains
     end do epoch_loop
 
 #ifdef _OPENMP
+    !!--------------------------------------------------------------------------
+    !! copy trained model back into original
+    !!--------------------------------------------------------------------------
+    this%optimiser = this_copy%optimiser
     this%model = this_copy%model
 #endif
 
