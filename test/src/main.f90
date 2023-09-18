@@ -56,6 +56,7 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
   call set_global_vars()
 #ifdef _OPENMP
+  write(*,*) "number of threads:", num_threads
   call omp_set_num_threads(num_threads)
 #endif
 
