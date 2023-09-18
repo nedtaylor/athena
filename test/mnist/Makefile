@@ -93,6 +93,7 @@ endif
 ifeq ($(findstring mp,$(MAKECMDGOALS)),mp)
 	CFLAGS+=$(MPFLAGS)
 	NAME:=$(NAME)_mp
+	LATHENA:=$(LATHENA)_omp
 endif
 ifeq ($(findstring address,$(MAKECMDGOALS)),address)
 	CFLAGS:=$(filter-out -fsanitize=leak, $(CFLAGS))
@@ -105,7 +106,6 @@ ifeq ($(findstring memcheck,$(MAKECMDGOALS)),memcheck)
 endif
 ifeq ($(findstring optim,$(MAKECMDGOALS)),optim)
 	CFLAGS+=$(OPTIMFLAGS)
-	LATHENA:=$(LATHENA)_omp
 endif
 ifeq ($(findstring fast,$(MAKECMDGOALS)),fast)
 	CFLAGS+=$(FASTFLAGS)
