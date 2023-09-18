@@ -69,7 +69,7 @@ LLAPACK = $(MKLROOT)/libmkl_lapack95_lp64.a \
 #$(MKLROOT)/libmkl_solver_lp64_sequential.a \
 
 ATHENAROOT = "${HOME}/.local/athena"
-LATHENA = -I$(ATHENAROOT)/include -L$(ATHENAROOT)/lib -lathena -gdwarf-2
+LATHENA = -I$(ATHENAROOT)/include -L$(ATHENAROOT)/lib -gdwarf-2 -lathena
 
 
 ##########################################
@@ -105,6 +105,7 @@ ifeq ($(findstring memcheck,$(MAKECMDGOALS)),memcheck)
 endif
 ifeq ($(findstring optim,$(MAKECMDGOALS)),optim)
 	CFLAGS+=$(OPTIMFLAGS)
+	LATHENA:=$(LATHENA)_omp
 endif
 ifeq ($(findstring fast,$(MAKECMDGOALS)),fast)
 	CFLAGS+=$(FASTFLAGS)
