@@ -1134,7 +1134,7 @@ contains
           select type(output)
           type is(integer)
              accuracy = compute_accuracy(current%output, output(:,sample))
-             loss = loss + sum(&
+             loss = sum(&
 #ifdef _OPENMP
                   this_copy%get_loss(&
 #else
@@ -1143,7 +1143,7 @@ contains
                   predicted=current%output,expected=real(output(:,sample),real12)))
           type is(real)
              accuracy = compute_accuracy(current%output, output(:,sample))
-             loss = loss + sum(&
+             loss = sum(&
 #ifdef _OPENMP
                   this_copy%get_loss(&
 #else
@@ -1168,7 +1168,7 @@ contains
 #ifdef _OPENMP
     write(*,*) this_copy%metrics(1)%val
     write(*,*) this_copy%metrics(2)%val
-    this%metrics  = this_copy%metrics
+    this%metrics = this_copy%metrics
 #endif
 
     
