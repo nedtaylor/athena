@@ -898,7 +898,7 @@ contains
 #ifdef _OPENMP
              call this_copy%backward(y_true(:,sample))
 #else
-             call this_copy%backward(y_true(:,sample-start_index+1))
+             call this%backward(y_true(:,sample-start_index+1))
 #endif
 
              !! store predicted output
