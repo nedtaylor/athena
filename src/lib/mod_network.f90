@@ -93,21 +93,10 @@ contains
 
     do i=1,size(lhs%model)
        select type(layer_lhs => lhs%model(i)%layer)
-       type is(conv2d_layer_type)
+       class is(learnable_layer_type)
           select type(layer_rhs => rhs%model(i)%layer)
-          type is(conv2d_layer_type)
-             lhs%model(i)%layer = layer_lhs + layer_rhs
-          end select
-       type is(conv3d_layer_type)
-          select type(layer_rhs => rhs%model(i)%layer)
-          type is(conv3d_layer_type)
-             lhs%model(i)%layer = layer_lhs + layer_rhs
-          end select
-
-       type is(full_layer_type)
-          select type(layer_rhs => rhs%model(i)%layer)
-          type is(full_layer_type)
-             lhs%model(i)%layer = layer_lhs + layer_rhs
+          class is(learnable_layer_type)
+             call layer_lhs%merge(layer_rhs)
           end select
        end select
     end do
@@ -124,7 +113,7 @@ contains
     type(network_type), intent(out) :: lhs
     type(network_type), intent(in) :: rhs
 
-    lhs = rhs
+    lhs%model = rhs%model
   end subroutine network_copy
 !!!#############################################################################
 
@@ -793,6 +782,7 @@ contains
   if(present(addit_input))then
      allocate(addit_input_slice(size(addit_input,1),batch_size))
   end if
+  !this_copy = this
 #endif
 
     
@@ -851,7 +841,6 @@ contains
           
           !$OMP PARALLEL DO & !! ORDERED
           !$OMP& DEFAULT(NONE) &
-          !$OMP& SHARED(this) &
           !$OMP& SHARED(start_index, end_index) &
           !$OMP& SHARED(input_slice) &
           !$OMP& SHARED(addit_input_slice, addit_layer) &
@@ -904,7 +893,7 @@ contains
              !! store predicted output
              !!-----------------------------------------------------------------
 #ifdef _OPENMP
-             select type(current => this_copy%model(this%num_layers)%layer)
+             select type(current => this_copy%model(this_copy%num_layers)%layer)
              type is(full_layer_type)
                 y_pred(:,sample) = current%output
 #else
@@ -917,19 +906,24 @@ contains
           end do train_loop
           !$OMP END PARALLEL DO
 
-#ifdef _OPENMP
-          !! copy model layers back into original network
-          !!-------------------------------------------------------------------
-          this%model = this_copy%model
-#endif
+!#ifdef _OPENMP
+!          !! copy model layers back into original network
+!          !!-------------------------------------------------------------------
+!          this%model = this_copy%model
+!#endif
 
           !! compute loss and accuracy (for monitoring)
           !!-------------------------------------------------------------------
           batch_loss = 0._real12
           batch_accuracy = 0._real12
           do sample = 1, end_index-start_index+1, 1
+#ifdef _OPENMP
+             batch_loss = batch_loss + sum(this_copy%get_loss(&
+                  y_pred(:,sample),y_true(:,sample)))
+#else
              batch_loss = batch_loss + sum(this%get_loss(&
                   y_pred(:,sample),y_true(:,sample)))
+#endif
              select type(output)
              type is(integer)
                 batch_accuracy = batch_accuracy + compute_accuracy(&
@@ -946,14 +940,24 @@ contains
           !!--------------------------------------------------------------------
           avg_loss = avg_loss + batch_loss
           avg_accuracy = avg_accuracy + batch_accuracy
+#ifdef _OPENMP
+          this_copy%metrics(1)%val = batch_loss / batch_size
+          this_copy%metrics(2)%val = batch_accuracy / batch_size
+#else
           this%metrics(1)%val = batch_loss / batch_size
           this%metrics(2)%val = batch_accuracy / batch_size
+#endif
 
 
           !! Check metric convergence
           !!--------------------------------------------------------------------
+#ifdef _OPENMP
+          do i = 1, size(this_copy%metrics,dim=1)
+             call this_copy%metrics(i)%check(t_plateau, converged)
+#else
           do i = 1, size(this%metrics,dim=1)
              call this%metrics(i)%check(t_plateau, converged)
+#endif
              if(converged.ne.0)then
                 exit epoch_loop
              end if
@@ -964,7 +968,11 @@ contains
           !! ... (gradient descent)
           !!--------------------------------------------------------------------
           !! STORE ADAM VALUES IN OPTIMISER
+#ifdef _OPENMP
+          call this_copy%update(batch_size)
+#else
           call this%update(batch_size)
+#endif
 
 
           !! print batch results
@@ -973,7 +981,11 @@ contains
                (batch.eq.1.or.mod(batch,t_batch_print).eq.0.E0))then
              write(6,'("epoch=",I0,", batch=",I0,&
                   &", learning_rate=",F0.3,", loss=",F0.3,", accuracy=",F0.3)')&
+#ifdef _OPENMP
+                  epoch, batch, this_copy%optimiser%learning_rate, &
+#else
                   epoch, batch, this%optimiser%learning_rate, &
+#endif
                   avg_loss/(batch*batch_size),  avg_accuracy/(batch*batch_size)
           end if
           
@@ -1017,12 +1029,21 @@ contains
           write(6,'("epoch=",I0,", batch=",I0,&
                &", learning_rate=",F0.3,", val_loss=",F0.3,&
                &", val_accuracy=",F0.3)') &
+#ifdef _OPENMP
+               epoch, batch, this_copy%optimiser%learning_rate, &
+               this_copy%metrics(1)%val, this_copy%metrics(2)%val
+#else
                epoch, batch, this%optimiser%learning_rate, &
                this%metrics(1)%val, this%metrics(2)%val
+#endif
        end if
 
 
     end do epoch_loop
+
+#ifdef _OPENMP
+    this%model = this_copy%model
+#endif
 
   end subroutine train
 !!!#############################################################################

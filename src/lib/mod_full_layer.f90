@@ -31,6 +31,7 @@ module full_layer
      procedure, private, pass(this) :: backward_1d
 
      procedure, pass(this) :: reduce => layer_reduction
+     procedure, pass(this) :: merge => layer_merge
      procedure :: add_t_t => layer_add  !t = type, r = real, i = int
      generic :: operator(+) => add_t_t !, public
   end type full_layer_type
@@ -84,12 +85,29 @@ contains
   function layer_add(a, b) result(output)
     implicit none
     class(full_layer_type), intent(in) :: a, b
-    type(full_layer_type), allocatable :: output
+    type(full_layer_type) :: output
 
     output = a
     output%dw = output%dw + b%dw
 
   end function layer_add
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! layer merge
+!!!#############################################################################
+  subroutine layer_merge(this, input)
+    implicit none
+    class(full_layer_type), intent(inout) :: this
+    class(learnable_layer_type), intent(in) :: input
+
+    select type(input)
+    class is(full_layer_type)
+       this%dw = this%dw + input%dw
+    end select
+
+  end subroutine layer_merge
 !!!#############################################################################
 
 

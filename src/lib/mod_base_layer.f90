@@ -96,6 +96,7 @@ module base_layer
    contains
      procedure(update), deferred, pass(this) :: update
      procedure(layer_reduction), deferred, pass(this) :: reduce
+     procedure(layer_merge), deferred, pass(this) :: merge
   end type learnable_layer_type
 
   abstract interface
@@ -113,6 +114,14 @@ module base_layer
        class(learnable_layer_type), intent(inout) :: this
        class(learnable_layer_type), intent(in) :: rhs
      end subroutine layer_reduction
+  end interface
+
+  abstract interface
+     subroutine layer_merge(this, input)
+       import :: learnable_layer_type
+       class(learnable_layer_type), intent(inout) :: this
+       class(learnable_layer_type), intent(in) :: input
+     end subroutine layer_merge
   end interface
 
 

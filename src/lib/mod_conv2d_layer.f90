@@ -38,6 +38,7 @@ module conv2d_layer
      procedure, private, pass(this) :: backward_3d
 
      procedure, pass(this) :: reduce => layer_reduction
+     procedure, pass(this) :: merge => layer_merge
      procedure :: add_t_t => layer_add  !t = type, r = real, i = int
      generic :: operator(+) => add_t_t !, public
   end type conv2d_layer_type
@@ -97,13 +98,31 @@ contains
   function layer_add(a, b) result(output)
     implicit none
     class(conv2d_layer_type), intent(in) :: a, b
-    type(conv2d_layer_type), allocatable :: output
+    type(conv2d_layer_type) :: output
 
     output = a
     output%dw = output%dw + b%dw
     output%db = output%db + b%db
 
   end function layer_add
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! layer merge
+!!!#############################################################################
+  subroutine layer_merge(this, input)
+    implicit none
+    class(conv2d_layer_type), intent(inout) :: this
+    class(learnable_layer_type), intent(in) :: input
+
+    select type(input)
+    class is(conv2d_layer_type)
+       this%dw = this%dw + input%dw
+       this%db = this%db + input%db
+    end select
+
+  end subroutine layer_merge
 !!!#############################################################################
 
 
