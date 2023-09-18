@@ -86,7 +86,7 @@ contains
     class(full_layer_type), intent(in) :: a, b
     type(full_layer_type), allocatable :: output
 
-    output = a 
+    output = a
     output%dw = output%dw + b%dw
 
   end function layer_add
