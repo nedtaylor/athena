@@ -65,8 +65,8 @@ module network
      procedure, pass(this) :: test
      procedure, pass(this) :: update
 
-     procedure, pass(this) :: forward => forward_1d    !! TEMPORARY
-     procedure, pass(this) :: backward => backward_1d  !! TEMPORARY
+     procedure, pass(this) :: forward => forward_1d
+     procedure, pass(this) :: backward => backward_1d
   end type network_type
 #ifdef _OPENMP
   !$omp declare reduction(network_reduction:network_type:network_reduction(omp_out, omp_in)) &
@@ -708,6 +708,7 @@ contains
     type(network_type) :: this_copy
     real(real12), allocatable, dimension(:,:) :: input_slice, addit_input_slice
 #endif
+    integer :: timer_start = 0, timer_stop = 0, timer_sum = 0, timer_tot = 0
 
 
 !!!-----------------------------------------------------------------------------
@@ -981,10 +982,20 @@ contains
           
           
 !!! TESTING
+!#ifdef _OPENMP
+!          call system_clock(timer_start)
+!          call system_clock(timer_stop)
+!          timer_sum = timer_sum + timer_stop - timer_start
+!          timer_tot = timer_tot + timer_sum / omp_get_max_threads()
+!#else
+!          timer_tot = timer_tot + timer_sum
+!#endif
+          timer_sum = 0
            if(batch.gt.200)then
               time_old = time
               call system_clock(time)
               write(*,'("time check: ",F8.3," seconds")') real(time-time_old)/clock_rate
+              !write(*,'("update timer: ",F8.3," seconds")') real(timer_tot)/clock_rate
               exit epoch_loop
               stop "THIS IS FOR TESTING PURPOSES"
            end if
@@ -1171,7 +1182,6 @@ contains
     !! merge results back into original
     !!--------------------------------------------------------------------
     this%metrics  = this_copy%metrics
-    write(*,*) sum(accuracy_list)
 #endif
     
     
