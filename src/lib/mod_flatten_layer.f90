@@ -3,32 +3,32 @@
 !!! Code part of the ARTEMIS group (Hepplestone research group)
 !!! Think Hepplestone, think HRG
 !!!#############################################################################
-module flatten3d_layer
+module flatten_layer
   use constants, only: real12
   use base_layer, only: base_layer_type
   implicit none
   
   
-  type, extends(base_layer_type) :: flatten3d_layer_type
+  type, extends(base_layer_type) :: flatten_layer_type
+     integer :: num_dim
      integer :: num_outputs, num_addit_outputs = 0
      real(real12), allocatable, dimension(:) :: output
-     !real(real12), allocatable, dimension(:,:,:,:) :: di
    contains
-     procedure, pass(this) :: init => init_flatten3d
+     procedure, pass(this) :: init => init_flatten
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
-  end type flatten3d_layer_type
+  end type flatten_layer_type
 
-  interface flatten3d_layer_type
+  interface flatten_layer_type
      module function layer_setup(input_shape) result(layer)
        integer, dimension(:), optional, intent(in) :: input_shape
-       type(flatten3d_layer_type) :: layer
+       type(flatten_layer_type) :: layer
      end function layer_setup
-  end interface flatten3d_layer_type
+  end interface flatten_layer_type
 
   
   private
-  public :: flatten3d_layer_type
+  public :: flatten_layer_type
 
 
 contains
@@ -38,10 +38,12 @@ contains
 !!!#############################################################################
   pure subroutine forward_rank(this, input)
     implicit none
-    class(flatten3d_layer_type), intent(inout) :: this
+    class(flatten_layer_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
 
-    select rank(input); rank(4)
+    select rank(input); rank(3)
+       this%output(:this%num_outputs) = reshape(input, [this%num_outputs])
+    rank(4)
        this%output(:this%num_outputs) = reshape(input, [this%num_outputs])
     end select
   end subroutine forward_rank
@@ -53,7 +55,7 @@ contains
 !!!#############################################################################
   pure subroutine backward_rank(this, input, gradient)
     implicit none
-    class(flatten3d_layer_type), intent(inout) :: this
+    class(flatten_layer_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
     real(real12), dimension(:), intent(in) :: gradient
 
@@ -75,7 +77,7 @@ contains
     integer, dimension(:), optional, intent(in) :: input_shape
     integer, optional, intent(in) :: num_addit_outputs
 
-    type(flatten3d_layer_type) :: layer
+    type(flatten_layer_type) :: layer
 
 
     !!--------------------------------------------------------------------------
@@ -91,9 +93,9 @@ contains
 !!!#############################################################################
 !!! initialise layer
 !!!#############################################################################
-  subroutine init_flatten3d(this, input_shape, verbose)
+  subroutine init_flatten(this, input_shape, verbose)
     implicit none
-    class(flatten3d_layer_type), intent(inout) :: this
+    class(flatten_layer_type), intent(inout) :: this
     integer, dimension(:), intent(in) :: input_shape
     integer, optional, intent(in) :: verbose
 
@@ -113,20 +115,21 @@ contains
     !!--------------------------------------------------------------------------
     !! initialise input shape
     !!--------------------------------------------------------------------------
-    if(size(input_shape,dim=1).eq.4)then
+    if(size(input_shape,dim=1).eq.3.or.size(input_shape,dim=1).eq.4)then
        this%input_shape = input_shape
     else
-       stop "ERROR: invalid size of input_shape in flatten3d, expected (4)"
+       stop "ERROR: invalid size of input_shape in flatten, expected &
+            &(3) or (4)"
     end if
     
     this%num_outputs = product(this%input_shape)
 
     allocate(this%output(this%num_outputs + this%num_addit_outputs), &
          source=0._real12)
-    allocate(this%di(product(input_shape(:4))), source=0._real12)
+    allocate(this%di(this%num_outputs), source=0._real12)
 
-  end subroutine init_flatten3d
+  end subroutine init_flatten
 !!!#############################################################################
 
-end module flatten3d_layer
+end module flatten_layer
 !!!#############################################################################

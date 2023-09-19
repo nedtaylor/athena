@@ -39,8 +39,7 @@ module network
   use maxpool3d_layer, only: maxpool3d_layer_type, read_maxpool3d_layer
 
   !! flatten layer types
-  use flatten2d_layer, only: flatten2d_layer_type
-  use flatten3d_layer, only: flatten3d_layer_type
+  use flatten_layer, only: flatten_layer_type
 
   !! fully connected (dense) layer types
   use full_layer,      only: full_layer_type, read_full_layer
@@ -229,9 +228,7 @@ contains
        name = "conv"
     type is(conv3d_layer_type)
        name = "conv"
-    type is(flatten2d_layer_type)
-       name = "flat"
-    type is(flatten3d_layer_type)
+    type is(flatten_layer_type)
        name = "flat"
     class is(drop_layer_type)
        name = "drop"
@@ -456,9 +453,7 @@ contains
                   size(this%model(i)%layer%output_shape))then
 
                 select type(current => this%model(i)%layer)
-                type is(flatten2d_layer_type)
-                   cycle layer_loop
-                type is(flatten3d_layer_type)
+                type is(flatten_layer_type)
                    cycle layer_loop
                 class default
                    this%model = [&
@@ -471,18 +466,10 @@ contains
                    type is(full_layer_type)
                       num_addit_inputs = next%num_addit_inputs
                    end select
-                   select case(size(this%model(i)%layer%output_shape))
-                   case(3)
-                      allocate(this%model(i+1)%layer, source=&
-                           flatten2d_layer_type(input_shape=&
-                           this%model(i)%layer%output_shape, &
-                           num_addit_outputs = num_addit_inputs))
-                   case(4)
-                      allocate(this%model(i+1)%layer, source=&
-                           flatten3d_layer_type(input_shape=&
-                           this%model(i)%layer%output_shape, &
-                           num_addit_outputs = num_addit_inputs))
-                   end select
+                   allocate(this%model(i+1)%layer, source=&
+                        flatten_layer_type(input_shape=&
+                        this%model(i)%layer%output_shape, &
+                        num_addit_outputs = num_addit_inputs))
                    i = i + 1
                    cycle layer_loop
                 end select
@@ -551,9 +538,7 @@ contains
     !!--------------------------------------------------------------------------
     if(present(layer).and.present(addit_input))then
        select type(previous => this%model(layer-1)%layer)
-       type is(flatten2d_layer_type)
-          previous%output(size(previous%di)-size(addit_input)+1:) = addit_input
-       type is(flatten3d_layer_type)
+       type is(flatten_layer_type)
           previous%output(size(previous%di)-size(addit_input)+1:) = addit_input
        end select
     end if
@@ -599,32 +584,9 @@ contains
     !! Backward pass
     !!-------------------------------------------------------------------
     do i=this%num_layers-1,2,-1
-       select type(next => this%model(i+1)%layer)
-       type is(conv2d_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-       type is(conv3d_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-    
-       type is(dropout_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-       type is(dropblock2d_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-       type is(dropblock3d_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-    
-       type is(maxpool2d_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-       type is(maxpool3d_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-    
-       type is(flatten2d_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-       type is(flatten3d_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-    
-       type is(full_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-       end select
+       call this%model(i)%backward(&
+            this%model(i-1),&
+            this%model(i+1)%layer%di)
     end do
 
   end subroutine backward_1d
