@@ -140,31 +140,31 @@ program mnist_test
            bias_initialiser = "glorot_uniform" &
            ))
 
-     !!call network%add(conv3d_layer_type( &
-     !!     input_shape = [image_size,image_size,1,input_channels], &
-     !!     num_filters = cv_num_filters, kernel_size = [3,3,1], stride = 1, &
-     !!     padding = padding_method, &
-     !!     calc_input_gradients = .false., &
-     !!     activation_function = "relu"))
-     !!call network%add(maxpool3d_layer_type(&
-     !!     pool_size = [2,2,1], stride = [2,2,1]))
-     !!call network%add(full_layer_type( &
-     !!     num_outputs = 100, &
-     !!     activation_function = "relu", &
-     !!     kernel_initialiser = "he_uniform", &
-     !!     bias_initialiser = "he_uniform" &
-     !!     ))
-     !!call network%add(full_layer_type( &
-     !!     num_outputs = 10,&
-     !!     activation_function = "softmax", &
-     !!     kernel_initialiser = "glorot_uniform", &
-     !!     bias_initialiser = "glorot_uniform" &
-     !!     ))
+     !call network%add(conv3d_layer_type( &
+     !     input_shape = [image_size,image_size,1,input_channels], &
+     !     num_filters = cv_num_filters, kernel_size = [3,3,1], stride = 1, &
+     !     padding = padding_method, &
+     !     calc_input_gradients = .false., &
+     !     activation_function = "relu"))
+     !call network%add(maxpool3d_layer_type(&
+     !     pool_size = [2,2,1], stride = [2,2,1]))
+     !call network%add(full_layer_type( &
+     !     num_outputs = 100, &
+     !     activation_function = "relu", &
+     !     kernel_initialiser = "he_uniform", &
+     !     bias_initialiser = "he_uniform" &
+     !     ))
+     !call network%add(full_layer_type( &
+     !     num_outputs = 10,&
+     !     activation_function = "softmax", &
+     !     kernel_initialiser = "glorot_uniform", &
+     !     bias_initialiser = "glorot_uniform" &
+     !     ))
   end if
 
   call network%compile(optimiser=optimiser, &
        loss=loss_method, metrics=metric_dict, verbose = verbosity)
-  input_spread = spread(input_images,3,1)
+  !input_spread = spread(input_images,3,1)
 
   write(*,*) "NUMBER OF LAYERS",network%num_layers
 
@@ -188,9 +188,12 @@ program mnist_test
        plateau_threshold = plateau_threshold, &
        shuffle_batches = shuffle_dataset, &
        batch_print_step = batch_print_step, verbose = verbosity)
-  !!call network%train(input_spread, input_labels, num_epochs, batch_size, &
-  !!     plateau_threshold, shuffle_dataset, 20, verbosity)
-  write(*,*) "Training finished"
+  !call network%train(input_spread, input_labels, num_epochs, batch_size, &
+  !     !addit_input, 5, &
+  !     plateau_threshold = plateau_threshold, &
+  !     shuffle_batches = shuffle_dataset, &
+  !     batch_print_step = batch_print_step, verbose = verbosity)
+  !write(*,*) "Training finished"
 
 
 !!!-----------------------------------------------------------------------------
