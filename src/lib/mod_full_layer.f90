@@ -546,9 +546,9 @@ contains
     this%di = matmul(this%weight(:this%num_inputs,:), delta(:,1))
 
     !! sum weights and biases errors to use in batch gradient descent
+    delta = delta * bias_diff(1)
     this%dw(:this%num_inputs,:)  = this%dw(:this%num_inputs,:)  + dw
-    this%dw(this%num_inputs+1,:) = this%dw(this%num_inputs+1,:) + delta(:,1) * &
-         bias_diff(1)
+    this%dw(this%num_inputs+1,:) = this%dw(this%num_inputs+1,:) + delta(:,1)
 
   end subroutine backward_1d
 !!!#############################################################################
