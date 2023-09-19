@@ -24,15 +24,14 @@ if (CMAKE_BUILD_TYPE MATCHES "Parallel*")
 endif()
 
 
-
 set(CMAKE_Fortran_COMPILER gfortran)  # Change this to your desired compiler
 set(CMAKE_Fortran_STANDARD 2018)
 
 enable_language(Fortran)
 
 # Define the sources
-set(SRC_DIR "src")
-set(LIB_DIR "${SRC_DIR}/lib")
+set(SRC_DIR src)
+set(LIB_DIR ${SRC_DIR}/lib)
 
 set(LIBS
     mod_constants.f90
@@ -82,7 +81,7 @@ set(LIBS
     mod_network.f90
 )
 foreach(lib ${LIBS})
-    list(APPEND PREPENDED_LIBS "${LIB_DIR}/${lib}")
+    list(APPEND PREPENDED_LIBS ${LIB_DIR}/${lib})
 endforeach()
 message(STATUS "Modified LIBS: ${PREPENDED_LIBS}")
 
@@ -92,7 +91,7 @@ else()
     set(SRCS athena.f90)
 endif()
 foreach(src ${SRCS})
-    list(APPEND PREPENDED_SRCS "${SRC_DIR}/${src}")
+    list(APPEND PREPENDED_SRCS ${SRC_DIR}/${src})
 endforeach()
 message(STATUS "Modified SRCS: ${PREPENDED_SRCS}")
 
