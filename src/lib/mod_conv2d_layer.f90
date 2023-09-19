@@ -26,7 +26,7 @@ module conv2d_layer
      real(real12), allocatable, dimension(:,:,:,:) :: weight, weight_incr
      real(real12), allocatable, dimension(:,:,:,:) :: dw ! weight gradient
      real(real12), allocatable, dimension(:,:,:) :: output, z
-     real(real12), allocatable, dimension(:,:,:) :: di ! input gradient
+     !real(real12), allocatable, dimension(:,:,:) :: di ! input gradient
      class(activation_type), allocatable :: transfer
    contains
      procedure, pass(this) :: init => init_conv2d
@@ -153,12 +153,10 @@ contains
     implicit none
     class(conv2d_layer_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
-    real(real12), dimension(..), intent(in) :: gradient
+    real(real12), dimension(:), intent(in) :: gradient
 
     select rank(input); rank(3)
-    select rank(gradient); rank(3)
        call backward_3d(this, input, gradient)
-    end select
     end select    
   end subroutine backward_rank
 !!!#############################################################################
@@ -390,7 +388,7 @@ contains
     !! initialise gradients
     !!--------------------------------------------------------------------------
     allocate(this%di(&
-         input_shape(1), input_shape(2), input_shape(3)), source=0._real12)
+         input_shape(1) * input_shape(2) * input_shape(3)), source=0._real12)
     allocate(this%dw, mold=this%weight)
     allocate(this%db, mold=this%bias)
     this%di = 0._real12
@@ -788,8 +786,8 @@ contains
        this%di = 0._real12
        !! all elements of the output are separated by stride_x (stride_y)
        do concurrent( &
-            i=1:size(this%di,dim=1):1, &
-            j=1:size(this%di,dim=2):1, &
+            i=1:this%input_shape(1):1, &
+            j=1:this%input_shape(2):1, &
             m=1:this%num_channels, &
             l=1:this%num_filters &
             )
@@ -816,8 +814,10 @@ contains
 
           !! apply full convolution to compute input gradients
           !! https://medium.com/@mayank.utexas/backpropagation-for-convolution-with-strides-8137e4fc2710
-          this%di(i,j,m) = &
-               this%di(i,j,m) + &
+          this%di(i + (j-1)*this%input_shape(1) + &
+               (m-1)*product(this%input_shape(:2))) = &
+               this%di(i + (j-1)*this%input_shape(1) + &
+               (m-1)*product(this%input_shape(:2))) + &
                sum( &
                grad_dz(&
                lim_g(1,1):lim_g(2,1),&

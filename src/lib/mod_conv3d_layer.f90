@@ -26,7 +26,7 @@ module conv3d_layer
      real(real12), allocatable, dimension(:,:,:,:,:) :: weight, weight_incr
      real(real12), allocatable, dimension(:,:,:,:,:) :: dw ! weight gradient
      real(real12), allocatable, dimension(:,:,:,:) :: output, z
-     real(real12), allocatable, dimension(:,:,:,:) :: di ! input gradient
+     !real(real12), allocatable, dimension(:,:,:,:) :: di ! input gradient
      class(activation_type), allocatable :: transfer
    contains
      procedure, pass(this) :: init => init_conv3d
@@ -153,12 +153,10 @@ contains
     implicit none
     class(conv3d_layer_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
-    real(real12), dimension(..), intent(in) :: gradient
+    real(real12), dimension(:), intent(in) :: gradient
 
     select rank(input); rank(4)
-    select rank(gradient); rank(4)
        call backward_4d(this, input, gradient)
-    end select
     end select    
   end subroutine backward_rank
 !!!#############################################################################
@@ -394,7 +392,7 @@ contains
     !! initialise gradients
     !!--------------------------------------------------------------------------
     allocate(this%di(&
-         input_shape(1), input_shape(2), input_shape(3), input_shape(4)), &
+         input_shape(1) * input_shape(2) * input_shape(3) * input_shape(4)), &
          source=0._real12)
     allocate(this%dw, mold=this%weight)
     allocate(this%db, mold=this%bias)
@@ -809,9 +807,9 @@ contains
        this%di = 0._real12
        !! all elements of the output are separated by stride_x (stride_y)
        do concurrent( &
-            i=1:size(this%di,dim=1):1, &
-            j=1:size(this%di,dim=2):1, &
-            k=1:size(this%di,dim=3):1, &
+            i=1:this%input_shape(1):1, &
+            j=1:this%input_shape(2):1, &
+            k=1:this%input_shape(3):1, &
             m=1:this%num_channels, &
             l=1:this%num_filters &
             )
@@ -838,8 +836,12 @@ contains
 
           !! apply full convolution to compute input gradients
           !! https://medium.com/@mayank.utexas/backpropagation-for-convolution-with-strides-8137e4fc2710
-          this%di(i,j,k,m) = &
-               this%di(i,j,k,m) + &
+          this%di(i + (j-1)*this%input_shape(1) + &
+               (k-1)*product(this%input_shape(:2)) + &
+               (m-1)*product(this%input_shape(:3))) = &
+               this%di(i + (j-1)*this%input_shape(1) + &
+               (k-1)*product(this%input_shape(:2)) + &
+               (m-1)*product(this%input_shape(:3))) + &
                sum( &
                grad_dz(&
                lim_g(1,1):lim_g(2,1),&

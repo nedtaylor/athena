@@ -37,7 +37,7 @@ module container_layer
        !import container_layer_type, real12
        class(container_layer_type), intent(inout) :: this
        class(container_layer_type), intent(in) :: input
-       real(real12), dimension(..), intent(in) :: gradient
+       real(real12), dimension(:), intent(in) :: gradient
      end subroutine backward
   end interface
 

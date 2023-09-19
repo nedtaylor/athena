@@ -19,7 +19,7 @@ module full_layer
      real(real12), allocatable, dimension(:,:) :: weight, weight_incr
      real(real12), allocatable, dimension(:,:) :: dw ! weight gradient
      real(real12), allocatable, dimension(:) :: output, z !output and activation
-     real(real12), allocatable, dimension(:) :: di ! input gradient (i.e. delta)
+     !real(real12), allocatable, dimension(:) :: di ! input gradient (i.e. delta)
      class(activation_type), allocatable :: transfer
    contains
      procedure, pass(this) :: print => print_full
@@ -138,12 +138,10 @@ contains
     implicit none
     class(full_layer_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
-    real(real12), dimension(..), intent(in) :: gradient
+    real(real12), dimension(:), intent(in) :: gradient
 
     select rank(input); rank(1)
-    select rank(gradient); rank(1)
        call backward_1d(this, input, gradient)
-    end select
     end select
   end subroutine backward_rank
 !!!#############################################################################

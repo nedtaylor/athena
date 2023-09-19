@@ -20,7 +20,7 @@ module dropblock2d_layer
      integer :: num_channels
      logical, allocatable, dimension(:,:) :: mask
      real(real12), allocatable, dimension(:,:,:) :: output
-     real(real12), allocatable, dimension(:,:,:) :: di ! gradient of input (i.e. delta)
+     !real(real12), allocatable, dimension(:,:,:) :: di ! gradient of input (i.e. delta)
    contains
      procedure, pass(this) :: init => init_dropblock2d
      procedure, pass(this) :: print => print_dropblock2d
@@ -73,12 +73,10 @@ contains
     implicit none
     class(dropblock2d_layer_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
-    real(real12), dimension(..), intent(in) :: gradient
+    real(real12), dimension(:), intent(in) :: gradient
 
     select rank(input); rank(3)
-    select rank(gradient); rank(3)
-      call backward_3d(this, input, gradient)
-    end select
+       call backward_3d(this, input, gradient)
     end select
   end subroutine backward_rank
 !!!#############################################################################
@@ -163,9 +161,7 @@ contains
          this%output_shape(1),&
          this%output_shape(2), this%num_channels), &
          source=0._real12)
-    allocate(this%di(&
-         input_shape(1),&
-         input_shape(2), input_shape(3)), &
+    allocate(this%di(product(input_shape(:3))), &
          source=0._real12)
 
 
@@ -385,7 +381,10 @@ contains
 
     !! compute gradients for input feature map
     do concurrent(m = 1:this%num_channels)
-       this%di(:,:,m) = merge(gradient(:,:,m), 0._real12, this%mask)
+       this%di(&
+            (m-1)*product(this%output_shape(:2))+1:&
+            m*product(this%output_shape(:2))) = pack(merge(gradient(:,:,m), &
+            0._real12, this%mask),.true.)
     end do
 
   end subroutine backward_3d

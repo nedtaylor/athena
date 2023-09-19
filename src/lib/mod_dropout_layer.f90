@@ -19,7 +19,7 @@ module dropout_layer
      real(real12) :: rate
      logical, allocatable, dimension(:,:) :: mask
      real(real12), allocatable, dimension(:) :: output
-     real(real12), allocatable, dimension(:) :: di ! gradient of input (i.e. delta)
+     !real(real12), allocatable, dimension(:) :: di ! gradient of input (i.e. delta)
    contains
      procedure, pass(this) :: init => init_dropout
      procedure, pass(this) :: print => print_dropout
@@ -72,12 +72,10 @@ contains
     implicit none
     class(dropout_layer_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
-    real(real12), dimension(..), intent(in) :: gradient
+    real(real12), dimension(:), intent(in) :: gradient
 
     select rank(input); rank(1)
-    select rank(gradient); rank(1)
       call backward_1d(this, input, gradient)
-    end select
     end select
   end subroutine backward_rank
 !!!#############################################################################

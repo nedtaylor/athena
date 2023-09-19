@@ -13,6 +13,7 @@ module base_layer
 !!!------------------------------------------------------------------------
   type, abstract :: base_layer_type !! give it parameterised values?
      integer, allocatable, dimension(:) :: input_shape, output_shape
+     real(real12), allocatable, dimension(:) :: di
    contains
      procedure, pass(this) :: print => print_base
      procedure(initialise), deferred, pass(this) :: init
@@ -49,7 +50,7 @@ module base_layer
        import :: base_layer_type, real12
        class(base_layer_type), intent(inout) :: this
        real(real12), dimension(..), intent(in) :: input
-       real(real12), dimension(..), intent(in) :: gradient
+       real(real12), dimension(:), intent(in) :: gradient
      end subroutine backward
   end interface
 

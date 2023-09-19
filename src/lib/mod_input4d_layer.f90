@@ -53,7 +53,7 @@ contains
     implicit none
     class(input4d_layer_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
-    real(real12), dimension(..), intent(in) :: gradient
+    real(real12), dimension(:), intent(in) :: gradient
     return
   end subroutine backward_rank
 !!!#############################################################################

@@ -15,7 +15,7 @@ module maxpool2d_layer
      integer, dimension(2) :: pool, strd
      integer :: num_channels
      real(real12), allocatable, dimension(:,:,:) :: output
-     real(real12), allocatable, dimension(:,:,:) :: di ! gradient of input (i.e. delta)
+     !real(real12), allocatable, dimension(:,:,:) :: di ! gradient of input (i.e. delta)
    contains
      procedure, pass(this) :: init => init_maxpool2d
      procedure, pass(this) :: print => print_maxpool2d
@@ -67,12 +67,10 @@ contains
     implicit none
     class(maxpool2d_layer_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
-    real(real12), dimension(..), intent(in) :: gradient
+    real(real12), dimension(:), intent(in) :: gradient
 
     select rank(input); rank(3)
-    select rank(gradient); rank(3)
-      call backward_3d(this, input, gradient)
-    end select
+       call backward_3d(this, input, gradient)
     end select
   end subroutine backward_rank
 !!!#############################################################################
@@ -197,10 +195,7 @@ contains
          this%output_shape(1),&
          this%output_shape(2), this%num_channels), &
          source=0._real12)
-    allocate(this%di(&
-         input_shape(1),&
-         input_shape(2), input_shape(3)), &
-         source=0._real12)
+    allocate(this%di(product(input_shape(:3))), source=0._real12)
 
   end subroutine init_maxpool2d
 !!!#############################################################################
@@ -395,8 +390,10 @@ contains
 
        !! compute gradients for input feature map
        this%di(&
-            stride_idx(1)+max_idx(1), &
-            stride_idx(2)+max_idx(2), m) = gradient(i, j, m)
+            stride_idx(1)+max_idx(1) + &
+            this%input_shape(1)*(stride_idx(2)+max_idx(2)-1) + &
+            product(this%input_shape(:2))*(m-1)) = &
+            gradient(i, j, m)
 
     end do
 

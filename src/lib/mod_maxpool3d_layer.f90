@@ -15,7 +15,7 @@ module maxpool3d_layer
      integer, dimension(3) :: pool, strd
      integer :: num_channels
      real(real12), allocatable, dimension(:,:,:,:) :: output
-     real(real12), allocatable, dimension(:,:,:,:) :: di ! gradient of input (i.e. delta)
+     !real(real12), allocatable, dimension(:,:,:,:) :: di ! gradient of input (i.e. delta)
    contains
      procedure, pass(this) :: init => init_maxpool3d
      procedure, pass(this) :: print => print_maxpool3d
@@ -67,12 +67,10 @@ contains
     implicit none
     class(maxpool3d_layer_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
-    real(real12), dimension(..), intent(in) :: gradient
+    real(real12), dimension(:), intent(in) :: gradient
 
     select rank(input); rank(4)
-    select rank(gradient); rank(4)
-      call backward_4d(this, input, gradient)
-    end select
+       call backward_4d(this, input, gradient)
     end select
   end subroutine backward_rank
 !!!#############################################################################
@@ -198,11 +196,7 @@ contains
          this%output_shape(2),&
          this%output_shape(3), this%num_channels), &
          source=0._real12)
-    allocate(this%di(&
-         input_shape(1),&
-         input_shape(2),&
-         input_shape(3), input_shape(4)), &
-         source=0._real12)
+    allocate(this%di(product(input_shape(:4))), source=0._real12)
 
   end subroutine init_maxpool3d
 !!!#############################################################################
@@ -401,9 +395,11 @@ contains
 
        !! compute gradients for input feature map
        this%di(&
-            stride_idx(1)+max_idx(1), &
-            stride_idx(2)+max_idx(2), &
-            stride_idx(3)+max_idx(3), m) = gradient(i, j, k, m)
+            stride_idx(1)+max_idx(1) + &
+            this%input_shape(1)*(stride_idx(2)+max_idx(2)-1) + &
+            product(this%input_shape(:2))*(stride_idx(3)+max_idx(3)-1) + &
+            product(this%input_shape(:3))*(m-1)) = &
+            gradient(i, j, k, m)
 
     end do
 

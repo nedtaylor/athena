@@ -12,7 +12,7 @@ module flatten3d_layer
   type, extends(base_layer_type) :: flatten3d_layer_type
      integer :: num_outputs, num_addit_outputs = 0
      real(real12), allocatable, dimension(:) :: output
-     real(real12), allocatable, dimension(:,:,:,:) :: di
+     !real(real12), allocatable, dimension(:,:,:,:) :: di
    contains
      procedure, pass(this) :: init => init_flatten3d
      procedure, pass(this) :: forward  => forward_rank
@@ -55,11 +55,9 @@ contains
     implicit none
     class(flatten3d_layer_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
-    real(real12), dimension(..), intent(in) :: gradient
+    real(real12), dimension(:), intent(in) :: gradient
 
-    select rank(gradient); rank(1)
-       this%di = reshape(gradient(:this%num_outputs), shape(this%di))
-    end select
+    this%di = gradient(:this%num_outputs)
   end subroutine backward_rank
 !!!#############################################################################
 
@@ -125,10 +123,7 @@ contains
 
     allocate(this%output(this%num_outputs + this%num_addit_outputs), &
          source=0._real12)
-    allocate(this%di(&
-         input_shape(1), input_shape(2), &
-         input_shape(3), input_shape(4)), &
-         source=0._real12)
+    allocate(this%di(product(input_shape(:4))), source=0._real12)
 
   end subroutine init_flatten3d
 !!!#############################################################################
