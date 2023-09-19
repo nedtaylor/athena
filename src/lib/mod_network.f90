@@ -506,13 +506,14 @@ contains
 
     select rank(input)
     rank(2)
-       output = reshape(input(:,index), shape=[size(input(:,1))])
+       output = reshape(input(:,index), shape=[size(input(:,index))])
     rank(3)
-       output = reshape(input(:,:,index), shape=[size(input(:,:,1))])
+       output = reshape(input(:,:,index), shape=[size(input(:,:,index))])
     rank(4)
-       output = reshape(input(:,:,:,index), shape=[size(input(:,:,:,1))])
+       output = reshape(input(:,:,:,index), shape=[size(input(:,:,:,index))])
     rank(5)
-       output = reshape(input(:,:,:,:,index), shape=[size(input(:,:,:,:,1))])
+       output = reshape(input(:,:,:,:,index), &
+            shape=[size(input(:,:,:,:,index))])
     end select
 
   end function get_sample
