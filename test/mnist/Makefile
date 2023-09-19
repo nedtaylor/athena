@@ -56,17 +56,20 @@ endif
 ##########################################
 # LAPACK SECTION
 ##########################################
-MKLROOT?="/usr/local/intel/parallel_studio_xe_2017/compilers_and_libraries_2017/linux/mkl/lib/intel64_lin"
+MKLROOT?="/usr/local/intel/parallel_studio_xe_2017/compilers_and_libraries_2017/linux/mkl/lib/intel64"
 LLAPACK = $(MKLROOT)/libmkl_lapack95_lp64.a \
-	-Wl,--start-group \
-	$(MKLROOT)/libmkl_intel_lp64.a \
-	$(MKLROOT)/libmkl_sequential.a \
-	$(MKLROOT)/libmkl_core.a \
-	-Wl,--end-group \
-	-lpthread
+        -Wl,--start-group \
+        $(MKLROOT)/libmkl_intel_lp64.a \
+        $(MKLROOT)/libmkl_sequential.a \
+        $(MKLROOT)/libmkl_core.a \
+        -Wl,--end-group \
+        -lpthread
 
 #$(MKLROOT)/libmkl_scalapack_lp64.a \
-#$(MKLROOT)/libmkl_solver_lp64_sequential.a \
+#$(MKLROOT)/libmkl_solver_lp64_sequential.a
+LBLAS = /home/links/hm556/.local/lapack/libblas.a #$(MKLROOT)/libmkl_blas95_lp64.a
+LLAPACK = /home/links/hm556/.local/lapack/liblapack.a
+LIBRARY = -fexternal-blas $(LBLAS)
 
 ATHENAROOT = "${HOME}/.local/athena"
 LATHENA = -I$(ATHENAROOT)/include -L$(ATHENAROOT)/lib -gdwarf-2 -lathena
