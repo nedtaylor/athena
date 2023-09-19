@@ -502,7 +502,7 @@ contains
 
     !! generate outputs from weights, biases, and inputs
     this%z = this%weight(this%num_inputs+1,:) + &
-      matmul(input,this%weight(:this%num_inputs,:))
+         matmul(input,this%weight(:this%num_inputs,:))
       
     !! apply activation function to activation
     this%output = this%transfer%activate(this%z)
