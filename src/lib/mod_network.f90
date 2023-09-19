@@ -985,7 +985,7 @@ contains
               time_old = time
               call system_clock(time)
               write(*,'("time check: ",F8.3," seconds")') real(time-time_old)/clock_rate
-              return
+              exit epoch_loop
               stop "THIS IS FOR TESTING PURPOSES"
            end if
 !!!
@@ -1079,9 +1079,10 @@ contains
     else
        t_verb = 0
     end if
-    this%metrics%val = 0._real12
     num_samples = size(output, dim=2)
     allocate(predicted(size(output,1), num_samples))
+
+    this%metrics%val = 0._real12
     accuracy = 0._real12
     loss = 0._real12
     allocate(accuracy_list(num_samples))
@@ -1102,7 +1103,7 @@ contains
     !$OMP& SHARED(addit_input, addit_layer) &
     !$OMP& SHARED(accuracy_list) &
     !$OMP& PRIVATE(sample) &
-    !$OMP& FIRSTPRIVATE(accuracy, loss) &
+    !$OMP& PRIVATE(accuracy, loss) &
     !$OMP& REDUCTION(network_reduction:this_copy)
     test_loop: do sample = 1, num_samples
 
@@ -1165,12 +1166,14 @@ contains
     end do test_loop
     !$OMP END PARALLEL DO
 
-#ifdef _OPENMP
-    write(*,*) this_copy%metrics(1)%val
-    write(*,*) this_copy%metrics(2)%val
-    this%metrics = this_copy%metrics
-#endif
 
+#ifdef _OPENMP
+    !! merge results back into original
+    !!--------------------------------------------------------------------
+    this%metrics  = this_copy%metrics
+    write(*,*) sum(accuracy_list)
+#endif
+    
     
     !! print testing results
     !!--------------------------------------------------------------------
@@ -1196,6 +1199,9 @@ contains
        close(unit)
     end if
 
+
+    !! normalise metrics by number of samples
+    !!--------------------------------------------------------------------
     this%accuracy = this%metrics(2)%val/real(num_samples)
     this%loss     = this%metrics(1)%val/real(num_samples)
 
