@@ -68,7 +68,7 @@ LLAPACK = $(MKLROOT)/libmkl_lapack95_lp64.a \
 #$(MKLROOT)/libmkl_scalapack_lp64.a \
 #$(MKLROOT)/libmkl_solver_lp64_sequential.a
 LBLAS = /home/links/hm556/.local/lapack/libblas.a #$(MKLROOT)/libmkl_blas95_lp64.a
-LLAPACK = /home/links/hm556/.local/lapack/liblapack.a
+LLAPACK = ${HOME}/.local/lapack/liblapack.a
 LIBRARY = -fexternal-blas $(LBLAS)
 
 ATHENAROOT = "${HOME}/.local/athena"
@@ -92,6 +92,9 @@ ifeq ($(findstring debug,$(MAKECMDGOALS)),debug)
 endif
 ifeq ($(findstring dev,$(MAKECMDGOALS)),dev)
 	CFLAGS+=$(DEVFLAGS)
+endif
+ifeq ($(findstring lapack,$(MAKECMDGOALS)),lapack)
+	OBJS:=$(OBJS) $(LIBRARY)
 endif
 ifeq ($(findstring mp,$(MAKECMDGOALS)),mp)
 	CFLAGS+=$(MPFLAGS)
