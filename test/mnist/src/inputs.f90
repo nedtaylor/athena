@@ -5,7 +5,11 @@
 !!!#############################################################################
 module inputs
   use constants, only: real12, ierror
+#ifdef _OPENMP
+  use athena_omp, only: metric_dict_type, optimiser_type
+#else
   use athena, only: metric_dict_type, optimiser_type
+#endif
   use misc, only: icount, flagmaker, file_check, to_lower
   implicit none
   integer :: verbosity    ! verbose printing

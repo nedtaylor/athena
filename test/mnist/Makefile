@@ -69,7 +69,7 @@ LLAPACK = $(MKLROOT)/libmkl_lapack95_lp64.a \
 #$(MKLROOT)/libmkl_solver_lp64_sequential.a \
 
 ATHENAROOT = "${HOME}/.local/athena"
-LATHENA = -I$(ATHENAROOT)/include -L$(ATHENAROOT)/lib -lathena -gdwarf-2
+LATHENA = -I$(ATHENAROOT)/include -L$(ATHENAROOT)/lib -gdwarf-2 -lathena
 
 
 ##########################################
@@ -93,6 +93,7 @@ endif
 ifeq ($(findstring mp,$(MAKECMDGOALS)),mp)
 	CFLAGS+=$(MPFLAGS)
 	NAME:=$(NAME)_mp
+	LATHENA:=$(LATHENA)_omp
 endif
 ifeq ($(findstring address,$(MAKECMDGOALS)),address)
 	CFLAGS:=$(filter-out -fsanitize=leak, $(CFLAGS))

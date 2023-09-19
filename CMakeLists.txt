@@ -10,7 +10,6 @@ set( CMAKE_BUILD_PREFIX ${CURRENT_WORKING_DIR}
 project(athena NONE)
 
 
-
 set( LIB_NAME ${PROJECT_NAME} )
 set( PROJECT_DESCRIPTION
   "Fortran neural network" )
@@ -18,6 +17,13 @@ set( PROJECT_URL "https://https://git.exeter.ac.uk/hepplestone/athena" )
 set( CMAKE_CONFIGURATION_TYPES "Release" "Parallel" "Serial" "Dev" "Debug" "Parallel_Dev" )
 set( CMAKE_BUILD_TYPE "Release"
   CACHE STRING "Select which configuration to build." )
+
+
+if (CMAKE_BUILD_TYPE MATCHES "Parallel*")
+   project(athena_omp) # change project name to paralle
+endif()
+
+
 
 set(CMAKE_Fortran_COMPILER gfortran)  # Change this to your desired compiler
 set(CMAKE_Fortran_STANDARD 2018)
@@ -80,7 +86,11 @@ foreach(lib ${LIBS})
 endforeach()
 message(STATUS "Modified LIBS: ${PREPENDED_LIBS}")
 
-set(SRCS athena.f90)
+if (CMAKE_BUILD_TYPE MATCHES "Parallel*")
+    set(SRCS athena_omp.f90)
+else()
+    set(SRCS athena.f90)
+endif()
 foreach(src ${SRCS})
     list(APPEND PREPENDED_SRCS "${SRC_DIR}/${src}")
 endforeach()
@@ -142,22 +152,23 @@ set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${PPFLAGS}")
 
 
 # Create the library
-add_library(athena STATIC ${PREPENDED_LIBS} ${PREPENDED_SRCS})
+add_library(${PROJECT_NAME} STATIC ${PREPENDED_LIBS} ${PREPENDED_SRCS})
 set(MODULE_DIR ${CMAKE_BUILD_PREFIX}/modules)
-set_target_properties(athena PROPERTIES Fortran_MODULE_DIRECTORY ${MODULE_DIR})
+set_target_properties(${PROJECT_NAME} PROPERTIES Fortran_MODULE_DIRECTORY ${MODULE_DIR})
 
 # Replace ".f90" with ".mod"
 string(REGEX REPLACE "\\.[^.]*$" ".mod" MODULE_FILES "${SRCS}")
 
 # Installation
 install(FILES ${MODULE_DIR}/${MODULE_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
-install(TARGETS athena DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+install(TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 
 
-target_compile_options(athena PUBLIC "$<$<CONFIG:Release>:${OPTIMFLAGS}>")
-target_compile_options(athena PUBLIC "$<$<CONFIG:Release>:${MPFLAGS}>")
-target_compile_options(athena PUBLIC "$<$<CONFIG:Parallel>:${MPFLAGS}>")
-target_compile_options(athena PUBLIC "$<$<CONFIG:Dev>:${DEVFLAGS}>")
-target_compile_options(athena PUBLIC "$<$<CONFIG:Debug>:${DEBUGFLAGS}>")
-target_compile_options(athena PUBLIC "$<$<CONFIG:Parallel_Dev>:${MPFLAGS}>")
-target_compile_options(athena PUBLIC "$<$<CONFIG:Parallel_Dev>:${DEVFLAGS}>")
+target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Release>:${OPTIMFLAGS}>")
+target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel>:${OPTIMFLAGS}>")
+target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel>:${MPFLAGS}>")
+target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Dev>:${DEVFLAGS}>")
+target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:${DEBUGFLAGS}>")
+target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel_Dev>:${MPFLAGS}>")
+target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel_Dev>:${DEVFLAGS}>")
+

@@ -4,6 +4,7 @@
 !!! Think Hepplestone, think HRG
 !!!#############################################################################
 submodule(container_layer) container_layer_submodule
+  use base_layer, only: learnable_layer_type
   use input1d_layer, only: input1d_layer_type
   use input3d_layer, only: input3d_layer_type
   use input4d_layer, only: input4d_layer_type
@@ -103,6 +104,22 @@ contains
     end select
 
   end subroutine backward
+
+  
+  subroutine container_reduction(this, rhs)
+    implicit none
+    class(container_layer_type), intent(inout) :: this
+    class(container_layer_type), intent(in) :: rhs
+
+    select type(layer_this => this%layer)
+    class is(learnable_layer_type)
+       select type(layer_rhs => rhs%layer)
+       class is(learnable_layer_type)
+          call layer_this%reduce(layer_rhs)
+       end select
+    end select
+
+  end subroutine container_reduction
 
 
 end submodule container_layer_submodule

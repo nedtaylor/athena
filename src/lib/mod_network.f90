@@ -18,7 +18,7 @@ module network
 
   use base_layer,      only: base_layer_type, &
        input_layer_type, drop_layer_type, learnable_layer_type
-  use container_layer, only: container_layer_type
+  use container_layer, only: container_layer_type, container_reduction
 
   !! input layer types
   use input1d_layer,   only: input1d_layer_type
@@ -65,22 +65,65 @@ module network
      procedure, pass(this) :: test
      procedure, pass(this) :: update
 
-     procedure, pass(this) :: forward => forward_1d    !! TEMPORARY
-     procedure, pass(this) :: backward => backward_1d  !! TEMPORARY
+     procedure, pass(this) :: forward => forward_1d
+     procedure, pass(this) :: backward => backward_1d
   end type network_type
-
+#ifdef _OPENMP
+  !$omp declare reduction(network_reduction:network_type:network_reduction(omp_out, omp_in)) &
+  !$omp& initializer(omp_priv = omp_orig)
+#endif
   
   interface compute_accuracy
      procedure compute_accuracy_int, compute_accuracy_real
   end interface compute_accuracy
 
 
+
   private
 
   public :: network_type
 
-
 contains
+
+!!!#############################################################################
+!!! network addition
+!!!#############################################################################
+  subroutine network_reduction(lhs, rhs)
+    implicit none
+    type(network_type), intent(inout) :: lhs
+    type(network_type), intent(in) :: rhs
+
+    integer :: i
+    
+    lhs%metrics(1)%val = lhs%metrics(1)%val + rhs%metrics(1)%val
+    lhs%metrics(2)%val = lhs%metrics(2)%val + rhs%metrics(2)%val
+    do i=1,size(lhs%model)
+       select type(layer_lhs => lhs%model(i)%layer)
+       class is(learnable_layer_type)
+          select type(layer_rhs => rhs%model(i)%layer)
+          class is(learnable_layer_type)
+             call layer_lhs%merge(layer_rhs)
+          end select
+       end select
+    end do
+
+  end subroutine network_reduction
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! network addition
+!!!#############################################################################
+  subroutine network_copy(lhs, rhs)
+    implicit none
+    type(network_type), intent(out) :: lhs
+    type(network_type), intent(in) :: rhs
+
+    lhs%metrics = rhs%metrics
+    lhs%model   = rhs%model
+  end subroutine network_copy
+!!!#############################################################################
+
 
 !!!#############################################################################
 !!! print network to file
@@ -561,24 +604,24 @@ contains
           call this%model(i)%backward(this%model(i-1),next%di)
        type is(conv3d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
-
+    
        type is(dropout_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
        type is(dropblock2d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
        type is(dropblock3d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
-
+    
        type is(maxpool2d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
        type is(maxpool3d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
-
+    
        type is(flatten2d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
        type is(flatten3d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
-
+    
        type is(full_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
        end select
@@ -599,6 +642,7 @@ contains
     integer :: i
     
 
+    !!-------------------------------------------------------------------
     !! Update layers of learnable layer types
     !!-------------------------------------------------------------------
     do i=2, this%num_layers,1
@@ -660,6 +704,12 @@ contains
 
     integer :: i, l, time, time_old, clock_rate
 
+#ifdef _OPENMP
+    type(network_type) :: this_copy
+    real(real12), allocatable, dimension(:,:) :: input_slice, addit_input_slice
+#endif
+    integer :: timer_start = 0, timer_stop = 0, timer_sum = 0, timer_tot = 0
+
 
 !!!-----------------------------------------------------------------------------
 !!! initialise optional arguments
@@ -715,6 +765,31 @@ contains
      batch_order(batch) = batch
   end do
 
+
+!!!-----------------------------------------------------------------------------
+!!! set up parallel samples slices
+!!!-----------------------------------------------------------------------------
+#ifdef _OPENMP
+  select rank(input)
+  rank(2)
+     allocate(input_slice(&
+          size(input,1),&
+          batch_size))
+  rank(4)
+     allocate(input_slice(&
+          size(input,1)*size(input,2)*size(input,3),&
+          batch_size))
+  rank(5)
+     allocate(input_slice(&
+          size(input,1)*size(input,2)*size(input,3)*size(input,4),&
+          batch_size))
+  end select
+  if(present(addit_input))then
+     allocate(addit_input_slice(size(addit_input,1),batch_size))
+  end if
+  this_copy = this
+#endif
+
     
 !!!-----------------------------------------------------------------------------
 !!! query system clock
@@ -756,20 +831,54 @@ contains
              y_true(:,:) = output(:,start_index:end_index:1)
           end select
 
-
+#ifdef _OPENMP
+          !! set up data slices for parallel
+          !!--------------------------------------------------------------------
+          do sample=start_index,end_index,1
+             input_slice(:,sample - start_index + 1) = get_sample(input, sample)
+          end do
+          if(present(addit_input))then
+             addit_input_slice(:,:) = addit_input(:,start_index:end_index)
+          end if
+          start_index = 1
+          end_index = batch_size
+#endif
+          
+          
+          !$OMP PARALLEL DO & !! ORDERED
+          !$OMP& DEFAULT(NONE) &
+          !$OMP& SHARED(start_index, end_index) &
+          !$OMP& SHARED(input_slice) &
+          !$OMP& SHARED(addit_input_slice, addit_layer) &
+          !$OMP& SHARED(y_pred) &
+          !$OMP& SHARED(y_true) &
+          !$OMP& SHARED(addit_input) &
+          !$OMP& PRIVATE(sample) &
+          !$OMP& REDUCTION(network_reduction:this_copy)
           !!--------------------------------------------------------------------
           !! sample loop
           !! ... test each sample and get gradients and losses from each
           !!--------------------------------------------------------------------
+#ifdef _OPENMP
+          train_loop: do sample=start_index,end_index,1
+#else
           train_loop: do concurrent(sample=start_index:end_index:1)
-                       
+#endif
+
              !! Forward pass
              !!-----------------------------------------------------------------
              if(present(addit_input).and.present(addit_layer))then
+#ifdef _OPENMP
+                call this_copy%forward(input_slice(:,sample),&
+                     addit_input_slice(:,sample),addit_layer)
+             else
+                call this_copy%forward(input_slice(:,sample))
+#else
                 call this%forward(get_sample(input,sample),&
                      addit_input(:,sample),addit_layer)
              else
                 call this%forward(get_sample(input,sample))
+#endif
              end if
 
 !!! SET UP LOSS TO APPLY A NORMALISER BY DEFAULT IF SOFTMAX NOT PREVIOUS
@@ -779,18 +888,24 @@ contains
 !!! https://datascience.stackexchange.com/questions/73093/what-does-from-logits-true-do-in-sparsecategoricalcrossentropy-loss-function
 !!! https://math.stackexchange.com/questions/4367458/derivate-of-the-the-negative-log-likelihood-with-composition
 
-             !! Backward pass
-             !!-----------------------------------------------------------------
-             call this%backward(y_true(:,sample-start_index+1))
 
-             !! store predicted output
+             !! Backward pass and store predicted output
              !!-----------------------------------------------------------------
+#ifdef _OPENMP
+             call this_copy%backward(y_true(:,sample))
+             select type(current => this_copy%model(this_copy%num_layers)%layer)
+             type is(full_layer_type)
+                y_pred(:,sample) = current%output
+#else
+             call this%backward(y_true(:,sample-start_index+1))
              select type(current => this%model(this%num_layers)%layer)
              type is(full_layer_type)
                 y_pred(:,sample-start_index+1) = current%output
+#endif
              end select
 
           end do train_loop
+          !$OMP END PARALLEL DO
 
 
           !! compute loss and accuracy (for monitoring)
@@ -798,7 +913,12 @@ contains
           batch_loss = 0._real12
           batch_accuracy = 0._real12
           do sample = 1, end_index-start_index+1, 1
-             batch_loss = batch_loss + sum(this%get_loss(&
+             batch_loss = batch_loss + sum(&
+#ifdef _OPENMP
+                  this_copy%get_loss(&
+#else
+                  this%get_loss(&
+#endif
                   y_pred(:,sample),y_true(:,sample)))
              select type(output)
              type is(integer)
@@ -813,29 +933,36 @@ contains
 
 
           !! Average metric over batch size and store
+          !! Check metric convergence
           !!--------------------------------------------------------------------
           avg_loss = avg_loss + batch_loss
           avg_accuracy = avg_accuracy + batch_accuracy
+#ifdef _OPENMP
+          this_copy%metrics(1)%val = batch_loss / batch_size
+          this_copy%metrics(2)%val = batch_accuracy / batch_size
+          do i = 1, size(this_copy%metrics,dim=1)
+             call this_copy%metrics(i)%check(t_plateau, converged)
+#else
           this%metrics(1)%val = batch_loss / batch_size
           this%metrics(2)%val = batch_accuracy / batch_size
-
-
-          !! Check metric convergence
-          !!--------------------------------------------------------------------
           do i = 1, size(this%metrics,dim=1)
              call this%metrics(i)%check(t_plateau, converged)
+#endif
              if(converged.ne.0)then
                 exit epoch_loop
              end if
           end do
 
 
-          !! if mini-batch ...
-          !! ... update weights and biases using optimization algorithm
+          !! update weights and biases using optimization algorithm
           !! ... (gradient descent)
           !!--------------------------------------------------------------------
           !! STORE ADAM VALUES IN OPTIMISER
+#ifdef _OPENMP
+          call this_copy%update(batch_size)
+#else
           call this%update(batch_size)
+#endif
 
 
           !! print batch results
@@ -844,17 +971,32 @@ contains
                (batch.eq.1.or.mod(batch,t_batch_print).eq.0.E0))then
              write(6,'("epoch=",I0,", batch=",I0,&
                   &", learning_rate=",F0.3,", loss=",F0.3,", accuracy=",F0.3)')&
-                  epoch, batch, this%optimiser%learning_rate, &
+                  epoch, batch, &
+#ifdef _OPENMP
+                  this_copy%optimiser%learning_rate, &
+#else
+                  this%optimiser%learning_rate, &
+#endif
                   avg_loss/(batch*batch_size),  avg_accuracy/(batch*batch_size)
           end if
           
           
 !!! TESTING
+!#ifdef _OPENMP
+!          call system_clock(timer_start)
+!          call system_clock(timer_stop)
+!          timer_sum = timer_sum + timer_stop - timer_start
+!          timer_tot = timer_tot + timer_sum / omp_get_max_threads()
+!#else
+!          timer_tot = timer_tot + timer_sum
+!#endif
+          timer_sum = 0
            if(batch.gt.200)then
               time_old = time
               call system_clock(time)
               write(*,'("time check: ",F8.3," seconds")') real(time-time_old)/clock_rate
-              return
+              !write(*,'("update timer: ",F8.3," seconds")') real(timer_tot)/clock_rate
+              exit epoch_loop
               stop "THIS IS FOR TESTING PURPOSES"
            end if
 !!!
@@ -888,12 +1030,26 @@ contains
           write(6,'("epoch=",I0,", batch=",I0,&
                &", learning_rate=",F0.3,", val_loss=",F0.3,&
                &", val_accuracy=",F0.3)') &
-               epoch, batch, this%optimiser%learning_rate, &
+               epoch, batch, &
+#ifdef _OPENMP
+               this_copy%optimiser%learning_rate, &
+               this_copy%metrics(1)%val, this_copy%metrics(2)%val
+#else
+               this%optimiser%learning_rate, &
                this%metrics(1)%val, this%metrics(2)%val
+#endif
        end if
 
 
     end do epoch_loop
+
+#ifdef _OPENMP
+    !!--------------------------------------------------------------------------
+    !! copy trained model back into original
+    !!--------------------------------------------------------------------------
+    this%optimiser = this_copy%optimiser
+    this%model = this_copy%model
+#endif
 
   end subroutine train
 !!!#############################################################################
@@ -917,7 +1073,13 @@ contains
 
     integer :: sample, num_samples
     integer :: t_verb, unit
-    real(real12) :: accuracy
+    real(real12) :: accuracy, loss
+    real(real12), allocatable, dimension(:) :: accuracy_list
+    real(real12), allocatable, dimension(:,:) :: predicted
+
+#ifdef _OPENMP
+    type(network_type) :: this_copy
+#endif
 
 
 !!!-----------------------------------------------------------------------------
@@ -928,66 +1090,130 @@ contains
     else
        t_verb = 0
     end if
-    this%metrics%val = 0._real12
     num_samples = size(output, dim=2)
+    allocate(predicted(size(output,1), num_samples))
+
+    this%metrics%val = 0._real12
+    accuracy = 0._real12
+    loss = 0._real12
+    allocate(accuracy_list(num_samples))
+
+#ifdef _OPENMP
+    this_copy = this
+#endif
 
 
 !!!-----------------------------------------------------------------------------
 !!! testing loop
 !!!-----------------------------------------------------------------------------
-    if(abs(t_verb).gt.1) open(file="test_output.out",newunit=unit)
+    !$OMP PARALLEL DO & !! ORDERED
+    !$OMP& DEFAULT(NONE) &
+    !$OMP& SHARED(num_samples) &
+    !$OMP& SHARED(unit, t_verb) &
+    !$OMP& SHARED(input, output, predicted) &
+    !$OMP& SHARED(addit_input, addit_layer) &
+    !$OMP& SHARED(accuracy_list) &
+    !$OMP& PRIVATE(sample) &
+    !$OMP& PRIVATE(accuracy, loss) &
+    !$OMP& REDUCTION(network_reduction:this_copy)
     test_loop: do sample = 1, num_samples
 
        !! Forward pass
        !!-----------------------------------------------------------------------
        if(present(addit_input).and.present(addit_layer))then
-          call this%forward(get_sample(input,sample),addit_input(:,sample),5)
+#ifdef _OPENMP
+          call this_copy%forward(get_sample(input,sample),&
+               addit_input(:,sample),addit_layer)
+       else
+          call this_copy%forward(get_sample(input,sample))
+#else
+          call this%forward(get_sample(input,sample),&
+               addit_input(:,sample),addit_layer)
        else
           call this%forward(get_sample(input,sample))
+#endif
        end if
 
 
        !! compute loss and accuracy (for monitoring)
        !!-----------------------------------------------------------------------
+#ifdef _OPENMP
+       select type(current => this_copy%model(this_copy%num_layers)%layer)
+#else
        select type(current => this%model(this%num_layers)%layer)
+#endif
        type is(full_layer_type)
           select type(output)
           type is(integer)
              accuracy = compute_accuracy(current%output, output(:,sample))
-             this%metrics(1)%val = this%metrics(1)%val + sum(&
+             loss = sum(&
+#ifdef _OPENMP
+                  this_copy%get_loss(&
+#else
                   this%get_loss(&
+#endif
                   predicted=current%output,expected=real(output(:,sample),real12)))
           type is(real)
              accuracy = compute_accuracy(current%output, output(:,sample))
-             this%metrics(1)%val = this%metrics(1)%val + sum(&
+             loss = sum(&
+#ifdef _OPENMP
+                  this_copy%get_loss(&
+#else
                   this%get_loss(&
+#endif
                   predicted=current%output,expected=output(:,sample)))
           end select
+#ifdef _OPENMP
+          this_copy%metrics(2)%val = this_copy%metrics(2)%val + accuracy
+          this_copy%metrics(1)%val = this_copy%metrics(1)%val + loss
+#else
           this%metrics(2)%val = this%metrics(2)%val + accuracy
-          !! print testing results
-          !!--------------------------------------------------------------------
-          if(abs(t_verb).gt.1)then
+          this%metrics(1)%val = this%metrics(1)%val + loss
+#endif
+          accuracy_list(sample) = accuracy
+          predicted(:,sample) = current%output
+       end select
+
+    end do test_loop
+    !$OMP END PARALLEL DO
+
+
+#ifdef _OPENMP
+    !! merge results back into original
+    !!--------------------------------------------------------------------
+    this%metrics  = this_copy%metrics
+#endif
+    
+    
+    !! print testing results
+    !!--------------------------------------------------------------------
+    if(abs(t_verb).gt.1)then
+       open(file="test_output.out",newunit=unit)
+       select type(final_layer => this%model(this%num_layers)%layer)
+       type is(full_layer_type)
+          test_loop: do concurrent(sample = 1:num_samples)
              select type(output)
              type is(integer)
                 write(unit,'(I4," Expected=",I3,", Got=",I3,", Accuracy=",F0.3)') &
                      sample, &
-                     maxloc(output(:,sample)), maxloc(current%output,dim=1)-1, &
-                     accuracy
+                     maxloc(output(:,sample)), maxloc(predicted(:,sample),dim=1)-1, &
+                     accuracy_list(sample)
              type is(real)
                 write(unit,'(I4," Expected=",I3,", Got=",I3,", Accuracy=",F0.3)') &
                      sample, &
-                     maxloc(output(:,sample)), maxloc(current%output,dim=1)-1, &
-                     accuracy
+                     maxloc(output(:,sample)), maxloc(predicted(:,sample),dim=1)-1, &
+                     accuracy_list(sample)
              end select
-          end if
+          end do test_loop
        end select
+       close(unit)
+    end if
 
-    end do test_loop
-    if(abs(t_verb).gt.1) close(unit)
 
+    !! normalise metrics by number of samples
+    !!--------------------------------------------------------------------
     this%accuracy = this%metrics(2)%val/real(num_samples)
     this%loss     = this%metrics(1)%val/real(num_samples)
-
 
   end subroutine test
 !!!#############################################################################

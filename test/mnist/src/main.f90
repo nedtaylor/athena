@@ -3,13 +3,15 @@
 !!! Code part of the ARTEMIS group (Hepplestone research group)
 !!! Think Hepplestone, think HRG
 !!!#############################################################################
-program ConvolutionalNeuralNetwork
+program mnist_test
 #ifdef _OPENMP
   use omp_lib
+  use athena_omp
+#else
+  use athena
 #endif
   use constants, only: real12
   use inputs
-  use athena
 
   implicit none
 
@@ -56,6 +58,7 @@ program ConvolutionalNeuralNetwork
 !!!-----------------------------------------------------------------------------
   call set_global_vars()
 #ifdef _OPENMP
+  write(*,*) "number of threads:", num_threads
   call omp_set_num_threads(num_threads)
 #endif
 
@@ -345,5 +348,5 @@ contains
   end subroutine read_mnist
 !!!#############################################################################
 
-end program ConvolutionalNeuralNetwork
-!!!###################################################################################
+end program mnist_test
+!!!#############################################################################
