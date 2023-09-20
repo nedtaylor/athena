@@ -379,7 +379,7 @@ contains
     !!--------------------------------------------------------------------------
     !! initialise weights and biases steps (velocities)
     !!--------------------------------------------------------------------------
-    allocate(this%bias_incr, source=this%bias)
+    allocate(this%bias_incr,   source=this%bias)
     allocate(this%weight_incr, source=this%weight)
 
 
