@@ -261,18 +261,14 @@ contains
     !!--------------------------------------------------------------------------
     !! allocate weight, weight steps (velocities), output, and activation
     !!--------------------------------------------------------------------------
-    allocate(this%weight(this%num_inputs+1,this%num_outputs))
+    allocate(this%weight(this%num_inputs+1,this%num_outputs), source=0._real12)
 
     allocate(this%weight_incr, source=this%weight)
     allocate(this%output(this%num_outputs), source=0._real12)
-    allocate(this%z, mold=this%output)
-    this%output = 0._real12
-    this%z = 0._real12
+    allocate(this%z, source=this%output)
 
     allocate(this%dw, source=this%weight)
     allocate(this%di(this%num_inputs), source=0._real12)
-    this%dw = 0._real12
-    this%di = 0._real12
 
 
     !!--------------------------------------------------------------------------
