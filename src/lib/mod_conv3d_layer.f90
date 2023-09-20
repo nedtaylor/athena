@@ -785,11 +785,11 @@ contains
     !! ... ergo, we need to subtract 1 from upper index
     !!--------------------------------------------------------------------------
     do concurrent( &
+         l=1:this%num_filters, &
+         m=1:this%num_channels, &
          z=-this%hlf(3):end_idx(3):1, &
          y=-this%hlf(2):end_idx(2):1, &
-         x=-this%hlf(1):end_idx(1):1, &
-         m=1:this%num_channels, &
-         l=1:this%num_filters &
+         x=-this%hlf(1):end_idx(1):1 &
          )
        this%dw(x,y,z,m,l) = this%dw(x,y,z,m,l) + &
             sum(grad_dz(:,:,:,l) * &
