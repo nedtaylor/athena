@@ -426,7 +426,7 @@ contains
 !!! initialise layers
 !!!-----------------------------------------------------------------------------
     if(t_verb.gt.0)then
-       write(*,*) "layer:",1, this%model(i)%name
+       write(*,*) "layer:",1, this%model(1)%name
        write(*,*) this%model(1)%layer%input_shape
        write(*,*) this%model(1)%layer%output_shape
     end if
