@@ -426,7 +426,7 @@ contains
 !!! initialise layers
 !!!-----------------------------------------------------------------------------
     if(t_verb.gt.0)then
-       write(*,*) "layer:",1
+       write(*,*) "layer:",1, this%model(i)%name
        write(*,*) this%model(1)%layer%input_shape
        write(*,*) this%model(1)%layer%output_shape
     end if
@@ -434,7 +434,7 @@ contains
        if(.not.allocated(this%model(i)%layer%input_shape)) &
             call this%model(i)%layer%init(this%model(i-1)%layer%output_shape)
        if(t_verb.gt.0)then
-          write(*,*) "layer:",i
+          write(*,*) "layer:",i, this%model(i)%name
           write(*,*) this%model(i)%layer%input_shape
           write(*,*) this%model(i)%layer%output_shape
        end if
