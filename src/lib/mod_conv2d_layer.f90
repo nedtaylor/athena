@@ -364,26 +364,23 @@ contains
 
     allocate(this%output(&
          this%output_shape(1),this%output_shape(2),&
-         this%num_filters))
-    allocate(this%z, mold=this%output)
-    this%z = 0._real12
+         this%num_filters), source=0._real12)
+    allocate(this%z, source=this%output)
 
-    allocate(this%bias(this%num_filters))
+    allocate(this%bias(this%num_filters), source=0._real12)
 
     end_idx   = this%hlf + (this%cen - 1)
     allocate(this%weight(&
          -this%hlf(1):end_idx(1),&
          -this%hlf(2):end_idx(2),&
-         this%num_channels,this%num_filters))
+         this%num_channels,this%num_filters), source=0._real12)
 
 
     !!--------------------------------------------------------------------------
     !! initialise weights and biases steps (velocities)
     !!--------------------------------------------------------------------------
-    allocate(this%bias_incr, mold=this%bias)
-    allocate(this%weight_incr, mold=this%weight)
-    this%bias_incr = 0._real12
-    this%weight_incr = 0._real12
+    allocate(this%bias_incr, source=this%bias)
+    allocate(this%weight_incr, source=this%weight)
 
 
     !!--------------------------------------------------------------------------
@@ -391,11 +388,8 @@ contains
     !!--------------------------------------------------------------------------
     allocate(this%di(&
          input_shape(1), input_shape(2), input_shape(3)), source=0._real12)
-    allocate(this%dw, mold=this%weight)
-    allocate(this%db, mold=this%bias)
-    this%di = 0._real12
-    this%dw = 0._real12
-    this%db = 0._real12
+    allocate(this%dw, source=this%weight)
+    allocate(this%db, source=this%bias)
 
 
     !!--------------------------------------------------------------------------
