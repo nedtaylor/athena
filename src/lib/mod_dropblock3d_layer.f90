@@ -167,7 +167,7 @@ contains
     allocate(this%di(&
          input_shape(1),&
          input_shape(2),&
-         input_shape(3), input_shape(3)), &
+         input_shape(3), this%num_channels), &
          source=0._real12)
 
 
