@@ -755,7 +755,6 @@ contains
     allocate(y_true(this%num_outputs,batch_size), source = 0._real12)
 
 
-
 !!!-----------------------------------------------------------------------------
 !!! if parallel, initialise slices
 !!!-----------------------------------------------------------------------------
@@ -990,15 +989,15 @@ contains
 !#else
 !          timer_tot = timer_tot + timer_sum
 !#endif
-          timer_sum = 0
-           if(batch.gt.200)then
-              time_old = time
-              call system_clock(time)
-              write(*,'("time check: ",F8.3," seconds")') real(time-time_old)/clock_rate
-              !write(*,'("update timer: ",F8.3," seconds")') real(timer_tot)/clock_rate
-              exit epoch_loop
-              stop "THIS IS FOR TESTING PURPOSES"
-           end if
+!          timer_sum = 0
+!           if(batch.gt.200)then
+!              time_old = time
+!              call system_clock(time)
+!              write(*,'("time check: ",F8.3," seconds")') real(time-time_old)/clock_rate
+!              !write(*,'("update timer: ",F8.3," seconds")') real(timer_tot)/clock_rate
+!              exit epoch_loop
+!              stop "THIS IS FOR TESTING PURPOSES"
+!           end if
 !!!
 
 
