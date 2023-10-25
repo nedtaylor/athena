@@ -24,7 +24,8 @@ if (CMAKE_BUILD_TYPE MATCHES "Parallel*")
 endif()
 
 
-set(CMAKE_Fortran_COMPILER gfortran)  # Change this to your desired compiler
+set(CMAKE_Fortran_COMPILER gfortran
+  CACHE STRING "Select fortra compiler." )  # Change this to your desired compiler
 set(CMAKE_Fortran_STANDARD 2018)
 
 enable_language(Fortran)
