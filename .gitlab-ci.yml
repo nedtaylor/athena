@@ -23,10 +23,12 @@ stages:          # List of stages for jobs, and their order of execution
 
 variables:
   OUTPUT_DIR: output  # Adjust this to your Fortran code's output directory
+  TEST_DIR: test  # Adjust this to your Fortran code's output directory
 
 before_script:
-  - apt-get update -qy
-  - apt-get install -y gfortran  # Install gfortran (or any other Fortran compiler you prefer)
+  - which gfortran
+#  - apt-get update -qy
+#  - apt-get install -y gfortran  # Install gfortran (or any other Fortran compiler you prefer)
 
 build-job:       # This job runs in the build stage, which runs first.
   stage: build
@@ -35,25 +37,33 @@ build-job:       # This job runs in the build stage, which runs first.
   script:
     - mkdir -p $OUTPUT_DIR
     - echo "Compiling the code..."
-    - make build optim
+    - mkdir -p build
+    - cd build
+    - cmake3 -DCMAKE_BUILD_TYPE="Release" ..
+    - make
+    - make install
+    - cd ..
     - echo "Compile complete."
   artifacts:
     paths:
-      - cnn_dev
+      - build/
 
 unit-test-job:   # This job runs in the test stage.
   stage: test    # It only starts when the job in the build stage completes successfully.
   script:
     - echo "Running unit tests..."#" This will take about 60 seconds."
-    - ./bin/cnn_dev -f $OUTPUT_DIR/test_job.in
-    - diff $OUTPUT_DIR/expected_output.txt $OUTPUT_DIR/actual_output.txt
+    - cd $TEST_DIR/mnist
+    - make build
+    - ./bin/athena_test -f test_job.in
+    - diff expected_output.txt actual_output.txt
+    - cd -
   only:
     changes:
       - src/
       - Makefile
   artifacts:
     paths:
-      - $OUTPUT_DIR/actual_output.txt    
+      - $TEST_DIR/mnist/actual_output.txt    
 
 # lint-test-job:   # This job also runs in the test stage.
 #   stage: test    # It can run at the same time as unit-test-job (in parallel).
