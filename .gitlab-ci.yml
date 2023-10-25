@@ -39,7 +39,7 @@ build-job:       # This job runs in the build stage, which runs first.
     - echo "Compiling the code..."
     - mkdir -p build
     - cd build
-    - cmake3 -DCMAKE_BUILD_TYPE="Release" ..
+    - cmake3 -DCMAKE_BUILD_TYPE="Release" -DCMAKE_Fortran_COMPILER="/usr/local/gcc-13.2.0/bin/gfortran-13.2.0" ..
     - make
     - make install
     - cd ..
