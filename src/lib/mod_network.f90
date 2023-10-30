@@ -1245,7 +1245,7 @@ contains
     real(real12) :: accuracy
 
     !! Compute the accuracy
-    accuracy = sum(abs(expected - output)) !! should be for continuous data
+    accuracy = 1._real12 - sum(abs(expected - output))/size(expected) !! should be for continuous data
 
   end function compute_accuracy_real
 !!!#############################################################################
