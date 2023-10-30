@@ -74,7 +74,7 @@ module network
 #endif
   
   interface compute_accuracy
-     procedure compute_accuracy_int, compute_accuracy_real
+     procedure compute_accuracy_int, compute_accuracy_r2 !, compute_accuracy_real
   end interface compute_accuracy
 
 
@@ -1238,7 +1238,7 @@ contains
   end function compute_accuracy_int
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
-!!! works for continuous datasets
+!!! works for continuous datasets (CURRENTLY UNAVAILABLE)
   function compute_accuracy_real(output, expected) result(accuracy)
     implicit none
     real(real12), dimension(:), intent(in) :: output, expected
@@ -1248,6 +1248,28 @@ contains
     accuracy = 1._real12 - sum(abs(expected - output))/size(expected) !! should be for continuous data
 
   end function compute_accuracy_real
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+!!! works for continuous datasets
+  function compute_accuracy_r2(output, expected) result(accuracy)
+    implicit none
+    real(real12), dimension(:), intent(in) :: output, expected
+    real :: y_mean, rss, tss
+    real(real12) :: accuracy
+
+    !! compute mean of true/expected
+    y_mean = sum(expected) / size(expected)
+
+    !! compute total sum of squares
+    tss = sum( ( expected - y_mean ) ** 2._real12 )
+
+    !! compute residual sum of squares
+    rss = sum( ( expected - output ) ** 2._real12 )
+
+    !! compute accuracy (R^2 score)
+    accuracy = 1._real12 - rss/tss
+
+  end function compute_accuracy_r2
 !!!#############################################################################
 
 
