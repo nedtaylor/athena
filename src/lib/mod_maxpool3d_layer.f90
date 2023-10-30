@@ -287,6 +287,7 @@ contains
 
       !! check for end of convolution card
       if(trim(adjustl(buffer)).eq."END MAXPOOL3D")then
+         backspace(unit)
          exit tag_loop
       end if
 
