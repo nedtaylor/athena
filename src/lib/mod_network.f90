@@ -18,7 +18,11 @@ module network
 
   use base_layer,      only: base_layer_type, &
        input_layer_type, drop_layer_type, learnable_layer_type
+#if defined(GFORTRAN)
   use container_layer, only: container_layer_type, container_reduction
+#else
+  use container_layer, only: container_layer_type
+#endif
 
   !! input layer types
   use input1d_layer,   only: input1d_layer_type
@@ -259,7 +263,7 @@ contains
 !!!#############################################################################
 !!! set up network
 !!!#############################################################################
-  subroutine compile(this, optimiser, loss, metrics, verbose)
+  subroutine compile(this, optimiser, loss_method, metrics, verbose)
     use misc, only: to_lower
     use loss, only: &
          compute_loss_bce, compute_loss_cce, &
@@ -268,13 +272,14 @@ contains
     implicit none
     class(network_type), intent(inout) :: this
     type(optimiser_type), intent(in) :: optimiser
-    character(*), intent(in) :: loss
+    character(*), intent(in) :: loss_method
     class(*), dimension(..), intent(in) :: metrics
     integer, optional, intent(in) :: verbose
     
     integer :: i
     integer :: t_verb, num_addit_inputs
-    character(len=:), allocatable :: loss_method
+    character(len=:), allocatable :: t_loss_method
+    class(base_layer_type), allocatable :: t_input_layer, t_flatten_layer
 
 
 !!!-----------------------------------------------------------------------------
@@ -295,13 +300,17 @@ contains
     this%metrics(2)%key = "accuracy"
     this%metrics%threshold = 1.E-1_real12
     select rank(metrics)
+#if defined(GFORTRAN)
     rank(0)
        select type(metrics)
        type is(character(*))
+          !! ERROR: ifort cannot identify that the rank of metrics has been ...
+          !! ... identified as scalar here
           where(to_lower(trim(metrics)).eq.this%metrics%key)
              this%metrics%active = .true.
           end where
        end select
+#endif
     rank(1)
        select type(metrics)
        type is(character(*))
@@ -331,21 +340,21 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! initialise loss method
 !!!-----------------------------------------------------------------------------
-    loss_method = to_lower(loss)
+    t_loss_method = to_lower(loss_method)
     select case(loss_method)
     case("binary_crossentropy")
-       loss_method = "bce"
+       t_loss_method = "bce"
     case("categorical_crossentropy")
-       loss_method = "cce"
+       t_loss_method = "cce"
     case("mean_absolute_error")
-       loss_method = "mae"
+       t_loss_method = "mae"
     case("mean_squared_error")
-       loss_method = "mse"
+       t_loss_method = "mse"
     case("negative_loss_likelihood")
-       loss_method = "nll"
+       t_loss_method = "nll"
     end select
 
-    select case(loss_method)
+    select case(t_loss_method)
     case("bce")
        this%get_loss => compute_loss_bce
        if(t_verb.gt.0) write(*,*) "Loss method: Categorical Cross Entropy"
@@ -362,7 +371,7 @@ contains
        this%get_loss => compute_loss_nll
        if(t_verb.gt.0) write(*,*) "Loss method: Negative log likelihood"
     case default
-       write(0,*) "Failed loss method: "//trim(loss_method)
+       write(0,*) "Failed loss method: "//trim(t_loss_method)
        stop "ERROR: No loss method provided"
     end select
     this%get_loss_deriv => comp_loss_deriv
@@ -384,29 +393,34 @@ contains
        associate(next => this%model(2)%layer)
          select case(size(next%input_shape,dim=1))
          case(1)
-            allocate(this%model(1)%layer, source=&
-                 input1d_layer_type(input_shape=next%input_shape))
+            t_input_layer = input1d_layer_type(input_shape=next%input_shape)
+            allocate(this%model(1)%layer, source=t_input_layer)
          case(3)
             select type(next)
             type is(conv2d_layer_type)
-               allocate(this%model(1)%layer, source=&
-                    input3d_layer_type(input_shape=next%input_shape+&
-                    [2*next%pad,0]))
+               t_input_layer = input3d_layer_type(&
+                    input_shape=next%input_shape+&
+                    [2*next%pad,0])
+               allocate(this%model(1)%layer, source=t_input_layer)
             class default
-               allocate(this%model(1)%layer, source=&
-                    input3d_layer_type(input_shape=next%input_shape))
+               t_input_layer = input3d_layer_type(&
+                    input_shape=next%input_shape)
+               allocate(this%model(1)%layer, source=t_input_layer)
             end select
          case(4)
             select type(next)
             type is(conv3d_layer_type)
-               allocate(this%model(1)%layer, source=&
-                    input4d_layer_type(input_shape=next%input_shape+&
-                    [2*next%pad,0]))
+               t_input_layer = input4d_layer_type(&
+                    input_shape=next%input_shape+&
+                    [2*next%pad,0])
+               allocate(this%model(1)%layer, source=t_input_layer)
             class default
-               allocate(this%model(1)%layer, source=&
-                    input4d_layer_type(input_shape=next%input_shape))
+               t_input_layer = input4d_layer_type(&
+                    input_shape=next%input_shape)
+               allocate(this%model(1)%layer, source=t_input_layer)
             end select
          end select
+         deallocate(t_input_layer)
        end associate
     end select
 
@@ -473,15 +487,15 @@ contains
                    end select
                    select case(size(this%model(i)%layer%output_shape))
                    case(3)
-                      allocate(this%model(i+1)%layer, source=&
-                           flatten2d_layer_type(input_shape=&
-                           this%model(i)%layer%output_shape, &
-                           num_addit_outputs = num_addit_inputs))
+                      t_flatten_layer = flatten2d_layer_type(&
+                           input_shape = this%model(i)%layer%output_shape, &
+                           num_addit_outputs = num_addit_inputs)
+                      allocate(this%model(i+1)%layer, source=t_flatten_layer)
                    case(4)
-                      allocate(this%model(i+1)%layer, source=&
-                           flatten3d_layer_type(input_shape=&
-                           this%model(i)%layer%output_shape, &
-                           num_addit_outputs = num_addit_inputs))
+                      t_flatten_layer = flatten3d_layer_type(&
+                           input_shape = this%model(i)%layer%output_shape, &
+                           num_addit_outputs = num_addit_inputs)
+                      allocate(this%model(i+1)%layer, source=t_flatten_layer)
                    end select
                    i = i + 1
                    cycle layer_loop
@@ -702,7 +716,7 @@ contains
     integer :: epoch, batch, sample, start_index, end_index
     integer, allocatable, dimension(:) :: batch_order
 
-    integer :: i, l, time, time_old, clock_rate
+    integer :: i, time, time_old, clock_rate
 
 #ifdef _OPENMP
     type(network_type) :: this_copy
@@ -1072,7 +1086,7 @@ contains
 
     integer :: sample, num_samples
     integer :: t_verb, unit
-    real(real12) :: accuracy, loss
+    real(real12) :: acc_val, loss_val
     real(real12), allocatable, dimension(:) :: accuracy_list
     real(real12), allocatable, dimension(:,:) :: predicted
 
@@ -1093,8 +1107,8 @@ contains
     allocate(predicted(size(output,1), num_samples))
 
     this%metrics%val = 0._real12
-    accuracy = 0._real12
-    loss = 0._real12
+    acc_val  = 0._real12
+    loss_val = 0._real12
     allocate(accuracy_list(num_samples))
 
 #ifdef _OPENMP
@@ -1113,7 +1127,7 @@ contains
     !$OMP& SHARED(addit_input, addit_layer) &
     !$OMP& SHARED(accuracy_list) &
     !$OMP& PRIVATE(sample) &
-    !$OMP& PRIVATE(accuracy, loss) &
+    !$OMP& PRIVATE(acc_val, loss_val) &
     !$OMP& REDUCTION(network_reduction:this_copy)
     test_loop: do sample = 1, num_samples
 
@@ -1144,8 +1158,8 @@ contains
        type is(full_layer_type)
           select type(output)
           type is(integer)
-             accuracy = compute_accuracy(current%output, output(:,sample))
-             loss = sum(&
+             acc_val = compute_accuracy(current%output, output(:,sample))
+             loss_val = sum(&
 #ifdef _OPENMP
                   this_copy%get_loss(&
 #else
@@ -1153,8 +1167,8 @@ contains
 #endif
                   predicted=current%output,expected=real(output(:,sample),real12)))
           type is(real)
-             accuracy = compute_accuracy(current%output, output(:,sample))
-             loss = sum(&
+             acc_val = compute_accuracy(current%output, output(:,sample))
+             loss_val = sum(&
 #ifdef _OPENMP
                   this_copy%get_loss(&
 #else
@@ -1163,13 +1177,13 @@ contains
                   predicted=current%output,expected=output(:,sample)))
           end select
 #ifdef _OPENMP
-          this_copy%metrics(2)%val = this_copy%metrics(2)%val + accuracy
-          this_copy%metrics(1)%val = this_copy%metrics(1)%val + loss
+          this_copy%metrics(2)%val = this_copy%metrics(2)%val + acc_val
+          this_copy%metrics(1)%val = this_copy%metrics(1)%val + loss_val
 #else
-          this%metrics(2)%val = this%metrics(2)%val + accuracy
-          this%metrics(1)%val = this%metrics(1)%val + loss
+          this%metrics(2)%val = this%metrics(2)%val + acc_val
+          this%metrics(1)%val = this%metrics(1)%val + loss_val
 #endif
-          accuracy_list(sample) = accuracy
+          accuracy_list(sample) = acc_val
           predicted(:,sample) = current%output
        end select
 

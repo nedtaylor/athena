@@ -106,6 +106,7 @@ contains
   end subroutine backward
 
   
+#if defined(GFORTRAN)
   subroutine container_reduction(this, rhs)
     implicit none
     class(container_layer_type), intent(inout) :: this
@@ -120,6 +121,7 @@ contains
     end select
 
   end subroutine container_reduction
+#endif
 
 
 end submodule container_layer_submodule

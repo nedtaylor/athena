@@ -20,7 +20,9 @@ module container_layer
      procedure, pass(this) :: forward
      procedure, pass(this) :: backward
 
+#if defined(GFORTRAN)
      procedure, pass(this) :: reduce => container_reduction
+#endif
   end type container_layer_type
 
 
@@ -41,6 +43,7 @@ module container_layer
      end subroutine backward
   end interface
 
+#if defined(GFORTRAN)
   interface
      module subroutine container_reduction(this, rhs)
        !import container_layer_type, real12
@@ -48,11 +51,14 @@ module container_layer
        class(container_layer_type), intent(in) :: rhs
      end subroutine 
   end interface
+#endif
 
 
   private
   public :: container_layer_type
+#if defined(GFORTRAN)
   public :: container_reduction
+#endif
 
 
 end module container_layer
