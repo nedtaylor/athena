@@ -20,8 +20,9 @@ module flatten3d_layer
   end type flatten3d_layer_type
 
   interface flatten3d_layer_type
-     module function layer_setup(input_shape) result(layer)
+     module function layer_setup(input_shape, num_addit_outputs) result(layer)
        integer, dimension(:), optional, intent(in) :: input_shape
+       integer, optional, intent(in) :: num_addit_outputs
        type(flatten3d_layer_type) :: layer
      end function layer_setup
   end interface flatten3d_layer_type
