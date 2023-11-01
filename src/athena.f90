@@ -11,6 +11,9 @@ module athena
   use metrics, only: metric_dict_type
   use optimiser, only: optimiser_type
 
+  !! normalisation methods
+  use normalisation, only: linear_renormalise, renormalise_norm, renormalise_sum
+
   !! input layer types
   use input1d_layer,   only: input1d_layer_type
   use input3d_layer,   only: input3d_layer_type
