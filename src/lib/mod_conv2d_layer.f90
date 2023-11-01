@@ -327,7 +327,7 @@ contains
 
     integer :: t_verb
     integer, dimension(2) :: end_idx
-    class(initialiser_type), allocatable :: initialiser
+    class(initialiser_type), allocatable :: t_initialiser
 
 
     !!--------------------------------------------------------------------------
@@ -395,17 +395,17 @@ contains
     !!--------------------------------------------------------------------------
     !! initialise weights (kernels)
     !!--------------------------------------------------------------------------
-    allocate(initialiser, source=initialiser_setup(this%kernel_initialiser))
-    call initialiser%initialise(this%weight, &
+    allocate(t_initialiser, source=initialiser_setup(this%kernel_initialiser))
+    call t_initialiser%initialise(this%weight, &
          fan_in=product(this%knl)+1, fan_out=1)
-    deallocate(initialiser)
+    deallocate(t_initialiser)
 
     !! initialise biases
     !!--------------------------------------------------------------------------
-    allocate(initialiser, source=initialiser_setup(this%bias_initialiser))
-    call initialiser%initialise(this%bias, &
+    allocate(t_initialiser, source=initialiser_setup(this%bias_initialiser))
+    call t_initialiser%initialise(this%bias, &
          fan_in=product(this%knl)+1, fan_out=1)
-    deallocate(initialiser)
+    deallocate(t_initialiser)
 
   end subroutine init_conv2d
 !!!#############################################################################
@@ -830,11 +830,11 @@ contains
 !!!#############################################################################
 !!! update the weights based on how much error the node is responsible for
 !!!#############################################################################
-  pure subroutine update(this, optimiser, batch_size)
+  pure subroutine update(this, method, batch_size)
     use optimiser, only: optimiser_type
     implicit none
     class(conv2d_layer_type), intent(inout) :: this
-    type(optimiser_type), intent(in) :: optimiser
+    type(optimiser_type), intent(in) :: method
     integer, optional, intent(in) :: batch_size
 
     
@@ -845,15 +845,15 @@ contains
     end if
        
     !! apply gradient clipping
-    call optimiser%clip(size(this%dw),this%dw,this%db)
+    call method%clip(size(this%dw),this%dw,this%db)
 
     !! update the convolution layer weights using gradient descent
-    call optimiser%optimise(&
+    call method%optimise(&
          this%weight,&
          this%weight_incr, &
          this%dw)
     !! update the convolution layer bias using gradient descent
-    call optimiser%optimise(&
+    call method%optimise(&
          this%bias,&
          this%bias_incr, &
          this%db)

@@ -231,7 +231,7 @@ contains
     integer, optional, intent(in) :: verbose
 
     integer :: t_verb
-    class(initialiser_type), allocatable :: initialiser
+    class(initialiser_type), allocatable :: t_initialiser
 
 
     !!--------------------------------------------------------------------------
@@ -274,17 +274,17 @@ contains
     !!--------------------------------------------------------------------------
     !! initialise weights (kernels)
     !!--------------------------------------------------------------------------
-    allocate(initialiser, source=initialiser_setup(this%kernel_initialiser))
-    call initialiser%initialise(this%weight(:this%num_inputs,:), &
+    allocate(t_initialiser, source=initialiser_setup(this%kernel_initialiser))
+    call t_initialiser%initialise(this%weight(:this%num_inputs,:), &
          fan_in=this%num_inputs+1, fan_out=this%num_outputs)
-    deallocate(initialiser)
+    deallocate(t_initialiser)
 
     !! initialise biases
     !!--------------------------------------------------------------------------
-    allocate(initialiser, source=initialiser_setup(this%bias_initialiser))
-    call initialiser%initialise(this%weight(this%num_inputs+1,:), &
+    allocate(t_initialiser, source=initialiser_setup(this%bias_initialiser))
+    call t_initialiser%initialise(this%weight(this%num_inputs+1,:), &
          fan_in=this%num_inputs+1, fan_out=this%num_outputs)
-    deallocate(initialiser)
+    deallocate(t_initialiser)
 
   end subroutine init_full
 !!!#############################################################################
@@ -553,11 +553,11 @@ contains
 !!!#############################################################################
 !!! update the weights based on how much error the node is responsible for
 !!!#############################################################################
-  pure subroutine update(this, optimiser, batch_size)
+  pure subroutine update(this, method, batch_size)
     use optimiser, only: optimiser_type
     implicit none
     class(full_layer_type), intent(inout) :: this
-    type(optimiser_type), intent(in) :: optimiser
+    type(optimiser_type), intent(in) :: method
     integer, optional, intent(in) :: batch_size
 
 
@@ -565,10 +565,10 @@ contains
     if(present(batch_size)) this%dw = this%dw/batch_size
 
     !! apply gradient clipping
-    call optimiser%clip(size(this%dw),this%dw)
+    call method%clip(size(this%dw),this%dw)
 
     !! update the layer weights and bias using gradient descent
-    call optimiser%optimise(&
+    call method%optimise(&
          this%weight, &
          this%weight_incr, &
          this%dw)

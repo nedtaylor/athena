@@ -100,10 +100,10 @@ module base_layer
   end type learnable_layer_type
 
   abstract interface
-     pure subroutine update(this, optimiser, batch_size)
+     pure subroutine update(this, method, batch_size)
        import :: learnable_layer_type, optimiser_type
        class(learnable_layer_type), intent(inout) :: this
-       type(optimiser_type), intent(in) :: optimiser
+       type(optimiser_type), intent(in) :: method
        integer, optional, intent(in) :: batch_size
      end subroutine update
   end interface
