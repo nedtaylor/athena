@@ -78,7 +78,7 @@ module network
 #endif
   
   interface compute_accuracy
-     procedure compute_accuracy_int, compute_accuracy_r2 !, compute_accuracy_real
+     procedure compute_accuracy_int, compute_accuracy_real !, compute_accuracy_r2
   end interface compute_accuracy
 
 
@@ -1252,7 +1252,7 @@ contains
   end function compute_accuracy_int
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
-!!! works for continuous datasets (CURRENTLY UNAVAILABLE)
+!!! works for continuous datasets
   function compute_accuracy_real(output, expected) result(accuracy)
     implicit none
     real(real12), dimension(:), intent(in) :: output, expected
@@ -1264,7 +1264,7 @@ contains
   end function compute_accuracy_real
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
-!!! works for continuous datasets
+!!! works for continuous datasets (CURRENTLY UNAVAILABLE)
   function compute_accuracy_r2(output, expected) result(accuracy)
     implicit none
     real(real12), dimension(:), intent(in) :: output, expected
