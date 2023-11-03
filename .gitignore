@@ -21,3 +21,4 @@ build/
 test/bin/
 test/obj/
 DPython_test/
+settings.json
