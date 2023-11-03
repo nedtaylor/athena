@@ -928,11 +928,11 @@ contains
           do sample = 1, end_index-start_index+1, 1
              batch_loss = batch_loss + sum(&
 #ifdef _OPENMP
-                  this_copy%get_loss(&
+                  this_copy &
 #else
-                  this%get_loss(&
+                  this &
 #endif
-                  y_pred(:,sample),y_true(:,sample)))
+                  & % get_loss(y_pred(:,sample),y_true(:,sample)))
              select type(output)
              type is(integer)
                 batch_accuracy = batch_accuracy + compute_accuracy(&
@@ -1088,7 +1088,7 @@ contains
     integer :: t_verb, unit
     real(real12) :: acc_val, loss_val
     real(real12), allocatable, dimension(:) :: accuracy_list
-    real(real12), allocatable, dimension(:,:) :: predicted
+    real(real12), allocatable, dimension(:,:) :: predicted, y_true
 
 #ifdef _OPENMP
     type(network_type) :: this_copy
@@ -1114,6 +1114,13 @@ contains
 #ifdef _OPENMP
     this_copy = this
 #endif
+    
+    select type(output)
+    type is(integer)
+       y_true(:,:) = real(output(:,:),real12)
+    type is(real)
+       y_true(:,:) = output(:,:)
+    end select
 
 
 !!!-----------------------------------------------------------------------------
@@ -1156,26 +1163,21 @@ contains
        select type(current => this%model(this%num_layers)%layer)
 #endif
        type is(full_layer_type)
-          select type(output)
-          type is(integer)
-             acc_val = compute_accuracy(current%output, output(:,sample))
-             loss_val = sum(&
+          loss_val = sum(&
 #ifdef _OPENMP
-                  this_copy%get_loss(&
+               this_copy &
 #else
-                  this%get_loss(&
+               this &
 #endif
-                  predicted=current%output,expected=real(output(:,sample),real12)))
-          type is(real)
-             acc_val = compute_accuracy(current%output, output(:,sample))
-             loss_val = sum(&
-#ifdef _OPENMP
-                  this_copy%get_loss(&
-#else
-                  this%get_loss(&
-#endif
-                  predicted=current%output,expected=output(:,sample)))
-          end select
+               & % get_loss(&
+               predicted = current%output, &
+               expected  = y_true(:,sample)))
+             select type(output)
+             type is(integer)
+                acc_val = compute_accuracy(current%output,output(:,sample))
+             type is(real)
+                acc_val = compute_accuracy(current%output,output(:,sample))
+             end select
 #ifdef _OPENMP
           this_copy%metrics(2)%val = this_copy%metrics(2)%val + acc_val
           this_copy%metrics(1)%val = this_copy%metrics(1)%val + loss_val
