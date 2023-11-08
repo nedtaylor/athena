@@ -8,7 +8,7 @@ module network
   use omp_lib
 #endif
   use constants, only: real12
-  use misc, only: shuffle
+  use misc_ml, only: shuffle
 
   use metrics, only: metric_dict_type
   use optimiser, only: optimiser_type
