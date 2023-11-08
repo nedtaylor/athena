@@ -1,13 +1,8 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor and Francis Huw Davies
-!!! Code part of the ARTEMIS group (Hepplestone research group).
-!!! Think Hepplestone, think HRG.
 !!!#############################################################################
 !!! module contains various miscellaneous functions and subroutines.
 !!! module includes the following functions and subroutines:
-!!! shuffle          (randomly shuffle a 2D array along one dimension)
-!!! split            (split data into train and test sets)
-!!!##################
 !!! Icount           (counts words on line)
 !!! grep             (finds 1st line containing the pattern)
 !!! to_upper         (converts all characters in string to upper case)
