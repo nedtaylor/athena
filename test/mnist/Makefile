@@ -20,15 +20,15 @@ OBJS := $(addprefix $(SRC_DIR)/,$(SRCS))
 # COMPILER CHOICE SECTION
 ##########################################
 FC=gfortran
-ifeq ($(FC), $(filter $(FC), ifort ifx))
+ifneq (,$(filter ifort% ifx%, $(FC)))
 	PPFLAGS = -stand f18 -cpp
 	MPFLAGS = -qopenmp
 	MODULEFLAGS = -module
 	DEVFLAGS = -check all -warn #all
 	DEBUGFLAGS = -check all -fpe0 -warn -tracekback -debug extended # -check bounds
 	OPTIMFLAGS = -O3
-else ifeq ($(FC), $(filter $(FC), gfortran gcc)) 
-	PPFLAGS = -cpp
+else ifneq (,$(filter gfortran% gcc%, $(FC))) 
+	PPFLAGS = -cpp -gdwarf-2
 	MPFLAGS = -fopenmp
 	MODULEFLAGS = -J
 	WARNFLAGS = -Wall
@@ -37,7 +37,7 @@ else ifeq ($(FC), $(filter $(FC), gfortran gcc))
 	MEMFLAGS = -mcmodel=large
 	OPTIMFLAGS = -O3 -march=native
 	FASTFLAGS = -Ofast -march=native
-else ifeq ($(FC), $(filter $(FC), nag nagfor nagfmcheck)) 
+else ifneq (,$(filter nag% nagfor% nagfmcheck%, $(FC)))
 	PPFLAGS = -f2018 -fpp
 	MPFLAGS = -openmp
 	MODULEFLAGS = -mdir ${BUILD_DIR} -I
@@ -71,8 +71,11 @@ LBLAS = /home/links/hm556/.local/lapack/libblas.a #$(MKLROOT)/libmkl_blas95_lp64
 LLAPACK = ${HOME}/.local/lapack/liblapack.a
 LIBRARY = -fexternal-blas $(LBLAS)
 
-ATHENAROOT = "${HOME}/.local/athena"
-LATHENA = -I$(ATHENAROOT)/include -L$(ATHENAROOT)/lib -gdwarf-2 -lathena
+## standard to be used
+# ATHENAROOT = "${HOME}/.local/athena"
+## for testing purposes only
+ATHENAROOT = ../../bin
+LATHENA = -I$(ATHENAROOT)/include -L$(ATHENAROOT)/lib -lathena
 
 
 ##########################################

@@ -294,8 +294,6 @@ contains
    integer, dimension(4) :: input_shape
    character(256) :: buffer, tag
 
-   real(real12), allocatable, dimension(:) :: data_list
-
 
    !! loop over tags in layer card
    tag_loop: do
