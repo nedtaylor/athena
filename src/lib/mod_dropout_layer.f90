@@ -322,8 +322,6 @@ contains
     implicit none
     class(dropout_layer_type), intent(inout) :: this
     real(real12), dimension(:), intent(in) :: input
-
-    real(real12), dimension(size(input,1)) :: mask
     
     
     this%idx = this%idx + 1
