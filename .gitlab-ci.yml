@@ -18,52 +18,195 @@
 
 stages:          # List of stages for jobs, and their order of execution
   - build
+  - cleanup_build
   - test
+  - cleanup
 #   - deploy
 
 variables:
   OUTPUT_DIR: output  # Adjust this to your Fortran code's output directory
-  TEST_DIR: test  # Adjust this to your Fortran code's output directory
+  TEST_DIR: test      # Adjust this to your Fortran code's output directory
 
 before_script:
-  - which gfortran
+  - echo "Setting up environment for jobs"
+  - export MODULEPATH="/opt/intel/oneapi/modulefiles:/opt/intel/oneapi/tbb/latest/modulefiles:$MODULEPATH"
+  - export MODULEPATH="/home/ned/modules/modulefiles:$MODULEPATH"
 #  - apt-get update -qy
 #  - apt-get install -y gfortran  # Install gfortran (or any other Fortran compiler you prefer)
 
-build-job:       # This job runs in the build stage, which runs first.
+build:gfortran:       # This job runs in the build stage, which runs first.
   stage: build
-  rules:
-   - when: manual
+  when: always
   script:
+    # need to query modules before gcc can be found and loaded
+    - module avail
+    # - /usr/local/gcc-13.2.0/bin/gfortran-13.2.0 --version
+    - module load gcc/13.2.0
+    - which gfortran-13.2.0
+    - gfortran-13.2.0 --version
     - mkdir -p $OUTPUT_DIR
-    - echo "Compiling the code..."
+    - echo "Compiling the code using gfortran..."
     - mkdir -p build
     - cd build
-    - cmake3 -DCMAKE_BUILD_TYPE="Release" -DCMAKE_Fortran_COMPILER="/usr/local/gcc-13.2.0/bin/gfortran-13.2.0" ..
+    - cmake3 -DCMAKE_BUILD_TYPE="Release" -DCMAKE_INSTALL_PREFIX="../bin" -DCMAKE_Fortran_COMPILER="gfortran-13.2.0" ..
     - make
     - make install
     - cd ..
-    - echo "Compile complete."
+    - echo "Compile complete using gfortran."
+  only:
+    changes:
+      - src/*
+      - CMakeLists.txt
   artifacts:
     paths:
-      - build/
+      - bin/
+  tags:
+    - gfortran
 
-unit-test-job:   # This job runs in the test stage.
-  stage: test    # It only starts when the job in the build stage completes successfully.
+build:ifort:       # This job runs in the build stage, which runs first.
+  stage: build
+  when: always
   script:
-    - echo "Running unit tests..."#" This will take about 60 seconds."
+    # - /opt/intel/oneapi/compiler/2023.2.1/linux/bin/intel64/ifort --version
+    - module load compiler/2023.2.1
+    - which ifort
+    - ifort --version
+    - mkdir -p $OUTPUT_DIR
+    - echo "Compiling the code using ifort..."
+    - mkdir -p build
+    - cd build
+    - cmake3 -DCMAKE_BUILD_TYPE="Release" -DCMAKE_INSTALL_PREFIX="../bin" -DCMAKE_Fortran_COMPILER="ifort" ..
+    - make
+    - make install
+    - cd ..
+    - echo "Compile complete using ifort."
+  only:
+    changes:
+      - src/*
+      - CMakeLists.txt
+  artifacts:
+    paths:
+      - bin/
+  tags:
+    - ifort
+
+build:ifx:       # This job runs in the build stage, which runs first.
+  stage: build
+  when: always
+  script:
+    # - /opt/intel/oneapi/compiler/2023.2.1/linux/bin/ifx --version
+    - module load compiler/2023.2.1
+    - which ifx
+    - ifx --version
+    - mkdir -p $OUTPUT_DIR
+    - echo "Compiling the code using ifx..."
+    - mkdir -p build
+    - cd build
+    - cmake3 -DCMAKE_BUILD_TYPE="Release" -DCMAKE_INSTALL_PREFIX="../bin" -DCMAKE_Fortran_COMPILER="ifx" ..
+    - make
+    - make install
+    - cd ..
+    - echo "Compile complete using ifx."
+  only:
+    changes:
+      - src/*
+      - CMakeLists.txt
+  artifacts:
+    paths:
+      - bin/
+  tags:
+    - ifx
+
+cleanup_build_job:
+  stage: cleanup_build
+  when: on_failure
+  script:
+    - echo "Performing cleanup tasks after failed build jobs"
+    - rm -r build
+  only:
+    changes:
+      - src/*
+      - CMakeLists.txt
+
+test:gfortran:   # This job runs in the test stage.
+  stage: test
+  needs: ["build:gfortran"]
+  script:
+    # need to query modules before gcc can be found and loaded
+    - module avail
+    - module load gcc/13.2.0
+    - echo "Running unit tests..."
     - cd $TEST_DIR/mnist
-    - make build
-    - ./bin/athena_test -f test_job.in
+    - make FC=gfortran-13.2.0 build
+    - ./bin/athena_test -f test_job.in >actual_output.txt
     - diff expected_output.txt actual_output.txt
     - cd -
   only:
     changes:
-      - src/
-      - Makefile
+      - src/*
+      - CMakeLists.txt
   artifacts:
     paths:
-      - $TEST_DIR/mnist/actual_output.txt    
+      - $TEST_DIR/mnist/actual_output.txt
+  tags:
+    - gfortran
+
+test:ifort:   # This job runs in the test stage.
+  stage: test
+  needs: ["build:ifort"]
+  script:
+    - module load compiler/2023.2.1
+    - echo "Running unit tests..."
+    - cd $TEST_DIR/mnist
+    - make FC=ifort build
+    - ./bin/athena_test -f test_job.in >actual_output.txt
+    - diff expected_output.txt actual_output.txt
+    - cd -
+  only:
+    changes:
+      - src/*
+      - CMakeLists.txt
+  artifacts:
+    paths:
+      - $TEST_DIR/mnist/actual_output.txt
+  tags:
+    - ifort
+
+test:ifx:   # This job runs in the test stage.
+  stage: test
+  needs: ["build:ifx"]
+  script:
+    - module load compiler/2023.2.1
+    - echo "Running unit tests..."
+    - cd $TEST_DIR/mnist
+    - make FC=ifx build
+    - ./bin/athena_test -f test_job.in >actual_output.txt
+    - diff expected_output.txt actual_output.txt
+    - cd -
+  only:
+    changes:
+      - src/*
+      - CMakeLists.txt
+  artifacts:
+    paths:
+      - $TEST_DIR/mnist/actual_output.txt
+  tags:
+    - ifx
+
+cleanup_job:
+  stage: cleanup
+  when: on_success
+  script:
+    - echo "Performing cleanup tasks after jobs"
+    - rm -r build
+    - rm -r test/*/obj
+    - rm -r test/*/bin
+    - rm -r bin
+  only:
+    changes:
+      - src/*
+      - CMakeLists.txt
+
 
 # lint-test-job:   # This job also runs in the test stage.
 #   stage: test    # It can run at the same time as unit-test-job (in parallel).

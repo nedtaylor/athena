@@ -163,7 +163,7 @@ program mnist_test
   end if
 
   call network%compile(optimiser=optimiser, &
-       loss=loss_method, metrics=metric_dict, verbose = verbosity)
+       loss_method=loss_method, metrics=metric_dict, verbose = verbosity)
   !input_spread = spread(input_images,3,1)
 
   write(*,*) "NUMBER OF LAYERS",network%num_layers

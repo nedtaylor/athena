@@ -196,7 +196,7 @@ contains
 
     integer :: i
     real(real12) :: scale
-    character(len=10) :: t_activation_function, initialiser_name
+    character(len=10) :: t_activation_function
     character(len=20) :: t_padding
 
 
@@ -516,7 +516,6 @@ contains
 
     integer, dimension(2) :: kernel_size, stride
     integer, dimension(3) :: input_shape
-    integer, allocatable, dimension(:) :: itmp_list
     real(real12), allocatable, dimension(:) :: data_list
 
 
