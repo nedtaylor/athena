@@ -199,8 +199,6 @@ contains
     character(len=10) :: t_activation_function
     character(len=20) :: t_padding
 
-    integer, dimension(3) :: end_idx
-
 
     !!--------------------------------------------------------------------------
     !! set up number of filters

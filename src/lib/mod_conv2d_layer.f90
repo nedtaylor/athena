@@ -205,7 +205,7 @@ contains
     !!--------------------------------------------------------------------------
     if(present(calc_input_gradients))then
        layer%calc_input_gradients = calc_input_gradients
-       write(*,*) "CV input gradients turned off"
+       write(*,*) "CONV2D input gradients turned off"
     else
        layer%calc_input_gradients = .true.
     end if

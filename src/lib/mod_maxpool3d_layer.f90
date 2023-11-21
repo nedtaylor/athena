@@ -96,8 +96,6 @@ contains
     
     type(maxpool3d_layer_type) :: layer
 
-    integer, dimension(3) :: end_idx
-
     
     !!-----------------------------------------------------------------------
     !! set up pool size
@@ -223,9 +221,6 @@ contains
 
     integer :: unit
 
-     integer, dimension(3) :: pool, strd
-     integer :: num_channels
-
     !! open file with new unit
     !!--------------------------------------------------------------------------
     open(newunit=unit, file=trim(file), access='append')
@@ -266,12 +261,10 @@ contains
    class(maxpool3d_layer_type), allocatable :: layer
 
    integer :: stat
-   integer :: i, j, k, c, itmp1
+   integer :: itmp1
    integer, dimension(3) :: pool_size, stride
    integer, dimension(4) :: input_shape
    character(256) :: buffer, tag
-
-   real(real12), allocatable, dimension(:) :: data_list
 
 
    !! loop over tags in layer card
