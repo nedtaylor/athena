@@ -12,7 +12,7 @@ module misc
   use constants, only: real12
   implicit none
 
-
+contains
 
 !!!#####################################################
 !!! counts the number of words on a line
