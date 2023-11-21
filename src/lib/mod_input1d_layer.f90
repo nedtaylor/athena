@@ -11,7 +11,6 @@ module input1d_layer
   
   type, extends(input_layer_type) :: input1d_layer_type
      real(real12), allocatable, dimension(:) :: output
-
    contains
      procedure, pass(this) :: init => init_input1d
      procedure, pass(this) :: forward  => forward_rank
@@ -109,11 +108,11 @@ contains
     !!--------------------------------------------------------------------------
     !! initialise input shape
     !!--------------------------------------------------------------------------
-    if(size(input_shape,dim=1).eq.3)then
+    if(size(input_shape,dim=1).eq.1)then
        this%input_shape = input_shape
        this%output_shape = input_shape
     else
-       stop "ERROR: invalid size of input_shape in input3d, expected (3)"
+       stop "ERROR: invalid size of input_shape in input1d, expected (1)"
     end if
     
     this%num_outputs = product(input_shape)
