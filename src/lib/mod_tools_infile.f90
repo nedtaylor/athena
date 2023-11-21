@@ -98,6 +98,9 @@ contains
     character(*) :: buffer
     integer, dimension(:) :: variable
     character(*), optional, intent(in) :: keyword
+    if(present(keyword))then
+       buffer=buffer(index(buffer,keyword):)
+    end if
     if(scan("=",buffer).ne.0) buffer2=val(buffer)
     if(trim(adjustl(buffer2)).ne.'') then
        found=found+1
@@ -122,6 +125,9 @@ contains
     character(*) :: buffer
     real :: variable
     character(*), optional, intent(in) :: keyword
+    if(present(keyword))then
+       buffer=buffer(index(buffer,keyword):)
+    end if
     if(scan("=",buffer).ne.0) buffer2=val(buffer)
     if(trim(adjustl(buffer2)).ne.'') then
        found=found+1
@@ -140,6 +146,9 @@ contains
     character(*) :: buffer
     real, dimension(:) :: variable
     character(*), optional, intent(in) :: keyword
+    if(present(keyword))then
+       buffer=buffer(index(buffer,keyword):)
+    end if
     if(scan("=",buffer).ne.0) buffer2=val(buffer)
     if(trim(adjustl(buffer2)).ne.'') then
        found=found+1
@@ -164,6 +173,9 @@ contains
     character(*) :: buffer
     double precision :: variable
     character(*), optional, intent(in) :: keyword
+    if(present(keyword))then
+       buffer=buffer(index(buffer,keyword):)
+    end if
     if(scan("=",buffer).ne.0) buffer2=val(buffer)
     if(trim(adjustl(buffer2)).ne.'') then
        found=found+1
@@ -182,6 +194,9 @@ contains
     character(*) :: buffer
     double precision, dimension(:) :: variable
     character(*), optional, intent(in) :: keyword
+    if(present(keyword))then
+       buffer=buffer(index(buffer,keyword):)
+    end if
     if(scan("=",buffer).ne.0) buffer2=val(buffer)
     if(trim(adjustl(buffer2)).ne.'') then
        found=found+1
@@ -206,6 +221,9 @@ contains
     character(*) :: buffer
     character(*) :: variable
     character(*), optional, intent(in) :: keyword
+    if(present(keyword))then
+       buffer=buffer(index(buffer,keyword):)
+    end if
     if(scan("=",buffer).ne.0) buffer2=val(buffer)
     if(trim(adjustl(buffer2)).ne.'') then
        found=found+1
@@ -224,6 +242,9 @@ contains
     character(*)::buffer
     logical::variable
     character(*), optional, intent(in) :: keyword
+    if(present(keyword))then
+       buffer=buffer(index(buffer,keyword):)
+    end if
     if(scan("=",buffer).ne.0) buffer2=val(buffer)
     if(trim(adjustl(buffer2)).ne.'') then
        found=found+1
