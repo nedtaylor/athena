@@ -1117,9 +1117,9 @@ contains
     
     select type(output)
     type is(integer)
-       y_true(:,:) = real(output(:,:),real12)
+       y_true = real(output(:,:),real12)
     type is(real)
-       y_true(:,:) = output(:,:)
+       y_true = output(:,:)
     end select
 
 
