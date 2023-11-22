@@ -92,6 +92,7 @@ contains
 !!!#############################################################################
 !!! set up layer
 !!!#############################################################################
+#if defined(GFORTRAN)
   module function layer_setup( &
        rate, block_size, &
        input_shape) result(layer)
@@ -101,6 +102,10 @@ contains
     integer, dimension(:), optional, intent(in) :: input_shape
     
     type(dropblock2d_layer_type) :: layer
+#else
+  module procedure layer_setup
+    implicit none
+#endif
 
 
     layer%rate = rate
@@ -113,7 +118,11 @@ contains
     !!--------------------------------------------------------------------------
     if(present(input_shape)) call layer%init(input_shape=input_shape)
 
+#if defined(GFORTRAN)
   end function layer_setup
+#else
+  end procedure layer_setup
+#endif
 !!!#############################################################################
 
 

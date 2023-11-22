@@ -86,6 +86,7 @@ contains
 !!!#############################################################################
 !!! set up layer
 !!!#############################################################################
+#if defined(GFORTRAN)
   module function layer_setup( &
        input_shape, &
        pool_size, stride) result(layer)
@@ -95,6 +96,10 @@ contains
     integer, dimension(..), optional, intent(in) :: stride
     
     type(maxpool2d_layer_type) :: layer
+#else
+  module procedure layer_setup
+    implicit none
+#endif
 
     
     !!-----------------------------------------------------------------------
@@ -142,7 +147,11 @@ contains
     !!--------------------------------------------------------------------------
     if(present(input_shape)) call layer%init(input_shape=input_shape)
 
+#if defined(GFORTRAN)
   end function layer_setup
+#else
+  end procedure layer_setup
+#endif
 !!!#############################################################################
 
 

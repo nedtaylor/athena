@@ -23,6 +23,11 @@ stages:          # List of stages for jobs, and their order of execution
   - cleanup
 #   - deploy
 
+# Exclude issue branches
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH !~ /^[\d]+-.*$/
+
 variables:
   OUTPUT_DIR: output  # Adjust this to your Fortran code's output directory
   TEST_DIR: test      # Adjust this to your Fortran code's output directory
