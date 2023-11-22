@@ -4,24 +4,32 @@
 # For more information, see: https://docs.gitlab.com/ee/ci/yaml/index.html#stages
 
 
-stages:          # List of stages for jobs, and their order of execution
+
+####################################################################################################
+# global settings
+####################################################################################################
+
+# list of stages and order of execution
+stages:
   - build
   - cleanup_build
   - test
   - cleanup
 #   - deploy
 
-# Exclude issue branches
+# workflow rules (exclude issue branches from pipeline)
 workflow:
   rules:
-    - if: $CI_COMMIT_BRANCH =~ /^[\d]+-.*$/
+    - if: '$CI_COMMIT_BRANCH =~ /^[\d]+-.*$/'
       when: never
     - when: always
 
+# global variables for all jobs
 variables:
   OUTPUT_DIR: output  # Adjust this to your Fortran code's output directory
   TEST_DIR: test      # Adjust this to your Fortran code's output directory
 
+# special job that runs before any other stages
 before_script:
   - echo "Setting up environment for jobs"
   - export MODULEPATH="/opt/intel/oneapi/modulefiles:/opt/intel/oneapi/tbb/latest/modulefiles:$MODULEPATH"
@@ -29,7 +37,13 @@ before_script:
 #  - apt-get update -qy
 #  - apt-get install -y gfortran  # Install gfortran (or any other Fortran compiler you prefer)
 
-build:gfortran:       # This job runs in the build stage, which runs first.
+
+####################################################################################################
+# jobs
+####################################################################################################
+
+# build job - gfortran
+build:gfortran:
   stage: build
   when: always
   script:
@@ -51,6 +65,7 @@ build:gfortran:       # This job runs in the build stage, which runs first.
   only:
     changes:
       - src/*
+      - src/*/*
       - CMakeLists.txt
   artifacts:
     paths:
@@ -58,7 +73,8 @@ build:gfortran:       # This job runs in the build stage, which runs first.
   tags:
     - gfortran
 
-build:ifort:       # This job runs in the build stage, which runs first.
+# build job - ifort
+build:ifort:
   stage: build
   when: always
   script:
@@ -78,6 +94,7 @@ build:ifort:       # This job runs in the build stage, which runs first.
   only:
     changes:
       - src/*
+      - src/*/*
       - CMakeLists.txt
   artifacts:
     paths:
@@ -85,7 +102,8 @@ build:ifort:       # This job runs in the build stage, which runs first.
   tags:
     - ifort
 
-build:ifx:       # This job runs in the build stage, which runs first.
+# build job - ifx
+build:ifx:
   stage: build
   when: always
   script:
@@ -105,6 +123,7 @@ build:ifx:       # This job runs in the build stage, which runs first.
   only:
     changes:
       - src/*
+      - src/*/*
       - CMakeLists.txt
   artifacts:
     paths:
@@ -112,6 +131,12 @@ build:ifx:       # This job runs in the build stage, which runs first.
   tags:
     - ifx
 
+
+####################################################################################################
+# compilation cleanup on failure
+####################################################################################################
+
+# cleanup build job
 cleanup_build_job:
   stage: cleanup_build
   when: on_failure
@@ -123,7 +148,13 @@ cleanup_build_job:
       - src/*
       - CMakeLists.txt
 
-test:gfortran:   # This job runs in the test stage.
+
+####################################################################################################
+# test jobs
+####################################################################################################
+
+# unit test job - gfortran
+test:gfortran: 
   stage: test
   needs: ["build:gfortran"]
   script:
@@ -146,7 +177,8 @@ test:gfortran:   # This job runs in the test stage.
   tags:
     - gfortran
 
-test:ifort:   # This job runs in the test stage.
+# unit test job - ifort
+test:ifort:
   stage: test
   needs: ["build:ifort"]
   script:
@@ -167,7 +199,8 @@ test:ifort:   # This job runs in the test stage.
   tags:
     - ifort
 
-test:ifx:   # This job runs in the test stage.
+# unit test job - ifx
+test:ifx:
   stage: test
   needs: ["build:ifx"]
   script:
@@ -188,6 +221,12 @@ test:ifx:   # This job runs in the test stage.
   tags:
     - ifx
 
+
+####################################################################################################
+# test cleanup on success
+####################################################################################################
+
+# cleanup job after test jobs
 cleanup_job:
   stage: cleanup
   when: on_success
