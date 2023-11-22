@@ -14,7 +14,9 @@ stages:          # List of stages for jobs, and their order of execution
 # Exclude issue branches
 workflow:
   rules:
-    - if: $CI_COMMIT_BRANCH !~ /^[\d]+-.*$/
+    - if: $CI_COMMIT_BRANCH =~ /^[\d]+-.*$/
+      when: never
+    - when: always
 
 variables:
   OUTPUT_DIR: output  # Adjust this to your Fortran code's output directory
