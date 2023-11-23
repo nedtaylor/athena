@@ -1412,9 +1412,24 @@ end subroutine split_5Drdata_1Drlist
     if(present(channel_dim)) t_channel_dim = channel_dim
 
     ndim = rank(data)
+#if defined(GFORTRAN)
     if(ndim.ne.rank(data_padded)) then
        stop "ERROR: data and data_padded are not the same rank"
     end if
+#else
+    select rank(data_padded)
+    rank(1)
+       if(ndim.ne.1)  stop "ERROR: data and data_padded are not the same rank"
+    rank(2)
+       if(ndim.ne.2)  stop "ERROR: data and data_padded are not the same rank"
+    rank(3)
+       if(ndim.ne.3)  stop "ERROR: data and data_padded are not the same rank"
+    rank(4)
+       if(ndim.ne.4)  stop "ERROR: data and data_padded are not the same rank"
+    rank(5)
+       if(ndim.ne.5)  stop "ERROR: data and data_padded are not the same rank"
+    end select
+#endif
     ndata_dim = ndim
     if(t_sample_dim.gt.0)  ndata_dim = ndata_dim - 1
     if(t_channel_dim.gt.0) ndata_dim = ndata_dim - 1
