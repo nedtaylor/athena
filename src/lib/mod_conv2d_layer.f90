@@ -682,7 +682,12 @@ contains
     do concurrent(&
          i=1:this%output_shape(1):1, &
          j=1:this%output_shape(2):1)
+#if defined(GFORTRAN)
        stp_idx = ([i,j]-1)*this%stp + 1 + (this%hlf - this%pad)
+#else
+       stp_idx(1) = (i-1)*this%stp(1) + 1 + (this%hlf(1) - this%pad(1))
+       stp_idx(2) = (j-1)*this%stp(2) + 1 + (this%hlf(2) - this%pad(2))
+#endif
        start_idx  = stp_idx - this%hlf
        end_idx    = start_idx + this%knl - 1
 
@@ -699,6 +704,7 @@ contains
        end do
     end do
     
+
     !! apply activation function to activation values (z)
     !!--------------------------------------------------------------------------
     this%output = this%transfer%activate(this%z) 
@@ -788,7 +794,12 @@ contains
             )
 
           !! set weight bounds
+#if defined(GFORTRAN)
           stp_idx = ([i,j]-offset)/this%stp + 1
+#else
+          stp_idx(1) = ( i - offset(1) )/this%stp(1) + 1
+          stp_idx(2) = ( j - offset(2) )/this%stp(2) + 1
+#endif
           !! max( ...
           !! ... 1. offset of 1st o/p idx from centre of knl     (lim)
           !! ... 2. lwst o/p idx overlap with <<- knl idx (rpt. pattern)

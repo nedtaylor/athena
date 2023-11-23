@@ -1,0 +1,279 @@
+Using file 'test_job.in'
+Metric: accuracy, threshold:  0.100E-01
+ No regularisation set
+ Momentum-based adaptive learning method
+ momentum =  0.9000000    
+ Dropout method: none
+ ======PARAMETERS======
+ shuffle dataset: T
+ batch learning: T
+ learning rate:  9.9999998E-03
+ number of epochs:          10
+ number of filters:          32
+ hidden layers:         100
+ ======================
+ Data read
+ Data read
+ Shuffling training dataset...
+ Training dataset shuffled
+ Initialising CNN...
+ CONV2D input gradients turned off
+CONV2D activation function: relu
+CONV2D kernel initialiser: he_uniform
+CONV2D bias initialiser: zeros
+FULL activation function: relu
+FULL kernel initialiser: he_uniform
+FULL bias initialiser: he_uniform
+FULL activation function: softmax
+FULL kernel initialiser: glorot_uniform
+FULL bias initialiser: glorot_uniform
+ Loss method: Categorical Cross Entropy
+ layer:           1 inpt
+          30          30           1
+          30          30           1
+ layer:           2 conv
+          28          28           1
+          28          28          32
+ layer:           3 pool
+          28          28          32
+          14          14          32
+ layer:           4 full
+        6272
+         100
+ layer:           5 full
+         100
+          10
+ NUMBER OF LAYERS           6
+ Starting training...
+epoch=1, batch=1, learning_rate=.010, loss=2.367, accuracy=.094
+epoch=1, batch=20, learning_rate=.010, loss=2.071, accuracy=.280
+epoch=1, batch=40, learning_rate=.010, loss=1.612, accuracy=.489
+epoch=1, batch=60, learning_rate=.010, loss=1.367, accuracy=.567
+epoch=1, batch=80, learning_rate=.010, loss=1.179, accuracy=.634
+epoch=1, batch=100, learning_rate=.010, loss=1.042, accuracy=.680
+epoch=1, batch=120, learning_rate=.010, loss=.946, accuracy=.711
+epoch=1, batch=140, learning_rate=.010, loss=.875, accuracy=.735
+epoch=1, batch=160, learning_rate=.010, loss=.825, accuracy=.750
+epoch=1, batch=180, learning_rate=.010, loss=.773, accuracy=.765
+epoch=1, batch=200, learning_rate=.010, loss=.734, accuracy=.776
+epoch=1, batch=220, learning_rate=.010, loss=.710, accuracy=.786
+epoch=1, batch=240, learning_rate=.010, loss=.684, accuracy=.795
+epoch=1, batch=260, learning_rate=.010, loss=.660, accuracy=.802
+epoch=1, batch=280, learning_rate=.010, loss=.639, accuracy=.808
+epoch=1, batch=300, learning_rate=.010, loss=.623, accuracy=.812
+epoch=1, batch=320, learning_rate=.010, loss=.607, accuracy=.817
+epoch=1, batch=340, learning_rate=.010, loss=.597, accuracy=.820
+epoch=1, batch=360, learning_rate=.010, loss=.582, accuracy=.824
+epoch=1, batch=380, learning_rate=.010, loss=.571, accuracy=.828
+epoch=1, batch=400, learning_rate=.010, loss=.558, accuracy=.832
+epoch=1, batch=420, learning_rate=.010, loss=.546, accuracy=.837
+epoch=1, batch=440, learning_rate=.010, loss=.538, accuracy=.839
+epoch=1, batch=460, learning_rate=.010, loss=.528, accuracy=.842
+epoch=1, batch=480, learning_rate=.010, loss=.521, accuracy=.844
+epoch=1, batch=500, learning_rate=.010, loss=.513, accuracy=.846
+epoch=1, batch=520, learning_rate=.010, loss=.505, accuracy=.849
+epoch=1, batch=540, learning_rate=.010, loss=.497, accuracy=.852
+epoch=1, batch=560, learning_rate=.010, loss=.489, accuracy=.853
+epoch=1, batch=580, learning_rate=.010, loss=.482, accuracy=.855
+epoch=1, batch=600, learning_rate=.010, loss=.479, accuracy=.856
+epoch=1, batch=620, learning_rate=.010, loss=.475, accuracy=.859
+epoch=1, batch=640, learning_rate=.010, loss=.469, accuracy=.860
+epoch=1, batch=660, learning_rate=.010, loss=.462, accuracy=.863
+epoch=1, batch=680, learning_rate=.010, loss=.456, accuracy=.865
+epoch=1, batch=700, learning_rate=.010, loss=.450, accuracy=.867
+epoch=1, batch=720, learning_rate=.010, loss=.446, accuracy=.868
+epoch=1, batch=740, learning_rate=.010, loss=.443, accuracy=.869
+epoch=1, batch=760, learning_rate=.010, loss=.437, accuracy=.870
+epoch=1, batch=780, learning_rate=.010, loss=.433, accuracy=.872
+epoch=1, batch=800, learning_rate=.010, loss=.431, accuracy=.872
+epoch=1, batch=820, learning_rate=.010, loss=.427, accuracy=.874
+epoch=1, batch=840, learning_rate=.010, loss=.423, accuracy=.875
+epoch=1, batch=860, learning_rate=.010, loss=.421, accuracy=.876
+epoch=1, batch=880, learning_rate=.010, loss=.417, accuracy=.877
+epoch=1, batch=900, learning_rate=.010, loss=.414, accuracy=.878
+epoch=1, batch=920, learning_rate=.010, loss=.411, accuracy=.878
+epoch=1, batch=940, learning_rate=.010, loss=.408, accuracy=.880
+epoch=1, batch=960, learning_rate=.010, loss=.404, accuracy=.881
+epoch=1, batch=980, learning_rate=.010, loss=.401, accuracy=.882
+epoch=1, batch=1000, learning_rate=.010, loss=.398, accuracy=.882
+epoch=1, batch=1020, learning_rate=.010, loss=.395, accuracy=.884
+epoch=1, batch=1040, learning_rate=.010, loss=.392, accuracy=.884
+epoch=1, batch=1060, learning_rate=.010, loss=.389, accuracy=.885
+epoch=1, batch=1080, learning_rate=.010, loss=.387, accuracy=.886
+epoch=1, batch=1100, learning_rate=.010, loss=.384, accuracy=.887
+epoch=1, batch=1120, learning_rate=.010, loss=.382, accuracy=.887
+epoch=1, batch=1140, learning_rate=.010, loss=.379, accuracy=.888
+epoch=1, batch=1160, learning_rate=.010, loss=.376, accuracy=.889
+epoch=1, batch=1180, learning_rate=.010, loss=.374, accuracy=.890
+epoch=1, batch=1200, learning_rate=.010, loss=.371, accuracy=.891
+epoch=1, batch=1220, learning_rate=.010, loss=.369, accuracy=.891
+epoch=1, batch=1240, learning_rate=.010, loss=.367, accuracy=.892
+epoch=1, batch=1260, learning_rate=.010, loss=.365, accuracy=.892
+epoch=1, batch=1280, learning_rate=.010, loss=.363, accuracy=.893
+epoch=1, batch=1300, learning_rate=.010, loss=.360, accuracy=.894
+epoch=1, batch=1320, learning_rate=.010, loss=.359, accuracy=.895
+epoch=1, batch=1340, learning_rate=.010, loss=.357, accuracy=.895
+epoch=1, batch=1360, learning_rate=.010, loss=.355, accuracy=.896
+epoch=1, batch=1380, learning_rate=.010, loss=.353, accuracy=.896
+epoch=1, batch=1400, learning_rate=.010, loss=.351, accuracy=.897
+epoch=1, batch=1420, learning_rate=.010, loss=.350, accuracy=.897
+epoch=1, batch=1440, learning_rate=.010, loss=.347, accuracy=.898
+epoch=1, batch=1460, learning_rate=.010, loss=.345, accuracy=.899
+epoch=1, batch=1480, learning_rate=.010, loss=.343, accuracy=.900
+epoch=1, batch=1500, learning_rate=.010, loss=.341, accuracy=.900
+epoch=1, batch=1520, learning_rate=.010, loss=.340, accuracy=.901
+epoch=1, batch=1540, learning_rate=.010, loss=.337, accuracy=.902
+epoch=1, batch=1560, learning_rate=.010, loss=.336, accuracy=.902
+epoch=1, batch=1580, learning_rate=.010, loss=.334, accuracy=.903
+epoch=1, batch=1600, learning_rate=.010, loss=.332, accuracy=.903
+epoch=1, batch=1620, learning_rate=.010, loss=.330, accuracy=.904
+epoch=1, batch=1640, learning_rate=.010, loss=.329, accuracy=.904
+epoch=1, batch=1660, learning_rate=.010, loss=.327, accuracy=.905
+epoch=1, batch=1680, learning_rate=.010, loss=.326, accuracy=.905
+epoch=1, batch=1700, learning_rate=.010, loss=.325, accuracy=.905
+epoch=1, batch=1720, learning_rate=.010, loss=.323, accuracy=.906
+epoch=1, batch=1740, learning_rate=.010, loss=.322, accuracy=.906
+epoch=1, batch=1760, learning_rate=.010, loss=.320, accuracy=.907
+epoch=1, batch=1780, learning_rate=.010, loss=.319, accuracy=.907
+epoch=1, batch=1800, learning_rate=.010, loss=.317, accuracy=.907
+epoch=1, batch=1820, learning_rate=.010, loss=.316, accuracy=.908
+epoch=1, batch=1840, learning_rate=.010, loss=.314, accuracy=.908
+epoch=1, batch=1860, learning_rate=.010, loss=.313, accuracy=.909
+epoch=2, batch=1, learning_rate=.010, loss=.076, accuracy=1.000
+epoch=2, batch=20, learning_rate=.010, loss=.183, accuracy=.947
+epoch=2, batch=40, learning_rate=.010, loss=.214, accuracy=.942
+epoch=2, batch=60, learning_rate=.010, loss=.200, accuracy=.948
+epoch=2, batch=80, learning_rate=.010, loss=.211, accuracy=.946
+epoch=2, batch=100, learning_rate=.010, loss=.206, accuracy=.946
+epoch=2, batch=120, learning_rate=.010, loss=.201, accuracy=.947
+epoch=2, batch=140, learning_rate=.010, loss=.194, accuracy=.948
+epoch=2, batch=160, learning_rate=.010, loss=.189, accuracy=.949
+epoch=2, batch=180, learning_rate=.010, loss=.189, accuracy=.948
+epoch=2, batch=200, learning_rate=.010, loss=.196, accuracy=.946
+epoch=2, batch=220, learning_rate=.010, loss=.198, accuracy=.946
+epoch=2, batch=240, learning_rate=.010, loss=.196, accuracy=.947
+epoch=2, batch=260, learning_rate=.010, loss=.197, accuracy=.947
+epoch=2, batch=280, learning_rate=.010, loss=.195, accuracy=.948
+epoch=2, batch=300, learning_rate=.010, loss=.191, accuracy=.949
+epoch=2, batch=320, learning_rate=.010, loss=.189, accuracy=.950
+epoch=2, batch=340, learning_rate=.010, loss=.188, accuracy=.950
+epoch=2, batch=360, learning_rate=.010, loss=.189, accuracy=.949
+epoch=2, batch=380, learning_rate=.010, loss=.189, accuracy=.949
+epoch=2, batch=400, learning_rate=.010, loss=.188, accuracy=.949
+epoch=2, batch=420, learning_rate=.010, loss=.185, accuracy=.950
+epoch=2, batch=440, learning_rate=.010, loss=.184, accuracy=.950
+epoch=2, batch=460, learning_rate=.010, loss=.183, accuracy=.950
+epoch=2, batch=480, learning_rate=.010, loss=.183, accuracy=.950
+epoch=2, batch=500, learning_rate=.010, loss=.183, accuracy=.950
+epoch=2, batch=520, learning_rate=.010, loss=.182, accuracy=.950
+epoch=2, batch=540, learning_rate=.010, loss=.181, accuracy=.950
+epoch=2, batch=560, learning_rate=.010, loss=.180, accuracy=.950
+epoch=2, batch=580, learning_rate=.010, loss=.179, accuracy=.950
+epoch=2, batch=600, learning_rate=.010, loss=.177, accuracy=.951
+epoch=2, batch=620, learning_rate=.010, loss=.177, accuracy=.951
+epoch=2, batch=640, learning_rate=.010, loss=.178, accuracy=.950
+epoch=2, batch=660, learning_rate=.010, loss=.177, accuracy=.951
+epoch=2, batch=680, learning_rate=.010, loss=.177, accuracy=.951
+epoch=2, batch=700, learning_rate=.010, loss=.177, accuracy=.950
+epoch=2, batch=720, learning_rate=.010, loss=.178, accuracy=.950
+epoch=2, batch=740, learning_rate=.010, loss=.177, accuracy=.951
+epoch=2, batch=760, learning_rate=.010, loss=.176, accuracy=.951
+epoch=2, batch=780, learning_rate=.010, loss=.177, accuracy=.951
+epoch=2, batch=800, learning_rate=.010, loss=.176, accuracy=.951
+epoch=2, batch=820, learning_rate=.010, loss=.175, accuracy=.951
+epoch=2, batch=840, learning_rate=.010, loss=.175, accuracy=.951
+epoch=2, batch=860, learning_rate=.010, loss=.174, accuracy=.951
+epoch=2, batch=880, learning_rate=.010, loss=.173, accuracy=.952
+epoch=2, batch=900, learning_rate=.010, loss=.173, accuracy=.952
+epoch=2, batch=920, learning_rate=.010, loss=.172, accuracy=.952
+epoch=2, batch=940, learning_rate=.010, loss=.171, accuracy=.952
+epoch=2, batch=960, learning_rate=.010, loss=.171, accuracy=.952
+epoch=2, batch=980, learning_rate=.010, loss=.170, accuracy=.953
+epoch=2, batch=1000, learning_rate=.010, loss=.171, accuracy=.952
+epoch=2, batch=1020, learning_rate=.010, loss=.170, accuracy=.952
+epoch=2, batch=1040, learning_rate=.010, loss=.170, accuracy=.952
+epoch=2, batch=1060, learning_rate=.010, loss=.171, accuracy=.952
+epoch=2, batch=1080, learning_rate=.010, loss=.171, accuracy=.953
+epoch=2, batch=1100, learning_rate=.010, loss=.170, accuracy=.953
+epoch=2, batch=1120, learning_rate=.010, loss=.170, accuracy=.953
+epoch=2, batch=1140, learning_rate=.010, loss=.170, accuracy=.953
+epoch=2, batch=1160, learning_rate=.010, loss=.169, accuracy=.953
+epoch=2, batch=1180, learning_rate=.010, loss=.169, accuracy=.953
+epoch=2, batch=1200, learning_rate=.010, loss=.168, accuracy=.953
+epoch=2, batch=1220, learning_rate=.010, loss=.169, accuracy=.953
+epoch=2, batch=1240, learning_rate=.010, loss=.168, accuracy=.953
+epoch=2, batch=1260, learning_rate=.010, loss=.167, accuracy=.954
+epoch=2, batch=1280, learning_rate=.010, loss=.168, accuracy=.954
+epoch=2, batch=1300, learning_rate=.010, loss=.167, accuracy=.954
+epoch=2, batch=1320, learning_rate=.010, loss=.167, accuracy=.954
+epoch=2, batch=1340, learning_rate=.010, loss=.167, accuracy=.954
+epoch=2, batch=1360, learning_rate=.010, loss=.166, accuracy=.954
+epoch=2, batch=1380, learning_rate=.010, loss=.166, accuracy=.954
+epoch=2, batch=1400, learning_rate=.010, loss=.166, accuracy=.954
+epoch=2, batch=1420, learning_rate=.010, loss=.165, accuracy=.954
+epoch=2, batch=1440, learning_rate=.010, loss=.164, accuracy=.954
+epoch=2, batch=1460, learning_rate=.010, loss=.164, accuracy=.954
+epoch=2, batch=1480, learning_rate=.010, loss=.164, accuracy=.955
+epoch=2, batch=1500, learning_rate=.010, loss=.164, accuracy=.955
+epoch=2, batch=1520, learning_rate=.010, loss=.163, accuracy=.955
+epoch=2, batch=1540, learning_rate=.010, loss=.162, accuracy=.955
+epoch=2, batch=1560, learning_rate=.010, loss=.162, accuracy=.955
+epoch=2, batch=1580, learning_rate=.010, loss=.161, accuracy=.955
+epoch=2, batch=1600, learning_rate=.010, loss=.161, accuracy=.955
+epoch=2, batch=1620, learning_rate=.010, loss=.160, accuracy=.956
+epoch=2, batch=1640, learning_rate=.010, loss=.160, accuracy=.956
+epoch=2, batch=1660, learning_rate=.010, loss=.160, accuracy=.956
+epoch=2, batch=1680, learning_rate=.010, loss=.159, accuracy=.956
+epoch=2, batch=1700, learning_rate=.010, loss=.159, accuracy=.956
+epoch=2, batch=1720, learning_rate=.010, loss=.158, accuracy=.956
+epoch=2, batch=1740, learning_rate=.010, loss=.158, accuracy=.956
+epoch=2, batch=1760, learning_rate=.010, loss=.158, accuracy=.956
+epoch=2, batch=1780, learning_rate=.010, loss=.158, accuracy=.956
+epoch=2, batch=1800, learning_rate=.010, loss=.158, accuracy=.956
+epoch=2, batch=1820, learning_rate=.010, loss=.157, accuracy=.956
+epoch=2, batch=1840, learning_rate=.010, loss=.157, accuracy=.956
+epoch=2, batch=1860, learning_rate=.010, loss=.157, accuracy=.956
+epoch=3, batch=1, learning_rate=.010, loss=.021, accuracy=1.000
+epoch=3, batch=20, learning_rate=.010, loss=.088, accuracy=.975
+epoch=3, batch=40, learning_rate=.010, loss=.113, accuracy=.964
+epoch=3, batch=60, learning_rate=.010, loss=.111, accuracy=.966
+epoch=3, batch=80, learning_rate=.010, loss=.114, accuracy=.965
+epoch=3, batch=100, learning_rate=.010, loss=.119, accuracy=.966
+epoch=3, batch=120, learning_rate=.010, loss=.120, accuracy=.966
+epoch=3, batch=140, learning_rate=.010, loss=.127, accuracy=.965
+epoch=3, batch=160, learning_rate=.010, loss=.122, accuracy=.966
+epoch=3, batch=180, learning_rate=.010, loss=.125, accuracy=.965
+epoch=3, batch=200, learning_rate=.010, loss=.123, accuracy=.965
+epoch=3, batch=220, learning_rate=.010, loss=.120, accuracy=.966
+epoch=3, batch=240, learning_rate=.010, loss=.117, accuracy=.967
+epoch=3, batch=260, learning_rate=.010, loss=.119, accuracy=.966
+epoch=3, batch=280, learning_rate=.010, loss=.118, accuracy=.967
+epoch=3, batch=300, learning_rate=.010, loss=.120, accuracy=.967
+epoch=3, batch=320, learning_rate=.010, loss=.120, accuracy=.967
+epoch=3, batch=340, learning_rate=.010, loss=.121, accuracy=.966
+epoch=3, batch=360, learning_rate=.010, loss=.122, accuracy=.966
+epoch=3, batch=380, learning_rate=.010, loss=.121, accuracy=.966
+epoch=3, batch=400, learning_rate=.010, loss=.120, accuracy=.966
+epoch=3, batch=420, learning_rate=.010, loss=.118, accuracy=.967
+epoch=3, batch=440, learning_rate=.010, loss=.117, accuracy=.967
+epoch=3, batch=460, learning_rate=.010, loss=.118, accuracy=.967
+epoch=3, batch=480, learning_rate=.010, loss=.120, accuracy=.966
+epoch=3, batch=500, learning_rate=.010, loss=.120, accuracy=.966
+epoch=3, batch=520, learning_rate=.010, loss=.119, accuracy=.967
+epoch=3, batch=540, learning_rate=.010, loss=.119, accuracy=.967
+epoch=3, batch=560, learning_rate=.010, loss=.119, accuracy=.967
+epoch=3, batch=580, learning_rate=.010, loss=.119, accuracy=.967
+epoch=3, batch=600, learning_rate=.010, loss=.120, accuracy=.967
+epoch=3, batch=620, learning_rate=.010, loss=.120, accuracy=.967
+epoch=3, batch=640, learning_rate=.010, loss=.119, accuracy=.967
+epoch=3, batch=660, learning_rate=.010, loss=.119, accuracy=.967
+epoch=3, batch=680, learning_rate=.010, loss=.120, accuracy=.967
+epoch=3, batch=700, learning_rate=.010, loss=.119, accuracy=.967
+ Convergence achieved, accuracy threshold reached
+ Exiting training loop
+ Writing network to file...
+ Writing finished
+ Starting testing...
+ Testing finished
+Overall accuracy=.96640
+Overall loss=.11746

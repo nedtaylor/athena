@@ -875,7 +875,11 @@ contains
 #ifdef _OPENMP
           train_loop: do sample=start_index,end_index,1
 #else
+#ifdef __GNUCC__
           train_loop: do concurrent(sample=start_index:end_index:1)
+#else
+          train_loop: do sample=start_index,end_index,1
+#endif
 #endif
 
              !! Forward pass

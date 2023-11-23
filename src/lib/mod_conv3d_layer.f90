@@ -683,7 +683,13 @@ contains
          i=1:this%output_shape(1):1, &
          j=1:this%output_shape(2):1, &
          k=1:this%output_shape(3):1)
+#if defined(GFORTRAN)
        stp_idx = ([i,j,k]-1)*this%stp + 1 + (this%hlf - this%pad)
+#else
+       stp_idx(1) = (i-1)*this%stp(1) + 1 + (this%hlf(1) - this%pad(1))
+       stp_idx(2) = (j-1)*this%stp(2) + 1 + (this%hlf(2) - this%pad(2))
+       stp_idx(3) = (k-1)*this%stp(3) + 1 + (this%hlf(3) - this%pad(3))
+#endif
        start_idx  = stp_idx - this%hlf
        end_idx    = start_idx + this%knl - 1
 
@@ -807,7 +813,13 @@ contains
             )
 
           !! set weight bounds
+#if defined(GFORTRAN)
           stp_idx = ([i,j,k]-offset)/this%stp + 1
+#else
+          stp_idx(1) = ( i - offset(1) )/this%stp(1) + 1
+          stp_idx(2) = ( j - offset(2) )/this%stp(2) + 1
+          stp_idx(3) = ( k - offset(3) )/this%stp(3) + 1
+#endif
           !! max( ...
           !! ... 1. offset of 1st o/p idx from centre of knl     (lim)
           !! ... 2. lwst o/p idx overlap with <<- knl idx (rpt. pattern)

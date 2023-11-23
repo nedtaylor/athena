@@ -358,7 +358,13 @@ contains
          k = 1:this%output_shape(3),&
          j = 1:this%output_shape(2),&
          i = 1:this%output_shape(1))
+#if defined(GFORTRAN)
        stride_idx = ([i,j,k] - 1) * this%strd + 1
+#else
+       stride_idx(1) = (i-1) * this%strd(1) + 1
+       stride_idx(2) = (j-1) * this%strd(2) + 1
+       stride_idx(3) = (k-1) * this%strd(3) + 1
+#endif
        this%output(i, j, k, m) = maxval(&
             input(&
             stride_idx(1):stride_idx(1)+this%pool(1)-1, &
@@ -395,7 +401,13 @@ contains
          k = 1:this%output_shape(3),&
          j = 1:this%output_shape(2),&
          i = 1:this%output_shape(1))
+#if defined(GFORTRAN)
        stride_idx = ([i,j,k] - 1) * this%strd
+#else
+       stride_idx(1) = (i-1) * this%strd(1)
+       stride_idx(2) = (j-1) * this%strd(2)
+       stride_idx(3) = (k-1) * this%strd(3)
+#endif
        !! find the index of the maximum value in the corresponding pooling window
        max_idx = maxloc(input(&
             stride_idx(1)+1:stride_idx(1)+this%pool(1), &
