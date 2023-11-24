@@ -14,18 +14,19 @@ set( LIB_NAME ${PROJECT_NAME} )
 set( PROJECT_DESCRIPTION
   "Fortran neural network" )
 set( PROJECT_URL "https://https://git.exeter.ac.uk/hepplestone/athena" )
-set( CMAKE_CONFIGURATION_TYPES "Release" "Parallel" "Serial" "Dev" "Debug" "Parallel_Dev" )
+set( CMAKE_CONFIGURATION_TYPES "Release" "Parallel" "Serial" "Dev" "Debug" "Parallel_Dev"
+  CACHE STRING "List of configurations types." )
 set( CMAKE_BUILD_TYPE "Release"
   CACHE STRING "Select which configuration to build." )
 
 
 if (CMAKE_BUILD_TYPE MATCHES "Parallel*")
-   project(athena_omp) # change project name to paralle
+   project(athena_omp NONE) # change project name to parallel
 endif()
 
 
 set(CMAKE_Fortran_COMPILER gfortran
-  CACHE STRING "Select fortra compiler." )  # Change this to your desired compiler
+  CACHE STRING "Select fortran compiler." )  # Change this to your desired compiler
 set(CMAKE_Fortran_STANDARD 2018)
 
 enable_language(Fortran)
