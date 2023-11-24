@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.17.5)
 
+# define build environments
 set( CMAKE_INSTALL_PREFIX "$ENV{HOME}/.local/athena"
   CACHE STRING "Select where to install the library." )
 execute_process(COMMAND pwd OUTPUT_VARIABLE CURRENT_WORKING_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -7,9 +8,10 @@ message("Current working directory: ${CURRENT_WORKING_DIR}")
 set( CMAKE_BUILD_PREFIX ${CURRENT_WORKING_DIR}
   CACHE STRING "Select where to build the library." )
 
+# set the project name
 project(athena NONE)
 
-
+# set the library name
 set( LIB_NAME ${PROJECT_NAME} )
 set( PROJECT_DESCRIPTION
   "Fortran neural network" )
@@ -19,15 +21,17 @@ set( CMAKE_CONFIGURATION_TYPES "Release" "Parallel" "Serial" "Dev" "Debug" "Para
 set( CMAKE_BUILD_TYPE "Release"
   CACHE STRING "Select which configuration to build." )
 
+# change name based on parallel
 if (CMAKE_BUILD_TYPE MATCHES "Parallel*")
    project(athena_omp NONE) # change project name to parallel
 endif()
 
-
+# set compiler
 set(CMAKE_Fortran_COMPILER gfortran
   CACHE STRING "Select fortran compiler." )  # Change this to your desired compiler
 set(CMAKE_Fortran_STANDARD 2018)
 
+# set language
 enable_language(Fortran)
 
 # Define the sources
@@ -96,7 +100,7 @@ foreach(src ${SRCS})
 endforeach()
 message(STATUS "Modified SRCS: ${PREPENDED_SRCS}")
 
-
+# initialise flags
 set(CPPFLAGS "")
 set(CFLAGS "")
 set(MODULEFLAGS "")
@@ -108,6 +112,7 @@ set(MEMFLAGS "")
 set(OPTIMFLAGS "")
 set(FASTFLAGS "")
 
+# set flags based on compiler
 if (CMAKE_Fortran_COMPILER MATCHES ".*gfortran.*" OR CMAKE_Fortran_COMPILER MATCHES ".*gcc.*")
     message(STATUS "Using gfortran compiler")
     set(PPFLAGS -cpp)
@@ -154,20 +159,19 @@ set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${PPFLAGS}")
 # add_compile_options("$<$<CONFIG:mp>:${MPFLAGS}>")
 
 
-# Create the library
+# create the library
 add_library(${PROJECT_NAME} STATIC ${PREPENDED_LIBS} ${PREPENDED_SRCS})
 set(MODULE_DIR ${CMAKE_BUILD_PREFIX}/modules)
 set_target_properties(${PROJECT_NAME} PROPERTIES Fortran_MODULE_DIRECTORY ${MODULE_DIR})
 
-# Replace ".f90" with ".mod"
+# replace ".f90" with ".mod"
 string(REGEX REPLACE "\\.[^.]*$" ".mod" MODULE_FILES "${SRCS}")
 
-# Installation
+# installation
 install(FILES ${MODULE_DIR}/${MODULE_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
 install(TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 
-
-# Set compile options based on different build configurations
+# set compile options based on different build configurations
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Release>:${OPTIMFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel>:${OPTIMFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel>:${MPFLAGS}>")
