@@ -11,13 +11,14 @@ ATHENA is distributed with the following directories:
 |  _doc/_ |      Documentation  |
 |  _src/_ |      Source code  |
 |  _tools/_ |    Additional shell script tools for automating learning  |
-|  _test/_  |    Example input and output file for the test makefile  |
+|  _test/mnist_  |    Example code utilising the library for learning on the MNIST dataset  |
 
-**There currently does not exist a wiki or a manual. One will be included at a later date**
+**There currently exists only a limited wiki, an no manual. These will be updated/included at a later date**
 
-The library has been developed using the gcc 13.2.0 fortran compiler.
-
-The library has not been tested on ifort (due to outdated ifort compilers on our current setup).
+The library has been developed using the following compilers:
+- gfortran -- gcc 13.2.0
+- ifort -- Intel 2021.10.0.20230609
+- ifx -- IntelLLVM 2023.2.0
 
 
 
@@ -27,7 +28,7 @@ Run the following commands in the directory containing _CMakeLists.txt_:
 ```
   mkdir build  
   cd build  
-  cmake -DCMAKE_BUILD_TYPE="optim;mp" ..  
+  cmake [-DCMAKE_BUILD_TYPE="optim;mp"] ..  
   make install  
 ```
 This will build the library in the build/ directory. All library files will then be found in:
@@ -52,18 +53,18 @@ The link to the original MNIST database is: http://yann.lecun.com/exdb/mnist/
 
 To compile and run the test, run the following commands in the directory containing _CMakeLists.txt_:
 ```
-  cd test
-  make build optim
+  cd test/mnist
+  make build optim [FC=FORTRAN-COMPILER]
   ./bin/athena_test -f test_job.in
 ```
 After the test program is compiled, the following directories will also exist:
 
 | Directory | Description |
 |---|---|
-|  _test/bin/_  |     Contains binary executable | 
-|  _test/obj/_  |     Contains module/object files (non-linked binary files)|
+|  _test/mnist/bin/_  |     Contains binary executable | 
+|  _test/mnist/obj/_  |     Contains module/object files (non-linked binary files)|
 
-The test will perform a train over 200 mini-batch steps. It will then exit prematurely, print its weights and biases to file, and test the partially-trained network on the training set. The output from this cna then be compared to the file _expected_output.txt_.
+The test will perform a train over the MNIST dataset. Once complete, it will print its weights and biases to file, and test the trained network on the training set. The output from this can then be compared to the file _expected_output_COMPILER.txt_.
 
 In the tools/ directory, there exist scripts that take utilise the wandb python package (Weights and Biases, a machine learning data tracker). Wandb is a Python module and, as such, a Python interface has been provided to call and run the Fortran test. The Python interface then reads the Fortran output files and logs the results to the wandb project.
 
@@ -121,12 +122,12 @@ https://creativecommons.org/licenses/by-nc/3.0/
 
 | Additional file | Description |
 |-----|------|
-|_README.md_                  | a readme file with a brief description of the code and files  |
-|_CMakeLists.txt_             | the makefile used for compiling the library  |
-|_LICENCE_                    | licence of ATHENA code  |
-|_test/expected_output.txt_   | expected output from executing test program  |
-|_test/test_job.in_           | input file for test program  |
-|_tools/sweep_init.py_        | script to initialise wandb sweep  |
-|_tools/sweep_train.py_       | script to perform training and log learning to wandb  |
-|_tools/template.in_          | input file for program in test/bin/ (once compiled)  |
-|_tools/wandb-metadata.json_  | metadata defining default plots on wandb website  |
+|_README.md_                        | a readme file with a brief description of the code and files  |
+|_CMakeLists.txt_                   | the makefile used for compiling the library  |
+|_LICENCE_                          | licence of ATHENA code  |
+|_test/mnist/expected_output.txt_   | expected output from executing test program  |
+|_test/mnist/test_job.in_           | input file for test program  |
+|_tools/sweep_init.py_              | script to initialise wandb sweep  |
+|_tools/sweep_train.py_             | script to perform training and log learning to wandb  |
+|_tools/template.in_                | input file for program in test/bin/ (once compiled)  |
+|_tools/wandb-metadata.json_        | metadata defining default plots on wandb website  |
