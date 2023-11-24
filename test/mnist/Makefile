@@ -19,17 +19,18 @@ OBJS := $(addprefix $(SRC_DIR)/,$(SRCS))
 ##########################################
 # COMPILER CHOICE SECTION
 ##########################################
+NTHREADS=4
 FC=gfortran
 ifneq (,$(filter ifort% ifx%, $(FC)))
 	PPFLAGS = -stand f18 -cpp
-	MPFLAGS = -qopenmp
+	MPFLAGS = -qopenmp -ftree-parallelize-loops=$(NTHREADS)
 	MODULEFLAGS = -module
 	DEVFLAGS = -check all -warn #all
 	DEBUGFLAGS = -check all -fpe0 -warn -tracekback -debug extended # -check bounds
 	OPTIMFLAGS = -O3
 else ifneq (,$(filter gfortran% gcc%, $(FC))) 
 	PPFLAGS = -cpp -gdwarf-2
-	MPFLAGS = -fopenmp
+	MPFLAGS = -fopenmp -ftree-parallelize-loops=$(NTHREADS)
 	MODULEFLAGS = -J
 	WARNFLAGS = -Wall
 	DEVFLAGS = -g -fbacktrace -fcheck=all -fbounds-check -Og #-g -static -ffpe-trap=invalid
@@ -100,6 +101,7 @@ ifeq ($(findstring lapack,$(MAKECMDGOALS)),lapack)
 	OBJS:=$(OBJS) $(LIBRARY)
 endif
 ifeq ($(findstring mp,$(MAKECMDGOALS)),mp)
+$(info NTHREADS = $(NTHREADS))
 	CFLAGS+=$(MPFLAGS)
 	NAME:=$(NAME)_mp
 	LATHENA:=$(LATHENA)_omp

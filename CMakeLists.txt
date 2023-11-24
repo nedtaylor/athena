@@ -19,7 +19,6 @@ set( CMAKE_CONFIGURATION_TYPES "Release" "Parallel" "Serial" "Dev" "Debug" "Para
 set( CMAKE_BUILD_TYPE "Release"
   CACHE STRING "Select which configuration to build." )
 
-
 if (CMAKE_BUILD_TYPE MATCHES "Parallel*")
    project(athena_omp NONE) # change project name to parallel
 endif()
