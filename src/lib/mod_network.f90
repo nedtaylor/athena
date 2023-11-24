@@ -1137,6 +1137,7 @@ contains
     !$OMP& SHARED(input, output, predicted) &
     !$OMP& SHARED(addit_input, addit_layer) &
     !$OMP& SHARED(accuracy_list) &
+    !$OMP& SHARED(y_true) &
     !$OMP& PRIVATE(sample) &
     !$OMP& PRIVATE(acc_val, loss_val) &
     !$OMP& REDUCTION(network_reduction:this_copy)
@@ -1175,6 +1176,10 @@ contains
 #endif
                & % get_loss(&
                predicted = current%output, &
+               !!!! JUST REPLACE y_true(:,sample) WITH output(:,sample) !!!!
+               !!!! THERE IS NO REASON TO USE y_true, as it is just a copy !!!!
+               !!!! get_loss should handle both integers and reals !!!!
+               !!!! it does not. Instead just wrap real(output(:,sample),real12) !!!!
                expected  = y_true(:,sample)))
              select type(output)
              type is(integer)
