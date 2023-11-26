@@ -7,23 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.1.3] - 2023-XX=YY
-
-### Added
-
-- 
-
-### Fixed
-
-- 
+## [1.1.3] - 2023-11-26
 
 ### Changed
 
-- 
-
-### Removed
-
-- 
+- Updated argument consistency for split and shuffle procedure
 
 ## [1.1.0] - 2023-XX-YY
 
