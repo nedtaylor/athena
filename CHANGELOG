@@ -7,32 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.1.3] - 2023-11-26
+### Added
+
+- Added inference to dropout layers
 
 ### Changed
 
 - Updated argument consistency for split and shuffle procedure
 
-## [1.1.0] - 2023-XX-YY
-
-### Added
-
--
+## [1.1.2] - 2023-11-24
 
 ### Fixed
 
--
+- Parallel extent of y_true in test procedure
+- Undefined language and compiler in CMakeLists.txt for parallel build type
 
-## [1.0.0] - 2023-XX-YY
-
-### Added
-
--
+## [1.1.1] - 2023-11-24
 
 ### Changed
 
--
+- Improved README
+
+### Fixed
+
+- ifort and ifx compatibility
+
+## [1.1.0] - 2023-09-14
+
+### Added
+
+- Dropblock layers
+- Padding procedure
+- Split procedure
+- Loss methods for continuous data
+- Test example
+
+### Changed
+
+- Convert layer types to polymorphic
+- Allow polymorphic output data
+
+## [1.0.0] - 2023-09-12
+
+### Added
+
+- Convolutional layers
+- Full/dense layers
+- Shuffle procedure
+- Network model derived type
+
+### Changed
+
+- Convert to compilable library
 
 ### Removed
 
--
+- Program format of athena
