@@ -24,6 +24,7 @@ module full_layer
      procedure, pass(this) :: get_num_params => get_num_params_full
      procedure, pass(this) :: get_params => get_params_full
      procedure, pass(this) :: set_params => set_params_full
+     procedure, pass(this) :: get_gradients => get_gradients_full
 
      procedure, pass(this) :: print => print_full
      procedure, pass(this) :: set_shape => set_shape_full
@@ -162,6 +163,20 @@ contains
     this%weight = reshape(params, [ this%num_inputs+1, this%num_outputs ])
   
   end subroutine set_params_full
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! get number of parameters
+!!!#############################################################################
+  pure function get_gradients_full(this) result(gradients)
+    implicit none
+    class(full_layer_type), intent(in) :: this
+    real(real12), allocatable, dimension(:) :: gradients
+  
+    gradients = reshape(this%dw, [ (this%num_inputs+1) * this%num_outputs ])
+  
+  end function get_gradients_full
 !!!#############################################################################
 
 

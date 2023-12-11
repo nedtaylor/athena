@@ -19,6 +19,7 @@ module conv3d_layer
    contains
      procedure, pass(this) :: get_params => get_params_conv3d
      procedure, pass(this) :: set_params => set_params_conv3d
+     procedure, pass(this) :: get_gradients => get_gradients_conv3d
 
      procedure, pass(this) :: init => init_conv3d
      procedure, pass(this) :: set_batch_size => set_batch_size_conv3d
@@ -157,6 +158,23 @@ contains
         this%num_filters * this%num_channels * product(this%knl) + 1 : )
  
   end subroutine set_params_conv3d
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! get gradients
+!!!#############################################################################
+  pure function get_gradients_conv3d(this) result(gradients)
+    implicit none
+    class(conv3d_layer_type), intent(in) :: this
+    real(real12), allocatable, dimension(:) :: gradients
+  
+    gradients = [ reshape( &
+         this%dw, &
+         [ this%num_filters * this%num_channels * product(this%knl) ]), &
+         this%db ]
+  
+  end function get_gradients_conv3d
 !!!#############################################################################
 
 

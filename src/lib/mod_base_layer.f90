@@ -132,6 +132,7 @@ module base_layer
      procedure(layer_merge), deferred, pass(this) :: merge
      procedure(get_params), deferred, pass(this) :: get_params
      procedure(set_params), deferred, pass(this) :: set_params
+     procedure(get_gradients), deferred, pass(this) :: get_gradients
   end type learnable_layer_type
 
   abstract interface
@@ -168,6 +169,12 @@ module base_layer
        class(learnable_layer_type), intent(inout) :: this
        real(real12), dimension(:), intent(in) :: params
     end subroutine set_params
+
+    pure function get_gradients(this) result(gradients)
+      import :: learnable_layer_type, real12
+      class(learnable_layer_type), intent(in) :: this
+      real(real12), allocatable, dimension(:) :: gradients
+    end function get_gradients
   end interface
 
   !!!-----------------------------------------------------------------------------
@@ -221,6 +228,7 @@ module base_layer
      procedure, pass(this) :: get_num_params => get_num_params_batch
      procedure, pass(this) :: get_params => get_params_batch
      procedure, pass(this) :: set_params => set_params_batch
+     procedure, pass(this) :: get_gradients => get_gradients_batch
   end type batch_layer_type
   
 
@@ -317,29 +325,43 @@ contains
 !!!#############################################################################
 !!! get learnable parameters of layer
 !!!#############################################################################
-pure function get_params_batch(this) result(params)
-  implicit none
-  class(batch_layer_type), intent(in) :: this
-  real(real12), allocatable, dimension(:) :: params
-
-  params = [this%gamma, this%beta]
-
-end function get_params_batch
+  pure function get_params_batch(this) result(params)
+    implicit none
+    class(batch_layer_type), intent(in) :: this
+    real(real12), allocatable, dimension(:) :: params
+  
+    params = [this%gamma, this%beta]
+  
+  end function get_params_batch
 !!!#############################################################################
 
 
 !!!#############################################################################
 !!! set learnable parameters of layer
 !!!#############################################################################
-subroutine set_params_batch(this, params)
-  implicit none
-  class(batch_layer_type), intent(inout) :: this
-  real(real12), dimension(:), intent(in) :: params
+  subroutine set_params_batch(this, params)
+    implicit none
+    class(batch_layer_type), intent(inout) :: this
+    real(real12), dimension(:), intent(in) :: params
+  
+    this%gamma = params(1:this%num_channels)
+    this%beta  = params(this%num_channels+1:2*this%num_channels)
+  
+  end subroutine set_params_batch
+!!!#############################################################################
 
-  this%gamma = params(1:this%num_channels)
-  this%beta  = params(this%num_channels+1:2*this%num_channels)
 
-end subroutine set_params_batch
+!!!#############################################################################
+!!! get gradients of layer
+!!!#############################################################################
+  pure function get_gradients_batch(this) result(gradients)
+    implicit none
+    class(batch_layer_type), intent(in) :: this
+    real(real12), allocatable, dimension(:) :: gradients
+  
+    gradients = [this%dg, this%db]
+  
+  end function get_gradients_batch
 !!!#############################################################################
 
 end module base_layer
