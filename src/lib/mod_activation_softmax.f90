@@ -11,11 +11,15 @@ module activation_softmax
   type, extends(activation_type) :: softmax_type
    contains
      procedure, pass(this) :: activate_1d => softmax_activate_1d
+     procedure, pass(this) :: activate_2d => softmax_activate_2d
      procedure, pass(this) :: activate_3d => softmax_activate_3d
      procedure, pass(this) :: activate_4d => softmax_activate_4d
+     procedure, pass(this) :: activate_5d => softmax_activate_5d
      procedure, pass(this) :: differentiate_1d => softmax_differentiate_1d
+     procedure, pass(this) :: differentiate_2d => softmax_differentiate_2d
      procedure, pass(this) :: differentiate_3d => softmax_differentiate_3d
      procedure, pass(this) :: differentiate_4d => softmax_differentiate_4d
+     procedure, pass(this) :: differentiate_5d => softmax_differentiate_5d
   end type softmax_type
   
   interface softmax_setup
@@ -75,17 +79,40 @@ contains
   end function softmax_activate_1d
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
+  pure function softmax_activate_2d(this, val) result(output)
+    implicit none
+    class(softmax_type), intent(in) :: this
+    real(real12), dimension(:,:), intent(in) :: val
+    real(real12), dimension(size(val,1),size(val,2)) :: output
+    
+    integer :: s
+
+    do s = 1, size(val,2)
+      !! compute softmax values
+      output(:,s) = exp(val(:,s) - maxval(val(:,s)))
+
+      !! normalize softmax values
+      output(:,s) = output(:,s) / sum(output(:,s))
+    end do
+
+  end function softmax_activate_2d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
   pure function softmax_activate_3d(this, val) result(output)
     implicit none
     class(softmax_type), intent(in) :: this
     real(real12), dimension(:,:,:), intent(in) :: val
     real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
     
-    !! compute softmax values
-    output = exp(val - maxval(val))
+    integer :: s
 
-    !! normalize softmax values
-    output = output / sum(output)
+    do s=1,size(val,3)
+      !! compute softmax values
+       output(:,:,s) = exp(val(:,:,s) - maxval(val(:,:,s)))
+
+       !! normalize softmax values
+       output(:,:,s) = output(:,:,s) / sum(output(:,:,s))
+    end do
 
   end function softmax_activate_3d
 !!!-----------------------------------------------------------------------------
@@ -97,13 +124,37 @@ contains
     real(real12), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4)) :: output
     
-    !! compute softmax values
-    output = exp(val - maxval(val))
+    integer :: s
 
-    !! normalize softmax values
-    output = output / sum(output)
+    do s=1,size(val,3)
+      !! compute softmax values
+      output(:,:,:,s) = exp(val(:,:,:,s) - maxval(val(:,:,:,s)))
+
+      !! normalize softmax values
+      output(:,:,:,s) = output(:,:,:,s) / sum(output(:,:,:,s))
+    end do
 
   end function softmax_activate_4d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function softmax_activate_5d(this, val) result(output)
+    implicit none
+    class(softmax_type), intent(in) :: this
+    real(real12), dimension(:,:,:,:,:), intent(in) :: val
+    real(real12), dimension(&
+         size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
+
+    integer :: s
+
+    do s=1,size(val,3)
+      !! compute softmax values
+      output(:,:,:,:,s) = exp(val(:,:,:,:,s) - maxval(val(:,:,:,:,s)))
+
+      !! normalize softmax values
+      output(:,:,:,:,s) = output(:,:,:,:,s) / sum(output(:,:,:,:,s))
+    end do
+
+  end function softmax_activate_5d
 !!!#############################################################################
 
 
@@ -122,6 +173,19 @@ contains
     output = output * (1._real12 - output)
 
   end function softmax_differentiate_1d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function softmax_differentiate_2d(this, val) result(output)
+    implicit none
+    class(softmax_type), intent(in) :: this
+    real(real12), dimension(:,:), intent(in) :: val
+    real(real12), dimension(size(val,1),size(val,2)) :: output
+
+    !! compute gradients for softmax layer
+    output = this%activate_2d(val)
+    output = output * (1._real12 - output)
+
+  end function softmax_differentiate_2d
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
   pure function softmax_differentiate_3d(this, val) result(output)
@@ -149,6 +213,20 @@ contains
     output = output * (1._real12 - output)
 
   end function softmax_differentiate_4d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function softmax_differentiate_5d(this, val) result(output)
+    implicit none
+    class(softmax_type), intent(in) :: this
+    real(real12), dimension(:,:,:,:,:), intent(in) :: val
+    real(real12), dimension(&
+         size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
+
+    !! compute gradients for softmax layer
+    output = this%activate_5d(val)
+    output = output * (1._real12 - output)
+
+  end function softmax_differentiate_5d
 !!!#############################################################################
 
 end module activation_softmax

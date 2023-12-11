@@ -17,14 +17,9 @@ program mnist_test
 
   type(network_type) :: network
 
-  !! seed variables
-  integer :: nseed=1
-  integer, allocatable, dimension(:) :: seed_arr
-
   !! data loading and preoprocessing
   real(real12), allocatable, dimension(:,:,:,:) :: input_images, test_images
   real(real12), allocatable, dimension(:,:) :: addit_input
-  real(real12), allocatable, dimension(:,:,:,:,:) :: input_spread
   integer, allocatable, dimension(:) :: labels, test_labels
   integer, allocatable, dimension(:,:) :: input_labels
   character(1024) :: train_file, test_file
@@ -35,17 +30,10 @@ program mnist_test
   integer :: input_channels
 
   !! training loop variables
-  integer :: num_batches, num_samples, num_samples_test
-  integer :: epoch, batch, sample, start_index, end_index
-  integer, allocatable, dimension(:) :: batch_order
-  !real(real12), allocatable, dimension(:,:,:) :: bn_output, bn_gradients
+  integer :: num_samples, num_samples_test
 
 
-  integer :: i, l, time, time_old, clock_rate, itmp1, cv_mask_size
-  real(real12) :: rtmp1
-  !  real(real12) :: drop_gamma
-  !  real(real12), allocatable, dimension(:) :: mean, variance
-  logical, allocatable, dimension(:,:) :: cv_mask
+  integer :: i, itmp1
 
 #ifdef _OPENMP
   integer, allocatable, dimension(:) :: label_slice
@@ -121,14 +109,12 @@ program mnist_test
            num_filters = cv_num_filters, kernel_size = 3, stride = 1, &
            padding=padding_method, &
            calc_input_gradients = .false., &
-           activation_function = "relu"))
-     !call network%add(dropblock2d_layer_type( &
-     !     rate = 0.25, block_size = 5))
+           activation_function = "relu" &
+           ))
      call network%add(maxpool2d_layer_type(&
            pool_size = 2, stride = 2))
      call network%add(full_layer_type( &
            num_outputs = 100, &
-           !num_addit_inputs = 6,&
            activation_function = "relu", &
            kernel_initialiser = "he_uniform", &
            bias_initialiser = "he_uniform" &
@@ -139,32 +125,11 @@ program mnist_test
            kernel_initialiser = "glorot_uniform", &
            bias_initialiser = "glorot_uniform" &
            ))
-
-     !call network%add(conv3d_layer_type( &
-     !     input_shape = [image_size,image_size,1,input_channels], &
-     !     num_filters = cv_num_filters, kernel_size = [3,3,1], stride = 1, &
-     !     padding = padding_method, &
-     !     calc_input_gradients = .false., &
-     !     activation_function = "relu"))
-     !call network%add(maxpool3d_layer_type(&
-     !     pool_size = [2,2,1], stride = [2,2,1]))
-     !call network%add(full_layer_type( &
-     !     num_outputs = 100, &
-     !     activation_function = "relu", &
-     !     kernel_initialiser = "he_uniform", &
-     !     bias_initialiser = "he_uniform" &
-     !     ))
-     !call network%add(full_layer_type( &
-     !     num_outputs = 10,&
-     !     activation_function = "softmax", &
-     !     kernel_initialiser = "glorot_uniform", &
-     !     bias_initialiser = "glorot_uniform" &
-     !     ))
   end if
 
   call network%compile(optimiser=optimiser, &
-       loss_method=loss_method, metrics=metric_dict, verbose = verbosity)
-  !input_spread = spread(input_images,3,1)
+       loss_method=loss_method, metrics=metric_dict, &
+       batch_size = batch_size, verbose = verbosity)
 
   write(*,*) "NUMBER OF LAYERS",network%num_layers
 
@@ -184,16 +149,9 @@ program mnist_test
 
   write(6,*) "Starting training..."
   call network%train(input_images, input_labels, num_epochs, batch_size, &
-       !addit_input, 5, &
        plateau_threshold = plateau_threshold, &
        shuffle_batches = shuffle_dataset, &
        batch_print_step = batch_print_step, verbose = verbosity)
-  !call network%train(input_spread, input_labels, num_epochs, batch_size, &
-  !     !addit_input, 5, &
-  !     plateau_threshold = plateau_threshold, &
-  !     shuffle_batches = shuffle_dataset, &
-  !     batch_print_step = batch_print_step, verbose = verbosity)
-  !write(*,*) "Training finished"
 
 
 !!!-----------------------------------------------------------------------------
@@ -236,7 +194,7 @@ contains
     use misc, only: icount
     implicit none
     integer :: i, j, k, Reason, unit
-    integer :: num_samples, num_pixels, padding, t_kernel_size = 1
+    integer :: num_samples, num_pixels, t_kernel_size = 1
     character(2048) :: buffer
     character(:), allocatable :: t_padding_method
     real(real12), allocatable, dimension(:,:,:,:) :: images_padded

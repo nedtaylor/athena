@@ -11,11 +11,15 @@ module activation_none
   type, extends(activation_type) :: none_type
    contains
      procedure, pass(this) :: activate_1d => none_activate_1d
+     procedure, pass(this) :: activate_2d => none_activate_2d
      procedure, pass(this) :: activate_3d => none_activate_3d
      procedure, pass(this) :: activate_4d => none_activate_4d
+     procedure, pass(this) :: activate_5d => none_activate_5d
      procedure, pass(this) :: differentiate_1d => none_differentiate_1d
+     procedure, pass(this) :: differentiate_2d => none_differentiate_2d
      procedure, pass(this) :: differentiate_3d => none_differentiate_3d
      procedure, pass(this) :: differentiate_4d => none_differentiate_4d
+     procedure, pass(this) :: differentiate_5d => none_differentiate_5d
   end type none_type
   
   interface none_setup
@@ -63,6 +67,16 @@ contains
   end function none_activate_1d
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
+  pure function none_activate_2d(this, val) result(output)
+    implicit none
+    class(none_type), intent(in) :: this
+    real(real12), dimension(:,:), intent(in) :: val
+    real(real12), dimension(size(val,1),size(val,2)) :: output
+
+    output = val * this%scale
+  end function none_activate_2d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
   pure function none_activate_3d(this, val) result(output)
     implicit none
     class(none_type), intent(in) :: this
@@ -82,6 +96,17 @@ contains
 
     output = val * this%scale
   end function none_activate_4d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function none_activate_5d(this, val) result(output)
+    implicit none
+    class(none_type), intent(in) :: this
+    real(real12), dimension(:,:,:,:,:), intent(in) :: val
+    real(real12), dimension(&
+         size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
+
+    output = val * this%scale
+  end function none_activate_5d
 !!!#############################################################################
 
 
@@ -99,6 +124,16 @@ contains
 
     output = val * this%scale
   end function none_differentiate_1d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function none_differentiate_2d(this, val) result(output)
+    implicit none
+    class(none_type), intent(in) :: this
+    real(real12), dimension(:,:), intent(in) :: val
+    real(real12), dimension(size(val,1),size(val,2)) :: output
+
+    output = val * this%scale
+  end function none_differentiate_2d
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
   pure function none_differentiate_3d(this, val) result(output)
@@ -120,6 +155,17 @@ contains
 
     output = val * this%scale
   end function none_differentiate_4d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function none_differentiate_5d(this, val) result(output)
+    implicit none
+    class(none_type), intent(in) :: this
+    real(real12), dimension(:,:,:,:,:), intent(in) :: val
+    real(real12), dimension(&
+         size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
+
+    output = val * this%scale
+  end function none_differentiate_5d
 !!!#############################################################################
 
 end module activation_none

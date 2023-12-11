@@ -18,15 +18,16 @@ module dropout_layer
      integer :: num_masks
      real(real12) :: rate
      logical, allocatable, dimension(:,:) :: mask
-     real(real12), allocatable, dimension(:) :: output
-     real(real12), allocatable, dimension(:) :: di ! gradient of input (i.e. delta)
+     real(real12), allocatable, dimension(:,:) :: output
+     real(real12), allocatable, dimension(:,:) :: di ! gradient of input (i.e. delta)
    contains
      procedure, pass(this) :: init => init_dropout
+     procedure, pass(this) :: set_batch_size => set_batch_size_dropout
      procedure, pass(this) :: print => print_dropout
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
-     procedure, private, pass(this) :: forward_1d
-     procedure, private, pass(this) :: backward_1d
+     procedure, private, pass(this) :: forward_2d
+     procedure, private, pass(this) :: backward_2d
      procedure, pass(this) :: generate_mask => generate_dropout_mask
   end type dropout_layer_type
 
@@ -34,10 +35,11 @@ module dropout_layer
   interface dropout_layer_type
      module function layer_setup( &
           rate, num_masks, &
-          input_shape) result(layer)
+          input_shape, batch_size) result(layer)
        integer, intent(in) :: num_masks
        real(real12), intent(in) :: rate
        integer, dimension(:), optional, intent(in) :: input_shape
+       integer, optional, intent(in) :: batch_size
        type(dropout_layer_type) :: layer
      end function layer_setup
   end interface dropout_layer_type
@@ -58,8 +60,8 @@ contains
     class(dropout_layer_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
 
-    select rank(input); rank(1)
-       call forward_1d(this, input)
+    select rank(input); rank(2)
+       call forward_2d(this, input)
     end select
   end subroutine forward_rank
 !!!#############################################################################
@@ -74,9 +76,9 @@ contains
     real(real12), dimension(..), intent(in) :: input
     real(real12), dimension(..), intent(in) :: gradient
 
-    select rank(input); rank(1)
-    select rank(gradient); rank(1)
-      call backward_1d(this, input, gradient)
+    select rank(input); rank(2)
+    select rank(gradient); rank(2)
+      call backward_2d(this, input, gradient)
     end select
     end select
   end subroutine backward_rank
@@ -93,15 +95,27 @@ contains
 !!!#############################################################################
   module function layer_setup( &
        rate, num_masks, &
-       input_shape) result(layer)
+       input_shape, batch_size) result(layer)
     implicit none
     integer, intent(in) :: num_masks
     real(real12), intent(in) :: rate
     integer, dimension(:), optional, intent(in) :: input_shape
+    integer, optional, intent(in) :: batch_size
     
     type(dropout_layer_type) :: layer
 
 
+    layer%name = "dropout"
+    layer%input_rank = 1
+    !!--------------------------------------------------------------------------
+    !! initialise batch size
+    !!--------------------------------------------------------------------------
+    if(present(batch_size)) layer%batch_size = batch_size
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise layer rate and number of masks
+    !!--------------------------------------------------------------------------
     layer%num_masks = num_masks
     layer%rate = rate
 
@@ -118,10 +132,11 @@ contains
 !!!#############################################################################
 !!! initialise layer
 !!!#############################################################################
-  subroutine init_dropout(this, input_shape, verbose)
+  subroutine init_dropout(this, input_shape, batch_size, verbose)
     implicit none
     class(dropout_layer_type), intent(inout) :: this
     integer, dimension(:), intent(in) :: input_shape
+    integer, optional, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
 
     integer :: t_verb
@@ -135,29 +150,19 @@ contains
     else
        t_verb = 0
     end if
+    if(present(batch_size)) this%batch_size = batch_size
 
 
     !!--------------------------------------------------------------------------
     !! initialise input shape
     !!--------------------------------------------------------------------------
-    if(size(input_shape,dim=1).eq.1)then
-       this%input_shape = input_shape
-    else
-       stop "ERROR: invalid size of input_shape in dropout, expected (1)"
-    end if
+    if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
 
 
     !!-----------------------------------------------------------------------
     !! set up number of channels, width, height
     !!-----------------------------------------------------------------------
-    this%output_shape = input_shape
-    
-
-    !!-----------------------------------------------------------------------
-    !! allocate output and gradients
-    !!-----------------------------------------------------------------------
-    allocate(this%output(this%output_shape(1)), source=0._real12)
-    allocate(this%di(input_shape(1)), source=0._real12)
+    this%output_shape = this%input_shape
 
 
     !!-----------------------------------------------------------------------
@@ -166,17 +171,62 @@ contains
     !!-----------------------------------------------------------------------
     !! original paper uses keep_prob, we use drop_rate
     !! drop_rate = 1 - keep_prob
-    allocate(this%mask(input_shape(1), this%num_masks), source=.true.)
+    allocate(this%mask(this%input_shape(1), this%num_masks), source=.true.)
 
 
     !!-----------------------------------------------------------------------
     !! generate mask
     !!-----------------------------------------------------------------------
     call this%generate_mask()
+    
+
+    !!--------------------------------------------------------------------------
+    !! initialise batch size-dependent arrays
+    !!--------------------------------------------------------------------------
+    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
 
   end subroutine init_dropout
 !!!#############################################################################
 
+
+!!!#############################################################################
+!!! set batch size
+!!!#############################################################################
+  subroutine set_batch_size_dropout(this, batch_size, verbose)
+    implicit none
+    class(dropout_layer_type), intent(inout) :: this
+    integer, intent(in) :: batch_size
+    integer, optional, intent(in) :: verbose
+ 
+    integer :: t_verb
+ 
+ 
+    !!--------------------------------------------------------------------------
+    !! initialise optional arguments
+    !!--------------------------------------------------------------------------
+    if(present(verbose))then
+       t_verb = verbose
+    else
+       t_verb = 0
+    end if
+    this%batch_size = batch_size
+ 
+ 
+    !!--------------------------------------------------------------------------
+    !! allocate arrays
+    !!--------------------------------------------------------------------------
+    if(allocated(this%input_shape))then
+       if(allocated(this%output)) deallocate(this%output)
+       allocate(this%output( &
+            this%output_shape(1), &
+            this%batch_size), source=0._real12)
+       if(allocated(this%di)) deallocate(this%di)
+       allocate(this%di, source=this%output)
+    end if
+ 
+  end subroutine set_batch_size_dropout
+ !!!#############################################################################
+ 
 
 !!!#############################################################################
 !!! generate masks
@@ -318,36 +368,43 @@ contains
 !!!#############################################################################
 !!! forward propagation
 !!!#############################################################################
-  pure subroutine forward_1d(this, input)
+  pure subroutine forward_2d(this, input)
     implicit none
     class(dropout_layer_type), intent(inout) :: this
-    real(real12), dimension(:), intent(in) :: input
+    real(real12), dimension(:,:), intent(in) :: input
     
+    integer :: s
+
     
     this%idx = this%idx + 1
     !! perform the drop operation
-    this%output(:) = merge(input(:), 0._real12, this%mask(:,this%idx)) / &
-       ( 1._real12 - this%rate )
+    do concurrent(s=1:this%batch_size)
+       this%output(:,s) = merge( &
+            input(:,s), 0._real12, &
+            this%mask(:,this%idx)) / &
+            ( 1._real12 - this%rate )
+    end do
 
-  end subroutine forward_1d
+  end subroutine forward_2d
 !!!#############################################################################
 
 
 !!!#############################################################################
 !!! backward propagation
 !!!#############################################################################
-  pure subroutine backward_1d(this, input, gradient)
+  pure subroutine backward_2d(this, input, gradient)
     implicit none
     class(dropout_layer_type), intent(inout) :: this
-    real(real12), dimension(:), intent(in) :: input
+    real(real12), dimension(:,:), intent(in) :: input
     real(real12), &
-         dimension(this%output_shape(1)), intent(in) :: gradient
+         dimension(this%output_shape(1), this%batch_size), &
+         intent(in) :: gradient
 
 
     !! compute gradients for input feature map
-    this%di(:) = gradient(:)
+    this%di(:,:) = gradient(:,:)
 
-  end subroutine backward_1d
+  end subroutine backward_2d
 !!!#############################################################################
 
 end module dropout_layer

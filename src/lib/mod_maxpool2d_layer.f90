@@ -14,23 +14,25 @@ module maxpool2d_layer
      !! pool = pool
      integer, dimension(2) :: pool, strd
      integer :: num_channels
-     real(real12), allocatable, dimension(:,:,:) :: output
-     real(real12), allocatable, dimension(:,:,:) :: di ! gradient of input (i.e. delta)
+     real(real12), allocatable, dimension(:,:,:,:) :: output
+     real(real12), allocatable, dimension(:,:,:,:) :: di ! gradient of input (i.e. delta)
    contains
      procedure, pass(this) :: init => init_maxpool2d
+     procedure, pass(this) :: set_batch_size => set_batch_size_maxpool2d
      procedure, pass(this) :: print => print_maxpool2d
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
-     procedure, private, pass(this) :: forward_3d
-     procedure, private, pass(this) :: backward_3d
+     procedure, private, pass(this) :: forward_4d
+     procedure, private, pass(this) :: backward_4d
   end type maxpool2d_layer_type
 
   
   interface maxpool2d_layer_type
      module function layer_setup( &
-          input_shape, &
+          input_shape, batch_size, &
           pool_size, stride) result(layer)
        integer, dimension(:), optional, intent(in) :: input_shape
+       integer, optional, intent(in) :: batch_size 
        integer, dimension(..), optional, intent(in) :: pool_size
        integer, dimension(..), optional, intent(in) :: stride
        type(maxpool2d_layer_type) :: layer
@@ -53,8 +55,8 @@ contains
     class(maxpool2d_layer_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
 
-    select rank(input); rank(3)
-       call forward_3d(this, input)
+    select rank(input); rank(4)
+       call forward_4d(this, input)
     end select
   end subroutine forward_rank
 !!!#############################################################################
@@ -69,9 +71,9 @@ contains
     real(real12), dimension(..), intent(in) :: input
     real(real12), dimension(..), intent(in) :: gradient
 
-    select rank(input); rank(3)
-    select rank(gradient); rank(3)
-      call backward_3d(this, input, gradient)
+    select rank(input); rank(4)
+    select rank(gradient); rank(4)
+      call backward_4d(this, input, gradient)
     end select
     end select
   end subroutine backward_rank
@@ -88,10 +90,11 @@ contains
 !!!#############################################################################
 #if defined(GFORTRAN)
   module function layer_setup( &
-       input_shape, &
+       input_shape, batch_size, &
        pool_size, stride) result(layer)
     implicit none
     integer, dimension(:), optional, intent(in) :: input_shape
+    integer, optional, intent(in) :: batch_size 
     integer, dimension(..), optional, intent(in) :: pool_size
     integer, dimension(..), optional, intent(in) :: stride
     
@@ -101,7 +104,9 @@ contains
     implicit none
 #endif
 
-    
+
+    layer%name = "maxpool2d"
+    layer%input_rank = 3
     !!-----------------------------------------------------------------------
     !! set up pool size
     !!-----------------------------------------------------------------------
@@ -143,6 +148,12 @@ contains
 
 
     !!--------------------------------------------------------------------------
+    !! initialise batch size
+    !!--------------------------------------------------------------------------
+    if(present(batch_size)) layer%batch_size = batch_size
+
+
+    !!--------------------------------------------------------------------------
     !! initialise layer shape
     !!--------------------------------------------------------------------------
     if(present(input_shape)) call layer%init(input_shape=input_shape)
@@ -158,10 +169,11 @@ contains
 !!!#############################################################################
 !!! initialise layer
 !!!#############################################################################
-  subroutine init_maxpool2d(this, input_shape, verbose)
+  subroutine init_maxpool2d(this, input_shape, batch_size, verbose)
     implicit none
     class(maxpool2d_layer_type), intent(inout) :: this
     integer, dimension(:), intent(in) :: input_shape
+    integer, optional, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
 
     integer :: t_verb
@@ -175,41 +187,77 @@ contains
     else
        t_verb = 0
     end if
+    if(present(batch_size)) this%batch_size = batch_size
 
 
     !!--------------------------------------------------------------------------
     !! initialise input shape
     !!--------------------------------------------------------------------------
-    if(size(input_shape,dim=1).eq.3)then
-       this%input_shape = input_shape
-       this%num_channels = input_shape(3)
-    else
-       stop "ERROR: invalid size of input_shape in maxpool2d, expected (3)"
-    end if
+    if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
 
 
     !!-----------------------------------------------------------------------
     !! set up number of channels, width, height
     !!-----------------------------------------------------------------------
+    this%num_channels = this%input_shape(3)
     allocate(this%output_shape(3))
-    this%output_shape(3) = input_shape(3)
+    this%output_shape(3) = this%input_shape(3)
     this%output_shape(:2) = &
-         floor( (input_shape(:2) - this%pool)/real(this%strd)) + 1
+         floor( (this%input_shape(:2) - this%pool)/real(this%strd)) + 1
     
 
-    !!-----------------------------------------------------------------------
-    !! allocate output and gradients
-    !!-----------------------------------------------------------------------
-    allocate(this%output(&
-         this%output_shape(1),&
-         this%output_shape(2), this%num_channels), &
-         source=0._real12)
-    allocate(this%di(&
-         input_shape(1),&
-         input_shape(2), input_shape(3)), &
-         source=0._real12)
+    !!--------------------------------------------------------------------------
+    !! initialise batch size-dependent arrays
+    !!--------------------------------------------------------------------------
+    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
 
   end subroutine init_maxpool2d
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set batch size
+!!!#############################################################################
+  subroutine set_batch_size_maxpool2d(this, batch_size, verbose)
+   implicit none
+   class(maxpool2d_layer_type), intent(inout) :: this
+   integer, intent(in) :: batch_size
+   integer, optional, intent(in) :: verbose
+
+   integer :: t_verb
+
+
+   !!--------------------------------------------------------------------------
+   !! initialise optional arguments
+   !!--------------------------------------------------------------------------
+   if(present(verbose))then
+      t_verb = verbose
+   else
+      t_verb = 0
+   end if
+   this%batch_size = batch_size
+
+
+   !!--------------------------------------------------------------------------
+   !! allocate arrays
+   !!--------------------------------------------------------------------------
+   if(allocated(this%input_shape))then
+      if(allocated(this%output)) deallocate(this%output)
+      allocate(this%output( &
+           this%output_shape(1), &
+           this%output_shape(2), this%num_channels, &
+           this%batch_size), &
+           source=0._real12)
+      if(allocated(this%di)) deallocate(this%di)
+      allocate(this%di( &
+           this%input_shape(1), &
+           this%input_shape(2), &
+           this%input_shape(3), &
+           this%batch_size), &
+           source=0._real12)
+   end if
+
+ end subroutine set_batch_size_maxpool2d
 !!!#############################################################################
 
 
@@ -340,20 +388,21 @@ contains
 !!!#############################################################################
 !!! forward propagation
 !!!#############################################################################
-  pure subroutine forward_3d(this, input)
+  pure subroutine forward_4d(this, input)
     implicit none
     class(maxpool2d_layer_type), intent(inout) :: this
-    real(real12), dimension(:,:,:), intent(in) :: input
+    real(real12), dimension(:,:,:,:), intent(in) :: input
 
-    integer :: i, j, m
+    integer :: i, j, m, s
     integer, dimension(2) :: stride_idx
 
     
     this%output = 0._real12
     !! perform the pooling operation
     do concurrent(&
-         m = 1:this%num_channels,&
-         j = 1:this%output_shape(2),&
+         s = 1:this%batch_size, &
+         m = 1:this%num_channels, &
+         j = 1:this%output_shape(2), &
          i = 1:this%output_shape(1))
 #if defined(GFORTRAN)
        stride_idx = ([i,j] - 1) * this%strd + 1
@@ -361,38 +410,41 @@ contains
        stride_idx(1) = (i-1) * this%strd(1) + 1
        stride_idx(2) = (j-1) * this%strd(2) + 1
 #endif
-       this%output(i, j, m) = maxval(&
-            input(&
+       this%output(i, j, m, s) = maxval(&
+            input( &
             stride_idx(1):stride_idx(1)+this%pool(1)-1, &
-            stride_idx(2):stride_idx(2)+this%pool(2)-1, m))
+            stride_idx(2):stride_idx(2)+this%pool(2)-1, m, s))
     end do
 
-  end subroutine forward_3d
+  end subroutine forward_4d
 !!!#############################################################################
 
 
 !!!#############################################################################
 !!! backward propagation
 !!!#############################################################################
-  pure subroutine backward_3d(this, input, gradient)
+  pure subroutine backward_4d(this, input, gradient)
     implicit none
     class(maxpool2d_layer_type), intent(inout) :: this
-    real(real12), dimension(:,:,:), intent(in) :: input
+    real(real12), dimension(:,:,:,:), intent(in) :: input
     real(real12), &
          dimension(&
-         this%output_shape(1),&
-         this%output_shape(2),this%num_channels), &
+         this%output_shape(1), &
+         this%output_shape(2), &
+         this%num_channels, &
+         this%batch_size), &
          intent(in) :: gradient
 
-    integer :: i, j, m
+    integer :: i, j, m, s
     integer, dimension(2) :: stride_idx, max_idx
 
 
     this%di = 0._real12
     !! compute gradients for input feature map
-    do concurrent(&
-         m = 1:this%num_channels,&
-         j = 1:this%output_shape(2),&
+    do concurrent( &
+         s = 1:this%batch_size, &
+         m = 1:this%num_channels, &
+         j = 1:this%output_shape(2), &
          i = 1:this%output_shape(1))
 #if defined(GFORTRAN)
        stride_idx = ([i,j] - 1) * this%strd
@@ -401,18 +453,18 @@ contains
        stride_idx(2) = (j-1) * this%strd(2)
 #endif
        !! find the index of the maximum value in the corresponding pooling window
-       max_idx = maxloc(input(&
+       max_idx = maxloc(input( &
             stride_idx(1)+1:stride_idx(1)+this%pool(1), &
-            stride_idx(2)+1:stride_idx(2)+this%pool(2), m))
+            stride_idx(2)+1:stride_idx(2)+this%pool(2), m, s))
 
        !! compute gradients for input feature map
-       this%di(&
+       this%di( &
             stride_idx(1)+max_idx(1), &
-            stride_idx(2)+max_idx(2), m) = gradient(i, j, m)
+            stride_idx(2)+max_idx(2), m, s) = gradient(i, j, m, s)
 
     end do
 
-  end subroutine backward_3d
+  end subroutine backward_4d
 !!!#############################################################################
 
 end module maxpool2d_layer

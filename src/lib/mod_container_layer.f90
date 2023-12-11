@@ -13,7 +13,7 @@ module container_layer
 !!! layer container type
 !!!------------------------------------------------------------------------
   type :: container_layer_type
-     !! inpt, conv, full, pool, flat?
+     !! inpt, batc, conv, drop, full, pool, flat
      character(4) :: name
      class(base_layer_type), allocatable :: layer
    contains

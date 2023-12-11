@@ -7,16 +7,16 @@ module loss
   abstract interface
      pure function compute_loss_function(predicted, expected) result(output)
        import real12
-       real(real12), dimension(:), intent(in) :: predicted, expected
-       real(real12), dimension(size(predicted)) :: output
+       real(real12), dimension(:,:), intent(in) :: predicted, expected
+       real(real12), dimension(size(predicted,1),size(predicted,2)) :: output
      end function compute_loss_function
   end interface
   
   abstract interface
      pure function total_loss_function(predicted, expected) result(output)
        import real12
-       real(real12), dimension(:), intent(in) :: predicted, expected
-       real(real12) :: output
+       real(real12), dimension(:,:), intent(in) :: predicted, expected
+       real(real12), dimension(size(predicted,2)) :: output
      end function total_loss_function
   end interface
 
@@ -48,8 +48,8 @@ contains
 !!!#############################################################################
   pure function compute_loss_derivative(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:), intent(in) :: predicted, expected
-    real(real12), dimension(size(predicted)) :: output
+    real(real12), dimension(:,:), intent(in) :: predicted, expected
+    real(real12), dimension(size(predicted,1),size(predicted,2)) :: output
 
     output = predicted - expected
   end function compute_loss_derivative
@@ -61,8 +61,8 @@ contains
 !!!#############################################################################
   pure function compute_loss_bce(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:), intent(in) :: predicted, expected
-    real(real12), dimension(size(predicted)) :: output
+    real(real12), dimension(:,:), intent(in) :: predicted, expected
+    real(real12), dimension(size(predicted,1),size(predicted,2)) :: output
     real(real12) :: epsilon
 
     epsilon = 1.E-10_real12
@@ -73,10 +73,10 @@ contains
 !!!-----------------------------------------------------------------------------
   pure function total_loss_bce(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:), intent(in) :: predicted, expected
-    real(real12) :: output
+    real(real12), dimension(:,:), intent(in) :: predicted, expected
+    real(real12), dimension(size(predicted,2)) :: output
 
-    output = sum(compute_loss_bce(predicted,expected))
+    output = sum(compute_loss_bce(predicted,expected),dim=1)
 
   end function total_loss_bce
 !!!#############################################################################
@@ -88,22 +88,22 @@ contains
 !!!#############################################################################
   pure function compute_loss_cce(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:), intent(in) :: predicted, expected
-    real(real12), dimension(size(predicted)) :: output
+    real(real12), dimension(:,:), intent(in) :: predicted, expected
+    real(real12), dimension(size(predicted,1),size(predicted,2)) :: output
     real(real12) :: epsilon
 
     epsilon = 1.E-10_real12
-    output = -expected*log(predicted+epsilon)
+    output = -expected * log(predicted + epsilon)
 
   end function compute_loss_cce
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
   pure function total_loss_cce(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:), intent(in) :: predicted, expected
-    real(real12) :: output
+    real(real12), dimension(:,:), intent(in) :: predicted, expected
+    real(real12), dimension(size(predicted,2)) :: output
 
-    output = sum(compute_loss_cce(predicted,expected))
+    output = sum(compute_loss_cce(predicted,expected),dim=1)
     
   end function total_loss_cce
 !!!#############################################################################
@@ -115,20 +115,20 @@ contains
 !!!#############################################################################
   pure function compute_loss_mae(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:), intent(in) :: predicted, expected
-    real(real12), dimension(size(predicted)) :: output
+    real(real12), dimension(:,:), intent(in) :: predicted, expected
+    real(real12), dimension(size(predicted,1),size(predicted,2)) :: output
 
-    output = abs(predicted - expected) /(size(predicted))
+    output = abs(predicted - expected) /(size(predicted,1))
 
   end function compute_loss_mae
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
   pure function total_loss_mae(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:), intent(in) :: predicted, expected
-    real(real12) :: output
+    real(real12), dimension(:,:), intent(in) :: predicted, expected
+    real(real12), dimension(size(predicted,2)) :: output
 
-    output = sum(compute_loss_mse(predicted,expected))
+    output = sum(compute_loss_mse(predicted,expected),dim=1)
     
   end function total_loss_mae
 !!!#############################################################################
@@ -140,20 +140,20 @@ contains
 !!!#############################################################################
   pure function compute_loss_mse(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:), intent(in) :: predicted, expected
-    real(real12), dimension(size(predicted)) :: output
+    real(real12), dimension(:,:), intent(in) :: predicted, expected
+    real(real12), dimension(size(predicted,1),size(predicted,2)) :: output
 
-    output = ((predicted - expected)**2._real12) /(2*size(predicted))
+    output = ((predicted - expected)**2._real12) /(2._real12*size(predicted,1))
 
   end function compute_loss_mse
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
   pure function total_loss_mse(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:), intent(in) :: predicted, expected
-    real(real12) :: output
+    real(real12), dimension(:,:), intent(in) :: predicted, expected
+    real(real12), dimension(size(predicted,2)) :: output
 
-    output = sum(compute_loss_mse(predicted,expected))
+    output = sum(compute_loss_mse(predicted,expected),dim=1)
     
   end function total_loss_mse
 !!!#############################################################################
@@ -165,8 +165,8 @@ contains
 !!!#############################################################################
   pure function compute_loss_nll(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:), intent(in) :: predicted, expected
-    real(real12), dimension(size(predicted)) :: output
+    real(real12), dimension(:,:), intent(in) :: predicted, expected
+    real(real12), dimension(size(predicted,1),size(predicted,2)) :: output
     real(real12) :: epsilon
 
     output = - log(expected - predicted + epsilon)
@@ -176,10 +176,10 @@ contains
 !!!-----------------------------------------------------------------------------
   pure function total_loss_nll(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:), intent(in) :: predicted, expected
-    real(real12) :: output
+    real(real12), dimension(:,:), intent(in) :: predicted, expected
+    real(real12), dimension(size(predicted,2)) :: output
 
-    output = sum(compute_loss_nll(predicted,expected))
+    output = sum(compute_loss_nll(predicted,expected),dim=1)
 
   end function total_loss_nll
 !!!#############################################################################

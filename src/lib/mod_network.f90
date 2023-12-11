@@ -17,7 +17,10 @@ module network
        comp_loss_deriv => compute_loss_derivative
 
   use base_layer,      only: base_layer_type, &
-       input_layer_type, drop_layer_type, learnable_layer_type
+       input_layer_type, flatten_layer_type, &
+       drop_layer_type, &
+       learnable_layer_type, &
+       batch_layer_type
 #if defined(GFORTRAN)
   use container_layer, only: container_layer_type, container_reduction
 #else
@@ -28,6 +31,10 @@ module network
   use input1d_layer,   only: input1d_layer_type
   use input3d_layer,   only: input3d_layer_type
   use input4d_layer,   only: input4d_layer_type
+
+  !! batch normalisation layer types
+  use batchnorm2d_layer, only: batchnorm2d_layer_type, read_batchnorm2d_layer
+  use batchnorm3d_layer, only: batchnorm3d_layer_type, read_batchnorm3d_layer
 
   !! convolution layer types
   use conv2d_layer,    only: conv2d_layer_type, read_conv2d_layer
@@ -43,8 +50,10 @@ module network
   use maxpool3d_layer, only: maxpool3d_layer_type, read_maxpool3d_layer
 
   !! flatten layer types
+  use flatten1d_layer, only: flatten1d_layer_type
   use flatten2d_layer, only: flatten2d_layer_type
   use flatten3d_layer, only: flatten3d_layer_type
+  use flatten4d_layer, only: flatten4d_layer_type
 
   !! fully connected (dense) layer types
   use full_layer,      only: full_layer_type, read_full_layer
@@ -53,6 +62,7 @@ module network
 
   type :: network_type
      real(real12) :: accuracy, loss
+     integer :: batch_size = 0
      integer :: num_layers
      integer :: num_outputs
      type(optimiser_type) :: optimiser
@@ -65,6 +75,7 @@ module network
      procedure, pass(this) :: read
      procedure, pass(this) :: add
      procedure, pass(this) :: compile
+     procedure, pass(this) :: set_batch_size
      procedure, pass(this) :: train
      procedure, pass(this) :: test
      procedure, pass(this) :: update
@@ -183,6 +194,8 @@ contains
 
       !! check for card
       select case(trim(adjustl(buffer)))
+      case("BATCHNORM2D")
+         call this%add(read_batchnorm2d_layer(unit))
       case("CONV2D")
          call this%add(read_conv2d_layer(unit))
       case("CONV3D")
@@ -229,13 +242,13 @@ contains
     select type(layer)
     class is(input_layer_type)
        name = "inpt"
+    class is(batch_layer_type)
+       name = "batc"
     type is(conv2d_layer_type)
        name = "conv"
     type is(conv3d_layer_type)
        name = "conv"
-    type is(flatten2d_layer_type)
-       name = "flat"
-    type is(flatten3d_layer_type)
+    class is(flatten_layer_type)
        name = "flat"
     class is(drop_layer_type)
        name = "drop"
@@ -263,7 +276,7 @@ contains
 !!!#############################################################################
 !!! set up network
 !!!#############################################################################
-  subroutine compile(this, optimiser, loss_method, metrics, verbose)
+  subroutine compile(this, optimiser, loss_method, metrics, batch_size, verbose)
     use misc, only: to_lower
     use loss, only: &
          compute_loss_bce, compute_loss_cce, &
@@ -274,6 +287,7 @@ contains
     type(optimiser_type), intent(in) :: optimiser
     character(*), intent(in) :: loss_method
     class(*), dimension(..), intent(in) :: metrics
+    integer, optional, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
     
     integer :: i
@@ -290,6 +304,7 @@ contains
     else
        t_verb = 0
     end if
+    if(present(batch_size)) this%batch_size = batch_size
 
     
 !!!-----------------------------------------------------------------------------
@@ -382,7 +397,16 @@ contains
 !!!-----------------------------------------------------------------------------
     if(.not.allocated(this%model(1)%layer%input_shape))then
        stop "ERROR: input_shape of first layer not defined"
+    elseif(this%model(1)%layer%batch_size.ne.this%batch_size)then
+       if(this%model(1)%layer%batch_size.eq.0)then
+          this%model(1)%layer%batch_size = this%batch_size
+       elseif(this%batch_size.eq.0)then
+          this%batch_size = this%model(1)%layer%batch_size
+       else
+          stop "ERROR: batch_size of first layer not equal to network batch_size"
+       end if
     end if
+    
     select type(first => this%model(1)%layer)
     class is(input_layer_type)
     class default
@@ -393,31 +417,36 @@ contains
        associate(next => this%model(2)%layer)
          select case(size(next%input_shape,dim=1))
          case(1)
-            t_input_layer = input1d_layer_type(input_shape=next%input_shape)
-            allocate(this%model(1)%layer, source=t_input_layer)
+            t_input_layer = input1d_layer_type(input_shape = next%input_shape, &
+                 batch_size = this%batch_size)
+            allocate(this%model(1)%layer, source = t_input_layer)
          case(3)
             select type(next)
             type is(conv2d_layer_type)
                t_input_layer = input3d_layer_type(&
-                    input_shape=next%input_shape+&
-                    [2*next%pad,0])
-               allocate(this%model(1)%layer, source=t_input_layer)
+                    input_shape = next%input_shape + &
+                    [2*next%pad,0], &
+                    batch_size = this%batch_size)
+               allocate(this%model(1)%layer, source = t_input_layer)
             class default
                t_input_layer = input3d_layer_type(&
-                    input_shape=next%input_shape)
-               allocate(this%model(1)%layer, source=t_input_layer)
+                    input_shape = next%input_shape, &
+                    batch_size = this%batch_size)
+               allocate(this%model(1)%layer, source = t_input_layer)
             end select
          case(4)
             select type(next)
             type is(conv3d_layer_type)
                t_input_layer = input4d_layer_type(&
-                    input_shape=next%input_shape+&
-                    [2*next%pad,0])
-               allocate(this%model(1)%layer, source=t_input_layer)
+                    input_shape = next%input_shape + &
+                    [2*next%pad,0], &
+                    batch_size = this%batch_size)
+               allocate(this%model(1)%layer, source = t_input_layer)
             class default
                t_input_layer = input4d_layer_type(&
-                    input_shape=next%input_shape)
-               allocate(this%model(1)%layer, source=t_input_layer)
+                    input_shape = next%input_shape, &
+                    batch_size = this%batch_size)
+               allocate(this%model(1)%layer, source = t_input_layer)
             end select
          end select
          deallocate(t_input_layer)
@@ -445,8 +474,9 @@ contains
        write(*,*) this%model(1)%layer%output_shape
     end if
     do i=2,size(this%model,dim=1)
-       if(.not.allocated(this%model(i)%layer%input_shape)) &
-            call this%model(i)%layer%init(this%model(i-1)%layer%output_shape)
+       if(.not.allocated(this%model(i)%layer%output_shape)) &
+            call this%model(i)%layer%init(this%model(i-1)%layer%output_shape, &
+                 this%batch_size)
        if(t_verb.gt.0)then
           write(*,*) "layer:",i, this%model(i)%name
           write(*,*) this%model(i)%layer%input_shape
@@ -470,9 +500,7 @@ contains
                   size(this%model(i)%layer%output_shape))then
 
                 select type(current => this%model(i)%layer)
-                type is(flatten2d_layer_type)
-                   cycle layer_loop
-                type is(flatten3d_layer_type)
+                class is(flatten_layer_type)
                    cycle layer_loop
                 class default
                    this%model = [&
@@ -486,15 +514,29 @@ contains
                       num_addit_inputs = next%num_addit_inputs
                    end select
                    select case(size(this%model(i)%layer%output_shape))
+                   case(2)
+                      t_flatten_layer = flatten1d_layer_type(&
+                           input_shape = this%model(i)%layer%output_shape, &
+                           num_addit_outputs = num_addit_inputs, &
+                           batch_size = this%batch_size)
+                      allocate(this%model(i+1)%layer, source=t_flatten_layer)
                    case(3)
                       t_flatten_layer = flatten2d_layer_type(&
                            input_shape = this%model(i)%layer%output_shape, &
-                           num_addit_outputs = num_addit_inputs)
+                           num_addit_outputs = num_addit_inputs, &
+                           batch_size = this%batch_size)
                       allocate(this%model(i+1)%layer, source=t_flatten_layer)
                    case(4)
                       t_flatten_layer = flatten3d_layer_type(&
                            input_shape = this%model(i)%layer%output_shape, &
-                           num_addit_outputs = num_addit_inputs)
+                           num_addit_outputs = num_addit_inputs, &
+                           batch_size = this%batch_size)
+                      allocate(this%model(i+1)%layer, source=t_flatten_layer)
+                   case(5)
+                      t_flatten_layer = flatten4d_layer_type(&
+                           input_shape = this%model(i)%layer%output_shape, &
+                           num_addit_outputs = num_addit_inputs, &
+                           batch_size = this%batch_size)
                       allocate(this%model(i+1)%layer, source=t_flatten_layer)
                    end select
                    i = i + 1
@@ -523,23 +565,49 @@ contains
 
 
 !!!#############################################################################
+!!! set batch size
+!!!#############################################################################
+  subroutine set_batch_size(this, batch_size)
+     implicit none
+     class(network_type), intent(inout) :: this
+     integer, intent(in) :: batch_size
+
+     integer :: l
+
+     this%batch_size = batch_size
+     do l=1,this%num_layers
+        call this%model(l)%layer%set_batch_size(this%batch_size)
+     end do
+
+  end subroutine set_batch_size
+!!!#############################################################################
+
+
+!!!#############################################################################
 !!! return sample from any rank
 !!!#############################################################################
-  pure function get_sample(input, index) result(output)
+  pure function get_sample(input, start_index, end_index) result(output)
     implicit none
-    integer, intent(in) :: index
+    integer, intent(in) :: start_index, end_index
     real(real12), dimension(..), intent(in) :: input
-    real(real12), allocatable, dimension(:) :: output
+    real(real12), allocatable, dimension(:,:) :: output
 
     select rank(input)
     rank(2)
-       output = reshape(input(:,index), shape=[size(input(:,1))])
+       output = reshape(input(:,start_index:end_index), &
+       shape=[size(input(:,1)),end_index-start_index+1])
     rank(3)
-       output = reshape(input(:,:,index), shape=[size(input(:,:,1))])
+       output = reshape(input(:,:,start_index:end_index), &
+       shape=[size(input(:,:,1)),end_index-start_index+1])
     rank(4)
-       output = reshape(input(:,:,:,index), shape=[size(input(:,:,:,1))])
+       output = reshape(input(:,:,:,start_index:end_index), &
+       shape=[size(input(:,:,:,1)),end_index-start_index+1])
     rank(5)
-       output = reshape(input(:,:,:,:,index), shape=[size(input(:,:,:,:,1))])
+       output = reshape(input(:,:,:,:,start_index:end_index), &
+       shape=[size(input(:,:,:,:,1)),end_index-start_index+1])
+    rank(6)
+       output = reshape(input(:,:,:,:,:,start_index:end_index), &
+       shape=[size(input(:,:,:,:,:,1)),end_index-start_index+1])
     end select
 
   end function get_sample
@@ -552,9 +620,9 @@ contains
   pure subroutine forward_1d(this, input, addit_input, layer)
     implicit none
     class(network_type), intent(inout) :: this
-    real(real12), dimension(:), intent(in) :: input
+    real(real12), dimension(:,:), intent(in) :: input
 
-    real(real12), dimension(:), optional, intent(in) :: addit_input
+    real(real12), dimension(:,:), optional, intent(in) :: addit_input
     integer, optional, intent(in) :: layer
     
     integer :: i
@@ -565,10 +633,18 @@ contains
     !!--------------------------------------------------------------------------
     if(present(layer).and.present(addit_input))then
        select type(previous => this%model(layer-1)%layer)
+       type is(flatten1d_layer_type)
+          previous%output(size(previous%di(:,:,1)) - &
+          size(addit_input,1)+1:,:) = addit_input
        type is(flatten2d_layer_type)
-          previous%output(size(previous%di)-size(addit_input)+1:) = addit_input
+          previous%output(size(previous%di(:,:,:,1)) - &
+          size(addit_input,1)+1:,:) = addit_input
        type is(flatten3d_layer_type)
-          previous%output(size(previous%di)-size(addit_input)+1:) = addit_input
+          previous%output(size(previous%di(:,:,:,:,1)) - &
+          size(addit_input,1)+1:,:) = addit_input
+       type is(flatten4d_layer_type)
+          previous%output(size(previous%di(:,:,:,:,:,1)) - &
+          size(addit_input,1)+1:,:) = addit_input
        end select
     end if
 
@@ -596,7 +672,7 @@ contains
   pure subroutine backward_1d(this, output)
     implicit none
     class(network_type), intent(inout) :: this
-    real(real12), dimension(:), intent(in) :: output
+    real(real12), dimension(:,:), intent(in) :: output
 
     integer :: i
 
@@ -605,15 +681,20 @@ contains
     !!-------------------------------------------------------------------
     select type(current => this%model(this%num_layers)%layer)
     type is(full_layer_type)
-       call this%model(this%num_layers)%backward(&
-            this%model(this%num_layers-1),&
-            this%get_loss_deriv(current%output,output))
+       call this%model(this%num_layers)%backward( &
+            this%model(this%num_layers-1), &
+            this%get_loss_deriv(current%output, output))
     end select
 
     !! Backward pass
     !!-------------------------------------------------------------------
     do i=this%num_layers-1,2,-1
        select type(next => this%model(i+1)%layer)
+       type is(batchnorm2d_layer_type)
+          call this%model(i)%backward(this%model(i-1),next%di)
+       type is(batchnorm3d_layer_type)
+          call this%model(i)%backward(this%model(i-1),next%di)
+
        type is(conv2d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
        type is(conv3d_layer_type)
@@ -631,11 +712,15 @@ contains
        type is(maxpool3d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
     
+       type is(flatten1d_layer_type)
+          call this%model(i)%backward(this%model(i-1),next%di)
        type is(flatten2d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
        type is(flatten3d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
-    
+       type is(flatten4d_layer_type)
+          call this%model(i)%backward(this%model(i-1),next%di)
+
        type is(full_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
        end select
@@ -648,10 +733,9 @@ contains
 !!!#############################################################################
 !!! update weights and biases
 !!!#############################################################################
-  subroutine update(this, batch_size)
+  subroutine update(this)
     implicit none
     class(network_type), intent(inout) :: this
-    integer, intent(in) :: batch_size
 
     integer :: i
     
@@ -662,7 +746,7 @@ contains
     do i=2, this%num_layers,1
        select type(current => this%model(i)%layer)
        class is(learnable_layer_type)
-          call current%update(this%optimiser, batch_size)
+          call current%update(this%optimiser)
        class is(drop_layer_type)
           call current%generate_mask()
        end select
@@ -689,7 +773,8 @@ contains
     class(network_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
     class(*), dimension(:,:), intent(in) :: output
-    integer, intent(in) :: num_epochs, batch_size
+    integer, intent(in) :: num_epochs
+    integer, optional, intent(in) :: batch_size !! deprecated
 
     real(real12), dimension(:,:), optional, intent(in) :: addit_input
     integer, optional, intent(in) :: addit_layer
@@ -701,7 +786,7 @@ contains
     
     !! training and testing monitoring
     real(real12) :: batch_loss, batch_accuracy, avg_loss, avg_accuracy
-    real(real12), allocatable, dimension(:,:) :: y_pred, y_true
+    real(real12), allocatable, dimension(:,:) :: y_true
 
     !! learning parameters
     integer :: num_batches
@@ -713,7 +798,7 @@ contains
     logical :: t_shuffle
 
     !! training loop variables
-    integer :: epoch, batch, sample, start_index, end_index
+    integer :: epoch, batch, start_index, end_index
     integer, allocatable, dimension(:) :: batch_order
 
     integer :: i, time, time_old, clock_rate
@@ -748,12 +833,13 @@ contains
     else
        t_verb = 0
     end if
+    if(present(batch_size)) this%batch_size = batch_size
 
 
 !!!-----------------------------------------------------------------------------
 !!! initialise monitoring variables
 !!!-----------------------------------------------------------------------------
-    history_length = max(ceiling(500._real12/batch_size),1)
+    history_length = max(ceiling(500._real12/this%batch_size),1)
     do i=1,size(this%metrics,dim=1)
        if(allocated(this%metrics(i)%history)) &
             deallocate(this%metrics(i)%history)
@@ -765,14 +851,13 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! allocate predicted and true label sets
 !!!-----------------------------------------------------------------------------
-    allocate(y_pred(this%num_outputs,batch_size), source = 0._real12)
-    allocate(y_true(this%num_outputs,batch_size), source = 0._real12)
+    allocate(y_true(this%num_outputs,this%batch_size), source = 0._real12)
 
 
 !!!-----------------------------------------------------------------------------
 !!! if parallel, initialise slices
 !!!-----------------------------------------------------------------------------
-  num_batches = size(output,dim=2) / batch_size
+  num_batches = size(output,dim=2) / this%batch_size
   allocate(batch_order(num_batches))
   do batch = 1, num_batches
      batch_order(batch) = batch
@@ -780,30 +865,11 @@ contains
 
 
 !!!-----------------------------------------------------------------------------
-!!! set up parallel samples slices
+!!! set/reset batch size for training
 !!!-----------------------------------------------------------------------------
-#ifdef _OPENMP
-  select rank(input)
-  rank(2)
-     allocate(input_slice(&
-          size(input,1),&
-          batch_size))
-  rank(4)
-     allocate(input_slice(&
-          size(input,1)*size(input,2)*size(input,3),&
-          batch_size))
-  rank(5)
-     allocate(input_slice(&
-          size(input,1)*size(input,2)*size(input,3)*size(input,4),&
-          batch_size))
-  end select
-  if(present(addit_input))then
-     allocate(addit_input_slice(size(addit_input,1),batch_size))
-  end if
-  this_copy = this
-#endif
+  call this%set_batch_size(this%batch_size)
 
-    
+
 !!!-----------------------------------------------------------------------------
 !!! query system clock
 !!!-----------------------------------------------------------------------------
@@ -830,13 +896,12 @@ contains
 
           !! set batch start and end index
           !!--------------------------------------------------------------------
-          start_index = (batch_order(batch) - 1) * batch_size + 1
-          end_index = batch_order(batch) * batch_size
+          start_index = (batch_order(batch) - 1) * this%batch_size + 1
+          end_index = batch_order(batch) * this%batch_size
           
 
           !! reinitialise variables
           !!--------------------------------------------------------------------
-          y_pred = 0._real12
           select type(output)
           type is(integer)
              y_true(:,:) = real(output(:,start_index:end_index:1),real12)
@@ -844,59 +909,15 @@ contains
              y_true(:,:) = output(:,start_index:end_index:1)
           end select
 
-#ifdef _OPENMP
-          !! set up data slices for parallel
-          !!--------------------------------------------------------------------
-          do sample=start_index,end_index,1
-             input_slice(:,sample - start_index + 1) = get_sample(input, sample)
-          end do
-          if(present(addit_input))then
-             addit_input_slice(:,:) = addit_input(:,start_index:end_index)
-          end if
-          start_index = 1
-          end_index = batch_size
-#endif
-          
-          
-          !$OMP PARALLEL DO & !! ORDERED
-          !$OMP& DEFAULT(NONE) &
-          !$OMP& SHARED(start_index, end_index) &
-          !$OMP& SHARED(input_slice) &
-          !$OMP& SHARED(addit_input_slice, addit_layer) &
-          !$OMP& SHARED(y_pred) &
-          !$OMP& SHARED(y_true) &
-          !$OMP& SHARED(addit_input) &
-          !$OMP& PRIVATE(sample) &
-          !$OMP& REDUCTION(network_reduction:this_copy)
-          !!--------------------------------------------------------------------
-          !! sample loop
-          !! ... test each sample and get gradients and losses from each
-          !!--------------------------------------------------------------------
-#ifdef _OPENMP
-          train_loop: do sample=start_index,end_index,1
-#else
-#ifdef __GNUCC__
-          train_loop: do concurrent(sample=start_index:end_index:1)
-#else
-          train_loop: do sample=start_index,end_index,1
-#endif
-#endif
 
-             !! Forward pass
-             !!-----------------------------------------------------------------
-             if(present(addit_input).and.present(addit_layer))then
-#ifdef _OPENMP
-                call this_copy%forward(input_slice(:,sample),&
-                     addit_input_slice(:,sample),addit_layer)
-             else
-                call this_copy%forward(input_slice(:,sample))
-#else
-                call this%forward(get_sample(input,sample),&
-                     addit_input(:,sample),addit_layer)
-             else
-                call this%forward(get_sample(input,sample))
-#endif
-             end if
+          !! Forward pass
+          !!-----------------------------------------------------------------
+          if(present(addit_input).and.present(addit_layer))then
+             call this%forward(get_sample(input,start_index,end_index),&
+                addit_input(:,start_index:end_index),addit_layer)
+          else
+             call this%forward(get_sample(input,start_index,end_index))
+          end if
 
 !!! SET UP LOSS TO APPLY A NORMALISER BY DEFAULT IF SOFTMAX NOT PREVIOUS
 !!! (this is what keras does)
@@ -906,47 +927,31 @@ contains
 !!! https://math.stackexchange.com/questions/4367458/derivate-of-the-the-negative-log-likelihood-with-composition
 
 
-             !! Backward pass and store predicted output
-             !!-----------------------------------------------------------------
-#ifdef _OPENMP
-             call this_copy%backward(y_true(:,sample))
-             select type(current => this_copy%model(this_copy%num_layers)%layer)
-             type is(full_layer_type)
-                y_pred(:,sample) = current%output
-#else
-             call this%backward(y_true(:,sample-start_index+1))
-             select type(current => this%model(this%num_layers)%layer)
-             type is(full_layer_type)
-                y_pred(:,sample-start_index+1) = current%output
-#endif
-             end select
-
-          end do train_loop
-          !$OMP END PARALLEL DO
-
-
-          !! compute loss and accuracy (for monitoring)
-          !!-------------------------------------------------------------------
-          batch_loss = 0._real12
-          batch_accuracy = 0._real12
-          do sample = 1, end_index-start_index+1, 1
-             batch_loss = batch_loss + sum(&
-#ifdef _OPENMP
-                  this_copy &
-#else
-                  this &
-#endif
-                  & % get_loss(y_pred(:,sample),y_true(:,sample)))
+          !! Backward pass and store predicted output
+          !!-----------------------------------------------------------------
+          call this%backward(y_true(:,:))
+          select type(current => this%model(this%num_layers)%layer)
+          type is(full_layer_type)
+             !! compute loss and accuracy (for monitoring)
+             !!-------------------------------------------------------------------
+                batch_loss = sum( &
+                this%get_loss( &
+                current%output(:,1:this%batch_size), &
+                y_true(:,1:this%batch_size)))
              select type(output)
              type is(integer)
-                batch_accuracy = batch_accuracy + compute_accuracy(&
-                     y_pred(:,sample),nint(y_true(:,sample)))
+                batch_accuracy = sum(compute_accuracy( &
+                   current%output(:,1:this%batch_size), &
+                   output(:,start_index:end_index)))
              type is(real)
-                batch_accuracy = batch_accuracy + compute_accuracy(&
-                     y_pred(:,sample),y_true(:,sample))
+                batch_accuracy = sum(compute_accuracy( &
+                   current%output(:,1:this%batch_size), &
+                   output(:,start_index:end_index)))
              end select
+          class default
+             stop "ERROR: final layer not of type full_layer_type"
+          end select
 
-          end do
 
 
           !! Average metric over batch size and store
@@ -954,17 +959,10 @@ contains
           !!--------------------------------------------------------------------
           avg_loss = avg_loss + batch_loss
           avg_accuracy = avg_accuracy + batch_accuracy
-#ifdef _OPENMP
-          this_copy%metrics(1)%val = batch_loss / batch_size
-          this_copy%metrics(2)%val = batch_accuracy / batch_size
-          do i = 1, size(this_copy%metrics,dim=1)
-             call this_copy%metrics(i)%check(t_plateau, converged)
-#else
-          this%metrics(1)%val = batch_loss / batch_size
-          this%metrics(2)%val = batch_accuracy / batch_size
+          this%metrics(1)%val = batch_loss / this%batch_size
+          this%metrics(2)%val = batch_accuracy / this%batch_size
           do i = 1, size(this%metrics,dim=1)
              call this%metrics(i)%check(t_plateau, converged)
-#endif
              if(converged.ne.0)then
                 exit epoch_loop
              end if
@@ -975,11 +973,7 @@ contains
           !! ... (gradient descent)
           !!--------------------------------------------------------------------
           !! STORE ADAM VALUES IN OPTIMISER
-#ifdef _OPENMP
-          call this_copy%update(batch_size)
-#else
-          call this%update(batch_size)
-#endif
+          call this%update()
 
 
           !! print batch results
@@ -989,12 +983,9 @@ contains
              write(6,'("epoch=",I0,", batch=",I0,&
                   &", learning_rate=",F0.3,", loss=",F0.3,", accuracy=",F0.3)')&
                   epoch, batch, &
-#ifdef _OPENMP
-                  this_copy%optimiser%learning_rate, &
-#else
                   this%optimiser%learning_rate, &
-#endif
-                  avg_loss/(batch*batch_size),  avg_accuracy/(batch*batch_size)
+                  avg_loss/(batch*this%batch_size), &
+                  avg_accuracy/(batch*this%batch_size)
           end if
           
           
@@ -1048,25 +1039,12 @@ contains
                &", learning_rate=",F0.3,", val_loss=",F0.3,&
                &", val_accuracy=",F0.3)') &
                epoch, batch, &
-#ifdef _OPENMP
-               this_copy%optimiser%learning_rate, &
-               this_copy%metrics(1)%val, this_copy%metrics(2)%val
-#else
                this%optimiser%learning_rate, &
                this%metrics(1)%val, this%metrics(2)%val
-#endif
        end if
 
 
     end do epoch_loop
-
-#ifdef _OPENMP
-    !!--------------------------------------------------------------------------
-    !! copy trained model back into original
-    !!--------------------------------------------------------------------------
-    this%optimiser = this_copy%optimiser
-    this%model = this_copy%model
-#endif
 
   end subroutine train
 !!!#############################################################################
@@ -1094,10 +1072,6 @@ contains
     real(real12), allocatable, dimension(:) :: accuracy_list
     real(real12), allocatable, dimension(:,:) :: predicted, y_true
 
-#ifdef _OPENMP
-    type(network_type) :: this_copy
-#endif
-
 
 !!!-----------------------------------------------------------------------------
 !!! initialise optional arguments
@@ -1115,10 +1089,7 @@ contains
     loss_val = 0._real12
     allocate(accuracy_list(num_samples))
 
-#ifdef _OPENMP
-    this_copy = this
-#endif
-    
+
     select type(output)
     type is(integer)
        y_true = real(output(:,:),real12)
@@ -1128,86 +1099,51 @@ contains
 
 
 !!!-----------------------------------------------------------------------------
+!!! reset batch size for testing
+!!!-----------------------------------------------------------------------------
+    call this%set_batch_size(1)
+
+
+!!!-----------------------------------------------------------------------------
 !!! testing loop
 !!!-----------------------------------------------------------------------------
-    !$OMP PARALLEL DO & !! ORDERED
-    !$OMP& DEFAULT(NONE) &
-    !$OMP& SHARED(num_samples) &
-    !$OMP& SHARED(unit, t_verb) &
-    !$OMP& SHARED(input, output, predicted) &
-    !$OMP& SHARED(addit_input, addit_layer) &
-    !$OMP& SHARED(accuracy_list) &
-    !$OMP& SHARED(y_true) &
-    !$OMP& PRIVATE(sample) &
-    !$OMP& PRIVATE(acc_val, loss_val) &
-    !$OMP& REDUCTION(network_reduction:this_copy)
     test_loop: do sample = 1, num_samples
 
        !! Forward pass
        !!-----------------------------------------------------------------------
        if(present(addit_input).and.present(addit_layer))then
-#ifdef _OPENMP
-          call this_copy%forward(get_sample(input,sample),&
-               addit_input(:,sample),addit_layer)
+          call this%forward(get_sample(input,sample,sample),&
+               addit_input(:,sample:sample),addit_layer)
        else
-          call this_copy%forward(get_sample(input,sample))
-#else
-          call this%forward(get_sample(input,sample),&
-               addit_input(:,sample),addit_layer)
-       else
-          call this%forward(get_sample(input,sample))
-#endif
+          call this%forward(get_sample(input,sample,sample))
        end if
 
 
        !! compute loss and accuracy (for monitoring)
        !!-----------------------------------------------------------------------
-#ifdef _OPENMP
-       select type(current => this_copy%model(this_copy%num_layers)%layer)
-#else
        select type(current => this%model(this%num_layers)%layer)
-#endif
        type is(full_layer_type)
-          loss_val = sum(&
-#ifdef _OPENMP
-               this_copy &
-#else
-               this &
-#endif
-               & % get_loss(&
+          loss_val = sum(this%get_loss( &
                predicted = current%output, &
                !!!! JUST REPLACE y_true(:,sample) WITH output(:,sample) !!!!
                !!!! THERE IS NO REASON TO USE y_true, as it is just a copy !!!!
                !!!! get_loss should handle both integers and reals !!!!
                !!!! it does not. Instead just wrap real(output(:,sample),real12) !!!!
-               expected  = y_true(:,sample)))
+               expected  = y_true(:,sample:sample)))
              select type(output)
              type is(integer)
-                acc_val = compute_accuracy(current%output,output(:,sample))
+                acc_val = sum(compute_accuracy(current%output,output(:,sample:sample)))
              type is(real)
-                acc_val = compute_accuracy(current%output,output(:,sample))
+                acc_val = sum(compute_accuracy(current%output,output(:,sample:sample)))
              end select
-#ifdef _OPENMP
-          this_copy%metrics(2)%val = this_copy%metrics(2)%val + acc_val
-          this_copy%metrics(1)%val = this_copy%metrics(1)%val + loss_val
-#else
           this%metrics(2)%val = this%metrics(2)%val + acc_val
           this%metrics(1)%val = this%metrics(1)%val + loss_val
-#endif
           accuracy_list(sample) = acc_val
-          predicted(:,sample) = current%output
+          predicted(:,sample) = current%output(:,1)
        end select
 
     end do test_loop
-    !$OMP END PARALLEL DO
 
-
-#ifdef _OPENMP
-    !! merge results back into original
-    !!--------------------------------------------------------------------
-    this%metrics  = this_copy%metrics
-#endif
-    
     
     !! print testing results
     !!--------------------------------------------------------------------
@@ -1249,16 +1185,20 @@ contains
 !!!#############################################################################
   function compute_accuracy_int(output, expected) result(accuracy)
     implicit none
-    real(real12), dimension(:), intent(in) :: output
-    integer, dimension(:) :: expected
-    real(real12) :: accuracy
+    real(real12), dimension(:,:), intent(in) :: output
+    integer, dimension(:,:) :: expected
+    real(real12), dimension(size(expected,2)) :: accuracy
+
+    integer :: s
 
     !! Compute the accuracy
-    if (maxloc(expected,dim=1).eq.maxloc(output,dim=1)) then
-       accuracy = 1._real12
-    else
-       accuracy = 0._real12
-    end if
+    do concurrent(s=1:size(expected,2))
+       if (maxloc(expected(:,s),dim=1).eq.maxloc(output(:,s),dim=1)) then
+          accuracy(s) = 1._real12
+       else
+          accuracy(s) = 0._real12
+       end if
+    end do
 
   end function compute_accuracy_int
 !!!-----------------------------------------------------------------------------
@@ -1266,11 +1206,11 @@ contains
 !!! works for continuous datasets
   function compute_accuracy_real(output, expected) result(accuracy)
     implicit none
-    real(real12), dimension(:), intent(in) :: output, expected
-    real(real12) :: accuracy
+    real(real12), dimension(:,:), intent(in) :: output, expected
+    real(real12), dimension(size(expected,2)) :: accuracy
 
     !! Compute the accuracy
-    accuracy = 1._real12 - sum(abs(expected - output))/size(expected) !! should be for continuous data
+    accuracy = 1._real12 - sum(abs(expected - output),dim=1)/size(expected(:,1)) !! should be for continuous data
 
   end function compute_accuracy_real
 !!!-----------------------------------------------------------------------------
@@ -1278,21 +1218,25 @@ contains
 !!! works for continuous datasets (CURRENTLY UNAVAILABLE)
   function compute_accuracy_r2(output, expected) result(accuracy)
     implicit none
-    real(real12), dimension(:), intent(in) :: output, expected
-    real :: y_mean, rss, tss
-    real(real12) :: accuracy
+    real(real12), dimension(:,:), intent(in) :: output, expected
+    real(real12), dimension(size(expected,2)) :: y_mean, rss, tss
+    real(real12), dimension(size(expected,2)) :: accuracy
 
-    !! compute mean of true/expected
-    y_mean = sum(expected) / size(expected)
+    integer :: s
 
-    !! compute total sum of squares
-    tss = sum( ( expected - y_mean ) ** 2._real12 )
-
-    !! compute residual sum of squares
-    rss = sum( ( expected - output ) ** 2._real12 )
-
-    !! compute accuracy (R^2 score)
-    accuracy = 1._real12 - rss/tss
+    do s = 1, size(expected,2)
+       !! compute mean of true/expected
+       y_mean(s) = sum(expected(:,s),dim=1) / size(expected(:,s),dim=1)
+ 
+       !! compute total sum of squares
+       tss(s) = sum( ( expected(:,s) - y_mean(s) ) ** 2._real12, dim=1 )
+ 
+       !! compute residual sum of squares
+       rss(s) = sum( ( expected(:,s) - output(:,s) ) ** 2._real12, dim=1 )
+ 
+       !! compute accuracy (R^2 score)
+       accuracy(s) = 1._real12 - rss(s)/tss(s)
+    end do
 
   end function compute_accuracy_r2
 !!!#############################################################################

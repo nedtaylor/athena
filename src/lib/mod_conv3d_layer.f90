@@ -22,20 +22,21 @@ module conv3d_layer
      integer :: num_channels
      integer :: num_filters
      real(real12), allocatable, dimension(:) :: bias, bias_incr
-     real(real12), allocatable, dimension(:) :: db ! bias gradient
+     real(real12), allocatable, dimension(:,:) :: db ! bias gradient
      real(real12), allocatable, dimension(:,:,:,:,:) :: weight, weight_incr
-     real(real12), allocatable, dimension(:,:,:,:,:) :: dw ! weight gradient
-     real(real12), allocatable, dimension(:,:,:,:) :: output, z
-     real(real12), allocatable, dimension(:,:,:,:) :: di ! input gradient
+     real(real12), allocatable, dimension(:,:,:,:,:,:) :: dw ! weight gradient
+     real(real12), allocatable, dimension(:,:,:,:,:) :: output, z
+     real(real12), allocatable, dimension(:,:,:,:,:) :: di ! input gradient
      class(activation_type), allocatable :: transfer
    contains
      procedure, pass(this) :: init => init_conv3d
+     procedure, pass(this) :: set_batch_size => set_batch_size_conv3d
      procedure, pass(this) :: print => print_conv3d
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
      procedure, pass(this) :: update
-     procedure, private, pass(this) :: forward_4d
-     procedure, private, pass(this) :: backward_4d
+     procedure, private, pass(this) :: forward_5d
+     procedure, private, pass(this) :: backward_5d
 
      procedure, pass(this) :: reduce => layer_reduction
      procedure, pass(this) :: merge => layer_merge
@@ -49,12 +50,13 @@ module conv3d_layer
 !!!-----------------------------------------------------------------------------
   interface conv3d_layer_type
      module function layer_setup( &
-          input_shape, &
+          input_shape, batch_size, &
           num_filters, kernel_size, stride, padding, &
           activation_function, activation_scale, &
           kernel_initialiser, bias_initialiser, &
           calc_input_gradients) result(layer)
        integer, dimension(:), optional, intent(in) :: input_shape
+       integer, optional, intent(in) :: batch_size
        integer, optional, intent(in) :: num_filters
        integer, dimension(..), optional, intent(in) :: kernel_size
        integer, dimension(..), optional, intent(in) :: stride
@@ -139,8 +141,8 @@ contains
     class(conv3d_layer_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
 
-    select rank(input); rank(4)
-       call forward_4d(this, input)
+    select rank(input); rank(5)
+       call forward_5d(this, input)
     end select
   end subroutine forward_rank
 !!!#############################################################################
@@ -155,9 +157,9 @@ contains
     real(real12), dimension(..), intent(in) :: input
     real(real12), dimension(..), intent(in) :: gradient
 
-    select rank(input); rank(4)
-    select rank(gradient); rank(4)
-       call backward_4d(this, input, gradient)
+    select rank(input); rank(5)
+    select rank(gradient); rank(5)
+       call backward_5d(this, input, gradient)
     end select
     end select    
   end subroutine backward_rank
@@ -173,7 +175,7 @@ contains
 !!! set up layer
 !!!#############################################################################
   module function layer_setup( &
-       input_shape, &
+       input_shape, batch_size, &
        num_filters, kernel_size, stride, padding, &
        activation_function, activation_scale, &
        kernel_initialiser, bias_initialiser, &
@@ -184,6 +186,7 @@ contains
     use misc_ml, only: set_padding
     implicit none
     integer, dimension(:), optional, intent(in) :: input_shape
+    integer, optional, intent(in) :: batch_size
     integer, optional, intent(in) :: num_filters
     integer, dimension(..), optional, intent(in) :: kernel_size
     integer, dimension(..), optional, intent(in) :: stride
@@ -200,8 +203,16 @@ contains
     character(len=20) :: t_padding
 
 
+    layer%name = "conv3d"
+    layer%input_rank = 4
     !!--------------------------------------------------------------------------
-    !! set up number of filters
+    !! initialise batch size
+    !!--------------------------------------------------------------------------
+    if(present(batch_size)) layer%batch_size = batch_size
+
+
+    !!--------------------------------------------------------------------------
+    !! determine whether to calculate input gradients
     !!--------------------------------------------------------------------------
     if(present(calc_input_gradients))then
        layer%calc_input_gradients = calc_input_gradients
@@ -318,11 +329,12 @@ contains
 !!!#############################################################################
 !!! initialise layer
 !!!#############################################################################
-  subroutine init_conv3d(this, input_shape, verbose)
+  subroutine init_conv3d(this, input_shape, batch_size, verbose)
     use initialiser, only: initialiser_setup
     implicit none
     class(conv3d_layer_type), intent(inout) :: this
     integer, dimension(:), intent(in) :: input_shape
+    integer, optional, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
 
     integer :: t_verb
@@ -338,17 +350,13 @@ contains
     else
        t_verb = 0
     end if
+    if(present(batch_size)) this%batch_size = batch_size
 
 
     !!--------------------------------------------------------------------------
     !! initialise input shape
     !!--------------------------------------------------------------------------
-    if(size(input_shape,dim=1).eq.4)then
-       this%input_shape = input_shape
-       this%num_channels = input_shape(4)
-    else
-       stop "ERROR: invalid size of input_shape in conv3d, expected (4)"
-    end if
+    if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
 
 
     !!--------------------------------------------------------------------------
@@ -357,15 +365,11 @@ contains
     !! NOTE: INPUT SHAPE DOES NOT INCLUDE PADDING WIDTH
     !! THIS IS HANDLED AUTOMATICALLY BY THE CODE
     !! ... provide the initial input data shape and let us deal with the padding
+    this%num_channels = this%input_shape(4)
     allocate(this%output_shape(4))
     this%output_shape(4) = this%num_filters
     this%output_shape(:3) = floor(&
-         (input_shape(:3) + 2.0 * this%pad - this%knl)/real(this%stp) ) + 1
-
-    allocate(this%output(&
-         this%output_shape(1),this%output_shape(2),this%output_shape(3),&
-         this%num_filters), source=0._real12)
-    allocate(this%z, source=this%output)
+         (this%input_shape(:3) + 2.0 * this%pad - this%knl)/real(this%stp) ) + 1
 
     allocate(this%bias(this%num_filters), source=0._real12)
 
@@ -385,16 +389,6 @@ contains
 
 
     !!--------------------------------------------------------------------------
-    !! initialise gradients
-    !!--------------------------------------------------------------------------
-    allocate(this%di(&
-         input_shape(1), input_shape(2), input_shape(3), input_shape(4)), &
-         source=0._real12)
-    allocate(this%dw, source=this%weight)
-    allocate(this%db, source=this%bias)
-
-
-    !!--------------------------------------------------------------------------
     !! initialise weights (kernels)
     !!--------------------------------------------------------------------------
     allocate(t_initialiser, source=initialiser_setup(this%kernel_initialiser))
@@ -409,7 +403,71 @@ contains
          fan_in=product(this%knl)+1, fan_out=1)
     deallocate(t_initialiser)
 
+
+    !!--------------------------------------------------------------------------
+    !! initialise batch size-dependent arrays
+    !!--------------------------------------------------------------------------
+    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
+
   end subroutine init_conv3d
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set batch size
+!!!#############################################################################
+  subroutine set_batch_size_conv3d(this, batch_size, verbose)
+   implicit none
+   class(conv3d_layer_type), intent(inout) :: this
+   integer, intent(in) :: batch_size
+   integer, optional, intent(in) :: verbose
+
+   integer :: t_verb
+
+
+   !!--------------------------------------------------------------------------
+   !! initialise optional arguments
+   !!--------------------------------------------------------------------------
+   if(present(verbose))then
+      t_verb = verbose
+   else
+      t_verb = 0
+   end if
+   this%batch_size = batch_size
+
+
+   !!--------------------------------------------------------------------------
+   !! allocate arrays
+   !!--------------------------------------------------------------------------
+   if(allocated(this%input_shape))then
+      if(allocated(this%output)) deallocate(this%output)
+      allocate(this%output( &
+           this%output_shape(1), &
+           this%output_shape(2), &
+           this%output_shape(3), &
+           this%num_filters, &
+           this%batch_size), source=0._real12)
+      if(allocated(this%z)) deallocate(this%z)
+      allocate(this%z, source=this%output)
+      if(allocated(this%di)) deallocate(this%di)
+      allocate(this%di( &
+           this%input_shape(1), &
+           this%input_shape(2), &
+           this%input_shape(3), &
+           this%input_shape(4), &
+           this%batch_size), source=0._real12)
+      if(allocated(this%dw)) deallocate(this%dw)
+      allocate(this%dw( &
+           lbound(this%weight,1):ubound(this%weight,1), &
+           lbound(this%weight,2):ubound(this%weight,2), &
+           lbound(this%weight,3):ubound(this%weight,3), &
+           this%num_channels, this%num_filters, &
+           this%batch_size), source=0._real12)
+      if(allocated(this%db)) deallocate(this%db)
+      allocate(this%db(this%num_filters, this%batch_size), source=0._real12)
+   end if
+
+ end subroutine set_batch_size_conv3d
 !!!#############################################################################
 
 
@@ -666,20 +724,24 @@ contains
 !!!#############################################################################
 !!! forward propagation
 !!!#############################################################################
-  pure subroutine forward_4d(this, input)
+  pure subroutine forward_5d(this, input)
     implicit none
     class(conv3d_layer_type), intent(inout) :: this
     real(real12), &
-         dimension(-this%pad(1)+1:,-this%pad(2)+1:,-this%pad(3)+1:,:), &
+         dimension( &
+         -this%pad(1)+1:this%input_shape(1)+this%pad(1), &
+         -this%pad(2)+1:this%input_shape(2)+this%pad(2), &
+         -this%pad(3)+1:this%input_shape(3)+this%pad(3), &
+         this%num_channels,this%batch_size), &
          intent(in) :: input
 
-    integer :: i, j, k, l
+    integer :: i, j, k, l, s
     integer, dimension(3) :: stp_idx, start_idx, end_idx
 
 
     !! perform the convolution operation
     !!--------------------------------------------------------------------------
-    do concurrent(&
+    do concurrent( &
          i=1:this%output_shape(1):1, &
          j=1:this%output_shape(2):1, &
          k=1:this%output_shape(3):1)
@@ -693,15 +755,17 @@ contains
        start_idx  = stp_idx - this%hlf
        end_idx    = start_idx + this%knl - 1
 
-       this%z(i,j,k,:) = this%bias(:)
+       do concurrent(s=1:this%batch_size)
+         this%z(i,j,k,:,s) = this%bias(:)
+      end do
 
-       do concurrent(l=1:this%num_filters)
-          this%z(i,j,k,l) = this%z(i,j,k,l) + &
+       do concurrent(l=1:this%num_filters, s=1:this%batch_size)
+          this%z(i,j,k,l,s) = this%z(i,j,k,l,s) + &
                sum( &
-               input(&
+               input( &
                start_idx(1):end_idx(1),&
                start_idx(2):end_idx(2),&
-               start_idx(3):end_idx(3),:) * &
+               start_idx(3):end_idx(3),:,s) * &
                this%weight(:,:,:,:,l) &
                )
        end do
@@ -711,7 +775,7 @@ contains
     !!--------------------------------------------------------------------------
     this%output = this%transfer%activate(this%z) 
 
-  end subroutine forward_4d
+  end subroutine forward_5d
 !!!#############################################################################
 
 
@@ -719,31 +783,37 @@ contains
 !!! backward propagation
 !!! method : gradient descent
 !!!#############################################################################
-  pure subroutine backward_4d(this, input, gradient)
+  pure subroutine backward_5d(this, input, gradient)
     implicit none
     class(conv3d_layer_type), intent(inout) :: this
     real(real12), &
-         dimension(-this%pad(1)+1:,-this%pad(2)+1:,-this%pad(3)+1:,:), &
+    dimension( &
+         -this%pad(1)+1:this%input_shape(1)+this%pad(1), &
+         -this%pad(2)+1:this%input_shape(2)+this%pad(2), &
+         -this%pad(3)+1:this%input_shape(3)+this%pad(3), &
+         this%num_channels,this%batch_size), &
          intent(in) :: input
     real(real12), &
-         dimension(&
-         this%output_shape(1),&
-         this%output_shape(2),&
-         this%output_shape(3),this%num_filters), &
+         dimension( &
+         this%output_shape(1), &
+         this%output_shape(2), &
+         this%output_shape(3), &
+         this%num_filters,this%batch_size), &
          intent(in) :: gradient
 
 
     !! NOTE: lim_w is rotated by 180, so first idx is end, then start
     !! ... i.e. lim_w(1,:) = ends
     !! ... i.e. lim_w(2,:) = starts
-    integer :: l, m, i, j, k, x, y, z
+    integer :: l, m, i, j, k, x, y, z, s
     integer, dimension(3) :: stp_idx, offset, adjust, end_idx, n_stp
     integer, dimension(2,3) :: lim, lim_w, lim_g
     real(real12), &
-         dimension(&
-         this%output_shape(1),&
-         this%output_shape(2),&
-         this%output_shape(3),this%num_filters) :: grad_dz
+         dimension( &
+         this%output_shape(1), &
+         this%output_shape(2), &
+         this%output_shape(3),this%num_filters, &
+         this%batch_size) :: grad_dz
 
 
     real(real12), dimension(1) :: bias_diff
@@ -760,13 +830,14 @@ contains
     !! get gradient multiplied by differential of Z
     !!--------------------------------------------------------------------------
     grad_dz = 0._real12
-    grad_dz(&
+    grad_dz( &
          1:this%output_shape(1),&
          1:this%output_shape(2),&
-         1:this%output_shape(3),:) = gradient * &
+         1:this%output_shape(3),:,:) = gradient * &
          this%transfer%differentiate(this%z)
-    do concurrent(l=1:this%num_filters)
-       this%db(l) = this%db(l) + sum(grad_dz(:,:,:,l)) * bias_diff(1)
+    do concurrent( &
+         l=1:this%num_filters, s=1:this%batch_size)
+       this%db(l,s) = this%db(l,s) + sum(grad_dz(:,:,:,l,s)) * bias_diff(1)
     end do
 
     
@@ -781,18 +852,19 @@ contains
     !! ... ergo, we need to subtract 1 from upper index
     !!--------------------------------------------------------------------------
     do concurrent( &
+         s=1:this%batch_size, &
          l=1:this%num_filters, &
          m=1:this%num_channels, &
          z=-this%hlf(3):end_idx(3):1, &
          y=-this%hlf(2):end_idx(2):1, &
          x=-this%hlf(1):end_idx(1):1 &
          )
-       this%dw(x,y,z,m,l) = this%dw(x,y,z,m,l) + &
-            sum(grad_dz(:,:,:,l) * &
-            input(&
+       this%dw(x,y,z,m,l,s) = this%dw(x,y,z,m,l,s) + &
+            sum(grad_dz(:,:,:,l,s) * &
+            input( &
             x+offset(1):x+offset(1)-1+size(input,1)-adjust(1):this%stp(1), &
             y+offset(2):y+offset(2)-1+size(input,2)-adjust(2):this%stp(2), &
-            z+offset(3):z+offset(3)-1+size(input,3)-adjust(3):this%stp(3),m))
+            z+offset(3):z+offset(3)-1+size(input,3)-adjust(3):this%stp(3),m,s))
     end do
 
 
@@ -805,11 +877,12 @@ contains
        this%di = 0._real12
        !! all elements of the output are separated by stride_x (stride_y)
        do concurrent( &
+            s=1:this%batch_size, &
+            l=1:this%num_filters, &
+            m=1:this%num_channels, &
             i=1:size(this%di,dim=1):1, &
             j=1:size(this%di,dim=2):1, &
-            k=1:size(this%di,dim=3):1, &
-            m=1:this%num_channels, &
-            l=1:this%num_filters &
+            k=1:size(this%di,dim=3):1 &
             )
 
           !! set weight bounds
@@ -840,13 +913,13 @@ contains
 
           !! apply full convolution to compute input gradients
           !! https://medium.com/@mayank.utexas/backpropagation-for-convolution-with-strides-8137e4fc2710
-          this%di(i,j,k,m) = &
-               this%di(i,j,k,m) + &
+          this%di(i,j,k,m,s) = &
+               this%di(i,j,k,m,s) + &
                sum( &
-               grad_dz(&
-               lim_g(1,1):lim_g(2,1),&
-               lim_g(1,2):lim_g(2,2),&
-               lim_g(1,3):lim_g(2,3),l) * &
+               grad_dz( &
+               lim_g(1,1):lim_g(2,1), &
+               lim_g(1,2):lim_g(2,2), &
+               lim_g(1,3):lim_g(2,3),l,s) * &
                this%weight(&
                lim_w(1,1):lim_w(2,1):-this%stp(1),&
                lim_w(1,2):lim_w(2,2):-this%stp(2),&
@@ -855,40 +928,40 @@ contains
        end do
     end if
 
-  end subroutine backward_4d
+  end subroutine backward_5d
 !!!#############################################################################
 
 
 !!!#############################################################################
 !!! update the weights based on how much error the node is responsible for
 !!!#############################################################################
-  pure subroutine update(this, method, batch_size)
+  pure subroutine update(this, method)
     use optimiser, only: optimiser_type
     implicit none
     class(conv3d_layer_type), intent(inout) :: this
     type(optimiser_type), intent(in) :: method
-    integer, optional, intent(in) :: batch_size
+
+    real(real12), allocatable, dimension(:) :: db
+    real(real12), allocatable, dimension(:,:,:,:,:) :: dw
 
     
     !! normalise by number of samples
-    if(present(batch_size))then
-       this%dw = this%dw/batch_size
-       this%db = this%db/batch_size
-    end if
-
+    dw = sum(this%dw,dim=5)/this%batch_size
+    db = sum(this%db,dim=2)/this%batch_size
+    
     !! apply gradient clipping
-    call method%clip(size(this%dw),this%dw,this%db)
+    call method%clip(size(dw),dw,db)
 
     !! update the convolution layer weights using gradient descent
     call method%optimise(&
          this%weight,&
          this%weight_incr, &
-         this%dw)
+         dw)
     !! update the convolution layer bias using gradient descent
     call method%optimise(&
          this%bias,&
          this%bias_incr, &
-         this%db)
+         db)
 
     !! reset gradients
     this%di = 0._real12

@@ -18,6 +18,10 @@ module athena_omp
   use input3d_layer,   only: input3d_layer_type
   use input4d_layer,   only: input4d_layer_type
 
+  !! batch normalisation layer types
+  use batchnorm2d_layer, only: batchnorm2d_layer_type, read_batchnorm2d_layer
+  use batchnorm3d_layer, only: batchnorm3d_layer_type, read_batchnorm3d_layer
+
   !! convolution layer types
   use conv2d_layer,    only: conv2d_layer_type, read_conv2d_layer
   use conv3d_layer,    only: conv3d_layer_type, read_conv3d_layer
@@ -32,8 +36,10 @@ module athena_omp
   use maxpool3d_layer, only: maxpool3d_layer_type, read_maxpool3d_layer
 
   !! flatten layer types
+  use flatten1d_layer, only: flatten1d_layer_type
   use flatten2d_layer, only: flatten2d_layer_type
   use flatten3d_layer, only: flatten3d_layer_type
+  use flatten4d_layer, only: flatten4d_layer_type
 
   !! fully connected (dense) layer types
   use full_layer,      only: full_layer_type, read_full_layer

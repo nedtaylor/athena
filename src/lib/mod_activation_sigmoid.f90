@@ -11,11 +11,15 @@ module activation_sigmoid
   type, extends(activation_type) :: sigmoid_type
    contains
      procedure, pass(this) :: activate_1d => sigmoid_activate_1d
+     procedure, pass(this) :: activate_2d => sigmoid_activate_2d
      procedure, pass(this) :: activate_3d => sigmoid_activate_3d
      procedure, pass(this) :: activate_4d => sigmoid_activate_4d
+     procedure, pass(this) :: activate_5d => sigmoid_activate_5d
      procedure, pass(this) :: differentiate_1d => sigmoid_differentiate_1d
+     procedure, pass(this) :: differentiate_2d => sigmoid_differentiate_2d
      procedure, pass(this) :: differentiate_3d => sigmoid_differentiate_3d
      procedure, pass(this) :: differentiate_4d => sigmoid_differentiate_4d
+     procedure, pass(this) :: differentiate_5d => sigmoid_differentiate_5d
   end type sigmoid_type
   
   interface sigmoid_setup
@@ -75,6 +79,20 @@ contains
   end function sigmoid_activate_1d
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
+  pure function sigmoid_activate_2d(this, val) result(output)
+    implicit none
+    class(sigmoid_type), intent(in) :: this
+    real(real12), dimension(:,:), intent(in) :: val
+    real(real12), dimension(size(val,1),size(val,2)) :: output
+
+    where(val.lt.this%threshold)
+       output = 0._real12
+    elsewhere
+       output = this%scale /(1._real12 + exp(-val))
+    end where
+  end function sigmoid_activate_2d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
   pure function sigmoid_activate_3d(this, val) result(output)
     implicit none
     class(sigmoid_type), intent(in) :: this
@@ -102,6 +120,21 @@ contains
        output = this%scale /(1._real12 + exp(-val))
     end where
   end function sigmoid_activate_4d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function sigmoid_activate_5d(this, val) result(output)
+    implicit none
+    class(sigmoid_type), intent(in) :: this
+    real(real12), dimension(:,:,:,:,:), intent(in) :: val
+    real(real12), dimension(&
+         size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
+
+    where(val.lt.this%threshold)
+       output = 0._real12
+    elsewhere
+       output = this%scale /(1._real12 + exp(-val))
+    end where
+  end function sigmoid_activate_5d
 !!!#############################################################################
 
 
@@ -118,6 +151,17 @@ contains
     output = this%activate_1d(val)
     output = this%scale * output * (this%scale - output)
   end function sigmoid_differentiate_1d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function sigmoid_differentiate_2d(this, val) result(output)
+    implicit none
+    class(sigmoid_type), intent(in) :: this
+    real(real12), dimension(:,:), intent(in) :: val
+    real(real12), dimension(size(val,1),size(val,2)) :: output
+    
+    output = this%activate_2d(val)
+    output = this%scale * output * (this%scale - output)
+  end function sigmoid_differentiate_2d
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
   pure function sigmoid_differentiate_3d(this, val) result(output)
@@ -141,6 +185,18 @@ contains
     output = this%activate_4d(val)
     output = this%scale * output * (this%scale - output)
   end function sigmoid_differentiate_4d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function sigmoid_differentiate_5d(this, val) result(output)
+    implicit none
+    class(sigmoid_type), intent(in) :: this
+    real(real12), dimension(:,:,:,:,:), intent(in) :: val
+    real(real12), dimension(&
+         size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
+    
+    output = this%activate_5d(val)
+    output = this%scale * output * (this%scale - output)
+  end function sigmoid_differentiate_5d
 !!!#############################################################################
 
 end module activation_sigmoid

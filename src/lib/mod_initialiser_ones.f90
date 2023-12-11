@@ -45,6 +45,8 @@ contains
        input = 1._real12
     rank(5)
        input = 1._real12
+    rank(6)
+       input = 1._real12
     end select
     
   end subroutine ones_initialise
