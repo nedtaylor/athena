@@ -10,10 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add inference to dropout layers
+- Add 2D and 3D batch normalisation layers
+- Add 1D and 4D flatten layers
+- Add predict procedure to network_type
 
 ### Changed
 
-- 
+- Handle batch size in each layer
+- As such, increase rank of io data (and gradients) for all layers by 1
 
 ### Fixed
 
@@ -21,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Removed
 
-- 
+- Remove mod_batch_norm.f90
 
 ## [1.1.3] - 2023-11-26
 
