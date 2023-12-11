@@ -174,7 +174,8 @@ contains
     class(full_layer_type), intent(in) :: this
     real(real12), allocatable, dimension(:) :: gradients
   
-    gradients = reshape(this%dw, [ (this%num_inputs+1) * this%num_outputs ])
+    gradients = reshape(sum(this%dw,dim=3)/this%batch_size, &
+         [ (this%num_inputs+1) * this%num_outputs ])
   
   end function get_gradients_full
 !!!#############################################################################

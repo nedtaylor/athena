@@ -162,7 +162,8 @@ contains
 
 
 !!!#############################################################################
-!!! get gradients
+!!! get sample-average gradients
+!!! sum over batch dimension and divide by batch size 
 !!!#############################################################################
   pure function get_gradients_conv3d(this) result(gradients)
     implicit none
@@ -170,9 +171,9 @@ contains
     real(real12), allocatable, dimension(:) :: gradients
   
     gradients = [ reshape( &
-         this%dw, &
+         sum(this%dw,dim=6)/this%batch_size, &
          [ this%num_filters * this%num_channels * product(this%knl) ]), &
-         this%db ]
+         sum(this%db,dim=2)/this%batch_size ]
   
   end function get_gradients_conv3d
 !!!#############################################################################
@@ -1002,7 +1003,7 @@ contains
 
     
     !! normalise by number of samples
-    dw = sum(this%dw,dim=5)/this%batch_size
+    dw = sum(this%dw,dim=6)/this%batch_size
     db = sum(this%db,dim=2)/this%batch_size
     
     !! apply gradient clipping

@@ -359,7 +359,7 @@ contains
     class(batch_layer_type), intent(in) :: this
     real(real12), allocatable, dimension(:) :: gradients
   
-    gradients = [this%dg, this%db]
+    gradients = [this%dg/this%batch_size, this%db/this%batch_size]
   
   end function get_gradients_batch
 !!!#############################################################################
