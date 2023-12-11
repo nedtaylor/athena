@@ -78,6 +78,7 @@ module network
      procedure, pass(this) :: set_batch_size
      procedure, pass(this) :: train
      procedure, pass(this) :: test
+     procedure, pass(this) :: predict => predict_1d
      procedure, pass(this) :: update
 
      procedure, pass(this) :: forward => forward_1d
@@ -1176,6 +1177,77 @@ contains
     this%loss     = this%metrics(1)%val/real(num_samples)
 
   end subroutine test
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! testing loop
+!!!#############################################################################
+  function predict_1d(this, input, &
+       addit_input, addit_layer, &
+       verbose) result(output)
+    implicit none
+    class(network_type), intent(inout) :: this
+    real(real12), dimension(..), intent(in) :: input
+    
+    real(real12), dimension(:,:), optional, intent(in) :: addit_input
+    integer, optional, intent(in) :: addit_layer
+    
+    integer, optional, intent(in) :: verbose
+
+    real(real12), dimension(:,:), allocatable :: output
+    
+    integer :: t_verb, batch_size
+
+
+!!!-----------------------------------------------------------------------------
+!!! initialise optional arguments
+!!!-----------------------------------------------------------------------------
+   if(present(verbose))then
+      t_verb = verbose
+   else
+      t_verb = 0
+   end if
+
+   select rank(input)
+   rank(2)
+      batch_size = size(input,dim=2)
+   rank(3)
+      batch_size = size(input,dim=3)
+   rank(4)
+      batch_size = size(input,dim=4)
+   rank(5)
+      batch_size = size(input,dim=5)
+   rank(6)
+      batch_size = size(input,dim=6)
+   rank default
+      batch_size = size(input,dim=rank(input))
+   end select
+   allocate(output(this%num_outputs,batch_size))
+
+
+!!!-----------------------------------------------------------------------------
+!!! reset batch size for testing
+!!!-----------------------------------------------------------------------------
+   call this%set_batch_size(batch_size)
+
+
+!!!-----------------------------------------------------------------------------
+!!! predict
+!!!-----------------------------------------------------------------------------
+   if(present(addit_input).and.present(addit_layer))then
+      call this%forward(get_sample(input,1,batch_size),&
+           addit_input(:,1:batch_size),addit_layer)
+   else
+      call this%forward(get_sample(input,1,batch_size))
+   end if
+
+   select type(current => this%model(this%num_layers)%layer)
+   type is(full_layer_type)
+      output = current%output(:,1:batch_size)
+   end select
+
+  end function predict_1d
 !!!#############################################################################
 
 
