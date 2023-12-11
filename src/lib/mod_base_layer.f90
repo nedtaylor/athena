@@ -12,10 +12,15 @@ module base_layer
 !!! layer abstract type
 !!!------------------------------------------------------------------------
   type, abstract :: base_layer_type !! give it parameterised values?
+     integer :: batch_size = 0
+     integer :: input_rank = 0
+     character(:), allocatable :: name
      integer, allocatable, dimension(:) :: input_shape, output_shape
-   contains
+  contains
+     procedure, pass(this) :: set_shape => set_shape_base
      procedure, pass(this) :: print => print_base
      procedure(initialise), deferred, pass(this) :: init
+     procedure(set_batch_size), deferred, pass(this) :: set_batch_size
      procedure(forward), deferred, pass(this) :: forward
      procedure(backward), deferred, pass(this) :: backward
      !! NO NEED FOR DEFERRED PRODECURES
@@ -30,12 +35,20 @@ module base_layer
   end type base_layer_type
 
   abstract interface
-     subroutine initialise(this, input_shape, verbose)
+     subroutine initialise(this, input_shape, batch_size, verbose)
        import :: base_layer_type
        class(base_layer_type), intent(inout) :: this
        integer, dimension(:), intent(in) :: input_shape
+       integer, optional, intent(in) :: batch_size
        integer, optional, intent(in) :: verbose
      end subroutine initialise
+
+    subroutine set_batch_size(this, batch_size, verbose)
+      import :: base_layer_type
+      class(base_layer_type), intent(inout) :: this
+      integer, intent(in) :: batch_size
+      integer, optional, intent(in) :: verbose
+    end subroutine set_batch_size
   end interface
 
   abstract interface
@@ -73,6 +86,15 @@ module base_layer
 
 
 !!!-----------------------------------------------------------------------------
+!!! flatten derived extended type
+!!!-----------------------------------------------------------------------------
+  type, abstract, extends(base_layer_type) :: flatten_layer_type
+     integer :: num_outputs, num_addit_outputs = 0
+     real(real12), allocatable, dimension(:,:) :: output
+  end type flatten_layer_type
+
+
+!!!-----------------------------------------------------------------------------
 !!! dropout derived extended type
 !!!-----------------------------------------------------------------------------
   type, abstract, extends(base_layer_type) :: drop_layer_type
@@ -100,11 +122,10 @@ module base_layer
   end type learnable_layer_type
 
   abstract interface
-     pure subroutine update(this, method, batch_size)
+     pure subroutine update(this, method)
        import :: learnable_layer_type, optimiser_type
        class(learnable_layer_type), intent(inout) :: this
        type(optimiser_type), intent(in) :: method
-       integer, optional, intent(in) :: batch_size
      end subroutine update
   end interface
 
@@ -125,12 +146,42 @@ module base_layer
   end interface
 
 
+!!!-----------------------------------------------------------------------------
+!!! batch derived extended type
+!!!-----------------------------------------------------------------------------
+  type, abstract, extends(learnable_layer_type) :: batch_layer_type
+     !! gamma = scale factor (learnable)
+     !! beta = shift factor (learnable)
+     !! dg = gradient of gamma
+     !! db = gradient of beta
+     !! mean = mean of each feature (not learnable)
+     !! variance = variance of each feature (not learnable)
+     !! NOTE: if momentum = 0, mean and variance batch-dependent values
+     !! NOTE: if momentum > 0, mean and variance are running averages
+     !! NED: NEED TO KEEP TRACK OF EXPONENTIAL MOVING AVERAGE (EMA)
+     !!   ... FOR INFERENCE
+     logical :: inference = .false.
+     integer :: num_channels
+     real(real12) :: norm, momentum = 0._real12
+     real(real12) :: epsilon = 1.E-5_real12
+     real(real12) :: gamma_init_mean = 1._real12, gamma_init_std = 0.01_real12
+     real(real12) :: beta_init_mean  = 0._real12, beta_init_std  = 0.01_real12
+     character(len=14) :: moving_mean_initialiser='', &
+          moving_variance_initialiser=''
+     real(real12), allocatable, dimension(:) :: mean, variance !! not learnable
+     real(real12), allocatable, dimension(:) :: gamma_incr, beta_incr !! not learnable
+     real(real12), allocatable, dimension(:) :: gamma, beta !! learnable
+     real(real12), allocatable, dimension(:) :: dg, db !! learnable
+  end type batch_layer_type
+  
   private
 
   public :: base_layer_type
   public :: input_layer_type
+  public :: flatten_layer_type
   public :: drop_layer_type
   public :: learnable_layer_type
+  public :: batch_layer_type
 
 
 contains
@@ -146,6 +197,31 @@ contains
     !! NO NEED TO WRITE ANYTHING FOR A DEFAULT LAYER
     return
   end subroutine print_base
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! setup input layer shape
+!!!#############################################################################
+  subroutine set_shape_base(this, input_shape)
+    implicit none
+    class(base_layer_type), intent(inout) :: this
+    integer, dimension(:), intent(in) :: input_shape
+    character(len=100) :: err_msg
+
+    !!--------------------------------------------------------------------------
+    !! initialise input shape
+    !!--------------------------------------------------------------------------
+    if(size(input_shape,dim=1).eq.this%input_rank)then
+       this%input_shape = input_shape
+    else
+       write(err_msg,'("ERROR: invalid size of input_shape in ",A,&
+            &" expected (",I0,"), got (",I0")")')  &
+            trim(this%name), this%input_rank, size(input_shape,dim=1)
+       stop trim(err_msg)
+    end if
+ 
+  end subroutine set_shape_base
 !!!#############################################################################
 
 end module base_layer

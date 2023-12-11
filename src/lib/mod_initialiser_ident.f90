@@ -66,6 +66,11 @@ contains
        do i=1,5
           input(i,i,i,i,i) = 1._real12
        end do
+    rank(6)
+       input = 0._real12
+       do i=1,6
+          input(i,i,i,i,i,i) = 1._real12
+       end do
     end select
     
   end subroutine ident_initialise

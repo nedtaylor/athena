@@ -11,11 +11,15 @@ module activation_relu
   type, extends(activation_type) :: relu_type
    contains
      procedure, pass(this) :: activate_1d => relu_activate_1d
+     procedure, pass(this) :: activate_2d => relu_activate_2d
      procedure, pass(this) :: activate_3d => relu_activate_3d
      procedure, pass(this) :: activate_4d => relu_activate_4d
+     procedure, pass(this) :: activate_5d => relu_activate_5d
      procedure, pass(this) :: differentiate_1d => relu_differentiate_1d
+     procedure, pass(this) :: differentiate_2d => relu_differentiate_2d
      procedure, pass(this) :: differentiate_3d => relu_differentiate_3d
      procedure, pass(this) :: differentiate_4d => relu_differentiate_4d
+     procedure, pass(this) :: differentiate_5d => relu_differentiate_5d
   end type relu_type
   
   interface relu_setup
@@ -65,6 +69,16 @@ contains
   end function relu_activate_1d
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
+  pure function relu_activate_2d(this, val) result(output)
+    implicit none
+    class(relu_type), intent(in) :: this
+    real(real12), dimension(:,:), intent(in) :: val
+    real(real12), dimension(size(val,1),size(val,2)) :: output
+
+    output = max(this%threshold, val) * this%scale
+  end function relu_activate_2d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
   pure function relu_activate_3d(this, val) result(output)
     implicit none
     class(relu_type), intent(in) :: this
@@ -84,6 +98,17 @@ contains
 
     output = max(this%threshold, val) * this%scale
   end function relu_activate_4d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function relu_activate_5d(this, val) result(output)
+    implicit none
+    class(relu_type), intent(in) :: this
+    real(real12), dimension(:,:,:,:,:), intent(in) :: val
+    real(real12), dimension(&
+         size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
+
+    output = max(this%threshold, val) * this%scale
+  end function relu_activate_5d
 !!!#############################################################################
 
 
@@ -105,6 +130,20 @@ contains
        output = this%threshold
     end where
   end function relu_differentiate_1d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function relu_differentiate_2d(this, val) result(output)
+    implicit none
+    class(relu_type), intent(in) :: this
+    real(real12), dimension(:,:), intent(in) :: val
+    real(real12), dimension(size(val,1),size(val,2)) :: output
+
+    where(val.ge.this%threshold)
+       output = this%scale
+    elsewhere
+       output = this%threshold
+    end where
+  end function relu_differentiate_2d
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
   pure function relu_differentiate_3d(this, val) result(output)
@@ -134,6 +173,21 @@ contains
        output = this%threshold
     end where
   end function relu_differentiate_4d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function relu_differentiate_5d(this, val) result(output)
+    implicit none
+    class(relu_type), intent(in) :: this
+    real(real12), dimension(:,:,:,:,:), intent(in) :: val
+    real(real12), dimension(&
+         size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
+
+    where(val.ge.this%threshold)
+       output = this%scale
+    elsewhere
+       output = this%threshold
+    end where
+  end function relu_differentiate_5d
 !!!#############################################################################
 
 end module activation_relu
