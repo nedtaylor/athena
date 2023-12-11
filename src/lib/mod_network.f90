@@ -81,6 +81,9 @@ module network
      procedure, pass(this) :: predict => predict_1d
      procedure, pass(this) :: update
 
+     procedure, pass(this) :: get_num_params
+     procedure, pass(this) :: get_params
+
      procedure, pass(this) :: forward => forward_1d
      procedure, pass(this) :: backward => backward_1d
   end type network_type
@@ -139,6 +142,11 @@ contains
     lhs%model   = rhs%model
   end subroutine network_copy
 !!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
 
 
 !!!#############################################################################
@@ -584,6 +592,11 @@ contains
 !!!#############################################################################
 
 
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
+
 !!!#############################################################################
 !!! return sample from any rank
 !!!#############################################################################
@@ -613,6 +626,81 @@ contains
 
   end function get_sample
 !!!#############################################################################
+
+
+!!!#############################################################################
+!!! get number of parameters
+!!!#############################################################################
+  pure function get_num_params(this) result(num_params)
+   implicit none
+   class(network_type), intent(in) :: this
+   integer :: num_params
+
+   integer :: l
+
+   num_params = 0
+   do l = 1, this%num_layers
+      num_params = num_params + this%model(l)%layer%get_num_params()
+   end do
+
+  end function get_num_params
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! get learnable parameters
+!!!#############################################################################
+  pure function get_params(this) result(params)
+    implicit none
+    class(network_type), intent(in) :: this
+    real(real12), allocatable, dimension(:) :: params
+  
+    integer :: l, start_idx, end_idx
+  
+    start_idx = 0
+    end_idx   = 0
+    allocate(params(this%get_num_params()), source=0._real12)
+    do l = 1, this%num_layers
+       select type(current => this%model(l)%layer)
+       class is(learnable_layer_type)
+          start_idx = end_idx + 1
+          end_idx = end_idx + current%get_num_params()
+          params(start_idx:end_idx) = current%get_params()
+       end select
+    end do
+  
+  end function get_params
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set learnable parameters
+!!!#############################################################################
+  subroutine set_params(this, params)
+    implicit none
+    class(network_type), intent(inout) :: this
+    real(real12), dimension(:), intent(in) :: params
+  
+    integer :: l, start_idx, end_idx
+  
+    start_idx = 0
+    end_idx   = 0
+    do l = 1, this%num_layers
+       select type(current => this%model(l)%layer)
+       class is(learnable_layer_type)
+          start_idx = end_idx + 1
+          end_idx = end_idx + current%get_num_params()
+          call current%set_params(params(start_idx:end_idx))
+       end select
+    end do
+  
+  end subroutine set_params
+!!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
 
 
 !!!#############################################################################
@@ -759,6 +847,11 @@ contains
 
   end subroutine update
 !!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
 
 
 !!!#############################################################################

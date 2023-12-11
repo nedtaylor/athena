@@ -17,6 +17,7 @@ module batchnorm2d_layer
      procedure, pass(this) :: init => init_batchnorm2d
      procedure, pass(this) :: set_batch_size => set_batch_size_batchnorm2d
      procedure, pass(this) :: print => print_batchnorm2d
+
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
      procedure, pass(this) :: update

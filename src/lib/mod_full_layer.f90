@@ -20,12 +20,16 @@ module full_layer
      real(real12), allocatable, dimension(:,:,:) :: dw ! weight gradient
      real(real12), allocatable, dimension(:,:) :: output, z !output and activation
      real(real12), allocatable, dimension(:,:) :: di ! input gradient (i.e. delta)
-     class(activation_type), allocatable :: transfer
    contains
+     procedure, pass(this) :: get_num_params => get_num_params_full
+     procedure, pass(this) :: get_params => get_params_full
+     procedure, pass(this) :: set_params => set_params_full
+
      procedure, pass(this) :: print => print_full
      procedure, pass(this) :: set_shape => set_shape_full
      procedure, pass(this) :: init => init_full
      procedure, pass(this) :: set_batch_size => set_batch_size_full
+     
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
      procedure, pass(this) :: update
@@ -111,6 +115,53 @@ contains
     end select
 
   end subroutine layer_merge
+!!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
+
+!!!#############################################################################
+!!! get number of parameters
+!!!#############################################################################
+  pure function get_num_params_full(this) result(num_params)
+    implicit none
+    class(full_layer_type), intent(in) :: this
+    integer :: num_params
+
+    num_params = ( this%num_inputs + 1 )* this%num_outputs
+
+  end function get_num_params_full
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! get number of parameters
+!!!#############################################################################
+  pure function get_params_full(this) result(params)
+    implicit none
+    class(full_layer_type), intent(in) :: this
+    real(real12), allocatable, dimension(:) :: params
+  
+    params = reshape(this%weight, [ (this%num_inputs+1) * this%num_outputs ])
+  
+  end function get_params_full
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! get number of parameters
+!!!#############################################################################
+  subroutine set_params_full(this, params)
+    implicit none
+    class(full_layer_type), intent(inout) :: this
+    real(real12), dimension(:), intent(in) :: params
+  
+    this%weight = reshape(params, [ this%num_inputs+1, this%num_outputs ])
+  
+  end subroutine set_params_full
 !!!#############################################################################
 
 

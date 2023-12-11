@@ -5,33 +5,25 @@
 !!!#############################################################################
 module conv3d_layer
   use constants, only: real12
-  use base_layer, only: learnable_layer_type
-  use custom_types, only: activation_type, initialiser_type
+  use base_layer, only: learnable_layer_type, conv_layer_type
+  use custom_types, only: initialiser_type
   implicit none
   
   
-  type, extends(learnable_layer_type) :: conv3d_layer_type
-     !! knl = kernel
-     !! stp = stride (step)
-     !! hlf = half
-     !! pad = pad
-     !! cen = centre
-     !! output_shape = dimension (height, width, depth)
-     logical :: calc_input_gradients = .true.
-     integer, dimension(3) :: knl, stp, hlf, pad, cen
-     integer :: num_channels
-     integer :: num_filters
-     real(real12), allocatable, dimension(:) :: bias, bias_incr
-     real(real12), allocatable, dimension(:,:) :: db ! bias gradient
+  type, extends(conv_layer_type) :: conv3d_layer_type
+     real(real12), allocatable, dimension(:) :: bias_incr
      real(real12), allocatable, dimension(:,:,:,:,:) :: weight, weight_incr
      real(real12), allocatable, dimension(:,:,:,:,:,:) :: dw ! weight gradient
      real(real12), allocatable, dimension(:,:,:,:,:) :: output, z
      real(real12), allocatable, dimension(:,:,:,:,:) :: di ! input gradient
-     class(activation_type), allocatable :: transfer
    contains
+     procedure, pass(this) :: get_params => get_params_conv3d
+     procedure, pass(this) :: set_params => set_params_conv3d
+
      procedure, pass(this) :: init => init_conv3d
      procedure, pass(this) :: set_batch_size => set_batch_size_conv3d
      procedure, pass(this) :: print => print_conv3d
+
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
      procedure, pass(this) :: update
@@ -134,6 +126,46 @@ contains
 
 
 !!!#############################################################################
+!!! get learnable parameters
+!!!#############################################################################
+  pure function get_params_conv3d(this) result(params)
+    implicit none
+    class(conv3d_layer_type), intent(in) :: this
+    real(real12), allocatable, dimension(:) :: params
+  
+    params = [ reshape( &
+         this%weight, &
+         [ this%num_filters * this%num_channels * product(this%knl) ]), &
+         this%bias ]
+  
+  end function get_params_conv3d
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set learnable parameters
+!!!#############################################################################
+  subroutine set_params_conv3d(this, params)
+   implicit none
+   class(conv3d_layer_type), intent(inout) :: this
+   real(real12), dimension(:), intent(in) :: params
+ 
+   this%weight = reshape( &
+        params(1:this%num_filters * this%num_channels * product(this%knl)), &
+        shape(this%weight))
+   this%bias = params(&
+        this%num_filters * this%num_channels * product(this%knl) + 1 : )
+ 
+  end subroutine set_params_conv3d
+!!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
+
+!!!#############################################################################
 !!! forward propagation assumed rank handler
 !!!#############################################################################
   pure subroutine forward_rank(this, input)
@@ -205,6 +237,12 @@ contains
 
     layer%name = "conv3d"
     layer%input_rank = 4
+    allocate( &
+         layer%knl(layer%input_rank-1), &
+         layer%stp(layer%input_rank-1), &
+         layer%hlf(layer%input_rank-1), &
+         layer%pad(layer%input_rank-1), &
+         layer%cen(layer%input_rank-1) )
     !!--------------------------------------------------------------------------
     !! initialise batch size
     !!--------------------------------------------------------------------------
