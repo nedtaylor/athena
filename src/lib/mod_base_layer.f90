@@ -162,8 +162,9 @@ module base_layer
      !!   ... FOR INFERENCE
      logical :: inference = .false.
      integer :: num_channels
-     real(real12) :: norm, momentum = 0._real12
-     real(real12) :: epsilon = 1.E-5_real12
+     real(real12) :: norm
+     real(real12) :: momentum = 0.99_real12
+     real(real12) :: epsilon = 0.001_real12
      real(real12) :: gamma_init_mean = 1._real12, gamma_init_std = 0.01_real12
      real(real12) :: beta_init_mean  = 0._real12, beta_init_std  = 0.01_real12
      character(len=14) :: moving_mean_initialiser='', &
