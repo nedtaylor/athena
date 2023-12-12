@@ -16,19 +16,24 @@ module full_layer
   type, extends(learnable_layer_type) :: full_layer_type
      integer :: num_inputs, num_addit_inputs = 0
      integer :: num_outputs
-     real(real12), allocatable, dimension(:,:) :: weight, weight_incr
+     real(real12), allocatable, dimension(:,:) :: weight
      real(real12), allocatable, dimension(:,:,:) :: dw ! weight gradient
      real(real12), allocatable, dimension(:,:) :: output, z !output and activation
      real(real12), allocatable, dimension(:,:) :: di ! input gradient (i.e. delta)
-     class(activation_type), allocatable :: transfer
    contains
+     procedure, pass(this) :: get_num_params => get_num_params_full
+     procedure, pass(this) :: get_params => get_params_full
+     procedure, pass(this) :: set_params => set_params_full
+     procedure, pass(this) :: get_gradients => get_gradients_full
+     procedure, pass(this) :: set_gradients => set_gradients_full
+
      procedure, pass(this) :: print => print_full
      procedure, pass(this) :: set_shape => set_shape_full
      procedure, pass(this) :: init => init_full
      procedure, pass(this) :: set_batch_size => set_batch_size_full
+     
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
-     procedure, pass(this) :: update
      procedure, private, pass(this) :: forward_2d
      procedure, private, pass(this) :: backward_2d
 
@@ -111,6 +116,92 @@ contains
     end select
 
   end subroutine layer_merge
+!!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
+
+!!!#############################################################################
+!!! get number of parameters
+!!!#############################################################################
+  pure function get_num_params_full(this) result(num_params)
+    implicit none
+    class(full_layer_type), intent(in) :: this
+    integer :: num_params
+
+    num_params = ( this%num_inputs + 1 )* this%num_outputs
+
+  end function get_num_params_full
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! get number of parameters
+!!!#############################################################################
+  pure function get_params_full(this) result(params)
+    implicit none
+    class(full_layer_type), intent(in) :: this
+    real(real12), allocatable, dimension(:) :: params
+  
+    params = reshape(this%weight, [ (this%num_inputs+1) * this%num_outputs ])
+  
+  end function get_params_full
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! get number of parameters
+!!!#############################################################################
+  subroutine set_params_full(this, params)
+    implicit none
+    class(full_layer_type), intent(inout) :: this
+    real(real12), dimension(:), intent(in) :: params
+  
+    this%weight = reshape(params, [ this%num_inputs+1, this%num_outputs ])
+  
+  end subroutine set_params_full
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! get number of parameters
+!!!#############################################################################
+  pure function get_gradients_full(this, clip_method) result(gradients)
+    use clipper, only: clip_type
+    implicit none
+    class(full_layer_type), intent(in) :: this
+    type(clip_type), optional, intent(in) :: clip_method
+    real(real12), allocatable, dimension(:) :: gradients
+  
+    gradients = reshape(sum(this%dw,dim=3)/this%batch_size, &
+         [ (this%num_inputs+1) * this%num_outputs ])
+
+    if(present(clip_method)) call clip_method%apply(size(gradients),gradients)
+  
+  end function get_gradients_full
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set gradients
+!!!#############################################################################
+  subroutine set_gradients_full(this, gradients)
+    implicit none
+    class(full_layer_type), intent(inout) :: this
+    real(real12), dimension(..), intent(in) :: gradients
+  
+    select rank(gradients)
+    rank(0)
+       this%dw = gradients
+    rank(1)
+       this%dw = spread(reshape(gradients, shape(this%dw(:,:,1))), 2, &
+            this%batch_size)
+    end select
+  
+  end subroutine set_gradients_full
 !!!#############################################################################
 
 
@@ -292,7 +383,6 @@ contains
     !! allocate weight, weight steps (velocities), output, and activation
     !!--------------------------------------------------------------------------
     allocate(this%weight(this%num_inputs+1,this%num_outputs), source=0._real12)
-    allocate(this%weight_incr, source=this%weight)
 
 
     !!--------------------------------------------------------------------------
@@ -631,38 +721,6 @@ contains
     this%dw(this%num_inputs+1,:,:) = this%dw(this%num_inputs+1,:,:) + delta(:,:)
 
   end subroutine backward_2d
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! update the weights based on how much error the node is responsible for
-!!!#############################################################################
-  pure subroutine update(this, method)
-    use optimiser, only: optimiser_type
-    implicit none
-    class(full_layer_type), intent(inout) :: this
-    type(optimiser_type), intent(in) :: method
-    
-    real(real12), allocatable, dimension(:,:) :: dw
-
-
-    !! normalise by number of samples
-    dw = sum(this%dw,dim=3)/this%batch_size
-
-    !! apply gradient clipping
-    call method%clip(size(dw),dw)
-
-    !! update the layer weights and bias using gradient descent
-    call method%optimise(&
-         this%weight, &
-         this%weight_incr, &
-         dw)
-
-    !! reset gradients
-    this%di = 0._real12
-    this%dw = 0._real12
-
-  end subroutine update
 !!!#############################################################################
 
 end module full_layer

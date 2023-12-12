@@ -5,36 +5,28 @@
 !!!#############################################################################
 module conv2d_layer
   use constants, only: real12
-  use base_layer, only: learnable_layer_type
-  use custom_types, only: activation_type, initialiser_type
+  use base_layer, only: learnable_layer_type, conv_layer_type
+  use custom_types, only: initialiser_type
   implicit none
   
   
-  type, extends(learnable_layer_type) :: conv2d_layer_type
-     !! knl = kernel
-     !! stp = stride (step)
-     !! hlf = half
-     !! pad = pad
-     !! cen = centre
-     !! output_shape = dimension (height, width, depth)
-     logical :: calc_input_gradients = .true.
-     integer, dimension(2) :: knl, stp, hlf, pad, cen
-     integer :: num_channels
-     integer :: num_filters
-     real(real12), allocatable, dimension(:) :: bias, bias_incr
-     real(real12), allocatable, dimension(:,:) :: db ! bias gradient
-     real(real12), allocatable, dimension(:,:,:,:) :: weight, weight_incr
+  type, extends(conv_layer_type) :: conv2d_layer_type
+     real(real12), allocatable, dimension(:,:,:,:) :: weight
      real(real12), allocatable, dimension(:,:,:,:,:) :: dw ! weight gradient
      real(real12), allocatable, dimension(:,:,:,:) :: output, z
      real(real12), allocatable, dimension(:,:,:,:) :: di ! input gradient
-     class(activation_type), allocatable :: transfer
    contains
+     procedure, pass(this) :: get_params => get_params_conv2d
+     procedure, pass(this) :: set_params => set_params_conv2d
+     procedure, pass(this) :: get_gradients => get_gradients_conv2d
+     procedure, pass(this) :: set_gradients => set_gradients_conv2d
+
      procedure, pass(this) :: init => init_conv2d
      procedure, pass(this) :: set_batch_size => set_batch_size_conv2d
      procedure, pass(this) :: print => print_conv2d
+
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
-     procedure, pass(this) :: update
      procedure, private, pass(this) :: forward_4d
      procedure, private, pass(this) :: backward_4d
 
@@ -134,6 +126,96 @@ contains
 
 
 !!!#############################################################################
+!!! get learnable parameters
+!!!#############################################################################
+  pure function get_params_conv2d(this) result(params)
+    implicit none
+    class(conv2d_layer_type), intent(in) :: this
+    real(real12), allocatable, dimension(:) :: params
+  
+    params = [ reshape( &
+         this%weight, &
+         [ this%num_filters * this%num_channels * product(this%knl) ]), &
+         this%bias ]
+  
+  end function get_params_conv2d
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set learnable parameters
+!!!#############################################################################
+  subroutine set_params_conv2d(this, params)
+    implicit none
+    class(conv2d_layer_type), intent(inout) :: this
+    real(real12), dimension(:), intent(in) :: params
+  
+    this%weight = reshape( &
+         params(1:this%num_filters * this%num_channels * product(this%knl)), &
+         shape(this%weight))
+    this%bias = params(&
+         this%num_filters * this%num_channels * product(this%knl) + 1 : )
+  
+  end subroutine set_params_conv2d
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! get sample-average gradients
+!!! sum over batch dimension and divide by batch size 
+!!!#############################################################################
+  pure function get_gradients_conv2d(this, clip_method) result(gradients)
+    use clipper, only: clip_type
+    implicit none
+    class(conv2d_layer_type), intent(in) :: this
+    type(clip_type), optional, intent(in) :: clip_method
+    real(real12), allocatable, dimension(:) :: gradients
+  
+    gradients = [ reshape( &
+         sum(this%dw,dim=5)/this%batch_size, &
+         [ this%num_filters * this%num_channels * product(this%knl) ]), &
+         sum(this%db,dim=2)/this%batch_size ]
+  
+    if(present(clip_method)) call clip_method%apply(size(gradients),gradients)
+
+  end function get_gradients_conv2d
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set gradients
+!!!#############################################################################
+  subroutine set_gradients_conv2d(this, gradients)
+   implicit none
+   class(conv2d_layer_type), intent(inout) :: this
+   real(real12), dimension(..), intent(in) :: gradients
+ 
+   integer :: s
+
+   select rank(gradients)
+   rank(0)
+      this%dw = gradients
+      this%db = gradients
+   rank(1)
+      do s=1,this%batch_size
+         this%dw(:,:,:,:,s) = reshape(gradients(:&
+              this%num_filters * this%num_channels * product(this%knl)), &
+               shape(this%dw(:,:,:,:,s)))
+         this%db(:,s) = gradients(&
+              this%num_filters * this%num_channels * product(this%knl)+1:)
+      end do
+   end select
+ 
+ end subroutine set_gradients_conv2d
+!!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
+
+!!!#############################################################################
 !!! forward propagation assumed rank handler
 !!!#############################################################################
   pure subroutine forward_rank(this, input)
@@ -205,6 +287,12 @@ contains
 
     layer%name = "conv2d"
     layer%input_rank = 3
+    allocate( &
+         layer%knl(layer%input_rank-1), &
+         layer%stp(layer%input_rank-1), &
+         layer%hlf(layer%input_rank-1), &
+         layer%pad(layer%input_rank-1), &
+         layer%cen(layer%input_rank-1) )
     !!--------------------------------------------------------------------------
     !! initialise batch size
     !!--------------------------------------------------------------------------
@@ -378,13 +466,6 @@ contains
          -this%hlf(1):end_idx(1), &
          -this%hlf(2):end_idx(2), &
          this%num_channels,this%num_filters), source=0._real12)
-
-
-    !!--------------------------------------------------------------------------
-    !! initialise weights and biases steps (velocities)
-    !!--------------------------------------------------------------------------
-    allocate(this%bias_incr,   source=this%bias)
-    allocate(this%weight_incr, source=this%weight)
 
 
     !!--------------------------------------------------------------------------
@@ -904,47 +985,6 @@ contains
 
   end subroutine backward_4d
 !!!#############################################################################
-
-
-!!!#############################################################################
-!!! update the weights based on how much error the node is responsible for
-!!!#############################################################################
-  pure subroutine update(this, method)
-    use optimiser, only: optimiser_type
-    implicit none
-    class(conv2d_layer_type), intent(inout) :: this
-    type(optimiser_type), intent(in) :: method
-
-    real(real12), allocatable, dimension(:) :: db
-    real(real12), allocatable, dimension(:,:,:,:) :: dw
-
-    
-    !! normalise by number of samples
-    dw = sum(this%dw,dim=5)/this%batch_size
-    db = sum(this%db,dim=2)/this%batch_size
-       
-    !! apply gradient clipping
-    call method%clip(size(dw),dw,db)
-
-    !! update the convolution layer weights using gradient descent
-    call method%optimise(&
-         this%weight,&
-         this%weight_incr, &
-         dw)
-    !! update the convolution layer bias using gradient descent
-    call method%optimise(&
-         this%bias,&
-         this%bias_incr, &
-         db)
-
-    !! reset gradients
-    this%di = 0._real12
-    this%dw = 0._real12
-    this%db = 0._real12
-
-  end subroutine update
-!!!#############################################################################
-
 
 end module conv2d_layer
 !!!#############################################################################

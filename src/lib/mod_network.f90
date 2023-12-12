@@ -11,7 +11,7 @@ module network
   use misc_ml, only: shuffle
 
   use metrics, only: metric_dict_type
-  use optimiser, only: optimiser_type
+  use optimiser, only: base_optimiser_type
   use loss, only: &
        comp_loss_func => compute_loss_function, &
        comp_loss_deriv => compute_loss_derivative
@@ -65,7 +65,7 @@ module network
      integer :: batch_size = 0
      integer :: num_layers
      integer :: num_outputs
-     type(optimiser_type) :: optimiser
+     class(base_optimiser_type), allocatable :: optimiser
      type(metric_dict_type), dimension(2) :: metrics
      type(container_layer_type), allocatable, dimension(:) :: model
      procedure(comp_loss_func), nopass, pointer :: get_loss => null()
@@ -80,6 +80,13 @@ module network
      procedure, pass(this) :: test
      procedure, pass(this) :: predict => predict_1d
      procedure, pass(this) :: update
+
+     procedure, pass(this) :: get_num_params
+     procedure, pass(this) :: get_params
+     procedure, pass(this) :: set_params
+     procedure, pass(this) :: get_gradients
+     procedure, pass(this) :: set_gradients
+     procedure, pass(this) :: reset_gradients
 
      procedure, pass(this) :: forward => forward_1d
      procedure, pass(this) :: backward => backward_1d
@@ -139,6 +146,11 @@ contains
     lhs%model   = rhs%model
   end subroutine network_copy
 !!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
 
 
 !!!#############################################################################
@@ -285,7 +297,7 @@ contains
          compute_loss_nll
     implicit none
     class(network_type), intent(inout) :: this
-    type(optimiser_type), intent(in) :: optimiser
+    class(base_optimiser_type), intent(in) :: optimiser
     character(*), intent(in) :: loss_method
     class(*), dimension(..), intent(in) :: metrics
     integer, optional, intent(in) :: batch_size
@@ -345,12 +357,6 @@ contains
     rank default
        stop "ERROR: provided metrics rank in compile invalid"
     end select
-
-
-!!!-----------------------------------------------------------------------------
-!!! initialise optimiser
-!!!-----------------------------------------------------------------------------
-    this%optimiser = optimiser
 
 
 !!!-----------------------------------------------------------------------------
@@ -561,6 +567,12 @@ contains
     this%num_outputs = product(this%model(this%num_layers)%layer%output_shape)
 
 
+!!!-----------------------------------------------------------------------------
+!!! initialise optimiser
+!!!-----------------------------------------------------------------------------
+    this%optimiser = optimiser
+    call this%optimiser%init(num_params=this%get_num_params())
+
   end subroutine compile
 !!!#############################################################################
 
@@ -582,6 +594,11 @@ contains
 
   end subroutine set_batch_size
 !!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
 
 
 !!!#############################################################################
@@ -613,6 +630,157 @@ contains
 
   end function get_sample
 !!!#############################################################################
+
+
+!!!#############################################################################
+!!! get number of parameters
+!!!#############################################################################
+  pure function get_num_params(this) result(num_params)
+   implicit none
+   class(network_type), intent(in) :: this
+   integer :: num_params
+
+   integer :: l
+
+   num_params = 0
+   do l = 1, this%num_layers
+      num_params = num_params + this%model(l)%layer%get_num_params()
+   end do
+
+  end function get_num_params
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! get learnable parameters
+!!!#############################################################################
+  pure function get_params(this) result(params)
+    implicit none
+    class(network_type), intent(in) :: this
+    real(real12), allocatable, dimension(:) :: params
+  
+    integer :: l, start_idx, end_idx
+  
+    start_idx = 0
+    end_idx   = 0
+    allocate(params(this%get_num_params()), source=0._real12)
+    do l = 1, this%num_layers
+       select type(current => this%model(l)%layer)
+       class is(learnable_layer_type)
+          start_idx = end_idx + 1
+          end_idx = end_idx + current%get_num_params()
+          params(start_idx:end_idx) = current%get_params()
+       end select
+    end do
+  
+  end function get_params
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set learnable parameters
+!!!#############################################################################
+  subroutine set_params(this, params)
+    implicit none
+    class(network_type), intent(inout) :: this
+    real(real12), dimension(:), intent(in) :: params
+  
+    integer :: l, start_idx, end_idx
+  
+    start_idx = 0
+    end_idx   = 0
+    do l = 1, this%num_layers
+       select type(current => this%model(l)%layer)
+       class is(learnable_layer_type)
+          start_idx = end_idx + 1
+          end_idx = end_idx + current%get_num_params()
+          call current%set_params(params(start_idx:end_idx))
+       end select
+    end do
+  
+  end subroutine set_params
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! get gradients
+!!!#############################################################################
+  pure function get_gradients(this) result(gradients)
+  implicit none
+  class(network_type), intent(in) :: this
+  real(real12), allocatable, dimension(:) :: gradients
+
+  integer :: l, start_idx, end_idx
+
+  start_idx = 0
+  end_idx   = 0
+  allocate(gradients(this%get_num_params()), source=0._real12)
+  do l = 1, this%num_layers
+     select type(current => this%model(l)%layer)
+     class is(learnable_layer_type)
+        start_idx = end_idx + 1
+        end_idx = end_idx + current%get_num_params()
+        gradients(start_idx:end_idx) = current%get_gradients()
+     end select
+  end do
+
+end function get_gradients
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set gradients
+!!!#############################################################################
+  subroutine set_gradients(this, gradients)
+   implicit none
+   class(network_type), intent(inout) :: this
+   real(real12), dimension(..), intent(in) :: gradients
+ 
+   integer :: l, start_idx, end_idx
+ 
+   start_idx = 0
+   end_idx   = 0
+   do l = 1, this%num_layers
+      select type(current => this%model(l)%layer)
+      class is(learnable_layer_type)
+         start_idx = end_idx + 1
+         end_idx = end_idx + current%get_num_params()
+         select rank(gradients)
+         rank(0)
+            call current%set_gradients(gradients)
+         rank(1)
+            call current%set_gradients(gradients(start_idx:end_idx))
+         end select
+      end select
+   end do
+ 
+ end subroutine set_gradients
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! reset gradients
+!!!#############################################################################
+  subroutine reset_gradients(this)
+   implicit none
+   class(network_type), intent(inout) :: this
+ 
+   integer :: l
+
+   do l = 1, this%num_layers
+      select type(current => this%model(l)%layer)
+      class is(learnable_layer_type)
+         call current%set_gradients(0._real12)
+      end select
+   end do
+ 
+ end subroutine reset_gradients
+!!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
 
 
 !!!#############################################################################
@@ -737,6 +905,7 @@ contains
   subroutine update(this)
     implicit none
     class(network_type), intent(inout) :: this
+    real(real12), allocatable, dimension(:) :: params
 
     integer :: i
     
@@ -744,14 +913,10 @@ contains
     !!-------------------------------------------------------------------
     !! Update layers of learnable layer types
     !!-------------------------------------------------------------------
-    do i=2, this%num_layers,1
-       select type(current => this%model(i)%layer)
-       class is(learnable_layer_type)
-          call current%update(this%optimiser)
-       class is(drop_layer_type)
-          call current%generate_mask()
-       end select
-    end do
+    params = this%get_params()
+    call this%optimiser%minimise(params, this%get_gradients())
+    call this%set_params(params)
+    call this%reset_gradients()
 
     !! Increment optimiser iteration counter
     !!-------------------------------------------------------------------
@@ -759,6 +924,11 @@ contains
 
   end subroutine update
 !!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
 
 
 !!!#############################################################################

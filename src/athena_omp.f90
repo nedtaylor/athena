@@ -8,7 +8,18 @@ module athena_omp
   use random, only: random_setup
   use network, only: network_type
   use metrics, only: metric_dict_type
-  use optimiser, only: optimiser_type
+
+  !! optimisation and regularisation types
+  use clipper, only: clip_type
+  use regulariser, only: &
+       base_regulariser_type, &
+       l1_regulariser_type, &
+       l2_regulariser_type, &
+       l1l2_regulariser_type
+  use optimiser, only: &
+       base_optimiser_type, &
+       sgd_optimiser_type, &
+       adam_optimiser_type
 
   !! normalisation methods
   use normalisation, only: linear_renormalise, renormalise_norm, renormalise_sum
