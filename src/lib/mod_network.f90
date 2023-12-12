@@ -83,6 +83,10 @@ module network
 
      procedure, pass(this) :: get_num_params
      procedure, pass(this) :: get_params
+     procedure, pass(this) :: set_params
+     procedure, pass(this) :: get_gradients
+     procedure, pass(this) :: set_gradients
+     procedure, pass(this) :: reset_gradients
 
      procedure, pass(this) :: forward => forward_1d
      procedure, pass(this) :: backward => backward_1d
@@ -698,6 +702,82 @@ contains
 !!!#############################################################################
 
 
+!!!#############################################################################
+!!! get gradients
+!!!#############################################################################
+  pure function get_gradients(this) result(gradients)
+  implicit none
+  class(network_type), intent(in) :: this
+  real(real12), allocatable, dimension(:) :: gradients
+
+  integer :: l, start_idx, end_idx
+
+  start_idx = 0
+  end_idx   = 0
+  allocate(gradients(this%get_num_params()), source=0._real12)
+  do l = 1, this%num_layers
+     select type(current => this%model(l)%layer)
+     class is(learnable_layer_type)
+        start_idx = end_idx + 1
+        end_idx = end_idx + current%get_num_params()
+        gradients(start_idx:end_idx) = current%get_gradients()
+     end select
+  end do
+
+end function get_gradients
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set gradients
+!!!#############################################################################
+  subroutine set_gradients(this, gradients)
+   implicit none
+   class(network_type), intent(inout) :: this
+   real(real12), dimension(..), intent(in) :: gradients
+ 
+   integer :: l, start_idx, end_idx
+ 
+   start_idx = 0
+   end_idx   = 0
+   do l = 1, this%num_layers
+      select type(current => this%model(l)%layer)
+      class is(learnable_layer_type)
+         start_idx = end_idx + 1
+         end_idx = end_idx + current%get_num_params()
+         select rank(gradients)
+         rank(0)
+            call current%set_gradients(gradients)
+         rank(1)
+            call current%set_gradients(gradients(start_idx:end_idx))
+         end select
+      end select
+   end do
+ 
+ end subroutine set_gradients
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! reset gradients
+!!!#############################################################################
+  subroutine reset_gradients(this)
+   implicit none
+   class(network_type), intent(inout) :: this
+ 
+   integer :: l
+
+   do l = 1, this%num_layers
+      select type(current => this%model(l)%layer)
+      class is(learnable_layer_type)
+         call current%set_gradients(0._real12)
+      end select
+   end do
+ 
+ end subroutine reset_gradients
+!!!#############################################################################
+
+
 !!!##########################################################################!!!
 !!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
 !!!##########################################################################!!!
@@ -825,6 +905,7 @@ contains
   subroutine update(this)
     implicit none
     class(network_type), intent(inout) :: this
+    real(real12), allocatable, dimension(:) :: params
 
     integer :: i
     
@@ -832,14 +913,19 @@ contains
     !!-------------------------------------------------------------------
     !! Update layers of learnable layer types
     !!-------------------------------------------------------------------
-    do i=2, this%num_layers,1
-       select type(current => this%model(i)%layer)
-       class is(learnable_layer_type)
-          call current%update(this%optimiser)
-       class is(drop_layer_type)
-          call current%generate_mask()
-       end select
-    end do
+    params = this%get_params()
+    call this%optimiser%minimise(params, this%get_gradients())
+    call this%set_params(params)
+    call this%reset_gradients()
+   !  do i=2, this%num_layers,1
+   !     select type(current => this%model(i)%layer)
+   !     class is(learnable_layer_type)
+   !       !  call current%update(this%optimiser)
+   !        call current%set_gradients(0._real12)
+   !     class is(drop_layer_type)
+   !        call current%generate_mask()
+   !     end select
+   !  end do
 
     !! Increment optimiser iteration counter
     !!-------------------------------------------------------------------
