@@ -138,9 +138,11 @@ contains
 
   
     !! apply regularisation
-    if(present(regulariser)) optimiser%regularisation = .true.
-    if(optimiser%regularisation) &
-         allocate(optimiser%regulariser, source=regulariser)
+    if(present(regulariser))then
+       optimiser%regularisation = .true.
+       if(allocated(optimiser%regulariser)) deallocate(optimiser%regulariser)
+       allocate(optimiser%regulariser, source = regulariser)
+    end if
 
     !! apply clipping
     if(present(clip_dict)) optimiser%clip_dict = clip_dict
@@ -163,7 +165,7 @@ contains
 !!!#############################################################################
 !!! initialise optimiser
 !!!#############################################################################
-  pure subroutine init_base(this, num_params, regulariser, clip_dict)
+  subroutine init_base(this, num_params, regulariser, clip_dict)
     implicit none
     class(base_optimiser_type), intent(inout) :: this
     integer, intent(in) :: num_params
@@ -172,10 +174,10 @@ contains
   
   
     !! apply regularisation
-    if(present(regulariser)) this%regularisation = .true.
-    if(this%regularisation) then
+    if(present(regulariser))then
+       this%regularisation = .true.
        if(allocated(this%regulariser)) deallocate(this%regulariser)
-       allocate(this%regulariser, source=regulariser)
+       allocate(this%regulariser, source = regulariser)
     end if
 
     !! apply clipping
@@ -248,10 +250,12 @@ contains
      
      
      !! apply regularisation
-     if(present(regulariser)) optimiser%regularisation = .true.
-     if(optimiser%regularisation) &
-          allocate(optimiser%regulariser, source=regulariser)
-     
+     if(present(regulariser))then
+        optimiser%regularisation = .true.
+        if(allocated(optimiser%regulariser)) deallocate(optimiser%regulariser)
+        allocate(optimiser%regulariser, source = regulariser)
+     end if
+      
      !! apply clipping
      if(present(clip_dict)) optimiser%clip_dict = clip_dict
      
@@ -351,9 +355,11 @@ contains
      
      
      !! apply regularisation
-     if(present(regulariser)) optimiser%regularisation = .true.
-     if(optimiser%regularisation) &
-          allocate(optimiser%regulariser, source=regulariser)
+     if(present(regulariser))then
+        optimiser%regularisation = .true.
+        if(allocated(optimiser%regulariser)) deallocate(optimiser%regulariser)
+        allocate(optimiser%regulariser, source = regulariser)
+     end if
      
      !! apply clipping
      if(present(clip_dict)) optimiser%clip_dict = clip_dict
