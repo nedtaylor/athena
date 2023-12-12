@@ -15,26 +15,62 @@ module optimiser
 !!! learning parameter type
 !!!-----------------------------------------------------------------------------
   type :: base_optimiser_type !!base_optimiser_type
-     character(:), allocatable :: method
-     integer :: iter = 0  ! iteration number
-     real(real12) :: learning_rate = 0.01_real12  ! learning rate hyperparameter
-     real(real12) :: momentum = 0._real12  ! fraction of momentum based learning
-     logical :: regularisation = .false.  ! apply regularisation
-     class(base_regulariser_type), allocatable :: regulariser  ! regularisation method
-     type(clip_type) :: clip_dict  ! clipping dictionary
+     !! iter = iteration number
+     !! learning_rate = learning rate hyperparameter
+     !! regularisation = apply regularisation
+     !! regulariser = regularisation method
+     !! clip_dict = clipping dictionary
+     integer :: iter = 0
+     real(real12) :: learning_rate = 0.01_real12
+     logical :: regularisation = .false.
+     class(base_regulariser_type), allocatable :: regulariser
+     type(clip_type) :: clip_dict
    contains
      procedure, pass(this) :: init => init_base
      procedure, pass(this) :: init_gradients
      procedure, pass(this) :: minimise
   end type base_optimiser_type
 
+  interface base_optimiser_type
+     module function base_optimiser_setup( &
+          learning_rate, &
+          num_params, &
+          regulariser, clip_dict) result(optimiser)
+        real(real12), optional, intent(in) :: learning_rate
+        integer, optional, intent(in) :: num_params
+        class(base_regulariser_type), optional, intent(in) :: regulariser
+        type(clip_type), optional, intent(in) :: clip_dict
+        type(base_optimiser_type) :: optimiser
+      end function base_optimiser_setup
+  end interface base_optimiser_type
+
+
+!!!-----------------------------------------------------------------------------
+
   type, extends(base_optimiser_type) :: sgd_optimiser_type
      logical :: nesterov = .false.
+     real(real12) :: momentum = 0._real12  ! fraction of momentum based learning
      real(real12), allocatable, dimension(:) :: velocity
    contains
      procedure, pass(this) :: init_gradients => init_gradients_sgd
      procedure, pass(this) :: minimise => minimise_sgd
   end type sgd_optimiser_type
+
+  interface sgd_optimiser_type
+     module function sgd_optimiser_setup( &
+          learning_rate, momentum, &
+          nesterov, num_params, &
+          regulariser, clip_dict) result(optimiser)
+        real(real12), optional, intent(in) :: learning_rate, momentum
+        logical, optional, intent(in) :: nesterov
+        integer, optional, intent(in) :: num_params
+        class(base_regulariser_type), optional, intent(in) :: regulariser
+        type(clip_type), optional, intent(in) :: clip_dict  
+        type(sgd_optimiser_type) :: optimiser    
+     end function sgd_optimiser_setup
+  end interface sgd_optimiser_type
+
+  !!!-----------------------------------------------------------------------------
 
   type, extends(base_optimiser_type) :: adam_optimiser_type
      real(real12) :: beta1 = 0.9_real12
@@ -46,6 +82,21 @@ module optimiser
      procedure, pass(this) :: init_gradients => init_gradients_adam
      procedure, pass(this) :: minimise => minimise_adam
   end type adam_optimiser_type
+
+  interface adam_optimiser_type
+     module function adam_optimiser_setup( &
+          learning_rate, &
+          beta1, beta2, epsilon, &
+          num_params, &
+          regulariser, clip_dict) result(optimiser)
+        real(real12), optional, intent(in) :: learning_rate
+        real(real12), optional, intent(in) :: beta1, beta2, epsilon
+        integer, optional, intent(in) :: num_params
+        class(base_regulariser_type), optional, intent(in) :: regulariser
+        type(clip_type), optional, intent(in) :: clip_dict  
+        type(adam_optimiser_type) :: optimiser    
+     end function adam_optimiser_setup
+  end interface adam_optimiser_type
 
      !! reduce learning rate on plateau parameters
      !integer :: wait = 0
@@ -69,7 +120,48 @@ module optimiser
 contains
 
 !!!#############################################################################
-!!! minimise the loss function by applying gradients to the parameters
+!!! set up optimiser
+!!!#############################################################################
+  module function base_optimiser_setup( &
+      learning_rate, &
+      num_params, &
+      regulariser, clip_dict) result(optimiser)
+    implicit none
+    real(real12), optional, intent(in) :: learning_rate
+    integer, optional, intent(in) :: num_params
+    class(base_regulariser_type), optional, intent(in) :: regulariser
+    type(clip_type), optional, intent(in) :: clip_dict
+
+    type(base_optimiser_type) :: optimiser
+
+    integer :: num_params_
+
+  
+    !! apply regularisation
+    if(present(regulariser)) optimiser%regularisation = .true.
+    if(optimiser%regularisation) &
+         allocate(optimiser%regulariser, source=regulariser)
+
+    !! apply clipping
+    if(present(clip_dict)) optimiser%clip_dict = clip_dict
+
+    !! initialise general optimiser parameters
+    if(present(learning_rate)) optimiser%learning_rate = learning_rate
+
+    !! initialise gradients
+    if(present(num_params)) then
+       num_params_ = num_params
+    else
+       num_params_ = 1
+    end if
+    call optimiser%init_gradients(num_params_)
+    
+   end function base_optimiser_setup
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! initialise optimiser
 !!!#############################################################################
   pure subroutine init_base(this, num_params, regulariser, clip_dict)
     implicit none
@@ -82,6 +174,7 @@ contains
     !! apply regularisation
     if(present(regulariser)) this%regularisation = .true.
     if(this%regularisation) then
+       if(allocated(this%regulariser)) deallocate(this%regulariser)
        allocate(this%regulariser, source=regulariser)
     end if
 
@@ -136,6 +229,52 @@ contains
 
 
 !!!#############################################################################
+!!! set up optimiser
+!!!#############################################################################
+  module function sgd_optimiser_setup( &
+       learning_rate, momentum, &
+       nesterov, num_params, &
+       regulariser, clip_dict) result(optimiser)
+     implicit none
+     real(real12), optional, intent(in) :: learning_rate, momentum
+     logical, optional, intent(in) :: nesterov
+     integer, optional, intent(in) :: num_params
+     class(base_regulariser_type), optional, intent(in) :: regulariser
+     type(clip_type), optional, intent(in) :: clip_dict
+     
+     type(sgd_optimiser_type) :: optimiser
+     
+     integer :: num_params_
+     
+     
+     !! apply regularisation
+     if(present(regulariser)) optimiser%regularisation = .true.
+     if(optimiser%regularisation) &
+          allocate(optimiser%regulariser, source=regulariser)
+     
+     !! apply clipping
+     if(present(clip_dict)) optimiser%clip_dict = clip_dict
+     
+     !! initialise general optimiser parameters
+     if(present(learning_rate)) optimiser%learning_rate = learning_rate
+     if(present(momentum)) optimiser%momentum = momentum
+
+     !! initialise nesterov boolean
+     if(present(nesterov)) optimiser%nesterov = nesterov
+     
+     !! initialise gradients
+     if(present(num_params)) then
+        num_params_ = num_params
+     else
+        num_params_ = 1
+     end if
+     call optimiser%init_gradients(num_params_)
+  
+  end function sgd_optimiser_setup
+!!!#############################################################################
+
+
+!!!#############################################################################
 !!! initialise gradients
 !!!#############################################################################
   pure subroutine init_gradients_sgd(this, num_params)
@@ -145,6 +284,7 @@ contains
   
 
     !! initialise gradients
+    if(allocated(this%velocity)) deallocate(this%velocity)
     allocate(this%velocity(num_params), source=0._real12)
     
   end subroutine init_gradients_sgd
@@ -191,6 +331,54 @@ contains
 
 
 !!!#############################################################################
+!!! set up optimiser
+!!!#############################################################################
+  module function adam_optimiser_setup( &
+       learning_rate, &
+       beta1, beta2, epsilon, &
+       num_params, &
+       regulariser, clip_dict) result(optimiser)
+     implicit none
+     real(real12), optional, intent(in) :: learning_rate
+     real(real12), optional, intent(in) :: beta1, beta2, epsilon
+     integer, optional, intent(in) :: num_params
+     class(base_regulariser_type), optional, intent(in) :: regulariser
+     type(clip_type), optional, intent(in) :: clip_dict  
+    
+     type(adam_optimiser_type) :: optimiser
+     
+     integer :: num_params_
+     
+     
+     !! apply regularisation
+     if(present(regulariser)) optimiser%regularisation = .true.
+     if(optimiser%regularisation) &
+          allocate(optimiser%regulariser, source=regulariser)
+     
+     !! apply clipping
+     if(present(clip_dict)) optimiser%clip_dict = clip_dict
+
+     !! initialise general optimiser parameters
+     if(present(learning_rate)) optimiser%learning_rate = learning_rate
+
+     !! initialise adam parameters
+     if(present(beta1)) optimiser%beta1 = beta1
+     if(present(beta2)) optimiser%beta2 = beta2
+     if(present(epsilon)) optimiser%epsilon = epsilon
+     
+     !! initialise gradients
+     if(present(num_params)) then
+        num_params_ = num_params
+     else
+        num_params_ = 1
+     end if
+     call optimiser%init_gradients(num_params_)
+  
+  end function adam_optimiser_setup
+!!!#############################################################################
+
+
+!!!#############################################################################
 !!! initialise gradients
 !!!#############################################################################
   pure subroutine init_gradients_adam(this, num_params)
@@ -200,6 +388,8 @@ contains
   
   
     !! initialise gradients
+    if(allocated(this%m)) deallocate(this%m)
+    if(allocated(this%v)) deallocate(this%v)
     allocate(this%m(num_params), source=0._real12)
     allocate(this%v(num_params), source=0._real12)
     
