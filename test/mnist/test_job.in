@@ -16,7 +16,7 @@
  threshold = 1.E-2,
  plateau_threshold = 1.E-4,
  learning_rate = 0.01E0,
- adaptive_learning = "momentum",
+ adaptive_learning = "sgd",
  momentum = 0.9E0,
  regularisation = "none",
  !l1_lambda = 0.01E0,
