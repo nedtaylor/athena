@@ -14,7 +14,7 @@ module optimiser
 !!!-----------------------------------------------------------------------------
 !!! learning parameter type
 !!!-----------------------------------------------------------------------------
-  type, abstract :: base_optimiser_type !!base_optimiser_type
+  type :: base_optimiser_type !!base_optimiser_type
      character(:), allocatable :: method
      integer :: iter = 0  ! iteration number
      real(real12) :: learning_rate = 0.01_real12  ! learning rate hyperparameter
@@ -24,24 +24,9 @@ module optimiser
      type(clip_type) :: clip_dict  ! clipping dictionary
    contains
      procedure, pass(this) :: init => init_base
-     procedure(init_gradients), deferred, pass(this) :: init_gradients
-     procedure(minimise), deferred, pass(this) :: minimise
+     procedure, pass(this) :: init_gradients
+     procedure, pass(this) :: minimise
   end type base_optimiser_type
-
-  abstract interface
-     pure subroutine init_gradients(this, num_params)
-        import base_optimiser_type, base_regulariser_type, clip_type
-        class(base_optimiser_type), intent(inout) :: this
-        integer, intent(in) :: num_params
-     end subroutine init_gradients
-
-     pure subroutine minimise(this, param, gradient)
-        import base_optimiser_type, real12
-        class(base_optimiser_type), intent(inout) :: this
-        real(real12), dimension(:), intent(inout) :: param
-        real(real12), dimension(:), intent(in) :: gradient
-     end subroutine minimise
-  end interface
 
   type, extends(base_optimiser_type) :: sgd_optimiser_type
      logical :: nesterov = .false.
@@ -112,13 +97,46 @@ contains
 !!!#############################################################################
 
 
+!!!#############################################################################
+!!! initialise gradients
+!!!#############################################################################
+  pure subroutine init_gradients(this, num_params)
+    implicit none
+    class(base_optimiser_type), intent(inout) :: this
+    integer, intent(in) :: num_params
+
+    !allocate(this%velocity(num_params), source=0._real12)
+    return
+  end subroutine init_gradients
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! minimise the loss function by applying gradients to the parameters
+!!!#############################################################################
+  pure subroutine minimise(this, param, gradient)
+    implicit none
+    class(base_optimiser_type), intent(inout) :: this
+    real(real12), dimension(:), intent(inout) :: param
+    real(real12), dimension(:), intent(in) :: gradient
+
+    !! update iteration
+    this%iter = this%iter + 1
+
+    !! update parameters
+    param = param - this%learning_rate * gradient
+
+  end subroutine minimise
+!!!#############################################################################
+
+
 !!!##########################################################################!!!
 !!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
 !!!##########################################################################!!!
 
 
 !!!#############################################################################
-!!! minimise the loss function by applying gradients to the parameters
+!!! initialise gradients
 !!!#############################################################################
   pure subroutine init_gradients_sgd(this, num_params)
     implicit none
@@ -173,7 +191,7 @@ contains
 
 
 !!!#############################################################################
-!!! minimise the loss function by applying gradients to the parameters
+!!! initialise gradients
 !!!#############################################################################
   pure subroutine init_gradients_adam(this, num_params)
     implicit none
