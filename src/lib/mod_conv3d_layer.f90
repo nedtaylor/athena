@@ -20,6 +20,7 @@ module conv3d_layer
      procedure, pass(this) :: get_params => get_params_conv3d
      procedure, pass(this) :: set_params => set_params_conv3d
      procedure, pass(this) :: get_gradients => get_gradients_conv3d
+     procedure, pass(this) :: set_gradients => set_gradients_conv3d
 
      procedure, pass(this) :: init => init_conv3d
      procedure, pass(this) :: set_batch_size => set_batch_size_conv3d
@@ -165,9 +166,11 @@ contains
 !!! get sample-average gradients
 !!! sum over batch dimension and divide by batch size 
 !!!#############################################################################
-  pure function get_gradients_conv3d(this) result(gradients)
+  pure function get_gradients_conv3d(this, clip_method) result(gradients)
+    use optimiser, only: clip_type
     implicit none
     class(conv3d_layer_type), intent(in) :: this
+    type(clip_type), optional, intent(in) :: clip_method
     real(real12), allocatable, dimension(:) :: gradients
   
     gradients = [ reshape( &
@@ -175,7 +178,37 @@ contains
          [ this%num_filters * this%num_channels * product(this%knl) ]), &
          sum(this%db,dim=2)/this%batch_size ]
   
+    if(present(clip_method)) call clip_method%clip(size(gradients),gradients)
+
   end function get_gradients_conv3d
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set gradients
+!!!#############################################################################
+  subroutine set_gradients_conv3d(this, gradients)
+   implicit none
+   class(conv3d_layer_type), intent(inout) :: this
+   real(real12), dimension(..), intent(in) :: gradients
+ 
+   integer :: s
+
+   select rank(gradients)
+   rank(0)
+      this%dw = gradients
+      this%db = gradients
+   rank(1)
+      do s=1,this%batch_size
+         this%dw(:,:,:,:,:,s) = reshape(gradients(:&
+              this%num_filters * this%num_channels * product(this%knl)), &
+               shape(this%dw(:,:,:,:,:,s)))
+         this%db(:,s) = gradients(&
+              this%num_filters * this%num_channels * product(this%knl)+1:)
+      end do
+   end select
+ 
+ end subroutine set_gradients_conv3d
 !!!#############################################################################
 
 
@@ -1007,7 +1040,7 @@ contains
     db = sum(this%db,dim=2)/this%batch_size
     
     !! apply gradient clipping
-    call method%clip(size(dw),dw,db)
+    call method%clip_dict%clip(size(dw),dw,db)
 
     !! update the convolution layer weights using gradient descent
     call method%optimise(&

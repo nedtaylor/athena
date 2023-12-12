@@ -726,7 +726,7 @@ contains
     db = this%db/this%batch_size
        
     !! apply gradient clipping
-    call method%clip(size(dg),dg,db)
+    call method%clip_dict%clip(size(dg),dg,db)
 
     !! update the convolution layer weights using gradient descent
     call method%optimise(&

@@ -16,6 +16,10 @@ module optimiser
      real(real12) :: min  =-huge(1._real12)
      real(real12) :: max  = huge(1._real12)
      real(real12) :: norm = huge(1._real12)
+   contains
+     procedure, pass(this) :: read_clip
+     procedure, pass(this) :: set_clip
+     procedure, pass(this) :: clip => clip_gradients
   end type clip_type
 
 !!!------------------------------------------------------------------------
@@ -57,9 +61,6 @@ module optimiser
      type(clip_type) :: clip_dict
    contains
      procedure, pass(this) :: optimise
-     procedure, pass(this) :: read_clip
-     procedure, pass(this) :: set_clip
-     procedure, pass(this) :: clip => clip_gradients
      !procedure, private, pass(this) :: adam
   end type optimiser_type
 
@@ -78,26 +79,26 @@ contains
 !!!#############################################################################
   subroutine read_clip(this, min_str, max_str, norm_str)
     implicit none
-    class(optimiser_type), intent(inout) :: this
+    class(clip_type), intent(inout) :: this
     character(*), intent(in) :: min_str, max_str, norm_str
 
     if(trim(min_str).ne."")then
-       read(min_str,*) this%clip_dict%min
+       read(min_str,*) this%min
     else
-       this%clip_dict%min = -huge(1._real12)
+       this%min = -huge(1._real12)
     end if
     if(trim(max_str).ne."")then
-       read(max_str,*) this%clip_dict%max
+       read(max_str,*) this%max
     else
-       this%clip_dict%max = huge(1._real12)
+       this%max = huge(1._real12)
     end if
 
     if(trim(min_str).ne."".or.trim(max_str).ne."")then
-       this%clip_dict%l_min_max = .true.
+       this%l_min_max = .true.
     end if
     if(trim(norm_str).ne."")then
-       read(norm_str,*) this%clip_dict%norm
-       this%clip_dict%l_norm = .true.
+       read(norm_str,*) this%norm
+       this%l_norm = .true.
     end if
 
   end subroutine read_clip
@@ -105,11 +106,11 @@ contains
 
 
 !!!#############################################################################
-!!! gradient norm clipping
+!!! set clip dictionary
 !!!#############################################################################
   subroutine set_clip(this, clip_dict, clip_min, clip_max, clip_norm)
     implicit none
-    class(optimiser_type), intent(inout) :: this
+    class(clip_type), intent(inout) :: this
     type(clip_type), optional, intent(in) :: clip_dict
     real(real12), optional, intent(in) :: clip_min, clip_max, clip_norm
 
@@ -118,35 +119,40 @@ contains
     !! set up clipping limits
     !!--------------------------------------------------------------------------
     if(present(clip_dict))then
-       this%clip_dict = clip_dict
+       this%l_min_max = clip_dict%l_min_max
+       this%l_norm = clip_dict%l_norm
+       this%min = clip_dict%min
+       this%max = clip_dict%max
+       this%norm = clip_dict%norm
        if(present(clip_min).or.present(clip_max).or.present(clip_norm))then
-          write(*,*) "Multiple clip options provided to full layer"
-          write(*,*) "Ignoring all bar clip_dict"
+          write(*,*) "Multiple clip options provided"
+          write(*,*) "Ignoring all except clip_dict"
        end if
     else
        if(present(clip_min))then
-          this%clip_dict%l_min_max = .true.
-          this%clip_dict%min = clip_min
+          this%l_min_max = .true.
+          this%min = clip_min
        end if
        if(present(clip_max))then
-          this%clip_dict%l_min_max = .true.
-          this%clip_dict%max = clip_max
+          this%l_min_max = .true.
+          this%max = clip_max
        end if
        if(present(clip_norm))then
-          this%clip_dict%l_norm = .true.
-          this%clip_dict%norm = clip_norm
+          this%l_norm = .true.
+          this%norm = clip_norm
        end if
     end if
 
   end subroutine set_clip
 !!!#############################################################################
 
+
 !!!#############################################################################
 !!! gradient norm clipping
 !!!#############################################################################
   pure subroutine clip_gradients(this,length,gradient,bias)
     implicit none
-    class(optimiser_type), intent(in) :: this
+    class(clip_type), intent(in) :: this
     integer, intent(in) :: length
     real(real12), dimension(length), intent(inout) :: gradient
     real(real12), dimension(:), optional, intent(inout) :: bias
@@ -161,15 +167,15 @@ contains
     end if
 
     !! clip values to within limits of (min,max)
-    if(this%clip_dict%l_min_max)then
-       gradient = max(this%clip_dict%min,min(this%clip_dict%max,gradient))
-       t_bias   = max(this%clip_dict%min,min(this%clip_dict%max,t_bias))
+    if(this%l_min_max)then
+       gradient = max(this%min,min(this%max,gradient))
+       t_bias   = max(this%min,min(this%max,t_bias))
     end if
 
     !! clip values to a maximum L2-norm
-    if(this%clip_dict%l_norm)then
+    if(this%l_norm)then
        scale = min(1._real12, &
-            this%clip_dict%norm/sqrt(sum(gradient**2._real12) + &
+            this%norm/sqrt(sum(gradient**2._real12) + &
             sum(t_bias)**2._real12))
        if(scale.lt.1._real12)then
           gradient = gradient * scale

@@ -25,6 +25,7 @@ module full_layer
      procedure, pass(this) :: get_params => get_params_full
      procedure, pass(this) :: set_params => set_params_full
      procedure, pass(this) :: get_gradients => get_gradients_full
+     procedure, pass(this) :: set_gradients => set_gradients_full
 
      procedure, pass(this) :: print => print_full
      procedure, pass(this) :: set_shape => set_shape_full
@@ -169,15 +170,39 @@ contains
 !!!#############################################################################
 !!! get number of parameters
 !!!#############################################################################
-  pure function get_gradients_full(this) result(gradients)
+  pure function get_gradients_full(this, clip_method) result(gradients)
+    use optimiser, only: clip_type
     implicit none
     class(full_layer_type), intent(in) :: this
+    type(clip_type), optional, intent(in) :: clip_method
     real(real12), allocatable, dimension(:) :: gradients
   
     gradients = reshape(sum(this%dw,dim=3)/this%batch_size, &
          [ (this%num_inputs+1) * this%num_outputs ])
+
+    if(present(clip_method)) call clip_method%clip(size(gradients),gradients)
   
   end function get_gradients_full
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set gradients
+!!!#############################################################################
+  subroutine set_gradients_full(this, gradients)
+    implicit none
+    class(full_layer_type), intent(inout) :: this
+    real(real12), dimension(..), intent(in) :: gradients
+  
+    select rank(gradients)
+    rank(0)
+       this%dw = gradients
+    rank(1)
+       this%dw = spread(reshape(gradients, shape(this%dw(:,:,1))), 2, &
+            this%batch_size)
+    end select
+  
+  end subroutine set_gradients_full
 !!!#############################################################################
 
 
@@ -717,7 +742,7 @@ contains
     dw = sum(this%dw,dim=3)/this%batch_size
 
     !! apply gradient clipping
-    call method%clip(size(dw),dw)
+    call method%clip_dict%clip(size(dw),dw)
 
     !! update the layer weights and bias using gradient descent
     call method%optimise(&

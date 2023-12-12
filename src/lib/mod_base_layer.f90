@@ -5,7 +5,7 @@
 !!!#############################################################################
 module base_layer
   use constants, only: real12
-  use optimiser, only: optimiser_type
+  use optimiser, only: optimiser_type, clip_type
   use custom_types, only: activation_type
   implicit none
 
@@ -133,6 +133,7 @@ module base_layer
      procedure(get_params), deferred, pass(this) :: get_params
      procedure(set_params), deferred, pass(this) :: set_params
      procedure(get_gradients), deferred, pass(this) :: get_gradients
+     procedure(set_gradients), deferred, pass(this) :: set_gradients
   end type learnable_layer_type
 
   abstract interface
@@ -168,13 +169,20 @@ module base_layer
        import :: learnable_layer_type, real12
        class(learnable_layer_type), intent(inout) :: this
        real(real12), dimension(:), intent(in) :: params
-    end subroutine set_params
+     end subroutine set_params
 
-    pure function get_gradients(this) result(gradients)
-      import :: learnable_layer_type, real12
-      class(learnable_layer_type), intent(in) :: this
-      real(real12), allocatable, dimension(:) :: gradients
-    end function get_gradients
+     pure function get_gradients(this, clip_method) result(gradients)
+       import :: learnable_layer_type, real12, clip_type
+       class(learnable_layer_type), intent(in) :: this
+       type(clip_type), optional, intent(in) :: clip_method
+       real(real12), allocatable, dimension(:) :: gradients
+     end function get_gradients
+
+     subroutine set_gradients(this, gradients)
+       import :: learnable_layer_type, real12
+       class(learnable_layer_type), intent(inout) :: this
+       real(real12), dimension(..), intent(in) :: gradients
+     end subroutine set_gradients
   end interface
 
   !!!-----------------------------------------------------------------------------
@@ -229,6 +237,7 @@ module base_layer
      procedure, pass(this) :: get_params => get_params_batch
      procedure, pass(this) :: set_params => set_params_batch
      procedure, pass(this) :: get_gradients => get_gradients_batch
+     procedure, pass(this) :: set_gradients => set_gradients_batch
   end type batch_layer_type
   
 
@@ -354,14 +363,39 @@ contains
 !!!#############################################################################
 !!! get gradients of layer
 !!!#############################################################################
-  pure function get_gradients_batch(this) result(gradients)
+  pure function get_gradients_batch(this, clip_method) result(gradients)
+    use optimiser, only: clip_type
     implicit none
     class(batch_layer_type), intent(in) :: this
+    type(clip_type), optional, intent(in) :: clip_method
     real(real12), allocatable, dimension(:) :: gradients
   
     gradients = [this%dg/this%batch_size, this%db/this%batch_size]
   
+    if(present(clip_method)) call clip_method%clip(size(gradients),gradients)
+
   end function get_gradients_batch
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set gradients of layer
+!!!#############################################################################
+  subroutine set_gradients_batch(this, gradients)
+    implicit none
+    class(batch_layer_type), intent(inout) :: this
+    real(real12), dimension(..), intent(in) :: gradients
+  
+    select rank(gradients)
+    rank(0)
+       this%dg = gradients
+       this%db = gradients
+    rank(1)
+        this%dg = gradients(:this%batch_size)
+        this%db = gradients(this%batch_size+1:)
+    end select
+  
+  end subroutine set_gradients_batch
 !!!#############################################################################
 
 end module base_layer
