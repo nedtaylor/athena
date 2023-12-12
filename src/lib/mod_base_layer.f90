@@ -5,7 +5,7 @@
 !!!#############################################################################
 module base_layer
   use constants, only: real12
-  use optimiser, only: optimiser_type, clip_type
+  use clipper, only: clip_type
   use custom_types, only: activation_type
   implicit none
 
@@ -127,7 +127,6 @@ module base_layer
      character(len=14) :: kernel_initialiser='', bias_initialiser=''
      class(activation_type), allocatable :: transfer
    contains
-     procedure(update), deferred, pass(this) :: update
      procedure(layer_reduction), deferred, pass(this) :: reduce
      procedure(layer_merge), deferred, pass(this) :: merge
      procedure(get_params), deferred, pass(this) :: get_params
@@ -135,14 +134,6 @@ module base_layer
      procedure(get_gradients), deferred, pass(this) :: get_gradients
      procedure(set_gradients), deferred, pass(this) :: set_gradients
   end type learnable_layer_type
-
-  abstract interface
-     pure subroutine update(this, method)
-       import :: learnable_layer_type, optimiser_type
-       class(learnable_layer_type), intent(inout) :: this
-       type(optimiser_type), intent(in) :: method
-     end subroutine update
-  end interface
 
   abstract interface
      subroutine layer_reduction(this, rhs)
@@ -364,7 +355,7 @@ contains
 !!! get gradients of layer
 !!!#############################################################################
   pure function get_gradients_batch(this, clip_method) result(gradients)
-    use optimiser, only: clip_type
+    use clipper, only: clip_type
     implicit none
     class(batch_layer_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method

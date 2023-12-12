@@ -34,7 +34,6 @@ module full_layer
      
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
-     procedure, pass(this) :: update
      procedure, private, pass(this) :: forward_2d
      procedure, private, pass(this) :: backward_2d
 
@@ -171,7 +170,7 @@ contains
 !!! get number of parameters
 !!!#############################################################################
   pure function get_gradients_full(this, clip_method) result(gradients)
-    use optimiser, only: clip_type
+    use clipper, only: clip_type
     implicit none
     class(full_layer_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
@@ -723,38 +722,6 @@ contains
     this%dw(this%num_inputs+1,:,:) = this%dw(this%num_inputs+1,:,:) + delta(:,:)
 
   end subroutine backward_2d
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! update the weights based on how much error the node is responsible for
-!!!#############################################################################
-  pure subroutine update(this, method)
-    use optimiser, only: optimiser_type
-    implicit none
-    class(full_layer_type), intent(inout) :: this
-    type(optimiser_type), intent(in) :: method
-    
-    real(real12), allocatable, dimension(:,:) :: dw
-
-
-    !! normalise by number of samples
-    dw = sum(this%dw,dim=3)/this%batch_size
-
-    !! apply gradient clipping
-    call method%clip_dict%clip(size(dw),dw)
-
-    !! update the layer weights and bias using gradient descent
-    call method%optimise(&
-         this%weight, &
-         this%weight_incr, &
-         dw)
-
-    !! reset gradients
-    this%di = 0._real12
-    this%dw = 0._real12
-
-  end subroutine update
 !!!#############################################################################
 
 end module full_layer

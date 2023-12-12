@@ -20,7 +20,6 @@ module batchnorm3d_layer
    
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
-     procedure, pass(this) :: update
      procedure, private, pass(this) :: forward_5d
      procedure, private, pass(this) :: backward_5d
 
@@ -706,44 +705,6 @@ contains
     end do
 
   end subroutine backward_5d
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! update the gamma and beta
-!!!#############################################################################
-  pure subroutine update(this, method)
-    use optimiser, only: optimiser_type
-    implicit none
-    class(batchnorm3d_layer_type), intent(inout) :: this
-    type(optimiser_type), intent(in) :: method
-
-    real(real12), allocatable, dimension(:) :: dg, db
-
-    
-    !! normalise by number of samples
-    dg = this%dg/this%batch_size
-    db = this%db/this%batch_size
-       
-    !! apply gradient clipping
-    call method%clip_dict%clip(size(dg),dg,db)
-
-    !! update the convolution layer weights using gradient descent
-    call method%optimise(&
-         this%gamma,&
-         this%gamma_incr, &
-         dg)
-    !! update the convolution layer bias using gradient descent
-    call method%optimise(&
-         this%beta,&
-         this%beta_incr, &
-         db)
-
-    !! reset gradients
-    this%dg = 0._real12
-    this%db = 0._real12
-
-  end subroutine update
 !!!#############################################################################
 
 end module batchnorm3d_layer

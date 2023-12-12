@@ -917,15 +917,6 @@ end function get_gradients
     call this%optimiser%minimise(params, this%get_gradients())
     call this%set_params(params)
     call this%reset_gradients()
-   !  do i=2, this%num_layers,1
-   !     select type(current => this%model(i)%layer)
-   !     class is(learnable_layer_type)
-   !       !  call current%update(this%optimiser)
-   !        call current%set_gradients(0._real12)
-   !     class is(drop_layer_type)
-   !        call current%generate_mask()
-   !     end select
-   !  end do
 
     !! Increment optimiser iteration counter
     !!-------------------------------------------------------------------

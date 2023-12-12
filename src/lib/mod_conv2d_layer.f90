@@ -28,7 +28,6 @@ module conv2d_layer
 
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
-     procedure, pass(this) :: update
      procedure, private, pass(this) :: forward_4d
      procedure, private, pass(this) :: backward_4d
 
@@ -167,7 +166,7 @@ contains
 !!! sum over batch dimension and divide by batch size 
 !!!#############################################################################
   pure function get_gradients_conv2d(this, clip_method) result(gradients)
-    use optimiser, only: clip_type
+    use clipper, only: clip_type
     implicit none
     class(conv2d_layer_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
@@ -994,47 +993,6 @@ contains
 
   end subroutine backward_4d
 !!!#############################################################################
-
-
-!!!#############################################################################
-!!! update the weights based on how much error the node is responsible for
-!!!#############################################################################
-  pure subroutine update(this, method)
-    use optimiser, only: optimiser_type
-    implicit none
-    class(conv2d_layer_type), intent(inout) :: this
-    type(optimiser_type), intent(in) :: method
-
-    real(real12), allocatable, dimension(:) :: db
-    real(real12), allocatable, dimension(:,:,:,:) :: dw
-
-    
-    !! normalise by number of samples
-    dw = sum(this%dw,dim=5)/this%batch_size
-    db = sum(this%db,dim=2)/this%batch_size
-       
-    !! apply gradient clipping
-    call method%clip_dict%clip(size(dw),dw,db)
-
-    !! update the convolution layer weights using gradient descent
-    call method%optimise(&
-         this%weight,&
-         this%weight_incr, &
-         dw)
-    !! update the convolution layer bias using gradient descent
-    call method%optimise(&
-         this%bias,&
-         this%bias_incr, &
-         db)
-
-    !! reset gradients
-    this%di = 0._real12
-    this%dw = 0._real12
-    this%db = 0._real12
-
-  end subroutine update
-!!!#############################################################################
-
 
 end module conv2d_layer
 !!!#############################################################################
