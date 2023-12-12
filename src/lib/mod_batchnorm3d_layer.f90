@@ -299,8 +299,6 @@ contains
     allocate(this%variance, source=this%mean)
     allocate(this%gamma, source=this%mean)
     allocate(this%beta, source=this%mean)
-    allocate(this%gamma_incr, source=this%mean)
-    allocate(this%beta_incr, source=this%mean)
     allocate(this%dg, source=this%mean)
     allocate(this%db, source=this%mean)
 

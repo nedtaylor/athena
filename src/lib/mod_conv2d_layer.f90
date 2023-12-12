@@ -11,8 +11,7 @@ module conv2d_layer
   
   
   type, extends(conv_layer_type) :: conv2d_layer_type
-     real(real12), allocatable, dimension(:) :: bias_incr
-     real(real12), allocatable, dimension(:,:,:,:) :: weight, weight_incr
+     real(real12), allocatable, dimension(:,:,:,:) :: weight
      real(real12), allocatable, dimension(:,:,:,:,:) :: dw ! weight gradient
      real(real12), allocatable, dimension(:,:,:,:) :: output, z
      real(real12), allocatable, dimension(:,:,:,:) :: di ! input gradient
@@ -467,13 +466,6 @@ contains
          -this%hlf(1):end_idx(1), &
          -this%hlf(2):end_idx(2), &
          this%num_channels,this%num_filters), source=0._real12)
-
-
-    !!--------------------------------------------------------------------------
-    !! initialise weights and biases steps (velocities)
-    !!--------------------------------------------------------------------------
-    allocate(this%bias_incr,   source=this%bias)
-    allocate(this%weight_incr, source=this%weight)
 
 
     !!--------------------------------------------------------------------------

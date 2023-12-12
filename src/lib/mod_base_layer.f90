@@ -220,7 +220,6 @@ module base_layer
      character(len=14) :: moving_mean_initialiser='', &
           moving_variance_initialiser=''
      real(real12), allocatable, dimension(:) :: mean, variance !! not learnable
-     real(real12), allocatable, dimension(:) :: gamma_incr, beta_incr !! not learnable
      real(real12), allocatable, dimension(:) :: gamma, beta !! learnable
      real(real12), allocatable, dimension(:) :: dg, db !! learnable
    contains

@@ -16,7 +16,7 @@ module full_layer
   type, extends(learnable_layer_type) :: full_layer_type
      integer :: num_inputs, num_addit_inputs = 0
      integer :: num_outputs
-     real(real12), allocatable, dimension(:,:) :: weight, weight_incr
+     real(real12), allocatable, dimension(:,:) :: weight
      real(real12), allocatable, dimension(:,:,:) :: dw ! weight gradient
      real(real12), allocatable, dimension(:,:) :: output, z !output and activation
      real(real12), allocatable, dimension(:,:) :: di ! input gradient (i.e. delta)
@@ -383,7 +383,6 @@ contains
     !! allocate weight, weight steps (velocities), output, and activation
     !!--------------------------------------------------------------------------
     allocate(this%weight(this%num_inputs+1,this%num_outputs), source=0._real12)
-    allocate(this%weight_incr, source=this%weight)
 
 
     !!--------------------------------------------------------------------------
