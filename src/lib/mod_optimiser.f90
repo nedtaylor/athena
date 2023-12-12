@@ -338,48 +338,48 @@ contains
 !!! set up optimiser
 !!!#############################################################################
   module function adam_optimiser_setup( &
-       learning_rate, &
-       beta1, beta2, epsilon, &
-       num_params, &
-       regulariser, clip_dict) result(optimiser)
-     implicit none
-     real(real12), optional, intent(in) :: learning_rate
-     real(real12), optional, intent(in) :: beta1, beta2, epsilon
-     integer, optional, intent(in) :: num_params
-     class(base_regulariser_type), optional, intent(in) :: regulariser
-     type(clip_type), optional, intent(in) :: clip_dict  
-    
-     type(adam_optimiser_type) :: optimiser
-     
-     integer :: num_params_
-     
-     
-     !! apply regularisation
-     if(present(regulariser))then
-        optimiser%regularisation = .true.
-        if(allocated(optimiser%regulariser)) deallocate(optimiser%regulariser)
-        allocate(optimiser%regulariser, source = regulariser)
-     end if
-     
-     !! apply clipping
-     if(present(clip_dict)) optimiser%clip_dict = clip_dict
+      learning_rate, &
+      beta1, beta2, epsilon, &
+      num_params, &
+      regulariser, clip_dict) result(optimiser)
+    implicit none
+    real(real12), optional, intent(in) :: learning_rate
+    real(real12), optional, intent(in) :: beta1, beta2, epsilon
+    integer, optional, intent(in) :: num_params
+    class(base_regulariser_type), optional, intent(in) :: regulariser
+    type(clip_type), optional, intent(in) :: clip_dict  
 
-     !! initialise general optimiser parameters
-     if(present(learning_rate)) optimiser%learning_rate = learning_rate
+    type(adam_optimiser_type) :: optimiser
 
-     !! initialise adam parameters
-     if(present(beta1)) optimiser%beta1 = beta1
-     if(present(beta2)) optimiser%beta2 = beta2
-     if(present(epsilon)) optimiser%epsilon = epsilon
-     
-     !! initialise gradients
-     if(present(num_params)) then
-        num_params_ = num_params
-     else
-        num_params_ = 1
-     end if
-     call optimiser%init_gradients(num_params_)
-  
+    integer :: num_params_
+
+
+    !! apply regularisation
+    if(present(regulariser))then
+       optimiser%regularisation = .true.
+       if(allocated(optimiser%regulariser)) deallocate(optimiser%regulariser)
+       allocate(optimiser%regulariser, source = regulariser)
+    end if
+
+    !! apply clipping
+    if(present(clip_dict)) optimiser%clip_dict = clip_dict
+
+    !! initialise general optimiser parameters
+    if(present(learning_rate)) optimiser%learning_rate = learning_rate
+
+    !! initialise adam parameters
+    if(present(beta1)) optimiser%beta1 = beta1
+    if(present(beta2)) optimiser%beta2 = beta2
+    if(present(epsilon)) optimiser%epsilon = epsilon
+
+    !! initialise gradients
+    if(present(num_params)) then
+       num_params_ = num_params
+    else
+       num_params_ = 1
+    end if
+    call optimiser%init_gradients(num_params_)
+
   end function adam_optimiser_setup
 !!!#############################################################################
 
