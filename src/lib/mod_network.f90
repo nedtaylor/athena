@@ -11,7 +11,7 @@ module network
   use misc_ml, only: shuffle
 
   use metrics, only: metric_dict_type
-  use optimiser, only: optimiser_type
+  use optimiser, only: base_optimiser_type
   use loss, only: &
        comp_loss_func => compute_loss_function, &
        comp_loss_deriv => compute_loss_derivative
@@ -65,7 +65,7 @@ module network
      integer :: batch_size = 0
      integer :: num_layers
      integer :: num_outputs
-     type(optimiser_type) :: optimiser
+     class(base_optimiser_type), allocatable :: optimiser
      type(metric_dict_type), dimension(2) :: metrics
      type(container_layer_type), allocatable, dimension(:) :: model
      procedure(comp_loss_func), nopass, pointer :: get_loss => null()
@@ -297,7 +297,7 @@ contains
          compute_loss_nll
     implicit none
     class(network_type), intent(inout) :: this
-    type(optimiser_type), intent(in) :: optimiser
+    class(base_optimiser_type), intent(in) :: optimiser
     character(*), intent(in) :: loss_method
     class(*), dimension(..), intent(in) :: metrics
     integer, optional, intent(in) :: batch_size
