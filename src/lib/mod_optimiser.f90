@@ -61,6 +61,7 @@ module optimiser
      type(clip_type) :: clip_dict
    contains
      procedure, pass(this) :: optimise
+     procedure, pass(this) :: minimise => optimise
      !procedure, private, pass(this) :: adam
   end type optimiser_type
 
