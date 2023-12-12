@@ -43,6 +43,7 @@ set(LIBS
     mod_misc.f90
     mod_random.f90
     mod_clipper.f90
+    mod_regulariser.f90
     mod_optimiser.f90
     mod_types.f90
     mod_metrics.f90
