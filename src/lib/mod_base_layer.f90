@@ -363,7 +363,7 @@ contains
   
     gradients = [this%dg/this%batch_size, this%db/this%batch_size]
   
-    if(present(clip_method)) call clip_method%clip(size(gradients),gradients)
+    if(present(clip_method)) call clip_method%apply(size(gradients),gradients)
 
   end function get_gradients_batch
 !!!#############################################################################

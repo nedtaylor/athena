@@ -179,7 +179,7 @@ contains
     gradients = reshape(sum(this%dw,dim=3)/this%batch_size, &
          [ (this%num_inputs+1) * this%num_outputs ])
 
-    if(present(clip_method)) call clip_method%clip(size(gradients),gradients)
+    if(present(clip_method)) call clip_method%apply(size(gradients),gradients)
   
   end function get_gradients_full
 !!!#############################################################################

@@ -13,9 +13,9 @@ module clipper
      real(real12) :: max  = huge(1._real12)
      real(real12) :: norm = huge(1._real12)
    contains
-     procedure, pass(this) :: read_clip
-     procedure, pass(this) :: set_clip
-     procedure, pass(this) :: clip => clip_gradients
+     procedure, pass(this) :: read => read_clip
+     procedure, pass(this) :: set => set_clip
+     procedure, pass(this) :: apply => apply_clip
   end type clip_type
 
 
@@ -102,7 +102,7 @@ contains
 !!!#############################################################################
 !!! gradient norm clipping
 !!!#############################################################################
-  pure subroutine clip_gradients(this, length, gradient, bias)
+  pure subroutine apply_clip(this, length, gradient, bias)
     implicit none
     class(clip_type), intent(in) :: this
     integer, intent(in) :: length
@@ -137,7 +137,7 @@ contains
 
     if(present(bias)) bias = t_bias
 
-  end subroutine clip_gradients
+  end subroutine apply_clip
 !!!#############################################################################
 
 end module clipper
