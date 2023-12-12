@@ -33,8 +33,13 @@ module regulariser
      procedure, pass(this) :: regularise => regularise_l1
   end type l1_regulariser_type
 
+  !! attempts to prevent overfitting
   type, extends(base_regulariser_type) :: l2_regulariser_type
+     !! l2           = L2 regularisation
+     !! l2_decoupled = decoupled weight decay regularisation (AdamW)
      real(real12) :: l2 = 0.01_real12
+     real(real12) :: l2_decoupled = 0.01_real12
+     logical :: decoupled = .true.
    contains
      procedure, pass(this) :: regularise => regularise_l2
   end type l2_regulariser_type

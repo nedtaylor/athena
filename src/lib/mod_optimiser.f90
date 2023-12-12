@@ -6,7 +6,9 @@
 module optimiser
   use constants, only: real12
   use clipper, only: clip_type
-  use regulariser, only: base_regulariser_type
+  use regulariser, only: &
+       base_regulariser_type, &
+       l2_regulariser_type
   implicit none
 
 !!!-----------------------------------------------------------------------------
@@ -53,8 +55,6 @@ module optimiser
      real(real12) :: beta1 = 0.9_real12
      real(real12) :: beta2 = 0.999_real12
      real(real12) :: epsilon = 1.E-8_real12
-     real(real12) :: weight_decay = 0._real12  ! L2 regularisation on Adam
-     real(real12) :: weight_decay_decoupled = 0._real12  ! decoupled weight decay regularisation (AdamW)
      real(real12), allocatable, dimension(:) :: m
      real(real12), allocatable, dimension(:) :: v
    contains
@@ -220,11 +220,27 @@ contains
     
     !! update parameters
     associate( &
-      m_hat => this%m / (1._real12 - this%beta1**this%iter), &
-      v_hat => this%v / (1._real12 - this%beta2**this%iter) )
-       param = param + &
-            this%learning_rate * ( m_hat / (sqrt(v_hat) + this%epsilon) ) + &
-            this%weight_decay_decoupled * param
+         m_hat => this%m / (1._real12 - this%beta1**this%iter), &
+         v_hat => this%v / (1._real12 - this%beta2**this%iter) )
+       select type(regulariser => this%regulariser)
+       type is (l2_regulariser_type)
+          select case(regulariser%decoupled)
+          case(.true.)
+             param = param - &
+                  this%learning_rate * &
+                  ( m_hat / (sqrt(v_hat) + this%epsilon) ) - &
+                  regulariser%l2 * param
+          case(.false.)
+             param = param + &
+                   this%learning_rate * &
+                   ( ( m_hat + regulariser%l2 * param ) / &
+                   (sqrt(v_hat) + this%epsilon) )
+          end select
+       class default
+          param = param + &
+               this%learning_rate * ( ( m_hat + param ) / &
+               (sqrt(v_hat) + this%epsilon) )
+       end select
     end associate
     
   end subroutine minimise_adam
