@@ -18,6 +18,15 @@ module clipper
      procedure, pass(this) :: apply => apply_clip
   end type clip_type
 
+  interface clip_type
+     module function clip_setup( &
+          clip_min, clip_max, clip_norm) result(clip)
+        real(real12), optional, intent(in) :: clip_min, clip_max, clip_norm
+        type(clip_type) :: clip
+     end function clip_setup
+  end interface clip_type
+
+
 
   private
 
@@ -25,6 +34,35 @@ module clipper
 
 
 contains
+
+!!!#############################################################################
+!!! set clip dictionary
+!!!#############################################################################
+  module function clip_setup( &
+       clip_min, clip_max, clip_norm) result(clip)
+    implicit none
+    real(real12), optional, intent(in) :: clip_min, clip_max, clip_norm
+    type(clip_type) :: clip
+
+
+    !!--------------------------------------------------------------------------
+    !! set up clipping limits
+    !!--------------------------------------------------------------------------
+    if(present(clip_min))then
+       clip%l_min_max = .true.
+       clip%min = clip_min
+    end if
+    if(present(clip_max))then
+       clip%l_min_max = .true.
+       clip%max = clip_max
+    end if
+    if(present(clip_norm))then
+       clip%l_norm = .true.
+       clip%norm = clip_norm
+    end if
+
+   end function clip_setup
+!!!#############################################################################
 
 !!!#############################################################################
 !!! get clipping information
