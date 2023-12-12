@@ -37,7 +37,7 @@ module activation
 contains
 
 !!!#############################################################################
-!!! 
+!!! function to setup the activation function
 !!!#############################################################################
   pure function activation_setup(name, scale) result(transfer)
     implicit none
