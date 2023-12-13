@@ -74,8 +74,11 @@ module network
      procedure, pass(this) :: print
      procedure, pass(this) :: read
      procedure, pass(this) :: add
+     procedure, pass(this) :: reset
      procedure, pass(this) :: compile
      procedure, pass(this) :: set_batch_size
+     procedure, pass(this) :: set_metrics
+     procedure, pass(this) :: set_loss
      procedure, pass(this) :: train
      procedure, pass(this) :: test
      procedure, pass(this) :: predict => predict_1d
@@ -91,6 +94,20 @@ module network
      procedure, pass(this) :: forward => forward_1d
      procedure, pass(this) :: backward => backward_1d
   end type network_type
+
+  interface network_type
+     module function network_setup( &
+          layers, &
+          optimiser, loss_method, metrics, batch_size) result(network)
+        type(container_layer_type), dimension(:), intent(in) :: layers
+        class(base_optimiser_type), optional, intent(in) :: optimiser
+        character(*), optional, intent(in) :: loss_method
+        class(*), dimension(..), optional, intent(in) :: metrics
+        integer, optional, intent(in) :: batch_size
+        type(network_type) :: network
+     end function network_setup
+  end interface network_type
+
 #ifdef _OPENMP
   !$omp declare reduction(network_reduction:network_type:network_reduction(omp_out, omp_in)) &
   !$omp& initializer(omp_priv = omp_orig)
@@ -289,39 +306,57 @@ contains
 !!!#############################################################################
 !!! set up network
 !!!#############################################################################
-  subroutine compile(this, optimiser, loss_method, metrics, batch_size, verbose)
+  module function network_setup( &
+       layers, optimiser, loss_method, metrics, batch_size) result(network)
+    implicit none
+    type(container_layer_type), dimension(:), intent(in) :: layers
+    class(base_optimiser_type), optional, intent(in) :: optimiser
+    character(*), optional, intent(in) :: loss_method
+    class(*), dimension(..), optional, intent(in) :: metrics
+    integer, optional, intent(in) :: batch_size
+
+    type(network_type) :: network
+
+    integer :: l
+
+
+!!!-----------------------------------------------------------------------------
+!!! handle optional arguments
+!!!-----------------------------------------------------------------------------
+    if(present(loss_method)) call network%set_loss(loss_method)
+    if(present(metrics)) call network%set_metrics(metrics)
+    if(present(batch_size)) network%batch_size = batch_size
+
+
+!!!-----------------------------------------------------------------------------
+!!! add layers to network
+!!!-----------------------------------------------------------------------------
+    do l = 1, size(layers)
+       call network%add(layers(l)%layer)
+    end do
+
+
+!!!-----------------------------------------------------------------------------
+!!! compile network if optimiser present
+!!!-----------------------------------------------------------------------------
+    if(present(optimiser)) call network%compile(optimiser)
+
+  end function network_setup
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set network metrics
+!!!#############################################################################
+  subroutine set_metrics(this, metrics)
     use misc, only: to_lower
-    use loss, only: &
-         compute_loss_bce, compute_loss_cce, &
-         compute_loss_mae, compute_loss_mse, &
-         compute_loss_nll
     implicit none
     class(network_type), intent(inout) :: this
-    class(base_optimiser_type), intent(in) :: optimiser
-    character(*), intent(in) :: loss_method
     class(*), dimension(..), intent(in) :: metrics
-    integer, optional, intent(in) :: batch_size
-    integer, optional, intent(in) :: verbose
-    
+
     integer :: i
-    integer :: t_verb, num_addit_inputs
-    character(len=:), allocatable :: t_loss_method
-    class(base_layer_type), allocatable :: t_input_layer, t_flatten_layer
 
 
-!!!-----------------------------------------------------------------------------
-!!! initialise optional arguments
-!!!-----------------------------------------------------------------------------
-    if(present(verbose))then
-       t_verb = verbose
-    else
-       t_verb = 0
-    end if
-
-    
-!!!-----------------------------------------------------------------------------
-!!! initialise metrics
-!!!-----------------------------------------------------------------------------
     this%metrics%active = .false.
     this%metrics(1)%key = "loss"
     this%metrics(2)%key = "accuracy"
@@ -357,45 +392,139 @@ contains
        stop "ERROR: provided metrics rank in compile invalid"
     end select
 
+  end subroutine set_metrics
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set network loss
+!!!#############################################################################
+  subroutine set_loss(this, loss_method, verbose)
+    use misc, only: to_lower
+    use loss, only: &
+         compute_loss_bce, compute_loss_cce, &
+         compute_loss_mae, compute_loss_mse, &
+         compute_loss_nll
+    implicit none
+    class(network_type), intent(inout) :: this
+    character(*), intent(in) :: loss_method
+    integer, optional, intent(in) :: verbose
+
+    integer :: verbose_
+    character(len=:), allocatable :: loss_method_
+
+
+    if(present(verbose))then
+       verbose_ = verbose
+    else
+       verbose_ = 0
+    end if
+
+!!!-----------------------------------------------------------------------------
+!!! handle analogous definitions
+!!!-----------------------------------------------------------------------------
+   loss_method_ = to_lower(loss_method)
+   select case(loss_method)
+   case("binary_crossentropy")
+      loss_method_ = "bce"
+   case("categorical_crossentropy")
+      loss_method_ = "cce"
+   case("mean_absolute_error")
+      loss_method_ = "mae"
+   case("mean_squared_error")
+      loss_method_ = "mse"
+   case("negative_loss_likelihood")
+      loss_method_ = "nll"
+   end select
+
+!!!-----------------------------------------------------------------------------
+!!! set loss method
+!!!-----------------------------------------------------------------------------
+   select case(loss_method_)
+   case("bce")
+      this%get_loss => compute_loss_bce
+      if(verbose_.gt.0) write(*,*) "Loss method: Categorical Cross Entropy"
+   case("cce")
+      this%get_loss => compute_loss_cce
+      if(verbose_.gt.0) write(*,*) "Loss method: Categorical Cross Entropy"
+   case("mae")
+      this%get_loss => compute_loss_mae
+      if(verbose_.gt.0) write(*,*) "Loss method: Mean Absolute Error"
+   case("mse")
+      this%get_loss => compute_loss_mse
+      if(verbose_.gt.0) write(*,*) "Loss method: Mean Squared Error"
+   case("nll")
+      this%get_loss => compute_loss_nll
+      if(verbose_.gt.0) write(*,*) "Loss method: Negative log likelihood"
+   case default
+      write(0,*) "Failed loss method: "//trim(loss_method_)
+      stop "ERROR: No loss method provided"
+   end select
+   this%get_loss_deriv => comp_loss_deriv
+
+  end subroutine set_loss
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! reset network
+!!!#############################################################################
+  subroutine reset(this)
+    implicit none
+    class(network_type), intent(inout) :: this
+
+    this%accuracy = 0._real12
+    this%loss = huge(1._real12)
+    this%batch_size = 0
+    this%num_layers = 0
+    this%num_outputs = 0
+    if(allocated(this%optimiser)) deallocate(this%optimiser)
+    call this%set_metrics(["loss"])
+    if(allocated(this%model)) deallocate(this%model)
+    this%get_loss => null()
+    this%get_loss_deriv => null()
+
+  end subroutine reset
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! compile network
+!!!#############################################################################
+  subroutine compile(this, optimiser, loss_method, metrics, batch_size, verbose)
+    implicit none
+    class(network_type), intent(inout) :: this
+    class(base_optimiser_type), intent(in) :: optimiser
+    character(*), optional, intent(in) :: loss_method
+    class(*), dimension(..), optional, intent(in) :: metrics
+    integer, optional, intent(in) :: batch_size
+    integer, optional, intent(in) :: verbose
+    
+    integer :: i
+    integer :: t_verb, num_addit_inputs
+    class(base_layer_type), allocatable :: t_input_layer, t_flatten_layer
+
+
+!!!-----------------------------------------------------------------------------
+!!! initialise optional arguments
+!!!-----------------------------------------------------------------------------
+    if(present(verbose))then
+       t_verb = verbose
+    else
+       t_verb = 0
+    end if
+
+    
+!!!-----------------------------------------------------------------------------
+!!! initialise metrics
+!!!-----------------------------------------------------------------------------
+    if(present(metrics)) call this%set_metrics(metrics)
+
 
 !!!-----------------------------------------------------------------------------
 !!! initialise loss method
 !!!-----------------------------------------------------------------------------
-    t_loss_method = to_lower(loss_method)
-    select case(loss_method)
-    case("binary_crossentropy")
-       t_loss_method = "bce"
-    case("categorical_crossentropy")
-       t_loss_method = "cce"
-    case("mean_absolute_error")
-       t_loss_method = "mae"
-    case("mean_squared_error")
-       t_loss_method = "mse"
-    case("negative_loss_likelihood")
-       t_loss_method = "nll"
-    end select
-
-    select case(t_loss_method)
-    case("bce")
-       this%get_loss => compute_loss_bce
-       if(t_verb.gt.0) write(*,*) "Loss method: Categorical Cross Entropy"
-    case("cce")
-       this%get_loss => compute_loss_cce
-       if(t_verb.gt.0) write(*,*) "Loss method: Categorical Cross Entropy"
-    case("mae")
-       this%get_loss => compute_loss_mae
-       if(t_verb.gt.0) write(*,*) "Loss method: Mean Absolute Error"
-    case("mse")
-       this%get_loss => compute_loss_mse
-       if(t_verb.gt.0) write(*,*) "Loss method: Mean Squared Error"
-    case("nll")
-       this%get_loss => compute_loss_nll
-       if(t_verb.gt.0) write(*,*) "Loss method: Negative log likelihood"
-    case default
-       write(0,*) "Failed loss method: "//trim(t_loss_method)
-       stop "ERROR: No loss method provided"
-    end select
-    this%get_loss_deriv => comp_loss_deriv
+    if(present(loss_method)) call this%set_loss(loss_method, t_verb)
 
 
 !!!-----------------------------------------------------------------------------
