@@ -76,6 +76,8 @@ contains
        this%output = reshape(input, shape=shape(this%output))
     rank(2)
        this%output = reshape(input, shape=shape(this%output))
+    rank(3)
+       this%output = reshape(input, shape=shape(this%output))
     rank(4)
        this%output = reshape(input, shape=shape(this%output))
     rank(5)
