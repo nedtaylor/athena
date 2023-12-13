@@ -789,7 +789,7 @@ end function get_gradients
   pure subroutine forward_1d(this, input, addit_input, layer)
     implicit none
     class(network_type), intent(inout) :: this
-    real(real12), dimension(:,:), intent(in) :: input
+    real(real12), dimension(..), intent(in) :: input
 
     real(real12), dimension(:,:), optional, intent(in) :: addit_input
     integer, optional, intent(in) :: layer
