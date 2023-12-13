@@ -20,5 +20,7 @@ OLD_CMakeLists.txt
 build/
 test/bin/
 test/obj/
+example/bin/
+example/obj/
 DPython_test/
 settings.json

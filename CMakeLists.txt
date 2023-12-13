@@ -34,11 +34,18 @@ set(CMAKE_Fortran_STANDARD 2018)
 # set language
 enable_language(Fortran)
 
+# enable testing
+enable_testing()
+
+# set options for building tests and examples
+option(BUILD_TESTS "Build the unit tests" ON)
+option(BUILD_EXAMPLES "Build the examples" ON)
+
 # Define the sources
 set(SRC_DIR src)
 set(LIB_DIR ${SRC_DIR}/lib)
 
-set(LIBS
+set(LIB_FILES
     mod_constants.f90
     mod_misc.f90
     mod_random.f90
@@ -91,20 +98,20 @@ set(LIBS
     mod_container_layer_sub.f90
     mod_network.f90
 )
-foreach(lib ${LIBS})
-    list(APPEND PREPENDED_LIBS ${LIB_DIR}/${lib})
+foreach(lib ${LIB_FILES})
+    list(APPEND PREPENDED_LIB_FILES ${LIB_DIR}/${lib})
 endforeach()
-message(STATUS "Modified LIBS: ${PREPENDED_LIBS}")
+message(STATUS "Modified LIB_FILES: ${PREPENDED_LIB_FILES}")
 
 if (CMAKE_BUILD_TYPE MATCHES "Parallel*")
-    set(SRCS athena_omp.f90)
+    set(SRC_FILES athena_omp.f90)
 else()
-    set(SRCS athena.f90)
+    set(SRC_FILES athena.f90)
 endif()
-foreach(src ${SRCS})
-    list(APPEND PREPENDED_SRCS ${SRC_DIR}/${src})
+foreach(src ${SRC_FILES})
+    list(APPEND PREPENDED_SRC_FILES ${SRC_DIR}/${src})
 endforeach()
-message(STATUS "Modified SRCS: ${PREPENDED_SRCS}")
+message(STATUS "Modified SRC_FILES: ${PREPENDED_SRC_FILES}")
 
 # initialise flags
 set(CPPFLAGS "")
@@ -166,12 +173,13 @@ set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${PPFLAGS}")
 
 
 # create the library
-add_library(${PROJECT_NAME} STATIC ${PREPENDED_LIBS} ${PREPENDED_SRCS})
+add_library(${PROJECT_NAME} STATIC ${PREPENDED_LIB_FILES} ${PREPENDED_SRC_FILES})
 set(MODULE_DIR ${CMAKE_BUILD_PREFIX}/modules)
 set_target_properties(${PROJECT_NAME} PROPERTIES Fortran_MODULE_DIRECTORY ${MODULE_DIR})
+target_link_libraries(${PROJECT_NAME} PUBLIC)
 
 # replace ".f90" with ".mod"
-string(REGEX REPLACE "\\.[^.]*$" ".mod" MODULE_FILES "${SRCS}")
+string(REGEX REPLACE "\\.[^.]*$" ".mod" MODULE_FILES "${SRC_FILES}")
 
 # installation
 install(FILES ${MODULE_DIR}/${MODULE_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
@@ -186,3 +194,7 @@ target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:${DEBUGFLAGS}>"
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel_Dev>:${MPFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel_Dev>:${DEVFLAGS}>")
 
+# include the build test directory
+if(BUILD_TESTS)
+    add_subdirectory(test)
+endif()

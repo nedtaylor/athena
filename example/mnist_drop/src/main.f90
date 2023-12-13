@@ -11,6 +11,7 @@ program mnist_test
   use athena
 #endif
   use constants, only: real12
+  use read_mnist, only: read_mnist_db
   use inputs
 
   implicit none
@@ -19,7 +20,6 @@ program mnist_test
 
   !! data loading and preoprocessing
   real(real12), allocatable, dimension(:,:,:,:) :: input_images, test_images
-  real(real12), allocatable, dimension(:,:) :: addit_input
   integer, allocatable, dimension(:) :: labels, test_labels
   integer, allocatable, dimension(:,:) :: input_labels
   character(1024) :: train_file, test_file
@@ -55,7 +55,7 @@ program mnist_test
 !!! read training dataset
 !!!-----------------------------------------------------------------------------
   train_file = trim(data_dir)//'/MNIST_train.txt'
-  call read_mnist(train_file,input_images, labels, &
+  call read_mnist_db(train_file,input_images, labels, &
        maxval(cv_kernel_size), image_size, padding_method)
   input_channels = size(input_images, 3)
   num_samples = size(input_images, 4)
@@ -65,7 +65,7 @@ program mnist_test
 !!! read testing dataset
 !!!-----------------------------------------------------------------------------
   test_file = trim(data_dir)//'/MNIST_test.txt'
-  call read_mnist(test_file,test_images, test_labels, &
+  call read_mnist_db(test_file,test_images, test_labels, &
        maxval(cv_kernel_size), itmp1, padding_method)
   num_samples_test = size(test_images, 4)
 
@@ -111,6 +111,8 @@ program mnist_test
            calc_input_gradients = .false., &
            activation_function = "relu" &
            ))
+     call network%add(dropblock2d_layer_type( &
+          rate = 0.25, block_size = 5))
      call network%add(maxpool2d_layer_type(&
            pool_size = 2, stride = 2))
      call network%add(full_layer_type( &
@@ -145,8 +147,6 @@ program mnist_test
      input_labels(labels(i),i) = 1
   end do
 
-  allocate(addit_input(6,num_samples), source = 1._real12)
-
   write(6,*) "Starting training..."
   call network%train(input_images, input_labels, num_epochs, batch_size, &
        plateau_threshold = plateau_threshold, &
@@ -177,137 +177,6 @@ program mnist_test
   write(*,*) "Testing finished"
   write(6,'("Overall accuracy=",F0.5)') network%accuracy
   write(6,'("Overall loss=",F0.5)')     network%loss
-
-  
-!!!#############################################################################
-!!!#############################################################################
-!!! * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *  !!!
-!!!#############################################################################
-!!!#############################################################################
-  
-contains
-
-!!!#############################################################################
-!!! read mnist dataset
-!!!#############################################################################
-  subroutine read_mnist(file,images,labels,kernel_size,image_size,padding_method)
-    use misc, only: icount
-    implicit none
-    integer :: i, j, k, Reason, unit
-    integer :: num_samples, num_pixels, t_kernel_size = 1
-    character(2048) :: buffer
-    character(:), allocatable :: t_padding_method
-    real(real12), allocatable, dimension(:,:,:,:) :: images_padded
-
-    integer, intent(out) :: image_size
-    integer, optional, intent(in) :: kernel_size
-    character(*), optional, intent(in) :: padding_method
-    character(1024), intent(in) :: file
-    real(real12), allocatable, dimension(:,:,:,:), intent(out) :: images
-    integer, allocatable, dimension(:), intent(out) :: labels
-
-
-!!!-----------------------------------------------------------------------------
-!!! initialise optional arguments
-!!!-----------------------------------------------------------------------------
-    if(present(padding_method))then
-       t_padding_method = padding_method
-    else
-       t_padding_method = "valid"
-    end if
-
-
-!!!-----------------------------------------------------------------------------
-!!! open file
-!!!-----------------------------------------------------------------------------
-    open(newunit=unit,file=file)
-
-
-!!!-----------------------------------------------------------------------------
-!!! count number of samples
-!!!-----------------------------------------------------------------------------
-    i = 0
-    num_pixels = 0
-    line_count: do
-       i = i + 1
-       read(unit,'(A)',iostat=Reason) buffer
-       if(Reason.ne.0)then
-          num_samples = i - 1
-          exit line_count
-       elseif(i.gt.90000)then
-          write(0,*) "Too many lines to read in file provided (over 90000)"
-          write(0,*) "Exiting..."
-          stop 0
-       elseif(i.eq.1)then
-          num_pixels = icount(buffer,",") - 1
-       end if
-    end do line_count
-    if(num_pixels.eq.0)then
-       stop "Could not determine number of pixels"
-    end if
-
-
-!!!-----------------------------------------------------------------------------
-!!! calculate size of image
-!!!-----------------------------------------------------------------------------
-    image_size = nint(sqrt(real(num_pixels,real12)))
-
-
-!!!-----------------------------------------------------------------------------
-!!! rewind file and allocate labels
-!!!-----------------------------------------------------------------------------
-    rewind(unit)
-    if(allocated(labels)) deallocate(labels)
-    allocate(labels(num_samples), source=0)
-
-
-!!!-----------------------------------------------------------------------------
-!!! allocate data set
-!!! ... if appropriate, add padding
-!!!-----------------------------------------------------------------------------
-    !! dim=1: image width in pixels
-    !! dim=2: image height in pixels
-    !! dim=3: image number of channels (1 due to black-white images)
-    !! dim=4: number of images
-    if(.not.present(kernel_size))then
-       stop "ERROR: kernel_size not provided to read_mnist for padding &
-            &method "//t_padding_method
-    else
-       t_kernel_size = kernel_size
-    end if
-    
-    if(allocated(images)) deallocate(images)
-    allocate(images(image_size, image_size, 1, num_samples))
-
-
-!!!-----------------------------------------------------------------------------
-!!! read in dataset
-!!!-----------------------------------------------------------------------------
-    do i=1,num_samples
-       read(unit,*) labels(i), ((images(j,k,1,i),k=1,image_size),j=1,image_size)
-    end do
-
-    close(unit)
-
-
-!!!-----------------------------------------------------------------------------
-!!! populate padding
-!!!-----------------------------------------------------------------------------
-    call pad_data(images, images_padded, &
-         t_kernel_size, t_padding_method, 4, 3)
-    images = images_padded
-    
-
-!!!-----------------------------------------------------------------------------
-!!! increase label values to match fortran indices
-!!!-----------------------------------------------------------------------------
-    images = images/255._real12
-    labels = labels + 1
-    write(6,*) "Data read"
-
-    return
-  end subroutine read_mnist
-!!!#############################################################################
 
 end program mnist_test
 !!!#############################################################################
