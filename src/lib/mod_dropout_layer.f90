@@ -21,6 +21,7 @@ module dropout_layer
      real(real12), allocatable, dimension(:,:) :: output
      real(real12), allocatable, dimension(:,:) :: di ! gradient of input (i.e. delta)
    contains
+     procedure, pass(this) :: get_output => get_output_dropout
      procedure, pass(this) :: init => init_dropout
      procedure, pass(this) :: set_batch_size => set_batch_size_dropout
      procedure, pass(this) :: print => print_dropout
@@ -51,6 +52,30 @@ module dropout_layer
 
 
 contains
+
+!!!#############################################################################
+!!! get layer outputs
+!!!#############################################################################
+  pure subroutine get_output_dropout(this, output)
+    implicit none
+    class(dropout_layer_type), intent(in) :: this
+    real(real12), allocatable, dimension(..), intent(out) :: output
+  
+    select rank(output)
+    rank(1)
+       output = reshape(this%output, [size(this%output)])
+    rank(2)
+       output = this%output
+    end select
+  
+  end subroutine get_output_dropout
+!!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
 
 !!!#############################################################################
 !!! forward propagation assumed rank handler

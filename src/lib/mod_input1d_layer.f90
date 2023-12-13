@@ -12,6 +12,7 @@ module input1d_layer
   type, extends(input_layer_type) :: input1d_layer_type
      real(real12), allocatable, dimension(:,:) :: output
    contains
+     procedure, pass(this) :: get_output => get_output_input1d
      procedure, pass(this) :: init => init_input1d
      procedure, pass(this) :: set_batch_size => set_batch_size_input1d
      procedure, pass(this) :: forward  => forward_rank
@@ -33,6 +34,30 @@ module input1d_layer
 
 
 contains
+
+!!!#############################################################################
+!!! get layer outputs
+!!!#############################################################################
+  pure subroutine get_output_input1d(this, output)
+    implicit none
+    class(input1d_layer_type), intent(in) :: this
+    real(real12), allocatable, dimension(..), intent(out) :: output
+  
+    select rank(output)
+    rank(1)
+       output = reshape(this%output, [size(this%output)])
+    rank(2)
+       output = this%output
+    end select
+  
+  end subroutine get_output_input1d
+!!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
 
 !!!#############################################################################
 !!! forward propagation assumed rank handler

@@ -12,6 +12,7 @@ module input4d_layer
   type, extends(input_layer_type) :: input4d_layer_type
      real(real12), allocatable, dimension(:,:,:,:,:) :: output
    contains
+     procedure, pass(this) :: get_output => get_output_input4d
      procedure, pass(this) :: init => init_input4d
      procedure, pass(this) :: set_batch_size => set_batch_size_input4d
      procedure, pass(this) :: forward  => forward_rank
@@ -33,6 +34,33 @@ module input4d_layer
 
 
 contains
+
+!!!#############################################################################
+!!! get layer outputs
+!!!#############################################################################
+  pure subroutine get_output_input4d(this, output)
+    implicit none
+    class(input4d_layer_type), intent(in) :: this
+    real(real12), allocatable, dimension(..), intent(out) :: output
+  
+    select rank(output)
+    rank(1)
+       output = reshape(this%output, [size(this%output)])
+    rank(2)
+       output = &
+            reshape(this%output, [product(this%output_shape),this%batch_size])
+    rank(5)
+       output = this%output
+    end select
+  
+  end subroutine get_output_input4d
+!!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
 
 !!!#############################################################################
 !!! forward propagation assumed rank handler
