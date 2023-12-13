@@ -63,8 +63,8 @@ module network
   type :: network_type
      real(real12) :: accuracy, loss
      integer :: batch_size = 0
-     integer :: num_layers
-     integer :: num_outputs
+     integer :: num_layers = 0
+     integer :: num_outputs = 0
      class(base_optimiser_type), allocatable :: optimiser
      type(metric_dict_type), dimension(2) :: metrics
      type(container_layer_type), allocatable, dimension(:) :: model
@@ -294,8 +294,10 @@ contains
     
     if(.not.allocated(this%model))then
        this%model = [container_layer_type(name=name)]
+       this%num_layers = 1
     else
        this%model = [this%model(1:), container_layer_type(name=name)]
+       this%num_layers = this%num_layers + 1
     end if
     allocate(this%model(size(this%model,dim=1))%layer, source=layer)
        
@@ -1091,6 +1093,7 @@ end function get_gradients
     real(real12), allocatable, dimension(:,:) :: y_true
 
     !! learning parameters
+    integer :: l, num_samples
     integer :: num_batches
     integer :: converged
     integer :: history_length
@@ -1167,9 +1170,39 @@ end function get_gradients
 
 
 !!!-----------------------------------------------------------------------------
+!!! get number of samples
+!!!-----------------------------------------------------------------------------
+  select rank(input)
+  rank(1)
+     write(*,*) "Cannot check number of samples in rank 1 input"
+  rank default
+     num_samples = size(input,rank(input))
+     if(size(output,2).ne.num_samples)then
+        write(0,*) "ERROR: number of samples in input and output do not match"
+        stop "Exiting..."
+     elseif(size(output,1).ne.this%num_outputs)then
+        write(0,*) "ERROR: number of outputs in output does not match network"
+        stop "Exiting..."
+     end if
+   end select
+
+
+!!!-----------------------------------------------------------------------------
 !!! set/reset batch size for training
 !!!-----------------------------------------------------------------------------
   call this%set_batch_size(this%batch_size)
+
+
+
+!!!-----------------------------------------------------------------------------
+!!! turn off inference booleans
+!!!-----------------------------------------------------------------------------
+  do l=1,this%num_layers
+     select type(current => this%model(l)%layer)
+     class is(drop_layer_type)
+        current%inference = .false.
+     end select
+  end do
 
 
 !!!-----------------------------------------------------------------------------
@@ -1368,7 +1401,7 @@ end function get_gradients
 
     integer, optional, intent(in) :: verbose
 
-    integer :: sample, num_samples
+    integer :: l, sample, num_samples
     integer :: t_verb, unit
     real(real12) :: acc_val, loss_val
     real(real12), allocatable, dimension(:) :: accuracy_list
@@ -1404,6 +1437,17 @@ end function get_gradients
 !!! reset batch size for testing
 !!!-----------------------------------------------------------------------------
     call this%set_batch_size(1)
+
+
+!!!-----------------------------------------------------------------------------
+!!! turn on inference booleans
+!!!-----------------------------------------------------------------------------
+    do l=1,this%num_layers
+       select type(current => this%model(l)%layer)
+       class is(drop_layer_type)
+          current%inference = .true.
+       end select
+    end do
 
 
 !!!-----------------------------------------------------------------------------
@@ -1461,9 +1505,9 @@ end function get_gradients
                      maxloc(output(:,sample)), maxloc(predicted(:,sample),dim=1)-1, &
                      accuracy_list(sample)
              type is(real)
-                write(unit,'(I4," Expected=",I3,", Got=",I3,", Accuracy=",F0.3)') &
+                write(unit,'(I4," Expected=",F0.3,", Got=",F0.3,", Accuracy=",F0.3)') &
                      sample, &
-                     maxloc(output(:,sample)), maxloc(predicted(:,sample),dim=1)-1, &
+                     output(:,sample), predicted(:,sample), &
                      accuracy_list(sample)
              end select
           end do test_loop
