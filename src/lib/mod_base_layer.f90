@@ -97,7 +97,7 @@ module base_layer
      pure subroutine set(this, input)
        import :: input_layer_type, real12
        class(input_layer_type), intent(inout) :: this
-       real(real12), dimension(this%num_outputs), intent(in) :: input
+       real(real12), dimension(..), intent(in) :: input
      end subroutine set
   end interface
 

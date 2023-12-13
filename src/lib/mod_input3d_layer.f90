@@ -238,9 +238,24 @@ contains
     implicit none
     class(input3d_layer_type), intent(inout) :: this
     real(real12), &
-         dimension(this%batch_size * this%num_outputs), intent(in) :: input
+         dimension(..), intent(in) :: input
+         !dimension(this%batch_size * this%num_outputs), intent(in) :: input
 
-    this%output = reshape(input, shape=shape(this%output))
+    select rank(input)
+    rank(1)
+      this%output = reshape(input, shape=shape(this%output))
+    rank(2)
+      this%output = reshape(input, shape=shape(this%output))
+    rank(3)
+      this%output = reshape(input, shape=shape(this%output))
+    rank(4)
+      this%output = reshape(input, shape=shape(this%output))
+    rank(5)
+      this%output = reshape(input, shape=shape(this%output))
+    rank(6)
+      this%output = reshape(input, shape=shape(this%output))
+    end select
+
   end subroutine set_input3d
 !!!#############################################################################
 
