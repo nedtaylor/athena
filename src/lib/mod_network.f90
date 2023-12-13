@@ -317,7 +317,6 @@ contains
     else
        t_verb = 0
     end if
-    if(present(batch_size)) this%batch_size = batch_size
 
     
 !!!-----------------------------------------------------------------------------
@@ -404,14 +403,6 @@ contains
 !!!-----------------------------------------------------------------------------
     if(.not.allocated(this%model(1)%layer%input_shape))then
        stop "ERROR: input_shape of first layer not defined"
-    elseif(this%model(1)%layer%batch_size.ne.this%batch_size)then
-       if(this%model(1)%layer%batch_size.eq.0)then
-          this%model(1)%layer%batch_size = this%batch_size
-       elseif(this%batch_size.eq.0)then
-          this%batch_size = this%model(1)%layer%batch_size
-       else
-          stop "ERROR: batch_size of first layer not equal to network batch_size"
-       end if
     end if
     
     select type(first => this%model(1)%layer)
@@ -424,21 +415,18 @@ contains
        associate(next => this%model(2)%layer)
          select case(size(next%input_shape,dim=1))
          case(1)
-            t_input_layer = input1d_layer_type(input_shape = next%input_shape, &
-                 batch_size = this%batch_size)
+            t_input_layer = input1d_layer_type(input_shape = next%input_shape)
             allocate(this%model(1)%layer, source = t_input_layer)
          case(3)
             select type(next)
             type is(conv2d_layer_type)
                t_input_layer = input3d_layer_type(&
                     input_shape = next%input_shape + &
-                    [2*next%pad,0], &
-                    batch_size = this%batch_size)
+                    [2*next%pad,0])
                allocate(this%model(1)%layer, source = t_input_layer)
             class default
                t_input_layer = input3d_layer_type(&
-                    input_shape = next%input_shape, &
-                    batch_size = this%batch_size)
+                    input_shape = next%input_shape)
                allocate(this%model(1)%layer, source = t_input_layer)
             end select
          case(4)
@@ -446,13 +434,11 @@ contains
             type is(conv3d_layer_type)
                t_input_layer = input4d_layer_type(&
                     input_shape = next%input_shape + &
-                    [2*next%pad,0], &
-                    batch_size = this%batch_size)
+                    [2*next%pad,0])
                allocate(this%model(1)%layer, source = t_input_layer)
             class default
                t_input_layer = input4d_layer_type(&
-                    input_shape = next%input_shape, &
-                    batch_size = this%batch_size)
+                    input_shape = next%input_shape)
                allocate(this%model(1)%layer, source = t_input_layer)
             end select
          end select
@@ -572,6 +558,22 @@ contains
 !!!-----------------------------------------------------------------------------
     this%optimiser = optimiser
     call this%optimiser%init(num_params=this%get_num_params())
+
+
+!!!-----------------------------------------------------------------------------
+!!! set batch size, if provided
+!!!-----------------------------------------------------------------------------
+    if(present(batch_size)) this%batch_size = batch_size
+    if(this%batch_size.ne.0)then
+       if(this%model(1)%layer%batch_size.ne.0.and.&
+            this%model(1)%layer%batch_size.ne.this%batch_size)then
+          write(*,*) "WARNING: batch_size in compile differs from batch_size of input layer"
+          write(*,*) "         batch_size of input layer will be set to network batch_size"
+       end if
+       call this%set_batch_size(this%batch_size)
+    elseif(this%model(1)%layer%batch_size.ne.0)then
+       call this%set_batch_size(this%model(1)%layer%batch_size)
+    end if
 
   end subroutine compile
 !!!#############################################################################
