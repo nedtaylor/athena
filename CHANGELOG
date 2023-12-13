@@ -13,11 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add 2D and 3D batch normalisation layers
 - Add 1D and 4D flatten layers
 - Add predict procedure to network_type
+- Add more example programs (batchnorm, dropblock, 3D, and sine)
 
 ### Changed
 
 - Handle batch size in each layer
 - As such, increase rank of io data (and gradients) for all layers by 1
+- Rename test/ to example/
 
 ### Fixed
 
