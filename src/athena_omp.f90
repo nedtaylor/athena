@@ -27,6 +27,7 @@ module athena_omp
   !! abstract layer types
   use base_layer, only: &
        base_layer_type, &
+       learnable_layer_type, &
        input_layer_type, &
        batch_layer_type, &
        conv_layer_type, &
