@@ -17,6 +17,7 @@ module maxpool3d_layer
      real(real12), allocatable, dimension(:,:,:,:,:) :: output
      real(real12), allocatable, dimension(:,:,:,:,:) :: di ! gradient of input (i.e. delta)
    contains
+     procedure, pass(this) :: get_output => get_output_maxpool3d
      procedure, pass(this) :: init => init_maxpool3d
      procedure, pass(this) :: set_batch_size => set_batch_size_maxpool3d
      procedure, pass(this) :: print => print_maxpool3d
@@ -46,6 +47,33 @@ module maxpool3d_layer
 
 
 contains
+
+!!!#############################################################################
+!!! get layer outputs
+!!!#############################################################################
+  pure subroutine get_output_maxpool3d(this, output)
+    implicit none
+    class(maxpool3d_layer_type), intent(in) :: this
+    real(real12), allocatable, dimension(..), intent(out) :: output
+  
+    select rank(output)
+    rank(1)
+       output = reshape(this%output, [size(this%output)])
+    rank(2)
+       output = &
+            reshape(this%output, [product(this%output_shape),this%batch_size])
+    rank(5)
+       output = this%output
+    end select
+  
+  end subroutine get_output_maxpool3d
+!!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
 
 !!!#############################################################################
 !!! forward propagation assumed rank handler

@@ -26,6 +26,7 @@ module full_layer
      procedure, pass(this) :: set_params => set_params_full
      procedure, pass(this) :: get_gradients => get_gradients_full
      procedure, pass(this) :: set_gradients => set_gradients_full
+     procedure, pass(this) :: get_output => get_output_full
 
      procedure, pass(this) :: print => print_full
      procedure, pass(this) :: set_shape => set_shape_full
@@ -203,6 +204,30 @@ contains
   
   end subroutine set_gradients_full
 !!!#############################################################################
+
+
+!!!#############################################################################
+!!! get layer outputs
+!!!#############################################################################
+  pure subroutine get_output_full(this, output)
+  implicit none
+  class(full_layer_type), intent(in) :: this
+  real(real12), allocatable, dimension(..), intent(out) :: output
+
+  select rank(output)
+  rank(1)
+     output = reshape(this%output, [size(this%output)])
+  rank(2)
+     output = this%output
+  end select
+
+end subroutine get_output_full
+!!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
 
 
 !!!##########################################################################!!!

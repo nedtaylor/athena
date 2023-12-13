@@ -20,6 +20,7 @@ module conv2d_layer
      procedure, pass(this) :: set_params => set_params_conv2d
      procedure, pass(this) :: get_gradients => get_gradients_conv2d
      procedure, pass(this) :: set_gradients => set_gradients_conv2d
+     procedure, pass(this) :: get_output => get_output_conv2d
 
      procedure, pass(this) :: init => init_conv2d
      procedure, pass(this) :: set_batch_size => set_batch_size_conv2d
@@ -186,27 +187,49 @@ contains
 !!! set gradients
 !!!#############################################################################
   subroutine set_gradients_conv2d(this, gradients)
-   implicit none
-   class(conv2d_layer_type), intent(inout) :: this
-   real(real12), dimension(..), intent(in) :: gradients
- 
-   integer :: s
+    implicit none
+    class(conv2d_layer_type), intent(inout) :: this
+    real(real12), dimension(..), intent(in) :: gradients
 
-   select rank(gradients)
-   rank(0)
-      this%dw = gradients
-      this%db = gradients
-   rank(1)
-      do s=1,this%batch_size
-         this%dw(:,:,:,:,s) = reshape(gradients(:&
-              this%num_filters * this%num_channels * product(this%knl)), &
-               shape(this%dw(:,:,:,:,s)))
-         this%db(:,s) = gradients(&
-              this%num_filters * this%num_channels * product(this%knl)+1:)
-      end do
-   end select
+    integer :: s
+
+    select rank(gradients)
+    rank(0)
+       this%dw = gradients
+       this%db = gradients
+    rank(1)
+       do s=1,this%batch_size
+          this%dw(:,:,:,:,s) = reshape(gradients(:&
+               this%num_filters * this%num_channels * product(this%knl)), &
+                shape(this%dw(:,:,:,:,s)))
+          this%db(:,s) = gradients(&
+               this%num_filters * this%num_channels * product(this%knl)+1:)
+       end do
+    end select
  
  end subroutine set_gradients_conv2d
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! get layer outputs
+!!!#############################################################################
+  pure subroutine get_output_conv2d(this, output)
+    implicit none
+    class(conv2d_layer_type), intent(in) :: this
+    real(real12), allocatable, dimension(..), intent(out) :: output
+
+    select rank(output)
+    rank(1)
+       output = reshape(this%output, [size(this%output)])
+    rank(2)
+       output = &
+            reshape(this%output, [product(this%output_shape),this%batch_size])
+    rank(4)
+       output = this%output
+    end select
+
+  end subroutine get_output_conv2d
 !!!#############################################################################
 
 

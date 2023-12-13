@@ -20,6 +20,7 @@ module conv3d_layer
      procedure, pass(this) :: set_params => set_params_conv3d
      procedure, pass(this) :: get_gradients => get_gradients_conv3d
      procedure, pass(this) :: set_gradients => set_gradients_conv3d
+     procedure, pass(this) :: get_output => get_output_conv3d
 
      procedure, pass(this) :: init => init_conv3d
      procedure, pass(this) :: set_batch_size => set_batch_size_conv3d
@@ -207,6 +208,28 @@ contains
    end select
  
  end subroutine set_gradients_conv3d
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! get layer outputs
+!!!#############################################################################
+  pure subroutine get_output_conv3d(this, output)
+    implicit none
+    class(conv3d_layer_type), intent(in) :: this
+    real(real12), allocatable, dimension(..), intent(out) :: output
+  
+    select rank(output)
+    rank(1)
+       output = reshape(this%output, [size(this%output)])
+    rank(2)
+       output = &
+            reshape(this%output, [product(this%output_shape),this%batch_size])
+    rank(5)
+       output = this%output
+    end select
+  
+  end subroutine get_output_conv3d
 !!!#############################################################################
 
 

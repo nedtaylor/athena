@@ -21,6 +21,7 @@ module base_layer
      procedure, pass(this) :: set_shape => set_shape_base
      procedure, pass(this) :: get_num_params => get_num_params_base
      procedure, pass(this) :: print => print_base
+     procedure(get_output), deferred, pass(this) :: get_output
      procedure(initialise), deferred, pass(this) :: init
      procedure(set_batch_size), deferred, pass(this) :: set_batch_size
      procedure(forward), deferred, pass(this) :: forward
@@ -59,6 +60,12 @@ module base_layer
       class(base_layer_type), intent(in) :: this
       integer :: num_params
     end function get_num_params
+
+    pure subroutine get_output(this, output)
+      import :: base_layer_type, real12
+      class(base_layer_type), intent(in) :: this
+      real(real12), allocatable, dimension(..), intent(out) :: output
+    end subroutine get_output
   end interface
 
   abstract interface
@@ -101,6 +108,8 @@ module base_layer
   type, abstract, extends(base_layer_type) :: flatten_layer_type
      integer :: num_outputs, num_addit_outputs = 0
      real(real12), allocatable, dimension(:,:) :: output
+   contains
+     procedure, pass(this) :: get_output => get_output_flatten
   end type flatten_layer_type
 
 
@@ -387,6 +396,25 @@ contains
     end select
   
   end subroutine set_gradients_batch
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! get layer outputs
+!!!#############################################################################
+  pure subroutine get_output_flatten(this, output)
+    implicit none
+    class(flatten_layer_type), intent(in) :: this
+    real(real12), allocatable, dimension(..), intent(out) :: output
+  
+    select rank(output)
+    rank(1)
+       output = reshape(this%output, [size(this%output)])
+    rank(2)
+       output = this%output
+    end select
+  
+  end subroutine get_output_flatten
 !!!#############################################################################
 
 end module base_layer
