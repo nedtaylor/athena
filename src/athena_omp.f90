@@ -24,6 +24,14 @@ module athena_omp
   !! normalisation methods
   use normalisation, only: linear_renormalise, renormalise_norm, renormalise_sum
 
+  !! abstract layer types
+  use base_layer, only: &
+       base_layer_type, &
+       input_layer_type, &
+       batch_layer_type, &
+       conv_layer_type, &
+       flatten_layer_type
+
   !! input layer types
   use input1d_layer,   only: input1d_layer_type
   use input3d_layer,   only: input3d_layer_type
