@@ -15,6 +15,7 @@ module base_layer
   type, abstract :: base_layer_type !! give it parameterised values?
      integer :: batch_size = 0
      integer :: input_rank = 0
+     logical :: inference = .false.
      character(:), allocatable :: name
      integer, allocatable, dimension(:) :: input_shape, output_shape
   contains
@@ -117,6 +118,8 @@ module base_layer
 !!! dropout derived extended type
 !!!-----------------------------------------------------------------------------
   type, abstract, extends(base_layer_type) :: drop_layer_type
+     !! rate = 1 - keep_prob   -- typical = 0.05-0.25
+     real(real12) :: rate = 0.1_real12
    contains
      procedure(generate_mask), deferred, pass(this) :: generate_mask
   end type drop_layer_type
@@ -220,7 +223,6 @@ module base_layer
      !! NOTE: if momentum > 0, mean and variance are running averages
      !! NED: NEED TO KEEP TRACK OF EXPONENTIAL MOVING AVERAGE (EMA)
      !!   ... FOR INFERENCE
-     logical :: inference = .false.
      integer :: num_channels
      real(real12) :: norm
      real(real12) :: momentum = 0.99_real12

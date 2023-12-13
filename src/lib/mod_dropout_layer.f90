@@ -13,10 +13,8 @@ module dropout_layer
      !! num_masks              -- number of unique masks = number of samples in batch
      !! idx                    -- temp index of sample (doesn't need to be accurate)
      !! keep_prob              -- typical = 0.75-0.95
-     !! rate = 1 - keep_prob   -- typical = 0.05-0.25
      integer :: idx = 0
      integer :: num_masks
-     real(real12) :: rate
      logical, allocatable, dimension(:,:) :: mask
      real(real12), allocatable, dimension(:,:) :: output
      real(real12), allocatable, dimension(:,:) :: di ! gradient of input (i.e. delta)
@@ -401,14 +399,20 @@ contains
     integer :: s
 
     
-    this%idx = this%idx + 1
-    !! perform the drop operation
-    do concurrent(s=1:this%batch_size)
-       this%output(:,s) = merge( &
-            input(:,s), 0._real12, &
-            this%mask(:,this%idx)) / &
-            ( 1._real12 - this%rate )
-    end do
+    select case(this%inference)
+    case(.true.)
+       !! do not perform the drop operation
+       this%output = input * ( 1._real12 - this%rate )
+    case default
+       !! perform the drop operation
+       this%idx = this%idx + 1
+       do concurrent(s=1:this%batch_size)
+           this%output(:,s) = merge( &
+               input(:,s), 0._real12, &
+               this%mask(:,this%idx)) / &
+               ( 1._real12 - this%rate )
+       end do
+    end select
 
   end subroutine forward_2d
 !!!#############################################################################

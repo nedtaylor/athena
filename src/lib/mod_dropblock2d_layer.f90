@@ -11,11 +11,9 @@ module dropblock2d_layer
   
   type, extends(drop_layer_type) :: dropblock2d_layer_type
      !! keep_prob              -- typical = 0.75-0.95
-     !! rate = 1 - keep_prob   -- typical = 0.05-0.25
      !! block_size             -- width of block to drop (typical = 5)
      !! gamma                  -- number of activation units to drop
      integer :: block_size, half
-     real(real12) :: rate
      real(real12) :: gamma
      integer :: num_channels
      logical, allocatable, dimension(:,:) :: mask
@@ -443,11 +441,17 @@ contains
 
     integer :: m, s
 
-    
-    !! perform the drop operation
-    do concurrent(m = 1:this%num_channels, s = 1:this%batch_size)
-       this%output(:,:,m,s) = merge(input(:,:,m,s), 0._real12, this%mask)
-    end do
+
+    select case(this%inference)
+    case(.true.)
+      !! do not perform drop operation
+      this%output = input * ( 1._real12 - this%rate )
+    case default
+      !! perform the drop operation
+      do concurrent(m = 1:this%num_channels, s = 1:this%batch_size)
+         this%output(:,:,m,s) = merge(input(:,:,m,s), 0._real12, this%mask)
+      end do
+    end select
 
   end subroutine forward_4d
 !!!#############################################################################
