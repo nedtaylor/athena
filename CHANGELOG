@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add Adam optimiser
 - Add procedures to get and set network parameters 
 - Add procedures to get and set network gradients
+- Add procedure to get layer output
 - Add new test directory
    - Test jobs test the working of the library
 - Add test jobs
@@ -33,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Change optimise procedure to minimise
 - Handle network learning in network, rather than individual layers
 - Rename test/ to example/
+- network_tyep%forward now handles assumed rank
+- input_layer_type%set now handles assumed rank
 
 ### Fixed
 
