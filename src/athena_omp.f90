@@ -54,6 +54,7 @@ module athena_omp
 
   !! pooling layer types
   use avgpool2d_layer, only: avgpool2d_layer_type, read_avgpool2d_layer
+  use avgpool3d_layer, only: avgpool3d_layer_type, read_avgpool3d_layer
   use maxpool2d_layer, only: maxpool2d_layer_type, read_maxpool2d_layer
   use maxpool3d_layer, only: maxpool3d_layer_type, read_maxpool3d_layer
 
