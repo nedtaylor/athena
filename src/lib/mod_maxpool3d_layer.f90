@@ -5,15 +5,11 @@
 !!!#############################################################################
 module maxpool3d_layer
   use constants, only: real12
-  use base_layer, only: base_layer_type
+  use base_layer, only: pool_layer_type
   implicit none
   
   
-  type, extends(base_layer_type) :: maxpool3d_layer_type
-     !! strd = stride (step)
-     !! pool = pool
-     integer, dimension(3) :: pool, strd
-     integer :: num_channels
+  type, extends(pool_layer_type) :: maxpool3d_layer_type
      real(real12), allocatable, dimension(:,:,:,:,:) :: output
      real(real12), allocatable, dimension(:,:,:,:,:) :: di ! gradient of input (i.e. delta)
    contains
@@ -135,6 +131,9 @@ contains
     
    layer%name = "maxpool3d"
    layer%input_rank = 4
+   allocate( &
+        layer%pool(layer%input_rank-1), &
+        layer%strd(layer%input_rank-1) )
     !!-----------------------------------------------------------------------
     !! set up pool size
     !!-----------------------------------------------------------------------

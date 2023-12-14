@@ -20,7 +20,9 @@ module network
        input_layer_type, flatten_layer_type, &
        drop_layer_type, &
        learnable_layer_type, &
-       batch_layer_type
+       batch_layer_type, &
+       conv_layer_type, &
+       pool_layer_type
 #if defined(GFORTRAN)
   use container_layer, only: container_layer_type, container_reduction
 #else
@@ -46,6 +48,7 @@ module network
   use dropblock3d_layer, only: dropblock3d_layer_type, read_dropblock3d_layer
 
   !! pooling layer types
+  use avgpool2d_layer, only: avgpool2d_layer_type, read_avgpool2d_layer
   use maxpool2d_layer, only: maxpool2d_layer_type, read_maxpool2d_layer
   use maxpool3d_layer, only: maxpool3d_layer_type, read_maxpool3d_layer
 
@@ -226,6 +229,8 @@ contains
       select case(trim(adjustl(buffer)))
       case("BATCHNORM2D")
          call this%add(read_batchnorm2d_layer(unit))
+      case("BATCHNORM3D")
+         call this%add(read_batchnorm3d_layer(unit))
       case("CONV2D")
          call this%add(read_conv2d_layer(unit))
       case("CONV3D")
@@ -236,6 +241,8 @@ contains
          call this%add(read_dropblock2d_layer(unit))
       case("DROPBLOCK3D")
          call this%add(read_dropblock3d_layer(unit))
+      case("AVGPOOL2D")
+         call this%add(read_avgpool2d_layer(unit))
       case("MAXPOOL2D")
          call this%add(read_maxpool2d_layer(unit))
       case("MAXPOOL3D")
@@ -274,17 +281,13 @@ contains
        name = "inpt"
     class is(batch_layer_type)
        name = "batc"
-    type is(conv2d_layer_type)
-       name = "conv"
-    type is(conv3d_layer_type)
+    class is(conv_layer_type)
        name = "conv"
     class is(flatten_layer_type)
        name = "flat"
     class is(drop_layer_type)
        name = "drop"
-    type is(maxpool2d_layer_type)
-       name = "pool"
-    type is(maxpool3d_layer_type)
+    class is(pool_layer_type)
        name = "pool"
     type is(full_layer_type)
        name = "full"
@@ -1009,6 +1012,8 @@ end function get_gradients
        type is(dropblock3d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
     
+       type is(avgpool2d_layer_type)
+          call this%model(i)%backward(this%model(i-1),next%di)
        type is(maxpool2d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
        type is(maxpool3d_layer_type)

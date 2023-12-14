@@ -115,6 +115,17 @@ module base_layer
 
 
 !!!-----------------------------------------------------------------------------
+!!! pooling derived extended type
+!!!-----------------------------------------------------------------------------
+  type, abstract, extends(base_layer_type) :: pool_layer_type
+     !! strd = stride (step)
+     !! pool = pool
+     integer, allocatable, dimension(:) :: pool, strd
+     integer :: num_channels
+  end type pool_layer_type
+
+
+!!!-----------------------------------------------------------------------------
 !!! dropout derived extended type
 !!!-----------------------------------------------------------------------------
   type, abstract, extends(base_layer_type) :: drop_layer_type
@@ -248,6 +259,7 @@ module base_layer
   public :: base_layer_type
   public :: input_layer_type
   public :: flatten_layer_type
+  public :: pool_layer_type
   public :: drop_layer_type
   public :: learnable_layer_type
   public :: conv_layer_type
