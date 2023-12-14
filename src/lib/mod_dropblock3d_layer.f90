@@ -450,7 +450,12 @@ contains
   pure subroutine forward_5d(this, input)
     implicit none
     class(dropblock3d_layer_type), intent(inout) :: this
-    real(real12), dimension(:,:,:,:,:), intent(in) :: input
+    real(real12), dimension( &
+         this%input_shape(1), &
+         this%input_shape(2), &
+         this%input_shape(3), &
+         this%num_channels, this%batch_size), &
+         intent(in) :: input
 
     integer :: m, s
 
@@ -476,7 +481,12 @@ contains
   pure subroutine backward_5d(this, input, gradient)
     implicit none
     class(dropblock3d_layer_type), intent(inout) :: this
-    real(real12), dimension(:,:,:,:,:), intent(in) :: input
+    real(real12), dimension( &
+         this%input_shape(1), &
+         this%input_shape(2), &
+         this%input_shape(3), &
+         this%num_channels, this%batch_size), &
+         intent(in) :: input
     real(real12), &
          dimension(&
          this%output_shape(1), &

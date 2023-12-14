@@ -632,7 +632,11 @@ contains
   pure subroutine forward_4d(this, input)
     implicit none
     class(batchnorm2d_layer_type), intent(inout) :: this
-    real(real12), dimension(:,:,:,:), intent(in) :: input
+    real(real12), dimension( &
+         this%input_shape(1), &
+         this%input_shape(2), &
+         this%num_channels, this%batch_size), &
+         intent(in) :: input
 
     integer :: m
     real(real12), dimension(this%num_channels) :: t_mean, t_variance

@@ -421,7 +421,13 @@ contains
   pure subroutine forward_5d(this, input)
     implicit none
     class(maxpool3d_layer_type), intent(inout) :: this
-    real(real12), dimension(:,:,:,:,:), intent(in) :: input
+    real(real12), dimension( &
+         this%input_shape(1), &
+         this%input_shape(2), &
+         this%input_shape(3), &
+         this%num_channels, &
+         this%batch_size), &
+         intent(in) :: input
 
     integer :: i, j, k, m, s
     integer, dimension(3) :: stride_idx
@@ -459,7 +465,13 @@ contains
   pure subroutine backward_5d(this, input, gradient)
     implicit none
     class(maxpool3d_layer_type), intent(inout) :: this
-    real(real12), dimension(:,:,:,:,:), intent(in) :: input
+    real(real12), dimension( &
+         this%input_shape(1), &
+         this%input_shape(2), &
+         this%input_shape(3), &
+         this%num_channels, &
+         this%batch_size), &
+         intent(in) :: input
     real(real12), &
          dimension(&
          this%output_shape(1), &

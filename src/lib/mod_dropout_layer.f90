@@ -394,7 +394,9 @@ contains
   pure subroutine forward_2d(this, input)
     implicit none
     class(dropout_layer_type), intent(inout) :: this
-    real(real12), dimension(:,:), intent(in) :: input
+    real(real12), dimension( &
+         this%input_shape(1), this%batch_size), &
+         intent(in) :: input
     
     integer :: s
 
@@ -424,7 +426,9 @@ contains
   pure subroutine backward_2d(this, input, gradient)
     implicit none
     class(dropout_layer_type), intent(inout) :: this
-    real(real12), dimension(:,:), intent(in) :: input
+    real(real12), dimension( &
+         this%input_shape(1), this%batch_size), &
+         intent(in) :: input
     real(real12), &
          dimension(this%output_shape(1), this%batch_size), &
          intent(in) :: gradient
