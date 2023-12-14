@@ -1038,7 +1038,7 @@ end function get_gradients
   subroutine update(this)
     implicit none
     class(network_type), intent(inout) :: this
-    real(real12), allocatable, dimension(:) :: params
+    real(real12), allocatable, dimension(:) :: params, gradients
 
     integer :: i
     
@@ -1047,7 +1047,8 @@ end function get_gradients
     !! Update layers of learnable layer types
     !!-------------------------------------------------------------------
     params = this%get_params()
-    call this%optimiser%minimise(params, this%get_gradients())
+    gradients = this%get_gradients()
+    call this%optimiser%minimise(params, gradients)
     call this%set_params(params)
     call this%reset_gradients()
 
