@@ -36,6 +36,7 @@ module athena
        input_layer_type, &
        batch_layer_type, &
        conv_layer_type, &
+       pool_layer_type, &
        flatten_layer_type
 
   !! input layer types
@@ -57,6 +58,7 @@ module athena
   use dropblock3d_layer, only: dropblock3d_layer_type, read_dropblock3d_layer
 
   !! pooling layer types
+  use avgpool2d_layer, only: avgpool2d_layer_type, read_avgpool2d_layer
   use maxpool2d_layer, only: maxpool2d_layer_type, read_maxpool2d_layer
   use maxpool3d_layer, only: maxpool3d_layer_type, read_maxpool3d_layer
 
