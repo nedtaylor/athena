@@ -51,6 +51,7 @@ set(LIB_FILES
     mod_random.f90
     mod_clipper.f90
     mod_regulariser.f90
+    mod_lr_decay.f90
     mod_optimiser.f90
     mod_types.f90
     mod_metrics.f90

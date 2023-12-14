@@ -16,6 +16,11 @@ module athena
        l1_regulariser_type, &
        l2_regulariser_type, &
        l1l2_regulariser_type
+  use learning_rate_decay, only: &
+       base_lr_decay_type, &
+       exp_lr_decay_type, &
+       step_lr_decay_type, &
+       inv_lr_decay_type
   use optimiser, only: &
        base_optimiser_type, &
        sgd_optimiser_type, &
