@@ -176,12 +176,13 @@ contains
   module function optimiser_setup_base( &
       learning_rate, &
       num_params, &
-      regulariser, clip_dict) result(optimiser)
+      regulariser, clip_dict, lr_decay) result(optimiser)
     implicit none
     real(real12), optional, intent(in) :: learning_rate
     integer, optional, intent(in) :: num_params
     class(base_regulariser_type), optional, intent(in) :: regulariser
     type(clip_type), optional, intent(in) :: clip_dict
+    class(base_lr_decay_type), optional, intent(in) :: lr_decay
 
     type(base_optimiser_type) :: optimiser
 
@@ -200,6 +201,12 @@ contains
 
     !! initialise general optimiser parameters
     if(present(learning_rate)) optimiser%learning_rate = learning_rate
+
+    !! initialise learning rate decay
+    if(present(lr_decay)) then
+       if(allocated(optimiser%lr_decay)) deallocate(optimiser%lr_decay)
+       allocate(optimiser%lr_decay, source = lr_decay)
+    end if
 
     !! initialise gradients
     if(present(num_params)) then
@@ -291,13 +298,14 @@ contains
   module function optimiser_setup_sgd( &
        learning_rate, momentum, &
        nesterov, num_params, &
-       regulariser, clip_dict) result(optimiser)
+       regulariser, clip_dict, lr_decay) result(optimiser)
      implicit none
      real(real12), optional, intent(in) :: learning_rate, momentum
      logical, optional, intent(in) :: nesterov
      integer, optional, intent(in) :: num_params
      class(base_regulariser_type), optional, intent(in) :: regulariser
      type(clip_type), optional, intent(in) :: clip_dict
+     class(base_lr_decay_type), optional, intent(in) :: lr_decay
      
      type(sgd_optimiser_type) :: optimiser
      
@@ -317,6 +325,12 @@ contains
      !! initialise general optimiser parameters
      if(present(learning_rate)) optimiser%learning_rate = learning_rate
      if(present(momentum)) optimiser%momentum = momentum
+
+    !! initialise learning rate decay
+    if(present(lr_decay)) then
+       if(allocated(optimiser%lr_decay)) deallocate(optimiser%lr_decay)
+       allocate(optimiser%lr_decay, source = lr_decay)
+    end if
 
      !! initialise nesterov boolean
      if(present(nesterov)) optimiser%nesterov = nesterov
@@ -402,13 +416,14 @@ contains
       learning_rate, &
       beta, epsilon, &
       num_params, &
-      regulariser, clip_dict) result(optimiser)
+      regulariser, clip_dict, lr_decay) result(optimiser)
     implicit none
     real(real12), optional, intent(in) :: learning_rate
     real(real12), optional, intent(in) :: beta, epsilon
     integer, optional, intent(in) :: num_params
     class(base_regulariser_type), optional, intent(in) :: regulariser
-    type(clip_type), optional, intent(in) :: clip_dict  
+    type(clip_type), optional, intent(in) :: clip_dict
+    class(base_lr_decay_type), optional, intent(in) :: lr_decay
   
     type(rmsprop_optimiser_type) :: optimiser
   
@@ -428,6 +443,12 @@ contains
     !! initialise general optimiser parameters
     if(present(learning_rate)) optimiser%learning_rate = learning_rate
   
+    !! initialise learning rate decay
+    if(present(lr_decay)) then
+       if(allocated(optimiser%lr_decay)) deallocate(optimiser%lr_decay)
+       allocate(optimiser%lr_decay, source = lr_decay)
+    end if
+
     !! initialise adam parameters
     if(present(beta)) optimiser%beta = beta
     if(present(epsilon)) optimiser%epsilon = epsilon
@@ -505,13 +526,14 @@ contains
       learning_rate, &
       epsilon, &
       num_params, &
-      regulariser, clip_dict) result(optimiser)
+      regulariser, clip_dict, lr_decay) result(optimiser)
     implicit none
     real(real12), optional, intent(in) :: learning_rate
     real(real12), optional, intent(in) :: epsilon
     integer, optional, intent(in) :: num_params
     class(base_regulariser_type), optional, intent(in) :: regulariser
-    type(clip_type), optional, intent(in) :: clip_dict  
+    type(clip_type), optional, intent(in) :: clip_dict
+    class(base_lr_decay_type), optional, intent(in) :: lr_decay
   
     type(adagrad_optimiser_type) :: optimiser
   
@@ -531,6 +553,12 @@ contains
     !! initialise general optimiser parameters
     if(present(learning_rate)) optimiser%learning_rate = learning_rate
   
+    !! initialise learning rate decay
+    if(present(lr_decay)) then
+       if(allocated(optimiser%lr_decay)) deallocate(optimiser%lr_decay)
+       allocate(optimiser%lr_decay, source = lr_decay)
+    end if
+
     !! initialise adam parameters
     if(present(epsilon)) optimiser%epsilon = epsilon
   
@@ -606,13 +634,14 @@ contains
       learning_rate, &
       beta1, beta2, epsilon, &
       num_params, &
-      regulariser, clip_dict) result(optimiser)
+      regulariser, clip_dict, lr_decay) result(optimiser)
     implicit none
     real(real12), optional, intent(in) :: learning_rate
     real(real12), optional, intent(in) :: beta1, beta2, epsilon
     integer, optional, intent(in) :: num_params
     class(base_regulariser_type), optional, intent(in) :: regulariser
-    type(clip_type), optional, intent(in) :: clip_dict  
+    type(clip_type), optional, intent(in) :: clip_dict
+    class(base_lr_decay_type), optional, intent(in) :: lr_decay
 
     type(adam_optimiser_type) :: optimiser
 
@@ -631,6 +660,12 @@ contains
 
     !! initialise general optimiser parameters
     if(present(learning_rate)) optimiser%learning_rate = learning_rate
+
+    !! initialise learning rate decay
+    if(present(lr_decay)) then
+       if(allocated(optimiser%lr_decay)) deallocate(optimiser%lr_decay)
+       allocate(optimiser%lr_decay, source = lr_decay)
+    end if
 
     !! initialise adam parameters
     if(present(beta1)) optimiser%beta1 = beta1
