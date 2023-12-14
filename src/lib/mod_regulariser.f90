@@ -26,13 +26,15 @@ module regulariser
     end subroutine regularise
   end interface
 
-
+  !! Lasso regression
+  !! attempts to prevent overfitting
   type, extends(base_regulariser_type) :: l1_regulariser_type
      real(real12) :: l1 = 0.01_real12
    contains
      procedure, pass(this) :: regularise => regularise_l1
   end type l1_regulariser_type
 
+  !! Ridge regression
   !! attempts to prevent overfitting
   type, extends(base_regulariser_type) :: l2_regulariser_type
      !! l2           = L2 regularisation
