@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add more example jobs
    - Example jobs show the functionality of the library
    - batchnorm, dropblock, 3D, sine, and simple function
+- Add average pooling 2D and 3D layers
+- Add RMSprop, Adam, and Adagrad optimisers
+- Add learning rate decay
 
 ### Changed
 
@@ -36,6 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rename test/ to example/
 - network_tyep%forward now handles assumed rank
 - input_layer_type%set now handles assumed rank
+- Add abstract conv, pool, and batch layer types
+- All layer forward and backward passes take defined shape
+   - Previously, rank was defined and shape was assumed
 
 ### Fixed
 
