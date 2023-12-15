@@ -89,7 +89,7 @@ contains
        !! compute accuracy (R^2 score)
        if(abs(rss(s)).lt.epsilon)then
          accuracy(s) = 1._real12
-       elseif(abs(tss(s)).lt.epsilon)then
+       elseif(abs(tss(s)).lt.epsilon.or.rss(s)/tss(s).gt.1._real12)then
          accuracy(s) = 0._real12
        else
          accuracy(s) = 1._real12 - rss(s)/tss(s)
