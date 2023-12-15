@@ -39,7 +39,7 @@ program test_conv2d_network
   call network%forward(input_data)
   call network%model(3)%layer%get_output(output)
 
-  if(all(shape(output).ne.[28,28,32,1]))then
+  if(any(shape(output).ne.[28,28,32,1]))then
      success = .false.
      write(*,*) "conv2d network output shape should be [28,28,32]"
   end if

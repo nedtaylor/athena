@@ -445,7 +445,8 @@ contains
        this%output(i, j, m, s) = sum(&
             input( &
             stride_idx(1):stride_idx(1)+this%pool(1)-1, &
-            stride_idx(2):stride_idx(2)+this%pool(2)-1, m, s))/product(this%pool)
+            stride_idx(2):stride_idx(2)+this%pool(2)-1, m, s)) / &
+            product(this%pool)
     end do
 
   end subroutine forward_4d
@@ -493,6 +494,9 @@ contains
        this%di( &
             stride_idx(1)+1:stride_idx(1)+this%pool(1), &
             stride_idx(2)+1:stride_idx(2)+this%pool(2), m, s) = &
+            this%di( &
+            stride_idx(1)+1:stride_idx(1)+this%pool(1), &
+            stride_idx(2)+1:stride_idx(2)+this%pool(2), m, s) + &
             gradient(i, j, m, s) / product(this%pool)
 
     end do

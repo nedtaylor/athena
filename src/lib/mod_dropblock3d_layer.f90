@@ -304,7 +304,7 @@ contains
     do k = 1 + this%half, size(this%mask, dim=3) - this%half
        do j = 1 + this%half, size(this%mask, dim=2) - this%half
           do i = 1 + this%half, size(this%mask, dim=1) - this%half
-             if(mask_real(i, j, k).gt.this%gamma)then
+             if(mask_real(i, j, k).lt.this%gamma)then
                 ilim(:) = [ &
                      max(i - this%half, lbound(this%mask,1)), &
                      min(i + this%half, ubound(this%mask,1)) ]

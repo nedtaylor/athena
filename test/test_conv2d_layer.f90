@@ -41,7 +41,7 @@ program test_conv2d_layer
      end if
 
      !! check kernel size
-     if(all(conv_layer%knl .ne. kernel_size))then
+     if(any(conv_layer%knl .ne. kernel_size))then
         success = .false.
         write(0,*) 'conv2d layer has wrong kernel_size'
      end if

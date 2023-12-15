@@ -497,7 +497,10 @@ contains
        !! compute gradients for input feature map
        this%di( &
             stride_idx(1)+max_idx(1), &
-            stride_idx(2)+max_idx(2), m, s) = gradient(i, j, m, s)
+            stride_idx(2)+max_idx(2), m, s) = &
+            this%di( &
+            stride_idx(1)+max_idx(1), &
+            stride_idx(2)+max_idx(2), m, s) + gradient(i, j, m, s)
 
     end do
 

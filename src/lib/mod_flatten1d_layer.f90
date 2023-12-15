@@ -60,8 +60,8 @@ contains
     real(real12), dimension(..), intent(in) :: input
     real(real12), dimension(..), intent(in) :: gradient
 
-    select rank(gradient); rank(1)
-       this%di = reshape(gradient(:this%num_outputs), shape(this%di))
+    select rank(gradient); rank(2)
+       this%di = reshape(gradient(:this%num_outputs,:), shape(this%di))
     end select
   end subroutine backward_rank
 !!!#############################################################################
@@ -133,6 +133,7 @@ contains
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
     
     this%num_outputs = product(this%input_shape)
+    this%output_shape = [this%num_outputs]
 
 
     !!--------------------------------------------------------------------------

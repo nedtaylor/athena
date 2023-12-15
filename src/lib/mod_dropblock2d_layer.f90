@@ -206,6 +206,7 @@ contains
     !!-----------------------------------------------------------------------
     !! set gamma
     !! ... original paper: https://doi.org/10.1145/3474085.3475302
+    !! ... https://arxiv.org/pdf/1810.12890.pdf
     !!-----------------------------------------------------------------------
     !! original paper uses keep_prob, we use drop_rate
     !! drop_rate = 1 - keep_prob
@@ -298,7 +299,7 @@ contains
     !! Apply threshold to create binary mask
     do j = 1 + this%half, size(this%mask, dim=2) - this%half
        do i = 1 + this%half, size(this%mask, dim=1) - this%half
-          if(mask_real(i, j).gt.this%gamma)then
+          if(mask_real(i, j).lt.this%gamma)then
              ilim(:) = [ &
                   max(i - this%half, lbound(this%mask,1)), &
                   min(i + this%half, ubound(this%mask,1)) ]

@@ -116,7 +116,7 @@ contains
     input = input * cos(2._real12 * pi * r2)
     input = mean + std * input
     
-end subroutine box_muller
+  end subroutine box_muller
 !!!#############################################################################
 
 end module initialiser_gaussian
