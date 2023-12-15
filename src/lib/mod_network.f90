@@ -10,6 +10,8 @@ module network
   use constants, only: real12
   use misc_ml, only: shuffle
 
+  use accuracy, only: categorical_score, mae_score, mse_score, r2_score
+
   use metrics, only: metric_dict_type
   use optimiser, only: base_optimiser_type
   use loss, only: &
@@ -116,11 +118,6 @@ module network
   !$omp declare reduction(network_reduction:network_type:network_reduction(omp_out, omp_in)) &
   !$omp& initializer(omp_priv = omp_orig)
 #endif
-  
-  interface compute_accuracy
-     procedure compute_accuracy_int, compute_accuracy_real !, compute_accuracy_r2
-  end interface compute_accuracy
-
 
 
   private
@@ -1286,11 +1283,11 @@ end function get_gradients
                 y_true(:,1:this%batch_size)))
              select type(output)
              type is(integer)
-                batch_accuracy = sum(compute_accuracy( &
+                batch_accuracy = sum(categorical_score( &
                    current%output(:,1:this%batch_size), &
                    output(:,start_index:end_index)))
              type is(real)
-                batch_accuracy = sum(compute_accuracy( &
+                batch_accuracy = sum(mae_score( &
                    current%output(:,1:this%batch_size), &
                    output(:,start_index:end_index)))
              end select
@@ -1489,9 +1486,9 @@ end function get_gradients
                expected  = y_true(:,sample:sample)))
              select type(output)
              type is(integer)
-                acc_val = sum(compute_accuracy(current%output,output(:,sample:sample)))
+                acc_val = sum(categorical_score(current%output,output(:,sample:sample)))
              type is(real)
-                acc_val = sum(compute_accuracy(current%output,output(:,sample:sample)))
+                acc_val = sum(mae_score(current%output,output(:,sample:sample)))
              end select
           this%metrics(2)%val = this%metrics(2)%val + acc_val
           this%metrics(1)%val = this%metrics(1)%val + loss_val
@@ -1605,70 +1602,6 @@ end function get_gradients
 
   end function predict_1d
 !!!#############################################################################
-
-
-!!!#############################################################################
-!!! compute accuracy
-!!! this only works (and is only valid for?) categorisation problems
-!!!#############################################################################
-  function compute_accuracy_int(output, expected) result(accuracy)
-    implicit none
-    real(real12), dimension(:,:), intent(in) :: output
-    integer, dimension(:,:) :: expected
-    real(real12), dimension(size(expected,2)) :: accuracy
-
-    integer :: s
-
-    !! Compute the accuracy
-    do concurrent(s=1:size(expected,2))
-       if (maxloc(expected(:,s),dim=1).eq.maxloc(output(:,s),dim=1)) then
-          accuracy(s) = 1._real12
-       else
-          accuracy(s) = 0._real12
-       end if
-    end do
-
-  end function compute_accuracy_int
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
-!!! works for continuous datasets
-  function compute_accuracy_real(output, expected) result(accuracy)
-    implicit none
-    real(real12), dimension(:,:), intent(in) :: output, expected
-    real(real12), dimension(size(expected,2)) :: accuracy
-
-    !! Compute the accuracy
-    accuracy = 1._real12 - sum(abs(expected - output),dim=1)/size(expected(:,1)) !! should be for continuous data
-
-  end function compute_accuracy_real
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
-!!! works for continuous datasets (CURRENTLY UNAVAILABLE)
-  function compute_accuracy_r2(output, expected) result(accuracy)
-    implicit none
-    real(real12), dimension(:,:), intent(in) :: output, expected
-    real(real12), dimension(size(expected,2)) :: y_mean, rss, tss
-    real(real12), dimension(size(expected,2)) :: accuracy
-
-    integer :: s
-
-    do s = 1, size(expected,2)
-       !! compute mean of true/expected
-       y_mean(s) = sum(expected(:,s),dim=1) / size(expected(:,s),dim=1)
- 
-       !! compute total sum of squares
-       tss(s) = sum( ( expected(:,s) - y_mean(s) ) ** 2._real12, dim=1 )
- 
-       !! compute residual sum of squares
-       rss(s) = sum( ( expected(:,s) - output(:,s) ) ** 2._real12, dim=1 )
- 
-       !! compute accuracy (R^2 score)
-       accuracy(s) = 1._real12 - rss(s)/tss(s)
-    end do
-
-  end function compute_accuracy_r2
-!!!#############################################################################
-
 
 end module network
 !!!#############################################################################
