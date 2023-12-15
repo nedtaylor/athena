@@ -43,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - All layer forward and backward passes take defined shape
    - Previously, rank was defined and shape was assumed
 - Flatten layers now use output_shape as well as num_outputs
+- Make accuracy score functions available to import
 
 ### Fixed
 
@@ -50,6 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix backpropagation for overlapping windows in maxpool layers
 - Fix dropblock 2D and 3D generate_mask to check for .lt. gamma instead of .gt.
    - This was already correctly handled in dropout
+- Fix R2 score function
+   - Add zero division check
 
 ## Removed
 
