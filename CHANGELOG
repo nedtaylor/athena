@@ -46,6 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fix drop inference
+- Fix backpropagation for overlapping windows in maxpool layers
+- Fix dropblock 2D and 3D generate_mask to check for .lt. gamma instead of .gt.
+   - This was already correctly handled in dropout
 
 ## Removed
 

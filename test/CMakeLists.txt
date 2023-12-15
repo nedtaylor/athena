@@ -4,6 +4,11 @@ foreach(execid
   conv2d_network
   full_layer
   full_network
+  maxpool2d_layer
+  avgpool2d_layer
+  batchnorm2d_layer
+  dropblock2d_layer
+  flatten2d_layer
   )
   add_executable(test_${execid} test_${execid}.f90)
   # # Specify the include directories
