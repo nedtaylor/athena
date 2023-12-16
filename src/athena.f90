@@ -9,6 +9,9 @@ module athena
   use network, only: network_type
   use metrics, only: metric_dict_type
 
+  !! accuracy methods
+  use accuracy, only: categorical_score, mae_score, mse_score, r2_score
+
   !! optimisation and regularisation types
   use clipper, only: clip_type
   use regulariser, only: &
