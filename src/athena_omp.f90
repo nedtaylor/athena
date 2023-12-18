@@ -27,6 +27,8 @@ module athena_omp
   use optimiser, only: &
        base_optimiser_type, &
        sgd_optimiser_type, &
+       rmsprop_optimiser_type, &
+       adagrad_optimiser_type, &
        adam_optimiser_type
 
   !! normalisation methods
