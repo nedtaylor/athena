@@ -1,0 +1,127 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+### Changed
+
+### Fixed
+
+## Removed
+
+## [1.2.0] - 2023-12-18
+
+### Added
+
+- Add inference to dropout layers
+- Add 2D and 3D batch normalisation layers
+- Add 1D and 4D flatten layers
+- Add predict procedure to network_type
+- Add network reset procedure
+- Add Adam optimiser
+- Add procedures to get and set network parameters 
+- Add procedures to get and set network gradients
+- Add procedure to get layer output
+- Add new test directory
+   - Test jobs test the working of the library
+- Add test jobs
+- Add more example jobs
+   - Example jobs show the functionality of the library
+   - batchnorm, dropblock, 3D, sine, and simple function
+- Add average pooling 2D and 3D layers
+- Add RMSprop, Adam, and Adagrad optimisers
+- Add learning rate decay
+- Allow accuracy scoring methods to be imported
+
+### Changed
+
+- Handle batch size in each layer
+- As such, increase rank of io data (and gradients) for all layers by 1
+- Handle loss and metric network initialisation in separate procedures
+- Convert optimiser to parent and derived types
+- Change optimise procedure to minimise
+- Handle network learning in network, rather than individual layers
+- Rename test/ to example/
+- network_tyep%forward now handles assumed rank
+- input_layer_type%set now handles assumed rank
+- Add abstract conv, pool, and batch layer types
+- All layer forward and backward passes take defined shape
+   - Previously, rank was defined and shape was assumed
+- Flatten layers now use output_shape as well as num_outputs
+- Make accuracy score functions available to import
+
+### Fixed
+
+- Fix drop inference
+- Fix backpropagation for overlapping windows in maxpool layers
+- Fix dropblock 2D and 3D generate_mask to check for .lt. gamma instead of .gt.
+   - This was already correctly handled in dropout
+- Fix R2 score function
+   - Add zero division check
+
+## Removed
+
+- Remove mod_batch_norm.f90
+- Remove update procedure from learnable_layer_types
+- Remove parameter velocities from learnable_layer_types
+
+## [1.1.3] - 2023-11-26
+
+### Changed
+
+- Update argument consistency for split and shuffle procedure
+
+## [1.1.2] - 2023-11-24
+
+### Fixed
+
+- Parallel extent of y_true in test procedure
+- Define language and compiler in CMakeLists.txt for parallel build type
+
+## [1.1.1] - 2023-11-24
+
+### Changed
+
+- Improve README
+
+### Fixed
+
+- ifort and ifx compatibility
+
+## [1.1.0] - 2023-09-14
+
+### Added
+
+- Dropblock layers
+- Padding procedure
+- Split procedure
+- Loss methods for continuous data
+- Test example
+
+### Changed
+
+- Convert layer types to polymorphic
+- Allow polymorphic output data
+
+## [1.0.0] - 2023-09-12
+
+### Added
+
+- Convolutional layers
+- Full/dense layers
+- Shuffle procedure
+- Network model derived type
+
+### Changed
+
+- Convert to compilable library
+
+### Removed
+
+- Program format of athena

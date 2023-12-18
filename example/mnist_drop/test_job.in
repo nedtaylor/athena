@@ -1,0 +1,54 @@
+&setup
+ seed = 1,
+ verbosity = 2,
+ num_threads = 8,
+ input_file = "network.in",
+ output_file = "actual_result.out",
+ restart = .false.,
+ batch_print_step = 20,
+ dataset_dir = "/home/ned/DCoding/DTest_dir/DMNIST"
+/
+
+&training
+ num_epochs = 10,
+ batch_size = 32,
+ metrics = 'accuracy',
+ threshold = 1.E-2,
+ plateau_threshold = 1.E-4,
+ learning_rate = 0.005E0,
+ adaptive_learning = "sgd",
+ momentum = 0.9E0,
+ regularisation = "none",
+ !l1_lambda = 0.01E0,
+ !l2_lambda = 0.01E0,
+ clip_norm = 2.E1,
+ shuffle_dataset = .true.,
+ batch_learning = .true.,
+ loss = "cce"
+/
+
+&convolution
+ num_filters = 32,
+ kernel_size = 3,
+ stride = 1,
+ padding_type = "same",
+ convolution_type = "standard",
+ kernel_initialiser = 'he_uniform',
+ bias_initialiser = 'zeros',
+ activation_function = 'relu',
+ activation_scale = 1.E0,
+ dropout = "none"
+/
+
+&pooling
+ kernel_size = 2,
+ stride = 2,
+ normalisation = "none"
+/
+
+&fully_connected
+ hidden_layers = '100',
+ weight_initialiser = 'he_uniform',
+ activation_function = 'relu',
+ activation_scale = 1.E0
+/

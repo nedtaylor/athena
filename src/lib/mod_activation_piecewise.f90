@@ -12,11 +12,15 @@ module activation_piecewise
      real(real12) :: intercept, min, max
    contains
      procedure, pass(this) :: activate_1d => piecewise_activate_1d
+     procedure, pass(this) :: activate_2d => piecewise_activate_2d
      procedure, pass(this) :: activate_3d => piecewise_activate_3d
      procedure, pass(this) :: activate_4d => piecewise_activate_4d
+     procedure, pass(this) :: activate_5d => piecewise_activate_5d
      procedure, pass(this) :: differentiate_1d => piecewise_differentiate_1d
+     procedure, pass(this) :: differentiate_2d => piecewise_differentiate_2d
      procedure, pass(this) :: differentiate_3d => piecewise_differentiate_3d
      procedure, pass(this) :: differentiate_4d => piecewise_differentiate_4d
+     procedure, pass(this) :: differentiate_5d => piecewise_differentiate_5d
   end type piecewise_type
 
   interface piecewise_setup
@@ -79,6 +83,22 @@ contains
   end function piecewise_activate_1d
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
+  pure function piecewise_activate_2d(this, val) result(output)
+    implicit none
+    class(piecewise_type), intent(in) :: this
+    real(real12), dimension(:,:), intent(in) :: val
+    real(real12), dimension(size(val,1),size(val,2)) :: output
+
+    where(val.le.this%min)
+       output = 0._real12
+    elsewhere(val.ge.this%max)
+       output = this%scale
+    elsewhere
+       output = this%scale * val + this%intercept
+    end where
+  end function piecewise_activate_2d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
   pure function piecewise_activate_3d(this, val) result(output)
     implicit none
     class(piecewise_type), intent(in) :: this
@@ -110,6 +130,23 @@ contains
        output = this%scale * val + this%intercept
     end where
   end function piecewise_activate_4d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function piecewise_activate_5d(this, val) result(output)
+    implicit none
+    class(piecewise_type), intent(in) :: this
+    real(real12), dimension(:,:,:,:,:), intent(in) :: val
+    real(real12), dimension(&
+         size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
+
+    where(val.le.this%min)
+       output = 0._real12
+    elsewhere(val.ge.this%max)
+       output = this%scale
+    elsewhere
+       output = this%scale * val + this%intercept
+    end where
+  end function piecewise_activate_5d
 !!!#############################################################################
 
 
@@ -131,6 +168,20 @@ contains
        output = this%scale
     end where
   end function piecewise_differentiate_1d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function piecewise_differentiate_2d(this, val) result(output)
+    implicit none
+    class(piecewise_type), intent(in) :: this
+    real(real12), dimension(:,:), intent(in) :: val
+    real(real12), dimension(size(val,1),size(val,2)) :: output
+
+    where(val.le.this%min.or.val.ge.this%max)
+       output = 0._real12
+    elsewhere
+       output = this%scale
+    end where
+  end function piecewise_differentiate_2d
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
   pure function piecewise_differentiate_3d(this, val) result(output)
@@ -160,6 +211,21 @@ contains
        output = this%scale
     end where
   end function piecewise_differentiate_4d
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function piecewise_differentiate_5d(this, val) result(output)
+    implicit none
+    class(piecewise_type), intent(in) :: this
+    real(real12), dimension(:,:,:,:,:), intent(in) :: val
+    real(real12), dimension(&
+         size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
+
+    where(val.le.this%min.or.val.ge.this%max)
+       output = 0._real12
+    elsewhere
+       output = this%scale
+    end where
+  end function piecewise_differentiate_5d
 !!!#############################################################################
 
 end module activation_piecewise

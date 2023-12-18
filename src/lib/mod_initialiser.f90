@@ -12,6 +12,7 @@ module initialiser
   use initialiser_ones, only: ones
   use initialiser_zeros, only: zeros
   use initialiser_ident, only: ident
+  use initialiser_gaussian, only: gaussian
   implicit none
 
 
@@ -49,6 +50,8 @@ contains
        name = "lecun_normal"
     elseif(index(activation,"elu").ne.0)then
        name = "he_uniform"
+    elseif(trim(activation).eq."batch")then
+       name = "gaussian"
     else
        name = "glorot_uniform"
     end if
@@ -89,6 +92,10 @@ contains
        initialiser = zeros
     case("ident")
        initialiser = ident
+    case("gaussian")
+       initialiser = gaussian
+    case("normal")
+       initialiser = gaussian
     case default
        if(present(error))then
           error = -1

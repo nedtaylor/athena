@@ -5,14 +5,12 @@ mkfile_path := $(abspath $(firstword $(MAKEFILE_LIST)))
 mkfile_dir := $(dir $(mkfile_path))
 BIN_DIR := ./bin
 SRC_DIR := ./src
-LIB_DIR := ./lib
+LIB_DIR := ../../include
 BUILD_DIR = ./obj
-LIBS := mod_constants.f90 \
-	mod_misc.f90
+LIBS := mod_constants.f90
 OBJS := $(addprefix $(LIB_DIR)/,$(LIBS))
-SRCS := inputs.f90
 MAIN := main.f90
-SRCS := $(OBJS) $(SRCS) $(MAIN)
+SRCS := $(OBJS) $(MAIN)
 OBJS := $(addprefix $(SRC_DIR)/,$(SRCS))
 
 
@@ -83,7 +81,7 @@ LATHENA = -I$(ATHENAROOT)/include -L$(ATHENAROOT)/lib -lathena
 # COMPILATION SECTION
 ##########################################
 INSTALL_DIR?=$(HOME)/bin
-NAME = athena_test
+NAME = simple
 
 CFLAGS =
 
