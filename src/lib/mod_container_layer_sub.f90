@@ -15,6 +15,8 @@ submodule(container_layer) container_layer_submodule
   use dropout_layer, only: dropout_layer_type
   use dropblock2d_layer, only: dropblock2d_layer_type
   use dropblock3d_layer, only: dropblock3d_layer_type
+  use avgpool2d_layer, only: avgpool2d_layer_type
+  use avgpool3d_layer, only: avgpool3d_layer_type
   use maxpool2d_layer, only: maxpool2d_layer_type
   use maxpool3d_layer, only: maxpool3d_layer_type
   use flatten1d_layer, only: flatten1d_layer_type
