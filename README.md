@@ -9,9 +9,11 @@ ATHENA is distributed with the following directories:
 | Directory | Description |
 |---|---|
 |  _doc/_ |      Documentation  |
+|  example/  |    A set of example programs utilising the ATHENA library |
 |  _src/_ |      Source code  |
 |  _tools/_ |    Additional shell script tools for automating learning  |
-|  _test/mnist_  |    Example code utilising the library for learning on the MNIST dataset  |
+|  test/  |    A set of test programs to check functionality of the library works after compilation |
+
 
 **There currently exists only a limited wiki, an no manual. These will be updated/included at a later date**
 
@@ -40,33 +42,37 @@ Inside this directory, the following files will be generated:
   include/athena.mod
   lib/libathena.a
 ```
+To check whether ATHENA has installed correctly and that the compilation works as expected, the following command can be run:
+```
+  ctest
+```
+
+This runs a set of test programs (found within teh test/ directory) to ensure the expected output occurs when a layers and networks are set up.
 
 
-Testing
+Examples
 -------
-After the library has been installed, a test program can be compiled and run to test the capabilities of ATHENA on the MNIST dataset.
-
-To do so, the MNIST dataset (a set of 60,000 hand-written numbers for training and 10,000 for testing, 0-9) must first be downloaded. The first the format the test program has been developed for follows a text-based format. The .txt database developed for can be found here:
+After the library has been installed, a set of example programs can be compiled and run to test the capabilities of ATHENA on the MNIST dataset. Some of the examples can be run as-is, and do not require external databases. For those that require the MNIST (a set of 60,000 hand-written numbers for training and 10,000 for testing, 0-9) dataset (i.e. 'example/mnist_' directories ), the dataset must first be downloaded. The example program has been developed to accept a text-based format of the MNIST dataset. The .txt database that these examples have been developed for can be found here:
 https://github.com/halimb/MNIST-txt/tree/master
 
 The link to the original MNIST database is: http://yann.lecun.com/exdb/mnist/
 
-To compile and run the test, run the following commands in the directory containing _CMakeLists.txt_:
+To compile and run the examples, run the following commands in the directory containing _CMakeLists.txt_:
 ```
-  cd test/mnist
+  cd example/mnist
   make build optim [FC=FORTRAN-COMPILER]
   ./bin/athena_test -f test_job.in
 ```
-After the test program is compiled, the following directories will also exist:
+After the example program is compiled, the following directories will also exist:
 
 | Directory | Description |
 |---|---|
-|  _test/mnist/bin/_  |     Contains binary executable | 
-|  _test/mnist/obj/_  |     Contains module/object files (non-linked binary files)|
+|  _example/mnist/bin/_  |     Contains binary executable | 
+|  _example/mnist/obj/_  |     Contains module/object files (non-linked binary files)|
 
-The test will perform a train over the MNIST dataset. Once complete, it will print its weights and biases to file, and test the trained network on the training set. The output from this can then be compared to the file _expected_output_COMPILER.txt_.
+The example will perform a train over the MNIST dataset. Once complete, it will print its weights and biases to file, and test the trained network on the training set. The output from this can then be compared to the file _expected_output_COMPILER.txt_.
 
-In the tools/ directory, there exist scripts that take utilise the wandb python package (Weights and Biases, a machine learning data tracker). Wandb is a Python module and, as such, a Python interface has been provided to call and run the Fortran test. The Python interface then reads the Fortran output files and logs the results to the wandb project.
+In the tools/ directory, there exist scripts that take utilise the wandb python package (Weights and Biases, a machine learning data tracker). Wandb is a Python module and, as such, a Python interface has been provided to call and run the Fortran example. The Python interface then reads the Fortran output files and logs the results to the wandb project.
 
 Example wandb project link: https://wandb.ai/ntaylor/cnn_mnist_test/overview?workspace=user-ntaylor
 
@@ -125,8 +131,9 @@ https://creativecommons.org/licenses/by-nc/3.0/
 |_README.md_                        | a readme file with a brief description of the code and files  |
 |_CMakeLists.txt_                   | the makefile used for compiling the library  |
 |_LICENCE_                          | licence of ATHENA code  |
-|_test/mnist/expected_output.txt_   | expected output from executing test program  |
-|_test/mnist/test_job.in_           | input file for test program  |
+|_example/mnist/expected_output.txt_   | expected output from executing test program  |
+|_example/mnist/test_job.in_           | input file for test program  |
+|_test/test_...f90_                 | test program to check that the library works as expected  |
 |_tools/sweep_init.py_              | script to initialise wandb sweep  |
 |_tools/sweep_train.py_             | script to perform training and log learning to wandb  |
 |_tools/template.in_                | input file for program in test/bin/ (once compiled)  |
