@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## Removed
+
+## [1.2.0] - 2023-12-18
+
+### Added
+
 - Add inference to dropout layers
 - Add 2D and 3D batch normalisation layers
 - Add 1D and 4D flatten layers
