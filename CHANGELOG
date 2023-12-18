@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add average pooling 2D and 3D layers
 - Add RMSprop, Adam, and Adagrad optimisers
 - Add learning rate decay
+- Allow accuracy scoring methods to be imported
 
 ### Changed
 
