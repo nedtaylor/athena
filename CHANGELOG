@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-## Removed
+### Removed
 
 ## [1.2.0] - 2023-12-18
 
@@ -65,7 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix R2 score function
    - Add zero division check
 
-## Removed
+### Removed
 
 - Remove mod_batch_norm.f90
 - Remove update procedure from learnable_layer_types
