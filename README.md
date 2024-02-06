@@ -47,7 +47,7 @@ To check whether ATHENA has installed correctly and that the compilation works a
   ctest
 ```
 
-This runs a set of test programs (found within teh test/ directory) to ensure the expected output occurs when a layers and networks are set up.
+This runs a set of test programs (found within the test/ directory) to ensure the expected output occurs when layers and networks are set up.
 
 
 Examples
