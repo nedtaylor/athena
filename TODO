@@ -2,13 +2,16 @@ Feature requests:
 - Add further levels of verbosity printing
 - Add handling of convolution method/type
 - Add padding to convolution and maxpool methods, instead of for input data
-
+- Set up loss to apply normaliser by default if softmax layer not present (similar to keras)
 
 USEFUL BACKGROUND READING - MACHINE LEARNING
 ============================================
 
 DropBlock:
 - https://arxiv.org/pdf/1810.12890.pdf
+
+Batch Normalisation:
+- https://kevinzakka.github.io/2016/09/14/batch_normalization/
 
 Other adaptive learning rates:
 - https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8563135/
@@ -23,6 +26,9 @@ Convolutional neural networks:
 - https://www.analyticsvidhya.com/blog/2018/12/guide-convolutional-neural-network-cnn/
 - https://blog.roboflow.com/what-is-a-convolutional-neural-network/#:~:text=Activation%20Function%20Layer&text=It%20takes%20in%20the%20weighted,Sigmoid
 - https://arxiv.org/pdf/1603.07285.pdf
+
+Convolutional layer including stride:
+- https://medium.com/@mayank.utexas/backpropagation-for-convolution-with-strides-8137e4fc2710
 
 
 USEFUL BACKGROUND READING - FORTRAN
