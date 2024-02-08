@@ -42,6 +42,10 @@ A full list of features available within the `ATHENA` library, including availab
 
 The library can handle feed-forward networks with an arbirtray number of hidden layers and neurons (or filter sizes). There exist several activation functions, including Gaussian, linear, sigmoid, ReLU, leaky ReLU, tangent hyberbolic functions, and more. Optimiser functions include stochastic gradient decent (SGD), RMSprop, Adam, and AdaGrad. Network models can be saved to and loaded from files.
 
+# Ongoing research projects
+
+The `ATHENA` library is being used in ongoing materials science research, with a focus on structural and materials property prediction.
+
 # Acknowledgements
 
 The author thanks the Leverhulme for funding via Grant No. RPG-2021-086. The development of this code has benefitted through discussions with and contributions from many members of the Hepplestone research group, including Steven Paul Hepplestone, Francis Huw Davies, Harry McClean, Shane Graham Davies, and Conor Jason Price. Of particular note, Francis has provided contributions towards the development of code in some procedures focused on handling variables and files.
