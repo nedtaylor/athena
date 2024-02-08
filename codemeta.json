@@ -1,0 +1,23 @@
+{
+  "@context": "https://raw.githubusercontent.com/codemeta/codemeta/master/codemeta.jsonld",
+  "@type": "Code",
+  "author": [
+    {
+      "@id": "http://orcid.org/0000-0002-9134-9712",
+      "@type": "Person",
+      "email": "n.t.taylor@exeter.ac.uk",
+      "name": "Ned Thaddeus Taylor",
+      "affiliation": "Department of Physics and Astronomy, University of Exeter, United Kingdom, EX4 4QL"
+    }
+  ],
+  "identifier": "",
+  "codeRepository": "https://git.exeter.ac.uk/hepplestone/athena",
+  "datePublished": "2024-02-08",
+  "dateModified": "2024-02-08",
+  "dateCreated": "2024-02-08",
+  "description": "Open source Fortran library for building, training, and testing neural networks",
+  "keywords": "fortran, neural network, convolution, machine learning, 3D convolution",
+  "license": "MIT",
+  "title": "'ATHENA: A Fortran package for neural networks",
+  "version": "1.2.1"
+}
