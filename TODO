@@ -1,45 +1,32 @@
-TODO list:
-- Different verbosity printing levels
+Feature requests:
+- Add further levels of verbosity printing
 - Add handling of convolution method/type
-- Add DropBlock method
-- Make dropout, block_size, and keep_prob as derived types (easier for namelist)
-- Make convolution functions in mod_misc_convolution.f90
-- Add padding to maxpool methods
-- Add more initialiser methods
-  !! https://keras.io/api/layers/initializers/ 
+- Add padding to convolution and maxpool methods, instead of for input data
 
 
-USEFUL LINKS TO CONSIDER
-========================
+USEFUL BACKGROUND READING - MACHINE LEARNING
+============================================
 
-https://carson.math.uwm.edu/trac/cam/files/attachments/ticket/175/17503a6b2326f09fbc4e3a7c03874c7333002038/6ebed2271b85944639eeaf09877f665246da77e8.pdf
-https://stackoverflow.com/questions/48501655/how-to-add-custom-option-to-target-in-makefile
-https://arxiv.org/pdf/1603.07285.pdf
+DropBlock:
+- https://arxiv.org/pdf/1810.12890.pdf
+
+Other adaptive learning rates:
+- https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8563135/
+- http://almostconvergent.blogs.rice.edu/2020/12/07/momentumrnn-integrating-momentum-into-recurrent-neural-networks/
+AdamW:
+- https://towardsdatascience.com/why-adamw-matters-736223f31b5d
+
+Data viewing:
+- https://playground.tensorflow.org/#activation=tanh&batchSize=10&dataset=circle&regDataset=reg-plane&learningRate=0.03&regularizationRate=0&noise=0&networkShape=4,2&seed=0.62319&showTestData=false&discretize=false&percTrainData=50&x=true&y=true&xTimesY=false&xSquared=false&ySquared=false&cosX=false&sinX=false&cosY=false&sinY=false&collectStats=false&problem=classification&initZero=false&hideText=false
+
+Convolutional neural networks:
+- https://www.analyticsvidhya.com/blog/2018/12/guide-convolutional-neural-network-cnn/
+- https://blog.roboflow.com/what-is-a-convolutional-neural-network/#:~:text=Activation%20Function%20Layer&text=It%20takes%20in%20the%20weighted,Sigmoid
+- https://arxiv.org/pdf/1603.07285.pdf
+
+
+USEFUL BACKGROUND READING - FORTRAN
+===================================
 assumed rank: https://community.intel.com/t5/Intel-Fortran-Compiler/Passing-negative-indexed-arrays-to-a-subroutine/m-p/1131949
 assumed shape: https://pages.mtu.edu/~shene/COURSES/cs201/NOTES/chap08/assumed.html
 https://wandb.ai/byyoung3/ml-news/reports/New-Method-For-LLM-Quantization--VmlldzozOTU1NTgz
-DropBlock: https://arxiv.org/pdf/1810.12890.pdf
-
-Same result: https://stackoverflow.com/questions/62787260/keras-cnn-always-predicts-same-class
-
-Other adaptive learning rates: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8563135/
-AdamW: https://towardsdatascience.com/why-adamw-matters-736223f31b5d
-http://almostconvergent.blogs.rice.edu/2020/12/07/momentumrnn-integrating-momentum-into-recurrent-neural-networks/
-
-
-MNIST not learning:
-https://stackoverflow.com/questions/59864215/neural-network-for-mnist-digits-is-not-learning-at-all-problem-with-backpropag
-
-Issue not learning:
-https://stackoverflow.com/questions/59864215/neural-network-for-mnist-digits-is-not-learning-at-all-problem-with-backpropag
-
-viewing:
-https://playground.tensorflow.org/#activation=tanh&batchSize=10&dataset=circle&regDataset=reg-plane&learningRate=0.03&regularizationRate=0&noise=0&networkShape=4,2&seed=0.62319&showTestData=false&discretize=false&percTrainData=50&x=true&y=true&xTimesY=false&xSquared=false&ySquared=false&cosX=false&sinX=false&cosY=false&sinY=false&collectStats=false&problem=classification&initZero=false&hideText=false
-
-ResNet
-https://blog.roboflow.com/what-is-a-convolutional-neural-network/#:~:text=Activation%20Function%20Layer&text=It%20takes%20in%20the%20weighted,Sigmoid
-
-
-https://www.analyticsvidhya.com/blog/2018/12/guide-convolutional-neural-network-cnn/
-
-https://stackoverflow.com/questions/5134891/how-do-i-use-valgrind-to-find-memory-leaks
