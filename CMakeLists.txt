@@ -24,6 +24,7 @@ set( CMAKE_BUILD_TYPE "Release"
 # change name based on parallel
 if (CMAKE_BUILD_TYPE MATCHES "Parallel*")
    project(athena_omp NONE) # change project name to parallel
+   message(FATAL_ERROR "Configuration stopped because Parallel is not yet set up")
 endif()
 
 # set compiler
