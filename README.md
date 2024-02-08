@@ -1,4 +1,4 @@
-ATHENA (Adaptive Training for High Efficiency Neural Network Applications/Algorithm/Architecture)
+ATHENA (Adaptive Training for High Efficiency Neural Network Applications)
 =========================================================================
 by Ned Thaddeus Taylor
 
