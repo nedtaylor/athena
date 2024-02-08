@@ -1,7 +1,11 @@
+!!!#############################################################################
+!!! Code written by Ned Thaddeus Taylor
+!!! Code part of the ARTEMIS group (Hepplestone research group)
+!!! Think Hepplestone, think HRG
+!!!#############################################################################
 module learning_rate_decay
   use constants, only: real12
   implicit none
-
 
 
   type base_lr_decay_type
