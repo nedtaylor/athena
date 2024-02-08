@@ -15,6 +15,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+## [1.2.1] - 2024-02-07
+
+### Changed
+
+- Change CMakeLists to break on parallel build
+- Tidy up TODO
+
+### Fixed
+
+- Fix typos in README
+
+### Removed
+
+- Remove parallel build option
+- Remove src/athena_omp.f90
+- Remove superfluous comments and urls
+
 ## [1.2.0] - 2023-12-18
 
 ### Added
@@ -25,7 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add predict procedure to network_type
 - Add network reset procedure
 - Add Adam optimiser
-- Add procedures to get and set network parameters 
+- Add procedures to get and set network parameters
 - Add procedures to get and set network gradients
 - Add procedure to get layer output
 - Add new test directory
