@@ -3,6 +3,7 @@
 !!! Code part of the ARTEMIS group (Hepplestone research group)
 !!! Think Hepplestone, think HRG
 !!!#############################################################################
+!!! DropBlock reference (2D implementation): https://arxiv.org/pdf/1810.12890.pdf
 module dropblock3d_layer
   use constants, only: real12
   use base_layer, only: drop_layer_type
@@ -205,7 +206,6 @@ contains
 
     !!-----------------------------------------------------------------------
     !! set gamma
-    !! ... original paper: https://doi.org/10.1145/3474085.3475302
     !!-----------------------------------------------------------------------
     !! original paper uses keep_prob, we use drop_rate
     !! drop_rate = 1 - keep_prob

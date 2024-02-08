@@ -688,7 +688,6 @@ contains
 !!!#############################################################################
 !!! backward propagation
 !!!#############################################################################
-!!! https://kevinzakka.github.io/2016/09/14/batch_normalization/
   pure subroutine backward_4d(this, input, gradient)
     implicit none
     class(batchnorm2d_layer_type), intent(inout) :: this

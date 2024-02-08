@@ -3,6 +3,7 @@
 !!! Code part of the ARTEMIS group (Hepplestone research group)
 !!! Think Hepplestone, think HRG
 !!!#############################################################################
+!!! LeCun initialiser reference: https://dl.acm.org/doi/10.5555/645754.668382
 module initialiser_lecun
   use constants, only: real12, pi
   use custom_types, only: initialiser_type
@@ -31,7 +32,6 @@ contains
 
 !!!#############################################################################
 !!! LeCun initialisation (uniform)
-!!! https://dl.acm.org/doi/10.5555/645754.668382
 !!!#############################################################################
   subroutine lecun_uniform_initialise(this, input, fan_in, fan_out)
     implicit none
@@ -72,7 +72,6 @@ contains
 
 !!!#############################################################################
 !!! LeCun initialisation (normal)
-!!! https://dl.acm.org/doi/10.5555/645754.668382
 !!!#############################################################################
   subroutine lecun_normal_initialise(this, input, fan_in, fan_out)
     implicit none

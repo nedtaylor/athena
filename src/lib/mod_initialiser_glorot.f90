@@ -3,6 +3,7 @@
 !!! Code part of the ARTEMIS group (Hepplestone research group)
 !!! Think Hepplestone, think HRG
 !!!#############################################################################
+!!! Glorot initialiser reference: https://proceedings.mlr.press/v9/glorot10a.html
 module initialiser_glorot
   use constants, only: real12, pi
   use custom_types, only: initialiser_type
@@ -31,7 +32,6 @@ contains
 
 !!!#############################################################################
 !!! Xavier Glorot initialisation (uniform)
-!!! https://proceedings.mlr.press/v9/glorot10a.html
 !!!#############################################################################
   subroutine glorot_uniform_initialise(this, input, fan_in, fan_out)
     implicit none
@@ -72,7 +72,6 @@ contains
 
 !!!#############################################################################
 !!! Xavier Glorot initialisation (normal)
-!!! https://proceedings.mlr.press/v9/glorot10a.html
 !!!#############################################################################
   subroutine glorot_normal_initialise(this, input, fan_in, fan_out)
     implicit none

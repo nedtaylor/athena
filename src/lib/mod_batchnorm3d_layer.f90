@@ -690,7 +690,6 @@ end subroutine get_output_batchnorm3d
 !!!#############################################################################
 !!! backward propagation
 !!!#############################################################################
-!!! https://kevinzakka.github.io/2016/09/14/batch_normalization/
   pure subroutine backward_5d(this, input, gradient)
     implicit none
     class(batchnorm3d_layer_type), intent(inout) :: this

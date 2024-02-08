@@ -992,7 +992,6 @@ contains
           lim_g(2,:) = min(this%output_shape, stp_idx + ([i,j]-1)/this%stp )
 
           !! apply full convolution to compute input gradients
-          !! https://medium.com/@mayank.utexas/backpropagation-for-convolution-with-strides-8137e4fc2710
           this%di(i,j,m,s) = &
                this%di(i,j,m,s) + &
                sum( &

@@ -3,6 +3,7 @@
 !!! Code part of the ARTEMIS group (Hepplestone research group)
 !!! Think Hepplestone, think HRG
 !!!#############################################################################
+!! Examples of initialsers in keras: https://keras.io/api/layers/initializers/
 module initialiser
   use misc, only: to_lower
   use custom_types, only: initialiser_type

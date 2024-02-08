@@ -11,13 +11,9 @@ module custom_types
 !!!-----------------------------------------------------------------------------
 !!! activation (transfer) function base type
 !!!-----------------------------------------------------------------------------
-!!! EXAMPLE OF HOW THIS WORKS WAS MODIFIED FROM:
-!!! https://en.wikibooks.org/wiki/Fortran/OOP_in_Fortran
-!!! https://stackoverflow.com/questions/19391094/is-it-possible-to-implement-an-abstract-variable-inside-a-type-in-fortran-2003
-!!! https://stackoverflow.com/questions/8612466/how-to-alias-a-function-name-in-fortran
-!!! https://www.adt.unipd.it/corsi/Bianco/www.pcc.qub.ac.uk/tec/courses/f90/stu-notes/F90_notesMIF_12.html
   type, abstract :: activation_type
      !! memory leak as allocatable character goes out of bounds
+     !! change to defined length
      !character(:), allocatable :: name
      character(10) :: name
      real(real12) :: scale

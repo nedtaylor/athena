@@ -3,6 +3,7 @@
 !!! Code part of the ARTEMIS group (Hepplestone research group)
 !!! Think Hepplestone, think HRG
 !!!#############################################################################
+!!! He initialiser reference: https://doi.org/10.48550/arXiv.1502.01852
 module initialiser_he
   use constants, only: real12, pi
   use custom_types, only: initialiser_type
@@ -33,7 +34,6 @@ contains
 !!! He initialisation (uniform)
 !!! Kaiming initialisation
 !!! MSRA initialisation
-!!! https://doi.org/10.48550/arXiv.1502.01852
 !!!#############################################################################
   subroutine he_uniform_initialise(this, input, fan_in, fan_out)
     implicit none

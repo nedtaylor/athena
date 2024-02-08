@@ -1262,13 +1262,6 @@ end function get_gradients
              call this%forward(get_sample(input,start_index,end_index))
           end if
 
-!!! SET UP LOSS TO APPLY A NORMALISER BY DEFAULT IF SOFTMAX NOT PREVIOUS
-!!! (this is what keras does)
-!!! ... USE current%transfer%name TO DETERMINE
-!!! https://www.v7labs.com/blog/cross-entropy-loss-guide
-!!! https://datascience.stackexchange.com/questions/73093/what-does-from-logits-true-do-in-sparsecategoricalcrossentropy-loss-function
-!!! https://math.stackexchange.com/questions/4367458/derivate-of-the-the-negative-log-likelihood-with-composition
-
 
           !! Backward pass and store predicted output
           !!-----------------------------------------------------------------
