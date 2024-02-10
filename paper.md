@@ -48,6 +48,6 @@ The `ATHENA` library is being used in ongoing materials science research, with a
 
 # Acknowledgements
 
-The author thanks the Leverhulme for funding via Grant No. RPG-2021-086. The development of this code has benefitted through discussions with and contributions from many members of the Hepplestone research group, including Steven Paul Hepplestone, Francis Huw Davies, Harry McClean, Shane Graham Davies, and Conor Jason Price. Of particular note, Francis has provided contributions towards the development of code in some procedures focused on handling variables and files.
+The author thanks the Leverhulme for funding via Grant No. RPG-2021-086. The development of this code has benefitted through discussions with and contributions from many members of the Hepplestone research group, including Steven Paul Hepplestone, Francis Huw Davies, Harry McClean, Shane Davies, Ed Baker, Joe Pitfield, and Conor Price. Of particular note, Francis has provided contributions towards the development of code in some procedures focused on handling variables and files.
 
 # References
