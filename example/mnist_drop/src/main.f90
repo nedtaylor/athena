@@ -6,10 +6,8 @@
 program mnist_test
 #ifdef _OPENMP
   use omp_lib
-  use athena_omp
-#else
-  use athena
 #endif
+  use athena
   use constants, only: real12
   use read_mnist, only: read_mnist_db
   use inputs
