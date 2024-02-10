@@ -101,8 +101,6 @@ endif
 ifeq ($(findstring mp,$(MAKECMDGOALS)),mp)
 $(info NTHREADS = $(NTHREADS))
 	CFLAGS+=$(MPFLAGS)
-	NAME:=$(NAME)_mp
-	LATHENA:=$(LATHENA)_omp
 endif
 ifeq ($(findstring address,$(MAKECMDGOALS)),address)
 	CFLAGS:=$(filter-out -fsanitize=leak, $(CFLAGS))

@@ -5,11 +5,7 @@
 !!!#############################################################################
 module inputs
   use constants, only: real12, ierror
-#ifdef _OPENMP
-  use athena_omp, only: &
-#else
   use athena, only: &
-#endif
        metric_dict_type, &
        base_optimiser_type, &
        sgd_optimiser_type, &
