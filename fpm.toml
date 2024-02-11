@@ -1,0 +1,66 @@
+name = "athena"
+version = "1.2.1"
+license = "MIT"
+author = "Ned Thaddeus Taylor"
+maintainer = "n.t.taylor@exeter.ac.uk"
+description = "A Fortran library for building, training and testing feed-forward neural networks"
+
+[library]
+source-dir="src"
+
+
+[build]
+auto-executables = true
+auto-tests = true
+auto-examples = false
+module-naming = false
+
+[install]
+library = false
+
+[fortran]
+implicit-typing = false
+implicit-external = false
+source-form = "free"
+
+[preprocess]
+[preprocess.cpp]
+
+
+[[example]]
+name = "sine"
+source-dir = "example/sine/src"
+main = "main.f90"
+[example.dependencies]
+example_library = { path = "example/example_library"}
+
+[[example]]
+name = "simple"
+source-dir = "example/simple/src"
+main = "main.f90"
+[example.dependencies]
+example_library = { path = "example/example_library"}
+
+[[example]]
+name = "mnist"
+source-dir = "example/mnist/src"
+[example.dependencies]
+example_library = { path = "example/example_library"}
+
+[[example]]
+name = "mnist_3D"
+source-dir = "example/mnist_3D/src"
+[example.dependencies]
+example_library = { path = "example/example_library"}
+
+[[example]]
+name = "mnist_bn"
+source-dir = "example/mnist_bn/src"
+[example.dependencies]
+example_library = { path = "example/example_library"}
+
+[[example]]
+name = "mnist_drop"
+source-dir = "example/mnist_drop/src"
+[example.dependencies]
+example_library = { path = "example/example_library"}

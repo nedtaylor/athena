@@ -42,7 +42,7 @@ program mnist_example
 !!!-----------------------------------------------------------------------------
 !!! initialise global variables
 !!!-----------------------------------------------------------------------------
-  call set_global_vars()
+  call set_global_vars(param_file="example/mnist/test_job.in")
 #ifdef _OPENMP
   write(*,*) "number of threads:", num_threads
   call omp_set_num_threads(num_threads)

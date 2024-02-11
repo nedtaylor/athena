@@ -4,7 +4,7 @@
 !!! Code part of the ARTEMIS group
 !!!#############################################################################
 module inputs
-  use constants, only: real12, ierror
+  use constants_minst, only: real12, ierror
   use athena, only: &
        metric_dict_type, &
        base_optimiser_type, &
@@ -13,7 +13,7 @@ module inputs
        l1l2_regulariser_type, &
        l1_regulariser_type, &
        l2_regulariser_type
-  use misc, only: icount, flagmaker, file_check, to_lower
+  use misc_minst, only: icount, flagmaker, file_check, to_lower
   implicit none
   integer :: verbosity    ! verbose printing
   integer :: seed         ! random seed
@@ -106,19 +106,20 @@ module inputs
 contains
 
 !!!#############################################################################
-  subroutine set_global_vars()
+  subroutine set_global_vars(param_file)
     implicit none
     integer :: i, j
     integer :: num_hidden_layers
-    character(1024) :: buffer, flag,param_file
+    character(1024) :: buffer, flag,param_file_
     logical :: skip, empty
+    character(*), optional, intent(in) :: param_file
 
 
 !!!-----------------------------------------------------------------------------
 !!! initialises variables
 !!!-----------------------------------------------------------------------------
     skip = .false.
-    param_file = ""
+    param_file_ = ""
     input_file = ""
     output_file = "cnn_layers.txt"
     restart = .false.
@@ -152,6 +153,9 @@ contains
     !! gaussian, relu, piecewise, leaky_relu, sigmoid, tanh
 
 
+    if(present(param_file)) param_file_ = param_file
+
+
 !!!-----------------------------------------------------------------------------
 !!! Reads flags and assigns to variables
 !!!-----------------------------------------------------------------------------
@@ -170,13 +174,13 @@ contains
           flag="-f"
           call flagmaker(buffer,flag,i,skip,empty)
           if(.not.empty)then
-             read(buffer,'(A)') param_file
+             read(buffer,'(A)') param_file_
           else
              write(6,'("ERROR: No input filename supplied, but the flag ''-f'' was used")')
              infilename_do: do j=1,3
                 write(6,'("Please supply an input filename:")')
-                read(5,'(A)') param_file
-                if(trim(param_file).ne.'')then
+                read(5,'(A)') param_file_
+                if(trim(param_file_).ne.'')then
                    write(6,'("Input filename supplied")')
                    exit infilename_do
                 else
@@ -232,8 +236,8 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! check if input file was specified and read if true
 !!!-----------------------------------------------------------------------------
-    if(trim(param_file).ne."")then
-       call read_input_file(param_file)
+    if(trim(param_file_).ne."")then
+       call read_input_file(param_file_)
     else
        stop "No input file given"
     end if

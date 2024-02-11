@@ -8,7 +8,7 @@ program mnist_test
   use omp_lib
 #endif
   use athena
-  use constants, only: real12
+  use constants_minst, only: real12
   use read_mnist, only: read_mnist_db
   use inputs
 
@@ -43,7 +43,7 @@ program mnist_test
 !!!-----------------------------------------------------------------------------
 !!! initialise global variables
 !!!-----------------------------------------------------------------------------
-  call set_global_vars()
+  call set_global_vars(param_file="example/mnist_3D/test_job.in")
 #ifdef _OPENMP
   write(*,*) "number of threads:", num_threads
   call omp_set_num_threads(num_threads)

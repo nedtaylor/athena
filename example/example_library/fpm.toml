@@ -1,0 +1,7 @@
+name = "example_library"
+
+[library]
+source-dir="src"
+
+[preprocess]
+[preprocess.cpp]

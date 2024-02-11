@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add fpm compilation handling
+
 ### Changed
+
+- Move example-dependent library from /example/include to example/example_library
+- Update README to include fpm documentation
+- Update README to include dependencies
 
 ### Fixed
 
