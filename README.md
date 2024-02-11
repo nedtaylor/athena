@@ -1,8 +1,8 @@
-ATHENA (Adaptive Training for High Efficiency Neural Network Applications)
-=========================================================================
+# athena
+
 by Ned Thaddeus Taylor
 
-ATHENA is a Fortran library for developing and handling neural networks (with a focus on convolutional neural networks).
+ATHENA (Adaptive Training for High Efficiency Neural Network Applications) is a Fortran library for developing and handling neural networks (with a focus on convolutional neural networks).
 
 ATHENA is distributed with the following directories:
 
@@ -15,17 +15,54 @@ ATHENA is distributed with the following directories:
 |  test/  |    A set of test programs to check functionality of the library works after compilation |
 
 
-**There currently exists only a limited wiki, an no manual. These will be updated/included at a later date**
+Documentation
+-----
 
-The library has been developed using the following compilers:
-- gfortran -- gcc 13.2.0
-- ifort -- Intel 2021.10.0.20230609
-- ifx -- IntelLLVM 2023.2.0
+For extended details on the functinoality of this library, please check out the [wiki](https://git.exeter.ac.uk/hepplestone/athena/-/wikis)
 
+**NOTE: There currently exists no manual document. This will be included at a later date**
 
 
 Setup
 -----
+
+The ATHENA library can be obtained from the git repository. Use the following commands to get started:
+```
+  git clone https://git.exeter.ac.uk/hepplestone/athena.git
+  cd athena
+```
+
+### Dependencies
+
+The library has the following dependencies:
+- A Fortran compiler (compatible with Fortran 2018 or later)
+- [fpm](https://github.com/fortran-lang/fpm) or [CMake](https://cmake.org) for building the library
+
+The library has been developed and tested using the following compilers:
+- gfortran -- gcc 13.2.0
+- ifort -- Intel 2021.10.0.20230609
+- ifx -- IntelLLVM 2023.2.0
+
+### Building with fpm
+
+The library is set up to work with the Fortran Package Manager (fpm).
+
+With gfortran, the following command in the repository main directory:
+```
+  fpm build --profile release
+```
+
+#### Testing with fpm
+
+To check whether ATHENA has installed correctly and that the compilation works as expected, the following command can be run:
+```
+  fpm test
+```
+
+This runs a set of test programs (found within the test/ directory) to ensure the expected output occurs when layers and networks are set up.
+
+### Building with cmake
+
 Run the following commands in the directory containing _CMakeLists.txt_:
 ```
   mkdir build  
@@ -42,6 +79,9 @@ Inside this directory, the following files will be generated:
   include/athena.mod
   lib/libathena.a
 ```
+
+#### Testing with cmake
+
 To check whether ATHENA has installed correctly and that the compilation works as expected, the following command can be run:
 ```
   ctest
@@ -56,6 +96,30 @@ After the library has been installed, a set of example programs can be compiled 
 https://github.com/halimb/MNIST-txt/tree/master
 
 The link to the original MNIST database is: http://yann.lecun.com/exdb/mnist/
+
+__NOTE:__ For the mnist examples, the MNIST dataset must be downloaded. By default, the database is expected to be found in the directory path ``../../DMNIST``. However, this can be chaned by editing the following line in the ``example/mnist[_VAR]/test_job.in`` file to point to the desired path:
+
+```
+  dataset_dir = "../../DMNIST"
+```
+
+#### Running examples using fpm
+
+Using fpm, the examples are built alongside the library. To list all available examples, use:
+```
+  fpm run --example --list
+```
+
+To run a particular example, execute the following command:
+
+```
+  fpm run --example [NAME]
+```
+
+where [_NAME_] is the name of the example found in the list.
+
+
+#### Running examples manually
 
 To compile and run the examples, run the following commands in the directory containing _CMakeLists.txt_:
 ```
@@ -96,9 +160,11 @@ Developers
 
 License
 -------
-This work is licensed under a Creative Commons Attribution-NonCommercial 3.0 Unported (CC BY-NC 3.0) License.
-https://creativecommons.org/licenses/by-nc/3.0/
+This work is licensed under an [MIT license](https://opensource.org/license/mit/).
 
+
+Files
+-----
 
 
 |Source file | Description|
@@ -130,10 +196,11 @@ https://creativecommons.org/licenses/by-nc/3.0/
 |-----|------|
 |_README.md_                        | a readme file with a brief description of the code and files  |
 |_CMakeLists.txt_                   | the makefile used for compiling the library  |
-|_LICENCE_                          | licence of ATHENA code  |
-|_example/mnist/expected_output.txt_   | expected output from executing test program  |
-|_example/mnist/test_job.in_           | input file for test program  |
-|_test/test_...f90_                 | test program to check that the library works as expected  |
+|_LICENSE_                          | licence of ATHENA code  |
+|_example/example_library_          | Utility library shared between the examples |
+|_example/mnist/expected_output.txt_   | expected output from executing example program  |
+|_example/mnist/test_job.in_           | input file for example program  |
+|_test/test__[_NAME_]__.f90_           | [_NAME_] test program to check library expected functionality |
 |_tools/sweep_init.py_              | script to initialise wandb sweep  |
 |_tools/sweep_train.py_             | script to perform training and log learning to wandb  |
 |_tools/template.in_                | input file for program in test/bin/ (once compiled)  |

@@ -1,6 +1,6 @@
 program simple
   use athena
-  use constants, only: real12, pi
+  use constants_minst, only: real12, pi
 
   implicit none
 

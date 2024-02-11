@@ -1,5 +1,5 @@
 module read_mnist
-  use constants, only: real12
+  use constants_minst, only: real12
   use athena, only: pad_data
   implicit none
 
@@ -13,7 +13,7 @@ contains
 !!! read mnist dataset
 !!!#############################################################################
   subroutine read_mnist_db(file,images,labels,kernel_size,image_size,padding_method)
-    use misc, only: icount
+    use misc_minst, only: icount
     implicit none
     integer :: i, j, k, Reason, unit
     integer :: num_samples, num_pixels, t_kernel_size = 1
