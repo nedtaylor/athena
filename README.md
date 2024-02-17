@@ -15,17 +15,37 @@ ATHENA is distributed with the following directories:
 |  test/  |    A set of test programs to check functionality of the library works after compilation |
 
 
-**There currently exists only a limited wiki, an no manual. These will be updated/included at a later date**
+Documentation
+-----
 
-The library has been developed using the following compilers:
+For extended details on the functinoality of this library, please check out the [wiki](https://github.com/nedtaylor/athena/wiki)
+
+**NOTE: There currently exists no manual document. This will be included at a later date**
+
+
+Setup
+-----
+
+The ATHENA library can be obtained from the git repository. Use the following commands to get started:
+```
+  git clone https://git.exeter.ac.uk/hepplestone/athena.git
+  cd athena
+```
+
+### Dependencies
+
+The library has the following dependencies:
+- A Fortran compiler (compatible with Fortran 2018 or later)
+- [CMake](https://cmake.org) for building the library
+
+The library has been developed and tested using the following compilers:
 - gfortran -- gcc 13.2.0
 - ifort -- Intel 2021.10.0.20230609
 - ifx -- IntelLLVM 2023.2.0
 
 
+### Building with cmake
 
-Setup
------
 Run the following commands in the directory containing _CMakeLists.txt_:
 ```
   mkdir build  
@@ -42,6 +62,9 @@ Inside this directory, the following files will be generated:
   include/athena.mod
   lib/libathena.a
 ```
+
+#### Testing with cmake
+
 To check whether ATHENA has installed correctly and that the compilation works as expected, the following command can be run:
 ```
   ctest
@@ -49,13 +72,21 @@ To check whether ATHENA has installed correctly and that the compilation works a
 
 This runs a set of test programs (found within the test/ directory) to ensure the expected output occurs when layers and networks are set up.
 
-
 Examples
 -------
 After the library has been installed, a set of example programs can be compiled and run to test the capabilities of ATHENA on the MNIST dataset. Some of the examples can be run as-is, and do not require external databases. For those that require the MNIST (a set of 60,000 hand-written numbers for training and 10,000 for testing, 0-9) dataset (i.e. 'example/mnist_' directories ), the dataset must first be downloaded. The example program has been developed to accept a text-based format of the MNIST dataset. The .txt database that these examples have been developed for can be found here:
 https://github.com/halimb/MNIST-txt/tree/master
 
 The link to the original MNIST database is: http://yann.lecun.com/exdb/mnist/
+
+__NOTE:__ For the mnist examples, the MNIST dataset must be downloaded. By default, the database is expected to be found in the directory path ``../../DMNIST``. However, this can be chaned by editing the following line in the ``example/mnist[_VAR]/test_job.in`` file to point to the desired path:
+
+```
+  dataset_dir = "../../DMNIST"
+```
+
+
+#### Running examples manually
 
 To compile and run the examples, run the following commands in the directory containing _CMakeLists.txt_:
 ```
@@ -94,10 +125,14 @@ Developers
 - Ned Thaddeus Taylor
 
 
+Acknowledgements
+---------------
+
+The author thanks the Leverhulme for funding via Grant No. RPG-2021-086. The development of this code has benefitted through discussions with and contributions from many members of the Hepplestone research group, including Steven Paul Hepplestone, Francis Huw Davies, Harry McClean, Shane Davies, Ed Baker, Joe Pitfield, and Conor Price. Of particular note, Francis has provided contributions towards the development of code in some procedures focused on handling variables and files.
+
 License
 -------
-This work is licensed under a Creative Commons Attribution-NonCommercial 3.0 Unported (CC BY-NC 3.0) License.
-https://creativecommons.org/licenses/by-nc/3.0/
+This work is licensed under an [MIT license](https://opensource.org/license/mit/).
 
 
 
