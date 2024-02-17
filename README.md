@@ -41,6 +41,7 @@ For extended details on the functionality of this library, please check out the 
 
 **NOTE: There currently exists no manual document. This will be included at a later date**
 
+### Building with cmake
 
 Setup
 -----
@@ -107,7 +108,6 @@ To check whether ATHENA has installed correctly and that the compilation works a
 ```
 
 This runs a set of test programs (found within the test/ directory) to ensure the expected output occurs when layers and networks are set up.
-
 
 Examples
 -------
@@ -176,6 +176,11 @@ Developers
 ----------
 - Ned Thaddeus Taylor
 
+
+Acknowledgements
+---------------
+
+The author thanks the Leverhulme for funding via Grant No. RPG-2021-086. The development of this code has benefitted through discussions with and contributions from many members of the Hepplestone research group, including Steven Paul Hepplestone, Francis Huw Davies, Harry McClean, Shane Davies, Ed Baker, Joe Pitfield, and Conor Price. Of particular note, Francis has provided contributions towards the development of code in some procedures focused on handling variables and files.
 
 License
 -------
