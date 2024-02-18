@@ -11,7 +11,7 @@
     }
   ],
   "identifier": "",
-  "codeRepository": "https://git.exeter.ac.uk/hepplestone/athena",
+  "codeRepository": "https://github.com/nedtaylor/athena",
   "datePublished": "2024-02-08",
   "dateModified": "2024-02-08",
   "dateCreated": "2024-02-08",
@@ -19,5 +19,5 @@
   "keywords": "fortran, neural network, convolution, machine learning, 3D convolution",
   "license": "MIT",
   "title": "'ATHENA: A Fortran package for neural networks",
-  "version": "1.2.1"
+  "version": "1.2.2"
 }
