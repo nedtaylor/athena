@@ -1,28 +1,49 @@
 @article{curcic2019parallel,
-      title={A parallel Fortran framework for neural networks and deep learning}, 
-      author={Milan Curcic},
-      year={2019},
-      eprint={1902.06714},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG}
+      author = {Curcic, Milan},
+      title = {A parallel Fortran framework for neural networks and deep learning},
+      year = {2019},
+      issue_date = {December 2018},
+      publisher = {Association for Computing Machinery},
+      address = {New York, NY, USA},
+      volume = {38},
+      number = {1},
+      issn = {1061-7264},
+      url = {https://doi.org/10.1145/3323057.3323059},
+      doi = {10.1145/3323057.3323059},
+      abstract = {This paper describes neural-fortran, a parallel Fortran framework for neural networks and deep learning. It features a simple interface to construct feed-forward neural networks of arbitrary structure and size, several activation functions, and stochastic gradient descent as the default optimization algorithm. Neural-fortran also leverages the Fortran 2018 standard collective subroutines to achieve data-based parallelism on shared- or distributed-memory machines. First, I describe the implementation of neural networks with Fortran derived types, whole-array arithmetic, and collective sum and broadcast operations to achieve parallelism. Second, I demonstrate the use of neural-fortran in an example of recognizing hand-written digits from images. Finally, I evaluate the computational performance in both serial and parallel modes. Ease of use and computational performance are similar to an existing popular machine learning framework, making neural-fortran a viable candidate for further development and use in production.},
+      journal = {SIGPLAN Fortran Forum},
+      month = {mar},
+      pages = {4–21},
+      numpages = {18}
 }
 
-@article{ghiasi2018dropblock,
-      title={DropBlock: A regularization method for convolutional networks}, 
-      author={Golnaz Ghiasi and Tsung-Yi Lin and Quoc V. Le},
-      year={2018},
-      eprint={1810.12890},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV}
+@inproceedings{ghiasi2018dropblock,
+      author = {Ghiasi, Golnaz and Lin, Tsung-Yi and Le, Quoc V.},
+      title = {DropBlock: a regularization method for convolutional networks},
+      year = {2018},
+      publisher = {Curran Associates Inc.},
+      address = {Red Hook, NY, USA},
+      abstract = {Deep neural networks often work well when they are over-parameterized and trained with a massive amount of noise and regularization, such as weight decay and dropout. Although dropout is widely used as a regularization technique for fully connected layers, it is often less effective for convolutional layers. This lack of success of dropout for convolutional layers is perhaps due to the fact that activation units in convolutional layers are spatially correlated so information can still flow through convolutional networks despite dropout. Thus a structured form of dropout is needed to regularize convolutional networks. In this paper, we introduce DropBlock, a form of structured dropout, where units in a contiguous region of a feature map are dropped together. We found that applying DropbBlock in skip connections in addition to the convolution layers increases the accuracy. Also, gradually increasing number of dropped units during training leads to better accuracy and more robust to hyperparameter choices. Extensive experiments show that DropBlock works better than dropout in regularizing convolutional networks. On ImageNet classification, ResNet-50 architecture with DropBlock achieves 78.13\% accuracy, which is more than 1.6\% improvement on the baseline. On COCO detection, DropBlock improves Average Precision of RetinaNet from 36.8\% to 38.4\%.},
+      booktitle = {Proceedings of the 32nd International Conference on Neural Information Processing Systems},
+      pages = {10750–10760},
+      numpages = {11},
+      location = {Montr\'{e}al, Canada},
+      doi = {10.5555/3327546.3327732},
+      series = {NIPS'18}
 }
 
-@article{ioffe2015batch,
-      title={Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift}, 
-      author={Sergey Ioffe and Christian Szegedy},
-      year={2015},
-      eprint={1502.03167},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG}
+@inproceedings{ioffe2015batch,
+      author = {Ioffe, Sergey and Szegedy, Christian},
+      title = {Batch normalization: accelerating deep network training by reducing internal covariate shift},
+      year = {2015},
+      publisher = {JMLR.org},
+      abstract = {Training Deep Neural Networks is complicated by the fact that the distribution of each layer's inputs changes during training, as the parameters of the previous layers change. This slows down the training by requiring lower learning rates and careful parameter initialization, and makes it notoriously hard to train models with saturating nonlinearities. We refer to this phenomenon as internal covariate shift, and address the problem by normalizing layer inputs. Our method draws its strength from making normalization a part of the model architecture and performing the normalization for each training mini-batch. Batch Normalization allows us to use much higher learning rates and be less careful about initialization, and in some cases eliminates the need for Dropout. Applied to a state-of-the-art image classification model, Batch Normalization achieves the same accuracy with 14 times fewer training steps, and beats the original model by a significant margin. Using an ensemble of batch-normalized networks, we improve upon the best published result on ImageNet classification: reaching 4.82\% top-5 test error, exceeding the accuracy of human raters.},
+      booktitle = {Proceedings of the 32nd International Conference on International Conference on Machine Learning - Volume 37},
+      pages = {448–456},
+      numpages = {9},
+      doi = {10.5555/3045118.3045167},
+      location = {Lille, France},
+      series = {ICML'15}
 }
 
 @article{srivastava2014dropout,
@@ -34,12 +55,15 @@
       volume = {15},
       number = {1},
       issn = {1532-4435},
+      abstract = {Deep neural nets with a large number of parameters are very powerful machine learning systems. However, overfitting is a serious problem in such networks. Large networks are also slow to use, making it difficult to deal with overfitting by combining the predictions of many different large neural nets at test time. Dropout is a technique for addressing this problem. The key idea is to randomly drop units (along with their connections) from the neural network during training. This prevents units from co-adapting too much. During training, dropout samples from an exponential number of different "thinned" networks. At test time, it is easy to approximate the effect of averaging the predictions of all these thinned networks by simply using a single unthinned network that has smaller weights. This significantly reduces overfitting and gives major improvements over other regularization methods. We show that dropout improves the performance of neural networks on supervised learning tasks in vision, speech recognition, document classification and computational biology, obtaining state-of-the-art results on many benchmark data sets.},
       journal = {J. Mach. Learn. Res.},
       month = {jan},
       pages = {1929–1958},
       numpages = {30},
-      keywords = {regularization, neural networks, model combination, deep learning}
+      doi = {10.5555/2627435.2670313},
+      keywords = {deep learning, model combination, neural networks, regularization}
 }
+
 @article{reid2018new,
       author = {Reid, John},
       title = {The new features of Fortran 2018},
