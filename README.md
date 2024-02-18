@@ -4,6 +4,18 @@ by Ned Thaddeus Taylor
 
 ATHENA (Adaptive Training for High Efficiency Neural Network Applications) is a Fortran library for developing and handling neural networks (with a focus on convolutional neural networks).
 
+## New Repository Location
+
+This repository has been migrated from the University of Exeter GitLab to GitHub to facilitate community interaction and support. The latest version, updates, and collaboration now take place on this GitHub repository.
+
+**GitLab Repository (Archived):** https://git.exeter.ac.uk/hepplestone/athena
+
+## Why the Migration?
+
+It was decided that this project should be migrated to allow for better community support (i.e. allowing community users to raise issues). All information has been ported over where possible. Issues have not been migrated over, these can be found in the old repository. Releases prior to 1.2.0 have not been migrated over, but they can still be found as tags in this repository.
+
+---
+
 ATHENA is distributed with the following directories:
 
 | Directory | Description |
@@ -18,7 +30,7 @@ ATHENA is distributed with the following directories:
 Documentation
 -----
 
-For extended details on the functinoality of this library, please check out the [wiki](https://git.exeter.ac.uk/hepplestone/athena/-/wikis)
+For extended details on the functionality of this library, please check out the [wiki](https://github.com/nedtaylor/athena/wiki)
 
 **NOTE: There currently exists no manual document. This will be included at a later date**
 
@@ -28,7 +40,7 @@ Setup
 
 The ATHENA library can be obtained from the git repository. Use the following commands to get started:
 ```
-  git clone https://git.exeter.ac.uk/hepplestone/athena.git
+  git clone https://github.com/nedtaylor/athena.git
   cd athena
 ```
 
