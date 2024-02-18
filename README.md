@@ -1,3 +1,7 @@
+[![MIT workflow](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/license/mit/ "View MIT license")
+[![Latest Release](https://img.shields.io/github/v/release/nedtaylor/athena?sort=semver)](https://github.com/nedtaylor/athena/releases "View on GitHub")
+[![Downloads](https://img.shields.io/github/downloads/nedtaylor/athena/total)](https://github.com/nedtaylor/athena/releases "View on GitHub")
+
 # athena
 
 by Ned Thaddeus Taylor
