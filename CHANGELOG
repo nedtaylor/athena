@@ -9,19 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Removed
+
+## [1.2.2] - 2024-02-18
+
+### Added
+
 - Add fpm compilation handling
+- Add status badges to README
 
 ### Changed
 
 - Move example-dependent library from /example/include to example/example_library
 - Update README to include fpm documentation
 - Update README to include dependencies
+- Migrate repository from GitLab: https://git.exeter.ac.uk/hepplestone/athena
+- Migrate repository to GitHub: https://github.com/nedtaylor/athena
 
 ### Fixed
 
+- Fix typos in README
+- Fix typos in CHANGELOG
+
 ### Removed
 
-- Remove parallel reference in examples
+- Remove parallel reference from examples
 
 ## [1.2.1] - 2024-02-07
 
