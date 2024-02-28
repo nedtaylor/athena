@@ -8,7 +8,13 @@ foreach(execid
   avgpool2d_layer
   batchnorm2d_layer
   dropblock2d_layer
+  dropblock3d_layer
+  flatten1d_layer
   flatten2d_layer
+  flatten3d_layer
+  flatten4d_layer
+  activations
+  initialisers
   )
   add_executable(test_${execid} test_${execid}.f90)
   # # Specify the include directories
