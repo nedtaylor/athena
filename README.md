@@ -177,6 +177,11 @@ Developers
 ----------
 - Ned Thaddeus Taylor
 
+Contributing
+------------
+
+Please note that this project adheres to the [Contributing Guide](CONTRIBUTING.md). If you are interested in contributing to this project, please contact [Ned Taylor](mailto:n.t.taylor@exeter.ac.uk?subject=ATHENA%20-%20contribution%20request).
+
 
 License
 -------
