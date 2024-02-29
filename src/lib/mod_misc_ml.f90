@@ -1351,7 +1351,7 @@ end subroutine split_5Drdata_1Drlist
     case("symmetric")
        padding_method = "replication"
        goto 100
-    case("valid")
+    case("valid", "vali")
        if(t_verbose.gt.0) write(*,*) "Padding type: 'valid' (no padding)"
        pad = 0
        return
@@ -1368,7 +1368,8 @@ end subroutine split_5Drdata_1Drlist
     case("replication")
        if(t_verbose.gt.0) write(*,*) "Padding type: 'replication' (reflect after boundary)"
     case default
-       stop "ERROR: padding type '"//padding_method//"' not known"
+       write(0,*) "ERROR: padding type '"//padding_method//"' not known"
+       stop 1
     end select
 
     pad = get_padding_half(kernel_size)
@@ -1516,7 +1517,7 @@ end subroutine split_5Drdata_1Drlist
 !!! ... if appropriate, add padding
 !!!-----------------------------------------------------------------------------
     select case(padding_method)
-    case ("same")
+    case("same")
     case("full")
     case("zero")
     case default
@@ -1638,7 +1639,7 @@ end subroutine split_5Drdata_1Drlist
        return
     case("zero")
        return
-    case("valid")
+    case("valid", "vali")
        return
     end select
 
