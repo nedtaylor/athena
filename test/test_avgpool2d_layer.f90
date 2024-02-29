@@ -59,7 +59,7 @@ program test_avgpool2d_layer
 
   !! initialise width and output width
   output_width = floor( (width - pool)/real(stride)) + 1
-  max_loc = width / 2
+  max_loc = width / 2 + mod(width, 2)
 
   !! initialise sample input
   allocate(input_data(width, width, num_channels, 1), source = 0.0)
