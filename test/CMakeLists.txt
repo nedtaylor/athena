@@ -5,9 +5,11 @@ foreach(execid
   full_layer
   full_network
   maxpool2d_layer
+  maxpool3d_layer
   avgpool2d_layer
   avgpool3d_layer
   batchnorm2d_layer
+  batchnorm3d_layer
   dropout_layer
   dropblock2d_layer
   dropblock3d_layer

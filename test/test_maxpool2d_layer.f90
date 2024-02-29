@@ -11,7 +11,8 @@ program test_maxpool2d_layer
   real, parameter :: tol = 1.E-7
   logical :: success = .true.
 
-  integer :: i, j, output_width, max_loc, num_windows_i, num_windows_j, num_windows
+  integer :: i, j, output_width, max_loc
+  integer :: num_windows_i, num_windows_j, num_windows
   real, parameter :: max_value = 3.0
 
 
@@ -58,7 +59,7 @@ program test_maxpool2d_layer
 
   !! initialise width and output width
   output_width = floor( (width - pool)/real(stride)) + 1
-  max_loc = width / 2
+  max_loc = width / 2 + mod(width, 2)
 
   !! initialise sample input
   allocate(input_data(width, width, num_channels, 1), source = 0.0)
@@ -78,9 +79,11 @@ program test_maxpool2d_layer
        success = .false.
        write(0,*) 'maxpool2d layer has wrong input_shape'
     end if
-    if(any(pool_layer%output_shape .ne. [output_width,output_width,num_channels]))then
+    if(any(pool_layer%output_shape .ne. &
+         [output_width,output_width,num_channels]))then
        success = .false.
-       write(0,*) 'maxpool2d layer has wrong output_shape', pool_layer%output_shape
+       write(0,*) 'maxpool2d layer has wrong output_shape', &
+            pool_layer%output_shape
        write(0,*) 'expected', [output_width,output_width,num_channels]
     end if
   end select
