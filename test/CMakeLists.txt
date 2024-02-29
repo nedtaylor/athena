@@ -20,6 +20,7 @@ foreach(execid
   flatten4d_layer
   activations
   initialisers
+  padding
   )
   add_executable(test_${execid} test_${execid}.f90)
   # # Specify the include directories
