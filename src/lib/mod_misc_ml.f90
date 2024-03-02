@@ -30,7 +30,7 @@ module misc_ml
        shuffle_2Drdata, shuffle_3Didata, shuffle_3Drdata, &
        shuffle_4Drdata, shuffle_5Drdata, &
        shuffle_3Didata_1Dilist, shuffle_3Didata_1Drlist, &
-       shuffle_4Drdata_1Dlist, shuffle_5Drdata_1Dilist, shuffle_5Drdata_1Drlist
+       shuffle_4Drdata_1Dilist, shuffle_5Drdata_1Dilist, shuffle_5Drdata_1Drlist
   end interface shuffle
 !!!=====================================================
 
@@ -662,7 +662,7 @@ end subroutine shuffle_3Didata_1Dilist
  end subroutine shuffle_3Didata_1Drlist
 !!!-----------------------------------------------------
 !!!-----------------------------------------------------
-subroutine shuffle_4Drdata_1Dlist(data,label,dim,seed)
+subroutine shuffle_4Drdata_1Dilist(data,label,dim,seed)
 implicit none
 integer :: istart, seed_size
 integer :: i,j,n_data
@@ -749,7 +749,7 @@ do i=1,n_data
 
 end do
 
-end subroutine shuffle_4Drdata_1Dlist
+end subroutine shuffle_4Drdata_1Dilist
 !!!-----------------------------------------------------
 !!!-----------------------------------------------------
 subroutine shuffle_5Drdata_1Dilist(data,label,dim,seed)
