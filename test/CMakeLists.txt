@@ -22,6 +22,7 @@ foreach(execid
   initialisers
   padding
   shuffle
+  split
   )
   add_executable(test_${execid} test_${execid}.f90)
   # # Specify the include directories
