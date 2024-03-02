@@ -110,7 +110,7 @@ end subroutine shuffle_1Dilist
 !!!-----------------------------------------------------
 subroutine shuffle_2Drdata(data,dim,seed)
 implicit none
-integer :: istart, seed_size
+integer :: istart,seed_size
 integer :: i,j,n_data,iother
 integer :: i1s,i2s,i1e,i2e,j1s,j2s,j1e,j2e
 real(real12) :: r
@@ -167,12 +167,12 @@ end subroutine shuffle_2Drdata
 !!!-----------------------------------------------------
 subroutine shuffle_3Drdata(data,dim,seed)
 implicit none
-integer :: istart, seed_size
+integer :: istart,seed_size
 integer :: i,j,n_data
 real(real12) :: r
-integer, allocatable, dimension(:) :: iseed
 integer, dimension(3) :: idx_s,idx_e,jdx_s,jdx_e
 integer, dimension(3,2) :: t_size
+integer, allocatable, dimension(:) :: iseed
 real(real12), allocatable, dimension(:,:,:) :: tlist
 
 integer, intent(in) :: dim
@@ -243,11 +243,12 @@ end subroutine shuffle_3Drdata
 !!!-----------------------------------------------------
 subroutine shuffle_3Didata(data,dim,seed)
  implicit none
- integer :: iseed,istart
+ integer :: istart,seed_size
  integer :: i,j,n_data
  real(real12) :: r
  integer, dimension(3) :: idx_s,idx_e,jdx_s,jdx_e
  integer, dimension(3,2) :: t_size
+ integer, allocatable, dimension(:) :: iseed
  integer, allocatable, dimension(:,:,:) :: tlist
 
  integer, intent(in) :: dim
@@ -255,9 +256,18 @@ subroutine shuffle_3Didata(data,dim,seed)
 
  integer, optional, intent(in) :: seed
 
- if(present(seed)) iseed = seed
 
- call random_seed(iseed)
+ !! set or get random seed
+ call random_seed(size=seed_size)
+ allocate(iseed(seed_size))
+ if(present(seed))then
+    iseed = seed
+    call random_seed(put=iseed)
+ else
+    call random_seed(get=iseed)
+ end if
+
+ !! get the size of the data
  n_data = size(data,dim=dim)
  do i=1,3
     t_size(i,1) = 1
@@ -271,9 +281,9 @@ subroutine shuffle_3Didata(data,dim,seed)
        t_size(i,2) = size(data,dim=i)
     end if
  end do
-
  allocate(tlist(t_size(1,2),t_size(2,2),t_size(3,2)))
 
+ !! shuffle the data
  istart=1
  do i=1,n_data
     call random_number(r)
@@ -311,18 +321,19 @@ end subroutine shuffle_3Didata
 !!!-----------------------------------------------------
 subroutine shuffle_4Drdata(data,dim,seed)
 implicit none
-integer :: istart, seed_size
+integer :: istart,seed_size
 integer :: i,j,n_data
 real(real12) :: r
-integer, allocatable, dimension(:) :: iseed
 integer, dimension(4) :: idx_s,idx_e,jdx_s,jdx_e
 integer, dimension(4,2) :: t_size
+integer, allocatable, dimension(:) :: iseed
 real(real12), allocatable, dimension(:,:,:,:) :: tlist
 
 integer, intent(in) :: dim
 real(real12), dimension(:,:,:,:), intent(inout) :: data
 
 integer, optional, intent(in) :: seed
+
 
 !! set or get random seed
 call random_seed(size=seed_size)
@@ -334,6 +345,7 @@ else
    call random_seed(get=iseed)
 end if
 
+!! get the size of the data
 n_data = size(data,dim=dim)
 do i=1,4
   t_size(i,1) = 1
@@ -347,9 +359,9 @@ do i=1,4
      t_size(i,2) = size(data,dim=i)      
   end if
 end do
-
 allocate(tlist(t_size(1,2),t_size(2,2),t_size(3,2),t_size(4,2)))
 
+!! shuffle the data
 istart=1
 do i=1,n_data
   call random_number(r)
@@ -392,11 +404,12 @@ end subroutine shuffle_4Drdata
 !!!-----------------------------------------------------
 subroutine shuffle_5Drdata(data,dim,seed)
 implicit none
-integer :: iseed,istart
+integer :: istart,seed_size
 integer :: i,j,n_data
 real(real12) :: r
 integer, dimension(5) :: idx_s,idx_e,jdx_s,jdx_e
 integer, dimension(5,2) :: t_size
+integer, allocatable, dimension(:) :: iseed
 real(real12), allocatable, dimension(:,:,:,:,:) :: tlist
 
 integer, intent(in) :: dim
@@ -404,9 +417,18 @@ real(real12), dimension(:,:,:,:,:), intent(inout) :: data
 
 integer, optional, intent(in) :: seed
 
-if(present(seed)) iseed = seed
 
-call random_seed(iseed)
+!! set or get random seed
+call random_seed(size=seed_size)
+allocate(iseed(seed_size))
+if(present(seed))then
+   iseed = seed
+   call random_seed(put=iseed)
+else
+   call random_seed(get=iseed)
+end if
+
+!! get the size of the data
 n_data = size(data,dim=dim)
 do i=1,5
   t_size(i,1) = 1
@@ -420,12 +442,12 @@ do i=1,5
      t_size(i,2) = size(data,dim=i)
   end if
 end do
-
 allocate(tlist(&
     t_size(1,2),t_size(2,2),&
     t_size(3,2),t_size(4,2),&
     t_size(5,2)))
 
+!! shuffle the data
 istart=1
 do i=1,n_data
   call random_number(r)
@@ -474,12 +496,13 @@ end subroutine shuffle_5Drdata
 !!!-----------------------------------------------------
 subroutine shuffle_3Didata_1Dilist(data,label,dim,seed)
  implicit none
- integer :: iseed,istart
+ integer :: istart,seed_size
  integer :: i,j,n_data
  integer :: itmp1
  real(real12) :: r
  integer, dimension(3) :: idx_s,idx_e,jdx_s,jdx_e
  integer, dimension(3,2) :: t_size
+ integer, allocatable, dimension(:) :: iseed
  integer, allocatable, dimension(:,:,:) :: tlist
 
  integer, intent(in) :: dim
@@ -488,9 +511,18 @@ subroutine shuffle_3Didata_1Dilist(data,label,dim,seed)
 
  integer, optional, intent(in) :: seed
 
- if(present(seed)) iseed = seed
 
- call random_seed(iseed)
+ !! set or get random seed
+ call random_seed(size=seed_size)
+ allocate(iseed(seed_size))
+ if(present(seed))then
+    iseed = seed
+    call random_seed(put=iseed)
+ else
+    call random_seed(get=iseed)
+ end if
+
+ !! get the size of the data
  n_data = size(data,dim=dim)
  do i=1,3
     t_size(i,1) = 1
@@ -504,9 +536,9 @@ subroutine shuffle_3Didata_1Dilist(data,label,dim,seed)
        t_size(i,2) = size(data,dim=i)
     end if
  end do
-
  allocate(tlist(t_size(1,2),t_size(2,2),t_size(3,2)))
 
+ !! shuffle the data
  istart=1
  do i=1,n_data
     call random_number(r)
@@ -548,12 +580,13 @@ end subroutine shuffle_3Didata_1Dilist
 !!!-----------------------------------------------------
  subroutine shuffle_3Didata_1Drlist(data,label,dim,seed)
    implicit none
-   integer :: iseed,istart
+   integer :: istart,seed_size
    integer :: i,j,n_data
    integer :: itmp1
    real(real12) :: r
    integer, dimension(3) :: idx_s,idx_e,jdx_s,jdx_e
    integer, dimension(3,2) :: t_size
+   integer, allocatable, dimension(:) :: iseed
    integer, allocatable, dimension(:,:,:) :: tlist
 
    integer, intent(in) :: dim
@@ -562,9 +595,18 @@ end subroutine shuffle_3Didata_1Dilist
 
    integer, optional, intent(in) :: seed
 
-   if(present(seed)) iseed = seed
 
-   call random_seed(iseed)
+   !! set or get random seed
+   call random_seed(size=seed_size)
+   allocate(iseed(seed_size))
+   if(present(seed))then
+      iseed = seed
+      call random_seed(put=iseed)
+   else
+      call random_seed(get=iseed)
+   end if
+
+   !! get the size of the data
    n_data = size(data,dim=dim)
    do i=1,3
       t_size(i,1) = 1
@@ -578,9 +620,9 @@ end subroutine shuffle_3Didata_1Dilist
          t_size(i,2) = size(data,dim=i)
       end if
    end do
-
    allocate(tlist(t_size(1,2),t_size(2,2),t_size(3,2)))
 
+   !! shuffle the data
    istart=1
    do i=1,n_data
       call random_number(r)
@@ -622,12 +664,13 @@ end subroutine shuffle_3Didata_1Dilist
 !!!-----------------------------------------------------
 subroutine shuffle_4Drdata_1Dlist(data,label,dim,seed)
 implicit none
-integer :: iseed,istart
+integer :: istart, seed_size
 integer :: i,j,n_data
 integer :: itmp1
 real(real12) :: r
 integer, dimension(4) :: idx_s,idx_e,jdx_s,jdx_e
 integer, dimension(4,2) :: t_size
+integer, allocatable, dimension(:) :: iseed
 real(real12), allocatable, dimension(:,:,:,:) :: tlist
 
 integer, intent(in) :: dim
@@ -636,9 +679,18 @@ integer, dimension(:), intent(inout) :: label
 
 integer, optional, intent(in) :: seed
 
-if(present(seed)) iseed = seed
 
-call random_seed(iseed)
+!! set or get random seed
+call random_seed(size=seed_size)
+allocate(iseed(seed_size))
+if(present(seed))then
+   iseed = seed
+   call random_seed(put=iseed)
+else
+   call random_seed(get=iseed)
+end if
+
+!! get the size of the data
 n_data = size(data,dim=dim)
 do i=1,4
   t_size(i,1) = 1
@@ -652,9 +704,9 @@ do i=1,4
      t_size(i,2) = size(data,dim=i)
   end if
 end do
-
 allocate(tlist(t_size(1,2),t_size(2,2),t_size(3,2),t_size(4,2)))
 
+!! shuffle the data
 istart=1
 do i=1,n_data
   call random_number(r)
@@ -702,12 +754,13 @@ end subroutine shuffle_4Drdata_1Dlist
 !!!-----------------------------------------------------
 subroutine shuffle_5Drdata_1Dilist(data,label,dim,seed)
 implicit none
-integer :: iseed,istart
+integer :: istart,seed_size
 integer :: i,j,n_data
 integer :: itmp1
 real(real12) :: r
 integer, dimension(5) :: idx_s,idx_e,jdx_s,jdx_e
 integer, dimension(5,2) :: t_size
+integer, allocatable, dimension(:) :: iseed
 real(real12), allocatable, dimension(:,:,:,:,:) :: tlist
 
 integer, intent(in) :: dim
@@ -716,9 +769,18 @@ integer, dimension(:), intent(inout) :: label
 
 integer, optional, intent(in) :: seed
 
-if(present(seed)) iseed = seed
 
-call random_seed(iseed)
+!! set or get random seed
+call random_seed(size=seed_size)
+allocate(iseed(seed_size))
+if(present(seed))then
+   iseed = seed
+   call random_seed(put=iseed)
+else
+   call random_seed(get=iseed)
+end if
+
+!! get the size of the data
 n_data = size(data,dim=dim)
 do i=1,5
   t_size(i,1) = 1
@@ -732,12 +794,12 @@ do i=1,5
      t_size(i,2) = size(data,dim=i)
   end if
 end do
-
 allocate(tlist(&
     t_size(1,2),t_size(2,2),&
     t_size(3,2),t_size(4,2),&
     t_size(5,2)))
 
+!! shuffle the data
 istart=1
 do i=1,n_data
   call random_number(r)
@@ -791,12 +853,13 @@ end subroutine shuffle_5Drdata_1Dilist
 !!!-----------------------------------------------------
 subroutine shuffle_5Drdata_1Drlist(data,label,dim,seed,shuffle_list)
 implicit none
-integer :: iseed,istart
+integer :: istart,seed_size
 integer :: i,j,n_data
 real(real12) :: rtmp1
 real(real12) :: r
 integer, dimension(5) :: idx_s,idx_e,jdx_s,jdx_e
 integer, dimension(5,2) :: t_size
+integer, allocatable, dimension(:) :: iseed
 real(real12), allocatable, dimension(:,:,:,:,:) :: tlist
 
 integer, intent(in) :: dim
@@ -806,9 +869,18 @@ real(real12), dimension(:), intent(inout) :: label
 integer, optional, intent(in) :: seed
 integer, optional, dimension(size(data,dim)), intent(out) :: shuffle_list
 
-if(present(seed)) iseed = seed
 
-call random_seed(iseed)
+!! set or get random seed
+call random_seed(size=seed_size)
+allocate(iseed(seed_size))
+if(present(seed))then
+   iseed = seed
+   call random_seed(put=iseed)
+else
+   call random_seed(get=iseed)
+end if
+
+!! get the size of the data
 n_data = size(data,dim=dim)
 do i=1,5
   t_size(i,1) = 1
@@ -894,8 +966,8 @@ real(real12), optional, intent(in) :: left_size, right_size
 logical, optional, intent(in) :: shuffle
 integer, optional, intent(in) :: seed
 
-integer :: t_seed, t_left_num, t_right_num
-logical :: t_shuffle
+integer :: seed_, left_num_, right_num_
+logical :: shuffle_
 integer :: i, j
 integer :: num_redos
 real(real12) :: rtmp1
@@ -913,49 +985,49 @@ type(idx_type), dimension(5) :: idx
 if(.not.present(left_size).and..not.present(right_size))then
   stop "ERROR: neither left_size nor right_size provided to split. Expected at least one."
 elseif(present(left_size).and..not.present(right_size))then
-  t_left_num  = nint(left_size*size(data,dim))
-  t_right_num = size(data,dim) - t_left_num
+  left_num_  = nint(left_size*size(data,dim))
+  right_num_ = size(data,dim) - left_num_
 elseif(present(left_size).and..not.present(right_size))then
-  t_right_num = nint(right_size*size(data,dim))
-  t_left_num  = size(data,dim) - t_right_num
+  right_num_ = nint(right_size*size(data,dim))
+  left_num_  = size(data,dim) - right_num_
 else
-  t_left_num  = nint(left_size*size(data,dim))
-  t_right_num = nint(right_size*size(data,dim))
-  if(t_left_num + t_right_num .ne. size(data,dim)) &
-       t_right_num = size(data,dim) - t_left_num
+  left_num_  = nint(left_size*size(data,dim))
+  right_num_ = nint(right_size*size(data,dim))
+  if(left_num_ + right_num_ .ne. size(data,dim)) &
+       right_num_ = size(data,dim) - left_num_
 end if
 
 
 !! initialies optional arguments
 if(present(shuffle))then
-  t_shuffle = shuffle
+  shuffle_ = shuffle
 else
-  t_shuffle = .false.
+  shuffle_ = .false.
 end if
 
 if(present(seed))then
-  t_seed = seed
+  seed_ = seed
 else
-  call system_clock(count=t_seed)
+  call system_clock(count=seed_)
 end if
 
 !! copy input data
 data_copy = data
-if(t_shuffle) call shuffle_5Drdata(data_copy,dim,t_seed)
+if(shuffle_) call shuffle_5Drdata(data_copy,dim,seed_)
 
 !! get list of indices for right split
 num_redos = 0
-allocate(tlist(t_right_num))
+allocate(tlist(right_num_))
 call random_number(tlist)
 indices_r = floor(tlist*size(data,dim)) + 1
 i = 1
 indices_r_loop: do 
-  if(i.ge.t_right_num) exit indices_r_loop
+  if(i.ge.right_num_) exit indices_r_loop
   i = i + 1
   if(any(indices_r(:i-1).eq.indices_r(i)))then
-     indices_r(i:t_right_num-num_redos-1) = indices_r(i+1:t_right_num-num_redos)
+     indices_r(i:right_num_-num_redos-1) = indices_r(i+1:right_num_-num_redos)
      call random_number(rtmp1)
-     indices_r(t_right_num) = floor(rtmp1*size(data,dim)) + 1
+     indices_r(right_num_) = floor(rtmp1*size(data,dim)) + 1
      i = i - 1
   end if
 end do indices_r_loop
@@ -1002,8 +1074,8 @@ subroutine split_3Didata_1Dilist(data,label,left_data,right_data,&
  integer, optional, intent(in) :: seed
  integer, optional, dimension(size(data,dim)), intent(out) :: split_list
 
- integer :: t_seed, t_left_num, t_right_num
- logical :: t_shuffle
+ integer :: seed_, left_num_, right_num_
+ logical :: shuffle_
  integer :: i, j
  integer :: num_redos
  real(real12) :: rtmp1
@@ -1023,50 +1095,50 @@ subroutine split_3Didata_1Dilist(data,label,left_data,right_data,&
     stop "ERROR: neither left_size nor right_size provided to split.&
          &Expected at least one."
  elseif(present(left_size).and..not.present(right_size))then
-    t_left_num  = nint(left_size*size(data,dim))
-    t_right_num = size(data,dim) - t_left_num
+    left_num_  = nint(left_size*size(data,dim))
+    right_num_ = size(data,dim) - left_num_
  elseif(present(left_size).and..not.present(right_size))then
-    t_right_num = nint(right_size*size(data,dim))
-    t_left_num  = size(data,dim) - t_right_num
+    right_num_ = nint(right_size*size(data,dim))
+    left_num_  = size(data,dim) - right_num_
  else
-    t_left_num  = nint(left_size*size(data,dim))
-    t_right_num = nint(right_size*size(data,dim))
-    if(t_left_num + t_right_num .ne. size(data,dim)) &
-         t_right_num = size(data,dim) - t_left_num
+    left_num_  = nint(left_size*size(data,dim))
+    right_num_ = nint(right_size*size(data,dim))
+    if(left_num_ + right_num_ .ne. size(data,dim)) &
+         right_num_ = size(data,dim) - left_num_
  end if
 
  !! initialies optional arguments
  if(present(shuffle))then
-    t_shuffle = shuffle
+    shuffle_ = shuffle
  else
-    t_shuffle = .false.
+    shuffle_ = .false.
  end if
 
  if(present(seed))then
-    t_seed = seed
+    seed_ = seed
  else
-    call system_clock(count=t_seed)
+    call system_clock(count=seed_)
  end if
 
  !! copy input data
  data_copy = data
  label_copy = label
- if(t_shuffle) call shuffle_3Didata_1Dilist(data_copy,label_copy,dim,t_seed)
+ if(shuffle_) call shuffle_3Didata_1Dilist(data_copy,label_copy,dim,seed_)
 
  !! get list of indices for right split
  num_redos = 0
- allocate(tlist(t_right_num))
+ allocate(tlist(right_num_))
  call random_number(tlist)
  indices_r = floor(tlist*size(data,dim)) + 1
  i = 1
  indices_r_loop: do 
-    if(i.ge.t_right_num) exit indices_r_loop
+    if(i.ge.right_num_) exit indices_r_loop
     i = i + 1
     if(any(indices_r(:i-1).eq.indices_r(i)))then
-       indices_r(i:t_right_num-num_redos-1) = &
-            indices_r(i+1:t_right_num-num_redos)
+       indices_r(i:right_num_-num_redos-1) = &
+            indices_r(i+1:right_num_-num_redos)
        call random_number(rtmp1)
-       indices_r(t_right_num) = floor(rtmp1*size(data,dim)) + 1
+       indices_r(right_num_) = floor(rtmp1*size(data,dim)) + 1
        i = i - 1
     end if
  end do indices_r_loop
@@ -1119,8 +1191,8 @@ subroutine split_3Didata_1Drlist(data,label,left_data,right_data,&
  integer, optional, intent(in) :: seed
  integer, optional, dimension(size(data,dim)), intent(out) :: split_list
 
- integer :: t_seed, t_left_num, t_right_num
- logical :: t_shuffle
+ integer :: seed_, left_num_, right_num_
+ logical :: shuffle_
  integer :: i, j
  integer :: num_redos
  real(real12) :: rtmp1
@@ -1140,50 +1212,50 @@ subroutine split_3Didata_1Drlist(data,label,left_data,right_data,&
     stop "ERROR: neither left_size nor right_size provided to split.&
          &Expected at least one."
  elseif(present(left_size).and..not.present(right_size))then
-    t_left_num  = nint(left_size*size(data,dim))
-    t_right_num = size(data,dim) - t_left_num
+    left_num_  = nint(left_size*size(data,dim))
+    right_num_ = size(data,dim) - left_num_
  elseif(present(left_size).and..not.present(right_size))then
-    t_right_num = nint(right_size*size(data,dim))
-    t_left_num  = size(data,dim) - t_right_num
+    right_num_ = nint(right_size*size(data,dim))
+    left_num_  = size(data,dim) - right_num_
  else
-    t_left_num  = nint(left_size*size(data,dim))
-    t_right_num = nint(right_size*size(data,dim))
-    if(t_left_num + t_right_num .ne. size(data,dim)) &
-         t_right_num = size(data,dim) - t_left_num
+    left_num_  = nint(left_size*size(data,dim))
+    right_num_ = nint(right_size*size(data,dim))
+    if(left_num_ + right_num_ .ne. size(data,dim)) &
+         right_num_ = size(data,dim) - left_num_
  end if
 
  !! initialies optional arguments
  if(present(shuffle))then
-    t_shuffle = shuffle
+    shuffle_ = shuffle
  else
-    t_shuffle = .false.
+    shuffle_ = .false.
  end if
 
  if(present(seed))then
-    t_seed = seed
+    seed_ = seed
  else
-    call system_clock(count=t_seed)
+    call system_clock(count=seed_)
  end if
 
  !! copy input data
  data_copy = data
  label_copy = label
- if(t_shuffle) call shuffle_3Didata_1Drlist(data_copy,label_copy,dim,t_seed)
+ if(shuffle_) call shuffle_3Didata_1Drlist(data_copy,label_copy,dim,seed_)
 
  !! get list of indices for right split
  num_redos = 0
- allocate(tlist(t_right_num))
+ allocate(tlist(right_num_))
  call random_number(tlist)
  indices_r = floor(tlist*size(data,dim)) + 1
  i = 1
  indices_r_loop: do 
-    if(i.ge.t_right_num) exit indices_r_loop
+    if(i.ge.right_num_) exit indices_r_loop
     i = i + 1
     if(any(indices_r(:i-1).eq.indices_r(i)))then
-       indices_r(i:t_right_num-num_redos-1) = &
-            indices_r(i+1:t_right_num-num_redos)
+       indices_r(i:right_num_-num_redos-1) = &
+            indices_r(i+1:right_num_-num_redos)
        call random_number(rtmp1)
-       indices_r(t_right_num) = floor(rtmp1*size(data,dim)) + 1
+       indices_r(right_num_) = floor(rtmp1*size(data,dim)) + 1
        i = i - 1
     end if
  end do indices_r_loop
@@ -1236,8 +1308,8 @@ logical, optional, intent(in) :: shuffle
 integer, optional, intent(in) :: seed
 integer, optional, dimension(size(data,dim)), intent(out) :: split_list
 
-integer :: t_seed, t_left_num, t_right_num
-logical :: t_shuffle
+integer :: seed_, left_num_, right_num_
+logical :: shuffle_
 integer :: i, j
 integer :: num_redos
 real(real12) :: rtmp1
@@ -1257,50 +1329,50 @@ if(.not.present(left_size).and..not.present(right_size))then
   stop "ERROR: neither left_size nor right_size provided to split.&
        &Expected at least one."
 elseif(present(left_size).and..not.present(right_size))then
-  t_left_num  = nint(left_size*size(data,dim))
-  t_right_num = size(data,dim) - t_left_num
+  left_num_  = nint(left_size*size(data,dim))
+  right_num_ = size(data,dim) - left_num_
 elseif(present(left_size).and..not.present(right_size))then
-  t_right_num = nint(right_size*size(data,dim))
-  t_left_num  = size(data,dim) - t_right_num
+  right_num_ = nint(right_size*size(data,dim))
+  left_num_  = size(data,dim) - right_num_
 else
-  t_left_num  = nint(left_size*size(data,dim))
-  t_right_num = nint(right_size*size(data,dim))
-  if(t_left_num + t_right_num .ne. size(data,dim)) &
-       t_right_num = size(data,dim) - t_left_num
+  left_num_  = nint(left_size*size(data,dim))
+  right_num_ = nint(right_size*size(data,dim))
+  if(left_num_ + right_num_ .ne. size(data,dim)) &
+       right_num_ = size(data,dim) - left_num_
 end if
 
 !! initialies optional arguments
 if(present(shuffle))then
-  t_shuffle = shuffle
+  shuffle_ = shuffle
 else
-  t_shuffle = .false.
+  shuffle_ = .false.
 end if
 
 if(present(seed))then
-  t_seed = seed
+  seed_ = seed
 else
-  call system_clock(count=t_seed)
+  call system_clock(count=seed_)
 end if
 
 !! copy input data
 data_copy = data
 label_copy = label
-if(t_shuffle) call shuffle_5Drdata_1Drlist(data_copy,label_copy,dim,t_seed)
+if(shuffle_) call shuffle_5Drdata_1Drlist(data_copy,label_copy,dim,seed_)
 
 !! get list of indices for right split
 num_redos = 0
-allocate(tlist(t_right_num))
+allocate(tlist(right_num_))
 call random_number(tlist)
 indices_r = floor(tlist*size(data,dim)) + 1
 i = 1
 indices_r_loop: do 
-  if(i.ge.t_right_num) exit indices_r_loop
+  if(i.ge.right_num_) exit indices_r_loop
   i = i + 1
   if(any(indices_r(:i-1).eq.indices_r(i)))then
-     indices_r(i:t_right_num-num_redos-1) = &
-          indices_r(i+1:t_right_num-num_redos)
+     indices_r(i:right_num_-num_redos-1) = &
+          indices_r(i+1:right_num_-num_redos)
      call random_number(rtmp1)
-     indices_r(t_right_num) = floor(rtmp1*size(data,dim)) + 1
+     indices_r(right_num_) = floor(rtmp1*size(data,dim)) + 1
      i = i - 1
   end if
 end do indices_r_loop
@@ -1456,7 +1528,7 @@ end subroutine split_5Drdata_1Drlist
     integer :: i, j, idim
     integer :: num_samples, num_channels, ndim, ndata_dim
     integer :: t_sample_dim = 0, t_channel_dim = 0
-    real(real12) :: t_constant = 0._real12
+    real(real12) :: constant_ = 0._real12
     integer, dimension(2) :: bound_store
     integer, allocatable, dimension(:) :: padding
     integer, allocatable, dimension(:,:) :: trgt_bound, dest_bound
@@ -1467,7 +1539,7 @@ end subroutine split_5Drdata_1Drlist
 !!!-----------------------------------------------------------------------------
 !!! initialise optional arguments
 !!!-----------------------------------------------------------------------------
-    if(present(constant)) t_constant = constant
+    if(present(constant)) constant_ = constant
     if(present(sample_dim)) t_sample_dim = sample_dim
     if(present(channel_dim)) t_channel_dim = channel_dim
 
@@ -1580,7 +1652,7 @@ end subroutine split_5Drdata_1Drlist
     case("full")
     case("zero")
     case default
-       if(abs(t_constant).gt.1.E-8) &
+       if(abs(constant_).gt.1.E-8) &
             write(*,*) "WARNING: constant is ignored for selected padding method"
     end select
 
@@ -1599,7 +1671,7 @@ end subroutine split_5Drdata_1Drlist
     select rank(data_padded)
     rank(1)
        allocate(data_padded(&
-            dest_bound(1,1):dest_bound(2,1)), source = t_constant)
+            dest_bound(1,1):dest_bound(2,1)), source = constant_)
        !! copy input data
        !!-----------------------------------------------------------------------
        select rank(data)
@@ -1612,7 +1684,7 @@ end subroutine split_5Drdata_1Drlist
     rank(2)
        allocate(data_padded(&
             dest_bound(1,1):dest_bound(2,1), &
-            dest_bound(1,2):dest_bound(2,2)), source = t_constant)
+            dest_bound(1,2):dest_bound(2,2)), source = constant_)
        !! copy input data
        !!-----------------------------------------------------------------------
        select rank(data)
@@ -1626,7 +1698,7 @@ end subroutine split_5Drdata_1Drlist
        allocate(data_padded(&
             dest_bound(1,1):dest_bound(2,1),&
             dest_bound(1,2):dest_bound(2,2),&
-            dest_bound(1,3):dest_bound(2,3)), source = t_constant)
+            dest_bound(1,3):dest_bound(2,3)), source = constant_)
        !! copy input data
        !!-----------------------------------------------------------------------
        select rank(data)
@@ -1645,7 +1717,7 @@ end subroutine split_5Drdata_1Drlist
             dest_bound(1,1):dest_bound(2,1),&
             dest_bound(1,2):dest_bound(2,2),&
             dest_bound(1,3):dest_bound(2,3),&
-            dest_bound(1,4):dest_bound(2,4)), source = t_constant)
+            dest_bound(1,4):dest_bound(2,4)), source = constant_)
        !! copy input data
        !!-----------------------------------------------------------------------
        select rank(data)
@@ -1667,7 +1739,7 @@ end subroutine split_5Drdata_1Drlist
             dest_bound(1,2):dest_bound(2,2),&
             dest_bound(1,3):dest_bound(2,3),&
             dest_bound(1,4):dest_bound(2,4),&
-            dest_bound(1,5):dest_bound(2,5)), source = t_constant)
+            dest_bound(1,5):dest_bound(2,5)), source = constant_)
        !! copy input data
        !!-----------------------------------------------------------------------
        select rank(data)
