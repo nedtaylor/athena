@@ -77,7 +77,7 @@ program test_flatten1d_layer
   if(success)then
      write(*,*) 'test_flatten1d_layer passed all tests'
   else
-     write(*,*) 'test_flatten1d_layer failed one or more tests'
+     write(0,*) 'test_flatten1d_layer failed one or more tests'
      stop 1
   end if
 

@@ -103,7 +103,7 @@ program test_initialisers
    if(success)then
       write(*,*) 'test_initialisers passed all tests'
    else
-      write(*,*) 'test_initialisers failed one or more tests'
+      write(0,*) 'test_initialisers failed one or more tests'
       stop 1
    end if
  

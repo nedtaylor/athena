@@ -154,7 +154,7 @@ program test_maxpool3d_layer
   if(success)then
      write(*,*) 'test_maxpool3d_layer passed all tests'
   else
-     write(*,*) 'test_maxpool3d_layer failed one or more tests'
+     write(0,*) 'test_maxpool3d_layer failed one or more tests'
      stop 1
   end if
 

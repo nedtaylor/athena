@@ -224,7 +224,7 @@ program test_padding
   if(success)then
      write(*,*) 'test_padding passed all tests'
   else
-     write(*,*) 'test_padding failed one or more tests'
+     write(0,*) 'test_padding failed one or more tests'
      stop 1
   end if
 

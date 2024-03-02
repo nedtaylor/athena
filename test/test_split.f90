@@ -187,7 +187,7 @@ program test_split
   if(success)then
      write(*,*) 'test_shuffle passed all tests'
   else
-     write(*,*) 'test_shuffle failed one or more tests'
+     write(0,*) 'test_shuffle failed one or more tests'
      stop 1
   end if
 

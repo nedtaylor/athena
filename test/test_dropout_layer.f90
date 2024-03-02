@@ -110,7 +110,7 @@ program test_dropout_layer
   if(success)then
      write(*,*) 'test_dropout_layer passed all tests'
   else
-     write(*,*) 'test_dropout_layer failed one or more tests'
+     write(0,*) 'test_dropout_layer failed one or more tests'
      stop 1
   end if
 

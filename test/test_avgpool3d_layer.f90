@@ -184,7 +184,7 @@ program test_avgpool3d_layer
   if(success)then
      write(*,*) 'test_avgpool3d_layer passed all tests'
   else
-     write(*,*) 'test_avgpool3d_layer failed one or more tests'
+     write(0,*) 'test_avgpool3d_layer failed one or more tests'
      stop 1
   end if
 

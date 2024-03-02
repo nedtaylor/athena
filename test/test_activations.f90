@@ -157,7 +157,7 @@ program test_activations
    if(success)then
       write(*,*) 'test_activations passed all tests'
    else
-      write(*,*) 'test_activations failed one or more tests'
+      write(0,*) 'test_activations failed one or more tests'
       stop 1
    end if
  
