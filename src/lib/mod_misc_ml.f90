@@ -48,16 +48,25 @@ contains
 !!!#####################################################
 subroutine shuffle_1Dlist(data,seed)
 implicit none
-integer :: iseed, istart, num_data
+integer :: istart, num_data, seed_size
 integer :: itmp1, i, j
 real(real12) :: r
+integer, allocatable, dimension(:) :: iseed
+
 integer, optional, intent(in) :: seed
 integer, dimension(:), intent(inout) :: data
 
-if(present(seed)) iseed = seed
+!! set or get random seed
+call random_seed(size=seed_size)
+allocate(iseed(seed_size))
+if(present(seed))then
+   iseed = seed
+   call random_seed(put=iseed)
+else
+   call random_seed(get=iseed)
+end if
 
 num_data = size(data,dim=1)
-call random_seed(iseed)
 istart=1
 do i=1,num_data
   call random_number(r)
@@ -73,10 +82,11 @@ end subroutine shuffle_1Dlist
 !!!-----------------------------------------------------
 subroutine shuffle_2Ddata(data,dim,seed)
 implicit none
-integer :: iseed,istart
+integer :: istart, seed_size
 integer :: i,j,n_data,iother
 integer :: i1s,i2s,i1e,i2e,j1s,j2s,j1e,j2e
 real(real12) :: r
+integer, allocatable, dimension(:) :: iseed
 real(real12), allocatable, dimension(:,:) :: tlist
 
 integer, intent(in) :: dim
@@ -84,9 +94,16 @@ real(real12), dimension(:,:), intent(inout) :: data
 
 integer, optional, intent(in) :: seed
 
-if(present(seed)) iseed = seed
+!! set or get random seed
+call random_seed(size=seed_size)
+allocate(iseed(seed_size))
+if(present(seed))then
+   iseed = seed
+   call random_seed(put=iseed)
+else
+   call random_seed(get=iseed)
+end if
 
-call random_seed(iseed)
 n_data = size(data,dim=dim)
 if(dim.eq.1)then
   iother = 2
@@ -113,9 +130,10 @@ do i=1,n_data
      i2s=i;i2e=i
      j2s=j;j2e=j
   end if
-  tlist(1:1,:) = data(i1s:i1e,i2s:i2e)
+  tlist(1:1,:) = reshape(data(i1s:i1e,i2s:i2e),shape=shape(tlist))
   data(i1s:i1e,i2s:i2e) = data(j1s:j1e,j2s:j2e)
-  data(j1s:j1e,j2s:j2e) = tlist(1:1,:)
+  data(j1s:j1e,j2s:j2e) = reshape(tlist(1:1,:),&
+       shape=shape(data(j1s:j1e,j2s:j2e)))
 end do
 !end do
 
@@ -1495,12 +1513,12 @@ end subroutine split_5Drdata_1Drlist
           elseif(t_sample_dim.gt.0.and.t_channel_dim.gt.0.and.&
                size(kernel_size).ne.ndim-2)then
              write(*,*) "kernel dimension:", size(kernel_size)
-             write(*,*) "data rank:", ndim
+             write(*,*) "data rank:", ndim-2
              stop "ERROR: length of kernel_size not equal to rank of data-2"
-          elseif((t_sample_dim.gt.0.or.t_channel_dim.gt.0).and.&
+          elseif(xor(t_sample_dim.gt.0,t_channel_dim.gt.0).and.&
                size(kernel_size).ne.ndim-1)then
              write(*,*) "kernel dimension:", size(kernel_size)
-             write(*,*) "data rank:", ndim
+             write(*,*) "data rank:", ndim-1
              stop "ERROR: length of kernel_size not equal to rank of data-1"
           else
              allocate(padding(size(kernel_size)))
