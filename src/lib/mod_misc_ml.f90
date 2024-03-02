@@ -987,7 +987,7 @@ if(.not.present(left_size).and..not.present(right_size))then
 elseif(present(left_size).and..not.present(right_size))then
   left_num_  = nint(left_size*size(data,dim))
   right_num_ = size(data,dim) - left_num_
-elseif(present(left_size).and..not.present(right_size))then
+elseif(.not.present(left_size).and.present(right_size))then
   right_num_ = nint(right_size*size(data,dim))
   left_num_  = size(data,dim) - right_num_
 else
@@ -1097,7 +1097,7 @@ subroutine split_3Didata_1Dilist(data,label,left_data,right_data,&
  elseif(present(left_size).and..not.present(right_size))then
     left_num_  = nint(left_size*size(data,dim))
     right_num_ = size(data,dim) - left_num_
- elseif(present(left_size).and..not.present(right_size))then
+ elseif(.not.present(left_size).and.present(right_size))then
     right_num_ = nint(right_size*size(data,dim))
     left_num_  = size(data,dim) - right_num_
  else
@@ -1214,7 +1214,7 @@ subroutine split_3Didata_1Drlist(data,label,left_data,right_data,&
  elseif(present(left_size).and..not.present(right_size))then
     left_num_  = nint(left_size*size(data,dim))
     right_num_ = size(data,dim) - left_num_
- elseif(present(left_size).and..not.present(right_size))then
+ elseif(.not.present(left_size).and.present(right_size))then
     right_num_ = nint(right_size*size(data,dim))
     left_num_  = size(data,dim) - right_num_
  else
@@ -1331,7 +1331,7 @@ if(.not.present(left_size).and..not.present(right_size))then
 elseif(present(left_size).and..not.present(right_size))then
   left_num_  = nint(left_size*size(data,dim))
   right_num_ = size(data,dim) - left_num_
-elseif(present(left_size).and..not.present(right_size))then
+elseif(.not.present(left_size).and.present(right_size))then
   right_num_ = nint(right_size*size(data,dim))
   left_num_  = size(data,dim) - right_num_
 else
@@ -1620,19 +1620,22 @@ end subroutine split_5Drdata_1Drlist
        else
           if(t_sample_dim.eq.0.and.t_channel_dim.eq.0.and.&
                size(kernel_size).ne.ndim)then
-             write(*,*) "kernel dimension:", size(kernel_size)
-             write(*,*) "data rank:", ndim
-             stop "ERROR: length of kernel_size not equal to rank of data"
+             write(0,*) "kernel dimension:", size(kernel_size)
+             write(0,*) "data rank:", ndim
+             write(0,*) "ERROR: kernel_size length not equal to rank of data"
+             stop 1
           elseif(t_sample_dim.gt.0.and.t_channel_dim.gt.0.and.&
                size(kernel_size).ne.ndim-2)then
-             write(*,*) "kernel dimension:", size(kernel_size)
-             write(*,*) "data rank:", ndim-2
-             stop "ERROR: length of kernel_size not equal to rank of data-2"
+             write(0,*) "kernel dimension:", size(kernel_size)
+             write(0,*) "data rank:", ndim-2
+             write(0,*) "ERROR: kernel_size length not equal to rank of data-2"
+             stop 1
           elseif(xor(t_sample_dim.gt.0,t_channel_dim.gt.0).and.&
                size(kernel_size).ne.ndim-1)then
-             write(*,*) "kernel dimension:", size(kernel_size)
-             write(*,*) "data rank:", ndim-1
-             stop "ERROR: length of kernel_size not equal to rank of data-1"
+             write(0,*) "kernel dimension:", size(kernel_size)
+             write(0,*) "data rank:", ndim-1
+             write(0,*) "ERROR: kernel_size length not equal to rank of data-1"
+             stop 1
           else
              allocate(padding(size(kernel_size)))
           end if
