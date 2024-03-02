@@ -31,7 +31,11 @@ contains
     if(present(tmpchar)) length=len(trim(tmpchar))
     allocate(character(len=length) :: fs)
     if(present(tmpchar)) then
-       fs=trim(tmpchar)
+       if(trim(tmpchar).ne." ")then
+          fs=trim(tmpchar)
+       else
+          fs = tmpchar
+       end if
     else
        fs=" "
     end if
