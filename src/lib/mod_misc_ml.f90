@@ -17,20 +17,47 @@ module misc_ml
   implicit none
 
 
+!!!-----------------------------------------------------
+!!! shuffle an array along one dimension
+!!! optional index array is also shuffled
+!!!-----------------------------------------------------
+!!! data  = (I/R, io) input array to be shuffled
+!!! dim   = (I, in) dimension along which to shuffle
+!!! label = (I, io, opt) index array to be shuffled
+!!! seed  = (I, in, opt) random seed
   interface shuffle
-  procedure shuffle_1Dlist, &
-       shuffle_2Ddata, shuffle_3Didata, shuffle_3Drdata, &
-       shuffle_4Ddata, shuffle_5Ddata, &
+  procedure shuffle_1Dilist, &
+       shuffle_2Drdata, shuffle_3Didata, shuffle_3Drdata, &
+       shuffle_4Drdata, shuffle_5Drdata, &
        shuffle_3Didata_1Dilist, shuffle_3Didata_1Drlist, &
-       shuffle_4Ddata_1Dlist, shuffle_5Ddata_1Dilist, shuffle_5Ddata_1Drlist
+       shuffle_4Drdata_1Dlist, shuffle_5Drdata_1Dilist, shuffle_5Drdata_1Drlist
   end interface shuffle
-  
+!!!=====================================================
+
+
+!!!-----------------------------------------------------
+!!! split an array into train and test sets
+!!! optional index array is also split
+!!!-----------------------------------------------------
+!!! data        = (I/R, in ) input array to be shuffled
+!!! left_data   = (I/R, out) left split of data
+!!! right_data  = (I/R, out) right split of data
+!!! dim         = (I, in ) dimension along which to split
+!!! label       = (I, in , opt) index array to be shuffled
+!!! left_label  = (I, out, opt) left split of label
+!!! right_label = (I, out, opt) right split of label
+!!! left_size   = (I, in , opt) size of left split
+!!! right_size  = (I, in , opt) size of right split
+!!! shuffle     = (B, in , opt) shuffle data before splitting
+!!! seed        = (I, in , opt) random seed
+!!! split_list  = (I, out, opt) index array of split
   interface split
   procedure &
        split_3Didata_1Dilist, split_3Didata_1Drlist, &
        split_5Drdata, &
        split_5Drdata_1Drlist
   end interface split
+!!!=====================================================
 
 
   private
@@ -46,7 +73,7 @@ contains
 !!!#####################################################
 !!! shuffle an array along one dimension
 !!!#####################################################
-subroutine shuffle_1Dlist(data,seed)
+subroutine shuffle_1Dilist(data,seed)
 implicit none
 integer :: istart, num_data, seed_size
 integer :: itmp1, i, j
@@ -66,6 +93,7 @@ else
    call random_seed(get=iseed)
 end if
 
+!! shuffle the data
 num_data = size(data,dim=1)
 istart=1
 do i=1,num_data
@@ -77,10 +105,10 @@ do i=1,num_data
   data(i) = itmp1
 end do
 
-end subroutine shuffle_1Dlist
+end subroutine shuffle_1Dilist
 !!!-----------------------------------------------------
 !!!-----------------------------------------------------
-subroutine shuffle_2Ddata(data,dim,seed)
+subroutine shuffle_2Drdata(data,dim,seed)
 implicit none
 integer :: istart, seed_size
 integer :: i,j,n_data,iother
@@ -104,6 +132,7 @@ else
    call random_seed(get=iseed)
 end if
 
+!! shuffle the data
 n_data = size(data,dim=dim)
 if(dim.eq.1)then
   iother = 2
@@ -116,9 +145,6 @@ else
 end if
 istart=1
 allocate(tlist(1,size(data,dim=iother)))
-!! why cycling over k?
-!! comment out
-!do k=1,2
 do i=1,n_data
   call random_number(r)
   j = istart + floor((n_data+1-istart)*r)
@@ -135,9 +161,8 @@ do i=1,n_data
   data(j1s:j1e,j2s:j2e) = reshape(tlist(1:1,:),&
        shape=shape(data(j1s:j1e,j2s:j2e)))
 end do
-!end do
 
-end subroutine shuffle_2Ddata
+end subroutine shuffle_2Drdata
 !!!-----------------------------------------------------
 !!!-----------------------------------------------------
 subroutine shuffle_3Drdata(data,dim,seed)
@@ -284,7 +309,7 @@ subroutine shuffle_3Didata(data,dim,seed)
 end subroutine shuffle_3Didata
 !!!-----------------------------------------------------
 !!!-----------------------------------------------------
-subroutine shuffle_4Ddata(data,dim,seed)
+subroutine shuffle_4Drdata(data,dim,seed)
 implicit none
 integer :: istart, seed_size
 integer :: i,j,n_data
@@ -362,10 +387,10 @@ do i=1,n_data
        t_size(4,1):t_size(4,2))
 end do
 
-end subroutine shuffle_4Ddata
+end subroutine shuffle_4Drdata
 !!!-----------------------------------------------------
 !!!-----------------------------------------------------
-subroutine shuffle_5Ddata(data,dim,seed)
+subroutine shuffle_5Drdata(data,dim,seed)
 implicit none
 integer :: iseed,istart
 integer :: i,j,n_data
@@ -444,7 +469,7 @@ do i=1,n_data
        t_size(5,1):t_size(5,2))
 end do
 
-end subroutine shuffle_5Ddata
+end subroutine shuffle_5Drdata
 !!!-----------------------------------------------------
 !!!-----------------------------------------------------
 subroutine shuffle_3Didata_1Dilist(data,label,dim,seed)
@@ -595,7 +620,7 @@ end subroutine shuffle_3Didata_1Dilist
  end subroutine shuffle_3Didata_1Drlist
 !!!-----------------------------------------------------
 !!!-----------------------------------------------------
-subroutine shuffle_4Ddata_1Dlist(data,label,dim,seed)
+subroutine shuffle_4Drdata_1Dlist(data,label,dim,seed)
 implicit none
 integer :: iseed,istart
 integer :: i,j,n_data
@@ -672,10 +697,10 @@ do i=1,n_data
 
 end do
 
-end subroutine shuffle_4Ddata_1Dlist
+end subroutine shuffle_4Drdata_1Dlist
 !!!-----------------------------------------------------
 !!!-----------------------------------------------------
-subroutine shuffle_5Ddata_1Dilist(data,label,dim,seed)
+subroutine shuffle_5Drdata_1Dilist(data,label,dim,seed)
 implicit none
 integer :: iseed,istart
 integer :: i,j,n_data
@@ -761,10 +786,10 @@ do i=1,n_data
 
 end do
 
-end subroutine shuffle_5Ddata_1Dilist
+end subroutine shuffle_5Drdata_1Dilist
 !!!-----------------------------------------------------
 !!!-----------------------------------------------------
-subroutine shuffle_5Ddata_1Drlist(data,label,dim,seed,shuffle_list)
+subroutine shuffle_5Drdata_1Drlist(data,label,dim,seed,shuffle_list)
 implicit none
 integer :: iseed,istart
 integer :: i,j,n_data
@@ -852,7 +877,7 @@ do i=1,n_data
 
 end do
 
-end subroutine shuffle_5Ddata_1Drlist
+end subroutine shuffle_5Drdata_1Drlist
 !!!#####################################################
 
 !!!#####################################################
@@ -916,7 +941,7 @@ end if
 
 !! copy input data
 data_copy = data
-if(t_shuffle) call shuffle_5Ddata(data_copy,dim,t_seed)
+if(t_shuffle) call shuffle_5Drdata(data_copy,dim,t_seed)
 
 !! get list of indices for right split
 num_redos = 0
@@ -1260,7 +1285,7 @@ end if
 !! copy input data
 data_copy = data
 label_copy = label
-if(t_shuffle) call shuffle_5Ddata_1Drlist(data_copy,label_copy,dim,t_seed)
+if(t_shuffle) call shuffle_5Drdata_1Drlist(data_copy,label_copy,dim,t_seed)
 
 !! get list of indices for right split
 num_redos = 0
