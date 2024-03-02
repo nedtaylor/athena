@@ -4,7 +4,7 @@ program test_shuffle
 
   integer :: i, j, k, l, o
   
-  integer, parameter :: n = 3
+  integer, parameter :: n = 10
   integer, parameter :: m = 3
   integer, parameter :: p = 3
   integer, parameter :: q = 3
@@ -43,11 +43,11 @@ program test_shuffle
   original_array = array ! Make a copy of the original array
 
   !! shuffle the array
-  call shuffle(array)
+  call shuffle(array, seed = 1)
   
   !! check if the array is shuffled
   if (all(array .eq. original_array)) then
-     write(*,*) 'Array is not shuffled'
+     write(*,*) '1D Array is not shuffled'
      success = .false.
   end if
   
