@@ -51,12 +51,12 @@ program test_padding
   out_width(8) = width + 2 * half
   out_width(9) = width + 2 * half
 
-  pad_value(1) = 0.0
-  pad_value(2) = 0.0
-  pad_value(3) = 0.0
-  pad_value(4) = 0.0
-  pad_value(5) = 0.0
-  pad_value(6) = 0.0
+  pad_value(1) = 1.0
+  pad_value(2) = 1.0
+  pad_value(3) = 1.0
+  pad_value(4) = 1.0
+  pad_value(5) = 1.0
+  pad_value(6) = 1.0
   pad_value(7) = 1.0
   pad_value(8) = 1.0
   pad_value(9) = 1.0
@@ -77,7 +77,7 @@ program test_padding
      !!-------------------------------------------------------------------------
      call pad_data(input_data1d_ncs, padded_data1d_ncs, &
          kernel_size, padding_method = padding_methods(i), &
-         sample_dim = 0, channel_dim = 0)
+         sample_dim = 0, channel_dim = 0, constant = 1.0)
 
      if(any(shape(padded_data1d_ncs).ne.&
          [out_width(i)]))then
@@ -100,7 +100,7 @@ program test_padding
      !!-------------------------------------------------------------------------
      call pad_data(input_data1d_nc, padded_data1d_nc, &
          kernel_size, padding_method = padding_methods(i), &
-         sample_dim = 2, channel_dim = 0)
+         sample_dim = 2, channel_dim = 0, constant = 1.0)
 
      if(any(shape(padded_data1d_nc).ne.&
          [out_width(i),1]))then
@@ -123,7 +123,7 @@ program test_padding
      !!-------------------------------------------------------------------------
      call pad_data(input_data1d, padded_data1d, &
          kernel_size, padding_method = padding_methods(i), &
-         sample_dim = 3, channel_dim = 2)
+         sample_dim = 3, channel_dim = 2, constant = 1.0)
  
      if(any(shape(padded_data1d).ne.&
          [out_width(i),1,1]))then
@@ -146,7 +146,7 @@ program test_padding
      !!-------------------------------------------------------------------------
      call pad_data(input_data2d, padded_data2d, &
           kernel_size, padding_method = padding_methods(i), &
-          sample_dim = 4, channel_dim = 3)
+          sample_dim = 4, channel_dim = 3, constant = 1.0)
 
      if(any(shape(padded_data2d).ne.&
          [out_width(i),out_width(i),1,1]))then
@@ -169,7 +169,7 @@ program test_padding
      !!-------------------------------------------------------------------------
      call pad_data(input_data3d, padded_data3d, &
           kernel_size, padding_method = padding_methods(i), &
-          sample_dim = 5, channel_dim = 4)
+          sample_dim = 5, channel_dim = 4, constant = 1.0)
 
      if(any(shape(padded_data3d).ne.&
          [out_width(i),out_width(i),out_width(i),1,1]))then
