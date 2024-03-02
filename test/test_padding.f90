@@ -11,8 +11,8 @@ program test_padding
   logical :: success = .true.
 
   integer :: i
-  integer :: kernel_size = 3
-  integer :: width = 8
+  integer, parameter :: kernel_size = 3
+  integer, parameter :: width = 8
   integer :: half
   integer :: out_width(9)
   real :: pad_value(9)
@@ -61,6 +61,14 @@ program test_padding
   pad_value(8) = 1.0
   pad_value(9) = 1.0
 
+
+  !! test kernel rank
+  call pad_data(input_data1d, padded_data1d, &
+       [kernel_size], padding_method = padding_methods(3), &
+       sample_dim = 3, channel_dim = 2)
+  call pad_data(input_data2d, padded_data2d, &
+       [kernel_size, kernel_size], padding_method = padding_methods(3), &
+       sample_dim = 4, channel_dim = 3)
 
   !! test padding methods
   !!----------------------------------------------------------------------------
