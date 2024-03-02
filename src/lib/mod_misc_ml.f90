@@ -142,9 +142,10 @@ end subroutine shuffle_2Ddata
 !!!-----------------------------------------------------
 subroutine shuffle_3Drdata(data,dim,seed)
 implicit none
-integer :: iseed,istart
+integer :: istart, seed_size
 integer :: i,j,n_data
 real(real12) :: r
+integer, allocatable, dimension(:) :: iseed
 integer, dimension(3) :: idx_s,idx_e,jdx_s,jdx_e
 integer, dimension(3,2) :: t_size
 real(real12), allocatable, dimension(:,:,:) :: tlist
@@ -154,9 +155,16 @@ real(real12), dimension(:,:,:), intent(inout) :: data
 
 integer, optional, intent(in) :: seed
 
-if(present(seed)) iseed = seed
+!! set or get random seed
+call random_seed(size=seed_size)
+allocate(iseed(seed_size))
+if(present(seed))then
+   iseed = seed
+   call random_seed(put=iseed)
+else
+   call random_seed(get=iseed)
+end if
 
-call random_seed(iseed)
 n_data = size(data,dim=dim)
 do i=1,3
   t_size(i,1) = 1
@@ -278,9 +286,10 @@ end subroutine shuffle_3Didata
 !!!-----------------------------------------------------
 subroutine shuffle_4Ddata(data,dim,seed)
 implicit none
-integer :: iseed,istart
+integer :: istart, seed_size
 integer :: i,j,n_data
 real(real12) :: r
+integer, allocatable, dimension(:) :: iseed
 integer, dimension(4) :: idx_s,idx_e,jdx_s,jdx_e
 integer, dimension(4,2) :: t_size
 real(real12), allocatable, dimension(:,:,:,:) :: tlist
@@ -290,9 +299,16 @@ real(real12), dimension(:,:,:,:), intent(inout) :: data
 
 integer, optional, intent(in) :: seed
 
-if(present(seed)) iseed = seed
+!! set or get random seed
+call random_seed(size=seed_size)
+allocate(iseed(seed_size))
+if(present(seed))then
+   iseed = seed
+   call random_seed(put=iseed)
+else
+   call random_seed(get=iseed)
+end if
 
-call random_seed(iseed)
 n_data = size(data,dim=dim)
 do i=1,4
   t_size(i,1) = 1
