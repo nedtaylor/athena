@@ -41,6 +41,8 @@ if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
   set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
   if(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
       include(CodeCoverage)
+      # add coverage compiler flags
+      append_coverage_compiler_flags()
       setup_target_for_coverage_gcovr_html(NAME coverage EXECUTABLE ctest)
   endif()
 endif()
@@ -213,6 +215,3 @@ target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel_Dev>:${DEVFLA
 if(BUILD_TESTS)
     add_subdirectory(test)
 endif()
-
-# add coverage compiler flags
-append_coverage_compiler_flags()
