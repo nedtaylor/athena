@@ -17,6 +17,11 @@ program test_split
   integer, allocatable :: label_left(:)
   integer, allocatable :: label_right(:)
 
+
+  real :: rlabel(n)
+  real, allocatable :: rlabel_left(:)
+  real, allocatable :: rlabel_right(:)
+
   integer :: array_3d(n, m, p)
   integer, allocatable :: array_3d_left(:,:,:)
   integer, allocatable :: array_3d_right(:,:,:)
@@ -34,29 +39,14 @@ program test_split
 
   !! initialise array
   do i = 1, n
-   label(i) = i
+     label(i) = i
+     rlabel(i) = i
      do j = 1, m
         do k = 1, p
            array_3d(i, j, k) = i * m * p + j * p + k
         end do
      end do
   end do
-
-!   subroutine split_3Didata_1Dilist(data,label,left_data,right_data,&
-!    left_label,right_label,dim,&
-!    left_size,right_size,&
-!    shuffle,seed,split_list)
-! implicit none
-! integer, dimension(:,:,:), intent(in) :: data
-! integer, dimension(:), intent(in) :: label
-! integer, allocatable, dimension(:,:,:), intent(out) :: left_data, right_data
-! integer, allocatable, dimension(:), intent(out) :: left_label, right_label
-! integer, intent(in) :: dim
-! real(real12), optional, intent(in) :: left_size, right_size
-! logical, optional, intent(in) :: shuffle
-! integer, optional, intent(in) :: seed
-! integer, optional, dimension(size(data,dim)), intent(out) :: split_list
-
 
   !! split data
   call split(array_3d, label, array_3d_left, array_3d_right, &
@@ -73,103 +63,120 @@ program test_split
      write(*,*) '3D array size and label size do not match'
      success = .false.
   end if
-  if (size(label_left,1) + size(label_right,1) .ne. n) then
+  if (size(array_3d_left,1) + size(array_3d_right,1) .ne. n .or. &
+   size(label_left,1) + size(label_right,1) .ne. n) then
      write(*,*) '3D array label sizes do not add up to n'
      success = .false.
   end if
 
-  
+  do i = 1, size(array_3d_left, 1)
+     if (any(array_3d_left(i,:,:) .ne. array_3d(label_left(i),:,:))) then
+        write(*,*) '3D data split is not correct'
+        success = .false.
+     end if
+  end do
 
-!   !! Check if all original elements are still in the shuffled 3D array
-!   do i = 1, n
-!     do j = 1, m
-!        do k = 1, p
-!           if ( all(abs(array_3d_shuffled(i, j, :) - &
-!                array_3d_original(i, j, k)).gt.1.E-6) ) then
-!              write(*,*) 'Original element', array_3d_original(i, j, k), &
-!                   'is missing in the shuffled 3D array'
-!              success = .false.
-!           end if
-!        end do
-!     end do
-!   end do
+  !! split data
+  call split(array_3d, rlabel, array_3d_left, array_3d_right, &
+       rlabel_left, rlabel_right, &
+       dim = 1, left_size=left_size, seed = 1)
 
-!   !! Check that seed works for 3D array shuffling
-!   array_3d_shuffled_tmp = array_3d_original
-!   call shuffle(array_3d_shuffled_tmp, dim = 3, seed = 4)
-!   array_3d_shuffled = array_3d_original
-!   call shuffle(array_3d_shuffled, dim = 3, seed = 4)
+   itmp1 = nint(real(n) * 0.25)
+   !! check if the left array is the correct size
+   if (size(array_3d_left, 1) .ne. itmp1) then
+      write(*,*) '3D array left size is not correct'
+      success = .false.
+   end if
+   if (size(array_3d_left, 1) .ne. size(rlabel_left)) then
+      write(*,*) '3D array size and label size do not match'
+      success = .false.
+   end if
+   if (size(array_3d_left,1) + size(array_3d_right,1) .ne. n .or. &
+   size(rlabel_left,1) + size(rlabel_right,1) .ne. n) then
+      write(*,*) '3D array label sizes do not add up to n'
+      success = .false.
+   end if
 
-!   !! Check if array_3d_shuffled and array_3d_shuffled_tmp are the same
-!   if (any(abs(array_3d_shuffled_tmp - array_3d_shuffled).gt.1.E-6)) then
-!      write(*,*) '3D Array shuffle seed does not work as intended'
-!      success = .false.
-!   end if
-
+   do i = 1, size(array_3d_left, 1)
+      if (any(array_3d_left(i,:,:) .ne. &
+           array_3d(nint(rlabel_left(i)),:,:))) then
+         write(*,*) '3D data split is not correct'
+         success = .false.
+      end if
+   end do
 
 !!!-----------------------------------------------------------------------------
 !!! 5D array shuffle tests
 !!!-----------------------------------------------------------------------------
-  
-   !  !! test 5D array shuffling
-   !  do i = 1, n
-   !    do j = 1, m
-   !       do k = 1, p
-   !         do l = 1, q
-   !            do o = 1, s
-   !               array_5d_original(i, j, k, l, o) = &
-   !                    i * m * p * q * s + &
-   !                    j * p * q * s + &
-   !                    k * q * s + &
-   !                    l * s + &
-   !                    o
-   !            end do
-   !         end do
-   !       end do
-   !    end do
-   ! end do
- 
-   ! !! Shuffle the 3D array along the third dimension
-   ! array_5d_shuffled = array_5d_original
-   ! call shuffle(array_5d_shuffled, dim = 5, seed = 1)
- 
-   ! !! Check if the 3D array is shuffled along the third dimension
-   ! if (all(array_5d_shuffled .eq. array_5d_original)) then
-   !    write(*,*) '5D Array is not shuffled along the third dimension'
-   !    success = .false.
-   ! end if
- 
-   ! !! Check if all original elements are still in the shuffled 5D array
-   ! do i = 1, n
-   !   do j = 1, m
-   !      do k = 1, p
-   !         do l = 1, q
-   !            do o = 1, s
-   !               if ( all(abs(array_5d_shuffled(i, j, k, l, :) - &
-   !                  array_5d_original(i, j, k, l, o)).gt.1.E-6) ) then
-   !                  write(*,*) 'Original element', &
-   !                       array_5d_original(i, j, k, l, o), &
-   !                       'is missing in the shuffled 5D array'
-   !                  success = .false.
-   !               end if
-   !             end do
-   !         end do
-   !      end do
-   !   end do
-   ! end do
- 
-   ! !! Check that seed works for 5D array shuffling
-   ! array_5d_shuffled_tmp = array_5d_original
-   ! call shuffle(array_5d_shuffled_tmp, dim = 5, seed = 4)
-   ! array_5d_shuffled = array_5d_original
-   ! call shuffle(array_5d_shuffled, dim = 5, seed = 4)
- 
-   ! !! Check if array_5d_shuffled and array_5d_shuffled_tmp are the same
-   ! if (any(abs(array_5d_shuffled_tmp - array_5d_shuffled).gt.1.E-6)) then
-   !    write(*,*) '5D Array shuffle seed does not work as intended'
-   !    success = .false.
-   ! end if
 
+  !! initialise array
+    do i = 1, n
+      do j = 1, m
+         do k = 1, p
+           do l = 1, q
+              do o = 1, s
+                 array_5d(i, j, k, l, o) = &
+                      i * m * p * q * s + &
+                      j * p * q * s + &
+                      k * q * s + &
+                      l * s + &
+                      o
+              end do
+           end do
+         end do
+      end do
+   end do
+
+  !! split data
+  call split(array_5d, array_5d_left, array_5d_right, &
+       dim = 1, left_size=left_size, seed = 1)
+
+  itmp1 = nint(real(n) * 0.25)
+  !! check if the left array is the correct size
+  if (size(array_5d_left, 1) .ne. itmp1) then
+     write(*,*) '5D array left size is not correct'
+     success = .false.
+  end if
+
+
+  if (size(array_5d_left,1) + size(array_5d_right,1) .ne. n ) then !.or. &
+      !  size(label_left,1) + size(label_right,1) .ne. n) then
+     write(*,*) '5D array label sizes do not add up to n'
+     success = .false.
+  end if
+
+  !! split data
+  call split(array_5d, rlabel, array_5d_left, array_5d_right, &
+       rlabel_left, rlabel_right, &
+       dim = 1, left_size=left_size, seed = 1)
+
+
+  if (size(array_5d_left, 1) .ne. size(rlabel_left)) then
+     write(*,*) '5D array size and label size do not match'
+     success = .false.
+  end if
+  do i = 1, size(array_5d_left, 1)
+     if (any(abs(array_5d_left(i,:,:,:,:) - &
+          array_5d(nint(rlabel_left(i)),:,:,:,:)) .gt. 1.E-6 ) ) then
+        write(*,*) '5D data split is not correct'
+        success = .false.
+     end if
+  end do
+
+
+  call split(array_5d, array_5d_left, array_5d_right, &
+       dim = 1, right_size=1.E0-left_size, seed = 1)
+  if (size(array_5d_left, 1) .ne. itmp1) then
+     write(*,*) '5D array left size is not correct'
+     success = .false.
+  end if
+  call split(array_5d, rlabel, array_5d_left, array_5d_right, &
+       rlabel_left, rlabel_right, &
+       dim = 1, right_size=1.E0-left_size, seed = 1)
+  if (size(array_5d_left, 1) .ne. itmp1) then
+     write(*,*) '5D array left size is not correct'
+     success = .false.
+  end if
 
 !!!-----------------------------------------------------------------------------
 !!! Final printing array shuffle tests
