@@ -14,9 +14,9 @@ program test_padding
   integer, parameter :: kernel_size = 3
   integer, parameter :: width = 8
   integer :: half
-  integer :: out_width(9)
-  real :: pad_value(9)
-  character(len=20) :: padding_methods(9)
+  integer :: out_width(10)
+  real :: pad_value(10)
+  character(len=20) :: padding_methods(10)
 
   !! create input data
   half = kernel_size/2
@@ -40,32 +40,38 @@ program test_padding
   padding_methods(7)  = 'circular'
   padding_methods(8)  = 'reflection'
   padding_methods(9)  = 'replication'
+  padding_methods(10) = 'symmetric'
 
-  out_width(1) = width
-  out_width(2) = width
-  out_width(3) = width + 2 * half
-  out_width(4) = width + 2 * half
-  out_width(5) = width + 2 * half
-  out_width(6) = width + 2 * (kernel_size - 1)
-  out_width(7) = width + 2 * half
-  out_width(8) = width + 2 * half
-  out_width(9) = width + 2 * half
+  out_width(1)  = width
+  out_width(2)  = width
+  out_width(3)  = width + 2 * half
+  out_width(4)  = width + 2 * half
+  out_width(5)  = width + 2 * half
+  out_width(6)  = width + 2 * (kernel_size - 1)
+  out_width(7)  = width + 2 * half
+  out_width(8)  = width + 2 * half
+  out_width(9)  = width + 2 * half
+  out_width(10) = width + 2 * half
 
-  pad_value(1) = 1.0
-  pad_value(2) = 1.0
-  pad_value(3) = 1.0
-  pad_value(4) = 1.0
-  pad_value(5) = 1.0
-  pad_value(6) = 1.0
-  pad_value(7) = 1.0
-  pad_value(8) = 1.0
-  pad_value(9) = 1.0
+  pad_value(1)  = 1.0
+  pad_value(2)  = 1.0
+  pad_value(3)  = 1.0
+  pad_value(4)  = 1.0
+  pad_value(5)  = 1.0
+  pad_value(6)  = 1.0
+  pad_value(7)  = 1.0
+  pad_value(8)  = 1.0
+  pad_value(9)  = 1.0
+  pad_value(10) = 1.0
 
 
   !! test kernel rank
   call pad_data(input_data1d, padded_data1d, &
        [kernel_size], padding_method = padding_methods(3), &
        sample_dim = 3, channel_dim = 2)
+  call pad_data(input_data1d, padded_data1d, &
+       [kernel_size], padding_method = padding_methods(3), &
+       sample_dim = 3, channel_dim = 0)
   call pad_data(input_data2d, padded_data2d, &
        [kernel_size, kernel_size], padding_method = padding_methods(3), &
        sample_dim = 4, channel_dim = 3)
@@ -94,6 +100,29 @@ program test_padding
        write(0,'("padded data for method ",A," should be ",F4.1,F4.1)') &
              trim(padding_methods(i)), pad_value(i), &
              padded_data1d_ncs(width+(out_width(i)-width)/2)
+     end if
+  
+     !! 1D input data (no sample dim)
+     !!-------------------------------------------------------------------------
+     call pad_data(input_data1d_nc, padded_data1d_nc, &
+         kernel_size, padding_method = padding_methods(i), &
+         sample_dim = 0, channel_dim = 2, constant = 1.0)
+
+     if(any(shape(padded_data1d_nc).ne.&
+         [out_width(i),1]))then
+       success = .false.
+       write(0,'("padded data for method ",A,&
+             &" shape should be [",I0,",1]")') &
+             trim(padding_methods(i)), &
+             out_width(i)
+     end if
+     if(out_width(i) .gt. width .and. &
+          any(abs(padded_data1d_nc(width+1:width+(out_width(i)-width)/2,1) - &
+          pad_value(i)).gt.1.E-6))then
+       success = .false.
+       write(0,'("padded data for method ",A," should be ",F4.1,F4.1)') &
+             trim(padding_methods(i)), pad_value(i), &
+             padded_data1d_nc(width+(out_width(i)-width)/2,1)
      end if
   
      !! 1D input data (no channel dim)
