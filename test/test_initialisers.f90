@@ -4,13 +4,18 @@ program test_initialisers
         conv2d_layer_type, &
         conv3d_layer_type, &
         base_layer_type
+   use custom_types, only: initialiser_type
+   use initialiser, only: initialiser_setup
    implicit none
  
+   class(initialiser_type), allocatable :: initialiser
    class(base_layer_type), allocatable :: full_layer, conv2d_layer, conv3d_layer
    logical :: success = .true.
  
    integer :: i
    integer :: width = 5, num_channels = 3, batch_size = 2
+   real :: input_0d, input_1d(1), input_2d(1,1), &
+        input_3d(1,1,1), input_6d(1,1,1,1,1,1)
    character(len=20) :: initialiser_names(11)
    
    initialiser_names(1)  = 'zeros'
@@ -27,6 +32,16 @@ program test_initialisers
 
 
    do i = 1, size(initialiser_names)
+      if(allocated(initialiser)) deallocate(initialiser)
+      allocate(initialiser, source=initialiser_setup(initialiser_names(i)))
+      if(.not.trim(initialiser_names(i)).eq."ident")then
+         call initialiser%initialise(input_0d, fan_in = 1, fan_out = 1)
+         call initialiser%initialise(input_1d, fan_in = 1, fan_out = 1)
+      end if
+      call initialiser%initialise(input_3d, fan_in = 1, fan_out = 1)
+      call initialiser%initialise(input_6d, fan_in = 1, fan_out = 1)
+
+
       !! check for rank 2 data
       !!------------------------------------------------------------------------
       !! set up full layer
