@@ -4,12 +4,21 @@ program test_activations
         conv2d_layer_type, &
         conv3d_layer_type, &
         base_layer_type
+   use activation, only: activation_setup
+   use activation_gaussian, only: gaussian_setup ! threshold, sigma
+   use activation_piecewise, only: piecewise_setup ! intercept
+   use activation_sigmoid, only: sigmoid_setup ! threshold
+   use activation_softmax, only: softmax_setup ! threshold
+   use activation_tanh, only: tanh_setup ! threshold
+   use custom_types, only: activation_type
    implicit none
  
    class(base_layer_type), allocatable :: full_layer, conv2d_layer, conv3d_layer
+   class(activation_type), allocatable :: activation
    logical :: success = .true.
  
    integer :: i
+   real :: scale, value
    integer, parameter :: batch_size = 1
    integer, parameter :: num_inputs = 1
    integer, parameter :: num_outputs = 1
@@ -25,7 +34,10 @@ program test_activations
    character(len=20) :: activation_names(9)
    integer :: k, j, l, s
    integer, dimension(2) :: stp_idx, start_idx, end_idx
-   
+   real, dimension(9) :: activate, differentiate
+   real, dimension(1) :: value_1d, rtmp1_1d
+   real, dimension(1,1,1) :: value_3d, rtmp1_3d
+
    activation_names(1) = 'none'
    activation_names(2) = 'gaussian'
    activation_names(3) = 'leaky_relu'
@@ -36,8 +48,131 @@ program test_activations
    activation_names(8) = 'softmax'
    activation_names(9) = 'tanh'
  
+   value = 0.25E0
+   value_1d = value
+   value_3d = value
+   scale = 2.E0
+   activate(1) = scale * value
+   activate(2) = scale / (sqrt(8*atan(1.E0))*1.5E0) * &
+        exp(-0.5E0 * (value/1.5E0)**2.E0)
+   activate(3) = scale * value
+   activate(4) = scale * value
+   activate(5) = scale * value + 1.E0
+   activate(6) = scale * value
+   activate(7) = scale / (1.E0 + exp(-value))
+   activate(8) = exp(0.E0)
+   activate(9) = scale * tanh(value)
 
+   differentiate(1) = scale * value
+   differentiate(2) = - value/1.5E0**2.E0 * activate(2)
+   differentiate(3) = scale
+   differentiate(4) = scale * value
+   differentiate(5) = scale
+   differentiate(6) = scale
+   differentiate(7) = scale * activate(7) * (scale - activate(7))
+   differentiate(8) = activate(8) * (1.E0 - activate(8))
+   differentiate(9) = scale * (1.E0 - (activate(9)/scale)**2.E0)
+
+
+   !! check gaussian setup
+   activation = gaussian_setup(threshold = 2.E0, sigma = 2.E0)
+   if(.not. activation%name .eq. 'gaussian')then
+      success = .false.
+      write(0,*) 'activation has wrong name for gaussian'
+   else
+      if (activation%threshold .ne. 2.E0) then
+         success = .false.
+         write(0,*) 'activation has wrong threshold for gaussian'
+      end if
+   end if
+
+   !! check piecewise setup
+   activation = piecewise_setup(intercept = 2.E0)
+   if(.not. activation%name .eq. 'piecewise')then
+      success = .false.
+      write(0,*) 'activation has wrong name for piecewise'
+   end if
+
+   !! check sigmoid setup
+   activation = sigmoid_setup(threshold = 2.E0)
+   if(.not. activation%name .eq. 'sigmoid')then
+      success = .false.
+      write(0,*) 'activation has wrong name for sigmoid'
+   else
+      if (activation%threshold .ne. 2.E0) then
+         success = .false.
+         write(0,*) 'activation has wrong threshold for sigmoid'
+      end if
+   end if
+
+   !! check softmax setup
+   activation = softmax_setup(threshold = 2.E0)
+   if(.not. activation%name .eq. 'softmax')then
+      success = .false.
+      write(0,*) 'activation has wrong name for softmax'
+   else
+      if (activation%threshold .ne. 2.E0) then
+         success = .false.
+         write(0,*) 'activation has wrong threshold for softmax'
+      end if
+   end if
+
+   !! check tanh setup
+   activation = tanh_setup(threshold = 2.E0)
+   if(.not. activation%name .eq. 'tanh')then
+      success = .false.
+      write(0,*) 'activation has wrong name for tanh'
+   else
+      if (activation%threshold .ne. 2.E0) then
+         success = .false.
+         write(0,*) 'activation has wrong threshold for tanh'
+      end if
+   end if
+
+   !! check general activation setup
    do i = 1, size(activation_names)
+      deallocate(activation)
+      allocate(activation, &
+           source=activation_setup(activation_names(i), scale = scale))
+      if(.not. activation%name .eq. trim(activation_names(i)))then
+         success = .false.
+         write(0,*) 'activation has wrong name for ', &
+              trim(activation_names(i))
+      else
+         if (abs(activation%scale - scale).gt.1.E-6) then
+            success = .false.
+            write(0,*) 'activation has wrong scale for ', &
+                 trim(activation_names(i))
+         end if
+         rtmp1_1d = activation%activate_1d(value_1d)
+         if (any(abs(rtmp1_1d - activate(i)).gt.1.E-6)) then
+            success = .false.
+            write(0,*) 'activation has wrong activation for ', &
+                 trim(activation_names(i))
+            write(*,*) rtmp1_1d, activate(i)
+         end if
+         rtmp1_1d = activation%differentiate_1d(value_1d)
+         if (any(abs(rtmp1_1d - differentiate(i)).gt.1.E-6)) then
+            success = .false.
+            write(0,*) 'activation has wrong differentiation for ', &
+                 trim(activation_names(i))
+            write(*,*) rtmp1_1d, differentiate(i)
+         end if
+
+         rtmp1_3d = activation%activate_3d(value_3d)
+         if (any(abs(rtmp1_3d - activate(i)).gt.1.E-6)) then
+            success = .false.
+            write(0,*) 'activation has wrong activation for ', &
+                 trim(activation_names(i))
+         end if
+         rtmp1_3d = activation%differentiate_3d(value_3d)
+         if (any(abs(rtmp1_3d - differentiate(i)).gt.1.E-6)) then
+            success = .false.
+            write(0,*) 'activation has wrong differentiation for ', &
+                 trim(activation_names(i))
+         end if
+      end if
+
       !! check for rank 2 data
       !!------------------------------------------------------------------------
       !! set up full layer
