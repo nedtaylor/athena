@@ -26,6 +26,7 @@ foreach(execid
   lr_decay
   regulariser
   misc
+  normalisation
   )
   add_executable(test_${execid} test_${execid}.f90)
   # # Specify the include directories
