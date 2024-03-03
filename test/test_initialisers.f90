@@ -34,10 +34,9 @@ program test_initialisers
    do i = 1, size(initialiser_names)
       if(allocated(initialiser)) deallocate(initialiser)
       allocate(initialiser, source=initialiser_setup(initialiser_names(i)))
-      if(.not.trim(initialiser_names(i)).eq."ident")then
-         call initialiser%initialise(input_0d, fan_in = 1, fan_out = 1)
-         call initialiser%initialise(input_1d, fan_in = 1, fan_out = 1)
-      end if
+      if(.not.trim(initialiser_names(i)).eq."ident") &
+           call initialiser%initialise(input_0d, fan_in = 1, fan_out = 1)
+      call initialiser%initialise(input_1d, fan_in = 1, fan_out = 1)
       call initialiser%initialise(input_3d, fan_in = 1, fan_out = 1)
       call initialiser%initialise(input_6d, fan_in = 1, fan_out = 1)
 
