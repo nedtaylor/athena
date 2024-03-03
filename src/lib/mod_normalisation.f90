@@ -81,6 +81,8 @@ subroutine renormalise_sum(input, norm, mirror, magnitude)
   real(real12), dimension(:), intent(inout) :: input
   real(real12), optional, intent(in) :: norm
   logical, optional, intent(in) :: mirror, magnitude
+
+  logical :: magnitude_
   
   real(real12) :: scale
 
@@ -94,12 +96,9 @@ subroutine renormalise_sum(input, norm, mirror, magnitude)
      if(mirror) call linear_renormalise(input)
   end if
   
+  if(present(magnitude)) magnitude_ = magnitude
   if(present(magnitude))then
-     if(magnitude)then
-        scale = scale/sum(abs(input))
-     else
-        scale = scale/sum(input)
-     end if
+     scale = scale/sum(abs(input))
   else
      scale = scale/sum(input)
   end if
