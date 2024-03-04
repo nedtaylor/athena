@@ -980,16 +980,16 @@ end function get_gradients
     real(real12), dimension(:,:), intent(in) :: output
 
     integer :: i
+    real(real12), allocatable, dimension(:,:) :: predicted
 
 
     !! Backward pass (final layer)
     !!-------------------------------------------------------------------
-    select type(current => this%model(this%num_layers)%layer)
-    type is(full_layer_type)
-       call this%model(this%num_layers)%backward( &
-            this%model(this%num_layers-1), &
-            this%get_loss_deriv(current%output, output))
-    end select
+    call this%model(this%num_layers)%layer%get_output(predicted)
+    call this%model(this%num_layers)%backward( &
+         this%model(this%num_layers-1), &
+         this%get_loss_deriv(predicted, output))
+
 
     !! Backward pass
     !!-------------------------------------------------------------------
