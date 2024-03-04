@@ -2,6 +2,7 @@ message(STATUS "Building tests")
 foreach(execid
   conv2d_layer
   conv2d_network
+  conv3d_layer
   conv3d_network
   full_layer
   full_network
