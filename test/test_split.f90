@@ -179,10 +179,8 @@ program test_split
   end if
 
 !!!-----------------------------------------------------------------------------
-!!! Final printing array shuffle tests
+!!! Check for any failed tests
 !!!-----------------------------------------------------------------------------
-  
-  !! check for any fails
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_shuffle passed all tests'
