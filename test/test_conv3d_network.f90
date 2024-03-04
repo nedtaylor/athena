@@ -112,8 +112,9 @@ program test_conv3d_network
      write(*,*) "conv3d network layer should be conv3d_layer_type"
   end select
 
+
 !!!-----------------------------------------------------------------------------
-!!! check for any fails
+!!! check for any failed tests
 !!!-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then

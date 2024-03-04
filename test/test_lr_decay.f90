@@ -46,8 +46,10 @@ program test_lr_decay
      end if
   end do
 
-  
-  !! check for any fails
+
+!!!-----------------------------------------------------------------------------
+!!! check for any failed tests
+!!!-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_lr_decay passed all tests'

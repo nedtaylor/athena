@@ -141,7 +141,10 @@ program test_batchnorm3d_layer
     end do
   end select
 
-  !! check for any fails
+
+!!!-----------------------------------------------------------------------------
+!!! check for any failed tests
+!!!-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_batchnorm3d_layer passed all tests'

@@ -103,7 +103,8 @@ program test_conv2d_layer
   !! check outputs have expected value
   if (any(abs(output - 0.5).gt.tol)) then
     success = .false.
-    write(*,*) 'conv2d layer with zero input and sigmoid activation must return outputs all equal to 0.5'
+    write(*,*) 'conv2d layer with zero input and sigmoid activation must &
+         &return outputs all equal to 0.5'
     write(*,*) output
   end if
 

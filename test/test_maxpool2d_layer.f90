@@ -141,7 +141,9 @@ program test_maxpool2d_layer
   end select
 
 
-  !! check for any fails
+!!!-----------------------------------------------------------------------------
+!!! check for any failed tests
+!!!-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_maxpool2d_layer passed all tests'

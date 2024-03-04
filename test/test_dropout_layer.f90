@@ -105,7 +105,9 @@ program test_dropout_layer
   end select
 
 
-  !! check for any fails
+!!!-----------------------------------------------------------------------------
+!!! check for any failed tests
+!!!-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_dropout_layer passed all tests'

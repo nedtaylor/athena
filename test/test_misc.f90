@@ -18,11 +18,10 @@ program test_misc
   call check_icount('abc,,,def,,,ghi', ',', 3)
   call check_icount('', ' ', 0)
 
+
 !!!-----------------------------------------------------------------------------
-!!! Final printing array shuffle tests
+!!! check for any failed tests
 !!!-----------------------------------------------------------------------------
-  
-  !! check for any fails
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_shuffle passed all tests'

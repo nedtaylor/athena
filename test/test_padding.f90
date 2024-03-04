@@ -219,7 +219,10 @@ program test_padding
      end if
   end do
 
-  !! check for any fails
+
+!!!-----------------------------------------------------------------------------
+!!! check for any failed tests
+!!!-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_padding passed all tests'

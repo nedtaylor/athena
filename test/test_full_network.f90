@@ -74,7 +74,10 @@ program test_full_network
      write(0,*) 'network has wrong number of layers'
   end if
 
-  !! check for any fails
+
+!!!-----------------------------------------------------------------------------
+!!! check for any failed tests
+!!!-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_full_network passed all tests'

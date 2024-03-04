@@ -77,7 +77,10 @@ program test_flatten4d_layer
     write(0,*) 'flatten4d layer backward pass incorrect'
   end if
 
-  !! check for any fails
+
+!!!-----------------------------------------------------------------------------
+!!! check for any failed tests
+!!!-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_flatten4d_layer passed all tests'

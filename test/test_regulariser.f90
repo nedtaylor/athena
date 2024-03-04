@@ -32,10 +32,8 @@ program test_mod_regulariser
 
 
 !!!-----------------------------------------------------------------------------
-!!! Final printing array shuffle tests
+!!! check for any failed tests
 !!!-----------------------------------------------------------------------------
-  
-  !! check for any fails
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_shuffle passed all tests'

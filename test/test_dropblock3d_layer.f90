@@ -106,7 +106,9 @@ program test_dropblock3d_layer
   end select
 
 
-  !! check for any fails
+!!!-----------------------------------------------------------------------------
+!!! check for any failed tests
+!!!-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_dropblock3d_layer passed all tests'

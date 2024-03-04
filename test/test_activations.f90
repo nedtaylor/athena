@@ -287,7 +287,10 @@ program test_activations
 
    end do
  
-   !! check for any fails
+
+!!!-----------------------------------------------------------------------------
+!!! check for any failed tests
+!!!-----------------------------------------------------------------------------
    write(*,*) "----------------------------------------"
    if(success)then
       write(*,*) 'test_activations passed all tests'

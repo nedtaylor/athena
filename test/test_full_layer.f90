@@ -53,7 +53,10 @@ program test_full_layer
      write(0,*) 'full layer has wrong input_shape'
   end if
 
-  !! check for any fails
+
+!!!-----------------------------------------------------------------------------
+!!! check for any failed tests
+!!!-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_full_layer passed all tests'

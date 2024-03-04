@@ -72,7 +72,10 @@ program test_flatten2d_layer
     write(0,*) 'flatten2d layer backward pass incorrect'
   end if
 
-  !! check for any fails
+
+!!!-----------------------------------------------------------------------------
+!!! check for any failed tests
+!!!-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_flatten2d_layer passed all tests'

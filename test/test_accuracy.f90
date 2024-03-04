@@ -89,10 +89,8 @@ program test_accuracy
   end if
 
 !!!-----------------------------------------------------------------------------
-!!! Final printing accuracy tests
+!!! check for any failed tests
 !!!-----------------------------------------------------------------------------
-  
-  !! check for any fails
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_accuracy passed all tests'
