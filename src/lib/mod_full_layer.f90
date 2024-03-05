@@ -198,7 +198,7 @@ contains
     rank(0)
        this%dw = gradients
     rank(1)
-       this%dw = spread(reshape(gradients, shape(this%dw(:,:,1))), 2, &
+       this%dw = spread(reshape(gradients, shape(this%dw(:,:,1))), 3, &
             this%batch_size)
     end select
   
