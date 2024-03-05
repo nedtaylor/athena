@@ -30,6 +30,7 @@ foreach(execid
   normalisation
   metrics
   accuracy
+  network
   )
   add_executable(test_${execid} test_${execid}.f90)
   # # Specify the include directories
