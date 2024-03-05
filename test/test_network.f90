@@ -7,6 +7,8 @@ program test_network
   implicit none
 
   type(network_type) :: network
+  type(network_type), allocatable :: network2
+  real, allocatable, dimension(:) :: gradients
   real, allocatable, dimension(:,:) :: x, y
   
   real, parameter :: learning_rate = 0.1
@@ -23,10 +25,6 @@ program test_network
   call random_seed(size=seed_size)
   seed = [1,1,1,1,1,1,1,1]
   call random_seed(put=seed)
-
-  write(*,*) "Simple function approximation using a fully-connected neural network"
-  write(*,*) "--------------------------------------------------"
-  write(*,*) "Based on example provided in the neural-fortran code"
 
   !! create network
   ! call network%add(input1d_layer_type(input_shape=[1]))
@@ -70,6 +68,28 @@ program test_network
      write(*,*) "Test accuracy higher than expected"
      success = .false.
   end if
+
+  !! check network allocation
+  allocate(network2, source=network_type(layers=network%model, batch_size=4))
+  if(network2%batch_size.ne.4) then
+     write(*,*) "Batch size not set correctly"
+     success = .false.
+  end if
+
+  !! check gradients
+  call network2%set_gradients(0.1)
+  if(any(abs(network2%get_gradients()-0.1).gt.1.E-6)) then
+     write(*,*) "Gradients not set correctly"
+     success = .false.
+  end if
+  allocate(gradients(network%get_num_params()))
+  gradients = 0.2
+  call network%set_gradients(gradients)
+  if(any(abs(network%get_gradients()-0.2).gt.1.E-6)) then
+     write(*,*) "Gradients not set correctly"
+     success = .false.
+  end if
+
 
 !!!-----------------------------------------------------------------------------
 !!! check for any failed tests
