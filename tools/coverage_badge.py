@@ -1,6 +1,6 @@
 from bs4 import BeautifulSoup
 
-html_file = "coverage/index.html"
+html_file = "./build/coverage/index.html"
 
 colour_dict = {'coverage-low':"red", 'coverage-medium':"yellow", 'coverage-high':"brightgreen"}
 
