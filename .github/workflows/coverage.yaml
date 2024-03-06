@@ -33,7 +33,7 @@ jobs:
       - name: actions-setup-cmake
         uses: jwlawson/actions-setup-cmake@v2.0.1
         with:
-          cmake-version: '3.17.5'
+          cmake-version: '3.24.x'
             
       - uses: fortran-lang/setup-fortran@v1
         id: setup-fortran
@@ -54,6 +54,7 @@ jobs:
           cd build
           cmake -DCMAKE_BUILD_TYPE=Debug ..
           make
+          ./test/test_regulariser
           make coverage
 
 
