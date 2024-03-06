@@ -12,22 +12,25 @@ program test_mod_regulariser
   real, dimension(1) :: params, gradient, &
        expected_gradient_l1, expected_gradient_l2, expected_gradient_l1l2
 
-  ! Initialize params and gradient here...
-  gradient = 1.0E0
+  !! initialize params and gradient
+  gradient = 1.E0
   expected_gradient_l1   = gradient + 1.E-3
   expected_gradient_l2   = gradient + 1.E-3
   expected_gradient_l1l2 = gradient + 2.E-3
 
+  !! test l1 regulariser
+  write(*,*) "testing L1 regulariser"
   call l1_regulariser%regularise(params, gradient, learning_rate)
-  ! Check the result
   call check(gradient, expected_gradient_l1, success)
 
+  !! test l2 regulariser
+  write(*,*) "testing L2 regulariser"
   call l2_regulariser%regularise(params, gradient, learning_rate)
-  ! Check the result
   call check(gradient, expected_gradient_l2, success)
 
+  !! test l1l2 regulariser
+  write(*,*) "testing L1L2 regulariser"
   call l1l2_regulariser%regularise(params, gradient, learning_rate)
-  ! Check the result
   call check(gradient, expected_gradient_l1l2, success)
 
 
@@ -36,9 +39,9 @@ program test_mod_regulariser
 !!!-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
-     write(*,*) 'test_shuffle passed all tests'
+     write(*,*) 'test_regulariser passed all tests'
   else
-     write(0,*) 'test_shuffle failed one or more tests'
+     write(0,*) 'test_regulariser failed one or more tests'
      stop 1
   end if
 
@@ -54,17 +57,18 @@ subroutine check(actual, expected, success)
   logical, intent(inout) :: success
 
   if (size(actual) .ne. size(expected)) then
-    print *, "Error: Arrays are not the same size."
-    stop 1
+    write(0,*) "Gradient size not expected"
+    success = .false.
   end if
 
+  write(*,*) actual, expected
   do i = 1, size(actual)
     diff = abs(actual(i) - expected(i))
     if (diff .gt. 1.E-6) then
-      write(*,*) "Error: Arrays are not approximately equal."
-      write(*,*) "Index: ", i
-      write(*,*) "Actual: ", actual(i)
-      write(*,*) "Expected: ", expected(i)
+      write(0,*) "gradients not as expected"
+      write(0,*) "Index: ", i
+      write(0,*) "Actual: ", actual(i)
+      write(0,*) "Expected: ", expected(i)
       success = .false.
     end if
   end do
