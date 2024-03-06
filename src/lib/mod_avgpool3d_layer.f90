@@ -229,8 +229,8 @@ contains
     this%num_channels = this%input_shape(4)
     allocate(this%output_shape(4))
     this%output_shape(4) = this%input_shape(4)
-    this%output_shape(:2) = &
-         floor( (this%input_shape(:2) - this%pool)/real(this%strd)) + 1
+    this%output_shape(:3) = &
+         floor( (this%input_shape(:3) - this%pool)/real(this%strd)) + 1
     
 
     !!--------------------------------------------------------------------------
@@ -447,7 +447,7 @@ contains
        stride_idx(2) = (j-1) * this%strd(2) + 1
        stride_idx(3) = (k-1) * this%strd(3) + 1
 #endif
-       this%output(i, j, k, m, s) = maxval(&
+       this%output(i, j, k, m, s) = sum(&
             input( &
             stride_idx(1):stride_idx(1)+this%pool(1)-1, &
             stride_idx(2):stride_idx(2)+this%pool(2)-1, &

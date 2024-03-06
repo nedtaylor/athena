@@ -56,11 +56,17 @@ contains
           allocate(input(i)%history(length))
        end do
     else
-       do i=1,size(input,dim=1)
-          input(i)%key = source(i)%key
-          allocate(input(i)%history(size(source(i)%history,dim=1)))
-          input(i)%threshold = source(i)%threshold
-       end do
+       if(present(source))then
+          do i=1,size(input,dim=1)
+             input(i)%key = source(i)%key
+             allocate(input(i)%history(size(source(i)%history,dim=1)))
+             input(i)%threshold = source(i)%threshold
+          end do
+       else
+          write(0,*) &
+               "ERROR: metric_dict_alloc requires either a source or length"
+          stop 1
+       end if
     end if
 
   end subroutine metric_dict_alloc

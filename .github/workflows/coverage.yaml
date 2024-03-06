@@ -1,0 +1,59 @@
+name: run-code-coverage
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  run-code-coverage:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }} 
+    runs-on: ubuntu-latest
+    toolchain:
+      - {compiler: gcc, version: 13}
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v2
+      
+      - name: actions-setup-cmake
+        uses: jwlawson/actions-setup-cmake@v2.0.1
+        with:
+          cmake-version: '3.3.x'
+            
+      - uses: fortran-lang/setup-fortran@v1
+        id: setup-fortran
+        with:
+          compiler: $${{ toolchain.compiler }}
+          version: $${{ toolchain.version }}
+      
+      - run: |
+          ${{ env.FC }}
+          ${{ steps.setup-fortran.outputs.fc }}
+          cmake --version
+          mkdir -p build
+          cd build
+          cmake3 -DCMAKE_BUILD_TYPE=Debug ..
+          make
+          make coverage
+
+
+      - name: upload artifact
+        uses: actions/upload-pages-artifact@v1
+        with: 
+          path: './build/coverage/'
+      
+      - name: deploy to Github Pages
+        uses: actions/deploy-pages@v2
+        id: deployment
+        

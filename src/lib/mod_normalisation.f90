@@ -64,8 +64,8 @@ subroutine renormalise_norm(input, norm, mirror)
      scale = 1._real12
   end if
   
-  if(mirror)then
-     call linear_renormalise(input)
+  if(present(mirror))then
+     if(mirror) call linear_renormalise(input)
   end if
   input = input * scale/sqrt(dot_product(input,input))
 
@@ -81,6 +81,8 @@ subroutine renormalise_sum(input, norm, mirror, magnitude)
   real(real12), dimension(:), intent(inout) :: input
   real(real12), optional, intent(in) :: norm
   logical, optional, intent(in) :: mirror, magnitude
+
+  logical :: magnitude_
   
   real(real12) :: scale
 
@@ -91,16 +93,12 @@ subroutine renormalise_sum(input, norm, mirror, magnitude)
   end if
 
   if(present(mirror))then
-     if(mirror) &
-          call linear_renormalise(input)
+     if(mirror) call linear_renormalise(input)
   end if
   
+  if(present(magnitude)) magnitude_ = magnitude
   if(present(magnitude))then
-     if(magnitude)then
-        scale = scale/sum(abs(input))
-     else
-        scale = scale/sum(input)
-     end if
+     scale = scale/sum(abs(input))
   else
      scale = scale/sum(input)
   end if

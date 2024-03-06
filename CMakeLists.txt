@@ -35,6 +35,19 @@ set(CMAKE_Fortran_STANDARD 2018)
 # set language
 enable_language(Fortran)
 
+# set coverage compiler flags
+if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
+  list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+  set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+  if(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+      include(CodeCoverage)
+      setup_target_for_coverage_gcovr_html(
+        NAME coverage
+        EXECUTABLE ctest
+        EXCLUDE "${PROJECT_SOURCE_DIR}/test/*")
+  endif()
+endif()
+
 # enable testing
 enable_testing()
 
@@ -203,3 +216,6 @@ target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel_Dev>:${DEVFLA
 if(BUILD_TESTS)
     add_subdirectory(test)
 endif()
+
+# add coverage compiler flags
+append_coverage_compiler_flags()

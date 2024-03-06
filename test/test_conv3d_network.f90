@@ -1,7 +1,7 @@
-program test_conv2d_network
+program test_conv3d_network
   use athena, only: &
        network_type, &
-       conv2d_layer_type, &
+       conv3d_layer_type, &
        base_optimiser_type
   implicit none
 
@@ -15,20 +15,21 @@ program test_conv2d_network
   integer, parameter :: width = 7
 
   real, allocatable, dimension(:,:) :: output_reshaped
-  real, allocatable, dimension(:,:,:,:) :: input_data, output, gradients_weight
+  real, allocatable, dimension(:,:,:,:,:) :: input_data, output, &
+       gradients_weight
   real, allocatable, dimension(:) :: gradients, gradients_bias
   logical :: success = .true.
 
-  write(*,*) "test_conv2d_network"
+  write(*,*) "test_conv3d_network"
   !! create network
-  call network%add(conv2d_layer_type( &
-       input_shape=[width, width, num_channels], &
+  call network%add(conv3d_layer_type( &
+       input_shape=[width, width, width, num_channels], &
        num_filters = num_filters1, &
        kernel_size = kernel_size, &
        kernel_initialiser = "ones", &
        activation_function = "linear" &
        ))
-  call network%add(conv2d_layer_type( &
+  call network%add(conv3d_layer_type( &
        num_filters = num_filters2, &
        kernel_size = kernel_size, &
        kernel_initialiser = "ones", &
@@ -42,19 +43,19 @@ program test_conv2d_network
 
   if(network%num_layers.ne.3)then
     success = .false.
-    write(*,*) "conv2d network should have 3 layers"
+    write(*,*) "conv3d network should have 3 layers"
   end if
 
   call network%set_batch_size(1)
-  allocate(input_data(width, width, num_channels, 1))
+  allocate(input_data(width, width, width, num_channels, 1))
   input_data = 0.0
 
   call network%forward(input_data)
   call network%model(3)%layer%get_output(output)
 
-  if(any(shape(output).ne.[width-4,width-4,num_filters2,1]))then
+  if(any(shape(output).ne.[width-4,width-4,width-4,num_filters2,1]))then
      success = .false.
-     write(*,*) "conv2d network output shape should be [28,28,32]"
+     write(*,*) "conv3d network output shape should be [28,28,28,32]"
   end if
 
 
@@ -62,64 +63,65 @@ program test_conv2d_network
 !!! check gradients
 !!!-----------------------------------------------------------------------------
   output = 0.E0
-  output(:(width-4)/2,:,:,:) = 1.E0
+  output(:(width-4)/2,:,:,:,:) = 1.E0
   input_data = 0.E0
-  input_data(:(width)/2,:,:,:) = 1.E0
+  input_data(:(width)/2,:,:,:,:) = 1.E0
   call network%forward(input_data)
-  output_reshaped = reshape(output, [(width-4)**2*num_filters2,1])
+  output_reshaped = reshape(output, [(width-4)**3*num_filters2,1])
   call network%backward(output_reshaped)
   select type(current => network%model(3)%layer)
-  type is(conv2d_layer_type)
+  type is(conv3d_layer_type)
      gradients = current%get_gradients()
      gradients_weight = &
           reshape(&
-          gradients(:kernel_size**2*num_filters1*num_filters2), &
-          [kernel_size,kernel_size,num_filters1,num_filters2])
+          gradients(:kernel_size**3*num_filters1*num_filters2), &
+          [kernel_size,kernel_size,kernel_size,num_filters1,num_filters2])
      gradients_bias = &
-          gradients(kernel_size**2*num_filters1*num_filters2+1:)
+          gradients(kernel_size**3*num_filters1*num_filters2+1:)
      if(size(gradients).ne.&
-          (kernel_size**2*num_filters1 + 1) * num_filters2)then
+          (kernel_size**3*num_filters1 + 1) * num_filters2)then
         success = .false.
-        write(*,*) "conv2d network gradients size should be ", &
-             ( kernel_size**2 * num_filters1 + 1 ) * num_filters2
+        write(*,*) "conv3d network gradients size should be ", &
+             ( kernel_size**3 * num_filters1 + 1 ) * num_filters2
      end if
      if(any(abs(gradients).lt.1.E-6))then
         success = .false.
-        write(*,*) "conv2d network gradients should not be zero"
+        write(*,*) "conv3d network gradients should not be zero"
      end if
-     if(any(abs(gradients_weight(1,:,:,:) - &
-          gradients_weight(1,1,1,1)).gt.1.E-6))then
+     if(any(abs(gradients_weight(1,:,:,:,:) - &
+          gradients_weight(1,1,1,1,1)).gt.1.E-6))then
         success = .false.
-        write(*,*) "conv2d network gradients first column should be equivalent"
+        write(*,*) "conv3d network gradients first column should be equivalent"
      end if
-     if(any(abs(gradients_weight(2,:,:,:) - &
-          gradients_weight(2,1,1,1)).gt.1.E-6))then
+     if(any(abs(gradients_weight(2,:,:,:,:) - &
+          gradients_weight(2,1,1,1,1)).gt.1.E-6))then
         success = .false.
-        write(*,*) "conv2d network gradients second column should be equivalent"
+        write(*,*) "conv3d network gradients second column should be equivalent"
      end if
-     if(any(abs(gradients_weight(3,:,:,:) - &
-          gradients_weight(3,1,1,1)).gt.1.E-6))then
+     if(any(abs(gradients_weight(3,:,:,:,:) - &
+          gradients_weight(3,1,1,1,1)).gt.1.E-6))then
         success = .false.
-        write(*,*) "conv2d network gradients third column should be equivalent"
+        write(*,*) "conv3d network gradients third column should be equivalent"
      end if
      if(any(abs(gradients_bias(:)-gradients_bias(1)).gt.1.E-6))then
         success = .false.
-        write(*,*) "conv2d network gradients bias should be equivalent"
+        write(*,*) "conv3d network gradients bias should be equivalent"
      end if
   class default
      success = .false.
-     write(*,*) "conv2d network layer should be conv2d_layer_type"
+     write(*,*) "conv3d network layer should be conv3d_layer_type"
   end select
+
 
 !!!-----------------------------------------------------------------------------
 !!! check for any failed tests
 !!!-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
-     write(*,*) 'test_conv2d_network passed all tests'
+     write(*,*) 'test_conv3d_network passed all tests'
   else
-     write(0,*) 'test_conv2d_network failed one or more tests'
+     write(0,*) 'test_conv3d_network failed one or more tests'
      stop 1
   end if
 
-end program test_conv2d_network
+end program test_conv3d_network

@@ -48,27 +48,27 @@ contains
        input = 1._real12
     rank(2)
        input = 0._real12
-       do i=1,2
+       do i=1,size(input,1)
           input(i,i) = 1._real12
        end do
     rank(3)
        input = 0._real12
-       do i=1,3
+       do i=1,size(input,1)
           input(i,i,i) = 1._real12
        end do
     rank(4)
        input = 0._real12
-       do i=1,4
+       do i=1,size(input,1)
           input(i,i,i,i) = 1._real12
        end do
     rank(5)
        input = 0._real12
-       do i=1,5
+       do i=1,size(input,1)
           input(i,i,i,i,i) = 1._real12
        end do
     rank(6)
        input = 0._real12
-       do i=1,6
+       do i=1,size(input,1)
           input(i,i,i,i,i,i) = 1._real12
        end do
     end select

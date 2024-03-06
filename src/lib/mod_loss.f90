@@ -131,7 +131,7 @@ contains
     real(real12), dimension(:,:), intent(in) :: predicted, expected
     real(real12), dimension(size(predicted,2)) :: output
 
-    output = sum(compute_loss_mse(predicted,expected),dim=1)
+    output = sum(compute_loss_mae(predicted,expected),dim=1)
     
   end function total_loss_mae
 !!!#############################################################################
@@ -164,7 +164,7 @@ contains
 
 !!!#############################################################################
 !!! compute losses
-!!! method: categorical cross entropy
+!!! method: negative log likelihood
 !!!#############################################################################
   pure function compute_loss_nll(predicted, expected) result(output)
     implicit none

@@ -263,7 +263,12 @@ contains
     real(real12), dimension(..), intent(in) :: gradient
 
     select rank(input); rank(4)
-    select rank(gradient); rank(4)
+    select rank(gradient)
+    rank(1)
+       call backward_4d(this, input, gradient)
+    rank(2)
+       call backward_4d(this, input, gradient)
+    rank(4)
        call backward_4d(this, input, gradient)
     end select
     end select    
@@ -954,8 +959,8 @@ contains
     !!--------------------------------------------------------------------------
     if(this%calc_input_gradients)then
        lim(1,:) = this%knl - 1
-       lim(2,:) = (this%output_shape - 1) * this%stp + 1 + end_idx
-       n_stp = this%output_shape * this%stp
+       lim(2,:) = (this%output_shape(:2) - 1) * this%stp + 1 + end_idx
+       n_stp = this%output_shape(:2) * this%stp
        this%di = 0._real12
        !! all elements of the output are separated by stride_x (stride_y)
        do concurrent( &
@@ -988,8 +993,8 @@ contains
           if(any(lim_w(2,:).gt.lim_w(1,:))) cycle
 
           !! set gradient bounds
-          lim_g(1,:) = max(1,                 stp_idx)
-          lim_g(2,:) = min(this%output_shape, stp_idx + ([i,j]-1)/this%stp )
+          lim_g(1,:) = max(1,                     [i,j] - offset)
+          lim_g(2,:) = min(this%output_shape(:2), [i,j] - offset + this%knl - 1)
 
           !! apply full convolution to compute input gradients
           this%di(i,j,m,s) = &

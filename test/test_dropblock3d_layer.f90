@@ -1,12 +1,12 @@
-program test_dropblock2d_layer
+program test_dropblock3d_layer
   use athena, only: &
-       dropblock2d_layer_type, &
+       dropblock3d_layer_type, &
        base_layer_type
   implicit none
 
   class(base_layer_type), allocatable :: db_layer
   integer, parameter :: num_channels = 3, width = 6
-  real, allocatable, dimension(:,:,:,:) :: input_data, output, gradient
+  real, allocatable, dimension(:,:,:,:,:) :: input_data, output, gradient
   real, allocatable, dimension(:) :: output_1d
   real, allocatable, dimension(:,:) :: output_2d
   real, parameter :: tol = 1.E-7
@@ -23,58 +23,59 @@ program test_dropblock2d_layer
   allocate(seed(seed_size), source=0)
   call random_seed(put = seed)
 
-  !! set up dropblock2d layer
-  db_layer = dropblock2d_layer_type( &
+  !! set up dropblock3d layer
+  db_layer = dropblock3d_layer_type( &
        rate = 0.0, &
        block_size = 5, &
-       input_shape = [width, width, num_channels], &
+       input_shape = [width, width, width, num_channels], &
        batch_size = 1 &
        )
 
   !! check layer name
-  if(.not. db_layer%name .eq. 'dropblock2d')then
+  if(.not. db_layer%name .eq. 'dropblock3d')then
      success = .false.
-     write(0,*) 'dropblock2d layer has wrong name'
+     write(0,*) 'dropblock3d layer has wrong name'
   end if
 
   !! check layer type
   select type(db_layer)
-  type is(dropblock2d_layer_type)
+  type is(dropblock3d_layer_type)
      !! check input shape
-     if(any(db_layer%input_shape .ne. [width,width,num_channels]))then
+     if(any(db_layer%input_shape .ne. [width,width,width,num_channels]))then
         success = .false.
-        write(0,*) 'dropblock2d layer has wrong input_shape'
+        write(0,*) 'dropblock3d layer has wrong input_shape'
      end if
 
      !! check output shape
-     if(any(db_layer%output_shape .ne. [width,width,num_channels]))then
+     if(any(db_layer%output_shape .ne. [width,width,width,num_channels]))then
         success = .false.
-        write(0,*) 'dropblock2d layer has wrong output_shape'
+        write(0,*) 'dropblock3d layer has wrong output_shape'
      end if
 
      !! check batch size
      if(db_layer%batch_size .ne. 1)then
         success = .false.
-        write(0,*) 'dropblock2d layer has wrong batch size'
+        write(0,*) 'dropblock3d layer has wrong batch size'
      end if
 
      if(any(.not.db_layer%mask))then
         success = .false.
-        write(0,*) 'dropblock2d layer has wrong mask, should all be true for rate = 0.0'
+        write(0,*) 'dropblock3d layer has wrong mask, &
+             &should all be true for rate = 0.0'
      end if
   class default
      success = .false.
-     write(0,*) 'dropblock2d layer has wrong type'
+     write(0,*) 'dropblock3d layer has wrong type'
   end select
 
   !! initialise sample input
-  allocate(input_data(width, width, num_channels, 1), source = 0.0)
+  allocate(input_data(width, width, width, num_channels, 1), source = 0.0)
   input_data = max_value
 
-  db_layer = dropblock2d_layer_type( &
+  db_layer = dropblock3d_layer_type( &
       rate = 0.5, &
       block_size = 5, &
-      input_shape = [width, width, num_channels], &
+      input_shape = [width, width, width, num_channels], &
       batch_size = 1 &
       )
   !! run forward pass
@@ -84,10 +85,11 @@ program test_dropblock2d_layer
 
   !! check outputs have expected value
   select type(db_layer)
-  type is(dropblock2d_layer_type)
-    if(any(abs(merge(input_data(:,:,1,1),0.0,db_layer%mask)-output(:,:,1,1)).gt.tol))then
+  type is(dropblock3d_layer_type)
+    if(any(abs(merge(input_data(:,:,:,1,1),0.0,db_layer%mask) - &
+         output(:,:,:,1,1)).gt.tol))then
       success = .false.
-      write(*,*) 'dropblock2d layer forward pass failed: mask incorrectly applied'
+      write(*,*) 'dropblock3d layer forward pass failed: mask incorrectly applied'
     end if
   end select
 
@@ -97,10 +99,11 @@ program test_dropblock2d_layer
 
   !! check gradient has expected value
   select type(db_layer)
-  type is(dropblock2d_layer_type)
-    if(any(abs(merge(gradient(:,:,1,1),0.0,db_layer%mask)-db_layer%di(:,:,1,1)).gt.tol))then
+  type is(dropblock3d_layer_type)
+    if(any(abs(merge(gradient(:,:,:,1,1),0.0,db_layer%mask) - &
+         db_layer%di(:,:,:,1,1)).gt.tol))then
       success = .false.
-      write(*,*) 'dropblock2d layer backward pass failed: mask incorrectly applied'
+      write(*,*) 'dropblock3d layer backward pass failed: mask incorrectly applied'
     end if
   end select
 
@@ -117,10 +120,10 @@ program test_dropblock2d_layer
 !!!-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
-     write(*,*) 'test_dropblock2d_layer passed all tests'
+     write(*,*) 'test_dropblock3d_layer passed all tests'
   else
-     write(0,*) 'test_dropblock2d_layer failed one or more tests'
+     write(0,*) 'test_dropblock3d_layer failed one or more tests'
      stop 1
   end if
 
-end program test_dropblock2d_layer
+end program test_dropblock3d_layer

@@ -1,11 +1,11 @@
-program test_flatten2d_layer
+program test_flatten4d_layer
   use constants, only: real12
-  use flatten2d_layer, only: flatten2d_layer_type
+  use flatten4d_layer, only: flatten4d_layer_type
   implicit none
 
-  type(flatten2d_layer_type) :: flatten_layer
+  type(flatten4d_layer_type) :: flatten_layer
   integer, parameter :: batch_size = 1, width = 8, num_channels = 3
-  real(real12), allocatable, dimension(:,:,:,:) :: input_data
+  real(real12), allocatable, dimension(:,:,:,:,:,:) :: input_data
   real(real12), allocatable, dimension(:,:) :: output, gradient
   logical :: success = .true.
   real, parameter :: tol = 1e-6
@@ -20,36 +20,40 @@ program test_flatten2d_layer
   allocate(seed(seed_size), source=0)
   call random_seed(put = seed)
 
-  !! set up flatten2d layer
-  flatten_layer = flatten2d_layer_type( &
-       input_shape = [width, width, num_channels], batch_size = batch_size)
+  !! set up flatten4d layer
+  flatten_layer = flatten4d_layer_type( &
+       input_shape = [width, width, width, width, num_channels], &
+       batch_size = batch_size)
 
   !! check layer type
-  if(.not. flatten_layer%name .eq. 'flatten2d')then
+  if(.not. flatten_layer%name .eq. 'flatten4d')then
      success = .false.
-     write(0,*) 'flatten2d layer has wrong name'
+     write(0,*) 'flatten4d layer has wrong name'
   end if
 
   !! check input shape
-  if(any(flatten_layer%input_shape .ne. [width, width, num_channels]))then
+  if(any(flatten_layer%input_shape .ne. &
+       [width, width, width, width, num_channels]))then
      success = .false.
-     write(0,*) 'flatten2d layer has wrong input_shape'
+     write(0,*) 'flatten4d layer has wrong input_shape'
   end if
 
   !! check output shape
-  if(any(flatten_layer%output_shape .ne. [width*width*num_channels]))then
+  if(any(flatten_layer%output_shape .ne. &
+       [width*width*width*width*num_channels]))then
      success = .false.
-     write(0,*) 'flatten2d layer has wrong output_shape'
+     write(0,*) 'flatten4d layer has wrong output_shape'
   end if
 
   !! check batch size
   if(flatten_layer%batch_size .ne. 1)then
      success = .false.
-     write(0,*) 'flatten2d layer has wrong batch size'
+     write(0,*) 'flatten4d layer has wrong batch size'
   end if
 
   !! initialise sample input
-  allocate(input_data(width, width, num_channels, batch_size), source = 0.0)
+  allocate(input_data(width, width, width, width, num_channels, batch_size), &
+       source = 0.0)
   call random_number(input_data)
 
   !! run forward pass
@@ -57,9 +61,10 @@ program test_flatten2d_layer
   call flatten_layer%get_output(output)
 
   !! check outputs have expected value
-  if(any(abs(pack(input_data(:,:,:,1),mask=.true.) - output(:,1)).gt.tol))then
+  if(any(abs(pack(input_data(:,:,:,:,:,1),mask=.true.) - &
+       output(:,1)).gt.tol))then
      success = .false.
-     write(0,*) 'flatten2d layer forward pass incorrect'
+     write(0,*) 'flatten4d layer forward pass incorrect'
    end if
 
   !! run backward pass
@@ -69,7 +74,7 @@ program test_flatten2d_layer
   !! check gradient has expected value
   if(any(abs(flatten_layer%di - input_data).gt.tol))then
     success = .false.
-    write(0,*) 'flatten2d layer backward pass incorrect'
+    write(0,*) 'flatten4d layer backward pass incorrect'
   end if
 
 
@@ -78,10 +83,10 @@ program test_flatten2d_layer
 !!!-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
-     write(*,*) 'test_flatten2d_layer passed all tests'
+     write(*,*) 'test_flatten4d_layer passed all tests'
   else
-     write(0,*) 'test_flatten2d_layer failed one or more tests'
+     write(0,*) 'test_flatten4d_layer failed one or more tests'
      stop 1
   end if
 
-end program test_flatten2d_layer
+end program test_flatten4d_layer
