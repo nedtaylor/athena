@@ -33,6 +33,7 @@ foreach(execid
   network
   random
   optimiser
+  clipper
   )
   add_executable(test_${execid} test_${execid}.f90)
   # # Specify the include directories
