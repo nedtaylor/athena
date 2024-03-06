@@ -20,8 +20,12 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }} 
     runs-on: ubuntu-latest
-    toolchain:
-      - {compiler: gcc, version: 13}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        compiler: [gcc]
+        version: [13]
     steps:
       - name: checkout repo
         uses: actions/checkout@v2
@@ -34,8 +38,8 @@ jobs:
       - uses: fortran-lang/setup-fortran@v1
         id: setup-fortran
         with:
-          compiler: $${{ toolchain.compiler }}
-          version: $${{ toolchain.version }}
+          compiler: $${{ matrix.compiler }}
+          version: $${{ matrix.version }}
       
       - run: |
           ${{ env.FC }}
