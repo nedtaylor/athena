@@ -8,6 +8,8 @@ program test_maxpool3d_layer
   class(base_layer_type), allocatable :: pool_layer
   integer, parameter :: num_channels = 3, pool = 3, stride = 2, width = 18
   real, allocatable, dimension(:,:,:,:,:) :: input_data, output, gradient
+  real, allocatable, dimension(:) :: output_1d
+  real, allocatable, dimension(:,:) :: output_2d
   real, parameter :: tol = 1.E-7
   logical :: success = .true.
 
@@ -181,6 +183,14 @@ program test_maxpool3d_layer
         write(0,*) 'maxpool3d layer has wrong stride size'
      end if
   end select
+
+  !! check 1d and 2d output are consistent
+  call pool_layer%get_output(output_1d)
+  call pool_layer%get_output(output_2d)
+  if(any(abs(output_1d - reshape(output_2d, [size(output_2d)])) .gt. 1.E-6))then
+     success = .false.
+     write(0,*) 'output_1d and output_2d are not consistent'
+  end if
 
 !!!-----------------------------------------------------------------------------
 !!! check for any failed tests

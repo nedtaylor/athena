@@ -9,6 +9,8 @@ program test_batchnorm3d_layer
   integer, parameter :: num_channels = 3, width = 8, batch_size = 1
   real, parameter :: gamma  = 0.5, beta = 0.3
   real, allocatable, dimension(:,:,:,:,:) :: input_data, output, gradient
+  real, allocatable, dimension(:) :: output_1d
+  real, allocatable, dimension(:,:) :: output_2d
   real, parameter :: tol = 0.5E-3
   logical :: success = .true.
 
@@ -186,6 +188,13 @@ program test_batchnorm3d_layer
      write(0,*) 'batchnorm3d layer has wrong type'
   end select
 
+  !! check 1d and 2d output are consistent
+  call bn_layer%get_output(output_1d)
+  call bn_layer%get_output(output_2d)
+  if(any(abs(output_1d - reshape(output_2d, [size(output_2d)])) .gt. 1.E-6))then
+     success = .false.
+     write(0,*) 'output_1d and output_2d are not consistent'
+  end if
 
 !!!-----------------------------------------------------------------------------
 !!! check for any failed tests
