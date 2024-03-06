@@ -90,6 +90,9 @@ module network
      procedure, pass(this) :: predict => predict_1d
      procedure, pass(this) :: update
 
+     procedure, pass(this) :: reduce => network_reduction
+     procedure, pass(this) :: copy => network_copy
+
      procedure, pass(this) :: get_num_params
      procedure, pass(this) :: get_params
      procedure, pass(this) :: set_params
@@ -114,10 +117,10 @@ module network
      end function network_setup
   end interface network_type
 
-#ifdef _OPENMP
-  !$omp declare reduction(network_reduction:network_type:network_reduction(omp_out, omp_in)) &
-  !$omp& initializer(omp_priv = omp_orig)
-#endif
+! #ifdef _OPENMP
+!   !$omp declare reduction(network_reduction:network_type:omp_out%network_reduction(omp_in)) &
+!   !$omp& initializer(omp_priv = omp_orig)
+! #endif
 
 
   private
@@ -129,21 +132,21 @@ contains
 !!!#############################################################################
 !!! network addition
 !!!#############################################################################
-  subroutine network_reduction(lhs, rhs)
+  subroutine network_reduction(this, source)
     implicit none
-    type(network_type), intent(inout) :: lhs
-    type(network_type), intent(in) :: rhs
+    class(network_type), intent(inout) :: this
+    type(network_type), intent(in) :: source
 
     integer :: i
     
-    lhs%metrics(1)%val = lhs%metrics(1)%val + rhs%metrics(1)%val
-    lhs%metrics(2)%val = lhs%metrics(2)%val + rhs%metrics(2)%val
-    do i=1,size(lhs%model)
-       select type(layer_lhs => lhs%model(i)%layer)
+    this%metrics(1)%val = this%metrics(1)%val + source%metrics(1)%val
+    this%metrics(2)%val = this%metrics(2)%val + source%metrics(2)%val
+    do i=1,size(this%model)
+       select type(layer_this => this%model(i)%layer)
        class is(learnable_layer_type)
-          select type(layer_rhs => rhs%model(i)%layer)
+          select type(layer_source => source%model(i)%layer)
           class is(learnable_layer_type)
-             call layer_lhs%merge(layer_rhs)
+             call layer_this%merge(layer_source)
           end select
        end select
     end do
@@ -155,13 +158,13 @@ contains
 !!!#############################################################################
 !!! network addition
 !!!#############################################################################
-  subroutine network_copy(lhs, rhs)
+  subroutine network_copy(this, source)
     implicit none
-    type(network_type), intent(out) :: lhs
-    type(network_type), intent(in) :: rhs
+    class(network_type), intent(inout) :: this
+    type(network_type), intent(in) :: source
 
-    lhs%metrics = rhs%metrics
-    lhs%model   = rhs%model
+    this%metrics = source%metrics
+    this%model   = source%model
   end subroutine network_copy
 !!!#############################################################################
 
