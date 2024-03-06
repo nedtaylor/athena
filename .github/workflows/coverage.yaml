@@ -42,8 +42,6 @@ jobs:
           version: ${{ matrix.version }}
       
       - run: |
-          ${{ env.FC }}
-          ${{ steps.setup-fortran.outputs.fc }}
           cmake --version
           mkdir -p build
           cd build
