@@ -17,6 +17,10 @@ program test_input_layer
   real, allocatable, dimension(:,:,:) :: output_3d
   real, dimension(2,1,1,1) :: input_4d = 4.E0
   real, allocatable, dimension(:,:,:,:) :: output_4d
+  real, dimension(2,1,1,1,1) :: input_5d = 5.E0
+  real, allocatable, dimension(:,:,:,:) :: output_5d
+  real, dimension(2,1,1,1,1,1) :: input_6d = 6.E0
+  real, allocatable, dimension(:,:,:,:) :: output_6d
 
   logical :: success = .true.
 
@@ -57,6 +61,20 @@ program test_input_layer
      call input_layer%set(input_4d)
      call input_layer%forward(input_4d)
      if(any(abs(input_layer%output-4.E0).gt.1.E-6))then
+        write(0,*) 'input1d_layer forward 4d failed'
+        write(*,*) input_layer%output
+        success = .false.
+     end if
+     call input_layer%set(input_5d)
+     call input_layer%forward(input_5d)
+     if(any(abs(input_layer%output-5.E0).gt.1.E-6))then
+        write(0,*) 'input1d_layer forward 4d failed'
+        write(*,*) input_layer%output
+        success = .false.
+     end if
+     call input_layer%set(input_6d)
+     call input_layer%forward(input_6d)
+     if(any(abs(input_layer%output-6.E0).gt.1.E-6))then
         write(0,*) 'input1d_layer forward 4d failed'
         write(*,*) input_layer%output
         success = .false.
@@ -105,6 +123,20 @@ program test_input_layer
         write(*,*) input_layer%output
         success = .false.
      end if
+     call input_layer%set(input_5d)
+     call input_layer%forward(input_5d)
+     if(any(abs(input_layer%output-5.E0).gt.1.E-6))then
+        write(0,*) 'input3d_layer forward 4d failed'
+        write(*,*) input_layer%output
+        success = .false.
+     end if
+     call input_layer%set(input_6d)
+     call input_layer%forward(input_6d)
+     if(any(abs(input_layer%output-6.E0).gt.1.E-6))then
+        write(0,*) 'input3d_layer forward 4d failed'
+        write(*,*) input_layer%output
+        success = .false.
+     end if
      call input_layer%backward([1.E0], [1.E0])
   end select
 
@@ -145,6 +177,20 @@ program test_input_layer
      call input_layer%set(input_4d)
      call input_layer%forward(input_4d)
      if(any(abs(input_layer%output-4.E0).gt.1.E-6))then
+        write(0,*) 'input4d_layer forward 4d failed'
+        write(*,*) input_layer%output
+        success = .false.
+     end if
+     call input_layer%set(input_5d)
+     call input_layer%forward(input_5d)
+     if(any(abs(input_layer%output-5.E0).gt.1.E-6))then
+        write(0,*) 'input4d_layer forward 4d failed'
+        write(*,*) input_layer%output
+        success = .false.
+     end if
+     call input_layer%set(input_6d)
+     call input_layer%forward(input_6d)
+     if(any(abs(input_layer%output-6.E0).gt.1.E-6))then
         write(0,*) 'input4d_layer forward 4d failed'
         write(*,*) input_layer%output
         success = .false.
