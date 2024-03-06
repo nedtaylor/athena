@@ -21,4 +21,4 @@ with open(html_file, 'r') as file:
     # Get the class of the <td> element
     td_class = third_column.get('class')[0]
 
-print("https://img.shields.io/badge/coverage-"+percentage+"25-"+colour_dict[td_class])
+print(int(float(percentage.replace("%", ""))))
