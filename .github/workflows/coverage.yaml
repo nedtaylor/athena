@@ -38,8 +38,8 @@ jobs:
       - uses: fortran-lang/setup-fortran@v1
         id: setup-fortran
         with:
-          compiler: $${{ matrix.compiler }}
-          version: $${{ matrix.version }}
+          compiler: ${{ matrix.compiler }}
+          version: ${{ matrix.version }}
       
       - run: |
           ${{ env.FC }}
