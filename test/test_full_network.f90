@@ -7,6 +7,9 @@ program test_full_network
 
   type(network_type) :: network
 
+  real, allocatable, dimension(:) :: output_1d
+  real, allocatable, dimension(:,:) :: output_2d
+
   logical :: success = .true.
 
   call network%add(full_layer_type( &
@@ -53,6 +56,12 @@ program test_full_network
 
   end block training
 
+  call network%model(1)%layer%get_output(output_1d)
+  call network%model(1)%layer%get_output(output_2d)
+  if(any(abs(output_1d - reshape(output_2d, [size(output_2d)])) .gt. 1.E-6))then
+     success = .false.
+     write(0,*) 'output_1d and output_2d are not consistent'
+  end if
 
   !! reset network
   call network%reset()
