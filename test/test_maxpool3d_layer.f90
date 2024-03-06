@@ -148,6 +148,39 @@ program test_maxpool3d_layer
      end do
   end select
 
+  !! check expected initialisation of pool and stride
+  pool_layer = maxpool3d_layer_type( &
+       pool_size = [2, 2, 2], &
+       stride = [2, 2, 2] &
+       )
+  select type(pool_layer)
+  type is (maxpool3d_layer_type)
+     if(any(pool_layer%pool .ne. [2, 2, 2]))then
+        success = .false.
+        write(0,*) 'maxpool3d layer has wrong pool size'
+     end if
+     if(any(pool_layer%strd .ne. [2, 2, 2]))then
+        success = .false.
+        write(0,*) 'maxpool3d layer has wrong stride size'
+     end if
+  end select
+
+  !! check expected initialisation of pool and stride
+  pool_layer = maxpool3d_layer_type( &
+       pool_size = [4], &
+       stride = [4] &
+       )
+  select type(pool_layer)
+  type is (maxpool3d_layer_type)
+     if(any(pool_layer%pool .ne. 4))then
+        success = .false.
+        write(0,*) 'maxpool3d layer has wrong pool size'
+     end if
+     if(any(pool_layer%strd .ne. 4))then
+        success = .false.
+        write(0,*) 'maxpool3d layer has wrong stride size'
+     end if
+  end select
 
 !!!-----------------------------------------------------------------------------
 !!! check for any failed tests

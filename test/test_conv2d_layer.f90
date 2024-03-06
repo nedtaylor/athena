@@ -161,6 +161,39 @@ program test_conv2d_layer
      end if
   end select
 
+  !! check expected initialisation of kernel size and stride
+  conv_layer = conv2d_layer_type( &
+       kernel_size = [2, 2], &
+       stride = [2, 2] &
+       )
+  select type(conv_layer)
+  type is (conv2d_layer_type)
+     if(any(conv_layer%knl .ne. 2))then
+        success = .false.
+        write(0,*) 'conv2d layer has wrong pool size'
+     end if
+     if(any(conv_layer%stp .ne. 2))then
+        success = .false.
+        write(0,*) 'conv2d layer has wrong stride size'
+     end if
+  end select
+
+  !! check expected initialisation of kernel size and stride
+  conv_layer = conv2d_layer_type( &
+       kernel_size = [4], &
+       stride = [4] &
+       )
+  select type(conv_layer)
+  type is (conv2d_layer_type)
+     if(any(conv_layer%knl .ne. 4))then
+        success = .false.
+        write(0,*) 'conv2d layer has wrong pool size'
+     end if
+     if(any(conv_layer%stp .ne. 4))then
+        success = .false.
+        write(0,*) 'conv2d layer has wrong stride size'
+     end if
+  end select
 
 !!!-----------------------------------------------------------------------------
 !!! check layer operations
