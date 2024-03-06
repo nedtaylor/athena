@@ -438,7 +438,7 @@ contains
       loss_method_ = "mae"
    case("mean_squared_error")
       loss_method_ = "mse"
-   case("negative_loss_likelihood")
+   case("negative_log_likelihood")
       loss_method_ = "nll"
    end select
 
