@@ -7,6 +7,7 @@ program test_dropout_layer
   class(base_layer_type), allocatable :: drop_layer
   integer, parameter :: num_channels = 3, num_inputs = 6
   real, allocatable, dimension(:,:) :: input_data, output, gradient
+  real, allocatable, dimension(:) :: output_1d
   real, parameter :: tol = 1.E-7
   logical :: success = .true.
 
@@ -104,6 +105,13 @@ program test_dropout_layer
     end if
   end select
 
+  !! check 1d and 2d output are consistent
+  call drop_layer%get_output(output)
+  call drop_layer%get_output(output_1d)
+  if(any(abs(output_1d - reshape(output, [size(output)])) .gt. 1.E-6))then
+     success = .false.
+     write(0,*) 'output_1d and output_2d are not consistent'
+  end if
 
 !!!-----------------------------------------------------------------------------
 !!! check for any failed tests
