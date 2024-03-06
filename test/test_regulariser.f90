@@ -9,29 +9,31 @@ program test_mod_regulariser
   real :: learning_rate = 0.1E0
   logical :: success = .true.
 
-  real, dimension(1) :: params, gradient, &
-       expected_gradient_l1, expected_gradient_l2, expected_gradient_l1l2
+  real, dimension(1) :: params, gradient, expected_gradient
 
-  !! initialize params and gradient
-  gradient = 1.E0
-  expected_gradient_l1   = gradient + 1.E-3
-  expected_gradient_l2   = gradient + 1.E-3
-  expected_gradient_l1l2 = gradient + 2.E-3
+  ! Initialize params and gradient here...
+  params = 1.E0
 
   !! test l1 regulariser
+  gradient = 1.E0
+  expected_gradient = gradient + 1.E-3
   write(*,*) "testing L1 regulariser"
   call l1_regulariser%regularise(params, gradient, learning_rate)
-  call check(gradient, expected_gradient_l1, success)
+  call check(gradient, expected_gradient, success)
 
   !! test l2 regulariser
+  gradient = 1.E0
+  expected_gradient = gradient + 2.E-3
   write(*,*) "testing L2 regulariser"
   call l2_regulariser%regularise(params, gradient, learning_rate)
-  call check(gradient, expected_gradient_l2, success)
+  call check(gradient, expected_gradient, success)
 
   !! test l1l2 regulariser
+  gradient = 1.E0
+  expected_gradient = gradient + 3.E-3
   write(*,*) "testing L1L2 regulariser"
   call l1l2_regulariser%regularise(params, gradient, learning_rate)
-  call check(gradient, expected_gradient_l1l2, success)
+  call check(gradient, expected_gradient, success)
 
 
 !!!-----------------------------------------------------------------------------
