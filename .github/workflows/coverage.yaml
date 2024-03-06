@@ -40,6 +40,11 @@ jobs:
         with:
           compiler: ${{ matrix.compiler }}
           version: ${{ matrix.version }}
+
+      - name: Install gcovr
+        run: |
+          pip --version
+          pip install gcovr
       
       - run: |
           sudo apt-get update
