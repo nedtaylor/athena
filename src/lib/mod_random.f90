@@ -36,6 +36,7 @@ contains
     else
        t_restart = .false.
     end if
+    if(present(already_initialised)) already_initialised = .false.
 
     !! define number of seeds
     if(present(num_seed))then
