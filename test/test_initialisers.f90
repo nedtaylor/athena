@@ -5,7 +5,7 @@ program test_initialisers
         conv3d_layer_type, &
         base_layer_type
    use custom_types, only: initialiser_type
-   use initialiser, only: initialiser_setup
+   use initialiser, only: initialiser_setup, get_default_initialiser
    implicit none
  
    class(initialiser_type), allocatable :: initialiser
@@ -17,7 +17,7 @@ program test_initialisers
    real :: input_0d, input_1d(1), input_2d(1,1), &
         input_3d(1,1,1), input_6d(1,1,1,1,1,1)
    character(len=20) :: initialiser_names(11)
-   
+
    initialiser_names(1)  = 'zeros'
    initialiser_names(2)  = 'ones'
    initialiser_names(3)  = 'ident'
@@ -30,6 +30,27 @@ program test_initialisers
    initialiser_names(10)  = 'lecun_normal'
    initialiser_names(11) = 'lecun_uniform'
 
+   !! check default initialiser names
+   if(get_default_initialiser("selu").ne."lecun_normal")then
+      success = .false.
+      write(0,*) 'get_default_initialiser failed for selu'
+      write(*,*)
+   end if
+   if(get_default_initialiser("relu").ne."he_uniform")then
+      success = .false.
+      write(0,*) 'get_default_initialiser failed for relu'
+      write(*,*)
+   end if
+   if(get_default_initialiser("batch").ne."gaussian")then
+      success = .false.
+      write(0,*) 'get_default_initialiser failed for batch'
+      write(*,*)
+   end if
+   if(get_default_initialiser("none").ne."glorot_uniform")then
+      success = .false.
+      write(0,*) 'get_default_initialiser failed for other'
+      write(*,*)
+   end if
 
    do i = 1, size(initialiser_names)
       if(allocated(initialiser)) deallocate(initialiser)
