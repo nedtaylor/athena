@@ -15,6 +15,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+## [1.2.3] - Upcoming
+
+### Added
+- More unit tests
+
+### Changed
+
+### Fixed
+- Index reference in initialiser_ident
+- avgpool3d forward pass from max to sum
+- avgpool3d output shape initialisation
+- Correct handling of "valid" padding method
+- Random seed for shuffle
+- conv2d input gradient calculation
+- conv3d input gradient calculation
+
+### Removed
+- Remove assign_list procedure from mod_tools_infile
+- Remove assign_listvec procedure from mod_tools_infile
+- Remove cat procedure from mod_tools_infile
+
 ## [1.2.2] - 2024-02-18
 
 ### Added
