@@ -164,7 +164,7 @@ contains
 
 !!!#############################################################################
 !!! compute losses
-!!! method: categorical cross entropy
+!!! method: negative log likelihood
 !!!#############################################################################
   pure function compute_loss_nll(predicted, expected) result(output)
     implicit none
