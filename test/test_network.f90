@@ -3,10 +3,23 @@ program test_network
        full_layer_type, &
        input1d_layer_type, &
        network_type, &
-       base_optimiser_type
-  implicit none
+       base_optimiser_type, &
+       maxpool2d_layer_type, &
+       conv2d_layer_type, &
+       batchnorm2d_layer_type, &
+       dropblock2d_layer_type, &
+       flatten2d_layer_type, &
+       conv3d_layer_type
+   use loss, only: &
+       compute_loss_bce, &
+       compute_loss_cce, &
+       compute_loss_mae, &
+       compute_loss_mse, &
+       compute_loss_nll, &
+       compute_loss_function
+   implicit none
 
-  type(network_type) :: network
+  type(network_type) :: network, network3
   type(network_type), allocatable :: network2
   real, allocatable, dimension(:) :: gradients
   real, allocatable, dimension(:,:) :: x, y
@@ -17,7 +30,9 @@ program test_network
   integer, allocatable, dimension(:) :: seed
 
   integer :: i, n
+  real :: rtmp1
   logical :: success = .true.
+  procedure(compute_loss_function), pointer :: get_loss => null()
 
 
   !! set random seed
@@ -89,7 +104,81 @@ program test_network
      write(*,*) "Gradients not set correctly"
      success = .false.
   end if
+  
+  !! check network copy
+  call network3%copy(network)
+  if(abs(network3%metrics(1)%val-network%metrics(1)%val).gt.1.E-6) then
+     write(*,*) "Network copy failed"
+     success = .false.
+  end if
+  if(size(network3%model).ne.size(network%model)) then
+     write(*,*) "Network copy failed"
+     success = .false.
+  end if
+  rtmp1 = network3%metrics(1)%val
+  
+  !! check network reduce
+  call network3%reduce(network)
+  if(abs(network3%metrics(1)%val-(network%metrics(1)%val+rtmp1)).gt.1.E-6) then
+     write(*,*) "Network reduction failed"
+     success = .false.
+  end if
 
+  !! check adding all layer types
+  call network3%reset()
+  call network3%add(maxpool2d_layer_type())
+  call network3%add(conv2d_layer_type())
+  call network3%add(batchnorm2d_layer_type())
+  call network3%add(dropblock2d_layer_type(block_size=3, rate=0.1))
+  call network3%add(flatten2d_layer_type())
+
+  !! check automatic flatten layer adding
+  call network3%reset()
+  call network3%add(conv2d_layer_type(input_shape=[3,3,3]))
+  call network3%add(full_layer_type(num_outputs=5))
+  call network3%compile( &
+       optimiser = base_optimiser_type(learning_rate=learning_rate), &
+       loss_method="mse", metrics=["loss"], verbose=1)
+
+  !! check automatic flatten layer adding
+  call network3%reset()
+  call network3%add(conv3d_layer_type(input_shape=[3,3,3,3]))
+  call network3%add(full_layer_type(num_outputs=5))
+  call network3%compile( &
+       optimiser = base_optimiser_type(learning_rate=learning_rate), &
+       loss_method="mse", metrics=["loss"], verbose=1)
+
+  !! check loss procedure setting
+  call network3%set_loss("binary_crossentropy")
+  get_loss => compute_loss_bce
+  if (.not.associated(network3%get_loss, get_loss)) then
+     write(*,*) "BCE loss method not set correctly"
+     success = .false.
+  end if
+  call network3%set_loss("categorical_crossentropy")
+  get_loss => compute_loss_cce
+  if (.not.associated(network3%get_loss, get_loss)) then
+     write(*,*) "CCE loss method not set correctly"
+     success = .false.
+  end if
+  call network3%set_loss("mean_absolute_error")
+  get_loss => compute_loss_mae
+  if (.not.associated(network3%get_loss, get_loss)) then
+     write(*,*) "MAE loss method not set correctly"
+     success = .false.
+  end if
+  call network3%set_loss("mean_squared_error")
+  get_loss => compute_loss_mse
+  if (.not.associated(network3%get_loss, get_loss)) then
+     write(*,*) "MSE loss method not set correctly"
+     success = .false.
+  end if
+  call network3%set_loss("negative_loss_likelihood")
+  get_loss => compute_loss_nll
+  if (.not.associated(network3%get_loss, get_loss)) then
+     write(*,*) "NLL loss method not set correctly"
+     success = .false.
+  end if
 
 !!!-----------------------------------------------------------------------------
 !!! check for any failed tests
