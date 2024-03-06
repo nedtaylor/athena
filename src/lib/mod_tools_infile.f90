@@ -293,75 +293,6 @@ contains
 
 
 !!!#############################################################################
-!!! assign output to a user-defined value in a list
-!!!#############################################################################
-  function assign_list(buffer,tag_list,num) result(var)
-    implicit none
-    integer, intent(in) :: num
-    character(len=*), intent(in) :: buffer
-    character(len=*), dimension(:), intent(in) :: tag_list
-
-    integer :: nlist,loc2,i
-    double precision :: var
-    character(len=1024) :: new_buffer
-    integer, allocatable, dimension(:) :: loc_list
-
-    nlist=size(tag_list,dim=1)
-    allocate(loc_list(nlist))
-    do i=1,nlist
-       loc_list(i)=index(buffer,trim(adjustl(tag_list(i))))
-    end do
-    loc2 = minloc(&
-         loc_list(:)-loc_list(num),dim=1,&
-         mask=loc_list(:)-loc_list(num).gt.0)
-    if(loc2.eq.0)then
-       loc2=len(buffer)
-    else
-       loc2=loc_list(loc2)-1
-    end if
-    new_buffer = buffer(loc_list(num):loc2)
-
-    new_buffer = trim(new_buffer(scan(new_buffer,'=')+1:))
-    read(new_buffer,*) var
-
-  end function assign_list
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! assign output vector to a user-defined value in a list
-!!!#############################################################################
-  function assign_listvec(buffer,tag_list,num) result(var)
-    implicit none
-    integer, intent(in) :: num
-    character(len=*), intent(in) :: buffer
-    character(len=*), dimension(:), intent(in) :: tag_list
-
-    integer :: nlist,loc2,i
-    double precision, allocatable, dimension(:) :: var
-    character(len=1024) :: new_buffer
-    integer, allocatable, dimension(:) :: loc_list
-
-    nlist=size(tag_list,dim=1)
-    allocate(loc_list(nlist))
-    do i=1,nlist
-       loc_list=index(buffer,trim(adjustl(tag_list(i))))
-    end do
-    loc2 = minloc(&
-         loc_list(:)-loc_list(num),dim=1,&
-         mask=loc_list(:)-loc_list(num).gt.0)-1
-    new_buffer = buffer(loc_list(num):loc_list(loc2))
-
-    new_buffer = trim(new_buffer(scan(new_buffer,'=')+1:))
-    
-    allocate(var(icount(new_buffer)))
-    read(new_buffer,*) var
-
-  end function assign_listvec
-!!!#############################################################################
-
-
-!!!#############################################################################
 !!! remove comment from a string (anything after ! or #) 
 !!!#############################################################################
 !!! buffer = (S, io) sacrifical input character string
@@ -393,54 +324,6 @@ contains
 
     return
   end subroutine rm_comments
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! cat lines
-!!!#############################################################################
-!!! unit        = (I, in) unit to read from
-!!! end_string  = (S, in) string to end cat
-!!! string      = (S, io) string to cat to
-!!! line        = (I, io) line number
-!!! end_string2 = (S, in, opt) second string to end cat
-!!! rm_cmt      = (L, in, opt) remove comments from string
-  subroutine cat(unit,end_string,string,line,end_string2,rm_cmt)
-    implicit none
-    integer, intent(in) :: unit
-    character(len=*), intent(in) :: end_string
-    character(len=*), optional, intent(in) ::end_string2
-    character(len=*), intent(inout) :: string
-    logical, optional, intent(in) :: rm_cmt
-
-    integer :: line,Reason
-    character(len=1024) :: buffer
-    logical :: lfound_end
-
-    lfound_end=.false.
-    cat_loop: do
-       line = line + 1
-       read(unit,'(A)',iostat=Reason) buffer
-       if(Reason.ne.0) exit cat_loop
-       if(present(rm_cmt).and.rm_cmt) call rm_comments(buffer,line)
-       if(trim(buffer).eq.'') cycle cat_loop
-       endstring_if: if(index(trim(adjustl(buffer)),end_string).eq.1)then
-          if(present(end_string2))then
-             if(index(trim(buffer),end_string2).eq.0) exit endstring_if
-          end if
-          lfound_end=.true.
-          exit cat_loop
-       end if endstring_if
-       string=trim(string)//' '//trim(buffer)
-    end do cat_loop
-    if(end_string.eq.'') lfound_end=.true.
-    if(.not.lfound_end)then
-       write(0,'("ERROR: Error in cat subroutine in mod_tools_infile.f90")')
-       write(0,'(1X,"No END tag found for cat")')
-       stop
-    end if
-    
-  end subroutine cat
 !!!#############################################################################
 
 
