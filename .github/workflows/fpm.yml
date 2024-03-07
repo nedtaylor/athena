@@ -37,22 +37,24 @@ jobs:
     - name: checkout repo
       uses: actions/checkout@v2
 
-    - uses: fortran-lang/setup-fpm@v5
+    - uses: fortran-lang/setup-fortran@v1
       id: setup-fortran
       with:
-        fpm-version: "v0.9.0"
         compiler: ${{ matrix.compiler }}
         version: ${{ matrix.version }}
-
+          
+    - uses: fortran-lang/setup-fpm@v5
+      id: setup-fpm
+      with:
+        fpm-version: "v0.9.0"
+        
     - name: Compile
       run: |
-        sudo apt-get update
         gfortran --version
         fpm build --profile debug --compiler gfortran
 
     - name: Test
       run: |
-        sudo apt-get update
         gfortran --version
         fpm test --profile debug --compiler gfortran
 
@@ -71,21 +73,23 @@ jobs:
     - name: checkout repo
       uses: actions/checkout@v2
         
-    - uses: fortran-lang/setup-fpm@v5
+    - uses: fortran-lang/setup-fortran@v1
       id: setup-fortran
       with:
-        fpm-version: "v0.9.0"
         compiler: ${{ matrix.compiler }}
         version: ${{ matrix.version }}
+          
+    - uses: fortran-lang/setup-fpm@v5
+      id: setup-fpm
+      with:
+        fpm-version: "v0.9.0"
 
     - name: Compile
       run: |
-        sudo apt-get update
         gfortran --version
         fpm build --profile release --compiler gfortran
 
     - name: Test
       run: |
-        sudo apt-get update
         gfortran --version
         fpm test --profile release --compiler gfortran
