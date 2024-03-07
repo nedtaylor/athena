@@ -188,6 +188,11 @@ License
 -------
 This work is licensed under an [MIT license](https://opensource.org/license/mit/).
 
+Code Coverage
+-------------
+
+Automated reporting on unit test code coverage in the README is achieved through utilising the [cmake-modules](https://github.com/rpavlik/cmake-modules) and [dynamic-badges-action](https://github.com/Schneegans/dynamic-badges-action?tab=readme-ov-file) projects.
+
 
 Files
 -----
@@ -196,16 +201,19 @@ Files
 |Source file | Description|
 |-----------|------------|
 |_src/athena.f90_                      | the module file that imports all necessary user-accessible procedures  |
+|_src/lib/mod_accuracy.f90_            | accuracy calculation procedures |
 |_src/lib/mod_activation.f90_          | generic node activation (transfer) setup  |
 |_src/lib/mod_activation__[_NAME_]_.f90_   | [_NAME_] activation method  |
 |_src/lib/mod_base_layer.f90_          | abstract layer construct type  |
+|_src/lib/mod_clipper.f90_             | gradient clipping procedures |
+|_src/lib/mod_constants.f90_           | a set of global constants used in this code  |
 |_src/lib/mod_container.f90_           | layer container construct for handling multiple layers in a network  |
 |_src/lib/mod_container_sub.f90_       | layer container submodule  |
-|_src/lib/mod_constants.f90_           | a set of global constants used in this code  |
 |_src/lib/mod__[_NAME_]__layer.f90_        | [_NAME_] layer-type  |
 |_src/lib/mod_initialiser.f90_         | generic kernel (and bias) initialiser setup  |
 |_src/lib/mod_initialiser__[_NAME_]_.f90_  | [_NAME_] kernel initialisation method  |
-|_src/lib/mod_loss_categorical.f90_    | categorical loss methods and their respective derivatives | 
+|_src/lib/mod_loss.f90_                | loss and corresponding derivatives calculation procedures |
+|_src/lib/mod_lr_decay.f90_            | learning rate decay procedures |
 |_src/lib/mod_metrics.f90_             | training convergence metric derived type and procedures  |
 |_src/lib/mod_misc.f90_                | miscellaneous procedures  |
 |_src/lib/mod_misc_ml.f90_             | miscellaneous machine learning procedures  |
@@ -220,13 +228,20 @@ Files
 
 | Additional file | Description |
 |-----|------|
-|_README.md_                        | a readme file with a brief description of the code and files  |
+|_CHANGELOG_                        | human-readable athena codebase version history |
 |_CMakeLists.txt_                   | the makefile used for compiling the library  |
-|_LICENSE_                          | licence of ATHENA code  |
+|_CONTRIBUTING.md_                  | Guidelines for organisation of athena codebase |
+|_fpm.toml_                         | [Fortran Package Manager (fpm)](https://github.com/fortran-lang/fpm) compilation file |
+|_LICENSE_                          | licence of ATHENA code |
+|_README.md_                        | a readme file with a brief description of the code and files  |
+|_TODO_                             | todo-list in addition to useful machine learning and fortran references |
+|_cmake/CodeCoverage.cmake_         | [cmake-modules](https://github.com/rpavlik/cmake-modules) file to automate unit test coverage reporting| 
 |_example/example_library_          | Utility library shared between the examples |
-|_example/mnist/expected_output.txt_   | expected output from executing example program  |
-|_example/mnist/test_job.in_           | input file for example program  |
+|_example/__[_NAME_]__/expected_output.txt_   | expected output from executing [_NAME_] example program  |
+|_example/__[_NAME_]__/test_job.in_           | input file for [_NAME_] example program  |
+|_example/__[_NAME_]__/src_                   | source directory for [_NAME_] example program  |
 |_test/test__[_NAME_]__.f90_           | [_NAME_] test program to check library expected functionality |
+|_tools/coverage_badge.py_          | script to extract code coverage percentage from GitHub Action |
 |_tools/sweep_init.py_              | script to initialise wandb sweep  |
 |_tools/sweep_train.py_             | script to perform training and log learning to wandb  |
 |_tools/template.in_                | input file for program in test/bin/ (once compiled)  |
