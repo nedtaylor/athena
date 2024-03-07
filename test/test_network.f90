@@ -1,8 +1,9 @@
 program test_network
   use athena, only: &
+       network_type, &
+       metric_dict_type, &
        full_layer_type, &
        input1d_layer_type, &
-       network_type, &
        base_optimiser_type, &
        maxpool2d_layer_type, &
        conv2d_layer_type, &
@@ -17,8 +18,9 @@ program test_network
        compute_loss_mse, &
        compute_loss_nll, &
        compute_loss_function
-   implicit none
+  implicit none
 
+  type(metric_dict_type), dimension(2) :: metrics
   type(network_type) :: network, network3
   type(network_type), allocatable :: network2
   real, allocatable, dimension(:) :: gradients
@@ -62,11 +64,11 @@ program test_network
   write(*,*) "Network trained"
 
   if(network%metrics(1)%val.gt.1.E-3) then
-     write(*,*) "Training loss higher than expected"
+     write(0,*) "Training loss higher than expected"
      success = .false.
   end if
   if(network%metrics(2)%val.lt.0.95) then
-     write(*,*) "Training accuracy higher than expected"
+     write(0,*) "Training accuracy higher than expected"
      success = .false.
   end if
 
@@ -76,43 +78,43 @@ program test_network
   y = reshape([0.370368, 0.493824], [2,1])
   call network%test(x, y)
   if(network%loss.gt.1.E-1) then
-     write(*,*) "Test loss higher than expected"
+     write(0,*) "Test loss higher than expected"
      success = .false.
   end if
   if(network%accuracy.lt.0.7) then
-     write(*,*) "Test accuracy higher than expected"
+     write(0,*) "Test accuracy higher than expected"
      success = .false.
   end if
 
   !! check network allocation
   allocate(network2, source=network_type(layers=network%model, batch_size=4))
   if(network2%batch_size.ne.4) then
-     write(*,*) "Batch size not set correctly"
+     write(0,*) "Batch size not set correctly"
      success = .false.
   end if
 
   !! check gradients
   call network2%set_gradients(0.1)
   if(any(abs(network2%get_gradients()-0.1).gt.1.E-6)) then
-     write(*,*) "Gradients not set correctly"
+     write(0,*) "Gradients not set correctly"
      success = .false.
   end if
   allocate(gradients(network%get_num_params()))
   gradients = 0.2
   call network%set_gradients(gradients)
   if(any(abs(network%get_gradients()-0.2).gt.1.E-6)) then
-     write(*,*) "Gradients not set correctly"
+     write(0,*) "Gradients not set correctly"
      success = .false.
   end if
   
   !! check network copy
   call network3%copy(network)
   if(abs(network3%metrics(1)%val-network%metrics(1)%val).gt.1.E-6) then
-     write(*,*) "Network copy failed"
+     write(0,*) "Network copy failed"
      success = .false.
   end if
   if(size(network3%model).ne.size(network%model)) then
-     write(*,*) "Network copy failed"
+     write(0,*) "Network copy failed"
      success = .false.
   end if
   rtmp1 = network3%metrics(1)%val
@@ -120,7 +122,7 @@ program test_network
   !! check network reduce
   call network3%reduce(network)
   if(abs(network3%metrics(1)%val-(network%metrics(1)%val+rtmp1)).gt.1.E-6) then
-     write(*,*) "Network reduction failed"
+     write(0,*) "Network reduction failed"
      success = .false.
   end if
 
@@ -152,33 +154,46 @@ program test_network
   call network3%set_loss("binary_crossentropy")
   get_loss => compute_loss_bce
   if (.not.associated(network3%get_loss, get_loss)) then
-     write(*,*) "BCE loss method not set correctly"
+     write(0,*) "BCE loss method not set correctly"
      success = .false.
   end if
   call network3%set_loss("categorical_crossentropy")
   get_loss => compute_loss_cce
   if (.not.associated(network3%get_loss, get_loss)) then
-     write(*,*) "CCE loss method not set correctly"
+     write(0,*) "CCE loss method not set correctly"
      success = .false.
   end if
   call network3%set_loss("mean_absolute_error")
   get_loss => compute_loss_mae
   if (.not.associated(network3%get_loss, get_loss)) then
-     write(*,*) "MAE loss method not set correctly"
+     write(0,*) "MAE loss method not set correctly"
      success = .false.
   end if
   call network3%set_loss("mean_squared_error")
   get_loss => compute_loss_mse
   if (.not.associated(network3%get_loss, get_loss)) then
-     write(*,*) "MSE loss method not set correctly"
+     write(0,*) "MSE loss method not set correctly"
      success = .false.
   end if
-  call network3%set_loss("negative_loss_likelihood")
+  call network3%set_loss("negative_log_likelihood")
   get_loss => compute_loss_nll
   if (.not.associated(network3%get_loss, get_loss)) then
-     write(*,*) "NLL loss method not set correctly"
+     write(0,*) "NLL loss method not set correctly"
      success = .false.
   end if
+
+  metrics(1)%history = [1.0, 2.0, 3.0]
+  !! check network dict setting in network
+  call network%set_metrics(metrics)
+  if(size(network%metrics) .ne. size(metrics)) then
+     write(0,*) "Metric dict failed to set the correct size."
+     success = .false.
+  end if
+  if(any(abs(network%metrics(1)%history - metrics(1)%history).gt.1.E-6)) then
+     write(0,*) "Metric dict failed to set the correct history."
+     success = .false.
+  end if
+
 
 !!!-----------------------------------------------------------------------------
 !!! check for any failed tests
