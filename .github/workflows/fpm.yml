@@ -1,0 +1,58 @@
+name: run-fpm-build
+
+on:
+  push:
+    paths:
+      - ".github/workflows/fpm.yml"
+      - "fpm.toml"
+      - "**.f90"
+  pull_request:
+    paths:
+      - ".github/workflows/fpm.yml"
+      - "fpm.toml"
+      - "**.f90"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+  
+jobs:
+  build-and-test-fpm-debug:
+    name: Build and test in debug mode
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - uses: fortran-lang/setup-fpm@v5
+      with:
+        fpm-version: "v0.9.0"
+
+    - name: Compile
+      run: fpm build --profile debug
+
+    - name: Test
+      run: fpm test --profile debug
+
+  build-and-test-fpm-release:
+    name: Build and test in release mode
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: checkout repo
+      uses: actions/checkout@v2
+      
+    - uses: fortran-lang/setup-fpm@v5
+      with:
+        fpm-version: "v0.9.0"
+
+    - name: Compile
+      run: fpm build --profile release
+
+    - name: Test
+      run: fpm test --profile release
