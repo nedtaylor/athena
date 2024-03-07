@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - More unit tests
 
 ### Changed
+- Unify shuffle and split procedure names
+- Change handling of magnitude optional argument in renormalise_sum
+- Convert copy and reduce to child procedures of network_type
+- Set already_initialised to False by default for random_setup
 
 ### Fixed
 - Index reference in initialiser_ident
@@ -30,6 +34,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Random seed for shuffle
 - conv2d input gradient calculation
 - conv3d input gradient calculation
+- Incorrect set_gradient spread dimension
+- MAE total loss using MSE instead of MAE
+- metric_dict allocation handling error
+- icount field separator
+- Optional argument handling in renormalise_norm
 
 ### Removed
 - Remove assign_list procedure from mod_tools_infile
