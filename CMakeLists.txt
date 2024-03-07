@@ -46,6 +46,8 @@ if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
         EXECUTABLE ctest
         EXCLUDE "${PROJECT_SOURCE_DIR}/test/*")
   endif()
+  # add coverage compiler flags
+  append_coverage_compiler_flags()
 endif()
 
 # enable testing
@@ -216,6 +218,3 @@ target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel_Dev>:${DEVFLA
 if(BUILD_TESTS)
     add_subdirectory(test)
 endif()
-
-# add coverage compiler flags
-append_coverage_compiler_flags()
