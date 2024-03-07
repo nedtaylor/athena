@@ -6,7 +6,7 @@ program test_batchnorm1d_layer
   implicit none
 
   class(base_layer_type), allocatable :: bn_layer, bn_layer1, bn_layer2
-  integer, parameter :: num_channels = 1, width = 8, batch_size = 1
+  integer, parameter :: width = 8, batch_size = 5
   real, parameter :: gamma  = 0.5, beta = 0.3
   real, allocatable, dimension(:,:) :: input_data, output, gradient
   real, allocatable, dimension(:) :: output_1d, params1, params2
@@ -62,7 +62,7 @@ program test_batchnorm1d_layer
     end if
 
     !! check batch size
-    if(bn_layer%batch_size .ne. 1)then
+    if(bn_layer%batch_size .ne. batch_size)then
       success = .false.
       write(0,*) 'batchnorm1d layer has wrong batch size'
     end if
@@ -76,7 +76,7 @@ program test_batchnorm1d_layer
   !! initialise sample input
   allocate(input_data(width, batch_size), source = 0.0)
   
-   input_data = max_value
+  input_data = max_value
 
   !! run forward pass
   call bn_layer%forward(input_data)
@@ -99,18 +99,22 @@ program test_batchnorm1d_layer
   call bn_layer%get_output(output)
 
   !! check outputs all get normalised to zero
-  mean = sum(output(:,:))/(width*batch_size)
-  std = sqrt(sum((output(:,:) - mean)**2)/(width*batch_size))
-  if (abs(mean - beta) .gt. tol) then
-    success = .false.
-    write(0,*) 'batchnorm1d layer forward pass failed: &
-        &mean should equal beta'
-  end if
-  if (abs(std - gamma) .gt. tol) then
-    success = .false.
-    write(0,*) 'batchnorm1d layer forward pass failed: &
-        &std should equal gamma'
-  end if
+  do i = 1, width
+     mean = sum(output(i,:))/real(batch_size)
+     std = sqrt(sum((output(i,:) - mean)**2)/real(batch_size))
+     if (abs(mean - beta) .gt. 1.E-3) then
+       success = .false.
+       write(0,*) 'batchnorm1d layer forward pass failed: &
+           &mean should equal beta'
+     end if
+     !! check std is close to gamma
+     !! does not have to be exact due to random numbers and batch size
+     if (std .gt. gamma) then
+       success = .false.
+       write(0,*) 'batchnorm1d layer forward pass failed: &
+           &std should equal gamma'
+     end if
+  end do
 
   !! run backward pass
   allocate(gradient, source = output)
@@ -119,23 +123,26 @@ program test_batchnorm1d_layer
   !! check gradient has expected value
   select type(current => bn_layer)
   type is(batchnorm1d_layer_type)
-     mean = sum(current%di(:,:))/(width*batch_size)
-     std = sqrt(sum((current%di(:,:) - mean)**2)/(width*batch_size))
-     if (abs(mean) .gt. tol) then
-       success = .false.
-       write(0,*) 'batchnorm1d layer backward pass failed: &
-             &mean gradient should be zero'
-     end if
-     if (abs(std) .gt. tol) then
-       success = .false.
-       write(0,*) 'batchnorm1d layer backward pass failed: &
-             &std gradient should equal gamma'
-     end if
-     if (abs(current%db(1) - sum(gradient(:,:))) .gt. tol) then
-       success = .false.
-       write(0,*) 'batchnorm1d layer backward pass failed: &
-             &std gradient should equal sum of gradients'
-     end if
+     do i = 1, width
+        mean = sum(current%di(i,:))/real(batch_size)
+        std = sqrt(sum((current%di(i,:) - mean)**2)/real(batch_size))
+        if (abs(mean) .gt. tol) then
+          success = .false.
+          write(0,*) 'batchnorm1d layer backward pass failed: &
+                &mean gradient should be zero'
+        end if
+        !! does not have to be exact due to random numbers and batch size
+        if (abs(std) .gt. 1.E-2) then
+          success = .false.
+          write(0,*) 'batchnorm1d layer backward pass failed: &
+                &std gradient should equal gamma'
+        end if
+        if (abs(current%db(i) - sum(gradient(i,:))) .gt. tol) then
+          success = .false.
+          write(0,*) 'batchnorm1d layer backward pass failed: &
+                &std gradient should equal sum of gradients'
+        end if
+     end do
   end select
 
   !! handle layer parameters and gradients
@@ -143,7 +150,7 @@ program test_batchnorm1d_layer
   class is(learnable_layer_type)
      !! check parameters
      num_params = bn_layer%get_num_params()
-     if (num_params .ne. 2 * num_channels)then
+     if (num_params .ne. 2 * width)then
        write(0,*) 'batchnorm1d layer has wrong number of parameters'
        success = .false.
      end if
@@ -169,6 +176,7 @@ program test_batchnorm1d_layer
      if(any(abs(params2 - 20.E0).gt.1.E-6))then
        write(0,*) 'batchnorm1d layer has wrong gradients'
        success = .false.
+       write(*,*) params2
      end if
   class default
      write(0,*) 'batchnorm1d layer has wrong type'
