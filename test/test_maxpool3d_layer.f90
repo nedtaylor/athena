@@ -117,6 +117,14 @@ program test_maxpool3d_layer
      end do
   end do
 
+  !! check 1d and 2d output are consistent
+  call pool_layer%get_output(output_1d)
+  call pool_layer%get_output(output_2d)
+  if(any(abs(output_1d - reshape(output_2d, [size(output_2d)])) .gt. 1.E-6))then
+     success = .false.
+     write(0,*) 'output_1d and output_2d are not consistent'
+  end if
+
 !!!-----------------------------------------------------------------------------
 
   !! run backward pass
@@ -184,13 +192,6 @@ program test_maxpool3d_layer
      end if
   end select
 
-  !! check 1d and 2d output are consistent
-  call pool_layer%get_output(output_1d)
-  call pool_layer%get_output(output_2d)
-  if(any(abs(output_1d - reshape(output_2d, [size(output_2d)])) .gt. 1.E-6))then
-     success = .false.
-     write(0,*) 'output_1d and output_2d are not consistent'
-  end if
 
 !!!-----------------------------------------------------------------------------
 !!! check for any failed tests
