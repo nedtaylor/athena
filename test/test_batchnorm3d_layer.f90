@@ -63,7 +63,7 @@ program test_batchnorm3d_layer
     end if
 
     !! check batch size
-    if(bn_layer%batch_size .ne. 1)then
+    if(bn_layer%batch_size .ne. batch_size)then
       success = .false.
       write(0,*) 'batchnorm3d layer has wrong batch size'
     end if
