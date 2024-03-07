@@ -24,6 +24,8 @@ concurrency:
   
 jobs:
   build-and-test-fpm-debug:
+    environment:
+      name: github-pages
     name: Build and test in debug mode
     runs-on: ubuntu-latest
     strategy:
@@ -48,7 +50,14 @@ jobs:
 
   build-and-test-fpm-release:
     name: Build and test in release mode
+    environment:
+      name: github-pages
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc]
+        version: [13]
 
     steps:
     - name: checkout repo
