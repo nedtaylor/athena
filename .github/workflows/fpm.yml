@@ -34,7 +34,14 @@ jobs:
         compiler: [gcc]
         version: [13]
     steps:
+    - name: checkout repo
+      uses: actions/checkout@v2
 
+    - name: Set up GCC
+      uses: actions/setup-gcc@v0
+      with:
+        gcc-version: latest
+      
     - uses: fortran-lang/setup-fpm@v5
       id: setup-fortran
       with:
@@ -43,10 +50,14 @@ jobs:
         version: ${{ matrix.version }}
 
     - name: Compile
-      run: fpm build --profile debug
+      run: |
+        gfortran --version
+        fpm build --profile debug
 
     - name: Test
-      run: fpm test --profile debug
+      run: |
+        gfortran --version
+        fpm test --profile debug
 
   build-and-test-fpm-release:
     name: Build and test in release mode
@@ -62,7 +73,12 @@ jobs:
     steps:
     - name: checkout repo
       uses: actions/checkout@v2
-      
+
+    - name: Set up GCC
+      uses: actions/setup-gcc@v0
+      with:
+        gcc-version: latest
+        
     - uses: fortran-lang/setup-fpm@v5
       id: setup-fortran
       with:
@@ -71,7 +87,11 @@ jobs:
         version: ${{ matrix.version }}
 
     - name: Compile
-      run: fpm build --profile release
+      run: |
+        gfortran --version
+        fpm build --profile release  --compiler 
 
     - name: Test
-      run: fpm test --profile release
+      run: |
+        gfortran --version
+        fpm test --profile release
