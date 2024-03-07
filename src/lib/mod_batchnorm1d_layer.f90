@@ -219,20 +219,12 @@ contains
     !!--------------------------------------------------------------------------
     !! set up number of channels (alt. number of features)
     !!--------------------------------------------------------------------------
-      if(present(num_channels))then
-         if(present(num_features))then
-            write(0,*) "ERROR: both num_channels and num_features present"
-            write(0,*) "These represent the same parameter, so are conflicting"
-            stop 1
-         end if
-         layer%num_channels = num_channels
-      else
-         if(present(num_features))then
-            layer%num_channels = num_features
-         else
-            layer%num_channels = -1
-         end if
-      end if
+    layer%num_channels = -1
+    if(present(num_channels).and.present(num_features))then
+       write(0,*) "ERROR: both num_channels and num_features present"
+       write(0,*) "These represent the same parameter, so are conflicting"
+       stop 1
+    end if
 
 
     !!--------------------------------------------------------------------------
