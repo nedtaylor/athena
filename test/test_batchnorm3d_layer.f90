@@ -9,12 +9,12 @@ program test_batchnorm3d_layer
   integer, parameter :: num_channels = 3, width = 8, batch_size = 1
   real, parameter :: gamma  = 0.5, beta = 0.3
   real, allocatable, dimension(:,:,:,:,:) :: input_data, output, gradient
-  real, allocatable, dimension(:) :: output_1d
+  real, allocatable, dimension(:) :: output_1d, params1, params2
   real, allocatable, dimension(:,:) :: output_2d
   real, parameter :: tol = 0.5E-3
   logical :: success = .true.
 
-  integer :: i, j, output_width
+  integer :: i, j, output_width, num_params
   integer :: seed_size = 1
   real :: mean, std
   integer, allocatable, dimension(:) :: seed
@@ -38,7 +38,7 @@ program test_batchnorm3d_layer
      kernel_initialiser = 'gaussian', &
      bias_initialiser = 'gaussian', &
      moving_mean_initialiser = 'zeros', &
-      moving_variance_initialiser = 'zeros' &
+     moving_variance_initialiser = 'zeros' &
      )
 
   !! check layer name
@@ -143,6 +143,43 @@ program test_batchnorm3d_layer
     end do
   end select
 
+  !! handle layer parameters and gradients
+  select type(bn_layer)
+  class is(learnable_layer_type)
+     !! check parameters
+     num_params = bn_layer%get_num_params()
+     if (num_params .ne. 2 * num_channels)then
+       write(0,*) 'batchnorm3d layer has wrong number of parameters'
+       success = .false.
+     end if
+     allocate(params1(num_params), source = 12.E0)
+     call bn_layer%set_params(params1)
+     params2 = bn_layer%get_params()
+     if(any(abs(params1 - params2).gt.1.E-6))then
+       write(0,*) 'batchnorm3d layer has wrong parameters'
+       success = .false.
+     end if
+
+     !! check gradients
+     deallocate(params1, params2)
+     allocate(params1(num_params), source = 15.E0)
+     call bn_layer%set_gradients(params1)
+     params2 = bn_layer%get_gradients()
+     if(any(abs(params1 - params2).gt.1.E-6))then
+       write(0,*) 'batchnorm3d layer has wrong gradients'
+       success = .false.
+     end if
+     call bn_layer%set_gradients(20.E0)
+     params2 = bn_layer%get_gradients()
+     if(any(abs(params2 - 20.E0).gt.1.E-6))then
+       write(0,*) 'batchnorm3d layer has wrong gradients'
+       success = .false.
+     end if
+  class default
+     write(0,*) 'batchnorm3d layer has wrong type'
+      success = .false.
+  end select
+
 
 !!!-----------------------------------------------------------------------------
 !!! check layer operations
@@ -195,6 +232,7 @@ program test_batchnorm3d_layer
      success = .false.
      write(0,*) 'output_1d and output_2d are not consistent'
   end if
+
 
 !!!-----------------------------------------------------------------------------
 !!! check for any failed tests
