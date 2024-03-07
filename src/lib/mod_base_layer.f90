@@ -402,11 +402,11 @@ contains
   
     select rank(gradients)
     rank(0)
-       this%dg = gradients
-       this%db = gradients
+       this%dg = gradients * this%batch_size
+       this%db = gradients * this%batch_size
     rank(1)
-        this%dg = gradients(:this%batch_size)
-        this%db = gradients(this%batch_size+1:)
+        this%dg = gradients(:this%batch_size) * this%batch_size
+        this%db = gradients(this%batch_size+1:) * this%batch_size
     end select
   
   end subroutine set_gradients_batch
