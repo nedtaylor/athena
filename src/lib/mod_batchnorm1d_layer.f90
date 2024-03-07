@@ -34,6 +34,7 @@ module batchnorm1d_layer
   interface batchnorm1d_layer_type
      module function layer_setup( &
           input_shape, batch_size, &
+          num_channels, num_features, &
           momentum, epsilon, &
           gamma_init_mean, gamma_init_std, &
           beta_init_mean, beta_init_std, &
@@ -42,6 +43,7 @@ module batchnorm1d_layer
           ) result(layer)
        integer, dimension(:), optional, intent(in) :: input_shape
        integer, optional, intent(in) :: batch_size
+       integer, optional, intent(in) :: num_channels, num_features
        real(real12), optional, intent(in) :: momentum, epsilon
        real(real12), optional, intent(in) :: gamma_init_mean, gamma_init_std
        real(real12), optional, intent(in) :: beta_init_mean, beta_init_std
@@ -184,6 +186,7 @@ contains
 !!!#############################################################################
   module function layer_setup( &
        input_shape, batch_size, &
+       num_channels, num_features, &
        momentum, epsilon, &
        gamma_init_mean, gamma_init_std, &
        beta_init_mean, beta_init_std, &
@@ -194,6 +197,7 @@ contains
     implicit none
     integer, dimension(:), optional, intent(in) :: input_shape
     integer, optional, intent(in) :: batch_size
+    integer, optional, intent(in) :: num_channels, num_features
     real(real12), optional, intent(in) :: momentum, epsilon
     real(real12), optional, intent(in) :: gamma_init_mean, gamma_init_std
     real(real12), optional, intent(in) :: beta_init_mean, beta_init_std
@@ -210,6 +214,25 @@ contains
     !! initialise batch size
     !!--------------------------------------------------------------------------
     if(present(batch_size)) layer%batch_size = batch_size
+
+
+    !!--------------------------------------------------------------------------
+    !! set up number of channels (alt. number of features)
+    !!--------------------------------------------------------------------------
+      if(present(num_channels))then
+         if(present(num_features))then
+            write(0,*) "ERROR: both num_channels and num_features present"
+            write(0,*) "These represent the same parameter, so are conflicting"
+            stop 1
+         end if
+         layer%num_channels = num_channels
+      else
+         if(present(num_features))then
+            layer%num_channels = num_features
+         else
+            layer%num_channels = -1
+         end if
+      end if
 
 
     !!--------------------------------------------------------------------------
@@ -271,7 +294,13 @@ contains
     !!--------------------------------------------------------------------------
     !! initialise layer shape
     !!--------------------------------------------------------------------------
-    if(present(input_shape)) call layer%init(input_shape=input_shape)
+    if(present(input_shape))then
+       call layer%init(input_shape=input_shape)
+    elseif(present(num_channels))then
+       call layer%init(input_shape=[num_channels])
+    elseif(present(num_features))then
+       call layer%init(input_shape=[num_features])
+    end if
 
   end function layer_setup
 !!!#############################################################################
@@ -310,10 +339,14 @@ contains
 
 
     !!-----------------------------------------------------------------------
-    !! set up number of channels, width, height
+    !! set up number of channels
     !!-----------------------------------------------------------------------
     this%output_shape = this%input_shape
-    this%num_channels = 1
+    if(this%num_channels.ne.-1)then
+       write(0,*) "ERROR: num_channels already set"
+       stop 1
+    end if
+    this%num_channels = this%input_shape(1)
 
 
     !!-----------------------------------------------------------------------
@@ -404,7 +437,7 @@ contains
    !!--------------------------------------------------------------------------
    !! set norm
    !!--------------------------------------------------------------------------
-   this%norm = real(this%batch_size * this%input_shape(1), real12)
+   this%norm = real(this%batch_size, real12)
 
 
    !!--------------------------------------------------------------------------
@@ -438,6 +471,7 @@ contains
     character(*), intent(in) :: file
 
     integer :: unit
+    integer :: m
 
     !! open file with new unit
     !!--------------------------------------------------------------------------
@@ -449,8 +483,16 @@ contains
     write(unit,'(3X,"INPUT_SHAPE = ",1(1X,I0))') this%input_shape
     write(unit,'(3X,"MOMENTUM = ",F0.9)') this%momentum
     write(unit,'(3X,"EPSILON = ",F0.9)') this%epsilon
-    write(unit,'("GAMMA = ",1(E16.8E2))') this%gamma
-    write(unit,'("BETA = ",1(E16.8E2))') this%beta
+    write(unit,'(3X,"NUM_CHANNELS = ",I0)') this%num_channels
+    write(unit,'("GAMMA")')
+    do m=1,this%num_channels
+       write(unit,'(5(E16.8E2))') this%gamma(m)
+    end do
+    write(unit,'("END GAMMA")')
+    write(unit,'("BETA")')
+    do m=1,this%num_channels
+       write(unit,'(5(E16.8E2))') this%beta(m)
+    end do
     write(unit,'("END BATCHNORM1D")')
 
     !! close unit
@@ -621,42 +663,47 @@ contains
          this%batch_size), &
          intent(in) :: input
 
-    real(real12) :: t_mean, t_variance
+    integer :: m
+    real(real12), dimension(this%num_channels) :: t_mean, t_variance
 
     
     select case(this%inference)
     case(.true.)
-       !! normalize each feature
-       this%output(:,:) = this%gamma(1) * (input(:,:) - this%mean(1)) / &
-             sqrt( &
-             this%batch_size / (this%batch_size - 1) * this%variance(1) + &
-             this%epsilon) + &
-             this%beta(1)
+      do concurrent(m=1:this%num_channels)
+         !! normalize each feature
+         this%output(m,:) = this%gamma(m) * (input(m,:) - this%mean(m)) / &
+               sqrt( &
+               this%batch_size / (this%batch_size - 1) * this%variance(m) + &
+               this%epsilon) + &
+               this%beta(m)
+      end do
     case default
       t_mean = 0._real12
       t_variance = 0._real12
-      !! calculate current mean and variance
-      t_mean = sum(input(:,:)) / this%norm
-      t_variance = sum((input(:,:) - t_mean)**2._real12) / this%norm
+      do concurrent(m=1:this%num_channels)
+          !! calculate current mean and variance
+          t_mean(m) = sum(input(m,:)) / this%norm
+          t_variance(m) = sum((input(m,:) - t_mean(m))**2._real12) / this%norm
 
-      !! CONVERT TO USING inverse square root of variance (i.e. inverse std)
-      !! would also need to include epsilon in the sqrt denominator
+          !! CONVERT TO USING inverse square root of variance (i.e. inverse std)
+          !! would also need to include epsilon in the sqrt denominator
 
-      !! update running averages
-      if(this%momentum.gt.1.E-8_real12)then
-         this%mean(1) = this%momentum * this%mean(1) + &
-               (1._real12 - this%momentum) * t_mean
-         this%variance(1) = this%momentum * this%variance(1) + &
-               (1._real12 - this%momentum) * t_variance
-      else
-         this%mean = t_mean
-         this%variance = t_variance
-      end if
+          !! update running averages
+          if(this%momentum.gt.1.E-8_real12)then
+             this%mean(m) = this%momentum * this%mean(m) + &
+                   (1._real12 - this%momentum) * t_mean(m)
+             this%variance(m) = this%momentum * this%variance(m) + &
+                   (1._real12 - this%momentum) * t_variance(m)
+          else
+             this%mean(m) = t_mean(m)
+             this%variance(m) = t_variance(m)
+          end if
 
-      !! normalize each feature
-      this%output(:,:) = this%gamma(1) * (input(:,:) - this%mean(1)) / &
-         sqrt(this%variance(1) + this%epsilon) + this%beta(1)
+          !! normalize each feature
+          this%output(m,:) = this%gamma(m) * (input(m,:) - this%mean(m)) / &
+             sqrt(this%variance(m) + this%epsilon) + this%beta(m)
 
+       end do
     end select
 
   end subroutine forward_2d
@@ -678,28 +725,31 @@ contains
          this%batch_size), &
          intent(in) :: gradient
 
+    integer :: m
     real(real12), dimension( &
           this%input_shape(1), &
           this%batch_size) :: x_hat, dx_hat
 
 
-    !! recalculate x_hat (i.e. normalised input)
-    x_hat(:,:) = (input(:,:) - this%mean(1)) / &
-       sqrt(this%variance(1) + this%epsilon)
+    do concurrent(m=1:this%num_channels)
+       !! recalculate x_hat (i.e. normalised input)
+       x_hat(m,:) = (input(m,:) - this%mean(m)) / &
+            sqrt(this%variance(m) + this%epsilon)
+ 
+       !! calculate gradient of normalised input
+       dx_hat(m,:) = gradient(m,:) * this%gamma(m)
 
-    !! calculate gradient of normalised input
-    dx_hat(:,:) = gradient(:,:) * this%gamma(1)
+       !! calculate gradient of inputs
+       this%di(m,:) = &
+            1._real12 / (this%norm * sqrt(this%variance(m) + this%epsilon)) * &
+            ( this%norm * dx_hat(m,:) - &
+            sum(dx_hat(m,:)) - x_hat(m,:) * &
+            sum(dx_hat(m,:) * x_hat(m,:)))
 
-    !! calculate gradient of inputs
-    this%di(:,:) = &
-       1._real12 / (this%norm * sqrt(this%variance(1) + this%epsilon)) * &
-       ( this%norm * dx_hat(:,:) - &
-       sum(dx_hat(:,:)) - x_hat(:,:) * &
-       sum(dx_hat(:,:) * x_hat(:,:)))
-
-    !! calculate gradient of gamma and beta
-    this%dg = sum(gradient(:,:) * x_hat(:,:))
-    this%db = sum(gradient(:,:))
+       !! calculate gradient of gamma and beta
+       this%dg(m) = sum(gradient(m,:) * x_hat(m,:))
+       this%db(m) = sum(gradient(m,:))
+    end do
 
   end subroutine backward_2d
 !!!#############################################################################
