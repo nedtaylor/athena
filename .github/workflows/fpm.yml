@@ -26,12 +26,19 @@ jobs:
   build-and-test-fpm-debug:
     name: Build and test in debug mode
     runs-on: ubuntu-latest
-
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc]
+        version: [13]
     steps:
 
     - uses: fortran-lang/setup-fpm@v5
+      id: setup-fortran
       with:
         fpm-version: "v0.9.0"
+        compiler: ${{ matrix.compiler }}
+        version: ${{ matrix.version }}
 
     - name: Compile
       run: fpm build --profile debug
@@ -48,8 +55,11 @@ jobs:
       uses: actions/checkout@v2
       
     - uses: fortran-lang/setup-fpm@v5
+      id: setup-fortran
       with:
         fpm-version: "v0.9.0"
+        compiler: ${{ matrix.compiler }}
+        version: ${{ matrix.version }}
 
     - name: Compile
       run: fpm build --profile release
