@@ -29,7 +29,6 @@ ATHENA is distributed with the following directories:
 
 | Directory | Description |
 |---|---|
-|  _doc/_ |      Documentation  |
 |  example/  |    A set of example programs utilising the ATHENA library |
 |  _src/_ |      Source code  |
 |  _tools/_ |    Additional shell script tools for automating learning  |
