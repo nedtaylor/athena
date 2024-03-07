@@ -37,6 +37,7 @@ module network
   use input4d_layer,   only: input4d_layer_type
 
   !! batch normalisation layer types
+  use batchnorm1d_layer, only: batchnorm1d_layer_type, read_batchnorm1d_layer
   use batchnorm2d_layer, only: batchnorm2d_layer_type, read_batchnorm2d_layer
   use batchnorm3d_layer, only: batchnorm3d_layer_type, read_batchnorm3d_layer
 
@@ -228,6 +229,8 @@ contains
 
       !! check for card
       select case(trim(adjustl(buffer)))
+      case("BATCHNORM1D")
+         call this%add(read_batchnorm1d_layer(unit))
       case("BATCHNORM2D")
          call this%add(read_batchnorm2d_layer(unit))
       case("BATCHNORM3D")
@@ -998,6 +1001,8 @@ end function get_gradients
     !!-------------------------------------------------------------------
     do i=this%num_layers-1,2,-1
        select type(next => this%model(i+1)%layer)
+       type is(batchnorm1d_layer_type)
+          call this%model(i)%backward(this%model(i-1),next%di)
        type is(batchnorm2d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
        type is(batchnorm3d_layer_type)

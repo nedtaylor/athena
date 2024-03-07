@@ -50,6 +50,7 @@ module athena
   use input4d_layer,   only: input4d_layer_type
 
   !! batch normalisation layer types
+  use batchnorm1d_layer, only: batchnorm1d_layer_type, read_batchnorm1d_layer
   use batchnorm2d_layer, only: batchnorm2d_layer_type, read_batchnorm2d_layer
   use batchnorm3d_layer, only: batchnorm3d_layer_type, read_batchnorm3d_layer
 
