@@ -4,6 +4,10 @@ program test_misc
 
   logical :: success = .true.
 
+
+!!!-----------------------------------------------------------------------------
+!!! test to_upper and to_lower
+!!!-----------------------------------------------------------------------------
   call check_strings(to_upper('abc'), 'ABC')
   call check_strings(to_upper('AbC'), 'ABC')
   call check_strings(to_upper('123'), '123')
@@ -32,18 +36,24 @@ program test_misc
 
 contains
 
+!!!-----------------------------------------------------------------------------
+!!! compare two strings
+!!!-----------------------------------------------------------------------------
 subroutine check_strings(actual, expected)
   character(*), intent(in) :: actual
   character(*), intent(in) :: expected
 
   if (actual .ne. expected) then
-    print *, "Error: Strings are not equal."
-    print *, "Actual: ", actual
-    print *, "Expected: ", expected
-    stop 1
+    write(0,*) "Error: Strings are not equal."
+    write(0,*) "Actual: ", actual
+    write(0,*) "Expected: ", expected
+    success = .false.
   end if
 end subroutine check_strings
 
+!!!-----------------------------------------------------------------------------
+!!! check counter returns correct number of words in string
+!!!-----------------------------------------------------------------------------
 subroutine check_icount(full_line, tmpchar, expected)
   character(*), intent(in) :: full_line
   character(*), intent(in) :: tmpchar
@@ -53,11 +63,11 @@ subroutine check_icount(full_line, tmpchar, expected)
   actual = Icount(full_line, tmpchar)
 
   if (actual .ne. expected) then
-    print *, "Error: Word counts are not equal."
-    print *, "Line: ", full_line
-    print *, "Char: ", tmpchar
-    print *, "Actual: ", actual
-    print *, "Expected: ", expected
+    write(0,*) "Error: Word counts are not equal."
+    write(0,*) "Line: ", full_line
+    write(0,*) "Char: ", tmpchar
+    write(0,*) "Actual: ", actual
+    write(0,*) "Expected: ", expected
     success = .false.
   end if
 end subroutine check_icount
