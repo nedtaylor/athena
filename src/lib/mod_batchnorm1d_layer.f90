@@ -514,11 +514,11 @@ contains
     use misc, only: to_lower, icount
     implicit none
     integer, intent(in) :: unit
-    integer, optional, intent(in) :: verbose = 0
+    integer, optional, intent(in) :: verbose
  
     class(batchnorm1d_layer_type), allocatable :: layer
  
-    integer :: stat, verbose_
+    integer :: stat, verbose_ = 0
     integer :: itmp1, c, i, j, k
     integer :: num_channels
     real(real12) :: momentum = 0._real12, epsilon = 1.E-5_real12
