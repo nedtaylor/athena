@@ -512,7 +512,7 @@ contains
     integer, optional, intent(in) :: verbose
     
     integer :: i
-    integer :: t_verb, num_addit_inputs
+    integer :: verbose_, num_addit_inputs
     class(base_layer_type), allocatable :: t_input_layer, t_flatten_layer
 
 
@@ -520,9 +520,9 @@ contains
 !!! initialise optional arguments
 !!!-----------------------------------------------------------------------------
     if(present(verbose))then
-       t_verb = verbose
+       verbose_ = verbose
     else
-       t_verb = 0
+       verbose_ = 0
     end if
 
     
@@ -535,7 +535,7 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! initialise loss method
 !!!-----------------------------------------------------------------------------
-    if(present(loss_method)) call this%set_loss(loss_method, t_verb)
+    if(present(loss_method)) call this%set_loss(loss_method, verbose_)
 
 
 !!!-----------------------------------------------------------------------------
@@ -601,7 +601,7 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! initialise layers
 !!!-----------------------------------------------------------------------------
-    if(t_verb.gt.0)then
+    if(verbose_.gt.0)then
        write(*,*) "layer:",1, this%model(1)%name
        write(*,*) this%model(1)%layer%input_shape
        write(*,*) this%model(1)%layer%output_shape
@@ -610,7 +610,7 @@ contains
        if(.not.allocated(this%model(i)%layer%output_shape)) &
             call this%model(i)%layer%init(this%model(i-1)%layer%output_shape, &
                  this%batch_size)
-       if(t_verb.gt.0)then
+       if(verbose_.gt.0)then
           write(*,*) "layer:",i, this%model(i)%name
           write(*,*) this%model(i)%layer%input_shape
           write(*,*) this%model(i)%layer%output_shape
@@ -1113,10 +1113,10 @@ end function get_gradients
     integer :: num_batches
     integer :: converged
     integer :: history_length
-    integer :: t_verb
-    integer :: t_batch_print
-    real(real12) :: t_plateau
-    logical :: t_shuffle
+    integer :: verbose_ = 0
+    integer :: batch_print_step_ = 20
+    real(real12) :: plateau_threshold_ = 1.E-2_real12
+    logical :: shuffle_batches_ = .true.
 
     !! training loop variables
     integer :: epoch, batch, start_index, end_index
@@ -1134,26 +1134,10 @@ end function get_gradients
 !!!-----------------------------------------------------------------------------
 !!! initialise optional arguments
 !!!-----------------------------------------------------------------------------
-    if(present(plateau_threshold))then
-       t_plateau = plateau_threshold
-    else
-       t_plateau = 1.E-2_real12
-    end if
-    if(present(shuffle_batches))then
-       t_shuffle = shuffle_batches
-    else
-       t_shuffle = .true.
-    end if
-    if(present(batch_print_step))then
-       t_batch_print = batch_print_step
-    else
-       t_batch_print = 20
-    end if
-    if(present(verbose))then
-       t_verb = verbose
-    else
-       t_verb = 0
-    end if
+    if(present(plateau_threshold)) plateau_threshold_ = plateau_threshold
+    if(present(shuffle_batches)) shuffle_batches_ = shuffle_batches
+    if(present(batch_print_step)) batch_print_step_ = batch_print_step
+    if(present(verbose)) verbose_ = verbose
     if(present(batch_size)) this%batch_size = batch_size
 
 
@@ -1231,7 +1215,7 @@ end function get_gradients
        !!-----------------------------------------------------------------------
        !! shuffle batch order at the start of each epoch
        !!-----------------------------------------------------------------------
-       if(t_shuffle)then
+       if(shuffle_batches_)then
           call shuffle(batch_order)
        end if
 
@@ -1306,7 +1290,7 @@ end function get_gradients
           this%metrics(1)%val = batch_loss / this%batch_size
           this%metrics(2)%val = batch_accuracy / this%batch_size
           do i = 1, size(this%metrics,dim=1)
-             call this%metrics(i)%check(t_plateau, converged)
+             call this%metrics(i)%check(plateau_threshold_, converged)
              if(converged.ne.0)then
                 exit epoch_loop
              end if
@@ -1322,8 +1306,8 @@ end function get_gradients
 
           !! print batch results
           !!--------------------------------------------------------------------
-          if(abs(t_verb).gt.0.and.&
-               (batch.eq.1.or.mod(batch,t_batch_print).eq.0.E0))then
+          if(abs(verbose_).gt.0.and.&
+               (batch.eq.1.or.mod(batch,batch_print_step_).eq.0.E0))then
              write(6,'("epoch=",I0,", batch=",I0,&
                   &", learning_rate=",F0.3,", loss=",F0.3,", accuracy=",F0.3)')&
                   epoch, batch, &
@@ -1356,7 +1340,7 @@ end function get_gradients
 
           !! time check
           !!--------------------------------------------------------------------
-          if(t_verb.eq.-2)then
+          if(verbose_.eq.-2)then
              time_old = time
              call system_clock(time)
              write(*,'("time check: ",F5.3," seconds")') &
@@ -1378,7 +1362,7 @@ end function get_gradients
 
        !! print epoch summary results
        !!-----------------------------------------------------------------------
-       if(t_verb.eq.0)then
+       if(verbose_.eq.0)then
           write(6,'("epoch=",I0,", batch=",I0,&
                &", learning_rate=",F0.3,", val_loss=",F0.3,&
                &", val_accuracy=",F0.3)') &
@@ -1411,7 +1395,7 @@ end function get_gradients
     integer, optional, intent(in) :: verbose
 
     integer :: l, sample, num_samples
-    integer :: t_verb, unit
+    integer :: verbose_, unit
     real(real12) :: acc_val, loss_val
     real(real12), allocatable, dimension(:) :: accuracy_list
     real(real12), allocatable, dimension(:,:) :: predicted, y_true
@@ -1421,9 +1405,9 @@ end function get_gradients
 !!! initialise optional arguments
 !!!-----------------------------------------------------------------------------
     if(present(verbose))then
-       t_verb = verbose
+       verbose_ = verbose
     else
-       t_verb = 0
+       verbose_ = 0
     end if
     num_samples = size(output, dim=2)
     allocate(predicted(size(output,1), num_samples))
@@ -1502,7 +1486,7 @@ end function get_gradients
     
     !! print testing results
     !!--------------------------------------------------------------------
-    if(abs(t_verb).gt.1)then
+    if(abs(verbose_).gt.1)then
        open(file="test_output.out",newunit=unit)
        select type(final_layer => this%model(this%num_layers)%layer)
        type is(full_layer_type)
@@ -1551,16 +1535,16 @@ end function get_gradients
 
     real(real12), dimension(:,:), allocatable :: output
     
-    integer :: t_verb, batch_size
+    integer :: verbose_, batch_size
 
 
 !!!-----------------------------------------------------------------------------
 !!! initialise optional arguments
 !!!-----------------------------------------------------------------------------
    if(present(verbose))then
-      t_verb = verbose
+      verbose_ = verbose
    else
-      t_verb = 0
+      verbose_ = 0
    end if
 
    select rank(input)

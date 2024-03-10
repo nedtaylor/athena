@@ -291,18 +291,14 @@ contains
     integer, optional, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
 
-    integer :: t_verb
+    integer :: verbose_ = 0
     class(initialiser_type), allocatable :: t_initialiser
 
 
     !!--------------------------------------------------------------------------
     !! initialise optional arguments
     !!--------------------------------------------------------------------------
-    if(present(verbose))then
-       t_verb = verbose
-    else
-       t_verb = 0
-    end if
+    if(present(verbose)) verbose_ = verbose
     if(present(batch_size)) this%batch_size = batch_size
 
 
@@ -390,17 +386,13 @@ contains
    integer, intent(in) :: batch_size
    integer, optional, intent(in) :: verbose
 
-   integer :: t_verb
+   integer :: verbose_ = 0
 
 
    !!--------------------------------------------------------------------------
    !! initialise optional arguments
    !!--------------------------------------------------------------------------
-   if(present(verbose))then
-      t_verb = verbose
-   else
-      t_verb = 0
-   end if
+   if(present(verbose)) verbose_ = verbose
    this%batch_size = batch_size
 
 
@@ -489,7 +481,7 @@ contains
  
     class(batchnorm2d_layer_type), allocatable :: layer
  
-    integer :: stat, t_verb
+    integer :: stat, verbose_ = 0
     integer :: itmp1, c, i, j, k
     integer :: num_channels
     real(real12) :: momentum = 0._real12, epsilon = 1.E-5_real12
@@ -504,11 +496,7 @@ contains
     !!--------------------------------------------------------------------------
     !! initialise optional arguments
     !!--------------------------------------------------------------------------
-    if(present(verbose))then
-       t_verb = verbose
-    else
-       t_verb = 0
-    end if
+    if(present(verbose)) verbose_ = verbose
 
 
     !!--------------------------------------------------------------------------
