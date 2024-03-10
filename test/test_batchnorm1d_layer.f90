@@ -93,7 +93,6 @@ program test_batchnorm1d_layer
 !!!-----------------------------------------------------------------------------
 !!! set up layer
 !!!-----------------------------------------------------------------------------
-  deallocate(bn_layer)
   bn_layer = batchnorm1d_layer_type( &
      input_shape = [width], &
      batch_size = batch_size, &
