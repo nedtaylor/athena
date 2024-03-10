@@ -160,6 +160,7 @@ program test_maxpool2d_layer
      end do
   end select
 
+
 !!!-----------------------------------------------------------------------------
 !!! check expected initialisation of pool and stride
 !!!-----------------------------------------------------------------------------
