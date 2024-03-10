@@ -14,10 +14,15 @@ program test_optimiser
   logical :: success = .true.
 
 
-  !! test empty base optimiser
+!!!-----------------------------------------------------------------------------
+!!! test empty base optimiser
+!!!-----------------------------------------------------------------------------
   allocate(optimiser, source=base_optimiser_type())
 
-  !! test base optimiser
+
+!!!-----------------------------------------------------------------------------
+!!! test base optimiser
+!!!-----------------------------------------------------------------------------
   deallocate(optimiser)
   allocate(optimiser, source=base_optimiser_type( &
        learning_rate = 0.1, &
@@ -34,7 +39,10 @@ program test_optimiser
   end select
   call optimiser%minimise(param, gradient)
 
-  !! test sgd optimiser
+
+!!!-----------------------------------------------------------------------------
+!!! test sgd optimiser
+!!!-----------------------------------------------------------------------------
   deallocate(optimiser)
   allocate(optimiser, source=sgd_optimiser_type( &
        learning_rate = 0.1, &
@@ -53,7 +61,10 @@ program test_optimiser
   end select
   call optimiser%minimise(param, gradient)
 
-  !! test rmsprop optimiser
+
+!!!-----------------------------------------------------------------------------
+!!! test rmsprop optimiser
+!!!-----------------------------------------------------------------------------
   deallocate(optimiser)
   allocate(optimiser, source=rmsprop_optimiser_type( &
        learning_rate = 0.1, &
@@ -72,7 +83,10 @@ program test_optimiser
   end select
   call optimiser%minimise(param, gradient)
 
-  !! test adagrad optimiser
+
+!!!-----------------------------------------------------------------------------
+!!! test adagrad optimiser
+!!!-----------------------------------------------------------------------------
   deallocate(optimiser)
   allocate(optimiser, source=adagrad_optimiser_type( &
        learning_rate = 0.1, &
@@ -90,7 +104,10 @@ program test_optimiser
   end select
   call optimiser%minimise(param, gradient)
 
-  !! test adam optimiser with l1 regulariser
+
+!!!-----------------------------------------------------------------------------
+!!! test adam optimiser with l1 regulariser
+!!!-----------------------------------------------------------------------------
   deallocate(optimiser)
   allocate(optimiser, source=adam_optimiser_type( &
        learning_rate = 0.1, &
@@ -110,7 +127,10 @@ program test_optimiser
   end select
   call optimiser%minimise(param, gradient)
 
-  !! test adam optimiser with l2 regulariser
+
+!!!-----------------------------------------------------------------------------
+!!! test adam optimiser with l2 regulariser
+!!!-----------------------------------------------------------------------------
   deallocate(optimiser)
   allocate(optimiser, source=adam_optimiser_type( &
        learning_rate = 0.1, &
@@ -130,7 +150,10 @@ program test_optimiser
   end select
   call optimiser%minimise(param, gradient)
 
-  !! test adam optimiser with l2 decoupled regulariser
+
+!!!-----------------------------------------------------------------------------
+!!! test adam optimiser with l2 decoupled regulariser
+!!!-----------------------------------------------------------------------------
   deallocate(optimiser)
   allocate(optimiser, source=adam_optimiser_type( &
        learning_rate = 0.1, &

@@ -11,7 +11,10 @@ program test_loss
 
   logical :: success = .true.
 
-  !! test BCE loss
+
+!!!-----------------------------------------------------------------------------
+!!! test BCE loss
+!!!-----------------------------------------------------------------------------
   expected_loss = -expected * log(predicted + 1.E-7)
   actual_loss = compute_loss_bce(predicted, expected)
   if (any(abs(actual_loss - expected_loss) .gt. 1.E-6)) then
@@ -25,7 +28,10 @@ program test_loss
     success = .false.
   end if
 
-  !! test CCE loss
+
+!!!-----------------------------------------------------------------------------
+!!! test CCE loss
+!!!-----------------------------------------------------------------------------
   expected_loss = -expected * log(predicted + 1.E-7)
   actual_loss = compute_loss_cce(predicted, expected)
   if (any(abs(actual_loss - expected_loss) .gt. 1.E-6)) then
@@ -39,7 +45,10 @@ program test_loss
     success = .false.
   end if
 
-  !! test MAE loss
+
+!!!-----------------------------------------------------------------------------
+!!! test MAE loss
+!!!-----------------------------------------------------------------------------
   expected_loss = abs(predicted - expected) /(size(predicted,1))
   actual_loss = compute_loss_mae(predicted, expected)
   if (any(abs(actual_loss - expected_loss) .gt. 1.E-6)) then
@@ -53,7 +62,10 @@ program test_loss
     success = .false.
   end if
 
-  !! test MSE loss
+
+!!!-----------------------------------------------------------------------------
+!!! test MSE loss
+!!!-----------------------------------------------------------------------------
   expected_loss = ((predicted - expected)**2.E0) /(2.E0*size(predicted,1))
   actual_loss = compute_loss_mse(predicted, expected)
   if (any(abs(actual_loss - expected_loss) .gt. 1.E-6)) then
@@ -67,7 +79,10 @@ program test_loss
     success = .false.
   end if
 
-  !! test NLL loss
+
+!!!-----------------------------------------------------------------------------
+!!! test NLL loss
+!!!-----------------------------------------------------------------------------
   expected_loss = - log(expected - predicted + 1.E-7)
   actual_loss = compute_loss_nll(predicted, expected)
   if (any(abs(actual_loss - expected_loss) .gt. 1.E-6)) then

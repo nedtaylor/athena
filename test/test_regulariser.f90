@@ -11,7 +11,7 @@ program test_mod_regulariser
 
   real, dimension(1) :: params, gradient, expected_gradient
 
-  ! Initialize params and gradient here...
+  !! initialize parameters
   params = 1.E0
 
   !! test l1 regulariser
@@ -50,6 +50,9 @@ program test_mod_regulariser
 
 contains
 
+!!!-----------------------------------------------------------------------------
+!!! check gradients are as expected
+!!!-----------------------------------------------------------------------------
 subroutine check(actual, expected, success)
   implicit none
   real, dimension(:), intent(in) :: actual
