@@ -91,7 +91,7 @@ program test_batchnorm1d_layer
 
 
 !!!-----------------------------------------------------------------------------
-!!! set up batchnorm1d layer
+!!! set up layer
 !!!-----------------------------------------------------------------------------
   deallocate(bn_layer)
   bn_layer = batchnorm1d_layer_type( &
@@ -310,7 +310,10 @@ program test_batchnorm1d_layer
      write(0,*) 'batchnorm1d layer has wrong type'
   end select
 
-  !! check 1d and 2d output are consistent
+
+!!!-----------------------------------------------------------------------------
+!!! check output request using rank 1 and rank 2 arrays is consistent
+!!!-----------------------------------------------------------------------------
   call bn_layer%get_output(output_1d)
   call bn_layer%get_output(output)
   if(any(abs(output_1d - reshape(output, [size(output)])) .gt. 1.E-6))then

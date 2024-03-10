@@ -18,12 +18,18 @@ program test_dropblock2d_layer
   integer :: seed_size = 1
   integer, allocatable, dimension(:) :: seed
 
-  !! Initialize random number generator with a seed
+
+!!!-----------------------------------------------------------------------------
+!!! Initialize random number generator with a seed
+!!!-----------------------------------------------------------------------------
   call random_seed(size = seed_size)
   allocate(seed(seed_size), source=0)
   call random_seed(put = seed)
 
-  !! set up dropblock2d layer
+
+!!!-----------------------------------------------------------------------------
+!!! set up layer
+!!!-----------------------------------------------------------------------------
   db_layer = dropblock2d_layer_type( &
        rate = 0.0, &
        block_size = 5, &
@@ -67,6 +73,11 @@ program test_dropblock2d_layer
      write(0,*) 'dropblock2d layer has wrong type'
   end select
 
+
+!!!-----------------------------------------------------------------------------
+!!! test forward pass and check expected output
+!!! use existing layer
+!!!-----------------------------------------------------------------------------
   !! initialise sample input
   allocate(input_data(width, width, num_channels, 1), source = 0.0)
   input_data = max_value
@@ -81,7 +92,6 @@ program test_dropblock2d_layer
   call db_layer%forward(input_data)
   call db_layer%get_output(output)
 
-
   !! check outputs have expected value
   select type(db_layer)
   type is(dropblock2d_layer_type)
@@ -91,6 +101,10 @@ program test_dropblock2d_layer
     end if
   end select
 
+
+!!!-----------------------------------------------------------------------------
+!!! test backward pass and check expected output
+!!!-----------------------------------------------------------------------------
   !! run backward pass
   allocate(gradient, source = output)
   call db_layer%backward(input_data, gradient)
@@ -104,13 +118,17 @@ program test_dropblock2d_layer
     end if
   end select
 
-  !! check 1d and 2d output are consistent
+
+!!!-----------------------------------------------------------------------------
+!!! check output request using rank 1 and rank 2 arrays is consistent
+!!!-----------------------------------------------------------------------------
   call db_layer%get_output(output_1d)
   call db_layer%get_output(output_2d)
   if(any(abs(output_1d - reshape(output_2d, [size(output_2d)])) .gt. 1.E-6))then
      success = .false.
      write(0,*) 'output_1d and output_2d are not consistent'
   end if
+
 
 !!!-----------------------------------------------------------------------------
 !!! check for any failed tests
