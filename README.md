@@ -29,10 +29,10 @@ ATHENA is distributed with the following directories:
 
 | Directory | Description |
 |---|---|
-|  example/  |    A set of example programs utilising the ATHENA library |
+|  _example/_  |    A set of example programs utilising the ATHENA library |
 |  _src/_ |      Source code  |
 |  _tools/_ |    Additional shell script tools for automating learning  |
-|  test/  |    A set of test programs to check functionality of the library works after compilation |
+|  _test/_  |    A set of test programs to check functionality of the library works after compilation |
 
 
 Documentation
