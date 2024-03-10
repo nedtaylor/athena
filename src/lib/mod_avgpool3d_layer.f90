@@ -1,7 +1,9 @@
-!!#############################################################################
+!!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
 !!! Code part of the ARTEMIS group (Hepplestone research group)
 !!! Think Hepplestone, think HRG
+!!!#############################################################################
+!!! module contains implementation of 3D average pooling layer
 !!!#############################################################################
 module avgpool3d_layer
   use constants, only: real12

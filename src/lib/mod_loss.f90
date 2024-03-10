@@ -3,11 +3,21 @@
 !!! Code part of the ARTEMIS group (Hepplestone research group)
 !!! Think Hepplestone, think HRG
 !!!#############################################################################
+!!! module contains the loss functions and their derivatives
+!!! module includes the following procedures:
+!!! compute_loss_function   - abstract interface for all loss functions
+!!! total_loss_function     - abstract interface for all total loss functions
+!!! compute_loss_derivative - computes the derivative of the loss function
+!!!#############################################################################
 module loss
   use constants, only: real12
   implicit none
 
   abstract interface
+     !! compute the loss function
+     !! predicted = (R, in) predicted values
+     !! expected  = (R, in) expected values
+     !! output    = (R, in) loss function
      pure function compute_loss_function(predicted, expected) result(output)
        import real12
        real(real12), dimension(:,:), intent(in) :: predicted, expected
@@ -16,6 +26,10 @@ module loss
   end interface
   
   abstract interface
+     !! compute the total loss function
+     !! predicted = (R, in) predicted values
+     !! expected  = (R, in) expected values
+     !! output    = (R, in) loss function
      pure function total_loss_function(predicted, expected) result(output)
        import real12
        real(real12), dimension(:,:), intent(in) :: predicted, expected

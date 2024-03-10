@@ -3,6 +3,10 @@
 !!! Code part of the ARTEMIS group (Hepplestone research group)
 !!! Think Hepplestone, think HRG
 !!!#############################################################################
+!!! module to setup the activation function
+!!! module includes the following procedures:
+!!! activation_setup - set up the activation function
+!!!#############################################################################
 module activation
   use constants, only: real12
   use misc, only: to_lower

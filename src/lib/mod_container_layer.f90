@@ -3,6 +3,17 @@
 !!! Code part of the ARTEMIS group (Hepplestone research group)
 !!! Think Hepplestone, think HRG
 !!!#############################################################################
+!!! module contains the container layer type for handling interactions ...
+!!! ... between individual layers
+!!!##################
+!!! module contains the following types:
+!!! container_layer_type - type for handling interactions between layers
+!!!##################
+!!! module contains the following procedures:
+!!! forward             - forward pass
+!!! backward            - backward pass
+!!! container_reduction - reduction of container layers
+!!!#############################################################################
 module container_layer
   use constants, only: real12
   use base_layer, only: base_layer_type
@@ -27,6 +38,11 @@ module container_layer
 
 
   interface
+     !!-----------------------------------------------------
+     !! forward pass
+     !!-----------------------------------------------------
+     !! this  = (T, io) present layer container
+     !! input = (T, in) input layer container
      pure module subroutine forward(this, input)
        !import container_layer_type
        class(container_layer_type), intent(inout) :: this
@@ -35,6 +51,12 @@ module container_layer
   end interface
 
   interface
+     !!-----------------------------------------------------
+     !! forward pass
+     !!-----------------------------------------------------
+     !! this     = (T, in) present layer container
+     !! input    = (T, in) input layer container
+     !! gradient = (R, in) backpropagated gradient
      pure module subroutine backward(this, input, gradient)
        !import container_layer_type, real12
        class(container_layer_type), intent(inout) :: this
@@ -45,11 +67,16 @@ module container_layer
 
 #if defined(GFORTRAN)
   interface
-     module subroutine container_reduction(this, rhs)
+    !!-----------------------------------------------------
+    !! forward pass
+    !!-----------------------------------------------------
+    !! this = (T, io) present layer container
+    !! rhs  = (T, in) input layer container
+    module subroutine container_reduction(this, rhs)
        !import container_layer_type, real12
        class(container_layer_type), intent(inout) :: this
        class(container_layer_type), intent(in) :: rhs
-     end subroutine 
+    end subroutine 
   end interface
 #endif
 

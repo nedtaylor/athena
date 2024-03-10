@@ -3,7 +3,14 @@
 !!! Code part of the ARTEMIS group (Hepplestone research group)
 !!! Think Hepplestone, think HRG
 !!!#############################################################################
+!!! module contains initialiser functions
+!!! module includes the following procedures:
+!!! initialiser_setup - set up initialiser
+!!! get_default_initialiser - get default initialiser based on activation ...
+!!!                           ... function
+!!!#############################################################################
 !! Examples of initialsers in keras: https://keras.io/api/layers/initializers/
+!!!#############################################################################
 module initialiser
   use misc, only: to_lower
   use custom_types, only: initialiser_type
@@ -27,6 +34,9 @@ contains
 !!!#############################################################################
 !!! get default initialiser based on activation function (and if a bias)
 !!!#############################################################################
+!!! activation = (S, in) activation function name
+!!! is_bias    = (B, in) if true, then initialiser is for bias
+!!! name       = (S, out) name of default initialiser
   function get_default_initialiser(activation, is_bias) result(name)
     implicit none
     character(*), intent(in) :: activation
@@ -64,6 +74,9 @@ contains
 !!!#############################################################################
 !!! set up initialiser
 !!!#############################################################################
+!!! name        = (S, in) name of initialiser
+!!! error       = (I, out) error code
+!!! initialiser = (O, out) initialiser function
   function initialiser_setup(name, error) result(initialiser)
     implicit none
     class(initialiser_type), allocatable :: initialiser
