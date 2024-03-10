@@ -65,9 +65,6 @@ module misc_ml
   public :: shuffle, split
   public :: set_padding, pad_data
 
-  public :: step_decay
-  public :: reduce_lr_on_plateau
-
 
 contains
 !!!#####################################################
@@ -1868,60 +1865,6 @@ end subroutine split_5Drdata_1Drlist
     end do
 
   end subroutine pad_data
-!!!########################################################################
-
-
-!!!########################################################################
-!!! adaptive learning rate
-!!! method: step decay
-!!!########################################################################
-  subroutine step_decay(learning_rate, epoch, decay_rate, decay_steps)
-    implicit none
-    integer, intent(in) :: epoch
-    integer, intent(in) :: decay_steps
-    real(real12), intent(inout) :: learning_rate
-    real(real12), intent(in) :: decay_rate
-
-    !! calculate new learning rate
-    learning_rate = learning_rate * &
-         decay_rate**((epoch - 1._real12) / decay_steps)
-
-  end subroutine step_decay
-!!!########################################################################
-
-
-!!!########################################################################
-!!! adaptive learning rate
-!!! method: reduce learning rate on plateau
-!!!########################################################################
-  subroutine reduce_lr_on_plateau(learning_rate, &
-       metric_value, patience, factor, min_learning_rate, & 
-       best_metric_value, wait)
-    implicit none
-    integer, intent(in) :: patience
-    integer, intent(inout) :: wait
-    real(real12), intent(inout) :: learning_rate
-    real(real12), intent(in) :: metric_value
-    real(real12), intent(in) :: factor
-    real(real12), intent(in) :: min_learning_rate
-    real(real12), intent(inout) :: best_metric_value
-
-    !! check if the metric value has improved
-    if (metric_value.lt.best_metric_value) then
-       best_metric_value = metric_value
-       wait = 0
-    else
-       wait = wait + 1
-       if (wait.ge.patience) then
-          learning_rate = learning_rate * factor
-          if (learning_rate.lt.min_learning_rate) then
-             learning_rate = min_learning_rate
-          endif
-          wait = 0
-       endif
-    endif
-
-  end subroutine reduce_lr_on_plateau
 !!!########################################################################
 
 end module misc_ml
