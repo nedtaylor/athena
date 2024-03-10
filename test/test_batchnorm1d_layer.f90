@@ -24,7 +24,7 @@ program test_batchnorm1d_layer
   allocate(seed(seed_size), source=0)
   call random_seed(put = seed)
 
-  !! test num_channels and num_features
+  !! test num_channels and num_inputs
   bn_layer = batchnorm1d_layer_type(input_shape=[width], batch_size=batch_size)
   select type(bn_layer)
   type is(batchnorm1d_layer_type)
@@ -35,16 +35,16 @@ program test_batchnorm1d_layer
   end select
   if(.not.allocated(bn_layer%input_shape))then
     success = .false.
-    write(0,*) 'batchnorm1d layer has wrong input_shape'
+    write(0,*) 'batchnorm1d input_shape is not allocated'
   elseif(size(bn_layer%input_shape) .ne. 1)then
     success = .false.
-    write(0,*) 'batchnorm1d layer has wrong input_shape'
+    write(0,*) 'batchnorm1d layer has wrong input_shape size'
   elseif(bn_layer%input_shape(1) .ne. width)then
     success = .false.
     write(0,*) 'batchnorm1d layer has wrong input_shape'
   end if
   deallocate(bn_layer)
-  bn_layer = batchnorm1d_layer_type(num_features=width, batch_size=batch_size)
+  bn_layer = batchnorm1d_layer_type(num_inputs=width, batch_size=batch_size)
   select type(bn_layer)
   type is(batchnorm1d_layer_type)
      if(bn_layer%num_channels .ne. width)then
@@ -54,10 +54,10 @@ program test_batchnorm1d_layer
   end select
   if(.not.allocated(bn_layer%input_shape))then
     success = .false.
-    write(0,*) 'batchnorm1d layer has wrong input_shape'
+    write(0,*) 'batchnorm1d input_shape is not allocated'
   elseif(size(bn_layer%input_shape) .ne. 1)then
     success = .false.
-    write(0,*) 'batchnorm1d layer has wrong input_shape'
+    write(0,*) 'batchnorm1d layer has wrong input_shape size'
   elseif(bn_layer%input_shape(1) .ne. width)then
     success = .false.
     write(0,*) 'batchnorm1d layer has wrong input_shape'
@@ -73,10 +73,10 @@ program test_batchnorm1d_layer
   end select
   if(.not.allocated(bn_layer%input_shape))then
     success = .false.
-    write(0,*) 'batchnorm1d layer has wrong input_shape'
+    write(0,*) 'batchnorm1d input_shape is not allocated'
   elseif(size(bn_layer%input_shape) .ne. 1)then
     success = .false.
-    write(0,*) 'batchnorm1d layer has wrong input_shape'
+    write(0,*) 'batchnorm1d layer has wrong input_shape size'
   elseif(bn_layer%input_shape(1) .ne. width)then
     success = .false.
     write(0,*) 'batchnorm1d layer has wrong input_shape'
@@ -184,8 +184,8 @@ program test_batchnorm1d_layer
   select type(current => bn_layer)
   type is(batchnorm1d_layer_type)
      do i = 1, width
-        mean = sum(current%di(i,:))/real(batch_size)
-        std = sqrt(sum((current%di(i,:) - mean)**2)/real(batch_size))
+        mean = sum(current%di(:,i,:))/real(batch_size)
+        std = sqrt(sum((current%di(:,i,:) - mean)**2)/real(batch_size))
         if (abs(mean) .gt. tol) then
           success = .false.
           write(0,*) 'batchnorm1d layer backward pass failed: &
