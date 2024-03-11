@@ -11,7 +11,7 @@
 
 by Ned Thaddeus Taylor
 
-ATHENA (Adaptive Training for High Efficiency Neural Network Applications) is a Fortran library for developing and handling neural networks (with a focus on convolutional neural networks).
+ATHENA (Adaptive Training for High Efficiency Neural network Applications) is a Fortran library for developing and handling neural networks (with a focus on convolutional neural networks).
 
 ## New Repository Location
 
