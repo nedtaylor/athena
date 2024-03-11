@@ -119,6 +119,7 @@ set(LIB_FILES
     mod_container_layer.f90
     mod_container_layer_sub.f90
     mod_network.f90
+    mod_network_sub.f90
 )
 foreach(lib ${LIB_FILES})
     list(APPEND PREPENDED_LIB_FILES ${LIB_DIR}/${lib})
