@@ -1,11 +1,37 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
 !!!#############################################################################
 !!! module contains the network class, which is used to define a neural network
 !!! module contains the following derived types:
 !!! - network_type
+!!!##################
+!!! network_type contains the following procedures:
+!!! - print           - print the network to file
+!!! - read            - read the network from a file
+!!! - add             - add a layer to the network
+!!! - reset           - reset the network
+!!! - compile         - compile the network
+!!! - set_batch_size  - set batch size
+!!! - set_metrics     - set network metrics
+!!! - set_loss        - set network loss method
+!!! - train           - train the network
+!!! - test            - test the network
+!!! - predict         - return predicted results from supplied inputs using ...
+!!!                     ... the trained network
+!!! - update          - update the learnable parameters of the network based ...
+!!!                     ... on gradients
+!!! - reduce          - reduce two networks down to one ...
+!!!                     ... (i.e. add two networks - parallel)
+!!! - copy            - copy a network
+!!! - get_num_params  - get number of learnable parameters in the network
+!!! - get_params      - get learnable parameters
+!!! - set_params      - set learnable parameters
+!!! - get_gradients   - get gradients of learnable parameters
+!!! - set_gradients   - set learnable parameter gradients
+!!! - reset_gradients - reset learnable parameter gradients
+!!! - forward         - forward pass
+!!! - backward        - backward pass
+!!!#############################################################################
 module network
   use constants, only: real12
   use metrics, only: metric_dict_type
