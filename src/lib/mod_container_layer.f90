@@ -1,18 +1,17 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
+!!! Code part of the ATHENA library - a feedforward neural network library
 !!!#############################################################################
 !!! module contains the container layer type for handling interactions ...
 !!! ... between individual layers
 !!!##################
-!!! module contains the following types:
-!!! container_layer_type - type for handling interactions between layers
+!!! module contains the following derived types:
+!!! - container_layer_type - type for handling interactions between layers
 !!!##################
 !!! module contains the following procedures:
-!!! forward             - forward pass
-!!! backward            - backward pass
-!!! container_reduction - reduction of container layers
+!!! - forward             - forward pass
+!!! - backward            - backward pass
+!!! - container_reduction - reduction of container layers
 !!!#############################################################################
 module container_layer
   use constants, only: real12

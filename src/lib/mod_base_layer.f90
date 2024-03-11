@@ -1,40 +1,39 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
+!!! Code part of the ATHENA library - a feedforward neural network library
 !!!#############################################################################
 !!! definition of the abstract base layer type, from which all other layers ...
 !!! ... are derived
-!!! module includes the following public abstract types:
-!!! base_layer_type      - abstract type for all layers
-!!! input_layer_type     - abstract type for input layers
-!!! flatten_layer_type   - abstract type for flatten (rehsape) layers
-!!! pool_layer_type      - abstract type for spatial pooling layers
-!!! drop_layer_type      - abstract type for dropout layers
-!!! learnable_layer_type - abstract type for layers with learnable parameters
-!!! conv_layer_type      - abstract type for spatial convolutional layers
-!!! batch_layer_type     - abstract type for batch normalisation layers
+!!! module includes the following public abstract derived types:
+!!! - base_layer_type      - abstract type for all layers
+!!! - input_layer_type     - abstract type for input layers
+!!! - flatten_layer_type   - abstract type for flatten (rehsape) layers
+!!! - pool_layer_type      - abstract type for spatial pooling layers
+!!! - drop_layer_type      - abstract type for dropout layers
+!!! - learnable_layer_type - abstract type for layers with learnable parameters
+!!! - conv_layer_type      - abstract type for spatial convolutional layers
+!!! - batch_layer_type     - abstract type for batch normalisation layers
 !!!##################
 !!! base_layer_type includes the following procedures:
-!!! set_shape            - set the input shape of the layer
-!!! get_num_params       - get the number of parameters in the layer
-!!! print                - print the layer to a file
-!!! get_output           - get the output of the layer
-!!! init                 - initialise the layer
-!!! set_batch_size       - set the batch size of the layer
-!!! forward              - forward pass of layer
-!!! backward             - backward pass of layer
+!!! - set_shape            - set the input shape of the layer
+!!! - get_num_params       - get the number of parameters in the layer
+!!! - print                - print the layer to a file
+!!! - get_output           - get the output of the layer
+!!! - init                 - initialise the layer
+!!! - set_batch_size       - set the batch size of the layer
+!!! - forward              - forward pass of layer
+!!! - backward             - backward pass of layer
 !!!##################
 !!! input_layer_type includes the following unique procedures:
-!!! set                  - set the input of the layer
+!!! - set                  - set the input of the layer
 !!!##################
 !!! learnable_layer_type includes the following unique procedures:
-!!! layer_reduction      - reduce the layer to a single value
-!!! layer_merge          - merge the layer with another layer
-!!! get_params           - get the learnable parameters of the layer
-!!! set_params           - set the learnable parameters of the layer
-!!! get_gradients        - get the gradients of the layer
-!!! set_gradients        - set the gradients of the layer
+!!! - layer_reduction      - reduce the layer to a single value
+!!! - layer_merge          - merge the layer with another layer
+!!! - get_params           - get the learnable parameters of the layer
+!!! - set_params           - set the learnable parameters of the layer
+!!! - get_gradients        - get the gradients of the layer
+!!! - set_gradients        - set the gradients of the layer
 !!!#############################################################################
 module base_layer
   use constants, only: real12

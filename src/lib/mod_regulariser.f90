@@ -1,8 +1,17 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
+!!! Code part of the ATHENA library - a feedforward neural network library
 !!!#############################################################################
+!!! module contains regularisation methods and associated derived types
+!!! module contains the following derived types:
+!!! - base_regulariser_type - abstract base regulariser type
+!!! - l1_regulariser_type   - L1 regulariser type
+!!! - l2_regulariser_type   - L2 regulariser type
+!!! - l1l2_regulariser_type - L1L2 regulariser type
+!!!##################
+!!! the base_regulariser_type contains the following deferred procedure:
+!!! - regularise - regularise the gradient
+!!!############################################################################# 
 module regulariser
   use constants, only: real12
   implicit none

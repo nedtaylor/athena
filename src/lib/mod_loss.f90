@@ -1,13 +1,12 @@
 !!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
+!!! Code part of the ATHENA library - a feedforward neural network library
 !!!#############################################################################
 !!! module contains the loss functions and their derivatives
 !!! module includes the following procedures:
-!!! compute_loss_function   - abstract interface for all loss functions
-!!! total_loss_function     - abstract interface for all total loss functions
-!!! compute_loss_derivative - computes the derivative of the loss function
+!!! - compute_loss_function   - abstract interface for all loss functions
+!!! - total_loss_function     - abstract interface for all total loss functions
+!!! - compute_loss_derivative - computes the derivative of the loss function
 !!!#############################################################################
 module loss
   use constants, only: real12

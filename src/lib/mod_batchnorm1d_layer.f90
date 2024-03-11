@@ -1,7 +1,8 @@
-!!#############################################################################
+!!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
+!!! Code part of the ATHENA library - a feedforward neural network library
+!!!#############################################################################
+!!! module contains implementation of 0D and 1D batch normalisation layers
 !!!#############################################################################
 module batchnorm1d_layer
   use constants, only: real12

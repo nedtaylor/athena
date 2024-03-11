@@ -1,7 +1,10 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
+!!! Code part of the ATHENA library - a feedforward neural network library
+!!!#############################################################################
+!!! module contains random number generator initialisation
+!!! module contains the following procedures:
+!!! - random_setup - seed random number generator from seed vector or randomly
 !!!#############################################################################
 module random
   implicit none

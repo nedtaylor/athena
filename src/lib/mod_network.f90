@@ -1,5 +1,6 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
+!!! Code part of the ATHENA library - a feedforward neural network library
 !!!#############################################################################
 !!! module contains the network class, which is used to define a neural network
 !!! module contains the following derived types:

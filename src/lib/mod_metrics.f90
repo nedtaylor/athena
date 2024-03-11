@@ -1,5 +1,6 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
+!!! Code part of the ATHENA library - a feedforward neural network library
 !!!#############################################################################
 !!! module contains a type for storing and handling metrics
 !!! module includes the following derived types:

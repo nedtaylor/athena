@@ -1,14 +1,13 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor 
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
+!!! Code part of the ATHENA library - a feedforward neural network library
 !!!#############################################################################
 !!! module contains functions to compute the accuracy of a model
 !!! module includes the following procedures:
-!!! categorical_score - computes the accuracy of a categorisation model
-!!! mae_score         - computes the mean absolute error of a continuous model
-!!! mse_score         - computes the mean squared error of a continuous model
-!!! r2_score          - computes the R^2 score of a continuous model
+!!! - categorical_score - computes the accuracy of a categorisation model
+!!! - mae_score         - computes the mean absolute error of a continuous model
+!!! - mse_score         - computes the mean squared error of a continuous model
+!!! - r2_score          - computes the R^2 score of a continuous model
 !!!#############################################################################
 module accuracy
   use constants, only: real12

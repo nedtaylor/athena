@@ -1,14 +1,15 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
+!!! Code part of the ATHENA library - a feedforward neural network library
 !!!#############################################################################
 !!! module contains routines for clipping gradients
 !!! module includes the following types:
-!!!   clip_type - type containing clipping information
+!!! - clip_type - type containing clipping information
 !!!##################
 !!! clip_type contains the following procedures:
-!!! read_clip  - read clipping information from strings
-!!! set_clip   - set clipping information from a dictionary
-!!! apply_clip - apply clipping to gradients
+!!! - read_clip  - read clipping information from strings
+!!! - set_clip   - set clipping information from a dictionary
+!!! - apply_clip - apply clipping to gradients
 !!!#############################################################################
 module clipper
   use constants, only: real12

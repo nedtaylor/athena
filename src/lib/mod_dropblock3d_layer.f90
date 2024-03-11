@@ -1,9 +1,12 @@
-!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
 !!!#############################################################################
-!!! DropBlock reference (2D implementation): https://arxiv.org/pdf/1810.12890.pdf
+!!! Code written by Ned Thaddeus Taylor
+!!! Code part of the ATHENA library - a feedforward neural network library
+!!!#############################################################################
+!!! module contains implementation of a 3D dropblock layer
+!!!#############################################################################
+!!! DropBlock reference (2D implementation): ...
+!!! ... https://arxiv.org/pdf/1810.12890.pdf
+!!!#############################################################################
 module dropblock3d_layer
   use constants, only: real12
   use base_layer, only: drop_layer_type

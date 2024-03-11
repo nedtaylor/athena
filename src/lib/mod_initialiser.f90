@@ -1,13 +1,12 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
+!!! Code part of the ATHENA library - a feedforward neural network library
 !!!#############################################################################
 !!! module contains initialiser functions
 !!! module includes the following procedures:
-!!! initialiser_setup - set up initialiser
-!!! get_default_initialiser - get default initialiser based on activation ...
-!!!                           ... function
+!!! - initialiser_setup - set up initialiser
+!!! - get_default_initialiser - get default initialiser based on activation ...
+!!!                             ... function
 !!!#############################################################################
 !! Examples of initialsers in keras: https://keras.io/api/layers/initializers/
 !!!#############################################################################

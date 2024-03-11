@@ -1,16 +1,15 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
+!!! Code part of the ATHENA library - a feedforward neural network library
 !!!#############################################################################
 !!! module contains various miscellaneous procedures relating to ...
 !!! ... machine learning
 !!! module includes the following procedures:
-!!! shuffle          (randomly shuffle a 2D array along one dimension)
-!!! split            (split data into train and test sets)
+!!! - shuffle - randomly shuffle a 2D array along one dimension
+!!! - split   - split data into train and test sets
 !!!##################
-!!! set_padding          (set padding any-rank 2D array)
-!!! pad_data             (pad any-rank array)
-!!! step_decay           (step decay learning rate)
-!!! reduce_lr_on_plateau (reduce learning rate on plateau)
+!!! - set_padding - set padding any-rank 2D array
+!!! - pad_data    - pad any-rank array
 !!!#############################################################################
 module misc_ml
   use constants, only: real12

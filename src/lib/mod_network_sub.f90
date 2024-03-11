@@ -1,7 +1,9 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
+!!! Code part of the ATHENA library - a feedforward neural network library
+!!!#############################################################################
+!!! submodule of the network module
+!!! submodule contains the associated methods from the network module
 !!!#############################################################################
 submodule(network) network_submodule
 #ifdef _OPENMP

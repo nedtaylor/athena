@@ -1,9 +1,12 @@
-!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
 !!!#############################################################################
-!!! Dropout reference: https://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf
+!!! Code written by Ned Thaddeus Taylor
+!!! Code part of the ATHENA library - a feedforward neural network library
+!!!#############################################################################
+!!! module contains implementation of a dropout layer
+!!!#############################################################################
+!!! Dropout reference: ...
+!!! ... https://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf
+!!!#############################################################################
 module dropout_layer
   use constants, only: real12
   use base_layer, only: drop_layer_type
