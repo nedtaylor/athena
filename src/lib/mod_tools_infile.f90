@@ -5,12 +5,12 @@
 !!!#############################################################################
 !!! module contains customn input file reading functions and subroutines.
 !!! module includes the following functionsand subroutines:
-!!! assign_val       (assign a value to a variable)
-!!! assign_vec       (assign a vector to a variable)
-!!! getline          (return line using grep and goes back to start of line)
-!!! rm_comments      (remove comments from a string (anything after ! or #))
-!!! cat              (cat lines until user-defined end string is encountered)
-!!! stop_check       (check for <STOP> file and LSTOP or LABORT tags inside)
+!!! - assign_val  - assign a value to a variable
+!!! - assign_vec  - assign a vector to a variable
+!!! - getline     - return line using grep and goes back to start of line
+!!! - rm_comments - remove comments from a string (anything after ! or #)
+!!! - cat         - cat lines until user-defined end string is encountered
+!!! - stop_check  - check for <STOP> file and LSTOP or LABORT tags inside
 !!!#############################################################################
 module infile_tools
   use misc, only: grep,icount
