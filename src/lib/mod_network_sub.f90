@@ -436,7 +436,8 @@ contains
 !!!#############################################################################
 !!! compile network
 !!!#############################################################################
-  module subroutine compile(this, optimiser, loss_method, metrics, batch_size, verbose)
+  module subroutine compile(this, optimiser, loss_method, metrics, batch_size, &
+       verbose)
     implicit none
     class(network_type), intent(inout) :: this
     class(base_optimiser_type), intent(in) :: optimiser
@@ -446,18 +447,14 @@ contains
     integer, optional, intent(in) :: verbose
     
     integer :: i
-    integer :: verbose_, num_addit_inputs
+    integer :: verbose_ = 0, num_addit_inputs
     class(base_layer_type), allocatable :: t_input_layer, t_flatten_layer
 
 
 !!!-----------------------------------------------------------------------------
 !!! initialise optional arguments
 !!!-----------------------------------------------------------------------------
-    if(present(verbose))then
-       verbose_ = verbose
-    else
-       verbose_ = 0
-    end if
+    if(present(verbose)) verbose_ = verbose
 
     
 !!!-----------------------------------------------------------------------------

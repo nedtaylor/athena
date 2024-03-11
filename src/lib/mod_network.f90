@@ -182,7 +182,7 @@ module network
      !! addit_input       = (R, in, opt) additional input data
      !! addit_layer       = (I, in, opt) layer to insert additional input data
      !! plateau_threshold = (R, in, opt) threshold for checking learning plateau
-     !! shuffle_batches   = (B, in, opt) shuffle batches
+     !! shuffle_batches   = (B, in, opt) shuffle batch order
      !! batch_print_step  = (I, in, opt) print step for batch
      !! verbose           = (I, in, opt) verbosity level
      module subroutine train(this, input, output, num_epochs, batch_size, &
@@ -222,7 +222,7 @@ module network
      end subroutine test
 
      !!-------------------------------------------------------------------------
-     !! output predicted results from supplied inputs using the trained network
+     !! return predicted results from supplied inputs using the trained network
      !!-------------------------------------------------------------------------
      !! this        = (T, in) network type
      !! input       = (R, in) input data
