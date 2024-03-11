@@ -83,99 +83,99 @@ module base_layer
   end type base_layer_type
 
   interface
-    !!--------------------------------------------------------------------------
-    !! print layer to file (do nothing for a base layer)
-    !!--------------------------------------------------------------------------
-    !! this = (T, in) base_layer_type
-    !! file = (I, in) file name
-    module subroutine print_base(this, file)
-      class(base_layer_type), intent(in) :: this
-      character(*), intent(in) :: file
-    end subroutine print_base
+     !!--------------------------------------------------------------------------
+     !! print layer to file (do nothing for a base layer)
+     !!--------------------------------------------------------------------------
+     !! this = (T, in) base_layer_type
+     !! file = (I, in) file name
+     module subroutine print_base(this, file)
+       class(base_layer_type), intent(in) :: this
+       character(*), intent(in) :: file
+     end subroutine print_base
   end interface
 
   interface
-    !!--------------------------------------------------------------------------
-    !! setup input layer shape
-    !!--------------------------------------------------------------------------
-    !! this        = (T, inout) base_layer_type
-    !! input_shape = (I, in) input shape
-    module subroutine set_shape_base(this, input_shape)
-      class(base_layer_type), intent(inout) :: this
-      integer, dimension(:), intent(in) :: input_shape
-    end subroutine set_shape_base
+     !!--------------------------------------------------------------------------
+     !! setup input layer shape
+     !!--------------------------------------------------------------------------
+     !! this        = (T, inout) base_layer_type
+     !! input_shape = (I, in) input shape
+     module subroutine set_shape_base(this, input_shape)
+       class(base_layer_type), intent(inout) :: this
+       integer, dimension(:), intent(in) :: input_shape
+     end subroutine set_shape_base
   end interface
 
 
   abstract interface
-    !!--------------------------------------------------------------------------
-    !! initialise layer
-    !!--------------------------------------------------------------------------
-    !! this        = (T, inout) base_layer_type
-    !! input_shape = (I, in) input shape
-    !! batch_size  = (I, in) batch size
-    !! verbose     = (I, in) verbosity level
-    module subroutine initialise(this, input_shape, batch_size, verbose)
-      class(base_layer_type), intent(inout) :: this
-      integer, dimension(:), intent(in) :: input_shape
-      integer, optional, intent(in) :: batch_size
-      integer, optional, intent(in) :: verbose
-    end subroutine initialise
+     !!--------------------------------------------------------------------------
+     !! initialise layer
+     !!--------------------------------------------------------------------------
+     !! this        = (T, inout) base_layer_type
+     !! input_shape = (I, in) input shape
+     !! batch_size  = (I, in) batch size
+     !! verbose     = (I, in) verbosity level
+     module subroutine initialise(this, input_shape, batch_size, verbose)
+       class(base_layer_type), intent(inout) :: this
+       integer, dimension(:), intent(in) :: input_shape
+       integer, optional, intent(in) :: batch_size
+       integer, optional, intent(in) :: verbose
+     end subroutine initialise
 
-    !!--------------------------------------------------------------------------
-    !! set batch size
-    !!--------------------------------------------------------------------------
-    !! this       = (T, inout) base_layer_type
-    !! batch_size = (I, in) batch size
-    !! verbose    = (I, in) verbosity level
-    module subroutine set_batch_size(this, batch_size, verbose)
-      class(base_layer_type), intent(inout) :: this
-      integer, intent(in) :: batch_size
-      integer, optional, intent(in) :: verbose
-    end subroutine set_batch_size
+     !!--------------------------------------------------------------------------
+     !! set batch size
+     !!--------------------------------------------------------------------------
+     !! this       = (T, inout) base_layer_type
+     !! batch_size = (I, in) batch size
+     !! verbose    = (I, in) verbosity level
+     module subroutine set_batch_size(this, batch_size, verbose)
+       class(base_layer_type), intent(inout) :: this
+       integer, intent(in) :: batch_size
+       integer, optional, intent(in) :: verbose
+     end subroutine set_batch_size
   end interface
 
   abstract interface
-    !!--------------------------------------------------------------------------
-    !! get number of parameters in layer
-    !!--------------------------------------------------------------------------
-    !! this = (T, in) layer_type
-    pure module function get_num_params(this) result(num_params)
-      class(base_layer_type), intent(in) :: this
-      integer :: num_params
-    end function get_num_params
+     !!--------------------------------------------------------------------------
+     !! get number of parameters in layer
+     !!--------------------------------------------------------------------------
+     !! this = (T, in) layer_type
+     pure module function get_num_params(this) result(num_params)
+       class(base_layer_type), intent(in) :: this
+       integer :: num_params
+     end function get_num_params
 
-    !!--------------------------------------------------------------------------
-    !! get number of parameters in layer
-    !!--------------------------------------------------------------------------
-    !! this   = (T, in) layer_type
-    !! output = (R, out) number of parameters
-    pure module subroutine get_output(this, output)
-      class(base_layer_type), intent(in) :: this
-      real(real12), allocatable, dimension(..), intent(out) :: output
-    end subroutine get_output
+     !!--------------------------------------------------------------------------
+     !! get number of parameters in layer
+     !!--------------------------------------------------------------------------
+     !! this   = (T, in) layer_type
+     !! output = (R, out) number of parameters
+     pure module subroutine get_output(this, output)
+       class(base_layer_type), intent(in) :: this
+       real(real12), allocatable, dimension(..), intent(out) :: output
+     end subroutine get_output
 
-    !!--------------------------------------------------------------------------
-    !! forward pass of layer
-    !!--------------------------------------------------------------------------
-    !! this  = (T, in) layer_type
-    !! input = (R, in) input data
-    pure module subroutine forward(this, input)
-      class(base_layer_type), intent(inout) :: this
-      real(real12), dimension(..), intent(in) :: input
-    end subroutine forward
+     !!--------------------------------------------------------------------------
+     !! forward pass of layer
+     !!--------------------------------------------------------------------------
+     !! this  = (T, in) layer_type
+     !! input = (R, in) input data
+     pure module subroutine forward(this, input)
+       class(base_layer_type), intent(inout) :: this
+       real(real12), dimension(..), intent(in) :: input
+     end subroutine forward
 
-    !!--------------------------------------------------------------------------
-    !! backward pass of layer
-    !!--------------------------------------------------------------------------
-    !! this     = (T, in) layer_type
-    !! input    = (R, in) input data
-    !! gradient = (R, in) gradient data
-    pure module subroutine backward(this, input, gradient)
-      class(base_layer_type), intent(inout) :: this
-      real(real12), dimension(..), intent(in) :: input
-      real(real12), dimension(..), intent(in) :: gradient
-    end subroutine backward
+     !!--------------------------------------------------------------------------
+     !! backward pass of layer
+     !!--------------------------------------------------------------------------
+     !! this     = (T, in) layer_type
+     !! input    = (R, in) input data
+     !! gradient = (R, in) gradient data
+     pure module subroutine backward(this, input, gradient)
+       class(base_layer_type), intent(inout) :: this
+       real(real12), dimension(..), intent(in) :: input
+       real(real12), dimension(..), intent(in) :: gradient
+     end subroutine backward
   end interface
 
 
@@ -230,14 +230,14 @@ module base_layer
   end type drop_layer_type
 
   abstract interface
-    !!--------------------------------------------------------------------------
-    !! get number of parameters in layer
-    !!--------------------------------------------------------------------------
-    !! this = (T, in) drop_layer_type
-    subroutine generate_mask(this)
-      import :: drop_layer_type
-      class(drop_layer_type), intent(inout) :: this
-    end subroutine generate_mask
+     !!--------------------------------------------------------------------------
+     !! get number of parameters in layer
+     !!--------------------------------------------------------------------------
+     !! this = (T, in) drop_layer_type
+     subroutine generate_mask(this)
+       import :: drop_layer_type
+       class(drop_layer_type), intent(inout) :: this
+     end subroutine generate_mask
   end interface
 
 
@@ -257,73 +257,73 @@ module base_layer
   end type learnable_layer_type
 
   abstract interface
-    !!--------------------------------------------------------------------------
-    !! reduce two layers to a single value
-    !!--------------------------------------------------------------------------
-    !! this = (T, io) layer_type
-    !! rhs  = (T, in) layer_type
-    subroutine layer_reduction(this, rhs)
-      import :: learnable_layer_type
-      class(learnable_layer_type), intent(inout) :: this
-      class(learnable_layer_type), intent(in) :: rhs
-    end subroutine layer_reduction
+     !!--------------------------------------------------------------------------
+     !! reduce two layers to a single value
+     !!--------------------------------------------------------------------------
+     !! this = (T, io) layer_type
+     !! rhs  = (T, in) layer_type
+     subroutine layer_reduction(this, rhs)
+       import :: learnable_layer_type
+       class(learnable_layer_type), intent(inout) :: this
+       class(learnable_layer_type), intent(in) :: rhs
+     end subroutine layer_reduction
 
-    !!--------------------------------------------------------------------------
-    !! merge two layers
-    !!--------------------------------------------------------------------------
-    !! this  = (T, io) layer_type
-    !! input = (T, in) layer_type
-    subroutine layer_merge(this, input)
-      import :: learnable_layer_type
-      class(learnable_layer_type), intent(inout) :: this
-      class(learnable_layer_type), intent(in) :: input
-    end subroutine layer_merge
+     !!--------------------------------------------------------------------------
+     !! merge two layers
+     !!--------------------------------------------------------------------------
+     !! this  = (T, io) layer_type
+     !! input = (T, in) layer_type
+     subroutine layer_merge(this, input)
+       import :: learnable_layer_type
+       class(learnable_layer_type), intent(inout) :: this
+       class(learnable_layer_type), intent(in) :: input
+     end subroutine layer_merge
 
-    !!--------------------------------------------------------------------------
-    !! get learnable parameters of layer
-    !!--------------------------------------------------------------------------
-    !! this  = (T, in) layer_type
-    !! param = (R, out) learnable parameters
-    pure function get_params(this) result(params)
-      import :: learnable_layer_type, real12
-      class(learnable_layer_type), intent(in) :: this
-      real(real12), allocatable, dimension(:) :: params
-    end function get_params
+     !!--------------------------------------------------------------------------
+     !! get learnable parameters of layer
+     !!--------------------------------------------------------------------------
+     !! this  = (T, in) layer_type
+     !! param = (R, out) learnable parameters
+     pure function get_params(this) result(params)
+       import :: learnable_layer_type, real12
+       class(learnable_layer_type), intent(in) :: this
+       real(real12), allocatable, dimension(:) :: params
+     end function get_params
 
-    !!--------------------------------------------------------------------------
-    !! set learnable parameters of layer
-    !!--------------------------------------------------------------------------
-    !! this  = (T, io) layer_type
-    !! param = (R, in) learnable parameters
-    subroutine set_params(this, params)
-      import :: learnable_layer_type, real12
-      class(learnable_layer_type), intent(inout) :: this
-      real(real12), dimension(:), intent(in) :: params
-    end subroutine set_params
+     !!--------------------------------------------------------------------------
+     !! set learnable parameters of layer
+     !!--------------------------------------------------------------------------
+     !! this  = (T, io) layer_type
+     !! param = (R, in) learnable parameters
+     subroutine set_params(this, params)
+       import :: learnable_layer_type, real12
+       class(learnable_layer_type), intent(inout) :: this
+       real(real12), dimension(:), intent(in) :: params
+     end subroutine set_params
 
-    !!--------------------------------------------------------------------------
-    !! get parameter gradients of layer
-    !!--------------------------------------------------------------------------
-    !! this        = (T, in) layer_type
-    !! clip_method = (T, in) clip method
-    !! gradients   = (R, out) parameter gradients
-    pure function get_gradients(this, clip_method) result(gradients)
-      import :: learnable_layer_type, real12, clip_type
-      class(learnable_layer_type), intent(in) :: this
-      type(clip_type), optional, intent(in) :: clip_method
-      real(real12), allocatable, dimension(:) :: gradients
-    end function get_gradients
+     !!--------------------------------------------------------------------------
+     !! get parameter gradients of layer
+     !!--------------------------------------------------------------------------
+     !! this        = (T, in) layer_type
+     !! clip_method = (T, in) clip method
+     !! gradients   = (R, out) parameter gradients
+     pure function get_gradients(this, clip_method) result(gradients)
+       import :: learnable_layer_type, real12, clip_type
+       class(learnable_layer_type), intent(in) :: this
+       type(clip_type), optional, intent(in) :: clip_method
+       real(real12), allocatable, dimension(:) :: gradients
+     end function get_gradients
 
-    !!--------------------------------------------------------------------------
-    !! set learnable parameters of layer
-    !!--------------------------------------------------------------------------
-    !! this      = (T, io) layer_type
-    !! gradients = (R, in) learnable parameters
-    subroutine set_gradients(this, gradients)
-      import :: learnable_layer_type, real12
-      class(learnable_layer_type), intent(inout) :: this
-      real(real12), dimension(..), intent(in) :: gradients
-    end subroutine set_gradients
+     !!--------------------------------------------------------------------------
+     !! set learnable parameters of layer
+     !!--------------------------------------------------------------------------
+     !! this      = (T, io) layer_type
+     !! gradients = (R, in) learnable parameters
+     subroutine set_gradients(this, gradients)
+       import :: learnable_layer_type, real12
+       class(learnable_layer_type), intent(inout) :: this
+       real(real12), dimension(..), intent(in) :: gradients
+     end subroutine set_gradients
   end interface
 
   !!!-----------------------------------------------------------------------------
@@ -383,39 +383,39 @@ module base_layer
 
 
   interface
-    pure module function get_num_params_base(this) result(num_params)
-      class(base_layer_type), intent(in) :: this
-      integer :: num_params
-    end function get_num_params_base
-    pure module function get_gradients_batch(this, clip_method) result(gradients)
-      class(batch_layer_type), intent(in) :: this
-      type(clip_type), optional, intent(in) :: clip_method
-      real(real12), allocatable, dimension(:) :: gradients
-    end function get_gradients_batch
-    pure module function get_num_params_batch(this) result(num_params)
-      class(batch_layer_type), intent(in) :: this
-      integer :: num_params
-    end function get_num_params_batch
-    module subroutine set_gradients_batch(this, gradients)
-      class(batch_layer_type), intent(inout) :: this
-      real(real12), dimension(..), intent(in) :: gradients
-    end subroutine set_gradients_batch
-    pure module function get_params_batch(this) result(params)
-      class(batch_layer_type), intent(in) :: this
-      real(real12), allocatable, dimension(:) :: params
-    end function get_params_batch
-    module subroutine set_params_batch(this, params)
-      class(batch_layer_type), intent(inout) :: this
-      real(real12), dimension(:), intent(in) :: params
-    end subroutine set_params_batch
-    pure module function get_num_params_conv(this) result(num_params)
-      class(conv_layer_type), intent(in) :: this
-      integer :: num_params
-    end function get_num_params_conv
-    pure module subroutine get_output_flatten(this, output)
-      class(flatten_layer_type), intent(in) :: this
-      real(real12), allocatable, dimension(..), intent(out) :: output
-    end subroutine get_output_flatten
+     pure module function get_num_params_base(this) result(num_params)
+       class(base_layer_type), intent(in) :: this
+       integer :: num_params
+     end function get_num_params_base
+     pure module function get_gradients_batch(this, clip_method) result(gradients)
+       class(batch_layer_type), intent(in) :: this
+       type(clip_type), optional, intent(in) :: clip_method
+       real(real12), allocatable, dimension(:) :: gradients
+     end function get_gradients_batch
+     pure module function get_num_params_batch(this) result(num_params)
+       class(batch_layer_type), intent(in) :: this
+       integer :: num_params
+     end function get_num_params_batch
+     module subroutine set_gradients_batch(this, gradients)
+       class(batch_layer_type), intent(inout) :: this
+       real(real12), dimension(..), intent(in) :: gradients
+     end subroutine set_gradients_batch
+     pure module function get_params_batch(this) result(params)
+       class(batch_layer_type), intent(in) :: this
+       real(real12), allocatable, dimension(:) :: params
+     end function get_params_batch
+     module subroutine set_params_batch(this, params)
+       class(batch_layer_type), intent(inout) :: this
+       real(real12), dimension(:), intent(in) :: params
+     end subroutine set_params_batch
+     pure module function get_num_params_conv(this) result(num_params)
+       class(conv_layer_type), intent(in) :: this
+       integer :: num_params
+     end function get_num_params_conv
+     pure module subroutine get_output_flatten(this, output)
+       class(flatten_layer_type), intent(in) :: this
+       real(real12), allocatable, dimension(..), intent(out) :: output
+     end subroutine get_output_flatten
   end interface
 
 
