@@ -67,7 +67,7 @@ The library has been developed and tested using the following compilers:
 
 The library is set up to work with the Fortran Package Manager (fpm).
 
-With gfortran, the following command in the repository main directory:
+Run the following command in the repository main directory:
 ```
   fpm build --profile release
 ```
