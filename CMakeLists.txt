@@ -95,6 +95,7 @@ set(LIB_FILES
     mod_loss.f90
     mod_accuracy.f90
     mod_base_layer.f90
+    mod_base_layer_sub.f90
     mod_batchnorm1d_layer.f90
     mod_batchnorm2d_layer.f90
     mod_batchnorm3d_layer.f90
@@ -203,8 +204,8 @@ target_link_libraries(${PROJECT_NAME} PUBLIC)
 string(REGEX REPLACE "\\.[^.]*$" ".mod" MODULE_FILES "${SRC_FILES}")
 
 # installation
-install(FILES ${MODULE_DIR}/${MODULE_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
-install(TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+install(FILES ${MODULE_DIR}/${MODULE_FILES} DESTINATION include)
+install(TARGETS ${PROJECT_NAME} DESTINATION lib)
 
 # set compile options based on different build configurations
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Release>:${OPTIMFLAGS}>")
