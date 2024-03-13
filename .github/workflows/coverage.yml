@@ -43,7 +43,7 @@ jobs:
         with:
           cmake-version: '3.24.x'
             
-      - uses: fortran-lang/setup-fortran@v5
+      - uses: fortran-lang/setup-fortran@v1
         id: setup-fortran
         with:
           compiler: ${{ matrix.compiler }}
