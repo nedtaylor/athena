@@ -9,11 +9,16 @@ program test_accuracy
   logical :: success = .true.
 
 
-  !! initialize output test data
+!!!-----------------------------------------------------------------------------
+!!! initialise output test data
+!!!-----------------------------------------------------------------------------
   output = &
        reshape([1.E0, 2.E0, 3.E0, 4.E0, 5.E0, 6.E0, 7.E0, 8.E0, 9.E0], [3,3])
 
-  !! test categorical_score
+
+!!!-----------------------------------------------------------------------------
+!!! test categorical_score
+!!!-----------------------------------------------------------------------------
   expected_categorical = reshape([1, 2, 3, 1, 2, 3, 1, 2, 3], [3,3])
   result = categorical_score(output, expected_categorical)
   if (any(abs(result - 1.E0) .gt. 1.E-6)) then
@@ -32,7 +37,10 @@ program test_accuracy
                     0.4E0, 0.5E0, 0.6E0, &
                     0.7E0, 0.8E0, 0.9E0], [3,3])
 
-  !! test mae_score
+
+!!!-----------------------------------------------------------------------------
+!!! test mae_score
+!!!-----------------------------------------------------------------------------
   expected = reshape([0.1E0, 0.2E0, 0.3E0, &
                       0.4E0, 0.5E0, 0.6E0, &
                       0.7E0, 0.8E0, 0.9E0], [3,3])
@@ -51,7 +59,10 @@ program test_accuracy
      success = .false.
   end if
 
-  !! test mse_score
+
+!!!-----------------------------------------------------------------------------
+!!! test mse_score
+!!!-----------------------------------------------------------------------------
   expected = reshape([0.1E0, 0.2E0, 0.3E0, &
                       0.4E0, 0.5E0, 0.6E0, &
                       0.7E0, 0.8E0, 0.9E0], [3,3])
@@ -70,7 +81,10 @@ program test_accuracy
      write(*,*) result
   end if
 
-  !! test r2_score
+
+!!!-----------------------------------------------------------------------------
+!!! test r2_score
+!!!-----------------------------------------------------------------------------
   expected = reshape([0.1E0, 0.2E0, 0.3E0, &
                       0.4E0, 0.5E0, 0.6E0, &
                       0.7E0, 0.8E0, 0.9E0], [3,3])
@@ -88,6 +102,7 @@ program test_accuracy
      success = .false.
   end if
 
+
 !!!-----------------------------------------------------------------------------
 !!! check for any failed tests
 !!!-----------------------------------------------------------------------------
@@ -98,6 +113,5 @@ program test_accuracy
      write(0,*) 'test_accuracy failed one or more tests'
      stop 1
   end if
-
 
 end program test_accuracy

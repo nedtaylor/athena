@@ -5,12 +5,12 @@
 !!!#############################################################################
 !!! module contains customn input file reading functions and subroutines.
 !!! module includes the following functionsand subroutines:
-!!! assign_val       (assign a value to a variable)
-!!! assign_vec       (assign a vector to a variable)
-!!! getline          (return line using grep and goes back to start of line)
-!!! rm_comments      (remove comments from a string (anything after ! or #))
-!!! cat              (cat lines until user-defined end string is encountered)
-!!! stop_check       (check for <STOP> file and LSTOP or LABORT tags inside)
+!!! - assign_val  - assign a value to a variable
+!!! - assign_vec  - assign a vector to a variable
+!!! - getline     - return line using grep and goes back to start of line
+!!! - rm_comments - remove comments from a string (anything after ! or #)
+!!! - cat         - cat lines until user-defined end string is encountered
+!!! - stop_check  - check for <STOP> file and LSTOP or LABORT tags inside
 !!!#############################################################################
 module infile_tools
   use misc, only: grep,icount
@@ -338,19 +338,19 @@ contains
     logical :: lfound
     logical :: output
     character(*), optional, intent(in) :: file
-    character(248) :: t_file
+    character(248) :: file_
     character(128) :: buffer, tagname
 
     unit = 999
-    t_file = "STOPCAR"
-    if(present(file)) t_file = file
+    file_ = "STOPCAR"
+    if(present(file)) file_ = file
 
     output = .false.
     !! check if file exists
-    inquire(file=trim(t_file),exist=lfound)
+    inquire(file=trim(file_),exist=lfound)
     file_if: if(lfound)then
        itmp1 = 0
-       open(unit=unit, file=trim(t_file))
+       open(unit=unit, file=trim(file_))
        !! read line-by-line
        file_loop: do
           read(unit,'(A)',iostat=Reason) buffer
@@ -367,7 +367,7 @@ contains
              call assignL(buffer,output,itmp1)
              if(output)then
                 close(unit,status='delete')
-                stop "LABORT ENCOUNTERED IN STOP FILE ("//trim(t_file)//")"
+                stop "LABORT ENCOUNTERED IN STOP FILE ("//trim(file_)//")"
              end if
           end select
        end do file_loop

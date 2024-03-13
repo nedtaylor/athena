@@ -20,8 +20,10 @@ program test_conv3d_network
   real, allocatable, dimension(:) :: gradients, gradients_bias
   logical :: success = .true.
 
-  write(*,*) "test_conv3d_network"
-  !! create network
+
+!!!-----------------------------------------------------------------------------
+!!! set up network
+!!!-----------------------------------------------------------------------------
   call network%add(conv3d_layer_type( &
        input_shape=[width, width, width, num_channels], &
        num_filters = num_filters1, &
@@ -35,7 +37,6 @@ program test_conv3d_network
        kernel_initialiser = "ones", &
        activation_function = "linear" &
        ))
-    
   call network%compile( &
        optimiser = base_optimiser_type(learning_rate=1.0), &
        loss_method="mse", metrics=["loss"], verbose=1, &

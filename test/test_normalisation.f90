@@ -7,7 +7,10 @@ program test_normalisation
   real, allocatable, dimension(:) :: input
   real, allocatable, dimension(:) :: expected_output
 
-  !! test linear renormalisation
+
+!!!-----------------------------------------------------------------------------
+!!! test linear renormalisation
+!!!-----------------------------------------------------------------------------
   input = [1.0E0, 2.0E0, 3.0E0]
   expected_output = [-1.0E0, 0.0E0, 1.0E0]
   call linear_renormalise(input)
@@ -16,7 +19,10 @@ program test_normalisation
      success = .false.
   end if
 
-  !! test linear renormalisation
+
+!!!-----------------------------------------------------------------------------
+!!! test linear renormalisation
+!!!-----------------------------------------------------------------------------
   input = [0.0E0, 5.0E0, 10.0E0, 15.0E0]
   expected_output = [0.0E0, 1.0E0, 2.0E0, 3.0E0]
   call linear_renormalise(input, min=0.E0, max=3.E0)
@@ -26,7 +32,10 @@ program test_normalisation
      success = .false.
   end if
 
-  !! test norm renormalisation
+
+!!!-----------------------------------------------------------------------------
+!!! test norm renormalisation
+!!!-----------------------------------------------------------------------------
   input = [-3.0E0, 0.0E0, 4.0E0, 12.0E0, 15.0E0]
   expected_output = input * 1.E0/sqrt(dot_product(input,input))
   call renormalise_norm(input)
@@ -35,7 +44,10 @@ program test_normalisation
      success = .false.
   end if
 
-  !! test norm renormalisation
+
+!!!-----------------------------------------------------------------------------
+!!! test norm renormalisation
+!!!-----------------------------------------------------------------------------
   input = [-3.0E0, 0.0E0, 4.0E0, 12.0E0, 15.0E0]
   expected_output = ( input - minval(input) ) * &
        2.E0 / ( maxval(input) - minval(input) ) - 1.E0
@@ -46,8 +58,11 @@ program test_normalisation
      write(0,*) "Norm renormalisation failed"
      success = .false.
   end if
-  
-  !! test sum renormalisation
+
+
+!!!-----------------------------------------------------------------------------
+!!! test sum renormalisation
+!!!-----------------------------------------------------------------------------
   input = [1.0E0, 2.0E0, 3.0E0]
   expected_output = input / sum(input)
   call renormalise_sum(input)

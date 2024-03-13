@@ -1,9 +1,11 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
+!!! Code part of the ATHENA library - a feedforward neural network library
+!!!#############################################################################
+!!! module contains implementation of the LeCun initialiser
 !!!#############################################################################
 !!! LeCun initialiser reference: https://dl.acm.org/doi/10.5555/645754.668382
+!!!#############################################################################
 module initialiser_lecun
   use constants, only: real12, pi
   use custom_types, only: initialiser_type

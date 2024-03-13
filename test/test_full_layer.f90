@@ -8,7 +8,9 @@ program test_full_layer
   logical :: success = .true.
 
 
-  !! set up full layer
+!!!-----------------------------------------------------------------------------
+!!! set up layer
+!!!-----------------------------------------------------------------------------
   full_layer1 = full_layer_type(num_inputs=1, num_outputs=10)
   
   !! check layer name
@@ -53,6 +55,7 @@ program test_full_layer
      write(0,*) 'full layer has wrong input_shape'
   end if
 
+
 !!!-----------------------------------------------------------------------------
 !!! check layer operations
 !!!-----------------------------------------------------------------------------
@@ -95,6 +98,7 @@ program test_full_layer
      write(0,*) 'full layer has wrong type'
   end select
 
+
 !!!-----------------------------------------------------------------------------
 !!! check for any failed tests
 !!!-----------------------------------------------------------------------------
@@ -107,9 +111,11 @@ program test_full_layer
   end if
 
 
+contains
 
-  contains
-
+!!!-----------------------------------------------------------------------------
+!!! compare two or three layers
+!!!-----------------------------------------------------------------------------
   subroutine compare_full_layers(layer1, layer2, success, layer3)
      type(full_layer_type), intent(in) :: layer1, layer2
      logical, intent(inout) :: success

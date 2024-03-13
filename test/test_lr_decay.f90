@@ -1,5 +1,4 @@
 program test_lr_decay
-  use misc_ml, only: step_decay, reduce_lr_on_plateau
   use learning_rate_decay
   implicit none
 
@@ -20,36 +19,9 @@ program test_lr_decay
   class(base_lr_decay_type), allocatable :: lr_decay
 
 
-  !! test step_decay
-  do epoch = 1, 20
-    learning_rate = init_learning_rate
-    call step_decay(learning_rate, epoch, decay_rate, decay_steps)
-     if ( abs( &
-          learning_rate - &
-          init_learning_rate * decay_rate**((epoch - 1.E0) / &
-          decay_steps) ) .gt. &
-          1.E-6 ) then
-        success = .false.
-        write(0,*) "step_decay failed"
-     end if
-  end do
-
-  !! test reduce_lr_on_plateau
-  learning_rate = init_learning_rate
-  do i = 1, 5
-     wait = 6
-     expected_learning_rate = max( learning_rate * factor , min_learning_rate)
-     call reduce_lr_on_plateau(learning_rate, 0.5E0, 5, factor, &
-          1.E-6, best_metric_value, wait)
-
-     if( abs( expected_learning_rate - learning_rate ) .gt. 1.E-6 )then
-        success = .false.
-        write(0,*) "reduce_lr_on_plateau failed"
-        write(*,*) "learning_rate = ", learning_rate, expected_learning_rate
-     end if
-  end do
-
-  !! test base learning rate decay
+!!!-----------------------------------------------------------------------------
+!!! test base learning rate decay
+!!!-----------------------------------------------------------------------------
   lr_decay = base_lr_decay_type()
   select type(lr_decay)
   type is (base_lr_decay_type)
@@ -67,7 +39,10 @@ program test_lr_decay
      success = .false.
   end if
 
-  !! test exponential learning rate decay
+
+!!!-----------------------------------------------------------------------------
+!!! test exponential learning rate decay
+!!!-----------------------------------------------------------------------------
   lr_decay = exp_lr_decay_type()
   if(abs(lr_decay%decay_rate-0.9E0).gt.1.E-6)then
      write(0,*) "step decay rate failed to initialise"
@@ -90,7 +65,9 @@ program test_lr_decay
      success = .false.
   end if
 
-  !! test step learning rate decay
+!!!-----------------------------------------------------------------------------
+!!! test step learning rate decay
+!!!-----------------------------------------------------------------------------
   lr_decay = step_lr_decay_type()
   if(abs(lr_decay%decay_rate-0.1E0).gt.1.E-6)then
      write(0,*) "step decay rate failed to initialise"
@@ -117,7 +94,9 @@ program test_lr_decay
      success = .false.
   end if
 
-  !! test inverse learning rate decay
+!!!-----------------------------------------------------------------------------
+!!! test inverse learning rate decay
+!!!-----------------------------------------------------------------------------
   lr_decay = inv_lr_decay_type()
   if(abs(lr_decay%decay_rate-0.001E0).gt.1.E-6)then
      write(0,*) "inv decay rate failed to initialise"
@@ -143,6 +122,7 @@ program test_lr_decay
      write(0,*) "inverse learning rate decay failed"
      success = .false.
   end if
+
 
 !!!-----------------------------------------------------------------------------
 !!! check for any failed tests

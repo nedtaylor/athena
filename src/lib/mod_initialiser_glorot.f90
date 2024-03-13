@@ -1,9 +1,12 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
+!!! Code part of the ATHENA library - a feedforward neural network library
 !!!#############################################################################
-!!! Glorot initialiser reference: https://proceedings.mlr.press/v9/glorot10a.html
+!!! module contains implementation of the Glorot initialiser
+!!!#############################################################################
+!!! Glorot initialiser reference: ...
+!!! ... https://proceedings.mlr.press/v9/glorot10a.html
+!!!#############################################################################
 module initialiser_glorot
   use constants, only: real12, pi
   use custom_types, only: initialiser_type

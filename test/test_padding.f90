@@ -18,8 +18,10 @@ program test_padding
   real :: pad_value(10)
   character(len=20) :: padding_methods(10)
 
-  !! create input data
-  half = kernel_size/2
+
+!!!-----------------------------------------------------------------------------
+!!! initialise all data
+!!!-----------------------------------------------------------------------------
   allocate(input_data1d_ncs(width))
   allocate(input_data1d_nc(width,1))
   allocate(input_data1d(width,1,1))
@@ -31,6 +33,7 @@ program test_padding
   input_data2d = 1.0
   input_data3d = 1.0
 
+  !! initialise padding methods
   padding_methods(1)  = 'none'
   padding_methods(2)  = 'valid'
   padding_methods(3)  = 'zero'
@@ -42,6 +45,8 @@ program test_padding
   padding_methods(9)  = 'replication'
   padding_methods(10) = 'symmetric'
 
+  !! calculate expected output widths and pad values
+  half = kernel_size/2
   out_width(1)  = width
   out_width(2)  = width
   out_width(3)  = width + 2 * half
@@ -53,6 +58,7 @@ program test_padding
   out_width(9)  = width + 2 * half
   out_width(10) = width + 2 * half
 
+  !! initialise pad values
   pad_value(1)  = 1.0
   pad_value(2)  = 1.0
   pad_value(3)  = 1.0
@@ -65,7 +71,9 @@ program test_padding
   pad_value(10) = 1.0
 
 
-  !! test kernel rank
+!!!-----------------------------------------------------------------------------
+!!! test kernel rank
+!!!-----------------------------------------------------------------------------
   call pad_data(input_data1d, padded_data1d, &
        [kernel_size], padding_method = padding_methods(3), &
        sample_dim = 3, channel_dim = 2)
@@ -76,8 +84,10 @@ program test_padding
        [kernel_size, kernel_size], padding_method = padding_methods(3), &
        sample_dim = 4, channel_dim = 3)
 
-  !! test padding methods
-  !!----------------------------------------------------------------------------
+
+!!!-----------------------------------------------------------------------------
+!!! test padding methods
+!!!-----------------------------------------------------------------------------
   do i = 1, size(padding_methods)
      !! 1D input data (no channel or sample dim)
      !!-------------------------------------------------------------------------

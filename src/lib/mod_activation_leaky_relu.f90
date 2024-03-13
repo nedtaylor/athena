@@ -1,7 +1,8 @@
 !!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor 
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
+!!! Code written by Ned Thaddeus Taylor
+!!! Code part of the ATHENA library - a feedforward neural network library
+!!!#############################################################################
+!!! module contains implementation of the leaky ReLU activation function
 !!!#############################################################################
 module activation_leaky_relu
   use constants, only: real12

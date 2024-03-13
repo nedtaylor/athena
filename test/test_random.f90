@@ -12,6 +12,7 @@ program test_random
   allocate(seed(num_seed))
   seed = (/ (i, i=1, num_seed) /)
 
+
   !! test with seed and num_seed
   call random_setup(seed, restart=.false., &
        already_initialised=already_initialised)
@@ -40,6 +41,7 @@ program test_random
 
   !! test with restart
   call random_setup(restart = .true., already_initialised = already_initialised)
+
 
 !!!-----------------------------------------------------------------------------
 !!! check for any failed tests

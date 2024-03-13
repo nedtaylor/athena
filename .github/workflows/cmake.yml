@@ -1,0 +1,113 @@
+name: run-cmake-build
+
+on:
+  push:
+    paths:
+      - ".github/workflows/cmake.yml"
+      - "CMakeLists.txt"
+      - "**.f90"
+  pull_request:
+    paths:
+      - ".github/workflows/cmake.yml"
+      - "CMakeLists.txt"
+      - "**.f90"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-test-cmake-debug:
+    environment:
+      name: github-pages
+    name: Build and test in debug mode
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        compiler: [gcc]
+        version: [13]
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v2
+      
+      - name: actions-setup-cmake
+        uses: jwlawson/actions-setup-cmake@v2.0.1
+        with:
+          cmake-version: '3.24.x'
+            
+      - uses: fortran-lang/setup-fortran@v1
+        id: setup-fortran
+        with:
+          compiler: ${{ matrix.compiler }}
+          version: ${{ matrix.version }}
+          
+      - name: Install gcovr
+        run: |
+          pip --version
+          pip install gcovr
+          
+      - name: Compile
+        run: |
+          cmake --version
+          gfortran --version
+          mkdir -p build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Debug ..
+          make
+          make install
+
+      - name: Test
+        run: |
+          gfortran --version
+          ctest
+          
+  build-and-test-cmake-release:
+    environment:
+      name: github-pages
+    name: Build and test in release mode
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        compiler: [gcc]
+        version: [13]
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v2
+      
+      - name: actions-setup-cmake
+        uses: jwlawson/actions-setup-cmake@v2.0.1
+        with:
+          cmake-version: '3.24.x'
+            
+      - uses: fortran-lang/setup-fortran@v1
+        id: setup-fortran
+        with:
+          compiler: ${{ matrix.compiler }}
+          version: ${{ matrix.version }}
+          
+      - name: Compile
+        run: |
+          cmake --version
+          gfortran --version
+          mkdir -p build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Release ..
+          make
+          make install
+
+      - name: Test
+        run: |
+          gfortran --version
+          ctest
+  
+        

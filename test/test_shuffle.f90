@@ -41,10 +41,14 @@ program test_shuffle
   real :: array_5d_shuffled_tmp(n, m, p, q, s)
 
   logical :: success = .true.
-  
 
-   ilabel_original = (/ (i, i = 1, n) /)
-   rlabel_original = (/ (i, i = 1, n) /)
+  
+!!!-----------------------------------------------------------------------------
+!!! initialise labels
+!!!-----------------------------------------------------------------------------
+  ilabel_original = (/ (i, i = 1, n) /)
+  rlabel_original = (/ (i, i = 1, n) /)
+
 
 !!!-----------------------------------------------------------------------------
 !!! 1D array shuffle tests

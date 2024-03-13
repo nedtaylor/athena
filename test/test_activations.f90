@@ -38,6 +38,10 @@ program test_activations
    real, dimension(1) :: value_1d, rtmp1_1d
    real, dimension(1,1,1) :: value_3d, rtmp1_3d
 
+
+!!!-----------------------------------------------------------------------------
+!!! Initialise activation names
+!!!-----------------------------------------------------------------------------
    activation_names(1) = 'none'
    activation_names(2) = 'gaussian'
    activation_names(3) = 'leaky_relu'
@@ -48,6 +52,7 @@ program test_activations
    activation_names(8) = 'softmax'
    activation_names(9) = 'tanh'
  
+   !! initialise expected activation values
    value = 0.25E0
    value_1d = value
    value_3d = value
@@ -63,6 +68,7 @@ program test_activations
    activate(8) = exp(0.E0)
    activate(9) = scale * tanh(value)
 
+   !! initialise expected differentiation values
    differentiate(1) = scale * value
    differentiate(2) = - value/1.5E0**2.E0 * activate(2)
    differentiate(3) = scale
@@ -74,7 +80,9 @@ program test_activations
    differentiate(9) = scale * (1.E0 - (activate(9)/scale)**2.E0)
 
 
-   !! check gaussian setup
+!!!-----------------------------------------------------------------------------
+!!! check gaussian setup
+!!!-----------------------------------------------------------------------------
    activation = gaussian_setup(threshold = 2.E0, sigma = 2.E0)
    if(.not. activation%name .eq. 'gaussian')then
       success = .false.
@@ -86,14 +94,20 @@ program test_activations
       end if
    end if
 
-   !! check piecewise setup
+
+!!!-----------------------------------------------------------------------------
+!!! check piecewise setup
+!!!-----------------------------------------------------------------------------
    activation = piecewise_setup(intercept = 2.E0)
    if(.not. activation%name .eq. 'piecewise')then
       success = .false.
       write(0,*) 'activation has wrong name for piecewise'
    end if
 
-   !! check sigmoid setup
+
+!!!-----------------------------------------------------------------------------
+!!! check sigmoid setup
+!!!-----------------------------------------------------------------------------
    activation = sigmoid_setup(threshold = 2.E0)
    if(.not. activation%name .eq. 'sigmoid')then
       success = .false.
@@ -105,7 +119,10 @@ program test_activations
       end if
    end if
 
-   !! check softmax setup
+
+!!!-----------------------------------------------------------------------------
+!!! check softmax setup
+!!!-----------------------------------------------------------------------------
    activation = softmax_setup(threshold = 2.E0)
    if(.not. activation%name .eq. 'softmax')then
       success = .false.
@@ -117,7 +134,10 @@ program test_activations
       end if
    end if
 
-   !! check tanh setup
+
+!!!-----------------------------------------------------------------------------
+!!! check tanh setup
+!!!-----------------------------------------------------------------------------
    activation = tanh_setup(threshold = 2.E0)
    if(.not. activation%name .eq. 'tanh')then
       success = .false.
@@ -129,7 +149,10 @@ program test_activations
       end if
    end if
 
-   !! check general activation setup
+!!!-----------------------------------------------------------------------------
+!!! check activation setups more rigorously
+!!! check for different scales, and ranks
+!!!-----------------------------------------------------------------------------
    do i = 1, size(activation_names)
       deallocate(activation)
       allocate(activation, &
@@ -301,6 +324,9 @@ program test_activations
  
 contains
 
+!!!-----------------------------------------------------------------------------
+!!! compare output
+!!!-----------------------------------------------------------------------------
    subroutine compare_output(output, input, activation_name, success)
       real, intent(in) :: output(1:1)
       real, intent(in) :: input(1:1)
@@ -346,6 +372,10 @@ contains
    
    end subroutine compare_output
 
+
+!!!-----------------------------------------------------------------------------
+!!! compare derivative
+!!!-----------------------------------------------------------------------------
    subroutine compare_derivative(derivative, input, activation_name, success)
       real, intent(in) :: derivative(1:1)
       real, intent(in) :: input(1:1)

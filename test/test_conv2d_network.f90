@@ -19,8 +19,10 @@ program test_conv2d_network
   real, allocatable, dimension(:) :: gradients, gradients_bias
   logical :: success = .true.
 
-  write(*,*) "test_conv2d_network"
-  !! create network
+
+!!!-----------------------------------------------------------------------------
+!!! set up network
+!!!-----------------------------------------------------------------------------
   call network%add(conv2d_layer_type( &
        input_shape=[width, width, num_channels], &
        num_filters = num_filters1, &

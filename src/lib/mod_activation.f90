@@ -1,7 +1,10 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
+!!! Code part of the ATHENA library - a feedforward neural network library
+!!!#############################################################################
+!!! module to setup the activation function
+!!! module includes the following procedures:
+!!! - activation_setup - set up the activation function
 !!!#############################################################################
 module activation
   use constants, only: real12
@@ -35,16 +38,16 @@ contains
     class(activation_type), allocatable :: transfer
     character(*), intent(in) :: name
 
-    real(real12) :: t_scale
+    real(real12) :: scale_
 
 
     !!--------------------------------------------------------------------------
     !! set defaults if not present
     !!--------------------------------------------------------------------------
     if(present(scale))then
-       t_scale = scale
+       scale_ = scale
     else
-       t_scale = 1._real12
+       scale_ = 1._real12
     end if
 
 
@@ -53,25 +56,25 @@ contains
     !!--------------------------------------------------------------------------
     select case(trim(to_lower(name)))
     case("gaussian")
-       transfer = gaussian_setup(scale = t_scale)
+       transfer = gaussian_setup(scale = scale_)
     case ("linear")
-       transfer = linear_setup(scale = t_scale)
+       transfer = linear_setup(scale = scale_)
     case ("piecewise")
-       transfer = piecewise_setup(scale = t_scale)
+       transfer = piecewise_setup(scale = scale_)
     case ("relu")
-       transfer = relu_setup(scale = t_scale)
+       transfer = relu_setup(scale = scale_)
     case ("leaky_relu")
-       transfer = leaky_relu_setup(scale = t_scale)
+       transfer = leaky_relu_setup(scale = scale_)
     case ("sigmoid")
-       transfer = sigmoid_setup(scale = t_scale)
+       transfer = sigmoid_setup(scale = scale_)
     case ("softmax")
-       transfer = softmax_setup(scale = t_scale)
+       transfer = softmax_setup(scale = scale_)
     case ("tanh")
-       transfer = tanh_setup(scale = t_scale)
+       transfer = tanh_setup(scale = scale_)
     case ("none")
-       transfer = none_setup(scale = t_scale)
+       transfer = none_setup(scale = scale_)
     case default
-       transfer = none_setup(scale = t_scale)
+       transfer = none_setup(scale = scale_)
     end select
 
   end function activation_setup

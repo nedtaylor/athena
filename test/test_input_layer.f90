@@ -25,7 +25,9 @@ program test_input_layer
   logical :: success = .true.
 
 
-  !! set up input1d layer
+!!!-----------------------------------------------------------------------------
+!!! set up input1d layer
+!!!-----------------------------------------------------------------------------
   input_layer = input1d_layer_type( &
        input_shape=shape(input_1d), &
        batch_size=batch_size)
@@ -82,7 +84,10 @@ program test_input_layer
      call input_layer%backward([1.E0], [1.E0])
   end select
 
-  !! set up input3d layer
+
+!!!-----------------------------------------------------------------------------
+!!! set up input3d layer
+!!!-----------------------------------------------------------------------------
   deallocate(input_layer)
   input_layer = input3d_layer_type( &
        input_shape=shape(input_3d), &
@@ -140,7 +145,10 @@ program test_input_layer
      call input_layer%backward([1.E0], [1.E0])
   end select
 
-  !! set up input4d layer
+
+!!!-----------------------------------------------------------------------------
+!!! set up input4d layer
+!!!-----------------------------------------------------------------------------
   deallocate(input_layer)
   input_layer = input4d_layer_type( &
        input_shape=shape(input_4d), &

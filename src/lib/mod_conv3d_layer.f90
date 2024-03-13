@@ -1,7 +1,8 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
+!!! Code part of the ATHENA library - a feedforward neural network library
+!!!#############################################################################
+!!! module contains implementation of a 3D convolutional layer
 !!!#############################################################################
 module conv3d_layer
   use constants, only: real12
@@ -309,8 +310,8 @@ contains
 
     integer :: i
     real(real12) :: scale
-    character(len=10) :: t_activation_function
-    character(len=20) :: t_padding
+    character(len=10) :: activation_function_
+    character(len=20) :: padding_
 
 
     layer%name = "conv3d"
@@ -372,12 +373,12 @@ contains
     layer%hlf   = (layer%knl-1)/2
 
     if(present(padding))then
-       t_padding = padding
+       padding_ = padding
     else
-       t_padding = "valid"
+       padding_ = "valid"
     end if
     do i=1,3
-       call set_padding(layer%pad(i), layer%knl(i), t_padding)
+       call set_padding(layer%pad(i), layer%knl(i), padding_)
     end do
 
 
@@ -405,18 +406,18 @@ contains
     !! set activation and derivative functions based on input name
     !!--------------------------------------------------------------------------
     if(present(activation_function))then
-       t_activation_function = activation_function
+       activation_function_ = activation_function
     else
-       t_activation_function = "none"
+       activation_function_ = "none"
     end if
     if(present(activation_scale))then
        scale = activation_scale
     else
        scale = 1._real12
     end if
-    write(*,'("CONV3D activation function: ",A)') trim(t_activation_function)
+    write(*,'("CONV3D activation function: ",A)') trim(activation_function_)
     allocate(layer%transfer, &
-         source=activation_setup(t_activation_function, scale))
+         source=activation_setup(activation_function_, scale))
 
 
     !!--------------------------------------------------------------------------
@@ -424,12 +425,12 @@ contains
     !!--------------------------------------------------------------------------
     if(present(kernel_initialiser)) layer%kernel_initialiser =kernel_initialiser
     if(trim(layer%kernel_initialiser).eq.'') &
-         layer%kernel_initialiser=get_default_initialiser(t_activation_function)
+         layer%kernel_initialiser=get_default_initialiser(activation_function_)
     write(*,'("CV kernel initialiser: ",A)') trim(layer%kernel_initialiser)
     if(present(bias_initialiser)) layer%bias_initialiser = bias_initialiser
     if(trim(layer%bias_initialiser).eq.'') &
          layer%bias_initialiser = get_default_initialiser(&
-         t_activation_function, is_bias=.true.)
+         activation_function_, is_bias=.true.)
     write(*,'("CV bias initialiser: ",A)') trim(layer%bias_initialiser)
 
 
@@ -453,19 +454,15 @@ contains
     integer, optional, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
 
-    integer :: t_verb
+    integer :: verbose_ = 0
     integer, dimension(3) :: end_idx
-    class(initialiser_type), allocatable :: t_initialiser
+    class(initialiser_type), allocatable :: initialiser_
 
 
     !!--------------------------------------------------------------------------
     !! initialise optional arguments
     !!--------------------------------------------------------------------------
-    if(present(verbose))then
-       t_verb = verbose
-    else
-       t_verb = 0
-    end if
+    if(present(verbose)) verbose_ = verbose
     if(present(batch_size)) this%batch_size = batch_size
 
 
@@ -500,17 +497,17 @@ contains
     !!--------------------------------------------------------------------------
     !! initialise weights (kernels)
     !!--------------------------------------------------------------------------
-    allocate(t_initialiser, source=initialiser_setup(this%kernel_initialiser))
-    call t_initialiser%initialise(this%weight, &
+    allocate(initialiser_, source=initialiser_setup(this%kernel_initialiser))
+    call initialiser_%initialise(this%weight, &
          fan_in=product(this%knl)+1, fan_out=1)
-    deallocate(t_initialiser)
+    deallocate(initialiser_)
 
     !! initialise biases
     !!--------------------------------------------------------------------------
-    allocate(t_initialiser, source=initialiser_setup(this%bias_initialiser))
-    call t_initialiser%initialise(this%bias, &
+    allocate(initialiser_, source=initialiser_setup(this%bias_initialiser))
+    call initialiser_%initialise(this%bias, &
          fan_in=product(this%knl)+1, fan_out=1)
-    deallocate(t_initialiser)
+    deallocate(initialiser_)
 
 
     !!--------------------------------------------------------------------------
@@ -531,17 +528,13 @@ contains
    integer, intent(in) :: batch_size
    integer, optional, intent(in) :: verbose
 
-   integer :: t_verb
+   integer :: verbose_ = 0
 
 
    !!--------------------------------------------------------------------------
    !! initialise optional arguments
    !!--------------------------------------------------------------------------
-   if(present(verbose))then
-      t_verb = verbose
-   else
-      t_verb = 0
-   end if
+   if(present(verbose)) verbose_ = verbose
    this%batch_size = batch_size
 
 
@@ -674,11 +667,11 @@ contains
 
     class(conv3d_layer_type), allocatable :: layer
 
-    integer :: stat, t_verb
+    integer :: stat, verbose_ = 0
     integer :: j, k, l, c, itmp1
     integer :: num_filters, num_inputs
     real(real12) :: activation_scale
-    logical :: found_weights
+    logical :: found_weights = .false.
     character(14) :: kernel_initialiser='', bias_initialiser=''
     character(20) :: padding, activation_function
     character(256) :: buffer, tag
@@ -691,17 +684,12 @@ contains
     !!--------------------------------------------------------------------------
     !! initialise optional arguments
     !!--------------------------------------------------------------------------
-    if(present(verbose))then
-       t_verb = verbose
-    else
-       t_verb = 0
-    end if
+    if(present(verbose)) verbose_ = verbose
 
 
     !!--------------------------------------------------------------------------
     !! loop over tags in layer card
     !!--------------------------------------------------------------------------
-    found_weights = .false.
     tag_loop: do
 
        !! check for end of file

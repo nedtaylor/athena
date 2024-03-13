@@ -29,8 +29,8 @@
 !!! to_upper         (converts all characters in string to upper case)
 !!! to_lower         (converts all characters in string to lower case)
 !!!#############################################################################
-module misc_minst
-  use constants_minst, only: real12
+module misc_mnist
+  use constants_mnist, only: real12
   implicit none
 
 
@@ -1766,4 +1766,4 @@ contains
   end function to_lower
 !!!#####################################################
 
-end module misc_minst
+end module misc_mnist

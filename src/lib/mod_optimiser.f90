@@ -1,7 +1,19 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
+!!! Code part of the ATHENA library - a feedforward neural network library
+!!!#############################################################################
+!!! module contains implementations of optimisation methods
+!!! module contains the following derived types:
+!!! - base_optimiser_type    - base optimiser type
+!!! - sgd_optimiser_type     - stochastic gradient descent optimiser type
+!!! - rmsprop_optimiser_type - rmsprop optimiser type
+!!! - adagrad_optimiser_type - adagrad optimiser type
+!!! - adam_optimiser_type    - adam optimiser type
+!!!##################
+!!! <NAME>_optimiser_type contains the following procedures:
+!!! - init_gradients - initialise gradients
+!!! - minimise       - minimise the loss function by applying gradients to ...
+!!!                    ... the parameters
 !!!#############################################################################
 module optimiser
   use constants, only: real12

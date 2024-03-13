@@ -1,7 +1,12 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
+!!! Code part of the ATHENA library - a feedforward neural network library
+!!!#############################################################################
+!!! module contains procedures for normalising input and output data
+!!! module contains the following procedures:
+!!! - linear_renormalise - renormalises input data to a range
+!!! - renormalise_norm   - renormalises input data to a unit norm
+!!! - renormalise_sum    - renormalises input data to a unit sum
 !!!#############################################################################
 module normalisation
   use constants, only: real12

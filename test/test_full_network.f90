@@ -12,12 +12,15 @@ program test_full_network
 
   logical :: success = .true.
 
+
+!!!-----------------------------------------------------------------------------
+!!! set up network
+!!!-----------------------------------------------------------------------------
   call network%add(full_layer_type( &
        num_inputs=1, &
        num_outputs=1, &
        kernel_initialiser='ones' &
        ))
-
   call network%compile( &
        optimiser=sgd_optimiser_type(learning_rate=1.0), &
        loss_method='mse', &
@@ -32,7 +35,10 @@ program test_full_network
      write(0,*) 'network has wrong number of layers'
   end if
 
-  !! train network
+
+!!!-----------------------------------------------------------------------------
+!!! manually train network
+!!!-----------------------------------------------------------------------------
   training: block
      real, dimension(1,1) :: x, y
      real :: tol = 1.E-3
@@ -56,6 +62,10 @@ program test_full_network
 
   end block training
 
+
+!!!-----------------------------------------------------------------------------
+!!! check output request using rank 1 and rank 2 arrays is consistent
+!!!-----------------------------------------------------------------------------
   call network%model(1)%layer%get_output(output_1d)
   call network%model(1)%layer%get_output(output_2d)
   if(any(abs(output_1d - reshape(output_2d, [size(output_2d)])) .gt. 1.E-6))then
@@ -63,6 +73,11 @@ program test_full_network
      write(0,*) 'output_1d and output_2d are not consistent'
   end if
 
+
+!!!-----------------------------------------------------------------------------
+!!! check adding layers works as expected
+!!! check compile adds input_layer at the start
+!!!-----------------------------------------------------------------------------  
   !! reset network
   call network%reset()
   call network%add(full_layer_type(num_inputs=760, num_outputs=30))

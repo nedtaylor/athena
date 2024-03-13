@@ -12,7 +12,9 @@ program test_clipper
   logical :: success = .true.
 
 
-  !! check clip setup
+!!!-----------------------------------------------------------------------------
+!!! check clip manual setup
+!!!-----------------------------------------------------------------------------
   allocate(clip3, source=clip_type( &
        clip_min = 0.1, &
        clip_max = 0.2, &
@@ -31,7 +33,10 @@ program test_clipper
      success = .false.
   end if
 
-  !! test clip read
+
+!!!-----------------------------------------------------------------------------
+!!! test clip read
+!!!-----------------------------------------------------------------------------
   call clip2%read("0.2", "0.4", "0.6")
   if(abs(clip2%min - 0.2) .gt. 1.E-6)then
      write(0,*) "read min failed"
@@ -46,7 +51,10 @@ program test_clipper
      success = .false.
   end if
   
-  !! test clip set
+
+!!!-----------------------------------------------------------------------------
+!!! test clip set
+!!!-----------------------------------------------------------------------------
   call clip1%set(clip_min=0.0, clip_max=1.0, clip_norm=1.0)
   if(abs(clip1%min) .gt. 1.E-6)then
      write(0,*) "set min failed"
@@ -60,8 +68,11 @@ program test_clipper
      write(0,*) "set norm failed"
      success = .false.
   end if
-  
-  !! test copying clip
+
+
+!!!-----------------------------------------------------------------------------
+!!! test copying clip
+!!!-----------------------------------------------------------------------------
   call clip2%set(clip_dict=clip1)
   if(abs(clip2%min - clip1%min) .gt. 1.E-6)then
      write(0,*) "copy min failed"
@@ -76,7 +87,10 @@ program test_clipper
      success = .false.
   end if
 
-  !! test clip apply
+
+!!!-----------------------------------------------------------------------------
+!!! test clip apply
+!!!-----------------------------------------------------------------------------
   call clip1%apply(length, gradient, bias)
   if(any(abs(gradient - 0.5E0) .gt. 1.E-6))then
      write(0,*) "gradient apply failed"
