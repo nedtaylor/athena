@@ -50,10 +50,15 @@ jobs:
           compiler: ${{ matrix.compiler }}
           version: ${{ matrix.version }}
           
+      - name: Install gcovr
+        run: |
+          pip --version
+          pip install gcovr
+          
       - name: Compile
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake make
+          # sudo apt-get update
+          # sudo apt-get install -y cmake make
           cmake --version
           gfortran --version
           mkdir -p build
