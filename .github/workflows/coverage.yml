@@ -63,7 +63,6 @@ jobs:
           cd build
           cmake -DCMAKE_BUILD_TYPE=Debug ..
           make
-          ./test/test_regulariser
           make coverage
 
       - name: Get coverage percentage
