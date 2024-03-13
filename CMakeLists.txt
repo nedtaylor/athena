@@ -217,7 +217,7 @@ target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel_Dev>:${DEVFLA
 
 # include the build test directory
 if(BUILD_TESTS)
-   add_subdirectory(test)
+  add_subdirectory(test)
 endif()
 
 # add coverage compiler flags
