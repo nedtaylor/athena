@@ -1,7 +1,10 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
+!!! Code part of the ATHENA library - a feedforward neural network library
+!!!#############################################################################
+!!! module contains all publicly available types and procedures within the ...
+!!! ... ATHENA library
+!!! No other types or procedures should be needed to be accessed by the user
 !!!#############################################################################
 module athena
   use misc_ml, only: shuffle, split, pad_data
@@ -50,6 +53,7 @@ module athena
   use input4d_layer,   only: input4d_layer_type
 
   !! batch normalisation layer types
+  use batchnorm1d_layer, only: batchnorm1d_layer_type, read_batchnorm1d_layer
   use batchnorm2d_layer, only: batchnorm2d_layer_type, read_batchnorm2d_layer
   use batchnorm3d_layer, only: batchnorm3d_layer_type, read_batchnorm3d_layer
 

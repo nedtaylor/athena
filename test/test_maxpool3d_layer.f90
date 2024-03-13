@@ -18,7 +18,9 @@ program test_maxpool3d_layer
   real, parameter :: max_value = 3.0
 
 
-  !! set up maxpool3d layer
+!!!-----------------------------------------------------------------------------
+!!! set up layer
+!!!-----------------------------------------------------------------------------
   pool_layer = maxpool3d_layer_type( &
        pool_size = pool, &
        stride = stride &
@@ -29,8 +31,6 @@ program test_maxpool3d_layer
      success = .false.
      write(0,*) 'maxpool3d layer has wrong name'
   end if
-
-!!!-----------------------------------------------------------------------------
 
   !! check layer type
   select type(pool_layer)
@@ -57,8 +57,10 @@ program test_maxpool3d_layer
      write(0,*) 'maxpool3d layer has wrong type'
   end select
 
-!!!-----------------------------------------------------------------------------
 
+!!!-----------------------------------------------------------------------------
+!!! check layer input and output shape based on input layer
+!!!-----------------------------------------------------------------------------
   !! initialise width and output width
   output_width = floor( (width - pool)/real(stride)) + 1
   max_loc = width / 2 + mod(width, 2)
@@ -70,8 +72,6 @@ program test_maxpool3d_layer
        pool_size = pool, &
        stride = stride &
        )
-
-!!!-----------------------------------------------------------------------------
 
   !! check layer input and output shape based on input layer
   call pool_layer%init(shape(input_data(:,:,:,:,1)), batch_size=1)
@@ -91,6 +91,11 @@ program test_maxpool3d_layer
     end if
   end select
 
+
+!!!-----------------------------------------------------------------------------
+!!! test forward pass and check expected output
+!!! use existing layer
+!!!-----------------------------------------------------------------------------
   !! run forward pass
   call pool_layer%forward(input_data)
   call pool_layer%get_output(output)
@@ -117,7 +122,10 @@ program test_maxpool3d_layer
      end do
   end do
 
-  !! check 1d and 2d output are consistent
+
+!!!-----------------------------------------------------------------------------
+!!! check output request using rank 1 and rank 2 arrays is consistent
+!!!-----------------------------------------------------------------------------
   call pool_layer%get_output(output_1d)
   call pool_layer%get_output(output_2d)
   if(any(abs(output_1d - reshape(output_2d, [size(output_2d)])) .gt. 1.E-6))then
@@ -125,8 +133,10 @@ program test_maxpool3d_layer
      write(0,*) 'output_1d and output_2d are not consistent'
   end if
 
-!!!-----------------------------------------------------------------------------
 
+!!!-----------------------------------------------------------------------------
+!!! test backward pass and check expected output
+!!!-----------------------------------------------------------------------------
   !! run backward pass
   allocate(gradient, source = output)
   call pool_layer%backward(input_data, gradient)
@@ -158,7 +168,10 @@ program test_maxpool3d_layer
      end do
   end select
 
-  !! check expected initialisation of pool and stride
+
+!!!-----------------------------------------------------------------------------
+!!! check expected initialisation of pool and stride
+!!!-----------------------------------------------------------------------------
   pool_layer = maxpool3d_layer_type( &
        pool_size = [2, 2, 2], &
        stride = [2, 2, 2] &

@@ -37,13 +37,18 @@ program test_network
   procedure(compute_loss_function), pointer :: get_loss => null()
 
 
-  !! set random seed
+!!!-----------------------------------------------------------------------------
+!!! Initialize random number generator with a seed
+!!!-----------------------------------------------------------------------------
   seed_size = 8
   call random_seed(size=seed_size)
   seed = [1,1,1,1,1,1,1,1]
   call random_seed(put=seed)
 
-  !! create network
+
+!!!-----------------------------------------------------------------------------
+!!! Create network
+!!!-----------------------------------------------------------------------------
   ! call network%add(input1d_layer_type(input_shape=[1]))
   call network%add(full_layer_type( &
        num_inputs=3, num_outputs=5, activation_function="tanh"))
@@ -54,7 +59,11 @@ program test_network
        loss_method="mse", metrics=["loss"], verbose=1)
   call network%set_batch_size(1)
 
-  !! create train data
+
+!!!-----------------------------------------------------------------------------
+!!! Train network
+!!!-----------------------------------------------------------------------------
+  !! create test data
   x = reshape([0.2, 0.4, 0.6], [3,1])
   y = reshape([0.123456, 0.246802], [2,1])
 
@@ -73,6 +82,9 @@ program test_network
   end if
 
 
+!!!-----------------------------------------------------------------------------
+!!! Test network
+!!!-----------------------------------------------------------------------------
   !! create test data
   x = reshape([0.4, 0.6, 0.8], [3,1])
   y = reshape([0.370368, 0.493824], [2,1])
@@ -107,7 +119,10 @@ program test_network
      success = .false.
   end if
   
-  !! check network copy
+
+!!!-----------------------------------------------------------------------------
+!!! Test network copy and reduce
+!!!-----------------------------------------------------------------------------
   call network3%copy(network)
   if(abs(network3%metrics(1)%val-network%metrics(1)%val).gt.1.E-6) then
      write(0,*) "Network copy failed"
@@ -126,7 +141,10 @@ program test_network
      success = .false.
   end if
 
-  !! check adding all layer types
+
+!!!-----------------------------------------------------------------------------
+!!! Check all unique network layer adds
+!!!-----------------------------------------------------------------------------
   call network3%reset()
   call network3%add(maxpool2d_layer_type())
   call network3%add(conv2d_layer_type())
@@ -150,7 +168,11 @@ program test_network
        optimiser = base_optimiser_type(learning_rate=learning_rate), &
        loss_method="mse", metrics=["loss"], verbose=1)
 
-  !! check loss procedure setting
+
+
+!!!-----------------------------------------------------------------------------
+!!! check loss procedure setup
+!!!-----------------------------------------------------------------------------
   call network3%set_loss("binary_crossentropy")
   get_loss => compute_loss_bce
   if (.not.associated(network3%get_loss, get_loss)) then
@@ -182,8 +204,11 @@ program test_network
      success = .false.
   end if
 
+
+!!!-----------------------------------------------------------------------------
+!!! check metric dict setting in network
+!!!-----------------------------------------------------------------------------
   metrics(1)%history = [1.0, 2.0, 3.0]
-  !! check network dict setting in network
   call network%set_metrics(metrics)
   if(size(network%metrics) .ne. size(metrics)) then
      write(0,*) "Metric dict failed to set the correct size."
@@ -205,6 +230,5 @@ program test_network
      write(0,*) 'test_network failed one or more tests'
      stop 1
   end if
-
 
 end program test_network

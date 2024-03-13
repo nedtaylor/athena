@@ -3,10 +3,10 @@
 !!!#############################################################################
 !!! module contains various miscellaneous functions and subroutines.
 !!! module includes the following functions and subroutines:
-!!! Icount           (counts words on line)
-!!! grep             (finds 1st line containing the pattern)
-!!! to_upper         (converts all characters in string to upper case)
-!!! to_lower         (converts all characters in string to lower case)
+!!! - Icount   - counts words on line
+!!! - grep     - finds 1st line containing the pattern
+!!! - to_upper - converts all characters in string to upper case
+!!! - to_lower - converts all characters in string to lower case
 !!!#############################################################################
 module misc
   use constants, only: real12

@@ -46,8 +46,6 @@ if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
         EXECUTABLE ctest
         EXCLUDE "${PROJECT_SOURCE_DIR}/test/*")
   endif()
-  # add coverage compiler flags
-  append_coverage_compiler_flags()
 endif()
 
 # enable testing
@@ -95,6 +93,8 @@ set(LIB_FILES
     mod_loss.f90
     mod_accuracy.f90
     mod_base_layer.f90
+    mod_base_layer_sub.f90
+    mod_batchnorm1d_layer.f90
     mod_batchnorm2d_layer.f90
     mod_batchnorm3d_layer.f90
     mod_conv2d_layer.f90
@@ -117,6 +117,7 @@ set(LIB_FILES
     mod_container_layer.f90
     mod_container_layer_sub.f90
     mod_network.f90
+    mod_network_sub.f90
 )
 foreach(lib ${LIB_FILES})
     list(APPEND PREPENDED_LIB_FILES ${LIB_DIR}/${lib})
@@ -202,8 +203,8 @@ target_link_libraries(${PROJECT_NAME} PUBLIC)
 string(REGEX REPLACE "\\.[^.]*$" ".mod" MODULE_FILES "${SRC_FILES}")
 
 # installation
-install(FILES ${MODULE_DIR}/${MODULE_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
-install(TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+install(FILES ${MODULE_DIR}/${MODULE_FILES} DESTINATION include)
+install(TARGETS ${PROJECT_NAME} DESTINATION lib)
 
 # set compile options based on different build configurations
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Release>:${OPTIMFLAGS}>")
@@ -216,5 +217,10 @@ target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel_Dev>:${DEVFLA
 
 # include the build test directory
 if(BUILD_TESTS)
-    add_subdirectory(test)
+  add_subdirectory(test)
+endif()
+
+# add coverage compiler flags
+if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
+  append_coverage_compiler_flags()
 endif()

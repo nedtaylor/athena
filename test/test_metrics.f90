@@ -10,7 +10,10 @@ program test_metrics
 
   logical :: success = .true.
 
-  ! Initialize a and b here...
+
+!!!-----------------------------------------------------------------------------
+!!! Initialise the metric_dict_types
+!!!-----------------------------------------------------------------------------
   a%key = "loss"
   a%val = 10
   a%threshold = 5.0
@@ -29,11 +32,16 @@ program test_metrics
   expected_result%active = .true.
   expected_result%history = a%history
 
+!!!-----------------------------------------------------------------------------
+!!! Test metric summation
+!!!-----------------------------------------------------------------------------
   result = a + b
-
-  ! Check the result
   call check_metric_dict(result, expected_result)
 
+
+!!!-----------------------------------------------------------------------------
+!!! Test metric allocation
+!!!-----------------------------------------------------------------------------
   call metric_dict_alloc(dict, length=10)
   do i = 1, size(dict)
      if(size(dict(i)%history) .ne. 10) then
@@ -51,6 +59,10 @@ program test_metrics
      end if
   end do
 
+
+!!!-----------------------------------------------------------------------------
+!!! Test metric convergence checks
+!!!-----------------------------------------------------------------------------
   a%history = [1, 1, 1, 1, 1]
   call a%check(plateau_threshold=10.E0, converged = converged)
   if (converged .ne. 1) then
@@ -79,6 +91,9 @@ program test_metrics
 
 contains
 
+!!!-----------------------------------------------------------------------------
+!!! compare two metric dictionaries to see if they are equal
+!!!-----------------------------------------------------------------------------
   subroutine check_metric_dict(actual, expected)
     type(metric_dict_type), intent(in) :: actual
     type(metric_dict_type), intent(in) :: expected

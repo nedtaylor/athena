@@ -29,10 +29,10 @@ ATHENA is distributed with the following directories:
 
 | Directory | Description |
 |---|---|
-|  example/  |    A set of example programs utilising the ATHENA library |
+|  _example/_  |    A set of example programs utilising the ATHENA library |
 |  _src/_ |      Source code  |
 |  _tools/_ |    Additional shell script tools for automating learning  |
-|  test/  |    A set of test programs to check functionality of the library works after compilation |
+|  _test/_  |    A set of test programs to check functionality of the library works after compilation |
 
 
 Documentation
@@ -204,6 +204,7 @@ Files
 |_src/lib/mod_activation.f90_          | generic node activation (transfer) setup  |
 |_src/lib/mod_activation__[_NAME_]_.f90_   | [_NAME_] activation method  |
 |_src/lib/mod_base_layer.f90_          | abstract layer construct type  |
+|_src/lib/mod_base_layer_sub.f90_          | base layer submodule |
 |_src/lib/mod_clipper.f90_             | gradient clipping procedures |
 |_src/lib/mod_constants.f90_           | a set of global constants used in this code  |
 |_src/lib/mod_container.f90_           | layer container construct for handling multiple layers in a network  |
@@ -217,6 +218,7 @@ Files
 |_src/lib/mod_misc.f90_                | miscellaneous procedures  |
 |_src/lib/mod_misc_ml.f90_             | miscellaneous machine learning procedures  |
 |_srcs/lib/mod_network.f90_            | neural network derived type and procedures  |
+|_srcs/lib/mod_network_sub.f90_        | network submodule  |
 |_src/lib/mod_normalisation.f90_       | data normalisation procedures  |
 |_src/lib/mod_optimiser.f90_           | learning optimisation derived type and procedures  |
 |_src/lib/mod_random.f90_              | random number procedures  |

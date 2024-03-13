@@ -15,12 +15,18 @@ program test_flatten3d_layer
   integer :: seed_size = 1
   integer, allocatable, dimension(:) :: seed
 
-  !! Initialize random number generator with a seed
+
+!!!-----------------------------------------------------------------------------
+!!! Initialize random number generator with a seed
+!!!-----------------------------------------------------------------------------
   call random_seed(size = seed_size)
   allocate(seed(seed_size), source=0)
   call random_seed(put = seed)
 
-  !! set up flatten3d layer
+
+!!!-----------------------------------------------------------------------------
+!!! set up layer
+!!!-----------------------------------------------------------------------------
   flatten_layer = flatten3d_layer_type( &
        input_shape = [width, width, width, num_channels], &
        batch_size = batch_size)
@@ -50,6 +56,11 @@ program test_flatten3d_layer
      write(0,*) 'flatten3d layer has wrong batch size'
   end if
 
+
+!!!-----------------------------------------------------------------------------
+!!! test forward pass and check expected output
+!!! use existing layer
+!!!-----------------------------------------------------------------------------
   !! initialise sample input
   allocate(input_data(width, width, width, num_channels, batch_size), &
        source = 0.0)
@@ -65,6 +76,10 @@ program test_flatten3d_layer
      write(0,*) 'flatten3d layer forward pass incorrect'
    end if
 
+
+!!!-----------------------------------------------------------------------------
+!!! test backward pass and check expected output
+!!!-----------------------------------------------------------------------------
   !! run backward pass
   allocate(gradient, source = output)
   call flatten_layer%backward(input_data, gradient)

@@ -17,7 +17,9 @@ program test_conv3d_layer
   real, allocatable, dimension(:,:) :: outputs
 
 
-  !! set up conv3d layer
+!!!-----------------------------------------------------------------------------
+!!! set up layer
+!!!-----------------------------------------------------------------------------
   conv_layer = conv3d_layer_type( &
        num_filters = num_filters, &
        kernel_size = kernel_size &
@@ -61,8 +63,10 @@ program test_conv3d_layer
   end select
 
 
-  !! check layer input and output shape based on input layer
-  !! conv3d layer: 32 x 32 x32 pixel image, 3 channels
+!!!-----------------------------------------------------------------------------
+!!! check layer input and output shape based on input layer
+!!! conv3d layer: 32 x 32 x32 pixel image, 3 channels
+!!!-----------------------------------------------------------------------------
   input_layer = input4d_layer_type([32,32,32,3])
   call conv_layer%init(input_layer%input_shape)
   select type(conv_layer)
@@ -78,6 +82,10 @@ program test_conv3d_layer
   end select
 
 
+!!!-----------------------------------------------------------------------------
+!!! test forward pass and check expected output
+!!! use existing layer
+!!!-----------------------------------------------------------------------------
   !! initialise sample input
   !! conv3d layer: 3x3 pixel image, 1 channel
   allocate(input_data(3, 3, 3, 1, 1), source = 0.0)
@@ -110,7 +118,7 @@ program test_conv3d_layer
 
 
 !!!-----------------------------------------------------------------------------
-!!! handle layer parameters gradients, and outputs
+!!! check handling of layer parameters, gradients, and outputs
 !!!-----------------------------------------------------------------------------
   select type(conv_layer)
   class is(learnable_layer_type)
@@ -161,7 +169,10 @@ program test_conv3d_layer
      end if
   end select
 
-  !! check expected initialisation of kernel size and stride
+
+!!!-----------------------------------------------------------------------------
+!!! check expected initialisation of kernel size and stride
+!!!-----------------------------------------------------------------------------
   conv_layer = conv3d_layer_type( &
        kernel_size = [2, 2, 2], &
        stride = [2, 2, 2] &
@@ -178,7 +189,10 @@ program test_conv3d_layer
      end if
   end select
 
-  !! check expected initialisation of kernel size and stride
+
+!!!-----------------------------------------------------------------------------
+!!! check expected initialisation of kernel size and stride
+!!!-----------------------------------------------------------------------------
   conv_layer = conv3d_layer_type( &
        kernel_size = [4], &
        stride = [4] &
@@ -194,6 +208,7 @@ program test_conv3d_layer
         write(0,*) 'conv3d layer has wrong stride size'
      end if
   end select
+
 
 !!!-----------------------------------------------------------------------------
 !!! check layer operations
@@ -260,6 +275,9 @@ program test_conv3d_layer
 
 contains
 
+!!!-----------------------------------------------------------------------------
+!!! compare two or three layers
+!!!-----------------------------------------------------------------------------
   subroutine compare_conv3d_layers(layer1, layer2, success, layer3)
      type(conv3d_layer_type), intent(in) :: layer1, layer2
      logical, intent(inout) :: success

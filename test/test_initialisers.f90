@@ -18,6 +18,10 @@ program test_initialisers
         input_3d(1,1,1), input_6d(1,1,1,1,1,1)
    character(len=20) :: initialiser_names(11)
 
+
+!!!-----------------------------------------------------------------------------
+!!! Initialise initialiser names
+!!!-----------------------------------------------------------------------------
    initialiser_names(1)  = 'zeros'
    initialiser_names(2)  = 'ones'
    initialiser_names(3)  = 'ident'
@@ -30,7 +34,10 @@ program test_initialisers
    initialiser_names(10)  = 'lecun_normal'
    initialiser_names(11) = 'lecun_uniform'
 
-   !! check default initialiser names
+
+!!!-----------------------------------------------------------------------------
+!!! check default initialiser names
+!!!-----------------------------------------------------------------------------
    if(get_default_initialiser("selu").ne."lecun_normal")then
       success = .false.
       write(0,*) 'get_default_initialiser failed for selu'
@@ -52,6 +59,10 @@ program test_initialisers
       write(*,*)
    end if
 
+
+!!!-----------------------------------------------------------------------------
+!!! check initialisers work as expected for each rank
+!!!-----------------------------------------------------------------------------
    do i = 1, size(initialiser_names)
       if(allocated(initialiser)) deallocate(initialiser)
       allocate(initialiser, source=initialiser_setup(initialiser_names(i)))

@@ -1,3 +1,18 @@
+!!!#############################################################################
+!!! Code written by Ned Thaddeus Taylor
+!!! Code part of the ATHENA library - a feedforward neural network library
+!!!#############################################################################
+!!! module contains a type for storing and handling metrics
+!!! module includes the following derived types:
+!!! - metric_dict_type - a type for storing and handling metric data
+!!!##################
+!!! the metric derived type contains the following procedures:
+!!! - check - checks if the metric has converged
+!!! - add_t_t - adds two metric_dict_type together
+!!!##################
+!!! module contains the following procedures:
+!!! - metric_dict_alloc - allocates memory for a metric_dict_type
+!!!#############################################################################
 module metrics
   use constants, only: real12
   implicit none

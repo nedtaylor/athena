@@ -13,11 +13,18 @@ program test_infile_tools
 
   logical :: success = .true.
 
-  !! set up test
+
+!!!-----------------------------------------------------------------------------
+!!! set up test line
+!!!-----------------------------------------------------------------------------
   found = 0
   buffer = "test=5"
   keyword = "test"
 
+
+!!!-----------------------------------------------------------------------------
+!!! test scalar assign procedures
+!!!-----------------------------------------------------------------------------
   !! test integer
   call assign_val(buffer, ivar, found, trim(keyword))
   if(ivar.ne.5)then
@@ -54,6 +61,11 @@ program test_infile_tools
      success = .false.
   end if
 
+
+
+!!!-----------------------------------------------------------------------------
+!!! test vector assign procedures
+!!!-----------------------------------------------------------------------------
   buffer = "test= 1 2 3"
 
   !! test integer vector
@@ -108,6 +120,7 @@ program test_infile_tools
      write(0,*) "remove_comment failed"
      success = .false.
   end if
+
 
 !!!-----------------------------------------------------------------------------
 !!! check for any failed tests

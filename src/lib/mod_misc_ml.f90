@@ -1,16 +1,15 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
+!!! Code part of the ATHENA library - a feedforward neural network library
 !!!#############################################################################
 !!! module contains various miscellaneous procedures relating to ...
 !!! ... machine learning
 !!! module includes the following procedures:
-!!! shuffle          (randomly shuffle a 2D array along one dimension)
-!!! split            (split data into train and test sets)
+!!! - shuffle - randomly shuffle a 2D array along one dimension
+!!! - split   - split data into train and test sets
 !!!##################
-!!! set_padding          (set padding any-rank 2D array)
-!!! pad_data             (pad any-rank array)
-!!! step_decay           (step decay learning rate)
-!!! reduce_lr_on_plateau (reduce learning rate on plateau)
+!!! - set_padding - set padding any-rank 2D array
+!!! - pad_data    - pad any-rank array
 !!!#############################################################################
 module misc_ml
   use constants, only: real12
@@ -64,9 +63,6 @@ module misc_ml
 
   public :: shuffle, split
   public :: set_padding, pad_data
-
-  public :: step_decay
-  public :: reduce_lr_on_plateau
 
 
 contains
@@ -1527,7 +1523,7 @@ end subroutine split_5Drdata_1Drlist
     
     integer :: i, j, idim
     integer :: num_samples, num_channels, ndim, ndata_dim
-    integer :: t_sample_dim = 0, t_channel_dim = 0
+    integer :: sample_dim_ = 0, channel_dim_ = 0
     real(real12) :: constant_ = 0._real12
     integer, dimension(2) :: bound_store
     integer, allocatable, dimension(:) :: padding
@@ -1540,8 +1536,8 @@ end subroutine split_5Drdata_1Drlist
 !!! initialise optional arguments
 !!!-----------------------------------------------------------------------------
     if(present(constant)) constant_ = constant
-    if(present(sample_dim)) t_sample_dim = sample_dim
-    if(present(channel_dim)) t_channel_dim = channel_dim
+    if(present(sample_dim)) sample_dim_ = sample_dim
+    if(present(channel_dim)) channel_dim_ = channel_dim
 
     ndim = rank(data)
 #if defined(GFORTRAN)
@@ -1563,25 +1559,25 @@ end subroutine split_5Drdata_1Drlist
     end select
 #endif
     ndata_dim = ndim
-    if(t_sample_dim.gt.0)  ndata_dim = ndata_dim - 1
-    if(t_channel_dim.gt.0) ndata_dim = ndata_dim - 1
+    if(sample_dim_.gt.0)  ndata_dim = ndata_dim - 1
+    if(channel_dim_.gt.0) ndata_dim = ndata_dim - 1
 
     select rank(data)
     rank(1)
-       if(t_sample_dim.gt.0) num_samples = size(data,t_sample_dim)
-       if(t_channel_dim.gt.0) num_channels = size(data,t_channel_dim)
+       if(sample_dim_.gt.0) num_samples = size(data,sample_dim_)
+       if(channel_dim_.gt.0) num_channels = size(data,channel_dim_)
     rank(2)
-       if(t_sample_dim.gt.0) num_samples = size(data,t_sample_dim)
-       if(t_channel_dim.gt.0) num_channels = size(data,t_channel_dim)
+       if(sample_dim_.gt.0) num_samples = size(data,sample_dim_)
+       if(channel_dim_.gt.0) num_channels = size(data,channel_dim_)
     rank(3)
-       if(t_sample_dim.gt.0) num_samples = size(data,t_sample_dim)
-       if(t_channel_dim.gt.0) num_channels = size(data,t_channel_dim)
+       if(sample_dim_.gt.0) num_samples = size(data,sample_dim_)
+       if(channel_dim_.gt.0) num_channels = size(data,channel_dim_)
     rank(4)
-       if(t_sample_dim.gt.0) num_samples = size(data,t_sample_dim)
-       if(t_channel_dim.gt.0) num_channels = size(data,t_channel_dim)
+       if(sample_dim_.gt.0) num_samples = size(data,sample_dim_)
+       if(channel_dim_.gt.0) num_channels = size(data,channel_dim_)
     rank(5)
-       if(t_sample_dim.gt.0) num_samples = size(data,t_sample_dim)
-       if(t_channel_dim.gt.0) num_channels = size(data,t_channel_dim)
+       if(sample_dim_.gt.0) num_samples = size(data,sample_dim_)
+       if(channel_dim_.gt.0) num_channels = size(data,channel_dim_)
     rank default
        stop "ERROR: cannot handle data with this rank"
     end select
@@ -1618,19 +1614,19 @@ end subroutine split_5Drdata_1Drlist
              call set_padding(padding(i), kernel_size(1), padding_method, verbose=0)
           end do
        else
-          if(t_sample_dim.eq.0.and.t_channel_dim.eq.0.and.&
+          if(sample_dim_.eq.0.and.channel_dim_.eq.0.and.&
                size(kernel_size).ne.ndim)then
              write(0,*) "kernel dimension:", size(kernel_size)
              write(0,*) "data rank:", ndim
              write(0,*) "ERROR: kernel_size length not equal to rank of data"
              stop 1
-          elseif(t_sample_dim.gt.0.and.t_channel_dim.gt.0.and.&
+          elseif(sample_dim_.gt.0.and.channel_dim_.gt.0.and.&
                size(kernel_size).ne.ndim-2)then
              write(0,*) "kernel dimension:", size(kernel_size)
              write(0,*) "data rank:", ndim-2
              write(0,*) "ERROR: kernel_size length not equal to rank of data-2"
              stop 1
-          elseif(xor(t_sample_dim.gt.0,t_channel_dim.gt.0).and.&
+          elseif(xor(sample_dim_.gt.0,channel_dim_.gt.0).and.&
                size(kernel_size).ne.ndim-1)then
              write(0,*) "kernel dimension:", size(kernel_size)
              write(0,*) "data rank:", ndim-1
@@ -1666,7 +1662,7 @@ end subroutine split_5Drdata_1Drlist
     do idim=1,ndim
        trgt_bound(:,idim) = [ lbound(data,dim=idim), ubound(data,dim=idim) ]
        dest_bound(:,idim) = trgt_bound(:,idim)
-       if(idim.eq.t_sample_dim.or.idim.eq.t_channel_dim) cycle
+       if(idim.eq.sample_dim_.or.idim.eq.channel_dim_) cycle
        i = i + 1
        dest_bound(:,idim) = dest_bound(:,idim) + [ -padding(i), padding(i) ]
     end do
@@ -1783,7 +1779,7 @@ end subroutine split_5Drdata_1Drlist
 !!!-----------------------------------------------------------------------------
     i = 0
     do idim=1,ndim
-       if(idim.eq.t_sample_dim.or.idim.eq.t_channel_dim) cycle
+       if(idim.eq.sample_dim_.or.idim.eq.channel_dim_) cycle
        i = i + 1
        tmp_dest_bound = dest_bound
        tmp_trgt_bound = dest_bound
@@ -1868,60 +1864,6 @@ end subroutine split_5Drdata_1Drlist
     end do
 
   end subroutine pad_data
-!!!########################################################################
-
-
-!!!########################################################################
-!!! adaptive learning rate
-!!! method: step decay
-!!!########################################################################
-  subroutine step_decay(learning_rate, epoch, decay_rate, decay_steps)
-    implicit none
-    integer, intent(in) :: epoch
-    integer, intent(in) :: decay_steps
-    real(real12), intent(inout) :: learning_rate
-    real(real12), intent(in) :: decay_rate
-
-    !! calculate new learning rate
-    learning_rate = learning_rate * &
-         decay_rate**((epoch - 1._real12) / decay_steps)
-
-  end subroutine step_decay
-!!!########################################################################
-
-
-!!!########################################################################
-!!! adaptive learning rate
-!!! method: reduce learning rate on plateau
-!!!########################################################################
-  subroutine reduce_lr_on_plateau(learning_rate, &
-       metric_value, patience, factor, min_learning_rate, & 
-       best_metric_value, wait)
-    implicit none
-    integer, intent(in) :: patience
-    integer, intent(inout) :: wait
-    real(real12), intent(inout) :: learning_rate
-    real(real12), intent(in) :: metric_value
-    real(real12), intent(in) :: factor
-    real(real12), intent(in) :: min_learning_rate
-    real(real12), intent(inout) :: best_metric_value
-
-    !! check if the metric value has improved
-    if (metric_value.lt.best_metric_value) then
-       best_metric_value = metric_value
-       wait = 0
-    else
-       wait = wait + 1
-       if (wait.ge.patience) then
-          learning_rate = learning_rate * factor
-          if (learning_rate.lt.min_learning_rate) then
-             learning_rate = min_learning_rate
-          endif
-          wait = 0
-       endif
-    endif
-
-  end subroutine reduce_lr_on_plateau
 !!!########################################################################
 
 end module misc_ml

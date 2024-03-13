@@ -1,4 +1,4 @@
-module constants_minst
+module constants_mnist
   implicit none
   integer, parameter, public :: real12 = Selected_real_kind(6,37)!(15,307)
   real(real12), parameter, public :: k_b = 1.3806503e-23_real12
@@ -18,4 +18,4 @@ module constants_minst
   real(real12), parameter, public :: INF = huge(0._real12)
   complex(real12), parameter, public :: imag=(0._real12, 1._real12)
   integer, public :: ierror = -1
-end module constants_minst
+end module constants_mnist

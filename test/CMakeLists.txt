@@ -11,6 +11,7 @@ foreach(execid
   maxpool3d_layer
   avgpool2d_layer
   avgpool3d_layer
+  batchnorm1d_layer
   batchnorm2d_layer
   batchnorm3d_layer
   dropout_layer

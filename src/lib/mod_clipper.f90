@@ -1,5 +1,15 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
+!!! Code part of the ATHENA library - a feedforward neural network library
+!!!#############################################################################
+!!! module contains routines for clipping gradients
+!!! module includes the following types:
+!!! - clip_type - type containing clipping information
+!!!##################
+!!! clip_type contains the following procedures:
+!!! - read_clip  - read clipping information from strings
+!!! - set_clip   - set clipping information from a dictionary
+!!! - apply_clip - apply clipping to gradients
 !!!#############################################################################
 module clipper
   use constants, only: real12
@@ -151,32 +161,32 @@ contains
     real(real12), dimension(:), optional, intent(inout) :: bias
 
     real(real12) :: scale
-    real(real12), dimension(:), allocatable :: t_bias
+    real(real12), dimension(:), allocatable :: bias_
 
     if(present(bias))then
-       t_bias = bias
+       bias_ = bias
     else
-       allocate(t_bias(1), source=0._real12)
+       allocate(bias_(1), source=0._real12)
     end if
 
     !! clip values to within limits of (min,max)
     if(this%l_min_max)then
        gradient = max(this%min,min(this%max,gradient))
-       t_bias   = max(this%min,min(this%max,t_bias))
+       bias_   = max(this%min,min(this%max,bias_))
     end if
 
     !! clip values to a maximum L2-norm
     if(this%l_norm)then
        scale = min(1._real12, &
             this%norm/sqrt(sum(gradient**2._real12) + &
-            sum(t_bias)**2._real12))
+            sum(bias_)**2._real12))
        if(scale.lt.1._real12)then
           gradient = gradient * scale
-          t_bias   = t_bias * scale
+          bias_   = bias_ * scale
        end if
     end if
 
-    if(present(bias)) bias = t_bias
+    if(present(bias)) bias = bias_
 
   end subroutine apply_clip
 !!!#############################################################################

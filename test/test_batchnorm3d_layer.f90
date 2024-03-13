@@ -20,12 +20,18 @@ program test_batchnorm3d_layer
   integer, allocatable, dimension(:) :: seed
   real, parameter :: max_value = 3.0
 
-  !! Initialize random number generator with a seed
+
+!!!-----------------------------------------------------------------------------
+!!! Initialize random number generator with a seed
+!!!-----------------------------------------------------------------------------
   call random_seed(size = seed_size)
   allocate(seed(seed_size), source=0)
   call random_seed(put = seed)
 
-  !! set up batchnorm3d layer
+
+!!!-----------------------------------------------------------------------------
+!!! set up layer
+!!!-----------------------------------------------------------------------------
   bn_layer = batchnorm3d_layer_type( &
      input_shape = [width, width, width, num_channels], &
      batch_size = batch_size, &
@@ -63,7 +69,7 @@ program test_batchnorm3d_layer
     end if
 
     !! check batch size
-    if(bn_layer%batch_size .ne. 1)then
+    if(bn_layer%batch_size .ne. batch_size)then
       success = .false.
       write(0,*) 'batchnorm3d layer has wrong batch size'
     end if
@@ -72,8 +78,11 @@ program test_batchnorm3d_layer
     write(0,*) 'batchnorm3d layer has wrong type'
   end select
 
-!!!-----------------------------------------------------------------------------
 
+!!!-----------------------------------------------------------------------------
+!!! test forward pass and check expected output for single-valued input
+!!! use existing layer
+!!!-----------------------------------------------------------------------------
   !! initialise sample input
   allocate(input_data(width,width,width,num_channels,batch_size), source = 0.0)
   
@@ -90,8 +99,11 @@ program test_batchnorm3d_layer
          &output should all equal beta'
   end if
 
-!!!-----------------------------------------------------------------------------
 
+!!!-----------------------------------------------------------------------------
+!!! test forward pass and check expected output for randomised input
+!!! use existing layer
+!!!-----------------------------------------------------------------------------
   !! initialise sample input
   call random_number(input_data)
 
@@ -115,7 +127,11 @@ program test_batchnorm3d_layer
      end if
   end do
 
-  !! run backward pass
+
+!!!-----------------------------------------------------------------------------
+!!! test backward pass and check expected output for randomised input
+!!! use existing layer
+!!!-----------------------------------------------------------------------------
   allocate(gradient, source = output)
   call bn_layer%backward(input_data, gradient)
 
@@ -143,7 +159,10 @@ program test_batchnorm3d_layer
     end do
   end select
 
-  !! handle layer parameters and gradients
+
+!!!-----------------------------------------------------------------------------
+!!! check handling of layer parameters and gradients
+!!!-----------------------------------------------------------------------------
   select type(bn_layer)
   class is(learnable_layer_type)
      !! check parameters
@@ -199,19 +218,19 @@ program test_batchnorm3d_layer
         type is(batchnorm3d_layer_type)
            !! check layer addition
            call compare_batchnorm3d_layers(&
-                bn_layer, bn_layer1, success, bn_layer2)
+                bn_layer, bn_layer1, bn_layer2, success)
 
            !! check layer reduction
            bn_layer = bn_layer1
            call bn_layer%reduce(bn_layer2)
            call compare_batchnorm3d_layers(&
-                bn_layer, bn_layer1, success, bn_layer2)
+                bn_layer, bn_layer1, bn_layer2, success)
 
            !! check layer merge
            bn_layer = bn_layer1
            call bn_layer%merge(bn_layer2)
            call compare_batchnorm3d_layers(&
-                bn_layer, bn_layer1, success, bn_layer2)
+                bn_layer, bn_layer1, bn_layer2, success)
         class default
             success = .false.
             write(0,*) 'batchnorm3d layer has wrong type'
@@ -225,7 +244,10 @@ program test_batchnorm3d_layer
      write(0,*) 'batchnorm3d layer has wrong type'
   end select
 
-  !! check 1d and 2d output are consistent
+
+!!!-----------------------------------------------------------------------------
+!!! check output request using rank 1 and rank 2 arrays is consistent
+!!!-----------------------------------------------------------------------------
   call bn_layer%get_output(output_1d)
   call bn_layer%get_output(output_2d)
   if(any(abs(output_1d - reshape(output_2d, [size(output_2d)])) .gt. 1.E-6))then
@@ -247,20 +269,20 @@ program test_batchnorm3d_layer
 
   contains
 
-  subroutine compare_batchnorm3d_layers(layer1, layer2, success, layer3)
-     type(batchnorm3d_layer_type), intent(in) :: layer1, layer2
+!!!-----------------------------------------------------------------------------
+!!! compare three layers
+!!!-----------------------------------------------------------------------------
+  subroutine compare_batchnorm3d_layers(layer1, layer2, layer3, success)
+     type(batchnorm3d_layer_type), intent(in) :: layer1, layer2, layer3
      logical, intent(inout) :: success
-     type(batchnorm3d_layer_type), optional, intent(in) :: layer3
 
-     if(present(layer3))then
-        if(any(abs(layer1%dg-layer2%dg-layer3%dg).gt.tol))then
-           success = .false.
-           write(0,*) 'batchnorm3d layer has wrong gradients'
-        end if
-        if(any(abs(layer1%db-layer2%db-layer3%db).gt.tol))then
-           success = .false.
-           write(0,*) 'batchnorm3d layer has wrong gradients'
-        end if
+     if(any(abs(layer1%dg-layer2%dg-layer3%dg).gt.tol))then
+        success = .false.
+        write(0,*) 'batchnorm3d layer has wrong gradients'
+     end if
+     if(any(abs(layer1%db-layer2%db-layer3%db).gt.tol))then
+        success = .false.
+        write(0,*) 'batchnorm3d layer has wrong gradients'
      end if
 
   end subroutine compare_batchnorm3d_layers

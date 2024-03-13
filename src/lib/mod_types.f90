@@ -1,5 +1,18 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
+!!! Code part of the ATHENA library - a feedforward neural network library
+!!!#############################################################################
+!!! module contains custom derived types for the ATHENA library
+!!! module contains the following derived types:
+!!! - activation_type  - abstract type for activation functions
+!!! - initialiser_type - abstract type for initialising weights and biases
+!!!##################
+!!! the activation_type contains the following deferred procedures:
+!!! - activate_<N>d      - activation function for rank <N> input
+!!! - differentiate_<N>d - derivative of activation function for rank <N> input
+!!!##################
+!!! the initialiser_type contains the following deferred procedures:
+!!! - initialise - initialises weights and biases
 !!!#############################################################################
 module custom_types
   use constants, only: real12

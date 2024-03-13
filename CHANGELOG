@@ -15,6 +15,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+## [1.3.0] - 2024-03-13
+
+### Added
+- batchnorm1d_layer_type (handles both 1D spatial channel data and rank 0 channel data)
+- base_layer submodule file
+- network submodule file
+- Added comments to network and base_layer procedure interfaces
+
+### Changed
+- Improved comment and headers in all source files
+- Improved comments in all test source files
+- Added interfaces within base_layer submodules for ease of readability
+- Added interfaces within network submodules for ease of readability
+- Moved methods of base_layer into submodule
+- Moved methods of network into submodule
+
+### Fixed
+- Remove reference to doc/ directory
+- Fixed typo in example library
+- Fixed example/mnist/src/main.f90 using wrong constants module
+- Fixed cmake isntall path prefix duplication issue
+
+### Removed
+- Deprecate and remove step_decay and lr_reduce_on_plateau procedures
+
 ## [1.2.4] - 2024-03-07
 
 ### Added

@@ -2,39 +2,41 @@
 !!! Code written by Ned Thaddeus Taylor
 !!! Code part of the ATHENA library - a feedforward neural network library
 !!!#############################################################################
-!!! module contains implementation of a 3D batch normalisation layer
+!!! module contains implementation of 0D and 1D batch normalisation layers
 !!!#############################################################################
-module batchnorm3d_layer
+module batchnorm1d_layer
   use constants, only: real12
   use base_layer, only: batch_layer_type, learnable_layer_type
   use custom_types, only: initialiser_type
   implicit none
   
   
-  type, extends(batch_layer_type) :: batchnorm3d_layer_type
-     real(real12), allocatable, dimension(:,:,:,:,:) :: output
-     real(real12), allocatable, dimension(:,:,:,:,:) :: di ! gradient of input (i.e. delta)
+  type, extends(batch_layer_type) :: batchnorm1d_layer_type
+     integer :: num_inputs = 1
+     real(real12), allocatable, dimension(:,:,:) :: output
+     real(real12), allocatable, dimension(:,:,:) :: di ! gradient of input (i.e. delta)
    contains
-     procedure, pass(this) :: get_output => get_output_batchnorm3d
-     procedure, pass(this) :: init => init_batchnorm3d
-     procedure, pass(this) :: set_batch_size => set_batch_size_batchnorm3d
-     procedure, pass(this) :: print => print_batchnorm3d
-   
+     procedure, pass(this) :: get_output => get_output_batchnorm1d
+     procedure, pass(this) :: init => init_batchnorm1d
+     procedure, pass(this) :: set_batch_size => set_batch_size_batchnorm1d
+     procedure, pass(this) :: print => print_batchnorm1d
+
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
-     procedure, private, pass(this) :: forward_5d
-     procedure, private, pass(this) :: backward_5d
+     procedure, private, pass(this) :: forward_3d
+     procedure, private, pass(this) :: backward_3d
 
      procedure, pass(this) :: reduce => layer_reduction
      procedure, pass(this) :: merge => layer_merge
      procedure :: add_t_t => layer_add  !t = type, r = real, i = int
      generic :: operator(+) => add_t_t !, public
-  end type batchnorm3d_layer_type
+  end type batchnorm1d_layer_type
 
   
-  interface batchnorm3d_layer_type
+  interface batchnorm1d_layer_type
      module function layer_setup( &
           input_shape, batch_size, &
+          num_channels, num_inputs, &
           momentum, epsilon, &
           gamma_init_mean, gamma_init_std, &
           beta_init_mean, beta_init_std, &
@@ -43,20 +45,21 @@ module batchnorm3d_layer
           ) result(layer)
        integer, dimension(:), optional, intent(in) :: input_shape
        integer, optional, intent(in) :: batch_size
+       integer, optional, intent(in) :: num_channels, num_inputs
        real(real12), optional, intent(in) :: momentum, epsilon
        real(real12), optional, intent(in) :: gamma_init_mean, gamma_init_std
        real(real12), optional, intent(in) :: beta_init_mean, beta_init_std
        character(*), optional, intent(in) :: &
             kernel_initialiser, bias_initialiser, &
             moving_mean_initialiser, moving_variance_initialiser
-       type(batchnorm3d_layer_type) :: layer
+       type(batchnorm1d_layer_type) :: layer
      end function layer_setup
-  end interface batchnorm3d_layer_type
+  end interface batchnorm1d_layer_type
 
 
   private
-  public :: batchnorm3d_layer_type
-  public :: read_batchnorm3d_layer
+  public :: batchnorm1d_layer_type
+  public :: read_batchnorm1d_layer
 
 
 contains
@@ -66,11 +69,11 @@ contains
 !!!#############################################################################
   subroutine layer_reduction(this, rhs)
     implicit none
-    class(batchnorm3d_layer_type), intent(inout) :: this
+    class(batchnorm1d_layer_type), intent(inout) :: this
     class(learnable_layer_type), intent(in) :: rhs
 
     select type(rhs)
-    class is(batchnorm3d_layer_type)
+    class is(batchnorm1d_layer_type)
        this%dg = this%dg + rhs%dg
        this%db = this%db + rhs%db
     end select
@@ -84,8 +87,8 @@ contains
 !!!#############################################################################
   function layer_add(a, b) result(output)
     implicit none
-    class(batchnorm3d_layer_type), intent(in) :: a, b
-    type(batchnorm3d_layer_type) :: output
+    class(batchnorm1d_layer_type), intent(in) :: a, b
+    type(batchnorm1d_layer_type) :: output
 
     output = a
     output%dg = output%dg + b%dg
@@ -100,11 +103,11 @@ contains
 !!!#############################################################################
   subroutine layer_merge(this, input)
     implicit none
-    class(batchnorm3d_layer_type), intent(inout) :: this
+    class(batchnorm1d_layer_type), intent(inout) :: this
     class(learnable_layer_type), intent(in) :: input
 
     select type(input)
-    class is(batchnorm3d_layer_type)
+    class is(batchnorm1d_layer_type)
        this%dg = this%dg + input%dg
        this%db = this%db + input%db
     end select
@@ -121,22 +124,22 @@ contains
 !!!#############################################################################
 !!! get layer outputs
 !!!#############################################################################
-  pure subroutine get_output_batchnorm3d(this, output)
-  implicit none
-  class(batchnorm3d_layer_type), intent(in) :: this
-  real(real12), allocatable, dimension(..), intent(out) :: output
-
-  select rank(output)
-  rank(1)
-     output = reshape(this%output, [size(this%output)])
-  rank(2)
-     output = &
-          reshape(this%output, [product(this%output_shape),this%batch_size])
-  rank(5)
-     output = this%output
-  end select
-
-end subroutine get_output_batchnorm3d
+  pure subroutine get_output_batchnorm1d(this, output)
+    implicit none
+    class(batchnorm1d_layer_type), intent(in) :: this
+    real(real12), allocatable, dimension(..), intent(out) :: output
+  
+    select rank(output)
+    rank(1)
+       output = reshape(this%output, [size(this%output)])
+    rank(2)
+       output = reshape(this%output, &
+            [product(this%output_shape(:)), this%batch_size])
+    rank(3)
+       output = this%output
+    end select
+  
+  end subroutine get_output_batchnorm1d
 !!!#############################################################################
 
 
@@ -145,17 +148,19 @@ end subroutine get_output_batchnorm3d
 !!!##########################################################################!!!
 
 
-
 !!!#############################################################################
 !!! forward propagation assumed rank handler
 !!!#############################################################################
   pure subroutine forward_rank(this, input)
     implicit none
-    class(batchnorm3d_layer_type), intent(inout) :: this
+    class(batchnorm1d_layer_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
 
-    select rank(input); rank(5)
-       call forward_5d(this, input)
+    select rank(input)
+    rank(2)
+       call forward_3d(this, input)
+    rank(3)
+       call forward_3d(this, input)
     end select
   end subroutine forward_rank
 !!!#############################################################################
@@ -166,13 +171,18 @@ end subroutine get_output_batchnorm3d
 !!!#############################################################################
   pure subroutine backward_rank(this, input, gradient)
     implicit none
-    class(batchnorm3d_layer_type), intent(inout) :: this
+    class(batchnorm1d_layer_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
     real(real12), dimension(..), intent(in) :: gradient
 
-    select rank(input); rank(5)
-    select rank(gradient); rank(5)
-      call backward_5d(this, input, gradient)
+    select rank(input); rank(2)
+    select rank(gradient); rank(2)
+      call backward_3d(this, input, gradient)
+    end select
+    end select
+    select rank(input); rank(3)
+    select rank(gradient); rank(3)
+      call backward_3d(this, input, gradient)
     end select
     end select
   end subroutine backward_rank
@@ -189,6 +199,7 @@ end subroutine get_output_batchnorm3d
 !!!#############################################################################
   module function layer_setup( &
        input_shape, batch_size, &
+       num_channels, num_inputs, &
        momentum, epsilon, &
        gamma_init_mean, gamma_init_std, &
        beta_init_mean, beta_init_std, &
@@ -199,6 +210,7 @@ end subroutine get_output_batchnorm3d
     implicit none
     integer, dimension(:), optional, intent(in) :: input_shape
     integer, optional, intent(in) :: batch_size
+    integer, optional, intent(in) :: num_channels, num_inputs
     real(real12), optional, intent(in) :: momentum, epsilon
     real(real12), optional, intent(in) :: gamma_init_mean, gamma_init_std
     real(real12), optional, intent(in) :: beta_init_mean, beta_init_std
@@ -206,15 +218,26 @@ end subroutine get_output_batchnorm3d
          kernel_initialiser, bias_initialiser, &
          moving_mean_initialiser, moving_variance_initialiser
     
-    type(batchnorm3d_layer_type) :: layer
+    type(batchnorm1d_layer_type) :: layer
     
 
-    layer%name = "batchnorm3d"
-    layer%input_rank = 4
+    layer%name = "batchnorm1d"
+    layer%input_rank = 1
     !!--------------------------------------------------------------------------
     !! initialise batch size
     !!--------------------------------------------------------------------------
     if(present(batch_size)) layer%batch_size = batch_size
+
+
+    !!--------------------------------------------------------------------------
+    !! set up number of channels (alt. number of features)
+    !!--------------------------------------------------------------------------
+    !  layer%num_channels = -1
+    !  if(present(num_channels).and.present(num_inputs))then
+    !     write(0,*) "ERROR: both num_channels and num_inputs present"
+    !     write(0,*) "These represent the same parameter, so are conflicting"
+    !     stop 1
+    !  end if
 
 
     !!--------------------------------------------------------------------------
@@ -248,13 +271,13 @@ end subroutine get_output_batchnorm3d
     if(trim(layer%kernel_initialiser).eq.'') &
          layer%kernel_initialiser = 'ones'
          !get_default_initialiser("batch")
-    write(*,'("BATCHNORM3D kernel (gamma) initialiser: ",A)') &
+    write(*,'("BATCHNORM1D kernel (gamma) initialiser: ",A)') &
          trim(layer%kernel_initialiser)
     if(present(bias_initialiser)) layer%bias_initialiser = bias_initialiser
     if(trim(layer%bias_initialiser).eq.'') &
          layer%bias_initialiser = 'zeros'
          !get_default_initialiser("batch")
-    write(*,'("BATCHNORM3D bias (beta) initialiser: ",A)') &
+    write(*,'("BATCHNORM1D bias (beta) initialiser: ",A)') &
          trim(layer%bias_initialiser)
 
     if(present(moving_mean_initialiser)) &
@@ -262,21 +285,29 @@ end subroutine get_output_batchnorm3d
     if(trim(layer%moving_mean_initialiser).eq.'') &
          layer%moving_mean_initialiser = 'zeros'
          !get_default_initialiser("batch")
-    write(*,'("BATCHNORM3D moving mean initialiser: ",A)') &
+    write(*,'("BATCHNORM1D moving mean initialiser: ",A)') &
          trim(layer%moving_mean_initialiser)
     if(present(moving_variance_initialiser)) &
          layer%moving_variance_initialiser = moving_variance_initialiser
     if(trim(layer%moving_variance_initialiser).eq.'') &
          layer%moving_variance_initialiser = 'ones'
          !get_default_initialiser("batch")
-    write(*,'("BATCHNORM3D moving variance initialiser: ",A)') &
+    write(*,'("BATCHNORM1D moving variance initialiser: ",A)') &
          trim(layer%moving_variance_initialiser)
 
 
     !!--------------------------------------------------------------------------
     !! initialise layer shape
     !!--------------------------------------------------------------------------
-    if(present(input_shape)) call layer%init(input_shape=input_shape)
+    if(present(input_shape))then
+       call layer%init(input_shape=input_shape)
+    elseif(present(num_channels).and.present(num_inputs))then
+       call layer%init(input_shape=[num_inputs, num_channels])
+    elseif(present(num_channels))then
+       call layer%init(input_shape=[num_channels])
+    elseif(present(num_inputs))then
+       call layer%init(input_shape=[num_inputs])
+    end if
 
   end function layer_setup
 !!!#############################################################################
@@ -285,10 +316,10 @@ end subroutine get_output_batchnorm3d
 !!!#############################################################################
 !!! initialise layer
 !!!#############################################################################
-  subroutine init_batchnorm3d(this, input_shape, batch_size, verbose)
+  subroutine init_batchnorm1d(this, input_shape, batch_size, verbose)
     use initialiser, only: initialiser_setup
     implicit none
-    class(batchnorm3d_layer_type), intent(inout) :: this
+    class(batchnorm1d_layer_type), intent(inout) :: this
     integer, dimension(:), intent(in) :: input_shape
     integer, optional, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
@@ -307,19 +338,27 @@ end subroutine get_output_batchnorm3d
     !!--------------------------------------------------------------------------
     !! initialise input shape
     !!--------------------------------------------------------------------------
-    if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
+    if(.not.allocated(this%input_shape))then
+       if(size(input_shape).eq.1.or.size(input_shape).eq.2)then
+          this%input_rank = size(input_shape)
+       end if
+       call this%set_shape(input_shape)
+    end if
 
 
-    !!-----------------------------------------------------------------------
-    !! set up number of channels, width, height
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
+    !! set up output shape
+    !!--------------------------------------------------------------------------
     this%output_shape = this%input_shape
     this%num_channels = this%input_shape(this%input_rank)
+    if(size(this%input_shape).eq.2)then
+       this%num_inputs = this%input_shape(1)
+    end if
 
 
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     !! allocate mean, variance, gamma, beta, dg, db
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     allocate(this%mean(this%num_channels), source=0._real12)
     allocate(this%variance, source=this%mean)
     allocate(this%gamma, source=this%mean)
@@ -328,9 +367,9 @@ end subroutine get_output_batchnorm3d
     allocate(this%db, source=this%mean)
 
 
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     !! initialise gamma
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     allocate(t_initialiser, source=initialiser_setup(this%kernel_initialiser))
     t_initialiser%mean = this%gamma_init_mean
     t_initialiser%std  = this%gamma_init_std
@@ -340,7 +379,7 @@ end subroutine get_output_batchnorm3d
     deallocate(t_initialiser)
 
     !! initialise beta
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     allocate(t_initialiser, source=initialiser_setup(this%bias_initialiser))
     t_initialiser%mean = this%beta_init_mean
     t_initialiser%std  = this%beta_init_std
@@ -350,9 +389,9 @@ end subroutine get_output_batchnorm3d
     deallocate(t_initialiser)
 
 
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     !! initialise moving mean
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     allocate(t_initialiser, &
          source=initialiser_setup(this%moving_mean_initialiser))
     call t_initialiser%initialise(this%mean, &
@@ -361,7 +400,7 @@ end subroutine get_output_batchnorm3d
     deallocate(t_initialiser)
 
     !! initialise moving variance
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     allocate(t_initialiser, &
          source=initialiser_setup(this%moving_variance_initialiser))
     call t_initialiser%initialise(this%variance, &
@@ -375,16 +414,16 @@ end subroutine get_output_batchnorm3d
     !!--------------------------------------------------------------------------
     if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
 
-  end subroutine init_batchnorm3d
+  end subroutine init_batchnorm1d
 !!!#############################################################################
 
   
 !!!#############################################################################
 !!! set batch size
 !!!#############################################################################
-  subroutine set_batch_size_batchnorm3d(this, batch_size, verbose)
+  subroutine set_batch_size_batchnorm1d(this, batch_size, verbose)
    implicit none
-   class(batchnorm3d_layer_type), intent(inout) :: this
+   class(batchnorm1d_layer_type), intent(inout) :: this
    integer, intent(in) :: batch_size
    integer, optional, intent(in) :: verbose
 
@@ -401,9 +440,7 @@ end subroutine get_output_batchnorm3d
    !!--------------------------------------------------------------------------
    !! set norm
    !!--------------------------------------------------------------------------
-   this%norm = real( &
-        this%batch_size * &
-        product(this%input_shape(1:this%input_rank-1) ),real12)
+   this%norm = real(this%batch_size, real12)
 
 
    !!--------------------------------------------------------------------------
@@ -412,16 +449,15 @@ end subroutine get_output_batchnorm3d
    if(allocated(this%input_shape))then
       if(allocated(this%output)) deallocate(this%output)
       allocate(this%output( &
-           this%output_shape(1), &
-           this%output_shape(2), &
-           this%output_shape(3), this%num_channels, &
+           this%num_inputs, &
+           this%num_channels, &
            this%batch_size), &
            source=0._real12)
       if(allocated(this%di)) deallocate(this%di)
       allocate(this%di, source=this%output)
    end if
 
- end subroutine set_batch_size_batchnorm3d
+ end subroutine set_batch_size_batchnorm1d
 !!!#############################################################################
 
 
@@ -433,9 +469,9 @@ end subroutine get_output_batchnorm3d
 !!!#############################################################################
 !!! print layer to file
 !!!#############################################################################
-  subroutine print_batchnorm3d(this, file)
+  subroutine print_batchnorm1d(this, file)
     implicit none
-    class(batchnorm3d_layer_type), intent(in) :: this
+    class(batchnorm1d_layer_type), intent(in) :: this
     character(*), intent(in) :: file
 
     integer :: unit
@@ -447,8 +483,8 @@ end subroutine get_output_batchnorm3d
 
     !! write convolution initial parameters
     !!--------------------------------------------------------------------------
-    write(unit,'("BATCHNORM3D")')
-    write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
+    write(unit,'("BATCHNORM1D")')
+    write(unit,'(3X,"INPUT_SHAPE = ",2(1X,I0))') this%input_shape
     write(unit,'(3X,"MOMENTUM = ",F0.9)') this%momentum
     write(unit,'(3X,"EPSILON = ",F0.9)') this%epsilon
     write(unit,'(3X,"NUM_CHANNELS = ",I0)') this%num_channels
@@ -461,28 +497,27 @@ end subroutine get_output_batchnorm3d
     do m=1,this%num_channels
        write(unit,'(5(E16.8E2))') this%beta(m)
     end do
-    write(unit,'("END BETA")')
-    write(unit,'("END BATCHNORM3D")')
+    write(unit,'("END BATCHNORM1D")')
 
     !! close unit
     !!--------------------------------------------------------------------------
     close(unit)
 
-  end subroutine print_batchnorm3d
+  end subroutine print_batchnorm1d
 !!!#############################################################################
 
 
 !!!#############################################################################
 !!! read layer from file
 !!!#############################################################################
-  function read_batchnorm3d_layer(unit, verbose) result(layer)
+  function read_batchnorm1d_layer(unit, verbose) result(layer)
     use infile_tools, only: assign_val, assign_vec
     use misc, only: to_lower, icount
     implicit none
     integer, intent(in) :: unit
     integer, optional, intent(in) :: verbose
  
-    class(batchnorm3d_layer_type), allocatable :: layer
+    class(batchnorm1d_layer_type), allocatable :: layer
  
     integer :: stat, verbose_ = 0
     integer :: itmp1, c, i, j, k
@@ -510,13 +545,13 @@ end subroutine get_output_batchnorm3d
        !! check for end of file
        read(unit,'(A)',iostat=stat) buffer
        if(stat.ne.0)then
-          write(0,*) "ERROR: file encountered error (EoF?) before END BATCHNORM3D"
+          write(0,*) "ERROR: file encountered error (EoF?) before END BATCHNORM1D"
           stop "Exiting..."
        end if
        if(trim(adjustl(buffer)).eq."") cycle tag_loop
  
        !! check for end of convolution card
-       if(trim(adjustl(buffer)).eq."END BATCHNORM3D")then
+       if(trim(adjustl(buffer)).eq."END BATCHNORM1D")then
           backspace(unit)
           exit tag_loop
        end if
@@ -563,8 +598,8 @@ end subroutine get_output_batchnorm3d
     !!--------------------------------------------------------------------------
     !! set transfer activation function
     !!--------------------------------------------------------------------------
-    num_channels = input_shape(size(input_shape,1))
-    layer = batchnorm3d_layer_type( input_shape=input_shape, &
+    num_channels = input_shape(size(input_shape))
+    layer = batchnorm1d_layer_type( input_shape=input_shape, &
          momentum = momentum, epsilon = epsilon &
          )
 
@@ -603,12 +638,12 @@ end subroutine get_output_batchnorm3d
     !! check for end of layer card
     !!-----------------------------------------------------------------------
     read(unit,'(A)') buffer
-    if(trim(adjustl(buffer)).ne."END BATCHNORM3D")then
+    if(trim(adjustl(buffer)).ne."END BATCHNORM1D")then
        write(*,*) trim(adjustl(buffer))
-       stop "ERROR: END BATCHNORM3D not where expected"
+       stop "ERROR: END BATCHNORM1D not where expected"
     end if
 
-  end function read_batchnorm3d_layer
+  end function read_batchnorm1d_layer
 !!!#############################################################################
 
 
@@ -620,14 +655,13 @@ end subroutine get_output_batchnorm3d
 !!!#############################################################################
 !!! forward propagation
 !!!#############################################################################
-  pure subroutine forward_5d(this, input)
+  pure subroutine forward_3d(this, input)
     implicit none
-    class(batchnorm3d_layer_type), intent(inout) :: this
+    class(batchnorm1d_layer_type), intent(inout) :: this
     real(real12), dimension( &
-         this%input_shape(1), &
-         this%input_shape(2), &
-         this%input_shape(3), &
-         this%num_channels,this%batch_size), &
+         this%num_inputs, &
+         this%num_channels, &
+         this%batch_size), &
          intent(in) :: input
 
     integer :: m
@@ -636,95 +670,93 @@ end subroutine get_output_batchnorm3d
     
     select case(this%inference)
     case(.true.)
-       do concurrent(m=1:this%num_channels)
-          !! normalize each feature
-          this%output(:,:,:,m,:) = this%gamma(m) * (input(:,:,:,m,:) - &
-                this%mean(m)) / &
-                sqrt( &
-                this%batch_size / (this%batch_size - 1) * this%variance(m) + &
-                this%epsilon) + &
-                this%beta(m)
-       end do
+      do concurrent(m=1:this%num_channels)
+         !! normalize each feature
+         this%output(:,m,:) = this%gamma(m) * (input(:,m,:) - this%mean(m)) / &
+               sqrt( &
+               this%batch_size / (this%batch_size - 1) * this%variance(m) + &
+               this%epsilon) + &
+               this%beta(m)
+      end do
     case default
-       do concurrent(m=1:this%num_channels)
-             !! calculate current mean and variance
-             t_mean(m) = sum(input(:,:,:,m,:)) / this%norm
-             t_variance(m) = sum((input(:,:,:,m,:) - t_mean(m))**2._real12) / this%norm
-      
-             !! CONVERT TO USING inverse square root of variance (i.e. inverse std)
-             !! would also need to include epsilon in the sqrt denominator
+      t_mean = 0._real12
+      t_variance = 0._real12
+      do concurrent(m=1:this%num_channels)
+          !! calculate current mean and variance
+          t_mean(m) = sum(input(:,m,:)) / this%norm
+          t_variance(m) = sum((input(:,m,:) - t_mean(m))**2._real12) / this%norm
 
-             !! update running averages
-             if(this%momentum.ne.0._real12)then
-                this%mean(m) = this%momentum * this%mean(m) + &
-                      (1._real12 - this%momentum) * t_mean(m)
-                this%variance(m) = this%momentum * this%variance(m) + &
-                      (1._real12 - this%momentum) * t_variance(m)
-             else
-                this%mean(m) = t_mean(m)
-                this%variance(m) = t_variance(m)
-             end if
+          !! CONVERT TO USING inverse square root of variance (i.e. inverse std)
+          !! would also need to include epsilon in the sqrt denominator
+
+          !! update running averages
+          if(this%momentum.gt.1.E-8_real12)then
+             this%mean(m) = this%momentum * this%mean(m) + &
+                   (1._real12 - this%momentum) * t_mean(m)
+             this%variance(m) = this%momentum * this%variance(m) + &
+                   (1._real12 - this%momentum) * t_variance(m)
+          else
+             this%mean(m) = t_mean(m)
+             this%variance(m) = t_variance(m)
+          end if
 
           !! normalize each feature
-          this%output(:,:,:,m,:) = this%gamma(m) * (input(:,:,:,m,:) - &
-                this%mean(m)) / &
-                sqrt(this%variance(m) + this%epsilon) + this%beta(m)
+          this%output(:,m,:) = this%gamma(m) * (input(:,m,:) - this%mean(m)) / &
+             sqrt(this%variance(m) + this%epsilon) + this%beta(m)
+
        end do
     end select
 
-  end subroutine forward_5d
+  end subroutine forward_3d
 !!!#############################################################################
 
 
 !!!#############################################################################
 !!! backward propagation
 !!!#############################################################################
-  pure subroutine backward_5d(this, input, gradient)
+  pure subroutine backward_3d(this, input, gradient)
     implicit none
-    class(batchnorm3d_layer_type), intent(inout) :: this
+    class(batchnorm1d_layer_type), intent(inout) :: this
     real(real12), dimension( &
-         this%input_shape(1), &
-         this%input_shape(2), &
-         this%input_shape(3), &
-         this%num_channels,this%batch_size), &
+         this%num_inputs, &
+         this%num_channels, &
+         this%batch_size), &
          intent(in) :: input
     real(real12), dimension( &
-         this%output_shape(1), &
-         this%output_shape(2), &
-         this%output_shape(3), &
-         this%num_channels,this%batch_size), &
+         this%num_inputs, &
+         this%num_channels, &
+         this%batch_size), &
          intent(in) :: gradient
 
     integer :: m
     real(real12), dimension( &
-          this%input_shape(1), &
-          this%input_shape(2), &
-          this%input_shape(3), &
-          this%num_channels,this%batch_size) :: x_hat, dx_hat
+         this%num_inputs, &
+         this%num_channels, &
+         this%batch_size) :: x_hat, dx_hat
 
 
     do concurrent(m=1:this%num_channels)
        !! recalculate x_hat (i.e. normalised input)
-       x_hat(:,:,:,m,:) = (input(:,:,:,m,:) - this%mean(m)) / &
+       x_hat(:,m,:) = (input(:,m,:) - this%mean(m)) / &
             sqrt(this%variance(m) + this%epsilon)
  
        !! calculate gradient of normalised input
-       dx_hat(:,:,:,m,:) = gradient(:,:,:,m,:) * this%gamma(m)
+       dx_hat(:,m,:) = gradient(:,m,:) * this%gamma(m)
 
        !! calculate gradient of inputs
-       this%di(:,:,:,m,:) = &
+       this%di(:,m,:) = &
             1._real12 / (this%norm * sqrt(this%variance(m) + this%epsilon)) * &
-            ( this%norm * dx_hat(:,:,:,m,:) - &
-            sum(dx_hat(:,:,:,m,:)) - x_hat(:,:,:,m,:) * &
-            sum(dx_hat(:,:,:,m,:) * x_hat(:,:,:,m,:)))
+            ( this%norm * dx_hat(:,m,:) - &
+            sum(dx_hat(:,m,:)) - x_hat(:,m,:) * &
+            sum(dx_hat(:,m,:) * x_hat(:,m,:)))
 
        !! calculate gradient of gamma and beta
-       this%dg(m) = sum(gradient(:,:,:,m,:) * x_hat(:,:,:,m,:))
-       this%db(m) = sum(gradient(:,:,:,m,:))
+       this%dg(m) = sum(gradient(:,m,:) * x_hat(:,m,:))
+       this%db(m) = sum(gradient(:,m,:))
     end do
 
-  end subroutine backward_5d
+  end subroutine backward_3d
 !!!#############################################################################
 
-end module batchnorm3d_layer
+end module batchnorm1d_layer
 !!!#############################################################################

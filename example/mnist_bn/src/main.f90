@@ -8,7 +8,7 @@ program mnist_example
   use omp_lib
 #endif
   use athena
-  use constants_minst, only: real12
+  use constants_mnist, only: real12
   use read_mnist, only: read_mnist_db
   use inputs
 
