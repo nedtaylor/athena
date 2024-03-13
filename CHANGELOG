@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove reference to doc/ directory
 - Fixed typo in example library
 - Fixed example/mnist/src/main.f90 using wrong constants module
+- Fixed cmake isntall path prefix duplication issue
 
 ### Removed
 - Deprecate and remove step_decay and lr_reduce_on_plateau procedures
