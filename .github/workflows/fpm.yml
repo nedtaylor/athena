@@ -35,7 +35,7 @@ jobs:
         version: [13]
     steps:
     - name: checkout repo
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - uses: fortran-lang/setup-fortran@v1
       id: setup-fortran
@@ -71,7 +71,7 @@ jobs:
 
     steps:
     - name: checkout repo
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
         
     - uses: fortran-lang/setup-fortran@v1
       id: setup-fortran
