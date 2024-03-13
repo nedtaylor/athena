@@ -3,13 +3,12 @@ name: run-cmake-build
 on:
   push:
     paths:
-      - ".github/workflows/fpm.yml"
-      - "fpm.toml"
+      - ".github/workflows/cmake.yml"
+      - "CMakeLists.txt"
       - "**.f90"
   pull_request:
     paths:
       - ".github/workflows/cmake.yml"
-      - "fpm.toml"
       - "CMakeLists.txt"
       - "**.f90"
   workflow_dispatch:
@@ -57,8 +56,6 @@ jobs:
           
       - name: Compile
         run: |
-          # sudo apt-get update
-          # sudo apt-get install -y cmake make
           cmake --version
           gfortran --version
           mkdir -p build
@@ -100,8 +97,6 @@ jobs:
           
       - name: Compile
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake make
           cmake --version
           gfortran --version
           mkdir -p build
