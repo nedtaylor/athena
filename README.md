@@ -1,15 +1,17 @@
 [![MIT workflow](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/license/mit/ "View MIT license")
 [![Latest Release](https://img.shields.io/github/v/release/nedtaylor/athena?sort=semver)](https://github.com/nedtaylor/athena/releases "View on GitHub")
 [![Downloads](https://img.shields.io/github/downloads/nedtaylor/athena/total)](https://github.com/nedtaylor/athena/releases "View on GitHub")
+[![status](https://joss.theoj.org/papers/7806cc51a998f872034abfe0bb24bc24/status.svg)](https://joss.theoj.org/papers/7806cc51a998f872034abfe0bb24bc24)
 [![FPM](https://img.shields.io/badge/fpm-0.9.0-purple)](https://github.com/fortran-lang/fpm "View Fortran Package Manager")
 [![CMAKE](https://img.shields.io/badge/cmake-3.17.5-red)](https://github.com/Kitware/CMake/releases/tag/v3.17.5 "View cmake")
 [![GCC compatibility](https://img.shields.io/badge/gcc-13.2.0-green)](https://gcc.gnu.org/gcc-13/ "View GCC")
+[![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/nedtaylor/fd7c07c046ecc92d92eaf7bdcb78c4b5/raw/test.json)](https://nedtaylor.github.io/athena/ "View coverage report")
 
 # athena
 
 by Ned Thaddeus Taylor
 
-ATHENA (Adaptive Training for High Efficiency Neural Network Applications) is a Fortran library for developing and handling neural networks (with a focus on convolutional neural networks).
+ATHENA (Adaptive Training for High Efficiency Neural network Applications) is a Fortran library for developing and handling neural networks (with a focus on convolutional neural networks).
 
 ## New Repository Location
 
@@ -27,11 +29,10 @@ ATHENA is distributed with the following directories:
 
 | Directory | Description |
 |---|---|
-|  _doc/_ |      Documentation  |
-|  example/  |    A set of example programs utilising the ATHENA library |
+|  _example/_  |    A set of example programs utilising the ATHENA library |
 |  _src/_ |      Source code  |
 |  _tools/_ |    Additional shell script tools for automating learning  |
-|  test/  |    A set of test programs to check functionality of the library works after compilation |
+|  _test/_  |    A set of test programs to check functionality of the library works after compilation |
 
 
 Documentation
@@ -67,7 +68,7 @@ The library has been developed and tested using the following compilers:
 
 The library is set up to work with the Fortran Package Manager (fpm).
 
-With gfortran, the following command in the repository main directory:
+Run the following command in the repository main directory:
 ```
   fpm build --profile release
 ```
@@ -176,6 +177,11 @@ Developers
 ----------
 - Ned Thaddeus Taylor
 
+Contributing
+------------
+
+Please note that this project adheres to the [Contributing Guide](CONTRIBUTING.md). If you are interested in contributing to this project, please contact [Ned Taylor](mailto:n.t.taylor@exeter.ac.uk?subject=ATHENA%20-%20contribution%20request).
+
 
 Acknowledgements
 ---------------
@@ -186,6 +192,11 @@ License
 -------
 This work is licensed under an [MIT license](https://opensource.org/license/mit/).
 
+Code Coverage
+-------------
+
+Automated reporting on unit test code coverage in the README is achieved through utilising the [cmake-modules](https://github.com/rpavlik/cmake-modules) and [dynamic-badges-action](https://github.com/Schneegans/dynamic-badges-action?tab=readme-ov-file) projects.
+
 
 Files
 -----
@@ -194,20 +205,25 @@ Files
 |Source file | Description|
 |-----------|------------|
 |_src/athena.f90_                      | the module file that imports all necessary user-accessible procedures  |
+|_src/lib/mod_accuracy.f90_            | accuracy calculation procedures |
 |_src/lib/mod_activation.f90_          | generic node activation (transfer) setup  |
 |_src/lib/mod_activation__[_NAME_]_.f90_   | [_NAME_] activation method  |
 |_src/lib/mod_base_layer.f90_          | abstract layer construct type  |
+|_src/lib/mod_base_layer_sub.f90_          | base layer submodule |
+|_src/lib/mod_clipper.f90_             | gradient clipping procedures |
+|_src/lib/mod_constants.f90_           | a set of global constants used in this code  |
 |_src/lib/mod_container.f90_           | layer container construct for handling multiple layers in a network  |
 |_src/lib/mod_container_sub.f90_       | layer container submodule  |
-|_src/lib/mod_constants.f90_           | a set of global constants used in this code  |
 |_src/lib/mod__[_NAME_]__layer.f90_        | [_NAME_] layer-type  |
 |_src/lib/mod_initialiser.f90_         | generic kernel (and bias) initialiser setup  |
 |_src/lib/mod_initialiser__[_NAME_]_.f90_  | [_NAME_] kernel initialisation method  |
-|_src/lib/mod_loss_categorical.f90_    | categorical loss methods and their respective derivatives | 
+|_src/lib/mod_loss.f90_                | loss and corresponding derivatives calculation procedures |
+|_src/lib/mod_lr_decay.f90_            | learning rate decay procedures |
 |_src/lib/mod_metrics.f90_             | training convergence metric derived type and procedures  |
 |_src/lib/mod_misc.f90_                | miscellaneous procedures  |
 |_src/lib/mod_misc_ml.f90_             | miscellaneous machine learning procedures  |
 |_srcs/lib/mod_network.f90_            | neural network derived type and procedures  |
+|_srcs/lib/mod_network_sub.f90_        | network submodule  |
 |_src/lib/mod_normalisation.f90_       | data normalisation procedures  |
 |_src/lib/mod_optimiser.f90_           | learning optimisation derived type and procedures  |
 |_src/lib/mod_random.f90_              | random number procedures  |
@@ -218,13 +234,20 @@ Files
 
 | Additional file | Description |
 |-----|------|
-|_README.md_                        | a readme file with a brief description of the code and files  |
+|_CHANGELOG_                        | human-readable athena codebase version history |
 |_CMakeLists.txt_                   | the makefile used for compiling the library  |
-|_LICENSE_                          | licence of ATHENA code  |
+|_CONTRIBUTING.md_                  | Guidelines for organisation of athena codebase |
+|_fpm.toml_                         | [Fortran Package Manager (fpm)](https://github.com/fortran-lang/fpm) compilation file |
+|_LICENSE_                          | licence of ATHENA code |
+|_README.md_                        | a readme file with a brief description of the code and files  |
+|_TODO_                             | todo-list in addition to useful machine learning and fortran references |
+|_cmake/CodeCoverage.cmake_         | [cmake-modules](https://github.com/rpavlik/cmake-modules) file to automate unit test coverage reporting| 
 |_example/example_library_          | Utility library shared between the examples |
-|_example/mnist/expected_output.txt_   | expected output from executing example program  |
-|_example/mnist/test_job.in_           | input file for example program  |
+|_example/__[_NAME_]__/expected_output.txt_   | expected output from executing [_NAME_] example program  |
+|_example/__[_NAME_]__/test_job.in_           | input file for [_NAME_] example program  |
+|_example/__[_NAME_]__/src_                   | source directory for [_NAME_] example program  |
 |_test/test__[_NAME_]__.f90_           | [_NAME_] test program to check library expected functionality |
+|_tools/coverage_badge.py_          | script to extract code coverage percentage from GitHub Action |
 |_tools/sweep_init.py_              | script to initialise wandb sweep  |
 |_tools/sweep_train.py_             | script to perform training and log learning to wandb  |
 |_tools/template.in_                | input file for program in test/bin/ (once compiled)  |

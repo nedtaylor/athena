@@ -8,14 +8,19 @@ program test_maxpool2d_layer
   class(base_layer_type), allocatable :: pool_layer
   integer, parameter :: num_channels = 3, pool = 3, stride = 2, width = 18
   real, allocatable, dimension(:,:,:,:) :: input_data, output, gradient
+  real, allocatable, dimension(:) :: output_1d
+  real, allocatable, dimension(:,:) :: output_2d
   real, parameter :: tol = 1.E-7
   logical :: success = .true.
 
-  integer :: i, j, output_width, max_loc, num_windows_i, num_windows_j, num_windows
+  integer :: i, j, output_width, max_loc
+  integer :: num_windows_i, num_windows_j, num_windows
   real, parameter :: max_value = 3.0
 
 
-  !! set up maxpool2d layer
+!!!-----------------------------------------------------------------------------
+!!! set up layer
+!!!-----------------------------------------------------------------------------
   pool_layer = maxpool2d_layer_type( &
        pool_size = pool, &
        stride = stride &
@@ -26,8 +31,6 @@ program test_maxpool2d_layer
      success = .false.
      write(0,*) 'maxpool2d layer has wrong name'
   end if
-
-!!!-----------------------------------------------------------------------------
 
   !! check layer type
   select type(pool_layer)
@@ -54,11 +57,13 @@ program test_maxpool2d_layer
      write(0,*) 'maxpool2d layer has wrong type'
   end select
 
-!!!-----------------------------------------------------------------------------
 
+!!!-----------------------------------------------------------------------------
+!!! check layer input and output shape based on input layer
+!!!-----------------------------------------------------------------------------
   !! initialise width and output width
   output_width = floor( (width - pool)/real(stride)) + 1
-  max_loc = width / 2
+  max_loc = width / 2 + mod(width, 2)
 
   !! initialise sample input
   allocate(input_data(width, width, num_channels, 1), source = 0.0)
@@ -68,9 +73,7 @@ program test_maxpool2d_layer
        stride = stride &
        )
 
-!!!-----------------------------------------------------------------------------
-
-  !! check layer input and output shape based on input layer
+  !! check layer input and output shape based on input data
   call pool_layer%init(shape(input_data(:,:,:,1)), batch_size=1)
   select type(pool_layer)
   type is(maxpool2d_layer_type)
@@ -78,13 +81,20 @@ program test_maxpool2d_layer
        success = .false.
        write(0,*) 'maxpool2d layer has wrong input_shape'
     end if
-    if(any(pool_layer%output_shape .ne. [output_width,output_width,num_channels]))then
+    if(any(pool_layer%output_shape .ne. &
+         [output_width,output_width,num_channels]))then
        success = .false.
-       write(0,*) 'maxpool2d layer has wrong output_shape', pool_layer%output_shape
+       write(0,*) 'maxpool2d layer has wrong output_shape', &
+            pool_layer%output_shape
        write(0,*) 'expected', [output_width,output_width,num_channels]
     end if
   end select
 
+
+!!!-----------------------------------------------------------------------------
+!!! test forward pass and check expected output
+!!! use existing layer
+!!!-----------------------------------------------------------------------------
   !! run forward pass
   call pool_layer%forward(input_data)
   call pool_layer%get_output(output)
@@ -107,8 +117,21 @@ program test_maxpool2d_layer
      end do
   end do
 
-!!!-----------------------------------------------------------------------------
 
+!!!-----------------------------------------------------------------------------
+!!! check output request using rank 1 and rank 2 arrays is consistent
+!!!-----------------------------------------------------------------------------
+  call pool_layer%get_output(output_1d)
+  call pool_layer%get_output(output_2d)
+  if(any(abs(output_1d - reshape(output_2d, [size(output_2d)])) .gt. 1.E-6))then
+     success = .false.
+     write(0,*) 'output_1d and output_2d are not consistent'
+  end if
+
+
+!!!-----------------------------------------------------------------------------
+!!! test backward pass and check expected output
+!!!-----------------------------------------------------------------------------
   !! run backward pass
   allocate(gradient, source = output)
   call pool_layer%backward(input_data, gradient)
@@ -138,12 +161,51 @@ program test_maxpool2d_layer
   end select
 
 
-  !! check for any fails
+!!!-----------------------------------------------------------------------------
+!!! check expected initialisation of pool and stride
+!!!-----------------------------------------------------------------------------
+  pool_layer = maxpool2d_layer_type( &
+       pool_size = [2, 2], &
+       stride = [2, 2] &
+       )
+  select type(pool_layer)
+  type is (maxpool2d_layer_type)
+     if(any(pool_layer%pool .ne. [2, 2]))then
+        success = .false.
+        write(0,*) 'maxpool2d layer has wrong pool size'
+     end if
+     if(any(pool_layer%strd .ne. [2, 2]))then
+        success = .false.
+        write(0,*) 'maxpool2d layer has wrong stride size'
+     end if
+  end select
+
+  !! check expected initialisation of pool and stride
+  pool_layer = maxpool2d_layer_type( &
+       pool_size = [4], &
+       stride = [4] &
+       )
+  select type(pool_layer)
+  type is (maxpool2d_layer_type)
+     if(any(pool_layer%pool .ne. 4))then
+        success = .false.
+        write(0,*) 'maxpool2d layer has wrong pool size'
+     end if
+     if(any(pool_layer%strd .ne. 4))then
+        success = .false.
+        write(0,*) 'maxpool2d layer has wrong stride size'
+     end if
+  end select
+
+
+!!!-----------------------------------------------------------------------------
+!!! check for any failed tests
+!!!-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_maxpool2d_layer passed all tests'
   else
-     write(*,*) 'test_maxpool2d_layer failed one or more tests'
+     write(0,*) 'test_maxpool2d_layer failed one or more tests'
      stop 1
   end if
 

@@ -15,12 +15,18 @@ program test_flatten2d_layer
   integer :: seed_size = 1
   integer, allocatable, dimension(:) :: seed
 
-  !! Initialize random number generator with a seed
+
+!!!-----------------------------------------------------------------------------
+!!! Initialize random number generator with a seed
+!!!-----------------------------------------------------------------------------
   call random_seed(size = seed_size)
   allocate(seed(seed_size), source=0)
   call random_seed(put = seed)
 
-  !! set up flatten2d layer
+
+!!!-----------------------------------------------------------------------------
+!!! set up layer
+!!!-----------------------------------------------------------------------------
   flatten_layer = flatten2d_layer_type( &
        input_shape = [width, width, num_channels], batch_size = batch_size)
 
@@ -48,6 +54,11 @@ program test_flatten2d_layer
      write(0,*) 'flatten2d layer has wrong batch size'
   end if
 
+
+!!!-----------------------------------------------------------------------------
+!!! test forward pass and check expected output
+!!! use existing layer
+!!!-----------------------------------------------------------------------------
   !! initialise sample input
   allocate(input_data(width, width, num_channels, batch_size), source = 0.0)
   call random_number(input_data)
@@ -62,6 +73,10 @@ program test_flatten2d_layer
      write(0,*) 'flatten2d layer forward pass incorrect'
    end if
 
+
+!!!-----------------------------------------------------------------------------
+!!! test backward pass and check expected output
+!!!-----------------------------------------------------------------------------
   !! run backward pass
   allocate(gradient, source = output)
   call flatten_layer%backward(input_data, gradient)
@@ -72,12 +87,15 @@ program test_flatten2d_layer
     write(0,*) 'flatten2d layer backward pass incorrect'
   end if
 
-  !! check for any fails
+
+!!!-----------------------------------------------------------------------------
+!!! check for any failed tests
+!!!-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_flatten2d_layer passed all tests'
   else
-     write(*,*) 'test_flatten2d_layer failed one or more tests'
+     write(0,*) 'test_flatten2d_layer failed one or more tests'
      stop 1
   end if
 

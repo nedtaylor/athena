@@ -7,7 +7,10 @@ program test_avgpool2d_layer
 
   class(base_layer_type), allocatable :: pool_layer
   integer, parameter :: num_channels = 3, pool = 3, stride = 3, width = 9
-  real, allocatable, dimension(:,:,:,:) :: input_data, output, gradient, di_compare
+  real, allocatable, dimension(:) :: output_1d
+  real, allocatable, dimension(:,:) :: output_2d
+  real, allocatable, dimension(:,:,:,:) :: input_data, output, gradient, &
+       di_compare
   real, parameter :: tol = 1.E-7
   logical :: success = .true.
 
@@ -59,7 +62,7 @@ program test_avgpool2d_layer
 
   !! initialise width and output width
   output_width = floor( (width - pool)/real(stride)) + 1
-  max_loc = width / 2
+  max_loc = width / 2 + mod(width, 2)
 
   !! initialise sample input
   allocate(input_data(width, width, num_channels, 1), source = 0.0)
@@ -107,6 +110,23 @@ program test_avgpool2d_layer
        end if
      end do
   end do
+
+  !! check 1d and 2d output are the same
+  call pool_layer%get_output(output_1d)
+  call pool_layer%get_output(output_2d)
+  if(any(abs(output_1d - &
+       reshape(output, [output_width*output_width*num_channels])) &
+       .gt. 1.E-6))then
+     success = .false.
+     write(*,*) 'avgpool2d layer output pass failed'
+  end if
+  if(any(abs(&
+       reshape(output_2d, [output_width*output_width*num_channels]) - &
+       reshape(output, [output_width*output_width*num_channels])) &
+       .gt. 1.E-6))then
+     success = .false.
+     write(*,*) 'avgpool2d layer output pass failed'
+  end if
 
 !!!-----------------------------------------------------------------------------
 
@@ -162,14 +182,48 @@ program test_avgpool2d_layer
 
   end if
 
-!!!-----------------------------------------------------------------------------
+  !! check expected initialisation of pool and stride
+  pool_layer = avgpool2d_layer_type( &
+       pool_size = [2, 2], &
+       stride = [2, 2] &
+       )
+  select type(pool_layer)
+  type is (avgpool2d_layer_type)
+     if(any(pool_layer%pool .ne. [2, 2]))then
+        success = .false.
+        write(0,*) 'avgpool2d layer has wrong pool size'
+     end if
+     if(any(pool_layer%strd .ne. [2, 2]))then
+        success = .false.
+        write(0,*) 'avgpool2d layer has wrong stride size'
+     end if
+  end select
 
-  !! check for any fails
+  !! check expected initialisation of pool and stride
+  pool_layer = avgpool2d_layer_type( &
+       pool_size = [4], &
+       stride = [4] &
+       )
+  select type(pool_layer)
+  type is (avgpool2d_layer_type)
+     if(any(pool_layer%pool .ne. 4))then
+        success = .false.
+        write(0,*) 'avgpool2d layer has wrong pool size'
+     end if
+     if(any(pool_layer%strd .ne. 4))then
+        success = .false.
+        write(0,*) 'avgpool2d layer has wrong stride size'
+     end if
+  end select
+
+!!!-----------------------------------------------------------------------------
+!!! check for any failed tests
+!!!-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_avgpool2d_layer passed all tests'
   else
-     write(*,*) 'test_avgpool2d_layer failed one or more tests'
+     write(0,*) 'test_avgpool2d_layer failed one or more tests'
      stop 1
   end if
 

@@ -1,13 +1,22 @@
 !!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
+!!! Code part of the ATHENA library - a feedforward neural network library
+!!!#############################################################################
+!!! module contains the loss functions and their derivatives
+!!! module includes the following procedures:
+!!! - compute_loss_function   - abstract interface for all loss functions
+!!! - total_loss_function     - abstract interface for all total loss functions
+!!! - compute_loss_derivative - computes the derivative of the loss function
 !!!#############################################################################
 module loss
   use constants, only: real12
   implicit none
 
   abstract interface
+     !! compute the loss function
+     !! predicted = (R, in) predicted values
+     !! expected  = (R, in) expected values
+     !! output    = (R, in) loss function
      pure function compute_loss_function(predicted, expected) result(output)
        import real12
        real(real12), dimension(:,:), intent(in) :: predicted, expected
@@ -16,6 +25,10 @@ module loss
   end interface
   
   abstract interface
+     !! compute the total loss function
+     !! predicted = (R, in) predicted values
+     !! expected  = (R, in) expected values
+     !! output    = (R, in) loss function
      pure function total_loss_function(predicted, expected) result(output)
        import real12
        real(real12), dimension(:,:), intent(in) :: predicted, expected
@@ -131,7 +144,7 @@ contains
     real(real12), dimension(:,:), intent(in) :: predicted, expected
     real(real12), dimension(size(predicted,2)) :: output
 
-    output = sum(compute_loss_mse(predicted,expected),dim=1)
+    output = sum(compute_loss_mae(predicted,expected),dim=1)
     
   end function total_loss_mae
 !!!#############################################################################
@@ -164,7 +177,7 @@ contains
 
 !!!#############################################################################
 !!! compute losses
-!!! method: categorical cross entropy
+!!! method: negative log likelihood
 !!!#############################################################################
   pure function compute_loss_nll(predicted, expected) result(output)
     implicit none

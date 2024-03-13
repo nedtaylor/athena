@@ -11,7 +11,6 @@ wandb/
 tools/D_*
 tools/*.txt
 tools/cnn_*
-*.yaml
 cnn_*.in
 DTEST*
 network*.in

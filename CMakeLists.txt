@@ -35,6 +35,19 @@ set(CMAKE_Fortran_STANDARD 2018)
 # set language
 enable_language(Fortran)
 
+# set coverage compiler flags
+if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
+  list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+  set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+  if(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+      include(CodeCoverage)
+      setup_target_for_coverage_gcovr_html(
+        NAME coverage
+        EXECUTABLE ctest
+        EXCLUDE "${PROJECT_SOURCE_DIR}/test/*")
+  endif()
+endif()
+
 # enable testing
 enable_testing()
 
@@ -80,6 +93,8 @@ set(LIB_FILES
     mod_loss.f90
     mod_accuracy.f90
     mod_base_layer.f90
+    mod_base_layer_sub.f90
+    mod_batchnorm1d_layer.f90
     mod_batchnorm2d_layer.f90
     mod_batchnorm3d_layer.f90
     mod_conv2d_layer.f90
@@ -102,6 +117,7 @@ set(LIB_FILES
     mod_container_layer.f90
     mod_container_layer_sub.f90
     mod_network.f90
+    mod_network_sub.f90
 )
 foreach(lib ${LIB_FILES})
     list(APPEND PREPENDED_LIB_FILES ${LIB_DIR}/${lib})
@@ -187,8 +203,8 @@ target_link_libraries(${PROJECT_NAME} PUBLIC)
 string(REGEX REPLACE "\\.[^.]*$" ".mod" MODULE_FILES "${SRC_FILES}")
 
 # installation
-install(FILES ${MODULE_DIR}/${MODULE_FILES} DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
-install(TARGETS ${PROJECT_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+install(FILES ${MODULE_DIR}/${MODULE_FILES} DESTINATION include)
+install(TARGETS ${PROJECT_NAME} DESTINATION lib)
 
 # set compile options based on different build configurations
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Release>:${OPTIMFLAGS}>")
@@ -201,5 +217,10 @@ target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel_Dev>:${DEVFLA
 
 # include the build test directory
 if(BUILD_TESTS)
-    add_subdirectory(test)
+  add_subdirectory(test)
+endif()
+
+# add coverage compiler flags
+if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
+  append_coverage_compiler_flags()
 endif()

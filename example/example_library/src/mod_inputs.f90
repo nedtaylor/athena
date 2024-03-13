@@ -4,7 +4,7 @@
 !!! Code part of the ARTEMIS group
 !!!#############################################################################
 module inputs
-  use constants_minst, only: real12, ierror
+  use constants_mnist, only: real12, ierror
   use athena, only: &
        metric_dict_type, &
        base_optimiser_type, &
@@ -13,7 +13,7 @@ module inputs
        l1l2_regulariser_type, &
        l1_regulariser_type, &
        l2_regulariser_type
-  use misc_minst, only: icount, flagmaker, file_check, to_lower
+  use misc_mnist, only: icount, flagmaker, file_check, to_lower
   implicit none
   integer :: verbosity    ! verbose printing
   integer :: seed         ! random seed

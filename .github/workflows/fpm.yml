@@ -1,0 +1,95 @@
+name: run-fpm-build
+
+on:
+  push:
+    paths:
+      - ".github/workflows/fpm.yml"
+      - "fpm.toml"
+      - "**.f90"
+  pull_request:
+    paths:
+      - ".github/workflows/fpm.yml"
+      - "fpm.toml"
+      - "**.f90"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+  
+jobs:
+  build-and-test-fpm-debug:
+    environment:
+      name: github-pages
+    name: Build and test in debug mode
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc]
+        version: [13]
+    steps:
+    - name: checkout repo
+      uses: actions/checkout@v4
+
+    - uses: fortran-lang/setup-fortran@v1
+      id: setup-fortran
+      with:
+        compiler: ${{ matrix.compiler }}
+        version: ${{ matrix.version }}
+          
+    - uses: fortran-lang/setup-fpm@v5
+      id: setup-fpm
+      with:
+        fpm-version: "v0.9.0"
+        
+    - name: Compile
+      run: |
+        gfortran --version
+        fpm build --profile debug --compiler gfortran
+
+    - name: Test
+      run: |
+        gfortran --version
+        fpm test --profile debug --compiler gfortran
+
+  build-and-test-fpm-release:
+    name: Build and test in release mode
+    environment:
+      name: github-pages
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc]
+        version: [13]
+
+    steps:
+    - name: checkout repo
+      uses: actions/checkout@v4
+        
+    - uses: fortran-lang/setup-fortran@v1
+      id: setup-fortran
+      with:
+        compiler: ${{ matrix.compiler }}
+        version: ${{ matrix.version }}
+          
+    - uses: fortran-lang/setup-fpm@v5
+      id: setup-fpm
+      with:
+        fpm-version: "v0.9.0"
+
+    - name: Compile
+      run: |
+        gfortran --version
+        fpm build --profile release --compiler gfortran
+
+    - name: Test
+      run: |
+        gfortran --version
+        fpm test --profile release --compiler gfortran

@@ -1,7 +1,8 @@
 !!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor 
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
+!!! Code written by Ned Thaddeus Taylor
+!!! Code part of the ATHENA library - a feedforward neural network library
+!!!#############################################################################
+!!! module contains implementation of the softmax activation function
 !!!#############################################################################
 module activation_softmax
   use constants, only: real12

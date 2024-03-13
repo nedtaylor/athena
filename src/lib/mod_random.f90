@@ -1,7 +1,10 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
+!!! Code part of the ATHENA library - a feedforward neural network library
+!!!#############################################################################
+!!! module contains random number generator initialisation
+!!! module contains the following procedures:
+!!! - random_setup - seed random number generator from seed vector or randomly
 !!!#############################################################################
 module random
   implicit none
@@ -26,23 +29,24 @@ contains
 
     integer :: l
     integer :: itmp1
-    integer :: t_num_seed
-    logical :: t_restart
+    integer :: num_seed_
+    logical :: restart_
     integer, allocatable, dimension(:) :: seed_arr
 
     !! check if restart is defined
     if(present(restart))then
-       t_restart = restart       
+       restart_ = restart       
     else
-       t_restart = .false.
+       restart_ = .false.
     end if
+    if(present(already_initialised)) already_initialised = .false.
 
     !! define number of seeds
     if(present(num_seed))then
        if(present(seed))then
           select rank(seed)
           rank(0)
-             t_num_seed = num_seed
+             num_seed_ = num_seed
           rank(1)
              if(size(seed,dim=1).ne.1.and.size(seed,dim=1).ne.num_seed)then
                 write(0,*) "ERROR: seed and num_seed provided to random_setup"
@@ -51,23 +55,23 @@ contains
              end if
           end select
        else
-          t_num_seed = num_seed
+          num_seed_ = num_seed
        end if
     else
        if(present(seed))then
-          t_num_seed = size(seed,dim=1)
+          num_seed_ = size(seed,dim=1)
        else
-          t_num_seed = 1
+          num_seed_ = 1
        end if
     end if
 
     !! check if already initialised
-    if(l_random_initialised.and..not.t_restart)then
+    if(l_random_initialised.and..not.restart_)then
        if(present(already_initialised)) already_initialised = .true.
        return !! no need to initialise if already initialised
     else
-       call random_seed(size=t_num_seed)
-       allocate(seed_arr(t_num_seed))
+       call random_seed(size=num_seed_)
+       allocate(seed_arr(num_seed_))
        if(present(seed))then
           select rank(seed)
           rank(0)
@@ -81,7 +85,7 @@ contains
           end select
        else
           call system_clock(count=itmp1)
-          seed_arr = itmp1 + 37* (/ (l-1,l=1,t_num_seed) /)
+          seed_arr = itmp1 + 37* (/ (l-1,l=1,num_seed_) /)
        end if
        call random_seed(put=seed_arr)
        l_random_initialised = .true.

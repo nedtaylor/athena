@@ -1,9 +1,11 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
+!!! Code part of the ATHENA library - a feedforward neural network library
+!!!#############################################################################
+!!! module contains implementation of the He initialiser
 !!!#############################################################################
 !!! He initialiser reference: https://doi.org/10.48550/arXiv.1502.01852
+!!!#############################################################################
 module initialiser_he
   use constants, only: real12, pi
   use custom_types, only: initialiser_type

@@ -1,7 +1,8 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
+!!! Code part of the ATHENA library - a feedforward neural network library
+!!!#############################################################################
+!!! module contains implementation of a 1D input layer
 !!!#############################################################################
 module input1d_layer
   use constants, only: real12
@@ -152,17 +153,13 @@ contains
     integer, optional, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
 
-    integer :: t_verb
+    integer :: verbose_ = 0
 
 
     !!--------------------------------------------------------------------------
     !! initialise optional arguments
     !!--------------------------------------------------------------------------
-    if(present(verbose))then
-       t_verb = verbose
-    else
-       t_verb = 0
-    end if
+    if(present(verbose)) verbose_ = verbose
     if(present(batch_size)) this%batch_size = batch_size
 
 
@@ -193,17 +190,13 @@ contains
     integer, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
 
-    integer :: t_verb
+    integer :: verbose_ = 0
 
 
     !!--------------------------------------------------------------------------
     !! initialise optional arguments
     !!--------------------------------------------------------------------------
-    if(present(verbose))then
-       t_verb = verbose
-    else
-       t_verb = 0
-    end if
+    if(present(verbose)) verbose_ = verbose
     this%batch_size = batch_size
 
 

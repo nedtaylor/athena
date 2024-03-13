@@ -1,7 +1,19 @@
 !!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
+!!! Code part of the ATHENA library - a feedforward neural network library
+!!!#############################################################################
+!!! module contains learning rate decay types and procedures
+!!! module contains the following derived types:
+!!! - base_lr_decay_type - base learning rate decay type
+!!! - exp_lr_decay_type  - exponential learning rate decay type
+!!! - step_lr_decay_type - step learning rate decay type
+!!! - inv_lr_decay_type  - inverse learning rate decay type
+!!!##################
+!!! <NAME>_lr_decay_type contains the following procedures:
+!!! - get_lr - returns the updated learning rate
+!!!##################
+!!! module contains the following procedures:
+!!! - setup_lr_decay_<NAME> - sets up the <NAME> learning rate decay type
 !!!#############################################################################
 module learning_rate_decay
   use constants, only: real12

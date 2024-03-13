@@ -1,7 +1,8 @@
-!!#############################################################################
+!!!#############################################################################
 !!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
+!!! Code part of the ATHENA library - a feedforward neural network library
+!!!#############################################################################
+!!! module contains implementation of a 3D average pooling layer
 !!!#############################################################################
 module avgpool3d_layer
   use constants, only: real12
@@ -203,17 +204,13 @@ contains
     integer, optional, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
 
-    integer :: t_verb
+    integer :: verbose_ = 0
 
 
     !!--------------------------------------------------------------------------
     !! initialise optional arguments
     !!--------------------------------------------------------------------------
-    if(present(verbose))then
-       t_verb = verbose
-    else
-       t_verb = 0
-    end if
+    if(present(verbose)) verbose_ = verbose
     if(present(batch_size)) this%batch_size = batch_size
 
 
@@ -229,8 +226,8 @@ contains
     this%num_channels = this%input_shape(4)
     allocate(this%output_shape(4))
     this%output_shape(4) = this%input_shape(4)
-    this%output_shape(:2) = &
-         floor( (this%input_shape(:2) - this%pool)/real(this%strd)) + 1
+    this%output_shape(:3) = &
+         floor( (this%input_shape(:3) - this%pool)/real(this%strd)) + 1
     
 
     !!--------------------------------------------------------------------------
@@ -251,17 +248,13 @@ contains
    integer, intent(in) :: batch_size
    integer, optional, intent(in) :: verbose
 
-   integer :: t_verb
+   integer :: verbose_ = 0
 
 
    !!--------------------------------------------------------------------------
    !! initialise optional arguments
    !!--------------------------------------------------------------------------
-   if(present(verbose))then
-      t_verb = verbose
-   else
-      t_verb = 0
-   end if
+   if(present(verbose)) verbose_ = verbose
    this%batch_size = batch_size
 
 
@@ -447,7 +440,7 @@ contains
        stride_idx(2) = (j-1) * this%strd(2) + 1
        stride_idx(3) = (k-1) * this%strd(3) + 1
 #endif
-       this%output(i, j, k, m, s) = maxval(&
+       this%output(i, j, k, m, s) = sum(&
             input( &
             stride_idx(1):stride_idx(1)+this%pool(1)-1, &
             stride_idx(2):stride_idx(2)+this%pool(2)-1, &
