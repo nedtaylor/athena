@@ -13,11 +13,11 @@
   "identifier": "",
   "codeRepository": "https://github.com/nedtaylor/athena",
   "datePublished": "2024-02-08",
-  "dateModified": "2024-02-08",
+  "dateModified": "2024-03-13",
   "dateCreated": "2024-02-08",
   "description": "Open source Fortran library for building, training, and testing neural networks",
   "keywords": "fortran, neural network, convolution, machine learning, 3D convolution",
   "license": "MIT",
   "title": "'ATHENA: A Fortran package for neural networks",
-  "version": "1.2.2"
+  "version": "1.3.0"
 }
