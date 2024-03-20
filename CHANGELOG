@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 ### Fixed
+- Fix attempt to assign size of random seed in random_setup
+- Fix attempt to assign size of random seed in test_network
+- Fix attempt to assing size of random seed in example/simple
 
 ### Removed
 
