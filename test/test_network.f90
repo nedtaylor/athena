@@ -40,9 +40,8 @@ program test_network
 !!!-----------------------------------------------------------------------------
 !!! Initialize random number generator with a seed
 !!!-----------------------------------------------------------------------------
-  seed_size = 8
   call random_seed(size=seed_size)
-  seed = [1,1,1,1,1,1,1,1]
+  allocate(seed(seed_size), source=1)
   call random_seed(put=seed)
 
 

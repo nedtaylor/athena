@@ -23,7 +23,7 @@ contains
   subroutine random_setup(seed, num_seed, restart, already_initialised)
     implicit none
     integer, dimension(..), optional, intent(in) :: seed !dimension(..1)
-    integer, optional, intent(in) :: num_seed
+    integer, optional, intent(out) :: num_seed
     logical, optional, intent(in) :: restart
     logical, optional, intent(out) :: already_initialised
 
@@ -41,30 +41,6 @@ contains
     end if
     if(present(already_initialised)) already_initialised = .false.
 
-    !! define number of seeds
-    if(present(num_seed))then
-       if(present(seed))then
-          select rank(seed)
-          rank(0)
-             num_seed_ = num_seed
-          rank(1)
-             if(size(seed,dim=1).ne.1.and.size(seed,dim=1).ne.num_seed)then
-                write(0,*) "ERROR: seed and num_seed provided to random_setup"
-                write(0,*) " Cannot decide which to listen to"
-                stop "Exiting..."
-             end if
-          end select
-       else
-          num_seed_ = num_seed
-       end if
-    else
-       if(present(seed))then
-          num_seed_ = size(seed,dim=1)
-       else
-          num_seed_ = 1
-       end if
-    end if
-
     !! check if already initialised
     if(l_random_initialised.and..not.restart_)then
        if(present(already_initialised)) already_initialised = .true.
@@ -77,8 +53,16 @@ contains
           rank(0)
              seed_arr = seed
           rank(1)
-             if(size(seed,dim=1).gt.1)then
-                seed_arr = seed
+             if(size(seed,dim=1).ne.1)then
+                if(size(seed,dim=1).eq.num_seed_)then
+                   seed_arr = seed
+                else
+                   write(0,*) "ERROR: seed size not consistent with &
+                        &seed size returned by implementation"
+                   write(0,*) "Cannot resolve"
+                   write(0,*) "Exiting..."
+                   stop 1
+                end if
              else
                 seed_arr = seed(1)
              end if
@@ -90,6 +74,8 @@ contains
        call random_seed(put=seed_arr)
        l_random_initialised = .true.
     end if
+
+    if(present(num_seed)) num_seed = num_seed_
     
   end subroutine random_setup
 !!!#############################################################################

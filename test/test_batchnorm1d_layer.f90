@@ -14,7 +14,7 @@ program test_batchnorm1d_layer
   logical :: success = .true.
 
   integer :: i, j, output_width, num_params
-  integer :: seed_size = 1
+  integer :: seed_size
   real :: mean, std
   integer, allocatable, dimension(:) :: seed
   real, parameter :: max_value = 3.0
