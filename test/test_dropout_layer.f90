@@ -14,7 +14,7 @@ program test_dropout_layer
   integer :: i, j, output_width
   real, parameter :: max_value = 3.0
 
-  integer :: seed_size = 1
+  integer :: seed_size
   integer, allocatable, dimension(:) :: seed
 
   !! Initialize random number generator with a seed

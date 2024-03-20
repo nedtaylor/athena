@@ -12,7 +12,7 @@ program test_flatten1d_layer
 
   integer :: i, j, output_width
 
-  integer :: seed_size = 1
+  integer :: seed_size
   integer, allocatable, dimension(:) :: seed
 
 
