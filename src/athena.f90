@@ -61,6 +61,9 @@ module athena
   use conv2d_layer,    only: conv2d_layer_type, read_conv2d_layer
   use conv3d_layer,    only: conv3d_layer_type, read_conv3d_layer
 
+  !! deep set layer types
+  use deepset_layer,   only: deepset_layer_type, read_deepset_layer
+
   !! dropout layer types
   use dropout_layer, only: dropout_layer_type, read_dropout_layer
   use dropblock2d_layer, only: dropblock2d_layer_type, read_dropblock2d_layer

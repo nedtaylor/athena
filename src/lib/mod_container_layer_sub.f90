@@ -15,6 +15,7 @@ submodule(container_layer) container_layer_submodule
   use batchnorm3d_layer, only: batchnorm3d_layer_type
   use conv2d_layer, only: conv2d_layer_type
   use conv3d_layer, only: conv3d_layer_type
+  use deepset_layer, only: deepset_layer_type
   use dropout_layer, only: dropout_layer_type
   use dropblock2d_layer, only: dropblock2d_layer_type
   use dropblock3d_layer, only: dropblock3d_layer_type
@@ -49,6 +50,9 @@ contains
     type is(conv2d_layer_type)
        call this%layer%forward(previous%output)
     type is(conv3d_layer_type)
+       call this%layer%forward(previous%output)
+
+    type is(deepset_layer_type)
        call this%layer%forward(previous%output)
 
     type is(dropout_layer_type)
@@ -101,6 +105,9 @@ contains
     type is(conv2d_layer_type)
        call this%layer%backward(previous%output, gradient)
     type is(conv3d_layer_type)
+       call this%layer%backward(previous%output, gradient)
+
+    type is(deepset_layer_type)
        call this%layer%backward(previous%output, gradient)
 
     type is(dropout_layer_type)

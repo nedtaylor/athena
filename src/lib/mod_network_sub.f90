@@ -37,6 +37,9 @@ submodule(network) network_submodule
   use conv2d_layer,    only: conv2d_layer_type, read_conv2d_layer
   use conv3d_layer,    only: conv3d_layer_type, read_conv3d_layer
 
+  !! deep set layer types
+  use deepset_layer, only: deepset_layer_type, read_deepset_layer
+
   !! dropout layer types
   use dropout_layer, only: dropout_layer_type, read_dropout_layer
   use dropblock2d_layer, only: dropblock2d_layer_type, read_dropblock2d_layer
@@ -175,6 +178,8 @@ contains
          call this%add(read_conv2d_layer(unit))
       case("CONV3D")
          call this%add(read_conv3d_layer(unit))
+      case("DEEPSET")
+         call this%add(read_deepset_layer(unit))
       case("DROPOUT")
          call this%add(read_dropout_layer(unit))
       case("DROPBLOCK2D")
@@ -225,6 +230,8 @@ contains
        name = "batc"
     class is(conv_layer_type)
        name = "conv"
+    class is(deepset_layer_type)
+       name = "deep"
     class is(flatten_layer_type)
        name = "flat"
     class is(drop_layer_type)
@@ -640,8 +647,10 @@ contains
     if(this%batch_size.ne.0)then
        if(this%model(1)%layer%batch_size.ne.0.and.&
             this%model(1)%layer%batch_size.ne.this%batch_size)then
-          write(*,*) "WARNING: batch_size in compile differs from batch_size of input layer"
-          write(*,*) "         batch_size of input layer will be set to network batch_size"
+          write(*,*) "WARNING: &
+               &batch_size in compile differs from batch_size of input layer"
+          write(*,*) "         &
+               &batch_size of input layer will be set to network batch_size"
        end if
        call this%set_batch_size(this%batch_size)
     elseif(this%model(1)%layer%batch_size.ne.0)then
@@ -944,6 +953,9 @@ end function get_gradients
        type is(conv2d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
        type is(conv3d_layer_type)
+          call this%model(i)%backward(this%model(i-1),next%di)
+
+       type is(deepset_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
     
        type is(dropout_layer_type)

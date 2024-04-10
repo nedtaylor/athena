@@ -99,6 +99,7 @@ set(LIB_FILES
     mod_batchnorm3d_layer.f90
     mod_conv2d_layer.f90
     mod_conv3d_layer.f90
+    mod_deepset_layer.f90
     mod_dropout_layer.f90
     mod_dropblock2d_layer.f90
     mod_dropblock3d_layer.f90
