@@ -97,6 +97,7 @@ set(LIB_FILES
     mod_batchnorm1d_layer.f90
     mod_batchnorm2d_layer.f90
     mod_batchnorm3d_layer.f90
+    mod_conv1d_layer.f90
     mod_conv2d_layer.f90
     mod_conv3d_layer.f90
     mod_deepset_layer.f90
@@ -113,6 +114,7 @@ set(LIB_FILES
     mod_flatten3d_layer.f90
     mod_flatten4d_layer.f90
     mod_input1d_layer.f90
+    mod_input2d_layer.f90
     mod_input3d_layer.f90
     mod_input4d_layer.f90
     mod_container_layer.f90

@@ -39,6 +39,7 @@ module loss
   private
 
   public :: compute_loss_derivative
+  public :: compute_loss_hubber_derivative
 
   public :: compute_loss_function
   public :: compute_loss_bce
@@ -46,6 +47,7 @@ module loss
   public :: compute_loss_mae
   public :: compute_loss_mse
   public :: compute_loss_nll
+  public :: compute_loss_hubber
 
   public :: total_loss_function
   public :: total_loss_bce
@@ -53,6 +55,7 @@ module loss
   public :: total_loss_mae
   public :: total_loss_mse
   public :: total_loss_nll
+  public :: total_loss_hubber
 
 
 contains
@@ -134,7 +137,7 @@ contains
     real(real12), dimension(:,:), intent(in) :: predicted, expected
     real(real12), dimension(size(predicted,1),size(predicted,2)) :: output
 
-    output = abs(predicted - expected) /(size(predicted,1))
+    output = abs(predicted - expected) !/(size(predicted,1))
 
   end function compute_loss_mae
 !!!-----------------------------------------------------------------------------
@@ -144,7 +147,7 @@ contains
     real(real12), dimension(:,:), intent(in) :: predicted, expected
     real(real12), dimension(size(predicted,2)) :: output
 
-    output = sum(compute_loss_mae(predicted,expected),dim=1)
+    output = sum(compute_loss_mae(predicted,expected),dim=1) / size(predicted,1)
     
   end function total_loss_mae
 !!!#############################################################################
@@ -159,7 +162,7 @@ contains
     real(real12), dimension(:,:), intent(in) :: predicted, expected
     real(real12), dimension(size(predicted,1),size(predicted,2)) :: output
 
-    output = ((predicted - expected)**2._real12) /(2._real12*size(predicted,1))
+    output = ((predicted - expected)**2._real12) /(2._real12)!*size(predicted,1))
 
   end function compute_loss_mse
 !!!-----------------------------------------------------------------------------
@@ -169,7 +172,8 @@ contains
     real(real12), dimension(:,:), intent(in) :: predicted, expected
     real(real12), dimension(size(predicted,2)) :: output
 
-    output = sum(compute_loss_mse(predicted,expected),dim=1)
+    output = sum(compute_loss_mse(predicted,expected),dim=1) * &
+         2._real12 / size(predicted,1)
     
   end function total_loss_mse
 !!!#############################################################################
@@ -195,9 +199,60 @@ contains
     real(real12), dimension(:,:), intent(in) :: predicted, expected
     real(real12), dimension(size(predicted,2)) :: output
 
-    output = sum(compute_loss_nll(predicted,expected),dim=1)
+    output = sum(compute_loss_nll(predicted,expected),dim=1) / size(predicted,1)
 
   end function total_loss_nll
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! compute losses
+!!! method: root mean squared error
+!!!#############################################################################
+  pure function compute_loss_hubber(predicted, expected) result(output)
+    implicit none
+    real(real12), dimension(:,:), intent(in) :: predicted, expected
+    real(real12), dimension(size(predicted,1),size(predicted,2)) :: output
+
+    real(real12) :: gamma
+
+    gamma = 1._real12
+
+    where (abs(predicted - expected) .le. gamma)
+       output = 0.5_real12 * (predicted - expected)**2._real12
+    elsewhere
+       output = gamma * (abs(predicted - expected) - 0.5_real12 * gamma)
+    end where
+  
+  end function compute_loss_hubber
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function total_loss_hubber(predicted, expected) result(output)
+    implicit none
+    real(real12), dimension(:,:), intent(in) :: predicted, expected
+    real(real12), dimension(size(predicted,2)) :: output
+  
+    output = sum(compute_loss_hubber(predicted,expected),dim=1) / size(predicted,1)
+    
+  end function total_loss_hubber
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function compute_loss_hubber_derivative(predicted, expected) result(output)
+    implicit none
+    real(real12), dimension(:,:), intent(in) :: predicted, expected
+    real(real12), dimension(size(predicted,1),size(predicted,2)) :: output
+
+    real(real12) :: gamma
+    
+    gamma = 1._real12
+
+    where (abs(predicted - expected) .le. gamma)
+       output = predicted - expected
+    elsewhere
+        output = gamma * sign(1._real12, predicted - expected)
+    end where
+
+  end function compute_loss_hubber_derivative
 !!!#############################################################################
 
 end module loss

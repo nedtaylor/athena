@@ -360,7 +360,8 @@ contains
     use loss, only: &
          compute_loss_bce, compute_loss_cce, &
          compute_loss_mae, compute_loss_mse, &
-         compute_loss_nll
+         compute_loss_nll, compute_loss_hubber, &
+         compute_loss_hubber_derivative
     implicit none
     class(network_type), intent(inout) :: this
     character(*), intent(in) :: loss_method
@@ -391,6 +392,8 @@ contains
       loss_method_ = "mse"
    case("negative_log_likelihood")
       loss_method_ = "nll"
+   case("hubber")
+      loss_method_ = "hub"
    end select
 
 !!!-----------------------------------------------------------------------------
@@ -399,24 +402,32 @@ contains
    select case(loss_method_)
    case("bce")
       this%get_loss => compute_loss_bce
+      this%get_loss_deriv => comp_loss_deriv
       if(verbose_.gt.0) write(*,*) "Loss method: Categorical Cross Entropy"
    case("cce")
       this%get_loss => compute_loss_cce
+      this%get_loss_deriv => comp_loss_deriv
       if(verbose_.gt.0) write(*,*) "Loss method: Categorical Cross Entropy"
    case("mae")
       this%get_loss => compute_loss_mae
+      this%get_loss_deriv => comp_loss_deriv
       if(verbose_.gt.0) write(*,*) "Loss method: Mean Absolute Error"
    case("mse")
       this%get_loss => compute_loss_mse
+      this%get_loss_deriv => comp_loss_deriv
       if(verbose_.gt.0) write(*,*) "Loss method: Mean Squared Error"
    case("nll")
       this%get_loss => compute_loss_nll
+      this%get_loss_deriv => comp_loss_deriv
       if(verbose_.gt.0) write(*,*) "Loss method: Negative Log Likelihood"
+   case("hub")
+      this%get_loss => compute_loss_hubber
+      this%get_loss_deriv => compute_loss_hubber_derivative
+      if(verbose_.gt.0) write(*,*) "Loss method: Hubber"
    case default
       write(0,*) "Failed loss method: "//trim(loss_method_)
       stop "ERROR: No loss method provided"
    end select
-   this%get_loss_deriv => comp_loss_deriv
 
   end subroutine set_loss
 !!!#############################################################################
@@ -506,6 +517,7 @@ contains
     if(allocated(this%model)) deallocate(this%model)
     this%get_loss => null()
     this%get_loss_deriv => null()
+    this%get_accuracy => null()
 
   end subroutine reset
 !!!#############################################################################
