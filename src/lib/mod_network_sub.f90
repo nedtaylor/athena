@@ -1308,10 +1308,10 @@ end function get_gradients
        !! print epoch summary results
        !!-----------------------------------------------------------------------
        if(verbose_.eq.0)then
-          write(6,'("epoch=",I0,", batch=",I0,&
+          write(6,'("epoch=",I0,&
                &", learning_rate=",F0.3,", val_loss=",F0.3,&
                &", val_accuracy=",F0.3)') &
-               epoch, batch, &
+               epoch, &
                this%optimiser%learning_rate, &
                this%metrics(1)%val, this%metrics(2)%val
        end if
