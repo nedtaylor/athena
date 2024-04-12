@@ -28,6 +28,7 @@ module misc_ml
   procedure shuffle_1Dilist, &
        shuffle_2Drdata, shuffle_3Didata, shuffle_3Drdata, &
        shuffle_4Drdata, shuffle_5Drdata, &
+       shuffle_2Drdata_1Drlist, &
        shuffle_3Didata_1Dilist, shuffle_3Didata_1Drlist, &
        shuffle_4Drdata_1Dilist, shuffle_5Drdata_1Dilist, shuffle_5Drdata_1Drlist
   end interface shuffle
@@ -52,6 +53,7 @@ module misc_ml
 !!! split_list  = (I, out, opt) index array of split
   interface split
   procedure &
+       split_2Drdata_1Drlist, &
        split_3Didata_1Dilist, split_3Didata_1Drlist, &
        split_5Drdata, &
        split_5Drdata_1Drlist
@@ -488,6 +490,86 @@ do i=1,n_data
 end do
 
 end subroutine shuffle_5Drdata
+!!!-----------------------------------------------------
+!!!-----------------------------------------------------
+subroutine shuffle_2Drdata_1Drlist(data,label,dim,seed,shuffle_list)
+implicit none
+integer :: istart,seed_size
+integer :: i,j,n_data
+real(real12) :: rtmp1
+real(real12) :: r
+integer, dimension(2) :: idx_s,idx_e,jdx_s,jdx_e
+integer, dimension(2,2) :: t_size
+integer, allocatable, dimension(:) :: iseed
+real(real12), allocatable, dimension(:,:) :: tlist
+
+integer, intent(in) :: dim
+real(real12), dimension(:,:), intent(inout) :: data
+real(real12), dimension(:), intent(inout) :: label
+
+integer, optional, intent(in) :: seed
+integer, optional, dimension(size(data,dim)), intent(out) :: shuffle_list
+
+
+!! set or get random seed
+call random_seed(size=seed_size)
+allocate(iseed(seed_size))
+if(present(seed))then
+   iseed = seed
+   call random_seed(put=iseed)
+else
+   call random_seed(get=iseed)
+end if
+
+!! get the size of the data
+n_data = size(data,dim=dim)
+do i=1,2
+  t_size(i,1) = 1
+  jdx_s(i) = 1
+  jdx_e(i) = size(data,dim=i)
+  idx_s(i) = 1
+  idx_e(i) = size(data,dim=i)
+  if(i.eq.dim) then
+     t_size(i,2) = 1
+  else
+     t_size(i,2) = size(data,dim=i)
+  end if
+end do
+
+allocate(tlist(t_size(1,2),t_size(2,2)))
+
+istart=1
+do i=1,n_data
+  call random_number(r)
+  j = istart + floor((n_data+1-istart)*r)
+  if(present(shuffle_list)) shuffle_list(i) = j
+  idx_s(dim) = i
+  idx_e(dim) = i
+  jdx_s(dim) = j
+  jdx_e(dim) = j
+  tlist(&
+       t_size(1,1):t_size(1,2),&
+       t_size(2,1):t_size(2,2)) = data(&
+       idx_s(1):idx_e(1),&
+       idx_s(2):idx_e(2))
+  data(&
+       idx_s(1):idx_e(1),&
+       idx_s(2):idx_e(2)) = data(&
+       jdx_s(1):jdx_e(1),&
+       jdx_s(2):jdx_e(2))
+  data(&
+       jdx_s(1):jdx_e(1),&
+       jdx_s(2):jdx_e(2)) = tlist(&
+       t_size(1,1):t_size(1,2),&
+       t_size(2,1):t_size(2,2))
+
+  rtmp1 = label(i)
+  label(i) = label(j)
+  label(j) = rtmp1
+
+end do
+
+end subroutine shuffle_2Drdata_1Drlist
 !!!-----------------------------------------------------
 !!!-----------------------------------------------------
 subroutine shuffle_3Didata_1Dilist(data,label,dim,seed)
@@ -1055,6 +1137,121 @@ left = data_copy(idx(1)%loc,idx(2)%loc,idx(3)%loc,idx(4)%loc,idx(5)%loc)
 end subroutine split_5Drdata
 !!!-----------------------------------------------------
 !!!-----------------------------------------------------
+subroutine split_2Drdata_1Drlist(data,label,left_data,right_data,&
+  left_label,right_label,dim,&
+  left_size,right_size,&
+  shuffle,seed,split_list)
+implicit none
+real(real12), dimension(:,:), intent(in) :: data
+real(real12), dimension(:), intent(in) :: label
+real(real12), allocatable, dimension(:,:), intent(out) :: left_data, right_data
+real(real12), allocatable, dimension(:), intent(out) :: left_label, right_label
+integer, intent(in) :: dim
+real(real12), optional, intent(in) :: left_size, right_size
+logical, optional, intent(in) :: shuffle
+integer, optional, intent(in) :: seed
+integer, optional, dimension(size(data,dim)), intent(out) :: split_list
+
+integer :: seed_, left_num_, right_num_
+logical :: shuffle_
+integer :: i, j
+integer :: num_redos
+real(real12) :: rtmp1
+integer, allocatable, dimension(:) :: indices_l, indices_r
+real(real12), allocatable, dimension(:) :: tlist
+real(real12), allocatable, dimension(:) :: label_copy
+real(real12), allocatable, dimension(:,:) :: data_copy
+
+type idx_type
+  integer, allocatable, dimension(:) :: loc
+end type idx_type
+type(idx_type), dimension(5) :: idx
+
+
+!! determine number of elements for left and right split
+if(.not.present(left_size).and..not.present(right_size))then
+  stop "ERROR: neither left_size nor right_size provided to split.&
+       &Expected at least one."
+elseif(present(left_size).and..not.present(right_size))then
+  left_num_  = nint(left_size*size(data,dim))
+  right_num_ = size(data,dim) - left_num_
+elseif(.not.present(left_size).and.present(right_size))then
+  right_num_ = nint(right_size*size(data,dim))
+  left_num_  = size(data,dim) - right_num_
+else
+  left_num_  = nint(left_size*size(data,dim))
+  right_num_ = nint(right_size*size(data,dim))
+  if(left_num_ + right_num_ .ne. size(data,dim)) &
+       right_num_ = size(data,dim) - left_num_
+end if
+
+!! initialies optional arguments
+if(present(shuffle))then
+  shuffle_ = shuffle
+else
+  shuffle_ = .false.
+end if
+
+if(present(seed))then
+  seed_ = seed
+else
+  call system_clock(count=seed_)
+end if
+
+!! copy input data
+data_copy = data
+label_copy = label
+if(shuffle_) call shuffle_2Drdata_1Drlist(data_copy,label_copy,dim,seed_)
+
+!! get list of indices for right split
+num_redos = 0
+allocate(tlist(right_num_))
+call random_number(tlist)
+indices_r = floor(tlist*size(data,dim)) + 1
+i = 1
+indices_r_loop: do 
+  if(i.ge.right_num_) exit indices_r_loop
+  i = i + 1
+  if(any(indices_r(:i-1).eq.indices_r(i)))then
+     indices_r(i:right_num_-num_redos-1) = &
+          indices_r(i+1:right_num_-num_redos)
+     call random_number(rtmp1)
+     indices_r(right_num_) = floor(rtmp1*size(data,dim)) + 1
+     i = i - 1
+  end if
+end do indices_r_loop
+
+!! generate right split
+do i=1,2
+  if(i.eq.dim)then
+     idx(i)%loc = indices_r
+  else
+     idx(i)%loc = (/ ( j, j=1,size(data,i) ) /)
+  end if
+end do
+right_data  = data_copy(idx(1)%loc,idx(2)%loc)
+right_label = label_copy(indices_r)
+
+!! get list of indices for left split
+if(present(split_list)) split_list = 2
+indices_l_loop: do i=1,size(data,dim)
+  if(any(indices_r.eq.i)) cycle indices_l_loop
+  if(allocated(indices_l)) then
+     indices_l = [indices_l(:), i]
+  else
+     indices_l = [i]
+  end if
+  if(present(split_list)) split_list(i) = 1
+end do indices_l_loop
+
+!! generate left split
+idx(dim)%loc = indices_l
+left_data = data_copy(idx(1)%loc,idx(2)%loc)
+left_label = label_copy(indices_l)
+
+end subroutine split_2Drdata_1Drlist
+!!!-----------------------------------------------------
+!!!-----------------------------------------------------
 subroutine split_3Didata_1Dilist(data,label,left_data,right_data,&
     left_label,right_label,dim,&
     left_size,right_size,&
@@ -1404,7 +1601,7 @@ left_data = data_copy(&
 left_label = label_copy(indices_l)
 
 end subroutine split_5Drdata_1Drlist
-!!!####################e#################################
+!!!#####################################################
 
 
 !!!#############################################################################
