@@ -20,13 +20,13 @@ program test_accuracy
 !!! test categorical_score
 !!!-----------------------------------------------------------------------------
   expected_categorical = reshape([1, 2, 3, 1, 2, 3, 1, 2, 3], [3,3])
-  result = categorical_score(output, expected_categorical)
+  result = categorical_score(output, real(expected_categorical))
   if (any(abs(result - 1.E0) .gt. 1.E-6)) then
      write(0,*) 'categorical_score failed'
      success = .false.
   end if
   expected_categorical = reshape([1, 2, 3, 1, 1, 1, 1, 1, 1], [3,3])
-  result = categorical_score(output, expected_categorical)
+  result = categorical_score(output, real(expected_categorical))
   if (any(abs(result - [1.E0, 0.E0, 0.E0]) .gt. 1.E-6)) then
      write(0,*) 'categorical_score failed'
      success = .false.

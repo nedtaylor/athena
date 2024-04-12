@@ -261,11 +261,12 @@ contains
 !!! set up network
 !!!#############################################################################
   module function network_setup( &
-       layers, optimiser, loss_method, metrics, batch_size) result(network)
+       layers, optimiser, loss_method, accuracy_method, &
+       metrics, batch_size) result(network)
     implicit none
     type(container_layer_type), dimension(:), intent(in) :: layers
     class(base_optimiser_type), optional, intent(in) :: optimiser
-    character(*), optional, intent(in) :: loss_method
+    character(*), optional, intent(in) :: loss_method, accuracy_method
     class(*), dimension(..), optional, intent(in) :: metrics
     integer, optional, intent(in) :: batch_size
 
@@ -278,6 +279,7 @@ contains
 !!! handle optional arguments
 !!!-----------------------------------------------------------------------------
     if(present(loss_method)) call network%set_loss(loss_method)
+    if(present(accuracy_method)) call network%set_accuracy(accuracy_method)
     if(present(metrics)) call network%set_metrics(metrics)
     if(present(batch_size)) network%batch_size = batch_size
 
@@ -409,7 +411,7 @@ contains
       if(verbose_.gt.0) write(*,*) "Loss method: Mean Squared Error"
    case("nll")
       this%get_loss => compute_loss_nll
-      if(verbose_.gt.0) write(*,*) "Loss method: Negative log likelihood"
+      if(verbose_.gt.0) write(*,*) "Loss method: Negative Log Likelihood"
    case default
       write(0,*) "Failed loss method: "//trim(loss_method_)
       stop "ERROR: No loss method provided"
@@ -417,6 +419,73 @@ contains
    this%get_loss_deriv => comp_loss_deriv
 
   end subroutine set_loss
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set network loss
+!!!#############################################################################
+  module subroutine set_accuracy(this, accuracy_method, verbose)
+    use misc, only: to_lower
+    use accuracy, only: categorical_score, mae_score, mse_score, rmse_score, &
+         r2_score
+    implicit none
+    class(network_type), intent(inout) :: this
+    character(*), intent(in) :: accuracy_method
+    integer, optional, intent(in) :: verbose
+
+    integer :: verbose_
+    character(len=:), allocatable :: accuracy_method_
+
+
+    if(present(verbose))then
+       verbose_ = verbose
+    else
+       verbose_ = 0
+    end if
+
+!!!-----------------------------------------------------------------------------
+!!! handle analogous definitions
+!!!-----------------------------------------------------------------------------
+   accuracy_method_ = to_lower(accuracy_method)
+   select case(accuracy_method)
+   case("categorical")
+      accuracy_method_ = "cat"
+   case("mean_absolute_error")
+      accuracy_method_ = "mae"
+   case("mean_squared_error")
+      accuracy_method_ = "mse"
+   case("root_mean_squared_error")
+      accuracy_method_ = "rmse"
+   case("r2", "r^2", "r squared")
+      accuracy_method_ = "r2"
+   end select
+
+!!!-----------------------------------------------------------------------------
+!!! set accuracy method
+!!!-----------------------------------------------------------------------------
+   select case(accuracy_method_)
+   case("cat")
+      this%get_accuracy => categorical_score
+      if(verbose_.gt.0) write(*,*) "Accuracy method: Categorical "
+   case("mae")
+      this%get_accuracy => mae_score
+      if(verbose_.gt.0) write(*,*) "Accuracy method: Mean Absolute Error"
+   case("mse")
+      this%get_accuracy => mse_score
+      if(verbose_.gt.0) write(*,*) "Accuracy method: Mean Squared Error"
+   case("rmse")
+      this%get_accuracy => rmse_score
+      if(verbose_.gt.0) write(*,*) "Accuracy method: Root Mean Squared Error"
+   case("r2")
+      this%get_accuracy => r2_score
+      if(verbose_.gt.0) write(*,*) "Accuracy method: R^2"
+   case default
+      write(0,*) "Failed accuracy method: "//trim(accuracy_method_)
+      stop "ERROR: No accuracy method provided"
+   end select
+
+  end subroutine set_accuracy
 !!!#############################################################################
 
 
@@ -445,12 +514,12 @@ contains
 !!!#############################################################################
 !!! compile network
 !!!#############################################################################
-  module subroutine compile(this, optimiser, loss_method, metrics, batch_size, &
-       verbose)
+  module subroutine compile(this, optimiser, loss_method, accuracy_method, &
+       metrics, batch_size, verbose)
     implicit none
     class(network_type), intent(inout) :: this
     class(base_optimiser_type), intent(in) :: optimiser
-    character(*), optional, intent(in) :: loss_method
+    character(*), optional, intent(in) :: loss_method, accuracy_method
     class(*), dimension(..), optional, intent(in) :: metrics
     integer, optional, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
@@ -473,9 +542,11 @@ contains
 
 
 !!!-----------------------------------------------------------------------------
-!!! initialise loss method
+!!! initialise loss and accuracy methods
 !!!-----------------------------------------------------------------------------
     if(present(loss_method)) call this%set_loss(loss_method, verbose_)
+    if(present(accuracy_method)) &
+         call this%set_accuracy(accuracy_method, verbose_)
 
 
 !!!-----------------------------------------------------------------------------
@@ -1207,20 +1278,14 @@ end function get_gradients
           type is(full_layer_type)
              !! compute loss and accuracy (for monitoring)
              !!-------------------------------------------------------------------
-                batch_loss = sum( &
-                this%get_loss( &
-                current%output(:,1:this%batch_size), &
-                y_true(:,1:this%batch_size)))
-             select type(output)
-             type is(integer)
-                batch_accuracy = sum(categorical_score( &
-                   current%output(:,1:this%batch_size), &
-                   output(:,start_index:end_index)))
-             type is(real)
-                batch_accuracy = sum(mae_score( &
-                   current%output(:,1:this%batch_size), &
-                   output(:,start_index:end_index)))
-             end select
+             batch_loss = sum( &
+                  this%get_loss( &
+                  current%output(:,1:this%batch_size), &
+                  y_true(:,1:this%batch_size)))
+             batch_accuracy = sum( &
+                  this%get_accuracy( &
+                  current%output(:,1:this%batch_size), &
+                  y_true(:,1:this%batch_size)))
           class default
              stop "ERROR: final layer not of type full_layer_type"
           end select
@@ -1414,12 +1479,9 @@ end function get_gradients
                !!!! get_loss should handle both integers and reals !!!!
                !!!! it does not. Instead just wrap real(output(:,sample),real12) !!!!
                expected  = y_true(:,sample:sample)))
-             select type(output)
-             type is(integer)
-                acc_val = sum(categorical_score(current%output,output(:,sample:sample)))
-             type is(real)
-                acc_val = sum(mae_score(current%output,output(:,sample:sample)))
-             end select
+          acc_val = sum(this%get_accuracy( &
+               predicted = current%output, &
+               expected  = y_true(:,sample:sample)))
           this%metrics(2)%val = this%metrics(2)%val + acc_val
           this%metrics(1)%val = this%metrics(1)%val + loss_val
           accuracy_list(sample) = acc_val

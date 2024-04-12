@@ -40,6 +40,7 @@ module network
   use loss, only: &
        comp_loss_func => compute_loss_function, &
        comp_loss_deriv => compute_loss_derivative
+  use accuracy, only: comp_acc_func => compute_accuracy_function
   use base_layer, only: base_layer_type
   use container_layer, only: container_layer_type
   implicit none
@@ -59,6 +60,7 @@ module network
      type(container_layer_type), allocatable, dimension(:) :: model
      procedure(comp_loss_func), nopass, pointer :: get_loss => null()
      procedure(comp_loss_deriv), nopass, pointer :: get_loss_deriv => null()
+     procedure(comp_acc_func), nopass, pointer :: get_accuracy => null()
    contains
      procedure, pass(this) :: print
      procedure, pass(this) :: read
@@ -68,6 +70,7 @@ module network
      procedure, pass(this) :: set_batch_size
      procedure, pass(this) :: set_metrics
      procedure, pass(this) :: set_loss
+     procedure, pass(this) :: set_accuracy
      procedure, pass(this) :: train
      procedure, pass(this) :: test
      procedure, pass(this) :: predict => predict_1d
@@ -98,10 +101,11 @@ module network
      !! batch_size  = (I, in, opt) batch size
      module function network_setup( &
           layers, &
-          optimiser, loss_method, metrics, batch_size) result(network)
+          optimiser, loss_method, accuracy_method, &
+          metrics, batch_size) result(network)
        type(container_layer_type), dimension(:), intent(in) :: layers
        class(base_optimiser_type), optional, intent(in) :: optimiser
-       character(*), optional, intent(in) :: loss_method
+       character(*), optional, intent(in) :: loss_method, accuracy_method
        class(*), dimension(..), optional, intent(in) :: metrics
        integer, optional, intent(in) :: batch_size
        type(network_type) :: network
@@ -156,11 +160,11 @@ module network
      !! metrics     = (*, in, opt) metrics, either string or metric_dict_type
      !! batch_size  = (I, in, opt) batch size
      !! verbose     = (I, in, opt) verbosity level
-     module subroutine compile(this, optimiser, loss_method, metrics, &
-          batch_size, verbose)
+     module subroutine compile(this, optimiser, loss_method, accuracy_method, &
+          metrics, batch_size, verbose)
        class(network_type), intent(inout) :: this
        class(base_optimiser_type), intent(in) :: optimiser
-       character(*), optional, intent(in) :: loss_method
+       character(*), optional, intent(in) :: loss_method, accuracy_method
        class(*), dimension(..), optional, intent(in) :: metrics
        integer, optional, intent(in) :: batch_size
        integer, optional, intent(in) :: verbose
@@ -197,6 +201,18 @@ module network
        character(*), intent(in) :: loss_method
        integer, optional, intent(in) :: verbose
      end subroutine set_loss
+
+     !!-------------------------------------------------------------------------
+     !! set network accuracy method
+     !!-------------------------------------------------------------------------
+     !! this        = (T, io) network type
+     !! accuracy_method = (S, in) accuracy method to use
+     !! verbose     = (I, in, opt) verbosity level
+     module subroutine set_accuracy(this, accuracy_method, verbose)
+       class(network_type), intent(inout) :: this
+       character(*), intent(in) :: accuracy_method
+       integer, optional, intent(in) :: verbose
+     end subroutine set_accuracy
 
      !!-------------------------------------------------------------------------
      !! train the network
