@@ -14,7 +14,7 @@ program test_activations
    implicit none
  
    class(base_layer_type), allocatable :: full_layer, conv2d_layer, conv3d_layer
-   class(activation_type), allocatable :: activation
+   class(activation_type), allocatable :: activation_var
    logical :: success = .true.
  
    integer :: i
@@ -83,12 +83,12 @@ program test_activations
 !!!-----------------------------------------------------------------------------
 !!! check gaussian setup
 !!!-----------------------------------------------------------------------------
-   activation = gaussian_setup(threshold = 2.E0, sigma = 2.E0)
-   if(.not. activation%name .eq. 'gaussian')then
+   activation_var = gaussian_setup(threshold = 2.E0, sigma = 2.E0)
+   if(.not. activation_var%name .eq. 'gaussian')then
       success = .false.
       write(0,*) 'activation has wrong name for gaussian'
    else
-      if (activation%threshold .ne. 2.E0) then
+      if (activation_var%threshold .ne. 2.E0) then
          success = .false.
          write(0,*) 'activation has wrong threshold for gaussian'
       end if
@@ -98,8 +98,8 @@ program test_activations
 !!!-----------------------------------------------------------------------------
 !!! check piecewise setup
 !!!-----------------------------------------------------------------------------
-   activation = piecewise_setup(intercept = 2.E0)
-   if(.not. activation%name .eq. 'piecewise')then
+   activation_var = piecewise_setup(intercept = 2.E0)
+   if(.not. activation_var%name .eq. 'piecewise')then
       success = .false.
       write(0,*) 'activation has wrong name for piecewise'
    end if
@@ -108,12 +108,12 @@ program test_activations
 !!!-----------------------------------------------------------------------------
 !!! check sigmoid setup
 !!!-----------------------------------------------------------------------------
-   activation = sigmoid_setup(threshold = 2.E0)
-   if(.not. activation%name .eq. 'sigmoid')then
+   activation_var = sigmoid_setup(threshold = 2.E0)
+   if(.not. activation_var%name .eq. 'sigmoid')then
       success = .false.
       write(0,*) 'activation has wrong name for sigmoid'
    else
-      if (activation%threshold .ne. 2.E0) then
+      if (activation_var%threshold .ne. 2.E0) then
          success = .false.
          write(0,*) 'activation has wrong threshold for sigmoid'
       end if
@@ -123,12 +123,12 @@ program test_activations
 !!!-----------------------------------------------------------------------------
 !!! check softmax setup
 !!!-----------------------------------------------------------------------------
-   activation = softmax_setup(threshold = 2.E0)
-   if(.not. activation%name .eq. 'softmax')then
+   activation_var = softmax_setup(threshold = 2.E0)
+   if(.not. activation_var%name .eq. 'softmax')then
       success = .false.
       write(0,*) 'activation has wrong name for softmax'
    else
-      if (activation%threshold .ne. 2.E0) then
+      if (activation_var%threshold .ne. 2.E0) then
          success = .false.
          write(0,*) 'activation has wrong threshold for softmax'
       end if
@@ -138,12 +138,12 @@ program test_activations
 !!!-----------------------------------------------------------------------------
 !!! check tanh setup
 !!!-----------------------------------------------------------------------------
-   activation = tanh_setup(threshold = 2.E0)
-   if(.not. activation%name .eq. 'tanh')then
+   activation_var = tanh_setup(threshold = 2.E0)
+   if(.not. activation_var%name .eq. 'tanh')then
       success = .false.
       write(0,*) 'activation has wrong name for tanh'
    else
-      if (activation%threshold .ne. 2.E0) then
+      if (activation_var%threshold .ne. 2.E0) then
          success = .false.
          write(0,*) 'activation has wrong threshold for tanh'
       end if
@@ -154,27 +154,27 @@ program test_activations
 !!! check for different scales, and ranks
 !!!-----------------------------------------------------------------------------
    do i = 1, size(activation_names)
-      deallocate(activation)
-      allocate(activation, &
+      deallocate(activation_var)
+      allocate(activation_var, &
            source=activation_setup(activation_names(i), scale = scale))
-      if(.not. activation%name .eq. trim(activation_names(i)))then
+      if(.not. activation_var%name .eq. trim(activation_names(i)))then
          success = .false.
          write(0,*) 'activation has wrong name for ', &
               trim(activation_names(i))
       else
-         if (abs(activation%scale - scale).gt.1.E-6) then
+         if (abs(activation_var%scale - scale).gt.1.E-6) then
             success = .false.
             write(0,*) 'activation has wrong scale for ', &
                  trim(activation_names(i))
          end if
-         rtmp1_1d = activation%activate_1d(value_1d)
+         rtmp1_1d = activation_var%activate_1d(value_1d)
          if (any(abs(rtmp1_1d - activate(i)).gt.1.E-6)) then
             success = .false.
             write(0,*) 'activation has wrong activation for ', &
                  trim(activation_names(i))
             write(*,*) rtmp1_1d, activate(i)
          end if
-         rtmp1_1d = activation%differentiate_1d(value_1d)
+         rtmp1_1d = activation_var%differentiate_1d(value_1d)
          if (any(abs(rtmp1_1d - differentiate(i)).gt.1.E-6)) then
             success = .false.
             write(0,*) 'activation has wrong differentiation for ', &
@@ -182,13 +182,13 @@ program test_activations
             write(*,*) rtmp1_1d, differentiate(i)
          end if
 
-         rtmp1_3d = activation%activate_3d(value_3d)
+         rtmp1_3d = activation_var%activate_3d(value_3d)
          if (any(abs(rtmp1_3d - activate(i)).gt.1.E-6)) then
             success = .false.
             write(0,*) 'activation has wrong activation for ', &
                  trim(activation_names(i))
          end if
-         rtmp1_3d = activation%differentiate_3d(value_3d)
+         rtmp1_3d = activation_var%differentiate_3d(value_3d)
          if (any(abs(rtmp1_3d - differentiate(i)).gt.1.E-6)) then
             success = .false.
             write(0,*) 'activation has wrong differentiation for ', &
