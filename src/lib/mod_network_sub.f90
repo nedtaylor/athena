@@ -25,6 +25,7 @@ submodule(network) network_submodule
 
   !! input layer types
   use input1d_layer,   only: input1d_layer_type
+  use input2d_layer,   only: input2d_layer_type
   use input3d_layer,   only: input3d_layer_type
   use input4d_layer,   only: input4d_layer_type
 
@@ -34,6 +35,7 @@ submodule(network) network_submodule
   use batchnorm3d_layer, only: batchnorm3d_layer_type, read_batchnorm3d_layer
 
   !! convolution layer types
+  use conv1d_layer,    only: conv1d_layer_type, read_conv1d_layer
   use conv2d_layer,    only: conv2d_layer_type, read_conv2d_layer
   use conv3d_layer,    only: conv3d_layer_type, read_conv3d_layer
 
@@ -174,6 +176,8 @@ contains
          call this%add(read_batchnorm2d_layer(unit))
       case("BATCHNORM3D")
          call this%add(read_batchnorm3d_layer(unit))
+      case("CONV1D")
+         call this%add(read_conv1d_layer(unit))
       case("CONV2D")
          call this%add(read_conv2d_layer(unit))
       case("CONV3D")
@@ -580,6 +584,18 @@ contains
          case(1)
             t_input_layer = input1d_layer_type(input_shape = next%input_shape)
             allocate(this%model(1)%layer, source = t_input_layer)
+         case(2)
+            select type(next)
+            type is(conv1d_layer_type)
+               t_input_layer = input2d_layer_type(&
+                    input_shape = next%input_shape + &
+                    [2*next%pad,0])
+               allocate(this%model(1)%layer, source = t_input_layer)
+            class default
+               t_input_layer = input2d_layer_type(&
+                    input_shape = next%input_shape)
+               allocate(this%model(1)%layer, source = t_input_layer)
+            end select
          case(3)
             select type(next)
             type is(conv2d_layer_type)
@@ -614,6 +630,8 @@ contains
 !!! ignore calcuation of input gradients for 1st non-input layer
 !!!-----------------------------------------------------------------------------
     select type(second => this%model(2)%layer)
+    type is(conv1d_layer_type)
+       second%calc_input_gradients = .false.
     type is(conv2d_layer_type)
        second%calc_input_gradients = .false.
     type is(conv3d_layer_type)
@@ -1033,6 +1051,8 @@ end function get_gradients
        type is(batchnorm3d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
 
+       type is(conv1d_layer_type)
+          call this%model(i)%backward(this%model(i-1),next%di)
        type is(conv2d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
        type is(conv3d_layer_type)
