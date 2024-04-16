@@ -106,7 +106,7 @@ module base_layer
   end interface
 
 
-  abstract interface
+  interface
      !!--------------------------------------------------------------------------
      !! initialise layer
      !!--------------------------------------------------------------------------
@@ -134,7 +134,7 @@ module base_layer
      end subroutine set_batch_size
   end interface
 
-  abstract interface
+  interface
      !!--------------------------------------------------------------------------
      !! get number of parameters in layer
      !!--------------------------------------------------------------------------
