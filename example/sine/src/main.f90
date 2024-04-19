@@ -1,3 +1,6 @@
+!! This file contains a modified version of the "sine" example found in ...
+!! ... neural fortran:
+!! https://github.com/modern-fortran/neural-fortran/blob/main/example/sine.f90
 program sine
   use athena
   use constants_mnist, only: real12, pi

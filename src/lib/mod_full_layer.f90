@@ -4,6 +4,16 @@
 !!!#############################################################################
 !!! module contains implementation of a fully connected (dense) layer
 !!!#############################################################################
+!!! Attribution statement:
+!!! The following procedures are based on code from the neural-fortran library
+!!! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
+!!! procedures:
+!!! - get_num_params*
+!!! - get_params*
+!!! - set_params*
+!!! - get_gradients*
+!!! - set_gradients*
+!!!#############################################################################
 module full_layer
   use constants, only: real12
   use base_layer, only: learnable_layer_type
@@ -128,6 +138,7 @@ contains
 
 !!!#############################################################################
 !!! get number of parameters
+!!! procedure modified from neural-fortran library
 !!!#############################################################################
   pure function get_num_params_full(this) result(num_params)
     implicit none
@@ -142,6 +153,7 @@ contains
 
 !!!#############################################################################
 !!! get number of parameters
+!!! procedure modified from neural-fortran library
 !!!#############################################################################
   pure function get_params_full(this) result(params)
     implicit none
@@ -156,6 +168,7 @@ contains
 
 !!!#############################################################################
 !!! get number of parameters
+!!! procedure modified from neural-fortran library
 !!!#############################################################################
   subroutine set_params_full(this, params)
     implicit none
@@ -170,6 +183,7 @@ contains
 
 !!!#############################################################################
 !!! get number of parameters
+!!! procedure modified from neural-fortran library
 !!!#############################################################################
   pure function get_gradients_full(this, clip_method) result(gradients)
     use clipper, only: clip_type
@@ -189,6 +203,7 @@ contains
 
 !!!#############################################################################
 !!! set gradients
+!!! procedure modified from neural-fortran library
 !!!#############################################################################
   subroutine set_gradients_full(this, gradients)
     implicit none

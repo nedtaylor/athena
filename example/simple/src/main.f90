@@ -1,3 +1,6 @@
+!! This file contains a modified version of the "simple" example found in ...
+!! ... neural fortran:
+!! https://github.com/modern-fortran/neural-fortran/blob/main/example/simple.f90
 program simple
   use athena
   use constants_mnist, only: real12, pi

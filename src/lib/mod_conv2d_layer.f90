@@ -4,6 +4,15 @@
 !!!#############################################################################
 !!! module contains implementation of a 2D convolutional layer
 !!!#############################################################################
+!!! Attribution statement:
+!!! The following procedures are based on code from the neural-fortran library
+!!! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
+!!! procedures:
+!!! - get_params*
+!!! - set_params*
+!!! - get_gradients*
+!!! - set_gradients*
+!!!#############################################################################
 module conv2d_layer
   use constants, only: real12
   use base_layer, only: learnable_layer_type, conv_layer_type
@@ -129,6 +138,7 @@ contains
 
 !!!#############################################################################
 !!! get learnable parameters
+!!! procedure modified from neural-fortran library
 !!!#############################################################################
   pure function get_params_conv2d(this) result(params)
     implicit none
@@ -146,6 +156,7 @@ contains
 
 !!!#############################################################################
 !!! set learnable parameters
+!!! procedure modified from neural-fortran library
 !!!#############################################################################
   subroutine set_params_conv2d(this, params)
     implicit none
@@ -165,6 +176,7 @@ contains
 !!!#############################################################################
 !!! get sample-average gradients
 !!! sum over batch dimension and divide by batch size 
+!!! procedure modified from neural-fortran library
 !!!#############################################################################
   pure function get_gradients_conv2d(this, clip_method) result(gradients)
     use clipper, only: clip_type
@@ -186,6 +198,7 @@ contains
 
 !!!#############################################################################
 !!! set gradients
+!!! procedure modified from neural-fortran library
 !!!#############################################################################
   subroutine set_gradients_conv2d(this, gradients)
     implicit none
