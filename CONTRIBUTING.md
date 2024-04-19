@@ -2,6 +2,8 @@
 
 This document outlines the organisation of the athena codebase to help guide code contributors.
 
+This document has been copied from the neural-fortran repository and used as a template from which to design this version. The original document can be found here: https://github.com/modern-fortran/neural-fortran/blob/main/CONTRIBUTING.md
+
 ## Overall code organization
 
 The source code organisation follows the usual `fpm` convention:
