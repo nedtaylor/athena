@@ -15,6 +15,14 @@
 !!! - minimise       - minimise the loss function by applying gradients to ...
 !!!                    ... the parameters
 !!!#############################################################################
+!!! Attribution statement:
+!!! The following module is based on code from the neural-fortran library
+!!! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_optimizers.f90
+!!! The implementation of optimiser_base_type is based on the ...
+!!! ... optimizer_base_type from the neural-fortran library
+!!! The same applies to the implementation of the sgd_optimiser_type, ...
+!!! ... rmsprop_optimiser_type, adagrad_optimiser_type, and adam_optimiser_type
+!!!#############################################################################
 module optimiser
   use constants, only: real12
   use clipper, only: clip_type

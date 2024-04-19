@@ -35,6 +35,16 @@
 !!! get_gradients        - get the gradients of the layer
 !!! set_gradients        - set the gradients of the layer
 !!!#############################################################################
+!!! Attribution statement:
+!!! The following procedures are based on code from the neural-fortran library
+!!! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
+!!! procedures:
+!!! - get_num_params*
+!!! - get_params*
+!!! - set_params*
+!!! - get_gradients*
+!!! - set_gradients*
+!!!#############################################################################
 submodule(base_layer) base_layer_submodule
   implicit none
 
@@ -85,6 +95,7 @@ contains
 
 !!!#############################################################################
 !!! get number of parameters in layer
+!!! procedure modified from neural-fortran library
 !!!#############################################################################
 !!! this       = (T, in) layer_type
 !!! num_params = (I, out) number of parameters
@@ -125,6 +136,7 @@ contains
 
 !!!#############################################################################
 !!! get learnable parameters of layer
+!!! procedure modified from neural-fortran library
 !!!#############################################################################
   pure module function get_params_batch(this) result(params)
     implicit none
@@ -139,6 +151,7 @@ contains
 
 !!!#############################################################################
 !!! set learnable parameters of layer
+!!! procedure modified from neural-fortran library
 !!!#############################################################################
   module subroutine set_params_batch(this, params)
     implicit none
@@ -154,6 +167,7 @@ contains
 
 !!!#############################################################################
 !!! get gradients of layer
+!!! procedure modified from neural-fortran library
 !!!#############################################################################
   pure module function get_gradients_batch(this, clip_method) result(gradients)
     use clipper, only: clip_type
@@ -172,6 +186,7 @@ contains
 
 !!!#############################################################################
 !!! set gradients of layer
+!!! procedure modified from neural-fortran library
 !!!#############################################################################
   module subroutine set_gradients_batch(this, gradients)
     implicit none

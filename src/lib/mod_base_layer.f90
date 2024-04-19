@@ -35,6 +35,16 @@
 !!! - get_gradients        - get the gradients of the layer
 !!! - set_gradients        - set the gradients of the layer
 !!!#############################################################################
+!!! Attribution statement:
+!!! The following procedures are based on code from the neural-fortran library
+!!! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
+!!! procedures:
+!!! - get_num_params*
+!!! - get_params*
+!!! - set_params*
+!!! - get_gradients*
+!!! - set_gradients*
+!!!#############################################################################
 module base_layer
   use constants, only: real12
   use clipper, only: clip_type
@@ -137,6 +147,7 @@ module base_layer
   abstract interface
      !!--------------------------------------------------------------------------
      !! get number of parameters in layer
+     !! procedure modified from neural-fortran library
      !!--------------------------------------------------------------------------
      !! this = (T, in) layer_type
      pure module function get_num_params(this) result(num_params)
@@ -280,6 +291,7 @@ module base_layer
 
      !!--------------------------------------------------------------------------
      !! get learnable parameters of layer
+     !! procedure modified from neural-fortran library
      !!--------------------------------------------------------------------------
      !! this  = (T, in) layer_type
      !! param = (R, out) learnable parameters
@@ -291,6 +303,7 @@ module base_layer
 
      !!--------------------------------------------------------------------------
      !! set learnable parameters of layer
+     !! procedure modified from neural-fortran library
      !!--------------------------------------------------------------------------
      !! this  = (T, io) layer_type
      !! param = (R, in) learnable parameters
@@ -302,6 +315,7 @@ module base_layer
 
      !!--------------------------------------------------------------------------
      !! get parameter gradients of layer
+     !! procedure modified from neural-fortran library
      !!--------------------------------------------------------------------------
      !! this        = (T, in) layer_type
      !! clip_method = (T, in) clip method
@@ -315,6 +329,7 @@ module base_layer
 
      !!--------------------------------------------------------------------------
      !! set learnable parameters of layer
+     !! procedure modified from neural-fortran library
      !!--------------------------------------------------------------------------
      !! this      = (T, io) layer_type
      !! gradients = (R, in) learnable parameters
