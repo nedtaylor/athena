@@ -19,6 +19,13 @@ module custom_types
   implicit none
 
 
+  private
+
+  public :: activation_type
+  public :: initialiser_type
+  public :: graph_type, node_type, edge_type
+
+
 !!!-----------------------------------------------------------------------------
 !!! activation (transfer) function base type
 !!!-----------------------------------------------------------------------------
@@ -156,11 +163,25 @@ module custom_types
   end interface
 
 
+!!!-----------------------------------------------------------------------------
+!!! graph node type
+!!!-----------------------------------------------------------------------------
+  type :: node_type
+     real(real12), dimension(:), allocatable :: feature
+  end type node_type
 
-  private
+  type ::: edge_type
+     integer :: source, target
+     real(real12) :: weight
+     real(real12), dimension(:), allocatable :: feature
+  end type edge_type
 
-  public :: activation_type
-  public :: initialiser_type
+  type :: graph_type
+      integer :: num_nodes, num_edges
+      logical, dimension(:,:) :: adjacency
+      type(node_type), dimension(:), allocatable :: node
+      type(edge_type), dimension(:,:), allocatable :: edge
+  end type graph_type
 
 
 end module custom_types
