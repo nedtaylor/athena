@@ -1,0 +1,7 @@
+{
+    "source_dirs": ["src"],
+    "incl_suffixes": [".f90"],
+
+    "max_line_length": 80,
+    "max_comment_line_length": 80
+}
