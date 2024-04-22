@@ -23,7 +23,7 @@ module custom_types
 
   public :: activation_type
   public :: initialiser_type
-  public :: graph_type, node_type, edge_type
+  public :: graph_type, vertex_type, edge_type
 
 
 !!!-----------------------------------------------------------------------------
@@ -164,11 +164,11 @@ module custom_types
 
 
 !!!-----------------------------------------------------------------------------
-!!! graph node type
+!!! graph vertex type
 !!!-----------------------------------------------------------------------------
-  type :: node_type
+  type :: vertex_type
      real(real12), dimension(:), allocatable :: feature
-  end type node_type
+  end type vertex_type
 
   type ::: edge_type
      integer :: source, target
@@ -177,11 +177,34 @@ module custom_types
   end type edge_type
 
   type :: graph_type
-      integer :: num_nodes, num_edges
-      logical, dimension(:,:) :: adjacency
-      type(node_type), dimension(:), allocatable :: node
-      type(edge_type), dimension(:,:), allocatable :: edge
+     logical :: directed = .false.
+     integer :: num_vertices, num_edges
+     !! adjacency matrix
+     !! 1 if edge exists, 0 otherwise
+     !! -1 if edge is outgoing, 1 if edge is incoming
+     integer, dimension(:,:), allocatable :: adjacency
+     type(vertex_type), dimension(:), allocatable :: vertex
+     type(edge_type), dimension(:,:), allocatable :: edge
+   contains
+     procedure, pass(this) :: degree => get_degree
   end type graph_type
+
+contains
+  
+  subroutine get_degree(this, degree)
+    class(graph_type), intent(in) :: this
+    integer, dimension(:), intent(out) :: degree
+    integer :: i, j
+    degree = 0
+    !!! NEED TO ACCOUNT FOR DIRECTION
+    do i = 1, this%num_vertices
+      do j = 1, this%num_vertices
+        if (this%adjacency(i,j) == 1) then
+          degree(i) = degree(i) + 1
+          degree(j) = degree(j) + 1
+        end if
+      end do
+    end do
 
 
 end module custom_types
