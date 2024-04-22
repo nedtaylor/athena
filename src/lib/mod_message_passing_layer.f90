@@ -15,14 +15,24 @@ module mpnn_module
   public :: mpnn_type
 
   type :: mpnn_type
-     real(real12), dimension(:), allocatable :: message
+     integer :: num_vertices
+     integer :: num_time_steps
+     !! hidden features has dimensions (vertex, time step)
+     type(feature_type), dimension(:,:), allocatable :: hidden
+!     type(feature_type), dimension(:,:), allocatable :: hidden_vertex
+!     type(feature_type), dimension(:,:), allocatable :: hidden_edge
+     !! message has dimensions (vertex, time step)
+     type(feature_type), dimension(:,:), allocatable :: message
    contains
-     procedure(message_function), pass(this), pointer :: message_function => null()
-     procedure, pass(this) :: message_function
-     procedure, pass(this) :: update_function
-     procedure, pass(this) :: readout_function
+     procedure(message_update), pass(this), pointer :: message_update => null()
+     procedure(state_update), pass(this), pointer :: state_update => null()
+     procedure, pass(this) :: readout
      procedure, pass(this) :: forward
   end type mpnn_type
+
+  type :: feature_type
+     real(real12), dimension(:), allocatable :: feature
+  end type feature_type
 
   
 !!!-----------------------------------------------------------------------------
@@ -50,15 +60,17 @@ module mpnn_module
 
 
   abstract interface
-     !! compute the loss function
-     !! predicted = (R, in) predicted values
-     !! expected  = (R, in) expected values
-     !! output    = (R, in) loss function
-     pure subroutine message_function(this, graph)
+     pure subroutine message_update(this, graph)
        implicit none
        class(mpnn_type), intent(in) :: this
        type(graph_type), intent(in) :: graph
-     end subroutine message_function
+     end subroutine message_update
+
+     pure subroutine state_update(this, graph)
+       implicit none
+       class(mpnn_type), intent(in) :: this
+       type(graph_type), intent(in) :: graph
+     end subroutine state_update
   end interface
   
 
@@ -68,20 +80,64 @@ contains
 !!!#############################################################################
 !!! message function
 !!!#############################################################################
-  pure subroutine convolutional_message_function(this, graph)
+  pure subroutine convolutional_message_update(this, graph, time_step)
+    implicit none
+    class(mpnn_type), intent(inout) :: this
+    type(graph_type), intent(in) :: graph
+    integer, intent(in) :: time_step
+
+    integer :: i, j
+    integer :: num_features
+
+    !! assume all hidden vertices for one time_step have the same number of features
+    num_features = size(this%hidden(1,time_step)%feature)
+    do i = 1, graph%num_vertices
+       allocate(this%message(i,time_step+1)%feature(num_features), source=0._real12)
+       do j = 1, graph%num_vertices
+          this%message(i,time_step+1)%feature = &
+               this%message(i,time_step+1)%feature + &
+               [ this%hidden(j,time_step), graph%edge(i,j)%feature ]
+               ![ graph%vertex(j)%feature, graph%edge(i,j)%feature ]
+               ! at time step 1, set hidden to graph vertex features
+       end do
+    end do
+
+  end subroutine convolutional_message_update
+
+  pure subroutine convolutional_state_update(this, graph, time_step)
+    implicit none
+    class(mpnn_type), intent(inout) :: this
+    type(graph_type), intent(in) :: graph
+    integer, intent(in) :: time_step
+
+    integer :: i
+
+    do i = 1, graph%num_vertices
+       this%hidden(:,i,time_step+1) = sigmoid( &
+            matmul( this%update_matrix(graph%get_degree(i),time_step), &
+                    this%message(i,time_step+1) ) )
+    end do
+
+  end subroutine convolutional_state_update
+
+  pure function convolutional_readout(this) result(output)
     implicit none
     class(mpnn_type), intent(in) :: this
-    type(graph_type), intent(in) :: graph
 
-    do i = 1, graph%num_nodes
-       do j = 1, graph%num_nodes
-          this%message(i,:) = this%message(i,:) + &
-               [ graph%node(j)%feature, graph%edge(i,j)%feature ]
-    this%message = graph%node()
+    real(real12), dimension(:), allocatable :: output
 
+    integer :: i, t
 
-  end subroutine convolutional_message_function
+    allocate(output(size(this%hidden(1,num_time_steps)%feature)), source=0._real12)
 
+    do i = 1, this%num_vertices
+       do t = 1, this%num_time_steps
+          output = output + softmax( matmul( &
+               this%readout_matrix(:,:,t), this%hidden(i,t)%feature ) )
+       end do
+    end do
+
+  end function convolutional_readout
 
 !!!#############################################################################
 !!! forward propagation
@@ -91,15 +147,44 @@ contains
     class(mpnn_type), intent(inout) :: this
     type(graph_type), intent(in) :: graph
 
+    this%hidden(:,1)%feature = graph%vertex(:)%feature
 
-    call this%message(graph)
-    call this%update(graph)
+    do t = 1, this%num_time_steps
+       call this%message(graph)
+       call this%update(graph)
+    end do
 
     call this%readout()
 
   end subroutine forward
 !!!#############################################################################
 
+
+!!!#############################################################################
+!!! backpropagation
+!!!#############################################################################
+  pure subroutine backward(this, graph, gradient)
+    implicit none
+    class(mpnn_type), intent(inout) :: this
+    type(graph_type), intent(in) :: graph
+
+    !df/dv_c = h(M_c) * df/dM_y
+
+    ! M_y = sum_c v_c * h(M_c)     message for output y
+    ! h()                          hidden function
+
+    !this%dw(:,this%num_time_steps)%feature = this%derivative(this%hidden(:,this%num_time_steps)%feature) * this%readout_matrix(:,:,this%num_time_steps)
+    this%v(:,this%num_time_steps)%feature = gradient
+    this%dw(:,this%num_time_steps) = this%hidden(:,this%num_time_steps) * this%v(:,this%num_time_steps)
+    do t = this%num_time_steps-1, 1, -1
+       this%v(:,t)%feature = this%derivative(this%hidden(:,t)%feature) * sum( this%weight * this%v(:,t+1)%feature )
+       this%dw = this%hidden(:,t) * this%v(:,t)
+    end do
+
+
+
+  end subroutine backward
+!!!#############################################################################
 
 end module mpnn_module
 !!!#############################################################################
