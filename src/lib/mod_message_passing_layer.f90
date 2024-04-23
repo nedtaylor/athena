@@ -6,7 +6,7 @@
 !!!#############################################################################
 module mpnn_module
   use constants, only: real12
-  use custom_types, only: initialiser_type, graph_type
+  use custom_types, only: graph_type
   implicit none
   
 
@@ -14,25 +14,41 @@ module mpnn_module
 
   public :: mpnn_type
 
-  type :: mpnn_type
-     integer :: num_vertices
-     integer :: num_time_steps
-     !! hidden features has dimensions (vertex, time step)
-     type(feature_type), dimension(:,:), allocatable :: hidden
-!     type(feature_type), dimension(:,:), allocatable :: hidden_vertex
-!     type(feature_type), dimension(:,:), allocatable :: hidden_edge
-     !! message has dimensions (vertex, time step)
-     type(feature_type), dimension(:,:), allocatable :: message
-   contains
-     procedure(message_update), pass(this), pointer :: message_update => null()
-     procedure(state_update), pass(this), pointer :: state_update => null()
-     procedure, pass(this) :: readout
-     procedure, pass(this) :: forward
-  end type mpnn_type
-
   type :: feature_type
      real(real12), dimension(:), allocatable :: feature
   end type feature_type
+
+
+  type :: mpnn_type
+     integer :: num_features
+     integer :: num_vertices
+     integer :: num_time_steps
+     integer :: batch_size
+     class(state_method_type), allocatable :: state
+     class(message_method_type), allocatable :: message
+     class(readout_method_type), allocatable :: readout
+     real(real12), dimension(:,:), allocatable :: output
+     real(real12), dimension(:,:,:,:), allocatable :: di
+     !! hidden features has dimensions (vertex, time step, batch_size)
+     !type(feature_type), dimension(:,:,:), allocatable :: hidden
+!     type(feature_type), dimension(:,:), allocatable :: hidden_vertex
+!     type(feature_type), dimension(:,:), allocatable :: hidden_edge
+     !! message has dimensions (vertex, time step, batch_size)
+     !type(feature_type), dimension(:,:,:), allocatable :: message
+     !type(feature_type), dimension(:,:,:), allocatable :: weight
+     !! output has dimensions (num_outputs, batch_size)
+     !! v and dw have dimensions (num_features_t, num_features_t, time_step, batch_size)
+     !real(real12), dimension(:,:,:,:), allocatable :: v
+     !real(real12), dimension(:,:,:,:), allocatable :: dw
+     !! di has dimensions (feature, vertex, time_step, batch_size)
+     !procedure(message_update), pass(this), pointer :: message_update => null()
+     !procedure(state_update), pass(this), pointer :: state_update => null()
+     !procedure(readout), pass(this), pointer :: readout => null()
+   contains
+     procedure, pass(this) :: forward
+     procedure, pass(this) :: backward
+  end type mpnn_type
+
 
   
 !!!-----------------------------------------------------------------------------
@@ -59,102 +75,187 @@ module mpnn_module
   ! end interface mpnn_type
 
 
+  type, abstract :: state_method_type
+     !! feature has dimensions (feature, vertex, time_step, batch_size)
+     real(real12), dimension(:,:,:,:), allocatable :: feature     
+   contains
+     procedure(state_update), deferred, pass(this) :: update
+     procedure(get_state_differential), deferred, pass(this) :: get_differential
+  end type state_method_type
+
+  type, abstract :: message_method_type
+     !! feature has dimensions (feature, vertex, time_step, batch_size)
+     real(real12), dimension(:,:,:,:), allocatable :: feature     
+   contains
+     procedure(message_update), deferred, pass(this) :: update
+     procedure(get_message_differential), deferred, pass(this) :: get_differential
+  end type message_method_type
+
+  type, abstract :: readout_method_type    
+   contains
+     procedure(get_readout_output), deferred, pass(this) :: get_output
+     procedure(get_readout_differential), deferred, pass(this) :: get_differential
+  end type readout_method_type
+
+
   abstract interface
-     pure subroutine message_update(this, graph)
-       implicit none
-       class(mpnn_type), intent(in) :: this
-       type(graph_type), intent(in) :: graph
+     subroutine message_update(this, hidden, graph, time_step)
+       import :: message_method_type, real12, graph_type
+       class(message_method_type), intent(inout) :: this
+       !! hidden features has dimensions (feature, vertex, batch_size)
+       real(real12), dimension(:,:,:), intent(in) :: hidden
+       type(graph_type), dimension(:), intent(in) :: graph
+       integer, intent(in) :: time_step
      end subroutine message_update
 
-     pure subroutine state_update(this, graph)
-       implicit none
-       class(mpnn_type), intent(in) :: this
-       type(graph_type), intent(in) :: graph
+     pure function get_message_differential(this, hidden, graph)
+       import :: message_method_type, real12, graph_type
+       class(message_method_type), intent(in) :: this
+       !! hidden features has dimensions (feature, vertex, batch_size)
+       real(real12), dimension(:,:,:), intent(in) :: hidden
+       type(graph_type), dimension(:), intent(in) :: graph
+     end function get_message_differential
+
+
+     subroutine state_update(this, message, time_step)
+       import :: state_method_type, real12
+       class(state_method_type), intent(inout) :: this
+       !! message has dimensions (feature, vertex, batch_size)
+       real(real12), dimension(:,:,:), intent(in) :: message
+       integer, intent(in) :: time_step
      end subroutine state_update
+
+     pure function get_state_differential(this, message)
+       import :: state_method_type, real12
+       class(state_method_type), intent(in) :: this
+       !! message has dimensions (feature, vertex, batch_size)
+       real(real12), dimension(:,:,:), intent(in) :: message
+     end function get_state_differential
+
+
+     function get_readout_output(this, state) result(output)
+       import :: readout_method_type, real12
+       class(readout_method_type), intent(inout) :: this
+       !! message has dimensions (feature, vertex, time_step, batch_size)
+       real(real12), dimension(:,:,:,:), intent(in) :: state
+       real(real12), dimension(:,:), allocatable :: output
+    end function get_readout_output
+
+     pure function get_readout_differential(this, state) result(output)
+       import :: readout_method_type, real12
+       class(readout_method_type), intent(in) :: this
+       !! message has dimensions (feature, vertex, time step, batch_size)
+       real(real12), dimension(:,:,:), intent(in) :: state
+       real(real12), dimension(:,:,:), allocatable :: output  
+     end function get_readout_differential
+
+     ! pure subroutine message_update(this, graph)
+     !   import :: mpnn_type, graph_type
+     !   class(mpnn_type), intent(in) :: this
+     !   type(graph_type), intent(in) :: graph
+     ! end subroutine message_update
+
+     ! pure subroutine state_update(this, graph)
+     !   import :: mpnn_type, graph_type
+     !   class(mpnn_type), intent(in) :: this
+     !   type(graph_type), intent(in) :: graph
+     ! end subroutine state_update
+
+     ! pure function readout(this) result(output)
+     !   import :: mpnn_type, real12
+     !   class(mpnn_type), intent(in) :: this
+     !   real(real12), dimension(:), allocatable :: output
+     ! end function readout
   end interface
   
 
 
 contains
 
-!!!#############################################################################
-!!! message function
-!!!#############################################################################
-  pure subroutine convolutional_message_update(this, graph, time_step)
-    implicit none
-    class(mpnn_type), intent(inout) :: this
-    type(graph_type), intent(in) :: graph
-    integer, intent(in) :: time_step
+! !!!#############################################################################
+! !!! message function
+! !!!#############################################################################
+!   pure subroutine convolutional_message_update(this, graph, time_step)
+!     implicit none
+!     class(mpnn_type), intent(inout) :: this
+!     type(graph_type), intent(in) :: graph
+!     integer, intent(in) :: time_step
 
-    integer :: i, j
-    integer :: num_features
+!     integer :: i, j
+!     integer :: num_features
 
-    !! assume all hidden vertices for one time_step have the same number of features
-    num_features = size(this%hidden(1,time_step)%feature)
-    do i = 1, graph%num_vertices
-       allocate(this%message(i,time_step+1)%feature(num_features), source=0._real12)
-       do j = 1, graph%num_vertices
-          this%message(i,time_step+1)%feature = &
-               this%message(i,time_step+1)%feature + &
-               [ this%hidden(j,time_step), graph%edge(i,j)%feature ]
-               ![ graph%vertex(j)%feature, graph%edge(i,j)%feature ]
-               ! at time step 1, set hidden to graph vertex features
-       end do
-    end do
+!     !! assume all hidden vertices for one time_step have the same number of features
+!     num_features = size(this%hidden(1,time_step)%feature)
+!     do i = 1, graph%num_vertices
+!        allocate(this%message(i,time_step+1)%feature(num_features), source=0._real12)
+!        do j = 1, graph%num_vertices
+!           this%message(i,time_step+1)%feature = &
+!                this%message(i,time_step+1)%feature + &
+!                [ this%hidden(j,time_step), graph%edge(i,j)%feature ]
+!                ![ graph%vertex(j)%feature, graph%edge(i,j)%feature ]
+!                ! at time step 1, set hidden to graph vertex features
+!        end do
+!     end do
 
-  end subroutine convolutional_message_update
+!   end subroutine convolutional_message_update
 
-  pure subroutine convolutional_state_update(this, graph, time_step)
-    implicit none
-    class(mpnn_type), intent(inout) :: this
-    type(graph_type), intent(in) :: graph
-    integer, intent(in) :: time_step
+!   pure subroutine convolutional_state_update(this, graph, time_step)
+!     implicit none
+!     class(mpnn_type), intent(inout) :: this
+!     type(graph_type), intent(in) :: graph
+!     integer, intent(in) :: time_step
 
-    integer :: i
+!     integer :: i
 
-    do i = 1, graph%num_vertices
-       this%hidden(:,i,time_step+1) = sigmoid( &
-            matmul( this%update_matrix(graph%get_degree(i),time_step), &
-                    this%message(i,time_step+1) ) )
-    end do
+!     do i = 1, graph%num_vertices
+!        this%hidden(:,i,time_step+1) = sigmoid( &
+!             matmul( this%update_matrix(graph%get_degree(i),time_step), &
+!                     this%message(i,time_step+1) ) )
+!     end do
 
-  end subroutine convolutional_state_update
+!   end subroutine convolutional_state_update
 
-  pure function convolutional_readout(this) result(output)
-    implicit none
-    class(mpnn_type), intent(in) :: this
+!   pure function convolutional_readout(this) result(output)
+!     implicit none
+!     class(mpnn_type), intent(in) :: this
 
-    real(real12), dimension(:), allocatable :: output
+!     real(real12), dimension(:), allocatable :: output
 
-    integer :: i, t
+!     integer :: i, t
 
-    allocate(output(size(this%hidden(1,num_time_steps)%feature)), source=0._real12)
+!     allocate(output(size(this%hidden(1,num_time_steps)%feature)), source=0._real12)
 
-    do i = 1, this%num_vertices
-       do t = 1, this%num_time_steps
-          output = output + softmax( matmul( &
-               this%readout_matrix(:,:,t), this%hidden(i,t)%feature ) )
-       end do
-    end do
+!     do i = 1, this%num_vertices
+!        do t = 1, this%num_time_steps
+!           output = output + softmax( matmul( &
+!                this%readout_matrix(:,:,t), this%hidden(i,t)%feature ) )
+!        end do
+!     end do
 
-  end function convolutional_readout
+!   end function convolutional_readout
 
 !!!#############################################################################
 !!! forward propagation
 !!!#############################################################################
-  pure subroutine forward(this, graph)
+  subroutine forward(this, graph)
     implicit none
     class(mpnn_type), intent(inout) :: this
-    type(graph_type), intent(in) :: graph
+    type(graph_type), dimension(this%batch_size), intent(in) :: graph
 
-    this%hidden(:,1)%feature = graph%vertex(:)%feature
+    integer :: i, s, t
 
-    do t = 1, this%num_time_steps
-       call this%message(graph)
-       call this%update(graph)
+    do s = 1, this%batch_size
+       do i = 1, this%num_vertices
+          this%state%feature(:,i,1,s) = graph(s)%vertex(i)%feature
+       end do
     end do
 
-    call this%readout()
+    do t = 1, this%num_time_steps
+       call this%message%update(this%state%feature(:,:,t,:), graph, t)
+       call this%state%update(this%message%feature(:,:,t+1,:), t)
+    end do
+
+    this%output = this%readout%get_output(this%state%feature(:,:,:,:))
 
   end subroutine forward
 !!!#############################################################################
@@ -163,25 +264,35 @@ contains
 !!!#############################################################################
 !!! backpropagation
 !!!#############################################################################
-  pure subroutine backward(this, graph, gradient)
+  subroutine backward(this, graph, gradient)
     implicit none
     class(mpnn_type), intent(inout) :: this
-    type(graph_type), intent(in) :: graph
+    type(graph_type), dimension(this%batch_size), intent(in) :: graph
+    real(real12), dimension( &
+         this%num_features, &
+         this%num_vertices, &
+         this%batch_size), intent(in) :: gradient
+
+    integer :: t
 
     !df/dv_c = h(M_c) * df/dM_y
 
     ! M_y = sum_c v_c * h(M_c)     message for output y
     ! h()                          hidden function
 
-    !this%dw(:,this%num_time_steps)%feature = this%derivative(this%hidden(:,this%num_time_steps)%feature) * this%readout_matrix(:,:,this%num_time_steps)
-    this%v(:,this%num_time_steps)%feature = gradient
-    this%dw(:,this%num_time_steps) = this%hidden(:,this%num_time_steps) * this%v(:,this%num_time_steps)
+    this%di(:,:,this%num_time_steps,:) = gradient(:,:,:) * &
+         this%readout%get_differential( &
+              this%state%feature(:,:,this%num_time_steps,:) &
+         )
+
     do t = this%num_time_steps-1, 1, -1
-       this%v(:,t)%feature = this%derivative(this%hidden(:,t)%feature) * sum( this%weight * this%v(:,t+1)%feature )
-       this%dw = this%hidden(:,t) * this%v(:,t)
+      this%di(:,:,t,:) = this%di(:,:,t+1,:) * &
+            this%state%get_differential(this%message%feature(:,:,t,:)) * &
+            this%message%get_differential(this%state%feature(:,:,t,:), graph)
+      
+      !! ! this is method dependent
+      !! this%dw(:,:,t,s) = this%message(:,t+1,s) * this%v(:,t,s)
     end do
-
-
 
   end subroutine backward
 !!!#############################################################################
