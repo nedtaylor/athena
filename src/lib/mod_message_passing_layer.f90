@@ -25,8 +25,8 @@ module mpnn_module
      integer :: num_time_steps
      integer :: batch_size
      !! state and message dimension is (time_step)
-     class(state_method_type), dimension(:), allocatable :: state
      class(message_method_type), dimension(:), allocatable :: message
+     class(state_method_type), dimension(:), allocatable :: state
      class(readout_method_type), allocatable :: readout
      real(real12), dimension(:,:), allocatable :: output
      real(real12), dimension(:,:,:,:), allocatable :: di
@@ -47,6 +47,18 @@ module mpnn_module
   end type feature_type
 
 
+   type, abstract :: message_method_type
+     integer :: num_features
+     integer :: batch_size
+     !! feature has dimensions (feature, vertex)
+     type(feature_type), dimension(:), allocatable :: feature
+     type(feature_type), dimension(:), allocatable :: di
+   contains
+     procedure(message_update), deferred, pass(this) :: update
+     procedure(get_message_differential), deferred, pass(this) :: get_differential
+     procedure(calculate_message_partials), deferred, pass(this) :: calculate_partials
+  end type message_method_type
+
   type, abstract :: state_method_type
      integer :: num_features
      integer :: batch_size
@@ -56,53 +68,27 @@ module mpnn_module
    contains
      procedure(state_update), deferred, pass(this) :: update
      procedure(get_state_differential), deferred, pass(this) :: get_differential
+     procedure(calculate_state_partials), deferred, pass(this) :: calculate_partials
   end type state_method_type
-
-  type, abstract :: message_method_type
-     integer :: num_features
-     integer :: batch_size
-     !! feature has dimensions (feature, vertex)
-     type(feature_type), dimension(:), allocatable :: feature
-     type(feature_type), dimension(:), allocatable :: di
-   contains
-     procedure(message_update), deferred, pass(this) :: update
-     procedure(get_message_differential), deferred, pass(this) :: get_differential
-  end type message_method_type
 
   type, abstract :: readout_method_type
      integer :: batch_size
+     integer :: num_time_steps
      integer :: num_outputs
    contains
      procedure(get_readout_output), deferred, pass(this) :: get_output
      procedure(get_readout_differential), deferred, pass(this) :: get_differential
+     procedure(calculate_readout_partials), deferred, pass(this) :: calculate_partials
   end type readout_method_type
 
 
   abstract interface
-     subroutine state_update(this, message, graph)
-       import :: state_method_type, feature_type, graph_type
-       class(state_method_type), intent(inout) :: this
-       !! message has dimensions (feature, vertex, batch_size)
-       type(feature_type), dimension(this%batch_size), intent(in) :: message
-       type(graph_type), dimension(:), intent(in) :: graph
-     end subroutine state_update
-
-     pure function get_state_differential(this, message, graph) result(output)
-       import :: state_method_type, feature_type, graph_type
-       class(state_method_type), intent(in) :: this
-       !! message has dimensions (feature, vertex, batch_size)
-       type(feature_type), dimension(this%batch_size), intent(in) :: message
-       type(graph_type), dimension(:), intent(in) :: graph
-       type(feature_type), dimension(this%batch_size) :: output
-     end function get_state_differential
-
-
      subroutine message_update(this, hidden, graph)
        import :: message_method_type, feature_type, graph_type
        class(message_method_type), intent(inout) :: this
        !! hidden features has dimensions (feature, vertex, batch_size)
        type(feature_type), dimension(this%batch_size), intent(in) :: hidden
-       type(graph_type), dimension(:), intent(in) :: graph
+       type(graph_type), dimension(this%batch_size), intent(in) :: graph
      end subroutine message_update
 
      pure function get_message_differential(this, hidden, graph) result(output)
@@ -110,9 +96,45 @@ module mpnn_module
        class(message_method_type), intent(in) :: this
        !! hidden features has dimensions (feature, vertex, batch_size)
        type(feature_type), dimension(this%batch_size), intent(in) :: hidden
-       type(graph_type), dimension(:), intent(in) :: graph
+       type(graph_type), dimension(this%batch_size), intent(in) :: graph
        type(feature_type), dimension(this%batch_size) :: output
      end function get_message_differential
+
+     subroutine calculate_message_partials(this, output_state, graph, input)
+       import :: message_method_type, state_method_type, feature_type, graph_type
+       class(message_method_type), intent(inout) :: this
+       !! hidden features has dimensions (feature, vertex, batch_size)
+       class(state_method_type), intent(in) :: output_state
+       type(graph_type), dimension(this%batch_size), intent(in) :: graph
+       type(feature_type), dimension(this%batch_size), intent(in) :: input
+     end subroutine calculate_message_partials
+
+
+     subroutine state_update(this, message, graph)
+       import :: state_method_type, feature_type, graph_type
+       class(state_method_type), intent(inout) :: this
+       !! message has dimensions (feature, vertex, batch_size)
+       type(feature_type), dimension(this%batch_size), intent(in) :: message
+       type(graph_type), dimension(this%batch_size), intent(in) :: graph
+     end subroutine state_update
+
+     pure function get_state_differential(this, message, graph) result(output)
+       import :: state_method_type, feature_type, graph_type
+       class(state_method_type), intent(in) :: this
+       !! message has dimensions (feature, vertex, batch_size)
+       type(feature_type), dimension(this%batch_size), intent(in) :: message
+       type(graph_type), dimension(this%batch_size), intent(in) :: graph
+       type(feature_type), dimension(this%batch_size) :: output
+     end function get_state_differential
+
+     subroutine calculate_state_partials(this, output_message, graph, input)
+       import :: state_method_type, message_method_type, feature_type, graph_type
+       class(state_method_type), intent(inout) :: this
+       !! hidden features has dimensions (feature, vertex, batch_size)
+       class(message_method_type), intent(in) :: output_message
+       type(graph_type), dimension(this%batch_size), intent(in) :: graph
+       type(feature_type), dimension(this%batch_size), optional, intent(in) :: input
+     end subroutine calculate_state_partials
 
 
      function get_readout_output(this, state) result(output)
@@ -129,6 +151,13 @@ module mpnn_module
        real(real12), dimension(:,:), intent(in) :: gradient
        type(feature_type), dimension(this%batch_size) :: output
      end function get_readout_differential
+
+     subroutine calculate_readout_partials(this, input_state, gradient)
+       import :: readout_method_type, state_method_type, feature_type, real12
+       class(readout_method_type), intent(in) :: this
+       class(state_method_type), dimension(:), intent(in) :: input_state
+       real(real12), dimension(:,:), intent(in) :: gradient
+     end subroutine calculate_readout_partials
 
   end interface
   
@@ -263,14 +292,32 @@ contains
 
     do t = this%num_time_steps-1, 1, -1
        !! check if time_step t are all handled correctly here
-       this%message(t+1)%di = this%state(t+1)%di * &
-             this%state(t+1)%get_differential( &
-                 this%message(t+1)%feature, graph &
-             )
-       this%state(t)%di = this%message(t+1)%di * &
-             this%message(t+1)%get_differential( &
-                 this%state(t)%feature, graph &
-             )
+       call this%message(t+1)%calculate_partials( &
+            input = this%state(t)%feature, &
+            output_state = this%state(t+1), &
+            graph = graph &
+       )
+       !this%message(t+1)%di = this%state(t+1)%di * &
+       !      this%state(t+1)%get_differential( &
+       !          this%message(t+1)%feature, graph &
+       !      )
+       select case(t)
+       case(1)
+          call this%state(t)%calculate_partials( &
+               input = this%message(t)%feature, &
+               output_message = this%message(t+1), &
+               graph = graph &
+          )
+       case default
+          call this%state(t)%calculate_partials( &
+                output_message = this%message(t+1), &
+                graph = graph &
+          )
+       end select
+       !this%state(t)%di = this%message(t+1)%di * &
+       !      this%message(t+1)%get_differential( &
+       !          this%state(t)%feature, graph &
+       !      )
 
        ! this%di(:,:,t,s) = this%di(:,:,t+1,s) * &
        !       this%state(t+1)%get_differential( &
