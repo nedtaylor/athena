@@ -170,7 +170,7 @@ module custom_types
      real(real12), dimension(:), allocatable :: feature
   end type vertex_type
 
-  type ::: edge_type
+  type :: edge_type
      integer :: source, target
      real(real12) :: weight
      real(real12), dimension(:), allocatable :: feature
@@ -192,6 +192,7 @@ module custom_types
 contains
   
   subroutine get_degree(this, degree)
+    implicit none
     class(graph_type), intent(in) :: this
     integer, dimension(:), intent(out) :: degree
     integer :: i, j
@@ -205,6 +206,7 @@ contains
         end if
       end do
     end do
+  end subroutine get_degree
 
 
 end module custom_types
