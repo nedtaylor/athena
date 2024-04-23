@@ -68,6 +68,7 @@ set(LIB_FILES
     mod_lr_decay.f90
     mod_optimiser.f90
     mod_types.f90
+    mod_message_passing_layer.f90
     mod_metrics.f90
     mod_misc_ml.f90
     mod_activation_gaussian.f90
