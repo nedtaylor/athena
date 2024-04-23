@@ -29,7 +29,7 @@ module mpnn_module
      class(state_method_type), dimension(:), allocatable :: state
      class(readout_method_type), allocatable :: readout
      real(real12), dimension(:,:), allocatable :: output
-     real(real12), dimension(:,:,:,:), allocatable :: di
+     real(real12), dimension(:,:,:), allocatable :: di
    contains
      procedure, pass(this) :: forward
      procedure, pass(this) :: backward
@@ -75,6 +75,7 @@ module mpnn_module
      integer :: batch_size
      integer :: num_time_steps
      integer :: num_outputs
+     type(feature_type), dimension(:), allocatable :: di
    contains
      procedure(get_readout_output), deferred, pass(this) :: get_output
      procedure(get_readout_differential), deferred, pass(this) :: get_differential
@@ -100,13 +101,13 @@ module mpnn_module
        type(feature_type), dimension(this%batch_size) :: output
      end function get_message_differential
 
-     subroutine calculate_message_partials(this, output_state, graph, input)
+     subroutine calculate_message_partials(this, input, gradient, graph)
        import :: message_method_type, state_method_type, feature_type, graph_type
        class(message_method_type), intent(inout) :: this
        !! hidden features has dimensions (feature, vertex, batch_size)
-       class(state_method_type), intent(in) :: output_state
-       type(graph_type), dimension(this%batch_size), intent(in) :: graph
        type(feature_type), dimension(this%batch_size), intent(in) :: input
+       type(feature_type), dimension(this%batch_size), intent(in) :: gradient
+       type(graph_type), dimension(this%batch_size), intent(in) :: graph
      end subroutine calculate_message_partials
 
 
@@ -127,13 +128,13 @@ module mpnn_module
        type(feature_type), dimension(this%batch_size) :: output
      end function get_state_differential
 
-     subroutine calculate_state_partials(this, output_message, graph, input)
+     subroutine calculate_state_partials(this, input, gradient, graph)
        import :: state_method_type, message_method_type, feature_type, graph_type
        class(state_method_type), intent(inout) :: this
        !! hidden features has dimensions (feature, vertex, batch_size)
-       class(message_method_type), intent(in) :: output_message
+       type(feature_type), dimension(this%batch_size), intent(in) :: input
+       type(feature_type), dimension(this%batch_size), intent(in) :: gradient
        type(graph_type), dimension(this%batch_size), intent(in) :: graph
-       type(feature_type), dimension(this%batch_size), optional, intent(in) :: input
      end subroutine calculate_state_partials
 
 
@@ -152,10 +153,10 @@ module mpnn_module
        type(feature_type), dimension(this%batch_size) :: output
      end function get_readout_differential
 
-     subroutine calculate_readout_partials(this, input_state, gradient)
+     subroutine calculate_readout_partials(this, input, gradient)
        import :: readout_method_type, state_method_type, feature_type, real12
        class(readout_method_type), intent(in) :: this
-       class(state_method_type), dimension(:), intent(in) :: input_state
+       type(feature_type), dimension(this%batch_size), intent(in) :: input
        real(real12), dimension(:,:), intent(in) :: gradient
      end subroutine calculate_readout_partials
 
@@ -229,7 +230,7 @@ contains
 
     layer%readout = readout_method
     allocate(layer%output(num_features * num_vertices, layer%batch_size))
-    allocate(layer%di(num_features, num_vertices, num_time_steps, layer%batch_size))
+    allocate(layer%di(num_features, num_vertices, layer%batch_size))
 
     allocate(layer%state(num_time_steps))
     allocate(layer%message(num_time_steps))
@@ -287,33 +288,37 @@ contains
     ! M_y = sum_c v_c * h(M_c)     message for output y
     ! h()                          hidden function
 
-    this%state(this%num_time_steps)%di = &
-         this%readout%get_differential(this%state, gradient)
+    !!! THIS IS THE OUTPUT ERROR, NOT THE INPUT ERROR
+    !this%state(this%num_time_steps)%di = &
+    !     this%readout%get_differential(this%state, gradient)
 
-    do t = this%num_time_steps-1, 1, -1
+    call this%readout%calculate_partials( &
+         input = this%state(this%num_time_steps)%feature, &
+         gradient = gradient &
+    )
+
+    call this%state(this%num_time_steps)%calculate_partials( &
+         input = this%message(this%num_time_steps)%feature, &
+         gradient = this%readout%di, &
+         graph = graph &
+    )
+
+    do t = this%num_time_steps-1, 2, -1
        !! check if time_step t are all handled correctly here
        call this%message(t+1)%calculate_partials( &
             input = this%state(t)%feature, &
-            output_state = this%state(t+1), &
+            gradient = this%state(t+1)%di, &
             graph = graph &
        )
        !this%message(t+1)%di = this%state(t+1)%di * &
        !      this%state(t+1)%get_differential( &
        !          this%message(t+1)%feature, graph &
        !      )
-       select case(t)
-       case(1)
-          call this%state(t)%calculate_partials( &
-               input = this%message(t)%feature, &
-               output_message = this%message(t+1), &
-               graph = graph &
-          )
-       case default
-          call this%state(t)%calculate_partials( &
-                output_message = this%message(t+1), &
-                graph = graph &
-          )
-       end select
+       call this%state(t)%calculate_partials( &
+            input = this%message(t)%feature, &
+            gradient = this%message(t+1)%di, &
+            graph = graph &
+       )
        !this%state(t)%di = this%message(t+1)%di * &
        !      this%message(t+1)%get_differential( &
        !          this%state(t)%feature, graph &
@@ -330,6 +335,16 @@ contains
        !! ! this is method dependent
        !! this%dw(:,:,t,s) = this%message(:,t+1,s) * this%v(:,t,s)
     end do
+    call this%message(2)%calculate_partials( &
+         input = this%state(1)%feature, &
+         gradient = this%state(2)%di, &
+         graph = graph &
+    )
+
+    do s = 1, this%batch_size
+       this%di(:,:,s) = this%message(2)%di(s)%val
+    end do
+
 
   end subroutine backward
 !!!#############################################################################
