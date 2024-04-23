@@ -179,6 +179,7 @@ module custom_types
   type :: graph_type
      logical :: directed = .false.
      integer :: num_vertices, num_edges
+     integer :: num_vertex_features, num_edge_features
      !! adjacency matrix
      !! 1 if edge exists, 0 otherwise
      !! -1 if edge is outgoing, 1 if edge is incoming
