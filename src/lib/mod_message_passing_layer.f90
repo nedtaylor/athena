@@ -24,8 +24,9 @@ module mpnn_module
      integer :: num_vertices
      integer :: num_time_steps
      integer :: batch_size
-     class(state_method_type), allocatable :: state
-     class(message_method_type), allocatable :: message
+     !! state and message dimension is (time_step)
+     class(state_method_type), dimension(:), allocatable :: state
+     class(message_method_type), dimension(:), allocatable :: message
      class(readout_method_type), allocatable :: readout
      real(real12), dimension(:,:), allocatable :: output
      real(real12), dimension(:,:,:,:), allocatable :: di
@@ -50,34 +51,11 @@ module mpnn_module
   end type mpnn_type
 
 
-  
-!!!-----------------------------------------------------------------------------
-!!! interface for layer set up
-!!!-----------------------------------------------------------------------------
-  ! interface mpnn_type
-  !    module function layer_setup( &
-  !         input_shape, batch_size, &
-  !         num_filters, kernel_size, stride, padding, &
-  !         activation_function, activation_scale, &
-  !         kernel_initialiser, bias_initialiser, &
-  !         calc_input_gradients) result(layer)
-  !      integer, dimension(:), optional, intent(in) :: input_shape
-  !      integer, optional, intent(in) :: batch_size
-  !      integer, optional, intent(in) :: num_filters
-  !      integer, dimension(..), optional, intent(in) :: kernel_size
-  !      integer, dimension(..), optional, intent(in) :: stride
-  !      real(real12), optional, intent(in) :: activation_scale
-  !      character(*), optional, intent(in) :: activation_function, &
-  !           kernel_initialiser, bias_initialiser, padding
-  !      logical, optional, intent(in) :: calc_input_gradients
-  !      type(conv1d_layer_type) :: layer
-  !    end function layer_setup
-  ! end interface mpnn_type
 
 
   type, abstract :: state_method_type
      !! feature has dimensions (feature, vertex, time_step, batch_size)
-     real(real12), dimension(:,:,:,:), allocatable :: feature     
+     real(real12), dimension(:,:,:), allocatable :: feature     
    contains
      procedure(state_update), deferred, pass(this) :: update
      procedure(get_state_differential), deferred, pass(this) :: get_differential
@@ -85,7 +63,7 @@ module mpnn_module
 
   type, abstract :: message_method_type
      !! feature has dimensions (feature, vertex, time_step, batch_size)
-     real(real12), dimension(:,:,:,:), allocatable :: feature     
+     real(real12), dimension(:,:,:), allocatable :: feature     
    contains
      procedure(message_update), deferred, pass(this) :: update
      procedure(get_message_differential), deferred, pass(this) :: get_differential
@@ -99,13 +77,12 @@ module mpnn_module
 
 
   abstract interface
-     subroutine message_update(this, hidden, graph, time_step)
+     subroutine message_update(this, hidden, graph)
        import :: message_method_type, real12, graph_type
        class(message_method_type), intent(inout) :: this
        !! hidden features has dimensions (feature, vertex, batch_size)
        real(real12), dimension(:,:,:), intent(in) :: hidden
        type(graph_type), dimension(:), intent(in) :: graph
-       integer, intent(in) :: time_step
      end subroutine message_update
 
      pure function get_message_differential(this, hidden, graph)
@@ -117,12 +94,11 @@ module mpnn_module
      end function get_message_differential
 
 
-     subroutine state_update(this, message, time_step)
+     subroutine state_update(this, message)
        import :: state_method_type, real12
        class(state_method_type), intent(inout) :: this
        !! message has dimensions (feature, vertex, batch_size)
        real(real12), dimension(:,:,:), intent(in) :: message
-       integer, intent(in) :: time_step
      end subroutine state_update
 
      pure function get_state_differential(this, message)
@@ -134,38 +110,19 @@ module mpnn_module
 
 
      function get_readout_output(this, state) result(output)
-       import :: readout_method_type, real12
+       import :: readout_method_type, state_method_type, real12
        class(readout_method_type), intent(inout) :: this
-       !! message has dimensions (feature, vertex, time_step, batch_size)
-       real(real12), dimension(:,:,:,:), intent(in) :: state
+       class(state_method_type), dimension(:), intent(in) :: state
        real(real12), dimension(:,:), allocatable :: output
     end function get_readout_output
 
      pure function get_readout_differential(this, state) result(output)
-       import :: readout_method_type, real12
+       import :: readout_method_type, state_method_type, real12
        class(readout_method_type), intent(in) :: this
-       !! message has dimensions (feature, vertex, time step, batch_size)
-       real(real12), dimension(:,:,:), intent(in) :: state
+       class(state_method_type), dimension(:), intent(in) :: state
        real(real12), dimension(:,:,:), allocatable :: output  
      end function get_readout_differential
 
-     ! pure subroutine message_update(this, graph)
-     !   import :: mpnn_type, graph_type
-     !   class(mpnn_type), intent(in) :: this
-     !   type(graph_type), intent(in) :: graph
-     ! end subroutine message_update
-
-     ! pure subroutine state_update(this, graph)
-     !   import :: mpnn_type, graph_type
-     !   class(mpnn_type), intent(in) :: this
-     !   type(graph_type), intent(in) :: graph
-     ! end subroutine state_update
-
-     ! pure function readout(this) result(output)
-     !   import :: mpnn_type, real12
-     !   class(mpnn_type), intent(in) :: this
-     !   real(real12), dimension(:), allocatable :: output
-     ! end function readout
   end interface
   
 
@@ -246,16 +203,16 @@ contains
 
     do s = 1, this%batch_size
        do i = 1, this%num_vertices
-          this%state%feature(:,i,1,s) = graph(s)%vertex(i)%feature
+          this%state(1)%feature(:,i,s) = graph(s)%vertex(i)%feature
        end do
     end do
 
     do t = 1, this%num_time_steps
-       call this%message%update(this%state%feature(:,:,t,:), graph, t)
-       call this%state%update(this%message%feature(:,:,t+1,:), t)
+       call this%message(t)%update(this%state(t)%feature(:,:,:), graph)
+       call this%state(t)%update(this%message(t+1)%feature(:,:,:))
     end do
 
-    this%output = this%readout%get_output(this%state%feature(:,:,:,:))
+    this%output = this%readout%get_output(this%state)
 
   end subroutine forward
 !!!#############################################################################
@@ -271,7 +228,8 @@ contains
     real(real12), dimension( &
          this%num_features, &
          this%num_vertices, &
-         this%batch_size), intent(in) :: gradient
+         this%batch_size &
+    ), intent(in) :: gradient
 
     integer :: t
 
@@ -281,14 +239,17 @@ contains
     ! h()                          hidden function
 
     this%di(:,:,this%num_time_steps,:) = gradient(:,:,:) * &
-         this%readout%get_differential( &
-              this%state%feature(:,:,this%num_time_steps,:) &
-         )
+         this%readout%get_differential(this%state)
 
     do t = this%num_time_steps-1, 1, -1
+      !! check if time_step t are all handled correctly here
       this%di(:,:,t,:) = this%di(:,:,t+1,:) * &
-            this%state%get_differential(this%message%feature(:,:,t,:)) * &
-            this%message%get_differential(this%state%feature(:,:,t,:), graph)
+            this%state(t+1)%get_differential( &
+                 this%message(t+1)%feature(:,:,:) &
+            ) * &
+            this%message(t+1)%get_differential( &
+                 this%state(t)%feature(:,:,:), graph &
+            )
       
       !! ! this is method dependent
       !! this%dw(:,:,t,s) = this%message(:,t+1,s) * this%v(:,t,s)
