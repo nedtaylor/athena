@@ -27,7 +27,7 @@ module conv_mp_methods
      !! weight has dimensions (feature_out, feature_in, vertex_degree, batch_size)
      real(real12), dimension(:,:,:), allocatable :: weight
      real(real12), dimension(:,:,:,:), allocatable :: dw
-     real(real12), dimension(:,:), allocatable :: z
+     type(feature_type), dimension(:), allocatable :: z
      class(activation_type), allocatable :: transfer
    contains
      procedure :: update => convolutional_state_update
@@ -39,7 +39,7 @@ module conv_mp_methods
     integer :: num_time_steps
     real(real12), dimension(:,:,:), allocatable :: weight
     real(real12), dimension(:,:,:,:), allocatable :: dw
-    real(real12), dimension(:,:), allocatable :: z
+    type(feature_type), dimension(:,:), allocatable :: z
     class(activation_type), allocatable :: transfer
    contains
      procedure :: get_output => convolutional_get_readout_output
@@ -174,24 +174,17 @@ contains
     integer :: s, v, degree
     real(real12), dimension(:,:), allocatable :: delta
 
-    !! CALCULATE DELTA (local variable)
-    !! then calculate di and dw from this
-    ! this%di = gradient%di * &
-    !       gradient%get_differential( &
-    !           this%feature, graph &
-    !       )
     
     !! the delta values are the error multipled by the derivative ...
     !! ... of the transfer function
     !! delta(l) = g'(a) * dE/dI(l)
     !! delta(l) = differential of activation * error from next layer
 
-    !! here, delta is rewritten for each sample in the batch
 
     do concurrent(s=1:this%batch_size)
        !! no message passing transfer function
        delta(:,:) = gradient(s)%val(:,:) * &
-            this%transfer%differentiate(this%z)
+            this%transfer%differentiate(this%z(s)%val(:,:))
        
        !! partial derivatives of error wrt weights
        !! dE/dW = o/p(l-1) * delta
@@ -261,11 +254,33 @@ contains
 
   subroutine convolutional_calculate_readout_partials(this, input, gradient)
     implicit none
-    class(convolutional_readout_method_type), intent(in) :: this
+    class(convolutional_readout_method_type), intent(inout) :: this
     class(state_method_type), dimension(:), intent(in) :: input
     real(real12), dimension(:,:), intent(in) :: gradient
 
+    integer :: s, v, t
+    real(real12), dimension(:), allocatable :: delta
 
+    do concurrent(s=1:this%batch_size)
+       !! no message passing transfer function
+       
+       !! partial derivatives of error wrt weights
+       !! dE/dW = o/p(l-1) * delta
+       do v = 1, size(input(t)%feature(s)%val, 2)
+          do t = 1, this%num_time_steps
+  
+              delta(:) = gradient(:,s) * this%transfer%differentiate(this%z(s,t)%val(:,v))
+
+              this%dw(:,:,t,s) = this%dw(:,:,t,s) + outer_product(input(t)%feature(s)%val(:,v), delta(:))
+              
+          end do
+          !! SHOULD WORK OUT di FOR EACH TIME STEP
+          !! BUT I DON'T KNOW HOW TO HANDLE THAT YET
+          !! Well, I get it mathematically, it's just how to include it computationally in a free-form framework 
+          delta(:) = gradient(:,s) * this%transfer%differentiate(this%z(s,this%num_time_steps)%val(:,v))
+          this%di(s)%val(:,v) = matmul(this%weight(:,:,this%num_time_steps), delta(:))
+       end do
+    end do
     
   end subroutine convolutional_calculate_readout_partials
 
