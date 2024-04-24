@@ -4,6 +4,7 @@
 !!!#############################################################################
 module conv_mp_methods
   use constants, only: real12
+  use misc, only: outer_product
   use custom_types, only: graph_type, activation_type
   use activation_softmax, only: softmax_setup
   use mpnn_module, only: &
@@ -26,6 +27,7 @@ module conv_mp_methods
      !! weight has dimensions (feature_out, feature_in, vertex_degree, batch_size)
      real(real12), dimension(:,:,:), allocatable :: weight
      real(real12), dimension(:,:,:,:), allocatable :: dw
+     real(real12), dimension(:,:), allocatable :: z
      class(activation_type), allocatable :: transfer
    contains
      procedure :: update => convolutional_state_update
@@ -34,8 +36,10 @@ module conv_mp_methods
   end type convolutional_state_method_type
 
   type, extends(readout_method_type) :: convolutional_readout_method_type
+    integer :: num_time_steps
     real(real12), dimension(:,:,:), allocatable :: weight
     real(real12), dimension(:,:,:,:), allocatable :: dw
+    real(real12), dimension(:,:), allocatable :: z
     class(activation_type), allocatable :: transfer
    contains
      procedure :: get_output => convolutional_get_readout_output
@@ -46,10 +50,10 @@ module conv_mp_methods
 
 contains
 
-  subroutine convolutional_message_udpate(this, hidden, graph)
+  subroutine convolutional_message_update(this, input, graph)
     implicit none
     class(convolutional_message_method_type), intent(inout) :: this
-    type(feature_type), dimension(this%batch_size), intent(in) :: hidden
+    type(feature_type), dimension(this%batch_size), intent(in) :: input
     type(graph_type), dimension(this%batch_size), intent(in) :: graph
 
     integer :: s, v, w
@@ -57,23 +61,23 @@ contains
     do s = 1, this%batch_size
        do v = 1, graph(s)%num_vertices
          this%feature(s)%val(:,v) = 0._real12
-         do w = 1, graph%num_vertices
-             if(graph%adjacency(v,w) == 1) then
+         do w = 1, graph(s)%num_vertices
+             if(graph(s)%adjacency(v,w) .eq. 1) then
                this%feature(s)%val(:,v) = &
-                     this%feature(:,v) + &
-                     [ hidden(s)%val(:,w), graph(s)%edge(v,w)%feature(:) ]
+                     this%feature(s)%val(:,v) + &
+                     [ input(s)%val(:,w), graph(s)%edge(v,w)%feature(:) ]
              end if
          end do
        end do
     end do
 
-  end subroutine convolutional_message_udpate
+  end subroutine convolutional_message_update
 
-  function convolutional_get_message_differential(this, hidden, graph), &
+  pure function convolutional_get_message_differential(this, input, graph) &
        result(output)
     implicit none
     class(convolutional_message_method_type), intent(in) :: this
-    type(feature_type), dimension(this%batch_size), intent(in) :: hidden
+    type(feature_type), dimension(this%batch_size), intent(in) :: input
     type(graph_type), dimension(this%batch_size), intent(in) :: graph
     
     type(feature_type), dimension(this%batch_size) :: output
@@ -88,13 +92,15 @@ contains
 
   end function convolutional_get_message_differential
 
-  subroutine convolutional_calculate_message_partials(this, output_state, graph, input)
+  subroutine convolutional_calculate_message_partials(this, input, gradient, graph)
     implicit none
-    class(message_method_type), intent(inout) :: this
-    class(state_method_type), intent(in) :: output_state
-    type(graph_type), dimension(this%batch_size), intent(in) :: graph
+    class(convolutional_message_method_type), intent(inout) :: this
+    !! hidden features has dimensions (feature, vertex, batch_size)
     type(feature_type), dimension(this%batch_size), intent(in) :: input
+    type(feature_type), dimension(this%batch_size), intent(in) :: gradient
+    type(graph_type), dimension(this%batch_size), intent(in) :: graph
 
+    integer :: s
 
     !! CALCULATE DELTA (local variable)
     !! then calculate di and dw from this
@@ -110,61 +116,63 @@ contains
 
     do concurrent(s=1:this%batch_size)
        !! no message passing transfer function
-       this%di(s)%val(:,:) = output_state%di(s)%val(:,:graph(s)%num_vertex_features)
+       this%di(s)%val(:,:) = gradient(s)%val(:,:graph(s)%num_vertex_features)
     end do
 
   end subroutine convolutional_calculate_message_partials
 
 
-  subroutine convolutional_state_update(this, message, graph)
+  subroutine convolutional_state_update(this, input, graph)
     implicit none
     class(convolutional_state_method_type), intent(inout) :: this
-    type(feature_type), dimension(this%batch_size), intent(in) :: message
-    type(graph_type), intent(in) :: graph
+    type(feature_type), dimension(this%batch_size), intent(in) :: input
+    type(graph_type), dimension(this%batch_size), intent(in) :: graph
 
     integer :: s, v
 
     do s = 1, this%batch_size
        do v = 1, graph(s)%num_vertices
-          this%feature(s) = this%transfer%activate( &
+          this%feature(s)%val(:,v) = this%transfer%activate( &
                 matmul( &
-                     this%weight(:,:,graph(s)%get_degree(v)), &
-                     message(s)%val(:,v) &
+                     this%weight(:,:,graph(s)%vertex(v)%degree), &
+                     input(s)%val(:,v) &
                 ) )
        end do
     end do
 
   end subroutine convolutional_state_update
 
-  function convolutional_get_state_differential(this, message, graph), result(output)
+  pure function convolutional_get_state_differential(this, input, graph) result(output)
     implicit none
     class(convolutional_state_method_type), intent(in) :: this
-    type(feature_type), dimension(this%batch_size), intent(in) :: message
-    type(graph_type), dimension(:), intent(in) :: graph
+    type(feature_type), dimension(this%batch_size), intent(in) :: input
+    type(graph_type), dimension(this%batch_size), intent(in) :: graph
 
-    type(feature_type), dimension(this%batch_size), intent(in) :: output
+    type(feature_type), dimension(this%batch_size):: output
 
     integer :: v, s
 
     do s = 1, this%batch_size
        do v = 1, graph(s)%num_vertices
-          output(:,v,s) = this%transfer%differentiate( &
+          output(s)%val(:,v) = this%transfer%differentiate( &
                matmul( &
-                    this%weight(:,:,graph(s)%get_degree(v),s), &
-                    message(s)%val(:,v) &
+                    this%weight(:,:,graph(s)%vertex(v)%degree), &
+                    input(s)%val(:,v) &
                ) )
        end do
     end do
 
   end function convolutional_get_state_differential
 
-  subroutine convolutional_calculate_status_partials(this, gradient, graph, input)
+  subroutine convolutional_calculate_state_partials(this, input, gradient, graph)
     implicit none
-    class(message_method_type), intent(inout) :: this
+    class(convolutional_state_method_type), intent(inout) :: this
+    type(feature_type), dimension(this%batch_size), intent(in) :: input
     type(feature_type), dimension(this%batch_size), intent(in) :: gradient
     type(graph_type), dimension(this%batch_size), intent(in) :: graph
-    type(feature_type), dimension(this%batch_size), intent(in) :: input
 
+    integer :: s, v, degree
+    real(real12), dimension(:,:), allocatable :: delta
 
     !! CALCULATE DELTA (local variable)
     !! then calculate di and dw from this
@@ -188,66 +196,79 @@ contains
        !! partial derivatives of error wrt weights
        !! dE/dW = o/p(l-1) * delta
        do v = 1, graph(s)%num_vertices
-          degree = graph(s)%get_degree(v)
+          degree = graph(s)%vertex(v)%degree
           !! i.e. outer product of the input and delta
           !! sum weights and biases errors to use in batch gradient descent
-          this%dw(:,:,degree,s) = this%dw(:,:,degree,s) + matmul(input(s)%val(:,v), transpose(delta(:,v)))
+          this%dw(:,:,degree,s) = this%dw(:,:,degree,s) + outer_product(input(s)%val(:,v), delta(:,v))
           !! the errors are summed from the delta of the ...
           !! ... 'child' node * 'child' weight
           !! dE/dI(l-1) = sum(weight(l) * delta(l))
           !! this prepares dE/dI for when it is passed into the previous layer
-          this%di(s)%feature(:,v) = matmul(this%weight(:,:,degree), delta(:,v))
+          this%di(s)%val(:,v) = matmul(this%weight(:,:,degree), delta(:,v))
        end do
     end do
 
-  end subroutine convolutional_calculate_status_partials
+  end subroutine convolutional_calculate_state_partials
 
 
-  subroutine convolutional_get_readout_output(this, hidden, graph)
+  pure function convolutional_get_readout_output(this, input) result(output)
     implicit none
-    class(convolutional_readout_method_type), intent(inout) :: this
-    type(feature_type), dimension(this%batch_size), intent(in) :: hidden
-    type(graph_type), dimension(this%batch_size), intent(in) :: graph
+    class(convolutional_readout_method_type), intent(in) :: this
+    class(state_method_type), dimension(:), intent(in) :: input
+
+    real(real12), dimension(:,:), allocatable :: output
 
     integer :: s, v, t
 
     do s = 1, this%batch_size
-       do v = 1, graph(s)%num_vertices
+       output(:,s) = 0._real12
+       do v = 1, size(input(t)%feature(s)%val, 2)
           do t = 1, this%num_time_steps
-             this%feature(s)%val(:,t) = this%feature(s)%val(:,t) + &
+             output(:,s) = output(:,s) + &
                   this%transfer%activate( matmul( &
                        this%weight(:,:,t), &
-                       hidden(s)%val(:,v) &
+                       input(t)%feature(s)%val(:,v) &
                   ) )
           end do
        end do
     end do
 
-  end subroutine convolutional_get_readout_output
+  end function convolutional_get_readout_output
 
-  function convolutional_get_readout_differential(this, hidden, graph), result(output)
+  pure function convolutional_get_readout_differential(this, input) result(output)
     implicit none
     class(convolutional_readout_method_type), intent(in) :: this
-    type(feature_type), dimension(this%batch_size), intent(in) :: hidden
-    type(graph_type), dimension(this%batch_size), intent(in) :: graph
+    class(state_method_type), dimension(:), intent(in) :: input
 
     type(feature_type), dimension(this%batch_size) :: output
 
     integer :: s, v, t
 
     do s = 1, this%batch_size
-       do v = 1, graph(s)%num_vertices
+       do v = 1, size(input(t)%feature(s)%val, 2)
           do t = 1, this%num_time_steps
              output(s)%val(:,t) = this%transfer%differentiate( &
                   matmul( &
                        this%weight(:,:,t), &
-                       hidden(s)%val(:,v) &
+                       input(t)%feature(s)%val(:,v) &
                   ) )
           end do
        end do
     end do
 
   end function convolutional_get_readout_differential
+
+
+  subroutine convolutional_calculate_readout_partials(this, input, gradient)
+    implicit none
+    class(convolutional_readout_method_type), intent(in) :: this
+    class(state_method_type), dimension(:), intent(in) :: input
+    real(real12), dimension(:,:), intent(in) :: gradient
+
+
+    
+  end subroutine convolutional_calculate_readout_partials
+
 
 end module conv_mp_methods
 !!!#############################################################################
