@@ -3,16 +3,42 @@
 !!!#############################################################################
 !!! module contains various miscellaneous functions and subroutines.
 !!! module includes the following functions and subroutines:
-!!! - Icount   - counts words on line
-!!! - grep     - finds 1st line containing the pattern
-!!! - to_upper - converts all characters in string to upper case
-!!! - to_lower - converts all characters in string to lower case
+!!! - outer_product - calculates the outer product of two vectors
+!!! - Icount        - counts words on line
+!!! - grep          - finds 1st line containing the pattern
+!!! - to_upper      - converts all characters in string to upper case
+!!! - to_lower      - converts all characters in string to lower case
 !!!#############################################################################
 module misc
   use constants, only: real12
   implicit none
 
+  private
+  public :: outer_product
+  public :: Icount, grep, to_upper, to_lower
+
+
 contains
+
+!!!#####################################################
+!!! outer product
+!!!#####################################################
+  pure function outer_product(a,b) result(c)
+    implicit none
+    real(real12), dimension(:), intent(in) :: a,b
+    real(real12), dimension(size(a),size(b)) :: c
+    integer :: i,j
+
+    do i=1,size(a)
+       do j=1,size(b)
+          c(i,j)=a(i)*b(j)
+       end do
+    end do
+
+    return
+  end function outer_product 
+!!!#####################################################
+
 
 !!!#####################################################
 !!! counts the number of words on a line
