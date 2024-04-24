@@ -2,18 +2,20 @@
 !!! Code written by Ned Thaddeus Taylor
 !!! Code part of the ATHENA library - a feedforward neural network library
 !!!#############################################################################
-module conv_mp_methods
+module conv_mpnn_layer
   use constants, only: real12
   use misc, only: outer_product
   use custom_types, only: graph_type, activation_type
   use activation_softmax, only: softmax_setup
-  use mpnn_module, only: &
-       mpnn_type, state_method_type, message_method_type, readout_method_type, &
+  use mpnn_layer, only: &
+       mpnn_layer_type, state_method_type, message_method_type, readout_method_type, &
        feature_type
   implicit none
   
 
   private
+  public :: conv_mpnn_layer_type
+
 
 
   type, extends(message_method_type) :: convolutional_message_method_type
@@ -22,6 +24,14 @@ module conv_mp_methods
      procedure :: get_differential => convolutional_get_message_differential
      procedure :: calculate_partials => convolutional_calculate_message_partials
   end type convolutional_message_method_type
+  interface convolutional_message_method_type
+    module function message_method_setup( &
+         num_vertex_features, num_edge_features, batch_size ) result(message_method)
+      integer, intent(in) :: num_vertex_features, num_edge_features, batch_size
+      type(convolutional_message_method_type) :: message_method
+    end function message_method_setup
+  end interface convolutional_message_method_type
+
 
   type, extends(state_method_type) :: convolutional_state_method_type
      !! weight has dimensions (feature_out, feature_in, vertex_degree, batch_size)
@@ -34,6 +44,14 @@ module conv_mp_methods
      procedure :: get_differential => convolutional_get_state_differential
      procedure :: calculate_partials => convolutional_calculate_state_partials
   end type convolutional_state_method_type
+  interface convolutional_state_method_type
+    module function state_method_setup( &
+         num_vertex_features, num_edge_features, max_vertex_degree, batch_size ) result(state_method)
+      integer, intent(in) :: num_vertex_features, num_edge_features, max_vertex_degree, batch_size
+      type(convolutional_state_method_type) :: state_method
+    end function state_method_setup
+  end interface convolutional_state_method_type
+
 
   type, extends(readout_method_type) :: convolutional_readout_method_type
     integer :: num_time_steps
@@ -46,9 +64,119 @@ module conv_mp_methods
      procedure :: get_differential => convolutional_get_readout_differential
      procedure :: calculate_partials => convolutional_calculate_readout_partials
   end type convolutional_readout_method_type
+  interface convolutional_readout_method_type
+    module function readout_method_setup( &
+         num_time_steps, num_inputs, num_outputs, batch_size ) result(readout_method)
+      integer, intent(in) :: num_time_steps, num_inputs, num_outputs, batch_size
+      type(convolutional_readout_method_type) :: readout_method
+    end function readout_method_setup
+  end interface convolutional_readout_method_type
+
+
+
+
+  type, extends(mpnn_layer_type) :: conv_mpnn_layer_type
+  end type conv_mpnn_layer_type
+
+
+  interface conv_mpnn_layer_type
+    module function layer_setup( &
+           num_time_steps, &
+           num_vertex_features, num_edge_features, &
+           num_outputs, batch_size ) result(layer)
+      integer, intent(in) :: num_time_steps, num_vertex_features, &
+           num_edge_features, num_outputs, batch_size
+      type(conv_mpnn_layer_type) :: layer
+    end function layer_setup
+  end interface conv_mpnn_layer_type
+
+
 
 
 contains
+
+  module function message_method_setup( &
+         num_vertex_features, num_edge_features, batch_size ) result(message_method)
+    implicit none
+    integer, intent(in) :: num_vertex_features, num_edge_features, batch_size
+    type(convolutional_message_method_type) :: message_method
+
+    message_method%num_features = num_vertex_features + num_edge_features
+    message_method%batch_size = batch_size
+    
+    allocate(message_method%feature(batch_size))
+    allocate(message_method%di(batch_size))
+
+  end function message_method_setup
+
+  module function state_method_setup( &
+         num_vertex_features, num_edge_features, max_vertex_degree, batch_size ) result(state_method)
+    implicit none
+    integer, intent(in) :: num_vertex_features, num_edge_features, batch_size, max_vertex_degree
+    type(convolutional_state_method_type) :: state_method
+
+    state_method%num_features = num_vertex_features
+    state_method%batch_size = batch_size
+
+    !!! MAXIMUM VERTEX DEGREE
+    allocate(state_method%weight(num_vertex_features, num_vertex_features + num_edge_features, max_vertex_degree))
+    allocate(state_method%dw(num_vertex_features, num_vertex_features + num_edge_features, max_vertex_degree, batch_size))
+    allocate(state_method%z(batch_size))
+  
+  end function state_method_setup
+
+  module function readout_method_setup( &
+         num_time_steps, num_inputs, num_outputs,batch_size ) result(readout_method)
+    implicit none
+    integer, intent(in) :: num_time_steps, num_inputs, num_outputs, batch_size
+    type(convolutional_readout_method_type) :: readout_method
+
+    readout_method%num_time_steps = num_time_steps
+    readout_method%num_outputs = num_outputs
+    readout_method%batch_size = batch_size
+
+    allocate(readout_method%weight(num_outputs, num_inputs, num_time_steps))
+    allocate(readout_method%dw(num_outputs, num_time_steps, num_outputs, batch_size))
+    allocate(readout_method%z(num_time_steps, batch_size))
+
+  end function readout_method_setup
+
+
+  module function layer_setup( &
+         num_time_steps, &
+         num_vertex_features, num_edge_features, &
+         num_outputs, batch_size ) result(layer)
+    implicit none
+    integer, intent(in) :: num_time_steps, num_vertex_features, &
+         num_edge_features, num_outputs, batch_size
+    type(conv_mpnn_layer_type) :: layer
+
+
+    layer%num_features = num_vertex_features
+    layer%num_time_steps = num_time_steps
+    layer%num_outputs = num_outputs
+    layer%batch_size = batch_size
+
+    allocate(layer%output(num_outputs, layer%batch_size))
+
+    allocate(layer%message(layer%num_time_steps), &
+         source = convolutional_message_method_type( &
+              num_vertex_features, num_edge_features, batch_size &
+         ) &
+    )
+    allocate(layer%state(layer%num_time_steps), &
+         source = convolutional_state_method_type( &
+              num_vertex_features, num_edge_features, 4, batch_size &
+         ) &
+    )
+    allocate(layer%readout, &
+         source = convolutional_readout_method_type( &
+              num_time_steps, num_outputs, num_outputs, batch_size &
+         ) &
+    )
+
+  end function layer_setup
+
 
   subroutine convolutional_message_update(this, input, graph)
     implicit none
@@ -102,13 +230,6 @@ contains
 
     integer :: s
 
-    !! CALCULATE DELTA (local variable)
-    !! then calculate di and dw from this
-    ! this%di = output_state%di * &
-    !       output_state%get_differential( &
-    !           this%feature, graph &
-    !       )
-    
     !! the delta values are the error multipled by the derivative ...
     !! ... of the transfer function
     !! delta(l) = g'(a) * dE/dI(l)
@@ -285,5 +406,5 @@ contains
   end subroutine convolutional_calculate_readout_partials
 
 
-end module conv_mp_methods
+end module conv_mpnn_layer
 !!!#############################################################################

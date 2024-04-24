@@ -68,7 +68,8 @@ set(LIB_FILES
     mod_lr_decay.f90
     mod_optimiser.f90
     mod_types.f90
-    mod_message_passing_layer.f90
+    mod_mpnn_layer.f90
+    mod_mpnn_layer_sub.f90
     mod_metrics.f90
     mod_misc_ml.f90
     mod_activation_gaussian.f90
@@ -95,6 +96,7 @@ set(LIB_FILES
     mod_accuracy.f90
     mod_base_layer.f90
     mod_base_layer_sub.f90
+    mod_conv_mpnn_layer.f90
     mod_batchnorm1d_layer.f90
     mod_batchnorm2d_layer.f90
     mod_batchnorm3d_layer.f90
