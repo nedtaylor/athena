@@ -153,7 +153,7 @@ module mpnn_module
 
      subroutine calculate_readout_partials(this, input, gradient)
        import :: readout_method_type, state_method_type, real12
-       class(readout_method_type), intent(in) :: this
+       class(readout_method_type), intent(inout) :: this
        class(state_method_type), dimension(:), intent(in) :: input
        real(real12), dimension(:,:), intent(in) :: gradient
      end subroutine calculate_readout_partials
