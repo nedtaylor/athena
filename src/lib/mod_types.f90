@@ -167,6 +167,7 @@ module custom_types
 !!! graph vertex type
 !!!-----------------------------------------------------------------------------
   type :: vertex_type
+     integer :: degree = 1
      real(real12), dimension(:), allocatable :: feature
   end type vertex_type
 
@@ -187,27 +188,26 @@ module custom_types
      type(vertex_type), dimension(:), allocatable :: vertex
      type(edge_type), dimension(:,:), allocatable :: edge
    contains
-     procedure, pass(this) :: degree => get_degree
+     procedure, pass(this) :: calculate_degree
   end type graph_type
 
 contains
   
-  subroutine get_degree(this, degree)
+  subroutine calculate_degree(this)
     implicit none
-    class(graph_type), intent(in) :: this
-    integer, dimension(:), intent(out) :: degree
+    class(graph_type), intent(inout) :: this
     integer :: i, j
-    degree = 0
     !!! NEED TO ACCOUNT FOR DIRECTION
+    this%vertex(:)%degree = 1
     do i = 1, this%num_vertices
-      do j = 1, this%num_vertices
-        if (this%adjacency(i,j) == 1) then
-          degree(i) = degree(i) + 1
-          degree(j) = degree(j) + 1
+      do j = i + 1, this%num_vertices, 1
+        if (this%adjacency(i,j) .eq. 1) then
+          this%vertex(i)%degree = this%vertex(i)%degree + 1
+          this%vertex(j)%degree = this%vertex(j)%degree + 1
         end if
       end do
     end do
-  end subroutine get_degree
+  end subroutine calculate_degree
 
 
 end module custom_types
