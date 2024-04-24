@@ -161,8 +161,6 @@ contains
     this%num_features = input_shape(:2)
     this%num_time_steps = input_shape(3)
     this%num_outputs = output_shape(1)
-    allocate(this%message(this%num_time_steps))
-    allocate(this%state(this%num_time_steps))
     allocate(this%message(this%num_time_steps), &
          source = convolutional_message_method_type( &
             this%num_features(1), this%num_features(2), batch_size &
