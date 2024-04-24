@@ -73,7 +73,6 @@ module mpnn_module
 
   type, abstract :: readout_method_type
      integer :: batch_size
-     integer :: num_time_steps
      integer :: num_outputs
      type(feature_type), dimension(:), allocatable :: di
    contains
@@ -84,19 +83,19 @@ module mpnn_module
 
 
   abstract interface
-     subroutine message_update(this, hidden, graph)
+     subroutine message_update(this, input, graph)
        import :: message_method_type, feature_type, graph_type
        class(message_method_type), intent(inout) :: this
-       !! hidden features has dimensions (feature, vertex, batch_size)
-       type(feature_type), dimension(this%batch_size), intent(in) :: hidden
+       !! input features has dimensions (feature, vertex, batch_size)
+       type(feature_type), dimension(this%batch_size), intent(in) :: input
        type(graph_type), dimension(this%batch_size), intent(in) :: graph
      end subroutine message_update
 
-     pure function get_message_differential(this, hidden, graph) result(output)
+     pure function get_message_differential(this, input, graph) result(output)
        import :: message_method_type, feature_type, graph_type
        class(message_method_type), intent(in) :: this
-       !! hidden features has dimensions (feature, vertex, batch_size)
-       type(feature_type), dimension(this%batch_size), intent(in) :: hidden
+       !! input features has dimensions (feature, vertex, batch_size)
+       type(feature_type), dimension(this%batch_size), intent(in) :: input
        type(graph_type), dimension(this%batch_size), intent(in) :: graph
        type(feature_type), dimension(this%batch_size) :: output
      end function get_message_differential
@@ -111,19 +110,19 @@ module mpnn_module
      end subroutine calculate_message_partials
 
 
-     subroutine state_update(this, message, graph)
+     subroutine state_update(this, input, graph)
        import :: state_method_type, feature_type, graph_type
        class(state_method_type), intent(inout) :: this
-       !! message has dimensions (feature, vertex, batch_size)
-       type(feature_type), dimension(this%batch_size), intent(in) :: message
+       !! input has dimensions (feature, vertex, batch_size)
+       type(feature_type), dimension(this%batch_size), intent(in) :: input
        type(graph_type), dimension(this%batch_size), intent(in) :: graph
      end subroutine state_update
 
-     pure function get_state_differential(this, message, graph) result(output)
+     pure function get_state_differential(this, input, graph) result(output)
        import :: state_method_type, feature_type, graph_type
        class(state_method_type), intent(in) :: this
-       !! message has dimensions (feature, vertex, batch_size)
-       type(feature_type), dimension(this%batch_size), intent(in) :: message
+       !! input has dimensions (feature, vertex, batch_size)
+       type(feature_type), dimension(this%batch_size), intent(in) :: input
        type(graph_type), dimension(this%batch_size), intent(in) :: graph
        type(feature_type), dimension(this%batch_size) :: output
      end function get_state_differential
@@ -138,25 +137,24 @@ module mpnn_module
      end subroutine calculate_state_partials
 
 
-     function get_readout_output(this, state) result(output)
-       import :: readout_method_type, state_method_type, real12
-       class(readout_method_type), intent(inout) :: this
-       class(state_method_type), dimension(:), intent(in) :: state
-       real(real12), dimension(:,:), allocatable :: output
-    end function get_readout_output
-
-     pure function get_readout_differential(this, state, gradient) result(output)
+     pure function get_readout_output(this, input) result(output)
        import :: readout_method_type, state_method_type, feature_type, real12
        class(readout_method_type), intent(in) :: this
-       class(state_method_type), dimension(:), intent(in) :: state
-       real(real12), dimension(:,:), intent(in) :: gradient
+       class(state_method_type), dimension(:), intent(in) :: input
+       real(real12), dimension(:,:), allocatable :: output
+     end function get_readout_output
+
+     pure function get_readout_differential(this, input) result(output)
+       import :: readout_method_type, state_method_type, feature_type, real12
+       class(readout_method_type), intent(in) :: this
+       class(state_method_type), dimension(:), intent(in) :: input
        type(feature_type), dimension(this%batch_size) :: output
      end function get_readout_differential
 
      subroutine calculate_readout_partials(this, input, gradient)
-       import :: readout_method_type, state_method_type, feature_type, real12
+       import :: readout_method_type, state_method_type, real12
        class(readout_method_type), intent(in) :: this
-       type(feature_type), dimension(this%batch_size), intent(in) :: input
+       class(state_method_type), dimension(:), intent(in) :: input
        real(real12), dimension(:,:), intent(in) :: gradient
      end subroutine calculate_readout_partials
 
@@ -293,7 +291,7 @@ contains
     !     this%readout%get_differential(this%state, gradient)
 
     call this%readout%calculate_partials( &
-         input = this%state(this%num_time_steps)%feature, &
+         input = this%state, &
          gradient = gradient &
     )
 
