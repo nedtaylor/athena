@@ -212,10 +212,10 @@ contains
        do v = 1, graph(s)%num_vertices
          this%feature(s)%val(:,v) = 0._real12
          do w = 1, graph(s)%num_vertices
-             if(graph(s)%adjacency(v,w) .eq. 1) then
+             if(graph(s)%adjacency(v,w) .ne. 0) then
                this%feature(s)%val(:,v) = &
                      this%feature(s)%val(:,v) + &
-                     [ input(s)%val(:,w), graph(s)%edge(v,w)%feature(:) ]
+                     [ input(s)%val(:,w), graph(s)%edge(abs(graph(s)%adjacency(v,w)))%feature(:) ]
              end if
          end do
        end do

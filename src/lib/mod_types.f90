@@ -172,7 +172,8 @@ module custom_types
   end type vertex_type
 
   type :: edge_type
-     integer :: source, target
+     !! for directed graphs, index(1) is the source vertex, index(2) is the target vertex
+     integer, dimension(2) :: index
      real(real12) :: weight
      real(real12), dimension(:), allocatable :: feature
   end type edge_type
@@ -181,12 +182,14 @@ module custom_types
      logical :: directed = .false.
      integer :: num_vertices, num_edges
      integer :: num_vertex_features, num_edge_features
+     character(len=128) :: name
      !! adjacency matrix
-     !! 1 if edge exists, 0 otherwise
-     !! -1 if edge is outgoing, 1 if edge is incoming
+     !! NUM if edge exists, 0 otherwise (NUM = edge index)
+     !! if -ve, then edge is directed from j to i
+     !! if +ve, then edge is bidirectional
      integer, dimension(:,:), allocatable :: adjacency
      type(vertex_type), dimension(:), allocatable :: vertex
-     type(edge_type), dimension(:,:), allocatable :: edge
+     type(edge_type), dimension(:), allocatable :: edge
    contains
      procedure, pass(this) :: calculate_degree
   end type graph_type
@@ -201,9 +204,11 @@ contains
     this%vertex(:)%degree = 1
     do i = 1, this%num_vertices
       do j = i + 1, this%num_vertices, 1
-        if (this%adjacency(i,j) .eq. 1) then
+        if(this%adjacency(i,j) .gt. 0) then
           this%vertex(i)%degree = this%vertex(i)%degree + 1
           this%vertex(j)%degree = this%vertex(j)%degree + 1
+        elseif(this%adjacency(i,j) .lt. 0) then
+          this%vertex(i)%degree = this%vertex(i)%degree + 1
         end if
       end do
     end do
