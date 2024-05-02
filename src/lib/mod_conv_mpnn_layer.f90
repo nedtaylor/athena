@@ -139,6 +139,7 @@ contains
     allocate(state_method%weight(num_vertex_features, num_vertex_features + num_edge_features, max_vertex_degree))
     allocate(state_method%dw(num_vertex_features, num_vertex_features + num_edge_features, max_vertex_degree, batch_size))
     allocate(state_method%z(batch_size))
+    allocate(state_method%di(batch_size))
   
     write(*,*) "setting up transfer function"
     allocate(state_method%transfer, &
@@ -157,9 +158,10 @@ contains
     readout_method%num_outputs = num_outputs
     readout_method%batch_size = batch_size
 
-    allocate(readout_method%weight(num_outputs, num_inputs, num_time_steps))
-    allocate(readout_method%dw(num_outputs, num_time_steps, num_outputs, batch_size))
-    allocate(readout_method%z(num_time_steps, batch_size))
+    allocate(readout_method%weight(num_inputs, num_outputs, num_time_steps+1))
+    allocate(readout_method%dw(num_inputs, num_outputs, num_time_steps+1, batch_size))
+    allocate(readout_method%z(num_time_steps+1, batch_size))
+    allocate(readout_method%di(batch_size))
 
     write(*,*) "setting up transfer function"
     allocate(readout_method%transfer, &
@@ -243,6 +245,7 @@ contains
     type(conv_mpnn_layer_type) :: layer
 
     layer%batch_size = batch_size
+    layer%output_shape = [num_outputs]
 
     layer%method = conv_mpnn_method_type( &
          [num_vertex_features, num_edge_features, num_time_steps], [num_outputs], batch_size &
@@ -313,6 +316,8 @@ contains
     !! delta(l) = differential of activation * error from next layer
 
     do concurrent(s=1:this%batch_size)
+       if(allocated(this%di(s)%val)) deallocate(this%di(s)%val)
+       allocate(this%di(s)%val(size(gradient(s)%val, 1), graph(s)%num_vertex_features))
        !! no message passing transfer function
        this%di(s)%val(:,:) = gradient(s)%val(:,:graph(s)%num_vertex_features)
     end do
@@ -329,13 +334,14 @@ contains
     integer :: s, v
 
     do s = 1, this%batch_size
+       if(allocated(this%z(s)%val)) deallocate(this%z(s)%val)
+       allocate(this%z(s)%val(size(input(s)%val, 1), graph(s)%num_vertices))
        do v = 1, graph(s)%num_vertices
-          this%feature(s)%val(:,v) = this%transfer%activate( &
-                matmul( &
-                     this%weight(:,:,graph(s)%vertex(v)%degree), &
-                     input(s)%val(:,v) &
-                ) &
+          this%z(s)%val(:,v) = matmul( &
+               this%weight(:,:,graph(s)%vertex(v)%degree), &
+               input(s)%val(:,v) &
           )
+          this%feature(s)%val(:,v) = this%transfer%activate( this%z(s)%val(:,v))
        end do
     end do
 
@@ -353,11 +359,7 @@ contains
 
     do s = 1, this%batch_size
        do v = 1, graph(s)%num_vertices
-          output(s)%val(:,v) = this%transfer%differentiate( &
-               matmul( &
-                    this%weight(:,:,graph(s)%vertex(v)%degree), &
-                    input(s)%val(:,v) &
-               ) )
+          output(s)%val(:,v) = this%transfer%differentiate(this%z(s)%val(:,v))
        end do
     end do
 
@@ -382,8 +384,11 @@ contains
 
     do concurrent(s=1:this%batch_size)
        !! no message passing transfer function
-       delta(:,:) = gradient(s)%val(:,:) * &
+       delta = gradient(s)%val(:,:) * &
             this%transfer%differentiate(this%z(s)%val(:,:))
+       if(allocated(this%di(s)%val)) deallocate(this%di(s)%val)
+       allocate(this%di(s)%val(size(input(s)%val, 1), &
+           size(input(s)%val, 2)))
        
        !! partial derivatives of error wrt weights
        !! dE/dW = o/p(l-1) * delta
@@ -403,48 +408,45 @@ contains
   end subroutine convolutional_calculate_state_partials
 
 
-  pure function convolutional_get_readout_output(this, input) result(output)
+  pure subroutine convolutional_get_readout_output(this, input, output)
     implicit none
-    class(convolutional_readout_method_type), intent(in) :: this
+    class(convolutional_readout_method_type), intent(inout) :: this
     class(state_method_type), dimension(0:this%num_time_steps), intent(in) :: input
-
-    real(real12), dimension(:,:), allocatable :: output
+    real(real12), dimension(this%num_outputs, this%batch_size), intent(out) :: output
 
     integer :: s, v, t
 
-    allocate(output(this%num_outputs, this%batch_size))
     do s = 1, this%batch_size
        output(:,s) = 0._real12
        do t = 0, this%num_time_steps
+          if(allocated(this%z(t+1,s)%val)) deallocate(this%z(t+1,s)%val)
+          allocate(this%z(t+1,s)%val(this%num_outputs, size(input(t)%feature(s)%val, 2)))
           do v = 1, size(input(t)%feature(s)%val, 2)
+             this%z(t+1,s)%val(:,v) = matmul( &
+                  input(t)%feature(s)%val(:,v), &
+                  this%weight(:,:,t+1) &
+             )
              output(:,s) = output(:,s) + &
-                  this%transfer%activate( matmul( &
-                       this%weight(:,:,t+1), &
-                       input(t)%feature(s)%val(:,v) &
-                  ) )
+                  this%transfer%activate( this%z(t+1,s)%val(:,v) )
           end do
        end do
     end do
 
-  end function convolutional_get_readout_output
+  end subroutine convolutional_get_readout_output
 
   pure function convolutional_get_readout_differential(this, input) result(output)
     implicit none
     class(convolutional_readout_method_type), intent(in) :: this
-    class(state_method_type), dimension(:), intent(in) :: input
+    class(state_method_type), dimension(0:this%num_time_steps), intent(in) :: input
 
     type(feature_type), dimension(this%batch_size) :: output
 
     integer :: s, v, t
 
     do s = 1, this%batch_size
-       do v = 1, size(input(t)%feature(s)%val, 2)
-          do t = 1, this%num_time_steps
-             output(s)%val(:,t) = this%transfer%differentiate( &
-                  matmul( &
-                       this%weight(:,:,t), &
-                       input(t)%feature(s)%val(:,v) &
-                  ) )
+       do t = 0, this%num_time_steps
+          do v = 1, size(input(t)%feature(s)%val, 2)
+             output(s)%val(:,t) = this%transfer%differentiate(this%z(t,s)%val(:,v))
           end do
        end do
     end do
@@ -455,30 +457,36 @@ contains
   pure subroutine convolutional_calculate_readout_partials(this, input, gradient)
     implicit none
     class(convolutional_readout_method_type), intent(inout) :: this
-    class(state_method_type), dimension(:), intent(in) :: input
-    real(real12), dimension(:,:), intent(in) :: gradient
+    class(state_method_type), dimension(0:this%num_time_steps), intent(in) :: input
+    real(real12), dimension(this%num_outputs, this%batch_size), intent(in) :: gradient
 
     integer :: s, v, t
-    real(real12), dimension(:), allocatable :: delta
+    real(real12), dimension(this%num_outputs) :: delta
 
     do concurrent(s=1:this%batch_size)
        !! no message passing transfer function
        
        !! partial derivatives of error wrt weights
        !! dE/dW = o/p(l-1) * delta
-       do v = 1, size(input(t)%feature(s)%val, 2)
-          do t = 1, this%num_time_steps
+       do t = 0, this%num_time_steps
+          if(allocated(this%di(s)%val)) deallocate(this%di(s)%val)
+           allocate(this%di(s)%val(size(input(this%num_time_steps)%feature(s)%val, 1), &
+                size(input(this%num_time_steps)%feature(s)%val, 2)))
+          do v = 1, size(input(t)%feature(s)%val, 2)
   
-              delta(:) = gradient(:,s) * this%transfer%differentiate(this%z(s,t)%val(:,v))
+              delta = gradient(:,s) * this%transfer%differentiate(this%z(t+1,s)%val(:,v))
 
-              this%dw(:,:,t,s) = this%dw(:,:,t,s) + outer_product(input(t)%feature(s)%val(:,v), delta(:))
+              this%dw(:,:,t+1,s) = this%dw(:,:,t+1,s) + outer_product(input(t)%feature(s)%val(:,v), delta(:))
+
+              delta(:) = gradient(:,s) * this%transfer%differentiate(this%z(this%num_time_steps+1,s)%val(:,v))
               
+              if(t .ne. this%num_time_steps) cycle
+              this%di(s)%val(:,v) = matmul(this%weight(:,:,this%num_time_steps+1), delta(:))
           end do
           !! SHOULD WORK OUT di FOR EACH TIME STEP
           !! BUT I DON'T KNOW HOW TO HANDLE THAT YET
-          !! Well, I get it mathematically, it's just how to include it computationally in a free-form framework 
-          delta(:) = gradient(:,s) * this%transfer%differentiate(this%z(s,this%num_time_steps)%val(:,v))
-          this%di(s)%val(:,v) = matmul(this%weight(:,:,this%num_time_steps), delta(:))
+          !! Well, I get it mathematically, it's just how to include it computationally in a free-form framework
+          !this%di(t,s)%val(:,v) = matmul(this%weight(:,:,this%num_time_steps+1), delta(:))
        end do
     end do
     
