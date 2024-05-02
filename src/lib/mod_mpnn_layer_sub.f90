@@ -207,7 +207,7 @@ contains
        call this%method%state(t)%update(this%method%message(t)%feature, graph)
     end do
 
-    this%output = this%method%readout%get_output(this%method%state)
+    call this%method%readout%get_output(this%method%state, this%output)
 
   end subroutine forward_graph
 !!!#############################################################################

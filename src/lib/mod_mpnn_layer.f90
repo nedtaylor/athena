@@ -145,11 +145,11 @@ module mpnn_layer
      end subroutine calculate_state_partials
 
 
-     pure module function get_readout_output(this, input) result(output)
-       class(readout_method_type), intent(in) :: this
+     pure module subroutine get_readout_output(this, input, output)
+       class(readout_method_type), intent(inout) :: this
        class(state_method_type), dimension(:), intent(in) :: input
-       real(real12), dimension(:,:), allocatable :: output
-     end function get_readout_output
+       real(real12), dimension(this%num_outputs, this%batch_size), intent(out) :: output
+     end subroutine get_readout_output
 
      pure module function get_readout_differential(this, input) result(output)
        class(readout_method_type), intent(in) :: this
@@ -160,7 +160,7 @@ module mpnn_layer
      pure module subroutine calculate_readout_partials(this, input, gradient)
        class(readout_method_type), intent(inout) :: this
        class(state_method_type), dimension(:), intent(in) :: input
-       real(real12), dimension(:,:), intent(in) :: gradient
+       real(real12), dimension(this%num_outputs, this%batch_size), intent(in) :: gradient
      end subroutine calculate_readout_partials
   end interface
 
