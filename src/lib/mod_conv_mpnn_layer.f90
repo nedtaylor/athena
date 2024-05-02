@@ -188,7 +188,7 @@ contains
     )
     allocate(this%state(0:this%num_time_steps), &
          source = convolutional_state_method_type( &
-            this%num_features(1), this%num_features(2), 4, batch_size &
+            this%num_features(1), this%num_features(2), 6, batch_size &
          ) &
     )
     allocate(this%readout, &
@@ -415,8 +415,8 @@ contains
     allocate(output(this%num_outputs, this%batch_size))
     do s = 1, this%batch_size
        output(:,s) = 0._real12
-       do v = 1, size(input(t)%feature(s)%val, 2)
-          do t = 0, this%num_time_steps
+       do t = 0, this%num_time_steps
+          do v = 1, size(input(t)%feature(s)%val, 2)
              output(:,s) = output(:,s) + &
                   this%transfer%activate( matmul( &
                        this%weight(:,:,t+1), &
