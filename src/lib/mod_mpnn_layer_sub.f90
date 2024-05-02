@@ -187,13 +187,24 @@ contains
     integer :: v, s, t
 
     do s = 1, this%batch_size
+       do t = 0, this%method%num_time_steps, 1
+          if(allocated(this%method%state(t)%feature(s)%val)) deallocate(this%method%state(t)%feature(s)%val)
+          allocate(this%method%state(t)%feature(s)%val( &
+              this%method%state(t)%num_features, graph(s)%num_vertices &
+          ))
+          if(t.eq.0) cycle
+          if(allocated(this%method%message(t)%feature(s)%val)) deallocate(this%method%message(t)%feature(s)%val)
+          allocate(this%method%message(t)%feature(s)%val( &
+              this%method%message(t)%num_features, graph(s)%num_vertices &
+          ))
+       end do
        do v = 1, graph(s)%num_vertices
           this%method%state(1)%feature(s)%val(:,v) = graph(s)%vertex(v)%feature
        end do
     end do
     do t = 1, this%method%num_time_steps
-       call this%method%message(t)%update(this%method%state(t)%feature, graph)
-       call this%method%state(t)%update(this%method%message(t+1)%feature, graph)
+       call this%method%message(t)%update(this%method%state(t-1)%feature, graph)
+       call this%method%state(t)%update(this%method%message(t)%feature, graph)
     end do
 
     this%output = this%method%readout%get_output(this%method%state)

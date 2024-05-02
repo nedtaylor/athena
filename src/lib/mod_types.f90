@@ -174,7 +174,7 @@ module custom_types
   type :: edge_type
      !! for directed graphs, index(1) is the source vertex, index(2) is the target vertex
      integer, dimension(2) :: index
-     real(real12) :: weight
+     real(real12) :: weight = 1._real12
      real(real12), dimension(:), allocatable :: feature
   end type edge_type
 
@@ -192,7 +192,17 @@ module custom_types
      type(edge_type), dimension(:), allocatable :: edge
    contains
      procedure, pass(this) :: calculate_degree
+     procedure, pass(this) :: generate_adjacency
   end type graph_type
+
+  interface edge_type
+     module function edge_type_init(index, weight, feature) result(output)
+       integer, dimension(2), intent(in) :: index
+       real(real12), intent(in), optional :: weight
+       real(real12), dimension(:), intent(in), optional :: feature
+       type(edge_type) :: output
+     end function edge_type_init
+  end interface edge_type
 
 contains
   
@@ -213,6 +223,36 @@ contains
       end do
     end do
   end subroutine calculate_degree
+
+  module function edge_type_init(index, weight, feature) result(output)
+    implicit none
+    integer, dimension(2), intent(in) :: index
+    real(real12), intent(in), optional :: weight
+    real(real12), dimension(:), intent(in), optional :: feature
+    type(edge_type) :: output
+    output%index = index
+    if(present(weight)) output%weight = weight
+    if(present(feature)) output%feature = feature
+  end function edge_type_init
+
+  subroutine generate_adjacency(this)
+    implicit none
+    class(graph_type), intent(inout) :: this
+    integer :: i, j, k
+    allocate(this%adjacency(this%num_vertices, this%num_vertices))
+    this%adjacency = 0
+    do k = 1, this%num_edges
+      i = this%edge(k)%index(1)
+      j = this%edge(k)%index(2)
+      if(this%directed) then
+        this%adjacency(i,j) = k
+        this%adjacency(j,i) = -k
+      else
+        this%adjacency(i,j) = k
+        this%adjacency(j,i) = k
+      end if
+    end do
+  end subroutine generate_adjacency
 
 
 end module custom_types

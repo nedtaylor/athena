@@ -28,7 +28,7 @@ module mpnn_layer
    contains
      procedure, pass(this) :: init => init_mpnn
      procedure, pass(this) :: get_output => get_output_mpnn
-     procedure, pass(this) :: set_batch_size => set_batch_size_base_mpnn
+     procedure, pass(this) :: set_batch_size => set_batch_size_mpnn
      procedure, pass(this) :: set_graph
      procedure, pass(this) :: forward => forward_rank
      procedure, pass(this) :: backward => backward_rank
@@ -62,7 +62,7 @@ module mpnn_layer
      integer :: num_features
      integer :: num_outputs
      integer :: batch_size
-     !! feature has dimensions (feature, vertex)
+     !! feature has dimensions (batch_size)
      type(feature_type), dimension(:), allocatable :: feature
      type(feature_type), dimension(:), allocatable :: di
    contains
@@ -75,7 +75,7 @@ module mpnn_layer
      integer :: num_features
      integer :: num_outputs
      integer :: batch_size
-     !! feature has dimensions (feature, vertex)
+     !! feature has dimensions (batch_size)
      type(feature_type), dimension(:), allocatable :: feature
      type(feature_type), dimension(:), allocatable :: di
    contains
@@ -215,11 +215,11 @@ module mpnn_layer
        class(mpnn_layer_type), intent(in) :: this
        real(real12), allocatable, dimension(..), intent(out) :: output
      end subroutine get_output_mpnn
-     module subroutine set_batch_size_base_mpnn(this, batch_size, verbose)
+     module subroutine set_batch_size_mpnn(this, batch_size, verbose)
        class(mpnn_layer_type), intent(inout) :: this
        integer, intent(in) :: batch_size
        integer, optional, intent(in) :: verbose
-     end subroutine set_batch_size_base_mpnn
+     end subroutine set_batch_size_mpnn
      module subroutine init_mpnn(this, input_shape, batch_size, verbose)
        class(mpnn_layer_type), intent(inout) :: this
        integer, dimension(:), intent(in) :: input_shape

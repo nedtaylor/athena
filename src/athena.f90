@@ -11,7 +11,7 @@ module athena
   use random, only: random_setup
   use network, only: network_type
   use metrics, only: metric_dict_type
-  use custom_types, only: graph_type
+  use custom_types, only: graph_type, edge_type, vertex_type
 
   !! accuracy methods
   use accuracy, only: categorical_score, mae_score, mse_score, r2_score
@@ -86,6 +86,9 @@ module athena
 
   !! fully connected (dense) layer types
   use full_layer,      only: full_layer_type, read_full_layer
+
+  use mpnn_layer,      only: mpnn_layer_type
+  use conv_mpnn_layer, only: conv_mpnn_layer_type, conv_mpnn_method_type
 
   implicit none
 

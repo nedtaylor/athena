@@ -6,7 +6,7 @@ module conv_mpnn_layer
   use constants, only: real12
   use misc, only: outer_product
   use custom_types, only: graph_type, activation_type
-  use activation_softmax, only: softmax_setup
+  use activation, only: activation_setup
   use mpnn_layer, only: &
        mpnn_layer_type, mpnn_method_type, &
        state_method_type, message_method_type, readout_method_type, &
@@ -15,7 +15,7 @@ module conv_mpnn_layer
   
 
   private
-  public :: conv_mpnn_layer_type
+  public :: conv_mpnn_layer_type, conv_mpnn_method_type
 
 
 
@@ -98,6 +98,16 @@ module conv_mpnn_layer
 
 
 
+  interface conv_mpnn_method_type
+    module function method_setup(input_shape, output_shape, batch_size) result(method)
+      integer, dimension(3), intent(in) :: input_shape
+      integer, dimension(1), intent(in) :: output_shape
+      integer, intent(in) :: batch_size
+      type(conv_mpnn_method_type) :: method
+    end function method_setup
+
+  end interface conv_mpnn_method_type
+
 
 contains
 
@@ -125,10 +135,16 @@ contains
     state_method%batch_size = batch_size
 
     !!! MAXIMUM VERTEX DEGREE
+    allocate(state_method%feature(batch_size))
     allocate(state_method%weight(num_vertex_features, num_vertex_features + num_edge_features, max_vertex_degree))
     allocate(state_method%dw(num_vertex_features, num_vertex_features + num_edge_features, max_vertex_degree, batch_size))
     allocate(state_method%z(batch_size))
   
+    write(*,*) "setting up transfer function"
+    allocate(state_method%transfer, &
+         source=activation_setup("sigmoid", 1._real12))
+    write(*,*) "transfer function set up"
+
   end function state_method_setup
 
   module function readout_method_setup( &
@@ -145,6 +161,11 @@ contains
     allocate(readout_method%dw(num_outputs, num_time_steps, num_outputs, batch_size))
     allocate(readout_method%z(num_time_steps, batch_size))
 
+    write(*,*) "setting up transfer function"
+    allocate(readout_method%transfer, &
+         source=activation_setup("softmax", 1._real12))
+    write(*,*) "transfer function set up"
+
   end function readout_method_setup
 
 
@@ -156,7 +177,6 @@ contains
     integer, dimension(1), intent(in) :: output_shape
     integer, intent(in) :: batch_size
 
-    integer :: t
 
     this%num_features = input_shape(:2)
     this%num_time_steps = input_shape(3)
@@ -166,18 +186,50 @@ contains
             this%num_features(1), this%num_features(2), batch_size &
          ) &
     )
-    allocate(this%state(this%num_time_steps), &
+    allocate(this%state(0:this%num_time_steps), &
          source = convolutional_state_method_type( &
             this%num_features(1), this%num_features(2), 4, batch_size &
          ) &
     )
     allocate(this%readout, &
          source = convolutional_readout_method_type( &
-              this%num_time_steps, this%num_outputs, this%num_outputs, batch_size &
+              this%num_time_steps, this%num_features(1), this%num_outputs, batch_size &
          ) &
     )
 
   end subroutine init_conv_mpnn_method
+
+
+  module function method_setup(input_shape, output_shape, batch_size) result(method)
+    implicit none
+    integer, dimension(3), intent(in) :: input_shape
+    integer, dimension(1), intent(in) :: output_shape
+    integer, intent(in) :: batch_size
+    type(conv_mpnn_method_type) :: method
+
+
+    method%num_features = input_shape(:2)
+    method%num_time_steps = input_shape(3)
+    method%num_outputs = output_shape(1)
+    allocate(method%message(method%num_time_steps), &
+         source = convolutional_message_method_type( &
+            method%num_features(1), method%num_features(2), batch_size &
+         ) &
+    )
+    write(*,*) "num_messages", size(method%message)
+    allocate(method%state(0:method%num_time_steps), &
+         source = convolutional_state_method_type( &
+            method%num_features(1), method%num_features(2), 4, batch_size &
+         ) &
+    )
+    write(*,*) "num_states", size(method%state)
+    allocate(method%readout, &
+         source = convolutional_readout_method_type( &
+              method%num_time_steps, method%num_features(1), method%num_outputs, batch_size &
+         ) &
+    )
+
+  end function method_setup
 
 
 
@@ -192,8 +244,11 @@ contains
 
     layer%batch_size = batch_size
 
-    call layer%method%init(&
-         [num_vertex_features, num_edge_features, num_time_steps], [num_outputs], batch_size)
+    layer%method = conv_mpnn_method_type( &
+         [num_vertex_features, num_edge_features, num_time_steps], [num_outputs], batch_size &
+    )
+    !call layer%method%init(&
+    !     [num_vertex_features, num_edge_features, num_time_steps], [num_outputs], batch_size)
 
     allocate(layer%output(num_outputs, layer%batch_size))
 
@@ -279,7 +334,8 @@ contains
                 matmul( &
                      this%weight(:,:,graph(s)%vertex(v)%degree), &
                      input(s)%val(:,v) &
-                ) )
+                ) &
+          )
        end do
     end do
 
@@ -350,19 +406,20 @@ contains
   pure function convolutional_get_readout_output(this, input) result(output)
     implicit none
     class(convolutional_readout_method_type), intent(in) :: this
-    class(state_method_type), dimension(:), intent(in) :: input
+    class(state_method_type), dimension(0:this%num_time_steps), intent(in) :: input
 
     real(real12), dimension(:,:), allocatable :: output
 
     integer :: s, v, t
 
+    allocate(output(this%num_outputs, this%batch_size))
     do s = 1, this%batch_size
        output(:,s) = 0._real12
        do v = 1, size(input(t)%feature(s)%val, 2)
-          do t = 1, this%num_time_steps
+          do t = 0, this%num_time_steps
              output(:,s) = output(:,s) + &
                   this%transfer%activate( matmul( &
-                       this%weight(:,:,t), &
+                       this%weight(:,:,t+1), &
                        input(t)%feature(s)%val(:,v) &
                   ) )
           end do
