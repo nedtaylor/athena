@@ -57,7 +57,7 @@ contains
 !!!#############################################################################
 !!! 
 !!!#############################################################################
-  pure module function get_num_params(this) result(num_params)
+  pure module function get_num_params_mpnn(this) result(num_params)
     implicit none
     class(mpnn_layer_type), intent(in) :: this
     integer :: num_params
@@ -70,9 +70,9 @@ contains
        num_params = num_params + this%method%state(t)%get_num_params()
     end do
     num_params = num_params + this%method%readout%get_num_params()
-  end function get_num_params
+  end function get_num_params_mpnn
 
-  pure module function get_params(this) result(params)
+  pure module function get_params_mpnn(this) result(params)
     implicit none
     class(mpnn_layer_type), intent(in) :: this
     real(real12), allocatable, dimension(:) :: params
@@ -85,9 +85,9 @@ contains
        params = [ params, this%method%state(t)%get_params() ]
     end do
     params = [ params, this%method%readout%get_params() ]
-  end function get_params
+  end function get_params_mpnn
 
-  pure subroutine set_params(this, params)
+  pure subroutine set_params_mpnn(this, params)
     implicit none
     class(mpnn_layer_type), intent(inout) :: this
     real(real12), dimension(:), intent(in) :: params
@@ -107,9 +107,9 @@ contains
     iend = istart + this%method%readout%get_num_params() - 1
     if(iend.gt.istart-1) call this%method%readout%set_params(params(istart:iend))
 
-  end subroutine set_params
+  end subroutine set_params_mpnn
 
-  pure module function get_gradients(this, clip_method) result(gradients)
+  pure module function get_gradients_mpnn(this, clip_method) result(gradients)
     implicit none
     class(mpnn_layer_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
@@ -131,9 +131,9 @@ contains
        end do
        gradients = [ gradients, this%method%readout%get_gradients() ]
     end if
-  end function get_gradients
+  end function get_gradients_mpnn
 
-  pure module subroutine set_gradients(this, gradients)
+  pure module subroutine set_gradients_mpnn(this, gradients)
     implicit none
     class(mpnn_layer_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: gradients
@@ -145,7 +145,7 @@ contains
        call this%method%state(t)%set_gradients(gradients)
     end do
     call this%method%readout%set_gradients(gradients)
-  end subroutine set_gradients
+  end subroutine set_gradients_mpnn
 !!!#############################################################################
 
 
