@@ -16,9 +16,9 @@ module mpnn_layer
 
   public :: mpnn_layer_type, feature_type, method_container_type
   public :: state_method_type, message_method_type, readout_method_type
-  public :: state_update, get_state_differential
-  public :: message_update, get_message_differential
-  public :: get_readout_output, get_readout_differential
+  public :: update_state, get_differential_state
+  public :: update_message, get_differential_message
+  public :: get_output_readout, get_differential_readout
 
 
   type, extends(learnable_layer_type) :: mpnn_layer_type
@@ -87,92 +87,92 @@ module mpnn_layer
 
   type, extends(base_method_type), abstract :: message_method_type
    contains
-     procedure(message_update), deferred, pass(this) :: update
-     procedure(get_message_differential), deferred, pass(this) :: get_differential
-     procedure(calculate_message_partials), deferred, pass(this) :: calculate_partials
+     procedure(update_message), deferred, pass(this) :: update
+     procedure(get_differential_message), deferred, pass(this) :: get_differential
+     procedure(calculate_partials_message), deferred, pass(this) :: calculate_partials
   end type message_method_type
 
   type, extends(base_method_type), abstract :: state_method_type
    contains
-     procedure(state_update), deferred, pass(this) :: update
-     procedure(get_state_differential), deferred, pass(this) :: get_differential
-     procedure(calculate_state_partials), deferred, pass(this) :: calculate_partials
+     procedure(update_state), deferred, pass(this) :: update
+     procedure(get_differential_state), deferred, pass(this) :: get_differential
+     procedure(calculate_partials_state), deferred, pass(this) :: calculate_partials
   end type state_method_type
 
   type, extends(base_method_type), abstract :: readout_method_type
    contains
-     procedure(get_readout_output), deferred, pass(this) :: get_output
-     procedure(get_readout_differential), deferred, pass(this) :: get_differential
-     procedure(calculate_readout_partials), deferred, pass(this) :: calculate_partials
+     procedure(get_output_readout), deferred, pass(this) :: get_output
+     procedure(get_differential_readout), deferred, pass(this) :: get_differential
+     procedure(calculate_partials_readout), deferred, pass(this) :: calculate_partials
   end type readout_method_type
 
 
   abstract interface
-     pure module subroutine message_update(this, input, graph)
+     pure module subroutine update_message(this, input, graph)
        class(message_method_type), intent(inout) :: this
        !! input features has dimensions (feature, vertex, batch_size)
        type(feature_type), dimension(this%batch_size), intent(in) :: input
        type(graph_type), dimension(this%batch_size), intent(in) :: graph
-     end subroutine message_update
+     end subroutine update_message
 
-     pure module function get_message_differential(this, input, graph) result(output)
+     pure module function get_differential_message(this, input, graph) result(output)
        class(message_method_type), intent(in) :: this
        !! input features has dimensions (feature, vertex, batch_size)
        type(feature_type), dimension(this%batch_size), intent(in) :: input
        type(graph_type), dimension(this%batch_size), intent(in) :: graph
        type(feature_type), dimension(this%batch_size) :: output
-     end function get_message_differential
+     end function get_differential_message
 
-     pure module subroutine calculate_message_partials(this, input, gradient, graph)
+     pure module subroutine calculate_partials_message(this, input, gradient, graph)
        class(message_method_type), intent(inout) :: this
        !! hidden features has dimensions (feature, vertex, batch_size)
        type(feature_type), dimension(this%batch_size), intent(in) :: input
        type(feature_type), dimension(this%batch_size), intent(in) :: gradient
        type(graph_type), dimension(this%batch_size), intent(in) :: graph
-     end subroutine calculate_message_partials
+     end subroutine calculate_partials_message
 
 
-     pure module subroutine state_update(this, input, graph)
+     pure module subroutine update_state(this, input, graph)
        class(state_method_type), intent(inout) :: this
        !! input has dimensions (feature, vertex, batch_size)
        type(feature_type), dimension(this%batch_size), intent(in) :: input
        type(graph_type), dimension(this%batch_size), intent(in) :: graph
-     end subroutine state_update
+     end subroutine update_state
 
-     pure module function get_state_differential(this, input, graph) result(output)
+     pure module function get_differential_state(this, input, graph) result(output)
        class(state_method_type), intent(in) :: this
        !! input has dimensions (feature, vertex, batch_size)
        type(feature_type), dimension(this%batch_size), intent(in) :: input
        type(graph_type), dimension(this%batch_size), intent(in) :: graph
        type(feature_type), dimension(this%batch_size) :: output
-     end function get_state_differential
+     end function get_differential_state
 
-     pure module subroutine calculate_state_partials(this, input, gradient, graph)
+     pure module subroutine calculate_partials_state(this, input, gradient, graph)
        class(state_method_type), intent(inout) :: this
        !! hidden features has dimensions (feature, vertex, batch_size)
        type(feature_type), dimension(this%batch_size), intent(in) :: input
        type(feature_type), dimension(this%batch_size), intent(in) :: gradient
        type(graph_type), dimension(this%batch_size), intent(in) :: graph
-     end subroutine calculate_state_partials
+     end subroutine calculate_partials_state
 
 
-     pure module subroutine get_readout_output(this, input, output)
+     pure module subroutine get_output_readout(this, input, output)
        class(readout_method_type), intent(inout) :: this
        class(state_method_type), dimension(:), intent(in) :: input
        real(real12), dimension(this%num_outputs, this%batch_size), intent(out) :: output
-     end subroutine get_readout_output
+     end subroutine get_output_readout
 
-     pure module function get_readout_differential(this, input) result(output)
+     pure module function get_differential_readout(this, input) result(output)
        class(readout_method_type), intent(in) :: this
        class(state_method_type), dimension(:), intent(in) :: input
        type(feature_type), dimension(this%batch_size) :: output
-     end function get_readout_differential
+     end function get_differential_readout
 
-     pure module subroutine calculate_readout_partials(this, input, gradient)
+     pure module subroutine calculate_partials_readout(this, input, gradient)
        class(readout_method_type), intent(inout) :: this
        class(state_method_type), dimension(:), intent(in) :: input
        real(real12), dimension(this%num_outputs, this%batch_size), intent(in) :: gradient
-     end subroutine calculate_readout_partials
+     end subroutine calculate_partials_readout
   end interface
 
 
