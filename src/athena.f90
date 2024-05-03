@@ -88,7 +88,7 @@ module athena
   use full_layer,      only: full_layer_type, read_full_layer
 
   use mpnn_layer,      only: mpnn_layer_type
-  use conv_mpnn_layer, only: conv_mpnn_layer_type, conv_mpnn_method_type
+  use conv_mpnn_layer, only: conv_mpnn_layer_type, conv_method_container_type
 
   implicit none
 

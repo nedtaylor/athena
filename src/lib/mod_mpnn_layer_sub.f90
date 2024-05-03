@@ -30,6 +30,57 @@ contains
 
 
 !!!#############################################################################
+!!! 
+!!!#############################################################################
+  pure module function get_num_params(this) result(num_params)
+    implicit none
+    class(mpnn_layer_type), intent(in) :: this
+    integer :: num_params
+
+    integer :: t
+
+    num_params = 0
+    do t = 1, this%method%num_time_steps
+       num_params = num_params + this%method%message(t)%get_num_params()
+       num_params = num_params + this%method%state(t)%get_num_params()
+    end do
+    num_params = num_params + this%method%readout%get_num_params()
+  end function get_num_params
+
+  pure module function get_params(this) result(params)
+    implicit none
+    class(mpnn_layer_type), intent(in) :: this
+    real(real12), allocatable, dimension(:) :: params
+  
+    integer :: t
+
+    allocate(params(0))
+    do t = 1, this%method%num_time_steps
+       params = [ params, this%method%message(t)%get_params() ]
+       params = [ params, this%method%state(t)%get_params() ]
+    end do
+    params = [ params, this%method%readout%get_params() ]
+  end function get_params
+
+  pure module function get_method_num_params(this) result(num_params)
+    implicit none
+    class(base_method_type), intent(in) :: this
+    integer :: num_params
+
+    num_params = 0
+  end function get_method_num_params
+
+  pure module function get_method_params(this) result(params)
+    implicit none
+    class(base_method_type), intent(in) :: this
+    real(real12), allocatable, dimension(:) :: params
+
+    allocate(params(0))
+  end function get_method_params
+!!!#############################################################################
+
+
+!!!#############################################################################
 !!! get layer outputs
 !!!#############################################################################
   pure subroutine get_output_mpnn(this, output)
@@ -81,7 +132,7 @@ contains
    ) result(layer)
     implicit none
     type(mpnn_layer_type) :: layer
-    class(mpnn_method_type), intent(in) :: method
+    class(method_container_type), intent(in) :: method
     integer, dimension(2), intent(in) :: num_features
     integer, intent(in) :: num_time_steps
     integer, intent(in) :: num_outputs

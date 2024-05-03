@@ -13,7 +13,7 @@ module mpnn_layer
 
   private
 
-  public :: mpnn_layer_type, feature_type, mpnn_method_type
+  public :: mpnn_layer_type, feature_type, method_container_type
   public :: state_method_type, message_method_type, readout_method_type
   public :: state_update, get_state_differential
   public :: message_update, get_message_differential
@@ -22,19 +22,26 @@ module mpnn_layer
 
   type, extends(base_layer_type) :: mpnn_layer_type
      type(graph_type), dimension(:), allocatable :: graph
-     class(mpnn_method_type), allocatable :: method
+     class(method_container_type), allocatable :: method
      real(real12), dimension(:,:), allocatable :: output
      !real(real12), dimension(:,:,:), allocatable :: di
    contains
      procedure, pass(this) :: init => init_mpnn
      procedure, pass(this) :: get_output => get_output_mpnn
      procedure, pass(this) :: set_batch_size => set_batch_size_mpnn
+
+     procedure, pass(this) :: get_num_params
+     procedure, pass(this) :: get_params
+     !procedure, pass(this) :: set_params
+     !procedure, pass(this) :: get_gradients
+     !procedure, pass(this) :: reset_gradients
+
      procedure, pass(this) :: set_graph
      procedure, pass(this) :: forward => forward_rank
      procedure, pass(this) :: backward => backward_rank
   end type mpnn_layer_type
 
-  type, abstract :: mpnn_method_type
+  type, abstract :: method_container_type
     integer :: num_outputs
     integer :: num_time_steps
     !! each dimension of num_features is for vertex and edge
@@ -45,7 +52,7 @@ module mpnn_layer
     class(readout_method_type), allocatable :: readout
    contains
     procedure(init_method), deferred, pass(this) :: init
-  end type mpnn_method_type
+  end type method_container_type
 
   type :: feature_type
      real(real12), dimension(:,:), allocatable :: val
@@ -58,37 +65,35 @@ module mpnn_layer
   end type feature_type
 
 
-   type, abstract :: message_method_type
+  type, abstract :: base_method_type
      integer :: num_features
      integer :: num_outputs
      integer :: batch_size
      !! feature has dimensions (batch_size)
      type(feature_type), dimension(:), allocatable :: feature
      type(feature_type), dimension(:), allocatable :: di
+   contains
+     procedure, pass(this) :: get_num_params => get_method_num_params
+     procedure, pass(this) :: get_params => get_method_params
+     !procedure(set_method_params), pass(this) :: set_params
+  end type base_method_type
+
+
+  type, extends(base_method_type), abstract :: message_method_type
    contains
      procedure(message_update), deferred, pass(this) :: update
      procedure(get_message_differential), deferred, pass(this) :: get_differential
      procedure(calculate_message_partials), deferred, pass(this) :: calculate_partials
   end type message_method_type
 
-  type, abstract :: state_method_type
-     integer :: num_features
-     integer :: num_outputs
-     integer :: batch_size
-     !! feature has dimensions (batch_size)
-     type(feature_type), dimension(:), allocatable :: feature
-     type(feature_type), dimension(:), allocatable :: di
+  type, extends(base_method_type), abstract :: state_method_type
    contains
      procedure(state_update), deferred, pass(this) :: update
      procedure(get_state_differential), deferred, pass(this) :: get_differential
      procedure(calculate_state_partials), deferred, pass(this) :: calculate_partials
   end type state_method_type
 
-  type, abstract :: readout_method_type
-     integer :: num_features
-     integer :: num_outputs
-     integer :: batch_size
-     type(feature_type), dimension(:), allocatable :: di
+  type, extends(base_method_type), abstract :: readout_method_type
    contains
      procedure(get_readout_output), deferred, pass(this) :: get_output
      procedure(get_readout_differential), deferred, pass(this) :: get_differential
@@ -179,6 +184,34 @@ module mpnn_layer
   
 
   interface
+    pure module function get_num_params(this) result(num_params)
+      class(mpnn_layer_type), intent(in) :: this
+      integer :: num_params
+    end function get_num_params
+
+    pure module function get_params(this) result(params)
+      class(mpnn_layer_type), intent(in) :: this
+      real(real12), allocatable, dimension(:) :: params
+    end function get_params
+!
+!    pure module subroutine set_params(this, params)
+!      class(mpnn_layer_type), intent(inout) :: this
+!      real(real12), dimension(:), intent(in) :: params
+!    end subroutine set_params
+
+    pure module function get_method_num_params(this) result(num_params)
+      class(base_method_type), intent(in) :: this
+      integer :: num_params
+    end function get_method_num_params
+
+    pure module function get_method_params(this) result(params)
+      class(base_method_type), intent(in) :: this
+      real(real12), allocatable, dimension(:) :: params
+    end function get_method_params
+  end interface
+
+
+  interface
     pure module subroutine forward_rank(this, input)
       class(mpnn_layer_type), intent(inout) :: this
       real(real12), dimension(..), intent(in) :: input
@@ -231,7 +264,7 @@ module mpnn_layer
 
   interface
     module subroutine init_method(this, input_shape, output_shape, batch_size)
-      class(mpnn_method_type), intent(inout) :: this
+      class(method_container_type), intent(inout) :: this
       integer, dimension(3), intent(in) :: input_shape
       integer, dimension(1), intent(in) :: output_shape
       integer, intent(in) :: batch_size
@@ -245,7 +278,7 @@ module mpnn_layer
           num_features, num_time_steps, num_outputs, batch_size &
       ) result(layer)
        !! MAKE THESE ASSUMED RANK
-       class(mpnn_method_type), intent(in) :: method
+       class(method_container_type), intent(in) :: method
        integer, dimension(2), intent(in) :: num_features
        integer, intent(in) :: num_time_steps
        integer, intent(in) :: num_outputs

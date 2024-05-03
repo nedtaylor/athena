@@ -8,14 +8,14 @@ module conv_mpnn_layer
   use custom_types, only: graph_type, activation_type
   use activation, only: activation_setup
   use mpnn_layer, only: &
-       mpnn_layer_type, mpnn_method_type, &
+       mpnn_layer_type, method_container_type, &
        state_method_type, message_method_type, readout_method_type, &
        feature_type
   implicit none
   
 
   private
-  public :: conv_mpnn_layer_type, conv_mpnn_method_type
+  public :: conv_mpnn_layer_type, conv_method_container_type
 
 
 
@@ -79,10 +79,10 @@ module conv_mpnn_layer
   type, extends(mpnn_layer_type) :: conv_mpnn_layer_type
   end type conv_mpnn_layer_type
 
-  type, extends(mpnn_method_type) :: conv_mpnn_method_type
+  type, extends(method_container_type) :: conv_method_container_type
    contains
     procedure, pass(this) :: init => init_conv_mpnn_method
-  end type conv_mpnn_method_type
+  end type conv_method_container_type
 
 
   interface conv_mpnn_layer_type
@@ -98,15 +98,15 @@ module conv_mpnn_layer
 
 
 
-  interface conv_mpnn_method_type
+  interface conv_method_container_type
     module function method_setup(input_shape, output_shape, batch_size) result(method)
       integer, dimension(3), intent(in) :: input_shape
       integer, dimension(1), intent(in) :: output_shape
       integer, intent(in) :: batch_size
-      type(conv_mpnn_method_type) :: method
+      type(conv_method_container_type) :: method
     end function method_setup
 
-  end interface conv_mpnn_method_type
+  end interface conv_method_container_type
 
 
 contains
@@ -174,7 +174,7 @@ contains
 
   subroutine init_conv_mpnn_method(this, input_shape, output_shape, batch_size)
     implicit none
-    class(conv_mpnn_method_type), intent(inout) :: this
+    class(conv_method_container_type), intent(inout) :: this
     integer, dimension(3), intent(in) :: input_shape
     integer, dimension(1), intent(in) :: output_shape
     integer, intent(in) :: batch_size
@@ -207,7 +207,7 @@ contains
     integer, dimension(3), intent(in) :: input_shape
     integer, dimension(1), intent(in) :: output_shape
     integer, intent(in) :: batch_size
-    type(conv_mpnn_method_type) :: method
+    type(conv_method_container_type) :: method
 
 
     method%num_features = input_shape(:2)
@@ -247,7 +247,7 @@ contains
     layer%batch_size = batch_size
     layer%output_shape = [num_outputs]
 
-    layer%method = conv_mpnn_method_type( &
+    layer%method = conv_method_container_type( &
          [num_vertex_features, num_edge_features, num_time_steps], [num_outputs], batch_size &
     )
     !call layer%method%init(&
