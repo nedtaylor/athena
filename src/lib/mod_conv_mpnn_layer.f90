@@ -7,6 +7,7 @@ module conv_mpnn_layer
   use misc, only: outer_product
   use custom_types, only: graph_type, activation_type
   use activation, only: activation_setup
+  use clipper, only: clip_type
   use mpnn_layer, only: &
        mpnn_layer_type, method_container_type, &
        state_method_type, message_method_type, readout_method_type, &
@@ -21,9 +22,9 @@ module conv_mpnn_layer
 
   type, extends(message_method_type) :: convolutional_message_method_type
    contains
-     procedure :: update => convolutional_message_update
-     procedure :: get_differential => convolutional_get_message_differential
-     procedure :: calculate_partials => convolutional_calculate_message_partials
+     procedure :: update => update_message_conv
+     procedure :: get_differential => get_differential_message_conv
+     procedure :: calculate_partials => calculate_partials_message_conv
   end type convolutional_message_method_type
   interface convolutional_message_method_type
     module function message_method_setup( &
@@ -41,9 +42,14 @@ module conv_mpnn_layer
      type(feature_type), dimension(:), allocatable :: z
      class(activation_type), allocatable :: transfer
    contains
-     procedure :: update => convolutional_state_update
-     procedure :: get_differential => convolutional_get_state_differential
-     procedure :: calculate_partials => convolutional_calculate_state_partials
+     procedure :: get_num_params => get_num_params_state_conv
+     procedure :: get_params => get_params_state_conv
+     procedure :: set_params => set_params_state_conv
+     procedure :: get_gradients => get_gradients_state_conv
+     procedure :: set_gradients => set_gradients_state_conv
+     procedure :: update => update_state_conv
+     procedure :: get_differential => get_state_differential_conv
+     procedure :: calculate_partials => calculate_state_partials_conv
   end type convolutional_state_method_type
   interface convolutional_state_method_type
     module function state_method_setup( &
@@ -61,9 +67,14 @@ module conv_mpnn_layer
     type(feature_type), dimension(:,:), allocatable :: z
     class(activation_type), allocatable :: transfer
    contains
-     procedure :: get_output => convolutional_get_readout_output
-     procedure :: get_differential => convolutional_get_readout_differential
-     procedure :: calculate_partials => convolutional_calculate_readout_partials
+     procedure :: get_num_params => get_num_params_readout_conv
+     procedure :: get_params => get_params_readout_conv
+     procedure :: set_params => set_params_readout_conv
+     procedure :: get_gradients => get_gradients_readout_conv
+     procedure :: set_gradients => set_gradients_readout_conv
+     procedure :: get_output => get_output_readout_conv
+     procedure :: get_differential => get_readout_differential_conv
+     procedure :: calculate_partials => calculate_readout_partials_conv
   end type convolutional_readout_method_type
   interface convolutional_readout_method_type
     module function readout_method_setup( &
@@ -111,6 +122,137 @@ module conv_mpnn_layer
 
 contains
 
+!!!#############################################################################
+!!! 
+!!!#############################################################################
+  pure function get_num_params_state_conv(this) result(num_params)
+    implicit none
+    class(convolutional_state_method_type), intent(in) :: this
+    integer :: num_params
+
+    num_params = size(this%weight)
+  end function get_num_params_state_conv
+  
+  pure function get_num_params_readout_conv(this) result(num_params)
+    implicit none
+    class(convolutional_readout_method_type), intent(in) :: this
+    integer :: num_params
+
+    num_params = size(this%weight)
+  end function get_num_params_readout_conv
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! 
+!!!#############################################################################
+  pure module function get_params_state_conv(this) result(params)
+    implicit none
+    class(convolutional_state_method_type), intent(in) :: this
+    real(real12), allocatable, dimension(:) :: params
+  
+    integer :: t
+
+    params = reshape(this%weight, [ size(this%weight) ])
+  end function get_params_state_conv
+
+  pure module function get_params_readout_conv(this) result(params)
+    implicit none
+    class(convolutional_readout_method_type), intent(in) :: this
+    real(real12), allocatable, dimension(:) :: params
+  
+    integer :: t
+
+    params = reshape(this%weight, [ size(this%weight) ])
+  end function get_params_readout_conv
+!!!#############################################################################
+
+!!!#############################################################################
+!!! 
+!!!#############################################################################
+  pure subroutine set_params_state_conv(this, params)
+    implicit none
+    class(convolutional_state_method_type), intent(inout) :: this
+    real(real12), dimension(:), intent(in) :: params
+
+    integer :: t
+
+    this%weight = reshape(params, shape(this%weight))
+  end subroutine set_params_state_conv
+
+  pure subroutine set_params_readout_conv(this, params)
+    implicit none
+    class(convolutional_readout_method_type), intent(inout) :: this
+    real(real12), dimension(:), intent(in) :: params
+
+    integer :: t
+
+    this%weight = reshape(params, shape(this%weight))
+  end subroutine set_params_readout_conv
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! 
+!!!#############################################################################
+  pure function get_gradients_state_conv(this, clip_method) result(gradients)
+    implicit none
+    class(convolutional_state_method_type), intent(in) :: this
+    type(clip_type), optional, intent(in) :: clip_method
+    real(real12), allocatable, dimension(:) :: gradients
+
+    gradients = reshape(sum(this%dw,dim=4)/this%batch_size, [ size(this%dw,1) * size(this%dw,2) * size(this%dw,3) ])
+
+    if(present(clip_method)) call clip_method%apply(size(gradients),gradients)
+  end function get_gradients_state_conv
+
+  pure function get_gradients_readout_conv(this, clip_method) result(gradients)
+    implicit none
+    class(convolutional_readout_method_type), intent(in) :: this
+    type(clip_type), optional, intent(in) :: clip_method
+    real(real12), allocatable, dimension(:) :: gradients
+
+    gradients = reshape(sum(this%dw,dim=4)/this%batch_size, [ size(this%dw,1) * size(this%dw,2) * size(this%dw,3) ])
+
+    if(present(clip_method)) call clip_method%apply(size(gradients),gradients)
+  end function get_gradients_readout_conv
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! 
+!!!#############################################################################
+  pure subroutine set_gradients_state_conv(this, gradients)
+    implicit none
+    class(convolutional_state_method_type), intent(inout) :: this
+    real(real12), dimension(..), intent(in) :: gradients
+  
+    select rank(gradients)
+    rank(0)
+       this%dw = gradients
+    rank(1)
+       this%dw = spread(reshape(gradients, shape(this%dw(:,:,:,1))), 4, &
+            this%batch_size)
+    end select
+
+  end subroutine set_gradients_state_conv
+
+  pure subroutine set_gradients_readout_conv(this, gradients)
+    implicit none
+    class(convolutional_readout_method_type), intent(inout) :: this
+    real(real12), dimension(..), intent(in) :: gradients
+  
+    select rank(gradients)
+    rank(0)
+       this%dw = gradients
+    rank(1)
+       this%dw = spread(reshape(gradients, shape(this%dw(:,:,:,1))), 4, &
+            this%batch_size)
+    end select
+
+  end subroutine set_gradients_readout_conv
+!!!#############################################################################
+
   module function message_method_setup( &
          num_vertex_features, num_edge_features, batch_size ) result(message_method)
     implicit none
@@ -132,11 +274,12 @@ contains
     type(convolutional_state_method_type) :: state_method
 
     state_method%num_features = num_vertex_features
+    state_method%num_outputs = num_vertex_features + num_edge_features
     state_method%batch_size = batch_size
 
     !!! MAXIMUM VERTEX DEGREE
     allocate(state_method%feature(batch_size))
-    allocate(state_method%weight(num_vertex_features, num_vertex_features + num_edge_features, max_vertex_degree))
+    allocate(state_method%weight(num_vertex_features, state_method%num_outputs, max_vertex_degree))
     allocate(state_method%dw(num_vertex_features, num_vertex_features + num_edge_features, max_vertex_degree, batch_size))
     allocate(state_method%z(batch_size))
     allocate(state_method%di(batch_size))
@@ -157,7 +300,6 @@ contains
     readout_method%num_time_steps = num_time_steps
     readout_method%num_outputs = num_outputs
     readout_method%batch_size = batch_size
-
     allocate(readout_method%weight(num_inputs, num_outputs, num_time_steps+1))
     allocate(readout_method%dw(num_inputs, num_outputs, num_time_steps+1, batch_size))
     allocate(readout_method%z(num_time_steps+1, batch_size))
@@ -183,16 +325,19 @@ contains
     this%num_features = input_shape(:2)
     this%num_time_steps = input_shape(3)
     this%num_outputs = output_shape(1)
+    if(allocated(this%message)) deallocate(this%message)
     allocate(this%message(this%num_time_steps), &
          source = convolutional_message_method_type( &
             this%num_features(1), this%num_features(2), batch_size &
          ) &
     )
+    if(allocated(this%state)) deallocate(this%state)
     allocate(this%state(0:this%num_time_steps), &
          source = convolutional_state_method_type( &
             this%num_features(1), this%num_features(2), 6, batch_size &
          ) &
     )
+    if(allocated(this%readout)) deallocate(this%readout)
     allocate(this%readout, &
          source = convolutional_readout_method_type( &
               this%num_time_steps, this%num_features(1), this%num_outputs, batch_size &
@@ -246,6 +391,8 @@ contains
 
     layer%batch_size = batch_size
     layer%output_shape = [num_outputs]
+    layer%input_shape = [num_vertex_features, num_edge_features, num_time_steps] !!! MAY CHANGE THIS, provide MPNN with extra data it can pass through
+
 
     layer%method = conv_method_container_type( &
          [num_vertex_features, num_edge_features, num_time_steps], [num_outputs], batch_size &
@@ -258,7 +405,7 @@ contains
   end function layer_setup
 
 
-  pure subroutine convolutional_message_update(this, input, graph)
+  pure subroutine update_message_conv(this, input, graph)
     implicit none
     class(convolutional_message_method_type), intent(inout) :: this
     type(feature_type), dimension(this%batch_size), intent(in) :: input
@@ -279,9 +426,9 @@ contains
        end do
     end do
 
-  end subroutine convolutional_message_update
+  end subroutine update_message_conv
 
-  pure function convolutional_get_message_differential(this, input, graph) &
+  pure function get_differential_message_conv(this, input, graph) &
        result(output)
     implicit none
     class(convolutional_message_method_type), intent(in) :: this
@@ -298,9 +445,9 @@ contains
        end do
     end do
 
-  end function convolutional_get_message_differential
+  end function get_differential_message_conv
 
-  pure subroutine convolutional_calculate_message_partials(this, input, gradient, graph)
+  pure subroutine calculate_partials_message_conv(this, input, gradient, graph)
     implicit none
     class(convolutional_message_method_type), intent(inout) :: this
     !! hidden features has dimensions (feature, vertex, batch_size)
@@ -322,10 +469,10 @@ contains
        this%di(s)%val(:,:) = gradient(s)%val(:,:graph(s)%num_vertex_features)
     end do
 
-  end subroutine convolutional_calculate_message_partials
+  end subroutine calculate_partials_message_conv
 
 
-  pure subroutine convolutional_state_update(this, input, graph)
+  pure subroutine update_state_conv(this, input, graph)
     implicit none
     class(convolutional_state_method_type), intent(inout) :: this
     type(feature_type), dimension(this%batch_size), intent(in) :: input
@@ -345,9 +492,9 @@ contains
        end do
     end do
 
-  end subroutine convolutional_state_update
+  end subroutine update_state_conv
 
-  pure function convolutional_get_state_differential(this, input, graph) result(output)
+  pure function get_state_differential_conv(this, input, graph) result(output)
     implicit none
     class(convolutional_state_method_type), intent(in) :: this
     type(feature_type), dimension(this%batch_size), intent(in) :: input
@@ -363,9 +510,9 @@ contains
        end do
     end do
 
-  end function convolutional_get_state_differential
+  end function get_state_differential_conv
 
-  pure subroutine convolutional_calculate_state_partials(this, input, gradient, graph)
+  pure subroutine calculate_state_partials_conv(this, input, gradient, graph)
     implicit none
     class(convolutional_state_method_type), intent(inout) :: this
     type(feature_type), dimension(this%batch_size), intent(in) :: input
@@ -405,10 +552,10 @@ contains
        end do
     end do
 
-  end subroutine convolutional_calculate_state_partials
+  end subroutine calculate_state_partials_conv
 
 
-  pure subroutine convolutional_get_readout_output(this, input, output)
+  pure subroutine get_output_readout_conv(this, input, output)
     implicit none
     class(convolutional_readout_method_type), intent(inout) :: this
     class(state_method_type), dimension(0:this%num_time_steps), intent(in) :: input
@@ -432,9 +579,9 @@ contains
        end do
     end do
 
-  end subroutine convolutional_get_readout_output
+  end subroutine get_output_readout_conv
 
-  pure function convolutional_get_readout_differential(this, input) result(output)
+  pure function get_readout_differential_conv(this, input) result(output)
     implicit none
     class(convolutional_readout_method_type), intent(in) :: this
     class(state_method_type), dimension(0:this%num_time_steps), intent(in) :: input
@@ -451,10 +598,10 @@ contains
        end do
     end do
 
-  end function convolutional_get_readout_differential
+  end function get_readout_differential_conv
 
 
-  pure subroutine convolutional_calculate_readout_partials(this, input, gradient)
+  pure subroutine calculate_readout_partials_conv(this, input, gradient)
     implicit none
     class(convolutional_readout_method_type), intent(inout) :: this
     class(state_method_type), dimension(0:this%num_time_steps), intent(in) :: input
@@ -490,8 +637,7 @@ contains
        end do
     end do
     
-  end subroutine convolutional_calculate_readout_partials
-
+  end subroutine calculate_readout_partials_conv
 
 end module conv_mpnn_layer
 !!!#############################################################################
