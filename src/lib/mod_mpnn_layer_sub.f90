@@ -12,6 +12,9 @@ submodule(mpnn_layer) mpnn_layer_submodule
 
 contains
 
+!!!#############################################################################
+!!! 
+!!!#############################################################################
   elemental module function feature_add(a, b) result(output)
     class(feature_type), intent(in) :: a, b
     type(feature_type) :: output
@@ -27,7 +30,29 @@ contains
     !allocate(output%val(size(a%val,1), size(a%val,2)))
     output%val = a%val * b%val
   end function feature_multiply
+!!!#############################################################################
 
+!!!#############################################################################
+!!! 
+!!!#############################################################################
+  module subroutine layer_reduction(this, rhs)
+    implicit none
+    class(mpnn_layer_type), intent(inout) :: this
+    class(learnable_layer_type), intent(in) :: rhs
+
+    !! NOT YET IMPLEMENTED
+
+  end subroutine layer_reduction
+
+  module subroutine layer_merge(this, input)
+    implicit none
+    class(mpnn_layer_type), intent(inout) :: this
+    class(learnable_layer_type), intent(in) :: input
+
+    !! NOT YET IMPLEMENTED
+
+  end subroutine layer_merge
+!!!#############################################################################
 
 !!!#############################################################################
 !!! 
@@ -84,33 +109,43 @@ contains
 
   end subroutine set_params
 
-  pure module function get_gradients(this) result(gradients)
+  pure module function get_gradients(this, clip_method) result(gradients)
     implicit none
     class(mpnn_layer_type), intent(in) :: this
+    type(clip_type), optional, intent(in) :: clip_method
     real(real12), allocatable, dimension(:) :: gradients
 
     integer :: t
 
     allocate(gradients(0))
-    do t = 1, this%method%num_time_steps
-       gradients = [ gradients, this%method%message(t)%get_gradients() ]
-       gradients = [ gradients, this%method%state(t)%get_gradients() ]
-    end do
-    gradients = [ gradients, this%method%readout%get_gradients() ]
+    if(present(clip_method))then
+       do t = 1, this%method%num_time_steps
+          gradients = [ gradients, this%method%message(t)%get_gradients(clip_method) ]
+          gradients = [ gradients, this%method%state(t)%get_gradients(clip_method) ]
+       end do
+       gradients = [ gradients, this%method%readout%get_gradients(clip_method) ]
+    else
+       do t = 1, this%method%num_time_steps
+           gradients = [ gradients, this%method%message(t)%get_gradients() ]
+           gradients = [ gradients, this%method%state(t)%get_gradients() ]
+       end do
+       gradients = [ gradients, this%method%readout%get_gradients() ]
+    end if
   end function get_gradients
 
-  pure module subroutine reset_gradients(this)
+  pure module subroutine set_gradients(this, gradients)
     implicit none
     class(mpnn_layer_type), intent(inout) :: this
+    real(real12), dimension(..), intent(in) :: gradients
 
     integer :: t
 
     do t = 1, this%method%num_time_steps
-       call this%method%message(t)%reset_gradients()
-       call this%method%state(t)%reset_gradients()
+       call this%method%message(t)%set_gradients(gradients)
+       call this%method%state(t)%set_gradients(gradients)
     end do
-    call this%method%readout%reset_gradients()
-  end subroutine reset_gradients
+    call this%method%readout%set_gradients(gradients)
+  end subroutine set_gradients
 !!!#############################################################################
 
 
@@ -140,19 +175,21 @@ contains
     !! nothing to do as no parameters in base method type
   end subroutine set_method_params
 
-  pure module function get_method_gradients(this) result(gradients)
+  pure module function get_method_gradients(this, clip_method) result(gradients)
     implicit none
     class(base_method_type), intent(in) :: this
+    type(clip_type), optional, intent(in) :: clip_method
     real(real12), allocatable, dimension(:) :: gradients
 
     allocate(gradients(0))
   end function get_method_gradients
 
-  pure module subroutine reset_method_gradients(this)
+  pure module subroutine set_method_gradients(this, gradients)
     implicit none
     class(base_method_type), intent(inout) :: this
+    real(real12), dimension(..), intent(in) :: gradients
     !! nothing to do as no parameters in base method type
-  end subroutine reset_method_gradients
+  end subroutine set_method_gradients
 !!!#############################################################################
 
 
