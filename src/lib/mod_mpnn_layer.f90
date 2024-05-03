@@ -32,9 +32,9 @@ module mpnn_layer
 
      procedure, pass(this) :: get_num_params
      procedure, pass(this) :: get_params
-     !procedure, pass(this) :: set_params
-     !procedure, pass(this) :: get_gradients
-     !procedure, pass(this) :: reset_gradients
+     procedure, pass(this) :: set_params
+     procedure, pass(this) :: get_gradients
+     procedure, pass(this) :: reset_gradients
 
      procedure, pass(this) :: set_graph
      procedure, pass(this) :: forward => forward_rank
@@ -66,6 +66,7 @@ module mpnn_layer
 
 
   type, abstract :: base_method_type
+     !!! HAVE LOGICAL THAT STATES WHETHER IT IS LEARNABLE ???
      integer :: num_features
      integer :: num_outputs
      integer :: batch_size
@@ -75,7 +76,9 @@ module mpnn_layer
    contains
      procedure, pass(this) :: get_num_params => get_method_num_params
      procedure, pass(this) :: get_params => get_method_params
-     !procedure(set_method_params), pass(this) :: set_params
+     procedure, pass(this) :: set_params => set_method_params
+     procedure, pass(this) :: get_gradients => get_method_gradients
+     procedure, pass(this) :: reset_gradients => reset_method_gradients
   end type base_method_type
 
 
@@ -193,12 +196,23 @@ module mpnn_layer
       class(mpnn_layer_type), intent(in) :: this
       real(real12), allocatable, dimension(:) :: params
     end function get_params
-!
-!    pure module subroutine set_params(this, params)
-!      class(mpnn_layer_type), intent(inout) :: this
-!      real(real12), dimension(:), intent(in) :: params
-!    end subroutine set_params
 
+    pure module subroutine set_params(this, params)
+      class(mpnn_layer_type), intent(inout) :: this
+      real(real12), dimension(:), intent(in) :: params
+    end subroutine set_params
+
+    pure module function get_gradients(this) result(gradients)
+      class(mpnn_layer_type), intent(in) :: this
+      real(real12), allocatable, dimension(:) :: gradients
+    end function get_gradients
+
+    pure module subroutine reset_gradients(this)
+      class(mpnn_layer_type), intent(inout) :: this
+    end subroutine reset_gradients
+  end interface
+
+  interface
     pure module function get_method_num_params(this) result(num_params)
       class(base_method_type), intent(in) :: this
       integer :: num_params
@@ -208,6 +222,20 @@ module mpnn_layer
       class(base_method_type), intent(in) :: this
       real(real12), allocatable, dimension(:) :: params
     end function get_method_params
+
+    pure module subroutine set_method_params(this, params)
+      class(base_method_type), intent(inout) :: this
+      real(real12), dimension(:), intent(in) :: params
+    end subroutine set_method_params
+
+    pure module function get_method_gradients(this) result(gradients)
+      class(base_method_type), intent(in) :: this
+      real(real12), allocatable, dimension(:) :: gradients
+    end function get_method_gradients
+
+    pure module subroutine reset_method_gradients(this)
+      class(base_method_type), intent(inout) :: this
+    end subroutine reset_method_gradients
   end interface
 
 

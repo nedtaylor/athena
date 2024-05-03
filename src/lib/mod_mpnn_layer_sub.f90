@@ -62,6 +62,61 @@ contains
     params = [ params, this%method%readout%get_params() ]
   end function get_params
 
+  pure subroutine set_params(this, params)
+    implicit none
+    class(mpnn_layer_type), intent(inout) :: this
+    real(real12), dimension(:), intent(in) :: params
+
+    integer :: t, istart, iend
+
+    istart = 1
+    do t = 1, this%method%num_time_steps
+       iend = istart + this%method%message(t)%get_num_params() - 1
+       if(iend.gt.istart-1) call this%method%message(t)%set_params(params(istart:iend))
+       istart = iend + 1
+
+       iend = istart + this%method%state(t)%get_num_params() - 1
+       if(iend.gt.istart-1) call this%method%state(t)%set_params(params(istart:iend))
+       istart = iend + 1
+    end do
+    iend = istart + this%method%readout%get_num_params() - 1
+    if(iend.gt.istart-1) call this%method%readout%set_params(params(istart:iend))
+
+  end subroutine set_params
+
+  pure module function get_gradients(this) result(gradients)
+    implicit none
+    class(mpnn_layer_type), intent(in) :: this
+    real(real12), allocatable, dimension(:) :: gradients
+
+    integer :: t
+
+    allocate(gradients(0))
+    do t = 1, this%method%num_time_steps
+       gradients = [ gradients, this%method%message(t)%get_gradients() ]
+       gradients = [ gradients, this%method%state(t)%get_gradients() ]
+    end do
+    gradients = [ gradients, this%method%readout%get_gradients() ]
+  end function get_gradients
+
+  pure module subroutine reset_gradients(this)
+    implicit none
+    class(mpnn_layer_type), intent(inout) :: this
+
+    integer :: t
+
+    do t = 1, this%method%num_time_steps
+       call this%method%message(t)%reset_gradients()
+       call this%method%state(t)%reset_gradients()
+    end do
+    call this%method%readout%reset_gradients()
+  end subroutine reset_gradients
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! 
+!!!#############################################################################
   pure module function get_method_num_params(this) result(num_params)
     implicit none
     class(base_method_type), intent(in) :: this
@@ -77,6 +132,27 @@ contains
 
     allocate(params(0))
   end function get_method_params
+  
+  pure module subroutine set_method_params(this, params)
+    implicit none
+    class(base_method_type), intent(inout) :: this
+    real(real12), dimension(:), intent(in) :: params
+    !! nothing to do as no parameters in base method type
+  end subroutine set_method_params
+
+  pure module function get_method_gradients(this) result(gradients)
+    implicit none
+    class(base_method_type), intent(in) :: this
+    real(real12), allocatable, dimension(:) :: gradients
+
+    allocate(gradients(0))
+  end function get_method_gradients
+
+  pure module subroutine reset_method_gradients(this)
+    implicit none
+    class(base_method_type), intent(inout) :: this
+    !! nothing to do as no parameters in base method type
+  end subroutine reset_method_gradients
 !!!#############################################################################
 
 
