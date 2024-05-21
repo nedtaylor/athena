@@ -190,6 +190,20 @@ contains
     real(real12), dimension(..), intent(in) :: gradients
     !! nothing to do as no parameters in base method type
   end subroutine set_method_gradients
+
+  module subroutine set_method_shape(this, shape)
+    implicit none
+    class(base_method_type), intent(inout) :: this
+    integer, dimension(:), intent(in) :: shape
+
+    integer :: s
+
+    do s = 1, this%batch_size
+       if(allocated(this%feature(s)%val)) deallocate(this%feature(s)%val)
+       allocate(this%feature(s)%val(this%num_outputs, shape(s)))
+    end do
+
+  end subroutine set_method_shape
 !!!#############################################################################
 
 
@@ -330,12 +344,32 @@ contains
 !!!#############################################################################
 !!! set batch size
 !!!#############################################################################
-  pure module subroutine set_graph(this, graph)
+  module subroutine set_graph(this, graph)
     implicit none
     class(mpnn_layer_type), intent(inout) :: this
     type(graph_type), dimension(this%batch_size), intent(in) :: graph
  
-    this%graph = graph 
+    integer :: v, s, t
+    integer, dimension(:), allocatable :: shape
+
+    if(allocated(this%graph)) deallocate(this%graph)
+    this%graph = graph
+
+    shape = graph(:)%num_vertices
+
+    do t = 0, this%method%num_time_steps, 1
+      call this%method%state(t)%set_shape(shape)
+      if(t.eq.0) cycle
+      call this%method%message(t)%set_shape(shape)
+      do s = 1, this%batch_size
+         do v = 1, graph(s)%num_vertices
+            this%method%state(0)%feature(s)%val(:,v) = graph(s)%vertex(v)%feature
+         end do
+      end do
+    end do
+
+    call this%method%readout%set_shape(shape)
+
   end subroutine set_graph
 !!!#############################################################################
 
@@ -350,23 +384,7 @@ contains
 
     integer :: v, s, t
 
-    do s = 1, this%batch_size
-       do t = 0, this%method%num_time_steps, 1
-          if(allocated(this%method%state(t)%feature(s)%val)) deallocate(this%method%state(t)%feature(s)%val)
-          allocate(this%method%state(t)%feature(s)%val( &
-              this%method%state(t)%num_features, graph(s)%num_vertices &
-          ))
-          if(t.eq.0) cycle
-          if(allocated(this%method%message(t)%feature(s)%val)) deallocate(this%method%message(t)%feature(s)%val)
-          allocate(this%method%message(t)%feature(s)%val( &
-              this%method%message(t)%num_features, graph(s)%num_vertices &
-          ))
-       end do
-       do v = 1, graph(s)%num_vertices
-          this%method%state(1)%feature(s)%val(:,v) = graph(s)%vertex(v)%feature
-       end do
-    end do
-    do t = 1, this%method%num_time_steps
+    do t = 1, this%method%num_time_steps, 1
        call this%method%message(t)%update(this%method%state(t-1)%feature, graph)
        call this%method%state(t)%update(this%method%message(t)%feature, graph)
     end do

@@ -70,7 +70,7 @@ module mpnn_layer
 
   type, abstract :: base_method_type
      !!! HAVE LOGICAL THAT STATES WHETHER IT IS LEARNABLE ???
-     integer :: num_features
+     integer :: num_inputs
      integer :: num_outputs
      integer :: batch_size
      !! feature has dimensions (batch_size)
@@ -82,6 +82,7 @@ module mpnn_layer
      procedure, pass(this) :: set_params => set_method_params
      procedure, pass(this) :: get_gradients => get_method_gradients
      procedure, pass(this) :: set_gradients => set_method_gradients
+     procedure, pass(this) :: set_shape => set_method_shape
   end type base_method_type
 
 
@@ -254,6 +255,12 @@ module mpnn_layer
     end subroutine set_method_gradients
   end interface
 
+  interface
+    module subroutine set_method_shape(this, shape)
+      class(base_method_type), intent(inout) :: this
+      integer, dimension(:), intent(in) :: shape
+    end subroutine set_method_shape
+  end interface
 
   interface
     pure module subroutine forward_rank(this, input)
@@ -284,7 +291,7 @@ module mpnn_layer
 
 
   interface
-     pure module subroutine set_graph(this, graph)
+     module subroutine set_graph(this, graph)
        class(mpnn_layer_type), intent(inout) :: this
        type(graph_type), dimension(this%batch_size), intent(in) :: graph
      end subroutine set_graph
