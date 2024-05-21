@@ -24,7 +24,6 @@ module conv_mpnn_layer
   type, extends(message_method_type) :: conv_message_method_type
    contains
      procedure :: update => update_message_conv
-     procedure :: get_differential => get_differential_message_conv
      procedure :: calculate_partials => calculate_partials_message_conv
      procedure :: set_shape => set_shape_message_conv
   end type conv_message_method_type
@@ -51,7 +50,6 @@ module conv_mpnn_layer
      procedure :: set_gradients => set_gradients_state_conv
      procedure :: set_shape => set_shape_state_conv
      procedure :: update => update_state_conv
-     procedure :: get_differential => get_state_differential_conv
      procedure :: calculate_partials => calculate_state_partials_conv
   end type conv_state_method_type
   interface conv_state_method_type
@@ -77,7 +75,6 @@ module conv_mpnn_layer
      procedure :: set_gradients => set_gradients_readout_conv
      procedure :: set_shape => set_shape_readout_conv
      procedure :: get_output => get_output_readout_conv
-     procedure :: get_differential => get_readout_differential_conv
      procedure :: calculate_partials => calculate_readout_partials_conv
   end type conv_readout_method_type
   interface conv_readout_method_type
@@ -345,7 +342,7 @@ contains
 
     !!! MAXIMUM VERTEX DEGREE
     allocate(state_method%feature(batch_size))
-    allocate(state_method%weight(state_method%num_inputs, state_method%num_outputs, max_vertex_degree))
+    allocate(state_method%weight(state_method%num_inputs, state_method%num_outputs, max_vertex_degree), source=1._real12)
     allocate(state_method%dw(state_method%num_inputs, state_method%num_outputs, max_vertex_degree, batch_size))
     allocate(state_method%z(batch_size))
     allocate(state_method%di(batch_size))
@@ -367,7 +364,7 @@ contains
     readout_method%num_inputs  = num_inputs
     readout_method%num_outputs = num_outputs
     readout_method%batch_size  = batch_size
-    allocate(readout_method%weight(num_inputs, num_outputs, num_time_steps+1))
+    allocate(readout_method%weight(num_inputs, num_outputs, num_time_steps+1), source=1._real12)
     allocate(readout_method%dw(num_inputs, num_outputs, num_time_steps+1, batch_size))
     allocate(readout_method%z(num_time_steps+1, batch_size))
     allocate(readout_method%di(batch_size))
@@ -478,41 +475,37 @@ contains
     type(feature_type), dimension(this%batch_size), intent(in) :: input
     type(graph_type), dimension(this%batch_size), intent(in) :: graph
 
-    integer :: s, v, w
+    integer :: s, v, w, e
 
     do s = 1, this%batch_size
        do v = 1, graph(s)%num_vertices
-         this%feature(s)%val(:,v) = 0._real12
-         do w = 1, graph(s)%num_vertices
-             if(graph(s)%adjacency(v,w) .ne. 0) then
+         this%feature(s)%val(:,v) = [ &
+              input(s)%val(:,v), &
+              [ ( 0._real12 , w = 1, graph(s)%num_edge_features ) ] ]
+         do e = 1, graph(s)%num_edges
+            if(any(abs(graph(s)%edge(e)%index).eq.v))then
+               if(graph(s)%edge(e)%index(1) .eq. v)then
+                  w = graph(s)%edge(e)%index(2)
+               else
+                  w = graph(s)%edge(e)%index(1)
+               end if
                this%feature(s)%val(:,v) = &
                      this%feature(s)%val(:,v) + &
-                     [ input(s)%val(:,w), graph(s)%edge(abs(graph(s)%adjacency(v,w)))%feature(:) ]
-             end if
+                     [ input(s)%val(:,w), graph(s)%edge(e)%feature(:) ]
+            end if
          end do
+         ! do w = 1, graph(s)%num_vertices
+         !     if(graph(s)%adjacency(v,w) .ne. 0) then
+         !       this%feature(s)%val(:,v) = &
+         !             this%feature(s)%val(:,v) + &
+         !             [ input(s)%val(:,w), graph(s)%edge(abs(graph(s)%adjacency(v,w)))%feature(:) ]
+         !     end if
+         ! end do
        end do
     end do
 
   end subroutine update_message_conv
 
-  pure function get_differential_message_conv(this, input, graph) &
-       result(output)
-    implicit none
-    class(conv_message_method_type), intent(in) :: this
-    type(feature_type), dimension(this%batch_size), intent(in) :: input
-    type(graph_type), dimension(this%batch_size), intent(in) :: graph
-    
-    type(feature_type), dimension(this%batch_size) :: output
-
-    integer :: s, v
-
-    do s = 1, this%batch_size
-       do v = 1, graph(s)%num_vertices
-          output(s)%val(:,v) = 1._real12
-       end do
-    end do
-
-  end function get_differential_message_conv
 
   pure subroutine calculate_partials_message_conv(this, input, gradient, graph)
     implicit none
@@ -543,39 +536,20 @@ contains
     type(feature_type), dimension(this%batch_size), intent(in) :: input
     type(graph_type), dimension(this%batch_size), intent(in) :: graph
 
-    integer :: s, v
+    integer :: s, v, degree
 
     do s = 1, this%batch_size
-       ! if(allocated(this%z(s)%val)) deallocate(this%z(s)%val)
-       ! allocate(this%z(s)%val(size(input(s)%val, 1), graph(s)%num_vertices))
        do v = 1, graph(s)%num_vertices
+          degree = min(graph(s)%vertex(v)%degree, size(this%weight, 3))
           this%z(s)%val(:,v) = matmul( &
                input(s)%val(:,v), &
-               this%weight(:,:,graph(s)%vertex(v)%degree) &
+               this%weight(:,:,degree) &
           )
-          this%feature(s)%val(:,v) = this%transfer%activate( this%z(s)%val(:,v))
+          this%feature(s)%val(:,v) = this%transfer%activate( this%z(s)%val(:,v) )
        end do
     end do
 
   end subroutine update_state_conv
-
-  pure function get_state_differential_conv(this, input, graph) result(output)
-    implicit none
-    class(conv_state_method_type), intent(in) :: this
-    type(feature_type), dimension(this%batch_size), intent(in) :: input
-    type(graph_type), dimension(this%batch_size), intent(in) :: graph
-
-    type(feature_type), dimension(this%batch_size):: output
-
-    integer :: v, s
-
-    do s = 1, this%batch_size
-       do v = 1, graph(s)%num_vertices
-          output(s)%val(:,v) = this%transfer%differentiate(this%z(s)%val(:,v))
-       end do
-    end do
-
-  end function get_state_differential_conv
 
   pure subroutine calculate_state_partials_conv(this, input, gradient, graph)
     implicit none
@@ -645,25 +619,6 @@ contains
     end do
 
   end subroutine get_output_readout_conv
-
-  pure function get_readout_differential_conv(this, input) result(output)
-    implicit none
-    class(conv_readout_method_type), intent(in) :: this
-    class(state_method_type), dimension(0:this%num_time_steps), intent(in) :: input
-
-    type(feature_type), dimension(this%batch_size) :: output
-
-    integer :: s, v, t
-
-    do s = 1, this%batch_size
-       do t = 0, this%num_time_steps
-          do v = 1, size(input(t)%feature(s)%val, 2)
-             output(s)%val(:,t) = this%transfer%differentiate(this%z(t,s)%val(:,v))
-          end do
-       end do
-    end do
-
-  end function get_readout_differential_conv
 
 
   pure subroutine calculate_readout_partials_conv(this, input, gradient)
