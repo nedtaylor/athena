@@ -415,8 +415,6 @@ contains
     ! h()                          hidden function
 
     !!! THIS IS THE OUTPUT ERROR, NOT THE INPUT ERROR
-    !this%state(this%num_time_steps)%di = &
-    !     this%readout%get_differential(this%state, gradient)
 
     call this%method%readout%calculate_partials( &
          input = this%method%state, &
@@ -436,27 +434,11 @@ contains
             gradient = this%method%state(t+1)%di, &
             graph = graph &
        )
-       !this%message(t+1)%di = this%state(t+1)%di * &
-       !      this%state(t+1)%get_differential( &
-       !          this%message(t+1)%feature, graph &
-       !      )
        call this%method%state(t)%calculate_partials( &
             input = this%method%message(t)%feature, &
             gradient = this%method%message(t+1)%di, &
             graph = graph &
        )
-       !this%state(t)%di = this%message(t+1)%di * &
-       !      this%message(t+1)%get_differential( &
-       !          this%state(t)%feature, graph &
-       !      )
-
-       ! this%di(:,:,t,s) = this%di(:,:,t+1,s) * &
-       !       this%state(t+1)%get_differential( &
-       !            this%message(t+1)%feature(s)%val(:,:) &
-       !       ) * &
-       !       this%message(t+1)%get_differential( &
-       !            this%state(t)%feature(s)%val(:,:), graph &
-       !       )
        
        !! ! this is method dependent
        !! this%dw(:,:,t,s) = this%message(:,t+1,s) * this%v(:,t,s)
