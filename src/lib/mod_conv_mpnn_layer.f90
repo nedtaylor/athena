@@ -572,9 +572,6 @@ contains
        !! no message passing transfer function
        delta = gradient(s)%val(:,:) * &
             this%transfer%differentiate(this%z(s)%val(:,:))
-       if(allocated(this%di(s)%val)) deallocate(this%di(s)%val)
-       allocate(this%di(s)%val(size(input(s)%val, 1), &
-           size(input(s)%val, 2)))
        
        !! partial derivatives of error wrt weights
        !! dE/dW = o/p(l-1) * delta
@@ -635,10 +632,7 @@ contains
        
        !! partial derivatives of error wrt weights
        !! dE/dW = o/p(l-1) * delta
-       do t = 0, this%num_time_steps
-          if(allocated(this%di(s)%val)) deallocate(this%di(s)%val)
-           allocate(this%di(s)%val(size(input(this%num_time_steps)%feature(s)%val, 1), &
-                size(input(this%num_time_steps)%feature(s)%val, 2)))
+       do t = 0, this%num_time_steps, 1
           do v = 1, size(input(t)%feature(s)%val, 2)
   
               delta = gradient(:,s) * this%transfer%differentiate(this%z(t+1,s)%val(:,v))
