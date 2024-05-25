@@ -22,6 +22,8 @@ module mpnn_layer
 
 
   type, extends(learnable_layer_type) :: mpnn_layer_type
+     integer :: num_vertex_features, num_edge_features
+     integer :: num_time_steps
      type(graph_type), dimension(:), allocatable :: graph
      class(method_container_type), allocatable :: method
      real(real12), dimension(:,:), allocatable :: output
@@ -289,9 +291,11 @@ module mpnn_layer
 
 
   interface
-    module subroutine init_method(this, input_shape, output_shape, batch_size)
+    module subroutine init_method(this, &
+         num_vertex_features, num_edge_features, num_time_steps, &
+         output_shape, batch_size)
       class(method_container_type), intent(inout) :: this
-      integer, dimension(3), intent(in) :: input_shape
+      integer, intent(in) :: num_vertex_features, num_edge_features, num_time_steps
       integer, dimension(1), intent(in) :: output_shape
       integer, intent(in) :: batch_size
     end subroutine init_method

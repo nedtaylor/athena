@@ -334,7 +334,9 @@ contains
     if(allocated(this%input_shape))then
        if(allocated(this%output)) deallocate(this%output)
        allocate(this%output(this%output_shape(1), this%batch_size), source=0._real12)
-       call this%method%init(this%input_shape, this%output_shape, this%batch_size)
+       call this%method%init( &
+            this%num_vertex_features, this%num_edge_features, this%num_time_steps,&
+            this%output_shape, this%batch_size)
     end if
  
   end subroutine set_batch_size_mpnn
@@ -427,32 +429,19 @@ contains
          graph = graph &
     )
 
-    do t = this%method%num_time_steps-1, 2, -1
-       !! check if time_step t are all handled correctly here
+    do t = this%method%num_time_steps-1, 0, -1
        call this%method%message(t+1)%calculate_partials( &
             input = this%method%state(t)%feature, &
             gradient = this%method%state(t+1)%di, &
             graph = graph &
        )
+       if(t.eq.0) cycle
        call this%method%state(t)%calculate_partials( &
             input = this%method%message(t)%feature, &
             gradient = this%method%message(t+1)%di, &
             graph = graph &
        )
-       
-       !! ! this is method dependent
-       !! this%dw(:,:,t,s) = this%message(:,t+1,s) * this%v(:,t,s)
     end do
-    call this%method%message(2)%calculate_partials( &
-         input = this%method%state(1)%feature, &
-         gradient = this%method%state(2)%di, &
-         graph = graph &
-    )
-
-    !do s = 1, this%batch_size
-    !   this%di(:,:,s) = this%message(2)%di(s)%val
-    !end do
-
 
   end subroutine backward_graph
 !!!#############################################################################

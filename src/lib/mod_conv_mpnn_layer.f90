@@ -17,7 +17,7 @@ module conv_mpnn_layer
 
   private
   public :: conv_mpnn_layer_type, conv_method_container_type
-  public :: conv_readout_method_type
+  public :: conv_readout_method_type, conv_state_method_type
 
 
 
@@ -111,8 +111,10 @@ module conv_mpnn_layer
 
 
   interface conv_method_container_type
-    module function method_setup(input_shape, output_shape, batch_size) result(method)
-      integer, dimension(3), intent(in) :: input_shape
+    module function method_setup( &
+         num_vertex_features, num_edge_features, num_time_steps, &
+         output_shape, batch_size) result(method)
+      integer, intent(in) :: num_vertex_features, num_edge_features, num_time_steps
       integer, dimension(1), intent(in) :: output_shape
       integer, intent(in) :: batch_size
       type(conv_method_container_type) :: method
@@ -378,16 +380,18 @@ contains
 
 
 
-  subroutine init_conv_mpnn_method(this, input_shape, output_shape, batch_size)
+  subroutine init_conv_mpnn_method(this, &
+       num_vertex_features, num_edge_features, num_time_steps, &
+       output_shape, batch_size)
     implicit none
     class(conv_method_container_type), intent(inout) :: this
-    integer, dimension(3), intent(in) :: input_shape
+    integer, intent(in) :: num_vertex_features, num_edge_features, num_time_steps
     integer, dimension(1), intent(in) :: output_shape
     integer, intent(in) :: batch_size
 
 
-    this%num_features = input_shape(:2)
-    this%num_time_steps = input_shape(3)
+    this%num_features = [num_vertex_features, num_edge_features]
+    this%num_time_steps = num_time_steps
     this%num_outputs = output_shape(1)
     if(allocated(this%message)) deallocate(this%message)
     allocate(this%message(this%num_time_steps), &
@@ -411,16 +415,16 @@ contains
   end subroutine init_conv_mpnn_method
 
 
-  module function method_setup(input_shape, output_shape, batch_size) result(method)
+  module function method_setup(num_vertex_features, num_edge_features, num_time_steps, output_shape, batch_size) result(method)
     implicit none
-    integer, dimension(3), intent(in) :: input_shape
+    integer, intent(in) :: num_vertex_features, num_edge_features, num_time_steps
     integer, dimension(1), intent(in) :: output_shape
     integer, intent(in) :: batch_size
     type(conv_method_container_type) :: method
 
 
-    method%num_features = input_shape(:2)
-    method%num_time_steps = input_shape(3)
+    method%num_features = [ num_vertex_features, num_edge_features ]
+    method%num_time_steps = num_time_steps
     method%num_outputs = output_shape(1)
     allocate(method%message(method%num_time_steps), &
          source = conv_message_method_type( &
@@ -455,14 +459,21 @@ contains
 
     layer%batch_size = batch_size
     layer%output_shape = [num_outputs]
-    layer%input_shape = [num_vertex_features, num_edge_features, num_time_steps] !!! MAY CHANGE THIS, provide MPNN with extra data it can pass through
+    layer%input_shape = [1._real12]!num_vertex_features, num_edge_features, num_time_steps] !!! MAY CHANGE THIS, provide MPNN with extra data it can pass through
 
+    layer%num_vertex_features = num_vertex_features
+    layer%num_edge_features = num_edge_features
+    layer%num_time_steps = num_time_steps
 
     layer%method = conv_method_container_type( &
-         [num_vertex_features, num_edge_features, num_time_steps], [num_outputs], batch_size &
+         num_vertex_features, num_edge_features, num_time_steps, &
+         [num_outputs], batch_size &
     )
-    !call layer%method%init(&
-    !     [num_vertex_features, num_edge_features, num_time_steps], [num_outputs], batch_size)
+    ! call layer%method%init( &
+    !      num_vertex_features, num_edge_features, num_time_steps, &
+    !      [num_outputs], batch_size &
+    ! )
+    write(*,*) "NUM TIME STEPS", layer%method%num_time_steps
 
     allocate(layer%output(num_outputs, layer%batch_size))
 
@@ -524,7 +535,7 @@ contains
 
     do concurrent(s=1:this%batch_size)
        !! no message passing transfer function
-       this%di(s)%val(:,:) = gradient(s)%val(:graph(s)%num_vertex_features,:)
+       this%di(s)%val(:,:) = gradient(s)%val(:this%num_inputs,:)
     end do
 
   end subroutine calculate_partials_message_conv
@@ -567,7 +578,7 @@ contains
     !! delta(l) = g'(a) * dE/dI(l)
     !! delta(l) = differential of activation * error from next layer
 
-
+    this%dw = 0._real12
     do concurrent(s=1:this%batch_size)
        !! no message passing transfer function
        delta = gradient(s)%val(:,:) * &
@@ -602,8 +613,6 @@ contains
     do s = 1, this%batch_size
        output(:,s) = 0._real12
        do t = 0, this%num_time_steps, 1
-          ! if(allocated(this%z(t+1,s)%val)) deallocate(this%z(t+1,s)%val)
-          ! allocate(this%z(t+1,s)%val(this%num_outputs, size(input(t)%feature(s)%val, 2)))
           do v = 1, size(input(t)%feature(s)%val, 2)
              this%z(t+1,s)%val(:,v) = matmul( &
                   input(t)%feature(s)%val(:,v), &
@@ -627,6 +636,7 @@ contains
     integer :: s, v, t
     real(real12), dimension(this%num_outputs) :: delta
 
+    this%dw = 0._real12
     do concurrent(s=1:this%batch_size)
        !! no message passing transfer function
        
