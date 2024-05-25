@@ -8,7 +8,7 @@ program test_initialisers
    use initialiser, only: initialiser_setup, get_default_initialiser
    implicit none
  
-   class(initialiser_type), allocatable :: initialiser
+   class(initialiser_type), allocatable :: initialiser_var
    class(base_layer_type), allocatable :: full_layer, conv2d_layer, conv3d_layer
    logical :: success = .true.
  
@@ -64,13 +64,13 @@ program test_initialisers
 !!! check initialisers work as expected for each rank
 !!!-----------------------------------------------------------------------------
    do i = 1, size(initialiser_names)
-      if(allocated(initialiser)) deallocate(initialiser)
-      allocate(initialiser, source=initialiser_setup(initialiser_names(i)))
+      if(allocated(initialiser_var)) deallocate(initialiser_var)
+      allocate(initialiser_var, source=initialiser_setup(initialiser_names(i)))
       if(.not.trim(initialiser_names(i)).eq."ident") &
-           call initialiser%initialise(input_0d, fan_in = 1, fan_out = 1)
-      call initialiser%initialise(input_1d, fan_in = 1, fan_out = 1)
-      call initialiser%initialise(input_3d, fan_in = 1, fan_out = 1)
-      call initialiser%initialise(input_6d, fan_in = 1, fan_out = 1)
+           call initialiser_var%initialise(input_0d, fan_in = 1, fan_out = 1)
+      call initialiser_var%initialise(input_1d, fan_in = 1, fan_out = 1)
+      call initialiser_var%initialise(input_3d, fan_in = 1, fan_out = 1)
+      call initialiser_var%initialise(input_6d, fan_in = 1, fan_out = 1)
 
 
       !! check for rank 2 data
