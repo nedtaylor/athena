@@ -12,9 +12,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 ### Fixed
+
+### Removed
+
+## [1.3.1] - 2024-05-25
+
+### Added
+
+### Changed
+- Add reference to gcc 12.3 compatibility in README
+
+### Fixed
 - Fix attempt to assign size of random seed in random_setup
 - Fix attempt to assign size of random seed in test_network
 - Fix attempt to assing size of random seed in example/simple
+- Fix abstract interface use in base_layer_type
+- Add appropriate references to neural-fortran in CONTRIBUTING.md and associated procedures, and modules
 
 ### Removed
 
