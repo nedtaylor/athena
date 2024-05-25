@@ -63,6 +63,10 @@ The library has been developed and tested using the following compilers:
 - ifort -- Intel 2021.10.0.20230609
 - ifx -- IntelLLVM 2023.2.0
 
+#### Tested compilers
+The library has also been tested with and found to support the following libraries:
+- gfortran -- gcc 12.3
+
 ### Building with fpm
 
 The library is set up to work with the Fortran Package Manager (fpm).
