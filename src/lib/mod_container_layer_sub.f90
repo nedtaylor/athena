@@ -26,6 +26,7 @@ submodule(container_layer) container_layer_submodule
   use maxpool2d_layer, only: maxpool2d_layer_type
   use maxpool3d_layer, only: maxpool3d_layer_type
   use full_layer, only: full_layer_type
+  use mpnn_layer, only: mpnn_layer_type
 
 contains
   
@@ -34,6 +35,20 @@ contains
     class(container_layer_type), intent(inout) :: this
     class(container_layer_type), intent(in) :: input
 
+   !  select case(size(input%layer%output_shape,1))
+   !  case(1)
+   !     call this%layer%forward(input%layer%output, [input%layer%output_shape, input%layer%batch_size])
+   !  case(2)
+   !     call this%layer%forward(input%layer%output, [input%layer%output_shape, input%layer%batch_size])
+   !  case(3)
+   !     call this%layer%forward(input%layer%output, [input%layer%output_shape, input%layer%batch_size])
+   !  case(4)
+   !     call this%layer%forward(input%layer%output, [input%layer%output_shape, input%layer%batch_size])
+   !  case(5)
+   !     call this%layer%forward(input%layer%output, [input%layer%output_shape, input%layer%batch_size])
+   !  case(6)
+   !     call this%layer%forward(input%layer%output, [input%layer%output_shape, input%layer%batch_size])
+   !  end select
     select type(previous => input%layer)
     type is(input1d_layer_type)
        call this%layer%forward(previous%output)
@@ -59,6 +74,8 @@ contains
        call this%layer%forward(previous%output)
 
     type is(deepset_layer_type)
+       call this%layer%forward(previous%output)
+    class is(mpnn_layer_type)
        call this%layer%forward(previous%output)
 
     type is(dropout_layer_type)
@@ -118,6 +135,8 @@ contains
        call this%layer%backward(previous%output, gradient)
 
     type is(deepset_layer_type)
+       call this%layer%backward(previous%output, gradient)
+    class is(mpnn_layer_type)
        call this%layer%backward(previous%output, gradient)
 
     type is(dropout_layer_type)

@@ -41,6 +41,7 @@ submodule(network) network_submodule
 
   !! deep set layer types
   use deepset_layer, only: deepset_layer_type, read_deepset_layer
+  use mpnn_layer, only: mpnn_layer_type
 
   !! dropout layer types
   use dropout_layer, only: dropout_layer_type, read_dropout_layer
@@ -688,6 +689,11 @@ contains
                       num_addit_inputs = next%num_addit_inputs
                    end select
                    select case(size(this%model(i)%layer%output_shape))
+                   case(1)
+                      t_flatten_layer = flatten1d_layer_type(&
+                           input_shape = this%model(i)%layer%output_shape, &
+                           num_addit_outputs = num_addit_inputs, &
+                           batch_size = this%batch_size)
                    case(2)
                       t_flatten_layer = flatten1d_layer_type(&
                            input_shape = this%model(i)%layer%output_shape, &
@@ -1059,6 +1065,8 @@ end function get_gradients
           call this%model(i)%backward(this%model(i-1),next%di)
 
        type is(deepset_layer_type)
+          call this%model(i)%backward(this%model(i-1),next%di)
+       class is(mpnn_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
     
        type is(dropout_layer_type)

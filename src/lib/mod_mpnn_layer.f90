@@ -27,7 +27,7 @@ module mpnn_layer
      type(graph_type), dimension(:), allocatable :: graph
      class(method_container_type), allocatable :: method
      real(real12), dimension(:,:), allocatable :: output
-     !real(real12), dimension(:,:,:), allocatable :: di
+     real(real12), dimension(:,:), allocatable :: di
    contains
      procedure, pass(this) :: init => init_mpnn
      procedure, pass(this) :: get_output => get_output_mpnn
