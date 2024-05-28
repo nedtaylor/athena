@@ -30,9 +30,17 @@ The vast amount of computing capabilities available within current supercomputer
 
 `ATHENA` (Adaptive Training for High Efficiency Neural Network Applications) is a Fortran-based library aimed at providing users with the ability to build, train, and test feed-forward neural networks. The library leverages Fortran's strong support of array arithmatics, and its compatibility with parallel and high-performance computing resources. Additionally, there exist many improvements made available since Fortran 95, specifically in Fortran 2018 [@reid2018new] (and upcoming ones in Fortran 2023), as well as continued development by the Fortran Standards committee. All of this provides a clear incentive to develop further libraries and frameworks focused on providing machine learning capabilities to the Fortran community.
 
-While existing Fortran-based libraries, such as neural-fortran (@curcic2019parallel), address many aspects of neural networks, the focus on convolutional neural networks is drastically reduced. `ATHENA` is developed to handle both fully-connected and convolutional layers, including the ability to handle 3D data for convolutional layers (a domain sometimes underappreciated in comparison to its 3D counterpart). The `ATHENA` library is developed to handle diverse layer types, including fully-connected, Dropout, pooling, and convolution.
 
-Notably, discussions with a spectrum of stakeholders have significantly influenced the development of `ATHENA`, placing paramount importance on accessibility and usability. This user-centric approach ensures that `ATHENA` is not just a library but a tool that seamlessly integrates with the evolving needs of the neural network community.
+
+While existing Fortran-based libraries, such as neural-fortran (@curcic2019parallel), address many aspects of neural networks, `ATHENA` provides implementation of some well-known features not currently available within other libraries; these features include batchnormalisation, regularisation layers (such as dropout and dropblock), and average pooling layers.
+Additionally, the library provides support for 1, 2, and 3D input data for all features currently implemented; this includes 1, 2, and 3D data for convolutional layers.
+Finally, more features convolutional techiques are supported in the `ATHENA` library, including various data padding types, and stride.
+
+Notably, discussions with a spectrum of stakeholders have significantly influenced the development of `ATHENA`, placing paramount importance on accessibility and usability.
+This user-centric approach ensures that `ATHENA` is not just a library but a tool that seamlessly integrates with the evolving needs of the neural network community.
+One of the primary intended applications of `ATHENA` is in materials science, which heavily utilises convolutional and graph neural networks for learning based on charge densities and atomic structures.
+Given the unique data structure of atomic configurations, specifically their graph-based nature, a specialised API must be developed to accommodate these needs.
+
 
 # Features
 
