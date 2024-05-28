@@ -185,6 +185,7 @@ contains
     real(real12), dimension(size(predicted,1),size(predicted,2)) :: output
     real(real12) :: epsilon
 
+    epsilon = 1.E-10_real12
     output = - log(expected - predicted + epsilon)
 
   end function compute_loss_nll

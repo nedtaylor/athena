@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fix reference to fpm install in README
+- Fixed unallocated lr_decay reference
+- Fixed ifort and ifx compiler reference to temporary arrays
+- Fixed temporary array reference in tests
+- Fixed epsilon undefined value in mod_loss
 
 ### Removed
 
