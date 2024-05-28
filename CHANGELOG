@@ -8,13 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added message passing layer base type
+- Added convolutional MPNN layer
 
 ### Changed
 
 ### Fixed
-- Fix attempt to assign size of random seed in random_setup
-- Fix attempt to assign size of random seed in test_network
-- Fix attempt to assing size of random seed in example/simple
+- Fixed unallocated lr_decay reference
 
 ### Removed
 
