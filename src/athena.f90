@@ -11,7 +11,7 @@ module athena
   use random, only: random_setup
   use network, only: network_type
   use metrics, only: metric_dict_type
-  use custom_types, only: graph_type, edge_type, vertex_type
+  use graph_structure, only: graph_type, edge_type, vertex_type
 
   !! accuracy methods
   use accuracy, only: categorical_score, mae_score, mse_score, r2_score
@@ -67,6 +67,10 @@ module athena
   !! deep set layer types
   use deepset_layer,   only: deepset_layer_type, read_deepset_layer
 
+  !! message passing layer types
+  use mpnn_layer,      only: mpnn_layer_type
+  use conv_mpnn_layer, only: conv_mpnn_layer_type
+
   !! dropout layer types
   use dropout_layer, only: dropout_layer_type, read_dropout_layer
   use dropblock2d_layer, only: dropblock2d_layer_type, read_dropblock2d_layer
@@ -86,9 +90,6 @@ module athena
 
   !! fully connected (dense) layer types
   use full_layer,      only: full_layer_type, read_full_layer
-
-  use mpnn_layer,      only: mpnn_layer_type
-  use conv_mpnn_layer, only: conv_mpnn_layer_type, conv_method_container_type
 
   implicit none
 
