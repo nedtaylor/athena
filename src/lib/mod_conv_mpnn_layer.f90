@@ -157,7 +157,7 @@ contains
 
     num_params = size(this%weight)
   end function get_num_params_message_conv
-  !!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
   pure function get_num_params_readout_conv(this) result(num_params)
     implicit none
     class(conv_readout_phase_type), intent(in) :: this
@@ -407,7 +407,8 @@ contains
        output_shape, batch_size)
     implicit none
     class(conv_method_container_type), intent(inout) :: this
-    integer, intent(in) :: num_vertex_features, num_edge_features, num_time_steps
+    integer, intent(in) :: num_vertex_features, num_edge_features, &
+         num_time_steps
     integer, dimension(1), intent(in) :: output_shape
     integer, intent(in) :: batch_size
 
@@ -443,7 +444,8 @@ contains
          max_vertex_degree, &
          batch_size) result(method)
     implicit none
-    integer, intent(in) :: num_vertex_features, num_edge_features, num_time_steps
+    integer, intent(in) :: num_vertex_features, num_edge_features, &
+         num_time_steps
     integer, dimension(1), intent(in) :: output_shape
     integer, intent(in) :: max_vertex_degree, batch_size
     type(conv_method_container_type) :: method
