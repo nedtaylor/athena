@@ -127,6 +127,8 @@ module conv_mpnn_layer
 !!! convolutional MPNN layer
 !!!-----------------------------------------------------------------------------
   type, extends(mpnn_layer_type) :: conv_mpnn_layer_type
+   contains
+     procedure :: backward_graph => backward_graph_conv
   end type conv_mpnn_layer_type
 
   !! interface for the convolutional MPNN layer
@@ -317,10 +319,13 @@ contains
 
     integer :: s, t
 
-    do t = 0, this%num_time_steps, 1
-       do s = 1, this%batch_size
-          if(allocated(this%di(s)%val)) deallocate(this%di(s)%val)
-          allocate(this%di(s)%val(this%num_inputs, shape(s)))
+    do s = 1, this%batch_size
+       do t = 0, this%num_time_steps, 1
+          if(allocated(this%di(this%batch_size * t + s)%val)) &
+               deallocate(this%di(this%batch_size * t + s)%val)
+          allocate(this%di(this%batch_size * t + s)%val( &
+               this%num_inputs, shape(s) &
+          ))
 
           if(allocated(this%z(t+1,s)%val)) deallocate(this%z(t+1,s)%val)
           allocate(this%z(t+1,s)%val(this%num_outputs, shape(s)))
@@ -383,7 +388,7 @@ contains
     allocate(readout_phase%dw( &
          num_inputs, num_outputs, num_time_steps+1, batch_size))
     allocate(readout_phase%z(num_time_steps+1, batch_size))
-    allocate(readout_phase%di(batch_size))
+    allocate(readout_phase%di(batch_size * (readout_phase%num_time_steps + 1) ))
 
     write(*,*) "setting up transfer function"
     allocate(readout_phase%transfer, &
@@ -480,6 +485,7 @@ contains
          num_edge_features, num_outputs, max_vertex_degree, batch_size
     type(conv_mpnn_layer_type) :: layer
 
+
     layer%batch_size = batch_size
     layer%output_shape = [num_outputs]
     layer%input_shape = [1._real12]
@@ -499,6 +505,7 @@ contains
 
   end function layer_setup
 !!!#############################################################################
+
 
 !!!#############################################################################
 !!! update procedure for message phase (i.e. forward pass)
@@ -571,6 +578,7 @@ contains
     integer :: s, v, degree
     real(real12), dimension(:,:), allocatable :: delta
 
+
     this%dw = 0._real12
     do concurrent(s=1:this%batch_size)
        !! no message passing transfer function
@@ -611,6 +619,7 @@ contains
 
     integer :: s, v, t
 
+
     do s = 1, this%batch_size
        output(:,s) = 0._real12
        do t = 0, this%num_time_steps, 1
@@ -640,8 +649,9 @@ contains
     real(real12), dimension(this%num_outputs, this%batch_size), &
          intent(in) :: gradient
 
-    integer :: s, v, t
+    integer :: s, v, t, num_features
     real(real12), dimension(this%num_outputs) :: delta
+
 
     this%dw = 0._real12
     do concurrent(s=1:this%batch_size)
@@ -658,25 +668,60 @@ contains
 
               this%dw(:,:,t+1,s) = this%dw(:,:,t+1,s) + &
                    outer_product(input(t)%feature(s)%val(:,v), delta(:))
-
-              delta(:) = &
-                   gradient(:,s) * &
-                   this%transfer%differentiate( &
-                        this%z(this%num_time_steps+1,s)%val(:,v) &
-                   )
               
-              if(t .ne. this%num_time_steps) cycle
-              this%di(s)%val(:,v) = &
-                   matmul(this%weight(:,:,this%num_time_steps+1), delta(:))
+              this%di(this%batch_size * t + s)%val(:,v) = &
+                   matmul(this%weight(:,:,t+1), delta(:))
           end do
-          !! SHOULD WORK OUT di FOR EACH TIME STEP
-          !! BUT I DON'T KNOW HOW TO HANDLE THAT YET
-          !! Well, I get it mathematically, it's just how to include it computationally in a free-form framework
-          !this%di(t,s)%val(:,v) = matmul(this%weight(:,:,this%num_time_steps+1), delta(:))
        end do
     end do
     
   end subroutine calculate_partials_readout_conv
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! backpropagation
+!!!#############################################################################
+  pure module subroutine backward_graph_conv(this, graph, gradient)
+    implicit none
+    class(conv_mpnn_layer_type), intent(inout) :: this
+    type(graph_type), dimension(this%batch_size), intent(in) :: graph
+    real(real12), dimension( &
+         this%output_shape(1), &
+         this%batch_size &
+    ), intent(in) :: gradient
+
+    integer :: s, t
+
+
+    call this%method%readout%calculate_partials( &
+         input = this%method%message, &
+         gradient = gradient &
+    )
+
+    call this%method%message(this%method%num_time_steps)%calculate_partials( &
+         input = this%method%message(this%method%num_time_steps-1)%feature, &
+         gradient = this%method%readout%di( &
+              this%batch_size * this%num_time_steps + 1 : &
+              this%batch_size * (this%num_time_steps + 1) &
+         ), &
+         graph = graph &
+    )
+
+    do t = this%method%num_time_steps - 1, 1, -1
+       call this%method%message(t)%calculate_partials( &
+            input = this%method%message(t-1)%feature, &
+            gradient = &
+                 this%method%message(t+1)%di + &
+                 this%method%readout%di( &
+                      this%batch_size * t + 1 : &
+                      this%batch_size * (t + 1) &
+                 ), &
+            graph = graph &
+       )
+    end do
+
+  end subroutine backward_graph_conv
 !!!#############################################################################
 
 end module conv_mpnn_layer
