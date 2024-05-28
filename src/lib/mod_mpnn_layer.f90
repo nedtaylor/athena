@@ -6,7 +6,7 @@
 !!!#############################################################################
 module mpnn_layer
   use constants, only: real12
-  use custom_types, only: graph_type
+  use graph_structure, only: graph_type
   use base_layer, only: learnable_layer_type
   use clipper, only: clip_type
   implicit none
@@ -15,8 +15,7 @@ module mpnn_layer
   private
 
   public :: mpnn_layer_type, feature_type, method_container_type
-  public :: state_method_type, message_method_type, readout_method_type
-  public :: update_state
+  public :: message_phase_type, readout_phase_type
   public :: update_message
   public :: get_output_readout
 
@@ -51,10 +50,9 @@ module mpnn_layer
     integer :: num_time_steps
     !! each dimension of num_features is for vertex and edge
     integer, dimension(2) :: num_features
-    !! state and message dimension is (time_step)
-    class(message_method_type), dimension(:), allocatable :: message
-    class(state_method_type), dimension(:), allocatable :: state
-    class(readout_method_type), allocatable :: readout
+    !! message dimension is (time_step)
+    class(message_phase_type), dimension(:), allocatable :: message
+    class(readout_phase_type), allocatable :: readout
    contains
     procedure(init_method), deferred, pass(this) :: init
   end type method_container_type
@@ -70,7 +68,7 @@ module mpnn_layer
   end type feature_type
 
 
-  type, abstract :: base_method_type
+  type, abstract :: base_phase_type
      !!! HAVE LOGICAL THAT STATES WHETHER IT IS LEARNABLE ???
      integer :: num_inputs
      integer :: num_outputs
@@ -79,44 +77,41 @@ module mpnn_layer
      type(feature_type), dimension(:), allocatable :: feature
      type(feature_type), dimension(:), allocatable :: di
    contains
-     procedure, pass(this) :: get_num_params => get_method_num_params
-     procedure, pass(this) :: get_params => get_method_params
-     procedure, pass(this) :: set_params => set_method_params
-     procedure, pass(this) :: get_gradients => get_method_gradients
-     procedure, pass(this) :: set_gradients => set_method_gradients
-     procedure, pass(this) :: set_shape => set_method_shape
-  end type base_method_type
+     procedure, pass(this) :: get_num_params => get_phase_num_params
+     procedure, pass(this) :: get_params => get_phase_params
+     procedure, pass(this) :: set_params => set_phase_params
+     procedure, pass(this) :: get_gradients => get_phase_gradients
+     procedure, pass(this) :: set_gradients => set_phase_gradients
+     procedure, pass(this) :: set_shape => set_phase_shape
+  end type base_phase_type
 
 
-  type, extends(base_method_type), abstract :: message_method_type
+  type, extends(base_phase_type), abstract :: message_phase_type
+     integer :: num_message_features
+     logical :: use_message = .true.
+     type(feature_type), dimension(:), allocatable :: message
    contains
      procedure(update_message), deferred, pass(this) :: update
      procedure(calculate_partials_message), deferred, pass(this) :: calculate_partials
-  end type message_method_type
+  end type message_phase_type
 
-  type, extends(base_method_type), abstract :: state_method_type
-   contains
-     procedure(update_state), deferred, pass(this) :: update
-     procedure(calculate_partials_state), deferred, pass(this) :: calculate_partials
-  end type state_method_type
-
-  type, extends(base_method_type), abstract :: readout_method_type
+  type, extends(base_phase_type), abstract :: readout_phase_type
    contains
      procedure(get_output_readout), deferred, pass(this) :: get_output
      procedure(calculate_partials_readout), deferred, pass(this) :: calculate_partials
-  end type readout_method_type
+  end type readout_phase_type
 
 
   abstract interface
      pure module subroutine update_message(this, input, graph)
-       class(message_method_type), intent(inout) :: this
+       class(message_phase_type), intent(inout) :: this
        !! input features has dimensions (feature, vertex, batch_size)
        type(feature_type), dimension(this%batch_size), intent(in) :: input
        type(graph_type), dimension(this%batch_size), intent(in) :: graph
      end subroutine update_message
 
      pure module subroutine calculate_partials_message(this, input, gradient, graph)
-       class(message_method_type), intent(inout) :: this
+       class(message_phase_type), intent(inout) :: this
        !! hidden features has dimensions (feature, vertex, batch_size)
        type(feature_type), dimension(this%batch_size), intent(in) :: input
        type(feature_type), dimension(this%batch_size), intent(in) :: gradient
@@ -124,31 +119,15 @@ module mpnn_layer
      end subroutine calculate_partials_message
 
 
-     pure module subroutine update_state(this, input, graph)
-       class(state_method_type), intent(inout) :: this
-       !! input has dimensions (feature, vertex, batch_size)
-       type(feature_type), dimension(this%batch_size), intent(in) :: input
-       type(graph_type), dimension(this%batch_size), intent(in) :: graph
-     end subroutine update_state
-
-     pure module subroutine calculate_partials_state(this, input, gradient, graph)
-       class(state_method_type), intent(inout) :: this
-       !! hidden features has dimensions (feature, vertex, batch_size)
-       type(feature_type), dimension(this%batch_size), intent(in) :: input
-       type(feature_type), dimension(this%batch_size), intent(in) :: gradient
-       type(graph_type), dimension(this%batch_size), intent(in) :: graph
-     end subroutine calculate_partials_state
-
-
      pure module subroutine get_output_readout(this, input, output)
-       class(readout_method_type), intent(inout) :: this
-       class(state_method_type), dimension(:), intent(in) :: input
+       class(readout_phase_type), intent(inout) :: this
+       class(message_phase_type), dimension(:), intent(in) :: input
        real(real12), dimension(this%num_outputs, this%batch_size), intent(out) :: output
      end subroutine get_output_readout
 
      pure module subroutine calculate_partials_readout(this, input, gradient)
-       class(readout_method_type), intent(inout) :: this
-       class(state_method_type), dimension(:), intent(in) :: input
+       class(readout_phase_type), intent(inout) :: this
+       class(message_phase_type), dimension(:), intent(in) :: input
        real(real12), dimension(this%num_outputs, this%batch_size), intent(in) :: gradient
      end subroutine calculate_partials_readout
   end interface
@@ -205,38 +184,38 @@ module mpnn_layer
   end interface
 
   interface
-    pure module function get_method_num_params(this) result(num_params)
-      class(base_method_type), intent(in) :: this
+    pure module function get_phase_num_params(this) result(num_params)
+      class(base_phase_type), intent(in) :: this
       integer :: num_params
-    end function get_method_num_params
+    end function get_phase_num_params
 
-    pure module function get_method_params(this) result(params)
-      class(base_method_type), intent(in) :: this
+    pure module function get_phase_params(this) result(params)
+      class(base_phase_type), intent(in) :: this
       real(real12), allocatable, dimension(:) :: params
-    end function get_method_params
+    end function get_phase_params
 
-    pure module subroutine set_method_params(this, params)
-      class(base_method_type), intent(inout) :: this
+    pure module subroutine set_phase_params(this, params)
+      class(base_phase_type), intent(inout) :: this
       real(real12), dimension(:), intent(in) :: params
-    end subroutine set_method_params
+    end subroutine set_phase_params
 
-    pure module function get_method_gradients(this, clip_method) result(gradients)
-      class(base_method_type), intent(in) :: this
+    pure module function get_phase_gradients(this, clip_method) result(gradients)
+      class(base_phase_type), intent(in) :: this
       type(clip_type), optional, intent(in) :: clip_method
       real(real12), allocatable, dimension(:) :: gradients
-    end function get_method_gradients
+    end function get_phase_gradients
 
-    pure module subroutine set_method_gradients(this, gradients)
-      class(base_method_type), intent(inout) :: this
+    pure module subroutine set_phase_gradients(this, gradients)
+      class(base_phase_type), intent(inout) :: this
       real(real12), dimension(..), intent(in) :: gradients      
-    end subroutine set_method_gradients
+    end subroutine set_phase_gradients
   end interface
 
   interface
-    module subroutine set_method_shape(this, shape)
-      class(base_method_type), intent(inout) :: this
+    module subroutine set_phase_shape(this, shape)
+      class(base_phase_type), intent(inout) :: this
       integer, dimension(:), intent(in) :: shape
-    end subroutine set_method_shape
+    end subroutine set_phase_shape
   end interface
 
   interface

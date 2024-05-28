@@ -5,8 +5,6 @@
 !!! module contains implementation of a message passing neural network
 !!!#############################################################################
 submodule(mpnn_layer) mpnn_layer_submodule
-  use constants, only: real12
-  use custom_types, only: graph_type
   implicit none
   
 
@@ -67,7 +65,6 @@ contains
     num_params = 0
     do t = 1, this%method%num_time_steps
        num_params = num_params + this%method%message(t)%get_num_params()
-       num_params = num_params + this%method%state(t)%get_num_params()
     end do
     num_params = num_params + this%method%readout%get_num_params()
   end function get_num_params_mpnn
@@ -82,7 +79,6 @@ contains
     allocate(params(0))
     do t = 1, this%method%num_time_steps
        params = [ params, this%method%message(t)%get_params() ]
-       params = [ params, this%method%state(t)%get_params() ]
     end do
     params = [ params, this%method%readout%get_params() ]
   end function get_params_mpnn
@@ -98,10 +94,6 @@ contains
     do t = 1, this%method%num_time_steps
        iend = istart + this%method%message(t)%get_num_params() - 1
        if(iend.gt.istart-1) call this%method%message(t)%set_params(params(istart:iend))
-       istart = iend + 1
-
-       iend = istart + this%method%state(t)%get_num_params() - 1
-       if(iend.gt.istart-1) call this%method%state(t)%set_params(params(istart:iend))
        istart = iend + 1
     end do
     iend = istart + this%method%readout%get_num_params() - 1
@@ -121,13 +113,11 @@ contains
     if(present(clip_method))then
        do t = 1, this%method%num_time_steps
           gradients = [ gradients, this%method%message(t)%get_gradients(clip_method) ]
-          gradients = [ gradients, this%method%state(t)%get_gradients(clip_method) ]
        end do
        gradients = [ gradients, this%method%readout%get_gradients(clip_method) ]
     else
        do t = 1, this%method%num_time_steps
            gradients = [ gradients, this%method%message(t)%get_gradients() ]
-           gradients = [ gradients, this%method%state(t)%get_gradients() ]
        end do
        gradients = [ gradients, this%method%readout%get_gradients() ]
     end if
@@ -142,7 +132,6 @@ contains
 
     do t = 1, this%method%num_time_steps
        call this%method%message(t)%set_gradients(gradients)
-       call this%method%state(t)%set_gradients(gradients)
     end do
     call this%method%readout%set_gradients(gradients)
   end subroutine set_gradients_mpnn
@@ -152,48 +141,48 @@ contains
 !!!#############################################################################
 !!! 
 !!!#############################################################################
-  pure module function get_method_num_params(this) result(num_params)
+  pure module function get_phase_num_params(this) result(num_params)
     implicit none
-    class(base_method_type), intent(in) :: this
+    class(base_phase_type), intent(in) :: this
     integer :: num_params
 
     num_params = 0
-  end function get_method_num_params
+  end function get_phase_num_params
 
-  pure module function get_method_params(this) result(params)
+  pure module function get_phase_params(this) result(params)
     implicit none
-    class(base_method_type), intent(in) :: this
+    class(base_phase_type), intent(in) :: this
     real(real12), allocatable, dimension(:) :: params
 
     allocate(params(0))
-  end function get_method_params
+  end function get_phase_params
   
-  pure module subroutine set_method_params(this, params)
+  pure module subroutine set_phase_params(this, params)
     implicit none
-    class(base_method_type), intent(inout) :: this
+    class(base_phase_type), intent(inout) :: this
     real(real12), dimension(:), intent(in) :: params
-    !! nothing to do as no parameters in base method type
-  end subroutine set_method_params
+    !! nothing to do as no parameters in base phase type
+  end subroutine set_phase_params
 
-  pure module function get_method_gradients(this, clip_method) result(gradients)
+  pure module function get_phase_gradients(this, clip_method) result(gradients)
     implicit none
-    class(base_method_type), intent(in) :: this
+    class(base_phase_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
     real(real12), allocatable, dimension(:) :: gradients
 
     allocate(gradients(0))
-  end function get_method_gradients
+  end function get_phase_gradients
 
-  pure module subroutine set_method_gradients(this, gradients)
+  pure module subroutine set_phase_gradients(this, gradients)
     implicit none
-    class(base_method_type), intent(inout) :: this
+    class(base_phase_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: gradients
-    !! nothing to do as no parameters in base method type
-  end subroutine set_method_gradients
+    !! nothing to do as no parameters in base phase type
+  end subroutine set_phase_gradients
 
-  module subroutine set_method_shape(this, shape)
+  module subroutine set_phase_shape(this, shape)
     implicit none
-    class(base_method_type), intent(inout) :: this
+    class(base_phase_type), intent(inout) :: this
     integer, dimension(:), intent(in) :: shape
 
     integer :: s
@@ -203,7 +192,7 @@ contains
        allocate(this%feature(s)%val(this%num_outputs, shape(s)))
     end do
 
-  end subroutine set_method_shape
+  end subroutine set_phase_shape
 !!!#############################################################################
 
 
@@ -360,14 +349,15 @@ contains
     shape = graph(:)%num_vertices
 
     do t = 0, this%method%num_time_steps, 1
-      call this%method%state(t)%set_shape(shape)
-      if(t.eq.0) cycle
       call this%method%message(t)%set_shape(shape)
-      do s = 1, this%batch_size
-         do v = 1, graph(s)%num_vertices
-            this%method%state(0)%feature(s)%val(:,v) = graph(s)%vertex(v)%feature
+      if(t.eq.0)then
+         do s = 1, this%batch_size
+            do v = 1, graph(s)%num_vertices
+               this%method%message(0)%feature(s)%val(:,v) = &
+                    graph(s)%vertex(v)%feature
+            end do
          end do
-      end do
+      end if
     end do
 
     call this%method%readout%set_shape(shape)
@@ -387,11 +377,10 @@ contains
     integer :: v, s, t
 
     do t = 1, this%method%num_time_steps, 1
-       call this%method%message(t)%update(this%method%state(t-1)%feature, graph)
-       call this%method%state(t)%update(this%method%message(t)%feature, graph)
+       call this%method%message(t)%update(this%method%message(t-1)%feature, graph)
     end do
 
-    call this%method%readout%get_output(this%method%state, this%output)
+    call this%method%readout%get_output(this%method%message, this%output)
 
   end subroutine forward_graph
 !!!#############################################################################
@@ -419,25 +408,19 @@ contains
     !!! THIS IS THE OUTPUT ERROR, NOT THE INPUT ERROR
 
     call this%method%readout%calculate_partials( &
-         input = this%method%state, &
+         input = this%method%message, &
          gradient = gradient &
     )
 
-    call this%method%state(this%method%num_time_steps)%calculate_partials( &
-         input = this%method%message(this%method%num_time_steps)%feature, &
+    call this%method%message(this%method%num_time_steps)%calculate_partials( &
+         input = this%method%message(this%method%num_time_steps-1)%feature, &
          gradient = this%method%readout%di, &
          graph = graph &
     )
 
-    do t = this%method%num_time_steps-1, 0, -1
-       call this%method%message(t+1)%calculate_partials( &
-            input = this%method%state(t)%feature, &
-            gradient = this%method%state(t+1)%di, &
-            graph = graph &
-       )
-       if(t.eq.0) cycle
-       call this%method%state(t)%calculate_partials( &
-            input = this%method%message(t)%feature, &
+    do t = this%method%num_time_steps - 1, 1, -1
+       call this%method%message(t)%calculate_partials( &
+            input = this%method%message(t-1)%feature, &
             gradient = this%method%message(t+1)%di, &
             graph = graph &
        )

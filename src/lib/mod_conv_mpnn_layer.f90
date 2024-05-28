@@ -5,63 +5,52 @@
 module conv_mpnn_layer
   use constants, only: real12
   use misc, only: outer_product
-  use custom_types, only: graph_type, activation_type
+  use custom_types, only: activation_type
+  use graph_structure, only: graph_type
   use activation, only: activation_setup
   use clipper, only: clip_type
   use mpnn_layer, only: &
        mpnn_layer_type, method_container_type, &
-       state_method_type, message_method_type, readout_method_type, &
+       message_phase_type, readout_phase_type, &
        feature_type
   implicit none
   
 
   private
-  public :: conv_mpnn_layer_type, conv_method_container_type
-  public :: conv_readout_method_type, conv_state_method_type
+  public :: conv_mpnn_layer_type
 
 
-
-  type, extends(message_method_type) :: conv_message_method_type
-   contains
-     procedure :: update => update_message_conv
-     procedure :: calculate_partials => calculate_partials_message_conv
-     procedure :: set_shape => set_shape_message_conv
-  end type conv_message_method_type
-  interface conv_message_method_type
-    module function message_method_setup( &
-         num_vertex_features, num_edge_features, batch_size ) result(message_method)
-      integer, intent(in) :: num_vertex_features, num_edge_features, batch_size
-      type(conv_message_method_type) :: message_method
-    end function message_method_setup
-  end interface conv_message_method_type
-
-
-  type, extends(state_method_type) :: conv_state_method_type
-     !! weight has dimensions (feature_out, feature_in, vertex_degree, batch_size)
+  type, extends(message_phase_type) :: conv_message_phase_type
+     !! weight dimensions (feature_out, feature_in, vertex_degree, batch_size)
      real(real12), dimension(:,:,:), allocatable :: weight
      real(real12), dimension(:,:,:,:), allocatable :: dw
      type(feature_type), dimension(:), allocatable :: z
      class(activation_type), allocatable :: transfer
    contains
-     procedure :: get_num_params => get_num_params_state_conv
-     procedure :: get_params => get_params_state_conv
-     procedure :: set_params => set_params_state_conv
-     procedure :: get_gradients => get_gradients_state_conv
-     procedure :: set_gradients => set_gradients_state_conv
-     procedure :: set_shape => set_shape_state_conv
-     procedure :: update => update_state_conv
-     procedure :: calculate_partials => calculate_state_partials_conv
-  end type conv_state_method_type
-  interface conv_state_method_type
-    module function state_method_setup( &
-         num_vertex_features, num_edge_features, max_vertex_degree, batch_size ) result(state_method)
-      integer, intent(in) :: num_vertex_features, num_edge_features, max_vertex_degree, batch_size
-      type(conv_state_method_type) :: state_method
-    end function state_method_setup
-  end interface conv_state_method_type
+     procedure :: get_num_params => get_num_params_message_conv
+     procedure :: get_params => get_params_message_conv
+     procedure :: set_params => set_params_message_conv
+
+     procedure :: get_gradients => get_gradients_message_conv
+     procedure :: set_gradients => set_gradients_message_conv
+
+     procedure :: set_shape => set_shape_message_conv
+
+     procedure :: update => update_message_conv
+     procedure :: calculate_partials => calculate_partials_message_conv
+  end type conv_message_phase_type
+  interface conv_message_phase_type
+    module function message_phase_setup( &
+         num_vertex_features, num_edge_features, &
+         max_vertex_degree, batch_size ) result(message_phase)
+      integer, intent(in) :: num_vertex_features, num_edge_features, &
+           max_vertex_degree, batch_size
+      type(conv_message_phase_type) :: message_phase
+    end function message_phase_setup
+  end interface conv_message_phase_type
 
 
-  type, extends(readout_method_type) :: conv_readout_method_type
+  type, extends(readout_phase_type) :: conv_readout_phase_type
     integer :: num_time_steps
     real(real12), dimension(:,:,:), allocatable :: weight
     real(real12), dimension(:,:,:,:), allocatable :: dw
@@ -71,19 +60,23 @@ module conv_mpnn_layer
      procedure :: get_num_params => get_num_params_readout_conv
      procedure :: get_params => get_params_readout_conv
      procedure :: set_params => set_params_readout_conv
+
      procedure :: get_gradients => get_gradients_readout_conv
      procedure :: set_gradients => set_gradients_readout_conv
+
      procedure :: set_shape => set_shape_readout_conv
+
      procedure :: get_output => get_output_readout_conv
-     procedure :: calculate_partials => calculate_readout_partials_conv
-  end type conv_readout_method_type
-  interface conv_readout_method_type
-    module function readout_method_setup( &
-         num_time_steps, num_inputs, num_outputs, batch_size ) result(readout_method)
+     procedure :: calculate_partials => calculate_partials_readout_conv
+  end type conv_readout_phase_type
+  interface conv_readout_phase_type
+    module function readout_phase_setup( &
+         num_time_steps, num_inputs, num_outputs, batch_size ) &
+         result(readout_phase)
       integer, intent(in) :: num_time_steps, num_inputs, num_outputs, batch_size
-      type(conv_readout_method_type) :: readout_method
-    end function readout_method_setup
-  end interface conv_readout_method_type
+      type(conv_readout_phase_type) :: readout_phase
+    end function readout_phase_setup
+  end interface conv_readout_phase_type
 
 
 
@@ -92,6 +85,7 @@ module conv_mpnn_layer
   end type conv_mpnn_layer_type
 
   type, extends(method_container_type) :: conv_method_container_type
+    integer :: max_vertex_degree = 6
    contains
     procedure, pass(this) :: init => init_conv_mpnn_method
   end type conv_method_container_type
@@ -113,10 +107,13 @@ module conv_mpnn_layer
   interface conv_method_container_type
     module function method_setup( &
          num_vertex_features, num_edge_features, num_time_steps, &
-         output_shape, batch_size) result(method)
-      integer, intent(in) :: num_vertex_features, num_edge_features, num_time_steps
+         output_shape, &
+         max_vertex_degree, &
+         batch_size) result(method)
+      integer, intent(in) :: num_vertex_features, num_edge_features, &
+           num_time_steps
       integer, dimension(1), intent(in) :: output_shape
-      integer, intent(in) :: batch_size
+      integer, intent(in) :: max_vertex_degree, batch_size
       type(conv_method_container_type) :: method
     end function method_setup
 
@@ -126,19 +123,19 @@ module conv_mpnn_layer
 contains
 
 !!!#############################################################################
-!!! 
+!!! return number of learnable parameters
 !!!#############################################################################
-  pure function get_num_params_state_conv(this) result(num_params)
+  pure function get_num_params_message_conv(this) result(num_params)
     implicit none
-    class(conv_state_method_type), intent(in) :: this
+    class(conv_message_phase_type), intent(in) :: this
     integer :: num_params
 
     num_params = size(this%weight)
-  end function get_num_params_state_conv
+  end function get_num_params_message_conv
   
   pure function get_num_params_readout_conv(this) result(num_params)
     implicit none
-    class(conv_readout_method_type), intent(in) :: this
+    class(conv_readout_phase_type), intent(in) :: this
     integer :: num_params
 
     num_params = size(this%weight)
@@ -147,21 +144,21 @@ contains
 
 
 !!!#############################################################################
-!!! 
+!!! return learnable parameters
 !!!#############################################################################
-  pure module function get_params_state_conv(this) result(params)
+  pure module function get_params_message_conv(this) result(params)
     implicit none
-    class(conv_state_method_type), intent(in) :: this
+    class(conv_message_phase_type), intent(in) :: this
     real(real12), allocatable, dimension(:) :: params
   
     integer :: t
 
     params = reshape(this%weight, [ size(this%weight) ])
-  end function get_params_state_conv
+  end function get_params_message_conv
 
   pure module function get_params_readout_conv(this) result(params)
     implicit none
-    class(conv_readout_method_type), intent(in) :: this
+    class(conv_readout_phase_type), intent(in) :: this
     real(real12), allocatable, dimension(:) :: params
   
     integer :: t
@@ -170,22 +167,23 @@ contains
   end function get_params_readout_conv
 !!!#############################################################################
 
+
 !!!#############################################################################
-!!! 
+!!! set learnable parameters
 !!!#############################################################################
-  pure subroutine set_params_state_conv(this, params)
+  pure subroutine set_params_message_conv(this, params)
     implicit none
-    class(conv_state_method_type), intent(inout) :: this
+    class(conv_message_phase_type), intent(inout) :: this
     real(real12), dimension(:), intent(in) :: params
 
     integer :: t
 
     this%weight = reshape(params, shape(this%weight))
-  end subroutine set_params_state_conv
+  end subroutine set_params_message_conv
 
   pure subroutine set_params_readout_conv(this, params)
     implicit none
-    class(conv_readout_method_type), intent(inout) :: this
+    class(conv_readout_phase_type), intent(inout) :: this
     real(real12), dimension(:), intent(in) :: params
 
     integer :: t
@@ -196,26 +194,28 @@ contains
 
 
 !!!#############################################################################
-!!! 
+!!! return gradients
 !!!#############################################################################
-  pure function get_gradients_state_conv(this, clip_method) result(gradients)
+  pure function get_gradients_message_conv(this, clip_method) result(gradients)
     implicit none
-    class(conv_state_method_type), intent(in) :: this
+    class(conv_message_phase_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
     real(real12), allocatable, dimension(:) :: gradients
 
-    gradients = reshape(sum(this%dw,dim=4)/this%batch_size, [ size(this%dw,1) * size(this%dw,2) * size(this%dw,3) ])
+    gradients = reshape(sum(this%dw,dim=4)/this%batch_size, &
+         [ size(this%dw,1) * size(this%dw,2) * size(this%dw,3) ])
 
     if(present(clip_method)) call clip_method%apply(size(gradients),gradients)
-  end function get_gradients_state_conv
+  end function get_gradients_message_conv
 
   pure function get_gradients_readout_conv(this, clip_method) result(gradients)
     implicit none
-    class(conv_readout_method_type), intent(in) :: this
+    class(conv_readout_phase_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
     real(real12), allocatable, dimension(:) :: gradients
 
-    gradients = reshape(sum(this%dw,dim=4)/this%batch_size, [ size(this%dw,1) * size(this%dw,2) * size(this%dw,3) ])
+    gradients = reshape(sum(this%dw,dim=4)/this%batch_size, &
+         [ size(this%dw,1) * size(this%dw,2) * size(this%dw,3) ])
 
     if(present(clip_method)) call clip_method%apply(size(gradients),gradients)
   end function get_gradients_readout_conv
@@ -223,11 +223,11 @@ contains
 
 
 !!!#############################################################################
-!!! 
+!!! set gradients
 !!!#############################################################################
-  pure subroutine set_gradients_state_conv(this, gradients)
+  pure subroutine set_gradients_message_conv(this, gradients)
     implicit none
-    class(conv_state_method_type), intent(inout) :: this
+    class(conv_message_phase_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: gradients
   
     select rank(gradients)
@@ -238,11 +238,11 @@ contains
             this%batch_size)
     end select
 
-  end subroutine set_gradients_state_conv
+  end subroutine set_gradients_message_conv
 
   pure subroutine set_gradients_readout_conv(this, gradients)
     implicit none
-    class(conv_readout_method_type), intent(inout) :: this
+    class(conv_readout_phase_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: gradients
   
     select rank(gradients)
@@ -256,33 +256,24 @@ contains
   end subroutine set_gradients_readout_conv
 !!!#############################################################################
 
+
 !!!#############################################################################
-!!! 
+!!! set shape of phases
 !!!#############################################################################
   subroutine set_shape_message_conv(this, shape)
     implicit none
-    class(conv_message_method_type), intent(inout) :: this
+    class(conv_message_phase_type), intent(inout) :: this
     integer, dimension(:), intent(in) :: shape
 
     integer :: s
 
-    do s = 1, this%batch_size
-       if(allocated(this%feature(s)%val)) deallocate(this%feature(s)%val)
-       allocate(this%feature(s)%val(this%num_outputs, shape(s)))
-
-       if(allocated(this%di(s)%val)) deallocate(this%di(s)%val)
-       allocate(this%di(s)%val(this%num_inputs, shape(s)))
-    end do
-
-  end subroutine set_shape_message_conv
-
-
-  subroutine set_shape_state_conv(this, shape)
-    implicit none
-    class(conv_state_method_type), intent(inout) :: this
-    integer, dimension(:), intent(in) :: shape
-
-    integer :: s
+    
+    if(this%use_message)then
+       do s = 1, this%batch_size
+          if(allocated(this%message(s)%val)) deallocate(this%message(s)%val)
+          allocate(this%message(s)%val(this%num_message_features, shape(s)))
+       end do
+    end if
 
     do s = 1, this%batch_size
        if(allocated(this%feature(s)%val)) deallocate(this%feature(s)%val)
@@ -294,11 +285,12 @@ contains
        allocate(this%di(s)%val(this%num_inputs, shape(s)))
     end do
 
-  end subroutine set_shape_state_conv
+  end subroutine set_shape_message_conv
+
 
   subroutine set_shape_readout_conv(this, shape)
     implicit none
-    class(conv_readout_method_type), intent(inout) :: this
+    class(conv_readout_phase_type), intent(inout) :: this
     integer, dimension(:), intent(in) :: shape
 
     integer :: s, t
@@ -317,66 +309,64 @@ contains
 !!!#############################################################################
 
 
-  module function message_method_setup( &
-         num_vertex_features, num_edge_features, batch_size ) result(message_method)
+  module function message_phase_setup( &
+         num_vertex_features, num_edge_features, &
+         max_vertex_degree, batch_size ) result(message_phase)
     implicit none
-    integer, intent(in) :: num_vertex_features, num_edge_features, batch_size
-    type(conv_message_method_type) :: message_method
+    integer, intent(in) :: num_vertex_features, num_edge_features, &
+         max_vertex_degree, batch_size
+    type(conv_message_phase_type) :: message_phase
 
-    message_method%num_inputs  = num_vertex_features
-    message_method%num_outputs = num_vertex_features + num_edge_features
-    message_method%batch_size  = batch_size
+    message_phase%num_inputs  = num_vertex_features
+    message_phase%num_outputs = num_vertex_features
+    message_phase%num_message_features = num_vertex_features + num_edge_features
+    message_phase%batch_size  = batch_size
     
-    allocate(message_method%feature(batch_size))
-    allocate(message_method%di(batch_size))
-
-  end function message_method_setup
-
-  module function state_method_setup( &
-         num_vertex_features, num_edge_features, max_vertex_degree, batch_size ) result(state_method)
-    implicit none
-    integer, intent(in) :: num_vertex_features, num_edge_features, batch_size, max_vertex_degree
-    type(conv_state_method_type) :: state_method
-
-    state_method%num_inputs  = num_vertex_features + num_edge_features
-    state_method%num_outputs = num_vertex_features
-    state_method%batch_size  = batch_size
-
-    !!! MAXIMUM VERTEX DEGREE
-    allocate(state_method%feature(batch_size))
-    allocate(state_method%weight(state_method%num_inputs, state_method%num_outputs, max_vertex_degree), source=1._real12)
-    allocate(state_method%dw(state_method%num_inputs, state_method%num_outputs, max_vertex_degree, batch_size))
-    allocate(state_method%z(batch_size))
-    allocate(state_method%di(batch_size))
+    allocate(message_phase%message(batch_size))
+    allocate(message_phase%feature(batch_size))
+    allocate(message_phase%weight( &
+         message_phase%num_message_features, &
+         message_phase%num_outputs, &
+         max_vertex_degree), source=1._real12)
+    allocate(message_phase%dw( &
+         message_phase%num_message_features, &
+         message_phase%num_outputs, &
+         max_vertex_degree, batch_size))
+    allocate(message_phase%z(batch_size))
+    allocate(message_phase%di(batch_size))
   
     write(*,*) "setting up transfer function"
-    allocate(state_method%transfer, &
+    allocate(message_phase%transfer, &
          source=activation_setup("sigmoid", 1._real12))
     write(*,*) "transfer function set up"
 
-  end function state_method_setup
+  end function message_phase_setup
 
-  module function readout_method_setup( &
-         num_time_steps, num_inputs, num_outputs,batch_size ) result(readout_method)
+
+  module function readout_phase_setup( &
+         num_time_steps, num_inputs, num_outputs,batch_size &
+         ) result(readout_phase)
     implicit none
     integer, intent(in) :: num_time_steps, num_inputs, num_outputs, batch_size
-    type(conv_readout_method_type) :: readout_method
+    type(conv_readout_phase_type) :: readout_phase
 
-    readout_method%num_time_steps = num_time_steps
-    readout_method%num_inputs  = num_inputs
-    readout_method%num_outputs = num_outputs
-    readout_method%batch_size  = batch_size
-    allocate(readout_method%weight(num_inputs, num_outputs, num_time_steps+1), source=1._real12)
-    allocate(readout_method%dw(num_inputs, num_outputs, num_time_steps+1, batch_size))
-    allocate(readout_method%z(num_time_steps+1, batch_size))
-    allocate(readout_method%di(batch_size))
+    readout_phase%num_time_steps = num_time_steps
+    readout_phase%num_inputs  = num_inputs
+    readout_phase%num_outputs = num_outputs
+    readout_phase%batch_size  = batch_size
+    allocate(readout_phase%weight( &
+         num_inputs, num_outputs, num_time_steps+1), source=1._real12)
+    allocate(readout_phase%dw( &
+         num_inputs, num_outputs, num_time_steps+1, batch_size))
+    allocate(readout_phase%z(num_time_steps+1, batch_size))
+    allocate(readout_phase%di(batch_size))
 
     write(*,*) "setting up transfer function"
-    allocate(readout_method%transfer, &
+    allocate(readout_phase%transfer, &
          source=activation_setup("softmax", 1._real12))
     write(*,*) "transfer function set up"
 
-  end function readout_method_setup
+  end function readout_phase_setup
 
 
 
@@ -394,20 +384,16 @@ contains
     this%num_time_steps = num_time_steps
     this%num_outputs = output_shape(1)
     if(allocated(this%message)) deallocate(this%message)
-    allocate(this%message(this%num_time_steps), &
-         source = conv_message_method_type( &
-            this%num_features(1), this%num_features(2), batch_size &
+    allocate(this%message(0:this%num_time_steps), &
+         source = conv_message_phase_type( &
+            this%num_features(1), this%num_features(2), &
+            this%max_vertex_degree, batch_size &
          ) &
     )
-    if(allocated(this%state)) deallocate(this%state)
-    allocate(this%state(0:this%num_time_steps), &
-         source = conv_state_method_type( &
-            this%num_features(1), this%num_features(2), 6, batch_size &
-         ) &
-    )
+    this%message(0)%use_message = .false.
     if(allocated(this%readout)) deallocate(this%readout)
     allocate(this%readout, &
-         source = conv_readout_method_type( &
+         source = conv_readout_phase_type( &
               this%num_time_steps, this%num_features(1), this%num_outputs, batch_size &
          ) &
     )
@@ -415,51 +401,52 @@ contains
   end subroutine init_conv_mpnn_method
 
 
-  module function method_setup(num_vertex_features, num_edge_features, num_time_steps, output_shape, batch_size) result(method)
+  module function method_setup(num_vertex_features, num_edge_features, &
+         num_time_steps, output_shape, &
+         max_vertex_degree, &
+         batch_size) result(method)
     implicit none
     integer, intent(in) :: num_vertex_features, num_edge_features, num_time_steps
     integer, dimension(1), intent(in) :: output_shape
-    integer, intent(in) :: batch_size
+    integer, intent(in) :: max_vertex_degree, batch_size
     type(conv_method_container_type) :: method
 
 
     method%num_features = [ num_vertex_features, num_edge_features ]
     method%num_time_steps = num_time_steps
     method%num_outputs = output_shape(1)
-    allocate(method%message(method%num_time_steps), &
-         source = conv_message_method_type( &
-            method%num_features(1), method%num_features(2), batch_size &
+    method%max_vertex_degree = max_vertex_degree
+    allocate(method%message(0:method%num_time_steps), &
+         source = conv_message_phase_type( &
+            method%num_features(1), method%num_features(2), &
+            method%max_vertex_degree, batch_size &
          ) &
     )
-    write(*,*) "num_messages", size(method%message)
-    allocate(method%state(0:method%num_time_steps), &
-         source = conv_state_method_type( &
-            method%num_features(1), method%num_features(2), 4, batch_size &
-         ) &
-    )
-    write(*,*) "num_states", size(method%state)
+    method%message(0)%use_message = .false.
     allocate(method%readout, &
-         source = conv_readout_method_type( &
-              method%num_time_steps, method%num_features(1), method%num_outputs, batch_size &
+         source = conv_readout_phase_type( &
+              method%num_time_steps, method%num_features(1), &
+              method%num_outputs, batch_size &
          ) &
     )
 
   end function method_setup
 
 
-
   module function layer_setup( &
          num_time_steps, &
          num_vertex_features, num_edge_features, &
-         num_outputs, batch_size ) result(layer)
+         num_outputs, &
+         max_vertex_degree, &
+         batch_size ) result(layer)
     implicit none
     integer, intent(in) :: num_time_steps, num_vertex_features, &
-         num_edge_features, num_outputs, batch_size
+         num_edge_features, num_outputs, max_vertex_degree, batch_size
     type(conv_mpnn_layer_type) :: layer
 
     layer%batch_size = batch_size
     layer%output_shape = [num_outputs]
-    layer%input_shape = [1._real12]!num_vertex_features, num_edge_features, num_time_steps] !!! MAY CHANGE THIS, provide MPNN with extra data it can pass through
+    layer%input_shape = [1._real12]
 
     layer%num_vertex_features = num_vertex_features
     layer%num_edge_features = num_edge_features
@@ -467,13 +454,10 @@ contains
 
     layer%method = conv_method_container_type( &
          num_vertex_features, num_edge_features, num_time_steps, &
-         [num_outputs], batch_size &
+         [num_outputs], &
+         max_vertex_degree, &
+         batch_size &
     )
-    ! call layer%method%init( &
-    !      num_vertex_features, num_edge_features, num_time_steps, &
-    !      [num_outputs], batch_size &
-    ! )
-    write(*,*) "NUM TIME STEPS", layer%method%num_time_steps
 
     allocate(layer%output(num_outputs, layer%batch_size))
 
@@ -482,101 +466,65 @@ contains
 
   pure subroutine update_message_conv(this, input, graph)
     implicit none
-    class(conv_message_method_type), intent(inout) :: this
+    class(conv_message_phase_type), intent(inout) :: this
     type(feature_type), dimension(this%batch_size), intent(in) :: input
     type(graph_type), dimension(this%batch_size), intent(in) :: graph
 
-    integer :: s, v, w, e
+    integer :: s, v, w, e, degree
 
-    do s = 1, this%batch_size
-       do v = 1, graph(s)%num_vertices
-         this%feature(s)%val(:,v) = [ &
-              input(s)%val(:,v), &
-              [ ( 0._real12 , w = 1, graph(s)%num_edge_features ) ] ]
-         do e = 1, graph(s)%num_edges
-            if(any(abs(graph(s)%edge(e)%index).eq.v))then
-               if(graph(s)%edge(e)%index(1) .eq. v)then
-                  w = graph(s)%edge(e)%index(2)
-               else
-                  w = graph(s)%edge(e)%index(1)
-               end if
-               this%feature(s)%val(:,v) = &
-                     this%feature(s)%val(:,v) + &
-                     [ input(s)%val(:,w), graph(s)%edge(e)%feature(:) ]
-            end if
-         end do
-         ! do w = 1, graph(s)%num_vertices
-         !     if(graph(s)%adjacency(v,w) .ne. 0) then
-         !       this%feature(s)%val(:,v) = &
-         !             this%feature(s)%val(:,v) + &
-         !             [ input(s)%val(:,w), graph(s)%edge(abs(graph(s)%adjacency(v,w)))%feature(:) ]
-         !     end if
-         ! end do
+
+    if(this%use_message)then
+       do concurrent (s = 1: this%batch_size)
+          do v = 1, graph(s)%num_vertices
+             this%message(s)%val(:,v) = [ &
+                  input(s)%val(:,v), &
+                  [ ( 0._real12 , w = 1, graph(s)%num_edge_features ) ] ]
+             do e = 1, graph(s)%num_edges
+                if(any(abs(graph(s)%edge(e)%index).eq.v))then
+                   if(graph(s)%edge(e)%index(1) .eq. v)then
+                      w = graph(s)%edge(e)%index(2)
+                   else
+                      w = graph(s)%edge(e)%index(1)
+                   end if
+                   this%message(s)%val(:,v) = &
+                         this%message(s)%val(:,v) + &
+                         [ input(s)%val(:,w), graph(s)%edge(e)%feature(:) ]
+                end if
+             end do
+             degree = min(graph(s)%vertex(v)%degree, size(this%weight, 3))
+             this%z(s)%val(:,v) = matmul( &
+                  this%message(s)%val(:,v), &
+                  this%weight(:,:,degree) &
+             )
+             this%feature(s)%val(:,v) = this%transfer%activate( this%z(s)%val(:,v) )
+          end do
        end do
-    end do
+    else
+       do concurrent (s = 1: this%batch_size)
+          do v = 1, graph(s)%num_vertices
+             degree = min(graph(s)%vertex(v)%degree, size(this%weight, 3))
+             this%z(s)%val(:,v) = matmul( &
+                  input(s)%val(:,v), &
+                  this%weight(:,:,degree) &
+             )
+             this%feature(s)%val(:,v) = this%transfer%activate( this%z(s)%val(:,v) )
+          end do
+       end do
+    end if
 
   end subroutine update_message_conv
 
 
   pure subroutine calculate_partials_message_conv(this, input, gradient, graph)
     implicit none
-    class(conv_message_method_type), intent(inout) :: this
+    class(conv_message_phase_type), intent(inout) :: this
     !! hidden features has dimensions (feature, vertex, batch_size)
-    type(feature_type), dimension(this%batch_size), intent(in) :: input
-    type(feature_type), dimension(this%batch_size), intent(in) :: gradient
-    type(graph_type), dimension(this%batch_size), intent(in) :: graph
-
-    integer :: s
-
-    !! the delta values are the error multipled by the derivative ...
-    !! ... of the transfer function
-    !! delta(l) = g'(a) * dE/dI(l)
-    !! delta(l) = differential of activation * error from next layer
-
-    do concurrent(s=1:this%batch_size)
-       !! no message passing transfer function
-       this%di(s)%val(:,:) = gradient(s)%val(:this%num_inputs,:)
-    end do
-
-  end subroutine calculate_partials_message_conv
-
-
-  pure subroutine update_state_conv(this, input, graph)
-    implicit none
-    class(conv_state_method_type), intent(inout) :: this
-    type(feature_type), dimension(this%batch_size), intent(in) :: input
-    type(graph_type), dimension(this%batch_size), intent(in) :: graph
-
-    integer :: s, v, degree
-
-    do s = 1, this%batch_size
-       do v = 1, graph(s)%num_vertices
-          degree = min(graph(s)%vertex(v)%degree, size(this%weight, 3))
-          this%z(s)%val(:,v) = matmul( &
-               input(s)%val(:,v), &
-               this%weight(:,:,degree) &
-          )
-          this%feature(s)%val(:,v) = this%transfer%activate( this%z(s)%val(:,v) )
-       end do
-    end do
-
-  end subroutine update_state_conv
-
-  pure subroutine calculate_state_partials_conv(this, input, gradient, graph)
-    implicit none
-    class(conv_state_method_type), intent(inout) :: this
     type(feature_type), dimension(this%batch_size), intent(in) :: input
     type(feature_type), dimension(this%batch_size), intent(in) :: gradient
     type(graph_type), dimension(this%batch_size), intent(in) :: graph
 
     integer :: s, v, degree
     real(real12), dimension(:,:), allocatable :: delta
-
-    
-    !! the delta values are the error multipled by the derivative ...
-    !! ... of the transfer function
-    !! delta(l) = g'(a) * dE/dI(l)
-    !! delta(l) = differential of activation * error from next layer
 
     this%dw = 0._real12
     do concurrent(s=1:this%batch_size)
@@ -590,22 +538,24 @@ contains
           degree = min(graph(s)%vertex(v)%degree, size(this%weight, 3))
           !! i.e. outer product of the input and delta
           !! sum weights and biases errors to use in batch gradient descent
-          this%dw(:,:,degree,s) = this%dw(:,:,degree,s) + outer_product(input(s)%val(:,v), delta(:,v))
+          this%dw(:,:,degree,s) = this%dw(:,:,degree,s) + &
+               outer_product(input(s)%val(:,v), delta(:,v))
           !! the errors are summed from the delta of the ...
           !! ... 'child' node * 'child' weight
           !! dE/dI(l-1) = sum(weight(l) * delta(l))
           !! this prepares dE/dI for when it is passed into the previous layer
-          this%di(s)%val(:,v) = matmul(this%weight(:,:,degree), delta(:,v))
+          this%di(s)%val(:this%num_inputs,v) = &
+               matmul(this%weight(:this%num_inputs,:,degree), delta(:,v))
        end do
     end do
 
-  end subroutine calculate_state_partials_conv
+  end subroutine calculate_partials_message_conv
 
 
   pure subroutine get_output_readout_conv(this, input, output)
     implicit none
-    class(conv_readout_method_type), intent(inout) :: this
-    class(state_method_type), dimension(0:this%num_time_steps), intent(in) :: input
+    class(conv_readout_phase_type), intent(inout) :: this
+    class(message_phase_type), dimension(0:this%num_time_steps), intent(in) :: input
     real(real12), dimension(this%num_outputs, this%batch_size), intent(out) :: output
 
     integer :: s, v, t
@@ -627,10 +577,10 @@ contains
   end subroutine get_output_readout_conv
 
 
-  pure subroutine calculate_readout_partials_conv(this, input, gradient)
+  pure subroutine calculate_partials_readout_conv(this, input, gradient)
     implicit none
-    class(conv_readout_method_type), intent(inout) :: this
-    class(state_method_type), dimension(0:this%num_time_steps), intent(in) :: input
+    class(conv_readout_phase_type), intent(inout) :: this
+    class(message_phase_type), dimension(0:this%num_time_steps), intent(in) :: input
     real(real12), dimension(this%num_outputs, this%batch_size), intent(in) :: gradient
 
     integer :: s, v, t
@@ -661,7 +611,7 @@ contains
        end do
     end do
     
-  end subroutine calculate_readout_partials_conv
+  end subroutine calculate_partials_readout_conv
 
 end module conv_mpnn_layer
 !!!#############################################################################
