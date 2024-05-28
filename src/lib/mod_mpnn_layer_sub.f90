@@ -11,7 +11,7 @@ submodule(mpnn_layer) mpnn_layer_submodule
 contains
 
 !!!#############################################################################
-!!! 
+!!! add and multiply operations procedures
 !!!#############################################################################
   elemental module function feature_add(a, b) result(output)
     class(feature_type), intent(in) :: a, b
@@ -30,8 +30,9 @@ contains
   end function feature_multiply
 !!!#############################################################################
 
+
 !!!#############################################################################
-!!! 
+!!! layer reduction and merge procedures
 !!!#############################################################################
   module subroutine layer_reduction(this, rhs)
     implicit none
@@ -39,7 +40,6 @@ contains
     class(learnable_layer_type), intent(in) :: rhs
 
     !! NOT YET IMPLEMENTED
-
   end subroutine layer_reduction
 
   module subroutine layer_merge(this, input)
@@ -48,12 +48,12 @@ contains
     class(learnable_layer_type), intent(in) :: input
 
     !! NOT YET IMPLEMENTED
-
   end subroutine layer_merge
 !!!#############################################################################
 
+
 !!!#############################################################################
-!!! 
+!!! handle layer learnable parameters
 !!!#############################################################################
   pure module function get_num_params_mpnn(this) result(num_params)
     implicit none
@@ -68,7 +68,7 @@ contains
     end do
     num_params = num_params + this%method%readout%get_num_params()
   end function get_num_params_mpnn
-
+!!!-----------------------------------------------------------------------------
   pure module function get_params_mpnn(this) result(params)
     implicit none
     class(mpnn_layer_type), intent(in) :: this
@@ -82,7 +82,7 @@ contains
     end do
     params = [ params, this%method%readout%get_params() ]
   end function get_params_mpnn
-
+!!!-----------------------------------------------------------------------------
   pure subroutine set_params_mpnn(this, params)
     implicit none
     class(mpnn_layer_type), intent(inout) :: this
@@ -100,7 +100,12 @@ contains
     if(iend.gt.istart-1) call this%method%readout%set_params(params(istart:iend))
 
   end subroutine set_params_mpnn
+!!!#############################################################################
 
+
+!!!#############################################################################
+!!! handle layer gradients
+!!!#############################################################################
   pure module function get_gradients_mpnn(this, clip_method) result(gradients)
     implicit none
     class(mpnn_layer_type), intent(in) :: this
@@ -112,17 +117,21 @@ contains
     allocate(gradients(0))
     if(present(clip_method))then
        do t = 1, this%method%num_time_steps
-          gradients = [ gradients, this%method%message(t)%get_gradients(clip_method) ]
+          gradients = [ &
+               gradients, &
+               this%method%message(t)%get_gradients(clip_method) ]
        end do
        gradients = [ gradients, this%method%readout%get_gradients(clip_method) ]
     else
        do t = 1, this%method%num_time_steps
-           gradients = [ gradients, this%method%message(t)%get_gradients() ]
+           gradients = [ &
+                gradients, &
+                this%method%message(t)%get_gradients() ]
        end do
        gradients = [ gradients, this%method%readout%get_gradients() ]
     end if
   end function get_gradients_mpnn
-
+!!!-----------------------------------------------------------------------------
   pure module subroutine set_gradients_mpnn(this, gradients)
     implicit none
     class(mpnn_layer_type), intent(inout) :: this
@@ -139,7 +148,7 @@ contains
 
 
 !!!#############################################################################
-!!! 
+!!! handle individual phase learnable parameters
 !!!#############################################################################
   pure module function get_phase_num_params(this) result(num_params)
     implicit none
@@ -148,7 +157,7 @@ contains
 
     num_params = 0
   end function get_phase_num_params
-
+!!!-----------------------------------------------------------------------------
   pure module function get_phase_params(this) result(params)
     implicit none
     class(base_phase_type), intent(in) :: this
@@ -156,14 +165,19 @@ contains
 
     allocate(params(0))
   end function get_phase_params
-  
+!!!-----------------------------------------------------------------------------
   pure module subroutine set_phase_params(this, params)
     implicit none
     class(base_phase_type), intent(inout) :: this
     real(real12), dimension(:), intent(in) :: params
     !! nothing to do as no parameters in base phase type
   end subroutine set_phase_params
+!!!#############################################################################
 
+
+!!!#############################################################################
+!!! handle individual phase gradients
+!!!#############################################################################
   pure module function get_phase_gradients(this, clip_method) result(gradients)
     implicit none
     class(base_phase_type), intent(in) :: this
@@ -172,14 +186,14 @@ contains
 
     allocate(gradients(0))
   end function get_phase_gradients
-
+!!!-----------------------------------------------------------------------------
   pure module subroutine set_phase_gradients(this, gradients)
     implicit none
     class(base_phase_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: gradients
     !! nothing to do as no parameters in base phase type
   end subroutine set_phase_gradients
-
+!!!-----------------------------------------------------------------------------
   module subroutine set_phase_shape(this, shape)
     implicit none
     class(base_phase_type), intent(inout) :: this
@@ -400,12 +414,11 @@ contains
 
     integer :: s, t
 
+    
     !df/dv_c = h(M_c) * df/dM_y
 
     ! M_y = sum_c v_c * h(M_c)     message for output y
     ! h()                          hidden function
-
-    !!! THIS IS THE OUTPUT ERROR, NOT THE INPUT ERROR
 
     call this%method%readout%calculate_partials( &
          input = this%method%message, &

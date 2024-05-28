@@ -2,6 +2,11 @@
 !!! Code written by Ned Thaddeus Taylor
 !!! Code part of the ATHENA library - a feedforward neural network library
 !!!#############################################################################
+!!! module contains implementation of a ...
+!!! ... convolutional message passing neural network layer
+!!! Original work by Duvenaud et al. (2015)
+!!! https://doi.org/10.48550/arXiv.1509.09292
+!!!#############################################################################
 module conv_mpnn_layer
   use constants, only: real12
   use misc, only: outer_product
@@ -20,6 +25,9 @@ module conv_mpnn_layer
   public :: conv_mpnn_layer_type
 
 
+!!!-----------------------------------------------------------------------------
+!!! convolutional message passing phase
+!!!-----------------------------------------------------------------------------
   type, extends(message_phase_type) :: conv_message_phase_type
      !! weight dimensions (feature_out, feature_in, vertex_degree, batch_size)
      real(real12), dimension(:,:,:), allocatable :: weight
@@ -39,6 +47,9 @@ module conv_mpnn_layer
      procedure :: update => update_message_conv
      procedure :: calculate_partials => calculate_partials_message_conv
   end type conv_message_phase_type
+
+  !! interface for the convolutional message passing phase
+  !!----------------------------------------------------------------------------
   interface conv_message_phase_type
     module function message_phase_setup( &
          num_vertex_features, num_edge_features, &
@@ -50,6 +61,9 @@ module conv_mpnn_layer
   end interface conv_message_phase_type
 
 
+!!!-----------------------------------------------------------------------------
+!!! convolutional readout passing phase
+!!!-----------------------------------------------------------------------------
   type, extends(readout_phase_type) :: conv_readout_phase_type
     integer :: num_time_steps
     real(real12), dimension(:,:,:), allocatable :: weight
@@ -69,6 +83,9 @@ module conv_mpnn_layer
      procedure :: get_output => get_output_readout_conv
      procedure :: calculate_partials => calculate_partials_readout_conv
   end type conv_readout_phase_type
+
+  !! interface for the convolutional readout passing phase
+  !!----------------------------------------------------------------------------
   interface conv_readout_phase_type
     module function readout_phase_setup( &
          num_time_steps, num_inputs, num_outputs, batch_size ) &
@@ -79,31 +96,17 @@ module conv_mpnn_layer
   end interface conv_readout_phase_type
 
 
-
-
-  type, extends(mpnn_layer_type) :: conv_mpnn_layer_type
-  end type conv_mpnn_layer_type
-
+!!!-----------------------------------------------------------------------------
+!!! convolutional MPNN method container
+!!!-----------------------------------------------------------------------------
   type, extends(method_container_type) :: conv_method_container_type
     integer :: max_vertex_degree = 6
    contains
     procedure, pass(this) :: init => init_conv_mpnn_method
   end type conv_method_container_type
 
-
-  interface conv_mpnn_layer_type
-    module function layer_setup( &
-           num_time_steps, &
-           num_vertex_features, num_edge_features, &
-           num_outputs, batch_size ) result(layer)
-      integer, intent(in) :: num_time_steps, num_vertex_features, &
-           num_edge_features, num_outputs, batch_size
-      type(conv_mpnn_layer_type) :: layer
-    end function layer_setup
-  end interface conv_mpnn_layer_type
-
-
-
+  !! interface for the convolutional MPNN method container
+  !!----------------------------------------------------------------------------
   interface conv_method_container_type
     module function method_setup( &
          num_vertex_features, num_edge_features, num_time_steps, &
@@ -120,6 +123,26 @@ module conv_mpnn_layer
   end interface conv_method_container_type
 
 
+!!!-----------------------------------------------------------------------------
+!!! convolutional MPNN layer
+!!!-----------------------------------------------------------------------------
+  type, extends(mpnn_layer_type) :: conv_mpnn_layer_type
+  end type conv_mpnn_layer_type
+
+  !! interface for the convolutional MPNN layer
+  !!----------------------------------------------------------------------------
+  interface conv_mpnn_layer_type
+    module function layer_setup( &
+           num_time_steps, &
+           num_vertex_features, num_edge_features, &
+           num_outputs, batch_size ) result(layer)
+      integer, intent(in) :: num_time_steps, num_vertex_features, &
+           num_edge_features, num_outputs, batch_size
+      type(conv_mpnn_layer_type) :: layer
+    end function layer_setup
+  end interface conv_mpnn_layer_type
+
+
 contains
 
 !!!#############################################################################
@@ -132,7 +155,7 @@ contains
 
     num_params = size(this%weight)
   end function get_num_params_message_conv
-  
+  !!!-----------------------------------------------------------------------------
   pure function get_num_params_readout_conv(this) result(num_params)
     implicit none
     class(conv_readout_phase_type), intent(in) :: this
@@ -155,7 +178,7 @@ contains
 
     params = reshape(this%weight, [ size(this%weight) ])
   end function get_params_message_conv
-
+!!!-----------------------------------------------------------------------------
   pure module function get_params_readout_conv(this) result(params)
     implicit none
     class(conv_readout_phase_type), intent(in) :: this
@@ -180,7 +203,7 @@ contains
 
     this%weight = reshape(params, shape(this%weight))
   end subroutine set_params_message_conv
-
+!!!-----------------------------------------------------------------------------
   pure subroutine set_params_readout_conv(this, params)
     implicit none
     class(conv_readout_phase_type), intent(inout) :: this
@@ -207,7 +230,7 @@ contains
 
     if(present(clip_method)) call clip_method%apply(size(gradients),gradients)
   end function get_gradients_message_conv
-
+!!!-----------------------------------------------------------------------------
   pure function get_gradients_readout_conv(this, clip_method) result(gradients)
     implicit none
     class(conv_readout_phase_type), intent(in) :: this
@@ -239,7 +262,7 @@ contains
     end select
 
   end subroutine set_gradients_message_conv
-
+!!!-----------------------------------------------------------------------------
   pure subroutine set_gradients_readout_conv(this, gradients)
     implicit none
     class(conv_readout_phase_type), intent(inout) :: this
@@ -286,8 +309,7 @@ contains
     end do
 
   end subroutine set_shape_message_conv
-
-
+!!!-----------------------------------------------------------------------------
   subroutine set_shape_readout_conv(this, shape)
     implicit none
     class(conv_readout_phase_type), intent(inout) :: this
@@ -309,6 +331,9 @@ contains
 !!!#############################################################################
 
 
+!!!#############################################################################
+!!! setup phases
+!!!#############################################################################
   module function message_phase_setup( &
          num_vertex_features, num_edge_features, &
          max_vertex_degree, batch_size ) result(message_phase)
@@ -341,8 +366,7 @@ contains
     write(*,*) "transfer function set up"
 
   end function message_phase_setup
-
-
+!!!-----------------------------------------------------------------------------
   module function readout_phase_setup( &
          num_time_steps, num_inputs, num_outputs,batch_size &
          ) result(readout_phase)
@@ -367,9 +391,12 @@ contains
     write(*,*) "transfer function set up"
 
   end function readout_phase_setup
+!!!#############################################################################
 
 
-
+!!!#############################################################################
+!!! initialise method container
+!!!#############################################################################
   subroutine init_conv_mpnn_method(this, &
        num_vertex_features, num_edge_features, num_time_steps, &
        output_shape, batch_size)
@@ -394,13 +421,18 @@ contains
     if(allocated(this%readout)) deallocate(this%readout)
     allocate(this%readout, &
          source = conv_readout_phase_type( &
-              this%num_time_steps, this%num_features(1), this%num_outputs, batch_size &
+              this%num_time_steps, this%num_features(1), &
+              this%num_outputs, batch_size &
          ) &
     )
 
   end subroutine init_conv_mpnn_method
+!!!#############################################################################
 
 
+!!!#############################################################################
+!!! setup method container
+!!!#############################################################################
   module function method_setup(num_vertex_features, num_edge_features, &
          num_time_steps, output_shape, &
          max_vertex_degree, &
@@ -431,8 +463,12 @@ contains
     )
 
   end function method_setup
+!!!#############################################################################
 
 
+!!!#############################################################################
+!!! setup convolutional MPNN
+!!!#############################################################################
   module function layer_setup( &
          num_time_steps, &
          num_vertex_features, num_edge_features, &
@@ -462,8 +498,11 @@ contains
     allocate(layer%output(num_outputs, layer%batch_size))
 
   end function layer_setup
+!!!#############################################################################
 
-
+!!!#############################################################################
+!!! update procedure for message phase (i.e. forward pass)
+!!!#############################################################################
   pure subroutine update_message_conv(this, input, graph)
     implicit none
     class(conv_message_phase_type), intent(inout) :: this
@@ -496,7 +535,8 @@ contains
                   this%message(s)%val(:,v), &
                   this%weight(:,:,degree) &
              )
-             this%feature(s)%val(:,v) = this%transfer%activate( this%z(s)%val(:,v) )
+             this%feature(s)%val(:,v) = &
+                  this%transfer%activate( this%z(s)%val(:,v) )
           end do
        end do
     else
@@ -507,14 +547,19 @@ contains
                   input(s)%val(:,v), &
                   this%weight(:,:,degree) &
              )
-             this%feature(s)%val(:,v) = this%transfer%activate( this%z(s)%val(:,v) )
+             this%feature(s)%val(:,v) = &
+                  this%transfer%activate( this%z(s)%val(:,v) )
           end do
        end do
     end if
 
   end subroutine update_message_conv
+!!!#############################################################################
 
 
+!!!#############################################################################
+!!! backward pass for message phase
+!!!#############################################################################
   pure subroutine calculate_partials_message_conv(this, input, gradient, graph)
     implicit none
     class(conv_message_phase_type), intent(inout) :: this
@@ -550,13 +595,19 @@ contains
     end do
 
   end subroutine calculate_partials_message_conv
+!!!#############################################################################
 
 
+!!!#############################################################################
+!!! return procedure for readout phase (i.e. forward pass)
+!!!#############################################################################
   pure subroutine get_output_readout_conv(this, input, output)
     implicit none
     class(conv_readout_phase_type), intent(inout) :: this
-    class(message_phase_type), dimension(0:this%num_time_steps), intent(in) :: input
-    real(real12), dimension(this%num_outputs, this%batch_size), intent(out) :: output
+    class(message_phase_type), dimension(0:this%num_time_steps), &
+         intent(in) :: input
+    real(real12), dimension(this%num_outputs, this%batch_size), &
+         intent(out) :: output
 
     integer :: s, v, t
 
@@ -575,13 +626,19 @@ contains
     end do
 
   end subroutine get_output_readout_conv
+!!!#############################################################################
 
 
+!!!#############################################################################
+!!! backward pass for readout phase
+!!!#############################################################################
   pure subroutine calculate_partials_readout_conv(this, input, gradient)
     implicit none
     class(conv_readout_phase_type), intent(inout) :: this
-    class(message_phase_type), dimension(0:this%num_time_steps), intent(in) :: input
-    real(real12), dimension(this%num_outputs, this%batch_size), intent(in) :: gradient
+    class(message_phase_type), dimension(0:this%num_time_steps), &
+         intent(in) :: input
+    real(real12), dimension(this%num_outputs, this%batch_size), &
+         intent(in) :: gradient
 
     integer :: s, v, t
     real(real12), dimension(this%num_outputs) :: delta
@@ -595,14 +652,22 @@ contains
        do t = 0, this%num_time_steps, 1
           do v = 1, size(input(t)%feature(s)%val, 2)
   
-              delta = gradient(:,s) * this%transfer%differentiate(this%z(t+1,s)%val(:,v))
+              delta = &
+                   gradient(:,s) * &
+                   this%transfer%differentiate(this%z(t+1,s)%val(:,v))
 
-              this%dw(:,:,t+1,s) = this%dw(:,:,t+1,s) + outer_product(input(t)%feature(s)%val(:,v), delta(:))
+              this%dw(:,:,t+1,s) = this%dw(:,:,t+1,s) + &
+                   outer_product(input(t)%feature(s)%val(:,v), delta(:))
 
-              delta(:) = gradient(:,s) * this%transfer%differentiate(this%z(this%num_time_steps+1,s)%val(:,v))
+              delta(:) = &
+                   gradient(:,s) * &
+                   this%transfer%differentiate( &
+                        this%z(this%num_time_steps+1,s)%val(:,v) &
+                   )
               
               if(t .ne. this%num_time_steps) cycle
-              this%di(s)%val(:,v) = matmul(this%weight(:,:,this%num_time_steps+1), delta(:))
+              this%di(s)%val(:,v) = &
+                   matmul(this%weight(:,:,this%num_time_steps+1), delta(:))
           end do
           !! SHOULD WORK OUT di FOR EACH TIME STEP
           !! BUT I DON'T KNOW HOW TO HANDLE THAT YET
@@ -612,6 +677,7 @@ contains
     end do
     
   end subroutine calculate_partials_readout_conv
+!!!#############################################################################
 
 end module conv_mpnn_layer
 !!!#############################################################################

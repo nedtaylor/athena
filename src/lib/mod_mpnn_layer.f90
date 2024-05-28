@@ -20,6 +20,9 @@ module mpnn_layer
   public :: get_output_readout
 
 
+!!!-----------------------------------------------------------------------------
+!!! message passing network layer type
+!!!-----------------------------------------------------------------------------
   type, extends(learnable_layer_type) :: mpnn_layer_type
      integer :: num_vertex_features, num_edge_features
      integer :: num_time_steps
@@ -45,6 +48,11 @@ module mpnn_layer
      procedure, pass(this) :: backward => backward_rank
   end type mpnn_layer_type
 
+
+!!!-----------------------------------------------------------------------------
+!!! method container type
+!!! contains the exact implementation of the message passing neural network
+!!!-----------------------------------------------------------------------------
   type, abstract :: method_container_type
     integer :: num_outputs
     integer :: num_time_steps
@@ -68,6 +76,11 @@ module mpnn_layer
   end type feature_type
 
 
+!!!-----------------------------------------------------------------------------
+!!! base phase type
+!!! contains the basic information for a phase in the message passing network
+!!! The two available phases are the message phase and the readout phase
+!!!-----------------------------------------------------------------------------
   type, abstract :: base_phase_type
      !!! HAVE LOGICAL THAT STATES WHETHER IT IS LEARNABLE ???
      integer :: num_inputs
@@ -85,7 +98,6 @@ module mpnn_layer
      procedure, pass(this) :: set_shape => set_phase_shape
   end type base_phase_type
 
-
   type, extends(base_phase_type), abstract :: message_phase_type
      integer :: num_message_features
      logical :: use_message = .true.
@@ -102,6 +114,9 @@ module mpnn_layer
   end type readout_phase_type
 
 
+!!!-----------------------------------------------------------------------------
+!!! interface for the message and readout phases forward and backward passes
+!!!-----------------------------------------------------------------------------
   abstract interface
      pure module subroutine update_message(this, input, graph)
        class(message_phase_type), intent(inout) :: this
@@ -118,7 +133,6 @@ module mpnn_layer
        type(graph_type), dimension(this%batch_size), intent(in) :: graph
      end subroutine calculate_partials_message
 
-
      pure module subroutine get_output_readout(this, input, output)
        class(readout_phase_type), intent(inout) :: this
        class(message_phase_type), dimension(:), intent(in) :: input
@@ -133,6 +147,9 @@ module mpnn_layer
   end interface
 
 
+!!!-----------------------------------------------------------------------------
+!!! layer combination functions
+!!!-----------------------------------------------------------------------------
   interface
     elemental module function feature_add(a, b) result(output)
       class(feature_type), intent(in) :: a, b
@@ -155,6 +172,10 @@ module mpnn_layer
     end subroutine layer_merge
   end interface
 
+
+!!!-----------------------------------------------------------------------------
+!!! interfaces for handling learnable parameters and gradients
+!!!-----------------------------------------------------------------------------
   interface
     pure module function get_num_params_mpnn(this) result(num_params)
       class(mpnn_layer_type), intent(in) :: this
@@ -183,6 +204,11 @@ module mpnn_layer
     end subroutine set_gradients_mpnn
   end interface
 
+
+!!!-----------------------------------------------------------------------------
+!!! interfaces for handling learnable parameters and gradients of ...
+!!! ... the message and readout phases
+!!!-----------------------------------------------------------------------------
   interface
     pure module function get_phase_num_params(this) result(num_params)
       class(base_phase_type), intent(in) :: this
@@ -211,6 +237,10 @@ module mpnn_layer
     end subroutine set_phase_gradients
   end interface
 
+
+!!!-----------------------------------------------------------------------------
+!!! interface for setting the shape of a phase
+!!!-----------------------------------------------------------------------------
   interface
     module subroutine set_phase_shape(this, shape)
       class(base_phase_type), intent(inout) :: this
@@ -218,6 +248,10 @@ module mpnn_layer
     end subroutine set_phase_shape
   end interface
 
+
+!!!-----------------------------------------------------------------------------
+!!! interfaces for handling forward and backward passes of the MPNN
+!!!-----------------------------------------------------------------------------
   interface
     pure module subroutine forward_rank(this, input)
       class(mpnn_layer_type), intent(inout) :: this
@@ -246,6 +280,10 @@ module mpnn_layer
   end interface
 
 
+!!!-----------------------------------------------------------------------------
+!!! interfaces for setting the graph, getting the output, and initialising ...
+!!! ... the MPNN
+!!!-----------------------------------------------------------------------------
   interface
      module subroutine set_graph(this, graph)
        class(mpnn_layer_type), intent(inout) :: this
@@ -269,6 +307,9 @@ module mpnn_layer
   end interface
 
 
+!!!-----------------------------------------------------------------------------
+!!! interface for initialising the method container
+!!!-----------------------------------------------------------------------------
   interface
     module subroutine init_method(this, &
          num_vertex_features, num_edge_features, num_time_steps, &
@@ -281,6 +322,9 @@ module mpnn_layer
   end interface
 
 
+!!!-----------------------------------------------------------------------------
+!!! interface for setting up the MPNN layer
+!!!-----------------------------------------------------------------------------
   interface mpnn_layer_type
      module function layer_setup( &
           method, &
