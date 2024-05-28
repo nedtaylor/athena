@@ -163,7 +163,7 @@ program test_conv2d_layer
         write(0,*) 'conv2d layer has wrong number of outputs'
      end if
      call conv_layer%get_output(outputs)
-     if(any(shape(outputs) .ne. conv_layer%output_shape))then
+     if(any(shape(outputs) .ne. [product(conv_layer%output_shape), 1]))then
         success = .false.
         write(0,*) 'conv2d layer has wrong number of outputs'
      end if
