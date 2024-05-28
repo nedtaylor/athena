@@ -37,6 +37,9 @@ program test_activations
    real, dimension(9) :: activate, differentiate
    real, dimension(1) :: value_1d, rtmp1_1d
    real, dimension(1,1,1) :: value_3d, rtmp1_3d
+   real, dimension(:,:), allocatable :: output_2d
+   real, dimension(:,:,:,:), allocatable :: output_4d
+   real, dimension(:,:,:,:,:), allocatable :: output_5d
 
 
 !!!-----------------------------------------------------------------------------
@@ -220,8 +223,9 @@ program test_activations
                  full_layer%output, input_data, activation_names(i), success)
 
             full_layer%output = 1.E0
+            output_2d = full_layer%transfer%differentiate(full_layer%output)
             call compare_derivative( &
-                 full_layer%transfer%differentiate(full_layer%output), &
+                 output_2d, &
                  full_layer%output, &
                  activation_names(i), success)
          end if
@@ -259,8 +263,9 @@ program test_activations
                  input_data_conv2d, activation_names(i), success)
             
             conv2d_layer%output = 1.E0
+            output_4d = conv2d_layer%transfer%differentiate(conv2d_layer%output)
             call compare_derivative( &
-                  conv2d_layer%transfer%differentiate(conv2d_layer%output), &
+                  output_4d, &
                   conv2d_layer%output, &
                   activation_names(i), success)
          end if
@@ -298,8 +303,9 @@ program test_activations
                  input_data_conv3d, activation_names(i), success)
             
             conv3d_layer%output = 1.E0
+            output_5d = conv3d_layer%transfer%differentiate(conv3d_layer%output)
             call compare_derivative( &
-                  conv3d_layer%transfer%differentiate(conv3d_layer%output), &
+                  output_5d, &
                   conv3d_layer%output, &
                   activation_names(i), success)
          end if

@@ -983,19 +983,37 @@ contains
           !! ... 1. offset of 1st o/p idx from centre of knl     (lim)
           !! ... 2. lwst o/p idx overlap with <<- knl idx (rpt. pattern)
           !! ...)
-          lim_w(2,:) = max(lim(1,:)-[i,j],  -this%hlf + &
-               mod(n_stp+this%knl-[i,j],this%stp))
           !! min( ...
           !! ... 1. offset of last o/p idx from centre of knl    (lim)
           !! ... 2. hghst o/p idx overlap with ->> knl idx (rpt. pattern)
           !! ...)
+#if defined(GFORTRAN)
+          lim_w(2,:) = max(lim(1,:)-[i,j],  -this%hlf + &
+               mod(n_stp+this%knl-[i,j],this%stp))
           lim_w(1,:) = min(lim(2,:)-[i,j], end_idx - &
                mod(n_stp-1+[i,j],this%stp))
+#else
+          lim_w(2,1) = max(lim(1,1) - i,  -this%hlf(1) + &
+               mod(n_stp(1)+this%knl(1)-i,this%stp(1)))
+          lim_w(2,2) = max(lim(1,2) - j,  -this%hlf(2) + &
+               mod(n_stp(2)+this%knl(2)-j,this%stp(2)))
+          lim_w(1,1) = min(lim(2,1)-i, end_idx(1) - &
+               mod(n_stp(1)-1+i,this%stp(1)))
+          lim_w(1,2) = min(lim(2,2)-j, end_idx(2) - &
+               mod(n_stp(2)-1+j,this%stp(2)))
+#endif
           if(any(lim_w(2,:).gt.lim_w(1,:))) cycle
 
           !! set gradient bounds
+#if defined(GFORTRAN)
           lim_g(1,:) = max(1,                     [i,j] - offset)
           lim_g(2,:) = min(this%output_shape(:2), [i,j] - offset + this%knl - 1)
+#else
+          lim_g(1,1) = max(1, i - offset(1))
+          lim_g(1,2) = max(1, j - offset(2))
+          lim_g(2,1) = min(this%output_shape(1), i - offset(1) + this%knl(1) -1)
+          lim_g(2,2) = min(this%output_shape(2), j - offset(2) + this%knl(2) -1)
+#endif
 
           !! apply full convolution to compute input gradients
           this%di(i,j,m,s) = &
