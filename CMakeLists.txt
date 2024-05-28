@@ -68,6 +68,7 @@ set(LIB_FILES
     mod_lr_decay.f90
     mod_optimiser.f90
     mod_types.f90
+    mod_graph.f90
     mod_mpnn_layer.f90
     mod_mpnn_layer_sub.f90
     mod_metrics.f90
