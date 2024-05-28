@@ -11,7 +11,7 @@ module conv_mpnn_layer
   use constants, only: real12
   use misc, only: outer_product
   use custom_types, only: activation_type
-  use graph_structure, only: graph_type
+  use graph_constructs, only: graph_type
   use activation, only: activation_setup
   use clipper, only: clip_type
   use mpnn_layer, only: &

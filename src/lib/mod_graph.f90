@@ -1,4 +1,4 @@
-module graph_structure
+module graph_constructs
   use constants, only: real12
   implicit none
 
@@ -99,4 +99,4 @@ contains
     end do
   end subroutine generate_adjacency
 
-end module graph_structure
+end module graph_constructs

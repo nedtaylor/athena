@@ -6,7 +6,7 @@
 !!!#############################################################################
 module mpnn_layer
   use constants, only: real12
-  use graph_structure, only: graph_type
+  use graph_constructs, only: graph_type
   use base_layer, only: learnable_layer_type
   use clipper, only: clip_type
   implicit none
