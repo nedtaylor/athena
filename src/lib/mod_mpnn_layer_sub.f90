@@ -93,11 +93,13 @@ contains
     istart = 1
     do t = 1, this%method%num_time_steps
        iend = istart + this%method%message(t)%get_num_params() - 1
-       if(iend.gt.istart-1) call this%method%message(t)%set_params(params(istart:iend))
+       if(iend.gt.istart-1) &
+            call this%method%message(t)%set_params(params(istart:iend))
        istart = iend + 1
     end do
     iend = istart + this%method%readout%get_num_params() - 1
-    if(iend.gt.istart-1) call this%method%readout%set_params(params(istart:iend))
+    if(iend.gt.istart-1) &
+         call this%method%readout%set_params(params(istart:iend))
 
   end subroutine set_params_mpnn
 !!!#############################################################################
@@ -336,10 +338,15 @@ contains
     !!--------------------------------------------------------------------------
     if(allocated(this%input_shape))then
        if(allocated(this%output)) deallocate(this%output)
-       allocate(this%output(this%output_shape(1), this%batch_size), source=0._real12)
+       allocate(this%output( &
+            this%output_shape(1), &
+            this%batch_size ), source=0._real12 &
+       )
        call this%method%init( &
-            this%num_vertex_features, this%num_edge_features, this%num_time_steps,&
-            this%output_shape, this%batch_size)
+            this%num_vertex_features, this%num_edge_features, &
+            this%num_time_steps, &
+            this%output_shape, this%batch_size &
+       )
     end if
  
   end subroutine set_batch_size_mpnn
@@ -391,7 +398,10 @@ contains
     integer :: v, s, t
 
     do t = 1, this%method%num_time_steps, 1
-       call this%method%message(t)%update(this%method%message(t-1)%feature, graph)
+       call this%method%message(t)%update( &
+            this%method%message(t-1)%feature, &
+            graph &
+       )
     end do
 
     call this%method%readout%get_output(this%method%message, this%output)
@@ -414,7 +424,7 @@ contains
 
     integer :: s, t
 
-    
+
     !df/dv_c = h(M_c) * df/dM_y
 
     ! M_y = sum_c v_c * h(M_c)     message for output y

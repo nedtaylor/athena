@@ -104,13 +104,15 @@ module mpnn_layer
      type(feature_type), dimension(:), allocatable :: message
    contains
      procedure(update_message), deferred, pass(this) :: update
-     procedure(calculate_partials_message), deferred, pass(this) :: calculate_partials
+     procedure(calculate_partials_message), deferred, pass(this) :: &
+          calculate_partials
   end type message_phase_type
 
   type, extends(base_phase_type), abstract :: readout_phase_type
    contains
      procedure(get_output_readout), deferred, pass(this) :: get_output
-     procedure(calculate_partials_readout), deferred, pass(this) :: calculate_partials
+     procedure(calculate_partials_readout), deferred, pass(this) :: &
+          calculate_partials
   end type readout_phase_type
 
 
@@ -125,7 +127,9 @@ module mpnn_layer
        type(graph_type), dimension(this%batch_size), intent(in) :: graph
      end subroutine update_message
 
-     pure module subroutine calculate_partials_message(this, input, gradient, graph)
+     pure module subroutine calculate_partials_message( &
+          this, input, gradient, graph &
+     )
        class(message_phase_type), intent(inout) :: this
        !! hidden features has dimensions (feature, vertex, batch_size)
        type(feature_type), dimension(this%batch_size), intent(in) :: input
@@ -136,13 +140,15 @@ module mpnn_layer
      pure module subroutine get_output_readout(this, input, output)
        class(readout_phase_type), intent(inout) :: this
        class(message_phase_type), dimension(:), intent(in) :: input
-       real(real12), dimension(this%num_outputs, this%batch_size), intent(out) :: output
+       real(real12), dimension(this%num_outputs, this%batch_size), &
+            intent(out) :: output
      end subroutine get_output_readout
 
      pure module subroutine calculate_partials_readout(this, input, gradient)
        class(readout_phase_type), intent(inout) :: this
        class(message_phase_type), dimension(:), intent(in) :: input
-       real(real12), dimension(this%num_outputs, this%batch_size), intent(in) :: gradient
+       real(real12), dimension(this%num_outputs, this%batch_size), &
+            intent(in) :: gradient
      end subroutine calculate_partials_readout
   end interface
 
@@ -225,7 +231,8 @@ module mpnn_layer
       real(real12), dimension(:), intent(in) :: params
     end subroutine set_phase_params
 
-    pure module function get_phase_gradients(this, clip_method) result(gradients)
+    pure module function get_phase_gradients(this, clip_method) &
+         result(gradients)
       class(base_phase_type), intent(in) :: this
       type(clip_type), optional, intent(in) :: clip_method
       real(real12), allocatable, dimension(:) :: gradients
@@ -315,7 +322,8 @@ module mpnn_layer
          num_vertex_features, num_edge_features, num_time_steps, &
          output_shape, batch_size)
       class(method_container_type), intent(inout) :: this
-      integer, intent(in) :: num_vertex_features, num_edge_features, num_time_steps
+      integer, intent(in) :: num_vertex_features, num_edge_features, &
+           num_time_steps
       integer, dimension(1), intent(in) :: output_shape
       integer, intent(in) :: batch_size
     end subroutine init_method
