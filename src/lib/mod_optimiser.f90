@@ -218,6 +218,8 @@ contains
     if(present(lr_decay)) then
        if(allocated(optimiser%lr_decay)) deallocate(optimiser%lr_decay)
        allocate(optimiser%lr_decay, source = lr_decay)
+    else
+       allocate(optimiser%lr_decay, source = base_lr_decay_type())
     end if
 
     !! initialise gradients
@@ -342,6 +344,8 @@ contains
     if(present(lr_decay)) then
        if(allocated(optimiser%lr_decay)) deallocate(optimiser%lr_decay)
        allocate(optimiser%lr_decay, source = lr_decay)
+    else
+       allocate(optimiser%lr_decay, source = base_lr_decay_type())
     end if
 
      !! initialise nesterov boolean
@@ -459,6 +463,8 @@ contains
     if(present(lr_decay)) then
        if(allocated(optimiser%lr_decay)) deallocate(optimiser%lr_decay)
        allocate(optimiser%lr_decay, source = lr_decay)
+    else
+       allocate(optimiser%lr_decay, source = base_lr_decay_type())
     end if
 
     !! initialise adam parameters
@@ -569,6 +575,8 @@ contains
     if(present(lr_decay)) then
        if(allocated(optimiser%lr_decay)) deallocate(optimiser%lr_decay)
        allocate(optimiser%lr_decay, source = lr_decay)
+    else
+       allocate(optimiser%lr_decay, source = base_lr_decay_type())
     end if
 
     !! initialise adam parameters
@@ -677,6 +685,8 @@ contains
     if(present(lr_decay)) then
        if(allocated(optimiser%lr_decay)) deallocate(optimiser%lr_decay)
        allocate(optimiser%lr_decay, source = lr_decay)
+    else
+       allocate(optimiser%lr_decay, source = base_lr_decay_type())
     end if
 
     !! initialise adam parameters
