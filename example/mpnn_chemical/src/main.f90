@@ -60,7 +60,9 @@ program mnist_example
      call network%add(conv_mpnn_layer_type( &
           num_time_steps=4, &
           num_vertex_features=2, num_edge_features=1, &
-          num_outputs=10, batch_size=1 ))
+          num_outputs=10, &
+          max_vertex_degree = 6, &
+          batch_size=1 ))
      call network%add(full_layer_type( &
           num_inputs  = 10, &
           num_outputs = 1, &
@@ -90,7 +92,7 @@ program mnist_example
   num_tests = 10
   write(*,*) "NUMBER OF LAYERS",network%num_layers
   write(*,*) "Number of samples",size(labels)
-  write(*,*) "Number of teests",num_tests
+  write(*,*) "Number of tests",num_tests
 
 
 !!!-----------------------------------------------------------------------------
