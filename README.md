@@ -81,7 +81,7 @@ Run the following command in the repository main directory:
 
 To check whether ATHENA has installed correctly and that the compilation works as expected, the following command can be run:
 ```
-  fpm test
+  fpm test --profile release
 ```
 
 This runs a set of test programs (found within the test/ directory) to ensure the expected output occurs when layers and networks are set up.
@@ -137,7 +137,7 @@ Using fpm, the examples are built alongside the library. To list all available e
 To run a particular example, execute the following command:
 
 ```
-  fpm run --example [NAME]
+  fpm run --example [NAME] --profile release
 ```
 
 where [_NAME_] is the name of the example found in the list.
