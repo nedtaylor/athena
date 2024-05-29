@@ -97,6 +97,7 @@ set(LIB_FILES
     mod_batchnorm1d_layer.f90
     mod_batchnorm2d_layer.f90
     mod_batchnorm3d_layer.f90
+    mod_conv1d_layer.f90
     mod_conv2d_layer.f90
     mod_conv3d_layer.f90
     mod_dropout_layer.f90
