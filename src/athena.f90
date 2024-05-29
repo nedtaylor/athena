@@ -68,6 +68,7 @@ module athena
   use dropblock3d_layer, only: dropblock3d_layer_type, read_dropblock3d_layer
 
   !! pooling layer types
+  use avgpool1d_layer, only: avgpool1d_layer_type, read_avgpool1d_layer
   use avgpool2d_layer, only: avgpool2d_layer_type, read_avgpool2d_layer
   use avgpool3d_layer, only: avgpool3d_layer_type, read_avgpool3d_layer
   use maxpool2d_layer, only: maxpool2d_layer_type, read_maxpool2d_layer
