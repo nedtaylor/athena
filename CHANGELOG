@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added conv1d_layer_type
+- Added avgpool1d_layer_type
+- Added maxpool1d_layer_type
+- Added input2d_layer_type
 
 ### Changed
 
