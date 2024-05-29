@@ -159,7 +159,6 @@ contains
           layer%strd = stride
        rank(1)
           layer%strd = stride
-          end if
        end select
     else
        layer%strd = 2
@@ -217,7 +216,7 @@ contains
     this%num_channels = this%input_shape(2)
     allocate(this%output_shape(2))
     this%output_shape(2) = this%input_shape(2)
-    this%output_shape(1)) = &
+    this%output_shape = &
          floor( (this%input_shape(1) - this%pool)/real(this%strd)) + 1
     
 
