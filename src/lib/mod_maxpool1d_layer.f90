@@ -216,8 +216,8 @@ contains
     this%num_channels = this%input_shape(2)
     allocate(this%output_shape(2))
     this%output_shape(2) = this%input_shape(2)
-    this%output_shape = &
-         floor( (this%input_shape(1) - this%pool)/real(this%strd)) + 1
+    this%output_shape(1) = &
+         floor( (this%input_shape(1) - this%pool(1))/real(this%strd(1))) + 1
     
 
     !!--------------------------------------------------------------------------
