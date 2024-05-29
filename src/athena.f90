@@ -49,6 +49,7 @@ module athena
 
   !! input layer types
   use input1d_layer,   only: input1d_layer_type
+  use input2d_layer,   only: input2d_layer_type
   use input3d_layer,   only: input3d_layer_type
   use input4d_layer,   only: input4d_layer_type
 

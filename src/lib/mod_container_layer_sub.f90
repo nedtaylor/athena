@@ -8,6 +8,7 @@
 submodule(container_layer) container_layer_submodule
   use base_layer, only: learnable_layer_type, flatten_layer_type
   use input1d_layer, only: input1d_layer_type
+  use input2d_layer, only: input2d_layer_type
   use input3d_layer, only: input3d_layer_type
   use input4d_layer, only: input4d_layer_type
   use batchnorm1d_layer, only: batchnorm1d_layer_type
@@ -36,6 +37,8 @@ contains
 
     select type(previous => input%layer)
     type is(input1d_layer_type)
+       call this%layer%forward(previous%output)
+    type is(input2d_layer_type)
        call this%layer%forward(previous%output)
     type is(input3d_layer_type)
        call this%layer%forward(previous%output)
@@ -94,6 +97,8 @@ contains
 
     select type(previous => input%layer)
     type is(input1d_layer_type)
+       call this%layer%backward(previous%output, gradient)
+    type is(input2d_layer_type)
        call this%layer%backward(previous%output, gradient)
     type is(input3d_layer_type)
        call this%layer%backward(previous%output, gradient)
