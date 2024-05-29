@@ -71,14 +71,14 @@ program test_input_layer
      call input_layer%set(input_5d)
      call input_layer%forward(input_5d)
      if(any(abs(input_layer%output-5.E0).gt.1.E-6))then
-        write(0,*) 'input1d_layer forward 4d failed'
+        write(0,*) 'input1d_layer forward 5d failed'
         write(*,*) input_layer%output
         success = .false.
      end if
      call input_layer%set(input_6d)
      call input_layer%forward(input_6d)
      if(any(abs(input_layer%output-6.E0).gt.1.E-6))then
-        write(0,*) 'input1d_layer forward 4d failed'
+        write(0,*) 'input1d_layer forward 6d failed'
         write(*,*) input_layer%output
         success = .false.
      end if
@@ -193,14 +193,14 @@ program test_input_layer
      call input_layer%set(input_5d)
      call input_layer%forward(input_5d)
      if(any(abs(input_layer%output-5.E0).gt.1.E-6))then
-        write(0,*) 'input3d_layer forward 4d failed'
+        write(0,*) 'input3d_layer forward 5d failed'
         write(*,*) input_layer%output
         success = .false.
      end if
      call input_layer%set(input_6d)
      call input_layer%forward(input_6d)
      if(any(abs(input_layer%output-6.E0).gt.1.E-6))then
-        write(0,*) 'input3d_layer forward 4d failed'
+        write(0,*) 'input3d_layer forward 6d failed'
         write(*,*) input_layer%output
         success = .false.
      end if
@@ -254,14 +254,14 @@ program test_input_layer
      call input_layer%set(input_5d)
      call input_layer%forward(input_5d)
      if(any(abs(input_layer%output-5.E0).gt.1.E-6))then
-        write(0,*) 'input4d_layer forward 4d failed'
+        write(0,*) 'input4d_layer forward 5d failed'
         write(*,*) input_layer%output
         success = .false.
      end if
      call input_layer%set(input_6d)
      call input_layer%forward(input_6d)
      if(any(abs(input_layer%output-6.E0).gt.1.E-6))then
-        write(0,*) 'input4d_layer forward 4d failed'
+        write(0,*) 'input4d_layer forward 6d failed'
         write(*,*) input_layer%output
         success = .false.
      end if
