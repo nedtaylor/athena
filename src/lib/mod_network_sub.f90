@@ -25,6 +25,7 @@ submodule(network) network_submodule
 
   !! input layer types
   use input1d_layer,   only: input1d_layer_type
+  use input2d_layer,   only: input2d_layer_type
   use input3d_layer,   only: input3d_layer_type
   use input4d_layer,   only: input4d_layer_type
 
@@ -502,12 +503,12 @@ contains
          case(2)
             select type(next)
             type is(conv1d_layer_type)
-               t_input_layer = input1d_layer_type(&
+               t_input_layer = input2d_layer_type(&
                     input_shape = next%input_shape + &
                     [2*next%pad,0])
                allocate(this%model(1)%layer, source = t_input_layer)
             class default
-               t_input_layer = input1d_layer_type(&
+               t_input_layer = input2d_layer_type(&
                     input_shape = next%input_shape)
                allocate(this%model(1)%layer, source = t_input_layer)
             end select
