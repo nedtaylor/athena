@@ -106,6 +106,7 @@ set(LIB_FILES
     mod_avgpool1d_layer.f90
     mod_avgpool2d_layer.f90
     mod_avgpool3d_layer.f90
+    mod_maxpool1d_layer.f90
     mod_maxpool2d_layer.f90
     mod_maxpool3d_layer.f90
     mod_full_layer.f90

@@ -2,30 +2,30 @@
 !!! Code written by Ned Thaddeus Taylor
 !!! Code part of the ATHENA library - a feedforward neural network library
 !!!#############################################################################
-!!! module contains implementation of a 1D average pooling layer
+!!! module contains implementation of a 1D maxpooling layer
 !!!#############################################################################
-module avgpool1d_layer
+module maxpool1d_layer
   use constants, only: real12
   use base_layer, only: pool_layer_type
   implicit none
   
   
-  type, extends(pool_layer_type) :: avgpool1d_layer_type
+  type, extends(pool_layer_type) :: maxpool1d_layer_type
      real(real12), allocatable, dimension(:,:,:) :: output
      real(real12), allocatable, dimension(:,:,:) :: di ! gradient of input (i.e. delta)
    contains
-     procedure, pass(this) :: get_output => get_output_avgpool1d
-     procedure, pass(this) :: init => init_avgpool1d
-     procedure, pass(this) :: set_batch_size => set_batch_size_avgpool1d
-     procedure, pass(this) :: print => print_avgpool1d
+     procedure, pass(this) :: get_output => get_output_maxpool1d
+     procedure, pass(this) :: init => init_maxpool1d
+     procedure, pass(this) :: set_batch_size => set_batch_size_maxpool1d
+     procedure, pass(this) :: print => print_maxpool1d
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
      procedure, private, pass(this) :: forward_3d
      procedure, private, pass(this) :: backward_3d
-  end type avgpool1d_layer_type
+  end type maxpool1d_layer_type
 
   
-  interface avgpool1d_layer_type
+  interface maxpool1d_layer_type
      module function layer_setup( &
           input_shape, batch_size, &
           pool_size, stride) result(layer)
@@ -33,14 +33,14 @@ module avgpool1d_layer
        integer, optional, intent(in) :: batch_size 
        integer, dimension(..), optional, intent(in) :: pool_size
        integer, dimension(..), optional, intent(in) :: stride
-       type(avgpool1d_layer_type) :: layer
+       type(maxpool1d_layer_type) :: layer
      end function layer_setup
-  end interface avgpool1d_layer_type
+  end interface maxpool1d_layer_type
 
 
   private
-  public :: avgpool1d_layer_type
-  public :: read_avgpool1d_layer
+  public :: maxpool1d_layer_type
+  public :: read_maxpool1d_layer
 
 
 contains
@@ -48,9 +48,9 @@ contains
 !!!#############################################################################
 !!! get layer outputs
 !!!#############################################################################
-  pure subroutine get_output_avgpool1d(this, output)
+  pure subroutine get_output_maxpool1d(this, output)
     implicit none
-    class(avgpool1d_layer_type), intent(in) :: this
+    class(maxpool1d_layer_type), intent(in) :: this
     real(real12), allocatable, dimension(..), intent(out) :: output
   
     select rank(output)
@@ -63,7 +63,7 @@ contains
        output = this%output
     end select
   
-  end subroutine get_output_avgpool1d
+  end subroutine get_output_maxpool1d
 !!!#############################################################################
 
 
@@ -77,7 +77,7 @@ contains
 !!!#############################################################################
   pure subroutine forward_rank(this, input)
     implicit none
-    class(avgpool1d_layer_type), intent(inout) :: this
+    class(maxpool1d_layer_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
 
     select rank(input); rank(3)
@@ -92,7 +92,7 @@ contains
 !!!#############################################################################
   pure subroutine backward_rank(this, input, gradient)
     implicit none
-    class(avgpool1d_layer_type), intent(inout) :: this
+    class(maxpool1d_layer_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
     real(real12), dimension(..), intent(in) :: gradient
 
@@ -123,14 +123,14 @@ contains
     integer, dimension(..), optional, intent(in) :: pool_size
     integer, dimension(..), optional, intent(in) :: stride
     
-    type(avgpool1d_layer_type) :: layer
+    type(maxpool1d_layer_type) :: layer
 #else
   module procedure layer_setup
     implicit none
 #endif
 
 
-    layer%name = "avgpool1d"
+    layer%name = "maxpool1d"
     layer%input_rank = 2
     allocate( &
          layer%pool(layer%input_rank-1), &
@@ -159,6 +159,7 @@ contains
           layer%strd = stride
        rank(1)
           layer%strd = stride
+          end if
        end select
     else
        layer%strd = 2
@@ -187,9 +188,9 @@ contains
 !!!#############################################################################
 !!! initialise layer
 !!!#############################################################################
-  subroutine init_avgpool1d(this, input_shape, batch_size, verbose)
+  subroutine init_maxpool1d(this, input_shape, batch_size, verbose)
     implicit none
-    class(avgpool1d_layer_type), intent(inout) :: this
+    class(maxpool1d_layer_type), intent(inout) :: this
     integer, dimension(:), intent(in) :: input_shape
     integer, optional, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
@@ -216,8 +217,8 @@ contains
     this%num_channels = this%input_shape(2)
     allocate(this%output_shape(2))
     this%output_shape(2) = this%input_shape(2)
-    this%output_shape(1) = &
-         floor( (this%input_shape(1) - this%pool(1))/real(this%strd(1))) + 1
+    this%output_shape(1)) = &
+         floor( (this%input_shape(1) - this%pool)/real(this%strd)) + 1
     
 
     !!--------------------------------------------------------------------------
@@ -225,16 +226,16 @@ contains
     !!--------------------------------------------------------------------------
     if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
 
-  end subroutine init_avgpool1d
+  end subroutine init_maxpool1d
 !!!#############################################################################
 
 
 !!!#############################################################################
 !!! set batch size
 !!!#############################################################################
-  subroutine set_batch_size_avgpool1d(this, batch_size, verbose)
+  subroutine set_batch_size_maxpool1d(this, batch_size, verbose)
    implicit none
-   class(avgpool1d_layer_type), intent(inout) :: this
+   class(maxpool1d_layer_type), intent(inout) :: this
    integer, intent(in) :: batch_size
    integer, optional, intent(in) :: verbose
 
@@ -265,7 +266,7 @@ contains
            source=0._real12)
    end if
 
- end subroutine set_batch_size_avgpool1d
+ end subroutine set_batch_size_maxpool1d
 !!!#############################################################################
 
 
@@ -277,9 +278,9 @@ contains
 !!!#############################################################################
 !!! print layer to file
 !!!#############################################################################
-  subroutine print_avgpool1d(this, file)
+  subroutine print_maxpool1d(this, file)
     implicit none
-    class(avgpool1d_layer_type), intent(in) :: this
+    class(maxpool1d_layer_type), intent(in) :: this
     character(*), intent(in) :: file
 
     integer :: unit
@@ -290,30 +291,30 @@ contains
 
     !! write convolution initial parameters
     !!--------------------------------------------------------------------------
-    write(unit,'("AVGPOOL1D")')
+    write(unit,'("MAXPOOL1D")')
     write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
     write(unit,'(3X,"POOL_SIZE =",1X,I0)') this%pool(1)
-    write(unit,'(3X,"STRIDE =",1(1X,I0))') this%strd(1)
-    write(unit,'("END AVGPOOL1D")')
+    write(unit,'(3X,"STRIDE =",1X,I0)') this%strd(1)
+    write(unit,'("END MAXPOOL1D")')
 
     !! close unit
     !!--------------------------------------------------------------------------
     close(unit)
 
-  end subroutine print_avgpool1d
+  end subroutine print_maxpool1d
 !!!#############################################################################
 
 
 !!!#############################################################################
 !!! read layer from file
 !!!#############################################################################
-  function read_avgpool1d_layer(unit) result(layer)
+  function read_maxpool1d_layer(unit) result(layer)
    use infile_tools, only: assign_val, assign_vec
    use misc, only: to_lower, icount
    implicit none
    integer, intent(in) :: unit
 
-   class(avgpool1d_layer_type), allocatable :: layer
+   class(maxpool1d_layer_type), allocatable :: layer
 
    integer :: stat
    integer :: itmp1
@@ -328,13 +329,13 @@ contains
       !! check for end of file
       read(unit,'(A)',iostat=stat) buffer
       if(stat.ne.0)then
-         write(0,*) "ERROR: file encountered error (EoF?) before END AVGPOOL1D"
+         write(0,*) "ERROR: file encountered error (EoF?) before END MAXPOOL1D"
          stop "Exiting..."
       end if
       if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
       !! check for end of convolution card
-      if(trim(adjustl(buffer)).eq."END AVGPOOL1D")then
+      if(trim(adjustl(buffer)).eq."END MAXPOOL1D")then
          backspace(unit)
          exit tag_loop
       end if
@@ -365,18 +366,18 @@ contains
 
    !! set transfer activation function
 
-   layer = avgpool1d_layer_type( input_shape=input_shape, &
+   layer = maxpool1d_layer_type( input_shape=input_shape, &
         pool_size = pool_size, stride = stride &
         )
 
    !! check for end of layer card
    read(unit,'(A)') buffer
-   if(trim(adjustl(buffer)).ne."END AVGPOOL1D")then
+   if(trim(adjustl(buffer)).ne."END MAXPOOL1D")then
       write(*,*) trim(adjustl(buffer))
-      stop "ERROR: END AVGPOOL1D not where expected"
+      stop "ERROR: END MAXPOOL1D not where expected"
    end if
 
-  end function read_avgpool1d_layer
+  end function read_maxpool1d_layer
 !!!#############################################################################
 
 
@@ -390,7 +391,7 @@ contains
 !!!#############################################################################
   pure subroutine forward_3d(this, input)
     implicit none
-    class(avgpool1d_layer_type), intent(inout) :: this
+    class(maxpool1d_layer_type), intent(inout) :: this
     real(real12), dimension( &
          this%input_shape(1), &
          this%num_channels, &
@@ -407,11 +408,10 @@ contains
          s = 1:this%batch_size, &
          m = 1:this%num_channels, &
          i = 1:this%output_shape(1))
-       stride_idx = (i - 1) * this%strd(1) + 1
-       this%output(i, m, s) = sum(&
+       stride_idx = (i-1) * this%strd(1) + 1
+       this%output(i, m, s) = maxval(&
             input( &
-            stride_idx:stride_idx+this%pool(1)-1, m, s)) / &
-            product(this%pool)
+            stride_idx:stride_idx+this%pool(1)-1, m, s))
     end do
 
   end subroutine forward_3d
@@ -423,7 +423,7 @@ contains
 !!!#############################################################################
   pure subroutine backward_3d(this, input, gradient)
     implicit none
-    class(avgpool1d_layer_type), intent(inout) :: this
+    class(maxpool1d_layer_type), intent(inout) :: this
     real(real12), dimension( &
          this%input_shape(1), &
          this%num_channels, &
@@ -437,7 +437,7 @@ contains
          intent(in) :: gradient
 
     integer :: i, m, s
-    integer :: stride_idx
+    integer :: stride_idx, max_idx
 
 
     this%di = 0._real12
@@ -447,17 +447,20 @@ contains
          m = 1:this%num_channels, &
          i = 1:this%output_shape(1))
        stride_idx = (i-1) * this%strd(1)
+       !! find the index of the maximum value in the corresponding pooling window
+       max_idx = maxloc(input( &
+            stride_idx+1:stride_idx+this%pool(1), m, s), dim=1)
+
        !! compute gradients for input feature map
        this%di( &
-            stride_idx+1:stride_idx+this%pool(1), m, s) = &
+            stride_idx+max_idx, m, s) = &
             this%di( &
-            stride_idx+1:stride_idx+this%pool(1), m, s) + &
-            gradient(i, m, s) / product(this%pool)
+            stride_idx+max_idx, m, s) + gradient(i, m, s)
 
     end do
 
   end subroutine backward_3d
 !!!#############################################################################
 
-end module avgpool1d_layer
+end module maxpool1d_layer
 !!!#############################################################################
