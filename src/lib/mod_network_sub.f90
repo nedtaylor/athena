@@ -47,6 +47,7 @@ submodule(network) network_submodule
   use avgpool1d_layer, only: avgpool1d_layer_type, read_avgpool1d_layer
   use avgpool2d_layer, only: avgpool2d_layer_type, read_avgpool2d_layer
   use avgpool3d_layer, only: avgpool3d_layer_type, read_avgpool3d_layer
+  use maxpool1d_layer, only: maxpool1d_layer_type, read_maxpool1d_layer
   use maxpool2d_layer, only: maxpool2d_layer_type, read_maxpool2d_layer
   use maxpool3d_layer, only: maxpool3d_layer_type, read_maxpool3d_layer
 
@@ -191,6 +192,8 @@ contains
          call this%add(read_avgpool2d_layer(unit))
       case("AVGPOOL3D")
          call this%add(read_avgpool3d_layer(unit))
+      case("MAXPOOL1D")
+         call this%add(read_maxpool1d_layer(unit))
       case("MAXPOOL2D")
          call this%add(read_maxpool2d_layer(unit))
       case("MAXPOOL3D")
@@ -976,6 +979,8 @@ end function get_gradients
        type is(avgpool2d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
        type is(avgpool3d_layer_type)
+          call this%model(i)%backward(this%model(i-1),next%di)
+       type is(maxpool1d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
        type is(maxpool2d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
