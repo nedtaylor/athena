@@ -1,6 +1,7 @@
 message(STATUS "Building tests")
 foreach(execid
   input_layer
+  conv1d_layer
   conv2d_layer
   conv2d_network
   conv3d_layer
