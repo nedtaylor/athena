@@ -115,6 +115,7 @@ set(LIB_FILES
     mod_flatten3d_layer.f90
     mod_flatten4d_layer.f90
     mod_input1d_layer.f90
+    mod_input2d_layer.f90
     mod_input3d_layer.f90
     mod_input4d_layer.f90
     mod_container_layer.f90
