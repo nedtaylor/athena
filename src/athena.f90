@@ -58,6 +58,7 @@ module athena
   use batchnorm3d_layer, only: batchnorm3d_layer_type, read_batchnorm3d_layer
 
   !! convolution layer types
+  use conv1d_layer,    only: conv1d_layer_type, read_conv1d_layer
   use conv2d_layer,    only: conv2d_layer_type, read_conv2d_layer
   use conv3d_layer,    only: conv3d_layer_type, read_conv3d_layer
 
