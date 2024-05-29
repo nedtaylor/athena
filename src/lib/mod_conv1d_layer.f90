@@ -482,8 +482,9 @@ contains
     this%num_channels = this%input_shape(2)
     allocate(this%output_shape(2))
     this%output_shape(2) = this%num_filters
-    this%output_shape(:1) = floor(&
-         (this%input_shape(:1) + 2.0 * this%pad - this%knl)/real(this%stp) ) + 1
+    this%output_shape(1) = floor(&
+         (this%input_shape(1) + &
+         2.0 * this%pad(1) - this%knl(1))/real(this%stp(1)) ) + 1
 
     allocate(this%bias(this%num_filters), source=0._real12)
 
