@@ -7,8 +7,10 @@ foreach(execid
   conv3d_network
   full_layer
   full_network
+  maxpool1d_layer
   maxpool2d_layer
   maxpool3d_layer
+  avgpool1d_layer
   avgpool2d_layer
   avgpool3d_layer
   batchnorm1d_layer
