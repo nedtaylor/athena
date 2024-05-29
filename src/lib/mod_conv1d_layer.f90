@@ -651,8 +651,8 @@ contains
     character(20) :: padding, activation_function
     character(256) :: buffer, tag
 
-    integer, dimension(2) :: kernel_size, stride
-    integer, dimension(3) :: input_shape
+    integer, dimension(1) :: kernel_size, stride
+    integer, dimension(2) :: input_shape
     real(real12), allocatable, dimension(:) :: data_list
 
 
