@@ -22,6 +22,7 @@ submodule(container_layer) container_layer_submodule
   use avgpool1d_layer, only: avgpool1d_layer_type
   use avgpool2d_layer, only: avgpool2d_layer_type
   use avgpool3d_layer, only: avgpool3d_layer_type
+  use maxpool1d_layer, only: maxpool1d_layer_type
   use maxpool2d_layer, only: maxpool2d_layer_type
   use maxpool3d_layer, only: maxpool3d_layer_type
   use full_layer, only: full_layer_type
@@ -67,6 +68,8 @@ contains
     type is(avgpool2d_layer_type)
        call this%layer%forward(previous%output)
     type is(avgpool3d_layer_type)
+       call this%layer%forward(previous%output)
+    type is(maxpool1d_layer_type)
        call this%layer%forward(previous%output)
     type is(maxpool2d_layer_type)
        call this%layer%forward(previous%output)
@@ -123,6 +126,8 @@ contains
     type is(avgpool2d_layer_type)
        call this%layer%backward(previous%output, gradient)
     type is(avgpool3d_layer_type)
+       call this%layer%backward(previous%output, gradient)
+    type is(maxpool1d_layer_type)
        call this%layer%backward(previous%output, gradient)
     type is(maxpool2d_layer_type)
        call this%layer%backward(previous%output, gradient)
