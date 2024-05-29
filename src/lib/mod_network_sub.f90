@@ -44,6 +44,7 @@ submodule(network) network_submodule
   use dropblock3d_layer, only: dropblock3d_layer_type, read_dropblock3d_layer
 
   !! pooling layer types
+  use avgpool1d_layer, only: avgpool1d_layer_type, read_avgpool1d_layer
   use avgpool2d_layer, only: avgpool2d_layer_type, read_avgpool2d_layer
   use avgpool3d_layer, only: avgpool3d_layer_type, read_avgpool3d_layer
   use maxpool2d_layer, only: maxpool2d_layer_type, read_maxpool2d_layer
@@ -184,6 +185,8 @@ contains
          call this%add(read_dropblock2d_layer(unit))
       case("DROPBLOCK3D")
          call this%add(read_dropblock3d_layer(unit))
+      case("AVGPOOL1D")
+         call this%add(read_avgpool1d_layer(unit))
       case("AVGPOOL2D")
          call this%add(read_avgpool2d_layer(unit))
       case("AVGPOOL3D")
@@ -968,6 +971,8 @@ end function get_gradients
        type is(dropblock3d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
     
+       type is(avgpool1d_layer_type)
+          call this%model(i)%backward(this%model(i-1),next%di)
        type is(avgpool2d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
        type is(avgpool3d_layer_type)
