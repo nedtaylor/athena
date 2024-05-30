@@ -14,6 +14,7 @@ program mnist_example
   type(network_type) :: network
   class(base_layer_type), allocatable :: layer
   type(metric_dict_type), dimension(2) :: metric_dict
+  class(clip_type), allocatable :: clip
 
   logical :: restart = .false.
 
@@ -61,7 +62,7 @@ program mnist_example
           num_time_steps=4, &
           num_vertex_features=2, num_edge_features=1, &
           num_outputs=10, &
-          max_vertex_degree = 6, &
+          max_vertex_degree = 10, &
           batch_size=1 ))
      call network%add(full_layer_type( &
           num_inputs  = 10, &
@@ -77,11 +78,12 @@ program mnist_example
 !!!-----------------------------------------------------------------------------
 !!! compile network
 !!!-----------------------------------------------------------------------------
+  allocate(clip, source=clip_type(-1.E2_real12, 1.E2_real12))
   metric_dict%active = .false.
   metric_dict(1)%key = "loss"
   metric_dict(2)%key = "accuracy"
   metric_dict%threshold = 1.E-1_real12
-  call network%compile(optimiser=sgd_optimiser_type(), &
+  call network%compile(optimiser=sgd_optimiser_type(clip_dict=clip), &
        loss_method="mse", metrics=metric_dict, &
        batch_size = 1, verbose = 0)
 
