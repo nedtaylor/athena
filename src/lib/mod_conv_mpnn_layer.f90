@@ -10,10 +10,11 @@
 module conv_mpnn_layer
   use constants, only: real12
   use misc, only: outer_product
-  use custom_types, only: activation_type
+  use custom_types, only: activation_type, initialiser_type
   use graph_constructs, only: graph_type
   use activation, only: activation_setup
   use clipper, only: clip_type
+  use initialiser, only: initialiser_setup
   use mpnn_layer, only: &
        mpnn_layer_type, method_container_type, &
        message_phase_type, readout_phase_type, &
@@ -347,6 +348,9 @@ contains
          max_vertex_degree, batch_size
     type(conv_message_phase_type) :: message_phase
 
+    class(initialiser_type), allocatable :: initialiser_
+
+
     message_phase%num_inputs  = num_vertex_features
     message_phase%num_outputs = num_vertex_features
     message_phase%num_message_features = num_vertex_features + num_edge_features
@@ -357,7 +361,16 @@ contains
     allocate(message_phase%weight( &
          message_phase%num_message_features, &
          message_phase%num_outputs, &
-         max_vertex_degree), source=1._real12)
+         max_vertex_degree), source=0._real12)
+
+    allocate(initialiser_, source=initialiser_setup("he_normal"))
+    call initialiser_%initialise(message_phase%weight(:,:,:), &
+         fan_in=message_phase%num_message_features*max_vertex_degree, &
+         fan_out=message_phase%num_outputs)
+    message_phase%weight = &
+         message_phase%weight / (40._real12 * sum(message_phase%weight))
+    deallocate(initialiser_)
+
     allocate(message_phase%dw( &
          message_phase%num_message_features, &
          message_phase%num_outputs, &
@@ -379,12 +392,23 @@ contains
     integer, intent(in) :: num_time_steps, num_inputs, num_outputs, batch_size
     type(conv_readout_phase_type) :: readout_phase
 
+    class(initialiser_type), allocatable :: initialiser_
+
+
+
     readout_phase%num_time_steps = num_time_steps
     readout_phase%num_inputs  = num_inputs
     readout_phase%num_outputs = num_outputs
     readout_phase%batch_size  = batch_size
     allocate(readout_phase%weight( &
-         num_inputs, num_outputs, num_time_steps+1), source=1._real12)
+         num_inputs, num_outputs, num_time_steps+1), source=0._real12)
+    allocate(initialiser_, source=initialiser_setup("he_normal"))
+    call initialiser_%initialise(readout_phase%weight(:,:,:), &
+         fan_in=readout_phase%num_inputs, &
+         fan_out=readout_phase%num_outputs)
+    deallocate(initialiser_)
+
+    ! readout_phase%weight = readout_phase%weight / size(readout_phase%weight)
     allocate(readout_phase%dw( &
          num_inputs, num_outputs, num_time_steps+1, batch_size))
     allocate(readout_phase%z(num_time_steps+1, batch_size))
@@ -544,9 +568,9 @@ contains
                   this%message(s)%val(:,v), &
                   this%weight(:,:,degree) &
              )
-             this%feature(s)%val(:,v) = &
-                  this%transfer%activate( this%z(s)%val(:,v) )
           end do
+          this%feature(s)%val(:,:) = &
+               this%transfer%activate( this%z(s)%val(:,:) )
        end do
     else
        do concurrent (s = 1: this%batch_size)
@@ -556,9 +580,9 @@ contains
                   input(s)%val(:,v), &
                   this%weight(:,:,degree) &
              )
-             this%feature(s)%val(:,v) = &
-                  this%transfer%activate( this%z(s)%val(:,v) )
           end do
+          this%feature(s)%val(:,:) = &
+               this%transfer%activate( this%z(s)%val(:,:) )
        end do
     end if
 
