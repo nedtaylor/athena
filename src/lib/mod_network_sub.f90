@@ -911,7 +911,8 @@ contains
      class is(learnable_layer_type)
         start_idx = end_idx + 1
         end_idx = end_idx + current%get_num_params()
-        gradients(start_idx:end_idx) = current%get_gradients()
+        gradients(start_idx:end_idx) = &
+             current%get_gradients(clip_method=this%optimiser%clip_dict)
      end select
   end do
 
