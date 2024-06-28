@@ -25,6 +25,28 @@ It was decided that this project should be migrated to allow for better communit
 
 ---
 
+## Statement of need
+
+The ATHENA library leverages Fortran's strong support of array arithmatics, and its compatibility with parallel and high-performance computing resources.
+Additionally, there exist many improvements made available since Fortran 95, specifically in Fortran 2018 (Reid 2018) (and upcoming ones in Fortran 2023), as well as continued development by the Fortran Standards committee.
+All of this provides a clear incentive to develop further libraries and frameworks focused on providing machine learning capabilities to the Fortran community.
+
+While existing Fortran-based libraries, such as neural-fortran (Curcic 2019), address many aspects of neural networks,
+ATHENA provides implementation of some well-known features not currently available within other libraries; these features include batchnormalisation, regularisation layers (such as dropout and dropblock), and average pooling layers.
+Additionally, the library provides support for 1, 2, and 3D input data for most features currently implemented; this includes 1, 2, and 3D data for convolutional layers.
+Finally, the ATHENA library supports many convolutional techniques, including various data padding types, and stride.
+
+One of the primary intended applications of ATHENA is in materials science, which heavily utilises convolutional and graph neural networks for learning based on charge densities and atomic structures.
+Given the unique data structure of atomic configurations, specifically their graph-based nature, a specialised API must be developed to accommodate these needs.
+
+### References
+- Reid, J. (2018). The new features of fortran 2018. SIGPLAN Fortran Forum, 37(1), 5–43. https://doi.org/10.1145/3206214.3206215
+- Curcic, M. (2019). A parallel fortran framework for neural networks and deep learning. SIGPLAN Fortran Forum, 38(1), 4–21. https://doi.org/10.1145/3323057.3323059
+
+
+Documentation
+-----
+
 ATHENA is distributed with the following directories:
 
 | Directory | Description |
@@ -34,9 +56,6 @@ ATHENA is distributed with the following directories:
 |  _tools/_ |    Additional shell script tools for automating learning  |
 |  _test/_  |    A set of test programs to check functionality of the library works after compilation |
 
-
-Documentation
------
 
 For extended details on the functionality of this library, please check out the [wiki](https://github.com/nedtaylor/athena/wiki)
 
