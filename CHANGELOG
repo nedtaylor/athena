@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+## [1.3.3] - 2024-07-03
+
+### Changed
+- Updated license year
+
 ## [1.3.2] - 2024-06-28
 
 ### Added
@@ -27,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 ### Fixed
-- Fix reference to fpm install in README
+- Fixed reference to fpm install in README
 - Fixed unallocated lr_decay reference
 - Fixed ifort and ifx compiler reference to temporary arrays
 - Fixed temporary array reference in tests
