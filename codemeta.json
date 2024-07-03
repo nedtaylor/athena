@@ -19,5 +19,5 @@
   "keywords": "fortran, neural network, convolution, machine learning, 3D convolution",
   "license": "MIT",
   "title": "'ATHENA: A Fortran package for neural networks",
-  "version": "1.3.2"
+  "version": "1.3.3"
 }
