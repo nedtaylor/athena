@@ -3,7 +3,7 @@ title: 'ATHENA: A Fortran package for neural networks'
 tags:
   - fortran
   - neural network
-  - machine leanring
+  - machine learning
   - convolution
   - 3D convolution
 authors:
