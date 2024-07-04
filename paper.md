@@ -32,7 +32,7 @@ The vast amount of computing capabilities available within current supercomputer
 
 
 
-While existing Fortran-based libraries, such as neural-fortran [@curcic2019parallel], address many aspects of neural networks, `ATHENA` provides implementation of some well-known features not currently available within other libraries; these features include batch normalisation, regularisation layers (such as dropout and dropblock), and average pooling layers.
+While existing Fortran-based libraries, such as neural-fortran [@curcic2019parallel], address many aspects of neural networks, `ATHENA` provides implementation of some well-known features not currently available within other libraries; these features include batch normalisation, regularisation layers (such as Dropout and DropBlock), and average pooling layers.
 Additionally, the library provides support for 1, 2, and 3D input data for most features currently implemented; this includes 1, 2, and 3D data for convolutional layers.
 Finally, more features for convolutional techniques are supported in the `ATHENA` library, including various data padding types and stride.
 
@@ -46,7 +46,7 @@ Given the unique data structure of atomic configurations, specifically their gra
 
 A full list of features available within the `ATHENA` library, including available layer types, optimisers, activation functions, and initialisers, can be found on the repository's wiki.
 
-`ATHENA` is developed to handle the following network layer types: batch normalisation [1, 2, and 3D; @ioffe2015batch], convolution (1, 2, and 3D), Dropout [@srivastava2014dropout], DropBlock [2D and 3D; @ghiasi2018dropblock], flatten, fully-connected (dense), pooling (1, 2, and 3D; average and maximum).
+`ATHENA` is developed to handle the following network layer types: batch normalisation (1, 2, and 3D; @ioffe2015batch), convolution (1, 2, and 3D), Dropout [@srivastava2014dropout], DropBlock (2D and 3D; @ghiasi2018dropblock), flatten, fully-connected (dense), pooling (1, 2, and 3D; average and maximum).
 
 The library can handle feed-forward networks with an arbirtray number of hidden layers and neurons (or filter sizes). There exist several activation functions, including Gaussian, linear, sigmoid, ReLU, leaky ReLU, tangent hyberbolic functions, and more. Optimiser functions include stochastic gradient decent (SGD), RMSprop, Adam, and AdaGrad. Network models can be saved to and loaded from files.
 
