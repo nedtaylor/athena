@@ -84,6 +84,19 @@ contains
 
 
 !!!#############################################################################
+!!! get layer outputs
+!!!#############################################################################
+  pure subroutine get_output_base(this, output)
+    implicit none
+    class(base_layer_type), intent(in) :: this
+    real(real12), allocatable, dimension(..), intent(out) :: output
+  
+    call this%output%get(output)
+  end subroutine get_output_base
+!!!#############################################################################
+
+
+!!!#############################################################################
 !!! get number of parameters in layer
 !!!#############################################################################
 !!! this       = (T, in) layer_type
@@ -188,25 +201,6 @@ contains
     end select
   
   end subroutine set_gradients_batch
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! get layer outputs
-!!!#############################################################################
-  pure module subroutine get_output_flatten(this, output)
-    implicit none
-    class(flatten_layer_type), intent(in) :: this
-    real(real12), allocatable, dimension(..), intent(out) :: output
-  
-    select rank(output)
-    rank(1)
-       output = reshape(this%output, [size(this%output)])
-    rank(2)
-       output = this%output
-    end select
-  
-  end subroutine get_output_flatten
 !!!#############################################################################
 
 end submodule base_layer_submodule

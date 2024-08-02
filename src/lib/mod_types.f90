@@ -23,6 +23,8 @@ module custom_types
 
   public :: activation_type
   public :: initialiser_type
+  public :: array_type
+  public :: array1d_type, array2d_type, array3d_type, array4d_type, array5d_type
 
 
 !!!-----------------------------------------------------------------------------
@@ -161,5 +163,252 @@ module custom_types
      end subroutine initialiser_subroutine
   end interface
 
+
+!!!-----------------------------------------------------------------------------
+!!! base and extended array types
+!!!-----------------------------------------------------------------------------
+  type, abstract :: array_type
+     integer :: rank
+     integer, dimension(:), allocatable :: shape
+     integer :: size
+     logical :: allocated = .false.
+   contains
+     procedure (allocate_array), deferred, pass(this) :: allocate
+     procedure (deallocate_array), deferred, pass(this) :: deallocate
+     procedure (flatten_array), deferred, pass(this) :: flatten
+     procedure (get_array), deferred, pass(this) :: get
+  end type array_type
+
+
+  !! interface for allocate, deallocate, and flattening array
+  !!----------------------------------------------------------------------------
+  abstract interface
+     module subroutine allocate_array(this, shape, source)
+       class(array_type), intent(inout) :: this
+       integer, dimension(:), intent(in), optional :: shape
+       class(*), dimension(..), intent(in), optional :: source
+     end subroutine allocate_array
+
+     pure module subroutine deallocate_array(this)
+       class(array_type), intent(inout) :: this
+     end subroutine deallocate_array
+
+    !  pure module function reshape_array(this, shape) result(output)
+    !    class(array_type), intent(inout) :: this
+    !    integer, dimension(:), intent(in) :: shape
+    !    real(real12), dimension(size(shape)) :: output
+    !  end function reshape_array
+
+     pure module function flatten_array(this) result(output)
+        class(array_type), intent(in) :: this
+        real(real12), dimension(this%size) :: output
+      end function flatten_array
+
+     pure module subroutine get_array(this, output)
+        class(array_type), intent(in) :: this
+        real(real12), dimension(..), intent(out) :: output
+      end subroutine get_array 
+  end interface
+
+  !! extend the array type to 1d, 2d, 3d, 4d, and 5d arrays
+  !!----------------------------------------------------------------------------
+  type, extends(array_type) :: array1d_type
+     real(real12), dimension(:), allocatable :: val
+   contains
+     procedure :: allocate => allocate_array1d
+     procedure :: deallocate => deallocate_array1d
+     procedure :: flatten => flatten_array1d
+     procedure :: get => get_array1d
+  end type array1d_type
+
+  type, extends(array_type) :: array2d_type
+     real(real12), dimension(:,:), allocatable :: val
+   contains
+     procedure :: allocate => allocate_array2d
+     procedure :: deallocate => deallocate_array2d
+     procedure :: flatten => flatten_array2d
+     procedure :: get => get_array2d
+  end type array2d_type
+
+  type, extends(array_type) :: array3d_type
+     real(real12), dimension(:,:,:), allocatable :: val
+   contains
+     procedure :: allocate => allocate_array3d
+     procedure :: deallocate => deallocate_array3d
+     procedure :: flatten => flatten_array3d
+     procedure :: get => get_array3d
+  end type array3d_type
+
+  type, extends(array_type) :: array4d_type
+     real(real12), dimension(:,:,:,:), allocatable :: val
+   contains
+     procedure :: allocate => allocate_array4d
+     procedure :: deallocate => deallocate_array4d
+     procedure :: flatten => flatten_array4d
+     procedure :: get => get_array4d
+  end type array4d_type
+
+  type, extends(array_type) :: array5d_type
+     real(real12), dimension(:,:,:,:,:), allocatable :: val
+   contains
+     procedure :: allocate => allocate_array5d
+     procedure :: deallocate => deallocate_array5d
+     procedure :: flatten => flatten_array5d
+     procedure :: get => get_array5d
+  end type array5d_type
+
+  !! interface for allocating array
+  !!----------------------------------------------------------------------------
+  interface
+    module subroutine allocate_array1d(this, shape, source)
+      class(array1d_type), intent(inout) :: this
+      integer, dimension(:), intent(in), optional :: shape
+      class(*), dimension(..), intent(in), optional :: source
+    end subroutine allocate_array1d
+
+    module subroutine allocate_array2d(this, shape, source)
+      class(array2d_type), intent(inout) :: this
+      integer, dimension(:), intent(in), optional :: shape
+      class(*), dimension(..), intent(in), optional :: source
+    end subroutine allocate_array2d
+
+    module subroutine allocate_array3d(this, shape, source)
+      class(array3d_type), intent(inout) :: this
+      integer, dimension(:), intent(in), optional :: shape
+      class(*), dimension(..), intent(in), optional :: source
+    end subroutine allocate_array3d
+
+    module subroutine allocate_array4d(this, shape, source)
+      class(array4d_type), intent(inout) :: this
+      integer, dimension(:), intent(in), optional :: shape
+      class(*), dimension(..), intent(in), optional :: source
+    end subroutine allocate_array4d
+
+    module subroutine allocate_array5d(this, shape, source)
+      class(array5d_type), intent(inout) :: this
+      integer, dimension(:), intent(in), optional :: shape
+      class(*), dimension(..), intent(in), optional :: source
+    end subroutine allocate_array5d
+  end interface
+
+  !! interface for deallocating array
+  !!----------------------------------------------------------------------------
+  interface
+    pure module subroutine deallocate_array1d(this)
+      class(array1d_type), intent(inout) :: this
+    end subroutine deallocate_array1d
+
+    pure module subroutine deallocate_array2d(this)
+      class(array2d_type), intent(inout) :: this
+    end subroutine deallocate_array2d
+
+    pure module subroutine deallocate_array3d(this)
+      class(array3d_type), intent(inout) :: this
+    end subroutine deallocate_array3d
+
+    pure module subroutine deallocate_array4d(this)
+      class(array4d_type), intent(inout) :: this
+    end subroutine deallocate_array4d
+
+    pure module subroutine deallocate_array5d(this)
+      class(array5d_type), intent(inout) :: this
+    end subroutine deallocate_array5d
+  end interface
+
+  !! interface for flattening array
+  !!----------------------------------------------------------------------------
+  interface 
+    pure module function flatten_array1d(this) result(output)
+      class(array1d_type), intent(in) :: this
+      real(real12), dimension(this%size) :: output
+    end function flatten_array1d
+
+    pure module function flatten_array2d(this) result(output)
+      class(array2d_type), intent(in) :: this
+      real(real12), dimension(this%size) :: output
+    end function flatten_array2d
+
+    pure module function flatten_array3d(this) result(output)
+      class(array3d_type), intent(in) :: this
+      real(real12), dimension(this%size) :: output
+    end function flatten_array3d
+
+    pure module function flatten_array4d(this) result(output)
+      class(array4d_type), intent(in) :: this
+      real(real12), dimension(this%size) :: output
+    end function flatten_array4d
+
+    pure module function flatten_array5d(this) result(output)
+      class(array5d_type), intent(in) :: this
+      real(real12), dimension(this%size) :: output
+    end function flatten_array5d
+  end interface
+
+  !! interface for getting array
+  !!----------------------------------------------------------------------------
+  interface
+    pure module subroutine get_array1d(this, output)
+      class(array1d_type), intent(in) :: this
+      real(real12), dimension(..), intent(out) :: output
+    end subroutine get_array1d
+
+    pure module subroutine get_array2d(this, output)
+      class(array2d_type), intent(in) :: this
+      real(real12), dimension(..), intent(out) :: output
+    end subroutine get_array2d
+
+    pure module subroutine get_array3d(this, output)
+      class(array3d_type), intent(in) :: this
+      real(real12), dimension(..), intent(out) :: output
+    end subroutine get_array3d
+
+    pure module subroutine get_array4d(this, output)
+      class(array4d_type), intent(in) :: this
+      real(real12), dimension(..), intent(out) :: output
+    end subroutine get_array4d
+
+    pure module subroutine get_array5d(this, output)
+      class(array5d_type), intent(in) :: this
+      real(real12), dimension(..), intent(out) :: output
+    end subroutine get_array5d
+  end interface
+
+  !! interface for initialising array
+  !!----------------------------------------------------------------------------
+  interface array1d_type
+    pure module function init_array1d(shape) result(output)
+      integer, dimension(:), intent(in), optional :: shape
+      type(array1d_type) :: output
+    end function init_array1d
+  end interface array1d_type
+
+  interface array2d_type
+    pure module function init_array2d(shape) result(output)
+      integer, dimension(:), intent(in), optional :: shape
+      type(array2d_type) :: output
+    end function init_array2d
+  end interface array2d_type
+
+  interface array3d_type
+    pure module function init_array3d(shape) result(output)
+      integer, dimension(:), intent(in), optional :: shape
+      type(array3d_type) :: output
+    end function init_array3d
+  end interface array3d_type
+
+  interface array4d_type
+    pure module function init_array4d(shape) result(output)
+      integer, dimension(:), intent(in), optional :: shape
+      type(array4d_type) :: output
+    end function init_array4d
+  end interface array4d_type
+
+  interface array5d_type
+    pure module function init_array5d(shape) result(output)
+      integer, dimension(:), intent(in), optional :: shape
+      type(array5d_type) :: output
+    end function init_array5d
+  end interface array5d_type
+  
 end module custom_types
 !!!#############################################################################

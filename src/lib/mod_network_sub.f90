@@ -170,42 +170,13 @@ contains
       end if
 
       !! check for card
-      select case(trim(adjustl(buffer)))
-      case("BATCHNORM1D")
-         call this%add(read_batchnorm1d_layer(unit))
-      case("BATCHNORM2D")
-         call this%add(read_batchnorm2d_layer(unit))
-      case("BATCHNORM3D")
-         call this%add(read_batchnorm3d_layer(unit))
-      case("CONV1D")
-         call this%add(read_conv1d_layer(unit))
-      case("CONV2D")
-         call this%add(read_conv2d_layer(unit))
-      case("CONV3D")
-         call this%add(read_conv3d_layer(unit))
-      case("DEEPSET")
-         call this%add(read_deepset_layer(unit))
-      case("DROPOUT")
-         call this%add(read_dropout_layer(unit))
-      case("DROPBLOCK2D")
-         call this%add(read_dropblock2d_layer(unit))
-      case("DROPBLOCK3D")
-         call this%add(read_dropblock3d_layer(unit))
-      case("AVGPOOL2D")
-         call this%add(read_avgpool2d_layer(unit))
-      case("AVGPOOL3D")
-         call this%add(read_avgpool3d_layer(unit))
-      case("MAXPOOL2D")
-         call this%add(read_maxpool2d_layer(unit))
-      case("MAXPOOL3D")
-         call this%add(read_maxpool3d_layer(unit))
-      case("FULL")
-         call this%add(read_full_layer(unit))
-      case default
+      layer_index = findloc(list_of_layer_types%names, trim(adjustl(buffer)))
+      if(size(layer_index).eq.0)then
          write(0,*) "ERROR: unrecognised card '"//&
               &trim(adjustl(buffer))//"'"
          stop "Exiting..."
-      end select
+      end if
+      call this%add(list_of_layer_types%read_ptr(unit))
    end do card_loop
    close(unit)
 
@@ -225,35 +196,13 @@ contains
     implicit none
     class(network_type), intent(inout) :: this
     class(base_layer_type), intent(in) :: layer
-    
-    character(4) :: name
-    
-    select type(layer)
-    class is(input_layer_type)
-       name = "inpt"
-    class is(batch_layer_type)
-       name = "batc"
-    class is(conv_layer_type)
-       name = "conv"
-    class is(deepset_layer_type)
-       name = "deep"
-    class is(flatten_layer_type)
-       name = "flat"
-    class is(drop_layer_type)
-       name = "drop"
-    class is(pool_layer_type)
-       name = "pool"
-    type is(full_layer_type)
-       name = "full"
-    class default
-       name = "unkw"
-    end select
+
     
     if(.not.allocated(this%model))then
-       this%model = [container_layer_type(name=name)]
+       this%model = [container_layer_type(name=layer%type)]
        this%num_layers = 1
     else
-       this%model = [this%model(1:), container_layer_type(name=name)]
+       this%model = [this%model(1:), container_layer_type(name=layer%type)]
        this%num_layers = this%num_layers + 1
     end if
     allocate(this%model(size(this%model,dim=1))%layer, source=layer)
@@ -646,16 +595,16 @@ contains
     if(verbose_.gt.0)then
        write(*,*) "layer:",1, this%model(1)%name
        write(*,*) this%model(1)%layer%input_shape
-       write(*,*) this%model(1)%layer%output_shape
+       write(*,*) this%model(1)%layer%output%shape
     end if
     do i=2,size(this%model,dim=1)
-       if(.not.allocated(this%model(i)%layer%output_shape)) &
-            call this%model(i)%layer%init(this%model(i-1)%layer%output_shape, &
+       if(.not.allocated(this%model(i)%layer%output%shape)) &
+            call this%model(i)%layer%init(this%model(i-1)%layer%output%shape, &
                  this%batch_size)
        if(verbose_.gt.0)then
           write(*,*) "layer:",i, this%model(i)%name
           write(*,*) this%model(i)%layer%input_shape
-          write(*,*) this%model(i)%layer%output_shape
+          write(*,*) this%model(i)%layer%output%shape
        end if
     end do
 
@@ -670,9 +619,9 @@ contains
     
        flatten_layer_check: if(i.lt.size(this%model,dim=1))then
           if(allocated(this%model(i+1)%layer%input_shape).and.&
-               allocated(this%model(i)%layer%output_shape))then
+               allocated(this%model(i)%layer%output%shape))then
              if(size(this%model(i+1)%layer%input_shape).ne.&
-                  size(this%model(i)%layer%output_shape))then
+                  size(this%model(i)%layer%output%shape))then
 
                 select type(current => this%model(i)%layer)
                 class is(flatten_layer_type)
@@ -688,33 +637,33 @@ contains
                    type is(full_layer_type)
                       num_addit_inputs = next%num_addit_inputs
                    end select
-                   select case(size(this%model(i)%layer%output_shape))
+                   select case(this%model(i)%layer%output%size))
                    case(1)
                       t_flatten_layer = flatten1d_layer_type(&
-                           input_shape = this%model(i)%layer%output_shape, &
+                           input_shape = this%model(i)%layer%output%shape, &
                            num_addit_outputs = num_addit_inputs, &
                            batch_size = this%batch_size)
                    case(2)
                       t_flatten_layer = flatten1d_layer_type(&
-                           input_shape = this%model(i)%layer%output_shape, &
+                           input_shape = this%model(i)%layer%output%shape, &
                            num_addit_outputs = num_addit_inputs, &
                            batch_size = this%batch_size)
                       allocate(this%model(i+1)%layer, source=t_flatten_layer)
                    case(3)
                       t_flatten_layer = flatten2d_layer_type(&
-                           input_shape = this%model(i)%layer%output_shape, &
+                           input_shape = this%model(i)%layer%output%shape, &
                            num_addit_outputs = num_addit_inputs, &
                            batch_size = this%batch_size)
                       allocate(this%model(i+1)%layer, source=t_flatten_layer)
                    case(4)
                       t_flatten_layer = flatten3d_layer_type(&
-                           input_shape = this%model(i)%layer%output_shape, &
+                           input_shape = this%model(i)%layer%output%shape, &
                            num_addit_outputs = num_addit_inputs, &
                            batch_size = this%batch_size)
                       allocate(this%model(i+1)%layer, source=t_flatten_layer)
                    case(5)
                       t_flatten_layer = flatten4d_layer_type(&
-                           input_shape = this%model(i)%layer%output_shape, &
+                           input_shape = this%model(i)%layer%output%shape, &
                            num_addit_outputs = num_addit_inputs, &
                            batch_size = this%batch_size)
                       allocate(this%model(i+1)%layer, source=t_flatten_layer)
@@ -737,7 +686,7 @@ contains
 
     !! set number of outputs
     !!--------------------------------------------------------------------------
-    this%num_outputs = product(this%model(this%num_layers)%layer%output_shape)
+    this%num_outputs = product(this%model(this%num_layers)%layer%output%shape)
 
 
 !!!-----------------------------------------------------------------------------
@@ -1050,54 +999,69 @@ end function get_gradients
     !! Backward pass
     !!-------------------------------------------------------------------
     do i=this%num_layers-1,2,-1
-       select type(next => this%model(i+1)%layer)
-       type is(batchnorm1d_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-       type is(batchnorm2d_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-       type is(batchnorm3d_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
 
-       type is(conv1d_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-       type is(conv2d_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-       type is(conv3d_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-
-       type is(deepset_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-       class is(mpnn_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-    
-       type is(dropout_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-       type is(dropblock2d_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-       type is(dropblock3d_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-    
-       type is(avgpool2d_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-       type is(avgpool3d_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-       type is(maxpool2d_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-       type is(maxpool3d_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-    
-       type is(flatten1d_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-       type is(flatten2d_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-       type is(flatten3d_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-       type is(flatten4d_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
-
-       type is(full_layer_type)
-          call this%model(i)%backward(this%model(i-1),next%di)
+       select type(gradient => this%model(i)%layer%di)
+       type is (array1d_type)
+          call this%model(i)%backward(this%model(i-1),gradient%val)
+       type is (array2d_type)
+          call this%model(i)%backward(this%model(i-1),gradient%val)
+       type is (array3d_type)
+          call this%model(i)%backward(this%model(i-1),gradient%val)
+       type is (array4d_type)
+          call this%model(i)%backward(this%model(i-1),gradient%val)
+       class default
+          stop 'ERROR: Unrecognised gradient type'
        end select
+
+
+      !  select type(next => this%model(i+1)%layer)
+      !  type is(batchnorm1d_layer_type)
+      !     call this%model(i)%backward(this%model(i-1),next%di)
+      !  type is(batchnorm2d_layer_type)
+      !     call this%model(i)%backward(this%model(i-1),next%di)
+      !  type is(batchnorm3d_layer_type)
+      !     call this%model(i)%backward(this%model(i-1),next%di)
+
+      !  type is(conv1d_layer_type)
+      !     call this%model(i)%backward(this%model(i-1),next%di)
+      !  type is(conv2d_layer_type)
+      !     call this%model(i)%backward(this%model(i-1),next%di)
+      !  type is(conv3d_layer_type)
+      !     call this%model(i)%backward(this%model(i-1),next%di)
+
+      !  type is(deepset_layer_type)
+      !     call this%model(i)%backward(this%model(i-1),next%di)
+      !  class is(mpnn_layer_type)
+      !     call this%model(i)%backward(this%model(i-1),next%di)
+    
+      !  type is(dropout_layer_type)
+      !     call this%model(i)%backward(this%model(i-1),next%di)
+      !  type is(dropblock2d_layer_type)
+      !     call this%model(i)%backward(this%model(i-1),next%di)
+      !  type is(dropblock3d_layer_type)
+      !     call this%model(i)%backward(this%model(i-1),next%di)
+    
+      !  type is(avgpool2d_layer_type)
+      !     call this%model(i)%backward(this%model(i-1),next%di)
+      !  type is(avgpool3d_layer_type)
+      !     call this%model(i)%backward(this%model(i-1),next%di)
+      !  type is(maxpool2d_layer_type)
+      !     call this%model(i)%backward(this%model(i-1),next%di)
+      !  type is(maxpool3d_layer_type)
+      !     call this%model(i)%backward(this%model(i-1),next%di)
+    
+      !  type is(flatten1d_layer_type)
+      !     call this%model(i)%backward(this%model(i-1),next%di)
+      !  type is(flatten2d_layer_type)
+      !     call this%model(i)%backward(this%model(i-1),next%di)
+      !  type is(flatten3d_layer_type)
+      !     call this%model(i)%backward(this%model(i-1),next%di)
+      !  type is(flatten4d_layer_type)
+      !     call this%model(i)%backward(this%model(i-1),next%di)
+
+      !  type is(full_layer_type)
+      !     call this%model(i)%backward(this%model(i-1),next%di)
+      !  end select
     end do
 
   end subroutine backward_1d

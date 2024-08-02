@@ -43,7 +43,6 @@ module container_layer
      !! this  = (T, io) present layer container
      !! input = (T, in) input layer container
      pure module subroutine forward(this, input)
-       !import container_layer_type
        class(container_layer_type), intent(inout) :: this
        class(container_layer_type), intent(in) :: input
      end subroutine forward
@@ -57,7 +56,6 @@ module container_layer
      !! input    = (T, in) input layer container
      !! gradient = (R, in) backpropagated gradient
      pure module subroutine backward(this, input, gradient)
-       !import container_layer_type, real12
        class(container_layer_type), intent(inout) :: this
        class(container_layer_type), intent(in) :: input
        real(real12), dimension(..), intent(in) :: gradient
@@ -72,12 +70,36 @@ module container_layer
     !! this = (T, io) present layer container
     !! rhs  = (T, in) input layer container
     module subroutine container_reduction(this, rhs)
-       !import container_layer_type, real12
        class(container_layer_type), intent(inout) :: this
        class(container_layer_type), intent(in) :: rhs
     end subroutine 
   end interface
 #endif
+
+
+!!!-----------------------------------------------------------------------------
+!!! list of layer types
+!!!-----------------------------------------------------------------------------
+  type :: read_procedure_container
+     character(4) :: name
+     procedure(read_layer), nopass, pointer :: read_ptr => null()
+  end type read_procedure_container
+  type(read_procedure_container), dimension(:), allocatable :: &
+       list_of_layer_types
+
+  abstract interface
+     !!-----------------------------------------------------
+     !! read layer type
+     !!-----------------------------------------------------
+     !! this = (T, io) present layer container
+     !! unit = (I, in) unit number
+     !! verbose = (I, in) verbosity level
+     module function read_layer(unit, verbose) result(layer)
+       class(base_layer_type), allocatable :: layer
+       integer, intent(in) :: unit
+       integer, intent(in), optional :: verbose 
+     end function read_layer
+  end interface
 
 
   private

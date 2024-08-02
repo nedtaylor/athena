@@ -10,6 +10,7 @@
 module dropblock3d_layer
   use constants, only: real12
   use base_layer, only: drop_layer_type
+  use custom_types, only: array5d_type
   implicit none
   
   
@@ -21,13 +22,14 @@ module dropblock3d_layer
      real(real12) :: gamma
      integer :: num_channels
      logical, allocatable, dimension(:,:,:) :: mask
-     real(real12), allocatable, dimension(:,:,:,:,:) :: output
-     real(real12), allocatable, dimension(:,:,:,:,:) :: di ! gradient of input (i.e. delta)
+    !  real(real12), allocatable, dimension(:,:,:,:,:) :: output
+    !  real(real12), allocatable, dimension(:,:,:,:,:) :: di ! gradient of input (i.e. delta)
    contains
-     procedure, pass(this) :: get_output => get_output_dropblock3d
+     procedure, pass(this) :: set_hyperparams => set_hyperparams_dropblock3d
      procedure, pass(this) :: init => init_dropblock3d
      procedure, pass(this) :: set_batch_size => set_batch_size_dropblock3d
      procedure, pass(this) :: print => print_dropblock3d
+     procedure, pass(this) :: read => read_dropblock3d
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
      procedure, private, pass(this) :: forward_5d
@@ -55,33 +57,6 @@ module dropblock3d_layer
 
 
 contains
-
-!!!#############################################################################
-!!! get layer outputs
-!!!#############################################################################
-  pure subroutine get_output_dropblock3d(this, output)
-    implicit none
-    class(dropblock3d_layer_type), intent(in) :: this
-    real(real12), allocatable, dimension(..), intent(out) :: output
-  
-    select rank(output)
-    rank(1)
-       output = reshape(this%output, [size(this%output)])
-    rank(2)
-       output = &
-            reshape(this%output, [product(this%output_shape),this%batch_size])
-    rank(5)
-       output = this%output
-    end select
-  
-  end subroutine get_output_dropblock3d
-!!!#############################################################################
-
-
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
-
 
 !!!#############################################################################
 !!! forward propagation assumed rank handler
@@ -141,20 +116,16 @@ contains
 #endif
 
 
-    layer%name = "dropblock3d"
-    layer%input_rank = 4
+    !!--------------------------------------------------------------------------
+    !! initialise hyperparameters
+    !!--------------------------------------------------------------------------
+    call layer%set_hyperparams(rate, block_size)
+
+
     !!--------------------------------------------------------------------------
     !! initialise batch size
     !!--------------------------------------------------------------------------
     if(present(batch_size)) layer%batch_size = batch_size
-
-
-    !!--------------------------------------------------------------------------
-    !! initialise layer rate and block size
-    !!--------------------------------------------------------------------------
-    layer%rate = rate
-    layer%block_size = block_size
-    layer%half = (layer%block_size-1)/2
 
 
     !!--------------------------------------------------------------------------
@@ -167,6 +138,27 @@ contains
 #else
   end procedure layer_setup
 #endif
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set hyperparameters
+!!!#############################################################################
+  pure subroutine set_hyperparams_dropblock3d(this, rate, block_size)
+    implicit none
+    class(dropblock3d_layer_type), intent(inout) :: this
+    real(real12), intent(in) :: rate
+    integer, intent(in) :: block_size
+
+    this%name = "dropblock3d"
+    this%type = "drop"
+    this%input_rank = 4
+
+    this%rate = rate
+    this%block_size = block_size
+    this%half = (this%block_size-1)/2
+
+  end subroutine set_hyperparams_dropblock3d
 !!!#############################################################################
 
 
@@ -193,6 +185,8 @@ contains
     !!--------------------------------------------------------------------------
     !! initialise input shape
     !!--------------------------------------------------------------------------
+    this%output = array5d_type()
+    this%di = array5d_type()
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
 
 
@@ -200,7 +194,7 @@ contains
     !! set up number of channels, width, height
     !!-----------------------------------------------------------------------
     this%num_channels = this%input_shape(4)
-    this%output_shape = this%input_shape
+    this%output%shape = this%input_shape
 
 
     !!-----------------------------------------------------------------------
@@ -259,16 +253,19 @@ contains
     !! allocate arrays
     !!--------------------------------------------------------------------------
     if(allocated(this%input_shape))then
-       if(allocated(this%output)) deallocate(this%output)
-       allocate(this%output( &
-            this%output_shape(1), &
-            this%output_shape(2), &
-            this%output_shape(3), &
+       if(this%output%allocated) call this%output%deallocate()
+
+       this%output = array5d_type()
+       call this%output%allocate(shape = [ &
+            this%output%shape(1), &
+            this%output%shape(2), &
+            this%output%shape(3), &
             this%num_channels, &
-            this%batch_size), &
+            this%batch_size ], &
             source=0._real12)
        if(allocated(this%di)) deallocate(this%di)
-       allocate(this%di, source=this%output)
+       this%di = array5d_type()
+       call this%di%allocate(source=this%output)
     end if
  
   end subroutine set_batch_size_dropblock3d
@@ -361,13 +358,14 @@ contains
 !!!#############################################################################
 !!! read layer from file
 !!!#############################################################################
-  function read_dropblock3d_layer(unit) result(layer)
+  subroutine read_dropblock3d(this, unit, verbose)
    use infile_tools, only: assign_val, assign_vec
    use misc, only: to_lower, icount
    implicit none
    integer, intent(in) :: unit
+   integer, intent(in), optional :: verbose
 
-   class(dropblock3d_layer_type), allocatable :: layer
+   class(dropblock3d_layer_type), intent(inout) :: this
 
    integer :: stat
    integer :: itmp1
@@ -420,8 +418,8 @@ contains
 
    !! set transfer activation function
 
-   layer = dropblock3d_layer_type(rate = rate, block_size = block_size, &
-        input_shape = input_shape)
+   call this%set_hyperparams(rate = rate, block_size = block_size)
+   call this%init(input_shape = input_shape)
 
    !! check for end of layer card
    read(unit,'(A)') buffer
@@ -429,6 +427,25 @@ contains
       write(*,*) trim(adjustl(buffer))
       stop "ERROR: END DROPBLOCK3D not where expected"
    end if
+
+  end subroutine read_dropblock3d
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! read layer from file and return layer
+!!!#############################################################################
+  function read_dropblock3d_layer(unit, verbose) result(layer)
+    implicit none
+    integer, intent(in) :: unit
+    integer, optional, intent(in) :: verbose
+    class(dropblock3d_layer_type), allocatable :: layer
+
+    integer :: verbose_ = 0
+
+
+    if(present(verbose)) verbose_ = verbose
+    call layer%read(unit, verbose=verbose_)
 
   end function read_dropblock3d_layer
 !!!#############################################################################
@@ -455,16 +472,20 @@ contains
     integer :: m, s
 
 
-    select case(this%inference)
-    case(.true.)
-       !! do not perform the drop operation
-       this%output = input * ( 1._real12 - this%rate )
-    case default
-      !! perform the drop operation
-      do concurrent(m = 1:this%num_channels, s=1:this%batch_size)
-         this%output(:,:,:,m,s) = merge(input(:,:,:,m,s), 0._real12, this%mask)
-      end do
-   end select
+    select type(output => this%output)
+    type is (array5d_type)
+       select case(this%inference)
+       case(.true.)
+          !! do not perform the drop operation
+          output%val = input * ( 1._real12 - this%rate )
+       case default
+          !! perform the drop operation
+          do concurrent(m = 1:this%num_channels, s=1:this%batch_size)
+             output%val(:,:,:,m,s) = &
+                  merge(input(:,:,:,m,s), 0._real12, this%mask)
+          end do
+       end select
+    end select
 
   end subroutine forward_5d
 !!!#############################################################################
@@ -484,9 +505,9 @@ contains
          intent(in) :: input
     real(real12), &
          dimension(&
-         this%output_shape(1), &
-         this%output_shape(2), &
-         this%output_shape(3), &
+         this%output%shape(1), &
+         this%output%shape(2), &
+         this%output%shape(3), &
          this%num_channels, this%batch_size), &
          intent(in) :: gradient
 
@@ -494,9 +515,12 @@ contains
 
 
     !! compute gradients for input feature map
-    do concurrent(m = 1:this%num_channels, s=1:this%batch_size)
-       this%di(:,:,:,m,s) = merge(gradient(:,:,:,m,s), 0._real12, this%mask)
-    end do
+    select type(di => this%di)
+    type is (array5d_type)
+       do concurrent(m = 1:this%num_channels, s=1:this%batch_size)
+          di%val(:,:,:,m,s) = merge(gradient(:,:,:,m,s), 0._real12, this%mask)
+       end do
+    end select
 
   end subroutine backward_5d
 !!!#############################################################################

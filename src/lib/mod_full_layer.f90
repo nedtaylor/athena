@@ -7,7 +7,8 @@
 module full_layer
   use constants, only: real12
   use base_layer, only: learnable_layer_type
-  use custom_types, only: activation_type, initialiser_type
+  use custom_types, only: activation_type, initialiser_type, &
+       array2d_type
   implicit none
   
 
@@ -19,18 +20,20 @@ module full_layer
      integer :: num_outputs
      real(real12), allocatable, dimension(:,:) :: weight
      real(real12), allocatable, dimension(:,:,:) :: dw ! weight gradient
-     real(real12), allocatable, dimension(:,:) :: output, z !output and activation
-     real(real12), allocatable, dimension(:,:) :: di ! input gradient (i.e. delta)
+     real(real12), allocatable, dimension(:,:) :: z ! activation
+    !  real(real12), allocatable, dimension(:,:) :: output !output
+    !  real(real12), allocatable, dimension(:,:) :: di ! input gradient (i.e. delta)
    contains
      procedure, pass(this) :: get_num_params => get_num_params_full
      procedure, pass(this) :: get_params => get_params_full
      procedure, pass(this) :: set_params => set_params_full
      procedure, pass(this) :: get_gradients => get_gradients_full
      procedure, pass(this) :: set_gradients => set_gradients_full
-     procedure, pass(this) :: get_output => get_output_full
 
      procedure, pass(this) :: print => print_full
+     procedure, pass(this) :: read => read_full
      procedure, pass(this) :: set_shape => set_shape_full
+     procedure, pass(this) :: set_hyperparams => set_hyperparams_full
      procedure, pass(this) :: init => init_full
      procedure, pass(this) :: set_batch_size => set_batch_size_full
      
@@ -207,30 +210,6 @@ contains
 !!!#############################################################################
 
 
-!!!#############################################################################
-!!! get layer outputs
-!!!#############################################################################
-  pure subroutine get_output_full(this, output)
-  implicit none
-  class(full_layer_type), intent(in) :: this
-  real(real12), allocatable, dimension(..), intent(out) :: output
-
-  select rank(output)
-  rank(1)
-     output = reshape(this%output, [size(this%output)])
-  rank(2)
-     output = this%output
-  end select
-
-end subroutine get_output_full
-!!!#############################################################################
-
-
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
-
-
 !!!##########################################################################!!!
 !!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
 !!!##########################################################################!!!
@@ -281,9 +260,7 @@ end subroutine get_output_full
        num_outputs, num_inputs, num_addit_inputs, &
        batch_size, &
        activation_function, activation_scale, &
-       kernel_initialiser, bias_initialiser) result(layer)
-    use activation,  only: activation_setup
-    use initialiser, only: get_default_initialiser
+       kernel_initialiser, bias_initialiser, verbose) result(layer)
     implicit none
     integer, intent(in) :: num_outputs
     integer, optional, intent(in) :: num_inputs, num_addit_inputs
@@ -291,32 +268,43 @@ end subroutine get_output_full
     real(real12), optional, intent(in) :: activation_scale
     character(*), optional, intent(in) :: activation_function, &
          kernel_initialiser, bias_initialiser
+    integer, optional, intent(in) :: verbose
     
     type(full_layer_type) :: layer
 
-    real(real12) :: scale
-    character(len=10) :: activation_function_
+    integer :: verbose_ = 0
+    integer :: num_addit_inputs_ = 0
+    real(real12) :: scale = 1._real12
+    character(len=10) :: activation_function_ = "none"
 
 
-    layer%name = "full"
-    layer%input_rank = 1
     !!--------------------------------------------------------------------------
     !! set activation and derivative functions based on input name
     !!--------------------------------------------------------------------------
-    if(present(activation_function))then
-       activation_function_ = activation_function
-    else
-       activation_function_ = "none"
-    end if
-    if(present(activation_scale))then
-       scale = activation_scale
-    else
-       scale = 1._real12
-    end if
-    write(*,'("FULL activation function: ",A)') trim(activation_function_)
-    allocate(layer%transfer, &
-         source=activation_setup(activation_function_, scale))
-    
+    if(present(activation_function)) activation_function_ = activation_function
+    if(present(activation_scale)) scale = activation_scale
+
+
+    !!--------------------------------------------------------------------------
+    !! define weights (kernels) and biases initialisers
+    !!--------------------------------------------------------------------------
+    if(present(kernel_initialiser)) layer%kernel_initialiser =kernel_initialiser
+    if(present(bias_initialiser)) layer%bias_initialiser = bias_initialiser
+     
+
+    !!--------------------------------------------------------------------------
+    !! set hyperparameters
+    !!--------------------------------------------------------------------------
+    if(present(num_addit_inputs)) num_addit_inputs_ = num_addit_inputs
+    call layer%set_hyperparams( &
+         num_outputs = num_outputs, num_addit_inputs = num_addit_inputs_, &
+         activation_function = activation_function_, &
+         activation_scale = scale, &
+         kernel_initialiser = layer%kernel_initialiser, &
+         bias_initialiser = layer%bias_initialiser, &
+         verbose = verbose_ &
+    )
+
 
     !!--------------------------------------------------------------------------
     !! initialise batch size
@@ -325,27 +313,59 @@ end subroutine get_output_full
 
 
     !!--------------------------------------------------------------------------
-    !! define weights (kernels) and biases initialisers
-    !!--------------------------------------------------------------------------
-    if(present(kernel_initialiser)) layer%kernel_initialiser =kernel_initialiser
-    if(trim(layer%kernel_initialiser).eq.'') &
-         layer%kernel_initialiser=get_default_initialiser(activation_function_)
-    write(*,'("FULL kernel initialiser: ",A)') trim(layer%kernel_initialiser)
-    if(present(bias_initialiser)) layer%bias_initialiser = bias_initialiser
-    if(trim(layer%bias_initialiser).eq.'') &
-         layer%bias_initialiser = get_default_initialiser(&
-         activation_function_, is_bias=.true.)       
-    write(*,'("FULL bias initialiser: ",A)') trim(layer%bias_initialiser)
-
-
-    !!--------------------------------------------------------------------------
     !! initialise layer shape
     !!--------------------------------------------------------------------------
-    layer%num_outputs = num_outputs
-    if(present(num_addit_inputs)) layer%num_addit_inputs = num_addit_inputs
     if(present(num_inputs)) call layer%init(input_shape=[num_inputs])
 
   end function layer_setup
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set hyperparameters
+!!!#############################################################################
+  subroutine set_hyperparams_full( &
+       this, num_outputs, num_addit_inputs, &
+       activation_function, activation_scale, &
+       kernel_initialiser, bias_initialiser, &
+       verbose )
+    use activation, only: activation_setup
+    use initialiser, only: get_default_initialiser
+    implicit none
+    class(full_layer_type), intent(inout) :: this
+    integer, intent(in) :: num_outputs, num_addit_inputs
+    character(*), intent(in) :: activation_function
+    real(real12), intent(in) :: activation_scale
+    character(*), intent(in) :: kernel_initialiser, bias_initialiser
+    integer, optional, intent(in) :: verbose
+
+
+    this%name = "full"
+    this%type = "full"
+    this%input_rank = 1
+    this%num_outputs = num_outputs
+    this%num_addit_inputs = num_addit_inputs
+    allocate(this%transfer, &
+         source=activation_setup(activation_function, activation_scale))
+    if(trim(kernel_initialiser).eq.'') &
+         this%kernel_initialiser = get_default_initialiser(activation_function)
+    if(trim(bias_initialiser).eq.'') &
+         this%bias_initialiser = get_default_initialiser( &
+              activation_function, &
+              is_bias=.true. &
+         )  
+    if(present(verbose))then
+       if(abs(verbose).gt.0)then
+          write(*,'("FULL activation function: ",A)') &
+               trim(activation_function)
+          write(*,'("FULL kernel initialiser: ",A)') &
+               trim(this%kernel_initialiser)
+          write(*,'("FULL bias initialiser: ",A)') &
+               trim(this%bias_initialiser)
+       end if
+    end if
+
+  end subroutine set_hyperparams_full
 !!!#############################################################################
 
 
@@ -398,7 +418,7 @@ end subroutine get_output_full
     !! initialise number of inputs
     !!--------------------------------------------------------------------------
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
-    this%output_shape = [this%num_outputs]
+    this%output%shape = [this%num_outputs]
 
 
     !!--------------------------------------------------------------------------
@@ -456,14 +476,25 @@ end subroutine get_output_full
    !!--------------------------------------------------------------------------
    if(allocated(this%input_shape))then
       if(allocated(this%output)) deallocate(this%output)
-      allocate(this%output(this%num_outputs, this%batch_size), source=0._real12)
+      this%output = array2d_type()
+      call this%output%allocate( &
+           [this%num_outputs, this%batch_size], &
+           source=0._real12 &
+      )
       if(allocated(this%z)) deallocate(this%z)
-      allocate(this%z, source=this%output)
+      select type(output => this%output)
+      type is (array2d_type)
+         allocate( this%z, source = output%val )
+      end select
       if(allocated(this%dw)) deallocate(this%dw)
       allocate(this%dw(this%num_inputs+1,this%num_outputs, this%batch_size), &
            source=0._real12)
       if(allocated(this%di)) deallocate(this%di)
-      allocate(this%di(this%num_inputs, this%batch_size), source=0._real12)
+      this%di = array2d_type()
+      call this%di%allocate( &
+           [this%num_inputs, this%batch_size], &
+           source=0._real12 &
+      )
    end if
 
  end subroutine set_batch_size_full
@@ -494,6 +525,7 @@ end subroutine get_output_full
     !!--------------------------------------------------------------------------
     write(unit,'("FULL")')
     write(unit,'(3X,"NUM_INPUTS = ",I0)') this%num_inputs
+    write(unit,'(3X,"NUM_ADDIT_INPUTS = ",I0)') this%num_addit_inputs
     write(unit,'(3X,"NUM_OUTPUTS = ",I0)') this%num_outputs
 
     write(unit,'(3X,"ACTIVATION = ",A)') trim(this%transfer%name)
@@ -519,18 +551,18 @@ end subroutine get_output_full
 !!!#############################################################################
 !!! read layer from file
 !!!#############################################################################
-  function read_full_layer(unit, verbose) result(layer)
+  subroutine read_full(this, unit, verbose)
     use infile_tools, only: assign_val, assign_vec
     use misc, only: to_lower, icount
     implicit none
     integer, intent(in) :: unit
     integer, optional, intent(in) :: verbose
 
-    class(full_layer_type), allocatable :: layer
+    class(full_layer_type), intent(inout) :: this
 
     integer :: stat, verbose_ = 0
     integer :: i, j, k, c, itmp1
-    integer :: num_inputs, num_outputs
+    integer :: num_inputs, num_outputs, num_addit_inputs = 0
     real(real12) :: activation_scale
     logical :: found_weights = .false.
     character(14) :: kernel_initialiser='', bias_initialiser=''
@@ -575,6 +607,8 @@ end subroutine get_output_full
        select case(trim(tag))
        case("NUM_INPUTS")
           call assign_val(buffer, num_inputs, itmp1)
+       case("NUM_ADDIT_INPUTS")
+          call assign_val(buffer, num_addit_inputs, itmp1)
        case("NUM_OUTPUTS")
           call assign_val(buffer, num_outputs, itmp1)
        case("ACTIVATION")
@@ -607,12 +641,16 @@ end subroutine get_output_full
     !!--------------------------------------------------------------------------
     !! allocate layer
     !!--------------------------------------------------------------------------
-    layer = full_layer_type( &
-         num_outputs = num_outputs, num_inputs = num_inputs, &
+    call this%set_hyperparams( &
+         num_outputs = num_outputs, num_addit_inputs = num_addit_inputs, &
          activation_function = activation_function, &
          activation_scale = activation_scale, &
          kernel_initialiser = kernel_initialiser, &
-         bias_initialiser = bias_initialiser)
+         bias_initialiser = bias_initialiser, &
+         verbose = verbose_ &
+    )
+    call this%init(input_shape=[num_inputs])
+
 
     !! check if WEIGHTS card was found
     !!--------------------------------------------------------------------------
@@ -630,7 +668,7 @@ end subroutine get_output_full
              read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
              c = c + k
           end do data_concat_loop
-          layer%weight(:,i) = data_list
+          this%weight(:,i) = data_list
           deallocate(data_list)
        end do
 
@@ -652,6 +690,25 @@ end subroutine get_output_full
        write(*,*) trim(adjustl(buffer))
        stop "ERROR: END FULL not where expected"
     end if
+
+  end subroutine read_full
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! read layer from file and return layer
+!!!#############################################################################
+  function read_full_layer(unit, verbose) result(layer)
+    implicit none
+    integer, intent(in) :: unit
+    integer, optional, intent(in) :: verbose
+    class(full_layer_type), allocatable :: layer
+
+    integer :: verbose_ = 0
+
+
+    if(present(verbose)) verbose_ = verbose
+    call layer%read(unit, verbose=verbose_)
 
   end function read_full_layer
 !!!#############################################################################
@@ -681,7 +738,10 @@ end subroutine get_output_full
     end do
 
     !! apply activation function to activation
-    this%output = this%transfer%activate(this%z)
+    select type(output => this%output)
+    type is (array2d_type)
+       output%val = this%transfer%activate(this%z)
+    end select
 
   end subroutine forward_2d
 !!!#############################################################################
@@ -716,17 +776,20 @@ end subroutine get_output_full
     !! delta(l) = differential of activation * error from next layer
     delta(:,:) = gradient * this%transfer%differentiate(this%z)
 
-    do concurrent(s=1:this%batch_size)
-       !! partial derivatives of error wrt weights
-       !! dE/dW = o/p(l-1) * delta
-       dw(:,:,s) = matmul(input(:,s:s), transpose(delta(:,s:s)))
+    select type(di => this%di)
+    type is (array2d_type)
+         do concurrent(s=1:this%batch_size)
+            !! partial derivatives of error wrt weights
+            !! dE/dW = o/p(l-1) * delta
+            dw(:,:,s) = matmul(input(:,s:s), transpose(delta(:,s:s)))
 
-       !! the errors are summed from the delta of the ...
-       !! ... 'child' node * 'child' weight
-       !! dE/dI(l-1) = sum(weight(l) * delta(l))
-       !! this prepares dE/dI for when it is passed into the previous layer
-       this%di(:,s) = matmul(this%weight(:this%num_inputs,:), delta(:,s))
-    end do
+            !! the errors are summed from the delta of the ...
+            !! ... 'child' node * 'child' weight
+            !! dE/dI(l-1) = sum(weight(l) * delta(l))
+            !! this prepares dE/dI for when it is passed into the previous layer
+            di%val(:,s) = matmul(this%weight(:this%num_inputs,:), delta(:,s))
+         end do
+    end select
 
     !! sum weights and biases errors to use in batch gradient descent
     delta = delta * bias_diff(1)
