@@ -7,19 +7,20 @@
 module batchnorm1d_layer
   use constants, only: real12
   use base_layer, only: batch_layer_type, learnable_layer_type
-  use custom_types, only: initialiser_type
+  use custom_types, only: initialiser_type, array3d_type
   implicit none
   
   
   type, extends(batch_layer_type) :: batchnorm1d_layer_type
      integer :: num_inputs = 1
-     real(real12), allocatable, dimension(:,:,:) :: output
-     real(real12), allocatable, dimension(:,:,:) :: di ! gradient of input (i.e. delta)
+   !   real(real12), allocatable, dimension(:,:,:) :: output
+   !   real(real12), allocatable, dimension(:,:,:) :: di ! gradient of input (i.e. delta)
    contains
-     procedure, pass(this) :: get_output => get_output_batchnorm1d
+     procedure, pass(this) :: set_hyperparams => set_hyperparams_batchnorm1d
      procedure, pass(this) :: init => init_batchnorm1d
      procedure, pass(this) :: set_batch_size => set_batch_size_batchnorm1d
      procedure, pass(this) :: print => print_batchnorm1d
+     procedure, pass(this) :: read => read_batchnorm1d
 
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
@@ -41,7 +42,8 @@ module batchnorm1d_layer
           gamma_init_mean, gamma_init_std, &
           beta_init_mean, beta_init_std, &
           kernel_initialiser, bias_initialiser, &
-          moving_mean_initialiser, moving_variance_initialiser &
+          moving_mean_initialiser, moving_variance_initialiser, &
+          verbose &
           ) result(layer)
        integer, dimension(:), optional, intent(in) :: input_shape
        integer, optional, intent(in) :: batch_size
@@ -52,6 +54,7 @@ module batchnorm1d_layer
        character(*), optional, intent(in) :: &
             kernel_initialiser, bias_initialiser, &
             moving_mean_initialiser, moving_variance_initialiser
+       integer, optional, intent(in) :: verbose
        type(batchnorm1d_layer_type) :: layer
      end function layer_setup
   end interface batchnorm1d_layer_type
@@ -122,33 +125,6 @@ contains
 
 
 !!!#############################################################################
-!!! get layer outputs
-!!!#############################################################################
-  pure subroutine get_output_batchnorm1d(this, output)
-    implicit none
-    class(batchnorm1d_layer_type), intent(in) :: this
-    real(real12), allocatable, dimension(..), intent(out) :: output
-  
-    select rank(output)
-    rank(1)
-       output = reshape(this%output, [size(this%output)])
-    rank(2)
-       output = reshape(this%output, &
-            [product(this%output_shape(:)), this%batch_size])
-    rank(3)
-       output = this%output
-    end select
-  
-  end subroutine get_output_batchnorm1d
-!!!#############################################################################
-
-
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
-
-
-!!!#############################################################################
 !!! forward propagation assumed rank handler
 !!!#############################################################################
   pure subroutine forward_rank(this, input)
@@ -204,7 +180,8 @@ contains
        gamma_init_mean, gamma_init_std, &
        beta_init_mean, beta_init_std, &
        kernel_initialiser, bias_initialiser, &
-       moving_mean_initialiser, moving_variance_initialiser &
+       moving_mean_initialiser, moving_variance_initialiser, &
+       verbose &
        ) result(layer)
     use initialiser, only: get_default_initialiser
     implicit none
@@ -217,17 +194,14 @@ contains
     character(*), optional, intent(in) :: &
          kernel_initialiser, bias_initialiser, &
          moving_mean_initialiser, moving_variance_initialiser
+    integer, optional, intent(in) :: verbose
     
     type(batchnorm1d_layer_type) :: layer
-    
 
-    layer%name = "batchnorm1d"
-    layer%input_rank = 1
-    !!--------------------------------------------------------------------------
-    !! initialise batch size
-    !!--------------------------------------------------------------------------
-    if(present(batch_size)) layer%batch_size = batch_size
+    integer :: verbose_ = 0
 
+
+    if(present(verbose)) verbose_ = verbose
 
     !!--------------------------------------------------------------------------
     !! set up number of channels (alt. number of features)
@@ -267,33 +241,39 @@ contains
     !!--------------------------------------------------------------------------
     !! define gamma and beta initialisers
     !!--------------------------------------------------------------------------
-    if(present(kernel_initialiser)) layer%kernel_initialiser = kernel_initialiser
-    if(trim(layer%kernel_initialiser).eq.'') &
-         layer%kernel_initialiser = 'ones'
-         !get_default_initialiser("batch")
-    write(*,'("BATCHNORM1D kernel (gamma) initialiser: ",A)') &
-         trim(layer%kernel_initialiser)
+    if(present(kernel_initialiser)) &
+         layer%kernel_initialiser = kernel_initialiser
     if(present(bias_initialiser)) layer%bias_initialiser = bias_initialiser
-    if(trim(layer%bias_initialiser).eq.'') &
-         layer%bias_initialiser = 'zeros'
-         !get_default_initialiser("batch")
-    write(*,'("BATCHNORM1D bias (beta) initialiser: ",A)') &
-         trim(layer%bias_initialiser)
+
 
     if(present(moving_mean_initialiser)) &
          layer%moving_mean_initialiser = moving_mean_initialiser
-    if(trim(layer%moving_mean_initialiser).eq.'') &
-         layer%moving_mean_initialiser = 'zeros'
-         !get_default_initialiser("batch")
-    write(*,'("BATCHNORM1D moving mean initialiser: ",A)') &
-         trim(layer%moving_mean_initialiser)
     if(present(moving_variance_initialiser)) &
          layer%moving_variance_initialiser = moving_variance_initialiser
-    if(trim(layer%moving_variance_initialiser).eq.'') &
-         layer%moving_variance_initialiser = 'ones'
-         !get_default_initialiser("batch")
-    write(*,'("BATCHNORM1D moving variance initialiser: ",A)') &
-         trim(layer%moving_variance_initialiser)
+
+
+
+    !!--------------------------------------------------------------------------
+    !! set hyperparameters
+    !!--------------------------------------------------------------------------
+    call layer%set_hyperparams( &
+         momentum = layer%momentum, epsilon = layer%epsilon, &
+         gamma_init_mean = layer%gamma_init_mean, &
+         gamma_init_std = layer%gamma_init_std, &
+         beta_init_mean = layer%beta_init_mean, &
+         beta_init_std = layer%beta_init_std, &
+         kernel_initialiser = layer%kernel_initialiser, &
+         bias_initialiser = layer%bias_initialiser, &
+         moving_mean_initialiser = layer%moving_mean_initialiser, &
+         moving_variance_initialiser = layer%moving_variance_initialiser, &
+         verbose = verbose_ &
+    )
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise batch size
+    !!--------------------------------------------------------------------------
+    if(present(batch_size)) layer%batch_size = batch_size
 
 
     !!--------------------------------------------------------------------------
@@ -310,6 +290,64 @@ contains
     end if
 
   end function layer_setup
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set hyperparameters
+!!!#############################################################################
+  subroutine set_hyperparams_batchnorm1d( &
+       this, &
+       momentum, epsilon, &
+       gamma_init_mean, gamma_init_std, &
+       beta_init_mean, beta_init_std, &
+       kernel_initialiser, bias_initialiser, &
+       moving_mean_initialiser, moving_variance_initialiser, &
+       verbose )
+    implicit none
+    class(batchnorm1d_layer_type), intent(inout) :: this
+    real(real12), intent(in) :: momentum, epsilon
+    real(real12), intent(in) :: gamma_init_mean, gamma_init_std
+    real(real12), intent(in) :: beta_init_mean, beta_init_std
+    character(*), intent(in) :: kernel_initialiser, bias_initialiser
+    character(*), intent(in) :: &
+         moving_mean_initialiser, moving_variance_initialiser
+    integer, optional, intent(in) :: verbose
+
+
+    this%name = "batchnorm1d"
+    this%type = "batc"
+    this%input_rank = 2
+    this%momentum = momentum
+    this%epsilon = epsilon
+    if(trim(this%kernel_initialiser).eq.'') &
+         this%kernel_initialiser = 'ones'
+         !get_default_initialiser("batch")
+    if(trim(this%bias_initialiser).eq.'') &
+         this%bias_initialiser = 'zeros'
+         !get_default_initialiser("batch")
+
+    if(trim(this%moving_mean_initialiser).eq.'') &
+         this%moving_mean_initialiser = 'zeros'
+         !get_default_initialiser("batch")
+    if(trim(this%moving_variance_initialiser).eq.'') &
+         this%moving_variance_initialiser = 'ones'
+         !get_default_initialiser("batch")
+
+    if(present(verbose))then
+       if(abs(verbose).gt.0)then
+          write(*,'("BATCHNORM1D kernel (gamma) initialiser: ",A)') &
+               trim(this%kernel_initialiser)
+          write(*,'("BATCHNORM1D bias (beta) initialiser: ",A)') &
+               trim(this%bias_initialiser)
+          write(*,'("BATCHNORM1D moving mean initialiser: ",A)') &
+               trim(this%moving_mean_initialiser)
+          write(*,'("BATCHNORM1D moving variance initialiser: ",A)') &
+               trim(this%moving_variance_initialiser)
+       end if
+    end if
+
+  end subroutine set_hyperparams_batchnorm1d
 !!!#############################################################################
 
 
@@ -349,7 +387,7 @@ contains
     !!--------------------------------------------------------------------------
     !! set up output shape
     !!--------------------------------------------------------------------------
-    this%output_shape = this%input_shape
+    this%output%shape = this%input_shape
     this%num_channels = this%input_shape(this%input_rank)
     if(size(this%input_shape).eq.2)then
        this%num_inputs = this%input_shape(1)
@@ -422,42 +460,45 @@ contains
 !!! set batch size
 !!!#############################################################################
   subroutine set_batch_size_batchnorm1d(this, batch_size, verbose)
-   implicit none
-   class(batchnorm1d_layer_type), intent(inout) :: this
-   integer, intent(in) :: batch_size
-   integer, optional, intent(in) :: verbose
+    implicit none
+    class(batchnorm1d_layer_type), intent(inout) :: this
+    integer, intent(in) :: batch_size
+    integer, optional, intent(in) :: verbose
 
-   integer :: verbose_ = 0
-
-
-   !!--------------------------------------------------------------------------
-   !! initialise optional arguments
-   !!--------------------------------------------------------------------------
-   if(present(verbose)) verbose_ = verbose
-   this%batch_size = batch_size
+    integer :: verbose_ = 0
 
 
-   !!--------------------------------------------------------------------------
-   !! set norm
-   !!--------------------------------------------------------------------------
-   this%norm = real(this%batch_size, real12)
+    !!--------------------------------------------------------------------------
+    !! initialise optional arguments
+    !!--------------------------------------------------------------------------
+    if(present(verbose)) verbose_ = verbose
+    this%batch_size = batch_size
 
 
-   !!--------------------------------------------------------------------------
-   !! allocate arrays
-   !!--------------------------------------------------------------------------
-   if(allocated(this%input_shape))then
-      if(allocated(this%output)) deallocate(this%output)
-      allocate(this%output( &
-           this%num_inputs, &
-           this%num_channels, &
-           this%batch_size), &
-           source=0._real12)
-      if(allocated(this%di)) deallocate(this%di)
-      allocate(this%di, source=this%output)
-   end if
+    !!--------------------------------------------------------------------------
+    !! set norm
+    !!--------------------------------------------------------------------------
+    this%norm = real(this%batch_size, real12)
 
- end subroutine set_batch_size_batchnorm1d
+
+    !!--------------------------------------------------------------------------
+    !! allocate arrays
+    !!--------------------------------------------------------------------------
+    if(allocated(this%input_shape))then
+       if(this%output%allocated) call this%output%deallocate()
+       this%output = array3d_type()
+       call this%output%allocate( shape = [ &
+            this%num_inputs, &
+            this%num_channels, &
+            this%batch_size ], &
+            source=0._real12 &
+       )
+       if(this%di%allocated) call this%di%deallocate()
+       this%di = array3d_type()
+       call this%di%allocate( source = this%output )
+    end if
+
+  end subroutine set_batch_size_batchnorm1d
 !!!#############################################################################
 
 
@@ -510,14 +551,14 @@ contains
 !!!#############################################################################
 !!! read layer from file
 !!!#############################################################################
-  function read_batchnorm1d_layer(unit, verbose) result(layer)
+  subroutine read_batchnorm1d(this, unit, verbose)
     use infile_tools, only: assign_val, assign_vec
     use misc, only: to_lower, icount
     implicit none
+    class(batchnorm1d_layer_type), intent(inout) :: this
     integer, intent(in) :: unit
     integer, optional, intent(in) :: verbose
  
-    class(batchnorm1d_layer_type), allocatable :: layer
  
     integer :: stat, verbose_ = 0
     integer :: itmp1, c, i, j, k
@@ -576,7 +617,7 @@ contains
           kernel_initialiser = 'zeros'
           bias_initialiser   = 'zeros'
           exit tag_loop
-       case("beta")
+       case("BETA")
           found_beta = .true.
           kernel_initialiser = 'zeros'
           bias_initialiser   = 'zeros'
@@ -599,10 +640,20 @@ contains
     !! set transfer activation function
     !!--------------------------------------------------------------------------
     num_channels = input_shape(size(input_shape))
-    layer = batchnorm1d_layer_type( input_shape=input_shape, &
-         momentum = momentum, epsilon = epsilon &
-         )
-
+    call this%set_hyperparams( &
+         momentum = momentum, &
+         epsilon = epsilon, &
+         gamma_init_mean = this%gamma_init_mean, &
+         gamma_init_std = this%gamma_init_std, &
+         beta_init_mean = this%beta_init_mean, &
+         beta_init_std = this%beta_init_std, &
+         kernel_initialiser = kernel_initialiser, &
+         bias_initialiser = bias_initialiser, &
+         moving_mean_initialiser = this%moving_mean_initialiser, &
+         moving_variance_initialiser = this%moving_variance_initialiser, &
+         verbose = verbose_ &
+    )
+    call this%init(input_shape = input_shape)
 
     !!--------------------------------------------------------------------------
     !! check if WEIGHTS card was found
@@ -621,10 +672,10 @@ contains
             c = c + k
          end do data_concat_loop
          if(found_gamma)then
-            layer%gamma = data_list
+            this%gamma = data_list
             found_gamma = .false.
          elseif(found_beta)then
-            layer%beta = data_list
+            this%beta = data_list
             found_beta = .false.
          end if
          read(unit,'(A)',iostat=stat) buffer
@@ -642,6 +693,25 @@ contains
        write(*,*) trim(adjustl(buffer))
        stop "ERROR: END BATCHNORM1D not where expected"
     end if
+
+  end subroutine read_batchnorm1d
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! read layer from file and return layer
+!!!#############################################################################
+  function read_batchnorm1d_layer(unit, verbose) result(layer)
+    implicit none
+    integer, intent(in) :: unit
+    integer, optional, intent(in) :: verbose
+    class(batchnorm1d_layer_type), allocatable :: layer
+
+    integer :: verbose_ = 0
+
+
+    if(present(verbose)) verbose_ = verbose
+    call layer%read(unit, verbose=verbose_)
 
   end function read_batchnorm1d_layer
 !!!#############################################################################
@@ -668,43 +738,46 @@ contains
     real(real12), dimension(this%num_channels) :: t_mean, t_variance
 
     
-    select case(this%inference)
-    case(.true.)
-      do concurrent(m=1:this%num_channels)
-         !! normalize each feature
-         this%output(:,m,:) = this%gamma(m) * (input(:,m,:) - this%mean(m)) / &
-               sqrt( &
-               this%batch_size / (this%batch_size - 1) * this%variance(m) + &
-               this%epsilon) + &
-               this%beta(m)
-      end do
-    case default
-      t_mean = 0._real12
-      t_variance = 0._real12
-      do concurrent(m=1:this%num_channels)
-          !! calculate current mean and variance
-          t_mean(m) = sum(input(:,m,:)) / this%norm
-          t_variance(m) = sum((input(:,m,:) - t_mean(m))**2._real12) / this%norm
+    select type(output => this%output)
+    type is (array3d_type)
+       select case(this%inference)
+       case(.true.)
+         do concurrent(m=1:this%num_channels)
+            !! normalize each feature
+            output%val(:,m,:) = this%gamma(m) * (input(:,m,:) - this%mean(m)) / &
+                  sqrt( &
+                  this%batch_size / (this%batch_size - 1) * this%variance(m) + &
+                  this%epsilon) + &
+                  this%beta(m)
+         end do
+       case default
+         t_mean = 0._real12
+         t_variance = 0._real12
+         do concurrent(m=1:this%num_channels)
+             !! calculate current mean and variance
+             t_mean(m) = sum(input(:,m,:)) / this%norm
+             t_variance(m) = sum((input(:,m,:) - t_mean(m))**2._real12) / this%norm
 
-          !! CONVERT TO USING inverse square root of variance (i.e. inverse std)
-          !! would also need to include epsilon in the sqrt denominator
+             !! CONVERT TO USING inverse square root of variance (i.e. inverse std)
+             !! would also need to include epsilon in the sqrt denominator
 
-          !! update running averages
-          if(this%momentum.gt.1.E-8_real12)then
-             this%mean(m) = this%momentum * this%mean(m) + &
-                   (1._real12 - this%momentum) * t_mean(m)
-             this%variance(m) = this%momentum * this%variance(m) + &
-                   (1._real12 - this%momentum) * t_variance(m)
-          else
-             this%mean(m) = t_mean(m)
-             this%variance(m) = t_variance(m)
-          end if
+             !! update running averages
+             if(this%momentum.gt.1.E-8_real12)then
+                this%mean(m) = this%momentum * this%mean(m) + &
+                      (1._real12 - this%momentum) * t_mean(m)
+                this%variance(m) = this%momentum * this%variance(m) + &
+                      (1._real12 - this%momentum) * t_variance(m)
+             else
+                this%mean(m) = t_mean(m)
+                this%variance(m) = t_variance(m)
+             end if
 
-          !! normalize each feature
-          this%output(:,m,:) = this%gamma(m) * (input(:,m,:) - this%mean(m)) / &
-             sqrt(this%variance(m) + this%epsilon) + this%beta(m)
+             !! normalize each feature
+             output%val(:,m,:) = this%gamma(m) * (input(:,m,:) - this%mean(m)) / &
+                sqrt(this%variance(m) + this%epsilon) + this%beta(m)
 
-       end do
+          end do
+       end select
     end select
 
   end subroutine forward_3d
@@ -735,25 +808,28 @@ contains
          this%batch_size) :: x_hat, dx_hat
 
 
-    do concurrent(m=1:this%num_channels)
-       !! recalculate x_hat (i.e. normalised input)
-       x_hat(:,m,:) = (input(:,m,:) - this%mean(m)) / &
-            sqrt(this%variance(m) + this%epsilon)
- 
-       !! calculate gradient of normalised input
-       dx_hat(:,m,:) = gradient(:,m,:) * this%gamma(m)
+    select type(di => this%di)
+    type is (array3d_type)
+       do concurrent(m=1:this%num_channels)
+          !! recalculate x_hat (i.e. normalised input)
+          x_hat(:,m,:) = (input(:,m,:) - this%mean(m)) / &
+               sqrt(this%variance(m) + this%epsilon)
 
-       !! calculate gradient of inputs
-       this%di(:,m,:) = &
-            1._real12 / (this%norm * sqrt(this%variance(m) + this%epsilon)) * &
-            ( this%norm * dx_hat(:,m,:) - &
-            sum(dx_hat(:,m,:)) - x_hat(:,m,:) * &
-            sum(dx_hat(:,m,:) * x_hat(:,m,:)))
+          !! calculate gradient of normalised input
+          dx_hat(:,m,:) = gradient(:,m,:) * this%gamma(m)
 
-       !! calculate gradient of gamma and beta
-       this%dg(m) = sum(gradient(:,m,:) * x_hat(:,m,:))
-       this%db(m) = sum(gradient(:,m,:))
-    end do
+          !! calculate gradient of inputs
+          di%val(:,m,:) = &
+               1._real12 / (this%norm * sqrt(this%variance(m) + this%epsilon)) * &
+               ( this%norm * dx_hat(:,m,:) - &
+               sum(dx_hat(:,m,:)) - x_hat(:,m,:) * &
+               sum(dx_hat(:,m,:) * x_hat(:,m,:)))
+
+          !! calculate gradient of gamma and beta
+          this%dg(m) = sum(gradient(:,m,:) * x_hat(:,m,:))
+          this%db(m) = sum(gradient(:,m,:))
+       end do
+    end select
 
   end subroutine backward_3d
 !!!#############################################################################
