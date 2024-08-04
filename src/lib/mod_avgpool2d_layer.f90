@@ -245,45 +245,45 @@ contains
 !!! set batch size
 !!!#############################################################################
   subroutine set_batch_size_avgpool2d(this, batch_size, verbose)
-   implicit none
-   class(avgpool2d_layer_type), intent(inout) :: this
-   integer, intent(in) :: batch_size
-   integer, optional, intent(in) :: verbose
+    implicit none
+    class(avgpool2d_layer_type), intent(inout) :: this
+    integer, intent(in) :: batch_size
+    integer, optional, intent(in) :: verbose
 
-   integer :: verbose_ = 0
-
-
-   !!--------------------------------------------------------------------------
-   !! initialise optional arguments
-   !!--------------------------------------------------------------------------
-   if(present(verbose)) verbose_ = verbose
-   this%batch_size = batch_size
+    integer :: verbose_ = 0
 
 
-   !!--------------------------------------------------------------------------
-   !! allocate arrays
-   !!--------------------------------------------------------------------------
-   if(allocated(this%input_shape))then
-      if(this%output%allocated) call this%output%deallocate()
-      this%output = array4d_type()
-      call this%output%allocate( shape = [ &
-           this%output%shape(1), &
-           this%output%shape(2), this%num_channels, &
-           this%batch_size ], &
-           source=0._real12 &
-      )
-      if(this%di%allocated) call this%di%deallocate()
-      this%di = array4d_type()
-      call this%di%allocate( shape = [ &
-           this%input_shape(1), &
-           this%input_shape(2), &
-           this%input_shape(3), &
-           this%batch_size ], &
-           source=0._real12 &
-      )
-   end if
+    !!--------------------------------------------------------------------------
+    !! initialise optional arguments
+    !!--------------------------------------------------------------------------
+    if(present(verbose)) verbose_ = verbose
+    this%batch_size = batch_size
 
- end subroutine set_batch_size_avgpool2d
+
+    !!--------------------------------------------------------------------------
+    !! allocate arrays
+    !!--------------------------------------------------------------------------
+    if(allocated(this%input_shape))then
+       if(this%output%allocated) call this%output%deallocate()
+       this%output = array4d_type()
+       call this%output%allocate( shape = [ &
+            this%output%shape(1), &
+            this%output%shape(2), this%num_channels, &
+            this%batch_size ], &
+            source=0._real12 &
+       )
+       if(this%di%allocated) call this%di%deallocate()
+       this%di = array4d_type()
+       call this%di%allocate( shape = [ &
+            this%input_shape(1), &
+            this%input_shape(2), &
+            this%input_shape(3), &
+            this%batch_size ], &
+            source=0._real12 &
+       )
+    end if
+
+  end subroutine set_batch_size_avgpool2d
 !!!#############################################################################
 
 
@@ -412,18 +412,18 @@ contains
 !!! read layer from file and return layer
 !!!#############################################################################
   function read_avgpool2d_layer(unit, verbose) result(layer)
-   implicit none
-   integer, intent(in) :: unit
-   integer, optional, intent(in) :: verbose
-   class(avgpool2d_layer_type), allocatable :: layer
+    implicit none
+    integer, intent(in) :: unit
+    integer, optional, intent(in) :: verbose
+    class(avgpool2d_layer_type), allocatable :: layer
 
-   integer :: verbose_ = 0
+    integer :: verbose_ = 0
 
 
-   if(present(verbose)) verbose_ = verbose
-   call layer%read(unit, verbose=verbose_)
+    if(present(verbose)) verbose_ = verbose
+    call layer%read(unit, verbose=verbose_)
 
- end function read_avgpool2d_layer
+  end function read_avgpool2d_layer
 !!!#############################################################################
 
 
