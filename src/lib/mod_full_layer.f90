@@ -278,6 +278,8 @@ contains
     character(len=10) :: activation_function_ = "none"
 
 
+    if(present(verbose)) verbose_ = verbose
+
     !!--------------------------------------------------------------------------
     !! set activation and derivative functions based on input name
     !!--------------------------------------------------------------------------
