@@ -6,8 +6,6 @@
 !!! ... are derived
 !!! module includes the following public abstract derived types:
 !!! - base_layer_type      - abstract type for all layers
-!!! - input_layer_type     - abstract type for input layers
-!!! - flatten_layer_type   - abstract type for flatten (rehsape) layers
 !!! - pool_layer_type      - abstract type for spatial pooling layers
 !!! - drop_layer_type      - abstract type for dropout layers
 !!! - learnable_layer_type - abstract type for layers with learnable parameters
@@ -23,9 +21,6 @@
 !!! - set_batch_size       - set the batch size of the layer
 !!! - forward              - forward pass of layer
 !!! - backward             - backward pass of layer
-!!!##################
-!!! input_layer_type includes the following unique procedures:
-!!! - set                  - set the input of the layer
 !!!##################
 !!! learnable_layer_type includes the following unique procedures:
 !!! - layer_reduction      - reduce the layer to a single value
@@ -44,8 +39,6 @@ module base_layer
   private
 
   public :: base_layer_type
-  public :: input_layer_type
-  public :: flatten_layer_type
   public :: pool_layer_type
   public :: drop_layer_type
   public :: learnable_layer_type
@@ -191,33 +184,6 @@ module base_layer
        integer, optional, intent(in) :: verbose
      end subroutine read_layer
   end interface
-
-
-!!!-----------------------------------------------------------------------------
-!!! input derived extended type
-!!!-----------------------------------------------------------------------------
-  type, abstract, extends(base_layer_type) :: input_layer_type
-     integer :: num_outputs
-   contains
-     procedure(set), deferred, pass(this) :: set
-  end type input_layer_type
-
-  abstract interface
-     pure subroutine set(this, input)
-       import :: input_layer_type, real12
-       class(input_layer_type), intent(inout) :: this
-       real(real12), dimension(..), intent(in) :: input
-     end subroutine set
-  end interface
-
-
-!!!-----------------------------------------------------------------------------
-!!! flatten derived extended type
-!!!-----------------------------------------------------------------------------
-  type, abstract, extends(base_layer_type) :: flatten_layer_type
-     integer :: num_outputs, num_addit_outputs = 0
-    !  real(real12), allocatable, dimension(:,:) :: output
-  end type flatten_layer_type
 
 
 !!!-----------------------------------------------------------------------------

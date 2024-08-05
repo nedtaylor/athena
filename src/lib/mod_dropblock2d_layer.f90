@@ -265,7 +265,7 @@ contains
             this%batch_size ], &
             source=0._real12 &
        )
-       if(allocated(this%di)) deallocate(this%di)
+       if(this%di%allocated) call this%di%deallocate()
        this%di = array4d_type()
        call this%di%allocate(source=this%output)
     end if
@@ -352,77 +352,77 @@ contains
 !!! read layer from file
 !!!#############################################################################
   subroutine read_dropblock2d(this, unit, verbose)
-   use infile_tools, only: assign_val, assign_vec
-   use misc, only: to_lower, icount
-   implicit none
-   class(dropblock2d_layer_type), intent(inout) :: this
-   integer, intent(in) :: unit
-   integer, optional, intent(in) :: verbose
+    use infile_tools, only: assign_val, assign_vec
+    use misc, only: to_lower, icount
+    implicit none
+    class(dropblock2d_layer_type), intent(inout) :: this
+    integer, intent(in) :: unit
+    integer, optional, intent(in) :: verbose
 
-   integer :: stat, verbose_ = 0
-   integer :: itmp1
-   integer :: block_size
-   real(real12) :: rate
-   integer, dimension(3) :: input_shape
-   character(256) :: buffer, tag
+    integer :: stat, verbose_ = 0
+    integer :: itmp1
+    integer :: block_size
+    real(real12) :: rate
+    integer, dimension(3) :: input_shape
+    character(256) :: buffer, tag
 
 
-   if(present(verbose)) verbose_ = verbose
+    if(present(verbose)) verbose_ = verbose
 
-   !! loop over tags in layer card
-   tag_loop: do
+    !! loop over tags in layer card
+    tag_loop: do
 
-      !! check for end of file
-      read(unit,'(A)',iostat=stat) buffer
-      if(stat.ne.0)then
-         write(0,*) "ERROR: file encountered error (EoF?) before END DROPBLOCK2D"
-         stop "Exiting..."
-      end if
-      if(trim(adjustl(buffer)).eq."") cycle tag_loop
+       !! check for end of file
+       read(unit,'(A)',iostat=stat) buffer
+       if(stat.ne.0)then
+          write(0,*) "ERROR: file encountered error (EoF?) before END DROPBLOCK2D"
+          stop "Exiting..."
+       end if
+       if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
-      !! check for end of convolution card
-      if(trim(adjustl(buffer)).eq."END DROPBLOCK2D")then
-         backspace(unit)
-         exit tag_loop
-      end if
+       !! check for end of convolution card
+       if(trim(adjustl(buffer)).eq."END DROPBLOCK2D")then
+          backspace(unit)
+          exit tag_loop
+       end if
 
-      tag=trim(adjustl(buffer))
-      if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
+       tag=trim(adjustl(buffer))
+       if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
 
-      !! read parameters from save file
-      select case(trim(tag))
-      case("INPUT_SHAPE")
-         call assign_vec(buffer, input_shape, itmp1)
-      case("RATE")
-         call assign_val(buffer, rate, itmp1)
-      case("BLOCK_SIZE")
-         call assign_val(buffer, block_size, itmp1)
-      case default
-         !! don't look for "e" due to scientific notation of numbers
-         !! ... i.e. exponent (E+00)
-         if(scan(to_lower(trim(adjustl(buffer))),&
-              'abcdfghijklmnopqrstuvwxyz').eq.0)then
-            cycle tag_loop
-         elseif(tag(:3).eq.'END')then
-            cycle tag_loop
-         end if
-         stop "Unrecognised line in input file: "//trim(adjustl(buffer))
-      end select
-   end do tag_loop
+       !! read parameters from save file
+       select case(trim(tag))
+       case("INPUT_SHAPE")
+          call assign_vec(buffer, input_shape, itmp1)
+       case("RATE")
+          call assign_val(buffer, rate, itmp1)
+       case("BLOCK_SIZE")
+          call assign_val(buffer, block_size, itmp1)
+       case default
+          !! don't look for "e" due to scientific notation of numbers
+          !! ... i.e. exponent (E+00)
+          if(scan(to_lower(trim(adjustl(buffer))),&
+               'abcdfghijklmnopqrstuvwxyz').eq.0)then
+             cycle tag_loop
+          elseif(tag(:3).eq.'END')then
+             cycle tag_loop
+          end if
+          stop "Unrecognised line in input file: "//trim(adjustl(buffer))
+       end select
+    end do tag_loop
 
-   !! set transfer activation function
-   call this%set_hyperparams( &
-        rate = rate, block_size = block_size, &
-        verbose = verbose_ &
-   )
-   call this%init(input_shape = input_shape)
+    !! set transfer activation function
+    call this%set_hyperparams( &
+         rate = rate, block_size = block_size, &
+         verbose = verbose_ &
+    )
+    call this%init(input_shape = input_shape)
 
-   !! check for end of layer card
-   read(unit,'(A)') buffer
-   if(trim(adjustl(buffer)).ne."END DROPBLOCK2D")then
-      write(*,*) trim(adjustl(buffer))
-      stop "ERROR: END DROPBLOCK2D not where expected"
-   end if
+    !! check for end of layer card
+    read(unit,'(A)') buffer
+    if(trim(adjustl(buffer)).ne."END DROPBLOCK2D")then
+       write(*,*) trim(adjustl(buffer))
+       stop "ERROR: END DROPBLOCK2D not where expected"
+    end if
 
   end subroutine read_dropblock2d
 !!!#############################################################################

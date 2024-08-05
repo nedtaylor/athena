@@ -6,8 +6,6 @@
 !!! ... are derived
 !!! module includes the following public abstract types:
 !!! base_layer_type      - abstract type for all layers
-!!! input_layer_type     - abstract type for input layers
-!!! flatten_layer_type   - abstract type for flatten (rehsape) layers
 !!! pool_layer_type      - abstract type for spatial pooling layers
 !!! drop_layer_type      - abstract type for dropout layers
 !!! learnable_layer_type - abstract type for layers with learnable parameters
@@ -23,9 +21,6 @@
 !!! set_batch_size       - set the batch size of the layer
 !!! forward              - forward pass of layer
 !!! backward             - backward pass of layer
-!!!##################
-!!! input_layer_type includes the following unique procedures:
-!!! set                  - set the input of the layer
 !!!##################
 !!! learnable_layer_type includes the following unique procedures:
 !!! layer_reduction      - reduce the layer to a single value

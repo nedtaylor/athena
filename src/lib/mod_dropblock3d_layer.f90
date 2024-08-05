@@ -272,7 +272,7 @@ contains
             this%batch_size ], &
             source=0._real12 &
        )
-       if(allocated(this%di)) deallocate(this%di)
+       if(this%di%allocated) call this%di%deallocate()
        this%di = array5d_type()
        call this%di%allocate(source=this%output)
     end if
