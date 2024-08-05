@@ -41,11 +41,13 @@ module dropblock3d_layer
   interface dropblock3d_layer_type
      module function layer_setup( &
           rate, block_size, &
-          input_shape, batch_size) result(layer)
+          input_shape, batch_size, &
+          verbose ) result(layer)
        real(real12), intent(in) :: rate
        integer, intent(in) :: block_size
        integer, dimension(:), optional, intent(in) :: input_shape
        integer, optional, intent(in) :: batch_size
+       integer, optional, intent(in) :: verbose
        type(dropblock3d_layer_type) :: layer
      end function layer_setup
   end interface dropblock3d_layer_type
@@ -102,12 +104,14 @@ contains
 #if defined(GFORTRAN)
   module function layer_setup( &
        rate, block_size, &
-       input_shape, batch_size) result(layer)
+       input_shape, batch_size, &
+       verbose ) result(layer)
     implicit none
     real(real12), intent(in) :: rate
     integer, intent(in) :: block_size
     integer, dimension(:), optional, intent(in) :: input_shape
     integer, optional, intent(in) :: batch_size
+    integer, optional, intent(in) :: verbose
     
     type(dropblock3d_layer_type) :: layer
 #else
@@ -115,11 +119,15 @@ contains
     implicit none
 #endif
 
+    integer :: verbose_ = 0
+
+
+    if(present(verbose)) verbose_ = verbose
 
     !!--------------------------------------------------------------------------
     !! initialise hyperparameters
     !!--------------------------------------------------------------------------
-    call layer%set_hyperparams(rate, block_size)
+    call layer%set_hyperparams(rate, block_size, verbose_)
 
 
     !!--------------------------------------------------------------------------
@@ -144,11 +152,12 @@ contains
 !!!#############################################################################
 !!! set hyperparameters
 !!!#############################################################################
-  pure subroutine set_hyperparams_dropblock3d(this, rate, block_size)
+  pure subroutine set_hyperparams_dropblock3d(this, rate, block_size, verbose)
     implicit none
     class(dropblock3d_layer_type), intent(inout) :: this
     real(real12), intent(in) :: rate
     integer, intent(in) :: block_size
+    integer, optional, intent(in) :: verbose
 
     this%name = "dropblock3d"
     this%type = "drop"
@@ -254,7 +263,6 @@ contains
     !!--------------------------------------------------------------------------
     if(allocated(this%input_shape))then
        if(this%output%allocated) call this%output%deallocate()
-
        this%output = array5d_type()
        call this%output%allocate(shape = [ &
             this%output%shape(1), &
@@ -262,7 +270,8 @@ contains
             this%output%shape(3), &
             this%num_channels, &
             this%batch_size ], &
-            source=0._real12)
+            source=0._real12 &
+       )
        if(allocated(this%di)) deallocate(this%di)
        this%di = array5d_type()
        call this%di%allocate(source=this%output)
@@ -362,18 +371,19 @@ contains
    use infile_tools, only: assign_val, assign_vec
    use misc, only: to_lower, icount
    implicit none
+   class(dropblock3d_layer_type), intent(inout) :: this
    integer, intent(in) :: unit
    integer, intent(in), optional :: verbose
 
-   class(dropblock3d_layer_type), intent(inout) :: this
-
-   integer :: stat
+   integer :: stat, verbose_ = 0
    integer :: itmp1
    integer :: block_size
    real(real12) :: rate
    integer, dimension(4) :: input_shape
    character(256) :: buffer, tag
 
+
+   if(present(verbose)) verbose_ = verbose
 
    !! loop over tags in layer card
    tag_loop: do
@@ -417,8 +427,10 @@ contains
    end do tag_loop
 
    !! set transfer activation function
-
-   call this%set_hyperparams(rate = rate, block_size = block_size)
+   call this%set_hyperparams( &
+        rate = rate, block_size = block_size, &
+        verbose = verbose_ &
+   )
    call this%init(input_shape = input_shape)
 
    !! check for end of layer card

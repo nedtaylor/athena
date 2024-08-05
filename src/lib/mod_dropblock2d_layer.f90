@@ -9,6 +9,7 @@
 module dropblock2d_layer
   use constants, only: real12
   use base_layer, only: drop_layer_type
+  use custom_types, only: array4d_type
   implicit none
   
   
@@ -20,13 +21,14 @@ module dropblock2d_layer
      real(real12) :: gamma
      integer :: num_channels
      logical, allocatable, dimension(:,:) :: mask
-     real(real12), allocatable, dimension(:,:,:,:) :: output
-     real(real12), allocatable, dimension(:,:,:,:) :: di ! gradient of input (i.e. delta)
+    !  real(real12), allocatable, dimension(:,:,:,:) :: output
+    !  real(real12), allocatable, dimension(:,:,:,:) :: di ! gradient of input (i.e. delta)
    contains
-     procedure, pass(this) :: get_output => get_output_dropblock2d
+     procedure, pass(this) :: set_hyperparams => set_hyperparams_dropblock2d
      procedure, pass(this) :: init => init_dropblock2d
      procedure, pass(this) :: set_batch_size => set_batch_size_dropblock2d
      procedure, pass(this) :: print => print_dropblock2d
+     procedure, pass(this) :: read => read_dropblock2d
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
      procedure, private, pass(this) :: forward_4d
@@ -38,11 +40,13 @@ module dropblock2d_layer
   interface dropblock2d_layer_type
      module function layer_setup( &
           rate, block_size, &
-          input_shape, batch_size) result(layer)
+          input_shape, batch_size, &
+          verbose ) result(layer)
        real(real12), intent(in) :: rate
        integer, intent(in) :: block_size
        integer, dimension(:), optional, intent(in) :: input_shape
        integer, optional, intent(in) :: batch_size
+       integer, optional, intent(in) :: verbose
        type(dropblock2d_layer_type) :: layer
      end function layer_setup
   end interface dropblock2d_layer_type
@@ -54,33 +58,6 @@ module dropblock2d_layer
 
 
 contains
-
-!!!#############################################################################
-!!! get layer outputs
-!!!#############################################################################
-  pure subroutine get_output_dropblock2d(this, output)
-    implicit none
-    class(dropblock2d_layer_type), intent(in) :: this
-    real(real12), allocatable, dimension(..), intent(out) :: output
-  
-    select rank(output)
-    rank(1)
-       output = reshape(this%output, [size(this%output)])
-    rank(2)
-       output = &
-            reshape(this%output, [product(this%output_shape),this%batch_size])
-    rank(4)
-       output = this%output
-    end select
-  
-  end subroutine get_output_dropblock2d
-!!!#############################################################################
-
-
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
-
 
 !!!#############################################################################
 !!! forward propagation assumed rank handler
@@ -126,12 +103,14 @@ contains
 #if defined(GFORTRAN)
   module function layer_setup( &
        rate, block_size, &
-       input_shape, batch_size) result(layer)
+       input_shape, batch_size, &
+       verbose ) result(layer)
     implicit none
     real(real12), intent(in) :: rate
     integer, intent(in) :: block_size
     integer, dimension(:), optional, intent(in) :: input_shape
     integer, optional, intent(in) :: batch_size
+    integer, optional, intent(in) :: verbose
     
     type(dropblock2d_layer_type) :: layer
 #else
@@ -139,21 +118,21 @@ contains
     implicit none
 #endif
 
+    integer :: verbose_ = 0
 
-    layer%name = "dropblock2d"
-    layer%input_rank = 3
+
+    if(present(verbose)) verbose_ = verbose
+
+    !!--------------------------------------------------------------------------
+    !! initialise hyperparameters
+    !!--------------------------------------------------------------------------
+    call layer%set_hyperparams(rate, block_size, verbose=verbose_)
+
+
     !!--------------------------------------------------------------------------
     !! initialise batch size
     !!--------------------------------------------------------------------------
     if(present(batch_size)) layer%batch_size = batch_size
-
-
-    !!--------------------------------------------------------------------------
-    !! initialise layer rate and block size
-    !!--------------------------------------------------------------------------
-    layer%rate = rate
-    layer%block_size = block_size
-    layer%half = (layer%block_size-1)/2
 
 
     !!--------------------------------------------------------------------------
@@ -166,6 +145,28 @@ contains
 #else
   end procedure layer_setup
 #endif
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set hyperparameters
+!!!#############################################################################
+  pure subroutine set_hyperparams_dropblock2d(this, rate, block_size, verbose)
+    implicit none
+    class(dropblock2d_layer_type), intent(inout) :: this
+    real(real12), intent(in) :: rate
+    integer, intent(in) :: block_size
+    integer, optional, intent(in) :: verbose
+
+    this%name = "dropblock2d"
+    this%type = "drop"
+    this%input_rank = 3
+
+    this%rate = rate
+    this%block_size = block_size
+    this%half = (this%block_size-1)/2
+
+  end subroutine set_hyperparams_dropblock2d
 !!!#############################################################################
 
 
@@ -199,7 +200,7 @@ contains
     !! set up number of channels, width, height
     !!-----------------------------------------------------------------------
     this%num_channels = this%input_shape(3)
-    this%output_shape = this%input_shape
+    this%output%shape = this%input_shape
 
 
     !!-----------------------------------------------------------------------
@@ -255,15 +256,18 @@ contains
     !! allocate arrays
     !!--------------------------------------------------------------------------
     if(allocated(this%input_shape))then
-       if(allocated(this%output)) deallocate(this%output)
-       allocate(this%output( &
-            this%output_shape(1), &
-            this%output_shape(2), &
+      if(this%output%allocated) call this%output%deallocate()
+      this%output = array4d_type()
+      call this%output%allocate(shape = [ &
+            this%output%shape(1), &
+            this%output%shape(2), &
             this%num_channels, &
-            this%batch_size), &
-            source=0._real12)
+            this%batch_size ], &
+            source=0._real12 &
+       )
        if(allocated(this%di)) deallocate(this%di)
-       allocate(this%di, source=this%output)
+       this%di = array4d_type()
+       call this%di%allocate(source=this%output)
     end if
  
   end subroutine set_batch_size_dropblock2d
@@ -347,21 +351,23 @@ contains
 !!!#############################################################################
 !!! read layer from file
 !!!#############################################################################
-  function read_dropblock2d_layer(unit) result(layer)
+  subroutine read_dropblock2d(this, unit, verbose)
    use infile_tools, only: assign_val, assign_vec
    use misc, only: to_lower, icount
    implicit none
+   class(dropblock2d_layer_type), intent(inout) :: this
    integer, intent(in) :: unit
+   integer, optional, intent(in) :: verbose
 
-   class(dropblock2d_layer_type), allocatable :: layer
-
-   integer :: stat
+   integer :: stat, verbose_ = 0
    integer :: itmp1
    integer :: block_size
    real(real12) :: rate
    integer, dimension(3) :: input_shape
    character(256) :: buffer, tag
 
+
+   if(present(verbose)) verbose_ = verbose
 
    !! loop over tags in layer card
    tag_loop: do
@@ -405,9 +411,11 @@ contains
    end do tag_loop
 
    !! set transfer activation function
-
-   layer = dropblock2d_layer_type(rate = rate, block_size = block_size, &
-        input_shape = input_shape)
+   call this%set_hyperparams( &
+        rate = rate, block_size = block_size, &
+        verbose = verbose_ &
+   )
+   call this%init(input_shape = input_shape)
 
    !! check for end of layer card
    read(unit,'(A)') buffer
@@ -415,6 +423,25 @@ contains
       write(*,*) trim(adjustl(buffer))
       stop "ERROR: END DROPBLOCK2D not where expected"
    end if
+
+  end subroutine read_dropblock2d
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! read layer from file and return layer
+!!!#############################################################################
+  function read_dropblock2d_layer(unit, verbose) result(layer)
+    implicit none
+    integer, intent(in) :: unit
+    integer, optional, intent(in) :: verbose
+    class(dropblock2d_layer_type), allocatable :: layer
+
+    integer :: verbose_ = 0
+
+
+    if(present(verbose)) verbose_ = verbose
+    call layer%read(unit, verbose=verbose_)
 
   end function read_dropblock2d_layer
 !!!#############################################################################
@@ -440,15 +467,18 @@ contains
     integer :: m, s
 
 
-    select case(this%inference)
-    case(.true.)
-      !! do not perform drop operation
-      this%output = input * ( 1._real12 - this%rate )
-    case default
-      !! perform the drop operation
-      do concurrent(m = 1:this%num_channels, s = 1:this%batch_size)
-         this%output(:,:,m,s) = merge(input(:,:,m,s), 0._real12, this%mask)
-      end do
+    select type(output => this%output)
+    type is (array4d_type)
+       select case(this%inference)
+       case(.true.)
+         !! do not perform drop operation
+         output%val = input * ( 1._real12 - this%rate )
+       case default
+         !! perform the drop operation
+         do concurrent(m = 1:this%num_channels, s = 1:this%batch_size)
+            output%val(:,:,m,s) = merge(input(:,:,m,s), 0._real12, this%mask)
+         end do
+       end select
     end select
 
   end subroutine forward_4d
@@ -468,8 +498,8 @@ contains
          intent(in) :: input
     real(real12), &
          dimension(&
-         this%output_shape(1), &
-         this%output_shape(2), &
+         this%output%shape(1), &
+         this%output%shape(2), &
          this%num_channels, this%batch_size), &
          intent(in) :: gradient
 
@@ -477,9 +507,12 @@ contains
 
 
     !! compute gradients for input feature map
-    do concurrent(m = 1:this%num_channels, s=1:this%batch_size)
-       this%di(:,:,m,s) = merge(gradient(:,:,m,s), 0._real12, this%mask)
-    end do
+    select type(di => this%di)
+    type is (array4d_type)
+       do concurrent(m = 1:this%num_channels, s=1:this%batch_size)
+          di%val(:,:,m,s) = merge(gradient(:,:,m,s), 0._real12, this%mask)
+       end do
+    end select
 
   end subroutine backward_4d
 !!!#############################################################################

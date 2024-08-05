@@ -213,25 +213,6 @@ contains
 
 
 !!!#############################################################################
-!!! get layer outputs
-!!!#############################################################################
-  pure subroutine get_output_mpnn(this, output)
-    implicit none
-    class(mpnn_layer_type), intent(in) :: this
-    real(real12), allocatable, dimension(..), intent(out) :: output
-  
-    select rank(output)
-    rank(1)
-       output = reshape(this%output, [size(this%output)])
-    rank(2)
-       output = this%output
-    end select
-  
-  end subroutine get_output_mpnn
-!!!#############################################################################
-
-
-!!!#############################################################################
 !!! forward and backward rank procedures
 !!!#############################################################################
   pure module subroutine forward_rank(this, input)
@@ -260,7 +241,8 @@ contains
 !!!#############################################################################
   module function layer_setup( &
        method, &
-       num_features, num_time_steps, num_outputs, batch_size &
+       num_features, num_time_steps, num_outputs, batch_size, &
+       verbose &
    ) result(layer)
     implicit none
     type(mpnn_layer_type) :: layer
@@ -269,24 +251,71 @@ contains
     integer, intent(in) :: num_time_steps
     integer, intent(in) :: num_outputs
     integer, optional, intent(in) :: batch_size
+    integer, optional, intent(in) :: verbose
 
-    integer :: i
+    integer :: verbose_ = 0
 
-    layer%output_shape = [ num_outputs ]
+
+    if(present(verbose)) verbose_ = verbose
+
+    !!--------------------------------------------------------------------------
+    !! set hyperparameters
+    !!--------------------------------------------------------------------------
+    call layer%set_hyperparameters( &
+         method = method, &
+         num_features = num_features, &
+         num_time_steps = num_time_steps, &
+         num_outputs = num_outputs, &
+         verbose = verbose_ &
+    )
+
+    !!--------------------------------------------------------------------------
+    !! initialise batch size
+    !!--------------------------------------------------------------------------
     if (present(batch_size)) then
        layer%batch_size = batch_size
     else
        layer%batch_size = 1
     end if
 
-    allocate(layer%method, source=method)
 
+    !!--------------------------------------------------------------------------
+    !! initialise layer shape
+    !!--------------------------------------------------------------------------
     call layer%init( &
          input_shape = [ num_features(1), num_features(2), num_time_steps ], &
          batch_size = layer%batch_size &
     )
 
   end function layer_setup
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set hyperparameters
+!!!#############################################################################
+  module subroutine set_hyperparameters_mpnn( &
+       this, method, &
+       num_features, num_time_steps, num_outputs, verbose )
+    implicit none
+    class(mpnn_layer_type), intent(inout) :: this
+    class(method_container_type), intent(in) :: method
+    integer, dimension(2), intent(in) :: num_features
+    integer, intent(in) :: num_time_steps
+    integer, intent(in) :: num_outputs
+    integer, optional, intent(in) :: verbose
+
+
+    this%name = 'mpnn'
+    this%type = 'mpnn'
+    this%rank = 1
+    tihs%output%shape = [ num_outputs ]
+    this%num_time_steps = num_time_steps
+    this%num_vertex_features = num_features(1)
+    this%num_edge_features = num_features(2)
+    allocate(this%method, source=method)
+
+  end subroutine set_hyperparameters_mpnn
 !!!#############################################################################
 
 
@@ -339,13 +368,13 @@ contains
     if(allocated(this%input_shape))then
        if(allocated(this%output)) deallocate(this%output)
        allocate(this%output( &
-            this%output_shape(1), &
+            this%output%shape(1), &
             this%batch_size ), source=0._real12 &
        )
        call this%method%init( &
             this%num_vertex_features, this%num_edge_features, &
             this%num_time_steps, &
-            this%output_shape, this%batch_size &
+            this%output%shape, this%batch_size &
        )
     end if
  
@@ -388,6 +417,73 @@ contains
 
 
 !!!#############################################################################
+!!! print layer to file
+!!!#############################################################################
+  subroutine print_mpnn(this, file)
+    implicit none
+    class(mpnn_layer_type), intent(in) :: this
+    character(*), intent(in) :: file
+
+    integer :: i, unit
+
+
+    !! open file with new unit
+    !!--------------------------------------------------------------------------
+    open(newunit=unit, file=trim(file), access='append')
+
+    !! write convolution initial parameters
+    !!--------------------------------------------------------------------------
+    write(unit,'("MPNN")')
+    write(unit,'(3X,"NUM_FEATURES = ",2(1X,I0))') &
+         this%num_vertex_features, this%num_edge_features
+    write(unit,'(3X,"NUM_TIME_STEPS = ",I0)') this%num_time_steps
+    write(unit,'(3X,"NUM_OUTPUTS = ",I0)') this%output%shape(1)
+    write(unit,'(3X,"METHOD = ",A)') trim(this%name) !! MIGHT CHANGE TO this%method%name
+
+
+    !! write fully connected weights and biases
+    !!--------------------------------------------------------------------------
+    write(unit,'("PHASES")')
+    write(unit,'(" MESSAGE")')
+    !!! NEED TO WRITE MESSAGE LAYERS
+    write(unit,'(" END MESSAGE")')
+    write(unit,'(" READOUT")')
+    !!! NEED TO WRITE MESSAGE LAYERS
+    write(unit,'(" END READOUT")')
+    write(unit,'("END PHASES")')
+    write(unit,'("END MPNN")')
+
+    !! close unit
+    !!--------------------------------------------------------------------------
+    close(unit)
+
+  end subroutine print_mpnn
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! read layer from file
+!!!#############################################################################
+  module subroutine read_mpnn(this, filename, verbose)
+    implicit none
+    class(mpnn_layer_type), intent(inout) :: this
+    character(len=*), intent(in) :: filename
+    integer, optional, intent(in) :: verbose
+
+    integer :: verbose_ = 0
+
+    if(present(verbose)) verbose_ = verbose
+
+    !!--------------------------------------------------------------------------
+    !! read layer from file
+    !!--------------------------------------------------------------------------
+    call this%method%read(filename, verbose)
+
+  end subroutine read_mpnn
+!!!#############################################################################
+
+
+!!!#############################################################################
 !!! forward propagation
 !!!#############################################################################
   pure module subroutine forward_graph(this, graph)
@@ -418,7 +514,7 @@ contains
     class(mpnn_layer_type), intent(inout) :: this
     type(graph_type), dimension(this%batch_size), intent(in) :: graph
     real(real12), dimension( &
-         this%output_shape(1), &
+         this%output%shape(1), &
          this%batch_size &
     ), intent(in) :: gradient
 

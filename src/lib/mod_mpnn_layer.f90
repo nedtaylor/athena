@@ -28,12 +28,14 @@ module mpnn_layer
      integer :: num_time_steps
      type(graph_type), dimension(:), allocatable :: graph
      class(method_container_type), allocatable :: method
-     real(real12), dimension(:,:), allocatable :: output
-     real(real12), dimension(:,:), allocatable :: di
+    !  real(real12), dimension(:,:), allocatable :: output
+    !  real(real12), dimension(:,:), allocatable :: di
    contains
+     procedure, pass(this) :: set_hyperparams => set_hyperparams_mpnn
      procedure, pass(this) :: init => init_mpnn
-     procedure, pass(this) :: get_output => get_output_mpnn
      procedure, pass(this) :: set_batch_size => set_batch_size_mpnn
+     procedure, pass(this) :: print => print_mpnn
+     procedure, pass(this) :: read => read_mpnn
 
      procedure, pass(this) :: reduce => layer_reduction
      procedure, pass(this) :: merge => layer_merge
@@ -280,7 +282,7 @@ module mpnn_layer
       class(mpnn_layer_type), intent(inout) :: this
       type(graph_type), dimension(this%batch_size), intent(in) :: graph
       real(real12), dimension( &
-           this%output_shape(1), &
+           this%output%shape(1), &
            this%batch_size &
       ), intent(in) :: gradient
     end subroutine backward_graph
@@ -296,10 +298,15 @@ module mpnn_layer
        class(mpnn_layer_type), intent(inout) :: this
        type(graph_type), dimension(this%batch_size), intent(in) :: graph
      end subroutine set_graph
-     pure module subroutine get_output_mpnn(this, output)
+     module subroutine print_mpnn(this, file)
        class(mpnn_layer_type), intent(in) :: this
-       real(real12), allocatable, dimension(..), intent(out) :: output
-     end subroutine get_output_mpnn
+       character(*), intent(in) :: file
+     end subroutine print_mpnn
+     module subroutine read_mpnn(this, unit, verbose)
+       class(mpnn_layer_type), intent(inout) :: this
+       integer, intent(in) :: unit
+       integer, optional, intent(in) :: verbose
+     end subroutine read_mpnn
      module subroutine set_batch_size_mpnn(this, batch_size, verbose)
        class(mpnn_layer_type), intent(inout) :: this
        integer, intent(in) :: batch_size
@@ -311,6 +318,15 @@ module mpnn_layer
        integer, optional, intent(in) :: batch_size
        integer, optional, intent(in) :: verbose
      end subroutine init_mpnn
+     module subroutine set_hyperparams_mpnn( &
+          this, method, num_features, num_time_steps, num_outputs, verbose )
+       class(mpnn_layer_type), intent(inout) :: this
+       class(method_container_type), intent(in) :: method
+       integer, dimension(2), intent(in) :: num_features
+       integer, intent(in) :: num_time_steps
+       integer, intent(in) :: num_outputs
+       integer, optional, intent(in) :: verbose
+     end subroutine set_hyperparams_mpnn
   end interface
 
 
@@ -336,7 +352,8 @@ module mpnn_layer
   interface mpnn_layer_type
      module function layer_setup( &
           method, &
-          num_features, num_time_steps, num_outputs, batch_size &
+          num_features, num_time_steps, num_outputs, batch_size, &
+          verbose &
       ) result(layer)
        !! MAKE THESE ASSUMED RANK
        class(method_container_type), intent(in) :: method
@@ -344,6 +361,7 @@ module mpnn_layer
        integer, intent(in) :: num_time_steps
        integer, intent(in) :: num_outputs
        integer, optional, intent(in) :: batch_size
+       integer, optional, intent(in) :: verbose
        type(mpnn_layer_type) :: layer
      end function layer_setup
   end interface mpnn_layer_type
