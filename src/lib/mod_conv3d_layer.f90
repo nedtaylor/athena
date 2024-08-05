@@ -7,25 +7,27 @@
 module conv3d_layer
   use constants, only: real12
   use base_layer, only: learnable_layer_type, conv_layer_type
-  use custom_types, only: initialiser_type
+  use custom_types, only: initialiser_type, array5d_type
   implicit none
   
   
   type, extends(conv_layer_type) :: conv3d_layer_type
      real(real12), allocatable, dimension(:,:,:,:,:) :: weight
      real(real12), allocatable, dimension(:,:,:,:,:,:) :: dw ! weight gradient
-     real(real12), allocatable, dimension(:,:,:,:,:) :: output, z
-     real(real12), allocatable, dimension(:,:,:,:,:) :: di ! input gradient
+     real(real12), allocatable, dimension(:,:,:,:,:) :: z
+   !   real(real12), allocatable, dimension(:,:,:,:,:) :: output
+   !   real(real12), allocatable, dimension(:,:,:,:,:) :: di ! input gradient
    contains
      procedure, pass(this) :: get_params => get_params_conv3d
      procedure, pass(this) :: set_params => set_params_conv3d
      procedure, pass(this) :: get_gradients => get_gradients_conv3d
      procedure, pass(this) :: set_gradients => set_gradients_conv3d
-     procedure, pass(this) :: get_output => get_output_conv3d
 
+     procedure, pass(this) :: set_hyperparams => set_hyperparams_conv3d
      procedure, pass(this) :: init => init_conv3d
      procedure, pass(this) :: set_batch_size => set_batch_size_conv3d
      procedure, pass(this) :: print => print_conv3d
+     procedure, pass(this) :: read => read_conv3d
 
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
@@ -48,7 +50,8 @@ module conv3d_layer
           num_filters, kernel_size, stride, padding, &
           activation_function, activation_scale, &
           kernel_initialiser, bias_initialiser, &
-          calc_input_gradients) result(layer)
+          calc_input_gradients, &
+          verbose ) result(layer)
        integer, dimension(:), optional, intent(in) :: input_shape
        integer, optional, intent(in) :: batch_size
        integer, optional, intent(in) :: num_filters
@@ -58,6 +61,7 @@ module conv3d_layer
        character(*), optional, intent(in) :: activation_function, &
             kernel_initialiser, bias_initialiser, padding
        logical, optional, intent(in) :: calc_input_gradients
+       integer, optional, intent(in) :: verbose
        type(conv3d_layer_type) :: layer
      end function layer_setup
   end interface conv3d_layer_type
@@ -212,28 +216,6 @@ contains
 !!!#############################################################################
 
 
-!!!#############################################################################
-!!! get layer outputs
-!!!#############################################################################
-  pure subroutine get_output_conv3d(this, output)
-    implicit none
-    class(conv3d_layer_type), intent(in) :: this
-    real(real12), allocatable, dimension(..), intent(out) :: output
-  
-    select rank(output)
-    rank(1)
-       output = reshape(this%output, [size(this%output)])
-    rank(2)
-       output = &
-            reshape(this%output, [product(this%output_shape),this%batch_size])
-    rank(5)
-       output = this%output
-    end select
-  
-  end subroutine get_output_conv3d
-!!!#############################################################################
-
-
 !!!##########################################################################!!!
 !!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
 !!!##########################################################################!!!
@@ -290,11 +272,9 @@ contains
        num_filters, kernel_size, stride, padding, &
        activation_function, activation_scale, &
        kernel_initialiser, bias_initialiser, &
-       calc_input_gradients) result(layer)
+       calc_input_gradients, &
+       verbose ) result(layer)
     !! add in dilation
-    use activation,  only: activation_setup
-    use initialiser, only: get_default_initialiser
-    use misc_ml, only: set_padding
     implicit none
     integer, dimension(:), optional, intent(in) :: input_shape
     integer, optional, intent(in) :: batch_size
@@ -305,28 +285,18 @@ contains
     character(*), optional, intent(in) :: activation_function, &
          kernel_initialiser, bias_initialiser, padding
     logical, optional, intent(in) :: calc_input_gradients
+    integer, optional, intent(in) :: verbose
 
     type(conv3d_layer_type) :: layer
 
-    integer :: i
+    integer :: i, verbose_ = 0
     real(real12) :: scale
     character(len=10) :: activation_function_
     character(len=20) :: padding_
+    integer, dimension(3) :: kernel_size_, stride_
 
 
-    layer%name = "conv3d"
-    layer%input_rank = 4
-    allocate( &
-         layer%knl(layer%input_rank-1), &
-         layer%stp(layer%input_rank-1), &
-         layer%hlf(layer%input_rank-1), &
-         layer%pad(layer%input_rank-1), &
-         layer%cen(layer%input_rank-1) )
-    !!--------------------------------------------------------------------------
-    !! initialise batch size
-    !!--------------------------------------------------------------------------
-    if(present(batch_size)) layer%batch_size = batch_size
-
+    if(present(verbose)) verbose_ = verbose
 
     !!--------------------------------------------------------------------------
     !! determine whether to calculate input gradients
@@ -355,31 +325,28 @@ contains
     if(present(kernel_size))then
        select rank(kernel_size)
        rank(0)
-          layer%knl = kernel_size
+          kernel_size_ = kernel_size
        rank(1)
-          layer%knl(1) = kernel_size(1)
+          kernel_size_(1) = kernel_size(1)
           if(size(kernel_size,dim=1).eq.1)then
-             layer%knl(2:) = kernel_size(1)
+             kernel_size_(2:) = kernel_size(1)
           elseif(size(kernel_size,dim=1).eq.3)then
-             layer%knl(2:) = kernel_size(2:)
+             kernel_size_(2:) = kernel_size(2:)
           end if
        end select
     else
-       layer%knl = 3
+       kernel_size_ = 3
     end if
-    !! odd or even kernel/filter size
-    !!--------------------------------------------------------------------------
-    layer%cen = 2 - mod(layer%knl, 2)
-    layer%hlf   = (layer%knl-1)/2
 
+
+    !!--------------------------------------------------------------------------
+    !! set up padding name
+    !!--------------------------------------------------------------------------
     if(present(padding))then
        padding_ = padding
     else
        padding_ = "valid"
     end if
-    do i=1,3
-       call set_padding(layer%pad(i), layer%knl(i), padding_)
-    end do
 
 
     !!--------------------------------------------------------------------------
@@ -388,17 +355,17 @@ contains
     if(present(stride))then
        select rank(stride)
        rank(0)
-          layer%stp = stride
+          stride_ = stride
        rank(1)
-          layer%stp(1) = stride(1)
+          stride_(1) = stride(1)
           if(size(stride,dim=1).eq.1)then
-             layer%stp(2:) = stride(1)
+             stride_(2:) = stride(1)
           elseif(size(stride,dim=1).eq.3)then
-             layer%stp(2:) = stride(2:)
+             stride_(2:) = stride(2:)
           end if
        end select
     else
-       layer%stp = 1
+       stride_ = 1
     end if
     
 
@@ -415,23 +382,26 @@ contains
     else
        scale = 1._real12
     end if
-    write(*,'("CONV3D activation function: ",A)') trim(activation_function_)
-    allocate(layer%transfer, &
-         source=activation_setup(activation_function_, scale))
 
 
     !!--------------------------------------------------------------------------
-    !! define weights (kernels) and biases initialisers
+    !! set hyperparameters
     !!--------------------------------------------------------------------------
-    if(present(kernel_initialiser)) layer%kernel_initialiser =kernel_initialiser
-    if(trim(layer%kernel_initialiser).eq.'') &
-         layer%kernel_initialiser=get_default_initialiser(activation_function_)
-    write(*,'("CV kernel initialiser: ",A)') trim(layer%kernel_initialiser)
-    if(present(bias_initialiser)) layer%bias_initialiser = bias_initialiser
-    if(trim(layer%bias_initialiser).eq.'') &
-         layer%bias_initialiser = get_default_initialiser(&
-         activation_function_, is_bias=.true.)
-    write(*,'("CV bias initialiser: ",A)') trim(layer%bias_initialiser)
+    call layer%set_hyperparams( &
+         num_filters = layer%num_filters, &
+         kernel_size = kernel_size_, stride = stride_, &
+         padding = padding_, &
+         activation_function = activation_function_, &
+         activation_scale = scale, &
+         kernel_initialiser = layer%kernel_initialiser, &
+         bias_initialiser = layer%bias_initialiser, &
+         verbose = verbose_ &
+    )
+
+    !!--------------------------------------------------------------------------
+    !! initialise batch size
+    !!--------------------------------------------------------------------------
+    if(present(batch_size)) layer%batch_size = batch_size
 
 
     !!--------------------------------------------------------------------------
@@ -440,6 +410,79 @@ contains
     if(present(input_shape)) call layer%init(input_shape=input_shape)
 
   end function layer_setup
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set hyperparameters
+!!!#############################################################################
+  subroutine set_hyperparams_conv3d( &
+       this, &
+       num_filters, &
+       kernel_size, stride, &
+       padding, &
+       activation_function, &
+       activation_scale, &
+       kernel_initialiser, &
+       bias_initialiser, &
+       verbose &
+  )
+    use activation,  only: activation_setup
+    use initialiser, only: get_default_initialiser
+    use misc_ml, only: set_padding
+    implicit none
+    class(conv3d_layer_type), intent(inout) :: this
+    integer, intent(in) :: num_filters
+    integer, dimension(3), intent(in) :: kernel_size, stride
+    character(*), intent(in) :: padding
+    character(*), intent(in) :: activation_function
+    real(real12), intent(in) :: activation_scale
+    character(*), intent(in) :: kernel_initialiser, bias_initialiser
+    integer, optional, intent(in) :: verbose
+
+    integer :: i
+    character(len=20) :: padding_
+
+    this%name = "conv3d"
+    this%type = "conv"
+    this%input_rank = 4
+    allocate( &
+         this%knl(this%input_rank-1), &
+         this%stp(this%input_rank-1), &
+         this%hlf(this%input_rank-1), &
+         this%pad(this%input_rank-1), &
+         this%cen(this%input_rank-1) &
+    )
+    this%knl = kernel_size
+    this%stp = stride
+    this%cen = 2 - mod(this%knl, 2)
+    this%hlf   = (this%knl-1)/2
+    padding_ = trim(adjustl(padding))
+    do i=1,3
+       call set_padding(this%pad(i), this%knl(i), padding_)
+    end do
+    allocate(this%transfer, &
+         source=activation_setup(activation_function, activation_scale) &
+    )
+
+    if(trim(this%kernel_initialiser).eq.'') &
+         this%kernel_initialiser=get_default_initialiser(activation_function)
+    if(trim(this%bias_initialiser).eq.'') &
+         this%bias_initialiser = get_default_initialiser(&
+         activation_function, is_bias=.true.)
+
+    if(present(verbose))then
+       if(abs(verbose).gt.0)then
+          write(*,'("CONV3D activation function: ",A)') &
+               trim(activation_function)
+          write(*,'("CONV3D kernel initialiser: ",A)') &
+               trim(this%kernel_initialiser)
+          write(*,'("CONV3D bias initialiser: ",A)') &
+               trim(this%bias_initialiser)
+       end if
+    end if
+
+  end subroutine set_hyperparams_conv3d
 !!!#############################################################################
 
 
@@ -479,9 +522,9 @@ contains
     !! THIS IS HANDLED AUTOMATICALLY BY THE CODE
     !! ... provide the initial input data shape and let us deal with the padding
     this%num_channels = this%input_shape(4)
-    allocate(this%output_shape(4))
-    this%output_shape(4) = this%num_filters
-    this%output_shape(:3) = floor(&
+    allocate(this%output%shape(4))
+    this%output%shape(4) = this%num_filters
+    this%output%shape(:3) = floor(&
          (this%input_shape(:3) + 2.0 * this%pad - this%knl)/real(this%stp) ) + 1
 
     allocate(this%bias(this%num_filters), source=0._real12)
@@ -523,53 +566,62 @@ contains
 !!! set batch size
 !!!#############################################################################
   subroutine set_batch_size_conv3d(this, batch_size, verbose)
-   implicit none
-   class(conv3d_layer_type), intent(inout) :: this
-   integer, intent(in) :: batch_size
-   integer, optional, intent(in) :: verbose
+    implicit none
+    class(conv3d_layer_type), intent(inout) :: this
+    integer, intent(in) :: batch_size
+    integer, optional, intent(in) :: verbose
 
-   integer :: verbose_ = 0
-
-
-   !!--------------------------------------------------------------------------
-   !! initialise optional arguments
-   !!--------------------------------------------------------------------------
-   if(present(verbose)) verbose_ = verbose
-   this%batch_size = batch_size
+    integer :: verbose_ = 0
 
 
-   !!--------------------------------------------------------------------------
-   !! allocate arrays
-   !!--------------------------------------------------------------------------
-   if(allocated(this%input_shape))then
-      if(allocated(this%output)) deallocate(this%output)
-      allocate(this%output( &
-           this%output_shape(1), &
-           this%output_shape(2), &
-           this%output_shape(3), &
-           this%num_filters, &
-           this%batch_size), source=0._real12)
-      if(allocated(this%z)) deallocate(this%z)
-      allocate(this%z, source=this%output)
-      if(allocated(this%di)) deallocate(this%di)
-      allocate(this%di( &
-           this%input_shape(1), &
-           this%input_shape(2), &
-           this%input_shape(3), &
-           this%input_shape(4), &
-           this%batch_size), source=0._real12)
-      if(allocated(this%dw)) deallocate(this%dw)
-      allocate(this%dw( &
-           lbound(this%weight,1):ubound(this%weight,1), &
-           lbound(this%weight,2):ubound(this%weight,2), &
-           lbound(this%weight,3):ubound(this%weight,3), &
-           this%num_channels, this%num_filters, &
-           this%batch_size), source=0._real12)
-      if(allocated(this%db)) deallocate(this%db)
-      allocate(this%db(this%num_filters, this%batch_size), source=0._real12)
-   end if
+    !!--------------------------------------------------------------------------
+    !! initialise optional arguments
+    !!--------------------------------------------------------------------------
+    if(present(verbose)) verbose_ = verbose
+    this%batch_size = batch_size
 
- end subroutine set_batch_size_conv3d
+
+    !!--------------------------------------------------------------------------
+    !! allocate arrays
+    !!--------------------------------------------------------------------------
+    if(allocated(this%input_shape))then
+       if(this%output%allocated) call this%output%deallocate()
+       this%output = array5d_type()
+       call this%output%allocate( shape = [ &
+            this%output%shape(1), &
+            this%output%shape(2), &
+            this%output%shape(3), &
+            this%num_filters, &
+            this%batch_size ], &
+            source=0._real12 &
+       )
+        if(allocated(this%z)) deallocate(this%z)
+        select type(output => this%output)
+        type is (array5d_type)
+           allocate(this%z, source=output%val)
+        end select
+        if(this%di%allocated) call this%di%deallocate()
+        this%di = array5d_type()
+        call this%di%allocate( shape = [ &
+            this%input_shape(1), &
+            this%input_shape(2), &
+            this%input_shape(3), &
+            this%input_shape(4), &
+            this%batch_size ], &
+            source=0._real12 &
+       )
+       if(allocated(this%dw)) deallocate(this%dw)
+       allocate(this%dw( &
+            lbound(this%weight,1):ubound(this%weight,1), &
+            lbound(this%weight,2):ubound(this%weight,2), &
+            lbound(this%weight,3):ubound(this%weight,3), &
+            this%num_channels, this%num_filters, &
+            this%batch_size), source=0._real12)
+       if(allocated(this%db)) deallocate(this%db)
+       allocate(this%db(this%num_filters, this%batch_size), source=0._real12)
+    end if
+
+  end subroutine set_batch_size_conv3d
 !!!#############################################################################
 
 
@@ -658,14 +710,14 @@ contains
 !!!#############################################################################
 !!! read layer from file
 !!!#############################################################################
-  function read_conv3d_layer(unit, verbose) result(layer)
+  subroutine read_conv3d(this, unit, verbose)
     use infile_tools, only: assign_val, assign_vec
     use misc, only: to_lower, icount
     implicit none
+    class(conv3d_layer_type), intent(inout) :: this
     integer, intent(in) :: unit
     integer, optional, intent(in) :: verbose
 
-    class(conv3d_layer_type), allocatable :: layer
 
     integer :: stat, verbose_ = 0
     integer :: j, k, l, c, itmp1
@@ -755,23 +807,26 @@ contains
     !!--------------------------------------------------------------------------
     !! allocate layer
     !!--------------------------------------------------------------------------
-    layer = conv3d_layer_type( &
-         input_shape = input_shape, &
+    call this%set_hyperparams( &
          num_filters = num_filters, &
          kernel_size = kernel_size, stride = stride, &
          padding = padding, &
          activation_function = activation_function, &
          activation_scale = activation_scale, &
          kernel_initialiser = kernel_initialiser, &
-         bias_initialiser = bias_initialiser)
+         bias_initialiser = bias_initialiser, &
+         verbose = verbose_ &
+    )
+    call this%init(input_shape = input_shape)
+
 
     !! check if WEIGHTS card was found
     !!--------------------------------------------------------------------------
     if(.not.found_weights)then
       write(0,*) "WARNING: WEIGHTS card in CONV3D not found"
-   else
+    else
        do l=1,num_filters
-          num_inputs = product(layer%knl) + 1 !+1 for bias
+          num_inputs = product(this%knl) + 1 !+1 for bias
           allocate(data_list(num_inputs), source=0._real12)
           c = 1
           k = 1
@@ -782,11 +837,11 @@ contains
              read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
              c = c + k
           end do data_concat_loop
-          layer%weight(:,:,:,:,l) = &
+          this%weight(:,:,:,:,l) = &
                 reshape(&
                 data_list(1:num_inputs-1),&
-                shape(layer%weight(:,:,:,:,l)))
-          layer%bias(l) = data_list(num_inputs)
+                shape(this%weight(:,:,:,:,l)))
+          this%bias(l) = data_list(num_inputs)
           deallocate(data_list)
        end do
 
@@ -808,6 +863,25 @@ contains
        write(*,*) trim(adjustl(buffer))
        stop "ERROR: END CONV3D not where expected"
     end if
+
+  end subroutine read_conv3d
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! read layer from file and return layer
+!!!#############################################################################
+  function read_conv3d_layer(unit, verbose) result(layer)
+    implicit none
+    integer, intent(in) :: unit
+    integer, optional, intent(in) :: verbose
+    class(conv3d_layer_type), allocatable :: layer
+
+    integer :: verbose_ = 0
+
+
+    if(present(verbose)) verbose_ = verbose
+    call layer%read(unit, verbose=verbose_)
 
   end function read_conv3d_layer
 !!!#############################################################################
@@ -839,9 +913,9 @@ contains
     !! perform the convolution operation
     !!--------------------------------------------------------------------------
     do concurrent( &
-         i=1:this%output_shape(1):1, &
-         j=1:this%output_shape(2):1, &
-         k=1:this%output_shape(3):1)
+         i=1:this%output%shape(1):1, &
+         j=1:this%output%shape(2):1, &
+         k=1:this%output%shape(3):1)
 #if defined(GFORTRAN)
        stp_idx = ([i,j,k]-1)*this%stp + 1 + (this%hlf - this%pad)
 #else
@@ -870,7 +944,10 @@ contains
     
     !! apply activation function to activation values (z)
     !!--------------------------------------------------------------------------
-    this%output = this%transfer%activate(this%z) 
+    select type(output => this%output)
+    type is (array5d_type)
+       output%val = this%transfer%activate(this%z)
+    end select
 
   end subroutine forward_5d
 !!!#############################################################################
@@ -892,9 +969,9 @@ contains
          intent(in) :: input
     real(real12), &
          dimension( &
-         this%output_shape(1), &
-         this%output_shape(2), &
-         this%output_shape(3), &
+         this%output%shape(1), &
+         this%output%shape(2), &
+         this%output%shape(3), &
          this%num_filters,this%batch_size), &
          intent(in) :: gradient
 
@@ -907,9 +984,9 @@ contains
     integer, dimension(2,3) :: lim, lim_w, lim_g
     real(real12), &
          dimension( &
-         this%output_shape(1), &
-         this%output_shape(2), &
-         this%output_shape(3),this%num_filters, &
+         this%output%shape(1), &
+         this%output%shape(2), &
+         this%output%shape(3),this%num_filters, &
          this%batch_size) :: grad_dz
 
 
@@ -928,9 +1005,9 @@ contains
     !!--------------------------------------------------------------------------
     grad_dz = 0._real12
     grad_dz( &
-         1:this%output_shape(1),&
-         1:this%output_shape(2),&
-         1:this%output_shape(3),:,:) = gradient * &
+         1:this%output%shape(1),&
+         1:this%output%shape(2),&
+         1:this%output%shape(3),:,:) = gradient * &
          this%transfer%differentiate(this%z)
     do concurrent( &
          l=1:this%num_filters, s=1:this%batch_size)
@@ -969,59 +1046,61 @@ contains
     !!--------------------------------------------------------------------------
     if(this%calc_input_gradients)then
        lim(1,:) = this%knl - 1
-       lim(2,:) = (this%output_shape(:3) - 1) * this%stp + 1 + end_idx
-       n_stp = this%output_shape(:3) * this%stp
-       this%di = 0._real12
-       !! all elements of the output are separated by stride_x (stride_y)
-       do concurrent( &
-            s=1:this%batch_size, &
-            l=1:this%num_filters, &
-            m=1:this%num_channels, &
-            i=1:size(this%di,dim=1):1, &
-            j=1:size(this%di,dim=2):1, &
-            k=1:size(this%di,dim=3):1 &
-            )
+       lim(2,:) = (this%output%shape(:3) - 1) * this%stp + 1 + end_idx
+       n_stp = this%output%shape(:3) * this%stp
+       select type(di => this%di)
+       type is (array5d_type)
+          di%val = 0._real12
+          !! all elements of the output are separated by stride_x (stride_y)
+          do concurrent( &
+               s=1:this%batch_size, &
+               l=1:this%num_filters, &
+               m=1:this%num_channels, &
+               i=1:size(di%val,dim=1):1, &
+               j=1:size(di%val,dim=2):1, &
+               k=1:size(di%val,dim=3):1 &
+               )
 
-          !! set weight bounds
+             !! set weight bounds
 #if defined(GFORTRAN)
-          stp_idx = ([i,j,k]-offset)/this%stp + 1
+             stp_idx = ([i,j,k]-offset)/this%stp + 1
 #else
-          stp_idx(1) = ( i - offset(1) )/this%stp(1) + 1
-          stp_idx(2) = ( j - offset(2) )/this%stp(2) + 1
-          stp_idx(3) = ( k - offset(3) )/this%stp(3) + 1
+             stp_idx(1) = ( i - offset(1) )/this%stp(1) + 1
+             stp_idx(2) = ( j - offset(2) )/this%stp(2) + 1
+             stp_idx(3) = ( k - offset(3) )/this%stp(3) + 1
 #endif
-          !! max( ...
-          !! ... 1. offset of 1st o/p idx from centre of knl     (lim)
-          !! ... 2. lwst o/p idx overlap with <<- knl idx (rpt. pattern)
-          !! ...)
-          lim_w(2,:) = max(lim(1,:)-[i,j,k],  -this%hlf + &
-               mod(n_stp+this%knl-[i,j,k],this%stp))
-          !! min( ...
-          !! ... 1. offset of last o/p idx from centre of knl    (lim)
-          !! ... 2. hghst o/p idx overlap with ->> knl idx (rpt. pattern)
-          !! ...)
-          lim_w(1,:) = min(lim(2,:)-[i,j,k], end_idx - &
-               mod(n_stp-1+[i,j,k],this%stp))
-          if(any(lim_w(2,:).gt.lim_w(1,:))) cycle
+             !! max( ...
+             !! ... 1. offset of 1st o/p idx from centre of knl     (lim)
+             !! ... 2. lwst o/p idx overlap with <<- knl idx (rpt. pattern)
+             !! ...)
+             lim_w(2,:) = max(lim(1,:)-[i,j,k],  -this%hlf + &
+                  mod(n_stp+this%knl-[i,j,k],this%stp))
+             !! min( ...
+             !! ... 1. offset of last o/p idx from centre of knl    (lim)
+             !! ... 2. hghst o/p idx overlap with ->> knl idx (rpt. pattern)
+             !! ...)
+             lim_w(1,:) = min(lim(2,:)-[i,j,k], end_idx - &
+                  mod(n_stp-1+[i,j,k],this%stp))
+             if(any(lim_w(2,:).gt.lim_w(1,:))) cycle
 
-          !! set gradient bounds
-          lim_g(1,:) = max(1,                     [i,j,k] - offset)
-          lim_g(2,:) = min(this%output_shape(:3), [i,j,k] - offset + this%knl-1)
+             !! set gradient bounds
+             lim_g(1,:) = max(1,                     [i,j,k] - offset)
+             lim_g(2,:) = min(this%output%shape(:3), [i,j,k] - offset + this%knl-1)
 
-          !! apply full convolution to compute input gradients
-          this%di(i,j,k,m,s) = &
-               this%di(i,j,k,m,s) + &
-               sum( &
-               grad_dz( &
-               lim_g(1,1):lim_g(2,1), &
-               lim_g(1,2):lim_g(2,2), &
-               lim_g(1,3):lim_g(2,3),l,s) * &
-               this%weight(&
-               lim_w(1,1):lim_w(2,1):-this%stp(1),&
-               lim_w(1,2):lim_w(2,2):-this%stp(2),&
-               lim_w(1,3):lim_w(2,3):-this%stp(3),m,l) )
-
-       end do
+             !! apply full convolution to compute input gradients
+             di%val(i,j,k,m,s) = &
+                  di%val(i,j,k,m,s) + &
+                  sum( &
+                  grad_dz( &
+                  lim_g(1,1):lim_g(2,1), &
+                  lim_g(1,2):lim_g(2,2), &
+                  lim_g(1,3):lim_g(2,3),l,s) * &
+                  this%weight(&
+                  lim_w(1,1):lim_w(2,1):-this%stp(1),&
+                  lim_w(1,2):lim_w(2,2):-this%stp(2),&
+                  lim_w(1,3):lim_w(2,3):-this%stp(3),m,l) )
+          end do
+       end select
     end if
 
   end subroutine backward_5d

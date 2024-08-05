@@ -7,15 +7,16 @@
 module conv1d_layer
   use constants, only: real12
   use base_layer, only: learnable_layer_type, conv_layer_type
-  use custom_types, only: initialiser_type
+  use custom_types, only: initialiser_type, array3d_type
   implicit none
   
   
   type, extends(conv_layer_type) :: conv1d_layer_type
      real(real12), allocatable, dimension(:,:,:) :: weight
      real(real12), allocatable, dimension(:,:,:,:) :: dw ! weight gradient
-     real(real12), allocatable, dimension(:,:,:) :: output, z
-     real(real12), allocatable, dimension(:,:,:) :: di ! input gradient
+     real(real12), allocatable, dimension(:,:,:) :: z
+   !   real(real12), allocatable, dimension(:,:,:) :: output
+   !   real(real12), allocatable, dimension(:,:,:) :: di ! input gradient
    contains
      procedure, pass(this) :: get_params => get_params_conv1d
      procedure, pass(this) :: set_params => set_params_conv1d
@@ -274,9 +275,6 @@ contains
        calc_input_gradients, &
        verbose ) result(layer)
     !! add in dilation
-    use activation,  only: activation_setup
-    use initialiser, only: get_default_initialiser
-    use misc_ml, only: set_padding
     implicit none
     integer, dimension(:), optional, intent(in) :: input_shape
     integer, optional, intent(in) :: batch_size
@@ -305,7 +303,7 @@ contains
     !!--------------------------------------------------------------------------
     if(present(calc_input_gradients))then
        layer%calc_input_gradients = calc_input_gradients
-       if(abs(verbose_.gt.0)) write(*,*) "CONV1D input gradients turned off"
+       if(abs(verbose_).gt.0) write(*,*) "CONV1D input gradients turned off"
     else
        layer%calc_input_gradients = .true.
     end if
@@ -427,6 +425,9 @@ contains
        bias_initialiser, &
        verbose &
   )
+    use activation,  only: activation_setup
+    use initialiser, only: get_default_initialiser
+    use misc_ml, only: set_padding
     implicit none
     class(conv1d_layer_type), intent(inout) :: this
     integer, intent(in) :: num_filters
@@ -435,7 +436,7 @@ contains
     character(*), intent(in) :: activation_function
     real(real12), intent(in) :: activation_scale
     character(*), intent(in) :: kernel_initialiser, bias_initialiser
-    integer, intent(in) :: verbose
+    integer, optional, intent(in) :: verbose
 
     character(len=20) :: padding_
 
@@ -468,11 +469,11 @@ contains
     if(present(verbose))then
        if(abs(verbose).gt.0)then
           write(*,'("CONV1D activation function: ",A)') &
-               trim(this%activation_function)
+               trim(activation_function)
           write(*,'("CONV1D kernel initialiser: ",A)') &
-               trim(layer%kernel_initialiser)
+               trim(this%kernel_initialiser)
           write(*,'("CONV1D bias initialiser: ",A)') &
-               trim(layer%bias_initialiser)
+               trim(this%bias_initialiser)
        end if
     end if
 
@@ -558,53 +559,56 @@ contains
 !!! set batch size
 !!!#############################################################################
   subroutine set_batch_size_conv1d(this, batch_size, verbose)
-   implicit none
-   class(conv1d_layer_type), intent(inout) :: this
-   integer, intent(in) :: batch_size
-   integer, optional, intent(in) :: verbose
+    implicit none
+    class(conv1d_layer_type), intent(inout) :: this
+    integer, intent(in) :: batch_size
+    integer, optional, intent(in) :: verbose
 
-   integer :: verbose_ = 0
-
-
-   !!--------------------------------------------------------------------------
-   !! initialise optional arguments
-   !!--------------------------------------------------------------------------
-   if(present(verbose)) verbose_ = verbose
-   this%batch_size = batch_size
+    integer :: verbose_ = 0
 
 
-   !!--------------------------------------------------------------------------
-   !! allocate arrays
-   !!--------------------------------------------------------------------------
-   if(allocated(this%input_shape))then
-      if(this%output%allocated) call this%output%deallocate()
-      this%output = array3d_type()
-      call this%output%allocate( shape = [ &
-           this%output%shape(1), &
-           this%num_filters, &
-           this%batch_size ], &
-           source=0._real12 &
-      )
-      if(allocated(this%z)) deallocate(this%z)
-      allocate(this%z, source=this%output)
-      if(this%di%allocated) call this%di%deallocate()
-      this%di = array4d_type()
-      call this%di%allocate( shape = [ &
-           this%input_shape(1), &
-           this%input_shape(2), &
-           this%batch_size ], &
-           source=0._real12 &
-      )
-      if(allocated(this%dw)) deallocate(this%dw)
-      allocate(this%dw( &
-           lbound(this%weight,1):ubound(this%weight,1), &
-           this%num_channels, this%num_filters, &
-           this%batch_size), source=0._real12)
-      if(allocated(this%db)) deallocate(this%db)
-      allocate(this%db(this%num_filters, this%batch_size), source=0._real12)
-   end if
+    !!--------------------------------------------------------------------------
+    !! initialise optional arguments
+    !!--------------------------------------------------------------------------
+    if(present(verbose)) verbose_ = verbose
+    this%batch_size = batch_size
 
- end subroutine set_batch_size_conv1d
+
+    !!--------------------------------------------------------------------------
+    !! allocate arrays
+    !!--------------------------------------------------------------------------
+    if(allocated(this%input_shape))then
+       if(this%output%allocated) call this%output%deallocate()
+       this%output = array3d_type()
+       call this%output%allocate( shape = [ &
+            this%output%shape(1), &
+            this%num_filters, &
+            this%batch_size ], &
+            source=0._real12 &
+       )
+       if(allocated(this%z)) deallocate(this%z)
+       select type(output => this%output)
+       type is (array3d_type)
+          allocate(this%z, source=output%val)
+       end select
+       if(this%di%allocated) call this%di%deallocate()
+       this%di = array3d_type()
+       call this%di%allocate( shape = [ &
+            this%input_shape(1), &
+            this%input_shape(2), &
+            this%batch_size ], &
+            source=0._real12 &
+       )
+       if(allocated(this%dw)) deallocate(this%dw)
+       allocate(this%dw( &
+            lbound(this%weight,1):ubound(this%weight,1), &
+            this%num_channels, this%num_filters, &
+            this%batch_size), source=0._real12)
+       if(allocated(this%db)) deallocate(this%db)
+       allocate(this%db(this%num_filters, this%batch_size), source=0._real12)
+    end if
+
+  end subroutine set_batch_size_conv1d
 !!!#############################################################################
 
 
@@ -986,7 +990,7 @@ contains
                s=1:this%batch_size, &
                l=1:this%num_filters, &
                m=1:this%num_channels, &
-               i=1:size(this%di,dim=1):1 &
+               i=1:size(di%val,dim=1):1 &
                )
 
              !! set weight bounds
