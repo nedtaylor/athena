@@ -40,6 +40,13 @@ contains
            class default
               stop 'ERROR: Incompatible source type for rank 0'
            end select
+       rank(2)
+          select type(source)
+          type is (real(real12))
+             this%val(:) = source
+          class default
+             stop 'ERROR: Incompatible source type for rank 2'
+          end select
         rank(1)
            select type(source)
            type is (real(real12))
@@ -94,6 +101,18 @@ contains
     end select
 
   end subroutine get_array1d
+
+  pure module subroutine set_array1d(this, input)
+    implicit none
+    class(array1d_type), intent(inout) :: this
+    real(real12), dimension(..), intent(in) :: input
+
+    select rank(input)
+    rank(1)
+       this%val = input
+    end select
+  end subroutine set_array1d
+
 
 
 
@@ -191,6 +210,16 @@ contains
 
   end subroutine get_array2d
 
+  pure module subroutine set_array2d(this, input)
+    implicit none
+    class(array2d_type), intent(inout) :: this
+    real(real12), dimension(..), intent(in) :: input
+
+    select rank(input)
+    rank(2)
+       this%val = input
+    end select
+  end subroutine set_array2d
 
 
 
@@ -235,6 +264,13 @@ contains
              this = source
           class default
              stop 'ERROR: Incompatible source type for rank 0'
+          end select
+       rank(2)
+          select type(source)
+          type is (real(real12))
+             this%val(:,:,:) = source
+          class default
+             stop 'ERROR: Incompatible source type for rank 2'
           end select
        rank(3)
           select type(source)
@@ -293,6 +329,16 @@ contains
 
   end subroutine get_array3d
 
+  pure module subroutine set_array3d(this, input)
+    implicit none
+    class(array3d_type), intent(inout) :: this
+    real(real12), dimension(..), intent(in) :: input
+
+    select rank(input)
+    rank(3)
+       this%val = input
+    end select
+  end subroutine set_array3d
 
 
 
@@ -338,6 +384,13 @@ contains
              this = source
           class default
              stop 'ERROR: Incompatible source type for rank 0'
+          end select
+       rank(2)
+          select type(source)
+          type is (real(real12))
+             this%val(:,:,:,:) = source
+          class default
+             stop 'ERROR: Incompatible source type for rank 2'
           end select
        rank(4)
           select type(source)
@@ -396,6 +449,16 @@ contains
 
   end subroutine get_array4d
       
+  pure module subroutine set_array4d(this, input)
+    implicit none
+    class(array4d_type), intent(inout) :: this
+    real(real12), dimension(..), intent(in) :: input
+
+    select rank(input)
+    rank(1)
+       this%val = input
+    end select
+  end subroutine set_array4d
 
 
 
@@ -442,6 +505,13 @@ contains
              this = source
           class default
              stop 'ERROR: Incompatible source type for rank 0'
+          end select
+       rank(2)
+          select type(source)
+          type is (real(real12))
+             this%val(:,:,:,:,:) = source
+          class default
+             stop 'ERROR: Incompatible source type for rank 2'
           end select
        rank(5)
           select type(source)
@@ -499,5 +569,16 @@ contains
     end select
 
   end subroutine get_array5d
+
+  pure module subroutine set_array5d(this, input)
+    implicit none
+    class(array5d_type), intent(inout) :: this
+    real(real12), dimension(..), intent(in) :: input
+
+    select rank(input)
+    rank(5)
+       this%val = input
+    end select
+  end subroutine set_array5d
 
 end submodule custom_types_submodule

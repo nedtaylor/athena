@@ -177,6 +177,7 @@ module custom_types
      procedure (deallocate_array), deferred, pass(this) :: deallocate
      procedure (flatten_array), deferred, pass(this) :: flatten
      procedure (get_array), deferred, pass(this) :: get
+     procedure (set_array), deferred, pass(this) :: set
   end type array_type
 
 
@@ -202,12 +203,17 @@ module custom_types
      pure module function flatten_array(this) result(output)
         class(array_type), intent(in) :: this
         real(real12), dimension(this%size) :: output
-      end function flatten_array
+     end function flatten_array
 
      pure module subroutine get_array(this, output)
         class(array_type), intent(in) :: this
         real(real12), dimension(..), intent(out) :: output
-      end subroutine get_array 
+      end subroutine get_array
+
+      pure module subroutine set_array(this, input)
+         class(array_type), intent(inout) :: this
+         real(real12), dimension(..), intent(in) :: input
+       end subroutine set_array 
   end interface
 
   !! extend the array type to 1d, 2d, 3d, 4d, and 5d arrays
@@ -219,7 +225,8 @@ module custom_types
      procedure :: deallocate => deallocate_array1d
      procedure :: flatten => flatten_array1d
      procedure :: get => get_array1d
-  end type array1d_type
+     procedure :: set => set_array1d
+     end type array1d_type
 
   type, extends(array_type) :: array2d_type
      real(real12), dimension(:,:), allocatable :: val
@@ -228,6 +235,7 @@ module custom_types
      procedure :: deallocate => deallocate_array2d
      procedure :: flatten => flatten_array2d
      procedure :: get => get_array2d
+     procedure :: set => set_array2d
   end type array2d_type
 
   type, extends(array_type) :: array3d_type
@@ -237,7 +245,8 @@ module custom_types
      procedure :: deallocate => deallocate_array3d
      procedure :: flatten => flatten_array3d
      procedure :: get => get_array3d
-  end type array3d_type
+     procedure :: set => set_array3d
+     end type array3d_type
 
   type, extends(array_type) :: array4d_type
      real(real12), dimension(:,:,:,:), allocatable :: val
@@ -246,7 +255,8 @@ module custom_types
      procedure :: deallocate => deallocate_array4d
      procedure :: flatten => flatten_array4d
      procedure :: get => get_array4d
-  end type array4d_type
+     procedure :: set => set_array4d
+     end type array4d_type
 
   type, extends(array_type) :: array5d_type
      real(real12), dimension(:,:,:,:,:), allocatable :: val
@@ -255,7 +265,8 @@ module custom_types
      procedure :: deallocate => deallocate_array5d
      procedure :: flatten => flatten_array5d
      procedure :: get => get_array5d
-  end type array5d_type
+     procedure :: set => set_array5d
+     end type array5d_type
 
   !! interface for allocating array
   !!----------------------------------------------------------------------------
@@ -371,6 +382,35 @@ module custom_types
       class(array5d_type), intent(in) :: this
       real(real12), dimension(..), intent(out) :: output
     end subroutine get_array5d
+  end interface
+
+  !! interface for setting array
+  !!----------------------------------------------------------------------------
+  interface
+    pure module subroutine set_array1d(this, input)
+      class(array1d_type), intent(inout) :: this
+      real(real12), dimension(..), intent(in) :: input
+    end subroutine set_array1d
+
+    pure module subroutine set_array2d(this, input)
+      class(array2d_type), intent(inout) :: this
+      real(real12), dimension(..), intent(in) :: input
+    end subroutine set_array2d
+
+    pure module subroutine set_array3d(this, input)
+      class(array3d_type), intent(inout) :: this
+      real(real12), dimension(..), intent(in) :: input
+    end subroutine set_array3d
+
+    pure module subroutine set_array4d(this, input)
+      class(array4d_type), intent(inout) :: this
+      real(real12), dimension(..), intent(in) :: input
+    end subroutine set_array4d
+
+    pure module subroutine set_array5d(this, input)
+      class(array5d_type), intent(inout) :: this
+      real(real12), dimension(..), intent(in) :: input
+    end subroutine set_array5d
   end interface
 
   !! interface for initialising array

@@ -6,7 +6,7 @@
 !!!#############################################################################
 module flatten_layer
   use constants, only: real12
-  use base_layer, only: flatten_layer_type
+  use base_layer, only: base_layer_type
   use custom_types, only: &
        array1d_type, &
        array2d_type, &
@@ -57,7 +57,17 @@ contains
 
     select type(output => this%output)
     type is (array2d_type)
-       select rank(input); rank(3)
+       select rank(input)
+       rank(3)
+          output%val(:this%num_outputs, :this%batch_size) = &
+               reshape(input, [this%num_outputs, this%batch_size])
+       rank(4)
+          output%val(:this%num_outputs, :this%batch_size) = &
+               reshape(input, [this%num_outputs, this%batch_size])
+       rank(5)
+          output%val(:this%num_outputs, :this%batch_size) = &
+               reshape(input, [this%num_outputs, this%batch_size])
+       rank(6)
           output%val(:this%num_outputs, :this%batch_size) = &
                reshape(input, [this%num_outputs, this%batch_size])
        end select
@@ -76,9 +86,30 @@ contains
     real(real12), dimension(..), intent(in) :: gradient
 
     select rank(gradient); rank(2)
-       call this%di%allocate( &
-            source = reshape(gradient(:this%num_outputs,:), this%di%shape) &
-       )
+       select type(di => this%di)
+       type is (array1d_type)
+          di%val = reshape(gradient(:this%num_outputs,:), &
+               [size(di%val)] )
+       type is (array2d_type)
+          di%val = reshape(gradient(:this%num_outputs,:), &
+               [this%input_shape(1), this%batch_size] )
+       type is (array3d_type)
+          di%val = reshape(gradient(:this%num_outputs,:), &
+               [this%input_shape(1), this%input_shape(2), this%batch_size] )
+       type is (array4d_type)
+          di%val = reshape(gradient(:this%num_outputs,:), [ &
+               this%input_shape(1), &
+               this%input_shape(2), &
+               this%input_shape(3), &
+               this%batch_size ] )
+       type is (array5d_type)
+          di%val = reshape(gradient(:this%num_outputs,:), [ &
+               this%input_shape(1), &
+               this%input_shape(2), &
+               this%input_shape(3), &
+               this%input_shape(4), &
+               this%batch_size ] )
+       end select
     end select
   end subroutine backward_rank
 !!!#############################################################################
@@ -272,13 +303,19 @@ contains
 !!! read layer from file
 !!!#############################################################################
   subroutine read_flatten(this, unit, verbose)
+    use infile_tools, only: assign_val, assign_vec
+    use misc, only: to_lower, icount
     implicit none
     class(flatten_layer_type), intent(inout) :: this
     integer, intent(in) :: unit
     integer, optional, intent(in) :: verbose
 
-    integer :: verbose_ = 0
+    integer :: stat, verbose_ = 0
+    integer :: itmp1= 0
     integer :: num_addit_outputs = 0
+    integer, dimension(3) :: input_shape
+    character(256) :: buffer, tag
+
 
     !!--------------------------------------------------------------------------
     !! initialise optional arguments

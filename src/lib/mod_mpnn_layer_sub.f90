@@ -5,6 +5,7 @@
 !!! module contains implementation of a message passing neural network
 !!!#############################################################################
 submodule(mpnn_layer) mpnn_layer_submodule
+  use custom_types, only: array2d_type
   implicit none
   
 
@@ -261,7 +262,7 @@ contains
     !!--------------------------------------------------------------------------
     !! set hyperparameters
     !!--------------------------------------------------------------------------
-    call layer%set_hyperparameters( &
+    call layer%set_hyperparams( &
          method = method, &
          num_features = num_features, &
          num_time_steps = num_time_steps, &
@@ -308,8 +309,8 @@ contains
 
     this%name = 'mpnn'
     this%type = 'mpnn'
-    this%rank = 1
-    tihs%output%shape = [ num_outputs ]
+    this%input_rank = 1
+    this%output%shape = [ num_outputs ]
     this%num_time_steps = num_time_steps
     this%num_vertex_features = num_features(1)
     this%num_edge_features = num_features(2)
@@ -366,10 +367,12 @@ contains
     !! allocate arrays
     !!--------------------------------------------------------------------------
     if(allocated(this%input_shape))then
-       if(allocated(this%output)) deallocate(this%output)
-       allocate(this%output( &
+       if(this%output%allocated) call this%output%deallocate()
+       this%output = array2d_type()
+       call this%output%allocate( [ &
             this%output%shape(1), &
-            this%batch_size ), source=0._real12 &
+            this%batch_size ], &
+            source=0._real12 &
        )
        call this%method%init( &
             this%num_vertex_features, this%num_edge_features, &
@@ -464,10 +467,10 @@ contains
 !!!#############################################################################
 !!! read layer from file
 !!!#############################################################################
-  module subroutine read_mpnn(this, filename, verbose)
+  module subroutine read_mpnn(this, unit, verbose)
     implicit none
     class(mpnn_layer_type), intent(inout) :: this
-    character(len=*), intent(in) :: filename
+    integer, intent(in) :: unit
     integer, optional, intent(in) :: verbose
 
     integer :: verbose_ = 0
@@ -477,7 +480,8 @@ contains
     !!--------------------------------------------------------------------------
     !! read layer from file
     !!--------------------------------------------------------------------------
-    call this%method%read(filename, verbose)
+    ! call this%method%read(unit, verbose)
+    stop "NOT YET IMPLEMENTED"
 
   end subroutine read_mpnn
 !!!#############################################################################
@@ -500,7 +504,12 @@ contains
        )
     end do
 
-    call this%method%readout%get_output(this%method%message, this%output)
+    select type(output => this%output)
+    type is (array2d_type)
+       call this%method%readout%get_output( &
+            this%method%message, output%val &
+       )
+    end select
 
   end subroutine forward_graph
 !!!#############################################################################

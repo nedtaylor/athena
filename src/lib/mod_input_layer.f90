@@ -6,7 +6,7 @@
 !!!#############################################################################
 module input_layer
   use constants, only: real12
-  use base_layer, only: input_layer_type
+  use base_layer, only: base_layer_type
   use custom_types, only: &
        array1d_type, &
        array2d_type, &
@@ -16,7 +16,7 @@ module input_layer
   implicit none
   
   
-  type, extends(input_layer_type) :: input_layer_type
+  type, extends(base_layer_type) :: input_layer_type
      integer :: num_outputs
      !  real(real12), allocatable, dimension(:,:) :: output
    contains
@@ -55,20 +55,7 @@ contains
     class(input_layer_type), intent(inout) :: this
     real(real12), dimension(..), intent(in) :: input
 
-    select rank(input)
-    rank(1)
-       this%output = reshape(input, shape=shape(this%output))
-    rank(2)
-       this%output = reshape(input, shape=shape(this%output))
-    rank(3)
-       this%output = reshape(input, shape=shape(this%output))
-    rank(4)
-       this%output = reshape(input, shape=shape(this%output))
-    rank(5)
-       this%output = reshape(input, shape=shape(this%output))
-    rank(6)
-       this%output = reshape(input, shape=shape(this%output))
-    end select
+    call this%output%set( input )
   end subroutine forward_rank
 !!!#############################################################################
 
@@ -144,7 +131,7 @@ contains
   subroutine set_hyperparams_input(this, input_rank, verbose)
     implicit none
     class(input_layer_type), intent(inout) :: this
-    integer, intent(in) :: input_rank
+    integer, optional, intent(in) :: input_rank
     integer, optional, intent(in) :: verbose
 
     this%name = "input"
@@ -271,13 +258,18 @@ contains
 !!! read layer from file
 !!!#############################################################################
   subroutine read_input(this, unit, verbose)
+    use infile_tools, only: assign_val, assign_vec
+    use misc, only: to_lower, icount
     implicit none
     class(input_layer_type), intent(inout) :: this
     integer, intent(in) :: unit
     integer, optional, intent(in) :: verbose
 
-    integer :: verbose_ = 0
+    integer :: stat, verbose_ = 0
+    integer :: itmp1= 0
     integer :: input_rank = 0
+    integer, dimension(3) :: input_shape
+    character(256) :: buffer, tag
 
     !!--------------------------------------------------------------------------
     !! initialise optional arguments
@@ -367,7 +359,7 @@ contains
          !dimension(this%batch_size * this%num_outputs), intent(in) :: input
 
 
-    call this%output%allocate( source = input )
+    call this%output%set( input )
 
   end subroutine set_input
 !!!#############################################################################

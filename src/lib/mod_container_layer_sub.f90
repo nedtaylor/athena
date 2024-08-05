@@ -6,7 +6,7 @@
 !!! submodule contains the associated methods from the container_layer module
 !!!#############################################################################
 submodule(container_layer) container_layer_submodule
-  use base_layer, only: learnable_layer_type, flatten_layer_type
+  use base_layer, only: learnable_layer_type
   use custom_types, only: &
        array1d_type, array2d_type, array3d_type, array4d_type, array5d_type
 
@@ -29,7 +29,7 @@ contains
     type is (array5d_type)
        call this%layer%forward(output%val)
     class default
-       stop 'ERROR: Unrecognised output type'
+       return
     end select
 
   end subroutine forward
@@ -54,7 +54,7 @@ contains
     type is (array5d_type)
        call this%layer%backward(output%val, gradient)
     class default
-       stop 'ERROR: Unrecognised output type'
+       return
     end select
 
   end subroutine backward
