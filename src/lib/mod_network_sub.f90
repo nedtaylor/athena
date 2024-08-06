@@ -37,10 +37,10 @@ submodule(network) network_submodule
 !   use batchnorm2d_layer, only: batchnorm2d_layer_type, read_batchnorm2d_layer
 !   use batchnorm3d_layer, only: batchnorm3d_layer_type, read_batchnorm3d_layer
 
-  !! convolution layer types
-  use conv1d_layer,    only: conv1d_layer_type, read_conv1d_layer
-  use conv2d_layer,    only: conv2d_layer_type, read_conv2d_layer
-  use conv3d_layer,    only: conv3d_layer_type, read_conv3d_layer
+!   !! convolution layer types
+!   use conv1d_layer,    only: conv1d_layer_type, read_conv1d_layer
+!   use conv2d_layer,    only: conv2d_layer_type, read_conv2d_layer
+!   use conv3d_layer,    only: conv3d_layer_type, read_conv3d_layer
 
 !   !! deep set layer types
 !   use deepset_layer, only: deepset_layer_type, read_deepset_layer
@@ -554,11 +554,7 @@ contains
 !!! ignore calcuation of input gradients for 1st non-input layer
 !!!-----------------------------------------------------------------------------
     select type(second => this%model(2)%layer)
-    type is(conv1d_layer_type)
-       second%calc_input_gradients = .false.
-    type is(conv2d_layer_type)
-       second%calc_input_gradients = .false.
-    type is(conv3d_layer_type)
+    class is(conv_layer_type)
        second%calc_input_gradients = .false.
     end select
 
