@@ -23,45 +23,16 @@ submodule(network) network_submodule
 #endif
 
   use custom_types, only: &
-       array1d_type, array2d_type, array3d_type, array4d_type, array5d_type
+       array1d_type, &
+       array2d_type, &
+       array3d_type, &
+       array4d_type, &
+       array5d_type
   use container_layer, only: list_of_layer_types
 
-  !! input layer types
+  !! layer types
   use input_layer,   only: input_layer_type
-!   use input2d_layer,   only: input2d_layer_type
-!   use input3d_layer,   only: input3d_layer_type
-!   use input4d_layer,   only: input4d_layer_type
-
-!   !! batch normalisation layer types
-!   use batchnorm1d_layer, only: batchnorm1d_layer_type, read_batchnorm1d_layer
-!   use batchnorm2d_layer, only: batchnorm2d_layer_type, read_batchnorm2d_layer
-!   use batchnorm3d_layer, only: batchnorm3d_layer_type, read_batchnorm3d_layer
-
-!   !! convolution layer types
-!   use conv1d_layer,    only: conv1d_layer_type, read_conv1d_layer
-!   use conv2d_layer,    only: conv2d_layer_type, read_conv2d_layer
-!   use conv3d_layer,    only: conv3d_layer_type, read_conv3d_layer
-
-!   !! deep set layer types
-!   use deepset_layer, only: deepset_layer_type, read_deepset_layer
-!   use mpnn_layer, only: mpnn_layer_type
-
-!   !! dropout layer types
-!   use dropout_layer, only: dropout_layer_type, read_dropout_layer
-!   use dropblock2d_layer, only: dropblock2d_layer_type, read_dropblock2d_layer
-!   use dropblock3d_layer, only: dropblock3d_layer_type, read_dropblock3d_layer
-
-!   !! pooling layer types
-!   use avgpool2d_layer, only: avgpool2d_layer_type, read_avgpool2d_layer
-!   use avgpool3d_layer, only: avgpool3d_layer_type, read_avgpool3d_layer
-! !   use maxpool2d_layer, only: maxpool2d_layer_type, read_maxpool2d_layer
-! !   use maxpool3d_layer, only: maxpool3d_layer_type, read_maxpool3d_layer
-
-  !! flatten layer types
   use flatten_layer, only: flatten_layer_type
-!   use flatten2d_layer, only: flatten2d_layer_type
-!   use flatten3d_layer, only: flatten3d_layer_type
-!   use flatten4d_layer, only: flatten4d_layer_type
 
   !! fully connected (dense) layer types
   use full_layer,      only: full_layer_type, read_full_layer
@@ -1175,7 +1146,7 @@ end function get_gradients
                   output%val(:,1:this%batch_size), &
                   y_true(:,1:this%batch_size)))
           class default
-             stop "ERROR: final layer not of type full_layer_type"
+             stop "ERROR: final layer output not 2D"
           end select
 
 

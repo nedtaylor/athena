@@ -30,11 +30,12 @@ module avgpool2d_layer
   interface avgpool2d_layer_type
      module function layer_setup( &
           input_shape, batch_size, &
-          pool_size, stride) result(layer)
+          pool_size, stride, verbose ) result(layer)
        integer, dimension(:), optional, intent(in) :: input_shape
        integer, optional, intent(in) :: batch_size 
        integer, dimension(..), optional, intent(in) :: pool_size
        integer, dimension(..), optional, intent(in) :: stride
+       integer, optional, intent(in) :: verbose
        type(avgpool2d_layer_type) :: layer
      end function layer_setup
   end interface avgpool2d_layer_type
@@ -91,12 +92,13 @@ contains
 #if defined(GFORTRAN)
   module function layer_setup( &
        input_shape, batch_size, &
-       pool_size, stride) result(layer)
+       pool_size, stride, verbose) result(layer)
     implicit none
     integer, dimension(:), optional, intent(in) :: input_shape
     integer, optional, intent(in) :: batch_size 
     integer, dimension(..), optional, intent(in) :: pool_size
     integer, dimension(..), optional, intent(in) :: stride
+    integer, optional, intent(in) :: verbose
     
     type(avgpool2d_layer_type) :: layer
 #else
@@ -104,8 +106,11 @@ contains
     implicit none
 #endif
 
+    integer :: verbose_ = 0
     integer, dimension(2) :: pool_size_, stride_
 
+
+    if(present(verbose)) verbose_ = verbose
 
     !!-----------------------------------------------------------------------
     !! set up pool size
@@ -150,7 +155,9 @@ contains
     !!--------------------------------------------------------------------------
     !! set hyperparameters
     !!--------------------------------------------------------------------------
-    call layer%set_hyperparams(pool_size=pool_size_, stride=stride_)
+    call layer%set_hyperparams( &
+         pool_size=pool_size_, stride=stride_, verbose=verbose_ &
+    )
 
 
     !!--------------------------------------------------------------------------
@@ -175,11 +182,12 @@ contains
 !!!#############################################################################
 !!! set hyperparameters
 !!!#############################################################################
-  subroutine set_hyperparams_avgpool2d(this, pool_size, stride)
+  subroutine set_hyperparams_avgpool2d(this, pool_size, stride, verbose)
     implicit none
     class(avgpool2d_layer_type), intent(inout) :: this
     integer, dimension(2), intent(in) :: pool_size
     integer, dimension(2), intent(in) :: stride
+    integer, optional, intent(in) :: verbose
 
 
     this%name = "avgpool2d"
@@ -340,7 +348,6 @@ contains
     class(avgpool2d_layer_type), intent(inout) :: this
     integer, intent(in) :: unit
     integer, optional, intent(in) :: verbose
-
 
     integer :: verbose_ = 0
     integer :: stat
