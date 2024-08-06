@@ -26,6 +26,7 @@ module flatten_layer
      procedure, pass(this) :: read => read_flatten
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
+     procedure, pass(this) :: set_addit_input
   end type flatten_layer_type
 
   interface flatten_layer_type
@@ -388,6 +389,23 @@ contains
     call layer%read(unit, verbose=verbose_)
 
   end function read_flatten_layer
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set additional input
+!!!#############################################################################
+  pure subroutine set_addit_input(this, addit_input)
+    implicit none
+    class(flatten_layer_type), intent(inout) :: this
+    real(real12), dimension(:,:), intent(in) :: addit_input
+
+    select type(output => this%output)
+    type is (array2d_type)
+       output%val(this%num_outputs+1:, :) = addit_input
+    end select
+
+  end subroutine set_addit_input
 !!!#############################################################################
 
 end module flatten_layer

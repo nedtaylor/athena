@@ -22,36 +22,40 @@ submodule(network) network_submodule
   use container_layer, only: container_reduction
 #endif
 
+  use custom_types, only: &
+       array1d_type, array2d_type, array3d_type, array4d_type, array5d_type
+  use container_layer, only: list_of_layer_types
+
   !! input layer types
   use input_layer,   only: input_layer_type
 !   use input2d_layer,   only: input2d_layer_type
 !   use input3d_layer,   only: input3d_layer_type
 !   use input4d_layer,   only: input4d_layer_type
 
-  !! batch normalisation layer types
-  use batchnorm1d_layer, only: batchnorm1d_layer_type, read_batchnorm1d_layer
-  use batchnorm2d_layer, only: batchnorm2d_layer_type, read_batchnorm2d_layer
-  use batchnorm3d_layer, only: batchnorm3d_layer_type, read_batchnorm3d_layer
+!   !! batch normalisation layer types
+!   use batchnorm1d_layer, only: batchnorm1d_layer_type, read_batchnorm1d_layer
+!   use batchnorm2d_layer, only: batchnorm2d_layer_type, read_batchnorm2d_layer
+!   use batchnorm3d_layer, only: batchnorm3d_layer_type, read_batchnorm3d_layer
 
   !! convolution layer types
   use conv1d_layer,    only: conv1d_layer_type, read_conv1d_layer
   use conv2d_layer,    only: conv2d_layer_type, read_conv2d_layer
   use conv3d_layer,    only: conv3d_layer_type, read_conv3d_layer
 
-  !! deep set layer types
+!   !! deep set layer types
 !   use deepset_layer, only: deepset_layer_type, read_deepset_layer
-  use mpnn_layer, only: mpnn_layer_type
+!   use mpnn_layer, only: mpnn_layer_type
 
-  !! dropout layer types
-  use dropout_layer, only: dropout_layer_type, read_dropout_layer
-  use dropblock2d_layer, only: dropblock2d_layer_type, read_dropblock2d_layer
-  use dropblock3d_layer, only: dropblock3d_layer_type, read_dropblock3d_layer
+!   !! dropout layer types
+!   use dropout_layer, only: dropout_layer_type, read_dropout_layer
+!   use dropblock2d_layer, only: dropblock2d_layer_type, read_dropblock2d_layer
+!   use dropblock3d_layer, only: dropblock3d_layer_type, read_dropblock3d_layer
 
-  !! pooling layer types
-  use avgpool2d_layer, only: avgpool2d_layer_type, read_avgpool2d_layer
-  use avgpool3d_layer, only: avgpool3d_layer_type, read_avgpool3d_layer
-!   use maxpool2d_layer, only: maxpool2d_layer_type, read_maxpool2d_layer
-!   use maxpool3d_layer, only: maxpool3d_layer_type, read_maxpool3d_layer
+!   !! pooling layer types
+!   use avgpool2d_layer, only: avgpool2d_layer_type, read_avgpool2d_layer
+!   use avgpool3d_layer, only: avgpool3d_layer_type, read_avgpool3d_layer
+! !   use maxpool2d_layer, only: maxpool2d_layer_type, read_maxpool2d_layer
+! !   use maxpool3d_layer, only: maxpool3d_layer_type, read_maxpool3d_layer
 
   !! flatten layer types
   use flatten_layer, only: flatten_layer_type
@@ -147,6 +151,7 @@ contains
    
    integer :: i, unit, stat
    character(256) :: buffer
+   integer :: layer_index
    open(newunit=unit,file=file,action='read')
    i = 0
    card_loop: do
@@ -169,13 +174,13 @@ contains
       end if
 
       !! check for card
-      layer_index = findloc(list_of_layer_types%names, trim(adjustl(buffer)))
-      if(size(layer_index).eq.0)then
+      layer_index = findloc(list_of_layer_types%name, trim(adjustl(buffer)), dim=1)
+      if(layer_index.eq.0)then
          write(0,*) "ERROR: unrecognised card '"//&
               &trim(adjustl(buffer))//"'"
          stop "Exiting..."
       end if
-      call this%add(list_of_layer_types%read_ptr(unit))
+      call this%add(list_of_layer_types(layer_index)%read_ptr(unit))
    end do card_loop
    close(unit)
 
@@ -529,46 +534,16 @@ contains
             this%model(1:)&
             ]
        associate(next => this%model(2)%layer)
-         select case(size(next%input_shape,dim=1))
-         case(1)
-            t_input_layer = input1d_layer_type(input_shape = next%input_shape)
+         select type(next)
+         class is(conv_layer_type)
+            t_input_layer = input_layer_type(&
+                 input_shape = next%input_shape + &
+                 [2*next%pad,0])
             allocate(this%model(1)%layer, source = t_input_layer)
-         case(2)
-            select type(next)
-            type is(conv1d_layer_type)
-               t_input_layer = input2d_layer_type(&
-                    input_shape = next%input_shape + &
-                    [2*next%pad,0])
-               allocate(this%model(1)%layer, source = t_input_layer)
-            class default
-               t_input_layer = input2d_layer_type(&
-                    input_shape = next%input_shape)
-               allocate(this%model(1)%layer, source = t_input_layer)
-            end select
-         case(3)
-            select type(next)
-            type is(conv2d_layer_type)
-               t_input_layer = input3d_layer_type(&
-                    input_shape = next%input_shape + &
-                    [2*next%pad,0])
-               allocate(this%model(1)%layer, source = t_input_layer)
-            class default
-               t_input_layer = input3d_layer_type(&
-                    input_shape = next%input_shape)
-               allocate(this%model(1)%layer, source = t_input_layer)
-            end select
-         case(4)
-            select type(next)
-            type is(conv3d_layer_type)
-               t_input_layer = input4d_layer_type(&
-                    input_shape = next%input_shape + &
-                    [2*next%pad,0])
-               allocate(this%model(1)%layer, source = t_input_layer)
-            class default
-               t_input_layer = input4d_layer_type(&
-                    input_shape = next%input_shape)
-               allocate(this%model(1)%layer, source = t_input_layer)
-            end select
+         class default
+            t_input_layer = input_layer_type(&
+                 input_shape = next%input_shape)
+            allocate(this%model(1)%layer, source = t_input_layer)
          end select
          deallocate(t_input_layer)
        end associate
@@ -636,37 +611,11 @@ contains
                    type is(full_layer_type)
                       num_addit_inputs = next%num_addit_inputs
                    end select
-                   select case(this%model(i)%layer%output%size))
-                   case(1)
-                      t_flatten_layer = flatten1d_layer_type(&
-                           input_shape = this%model(i)%layer%output%shape, &
-                           num_addit_outputs = num_addit_inputs, &
-                           batch_size = this%batch_size)
-                   case(2)
-                      t_flatten_layer = flatten1d_layer_type(&
-                           input_shape = this%model(i)%layer%output%shape, &
-                           num_addit_outputs = num_addit_inputs, &
-                           batch_size = this%batch_size)
-                      allocate(this%model(i+1)%layer, source=t_flatten_layer)
-                   case(3)
-                      t_flatten_layer = flatten2d_layer_type(&
-                           input_shape = this%model(i)%layer%output%shape, &
-                           num_addit_outputs = num_addit_inputs, &
-                           batch_size = this%batch_size)
-                      allocate(this%model(i+1)%layer, source=t_flatten_layer)
-                   case(4)
-                      t_flatten_layer = flatten3d_layer_type(&
-                           input_shape = this%model(i)%layer%output%shape, &
-                           num_addit_outputs = num_addit_inputs, &
-                           batch_size = this%batch_size)
-                      allocate(this%model(i+1)%layer, source=t_flatten_layer)
-                   case(5)
-                      t_flatten_layer = flatten4d_layer_type(&
-                           input_shape = this%model(i)%layer%output%shape, &
-                           num_addit_outputs = num_addit_inputs, &
-                           batch_size = this%batch_size)
-                      allocate(this%model(i+1)%layer, source=t_flatten_layer)
-                   end select
+                   t_flatten_layer = flatten_layer_type(&
+                        input_shape = this%model(i)%layer%output%shape, &
+                        num_addit_outputs = num_addit_inputs, &
+                        batch_size = this%batch_size &
+                   )
                    i = i + 1
                    cycle layer_loop
                 end select
@@ -942,18 +891,8 @@ end function get_gradients
     !!--------------------------------------------------------------------------
     if(present(layer).and.present(addit_input))then
        select type(previous => this%model(layer-1)%layer)
-       type is(flatten1d_layer_type)
-          previous%output(size(previous%di(:,:,1)) - &
-          size(addit_input,1)+1:,:) = addit_input
-       type is(flatten2d_layer_type)
-          previous%output(size(previous%di(:,:,:,1)) - &
-          size(addit_input,1)+1:,:) = addit_input
-       type is(flatten3d_layer_type)
-          previous%output(size(previous%di(:,:,:,:,1)) - &
-          size(addit_input,1)+1:,:) = addit_input
-       type is(flatten4d_layer_type)
-          previous%output(size(previous%di(:,:,:,:,:,1)) - &
-          size(addit_input,1)+1:,:) = addit_input
+       type is(flatten_layer_type)
+          call previous%set_addit_input(addit_input)
        end select
     end if
 
@@ -998,7 +937,6 @@ end function get_gradients
     !! Backward pass
     !!-------------------------------------------------------------------
     do i=this%num_layers-1,2,-1
-
        select type(gradient => this%model(i)%layer%di)
        type is (array1d_type)
           call this%model(i)%backward(this%model(i-1),gradient%val)
@@ -1008,59 +946,9 @@ end function get_gradients
           call this%model(i)%backward(this%model(i-1),gradient%val)
        type is (array4d_type)
           call this%model(i)%backward(this%model(i-1),gradient%val)
-       class default
-          stop 'ERROR: Unrecognised gradient type'
+      type is (array5d_type)
+          call this%model(i)%backward(this%model(i-1),gradient%val)
        end select
-
-
-      !  select type(next => this%model(i+1)%layer)
-      !  type is(batchnorm1d_layer_type)
-      !     call this%model(i)%backward(this%model(i-1),next%di)
-      !  type is(batchnorm2d_layer_type)
-      !     call this%model(i)%backward(this%model(i-1),next%di)
-      !  type is(batchnorm3d_layer_type)
-      !     call this%model(i)%backward(this%model(i-1),next%di)
-
-      !  type is(conv1d_layer_type)
-      !     call this%model(i)%backward(this%model(i-1),next%di)
-      !  type is(conv2d_layer_type)
-      !     call this%model(i)%backward(this%model(i-1),next%di)
-      !  type is(conv3d_layer_type)
-      !     call this%model(i)%backward(this%model(i-1),next%di)
-
-      !  type is(deepset_layer_type)
-      !     call this%model(i)%backward(this%model(i-1),next%di)
-      !  class is(mpnn_layer_type)
-      !     call this%model(i)%backward(this%model(i-1),next%di)
-    
-      !  type is(dropout_layer_type)
-      !     call this%model(i)%backward(this%model(i-1),next%di)
-      !  type is(dropblock2d_layer_type)
-      !     call this%model(i)%backward(this%model(i-1),next%di)
-      !  type is(dropblock3d_layer_type)
-      !     call this%model(i)%backward(this%model(i-1),next%di)
-    
-      !  type is(avgpool2d_layer_type)
-      !     call this%model(i)%backward(this%model(i-1),next%di)
-      !  type is(avgpool3d_layer_type)
-      !     call this%model(i)%backward(this%model(i-1),next%di)
-      !  type is(maxpool2d_layer_type)
-      !     call this%model(i)%backward(this%model(i-1),next%di)
-      !  type is(maxpool3d_layer_type)
-      !     call this%model(i)%backward(this%model(i-1),next%di)
-    
-      !  type is(flatten1d_layer_type)
-      !     call this%model(i)%backward(this%model(i-1),next%di)
-      !  type is(flatten2d_layer_type)
-      !     call this%model(i)%backward(this%model(i-1),next%di)
-      !  type is(flatten3d_layer_type)
-      !     call this%model(i)%backward(this%model(i-1),next%di)
-      !  type is(flatten4d_layer_type)
-      !     call this%model(i)%backward(this%model(i-1),next%di)
-
-      !  type is(full_layer_type)
-      !     call this%model(i)%backward(this%model(i-1),next%di)
-      !  end select
     end do
 
   end subroutine backward_1d
@@ -1266,7 +1154,7 @@ end function get_gradients
 
 
           !! Forward pass
-          !!-----------------------------------------------------------------
+          !!--------------------------------------------------------------------
           if(present(addit_input).and.present(addit_layer))then
              call this%forward(get_sample(input,start_index,end_index),&
                 addit_input(:,start_index:end_index),addit_layer)
@@ -1276,19 +1164,19 @@ end function get_gradients
 
 
           !! Backward pass and store predicted output
-          !!-----------------------------------------------------------------
+          !!--------------------------------------------------------------------
           call this%backward(y_true(:,:))
-          select type(current => this%model(this%num_layers)%layer)
-          type is(full_layer_type)
+          select type(output => this%model(this%num_layers)%layer%output)
+          type is(array2d_type)
              !! compute loss and accuracy (for monitoring)
-             !!-------------------------------------------------------------------
+             !!-----------------------------------------------------------------
              batch_loss = sum( &
                   this%get_loss( &
-                  current%output(:,1:this%batch_size), &
+                  output%val(:,1:this%batch_size), &
                   y_true(:,1:this%batch_size)))
              batch_accuracy = sum( &
                   this%get_accuracy( &
-                  current%output(:,1:this%batch_size), &
+                  output%val(:,1:this%batch_size), &
                   y_true(:,1:this%batch_size)))
           class default
              stop "ERROR: final layer not of type full_layer_type"
@@ -1460,7 +1348,7 @@ end function get_gradients
 !!!-----------------------------------------------------------------------------
 !!! testing loop
 !!!-----------------------------------------------------------------------------
-    test_loop: do sample = 1, num_samples
+    test_loop1: do sample = 1, num_samples
 
        !! Forward pass
        !!-----------------------------------------------------------------------
@@ -1474,48 +1362,45 @@ end function get_gradients
 
        !! compute loss and accuracy (for monitoring)
        !!-----------------------------------------------------------------------
-       select type(current => this%model(this%num_layers)%layer)
-       type is(full_layer_type)
+       select type(output_arr => this%model(this%num_layers)%layer%output)
+       type is(array2d_type)
           loss_val = sum(this%get_loss( &
-               predicted = current%output, &
+               predicted = output_arr%val, &
                !!!! JUST REPLACE y_true(:,sample) WITH output(:,sample) !!!!
                !!!! THERE IS NO REASON TO USE y_true, as it is just a copy !!!!
                !!!! get_loss should handle both integers and reals !!!!
                !!!! it does not. Instead just wrap real(output(:,sample),real12) !!!!
                expected  = y_true(:,sample:sample)))
           acc_val = sum(this%get_accuracy( &
-               predicted = current%output, &
+               predicted = output_arr%val, &
                expected  = y_true(:,sample:sample)))
           this%metrics(2)%val = this%metrics(2)%val + acc_val
           this%metrics(1)%val = this%metrics(1)%val + loss_val
           accuracy_list(sample) = acc_val
-          predicted(:,sample) = current%output(:,1)
+          predicted(:,sample) = output_arr%val(:,1)
        end select
 
-    end do test_loop
+    end do test_loop1
 
     
     !! print testing results
     !!--------------------------------------------------------------------
     if(abs(verbose_).gt.1)then
        open(file="test_output.out",newunit=unit)
-       select type(final_layer => this%model(this%num_layers)%layer)
-       type is(full_layer_type)
-          test_loop: do concurrent(sample = 1:num_samples)
-             select type(output)
-             type is(integer)
-                write(unit,'(I4," Expected=",I3,", Got=",I3,", Accuracy=",F0.3)') &
-                     sample, &
-                     maxloc(output(:,sample)), maxloc(predicted(:,sample),dim=1)-1, &
-                     accuracy_list(sample)
-             type is(real)
-                write(unit,'(I4," Expected=",F0.3,", Got=",F0.3,", Accuracy=",F0.3)') &
-                     sample, &
-                     output(:,sample), predicted(:,sample), &
-                     accuracy_list(sample)
-             end select
-          end do test_loop
-       end select
+       test_loop2: do concurrent(sample = 1:num_samples)
+          select type(output)
+          type is(integer)
+             write(unit,'(I4," Expected=",I3,", Got=",I3,", Accuracy=",F0.3)') &
+                  sample, &
+                  maxloc(output(:,sample)), maxloc(predicted(:,sample),dim=1)-1, &
+                  accuracy_list(sample)
+          type is(real)
+             write(unit,'(I4," Expected=",F0.3,", Got=",F0.3,", Accuracy=",F0.3)') &
+                  sample, &
+                  output(:,sample), predicted(:,sample), &
+                  accuracy_list(sample)
+          end select
+       end do test_loop2
        close(unit)
     end if
 
@@ -1591,9 +1476,9 @@ end function get_gradients
       call this%forward(get_sample(input,1,batch_size))
    end if
 
-   select type(current => this%model(this%num_layers)%layer)
-   type is(full_layer_type)
-      output = current%output(:,1:batch_size)
+   select type(output_arr => this%model(this%num_layers)%layer%output)
+   type is(array2d_type)
+      output = output_arr%val(:,1:batch_size)
    end select
 
   end function predict_1d

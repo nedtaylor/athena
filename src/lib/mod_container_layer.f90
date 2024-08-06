@@ -104,6 +104,7 @@ module container_layer
 
   private
   public :: container_layer_type
+  public :: list_of_layer_types
 #if defined(GFORTRAN)
   public :: container_reduction
 #endif
