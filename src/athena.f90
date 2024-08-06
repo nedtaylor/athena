@@ -42,17 +42,12 @@ module athena
   use base_layer, only: &
        base_layer_type, &
        learnable_layer_type, &
-       input_layer_type, &
        batch_layer_type, &
        conv_layer_type, &
-       pool_layer_type, &
-       flatten_layer_type
+       pool_layer_type
 
   !! input layer types
-  use input1d_layer,   only: input1d_layer_type
-  use input2d_layer,   only: input2d_layer_type
-  use input3d_layer,   only: input3d_layer_type
-  use input4d_layer,   only: input4d_layer_type
+  use input_layer,   only: input_layer_type
 
   !! batch normalisation layer types
   use batchnorm1d_layer, only: batchnorm1d_layer_type, read_batchnorm1d_layer
@@ -64,12 +59,12 @@ module athena
   use conv2d_layer,    only: conv2d_layer_type, read_conv2d_layer
   use conv3d_layer,    only: conv3d_layer_type, read_conv3d_layer
 
-  !! deep set layer types
-  use deepset_layer,   only: deepset_layer_type, read_deepset_layer
+!   !! deep set layer types
+!   use deepset_layer,   only: deepset_layer_type, read_deepset_layer
 
   !! message passing layer types
   use mpnn_layer,      only: mpnn_layer_type
-  use conv_mpnn_layer, only: conv_mpnn_layer_type
+!   use conv_mpnn_layer, only: conv_mpnn_layer_type
 
   !! dropout layer types
   use dropout_layer, only: dropout_layer_type, read_dropout_layer
@@ -83,10 +78,7 @@ module athena
   use maxpool3d_layer, only: maxpool3d_layer_type, read_maxpool3d_layer
 
   !! flatten layer types
-  use flatten1d_layer, only: flatten1d_layer_type
-  use flatten2d_layer, only: flatten2d_layer_type
-  use flatten3d_layer, only: flatten3d_layer_type
-  use flatten4d_layer, only: flatten4d_layer_type
+  use flatten_layer, only: flatten_layer_type
 
   !! fully connected (dense) layer types
   use full_layer,      only: full_layer_type, read_full_layer

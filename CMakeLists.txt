@@ -114,14 +114,7 @@ set(LIB_FILES
     mod_maxpool3d_layer.f90
     mod_full_layer.f90
     mod_flatten_layer.f90
-    # mod_flatten1d_layer.f90
-    # mod_flatten2d_layer.f90
-    # mod_flatten3d_layer.f90
-    # mod_flatten4d_layer.f90
     mod_input_layer.f90
-    # mod_input2d_layer.f90
-    # mod_input3d_layer.f90
-    # mod_input4d_layer.f90
     mod_container_layer.f90
     mod_container_layer_sub.f90
     mod_network.f90
