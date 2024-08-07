@@ -97,7 +97,7 @@ set(LIB_FILES
     mod_accuracy.f90
     mod_base_layer.f90
     mod_base_layer_sub.f90
-    # mod_conv_mpnn_layer.f90
+    mod_conv_mpnn_layer.f90
     mod_batchnorm1d_layer.f90
     mod_batchnorm2d_layer.f90
     mod_batchnorm3d_layer.f90

@@ -104,6 +104,7 @@ module conv_mpnn_layer
     integer :: max_vertex_degree = 6
    contains
     procedure, pass(this) :: init => init_conv_mpnn_method
+    procedure, pass(this) :: set_batch_size => set_batch_size_conv_mpnn_method
   end type conv_method_container_type
 
   !! interface for the convolutional MPNN method container
@@ -113,11 +114,13 @@ module conv_mpnn_layer
          num_vertex_features, num_edge_features, num_time_steps, &
          output_shape, &
          max_vertex_degree, &
-         batch_size) result(method)
+         batch_size, verbose) result(method)
       integer, intent(in) :: num_vertex_features, num_edge_features, &
            num_time_steps
       integer, dimension(1), intent(in) :: output_shape
-      integer, intent(in) :: max_vertex_degree, batch_size
+      integer, intent(in) :: max_vertex_degree
+      integer, optional, intent(in) :: batch_size
+      integer, optional, intent(in) :: verbose
       type(conv_method_container_type) :: method
     end function method_setup
 
@@ -129,6 +132,7 @@ module conv_mpnn_layer
 !!!-----------------------------------------------------------------------------
   type, extends(mpnn_layer_type) :: conv_mpnn_layer_type
    contains
+     procedure, pass(this) :: set_hyperparams_extd => set_hyperparameters_conv
      procedure :: backward_graph => backward_graph_conv
   end type conv_mpnn_layer_type
 
@@ -136,11 +140,16 @@ module conv_mpnn_layer
   !!----------------------------------------------------------------------------
   interface conv_mpnn_layer_type
     module function layer_setup( &
-           num_time_steps, &
-           num_vertex_features, num_edge_features, &
-           num_outputs, batch_size ) result(layer)
-      integer, intent(in) :: num_time_steps, num_vertex_features, &
-           num_edge_features, num_outputs, batch_size
+           num_time_steps, num_features, num_outputs, &
+           max_vertex_degree, &
+           batch_size, verbose ) result(layer)
+      implicit none
+      integer, intent(in) :: num_time_steps
+      integer, dimension(2), intent(in) :: num_features
+      integer, intent(in) :: num_outputs
+      integer, intent(in) :: max_vertex_degree
+      integer, optional, intent(in) :: batch_size
+      integer, optional, intent(in) :: verbose
       type(conv_mpnn_layer_type) :: layer
     end function layer_setup
   end interface conv_mpnn_layer_type
@@ -428,19 +437,59 @@ contains
 !!!#############################################################################
   subroutine init_conv_mpnn_method(this, &
        num_vertex_features, num_edge_features, num_time_steps, &
-       output_shape, batch_size)
+       output_shape, batch_size, verbose)
     implicit none
     class(conv_method_container_type), intent(inout) :: this
     integer, intent(in) :: num_vertex_features, num_edge_features, &
          num_time_steps
     integer, dimension(1), intent(in) :: output_shape
-    integer, intent(in) :: batch_size
+    integer, optional, intent(in) :: batch_size
+    integer, optional, intent(in) :: verbose
+
+    integer :: verbose_ = 0
 
 
+    !!--------------------------------------------------------------------------
+    !! initialise optional arguments
+    !!--------------------------------------------------------------------------
+    if(present(verbose)) verbose_ = verbose
+    if(present(batch_size)) this%batch_size = batch_size
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise input and output shape
+    !!--------------------------------------------------------------------------
     this%num_features = [num_vertex_features, num_edge_features]
     this%num_time_steps = num_time_steps
     this%num_outputs = output_shape(1)
+
+    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
+
+  end subroutine init_conv_mpnn_method
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set batch size
+!!!#############################################################################
+  subroutine set_batch_size_conv_mpnn_method(this, batch_size, verbose)
+    implicit none
+    class(conv_method_container_type), intent(inout) :: this
+    integer, intent(in) :: batch_size
+    integer, optional, intent(in) :: verbose
+
+    integer :: verbose_ = 0
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise optional arguments
+    !!--------------------------------------------------------------------------
+    if(present(verbose)) verbose_ = verbose
+    this%batch_size = batch_size
+
+
     if(allocated(this%message)) deallocate(this%message)
+
     allocate(this%message(0:this%num_time_steps), &
          source = conv_message_phase_type( &
             this%num_features(1), this%num_features(2), &
@@ -448,6 +497,7 @@ contains
          ) &
     )
     this%message(0)%use_message = .false.
+
     if(allocated(this%readout)) deallocate(this%readout)
     allocate(this%readout, &
          source = conv_readout_phase_type( &
@@ -456,7 +506,7 @@ contains
          ) &
     )
 
-  end subroutine init_conv_mpnn_method
+  end subroutine set_batch_size_conv_mpnn_method
 !!!#############################################################################
 
 
@@ -466,32 +516,30 @@ contains
   module function method_setup(num_vertex_features, num_edge_features, &
          num_time_steps, output_shape, &
          max_vertex_degree, &
-         batch_size) result(method)
+         batch_size, verbose) result(method)
     implicit none
     integer, intent(in) :: num_vertex_features, num_edge_features, &
          num_time_steps
     integer, dimension(1), intent(in) :: output_shape
-    integer, intent(in) :: max_vertex_degree, batch_size
+    integer, intent(in) :: max_vertex_degree
+    integer, optional, intent(in) :: batch_size
+    integer, optional, intent(in) :: verbose
+
     type(conv_method_container_type) :: method
 
+    integer :: verbose_ = 0
 
-    method%num_features = [ num_vertex_features, num_edge_features ]
-    method%num_time_steps = num_time_steps
-    method%num_outputs = output_shape(1)
+
+    if(present(verbose)) verbose_ = verbose
+
     method%max_vertex_degree = max_vertex_degree
-    allocate(method%message(0:method%num_time_steps), &
-         source = conv_message_phase_type( &
-            method%num_features(1), method%num_features(2), &
-            method%max_vertex_degree, batch_size &
-         ) &
-    )
-    method%message(0)%use_message = .false.
-    allocate(method%readout, &
-         source = conv_readout_phase_type( &
-              method%num_time_steps, method%num_features(1), &
-              method%num_outputs, batch_size &
-         ) &
-    )
+    if(present(batch_size)) method%batch_size = batch_size
+    if(method%batch_size .gt. 0)then
+       call method%init( &
+            num_vertex_features, num_edge_features, num_time_steps, &
+            output_shape, method%batch_size, verbose_ &
+       )
+    end if
 
   end function method_setup
 !!!#############################################################################
@@ -502,34 +550,87 @@ contains
 !!!#############################################################################
   module function layer_setup( &
          num_time_steps, &
-         num_vertex_features, num_edge_features, &
+         num_features, &
          num_outputs, &
          max_vertex_degree, &
-         batch_size ) result(layer)
+         batch_size, verbose ) result(layer)
     implicit none
-    integer, intent(in) :: num_time_steps, num_vertex_features, &
-         num_edge_features, num_outputs, max_vertex_degree, batch_size
+    integer, intent(in) :: num_time_steps
+    integer, dimension(2), intent(in) :: num_features
+    integer, intent(in) :: num_outputs
+    integer, intent(in) :: max_vertex_degree
+    integer, optional, intent(in) :: batch_size
+    integer, optional, intent(in) :: verbose
+    
     type(conv_mpnn_layer_type) :: layer
 
+    integer :: verbose_ = 0
 
-    layer%batch_size = batch_size
-    layer%output_shape = [num_outputs]
-    layer%input_shape = [1._real12]
 
-    layer%num_vertex_features = num_vertex_features
-    layer%num_edge_features = num_edge_features
-    layer%num_time_steps = num_time_steps
+    !!--------------------------------------------------------------------------
+    !! initialise optional arguments
+    !!--------------------------------------------------------------------------
+    if(present(verbose)) verbose_ = verbose
+    if(present(batch_size)) layer%batch_size = batch_size
 
-    layer%method = conv_method_container_type( &
-         num_vertex_features, num_edge_features, num_time_steps, &
-         [num_outputs], &
-         max_vertex_degree, &
-         batch_size &
+    
+    !!--------------------------------------------------------------------------
+    !! set hyperparameters
+    !!--------------------------------------------------------------------------
+    call layer%set_hyperparams_extd( &
+         num_features, num_time_steps, &
+         num_outputs, max_vertex_degree, verbose=verbose_ &
     )
 
-    allocate(layer%output(num_outputs, layer%batch_size))
+
+    !!--------------------------------------------------------------------------
+    !! initialise layer shape
+    !!--------------------------------------------------------------------------
+    call layer%init( &
+         input_shape = [ num_features(1), num_features(2), num_time_steps ], &
+         batch_size = layer%batch_size &
+    )
 
   end function layer_setup
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set hyperparameters
+!!!#############################################################################
+  module subroutine set_hyperparameters_conv( &
+       this, &
+       num_features, num_time_steps, &
+       num_outputs, max_vertex_degree, verbose )
+    implicit none
+    class(conv_mpnn_layer_type), intent(inout) :: this
+    integer, dimension(2), intent(in) :: num_features
+    integer, intent(in) :: num_time_steps
+    integer, intent(in) :: num_outputs
+    integer, intent(in) :: max_vertex_degree
+    integer, optional, intent(in) :: verbose
+
+    integer :: verbose_ = 0
+
+
+    if(present(verbose)) verbose_ = verbose
+
+    this%name = 'conv_mpnn'
+    this%type = 'mpnn'
+    this%input_rank = 1
+    this%output%shape = [ num_outputs ]
+    this%input_shape = [ 1._real12 ]
+    this%num_time_steps = num_time_steps
+    this%num_vertex_features = num_features(1)
+    this%num_edge_features = num_features(2)
+    allocate(this%method, source=conv_method_container_type( &
+         this%num_vertex_features, this%num_edge_features, &
+         this%num_time_steps, this%output%shape, &
+         max_vertex_degree, &
+         verbose = verbose_ &
+    ))
+
+  end subroutine set_hyperparameters_conv
 !!!#############################################################################
 
 
@@ -713,7 +814,7 @@ contains
     class(conv_mpnn_layer_type), intent(inout) :: this
     type(graph_type), dimension(this%batch_size), intent(in) :: graph
     real(real12), dimension( &
-         this%output_shape(1), &
+         this%output%shape(1), &
          this%batch_size &
     ), intent(in) :: gradient
 

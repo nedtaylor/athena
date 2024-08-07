@@ -61,10 +61,12 @@ module mpnn_layer
     !! each dimension of num_features is for vertex and edge
     integer, dimension(2) :: num_features
     !! message dimension is (time_step)
+    integer :: batch_size
     class(message_phase_type), dimension(:), allocatable :: message
     class(readout_phase_type), allocatable :: readout
    contains
     procedure(init_method), deferred, pass(this) :: init
+    procedure(set_batch_size_method), deferred, pass(this) :: set_batch_size
   end type method_container_type
 
   type :: feature_type
@@ -336,13 +338,19 @@ module mpnn_layer
   interface
     module subroutine init_method(this, &
          num_vertex_features, num_edge_features, num_time_steps, &
-         output_shape, batch_size)
+         output_shape, batch_size, verbose)
       class(method_container_type), intent(inout) :: this
       integer, intent(in) :: num_vertex_features, num_edge_features, &
            num_time_steps
       integer, dimension(1), intent(in) :: output_shape
-      integer, intent(in) :: batch_size
+      integer, optional, intent(in) :: batch_size
+      integer, optional, intent(in) :: verbose
     end subroutine init_method
+    module subroutine set_batch_size_method(this, batch_size, verbose)
+      class(method_container_type), intent(inout) :: this
+      integer, intent(in) :: batch_size
+      integer, optional, intent(in) :: verbose
+    end subroutine set_batch_size_method
   end interface
 
 
