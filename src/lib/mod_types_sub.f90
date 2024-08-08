@@ -3,37 +3,37 @@ submodule(custom_types) custom_types_submodule
 
 contains
 
-  pure module function init_array1d(shape) result(output)
+  pure module function init_array1d(array_shape) result(output)
     implicit none
-    integer, dimension(:), intent(in), optional :: shape
+    integer, dimension(:), intent(in), optional :: array_shape
     type(array1d_type) :: output
 
     output%rank = 1
     allocate(output%shape(1))
-    if(present(shape)) call output%allocate(shape)
+    if(present(array_shape)) call output%allocate(array_shape)
 
   end function init_array1d
 
-  module subroutine allocate_array1d(this, shape, source)
+  module subroutine allocate_array1d(this, array_shape, source)
     implicit none
     class(array1d_type), intent(inout) :: this
-    integer, dimension(:), intent(in), optional :: shape
+    integer, dimension(:), intent(in), optional :: array_shape
     class(*), dimension(..), intent(in), optional :: source
 
     this%rank = 1
     this%allocated = .true.
-    if(present(shape)) allocate(this%val(shape(1)))
+    if(present(array_shape)) allocate(this%val(array_shape(1)))
     if(present(source))then
        select rank(source)
        rank(0)
            select type(source)
            type is (real(real32))
-              if(.not.present(shape)) &
+              if(.not.present(array_shape)) &
                    stop 'ERROR: Source shape not provided'
               this%val(:) = source
            type is (array1d_type)
-              if(present(shape))then
-                  if(shape.ne.shape(source%val)) &
+              if(present(array_shape))then
+                  if(any(array_shape.ne.shape(source%val))) &
                      stop 'ERROR: Source shape does not match array shape'
               end if
               this = source
@@ -50,8 +50,8 @@ contains
         rank(1)
            select type(source)
            type is (real(real32))
-              if(present(shape))then
-                 if(shape.ne.shape(source)) &
+              if(present(array_shape))then
+                 if(any(array_shape.ne.shape(source))) &
                    stop 'ERROR: Source shape does not match array shape'
               end if
               this%val = source
@@ -62,7 +62,7 @@ contains
            stop 'ERROR: Unrecognised source type'
         end select
     end if
-    if(.not.present(source).and.present(shape)) &
+    if(.not.present(source).and.present(array_shape)) &
          stop 'ERROR: No shape or source provided'
     this%shape = shape(this%val)
     this%size = product(this%shape)
@@ -118,37 +118,37 @@ contains
 
 
 
-  pure module function init_array2d(shape) result(output)
+  pure module function init_array2d(array_shape) result(output)
     implicit none
-    integer, dimension(:), intent(in), optional :: shape
+    integer, dimension(:), intent(in), optional :: array_shape
     type(array2d_type) :: output
 
     output%rank = 2
     allocate(output%shape(2))
-    if(present(shape)) call output%allocate(shape)
+    if(present(array_shape)) call output%allocate(array_shape)
 
   end function init_array2d
 
-  module subroutine allocate_array2d(this, shape, source)
+  module subroutine allocate_array2d(this, array_shape, source)
     implicit none
     class(array2d_type), intent(inout) :: this
-    integer, dimension(:), intent(in), optional :: shape
+    integer, dimension(:), intent(in), optional :: array_shape
     class(*), dimension(..), intent(in), optional :: source
 
     this%rank = 2
     this%allocated = .true.
-    if(present(shape)) allocate(this%val(this%shape(1), this%shape(2)))
+    if(present(array_shape)) allocate(this%val(array_shape(1), array_shape(2)))
     if(present(source))then
       select rank(source)
       rank(0)
           select type(source)
           type is (real(real32))
-             if(.not.present(shape)) &
+             if(.not.present(array_shape)) &
                   stop 'ERROR: Source shape not provided'
              this%val(:,:) = source
           type is (array2d_type)
-             if(present(shape))then
-                 if(shape.ne.shape(source%val)) &
+             if(present(array_shape))then
+                 if(any(array_shape.ne.shape(source%val))) &
                     stop 'ERROR: Source shape does not match array shape'
              end if
              this = source
@@ -158,8 +158,8 @@ contains
        rank(2)
           select type(source)
           type is (real(real32))
-             if(present(shape))then
-                if(shape.ne.shape(source)) &
+             if(present(array_shape))then
+                if(any(array_shape.ne.shape(source))) &
                   stop 'ERROR: Source shape does not match array shape'
              end if
              this%val = source
@@ -170,7 +170,7 @@ contains
           stop 'ERROR: Unrecognised source type'
        end select
     end if
-    if(.not.present(source).and.present(shape)) &
+    if(.not.present(source).and.present(array_shape)) &
          stop 'ERROR: No shape or source provided'
     this%shape = shape(this%val)
     this%size = product(this%shape)
@@ -223,42 +223,42 @@ contains
 
 
 
-  pure module function init_array3d(shape) result(output)
+  pure module function init_array3d(array_shape) result(output)
     implicit none
-    integer, dimension(:), intent(in), optional :: shape
+    integer, dimension(:), intent(in), optional :: array_shape
     type(array3d_type) :: output
 
     output%rank = 3
     allocate(output%shape(3))
-    if(present(shape)) call output%allocate(shape)
+    if(present(array_shape)) call output%allocate(array_shape)
 
   end function init_array3d
 
-  module subroutine allocate_array3d(this, shape, source)
+  module subroutine allocate_array3d(this, array_shape, source)
     implicit none
     class(array3d_type), intent(inout) :: this
-    integer, dimension(:), intent(in), optional :: shape
+    integer, dimension(:), intent(in), optional :: array_shape
     class(*), dimension(..), intent(in), optional :: source
 
    this%rank = 3
    this%allocated = .true.
-   if(present(shape)) &
+   if(present(array_shape)) &
         allocate(this%val( &
-             this%shape(1), &
-             this%shape(2), &
-             this%shape(3) &
+             array_shape(1), &
+             array_shape(2), &
+             array_shape(3) &
         ) )
     if(present(source))then
       select rank(source)
       rank(0)
           select type(source)
           type is (real(real32))
-             if(.not.present(shape)) &
+             if(.not.present(array_shape)) &
                   stop 'ERROR: Source shape not provided'
              this%val(:,:,:) = source
           type is (array3d_type)
-             if(present(shape))then
-                 if(shape.ne.shape(source%val)) &
+             if(present(array_shape))then
+                 if(any(array_shape.ne.shape(source%val))) &
                     stop 'ERROR: Source shape does not match array shape'
              end if
              this = source
@@ -275,8 +275,8 @@ contains
        rank(3)
           select type(source)
           type is (real(real32))
-             if(present(shape))then
-                if(shape.ne.shape(source)) &
+             if(present(array_shape))then
+                if(any(array_shape.ne.shape(source))) &
                   stop 'ERROR: Source shape does not match array shape'
              end if
              this%val = source
@@ -287,7 +287,7 @@ contains
           stop 'ERROR: Unrecognised source type'
        end select
    end if
-   if(.not.present(source).and.present(shape)) &
+   if(.not.present(source).and.present(array_shape)) &
         stop 'ERROR: No shape or source provided'
    this%shape = shape(this%val)
    this%size = product(this%shape)
@@ -342,43 +342,43 @@ contains
 
 
 
-  pure module function init_array4d(shape) result(output)
+  pure module function init_array4d(array_shape) result(output)
     implicit none
-    integer, dimension(:), intent(in), optional :: shape
+    integer, dimension(:), intent(in), optional :: array_shape
     type(array4d_type) :: output
 
     output%rank = 4
     allocate(output%shape(4))
-    if(present(shape)) call output%allocate(shape)
+    if(present(array_shape)) call output%allocate(array_shape)
 
   end function init_array4d
 
-  module subroutine allocate_array4d(this, shape, source)
+  module subroutine allocate_array4d(this, array_shape, source)
     implicit none
     class(array4d_type), intent(inout) :: this
-    integer, dimension(:), intent(in), optional :: shape
+    integer, dimension(:), intent(in), optional :: array_shape
     class(*), dimension(..), intent(in), optional :: source
 
     this%rank = 4
     this%allocated = .true.
-    if(present(shape)) &
+    if(present(array_shape)) &
          allocate(this%val( &
-              this%shape(1), &
-              this%shape(2), &
-              this%shape(3), &
-              this%shape(4) &
+              array_shape(1), &
+              array_shape(2), &
+              array_shape(3), &
+              array_shape(4) &
          ) )
     if(present(source))then
       select rank(source)
       rank(0)
           select type(source)
           type is (real(real32))
-             if(.not.present(shape)) &
+             if(.not.present(array_shape)) &
                   stop 'ERROR: Source shape not provided'
              this%val(:,:,:,:) = source
           type is (array4d_type)
-             if(present(shape))then
-                 if(shape.ne.shape(source%val)) &
+             if(present(array_shape))then
+                 if(any(array_shape.ne.shape(source%val))) &
                     stop 'ERROR: Source shape does not match array shape'
              end if
              this = source
@@ -395,8 +395,8 @@ contains
        rank(4)
           select type(source)
           type is (real(real32))
-             if(present(shape))then
-                if(shape.ne.shape(source)) &
+             if(present(array_shape))then
+                if(any(array_shape.ne.shape(source))) &
                   stop 'ERROR: Source shape does not match array shape'
              end if
              this%val = source
@@ -407,7 +407,7 @@ contains
           stop 'ERROR: Unrecognised source type'
        end select
    end if
-    if(.not.present(source).and.present(shape)) &
+    if(.not.present(source).and.present(array_shape)) &
          stop 'ERROR: No shape or source provided'
     this%shape = shape(this%val)
     this%size = product(this%shape)
@@ -462,44 +462,44 @@ contains
 
 
 
-  pure module function init_array5d(shape) result(output)
+  pure module function init_array5d(array_shape) result(output)
     implicit none
-    integer, dimension(:), intent(in), optional :: shape
+    integer, dimension(:), intent(in), optional :: array_shape
     type(array5d_type) :: output
 
     output%rank = 5
     allocate(output%shape(4))
-    if(present(shape)) call output%allocate(shape)
+    if(present(array_shape)) call output%allocate(array_shape)
 
   end function init_array5d
 
-  module subroutine allocate_array5d(this, shape, source)
+  module subroutine allocate_array5d(this, array_shape, source)
     implicit none
-    class(array5d_type), intent(inout) :: this
-    integer, dimension(:), intent(in), optional :: shape
+    class(array5d_type), allocatable, intent(inout) :: this
+    integer, dimension(:), intent(in), optional :: array_shape
     class(*), dimension(..), intent(in), optional :: source
 
     this%rank = 5
     this%allocated = .true.
-    if(present(shape)) &
+    if(present(array_shape)) &
          allocate(this%val( &
-              this%shape(1), &
-              this%shape(2), &
-              this%shape(3), &
-              this%shape(4), &
-              this%shape(5) &
+              array_shape(1), &
+              array_shape(2), &
+              array_shape(3), &
+              array_shape(4), &
+              array_shape(5) &
          ) )
     if(present(source))then
       select rank(source)
       rank(0)
           select type(source)
           type is (real(real32))
-             if(.not.present(shape)) &
+             if(.not.present(array_shape)) &
                   stop 'ERROR: Source shape not provided'
              this%val(:,:,:,:,:) = source
           type is (array5d_type)
-             if(present(shape))then
-                 if(shape.ne.shape(source%val)) &
+             if(present(array_shape))then
+                 if(any(array_shape.ne.shape(source%val))) &
                     stop 'ERROR: Source shape does not match array shape'
              end if
              this = source
@@ -516,8 +516,8 @@ contains
        rank(5)
           select type(source)
           type is (real(real32))
-             if(present(shape))then
-                if(shape.ne.shape(source)) &
+             if(present(array_shape))then
+                if(any(array_shape.ne.shape(source))) &
                   stop 'ERROR: Source shape does not match array shape'
              end if
              this%val = source
@@ -528,7 +528,7 @@ contains
           stop 'ERROR: Unrecognised source type'
        end select
    end if
-    if(.not.present(source).and.present(shape)) &
+    if(.not.present(source).and.present(array_shape)) &
          stop 'ERROR: No shape or source provided'
     this%shape = shape(this%val)
     this%size = product(this%shape)

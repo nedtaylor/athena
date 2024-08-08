@@ -184,9 +184,9 @@ module custom_types
   !! interface for allocate, deallocate, and flattening array
   !!----------------------------------------------------------------------------
   abstract interface
-     module subroutine allocate_array(this, shape, source)
+     module subroutine allocate_array(this, array_shape, source)
        class(array_type), intent(inout) :: this
-       integer, dimension(:), intent(in), optional :: shape
+       integer, dimension(:), intent(in), optional :: array_shape
        class(*), dimension(..), intent(in), optional :: source
      end subroutine allocate_array
 
@@ -271,33 +271,33 @@ module custom_types
   !! interface for allocating array
   !!----------------------------------------------------------------------------
   interface
-    module subroutine allocate_array1d(this, shape, source)
+    module subroutine allocate_array1d(this, array_shape, source)
       class(array1d_type), intent(inout) :: this
-      integer, dimension(:), intent(in), optional :: shape
+      integer, dimension(:), intent(in), optional :: array_shape
       class(*), dimension(..), intent(in), optional :: source
     end subroutine allocate_array1d
 
-    module subroutine allocate_array2d(this, shape, source)
+    module subroutine allocate_array2d(this, array_shape, source)
       class(array2d_type), intent(inout) :: this
-      integer, dimension(:), intent(in), optional :: shape
+      integer, dimension(:), intent(in), optional :: array_shape
       class(*), dimension(..), intent(in), optional :: source
     end subroutine allocate_array2d
 
-    module subroutine allocate_array3d(this, shape, source)
+    module subroutine allocate_array3d(this, array_shape, source)
       class(array3d_type), intent(inout) :: this
-      integer, dimension(:), intent(in), optional :: shape
+      integer, dimension(:), intent(in), optional :: array_shape
       class(*), dimension(..), intent(in), optional :: source
     end subroutine allocate_array3d
 
-    module subroutine allocate_array4d(this, shape, source)
+    module subroutine allocate_array4d(this, array_shape, source)
       class(array4d_type), intent(inout) :: this
-      integer, dimension(:), intent(in), optional :: shape
+      integer, dimension(:), intent(in), optional :: array_shape
       class(*), dimension(..), intent(in), optional :: source
     end subroutine allocate_array4d
 
-    module subroutine allocate_array5d(this, shape, source)
+    module subroutine allocate_array5d(this, array_shape, source)
       class(array5d_type), intent(inout) :: this
-      integer, dimension(:), intent(in), optional :: shape
+      integer, dimension(:), intent(in), optional :: array_shape
       class(*), dimension(..), intent(in), optional :: source
     end subroutine allocate_array5d
   end interface
@@ -416,36 +416,36 @@ module custom_types
   !! interface for initialising array
   !!----------------------------------------------------------------------------
   interface array1d_type
-    pure module function init_array1d(shape) result(output)
-      integer, dimension(:), intent(in), optional :: shape
+    pure module function init_array1d(array_shape) result(output)
+      integer, dimension(:), intent(in), optional :: array_shape
       type(array1d_type) :: output
     end function init_array1d
   end interface array1d_type
 
   interface array2d_type
-    pure module function init_array2d(shape) result(output)
-      integer, dimension(:), intent(in), optional :: shape
+    pure module function init_array2d(array_shape) result(output)
+      integer, dimension(:), intent(in), optional :: array_shape
       type(array2d_type) :: output
     end function init_array2d
   end interface array2d_type
 
   interface array3d_type
-    pure module function init_array3d(shape) result(output)
-      integer, dimension(:), intent(in), optional :: shape
+    pure module function init_array3d(array_shape) result(output)
+      integer, dimension(:), intent(in), optional :: array_shape
       type(array3d_type) :: output
     end function init_array3d
   end interface array3d_type
 
   interface array4d_type
-    pure module function init_array4d(shape) result(output)
-      integer, dimension(:), intent(in), optional :: shape
+    pure module function init_array4d(array_shape) result(output)
+      integer, dimension(:), intent(in), optional :: array_shape
       type(array4d_type) :: output
     end function init_array4d
   end interface array4d_type
 
   interface array5d_type
-    pure module function init_array5d(shape) result(output)
-      integer, dimension(:), intent(in), optional :: shape
+    pure module function init_array5d(array_shape) result(output)
+      integer, dimension(:), intent(in), optional :: array_shape
       type(array5d_type) :: output
     end function init_array5d
   end interface array5d_type

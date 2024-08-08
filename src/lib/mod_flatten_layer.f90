@@ -246,7 +246,7 @@ contains
     if(allocated(this%input_shape))then
        if(this%output%allocated) call this%output%deallocate()
        this%output = array2d_type()
-       call this%output%allocate(shape = [ &
+       call this%output%allocate(array_shape = [ &
              (this%num_outputs + this%num_addit_outputs), this%batch_size ], &
              source=0._real32 &
        )
@@ -255,21 +255,21 @@ contains
        case(1)
           this%input_rank = 1
           this%di = array1d_type()
-          call this%di%allocate( shape = [ &
+          call this%di%allocate( array_shape = [ &
                this%input_shape(1) ], &
                source=0._real32 &
        )
        case(2)
           this%input_rank = 1
           this%di = array2d_type()
-          call this%di%allocate( shape = [ &
+          call this%di%allocate( array_shape = [ &
                this%input_shape(1), this%batch_size ], &
                source=0._real32 &
        )
        case(3)
           this%input_rank = 2
           this%di = array3d_type()
-          call this%di%allocate( shape = [ &
+          call this%di%allocate( array_shape = [ &
                this%input_shape(1), &
                this%input_shape(2), this%batch_size ], &
                source=0._real32 &
@@ -277,7 +277,7 @@ contains
        case(4)
           this%input_rank = 3
           this%di = array4d_type()
-          call this%di%allocate( shape = [ &
+          call this%di%allocate( array_shape = [ &
                this%input_shape(1), &
                this%input_shape(2), &
                this%input_shape(3), this%batch_size ], &
@@ -286,7 +286,7 @@ contains
        case(5)
           this%input_rank = 4
           this%di = array5d_type()
-          call this%di%allocate( shape = [ &
+          call this%di%allocate( array_shape = [ &
                this%input_shape(1), &
                this%input_shape(2), &
                this%input_shape(3), &

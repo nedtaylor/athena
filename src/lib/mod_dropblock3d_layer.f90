@@ -264,7 +264,7 @@ contains
     if(allocated(this%input_shape))then
        if(this%output%allocated) call this%output%deallocate()
        this%output = array5d_type()
-       call this%output%allocate(shape = [ &
+       call this%output%allocate(array_shape = [ &
             this%output%shape(1), &
             this%output%shape(2), &
             this%output%shape(3), &

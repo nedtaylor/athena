@@ -231,7 +231,7 @@ contains
 
        this%output = array2d_type()
 
-       call this%output%allocate( shape = [ &
+       call this%output%allocate( array_shape = [ &
             this%output%shape(1), &
             this%batch_size ], source=0._real32 &
        )

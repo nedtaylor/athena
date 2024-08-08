@@ -487,7 +487,7 @@ contains
     if(allocated(this%input_shape))then
        if(this%output%allocated) call this%output%deallocate()
        this%output = array3d_type()
-       call this%output%allocate( shape = [ &
+       call this%output%allocate( array_shape = [ &
             this%num_inputs, &
             this%num_channels, &
             this%batch_size ], &

@@ -274,7 +274,7 @@ contains
     if(allocated(this%input_shape))then
        if(this%output%allocated) call this%output%deallocate()
        this%output = array5d_type()
-       call this%output%allocate( shape = [ &
+       call this%output%allocate( array_shape = [ &
             this%output%shape(1), &
             this%output%shape(2), &
             this%output%shape(3), this%num_channels, &
@@ -283,7 +283,7 @@ contains
        )
        if(this%di%allocated) call this%di%deallocate()
        this%di = array5d_type()
-       call this%di%allocate( shape = [ &
+       call this%di%allocate( array_shape = [ &
             this%input_shape(1), &
             this%input_shape(2), &
             this%input_shape(3), &
