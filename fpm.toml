@@ -15,6 +15,9 @@ auto-tests = true
 auto-examples = false
 module-naming = false
 
+[dependencies]
+graphstruc = { git = "https://github.com/nedtaylor/graphstruc", tag = "v0.1.1" }
+
 [install]
 library = false
 

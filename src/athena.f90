@@ -11,7 +11,7 @@ module athena
   use random, only: random_setup
   use network, only: network_type
   use metrics, only: metric_dict_type
-  use graph_constructs, only: graph_type, edge_type, vertex_type
+  use graphstruc, only: graph_type, edge_type, vertex_type
 
   !! accuracy methods
   use accuracy, only: categorical_score, mae_score, mse_score, r2_score
