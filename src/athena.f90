@@ -64,7 +64,7 @@ module athena
 
   !! message passing layer types
   use mpnn_layer,      only: mpnn_layer_type
-!   use conv_mpnn_layer, only: conv_mpnn_layer_type
+  use conv_mpnn_layer, only: conv_mpnn_layer_type
 
   !! dropout layer types
   use dropout_layer, only: dropout_layer_type, read_dropout_layer
