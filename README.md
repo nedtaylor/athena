@@ -57,6 +57,7 @@ The ATHENA library can be obtained from the git repository. Use the following co
 The library has the following dependencies:
 - A Fortran compiler (compatible with Fortran 2018 or later)
 - [fpm](https://github.com/fortran-lang/fpm) or [CMake](https://cmake.org) for building the library
+- The [graphstruc](https://github.com/nedtaylor/graphstruc) Fortran library (for handing graph structures through derived types)
 
 The library has been developed and tested using the following compilers:
 - gfortran -- gcc 13.2.0
