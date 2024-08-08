@@ -8,7 +8,7 @@
 !!! ... https://arxiv.org/pdf/1810.12890.pdf
 !!!#############################################################################
 module dropblock3d_layer
-  use constants, only: real12
+  use constants, only: real32
   use base_layer, only: drop_layer_type
   use custom_types, only: array5d_type
   implicit none
@@ -19,11 +19,11 @@ module dropblock3d_layer
      !! block_size             -- width of block to drop (typical = 5)
      !! gamma                  -- number of activation units to drop
      integer :: block_size, half
-     real(real12) :: gamma
+     real(real32) :: gamma
      integer :: num_channels
      logical, allocatable, dimension(:,:,:) :: mask
-    !  real(real12), allocatable, dimension(:,:,:,:,:) :: output
-    !  real(real12), allocatable, dimension(:,:,:,:,:) :: di ! gradient of input (i.e. delta)
+    !  real(real32), allocatable, dimension(:,:,:,:,:) :: output
+    !  real(real32), allocatable, dimension(:,:,:,:,:) :: di ! gradient of input (i.e. delta)
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_dropblock3d
      procedure, pass(this) :: init => init_dropblock3d
@@ -43,7 +43,7 @@ module dropblock3d_layer
           rate, block_size, &
           input_shape, batch_size, &
           verbose ) result(layer)
-       real(real12), intent(in) :: rate
+       real(real32), intent(in) :: rate
        integer, intent(in) :: block_size
        integer, dimension(:), optional, intent(in) :: input_shape
        integer, optional, intent(in) :: batch_size
@@ -66,7 +66,7 @@ contains
   pure subroutine forward_rank(this, input)
     implicit none
     class(dropblock3d_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: input
 
     select rank(input); rank(5)
        call forward_5d(this, input)
@@ -81,8 +81,8 @@ contains
   pure subroutine backward_rank(this, input, gradient)
     implicit none
     class(dropblock3d_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
-    real(real12), dimension(..), intent(in) :: gradient
+    real(real32), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: gradient
 
     select rank(input); rank(5)
     select rank(gradient); rank(5)
@@ -107,7 +107,7 @@ contains
        input_shape, batch_size, &
        verbose ) result(layer)
     implicit none
-    real(real12), intent(in) :: rate
+    real(real32), intent(in) :: rate
     integer, intent(in) :: block_size
     integer, dimension(:), optional, intent(in) :: input_shape
     integer, optional, intent(in) :: batch_size
@@ -155,7 +155,7 @@ contains
   pure subroutine set_hyperparams_dropblock3d(this, rate, block_size, verbose)
     implicit none
     class(dropblock3d_layer_type), intent(inout) :: this
-    real(real12), intent(in) :: rate
+    real(real32), intent(in) :: rate
     integer, intent(in) :: block_size
     integer, optional, intent(in) :: verbose
 
@@ -211,13 +211,13 @@ contains
     !!-----------------------------------------------------------------------
     !! original paper uses keep_prob, we use drop_rate
     !! drop_rate = 1 - keep_prob
-    this%gamma = ( this%rate/this%block_size**3._real12 ) * &
+    this%gamma = ( this%rate/this%block_size**3._real32 ) * &
          this%input_shape(1) / &
-              (this%input_shape(1) - this%block_size + 1._real12) * &
+              (this%input_shape(1) - this%block_size + 1._real32) * &
          this%input_shape(2) / &
-              (this%input_shape(2) - this%block_size + 1._real12) * &
+              (this%input_shape(2) - this%block_size + 1._real32) * &
          this%input_shape(3) / &
-              (this%input_shape(3) - this%block_size + 1._real12)
+              (this%input_shape(3) - this%block_size + 1._real32)
     allocate(this%mask( &
          this%input_shape(1), &
          this%input_shape(2), &
@@ -270,7 +270,7 @@ contains
             this%output%shape(3), &
             this%num_channels, &
             this%batch_size ], &
-            source=0._real12 &
+            source=0._real32 &
        )
        if(this%di%allocated) call this%di%deallocate()
        this%di = array5d_type()
@@ -288,7 +288,7 @@ contains
     implicit none
     class(dropblock3d_layer_type), intent(inout) :: this
 
-    real(real12), allocatable, dimension(:,:,:) :: mask_real
+    real(real32), allocatable, dimension(:,:,:) :: mask_real
     integer :: i, j, k
     integer, dimension(2) :: ilim, jlim, klim
     
@@ -378,7 +378,7 @@ contains
    integer :: stat, verbose_ = 0
    integer :: itmp1
    integer :: block_size
-   real(real12) :: rate
+   real(real32) :: rate
    integer, dimension(4) :: input_shape
    character(256) :: buffer, tag
 
@@ -474,7 +474,7 @@ contains
   pure subroutine forward_5d(this, input)
     implicit none
     class(dropblock3d_layer_type), intent(inout) :: this
-    real(real12), dimension( &
+    real(real32), dimension( &
          this%input_shape(1), &
          this%input_shape(2), &
          this%input_shape(3), &
@@ -489,12 +489,12 @@ contains
        select case(this%inference)
        case(.true.)
           !! do not perform the drop operation
-          output%val = input * ( 1._real12 - this%rate )
+          output%val = input * ( 1._real32 - this%rate )
        case default
           !! perform the drop operation
           do concurrent(m = 1:this%num_channels, s=1:this%batch_size)
              output%val(:,:,:,m,s) = &
-                  merge(input(:,:,:,m,s), 0._real12, this%mask)
+                  merge(input(:,:,:,m,s), 0._real32, this%mask)
           end do
        end select
     end select
@@ -509,13 +509,13 @@ contains
   pure subroutine backward_5d(this, input, gradient)
     implicit none
     class(dropblock3d_layer_type), intent(inout) :: this
-    real(real12), dimension( &
+    real(real32), dimension( &
          this%input_shape(1), &
          this%input_shape(2), &
          this%input_shape(3), &
          this%num_channels, this%batch_size), &
          intent(in) :: input
-    real(real12), &
+    real(real32), &
          dimension(&
          this%output%shape(1), &
          this%output%shape(2), &
@@ -530,7 +530,7 @@ contains
     select type(di => this%di)
     type is (array5d_type)
        do concurrent(m = 1:this%num_channels, s=1:this%batch_size)
-          di%val(:,:,:,m,s) = merge(gradient(:,:,:,m,s), 0._real12, this%mask)
+          di%val(:,:,:,m,s) = merge(gradient(:,:,:,m,s), 0._real32, this%mask)
        end do
     end select
 

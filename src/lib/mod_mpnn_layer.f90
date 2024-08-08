@@ -5,7 +5,7 @@
 !!! module contains implementation of a message passing neural network
 !!!#############################################################################
 module mpnn_layer
-  use constants, only: real12
+  use constants, only: real32
   use graph_constructs, only: graph_type
   use base_layer, only: learnable_layer_type
   use clipper, only: clip_type
@@ -28,8 +28,8 @@ module mpnn_layer
      integer :: num_time_steps
      type(graph_type), dimension(:), allocatable :: graph
      class(method_container_type), allocatable :: method
-    !  real(real12), dimension(:,:), allocatable :: output
-    !  real(real12), dimension(:,:), allocatable :: di
+    !  real(real32), dimension(:,:), allocatable :: output
+    !  real(real32), dimension(:,:), allocatable :: di
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_mpnn
      procedure, pass(this) :: init => init_mpnn
@@ -70,7 +70,7 @@ module mpnn_layer
   end type method_container_type
 
   type :: feature_type
-     real(real12), dimension(:,:), allocatable :: val
+     real(real32), dimension(:,:), allocatable :: val
    contains
      ! t = type, r = real, i = int
      procedure :: add_t_t => feature_add
@@ -144,14 +144,14 @@ module mpnn_layer
      pure module subroutine get_output_readout(this, input, output)
        class(readout_phase_type), intent(inout) :: this
        class(message_phase_type), dimension(:), intent(in) :: input
-       real(real12), dimension(this%num_outputs, this%batch_size), &
+       real(real32), dimension(this%num_outputs, this%batch_size), &
             intent(out) :: output
      end subroutine get_output_readout
 
      pure module subroutine calculate_partials_readout(this, input, gradient)
        class(readout_phase_type), intent(inout) :: this
        class(message_phase_type), dimension(:), intent(in) :: input
-       real(real12), dimension(this%num_outputs, this%batch_size), &
+       real(real32), dimension(this%num_outputs, this%batch_size), &
             intent(in) :: gradient
      end subroutine calculate_partials_readout
   end interface
@@ -194,23 +194,23 @@ module mpnn_layer
 
     pure module function get_params_mpnn(this) result(params)
       class(mpnn_layer_type), intent(in) :: this
-      real(real12), allocatable, dimension(:) :: params
+      real(real32), allocatable, dimension(:) :: params
     end function get_params_mpnn
 
     pure module subroutine set_params_mpnn(this, params)
       class(mpnn_layer_type), intent(inout) :: this
-      real(real12), dimension(:), intent(in) :: params
+      real(real32), dimension(:), intent(in) :: params
     end subroutine set_params_mpnn
 
     pure module function get_gradients_mpnn(this, clip_method) result(gradients)
       class(mpnn_layer_type), intent(in) :: this
       type(clip_type), optional, intent(in) :: clip_method
-      real(real12), allocatable, dimension(:) :: gradients
+      real(real32), allocatable, dimension(:) :: gradients
     end function get_gradients_mpnn
 
     pure module subroutine set_gradients_mpnn(this, gradients)
       class(mpnn_layer_type), intent(inout) :: this
-      real(real12), dimension(..), intent(in) :: gradients
+      real(real32), dimension(..), intent(in) :: gradients
     end subroutine set_gradients_mpnn
   end interface
 
@@ -227,24 +227,24 @@ module mpnn_layer
 
     pure module function get_phase_params(this) result(params)
       class(base_phase_type), intent(in) :: this
-      real(real12), allocatable, dimension(:) :: params
+      real(real32), allocatable, dimension(:) :: params
     end function get_phase_params
 
     pure module subroutine set_phase_params(this, params)
       class(base_phase_type), intent(inout) :: this
-      real(real12), dimension(:), intent(in) :: params
+      real(real32), dimension(:), intent(in) :: params
     end subroutine set_phase_params
 
     pure module function get_phase_gradients(this, clip_method) &
          result(gradients)
       class(base_phase_type), intent(in) :: this
       type(clip_type), optional, intent(in) :: clip_method
-      real(real12), allocatable, dimension(:) :: gradients
+      real(real32), allocatable, dimension(:) :: gradients
     end function get_phase_gradients
 
     pure module subroutine set_phase_gradients(this, gradients)
       class(base_phase_type), intent(inout) :: this
-      real(real12), dimension(..), intent(in) :: gradients      
+      real(real32), dimension(..), intent(in) :: gradients      
     end subroutine set_phase_gradients
   end interface
 
@@ -266,13 +266,13 @@ module mpnn_layer
   interface
     pure module subroutine forward_rank(this, input)
       class(mpnn_layer_type), intent(inout) :: this
-      real(real12), dimension(..), intent(in) :: input
+      real(real32), dimension(..), intent(in) :: input
     end subroutine forward_rank
 
     pure module subroutine backward_rank(this, input, gradient)
       class(mpnn_layer_type), intent(inout) :: this
-      real(real12), dimension(..), intent(in) :: input
-      real(real12), dimension(..), intent(in) :: gradient
+      real(real32), dimension(..), intent(in) :: input
+      real(real32), dimension(..), intent(in) :: gradient
     end subroutine backward_rank
 
     pure module subroutine forward_graph(this, graph)
@@ -283,7 +283,7 @@ module mpnn_layer
     pure module subroutine backward_graph(this, graph, gradient)
       class(mpnn_layer_type), intent(inout) :: this
       type(graph_type), dimension(this%batch_size), intent(in) :: graph
-      real(real12), dimension( &
+      real(real32), dimension( &
            this%output%shape(1), &
            this%batch_size &
       ), intent(in) :: gradient

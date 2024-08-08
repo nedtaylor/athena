@@ -39,7 +39,7 @@ contains
     implicit none
     class(container_layer_type), intent(inout) :: this
     class(container_layer_type), intent(in) :: input
-    real(real12), dimension(..), intent(in) :: gradient
+    real(real32), dimension(..), intent(in) :: gradient
 
 
     select type(output => input%layer%output)

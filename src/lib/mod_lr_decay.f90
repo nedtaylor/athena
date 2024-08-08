@@ -16,13 +16,13 @@
 !!! - setup_lr_decay_<NAME> - sets up the <NAME> learning rate decay type
 !!!#############################################################################
 module learning_rate_decay
-  use constants, only: real12
+  use constants, only: real32
   implicit none
 
 
   type base_lr_decay_type
-     real(real12) :: initial_learning_rate
-     real(real12) :: decay_rate
+     real(real32) :: initial_learning_rate
+     real(real32) :: decay_rate
    contains
      procedure :: get_lr => lr_decay_none
   end type base_lr_decay_type
@@ -42,7 +42,7 @@ module learning_rate_decay
 
   interface exp_lr_decay_type
      module function setup_lr_decay_exp(decay_rate) result(lr_decay)
-       real(real12), optional, intent(in) :: decay_rate
+       real(real32), optional, intent(in) :: decay_rate
        type(exp_lr_decay_type) :: lr_decay
      end function setup_lr_decay_exp
   end interface exp_lr_decay_type
@@ -58,7 +58,7 @@ module learning_rate_decay
   interface step_lr_decay_type
      module function setup_lr_decay_step(decay_rate, decay_steps) &
           result(lr_decay)
-       real(real12), optional, intent(in) :: decay_rate
+       real(real32), optional, intent(in) :: decay_rate
        integer, optional, intent(in) :: decay_steps
        type(step_lr_decay_type) :: lr_decay
      end function setup_lr_decay_step
@@ -67,7 +67,7 @@ module learning_rate_decay
 !!!-----------------------------------------------------------------------------
 
   type, extends(base_lr_decay_type) :: inv_lr_decay_type
-     real(real12) :: decay_power
+     real(real32) :: decay_power
    contains
      procedure :: get_lr => lr_decay_inv
   end type inv_lr_decay_type
@@ -75,7 +75,7 @@ module learning_rate_decay
   interface inv_lr_decay_type
      module function setup_lr_decay_inv(decay_rate, decay_power) &
           result(lr_decay)
-       real(real12), optional, intent(in) :: decay_rate, decay_power
+       real(real32), optional, intent(in) :: decay_rate, decay_power
        type(inv_lr_decay_type) :: lr_decay
      end function setup_lr_decay_inv
   end interface inv_lr_decay_type
@@ -99,31 +99,31 @@ contains
   module function setup_lr_decay_base() result(lr_decay)
     type(base_lr_decay_type) :: lr_decay
 
-    lr_decay%decay_rate = 0._real12
+    lr_decay%decay_rate = 0._real32
 
   end function setup_lr_decay_base
 !!!-----------------------------------------------------------------------------
   module function setup_lr_decay_exp(decay_rate) result(lr_decay)
-    real(real12), optional, intent(in) :: decay_rate
+    real(real32), optional, intent(in) :: decay_rate
     type(exp_lr_decay_type) :: lr_decay
 
     if(present(decay_rate))then
        lr_decay%decay_rate = decay_rate
     else
-       lr_decay%decay_rate = 0.9_real12
+       lr_decay%decay_rate = 0.9_real32
     end if
 
   end function setup_lr_decay_exp
 !!!-----------------------------------------------------------------------------
   module function setup_lr_decay_step(decay_rate, decay_steps) result(lr_decay)
-    real(real12), optional, intent(in) :: decay_rate
+    real(real32), optional, intent(in) :: decay_rate
     integer, optional, intent(in) :: decay_steps
     type(step_lr_decay_type) :: lr_decay
 
     if(present(decay_rate))then
        lr_decay%decay_rate = decay_rate
     else
-       lr_decay%decay_rate = 0.1_real12
+       lr_decay%decay_rate = 0.1_real32
     end if
     if(present(decay_steps))then
        lr_decay%decay_steps = decay_steps
@@ -134,18 +134,18 @@ contains
   end function setup_lr_decay_step
 !!!-----------------------------------------------------------------------------
   module function setup_lr_decay_inv(decay_rate, decay_power) result(lr_decay)
-    real(real12), optional, intent(in) :: decay_rate, decay_power
+    real(real32), optional, intent(in) :: decay_rate, decay_power
     type(inv_lr_decay_type) :: lr_decay
 
     if(present(decay_rate))then
        lr_decay%decay_rate = decay_rate
     else
-       lr_decay%decay_rate = 0.001_real12
+       lr_decay%decay_rate = 0.001_real32
     end if
     if(present(decay_power))then
        lr_decay%decay_power = decay_power
     else
-       lr_decay%decay_power = 1._real12
+       lr_decay%decay_power = 1._real32
     end if
 
   end function setup_lr_decay_inv
@@ -158,10 +158,10 @@ contains
   pure function lr_decay_none(this, learning_rate, iteration) result(output)
     implicit none
     class(base_lr_decay_type), intent(in) :: this
-    real(real12), intent(in) :: learning_rate
+    real(real32), intent(in) :: learning_rate
     integer, intent(in) :: iteration
 
-    real(real12) :: output
+    real(real32) :: output
 
     output = learning_rate
 
@@ -170,10 +170,10 @@ contains
   pure function lr_decay_exp(this, learning_rate, iteration) result(output)
     implicit none
     class(exp_lr_decay_type), intent(in) :: this
-    real(real12), intent(in) :: learning_rate
+    real(real32), intent(in) :: learning_rate
     integer, intent(in) :: iteration
 
-    real(real12) :: output
+    real(real32) :: output
 
     output = learning_rate * exp(- iteration * this%decay_rate)
 
@@ -182,10 +182,10 @@ contains
   pure function lr_decay_step(this, learning_rate, iteration) result(output)
     implicit none
     class(step_lr_decay_type), intent(in) :: this
-    real(real12), intent(in) :: learning_rate
+    real(real32), intent(in) :: learning_rate
     integer, intent(in) :: iteration
 
-    real(real12) :: output
+    real(real32) :: output
 
     output = learning_rate * this%decay_rate ** (iteration / this%decay_steps)
 
@@ -194,13 +194,13 @@ contains
   pure function lr_decay_inv(this, learning_rate, iteration) result(output)
     implicit none
     class(inv_lr_decay_type), intent(in) :: this
-    real(real12), intent(in) :: learning_rate
+    real(real32), intent(in) :: learning_rate
     integer, intent(in) :: iteration
 
-    real(real12) :: output
+    real(real32) :: output
 
     output = learning_rate * &
-         (1._real12 + this%decay_rate * iteration) ** (- this%decay_power)
+         (1._real32 + this%decay_rate * iteration) ** (- this%decay_power)
 
   end function lr_decay_inv
 !!!#############################################################################

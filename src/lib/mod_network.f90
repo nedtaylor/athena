@@ -34,7 +34,7 @@
 !!! - backward        - backward pass
 !!!#############################################################################
 module network
-  use constants, only: real12
+  use constants, only: real32
   use metrics, only: metric_dict_type
   use optimiser, only: base_optimiser_type
   use loss, only: &
@@ -51,7 +51,7 @@ module network
 
 
   type :: network_type
-     real(real12) :: accuracy, loss
+     real(real32) :: accuracy, loss
      integer :: batch_size = 0
      integer :: num_layers = 0
      integer :: num_outputs = 0
@@ -232,13 +232,13 @@ module network
          addit_input, addit_layer, &
          plateau_threshold, shuffle_batches, batch_print_step, verbose)
        class(network_type), intent(inout) :: this
-       real(real12), dimension(..), intent(in) :: input
+       real(real32), dimension(..), intent(in) :: input
        class(*), dimension(:,:), intent(in) :: output
        integer, intent(in) :: num_epochs
        integer, optional, intent(in) :: batch_size !! deprecated
-       real(real12), dimension(:,:), optional, intent(in) :: addit_input
+       real(real32), dimension(:,:), optional, intent(in) :: addit_input
        integer, optional, intent(in) :: addit_layer
-       real(real12), optional, intent(in) :: plateau_threshold
+       real(real32), optional, intent(in) :: plateau_threshold
        logical, optional, intent(in) :: shuffle_batches
        integer, optional, intent(in) :: batch_print_step
        integer, optional, intent(in) :: verbose
@@ -257,9 +257,9 @@ module network
           addit_input, addit_layer, &
           verbose)
        class(network_type), intent(inout) :: this
-       real(real12), dimension(..), intent(in) :: input
+       real(real32), dimension(..), intent(in) :: input
        class(*), dimension(:,:), intent(in) :: output
-       real(real12), dimension(:,:), optional, intent(in) :: addit_input
+       real(real32), dimension(:,:), optional, intent(in) :: addit_input
        integer, optional, intent(in) :: addit_layer
        integer, optional, intent(in) :: verbose
      end subroutine test
@@ -277,11 +277,11 @@ module network
           addit_input, addit_layer, &
           verbose) result(output)
        class(network_type), intent(inout) :: this
-       real(real12), dimension(..), intent(in) :: input
-       real(real12), dimension(:,:), optional, intent(in) :: addit_input
+       real(real32), dimension(..), intent(in) :: input
+       real(real32), dimension(:,:), optional, intent(in) :: addit_input
        integer, optional, intent(in) :: addit_layer
        integer, optional, intent(in) :: verbose
-       real(real12), dimension(:,:), allocatable :: output
+       real(real32), dimension(:,:), allocatable :: output
      end function predict_1d
 
      !!-------------------------------------------------------------------------
@@ -329,7 +329,7 @@ module network
      !! params = (R, out) learnable parameters
      pure module function get_params(this) result(params)
        class(network_type), intent(in) :: this
-       real(real12), allocatable, dimension(:) :: params
+       real(real32), allocatable, dimension(:) :: params
      end function get_params
 
      !!-------------------------------------------------------------------------
@@ -340,7 +340,7 @@ module network
      !! verbose = (I, in, opt) verbosity level
      module subroutine set_params(this, params)
        class(network_type), intent(inout) :: this
-       real(real12), dimension(:), intent(in) :: params
+       real(real32), dimension(:), intent(in) :: params
      end subroutine set_params
 
      !!-------------------------------------------------------------------------
@@ -350,7 +350,7 @@ module network
      !! gradients = (R, out) gradients
      pure module function get_gradients(this) result(gradients)
        class(network_type), intent(in) :: this
-       real(real12), allocatable, dimension(:) :: gradients
+       real(real32), allocatable, dimension(:) :: gradients
      end function get_gradients
 
      !!-------------------------------------------------------------------------
@@ -361,7 +361,7 @@ module network
      !! verbose   = (I, in, opt) verbosity level
      module subroutine set_gradients(this, gradients)
        class(network_type), intent(inout) :: this
-       real(real12), dimension(..), intent(in) :: gradients
+       real(real32), dimension(..), intent(in) :: gradients
      end subroutine set_gradients
 
      !!-------------------------------------------------------------------------
@@ -383,8 +383,8 @@ module network
      !! layer       = (I, in, opt) layer to insert additional input data
      pure module subroutine forward_1d(this, input, addit_input, layer)
        class(network_type), intent(inout) :: this
-       real(real12), dimension(..), intent(in) :: input
-       real(real12), dimension(:,:), optional, intent(in) :: addit_input
+       real(real32), dimension(..), intent(in) :: input
+       real(real32), dimension(:,:), optional, intent(in) :: addit_input
        integer, optional, intent(in) :: layer
      end subroutine forward_1d
 
@@ -395,7 +395,7 @@ module network
      !! output      = (R, in) output data
      pure module subroutine backward_1d(this, output)
        class(network_type), intent(inout) :: this
-       real(real12), dimension(:,:), intent(in) :: output
+       real(real32), dimension(:,:), intent(in) :: output
      end subroutine backward_1d
   end interface
 

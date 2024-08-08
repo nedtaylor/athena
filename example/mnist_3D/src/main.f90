@@ -8,7 +8,7 @@ program mnist_test
   use omp_lib
 #endif
   use athena
-  use constants_mnist, only: real12
+  use constants_mnist, only: real32
   use read_mnist, only: read_mnist_db
   use inputs
 
@@ -17,8 +17,8 @@ program mnist_test
   type(network_type) :: network
 
   !! data loading and preoprocessing
-  real(real12), allocatable, dimension(:,:,:,:) :: input_images, test_images
-  real(real12), allocatable, dimension(:,:,:,:,:) :: input_spread, test_spread
+  real(real32), allocatable, dimension(:,:,:,:) :: input_images, test_images
+  real(real32), allocatable, dimension(:,:,:,:,:) :: input_spread, test_spread
   integer, allocatable, dimension(:) :: labels, test_labels
   integer, allocatable, dimension(:,:) :: input_labels
   character(1024) :: train_file, test_file
@@ -36,7 +36,7 @@ program mnist_test
 
 #ifdef _OPENMP
   integer, allocatable, dimension(:) :: label_slice
-  real(real12), allocatable, dimension(:,:,:,:) :: image_slice
+  real(real32), allocatable, dimension(:,:,:,:) :: image_slice
 #endif
 
 

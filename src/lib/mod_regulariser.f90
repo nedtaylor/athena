@@ -13,7 +13,7 @@
 !!! - regularise - regularise the gradient
 !!!############################################################################# 
 module regulariser
-  use constants, only: real12
+  use constants, only: real32
   implicit none
 
 
@@ -27,18 +27,18 @@ module regulariser
 
   abstract interface
     pure subroutine regularise(this, params, gradient, learning_rate)
-      import :: base_regulariser_type, real12
+      import :: base_regulariser_type, real32
       class(base_regulariser_type), intent(in) :: this
-      real(real12), dimension(:),  intent(in) :: params
-      real(real12), dimension(:), intent(inout) :: gradient
-      real(real12), intent(in) :: learning_rate
+      real(real32), dimension(:),  intent(in) :: params
+      real(real32), dimension(:), intent(inout) :: gradient
+      real(real32), intent(in) :: learning_rate
     end subroutine regularise
   end interface
 
   !! Lasso regression
   !! attempts to prevent overfitting
   type, extends(base_regulariser_type) :: l1_regulariser_type
-     real(real12) :: l1 = 0.01_real12
+     real(real32) :: l1 = 0.01_real32
    contains
      procedure, pass(this) :: regularise => regularise_l1
   end type l1_regulariser_type
@@ -48,16 +48,16 @@ module regulariser
   type, extends(base_regulariser_type) :: l2_regulariser_type
      !! l2           = L2 regularisation
      !! l2_decoupled = decoupled weight decay regularisation (AdamW)
-     real(real12) :: l2 = 0.01_real12
-     real(real12) :: l2_decoupled = 0.01_real12
+     real(real32) :: l2 = 0.01_real32
+     real(real32) :: l2_decoupled = 0.01_real32
      logical :: decoupled = .true.
    contains
      procedure, pass(this) :: regularise => regularise_l2
   end type l2_regulariser_type
 
   type, extends(base_regulariser_type) :: l1l2_regulariser_type
-     real(real12) :: l1 = 0.01_real12
-     real(real12) :: l2 = 0.01_real12
+     real(real32) :: l1 = 0.01_real32
+     real(real32) :: l2 = 0.01_real32
    contains
      procedure, pass(this) :: regularise => regularise_l1l2
   end type l1l2_regulariser_type
@@ -78,32 +78,32 @@ module regulariser
 !!!#############################################################################
   pure subroutine regularise_l1(this, params, gradient, learning_rate)
     class(l1_regulariser_type), intent(in) :: this
-    real(real12), dimension(:),  intent(in) :: params
-    real(real12), dimension(:), intent(inout) :: gradient
-    real(real12), intent(in) :: learning_rate
+    real(real32), dimension(:),  intent(in) :: params
+    real(real32), dimension(:), intent(inout) :: gradient
+    real(real32), intent(in) :: learning_rate
 
-    gradient = gradient + learning_rate * this%l1 * sign(1._real12,params)
+    gradient = gradient + learning_rate * this%l1 * sign(1._real32,params)
 
   end subroutine regularise_l1
 !!!-----------------------------------------------------------------------------
   pure subroutine regularise_l2(this, params, gradient, learning_rate)
     class(l2_regulariser_type), intent(in) :: this
-    real(real12), dimension(:),  intent(in) :: params
-    real(real12), dimension(:), intent(inout) :: gradient
-    real(real12), intent(in) :: learning_rate
+    real(real32), dimension(:),  intent(in) :: params
+    real(real32), dimension(:), intent(inout) :: gradient
+    real(real32), intent(in) :: learning_rate
 
-    gradient = gradient + learning_rate * 2._real12 * this%l2 * params
+    gradient = gradient + learning_rate * 2._real32 * this%l2 * params
 
   end subroutine regularise_l2
 !!!-----------------------------------------------------------------------------
   pure subroutine regularise_l1l2(this, params, gradient, learning_rate)
     class(l1l2_regulariser_type), intent(in) :: this
-    real(real12), dimension(:),  intent(in) :: params
-    real(real12), dimension(:), intent(inout) :: gradient
-    real(real12), intent(in) :: learning_rate
+    real(real32), dimension(:),  intent(in) :: params
+    real(real32), dimension(:), intent(inout) :: gradient
+    real(real32), intent(in) :: learning_rate
 
     gradient = gradient + learning_rate * &
-         (this%l1 * sign(1._real12,params) + 2._real12 * this%l2 * params)
+         (this%l1 * sign(1._real32,params) + 2._real32 * this%l2 * params)
 
   end subroutine regularise_l1l2
 !!!#############################################################################

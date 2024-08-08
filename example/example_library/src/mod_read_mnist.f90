@@ -1,5 +1,5 @@
 module read_mnist
-  use constants_mnist, only: real12
+  use constants_mnist, only: real32
   use athena, only: pad_data
   implicit none
 
@@ -19,13 +19,13 @@ contains
     integer :: num_samples, num_pixels, t_kernel_size = 1
     character(2048) :: buffer
     character(:), allocatable :: t_padding_method
-    real(real12), allocatable, dimension(:,:,:,:) :: images_padded
+    real(real32), allocatable, dimension(:,:,:,:) :: images_padded
 
     integer, intent(out) :: image_size
     integer, optional, intent(in) :: kernel_size
     character(*), optional, intent(in) :: padding_method
     character(1024), intent(in) :: file
-    real(real12), allocatable, dimension(:,:,:,:), intent(out) :: images
+    real(real32), allocatable, dimension(:,:,:,:), intent(out) :: images
     integer, allocatable, dimension(:), intent(out) :: labels
 
 
@@ -72,7 +72,7 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! calculate size of image
 !!!-----------------------------------------------------------------------------
-    image_size = nint(sqrt(real(num_pixels,real12)))
+    image_size = nint(sqrt(real(num_pixels,real32)))
 
 
 !!!-----------------------------------------------------------------------------
@@ -123,7 +123,7 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! increase label values to match fortran indices
 !!!-----------------------------------------------------------------------------
-    images = images/255._real12
+    images = images/255._real32
     labels = labels + 1
     write(6,*) "Data read"
 

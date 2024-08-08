@@ -5,15 +5,15 @@
 !!! module contains implementation of a 3D maxpooling layer
 !!!#############################################################################
 module maxpool3d_layer
-  use constants, only: real12
+  use constants, only: real32
   use base_layer, only: pool_layer_type
   use custom_types, only: array5d_type
   implicit none
   
   
   type, extends(pool_layer_type) :: maxpool3d_layer_type
-   !   real(real12), allocatable, dimension(:,:,:,:,:) :: output
-   !   real(real12), allocatable, dimension(:,:,:,:,:) :: di ! gradient of input (i.e. delta)
+   !   real(real32), allocatable, dimension(:,:,:,:,:) :: output
+   !   real(real32), allocatable, dimension(:,:,:,:,:) :: di ! gradient of input (i.e. delta)
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_maxpool3d
      procedure, pass(this) :: init => init_maxpool3d
@@ -54,7 +54,7 @@ contains
   pure subroutine forward_rank(this, input)
     implicit none
     class(maxpool3d_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: input
 
     select rank(input); rank(5)
        call forward_5d(this, input)
@@ -69,8 +69,8 @@ contains
   pure subroutine backward_rank(this, input, gradient)
     implicit none
     class(maxpool3d_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
-    real(real12), dimension(..), intent(in) :: gradient
+    real(real32), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: gradient
 
     select rank(input); rank(5)
     select rank(gradient); rank(5)
@@ -279,7 +279,7 @@ contains
             this%output%shape(2), &
             this%output%shape(3), this%num_channels, &
             this%batch_size ], &
-            source=0._real12 &
+            source=0._real32 &
        )
        if(this%di%allocated) call this%di%deallocate()
        this%di = array5d_type()
@@ -289,7 +289,7 @@ contains
             this%input_shape(3), &
             this%input_shape(4), &
             this%batch_size ], &
-            source=0._real12 &
+            source=0._real32 &
        )
     end if
 
@@ -447,7 +447,7 @@ contains
   pure subroutine forward_5d(this, input)
     implicit none
     class(maxpool3d_layer_type), intent(inout) :: this
-    real(real12), dimension( &
+    real(real32), dimension( &
          this%input_shape(1), &
          this%input_shape(2), &
          this%input_shape(3), &
@@ -461,7 +461,7 @@ contains
 
     select type(output => this%output)
     type is (array5d_type)
-       output%val = 0._real12
+       output%val = 0._real32
        !! perform the pooling operation
        do concurrent(&
             s = 1:this%batch_size, &
@@ -494,14 +494,14 @@ contains
   pure subroutine backward_5d(this, input, gradient)
     implicit none
     class(maxpool3d_layer_type), intent(inout) :: this
-    real(real12), dimension( &
+    real(real32), dimension( &
          this%input_shape(1), &
          this%input_shape(2), &
          this%input_shape(3), &
          this%num_channels, &
          this%batch_size), &
          intent(in) :: input
-    real(real12), &
+    real(real32), &
          dimension(&
          this%output%shape(1), &
          this%output%shape(2), &
@@ -516,7 +516,7 @@ contains
 
     select type(di => this%di)
     type is (array5d_type)
-       di%val = 0._real12
+       di%val = 0._real32
        !! compute gradients for input feature map
        do concurrent( &
             s = 1:this%batch_size, &

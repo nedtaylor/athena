@@ -73,7 +73,7 @@ contains
   pure module function get_params_mpnn(this) result(params)
     implicit none
     class(mpnn_layer_type), intent(in) :: this
-    real(real12), allocatable, dimension(:) :: params
+    real(real32), allocatable, dimension(:) :: params
   
     integer :: t
 
@@ -87,7 +87,7 @@ contains
   pure subroutine set_params_mpnn(this, params)
     implicit none
     class(mpnn_layer_type), intent(inout) :: this
-    real(real12), dimension(:), intent(in) :: params
+    real(real32), dimension(:), intent(in) :: params
 
     integer :: t, istart, iend
 
@@ -113,7 +113,7 @@ contains
     implicit none
     class(mpnn_layer_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
-    real(real12), allocatable, dimension(:) :: gradients
+    real(real32), allocatable, dimension(:) :: gradients
 
     integer :: t
 
@@ -138,7 +138,7 @@ contains
   pure module subroutine set_gradients_mpnn(this, gradients)
     implicit none
     class(mpnn_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: gradients
+    real(real32), dimension(..), intent(in) :: gradients
 
     integer :: t
 
@@ -164,7 +164,7 @@ contains
   pure module function get_phase_params(this) result(params)
     implicit none
     class(base_phase_type), intent(in) :: this
-    real(real12), allocatable, dimension(:) :: params
+    real(real32), allocatable, dimension(:) :: params
 
     allocate(params(0))
   end function get_phase_params
@@ -172,7 +172,7 @@ contains
   pure module subroutine set_phase_params(this, params)
     implicit none
     class(base_phase_type), intent(inout) :: this
-    real(real12), dimension(:), intent(in) :: params
+    real(real32), dimension(:), intent(in) :: params
     !! nothing to do as no parameters in base phase type
   end subroutine set_phase_params
 !!!#############################################################################
@@ -185,7 +185,7 @@ contains
     implicit none
     class(base_phase_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
-    real(real12), allocatable, dimension(:) :: gradients
+    real(real32), allocatable, dimension(:) :: gradients
 
     allocate(gradients(0))
   end function get_phase_gradients
@@ -193,7 +193,7 @@ contains
   pure module subroutine set_phase_gradients(this, gradients)
     implicit none
     class(base_phase_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: gradients
+    real(real32), dimension(..), intent(in) :: gradients
     !! nothing to do as no parameters in base phase type
   end subroutine set_phase_gradients
 !!!-----------------------------------------------------------------------------
@@ -219,7 +219,7 @@ contains
   pure module subroutine forward_rank(this, input)
     implicit none
     class(mpnn_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: input
 
     call forward_graph(this, this%graph)
   end subroutine forward_rank
@@ -227,8 +227,8 @@ contains
   pure subroutine backward_rank(this, input, gradient)
     implicit none
     class(mpnn_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
-    real(real12), dimension(..), intent(in) :: gradient
+    real(real32), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: gradient
 
     select rank(gradient); rank(2)
        call backward_graph(this, this%graph, gradient)
@@ -372,7 +372,7 @@ contains
        call this%output%allocate( [ &
             this%output%shape(1), &
             this%batch_size ], &
-            source=0._real12 &
+            source=0._real32 &
        )
        call this%method%init( &
             this%num_vertex_features, this%num_edge_features, &
@@ -522,7 +522,7 @@ contains
     implicit none
     class(mpnn_layer_type), intent(inout) :: this
     type(graph_type), dimension(this%batch_size), intent(in) :: graph
-    real(real12), dimension( &
+    real(real32), dimension( &
          this%output%shape(1), &
          this%batch_size &
     ), intent(in) :: gradient

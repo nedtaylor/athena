@@ -14,7 +14,7 @@
 !!! - container_reduction - reduction of container layers
 !!!#############################################################################
 module container_layer
-  use constants, only: real12
+  use constants, only: real32
   use base_layer, only: base_layer_type
   implicit none
 
@@ -58,7 +58,7 @@ module container_layer
      pure module subroutine backward(this, input, gradient)
        class(container_layer_type), intent(inout) :: this
        class(container_layer_type), intent(in) :: input
-       real(real12), dimension(..), intent(in) :: gradient
+       real(real32), dimension(..), intent(in) :: gradient
      end subroutine backward
   end interface
 

@@ -4,7 +4,7 @@
 !!! Code part of the ARTEMIS group
 !!!#############################################################################
 module inputs
-  use constants_mnist, only: real12, ierror
+  use constants_mnist, only: real32, ierror
   use athena, only: &
        metric_dict_type, &
        base_optimiser_type, &
@@ -19,8 +19,8 @@ module inputs
   integer :: seed         ! random seed
   integer :: num_threads  ! number of threads (FOR OPENMP PARALLEL ONLY!)
   integer :: batch_print_step
-  real(real12) :: loss_threshold     ! threshold for loss convergence
-  real(real12) :: plateau_threshold  ! threshold for plateau checking
+  real(real32) :: loss_threshold     ! threshold for loss convergence
+  real(real32) :: plateau_threshold  ! threshold for plateau checking
   class(base_optimiser_type), allocatable :: optimiser
   logical :: batch_learning
   character(:), allocatable :: loss_method
@@ -38,13 +38,13 @@ module inputs
   integer, allocatable, dimension(:) :: cv_stride       ! stride of kernels for convolution
   character(:), allocatable :: cv_dropout_method
   integer :: cv_block_size
-  real(real12) :: cv_keep_prob
+  real(real32) :: cv_keep_prob
   character(:), allocatable :: cv_kernel_initialiser
   character(:), allocatable :: cv_bias_initialiser
-  real(real12) :: cv_activation_scale
+  real(real32) :: cv_activation_scale
   character(:), allocatable :: cv_activation_function
   
-  real(real12) :: bn_gamma, bn_beta  ! batch normalisation learning features
+  real(real32) :: bn_gamma, bn_beta  ! batch normalisation learning features
 
   integer :: pool_kernel_size    ! pooling size (assume square)
   integer :: pool_stride         ! pooling stride
@@ -52,11 +52,11 @@ module inputs
 
   integer, allocatable, dimension(:) :: fc_num_hidden  ! number of fully connected hidden layers
   character(len=10) :: fc_activation_function
-  real(real12) :: fc_activation_scale
+  real(real32) :: fc_activation_scale
   character(:), allocatable :: fc_weight_initialiser
 
 
-  real(real12) :: train_size  ! fraction of data to train on (NOT YET USED) 
+  real(real32) :: train_size  ! fraction of data to train on (NOT YET USED) 
   logical :: shuffle_dataset  ! shuffle train and test data
   
   type(metric_dict_type), dimension(2) :: metric_dict
@@ -132,9 +132,9 @@ contains
     metric_dict%active = .false.
     metric_dict(1)%key = "loss"
     metric_dict(2)%key = "accuracy"
-    metric_dict%threshold = 1.E-1_real12
+    metric_dict%threshold = 1.E-1_real32
 
-    plateau_threshold = 1.E-3_real12
+    plateau_threshold = 1.E-3_real32
     shuffle_dataset = .false.
     batch_learning = .true.
 
@@ -142,14 +142,14 @@ contains
     batch_size = 20
     cv_num_filters = 32
     cv_block_size = 5
-    cv_keep_prob = 1._real12
+    cv_keep_prob = 1._real32
     
     pool_kernel_size = 2
     pool_stride = 2
     pool_normalisation = "sum"
 
     fc_activation_function = "relu"
-    fc_activation_scale = 1._real12
+    fc_activation_scale = 1._real32
     !! gaussian, relu, piecewise, leaky_relu, sigmoid, tanh
 
 
@@ -278,17 +278,17 @@ contains
     integer :: num_filters
     
     integer :: block_size
-    real(real12) ::  keep_prob
-    real(real12) :: activation_scale
+    real(real32) ::  keep_prob
+    real(real32) :: activation_scale
 
-    real(real12) :: learning_rate      ! rate of learning (larger = faster)
-    real(real12) :: l1_lambda, l2_lambda  ! l1 and l2 regularisation parameters
-    real(real12) :: momentum, beta1, beta2, epsilon
+    real(real32) :: learning_rate      ! rate of learning (larger = faster)
+    real(real32) :: l1_lambda, l2_lambda  ! l1 and l2 regularisation parameters
+    real(real32) :: momentum, beta1, beta2, epsilon
     character(512) :: hidden_layers
     character(512) :: dataset_dir
     
     integer :: num_metrics
-    real(real12), dimension(2) :: threshold
+    real(real32), dimension(2) :: threshold
     character(100) :: metrics
     character(10), allocatable, dimension(:) :: metric_list
 
@@ -360,18 +360,18 @@ contains
     loss="mse"
     dropout="none"
     block_size = 5
-    keep_prob = 0.75_real12
+    keep_prob = 0.75_real32
 
-    learning_rate = 0.025_real12
+    learning_rate = 0.025_real32
     regularisation="" !! none, l1, l2, l1l2
-    l1_lambda = 0._real12
-    l2_lambda = 0._real12
+    l1_lambda = 0._real32
+    l2_lambda = 0._real32
 
     adaptive_learning = ""
-    momentum = 0._real12
-    beta1 = 0.9_real12
-    beta2 = 0.999_real12
-    epsilon = 1.E-8_real12
+    momentum = 0._real32
+    beta1 = 0.9_real32
+    beta2 = 0.999_real32
+    epsilon = 1.E-8_real32
     metrics = 'accuracy'
 !!! ADD weight_decay (L2 penalty for AdamW)
 
@@ -423,7 +423,7 @@ contains
     kernel_initialiser  = "he_uniform"
     bias_initialiser    = "zeros"
     activation_function = "none"
-    activation_scale = 1._real12
+    activation_scale = 1._real32
     kernel_size = ""; stride = ""
     read(unit,NML=convolution,iostat=Reason,iomsg=message)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
@@ -501,7 +501,7 @@ contains
 !!!-----------------------------------------------------------------------------
     weight_initialiser = ""
     hidden_layers=""
-    activation_scale = 1._real12
+    activation_scale = 1._real32
     activation_function = "relu"
     read(unit,NML=fully_connected,iostat=Reason,iomsg=message)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
@@ -533,7 +533,7 @@ contains
     !! step_decay = step decay
     !! reduce_lr_on_plateau = reduce learning rate when output metric plateaus
     if(trim(adaptive_learning).eq."")then
-       if(momentum.gt.0._real12)then
+       if(momentum.gt.0._real32)then
           adaptive_learning = "momentum"
           write(*,*) "Momentum was set, but not adaptive_learning"
           write(*,*) 'Setting adaptive_learning = "momentum"'
@@ -552,7 +552,7 @@ contains
        write(*,*) "No adaptive learning method"
     case("sgd")
        write(*,*) "Stocastic Gradient Descent momentum-based adaptive learning method"
-       if(abs(momentum).le.1.E-6_real12)then
+       if(abs(momentum).le.1.E-6_real32)then
           write(*,*) "ERROR: momentum adaptive learning set with momentum = 0"
           write(*,*) "Please rerun with either a different adaptive method or &
                &a larger momentum value"
@@ -562,7 +562,7 @@ contains
        optimiser = sgd_optimiser_type(momentum = momentum)
     case("nesterov")
        write(*,*) "Nesterov momentum-based adaptive learning method"
-       if(abs(momentum).le.1.E-6_real12)then
+       if(abs(momentum).le.1.E-6_real32)then
           write(*,*) "ERROR: nesterov adaptive learning set with momentum = 0"
           write(*,*) "Please rerun with either a different adaptive method or &
                &a larger momentum value"
@@ -598,7 +598,7 @@ contains
     !! l2    = l2 regularisation
     !! l1l2  = l1 and l2 regularisation
     if(trim(regularisation).eq."")then
-       if(l1_lambda.gt.0._real12.and.l2_lambda.gt.0._real12)then
+       if(l1_lambda.gt.0._real32.and.l2_lambda.gt.0._real32)then
           optimiser%regularisation = .true.
           regularisation = "l1l2"
           write(*,*) "l1_lambda and l2_lambda were set, but not regularisation"
@@ -606,7 +606,7 @@ contains
           write(*,*) 'If this is not desired, rerun with either:'
           write(*,*) '   regularisation = "none"'
           write(*,*) '   l1_lambda = 0.0, l2_lambda = 0.0'
-       elseif(l1_lambda.gt.0._real12)then
+       elseif(l1_lambda.gt.0._real32)then
           optimiser%regularisation = .true.
           regularisation = "l1"
           write(*,*) "l1_lambda was set, but not regularisation"
@@ -614,7 +614,7 @@ contains
           write(*,*) 'If this is not desired, rerun with either:'
           write(*,*) '   regularisation = "none"'
           write(*,*) '   l1_lambda = 0.0'
-       elseif(l2_lambda.gt.0._real12)then
+       elseif(l2_lambda.gt.0._real32)then
           optimiser%regularisation = .true.
           regularisation = "l2"
           write(*,*) "l2_lambda was set, but not regularisation"
@@ -635,7 +635,7 @@ contains
        write(*,*) "No regularisation set"
     case("l1l2")
        write(*,*) "L1L2 regularisation"
-       if(abs(l1_lambda).le.1.E-8_real12.and.abs(l2_lambda).le.1.E-8_real12)then
+       if(abs(l1_lambda).le.1.E-8_real32.and.abs(l2_lambda).le.1.E-8_real32)then
           write(*,*) "ERROR: l1_lambda and l2_lambda set to = 0.0"
           write(*,*) "Please rerun with either a different regularisation or &
                 &a larger values"
@@ -647,7 +647,7 @@ contains
              source = l1l2_regulariser_type(l1 = l1_lambda, l2 = l2_lambda) )
     case("l1")
        write(*,*) "L1 regularisation"
-       if(abs(l1_lambda).le.1.E-8_real12)then
+       if(abs(l1_lambda).le.1.E-8_real32)then
           write(*,*) "ERROR: l1_lambda set to = 0.0"
           write(*,*) "Please rerun with either a different regularisation or &
                 &a larger values"
@@ -658,7 +658,7 @@ contains
              source = l1l2_regulariser_type(l1 = l1_lambda) )
     case("l2")
        write(*,*) "L2 regularisation"
-       if(abs(l2_lambda).le.1.E-8_real12)then
+       if(abs(l2_lambda).le.1.E-8_real32)then
           write(*,*) "ERROR: l2_lambda set to = 0.0"
           write(*,*) "Please rerun with either a different regularisation or &
                 &a larger values"

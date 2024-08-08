@@ -1,5 +1,5 @@
 module graph_constructs
-  use constants, only: real12
+  use constants, only: real32
   implicit none
 
   private
@@ -12,14 +12,14 @@ module graph_constructs
 !!!-----------------------------------------------------------------------------
   type :: vertex_type
      integer :: degree = 1
-     real(real12), dimension(:), allocatable :: feature
+     real(real32), dimension(:), allocatable :: feature
   end type vertex_type
 
   type :: edge_type
      !! for directed graphs, index(1) is the source vertex, index(2) is the target vertex
      integer, dimension(2) :: index
-     real(real12) :: weight = 1._real12
-     real(real12), dimension(:), allocatable :: feature
+     real(real32) :: weight = 1._real32
+     real(real32), dimension(:), allocatable :: feature
   end type edge_type
 
   type :: graph_type
@@ -42,8 +42,8 @@ module graph_constructs
   interface edge_type
      module function edge_type_init(index, weight, feature) result(output)
        integer, dimension(2), intent(in) :: index
-       real(real12), intent(in), optional :: weight
-       real(real12), dimension(:), intent(in), optional :: feature
+       real(real32), intent(in), optional :: weight
+       real(real32), dimension(:), intent(in), optional :: feature
        type(edge_type) :: output
      end function edge_type_init
   end interface edge_type
@@ -72,8 +72,8 @@ contains
   module function edge_type_init(index, weight, feature) result(output)
     implicit none
     integer, dimension(2), intent(in) :: index
-    real(real12), intent(in), optional :: weight
-    real(real12), dimension(:), intent(in), optional :: feature
+    real(real32), intent(in), optional :: weight
+    real(real32), dimension(:), intent(in), optional :: feature
     type(edge_type) :: output
     output%index = index
     if(present(weight)) output%weight = weight

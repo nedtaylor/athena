@@ -5,7 +5,7 @@
 !!! module contains implementation of a deep setp layer
 !!!#############################################################################
 module deepset_layer
-  use constants, only: real12
+  use constants, only: real32
   use base_layer, only: learnable_layer_type
   use custom_types, only: activation_type, initialiser_type
   implicit none
@@ -17,10 +17,10 @@ module deepset_layer
   type, extends(learnable_layer_type) :: deepset_layer_type
      integer :: num_inputs, num_addit_inputs = 0
      integer :: num_outputs
-     real(real12) :: lambda, gamma, bias
-     real(real12), allocatable, dimension(:) :: dg, dl, db ! weight gradient
-     real(real12), allocatable, dimension(:,:) :: output !output and activation
-     real(real12), allocatable, dimension(:,:) :: di ! input gradient (i.e. delta)
+     real(real32) :: lambda, gamma, bias
+     real(real32), allocatable, dimension(:) :: dg, dl, db ! weight gradient
+     real(real32), allocatable, dimension(:,:) :: output !output and activation
+     real(real32), allocatable, dimension(:,:) :: di ! input gradient (i.e. delta)
    contains
      procedure, pass(this) :: get_num_params => get_num_params_deepset
      procedure, pass(this) :: get_params => get_params_deepset
@@ -56,7 +56,7 @@ module deepset_layer
        integer, dimension(:), optional, intent(in) :: input_shape
        integer, optional, intent(in) :: num_inputs
        integer, optional, intent(in) :: batch_size
-       real(real12), optional, intent(in) :: lambda, gamma
+       real(real32), optional, intent(in) :: lambda, gamma
        type(deepset_layer_type) :: layer
      end function layer_setup
   end interface deepset_layer_type
@@ -149,7 +149,7 @@ contains
   pure function get_params_deepset(this) result(params)
     implicit none
     class(deepset_layer_type), intent(in) :: this
-    real(real12), allocatable, dimension(:) :: params
+    real(real32), allocatable, dimension(:) :: params
   
     params = [this%lambda, this%gamma, this%bias]
   
@@ -163,7 +163,7 @@ contains
   subroutine set_params_deepset(this, params)
     implicit none
     class(deepset_layer_type), intent(inout) :: this
-    real(real12), dimension(:), intent(in) :: params
+    real(real32), dimension(:), intent(in) :: params
   
     this%lambda = params(1)
     this%gamma  = params(2)
@@ -181,7 +181,7 @@ contains
     implicit none
     class(deepset_layer_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
-    real(real12), allocatable, dimension(:) :: gradients
+    real(real32), allocatable, dimension(:) :: gradients
   
     gradients = [ this%dl/this%batch_size, &
                   this%dg/this%batch_size, &
@@ -199,7 +199,7 @@ contains
   subroutine set_gradients_deepset(this, gradients)
     implicit none
     class(deepset_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: gradients
+    real(real32), dimension(..), intent(in) :: gradients
   
     select rank(gradients)
     rank(0)
@@ -222,7 +222,7 @@ contains
   pure subroutine get_output_deepset(this, output)
   implicit none
   class(deepset_layer_type), intent(in) :: this
-  real(real12), allocatable, dimension(..), intent(out) :: output
+  real(real32), allocatable, dimension(..), intent(out) :: output
 
   select rank(output)
   rank(1)
@@ -251,7 +251,7 @@ end subroutine get_output_deepset
   pure subroutine forward_rank(this, input)
     implicit none
     class(deepset_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: input
 
     select rank(input); rank(2)
        call forward_2d(this, input)
@@ -266,8 +266,8 @@ end subroutine get_output_deepset
   pure subroutine backward_rank(this, input, gradient)
     implicit none
     class(deepset_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
-    real(real12), dimension(..), intent(in) :: gradient
+    real(real32), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: gradient
 
     select rank(input); rank(2)
     select rank(gradient); rank(2)
@@ -294,7 +294,7 @@ end subroutine get_output_deepset
     integer, dimension(:), optional, intent(in) :: input_shape
     integer, optional, intent(in) :: num_inputs
     integer, optional, intent(in) :: batch_size
-    real(real12), optional, intent(in) :: lambda, gamma
+    real(real32), optional, intent(in) :: lambda, gamma
     
     type(deepset_layer_type) :: layer
 
@@ -313,12 +313,12 @@ end subroutine get_output_deepset
     if(present(lambda))then
        layer%lambda = lambda
     else
-       layer%lambda = 1._real12
+       layer%lambda = 1._real32
     end if
     if(present(gamma))then
        layer%gamma = gamma
     else
-       layer%gamma = 1._real12
+       layer%gamma = 1._real32
     end if
 
 
@@ -397,15 +397,15 @@ end subroutine get_output_deepset
       if(allocated(this%output)) deallocate(this%output)
       allocate(this%output( &
            this%input_shape(1), &
-           this%batch_size), source=0._real12)
+           this%batch_size), source=0._real32)
       if(allocated(this%dl)) deallocate(this%dl)
-      allocate(this%dl(this%batch_size), source=0._real12)
+      allocate(this%dl(this%batch_size), source=0._real32)
       if(allocated(this%dg)) deallocate(this%dg)
-      allocate(this%dg(this%batch_size), source=0._real12)
+      allocate(this%dg(this%batch_size), source=0._real32)
       if(allocated(this%di)) deallocate(this%di)
       allocate(this%di( &
            this%input_shape(1), &
-           this%batch_size), source=0._real12)
+           this%batch_size), source=0._real32)
    end if
 
  end subroutine set_batch_size_deepset
@@ -458,7 +458,7 @@ end subroutine get_output_deepset
   pure subroutine forward_2d(this, input)
     implicit none
     class(deepset_layer_type), intent(inout) :: this
-    real(real12), dimension(this%num_inputs, this%batch_size), &
+    real(real32), dimension(this%num_inputs, this%batch_size), &
          intent(in) :: input
 
     integer :: s
@@ -481,9 +481,9 @@ end subroutine get_output_deepset
   pure subroutine backward_2d(this, input, gradient)
     implicit none
     class(deepset_layer_type), intent(inout) :: this
-    real(real12), dimension(this%num_inputs, this%batch_size), &
+    real(real32), dimension(this%num_inputs, this%batch_size), &
          intent(in) :: input
-    real(real12), dimension(this%num_outputs, this%batch_size), &
+    real(real32), dimension(this%num_outputs, this%batch_size), &
          intent(in) :: gradient
 
     integer :: s

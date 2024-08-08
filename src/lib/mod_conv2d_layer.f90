@@ -5,18 +5,18 @@
 !!! module contains implementation of a 2D convolutional layer
 !!!#############################################################################
 module conv2d_layer
-  use constants, only: real12
+  use constants, only: real32
   use base_layer, only: learnable_layer_type, conv_layer_type
   use custom_types, only: initialiser_type, array4d_type
   implicit none
   
   
   type, extends(conv_layer_type) :: conv2d_layer_type
-     real(real12), allocatable, dimension(:,:,:,:) :: weight
-     real(real12), allocatable, dimension(:,:,:,:,:) :: dw ! weight gradient
-     real(real12), allocatable, dimension(:,:,:,:) :: z
-   !   real(real12), allocatable, dimension(:,:,:,:) :: output
-   !   real(real12), allocatable, dimension(:,:,:,:) :: di ! input gradient
+     real(real32), allocatable, dimension(:,:,:,:) :: weight
+     real(real32), allocatable, dimension(:,:,:,:,:) :: dw ! weight gradient
+     real(real32), allocatable, dimension(:,:,:,:) :: z
+   !   real(real32), allocatable, dimension(:,:,:,:) :: output
+   !   real(real32), allocatable, dimension(:,:,:,:) :: di ! input gradient
    contains
      procedure, pass(this) :: get_params => get_params_conv2d
      procedure, pass(this) :: set_params => set_params_conv2d
@@ -57,7 +57,7 @@ module conv2d_layer
        integer, optional, intent(in) :: num_filters
        integer, dimension(..), optional, intent(in) :: kernel_size
        integer, dimension(..), optional, intent(in) :: stride
-       real(real12), optional, intent(in) :: activation_scale
+       real(real32), optional, intent(in) :: activation_scale
        character(*), optional, intent(in) :: activation_function, &
             kernel_initialiser, bias_initialiser, padding
        logical, optional, intent(in) :: calc_input_gradients
@@ -137,7 +137,7 @@ contains
   pure function get_params_conv2d(this) result(params)
     implicit none
     class(conv2d_layer_type), intent(in) :: this
-    real(real12), allocatable, dimension(:) :: params
+    real(real32), allocatable, dimension(:) :: params
   
     params = [ reshape( &
          this%weight, &
@@ -154,7 +154,7 @@ contains
   subroutine set_params_conv2d(this, params)
     implicit none
     class(conv2d_layer_type), intent(inout) :: this
-    real(real12), dimension(:), intent(in) :: params
+    real(real32), dimension(:), intent(in) :: params
   
     this%weight = reshape( &
          params(1:this%num_filters * this%num_channels * product(this%knl)), &
@@ -175,7 +175,7 @@ contains
     implicit none
     class(conv2d_layer_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
-    real(real12), allocatable, dimension(:) :: gradients
+    real(real32), allocatable, dimension(:) :: gradients
   
     gradients = [ reshape( &
          sum(this%dw,dim=5)/this%batch_size, &
@@ -194,7 +194,7 @@ contains
   subroutine set_gradients_conv2d(this, gradients)
     implicit none
     class(conv2d_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: gradients
+    real(real32), dimension(..), intent(in) :: gradients
 
     integer :: s
 
@@ -227,7 +227,7 @@ contains
   pure subroutine forward_rank(this, input)
     implicit none
     class(conv2d_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: input
 
     select rank(input); rank(4)
        call forward_4d(this, input)
@@ -242,8 +242,8 @@ contains
   pure subroutine backward_rank(this, input, gradient)
     implicit none
     class(conv2d_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
-    real(real12), dimension(..), intent(in) :: gradient
+    real(real32), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: gradient
 
     select rank(input); rank(4)
     select rank(gradient)
@@ -281,7 +281,7 @@ contains
     integer, optional, intent(in) :: num_filters
     integer, dimension(..), optional, intent(in) :: kernel_size
     integer, dimension(..), optional, intent(in) :: stride
-    real(real12), optional, intent(in) :: activation_scale
+    real(real32), optional, intent(in) :: activation_scale
     character(*), optional, intent(in) :: activation_function, &
          kernel_initialiser, bias_initialiser, padding
     logical, optional, intent(in) :: calc_input_gradients
@@ -290,7 +290,7 @@ contains
     type(conv2d_layer_type) :: layer
 
     integer :: i, verbose_ = 0
-    real(real12) :: scale
+    real(real32) :: scale
     character(len=10) :: activation_function_
     character(len=20) :: padding_
     integer, dimension(2) :: kernel_size_, stride_
@@ -380,7 +380,7 @@ contains
     if(present(activation_scale))then
        scale = activation_scale
     else
-       scale = 1._real12
+       scale = 1._real32
     end if
 
 
@@ -443,7 +443,7 @@ contains
     integer, dimension(2), intent(in) :: kernel_size, stride
     character(*), intent(in) :: padding
     character(*), intent(in) :: activation_function
-    real(real12), intent(in) :: activation_scale
+    real(real32), intent(in) :: activation_scale
     character(*), intent(in) :: kernel_initialiser, bias_initialiser
     integer, optional, intent(in) :: verbose
 
@@ -534,13 +534,13 @@ contains
     this%output%shape(:2) = floor(&
          (this%input_shape(:2) + 2.0 * this%pad - this%knl)/real(this%stp) ) + 1
 
-    allocate(this%bias(this%num_filters), source=0._real12)
+    allocate(this%bias(this%num_filters), source=0._real32)
 
     end_idx = this%hlf + (this%cen - 1)
     allocate(this%weight( &
          -this%hlf(1):end_idx(1), &
          -this%hlf(2):end_idx(2), &
-         this%num_channels,this%num_filters), source=0._real12)
+         this%num_channels,this%num_filters), source=0._real32)
 
 
     !!--------------------------------------------------------------------------
@@ -598,7 +598,7 @@ contains
             this%output%shape(2), &
             this%num_filters, &
             this%batch_size ], &
-            source=0._real12 &
+            source=0._real32 &
        )
        if(allocated(this%z)) deallocate(this%z)
        select type(output => this%output)
@@ -612,16 +612,16 @@ contains
             this%input_shape(2), &
             this%input_shape(3), &
             this%batch_size ], &
-            source=0._real12 &
+            source=0._real32 &
        )
        if(allocated(this%dw)) deallocate(this%dw)
        allocate(this%dw( &
             lbound(this%weight,1):ubound(this%weight,1), &
             lbound(this%weight,2):ubound(this%weight,2), &
             this%num_channels, this%num_filters, &
-            this%batch_size), source=0._real12)
+            this%batch_size), source=0._real32)
        if(allocated(this%db)) deallocate(this%db)
-       allocate(this%db(this%num_filters, this%batch_size), source=0._real12)
+       allocate(this%db(this%num_filters, this%batch_size), source=0._real32)
     end if
 
   end subroutine set_batch_size_conv2d
@@ -724,7 +724,7 @@ contains
     integer :: stat, verbose_ = 0
     integer :: j, k, l, c, itmp1
     integer :: num_filters, num_inputs
-    real(real12) :: activation_scale
+    real(real32) :: activation_scale
     logical :: found_weights = .false.
     character(14) :: kernel_initialiser='', bias_initialiser=''
     character(20) :: padding, activation_function
@@ -732,7 +732,7 @@ contains
 
     integer, dimension(2) :: kernel_size, stride
     integer, dimension(3) :: input_shape
-    real(real12), allocatable, dimension(:) :: data_list
+    real(real32), allocatable, dimension(:) :: data_list
 
 
     !!--------------------------------------------------------------------------
@@ -830,7 +830,7 @@ contains
     else
       do l=1,num_filters
           num_inputs = product(this%knl) + 1 !+1 for bias
-          allocate(data_list(num_inputs), source=0._real12)
+          allocate(data_list(num_inputs), source=0._real32)
           c = 1
           k = 1
           data_concat_loop: do while(c.le.num_inputs)
@@ -901,7 +901,7 @@ contains
   pure subroutine forward_4d(this, input)
     implicit none
     class(conv2d_layer_type), intent(inout) :: this
-    real(real12), &
+    real(real32), &
          dimension( &
          -this%pad(1)+1:this%input_shape(1)+this%pad(1), &
          -this%pad(2)+1:this%input_shape(2)+this%pad(2), &
@@ -960,13 +960,13 @@ contains
   pure subroutine backward_4d(this, input, gradient)
     implicit none
     class(conv2d_layer_type), intent(inout) :: this
-    real(real12), &
+    real(real32), &
          dimension( &
          -this%pad(1)+1:this%input_shape(1)+this%pad(1), &
          -this%pad(2)+1:this%input_shape(2)+this%pad(2), &
          this%num_channels,this%batch_size), &
          intent(in) :: input
-    real(real12), &
+    real(real32), &
          dimension( &
          this%output%shape(1), &
          this%output%shape(2), &
@@ -976,15 +976,15 @@ contains
     integer :: l, m, i, j, x, y, s
     integer, dimension(2) :: stp_idx, offset, adjust, end_idx, n_stp
     integer, dimension(2,2) :: lim, lim_w, lim_g
-    real(real12), &
+    real(real32), &
          dimension( &
          this%output%shape(1),&
          this%output%shape(2),this%num_filters, &
          this%batch_size) :: grad_dz
 
 
-    real(real12), dimension(1) :: bias_diff
-    bias_diff = this%transfer%differentiate([1._real12])
+    real(real32), dimension(1) :: bias_diff
+    bias_diff = this%transfer%differentiate([1._real32])
 
 
     !! get size of the input and output feature maps
@@ -996,7 +996,7 @@ contains
 
     !! get gradient multiplied by differential of Z
     !!--------------------------------------------------------------------------
-    grad_dz = 0._real12
+    grad_dz = 0._real32
     grad_dz(&
          1:this%output%shape(1),&
          1:this%output%shape(2),:,:) = gradient * &
@@ -1033,7 +1033,7 @@ contains
        n_stp = this%output%shape(:2) * this%stp
        select type(di => this%di)
        type is (array4d_type)
-          di%val = 0._real12
+          di%val = 0._real32
           !! all elements of the output are separated by stride_x (stride_y)
           do concurrent( &
                s=1:this%batch_size, &

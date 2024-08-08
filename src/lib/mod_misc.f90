@@ -10,7 +10,7 @@
 !!! - to_lower      - converts all characters in string to lower case
 !!!#############################################################################
 module misc
-  use constants, only: real12
+  use constants, only: real32
   implicit none
 
   private
@@ -25,8 +25,8 @@ contains
 !!!#####################################################
   pure function outer_product(a,b) result(c)
     implicit none
-    real(real12), dimension(:), intent(in) :: a,b
-    real(real12), dimension(size(a),size(b)) :: c
+    real(real32), dimension(:), intent(in) :: a,b
+    real(real32), dimension(size(a),size(b)) :: c
     integer :: i,j
 
     do i=1,size(a)

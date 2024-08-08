@@ -15,7 +15,7 @@
 !!! - initialise - initialises weights and biases
 !!!#############################################################################
 module custom_types
-  use constants, only: real12
+  use constants, only: real32
   implicit none
 
 
@@ -35,8 +35,8 @@ module custom_types
      !! change to defined length
      !character(:), allocatable :: name
      character(10) :: name
-     real(real12) :: scale
-     real(real12) :: threshold
+     real(real32) :: scale
+     real(real32) :: threshold
    contains
      procedure (activation_function_1d), deferred, pass(this) :: activate_1d
      procedure (derivative_function_1d), deferred, pass(this) :: differentiate_1d
@@ -59,39 +59,39 @@ module custom_types
   !!----------------------------------------------------------------------------
   abstract interface
      pure function activation_function_1d(this, val) result(output)
-       import activation_type, real12
+       import activation_type, real32
        class(activation_type), intent(in) :: this
-       real(real12), dimension(:), intent(in) :: val
-       real(real12), dimension(size(val,1)) :: output
+       real(real32), dimension(:), intent(in) :: val
+       real(real32), dimension(size(val,1)) :: output
      end function activation_function_1d
      
      pure function activation_function_2d(this, val) result(output)
-       import activation_type, real12
+       import activation_type, real32
        class(activation_type), intent(in) :: this
-       real(real12), dimension(:,:), intent(in) :: val
-       real(real12), dimension(size(val,1),size(val,2)) :: output
+       real(real32), dimension(:,:), intent(in) :: val
+       real(real32), dimension(size(val,1),size(val,2)) :: output
      end function activation_function_2d
 
      pure function activation_function_3d(this, val) result(output)
-       import activation_type, real12
+       import activation_type, real32
        class(activation_type), intent(in) :: this
-       real(real12), dimension(:,:,:), intent(in) :: val
-       real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
+       real(real32), dimension(:,:,:), intent(in) :: val
+       real(real32), dimension(size(val,1),size(val,2),size(val,3)) :: output
      end function activation_function_3d
 
      pure function activation_function_4d(this, val) result(output)
-       import activation_type, real12
+       import activation_type, real32
        class(activation_type), intent(in) :: this
-       real(real12), dimension(:,:,:,:), intent(in) :: val
-       real(real12), dimension(&
+       real(real32), dimension(:,:,:,:), intent(in) :: val
+       real(real32), dimension(&
             size(val,1),size(val,2),size(val,3),size(val,4)) :: output
      end function activation_function_4d
 
      pure function activation_function_5d(this, val) result(output)
-       import activation_type, real12
+       import activation_type, real32
        class(activation_type), intent(in) :: this
-       real(real12), dimension(:,:,:,:,:), intent(in) :: val
-       real(real12), dimension(&
+       real(real32), dimension(:,:,:,:,:), intent(in) :: val
+       real(real32), dimension(&
             size(val,1),size(val,2),size(val,3), &
             size(val,4),size(val,5)) :: output
      end function activation_function_5d
@@ -102,39 +102,39 @@ module custom_types
   !!----------------------------------------------------------------------------
   abstract interface
      pure function derivative_function_1d(this, val) result(output)
-       import activation_type, real12
+       import activation_type, real32
        class(activation_type), intent(in) :: this
-       real(real12), dimension(:), intent(in) :: val
-       real(real12), dimension(size(val,1)) :: output
+       real(real32), dimension(:), intent(in) :: val
+       real(real32), dimension(size(val,1)) :: output
      end function derivative_function_1d
 
      pure function derivative_function_2d(this, val) result(output)
-       import activation_type, real12
+       import activation_type, real32
        class(activation_type), intent(in) :: this
-       real(real12), dimension(:,:), intent(in) :: val
-       real(real12), dimension(size(val,1),size(val,2)) :: output
+       real(real32), dimension(:,:), intent(in) :: val
+       real(real32), dimension(size(val,1),size(val,2)) :: output
      end function derivative_function_2d
 
      pure function derivative_function_3d(this, val) result(output)
-       import activation_type, real12
+       import activation_type, real32
        class(activation_type), intent(in) :: this
-       real(real12), dimension(:,:,:), intent(in) :: val
-       real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
+       real(real32), dimension(:,:,:), intent(in) :: val
+       real(real32), dimension(size(val,1),size(val,2),size(val,3)) :: output
      end function derivative_function_3d
 
      pure function derivative_function_4d(this, val) result(output)
-       import activation_type, real12
+       import activation_type, real32
        class(activation_type), intent(in) :: this
-       real(real12), dimension(:,:,:,:), intent(in) :: val
-       real(real12), dimension(&
+       real(real32), dimension(:,:,:,:), intent(in) :: val
+       real(real32), dimension(&
             size(val,1),size(val,2),size(val,3),size(val,4)) :: output
      end function derivative_function_4d
 
      pure function derivative_function_5d(this, val) result(output)
-       import activation_type, real12
+       import activation_type, real32
        class(activation_type), intent(in) :: this
-       real(real12), dimension(:,:,:,:,:), intent(in) :: val
-       real(real12), dimension(&
+       real(real32), dimension(:,:,:,:,:), intent(in) :: val
+       real(real32), dimension(&
             size(val,1),size(val,2),size(val,3), &
             size(val,4),size(val,5)) :: output
      end function derivative_function_5d
@@ -145,7 +145,7 @@ module custom_types
 !!! weights and biases initialiser base type
 !!!-----------------------------------------------------------------------------
   type, abstract :: initialiser_type
-     real(real12) :: scale = 1._real12, mean = 1._real12, std = 0.01_real12
+     real(real32) :: scale = 1._real32, mean = 1._real32, std = 0.01_real32
    contains
      procedure (initialiser_subroutine), deferred, pass(this) :: initialise
   end type initialiser_type
@@ -155,11 +155,11 @@ module custom_types
   !!----------------------------------------------------------------------------
   abstract interface
      subroutine initialiser_subroutine(this, input, fan_in, fan_out)
-       import initialiser_type, real12
+       import initialiser_type, real32
        class(initialiser_type), intent(inout) :: this
-       real(real12), dimension(..), intent(out) :: input
+       real(real32), dimension(..), intent(out) :: input
        integer, optional, intent(in) :: fan_in, fan_out
-       real(real12) :: scale
+       real(real32) :: scale
      end subroutine initialiser_subroutine
   end interface
 
@@ -197,29 +197,29 @@ module custom_types
     !  pure module function reshape_array(this, shape) result(output)
     !    class(array_type), intent(inout) :: this
     !    integer, dimension(:), intent(in) :: shape
-    !    real(real12), dimension(size(shape)) :: output
+    !    real(real32), dimension(size(shape)) :: output
     !  end function reshape_array
 
      pure module function flatten_array(this) result(output)
         class(array_type), intent(in) :: this
-        real(real12), dimension(this%size) :: output
+        real(real32), dimension(this%size) :: output
      end function flatten_array
 
      pure module subroutine get_array(this, output)
         class(array_type), intent(in) :: this
-        real(real12), dimension(..), intent(out) :: output
+        real(real32), dimension(..), intent(out) :: output
       end subroutine get_array
 
       pure module subroutine set_array(this, input)
          class(array_type), intent(inout) :: this
-         real(real12), dimension(..), intent(in) :: input
+         real(real32), dimension(..), intent(in) :: input
        end subroutine set_array 
   end interface
 
   !! extend the array type to 1d, 2d, 3d, 4d, and 5d arrays
   !!----------------------------------------------------------------------------
   type, extends(array_type) :: array1d_type
-     real(real12), dimension(:), allocatable :: val
+     real(real32), dimension(:), allocatable :: val
    contains
      procedure :: allocate => allocate_array1d
      procedure :: deallocate => deallocate_array1d
@@ -229,7 +229,7 @@ module custom_types
      end type array1d_type
 
   type, extends(array_type) :: array2d_type
-     real(real12), dimension(:,:), allocatable :: val
+     real(real32), dimension(:,:), allocatable :: val
    contains
      procedure :: allocate => allocate_array2d
      procedure :: deallocate => deallocate_array2d
@@ -239,7 +239,7 @@ module custom_types
   end type array2d_type
 
   type, extends(array_type) :: array3d_type
-     real(real12), dimension(:,:,:), allocatable :: val
+     real(real32), dimension(:,:,:), allocatable :: val
    contains
      procedure :: allocate => allocate_array3d
      procedure :: deallocate => deallocate_array3d
@@ -249,7 +249,7 @@ module custom_types
      end type array3d_type
 
   type, extends(array_type) :: array4d_type
-     real(real12), dimension(:,:,:,:), allocatable :: val
+     real(real32), dimension(:,:,:,:), allocatable :: val
    contains
      procedure :: allocate => allocate_array4d
      procedure :: deallocate => deallocate_array4d
@@ -259,7 +259,7 @@ module custom_types
      end type array4d_type
 
   type, extends(array_type) :: array5d_type
-     real(real12), dimension(:,:,:,:,:), allocatable :: val
+     real(real32), dimension(:,:,:,:,:), allocatable :: val
    contains
      procedure :: allocate => allocate_array5d
      procedure :: deallocate => deallocate_array5d
@@ -331,27 +331,27 @@ module custom_types
   interface 
     pure module function flatten_array1d(this) result(output)
       class(array1d_type), intent(in) :: this
-      real(real12), dimension(this%size) :: output
+      real(real32), dimension(this%size) :: output
     end function flatten_array1d
 
     pure module function flatten_array2d(this) result(output)
       class(array2d_type), intent(in) :: this
-      real(real12), dimension(this%size) :: output
+      real(real32), dimension(this%size) :: output
     end function flatten_array2d
 
     pure module function flatten_array3d(this) result(output)
       class(array3d_type), intent(in) :: this
-      real(real12), dimension(this%size) :: output
+      real(real32), dimension(this%size) :: output
     end function flatten_array3d
 
     pure module function flatten_array4d(this) result(output)
       class(array4d_type), intent(in) :: this
-      real(real12), dimension(this%size) :: output
+      real(real32), dimension(this%size) :: output
     end function flatten_array4d
 
     pure module function flatten_array5d(this) result(output)
       class(array5d_type), intent(in) :: this
-      real(real12), dimension(this%size) :: output
+      real(real32), dimension(this%size) :: output
     end function flatten_array5d
   end interface
 
@@ -360,27 +360,27 @@ module custom_types
   interface
     pure module subroutine get_array1d(this, output)
       class(array1d_type), intent(in) :: this
-      real(real12), dimension(..), intent(out) :: output
+      real(real32), dimension(..), intent(out) :: output
     end subroutine get_array1d
 
     pure module subroutine get_array2d(this, output)
       class(array2d_type), intent(in) :: this
-      real(real12), dimension(..), intent(out) :: output
+      real(real32), dimension(..), intent(out) :: output
     end subroutine get_array2d
 
     pure module subroutine get_array3d(this, output)
       class(array3d_type), intent(in) :: this
-      real(real12), dimension(..), intent(out) :: output
+      real(real32), dimension(..), intent(out) :: output
     end subroutine get_array3d
 
     pure module subroutine get_array4d(this, output)
       class(array4d_type), intent(in) :: this
-      real(real12), dimension(..), intent(out) :: output
+      real(real32), dimension(..), intent(out) :: output
     end subroutine get_array4d
 
     pure module subroutine get_array5d(this, output)
       class(array5d_type), intent(in) :: this
-      real(real12), dimension(..), intent(out) :: output
+      real(real32), dimension(..), intent(out) :: output
     end subroutine get_array5d
   end interface
 
@@ -389,27 +389,27 @@ module custom_types
   interface
     pure module subroutine set_array1d(this, input)
       class(array1d_type), intent(inout) :: this
-      real(real12), dimension(..), intent(in) :: input
+      real(real32), dimension(..), intent(in) :: input
     end subroutine set_array1d
 
     pure module subroutine set_array2d(this, input)
       class(array2d_type), intent(inout) :: this
-      real(real12), dimension(..), intent(in) :: input
+      real(real32), dimension(..), intent(in) :: input
     end subroutine set_array2d
 
     pure module subroutine set_array3d(this, input)
       class(array3d_type), intent(inout) :: this
-      real(real12), dimension(..), intent(in) :: input
+      real(real32), dimension(..), intent(in) :: input
     end subroutine set_array3d
 
     pure module subroutine set_array4d(this, input)
       class(array4d_type), intent(inout) :: this
-      real(real12), dimension(..), intent(in) :: input
+      real(real32), dimension(..), intent(in) :: input
     end subroutine set_array4d
 
     pure module subroutine set_array5d(this, input)
       class(array5d_type), intent(inout) :: this
-      real(real12), dimension(..), intent(in) :: input
+      real(real32), dimension(..), intent(in) :: input
     end subroutine set_array5d
   end interface
 

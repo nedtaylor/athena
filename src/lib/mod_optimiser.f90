@@ -16,7 +16,7 @@
 !!!                    ... the parameters
 !!!#############################################################################
 module optimiser
-  use constants, only: real12
+  use constants, only: real32
   use clipper, only: clip_type
   use regulariser, only: &
        base_regulariser_type, &
@@ -34,7 +34,7 @@ module optimiser
      !! regulariser = regularisation method
      !! clip_dict = clipping dictionary
      integer :: iter = 0
-     real(real12) :: learning_rate = 0.01_real12
+     real(real32) :: learning_rate = 0.01_real32
      logical :: regularisation = .false.
      class(base_regulariser_type), allocatable :: regulariser
      class(base_lr_decay_type), allocatable :: lr_decay
@@ -50,7 +50,7 @@ module optimiser
           learning_rate, &
           num_params, &
           regulariser, clip_dict, lr_decay) result(optimiser)
-        real(real12), optional, intent(in) :: learning_rate
+        real(real32), optional, intent(in) :: learning_rate
         integer, optional, intent(in) :: num_params
         class(base_regulariser_type), optional, intent(in) :: regulariser
         type(clip_type), optional, intent(in) :: clip_dict
@@ -64,8 +64,8 @@ module optimiser
 
   type, extends(base_optimiser_type) :: sgd_optimiser_type
      logical :: nesterov = .false.
-     real(real12) :: momentum = 0._real12  ! fraction of momentum based learning
-     real(real12), allocatable, dimension(:) :: velocity
+     real(real32) :: momentum = 0._real32  ! fraction of momentum based learning
+     real(real32), allocatable, dimension(:) :: velocity
    contains
      procedure, pass(this) :: init_gradients => init_gradients_sgd
      procedure, pass(this) :: minimise => minimise_sgd
@@ -76,7 +76,7 @@ module optimiser
           learning_rate, momentum, &
           nesterov, num_params, &
           regulariser, clip_dict, lr_decay) result(optimiser)
-        real(real12), optional, intent(in) :: learning_rate, momentum
+        real(real32), optional, intent(in) :: learning_rate, momentum
         logical, optional, intent(in) :: nesterov
         integer, optional, intent(in) :: num_params
         class(base_regulariser_type), optional, intent(in) :: regulariser
@@ -89,9 +89,9 @@ module optimiser
 !!!-----------------------------------------------------------------------------
 
   type, extends(base_optimiser_type) :: rmsprop_optimiser_type
-     real(real12) :: beta = 0._real12
-     real(real12) :: epsilon = 1.E-8_real12
-     real(real12), allocatable, dimension(:) :: moving_avg
+     real(real32) :: beta = 0._real32
+     real(real32) :: epsilon = 1.E-8_real32
+     real(real32), allocatable, dimension(:) :: moving_avg
    contains
      procedure, pass(this) :: init_gradients => init_gradients_rmsprop
      procedure, pass(this) :: minimise => minimise_rmsprop
@@ -102,7 +102,7 @@ module optimiser
           learning_rate, beta, &
           epsilon, num_params, &
           regulariser, clip_dict, lr_decay) result(optimiser)
-        real(real12), optional, intent(in) :: learning_rate, beta, epsilon
+        real(real32), optional, intent(in) :: learning_rate, beta, epsilon
         integer, optional, intent(in) :: num_params
         class(base_regulariser_type), optional, intent(in) :: regulariser
         type(clip_type), optional, intent(in) :: clip_dict
@@ -114,8 +114,8 @@ module optimiser
 !!!-----------------------------------------------------------------------------
 
   type, extends(base_optimiser_type) :: adagrad_optimiser_type
-     real(real12) :: epsilon = 1.E-8_real12
-     real(real12), allocatable, dimension(:) :: sum_squares
+     real(real32) :: epsilon = 1.E-8_real32
+     real(real32), allocatable, dimension(:) :: sum_squares
    contains
      procedure, pass(this) :: init_gradients => init_gradients_adagrad
      procedure, pass(this) :: minimise => minimise_adagrad
@@ -126,7 +126,7 @@ module optimiser
           learning_rate, &
           epsilon, num_params, &
           regulariser, clip_dict, lr_decay) result(optimiser)
-        real(real12), optional, intent(in) :: learning_rate, epsilon
+        real(real32), optional, intent(in) :: learning_rate, epsilon
         integer, optional, intent(in) :: num_params
         class(base_regulariser_type), optional, intent(in) :: regulariser
         type(clip_type), optional, intent(in) :: clip_dict
@@ -138,11 +138,11 @@ module optimiser
 !!!-----------------------------------------------------------------------------
 
   type, extends(base_optimiser_type) :: adam_optimiser_type
-     real(real12) :: beta1 = 0.9_real12
-     real(real12) :: beta2 = 0.999_real12
-     real(real12) :: epsilon = 1.E-8_real12
-     real(real12), allocatable, dimension(:) :: m
-     real(real12), allocatable, dimension(:) :: v
+     real(real32) :: beta1 = 0.9_real32
+     real(real32) :: beta2 = 0.999_real32
+     real(real32) :: epsilon = 1.E-8_real32
+     real(real32), allocatable, dimension(:) :: m
+     real(real32), allocatable, dimension(:) :: v
    contains
      procedure, pass(this) :: init_gradients => init_gradients_adam
      procedure, pass(this) :: minimise => minimise_adam
@@ -154,8 +154,8 @@ module optimiser
           beta1, beta2, epsilon, &
           num_params, &
           regulariser, clip_dict, lr_decay) result(optimiser)
-        real(real12), optional, intent(in) :: learning_rate
-        real(real12), optional, intent(in) :: beta1, beta2, epsilon
+        real(real32), optional, intent(in) :: learning_rate
+        real(real32), optional, intent(in) :: beta1, beta2, epsilon
         integer, optional, intent(in) :: num_params
         class(base_regulariser_type), optional, intent(in) :: regulariser
         type(clip_type), optional, intent(in) :: clip_dict
@@ -167,8 +167,8 @@ module optimiser
      !! reduce learning rate on plateau parameters
      !integer :: wait = 0
      !integer :: patience = 0
-     !real(real12) :: factor = 0._real12
-     !real(real12) :: min_learning_rate = 0._real12
+     !real(real32) :: factor = 0._real32
+     !real(real32) :: min_learning_rate = 0._real32
 
 
   private
@@ -190,7 +190,7 @@ contains
       num_params, &
       regulariser, clip_dict, lr_decay) result(optimiser)
     implicit none
-    real(real12), optional, intent(in) :: learning_rate
+    real(real32), optional, intent(in) :: learning_rate
     integer, optional, intent(in) :: num_params
     class(base_regulariser_type), optional, intent(in) :: regulariser
     type(clip_type), optional, intent(in) :: clip_dict
@@ -272,7 +272,7 @@ contains
     class(base_optimiser_type), intent(inout) :: this
     integer, intent(in) :: num_params
 
-    !allocate(this%velocity(num_params), source=0._real12)
+    !allocate(this%velocity(num_params), source=0._real32)
     return
   end subroutine init_gradients_base
 !!!#############################################################################
@@ -284,10 +284,10 @@ contains
   pure subroutine minimise_base(this, param, gradient)
     implicit none
     class(base_optimiser_type), intent(inout) :: this
-    real(real12), dimension(:), intent(inout) :: param
-    real(real12), dimension(:), intent(inout) :: gradient
+    real(real32), dimension(:), intent(inout) :: param
+    real(real32), dimension(:), intent(inout) :: gradient
 
-    real(real12) :: learning_rate
+    real(real32) :: learning_rate
 
 
     !! decay learning rate and update iteration
@@ -314,7 +314,7 @@ contains
        nesterov, num_params, &
        regulariser, clip_dict, lr_decay) result(optimiser)
      implicit none
-     real(real12), optional, intent(in) :: learning_rate, momentum
+     real(real32), optional, intent(in) :: learning_rate, momentum
      logical, optional, intent(in) :: nesterov
      integer, optional, intent(in) :: num_params
      class(base_regulariser_type), optional, intent(in) :: regulariser
@@ -374,7 +374,7 @@ contains
 
     !! initialise gradients
     if(allocated(this%velocity)) deallocate(this%velocity)
-    allocate(this%velocity(num_params), source=0._real12)
+    allocate(this%velocity(num_params), source=0._real32)
     
   end subroutine init_gradients_sgd
 !!!#############################################################################
@@ -386,10 +386,10 @@ contains
   pure subroutine minimise_sgd(this, param, gradient)
     implicit none
     class(sgd_optimiser_type), intent(inout) :: this
-    real(real12), dimension(:), intent(inout) :: param
-    real(real12), dimension(:), intent(inout) :: gradient
+    real(real32), dimension(:), intent(inout) :: param
+    real(real32), dimension(:), intent(inout) :: gradient
 
-    real(real12) :: learning_rate
+    real(real32) :: learning_rate
 
 
     !! decay learning rate and update iteration
@@ -401,7 +401,7 @@ contains
          call this%regulariser%regularise( &
          param, gradient, learning_rate)
 
-    if(this%momentum.gt.1.E-8_real12)then !! adaptive learning method
+    if(this%momentum.gt.1.E-8_real32)then !! adaptive learning method
        this%velocity = this%momentum * this%velocity - &
             learning_rate * gradient
     else !! standard learning method
@@ -434,8 +434,8 @@ contains
       num_params, &
       regulariser, clip_dict, lr_decay) result(optimiser)
     implicit none
-    real(real12), optional, intent(in) :: learning_rate
-    real(real12), optional, intent(in) :: beta, epsilon
+    real(real32), optional, intent(in) :: learning_rate
+    real(real32), optional, intent(in) :: beta, epsilon
     integer, optional, intent(in) :: num_params
     class(base_regulariser_type), optional, intent(in) :: regulariser
     type(clip_type), optional, intent(in) :: clip_dict
@@ -494,7 +494,7 @@ contains
   
     !! initialise gradients
     if(allocated(this%moving_avg)) deallocate(this%moving_avg)
-    allocate(this%moving_avg(num_params), source=0._real12) !1.E-8_real12)
+    allocate(this%moving_avg(num_params), source=0._real32) !1.E-8_real32)
     
   end subroutine init_gradients_rmsprop
 !!!#############################################################################
@@ -506,10 +506,10 @@ contains
   pure subroutine minimise_rmsprop(this, param, gradient)
     implicit none
     class(rmsprop_optimiser_type), intent(inout) :: this
-    real(real12), dimension(:), intent(inout) :: param
-    real(real12), dimension(:), intent(inout) :: gradient
+    real(real32), dimension(:), intent(inout) :: param
+    real(real32), dimension(:), intent(inout) :: gradient
 
-    real(real12) :: learning_rate
+    real(real32) :: learning_rate
 
 
     !! decay learning rate and update iteration
@@ -522,7 +522,7 @@ contains
          param, gradient, learning_rate)
 
     this%moving_avg = this%beta * this%moving_avg + &
-         (1._real12 - this%beta) * gradient ** 2._real12 
+         (1._real32 - this%beta) * gradient ** 2._real32 
 
     !! update parameters
     param = param - learning_rate * gradient / &
@@ -546,8 +546,8 @@ contains
       num_params, &
       regulariser, clip_dict, lr_decay) result(optimiser)
     implicit none
-    real(real12), optional, intent(in) :: learning_rate
-    real(real12), optional, intent(in) :: epsilon
+    real(real32), optional, intent(in) :: learning_rate
+    real(real32), optional, intent(in) :: epsilon
     integer, optional, intent(in) :: num_params
     class(base_regulariser_type), optional, intent(in) :: regulariser
     type(clip_type), optional, intent(in) :: clip_dict
@@ -605,7 +605,7 @@ contains
   
     !! initialise gradients
     if(allocated(this%sum_squares)) deallocate(this%sum_squares)
-    allocate(this%sum_squares(num_params), source=0._real12) !1.E-8_real12)
+    allocate(this%sum_squares(num_params), source=0._real32) !1.E-8_real32)
     
   end subroutine init_gradients_adagrad
 !!!#############################################################################
@@ -617,10 +617,10 @@ contains
   pure subroutine minimise_adagrad(this, param, gradient)
     implicit none
     class(adagrad_optimiser_type), intent(inout) :: this
-    real(real12), dimension(:), intent(inout) :: param
-    real(real12), dimension(:), intent(inout) :: gradient
+    real(real32), dimension(:), intent(inout) :: param
+    real(real32), dimension(:), intent(inout) :: gradient
 
-    real(real12) :: learning_rate
+    real(real32) :: learning_rate
 
 
     !! decay learning rate and update iteration
@@ -632,7 +632,7 @@ contains
          call this%regulariser%regularise( &
          param, this%sum_squares, learning_rate)
 
-    this%sum_squares = this%sum_squares + gradient ** 2._real12 
+    this%sum_squares = this%sum_squares + gradient ** 2._real32 
 
     !! update parameters
     param = param - learning_rate * gradient / &
@@ -656,8 +656,8 @@ contains
       num_params, &
       regulariser, clip_dict, lr_decay) result(optimiser)
     implicit none
-    real(real12), optional, intent(in) :: learning_rate
-    real(real12), optional, intent(in) :: beta1, beta2, epsilon
+    real(real32), optional, intent(in) :: learning_rate
+    real(real32), optional, intent(in) :: beta1, beta2, epsilon
     integer, optional, intent(in) :: num_params
     class(base_regulariser_type), optional, intent(in) :: regulariser
     type(clip_type), optional, intent(in) :: clip_dict
@@ -718,8 +718,8 @@ contains
     !! initialise gradients
     if(allocated(this%m)) deallocate(this%m)
     if(allocated(this%v)) deallocate(this%v)
-    allocate(this%m(num_params), source=0._real12)
-    allocate(this%v(num_params), source=0._real12)
+    allocate(this%m(num_params), source=0._real32)
+    allocate(this%v(num_params), source=0._real32)
     
   end subroutine init_gradients_adam
 !!!#############################################################################
@@ -731,10 +731,10 @@ contains
   pure subroutine minimise_adam(this, param, gradient)
     implicit none
     class(adam_optimiser_type), intent(inout) :: this
-    real(real12), dimension(:), intent(inout) :: param
-    real(real12), dimension(:), intent(inout) :: gradient
+    real(real32), dimension(:), intent(inout) :: param
+    real(real32), dimension(:), intent(inout) :: gradient
 
-    real(real12) :: learning_rate
+    real(real32) :: learning_rate
 
 
     !! decay learning rate and update iteration
@@ -748,14 +748,14 @@ contains
     
     !! adaptive learning method
     this%m = this%beta1 * this%m + &
-         (1._real12 - this%beta1) * gradient
+         (1._real32 - this%beta1) * gradient
     this%v = this%beta2 * this%v + &
-         (1._real12 - this%beta2) * gradient ** 2._real12
+         (1._real32 - this%beta2) * gradient ** 2._real32
     
     !! update parameters
     associate( &
-         m_hat => this%m / (1._real12 - this%beta1**this%iter), &
-         v_hat => this%v / (1._real12 - this%beta2**this%iter) )
+         m_hat => this%m / (1._real32 - this%beta1**this%iter), &
+         v_hat => this%v / (1._real32 - this%beta2**this%iter) )
        select type(regulariser => this%regulariser)
        type is (l2_regulariser_type)
           select case(regulariser%decoupled)

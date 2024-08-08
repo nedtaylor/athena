@@ -9,7 +9,7 @@
 !!! - renormalise_sum    - renormalises input data to a unit sum
 !!!#############################################################################
 module normalisation
-  use constants, only: real12
+  use constants, only: real32
   implicit none
 
 
@@ -26,11 +26,11 @@ contains
 !!!#############################################################################
 subroutine linear_renormalise(input, min, max)
   implicit none
-  real(real12), dimension(:), intent(inout) :: input
-  real(real12), optional, intent(in) :: min, max
+  real(real32), dimension(:), intent(inout) :: input
+  real(real32), optional, intent(in) :: min, max
 
-  real(real12) :: lower, width
-  real(real12) :: min_val, max_val
+  real(real32) :: lower, width
+  real(real32) :: min_val, max_val
 
   min_val = minval(input)
   max_val = maxval(input)
@@ -38,12 +38,12 @@ subroutine linear_renormalise(input, min, max)
   if(present(min))then
      lower = min
   else
-     lower = -1._real12
+     lower = -1._real32
   end if
   if(present(max))then
      width = max - min
   else
-     width = 2._real12
+     width = 2._real32
   end if
 
   input = lower + width * (input - min_val)/(max_val - min_val)
@@ -57,16 +57,16 @@ end subroutine linear_renormalise
 !!!#############################################################################
 subroutine renormalise_norm(input, norm, mirror)
   implicit none
-  real(real12), dimension(:), intent(inout) :: input
-  real(real12), optional, intent(in) :: norm
+  real(real32), dimension(:), intent(inout) :: input
+  real(real32), optional, intent(in) :: norm
   logical, optional, intent(in) :: mirror
  
-  real(real12) :: scale
+  real(real32) :: scale
 
   if(present(norm))then
      scale = norm
   else
-     scale = 1._real12
+     scale = 1._real32
   end if
   
   if(present(mirror))then
@@ -83,18 +83,18 @@ end subroutine renormalise_norm
 !!!#############################################################################
 subroutine renormalise_sum(input, norm, mirror, magnitude)
   implicit none
-  real(real12), dimension(:), intent(inout) :: input
-  real(real12), optional, intent(in) :: norm
+  real(real32), dimension(:), intent(inout) :: input
+  real(real32), optional, intent(in) :: norm
   logical, optional, intent(in) :: mirror, magnitude
 
   logical :: magnitude_
   
-  real(real12) :: scale
+  real(real32) :: scale
 
   if(present(norm))then
      scale = norm
   else
-     scale = 1._real12
+     scale = 1._real32
   end if
 
   if(present(mirror))then

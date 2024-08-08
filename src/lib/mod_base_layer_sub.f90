@@ -84,7 +84,7 @@ contains
   pure subroutine get_output_base(this, output)
     implicit none
     class(base_layer_type), intent(in) :: this
-    real(real12), allocatable, dimension(..), intent(out) :: output
+    real(real32), allocatable, dimension(..), intent(out) :: output
   
     call this%output%get(output)
   end subroutine get_output_base
@@ -137,7 +137,7 @@ contains
   pure module function get_params_batch(this) result(params)
     implicit none
     class(batch_layer_type), intent(in) :: this
-    real(real12), allocatable, dimension(:) :: params
+    real(real32), allocatable, dimension(:) :: params
   
     params = [this%gamma, this%beta]
   
@@ -151,7 +151,7 @@ contains
   module subroutine set_params_batch(this, params)
     implicit none
     class(batch_layer_type), intent(inout) :: this
-    real(real12), dimension(:), intent(in) :: params
+    real(real32), dimension(:), intent(in) :: params
   
     this%gamma = params(1:this%num_channels)
     this%beta  = params(this%num_channels+1:2*this%num_channels)
@@ -168,7 +168,7 @@ contains
     implicit none
     class(batch_layer_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
-    real(real12), allocatable, dimension(:) :: gradients
+    real(real32), allocatable, dimension(:) :: gradients
   
     gradients = [this%dg/this%batch_size, this%db/this%batch_size]
   
@@ -184,7 +184,7 @@ contains
   module subroutine set_gradients_batch(this, gradients)
     implicit none
     class(batch_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: gradients
+    real(real32), dimension(..), intent(in) :: gradients
   
     select rank(gradients)
     rank(0)

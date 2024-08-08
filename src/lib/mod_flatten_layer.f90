@@ -5,7 +5,7 @@
 !!! module contains implementation of a 1D flattening layer
 !!!#############################################################################
 module flatten_layer
-  use constants, only: real12
+  use constants, only: real32
   use base_layer, only: base_layer_type
   use custom_types, only: &
        array1d_type, &
@@ -18,7 +18,7 @@ module flatten_layer
   
   type, extends(base_layer_type) :: flatten_layer_type
      integer :: num_outputs, num_addit_outputs = 0
-     !  real(real12), allocatable, dimension(:,:,:) :: di
+     !  real(real32), allocatable, dimension(:,:,:) :: di
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_flatten
      procedure, pass(this) :: init => init_flatten
@@ -54,7 +54,7 @@ contains
   pure subroutine forward_rank(this, input)
     implicit none
     class(flatten_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: input
 
     select type(output => this%output)
     type is (array2d_type)
@@ -83,8 +83,8 @@ contains
   pure subroutine backward_rank(this, input, gradient)
     implicit none
     class(flatten_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
-    real(real12), dimension(..), intent(in) :: gradient
+    real(real32), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: gradient
 
     select rank(gradient); rank(2)
        select type(di => this%di)
@@ -248,7 +248,7 @@ contains
        this%output = array2d_type()
        call this%output%allocate(shape = [ &
              (this%num_outputs + this%num_addit_outputs), this%batch_size ], &
-             source=0._real12 &
+             source=0._real32 &
        )
        if(allocated(this%di)) deallocate(this%di)
        select case(size(this%input_shape))
@@ -257,14 +257,14 @@ contains
           this%di = array1d_type()
           call this%di%allocate( shape = [ &
                this%input_shape(1) ], &
-               source=0._real12 &
+               source=0._real32 &
        )
        case(2)
           this%input_rank = 1
           this%di = array2d_type()
           call this%di%allocate( shape = [ &
                this%input_shape(1), this%batch_size ], &
-               source=0._real12 &
+               source=0._real32 &
        )
        case(3)
           this%input_rank = 2
@@ -272,7 +272,7 @@ contains
           call this%di%allocate( shape = [ &
                this%input_shape(1), &
                this%input_shape(2), this%batch_size ], &
-               source=0._real12 &
+               source=0._real32 &
        )
        case(4)
           this%input_rank = 3
@@ -281,7 +281,7 @@ contains
                this%input_shape(1), &
                this%input_shape(2), &
                this%input_shape(3), this%batch_size ], &
-               source=0._real12 &
+               source=0._real32 &
           )
        case(5)
           this%input_rank = 4
@@ -291,7 +291,7 @@ contains
                this%input_shape(2), &
                this%input_shape(3), &
                this%input_shape(4), this%batch_size ], &
-               source=0._real12 &
+               source=0._real32 &
           )
        end select
     end if
@@ -398,7 +398,7 @@ contains
   pure subroutine set_addit_input(this, addit_input)
     implicit none
     class(flatten_layer_type), intent(inout) :: this
-    real(real12), dimension(:,:), intent(in) :: addit_input
+    real(real32), dimension(:,:), intent(in) :: addit_input
 
     select type(output => this%output)
     type is (array2d_type)

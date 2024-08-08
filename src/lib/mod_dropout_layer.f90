@@ -8,7 +8,7 @@
 !!! ... https://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf
 !!!#############################################################################
 module dropout_layer
-  use constants, only: real12
+  use constants, only: real32
   use base_layer, only: drop_layer_type
   use custom_types, only: array2d_type
   implicit none
@@ -21,8 +21,8 @@ module dropout_layer
      integer :: idx = 0
      integer :: num_masks
      logical, allocatable, dimension(:,:) :: mask
-    !  real(real12), allocatable, dimension(:,:) :: output
-    !  real(real12), allocatable, dimension(:,:) :: di ! gradient of input (i.e. delta)
+    !  real(real32), allocatable, dimension(:,:) :: output
+    !  real(real32), allocatable, dimension(:,:) :: di ! gradient of input (i.e. delta)
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_dropout
      procedure, pass(this) :: init => init_dropout
@@ -42,7 +42,7 @@ module dropout_layer
           rate, num_masks, &
           input_shape, batch_size) result(layer)
        integer, intent(in) :: num_masks
-       real(real12), intent(in) :: rate
+       real(real32), intent(in) :: rate
        integer, dimension(:), optional, intent(in) :: input_shape
        integer, optional, intent(in) :: batch_size
        type(dropout_layer_type) :: layer
@@ -63,7 +63,7 @@ contains
   pure subroutine forward_rank(this, input)
     implicit none
     class(dropout_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: input
 
     select rank(input); rank(2)
        call forward_2d(this, input)
@@ -78,8 +78,8 @@ contains
   pure subroutine backward_rank(this, input, gradient)
     implicit none
     class(dropout_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
-    real(real12), dimension(..), intent(in) :: gradient
+    real(real32), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: gradient
 
     select rank(input); rank(2)
     select rank(gradient); rank(2)
@@ -103,7 +103,7 @@ contains
        input_shape, batch_size) result(layer)
     implicit none
     integer, intent(in) :: num_masks
-    real(real12), intent(in) :: rate
+    real(real32), intent(in) :: rate
     integer, dimension(:), optional, intent(in) :: input_shape
     integer, optional, intent(in) :: batch_size
     
@@ -137,7 +137,7 @@ contains
   pure subroutine set_hyperparams_dropout(this, rate, num_masks)
     implicit none
     class(dropout_layer_type), intent(inout) :: this
-    real(real12), intent(in) :: rate
+    real(real32), intent(in) :: rate
     integer, intent(in) :: num_masks
 
     this%name = "dropout"
@@ -233,7 +233,7 @@ contains
 
        call this%output%allocate( shape = [ &
             this%output%shape(1), &
-            this%batch_size ], source=0._real12 &
+            this%batch_size ], source=0._real32 &
        )
        if(this%di%allocated) call this%di%deallocate()
        this%di = array2d_type()
@@ -250,7 +250,7 @@ contains
   subroutine generate_dropout_mask(this)
     implicit none
     class(dropout_layer_type), intent(inout) :: this
-    real(real12), allocatable, dimension(:,:) :: mask_real
+    real(real32), allocatable, dimension(:,:) :: mask_real
 
     
     !! generate masks
@@ -315,7 +315,7 @@ contains
     integer :: stat
     integer :: itmp1
     integer :: num_masks
-    real(real12) :: rate
+    real(real32) :: rate
     integer, dimension(3) :: input_shape
     character(256) :: buffer, tag
 
@@ -409,7 +409,7 @@ contains
   pure subroutine forward_2d(this, input)
     implicit none
     class(dropout_layer_type), intent(inout) :: this
-    real(real12), dimension( &
+    real(real32), dimension( &
          this%input_shape(1), this%batch_size), &
          intent(in) :: input
     
@@ -421,15 +421,15 @@ contains
        select case(this%inference)
        case(.true.)
           !! do not perform the drop operation
-          output%val = input * ( 1._real12 - this%rate )
+          output%val = input * ( 1._real32 - this%rate )
        case default
           !! perform the drop operation
           this%idx = this%idx + 1
           do concurrent(s=1:this%batch_size)
               output%val(:,s) = merge( &
-                  input(:,s), 0._real12, &
+                  input(:,s), 0._real32, &
                   this%mask(:,this%idx)) / &
-                  ( 1._real12 - this%rate )
+                  ( 1._real32 - this%rate )
           end do
        end select
     end select
@@ -444,10 +444,10 @@ contains
   pure subroutine backward_2d(this, input, gradient)
     implicit none
     class(dropout_layer_type), intent(inout) :: this
-    real(real12), dimension( &
+    real(real32), dimension( &
          this%input_shape(1), this%batch_size), &
          intent(in) :: input
-    real(real12), &
+    real(real32), &
          dimension(this%output%shape(1), this%batch_size), &
          intent(in) :: gradient
 

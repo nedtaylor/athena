@@ -1,11 +1,11 @@
 program sine
   use athena
-  use constants_mnist, only: real12, pi
+  use constants_mnist, only: real32, pi
 
   implicit none
 
   type(network_type) :: network
-  real(real12), dimension(1,1) :: x, y
+  real(real32), dimension(1,1) :: x, y
   
   integer, parameter :: num_iterations = 10000
   integer, parameter :: test_size = 30
@@ -13,7 +13,7 @@ program sine
   integer :: seed_size
   integer, allocatable, dimension(:) :: seed
 
-  real(real12), dimension(1,test_size) :: x_test, y_test, y_pred
+  real(real32), dimension(1,test_size) :: x_test, y_test, y_pred
 
   integer :: i, n
   
@@ -34,14 +34,14 @@ program sine
   call network%add(full_layer_type(num_inputs=1,num_outputs=5, activation_function="tanh"))
   call network%add(full_layer_type(num_outputs=1, activation_function="sigmoid"))
   call network%compile( &
-       optimiser = base_optimiser_type(learning_rate=1._real12), &
+       optimiser = base_optimiser_type(learning_rate=1._real32), &
        loss_method="mse", metrics=["loss"], verbose=1)
   call network%set_batch_size(1)
 
   !! create test data
   do i = 1, test_size
-     x_test(1,i) = ( ( i - 1 ) * 2._real12 * pi ) / test_size
-     y_test(1,i) = ( sin(x_test(1,i)) + 1._real12 ) / 2._real12
+     x_test(1,i) = ( ( i - 1 ) * 2._real32 * pi ) / test_size
+     y_test(1,i) = ( sin(x_test(1,i)) + 1._real32 ) / 2._real32
   end do
 
   !! train network
@@ -50,8 +50,8 @@ program sine
   write(*,*) "Iteration, Loss"
   do n = 0, num_iterations
     call random_number(x)
-    x = x * 2._real12 * pi
-    y = (sin(x) + 1._real12) / 2._real12
+    x = x * 2._real32 * pi
+    y = (sin(x) + 1._real32) / 2._real32
 
     call network%set_batch_size(1)
     call network%forward(x)

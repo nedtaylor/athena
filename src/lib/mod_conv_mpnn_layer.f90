@@ -8,7 +8,7 @@
 !!! https://doi.org/10.48550/arXiv.1509.09292
 !!!#############################################################################
 module conv_mpnn_layer
-  use constants, only: real12
+  use constants, only: real32
   use misc, only: outer_product
   use custom_types, only: activation_type, initialiser_type
   use graph_constructs, only: graph_type
@@ -31,8 +31,8 @@ module conv_mpnn_layer
 !!!-----------------------------------------------------------------------------
   type, extends(message_phase_type) :: conv_message_phase_type
      !! weight dimensions (feature_out, feature_in, vertex_degree, batch_size)
-     real(real12), dimension(:,:,:), allocatable :: weight
-     real(real12), dimension(:,:,:,:), allocatable :: dw
+     real(real32), dimension(:,:,:), allocatable :: weight
+     real(real32), dimension(:,:,:,:), allocatable :: dw
      type(feature_type), dimension(:), allocatable :: z
      class(activation_type), allocatable :: transfer
    contains
@@ -67,8 +67,8 @@ module conv_mpnn_layer
 !!!-----------------------------------------------------------------------------
   type, extends(readout_phase_type) :: conv_readout_phase_type
     integer :: num_time_steps
-    real(real12), dimension(:,:,:), allocatable :: weight
-    real(real12), dimension(:,:,:,:), allocatable :: dw
+    real(real32), dimension(:,:,:), allocatable :: weight
+    real(real32), dimension(:,:,:,:), allocatable :: dw
     type(feature_type), dimension(:,:), allocatable :: z
     class(activation_type), allocatable :: transfer
    contains
@@ -184,7 +184,7 @@ contains
   pure module function get_params_message_conv(this) result(params)
     implicit none
     class(conv_message_phase_type), intent(in) :: this
-    real(real12), allocatable, dimension(:) :: params
+    real(real32), allocatable, dimension(:) :: params
   
     integer :: t
 
@@ -194,7 +194,7 @@ contains
   pure module function get_params_readout_conv(this) result(params)
     implicit none
     class(conv_readout_phase_type), intent(in) :: this
-    real(real12), allocatable, dimension(:) :: params
+    real(real32), allocatable, dimension(:) :: params
   
     integer :: t
 
@@ -209,7 +209,7 @@ contains
   pure subroutine set_params_message_conv(this, params)
     implicit none
     class(conv_message_phase_type), intent(inout) :: this
-    real(real12), dimension(:), intent(in) :: params
+    real(real32), dimension(:), intent(in) :: params
 
     integer :: t
 
@@ -219,7 +219,7 @@ contains
   pure subroutine set_params_readout_conv(this, params)
     implicit none
     class(conv_readout_phase_type), intent(inout) :: this
-    real(real12), dimension(:), intent(in) :: params
+    real(real32), dimension(:), intent(in) :: params
 
     integer :: t
 
@@ -235,7 +235,7 @@ contains
     implicit none
     class(conv_message_phase_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
-    real(real12), allocatable, dimension(:) :: gradients
+    real(real32), allocatable, dimension(:) :: gradients
 
     gradients = reshape(sum(this%dw,dim=4)/this%batch_size, &
          [ size(this%dw,1) * size(this%dw,2) * size(this%dw,3) ])
@@ -247,7 +247,7 @@ contains
     implicit none
     class(conv_readout_phase_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
-    real(real12), allocatable, dimension(:) :: gradients
+    real(real32), allocatable, dimension(:) :: gradients
 
     gradients = reshape(sum(this%dw,dim=4)/this%batch_size, &
          [ size(this%dw,1) * size(this%dw,2) * size(this%dw,3) ])
@@ -263,7 +263,7 @@ contains
   pure subroutine set_gradients_message_conv(this, gradients)
     implicit none
     class(conv_message_phase_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: gradients
+    real(real32), dimension(..), intent(in) :: gradients
   
     select rank(gradients)
     rank(0)
@@ -278,7 +278,7 @@ contains
   pure subroutine set_gradients_readout_conv(this, gradients)
     implicit none
     class(conv_readout_phase_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: gradients
+    real(real32), dimension(..), intent(in) :: gradients
   
     select rank(gradients)
     rank(0)
@@ -370,14 +370,14 @@ contains
     allocate(message_phase%weight( &
          message_phase%num_message_features, &
          message_phase%num_outputs, &
-         max_vertex_degree), source=0._real12)
+         max_vertex_degree), source=0._real32)
 
     allocate(initialiser_, source=initialiser_setup("he_normal"))
     call initialiser_%initialise(message_phase%weight(:,:,:), &
          fan_in=message_phase%num_message_features*max_vertex_degree, &
          fan_out=message_phase%num_outputs)
     message_phase%weight = &
-         message_phase%weight / (40._real12 * sum(message_phase%weight))
+         message_phase%weight / (40._real32 * sum(message_phase%weight))
     deallocate(initialiser_)
 
     allocate(message_phase%dw( &
@@ -389,7 +389,7 @@ contains
   
     write(*,*) "setting up transfer function"
     allocate(message_phase%transfer, &
-         source=activation_setup("sigmoid", 1._real12))
+         source=activation_setup("sigmoid", 1._real32))
     write(*,*) "transfer function set up"
 
   end function message_phase_setup
@@ -410,7 +410,7 @@ contains
     readout_phase%num_outputs = num_outputs
     readout_phase%batch_size  = batch_size
     allocate(readout_phase%weight( &
-         num_inputs, num_outputs, num_time_steps+1), source=0._real12)
+         num_inputs, num_outputs, num_time_steps+1), source=0._real32)
     allocate(initialiser_, source=initialiser_setup("he_normal"))
     call initialiser_%initialise(readout_phase%weight(:,:,:), &
          fan_in=readout_phase%num_inputs, &
@@ -425,7 +425,7 @@ contains
 
     write(*,*) "setting up transfer function"
     allocate(readout_phase%transfer, &
-         source=activation_setup("softmax", 1._real12))
+         source=activation_setup("softmax", 1._real32))
     write(*,*) "transfer function set up"
 
   end function readout_phase_setup
@@ -619,7 +619,7 @@ contains
     this%type = 'mpnn'
     this%input_rank = 1
     this%output%shape = [ num_outputs ]
-    this%input_shape = [ 1._real12 ]
+    this%input_shape = [ 1._real32 ]
     this%num_time_steps = num_time_steps
     this%num_vertex_features = num_features(1)
     this%num_edge_features = num_features(2)
@@ -651,7 +651,7 @@ contains
           do v = 1, graph(s)%num_vertices
              this%message(s)%val(:,v) = [ &
                   input(s)%val(:,v), &
-                  [ ( 0._real12 , w = 1, graph(s)%num_edge_features ) ] ]
+                  [ ( 0._real32 , w = 1, graph(s)%num_edge_features ) ] ]
              do e = 1, graph(s)%num_edges
                 if(any(abs(graph(s)%edge(e)%index).eq.v))then
                    if(graph(s)%edge(e)%index(1) .eq. v)then
@@ -703,10 +703,10 @@ contains
     type(graph_type), dimension(this%batch_size), intent(in) :: graph
 
     integer :: s, v, degree
-    real(real12), dimension(:,:), allocatable :: delta
+    real(real32), dimension(:,:), allocatable :: delta
 
 
-    this%dw = 0._real12
+    this%dw = 0._real32
     do concurrent(s=1:this%batch_size)
        !! no message passing transfer function
        delta = gradient(s)%val(:,:) * &
@@ -741,14 +741,14 @@ contains
     class(conv_readout_phase_type), intent(inout) :: this
     class(message_phase_type), dimension(0:this%num_time_steps), &
          intent(in) :: input
-    real(real12), dimension(this%num_outputs, this%batch_size), &
+    real(real32), dimension(this%num_outputs, this%batch_size), &
          intent(out) :: output
 
     integer :: s, v, t
 
 
     do s = 1, this%batch_size
-       output(:,s) = 0._real12
+       output(:,s) = 0._real32
        do t = 0, this%num_time_steps, 1
           do v = 1, size(input(t)%feature(s)%val, 2)
              this%z(t+1,s)%val(:,v) = matmul( &
@@ -773,14 +773,14 @@ contains
     class(conv_readout_phase_type), intent(inout) :: this
     class(message_phase_type), dimension(0:this%num_time_steps), &
          intent(in) :: input
-    real(real12), dimension(this%num_outputs, this%batch_size), &
+    real(real32), dimension(this%num_outputs, this%batch_size), &
          intent(in) :: gradient
 
     integer :: s, v, t, num_features
-    real(real12), dimension(this%num_outputs) :: delta
+    real(real32), dimension(this%num_outputs) :: delta
 
 
-    this%dw = 0._real12
+    this%dw = 0._real32
     do concurrent(s=1:this%batch_size)
        !! no message passing transfer function
        
@@ -813,7 +813,7 @@ contains
     implicit none
     class(conv_mpnn_layer_type), intent(inout) :: this
     type(graph_type), dimension(this%batch_size), intent(in) :: graph
-    real(real12), dimension( &
+    real(real32), dimension( &
          this%output%shape(1), &
          this%batch_size &
     ), intent(in) :: gradient

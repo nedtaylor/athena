@@ -5,7 +5,7 @@
 !!! module contains implementation of the leaky ReLU activation function
 !!!#############################################################################
 module activation_leaky_relu
-  use constants, only: real12
+  use constants, only: real32
   use custom_types, only: activation_type
   implicit none
   
@@ -41,14 +41,14 @@ contains
   pure function initialise(scale)
     implicit none
     type(leaky_relu_type) :: initialise    
-    real(real12), optional, intent(in) :: scale
+    real(real32), optional, intent(in) :: scale
 
     initialise%name = "leaky_relu"
 
     if(present(scale))then
        initialise%scale = scale
     else
-       initialise%scale = 1._real12
+       initialise%scale = 1._real32
     end if
   end function initialise
 !!!#############################################################################
@@ -61,52 +61,52 @@ contains
   pure function leaky_relu_activate_1d(this, val) result(output)
     implicit none
     class(leaky_relu_type), intent(in) :: this
-    real(real12), dimension(:), intent(in) :: val
-    real(real12), dimension(size(val,dim=1)) :: output
+    real(real32), dimension(:), intent(in) :: val
+    real(real32), dimension(size(val,dim=1)) :: output
 
-    output = max(0.01_real12*val, val) * this%scale
+    output = max(0.01_real32*val, val) * this%scale
   end function leaky_relu_activate_1d
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
   pure function leaky_relu_activate_2d(this, val) result(output)
     implicit none
     class(leaky_relu_type), intent(in) :: this
-    real(real12), dimension(:,:), intent(in) :: val
-    real(real12), dimension(size(val,1),size(val,2)) :: output
+    real(real32), dimension(:,:), intent(in) :: val
+    real(real32), dimension(size(val,1),size(val,2)) :: output
 
-    output = max(0.01_real12*val, val) * this%scale
+    output = max(0.01_real32*val, val) * this%scale
   end function leaky_relu_activate_2d
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
   pure function leaky_relu_activate_3d(this, val) result(output)
     implicit none
     class(leaky_relu_type), intent(in) :: this
-    real(real12), dimension(:,:,:), intent(in) :: val
-    real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
+    real(real32), dimension(:,:,:), intent(in) :: val
+    real(real32), dimension(size(val,1),size(val,2),size(val,3)) :: output
 
-    output = max(0.01_real12*val, val) * this%scale
+    output = max(0.01_real32*val, val) * this%scale
   end function leaky_relu_activate_3d
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
   pure function leaky_relu_activate_4d(this, val) result(output)
     implicit none
     class(leaky_relu_type), intent(in) :: this
-    real(real12), dimension(:,:,:,:), intent(in) :: val
-    real(real12), dimension(&
+    real(real32), dimension(:,:,:,:), intent(in) :: val
+    real(real32), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4)) :: output
 
-    output = max(0.01_real12*val, val) * this%scale
+    output = max(0.01_real32*val, val) * this%scale
   end function leaky_relu_activate_4d
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
   pure function leaky_relu_activate_5d(this, val) result(output)
     implicit none
     class(leaky_relu_type), intent(in) :: this
-    real(real12), dimension(:,:,:,:,:), intent(in) :: val
-    real(real12), dimension(&
+    real(real32), dimension(:,:,:,:,:), intent(in) :: val
+    real(real32), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
 
-    output = max(0.01_real12*val, val) * this%scale
+    output = max(0.01_real32*val, val) * this%scale
   end function leaky_relu_activate_5d
 !!!#############################################################################
 
@@ -120,13 +120,13 @@ contains
   pure function leaky_relu_differentiate_1d(this, val) result(output)
     implicit none
     class(leaky_relu_type), intent(in) :: this
-    real(real12), dimension(:), intent(in) :: val
-    real(real12), dimension(size(val,dim=1)) :: output
+    real(real32), dimension(:), intent(in) :: val
+    real(real32), dimension(size(val,dim=1)) :: output
 
-    where(val.ge.0._real12)
+    where(val.ge.0._real32)
        output = this%scale
     elsewhere
-       output = 0.01_real12
+       output = 0.01_real32
     end where
   end function leaky_relu_differentiate_1d
 !!!-----------------------------------------------------------------------------
@@ -134,13 +134,13 @@ contains
   pure function leaky_relu_differentiate_2d(this, val) result(output)
     implicit none
     class(leaky_relu_type), intent(in) :: this
-    real(real12), dimension(:,:), intent(in) :: val
-    real(real12), dimension(size(val,1),size(val,2)) :: output
+    real(real32), dimension(:,:), intent(in) :: val
+    real(real32), dimension(size(val,1),size(val,2)) :: output
 
-    where(val.ge.0._real12)
+    where(val.ge.0._real32)
        output = this%scale
     elsewhere
-       output = 0.01_real12
+       output = 0.01_real32
     end where
   end function leaky_relu_differentiate_2d
 !!!-----------------------------------------------------------------------------
@@ -148,13 +148,13 @@ contains
   pure function leaky_relu_differentiate_3d(this, val) result(output)
     implicit none
     class(leaky_relu_type), intent(in) :: this
-    real(real12), dimension(:,:,:), intent(in) :: val
-    real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
+    real(real32), dimension(:,:,:), intent(in) :: val
+    real(real32), dimension(size(val,1),size(val,2),size(val,3)) :: output
 
-    where(val.ge.0._real12)
+    where(val.ge.0._real32)
        output = this%scale
     elsewhere
-       output = 0.01_real12
+       output = 0.01_real32
     end where
   end function leaky_relu_differentiate_3d
 !!!-----------------------------------------------------------------------------
@@ -162,14 +162,14 @@ contains
   pure function leaky_relu_differentiate_4d(this, val) result(output)
     implicit none
     class(leaky_relu_type), intent(in) :: this
-    real(real12), dimension(:,:,:,:), intent(in) :: val
-    real(real12), dimension(&
+    real(real32), dimension(:,:,:,:), intent(in) :: val
+    real(real32), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4)) :: output
 
-    where(val.ge.0._real12)
+    where(val.ge.0._real32)
        output = this%scale
     elsewhere
-       output = 0.01_real12
+       output = 0.01_real32
     end where
   end function leaky_relu_differentiate_4d
 !!!-----------------------------------------------------------------------------
@@ -177,14 +177,14 @@ contains
   pure function leaky_relu_differentiate_5d(this, val) result(output)
     implicit none
     class(leaky_relu_type), intent(in) :: this
-    real(real12), dimension(:,:,:,:,:), intent(in) :: val
-    real(real12), dimension(&
+    real(real32), dimension(:,:,:,:,:), intent(in) :: val
+    real(real32), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
 
-    where(val.ge.0._real12)
+    where(val.ge.0._real32)
        output = this%scale
     elsewhere
-       output = 0.01_real12
+       output = 0.01_real32
     end where
   end function leaky_relu_differentiate_5d
 !!!#############################################################################

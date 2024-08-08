@@ -1,12 +1,12 @@
 program test_flatten4d_layer
-  use constants, only: real12
+  use constants, only: real32
   use flatten4d_layer, only: flatten4d_layer_type
   implicit none
 
   type(flatten4d_layer_type) :: flatten_layer
   integer, parameter :: batch_size = 1, width = 8, num_channels = 3
-  real(real12), allocatable, dimension(:,:,:,:,:,:) :: input_data
-  real(real12), allocatable, dimension(:,:) :: output, gradient
+  real(real32), allocatable, dimension(:,:,:,:,:,:) :: input_data
+  real(real32), allocatable, dimension(:,:) :: output, gradient
   logical :: success = .true.
   real, parameter :: tol = 1e-6
 

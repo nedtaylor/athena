@@ -1,11 +1,11 @@
 program simple
   use athena
-  use constants_mnist, only: real12, pi
+  use constants_mnist, only: real32, pi
 
   implicit none
 
   type(network_type) :: network
-  real(real12), allocatable, dimension(:,:) :: x, y
+  real(real32), allocatable, dimension(:,:) :: x, y
   
   integer, parameter :: num_iterations = 500
 
@@ -29,7 +29,7 @@ program simple
   call network%add(full_layer_type(num_inputs=3,num_outputs=5, activation_function="tanh"))
   call network%add(full_layer_type(num_outputs=2, activation_function="sigmoid"))
   call network%compile( &
-       optimiser = base_optimiser_type(learning_rate=1._real12), &
+       optimiser = base_optimiser_type(learning_rate=1._real32), &
        loss_method="mse", metrics=["loss"], verbose=1)
   call network%set_batch_size(1)
 

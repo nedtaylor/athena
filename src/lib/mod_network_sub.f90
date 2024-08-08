@@ -245,7 +245,7 @@ contains
     this%metrics%active = .false.
     this%metrics(1)%key = "loss"
     this%metrics(2)%key = "accuracy"
-    this%metrics%threshold = 1.E-1_real12
+    this%metrics%threshold = 1.E-1_real32
     select rank(metrics)
 #if defined(GFORTRAN)
     rank(0)
@@ -436,8 +436,8 @@ contains
     implicit none
     class(network_type), intent(inout) :: this
 
-    this%accuracy = 0._real12
-    this%loss = huge(1._real12)
+    this%accuracy = 0._real32
+    this%loss = huge(1._real32)
     this%batch_size = 0
     this%num_layers = 0
     this%num_outputs = 0
@@ -662,8 +662,8 @@ contains
   pure function get_sample(input, start_index, end_index) result(output)
     implicit none
     integer, intent(in) :: start_index, end_index
-    real(real12), dimension(..), intent(in) :: input
-    real(real12), allocatable, dimension(:,:) :: output
+    real(real32), dimension(..), intent(in) :: input
+    real(real32), allocatable, dimension(:,:) :: output
 
     select rank(input)
     rank(2)
@@ -712,13 +712,13 @@ contains
   pure module function get_params(this) result(params)
     implicit none
     class(network_type), intent(in) :: this
-    real(real12), allocatable, dimension(:) :: params
+    real(real32), allocatable, dimension(:) :: params
   
     integer :: l, start_idx, end_idx
   
     start_idx = 0
     end_idx   = 0
-    allocate(params(this%get_num_params()), source=0._real12)
+    allocate(params(this%get_num_params()), source=0._real32)
     do l = 1, this%num_layers
        select type(current => this%model(l)%layer)
        class is(learnable_layer_type)
@@ -738,7 +738,7 @@ contains
   module subroutine set_params(this, params)
     implicit none
     class(network_type), intent(inout) :: this
-    real(real12), dimension(:), intent(in) :: params
+    real(real32), dimension(:), intent(in) :: params
   
     integer :: l, start_idx, end_idx
   
@@ -763,13 +763,13 @@ contains
   pure module function get_gradients(this) result(gradients)
   implicit none
   class(network_type), intent(in) :: this
-  real(real12), allocatable, dimension(:) :: gradients
+  real(real32), allocatable, dimension(:) :: gradients
 
   integer :: l, start_idx, end_idx
 
   start_idx = 0
   end_idx   = 0
-  allocate(gradients(this%get_num_params()), source=0._real12)
+  allocate(gradients(this%get_num_params()), source=0._real32)
   do l = 1, this%num_layers
      select type(current => this%model(l)%layer)
      class is(learnable_layer_type)
@@ -790,7 +790,7 @@ end function get_gradients
   module subroutine set_gradients(this, gradients)
    implicit none
    class(network_type), intent(inout) :: this
-   real(real12), dimension(..), intent(in) :: gradients
+   real(real32), dimension(..), intent(in) :: gradients
  
    integer :: l, start_idx, end_idx
  
@@ -826,7 +826,7 @@ end function get_gradients
    do l = 1, this%num_layers
       select type(current => this%model(l)%layer)
       class is(learnable_layer_type)
-         call current%set_gradients(0._real12)
+         call current%set_gradients(0._real32)
       end select
    end do
  
@@ -845,9 +845,9 @@ end function get_gradients
   pure module subroutine forward_1d(this, input, addit_input, layer)
     implicit none
     class(network_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: input
 
-    real(real12), dimension(:,:), optional, intent(in) :: addit_input
+    real(real32), dimension(:,:), optional, intent(in) :: addit_input
     integer, optional, intent(in) :: layer
     
     integer :: i
@@ -887,10 +887,10 @@ end function get_gradients
   pure module subroutine backward_1d(this, output)
     implicit none
     class(network_type), intent(inout) :: this
-    real(real12), dimension(:,:), intent(in) :: output
+    real(real32), dimension(:,:), intent(in) :: output
 
     integer :: i
-    real(real12), allocatable, dimension(:,:) :: predicted
+    real(real32), allocatable, dimension(:,:) :: predicted
 
 
     !! Backward pass (final layer)
@@ -928,7 +928,7 @@ end function get_gradients
   module subroutine update(this)
     implicit none
     class(network_type), intent(inout) :: this
-    real(real12), allocatable, dimension(:) :: params, gradients
+    real(real32), allocatable, dimension(:) :: params, gradients
 
     integer :: i
     
@@ -966,22 +966,22 @@ end function get_gradients
     use infile_tools, only: stop_check
     implicit none
     class(network_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: input
     class(*), dimension(:,:), intent(in) :: output
     integer, intent(in) :: num_epochs
     integer, optional, intent(in) :: batch_size !! deprecated
 
-    real(real12), dimension(:,:), optional, intent(in) :: addit_input
+    real(real32), dimension(:,:), optional, intent(in) :: addit_input
     integer, optional, intent(in) :: addit_layer
 
-    real(real12), optional, intent(in) :: plateau_threshold
+    real(real32), optional, intent(in) :: plateau_threshold
     logical, optional, intent(in) :: shuffle_batches
     integer, optional, intent(in) :: batch_print_step
     integer, optional, intent(in) :: verbose
     
     !! training and testing monitoring
-    real(real12) :: batch_loss, batch_accuracy, avg_loss, avg_accuracy
-    real(real12), allocatable, dimension(:,:) :: y_true
+    real(real32) :: batch_loss, batch_accuracy, avg_loss, avg_accuracy
+    real(real32), allocatable, dimension(:,:) :: y_true
 
     !! learning parameters
     integer :: l, num_samples
@@ -990,7 +990,7 @@ end function get_gradients
     integer :: history_length
     integer :: verbose_ = 0
     integer :: batch_print_step_ = 20
-    real(real12) :: plateau_threshold_ = 1.E-2_real12
+    real(real32) :: plateau_threshold_ = 1.E-2_real32
     logical :: shuffle_batches_ = .true.
 
     !! training loop variables
@@ -1001,7 +1001,7 @@ end function get_gradients
 
 #ifdef _OPENMP
     type(network_type) :: this_copy
-    real(real12), allocatable, dimension(:,:) :: input_slice, addit_input_slice
+    real(real32), allocatable, dimension(:,:) :: input_slice, addit_input_slice
 #endif
     integer :: timer_start = 0, timer_stop = 0, timer_sum = 0, timer_tot = 0
 
@@ -1019,19 +1019,19 @@ end function get_gradients
 !!!-----------------------------------------------------------------------------
 !!! initialise monitoring variables
 !!!-----------------------------------------------------------------------------
-    history_length = max(ceiling(500._real12/this%batch_size),1)
+    history_length = max(ceiling(500._real32/this%batch_size),1)
     do i=1,size(this%metrics,dim=1)
        if(allocated(this%metrics(i)%history)) &
             deallocate(this%metrics(i)%history)
        allocate(this%metrics(i)%history(history_length))
-       this%metrics(i)%history = -huge(1._real12)
+       this%metrics(i)%history = -huge(1._real32)
     end do
 
 
 !!!-----------------------------------------------------------------------------
 !!! allocate predicted and true label sets
 !!!-----------------------------------------------------------------------------
-    allocate(y_true(this%num_outputs,this%batch_size), source = 0._real12)
+    allocate(y_true(this%num_outputs,this%batch_size), source = 0._real32)
 
 
 !!!-----------------------------------------------------------------------------
@@ -1094,8 +1094,8 @@ end function get_gradients
           call shuffle(batch_order)
        end if
 
-       avg_loss     = 0._real12
-       avg_accuracy = 0._real12
+       avg_loss     = 0._real32
+       avg_accuracy = 0._real32
 
        !!-----------------------------------------------------------------------
        !! batch loop
@@ -1114,7 +1114,7 @@ end function get_gradients
           !!--------------------------------------------------------------------
           select type(output)
           type is(integer)
-             y_true(:,:) = real(output(:,start_index:end_index:1),real12)
+             y_true(:,:) = real(output(:,start_index:end_index:1),real32)
           type is(real)
              y_true(:,:) = output(:,start_index:end_index:1)
           end select
@@ -1255,19 +1255,19 @@ end function get_gradients
        verbose)
     implicit none
     class(network_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: input
     class(*), dimension(:,:), intent(in) :: output
 
-    real(real12), dimension(:,:), optional, intent(in) :: addit_input
+    real(real32), dimension(:,:), optional, intent(in) :: addit_input
     integer, optional, intent(in) :: addit_layer
 
     integer, optional, intent(in) :: verbose
 
     integer :: l, sample, num_samples
     integer :: verbose_, unit
-    real(real12) :: acc_val, loss_val
-    real(real12), allocatable, dimension(:) :: accuracy_list
-    real(real12), allocatable, dimension(:,:) :: predicted, y_true
+    real(real32) :: acc_val, loss_val
+    real(real32), allocatable, dimension(:) :: accuracy_list
+    real(real32), allocatable, dimension(:,:) :: predicted, y_true
 
 
 !!!-----------------------------------------------------------------------------
@@ -1281,15 +1281,15 @@ end function get_gradients
     num_samples = size(output, dim=2)
     allocate(predicted(size(output,1), num_samples))
 
-    this%metrics%val = 0._real12
-    acc_val  = 0._real12
-    loss_val = 0._real12
+    this%metrics%val = 0._real32
+    acc_val  = 0._real32
+    loss_val = 0._real32
     allocate(accuracy_list(num_samples))
 
 
     select type(output)
     type is(integer)
-       y_true = real(output(:,:),real12)
+       y_true = real(output(:,:),real32)
     type is(real)
        y_true = output(:,:)
     end select
@@ -1336,7 +1336,7 @@ end function get_gradients
                !!!! JUST REPLACE y_true(:,sample) WITH output(:,sample) !!!!
                !!!! THERE IS NO REASON TO USE y_true, as it is just a copy !!!!
                !!!! get_loss should handle both integers and reals !!!!
-               !!!! it does not. Instead just wrap real(output(:,sample),real12) !!!!
+               !!!! it does not. Instead just wrap real(output(:,sample),real32) !!!!
                expected  = y_true(:,sample:sample)))
           acc_val = sum(this%get_accuracy( &
                predicted = output_arr%val, &
@@ -1389,14 +1389,14 @@ end function get_gradients
        verbose) result(output)
     implicit none
     class(network_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: input
     
-    real(real12), dimension(:,:), optional, intent(in) :: addit_input
+    real(real32), dimension(:,:), optional, intent(in) :: addit_input
     integer, optional, intent(in) :: addit_layer
     
     integer, optional, intent(in) :: verbose
 
-    real(real12), dimension(:,:), allocatable :: output
+    real(real32), dimension(:,:), allocatable :: output
     
     integer :: verbose_, batch_size
 

@@ -11,7 +11,7 @@
 !!!    -xyz (read only)
 !!!#############################################################################
 module rw_geom
-  use constants_mnist, only: pi,real12
+  use constants_mnist, only: pi,real32
   use misc_mnist, only: to_upper,jump,Icount
   use misc_linalg, only: LUinv,modu
   implicit none
@@ -19,12 +19,12 @@ module rw_geom
   private
 
   integer :: igeom_input=1,igeom_output=1
-  real(real12), dimension(3,3) :: lattice
+  real(real32), dimension(3,3) :: lattice
 
   type spec_type
-     real(real12), allocatable ,dimension(:,:) :: atom
-     real(real12) :: mass
-     real(real12) :: charge
+     real(real32), allocatable ,dimension(:,:) :: atom
+     real(real32) :: mass
+     real(real32) :: charge
      character(len=3) :: name
      integer :: num
   end type spec_type
@@ -32,7 +32,7 @@ module rw_geom
      type(spec_type), allocatable, dimension(:) :: spec
      integer :: nspec
      integer :: natom
-     real(real12) :: energy
+     real(real32) :: energy
      logical :: lcart=.false.
      character(len=1024) :: sysname
   end type bas_type
@@ -57,10 +57,10 @@ contains
     implicit none
     integer :: UNIT,dim,i
     type(bas_type) :: bas
-    real(real12), dimension(3,3) :: lat
+    real(real32), dimension(3,3) :: lat
     integer, optional, intent(in) :: length
 
-    lattice=0._real12
+    lattice=0._real32
     dim=3
     if(present(length)) dim=length
 
@@ -85,7 +85,7 @@ contains
     deallocate(basis%spec)
     if(dim.eq.4)then
        do i=1,bas%nspec
-          bas%spec(i)%atom(:,4)=1._real12
+          bas%spec(i)%atom(:,4)=1._real32
        end do
     end if
 
@@ -101,7 +101,7 @@ contains
     implicit none
     integer :: UNIT
     type(bas_type) :: bas
-    real(real12), dimension(3,3) :: lat
+    real(real32), dimension(3,3) :: lat
 
 !!! MAKE IT CHANGE HERE IF USER SPECIFIES LCART OR NOT
 !!! AND GIVE IT THE CASTEP AND QE OPTION OF LABC !!!
@@ -134,10 +134,10 @@ contains
  subroutine VASP_geom_read(UNIT,length)
    implicit none
    integer :: UNIT,pos,count,Reason
-   real(real12) :: scal 
+   real(real32) :: scal 
    character(len=100) :: lspec
    character(len=1024) :: buffer
-   real(real12), dimension(3,3) :: reclat
+   real(real32), dimension(3,3) :: reclat
    integer, intent(in), optional :: length
    integer :: i,j,k,dim
 
@@ -218,7 +218,7 @@ contains
 !!!-----------------------------------------------------------------------------
    do i=1,basis%nspec
       allocate(basis%spec(i)%atom(basis%spec(i)%num,dim))
-      basis%spec(i)%atom(:,:)=0._real12
+      basis%spec(i)%atom(:,:)=0._real32
       do j=1,basis%spec(i)%num
          read(UNIT,*) (basis%spec(i)%atom(j,k),k=1,3)
       end do
@@ -229,7 +229,7 @@ contains
 !!! convert basis if in cartesian coordinates
 !!!-----------------------------------------------------------------------------
    if(basis%lcart)then
-      reclat=transpose(LUinv(lattice))*2._real12*pi
+      reclat=transpose(LUinv(lattice))*2._real32*pi
       basis=convert_bas(basis,reclat)
    end if
 
@@ -258,7 +258,7 @@ contains
  subroutine VASP_geom_write(UNIT,lat_write,bas_write,lcart)
    implicit none
    integer :: i,j,UNIT
-   real(real12), dimension(3,3) :: lat_write
+   real(real32), dimension(3,3) :: lat_write
    type(bas_type) :: bas_write
    character(100) :: fmt,string
    logical, intent(in), optional :: lcart
@@ -269,7 +269,7 @@ contains
    end if
 
    write(UNIT,'(A)') trim(adjustl(bas_write%sysname))
-   write(UNIT,'(F15.9)') 1._real12
+   write(UNIT,'(F15.9)') 1._real32
    do i=1,3
       write(UNIT,'(3(F15.9))') lat_write(i,:)
    end do
@@ -297,8 +297,8 @@ contains
    integer UNIT,Reason,i,j,k,dim,iline
    integer, dimension(1000) :: tmp_natom
    integer, intent(in), optional :: length
-   real(real12), dimension(3) :: tmpvec
-   real(real12), dimension(3,3) :: reclat
+   real(real32), dimension(3) :: tmpvec
+   real(real32), dimension(3,3) :: reclat
    character(len=5) :: ctmp
    character(len=5), dimension(1000) :: tmp_spec
    character(len=1024) :: buffer,buffer2
@@ -407,7 +407,7 @@ contains
 !!! convert basis if in cartesian coordinates
 !!!-----------------------------------------------------------------------------
    if(basis%lcart)then
-      reclat=transpose(LUinv(lattice))*2._real12*pi
+      reclat=transpose(LUinv(lattice))*2._real32*pi
       basis=convert_bas(basis,reclat)
    end if
 
@@ -436,7 +436,7 @@ contains
  subroutine QE_geom_write(UNIT,lat_write,bas_write,lcart)
    implicit none
    integer :: i,j,UNIT
-   real(real12), dimension(3,3) :: lat_write
+   real(real32), dimension(3,3) :: lat_write
    type(bas_type) :: bas_write
    character(10) :: string
    logical, intent(in), optional :: lcart
@@ -479,8 +479,8 @@ contains
    character(len=200) :: buffer,store
    logical :: labc
    integer, dimension(1000) :: tmp_natom
-   real(real12), dimension(3) :: abc,angle,dvtmp1
-   real(real12), dimension(3,3) :: reclat
+   real(real32), dimension(3) :: abc,angle,dvtmp1
+   real(real32), dimension(3,3) :: reclat
    character(len=5), dimension(1000) :: tmp_spec
    integer, intent(in), optional :: length
 
@@ -601,7 +601,7 @@ contains
 !!! convert basis if in cartesian coordinates
 !!!-----------------------------------------------------------------------------
    if(basis%lcart)then
-      reclat=transpose(LUinv(lattice))*2._real12*pi
+      reclat=transpose(LUinv(lattice))*2._real32*pi
       basis=convert_bas(basis,reclat)
    end if
 
@@ -631,8 +631,8 @@ contains
  subroutine CASTEP_geom_write(UNIT,lat_write,bas_write,labc,lcart)
    implicit none
    integer :: i,j,UNIT
-   real(real12), dimension(3) :: abc,angle
-   real(real12), dimension(3,3) :: lat_write
+   real(real32), dimension(3) :: abc,angle
+   real(real32), dimension(3,3) :: lat_write
    type(bas_type) :: bas_write
    character(4) :: string_lat,string_bas
    logical, intent(in), optional :: labc,lcart
@@ -697,8 +697,8 @@ contains
    integer :: UNIT,Reason 
    integer, intent(in), optional :: length
    integer, allocatable, dimension(:) :: tmp_num
-   real(real12), dimension(3) :: vec
-   real(real12), allocatable, dimension(:,:,:) :: tmp_bas
+   real(real32), dimension(3) :: vec
+   real(real32), allocatable, dimension(:,:,:) :: tmp_bas
    character(len=5) :: ctmp
    character(len=5), allocatable, dimension(:) :: tmp_spec
    integer :: i,j,dim
@@ -796,8 +796,8 @@ contains
    integer :: index1, index2
    integer, intent(in), optional :: length
    integer, allocatable, dimension(:) :: tmp_num
-   real(real12), dimension(3) :: vec
-   real(real12), allocatable, dimension(:,:,:) :: tmp_bas
+   real(real32), dimension(3) :: vec
+   real(real32), allocatable, dimension(:,:,:) :: tmp_bas
    character(len=5) :: ctmp
    character(len=5), allocatable, dimension(:) :: tmp_spec
    character(len=1024) :: buffer
@@ -889,7 +889,7 @@ contains
    implicit none
    integer :: i,j,UNIT
    type(bas_type) :: bas_write
-   real(real12), dimension(3,3) :: lat_write
+   real(real32), dimension(3,3) :: lat_write
 
 
    write(UNIT,'("I0")') bas_write%natom
@@ -926,7 +926,7 @@ contains
    type(bas_type) :: outbas
    
    type(bas_type), intent(in) :: inbas
-   real(real12), dimension(3,3), intent(in) :: latconv
+   real(real32), dimension(3,3), intent(in) :: latconv
 
 
    dim=size(inbas%spec(1)%atom(1,:))
@@ -954,20 +954,20 @@ contains
  function convert_abc_to_lat(abc,angle,radians) result(out_lat)
    use constants_mnist, only: pi
    implicit none
-   real(real12), dimension(3) :: in_angle
-   real(real12), dimension(3,3) :: out_lat
+   real(real32), dimension(3) :: in_angle
+   real(real32), dimension(3,3) :: out_lat
 
-   real(real12), dimension(3), intent(in) :: abc,angle
+   real(real32), dimension(3), intent(in) :: abc,angle
 
    logical, optional, intent(in) :: radians
 
 
    if(present(radians))then
-      if(.not.radians) in_angle=angle*pi/180._real12
+      if(.not.radians) in_angle=angle*pi/180._real32
    end if
-!      in_angle=angle*pi/180._real12 ! this looks wrong, check it
+!      in_angle=angle*pi/180._real32 ! this looks wrong, check it
 
-   out_lat=0._real12
+   out_lat=0._real32
 
    out_lat(1,1)=abc(1)
    out_lat(2,:2)=(/abc(2)*cos(in_angle(3)),abc(2)*sin(in_angle(3))/)
@@ -975,9 +975,9 @@ contains
    out_lat(3,1) = abc(3)*cos(in_angle(2))
    out_lat(3,2) = abc(3)*(cos(in_angle(1)) - cos(in_angle(2))*&
         cos(in_angle(3)))/sin(in_angle(3))
-   out_lat(3,3) = sqrt(abc(3)**2._real12 - &
-        out_lat(3,1)**2._real12 - &
-        out_lat(3,2)**2._real12)
+   out_lat(3,3) = sqrt(abc(3)**2._real32 - &
+        out_lat(3,1)**2._real32 - &
+        out_lat(3,2)**2._real32)
 
 
  end function convert_abc_to_lat
@@ -991,9 +991,9 @@ contains
    use constants_mnist, only: pi
    implicit none
    integer :: i
-   real(real12), dimension(2,3) :: abc_angle
+   real(real32), dimension(2,3) :: abc_angle
 
-   real(real12), dimension(3,3), intent(in) :: in_lat
+   real(real32), dimension(3,3), intent(in) :: in_lat
 
    logical, optional, intent(in) :: radians
 
@@ -1011,7 +1011,7 @@ contains
         (abc_angle(1,1)*abc_angle(1,2)))
 
    if(present(radians))then
-      if(.not.radians) abc_angle(2,:)=abc_angle(2,:)*180._real12/pi
+      if(.not.radians) abc_angle(2,:)=abc_angle(2,:)*180._real32/pi
    end if
 
  end function convert_lat_to_abc
@@ -1025,11 +1025,11 @@ contains
    implicit none
    integer :: i
    integer :: indim,outdim
-   real(real12) :: val
+   real(real32) :: val
    logical :: udef_trans_dim
 
    type(bas_type) :: inbas,outbas
-   real(real12), dimension(3,3), optional :: inlat,outlat
+   real(real32), dimension(3,3), optional :: inlat,outlat
 
    logical, optional, intent(in) :: trans_dim
 
@@ -1052,10 +1052,10 @@ contains
 !!!-----------------------------------------------------------------------------
    if(udef_trans_dim)then
       outdim = 4
-      val = 1._real12
+      val = 1._real32
    else
       outdim = 3
-      val = 0._real12
+      val = 0._real32
    end if
 
 

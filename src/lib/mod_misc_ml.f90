@@ -12,7 +12,7 @@
 !!! - pad_data    - pad any-rank array
 !!!#############################################################################
 module misc_ml
-  use constants, only: real12
+  use constants, only: real32
   implicit none
 
 
@@ -75,7 +75,7 @@ subroutine shuffle_1Dilist(data,seed)
 implicit none
 integer :: istart, num_data, seed_size
 integer :: itmp1, i, j
-real(real12) :: r
+real(real32) :: r
 integer, allocatable, dimension(:) :: iseed
 
 integer, optional, intent(in) :: seed
@@ -111,12 +111,12 @@ implicit none
 integer :: istart,seed_size
 integer :: i,j,n_data,iother
 integer :: i1s,i2s,i1e,i2e,j1s,j2s,j1e,j2e
-real(real12) :: r
+real(real32) :: r
 integer, allocatable, dimension(:) :: iseed
-real(real12), allocatable, dimension(:,:) :: tlist
+real(real32), allocatable, dimension(:,:) :: tlist
 
 integer, intent(in) :: dim
-real(real12), dimension(:,:), intent(inout) :: data
+real(real32), dimension(:,:), intent(inout) :: data
 
 integer, optional, intent(in) :: seed
 
@@ -167,14 +167,14 @@ subroutine shuffle_3Drdata(data,dim,seed)
 implicit none
 integer :: istart,seed_size
 integer :: i,j,n_data
-real(real12) :: r
+real(real32) :: r
 integer, dimension(3) :: idx_s,idx_e,jdx_s,jdx_e
 integer, dimension(3,2) :: t_size
 integer, allocatable, dimension(:) :: iseed
-real(real12), allocatable, dimension(:,:,:) :: tlist
+real(real32), allocatable, dimension(:,:,:) :: tlist
 
 integer, intent(in) :: dim
-real(real12), dimension(:,:,:), intent(inout) :: data
+real(real32), dimension(:,:,:), intent(inout) :: data
 
 integer, optional, intent(in) :: seed
 
@@ -243,7 +243,7 @@ subroutine shuffle_3Didata(data,dim,seed)
  implicit none
  integer :: istart,seed_size
  integer :: i,j,n_data
- real(real12) :: r
+ real(real32) :: r
  integer, dimension(3) :: idx_s,idx_e,jdx_s,jdx_e
  integer, dimension(3,2) :: t_size
  integer, allocatable, dimension(:) :: iseed
@@ -321,14 +321,14 @@ subroutine shuffle_4Drdata(data,dim,seed)
 implicit none
 integer :: istart,seed_size
 integer :: i,j,n_data
-real(real12) :: r
+real(real32) :: r
 integer, dimension(4) :: idx_s,idx_e,jdx_s,jdx_e
 integer, dimension(4,2) :: t_size
 integer, allocatable, dimension(:) :: iseed
-real(real12), allocatable, dimension(:,:,:,:) :: tlist
+real(real32), allocatable, dimension(:,:,:,:) :: tlist
 
 integer, intent(in) :: dim
-real(real12), dimension(:,:,:,:), intent(inout) :: data
+real(real32), dimension(:,:,:,:), intent(inout) :: data
 
 integer, optional, intent(in) :: seed
 
@@ -404,14 +404,14 @@ subroutine shuffle_5Drdata(data,dim,seed)
 implicit none
 integer :: istart,seed_size
 integer :: i,j,n_data
-real(real12) :: r
+real(real32) :: r
 integer, dimension(5) :: idx_s,idx_e,jdx_s,jdx_e
 integer, dimension(5,2) :: t_size
 integer, allocatable, dimension(:) :: iseed
-real(real12), allocatable, dimension(:,:,:,:,:) :: tlist
+real(real32), allocatable, dimension(:,:,:,:,:) :: tlist
 
 integer, intent(in) :: dim
-real(real12), dimension(:,:,:,:,:), intent(inout) :: data
+real(real32), dimension(:,:,:,:,:), intent(inout) :: data
 
 integer, optional, intent(in) :: seed
 
@@ -496,16 +496,16 @@ subroutine shuffle_2Drdata_1Drlist(data,label,dim,seed,shuffle_list)
 implicit none
 integer :: istart,seed_size
 integer :: i,j,n_data
-real(real12) :: rtmp1
-real(real12) :: r
+real(real32) :: rtmp1
+real(real32) :: r
 integer, dimension(2) :: idx_s,idx_e,jdx_s,jdx_e
 integer, dimension(2,2) :: t_size
 integer, allocatable, dimension(:) :: iseed
-real(real12), allocatable, dimension(:,:) :: tlist
+real(real32), allocatable, dimension(:,:) :: tlist
 
 integer, intent(in) :: dim
-real(real12), dimension(:,:), intent(inout) :: data
-real(real12), dimension(:), intent(inout) :: label
+real(real32), dimension(:,:), intent(inout) :: data
+real(real32), dimension(:), intent(inout) :: label
 
 integer, optional, intent(in) :: seed
 integer, optional, dimension(size(data,dim)), intent(out) :: shuffle_list
@@ -577,7 +577,7 @@ subroutine shuffle_3Didata_1Dilist(data,label,dim,seed)
  integer :: istart,seed_size
  integer :: i,j,n_data
  integer :: itmp1
- real(real12) :: r
+ real(real32) :: r
  integer, dimension(3) :: idx_s,idx_e,jdx_s,jdx_e
  integer, dimension(3,2) :: t_size
  integer, allocatable, dimension(:) :: iseed
@@ -661,7 +661,7 @@ end subroutine shuffle_3Didata_1Dilist
    integer :: istart,seed_size
    integer :: i,j,n_data
    integer :: itmp1
-   real(real12) :: r
+   real(real32) :: r
    integer, dimension(3) :: idx_s,idx_e,jdx_s,jdx_e
    integer, dimension(3,2) :: t_size
    integer, allocatable, dimension(:) :: iseed
@@ -669,7 +669,7 @@ end subroutine shuffle_3Didata_1Dilist
 
    integer, intent(in) :: dim
    integer, dimension(:,:,:), intent(inout) :: data
-   real(real12), dimension(:), intent(inout) :: label
+   real(real32), dimension(:), intent(inout) :: label
 
    integer, optional, intent(in) :: seed
 
@@ -745,14 +745,14 @@ implicit none
 integer :: istart, seed_size
 integer :: i,j,n_data
 integer :: itmp1
-real(real12) :: r
+real(real32) :: r
 integer, dimension(4) :: idx_s,idx_e,jdx_s,jdx_e
 integer, dimension(4,2) :: t_size
 integer, allocatable, dimension(:) :: iseed
-real(real12), allocatable, dimension(:,:,:,:) :: tlist
+real(real32), allocatable, dimension(:,:,:,:) :: tlist
 
 integer, intent(in) :: dim
-real(real12), dimension(:,:,:,:), intent(inout) :: data
+real(real32), dimension(:,:,:,:), intent(inout) :: data
 integer, dimension(:), intent(inout) :: label
 
 integer, optional, intent(in) :: seed
@@ -835,14 +835,14 @@ implicit none
 integer :: istart,seed_size
 integer :: i,j,n_data
 integer :: itmp1
-real(real12) :: r
+real(real32) :: r
 integer, dimension(5) :: idx_s,idx_e,jdx_s,jdx_e
 integer, dimension(5,2) :: t_size
 integer, allocatable, dimension(:) :: iseed
-real(real12), allocatable, dimension(:,:,:,:,:) :: tlist
+real(real32), allocatable, dimension(:,:,:,:,:) :: tlist
 
 integer, intent(in) :: dim
-real(real12), dimension(:,:,:,:,:), intent(inout) :: data
+real(real32), dimension(:,:,:,:,:), intent(inout) :: data
 integer, dimension(:), intent(inout) :: label
 
 integer, optional, intent(in) :: seed
@@ -933,16 +933,16 @@ subroutine shuffle_5Drdata_1Drlist(data,label,dim,seed,shuffle_list)
 implicit none
 integer :: istart,seed_size
 integer :: i,j,n_data
-real(real12) :: rtmp1
-real(real12) :: r
+real(real32) :: rtmp1
+real(real32) :: r
 integer, dimension(5) :: idx_s,idx_e,jdx_s,jdx_e
 integer, dimension(5,2) :: t_size
 integer, allocatable, dimension(:) :: iseed
-real(real12), allocatable, dimension(:,:,:,:,:) :: tlist
+real(real32), allocatable, dimension(:,:,:,:,:) :: tlist
 
 integer, intent(in) :: dim
-real(real12), dimension(:,:,:,:,:), intent(inout) :: data
-real(real12), dimension(:), intent(inout) :: label
+real(real32), dimension(:,:,:,:,:), intent(inout) :: data
+real(real32), dimension(:), intent(inout) :: label
 
 integer, optional, intent(in) :: seed
 integer, optional, dimension(size(data,dim)), intent(out) :: shuffle_list
@@ -1037,10 +1037,10 @@ subroutine split_5Drdata(data,left,right,dim,&
   left_size,right_size,&
   shuffle,seed)
 implicit none
-real(real12), dimension(:,:,:,:,:), intent(in) :: data
-real(real12), allocatable, dimension(:,:,:,:,:), intent(out) :: left, right
+real(real32), dimension(:,:,:,:,:), intent(in) :: data
+real(real32), allocatable, dimension(:,:,:,:,:), intent(out) :: left, right
 integer, intent(in) :: dim
-real(real12), optional, intent(in) :: left_size, right_size
+real(real32), optional, intent(in) :: left_size, right_size
 logical, optional, intent(in) :: shuffle
 integer, optional, intent(in) :: seed
 
@@ -1048,10 +1048,10 @@ integer :: seed_, left_num_, right_num_
 logical :: shuffle_
 integer :: i, j
 integer :: num_redos
-real(real12) :: rtmp1
+real(real32) :: rtmp1
 integer, allocatable, dimension(:) :: indices_l, indices_r
-real(real12), allocatable, dimension(:) :: tlist
-real(real12), allocatable, dimension(:,:,:,:,:) :: data_copy
+real(real32), allocatable, dimension(:) :: tlist
+real(real32), allocatable, dimension(:,:,:,:,:) :: data_copy
 
 type idx_type
   integer, allocatable, dimension(:) :: loc
@@ -1142,12 +1142,12 @@ subroutine split_2Drdata_1Drlist(data,label,left_data,right_data,&
   left_size,right_size,&
   shuffle,seed,split_list)
 implicit none
-real(real12), dimension(:,:), intent(in) :: data
-real(real12), dimension(:), intent(in) :: label
-real(real12), allocatable, dimension(:,:), intent(out) :: left_data, right_data
-real(real12), allocatable, dimension(:), intent(out) :: left_label, right_label
+real(real32), dimension(:,:), intent(in) :: data
+real(real32), dimension(:), intent(in) :: label
+real(real32), allocatable, dimension(:,:), intent(out) :: left_data, right_data
+real(real32), allocatable, dimension(:), intent(out) :: left_label, right_label
 integer, intent(in) :: dim
-real(real12), optional, intent(in) :: left_size, right_size
+real(real32), optional, intent(in) :: left_size, right_size
 logical, optional, intent(in) :: shuffle
 integer, optional, intent(in) :: seed
 integer, optional, dimension(size(data,dim)), intent(out) :: split_list
@@ -1156,11 +1156,11 @@ integer :: seed_, left_num_, right_num_
 logical :: shuffle_
 integer :: i, j
 integer :: num_redos
-real(real12) :: rtmp1
+real(real32) :: rtmp1
 integer, allocatable, dimension(:) :: indices_l, indices_r
-real(real12), allocatable, dimension(:) :: tlist
-real(real12), allocatable, dimension(:) :: label_copy
-real(real12), allocatable, dimension(:,:) :: data_copy
+real(real32), allocatable, dimension(:) :: tlist
+real(real32), allocatable, dimension(:) :: label_copy
+real(real32), allocatable, dimension(:,:) :: data_copy
 
 type idx_type
   integer, allocatable, dimension(:) :: loc
@@ -1262,7 +1262,7 @@ subroutine split_3Didata_1Dilist(data,label,left_data,right_data,&
  integer, allocatable, dimension(:,:,:), intent(out) :: left_data, right_data
  integer, allocatable, dimension(:), intent(out) :: left_label, right_label
  integer, intent(in) :: dim
- real(real12), optional, intent(in) :: left_size, right_size
+ real(real32), optional, intent(in) :: left_size, right_size
  logical, optional, intent(in) :: shuffle
  integer, optional, intent(in) :: seed
  integer, optional, dimension(size(data,dim)), intent(out) :: split_list
@@ -1271,9 +1271,9 @@ subroutine split_3Didata_1Dilist(data,label,left_data,right_data,&
  logical :: shuffle_
  integer :: i, j
  integer :: num_redos
- real(real12) :: rtmp1
+ real(real32) :: rtmp1
  integer, allocatable, dimension(:) :: indices_l, indices_r
- real(real12), allocatable, dimension(:) :: tlist
+ real(real32), allocatable, dimension(:) :: tlist
  integer, allocatable, dimension(:) :: label_copy
  integer, allocatable, dimension(:,:,:) :: data_copy
 
@@ -1375,11 +1375,11 @@ subroutine split_3Didata_1Drlist(data,label,left_data,right_data,&
     shuffle,seed,split_list)
  implicit none
  integer, dimension(:,:,:), intent(in) :: data
- real(real12), dimension(:), intent(in) :: label
+ real(real32), dimension(:), intent(in) :: label
  integer, allocatable, dimension(:,:,:), intent(out) :: left_data, right_data
- real(real12), allocatable, dimension(:), intent(out) :: left_label, right_label
+ real(real32), allocatable, dimension(:), intent(out) :: left_label, right_label
  integer, intent(in) :: dim
- real(real12), optional, intent(in) :: left_size, right_size
+ real(real32), optional, intent(in) :: left_size, right_size
  logical, optional, intent(in) :: shuffle
  integer, optional, intent(in) :: seed
  integer, optional, dimension(size(data,dim)), intent(out) :: split_list
@@ -1388,10 +1388,10 @@ subroutine split_3Didata_1Drlist(data,label,left_data,right_data,&
  logical :: shuffle_
  integer :: i, j
  integer :: num_redos
- real(real12) :: rtmp1
+ real(real32) :: rtmp1
  integer, allocatable, dimension(:) :: indices_l, indices_r
- real(real12), allocatable, dimension(:) :: tlist
- real(real12), allocatable, dimension(:) :: label_copy
+ real(real32), allocatable, dimension(:) :: tlist
+ real(real32), allocatable, dimension(:) :: label_copy
  integer, allocatable, dimension(:,:,:) :: data_copy
 
  type idx_type
@@ -1491,12 +1491,12 @@ subroutine split_5Drdata_1Drlist(data,label,left_data,right_data,&
   left_size,right_size,&
   shuffle,seed,split_list)
 implicit none
-real(real12), dimension(:,:,:,:,:), intent(in) :: data
-real(real12), dimension(:), intent(in) :: label
-real(real12), allocatable, dimension(:,:,:,:,:), intent(out) :: left_data, right_data
-real(real12), allocatable, dimension(:), intent(out) :: left_label, right_label
+real(real32), dimension(:,:,:,:,:), intent(in) :: data
+real(real32), dimension(:), intent(in) :: label
+real(real32), allocatable, dimension(:,:,:,:,:), intent(out) :: left_data, right_data
+real(real32), allocatable, dimension(:), intent(out) :: left_label, right_label
 integer, intent(in) :: dim
-real(real12), optional, intent(in) :: left_size, right_size
+real(real32), optional, intent(in) :: left_size, right_size
 logical, optional, intent(in) :: shuffle
 integer, optional, intent(in) :: seed
 integer, optional, dimension(size(data,dim)), intent(out) :: split_list
@@ -1505,11 +1505,11 @@ integer :: seed_, left_num_, right_num_
 logical :: shuffle_
 integer :: i, j
 integer :: num_redos
-real(real12) :: rtmp1
+real(real32) :: rtmp1
 integer, allocatable, dimension(:) :: indices_l, indices_r
-real(real12), allocatable, dimension(:) :: tlist
-real(real12), allocatable, dimension(:) :: label_copy
-real(real12), allocatable, dimension(:,:,:,:,:) :: data_copy
+real(real32), allocatable, dimension(:) :: tlist
+real(real32), allocatable, dimension(:) :: label_copy
+real(real32), allocatable, dimension(:,:,:,:,:) :: data_copy
 
 type idx_type
   integer, allocatable, dimension(:) :: loc
@@ -1709,24 +1709,24 @@ end subroutine split_5Drdata_1Drlist
        kernel_size, padding_method, &
        sample_dim, channel_dim, constant)
     implicit none
-    !real(real12), allocatable, dimension(:,:), intent(inout) :: data
-    real(real12), dimension(..), intent(in) :: data
-    real(real12), allocatable, dimension(..), intent(out) :: data_padded
+    !real(real32), allocatable, dimension(:,:), intent(inout) :: data
+    real(real32), dimension(..), intent(in) :: data
+    real(real32), allocatable, dimension(..), intent(out) :: data_padded
     integer, dimension(..), intent(in) :: kernel_size
     character(*), intent(inout) :: padding_method
-    real(real12), optional, intent(in) :: constant
+    real(real32), optional, intent(in) :: constant
 
     integer, optional, intent(in) :: sample_dim, channel_dim
     
     integer :: i, j, idim
     integer :: num_samples, num_channels, ndim, ndata_dim
     integer :: sample_dim_ = 0, channel_dim_ = 0
-    real(real12) :: constant_ = 0._real12
+    real(real32) :: constant_ = 0._real32
     integer, dimension(2) :: bound_store
     integer, allocatable, dimension(:) :: padding
     integer, allocatable, dimension(:,:) :: trgt_bound, dest_bound
     integer, allocatable, dimension(:,:) :: tmp_trgt_bound, tmp_dest_bound
-    !real(real12), allocatable, dimension(:,:) :: data_copy
+    !real(real32), allocatable, dimension(:,:) :: data_copy
 
 
 !!!-----------------------------------------------------------------------------

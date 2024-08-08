@@ -5,7 +5,7 @@
 !!! module contains implementation of a fully connected (dense) layer
 !!!#############################################################################
 module full_layer
-  use constants, only: real12
+  use constants, only: real32
   use base_layer, only: learnable_layer_type
   use custom_types, only: activation_type, initialiser_type, &
        array2d_type
@@ -18,11 +18,11 @@ module full_layer
   type, extends(learnable_layer_type) :: full_layer_type
      integer :: num_inputs, num_addit_inputs = 0
      integer :: num_outputs
-     real(real12), allocatable, dimension(:,:) :: weight
-     real(real12), allocatable, dimension(:,:,:) :: dw ! weight gradient
-     real(real12), allocatable, dimension(:,:) :: z ! activation
-    !  real(real12), allocatable, dimension(:,:) :: output !output
-    !  real(real12), allocatable, dimension(:,:) :: di ! input gradient (i.e. delta)
+     real(real32), allocatable, dimension(:,:) :: weight
+     real(real32), allocatable, dimension(:,:,:) :: dw ! weight gradient
+     real(real32), allocatable, dimension(:,:) :: z ! activation
+    !  real(real32), allocatable, dimension(:,:) :: output !output
+    !  real(real32), allocatable, dimension(:,:) :: di ! input gradient (i.e. delta)
    contains
      procedure, pass(this) :: get_num_params => get_num_params_full
      procedure, pass(this) :: get_params => get_params_full
@@ -60,7 +60,7 @@ module full_layer
        integer, intent(in) :: num_outputs
        integer, optional, intent(in) :: num_inputs, num_addit_inputs
        integer, optional, intent(in) :: batch_size
-       real(real12), optional, intent(in) :: activation_scale
+       real(real32), optional, intent(in) :: activation_scale
        character(*), optional, intent(in) :: activation_function, &
             kernel_initialiser, bias_initialiser
        type(full_layer_type) :: layer
@@ -149,7 +149,7 @@ contains
   pure function get_params_full(this) result(params)
     implicit none
     class(full_layer_type), intent(in) :: this
-    real(real12), allocatable, dimension(:) :: params
+    real(real32), allocatable, dimension(:) :: params
   
     params = reshape(this%weight, [ (this%num_inputs+1) * this%num_outputs ])
   
@@ -163,7 +163,7 @@ contains
   subroutine set_params_full(this, params)
     implicit none
     class(full_layer_type), intent(inout) :: this
-    real(real12), dimension(:), intent(in) :: params
+    real(real32), dimension(:), intent(in) :: params
   
     this%weight = reshape(params, [ this%num_inputs+1, this%num_outputs ])
   
@@ -179,7 +179,7 @@ contains
     implicit none
     class(full_layer_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
-    real(real12), allocatable, dimension(:) :: gradients
+    real(real32), allocatable, dimension(:) :: gradients
   
     gradients = reshape(sum(this%dw,dim=3)/this%batch_size, &
          [ (this%num_inputs+1) * this%num_outputs ])
@@ -196,7 +196,7 @@ contains
   subroutine set_gradients_full(this, gradients)
     implicit none
     class(full_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: gradients
+    real(real32), dimension(..), intent(in) :: gradients
   
     select rank(gradients)
     rank(0)
@@ -221,7 +221,7 @@ contains
   pure subroutine forward_rank(this, input)
     implicit none
     class(full_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: input
 
     select rank(input); rank(2)
        call forward_2d(this, input)
@@ -236,8 +236,8 @@ contains
   pure subroutine backward_rank(this, input, gradient)
     implicit none
     class(full_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
-    real(real12), dimension(..), intent(in) :: gradient
+    real(real32), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: gradient
 
     select rank(input); rank(2)
     select rank(gradient); rank(2)
@@ -265,7 +265,7 @@ contains
     integer, intent(in) :: num_outputs
     integer, optional, intent(in) :: num_inputs, num_addit_inputs
     integer, optional, intent(in) :: batch_size
-    real(real12), optional, intent(in) :: activation_scale
+    real(real32), optional, intent(in) :: activation_scale
     character(*), optional, intent(in) :: activation_function, &
          kernel_initialiser, bias_initialiser
     integer, optional, intent(in) :: verbose
@@ -274,7 +274,7 @@ contains
 
     integer :: verbose_ = 0
     integer :: num_addit_inputs_ = 0
-    real(real12) :: scale = 1._real12
+    real(real32) :: scale = 1._real32
     character(len=10) :: activation_function_ = "none"
 
 
@@ -337,7 +337,7 @@ contains
     class(full_layer_type), intent(inout) :: this
     integer, intent(in) :: num_outputs, num_addit_inputs
     character(*), intent(in) :: activation_function
-    real(real12), intent(in) :: activation_scale
+    real(real32), intent(in) :: activation_scale
     character(*), intent(in) :: kernel_initialiser, bias_initialiser
     integer, optional, intent(in) :: verbose
 
@@ -426,7 +426,7 @@ contains
     !!--------------------------------------------------------------------------
     !! allocate weight, weight steps (velocities), output, and activation
     !!--------------------------------------------------------------------------
-    allocate(this%weight(this%num_inputs+1,this%num_outputs), source=0._real12)
+    allocate(this%weight(this%num_inputs+1,this%num_outputs), source=0._real32)
 
 
     !!--------------------------------------------------------------------------
@@ -481,7 +481,7 @@ contains
       this%output = array2d_type()
       call this%output%allocate( &
            [this%num_outputs, this%batch_size], &
-           source=0._real12 &
+           source=0._real32 &
       )
       if(allocated(this%z)) deallocate(this%z)
       select type(output => this%output)
@@ -490,12 +490,12 @@ contains
       end select
       if(allocated(this%dw)) deallocate(this%dw)
       allocate(this%dw(this%num_inputs+1,this%num_outputs, this%batch_size), &
-           source=0._real12)
+           source=0._real32)
       if(this%di%allocated) deallocate(this%di)
       this%di = array2d_type()
       call this%di%allocate( &
            [this%num_inputs, this%batch_size], &
-           source=0._real12 &
+           source=0._real32 &
       )
    end if
 
@@ -565,13 +565,13 @@ contains
     integer :: stat, verbose_ = 0
     integer :: i, j, k, c, itmp1
     integer :: num_inputs, num_outputs, num_addit_inputs = 0
-    real(real12) :: activation_scale
+    real(real32) :: activation_scale
     logical :: found_weights = .false.
     character(14) :: kernel_initialiser='', bias_initialiser=''
     character(20) :: activation_function
     character(256) :: buffer, tag
 
-    real(real12), allocatable, dimension(:) :: data_list
+    real(real32), allocatable, dimension(:) :: data_list
 
 
     !!--------------------------------------------------------------------------
@@ -660,7 +660,7 @@ contains
       write(0,*) "WARNING: WEIGHTS card in FULL not found"
     else
        do i=1,num_outputs
-          allocate(data_list((num_inputs+1)), source=0._real12)
+          allocate(data_list((num_inputs+1)), source=0._real32)
           c = 1
           k = 1
           data_concat_loop: do while(c.le.num_inputs+1)
@@ -727,7 +727,7 @@ contains
   pure subroutine forward_2d(this, input)
     implicit none
     class(full_layer_type), intent(inout) :: this
-    real(real12), dimension(this%num_inputs, this%batch_size), &
+    real(real32), dimension(this%num_inputs, this%batch_size), &
          intent(in) :: input
 
     integer :: s
@@ -756,21 +756,21 @@ contains
   pure subroutine backward_2d(this, input, gradient)
     implicit none
     class(full_layer_type), intent(inout) :: this
-    real(real12), dimension(this%num_inputs, this%batch_size), &
+    real(real32), dimension(this%num_inputs, this%batch_size), &
          intent(in) :: input
-    real(real12), dimension(this%num_outputs, this%batch_size), &
+    real(real32), dimension(this%num_outputs, this%batch_size), &
          intent(in) :: gradient
 
-    real(real12), dimension(this%num_outputs, this%batch_size) :: delta
-    real(real12), dimension(&
+    real(real32), dimension(this%num_outputs, this%batch_size) :: delta
+    real(real32), dimension(&
          this%num_inputs, this%num_outputs, this%batch_size) :: dw
 
-    real(real12), dimension(1) :: bias_diff
+    real(real32), dimension(1) :: bias_diff
 
     integer :: s
 
 
-    bias_diff = this%transfer%differentiate([1._real12])
+    bias_diff = this%transfer%differentiate([1._real32])
 
     !! the delta values are the error multipled by the derivative ...
     !! ... of the transfer function

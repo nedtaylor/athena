@@ -5,7 +5,7 @@
 !!! module contains implementation of the tanh activation function
 !!!#############################################################################
 module activation_tanh
-  use constants, only: real12
+  use constants, only: real32
   use custom_types, only: activation_type
   implicit none
   
@@ -41,22 +41,22 @@ contains
   pure function initialise(threshold, scale)
     implicit none
     type(tanh_type) :: initialise
-    real(real12), optional, intent(in) :: threshold
-    real(real12), optional, intent(in) :: scale
+    real(real32), optional, intent(in) :: threshold
+    real(real32), optional, intent(in) :: scale
 
     initialise%name = "tanh"
 
     if(present(scale))then
        initialise%scale = scale
     else
-       initialise%scale = 1._real12
+       initialise%scale = 1._real32
     end if
 
     !initialise%name = "tanh"
     if(present(threshold))then
        initialise%threshold = threshold
     else
-       initialise%threshold = min(huge(1._real12),32._real12)
+       initialise%threshold = min(huge(1._real32),32._real32)
     end if
 
   end function initialise
@@ -70,13 +70,13 @@ contains
   pure function tanh_activate_1d(this, val) result(output)
     implicit none
     class(tanh_type), intent(in) :: this
-    real(real12), dimension(:), intent(in) :: val
-    real(real12), dimension(size(val,dim=1)) :: output
+    real(real32), dimension(:), intent(in) :: val
+    real(real32), dimension(size(val,dim=1)) :: output
 
     !! fix rounding errors of division of small numbers
     !! alt. could add an epsilon
     where(abs(val).gt.this%threshold)
-       output = sign(1._real12, val) * this%scale
+       output = sign(1._real32, val) * this%scale
     elsewhere
        output = this%scale * (exp(val) - exp(-val))/(exp(val) + exp(-val))
     end where
@@ -86,13 +86,13 @@ contains
   pure function tanh_activate_2d(this, val) result(output)
     implicit none
     class(tanh_type), intent(in) :: this
-    real(real12), dimension(:,:), intent(in) :: val
-    real(real12), dimension(size(val,1),size(val,2)) :: output
+    real(real32), dimension(:,:), intent(in) :: val
+    real(real32), dimension(size(val,1),size(val,2)) :: output
 
     !! fix rounding errors of division of small numbers
     !! alt. could add an epsilon
     where(abs(val).gt.this%threshold)
-       output = sign(1._real12, val) * this%scale
+       output = sign(1._real32, val) * this%scale
     elsewhere
        output = this%scale * (exp(val) - exp(-val))/(exp(val) + exp(-val))
     end where
@@ -102,13 +102,13 @@ contains
   pure function tanh_activate_3d(this, val) result(output)
     implicit none
     class(tanh_type), intent(in) :: this
-    real(real12), dimension(:,:,:), intent(in) :: val
-    real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
+    real(real32), dimension(:,:,:), intent(in) :: val
+    real(real32), dimension(size(val,1),size(val,2),size(val,3)) :: output
 
     !! fix rounding errors of division of small numbers
     !! alt. could add an epsilon
     where(abs(val).gt.this%threshold)
-       output = sign(1._real12, val) * this%scale
+       output = sign(1._real32, val) * this%scale
     elsewhere
        output = this%scale * (exp(val) - exp(-val))/(exp(val) + exp(-val))
     end where
@@ -118,14 +118,14 @@ contains
   pure function tanh_activate_4d(this, val) result(output)
     implicit none
     class(tanh_type), intent(in) :: this
-    real(real12), dimension(:,:,:,:), intent(in) :: val
-    real(real12), dimension(&
+    real(real32), dimension(:,:,:,:), intent(in) :: val
+    real(real32), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4)) :: output
 
     !! fix rounding errors of division of small numbers
     !! alt. could add an epsilon
     where(abs(val).gt.this%threshold)
-       output = sign(1._real12, val) * this%scale
+       output = sign(1._real32, val) * this%scale
     elsewhere
        output = this%scale * (exp(val) - exp(-val))/(exp(val) + exp(-val))
     end where
@@ -135,14 +135,14 @@ contains
   pure function tanh_activate_5d(this, val) result(output)
     implicit none
     class(tanh_type), intent(in) :: this
-    real(real12), dimension(:,:,:,:,:), intent(in) :: val
-    real(real12), dimension(&
+    real(real32), dimension(:,:,:,:,:), intent(in) :: val
+    real(real32), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
 
     !! fix rounding errors of division of small numbers
     !! alt. could add an epsilon
     where(abs(val).gt.this%threshold)
-       output = sign(1._real12, val) * this%scale
+       output = sign(1._real32, val) * this%scale
     elsewhere
        output = this%scale * (exp(val) - exp(-val))/(exp(val) + exp(-val))
     end where
@@ -157,11 +157,11 @@ contains
   pure function tanh_differentiate_1d(this, val) result(output)
     implicit none
     class(tanh_type), intent(in) :: this
-    real(real12), dimension(:), intent(in) :: val
-    real(real12), dimension(size(val,dim=1)) :: output
+    real(real32), dimension(:), intent(in) :: val
+    real(real32), dimension(size(val,dim=1)) :: output
 
     output = this%scale * &
-         (1._real12 - (this%activate_1d(val)/this%scale) ** 2._real12)
+         (1._real32 - (this%activate_1d(val)/this%scale) ** 2._real32)
 
   end function tanh_differentiate_1d
 !!!-----------------------------------------------------------------------------
@@ -169,11 +169,11 @@ contains
   pure function tanh_differentiate_2d(this, val) result(output)
     implicit none
     class(tanh_type), intent(in) :: this
-    real(real12), dimension(:,:), intent(in) :: val
-    real(real12), dimension(size(val,1),size(val,2)) :: output
+    real(real32), dimension(:,:), intent(in) :: val
+    real(real32), dimension(size(val,1),size(val,2)) :: output
 
     output = this%scale * &
-         (1._real12 - (this%activate_2d(val)/this%scale) ** 2._real12)
+         (1._real32 - (this%activate_2d(val)/this%scale) ** 2._real32)
 
   end function tanh_differentiate_2d
 !!!-----------------------------------------------------------------------------
@@ -181,11 +181,11 @@ contains
   pure function tanh_differentiate_3d(this, val) result(output)
     implicit none
     class(tanh_type), intent(in) :: this
-    real(real12), dimension(:,:,:), intent(in) :: val
-    real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
+    real(real32), dimension(:,:,:), intent(in) :: val
+    real(real32), dimension(size(val,1),size(val,2),size(val,3)) :: output
 
     output = this%scale * &
-         (1._real12 - (this%activate_3d(val)/this%scale) ** 2._real12)
+         (1._real32 - (this%activate_3d(val)/this%scale) ** 2._real32)
 
   end function tanh_differentiate_3d
 !!!-----------------------------------------------------------------------------
@@ -193,12 +193,12 @@ contains
   pure function tanh_differentiate_4d(this, val) result(output)
     implicit none
     class(tanh_type), intent(in) :: this
-    real(real12), dimension(:,:,:,:), intent(in) :: val
-    real(real12), dimension(&
+    real(real32), dimension(:,:,:,:), intent(in) :: val
+    real(real32), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4)) :: output
 
     output = this%scale * &
-         (1._real12 - (this%activate_4d(val)/this%scale) ** 2._real12)
+         (1._real32 - (this%activate_4d(val)/this%scale) ** 2._real32)
 
   end function tanh_differentiate_4d
 !!!-----------------------------------------------------------------------------
@@ -206,12 +206,12 @@ contains
   pure function tanh_differentiate_5d(this, val) result(output)
     implicit none
     class(tanh_type), intent(in) :: this
-    real(real12), dimension(:,:,:,:,:), intent(in) :: val
-    real(real12), dimension(&
+    real(real32), dimension(:,:,:,:,:), intent(in) :: val
+    real(real32), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
 
     output = this%scale * &
-         (1._real12 - (this%activate_5d(val)/this%scale) ** 2._real12)
+         (1._real32 - (this%activate_5d(val)/this%scale) ** 2._real32)
 
   end function tanh_differentiate_5d
 !!!#############################################################################

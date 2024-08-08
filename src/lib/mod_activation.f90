@@ -7,7 +7,7 @@
 !!! - activation_setup - set up the activation function
 !!!#############################################################################
 module activation
-  use constants, only: real12
+  use constants, only: real32
   use misc, only: to_lower
   use custom_types, only: activation_type
   use activation_gaussian, only: gaussian_setup
@@ -34,11 +34,11 @@ contains
 !!!#############################################################################
   pure function activation_setup(name, scale) result(transfer)
     implicit none
-    real(real12), optional, intent(in) :: scale
+    real(real32), optional, intent(in) :: scale
     class(activation_type), allocatable :: transfer
     character(*), intent(in) :: name
 
-    real(real12) :: scale_
+    real(real32) :: scale_
 
 
     !!--------------------------------------------------------------------------
@@ -47,7 +47,7 @@ contains
     if(present(scale))then
        scale_ = scale
     else
-       scale_ = 1._real12
+       scale_ = 1._real32
     end if
 
 

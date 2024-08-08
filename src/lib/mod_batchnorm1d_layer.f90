@@ -5,7 +5,7 @@
 !!! module contains implementation of 0D and 1D batch normalisation layers
 !!!#############################################################################
 module batchnorm1d_layer
-  use constants, only: real12
+  use constants, only: real32
   use base_layer, only: batch_layer_type, learnable_layer_type
   use custom_types, only: initialiser_type, array3d_type
   implicit none
@@ -13,8 +13,8 @@ module batchnorm1d_layer
   
   type, extends(batch_layer_type) :: batchnorm1d_layer_type
      integer :: num_inputs = 1
-   !   real(real12), allocatable, dimension(:,:,:) :: output
-   !   real(real12), allocatable, dimension(:,:,:) :: di ! gradient of input (i.e. delta)
+   !   real(real32), allocatable, dimension(:,:,:) :: output
+   !   real(real32), allocatable, dimension(:,:,:) :: di ! gradient of input (i.e. delta)
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_batchnorm1d
      procedure, pass(this) :: init => init_batchnorm1d
@@ -48,9 +48,9 @@ module batchnorm1d_layer
        integer, dimension(:), optional, intent(in) :: input_shape
        integer, optional, intent(in) :: batch_size
        integer, optional, intent(in) :: num_channels, num_inputs
-       real(real12), optional, intent(in) :: momentum, epsilon
-       real(real12), optional, intent(in) :: gamma_init_mean, gamma_init_std
-       real(real12), optional, intent(in) :: beta_init_mean, beta_init_std
+       real(real32), optional, intent(in) :: momentum, epsilon
+       real(real32), optional, intent(in) :: gamma_init_mean, gamma_init_std
+       real(real32), optional, intent(in) :: beta_init_mean, beta_init_std
        character(*), optional, intent(in) :: &
             kernel_initialiser, bias_initialiser, &
             moving_mean_initialiser, moving_variance_initialiser
@@ -130,7 +130,7 @@ contains
   pure subroutine forward_rank(this, input)
     implicit none
     class(batchnorm1d_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: input
 
     select rank(input)
     rank(2)
@@ -148,8 +148,8 @@ contains
   pure subroutine backward_rank(this, input, gradient)
     implicit none
     class(batchnorm1d_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
-    real(real12), dimension(..), intent(in) :: gradient
+    real(real32), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: gradient
 
     select rank(input); rank(2)
     select rank(gradient); rank(2)
@@ -188,9 +188,9 @@ contains
     integer, dimension(:), optional, intent(in) :: input_shape
     integer, optional, intent(in) :: batch_size
     integer, optional, intent(in) :: num_channels, num_inputs
-    real(real12), optional, intent(in) :: momentum, epsilon
-    real(real12), optional, intent(in) :: gamma_init_mean, gamma_init_std
-    real(real12), optional, intent(in) :: beta_init_mean, beta_init_std
+    real(real32), optional, intent(in) :: momentum, epsilon
+    real(real32), optional, intent(in) :: gamma_init_mean, gamma_init_std
+    real(real32), optional, intent(in) :: beta_init_mean, beta_init_std
     character(*), optional, intent(in) :: &
          kernel_initialiser, bias_initialiser, &
          moving_mean_initialiser, moving_variance_initialiser
@@ -220,12 +220,12 @@ contains
     if(present(momentum))then
        layer%momentum = momentum
     else
-       layer%momentum = 0._real12
+       layer%momentum = 0._real32
     end if
     if(present(epsilon))then
        layer%epsilon = epsilon
     else
-       layer%epsilon = 1.E-5_real12
+       layer%epsilon = 1.E-5_real32
     end if
 
 
@@ -306,9 +306,9 @@ contains
        verbose )
     implicit none
     class(batchnorm1d_layer_type), intent(inout) :: this
-    real(real12), intent(in) :: momentum, epsilon
-    real(real12), intent(in) :: gamma_init_mean, gamma_init_std
-    real(real12), intent(in) :: beta_init_mean, beta_init_std
+    real(real32), intent(in) :: momentum, epsilon
+    real(real32), intent(in) :: gamma_init_mean, gamma_init_std
+    real(real32), intent(in) :: beta_init_mean, beta_init_std
     character(*), intent(in) :: kernel_initialiser, bias_initialiser
     character(*), intent(in) :: &
          moving_mean_initialiser, moving_variance_initialiser
@@ -397,7 +397,7 @@ contains
     !!--------------------------------------------------------------------------
     !! allocate mean, variance, gamma, beta, dg, db
     !!--------------------------------------------------------------------------
-    allocate(this%mean(this%num_channels), source=0._real12)
+    allocate(this%mean(this%num_channels), source=0._real32)
     allocate(this%variance, source=this%mean)
     allocate(this%gamma, source=this%mean)
     allocate(this%beta, source=this%mean)
@@ -478,7 +478,7 @@ contains
     !!--------------------------------------------------------------------------
     !! set norm
     !!--------------------------------------------------------------------------
-    this%norm = real(this%batch_size, real12)
+    this%norm = real(this%batch_size, real32)
 
 
     !!--------------------------------------------------------------------------
@@ -491,7 +491,7 @@ contains
             this%num_inputs, &
             this%num_channels, &
             this%batch_size ], &
-            source=0._real12 &
+            source=0._real32 &
        )
        if(this%di%allocated) call this%di%deallocate()
        this%di = array3d_type()
@@ -563,13 +563,13 @@ contains
     integer :: stat, verbose_ = 0
     integer :: itmp1, c, i, j, k
     integer :: num_channels
-    real(real12) :: momentum = 0._real12, epsilon = 1.E-5_real12
+    real(real32) :: momentum = 0._real32, epsilon = 1.E-5_real32
     logical :: found_gamma=.false., found_beta=.false.
     character(14) :: kernel_initialiser='', bias_initialiser=''
     character(256) :: buffer, tag
 
     integer, dimension(3) :: input_shape
-    real(real12), allocatable, dimension(:) :: data_list
+    real(real32), allocatable, dimension(:) :: data_list
 
 
     !!--------------------------------------------------------------------------
@@ -658,12 +658,12 @@ contains
     !!--------------------------------------------------------------------------
     !! check if WEIGHTS card was found
     !!--------------------------------------------------------------------------
-    allocate(data_list(num_channels), source=0._real12)
+    allocate(data_list(num_channels), source=0._real32)
     do i=1,2
       if(found_gamma.or.found_beta)then
          c = 1
          k = 1
-         data_list = 0._real12
+         data_list = 0._real32
          data_concat_loop: do while(c.le.num_channels)
             read(unit,'(A)',iostat=stat) buffer
             if(stat.ne.0) exit data_concat_loop
@@ -728,14 +728,14 @@ contains
   pure subroutine forward_3d(this, input)
     implicit none
     class(batchnorm1d_layer_type), intent(inout) :: this
-    real(real12), dimension( &
+    real(real32), dimension( &
          this%num_inputs, &
          this%num_channels, &
          this%batch_size), &
          intent(in) :: input
 
     integer :: m
-    real(real12), dimension(this%num_channels) :: t_mean, t_variance
+    real(real32), dimension(this%num_channels) :: t_mean, t_variance
 
     
     select type(output => this%output)
@@ -751,22 +751,22 @@ contains
                   this%beta(m)
          end do
        case default
-         t_mean = 0._real12
-         t_variance = 0._real12
+         t_mean = 0._real32
+         t_variance = 0._real32
          do concurrent(m=1:this%num_channels)
              !! calculate current mean and variance
              t_mean(m) = sum(input(:,m,:)) / this%norm
-             t_variance(m) = sum((input(:,m,:) - t_mean(m))**2._real12) / this%norm
+             t_variance(m) = sum((input(:,m,:) - t_mean(m))**2._real32) / this%norm
 
              !! CONVERT TO USING inverse square root of variance (i.e. inverse std)
              !! would also need to include epsilon in the sqrt denominator
 
              !! update running averages
-             if(this%momentum.gt.1.E-8_real12)then
+             if(this%momentum.gt.1.E-8_real32)then
                 this%mean(m) = this%momentum * this%mean(m) + &
-                      (1._real12 - this%momentum) * t_mean(m)
+                      (1._real32 - this%momentum) * t_mean(m)
                 this%variance(m) = this%momentum * this%variance(m) + &
-                      (1._real12 - this%momentum) * t_variance(m)
+                      (1._real32 - this%momentum) * t_variance(m)
              else
                 this%mean(m) = t_mean(m)
                 this%variance(m) = t_variance(m)
@@ -790,19 +790,19 @@ contains
   pure subroutine backward_3d(this, input, gradient)
     implicit none
     class(batchnorm1d_layer_type), intent(inout) :: this
-    real(real12), dimension( &
+    real(real32), dimension( &
          this%num_inputs, &
          this%num_channels, &
          this%batch_size), &
          intent(in) :: input
-    real(real12), dimension( &
+    real(real32), dimension( &
          this%num_inputs, &
          this%num_channels, &
          this%batch_size), &
          intent(in) :: gradient
 
     integer :: m
-    real(real12), dimension( &
+    real(real32), dimension( &
          this%num_inputs, &
          this%num_channels, &
          this%batch_size) :: x_hat, dx_hat
@@ -820,7 +820,7 @@ contains
 
           !! calculate gradient of inputs
           di%val(:,m,:) = &
-               1._real12 / (this%norm * sqrt(this%variance(m) + this%epsilon)) * &
+               1._real32 / (this%norm * sqrt(this%variance(m) + this%epsilon)) * &
                ( this%norm * dx_hat(:,m,:) - &
                sum(dx_hat(:,m,:)) - x_hat(:,m,:) * &
                sum(dx_hat(:,m,:) * x_hat(:,m,:)))

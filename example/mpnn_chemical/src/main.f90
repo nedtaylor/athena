@@ -5,7 +5,7 @@
 !!!#############################################################################
 program mnist_example
   use athena
-  use constants_mnist, only: real12
+  use constants_mnist, only: real32
   use read_chemical_graphs, only: read_extxyz_db
 
   implicit none
@@ -20,13 +20,13 @@ program mnist_example
 
   !! data loading and preoprocessing
   type(graph_type), allocatable, dimension(:) :: graphs
-  real(real12), allocatable, dimension(:) :: labels
+  real(real32), allocatable, dimension(:) :: labels
   character(1024) :: file, train_file
 
   !! training loop variables
   integer :: num_samples, num_tests
   integer :: i, itmp1, n, num_iterations
-  real(real12), dimension(:,:), allocatable :: output_tmp, output
+  real(real32), dimension(:,:), allocatable :: output_tmp, output
 
   integer :: v, s
   integer, dimension(:), allocatable :: sample_list
@@ -78,11 +78,11 @@ program mnist_example
 !!!-----------------------------------------------------------------------------
 !!! compile network
 !!!-----------------------------------------------------------------------------
-  allocate(clip, source=clip_type(-1.E2_real12, 1.E2_real12))
+  allocate(clip, source=clip_type(-1.E2_real32, 1.E2_real32))
   metric_dict%active = .false.
   metric_dict(1)%key = "loss"
   metric_dict(2)%key = "accuracy"
-  metric_dict%threshold = 1.E-1_real12
+  metric_dict%threshold = 1.E-1_real32
   call network%compile(optimiser=sgd_optimiser_type(clip_dict=clip), &
        loss_method="mse", metrics=metric_dict, &
        batch_size = 1, verbose = 0)
@@ -117,7 +117,7 @@ program mnist_example
         type is (conv_mpnn_layer_type)
            call layer%set_graph(graphs(sample_list(s):sample_list(s)))
         end select
-        call network%forward(reshape([1._real12], [1,1]))
+        call network%forward(reshape([1._real32], [1,1]))
         call network%backward(reshape([labels(sample_list(s))], [1,1]))
         call network%model(size(network%model,1))%layer%get_output(output_tmp)
         !write(*,*) "predicted",output_tmp(1,1), labels(sample_list(s))
@@ -137,7 +137,7 @@ program mnist_example
      type is (conv_mpnn_layer_type)
         call layer%set_graph(graphs(s:s))
      end select
-     call network%forward(reshape([1._real12], [1,1]))
+     call network%forward(reshape([1._real32], [1,1]))
      call network%model(size(network%model,1))%layer%get_output(output_tmp)
      write(*,*) "predicted",output_tmp(1,1), labels(s)
   end do

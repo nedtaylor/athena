@@ -12,7 +12,7 @@
 !!! - apply_clip - apply clipping to gradients
 !!!#############################################################################
 module clipper
-  use constants, only: real12
+  use constants, only: real32
   implicit none
 
 
@@ -22,9 +22,9 @@ module clipper
   type clip_type
      logical :: l_min_max = .false.
      logical :: l_norm    = .false.
-     real(real12) :: min  =-huge(1._real12)
-     real(real12) :: max  = huge(1._real12)
-     real(real12) :: norm = huge(1._real12)
+     real(real32) :: min  =-huge(1._real32)
+     real(real32) :: max  = huge(1._real32)
+     real(real32) :: norm = huge(1._real32)
    contains
      procedure, pass(this) :: read => read_clip
      procedure, pass(this) :: set => set_clip
@@ -34,7 +34,7 @@ module clipper
   interface clip_type
      module function clip_setup( &
           clip_min, clip_max, clip_norm) result(clip)
-        real(real12), optional, intent(in) :: clip_min, clip_max, clip_norm
+        real(real32), optional, intent(in) :: clip_min, clip_max, clip_norm
         type(clip_type) :: clip
      end function clip_setup
   end interface clip_type
@@ -54,7 +54,7 @@ contains
   module function clip_setup( &
        clip_min, clip_max, clip_norm) result(clip)
     implicit none
-    real(real12), optional, intent(in) :: clip_min, clip_max, clip_norm
+    real(real32), optional, intent(in) :: clip_min, clip_max, clip_norm
     type(clip_type) :: clip
 
 
@@ -88,12 +88,12 @@ contains
     if(trim(min_str).ne."")then
        read(min_str,*) this%min
     else
-       this%min = -huge(1._real12)
+       this%min = -huge(1._real32)
     end if
     if(trim(max_str).ne."")then
        read(max_str,*) this%max
     else
-       this%max = huge(1._real12)
+       this%max = huge(1._real32)
     end if
 
     if(trim(min_str).ne."".or.trim(max_str).ne."")then
@@ -115,7 +115,7 @@ contains
     implicit none
     class(clip_type), intent(inout) :: this
     type(clip_type), optional, intent(in) :: clip_dict
-    real(real12), optional, intent(in) :: clip_min, clip_max, clip_norm
+    real(real32), optional, intent(in) :: clip_min, clip_max, clip_norm
 
 
     !!--------------------------------------------------------------------------
@@ -157,16 +157,16 @@ contains
     implicit none
     class(clip_type), intent(in) :: this
     integer, intent(in) :: length
-    real(real12), dimension(length), intent(inout) :: gradient
-    real(real12), dimension(:), optional, intent(inout) :: bias
+    real(real32), dimension(length), intent(inout) :: gradient
+    real(real32), dimension(:), optional, intent(inout) :: bias
 
-    real(real12) :: scale
-    real(real12), dimension(:), allocatable :: bias_
+    real(real32) :: scale
+    real(real32), dimension(:), allocatable :: bias_
 
     if(present(bias))then
        bias_ = bias
     else
-       allocate(bias_(1), source=0._real12)
+       allocate(bias_(1), source=0._real32)
     end if
 
     !! clip values to within limits of (min,max)
@@ -177,10 +177,10 @@ contains
 
     !! clip values to a maximum L2-norm
     if(this%l_norm)then
-       scale = min(1._real12, &
-            this%norm/sqrt(sum(gradient**2._real12) + &
-            sum(bias_)**2._real12))
-       if(scale.lt.1._real12)then
+       scale = min(1._real32, &
+            this%norm/sqrt(sum(gradient**2._real32) + &
+            sum(bias_)**2._real32))
+       if(scale.lt.1._real32)then
           gradient = gradient * scale
           bias_   = bias_ * scale
        end if

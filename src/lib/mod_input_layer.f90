@@ -5,7 +5,7 @@
 !!! module contains implementation of a 1D input layer
 !!!#############################################################################
 module input_layer
-  use constants, only: real12
+  use constants, only: real32
   use base_layer, only: base_layer_type
   use custom_types, only: &
        array1d_type, &
@@ -18,7 +18,7 @@ module input_layer
   
   type, extends(base_layer_type) :: input_layer_type
      integer :: num_outputs
-     !  real(real12), allocatable, dimension(:,:) :: output
+     !  real(real32), allocatable, dimension(:,:) :: output
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_input
      procedure, pass(this) :: init => init_input
@@ -53,7 +53,7 @@ contains
   pure subroutine forward_rank(this, input)
     implicit none
     class(input_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: input
 
     call this%output%set( input )
   end subroutine forward_rank
@@ -67,8 +67,8 @@ contains
   pure subroutine backward_rank(this, input, gradient)
     implicit none
     class(input_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
-    real(real12), dimension(..), intent(in) :: gradient
+    real(real32), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: gradient
     return
   end subroutine backward_rank
 !!!#############################################################################
@@ -211,14 +211,14 @@ contains
           this%output = array1d_type()
           call this%output%allocate( shape = [ &
                this%input_shape(1) ], &
-               source=0._real12 &
+               source=0._real32 &
        )
        case(2)
           this%input_rank = 1
           this%output = array2d_type()
           call this%output%allocate( shape = [ &
                this%input_shape(1), this%batch_size ], &
-               source=0._real12 &
+               source=0._real32 &
        )
        case(3)
           this%input_rank = 2
@@ -226,7 +226,7 @@ contains
           call this%output%allocate( shape = [ &
                this%input_shape(1), &
                this%input_shape(2), this%batch_size ], &
-               source=0._real12 &
+               source=0._real32 &
        )
        case(4)
           this%input_rank = 3
@@ -235,7 +235,7 @@ contains
                this%input_shape(1), &
                this%input_shape(2), &
                this%input_shape(3), this%batch_size ], &
-               source=0._real12 &
+               source=0._real32 &
           )
        case(5)
           this%input_rank = 4
@@ -245,7 +245,7 @@ contains
                this%input_shape(2), &
                this%input_shape(3), &
                this%input_shape(4), this%batch_size ], &
-               source=0._real12 &
+               source=0._real32 &
           )
        end select
     end if
@@ -354,7 +354,7 @@ contains
   pure subroutine set_input(this, input)
     implicit none
     class(input_layer_type), intent(inout) :: this
-    real(real12), &
+    real(real32), &
          dimension(..), intent(in) :: input
          !dimension(this%batch_size * this%num_outputs), intent(in) :: input
 

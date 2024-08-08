@@ -5,12 +5,12 @@
 !!! module contains implementation of the piecewise activation function
 !!!#############################################################################
 module activation_piecewise
-  use constants, only: real12
+  use constants, only: real32
   use custom_types, only: activation_type
   implicit none
 
   type, extends(activation_type) :: piecewise_type
-     real(real12) :: intercept, min, max
+     real(real32) :: intercept, min, max
    contains
      procedure, pass(this) :: activate_1d => piecewise_activate_1d
      procedure, pass(this) :: activate_2d => piecewise_activate_2d
@@ -42,19 +42,19 @@ contains
   pure function initialise(scale, intercept)
     implicit none
     type(piecewise_type) :: initialise
-    real(real12), optional, intent(in) :: scale, intercept
+    real(real32), optional, intent(in) :: scale, intercept
     
     initialise%name = "piecewise"
 
     if(present(scale))then
        initialise%scale = scale
     else
-       initialise%scale = 1._real12 !0.05_real12
+       initialise%scale = 1._real32 !0.05_real32
     end if
     if(present(intercept))then
        initialise%intercept = intercept
     else
-       initialise%intercept = 1._real12 !0.05_real12
+       initialise%intercept = 1._real32 !0.05_real32
     end if
 
     initialise%max = initialise%intercept/initialise%scale
@@ -71,11 +71,11 @@ contains
   pure function piecewise_activate_1d(this, val) result(output)
     implicit none
     class(piecewise_type), intent(in) :: this
-    real(real12), dimension(:), intent(in) :: val
-    real(real12), dimension(size(val,dim=1)) :: output
+    real(real32), dimension(:), intent(in) :: val
+    real(real32), dimension(size(val,dim=1)) :: output
 
     where(val.le.this%min)
-       output = 0._real12
+       output = 0._real32
     elsewhere(val.ge.this%max)
        output = this%scale
     elsewhere
@@ -87,11 +87,11 @@ contains
   pure function piecewise_activate_2d(this, val) result(output)
     implicit none
     class(piecewise_type), intent(in) :: this
-    real(real12), dimension(:,:), intent(in) :: val
-    real(real12), dimension(size(val,1),size(val,2)) :: output
+    real(real32), dimension(:,:), intent(in) :: val
+    real(real32), dimension(size(val,1),size(val,2)) :: output
 
     where(val.le.this%min)
-       output = 0._real12
+       output = 0._real32
     elsewhere(val.ge.this%max)
        output = this%scale
     elsewhere
@@ -103,11 +103,11 @@ contains
   pure function piecewise_activate_3d(this, val) result(output)
     implicit none
     class(piecewise_type), intent(in) :: this
-    real(real12), dimension(:,:,:), intent(in) :: val
-    real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
+    real(real32), dimension(:,:,:), intent(in) :: val
+    real(real32), dimension(size(val,1),size(val,2),size(val,3)) :: output
 
     where(val.le.this%min)
-       output = 0._real12
+       output = 0._real32
     elsewhere(val.ge.this%max)
        output = this%scale
     elsewhere
@@ -119,12 +119,12 @@ contains
   pure function piecewise_activate_4d(this, val) result(output)
     implicit none
     class(piecewise_type), intent(in) :: this
-    real(real12), dimension(:,:,:,:), intent(in) :: val
-    real(real12), dimension(&
+    real(real32), dimension(:,:,:,:), intent(in) :: val
+    real(real32), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4)) :: output
 
     where(val.le.this%min)
-       output = 0._real12
+       output = 0._real32
     elsewhere(val.ge.this%max)
        output = this%scale
     elsewhere
@@ -136,12 +136,12 @@ contains
   pure function piecewise_activate_5d(this, val) result(output)
     implicit none
     class(piecewise_type), intent(in) :: this
-    real(real12), dimension(:,:,:,:,:), intent(in) :: val
-    real(real12), dimension(&
+    real(real32), dimension(:,:,:,:,:), intent(in) :: val
+    real(real32), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
 
     where(val.le.this%min)
-       output = 0._real12
+       output = 0._real32
     elsewhere(val.ge.this%max)
        output = this%scale
     elsewhere
@@ -160,11 +160,11 @@ contains
   pure function piecewise_differentiate_1d(this, val) result(output)
     implicit none
     class(piecewise_type), intent(in) :: this
-    real(real12), dimension(:), intent(in) :: val
-    real(real12), dimension(size(val,dim=1)) :: output
+    real(real32), dimension(:), intent(in) :: val
+    real(real32), dimension(size(val,dim=1)) :: output
 
     where(val.le.this%min.or.val.ge.this%max)
-       output = 0._real12
+       output = 0._real32
     elsewhere
        output = this%scale
     end where
@@ -174,11 +174,11 @@ contains
   pure function piecewise_differentiate_2d(this, val) result(output)
     implicit none
     class(piecewise_type), intent(in) :: this
-    real(real12), dimension(:,:), intent(in) :: val
-    real(real12), dimension(size(val,1),size(val,2)) :: output
+    real(real32), dimension(:,:), intent(in) :: val
+    real(real32), dimension(size(val,1),size(val,2)) :: output
 
     where(val.le.this%min.or.val.ge.this%max)
-       output = 0._real12
+       output = 0._real32
     elsewhere
        output = this%scale
     end where
@@ -188,11 +188,11 @@ contains
   pure function piecewise_differentiate_3d(this, val) result(output)
     implicit none
     class(piecewise_type), intent(in) :: this
-    real(real12), dimension(:,:,:), intent(in) :: val
-    real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
+    real(real32), dimension(:,:,:), intent(in) :: val
+    real(real32), dimension(size(val,1),size(val,2),size(val,3)) :: output
 
     where(val.le.this%min.or.val.ge.this%max)
-       output = 0._real12
+       output = 0._real32
     elsewhere
        output = this%scale
     end where
@@ -202,12 +202,12 @@ contains
   pure function piecewise_differentiate_4d(this, val) result(output)
     implicit none
     class(piecewise_type), intent(in) :: this
-    real(real12), dimension(:,:,:,:), intent(in) :: val
-    real(real12), dimension(&
+    real(real32), dimension(:,:,:,:), intent(in) :: val
+    real(real32), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4)) :: output
 
     where(val.le.this%min.or.val.ge.this%max)
-       output = 0._real12
+       output = 0._real32
     elsewhere
        output = this%scale
     end where
@@ -217,12 +217,12 @@ contains
   pure function piecewise_differentiate_5d(this, val) result(output)
     implicit none
     class(piecewise_type), intent(in) :: this
-    real(real12), dimension(:,:,:,:,:), intent(in) :: val
-    real(real12), dimension(&
+    real(real32), dimension(:,:,:,:,:), intent(in) :: val
+    real(real32), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
 
     where(val.le.this%min.or.val.ge.this%max)
-       output = 0._real12
+       output = 0._real32
     elsewhere
        output = this%scale
     end where

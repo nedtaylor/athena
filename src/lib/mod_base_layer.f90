@@ -31,7 +31,7 @@
 !!! - set_gradients        - set the gradients of the layer
 !!!#############################################################################
 module base_layer
-  use constants, only: real12
+  use constants, only: real32
   use clipper, only: clip_type
   use custom_types, only: activation_type, array_type
   implicit none
@@ -105,7 +105,7 @@ module base_layer
      !! output = (R, out) output values
      pure module subroutine get_output_base(this, output)
        class(base_layer_type), intent(in) :: this
-       real(real12), allocatable, dimension(..), intent(out) :: output
+       real(real32), allocatable, dimension(..), intent(out) :: output
      end subroutine get_output_base
   end interface
 
@@ -155,7 +155,7 @@ module base_layer
      !! input = (R, in) input data
      pure module subroutine forward(this, input)
        class(base_layer_type), intent(inout) :: this
-       real(real12), dimension(..), intent(in) :: input
+       real(real32), dimension(..), intent(in) :: input
      end subroutine forward
 
      !!-------------------------------------------------------------------------
@@ -166,8 +166,8 @@ module base_layer
      !! gradient = (R, in) gradient data
      pure module subroutine backward(this, input, gradient)
        class(base_layer_type), intent(inout) :: this
-       real(real12), dimension(..), intent(in) :: input
-       real(real12), dimension(..), intent(in) :: gradient
+       real(real32), dimension(..), intent(in) :: input
+       real(real32), dimension(..), intent(in) :: gradient
      end subroutine backward
   end interface
 
@@ -202,7 +202,7 @@ module base_layer
 !!!-----------------------------------------------------------------------------
   type, abstract, extends(base_layer_type) :: drop_layer_type
      !! rate = 1 - keep_prob   -- typical = 0.05-0.25
-     real(real12) :: rate = 0.1_real12
+     real(real32) :: rate = 0.1_real32
    contains
      procedure(generate_mask), deferred, pass(this) :: generate_mask
   end type drop_layer_type
@@ -263,9 +263,9 @@ module base_layer
      !! this  = (T, in) layer_type
      !! param = (R, out) learnable parameters
      pure function get_params(this) result(params)
-       import :: learnable_layer_type, real12
+       import :: learnable_layer_type, real32
        class(learnable_layer_type), intent(in) :: this
-       real(real12), allocatable, dimension(:) :: params
+       real(real32), allocatable, dimension(:) :: params
      end function get_params
 
      !!-------------------------------------------------------------------------
@@ -274,9 +274,9 @@ module base_layer
      !! this  = (T, io) layer_type
      !! param = (R, in) learnable parameters
      subroutine set_params(this, params)
-       import :: learnable_layer_type, real12
+       import :: learnable_layer_type, real32
        class(learnable_layer_type), intent(inout) :: this
-       real(real12), dimension(:), intent(in) :: params
+       real(real32), dimension(:), intent(in) :: params
      end subroutine set_params
 
      !!-------------------------------------------------------------------------
@@ -286,10 +286,10 @@ module base_layer
      !! clip_method = (T, in) clip method
      !! gradients   = (R, out) parameter gradients
      pure function get_gradients(this, clip_method) result(gradients)
-       import :: learnable_layer_type, real12, clip_type
+       import :: learnable_layer_type, real32, clip_type
        class(learnable_layer_type), intent(in) :: this
        type(clip_type), optional, intent(in) :: clip_method
-       real(real12), allocatable, dimension(:) :: gradients
+       real(real32), allocatable, dimension(:) :: gradients
      end function get_gradients
 
      !!-------------------------------------------------------------------------
@@ -298,9 +298,9 @@ module base_layer
      !! this      = (T, io) layer_type
      !! gradients = (R, in) learnable parameters
      subroutine set_gradients(this, gradients)
-       import :: learnable_layer_type, real12
+       import :: learnable_layer_type, real32
        class(learnable_layer_type), intent(inout) :: this
-       real(real12), dimension(..), intent(in) :: gradients
+       real(real32), dimension(..), intent(in) :: gradients
      end subroutine set_gradients
   end interface
 
@@ -318,8 +318,8 @@ module base_layer
        integer :: num_channels
        integer :: num_filters
        integer, allocatable, dimension(:) :: knl, stp, hlf, pad, cen
-       real(real12), allocatable, dimension(:) :: bias
-       real(real12), allocatable, dimension(:,:) :: db  ! bias gradient
+       real(real32), allocatable, dimension(:) :: bias
+       real(real32), allocatable, dimension(:,:) :: db  ! bias gradient
      contains
        procedure, pass(this) :: get_num_params => get_num_params_conv
     end type conv_layer_type
@@ -340,16 +340,16 @@ module base_layer
      !! NED: NEED TO KEEP TRACK OF EXPONENTIAL MOVING AVERAGE (EMA)
      !!   ... FOR INFERENCE
      integer :: num_channels
-     real(real12) :: norm
-     real(real12) :: momentum = 0.99_real12
-     real(real12) :: epsilon = 0.001_real12
-     real(real12) :: gamma_init_mean = 1._real12, gamma_init_std = 0.01_real12
-     real(real12) :: beta_init_mean  = 0._real12, beta_init_std  = 0.01_real12
+     real(real32) :: norm
+     real(real32) :: momentum = 0.99_real32
+     real(real32) :: epsilon = 0.001_real32
+     real(real32) :: gamma_init_mean = 1._real32, gamma_init_std = 0.01_real32
+     real(real32) :: beta_init_mean  = 0._real32, beta_init_std  = 0.01_real32
      character(len=14) :: moving_mean_initialiser='', &
           moving_variance_initialiser=''
-     real(real12), allocatable, dimension(:) :: mean, variance !! not learnable
-     real(real12), allocatable, dimension(:) :: gamma, beta !! learnable
-     real(real12), allocatable, dimension(:) :: dg, db !! learnable
+     real(real32), allocatable, dimension(:) :: mean, variance !! not learnable
+     real(real32), allocatable, dimension(:) :: gamma, beta !! learnable
+     real(real32), allocatable, dimension(:) :: dg, db !! learnable
    contains
      procedure, pass(this) :: get_num_params => get_num_params_batch
      procedure, pass(this) :: get_params => get_params_batch
@@ -369,7 +369,7 @@ module base_layer
           result(gradients)
        class(batch_layer_type), intent(in) :: this
        type(clip_type), optional, intent(in) :: clip_method
-       real(real12), allocatable, dimension(:) :: gradients
+       real(real32), allocatable, dimension(:) :: gradients
      end function get_gradients_batch
      pure module function get_num_params_batch(this) result(num_params)
        class(batch_layer_type), intent(in) :: this
@@ -377,15 +377,15 @@ module base_layer
      end function get_num_params_batch
      module subroutine set_gradients_batch(this, gradients)
        class(batch_layer_type), intent(inout) :: this
-       real(real12), dimension(..), intent(in) :: gradients
+       real(real32), dimension(..), intent(in) :: gradients
      end subroutine set_gradients_batch
      pure module function get_params_batch(this) result(params)
        class(batch_layer_type), intent(in) :: this
-       real(real12), allocatable, dimension(:) :: params
+       real(real32), allocatable, dimension(:) :: params
      end function get_params_batch
      module subroutine set_params_batch(this, params)
        class(batch_layer_type), intent(inout) :: this
-       real(real12), dimension(:), intent(in) :: params
+       real(real32), dimension(:), intent(in) :: params
      end subroutine set_params_batch
      pure module function get_num_params_conv(this) result(num_params)
        class(conv_layer_type), intent(in) :: this

@@ -1,5 +1,5 @@
 submodule(custom_types) custom_types_submodule
-  use constants, only: real12
+  use constants, only: real32
 
 contains
 
@@ -27,7 +27,7 @@ contains
        select rank(source)
        rank(0)
            select type(source)
-           type is (real(real12))
+           type is (real(real32))
               if(.not.present(shape)) &
                    stop 'ERROR: Source shape not provided'
               this%val(:) = source
@@ -42,14 +42,14 @@ contains
            end select
        rank(2)
           select type(source)
-          type is (real(real12))
+          type is (real(real32))
              this%val(:) = source
           class default
              stop 'ERROR: Incompatible source type for rank 2'
           end select
         rank(1)
            select type(source)
-           type is (real(real12))
+           type is (real(real32))
               if(present(shape))then
                  if(shape.ne.shape(source)) &
                    stop 'ERROR: Source shape does not match array shape'
@@ -83,7 +83,7 @@ contains
   pure module function flatten_array1d(this) result(output)
     implicit none
     class(array1d_type), intent(in) :: this
-    real(real12), dimension(this%size) :: output
+    real(real32), dimension(this%size) :: output
 
     output = reshape(this%val, [this%size])
   end function flatten_array1d
@@ -91,7 +91,7 @@ contains
   pure module subroutine get_array1d(this, output)
     implicit none
     class(array1d_type), intent(in) :: this
-    real(real12), dimension(..), intent(out) :: output
+    real(real32), dimension(..), intent(out) :: output
 
     select rank(output)
     rank(1)
@@ -105,7 +105,7 @@ contains
   pure module subroutine set_array1d(this, input)
     implicit none
     class(array1d_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: input
 
     select rank(input)
     rank(1)
@@ -142,7 +142,7 @@ contains
       select rank(source)
       rank(0)
           select type(source)
-          type is (real(real12))
+          type is (real(real32))
              if(.not.present(shape)) &
                   stop 'ERROR: Source shape not provided'
              this%val(:,:) = source
@@ -157,7 +157,7 @@ contains
           end select
        rank(2)
           select type(source)
-          type is (real(real12))
+          type is (real(real32))
              if(present(shape))then
                 if(shape.ne.shape(source)) &
                   stop 'ERROR: Source shape does not match array shape'
@@ -191,7 +191,7 @@ contains
   pure module function flatten_array2d(this) result(output)
     implicit none
     class(array2d_type), intent(in) :: this
-    real(real12), dimension(this%size) :: output
+    real(real32), dimension(this%size) :: output
 
     output = reshape(this%val, [this%size])
   end function flatten_array2d
@@ -199,7 +199,7 @@ contains
   pure module subroutine get_array2d(this, output)
     implicit none
     class(array2d_type), intent(in) :: this
-    real(real12), dimension(..), intent(out) :: output
+    real(real32), dimension(..), intent(out) :: output
 
     select rank(output)
     rank(1)
@@ -213,7 +213,7 @@ contains
   pure module subroutine set_array2d(this, input)
     implicit none
     class(array2d_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: input
 
     select rank(input)
     rank(2)
@@ -252,7 +252,7 @@ contains
       select rank(source)
       rank(0)
           select type(source)
-          type is (real(real12))
+          type is (real(real32))
              if(.not.present(shape)) &
                   stop 'ERROR: Source shape not provided'
              this%val(:,:,:) = source
@@ -267,14 +267,14 @@ contains
           end select
        rank(2)
           select type(source)
-          type is (real(real12))
+          type is (real(real32))
              this%val(:,:,:) = source
           class default
              stop 'ERROR: Incompatible source type for rank 2'
           end select
        rank(3)
           select type(source)
-          type is (real(real12))
+          type is (real(real32))
              if(present(shape))then
                 if(shape.ne.shape(source)) &
                   stop 'ERROR: Source shape does not match array shape'
@@ -308,7 +308,7 @@ contains
   pure module function flatten_array3d(this) result(output)
     implicit none
     class(array3d_type), intent(in) :: this
-    real(real12), dimension(this%size) :: output
+    real(real32), dimension(this%size) :: output
 
     output = reshape(this%val, [this%size])
   end function flatten_array3d
@@ -316,7 +316,7 @@ contains
   pure module subroutine get_array3d(this, output)
     implicit none
     class(array3d_type), intent(in) :: this
-    real(real12), dimension(..), intent(out) :: output
+    real(real32), dimension(..), intent(out) :: output
 
     select rank(output)
     rank(1)
@@ -332,7 +332,7 @@ contains
   pure module subroutine set_array3d(this, input)
     implicit none
     class(array3d_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: input
 
     select rank(input)
     rank(3)
@@ -372,7 +372,7 @@ contains
       select rank(source)
       rank(0)
           select type(source)
-          type is (real(real12))
+          type is (real(real32))
              if(.not.present(shape)) &
                   stop 'ERROR: Source shape not provided'
              this%val(:,:,:,:) = source
@@ -387,14 +387,14 @@ contains
           end select
        rank(2)
           select type(source)
-          type is (real(real12))
+          type is (real(real32))
              this%val(:,:,:,:) = source
           class default
              stop 'ERROR: Incompatible source type for rank 2'
           end select
        rank(4)
           select type(source)
-          type is (real(real12))
+          type is (real(real32))
              if(present(shape))then
                 if(shape.ne.shape(source)) &
                   stop 'ERROR: Source shape does not match array shape'
@@ -428,7 +428,7 @@ contains
   pure module function flatten_array4d(this) result(output)
     implicit none
     class(array4d_type), intent(in) :: this
-    real(real12), dimension(this%size) :: output
+    real(real32), dimension(this%size) :: output
 
     output = reshape(this%val, [this%size])
   end function flatten_array4d
@@ -436,7 +436,7 @@ contains
   pure module subroutine get_array4d(this, output)
     implicit none
     class(array4d_type), intent(in) :: this
-    real(real12), dimension(..), intent(out) :: output
+    real(real32), dimension(..), intent(out) :: output
 
     select rank(output)
     rank(1)
@@ -452,7 +452,7 @@ contains
   pure module subroutine set_array4d(this, input)
     implicit none
     class(array4d_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: input
 
     select rank(input)
     rank(1)
@@ -493,7 +493,7 @@ contains
       select rank(source)
       rank(0)
           select type(source)
-          type is (real(real12))
+          type is (real(real32))
              if(.not.present(shape)) &
                   stop 'ERROR: Source shape not provided'
              this%val(:,:,:,:,:) = source
@@ -508,14 +508,14 @@ contains
           end select
        rank(2)
           select type(source)
-          type is (real(real12))
+          type is (real(real32))
              this%val(:,:,:,:,:) = source
           class default
              stop 'ERROR: Incompatible source type for rank 2'
           end select
        rank(5)
           select type(source)
-          type is (real(real12))
+          type is (real(real32))
              if(present(shape))then
                 if(shape.ne.shape(source)) &
                   stop 'ERROR: Source shape does not match array shape'
@@ -549,7 +549,7 @@ contains
   pure module function flatten_array5d(this) result(output)
     implicit none
     class(array5d_type), intent(in) :: this
-    real(real12), dimension(this%size) :: output
+    real(real32), dimension(this%size) :: output
 
     output = reshape(this%val, [this%size])
   end function flatten_array5d
@@ -557,7 +557,7 @@ contains
   pure module subroutine get_array5d(this, output)
     implicit none
     class(array5d_type), intent(in) :: this
-    real(real12), dimension(..), intent(out) :: output
+    real(real32), dimension(..), intent(out) :: output
 
     select rank(output)
     rank(1)
@@ -573,7 +573,7 @@ contains
   pure module subroutine set_array5d(this, input)
     implicit none
     class(array5d_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: input
 
     select rank(input)
     rank(5)

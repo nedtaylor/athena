@@ -2,6 +2,10 @@ name: run-fpm-build
 
 on:
   push:
+    branches:
+      - main
+      - development
+      - 'releases/**'
     paths:
       - ".github/workflows/fpm.yml"
       - "fpm.toml"
