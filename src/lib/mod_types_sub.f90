@@ -3,7 +3,7 @@ submodule(custom_types) custom_types_submodule
 
 contains
 
-  pure module function init_array1d(array_shape) result(output)
+  module function init_array1d(array_shape) result(output)
     implicit none
     integer, dimension(:), intent(in), optional :: array_shape
     type(array1d_type) :: output
@@ -43,7 +43,7 @@ contains
        rank(2)
           select type(source)
           type is (real(real32))
-             this%val(:) = source
+             this%val(:) = reshape(source, shape=shape(this%val))
           class default
              stop 'ERROR: Incompatible source type for rank 2'
           end select
@@ -113,12 +113,23 @@ contains
     end select
   end subroutine set_array1d
 
+  pure module subroutine assign_array1d(this, input)
+    implicit none
+    type(array1d_type), intent(in) :: input
+    type(array1d_type), intent(out) :: this
+
+    this%rank = input%rank
+    this%shape = input%shape
+    this%size = input%size
+    this%allocated = input%allocated
+    this%val = input%val
+  end subroutine assign_array1d
 
 
 
 
 
-  pure module function init_array2d(array_shape) result(output)
+  module function init_array2d(array_shape) result(output)
     implicit none
     integer, dimension(:), intent(in), optional :: array_shape
     type(array2d_type) :: output
@@ -221,9 +232,22 @@ contains
     end select
   end subroutine set_array2d
 
+  pure module subroutine assign_array2d(this, input)
+    implicit none
+    type(array2d_type), intent(out) :: this
+    type(array2d_type), intent(in) :: input
+
+    this%rank = input%rank
+    this%shape = input%shape
+    this%size = input%size
+    this%allocated = input%allocated
+    this%val = input%val
+  end subroutine assign_array2d
 
 
-  pure module function init_array3d(array_shape) result(output)
+
+
+  module function init_array3d(array_shape) result(output)
     implicit none
     integer, dimension(:), intent(in), optional :: array_shape
     type(array3d_type) :: output
@@ -268,7 +292,7 @@ contains
        rank(2)
           select type(source)
           type is (real(real32))
-             this%val(:,:,:) = source
+             this%val(:,:,:) = reshape(source, shape=shape(this%val))
           class default
              stop 'ERROR: Incompatible source type for rank 2'
           end select
@@ -340,9 +364,22 @@ contains
     end select
   end subroutine set_array3d
 
+  pure module subroutine assign_array3d(this, input)
+    implicit none
+    type(array3d_type), intent(out) :: this
+    type(array3d_type), intent(in) :: input
+
+    this%rank = input%rank
+    this%shape = input%shape
+    this%size = input%size
+    this%allocated = input%allocated
+    this%val = input%val
+  end subroutine assign_array3d
 
 
-  pure module function init_array4d(array_shape) result(output)
+
+
+  module function init_array4d(array_shape) result(output)
     implicit none
     integer, dimension(:), intent(in), optional :: array_shape
     type(array4d_type) :: output
@@ -388,7 +425,7 @@ contains
        rank(2)
           select type(source)
           type is (real(real32))
-             this%val(:,:,:,:) = source
+             this%val(:,:,:,:) = reshape(source, shape=shape(this%val))
           class default
              stop 'ERROR: Incompatible source type for rank 2'
           end select
@@ -455,14 +492,27 @@ contains
     real(real32), dimension(..), intent(in) :: input
 
     select rank(input)
-    rank(1)
+    rank(4)
        this%val = input
     end select
   end subroutine set_array4d
 
+  pure module subroutine assign_array4d(this, input)
+    implicit none
+    type(array4d_type), intent(out) :: this
+    type(array4d_type), intent(in) :: input
+
+    this%rank = input%rank
+    this%shape = input%shape
+    this%size = input%size
+    this%allocated = input%allocated
+    this%val = input%val
+  end subroutine assign_array4d
 
 
-  pure module function init_array5d(array_shape) result(output)
+
+
+  module function init_array5d(array_shape) result(output)
     implicit none
     integer, dimension(:), intent(in), optional :: array_shape
     type(array5d_type) :: output
@@ -475,7 +525,7 @@ contains
 
   module subroutine allocate_array5d(this, array_shape, source)
     implicit none
-    class(array5d_type), allocatable, intent(inout) :: this
+    class(array5d_type), intent(inout) :: this
     integer, dimension(:), intent(in), optional :: array_shape
     class(*), dimension(..), intent(in), optional :: source
 
@@ -509,7 +559,7 @@ contains
        rank(2)
           select type(source)
           type is (real(real32))
-             this%val(:,:,:,:,:) = source
+             this%val(:,:,:,:,:) = reshape(source, shape = shape(this%val))
           class default
              stop 'ERROR: Incompatible source type for rank 2'
           end select
@@ -580,5 +630,17 @@ contains
        this%val = input
     end select
   end subroutine set_array5d
+
+  pure module subroutine assign_array5d(this, input)
+    implicit none
+    type(array5d_type), intent(out) :: this
+    type(array5d_type), intent(in) :: input
+
+    this%rank = input%rank
+    this%shape = input%shape
+    this%size = input%size
+    this%allocated = input%allocated
+    this%val = input%val
+  end subroutine assign_array5d
 
 end submodule custom_types_submodule

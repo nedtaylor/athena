@@ -226,6 +226,7 @@ module custom_types
      procedure :: flatten => flatten_array1d
      procedure :: get => get_array1d
      procedure :: set => set_array1d
+    !  generic :: assignment(=) => assign_array1d
      end type array1d_type
 
   type, extends(array_type) :: array2d_type
@@ -236,7 +237,8 @@ module custom_types
      procedure :: flatten => flatten_array2d
      procedure :: get => get_array2d
      procedure :: set => set_array2d
-  end type array2d_type
+    !  generic :: assignment(=) => assign_array2d
+     end type array2d_type
 
   type, extends(array_type) :: array3d_type
      real(real32), dimension(:,:,:), allocatable :: val
@@ -246,6 +248,7 @@ module custom_types
      procedure :: flatten => flatten_array3d
      procedure :: get => get_array3d
      procedure :: set => set_array3d
+    !  generic :: assignment(=) => assign_array3d
      end type array3d_type
 
   type, extends(array_type) :: array4d_type
@@ -256,6 +259,7 @@ module custom_types
      procedure :: flatten => flatten_array4d
      procedure :: get => get_array4d
      procedure :: set => set_array4d
+    !  generic :: assignment(=) => assign_array4d
      end type array4d_type
 
   type, extends(array_type) :: array5d_type
@@ -266,6 +270,7 @@ module custom_types
      procedure :: flatten => flatten_array5d
      procedure :: get => get_array5d
      procedure :: set => set_array5d
+    !  generic :: assignment(=) => assign_array5d
      end type array5d_type
 
   !! interface for allocating array
@@ -416,39 +421,77 @@ module custom_types
   !! interface for initialising array
   !!----------------------------------------------------------------------------
   interface array1d_type
-    pure module function init_array1d(array_shape) result(output)
+    module function init_array1d(array_shape) result(output)
       integer, dimension(:), intent(in), optional :: array_shape
       type(array1d_type) :: output
     end function init_array1d
   end interface array1d_type
 
   interface array2d_type
-    pure module function init_array2d(array_shape) result(output)
+    module function init_array2d(array_shape) result(output)
       integer, dimension(:), intent(in), optional :: array_shape
       type(array2d_type) :: output
     end function init_array2d
   end interface array2d_type
 
   interface array3d_type
-    pure module function init_array3d(array_shape) result(output)
+    module function init_array3d(array_shape) result(output)
       integer, dimension(:), intent(in), optional :: array_shape
       type(array3d_type) :: output
     end function init_array3d
   end interface array3d_type
 
   interface array4d_type
-    pure module function init_array4d(array_shape) result(output)
+    module function init_array4d(array_shape) result(output)
       integer, dimension(:), intent(in), optional :: array_shape
       type(array4d_type) :: output
     end function init_array4d
   end interface array4d_type
 
   interface array5d_type
-    pure module function init_array5d(array_shape) result(output)
+    module function init_array5d(array_shape) result(output)
       integer, dimension(:), intent(in), optional :: array_shape
       type(array5d_type) :: output
     end function init_array5d
   end interface array5d_type
+
+  !! interface for assigning array
+  !!----------------------------------------------------------------------------
+  interface
+    pure module subroutine assign_array1d(this, input)
+      type(array1d_type), intent(out) :: this
+      type(array1d_type), intent(in) :: input
+    end subroutine assign_array1d
+
+    pure module subroutine assign_array2d(this, input)
+       type(array2d_type), intent(out) :: this
+      type(array2d_type), intent(in) :: input
+    end subroutine assign_array2d
+
+    pure module subroutine assign_array3d(this, input)
+       type(array3d_type), intent(out) :: this
+      type(array3d_type), intent(in) :: input
+    end subroutine assign_array3d
+
+    pure module subroutine assign_array4d(this, input)
+       type(array4d_type), intent(out) :: this
+      type(array4d_type), intent(in) :: input
+    end subroutine assign_array4d
+
+    pure module subroutine assign_array5d(this, input)
+       type(array5d_type), intent(out) :: this
+      type(array5d_type), intent(in) :: input
+    end subroutine assign_array5d
+  end interface
+
+
+  interface assignment (=)
+    module procedure assign_array1d
+    module procedure assign_array2d
+    module procedure assign_array3d
+    module procedure assign_array4d
+    module procedure assign_array5d
+  end interface
   
 end module custom_types
 !!!#############################################################################
