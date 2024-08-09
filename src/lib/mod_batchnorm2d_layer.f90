@@ -347,16 +347,20 @@ contains
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
 
 
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     !! set up number of channels, width, height
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
+    if(allocated(this%output))then
+       if(this%output%allocated) call this%output%deallocate()
+    end if
+    this%output = array4d_type()
     this%output%shape = this%input_shape
     this%num_channels = this%input_shape(this%input_rank)
 
 
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     !! allocate mean, variance, gamma, beta, dg, db
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     allocate(this%mean(this%num_channels), source=0._real32)
     allocate(this%variance, source=this%mean)
     allocate(this%gamma, source=this%mean)
@@ -365,9 +369,9 @@ contains
     allocate(this%db, source=this%mean)
 
 
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     !! initialise gamma
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     allocate(t_initialiser, source=initialiser_setup(this%kernel_initialiser))
     t_initialiser%mean = this%gamma_init_mean
     t_initialiser%std  = this%gamma_init_std
@@ -377,7 +381,7 @@ contains
     deallocate(t_initialiser)
 
     !! initialise beta
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     allocate(t_initialiser, source=initialiser_setup(this%bias_initialiser))
     t_initialiser%mean = this%beta_init_mean
     t_initialiser%std  = this%beta_init_std
@@ -387,9 +391,9 @@ contains
     deallocate(t_initialiser)
 
 
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     !! initialise moving mean
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     allocate(t_initialiser, &
          source=initialiser_setup(this%moving_mean_initialiser))
     call t_initialiser%initialise(this%mean, &
@@ -398,7 +402,7 @@ contains
     deallocate(t_initialiser)
 
     !! initialise moving variance
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     allocate(t_initialiser, &
          source=initialiser_setup(this%moving_variance_initialiser))
     call t_initialiser%initialise(this%variance, &
@@ -447,16 +451,16 @@ contains
     !! allocate arrays
     !!--------------------------------------------------------------------------
     if(allocated(this%input_shape))then
-       if(this%output%allocated) call this%output%deallocate()
-       this%output = array4d_type()
+       if(.not.allocated(this%output)) this%output = array4d_type()
+       if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
        call this%output%allocate( array_shape = [ &
             this%output%shape(1), &
             this%output%shape(2), this%num_channels, &
             this%batch_size ], &
             source=0._real32 &
        )
+       if(.not.allocated(this%di)) this%di = array4d_type()
        if(this%di%allocated) call this%di%deallocate()
-       this%di = array4d_type()
        call this%di%allocate( source = this%output )
     end if
 

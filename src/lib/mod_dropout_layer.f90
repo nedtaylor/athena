@@ -177,21 +177,25 @@ contains
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
 
 
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     !! set up number of channels, width, height
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
+    if(allocated(this%output))then
+       if(this%output%allocated) call this%output%deallocate()
+    end if
+    this%output = array2d_type()
     this%output%shape = this%input_shape
 
 
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     !! allocate mask
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     allocate(this%mask(this%input_shape(1), this%num_masks), source=.true.)
 
 
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     !! generate mask
-    !!-----------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     call this%generate_mask()
     
 
@@ -227,16 +231,14 @@ contains
     !! allocate arrays
     !!--------------------------------------------------------------------------
     if(allocated(this%input_shape))then
-       if(this%output%allocated) call this%output%deallocate()
-
-       this%output = array2d_type()
-
+       if(.not.allocated(this%output)) this%output = array2d_type()
+       if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
        call this%output%allocate( array_shape = [ &
             this%output%shape(1), &
             this%batch_size ], source=0._real32 &
        )
+       if(.not.allocated(this%di)) this%di = array2d_type()
        if(this%di%allocated) call this%di%deallocate()
-       this%di = array2d_type()
        call this%di%allocate( source=this%output )
     end if
  

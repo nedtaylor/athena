@@ -618,14 +618,14 @@ contains
     this%name = 'conv_mpnn'
     this%type = 'mpnn'
     this%input_rank = 1
-    this%output%shape = [ num_outputs ]
+    this%num_outputs = num_outputs
     this%input_shape = [ 1._real32 ]
     this%num_time_steps = num_time_steps
     this%num_vertex_features = num_features(1)
     this%num_edge_features = num_features(2)
     allocate(this%method, source=conv_method_container_type( &
          this%num_vertex_features, this%num_edge_features, &
-         this%num_time_steps, this%output%shape, &
+         this%num_time_steps, [ this%num_outputs ], &
          max_vertex_degree, &
          verbose = verbose_ &
     ))

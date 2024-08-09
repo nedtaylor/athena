@@ -190,8 +190,9 @@ module custom_types
        class(*), dimension(..), intent(in), optional :: source
      end subroutine allocate_array
 
-     pure module subroutine deallocate_array(this)
+     pure module subroutine deallocate_array(this, keep_shape)
        class(array_type), intent(inout) :: this
+       logical, intent(in), optional :: keep_shape
      end subroutine deallocate_array
 
     !  pure module function reshape_array(this, shape) result(output)
@@ -207,7 +208,7 @@ module custom_types
 
      pure module subroutine get_array(this, output)
         class(array_type), intent(in) :: this
-        real(real32), dimension(..), intent(out) :: output
+        real(real32), dimension(..), allocatable, intent(out) :: output
       end subroutine get_array
 
       pure module subroutine set_array(this, input)
@@ -310,24 +311,29 @@ module custom_types
   !! interface for deallocating array
   !!----------------------------------------------------------------------------
   interface
-    pure module subroutine deallocate_array1d(this)
+    pure module subroutine deallocate_array1d(this, keep_shape)
       class(array1d_type), intent(inout) :: this
+      logical, intent(in), optional :: keep_shape
     end subroutine deallocate_array1d
 
-    pure module subroutine deallocate_array2d(this)
+    pure module subroutine deallocate_array2d(this, keep_shape)
       class(array2d_type), intent(inout) :: this
+      logical, intent(in), optional :: keep_shape
     end subroutine deallocate_array2d
 
-    pure module subroutine deallocate_array3d(this)
+    pure module subroutine deallocate_array3d(this, keep_shape)
       class(array3d_type), intent(inout) :: this
+      logical, intent(in), optional :: keep_shape
     end subroutine deallocate_array3d
 
-    pure module subroutine deallocate_array4d(this)
+    pure module subroutine deallocate_array4d(this, keep_shape)
       class(array4d_type), intent(inout) :: this
+      logical, intent(in), optional :: keep_shape
     end subroutine deallocate_array4d
 
-    pure module subroutine deallocate_array5d(this)
+    pure module subroutine deallocate_array5d(this, keep_shape)
       class(array5d_type), intent(inout) :: this
+      logical, intent(in), optional :: keep_shape
     end subroutine deallocate_array5d
   end interface
 
@@ -365,27 +371,27 @@ module custom_types
   interface
     pure module subroutine get_array1d(this, output)
       class(array1d_type), intent(in) :: this
-      real(real32), dimension(..), intent(out) :: output
+      real(real32), dimension(..), allocatable, intent(out) :: output
     end subroutine get_array1d
 
     pure module subroutine get_array2d(this, output)
       class(array2d_type), intent(in) :: this
-      real(real32), dimension(..), intent(out) :: output
+      real(real32), dimension(..), allocatable, intent(out) :: output
     end subroutine get_array2d
 
     pure module subroutine get_array3d(this, output)
       class(array3d_type), intent(in) :: this
-      real(real32), dimension(..), intent(out) :: output
+      real(real32), dimension(..), allocatable, intent(out) :: output
     end subroutine get_array3d
 
     pure module subroutine get_array4d(this, output)
       class(array4d_type), intent(in) :: this
-      real(real32), dimension(..), intent(out) :: output
+      real(real32), dimension(..), allocatable, intent(out) :: output
     end subroutine get_array4d
 
     pure module subroutine get_array5d(this, output)
       class(array5d_type), intent(in) :: this
-      real(real32), dimension(..), intent(out) :: output
+      real(real32), dimension(..), allocatable, intent(out) :: output
     end subroutine get_array5d
   end interface
 

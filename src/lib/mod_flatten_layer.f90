@@ -145,7 +145,7 @@ contains
     !! set hyperparameters
     !!--------------------------------------------------------------------------
     if(present(num_addit_outputs)) layer%num_addit_outputs = num_addit_outputs
-    call layer%set_hyperparams(num_addit_outputs, verbose_)
+    call layer%set_hyperparams(layer%num_addit_outputs, verbose_)
 
     !!--------------------------------------------------------------------------
     !! initialise batch size
@@ -206,9 +206,14 @@ contains
     !!--------------------------------------------------------------------------
     !! initialise input shape
     !!--------------------------------------------------------------------------
+    this%input_rank = size(input_shape)
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
     
     this%num_outputs = product(this%input_shape)
+    if(allocated(this%output))then
+       if(this%output%allocated) call this%output%deallocate()
+    end if
+    this%output = array2d_type()
     this%output%shape = [this%num_outputs]
 
 
@@ -244,8 +249,8 @@ contains
     !! allocate arrays
     !!--------------------------------------------------------------------------
     if(allocated(this%input_shape))then
-       if(this%output%allocated) call this%output%deallocate()
-       this%output = array2d_type()
+       if(.not.allocated(this%output)) this%output = array2d_type()
+       if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
        call this%output%allocate(array_shape = [ &
              (this%num_outputs + this%num_addit_outputs), this%batch_size ], &
              source=0._real32 &
@@ -254,19 +259,12 @@ contains
        select case(size(this%input_shape))
        case(1)
           this%input_rank = 1
-          this%di = array1d_type()
-          call this%di%allocate( array_shape = [ &
-               this%input_shape(1) ], &
-               source=0._real32 &
-       )
-       case(2)
-          this%input_rank = 1
           this%di = array2d_type()
           call this%di%allocate( array_shape = [ &
                this%input_shape(1), this%batch_size ], &
                source=0._real32 &
        )
-       case(3)
+       case(2)
           this%input_rank = 2
           this%di = array3d_type()
           call this%di%allocate( array_shape = [ &
@@ -274,7 +272,7 @@ contains
                this%input_shape(2), this%batch_size ], &
                source=0._real32 &
        )
-       case(4)
+       case(3)
           this%input_rank = 3
           this%di = array4d_type()
           call this%di%allocate( array_shape = [ &
@@ -283,7 +281,7 @@ contains
                this%input_shape(3), this%batch_size ], &
                source=0._real32 &
           )
-       case(5)
+       case(4)
           this%input_rank = 4
           this%di = array5d_type()
           call this%di%allocate( array_shape = [ &

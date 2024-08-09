@@ -125,9 +125,11 @@ program test_batchnorm1d_layer
     end if
 
     !! check output shape
-    if(any(bn_layer%output%shape .ne. [width]))then
+    if(bn_layer%output%shape(2) .ne. width)then
       success = .false.
       write(0,*) 'batchnorm1d layer has wrong output shape'
+      write(0,*) "output shape", bn_layer%output%shape
+      write(0,*) "width", width
     end if
 
     !! check batch size

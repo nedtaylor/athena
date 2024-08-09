@@ -310,7 +310,7 @@ contains
     this%name = 'mpnn'
     this%type = 'mpnn'
     this%input_rank = 1
-    this%output%shape = [ num_outputs ]
+    this%num_outputs = num_outputs
     this%num_time_steps = num_time_steps
     this%num_vertex_features = num_features(1)
     this%num_edge_features = num_features(2)
@@ -331,6 +331,11 @@ contains
     integer, optional, intent(in) :: verbose
 
     this%input_shape = input_shape
+    if(allocated(this%output))then
+       if(this%output%allocated) call this%output%deallocate()
+    end if
+    this%output = array2d_type()
+    this%output%shape = this%num_outputs
     !if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
 
     if (present(batch_size)) this%batch_size = batch_size
@@ -367,8 +372,8 @@ contains
     !! allocate arrays
     !!--------------------------------------------------------------------------
     if(allocated(this%input_shape))then
-       if(this%output%allocated) call this%output%deallocate()
-       this%output = array2d_type()
+       if(.not.allocated(this%output)) this%output = array2d_type()
+       if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
        call this%output%allocate( [ &
             this%output%shape(1), &
             this%batch_size ], &

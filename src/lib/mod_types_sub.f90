@@ -20,6 +20,8 @@ contains
     integer, dimension(:), intent(in), optional :: array_shape
     class(*), dimension(..), intent(in), optional :: source
 
+    if(allocated(this%val).or.this%allocated) &
+         stop "ERROR: Trying to allocate already allocated array values"
     this%rank = 1
     this%allocated = .true.
     if(present(array_shape)) allocate(this%val(array_shape(1)))
@@ -64,17 +66,22 @@ contains
     end if
     if(.not.present(source).and.present(array_shape)) &
          stop 'ERROR: No shape or source provided'
-    this%shape = shape(this%val)
+    this%shape(1) = size(this%val, dim=1)
     this%size = product(this%shape)
 
   end subroutine allocate_array1d
 
-  pure module subroutine deallocate_array1d(this)
+  pure module subroutine deallocate_array1d(this, keep_shape)
     implicit none
     class(array1d_type), intent(inout) :: this
+    logical, intent(in), optional :: keep_shape
 
+    logical :: keep_shape_
+
+    keep_shape_ = .false.
+    if(present(keep_shape)) keep_shape_ = keep_shape
+    if(.not.keep_shape_) this%shape = 0
     deallocate(this%val)
-    deallocate(this%shape)
     this%allocated = .false.
     this%size = 0
 
@@ -91,7 +98,7 @@ contains
   pure module subroutine get_array1d(this, output)
     implicit none
     class(array1d_type), intent(in) :: this
-    real(real32), dimension(..), intent(out) :: output
+    real(real32), dimension(..), allocatable, intent(out) :: output
 
     select rank(output)
     rank(1)
@@ -134,8 +141,8 @@ contains
     integer, dimension(:), intent(in), optional :: array_shape
     type(array2d_type) :: output
 
-    output%rank = 2
-    allocate(output%shape(2))
+    output%rank = 1
+    allocate(output%shape(1))
     if(present(array_shape)) call output%allocate(array_shape)
 
   end function init_array2d
@@ -146,7 +153,9 @@ contains
     integer, dimension(:), intent(in), optional :: array_shape
     class(*), dimension(..), intent(in), optional :: source
 
-    this%rank = 2
+    if(allocated(this%val).or.this%allocated) &
+         stop "ERROR: Trying to allocate already allocated array values"
+    this%rank = 1
     this%allocated = .true.
     if(present(array_shape)) allocate(this%val(array_shape(1), array_shape(2)))
     if(present(source))then
@@ -183,17 +192,22 @@ contains
     end if
     if(.not.present(source).and.present(array_shape)) &
          stop 'ERROR: No shape or source provided'
-    this%shape = shape(this%val)
+    this%shape(1) = size(this%val, dim=1)
     this%size = product(this%shape)
 
   end subroutine allocate_array2d
 
-  pure module subroutine deallocate_array2d(this)
+  pure module subroutine deallocate_array2d(this, keep_shape)
     implicit none
     class(array2d_type), intent(inout) :: this
+    logical, intent(in), optional :: keep_shape
 
+    logical :: keep_shape_
+
+    keep_shape_ = .false.
+    if(present(keep_shape)) keep_shape_ = keep_shape
+    if(.not.keep_shape_) this%shape = 0
     deallocate(this%val)
-    deallocate(this%shape)
     this%allocated = .false.
     this%size = 0
 
@@ -210,7 +224,7 @@ contains
   pure module subroutine get_array2d(this, output)
     implicit none
     class(array2d_type), intent(in) :: this
-    real(real32), dimension(..), intent(out) :: output
+    real(real32), dimension(..), allocatable, intent(out) :: output
 
     select rank(output)
     rank(1)
@@ -252,8 +266,8 @@ contains
     integer, dimension(:), intent(in), optional :: array_shape
     type(array3d_type) :: output
 
-    output%rank = 3
-    allocate(output%shape(3))
+    output%rank = 2
+    allocate(output%shape(2))
     if(present(array_shape)) call output%allocate(array_shape)
 
   end function init_array3d
@@ -264,14 +278,16 @@ contains
     integer, dimension(:), intent(in), optional :: array_shape
     class(*), dimension(..), intent(in), optional :: source
 
-   this%rank = 3
-   this%allocated = .true.
-   if(present(array_shape)) &
-        allocate(this%val( &
-             array_shape(1), &
-             array_shape(2), &
-             array_shape(3) &
-        ) )
+    if(allocated(this%val).or.this%allocated) &
+         stop "ERROR: Trying to allocate already allocated array values"
+    this%rank = 2
+    this%allocated = .true.
+    if(present(array_shape)) &
+         allocate(this%val( &
+              array_shape(1), &
+              array_shape(2), &
+              array_shape(3) &
+         ) )
     if(present(source))then
       select rank(source)
       rank(0)
@@ -313,17 +329,23 @@ contains
    end if
    if(.not.present(source).and.present(array_shape)) &
         stop 'ERROR: No shape or source provided'
-   this%shape = shape(this%val)
+   this%shape(1) = size(this%val, dim=1)
+   this%shape(2) = size(this%val, dim=2)
    this%size = product(this%shape)
 
   end subroutine allocate_array3d
 
-  pure module subroutine deallocate_array3d(this)
+  pure module subroutine deallocate_array3d(this, keep_shape)
     implicit none
     class(array3d_type), intent(inout) :: this
+    logical, intent(in), optional :: keep_shape
 
+    logical :: keep_shape_
+
+    keep_shape_ = .false.
+    if(present(keep_shape)) keep_shape_ = keep_shape
+    if(.not.keep_shape_) this%shape = 0
     deallocate(this%val)
-    deallocate(this%shape)
     this%allocated = .false.
     this%size = 0
 
@@ -340,13 +362,13 @@ contains
   pure module subroutine get_array3d(this, output)
     implicit none
     class(array3d_type), intent(in) :: this
-    real(real32), dimension(..), intent(out) :: output
+    real(real32), dimension(..), allocatable, intent(out) :: output
 
     select rank(output)
     rank(1)
        output = this%flatten()
     rank(2)
-       output = reshape(this%val, [product(this%shape(:2)), this%shape(3)])
+       output = reshape(this%val, [product(this%shape), size(this%val, dim=3)])
     rank(3)
        output = this%val
     end select
@@ -384,8 +406,8 @@ contains
     integer, dimension(:), intent(in), optional :: array_shape
     type(array4d_type) :: output
 
-    output%rank = 4
-    allocate(output%shape(4))
+    output%rank = 3
+    allocate(output%shape(3))
     if(present(array_shape)) call output%allocate(array_shape)
 
   end function init_array4d
@@ -396,7 +418,9 @@ contains
     integer, dimension(:), intent(in), optional :: array_shape
     class(*), dimension(..), intent(in), optional :: source
 
-    this%rank = 4
+    if(allocated(this%val).or.this%allocated) &
+         stop "ERROR: Trying to allocate already allocated array values"
+    this%rank = 3
     this%allocated = .true.
     if(present(array_shape)) &
          allocate(this%val( &
@@ -443,20 +467,27 @@ contains
        rank default
           stop 'ERROR: Unrecognised source type'
        end select
-   end if
+    end if
     if(.not.present(source).and.present(array_shape)) &
          stop 'ERROR: No shape or source provided'
-    this%shape = shape(this%val)
+    this%shape(1) = size(this%val, dim=1)
+    this%shape(2) = size(this%val, dim=2)
+    this%shape(3) = size(this%val, dim=3)
     this%size = product(this%shape)
 
   end subroutine allocate_array4d
 
-  pure module subroutine deallocate_array4d(this)
+  pure module subroutine deallocate_array4d(this, keep_shape)
     implicit none
     class(array4d_type), intent(inout) :: this
+    logical, intent(in), optional :: keep_shape
 
+    logical :: keep_shape_
+
+    keep_shape_ = .false.
+    if(present(keep_shape)) keep_shape_ = keep_shape
+    if(.not.keep_shape_) this%shape = 0
     deallocate(this%val)
-    deallocate(this%shape)
     this%allocated = .false.
     this%size = 0
 
@@ -473,13 +504,13 @@ contains
   pure module subroutine get_array4d(this, output)
     implicit none
     class(array4d_type), intent(in) :: this
-    real(real32), dimension(..), intent(out) :: output
+    real(real32), dimension(..), allocatable, intent(out) :: output
 
     select rank(output)
     rank(1)
        output = this%flatten()
     rank(2)
-       output = reshape(this%val, [product(this%shape(:3)), this%shape(4)])
+       output = reshape(this%val, [product(this%shape), size(this%val, dim=4)])
     rank(4)
        output = this%val
     end select
@@ -517,7 +548,7 @@ contains
     integer, dimension(:), intent(in), optional :: array_shape
     type(array5d_type) :: output
 
-    output%rank = 5
+    output%rank = 4
     allocate(output%shape(4))
     if(present(array_shape)) call output%allocate(array_shape)
 
@@ -529,7 +560,9 @@ contains
     integer, dimension(:), intent(in), optional :: array_shape
     class(*), dimension(..), intent(in), optional :: source
 
-    this%rank = 5
+    if(allocated(this%val).or.this%allocated) &
+         stop "ERROR: Trying to allocate already allocated array values"
+    this%rank = 4
     this%allocated = .true.
     if(present(array_shape)) &
          allocate(this%val( &
@@ -577,20 +610,28 @@ contains
        rank default
           stop 'ERROR: Unrecognised source type'
        end select
-   end if
+    end if
     if(.not.present(source).and.present(array_shape)) &
          stop 'ERROR: No shape or source provided'
-    this%shape = shape(this%val)
+    this%shape(1) = size(this%val, dim=1)
+    this%shape(2) = size(this%val, dim=2)
+    this%shape(3) = size(this%val, dim=3)
+    this%shape(4) = size(this%val, dim=4)
     this%size = product(this%shape)
 
   end subroutine allocate_array5d
 
-  pure module subroutine deallocate_array5d(this)
+  pure module subroutine deallocate_array5d(this, keep_shape)
     implicit none
     class(array5d_type), intent(inout) :: this
+    logical, intent(in), optional :: keep_shape
 
+    logical :: keep_shape_
+
+    keep_shape_ = .false.
+    if(present(keep_shape)) keep_shape_ = keep_shape
+    if(.not.keep_shape_) this%shape = 0
     deallocate(this%val)
-    deallocate(this%shape)
     this%allocated = .false.
     this%size = 0
 
@@ -607,13 +648,13 @@ contains
   pure module subroutine get_array5d(this, output)
     implicit none
     class(array5d_type), intent(in) :: this
-    real(real32), dimension(..), intent(out) :: output
+    real(real32), dimension(..), allocatable, intent(out) :: output
 
     select rank(output)
     rank(1)
        output = this%flatten()
     rank(2)
-       output = reshape(this%val, [product(this%shape(:4)), this%shape(5)])
+       output = reshape(this%val, [product(this%shape), size(this%val, dim=5)])
     rank(5)
        output = this%val
     end select

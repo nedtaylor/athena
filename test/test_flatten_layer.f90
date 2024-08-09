@@ -148,6 +148,7 @@ program test_flatten_layer
 !!! test backward pass and check expected output for 3D
 !!!-----------------------------------------------------------------------------
   !! run backward pass
+  deallocate(gradient)
   allocate(gradient, source = output)
   call flatten_layer%backward(input_data4d, gradient)
 
@@ -212,7 +213,7 @@ program test_flatten_layer
   call random_number(input_data4d)
 
   !! run forward pass
-  call flatten_layer%forward(input_data4d)
+  call flatten_layer%forward(input_data5d)
   call flatten_layer%get_output(output)
 
   !! check outputs have expected value
@@ -228,6 +229,7 @@ program test_flatten_layer
 !!! test backward pass and check expected output for 4D
 !!!-----------------------------------------------------------------------------
   !! run backward pass
+  deallocate(gradient)
   allocate(gradient, source = output)
   call flatten_layer%backward(input_data5d, gradient)
 

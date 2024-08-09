@@ -26,6 +26,7 @@ module mpnn_layer
   type, extends(learnable_layer_type) :: mpnn_layer_type
      integer :: num_vertex_features, num_edge_features
      integer :: num_time_steps
+     integer :: num_outputs
      type(graph_type), dimension(:), allocatable :: graph
      class(method_container_type), allocatable :: method
     !  real(real32), dimension(:,:), allocatable :: output

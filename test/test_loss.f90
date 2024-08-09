@@ -19,12 +19,15 @@ program test_loss
   actual_loss = compute_loss_bce(predicted, expected)
   if (any(abs(actual_loss - expected_loss) .gt. 1.E-6)) then
     write(0,*) "Error: compute_loss_bce did not return the expected result."
+    write(0,*) "actual_loss: ", actual_loss
+    write(0,*) "expected_loss: ", expected_loss
     success = .false.
   end if
   expected_total_loss = sum(expected_loss, dim=1)
   actual_total_loss = total_loss_bce(predicted, expected)
   if (any(abs(actual_total_loss - expected_total_loss) .gt. 1.E-6)) then
     write(0,*) "Error: total_loss_bce did not return the expected result."
+    write(0,*) "actual_total_loss: ", actual_total_loss
     success = .false.
   end if
 
@@ -36,12 +39,15 @@ program test_loss
   actual_loss = compute_loss_cce(predicted, expected)
   if (any(abs(actual_loss - expected_loss) .gt. 1.E-6)) then
     write(0,*) "Error: compute_loss_cce did not return the expected result."
+    write(0,*) "actual_loss: ", actual_loss
+    write(0,*) "expected_loss: ", expected_loss
     success = .false.
   end if
   expected_total_loss = sum(expected_loss, dim=1)
   actual_total_loss = total_loss_cce(predicted, expected)
   if (any(abs(actual_total_loss - expected_total_loss) .gt. 1.E-6)) then
     write(0,*) "Error: total_loss_cce did not return the expected result."
+    write(0,*) "actual_total_loss: ", actual_total_loss
     success = .false.
   end if
 
@@ -49,16 +55,19 @@ program test_loss
 !!!-----------------------------------------------------------------------------
 !!! test MAE loss
 !!!-----------------------------------------------------------------------------
-  expected_loss = abs(predicted - expected) /(size(predicted,1))
+  expected_loss = abs(predicted - expected)
   actual_loss = compute_loss_mae(predicted, expected)
   if (any(abs(actual_loss - expected_loss) .gt. 1.E-6)) then
     write(0,*) "Error: compute_loss_mae did not return the expected result."
+    write(0,*) "actual_loss: ", actual_loss
+    write(0,*) "expected_loss: ", expected_loss
     success = .false.
   end if
-  expected_total_loss = sum(expected_loss, dim=1)
+  expected_total_loss = sum(expected_loss, dim=1) / size(predicted, 1)
   actual_total_loss = total_loss_mae(predicted, expected)
   if (any(abs(actual_total_loss - expected_total_loss) .gt. 1.E-6)) then
     write(0,*) "Error: total_loss_mae did not return the expected result."
+    write(0,*) "actual_total_loss: ", actual_total_loss
     success = .false.
   end if
 
@@ -66,16 +75,19 @@ program test_loss
 !!!-----------------------------------------------------------------------------
 !!! test MSE loss
 !!!-----------------------------------------------------------------------------
-  expected_loss = ((predicted - expected)**2.E0) /(2.E0*size(predicted,1))
+  expected_loss = ((predicted - expected)**2.E0) /(2.E0)
   actual_loss = compute_loss_mse(predicted, expected)
   if (any(abs(actual_loss - expected_loss) .gt. 1.E-6)) then
     write(0,*) "Error: compute_loss_mse did not return the expected result."
+    write(0,*) "actual_loss: ", actual_loss
+    write(0,*) "expected_loss: ", expected_loss
     success = .false.
   end if
-  expected_total_loss = sum(expected_loss, dim=1)
+  expected_total_loss = sum(expected_loss, dim=1) * 2.E0 / size(predicted, 1)
   actual_total_loss = total_loss_mse(predicted, expected)
   if (any(abs(actual_total_loss - expected_total_loss) .gt. 1.E-6)) then
     write(0,*) "Error: total_loss_mse did not return the expected result."
+    write(0,*) "actual_total_loss: ", actual_total_loss
     success = .false.
   end if
 
@@ -87,12 +99,15 @@ program test_loss
   actual_loss = compute_loss_nll(predicted, expected)
   if (any(abs(actual_loss - expected_loss) .gt. 1.E-6)) then
     write(0,*) "Error: compute_loss_nll did not return the expected result."
+    write(0,*) "actual_loss: ", actual_loss
+    write(0,*) "expected_loss: ", expected_loss
     success = .false.
   end if
   expected_total_loss = sum(expected_loss, dim=1)
   actual_total_loss = total_loss_nll(predicted, expected)
   if (any(abs(actual_total_loss - expected_total_loss) .gt. 1.E-6)) then
     write(0,*) "Error: total_loss_nll did not return the expected result."
+    write(0,*) "actual_total_loss: ", actual_total_loss
     success = .false.
   end if
 

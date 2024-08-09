@@ -355,7 +355,7 @@ contains
          this%bias_initialiser = get_default_initialiser( &
               activation_function, &
               is_bias=.true. &
-         )  
+         )
     if(present(verbose))then
        if(abs(verbose).gt.0)then
           write(*,'("FULL activation function: ",A)') &
@@ -482,6 +482,7 @@ contains
    !!--------------------------------------------------------------------------
    if(allocated(this%input_shape))then
       if(.not.allocated(this%output)) this%output = array2d_type()
+      if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
       call this%output%allocate( &
            [this%num_outputs, this%batch_size], &
            source=0._real32 &
@@ -494,8 +495,8 @@ contains
       if(allocated(this%dw)) deallocate(this%dw)
       allocate(this%dw(this%num_inputs+1,this%num_outputs, this%batch_size), &
            source=0._real32)
-      if(allocated(this%di)) deallocate(this%di)
-      this%di = array2d_type()
+      if(.not.allocated(this%di)) this%di = array2d_type()
+      if(this%di%allocated) call this%di%deallocate()
       call this%di%allocate( &
            [this%num_inputs, this%batch_size], &
            source=0._real32 &

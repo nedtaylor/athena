@@ -234,7 +234,10 @@ contains
     !! set up number of channels, width, height
     !!-----------------------------------------------------------------------
     this%num_channels = this%input_shape(3)
-    allocate(this%output%shape(3))
+    if(allocated(this%output))then
+       if(this%output%allocated) call this%output%deallocate()
+    end if
+    this%output = array4d_type()
     this%output%shape(3) = this%input_shape(3)
     this%output%shape(:2) = &
          floor( (this%input_shape(:2) - this%pool)/real(this%strd)) + 1
@@ -272,16 +275,16 @@ contains
     !! allocate arrays
     !!--------------------------------------------------------------------------
     if(allocated(this%input_shape))then
-       if(this%output%allocated) call this%output%deallocate()
-       this%output = array4d_type()
+       if(.not.allocated(this%output)) this%output = array4d_type()
+       if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
        call this%output%allocate( array_shape = [ &
             this%output%shape(1), &
             this%output%shape(2), this%num_channels, &
             this%batch_size ], &
             source=0._real32 &
        )
+       if(.not.allocated(this%di)) this%di = array4d_type()
        if(this%di%allocated) call this%di%deallocate()
-       this%di = array4d_type()
        call this%di%allocate( array_shape = [ &
             this%input_shape(1), &
             this%input_shape(2), &

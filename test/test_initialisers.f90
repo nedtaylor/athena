@@ -80,7 +80,7 @@ program test_initialisers
            num_inputs=1, &
            num_outputs=10, &
            batch_size = batch_size, &
-           kernel_initialiser = initialiser_names(i))
+           kernel_initialiser = initialiser_names(i), verbose = 1 )
 
       !! check layer name
       select type(full_layer)
@@ -90,6 +90,7 @@ program test_initialisers
             success = .false.
             write(0,*) 'kernel initialiser has wrong name for ', &
                  trim(initialiser_names(i))
+            write(0,*) 'returned name: ', full_layer%kernel_initialiser
             write(*,*) 
          end if
       class default
@@ -103,7 +104,7 @@ program test_initialisers
       conv2d_layer = conv2d_layer_type( &
            input_shape = [width, width, num_channels], &
            batch_size = batch_size, &
-           kernel_initialiser = initialiser_names(i))
+           kernel_initialiser = initialiser_names(i), verbose = 1 )
 
       !! check layer name
       select type(conv2d_layer)
@@ -113,6 +114,7 @@ program test_initialisers
             success = .false.
             write(0,*) 'kernel initialiser has wrong name for ', &
                  trim(initialiser_names(i))
+            write(0,*) 'returned name: ', conv2d_layer%kernel_initialiser
             write(*,*) 
          end if
       class default
@@ -125,7 +127,7 @@ program test_initialisers
       conv3d_layer = conv3d_layer_type( &
            input_shape = [width, width, width, num_channels], &
            batch_size = batch_size, &
-           kernel_initialiser = initialiser_names(i))
+           kernel_initialiser = initialiser_names(i), verbose = 1 )
 
       !! check layer name
       select type(conv3d_layer)
@@ -135,6 +137,7 @@ program test_initialisers
             success = .false.
             write(0,*) 'kernel initialiser has wrong name for ', &
                  trim(initialiser_names(i))
+            write(0,*) 'returned name: ', conv3d_layer%kernel_initialiser
             write(*,*) 
          end if
       class default

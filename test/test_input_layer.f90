@@ -2,6 +2,7 @@ program test_input_layer
   use athena, only: &
        input_layer_type, &
        base_layer_type
+  use custom_types, only: array4d_type, array5d_type
   implicit none
 
   class(input_layer_type), allocatable :: input_layer
@@ -16,9 +17,7 @@ program test_input_layer
   real, dimension(2,1,1,1) :: input_4d = 4.E0
   real, allocatable, dimension(:,:,:,:) :: output_4d
   real, dimension(2,1,1,1,1) :: input_5d = 5.E0
-  real, allocatable, dimension(:,:,:,:) :: output_5d
-  real, dimension(2,1,1,1,1,1) :: input_6d = 6.E0
-  real, allocatable, dimension(:,:,:,:) :: output_6d
+  real, allocatable, dimension(:,:,:,:,:) :: output_5d
 
   logical :: success = .true.
 
@@ -41,6 +40,10 @@ program test_input_layer
      write(*,*) output_1d
      success = .false.
   end if
+  deallocate(input_layer)
+  input_layer = input_layer_type( &
+       input_shape=shape(input_2d), &
+       batch_size=batch_size)
   call input_layer%set(input_2d)
   call input_layer%forward(input_2d)
   call input_layer%get_output(output_2d)
@@ -49,6 +52,10 @@ program test_input_layer
      write(*,*) output_2d
      success = .false.
   end if
+  deallocate(input_layer)
+  input_layer = input_layer_type( &
+       input_shape=shape(input_3d), &
+       batch_size=batch_size)
   call input_layer%set(input_3d)
   call input_layer%forward(input_3d)
   call input_layer%get_output(output_3d)
@@ -57,15 +64,25 @@ program test_input_layer
      write(*,*) output_3d
      success = .false.
   end if
+  deallocate(input_layer)
+  input_layer = input_layer_type( &
+       input_shape=shape(input_4d), &
+       batch_size=batch_size)
   call input_layer%set(input_4d)
   call input_layer%forward(input_4d)
+  call input_layer%get_output(output_4d)
   if(any(abs(output_4d-4.E0).gt.1.E-6))then
      write(0,*) 'input_layer forward 4d failed'
      write(*,*) output_4d
      success = .false.
   end if
+  deallocate(input_layer)
+  input_layer = input_layer_type( &
+       input_shape=shape(input_5d), &
+       batch_size=batch_size)
   call input_layer%set(input_5d)
   call input_layer%forward(input_5d)
+  call input_layer%get_output(output_5d)
   if(any(abs(output_5d-5.E0).gt.1.E-6))then
      write(0,*) 'input_layer forward 4d failed'
      write(*,*) output_5d

@@ -508,14 +508,20 @@ contains
          select type(next)
          class is(conv_layer_type)
             t_input_layer = input_layer_type(&
-                 input_shape = next%input_shape + &
-                 [2*next%pad,0])
+                 input_shape = next%input_shape + [2*next%pad,0], &
+                 verbose=verbose_ &
+            )
             allocate(this%model(1)%layer, source = t_input_layer)
          class default
             t_input_layer = input_layer_type(&
-                 input_shape = next%input_shape)
+                 input_shape = next%input_shape, &
+                 verbose=verbose_ &
+            )
             allocate(this%model(1)%layer, source = t_input_layer)
          end select
+         call this%model(1)%layer%init( &
+              next%input_shape, this%batch_size, verbose_ &
+         )
          deallocate(t_input_layer)
        end associate
     end select
@@ -539,9 +545,12 @@ contains
        write(*,*) this%model(1)%layer%output%shape
     end if
     do i=2,size(this%model,dim=1)
-       if(.not.allocated(this%model(i)%layer%output%shape)) &
-            call this%model(i)%layer%init(this%model(i-1)%layer%output%shape, &
-                 this%batch_size)
+       if(.not.allocated(this%model(i)%layer%output)) &
+            call this%model(i)%layer%init( &
+                 input_shape = this%model(i-1)%layer%output%shape, &
+                 batch_size = this%batch_size, &
+                 verbose = verbose_ &
+            )
        if(verbose_.gt.0)then
           write(*,*) "layer:",i, this%model(i)%name
           write(*,*) this%model(i)%layer%input_shape
@@ -555,42 +564,37 @@ contains
 !!!-----------------------------------------------------------------------------
     i = 1 !! starting for layer 2
     layer_loop: do
-       if(i.ge.size(this%model,dim=1)) exit layer_loop
        i = i + 1
+       if(i.ge.size(this%model,dim=1)) exit layer_loop
     
-       flatten_layer_check: if(i.lt.size(this%model,dim=1))then
-          if(allocated(this%model(i+1)%layer%input_shape).and.&
-               allocated(this%model(i)%layer%output%shape))then
-             if(size(this%model(i+1)%layer%input_shape).ne.&
-                  size(this%model(i)%layer%output%shape))then
-
-                select type(current => this%model(i)%layer)
-                class is(flatten_layer_type)
-                   cycle layer_loop
-                class default
-                   this%model = [&
-                        this%model(1:i),&
-                        container_layer_type(name="flat"),&
-                        this%model(i+1:size(this%model))&
-                        ]
-                   num_addit_inputs = 0
-                   select type(next => this%model(i+1)%layer)
-                   type is(full_layer_type)
-                      num_addit_inputs = next%num_addit_inputs
-                   end select
-                   t_flatten_layer = flatten_layer_type(&
-                        input_shape = this%model(i)%layer%output%shape, &
-                        num_addit_outputs = num_addit_inputs, &
-                        batch_size = this%batch_size &
-                   )
-                   i = i + 1
-                   cycle layer_loop
+       if(allocated(this%model(i+1)%layer%input_shape).and.&
+            allocated(this%model(i)%layer%output%shape))then
+          if(size(this%model(i+1)%layer%input_shape).ne.&
+               size(this%model(i)%layer%output%shape))then
+             select type(current => this%model(i)%layer)
+             class is(flatten_layer_type)
+                cycle layer_loop
+             class default
+                this%model = [&
+                   this%model(1:i),&
+                   container_layer_type(name="flat"), &
+                   this%model(i+1:size(this%model)) &
+                ]
+                num_addit_inputs = 0
+                select type(next => this%model(i+1)%layer)
+                type is(full_layer_type)
+                   num_addit_inputs = next%num_addit_inputs
                 end select
-             end if
-          else
-             
+                t_flatten_layer = flatten_layer_type(&
+                   input_shape = this%model(i)%layer%output%shape, &
+                   num_addit_outputs = num_addit_inputs, &
+                   batch_size = this%batch_size &
+                )
+                i = i + 1
+                cycle layer_loop
+             end select
           end if
-       end if flatten_layer_check
+       end if
     
     end do layer_loop
     
@@ -761,26 +765,26 @@ contains
 !!! get gradients
 !!!#############################################################################
   pure module function get_gradients(this) result(gradients)
-  implicit none
-  class(network_type), intent(in) :: this
-  real(real32), allocatable, dimension(:) :: gradients
+    implicit none
+    class(network_type), intent(in) :: this
+    real(real32), allocatable, dimension(:) :: gradients
 
-  integer :: l, start_idx, end_idx
+    integer :: l, start_idx, end_idx
 
-  start_idx = 0
-  end_idx   = 0
-  allocate(gradients(this%get_num_params()), source=0._real32)
-  do l = 1, this%num_layers
-     select type(current => this%model(l)%layer)
-     class is(learnable_layer_type)
-        start_idx = end_idx + 1
-        end_idx = end_idx + current%get_num_params()
-        gradients(start_idx:end_idx) = &
-             current%get_gradients(clip_method=this%optimiser%clip_dict)
-     end select
-  end do
+    start_idx = 0
+    end_idx   = 0
+    allocate(gradients(this%get_num_params()), source=0._real32)
+    do l = 1, this%num_layers
+       select type(current => this%model(l)%layer)
+       class is(learnable_layer_type)
+          start_idx = end_idx + 1
+          end_idx = end_idx + current%get_num_params()
+          gradients(start_idx:end_idx) = &
+               current%get_gradients(clip_method=this%optimiser%clip_dict)
+       end select
+    end do
 
-end function get_gradients
+  end function get_gradients
 !!!#############################################################################
 
 
@@ -1007,6 +1011,13 @@ end function get_gradients
 
 
 !!!-----------------------------------------------------------------------------
+!!! check loss and accuracy methods are set
+!!!-----------------------------------------------------------------------------
+    if(.not.associated(this%get_loss)) stop "ERROR: loss method not set"
+    if(.not.associated(this%get_accuracy)) stop "ERROR: accuracy method not set"
+
+
+!!!-----------------------------------------------------------------------------
 !!! initialise optional arguments
 !!!-----------------------------------------------------------------------------
     if(present(plateau_threshold)) plateau_threshold_ = plateau_threshold
@@ -1037,47 +1048,46 @@ end function get_gradients
 !!!-----------------------------------------------------------------------------
 !!! if parallel, initialise slices
 !!!-----------------------------------------------------------------------------
-  num_batches = size(output,dim=2) / this%batch_size
-  allocate(batch_order(num_batches))
-  do batch = 1, num_batches
-     batch_order(batch) = batch
-  end do
+    num_batches = size(output,dim=2) / this%batch_size
+    allocate(batch_order(num_batches))
+    do batch = 1, num_batches
+       batch_order(batch) = batch
+    end do
 
 
 !!!-----------------------------------------------------------------------------
 !!! get number of samples
 !!!-----------------------------------------------------------------------------
-  select rank(input)
-  rank(1)
-     write(*,*) "Cannot check number of samples in rank 1 input"
-  rank default
-     num_samples = size(input,rank(input))
-     if(size(output,2).ne.num_samples)then
-        write(0,*) "ERROR: number of samples in input and output do not match"
-        stop "Exiting..."
-     elseif(size(output,1).ne.this%num_outputs)then
-        write(0,*) "ERROR: number of outputs in output does not match network"
-        stop "Exiting..."
-     end if
-   end select
+    select rank(input)
+    rank(1)
+       write(*,*) "Cannot check number of samples in rank 1 input"
+    rank default
+       num_samples = size(input,rank(input))
+       if(size(output,2).ne.num_samples)then
+          write(0,*) "ERROR: number of samples in input and output do not match"
+          stop "Exiting..."
+       elseif(size(output,1).ne.this%num_outputs)then
+          write(0,*) "ERROR: number of outputs in output does not match network"
+          stop "Exiting..."
+       end if
+     end select
 
 
 !!!-----------------------------------------------------------------------------
 !!! set/reset batch size for training
 !!!-----------------------------------------------------------------------------
-  call this%set_batch_size(this%batch_size)
-
+    call this%set_batch_size(this%batch_size)
 
 
 !!!-----------------------------------------------------------------------------
 !!! turn off inference booleans
 !!!-----------------------------------------------------------------------------
-  do l=1,this%num_layers
-     select type(current => this%model(l)%layer)
-     class is(drop_layer_type)
-        current%inference = .false.
-     end select
-  end do
+    do l=1,this%num_layers
+       select type(current => this%model(l)%layer)
+       class is(drop_layer_type)
+          current%inference = .false.
+       end select
+    end do
 
 
 !!!-----------------------------------------------------------------------------

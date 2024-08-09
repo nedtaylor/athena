@@ -166,12 +166,30 @@ contains
     !!--------------------------------------------------------------------------
     !! initialise input shape
     !!--------------------------------------------------------------------------
+    this%input_rank = size(input_shape, dim=1)
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
-    
+    if(allocated(this%output))then
+       if(this%output%allocated) call this%output%deallocate()
+    end if
+    select case(this%input_rank)
+    case(1)
+       this%output = array1d_type()
+    case(2)
+       this%output = array2d_type()
+    case(3)
+       this%output = array3d_type()
+    case(4)
+       this%output = array4d_type()
+    case(5)
+       this%output = array5d_type()
+    case default
+       write(0,*) "ERROR: Input layer only supports input ranks 1-5"
+       stop "Exiting..."
+    end select
     this%output%shape = this%input_shape
     this%num_outputs = product(this%input_shape)
 
-    
+
     !!--------------------------------------------------------------------------
     !! initialise batch size-dependent arrays
     !!--------------------------------------------------------------------------
@@ -204,7 +222,7 @@ contains
     !! allocate arrays
     !!--------------------------------------------------------------------------
     if(allocated(this%input_shape))then
-       if(this%output%allocated) call this%output%deallocate()
+       if(allocated(this%output)) deallocate(this%output)
        select case(size(this%input_shape))
        case(1)
           this%input_rank = 1

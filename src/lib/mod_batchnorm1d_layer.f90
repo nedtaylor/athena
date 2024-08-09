@@ -387,7 +387,16 @@ contains
     !!--------------------------------------------------------------------------
     !! set up output shape
     !!--------------------------------------------------------------------------
-    this%output%shape = this%input_shape
+    if(allocated(this%output))then
+       if(this%output%allocated) call this%output%deallocate()
+    end if
+    this%output = array3d_type()
+    if(size(this%input_shape).eq.1)then
+       this%output%shape(1) = this%input_shape(1)
+       this%output%shape(2) = 1
+    else
+       this%output%shape = this%input_shape
+    end if
     this%num_channels = this%input_shape(this%input_rank)
     if(size(this%input_shape).eq.2)then
        this%num_inputs = this%input_shape(1)
@@ -485,18 +494,18 @@ contains
     !! allocate arrays
     !!--------------------------------------------------------------------------
     if(allocated(this%input_shape))then
-       if(this%output%allocated) call this%output%deallocate()
-       this%output = array3d_type()
+       if(.not.allocated(this%output)) this%output = array3d_type()
+       if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
        call this%output%allocate( array_shape = [ &
             this%num_inputs, &
             this%num_channels, &
             this%batch_size ], &
             source=0._real32 &
        )
+       if(.not.allocated(this%di)) this%di = array3d_type()
        if(this%di%allocated) call this%di%deallocate()
-       this%di = array3d_type()
        call this%di%allocate( source = this%output )
-    end if
+      end if
 
   end subroutine set_batch_size_batchnorm1d
 !!!#############################################################################
