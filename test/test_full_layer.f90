@@ -24,9 +24,9 @@ program test_full_layer
      write(0,*) 'full layer has wrong input_shape'
   end if
 
-  if(any(full_layer1%output_shape .ne. [10]))then
+  if(any(full_layer1%output%shape .ne. [10]))then
      success = .false.
-     write(0,*) 'full layer has wrong output_shape'
+     write(0,*) 'full layer has wrong output shape'
   end if
 
   !! check layer type
@@ -43,14 +43,14 @@ program test_full_layer
   end select
 
   full_layer2 = full_layer_type(num_outputs=20)
-  call full_layer2%init(full_layer1%output_shape)
+  call full_layer2%init(full_layer1%output%shape)
 
   if(any(full_layer2%input_shape .ne. [10]))then
      success = .false.
      write(0,*) 'full layer has wrong input_shape'
   end if
 
-  if(any(full_layer2%output_shape .ne. [20]))then
+  if(any(full_layer2%output%shape .ne. [20]))then
      success = .false.
      write(0,*) 'full layer has wrong input_shape'
   end if

@@ -3,6 +3,7 @@ program test_maxpool2d_layer
        maxpool2d_layer_type, &
        base_layer_type, &
        learnable_layer_type
+  use custom_types, only: array4d_type
   implicit none
 
   class(base_layer_type), allocatable :: pool_layer
@@ -81,11 +82,11 @@ program test_maxpool2d_layer
        success = .false.
        write(0,*) 'maxpool2d layer has wrong input_shape'
     end if
-    if(any(pool_layer%output_shape .ne. &
+    if(any(pool_layer%output%shape .ne. &
          [output_width,output_width,num_channels]))then
        success = .false.
-       write(0,*) 'maxpool2d layer has wrong output_shape', &
-            pool_layer%output_shape
+       write(0,*) 'maxpool2d layer has wrong output shape', &
+            pool_layer%output%shape
        write(0,*) 'expected', [output_width,output_width,num_channels]
     end if
   end select
@@ -137,27 +138,30 @@ program test_maxpool2d_layer
   call pool_layer%backward(input_data, gradient)
 
   !! check gradient has expected value
-  select type(current => pool_layer)
-  type is(maxpool2d_layer_type)
+  select type(di => pool_layer%di)
+  type is (array4d_type)
      do i = 1, width
-      num_windows_i = pool - stride + 1 - mod((stride+1)*(i-1),2)
-      do j = 1, width
-         num_windows_j = pool - stride + 1 - mod((stride+1)*(j-1),2)
-         num_windows = num_windows_i * num_windows_j
-         if(all([i,j].eq.maxloc(input_data(:,:,1,1))))then
-           if(current%di(i, j, 1, 1) .ne. maxval(output)*num_windows)then
-             success = .false.
-             write(*,*) num_windows_i, num_windows_j
-             write(*,*) 'maxpool2d layer backward pass failed'
+        num_windows_i = pool - stride + 1 - mod((stride+1)*(i-1),2)
+        do j = 1, width
+           num_windows_j = pool - stride + 1 - mod((stride+1)*(j-1),2)
+           num_windows = num_windows_i * num_windows_j
+           if(all([i,j].eq.maxloc(input_data(:,:,1,1))))then
+             if(di%val(i, j, 1, 1) .ne. maxval(output)*num_windows)then
+               success = .false.
+               write(*,*) num_windows_i, num_windows_j
+               write(*,*) 'maxpool2d layer backward pass failed'
+             end if
+           else
+             if(di%val(i, j, 1, 1) .ne. 0.0) then
+               success = .false.
+               write(*,*) 'maxpool2d layer backward pass failed'
+             end if
            end if
-         else
-           if(current%di(i, j, 1, 1) .ne. 0.0) then
-             success = .false.
-             write(*,*) 'maxpool2d layer backward pass failed'
-           end if
-         end if
-       end do
+         end do
      end do
+  class default
+    success = .false.
+    write(0,*) 'maxpool2d layer has not set di type correctly'
   end select
 
 

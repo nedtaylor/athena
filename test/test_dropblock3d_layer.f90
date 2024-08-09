@@ -2,6 +2,7 @@ program test_dropblock3d_layer
   use athena, only: &
        dropblock3d_layer_type, &
        base_layer_type
+  use custom_types, only: array5d_type
   implicit none
 
   class(base_layer_type), allocatable :: db_layer
@@ -53,9 +54,9 @@ program test_dropblock3d_layer
      end if
 
      !! check output shape
-     if(any(db_layer%output_shape .ne. [width,width,width,num_channels]))then
+     if(any(db_layer%output%shape .ne. [width,width,width,num_channels]))then
         success = .false.
-        write(0,*) 'dropblock3d layer has wrong output_shape'
+        write(0,*) 'dropblock3d layer has wrong output shape'
      end if
 
      !! check batch size
@@ -114,11 +115,18 @@ program test_dropblock3d_layer
   !! check gradient has expected value
   select type(db_layer)
   type is(dropblock3d_layer_type)
-    if(any(abs(merge(gradient(:,:,:,1,1),0.0,db_layer%mask) - &
-         db_layer%di(:,:,:,1,1)).gt.tol))then
-      success = .false.
-      write(*,*) 'dropblock3d layer backward pass failed: mask incorrectly applied'
-    end if
+     select type(di => db_layer%di)
+     type is(array5d_type)
+        if(any(abs(merge(gradient(:,:,:,1,1),0.0,db_layer%mask) - &
+             di%val(:,:,:,1,1)).gt.tol))then
+          success = .false.
+          write(*,*) 'dropblock3d layer backward pass failed: &
+               &mask incorrectly applied'
+        end if
+     class default
+         success = .false.
+         write(0,*) 'dropblock3d layer has not set di type correctly'
+     end select
   end select
 
 

@@ -3,13 +3,13 @@ program test_network
        network_type, &
        metric_dict_type, &
        full_layer_type, &
-       input1d_layer_type, &
+       input_layer_type, &
        base_optimiser_type, &
        maxpool2d_layer_type, &
        conv2d_layer_type, &
        batchnorm2d_layer_type, &
        dropblock2d_layer_type, &
-       flatten2d_layer_type, &
+       flatten_layer_type, &
        conv3d_layer_type
    use loss, only: &
        compute_loss_bce, &
@@ -48,7 +48,7 @@ program test_network
 !!!-----------------------------------------------------------------------------
 !!! Create network
 !!!-----------------------------------------------------------------------------
-  ! call network%add(input1d_layer_type(input_shape=[1]))
+  ! call network%add(input_layer_type(input_shape=[1]))
   call network%add(full_layer_type( &
        num_inputs=3, num_outputs=5, activation_function="tanh"))
   call network%add(full_layer_type( &
@@ -149,7 +149,7 @@ program test_network
   call network3%add(conv2d_layer_type())
   call network3%add(batchnorm2d_layer_type())
   call network3%add(dropblock2d_layer_type(block_size=3, rate=0.1))
-  call network3%add(flatten2d_layer_type())
+  call network3%add(flatten_layer_type())
 
   !! check automatic flatten layer adding
   call network3%reset()

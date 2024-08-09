@@ -2,6 +2,7 @@ program test_dropblock2d_layer
   use athena, only: &
        dropblock2d_layer_type, &
        base_layer_type
+  use custom_types, only: array4d_type
   implicit none
 
   class(base_layer_type), allocatable :: db_layer
@@ -53,9 +54,9 @@ program test_dropblock2d_layer
      end if
 
      !! check output shape
-     if(any(db_layer%output_shape .ne. [width,width,num_channels]))then
+     if(any(db_layer%output%shape .ne. [width,width,num_channels]))then
         success = .false.
-        write(0,*) 'dropblock2d layer has wrong output_shape'
+        write(0,*) 'dropblock2d layer has wrong output shape'
      end if
 
      !! check batch size
@@ -66,7 +67,8 @@ program test_dropblock2d_layer
 
      if(any(.not.db_layer%mask))then
         success = .false.
-        write(0,*) 'dropblock2d layer has wrong mask, should all be true for rate = 0.0'
+        write(0,*) 'dropblock2d layer has wrong mask, should all be true for &
+             &rate = 0.0'
      end if
   class default
      success = .false.
@@ -95,7 +97,12 @@ program test_dropblock2d_layer
   !! check outputs have expected value
   select type(db_layer)
   type is(dropblock2d_layer_type)
-    if(any(abs(merge(input_data(:,:,1,1),0.0,db_layer%mask)-output(:,:,1,1)).gt.tol))then
+    if(any( &
+         abs( &
+              merge(input_data(:,:,1,1),0.0,db_layer%mask) - &
+              output(:,:,1,1) &
+         ) .gt. tol) &
+    )then
       success = .false.
       write(*,*) 'dropblock2d layer forward pass failed: mask incorrectly applied'
     end if
@@ -112,10 +119,22 @@ program test_dropblock2d_layer
   !! check gradient has expected value
   select type(db_layer)
   type is(dropblock2d_layer_type)
-    if(any(abs(merge(gradient(:,:,1,1),0.0,db_layer%mask)-db_layer%di(:,:,1,1)).gt.tol))then
-      success = .false.
-      write(*,*) 'dropblock2d layer backward pass failed: mask incorrectly applied'
-    end if
+     select type(di => db_layer%di)
+     type is(array4d_type)
+        if(any( &
+             abs( &
+                  merge(gradient(:,:,1,1),0.0,db_layer%mask) - &
+                  di%val(:,:,1,1) &
+             ) .gt. tol ) &
+        )then
+          success = .false.
+          write(*,*) 'dropblock2d layer backward pass failed: mask &
+               &incorrectly applied'
+        end if
+     class default
+        success = .false.
+        write(0,*) 'dropblock2d layer has not set di type correctly'
+     end select
   end select
 
 

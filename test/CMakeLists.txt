@@ -17,10 +17,7 @@ foreach(execid
   dropout_layer
   dropblock2d_layer
   dropblock3d_layer
-  flatten1d_layer
-  flatten2d_layer
-  flatten3d_layer
-  flatten4d_layer
+  flatten_layer
   activations
   initialisers
   padding

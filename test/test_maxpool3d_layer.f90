@@ -3,6 +3,7 @@ program test_maxpool3d_layer
        maxpool3d_layer_type, &
        base_layer_type, &
        learnable_layer_type
+   use custom_types, only: array5d_type
   implicit none
 
   class(base_layer_type), allocatable :: pool_layer
@@ -81,11 +82,11 @@ program test_maxpool3d_layer
        success = .false.
        write(0,*) 'maxpool3d layer has wrong input_shape'
     end if
-    if(any(pool_layer%output_shape .ne. &
+    if(any(pool_layer%output%shape .ne. &
          [output_width,output_width,output_width,num_channels]))then
        success = .false.
-       write(0,*) 'maxpool3d layer has wrong output_shape', &
-            pool_layer%output_shape
+       write(0,*) 'maxpool3d layer has wrong output shape', &
+            pool_layer%output%shape
        write(0,*) 'expected', &
             [output_width,output_width,output_width,num_channels]
     end if
@@ -142,8 +143,8 @@ program test_maxpool3d_layer
   call pool_layer%backward(input_data, gradient)
 
   !! check gradient has expected value
-  select type(current => pool_layer)
-  type is(maxpool3d_layer_type)
+  select type(di => pool_layer%di)
+  type is(array5d_type)
      do i = 1, width
       num_windows_i = pool - stride + 1 - mod((stride+1)*(i-1),2)
       do j = 1, width
@@ -152,13 +153,13 @@ program test_maxpool3d_layer
             num_windows_k = pool - stride + 1 - mod((stride+1)*(k-1),2)
             num_windows = num_windows_i * num_windows_j * num_windows_k
             if(all([i,j,k].eq.maxloc(input_data(:,:,:,1,1))))then
-              if(current%di(i, j, k, 1, 1) .ne. maxval(output)*num_windows)then
+              if(di%val(i, j, k, 1, 1) .ne. maxval(output)*num_windows)then
                 success = .false.
                 write(*,*) num_windows_i, num_windows_j, num_windows_k
                 write(*,*) 'maxpool3d layer backward pass failed'
               end if
             else
-              if(current%di(i, j, k, 1, 1) .ne. 0.0) then
+              if(di%val(i, j, k, 1, 1) .ne. 0.0) then
                 success = .false.
                 write(*,*) 'maxpool3d layer backward pass failed'
               end if
@@ -166,6 +167,9 @@ program test_maxpool3d_layer
          end do
        end do
      end do
+   class default
+      success = .false.
+      write(0,*) 'maxpool3d layer has not set di type correctly'
   end select
 
 

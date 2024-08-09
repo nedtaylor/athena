@@ -2,6 +2,7 @@ program test_dropout_layer
   use athena, only: &
        dropout_layer_type, &
        base_layer_type
+  use custom_types, only: array2d_type
   implicit none
 
   class(base_layer_type), allocatable :: drop_layer
@@ -46,9 +47,9 @@ program test_dropout_layer
      end if
 
      !! check output shape
-     if(any(drop_layer%output_shape .ne. [num_inputs]))then
+     if(any(drop_layer%output%shape .ne. [num_inputs]))then
         success = .false.
-        write(0,*) 'dropout layer has wrong output_shape'
+        write(0,*) 'dropout layer has wrong output shape'
      end if
 
      !! check batch size
@@ -59,7 +60,8 @@ program test_dropout_layer
 
      if(any(.not.drop_layer%mask))then
         success = .false.
-        write(0,*) 'dropout layer has wrong mask, should all be true for rate = 0.0'
+        write(0,*) 'dropout layer has wrong mask, should all be true for &
+             &rate = 0.0'
      end if
   class default
      success = .false.
@@ -98,11 +100,17 @@ program test_dropout_layer
   !! check gradient has expected value
   select type(drop_layer)
   type is(dropout_layer_type)
-    if(any(abs(merge(gradient(:,1),0.0,drop_layer%mask(:,1)) - &
-         drop_layer%di(:,1)).gt.tol))then
-      success = .false.
-      write(*,*) 'dropout layer backward pass failed: mask incorrectly applied'
-    end if
+    select type(di => drop_layer%di)
+    type is(array2d_type)
+       if(any(abs(merge(gradient(:,1),0.0,drop_layer%mask(:,1)) - &
+            di%val(:,1)).gt.tol))then
+         success = .false.
+         write(*,*) 'dropout layer backward pass failed: mask incorrectly applied'
+       end if
+    class default
+       success = .false.
+       write(0,*) 'dropout layer has not set di type correctly'
+    end select
   end select
 
   !! check 1d and 2d output are consistent

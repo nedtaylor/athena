@@ -3,6 +3,7 @@ program test_batchnorm2d_layer
      batchnorm2d_layer_type, &
      base_layer_type, &
      learnable_layer_type
+  use custom_types, only: array4d_type
   implicit none
 
   class(base_layer_type), allocatable :: bn_layer, bn_layer1, bn_layer2
@@ -63,9 +64,9 @@ program test_batchnorm2d_layer
     end if
 
     !! check output shape
-    if(any(bn_layer%output_shape .ne. [width,width,num_channels]))then
+    if(any(bn_layer%output%shape .ne. [width,width,num_channels]))then
       success = .false.
-      write(0,*) 'batchnorm2d layer has wrong output_shape'
+      write(0,*) 'batchnorm2d layer has wrong output shape'
     end if
 
     !! check batch size
@@ -138,25 +139,31 @@ program test_batchnorm2d_layer
   !! check gradient has expected value
   select type(current => bn_layer)
   type is(batchnorm2d_layer_type)
-    do i = 1, num_channels
-      mean = sum(current%di(:,:,i,:))/(width**2*batch_size)
-      std = sqrt(sum((current%di(:,:,i,:) - mean)**2)/(width**2*batch_size))
-      if (abs(mean) .gt. tol) then
+     select type(di => current%di)
+     type is(array4d_type)
+        do i = 1, num_channels
+          mean = sum(di%val(:,:,i,:))/(width**2*batch_size)
+          std = sqrt(sum((di%val(:,:,i,:) - mean)**2)/(width**2*batch_size))
+          if (abs(mean) .gt. tol) then
+            success = .false.
+            write(0,*) 'batchnorm2d layer backward pass failed: &
+                 &mean gradient should be zero'
+          end if
+          if (abs(std) .gt. tol) then
+            success = .false.
+            write(0,*) 'batchnorm2d layer backward pass failed: &
+                 &std gradient should equal gamma'
+          end if
+          if (abs(current%db(i) - sum(gradient(:,:,i,:))) .gt. tol) then
+            success = .false.
+            write(0,*) 'batchnorm2d layer backward pass failed: &
+                 &std gradient should equal sum of gradients'
+          end if
+        end do
+     class default
         success = .false.
-        write(0,*) 'batchnorm2d layer backward pass failed: &
-             &mean gradient should be zero'
-      end if
-      if (abs(std) .gt. tol) then
-        success = .false.
-        write(0,*) 'batchnorm2d layer backward pass failed: &
-             &std gradient should equal gamma'
-      end if
-      if (abs(current%db(i) - sum(gradient(:,:,i,:))) .gt. tol) then
-        success = .false.
-        write(0,*) 'batchnorm2d layer backward pass failed: &
-             &std gradient should equal sum of gradients'
-      end if
-    end do
+        write(0,*) 'batchnorm2d layer has not set di type correctly'
+     end select
   end select
 
 

@@ -10,7 +10,11 @@ program test_activations
    use activation_sigmoid, only: sigmoid_setup ! threshold
    use activation_softmax, only: softmax_setup ! threshold
    use activation_tanh, only: tanh_setup ! threshold
-   use custom_types, only: activation_type
+   use custom_types, only: activation_type, &
+        array2d_type, &
+        array3d_type, &
+        array4d_type, &
+        array5d_type
    implicit none
  
    class(base_layer_type), allocatable :: full_layer, conv2d_layer, conv3d_layer
@@ -88,7 +92,7 @@ program test_activations
       success = .false.
       write(0,*) 'activation has wrong name for gaussian'
    else
-      if (activation%threshold .ne. 2.E0) then
+      if (abs(activation%threshold - 2.E0).gt.1.E-6) then
          success = .false.
          write(0,*) 'activation has wrong threshold for gaussian'
       end if
@@ -113,7 +117,7 @@ program test_activations
       success = .false.
       write(0,*) 'activation has wrong name for sigmoid'
    else
-      if (activation%threshold .ne. 2.E0) then
+      if (abs(activation%threshold - 2.E0).gt.1.E-6) then
          success = .false.
          write(0,*) 'activation has wrong threshold for sigmoid'
       end if
@@ -128,7 +132,7 @@ program test_activations
       success = .false.
       write(0,*) 'activation has wrong name for softmax'
    else
-      if (activation%threshold .ne. 2.E0) then
+      if (abs(activation%threshold - 2.E0).gt.1.E-6) then
          success = .false.
          write(0,*) 'activation has wrong threshold for softmax'
       end if
@@ -143,7 +147,7 @@ program test_activations
       success = .false.
       write(0,*) 'activation has wrong name for tanh'
    else
-      if (activation%threshold .ne. 2.E0) then
+      if (abs(activation%threshold - 2.E0).gt.1.E-6) then
          success = .false.
          write(0,*) 'activation has wrong threshold for tanh'
       end if
@@ -216,14 +220,20 @@ program test_activations
                  trim(activation_names(i))
          else
             call full_layer%forward(input_data)
-            call compare_output( &
-                 full_layer%output, input_data, activation_names(i), success)
-
-            full_layer%output = 1.E0
-            call compare_derivative( &
-                 full_layer%transfer%differentiate(full_layer%output), &
-                 full_layer%output, &
-                 activation_names(i), success)
+            select type(output => full_layer%output)
+            type is(array2d_type)
+               call compare_output( &
+                    output%val, input_data, activation_names(i), success)
+   
+               output%val = 1.E0
+               call compare_derivative( &
+                    full_layer%transfer%differentiate(output%val), &
+                    output%val, &
+                    activation_names(i), success)
+            class default
+               success = .false.
+               write(0,*) 'full layer output is not of type array2d_type'
+            end select
          end if
       class default
          success = .false.
@@ -254,15 +264,21 @@ program test_activations
                  trim(activation_names(i))
          else
             call conv2d_layer%forward(input_data_conv2d)
-            call compare_output( &
-                 conv2d_layer%output, &
-                 input_data_conv2d, activation_names(i), success)
-            
-            conv2d_layer%output = 1.E0
-            call compare_derivative( &
-                  conv2d_layer%transfer%differentiate(conv2d_layer%output), &
-                  conv2d_layer%output, &
-                  activation_names(i), success)
+            select type(output => conv2d_layer%output)
+            type is(array4d_type)
+               call compare_output( &
+                    output%val, &
+                    input_data_conv2d, activation_names(i), success)
+               
+               output%val = 1.E0
+               call compare_derivative( &
+                     conv2d_layer%transfer%differentiate(output%val), &
+                     output%val, &
+                     activation_names(i), success)
+            class default
+               success = .false.
+               write(0,*) 'conv2d layer output is not of type array4d_type'
+            end select
          end if
       class default
          success = .false.
@@ -293,15 +309,21 @@ program test_activations
                  trim(activation_names(i))
          else
             call conv3d_layer%forward(input_data_conv3d)
-            call compare_output( &
-                 conv3d_layer%output, &
-                 input_data_conv3d, activation_names(i), success)
-            
-            conv3d_layer%output = 1.E0
-            call compare_derivative( &
-                  conv3d_layer%transfer%differentiate(conv3d_layer%output), &
-                  conv3d_layer%output, &
-                  activation_names(i), success)
+            select type(output => conv3d_layer%output)
+            type is(array5d_type)
+               call compare_output( &
+                    output%val, &
+                    input_data_conv3d, activation_names(i), success)
+               
+               output%val = 1.E0
+               call compare_derivative( &
+                     conv3d_layer%transfer%differentiate(output%val), &
+                     output%val, &
+                     activation_names(i), success)
+            class default
+               success = .false.
+               write(0,*) 'conv2d layer output is not of type array4d_type'
+            end select
          end if
       class default
          success = .false.
