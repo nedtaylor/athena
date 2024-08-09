@@ -420,6 +420,10 @@ contains
     !! initialise number of inputs
     !!--------------------------------------------------------------------------
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
+    if(allocated(this%output))then
+       if(this%output%allocated) call this%output%deallocate()
+    end if
+    this%output = array2d_type()
     this%output%shape = [this%num_outputs]
 
 
@@ -477,8 +481,7 @@ contains
    !! allocate arrays
    !!--------------------------------------------------------------------------
    if(allocated(this%input_shape))then
-      if(this%output%allocated) deallocate(this%output)
-      this%output = array2d_type()
+      if(.not.allocated(this%output)) this%output = array2d_type()
       call this%output%allocate( &
            [this%num_outputs, this%batch_size], &
            source=0._real32 &
@@ -491,7 +494,7 @@ contains
       if(allocated(this%dw)) deallocate(this%dw)
       allocate(this%dw(this%num_inputs+1,this%num_outputs, this%batch_size), &
            source=0._real32)
-      if(this%di%allocated) deallocate(this%di)
+      if(allocated(this%di)) deallocate(this%di)
       this%di = array2d_type()
       call this%di%allocate( &
            [this%num_inputs, this%batch_size], &
