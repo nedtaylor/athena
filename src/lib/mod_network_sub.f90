@@ -467,6 +467,7 @@ contains
     
     integer :: i
     integer :: verbose_ = 0, num_addit_inputs
+    integer, dimension(:), allocatable :: input_shape
     class(base_layer_type), allocatable :: t_input_layer, t_flatten_layer
 
 
@@ -503,22 +504,18 @@ contains
        this%model = [&
             container_layer_type(name="inpt"),&
             this%model(1:)&
-            ]
+       ]
        associate(next => this%model(2)%layer)
+         input_shape = next%input_shape
          select type(next)
          class is(conv_layer_type)
-            t_input_layer = input_layer_type(&
-                 input_shape = next%input_shape + [2*next%pad,0], &
-                 verbose=verbose_ &
-            )
-            allocate(this%model(1)%layer, source = t_input_layer)
-         class default
-            t_input_layer = input_layer_type(&
-                 input_shape = next%input_shape, &
-                 verbose=verbose_ &
-            )
-            allocate(this%model(1)%layer, source = t_input_layer)
+            input_shape = input_shape + [ 2 * next%pad, 0 ]
          end select
+         t_input_layer = input_layer_type(&
+              input_shape = input_shape, &
+              verbose=verbose_ &
+         )
+         allocate(this%model(1)%layer, source = t_input_layer)
          call this%model(1)%layer%init( &
               next%input_shape, this%batch_size, verbose_ &
          )

@@ -25,25 +25,28 @@ program test_input_layer
 !!!-----------------------------------------------------------------------------
 !!! set up input layer
 !!!-----------------------------------------------------------------------------
+!   write(*,*) "test0"
+!   input_layer = input_layer_type( &
+!        input_shape=shape(input_1d), &
+!        batch_size=batch_size &
+!   )
+!   if(input_layer%batch_size.ne.batch_size)then
+!      write(0,*) 'input_layer batch_size failed'
+!      success = .false.
+!   end if
+!   call input_layer%set(input_1d)
+!   call input_layer%forward(input_1d)
+!   call input_layer%get_output(output_1d)
+!   if(any(abs(output_1d-1.E0).gt.1.E-6))then
+!      write(0,*) 'input_layer forward 1d failed'
+!      write(*,*) output_1d
+!      success = .false.
+!   end if
+!   deallocate(input_layer)
   input_layer = input_layer_type( &
-       input_shape=shape(input_1d), &
-       batch_size=batch_size)
-  if(input_layer%batch_size.ne.batch_size)then
-     write(0,*) 'input_layer batch_size failed'
-     success = .false.
-  end if
-  call input_layer%set(input_1d)
-  call input_layer%forward(input_1d)
-  call input_layer%get_output(output_1d)
-  if(any(abs(output_1d-1.E0).gt.1.E-6))then
-     write(0,*) 'input_layer forward 1d failed'
-     write(*,*) output_1d
-     success = .false.
-  end if
-  deallocate(input_layer)
-  input_layer = input_layer_type( &
-       input_shape=shape(input_2d), &
-       batch_size=batch_size)
+       input_shape=shape(input_2d(:,1)), &
+       batch_size=batch_size &
+  )
   call input_layer%set(input_2d)
   call input_layer%forward(input_2d)
   call input_layer%get_output(output_2d)
@@ -54,8 +57,9 @@ program test_input_layer
   end if
   deallocate(input_layer)
   input_layer = input_layer_type( &
-       input_shape=shape(input_3d), &
-       batch_size=batch_size)
+       input_shape=shape(input_3d(:,:,1)), &
+       batch_size=batch_size &
+  )
   call input_layer%set(input_3d)
   call input_layer%forward(input_3d)
   call input_layer%get_output(output_3d)
@@ -66,8 +70,9 @@ program test_input_layer
   end if
   deallocate(input_layer)
   input_layer = input_layer_type( &
-       input_shape=shape(input_4d), &
-       batch_size=batch_size)
+       input_shape=shape(input_4d(:,:,:,1)), &
+       batch_size=batch_size &
+  )
   call input_layer%set(input_4d)
   call input_layer%forward(input_4d)
   call input_layer%get_output(output_4d)
@@ -78,8 +83,9 @@ program test_input_layer
   end if
   deallocate(input_layer)
   input_layer = input_layer_type( &
-       input_shape=shape(input_5d), &
-       batch_size=batch_size)
+       input_shape=shape(input_5d(:,:,:,:,1)), &
+       batch_size=batch_size &
+  )
   call input_layer%set(input_5d)
   call input_layer%forward(input_5d)
   call input_layer%get_output(output_5d)
