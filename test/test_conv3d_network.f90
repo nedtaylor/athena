@@ -44,7 +44,7 @@ program test_conv3d_network
 
   if(network%num_layers.ne.3)then
     success = .false.
-    write(*,*) "conv3d network should have 3 layers"
+    write(0,*) "conv3d network should have 3 layers"
   end if
 
   call network%set_batch_size(1)
@@ -56,7 +56,7 @@ program test_conv3d_network
 
   if(any(shape(output).ne.[width-4,width-4,width-4,num_filters2,1]))then
      success = .false.
-     write(*,*) "conv3d network output shape should be [28,28,28,32]"
+     write(0,*) "conv3d network output shape should be [28,28,28,32]"
   end if
 
 
@@ -82,35 +82,35 @@ program test_conv3d_network
      if(size(gradients).ne.&
           (kernel_size**3*num_filters1 + 1) * num_filters2)then
         success = .false.
-        write(*,*) "conv3d network gradients size should be ", &
+        write(0,*) "conv3d network gradients size should be ", &
              ( kernel_size**3 * num_filters1 + 1 ) * num_filters2
      end if
      if(any(abs(gradients).lt.1.E-6))then
         success = .false.
-        write(*,*) "conv3d network gradients should not be zero"
+        write(0,*) "conv3d network gradients should not be zero"
      end if
      if(any(abs(gradients_weight(1,:,:,:,:) - &
           gradients_weight(1,1,1,1,1)).gt.1.E-6))then
         success = .false.
-        write(*,*) "conv3d network gradients first column should be equivalent"
+        write(0,*) "conv3d network gradients first column should be equivalent"
      end if
      if(any(abs(gradients_weight(2,:,:,:,:) - &
           gradients_weight(2,1,1,1,1)).gt.1.E-6))then
         success = .false.
-        write(*,*) "conv3d network gradients second column should be equivalent"
+        write(0,*) "conv3d network gradients second column should be equivalent"
      end if
      if(any(abs(gradients_weight(3,:,:,:,:) - &
           gradients_weight(3,1,1,1,1)).gt.1.E-6))then
         success = .false.
-        write(*,*) "conv3d network gradients third column should be equivalent"
+        write(0,*) "conv3d network gradients third column should be equivalent"
      end if
      if(any(abs(gradients_bias(:)-gradients_bias(1)).gt.1.E-6))then
         success = .false.
-        write(*,*) "conv3d network gradients bias should be equivalent"
+        write(0,*) "conv3d network gradients bias should be equivalent"
      end if
   class default
      success = .false.
-     write(*,*) "conv3d network layer should be conv3d_layer_type"
+     write(0,*) "conv3d network layer should be conv3d_layer_type"
   end select
 
 
