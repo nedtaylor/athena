@@ -55,7 +55,7 @@ program test_network
        num_outputs=2, activation_function="sigmoid"))
   call network%compile( &
        optimiser = base_optimiser_type(learning_rate=learning_rate), &
-       loss_method="mse", accuracy_method="mse", metrics=["loss"], verbose=1)
+       loss_method="mse", accuracy_method="mse", metrics=["loss"], verbose=0)
   call network%set_batch_size(1)
 
 

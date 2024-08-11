@@ -905,7 +905,7 @@ contains
     !! Backward pass
     !!-------------------------------------------------------------------
     do i=this%num_layers-1,2,-1
-       select type(gradient => this%model(i)%layer%di)
+       select type(gradient => this%model(i+1)%layer%di)
        type is (array1d_type)
           call this%model(i)%backward(this%model(i-1),gradient%val)
        type is (array2d_type)
@@ -989,10 +989,10 @@ contains
     integer :: num_batches
     integer :: converged
     integer :: history_length
-    integer :: verbose_ = 0
-    integer :: batch_print_step_ = 20
-    real(real32) :: plateau_threshold_ = 1.E-2_real32
-    logical :: shuffle_batches_ = .true.
+    integer :: verbose_
+    integer :: batch_print_step_
+    real(real32) :: plateau_threshold_
+    logical :: shuffle_batches_
 
     !! training loop variables
     integer :: epoch, batch, start_index, end_index
@@ -1017,6 +1017,10 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! initialise optional arguments
 !!!-----------------------------------------------------------------------------
+    verbose_ = 0
+    batch_print_step_ = 20 
+    plateau_threshold_ = 1.E-2_real32
+    shuffle_batches_ = .true.
     if(present(plateau_threshold)) plateau_threshold_ = plateau_threshold
     if(present(shuffle_batches)) shuffle_batches_ = shuffle_batches
     if(present(batch_print_step)) batch_print_step_ = batch_print_step
