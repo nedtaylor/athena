@@ -587,6 +587,7 @@ contains
                    num_addit_outputs = num_addit_inputs, &
                    batch_size = this%batch_size &
                 )
+                allocate(this%model(i+1)%layer, source = t_flatten_layer)
                 i = i + 1
                 cycle layer_loop
              end select
