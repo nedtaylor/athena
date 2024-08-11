@@ -24,7 +24,8 @@
  clip_norm = 2.E1,
  shuffle_dataset = .true.,
  batch_learning = .true.,
- loss = "cce"
+ loss = "cce",
+ accuracy = "mae"
 /
 
 &convolution

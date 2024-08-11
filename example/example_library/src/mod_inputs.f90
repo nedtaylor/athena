@@ -23,6 +23,7 @@ module inputs
   real(real32) :: plateau_threshold  ! threshold for plateau checking
   class(base_optimiser_type), allocatable :: optimiser
   logical :: batch_learning
+  character(:), allocatable :: accuracy_method
   character(:), allocatable :: loss_method
   character(1024) :: input_file, output_file
   logical :: restart
@@ -73,7 +74,7 @@ module inputs
 
   public :: batch_learning
   public :: plateau_threshold
-  public :: loss_method
+  public :: accuracy_method, loss_method
   public :: metric_dict, metric_dict_type
 
   public :: num_epochs, batch_size
@@ -292,7 +293,7 @@ contains
     character(100) :: metrics
     character(10), allocatable, dimension(:) :: metric_list
 
-    character(4)  :: loss
+    character(4)  :: accuracy, loss
     character(9)  :: dropout
     character(6)  :: regularisation
     character(6)  :: normalisation
@@ -318,7 +319,7 @@ contains
          plateau_threshold, threshold, &
          learning_rate, momentum, l1_lambda, l2_lambda, &
          shuffle_dataset, batch_learning, adaptive_learning, &
-         beta1, beta2, epsilon, loss, &
+         beta1, beta2, epsilon, loss, accuracy, &
          clip_min, clip_max, clip_norm, &
          regularisation, metrics
     namelist /convolution/ num_filters, kernel_size, stride, &
@@ -392,6 +393,7 @@ contains
     !! cce = categorical cross entropy
     !! mse = mean square error
     !! nll = negative log likelihood
+    accuracy_method = to_lower(trim(accuracy))
     loss_method = to_lower(trim(loss))
     num_metrics = icount(metrics)
     if(num_metrics.le.0)then

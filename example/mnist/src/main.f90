@@ -126,7 +126,8 @@ program mnist_example
   end if
 
   call network%compile(optimiser=optimiser, &
-       loss_method=loss_method, metrics=metric_dict, &
+       loss_method=loss_method, accuracy_method=accuracy_method, &
+       metrics=metric_dict, &
        batch_size = batch_size, verbose = verbosity)
 
   write(*,*) "NUMBER OF LAYERS",network%num_layers
