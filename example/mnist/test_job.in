@@ -25,7 +25,7 @@
  shuffle_dataset = .true.,
  batch_learning = .true.,
  loss = "cce",
- accuracy = "mae"
+ accuracy = "cat"
 /
 
 &convolution

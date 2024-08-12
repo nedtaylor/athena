@@ -381,6 +381,8 @@ contains
     real(real32), dimension(..), intent(in) :: input
 
     select rank(input)
+    rank(2)
+       this%val = reshape(input, shape = shape(this%val))
     rank(3)
        this%val = input
     end select
@@ -523,6 +525,8 @@ contains
     real(real32), dimension(..), intent(in) :: input
 
     select rank(input)
+    rank(2)
+       this%val = reshape(input, shape = shape(this%val))
     rank(4)
        this%val = input
     end select
@@ -667,6 +671,8 @@ contains
     real(real32), dimension(..), intent(in) :: input
 
     select rank(input)
+    rank(2)
+       this%val = reshape(input, shape = shape(this%val))
     rank(5)
        this%val = input
     end select
