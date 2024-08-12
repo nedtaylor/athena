@@ -127,7 +127,7 @@ contains
     
     integer :: s
 
-    do s=1,size(val,3)
+    do s=1,size(val,4)
       !! compute softmax values
       output(:,:,:,s) = exp(val(:,:,:,s) - maxval(val(:,:,:,s)))
 
@@ -147,7 +147,7 @@ contains
 
     integer :: s
 
-    do s=1,size(val,3)
+    do s=1,size(val,5)
       !! compute softmax values
       output(:,:,:,:,s) = exp(val(:,:,:,:,s) - maxval(val(:,:,:,:,s)))
 

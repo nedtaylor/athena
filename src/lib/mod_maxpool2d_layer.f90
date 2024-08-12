@@ -460,7 +460,6 @@ contains
     
     select type(output => this%output)
     type is (array4d_type)
-       output%val = 0._real32
        !! perform the pooling operation
        do concurrent(&
             s = 1:this%batch_size, &

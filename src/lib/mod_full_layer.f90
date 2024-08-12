@@ -766,8 +766,7 @@ contains
          intent(in) :: gradient
 
     real(real32), dimension(this%num_outputs, this%batch_size) :: delta
-    real(real32), dimension(&
-         this%num_inputs, this%num_outputs, this%batch_size) :: dw
+    real(real32), dimension(this%num_inputs, this%num_outputs) :: dw
 
     real(real32), dimension(1) :: bias_diff
 
@@ -780,27 +779,26 @@ contains
     !! ... of the transfer function
     !! delta(l) = g'(a) * dE/dI(l)
     !! delta(l) = differential of activation * error from next layer
-    delta(:,:) = gradient * this%transfer%differentiate(this%z)
+    delta = gradient * this%transfer%differentiate(this%z)
 
+    do concurrent(s=1:this%batch_size)
+       !! partial derivatives of error wrt weights
+       !! dE/dW = o/p(l-1) * delta
+       dw = matmul(input(:,s:s), transpose(delta(:,s:s)))
+       this%dw(:this%num_inputs,:,s) = this%dw(:this%num_inputs,:,s)  + dw
+    end do
     select type(di => this%di)
     type is (array2d_type)
          do concurrent(s=1:this%batch_size)
-            !! partial derivatives of error wrt weights
-            !! dE/dW = o/p(l-1) * delta
-            dw(:,:,s) = matmul(input(:,s:s), transpose(delta(:,s:s)))
-
             !! the errors are summed from the delta of the ...
             !! ... 'child' node * 'child' weight
             !! dE/dI(l-1) = sum(weight(l) * delta(l))
             !! this prepares dE/dI for when it is passed into the previous layer
             di%val(:,s) = matmul(this%weight(:this%num_inputs,:), delta(:,s))
+          this%dw(this%num_inputs+1,:,s) = this%dw(this%num_inputs+1,:,s) + &
+               delta(:,s) * bias_diff(1)
          end do
     end select
-
-    !! sum weights and biases errors to use in batch gradient descent
-    delta = delta * bias_diff(1)
-    this%dw(:this%num_inputs,:,:)  = this%dw(:this%num_inputs,:,:)  + dw
-    this%dw(this%num_inputs+1,:,:) = this%dw(this%num_inputs+1,:,:) + delta(:,:)
 
   end subroutine backward_2d
 !!!#############################################################################

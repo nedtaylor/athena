@@ -35,7 +35,7 @@ submodule(network) network_submodule
   use flatten_layer, only: flatten_layer_type
 
   !! fully connected (dense) layer types
-  use full_layer,      only: full_layer_type, read_full_layer
+  use full_layer,      only: full_layer_type
 
   implicit none
 
@@ -661,29 +661,32 @@ contains
 !!!#############################################################################
 !!! return sample from any rank
 !!!#############################################################################
-  pure function get_sample(input, start_index, end_index) result(output)
+  function get_sample(input, start_index, end_index) result(output)
     implicit none
     integer, intent(in) :: start_index, end_index
-    real(real32), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in), target :: input
     real(real32), allocatable, dimension(:,:) :: output
+
+    real(real32), pointer :: sample_ptr(:,:) => null()
 
     select rank(input)
     rank(2)
-       output = reshape(input(:,start_index:end_index), &
-       shape=[size(input(:,1)),end_index-start_index+1])
+       sample_ptr(1:size(input(:,1)),1:end_index-start_index+1) => &
+            input(:,start_index:end_index)
     rank(3)
-       output = reshape(input(:,:,start_index:end_index), &
-       shape=[size(input(:,:,1)),end_index-start_index+1])
+       sample_ptr(1:size(input(:,:,1)),1:end_index-start_index+1) => &
+            input(:,:,start_index:end_index)
     rank(4)
-       output = reshape(input(:,:,:,start_index:end_index), &
-       shape=[size(input(:,:,:,1)),end_index-start_index+1])
+       sample_ptr(1:size(input(:,:,:,1)),1:end_index-start_index+1) => &
+            input(:,:,:,start_index:end_index)
     rank(5)
-       output = reshape(input(:,:,:,:,start_index:end_index), &
-       shape=[size(input(:,:,:,:,1)),end_index-start_index+1])
+       sample_ptr(1:size(input(:,:,:,:,1)),1:end_index-start_index+1) => &
+            input(:,:,:,:,start_index:end_index)
     rank(6)
-       output = reshape(input(:,:,:,:,:,start_index:end_index), &
-       shape=[size(input(:,:,:,:,:,1)),end_index-start_index+1])
+       sample_ptr(1:size(input(:,:,:,:,:,1)),1:end_index-start_index+1) => &
+            input(:,:,:,:,:,start_index:end_index)
     end select
+    output = sample_ptr
 
   end function get_sample
 !!!#############################################################################

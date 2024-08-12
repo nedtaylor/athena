@@ -1013,11 +1013,7 @@ contains
 
     !! get gradient multiplied by differential of Z
     !!--------------------------------------------------------------------------
-    grad_dz = 0._real32
-    grad_dz( &
-         1:this%output%shape(1),&
-         1:this%output%shape(2),&
-         1:this%output%shape(3),:,:) = gradient * &
+    grad_dz = gradient * &
          this%transfer%differentiate(this%z)
     do concurrent( &
          l=1:this%num_filters, s=1:this%batch_size)

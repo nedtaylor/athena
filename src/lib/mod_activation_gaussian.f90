@@ -81,10 +81,11 @@ contains
     real(real32), dimension(:), intent(in) :: val
     real(real32), dimension(size(val,dim=1)) :: output
 
-    output = 0._real32
     where(abs(val).le.this%threshold)
        output = this%scale * 1._real32/(sqrt(2*pi)*this%sigma) * &
             exp(-0.5_real32 * (val/this%sigma)**2._real32)
+    elsewhere
+       output = 0._real32
     end where
   end function gaussian_activate_1d
 !!!-----------------------------------------------------------------------------
@@ -95,10 +96,11 @@ contains
     real(real32), dimension(:,:), intent(in) :: val
     real(real32), dimension(size(val,1),size(val,2)) :: output
 
-    output = 0._real32
     where(abs(val).le.this%threshold)
        output = this%scale * 1._real32/(sqrt(2*pi)*this%sigma) * &
             exp(-0.5_real32 * (val/this%sigma)**2._real32)
+    elsewhere
+       output = 0._real32
     end where
   end function gaussian_activate_2d
 !!!-----------------------------------------------------------------------------
@@ -109,10 +111,11 @@ contains
     real(real32), dimension(:,:,:), intent(in) :: val
     real(real32), dimension(size(val,1),size(val,2),size(val,3)) :: output
 
-    output = 0._real32
     where(abs(val).le.this%threshold)
        output = this%scale * 1._real32/(sqrt(2*pi)*this%sigma) * &
             exp(-0.5_real32 * (val/this%sigma)**2._real32)
+    elsewhere
+       output = 0._real32
     end where
   end function gaussian_activate_3d
 !!!-----------------------------------------------------------------------------
@@ -124,10 +127,11 @@ contains
     real(real32), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4)) :: output
 
-    output = 0._real32
     where(abs(val).le.this%threshold)
        output = this%scale * 1._real32/(sqrt(2*pi)*this%sigma) * &
             exp(-0.5_real32 * (val/this%sigma)**2._real32)
+    elsewhere
+       output = 0._real32
     end where
   end function gaussian_activate_4d
 !!!-----------------------------------------------------------------------------
@@ -139,10 +143,11 @@ contains
     real(real32), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
 
-    output = 0._real32
     where(abs(val).le.this%threshold)
        output = this%scale * 1._real32/(sqrt(2*pi)*this%sigma) * &
             exp(-0.5_real32 * (val/this%sigma)**2._real32)
+    elsewhere
+       output = 0._real32
     end where
   end function gaussian_activate_5d
 !!!#############################################################################
