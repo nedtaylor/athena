@@ -1,0 +1,29 @@
+name: Feature Proposal
+description: Suggest new functionality for athena
+title: "[PROPOSAL]"
+labels: [enhancement]
+body:
+  - type: textarea
+    id: reasoning
+    attributes:
+      label: Reasoning
+      placeholder: |
+        Provide clear reasoning why the proposed functionality should be added to the athena library.
+    validations:
+      required: true
+  - type: textarea
+    id: prior_art
+    attributes:
+      label: Prior Art
+      placeholder: |
+        Provide examples of where this has been implemented for machine learning before to help justify its presence in this library.
+    validations:
+      required: true
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional information
+      placeholder: |
+        Add any other context or screenshots about the feature request here.
+    validations:
+      required: false
