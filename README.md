@@ -2,7 +2,7 @@
 [![Latest Release](https://img.shields.io/github/v/release/nedtaylor/athena?sort=semver)](https://github.com/nedtaylor/athena/releases "View on GitHub")
 [![Downloads](https://img.shields.io/github/downloads/nedtaylor/athena/total)](https://github.com/nedtaylor/athena/releases "View on GitHub")
 [![status](https://joss.theoj.org/papers/7806cc51a998f872034abfe0bb24bc24/status.svg)](https://joss.theoj.org/papers/7806cc51a998f872034abfe0bb24bc24)
-[![FPM](https://img.shields.io/badge/fpm-0.9.0-purple)](https://github.com/fortran-lang/fpm "View Fortran Package Manager")
+[![FPM](https://img.shields.io/badge/fpm-0.10.1-purple)](https://github.com/fortran-lang/fpm "View Fortran Package Manager")
 [![CMAKE](https://img.shields.io/badge/cmake-3.17.5-red)](https://github.com/Kitware/CMake/releases/tag/v3.17.5 "View cmake")
 [![GCC compatibility](https://img.shields.io/badge/gcc-13.2.0-green)](https://gcc.gnu.org/gcc-13/ "View GCC")
 [![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/nedtaylor/fd7c07c046ecc92d92eaf7bdcb78c4b5/raw/test.json)](https://nedtaylor.github.io/athena/ "View coverage report")
@@ -78,13 +78,13 @@ The library has the following dependencies:
 - [fpm](https://github.com/fortran-lang/fpm) or [CMake](https://cmake.org) for building the library
 
 The library has been developed and tested using the following compilers:
-- gfortran -- gcc 13.2.0
+- gfortran -- gcc 14.1.0
 - ifort -- Intel 2021.10.0.20230609
 - ifx -- IntelLLVM 2023.2.0
 
 #### Tested compilers
 The library has also been tested with and found to support the following libraries:
-- gfortran -- gcc 12.3
+- gfortran -- gcc 12.3, gcc 13.2
 
 ### Building with fpm
 
@@ -203,7 +203,7 @@ Developers
 Contributing
 ------------
 
-Please note that this project adheres to the [Contributing Guide](CONTRIBUTING.md). If you are interested in contributing to this project, please contact [Ned Taylor](mailto:n.t.taylor@exeter.ac.uk?subject=ATHENA%20-%20contribution%20request).
+Please note that this project adheres to the [Contributing Guide](CONTRIBUTING.md). If you want to contribute to this project, please first read through the guide. If you have any questions, please either discuss then in [issues](https://github.com/nedtaylor/athena/issues), or contact [Ned Taylor](mailto:n.t.taylor@exeter.ac.uk?subject=ATHENA%20-%20contribution%20request).
 
 
 License
