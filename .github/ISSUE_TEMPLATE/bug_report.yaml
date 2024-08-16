@@ -41,28 +41,28 @@ body:
       placeholder: gfortran version 14.0
     validations:
       required: true
-   - type: input
-     id: os
-     attributes:
-       label: Operating system
-       description: "What operating system was used?"
-       placeholder: macOS 10.14
-     validations:
-       required: false
-   - type: checkbox
-     id: build
-     attributes:
-       label: Build method
-       description: "What build methods was this issue encountered with?"
-       options:
-         - label: fpm
-         - label: cmake
-     valiations:
-       required: false
-   - type: textarea
-     id: additional
-     attributes:
-       label: Additional information
-       placeholder: Any further relevant context, i.e. screenshots, links to other issues, version number of build method.
-     validations:
-       required: false
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      description: "What operating system was used?"
+      placeholder: macOS 10.14
+    validations:
+      required: false
+  - type: checkbox
+    id: build
+    attributes:
+      label: Build method
+      description: "What build methods was this issue encountered with?"
+      options:
+        - label: fpm
+        - label: cmake
+    valiations:
+      required: false
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional information
+      placeholder: Any further relevant context, i.e. screenshots, links to other issues, version number of build method.
+    validations:
+      required: false
