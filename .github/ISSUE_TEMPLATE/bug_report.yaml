@@ -11,8 +11,8 @@ body:
       label: Description
       placeholder: |
         A clear and concise description of what the bug is and what the expected behaviour is.
-      validations:
-        required: true
+    validations:
+      required: true
   - type: textarea
     id: reproduction
     attributes:
@@ -23,12 +23,12 @@ body:
         1.
         2.
         3.
-      validations:
-        required: true
+    validations:
+      required: true
   - type: input
     id: version
     attributes:
-      label: athena version
+      label: Version number
       description: "What was the latest version (or branch) of athena is the bug reproducible in?"
       placeholder: 1.3.3
     validations:
@@ -63,6 +63,6 @@ body:
      id: additional
      attributes:
        label: Additional information
-       placeholder: "Any further relevant context, i.e. screenshots, links to other issues, version number of build method."
+       placeholder: Any further relevant context, i.e. screenshots, links to other issues, version number of build method.
      validations:
        required: false
