@@ -1,6 +1,5 @@
 name: Bug report
-about: Something is not working
-description: A clear and concise description of what the bug is.
+description: Something is not working
 title: "[BUG]"
 labels: [bug]
 body:
