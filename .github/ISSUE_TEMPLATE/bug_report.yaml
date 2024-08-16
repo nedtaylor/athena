@@ -37,7 +37,7 @@ body:
     id: compiler
     attributes:
       label: Fortran compiler
-      description: "What Fortran compiler (and version) was used?
+      description: "What Fortran compiler (and version) was used?"
       placeholder: gfortran version 14.0
     validations:
       required: true
