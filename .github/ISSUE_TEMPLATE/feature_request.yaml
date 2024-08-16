@@ -18,7 +18,7 @@ body:
       placeholder: |
         Provide examples of where this has been implemented for machine learning before to help justify its presence in this library.
     validations:
-      required: true
+      required: false
   - type: textarea
     id: additional
     attributes:
