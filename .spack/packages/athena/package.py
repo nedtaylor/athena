@@ -3,27 +3,12 @@
 #
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
-# ----------------------------------------------------------------------------
-# If you submit this package back to Spack as a pull request,
-# please first remove this boilerplate and all FIXME comments.
-#
-# This is a template package file for Spack.  We've put "FIXME"
-# next to all the things you'll want to change. Once you've handled
-# them, you can save this file and test your package like this:
-#
-#     spack install athena
-#
-# You can edit this file again by typing:
-#
-#     spack edit athena
-#
-# See the Spack documentation for more information on packaging.
-# ----------------------------------------------------------------------------
-
+import subprocess
+from pathlib import Path
 from spack.package import *
 
 
-class Athena(CMakePackage):
+class Athena(Package):
     """A Fortran library for building, training and testing feed-forward neural networks."""
 
     homepage = "https://github.com/nedtaylor/athena"
@@ -44,3 +29,7 @@ class Athena(CMakePackage):
     depends_on("fpm@0.9:", type="build")
     depends_on("mpi", when="+mpi")
 
+
+    def install(self, spec, prefix):
+        subprocess.run(["fpm", "install", "--prefix", "."])
+        install_tree('.', prefix)
