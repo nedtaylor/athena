@@ -75,7 +75,8 @@ The ATHENA library can be obtained from the git repository. Use the following co
 
 The library has the following dependencies:
 - A Fortran compiler (compatible with Fortran 2018 or later)
-- [fpm](https://github.com/fortran-lang/fpm) or [CMake](https://cmake.org) for building the library
+- [fpm](https://github.com/fortran-lang/fpm), [CMake](https://cmake.org), or [Spack](https://github.com/spack/spack) for building the library
+
 
 The library has been developed and tested using the following compilers:
 - gfortran -- gcc 14.1.0
@@ -131,6 +132,19 @@ To check whether ATHENA has installed correctly and that the compilation works a
 ```
 
 This runs a set of test programs (found within the test/ directory) to ensure the expected output occurs when layers and networks are set up.
+
+
+### Building with Spack
+
+The library can also be installed using the Spack package manager. This can be achieved by running the following commands in the main directory:
+```
+spack repo add .spack
+spack install athena
+```
+
+Currently, Spack compilation requires manual download of ATHENA.
+**NOTE:** There already exists an `athena` package directly on Spack, be aware that these are not related.
+
 
 
 Examples
