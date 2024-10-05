@@ -723,7 +723,7 @@ end subroutine get_output_full
     integer :: s
 
 
-    if(.not.allocated(this%transfer)) stop "ERROR: transfer function not allocated"
+    if(.not.allocated(this%transfer)) return
     bias_diff = this%transfer%differentiate([1._real12])
 
     !! the delta values are the error multipled by the derivative ...
