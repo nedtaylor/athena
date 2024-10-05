@@ -52,14 +52,14 @@ jobs:
         
     - name: Download MNIST dataset
       run: |
-        echo "checking pwd"
+        echo "Leaving athena directory"
         pwd
-        echo "checking files in directory"
-        ls
+        cd ..
         git clone https://github.com/halimb/MNIST-txt.git
         cd MNIST-txt
         unzip MNIST_txt.zip
         cd ../athena
+        echo "Returning to athena directory"
         find example/mnist*/test_job.in -type f -exec sed -i 's|dataset_dir = "../../DMNIST"|dataset_dir = "../MNIST-txt"|' {} \;
 
     - name: Run examples
