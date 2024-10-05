@@ -1,0 +1,68 @@
+name: run-fpm-examples
+
+on:
+  push:
+    paths:
+      - ".github/workflows/fpm_examples.yml"
+      - "fpm.toml"
+      - "**.f90"
+  pull_request:
+    paths:
+      - ".github/workflows/fpm_examples.yml"
+      - "fpm.toml"
+      - "**.f90"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+  
+jobs:
+  build-and-test-fpm-debug:
+    environment:
+      name: github-pages
+    name: Run examples in debug mode
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain:
+        - {compiler: gcc, version: 13}
+        - {compiler: intel, version: '2023.2'}
+        - {compiler: intel-classic, version: '2021.10'}
+    steps:
+    - name: checkout repo
+      uses: actions/checkout@v4
+
+    - uses: fortran-lang/setup-fortran@v1
+      id: setup-fortran
+      with:
+        compiler: ${{ matrix.toolchain.compiler }}
+        version: ${{ matrix.toolchain.version }}
+          
+    - uses: fortran-lang/setup-fpm@v5
+      id: setup-fpm
+      with:
+        fpm-version: "v0.10.0"
+        
+    - name: Download MNIST dataset
+      run: |
+        echo "checking pwd"
+        pwd
+        echo "checking files in directory"
+        ls
+        git clone https://github.com/halimb/MNIST-txt.git
+        cd MNIST-txt
+        unzip MNIST_txt.zip
+        cd ../athena
+        find example/mnist*/test_job.in -type f -exec sed -i 's|dataset_dir = "../../DMNIST"|dataset_dir = "../MNIST-txt"|' {} \;
+
+    - name: Run examples
+      run: |
+        ${{ env.FC }} --version
+        fpm run --example mnist --profile debug --compiler ${{ env.FC }}
