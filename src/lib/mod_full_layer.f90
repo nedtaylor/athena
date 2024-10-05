@@ -723,12 +723,8 @@ end subroutine get_output_full
     integer :: s
 
 
-    !! MAKE NEW BRANCH, CHECK THAT WORKFLOW WILL RUN ON IT
-    !! THEN SET bias_diff = 1._real12
-    !! THEN bias_diff = this%transfer%differentiate(bias_diff)
-    bias_diff = 1._real12
-    bias_diff = this%transfer%differentiate(bias_diff)
-    ! bias_diff = this%transfer%differentiate([1._real12])
+    if(.not.allocated(this%transfer)) stop "ERROR: transfer function not allocated"
+    bias_diff = this%transfer%differentiate([1._real12])
 
     !! the delta values are the error multipled by the derivative ...
     !! ... of the transfer function
