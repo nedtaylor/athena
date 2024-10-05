@@ -723,7 +723,12 @@ end subroutine get_output_full
     integer :: s
 
 
-    bias_diff = this%transfer%differentiate([1._real12])
+    !! MAKE NEW BRANCH, CHECK THAT WORKFLOW WILL RUN ON IT
+    !! THEN SET bias_diff = 1._real12
+    !! THEN bias_diff = this%transfer%differentiate(bias_diff)
+    bias_diff = 1._real12
+    bias_diff = this%transfer%differentiate(bias_diff)
+    ! bias_diff = this%transfer%differentiate([1._real12])
 
     !! the delta values are the error multipled by the derivative ...
     !! ... of the transfer function
