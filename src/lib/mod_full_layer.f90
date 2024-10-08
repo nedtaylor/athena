@@ -723,7 +723,7 @@ end subroutine get_output_full
     integer :: s
 
 
-    bias_diff = this%transfer%differentiate([1._real12])
+    bias_diff = this%transfer%differentiate(reshape([1._real12], [1]))
 
     !! the delta values are the error multipled by the derivative ...
     !! ... of the transfer function
