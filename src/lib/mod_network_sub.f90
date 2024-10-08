@@ -1014,8 +1014,6 @@ end function get_gradients
     class(network_type), intent(inout) :: this
     real(real12), allocatable, dimension(:) :: params, gradients
 
-    integer :: i
-    
 
     !!-------------------------------------------------------------------
     !! Update layers of learnable layer types
