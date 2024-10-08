@@ -718,7 +718,7 @@ end subroutine get_output_full
     real(real12), dimension(&
          this%num_inputs, this%num_outputs, this%batch_size) :: dw
 
-    real(real12), dimension(:), allocatable :: bias_diff
+    real(real12), dimension(1) :: bias_diff
 
     integer :: s
 
