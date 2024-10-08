@@ -578,7 +578,7 @@ end subroutine shuffle_3Didata_1Dilist
    implicit none
    integer :: istart,seed_size
    integer :: i,j,n_data
-   integer :: itmp1
+   real(real12) :: rtmp1
    real(real12) :: r
    integer, dimension(3) :: idx_s,idx_e,jdx_s,jdx_e
    integer, dimension(3,2) :: t_size
@@ -649,9 +649,9 @@ end subroutine shuffle_3Didata_1Dilist
            t_size(2,1):t_size(2,2),&
            t_size(3,1):t_size(3,2))
 
-      itmp1 = label(i)
+      rtmp1    = label(i)
       label(i) = label(j)
-      label(j) = itmp1
+      label(j) = rtmp1
 
    end do
 
