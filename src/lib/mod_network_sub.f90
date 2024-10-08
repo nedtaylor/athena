@@ -1090,6 +1090,9 @@ end function get_gradients
     integer :: timer_start = 0, timer_stop = 0, timer_sum = 0, timer_tot = 0
 
 
+    batch_loss = 0._real12
+    batch_accuracy = 0._real12
+
 !!!-----------------------------------------------------------------------------
 !!! initialise optional arguments
 !!!-----------------------------------------------------------------------------
@@ -1246,8 +1249,8 @@ end function get_gradients
           !!--------------------------------------------------------------------
           avg_loss = avg_loss + batch_loss
           avg_accuracy = avg_accuracy + batch_accuracy
-          this%metrics(1)%val = batch_loss / this%batch_size
-          this%metrics(2)%val = batch_accuracy / this%batch_size
+          this%metrics(1)%val = batch_loss / real( this%batch_size, real12 )
+          this%metrics(2)%val = batch_accuracy / real( this%batch_size, real12 )
           do i = 1, size(this%metrics,dim=1)
              call this%metrics(i)%check(plateau_threshold_, converged)
              if(converged.ne.0)then
