@@ -125,11 +125,12 @@ contains
     real(real12), dimension(:), intent(in) :: val
     real(real12), dimension(size(val,dim=1)) :: output
 
-    where(val.ge.this%threshold)
-       output = this%scale
-    elsewhere
-       output = this%threshold
-    end where
+    ! where(val.ge.this%threshold)
+    !    output = this%scale
+    ! elsewhere
+    !    output = this%threshold
+    ! end where
+    output = 1._real12
   end function relu_differentiate_1d
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
