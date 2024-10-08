@@ -321,7 +321,6 @@ contains
 
     type(conv1d_layer_type) :: layer
 
-    integer :: i
     real(real12) :: scale
     character(len=10) :: activation_function_
     character(len=20) :: padding_
@@ -580,7 +579,7 @@ contains
     class(conv1d_layer_type), intent(in) :: this
     character(*), intent(in) :: file
 
-    integer :: l, i
+    integer :: l
     integer :: unit
     character(:), allocatable :: padding_type
 
