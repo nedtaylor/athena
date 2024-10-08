@@ -1018,8 +1018,7 @@ end function get_gradients
     !!-------------------------------------------------------------------
     !! Update layers of learnable layer types
     !!-------------------------------------------------------------------
-    allocate(params(0))
-    params = this%get_params()
+    allocate(params, source=this%get_params())
     gradients = this%get_gradients()
     call this%optimiser%minimise(params, gradients)
     call this%set_params(params)
