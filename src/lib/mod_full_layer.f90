@@ -718,12 +718,12 @@ end subroutine get_output_full
     real(real12), dimension(&
          this%num_inputs, this%num_outputs, this%batch_size) :: dw
 
-    real(real12), dimension(1) :: bias_diff
+    real(real12), dimension(:), allocatable :: bias_diff
 
     integer :: s
 
 
-    bias_diff(1) = this%transfer%differentiate([1._real12])
+    bias_diff = this%transfer%differentiate([1._real12])
 
     !! the delta values are the error multipled by the derivative ...
     !! ... of the transfer function
