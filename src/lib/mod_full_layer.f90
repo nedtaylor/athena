@@ -723,8 +723,11 @@ end subroutine get_output_full
     integer :: s
 
 
-    if(.not.allocated(this%transfer)) return
-    bias_diff = this%transfer%differentiate([1._real12])
+    if(.not.allocated(this%transfer))then
+       bias_diff = [1._real12]
+    else
+       bias_diff = this%transfer%differentiate([1._real12])
+    end if
 
     !! the delta values are the error multipled by the derivative ...
     !! ... of the transfer function
