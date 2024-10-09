@@ -29,6 +29,9 @@ submodule(network) network_submodule
   use input3d_layer,   only: input3d_layer_type
   use input4d_layer,   only: input4d_layer_type
 
+  !! activation layer types
+  use actv_layer, only: actv_layer_type, read_actv_layer
+
   !! batch normalisation layer types
   use batchnorm1d_layer, only: batchnorm1d_layer_type, read_batchnorm1d_layer
   use batchnorm2d_layer, only: batchnorm2d_layer_type, read_batchnorm2d_layer
@@ -169,6 +172,8 @@ contains
 
       !! check for card
       select case(trim(adjustl(buffer)))
+      case("ACTV")
+         call this%add(read_actv_layer(unit))
       case("BATCHNORM1D")
          call this%add(read_batchnorm1d_layer(unit))
       case("BATCHNORM2D")
@@ -954,6 +959,8 @@ end function get_gradients
     !!-------------------------------------------------------------------
     do i=this%num_layers-1,2,-1
        select type(next => this%model(i+1)%layer)
+       type is(actv_layer_type)
+          call this%model(i)%backward(this%model(i-1),next%di)
        type is(batchnorm1d_layer_type)
           call this%model(i)%backward(this%model(i-1),next%di)
        type is(batchnorm2d_layer_type)
@@ -1219,6 +1226,23 @@ end function get_gradients
           call this%backward(y_true(:,:))
           select type(current => this%model(this%num_layers)%layer)
           type is(full_layer_type)
+             !! compute loss and accuracy (for monitoring)
+             !!-------------------------------------------------------------------
+                batch_loss = sum( &
+                this%get_loss( &
+                current%output(:,1:this%batch_size), &
+                y_true(:,1:this%batch_size)))
+             select type(output)
+             type is(integer)
+                batch_accuracy = sum(categorical_score( &
+                   current%output(:,1:this%batch_size), &
+                   output(:,start_index:end_index)))
+             type is(real)
+                batch_accuracy = sum(mae_score( &
+                   current%output(:,1:this%batch_size), &
+                   output(:,start_index:end_index)))
+             end select
+          type is(actv_layer_type)
              !! compute loss and accuracy (for monitoring)
              !!-------------------------------------------------------------------
                 batch_loss = sum( &
