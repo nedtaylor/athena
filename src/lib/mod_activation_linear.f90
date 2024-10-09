@@ -48,7 +48,7 @@ contains
     if(present(scale))then
        initialise%scale = scale
     else
-       initialise%scale = 1._real12 !0.05_real12
+       initialise%scale = 1._real12
     end if
 
   end function initialise
@@ -124,7 +124,7 @@ contains
     real(real12), dimension(:), intent(in) :: val
     real(real12), dimension(size(val,dim=1)) :: output
 
-    output = this%scale * val
+    output = this%scale
   end function linear_differentiate_1d
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
@@ -134,7 +134,7 @@ contains
     real(real12), dimension(:,:), intent(in) :: val
     real(real12), dimension(size(val,1),size(val,2)) :: output
 
-    output = this%scale * val
+    output = this%scale
   end function linear_differentiate_2d
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
@@ -144,7 +144,7 @@ contains
     real(real12), dimension(:,:,:), intent(in) :: val
     real(real12), dimension(size(val,1),size(val,2),size(val,3)) :: output
 
-    output = this%scale * val
+    output = this%scale
   end function linear_differentiate_3d
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
@@ -155,7 +155,7 @@ contains
     real(real12), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4)) :: output
 
-    output = this%scale * val
+    output = this%scale
   end function linear_differentiate_4d
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
@@ -166,7 +166,7 @@ contains
     real(real12), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
 
-    output = this%scale * val
+    output = this%scale
   end function linear_differentiate_5d
 !!!#############################################################################
 
