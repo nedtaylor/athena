@@ -86,7 +86,8 @@ contains
        write(err_msg,'("ERROR: invalid size of input_shape in ",A,&
             &" expected (",I0,"), got (",I0")")')  &
             trim(this%name), this%input_rank, size(input_shape,dim=1)
-       stop trim(err_msg)
+       write(0,*) trim(err_msg)
+       stop 1
     end if
  
   end subroutine set_shape_base
