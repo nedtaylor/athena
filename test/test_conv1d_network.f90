@@ -24,7 +24,7 @@ program test_conv1d_network
 !!! set up network
 !!!-----------------------------------------------------------------------------
   call network%add(conv1d_layer_type( &
-       input_shape=[width, width, num_channels], &
+       input_shape=[width, num_channels], &
        num_filters = num_filters1, &
        kernel_size = kernel_size, &
        kernel_initialiser = "ones", &

@@ -91,7 +91,7 @@ program test_input_layer
 !!!-----------------------------------------------------------------------------
   deallocate(input_layer)
   input_layer = input2d_layer_type( &
-       input_shape=shape(input_3d), &
+       input_shape=shape(input_2d), &
        batch_size=batch_size)
   if(input_layer%batch_size.ne.batch_size)then
      write(0,*) 'input2d_layer batch_size failed'
