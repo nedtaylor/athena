@@ -150,10 +150,10 @@ module base_layer
      !! procedure modified from neural-fortran library
      !!--------------------------------------------------------------------------
      !! this = (T, in) layer_type
-     pure module function get_num_params(this) result(num_params)
+     pure module function get_num_params_base(this) result(num_params)
        class(base_layer_type), intent(in) :: this
        integer :: num_params
-     end function get_num_params
+     end function get_num_params_base
 
      !!--------------------------------------------------------------------------
      !! get number of parameters in layer
@@ -397,10 +397,6 @@ module base_layer
 
 
   interface
-     pure module function get_num_params_base(this) result(num_params)
-       class(base_layer_type), intent(in) :: this
-       integer :: num_params
-     end function get_num_params_base
      pure module function get_gradients_batch(this, clip_method) result(gradients)
        class(batch_layer_type), intent(in) :: this
        type(clip_type), optional, intent(in) :: clip_method
