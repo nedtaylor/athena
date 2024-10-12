@@ -227,6 +227,9 @@ contains
     class(base_layer_type), intent(in) :: layer
     
     character(4) :: name
+#if !defined(GFORTRAN)
+    type(container_layer_type), dimension(size(this%model,1)) :: model_store
+#endif
     
     select type(layer)
     class is(input_layer_type)
@@ -251,7 +254,15 @@ contains
        this%model = [container_layer_type(name=name)]
        this%num_layers = 1
     else
+#if defined(GFORTRAN)
        this%model = [this%model(1:), container_layer_type(name=name)]
+#else
+       model_store = this%model
+       deallocate(this%model)
+       allocate(this%model(size(model_store,1)+1))
+       this%model(:size(model_store,1)) = model_store
+       this%model(size(model_store,1)+1) = container_layer_type(name=name)
+#endif
        this%num_layers = this%num_layers + 1
     end if
     allocate(this%model(size(this%model,dim=1))%layer, source=layer)
@@ -460,6 +471,10 @@ contains
     
     integer :: i
     integer :: verbose_ = 0, num_addit_inputs
+    logical :: l_first_layer_input
+#if !defined(GFORTRAN)
+    type(container_layer_type), dimension(:), allocatable :: model_store
+#endif
     class(base_layer_type), allocatable :: t_input_layer, t_flatten_layer
 
 
@@ -490,11 +505,25 @@ contains
     
     select type(first => this%model(1)%layer)
     class is(input_layer_type)
+       l_first_layer_input = .true.
     class default
+       l_first_layer_input = .false.
+    end select
+
+    if(.not.l_first_layer_input)then
+#if defined(GFORTRAN)
        this%model = [&
             container_layer_type(name="inpt"),&
             this%model(1:)&
-            ]
+       ]
+#else
+       model_store = this%model
+       deallocate(this%model)
+       allocate(this%model(size(model_store,1)+1))
+       this%model(1) = container_layer_type(name="inpt")
+       this%model(2:) = model_store
+       deallocate(model_store)
+#endif
        associate(next => this%model(2)%layer)
          select case(size(next%input_shape,dim=1))
          case(1)
@@ -539,7 +568,7 @@ contains
          end select
          deallocate(t_input_layer)
        end associate
-    end select
+    end if
 
 
 !!!-----------------------------------------------------------------------------
@@ -589,11 +618,21 @@ contains
                 class is(flatten_layer_type)
                    cycle layer_loop
                 class default
+#if defined(GFORTRAN)
                    this%model = [&
                         this%model(1:i),&
                         container_layer_type(name="flat"),&
                         this%model(i+1:size(this%model))&
                         ]
+#else
+                     model_store = this%model
+                     deallocate(this%model)
+                     allocate(this%model(size(model_store,1)+1))
+                     this%model(1:i) = model_store(1:i)
+                     this%model(i+1) = container_layer_type(name="flat")
+                     this%model(i+2:) = model_store(i+1:size(model_store))
+                     deallocate(model_store)
+#endif
                    num_addit_inputs = 0
                    select type(next => this%model(i+1)%layer)
                    type is(full_layer_type)
