@@ -563,7 +563,7 @@ contains
            this%num_filters, &
            this%batch_size), source=0._real12)
       if(allocated(this%z)) deallocate(this%z)
-      allocate(this%z, source=this%output)
+      allocate(this%z, mold=this%output)
       if(allocated(this%di)) deallocate(this%di)
       allocate(this%di( &
            this%input_shape(1), &

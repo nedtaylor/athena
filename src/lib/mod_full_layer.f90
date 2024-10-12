@@ -473,7 +473,7 @@ end subroutine get_output_full
       if(allocated(this%output)) deallocate(this%output)
       allocate(this%output(this%num_outputs, this%batch_size), source=0._real12)
       if(allocated(this%z)) deallocate(this%z)
-      allocate(this%z, source=this%output)
+      allocate(this%z, mold=this%output)
       if(allocated(this%dw)) deallocate(this%dw)
       allocate(this%dw(this%num_inputs+1,this%num_outputs, this%batch_size), &
            source=0._real12)

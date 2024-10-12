@@ -268,7 +268,7 @@ contains
             this%batch_size), &
             source=0._real12)
        if(allocated(this%di)) deallocate(this%di)
-       allocate(this%di, source=this%output)
+       allocate(this%di, mold=this%output)
     end if
  
   end subroutine set_batch_size_dropblock3d
