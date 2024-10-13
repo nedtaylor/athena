@@ -795,8 +795,8 @@ contains
             !! dE/dI(l-1) = sum(weight(l) * delta(l))
             !! this prepares dE/dI for when it is passed into the previous layer
             di%val(:,s) = matmul(this%weight(:this%num_inputs,:), delta(:,s))
-          this%dw(this%num_inputs+1,:,s) = this%dw(this%num_inputs+1,:,s) + &
-               delta(:,s) * bias_diff(1)
+            this%dw(this%num_inputs+1,:,s) = this%dw(this%num_inputs+1,:,s) + &
+                 delta(:,s) * bias_diff(1)
          end do
     end select
 
