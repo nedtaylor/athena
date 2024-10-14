@@ -49,6 +49,7 @@ module base_layer
 !!! layer abstract type
 !!!-----------------------------------------------------------------------------
   type, abstract :: base_layer_type !! give it parameterised values?
+     integer :: id
      integer :: batch_size = 0
      integer :: input_rank = 0
      logical :: inference = .false.

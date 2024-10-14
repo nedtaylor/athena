@@ -35,6 +35,7 @@
 !!!#############################################################################
 module network
   use constants, only: real32
+  use graphstruc, only: graph_type
   use metrics, only: metric_dict_type
   use optimiser, only: base_optimiser_type
   use loss, only: &
@@ -61,6 +62,9 @@ module network
      procedure(comp_loss_func), nopass, pointer :: get_loss => null()
      procedure(comp_loss_deriv), nopass, pointer :: get_loss_deriv => null()
      procedure(comp_acc_func), nopass, pointer :: get_accuracy => null()
+     integer, dimension(:), allocatable :: vertex_order
+     integer, dimension(:), allocatable :: root_vertices, output_vertices
+     type(graph_type(directed=.true.)), private :: auto_graph
    contains
      procedure, pass(this) :: print
      procedure, pass(this) :: read
@@ -75,6 +79,11 @@ module network
      procedure, pass(this) :: test
      procedure, pass(this) :: predict => predict_1d
      procedure, pass(this) :: update
+
+     procedure, pass(this), private :: generate_vertex_order
+     procedure, pass(this), private :: dfs
+     procedure, pass(this), private :: calculate_root_vertices
+     procedure, pass(this), private :: calculate_output_vertices
 
      procedure, pass(this) :: reduce => network_reduction
      procedure, pass(this) :: copy => network_copy
@@ -138,9 +147,10 @@ module network
      !!-------------------------------------------------------------------------
      !! this  = (T, io) network type
      !! layer = (I, in) layer to add
-     module subroutine add(this, layer)
+     module subroutine add(this, layer, input_list, output_list)
        class(network_type), intent(inout) :: this
        class(base_layer_type), intent(in) :: layer
+       integer, dimension(:), intent(in), optional :: input_list, output_list
      end subroutine add
 
      !!-------------------------------------------------------------------------
@@ -291,6 +301,48 @@ module network
      module subroutine update(this)
        class(network_type), intent(inout) :: this
      end subroutine update
+
+     !!-------------------------------------------------------------------------
+     !! get layer order
+     !!-------------------------------------------------------------------------
+     !! this  = (T, in) network type
+     module subroutine generate_vertex_order(this)
+       class(network_type), intent(in) :: this
+     end subroutine generate_vertex_order
+
+     !!-------------------------------------------------------------------------
+     !! depth first search
+     !!-------------------------------------------------------------------------
+     !! this  = (T, in) network type
+     !! vertex_index = (I, in) vertex index
+     !! visited = (L, in) visited vertices
+     !! order = (I, io) order of vertices
+     !! order_index = (I, io) index of order
+     module recursive subroutine dfs( &
+          this, vertex_index, visited, order, order_index &
+     )
+       class(network_type), intent(in) :: this
+       integer, intent(in) :: vertex_index
+       logical, dimension(:), intent(inout) :: visited
+       integer, dimension(:), intent(inout) :: order
+       integer, intent(inout) :: order_index
+     end subroutine dfs
+
+     !!-------------------------------------------------------------------------
+     !! calculate root vertices
+     !!-------------------------------------------------------------------------
+     !! this = (T, in) network type
+      module subroutine calculate_root_vertices(this)
+        class(network_type), intent(in) :: this
+      end subroutine calculate_root_vertices
+
+      !!-------------------------------------------------------------------------
+      !! calculate output vertices
+      !!-------------------------------------------------------------------------
+      !! this = (T, in) network type
+       module subroutine calculate_output_vertices(this)
+         class(network_type), intent(in) :: this
+       end subroutine calculate_output_vertices
 
      !!-------------------------------------------------------------------------
      !! reduce two networks down to one (i.e. add two networks - parallel)
