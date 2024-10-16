@@ -3,6 +3,22 @@ submodule(custom_types) custom_types_submodule
 
 contains
 
+  pure module function add_array(a, b) result(output)
+    implicit none
+    class(array_type), intent(in) :: a, b 
+    class(array_type), allocatable :: output
+
+    output = a
+    if(.not.allocated(a%val).or..not.allocated(b%val))then
+       return
+    elseif(a%size.ne.b%size) then
+       return
+    end if
+
+    output%val = a%val + b%val
+
+  end function add_array
+
   pure module function flatten_array(this) result(output)
     implicit none
     class(array_type), intent(in) :: this

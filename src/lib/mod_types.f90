@@ -236,7 +236,7 @@ module custom_types
        real(real32), dimension(..), intent(in) :: input
      end subroutine set_array
 
-     module function add_array(a, b) result(output)
+     pure module function add_array(a, b) result(output)
        class(array_type), intent(in) :: a, b 
        class(array_type), allocatable :: output
      end function add_array
