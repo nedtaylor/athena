@@ -19,15 +19,15 @@ contains
 
     select type(output => input%layer%output)
     type is (array1d_type)
-       call this%layer%forward(output%val)
+       call this%layer%forward(output%val_ptr)
     type is (array2d_type)
-       call this%layer%forward(output%val)
+       call this%layer%forward(output%val_ptr)
     type is (array3d_type)
-       call this%layer%forward(output%val)
+       call this%layer%forward(output%val_ptr)
     type is (array4d_type)
-       call this%layer%forward(output%val)
+       call this%layer%forward(output%val_ptr)
     type is (array5d_type)
-       call this%layer%forward(output%val)
+       call this%layer%forward(output%val_ptr)
     class default
        return
     end select
@@ -44,15 +44,15 @@ contains
 
     select type(output => input%layer%output)
     type is (array1d_type)
-       call this%layer%backward(output%val, gradient)
+       call this%layer%backward(output%val_ptr, gradient)
     type is (array2d_type)
-       call this%layer%backward(output%val, gradient)
+       call this%layer%backward(output%val_ptr, gradient)
     type is (array3d_type)
-       call this%layer%backward(output%val, gradient)
+       call this%layer%backward(output%val_ptr, gradient)
     type is (array4d_type)
-       call this%layer%backward(output%val, gradient)
+       call this%layer%backward(output%val_ptr, gradient)
     type is (array5d_type)
-       call this%layer%backward(output%val, gradient)
+       call this%layer%backward(output%val_ptr, gradient)
     class default
        return
     end select

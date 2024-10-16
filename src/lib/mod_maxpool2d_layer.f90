@@ -472,7 +472,7 @@ contains
           stride_idx(1) = (i-1) * this%strd(1) + 1
           stride_idx(2) = (j-1) * this%strd(2) + 1
 #endif
-          output%val(i, j, m, s) = maxval(&
+          output%val_ptr(i, j, m, s) = maxval(&
                input( &
                stride_idx(1):stride_idx(1)+this%pool(1)-1, &
                stride_idx(2):stride_idx(2)+this%pool(2)-1, m, s))
@@ -509,7 +509,7 @@ contains
 
     select type(di => this%di)
     type is (array4d_type)
-       di%val = 0._real32
+       di%val_ptr = 0._real32
        !! compute gradients for input feature map
        do concurrent( &
             s = 1:this%batch_size, &
@@ -528,10 +528,10 @@ contains
                stride_idx(2)+1:stride_idx(2)+this%pool(2), m, s))
 
           !! compute gradients for input feature map
-          di%val( &
+          di%val_ptr( &
                stride_idx(1)+max_idx(1), &
                stride_idx(2)+max_idx(2), m, s) = &
-               di%val( &
+               di%val_ptr( &
                stride_idx(1)+max_idx(1), &
                stride_idx(2)+max_idx(2), m, s) + gradient(i, j, m, s)
        end do

@@ -787,18 +787,15 @@ contains
        dw = matmul(input(:,s:s), transpose(delta(:,s:s)))
        this%dw(:this%num_inputs,:,s) = this%dw(:this%num_inputs,:,s)  + dw
     end do
-    select type(di => this%di)
-    type is (array2d_type)
-         do concurrent(s=1:this%batch_size)
-            !! the errors are summed from the delta of the ...
-            !! ... 'child' node * 'child' weight
-            !! dE/dI(l-1) = sum(weight(l) * delta(l))
-            !! this prepares dE/dI for when it is passed into the previous layer
-            di%val(:,s) = matmul(this%weight(:this%num_inputs,:), delta(:,s))
-            this%dw(this%num_inputs+1,:,s) = this%dw(this%num_inputs+1,:,s) + &
-                 delta(:,s) * bias_diff(1)
-         end do
-    end select
+    do concurrent(s=1:this%batch_size)
+       !! the errors are summed from the delta of the ...
+       !! ... 'child' node * 'child' weight
+       !! dE/dI(l-1) = sum(weight(l) * delta(l))
+       !! this prepares dE/dI for when it is passed into the previous layer
+       this%di%val(:,s) = matmul(this%weight(:this%num_inputs,:), delta(:,s))
+       this%dw(this%num_inputs+1,:,s) = this%dw(this%num_inputs+1,:,s) + &
+            delta(:,s) * bias_diff(1)
+    end do
 
   end subroutine backward_2d
 !!!#############################################################################

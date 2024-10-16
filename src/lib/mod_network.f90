@@ -84,6 +84,8 @@ module network
      procedure, pass(this), private :: dfs
      procedure, pass(this), private :: calculate_root_vertices
      procedure, pass(this), private :: calculate_output_vertices
+     procedure, pass(this), private :: get_input_autodiff
+     procedure, pass(this), private :: get_gradient_autodiff
 
      procedure, pass(this) :: reduce => network_reduction
      procedure, pass(this) :: copy => network_copy
@@ -307,7 +309,7 @@ module network
      !!-------------------------------------------------------------------------
      !! this  = (T, in) network type
      module subroutine generate_vertex_order(this)
-       class(network_type), intent(in) :: this
+       class(network_type), intent(inout) :: this
      end subroutine generate_vertex_order
 
      !!-------------------------------------------------------------------------
@@ -323,8 +325,8 @@ module network
      )
        class(network_type), intent(in) :: this
        integer, intent(in) :: vertex_index
-       logical, dimension(:), intent(inout) :: visited
-       integer, dimension(:), intent(inout) :: order
+       logical, dimension(this%auto_graph%num_vertices), intent(inout) :: visited
+       integer, dimension(this%auto_graph%num_vertices), intent(inout) :: order
        integer, intent(inout) :: order_index
      end subroutine dfs
 
@@ -333,16 +335,34 @@ module network
      !!-------------------------------------------------------------------------
      !! this = (T, in) network type
       module subroutine calculate_root_vertices(this)
-        class(network_type), intent(in) :: this
+        class(network_type), intent(inout) :: this
       end subroutine calculate_root_vertices
 
-      !!-------------------------------------------------------------------------
-      !! calculate output vertices
-      !!-------------------------------------------------------------------------
-      !! this = (T, in) network type
-       module subroutine calculate_output_vertices(this)
-         class(network_type), intent(in) :: this
-       end subroutine calculate_output_vertices
+     !!-------------------------------------------------------------------------
+     !! calculate output vertices
+     !!-------------------------------------------------------------------------
+     !! this = (T, in) network type
+      module subroutine calculate_output_vertices(this)
+        class(network_type), intent(inout) :: this
+      end subroutine calculate_output_vertices
+
+     !!-------------------------------------------------------------------------
+     !! get the input of a layer via autodiff
+     !!-------------------------------------------------------------------------
+     pure module subroutine get_input_autodiff(this, idx, input)
+       class(network_type), intent(in) :: this
+       integer, intent(in) :: idx
+       real(real32), allocatable, dimension(:,:), intent(out) :: input
+     end subroutine get_input_autodiff
+
+     !!-------------------------------------------------------------------------
+     !! get the gradient of a layer via autodiff
+     !!-------------------------------------------------------------------------
+     pure module subroutine get_gradient_autodiff(this, idx, gradient)
+       class(network_type), intent(in) :: this
+       integer, intent(in) :: idx
+       real(real32), allocatable, dimension(:,:), intent(out) :: gradient
+     end subroutine get_gradient_autodiff
 
      !!-------------------------------------------------------------------------
      !! reduce two networks down to one (i.e. add two networks - parallel)

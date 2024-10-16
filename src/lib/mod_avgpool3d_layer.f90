@@ -478,7 +478,7 @@ contains
           stride_idx(2) = (j-1) * this%strd(2) + 1
           stride_idx(3) = (k-1) * this%strd(3) + 1
 #endif
-          output%val(i, j, k, m, s) = sum(&
+          output%val_ptr(i, j, k, m, s) = sum(&
                input( &
                stride_idx(1):stride_idx(1)+this%pool(1)-1, &
                stride_idx(2):stride_idx(2)+this%pool(2)-1, &
@@ -519,7 +519,7 @@ contains
 
     select type(di => this%di)
     type is (array5d_type)
-       di%val = 0._real32
+       di%val_ptr = 0._real32
        !! compute gradients for input feature map
        do concurrent( &
             s = 1:this%batch_size, &
@@ -535,11 +535,11 @@ contains
           stride_idx(3) = (k-1) * this%strd(3)
 #endif
           !! compute gradients for input feature map
-          di%val( &
+          di%val_ptr( &
                stride_idx(1)+1:stride_idx(1)+this%pool(1), &
                stride_idx(2)+1:stride_idx(2)+this%pool(2), &
                stride_idx(3)+1:stride_idx(3)+this%pool(3), m, s) = &
-               di%val( &
+               di%val_ptr( &
                stride_idx(1)+1:stride_idx(1)+this%pool(1), &
                stride_idx(2)+1:stride_idx(2)+this%pool(2), &
                stride_idx(3)+1:stride_idx(3)+this%pool(3), m, s) + &

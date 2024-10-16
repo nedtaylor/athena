@@ -476,11 +476,11 @@ contains
        select case(this%inference)
        case(.true.)
          !! do not perform drop operation
-         output%val = input * ( 1._real32 - this%rate )
+         output%val_ptr = input * ( 1._real32 - this%rate )
        case default
          !! perform the drop operation
          do concurrent(m = 1:this%num_channels, s = 1:this%batch_size)
-            output%val(:,:,m,s) = merge(input(:,:,m,s), 0._real32, this%mask)
+            output%val_ptr(:,:,m,s) = merge(input(:,:,m,s), 0._real32, this%mask)
          end do
        end select
     end select
@@ -514,7 +514,7 @@ contains
     select type(di => this%di)
     type is (array4d_type)
        do concurrent(m = 1:this%num_channels, s=1:this%batch_size)
-          di%val(:,:,m,s) = merge(gradient(:,:,m,s), 0._real32, this%mask)
+          di%val_ptr(:,:,m,s) = merge(gradient(:,:,m,s), 0._real32, this%mask)
        end do
     end select
 

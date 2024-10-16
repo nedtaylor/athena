@@ -753,7 +753,7 @@ contains
        case(.true.)
          do concurrent(m=1:this%num_channels)
             !! normalize each feature
-            output%val(:,m,:) = this%gamma(m) * (input(:,m,:) - this%mean(m)) / &
+            output%val_ptr(:,m,:) = this%gamma(m) * (input(:,m,:) - this%mean(m)) / &
                   sqrt( &
                   this%batch_size / (this%batch_size - 1) * this%variance(m) + &
                   this%epsilon) + &
@@ -782,7 +782,7 @@ contains
              end if
 
              !! normalize each feature
-             output%val(:,m,:) = this%gamma(m) * (input(:,m,:) - this%mean(m)) / &
+             output%val_ptr(:,m,:) = this%gamma(m) * (input(:,m,:) - this%mean(m)) / &
                 sqrt(this%variance(m) + this%epsilon) + this%beta(m)
 
           end do
@@ -828,7 +828,7 @@ contains
           dx_hat(:,m,:) = gradient(:,m,:) * this%gamma(m)
 
           !! calculate gradient of inputs
-          di%val(:,m,:) = &
+          di%val_ptr(:,m,:) = &
                1._real32 / (this%norm * sqrt(this%variance(m) + this%epsilon)) * &
                ( this%norm * dx_hat(:,m,:) - &
                sum(dx_hat(:,m,:)) - x_hat(:,m,:) * &

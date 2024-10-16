@@ -60,16 +60,16 @@ contains
     type is (array2d_type)
        select rank(input)
        rank(3)
-          output%val(:this%num_outputs, :this%batch_size) = &
+          output%val_ptr(:this%num_outputs, :this%batch_size) = &
                reshape(input, [this%num_outputs, this%batch_size])
        rank(4)
-          output%val(:this%num_outputs, :this%batch_size) = &
+          output%val_ptr(:this%num_outputs, :this%batch_size) = &
                reshape(input, [this%num_outputs, this%batch_size])
        rank(5)
-          output%val(:this%num_outputs, :this%batch_size) = &
+          output%val_ptr(:this%num_outputs, :this%batch_size) = &
                reshape(input, [this%num_outputs, this%batch_size])
        rank(6)
-          output%val(:this%num_outputs, :this%batch_size) = &
+          output%val_ptr(:this%num_outputs, :this%batch_size) = &
                reshape(input, [this%num_outputs, this%batch_size])
        end select
     end select
@@ -89,22 +89,22 @@ contains
     select rank(gradient); rank(2)
        select type(di => this%di)
        type is (array1d_type)
-          di%val = reshape(gradient(:this%num_outputs,:), &
-               [size(di%val)] )
+          di%val_ptr = reshape(gradient(:this%num_outputs,:), &
+               [size(di%val_ptr)] )
        type is (array2d_type)
-          di%val = reshape(gradient(:this%num_outputs,:), &
+          di%val_ptr = reshape(gradient(:this%num_outputs,:), &
                [this%input_shape(1), this%batch_size] )
        type is (array3d_type)
-          di%val = reshape(gradient(:this%num_outputs,:), &
+          di%val_ptr = reshape(gradient(:this%num_outputs,:), &
                [this%input_shape(1), this%input_shape(2), this%batch_size] )
        type is (array4d_type)
-          di%val = reshape(gradient(:this%num_outputs,:), [ &
+          di%val_ptr = reshape(gradient(:this%num_outputs,:), [ &
                this%input_shape(1), &
                this%input_shape(2), &
                this%input_shape(3), &
                this%batch_size ] )
        type is (array5d_type)
-          di%val = reshape(gradient(:this%num_outputs,:), [ &
+          di%val_ptr = reshape(gradient(:this%num_outputs,:), [ &
                this%input_shape(1), &
                this%input_shape(2), &
                this%input_shape(3), &
@@ -400,7 +400,7 @@ contains
 
     select type(output => this%output)
     type is (array2d_type)
-       output%val(this%num_outputs+1:, :) = addit_input
+       output%val_ptr(this%num_outputs+1:, :) = addit_input
     end select
 
   end subroutine set_addit_input

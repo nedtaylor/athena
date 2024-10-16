@@ -123,7 +123,7 @@ contains
        this, vertex_index, visited, order, order_index &
   )
     implicit none
-    class(network_type), intent(inout) :: this
+    class(network_type), intent(in) :: this
     integer, intent(in) :: vertex_index
     logical, dimension(this%auto_graph%num_vertices), intent(inout) :: visited
     integer, dimension(this%auto_graph%num_vertices), intent(inout) :: order
@@ -301,10 +301,10 @@ contains
     !! vertex feature(1) = layer number
     call this%auto_graph%add_vertex(feature=[1._real32], id=this%num_layers)
     if(present(input_list))then
-       do i=1,size(input_list)
-          vertex_index = findloc(this%auto_graph%vertex(:)%id, input_list(i))
+       do i = 1, size(input_list)
+          vertex_index = findloc([this%auto_graph%vertex(:)%id], input_list(i), 1)
           call this%auto_graph%add_edge( &
-                index = [ vertex_idx, -this%auto_graph%num_vertices ], &
+                index = [ vertex_index, -this%auto_graph%num_vertices ], &
                 feature = [ 1._real32 ] &
                 )
        end do
@@ -316,10 +316,10 @@ contains
     end if
 
     if(present(output_list))then
-       do i=1,size(output_list)
-          vertex_index = findloc(this%auto_graph%vertex(:)%id, output_list(i))
+       do i = 1, size(output_list)
+          vertex_index = findloc([this%auto_graph%vertex(:)%id], output_list(i), 1)
           call this%auto_graph%add_edge( &
-                index = [ this%auto_graph%num_vertices, -vertex_idx ], &
+                index = [ this%auto_graph%num_vertices, -vertex_index ], &
                 feature = [ 1._real32 ] &
                 )
        end do
@@ -608,9 +608,10 @@ contains
     integer, optional, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
     
-    integer :: i
+    integer :: i, j, k, id, child_id
     integer :: verbose_ = 0, num_addit_inputs
-    integer, dimension(:), allocatable :: input_shape
+    logical :: l_flatten_child
+    integer, dimension(:), allocatable :: input_shape, child_vertices, parent_vertices
     class(base_layer_type), allocatable :: t_input_layer, t_flatten_layer
 
 
@@ -639,11 +640,15 @@ contains
 !!!-----------------------------------------------------------------------------
     call this%calculate_root_vertices()
     do i = 1, size(this%root_vertices)
-       if(.not.allocated(this%model(this%auto_graph%vertex(this%root_vertices(i)))%layer%input_shape))then
+       if(.not.allocated( &
+            this%model( &
+                 this%auto_graph%vertex(this%root_vertices(i))%id &
+            )%layer%input_shape &
+       ))then
           write(0,*) "ERROR: input_shape of first layer not defined"
           stop 1
        end if
-       select type(root => this%model(this%auto_graph%vertex(this%root_vertices(i)))%layer)
+       select type(root => this%model(this%auto_graph%vertex(this%root_vertices(i))%id)%layer)
        class is(input_layer_type)
           cycle
        class is(conv_layer_type)
@@ -657,7 +662,7 @@ contains
              batch_size = this%batch_size, &
              verbose=verbose_ &
        )
-       call this%add(t_input_layer, output_list=[this%model(this%auto_graph%vertex(this%root_vertices(i)))%layer%id])
+       call this%add(t_input_layer, output_list=[this%model(this%auto_graph%vertex(this%root_vertices(i))%id)%layer%id])
        ! NEED TO CALL layer%init?
        deallocate(input_shape)
        deallocate(t_input_layer)
@@ -694,7 +699,7 @@ contains
     i = 0
     vertex_loop: do
        i = i + 1
-       if(i.gt.size(this%auto_graph%num_vertices,dim=1)) exit vertex_loop
+       if(i.gt.this%auto_graph%num_vertices) exit vertex_loop
        id = this%auto_graph%vertex(i)%id
 
 ! NEED AN if(allocated()) STATEMENT FOR output%shape?
@@ -711,22 +716,22 @@ contains
 
           ! get all parent vertices of the child vertex
           allocate(parent_vertices(0))
+          l_flatten_child = .true.
           do k = 1, size(this%auto_graph%adjacency(:,child_vertices(j)))
              if(this%auto_graph%adjacency(k,child_vertices(j)).eq.0) cycle
              parent_vertices = [parent_vertices, k]
+             !check if ranks match, rather than input and output shapes
+             if( this%model(k)%layer%input_rank .ne. &
+                  this%model(child_vertices(j))%layer%input_rank ) cycle child_loop
+             if( this%model(k)%layer%input_rank .ne. &
+                  this%model(id)%layer%input_rank ) l_flatten_child = .false.
           end do
-          !check if ranks match, rather than input and output shapes
-          if(all(this%model(parent_vertices(:))%layer%rank.eq.&
-               this%model(child_vertices(j))%layer%rank))then
-             cycle child_loop
-          end if
           t_flatten_layer = flatten_layer_type(&
                input_shape = this%model(id)%layer%output%shape, &
                batch_size = this%batch_size &
           )
 
-          if(all(this%model(parent_vertices(:))%layer%rank.eq.&
-               this%model(id)%layer%rank))then
+          if(l_flatten_child)then
              ! add flatten layer in the place of the child layer
              call this%auto_graph%remove_edges(indices=[this%auto_graph%adjacency(parent_vertices(:),child_vertices(j))])
              call this%add(t_flatten_layer, input_list=[parent_vertices(:)], output_list=[child_id])
@@ -753,7 +758,7 @@ contains
     !!--------------------------------------------------------------------------
     this%num_outputs = 0
     call this%calculate_output_vertices()
-    do i = 1, this%output_vertices
+    do i = 1, size(this%output_vertices,1)
        this%num_outputs = this%num_outputs + &
             product(this%model(this%auto_graph%vertex(this%output_vertices(i))%id)%layer%output%shape)
     end do
@@ -998,6 +1003,80 @@ contains
 
 
 !!!#############################################################################
+!!!#############################################################################
+  pure module subroutine get_input_autodiff(this, idx, input)
+    implicit none
+    class(network_type), intent(in) :: this
+    integer, intent(in) :: idx
+    real(real32), allocatable, dimension(:,:), intent(out) :: input
+
+    integer :: i
+
+    allocate( &
+         input( &
+              product(this%model(this%auto_graph%vertex(idx)%id)%layer%input_shape), &
+              this%batch_size &
+         ), source=0._real32 &
+    )
+    do i = 1, this%auto_graph%num_vertices
+       if(this%auto_graph%adjacency(i,this%vertex_order(idx)).ne.0)then
+          select case( &
+                 this%auto_graph%edge( &
+                      this%auto_graph%adjacency( &
+                           i, &
+                           this%vertex_order(idx) &
+                      ) &
+                 )%id &
+          )
+          case(1)
+            input = input + &
+                 this%model(this%auto_graph%vertex(i)%id)%layer%output%val
+          end select
+       end if
+    end do
+
+  end subroutine get_input_autodiff
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!!#############################################################################
+  pure module subroutine get_gradient_autodiff(this, idx, gradient)
+    implicit none
+    class(network_type), intent(in) :: this
+    integer, intent(in) :: idx
+    real(real32), allocatable, dimension(:,:), intent(out) :: gradient
+
+    integer :: i
+
+    allocate( &
+         gradient( &
+              this%model(this%auto_graph%vertex(idx)%id)%layer%output%size, &
+              this%batch_size &
+         ), source=0._real32 &
+    )
+    do i = 1, this%auto_graph%num_vertices
+       if(this%auto_graph%adjacency(this%vertex_order(idx),i).ne.0)then
+          select case( &
+                this%auto_graph%edge( &
+                     this%auto_graph%adjacency( &
+                          this%vertex_order(idx), &
+                          i &
+                     ) &
+                )%id &
+          )
+          case(1)
+            gradient = gradient + &
+                 this%model(this%auto_graph%vertex(i)%id)%layer%di%val
+          end select
+       end if
+    end do
+
+  end subroutine get_gradient_autodiff
+!!!#############################################################################
+
+
+!!!#############################################################################
 !!! forward pass
 !!!#############################################################################
   pure module subroutine forward_1d(this, input, addit_input, layer)
@@ -1009,6 +1088,7 @@ contains
     integer, optional, intent(in) :: layer
     
     integer :: i
+    real(real32), dimension(:,:), allocatable :: auto_input
 
 
     !!--------------------------------------------------------------------------
@@ -1037,22 +1117,13 @@ contains
     do i = 1, size(this%vertex_order,1)
        
 
-       !! MAKE THIS A FUNCTION, get_input_autodiff
-       input = 0._real32
        if(all(this%auto_graph%adjacency(:,this%vertex_order(i)).eq.0))then
-          input = input
+          call this%model(i)%layer%forward(input)
        else
-          do j = 1, this%auto_graph%num_vertices
-             if(this%auto_graph%adjacency(j,this%vertex_order(i)).ne.0)then
-                select case(this%auto_graph%edge(this%auto_graph%adjacency(j,this%vertex_order(i)))%id)
-                case(1)
-                  input = input + this%model(this%auto_graph%vertex(j)%id)%layer%output%val
-                end select
-             end if
-          end do
+          call this%get_input_autodiff(this%vertex_order(i), auto_input)
        end if
 
-       call this%model(i)%layer%forward(input)
+       call this%model(i)%layer%forward(auto_input)
     end do
 
   end subroutine forward_1d
@@ -1067,8 +1138,9 @@ contains
     class(network_type), intent(inout) :: this
     real(real32), dimension(:,:), intent(in) :: output
 
-    integer :: i
+    integer :: i, j
     real(real32), allocatable, dimension(:,:) :: predicted
+    real(real32), dimension(:,:), allocatable :: input, gradient
 
 
     !! Backward pass (final layer)
@@ -1101,30 +1173,17 @@ contains
       !! MAKE THIS A FUNCTION, get_input_autodiff
       input = 0._real32
       if(all(this%auto_graph%adjacency(:,this%vertex_order(i)).eq.0))then
-         input = input
+          cycle ! this is an input layer
       else
-         do j = 1, this%auto_graph%num_vertices
-            if(this%auto_graph%adjacency(j,this%vertex_order(i)).ne.0)then
-               select case(this%auto_graph%edge(this%auto_graph%adjacency(j,this%vertex_order(i)))%id)
-               case(1)
-                 input = input + this%model(this%auto_graph%vertex(j)%id)%layer%output%val
-               end select
-            end if
-         end do
+          call this%get_input_autodiff(this%vertex_order(i), input)
       end if
 
-      gradient = 0._real32
-      if(all(this%auto_graph%adjacency(this%vertex_order(i)).eq.0))then
-         input = input
+      ! need to allocate gradient to the correct shape
+      allocate(gradient(this%model(this%auto_graph%vertex(j)%id)%layer%output%size,this%batch_size), source=0._real32)
+      if(all(this%auto_graph%adjacency(this%vertex_order(i),:).eq.0))then
+          cycle ! this is an output layer, so I need to do something else, something to do with the loss
       else
-         do j = 1, this%auto_graph%num_vertices
-            if(this%auto_graph%adjacency(this%vertex_order(i),j).ne.0)then
-               select case(this%auto_graph%edge(this%auto_graph%adjacency(this%vertex_order(i),j))%id)
-               case(1)
-                  gradient = gradient + this%model(this%auto_graph%vertex(j)%id)%layer%di%val
-               end select
-            end if
-         end do
+          call this%get_gradient_autodiff(this%vertex_order(i), gradient)
       end if
 
 
@@ -1399,7 +1458,7 @@ contains
           !! print batch results
           !!--------------------------------------------------------------------
           if(abs(verbose_).gt.0.and.&
-               (batch.eq.1.or.mod(batch,batch_print_step_).eq.0.E0))then
+               (batch.eq.1.or.abs(mod(batch,batch_print_step_)).lt.1.E-6))then
              write(6,'("epoch=",I0,", batch=",I0,&
                   &", learning_rate=",F0.3,", loss=",F0.3,", accuracy=",F0.3)')&
                   epoch, batch, &

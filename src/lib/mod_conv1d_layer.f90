@@ -592,7 +592,7 @@ contains
        if(allocated(this%z)) deallocate(this%z)
        select type(output => this%output)
        type is (array3d_type)
-          allocate(this%z, source=output%val)
+          allocate(this%z, source=output%val_ptr)
        end select
        if(.not.allocated(this%di)) this%di = array3d_type()
        if(this%di%allocated) call this%di%deallocate()
@@ -907,7 +907,7 @@ contains
     !!--------------------------------------------------------------------------
     select type(output => this%output)
     type is (array3d_type)
-       output%val = this%transfer%activate(this%z)
+       output%val_ptr = this%transfer%activate(this%z)
     end select
 
   end subroutine forward_3d
@@ -986,12 +986,12 @@ contains
        !! all elements of the output are separated by stride_x (stride_y)
        select type(di => this%di)
        type is (array3d_type)
-          di%val = 0._real32
+          di%val_ptr = 0._real32
           do concurrent( &
                s=1:this%batch_size, &
                l=1:this%num_filters, &
                m=1:this%num_channels, &
-               i=1:size(di%val,dim=1):1 &
+               i=1:size(di%val_ptr,dim=1):1 &
                )
 
              !! set weight bounds
@@ -1014,8 +1014,8 @@ contains
              lim_g(2) = min(this%output%shape(1), i - offset + this%knl(1) - 1)
 
              !! apply full convolution to compute input gradients
-             di%val(i,m,s) = &
-                  di%val(i,m,s) + &
+             di%val_ptr(i,m,s) = &
+                  di%val_ptr(i,m,s) + &
                   sum( &
                   grad_dz( &
                   lim_g(1):lim_g(2),l,s) * &

@@ -423,12 +423,12 @@ contains
        select case(this%inference)
        case(.true.)
           !! do not perform the drop operation
-          output%val = input * ( 1._real32 - this%rate )
+          output%val_ptr = input * ( 1._real32 - this%rate )
        case default
           !! perform the drop operation
           this%idx = this%idx + 1
           do concurrent(s=1:this%batch_size)
-              output%val(:,s) = merge( &
+              output%val_ptr(:,s) = merge( &
                   input(:,s), 0._real32, &
                   this%mask(:,this%idx)) / &
                   ( 1._real32 - this%rate )
@@ -457,7 +457,7 @@ contains
     !! compute gradients for input feature map
     select type(di => this%di)
     type is (array2d_type)
-       di%val(:,:) = gradient(:,:)
+       di%val_ptr(:,:) = gradient(:,:)
     end select
 
   end subroutine backward_2d
