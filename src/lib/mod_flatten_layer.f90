@@ -56,23 +56,26 @@ contains
     class(flatten_layer_type), intent(inout) :: this
     real(real32), dimension(..), intent(in) :: input
 
-    select type(output => this%output)
-    type is (array2d_type)
+   !  select type(output => this%output)
+   !  type is (array2d_type)
        select rank(input)
+       !! can make this even easier by just setting output%val_ptr = input, and then output%val is already rank 2
+       rank(2)
+          this%output%val(:this%num_outputs, :this%batch_size) = input
        rank(3)
-          output%val_ptr(:this%num_outputs, :this%batch_size) = &
+          this%output%val(:this%num_outputs, :this%batch_size) = &
                reshape(input, [this%num_outputs, this%batch_size])
        rank(4)
-          output%val_ptr(:this%num_outputs, :this%batch_size) = &
+          this%output%val(:this%num_outputs, :this%batch_size) = &
                reshape(input, [this%num_outputs, this%batch_size])
        rank(5)
-          output%val_ptr(:this%num_outputs, :this%batch_size) = &
+          this%output%val(:this%num_outputs, :this%batch_size) = &
                reshape(input, [this%num_outputs, this%batch_size])
        rank(6)
-          output%val_ptr(:this%num_outputs, :this%batch_size) = &
+          this%output%val(:this%num_outputs, :this%batch_size) = &
                reshape(input, [this%num_outputs, this%batch_size])
        end select
-    end select
+   !  end select
   end subroutine forward_rank
 !!!#############################################################################
 

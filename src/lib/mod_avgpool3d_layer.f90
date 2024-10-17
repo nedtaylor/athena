@@ -56,7 +56,10 @@ contains
     class(avgpool3d_layer_type), intent(inout) :: this
     real(real32), dimension(..), intent(in) :: input
 
-    select rank(input); rank(5)
+    select rank(input)
+    rank(2)
+       call forward_5d(this, input)
+    rank(5)
        call forward_5d(this, input)
     end select
   end subroutine forward_rank
@@ -72,10 +75,17 @@ contains
     real(real32), dimension(..), intent(in) :: input
     real(real32), dimension(..), intent(in) :: gradient
 
-    select rank(input); rank(5)
-    select rank(gradient); rank(5)
-      call backward_5d(this, input, gradient)
-    end select
+    select rank(input)
+    rank(2)
+       select rank(gradient)
+       rank(2)
+          call backward_5d(this, input, gradient)
+       end select
+    rank(5)
+       select rank(gradient)
+       rank(5)
+         call backward_5d(this, input, gradient)
+       end select
     end select
   end subroutine backward_rank
 !!!#############################################################################
