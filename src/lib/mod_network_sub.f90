@@ -1109,15 +1109,12 @@ contains
     !! Forward pass
     !!--------------------------------------------------------------------------
     do i = 1, size(this%vertex_order,1)
-       
-
        if(all(this%auto_graph%adjacency(:,this%vertex_order(i)).eq.0))then
           call this%model(this%vertex_order(i))%layer%forward(input)
        else
           call this%get_input_autodiff(this%vertex_order(i), auto_input)
           call this%model(this%vertex_order(i))%layer%forward(auto_input)
       end if
-
     end do
 
   end subroutine forward_1d
