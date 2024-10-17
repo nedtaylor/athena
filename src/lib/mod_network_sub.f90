@@ -1097,7 +1097,7 @@ contains
 !!!#############################################################################
 !!! forward pass
 !!!#############################################################################
-  pure module subroutine forward_1d(this, input, addit_input, layer)
+  pure module subroutine forward_1d(this, input)
     implicit none
     class(network_type), intent(inout) :: this
     real(real32), dimension(..), intent(in) :: input
