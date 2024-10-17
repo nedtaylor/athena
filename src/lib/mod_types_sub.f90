@@ -237,7 +237,7 @@ contains
     if(.not.present(source).and.present(array_shape)) &
          stop 'ERROR: No shape or source provided'
     this%val_ptr(1:size(this%val, dim=1), 1:size(this%val, dim=2)) => this%val
-    this%shape(1) = size(this%val, dim=1)
+    this%shape = [ size(this%val, dim=1) ]
     this%size = product(this%shape)
 
   end subroutine allocate_array2d
@@ -354,7 +354,7 @@ contains
     end if
     if(.not.present(source).and.present(array_shape)) &
          stop 'ERROR: No shape or source provided'
-    this%shape(:) = shape(this%val_ptr(:,:,1))
+    this%shape = shape(this%val_ptr(:,:,1))
     this%size = product(this%shape)
 
   end subroutine allocate_array3d
@@ -490,7 +490,7 @@ contains
     end if
     if(.not.present(source).and.present(array_shape)) &
          stop 'ERROR: No shape or source provided'
-    this%shape(:) = shape(this%val_ptr(:,:,:,1))
+    this%shape = shape(this%val_ptr(:,:,:,1))
     this%size = product(this%shape)
 
   end subroutine allocate_array4d
@@ -628,7 +628,7 @@ contains
     end if
     if(.not.present(source).and.present(array_shape)) &
          stop 'ERROR: No shape or source provided'
-    this%shape(:) = shape(this%val_ptr(:,:,:,:,1))
+    this%shape = shape(this%val_ptr(:,:,:,:,1))
     this%size = product(this%shape)
 
   end subroutine allocate_array5d
