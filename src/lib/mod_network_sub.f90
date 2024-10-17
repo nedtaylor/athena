@@ -132,7 +132,7 @@ contains
     integer :: i
 
     visited(vertex_index) = .true.
-    do i = 1, this%auto_graph%num_vertices
+    do i = 1, this%auto_graph%num_vertices, 1
        if(this%auto_graph%adjacency(i,vertex_index).ne.0)then
           if(.not.visited(i)) call this%dfs(i, visited, order, order_index)
        end if
@@ -1102,9 +1102,6 @@ contains
     class(network_type), intent(inout) :: this
     real(real32), dimension(..), intent(in) :: input
 
-    real(real32), dimension(:,:), optional, intent(in) :: addit_input
-    integer, optional, intent(in) :: layer
-    
     integer :: i
     real(real32), dimension(:,:), allocatable :: auto_input
 
@@ -1642,49 +1639,44 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! initialise optional arguments
 !!!-----------------------------------------------------------------------------
-   if(present(verbose))then
-      verbose_ = verbose
-   else
-      verbose_ = 0
-   end if
+    if(present(verbose))then
+       verbose_ = verbose
+    else
+       verbose_ = 0
+    end if
 
-   select rank(input)
-   rank(2)
-      batch_size = size(input,dim=2)
-   rank(3)
-      batch_size = size(input,dim=3)
-   rank(4)
-      batch_size = size(input,dim=4)
-   rank(5)
-      batch_size = size(input,dim=5)
-   rank(6)
-      batch_size = size(input,dim=6)
-   rank default
-      batch_size = size(input,dim=rank(input))
-   end select
-   allocate(output(this%num_outputs,batch_size))
+    select rank(input)
+    rank(2)
+       batch_size = size(input,dim=2)
+    rank(3)
+       batch_size = size(input,dim=3)
+    rank(4)
+       batch_size = size(input,dim=4)
+    rank(5)
+       batch_size = size(input,dim=5)
+    rank(6)
+       batch_size = size(input,dim=6)
+    rank default
+       batch_size = size(input,dim=rank(input))
+    end select
+    allocate(output(this%num_outputs,batch_size))
 
 
 !!!-----------------------------------------------------------------------------
 !!! reset batch size for testing
 !!!-----------------------------------------------------------------------------
-   call this%set_batch_size(batch_size)
+    call this%set_batch_size(batch_size)
 
 
 !!!-----------------------------------------------------------------------------
 !!! predict
 !!!-----------------------------------------------------------------------------
-   if(present(addit_input).and.present(addit_layer))then
-      call this%forward(get_sample(input,1,batch_size),&
-           addit_input(:,1:batch_size),addit_layer)
-   else
-      call this%forward(get_sample(input,1,batch_size))
-   end if
+    call this%forward(get_sample(input,1,batch_size))
 
-   select type(output_arr => this%model(this%num_layers)%layer%output)
-   type is(array2d_type)
-      output = output_arr%val(:,1:batch_size)
-   end select
+    select type(output_arr => this%model(this%num_layers)%layer%output)
+    type is(array2d_type)
+       output = output_arr%val(:,1:batch_size)
+    end select
 
   end function predict_1d
 !!!#############################################################################

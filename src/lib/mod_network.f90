@@ -266,13 +266,10 @@ module network
      !! addit_layer = (I, in, opt) layer to insert additional input data
      !! verbose     = (I, in, opt) verbosity level
      module subroutine test(this, input, output, &
-          addit_input, addit_layer, &
           verbose)
        class(network_type), intent(inout) :: this
        real(real32), dimension(..), intent(in) :: input
        class(*), dimension(:,:), intent(in) :: output
-       real(real32), dimension(:,:), optional, intent(in) :: addit_input
-       integer, optional, intent(in) :: addit_layer
        integer, optional, intent(in) :: verbose
      end subroutine test
 
@@ -286,12 +283,9 @@ module network
      !! verbose     = (I, in, opt) verbosity level
      !! output      = (R, out) predicted output data
      module function predict_1d(this, input, &
-          addit_input, addit_layer, &
           verbose) result(output)
        class(network_type), intent(inout) :: this
        real(real32), dimension(..), intent(in) :: input
-       real(real32), dimension(:,:), optional, intent(in) :: addit_input
-       integer, optional, intent(in) :: addit_layer
        integer, optional, intent(in) :: verbose
        real(real32), dimension(:,:), allocatable :: output
      end function predict_1d
@@ -453,11 +447,9 @@ module network
      !! input       = (R, in) input data
      !! addit_input = (R, in, opt) additional input data
      !! layer       = (I, in, opt) layer to insert additional input data
-     pure module subroutine forward_1d(this, input, addit_input, layer)
+     pure module subroutine forward_1d(this, input)
        class(network_type), intent(inout) :: this
        real(real32), dimension(..), intent(in) :: input
-       real(real32), dimension(:,:), optional, intent(in) :: addit_input
-       integer, optional, intent(in) :: layer
      end subroutine forward_1d
 
      !!-------------------------------------------------------------------------
