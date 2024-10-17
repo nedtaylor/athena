@@ -1620,14 +1620,10 @@ contains
 !!! predict outputs from input data using trained network
 !!!#############################################################################
   module function predict_1d(this, input, &
-       addit_input, addit_layer, &
        verbose) result(output)
     implicit none
     class(network_type), intent(inout) :: this
     real(real32), dimension(..), intent(in) :: input
-    
-    real(real32), dimension(:,:), optional, intent(in) :: addit_input
-    integer, optional, intent(in) :: addit_layer
     
     integer, optional, intent(in) :: verbose
 
