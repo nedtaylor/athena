@@ -58,7 +58,7 @@ contains
 
     select rank(input)
     rank(2)
-       call forward_2d(this, input)
+       call forward_4d(this, input)
     rank(4)
        call forward_4d(this, input)
     end select

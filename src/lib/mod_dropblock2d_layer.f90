@@ -87,7 +87,7 @@ contains
     real(real32), dimension(..), intent(in) :: gradient
 
     select rank(input)
-    ranl(2)
+    rank(2)
        select rank(gradient)
         rank(2)
             call backward_4d(this, input, gradient)
