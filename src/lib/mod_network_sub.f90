@@ -827,13 +827,13 @@ contains
 !!!#############################################################################
 !!! return sample from any rank
 !!!#############################################################################
-  function get_sample(input, start_index, end_index) result(output)
+  function get_sample(input, start_index, end_index) result(sample_ptr)
     implicit none
     integer, intent(in) :: start_index, end_index
     real(real32), dimension(..), intent(in), target :: input
-    real(real32), allocatable, dimension(:,:) :: output
 
-    real(real32), pointer :: sample_ptr(:,:) => null()
+    real(real32), pointer :: sample_ptr(:,:)
+    
 
     select rank(input)
     rank(2)
@@ -851,8 +851,9 @@ contains
     rank(6)
        sample_ptr(1:size(input(:,:,:,:,:,1)),1:end_index-start_index+1) => &
             input(:,:,:,:,:,start_index:end_index)
+    rank default
+       sample_ptr => null()
     end select
-    output = sample_ptr
 
   end function get_sample
 !!!#############################################################################
@@ -1031,7 +1032,7 @@ contains
     class default
        allocate( &
             input( &
-                 product(this%model(this%auto_graph%vertex(idx)%id)%layer%input_shape), &
+                 this%model(this%auto_graph%vertex(idx)%id)%layer%di%size, &
                  this%batch_size &
             ), source=0._real32 &
        )
@@ -1373,21 +1374,16 @@ contains
           !! Backward pass and store predicted output
           !!--------------------------------------------------------------------
           call this%backward(y_true(:,:))
-          select type(output => this%model(this%output_vertices(1))%layer%output)
-          type is(array2d_type)
-             !! compute loss and accuracy (for monitoring)
-             !!-----------------------------------------------------------------
-             batch_loss = sum( &
-                  this%get_loss( &
-                  output%val(:,1:this%batch_size), &
-                  y_true(:,1:this%batch_size)))
-             batch_accuracy = sum( &
-                  this%get_accuracy( &
-                  output%val(:,1:this%batch_size), &
-                  y_true(:,1:this%batch_size)))
-          class default
-             stop "ERROR: final layer output not 2D"
-          end select
+          !! compute loss and accuracy (for monitoring)
+          !!-----------------------------------------------------------------
+          batch_loss = sum( &
+             this%get_loss( &
+             this%model(this%output_vertices(1))%layer%output%val, &
+             y_true(:,1:this%batch_size)))
+          batch_accuracy = sum( &
+             this%get_accuracy( &
+             this%model(this%output_vertices(1))%layer%output%val, &
+             y_true(:,1:this%batch_size)))
 
 
 
@@ -1561,23 +1557,20 @@ contains
 
        !! compute loss and accuracy (for monitoring)
        !!-----------------------------------------------------------------------
-       select type(output_arr => this%model(this%num_layers)%layer%output)
-       type is(array2d_type)
-          loss_val = sum(this%get_loss( &
-               predicted = output_arr%val, &
-               !!!! JUST REPLACE y_true(:,sample) WITH output(:,sample) !!!!
-               !!!! THERE IS NO REASON TO USE y_true, as it is just a copy !!!!
-               !!!! get_loss should handle both integers and reals !!!!
-               !!!! it does not. Instead just wrap real(output(:,sample),real32) !!!!
-               expected  = y_true(:,sample:sample)))
-          acc_val = sum(this%get_accuracy( &
-               predicted = output_arr%val, &
-               expected  = y_true(:,sample:sample)))
-          this%metrics(2)%val = this%metrics(2)%val + acc_val
-          this%metrics(1)%val = this%metrics(1)%val + loss_val
-          accuracy_list(sample) = acc_val
-          predicted(:,sample) = output_arr%val(:,1)
-       end select
+       loss_val = sum(this%get_loss( &
+            predicted = this%model(this%output_vertices(1))%layer%output%val, &
+            !!!! JUST REPLACE y_true(:,sample) WITH output(:,sample) !!!!
+            !!!! THERE IS NO REASON TO USE y_true, as it is just a copy !!!!
+            !!!! get_loss should handle both integers and reals !!!!
+            !!!! it does not. Instead just wrap real(output(:,sample),real32) !!!!
+            expected  = y_true(:,sample:sample)))
+       acc_val = sum(this%get_accuracy( &
+            predicted = this%model(this%output_vertices(1))%layer%output%val, &
+            expected  = y_true(:,sample:sample)))
+       this%metrics(2)%val = this%metrics(2)%val + acc_val
+       this%metrics(1)%val = this%metrics(1)%val + loss_val
+       accuracy_list(sample) = acc_val
+       predicted(:,sample) = this%model(this%output_vertices(1))%layer%output%val(:,1)
 
     end do test_loop1
 
@@ -1652,7 +1645,6 @@ contains
     rank default
        batch_size = size(input,dim=rank(input))
     end select
-    allocate(output(this%num_outputs,batch_size))
 
 
 !!!-----------------------------------------------------------------------------
@@ -1666,10 +1658,7 @@ contains
 !!!-----------------------------------------------------------------------------
     call this%forward(get_sample(input,1,batch_size))
 
-    select type(output_arr => this%model(this%num_layers)%layer%output)
-    type is(array2d_type)
-       output = output_arr%val(:,1:batch_size)
-    end select
+    output = this%model(this%output_vertices(1))%layer%output%val
 
   end function predict_1d
 !!!#############################################################################
