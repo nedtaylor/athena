@@ -401,6 +401,7 @@ contains
     if(size(this%input_shape).eq.2)then
        this%num_inputs = this%input_shape(1)
     end if
+    this%num_params = this%get_num_params()
 
 
     !!--------------------------------------------------------------------------

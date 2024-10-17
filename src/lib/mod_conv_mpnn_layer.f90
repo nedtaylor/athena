@@ -235,7 +235,7 @@ contains
     implicit none
     class(conv_message_phase_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
-    real(real32), allocatable, dimension(:) :: gradients
+    real(real32), dimension(this%num_params) :: gradients
 
     gradients = reshape(sum(this%dw,dim=4)/this%batch_size, &
          [ size(this%dw,1) * size(this%dw,2) * size(this%dw,3) ])
@@ -247,7 +247,7 @@ contains
     implicit none
     class(conv_readout_phase_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
-    real(real32), allocatable, dimension(:) :: gradients
+    real(real32), dimension(this%num_params) :: gradients
 
     gradients = reshape(sum(this%dw,dim=4)/this%batch_size, &
          [ size(this%dw,1) * size(this%dw,2) * size(this%dw,3) ])

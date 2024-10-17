@@ -91,6 +91,7 @@ module mpnn_layer
      integer :: num_inputs
      integer :: num_outputs
      integer :: batch_size
+     integer :: num_params
      !! feature has dimensions (batch_size)
      type(feature_type), dimension(:), allocatable :: feature
      type(feature_type), dimension(:), allocatable :: di
@@ -206,7 +207,7 @@ module mpnn_layer
     pure module function get_gradients_mpnn(this, clip_method) result(gradients)
       class(mpnn_layer_type), intent(in) :: this
       type(clip_type), optional, intent(in) :: clip_method
-      real(real32), allocatable, dimension(:) :: gradients
+      real(real32), dimension(this%num_params) :: gradients
     end function get_gradients_mpnn
 
     pure module subroutine set_gradients_mpnn(this, gradients)
@@ -240,7 +241,7 @@ module mpnn_layer
          result(gradients)
       class(base_phase_type), intent(in) :: this
       type(clip_type), optional, intent(in) :: clip_method
-      real(real32), allocatable, dimension(:) :: gradients
+      real(real32), dimension(this%num_params) :: gradients
     end function get_phase_gradients
 
     pure module subroutine set_phase_gradients(this, gradients)

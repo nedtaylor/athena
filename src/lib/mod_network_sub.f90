@@ -776,7 +776,8 @@ contains
 !!! initialise optimiser
 !!!-----------------------------------------------------------------------------
     this%optimiser = optimiser
-    call this%optimiser%init(num_params=this%get_num_params())
+    this%num_params = this%get_num_params()
+    call this%optimiser%init(num_params=this%num_params)
 
 
 !!!-----------------------------------------------------------------------------
@@ -871,7 +872,10 @@ contains
 
    num_params = 0
    do l = 1, this%num_layers
-      num_params = num_params + this%model(l)%layer%get_num_params()
+      select type(current => this%model(l)%layer)
+      class is(learnable_layer_type)
+         num_params = num_params + current%num_params
+      end select
    end do
 
   end function get_num_params
@@ -884,18 +888,17 @@ contains
   pure module function get_params(this) result(params)
     implicit none
     class(network_type), intent(in) :: this
-    real(real32), allocatable, dimension(:) :: params
+    real(real32), dimension(this%num_params) :: params
   
     integer :: l, start_idx, end_idx
   
     start_idx = 0
     end_idx   = 0
-    allocate(params(this%get_num_params()), source=0._real32)
     do l = 1, this%num_layers
        select type(current => this%model(l)%layer)
        class is(learnable_layer_type)
           start_idx = end_idx + 1
-          end_idx = end_idx + current%get_num_params()
+          end_idx = end_idx + current%num_params
           params(start_idx:end_idx) = current%get_params()
        end select
     end do
@@ -910,7 +913,7 @@ contains
   module subroutine set_params(this, params)
     implicit none
     class(network_type), intent(inout) :: this
-    real(real32), dimension(:), intent(in) :: params
+    real(real32), dimension(this%num_params), intent(in) :: params
   
     integer :: l, start_idx, end_idx
   
@@ -920,7 +923,7 @@ contains
        select type(current => this%model(l)%layer)
        class is(learnable_layer_type)
           start_idx = end_idx + 1
-          end_idx = end_idx + current%get_num_params()
+          end_idx = end_idx + current%num_params
           call current%set_params(params(start_idx:end_idx))
        end select
     end do
@@ -935,18 +938,17 @@ contains
   pure module function get_gradients(this) result(gradients)
     implicit none
     class(network_type), intent(in) :: this
-    real(real32), allocatable, dimension(:) :: gradients
+    real(real32), dimension(this%num_params) :: gradients
 
     integer :: l, start_idx, end_idx
 
     start_idx = 0
     end_idx   = 0
-    allocate(gradients(this%get_num_params()), source=0._real32)
     do l = 1, this%num_layers
        select type(current => this%model(l)%layer)
        class is(learnable_layer_type)
           start_idx = end_idx + 1
-          end_idx = end_idx + current%get_num_params()
+          end_idx = end_idx + current%num_params
           gradients(start_idx:end_idx) = &
                current%get_gradients(clip_method=this%optimiser%clip_dict)
        end select
@@ -972,7 +974,7 @@ contains
       select type(current => this%model(l)%layer)
       class is(learnable_layer_type)
          start_idx = end_idx + 1
-         end_idx = end_idx + current%get_num_params()
+         end_idx = end_idx + current%num_params
          select rank(gradients)
          rank(0)
             call current%set_gradients(gradients)

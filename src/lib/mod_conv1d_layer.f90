@@ -175,7 +175,7 @@ contains
     implicit none
     class(conv1d_layer_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
-    real(real32), allocatable, dimension(:) :: gradients
+    real(real32), dimension(this%num_params) :: gradients
   
     gradients = [ reshape( &
          sum(this%dw,dim=4)/this%batch_size, &
@@ -540,6 +540,7 @@ contains
     allocate(this%weight( &
          -this%hlf(1):end_idx, &
          this%num_channels,this%num_filters), source=0._real32)
+    this%num_params = this%get_num_params()
 
 
     !!--------------------------------------------------------------------------

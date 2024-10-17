@@ -168,7 +168,7 @@ contains
     implicit none
     class(batch_layer_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
-    real(real32), allocatable, dimension(:) :: gradients
+    real(real32), dimension(this%num_params) :: gradients
   
     gradients = [this%dg/this%batch_size, this%db/this%batch_size]
   

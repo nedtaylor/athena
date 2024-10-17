@@ -56,6 +56,7 @@ module network
      integer :: batch_size = 0
      integer :: num_layers = 0
      integer :: num_outputs = 0
+     integer :: num_params = 0
      class(base_optimiser_type), allocatable :: optimiser
      type(metric_dict_type), dimension(2) :: metrics
      type(container_layer_type), allocatable, dimension(:) :: model
@@ -395,7 +396,7 @@ module network
      !! params = (R, out) learnable parameters
      pure module function get_params(this) result(params)
        class(network_type), intent(in) :: this
-       real(real32), allocatable, dimension(:) :: params
+       real(real32), dimension(this%num_params) :: params
      end function get_params
 
      !!-------------------------------------------------------------------------
@@ -406,7 +407,7 @@ module network
      !! verbose = (I, in, opt) verbosity level
      module subroutine set_params(this, params)
        class(network_type), intent(inout) :: this
-       real(real32), dimension(:), intent(in) :: params
+       real(real32), dimension(this%num_params), intent(in) :: params
      end subroutine set_params
 
      !!-------------------------------------------------------------------------
@@ -416,7 +417,7 @@ module network
      !! gradients = (R, out) gradients
      pure module function get_gradients(this) result(gradients)
        class(network_type), intent(in) :: this
-       real(real32), allocatable, dimension(:) :: gradients
+       real(real32), dimension(this%num_params) :: gradients
      end function get_gradients
 
      !!-------------------------------------------------------------------------

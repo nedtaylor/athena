@@ -224,6 +224,7 @@ module base_layer
 !!! learnable derived extended type
 !!!-----------------------------------------------------------------------------
   type, abstract, extends(base_layer_type) :: learnable_layer_type
+     integer :: num_params = 0
      character(len=14) :: kernel_initialiser='', bias_initialiser=''
      class(activation_type), allocatable :: transfer
    contains
@@ -290,7 +291,7 @@ module base_layer
        import :: learnable_layer_type, real32, clip_type
        class(learnable_layer_type), intent(in) :: this
        type(clip_type), optional, intent(in) :: clip_method
-       real(real32), allocatable, dimension(:) :: gradients
+       real(real32), dimension(this%num_params) :: gradients
      end function get_gradients
 
      !!-------------------------------------------------------------------------
@@ -370,7 +371,7 @@ module base_layer
           result(gradients)
        class(batch_layer_type), intent(in) :: this
        type(clip_type), optional, intent(in) :: clip_method
-       real(real32), allocatable, dimension(:) :: gradients
+       real(real32), dimension(this%num_params) :: gradients
      end function get_gradients_batch
      pure module function get_num_params_batch(this) result(num_params)
        class(batch_layer_type), intent(in) :: this

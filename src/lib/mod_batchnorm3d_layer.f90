@@ -356,6 +356,7 @@ contains
     this%output = array5d_type()
     this%output%shape = this%input_shape
     this%num_channels = this%input_shape(this%input_rank)
+    this%num_params = this%get_num_params()
 
 
     !!--------------------------------------------------------------------------

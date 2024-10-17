@@ -113,25 +113,26 @@ contains
     implicit none
     class(mpnn_layer_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
-    real(real32), allocatable, dimension(:) :: gradients
+    real(real32), dimension(this%num_params) :: gradients
 
-    integer :: t
+    integer :: i, t
 
-    allocate(gradients(0))
     if(present(clip_method))then
+       i = 1
        do t = 1, this%method%num_time_steps
-          gradients = [ &
-               gradients, &
-               this%method%message(t)%get_gradients(clip_method) ]
+          gradients(i:i+this%method%message(t)%num_params) = &
+               this%method%message(t)%get_gradients(clip_method)
+          i = i + this%method%message(t)%num_params + 1
        end do
-       gradients = [ gradients, this%method%readout%get_gradients(clip_method) ]
+       gradients(i:) = this%method%readout%get_gradients(clip_method)
     else
+       i = 1
        do t = 1, this%method%num_time_steps
-           gradients = [ &
-                gradients, &
-                this%method%message(t)%get_gradients() ]
-       end do
-       gradients = [ gradients, this%method%readout%get_gradients() ]
+           gradients(i:i+this%method%message(t)%num_params) = &
+                this%method%message(t)%get_gradients()
+           i = i + this%method%message(t)%num_params + 1
+        end do
+       gradients(i:) = this%method%readout%get_gradients()
     end if
   end function get_gradients_mpnn
 !!!-----------------------------------------------------------------------------
@@ -185,9 +186,8 @@ contains
     implicit none
     class(base_phase_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
-    real(real32), allocatable, dimension(:) :: gradients
+    real(real32), dimension(this%num_params) :: gradients
 
-    allocate(gradients(0))
   end function get_phase_gradients
 !!!-----------------------------------------------------------------------------
   pure module subroutine set_phase_gradients(this, gradients)
