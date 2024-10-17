@@ -401,18 +401,17 @@ contains
          call this%regulariser%regularise( &
          param, gradient, learning_rate)
 
-    if(this%momentum.gt.1.E-8_real32)then !! adaptive learning method
-       this%velocity = this%momentum * this%velocity - &
-            learning_rate * gradient
-    else !! standard learning method
-       this%velocity = - learning_rate * gradient
-    end if
-
+    gradient = - learning_rate * gradient
     !! update parameters
-    if(this%nesterov)then
-       param = param + this%momentum * this%velocity - &
-            learning_rate * gradient
-    else
+    if(this%momentum.gt.1.E-8_real32)then !! adaptive learning method
+       this%velocity = this%momentum * this%velocity + gradient
+       if(this%nesterov)then
+          param = param + this%momentum * this%velocity + gradient
+       else
+          param = param + this%velocity
+       end if
+    else !! standard learning method
+       this%velocity = gradient
        param = param + this%velocity
     end if
   
