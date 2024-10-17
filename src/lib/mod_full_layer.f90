@@ -744,10 +744,7 @@ contains
     end do
 
     !! apply activation function to activation
-    select type(output => this%output)
-    type is (array2d_type)
-       output%val = this%transfer%activate(this%z)
-    end select
+    this%output%val = this%transfer%activate(this%z)
 
   end subroutine forward_2d
 !!!#############################################################################
