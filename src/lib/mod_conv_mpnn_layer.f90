@@ -184,7 +184,7 @@ contains
   pure module function get_params_message_conv(this) result(params)
     implicit none
     class(conv_message_phase_type), intent(in) :: this
-    real(real32), allocatable, dimension(:) :: params
+    real(real32), dimension(this%num_params) :: params
   
     integer :: t
 
@@ -194,7 +194,7 @@ contains
   pure module function get_params_readout_conv(this) result(params)
     implicit none
     class(conv_readout_phase_type), intent(in) :: this
-    real(real32), allocatable, dimension(:) :: params
+    real(real32), dimension(this%num_params) :: params
   
     integer :: t
 
@@ -209,7 +209,7 @@ contains
   pure subroutine set_params_message_conv(this, params)
     implicit none
     class(conv_message_phase_type), intent(inout) :: this
-    real(real32), dimension(:), intent(in) :: params
+    real(real32), dimension(this%num_params), intent(in) :: params
 
     integer :: t
 
@@ -219,7 +219,7 @@ contains
   pure subroutine set_params_readout_conv(this, params)
     implicit none
     class(conv_readout_phase_type), intent(inout) :: this
-    real(real32), dimension(:), intent(in) :: params
+    real(real32), dimension(this%num_params), intent(in) :: params
 
     integer :: t
 
@@ -371,6 +371,7 @@ contains
          message_phase%num_message_features, &
          message_phase%num_outputs, &
          max_vertex_degree), source=0._real32)
+    message_phase%num_params = message_phase%get_num_params()
 
     allocate(initialiser_, source=initialiser_setup("he_normal"))
     call initialiser_%initialise(message_phase%weight(:,:,:), &
@@ -411,6 +412,8 @@ contains
     readout_phase%batch_size  = batch_size
     allocate(readout_phase%weight( &
          num_inputs, num_outputs, num_time_steps+1), source=0._real32)
+    readout_phase%num_params = readout_phase%get_num_params()
+
     allocate(initialiser_, source=initialiser_setup("he_normal"))
     call initialiser_%initialise(readout_phase%weight(:,:,:), &
          fan_in=readout_phase%num_inputs, &

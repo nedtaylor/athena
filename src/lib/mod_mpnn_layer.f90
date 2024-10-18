@@ -229,12 +229,12 @@ module mpnn_layer
 
     pure module function get_phase_params(this) result(params)
       class(base_phase_type), intent(in) :: this
-      real(real32), allocatable, dimension(:) :: params
+      real(real32), dimension(this%num_params) :: params
     end function get_phase_params
 
     pure module subroutine set_phase_params(this, params)
       class(base_phase_type), intent(inout) :: this
-      real(real32), dimension(:), intent(in) :: params
+      real(real32), dimension(this%num_params), intent(in) :: params
     end subroutine set_phase_params
 
     pure module function get_phase_gradients(this, clip_method) &

@@ -93,12 +93,12 @@ contains
 
     istart = 1
     do t = 1, this%method%num_time_steps
-       iend = istart + this%method%message(t)%get_num_params() - 1
+       iend = istart + this%method%message(t)%num_params - 1
        if(iend.gt.istart-1) &
             call this%method%message(t)%set_params(params(istart:iend))
        istart = iend + 1
     end do
-    iend = istart + this%method%readout%get_num_params() - 1
+    iend = istart + this%method%readout%num_params - 1
     if(iend.gt.istart-1) &
          call this%method%readout%set_params(params(istart:iend))
 
@@ -165,15 +165,14 @@ contains
   pure module function get_phase_params(this) result(params)
     implicit none
     class(base_phase_type), intent(in) :: this
-    real(real32), allocatable, dimension(:) :: params
+    real(real32), dimension(this%num_params) :: params
 
-    allocate(params(0))
   end function get_phase_params
 !!!-----------------------------------------------------------------------------
   pure module subroutine set_phase_params(this, params)
     implicit none
     class(base_phase_type), intent(inout) :: this
-    real(real32), dimension(:), intent(in) :: params
+    real(real32), dimension(this%num_params), intent(in) :: params
     !! nothing to do as no parameters in base phase type
   end subroutine set_phase_params
 !!!#############################################################################
@@ -337,6 +336,7 @@ contains
     this%output = array2d_type()
     this%output%shape = this%num_outputs
     !if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
+    this%num_params = this%get_num_params()
 
     if (present(batch_size)) this%batch_size = batch_size
 
