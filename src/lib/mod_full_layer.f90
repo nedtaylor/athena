@@ -180,9 +180,17 @@ contains
     class(full_layer_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
     real(real32), dimension(this%num_params) :: gradients
+
+    integer :: i, j
+    real(real32) :: inv_batch_size
   
-    gradients = reshape(sum(this%dw,dim=3)/this%batch_size, &
-         [ (this%num_inputs+1) * this%num_outputs ])
+    inv_batch_size = 1._real32/this%batch_size
+    do i = 1, this%num_outputs
+       do concurrent( j = 1 : this%num_inputs + 1 )
+          gradients( ( i - 1 ) * ( this%num_inputs + 1 ) + j ) = &
+               sum(this%dw(j,i,:)) * inv_batch_size
+       end do
+    end do
 
     if(present(clip_method)) call clip_method%apply(this%num_params,gradients)
   
