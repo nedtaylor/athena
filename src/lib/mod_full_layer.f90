@@ -150,8 +150,11 @@ contains
     implicit none
     class(full_layer_type), intent(in) :: this
     real(real32), dimension(this%num_params) :: params
+
+    integer :: i, j
   
-    params = reshape(this%weight, [ this%num_params ])
+    forall(i=1:this%num_outputs, j=1:this%num_inputs+1) &
+         params( ( i - 1 ) * ( this%num_inputs + 1 ) + j ) = this%weight(j,i)
   
   end function get_params_full
 !!!#############################################################################
@@ -772,11 +775,10 @@ contains
          intent(in) :: gradient
 
     real(real32), dimension(this%num_outputs, this%batch_size) :: delta
-    real(real32), dimension(this%num_inputs, this%num_outputs) :: dw
 
     real(real32), dimension(1) :: bias_diff
 
-    integer :: s
+    integer :: s, j
 
 
     bias_diff = this%transfer%differentiate([1._real32])
@@ -790,10 +792,9 @@ contains
     do concurrent(s=1:this%batch_size)
        !! partial derivatives of error wrt weights
        !! dE/dW = o/p(l-1) * delta
-       dw = matmul(input(:,s:s), transpose(delta(:,s:s)))
-       this%dw(:this%num_inputs,:,s) = this%dw(:this%num_inputs,:,s)  + dw
-    end do
-    do concurrent(s=1:this%batch_size)
+       do j = 1, this%num_outputs
+          this%dw(:,j,s) = this%dw(:,j,s) + input(:,s) * delta(j,s)
+       end do
        !! the errors are summed from the delta of the ...
        !! ... 'child' node * 'child' weight
        !! dE/dI(l-1) = sum(weight(l) * delta(l))
