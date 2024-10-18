@@ -196,12 +196,12 @@ module mpnn_layer
 
     pure module function get_params_mpnn(this) result(params)
       class(mpnn_layer_type), intent(in) :: this
-      real(real32), allocatable, dimension(:) :: params
+      real(real32), dimension(this%num_params) :: params
     end function get_params_mpnn
 
     pure module subroutine set_params_mpnn(this, params)
       class(mpnn_layer_type), intent(inout) :: this
-      real(real32), dimension(:), intent(in) :: params
+      real(real32), dimension(this%num_params), intent(in) :: params
     end subroutine set_params_mpnn
 
     pure module function get_gradients_mpnn(this, clip_method) result(gradients)

@@ -149,9 +149,9 @@ contains
   pure function get_params_full(this) result(params)
     implicit none
     class(full_layer_type), intent(in) :: this
-    real(real32), allocatable, dimension(:) :: params
+    real(real32), dimension(this%num_params) :: params
   
-    params = reshape(this%weight, [ (this%num_inputs+1) * this%num_outputs ])
+    params = reshape(this%weight, [ this%num_params ])
   
   end function get_params_full
 !!!#############################################################################
@@ -163,7 +163,7 @@ contains
   subroutine set_params_full(this, params)
     implicit none
     class(full_layer_type), intent(inout) :: this
-    real(real32), dimension(:), intent(in) :: params
+    real(real32), dimension(this%num_params), intent(in) :: params
   
     this%weight = reshape(params, [ this%num_inputs+1, this%num_outputs ])
   

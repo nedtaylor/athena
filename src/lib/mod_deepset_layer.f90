@@ -149,7 +149,7 @@ contains
   pure function get_params_deepset(this) result(params)
     implicit none
     class(deepset_layer_type), intent(in) :: this
-    real(real32), allocatable, dimension(:) :: params
+    real(real32), dimension(this%num_params) :: params
   
     params = [this%lambda, this%gamma, this%bias]
   
@@ -163,7 +163,7 @@ contains
   subroutine set_params_deepset(this, params)
     implicit none
     class(deepset_layer_type), intent(inout) :: this
-    real(real32), dimension(:), intent(in) :: params
+    real(real32), dimension(this%num_params), intent(in) :: params
   
     this%lambda = params(1)
     this%gamma  = params(2)

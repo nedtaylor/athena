@@ -137,7 +137,7 @@ contains
   pure module function get_params_batch(this) result(params)
     implicit none
     class(batch_layer_type), intent(in) :: this
-    real(real32), allocatable, dimension(:) :: params
+    real(real32), dimension(this%num_params) :: params
   
     params = [this%gamma, this%beta]
   
@@ -151,7 +151,7 @@ contains
   module subroutine set_params_batch(this, params)
     implicit none
     class(batch_layer_type), intent(inout) :: this
-    real(real32), dimension(:), intent(in) :: params
+    real(real32), dimension(this%num_params), intent(in) :: params
   
     this%gamma = params(1:this%num_channels)
     this%beta  = params(this%num_channels+1:2*this%num_channels)

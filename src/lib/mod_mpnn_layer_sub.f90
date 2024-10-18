@@ -73,21 +73,23 @@ contains
   pure module function get_params_mpnn(this) result(params)
     implicit none
     class(mpnn_layer_type), intent(in) :: this
-    real(real32), allocatable, dimension(:) :: params
+    real(real32), dimension(this%num_params) :: params
   
-    integer :: t
+    integer :: t, istart, iend
 
-    allocate(params(0))
+    istart = 1
     do t = 1, this%method%num_time_steps
-       params = [ params, this%method%message(t)%get_params() ]
+       iend = istart + this%method%message(t)%num_params - 1
+       params(istart:iend) = this%method%message(t)%get_params()
+       istart = iend + 1
     end do
-    params = [ params, this%method%readout%get_params() ]
+    params(istart:) = this%method%readout%get_params()
   end function get_params_mpnn
 !!!-----------------------------------------------------------------------------
   pure subroutine set_params_mpnn(this, params)
     implicit none
     class(mpnn_layer_type), intent(inout) :: this
-    real(real32), dimension(:), intent(in) :: params
+    real(real32), dimension(this%num_params), intent(in) :: params
 
     integer :: t, istart, iend
 
@@ -115,24 +117,25 @@ contains
     type(clip_type), optional, intent(in) :: clip_method
     real(real32), dimension(this%num_params) :: gradients
 
-    integer :: i, t
+    integer :: t, istart, iend
 
+    istart = 1
     if(present(clip_method))then
-       i = 1
        do t = 1, this%method%num_time_steps
-          gradients(i:i+this%method%message(t)%num_params) = &
+          iend = istart + this%method%message(t)%num_params - 1
+          gradients(istart:iend) = &
                this%method%message(t)%get_gradients(clip_method)
-          i = i + this%method%message(t)%num_params + 1
+          istart = iend + 1
        end do
-       gradients(i:) = this%method%readout%get_gradients(clip_method)
+       gradients(istart:) = this%method%readout%get_gradients(clip_method)
     else
-       i = 1
        do t = 1, this%method%num_time_steps
-           gradients(i:i+this%method%message(t)%num_params) = &
+          iend = istart + this%method%message(t)%num_params - 1
+          gradients(istart:iend) = &
                 this%method%message(t)%get_gradients()
-           i = i + this%method%message(t)%num_params + 1
+           istart = iend + 1
         end do
-       gradients(i:) = this%method%readout%get_gradients()
+       gradients(istart:) = this%method%readout%get_gradients()
     end if
   end function get_gradients_mpnn
 !!!-----------------------------------------------------------------------------

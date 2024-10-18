@@ -1166,7 +1166,7 @@ contains
   module subroutine update(this)
     implicit none
     class(network_type), intent(inout) :: this
-    real(real32), allocatable, dimension(:) :: params, gradients
+    real(real32), dimension(this%num_params) :: params, gradients
 
     integer :: i
     

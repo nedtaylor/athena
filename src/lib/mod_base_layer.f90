@@ -267,7 +267,7 @@ module base_layer
      pure function get_params(this) result(params)
        import :: learnable_layer_type, real32
        class(learnable_layer_type), intent(in) :: this
-       real(real32), allocatable, dimension(:) :: params
+       real(real32), dimension(this%num_params) :: params
      end function get_params
 
      !!-------------------------------------------------------------------------
@@ -278,7 +278,7 @@ module base_layer
      subroutine set_params(this, params)
        import :: learnable_layer_type, real32
        class(learnable_layer_type), intent(inout) :: this
-       real(real32), dimension(:), intent(in) :: params
+       real(real32), dimension(this%num_params), intent(in) :: params
      end subroutine set_params
 
      !!-------------------------------------------------------------------------
@@ -383,11 +383,11 @@ module base_layer
      end subroutine set_gradients_batch
      pure module function get_params_batch(this) result(params)
        class(batch_layer_type), intent(in) :: this
-       real(real32), allocatable, dimension(:) :: params
+       real(real32), dimension(this%num_params) :: params
      end function get_params_batch
      module subroutine set_params_batch(this, params)
        class(batch_layer_type), intent(inout) :: this
-       real(real32), dimension(:), intent(in) :: params
+       real(real32), dimension(this%num_params), intent(in) :: params
      end subroutine set_params_batch
      pure module function get_num_params_conv(this) result(num_params)
        class(conv_layer_type), intent(in) :: this
