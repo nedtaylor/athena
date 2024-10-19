@@ -133,7 +133,7 @@ module base_layer
      !! batch_size = (I, in) batch size
      !! verbose    = (I, in) verbosity level
      module subroutine set_batch_size(this, batch_size, verbose)
-       class(base_layer_type), intent(inout) :: this
+       class(base_layer_type), intent(inout), target :: this
        integer, intent(in) :: batch_size
        integer, optional, intent(in) :: verbose
      end subroutine set_batch_size

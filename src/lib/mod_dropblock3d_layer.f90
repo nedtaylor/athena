@@ -260,7 +260,7 @@ contains
 !!!#############################################################################
   subroutine set_batch_size_dropblock3d(this, batch_size, verbose)
     implicit none
-    class(dropblock3d_layer_type), intent(inout) :: this
+    class(dropblock3d_layer_type), intent(inout), target :: this
     integer, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
  

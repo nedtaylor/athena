@@ -584,7 +584,7 @@ contains
 !!!#############################################################################
   subroutine set_batch_size_conv3d(this, batch_size, verbose)
     implicit none
-    class(conv3d_layer_type), intent(inout) :: this
+    class(conv3d_layer_type), intent(inout), target :: this
     integer, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
 

@@ -474,19 +474,19 @@ contains
 !!! set batch size
 !!!#############################################################################
   subroutine set_batch_size_full(this, batch_size, verbose)
-   implicit none
-   class(full_layer_type), intent(inout) :: this
-   integer, intent(in) :: batch_size
-   integer, optional, intent(in) :: verbose
+    implicit none
+    class(full_layer_type), intent(inout), target :: this
+    integer, intent(in) :: batch_size
+    integer, optional, intent(in) :: verbose
 
-   integer :: verbose_ = 0
+    integer :: verbose_ = 0
 
 
-   !!--------------------------------------------------------------------------
-   !! initialise optional arguments
-   !!--------------------------------------------------------------------------
-   if(present(verbose)) verbose_ = verbose
-   this%batch_size = batch_size
+    !!--------------------------------------------------------------------------
+    !! initialise optional arguments
+    !!--------------------------------------------------------------------------
+    if(present(verbose)) verbose_ = verbose
+    this%batch_size = batch_size
 
 
    !!--------------------------------------------------------------------------
@@ -515,7 +515,7 @@ contains
       )
    end if
 
- end subroutine set_batch_size_full
+  end subroutine set_batch_size_full
 !!!#############################################################################
 
 

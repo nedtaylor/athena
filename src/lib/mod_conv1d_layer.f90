@@ -570,7 +570,7 @@ contains
 !!!#############################################################################
   subroutine set_batch_size_conv1d(this, batch_size, verbose)
     implicit none
-    class(conv1d_layer_type), intent(inout) :: this
+    class(conv1d_layer_type), intent(inout), target :: this
     integer, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
 

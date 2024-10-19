@@ -426,7 +426,7 @@ contains
 !!!#############################################################################
   subroutine set_batch_size_batchnorm3d(this, batch_size, verbose)
     implicit none
-    class(batchnorm3d_layer_type), intent(inout) :: this
+    class(batchnorm3d_layer_type), intent(inout), target :: this
     integer, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
 

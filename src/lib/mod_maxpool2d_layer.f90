@@ -270,7 +270,7 @@ contains
 !!!#############################################################################
   subroutine set_batch_size_maxpool2d(this, batch_size, verbose)
     implicit none
-    class(maxpool2d_layer_type), intent(inout) :: this
+    class(maxpool2d_layer_type), intent(inout), target :: this
     integer, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
 

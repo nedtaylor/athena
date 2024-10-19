@@ -376,7 +376,7 @@ end subroutine get_output_deepset
 !!!#############################################################################
   subroutine set_batch_size_deepset(this, batch_size, verbose)
    implicit none
-   class(deepset_layer_type), intent(inout) :: this
+   class(deepset_layer_type), intent(inout), target :: this
    integer, intent(in) :: batch_size
    integer, optional, intent(in) :: verbose
 

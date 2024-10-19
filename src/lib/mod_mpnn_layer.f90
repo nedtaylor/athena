@@ -311,17 +311,17 @@ module mpnn_layer
        integer, intent(in) :: unit
        integer, optional, intent(in) :: verbose
      end subroutine read_mpnn
-     module subroutine set_batch_size_mpnn(this, batch_size, verbose)
-       class(mpnn_layer_type), intent(inout) :: this
-       integer, intent(in) :: batch_size
-       integer, optional, intent(in) :: verbose
-     end subroutine set_batch_size_mpnn
      module subroutine init_mpnn(this, input_shape, batch_size, verbose)
        class(mpnn_layer_type), intent(inout) :: this
        integer, dimension(:), intent(in) :: input_shape
        integer, optional, intent(in) :: batch_size
        integer, optional, intent(in) :: verbose
      end subroutine init_mpnn
+     module subroutine set_batch_size_mpnn(this, batch_size, verbose)
+       class(mpnn_layer_type), intent(inout), target :: this
+       integer, intent(in) :: batch_size
+       integer, optional, intent(in) :: verbose
+     end subroutine set_batch_size_mpnn
      module subroutine set_hyperparams_mpnn( &
           this, method, num_features, num_time_steps, num_outputs, verbose )
        class(mpnn_layer_type), intent(inout) :: this

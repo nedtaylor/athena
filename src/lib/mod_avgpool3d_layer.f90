@@ -267,7 +267,7 @@ contains
 !!!#############################################################################
   subroutine set_batch_size_avgpool3d(this, batch_size, verbose)
     implicit none
-    class(avgpool3d_layer_type), intent(inout) :: this
+    class(avgpool3d_layer_type), intent(inout), target :: this
     integer, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
 

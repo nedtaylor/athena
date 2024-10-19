@@ -13,8 +13,6 @@ module batchnorm1d_layer
   
   type, extends(batch_layer_type) :: batchnorm1d_layer_type
      integer :: num_inputs = 1
-   !   real(real32), allocatable, dimension(:,:,:) :: output
-   !   real(real32), allocatable, dimension(:,:,:) :: di ! gradient of input (i.e. delta)
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_batchnorm1d
      procedure, pass(this) :: init => init_batchnorm1d
@@ -471,7 +469,7 @@ contains
 !!!#############################################################################
   subroutine set_batch_size_batchnorm1d(this, batch_size, verbose)
     implicit none
-    class(batchnorm1d_layer_type), intent(inout) :: this
+    class(batchnorm1d_layer_type), intent(inout), target :: this
     integer, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
 

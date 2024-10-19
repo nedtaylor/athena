@@ -357,7 +357,7 @@ contains
 !!!#############################################################################
   subroutine set_batch_size_mpnn(this, batch_size, verbose)
     implicit none
-    class(mpnn_layer_type), intent(inout) :: this
+    class(mpnn_layer_type), intent(inout), target :: this
     integer, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
  

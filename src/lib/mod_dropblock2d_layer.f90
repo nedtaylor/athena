@@ -254,7 +254,7 @@ contains
 !!!#############################################################################
   subroutine set_batch_size_dropblock2d(this, batch_size, verbose)
     implicit none
-    class(dropblock2d_layer_type), intent(inout) :: this
+    class(dropblock2d_layer_type), intent(inout), target :: this
     integer, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
  

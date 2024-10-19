@@ -213,7 +213,7 @@ contains
 !!!#############################################################################
   subroutine set_batch_size_dropout(this, batch_size, verbose)
     implicit none
-    class(dropout_layer_type), intent(inout) :: this
+    class(dropout_layer_type), intent(inout), target :: this
     integer, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
  
