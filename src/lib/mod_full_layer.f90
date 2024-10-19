@@ -153,9 +153,9 @@ contains
     real(real32) :: inv_batch_size
   
     inv_batch_size = 1._real32/this%batch_size
-    do i = 1, this%num_outputs
-       do concurrent( j = 1 : this%num_inputs + 1 )
-          gradients( ( i - 1 ) * ( this%num_inputs + 1 ) + j ) = &
+    do i = 1, this%num_inputs + 1
+       do concurrent( j = 1 : this%num_outputs )
+          gradients( ( i - 1 ) * this%num_outputs + j ) = &
                sum(this%dw(j,i,:)) * inv_batch_size
        end do
     end do
@@ -255,6 +255,7 @@ contains
 
 
     if(present(verbose)) verbose_ = verbose
+    layer%weight => null()
 
     !!--------------------------------------------------------------------------
     !! set activation and derivative functions based on input name
@@ -407,22 +408,26 @@ contains
     !!--------------------------------------------------------------------------
     !! allocate weight, weight steps (velocities), output, and activation
     !!--------------------------------------------------------------------------
-    allocate(this%weight(this%num_inputs+1,this%num_outputs), source=0._real32)
+    allocate(this%params(this%num_params), source=0._real32)
 
 
     !!--------------------------------------------------------------------------
     !! initialise weights (kernels)
     !!--------------------------------------------------------------------------
     allocate(initialiser_, source=initialiser_setup(this%kernel_initialiser))
-    call initialiser_%initialise(this%weight(:this%num_inputs,:), &
-         fan_in=this%num_inputs+1, fan_out=this%num_outputs)
+    call initialiser_%initialise( &
+         this%params(:this%num_params-this%num_outputs), &
+         fan_in=this%num_inputs+1, fan_out=this%num_outputs &
+    )
     deallocate(initialiser_)
 
     !! initialise biases
     !!--------------------------------------------------------------------------
     allocate(initialiser_, source=initialiser_setup(this%bias_initialiser))
-    call initialiser_%initialise(this%weight(this%num_inputs+1,:), &
-         fan_in=this%num_inputs+1, fan_out=this%num_outputs)
+    call initialiser_%initialise( &
+         this%params(this%num_params-this%num_outputs+1:), &
+         fan_in=this%num_inputs+1, fan_out=this%num_outputs &
+    )
     deallocate(initialiser_)
 
 
@@ -453,32 +458,37 @@ contains
     if(present(verbose)) verbose_ = verbose
     this%batch_size = batch_size
 
+    !!--------------------------------------------------------------------------
+    !! set weights and biases pointers to params array
+    !!--------------------------------------------------------------------------
+   this%weight(1:this%num_outputs,1:this%num_inputs+1) => this%params
 
-   !!--------------------------------------------------------------------------
-   !! allocate arrays
-   !!--------------------------------------------------------------------------
-   if(allocated(this%input_shape))then
-      if(.not.allocated(this%output)) this%output = array2d_type()
-      if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
-      call this%output%allocate( &
-           [this%num_outputs, this%batch_size], &
-           source=0._real32 &
-      )
-      if(allocated(this%z)) deallocate(this%z)
-      select type(output => this%output)
-      type is (array2d_type)
-         allocate( this%z, source = output%val )
-      end select
-      if(allocated(this%dw)) deallocate(this%dw)
-      allocate(this%dw(this%num_inputs+1,this%num_outputs, this%batch_size), &
-           source=0._real32)
-      if(.not.allocated(this%di)) this%di = array2d_type()
-      if(this%di%allocated) call this%di%deallocate()
-      call this%di%allocate( &
-           [this%num_inputs, this%batch_size], &
-           source=0._real32 &
-      )
-   end if
+
+    !!--------------------------------------------------------------------------
+    !! allocate arrays
+    !!--------------------------------------------------------------------------
+    if(allocated(this%input_shape))then
+       if(.not.allocated(this%output)) this%output = array2d_type()
+       if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
+       call this%output%allocate( &
+            [this%num_outputs, this%batch_size], &
+            source=0._real32 &
+       )
+       if(allocated(this%z)) deallocate(this%z)
+       select type(output => this%output)
+       type is (array2d_type)
+          allocate( this%z, source = output%val )
+       end select
+       if(allocated(this%dw)) deallocate(this%dw)
+       allocate(this%dw(this%num_outputs, this%num_inputs+1, this%batch_size), &
+            source=0._real32)
+       if(.not.allocated(this%di)) this%di = array2d_type()
+       if(this%di%allocated) call this%di%deallocate()
+       call this%di%allocate( &
+            [this%num_inputs, this%batch_size], &
+            source=0._real32 &
+       )
+    end if
 
   end subroutine set_batch_size_full
 !!!#############################################################################
@@ -517,7 +527,7 @@ contains
     !! write fully connected weights and biases
     !!--------------------------------------------------------------------------
     write(unit,'("WEIGHTS")')
-    do i=1,this%num_outputs
+    do i=1,this%num_inputs+1
        write(unit,'(5(E16.8E2))') this%weight(:,i)
     end do
     write(unit,'("END WEIGHTS")')
@@ -640,11 +650,11 @@ contains
     if(.not.found_weights)then
       write(0,*) "WARNING: WEIGHTS card in FULL not found"
     else
-       do i=1,num_outputs
-          allocate(data_list((num_inputs+1)), source=0._real32)
+       do i=1,num_inputs+1
+          allocate(data_list((num_outputs)), source=0._real32)
           c = 1
           k = 1
-          data_concat_loop: do while(c.le.num_inputs+1)
+          data_concat_loop: do while(c.le.num_outputs)
              read(unit,'(A)',iostat=stat) buffer
              if(stat.ne.0) exit data_concat_loop
              k = icount(buffer)
@@ -716,12 +726,12 @@ contains
 
     !! generate outputs from weights, biases, and inputs
     do concurrent(s=1:this%batch_size)
-       this%z(:,s) = this%weight(this%num_inputs+1,:) + &
-            matmul(input(:,s),this%weight(:this%num_inputs,:))
+       this%z(:,s) = this%weight(:,this%num_inputs+1) + &
+            matmul(this%weight(:,:this%num_inputs),input(:,s))
     end do
 
     !! apply activation function to activation
-    this%output%val = this%transfer%activate(this%z)
+    this%output%val(:,:) = this%transfer%activate(this%z)
 
   end subroutine forward_2d
 !!!#############################################################################
@@ -757,15 +767,15 @@ contains
     do concurrent(s=1:this%batch_size)
        !! partial derivatives of error wrt weights
        !! dE/dW = o/p(l-1) * delta
-       do j = 1, this%num_outputs
-          this%dw(:,j,s) = this%dw(:,j,s) + input(:,s) * delta(j,s)
+       do j = 1, this%num_inputs
+          this%dw(:,j,s) = this%dw(:,j,s) + input(j,s) * delta(:,s)
        end do
        !! the errors are summed from the delta of the ...
        !! ... 'child' node * 'child' weight
        !! dE/dI(l-1) = sum(weight(l) * delta(l))
        !! this prepares dE/dI for when it is passed into the previous layer
-       this%di%val(:,s) = matmul(this%weight(:this%num_inputs,:), delta(:,s))
-       this%dw(this%num_inputs+1,:,s) = this%dw(this%num_inputs+1,:,s) + &
+       this%di%val(:,s) = matmul(delta(:,s), this%weight(:,:this%num_inputs))
+       this%dw(:,this%num_inputs+1,s) = this%dw(:,this%num_inputs+1,s) + &
             delta(:,s) * bias_diff(1)
     end do
 
