@@ -18,15 +18,11 @@ module full_layer
   type, extends(learnable_layer_type) :: full_layer_type
      integer :: num_inputs, num_addit_inputs = 0
      integer :: num_outputs
-     real(real32), allocatable, dimension(:,:) :: weight
+     real(real32), pointer :: weight(:,:) => null()
      real(real32), allocatable, dimension(:,:,:) :: dw ! weight gradient
      real(real32), allocatable, dimension(:,:) :: z ! activation
-    !  real(real32), allocatable, dimension(:,:) :: output !output
-    !  real(real32), allocatable, dimension(:,:) :: di ! input gradient (i.e. delta)
    contains
      procedure, pass(this) :: get_num_params => get_num_params_full
-     procedure, pass(this) :: get_params => get_params_full
-     procedure, pass(this) :: set_params => set_params_full
      procedure, pass(this) :: get_gradients => get_gradients_full
      procedure, pass(this) :: set_gradients => set_gradients_full
 
@@ -140,37 +136,6 @@ contains
     num_params = ( this%num_inputs + 1 )* this%num_outputs
 
   end function get_num_params_full
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! get number of parameters
-!!!#############################################################################
-  pure function get_params_full(this) result(params)
-    implicit none
-    class(full_layer_type), intent(in) :: this
-    real(real32), dimension(this%num_params) :: params
-
-    integer :: i, j
-  
-    forall(i=1:this%num_outputs, j=1:this%num_inputs+1) &
-         params( ( i - 1 ) * ( this%num_inputs + 1 ) + j ) = this%weight(j,i)
-  
-  end function get_params_full
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! get number of parameters
-!!!#############################################################################
-  subroutine set_params_full(this, params)
-    implicit none
-    class(full_layer_type), intent(inout) :: this
-    real(real32), dimension(this%num_params), intent(in) :: params
-  
-    this%weight = reshape(params, [ this%num_inputs+1, this%num_outputs ])
-  
-  end subroutine set_params_full
 !!!#############################################################################
 
 

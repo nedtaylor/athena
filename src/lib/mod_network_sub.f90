@@ -899,7 +899,7 @@ contains
        class is(learnable_layer_type)
           start_idx = end_idx + 1
           end_idx = end_idx + current%num_params
-          params(start_idx:end_idx) = current%get_params()
+          params(start_idx:end_idx) = current%params
        end select
     end do
   
@@ -924,7 +924,8 @@ contains
        class is(learnable_layer_type)
           start_idx = end_idx + 1
           end_idx = end_idx + current%num_params
-          call current%set_params(params(start_idx:end_idx))
+          current%params = params(start_idx:end_idx)
+         !  call current%set_params(params(start_idx:end_idx))
        end select
     end do
   

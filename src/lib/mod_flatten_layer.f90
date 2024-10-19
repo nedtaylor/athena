@@ -234,7 +234,7 @@ contains
 !!!#############################################################################
   subroutine set_batch_size_flatten(this, batch_size, verbose)
     implicit none
-    class(flatten_layer_type), intent(inout) :: this
+    class(flatten_layer_type), intent(inout), target :: this
     integer, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
  

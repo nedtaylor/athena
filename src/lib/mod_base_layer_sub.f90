@@ -134,6 +134,34 @@ contains
 !!!#############################################################################
 !!! get learnable parameters of layer
 !!!#############################################################################
+  pure module function get_params(this) result(params)
+  implicit none
+  class(learnable_layer_type), intent(in) :: this
+  real(real32), dimension(this%num_params) :: params
+
+  params = this%params
+
+end function get_params
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set learnable parameters of layer
+!!!#############################################################################
+module subroutine set_params(this, params)
+  implicit none
+  class(learnable_layer_type), intent(inout) :: this
+  real(real32), dimension(this%num_params), intent(in) :: params
+
+  this%params = params
+
+end subroutine set_params
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! get learnable parameters of layer
+!!!#############################################################################
   pure module function get_params_batch(this) result(params)
     implicit none
     class(batch_layer_type), intent(in) :: this
@@ -196,6 +224,193 @@ contains
     end select
   
   end subroutine set_gradients_batch
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! initialise layer
+!!!#############################################################################
+  module subroutine init_conv(this, input_shape, batch_size, verbose)
+    use initialiser, only: initialiser_setup
+    use custom_types, only: initialiser_type
+    implicit none
+    class(conv_layer_type), intent(inout) :: this
+    integer, dimension(:), intent(in) :: input_shape
+    integer, optional, intent(in) :: batch_size
+    integer, optional, intent(in) :: verbose
+
+    integer :: verbose_ = 0
+    class(initialiser_type), allocatable :: initialiser_
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise optional arguments
+    !!--------------------------------------------------------------------------
+    if(present(verbose)) verbose_ = verbose
+    if(present(batch_size)) this%batch_size = batch_size
+
+
+    !!-------------------------------------------------------------------------
+    !! initialise input shape
+    !!--------------------------------------------------------------------------
+    if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
+
+
+    !!--------------------------------------------------------------------------
+    !! allocate output, activation, bias, and weight shapes
+    !!--------------------------------------------------------------------------
+    !! NOTE: INPUT SHAPE DOES NOT INCLUDE PADDING WIDTH
+    !! THIS IS HANDLED AUTOMATICALLY BY THE CODE
+    !! ... provide the initial input data shape and let us deal with the padding
+    this%num_channels = this%input_shape(this%input_rank)
+    if(allocated(this%output))then
+       if(this%output%allocated) call this%output%deallocate()
+    end if
+    this%output%shape(this%input_rank) = this%num_filters
+    this%output%shape(:this%input_rank-1) = floor( &
+         ( &
+              this%input_shape(:this%input_rank-1) + &
+              2.0 * this%pad - &
+              this%knl &
+         ) / real(this%stp) &
+    ) + 1
+    this%num_params = this%get_num_params()
+    allocate(this%params(this%num_params), source=0._real32)
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise weights (kernels)
+    !!--------------------------------------------------------------------------
+    allocate(initialiser_, source=initialiser_setup(this%kernel_initialiser))
+    call initialiser_%initialise( &
+         this%params(:this%num_params-this%num_filters), &
+         fan_in=product(this%knl)+1, fan_out=1 &
+    )
+    deallocate(initialiser_)
+
+    !! initialise biases
+    !!--------------------------------------------------------------------------
+    allocate(initialiser_, source=initialiser_setup(this%bias_initialiser))
+    call initialiser_%initialise( &
+         this%params(this%num_params-this%num_filters+1:), &
+         fan_in=product(this%knl)+1, fan_out=1 &
+    )
+    deallocate(initialiser_)
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise batch size-dependent arrays
+    !!--------------------------------------------------------------------------
+    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
+
+  end subroutine init_conv
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! initialise layer
+!!!#############################################################################
+  module subroutine init_batch(this, input_shape, batch_size, verbose)
+    use initialiser, only: initialiser_setup
+    use custom_types, only: initialiser_type
+    implicit none
+    class(batch_layer_type), intent(inout) :: this
+    integer, dimension(:), intent(in) :: input_shape
+    integer, optional, intent(in) :: batch_size
+    integer, optional, intent(in) :: verbose
+
+    integer :: verbose_ = 0
+    class(initialiser_type), allocatable :: t_initialiser
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise optional arguments
+    !!--------------------------------------------------------------------------
+    if(present(verbose)) verbose_ = verbose
+    if(present(batch_size)) this%batch_size = batch_size
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise input shape
+    !!--------------------------------------------------------------------------
+    if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
+
+
+    !!--------------------------------------------------------------------------
+    !! set up number of channels, width, height
+    !!--------------------------------------------------------------------------
+    if(allocated(this%output))then
+       if(this%output%allocated) call this%output%deallocate()
+    end if
+    if(size(this%input_shape).eq.1)then
+       this%output%shape(1) = this%input_shape(1)
+       this%output%shape(2) = 1
+    else
+       this%output%shape = this%input_shape
+    end if
+    this%num_channels = this%input_shape(this%input_rank)
+    this%num_params = this%get_num_params()
+
+
+    !!--------------------------------------------------------------------------
+    !! allocate mean, variance, gamma, beta, dg, db
+    !!--------------------------------------------------------------------------
+    allocate(this%mean(this%num_channels), source=0._real32)
+    allocate(this%variance, source=this%mean)
+    allocate(this%gamma, source=this%mean)
+    allocate(this%beta, source=this%mean)
+    allocate(this%dg, source=this%mean)
+    allocate(this%db, source=this%mean)
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise gamma
+    !!--------------------------------------------------------------------------
+    allocate(t_initialiser, source=initialiser_setup(this%kernel_initialiser))
+    t_initialiser%mean = this%gamma_init_mean
+    t_initialiser%std  = this%gamma_init_std
+    call t_initialiser%initialise(this%gamma, &
+         fan_in =this%num_channels, &
+         fan_out=this%num_channels)
+    deallocate(t_initialiser)
+
+    !! initialise beta
+    !!--------------------------------------------------------------------------
+    allocate(t_initialiser, source=initialiser_setup(this%bias_initialiser))
+    t_initialiser%mean = this%beta_init_mean
+    t_initialiser%std  = this%beta_init_std
+    call t_initialiser%initialise(this%beta, &
+         fan_in =this%num_channels, &
+         fan_out=this%num_channels)
+    deallocate(t_initialiser)
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise moving mean
+    !!--------------------------------------------------------------------------
+    allocate(t_initialiser, &
+         source=initialiser_setup(this%moving_mean_initialiser))
+    call t_initialiser%initialise(this%mean, &
+         fan_in =this%num_channels, &
+         fan_out=this%num_channels)
+    deallocate(t_initialiser)
+
+    !! initialise moving variance
+    !!--------------------------------------------------------------------------
+    allocate(t_initialiser, &
+         source=initialiser_setup(this%moving_variance_initialiser))
+    call t_initialiser%initialise(this%variance, &
+         fan_in =this%num_channels, &
+         fan_out=this%num_channels)
+    deallocate(t_initialiser)
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise batch size-dependent arrays
+    !!--------------------------------------------------------------------------
+    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
+
+  end subroutine init_batch
 !!!#############################################################################
 
 end submodule base_layer_submodule

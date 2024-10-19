@@ -225,13 +225,14 @@ module base_layer
 !!!-----------------------------------------------------------------------------
   type, abstract, extends(base_layer_type) :: learnable_layer_type
      integer :: num_params = 0
+     real(real32), allocatable, dimension(:) :: params
      character(len=14) :: kernel_initialiser='', bias_initialiser=''
      class(activation_type), allocatable :: transfer
    contains
      procedure(layer_reduction), deferred, pass(this) :: reduce
      procedure(layer_merge), deferred, pass(this) :: merge
-     procedure(get_params), deferred, pass(this) :: get_params
-     procedure(set_params), deferred, pass(this) :: set_params
+     procedure, pass(this) :: get_params => get_params
+     procedure, pass(this) :: set_params => set_params
      procedure(get_gradients), deferred, pass(this) :: get_gradients
      procedure(set_gradients), deferred, pass(this) :: set_gradients
   end type learnable_layer_type
@@ -260,28 +261,6 @@ module base_layer
      end subroutine layer_merge
 
      !!-------------------------------------------------------------------------
-     !! get learnable parameters of layer
-     !!-------------------------------------------------------------------------
-     !! this  = (T, in) layer_type
-     !! param = (R, out) learnable parameters
-     pure function get_params(this) result(params)
-       import :: learnable_layer_type, real32
-       class(learnable_layer_type), intent(in) :: this
-       real(real32), dimension(this%num_params) :: params
-     end function get_params
-
-     !!-------------------------------------------------------------------------
-     !! set learnable parameters of layer
-     !!-------------------------------------------------------------------------
-     !! this  = (T, io) layer_type
-     !! param = (R, in) learnable parameters
-     subroutine set_params(this, params)
-       import :: learnable_layer_type, real32
-       class(learnable_layer_type), intent(inout) :: this
-       real(real32), dimension(this%num_params), intent(in) :: params
-     end subroutine set_params
-
-     !!-------------------------------------------------------------------------
      !! get parameter gradients of layer
      !!-------------------------------------------------------------------------
      !! this        = (T, in) layer_type
@@ -306,6 +285,28 @@ module base_layer
      end subroutine set_gradients
   end interface
 
+  interface
+     !!-------------------------------------------------------------------------
+     !! get learnable parameters of layer
+     !!-------------------------------------------------------------------------
+     !! this  = (T, in) layer_type
+     !! param = (R, out) learnable parameters
+     pure module function get_params(this) result(params)
+       class(learnable_layer_type), intent(in) :: this
+       real(real32), dimension(this%num_params) :: params
+     end function get_params
+
+     !!-------------------------------------------------------------------------
+     !! set learnable parameters of layer
+     !!-------------------------------------------------------------------------
+     !! this  = (T, io) layer_type
+     !! param = (R, in) learnable parameters
+     module subroutine set_params(this, params)
+       class(learnable_layer_type), intent(inout) :: this
+       real(real32), dimension(this%num_params), intent(in) :: params
+     end subroutine set_params
+  end interface
+
 !!!-----------------------------------------------------------------------------
 !!! convolution extended derived type
 !!!-----------------------------------------------------------------------------
@@ -320,10 +321,11 @@ module base_layer
        integer :: num_channels
        integer :: num_filters
        integer, allocatable, dimension(:) :: knl, stp, hlf, pad, cen
-       real(real32), allocatable, dimension(:) :: bias
+       real(real32), pointer :: bias(:) => null()
        real(real32), allocatable, dimension(:,:) :: db  ! bias gradient
      contains
        procedure, pass(this) :: get_num_params => get_num_params_conv
+       procedure, pass(this) :: init => init_conv
     end type conv_layer_type
 
 
@@ -358,6 +360,7 @@ module base_layer
      procedure, pass(this) :: set_params => set_params_batch
      procedure, pass(this) :: get_gradients => get_gradients_batch
      procedure, pass(this) :: set_gradients => set_gradients_batch
+     procedure, pass(this) :: init => init_batch
   end type batch_layer_type
 
 
@@ -393,6 +396,18 @@ module base_layer
        class(conv_layer_type), intent(in) :: this
        integer :: num_params
      end function get_num_params_conv
+     module subroutine init_conv(this, input_shape, batch_size, verbose)
+      class(conv_layer_type), intent(inout) :: this
+      integer, dimension(:), intent(in) :: input_shape
+      integer, optional, intent(in) :: batch_size
+      integer, optional, intent(in) :: verbose
+     end subroutine init_conv
+     module subroutine init_batch(this, input_shape, batch_size, verbose)
+      class(batch_layer_type), intent(inout) :: this
+      integer, dimension(:), intent(in) :: input_shape
+      integer, optional, intent(in) :: batch_size
+      integer, optional, intent(in) :: verbose
+     end subroutine init_batch
   end interface
 
 

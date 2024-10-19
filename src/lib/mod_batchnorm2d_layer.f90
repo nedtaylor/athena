@@ -12,11 +12,8 @@ module batchnorm2d_layer
   
   
   type, extends(batch_layer_type) :: batchnorm2d_layer_type
-   !   real(real32), allocatable, dimension(:,:,:,:) :: output
-   !   real(real32), allocatable, dimension(:,:,:,:) :: di ! gradient of input (i.e. delta)
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_batchnorm2d
-     procedure, pass(this) :: init => init_batchnorm2d
      procedure, pass(this) :: set_batch_size => set_batch_size_batchnorm2d
      procedure, pass(this) :: print => print_batchnorm2d
      procedure, pass(this) :: read => read_batchnorm2d
@@ -286,6 +283,7 @@ contains
     this%name = "batchnorm2d"
     this%type = "batc"
     this%input_rank = 3
+    this%output = array4d_type()
     this%momentum = momentum
     this%epsilon = epsilon
     if(trim(this%kernel_initialiser).eq.'') &
@@ -316,108 +314,6 @@ contains
     end if
 
   end subroutine set_hyperparams_batchnorm2d
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! initialise layer
-!!!#############################################################################
-  subroutine init_batchnorm2d(this, input_shape, batch_size, verbose)
-    use initialiser, only: initialiser_setup
-    implicit none
-    class(batchnorm2d_layer_type), intent(inout) :: this
-    integer, dimension(:), intent(in) :: input_shape
-    integer, optional, intent(in) :: batch_size
-    integer, optional, intent(in) :: verbose
-
-    integer :: verbose_ = 0
-    class(initialiser_type), allocatable :: t_initialiser
-
-
-    !!--------------------------------------------------------------------------
-    !! initialise optional arguments
-    !!--------------------------------------------------------------------------
-    if(present(verbose)) verbose_ = verbose
-    if(present(batch_size)) this%batch_size = batch_size
-
-
-    !!--------------------------------------------------------------------------
-    !! initialise input shape
-    !!--------------------------------------------------------------------------
-    if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
-
-
-    !!--------------------------------------------------------------------------
-    !! set up number of channels, width, height
-    !!--------------------------------------------------------------------------
-    if(allocated(this%output))then
-       if(this%output%allocated) call this%output%deallocate()
-    end if
-    this%output = array4d_type()
-    this%output%shape = this%input_shape
-    this%num_channels = this%input_shape(this%input_rank)
-    this%num_params = this%get_num_params()
-
-
-    !!--------------------------------------------------------------------------
-    !! allocate mean, variance, gamma, beta, dg, db
-    !!--------------------------------------------------------------------------
-    allocate(this%mean(this%num_channels), source=0._real32)
-    allocate(this%variance, source=this%mean)
-    allocate(this%gamma, source=this%mean)
-    allocate(this%beta, source=this%mean)
-    allocate(this%dg, source=this%mean)
-    allocate(this%db, source=this%mean)
-
-
-    !!--------------------------------------------------------------------------
-    !! initialise gamma
-    !!--------------------------------------------------------------------------
-    allocate(t_initialiser, source=initialiser_setup(this%kernel_initialiser))
-    t_initialiser%mean = this%gamma_init_mean
-    t_initialiser%std  = this%gamma_init_std
-    call t_initialiser%initialise(this%gamma, &
-         fan_in =this%num_channels, &
-         fan_out=this%num_channels)
-    deallocate(t_initialiser)
-
-    !! initialise beta
-    !!--------------------------------------------------------------------------
-    allocate(t_initialiser, source=initialiser_setup(this%bias_initialiser))
-    t_initialiser%mean = this%beta_init_mean
-    t_initialiser%std  = this%beta_init_std
-    call t_initialiser%initialise(this%beta, &
-         fan_in =this%num_channels, &
-         fan_out=this%num_channels)
-    deallocate(t_initialiser)
-
-
-    !!--------------------------------------------------------------------------
-    !! initialise moving mean
-    !!--------------------------------------------------------------------------
-    allocate(t_initialiser, &
-         source=initialiser_setup(this%moving_mean_initialiser))
-    call t_initialiser%initialise(this%mean, &
-         fan_in =this%num_channels, &
-         fan_out=this%num_channels)
-    deallocate(t_initialiser)
-
-    !! initialise moving variance
-    !!--------------------------------------------------------------------------
-    allocate(t_initialiser, &
-         source=initialiser_setup(this%moving_variance_initialiser))
-    call t_initialiser%initialise(this%variance, &
-         fan_in =this%num_channels, &
-         fan_out=this%num_channels)
-    deallocate(t_initialiser)
-
-
-    !!--------------------------------------------------------------------------
-    !! initialise batch size-dependent arrays
-    !!--------------------------------------------------------------------------
-    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
-
-  end subroutine init_batchnorm2d
 !!!#############################################################################
 
   

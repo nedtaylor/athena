@@ -12,19 +12,14 @@ module conv2d_layer
   
   
   type, extends(conv_layer_type) :: conv2d_layer_type
-     real(real32), allocatable, dimension(:,:,:,:) :: weight
+     real(real32), pointer :: weight(:,:,:,:) => null()
      real(real32), allocatable, dimension(:,:,:,:,:) :: dw ! weight gradient
      real(real32), allocatable, dimension(:,:,:,:) :: z
-   !   real(real32), allocatable, dimension(:,:,:,:) :: output
-   !   real(real32), allocatable, dimension(:,:,:,:) :: di ! input gradient
    contains
-     procedure, pass(this) :: get_params => get_params_conv2d
-     procedure, pass(this) :: set_params => set_params_conv2d
      procedure, pass(this) :: get_gradients => get_gradients_conv2d
      procedure, pass(this) :: set_gradients => set_gradients_conv2d
 
      procedure, pass(this) :: set_hyperparams => set_hyperparams_conv2d
-     procedure, pass(this) :: init => init_conv2d
      procedure, pass(this) :: set_batch_size => set_batch_size_conv2d
      procedure, pass(this) :: print => print_conv2d
      procedure, pass(this) :: read => read_conv2d
@@ -129,38 +124,6 @@ contains
 !!!##########################################################################!!!
 !!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
 !!!##########################################################################!!!
-
-
-!!!#############################################################################
-!!! get learnable parameters
-!!!#############################################################################
-  pure function get_params_conv2d(this) result(params)
-    implicit none
-    class(conv2d_layer_type), intent(in) :: this
-    real(real32), dimension(this%num_params) :: params
-  
-    params = [ reshape( this%weight, [ size(this%weight) ]), this%bias ]
-  
-  end function get_params_conv2d
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! set learnable parameters
-!!!#############################################################################
-  subroutine set_params_conv2d(this, params)
-    implicit none
-    class(conv2d_layer_type), intent(inout) :: this
-    real(real32), dimension(this%num_params), intent(in) :: params
-  
-    this%weight = reshape( &
-         params(1:this%num_filters * this%num_channels * product(this%knl)), &
-         shape(this%weight))
-    this%bias = params(&
-         this%num_filters * this%num_channels * product(this%knl) + 1 : )
-  
-  end subroutine set_params_conv2d
-!!!#############################################################################
 
 
 !!!#############################################################################
@@ -459,6 +422,7 @@ contains
     this%name = "conv2d"
     this%type = "conv"
     this%input_rank = 3
+    this%output = array4d_type()
     allocate( &
          this%knl(this%input_rank-1), &
          this%stp(this%input_rank-1), &
@@ -500,94 +464,16 @@ contains
 
 
 !!!#############################################################################
-!!! initialise layer
-!!!#############################################################################
-  subroutine init_conv2d(this, input_shape, batch_size, verbose)
-    use initialiser, only: initialiser_setup
-    implicit none
-    class(conv2d_layer_type), intent(inout) :: this
-    integer, dimension(:), intent(in) :: input_shape
-    integer, optional, intent(in) :: batch_size
-    integer, optional, intent(in) :: verbose
-
-    integer :: verbose_ = 0
-    integer, dimension(2) :: end_idx
-    class(initialiser_type), allocatable :: initialiser_
-
-
-    !!--------------------------------------------------------------------------
-    !! initialise optional arguments
-    !!--------------------------------------------------------------------------
-    if(present(verbose)) verbose_ = verbose
-    if(present(batch_size)) this%batch_size = batch_size
-
-
-    !!-------------------------------------------------------------------------
-    !! initialise input shape
-    !!--------------------------------------------------------------------------
-    if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
-
-
-    !!--------------------------------------------------------------------------
-    !! allocate output, activation, bias, and weight shapes
-    !!--------------------------------------------------------------------------
-    !! NOTE: INPUT SHAPE DOES NOT INCLUDE PADDING WIDTH
-    !! THIS IS HANDLED AUTOMATICALLY BY THE CODE
-    !! ... provide the initial input data shape and let us deal with the padding
-    this%num_channels = this%input_shape(3)
-    if(allocated(this%output))then
-       if(this%output%allocated) call this%output%deallocate()
-    end if
-    this%output = array4d_type()
-    this%output%shape(3) = this%num_filters
-    this%output%shape(:2) = floor(&
-         (this%input_shape(:2) + 2.0 * this%pad - this%knl)/real(this%stp) ) + 1
-
-    allocate(this%bias(this%num_filters), source=0._real32)
-
-    end_idx = this%hlf + (this%cen - 1)
-    allocate(this%weight( &
-         -this%hlf(1):end_idx(1), &
-         -this%hlf(2):end_idx(2), &
-         this%num_channels,this%num_filters), source=0._real32)
-    this%num_params = this%get_num_params()
-
-
-    !!--------------------------------------------------------------------------
-    !! initialise weights (kernels)
-    !!--------------------------------------------------------------------------
-    allocate(initialiser_, source=initialiser_setup(this%kernel_initialiser))
-    call initialiser_%initialise(this%weight, &
-         fan_in=product(this%knl)+1, fan_out=1)
-    deallocate(initialiser_)
-
-    !! initialise biases
-    !!--------------------------------------------------------------------------
-    allocate(initialiser_, source=initialiser_setup(this%bias_initialiser))
-    call initialiser_%initialise(this%bias, &
-         fan_in=product(this%knl)+1, fan_out=1)
-    deallocate(initialiser_)
-
-
-    !!--------------------------------------------------------------------------
-    !! initialise batch size-dependent arrays
-    !!--------------------------------------------------------------------------
-    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
-
-  end subroutine init_conv2d
-!!!#############################################################################
-
-
-!!!#############################################################################
 !!! set batch size
 !!!#############################################################################
   subroutine set_batch_size_conv2d(this, batch_size, verbose)
     implicit none
-    class(conv2d_layer_type), intent(inout) :: this
+    class(conv2d_layer_type), intent(inout), target :: this
     integer, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
 
     integer :: verbose_ = 0
+    integer, dimension(this%input_rank-1) :: end_idx
 
 
     !!--------------------------------------------------------------------------
@@ -595,6 +481,20 @@ contains
     !!--------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
     this%batch_size = batch_size
+
+
+    !!--------------------------------------------------------------------------
+    !! set weights and biases pointers to params array
+    !!--------------------------------------------------------------------------
+    end_idx = this%hlf + (this%cen - 1)
+    this%weight( &
+         -this%hlf(1):end_idx(1), &
+         -this%hlf(2):end_idx(2), &
+         1:this%num_channels, &
+         1:this%num_filters &
+    ) => this%params(1:this%num_params-this%num_filters)
+    this%bias(1:this%num_filters) => &
+         this%params(this%num_params-this%num_filters+1:)
 
 
     !!--------------------------------------------------------------------------
