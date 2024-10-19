@@ -27,40 +27,11 @@ module container_layer
      character(4) :: name
      class(base_layer_type), allocatable :: layer
    contains
-     procedure, pass(this) :: forward
-     procedure, pass(this) :: backward
-
 #if defined(GFORTRAN)
      procedure, pass(this) :: reduce => container_reduction
 #endif
   end type container_layer_type
 
-
-  interface
-     !!-----------------------------------------------------
-     !! forward pass
-     !!-----------------------------------------------------
-     !! this  = (T, io) present layer container
-     !! input = (T, in) input layer container
-     pure module subroutine forward(this, input)
-       class(container_layer_type), intent(inout) :: this
-       class(container_layer_type), intent(in) :: input
-     end subroutine forward
-  end interface
-
-  interface
-     !!-----------------------------------------------------
-     !! forward pass
-     !!-----------------------------------------------------
-     !! this     = (T, in) present layer container
-     !! input    = (T, in) input layer container
-     !! gradient = (R, in) backpropagated gradient
-     pure module subroutine backward(this, input, gradient)
-       class(container_layer_type), intent(inout) :: this
-       class(container_layer_type), intent(in) :: input
-       real(real32), dimension(..), intent(in) :: gradient
-     end subroutine backward
-  end interface
 
 #if defined(GFORTRAN)
   interface
