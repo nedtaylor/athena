@@ -160,35 +160,6 @@ end subroutine set_params
 
 
 !!!#############################################################################
-!!! get learnable parameters of layer
-!!!#############################################################################
-  pure module function get_params_batch(this) result(params)
-    implicit none
-    class(batch_layer_type), intent(in) :: this
-    real(real32), dimension(this%num_params) :: params
-  
-    params = [this%gamma, this%beta]
-  
-  end function get_params_batch
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! set learnable parameters of layer
-!!!#############################################################################
-  module subroutine set_params_batch(this, params)
-    implicit none
-    class(batch_layer_type), intent(inout) :: this
-    real(real32), dimension(this%num_params), intent(in) :: params
-  
-    this%gamma = params(1:this%num_channels)
-    this%beta  = params(this%num_channels+1:2*this%num_channels)
-  
-  end subroutine set_params_batch
-!!!#############################################################################
-
-
-!!!#############################################################################
 !!! get gradients of layer
 !!!#############################################################################
   pure module function get_gradients_batch(this, clip_method) result(gradients)
@@ -350,6 +321,7 @@ end subroutine set_params
     end if
     this%num_channels = this%input_shape(this%input_rank)
     this%num_params = this%get_num_params()
+    allocate(this%params(this%num_params), source=0._real32)
 
 
     !!--------------------------------------------------------------------------

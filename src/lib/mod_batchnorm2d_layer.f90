@@ -337,6 +337,14 @@ contains
 
 
     !!--------------------------------------------------------------------------
+    !! initialise gamma and beta parameters
+    !!--------------------------------------------------------------------------
+    this%gamma(1:this%num_channels) => this%params(1:this%num_channels)
+    this%beta(1:this%num_channels) => &
+         this%params(this%num_channels+1:this%num_channels*2)
+
+
+    !!--------------------------------------------------------------------------
     !! set norm
     !!--------------------------------------------------------------------------
     this%norm = real( &

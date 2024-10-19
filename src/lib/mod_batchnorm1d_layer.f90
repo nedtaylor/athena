@@ -366,7 +366,19 @@ contains
     !!--------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
     this%batch_size = batch_size
+
+    !!--------------------------------------------------------------------------
+    !! set number of inputs
+    !!--------------------------------------------------------------------------
     if(size(this%input_shape).eq.2) this%num_inputs = this%input_shape(1)
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise gamma and beta parameters
+    !!--------------------------------------------------------------------------
+    this%gamma(1:this%num_channels) => this%params(1:this%num_channels)
+    this%beta(1:this%num_channels) => &
+         this%params(this%num_channels+1:this%num_channels*2)
 
 
     !!--------------------------------------------------------------------------

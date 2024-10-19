@@ -352,12 +352,10 @@ module base_layer
      character(len=14) :: moving_mean_initialiser='', &
           moving_variance_initialiser=''
      real(real32), allocatable, dimension(:) :: mean, variance !! not learnable
-     real(real32), allocatable, dimension(:) :: gamma, beta !! learnable
+     real(real32), pointer :: gamma(:) => null(), beta(:) => null() !! learnable
      real(real32), allocatable, dimension(:) :: dg, db !! learnable
    contains
      procedure, pass(this) :: get_num_params => get_num_params_batch
-     procedure, pass(this) :: get_params => get_params_batch
-     procedure, pass(this) :: set_params => set_params_batch
      procedure, pass(this) :: get_gradients => get_gradients_batch
      procedure, pass(this) :: set_gradients => set_gradients_batch
      procedure, pass(this) :: init => init_batch
@@ -384,14 +382,6 @@ module base_layer
        class(batch_layer_type), intent(inout) :: this
        real(real32), dimension(..), intent(in) :: gradients
      end subroutine set_gradients_batch
-     pure module function get_params_batch(this) result(params)
-       class(batch_layer_type), intent(in) :: this
-       real(real32), dimension(this%num_params) :: params
-     end function get_params_batch
-     module subroutine set_params_batch(this, params)
-       class(batch_layer_type), intent(inout) :: this
-       real(real32), dimension(this%num_params), intent(in) :: params
-     end subroutine set_params_batch
      pure module function get_num_params_conv(this) result(num_params)
        class(conv_layer_type), intent(in) :: this
        integer :: num_params

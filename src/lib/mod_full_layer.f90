@@ -255,7 +255,6 @@ contains
 
 
     if(present(verbose)) verbose_ = verbose
-    layer%weight => null()
 
     !!--------------------------------------------------------------------------
     !! set activation and derivative functions based on input name
