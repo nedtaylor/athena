@@ -828,7 +828,7 @@ contains
          this%num_filters,this%batch_size), &
          intent(in) :: gradient
 
-    integer :: l, m, i, j, x, y, s
+    integer :: l, m, i, j, x, y, s, y_index
     integer, dimension(2) :: stp_idx, offset, adjust, end_idx, n_stp
     integer, dimension(2,2) :: lim, lim_w, lim_g
     real(real32), &
@@ -865,15 +865,22 @@ contains
     do concurrent( &
          s=1:this%batch_size, &
          l=1:this%num_filters, &
-         m=1:this%num_channels, &
-         y=-this%hlf(2):end_idx(2):1, &
-         x=-this%hlf(1):end_idx(1):1 &
-         )
-       this%dw(x,y,m,l,s) = this%dw(x,y,m,l,s) + &
-            sum(grad_dz(:,:,l,s) * &
-            input( &
-            x+offset(1):x+offset(1)-1+size(input,1)-adjust(1):this%stp(1), &
-            y+offset(2):y+offset(2)-1+size(input,1)-adjust(2):this%stp(2),m,s))
+         m=1:this%num_channels)
+       do y=-this%hlf(2), end_idx(2), 1
+          do j = 1, this%output%shape(2)
+             do x=-this%hlf(1), end_idx(1), 1
+                do i = 1, this%output%shape(1)
+                   this%dw(x,y,m,l,s) = this%dw(x,y,m,l,s) + &
+                        grad_dz(i,j,l,s) * &
+                        input( &
+                             x + offset(1) + ( i - 1 ) * this%stp(1), &
+                             y + offset(2) + ( j - 1 ) * this%stp(2), &
+                             m, s &
+                        )
+               end do
+            end do
+         end do
+      end do
     end do
 
 
