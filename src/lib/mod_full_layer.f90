@@ -19,12 +19,10 @@ module full_layer
      integer :: num_inputs, num_addit_inputs = 0
      integer :: num_outputs
      real(real32), pointer :: weight(:,:) => null()
-     real(real32), allocatable, dimension(:,:,:) :: dw ! weight gradient
+     real(real32), pointer :: dw(:,:,:) => null() ! weight gradient
      real(real32), allocatable, dimension(:,:) :: z ! activation
    contains
      procedure, pass(this) :: get_num_params => get_num_params_full
-     procedure, pass(this) :: get_gradients => get_gradients_full
-     procedure, pass(this) :: set_gradients => set_gradients_full
 
      procedure, pass(this) :: print => print_full
      procedure, pass(this) :: read => read_full
@@ -136,53 +134,6 @@ contains
     num_params = ( this%num_inputs + 1 )* this%num_outputs
 
   end function get_num_params_full
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! get number of parameters
-!!!#############################################################################
-  pure function get_gradients_full(this, clip_method) result(gradients)
-    use clipper, only: clip_type
-    implicit none
-    class(full_layer_type), intent(in) :: this
-    type(clip_type), optional, intent(in) :: clip_method
-    real(real32), dimension(this%num_params) :: gradients
-
-    integer :: i, j
-    real(real32) :: inv_batch_size
-  
-    inv_batch_size = 1._real32/this%batch_size
-    do i = 1, this%num_inputs + 1
-       do concurrent( j = 1 : this%num_outputs )
-          gradients( ( i - 1 ) * this%num_outputs + j ) = &
-               sum(this%dw(j,i,:)) * inv_batch_size
-       end do
-    end do
-
-    if(present(clip_method)) call clip_method%apply(this%num_params,gradients)
-  
-  end function get_gradients_full
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! set gradients
-!!!#############################################################################
-  subroutine set_gradients_full(this, gradients)
-    implicit none
-    class(full_layer_type), intent(inout) :: this
-    real(real32), dimension(..), intent(in) :: gradients
-  
-    select rank(gradients)
-    rank(0)
-       this%dw = gradients
-    rank(1)
-       this%dw = spread(reshape(gradients, shape(this%dw(:,:,1))), 3, &
-            this%batch_size)
-    end select
-  
-  end subroutine set_gradients_full
 !!!#############################################################################
 
 
@@ -478,9 +429,15 @@ contains
        type is (array2d_type)
           allocate( this%z, source = output%val )
        end select
-       if(allocated(this%dw)) deallocate(this%dw)
-       allocate(this%dw(this%num_outputs, this%num_inputs+1, this%batch_size), &
-            source=0._real32)
+       if(allocated(this%dp)) deallocate(this%dp)
+       allocate(this%dp(this%num_params - this%num_outputs, this%batch_size), source=0._real32)
+       this%dw(1:this%num_outputs,1:this%num_inputs,1:this%batch_size) => &
+            this%dp
+       if(allocated(this%db)) deallocate(this%db)
+       allocate(this%db(this%num_outputs, this%batch_size), source=0._real32)
+      !  if(allocated(this%dw)) deallocate(this%dw)
+      !  allocate(this%dw(this%num_outputs, this%num_inputs+1, this%batch_size), &
+      !       source=0._real32)
        if(.not.allocated(this%di)) this%di = array2d_type()
        if(this%di%allocated) call this%di%deallocate()
        call this%di%allocate( &
@@ -762,6 +719,7 @@ contains
     !! delta(l) = g'(a) * dE/dI(l)
     !! delta(l) = differential of activation * error from next layer
     delta = gradient * this%transfer%differentiate(this%z)
+    this%db(:,:) = this%db(:,:) + delta * bias_diff(1)
 
     do concurrent(s=1:this%batch_size)
        !! partial derivatives of error wrt weights
@@ -774,8 +732,6 @@ contains
        !! dE/dI(l-1) = sum(weight(l) * delta(l))
        !! this prepares dE/dI for when it is passed into the previous layer
        this%di%val(:,s) = matmul(delta(:,s), this%weight(:,:this%num_inputs))
-       this%dw(:,this%num_inputs+1,s) = this%dw(:,this%num_inputs+1,s) + &
-            delta(:,s) * bias_diff(1)
     end do
 
   end subroutine backward_2d

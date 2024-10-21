@@ -13,12 +13,9 @@ module conv2d_layer
   
   type, extends(conv_layer_type) :: conv2d_layer_type
      real(real32), pointer :: weight(:,:,:,:) => null()
-     real(real32), allocatable, dimension(:,:,:,:,:) :: dw ! weight gradient
+     real(real32), pointer :: dw(:,:,:,:,:) => null()
      real(real32), allocatable, dimension(:,:,:,:) :: z
    contains
-     procedure, pass(this) :: get_gradients => get_gradients_conv2d
-     procedure, pass(this) :: set_gradients => set_gradients_conv2d
-
      procedure, pass(this) :: set_hyperparams => set_hyperparams_conv2d
      procedure, pass(this) :: set_batch_size => set_batch_size_conv2d
      procedure, pass(this) :: print => print_conv2d
@@ -118,61 +115,6 @@ contains
     end select
 
   end subroutine layer_merge
-!!!#############################################################################
-
-
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
-
-
-!!!#############################################################################
-!!! get sample-average gradients
-!!! sum over batch dimension and divide by batch size 
-!!!#############################################################################
-  pure function get_gradients_conv2d(this, clip_method) result(gradients)
-    use clipper, only: clip_type
-    implicit none
-    class(conv2d_layer_type), intent(in) :: this
-    type(clip_type), optional, intent(in) :: clip_method
-    real(real32), dimension(this%num_params) :: gradients
-  
-    gradients = [ reshape( &
-         sum(this%dw,dim=5)/this%batch_size, &
-         [ this%num_filters * this%num_channels * product(this%knl) ]), &
-         sum(this%db,dim=2)/this%batch_size ]
-  
-    if(present(clip_method)) call clip_method%apply(size(gradients),gradients)
-
-  end function get_gradients_conv2d
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! set gradients
-!!!#############################################################################
-  subroutine set_gradients_conv2d(this, gradients)
-    implicit none
-    class(conv2d_layer_type), intent(inout) :: this
-    real(real32), dimension(..), intent(in) :: gradients
-
-    integer :: s
-
-    select rank(gradients)
-    rank(0)
-       this%dw = gradients
-       this%db = gradients
-    rank(1)
-       do s=1,this%batch_size
-          this%dw(:,:,:,:,s) = reshape(gradients(:&
-               this%num_filters * this%num_channels * product(this%knl)), &
-                shape(this%dw(:,:,:,:,s)))
-          this%db(:,s) = gradients(&
-               this%num_filters * this%num_channels * product(this%knl)+1:)
-       end do
-    end select
- 
- end subroutine set_gradients_conv2d
 !!!#############################################################################
 
 
@@ -524,12 +466,15 @@ contains
             this%batch_size ], &
             source=0._real32 &
        )
-       if(allocated(this%dw)) deallocate(this%dw)
-       allocate(this%dw( &
+       if(allocated(this%dp)) deallocate(this%dp)
+       allocate(this%dp( this%num_params - this%num_filters, this%batch_size), source=0._real32)
+       this%dw( &
             lbound(this%weight,1):ubound(this%weight,1), &
             lbound(this%weight,2):ubound(this%weight,2), &
-            this%num_channels, this%num_filters, &
-            this%batch_size), source=0._real32)
+            1:this%num_channels, &
+            1:this%num_filters, &
+            1:this%batch_size &
+       ) => this%dp(:,:)
        if(allocated(this%db)) deallocate(this%db)
        allocate(this%db(this%num_filters, this%batch_size), source=0._real32)
     end if

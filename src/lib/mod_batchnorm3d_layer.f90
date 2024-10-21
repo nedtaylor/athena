@@ -71,7 +71,7 @@ contains
 
     select type(rhs)
     class is(batchnorm3d_layer_type)
-       this%dg = this%dg + rhs%dg
+       this%dp = this%dp + rhs%dp
        this%db = this%db + rhs%db
     end select
 
@@ -88,7 +88,7 @@ contains
     type(batchnorm3d_layer_type) :: output
 
     output = a
-    output%dg = output%dg + b%dg
+    output%dp = output%dp + b%dp
     output%db = output%db + b%db
 
   end function layer_add
@@ -105,7 +105,7 @@ contains
 
     select type(input)
     class is(batchnorm3d_layer_type)
-       this%dg = this%dg + input%dg
+       this%dp = this%dp + input%dp
        this%db = this%db + input%db
     end select
 
@@ -703,8 +703,8 @@ contains
                sum(dx_hat(:,:,:,m,:) * x_hat(:,:,:,m,:)))
 
           !! calculate gradient of gamma and beta
-          this%dg(m) = sum(gradient(:,:,:,m,:) * x_hat(:,:,:,m,:))
-          this%db(m) = sum(gradient(:,:,:,m,:))
+          this%dp(m,1) = sum(gradient(:,:,:,m,:) * x_hat(:,:,:,m,:))
+          this%db(m,1) = sum(gradient(:,:,:,m,:))
        end do
     end select
 

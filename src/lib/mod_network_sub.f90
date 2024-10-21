@@ -1001,7 +1001,8 @@ contains
    do l = 1, this%num_layers
       select type(current => this%model(l)%layer)
       class is(learnable_layer_type)
-         call current%set_gradients(0._real32)
+         current%dp = 0._real32
+         current%db = 0._real32
       end select
    end do
  
@@ -1169,14 +1170,31 @@ contains
     class(network_type), intent(inout) :: this
     real(real32), dimension(this%num_params) :: params, gradients
 
-    integer :: i
-    
+    integer :: l, start_idx, end_idx
+
+    !!-------------------------------------------------------------------
+    !! Get learnable parameters and gradients
+    !!-------------------------------------------------------------------
+    start_idx = 0
+    end_idx   = 0
+    do l = 1, this%num_layers
+       select type(current => this%model(l)%layer)
+       class is(learnable_layer_type)
+          start_idx = end_idx + 1
+          end_idx = end_idx + current%num_params
+          params(start_idx:end_idx) = current%params
+          gradients(start_idx:end_idx) = [ &
+               sum(current%dp, dim=2) / this%batch_size, &
+               sum(current%db, dim=2) / this%batch_size ]
+         ! have an if statement of whether to apply to gradients of each layer individually or collectively
+       end select
+    end do
+    ! have an if statement of whether to apply to gradients of each layer individually or collectively
+    call this%optimiser%clip_dict%apply(size(gradients),gradients)
 
     !!-------------------------------------------------------------------
     !! Update layers of learnable layer types
     !!-------------------------------------------------------------------
-    params = this%get_params()
-    gradients = this%get_gradients()
     call this%optimiser%minimise(params, gradients)
     call this%set_params(params)
     call this%reset_gradients()

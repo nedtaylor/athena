@@ -162,18 +162,40 @@ end subroutine set_params
 !!!#############################################################################
 !!! get gradients of layer
 !!!#############################################################################
-  pure module function get_gradients_batch(this, clip_method) result(gradients)
+  pure module function get_gradients(this, clip_method) result(gradients)
     use clipper, only: clip_type
     implicit none
-    class(batch_layer_type), intent(in) :: this
+    class(learnable_layer_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
     real(real32), dimension(this%num_params) :: gradients
   
-    gradients = [this%dg/this%batch_size, this%db/this%batch_size]
+    gradients = [ sum(this%dp, dim=2) / this%batch_size, &
+         sum(this%db, dim=2) / this%batch_size ]
   
     if(present(clip_method)) call clip_method%apply(size(gradients),gradients)
 
-  end function get_gradients_batch
+  end function get_gradients
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set gradients of layer
+!!!#############################################################################
+  module subroutine set_gradients(this, gradients)
+    implicit none
+    class(learnable_layer_type), intent(inout) :: this
+    real(real32), dimension(..), intent(in) :: gradients
+  
+    select rank(gradients)
+    rank(0)
+       this%dp = gradients
+       this%db = gradients
+    rank(1)
+       this%dp = spread(gradients(1:this%num_params - size(this%db,1)), 2, this%batch_size)
+       this%db = spread(gradients(this%num_params - size(this%db,1) + 1:), 2, this%batch_size)
+    end select
+  
+  end subroutine set_gradients
 !!!#############################################################################
 
 
@@ -187,11 +209,11 @@ end subroutine set_params
   
     select rank(gradients)
     rank(0)
-       this%dg = gradients * this%batch_size
+       this%dp = gradients * this%batch_size
        this%db = gradients * this%batch_size
     rank(1)
-        this%dg = gradients(:this%batch_size) * this%batch_size
-        this%db = gradients(this%batch_size+1:) * this%batch_size
+        this%dp(:,1) = gradients(:this%num_channels) * this%batch_size
+        this%db(:,1) = gradients(this%num_channels+1:) * this%batch_size
     end select
   
   end subroutine set_gradients_batch
@@ -321,7 +343,9 @@ end subroutine set_params
     end if
     this%num_channels = this%input_shape(this%input_rank)
     this%num_params = this%get_num_params()
-    allocate(this%params(this%num_params), source=0._real32)
+    allocate(this%params(this%num_channels), source=0._real32)
+    allocate(this%dp(this%num_channels,1), source=0._real32)
+    allocate(this%db(this%num_channels,1), source=0._real32)
 
 
     !!--------------------------------------------------------------------------
@@ -331,8 +355,6 @@ end subroutine set_params
     allocate(this%variance, source=this%mean)
     allocate(this%gamma, source=this%mean)
     allocate(this%beta, source=this%mean)
-    allocate(this%dg, source=this%mean)
-    allocate(this%db, source=this%mean)
 
 
     !!--------------------------------------------------------------------------
