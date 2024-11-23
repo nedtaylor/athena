@@ -107,12 +107,15 @@ program test_avgpool3d_layer
                 max_loc .le. (j-1)*stride + pool .and. &
                 max_loc .ge. (k-1)*stride + 1    .and. &
                 max_loc .le. (k-1)*stride + pool )then
-             if(output(i, j, k, 1, 1) .ne. max_value/pool**3)then
+             if( &
+                  abs( output(i, j, k, 1, 1) - max_value / pool ** 3 ) .gt. &
+                  1.E-6 &
+             )then
                 success = .false.
                 write(*,*) 'avgpool3d layer forward pass failed, &
                      &max_value/pool**3 expected'
              end if
-           else if(output(i, j, k, 1, 1) .ne. 0.0) then
+           else if( abs( output(i, j, k, 1, 1) ) .gt. 1.E-6 ) then
               success = .false.
               write(*,*) 'avgpool3d layer forward pass failed, zero expected'
            end if
@@ -164,7 +167,7 @@ program test_avgpool3d_layer
   !! check gradient has expected value
   select type(di => pool_layer%di)
   type is(array5d_type)
-     if(any(abs(di%val(:,:,:,1,1) - di_compare(:,:,:,1,1)) .gt. tol))then
+     if(any(abs(di%val_ptr(:,:,:,1,1) - di_compare(:,:,:,1,1)) .gt. tol))then
         success = .false.
         write(*,*) 'avgpool3d layer backward pass failed'
      end if

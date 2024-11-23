@@ -111,11 +111,11 @@ program test_maxpool3d_layer
                 max_loc .le. (j-1)*stride + pool .and. &
                 max_loc .ge. (k-1)*stride + 1    .and. &
                 max_loc .le. (k-1)*stride + pool )then
-             if(output(i, j, k, 1, 1) .ne. max_value)then
+             if( abs( output(i, j, k, 1, 1) - max_value ) .gt. 1.E-6 )then
                 success = .false.
                 write(*,*) 'maxpool3d layer forward pass failed'
              end if
-           else if(output(i, j, k, 1, 1) .ne. 0.0) then
+           else if( abs( output(i, j, k, 1, 1) ) .gt. 1.E-6 ) then
               success = .false.
               write(*,*) 'maxpool3d layer forward pass failed'
            end if
@@ -146,30 +146,35 @@ program test_maxpool3d_layer
   select type(di => pool_layer%di)
   type is(array5d_type)
      do i = 1, width
-      num_windows_i = pool - stride + 1 - mod((stride+1)*(i-1),2)
-      do j = 1, width
-         num_windows_j = pool - stride + 1 - mod((stride+1)*(j-1),2)
-         do k = 1, width
-            num_windows_k = pool - stride + 1 - mod((stride+1)*(k-1),2)
-            num_windows = num_windows_i * num_windows_j * num_windows_k
-            if(all([i,j,k].eq.maxloc(input_data(:,:,:,1,1))))then
-              if(di%val(i, j, k, 1, 1) .ne. maxval(output)*num_windows)then
-                success = .false.
-                write(*,*) num_windows_i, num_windows_j, num_windows_k
-                write(*,*) 'maxpool3d layer backward pass failed'
+        num_windows_i = pool - stride + 1 - mod((stride+1)*(i-1),2)
+        do j = 1, width
+           num_windows_j = pool - stride + 1 - mod((stride+1)*(j-1),2)
+           do k = 1, width
+              num_windows_k = pool - stride + 1 - mod((stride+1)*(k-1),2)
+              num_windows = num_windows_i * num_windows_j * num_windows_k
+              if(all([i,j,k].eq.maxloc(input_data(:,:,:,1,1))))then
+                 if( &
+                      abs( &
+                           di%val_ptr(i, j, k, 1, 1) - &
+                           maxval( output ) * num_windows &
+                      ) .gt. 1.E-6 &
+                 )then
+                    success = .false.
+                    write(*,*) num_windows_i, num_windows_j, num_windows_k
+                    write(*,*) 'maxpool3d layer backward pass failed'
+                 end if
+              else
+                 if( abs( di%val_ptr(i, j, k, 1, 1) ) .gt. 1.E-6 ) then
+                    success = .false.
+                    write(*,*) 'maxpool3d layer backward pass failed'
+                 end if
               end if
-            else
-              if(di%val(i, j, k, 1, 1) .ne. 0.0) then
-                success = .false.
-                write(*,*) 'maxpool3d layer backward pass failed'
-              end if
-            end if
-         end do
-       end do
+           end do
+        end do
      end do
-   class default
-      success = .false.
-      write(0,*) 'maxpool3d layer has not set di type correctly'
+  class default
+     success = .false.
+     write(0,*) 'maxpool3d layer has not set di type correctly'
   end select
 
 

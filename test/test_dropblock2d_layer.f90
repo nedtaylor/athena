@@ -124,7 +124,7 @@ program test_dropblock2d_layer
         if(any( &
              abs( &
                   merge(gradient(:,:,1,1),0.0,db_layer%mask) - &
-                  di%val(:,:,1,1) &
+                  di%val_ptr(:,:,1,1) &
              ) .gt. tol ) &
         )then
           success = .false.

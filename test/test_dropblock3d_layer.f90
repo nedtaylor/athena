@@ -118,7 +118,7 @@ program test_dropblock3d_layer
      select type(di => db_layer%di)
      type is(array5d_type)
         if(any(abs(merge(gradient(:,:,:,1,1),0.0,db_layer%mask) - &
-             di%val(:,:,:,1,1)).gt.tol))then
+             di%val_ptr(:,:,:,1,1)).gt.tol))then
           success = .false.
           write(*,*) 'dropblock3d layer backward pass failed: &
                &mask incorrectly applied'

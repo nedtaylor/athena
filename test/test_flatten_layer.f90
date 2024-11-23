@@ -87,7 +87,7 @@ program test_flatten_layer
   !! check gradient has expected value
   select type(di => flatten_layer%di)
   type is (array3d_type)
-     if(any(abs(di%val - input_data3d).gt.tol))then
+     if(any(abs(di%val_ptr - input_data3d).gt.tol))then
         success = .false.
         write(0,*) 'flatten layer (2D) backward pass incorrect'
      end if
@@ -155,7 +155,7 @@ program test_flatten_layer
   !! check gradient has expected value
   select type(di => flatten_layer%di)
   type is (array4d_type)
-     if(any(abs(di%val - input_data4d).gt.tol))then
+     if(any(abs(di%val_ptr - input_data4d).gt.tol))then
         success = .false.
         write(0,*) 'flatten layer (3D) backward pass incorrect'
      end if
@@ -236,7 +236,7 @@ program test_flatten_layer
   !! check gradient has expected value
   select type(di => flatten_layer%di)
   type is (array5d_type)
-     if(any(abs(di%val - input_data5d).gt.tol))then
+     if(any(abs(di%val_ptr - input_data5d).gt.tol))then
         success = .false.
         write(0,*) 'flatten layer (4D) backward pass incorrect'
      end if

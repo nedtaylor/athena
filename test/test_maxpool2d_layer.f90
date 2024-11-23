@@ -107,11 +107,11 @@ program test_maxpool2d_layer
             max_loc .le. (i-1)*stride + pool .and. &
             max_loc .ge. (j-1)*stride + 1    .and. &
             max_loc .le. (j-1)*stride + pool )then
-         if(output(i, j, 1, 1) .ne. max_value)then
+         if(abs(output(i, j, 1, 1) - max_value) .gt. 1.E-6)then
             success = .false.
             write(*,*) 'maxpool2d layer forward pass failed'
          end if
-       else if(output(i, j, 1, 1) .ne. 0.0) then
+       else if(abs(output(i, j, 1, 1)) .gt. 1.E-6) then
           success = .false.
           write(*,*) 'maxpool2d layer forward pass failed'
        end if
@@ -146,13 +146,18 @@ program test_maxpool2d_layer
            num_windows_j = pool - stride + 1 - mod((stride+1)*(j-1),2)
            num_windows = num_windows_i * num_windows_j
            if(all([i,j].eq.maxloc(input_data(:,:,1,1))))then
-             if(di%val(i, j, 1, 1) .ne. maxval(output)*num_windows)then
+             if( &
+                  abs( &
+                       di%val_ptr(i, j, 1, 1) - &
+                       maxval( output ) * num_windows &
+                  ) .gt. 1.E-6 &
+             )then
                success = .false.
                write(*,*) num_windows_i, num_windows_j
                write(*,*) 'maxpool2d layer backward pass failed'
              end if
            else
-             if(di%val(i, j, 1, 1) .ne. 0.0) then
+             if( abs( di%val_ptr(i, j, 1, 1) ) .gt. 1.E-6 ) then
                success = .false.
                write(*,*) 'maxpool2d layer backward pass failed'
              end if

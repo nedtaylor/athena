@@ -142,8 +142,8 @@ program test_batchnorm2d_layer
      select type(di => current%di)
      type is(array4d_type)
         do i = 1, num_channels
-          mean = sum(di%val(:,:,i,:))/(width**2*batch_size)
-          std = sqrt(sum((di%val(:,:,i,:) - mean)**2)/(width**2*batch_size))
+          mean = sum(di%val_ptr(:,:,i,:))/(width**2*batch_size)
+          std = sqrt(sum((di%val_ptr(:,:,i,:) - mean)**2)/(width**2*batch_size))
           if (abs(mean) .gt. tol) then
             success = .false.
             write(0,*) 'batchnorm2d layer backward pass failed: &
@@ -154,7 +154,7 @@ program test_batchnorm2d_layer
             write(0,*) 'batchnorm2d layer backward pass failed: &
                  &std gradient should equal gamma'
           end if
-          if (abs(current%db(i) - sum(gradient(:,:,i,:))) .gt. tol) then
+          if (abs(current%db(i,1) - sum(gradient(:,:,i,:))) .gt. tol) then
             success = .false.
             write(0,*) 'batchnorm2d layer backward pass failed: &
                  &std gradient should equal sum of gradients'
@@ -214,11 +214,11 @@ program test_batchnorm2d_layer
   bn_layer2 = batchnorm2d_layer_type(input_shape=[2,2,1], batch_size=1)
   select type(bn_layer1)
   type is(batchnorm2d_layer_type)
-     bn_layer1%dg = 1.E0
+     bn_layer1%dp = 1.E0
      bn_layer1%db = 1.E0
      select type(bn_layer2)
      type is(batchnorm2d_layer_type)
-        bn_layer2%dg = 2.E0
+        bn_layer2%dp = 2.E0
         bn_layer2%db = 2.E0
         bn_layer = bn_layer1 + bn_layer2
         select type(bn_layer)
@@ -283,7 +283,7 @@ contains
      type(batchnorm2d_layer_type), intent(in) :: layer1, layer2, layer3
      logical, intent(inout) :: success
 
-     if(any(abs(layer1%dg-layer2%dg-layer3%dg).gt.tol))then
+     if(any(abs(layer1%dp-layer2%dp-layer3%dp).gt.tol))then
          success = .false.
          write(0,*) 'batchnorm2d layer has wrong gradients'
      end if
