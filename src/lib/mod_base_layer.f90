@@ -115,7 +115,7 @@ module base_layer
      !!-------------------------------------------------------------------------
      !! this = (T, inout) base_layer_type
      module subroutine set_ptrs(this)
-       class(base_layer_type), intent(inout) :: this
+       class(base_layer_type), intent(inout), target :: this
      end subroutine set_ptrs
   end interface
 
@@ -364,6 +364,7 @@ module base_layer
      procedure, pass(this) :: get_num_params => get_num_params_batch
      procedure, pass(this) :: set_gradients => set_gradients_batch
      procedure, pass(this) :: init => init_batch
+     procedure, pass(this) :: set_ptrs => set_ptrs_batch
   end type batch_layer_type
 
 
@@ -386,17 +387,20 @@ module base_layer
        integer :: num_params
      end function get_num_params_conv
      module subroutine init_conv(this, input_shape, batch_size, verbose)
-      class(conv_layer_type), intent(inout) :: this
-      integer, dimension(:), intent(in) :: input_shape
-      integer, optional, intent(in) :: batch_size
-      integer, optional, intent(in) :: verbose
+       class(conv_layer_type), intent(inout) :: this
+       integer, dimension(:), intent(in) :: input_shape
+       integer, optional, intent(in) :: batch_size
+       integer, optional, intent(in) :: verbose
      end subroutine init_conv
      module subroutine init_batch(this, input_shape, batch_size, verbose)
-      class(batch_layer_type), intent(inout) :: this
-      integer, dimension(:), intent(in) :: input_shape
-      integer, optional, intent(in) :: batch_size
-      integer, optional, intent(in) :: verbose
+       class(batch_layer_type), intent(inout) :: this
+       integer, dimension(:), intent(in) :: input_shape
+       integer, optional, intent(in) :: batch_size
+       integer, optional, intent(in) :: verbose
      end subroutine init_batch
+     module subroutine set_ptrs_batch(this)
+       class(batch_layer_type), intent(inout), target :: this
+     end subroutine set_ptrs_batch
   end interface
 
 

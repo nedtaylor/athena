@@ -96,7 +96,7 @@ contains
 !!!#############################################################################
   module subroutine set_ptrs(this)
     implicit none
-    class(base_layer_type), intent(inout) :: this
+    class(base_layer_type), intent(inout), target :: this
 
     if(allocated(this%output)) call this%output%set_ptr()
     if(allocated(this%di)) call this%di%set_ptr()
@@ -367,8 +367,8 @@ end subroutine set_params
     !!--------------------------------------------------------------------------
     allocate(this%mean(this%num_channels), source=0._real32)
     allocate(this%variance, source=this%mean)
-    allocate(this%gamma, source=this%mean)
-    allocate(this%beta, source=this%mean)
+    ! allocate(this%gamma, source=this%mean)
+    ! allocate(this%beta, source=this%mean)
 
 
     !!--------------------------------------------------------------------------
@@ -377,7 +377,7 @@ end subroutine set_params
     allocate(t_initialiser, source=initialiser_setup(this%kernel_initialiser))
     t_initialiser%mean = this%gamma_init_mean
     t_initialiser%std  = this%gamma_init_std
-    call t_initialiser%initialise(this%gamma, &
+    call t_initialiser%initialise(this%params(1:this%num_channels), &
          fan_in =this%num_channels, &
          fan_out=this%num_channels)
     deallocate(t_initialiser)
@@ -387,7 +387,7 @@ end subroutine set_params
     allocate(t_initialiser, source=initialiser_setup(this%bias_initialiser))
     t_initialiser%mean = this%beta_init_mean
     t_initialiser%std  = this%beta_init_std
-    call t_initialiser%initialise(this%beta, &
+    call t_initialiser%initialise(this%params(this%num_channels+1:), &
          fan_in =this%num_channels, &
          fan_out=this%num_channels)
     deallocate(t_initialiser)
@@ -419,6 +419,26 @@ end subroutine set_params
     if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
 
   end subroutine init_batch
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set the pointers of the layer
+!!!#############################################################################
+  module subroutine set_ptrs_batch(this)
+    implicit none
+    class(batch_layer_type), intent(inout), target :: this
+
+    if(allocated(this%output)) call this%output%set_ptr()
+    if(allocated(this%di)) call this%di%set_ptr()
+
+    if(allocated(this%params))then
+       this%gamma(1:this%num_channels) => this%params(1:this%num_channels)
+       this%beta(1:this%num_channels) => &
+            this%params(this%num_channels+1:this%num_channels*2)
+    end if
+
+  end subroutine set_ptrs_batch
 !!!#############################################################################
 
 end submodule base_layer_submodule
