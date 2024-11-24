@@ -67,6 +67,7 @@ module base_layer
      procedure(forward), deferred, pass(this) :: forward
      procedure(backward), deferred, pass(this) :: backward
      procedure(read_layer), deferred, pass(this) :: read
+     procedure, pass(this) :: set_ptrs
      !! NO NEED FOR DEFERRED PRODECURES
      !! instead, make this a generic type that just has a set of interfaces for (module) procedures that call 1D, 3D, and 4D forms
      !! Use subroutines because output data is trickier for function tricker to handle
@@ -108,6 +109,14 @@ module base_layer
        class(base_layer_type), intent(in) :: this
        real(real32), allocatable, dimension(..), intent(out) :: output
      end subroutine get_output_base
+
+     !!-------------------------------------------------------------------------
+     !! set pointers to layer data
+     !!-------------------------------------------------------------------------
+     !! this = (T, inout) base_layer_type
+     module subroutine set_ptrs(this)
+       class(base_layer_type), intent(inout) :: this
+     end subroutine set_ptrs
   end interface
 
 

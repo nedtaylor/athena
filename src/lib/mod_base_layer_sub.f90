@@ -92,6 +92,20 @@ contains
 
 
 !!!#############################################################################
+!!! set the pointers of the layer
+!!!#############################################################################
+  module subroutine set_ptrs(this)
+    implicit none
+    class(base_layer_type), intent(inout) :: this
+
+    if(allocated(this%output)) call this%output%set_ptr()
+    if(allocated(this%di)) call this%di%set_ptr()
+
+  end subroutine set_ptrs
+!!!#############################################################################
+
+
+!!!#############################################################################
 !!! get number of parameters in layer
 !!!#############################################################################
 !!! this       = (T, in) layer_type
