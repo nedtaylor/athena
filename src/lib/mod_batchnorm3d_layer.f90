@@ -358,12 +358,12 @@ contains
     if(allocated(this%input_shape))then
       if(.not.allocated(this%output)) this%output = array5d_type()
       if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
-       call this%output%allocate( array_shape = [ &
-            this%output%shape(1), &
-            this%output%shape(2), &
-            this%output%shape(3), this%num_channels, &
-            this%batch_size ], &
-            source=0._real32 &
+      call this%output%allocate( array_shape = [ &
+           this%output%shape(1), &
+           this%output%shape(2), &
+           this%output%shape(3), this%num_channels, &
+           this%batch_size ], &
+           source=0._real32 &
        )
        if(.not.allocated(this%di)) this%di = array5d_type()
        if(this%di%allocated) call this%di%deallocate()
