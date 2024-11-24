@@ -343,7 +343,7 @@ end subroutine set_params
     end if
     this%num_channels = this%input_shape(this%input_rank)
     this%num_params = this%get_num_params()
-    allocate(this%params(this%num_channels), source=0._real32)
+    allocate(this%params(2 * this%num_channels), source=0._real32)
     allocate(this%dp(this%num_channels,1), source=0._real32)
     allocate(this%db(this%num_channels,1), source=0._real32)
 
