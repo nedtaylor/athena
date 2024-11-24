@@ -176,10 +176,13 @@ module custom_types
    contains
      procedure (allocate_array), deferred, pass(this) :: allocate
      procedure (deallocate_array), deferred, pass(this) :: deallocate
+     procedure (set_ptr_array), deferred, pass(this) :: set_ptr
      procedure, pass(this) :: flatten => flatten_array
      procedure, pass(this) :: get => get_array
      procedure, pass(this) :: set => set_array
      procedure :: add => add_array
+    !  procedure :: assign => assign_array
+    !  generic, public :: assignment(=) => assign
      generic, public :: operator(+) => add
   end type array_type
 
@@ -198,26 +201,9 @@ module custom_types
        logical, intent(in), optional :: keep_shape
      end subroutine deallocate_array
 
-    !  pure module function reshape_array(this, shape) result(output)
-    !    class(array_type), intent(inout) :: this
-    !    integer, dimension(:), intent(in) :: shape
-    !    real(real32), dimension(size(shape)) :: output
-    !  end function reshape_array
-
-    !  pure module function flatten_array(this) result(output)
-    !    class(array_type), intent(in) :: this
-    !    real(real32), dimension(this%size) :: output
-    !  end function flatten_array
-
-    !  pure module subroutine get_array(this, output)
-    !    class(array_type), intent(in) :: this
-    !    real(real32), dimension(..), allocatable, intent(out) :: output
-    !  end subroutine get_array
-
-    !  pure module subroutine set_array(this, input)
-    !    class(array_type), intent(inout) :: this
-    !    real(real32), dimension(..), intent(in) :: input
-    !  end subroutine set_array 
+     module subroutine set_ptr_array(this)
+       class(array_type), intent(inout), target :: this
+     end subroutine set_ptr_array
   end interface
 
   interface
@@ -240,6 +226,11 @@ module custom_types
        class(array_type), intent(in) :: a, b 
        class(array_type), allocatable :: output
      end function add_array
+
+     module subroutine assign_array(this, input)
+      class(array_type), intent(out), target :: this
+      class(array_type), intent(in) :: input
+    end subroutine assign_array
   end interface
 
   !! extend the array type to 1d, 2d, 3d, 4d, and 5d arrays
@@ -249,10 +240,7 @@ module custom_types
    contains
      procedure :: allocate => allocate_array1d
      procedure :: deallocate => deallocate_array1d
-    !  procedure :: flatten => flatten_array1d
-    !  procedure :: get => get_array1d
-    !  procedure :: set => set_array1d
-    !  generic :: assignment(=) => assign_array1d
+     procedure :: set_ptr => set_ptr_array1d
   end type array1d_type
 
   type, extends(array_type) :: array2d_type
@@ -260,10 +248,7 @@ module custom_types
    contains
      procedure :: allocate => allocate_array2d
      procedure :: deallocate => deallocate_array2d
-    !  procedure :: flatten => flatten_array2d
-    !  procedure :: get => get_array2d
-    !  procedure :: set => set_array2d
-    !  generic :: assignment(=) => assign_array2d
+     procedure :: set_ptr => set_ptr_array2d
   end type array2d_type
 
   type, extends(array_type) :: array3d_type
@@ -271,10 +256,8 @@ module custom_types
    contains
      procedure :: allocate => allocate_array3d
      procedure :: deallocate => deallocate_array3d
-    !  procedure :: flatten => flatten_array3d
-    !  procedure :: get => get_array3d
-    procedure, pass(this) :: set => set_array3d
-    !  generic :: assignment(=) => assign_array3d
+     procedure :: set_ptr => set_ptr_array3d
+     procedure, pass(this) :: set => set_array3d
   end type array3d_type
 
   type, extends(array_type) :: array4d_type
@@ -282,10 +265,8 @@ module custom_types
    contains
      procedure :: allocate => allocate_array4d
      procedure :: deallocate => deallocate_array4d
-    !  procedure :: flatten => flatten_array4d
-    !  procedure :: get => get_array4d
-    procedure, pass(this) :: set => set_array4d
-    !  generic :: assignment(=) => assign_array4d
+     procedure :: set_ptr => set_ptr_array4d
+     procedure, pass(this) :: set => set_array4d
   end type array4d_type
 
   type, extends(array_type) :: array5d_type
@@ -293,10 +274,8 @@ module custom_types
    contains
      procedure :: allocate => allocate_array5d
      procedure :: deallocate => deallocate_array5d
-    !  procedure :: flatten => flatten_array5d
-    !  procedure :: get => get_array5d
+     procedure :: set_ptr => set_ptr_array5d
      procedure, pass(this) :: set => set_array5d
-    !  generic :: assignment(=) => assign_array5d
   end type array5d_type
 
   !! interface for allocating array
@@ -362,77 +341,33 @@ module custom_types
     end subroutine deallocate_array5d
   end interface
 
-  ! !! interface for flattening array
-  ! !!----------------------------------------------------------------------------
-  ! interface 
-  !   pure module function flatten_array1d(this) result(output)
-  !     class(array1d_type), intent(in) :: this
-  !     real(real32), dimension(this%size) :: output
-  !   end function flatten_array1d
-
-  !   pure module function flatten_array2d(this) result(output)
-  !     class(array2d_type), intent(in) :: this
-  !     real(real32), dimension(this%size) :: output
-  !   end function flatten_array2d
-
-  !   pure module function flatten_array3d(this) result(output)
-  !     class(array3d_type), intent(in) :: this
-  !     real(real32), dimension(this%size) :: output
-  !   end function flatten_array3d
-
-  !   pure module function flatten_array4d(this) result(output)
-  !     class(array4d_type), intent(in) :: this
-  !     real(real32), dimension(this%size) :: output
-  !   end function flatten_array4d
-
-  !   pure module function flatten_array5d(this) result(output)
-  !     class(array5d_type), intent(in) :: this
-  !     real(real32), dimension(this%size) :: output
-  !   end function flatten_array5d
-  ! end interface
-
-  ! !! interface for getting array
-  ! !!----------------------------------------------------------------------------
-  ! interface
-  !   pure module subroutine get_array1d(this, output)
-  !     class(array1d_type), intent(in) :: this
-  !     real(real32), dimension(..), allocatable, intent(out) :: output
-  !   end subroutine get_array1d
-
-  !   pure module subroutine get_array2d(this, output)
-  !     class(array2d_type), intent(in) :: this
-  !     real(real32), dimension(..), allocatable, intent(out) :: output
-  !   end subroutine get_array2d
-
-  !   pure module subroutine get_array3d(this, output)
-  !     class(array3d_type), intent(in) :: this
-  !     real(real32), dimension(..), allocatable, intent(out) :: output
-  !   end subroutine get_array3d
-
-  !   pure module subroutine get_array4d(this, output)
-  !     class(array4d_type), intent(in) :: this
-  !     real(real32), dimension(..), allocatable, intent(out) :: output
-  !   end subroutine get_array4d
-
-  !   pure module subroutine get_array5d(this, output)
-  !     class(array5d_type), intent(in) :: this
-  !     real(real32), dimension(..), allocatable, intent(out) :: output
-  !   end subroutine get_array5d
-  ! end interface
-
-  ! !! interface for setting array
-  ! !!----------------------------------------------------------------------------
+  !! interface for setting pointers
+  !!----------------------------------------------------------------------------
   interface
-  !   pure module subroutine set_array1d(this, input)
-  !     class(array1d_type), intent(inout) :: this
-  !     real(real32), dimension(..), intent(in) :: input
-  !   end subroutine set_array1d
+    module subroutine set_ptr_array1d(this)
+      class(array1d_type), intent(inout), target :: this
+    end subroutine set_ptr_array1d
 
-  !   pure module subroutine set_array2d(this, input)
-  !     class(array2d_type), intent(inout) :: this
-  !     real(real32), dimension(..), intent(in) :: input
-  !   end subroutine set_array2d
+    module subroutine set_ptr_array2d(this)
+      class(array2d_type), intent(inout), target :: this
+    end subroutine set_ptr_array2d
 
+    module subroutine set_ptr_array3d(this)
+      class(array3d_type), intent(inout), target :: this
+    end subroutine set_ptr_array3d
+
+    module subroutine set_ptr_array4d(this)
+      class(array4d_type), intent(inout), target :: this
+    end subroutine set_ptr_array4d
+
+    module subroutine set_ptr_array5d(this)
+      class(array5d_type), intent(inout), target :: this
+    end subroutine set_ptr_array5d
+  end interface
+
+  !! interface for setting array
+  !!----------------------------------------------------------------------------
+  interface
     pure module subroutine set_array3d(this, input)
       class(array3d_type), intent(inout) :: this
       real(real32), dimension(..), intent(in) :: input
@@ -489,28 +424,28 @@ module custom_types
   !! interface for assigning array
   !!----------------------------------------------------------------------------
   interface
-    pure module subroutine assign_array1d(this, input)
-      type(array1d_type), intent(out) :: this
+    module subroutine assign_array1d(this, input)
+      type(array1d_type), intent(out), target :: this
       type(array1d_type), intent(in) :: input
     end subroutine assign_array1d
 
-    pure module subroutine assign_array2d(this, input)
-       type(array2d_type), intent(out) :: this
+    module subroutine assign_array2d(this, input)
+      type(array2d_type), intent(out), target :: this
       type(array2d_type), intent(in) :: input
     end subroutine assign_array2d
 
-    pure module subroutine assign_array3d(this, input)
-       type(array3d_type), intent(out) :: this
+    module subroutine assign_array3d(this, input)
+      type(array3d_type), intent(out), target :: this
       type(array3d_type), intent(in) :: input
     end subroutine assign_array3d
 
-    pure module subroutine assign_array4d(this, input)
-       type(array4d_type), intent(out) :: this
+    module subroutine assign_array4d(this, input)
+      type(array4d_type), intent(out), target :: this
       type(array4d_type), intent(in) :: input
     end subroutine assign_array4d
 
-    pure module subroutine assign_array5d(this, input)
-       type(array5d_type), intent(out) :: this
+    module subroutine assign_array5d(this, input)
+      type(array5d_type), intent(out), target :: this
       type(array5d_type), intent(in) :: input
     end subroutine assign_array5d
   end interface

@@ -72,6 +72,69 @@ contains
     end select
   end subroutine set_array
 
+  module subroutine assign_array(this, input)
+    implicit none
+    class(array_type), intent(out), target :: this
+    class(array_type), intent(in) :: input
+
+    this%rank = input%rank
+    this%shape = input%shape
+    this%size = input%size
+    this%allocated = input%allocated
+    this%val = input%val
+    select type(input)
+    type is(array1d_type)
+       select type(this)
+       type is(array1d_type)
+          this%val_ptr( &
+               1:this%shape(1) &
+          ) => this%val
+       end select
+    type is(array2d_type)
+       select type(this)
+       type is(array2d_type)
+          this%val_ptr( &
+               1:this%shape(1), &
+               1:size(this%val, dim=2) &
+          ) => this%val
+       end select
+    type is(array3d_type)
+       select type(this)
+       type is(array3d_type)
+          this%val_ptr( &
+               1:this%shape(1), &
+               1:this%shape(2),  &
+               1:size(this%val, dim=2) &
+          ) => this%val
+       end select
+    type is(array4d_type)
+       select type(this)
+       type is(array4d_type)
+          this%val_ptr( &
+               1:this%shape(1), &
+               1:this%shape(2), &
+               1:this%shape(3),  &
+               1:size(this%val, dim=2) &
+          ) => this%val
+       end select
+    type is(array5d_type)
+       select type(this)
+       type is(array5d_type)
+          this%val_ptr( &
+               1:this%shape(1), &
+               1:this%shape(2), &
+               1:this%shape(3), &
+               1:this%shape(4),  &
+               1:size(this%val, dim=2) &
+          ) => this%val
+       end select
+    class default
+       stop 'ERROR: Incompatible types'
+    end select
+
+  end subroutine assign_array
+
+
   module function init_array1d(array_shape) result(output)
     implicit none
     integer, dimension(:), intent(in), optional :: array_shape
@@ -138,7 +201,7 @@ contains
           end select
        rank(3)
        rank default
-          stop 'ERROR: Unrecognised source type'
+          stop 'ERROR: Unrecognised source rank'
        end select
     end if
     if(.not.present(source).and.present(array_shape)) &
@@ -159,22 +222,36 @@ contains
     if(present(keep_shape)) keep_shape_ = keep_shape
     if(.not.keep_shape_) this%shape = 0
     deallocate(this%val)
+    this%val_ptr => null()
     this%allocated = .false.
     this%size = 0
 
   end subroutine deallocate_array1d
 
-  pure module subroutine assign_array1d(this, input)
+  module subroutine assign_array1d(this, input)
     implicit none
+    type(array1d_type), intent(out), target :: this
     type(array1d_type), intent(in) :: input
-    type(array1d_type), intent(out) :: this
 
     this%rank = input%rank
     this%shape = input%shape
     this%size = input%size
     this%allocated = input%allocated
     this%val = input%val
+    this%val_ptr( &
+         1:this%shape(1) &
+    ) => this%val
   end subroutine assign_array1d
+
+  module subroutine set_ptr_array1d(this)
+    implicit none
+    class(array1d_type), intent(inout), target :: this
+
+    if(.not. this%allocated)then
+       stop 'ERROR: Array not allocated'
+    end if
+    this%val_ptr(1:this%shape(1)) => this%val
+  end subroutine set_ptr_array1d
 
 
 
@@ -216,6 +293,10 @@ contains
                     stop 'ERROR: Source shape does not match array shape'
              end if
              this = source
+             this%val_ptr( &
+                  1:source%shape(1), &
+                  1:size(source%val, dim=2) &
+             ) => this%val
           class default
              stop 'ERROR: Incompatible source type for rank 0'
           end select
@@ -231,7 +312,7 @@ contains
              stop 'ERROR: Incompatible source type for rank 2'
           end select
        rank default
-          stop 'ERROR: Unrecognised source type'
+          stop 'ERROR: Unrecognised source rank'
        end select
     end if
     if(.not.present(source).and.present(array_shape)) &
@@ -253,14 +334,15 @@ contains
     if(present(keep_shape)) keep_shape_ = keep_shape
     if(.not.keep_shape_) this%shape = 0
     deallocate(this%val)
+    this%val_ptr => null()
     this%allocated = .false.
     this%size = 0
 
   end subroutine deallocate_array2d
 
-  pure module subroutine assign_array2d(this, input)
+  module subroutine assign_array2d(this, input)
     implicit none
-    type(array2d_type), intent(out) :: this
+    type(array2d_type), intent(out), target :: this
     type(array2d_type), intent(in) :: input
 
     this%rank = input%rank
@@ -268,7 +350,25 @@ contains
     this%size = input%size
     this%allocated = input%allocated
     this%val = input%val
+    this%val_ptr( &
+         1:this%shape(1), &
+         1:size(this%val, dim=2) &
+    ) => this%val
   end subroutine assign_array2d
+
+  module subroutine set_ptr_array2d(this)
+    implicit none
+    class(array2d_type), intent(inout), target :: this
+
+    if(.not. this%allocated)then
+       stop 'ERROR: Array not allocated'
+    end if
+    this%val_ptr( &
+         1:this%shape(1), &
+         1:size(this%val, dim=2) &
+    ) => this%val
+  end subroutine set_ptr_array2d
+
 
 
 
@@ -320,6 +420,11 @@ contains
                     stop 'ERROR: Source shape does not match array shape'
              end if
              this = source
+             this%val_ptr( &
+                  1:source%shape(1), &
+                  1:source%shape(2), &
+                  1:size(source%val, dim=2) &
+             ) => this%val
           class default
              stop 'ERROR: Incompatible source type for rank 0'
           end select
@@ -349,7 +454,7 @@ contains
              stop 'ERROR: Incompatible source type for rank 3'
           end select
        rank default
-          stop 'ERROR: Unrecognised source type'
+          stop 'ERROR: Unrecognised source rank'
        end select
     end if
     if(.not.present(source).and.present(array_shape)) &
@@ -370,6 +475,7 @@ contains
     if(present(keep_shape)) keep_shape_ = keep_shape
     if(.not.keep_shape_) this%shape = 0
     deallocate(this%val)
+    this%val_ptr => null()
     this%allocated = .false.
     this%size = 0
 
@@ -392,9 +498,9 @@ contains
     end select
   end subroutine set_array3d
 
-  pure module subroutine assign_array3d(this, input)
+  module subroutine assign_array3d(this, input)
     implicit none
-    type(array3d_type), intent(out) :: this
+    type(array3d_type), intent(out), target :: this
     type(array3d_type), intent(in) :: input
 
     this%rank = input%rank
@@ -402,7 +508,26 @@ contains
     this%size = input%size
     this%allocated = input%allocated
     this%val = input%val
+    this%val_ptr( &
+         1:this%shape(1), &
+         1:this%shape(2), &
+         1:size(this%val, dim=2) &
+    ) => this%val
   end subroutine assign_array3d
+
+  module subroutine set_ptr_array3d(this)
+    implicit none
+    class(array3d_type), intent(inout), target :: this
+
+    if(.not. this%allocated)then
+       stop 'ERROR: Array not allocated'
+    end if
+    this%val_ptr( &
+         1:this%shape(1), &
+         1:this%shape(2), &
+         1:size(this%val, dim=2) &
+    ) => this%val
+  end subroutine set_ptr_array3d
 
 
 
@@ -455,6 +580,12 @@ contains
                     stop 'ERROR: Source shape does not match array shape'
              end if
              this = source
+             this%val_ptr( &
+                  1:source%shape(1), &
+                  1:source%shape(2), &
+                  1:source%shape(3), &
+                  1:size(source%val, dim=2) &
+             ) => this%val
           class default
              stop 'ERROR: Incompatible source type for rank 0'
           end select
@@ -485,7 +616,7 @@ contains
              stop 'ERROR: Incompatible source type for rank 4'
           end select
        rank default
-          stop 'ERROR: Unrecognised source type'
+          stop 'ERROR: Unrecognised source rank'
        end select
     end if
     if(.not.present(source).and.present(array_shape)) &
@@ -506,6 +637,7 @@ contains
     if(present(keep_shape)) keep_shape_ = keep_shape
     if(.not.keep_shape_) this%shape = 0
     deallocate(this%val)
+    this%val_ptr => null()
     this%allocated = .false.
     this%size = 0
 
@@ -528,9 +660,9 @@ contains
     end select
   end subroutine set_array4d
 
-  pure module subroutine assign_array4d(this, input)
+  module subroutine assign_array4d(this, input)
     implicit none
-    type(array4d_type), intent(out) :: this
+    type(array4d_type), intent(out), target :: this
     type(array4d_type), intent(in) :: input
 
     this%rank = input%rank
@@ -538,7 +670,28 @@ contains
     this%size = input%size
     this%allocated = input%allocated
     this%val = input%val
+    this%val_ptr( &
+         1:this%shape(1), &
+         1:this%shape(2), &
+         1:this%shape(3), &
+         1:size(this%val, dim=2) &
+    ) => this%val
   end subroutine assign_array4d
+
+  module subroutine set_ptr_array4d(this)
+    implicit none
+    class(array4d_type), intent(inout), target :: this
+
+    if(.not. this%allocated)then
+       stop 'ERROR: Array not allocated'
+    end if
+    this%val_ptr( &
+         1:this%shape(1), &
+         1:this%shape(2), &
+         1:this%shape(3), &
+         1:size(this%val, dim=2) &
+    ) => this%val
+  end subroutine set_ptr_array4d
 
 
 
@@ -592,6 +745,13 @@ contains
                     stop 'ERROR: Source shape does not match array shape'
              end if
              this = source
+             this%val_ptr( &
+                  1:source%shape(1), &
+                  1:source%shape(2), &
+                  1:source%shape(3), &
+                  1:source%shape(4), &
+                  1:size(source%val, dim=2) &
+             ) => this%val
           class default
              stop 'ERROR: Incompatible source type for rank 0'
           end select
@@ -623,7 +783,7 @@ contains
              stop 'ERROR: Incompatible source type for rank 5'
           end select
        rank default
-          stop 'ERROR: Unrecognised source type'
+          stop 'ERROR: Unrecognised source rank'
        end select
     end if
     if(.not.present(source).and.present(array_shape)) &
@@ -644,6 +804,7 @@ contains
     if(present(keep_shape)) keep_shape_ = keep_shape
     if(.not.keep_shape_) this%shape = 0
     deallocate(this%val)
+    this%val_ptr => null()
     this%allocated = .false.
     this%size = 0
 
@@ -666,9 +827,9 @@ contains
     end select
   end subroutine set_array5d
 
-  pure module subroutine assign_array5d(this, input)
+  module subroutine assign_array5d(this, input)
     implicit none
-    type(array5d_type), intent(out) :: this
+    type(array5d_type), intent(out), target :: this
     type(array5d_type), intent(in) :: input
 
     this%rank = input%rank
@@ -676,6 +837,29 @@ contains
     this%size = input%size
     this%allocated = input%allocated
     this%val = input%val
+    this%val_ptr( &
+         1:this%shape(1), &
+         1:this%shape(2), &
+         1:this%shape(3), &
+         1:this%shape(4), &
+         1:size(this%val, dim=2) &
+    ) => this%val
   end subroutine assign_array5d
+
+  module subroutine set_ptr_array5d(this)
+    implicit none
+    class(array5d_type), intent(inout), target :: this
+
+    if(.not. this%allocated)then
+       stop 'ERROR: Array not allocated'
+    end if
+    this%val_ptr( &
+         1:this%shape(1), &
+         1:this%shape(2), &
+         1:this%shape(3), &
+         1:this%shape(4), &
+         1:size(this%val, dim=2) &
+    ) => this%val
+  end subroutine set_ptr_array5d
 
 end submodule custom_types_submodule
