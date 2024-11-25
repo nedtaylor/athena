@@ -22,12 +22,7 @@ submodule(network) network_submodule
   use container_layer, only: container_reduction
 #endif
 
-  use custom_types, only: &
-       array1d_type, &
-       array2d_type, &
-       array3d_type, &
-       array4d_type, &
-       array5d_type
+  use custom_types, only: array2d_type
   use container_layer, only: list_of_layer_types
 
   !! layer types
@@ -597,7 +592,10 @@ contains
     this%get_loss_deriv => null()
     this%get_accuracy => null()
 
-  end subroutine reset
+    if(allocated(this%root_vertices)) deallocate(this%root_vertices)
+    this%auto_graph = graph_type(directed=.true.)
+
+   end subroutine reset
 !!!#############################################################################
 
 
@@ -615,8 +613,8 @@ contains
     integer, optional, intent(in) :: verbose
     
     integer :: i, j, k, id, child_id, parent_id
-    integer :: verbose_ = 0, num_addit_inputs
-    logical :: l_flatten_child
+    integer :: verbose_ = 0
+    logical :: l_flatten_child, l_set_input_shape
     integer, dimension(:), allocatable :: input_shape, child_vertices, parent_vertices
     class(base_layer_type), allocatable :: t_input_layer, t_flatten_layer
 
@@ -654,7 +652,9 @@ contains
           write(0,*) "ERROR: input_shape of first layer not defined"
           stop 1
        end if
-       select type(root => this%model(this%auto_graph%vertex(this%root_vertices(i))%id)%layer)
+       select type( root => this%model(this%auto_graph%vertex( &
+            this%root_vertices(i) &
+       )%id)%layer)
        class is(input_layer_type)
           cycle
        class is(conv_layer_type)
@@ -666,9 +666,17 @@ contains
        t_input_layer = input_layer_type(&
              input_shape = input_shape, &
              batch_size = this%batch_size, &
+             index = i, &
              verbose=verbose_ &
        )
-       call this%add(t_input_layer, output_list=[this%model(this%auto_graph%vertex(this%root_vertices(i))%id)%layer%id])
+       call this%add( &
+            t_input_layer,  &
+            output_list = [ &
+                 this%model( &
+                      this%auto_graph%vertex(this%root_vertices(i))%id &
+                 )%layer%id &
+            ] &
+       )
        ! NEED TO CALL layer%init?
        deallocate(input_shape)
        deallocate(t_input_layer)
@@ -679,22 +687,44 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! initialise layers
 !!!-----------------------------------------------------------------------------
-    if(verbose_.gt.0)then
-       write(*,*) "layer:",1, this%model(1)%name
-       write(*,*) this%model(1)%layer%input_shape
-       write(*,*) this%model(1)%layer%output%shape
-    end if
-    do i=2,size(this%model,dim=1)
-       if(.not.allocated(this%model(i)%layer%output)) &
-            call this%model(i)%layer%init( &
-                 input_shape = this%model(i-1)%layer%output%shape, &
-                 batch_size = this%batch_size, &
-                 verbose = verbose_ &
-            )
+    call this%generate_vertex_order()
+    do i = 1, size(this%vertex_order, dim = 1)
+       if(allocated(this%model(this%vertex_order(i))%layer%output))then
+         if( &
+               .not.this%model(this%vertex_order(i))%layer%output%allocated &
+          ) then
+             l_set_input_shape = .true.
+          else
+             l_set_input_shape = .false.
+          end if
+       else
+          l_set_input_shape = .true.
+       end if
+       if(l_set_input_shape) then
+          allocate( &
+               input_shape(this%model(this%vertex_order(i))%layer%input_rank), &
+               source = 0 &
+          )
+          do j = 1, size( &
+               this%auto_graph%adjacency(:,this%vertex_order(i)), &
+               dim = 1 &
+          )
+             if(this%auto_graph%adjacency(j,this%vertex_order(i)).eq.0) cycle
+             input_shape(:) = input_shape(:) + &
+                  this%model(j)%layer%output%shape
+          end do
+          call this%model(this%vertex_order(i))%layer%init( &
+               input_shape = input_shape, &
+               batch_size = this%batch_size, &
+               verbose = verbose_ &
+          )
+          deallocate(input_shape)
+      end if
        if(verbose_.gt.0)then
-          write(*,*) "layer:",i, this%model(i)%name
-          write(*,*) this%model(i)%layer%input_shape
-          write(*,*) this%model(i)%layer%output%shape
+          write(*,*) "layer: ", &
+               this%vertex_order(i), this%model(this%vertex_order(i))%name
+          write(*,*) this%model(this%vertex_order(i))%layer%input_shape
+          write(*,*) this%model(this%vertex_order(i))%layer%output%shape
        end if
     end do
 
@@ -796,6 +826,13 @@ contains
     elseif(this%model(1)%layer%batch_size.ne.0)then
        call this%set_batch_size(this%model(1)%layer%batch_size)
     end if
+
+!!!-----------------------------------------------------------------------------
+!!! set pointers
+!!!-----------------------------------------------------------------------------
+    do i = 1, this%num_layers
+       call this%model(i)%layer%set_ptrs() ! name %compile() or %build()?
+    end do
 
   end subroutine compile
 !!!#############################################################################
