@@ -17,6 +17,7 @@ module input_layer
   
   
   type, extends(base_layer_type) :: input_layer_type
+     integer :: index = 1
      integer :: num_outputs
      !  real(real32), allocatable, dimension(:,:) :: output
    contains
@@ -30,9 +31,12 @@ module input_layer
   end type input_layer_type
 
   interface input_layer_type
-     module function layer_setup(input_shape, batch_size, verbose) result(layer)
+     module function layer_setup( &
+          input_shape, batch_size, index, verbose &
+     ) result(layer)
        integer, dimension(:), optional, intent(in) :: input_shape
        integer, optional, intent(in) :: batch_size
+       integer, optional, intent(in) :: index
        integer, optional, intent(in) :: verbose
        type(input_layer_type) :: layer
      end function layer_setup
@@ -83,10 +87,13 @@ contains
 !!! set up layer
 !!!#############################################################################
 #if defined(GFORTRAN)
-  module function layer_setup(input_shape, batch_size, verbose) result(layer)
+  module function layer_setup( &
+       input_shape, batch_size, index, verbose &
+  ) result(layer)
     implicit none
     integer, dimension(:), optional, intent(in) :: input_shape
     integer, optional, intent(in) :: batch_size
+    integer, optional, intent(in) :: index
     integer, optional, intent(in) :: verbose
 
     type(input_layer_type) :: layer
@@ -95,6 +102,7 @@ contains
     implicit none
 #endif
 
+    integer :: index_ = 1
     integer :: verbose_ = 0
 
 
@@ -103,7 +111,8 @@ contains
     !!--------------------------------------------------------------------------
     !! set hyperparameters
     !!--------------------------------------------------------------------------
-    call layer%set_hyperparams(verbose = verbose_)
+    if(present(index)) index_ = index
+    call layer%set_hyperparams(index = index_, verbose = verbose_)
 
 
     !!--------------------------------------------------------------------------
@@ -128,16 +137,18 @@ contains
 !!!#############################################################################
 !!! set hyperparameters
 !!!#############################################################################
-  subroutine set_hyperparams_input(this, input_rank, verbose)
+  subroutine set_hyperparams_input(this, input_rank, index, verbose)
     implicit none
     class(input_layer_type), intent(inout) :: this
     integer, optional, intent(in) :: input_rank
+    integer, optional, intent(in) :: index
     integer, optional, intent(in) :: verbose
 
     this%name = "input"
     this%type = "inpt"
     this%input_rank = 0
     if(present(input_rank)) this%input_rank = input_rank
+    if(present(index)) this%index = index
 
   end subroutine set_hyperparams_input
 !!!#############################################################################
