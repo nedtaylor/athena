@@ -101,7 +101,14 @@ contains
     if(allocated(this%output)) call this%output%set_ptr()
     if(allocated(this%di)) call this%di%set_ptr()
 
+    call this%set_ptrs_hyperparams()
+
   end subroutine set_ptrs
+!!!-----------------------------------------------------------------------------
+  module subroutine set_ptrs_hyperparams(this)
+    implicit none
+    class(base_layer_type), intent(inout), target :: this
+  end subroutine set_ptrs_hyperparams
 !!!#############################################################################
 
 
@@ -425,12 +432,9 @@ end subroutine set_params
 !!!#############################################################################
 !!! set the pointers of the layer
 !!!#############################################################################
-  module subroutine set_ptrs_batch(this)
+  module subroutine set_ptrs_hyperparams_batch(this)
     implicit none
     class(batch_layer_type), intent(inout), target :: this
-
-    if(allocated(this%output)) call this%output%set_ptr()
-    if(allocated(this%di)) call this%di%set_ptr()
 
     if(allocated(this%params))then
        this%gamma(1:this%num_channels) => this%params(1:this%num_channels)
@@ -438,7 +442,7 @@ end subroutine set_params
             this%params(this%num_channels+1:this%num_channels*2)
     end if
 
-  end subroutine set_ptrs_batch
+  end subroutine set_ptrs_hyperparams_batch
 !!!#############################################################################
 
 end submodule base_layer_submodule

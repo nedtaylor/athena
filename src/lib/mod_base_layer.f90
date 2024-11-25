@@ -68,6 +68,7 @@ module base_layer
      procedure(backward), deferred, pass(this) :: backward
      procedure(read_layer), deferred, pass(this) :: read
      procedure, pass(this) :: set_ptrs
+     procedure, pass(this), private :: set_ptrs_hyperparams
      !! NO NEED FOR DEFERRED PRODECURES
      !! instead, make this a generic type that just has a set of interfaces for (module) procedures that call 1D, 3D, and 4D forms
      !! Use subroutines because output data is trickier for function tricker to handle
@@ -117,6 +118,10 @@ module base_layer
      module subroutine set_ptrs(this)
        class(base_layer_type), intent(inout), target :: this
      end subroutine set_ptrs
+
+     module subroutine set_ptrs_hyperparams(this)
+       class(base_layer_type), intent(inout), target :: this
+     end subroutine set_ptrs_hyperparams
   end interface
 
 
@@ -364,7 +369,7 @@ module base_layer
      procedure, pass(this) :: get_num_params => get_num_params_batch
      procedure, pass(this) :: set_gradients => set_gradients_batch
      procedure, pass(this) :: init => init_batch
-     procedure, pass(this) :: set_ptrs => set_ptrs_batch
+     procedure, pass(this) :: set_ptrs_hyperparams => set_ptrs_hyperparams_batch
   end type batch_layer_type
 
 
@@ -398,9 +403,9 @@ module base_layer
        integer, optional, intent(in) :: batch_size
        integer, optional, intent(in) :: verbose
      end subroutine init_batch
-     module subroutine set_ptrs_batch(this)
+     module subroutine set_ptrs_hyperparams_batch(this)
        class(batch_layer_type), intent(inout), target :: this
-     end subroutine set_ptrs_batch
+     end subroutine set_ptrs_hyperparams_batch
   end interface
 
 
