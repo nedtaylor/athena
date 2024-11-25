@@ -204,7 +204,7 @@ contains
           stop 'ERROR: Unrecognised source rank'
        end select
     end if
-    if(.not.present(source).and.present(array_shape)) &
+    if(.not.present(source).and..not.present(array_shape)) &
          stop 'ERROR: No shape or source provided'
     this%shape = shape(this%val_ptr)
     this%size = product(this%shape)
@@ -315,7 +315,7 @@ contains
           stop 'ERROR: Unrecognised source rank'
        end select
     end if
-    if(.not.present(source).and.present(array_shape)) &
+    if(.not.present(source).and..not.present(array_shape)) &
          stop 'ERROR: No shape or source provided'
     this%val_ptr(1:size(this%val, dim=1), 1:size(this%val, dim=2)) => this%val
     this%shape = [ size(this%val, dim=1) ]
@@ -457,7 +457,7 @@ contains
           stop 'ERROR: Unrecognised source rank'
        end select
     end if
-    if(.not.present(source).and.present(array_shape)) &
+    if(.not.present(source).and..not.present(array_shape)) &
          stop 'ERROR: No shape or source provided'
     this%shape = shape(this%val_ptr(:,:,1))
     this%size = product(this%shape)
@@ -619,7 +619,7 @@ contains
           stop 'ERROR: Unrecognised source rank'
        end select
     end if
-    if(.not.present(source).and.present(array_shape)) &
+    if(.not.present(source).and..not.present(array_shape)) &
          stop 'ERROR: No shape or source provided'
     this%shape = shape(this%val_ptr(:,:,:,1))
     this%size = product(this%shape)
@@ -786,7 +786,7 @@ contains
           stop 'ERROR: Unrecognised source rank'
        end select
     end if
-    if(.not.present(source).and.present(array_shape)) &
+    if(.not.present(source).and..not.present(array_shape)) &
          stop 'ERROR: No shape or source provided'
     this%shape = shape(this%val_ptr(:,:,:,:,1))
     this%size = product(this%shape)
