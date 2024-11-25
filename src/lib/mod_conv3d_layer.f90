@@ -17,6 +17,8 @@ module conv3d_layer
      real(real32), allocatable, dimension(:,:,:,:,:) :: z
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_conv3d
+     procedure, pass(this), private :: &
+          set_ptrs_hyperparams => set_ptrs_hyperparams_conv3d
      procedure, pass(this) :: set_batch_size => set_batch_size_conv3d
      procedure, pass(this) :: print => print_conv3d
      procedure, pass(this) :: read => read_conv3d
@@ -402,6 +404,43 @@ contains
     end if
 
   end subroutine set_hyperparams_conv3d
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set the pointers to hyperparameters
+!!!#############################################################################
+  subroutine set_ptrs_hyperparams_conv3d(this)
+   implicit none
+   class(conv3d_layer_type), intent(inout), target :: this
+
+   integer, dimension(this%input_rank-1) :: end_idx
+
+
+   end_idx = this%hlf + (this%cen - 1)
+   if(allocated(this%params))then
+      this%weight( &
+           -this%hlf(1):end_idx(1), &
+           -this%hlf(2):end_idx(2), &
+           -this%hlf(3):end_idx(3), &
+           1:this%num_channels, &
+           1:this%num_filters &
+      ) => this%params(1:this%num_params-this%num_filters)
+      this%bias(1:this%num_filters) => &
+           this%params(this%num_params-this%num_filters+1:)
+   end if
+   if(allocated(this%dp))then
+      this%dw( &
+           lbound(this%weight,1):ubound(this%weight,1), &
+           lbound(this%weight,2):ubound(this%weight,2), &
+           lbound(this%weight,3):ubound(this%weight,3), &
+           1:this%num_channels, &
+           1:this%num_filters, &
+           1:this%batch_size &
+      ) => this%dp(:,:)
+   end if
+
+ end subroutine set_ptrs_hyperparams_conv3d
 !!!#############################################################################
 
 
