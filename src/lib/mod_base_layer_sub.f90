@@ -264,7 +264,7 @@ end subroutine set_params
     if(present(batch_size)) this%batch_size = batch_size
 
 
-    !!-------------------------------------------------------------------------
+    !!--------------------------------------------------------------------------
     !! initialise input shape
     !!--------------------------------------------------------------------------
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
