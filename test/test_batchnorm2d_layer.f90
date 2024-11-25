@@ -47,6 +47,7 @@ program test_batchnorm2d_layer
      moving_mean_initialiser = 'zeros', &
       moving_variance_initialiser = 'zeros' &
      )
+  call bn_layer%set_ptrs()
 
   !! check layer name
   if(.not. bn_layer%name .eq. 'batchnorm2d')then

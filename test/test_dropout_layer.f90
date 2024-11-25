@@ -30,6 +30,7 @@ program test_dropout_layer
        input_shape = [num_inputs], &
        batch_size = 1 &
        )
+  call drop_layer%set_ptrs()
 
   !! check layer name
   if(.not. drop_layer%name .eq. 'dropout')then
@@ -78,6 +79,7 @@ program test_dropout_layer
       input_shape = [num_inputs], &
       batch_size = 1 &
       )
+  call drop_layer%set_ptrs()
   !! run forward pass
   call drop_layer%forward(input_data)
   call drop_layer%get_output(output)

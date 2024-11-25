@@ -21,6 +21,9 @@ program test_batchnorm3d_layer
   integer, allocatable, dimension(:) :: seed
   real, parameter :: max_value = 3.0
 
+  ! interface assignment(=)
+  !    module procedure assign_base
+  ! end interface
 
 !!!-----------------------------------------------------------------------------
 !!! Initialize random number generator with a seed
@@ -47,6 +50,7 @@ program test_batchnorm3d_layer
      moving_mean_initialiser = 'zeros', &
      moving_variance_initialiser = 'zeros' &
      )
+  call bn_layer%set_ptrs()
 
   !! check layer name
   if(.not. bn_layer%name .eq. 'batchnorm3d')then
@@ -276,7 +280,7 @@ program test_batchnorm3d_layer
      stop 1
   end if
 
-  contains
+contains
 
 !!!-----------------------------------------------------------------------------
 !!! compare three layers

@@ -7,7 +7,7 @@ program test_batchnorm1d_layer
   implicit none
 
   class(base_layer_type), allocatable :: bn_layer, bn_layer1, bn_layer2
-  integer, parameter :: width = 8, batch_size = 5
+  integer, parameter :: num_channels = 3, width = 8, batch_size = 5
   real, parameter :: gamma  = 0.5, beta = 0.3
   real, allocatable, dimension(:,:) :: input_data, output, gradient
   real, allocatable, dimension(:) :: output_1d, params1, params2
@@ -32,7 +32,12 @@ program test_batchnorm1d_layer
 !!!-----------------------------------------------------------------------------
 !!! test num_channels and num_inputs
 !!!-----------------------------------------------------------------------------
-  bn_layer = batchnorm1d_layer_type(input_shape=[width], batch_size=batch_size)
+  bn_layer = batchnorm1d_layer_type( &
+       input_shape=[width], &
+       num_channels=num_channels, &
+       batch_size=batch_size &
+  )
+  call bn_layer%set_ptrs()
   select type(bn_layer)
   type is(batchnorm1d_layer_type)
      if(bn_layer%num_channels .ne. width)then

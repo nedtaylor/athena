@@ -37,6 +37,7 @@ program test_dropblock2d_layer
        input_shape = [width, width, num_channels], &
        batch_size = 1 &
        )
+  call db_layer%set_ptrs()
 
   !! check layer name
   if(.not. db_layer%name .eq. 'dropblock2d')then
@@ -90,6 +91,7 @@ program test_dropblock2d_layer
       input_shape = [width, width, num_channels], &
       batch_size = 1 &
       )
+  call db_layer%set_ptrs()
   !! run forward pass
   call db_layer%forward(input_data)
   call db_layer%get_output(output)
