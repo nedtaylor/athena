@@ -28,6 +28,8 @@ module full_layer
      procedure, pass(this) :: read => read_full
      procedure, pass(this) :: set_shape => set_shape_full
      procedure, pass(this) :: set_hyperparams => set_hyperparams_full
+     procedure, pass(this), private :: &
+          set_ptrs_hyperparams => set_ptrs_hyperparams_full
      procedure, pass(this) :: init => init_full
      procedure, pass(this) :: set_batch_size => set_batch_size_full
      
@@ -299,25 +301,19 @@ contains
 
 
 !!!#############################################################################
-!!! setup input layer shape
+!!! set the pointers to hyperparameters
 !!!#############################################################################
-  subroutine set_shape_full(this, input_shape)
-   implicit none
-   class(full_layer_type), intent(inout) :: this
-   integer, dimension(:), intent(in) :: input_shape
+  subroutine set_ptrs_hyperparams_full(this)
+    implicit none
+    class(full_layer_type), intent(inout), target :: this
 
-   !!--------------------------------------------------------------------------
-   !! initialise input shape
-   !!--------------------------------------------------------------------------
-   if(size(input_shape,dim=1).eq.this%input_rank)then
-      this%num_inputs = input_shape(1) + this%num_addit_inputs
-   else
-      this%num_inputs  = product(input_shape) + this%num_addit_inputs
-      !stop "ERROR: invalid size of input_shape in full, expected (1)"
-   end if
-   this%input_shape = [this%num_inputs]
+    if(allocated(this%params)) &
+         this%weight(1:this%num_outputs,1:this%num_inputs+1) => this%params
+    if(allocated(this%dp)) &
+         this%dw(1:this%num_outputs,1:this%num_inputs,1:this%batch_size) => &
+              this%dp
 
- end subroutine set_shape_full
+  end subroutine set_ptrs_hyperparams_full
 !!!#############################################################################
 
 
@@ -347,6 +343,7 @@ contains
     !! initialise number of inputs
     !!--------------------------------------------------------------------------
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
+    this%num_inputs = this%input_shape(1)
     if(allocated(this%output))then
        if(this%output%allocated) call this%output%deallocate()
     end if
@@ -358,6 +355,7 @@ contains
     !!--------------------------------------------------------------------------
     !! allocate weight, weight steps (velocities), output, and activation
     !!--------------------------------------------------------------------------
+    if(allocated(this%params)) deallocate(this%params)
     allocate(this%params(this%num_params), source=0._real32)
 
 
@@ -411,7 +409,7 @@ contains
     !!--------------------------------------------------------------------------
     !! set weights and biases pointers to params array
     !!--------------------------------------------------------------------------
-   this%weight(1:this%num_outputs,1:this%num_inputs+1) => this%params
+    this%weight(1:this%num_outputs,1:this%num_inputs+1) => this%params
 
 
     !!--------------------------------------------------------------------------
