@@ -26,7 +26,6 @@ module full_layer
 
      procedure, pass(this) :: print => print_full
      procedure, pass(this) :: read => read_full
-     procedure, pass(this) :: set_shape => set_shape_full
      procedure, pass(this) :: set_hyperparams => set_hyperparams_full
      procedure, pass(this), private :: &
           set_ptrs_hyperparams => set_ptrs_hyperparams_full
