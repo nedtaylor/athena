@@ -173,20 +173,19 @@ contains
     end if
     select case(this%input_rank)
     case(1)
-       this%output = array1d_type()
+       this%output = array1d_type(this%input_shape)
     case(2)
-       this%output = array2d_type()
+       this%output = array2d_type(this%input_shape)
     case(3)
-       this%output = array3d_type()
+       this%output = array3d_type(this%input_shape)
     case(4)
-       this%output = array4d_type()
+       this%output = array4d_type(this%input_shape)
     case(5)
-       this%output = array5d_type()
+       this%output = array5d_type(this%input_shape)
     case default
        write(0,*) "ERROR: Input layer only supports input ranks 1-5"
        stop "Exiting..."
     end select
-    this%output%shape = this%input_shape
     this%num_outputs = product(this%input_shape)
 
 
