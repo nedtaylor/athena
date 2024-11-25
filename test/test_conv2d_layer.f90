@@ -23,7 +23,7 @@ program test_conv2d_layer
   conv_layer = conv2d_layer_type( &
        num_filters = num_filters, &
        kernel_size = kernel_size &
-       )
+  )
 
   !! check layer name
   if(.not. conv_layer%name .eq. 'conv2d')then
@@ -90,12 +90,14 @@ program test_conv2d_layer
   !! conv2d layer: 3x3 pixel image, 1 channel
   allocate(input_data(3, 3, 1, 1), source = 0.0)
   input_layer = input_layer_type([3,3,1], batch_size=1)
+  call input_layer%set_ptrs()
   conv_layer = conv2d_layer_type( &
        num_filters = 1, &
        kernel_size = 3, &
        activation_function = 'sigmoid' &
-       )
+  )
   call conv_layer%init(input_layer%input_shape, batch_size=1)
+  call conv_layer%set_ptrs()
 
   !! set input data in input_layer
   select type (current => input_layer)
@@ -219,12 +221,14 @@ program test_conv2d_layer
        activation_function = 'sigmoid' &
        )
   call conv_layer1%init(input_layer%input_shape, batch_size=1)
+  call conv_layer1%set_ptrs()
   conv_layer2 = conv2d_layer_type( &
        num_filters = 1, &
        kernel_size = 3, &
        activation_function = 'sigmoid' &
        )
   call conv_layer2%init(input_layer%input_shape, batch_size=1)
+  call conv_layer2%set_ptrs()
   select type(conv_layer1)
   type is(conv2d_layer_type)
      select type(conv_layer2)

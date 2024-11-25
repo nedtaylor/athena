@@ -52,11 +52,12 @@ program test_conv2d_network
   input_data = 0.0
 
   call network%forward(input_data)
-  call network%model(3)%layer%get_output(output)
+  call network%model(network%output_vertices(1))%layer%get_output(output)
 
   if(any(shape(output).ne.[width-4,width-4,num_filters2,1]))then
      success = .false.
-     write(0,*) "conv2d network output shape should be [28,28,32]"
+     write(0,*) "conv2d network output shape should be [3,3,8]"
+     write(0,*) "output shape is ", shape(output)
   end if
 
 
@@ -70,7 +71,7 @@ program test_conv2d_network
   call network%forward(input_data)
   output_reshaped = reshape(output, [(width-4)**2*num_filters2,1])
   call network%backward(output_reshaped)
-  select type(current => network%model(3)%layer)
+  select type(current => network%model(network%output_vertices(1))%layer)
   type is(conv2d_layer_type)
      gradients = current%get_gradients()
      gradients_weight = &
