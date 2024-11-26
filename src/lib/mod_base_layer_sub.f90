@@ -289,6 +289,7 @@ end subroutine set_params
          ) / real(this%stp) &
     ) + 1
     this%num_params = this%get_num_params()
+    if(allocated(this%params)) deallocate(this%params)
     allocate(this%params(this%num_params), source=0._real32)
 
 
