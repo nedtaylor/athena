@@ -83,6 +83,15 @@ module athena
   !! fully connected (dense) layer types
   use full_layer,      only: full_layer_type, read_full_layer
 
+  use custom_types, only: &
+       array_container_type, &
+       array_type, &
+       array1d_type, &
+       array2d_type, &
+       array3d_type, &
+       array4d_type, &
+       array5d_type
+
   implicit none
 
 

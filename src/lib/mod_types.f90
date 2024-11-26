@@ -24,6 +24,7 @@ module custom_types
   public :: activation_type
   public :: initialiser_type
   public :: array_type
+  public :: array_container_type
   public :: array1d_type, array2d_type, array3d_type, array4d_type, array5d_type
 
 
@@ -449,6 +450,10 @@ module custom_types
       type(array5d_type), intent(in) :: input
     end subroutine assign_array5d
   end interface
+
+  type :: array_container_type
+    class(array_type), allocatable :: array
+  end type array_container_type
 
 
   interface assignment (=)
