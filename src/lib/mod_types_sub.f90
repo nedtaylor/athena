@@ -254,6 +254,16 @@ contains
     this%val_ptr(1:this%shape(1)) => this%val
   end subroutine set_ptr_array1d
 
+  module subroutine finalise_array1d(this)
+    implicit none
+    type(array1d_type), intent(inout) :: this
+
+    if(associated(this%val_ptr)) nullify(this%val_ptr)
+    if(allocated(this%val)) deallocate(this%val)
+    if(allocated(this%shape)) deallocate(this%shape)
+  end subroutine finalise_array1d
+
+
 
 
 
@@ -370,6 +380,15 @@ contains
          1:size(this%val, dim=2) &
     ) => this%val
   end subroutine set_ptr_array2d
+
+  module subroutine finalise_array2d(this)
+    implicit none
+    type(array2d_type), intent(inout) :: this
+
+    if(associated(this%val_ptr)) nullify(this%val_ptr)
+    if(allocated(this%val)) deallocate(this%val)
+    if(allocated(this%shape)) deallocate(this%shape)
+  end subroutine finalise_array2d
 
 
 
@@ -531,6 +550,15 @@ contains
          1:size(this%val, dim=2) &
     ) => this%val
   end subroutine set_ptr_array3d
+
+  module subroutine finalise_array3d(this)
+    implicit none
+    type(array3d_type), intent(inout) :: this
+
+    if(associated(this%val_ptr)) nullify(this%val_ptr)
+    if(allocated(this%val)) deallocate(this%val)
+    if(allocated(this%shape)) deallocate(this%shape)
+  end subroutine finalise_array3d
 
 
 
@@ -696,6 +724,15 @@ contains
          1:size(this%val, dim=2) &
     ) => this%val
   end subroutine set_ptr_array4d
+
+  module subroutine finalise_array4d(this)
+    implicit none
+    type(array4d_type), intent(inout) :: this
+
+    if(associated(this%val_ptr)) nullify(this%val_ptr)
+    if(allocated(this%val)) deallocate(this%val)
+    if(allocated(this%shape)) deallocate(this%shape)
+  end subroutine finalise_array4d
 
 
 
@@ -866,5 +903,14 @@ contains
          1:size(this%val, dim=2) &
     ) => this%val
   end subroutine set_ptr_array5d
+
+  module subroutine finalise_array5d(this)
+    implicit none
+    type(array5d_type), intent(inout) :: this
+
+    if(associated(this%val_ptr)) nullify(this%val_ptr)
+    if(allocated(this%val)) deallocate(this%val)
+    if(allocated(this%shape)) deallocate(this%shape)
+  end subroutine finalise_array5d
 
 end submodule custom_types_submodule

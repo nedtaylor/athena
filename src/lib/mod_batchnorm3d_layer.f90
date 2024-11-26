@@ -27,6 +27,8 @@ module batchnorm3d_layer
      procedure, pass(this) :: merge => layer_merge
      procedure :: add_t_t => layer_add  !t = type, r = real, i = int
      generic :: operator(+) => add_t_t !, public
+
+     final :: finalise_batchnorm3d
   end type batchnorm3d_layer_type
 
   
@@ -60,6 +62,25 @@ module batchnorm3d_layer
 
 
 contains
+
+!!!#############################################################################
+!!! finalise layer
+!!!#############################################################################
+  subroutine finalise_batchnorm3d(this)
+    implicit none
+    type(batchnorm3d_layer_type), intent(inout) :: this
+
+    if(associated(this%gamma)) nullify(this%gamma)
+    if(associated(this%beta)) nullify(this%beta)
+    if(allocated(this%mean)) deallocate(this%mean)
+    if(allocated(this%variance)) deallocate(this%variance)
+    if(allocated(this%input_shape)) deallocate(this%input_shape)
+    if(allocated(this%output)) deallocate(this%output)
+    if(allocated(this%di)) deallocate(this%di)
+
+  end subroutine finalise_batchnorm3d
+!!!#############################################################################
+
 
 !!!#############################################################################
 !!! layer reduction

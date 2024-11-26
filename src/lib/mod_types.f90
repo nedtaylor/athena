@@ -242,6 +242,7 @@ module custom_types
      procedure :: allocate => allocate_array1d
      procedure :: deallocate => deallocate_array1d
      procedure :: set_ptr => set_ptr_array1d
+     final :: finalise_array1d
   end type array1d_type
 
   type, extends(array_type) :: array2d_type
@@ -250,6 +251,7 @@ module custom_types
      procedure :: allocate => allocate_array2d
      procedure :: deallocate => deallocate_array2d
      procedure :: set_ptr => set_ptr_array2d
+     final :: finalise_array2d
   end type array2d_type
 
   type, extends(array_type) :: array3d_type
@@ -259,6 +261,7 @@ module custom_types
      procedure :: deallocate => deallocate_array3d
      procedure :: set_ptr => set_ptr_array3d
      procedure, pass(this) :: set => set_array3d
+     final :: finalise_array3d
   end type array3d_type
 
   type, extends(array_type) :: array4d_type
@@ -268,6 +271,7 @@ module custom_types
      procedure :: deallocate => deallocate_array4d
      procedure :: set_ptr => set_ptr_array4d
      procedure, pass(this) :: set => set_array4d
+     final :: finalise_array4d
   end type array4d_type
 
   type, extends(array_type) :: array5d_type
@@ -277,6 +281,7 @@ module custom_types
      procedure :: deallocate => deallocate_array5d
      procedure :: set_ptr => set_ptr_array5d
      procedure, pass(this) :: set => set_array5d
+     final :: finalise_array5d
   end type array5d_type
 
   !! interface for allocating array
@@ -340,6 +345,30 @@ module custom_types
       class(array5d_type), intent(inout) :: this
       logical, intent(in), optional :: keep_shape
     end subroutine deallocate_array5d
+  end interface
+
+  !! interface for finalising array
+  !!----------------------------------------------------------------------------
+  interface
+    module subroutine finalise_array1d(this)
+      type(array1d_type), intent(inout) :: this
+    end subroutine finalise_array1d
+
+    module subroutine finalise_array2d(this)
+      type(array2d_type), intent(inout) :: this
+    end subroutine finalise_array2d
+
+    module subroutine finalise_array3d(this)
+      type(array3d_type), intent(inout) :: this
+    end subroutine finalise_array3d
+
+    module subroutine finalise_array4d(this)
+      type(array4d_type), intent(inout) :: this
+    end subroutine finalise_array4d
+
+    module subroutine finalise_array5d(this)
+      type(array5d_type), intent(inout) :: this
+    end subroutine finalise_array5d
   end interface
 
   !! interface for setting pointers

@@ -30,6 +30,8 @@ module conv1d_layer
      procedure, pass(this) :: merge => layer_merge
      procedure :: add_t_t => layer_add  !t = type, r = real, i = int
      generic :: operator(+) => add_t_t !, public
+
+     final :: finalise_conv1d
   end type conv1d_layer_type
 
   
@@ -65,6 +67,31 @@ module conv1d_layer
 
 
 contains
+
+!!!#############################################################################
+!!! finalise layer
+!!!#############################################################################
+  subroutine finalise_conv1d(this)
+    implicit none
+    type(conv1d_layer_type), intent(inout) :: this
+
+    if(allocated(this%knl)) deallocate(this%knl)
+    if(allocated(this%stp)) deallocate(this%stp)
+    if(allocated(this%hlf)) deallocate(this%hlf)
+    if(allocated(this%pad)) deallocate(this%pad)
+    if(allocated(this%cen)) deallocate(this%cen)
+    
+    if(associated(this%bias)) nullify(this%bias)
+    if(associated(this%weight)) nullify(this%weight)
+    if(associated(this%dw)) nullify(this%dw)
+    if(allocated(this%z)) deallocate(this%z)
+    if(allocated(this%input_shape)) deallocate(this%input_shape)
+    if(allocated(this%output)) deallocate(this%output)
+    if(allocated(this%di)) deallocate(this%di)
+
+  end subroutine finalise_conv1d
+!!!#############################################################################
+
 
 !!!#############################################################################
 !!! layer reduction
