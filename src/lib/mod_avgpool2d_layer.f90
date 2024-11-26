@@ -12,8 +12,6 @@ module avgpool2d_layer
   
   
   type, extends(pool_layer_type) :: avgpool2d_layer_type
-   !   real(real32), allocatable, dimension(:,:,:,:) :: output
-   !   real(real32), allocatable, dimension(:,:,:,:) :: di ! gradient of input (i.e. delta)
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_avgpool2d
      procedure, pass(this) :: init => init_avgpool2d
