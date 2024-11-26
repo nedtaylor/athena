@@ -277,13 +277,22 @@ contains
     !! initialise layer shape
     !!--------------------------------------------------------------------------
     if(present(input_shape))then
-       call layer%init(input_shape=input_shape)
+       if(present(num_channels).or.present(num_inputs))then
+          write(0,*) "ERROR: both input_shape and num_channels/num_inputs present"
+          write(0,*) "These represent the same parameter, so are conflicting"
+          stop 1
+       end if
+       if(size(input_shape).eq.1)then
+          call layer%init(input_shape= [ 1, input_shape ] )
+       else
+          call layer%init(input_shape= input_shape)
+       end if
     elseif(present(num_channels).and.present(num_inputs))then
        call layer%init(input_shape=[num_inputs, num_channels])
     elseif(present(num_channels))then
-       call layer%init(input_shape=[num_channels])
+       call layer%init(input_shape=[1, num_channels])
     elseif(present(num_inputs))then
-       call layer%init(input_shape=[num_inputs])
+       call layer%init(input_shape=[num_inputs, 1])
     end if
 
   end function layer_setup
