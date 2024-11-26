@@ -184,21 +184,71 @@ contains
 !!! get root vertices
 !!!#############################################################################
   module subroutine calculate_output_vertices(this)
-   implicit none
-   class(network_type), intent(inout) :: this
+    implicit none
+    class(network_type), intent(inout) :: this
 
-   integer :: i
+    integer :: i
 
-   if(allocated(this%output_vertices)) deallocate(this%output_vertices)
-   allocate(this%output_vertices(0))
-   do i = 1, this%auto_graph%num_vertices
-      if(all(this%auto_graph%adjacency(i,:).eq.0))then
-         this%output_vertices = [this%output_vertices, i]
-      end if
-   end do
- end subroutine calculate_output_vertices
+    if(allocated(this%output_vertices)) deallocate(this%output_vertices)
+    allocate(this%output_vertices(0))
+    do i = 1, this%auto_graph%num_vertices
+       if(all(this%auto_graph%adjacency(i,:).eq.0))then
+          this%output_vertices = [this%output_vertices, i]
+       end if
+    end do
+  end subroutine calculate_output_vertices
 !!!#############################################################################
 
+
+!!!#############################################################################
+!!! calculate map between layer inputs and outputs (and gradients)
+!!!#############################################################################
+  module subroutine calculate_io_map(this)
+    implicit none
+    class(network_type), intent(inout) :: this
+
+    integer :: i, j, num_inputs, num_outputs
+
+    if(allocated(this%io_map)) deallocate(this%io_map)
+    allocate(this%io_map(this%num_layers,this%num_layers,4), source=0)
+    do i = 1, this%auto_graph%num_vertices
+       num_inputs = 0
+       do j = 1, this%auto_graph%num_vertices
+          if(this%auto_graph%adjacency(i,j).ne.0)then
+             num_inputs = num_inputs + 1
+             this%io_map( &
+                  this%auto_graph%vertex(i)%id, &
+                  this%auto_graph%vertex(j)%id, &
+                  1 &
+             ) = num_inputs
+
+             num_inputs = num_inputs + this%model(this%auto_graph%vertex(i)%id)%layer%output%size - 1
+             this%io_map( &
+                  this%auto_graph%vertex(i)%id, &
+                  this%auto_graph%vertex(j)%id, &
+                  2 &
+             ) = num_inputs
+          end if
+          if(this%auto_graph%adjacency(j,i).ne.0)then
+             num_outputs = maxval(this%io_map(:,i,4)) + 1
+             this%io_map( &
+                  this%auto_graph%vertex(j)%id, &
+                  this%auto_graph%vertex(i)%id, &
+                  3 &
+             ) = num_outputs
+
+             num_outputs = num_outputs + this%model(this%auto_graph%vertex(j)%id)%layer%output%size - 1
+             this%io_map( &
+                  this%auto_graph%vertex(j)%id, &
+                  this%auto_graph%vertex(i)%id, &
+                  4 &
+             ) = num_outputs
+          end if
+       end do
+    end do
+
+  end subroutine calculate_io_map
+!!!#############################################################################
 
 !!!##########################################################################!!!
 !!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
@@ -285,7 +335,7 @@ contains
     implicit none
     class(network_type), intent(inout) :: this
     class(base_layer_type), intent(in) :: layer
-    integer, dimension(:), optional, intent(in) :: input_list !for now, assume all operations are addition. Later on, make it optional rank 2, and 2nd rank is the operation
+    integer, dimension(:), optional, intent(in) :: input_list !for now, assume all operations are concatenation. Later on, make it optional rank 2, and 2nd rank is the operation
     ! in the future, make this a list of base_layer_type and query their id values
     integer, dimension(:), optional, intent(in) :: output_list
 
@@ -849,6 +899,7 @@ contains
     elseif(this%model(1)%layer%batch_size.ne.0)then
        call this%set_batch_size(this%model(1)%layer%batch_size)
     end if
+    call this%calculate_io_map()
 
   end subroutine compile
 !!!#############################################################################

@@ -65,6 +65,7 @@ module network
      procedure(comp_acc_func), nopass, pointer :: get_accuracy => null()
      integer, dimension(:), allocatable :: vertex_order
      integer, dimension(:), allocatable :: root_vertices, output_vertices
+     integer, dimension(:,:,:), allocatable :: io_map
      type(graph_type(directed=.true.)), private :: auto_graph
    contains
      procedure, pass(this) :: print
@@ -85,6 +86,7 @@ module network
      procedure, pass(this), private :: dfs
      procedure, pass(this), private :: calculate_root_vertices
      procedure, pass(this), private :: calculate_output_vertices
+     procedure, pass(this), private :: calculate_io_map
      procedure, pass(this), private :: get_input_autodiff
      procedure, pass(this), private :: get_gradient_autodiff
 
@@ -340,6 +342,14 @@ module network
       module subroutine calculate_output_vertices(this)
         class(network_type), intent(inout) :: this
       end subroutine calculate_output_vertices
+
+     !!-------------------------------------------------------------------------
+     !! calculate map between layer inputs and outputs (and gradients)
+     !!-------------------------------------------------------------------------
+     !! this = (T, in) network type
+      module subroutine calculate_io_map(this)
+        class(network_type), intent(inout) :: this
+      end subroutine calculate_io_map
 
      !!-------------------------------------------------------------------------
      !! get the input of a layer via autodiff
