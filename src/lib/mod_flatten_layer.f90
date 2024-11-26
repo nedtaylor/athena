@@ -17,7 +17,7 @@ module flatten_layer
   
   
   type, extends(base_layer_type) :: flatten_layer_type
-     integer :: num_outputs, num_addit_outputs = 0
+     integer :: num_outputs
      !  real(real32), allocatable, dimension(:,:,:) :: di
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_flatten
@@ -30,11 +30,11 @@ module flatten_layer
   end type flatten_layer_type
 
   interface flatten_layer_type
-     module function layer_setup(input_shape, batch_size, num_addit_outputs, &
+     module function layer_setup(input_shape, batch_size, input_rank, &
           verbose ) result(layer)
        integer, dimension(:), optional, intent(in) :: input_shape
        integer, optional, intent(in) :: batch_size
-       integer, optional, intent(in) :: num_addit_outputs
+       integer, optional, intent(in) :: input_rank
        integer, optional, intent(in) :: verbose
        type(flatten_layer_type) :: layer
      end function layer_setup
@@ -128,17 +128,19 @@ contains
 !!! set up layer
 !!!#############################################################################
   module function layer_setup( &
-         input_shape, batch_size, num_addit_outputs, &
+         input_shape, batch_size, &
+         input_rank, &
          verbose &
   ) result(layer)
     implicit none
     integer, dimension(:), optional, intent(in) :: input_shape
     integer, optional, intent(in) :: batch_size
-    integer, optional, intent(in) :: num_addit_outputs
+    integer, optional, intent(in) :: input_rank
     integer, optional, intent(in) :: verbose
 
     type(flatten_layer_type) :: layer
 
+    integer :: input_rank_ = 0
     integer :: verbose_ = 0
 
 
@@ -147,8 +149,16 @@ contains
     !!--------------------------------------------------------------------------
     !! set hyperparameters
     !!--------------------------------------------------------------------------
-    if(present(num_addit_outputs)) layer%num_addit_outputs = num_addit_outputs
-    call layer%set_hyperparams(layer%num_addit_outputs, verbose_)
+    if(present(input_rank))then
+       input_rank_ = input_rank
+    elseif(present(input_shape))then
+       input_rank_ = size(input_shape)
+    else
+       write(0,*) &
+            "ERROR: input_rank or input_shape must be provided to flatten layer"
+       stop "Exiting..."
+    end if
+    call layer%set_hyperparams(input_rank_, verbose_)
 
     !!--------------------------------------------------------------------------
     !! initialise batch size
@@ -168,19 +178,16 @@ contains
 !!!#############################################################################
 !!! set hyperparameters
 !!!#############################################################################
-  subroutine set_hyperparams_flatten(this, num_addit_outputs, &
+  subroutine set_hyperparams_flatten(this, &
        input_rank, verbose)
     implicit none
     class(flatten_layer_type), intent(inout) :: this
-    integer, intent(in) :: num_addit_outputs
-    integer, optional, intent(in) :: input_rank
+    integer, intent(in) :: input_rank
     integer, optional, intent(in) :: verbose
 
     this%name = "flatten"
     this%type = "flat"
-    this%input_rank = 0
-    if(present(input_rank)) this%input_rank = input_rank
-    this%num_addit_outputs = num_addit_outputs
+    this%input_rank = input_rank
 
   end subroutine set_hyperparams_flatten
 !!!#############################################################################
@@ -255,7 +262,7 @@ contains
        if(.not.allocated(this%output)) this%output = array2d_type()
        if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
        call this%output%allocate(array_shape = [ &
-             (this%num_outputs + this%num_addit_outputs), this%batch_size ], &
+             (this%num_outputs), this%batch_size ], &
              source=0._real32 &
        )
        if(allocated(this%di)) deallocate(this%di)
@@ -313,9 +320,9 @@ contains
     integer, optional, intent(in) :: verbose
 
     integer :: stat, verbose_ = 0
-    integer :: itmp1= 0
-    integer :: num_addit_outputs = 0
-    integer, dimension(3) :: input_shape
+    integer :: itmp1 = 0
+    integer :: input_rank = 0
+    integer, dimension(:), allocatable :: input_shape
     character(256) :: buffer, tag
 
 
@@ -348,8 +355,8 @@ contains
       select case(trim(tag))
       case("INPUT_SHAPE")
          call assign_vec(buffer, input_shape, itmp1)
-      case("NUM_ADDIT_OUTPUTS")
-         call assign_val(buffer, num_addit_outputs, itmp1)
+      case("INPUT_RANK")
+         call assign_val(buffer, input_rank, itmp1)
       case default
          !! don't look for "e" due to scientific notation of numbers
          !! ... i.e. exponent (E+00)
@@ -363,9 +370,17 @@ contains
       end select
    end do tag_loop
 
+   if(input_rank.eq.0.and.allocated(input_shape))then
+      input_rank = size(input_shape)
+   else
+      write(0,*) &
+           "ERROR: input_rank or input_shape must be provided to flatten layer"
+      stop "Exiting..."
+   end if
+
    !! set transfer activation function
    call this%set_hyperparams( &
-        num_addit_outputs, &
+        input_rank = input_rank, &
         verbose = verbose_ &
    )
    call this%init(input_shape = input_shape)

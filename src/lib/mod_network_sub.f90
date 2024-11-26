@@ -685,6 +685,67 @@ contains
 
 
 !!!-----------------------------------------------------------------------------
+!!! check for required flatten layers
+!!!-----------------------------------------------------------------------------
+    i = 0
+    vertex_loop: do
+       i = i + 1
+       if(i.gt.this%auto_graph%num_vertices) exit vertex_loop
+       id = this%auto_graph%vertex(i)%id
+
+! NEED AN if(allocated()) STATEMENT FOR output%shape?
+
+       ! get all child vertices
+       allocate(child_vertices(0))
+       do j = 1, size(this%auto_graph%adjacency(i,:))
+          if(this%auto_graph%adjacency(i,j).eq.0) cycle
+          child_vertices = [child_vertices, j]
+       end do
+       child_loop: do j = 1, size(child_vertices)
+          child_id = this%auto_graph%vertex(child_vertices(j))%id
+          if(trim(this%model(id)%name).eq."flat") cycle child_loop
+          if( this%model(id)%layer%input_rank .eq. &
+               this%model(child_id)%layer%input_rank ) cycle child_loop
+
+          ! get all parent vertices of the child vertex
+          if(allocated(parent_vertices)) deallocate(parent_vertices)
+          allocate(parent_vertices(0))
+          l_flatten_child = .true.
+          do k = 1, size(this%auto_graph%adjacency(:,child_vertices(j)))
+             if(this%auto_graph%adjacency(k,child_vertices(j)).eq.0) cycle
+             parent_id = this%auto_graph%vertex(k)%id
+             parent_vertices = [parent_vertices, k]
+             !check if ranks match, rather than input and output shapes
+             if( this%model(id)%layer%input_rank .ne. &
+                  this%model(parent_id)%layer%input_rank ) l_flatten_child = .false.
+          end do
+          t_flatten_layer = flatten_layer_type( &
+               input_rank = this%model(id)%layer%input_rank &
+          )
+
+          if(l_flatten_child)then
+             ! add flatten layer in the place of the child layer
+             call this%auto_graph%remove_edges(indices=[this%auto_graph%adjacency(parent_vertices(:),child_vertices(j))])
+             call this%add(t_flatten_layer, input_list=[parent_vertices(:)], output_list=[child_id])
+          else
+             ! add flatten layer between the current layer and the child layer
+             call this%auto_graph%remove_edges(indices=[this%auto_graph%adjacency(i,child_vertices(j))])
+             call this%add(t_flatten_layer, input_list=[i], output_list=[child_id])
+          end if
+          deallocate(t_flatten_layer)
+          deallocate(child_vertices)
+          cycle vertex_loop
+       end do child_loop
+       deallocate(child_vertices)
+    end do vertex_loop
+    call this%generate_vertex_order()
+    
+    !! update number of layers
+    !!--------------------------------------------------------------------------
+    this%num_layers = size(this%model,dim=1)
+
+
+!!!-----------------------------------------------------------------------------
 !!! initialise layers
 !!!-----------------------------------------------------------------------------
     call this%generate_vertex_order()
@@ -729,76 +790,17 @@ contains
     end do
 
 
-!!!-----------------------------------------------------------------------------
-!!! check for required flatten layers
-!!!-----------------------------------------------------------------------------
-    i = 0
-    vertex_loop: do
-       i = i + 1
-       if(i.gt.this%auto_graph%num_vertices) exit vertex_loop
-       id = this%auto_graph%vertex(i)%id
-
-! NEED AN if(allocated()) STATEMENT FOR output%shape?
-
-       ! get all child vertices
-       allocate(child_vertices(0))
-       do j = 1, size(this%auto_graph%adjacency(i,:))
-          if(this%auto_graph%adjacency(i,j).eq.0) cycle
-          child_vertices = [child_vertices, j]
-       end do
-      !  write(*,*) "layer ", id, " has ", size(child_vertices), " children with ids ", child_vertices
-       child_loop: do j = 1, size(child_vertices)
-          child_id = this%auto_graph%vertex(child_vertices(j))%id
-          if(trim(this%model(id)%name).eq."flat") cycle child_loop
-          if( this%model(id)%layer%input_rank .eq. &
-               this%model(child_id)%layer%input_rank ) cycle child_loop
-
-          ! get all parent vertices of the child vertex
-          if(allocated(parent_vertices)) deallocate(parent_vertices)
-          allocate(parent_vertices(0))
-          l_flatten_child = .true.
-          do k = 1, size(this%auto_graph%adjacency(:,child_vertices(j)))
-             if(this%auto_graph%adjacency(k,child_vertices(j)).eq.0) cycle
-             parent_id = this%auto_graph%vertex(k)%id
-             parent_vertices = [parent_vertices, k]
-             !check if ranks match, rather than input and output shapes
-             if( this%model(id)%layer%input_rank .ne. &
-                  this%model(parent_id)%layer%input_rank ) l_flatten_child = .false.
-          end do
-          t_flatten_layer = flatten_layer_type(&
-               input_shape = this%model(id)%layer%output%shape, &
-               batch_size = this%batch_size &
-          )
-
-          if(l_flatten_child)then
-             ! add flatten layer in the place of the child layer
-             call this%auto_graph%remove_edges(indices=[this%auto_graph%adjacency(parent_vertices(:),child_vertices(j))])
-             call this%add(t_flatten_layer, input_list=[parent_vertices(:)], output_list=[child_id])
-          else
-             ! add flatten layer between the current layer and the child layer
-             call this%auto_graph%remove_edges(indices=[this%auto_graph%adjacency(i,child_vertices(j))])
-             call this%add(t_flatten_layer, input_list=[i], output_list=[child_id])
-          end if
-          deallocate(t_flatten_layer)
-          deallocate(child_vertices)
-          cycle vertex_loop
-       end do child_loop
-       deallocate(child_vertices)
-    end do vertex_loop
-    call this%generate_vertex_order()
-    
-    !! update number of layers
-    !!--------------------------------------------------------------------------
-    this%num_layers = size(this%model,dim=1)
-
-
     !! set number of outputs
     !!--------------------------------------------------------------------------
     this%num_outputs = 0
     call this%calculate_output_vertices()
     do i = 1, size(this%output_vertices,1)
        this%num_outputs = this%num_outputs + &
-            product(this%model(this%auto_graph%vertex(this%output_vertices(i))%id)%layer%output%shape)
+            product( &
+                 this%model( &
+                      this%auto_graph%vertex(this%output_vertices(i))%id &
+                 )%layer%output%shape &
+            )
     end do
 
 
@@ -1081,16 +1083,16 @@ contains
     do i = 1, this%auto_graph%num_vertices
        if(this%auto_graph%adjacency(i,idx).ne.0)then
           select case( &
-                 this%auto_graph%edge( &
-                      this%auto_graph%adjacency( &
-                           i, &
-                           idx &
-                      ) &
-                 )%id &
+               this%auto_graph%edge( &
+                    this%auto_graph%adjacency( &
+                         i, &
+                         idx &
+                    ) &
+               )%id &
           )
           case(1)
-            input = input + &
-                 this%model(this%auto_graph%vertex(i)%id)%layer%output%val
+             input = input + &
+                  this%model(this%auto_graph%vertex(i)%id)%layer%output%val
           end select
        end if
     end do
