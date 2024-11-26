@@ -34,7 +34,6 @@ program test_batchnorm1d_layer
 !!!-----------------------------------------------------------------------------
   bn_layer = batchnorm1d_layer_type( &
        input_shape=[width], &
-       num_channels=num_channels, &
        batch_size=batch_size &
   )
   call bn_layer%set_ptrs()
@@ -48,18 +47,22 @@ program test_batchnorm1d_layer
   if(.not.allocated(bn_layer%input_shape))then
     success = .false.
     write(0,*) 'batchnorm1d input_shape is not allocated'
-  elseif(size(bn_layer%input_shape) .ne. 1)then
+  elseif(size(bn_layer%input_shape) .ne. 2)then
     success = .false.
     write(0,*) 'batchnorm1d layer has wrong input_shape size'
-  elseif(bn_layer%input_shape(1) .ne. width)then
+  elseif(bn_layer%input_shape(2) .ne. width)then
     success = .false.
     write(0,*) 'batchnorm1d layer has wrong input_shape'
   end if
   deallocate(bn_layer)
-  bn_layer = batchnorm1d_layer_type(num_inputs=width, batch_size=batch_size)
+  bn_layer = batchnorm1d_layer_type( &
+       num_inputs=width, &
+       num_channels=num_channels, &
+       batch_size=batch_size &
+  )
   select type(bn_layer)
   type is(batchnorm1d_layer_type)
-     if(bn_layer%num_channels .ne. width)then
+     if(bn_layer%num_channels .ne. num_channels)then
        success = .false.
        write(0,*) 'batchnorm1d layer has wrong num_channels'
      end if
@@ -67,7 +70,7 @@ program test_batchnorm1d_layer
   if(.not.allocated(bn_layer%input_shape))then
     success = .false.
     write(0,*) 'batchnorm1d input_shape is not allocated'
-  elseif(size(bn_layer%input_shape) .ne. 1)then
+  elseif(size(bn_layer%input_shape) .ne. 2)then
     success = .false.
     write(0,*) 'batchnorm1d layer has wrong input_shape size'
   elseif(bn_layer%input_shape(1) .ne. width)then
@@ -75,10 +78,14 @@ program test_batchnorm1d_layer
     write(0,*) 'batchnorm1d layer has wrong input_shape'
   end if
   deallocate(bn_layer)
-  bn_layer = batchnorm1d_layer_type(num_channels=width, batch_size=batch_size)
+  bn_layer = batchnorm1d_layer_type( &
+       num_inputs=width, &
+       num_channels=num_channels, &
+       batch_size=batch_size &
+  )
   select type(bn_layer)
   type is(batchnorm1d_layer_type)
-     if(bn_layer%num_channels .ne. width)then
+     if(bn_layer%num_channels .ne. num_channels)then
        success = .false.
        write(0,*) 'batchnorm1d layer has wrong num_channels'
      end if
@@ -86,7 +93,7 @@ program test_batchnorm1d_layer
   if(.not.allocated(bn_layer%input_shape))then
     success = .false.
     write(0,*) 'batchnorm1d input_shape is not allocated'
-  elseif(size(bn_layer%input_shape) .ne. 1)then
+  elseif(size(bn_layer%input_shape) .ne. 2)then
     success = .false.
     write(0,*) 'batchnorm1d layer has wrong input_shape size'
   elseif(bn_layer%input_shape(1) .ne. width)then
@@ -113,6 +120,7 @@ program test_batchnorm1d_layer
      moving_mean_initialiser = 'zeros', &
       moving_variance_initialiser = 'zeros' &
      )
+  call bn_layer%set_ptrs()
 
   !! check layer name
   if(.not. bn_layer%name .eq. 'batchnorm1d')then
@@ -124,7 +132,7 @@ program test_batchnorm1d_layer
   select type(bn_layer)
   type is(batchnorm1d_layer_type)
     !! check input shape
-    if(any(bn_layer%input_shape .ne. [width]))then
+    if(any(bn_layer%input_shape .ne. [1, width]))then
       success = .false.
       write(0,*) 'batchnorm1d layer has wrong input_shape'
     end if
@@ -282,8 +290,14 @@ program test_batchnorm1d_layer
 !!!-----------------------------------------------------------------------------
 !!! check layer operations
 !!!-----------------------------------------------------------------------------
-  bn_layer1 = batchnorm1d_layer_type(input_shape=[2], batch_size=1)
-  bn_layer2 = batchnorm1d_layer_type(input_shape=[2], batch_size=1)
+  bn_layer1 = batchnorm1d_layer_type( &
+       input_shape=[2], &
+       batch_size=1 &
+  )
+  bn_layer2 = batchnorm1d_layer_type( &
+       input_shape=[2], &
+       batch_size=1 &
+  )
   select type(bn_layer1)
   type is(batchnorm1d_layer_type)
      bn_layer1%dp = 1.E0
