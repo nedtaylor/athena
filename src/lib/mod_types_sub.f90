@@ -248,7 +248,8 @@ contains
     class(array1d_type), intent(inout), target :: this
 
     if(.not. this%allocated)then
-       stop 'ERROR: Array not allocated'
+       write(0,*) 'ERROR: Array not allocated'
+       stop 1
     end if
     this%val_ptr(1:this%shape(1)) => this%val
   end subroutine set_ptr_array1d
@@ -361,7 +362,8 @@ contains
     class(array2d_type), intent(inout), target :: this
 
     if(.not. this%allocated)then
-       stop 'ERROR: Array not allocated'
+       write(0,*) 'ERROR: Array not allocated'
+       stop 1
     end if
     this%val_ptr( &
          1:this%shape(1), &
@@ -520,7 +522,8 @@ contains
     class(array3d_type), intent(inout), target :: this
 
     if(.not. this%allocated)then
-       stop 'ERROR: Array not allocated'
+       write(0,*) 'ERROR: Array not allocated'
+       stop 1
     end if
     this%val_ptr( &
          1:this%shape(1), &
@@ -683,7 +686,8 @@ contains
     class(array4d_type), intent(inout), target :: this
 
     if(.not. this%allocated)then
-       stop 'ERROR: Array not allocated'
+       write(0,*) 'ERROR: Array not allocated'
+       stop 1
     end if
     this%val_ptr( &
          1:this%shape(1), &
@@ -851,7 +855,8 @@ contains
     class(array5d_type), intent(inout), target :: this
 
     if(.not. this%allocated)then
-       stop 'ERROR: Array not allocated'
+       write(0,*) 'ERROR: Array not allocated'
+       stop 1
     end if
     this%val_ptr( &
          1:this%shape(1), &
