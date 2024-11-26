@@ -267,7 +267,7 @@ module network
      module subroutine test(this, input, output, &
           verbose)
        class(network_type), intent(inout) :: this
-       real(real32), dimension(..), intent(in) :: input
+       class(*), dimension(..), intent(in) :: input
        class(*), dimension(:,:), intent(in) :: output
        integer, optional, intent(in) :: verbose
      end subroutine test

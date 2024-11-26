@@ -1385,6 +1385,153 @@ contains
 
 
 !!!#############################################################################
+!!! 
+!!!#############################################################################
+  subroutine convert_polymorphic_to_array2d(input, output, num_samples, num_input_layers)
+    implicit none
+    class(*), dimension(..), intent(in) :: input
+    type(array2d_type), dimension(:), allocatable, intent(out) :: output
+    integer, intent(out) :: num_samples
+    integer, intent(in) :: num_input_layers
+
+    integer :: i, input_rank, num_inputs
+
+    !! Determine the rank of the input
+    select rank(input)
+    rank(0)
+    rank(1)
+    rank default
+       input_rank = rank(input)
+       num_inputs = size(input) / num_samples
+       num_samples = size(input, input_rank)
+       allocate(output(1))
+       call output(1)%allocate(array_shape=[num_inputs, num_samples])
+    end select
+
+    !! Process input based on its rank
+    select rank(input)
+    rank(0)
+       select type(input)
+       type is(real)
+          write(0, *) "Cannot check number of samples in rank 1 input"
+          stop "Exiting..."
+       end select
+       if(num_input_layers.ne.1)then
+          write(0,*) "&
+               &ERROR: number of input arrays does not match expected &
+               &number of input layers"
+          stop "Exiting..."
+       end if
+       allocate(output(1))
+       num_samples = get_num_samples(input)
+       select type(input)
+       class is(array_type)
+          call handle_rank0(input, output(i), num_samples)
+       type is(array_container_type)
+          call handle_rank0(input%array, output(i), num_samples)
+       end select
+    rank(1)
+       select type(input)
+       type is(real)
+          write(0, *) "Cannot check number of samples in rank 1 input"
+          stop "Exiting..."
+       end select
+       if(size(input,1).ne.num_input_layers)then
+          write(0,*) "&
+               &ERROR: number of input arrays does not match expected &
+               &number of input layers"
+          stop "Exiting..."
+       end if
+       allocate(output(size(input,1)))
+       num_samples = get_num_samples(input(1))
+       do i = 1, size(input,1)
+          select type(input)
+          class is(array_type)
+             call handle_rank0(input(i), output(i), num_samples)
+          type is(array_container_type)
+             call handle_rank0(input(i)%array, output(i), num_samples)
+          end select
+       end do
+    rank(2)
+       select type(input)
+       type is(real)
+           output(1)%val = reshape(input, [num_inputs, num_samples])
+       class default
+          write(0, *) "ERROR: Unknown input type for rank ", input_rank
+          stop "Exiting..."
+       end select
+    rank(3)
+       select type(input)
+       type is(real)
+           output(1)%val = reshape(input, [num_inputs, num_samples])
+       class default
+          write(0, *) "ERROR: Unknown input type for rank ", input_rank
+          stop "Exiting..."
+       end select
+    rank(4)
+       select type(input)
+       type is(real)
+           output(1)%val = reshape(input, [num_inputs, num_samples])
+       class default
+          write(0, *) "ERROR: Unknown input type for rank ", input_rank
+          stop "Exiting..."
+       end select
+    rank(5)
+       select type(input)
+       type is(real)
+           output(1)%val = reshape(input, [num_inputs, num_samples])
+       class default
+          write(0, *) "ERROR: Unknown input type for rank ", input_rank
+          stop "Exiting..."
+       end select
+    end select
+
+  contains
+
+    function get_num_samples(input) result(num_samples)
+      class(*), intent(in) :: input
+      integer :: num_samples
+
+      select type(input)
+      type is(real)
+          num_samples = 1
+      class is(array_type)
+          num_samples = size(input%val, 2)
+      class is(array_container_type)
+          num_samples = size(input%array%val, 2)
+      class default
+          write(0, *) "ERROR: Unknown input type in get_num_samples"
+          stop "Exiting..."
+      end select
+    end function get_num_samples
+
+
+    subroutine handle_rank0(input, output, num_samples)
+      class(array_type), intent(in) :: input
+      type(array2d_type), intent(out) :: output
+      integer, intent(in) :: num_samples
+
+      if(size(input%val,2).ne.num_samples)then
+         write(0,*) &
+              "ERROR: number of samples in input arrays do not match"
+         stop "Exiting..."
+      end if
+      call output%allocate( array_shape = &
+           [ product(input%shape(1:input%rank)), num_samples ] &
+      )
+      output%val = input%val
+    end subroutine handle_rank0
+
+  end subroutine convert_polymorphic_to_array2d
+!!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
+
+!!!#############################################################################
 !!! training loop
 !!! ... loops over num_epoch number of epochs
 !!! ... i.e. it trains on the same datapoints num_epoch times
@@ -1484,170 +1631,9 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! get number of samples
 !!!-----------------------------------------------------------------------------
-    select rank(input)
-    rank(0)
-       select type(input)
-       type is(real)
-          write(*,*) "Cannot check number of samples in rank 0 input"
-          stop "Exiting..."
-       class is(array_type)
-          if(size(this%root_vertices,1).ne.1)then
-             write(0,*) "&
-                  &ERROR: number of input arrays does not match expected &
-                  &number of input layers"
-             stop "Exiting..."
-          end if
-          num_samples = size(input%val, 2)
-          allocate(input_(1))
-          call input_(1)%allocate( array_shape = &
-               [ product(input%shape(1:input%rank)), num_samples ] &
-          )
-          input_(1)%val = input%val
-       type is(array_container_type)
-          if(size(this%root_vertices,1).ne.1)then
-             write(0,*) "&
-                  &ERROR: number of input arrays does not match expected &
-                  &number of input layers"
-             stop "Exiting..."
-          end if
-          num_samples = size(input%array%val, 2)
-          allocate(input_(1))
-          call input_(1)%allocate( array_shape = &
-               [ product(input%array%shape(1:input%array%rank)), num_samples ] &
-          )
-          input_(1)%val = input%array%val
-       end select
-    rank(1)
-       select type(input)
-       type is(real)
-          write(*,*) "Cannot check number of samples in rank 1 input"
-          stop "Exiting..."
-       class is(array_type)
-          if(size(input,1).ne.size(this%root_vertices,1))then
-             write(0,*) "&
-                  &ERROR: number of input arrays does not match expected &
-                  &number of input layers"
-             stop "Exiting..."
-          end if
-          num_samples = size( input(1)%val, dim = 2 )
-          allocate(input_(size(input, dim = 1)))
-          do i = 1, size(input, dim = 1)
-             if(size(input(i)%val,2).ne.num_samples)then
-                write(0,*) i, input(i)%val, size(input(i)%val,2), num_samples
-                write(0,*) &
-                     "ERROR: number of samples in input arrays do not match"
-                stop "Exiting..."
-             end if
-             call input_(i)%allocate( array_shape = &
-                  [ product(input(i)%shape(1:input(i)%rank)), num_samples ] &
-             )
-             input_(i)%val = input(i)%val
-          end do
-       type is(array_container_type)
-          if(size(input,1).ne.size(this%root_vertices,1))then
-             write(0,*) "&
-                  &ERROR: number of input arrays does not match expected &
-                  &number of input layers"
-             stop "Exiting..."
-          end if
-          num_samples = size( input(1)%array%val, dim = 2 )
-          allocate(input_(size(input, dim = 1)))
-          do i = 1, size(input, dim = 1)
-             if(size(input(i)%array%val,2).ne.num_samples)then
-                write(0,*) &
-                     "ERROR: number of samples in input arrays do not match"
-                stop "Exiting..."
-             end if
-             call input_(i)%allocate( array_shape = &
-                  [ product(input(i)%array%shape(1:input(i)%array%rank)), num_samples ] &
-             )
-             input_(i)%val = input(i)%array%val
-          end do
-       end select
-    rank(2)
-       select type(input)
-       class is(array_type)
-          write(0,*) "&
-               &ERROR: rank of input with class array_type cannot exceed 1"
-          stop "Exiting..."
-       class is(array_container_type)
-          write(0,*) "&
-                &ERROR: rank of input with class array_container_type cannot exceed 1"
-          stop "Exiting..."
-       end select
-       num_samples = size(input,rank(input))
-       allocate(input_(1))
-       call input_(1)%allocate(source = input)
-    rank(3)
-       select type(input)
-       class is(array_type)
-          write(0,*) "&
-               &ERROR: rank of input with class array_type cannot exceed 1"
-          stop "Exiting..."
-       class is(array_container_type)
-          write(0,*) "&
-                &ERROR: rank of input with class array_container_type cannot exceed 1"
-          stop "Exiting..."
-       type is(real)
-          num_samples = size(input,rank(input))
-          allocate(input_(1))
-          call input_(1)%allocate( array_shape = &
-               [ size(input(:,:,1)), num_samples ] &
-          )
-          input_(1)%val = &
-               reshape(input,[ size(input(:,:,1)), num_samples ])
-       class default
-          write(0,*) "ERROR: Unknown input type"
-          stop "Exiting..."
-       end select
-    rank(4)
-       select type(input)
-       class is(array_type)
-          write(0,*) "&
-               &ERROR: rank of input with class array_type cannot exceed 1"
-          stop "Exiting..."
-       class is(array_container_type)
-          write(0,*) "&
-                &ERROR: rank of input with class array_container_type cannot exceed 1"
-          stop "Exiting..."
-       type is(real)
-          num_samples = size(input,rank(input))
-          allocate(input_(1))
-          call input_(1)%allocate( array_shape = &
-               [ size(input(:,:,:,1)), num_samples ] &
-          )
-          input_(1)%val = &
-               reshape(input,[ size(input(:,:,:,1)), num_samples ])
-       class default
-          write(0,*) "ERROR: Unknown input type"
-          stop "Exiting..."
-       end select
-    rank(5)
-       select type(input)
-       class is(array_type)
-          write(0,*) "&
-               &ERROR: rank of input with class array_type cannot exceed 1"
-          stop "Exiting..."
-       class is(array_container_type)
-          write(0,*) "&
-                &ERROR: rank of input with class array_container_type cannot exceed 1"
-          stop "Exiting..."
-       type is(real)
-          num_samples = size(input,rank(input))
-          allocate(input_(1))
-          call input_(1)%allocate( array_shape = &
-               [ size(input(:,:,:,:,1)), num_samples ] &
-          )
-          input_(1)%val = &
-               reshape(input,[ size(input(:,:,:,:,1)), num_samples ])
-       class default
-          write(0,*) "ERROR: Unknown input type"
-          stop "Exiting..."
-       end select
-    rank default
-       write(0,*) "ERROR: rank of input exceeds 5"
-       stop "Exiting..."
-    end select
+    call convert_polymorphic_to_array2d( &
+         input, input_, num_samples, size(this%root_vertices,1) &
+    )
     if(size(output,2).ne.num_samples)then
        write(0,*) "ERROR: number of samples in input and output do not match"
        stop "Exiting..."
@@ -1816,11 +1802,12 @@ contains
        verbose)
     implicit none
     class(network_type), intent(inout) :: this
-    real(real32), dimension(..), intent(in) :: input
+    class(*), dimension(..), intent(in) :: input
     class(*), dimension(:,:), intent(in) :: output
 
 
     integer, optional, intent(in) :: verbose
+    type(array2d_type), dimension(:), allocatable :: input_
 
     integer :: l, sample, num_samples
     integer :: verbose_, unit
@@ -1845,6 +1832,10 @@ contains
     loss_val = 0._real32
     allocate(accuracy_list(num_samples))
 
+
+    call convert_polymorphic_to_array2d( &
+         input, input_, num_samples, size(this%root_vertices,1) &
+    )
 
     select type(output)
     type is(integer)
@@ -1878,7 +1869,7 @@ contains
 
        !! Forward pass
        !!-----------------------------------------------------------------------
-       call this%forward(get_sample(input,sample,sample))
+       call this%forward(get_sample_derived(input_,sample,sample))
 
 
        !! compute loss and accuracy (for monitoring)

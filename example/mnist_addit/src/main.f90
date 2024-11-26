@@ -18,7 +18,7 @@ program mnist_example
 
   !! data loading and preoprocessing
   real(real32), allocatable, dimension(:,:,:,:) :: input_images, test_images
-  class(array_container_type), allocatable, dimension(:) :: input_container
+  class(array_container_type), allocatable, dimension(:) :: input_container, test_container
   integer, allocatable, dimension(:) :: labels, test_labels
   integer, allocatable, dimension(:,:) :: input_labels
   character(1024) :: train_file, test_file
@@ -103,7 +103,6 @@ program mnist_example
   else
      write(6,*) "Initialising CNN..."
 
-     write(*,*) "test0"
      call network%add(conv2d_layer_type( &
            input_shape = [image_size,image_size,input_channels], &
            num_filters = cv_num_filters, kernel_size = 3, stride = 1, &
@@ -111,10 +110,8 @@ program mnist_example
            calc_input_gradients = .false., &
            activation_function = "relu" &
            ))
-     write(*,*) "test1"
      call network%add(maxpool2d_layer_type(&
            pool_size = 2, stride = 2))
-     write(*,*) "test2"
      call network%add(input_layer_type(input_shape=[2], index=2))
      call network%add(full_layer_type( &
            num_outputs = 100, &
@@ -129,7 +126,6 @@ program mnist_example
            bias_initialiser = "glorot_uniform" &
            ))
   end if
-  write(*,*) "starting compilation"
 
   call network%compile(optimiser=optimiser, &
        loss_method=loss_method, accuracy_method=accuracy_method, &
@@ -180,9 +176,14 @@ program mnist_example
   do i=1,num_samples_test
      input_labels(test_labels(i),i) = 1
   end do
+  allocate(test_container(2))
+  allocate(test_container(1)%array, source = array4d_type())
+  allocate(test_container(2)%array, source = array2d_type())
+  call test_container(1)%array%allocate(source = test_images)
+  call test_container(2)%array%allocate(array_shape=[2,num_samples_test], source = 1._real32)
 
   write(*,*) "Starting testing..."
-  call network%test(test_images,input_labels)
+  call network%test(test_container,input_labels)
   write(*,*) "Testing finished"
   write(6,'("Overall accuracy=",F0.5)') network%accuracy
   write(6,'("Overall loss=",F0.5)')     network%loss
