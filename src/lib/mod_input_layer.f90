@@ -182,17 +182,17 @@ contains
     if(allocated(this%output))then
        if(this%output%allocated) call this%output%deallocate()
     end if
-    select case(this%input_rank)
+    select case(this%input_rank + 1)
     case(1)
-       this%output = array1d_type(this%input_shape)
+       this%output = array1d_type([ this%input_shape, max(1, this%batch_size) ])
     case(2)
-       this%output = array2d_type(this%input_shape)
+       this%output = array2d_type([ this%input_shape, max(1, this%batch_size) ])
     case(3)
-       this%output = array3d_type(this%input_shape)
+       this%output = array3d_type([ this%input_shape, max(1, this%batch_size) ])
     case(4)
-       this%output = array4d_type(this%input_shape)
+       this%output = array4d_type([ this%input_shape, max(1, this%batch_size) ])
     case(5)
-       this%output = array5d_type(this%input_shape)
+       this%output = array5d_type([ this%input_shape, max(1, this%batch_size) ])
     case default
        write(0,*) "ERROR: Input layer only supports input ranks 1-5"
        stop "Exiting..."
