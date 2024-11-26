@@ -1395,6 +1395,7 @@ contains
     integer, intent(in) :: num_input_layers
 
     integer :: i, input_rank, num_inputs
+    logical :: l_valid_rank_type
 
     !! Determine the rank of the input
     select rank(input)
@@ -1407,84 +1408,80 @@ contains
        allocate(output(1))
        call output(1)%allocate(array_shape=[num_inputs, num_samples])
     end select
+    l_valid_rank_type = .false.
 
     !! Process input based on its rank
-    select rank(input)
+    rank_select: select rank(input)
     rank(0)
        select type(input)
-       type is(real)
-          write(0, *) "Cannot check number of samples in rank 1 input"
-          stop "Exiting..."
+       type is(real); exit rank_select
+       class default; l_valid_rank_type = .true.
        end select
        if(num_input_layers.ne.1)then
           write(0,*) "&
                &ERROR: number of input arrays does not match expected &
                &number of input layers"
-          stop "Exiting..."
+          stop 1
        end if
        allocate(output(1))
        num_samples = get_num_samples(input)
        select type(input)
        class is(array_type)
-          call handle_rank0(input, output(i), num_samples)
+          call handle_array_type(input, output(i), num_samples)
        type is(array_container_type)
-          call handle_rank0(input%array, output(i), num_samples)
+          call handle_array_type(input%array, output(i), num_samples)
        end select
     rank(1)
        select type(input)
-       type is(real)
-          write(0, *) "Cannot check number of samples in rank 1 input"
-          stop "Exiting..."
+       type is(real); exit rank_select
+       class default; l_valid_rank_type = .true.
        end select
        if(size(input,1).ne.num_input_layers)then
           write(0,*) "&
                &ERROR: number of input arrays does not match expected &
                &number of input layers"
-          stop "Exiting..."
+          stop 1
        end if
        allocate(output(size(input,1)))
        num_samples = get_num_samples(input(1))
        do i = 1, size(input,1)
           select type(input)
           class is(array_type)
-             call handle_rank0(input(i), output(i), num_samples)
+             call handle_array_type(input(i), output(i), num_samples)
           type is(array_container_type)
-             call handle_rank0(input(i)%array, output(i), num_samples)
+             call handle_array_type(input(i)%array, output(i), num_samples)
           end select
        end do
     rank(2)
        select type(input)
        type is(real)
-           output(1)%val = reshape(input, [num_inputs, num_samples])
-       class default
-          write(0, *) "ERROR: Unknown input type for rank ", input_rank
-          stop "Exiting..."
+          output(1)%val = reshape(input, [num_inputs, num_samples])
+          l_valid_rank_type = .true.
        end select
     rank(3)
        select type(input)
        type is(real)
-           output(1)%val = reshape(input, [num_inputs, num_samples])
-       class default
-          write(0, *) "ERROR: Unknown input type for rank ", input_rank
-          stop "Exiting..."
+          output(1)%val = reshape(input, [num_inputs, num_samples])
+          l_valid_rank_type = .true.
        end select
     rank(4)
        select type(input)
        type is(real)
-           output(1)%val = reshape(input, [num_inputs, num_samples])
-       class default
-          write(0, *) "ERROR: Unknown input type for rank ", input_rank
-          stop "Exiting..."
+          output(1)%val = reshape(input, [num_inputs, num_samples])
+          l_valid_rank_type = .true.
        end select
     rank(5)
        select type(input)
        type is(real)
-           output(1)%val = reshape(input, [num_inputs, num_samples])
-       class default
-          write(0, *) "ERROR: Unknown input type for rank ", input_rank
-          stop "Exiting..."
+          output(1)%val = reshape(input, [num_inputs, num_samples])
+          l_valid_rank_type = .true.
        end select
-    end select
+    end select rank_select
+
+    if(.not.l_valid_rank_type)then
+       write(0, *) "ERROR: Unknown input type for rank ", input_rank
+       stop 1
+    end if
 
   contains
 
@@ -1493,20 +1490,18 @@ contains
       integer :: num_samples
 
       select type(input)
-      type is(real)
-          num_samples = 1
       class is(array_type)
           num_samples = size(input%val, 2)
       class is(array_container_type)
           num_samples = size(input%array%val, 2)
       class default
           write(0, *) "ERROR: Unknown input type in get_num_samples"
-          stop "Exiting..."
+          stop 1
       end select
     end function get_num_samples
 
 
-    subroutine handle_rank0(input, output, num_samples)
+    subroutine handle_array_type(input, output, num_samples)
       class(array_type), intent(in) :: input
       type(array2d_type), intent(out) :: output
       integer, intent(in) :: num_samples
@@ -1514,13 +1509,13 @@ contains
       if(size(input%val,2).ne.num_samples)then
          write(0,*) &
               "ERROR: number of samples in input arrays do not match"
-         stop "Exiting..."
+         stop 1
       end if
       call output%allocate( array_shape = &
            [ product(input%shape(1:input%rank)), num_samples ] &
       )
       output%val = input%val
-    end subroutine handle_rank0
+    end subroutine handle_array_type
 
   end subroutine convert_polymorphic_to_array2d
 !!!#############################################################################
