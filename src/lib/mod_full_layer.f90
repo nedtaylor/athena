@@ -16,7 +16,7 @@ module full_layer
 !!! fully connected network layer type
 !!!-----------------------------------------------------------------------------
   type, extends(learnable_layer_type) :: full_layer_type
-     integer :: num_inputs, num_addit_inputs = 0
+     integer :: num_inputs
      integer :: num_outputs
      real(real32), pointer :: weight(:,:) => null()
      real(real32), pointer :: dw(:,:,:) => null() ! weight gradient
@@ -37,6 +37,7 @@ module full_layer
      procedure, private, pass(this) :: forward_2d
      procedure, private, pass(this) :: backward_2d
 
+
      procedure, pass(this) :: reduce => layer_reduction
      procedure, pass(this) :: merge => layer_merge
      procedure :: add_t_t => layer_add  !t = type, r = real, i = int
@@ -49,11 +50,11 @@ module full_layer
 !!!-----------------------------------------------------------------------------
   interface full_layer_type
      module function layer_setup( &
-          num_outputs, num_inputs, num_addit_inputs, batch_size, &
+          num_outputs, num_inputs, batch_size, &
           activation_function, activation_scale, &
           kernel_initialiser, bias_initialiser) result(layer)
        integer, intent(in) :: num_outputs
-       integer, optional, intent(in) :: num_inputs, num_addit_inputs
+       integer, optional, intent(in) :: num_inputs
        integer, optional, intent(in) :: batch_size
        real(real32), optional, intent(in) :: activation_scale
        character(*), optional, intent(in) :: activation_function, &
@@ -185,13 +186,13 @@ contains
 !!! set up layer
 !!!#############################################################################
   module function layer_setup( &
-       num_outputs, num_inputs, num_addit_inputs, &
+       num_outputs, num_inputs, &
        batch_size, &
        activation_function, activation_scale, &
        kernel_initialiser, bias_initialiser, verbose) result(layer)
     implicit none
     integer, intent(in) :: num_outputs
-    integer, optional, intent(in) :: num_inputs, num_addit_inputs
+    integer, optional, intent(in) :: num_inputs
     integer, optional, intent(in) :: batch_size
     real(real32), optional, intent(in) :: activation_scale
     character(*), optional, intent(in) :: activation_function, &
@@ -201,7 +202,6 @@ contains
     type(full_layer_type) :: layer
 
     integer :: verbose_ = 0
-    integer :: num_addit_inputs_ = 0
     real(real32) :: scale = 1._real32
     character(len=10) :: activation_function_ = "none"
 
@@ -225,9 +225,8 @@ contains
     !!--------------------------------------------------------------------------
     !! set hyperparameters
     !!--------------------------------------------------------------------------
-    if(present(num_addit_inputs)) num_addit_inputs_ = num_addit_inputs
     call layer%set_hyperparams( &
-         num_outputs = num_outputs, num_addit_inputs = num_addit_inputs_, &
+         num_outputs = num_outputs, &
          activation_function = activation_function_, &
          activation_scale = scale, &
          kernel_initialiser = layer%kernel_initialiser, &
@@ -255,7 +254,7 @@ contains
 !!! set hyperparameters
 !!!#############################################################################
   subroutine set_hyperparams_full( &
-       this, num_outputs, num_addit_inputs, &
+       this, num_outputs, &
        activation_function, activation_scale, &
        kernel_initialiser, bias_initialiser, &
        verbose )
@@ -263,7 +262,7 @@ contains
     use initialiser, only: get_default_initialiser
     implicit none
     class(full_layer_type), intent(inout) :: this
-    integer, intent(in) :: num_outputs, num_addit_inputs
+    integer, intent(in) :: num_outputs
     character(*), intent(in) :: activation_function
     real(real32), intent(in) :: activation_scale
     character(*), intent(in) :: kernel_initialiser, bias_initialiser
@@ -274,7 +273,6 @@ contains
     this%type = "full"
     this%input_rank = 1
     this%num_outputs = num_outputs
-    this%num_addit_inputs = num_addit_inputs
     allocate(this%transfer, &
          source=activation_setup(activation_function, activation_scale))
     if(trim(kernel_initialiser).eq.'') &
@@ -471,7 +469,6 @@ contains
     !!--------------------------------------------------------------------------
     write(unit,'("FULL")')
     write(unit,'(3X,"NUM_INPUTS = ",I0)') this%num_inputs
-    write(unit,'(3X,"NUM_ADDIT_INPUTS = ",I0)') this%num_addit_inputs
     write(unit,'(3X,"NUM_OUTPUTS = ",I0)') this%num_outputs
 
     write(unit,'(3X,"ACTIVATION = ",A)') trim(this%transfer%name)
@@ -508,7 +505,7 @@ contains
 
     integer :: stat, verbose_ = 0
     integer :: i, j, k, c, itmp1
-    integer :: num_inputs, num_outputs, num_addit_inputs = 0
+    integer :: num_inputs, num_outputs
     real(real32) :: activation_scale
     logical :: found_weights = .false.
     character(14) :: kernel_initialiser='', bias_initialiser=''
@@ -553,8 +550,6 @@ contains
        select case(trim(tag))
        case("NUM_INPUTS")
           call assign_val(buffer, num_inputs, itmp1)
-       case("NUM_ADDIT_INPUTS")
-          call assign_val(buffer, num_addit_inputs, itmp1)
        case("NUM_OUTPUTS")
           call assign_val(buffer, num_outputs, itmp1)
        case("ACTIVATION")
@@ -588,7 +583,7 @@ contains
     !! allocate layer
     !!--------------------------------------------------------------------------
     call this%set_hyperparams( &
-         num_outputs = num_outputs, num_addit_inputs = num_addit_inputs, &
+         num_outputs = num_outputs, &
          activation_function = activation_function, &
          activation_scale = activation_scale, &
          kernel_initialiser = kernel_initialiser, &

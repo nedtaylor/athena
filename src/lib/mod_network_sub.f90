@@ -22,7 +22,7 @@ submodule(network) network_submodule
   use container_layer, only: container_reduction
 #endif
 
-  use custom_types, only: array2d_type
+  use custom_types, only: array2d_type, array_container_type
   use container_layer, only: list_of_layer_types
 
   !! layer types
@@ -962,6 +962,21 @@ contains
     end select
 
   end function get_sample
+!!!-----------------------------------------------------------------------------
+  function get_sample_derived(input, start_index, end_index) result(sample)
+    implicit none
+    integer, intent(in) :: start_index, end_index
+    class(array_type), dimension(:), intent(in), target :: input
+
+    type(array2d_type), dimension(size(input,1)) :: sample
+
+    integer :: i
+
+    do i = 1, size(input,1)
+       sample(i)%val = get_sample(input(i)%val, start_index, end_index)
+    end do
+
+  end function get_sample_derived
 !!!#############################################################################
 
 
@@ -1129,6 +1144,7 @@ contains
     real(real32), allocatable, dimension(:,:), intent(out) :: input
 
     integer :: i
+    integer :: idx_start, idx_end
 
     select type(layer => this%model(this%auto_graph%vertex(idx)%id)%layer)
     class is(conv_layer_type)
@@ -1148,6 +1164,16 @@ contains
     end select
     do i = 1, this%auto_graph%num_vertices
        if(this%auto_graph%adjacency(i,idx).ne.0)then
+          idx_start = this%io_map( &
+               this%auto_graph%vertex(i)%id, &
+               this%auto_graph%vertex(idx)%id, &
+               1 &
+          )
+          idx_end = this%io_map( &
+               this%auto_graph%vertex(i)%id, &
+               this%auto_graph%vertex(idx)%id, &
+               2 &
+          )
           select case( &
                this%auto_graph%edge( &
                     this%auto_graph%adjacency( &
@@ -1156,9 +1182,10 @@ contains
                     ) &
                )%id &
           )
-          case(1)
-             input = input + &
+          case(1) ! append
+             input(idx_start:idx_end,:) = &
                   this%model(this%auto_graph%vertex(i)%id)%layer%output%val
+          case(2) ! add
           end select
        end if
     end do
@@ -1176,6 +1203,7 @@ contains
     real(real32), allocatable, dimension(:,:), intent(out) :: gradient
 
     integer :: i
+    integer :: idx_start, idx_end
 
     allocate( &
          gradient( &
@@ -1185,6 +1213,16 @@ contains
     )
     do i = 1, this%auto_graph%num_vertices
        if(this%auto_graph%adjacency(idx,i).ne.0)then
+          idx_start = this%io_map( &
+               this%auto_graph%vertex(idx)%id, &
+               this%auto_graph%vertex(i)%id, &
+               1 &
+          )
+          idx_end = this%io_map( &
+               this%auto_graph%vertex(idx)%id, &
+               this%auto_graph%vertex(i)%id, &
+               2 &
+          )
           select case( &
                 this%auto_graph%edge( &
                      this%auto_graph%adjacency( &
@@ -1194,8 +1232,10 @@ contains
                 )%id &
           )
           case(1)
-            gradient = gradient + &
-                 this%model(this%auto_graph%vertex(i)%id)%layer%di%val
+             gradient =  &
+                  this%model(this%auto_graph%vertex(i)%id)%layer%di%val( &
+                       idx_start:idx_end,: &
+                  )
           end select
        end if
     end do
@@ -1207,7 +1247,7 @@ contains
 !!!#############################################################################
 !!! forward pass
 !!!#############################################################################
-  pure module subroutine forward_1d(this, input)
+  module subroutine forward_real(this, input)
     implicit none
     class(network_type), intent(inout) :: this
     real(real32), dimension(..), intent(in) :: input
@@ -1227,14 +1267,41 @@ contains
       end if
     end do
 
-  end subroutine forward_1d
+  end subroutine forward_real
+!!!-----------------------------------------------------------------------------
+  module subroutine forward_derived(this, input)
+    implicit none
+    class(network_type), intent(inout) :: this
+    class(array_type), dimension(:), intent(in) :: input
+
+    integer :: i
+    real(real32), dimension(:,:), allocatable :: auto_input
+
+
+    !! Forward pass
+    !!--------------------------------------------------------------------------
+    do i = 1, size(this%vertex_order,1)
+       if(all(this%auto_graph%adjacency(:,this%vertex_order(i)).eq.0))then
+          select type(layer => this%model(this%vertex_order(i))%layer)
+          class is(input_layer_type)
+             call layer%forward(input(layer%index)%val)
+          class default
+             return
+          end select
+       else
+          call this%get_input_autodiff(this%vertex_order(i), auto_input)
+          call this%model(this%vertex_order(i))%layer%forward(auto_input)
+      end if
+    end do
+
+  end subroutine forward_derived
 !!!#############################################################################
 
 
 !!!#############################################################################
 !!! backward pass
 !!!#############################################################################
-  pure module subroutine backward_1d(this, output)
+  pure module subroutine backward_real(this, output)
     implicit none
     class(network_type), intent(inout) :: this
     real(real32), dimension(:,:), intent(in) :: output
@@ -1263,7 +1330,7 @@ contains
       call this%model(this%vertex_order(i))%layer%backward(input, gradient)
    end do
 
-  end subroutine backward_1d
+  end subroutine backward_real
 !!!#############################################################################
 
 
@@ -1323,24 +1390,22 @@ contains
 !!! ... i.e. it trains on the same datapoints num_epoch times
 !!!#############################################################################
   module subroutine train(this, input, output, num_epochs, batch_size, &
-       addit_input, addit_layer, &
        plateau_threshold, shuffle_batches, batch_print_step, verbose)
     use infile_tools, only: stop_check
     implicit none
     class(network_type), intent(inout) :: this
-    real(real32), dimension(..), intent(in) :: input
+    class(*), dimension(..), intent(in) :: input
     class(*), dimension(:,:), intent(in) :: output
     integer, intent(in) :: num_epochs
     integer, optional, intent(in) :: batch_size !! deprecated
-
-    real(real32), dimension(:,:), optional, intent(in) :: addit_input
-    integer, optional, intent(in) :: addit_layer
 
     real(real32), optional, intent(in) :: plateau_threshold
     logical, optional, intent(in) :: shuffle_batches
     integer, optional, intent(in) :: batch_print_step
     integer, optional, intent(in) :: verbose
     
+    type(array2d_type), dimension(:), allocatable :: input_
+
     !! training and testing monitoring
     real(real32) :: batch_loss, batch_accuracy, avg_loss, avg_accuracy
     real(real32), allocatable, dimension(:,:) :: y_true
@@ -1363,7 +1428,6 @@ contains
 
 #ifdef _OPENMP
     type(network_type) :: this_copy
-    real(real32), allocatable, dimension(:,:) :: input_slice, addit_input_slice
 #endif
     integer :: timer_start = 0, timer_stop = 0, timer_sum = 0, timer_tot = 0
 
@@ -1421,18 +1485,176 @@ contains
 !!! get number of samples
 !!!-----------------------------------------------------------------------------
     select rank(input)
+    rank(0)
+       select type(input)
+       type is(real)
+          write(*,*) "Cannot check number of samples in rank 0 input"
+          stop "Exiting..."
+       class is(array_type)
+          if(size(this%root_vertices,1).ne.1)then
+             write(0,*) "&
+                  &ERROR: number of input arrays does not match expected &
+                  &number of input layers"
+             stop "Exiting..."
+          end if
+          num_samples = size(input%val, 2)
+          allocate(input_(1))
+          call input_(1)%allocate( array_shape = &
+               [ product(input%shape(1:input%rank)), num_samples ] &
+          )
+          input_(1)%val = input%val
+       type is(array_container_type)
+          if(size(this%root_vertices,1).ne.1)then
+             write(0,*) "&
+                  &ERROR: number of input arrays does not match expected &
+                  &number of input layers"
+             stop "Exiting..."
+          end if
+          num_samples = size(input%array%val, 2)
+          allocate(input_(1))
+          call input_(1)%allocate( array_shape = &
+               [ product(input%array%shape(1:input%array%rank)), num_samples ] &
+          )
+          input_(1)%val = input%array%val
+       end select
     rank(1)
-       write(*,*) "Cannot check number of samples in rank 1 input"
-    rank default
+       select type(input)
+       type is(real)
+          write(*,*) "Cannot check number of samples in rank 1 input"
+          stop "Exiting..."
+       class is(array_type)
+          if(size(input,1).ne.size(this%root_vertices,1))then
+             write(0,*) "&
+                  &ERROR: number of input arrays does not match expected &
+                  &number of input layers"
+             stop "Exiting..."
+          end if
+          num_samples = size( input(1)%val, dim = 2 )
+          allocate(input_(size(input, dim = 1)))
+          do i = 1, size(input, dim = 1)
+             if(size(input(i)%val,2).ne.num_samples)then
+                write(0,*) i, input(i)%val, size(input(i)%val,2), num_samples
+                write(0,*) &
+                     "ERROR: number of samples in input arrays do not match"
+                stop "Exiting..."
+             end if
+             call input_(i)%allocate( array_shape = &
+                  [ product(input(i)%shape(1:input(i)%rank)), num_samples ] &
+             )
+             input_(i)%val = input(i)%val
+          end do
+       type is(array_container_type)
+          if(size(input,1).ne.size(this%root_vertices,1))then
+             write(0,*) "&
+                  &ERROR: number of input arrays does not match expected &
+                  &number of input layers"
+             stop "Exiting..."
+          end if
+          num_samples = size( input(1)%array%val, dim = 2 )
+          allocate(input_(size(input, dim = 1)))
+          do i = 1, size(input, dim = 1)
+             if(size(input(i)%array%val,2).ne.num_samples)then
+                write(0,*) &
+                     "ERROR: number of samples in input arrays do not match"
+                stop "Exiting..."
+             end if
+             call input_(i)%allocate( array_shape = &
+                  [ product(input(i)%array%shape(1:input(i)%array%rank)), num_samples ] &
+             )
+             input_(i)%val = input(i)%array%val
+          end do
+       end select
+    rank(2)
+       select type(input)
+       class is(array_type)
+          write(0,*) "&
+               &ERROR: rank of input with class array_type cannot exceed 1"
+          stop "Exiting..."
+       class is(array_container_type)
+          write(0,*) "&
+                &ERROR: rank of input with class array_container_type cannot exceed 1"
+          stop "Exiting..."
+       end select
        num_samples = size(input,rank(input))
-       if(size(output,2).ne.num_samples)then
-          write(0,*) "ERROR: number of samples in input and output do not match"
+       allocate(input_(1))
+       call input_(1)%allocate(source = input)
+    rank(3)
+       select type(input)
+       class is(array_type)
+          write(0,*) "&
+               &ERROR: rank of input with class array_type cannot exceed 1"
           stop "Exiting..."
-       elseif(size(output,1).ne.this%num_outputs)then
-          write(0,*) "ERROR: number of outputs in output does not match network"
+       class is(array_container_type)
+          write(0,*) "&
+                &ERROR: rank of input with class array_container_type cannot exceed 1"
           stop "Exiting..."
-       end if
-     end select
+       type is(real)
+          num_samples = size(input,rank(input))
+          allocate(input_(1))
+          call input_(1)%allocate( array_shape = &
+               [ size(input(:,:,1)), num_samples ] &
+          )
+          input_(1)%val = &
+               reshape(input,[ size(input(:,:,1)), num_samples ])
+       class default
+          write(0,*) "ERROR: Unknown input type"
+          stop "Exiting..."
+       end select
+    rank(4)
+       select type(input)
+       class is(array_type)
+          write(0,*) "&
+               &ERROR: rank of input with class array_type cannot exceed 1"
+          stop "Exiting..."
+       class is(array_container_type)
+          write(0,*) "&
+                &ERROR: rank of input with class array_container_type cannot exceed 1"
+          stop "Exiting..."
+       type is(real)
+          num_samples = size(input,rank(input))
+          allocate(input_(1))
+          call input_(1)%allocate( array_shape = &
+               [ size(input(:,:,:,1)), num_samples ] &
+          )
+          input_(1)%val = &
+               reshape(input,[ size(input(:,:,:,1)), num_samples ])
+       class default
+          write(0,*) "ERROR: Unknown input type"
+          stop "Exiting..."
+       end select
+    rank(5)
+       select type(input)
+       class is(array_type)
+          write(0,*) "&
+               &ERROR: rank of input with class array_type cannot exceed 1"
+          stop "Exiting..."
+       class is(array_container_type)
+          write(0,*) "&
+                &ERROR: rank of input with class array_container_type cannot exceed 1"
+          stop "Exiting..."
+       type is(real)
+          num_samples = size(input,rank(input))
+          allocate(input_(1))
+          call input_(1)%allocate( array_shape = &
+               [ size(input(:,:,:,:,1)), num_samples ] &
+          )
+          input_(1)%val = &
+               reshape(input,[ size(input(:,:,:,:,1)), num_samples ])
+       class default
+          write(0,*) "ERROR: Unknown input type"
+          stop "Exiting..."
+       end select
+    rank default
+       write(0,*) "ERROR: rank of input exceeds 5"
+       stop "Exiting..."
+    end select
+    if(size(output,2).ne.num_samples)then
+       write(0,*) "ERROR: number of samples in input and output do not match"
+       stop "Exiting..."
+    elseif(size(output,1).ne.this%num_outputs)then
+       write(0,*) "ERROR: number of outputs in output does not match network"
+       stop "Exiting..."
+    end if
 
 
 !!!-----------------------------------------------------------------------------
@@ -1494,7 +1716,7 @@ contains
 
           !! Forward pass
           !!--------------------------------------------------------------------
-          call this%forward(get_sample(input,start_index,end_index))
+          call this%forward(get_sample_derived(input_,start_index,end_index))
 
 
           !! Backward pass and store predicted output
@@ -1529,7 +1751,6 @@ contains
 
 
           !! update weights and biases using optimization algorithm
-          !! ... (gradient descent)
           !!--------------------------------------------------------------------
           !! STORE ADAM VALUES IN OPTIMISER
           call this%update()
@@ -1546,27 +1767,6 @@ contains
                   avg_loss/(batch*this%batch_size), &
                   avg_accuracy/(batch*this%batch_size)
           end if
-          
-          
-!!! TESTING
-!#ifdef _OPENMP
-!          call system_clock(timer_start)
-!          call system_clock(timer_stop)
-!          timer_sum = timer_sum + timer_stop - timer_start
-!          timer_tot = timer_tot + timer_sum / omp_get_max_threads()
-!#else
-!          timer_tot = timer_tot + timer_sum
-!#endif
-!          timer_sum = 0
-!           if(batch.gt.200)then
-!              time_old = time
-!              call system_clock(time)
-!              write(*,'("time check: ",F8.3," seconds")') real(time-time_old)/clock_rate
-!              !write(*,'("update timer: ",F8.3," seconds")') real(timer_tot)/clock_rate
-!              exit epoch_loop
-!              stop "THIS IS FOR TESTING PURPOSES"
-!           end if
-!!!
 
 
           !! time check

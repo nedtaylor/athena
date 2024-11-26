@@ -43,6 +43,7 @@ module network
        comp_loss_deriv => compute_loss_derivative
   use accuracy, only: comp_acc_func => compute_accuracy_function
   use base_layer, only: base_layer_type
+  use custom_types, only: array_type
   use container_layer, only: container_layer_type
   implicit none
 
@@ -100,8 +101,10 @@ module network
      procedure, pass(this) :: set_gradients
      procedure, pass(this) :: reset_gradients
 
-     procedure, pass(this) :: forward => forward_1d
-     procedure, pass(this) :: backward => backward_1d
+     procedure, pass(this) :: forward_real
+     procedure, pass(this) :: forward_derived
+     generic :: forward => forward_real, forward_derived
+     procedure, pass(this) :: backward => backward_real
   end type network_type
 
   interface network_type
@@ -237,22 +240,17 @@ module network
      !! output            = (*, in) expected output data (data labels)
      !! num_epochs        = (I, in) number of epochs to train for
      !! batch_size        = (I, in, opt) batch size (DEPRECATED)
-     !! addit_input       = (R, in, opt) additional input data
-     !! addit_layer       = (I, in, opt) layer to insert additional input data
      !! plateau_threshold = (R, in, opt) threshold for checking learning plateau
      !! shuffle_batches   = (B, in, opt) shuffle batch order
      !! batch_print_step  = (I, in, opt) print step for batch
      !! verbose           = (I, in, opt) verbosity level
      module subroutine train(this, input, output, num_epochs, batch_size, &
-         addit_input, addit_layer, &
          plateau_threshold, shuffle_batches, batch_print_step, verbose)
        class(network_type), intent(inout) :: this
-       real(real32), dimension(..), intent(in) :: input
+       class(*), dimension(..), intent(in) :: input
        class(*), dimension(:,:), intent(in) :: output
        integer, intent(in) :: num_epochs
        integer, optional, intent(in) :: batch_size !! deprecated
-       real(real32), dimension(:,:), optional, intent(in) :: addit_input
-       integer, optional, intent(in) :: addit_layer
        real(real32), optional, intent(in) :: plateau_threshold
        logical, optional, intent(in) :: shuffle_batches
        integer, optional, intent(in) :: batch_print_step
@@ -265,8 +263,6 @@ module network
      !! this        = (T, io) network type
      !! input       = (R, in) input data
      !! output      = (*, in) expected output data (data labels)
-     !! addit_input = (R, in, opt) additional input data
-     !! addit_layer = (I, in, opt) layer to insert additional input data
      !! verbose     = (I, in, opt) verbosity level
      module subroutine test(this, input, output, &
           verbose)
@@ -281,12 +277,9 @@ module network
      !!-------------------------------------------------------------------------
      !! this        = (T, in) network type
      !! input       = (R, in) input data
-     !! addit_input = (R, in, opt) additional input data
-     !! addit_layer = (I, in, opt) layer to insert additional input data
      !! verbose     = (I, in, opt) verbosity level
      !! output      = (R, out) predicted output data
-     module function predict_1d(this, input, &
-          verbose) result(output)
+     module function predict_1d(this, input, verbose) result(output)
        class(network_type), intent(inout) :: this
        real(real32), dimension(..), intent(in) :: input
        integer, optional, intent(in) :: verbose
@@ -456,22 +449,24 @@ module network
      !!-------------------------------------------------------------------------
      !! this        = (T, io) network type
      !! input       = (R, in) input data
-     !! addit_input = (R, in, opt) additional input data
-     !! layer       = (I, in, opt) layer to insert additional input data
-     pure module subroutine forward_1d(this, input)
+     module subroutine forward_real(this, input)
        class(network_type), intent(inout) :: this
        real(real32), dimension(..), intent(in) :: input
-     end subroutine forward_1d
+     end subroutine forward_real
+     module subroutine forward_derived(this, input)
+       class(network_type), intent(inout) :: this
+       class(array_type), dimension(:), intent(in) :: input
+     end subroutine forward_derived
 
      !!-------------------------------------------------------------------------
      !! backward pass
      !!-------------------------------------------------------------------------
      !! this        = (T, io) network type
      !! output      = (R, in) output data
-     pure module subroutine backward_1d(this, output)
+     pure module subroutine backward_real(this, output)
        class(network_type), intent(inout) :: this
        real(real32), dimension(:,:), intent(in) :: output
-     end subroutine backward_1d
+     end subroutine backward_real
   end interface
 
 end module network
