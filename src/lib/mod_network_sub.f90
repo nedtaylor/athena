@@ -73,10 +73,31 @@ contains
   module subroutine network_copy(this, source)
     implicit none
     class(network_type), intent(inout) :: this
-    type(network_type), intent(in) :: source
+    type(network_type), intent(in), target :: source
+
+    integer :: i
 
     this%metrics = source%metrics
     this%model   = source%model
+    this%num_layers = source%num_layers
+    this%batch_size = source%batch_size
+    this%num_params = source%num_params
+    this%num_outputs = source%num_outputs
+    this%optimiser = source%optimiser
+    this%vertex_order = source%vertex_order
+    this%root_vertices = source%root_vertices
+    this%output_vertices = source%output_vertices
+    !! check whether you can point to a pointer
+    this%get_loss => source%get_loss
+    this%get_loss_deriv => source%get_loss_deriv
+    this%get_accuracy => source%get_accuracy
+    this%auto_graph = source%auto_graph
+!!!-----------------------------------------------------------------------------
+!!! set pointers
+!!!-----------------------------------------------------------------------------
+    do i = 1, this%num_layers
+       call this%model(i)%layer%set_ptrs() ! name %compile() or %build()?
+    end do
   end subroutine network_copy
 !!!#############################################################################
 
@@ -829,13 +850,6 @@ contains
        call this%set_batch_size(this%model(1)%layer%batch_size)
     end if
 
-!!!-----------------------------------------------------------------------------
-!!! set pointers
-!!!-----------------------------------------------------------------------------
-    do i = 1, this%num_layers
-       call this%model(i)%layer%set_ptrs() ! name %compile() or %build()?
-    end do
-
   end subroutine compile
 !!!#############################################################################
 
@@ -844,16 +858,17 @@ contains
 !!! set batch size
 !!!#############################################################################
   module subroutine set_batch_size(this, batch_size)
-     implicit none
-     class(network_type), intent(inout) :: this
-     integer, intent(in) :: batch_size
+    implicit none
+    class(network_type), intent(inout) :: this
+    integer, intent(in) :: batch_size
 
-     integer :: l
+    integer :: l
 
-     this%batch_size = batch_size
-     do l=1,this%num_layers
-        call this%model(l)%layer%set_batch_size(this%batch_size)
-     end do
+    this%batch_size = batch_size
+    do l = 1, this%num_layers
+       call this%model(l)%layer%set_batch_size(this%batch_size)
+       call this%model(l)%layer%set_ptrs() ! name %compile() or %build()?
+    end do
 
   end subroutine set_batch_size
 !!!#############################################################################

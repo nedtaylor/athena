@@ -376,7 +376,7 @@ module network
      !! source = (T, in) network type
      module subroutine network_copy(this, source)
        class(network_type), intent(inout) :: this
-       type(network_type), intent(in) :: source
+       type(network_type), intent(in), target :: source
      end subroutine network_copy
 
      !!-------------------------------------------------------------------------

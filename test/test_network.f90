@@ -55,7 +55,8 @@ program test_network
        num_outputs=2, activation_function="sigmoid"))
   call network%compile( &
        optimiser = base_optimiser_type(learning_rate=learning_rate), &
-       loss_method="mse", accuracy_method="mse", metrics=["loss"], verbose=0)
+       loss_method="mse", accuracy_method="mse", metrics=["loss"], verbose=0 &
+  )
   call network%set_batch_size(1)
 
 
@@ -158,7 +159,7 @@ program test_network
   call network3%add(conv2d_layer_type())
   call network3%add(batchnorm2d_layer_type())
   call network3%add(dropblock2d_layer_type(block_size=3, rate=0.1))
-  call network3%add(flatten_layer_type())
+  call network3%add(flatten_layer_type(input_rank=3))
 
   !! check automatic flatten layer adding
   call network3%reset()

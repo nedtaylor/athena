@@ -99,8 +99,22 @@ contains
     implicit none
     class(base_layer_type), intent(inout), target :: this
 
-    if(allocated(this%output)) call this%output%set_ptr()
-    if(allocated(this%di)) call this%di%set_ptr()
+    if(allocated(this%output))then
+       if(.not.this%output%allocated)then
+          write(0,*) &
+               "ERROR: output not allocated for layer ",trim(this%name), this%id
+          stop 1
+       end if
+       call this%output%set_ptr()
+    end if
+    if(allocated(this%di))then
+      if(.not.this%di%allocated)then
+         write(0,*) &
+              "ERROR: di not allocated for layer ",trim(this%name), this%id
+         stop 1
+      end if
+      call this%di%set_ptr()
+    end if
 
     call this%set_ptrs_hyperparams()
 
