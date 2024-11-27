@@ -209,34 +209,71 @@ contains
        num_inputs = 0
        do j = 1, this%auto_graph%num_vertices
           if(this%auto_graph%adjacency(i,j).ne.0)then
-             num_inputs = num_inputs + 1
-             this%io_map( &
-                  this%auto_graph%vertex(i)%id, &
-                  this%auto_graph%vertex(j)%id, &
-                  1 &
-             ) = num_inputs
-
-             num_inputs = num_inputs + this%model(this%auto_graph%vertex(i)%id)%layer%output%size - 1
-             this%io_map( &
-                  this%auto_graph%vertex(i)%id, &
-                  this%auto_graph%vertex(j)%id, &
-                  2 &
-             ) = num_inputs
+             select case( &
+                  this%auto_graph%edge(this%auto_graph%adjacency(i,j))%id &
+             )
+             case(1) ! concatenate
+                num_inputs = num_inputs + 1
+                this%io_map( &
+                     this%auto_graph%vertex(i)%id, &
+                     this%auto_graph%vertex(j)%id, &
+                     1 &
+                ) = num_inputs
+                num_inputs = num_inputs + &
+                     this%model( &
+                          this%auto_graph%vertex(i)%id &
+                     )%layer%output%size - 1
+                this%io_map( &
+                     this%auto_graph%vertex(i)%id, &
+                     this%auto_graph%vertex(j)%id, &
+                     2 &
+                ) = num_inputs
+             case(2) ! add
+                this%io_map( &
+                     this%auto_graph%vertex(i)%id, &
+                     this%auto_graph%vertex(j)%id, &
+                     1 &
+                ) = 1
+                  this%io_map( &
+                        this%auto_graph%vertex(i)%id, &
+                        this%auto_graph%vertex(j)%id, &
+                        2 &
+                  ) = this%model(this%auto_graph%vertex(i)%id)%layer%output%size
+             end select
           end if
           if(this%auto_graph%adjacency(j,i).ne.0)then
-             num_outputs = maxval(this%io_map(:,i,4)) + 1
-             this%io_map( &
-                  this%auto_graph%vertex(j)%id, &
-                  this%auto_graph%vertex(i)%id, &
-                  3 &
-             ) = num_outputs
-
-             num_outputs = num_outputs + this%model(this%auto_graph%vertex(j)%id)%layer%output%size - 1
-             this%io_map( &
-                  this%auto_graph%vertex(j)%id, &
-                  this%auto_graph%vertex(i)%id, &
-                  4 &
-             ) = num_outputs
+             select case( &
+                  this%auto_graph%edge(this%auto_graph%adjacency(j,i))%id &
+             )
+             case(1) ! concatenate
+                num_outputs = maxval(this%io_map(:,i,4)) + 1
+                this%io_map( &
+                     this%auto_graph%vertex(j)%id, &
+                     this%auto_graph%vertex(i)%id, &
+                     3 &
+                ) = num_outputs
+   
+                num_outputs = num_outputs + &
+                     this%model( &
+                          this%auto_graph%vertex(j)%id &
+                     )%layer%output%size - 1
+                this%io_map( &
+                     this%auto_graph%vertex(j)%id, &
+                     this%auto_graph%vertex(i)%id, &
+                     4 &
+                ) = num_outputs
+             case(2) ! add
+                this%io_map( &
+                     this%auto_graph%vertex(j)%id, &
+                     this%auto_graph%vertex(i)%id, &
+                     3 &
+                ) = 1
+                this%io_map( &
+                     this%auto_graph%vertex(j)%id, &
+                     this%auto_graph%vertex(i)%id, &
+                     4 &
+                ) = this%model(this%auto_graph%vertex(j)%id)%layer%output%size
+             end select
           end if
        end do
     end do
@@ -1179,10 +1216,12 @@ contains
                     ) &
                )%id &
           )
-          case(1) ! append
+          case(1) ! concatenate
              input(idx_start:idx_end,:) = &
                   this%model(this%auto_graph%vertex(i)%id)%layer%output%val
           case(2) ! add
+             input(idx_start:idx_end,:) = input(idx_start:idx_end,:) + &
+                  this%model(this%auto_graph%vertex(i)%id)%layer%output%val
           end select
        end if
     end do
@@ -1228,8 +1267,13 @@ contains
                      ) &
                 )%id &
           )
-          case(1)
+          case(1) ! concatenate
              gradient =  &
+                  this%model(this%auto_graph%vertex(i)%id)%layer%di%val( &
+                       idx_start:idx_end,: &
+                  )
+          case(2) ! add
+             gradient = gradient + &
                   this%model(this%auto_graph%vertex(i)%id)%layer%di%val( &
                        idx_start:idx_end,: &
                   )
