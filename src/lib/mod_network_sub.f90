@@ -13,11 +13,8 @@ submodule(network) network_submodule
 
   use accuracy, only: categorical_score, mae_score, mse_score, r2_score
   use base_layer, only: &
-       drop_layer_type, &
        learnable_layer_type, &
-       batch_layer_type, &
-       conv_layer_type, &
-       pool_layer_type
+       conv_layer_type
 #if defined(GFORTRAN)
   use container_layer, only: container_reduction
 #endif
@@ -28,9 +25,6 @@ submodule(network) network_submodule
   !! layer types
   use input_layer,   only: input_layer_type
   use flatten_layer, only: flatten_layer_type
-
-  !! fully connected (dense) layer types
-  use full_layer,      only: full_layer_type
 
   implicit none
 
@@ -663,6 +657,9 @@ contains
     this%get_loss_deriv => null()
     this%get_accuracy => null()
 
+    if(allocated(this%io_map)) deallocate(this%io_map)
+    if(allocated(this%vertex_order)) deallocate(this%vertex_order)
+    if(allocated(this%output_vertices)) deallocate(this%output_vertices)
     if(allocated(this%root_vertices)) deallocate(this%root_vertices)
     this%auto_graph = graph_type(directed=.true.)
 
@@ -899,7 +896,6 @@ contains
     elseif(this%model(1)%layer%batch_size.ne.0)then
        call this%set_batch_size(this%model(1)%layer%batch_size)
     end if
-    call this%calculate_io_map()
 
   end subroutine compile
 !!!#############################################################################
@@ -920,6 +916,7 @@ contains
        call this%model(l)%layer%set_batch_size(this%batch_size)
        call this%model(l)%layer%set_ptrs() ! name %compile() or %build()?
     end do
+    call this%calculate_io_map()
 
   end subroutine set_batch_size
 !!!#############################################################################
@@ -1216,12 +1213,12 @@ contains
           idx_start = this%io_map( &
                this%auto_graph%vertex(idx)%id, &
                this%auto_graph%vertex(i)%id, &
-               1 &
+               3 &
           )
           idx_end = this%io_map( &
                this%auto_graph%vertex(idx)%id, &
                this%auto_graph%vertex(i)%id, &
-               2 &
+               4 &
           )
           select case( &
                 this%auto_graph%edge( &
@@ -1647,11 +1644,8 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! turn off inference booleans
 !!!-----------------------------------------------------------------------------
-    do l=1,this%num_layers
-       select type(current => this%model(l)%layer)
-       class is(drop_layer_type)
-          current%inference = .false.
-       end select
+    do l = 1, this%num_layers
+       this%model(l)%layer%inference = .false.
     end do
 
 
@@ -1849,11 +1843,8 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! turn on inference booleans
 !!!-----------------------------------------------------------------------------
-    do l=1,this%num_layers
-       select type(current => this%model(l)%layer)
-       class is(drop_layer_type)
-          current%inference = .true.
-       end select
+    do l = 1, this%num_layers
+       this%model(l)%layer%inference = .true.
     end do
 
 
