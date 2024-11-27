@@ -27,11 +27,12 @@ contains
 !!!#############################################################################
 !!! Gaussian initialisation
 !!!#############################################################################
-  subroutine gaussian_initialise(this, input, fan_in, fan_out)
+  subroutine gaussian_initialise(this, input, fan_in, fan_out, spacing)
     implicit none
     class(gaussian_type), intent(inout) :: this
     real(real32), dimension(..), intent(out) :: input
     integer, optional, intent(in) ::  fan_in, fan_out
+    integer, dimension(:), optional, intent(in) :: spacing
 
     integer :: i, j, k, l, m, o
 

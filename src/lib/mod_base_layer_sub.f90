@@ -360,7 +360,8 @@ end subroutine set_params
     allocate(initialiser_, source=initialiser_setup(this%kernel_initialiser))
     call initialiser_%initialise( &
          this%params(:this%num_params-this%num_filters), &
-         fan_in=product(this%knl)+1, fan_out=1 &
+         fan_in=product(this%knl)+1, fan_out=1, &
+         spacing = [ this%knl, this%num_channels, this%num_filters ] &
     )
     deallocate(initialiser_)
 

@@ -27,11 +27,12 @@ contains
 !!!#############################################################################
 !!! Zeros initialisation
 !!!#############################################################################
-  pure subroutine zeros_initialise(this, input, fan_in, fan_out)
+  pure subroutine zeros_initialise(this, input, fan_in, fan_out, spacing)
     implicit none
     class(zeros_type), intent(inout) :: this
     real(real32), dimension(..), intent(out) :: input
     integer, optional, intent(in) :: fan_in, fan_out ! no. in and out params
+    integer, dimension(:), optional, intent(in) :: spacing
 
     select rank(input)
     rank(0)

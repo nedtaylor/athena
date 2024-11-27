@@ -36,11 +36,12 @@ contains
 !!!#############################################################################
 !!! Xavier Glorot initialisation (uniform)
 !!!#############################################################################
-  subroutine glorot_uniform_initialise(this, input, fan_in, fan_out)
+  subroutine glorot_uniform_initialise(this, input, fan_in, fan_out, spacing)
     implicit none
     class(glorot_uniform_type), intent(inout) :: this
     real(real32), dimension(..), intent(out) :: input
     integer, optional, intent(in) ::  fan_in, fan_out  !no. in and out params
+    integer, dimension(:), optional, intent(in) :: spacing
 
     real(real32) :: scale
 
@@ -76,11 +77,12 @@ contains
 !!!#############################################################################
 !!! Xavier Glorot initialisation (normal)
 !!!#############################################################################
-  subroutine glorot_normal_initialise(this, input, fan_in, fan_out)
+  subroutine glorot_normal_initialise(this, input, fan_in, fan_out, spacing)
     implicit none
     class(glorot_normal_type), intent(inout) :: this
     real(real32), dimension(..), intent(out) :: input
     integer, optional, intent(in) ::  fan_in, fan_out  !no. in and out params
+    integer, dimension(:), optional, intent(in) :: spacing
 
     real(real32) :: scale, norm
 

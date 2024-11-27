@@ -37,11 +37,12 @@ contains
 !!! Kaiming initialisation
 !!! MSRA initialisation
 !!!#############################################################################
-  subroutine he_uniform_initialise(this, input, fan_in, fan_out)
+  subroutine he_uniform_initialise(this, input, fan_in, fan_out, spacing)
     implicit none
     class(he_uniform_type), intent(inout) :: this
     real(real32), dimension(..), intent(out) :: input
     integer, optional, intent(in) :: fan_in, fan_out ! no. in and out params
+    integer, dimension(:), optional, intent(in) :: spacing
 
     real(real32) :: scale
 
@@ -79,11 +80,12 @@ contains
 !!! Kaiming initialisation
 !!! MSRA initialisation
 !!!#############################################################################
-  subroutine he_normal_initialise(this, input, fan_in, fan_out)
+  subroutine he_normal_initialise(this, input, fan_in, fan_out, spacing)
     implicit none
     class(he_normal_type), intent(inout) :: this
     real(real32), dimension(..), intent(out) :: input
     integer, optional, intent(in) :: fan_in, fan_out ! no. in and out params
+    integer, dimension(:), optional, intent(in) :: spacing
 
     real(real32) :: scale, norm
 

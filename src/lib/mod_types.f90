@@ -155,12 +155,12 @@ module custom_types
   !! interface for initialiser function
   !!----------------------------------------------------------------------------
   abstract interface
-     subroutine initialiser_subroutine(this, input, fan_in, fan_out)
+     subroutine initialiser_subroutine(this, input, fan_in, fan_out, spacing)
        import initialiser_type, real32
        class(initialiser_type), intent(inout) :: this
        real(real32), dimension(..), intent(out) :: input
        integer, optional, intent(in) :: fan_in, fan_out
-       real(real32) :: scale
+       integer, dimension(:), optional, intent(in) :: spacing
      end subroutine initialiser_subroutine
   end interface
 
