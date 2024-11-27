@@ -21,8 +21,6 @@ module dropout_layer
      integer :: idx = 0
      integer :: num_masks
      logical, allocatable, dimension(:,:) :: mask
-    !  real(real32), allocatable, dimension(:,:) :: output
-    !  real(real32), allocatable, dimension(:,:) :: di ! gradient of input (i.e. delta)
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_dropout
      procedure, pass(this) :: init => init_dropout

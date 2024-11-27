@@ -12,8 +12,6 @@ module maxpool3d_layer
   
   
   type, extends(pool_layer_type) :: maxpool3d_layer_type
-   !   real(real32), allocatable, dimension(:,:,:,:,:) :: output
-   !   real(real32), allocatable, dimension(:,:,:,:,:) :: di ! gradient of input (i.e. delta)
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_maxpool3d
      procedure, pass(this) :: init => init_maxpool3d

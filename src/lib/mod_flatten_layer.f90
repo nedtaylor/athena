@@ -18,7 +18,6 @@ module flatten_layer
   
   type, extends(base_layer_type) :: flatten_layer_type
      integer :: num_outputs
-     !  real(real32), allocatable, dimension(:,:,:) :: di
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_flatten
      procedure, pass(this) :: init => init_flatten

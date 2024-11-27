@@ -21,8 +21,6 @@ module dropblock2d_layer
      real(real32) :: gamma
      integer :: num_channels
      logical, allocatable, dimension(:,:) :: mask
-    !  real(real32), allocatable, dimension(:,:,:,:) :: output
-    !  real(real32), allocatable, dimension(:,:,:,:) :: di ! gradient of input (i.e. delta)
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_dropblock2d
      procedure, pass(this) :: init => init_dropblock2d
