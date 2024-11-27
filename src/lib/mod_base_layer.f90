@@ -244,36 +244,48 @@ module base_layer
      character(len=14) :: kernel_initialiser='', bias_initialiser=''
      class(activation_type), allocatable :: transfer
    contains
-     procedure(layer_reduction), deferred, pass(this) :: reduce
-     procedure(layer_merge), deferred, pass(this) :: merge
      procedure, pass(this) :: get_params => get_params
      procedure, pass(this) :: set_params => set_params
      procedure, pass(this) :: get_gradients => get_gradients
      procedure, pass(this) :: set_gradients => set_gradients
+
+     procedure, pass(this) :: reduce => reduce_learnable
+     procedure, pass(this) :: merge => merge_learnable
+     procedure :: add_t_t => add_learnable  !t = type, r = real, i = int
+     generic :: operator(+) => add_t_t !, public
   end type learnable_layer_type
 
-  abstract interface
+  interface
      !!-------------------------------------------------------------------------
      !! reduce two layers to a single value
      !!-------------------------------------------------------------------------
      !! this = (T, io) layer_type
      !! rhs  = (T, in) layer_type
-     subroutine layer_reduction(this, rhs)
-       import :: learnable_layer_type
+     module subroutine reduce_learnable(this, rhs)
        class(learnable_layer_type), intent(inout) :: this
        class(learnable_layer_type), intent(in) :: rhs
-     end subroutine layer_reduction
+     end subroutine reduce_learnable
 
      !!-------------------------------------------------------------------------
      !! merge two layers
      !!-------------------------------------------------------------------------
      !! this  = (T, io) layer_type
      !! input = (T, in) layer_type
-     subroutine layer_merge(this, input)
-       import :: learnable_layer_type
+     module subroutine merge_learnable(this, input)
        class(learnable_layer_type), intent(inout) :: this
        class(learnable_layer_type), intent(in) :: input
-     end subroutine layer_merge
+     end subroutine merge_learnable
+
+     !!-------------------------------------------------------------------------
+     !! add two layers
+     !!-------------------------------------------------------------------------
+     !! a      = (T, in) layer_type
+     !! b      = (T, in) layer_type
+     !! output = (T, out) layer_type
+     module function add_learnable(a, b) result(output)
+       class(learnable_layer_type), intent(in) :: a, b
+       class(learnable_layer_type), allocatable :: output
+     end function add_learnable
   end interface
 
   interface

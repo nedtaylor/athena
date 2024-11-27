@@ -23,11 +23,6 @@ module batchnorm2d_layer
      procedure, private, pass(this) :: forward_4d
      procedure, private, pass(this) :: backward_4d
 
-     procedure, pass(this) :: reduce => layer_reduction
-     procedure, pass(this) :: merge => layer_merge
-     procedure :: add_t_t => layer_add  !t = type, r = real, i = int
-     generic :: operator(+) => add_t_t !, public
-
      final :: finalise_batchnorm2d
   end type batchnorm2d_layer_type
 
@@ -79,58 +74,6 @@ contains
     if(allocated(this%di)) deallocate(this%di)
 
   end subroutine finalise_batchnorm2d
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! layer reduction
-!!!#############################################################################
-  subroutine layer_reduction(this, rhs)
-    implicit none
-    class(batchnorm2d_layer_type), intent(inout) :: this
-    class(learnable_layer_type), intent(in) :: rhs
-
-    select type(rhs)
-    class is(batchnorm2d_layer_type)
-       this%dp = this%dp + rhs%dp
-       this%db = this%db + rhs%db
-    end select
-
-  end subroutine  layer_reduction
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! layer addition
-!!!#############################################################################
-  function layer_add(a, b) result(output)
-    implicit none
-    class(batchnorm2d_layer_type), intent(in) :: a, b
-    type(batchnorm2d_layer_type) :: output
-
-    output = a
-    output%dp = output%dp + b%dp
-    output%db = output%db + b%db
-
-  end function layer_add
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! layer merge
-!!!#############################################################################
-  subroutine layer_merge(this, input)
-    implicit none
-    class(batchnorm2d_layer_type), intent(inout) :: this
-    class(learnable_layer_type), intent(in) :: input
-
-    select type(input)
-    class is(batchnorm2d_layer_type)
-       this%dp = this%dp + input%dp
-       this%db = this%db + input%db
-    end select
-
-  end subroutine layer_merge
 !!!#############################################################################
 
 

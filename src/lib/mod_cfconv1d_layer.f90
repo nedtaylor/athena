@@ -35,10 +35,10 @@ module cfconv1d_layer
 
      procedure, pass(this) :: filter => null()
      
-     procedure, pass(this) :: reduce => layer_reduction
-     procedure, pass(this) :: merge => layer_merge
-     procedure :: add_t_t => layer_add  !t = type, r = real, i = int
-     generic :: operator(+) => add_t_t !, public
+   !   procedure, pass(this) :: reduce => layer_reduction
+   !   procedure, pass(this) :: merge => layer_merge
+   !   procedure :: add_t_t => layer_add  !t = type, r = real, i = int
+   !   generic :: operator(+) => add_t_t !, public
   end type cfconv1d_layer_type
 
   
@@ -72,63 +72,6 @@ module cfconv1d_layer
 
 
 contains
-
-!!!#############################################################################
-!!! layer reduction
-!!!#############################################################################
-  subroutine layer_reduction(this, rhs)
-    implicit none
-    class(cfconv1d_layer_type), intent(inout) :: this
-    class(learnable_layer_type), intent(in) :: rhs
-
-    select type(rhs)
-    class is(cfconv1d_layer_type)
-       this%db = this%db + rhs%db
-       this%dw = this%dw + rhs%dw
-    end select
-
-  end subroutine  layer_reduction
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! layer addition
-!!!#############################################################################
-  function layer_add(a, b) result(output)
-    implicit none
-    class(cfconv1d_layer_type), intent(in) :: a, b
-    type(cfconv1d_layer_type) :: output
-
-    output = a
-    output%dw = output%dw + b%dw
-    output%db = output%db + b%db
-
-  end function layer_add
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! layer merge
-!!!#############################################################################
-  subroutine layer_merge(this, input)
-    implicit none
-    class(cfconv1d_layer_type), intent(inout) :: this
-    class(learnable_layer_type), intent(in) :: input
-
-    select type(input)
-    class is(cfconv1d_layer_type)
-       this%dw = this%dw + input%dw
-       this%db = this%db + input%db
-    end select
-
-  end subroutine layer_merge
-!!!#############################################################################
-
-
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
-
 
 !!!#############################################################################
 !!! get learnable parameters

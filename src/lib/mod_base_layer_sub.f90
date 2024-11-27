@@ -168,6 +168,52 @@ contains
 
 
 !!!#############################################################################
+!!! layer reduction
+!!!#############################################################################
+  module subroutine reduce_learnable(this, rhs)
+    implicit none
+    class(learnable_layer_type), intent(inout) :: this
+    class(learnable_layer_type), intent(in) :: rhs
+
+    this%dp = this%dp + rhs%dp
+    this%db = this%db + rhs%db
+
+  end subroutine  reduce_learnable
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! layer addition
+!!!#############################################################################
+  module function add_learnable(a, b) result(output)
+    implicit none
+    class(learnable_layer_type), intent(in) :: a, b
+    class(learnable_layer_type), allocatable :: output
+
+    output = a
+    output%dp = output%dp + b%dp
+    output%db = output%db + b%db
+
+  end function add_learnable
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! layer merge
+!!!#############################################################################
+  module subroutine merge_learnable(this, input)
+    implicit none
+    class(learnable_layer_type), intent(inout) :: this
+    class(learnable_layer_type), intent(in) :: input
+
+    this%dp = this%dp + input%dp
+    this%db = this%db + input%db
+
+  end subroutine merge_learnable
+!!!#############################################################################
+
+
+!!!#############################################################################
 !!! get learnable parameters of layer
 !!!#############################################################################
   pure module function get_params(this) result(params)

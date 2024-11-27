@@ -37,12 +37,6 @@ module full_layer
      procedure, private, pass(this) :: forward_2d
      procedure, private, pass(this) :: backward_2d
 
-
-     procedure, pass(this) :: reduce => layer_reduction
-     procedure, pass(this) :: merge => layer_merge
-     procedure :: add_t_t => layer_add  !t = type, r = real, i = int
-     generic :: operator(+) => add_t_t !, public
-
      final :: finalise_full
   end type full_layer_type
 
@@ -88,55 +82,6 @@ contains
     if(allocated(this%di)) deallocate(this%di)
 
   end subroutine finalise_full
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! layer reduction
-!!!#############################################################################
-  subroutine layer_reduction(this, rhs)
-    implicit none
-    class(full_layer_type), intent(inout) :: this
-    class(learnable_layer_type), intent(in) :: rhs
-
-    select type(rhs)
-    type is(full_layer_type)
-       this%dw = this%dw + rhs%dw
-    end select
-
-  end subroutine  layer_reduction
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! layer addition
-!!!#############################################################################
-  function layer_add(a, b) result(output)
-    implicit none
-    class(full_layer_type), intent(in) :: a, b
-    type(full_layer_type) :: output
-
-    output = a
-    output%dw = output%dw + b%dw
-
-  end function layer_add
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! layer merge
-!!!#############################################################################
-  subroutine layer_merge(this, input)
-    implicit none
-    class(full_layer_type), intent(inout) :: this
-    class(learnable_layer_type), intent(in) :: input
-
-    select type(input)
-    class is(full_layer_type)
-       this%dw = this%dw + input%dw
-    end select
-
-  end subroutine layer_merge
 !!!#############################################################################
 
 
@@ -382,7 +327,8 @@ contains
     allocate(initialiser_, source=initialiser_setup(this%kernel_initialiser))
     call initialiser_%initialise( &
          this%params(:this%num_params-this%num_outputs), &
-         fan_in=this%num_inputs+1, fan_out=this%num_outputs &
+         fan_in = this%num_inputs + 1, fan_out = this%num_outputs, &
+         spacing = [ this%num_outputs ] &
     )
     deallocate(initialiser_)
 
