@@ -11,7 +11,8 @@ program test_full_layer
 !!!-----------------------------------------------------------------------------
 !!! set up layer
 !!!-----------------------------------------------------------------------------
-  full_layer1 = full_layer_type(num_inputs=1, num_outputs=10)
+  full_layer1 = full_layer_type(num_inputs=1, num_outputs=10, batch_size=1)
+  call full_layer1%set_ptrs()
   
   !! check layer name
   if(.not. full_layer1%name .eq. 'full')then
@@ -61,8 +62,10 @@ program test_full_layer
 !!!-----------------------------------------------------------------------------
   full_layer2 = full_layer_type(num_inputs=1, num_outputs=10, &
        activation_function="sigmoid", batch_size=1)
+  call full_layer2%set_ptrs()
   full_layer3 = full_layer_type(num_inputs=1, num_outputs=10, &
        activation_function="sigmoid", batch_size=1)
+  call full_layer3%set_ptrs()
   select type(full_layer2)
   type is(full_layer_type)
      select type(full_layer3)
@@ -131,9 +134,17 @@ contains
              layer1%transfer%name
      end if
      if(present(layer3))then
+        if(any(abs(layer1%dp-layer2%dp-layer3%dp).gt.1.E-6))then
+           success = .false.
+           write(0,*) 'full layer has wrong gradients'
+        end if
         if(any(abs(layer1%dw-layer2%dw-layer3%dw).gt.1.E-6))then
            success = .false.
-           write(0,*) 'full layer has wrong weights'
+           write(0,*) 'full layer has wrong weight gradients'
+        end if
+        if(any(abs(layer1%db-layer2%db-layer3%db).gt.1.E-6))then
+           success = .false.
+           write(0,*) 'full layer has wrong bias gradients'
         end if
      end if
 
