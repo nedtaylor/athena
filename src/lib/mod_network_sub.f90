@@ -9,6 +9,7 @@ submodule(network) network_submodule
 #ifdef _OPENMP
   use omp_lib
 #endif
+  use misc, only: to_lower
   use misc_ml, only: shuffle
 
   use accuracy, only: categorical_score, mae_score, mse_score, r2_score
@@ -246,7 +247,8 @@ contains
                   this%auto_graph%edge(this%auto_graph%adjacency(j,i))%id &
              )
              case(1) ! concatenate
-                num_outputs = maxval(this%io_map(:,i,4)) + 1
+                num_outputs = &
+                     maxval(this%io_map(:,this%auto_graph%vertex(i)%id,4)) + 1
                 this%io_map( &
                      this%auto_graph%vertex(j)%id, &
                      this%auto_graph%vertex(i)%id, &
@@ -362,15 +364,16 @@ contains
 !!!#############################################################################
 !!! append layer to network
 !!!#############################################################################
-  module subroutine add(this, layer, input_list, output_list)
+  module subroutine add(this, layer, input_list, output_list, operator)
     implicit none
     class(network_type), intent(inout) :: this
     class(base_layer_type), intent(in) :: layer
-    integer, dimension(:), optional, intent(in) :: input_list !for now, assume all operations are concatenation. Later on, make it optional rank 2, and 2nd rank is the operation
-    ! in the future, make this a list of base_layer_type and query their id values
+    integer, dimension(:), optional, intent(in) :: input_list
     integer, dimension(:), optional, intent(in) :: output_list
+    class(*), optional, intent(in) :: operator
 
     integer :: i, vertex_index
+    integer :: operator_
 
     
     if(.not.allocated(this%model))then
@@ -383,46 +386,70 @@ contains
     allocate(this%model(size(this%model,dim=1))%layer, source=layer)
     this%model(size(this%model,dim=1))%layer%id = this%num_layers
 
-    ! directed graph, true
-    ! num_vertex_features = 1, representing whether the vertex needs to be updated (for backward only?), 1 = update, 0 = no update
-    ! num_edge_features = 1, representing the operation of the edge
+
+    operator_ = 1
+    if(present(operator))then
+       select type(operator)
+       type is(integer)
+          operator_ = operator
+       type is(character(*))
+          select case(trim(to_lower(operator)))
+          case("||", "concat", "concatenate", "append")
+             operator_ = 1
+          case("+", "add")
+             operator_ = 2
+          case("*", "x", "mul", "multiply")
+             operator_ = 3
+          end select
+       end select
+    end if
+    if(operator_.gt.2.or.operator_.lt.1)then
+       write(0,*) "ERROR: invalid operator"
+       stop "Exiting..."
+    end if
+
     ! edge_index(1) = index of the previous layer
     ! abs(edge_index(2)) = index of the current layer
-    ! the sign of edge_index(2) is the direction of the edge, 
-    !    +ve = forward
-    !    -ve = backward
-    ! then, adjacency(i,:) is all of the layers that i feeds forward to
-    ! and adjacency(:,i) is all of the layers that feed forward to i (i.e. the backward pass)
-
-    !! have another check. If the layer is an input layer, then it should have no vertex added
-    !! vertex feature(1) = layer number
-    !!! NEED TO FIND OUT HOW TO REMOVE THIS LATER
+    ! the -ve sign of edge_index(2) indicates that the edge goes from the 
+    !   previous layer to the current layer
+    !   i.e. forward pass flows from positive to negative
+    ! adjacency(i,:) is all of the layers that i feeds forward to
+    ! adjacency(:,i) is all of the layers that feed forward to i (i.e. the backward pass)
     this%auto_graph%directed = .true.
     call this%auto_graph%add_vertex(feature=[1._real32], id=this%num_layers)
     if(present(input_list))then
        do i = 1, size(input_list)
-          vertex_index = findloc([this%auto_graph%vertex(:)%id], input_list(i), 1)
+          vertex_index = findloc( &
+               [this%auto_graph%vertex(:)%id], &
+               input_list(i), 1 &
+          )
           call this%auto_graph%add_edge( &
                 index = [ vertex_index, -this%auto_graph%num_vertices ], &
                 feature = [ 1._real32 ], &
-                id = 1 &
+                id = operator_ &
           )
        end do
     elseif(trim(layer%type).ne."inpt".and.this%auto_graph%num_vertices.gt.1)then
        call this%auto_graph%add_edge( &
-            index = [ this%auto_graph%num_vertices-1, -this%auto_graph%num_vertices ], &
+            index = [ &
+                 this%auto_graph%num_vertices-1, &
+                 -this%auto_graph%num_vertices &
+            ], &
             feature = [ 1._real32 ], &
-            id = 1 &
+            id = operator_ &
        )
     end if
 
     if(present(output_list))then
        do i = 1, size(output_list)
-          vertex_index = findloc([this%auto_graph%vertex(:)%id], output_list(i), 1)
+          vertex_index = findloc( &
+               [this%auto_graph%vertex(:)%id], &
+               output_list(i), 1 &
+          )
           call this%auto_graph%add_edge( &
                 index = [ this%auto_graph%num_vertices, -vertex_index ], &
                 feature = [ 1._real32 ], &
-                id = 1 &
+                id = operator_ &
           )
        end do
     end if
@@ -876,8 +903,18 @@ contains
                dim = 1 &
           )
              if(this%auto_graph%adjacency(j,this%vertex_order(i)).eq.0) cycle
-             input_shape(:) = input_shape(:) + &
-                  this%model(j)%layer%output%shape
+             select case( &
+                   this%auto_graph%edge( &
+                      this%auto_graph%adjacency(j,this%vertex_order(i)) &
+                   )%id &
+             )
+             case(1) ! concatenate
+                input_shape(:) = input_shape(:) + &
+                      this%model(j)%layer%output%shape
+             case(2) ! add
+                input_shape(:) = max(input_shape(:), &
+                      this%model(j)%layer%output%shape)
+             end select
           end do
           call this%model(this%vertex_order(i))%layer%init( &
                input_shape = input_shape, &
@@ -1201,12 +1238,12 @@ contains
           idx_start = this%io_map( &
                this%auto_graph%vertex(i)%id, &
                this%auto_graph%vertex(idx)%id, &
-               1 &
+               3 &
           )
           idx_end = this%io_map( &
                this%auto_graph%vertex(i)%id, &
                this%auto_graph%vertex(idx)%id, &
-               2 &
+               4 &
           )
           select case( &
                this%auto_graph%edge( &
@@ -1252,12 +1289,12 @@ contains
           idx_start = this%io_map( &
                this%auto_graph%vertex(idx)%id, &
                this%auto_graph%vertex(i)%id, &
-               3 &
+               1 &
           )
           idx_end = this%io_map( &
                this%auto_graph%vertex(idx)%id, &
                this%auto_graph%vertex(i)%id, &
-               4 &
+               2 &
           )
           select case( &
                 this%auto_graph%edge( &
@@ -1288,7 +1325,7 @@ contains
 !!!#############################################################################
 !!! forward pass
 !!!#############################################################################
-  module subroutine forward_real(this, input)
+  pure module subroutine forward_real(this, input)
     implicit none
     class(network_type), intent(inout) :: this
     real(real32), dimension(..), intent(in) :: input
@@ -1310,10 +1347,10 @@ contains
 
   end subroutine forward_real
 !!!-----------------------------------------------------------------------------
-  module subroutine forward_derived(this, input)
+  pure module subroutine forward_derived(this, input)
     implicit none
     class(network_type), intent(inout) :: this
-    class(array_type), dimension(:), intent(in) :: input
+    class(array_type), dimension(size(this%root_vertices)), intent(in) :: input
 
     integer :: i
     real(real32), dimension(:,:), allocatable :: auto_input
@@ -1332,7 +1369,7 @@ contains
        else
           call this%get_input_autodiff(this%vertex_order(i), auto_input)
           call this%model(this%vertex_order(i))%layer%forward(auto_input)
-      end if
+       end if
     end do
 
   end subroutine forward_derived
@@ -1444,8 +1481,8 @@ contains
     rank(1)
     rank default
        input_rank = rank(input)
-       num_inputs = size(input) / num_samples
        num_samples = size(input, input_rank)
+       num_inputs = size(input) / num_samples
        allocate(output(1))
        call output(1)%allocate(array_shape=[num_inputs, num_samples])
     end select

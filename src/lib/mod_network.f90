@@ -155,10 +155,11 @@ module network
      !!-------------------------------------------------------------------------
      !! this  = (T, io) network type
      !! layer = (I, in) layer to add
-     module subroutine add(this, layer, input_list, output_list)
+     module subroutine add(this, layer, input_list, output_list, operator)
        class(network_type), intent(inout) :: this
        class(base_layer_type), intent(in) :: layer
        integer, dimension(:), intent(in), optional :: input_list, output_list
+       class(*), optional, intent(in) :: operator
      end subroutine add
 
      !!-------------------------------------------------------------------------
@@ -449,13 +450,13 @@ module network
      !!-------------------------------------------------------------------------
      !! this        = (T, io) network type
      !! input       = (R, in) input data
-     module subroutine forward_real(this, input)
+     pure module subroutine forward_real(this, input)
        class(network_type), intent(inout) :: this
        real(real32), dimension(..), intent(in) :: input
      end subroutine forward_real
-     module subroutine forward_derived(this, input)
+     pure module subroutine forward_derived(this, input)
        class(network_type), intent(inout) :: this
-       class(array_type), dimension(:), intent(in) :: input
+       class(array_type), dimension(size(this%root_vertices)), intent(in) :: input
      end subroutine forward_derived
 
      !!-------------------------------------------------------------------------
