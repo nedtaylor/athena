@@ -25,7 +25,6 @@ program test_input_layer
 !!!-----------------------------------------------------------------------------
 !!! set up input layer
 !!!-----------------------------------------------------------------------------
-!   write(*,*) "test0"
 !   input_layer = input_layer_type( &
 !        input_shape=shape(input_1d), &
 !        batch_size=batch_size &
