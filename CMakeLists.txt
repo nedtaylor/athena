@@ -80,6 +80,7 @@ set(SRC_DIR src)
 set(LIB_DIR ${SRC_DIR}/lib)
 
 set(LIB_FILES
+    mod_io_utils.f90
     mod_constants.f90
     mod_misc.f90
     mod_random.f90
