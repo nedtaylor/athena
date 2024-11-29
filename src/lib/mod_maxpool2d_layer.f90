@@ -17,7 +17,6 @@ module athena__maxpool2d_layer
      procedure, pass(this) :: set_hyperparams => set_hyperparams_maxpool2d
      procedure, pass(this) :: init => init_maxpool2d
      procedure, pass(this) :: set_batch_size => set_batch_size_maxpool2d
-     procedure, pass(this) :: print => print_maxpool2d
      procedure, pass(this) :: read => read_maxpool2d
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
@@ -313,44 +312,6 @@ contains
 !!!##########################################################################!!!
 !!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
 !!!##########################################################################!!!
-
-
-!!!#############################################################################
-!!! print layer to file
-!!!#############################################################################
-  subroutine print_maxpool2d(this, file)
-    implicit none
-    class(maxpool2d_layer_type), intent(in) :: this
-    character(*), intent(in) :: file
-
-    integer :: unit
-
-    !! open file with new unit
-    !!--------------------------------------------------------------------------
-    open(newunit=unit, file=trim(file), access='append')
-
-    !! write convolution initial parameters
-    !!--------------------------------------------------------------------------
-    write(unit,'("MAXPOOL2D")')
-    write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
-    if(all(this%pool.eq.this%pool(1)))then
-       write(unit,'(3X,"POOL_SIZE =",1X,I0)') this%pool(1)
-    else
-       write(unit,'(3X,"POOL_SIZE =",2(1X,I0))') this%pool
-    end if
-    if(all(this%strd.eq.this%strd(1)))then
-       write(unit,'(3X,"STRIDE =",1X,I0)') this%strd(1)
-    else
-       write(unit,'(3X,"STRIDE =",2(1X,I0))') this%strd
-    end if
-    write(unit,'("END MAXPOOL2D")')
-
-    !! close unit
-    !!--------------------------------------------------------------------------
-    close(unit)
-
-  end subroutine print_maxpool2d
-!!!#############################################################################
 
 
 !!!#############################################################################

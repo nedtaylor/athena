@@ -32,12 +32,14 @@
 !!!#############################################################################
 submodule(athena__base_layer) athena__base_layer_submodule
   use athena__io_utils, only: stop_program
+  use athena__misc, only: to_lower, to_upper, icount
+  use athena__tools_infile, only: assign_val, assign_vec
   implicit none
 
 contains
 
 !!!#############################################################################
-!!! print layer to file (do nothing for a base layer)
+!!! print layer to file
 !!!#############################################################################
 !!! this = (T, in) base_layer_type
 !!! file = (I, in) file name
@@ -49,6 +51,43 @@ contains
     !! NO NEED TO WRITE ANYTHING FOR A DEFAULT LAYER
     return
   end subroutine print_base
+!!!-----------------------------------------------------------------------------
+  module subroutine print_pool(this, file)
+    implicit none
+    class(pool_layer_type), intent(in) :: this
+    character(*), intent(in) :: file
+
+    integer :: unit
+    character(100) :: fmt
+
+    !! open file with new unit
+    !!--------------------------------------------------------------------------
+    open(newunit=unit, file=trim(file), access='append')
+
+    !! write convolution initial parameters
+    !!--------------------------------------------------------------------------
+    write(unit,'(A)') to_upper(trim(this%name))
+    write(fmt,'("(3X,""INPUT_SHAPE ="",",I0,"(1X,I0))")') size(this%input_shape)
+    write(unit,fmt) this%input_shape
+    if(all(this%pool.eq.this%pool(1)))then
+       write(unit,'(3X,"POOL_SIZE =",1X,I0)') this%pool(1)
+    else
+       write(fmt,'("(3X,""STRIDE ="",",I0,"(1X,I0))")') size(this%pool)
+       write(unit,fmt) this%pool
+    end if
+    if(all(this%strd.eq.this%strd(1)))then
+       write(unit,'(3X,"STRIDE =",1X,I0)') this%strd(1)
+    else
+       write(fmt,'("(3X,""STRIDE ="",",I0,"(1X,I0))")') size(this%strd)
+       write(unit,fmt) this%strd
+    end if
+    write(unit,'("END ",A)') to_upper(trim(this%name))
+
+    !! close unit
+    !!--------------------------------------------------------------------------
+    close(unit)
+
+  end subroutine print_pool
 !!!#############################################################################
 
 
@@ -278,8 +317,16 @@ end subroutine set_params
        this%dp = gradients
        this%db = gradients
     rank(1)
-       this%dp = spread(gradients(1:this%num_params - size(this%db,1)), 2, this%batch_size)
-       this%db = spread(gradients(this%num_params - size(this%db,1) + 1:), 2, this%batch_size)
+       this%dp = spread( &
+            gradients(1:this%num_params - size(this%db,1)), &
+            2, &
+            this%batch_size &
+       )
+       this%db = spread( &
+            gradients(this%num_params - size(this%db,1) + 1:), &
+            2, &
+            this%batch_size &
+       )
     end select
   
   end subroutine set_gradients

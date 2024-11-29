@@ -17,7 +17,6 @@ module athena__avgpool2d_layer
      procedure, pass(this) :: set_hyperparams => set_hyperparams_avgpool2d
      procedure, pass(this) :: init => init_avgpool2d
      procedure, pass(this) :: set_batch_size => set_batch_size_avgpool2d
-     procedure, pass(this) :: print => print_avgpool2d
      procedure, pass(this) :: read => read_avgpool2d
      procedure, pass(this) :: forward  => forward_rank
      procedure, pass(this) :: backward => backward_rank
@@ -313,44 +312,6 @@ contains
 
 
 !!!#############################################################################
-!!! print layer to file
-!!!#############################################################################
-  subroutine print_avgpool2d(this, file)
-    implicit none
-    class(avgpool2d_layer_type), intent(in) :: this
-    character(*), intent(in) :: file
-
-    integer :: unit
-
-    !! open file with new unit
-    !!--------------------------------------------------------------------------
-    open(newunit=unit, file=trim(file), access='append')
-
-    !! write convolution initial parameters
-    !!--------------------------------------------------------------------------
-    write(unit,'("AVGPOOL2D")')
-    write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
-    if(all(this%pool.eq.this%pool(1)))then
-       write(unit,'(3X,"POOL_SIZE =",1X,I0)') this%pool(1)
-    else
-       write(unit,'(3X,"POOL_SIZE =",2(1X,I0))') this%pool
-    end if
-    if(all(this%strd.eq.this%strd(1)))then
-       write(unit,'(3X,"STRIDE =",1X,I0)') this%strd(1)
-    else
-       write(unit,'(3X,"STRIDE =",2(1X,I0))') this%strd
-    end if
-    write(unit,'("END AVGPOOL2D")')
-
-    !! close unit
-    !!--------------------------------------------------------------------------
-    close(unit)
-
-  end subroutine print_avgpool2d
-!!!#############################################################################
-
-
-!!!#############################################################################
 !!! read layer from file
 !!!#############################################################################
   subroutine read_avgpool2d(this, unit, verbose)
@@ -377,15 +338,15 @@ contains
        !! check for end of file
        read(unit,'(A)',iostat=stat) buffer
        if(stat.ne.0)then
-          call stop_program( &
-               "file encountered error (EoF?) before END AVGPOOL2D" &
-          )
+          write(err_msg,'("file encountered error (EoF?) before END ",A)') &
+               to_upper(this%name)
+          call stop_program(err_msg)
           return
        end if
        if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
        !! check for end of convolution card
-       if(trim(adjustl(buffer)).eq."END AVGPOOL2D")then
+       if(trim(adjustl(buffer)).eq."END "//to_upper(trim(this%name)))then
           backspace(unit)
           exit tag_loop
        end if
@@ -423,7 +384,7 @@ contains
 
     !! check for end of layer card
     read(unit,'(A)') buffer
-    if(trim(adjustl(buffer)).ne."END AVGPOOL2D")then
+    if(trim(adjustl(buffer)).ne."END "//to_upper(trim(this%name)))then
        write(0,*) trim(adjustl(buffer))
        write(err_msg,'("END ",A," not where expected")') to_upper(this%name)
        call stop_program(err_msg)

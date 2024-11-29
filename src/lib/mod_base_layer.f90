@@ -209,7 +209,21 @@ module athena__base_layer
      !! pool = pool
      integer, allocatable, dimension(:) :: pool, strd
      integer :: num_channels
+   contains
+     procedure, pass(this) :: print => print_pool
   end type pool_layer_type
+
+  interface
+     !!-------------------------------------------------------------------------
+     !! print layer to file
+     !!-------------------------------------------------------------------------
+     !! this = (T, in) pool_layer_type
+     !! file = (I, in) file name
+     module subroutine print_pool(this, file)
+       class(pool_layer_type), intent(in) :: this
+       character(*), intent(in) :: file
+     end subroutine print_pool
+  end interface
 
 
 !!!-----------------------------------------------------------------------------
