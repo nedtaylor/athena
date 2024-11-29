@@ -11,6 +11,7 @@
 !! Examples of initialsers in keras: https://keras.io/api/layers/initializers/
 !!!#############################################################################
 module initialiser
+  use athena__io_utils, only: stop_program
   use misc, only: to_lower
   use custom_types, only: initialiser_type
   use initialiser_glorot, only: glorot_uniform, glorot_normal
@@ -82,6 +83,8 @@ contains
     character(*), intent(in) :: name
     integer, optional, intent(out) :: error
 
+    character(256) :: err_msg
+
 
     !!--------------------------------------------------------------------------
     !! set initialiser function
@@ -114,7 +117,10 @@ contains
           error = -1
           return
        else
-          stop "Incorrect initialiser name given '"//trim(to_lower(name))//"'"
+          write(err_msg,'("Incorrect initialiser name given ''",A,"''")') &
+               trim(to_lower(name))
+          call stop_program(trim(err_msg))
+          return
        end if
     end select
 

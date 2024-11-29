@@ -5,6 +5,7 @@
 !!! module contains implementation of a 2D batch normalisation layer
 !!!#############################################################################
 module batchnorm2d_layer
+  use athena__io_utils, only: stop_program
   use constants, only: real32
   use base_layer, only: batch_layer_type, learnable_layer_type
   use custom_types, only: initialiser_type, array4d_type
@@ -389,7 +390,7 @@ contains
 !!!#############################################################################
   subroutine read_batchnorm2d(this, unit, verbose)
     use infile_tools, only: assign_val, assign_vec
-    use misc, only: to_lower, icount
+    use misc, only: to_lower, to_upper, icount
     implicit none
     class(batchnorm2d_layer_type), intent(inout) :: this
     integer, intent(in) :: unit
@@ -402,7 +403,7 @@ contains
     real(real32) :: momentum = 0._real32, epsilon = 1.E-5_real32
     logical :: found_gamma=.false., found_beta=.false.
     character(14) :: kernel_initialiser='', bias_initialiser=''
-    character(256) :: buffer, tag
+    character(256) :: buffer, tag, err_msg
 
     integer, dimension(3) :: input_shape
     real(real32), allocatable, dimension(:) :: data_list
@@ -422,8 +423,10 @@ contains
        !! check for end of file
        read(unit,'(A)',iostat=stat) buffer
        if(stat.ne.0)then
-          write(0,*) "ERROR: file encountered error (EoF?) before END BATCHNORM2D"
-          stop "Exiting..."
+          write(err_msg,'("file encountered error (EoF?) before END ",A)') &
+               to_upper(this%name)
+          call stop_program(err_msg)
+          return
        end if
        if(trim(adjustl(buffer)).eq."") cycle tag_loop
  
@@ -467,7 +470,10 @@ contains
           elseif(tag(:3).eq.'END')then
              cycle tag_loop
           end if
-          stop "Unrecognised line in input file: "//trim(adjustl(buffer))
+          write(err_msg,'("Unrecognised line in input file: ",A)') &
+               trim(adjustl(buffer))
+          call stop_program(err_msg)
+          return
        end select
     end do tag_loop
 
@@ -527,8 +533,10 @@ contains
     !!-----------------------------------------------------------------------
     read(unit,'(A)') buffer
     if(trim(adjustl(buffer)).ne."END BATCHNORM2D")then
-       write(*,*) trim(adjustl(buffer))
-       stop "ERROR: END BATCHNORM2D not where expected"
+       write(0,*) trim(adjustl(buffer))
+       write(err_msg,'("END ",A," not where expected")') to_upper(this%name)
+       call stop_program(err_msg)
+       return
     end if
 
   end subroutine read_batchnorm2d

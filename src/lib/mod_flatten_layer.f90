@@ -5,6 +5,7 @@
 !!! module contains implementation of a 1D flattening layer
 !!!#############################################################################
 module flatten_layer
+  use athena__io_utils, only: stop_program
   use constants, only: real32
   use base_layer, only: base_layer_type
   use custom_types, only: &
@@ -153,9 +154,10 @@ contains
     elseif(present(input_shape))then
        input_rank_ = size(input_shape)
     else
-       write(0,*) &
-            "ERROR: input_rank or input_shape must be provided to flatten layer"
-       stop "Exiting..."
+       call stop_program( &
+            "input_rank or input_shape must be provided to flatten layer" &
+       )
+       return
     end if
     call layer%set_hyperparams(input_rank_, verbose_)
 
@@ -312,7 +314,7 @@ contains
 !!!#############################################################################
   subroutine read_flatten(this, unit, verbose)
     use infile_tools, only: assign_val, assign_vec
-    use misc, only: to_lower, icount
+    use misc, only: to_lower, to_upper, icount
     implicit none
     class(flatten_layer_type), intent(inout) :: this
     integer, intent(in) :: unit
@@ -322,7 +324,7 @@ contains
     integer :: itmp1 = 0
     integer :: input_rank = 0
     integer, dimension(:), allocatable :: input_shape
-    character(256) :: buffer, tag
+    character(256) :: buffer, tag, err_msg
 
 
     !!--------------------------------------------------------------------------
@@ -336,8 +338,10 @@ contains
       !! check for end of file
       read(unit,'(A)',iostat=stat) buffer
       if(stat.ne.0)then
-         write(0,*) "ERROR: file encountered error (EoF?) before END FLATTEN"
-         stop "Exiting..."
+         write(err_msg,'("file encountered error (EoF?) before END ",A)') &
+              to_upper(this%name)
+         call stop_program(err_msg)
+         return
       end if
       if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
@@ -365,16 +369,20 @@ contains
          elseif(tag(:3).eq.'END')then
             cycle tag_loop
          end if
-         stop "Unrecognised line in input file: "//trim(adjustl(buffer))
+         write(err_msg,'("Unrecognised line in input file: ",A)') &
+              trim(adjustl(buffer))
+         call stop_program(err_msg)
+         return
       end select
    end do tag_loop
 
    if(input_rank.eq.0.and.allocated(input_shape))then
       input_rank = size(input_shape)
    else
-      write(0,*) &
-           "ERROR: input_rank or input_shape must be provided to flatten layer"
-      stop "Exiting..."
+      call stop_program( &
+           "input_rank or input_shape must be provided to flatten layer" &
+      )
+      return
    end if
 
    !! set transfer activation function
@@ -383,6 +391,18 @@ contains
         verbose = verbose_ &
    )
    call this%init(input_shape = input_shape)
+
+
+    !!--------------------------------------------------------------------------
+    !! check for end of layer card
+    !!--------------------------------------------------------------------------
+    read(unit,'(A)') buffer
+    if(trim(adjustl(buffer)).ne."END FLATTEN")then
+       write(0,*) trim(adjustl(buffer))
+       write(err_msg,'("END ",A," not where expected")') to_upper(this%name)
+       call stop_program(err_msg)
+       return
+    end if
 
   end subroutine read_flatten
 !!!#############################################################################

@@ -9,6 +9,7 @@ submodule(network) network_submodule
 #ifdef _OPENMP
   use omp_lib
 #endif
+  use athena__io_utils, only: stop_program
   use misc, only: to_lower
   use misc_ml, only: shuffle
 
@@ -318,7 +319,7 @@ contains
    character(*), intent(in) :: file
    
    integer :: i, unit, stat
-   character(256) :: buffer
+   character(256) :: buffer, err_msg
    integer :: layer_index
    open(newunit=unit,file=file,action='read')
    i = 0
@@ -328,8 +329,8 @@ contains
       if(stat.lt.0)then
          exit card_loop
       elseif(stat.gt.0)then
-         write(0,*) "ERROR: error encountered in network read"
-         stop "Exiting..."
+         call stop_program("error encountered in network read")
+         return
       end if
       if(trim(adjustl(buffer)).eq."") cycle card_loop
 
@@ -344,9 +345,9 @@ contains
       !! check for card
       layer_index = findloc(list_of_layer_types%name, trim(adjustl(buffer)), dim=1)
       if(layer_index.eq.0)then
-         write(0,*) "ERROR: unrecognised card '"//&
-              &trim(adjustl(buffer))//"'"
-         stop "Exiting..."
+         write(err_msg,'("unrecognised card ''",A)') trim(adjustl(buffer))
+         call stop_program(err_msg)
+         return
       end if
       call this%add(list_of_layer_types(layer_index)%read_ptr(unit))
    end do card_loop
@@ -404,8 +405,8 @@ contains
        end select
     end if
     if(operator_.gt.2.or.operator_.lt.1)then
-       write(0,*) "ERROR: invalid operator"
-       stop "Exiting..."
+       call stop_program("invalid operator")
+       return
     end if
 
     ! edge_index(1) = index of the previous layer
@@ -543,11 +544,13 @@ contains
           if(size(metrics,1).eq.2)then
              this%metrics(:2) = metrics(:2)
           else
-             stop "ERROR: invalid length array for metric_dict_type"
+             call stop_program("invalid length array for metric_dict_type")
+             return
           end if
        end select
     rank default
-       stop "ERROR: provided metrics rank in compile invalid"
+       call stop_program("provided metrics rank in compile invalid")
+       return
     end select
 
   end subroutine set_metrics
@@ -571,6 +574,7 @@ contains
 
     integer :: verbose_
     character(len=:), allocatable :: loss_method_
+    character(256) :: err_msg
 
 
     if(present(verbose))then
@@ -627,8 +631,12 @@ contains
       this%get_loss_deriv => compute_loss_hubber_derivative
       if(verbose_.gt.0) write(*,*) "Loss method: Hubber"
    case default
-      write(0,*) "Failed loss method: "//trim(loss_method_)
-      stop "ERROR: No loss method provided"
+      write(err_msg,'(A)') &
+           "No loss method provided" // &
+           achar(13) // achar(10) // &
+           "Failed loss method: "//trim(loss_method_)
+      call stop_program(trim(err_msg))
+      return
    end select
 
   end subroutine set_loss
@@ -649,6 +657,7 @@ contains
 
     integer :: verbose_
     character(len=:), allocatable :: accuracy_method_
+    character(256) :: err_msg
 
 
     if(present(verbose))then
@@ -694,8 +703,12 @@ contains
       this%get_accuracy => r2_score
       if(verbose_.gt.0) write(*,*) "Accuracy method: R^2"
    case default
-      write(0,*) "Failed accuracy method: "//trim(accuracy_method_)
-      stop "ERROR: No accuracy method provided"
+      write(err_msg,'(A)') &
+           "No accuracy method provided" // &
+           achar(13) // achar(10) // &
+           "Failed loss method: "//trim(accuracy_method_)
+      call stop_program(trim(err_msg))
+      return
    end select
 
   end subroutine set_accuracy
@@ -781,8 +794,8 @@ contains
                  this%auto_graph%vertex(this%root_vertices(i))%id &
             )%layer%input_shape &
        ))then
-          write(0,*) "ERROR: input_shape of first layer not defined"
-          stop 1
+          call stop_program("input_shape of first layer not defined")
+          return
        end if
        select type( root => this%model(this%auto_graph%vertex( &
             this%root_vertices(i) &
@@ -1388,8 +1401,8 @@ contains
     real(real32), dimension(:,:), allocatable :: input, gradient
 
 
-   !  !! Backward pass
-   !  !!-------------------------------------------------------------------
+    !! Backward pass
+    !!--------------------------------------------------------------------------
     do i = size(this%vertex_order,1), 1, -1
        
       if(all(this%auto_graph%adjacency(:,this%vertex_order(i)).eq.0))then
@@ -1399,11 +1412,13 @@ contains
       end if
 
       if(all(this%auto_graph%adjacency(this%vertex_order(i),:).eq.0))then
-         gradient = this%get_loss_deriv(this%model(this%vertex_order(i))%layer%output%val, output)
+         gradient = this%get_loss_deriv( &
+              this%model(this%vertex_order(i))%layer%output%val, &
+              output &
+         )
       else
           call this%get_gradient_autodiff(this%vertex_order(i), gradient)
       end if
-
 
       call this%model(this%vertex_order(i))%layer%backward(input, gradient)
    end do
@@ -1436,10 +1451,10 @@ contains
           gradients(start_idx:end_idx) = [ &
                sum(current%dp, dim=2) / this%batch_size, &
                sum(current%db, dim=2) / this%batch_size ]
-         ! have an if statement of whether to apply to gradients of each layer individually or collectively
        end select
     end do
-    ! have an if statement of whether to apply to gradients of each layer individually or collectively
+    ! have an if statement of whether to apply clipping to to gradients of
+    ! each layer individually or collectively to the all gradients at once
     call this%optimiser%clip_dict%apply(size(gradients),gradients)
 
     !!-------------------------------------------------------------------
@@ -1465,7 +1480,9 @@ contains
 !!!#############################################################################
 !!! 
 !!!#############################################################################
-  subroutine convert_polymorphic_to_array2d(input, output, num_samples, num_input_layers)
+  subroutine convert_polymorphic_to_array2d( &
+       input, output, num_samples, num_input_layers &
+  )
     implicit none
     class(*), dimension(..), intent(in) :: input
     type(array2d_type), dimension(:), allocatable, intent(out) :: output
@@ -1474,6 +1491,7 @@ contains
 
     integer :: i, input_rank, num_inputs
     logical :: l_valid_rank_type
+    character(256) :: err_msg
 
     !! Determine the rank of the input
     select rank(input)
@@ -1496,10 +1514,11 @@ contains
        class default; l_valid_rank_type = .true.
        end select
        if(num_input_layers.ne.1)then
-          write(0,*) "&
-               &ERROR: number of input arrays does not match expected &
-               &number of input layers"
-          stop 1
+          call stop_program( &
+               "number of input arrays does not match expected number of &
+               &input layers" &
+          )
+          return
        end if
        allocate(output(1))
        num_samples = get_num_samples(input)
@@ -1515,10 +1534,11 @@ contains
        class default; l_valid_rank_type = .true.
        end select
        if(size(input,1).ne.num_input_layers)then
-          write(0,*) "&
-               &ERROR: number of input arrays does not match expected &
-               &number of input layers"
-          stop 1
+          call stop_program( &
+               "number of input arrays does not match expected number of &
+               &input layers" &
+          )
+          return
        end if
        allocate(output(size(input,1)))
        num_samples = get_num_samples(input(1))
@@ -1557,8 +1577,9 @@ contains
     end select rank_select
 
     if(.not.l_valid_rank_type)then
-       write(0, *) "ERROR: Unknown input type for rank ", input_rank
-       stop 1
+       write(err_msg,'("Unknown input type for rank ",I0)') input_rank
+       call stop_program(err_msg)
+       return
     end if
 
   contains
@@ -1569,12 +1590,12 @@ contains
 
       select type(input)
       class is(array_type)
-          num_samples = size(input%val, 2)
+         num_samples = size(input%val, 2)
       class is(array_container_type)
-          num_samples = size(input%array%val, 2)
+         num_samples = size(input%array%val, 2)
       class default
-          write(0, *) "ERROR: Unknown input type in get_num_samples"
-          stop 1
+         call stop_program("Unknown input type in get_num_samples")   
+         return
       end select
     end function get_num_samples
 
@@ -1585,9 +1606,8 @@ contains
       integer, intent(in) :: num_samples
 
       if(size(input%val,2).ne.num_samples)then
-         write(0,*) &
-              "ERROR: number of samples in input arrays do not match"
-         stop 1
+         call stop_program("number of samples in input arrays do not match")
+         return
       end if
       call output%allocate( array_shape = &
            [ product(input%shape(1:input%rank)), num_samples ] &
@@ -1650,13 +1670,20 @@ contains
     type(network_type) :: this_copy
 #endif
     integer :: timer_start = 0, timer_stop = 0, timer_sum = 0, timer_tot = 0
+    integer :: forward_timer = 0, backward_timer = 0, update_timer = 0
 
 
 !!!-----------------------------------------------------------------------------
 !!! check loss and accuracy methods are set
 !!!-----------------------------------------------------------------------------
-    if(.not.associated(this%get_loss)) stop "ERROR: loss method not set"
-    if(.not.associated(this%get_accuracy)) stop "ERROR: accuracy method not set"
+    if(.not.associated(this%get_loss))then
+       call stop_program("loss method not set")
+       return
+    end if
+    if(.not.associated(this%get_accuracy))then
+       call stop_program("accuracy method not set")
+       return
+    end if
 
 
 !!!-----------------------------------------------------------------------------
@@ -1708,11 +1735,11 @@ contains
          input, input_, num_samples, size(this%root_vertices,1) &
     )
     if(size(output,2).ne.num_samples)then
-       write(0,*) "ERROR: number of samples in input and output do not match"
-       stop "Exiting..."
+       call stop_program("number of samples in input and output do not match")
+       return
     elseif(size(output,1).ne.this%num_outputs)then
-       write(0,*) "ERROR: number of outputs in output does not match network"
-       stop "Exiting..."
+       call stop_program("number of outputs in output does not match network")
+       return
     end if
 
 
@@ -1772,12 +1799,18 @@ contains
 
           !! Forward pass
           !!--------------------------------------------------------------------
+          call system_clock(timer_start)
           call this%forward(get_sample_derived(input_,start_index,end_index))
+          call system_clock(timer_stop)
+          forward_timer = forward_timer + timer_stop - timer_start
 
 
           !! Backward pass and store predicted output
           !!--------------------------------------------------------------------
+          call system_clock(timer_start)
           call this%backward(y_true(:,:))
+          call system_clock(timer_stop)
+          backward_timer = backward_timer + timer_stop - timer_start
           !! compute loss and accuracy (for monitoring)
           !!-----------------------------------------------------------------
           batch_loss = sum( &
@@ -1808,8 +1841,10 @@ contains
 
           !! update weights and biases using optimization algorithm
           !!--------------------------------------------------------------------
-          !! STORE ADAM VALUES IN OPTIMISER
+          call system_clock(timer_start)
           call this%update()
+          call system_clock(timer_stop)
+          update_timer = update_timer + timer_stop - timer_start
 
 
           !! print batch results
@@ -1860,6 +1895,10 @@ contains
 
 
     end do epoch_loop
+
+    write(*,*) "forward timer: ", real(forward_timer)/clock_rate
+    write(*,*) "backward timer: ", real(backward_timer)/clock_rate
+    write(*,*) "update timer: ", real(update_timer)/clock_rate
 
   end subroutine train
 !!!#############################################################################

@@ -31,6 +31,7 @@
 !!! set_gradients        - set the gradients of the layer
 !!!#############################################################################
 submodule(base_layer) base_layer_submodule
+  use athena__io_utils, only: stop_program
   implicit none
 
 contains
@@ -71,8 +72,8 @@ contains
        write(err_msg,'("ERROR: invalid size of input_shape in ",A,&
             &" expected (",I0,"), got (",I0")")')  &
             trim(this%name), this%input_rank, size(input_shape,dim=1)
-       write(0,*) trim(err_msg)
-       stop 1
+       call stop_program(err_msg)
+       return
     end if
  
   end subroutine set_shape_base
@@ -99,21 +100,25 @@ contains
     implicit none
     class(base_layer_type), intent(inout), target :: this
 
+    character(256) :: err_msg
+
     if(allocated(this%output))then
        if(.not.this%output%allocated)then
-          write(0,*) &
-               "ERROR: output not allocated for layer ",trim(this%name), this%id
-          stop 1
+          write(err_msg,'("output not allocated for layer ",A," ",I0)') &
+               trim(this%name), this%id
+          call stop_program(err_msg)
+          return
        end if
        call this%output%set_ptr()
     end if
     if(allocated(this%di))then
-      if(.not.this%di%allocated)then
-         write(0,*) &
-              "ERROR: di not allocated for layer ",trim(this%name), this%id
-         stop 1
-      end if
-      call this%di%set_ptr()
+       if(.not.this%di%allocated)then
+          write(err_msg,'("di not allocated for layer ",A," ",I0)') &
+               trim(this%name), this%id
+          call stop_program(err_msg)
+          return
+       end if
+       call this%di%set_ptr()
     end if
 
     call this%set_ptrs_hyperparams()

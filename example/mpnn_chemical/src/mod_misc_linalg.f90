@@ -888,7 +888,7 @@ contains
     if(pwr.lt.size(dataset, dim=2))then
        write(0,*) "WARNING: power law for IDW set\&
             &than dataset dimension."
-       call exit()
+       stop 1
     end if
 
     ndata = size(dataset, dim=1)
@@ -935,7 +935,7 @@ contains
             &than dataset dimension."
        write(0,*) dataset
        write(0,*) pwr
-       call exit()
+       stop 1
     end if
 
     allocate(weight(imax,jmax,kmax))
@@ -999,7 +999,7 @@ contains
             &than dataset dimension."
        write(0,*) shape(dataset)
        write(0,*) pwr
-       call exit()
+       stop 1
     end if
 
     nmax = 1
@@ -1025,7 +1025,7 @@ contains
              n = n + 1
              if(n.gt.nmax)then
                 write(0,*) "ERROR: Number exceeded"
-                call exit()
+                stop 1
              end if
              grid_list(n,:) = [i,j,k]
              grid_coord(n,:) = tmp_coord1
@@ -1066,7 +1066,7 @@ contains
                 end do
                 if(any(ijk.le.0))then
                    write(0,*) "ERROR: ijk out of limit"
-                   call exit()
+                   stop 1
                 end if
                 !write(110,*) grid_list(ig,:), in,jn,kn, ijk
 

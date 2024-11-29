@@ -7,6 +7,7 @@
 !!! No other types or procedures should be needed to be accessed by the user
 !!!#############################################################################
 module athena
+  use athena__io_utils, only: print_version, print_build_info
   use misc_ml, only: shuffle, split, pad_data
   use random, only: random_setup
   use network, only: network_type

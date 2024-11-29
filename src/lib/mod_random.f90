@@ -7,6 +7,7 @@
 !!! - random_setup - seed random number generator from seed vector or randomly
 !!!#############################################################################
 module random
+  use athena__io_utils, only: stop_program
   implicit none
   logical :: l_random_initialised=.false.
 
@@ -33,6 +34,8 @@ contains
     logical :: restart_
     integer, allocatable, dimension(:) :: seed_arr
 
+    character(256) :: err_msg
+
     !! check if restart is defined
     if(present(restart))then
        restart_ = restart       
@@ -57,11 +60,13 @@ contains
                 if(size(seed,dim=1).eq.num_seed_)then
                    seed_arr = seed
                 else
-                   write(0,*) "ERROR: seed size not consistent with &
-                        &seed size returned by implementation"
-                   write(0,*) "Cannot resolve"
-                   write(0,*) "Exiting..."
-                   stop 1
+                   write(err_msg,'(A)') &
+                        "seed size not consistent with &
+                        &seed size returned by implementation" // &
+                        achar(13) // achar(10) // &
+                        "Cannot resolve"
+                   call stop_program(err_msg)
+                   return
                 end if
              else
                 seed_arr = seed(1)

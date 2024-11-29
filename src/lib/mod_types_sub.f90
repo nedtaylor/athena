@@ -1,4 +1,5 @@
 submodule(custom_types) custom_types_submodule
+  use athena__io_utils, only: stop_program
   use constants, only: real32
 
 contains
@@ -129,7 +130,8 @@ contains
           ) => this%val
        end select
     class default
-       stop 'ERROR: Incompatible types'
+       call stop_program('Incompatible types')
+       return
     end select
 
   end subroutine assign_array
@@ -152,8 +154,10 @@ contains
     integer, dimension(:), intent(in), optional :: array_shape
     class(*), dimension(..), intent(in), optional :: source
 
-    if(allocated(this%val).or.this%allocated) &
-         stop "ERROR: Trying to allocate already allocated array values"
+    if(allocated(this%val).or.this%allocated)then
+       call stop_program("Trying to allocate already allocated array values")
+       return
+    end if
     this%rank = 1
     this%allocated = .true.
     if(present(array_shape))then
@@ -166,46 +170,57 @@ contains
       rank(0)
           select type(source)
           type is (real(real32))
-             if(.not.present(array_shape)) &
-                  stop 'ERROR: Source shape not provided'
+             if(.not.present(array_shape))then
+                call stop_program('Source shape not provided')
+                return
+             end if
              this%val(:,:) = source
           type is (array1d_type)
              if(present(array_shape))then
-                 if(any(array_shape.ne.shape(source%val))) &
-                    stop 'ERROR: Source shape does not match array shape'
+                 if(any(array_shape.ne.shape(source%val)))then
+                    call stop_program('Source shape does not match array shape')
+                    return
+                 end if
              end if
              this = source
           class default
-             stop 'ERROR: Incompatible source type for rank 0'
+             call stop_program('Incompatible source type for rank 0')
+             return
           end select
        rank(1)
           select type(source)
           type is (real(real32))
              if(present(array_shape))then
                 if(any(array_shape.ne.shape(source))) &
-                  stop 'ERROR: Source shape does not match array shape'
+                  call stop_program('Source shape does not match array shape')
+                  return
              else
                 allocate( this%val( size(source, dim=1), 1 ) )
                 this%val_ptr( 1:size(source, dim=1) ) => this%val
              end if
              this%val_ptr = source
           class default
-             stop 'ERROR: Incompatible source type for rank 1'
+             call stop_program('Incompatible source type for rank 1')
+             return
           end select
        rank(2)
           select type(source)
           type is (real(real32))
              this%val(:,:) = source
           class default
-             stop 'ERROR: Incompatible source type for rank 2'
+             call stop_program('Incompatible source type for rank 2')
+             return
           end select
        rank(3)
        rank default
-          stop 'ERROR: Unrecognised source rank'
+          call stop_program('Unrecognised source rank')
+          return
        end select
     end if
-    if(.not.present(source).and..not.present(array_shape)) &
-         stop 'ERROR: No shape or source provided'
+    if(.not.present(source).and..not.present(array_shape))then
+       call stop_program('No shape or source provided')
+       return
+    end if
     this%shape = shape(this%val_ptr)
     this%size = product(this%shape)
 
@@ -248,8 +263,8 @@ contains
     class(array1d_type), intent(inout), target :: this
 
     if(.not. this%allocated)then
-       write(0,*) 'ERROR: Array not allocated'
-       stop 1
+       call stop_program('Array not allocated')
+       return
     end if
     this%val_ptr(1:this%shape(1)) => this%val
   end subroutine set_ptr_array1d
@@ -285,8 +300,10 @@ contains
     integer, dimension(:), intent(in), optional :: array_shape
     class(*), dimension(..), intent(in), optional :: source
 
-    if(allocated(this%val).or.this%allocated) &
-         stop "ERROR: Trying to allocate already allocated array values"
+    if(allocated(this%val).or.this%allocated)then
+       call stop_program("Trying to allocate already allocated array values")
+       return
+    end if
     this%rank = 1
     this%allocated = .true.
     if(present(array_shape)) allocate(this%val(array_shape(1), array_shape(2)))
@@ -295,13 +312,17 @@ contains
       rank(0)
           select type(source)
           type is (real(real32))
-             if(.not.present(array_shape)) &
-                  stop 'ERROR: Source shape not provided'
+             if(.not.present(array_shape))then
+                call stop_program('Source shape not provided')
+                return
+             end if
              this%val(:,:) = source
           type is (array2d_type)
              if(present(array_shape))then
-                 if(any(array_shape.ne.shape(source%val))) &
-                    stop 'ERROR: Source shape does not match array shape'
+                if(any(array_shape.ne.shape(source%val)))then
+                  call stop_program('Source shape does not match array shape')
+                  return
+                end if
              end if
              this = source
              this%val_ptr( &
@@ -309,25 +330,32 @@ contains
                   1:size(source%val, dim=2) &
              ) => this%val
           class default
-             stop 'ERROR: Incompatible source type for rank 0'
+             call stop_program('Incompatible source type for rank 0')
+             return
           end select
        rank(2)
           select type(source)
           type is (real(real32))
              if(present(array_shape))then
-                if(any(array_shape.ne.shape(source))) &
-                  stop 'ERROR: Source shape does not match array shape'
+                if(any(array_shape.ne.shape(source)))then
+                   call stop_program('Source shape does not match array shape')
+                   return
+                end if
              end if
              this%val = source
           class default
-             stop 'ERROR: Incompatible source type for rank 2'
+             call stop_program('Incompatible source type for rank 2')
+             return
           end select
        rank default
-          stop 'ERROR: Unrecognised source rank'
+          call stop_program('Unrecognised source rank')
+          return
        end select
     end if
-    if(.not.present(source).and..not.present(array_shape)) &
-         stop 'ERROR: No shape or source provided'
+    if(.not.present(source).and..not.present(array_shape))then
+       call stop_program('No shape or source provided')
+       return
+    end if
     this%val_ptr(1:size(this%val, dim=1), 1:size(this%val, dim=2)) => this%val
     this%shape = [ size(this%val, dim=1) ]
     this%size = product(this%shape)
@@ -372,8 +400,8 @@ contains
     class(array2d_type), intent(inout), target :: this
 
     if(.not. this%allocated)then
-       write(0,*) 'ERROR: Array not allocated'
-       stop 1
+       call stop_program('Array not allocated')
+       return
     end if
     this%val_ptr( &
          1:this%shape(1), &
@@ -411,8 +439,10 @@ contains
     integer, dimension(:), intent(in), optional :: array_shape
     class(*), dimension(..), intent(in), optional :: source
 
-    if(allocated(this%val).or.this%allocated) &
-         stop "ERROR: Trying to allocate already allocated array values"
+    if(allocated(this%val).or.this%allocated)then
+       call stop_program("Trying to allocate already allocated array values")
+       return
+    end if
     this%rank = 2
     this%allocated = .true.
     if(present(array_shape))then
@@ -432,13 +462,17 @@ contains
       rank(0)
           select type(source)
           type is (real(real32))
-             if(.not.present(array_shape)) &
-                  stop 'ERROR: Source shape not provided'
+             if(.not.present(array_shape))then
+                call stop_program('Source shape not provided')
+                return
+             end if
              this%val(:,:) = source
           type is (array3d_type)
              if(present(array_shape))then
-                 if(any(array_shape.ne.shape(source%val))) &
-                    stop 'ERROR: Source shape does not match array shape'
+                 if(any(array_shape.ne.shape(source%val)))then
+                    call stop_program('Source shape does not match array shape')
+                    return
+                 end if
              end if
              this = source
              this%val_ptr( &
@@ -447,21 +481,25 @@ contains
                   1:size(source%val, dim=2) &
              ) => this%val
           class default
-             stop 'ERROR: Incompatible source type for rank 0'
+             call stop_program('Incompatible source type for rank 0')
+             return
           end select
        rank(2)
           select type(source)
           type is (real(real32))
              this%val(:,:) = source
           class default
-             stop 'ERROR: Incompatible source type for rank 2'
+             call stop_program('Incompatible source type for rank 2')
+             return
           end select
        rank(3)
           select type(source)
           type is (real(real32))
              if(present(array_shape))then
-                if(any(array_shape.ne.shape(source))) &
-                  stop 'ERROR: Source shape does not match array shape'
+                if(any(array_shape.ne.shape(source)))then
+                   call stop_program('Source shape does not match array shape')
+                   return
+                end if
              else
                 allocate(this%val(size(source(:,:,1)), size(source,3)))
                 this%val_ptr( &
@@ -472,14 +510,18 @@ contains
              end if
              this%val_ptr = source
           class default
-             stop 'ERROR: Incompatible source type for rank 3'
+             call stop_program('Incompatible source type for rank 3')
+             return
           end select
        rank default
-          stop 'ERROR: Unrecognised source rank'
+          call stop_program('Unrecognised source rank')
+          return
        end select
     end if
-    if(.not.present(source).and..not.present(array_shape)) &
-         stop 'ERROR: No shape or source provided'
+    if(.not.present(source).and..not.present(array_shape))then
+       call stop_program('No shape or source provided')
+       return
+    end if
     this%shape = shape(this%val_ptr(:,:,1))
     this%size = product(this%shape)
 
@@ -541,8 +583,8 @@ contains
     class(array3d_type), intent(inout), target :: this
 
     if(.not. this%allocated)then
-       write(0,*) 'ERROR: Array not allocated'
-       stop 1
+       call stop_program('Array not allocated')
+       return
     end if
     this%val_ptr( &
          1:this%shape(1), &
@@ -580,8 +622,10 @@ contains
     integer, dimension(:), intent(in), optional :: array_shape
     class(*), dimension(..), intent(in), optional :: source
 
-    if(allocated(this%val).or.this%allocated) &
-         stop "ERROR: Trying to allocate already allocated array values"
+    if(allocated(this%val).or.this%allocated)then
+       call stop_program("Trying to allocate already allocated array values")
+       return
+    end if
     this%rank = 3
     this%allocated = .true.
     if(present(array_shape))then
@@ -602,13 +646,17 @@ contains
       rank(0)
           select type(source)
           type is (real(real32))
-             if(.not.present(array_shape)) &
-                  stop 'ERROR: Source shape not provided'
+             if(.not.present(array_shape))then
+                call stop_program('Source shape not provided')
+                return
+             end if
              this%val(:,:) = source
           type is (array4d_type)
              if(present(array_shape))then
-                 if(any(array_shape.ne.shape(source%val))) &
-                    stop 'ERROR: Source shape does not match array shape'
+                 if(any(array_shape.ne.shape(source%val)))then
+                    call stop_program('Source shape does not match array shape')
+                    return
+                 end if
              end if
              this = source
              this%val_ptr( &
@@ -618,21 +666,25 @@ contains
                   1:size(source%val, dim=2) &
              ) => this%val
           class default
-             stop 'ERROR: Incompatible source type for rank 0'
+             call stop_program('Incompatible source type for rank 0')
+             return
           end select
        rank(2)
           select type(source)
           type is (real(real32))
              this%val(:,:) = source
           class default
-             stop 'ERROR: Incompatible source type for rank 2'
+             call stop_program('Incompatible source type for rank 2')
+             return
           end select
        rank(4)
           select type(source)
           type is (real(real32))
              if(present(array_shape))then
-                if(any(array_shape.ne.shape(source))) &
-                  stop 'ERROR: Source shape does not match array shape'
+                if(any(array_shape.ne.shape(source)))then
+                   call stop_program('Source shape does not match array shape')
+                   return
+                end if
              else
                 allocate(this%val(size(source(:,:,:,1)), size(source,4)))
                 this%val_ptr( &
@@ -644,14 +696,18 @@ contains
              end if
              this%val_ptr = source
           class default
-             stop 'ERROR: Incompatible source type for rank 4'
+             call stop_program('Incompatible source type for rank 4')
+             return
           end select
        rank default
-          stop 'ERROR: Unrecognised source rank'
+          call stop_program('Unrecognised source rank')
+          return
        end select
     end if
-    if(.not.present(source).and..not.present(array_shape)) &
-         stop 'ERROR: No shape or source provided'
+    if(.not.present(source).and..not.present(array_shape))then
+       call stop_program('No shape or source provided')
+       return
+    end if
     this%shape = shape(this%val_ptr(:,:,:,1))
     this%size = product(this%shape)
 
@@ -714,8 +770,8 @@ contains
     class(array4d_type), intent(inout), target :: this
 
     if(.not. this%allocated)then
-       write(0,*) 'ERROR: Array not allocated'
-       stop 1
+       call stop_program('Array not allocated')
+       return
     end if
     this%val_ptr( &
          1:this%shape(1), &
@@ -754,8 +810,10 @@ contains
     integer, dimension(:), intent(in), optional :: array_shape
     class(*), dimension(..), intent(in), optional :: source
 
-    if(allocated(this%val).or.this%allocated) &
-         stop "ERROR: Trying to allocate already allocated array values"
+    if(allocated(this%val).or.this%allocated)then
+       call stop_program("Trying to allocate already allocated array values")
+       return
+    end if
     this%rank = 4
     this%allocated = .true.
     if(present(array_shape))then
@@ -777,13 +835,17 @@ contains
       rank(0)
           select type(source)
           type is (real(real32))
-             if(.not.present(array_shape)) &
-                  stop 'ERROR: Source shape not provided'
+             if(.not.present(array_shape))then
+                call stop_program('Source shape not provided')
+                return
+             end if
              this%val(:,:) = source
           type is (array5d_type)
              if(present(array_shape))then
-                 if(any(array_shape.ne.shape(source%val))) &
-                    stop 'ERROR: Source shape does not match array shape'
+                 if(any(array_shape.ne.shape(source%val)))then
+                    call stop_program('Source shape does not match array shape')
+                    return
+                 end if
              end if
              this = source
              this%val_ptr( &
@@ -794,21 +856,25 @@ contains
                   1:size(source%val, dim=2) &
              ) => this%val
           class default
-             stop 'ERROR: Incompatible source type for rank 0'
+             call stop_program('Incompatible source type for rank 0')
+             return
           end select
        rank(2)
           select type(source)
           type is (real(real32))
              this%val(:,:) = source
           class default
-             stop 'ERROR: Incompatible source type for rank 2'
+             call stop_program('Incompatible source type for rank 2')
+             return
           end select
        rank(5)
           select type(source)
           type is (real(real32))
              if(present(array_shape))then
-                if(any(array_shape.ne.shape(source))) &
-                  stop 'ERROR: Source shape does not match array shape'
+                if(any(array_shape.ne.shape(source)))then
+                   call stop_program('Source shape does not match array shape')
+                   return
+                end if
              else
                 allocate(this%val(size(source(:,:,:,:,1)), size(source,5)))
                 this%val_ptr( &
@@ -821,14 +887,18 @@ contains
              end if
              this%val_ptr = source
           class default
-             stop 'ERROR: Incompatible source type for rank 5'
+             call stop_program('Incompatible source type for rank 5')
+             return
           end select
        rank default
-          stop 'ERROR: Unrecognised source rank'
+          call stop_program('Unrecognised source rank')
+          return
        end select
     end if
-    if(.not.present(source).and..not.present(array_shape)) &
-         stop 'ERROR: No shape or source provided'
+    if(.not.present(source).and..not.present(array_shape))then
+       call stop_program('No shape or source provided')
+       return
+    end if
     this%shape = shape(this%val_ptr(:,:,:,:,1))
     this%size = product(this%shape)
 
@@ -892,8 +962,8 @@ contains
     class(array5d_type), intent(inout), target :: this
 
     if(.not. this%allocated)then
-       write(0,*) 'ERROR: Array not allocated'
-       stop 1
+       call stop_program('Array not allocated')
+       return
     end if
     this%val_ptr( &
          1:this%shape(1), &

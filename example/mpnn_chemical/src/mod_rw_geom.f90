@@ -158,7 +158,7 @@ contains
    if(Reason.ne.0)then
       write(0,'(" The file is not in POSCAR format.")')
       write(0,'(" Exiting code ...")')
-      call exit()
+      stop 1
    end if
    read(UNIT,*) scal
 
@@ -711,7 +711,7 @@ contains
    if(Reason.ne.0)then
       write(0,'(" The file is not in xyz format.")')
       write(0,'(" Exiting code ...")')
-      call exit()
+      stop 1
    end if
    read(UNIT,'(A)',iostat=Reason) basis%sysname
 
@@ -815,13 +815,13 @@ contains
    if(Reason.ne.0)then
       write(0,'(" The file is not in xyz format.")')
       write(0,'(" Exiting code ...")')
-      call exit()
+      stop 1
    end if
    read(UNIT,'(A)',iostat=Reason) buffer
    if(Reason.ne.0)then
       write(0,'(" The file is not in xyz format.")')
       write(0,'(" Exiting code ...")')
-      call exit()
+      stop 1
    end if
    index1 = index(buffer,'Lattice="') + 9
    index2 = index(buffer(index1:),'"') + index1 - 2

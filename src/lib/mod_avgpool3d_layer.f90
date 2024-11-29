@@ -5,6 +5,7 @@
 !!! module contains implementation of a 3D average pooling layer
 !!!#############################################################################
 module avgpool3d_layer
+  use athena__io_utils, only: stop_program
   use constants, only: real32
   use base_layer, only: pool_layer_type
   use custom_types, only: array5d_type
@@ -356,7 +357,7 @@ contains
 !!!#############################################################################
   subroutine read_avgpool3d(this, unit, verbose)
     use infile_tools, only: assign_val, assign_vec
-    use misc, only: to_lower, icount
+    use misc, only: to_lower, to_upper, icount
     implicit none
     class(avgpool3d_layer_type), intent(inout) :: this
     integer, intent(in) :: unit
@@ -367,7 +368,7 @@ contains
     integer :: itmp1
     integer, dimension(3) :: pool_size, stride
     integer, dimension(4) :: input_shape
-    character(256) :: buffer, tag
+    character(256) :: buffer, tag, err_msg
 
 
     if(present(verbose)) verbose_ = verbose
@@ -378,8 +379,10 @@ contains
        !! check for end of file
        read(unit,'(A)',iostat=stat) buffer
        if(stat.ne.0)then
-          write(0,*) "ERROR: file encountered error (EoF?) before END AVGPOOL3D"
-          stop "Exiting..."
+          call stop_program( &
+               "file encountered error (EoF?) before END AVGPOOL3D" &
+          )
+          return
        end if
        if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
@@ -409,7 +412,10 @@ contains
           elseif(tag(:3).eq.'END')then
              cycle tag_loop
           end if
-          stop "Unrecognised line in input file: "//trim(adjustl(buffer))
+          write(err_msg,'("Unrecognised line in input file: ",A)') &
+               trim(adjustl(buffer))
+          call stop_program(err_msg)
+          return
        end select
     end do tag_loop
 
@@ -420,8 +426,10 @@ contains
     !! check for end of layer card
     read(unit,'(A)') buffer
     if(trim(adjustl(buffer)).ne."END AVGPOOL3D")then
-       write(*,*) trim(adjustl(buffer))
-       stop "ERROR: END AVGPOOL3D not where expected"
+       write(0,*) trim(adjustl(buffer))
+       write(err_msg,'("END ",A," not where expected")') to_upper(this%name)
+       call stop_program(err_msg)
+       return
     end if
 
   end subroutine read_avgpool3d

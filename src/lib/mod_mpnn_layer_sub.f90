@@ -489,7 +489,8 @@ contains
     !! read layer from file
     !!--------------------------------------------------------------------------
     ! call this%method%read(unit, verbose)
-    stop "NOT YET IMPLEMENTED"
+    write(0,*) "NOT YET IMPLEMENTED"
+    stop 1
 
   end subroutine read_mpnn
 !!!#############################################################################

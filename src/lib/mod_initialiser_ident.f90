@@ -5,6 +5,7 @@
 !!! module contains implementation of the identity initialiser
 !!!#############################################################################
 module initialiser_ident
+  use athena__io_utils, only: stop_program
   use constants, only: real32
   use custom_types, only: initialiser_type
   implicit none
@@ -39,10 +40,10 @@ contains
     integer, dimension(:), allocatable :: iprime, iprime2
 
     if(all(shape(input).ne.size(input,1)))then
-       write(0,*) &
-            "ERROR: A non-square tensor cannot be initialised as an &
-            &identity matrix"
-       stop 1
+       call stop_program( &
+            'A non-square tensor cannot be initialised as an identity matrix' &
+       )
+       return
     end if
 
     select rank(input)
@@ -51,10 +52,11 @@ contains
     rank(1)
        if(size(input).ne.1)then
           if(.not.present(spacing))then
-             write(0,*) &
-                  "ERROR: A vector of length greater than 1 cannot be &
-                  &initialised as an identity matrix"
-             stop 1
+             call stop_program( &
+                  'A vector of length greater than 1 cannot be &
+                  &initialised as an identity matrix' &
+             )
+             return
           else
              ndim = size(spacing)
              if(ndim.eq.1)then

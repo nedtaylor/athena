@@ -5,6 +5,7 @@
 !!! module contains implementation of a fully connected (dense) layer
 !!!#############################################################################
 module full_layer
+  use athena__io_utils, only: stop_program
   use constants, only: real32
   use base_layer, only: learnable_layer_type
   use custom_types, only: activation_type, initialiser_type, &
@@ -462,7 +463,7 @@ contains
 !!!#############################################################################
   subroutine read_full(this, unit, verbose)
     use infile_tools, only: assign_val, assign_vec
-    use misc, only: to_lower, icount
+    use misc, only: to_lower, to_upper, icount
     implicit none
     integer, intent(in) :: unit
     integer, optional, intent(in) :: verbose
@@ -476,7 +477,7 @@ contains
     logical :: found_weights = .false.
     character(14) :: kernel_initialiser='', bias_initialiser=''
     character(20) :: activation_function
-    character(256) :: buffer, tag
+    character(256) :: buffer, tag, err_msg
 
     real(real32), allocatable, dimension(:) :: data_list
 
@@ -496,8 +497,10 @@ contains
        !!-----------------------------------------------------------------------
        read(unit,'(A)',iostat=stat) buffer
        if(stat.ne.0)then
-         write(0,*) "ERROR: file encountered error (EoF?) before END FULL"
-          stop "Exiting..."
+          write(err_msg,'("file encountered error (EoF?) before END ",A)') &
+               to_upper(this%name)
+          call stop_program(err_msg)
+          return
        end if
        if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
@@ -540,7 +543,10 @@ contains
           elseif(tag(:3).eq.'END')then
              cycle tag_loop
           end if
-          stop "Unrecognised line in input file: "//trim(adjustl(buffer))
+          write(err_msg,'("Unrecognised line in input file: ",A)') &
+               trim(adjustl(buffer))
+          call stop_program(err_msg)
+          return
        end select
     end do tag_loop
 
@@ -583,8 +589,9 @@ contains
        !!-----------------------------------------------------------------------
        read(unit,'(A)') buffer
        if(trim(adjustl(buffer)).ne."END WEIGHTS")then
-          write(*,*) trim(adjustl(buffer))
-          stop "ERROR: END WEIGHTS not where expected"
+          write(0,*) trim(adjustl(buffer))
+          call stop_program("END WEIGHTS not where expected")
+          return
        end if
     end if
 
@@ -594,8 +601,10 @@ contains
     !!--------------------------------------------------------------------------
     read(unit,'(A)') buffer
     if(trim(adjustl(buffer)).ne."END FULL")then
-       write(*,*) trim(adjustl(buffer))
-       stop "ERROR: END FULL not where expected"
+       write(0,*) trim(adjustl(buffer))
+       write(err_msg,'("END ",A," not where expected")') to_upper(this%name)
+       call stop_program(err_msg)
+       return
     end if
 
   end subroutine read_full

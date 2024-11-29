@@ -14,6 +14,7 @@
 !!! - metric_dict_alloc - allocates memory for a metric_dict_type
 !!!#############################################################################
 module metrics
+  use athena__io_utils, only: stop_program
   use constants, only: real32
   implicit none
 
@@ -78,9 +79,9 @@ contains
              input(i)%threshold = source(i)%threshold
           end do
        else
-          write(0,*) &
-               "ERROR: metric_dict_alloc requires either a source or length"
-          stop 1
+          call stop_program( &
+               "metric_dict_alloc requires either a source or length" &
+          )
        end if
     end if
 
