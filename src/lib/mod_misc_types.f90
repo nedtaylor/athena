@@ -14,8 +14,8 @@
 !!! the initialiser_type contains the following deferred procedures:
 !!! - initialise - initialises weights and biases
 !!!#############################################################################
-module custom_types
-  use constants, only: real32
+module athena__misc_types
+  use athena__constants, only: real32
   implicit none
 
 
@@ -493,5 +493,5 @@ module custom_types
     module procedure assign_array5d
   end interface
   
-end module custom_types
+end module athena__misc_types
 !!!#############################################################################

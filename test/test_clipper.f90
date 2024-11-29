@@ -1,5 +1,5 @@
 program test_clipper
-  use clipper
+  use athena__clipper
   implicit none
 
   type(clip_type) :: clip1, clip2

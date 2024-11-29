@@ -4,9 +4,9 @@
 !!!#############################################################################
 !!! module contains implementation of the zeros initialiser
 !!!#############################################################################
-module initialiser_zeros
-  use constants, only: real32
-  use custom_types, only: initialiser_type
+module athena__initialiser_zeros
+  use athena__constants, only: real32
+  use athena__misc_types, only: initialiser_type
   implicit none
 
 
@@ -54,5 +54,5 @@ contains
   end subroutine zeros_initialise
 !!!#############################################################################
 
-end module initialiser_zeros
+end module athena__initialiser_zeros
 !!!#############################################################################

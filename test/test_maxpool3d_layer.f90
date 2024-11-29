@@ -3,7 +3,7 @@ program test_maxpool3d_layer
        maxpool3d_layer_type, &
        base_layer_type, &
        learnable_layer_type
-   use custom_types, only: array5d_type
+   use athena__misc_types, only: array5d_type
   implicit none
 
   class(base_layer_type), allocatable :: pool_layer

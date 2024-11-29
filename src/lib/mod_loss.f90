@@ -8,8 +8,8 @@
 !!! - total_loss_function     - abstract interface for all total loss functions
 !!! - compute_loss_derivative - computes the derivative of the loss function
 !!!#############################################################################
-module loss
-  use constants, only: real32
+module athena__loss
+  use athena__constants, only: real32
   implicit none
 
   abstract interface
@@ -255,4 +255,4 @@ contains
   end function compute_loss_hubber_derivative
 !!!#############################################################################
 
-end module loss
+end module athena__loss

@@ -6,9 +6,9 @@
 !!!#############################################################################
 !!! He initialiser reference: https://doi.org/10.48550/arXiv.1502.01852
 !!!#############################################################################
-module initialiser_he
-  use constants, only: real32, pi
-  use custom_types, only: initialiser_type
+module athena__initialiser_he
+  use athena__constants, only: real32, pi
+  use athena__misc_types, only: initialiser_type
   implicit none
 
 
@@ -126,5 +126,5 @@ contains
   end subroutine he_normal_initialise
 !!!#############################################################################
 
-end module initialiser_he
+end module athena__initialiser_he
 !!!#############################################################################

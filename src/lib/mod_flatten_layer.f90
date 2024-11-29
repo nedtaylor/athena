@@ -4,11 +4,11 @@
 !!!#############################################################################
 !!! module contains implementation of a 1D flattening layer
 !!!#############################################################################
-module flatten_layer
+module athena__flatten_layer
   use athena__io_utils, only: stop_program
-  use constants, only: real32
-  use base_layer, only: base_layer_type
-  use custom_types, only: &
+  use athena__constants, only: real32
+  use athena__base_layer, only: base_layer_type
+  use athena__misc_types, only: &
        array1d_type, &
        array2d_type, &
        array3d_type, &
@@ -313,8 +313,8 @@ contains
 !!! read layer from file
 !!!#############################################################################
   subroutine read_flatten(this, unit, verbose)
-    use infile_tools, only: assign_val, assign_vec
-    use misc, only: to_lower, to_upper, icount
+    use athena__tools_infile, only: assign_val, assign_vec
+    use athena__misc, only: to_lower, to_upper, icount
     implicit none
     class(flatten_layer_type), intent(inout) :: this
     integer, intent(in) :: unit
@@ -443,5 +443,5 @@ contains
   end subroutine set_addit_input
 !!!#############################################################################
 
-end module flatten_layer
+end module athena__flatten_layer
 !!!#############################################################################

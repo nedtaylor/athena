@@ -1,5 +1,5 @@
 program test_mod_regulariser
-  use regulariser
+  use athena__regulariser
   implicit none
 
   type(l1_regulariser_type) :: l1_regulariser

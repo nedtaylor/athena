@@ -2,7 +2,7 @@ program test_input_layer
   use athena, only: &
        input_layer_type, &
        base_layer_type
-  use custom_types, only: array4d_type, array5d_type
+  use athena__misc_types, only: array4d_type, array5d_type
   implicit none
 
   class(input_layer_type), allocatable :: input_layer

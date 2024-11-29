@@ -1,5 +1,5 @@
 program test_lr_decay
-  use learning_rate_decay
+  use athena__learning_rate_decay
   implicit none
 
   real :: learning_rate

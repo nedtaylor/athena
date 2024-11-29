@@ -5,8 +5,8 @@
 !!! submodule of the container_layer module
 !!! submodule contains the associated methods from the container_layer module
 !!!#############################################################################
-submodule(container_layer) container_layer_submodule
-  use base_layer, only: learnable_layer_type
+submodule(athena__container_layer) athena__container_layer_submodule
+  use athena__base_layer, only: learnable_layer_type
 
 contains
 
@@ -29,5 +29,5 @@ contains
 #endif
 
 
-end submodule container_layer_submodule
+end submodule athena__container_layer_submodule
 !!!#############################################################################

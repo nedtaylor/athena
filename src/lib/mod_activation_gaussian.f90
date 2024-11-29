@@ -4,9 +4,9 @@
 !!!#############################################################################
 !!! module contains implementation of the Gaussian activation function
 !!!#############################################################################
-module activation_gaussian
-  use constants, only: real32, pi
-  use custom_types, only: activation_type
+module athena__activation_gaussian
+  use athena__constants, only: real32, pi
+  use athena__misc_types, only: activation_type
   implicit none
   
   type, extends(activation_type) :: gaussian_type
@@ -209,4 +209,4 @@ contains
   end function gaussian_differentiate_5d
 !!!#############################################################################
 
-end module activation_gaussian
+end module athena__activation_gaussian

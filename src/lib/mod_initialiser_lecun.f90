@@ -6,9 +6,9 @@
 !!!#############################################################################
 !!! LeCun initialiser reference: https://dl.acm.org/doi/10.5555/645754.668382
 !!!#############################################################################
-module initialiser_lecun
-  use constants, only: real32, pi
-  use custom_types, only: initialiser_type
+module athena__initialiser_lecun
+  use athena__constants, only: real32, pi
+  use athena__misc_types, only: initialiser_type
   implicit none
 
 
@@ -122,5 +122,5 @@ contains
   end subroutine lecun_normal_initialise
 !!!#############################################################################
 
-end module initialiser_lecun
+end module athena__initialiser_lecun
 !!!#############################################################################

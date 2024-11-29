@@ -1,5 +1,5 @@
 program test_accuracy
-  use accuracy
+  use athena__accuracy
   implicit none
 
   real, dimension(3,3) :: output, expected

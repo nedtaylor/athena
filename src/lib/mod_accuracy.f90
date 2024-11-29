@@ -9,8 +9,8 @@
 !!! - mse_score         - computes the mean squared error of a continuous model
 !!! - r2_score          - computes the R^2 score of a continuous model
 !!!#############################################################################
-module accuracy
-  use constants, only: real32
+module athena__accuracy
+  use athena__constants, only: real32
   implicit none
 
 
@@ -131,4 +131,4 @@ contains
   end function r2_score
 !!!#############################################################################
 
-end module accuracy
+end module athena__accuracy

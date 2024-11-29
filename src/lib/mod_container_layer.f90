@@ -13,9 +13,9 @@
 !!! - backward            - backward pass
 !!! - container_reduction - reduction of container layers
 !!!#############################################################################
-module container_layer
-  use constants, only: real32
-  use base_layer, only: base_layer_type
+module athena__container_layer
+  use athena__constants, only: real32
+  use athena__base_layer, only: base_layer_type
   implicit none
 
 
@@ -81,5 +81,5 @@ module container_layer
 #endif
 
 
-end module container_layer
+end module athena__container_layer
 !!!#############################################################################

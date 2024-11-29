@@ -11,7 +11,7 @@ program test_network
        dropblock2d_layer_type, &
        flatten_layer_type, &
        conv3d_layer_type
-   use loss, only: &
+   use athena__loss, only: &
        compute_loss_bce, &
        compute_loss_cce, &
        compute_loss_mae, &

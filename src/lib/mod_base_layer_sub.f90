@@ -30,7 +30,7 @@
 !!! get_gradients        - get the gradients of the layer
 !!! set_gradients        - set the gradients of the layer
 !!!#############################################################################
-submodule(base_layer) base_layer_submodule
+submodule(athena__base_layer) athena__base_layer_submodule
   use athena__io_utils, only: stop_program
   implicit none
 
@@ -250,7 +250,7 @@ end subroutine set_params
 !!! get gradients of layer
 !!!#############################################################################
   pure module function get_gradients(this, clip_method) result(gradients)
-    use clipper, only: clip_type
+    use athena__clipper, only: clip_type
     implicit none
     class(learnable_layer_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
@@ -311,8 +311,8 @@ end subroutine set_params
 !!! initialise layer
 !!!#############################################################################
   module subroutine init_conv(this, input_shape, batch_size, verbose)
-    use initialiser, only: initialiser_setup
-    use custom_types, only: initialiser_type
+    use athena__initialiser, only: initialiser_setup
+    use athena__misc_types, only: initialiser_type
     implicit none
     class(conv_layer_type), intent(inout) :: this
     integer, dimension(:), intent(in) :: input_shape
@@ -393,8 +393,8 @@ end subroutine set_params
 !!! initialise layer
 !!!#############################################################################
   module subroutine init_batch(this, input_shape, batch_size, verbose)
-    use initialiser, only: initialiser_setup
-    use custom_types, only: initialiser_type
+    use athena__initialiser, only: initialiser_setup
+    use athena__misc_types, only: initialiser_type
     implicit none
     class(batch_layer_type), intent(inout) :: this
     integer, dimension(:), intent(in) :: input_shape
@@ -513,5 +513,5 @@ end subroutine set_params
   end subroutine set_ptrs_hyperparams_batch
 !!!#############################################################################
 
-end submodule base_layer_submodule
+end submodule athena__base_layer_submodule
 !!!#############################################################################

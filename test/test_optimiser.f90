@@ -1,7 +1,7 @@
 program test_optimiser
-  use optimiser
-  use regulariser
-  use learning_rate_decay
+  use athena__optimiser
+  use athena__regulariser
+  use athena__learning_rate_decay
   implicit none
 
   class(base_optimiser_type), allocatable :: optimiser

@@ -4,9 +4,9 @@
 !!!#############################################################################
 !!! module contains implementation of the ones initialiser
 !!!#############################################################################
-module initialiser_ones
-  use constants, only: real32
-  use custom_types, only: initialiser_type
+module athena__initialiser_ones
+  use athena__constants, only: real32
+  use athena__misc_types, only: initialiser_type
   implicit none
 
 
@@ -54,5 +54,5 @@ contains
   end subroutine ones_initialise
 !!!#############################################################################
 
-end module initialiser_ones
+end module athena__initialiser_ones
 !!!#############################################################################

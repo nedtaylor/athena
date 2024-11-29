@@ -6,19 +6,19 @@
 !!! module includes the following procedures:
 !!! - activation_setup - set up the activation function
 !!!#############################################################################
-module activation
-  use constants, only: real32
-  use misc, only: to_lower
-  use custom_types, only: activation_type
-  use activation_gaussian, only: gaussian_setup
-  use activation_linear, only: linear_setup
-  use activation_piecewise, only: piecewise_setup
-  use activation_relu, only: relu_setup
-  use activation_leaky_relu, only: leaky_relu_setup
-  use activation_sigmoid, only: sigmoid_setup
-  use activation_softmax, only: softmax_setup
-  use activation_tanh, only: tanh_setup
-  use activation_none, only: none_setup
+module athena__activation
+  use athena__constants, only: real32
+  use athena__misc, only: to_lower
+  use athena__misc_types, only: activation_type
+  use athena__activation_gaussian, only: gaussian_setup
+  use athena__activation_linear, only: linear_setup
+  use athena__activation_piecewise, only: piecewise_setup
+  use athena__activation_relu, only: relu_setup
+  use athena__activation_leaky_relu, only: leaky_relu_setup
+  use athena__activation_sigmoid, only: sigmoid_setup
+  use athena__activation_softmax, only: softmax_setup
+  use athena__activation_tanh, only: tanh_setup
+  use athena__activation_none, only: none_setup
   implicit none
 
 
@@ -80,5 +80,5 @@ contains
   end function activation_setup
 !!!#############################################################################
 
-end module activation
+end module athena__activation
 !!!#############################################################################

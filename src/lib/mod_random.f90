@@ -6,7 +6,7 @@
 !!! module contains the following procedures:
 !!! - random_setup - seed random number generator from seed vector or randomly
 !!!#############################################################################
-module random
+module athena__random
   use athena__io_utils, only: stop_program
   implicit none
   logical :: l_random_initialised=.false.
@@ -85,5 +85,5 @@ contains
   end subroutine random_setup
 !!!#############################################################################
 
-end module random
+end module athena__random
 !!!#############################################################################

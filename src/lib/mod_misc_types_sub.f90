@@ -1,6 +1,6 @@
-submodule(custom_types) custom_types_submodule
+submodule(athena__misc_types) athena__misc_types_submodule
   use athena__io_utils, only: stop_program
-  use constants, only: real32
+  use athena__constants, only: real32
 
 contains
 
@@ -983,4 +983,4 @@ contains
     if(allocated(this%shape)) deallocate(this%shape)
   end subroutine finalise_array5d
 
-end submodule custom_types_submodule
+end submodule athena__misc_types_submodule

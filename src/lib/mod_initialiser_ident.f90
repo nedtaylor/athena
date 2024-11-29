@@ -4,10 +4,10 @@
 !!!#############################################################################
 !!! module contains implementation of the identity initialiser
 !!!#############################################################################
-module initialiser_ident
+module athena__initialiser_ident
   use athena__io_utils, only: stop_program
-  use constants, only: real32
-  use custom_types, only: initialiser_type
+  use athena__constants, only: real32
+  use athena__misc_types, only: initialiser_type
   implicit none
 
 
@@ -113,5 +113,5 @@ contains
   end subroutine ident_initialise
 !!!#############################################################################
 
-end module initialiser_ident
+end module athena__initialiser_ident
 !!!#############################################################################

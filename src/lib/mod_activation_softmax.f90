@@ -4,9 +4,9 @@
 !!!#############################################################################
 !!! module contains implementation of the softmax activation function
 !!!#############################################################################
-module activation_softmax
-  use constants, only: real32
-  use custom_types, only: activation_type
+module athena__activation_softmax
+  use athena__constants, only: real32
+  use athena__misc_types, only: activation_type
   implicit none
   
   type, extends(activation_type) :: softmax_type
@@ -230,4 +230,4 @@ contains
   end function softmax_differentiate_5d
 !!!#############################################################################
 
-end module activation_softmax
+end module athena__activation_softmax

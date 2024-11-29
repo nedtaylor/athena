@@ -4,9 +4,9 @@
 !!!#############################################################################
 !!! module contains implementation of no activation function (i.e. linear)
 !!!#############################################################################
-module activation_none
-  use constants, only: real32
-  use custom_types, only: activation_type
+module athena__activation_none
+  use athena__constants, only: real32
+  use athena__misc_types, only: activation_type
   implicit none
   
   type, extends(activation_type) :: none_type
@@ -169,4 +169,4 @@ contains
   end function none_differentiate_5d
 !!!#############################################################################
 
-end module activation_none
+end module athena__activation_none

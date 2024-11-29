@@ -7,15 +7,15 @@
 !!! Original work by Duvenaud et al. (2015)
 !!! https://doi.org/10.48550/arXiv.1509.09292
 !!!#############################################################################
-module conv_mpnn_layer
-  use constants, only: real32
-  use misc, only: outer_product
-  use custom_types, only: activation_type, initialiser_type
+module athena__conv_mpnn_layer
+  use athena__constants, only: real32
+  use athena__misc, only: outer_product
+  use athena__misc_types, only: activation_type, initialiser_type
   use graphstruc, only: graph_type
-  use activation, only: activation_setup
-  use clipper, only: clip_type
-  use initialiser, only: initialiser_setup
-  use mpnn_layer, only: &
+  use athena__activation, only: activation_setup
+  use athena__clipper, only: clip_type
+  use athena__initialiser, only: initialiser_setup
+  use athena__mpnn_layer, only: &
        mpnn_layer_type, method_container_type, &
        message_phase_type, readout_phase_type, &
        feature_type
@@ -854,5 +854,5 @@ contains
   end subroutine backward_graph_conv
 !!!#############################################################################
 
-end module conv_mpnn_layer
+end module athena__conv_mpnn_layer
 !!!#############################################################################

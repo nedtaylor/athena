@@ -30,10 +30,10 @@
 !!! - get_gradients        - get the gradients of the layer
 !!! - set_gradients        - set the gradients of the layer
 !!!#############################################################################
-module base_layer
-  use constants, only: real32
-  use clipper, only: clip_type
-  use custom_types, only: activation_type, array_type
+module athena__base_layer
+  use athena__constants, only: real32
+  use athena__clipper, only: clip_type
+  use athena__misc_types, only: activation_type, array_type
   implicit none
 
   private
@@ -421,5 +421,5 @@ module base_layer
   end interface
 
 
-end module base_layer
+end module athena__base_layer
 !!!#############################################################################

@@ -4,11 +4,11 @@
 !!!#############################################################################
 !!! module contains implementation of a message passing neural network
 !!!#############################################################################
-module mpnn_layer
-  use constants, only: real32
+module athena__mpnn_layer
+  use athena__constants, only: real32
   use graphstruc, only: graph_type
-  use base_layer, only: learnable_layer_type
-  use clipper, only: clip_type
+  use athena__base_layer, only: learnable_layer_type
+  use athena__clipper, only: clip_type
   implicit none
   
 
@@ -377,5 +377,5 @@ module mpnn_layer
   end interface mpnn_layer_type
 
 
-end module mpnn_layer
+end module athena__mpnn_layer
 !!!#############################################################################

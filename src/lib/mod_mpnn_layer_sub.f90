@@ -4,8 +4,8 @@
 !!!#############################################################################
 !!! module contains implementation of a message passing neural network
 !!!#############################################################################
-submodule(mpnn_layer) mpnn_layer_submodule
-  use custom_types, only: array2d_type
+submodule(athena__mpnn_layer) athena__mpnn_layer_submodule
+  use athena__misc_types, only: array2d_type
   implicit none
   
 
@@ -566,5 +566,5 @@ contains
   end subroutine backward_graph
 !!!#############################################################################
 
-end submodule mpnn_layer_submodule
+end submodule athena__mpnn_layer_submodule
 !!!#############################################################################

@@ -4,13 +4,13 @@ program test_activations
        conv2d_layer_type, &
        conv3d_layer_type, &
        base_layer_type
-  use activation, only: activation_setup
-  use activation_gaussian, only: gaussian_setup ! threshold, sigma
-  use activation_piecewise, only: piecewise_setup ! intercept
-  use activation_sigmoid, only: sigmoid_setup ! threshold
-  use activation_softmax, only: softmax_setup ! threshold
-  use activation_tanh, only: tanh_setup ! threshold
-  use custom_types, only: activation_type, &
+  use athena__activation, only: activation_setup
+  use athena__activation_gaussian, only: gaussian_setup ! threshold, sigma
+  use athena__activation_piecewise, only: piecewise_setup ! intercept
+  use athena__activation_sigmoid, only: sigmoid_setup ! threshold
+  use athena__activation_softmax, only: softmax_setup ! threshold
+  use athena__activation_tanh, only: tanh_setup ! threshold
+  use athena__misc_types, only: activation_type, &
        array2d_type, &
        array3d_type, &
        array4d_type, &

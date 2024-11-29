@@ -2,7 +2,7 @@ program test_dropout_layer
   use athena, only: &
        dropout_layer_type, &
        base_layer_type
-  use custom_types, only: array2d_type
+  use athena__misc_types, only: array2d_type
   implicit none
 
   class(base_layer_type), allocatable :: drop_layer

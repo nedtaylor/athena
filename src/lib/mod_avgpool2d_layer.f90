@@ -4,11 +4,11 @@
 !!!#############################################################################
 !!! module contains implementation of a 2D average pooling layer
 !!!#############################################################################
-module avgpool2d_layer
+module athena__avgpool2d_layer
   use athena__io_utils, only: stop_program
-  use constants, only: real32
-  use base_layer, only: pool_layer_type
-  use custom_types, only: array4d_type
+  use athena__constants, only: real32
+  use athena__base_layer, only: pool_layer_type
+  use athena__misc_types, only: array4d_type
   implicit none
   
   
@@ -354,8 +354,8 @@ contains
 !!! read layer from file
 !!!#############################################################################
   subroutine read_avgpool2d(this, unit, verbose)
-    use infile_tools, only: assign_val, assign_vec
-    use misc, only: to_lower, to_upper, icount
+    use athena__tools_infile, only: assign_val, assign_vec
+    use athena__misc, only: to_lower, to_upper, icount
     implicit none
     class(avgpool2d_layer_type), intent(inout) :: this
     integer, intent(in) :: unit
@@ -554,5 +554,5 @@ contains
   end subroutine backward_4d
 !!!#############################################################################
 
-end module avgpool2d_layer
+end module athena__avgpool2d_layer
 !!!#############################################################################

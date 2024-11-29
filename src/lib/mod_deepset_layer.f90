@@ -4,10 +4,10 @@
 !!!#############################################################################
 !!! module contains implementation of a deep setp layer
 !!!#############################################################################
-module deepset_layer
-  use constants, only: real32
-  use base_layer, only: learnable_layer_type
-  use custom_types, only: activation_type, initialiser_type
+module athena__deepset_layer
+  use athena__constants, only: real32
+  use athena__base_layer, only: learnable_layer_type
+  use athena__misc_types, only: activation_type, initialiser_type
   implicit none
   
 
@@ -113,7 +113,7 @@ contains
 !!! get number of parameters
 !!!#############################################################################
   pure function get_gradients_deepset(this, clip_method) result(gradients)
-    use clipper, only: clip_type
+    use athena__clipper, only: clip_type
     implicit none
     class(deepset_layer_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
@@ -370,8 +370,8 @@ end subroutine get_output_deepset
 !!! read layer from file
 !!!#############################################################################
   function read_deepset_layer(unit, verbose) result(layer)
-    use infile_tools, only: assign_val, assign_vec
-    use misc, only: to_lower, icount
+    use athena__tools_infile, only: assign_val, assign_vec
+    use athena__misc, only: to_lower, icount
     implicit none
     integer, intent(in) :: unit
     integer, optional, intent(in) :: verbose
@@ -437,5 +437,5 @@ end subroutine get_output_deepset
   end subroutine backward_2d
 !!!#############################################################################
 
-end module deepset_layer
+end module athena__deepset_layer
 !!!#############################################################################

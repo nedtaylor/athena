@@ -4,9 +4,9 @@
 !!!#############################################################################
 !!! module contains implementation of the leaky ReLU activation function
 !!!#############################################################################
-module activation_leaky_relu
-  use constants, only: real32
-  use custom_types, only: activation_type
+module athena__activation_leaky_relu
+  use athena__constants, only: real32
+  use athena__misc_types, only: activation_type
   implicit none
   
   type, extends(activation_type) :: leaky_relu_type
@@ -189,4 +189,4 @@ contains
   end function leaky_relu_differentiate_5d
 !!!#############################################################################
 
-end module activation_leaky_relu
+end module athena__activation_leaky_relu

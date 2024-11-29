@@ -4,9 +4,9 @@
 !!!#############################################################################
 !!! module contains implementation of the tanh activation function
 !!!#############################################################################
-module activation_tanh
-  use constants, only: real32
-  use custom_types, only: activation_type
+module athena__activation_tanh
+  use athena__constants, only: real32
+  use athena__misc_types, only: activation_type
   implicit none
   
   type, extends(activation_type) :: tanh_type
@@ -216,4 +216,4 @@ contains
   end function tanh_differentiate_5d
 !!!#############################################################################
 
-end module activation_tanh
+end module athena__activation_tanh

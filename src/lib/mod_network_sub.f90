@@ -5,28 +5,28 @@
 !!! submodule of the network module
 !!! submodule contains the associated methods from the network module
 !!!#############################################################################
-submodule(network) network_submodule
+submodule(athena__network) athena__network_submodule
 #ifdef _OPENMP
   use omp_lib
 #endif
   use athena__io_utils, only: stop_program
-  use misc, only: to_lower
-  use misc_ml, only: shuffle
+  use athena__misc, only: to_lower
+  use athena__misc_ml, only: shuffle
 
-  use accuracy, only: categorical_score, mae_score, mse_score, r2_score
-  use base_layer, only: &
+  use athena__accuracy, only: categorical_score, mae_score, mse_score, r2_score
+  use athena__base_layer, only: &
        learnable_layer_type, &
        conv_layer_type
 #if defined(GFORTRAN)
-  use container_layer, only: container_reduction
+  use athena__container_layer, only: container_reduction
 #endif
 
-  use custom_types, only: array2d_type, array_container_type
-  use container_layer, only: list_of_layer_types
+  use athena__misc_types, only: array2d_type, array_container_type
+  use athena__container_layer, only: list_of_layer_types
 
   !! layer types
-  use input_layer,   only: input_layer_type
-  use flatten_layer, only: flatten_layer_type
+  use athena__input_layer,   only: input_layer_type
+  use athena__flatten_layer, only: flatten_layer_type
 
   implicit none
 
@@ -508,7 +508,7 @@ contains
 !!! set network metrics
 !!!#############################################################################
   module subroutine set_metrics(this, metrics)
-    use misc, only: to_lower
+    use athena__misc, only: to_lower
     implicit none
     class(network_type), intent(inout) :: this
     class(*), dimension(..), intent(in) :: metrics
@@ -561,8 +561,8 @@ contains
 !!! set network loss
 !!!#############################################################################
   module subroutine set_loss(this, loss_method, verbose)
-    use misc, only: to_lower
-    use loss, only: &
+    use athena__misc, only: to_lower
+    use athena__loss, only: &
          compute_loss_bce, compute_loss_cce, &
          compute_loss_mae, compute_loss_mse, &
          compute_loss_nll, compute_loss_hubber, &
@@ -647,8 +647,8 @@ contains
 !!! set network loss
 !!!#############################################################################
   module subroutine set_accuracy(this, accuracy_method, verbose)
-    use misc, only: to_lower
-    use accuracy, only: categorical_score, mae_score, mse_score, rmse_score, &
+    use athena__misc, only: to_lower
+    use athena__accuracy, only: categorical_score, mae_score, mse_score, rmse_score, &
          r2_score
     implicit none
     class(network_type), intent(inout) :: this
@@ -1631,7 +1631,7 @@ contains
 !!!#############################################################################
   module subroutine train(this, input, output, num_epochs, batch_size, &
        plateau_threshold, shuffle_batches, batch_print_step, verbose)
-    use infile_tools, only: stop_check
+    use athena__tools_infile, only: stop_check
     implicit none
     class(network_type), intent(inout) :: this
     class(*), dimension(..), intent(in) :: input
@@ -2086,5 +2086,5 @@ contains
   end function predict_1d
 !!!#############################################################################
 
-end submodule network_submodule
+end submodule athena__network_submodule
 !!!#############################################################################

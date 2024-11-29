@@ -4,8 +4,8 @@ program test_initialisers
         conv2d_layer_type, &
         conv3d_layer_type, &
         base_layer_type
-   use custom_types, only: initialiser_type
-   use initialiser, only: initialiser_setup, get_default_initialiser
+   use athena__misc_types, only: initialiser_type
+   use athena__initialiser, only: initialiser_setup, get_default_initialiser
    implicit none
  
    class(initialiser_type), allocatable :: initialiser

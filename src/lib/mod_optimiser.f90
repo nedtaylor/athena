@@ -15,13 +15,13 @@
 !!! - minimise       - minimise the loss function by applying gradients to ...
 !!!                    ... the parameters
 !!!#############################################################################
-module optimiser
-  use constants, only: real32
-  use clipper, only: clip_type
-  use regulariser, only: &
+module athena__optimiser
+  use athena__constants, only: real32
+  use athena__clipper, only: clip_type
+  use athena__regulariser, only: &
        base_regulariser_type, &
        l2_regulariser_type
-  use learning_rate_decay, only: base_lr_decay_type
+  use athena__learning_rate_decay, only: base_lr_decay_type
   implicit none
 
 !!!-----------------------------------------------------------------------------
@@ -779,6 +779,6 @@ contains
   end subroutine minimise_adam
 !!!#############################################################################
 
-end module optimiser
+end module athena__optimiser
 !!!#############################################################################
 

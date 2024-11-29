@@ -1,5 +1,5 @@
 program test_normalisation
-  use normalisation
+  use athena__normalisation
   implicit none
 
   logical :: success = .true.

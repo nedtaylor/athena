@@ -9,8 +9,8 @@
 !!! - to_upper      - converts all characters in string to upper case
 !!! - to_lower      - converts all characters in string to lower case
 !!!#############################################################################
-module misc
-  use constants, only: real32
+module athena__misc
+  use athena__constants, only: real32
   implicit none
 
   private
@@ -159,4 +159,4 @@ contains
   end function to_lower
 !!!#####################################################
 
-end module misc
+end module athena__misc

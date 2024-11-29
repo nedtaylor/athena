@@ -12,8 +12,8 @@
 !!! the base_regulariser_type contains the following deferred procedure:
 !!! - regularise - regularise the gradient
 !!!############################################################################# 
-module regulariser
-  use constants, only: real32
+module athena__regulariser
+  use athena__constants, only: real32
   implicit none
 
 
@@ -108,4 +108,4 @@ module regulariser
   end subroutine regularise_l1l2
 !!!#############################################################################
 
-end module regulariser
+end module athena__regulariser

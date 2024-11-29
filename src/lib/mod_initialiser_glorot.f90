@@ -7,9 +7,9 @@
 !!! Glorot initialiser reference: ...
 !!! ... https://proceedings.mlr.press/v9/glorot10a.html
 !!!#############################################################################
-module initialiser_glorot
-  use constants, only: real32, pi
-  use custom_types, only: initialiser_type
+module athena__initialiser_glorot
+  use athena__constants, only: real32, pi
+  use athena__misc_types, only: initialiser_type
   implicit none
 
 
@@ -123,5 +123,5 @@ contains
   end subroutine glorot_normal_initialise
 !!!#############################################################################
 
-end module initialiser_glorot
+end module athena__initialiser_glorot
 !!!#############################################################################

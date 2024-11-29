@@ -4,11 +4,11 @@
 !!!#############################################################################
 !!! module contains implementation of a fully connected (dense) layer
 !!!#############################################################################
-module full_layer
+module athena__full_layer
   use athena__io_utils, only: stop_program
-  use constants, only: real32
-  use base_layer, only: learnable_layer_type
-  use custom_types, only: activation_type, initialiser_type, &
+  use athena__constants, only: real32
+  use athena__base_layer, only: learnable_layer_type
+  use athena__misc_types, only: activation_type, initialiser_type, &
        array2d_type
   implicit none
   
@@ -224,8 +224,8 @@ contains
        activation_function, activation_scale, &
        kernel_initialiser, bias_initialiser, &
        verbose )
-    use activation, only: activation_setup
-    use initialiser, only: get_default_initialiser
+    use athena__activation, only: activation_setup
+    use athena__initialiser, only: get_default_initialiser
     implicit none
     class(full_layer_type), intent(inout) :: this
     integer, intent(in) :: num_outputs
@@ -284,7 +284,7 @@ contains
 !!! initialise layer
 !!!#############################################################################
   subroutine init_full(this, input_shape, batch_size, verbose)
-    use initialiser, only: initialiser_setup
+    use athena__initialiser, only: initialiser_setup
     implicit none
     class(full_layer_type), intent(inout) :: this
     integer, dimension(:), intent(in) :: input_shape
@@ -462,8 +462,8 @@ contains
 !!! read layer from file
 !!!#############################################################################
   subroutine read_full(this, unit, verbose)
-    use infile_tools, only: assign_val, assign_vec
-    use misc, only: to_lower, to_upper, icount
+    use athena__tools_infile, only: assign_val, assign_vec
+    use athena__misc, only: to_lower, to_upper, icount
     implicit none
     integer, intent(in) :: unit
     integer, optional, intent(in) :: verbose
@@ -704,5 +704,5 @@ contains
   end subroutine backward_2d
 !!!#############################################################################
 
-end module full_layer
+end module athena__full_layer
 !!!#############################################################################

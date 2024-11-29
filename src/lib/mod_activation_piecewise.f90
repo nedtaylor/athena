@@ -4,9 +4,9 @@
 !!!#############################################################################
 !!! module contains implementation of the piecewise activation function
 !!!#############################################################################
-module activation_piecewise
-  use constants, only: real32
-  use custom_types, only: activation_type
+module athena__activation_piecewise
+  use athena__constants, only: real32
+  use athena__misc_types, only: activation_type
   implicit none
 
   type, extends(activation_type) :: piecewise_type
@@ -229,4 +229,4 @@ contains
   end function piecewise_differentiate_5d
 !!!#############################################################################
 
-end module activation_piecewise
+end module athena__activation_piecewise

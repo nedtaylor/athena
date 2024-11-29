@@ -8,8 +8,8 @@
 !!! - renormalise_norm   - renormalises input data to a unit norm
 !!! - renormalise_sum    - renormalises input data to a unit sum
 !!!#############################################################################
-module normalisation
-  use constants, only: real32
+module athena__normalisation
+  use athena__constants, only: real32
   implicit none
 
 
@@ -113,5 +113,5 @@ end subroutine renormalise_sum
 !!!#############################################################################
 
 
-end module normalisation
+end module athena__normalisation
 !!!#############################################################################

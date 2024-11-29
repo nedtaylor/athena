@@ -4,11 +4,11 @@
 !!!#############################################################################
 !!! module contains implementation of a 1D input layer
 !!!#############################################################################
-module input_layer
+module athena__input_layer
   use athena__io_utils, only: stop_program
-  use constants, only: real32
-  use base_layer, only: base_layer_type
-  use custom_types, only: &
+  use athena__constants, only: real32
+  use athena__base_layer, only: base_layer_type
+  use athena__misc_types, only: &
        array1d_type, &
        array2d_type, &
        array3d_type, &
@@ -291,8 +291,8 @@ contains
 !!! read layer from file
 !!!#############################################################################
   subroutine read_input(this, unit, verbose)
-    use infile_tools, only: assign_val, assign_vec
-    use misc, only: to_lower, to_upper, icount
+    use athena__tools_infile, only: assign_val, assign_vec
+    use athena__misc, only: to_lower, to_upper, icount
     implicit none
     class(input_layer_type), intent(inout) :: this
     integer, intent(in) :: unit
@@ -415,5 +415,5 @@ contains
 !!!#############################################################################
 
 
-end module input_layer
+end module athena__input_layer
 !!!#############################################################################

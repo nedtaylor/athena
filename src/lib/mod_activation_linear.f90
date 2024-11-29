@@ -4,9 +4,9 @@
 !!!#############################################################################
 !!! module contains implementation of the linear activation function
 !!!#############################################################################
-module activation_linear
-  use constants, only: real32
-  use custom_types, only: activation_type
+module athena__activation_linear
+  use athena__constants, only: real32
+  use athena__misc_types, only: activation_type
   implicit none
 
   type, extends(activation_type) :: linear_type
@@ -170,4 +170,4 @@ contains
   end function linear_differentiate_5d
 !!!#############################################################################
 
-end module activation_linear
+end module athena__activation_linear

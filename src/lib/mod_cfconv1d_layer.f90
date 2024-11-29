@@ -4,11 +4,11 @@
 !!!#############################################################################
 !!! module contains implementation of a 1D continuous filter convolutional layer
 !!!#############################################################################
-module cfconv1d_layer
+module athena__cfconv1d_layer
   use athena__io_utils, only: stop_program
-  use constants, only: real32
-  use base_layer, only: learnable_layer_type, conv_layer_type
-  use custom_types, only: initialiser_type
+  use athena__constants, only: real32
+  use athena__base_layer, only: learnable_layer_type, conv_layer_type
+  use athena__misc_types, only: initialiser_type
   implicit none
   
   
@@ -114,7 +114,7 @@ contains
 !!! sum over batch dimension and divide by batch size 
 !!!#############################################################################
   pure function get_gradients_cfconv1d(this, clip_method) result(gradients)
-    use clipper, only: clip_type
+    use athena__clipper, only: clip_type
     implicit none
     class(cfconv1d_layer_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
@@ -239,9 +239,9 @@ contains
        kernel_initialiser, bias_initialiser, &
        calc_input_gradients) result(layer)
     !! add in dilation
-    use activation,  only: activation_setup
-    use initialiser, only: get_default_initialiser
-    use misc_ml, only: set_padding
+    use athena__activation,  only: activation_setup
+    use athena__initialiser, only: get_default_initialiser
+    use athena__misc_ml, only: set_padding
     implicit none
     integer, dimension(:), optional, intent(in) :: input_shape
     integer, optional, intent(in) :: batch_size
@@ -382,7 +382,7 @@ contains
 !!! initialise layer
 !!!#############################################################################
   subroutine init_cfconv1d(this, input_shape, batch_size, verbose)
-    use initialiser, only: initialiser_setup
+    use athena__initialiser, only: initialiser_setup
     implicit none
     class(cfconv1d_layer_type), intent(inout) :: this
     integer, dimension(:), intent(in) :: input_shape
@@ -568,8 +568,8 @@ contains
 !!! read layer from file
 !!!#############################################################################
   function read_cfconv1d_layer(unit, verbose) result(layer)
-    use infile_tools, only: assign_val, assign_vec
-    use misc, only: to_lower, to_upper, icount
+    use athena__tools_infile, only: assign_val, assign_vec
+    use athena__misc, only: to_lower, to_upper, icount
     implicit none
     integer, intent(in) :: unit
     integer, optional, intent(in) :: verbose
@@ -895,5 +895,5 @@ contains
   end subroutine backward_3d
 !!!#############################################################################
 
-end module cfconv1d_layer
+end module athena__cfconv1d_layer
 !!!#############################################################################

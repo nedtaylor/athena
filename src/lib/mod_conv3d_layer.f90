@@ -4,11 +4,11 @@
 !!!#############################################################################
 !!! module contains implementation of a 3D convolutional layer
 !!!#############################################################################
-module conv3d_layer
+module athena__conv3d_layer
   use athena__io_utils, only: stop_program
-  use constants, only: real32
-  use base_layer, only: learnable_layer_type, conv_layer_type
-  use custom_types, only: initialiser_type, array5d_type
+  use athena__constants, only: real32
+  use athena__base_layer, only: learnable_layer_type, conv_layer_type
+  use athena__misc_types, only: initialiser_type, array5d_type
   implicit none
   
   
@@ -318,9 +318,9 @@ contains
        bias_initialiser, &
        verbose &
   )
-    use activation,  only: activation_setup
-    use initialiser, only: get_default_initialiser
-    use misc_ml, only: set_padding
+    use athena__activation,  only: activation_setup
+    use athena__initialiser, only: get_default_initialiser
+    use athena__misc_ml, only: set_padding
     implicit none
     class(conv3d_layer_type), intent(inout) :: this
     integer, intent(in) :: num_filters
@@ -583,8 +583,8 @@ contains
 !!! read layer from file
 !!!#############################################################################
   subroutine read_conv3d(this, unit, verbose)
-    use infile_tools, only: assign_val, assign_vec
-    use misc, only: to_lower, to_upper, icount
+    use athena__tools_infile, only: assign_val, assign_vec
+    use athena__misc, only: to_lower, to_upper, icount
     implicit none
     class(conv3d_layer_type), intent(inout) :: this
     integer, intent(in) :: unit
@@ -982,5 +982,5 @@ contains
   end subroutine backward_5d
 !!!#############################################################################
 
-end module conv3d_layer
+end module athena__conv3d_layer
 !!!#############################################################################

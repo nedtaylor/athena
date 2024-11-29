@@ -4,9 +4,9 @@
 !!!#############################################################################
 !!! module contains implementation of the Gaussian initialisation
 !!!#############################################################################
-module initialiser_gaussian
-  use constants, only: real32, pi
-  use custom_types, only: initialiser_type
+module athena__initialiser_gaussian
+  use athena__constants, only: real32, pi
+  use athena__misc_types, only: initialiser_type
   implicit none
 
 
@@ -121,5 +121,5 @@ contains
   end subroutine box_muller
 !!!#############################################################################
 
-end module initialiser_gaussian
+end module athena__initialiser_gaussian
 !!!#############################################################################

@@ -6,11 +6,11 @@
 !!!#############################################################################
 !!! DropBlock reference: https://arxiv.org/pdf/1810.12890.pdf
 !!!#############################################################################
-module dropblock2d_layer
+module athena__dropblock2d_layer
   use athena__io_utils, only: stop_program
-  use constants, only: real32
-  use base_layer, only: drop_layer_type
-  use custom_types, only: array4d_type
+  use athena__constants, only: real32
+  use athena__base_layer, only: drop_layer_type
+  use athena__misc_types, only: array4d_type
   implicit none
   
   
@@ -367,8 +367,8 @@ contains
 !!! read layer from file
 !!!#############################################################################
   subroutine read_dropblock2d(this, unit, verbose)
-    use infile_tools, only: assign_val, assign_vec
-    use misc, only: to_lower, to_upper, icount
+    use athena__tools_infile, only: assign_val, assign_vec
+    use athena__misc, only: to_lower, to_upper, icount
     implicit none
     class(dropblock2d_layer_type), intent(inout) :: this
     integer, intent(in) :: unit
@@ -539,5 +539,5 @@ contains
   end subroutine backward_4d
 !!!#############################################################################
 
-end module dropblock2d_layer
+end module athena__dropblock2d_layer
 !!!#############################################################################

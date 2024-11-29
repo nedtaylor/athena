@@ -1,5 +1,5 @@
 program test_shuffle
-  use misc_ml, only: shuffle
+  use athena__misc_ml, only: shuffle
   implicit none
 
   integer :: i, j, k, l, o

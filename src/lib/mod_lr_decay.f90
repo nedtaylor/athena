@@ -15,8 +15,8 @@
 !!! module contains the following procedures:
 !!! - setup_lr_decay_<NAME> - sets up the <NAME> learning rate decay type
 !!!#############################################################################
-module learning_rate_decay
-  use constants, only: real32
+module athena__learning_rate_decay
+  use athena__constants, only: real32
   implicit none
 
 
@@ -205,4 +205,4 @@ contains
   end function lr_decay_inv
 !!!#############################################################################
 
-end module learning_rate_decay
+end module athena__learning_rate_decay

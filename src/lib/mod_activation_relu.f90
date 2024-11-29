@@ -4,9 +4,9 @@
 !!!#############################################################################
 !!! module contains implementation of the ReLU activation function
 !!!#############################################################################
-module activation_relu
-  use constants, only: real32
-  use custom_types, only: activation_type
+module athena__activation_relu
+  use athena__constants, only: real32
+  use athena__misc_types, only: activation_type
   implicit none
   
   type, extends(activation_type) :: relu_type
@@ -191,4 +191,4 @@ contains
   end function relu_differentiate_5d
 !!!#############################################################################
 
-end module activation_relu
+end module athena__activation_relu

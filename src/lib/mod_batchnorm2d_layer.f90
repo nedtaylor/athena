@@ -4,11 +4,11 @@
 !!!#############################################################################
 !!! module contains implementation of a 2D batch normalisation layer
 !!!#############################################################################
-module batchnorm2d_layer
+module athena__batchnorm2d_layer
   use athena__io_utils, only: stop_program
-  use constants, only: real32
-  use base_layer, only: batch_layer_type, learnable_layer_type
-  use custom_types, only: initialiser_type, array4d_type
+  use athena__constants, only: real32
+  use athena__base_layer, only: batch_layer_type, learnable_layer_type
+  use athena__misc_types, only: initialiser_type, array4d_type
   implicit none
   
   
@@ -133,7 +133,7 @@ contains
        moving_mean_initialiser, moving_variance_initialiser, &
        verbose &
        ) result(layer)
-    use initialiser, only: get_default_initialiser
+    use athena__initialiser, only: get_default_initialiser
     implicit none
     integer, dimension(:), optional, intent(in) :: input_shape
     integer, optional, intent(in) :: batch_size
@@ -389,8 +389,8 @@ contains
 !!! read layer from file
 !!!#############################################################################
   subroutine read_batchnorm2d(this, unit, verbose)
-    use infile_tools, only: assign_val, assign_vec
-    use misc, only: to_lower, to_upper, icount
+    use athena__tools_infile, only: assign_val, assign_vec
+    use athena__misc, only: to_lower, to_upper, icount
     implicit none
     class(batchnorm2d_layer_type), intent(inout) :: this
     integer, intent(in) :: unit
@@ -682,5 +682,5 @@ contains
   end subroutine backward_4d
 !!!#############################################################################
 
-end module batchnorm2d_layer
+end module athena__batchnorm2d_layer
 !!!#############################################################################

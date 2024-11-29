@@ -1,5 +1,5 @@
 program test_random
-  use random, only: random_setup
+  use athena__random, only: random_setup
   implicit none
 
   integer :: i

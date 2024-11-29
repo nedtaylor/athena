@@ -11,9 +11,9 @@
 !!! - set_padding - set padding any-rank 2D array
 !!! - pad_data    - pad any-rank array
 !!!#############################################################################
-module misc_ml
+module athena__misc_ml
   use athena__io_utils, only: stop_program
-  use constants, only: real32
+  use athena__constants, only: real32
   implicit none
 
 
@@ -1630,7 +1630,7 @@ contains
 !!! return width of padding from kernel/filter size
 !!!########################################################################
   subroutine set_padding(pad, kernel_size, padding_method, verbose)
-    use misc, only: to_lower
+    use athena__misc, only: to_lower
     implicit none
     integer, intent(out) :: pad
     integer, intent(in) :: kernel_size
@@ -2102,4 +2102,4 @@ contains
   end subroutine pad_data
 !!!########################################################################
 
-end module misc_ml
+end module athena__misc_ml

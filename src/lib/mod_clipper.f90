@@ -11,8 +11,8 @@
 !!! - set_clip   - set clipping information from a dictionary
 !!! - apply_clip - apply clipping to gradients
 !!!#############################################################################
-module clipper
-  use constants, only: real32
+module athena__clipper
+  use athena__constants, only: real32
   implicit none
 
 
@@ -191,4 +191,4 @@ contains
   end subroutine apply_clip
 !!!#############################################################################
 
-end module clipper
+end module athena__clipper

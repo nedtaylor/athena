@@ -13,9 +13,9 @@
 !!! module contains the following procedures:
 !!! - metric_dict_alloc - allocates memory for a metric_dict_type
 !!!#############################################################################
-module metrics
+module athena__metrics
   use athena__io_utils, only: stop_program
-  use constants, only: real32
+  use athena__constants, only: real32
   implicit none
 
   type metric_dict_type
@@ -124,4 +124,4 @@ contains
   end subroutine metric_dict_check
 !!!#############################################################################
 
-end module metrics
+end module athena__metrics

@@ -33,18 +33,18 @@
 !!! - forward         - forward pass
 !!! - backward        - backward pass
 !!!#############################################################################
-module network
-  use constants, only: real32
+module athena__network
+  use athena__constants, only: real32
   use graphstruc, only: graph_type
-  use metrics, only: metric_dict_type
-  use optimiser, only: base_optimiser_type
-  use loss, only: &
+  use athena__metrics, only: metric_dict_type
+  use athena__optimiser, only: base_optimiser_type
+  use athena__loss, only: &
        comp_loss_func => compute_loss_function, &
        comp_loss_deriv => compute_loss_derivative
-  use accuracy, only: comp_acc_func => compute_accuracy_function
-  use base_layer, only: base_layer_type
-  use custom_types, only: array_type
-  use container_layer, only: container_layer_type
+  use athena__accuracy, only: comp_acc_func => compute_accuracy_function
+  use athena__base_layer, only: base_layer_type
+  use athena__misc_types, only: array_type
+  use athena__container_layer, only: container_layer_type
   implicit none
 
   private
@@ -470,5 +470,5 @@ module network
      end subroutine backward_real
   end interface
 
-end module network
+end module athena__network
 !!!#############################################################################

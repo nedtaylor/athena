@@ -4,9 +4,9 @@
 !!!#############################################################################
 !!! module contains implementation of the sigmoid activation function
 !!!#############################################################################
-module activation_sigmoid
-  use constants, only: real32
-  use custom_types, only: activation_type
+module athena__activation_sigmoid
+  use athena__constants, only: real32
+  use athena__misc_types, only: activation_type
   implicit none
   
   type, extends(activation_type) :: sigmoid_type
@@ -200,4 +200,4 @@ contains
   end function sigmoid_differentiate_5d
 !!!#############################################################################
 
-end module activation_sigmoid
+end module athena__activation_sigmoid

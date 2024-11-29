@@ -1,7 +1,7 @@
 program test_flatten_layer
-  use constants, only: real32
-  use flatten_layer, only: flatten_layer_type
-  use custom_types, only: array3d_type, array4d_type, array5d_type
+  use athena__constants, only: real32
+  use athena__flatten_layer, only: flatten_layer_type
+  use athena__misc_types, only: array3d_type, array4d_type, array5d_type
   implicit none
 
   type(flatten_layer_type) :: flatten_layer

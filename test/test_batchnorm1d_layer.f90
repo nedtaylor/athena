@@ -3,7 +3,7 @@ program test_batchnorm1d_layer
      batchnorm1d_layer_type, &
      base_layer_type, &
      learnable_layer_type
-  use custom_types, only: array3d_type
+  use athena__misc_types, only: array3d_type
   implicit none
 
   class(base_layer_type), allocatable :: bn_layer, bn_layer1, bn_layer2

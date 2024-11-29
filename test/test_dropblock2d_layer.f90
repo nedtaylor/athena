@@ -2,7 +2,7 @@ program test_dropblock2d_layer
   use athena, only: &
        dropblock2d_layer_type, &
        base_layer_type
-  use custom_types, only: array4d_type
+  use athena__misc_types, only: array4d_type
   implicit none
 
   class(base_layer_type), allocatable :: db_layer

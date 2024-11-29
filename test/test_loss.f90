@@ -1,5 +1,5 @@
 program test_loss
-  use loss
+  use athena__loss
   implicit none
 
   real, dimension(3, 3) :: predicted = &
