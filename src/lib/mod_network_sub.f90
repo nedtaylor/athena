@@ -1669,8 +1669,8 @@ contains
 #ifdef _OPENMP
     type(network_type) :: this_copy
 #endif
-    integer :: timer_start = 0, timer_stop = 0, timer_sum = 0, timer_tot = 0
-    integer :: forward_timer = 0, backward_timer = 0, update_timer = 0
+    !  integer :: timer_start = 0, timer_stop = 0, timer_sum = 0, timer_tot = 0
+    !  integer :: forward_timer = 0, backward_timer = 0, update_timer = 0
 
 
 !!!-----------------------------------------------------------------------------
@@ -1799,18 +1799,18 @@ contains
 
           !! Forward pass
           !!--------------------------------------------------------------------
-          call system_clock(timer_start)
+          !  call system_clock(timer_start)
           call this%forward(get_sample_derived(input_,start_index,end_index))
-          call system_clock(timer_stop)
-          forward_timer = forward_timer + timer_stop - timer_start
+          !  call system_clock(timer_stop)
+          !  forward_timer = forward_timer + timer_stop - timer_start
 
 
           !! Backward pass and store predicted output
           !!--------------------------------------------------------------------
-          call system_clock(timer_start)
+          !  call system_clock(timer_start)
           call this%backward(y_true(:,:))
-          call system_clock(timer_stop)
-          backward_timer = backward_timer + timer_stop - timer_start
+          !  call system_clock(timer_stop)
+          !  backward_timer = backward_timer + timer_stop - timer_start
           !! compute loss and accuracy (for monitoring)
           !!-----------------------------------------------------------------
           batch_loss = sum( &
@@ -1841,10 +1841,10 @@ contains
 
           !! update weights and biases using optimization algorithm
           !!--------------------------------------------------------------------
-          call system_clock(timer_start)
+          ! call system_clock(timer_start)
           call this%update()
-          call system_clock(timer_stop)
-          update_timer = update_timer + timer_stop - timer_start
+          ! call system_clock(timer_stop)
+          ! update_timer = update_timer + timer_stop - timer_start
 
 
           !! print batch results
@@ -1896,9 +1896,9 @@ contains
 
     end do epoch_loop
 
-    write(*,*) "forward timer: ", real(forward_timer)/clock_rate
-    write(*,*) "backward timer: ", real(backward_timer)/clock_rate
-    write(*,*) "update timer: ", real(update_timer)/clock_rate
+    ! write(*,*) "forward timer: ", real(forward_timer)/clock_rate
+    ! write(*,*) "backward timer: ", real(backward_timer)/clock_rate
+    ! write(*,*) "update timer: ", real(update_timer)/clock_rate
 
   end subroutine train
 !!!#############################################################################
