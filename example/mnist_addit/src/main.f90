@@ -118,13 +118,14 @@ program mnist_example
            activation_function = "relu", &
            kernel_initialiser = "he_uniform", &
            bias_initialiser = "he_uniform" &
-           ), input_list = [2, 3])
+           ), input_list = [2, 3], operator="||")
+     call network%add(input_layer_type(input_shape=[100], index=3))
      call network%add(full_layer_type( &
            num_outputs = 10,&
            activation_function = "softmax", &
            kernel_initialiser = "glorot_uniform", &
            bias_initialiser = "glorot_uniform" &
-           ))
+           ), input_list = [4, 5], operator="+")
   end if
 
   call network%compile(optimiser=optimiser, &
@@ -146,11 +147,13 @@ program mnist_example
      input_labels(labels(i),i) = 1
   end do
 
-  allocate(input_container(2))
+  allocate(input_container(3))
   allocate(input_container(1)%array, source = array4d_type())
   allocate(input_container(2)%array, source = array2d_type())
+  allocate(input_container(3)%array, source = array2d_type())
   call input_container(1)%array%allocate(source = input_images)
   call input_container(2)%array%allocate(array_shape=[2,num_samples], source = 1._real32)
+  call input_container(3)%array%allocate(array_shape=[100,num_samples], source = 1._real32)
 
   write(6,*) "Starting training..."
   call network%train(input_container, input_labels, num_epochs, batch_size, &
@@ -176,11 +179,13 @@ program mnist_example
   do i=1,num_samples_test
      input_labels(test_labels(i),i) = 1
   end do
-  allocate(test_container(2))
+  allocate(test_container(3))
   allocate(test_container(1)%array, source = array4d_type())
   allocate(test_container(2)%array, source = array2d_type())
+  allocate(test_container(3)%array, source = array2d_type())
   call test_container(1)%array%allocate(source = test_images)
   call test_container(2)%array%allocate(array_shape=[2,num_samples_test], source = 1._real32)
+  call test_container(3)%array%allocate(array_shape=[100,num_samples_test], source = 1._real32)
 
   write(*,*) "Starting testing..."
   call network%test(test_container,input_labels)
