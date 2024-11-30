@@ -1,7 +1,7 @@
 program test_conv1d_layer
   use athena, only: &
        conv1d_layer_type, &
-       input2d_layer_type, &
+       input_layer_type, &
        base_layer_type, &
        learnable_layer_type
   implicit none
@@ -67,7 +67,7 @@ program test_conv1d_layer
 !!! check layer input and output shape based on input layer
 !!! conv1d layer: 32 x 32 pixel image, 3 channels
 !!!-----------------------------------------------------------------------------
-  input_layer = input2d_layer_type([32,3])
+  input_layer = input_layer_type([32,3])
   call conv_layer%init(input_layer%input_shape)
   select type(conv_layer)
   type is(conv1d_layer_type)
@@ -75,9 +75,9 @@ program test_conv1d_layer
        success = .false.
        write(0,*) 'conv1d layer has wrong input_shape'
     end if
-    if(any(conv_layer%output_shape .ne. [30,num_filters]))then
+    if(any(conv_layer%output%shape .ne. [30,num_filters]))then
        success = .false.
-       write(0,*) 'conv1d layer has wrong output_shape'
+       write(0,*) 'conv1d layer has wrong output%shape'
     end if
   end select
 
@@ -89,17 +89,18 @@ program test_conv1d_layer
   !! initialise sample input
   !! conv1d layer: 3x3 pixel image, 1 channel
   allocate(input_data(3, 1, 1), source = 0.0)
-  input_layer = input2d_layer_type([3,1], batch_size=1)
+  input_layer = input_layer_type([3,1], batch_size=1)
   conv_layer = conv1d_layer_type( &
        num_filters = 1, &
        kernel_size = 3, &
        activation_function = 'sigmoid' &
        )
   call conv_layer%init(input_layer%input_shape, batch_size=1)
+  call conv_layer%set_ptrs()
 
   !! set input data in input_layer
   select type (current => input_layer)
-  type is(input2d_layer_type)
+  type is(input_layer_type)
      call current%set(input_data)
   end select
   call input_layer%get_output(output)
@@ -158,12 +159,12 @@ program test_conv1d_layer
 
      !! check layer output handling
      call conv_layer%get_output(params)
-     if(size(params) .ne. product(conv_layer%output_shape))then
+     if(size(params) .ne. product(conv_layer%output%shape))then
         success = .false.
         write(0,*) 'conv1d layer has wrong number of outputs'
      end if
      call conv_layer%get_output(outputs)
-     if(any(shape(outputs) .ne. [product(conv_layer%output_shape), 1]))then
+     if(any(shape(outputs) .ne. [product(conv_layer%output%shape), 1]))then
         success = .false.
         write(0,*) 'conv1d layer has wrong number of outputs'
      end if

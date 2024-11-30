@@ -110,11 +110,11 @@ program test_avgpool2d_layer
               1.E-6 &
          )then
             success = .false.
-            write(*,*) 'avgpool2d layer forward pass failed'
+            write(0,*) 'avgpool2d layer forward pass failed'
          end if
        else if( abs( output(i, j, 1, 1) ) .gt. 1.E-6 ) then
           success = .false.
-          write(*,*) 'avgpool2d layer forward pass failed'
+          write(0,*) 'avgpool2d layer forward pass failed'
        end if
      end do
   end do
