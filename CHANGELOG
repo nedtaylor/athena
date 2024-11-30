@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collapsed flattenNd_layers to a single flatten_layer type
 - Added graphstruc external library dependency
 - Added hyperparameter setting procedure for each layer
+- Added custom array derived type
 
 ### Changed
 - Changed module filenames to improve consistency and reduce conflicts
@@ -34,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    - Split into two procedures
    - One that is a procedure contained in the layer derived type, with the layer as the parent
    - One that is a public procedure that returns the layer from the read
+- Changed layers outputs and gradients to derived type to enable generic handling
 
 ### Fixed
 - Fixed unallocated lr_decay reference
