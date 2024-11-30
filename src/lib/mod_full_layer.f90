@@ -4,6 +4,12 @@
 !!!#############################################################################
 !!! module contains implementation of a fully connected (dense) layer
 !!!#############################################################################
+!!! Attribution statement:
+!!! The following procedures are based on code from the neural-fortran library
+!!! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
+!!! procedures:
+!!! - get_num_params*
+!!!#############################################################################
 module athena__full_layer
   use athena__io_utils, only: stop_program
   use athena__constants, only: real32
@@ -93,6 +99,7 @@ contains
 
 !!!#############################################################################
 !!! get number of parameters
+!!! procedure modified from neural-fortran library
 !!!#############################################################################
   pure function get_num_params_full(this) result(num_params)
     implicit none

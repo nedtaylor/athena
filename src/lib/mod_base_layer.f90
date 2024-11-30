@@ -30,6 +30,16 @@
 !!! - get_gradients        - get the gradients of the layer
 !!! - set_gradients        - set the gradients of the layer
 !!!#############################################################################
+!!! Attribution statement:
+!!! The following procedures are based on code from the neural-fortran library
+!!! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
+!!! procedures:
+!!! - get_num_params*
+!!! - get_params*
+!!! - set_params*
+!!! - get_gradients*
+!!! - set_gradients*
+!!!#############################################################################
 module athena__base_layer
   use athena__constants, only: real32
   use athena__clipper, only: clip_type
@@ -156,6 +166,7 @@ module athena__base_layer
   abstract interface
      !!-------------------------------------------------------------------------
      !! get number of parameters in layer
+     !! procedure modified from neural-fortran library
      !!-------------------------------------------------------------------------
      !! this = (T, in) layer_type
      pure module function get_num_params(this) result(num_params)
@@ -305,7 +316,8 @@ module athena__base_layer
   interface
      !!-------------------------------------------------------------------------
      !! get learnable parameters of layer
-     !!-------------------------------------------------------------------------
+     !! procedure modified from neural-fortran library
+     !!--------------------------------------------------------------------------
      !! this  = (T, in) layer_type
      !! param = (R, out) learnable parameters
      pure module function get_params(this) result(params)
@@ -315,7 +327,8 @@ module athena__base_layer
 
      !!-------------------------------------------------------------------------
      !! set learnable parameters of layer
-     !!-------------------------------------------------------------------------
+     !! procedure modified from neural-fortran library
+     !!--------------------------------------------------------------------------
      !! this  = (T, io) layer_type
      !! param = (R, in) learnable parameters
      module subroutine set_params(this, params)
@@ -325,7 +338,8 @@ module athena__base_layer
 
      !!-------------------------------------------------------------------------
      !! get parameter gradients of layer
-     !!-------------------------------------------------------------------------
+     !! procedure modified from neural-fortran library
+     !!--------------------------------------------------------------------------
      !! this        = (T, in) layer_type
      !! clip_method = (T, in) clip method
      !! gradients   = (R, out) parameter gradients
@@ -337,7 +351,8 @@ module athena__base_layer
 
      !!-------------------------------------------------------------------------
      !! set learnable parameters of layer
-     !!-------------------------------------------------------------------------
+     !! procedure modified from neural-fortran library
+     !!--------------------------------------------------------------------------
      !! this      = (T, io) layer_type
      !! gradients = (R, in) learnable parameters
      module subroutine set_gradients(this, gradients)

@@ -30,6 +30,16 @@
 !!! get_gradients        - get the gradients of the layer
 !!! set_gradients        - set the gradients of the layer
 !!!#############################################################################
+!!! Attribution statement:
+!!! The following procedures are based on code from the neural-fortran library
+!!! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
+!!! procedures:
+!!! - get_num_params*
+!!! - get_params*
+!!! - set_params*
+!!! - get_gradients*
+!!! - set_gradients*
+!!!#############################################################################
 submodule(athena__base_layer) athena__base_layer_submodule
   use athena__io_utils, only: stop_program
   use athena__misc, only: to_lower, to_upper, icount
@@ -173,6 +183,7 @@ contains
 
 !!!#############################################################################
 !!! get number of parameters in layer
+!!! procedure modified from neural-fortran library
 !!!#############################################################################
 !!! this       = (T, in) layer_type
 !!! num_params = (I, out) number of parameters
@@ -259,6 +270,7 @@ contains
 
 !!!#############################################################################
 !!! get learnable parameters of layer
+!!! procedure modified from neural-fortran library
 !!!#############################################################################
   pure module function get_params(this) result(params)
   implicit none
@@ -273,6 +285,7 @@ end function get_params
 
 !!!#############################################################################
 !!! set learnable parameters of layer
+!!! procedure modified from neural-fortran library
 !!!#############################################################################
 module subroutine set_params(this, params)
   implicit none
@@ -287,6 +300,7 @@ end subroutine set_params
 
 !!!#############################################################################
 !!! get gradients of layer
+!!! procedure modified from neural-fortran library
 !!!#############################################################################
   pure module function get_gradients(this, clip_method) result(gradients)
     use athena__clipper, only: clip_type
@@ -335,6 +349,7 @@ end subroutine set_params
 
 !!!#############################################################################
 !!! set gradients of layer
+!!! procedure modified from neural-fortran library
 !!!#############################################################################
   module subroutine set_gradients_batch(this, gradients)
     implicit none

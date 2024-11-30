@@ -130,8 +130,10 @@ set(LIB_FILES
     mod_dropout_layer.f90
     mod_dropblock2d_layer.f90
     mod_dropblock3d_layer.f90
+    mod_avgpool1d_layer.f90
     mod_avgpool2d_layer.f90
     mod_avgpool3d_layer.f90
+    mod_maxpool1d_layer.f90
     mod_maxpool2d_layer.f90
     mod_maxpool3d_layer.f90
     mod_full_layer.f90
@@ -252,6 +254,7 @@ if(BUILD_TESTS)
 endif()
 
 # add coverage compiler flags
-if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
+if ( ( CMAKE_Fortran_COMPILER MATCHES ".*gfortran.*" OR CMAKE_Fortran_COMPILER MATCHES ".*gcc.*" ) AND 
+     ( CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*" ) )
   append_coverage_compiler_flags()
 endif()
