@@ -33,15 +33,18 @@
 !!! - forward         - forward pass
 !!! - backward        - backward pass
 !!!#############################################################################
-module network
-  use constants, only: real12
-  use metrics, only: metric_dict_type
-  use optimiser, only: base_optimiser_type
-  use loss, only: &
+module athena__network
+  use athena__constants, only: real32
+  use graphstruc, only: graph_type
+  use athena__metrics, only: metric_dict_type
+  use athena__optimiser, only: base_optimiser_type
+  use athena__loss, only: &
        comp_loss_func => compute_loss_function, &
        comp_loss_deriv => compute_loss_derivative
-  use base_layer, only: base_layer_type
-  use container_layer, only: container_layer_type
+  use athena__accuracy, only: comp_acc_func => compute_accuracy_function
+  use athena__base_layer, only: base_layer_type
+  use athena__misc_types, only: array_type
+  use athena__container_layer, only: container_layer_type
   implicit none
 
   private
@@ -50,15 +53,21 @@ module network
 
 
   type :: network_type
-     real(real12) :: accuracy, loss
+     real(real32) :: accuracy, loss
      integer :: batch_size = 0
      integer :: num_layers = 0
      integer :: num_outputs = 0
+     integer :: num_params = 0
      class(base_optimiser_type), allocatable :: optimiser
      type(metric_dict_type), dimension(2) :: metrics
      type(container_layer_type), allocatable, dimension(:) :: model
      procedure(comp_loss_func), nopass, pointer :: get_loss => null()
      procedure(comp_loss_deriv), nopass, pointer :: get_loss_deriv => null()
+     procedure(comp_acc_func), nopass, pointer :: get_accuracy => null()
+     integer, dimension(:), allocatable :: vertex_order
+     integer, dimension(:), allocatable :: root_vertices, output_vertices
+     integer, dimension(:,:,:), allocatable :: io_map
+     type(graph_type(directed=.true.)), private :: auto_graph
    contains
      procedure, pass(this) :: print
      procedure, pass(this) :: read
@@ -68,10 +77,19 @@ module network
      procedure, pass(this) :: set_batch_size
      procedure, pass(this) :: set_metrics
      procedure, pass(this) :: set_loss
+     procedure, pass(this) :: set_accuracy
      procedure, pass(this) :: train
      procedure, pass(this) :: test
      procedure, pass(this) :: predict => predict_1d
      procedure, pass(this) :: update
+
+     procedure, pass(this), private :: generate_vertex_order
+     procedure, pass(this), private :: dfs
+     procedure, pass(this), private :: calculate_root_vertices
+     procedure, pass(this), private :: calculate_output_vertices
+     procedure, pass(this), private :: calculate_io_map
+     procedure, pass(this), private :: get_input_autodiff
+     procedure, pass(this), private :: get_gradient_autodiff
 
      procedure, pass(this) :: reduce => network_reduction
      procedure, pass(this) :: copy => network_copy
@@ -83,8 +101,10 @@ module network
      procedure, pass(this) :: set_gradients
      procedure, pass(this) :: reset_gradients
 
-     procedure, pass(this) :: forward => forward_1d
-     procedure, pass(this) :: backward => backward_1d
+     procedure, pass(this) :: forward_real
+     procedure, pass(this) :: forward_derived
+     generic :: forward => forward_real, forward_derived
+     procedure, pass(this) :: backward => backward_real
   end type network_type
 
   interface network_type
@@ -98,10 +118,11 @@ module network
      !! batch_size  = (I, in, opt) batch size
      module function network_setup( &
           layers, &
-          optimiser, loss_method, metrics, batch_size) result(network)
+          optimiser, loss_method, accuracy_method, &
+          metrics, batch_size) result(network)
        type(container_layer_type), dimension(:), intent(in) :: layers
        class(base_optimiser_type), optional, intent(in) :: optimiser
-       character(*), optional, intent(in) :: loss_method
+       character(*), optional, intent(in) :: loss_method, accuracy_method
        class(*), dimension(..), optional, intent(in) :: metrics
        integer, optional, intent(in) :: batch_size
        type(network_type) :: network
@@ -134,9 +155,11 @@ module network
      !!-------------------------------------------------------------------------
      !! this  = (T, io) network type
      !! layer = (I, in) layer to add
-     module subroutine add(this, layer)
+     module subroutine add(this, layer, input_list, output_list, operator)
        class(network_type), intent(inout) :: this
        class(base_layer_type), intent(in) :: layer
+       integer, dimension(:), intent(in), optional :: input_list, output_list
+       class(*), optional, intent(in) :: operator
      end subroutine add
 
      !!-------------------------------------------------------------------------
@@ -156,11 +179,11 @@ module network
      !! metrics     = (*, in, opt) metrics, either string or metric_dict_type
      !! batch_size  = (I, in, opt) batch size
      !! verbose     = (I, in, opt) verbosity level
-     module subroutine compile(this, optimiser, loss_method, metrics, &
-          batch_size, verbose)
+     module subroutine compile(this, optimiser, loss_method, accuracy_method, &
+          metrics, batch_size, verbose)
        class(network_type), intent(inout) :: this
        class(base_optimiser_type), intent(in) :: optimiser
-       character(*), optional, intent(in) :: loss_method
+       character(*), optional, intent(in) :: loss_method, accuracy_method
        class(*), dimension(..), optional, intent(in) :: metrics
        integer, optional, intent(in) :: batch_size
        integer, optional, intent(in) :: verbose
@@ -199,6 +222,18 @@ module network
      end subroutine set_loss
 
      !!-------------------------------------------------------------------------
+     !! set network accuracy method
+     !!-------------------------------------------------------------------------
+     !! this        = (T, io) network type
+     !! accuracy_method = (S, in) accuracy method to use
+     !! verbose     = (I, in, opt) verbosity level
+     module subroutine set_accuracy(this, accuracy_method, verbose)
+       class(network_type), intent(inout) :: this
+       character(*), intent(in) :: accuracy_method
+       integer, optional, intent(in) :: verbose
+     end subroutine set_accuracy
+
+     !!-------------------------------------------------------------------------
      !! train the network
      !!-------------------------------------------------------------------------
      !! this              = (T, io) network type
@@ -206,23 +241,18 @@ module network
      !! output            = (*, in) expected output data (data labels)
      !! num_epochs        = (I, in) number of epochs to train for
      !! batch_size        = (I, in, opt) batch size (DEPRECATED)
-     !! addit_input       = (R, in, opt) additional input data
-     !! addit_layer       = (I, in, opt) layer to insert additional input data
      !! plateau_threshold = (R, in, opt) threshold for checking learning plateau
      !! shuffle_batches   = (B, in, opt) shuffle batch order
      !! batch_print_step  = (I, in, opt) print step for batch
      !! verbose           = (I, in, opt) verbosity level
      module subroutine train(this, input, output, num_epochs, batch_size, &
-         addit_input, addit_layer, &
          plateau_threshold, shuffle_batches, batch_print_step, verbose)
        class(network_type), intent(inout) :: this
-       real(real12), dimension(..), intent(in) :: input
+       class(*), dimension(..), intent(in) :: input
        class(*), dimension(:,:), intent(in) :: output
        integer, intent(in) :: num_epochs
        integer, optional, intent(in) :: batch_size !! deprecated
-       real(real12), dimension(:,:), optional, intent(in) :: addit_input
-       integer, optional, intent(in) :: addit_layer
-       real(real12), optional, intent(in) :: plateau_threshold
+       real(real32), optional, intent(in) :: plateau_threshold
        logical, optional, intent(in) :: shuffle_batches
        integer, optional, intent(in) :: batch_print_step
        integer, optional, intent(in) :: verbose
@@ -234,17 +264,12 @@ module network
      !! this        = (T, io) network type
      !! input       = (R, in) input data
      !! output      = (*, in) expected output data (data labels)
-     !! addit_input = (R, in, opt) additional input data
-     !! addit_layer = (I, in, opt) layer to insert additional input data
      !! verbose     = (I, in, opt) verbosity level
      module subroutine test(this, input, output, &
-          addit_input, addit_layer, &
           verbose)
        class(network_type), intent(inout) :: this
-       real(real12), dimension(..), intent(in) :: input
+       class(*), dimension(..), intent(in) :: input
        class(*), dimension(:,:), intent(in) :: output
-       real(real12), dimension(:,:), optional, intent(in) :: addit_input
-       integer, optional, intent(in) :: addit_layer
        integer, optional, intent(in) :: verbose
      end subroutine test
 
@@ -253,19 +278,13 @@ module network
      !!-------------------------------------------------------------------------
      !! this        = (T, in) network type
      !! input       = (R, in) input data
-     !! addit_input = (R, in, opt) additional input data
-     !! addit_layer = (I, in, opt) layer to insert additional input data
      !! verbose     = (I, in, opt) verbosity level
      !! output      = (R, out) predicted output data
-     module function predict_1d(this, input, &
-          addit_input, addit_layer, &
-          verbose) result(output)
+     module function predict_1d(this, input, verbose) result(output)
        class(network_type), intent(inout) :: this
-       real(real12), dimension(..), intent(in) :: input
-       real(real12), dimension(:,:), optional, intent(in) :: addit_input
-       integer, optional, intent(in) :: addit_layer
+       real(real32), dimension(..), intent(in) :: input
        integer, optional, intent(in) :: verbose
-       real(real12), dimension(:,:), allocatable :: output
+       real(real32), dimension(:,:), allocatable :: output
      end function predict_1d
 
      !!-------------------------------------------------------------------------
@@ -275,6 +294,74 @@ module network
      module subroutine update(this)
        class(network_type), intent(inout) :: this
      end subroutine update
+
+     !!-------------------------------------------------------------------------
+     !! get layer order
+     !!-------------------------------------------------------------------------
+     !! this  = (T, in) network type
+     module subroutine generate_vertex_order(this)
+       class(network_type), intent(inout) :: this
+     end subroutine generate_vertex_order
+
+     !!-------------------------------------------------------------------------
+     !! depth first search
+     !!-------------------------------------------------------------------------
+     !! this  = (T, in) network type
+     !! vertex_index = (I, in) vertex index
+     !! visited = (L, in) visited vertices
+     !! order = (I, io) order of vertices
+     !! order_index = (I, io) index of order
+     module recursive subroutine dfs( &
+          this, vertex_index, visited, order, order_index &
+     )
+       class(network_type), intent(in) :: this
+       integer, intent(in) :: vertex_index
+       logical, dimension(this%auto_graph%num_vertices), intent(inout) :: visited
+       integer, dimension(this%auto_graph%num_vertices), intent(inout) :: order
+       integer, intent(inout) :: order_index
+     end subroutine dfs
+
+     !!-------------------------------------------------------------------------
+     !! calculate root vertices
+     !!-------------------------------------------------------------------------
+     !! this = (T, in) network type
+      module subroutine calculate_root_vertices(this)
+        class(network_type), intent(inout) :: this
+      end subroutine calculate_root_vertices
+
+     !!-------------------------------------------------------------------------
+     !! calculate output vertices
+     !!-------------------------------------------------------------------------
+     !! this = (T, in) network type
+      module subroutine calculate_output_vertices(this)
+        class(network_type), intent(inout) :: this
+      end subroutine calculate_output_vertices
+
+     !!-------------------------------------------------------------------------
+     !! calculate map between layer inputs and outputs (and gradients)
+     !!-------------------------------------------------------------------------
+     !! this = (T, in) network type
+      module subroutine calculate_io_map(this)
+        class(network_type), intent(inout) :: this
+      end subroutine calculate_io_map
+
+     !!-------------------------------------------------------------------------
+     !! get the input of a layer via autodiff
+     !!-------------------------------------------------------------------------
+     pure module subroutine get_input_autodiff(this, idx, input)
+       class(network_type), intent(in) :: this
+       integer, intent(in) :: idx
+       real(real32), allocatable, dimension(:,:), intent(out) :: input
+     end subroutine get_input_autodiff
+
+     !!-------------------------------------------------------------------------
+     !! get the gradient of a layer via autodiff
+     !!-------------------------------------------------------------------------
+     pure module subroutine get_gradient_autodiff(this, idx, gradient)
+       class(network_type), intent(in) :: this
+       integer, intent(in) :: idx
+       real(real32), allocatable, dimension(:,:), intent(out) :: gradient
+     end subroutine get_gradient_autodiff
 
      !!-------------------------------------------------------------------------
      !! reduce two networks down to one (i.e. add two networks - parallel)
@@ -293,7 +380,7 @@ module network
      !! source = (T, in) network type
      module subroutine network_copy(this, source)
        class(network_type), intent(inout) :: this
-       type(network_type), intent(in) :: source
+       type(network_type), intent(in), target :: source
      end subroutine network_copy
 
      !!-------------------------------------------------------------------------
@@ -313,7 +400,7 @@ module network
      !! params = (R, out) learnable parameters
      pure module function get_params(this) result(params)
        class(network_type), intent(in) :: this
-       real(real12), allocatable, dimension(:) :: params
+       real(real32), dimension(this%num_params) :: params
      end function get_params
 
      !!-------------------------------------------------------------------------
@@ -324,7 +411,7 @@ module network
      !! verbose = (I, in, opt) verbosity level
      module subroutine set_params(this, params)
        class(network_type), intent(inout) :: this
-       real(real12), dimension(:), intent(in) :: params
+       real(real32), dimension(this%num_params), intent(in) :: params
      end subroutine set_params
 
      !!-------------------------------------------------------------------------
@@ -334,7 +421,7 @@ module network
      !! gradients = (R, out) gradients
      pure module function get_gradients(this) result(gradients)
        class(network_type), intent(in) :: this
-       real(real12), allocatable, dimension(:) :: gradients
+       real(real32), dimension(this%num_params) :: gradients
      end function get_gradients
 
      !!-------------------------------------------------------------------------
@@ -345,7 +432,7 @@ module network
      !! verbose   = (I, in, opt) verbosity level
      module subroutine set_gradients(this, gradients)
        class(network_type), intent(inout) :: this
-       real(real12), dimension(..), intent(in) :: gradients
+       real(real32), dimension(..), intent(in) :: gradients
      end subroutine set_gradients
 
      !!-------------------------------------------------------------------------
@@ -363,25 +450,25 @@ module network
      !!-------------------------------------------------------------------------
      !! this        = (T, io) network type
      !! input       = (R, in) input data
-     !! addit_input = (R, in, opt) additional input data
-     !! layer       = (I, in, opt) layer to insert additional input data
-     pure module subroutine forward_1d(this, input, addit_input, layer)
+     pure module subroutine forward_real(this, input)
        class(network_type), intent(inout) :: this
-       real(real12), dimension(..), intent(in) :: input
-       real(real12), dimension(:,:), optional, intent(in) :: addit_input
-       integer, optional, intent(in) :: layer
-     end subroutine forward_1d
+       real(real32), dimension(..), intent(in) :: input
+     end subroutine forward_real
+     pure module subroutine forward_derived(this, input)
+       class(network_type), intent(inout) :: this
+       class(array_type), dimension(size(this%root_vertices)), intent(in) :: input
+     end subroutine forward_derived
 
      !!-------------------------------------------------------------------------
      !! backward pass
      !!-------------------------------------------------------------------------
      !! this        = (T, io) network type
      !! output      = (R, in) output data
-     pure module subroutine backward_1d(this, output)
+     pure module subroutine backward_real(this, output)
        class(network_type), intent(inout) :: this
-       real(real12), dimension(:,:), intent(in) :: output
-     end subroutine backward_1d
+       real(real32), dimension(:,:), intent(in) :: output
+     end subroutine backward_real
   end interface
 
-end module network
+end module athena__network
 !!!#############################################################################

@@ -6,8 +6,6 @@
 !!! ... are derived
 !!! module includes the following public abstract types:
 !!! base_layer_type      - abstract type for all layers
-!!! input_layer_type     - abstract type for input layers
-!!! flatten_layer_type   - abstract type for flatten (rehsape) layers
 !!! pool_layer_type      - abstract type for spatial pooling layers
 !!! drop_layer_type      - abstract type for dropout layers
 !!! learnable_layer_type - abstract type for layers with learnable parameters
@@ -23,9 +21,6 @@
 !!! set_batch_size       - set the batch size of the layer
 !!! forward              - forward pass of layer
 !!! backward             - backward pass of layer
-!!!##################
-!!! input_layer_type includes the following unique procedures:
-!!! set                  - set the input of the layer
 !!!##################
 !!! learnable_layer_type includes the following unique procedures:
 !!! layer_reduction      - reduce the layer to a single value
@@ -45,13 +40,16 @@
 !!! - get_gradients*
 !!! - set_gradients*
 !!!#############################################################################
-submodule(base_layer) base_layer_submodule
+submodule(athena__base_layer) athena__base_layer_submodule
+  use athena__io_utils, only: stop_program
+  use athena__misc, only: to_lower, to_upper, icount
+  use athena__tools_infile, only: assign_val, assign_vec
   implicit none
 
 contains
 
 !!!#############################################################################
-!!! print layer to file (do nothing for a base layer)
+!!! print layer to file
 !!!#############################################################################
 !!! this = (T, in) base_layer_type
 !!! file = (I, in) file name
@@ -63,6 +61,43 @@ contains
     !! NO NEED TO WRITE ANYTHING FOR A DEFAULT LAYER
     return
   end subroutine print_base
+!!!-----------------------------------------------------------------------------
+  module subroutine print_pool(this, file)
+    implicit none
+    class(pool_layer_type), intent(in) :: this
+    character(*), intent(in) :: file
+
+    integer :: unit
+    character(100) :: fmt
+
+    !! open file with new unit
+    !!--------------------------------------------------------------------------
+    open(newunit=unit, file=trim(file), access='append')
+
+    !! write convolution initial parameters
+    !!--------------------------------------------------------------------------
+    write(unit,'(A)') to_upper(trim(this%name))
+    write(fmt,'("(3X,""INPUT_SHAPE ="",",I0,"(1X,I0))")') size(this%input_shape)
+    write(unit,fmt) this%input_shape
+    if(all(this%pool.eq.this%pool(1)))then
+       write(unit,'(3X,"POOL_SIZE =",1X,I0)') this%pool(1)
+    else
+       write(fmt,'("(3X,""STRIDE ="",",I0,"(1X,I0))")') size(this%pool)
+       write(unit,fmt) this%pool
+    end if
+    if(all(this%strd.eq.this%strd(1)))then
+       write(unit,'(3X,"STRIDE =",1X,I0)') this%strd(1)
+    else
+       write(fmt,'("(3X,""STRIDE ="",",I0,"(1X,I0))")') size(this%strd)
+       write(unit,fmt) this%strd
+    end if
+    write(unit,'("END ",A)') to_upper(trim(this%name))
+
+    !! close unit
+    !!--------------------------------------------------------------------------
+    close(unit)
+
+  end subroutine print_pool
 !!!#############################################################################
 
 
@@ -86,10 +121,63 @@ contains
        write(err_msg,'("ERROR: invalid size of input_shape in ",A,&
             &" expected (",I0,"), got (",I0")")')  &
             trim(this%name), this%input_rank, size(input_shape,dim=1)
-       stop trim(err_msg)
+       call stop_program(err_msg)
+       return
     end if
  
   end subroutine set_shape_base
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! get layer outputs
+!!!#############################################################################
+  pure subroutine get_output_base(this, output)
+    implicit none
+    class(base_layer_type), intent(in) :: this
+    real(real32), allocatable, dimension(..), intent(out) :: output
+  
+    call this%output%get(output)
+  end subroutine get_output_base
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set the pointers of the layer
+!!!#############################################################################
+  module subroutine set_ptrs(this)
+    implicit none
+    class(base_layer_type), intent(inout), target :: this
+
+    character(256) :: err_msg
+
+    if(allocated(this%output))then
+       if(.not.this%output%allocated)then
+          write(err_msg,'("output not allocated for layer ",A," ",I0)') &
+               trim(this%name), this%id
+          call stop_program(err_msg)
+          return
+       end if
+       call this%output%set_ptr()
+    end if
+    if(allocated(this%di))then
+       if(.not.this%di%allocated)then
+          write(err_msg,'("di not allocated for layer ",A," ",I0)') &
+               trim(this%name), this%id
+          call stop_program(err_msg)
+          return
+       end if
+       call this%di%set_ptr()
+    end if
+
+    call this%set_ptrs_hyperparams()
+
+  end subroutine set_ptrs
+!!!-----------------------------------------------------------------------------
+  module subroutine set_ptrs_hyperparams(this)
+    implicit none
+    class(base_layer_type), intent(inout), target :: this
+  end subroutine set_ptrs_hyperparams
 !!!#############################################################################
 
 
@@ -135,17 +223,63 @@ contains
 
 
 !!!#############################################################################
+!!! layer reduction
+!!!#############################################################################
+  module subroutine reduce_learnable(this, rhs)
+    implicit none
+    class(learnable_layer_type), intent(inout) :: this
+    class(learnable_layer_type), intent(in) :: rhs
+
+    this%dp = this%dp + rhs%dp
+    this%db = this%db + rhs%db
+
+  end subroutine  reduce_learnable
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! layer addition
+!!!#############################################################################
+  module function add_learnable(a, b) result(output)
+    implicit none
+    class(learnable_layer_type), intent(in) :: a, b
+    class(learnable_layer_type), allocatable :: output
+
+    output = a
+    output%dp = output%dp + b%dp
+    output%db = output%db + b%db
+
+  end function add_learnable
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! layer merge
+!!!#############################################################################
+  module subroutine merge_learnable(this, input)
+    implicit none
+    class(learnable_layer_type), intent(inout) :: this
+    class(learnable_layer_type), intent(in) :: input
+
+    this%dp = this%dp + input%dp
+    this%db = this%db + input%db
+
+  end subroutine merge_learnable
+!!!#############################################################################
+
+
+!!!#############################################################################
 !!! get learnable parameters of layer
 !!! procedure modified from neural-fortran library
 !!!#############################################################################
-  pure module function get_params_batch(this) result(params)
-    implicit none
-    class(batch_layer_type), intent(in) :: this
-    real(real12), allocatable, dimension(:) :: params
-  
-    params = [this%gamma, this%beta]
-  
-  end function get_params_batch
+  pure module function get_params(this) result(params)
+  implicit none
+  class(learnable_layer_type), intent(in) :: this
+  real(real32), dimension(this%num_params) :: params
+
+  params = this%params
+
+end function get_params
 !!!#############################################################################
 
 
@@ -153,15 +287,14 @@ contains
 !!! set learnable parameters of layer
 !!! procedure modified from neural-fortran library
 !!!#############################################################################
-  module subroutine set_params_batch(this, params)
-    implicit none
-    class(batch_layer_type), intent(inout) :: this
-    real(real12), dimension(:), intent(in) :: params
-  
-    this%gamma = params(1:this%num_channels)
-    this%beta  = params(this%num_channels+1:2*this%num_channels)
-  
-  end subroutine set_params_batch
+module subroutine set_params(this, params)
+  implicit none
+  class(learnable_layer_type), intent(inout) :: this
+  real(real32), dimension(this%num_params), intent(in) :: params
+
+  this%params = params
+
+end subroutine set_params
 !!!#############################################################################
 
 
@@ -169,18 +302,48 @@ contains
 !!! get gradients of layer
 !!! procedure modified from neural-fortran library
 !!!#############################################################################
-  pure module function get_gradients_batch(this, clip_method) result(gradients)
-    use clipper, only: clip_type
+  pure module function get_gradients(this, clip_method) result(gradients)
+    use athena__clipper, only: clip_type
     implicit none
-    class(batch_layer_type), intent(in) :: this
+    class(learnable_layer_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
-    real(real12), allocatable, dimension(:) :: gradients
+    real(real32), dimension(this%num_params) :: gradients
   
-    gradients = [this%dg/this%batch_size, this%db/this%batch_size]
+    gradients = [ sum(this%dp, dim=2) / this%batch_size, &
+         sum(this%db, dim=2) / this%batch_size ]
   
     if(present(clip_method)) call clip_method%apply(size(gradients),gradients)
 
-  end function get_gradients_batch
+  end function get_gradients
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set gradients of layer
+!!!#############################################################################
+  module subroutine set_gradients(this, gradients)
+    implicit none
+    class(learnable_layer_type), intent(inout) :: this
+    real(real32), dimension(..), intent(in) :: gradients
+  
+    select rank(gradients)
+    rank(0)
+       this%dp = gradients
+       this%db = gradients
+    rank(1)
+       this%dp = spread( &
+            gradients(1:this%num_params - size(this%db,1)), &
+            2, &
+            this%batch_size &
+       )
+       this%db = spread( &
+            gradients(this%num_params - size(this%db,1) + 1:), &
+            2, &
+            this%batch_size &
+       )
+    end select
+  
+  end subroutine set_gradients
 !!!#############################################################################
 
 
@@ -191,15 +354,15 @@ contains
   module subroutine set_gradients_batch(this, gradients)
     implicit none
     class(batch_layer_type), intent(inout) :: this
-    real(real12), dimension(..), intent(in) :: gradients
+    real(real32), dimension(..), intent(in) :: gradients
   
     select rank(gradients)
     rank(0)
-       this%dg = gradients * this%batch_size
+       this%dp = gradients * this%batch_size
        this%db = gradients * this%batch_size
     rank(1)
-        this%dg = gradients(:this%batch_size) * this%batch_size
-        this%db = gradients(this%batch_size+1:) * this%batch_size
+        this%dp(:,1) = gradients(:this%num_channels) * this%batch_size
+        this%db(:,1) = gradients(this%num_channels+1:) * this%batch_size
     end select
   
   end subroutine set_gradients_batch
@@ -207,22 +370,210 @@ contains
 
 
 !!!#############################################################################
-!!! get layer outputs
+!!! initialise layer
 !!!#############################################################################
-  pure module subroutine get_output_flatten(this, output)
+  module subroutine init_conv(this, input_shape, batch_size, verbose)
+    use athena__initialiser, only: initialiser_setup
+    use athena__misc_types, only: initialiser_type
     implicit none
-    class(flatten_layer_type), intent(in) :: this
-    real(real12), allocatable, dimension(..), intent(out) :: output
-  
-    select rank(output)
-    rank(1)
-       output = reshape(this%output, [size(this%output)])
-    rank(2)
-       output = this%output
-    end select
-  
-  end subroutine get_output_flatten
+    class(conv_layer_type), intent(inout) :: this
+    integer, dimension(:), intent(in) :: input_shape
+    integer, optional, intent(in) :: batch_size
+    integer, optional, intent(in) :: verbose
+
+    integer :: verbose_ = 0
+    class(initialiser_type), allocatable :: initialiser_
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise optional arguments
+    !!--------------------------------------------------------------------------
+    if(present(verbose)) verbose_ = verbose
+    if(present(batch_size)) this%batch_size = batch_size
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise input shape
+    !!--------------------------------------------------------------------------
+    if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
+
+
+    !!--------------------------------------------------------------------------
+    !! allocate output, activation, bias, and weight shapes
+    !!--------------------------------------------------------------------------
+    !! NOTE: INPUT SHAPE DOES NOT INCLUDE PADDING WIDTH
+    !! THIS IS HANDLED AUTOMATICALLY BY THE CODE
+    !! ... provide the initial input data shape and let us deal with the padding
+    this%num_channels = this%input_shape(this%input_rank)
+    if(allocated(this%output))then
+       if(this%output%allocated) call this%output%deallocate()
+    end if
+    this%output%shape(this%input_rank) = this%num_filters
+    this%output%shape(:this%input_rank-1) = floor( &
+         ( &
+              this%input_shape(:this%input_rank-1) + &
+              2.0 * this%pad - &
+              this%knl &
+         ) / real(this%stp) &
+    ) + 1
+    this%num_params = this%get_num_params()
+    if(allocated(this%params)) deallocate(this%params)
+    allocate(this%params(this%num_params), source=0._real32)
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise weights (kernels)
+    !!--------------------------------------------------------------------------
+    allocate(initialiser_, source=initialiser_setup(this%kernel_initialiser))
+    call initialiser_%initialise( &
+         this%params(:this%num_params-this%num_filters), &
+         fan_in=product(this%knl)+1, fan_out=1, &
+         spacing = [ this%knl, this%num_channels, this%num_filters ] &
+    )
+    deallocate(initialiser_)
+
+    !! initialise biases
+    !!--------------------------------------------------------------------------
+    allocate(initialiser_, source=initialiser_setup(this%bias_initialiser))
+    call initialiser_%initialise( &
+         this%params(this%num_params-this%num_filters+1:), &
+         fan_in=product(this%knl)+1, fan_out=1 &
+    )
+    deallocate(initialiser_)
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise batch size-dependent arrays
+    !!--------------------------------------------------------------------------
+    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
+
+  end subroutine init_conv
 !!!#############################################################################
 
-end submodule base_layer_submodule
+
+!!!#############################################################################
+!!! initialise layer
+!!!#############################################################################
+  module subroutine init_batch(this, input_shape, batch_size, verbose)
+    use athena__initialiser, only: initialiser_setup
+    use athena__misc_types, only: initialiser_type
+    implicit none
+    class(batch_layer_type), intent(inout) :: this
+    integer, dimension(:), intent(in) :: input_shape
+    integer, optional, intent(in) :: batch_size
+    integer, optional, intent(in) :: verbose
+
+    integer :: verbose_ = 0
+    class(initialiser_type), allocatable :: t_initialiser
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise optional arguments
+    !!--------------------------------------------------------------------------
+    if(present(verbose)) verbose_ = verbose
+    if(present(batch_size)) this%batch_size = batch_size
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise input shape
+    !!--------------------------------------------------------------------------
+    if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
+
+
+    !!--------------------------------------------------------------------------
+    !! set up number of channels, width, height
+    !!--------------------------------------------------------------------------
+    if(allocated(this%output))then
+       if(this%output%allocated) call this%output%deallocate()
+    end if
+    if(size(this%input_shape).eq.1)then
+       this%output%shape(1) = this%input_shape(1)
+       this%output%shape(2) = 1
+    else
+       this%output%shape = this%input_shape
+    end if
+    this%num_channels = this%input_shape(this%input_rank)
+    this%num_params = this%get_num_params()
+    allocate(this%params(2 * this%num_channels), source=0._real32)
+    allocate(this%dp(this%num_channels,1), source=0._real32)
+    allocate(this%db(this%num_channels,1), source=0._real32)
+
+
+    !!--------------------------------------------------------------------------
+    !! allocate mean, variance, gamma, beta, dg, db
+    !!--------------------------------------------------------------------------
+    allocate(this%mean(this%num_channels), source=0._real32)
+    allocate(this%variance, source=this%mean)
+    ! allocate(this%gamma, source=this%mean)
+    ! allocate(this%beta, source=this%mean)
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise gamma
+    !!--------------------------------------------------------------------------
+    allocate(t_initialiser, source=initialiser_setup(this%kernel_initialiser))
+    t_initialiser%mean = this%gamma_init_mean
+    t_initialiser%std  = this%gamma_init_std
+    call t_initialiser%initialise(this%params(1:this%num_channels), &
+         fan_in =this%num_channels, &
+         fan_out=this%num_channels)
+    deallocate(t_initialiser)
+
+    !! initialise beta
+    !!--------------------------------------------------------------------------
+    allocate(t_initialiser, source=initialiser_setup(this%bias_initialiser))
+    t_initialiser%mean = this%beta_init_mean
+    t_initialiser%std  = this%beta_init_std
+    call t_initialiser%initialise(this%params(this%num_channels+1:), &
+         fan_in =this%num_channels, &
+         fan_out=this%num_channels)
+    deallocate(t_initialiser)
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise moving mean
+    !!--------------------------------------------------------------------------
+    allocate(t_initialiser, &
+         source=initialiser_setup(this%moving_mean_initialiser))
+    call t_initialiser%initialise(this%mean, &
+         fan_in =this%num_channels, &
+         fan_out=this%num_channels)
+    deallocate(t_initialiser)
+
+    !! initialise moving variance
+    !!--------------------------------------------------------------------------
+    allocate(t_initialiser, &
+         source=initialiser_setup(this%moving_variance_initialiser))
+    call t_initialiser%initialise(this%variance, &
+         fan_in =this%num_channels, &
+         fan_out=this%num_channels)
+    deallocate(t_initialiser)
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise batch size-dependent arrays
+    !!--------------------------------------------------------------------------
+    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
+
+  end subroutine init_batch
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set the pointers of the layer
+!!!#############################################################################
+  module subroutine set_ptrs_hyperparams_batch(this)
+    implicit none
+    class(batch_layer_type), intent(inout), target :: this
+
+    if(allocated(this%params))then
+       this%gamma(1:this%num_channels) => this%params(1:this%num_channels)
+       this%beta(1:this%num_channels) => &
+            this%params(this%num_channels+1:this%num_channels*2)
+    end if
+
+  end subroutine set_ptrs_hyperparams_batch
+!!!#############################################################################
+
+end submodule athena__base_layer_submodule
 !!!#############################################################################

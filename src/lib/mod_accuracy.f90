@@ -9,17 +9,30 @@
 !!! - mse_score         - computes the mean squared error of a continuous model
 !!! - r2_score          - computes the R^2 score of a continuous model
 !!!#############################################################################
-module accuracy
-  use constants, only: real12
+module athena__accuracy
+  use athena__constants, only: real32
   implicit none
 
 
   private
 
+  public :: compute_accuracy_function
   public :: categorical_score
-  public :: mae_score, mse_score
+  public :: mae_score, mse_score, rmse_score
   public :: r2_score
 
+
+  abstract interface
+     !! compute the accuracy function
+     !! predicted = (R, in) predicted values
+     !! expected  = (R, in) expected values
+     !! output    = (R, in) accuracy function
+     pure function compute_accuracy_function(predicted, expected) result(output)
+       import real32
+       real(real32), dimension(:,:), intent(in) :: predicted, expected
+       real(real32), dimension(size(predicted,2)) :: output
+     end function compute_accuracy_function
+  end interface
 
 contains
 
@@ -27,20 +40,19 @@ contains
 !!! compute accuracy
 !!! this only works (and is only valid for?) categorisation problems
 !!!#############################################################################
-  function categorical_score(output, expected) result(accuracy)
+  pure function categorical_score(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:,:), intent(in) :: output
-    integer, dimension(:,:) :: expected
-    real(real12), dimension(size(expected,2)) :: accuracy
+    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    real(real32), dimension(size(expected,2)) :: output
 
     integer :: s
 
     !! Compute the accuracy
     do concurrent(s=1:size(expected,2))
-       if (maxloc(expected(:,s),dim=1).eq.maxloc(output(:,s),dim=1)) then
-          accuracy(s) = 1._real12
+       if (maxloc(expected(:,s),dim=1).eq.maxloc(predicted(:,s),dim=1)) then
+          output(s) = 1._real32
        else
-          accuracy(s) = 0._real12
+          output(s) = 0._real32
        end if
     end do
 
@@ -48,61 +60,75 @@ contains
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
 !!! works for continuous datasets
-  function mae_score(output, expected) result(accuracy)
+  pure function mae_score(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:,:), intent(in) :: output, expected
-    real(real12), dimension(size(expected,2)) :: accuracy
+    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    real(real32), dimension(size(expected,2)) :: output
 
     !! Compute the accuracy
-    accuracy = 1._real12 - sum(abs(expected - output),dim=1)/size(expected(:,1))
+    output = 1._real32 - sum(abs(expected - predicted),dim=1)/size(expected,1)
 
   end function mae_score
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
 !!! works for continuous datasets
-  function mse_score(output, expected) result(accuracy)
+  pure function mse_score(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:,:), intent(in) :: output, expected
-    real(real12), dimension(size(expected,2)) :: accuracy
+    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    real(real32), dimension(size(expected,2)) :: output
 
     !! Compute the accuracy
-    accuracy = 1._real12 - sum((expected - output)**2._real12,dim=1)/size(expected(:,1))
+    output = 1._real32 - &
+         sum((expected - predicted)**2._real32,dim=1)/size(expected,1)
 
   end function mse_score
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
-!!! works for continuous datasets (CURRENTLY UNAVAILABLE)
-  function r2_score(output, expected) result(accuracy)
+!!! works for continuous datasets
+  pure function rmse_score(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:,:), intent(in) :: output, expected
-    real(real12), dimension(size(expected,2)) :: y_mean, rss, tss
-    real(real12), dimension(size(expected,2)) :: accuracy
+    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    real(real32), dimension(size(expected,2)) :: output
 
-    real(real12), parameter :: epsilon = 1.E-8_real12
+    !! Compute the accuracy
+    output = 1._real32 - &
+         sqrt(sum((expected - predicted)**2._real32,dim=1)/size(expected,1))
+
+  end function rmse_score
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+!!! works for continuous datasets
+  pure function r2_score(predicted, expected) result(output)
+    implicit none
+    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    real(real32), dimension(size(expected,2)) :: y_mean, rss, tss
+    real(real32), dimension(size(expected,2)) :: output
+
+    real(real32), parameter :: epsilon = 1.E-8_real32
 
     integer :: s
 
     do s = 1, size(expected,2)
        !! compute mean of true/expected
-       y_mean(s) = sum(expected(:,s),dim=1) / size(expected(:,s),dim=1)
+       y_mean(s) = sum(expected(:,s),dim=1) / size(expected,dim=1)
  
        !! compute total sum of squares
-       tss(s) = sum( ( expected(:,s) - y_mean(s) ) ** 2._real12, dim=1 )
+       tss(s) = sum( ( expected(:,s) - y_mean(s) ) ** 2._real32, dim=1 )
  
        !! compute residual sum of squares
-       rss(s) = sum( ( expected(:,s) - output(:,s) ) ** 2._real12, dim=1 )
+       rss(s) = sum( ( expected(:,s) - predicted(:,s) ) ** 2._real32, dim=1 )
  
        !! compute accuracy (R^2 score)
        if(abs(rss(s)).lt.epsilon)then
-         accuracy(s) = 1._real12
-       elseif(abs(tss(s)).lt.epsilon.or.rss(s)/tss(s).gt.1._real12)then
-         accuracy(s) = 0._real12
+         output(s) = 1._real32
+       elseif(abs(tss(s)).lt.epsilon.or.rss(s)/tss(s).gt.1._real32)then
+         output(s) = 0._real32
        else
-         accuracy(s) = 1._real12 - rss(s)/tss(s)
+         output(s) = 1._real32 - rss(s)/tss(s)
        end if
     end do
 
   end function r2_score
 !!!#############################################################################
 
-end module accuracy
+end module athena__accuracy

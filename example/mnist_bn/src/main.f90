@@ -8,7 +8,7 @@ program mnist_example
   use omp_lib
 #endif
   use athena
-  use constants_mnist, only: real12
+  use constants_mnist, only: real32
   use read_mnist, only: read_mnist_db
   use inputs
 
@@ -17,7 +17,7 @@ program mnist_example
   type(network_type) :: network
 
   !! data loading and preoprocessing
-  real(real12), allocatable, dimension(:,:,:,:) :: input_images, test_images
+  real(real32), allocatable, dimension(:,:,:,:) :: input_images, test_images
   integer, allocatable, dimension(:) :: labels, test_labels
   integer, allocatable, dimension(:,:) :: input_labels
   character(1024) :: train_file, test_file
@@ -35,7 +35,7 @@ program mnist_example
 
 #ifdef _OPENMP
   integer, allocatable, dimension(:) :: label_slice
-  real(real12), allocatable, dimension(:,:,:,:) :: image_slice
+  real(real32), allocatable, dimension(:,:,:,:) :: image_slice
 #endif
 
 
@@ -114,8 +114,8 @@ program mnist_example
            bias_initialiser = "zeros", &
            moving_mean_initialiser = "zeros", &
            moving_variance_initialiser = "ones", &
-           epsilon = 0.001_real12, &
-           momentum = 0.8_real12 &
+           epsilon = 0.001_real32, &
+           momentum = 0.8_real32 &
            ))
      call network%add(maxpool2d_layer_type(&
            pool_size = 2, stride = 2))

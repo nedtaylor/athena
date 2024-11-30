@@ -12,8 +12,8 @@
 !!! - cat         - cat lines until user-defined end string is encountered
 !!! - stop_check  - check for <STOP> file and LSTOP or LABORT tags inside
 !!!#############################################################################
-module infile_tools
-  use misc, only: grep,icount
+module athena__tools_infile
+  use athena__misc, only: grep,icount
   implicit none
 
   private
@@ -377,4 +377,4 @@ contains
   end function stop_check
 !!!#############################################################################
 
-end module infile_tools
+end module athena__tools_infile

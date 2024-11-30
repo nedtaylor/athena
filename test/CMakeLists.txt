@@ -21,10 +21,7 @@ foreach(execid
   dropout_layer
   dropblock2d_layer
   dropblock3d_layer
-  flatten1d_layer
-  flatten2d_layer
-  flatten3d_layer
-  flatten4d_layer
+  flatten_layer
   activations
   initialisers
   padding
@@ -41,11 +38,11 @@ foreach(execid
   optimiser
   clipper
   loss
-  infile_tools
+  tools_infile
   )
   add_executable(test_${execid} test_${execid}.f90)
   # # Specify the include directories
-  target_include_directories(test_${execid} PRIVATE "${CMAKE_BUILD_PREFIX}" "${CMAKE_BUILD_PREFIX}/modules")
+  target_include_directories(test_${execid} PRIVATE "${CMAKE_BUILD_PREFIX}" "${CMAKE_BUILD_PREFIX}/mod")
 
   target_link_libraries(test_${execid} PRIVATE athena)
 

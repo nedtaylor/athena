@@ -13,16 +13,17 @@
 !!! module contains the following procedures:
 !!! - metric_dict_alloc - allocates memory for a metric_dict_type
 !!!#############################################################################
-module metrics
-  use constants, only: real12
+module athena__metrics
+  use athena__io_utils, only: stop_program
+  use athena__constants, only: real32
   implicit none
 
   type metric_dict_type
      character(10) :: key
-     real(real12) :: val
+     real(real32) :: val
      logical :: active
-     real(real12) :: threshold
-     real(real12), allocatable, dimension(:) :: history
+     real(real32) :: threshold
+     real(real32), allocatable, dimension(:) :: history
    contains
      procedure :: check => metric_dict_check
      procedure :: add_t_t => metric_dict_add  !t = type, r = real, i = int
@@ -78,9 +79,9 @@ contains
              input(i)%threshold = source(i)%threshold
           end do
        else
-          write(0,*) &
-               "ERROR: metric_dict_alloc requires either a source or length"
-          stop 1
+          call stop_program( &
+               "metric_dict_alloc requires either a source or length" &
+          )
        end if
     end if
 
@@ -94,7 +95,7 @@ contains
   subroutine metric_dict_check(this,plateau_threshold,converged)
     implicit none
     class(metric_dict_type), intent(inout) :: this
-    real(real12), intent(in) :: plateau_threshold
+    real(real32), intent(in) :: plateau_threshold
     integer, intent(out) :: converged
     
     converged = 0
@@ -105,7 +106,7 @@ contains
             abs(sum(this%history))/size(this%history,dim=1).lt.&
             this%threshold).or.&
             (trim(this%key).eq."accuracy".and.&
-            abs(sum(1._real12-this%history))/size(this%history,dim=1).lt.&
+            abs(sum(1._real32-this%history))/size(this%history,dim=1).lt.&
             this%threshold) )then
           write(6,*) &
                "Convergence achieved, "//trim(this%key)//" threshold reached"
@@ -123,4 +124,4 @@ contains
   end subroutine metric_dict_check
 !!!#############################################################################
 
-end module metrics
+end module athena__metrics

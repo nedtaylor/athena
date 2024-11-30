@@ -1,5 +1,5 @@
 program test_metrics
-  use metrics
+  use athena__metrics
   implicit none
 
   type(metric_dict_type) :: a, b, result, expected_result

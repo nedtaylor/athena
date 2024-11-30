@@ -1,5 +1,5 @@
 program test_infile_tools
-  use infile_tools
+  use athena__tools_infile
   implicit none
 
   integer :: found

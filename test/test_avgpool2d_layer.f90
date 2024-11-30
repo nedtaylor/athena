@@ -3,6 +3,7 @@ program test_avgpool2d_layer
        avgpool2d_layer_type, &
        base_layer_type, &
        learnable_layer_type
+   use athena__misc_types, only: array4d_type
   implicit none
 
   class(base_layer_type), allocatable :: pool_layer
@@ -62,7 +63,7 @@ program test_avgpool2d_layer
 
   !! initialise width and output width
   output_width = floor( (width - pool)/real(stride)) + 1
-  max_loc = width / 2 + mod(width, 2)
+  max_loc = floor(width / 2.0) + mod(width, 2)
 
   !! initialise sample input
   allocate(input_data(width, width, num_channels, 1), source = 0.0)
@@ -82,9 +83,13 @@ program test_avgpool2d_layer
        success = .false.
        write(0,*) 'avgpool2d layer has wrong input_shape'
     end if
-    if(any(pool_layer%output_shape .ne. [output_width,output_width,num_channels]))then
+    if(any( &
+         pool_layer%output%shape .ne. &
+         [output_width,output_width,num_channels] &
+    ))then
        success = .false.
-       write(0,*) 'avgpool2d layer has wrong output_shape', pool_layer%output_shape
+       write(0,*) 'avgpool2d layer has wrong output shape', &
+            pool_layer%output%shape
        write(0,*) 'expected', [output_width,output_width,num_channels]
     end if
   end select
@@ -100,13 +105,16 @@ program test_avgpool2d_layer
             max_loc .le. (i-1)*stride + pool .and. &
             max_loc .ge. (j-1)*stride + 1    .and. &
             max_loc .le. (j-1)*stride + pool )then
-         if(output(i, j, 1, 1) .ne. max_value/(pool*pool))then
+         if( &
+              abs( output(i, j, 1, 1) - max_value / ( pool * pool ) ) .gt. &
+              1.E-6 &
+         )then
             success = .false.
-            write(*,*) 'avgpool2d layer forward pass failed'
+            write(0,*) 'avgpool2d layer forward pass failed'
          end if
-       else if(output(i, j, 1, 1) .ne. 0.0) then
+       else if( abs( output(i, j, 1, 1) ) .gt. 1.E-6 ) then
           success = .false.
-          write(*,*) 'avgpool2d layer forward pass failed'
+          write(0,*) 'avgpool2d layer forward pass failed'
        end if
      end do
   end do
@@ -146,12 +154,15 @@ program test_avgpool2d_layer
   end do
 
   !! check gradient has expected value
-  select type(current => pool_layer)
-  type is(avgpool2d_layer_type)
-     if(any(abs(current%di(:,:,1,1) - di_compare(:,:,1,1)) .gt. tol))then
+  select type(di => pool_layer%di)
+  type is(array4d_type)
+     if(any(abs(di%val_ptr(:,:,1,1) - di_compare(:,:,1,1)) .gt. tol))then
         success = .false.
         write(*,*) 'avgpool2d layer backward pass failed'
      end if
+  class default
+     success = .false.
+     write(0,*) 'avgpool2d layer has not set di type correctly'
   end select
 
   !! check backward pass recovers input (with division by pool**2)

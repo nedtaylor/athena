@@ -8,8 +8,8 @@
 !!! - total_loss_function     - abstract interface for all total loss functions
 !!! - compute_loss_derivative - computes the derivative of the loss function
 !!!#############################################################################
-module loss
-  use constants, only: real12
+module athena__loss
+  use athena__constants, only: real32
   implicit none
 
   abstract interface
@@ -18,9 +18,9 @@ module loss
      !! expected  = (R, in) expected values
      !! output    = (R, in) loss function
      pure function compute_loss_function(predicted, expected) result(output)
-       import real12
-       real(real12), dimension(:,:), intent(in) :: predicted, expected
-       real(real12), dimension(size(predicted,1),size(predicted,2)) :: output
+       import real32
+       real(real32), dimension(:,:), intent(in) :: predicted, expected
+       real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
      end function compute_loss_function
   end interface
   
@@ -30,15 +30,16 @@ module loss
      !! expected  = (R, in) expected values
      !! output    = (R, in) loss function
      pure function total_loss_function(predicted, expected) result(output)
-       import real12
-       real(real12), dimension(:,:), intent(in) :: predicted, expected
-       real(real12), dimension(size(predicted,2)) :: output
+       import real32
+       real(real32), dimension(:,:), intent(in) :: predicted, expected
+       real(real32), dimension(size(predicted,2)) :: output
      end function total_loss_function
   end interface
 
   private
 
   public :: compute_loss_derivative
+  public :: compute_loss_hubber_derivative
 
   public :: compute_loss_function
   public :: compute_loss_bce
@@ -46,6 +47,7 @@ module loss
   public :: compute_loss_mae
   public :: compute_loss_mse
   public :: compute_loss_nll
+  public :: compute_loss_hubber
 
   public :: total_loss_function
   public :: total_loss_bce
@@ -53,6 +55,7 @@ module loss
   public :: total_loss_mae
   public :: total_loss_mse
   public :: total_loss_nll
+  public :: total_loss_hubber
 
 
 contains
@@ -64,8 +67,8 @@ contains
 !!!#############################################################################
   pure function compute_loss_derivative(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:,:), intent(in) :: predicted, expected
-    real(real12), dimension(size(predicted,1),size(predicted,2)) :: output
+    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
 
     output = predicted - expected
   end function compute_loss_derivative
@@ -77,11 +80,11 @@ contains
 !!!#############################################################################
   pure function compute_loss_bce(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:,:), intent(in) :: predicted, expected
-    real(real12), dimension(size(predicted,1),size(predicted,2)) :: output
-    real(real12) :: epsilon
+    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
+    real(real32) :: epsilon
 
-    epsilon = 1.E-10_real12
+    epsilon = 1.E-10_real32
     output = -expected*log(predicted+epsilon)
 
   end function compute_loss_bce
@@ -89,8 +92,8 @@ contains
 !!!-----------------------------------------------------------------------------
   pure function total_loss_bce(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:,:), intent(in) :: predicted, expected
-    real(real12), dimension(size(predicted,2)) :: output
+    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    real(real32), dimension(size(predicted,2)) :: output
 
     output = sum(compute_loss_bce(predicted,expected),dim=1)
 
@@ -104,11 +107,11 @@ contains
 !!!#############################################################################
   pure function compute_loss_cce(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:,:), intent(in) :: predicted, expected
-    real(real12), dimension(size(predicted,1),size(predicted,2)) :: output
-    real(real12) :: epsilon
+    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
+    real(real32) :: epsilon
 
-    epsilon = 1.E-10_real12
+    epsilon = 1.E-10_real32
     output = -expected * log(predicted + epsilon)
 
   end function compute_loss_cce
@@ -116,8 +119,8 @@ contains
 !!!-----------------------------------------------------------------------------
   pure function total_loss_cce(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:,:), intent(in) :: predicted, expected
-    real(real12), dimension(size(predicted,2)) :: output
+    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    real(real32), dimension(size(predicted,2)) :: output
 
     output = sum(compute_loss_cce(predicted,expected),dim=1)
     
@@ -131,20 +134,20 @@ contains
 !!!#############################################################################
   pure function compute_loss_mae(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:,:), intent(in) :: predicted, expected
-    real(real12), dimension(size(predicted,1),size(predicted,2)) :: output
+    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
 
-    output = abs(predicted - expected) /(size(predicted,1))
+    output = abs(predicted - expected) !/(size(predicted,1))
 
   end function compute_loss_mae
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
   pure function total_loss_mae(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:,:), intent(in) :: predicted, expected
-    real(real12), dimension(size(predicted,2)) :: output
+    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    real(real32), dimension(size(predicted,2)) :: output
 
-    output = sum(compute_loss_mae(predicted,expected),dim=1)
+    output = sum(compute_loss_mae(predicted,expected),dim=1) / size(predicted,1)
     
   end function total_loss_mae
 !!!#############################################################################
@@ -156,20 +159,21 @@ contains
 !!!#############################################################################
   pure function compute_loss_mse(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:,:), intent(in) :: predicted, expected
-    real(real12), dimension(size(predicted,1),size(predicted,2)) :: output
+    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
 
-    output = ((predicted - expected)**2._real12) /(2._real12*size(predicted,1))
+    output = ((predicted - expected)**2._real32) /(2._real32)!*size(predicted,1))
 
   end function compute_loss_mse
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
   pure function total_loss_mse(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:,:), intent(in) :: predicted, expected
-    real(real12), dimension(size(predicted,2)) :: output
+    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    real(real32), dimension(size(predicted,2)) :: output
 
-    output = sum(compute_loss_mse(predicted,expected),dim=1)
+    output = sum(compute_loss_mse(predicted,expected),dim=1) * &
+         2._real32 / size(predicted,1)
     
   end function total_loss_mse
 !!!#############################################################################
@@ -181,11 +185,11 @@ contains
 !!!#############################################################################
   pure function compute_loss_nll(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:,:), intent(in) :: predicted, expected
-    real(real12), dimension(size(predicted,1),size(predicted,2)) :: output
-    real(real12) :: epsilon
+    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
+    real(real32) :: epsilon
 
-    epsilon = 1.E-10_real12
+    epsilon = 1.E-10_real32
     output = - log(expected - predicted + epsilon)
 
   end function compute_loss_nll
@@ -193,12 +197,63 @@ contains
 !!!-----------------------------------------------------------------------------
   pure function total_loss_nll(predicted, expected) result(output)
     implicit none
-    real(real12), dimension(:,:), intent(in) :: predicted, expected
-    real(real12), dimension(size(predicted,2)) :: output
+    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    real(real32), dimension(size(predicted,2)) :: output
 
-    output = sum(compute_loss_nll(predicted,expected),dim=1)
+    output = sum(compute_loss_nll(predicted,expected),dim=1) / size(predicted,1)
 
   end function total_loss_nll
 !!!#############################################################################
 
-end module loss
+
+!!!#############################################################################
+!!! compute losses
+!!! method: root mean squared error
+!!!#############################################################################
+  pure function compute_loss_hubber(predicted, expected) result(output)
+    implicit none
+    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
+
+    real(real32) :: gamma
+
+    gamma = 1._real32
+
+    where (abs(predicted - expected) .le. gamma)
+       output = 0.5_real32 * (predicted - expected)**2._real32
+    elsewhere
+       output = gamma * (abs(predicted - expected) - 0.5_real32 * gamma)
+    end where
+  
+  end function compute_loss_hubber
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function total_loss_hubber(predicted, expected) result(output)
+    implicit none
+    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    real(real32), dimension(size(predicted,2)) :: output
+  
+    output = sum(compute_loss_hubber(predicted,expected),dim=1) / size(predicted,1)
+    
+  end function total_loss_hubber
+!!!-----------------------------------------------------------------------------
+!!!-----------------------------------------------------------------------------
+  pure function compute_loss_hubber_derivative(predicted, expected) result(output)
+    implicit none
+    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
+
+    real(real32) :: gamma
+    
+    gamma = 1._real32
+
+    where (abs(predicted - expected) .le. gamma)
+       output = predicted - expected
+    elsewhere
+        output = gamma * sign(1._real32, predicted - expected)
+    end where
+
+  end function compute_loss_hubber_derivative
+!!!#############################################################################
+
+end module athena__loss

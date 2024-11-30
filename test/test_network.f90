@@ -3,15 +3,15 @@ program test_network
        network_type, &
        metric_dict_type, &
        full_layer_type, &
-       input1d_layer_type, &
+       input_layer_type, &
        base_optimiser_type, &
        maxpool2d_layer_type, &
        conv2d_layer_type, &
        batchnorm2d_layer_type, &
        dropblock2d_layer_type, &
-       flatten2d_layer_type, &
+       flatten_layer_type, &
        conv3d_layer_type
-   use loss, only: &
+   use athena__loss, only: &
        compute_loss_bce, &
        compute_loss_cce, &
        compute_loss_mae, &
@@ -48,14 +48,15 @@ program test_network
 !!!-----------------------------------------------------------------------------
 !!! Create network
 !!!-----------------------------------------------------------------------------
-  ! call network%add(input1d_layer_type(input_shape=[1]))
+  ! call network%add(input_layer_type(input_shape=[1]))
   call network%add(full_layer_type( &
        num_inputs=3, num_outputs=5, activation_function="tanh"))
   call network%add(full_layer_type( &
        num_outputs=2, activation_function="sigmoid"))
   call network%compile( &
        optimiser = base_optimiser_type(learning_rate=learning_rate), &
-       loss_method="mse", metrics=["loss"], verbose=1)
+       loss_method="mse", accuracy_method="mse", metrics=["loss"], verbose=0 &
+  )
   call network%set_batch_size(1)
 
 
@@ -71,12 +72,14 @@ program test_network
   call network%train(x, y, num_epochs=600, batch_size=1, verbose=0)
   write(*,*) "Network trained"
 
-  if(network%metrics(1)%val.gt.1.E-3) then
+  if(abs(network%metrics(1)%val).gt.1.E-3) then
      write(0,*) "Training loss higher than expected"
+     write(0,*) "Loss: ", network%metrics(1)%val
      success = .false.
   end if
-  if(network%metrics(2)%val.lt.0.95) then
+  if(abs(network%metrics(2)%val).lt.0.95) then
      write(0,*) "Training accuracy higher than expected"
+     write(0,*) "Accuracy: ", network%accuracy
      success = .false.
   end if
 
@@ -85,20 +88,26 @@ program test_network
 !!! Test network
 !!!-----------------------------------------------------------------------------
   !! create test data
+  write(*,*) 
   x = reshape([0.4, 0.6, 0.8], [3,1])
   y = reshape([0.370368, 0.493824], [2,1])
   call network%test(x, y)
   if(network%loss.gt.1.E-1) then
      write(0,*) "Test loss higher than expected"
+     write(0,*) "Loss: ", network%loss
      success = .false.
   end if
   if(network%accuracy.lt.0.7) then
      write(0,*) "Test accuracy higher than expected"
+     write(0,*) "Accuracy: ", network%accuracy
      success = .false.
   end if
 
   !! check network allocation
   allocate(network2, source=network_type(layers=network%model, batch_size=4))
+  call network2%compile( &
+       optimiser = base_optimiser_type(learning_rate=learning_rate), &
+       loss_method="mse", metrics=["loss"], verbose=1)
   if(network2%batch_size.ne.4) then
      write(0,*) "Batch size not set correctly"
      success = .false.
@@ -106,6 +115,7 @@ program test_network
 
   !! check gradients
   call network2%set_gradients(0.1)
+!   write(*,*) "hehe", network2%get_gradients()
   if(any(abs(network2%get_gradients()-0.1).gt.1.E-6)) then
      write(0,*) "Gradients not set correctly"
      success = .false.
@@ -149,7 +159,7 @@ program test_network
   call network3%add(conv2d_layer_type())
   call network3%add(batchnorm2d_layer_type())
   call network3%add(dropblock2d_layer_type(block_size=3, rate=0.1))
-  call network3%add(flatten2d_layer_type())
+  call network3%add(flatten_layer_type(input_rank=3))
 
   !! check automatic flatten layer adding
   call network3%reset()
@@ -166,7 +176,6 @@ program test_network
   call network3%compile( &
        optimiser = base_optimiser_type(learning_rate=learning_rate), &
        loss_method="mse", metrics=["loss"], verbose=1)
-
 
 
 !!!-----------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 program test_split
-  use misc_ml, only: split
+  use athena__misc_ml, only: split
   implicit none
 
   integer :: i, j, k, l, o

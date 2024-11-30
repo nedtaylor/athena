@@ -4,9 +4,9 @@
 !!!#############################################################################
 !!! module contains implementation of the Gaussian initialisation
 !!!#############################################################################
-module initialiser_gaussian
-  use constants, only: real12, pi
-  use custom_types, only: initialiser_type
+module athena__initialiser_gaussian
+  use athena__constants, only: real32, pi
+  use athena__misc_types, only: initialiser_type
   implicit none
 
 
@@ -27,11 +27,12 @@ contains
 !!!#############################################################################
 !!! Gaussian initialisation
 !!!#############################################################################
-  subroutine gaussian_initialise(this, input, fan_in, fan_out)
+  subroutine gaussian_initialise(this, input, fan_in, fan_out, spacing)
     implicit none
     class(gaussian_type), intent(inout) :: this
-    real(real12), dimension(..), intent(out) :: input
+    real(real32), dimension(..), intent(out) :: input
     integer, optional, intent(in) ::  fan_in, fan_out
+    integer, dimension(:), optional, intent(in) :: spacing
 
     integer :: i, j, k, l, m, o
 
@@ -106,19 +107,19 @@ contains
 !!!#############################################################################
   subroutine box_muller(input, mean, std)
     implicit none
-    real(real12), intent(out) :: input
-    real(real12), intent(in) :: mean, std
+    real(real32), intent(out) :: input
+    real(real32), intent(in) :: mean, std
 
-    real(real12) :: r1, r2
+    real(real32) :: r1, r2
 
     call random_number(r1)
     call random_number(r2)
-    input = sqrt(-2._real12 * log(r1))
-    input = input * cos(2._real12 * pi * r2)
+    input = sqrt(-2._real32 * log(r1))
+    input = input * cos(2._real32 * pi * r2)
     input = mean + std * input
     
   end subroutine box_muller
 !!!#############################################################################
 
-end module initialiser_gaussian
+end module athena__initialiser_gaussian
 !!!#############################################################################

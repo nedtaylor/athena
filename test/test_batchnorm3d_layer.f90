@@ -3,6 +3,7 @@ program test_batchnorm3d_layer
      batchnorm3d_layer_type, &
      base_layer_type, &
      learnable_layer_type
+  use athena__misc_types, only: array5d_type
   implicit none
 
   class(base_layer_type), allocatable :: bn_layer, bn_layer1, bn_layer2
@@ -20,6 +21,9 @@ program test_batchnorm3d_layer
   integer, allocatable, dimension(:) :: seed
   real, parameter :: max_value = 3.0
 
+  ! interface assignment(=)
+  !    module procedure assign_base
+  ! end interface
 
 !!!-----------------------------------------------------------------------------
 !!! Initialize random number generator with a seed
@@ -46,6 +50,7 @@ program test_batchnorm3d_layer
      moving_mean_initialiser = 'zeros', &
      moving_variance_initialiser = 'zeros' &
      )
+  call bn_layer%set_ptrs()
 
   !! check layer name
   if(.not. bn_layer%name .eq. 'batchnorm3d')then
@@ -63,9 +68,9 @@ program test_batchnorm3d_layer
     end if
 
     !! check output shape
-    if(any(bn_layer%output_shape .ne. [width,width,width,num_channels]))then
+    if(any(bn_layer%output%shape .ne. [width,width,width,num_channels]))then
       success = .false.
-      write(0,*) 'batchnorm3d layer has wrong output_shape'
+      write(0,*) 'batchnorm3d layer has wrong output shape'
     end if
 
     !! check batch size
@@ -138,25 +143,33 @@ program test_batchnorm3d_layer
   !! check gradient has expected value
   select type(current => bn_layer)
   type is(batchnorm3d_layer_type)
-    do i = 1, num_channels
-      mean = sum(current%di(:,:,:,i,:))/(width**3*batch_size)
-      std = sqrt(sum((current%di(:,:,:,i,:) - mean)**2)/(width**3*batch_size))
-      if (abs(mean) .gt. tol) then
+     select type(di => current%di)
+     type is(array5d_type)
+        do i = 1, num_channels
+           mean = sum(di%val_ptr(:,:,:,i,:))/(width**3*batch_size)
+           std = sqrt( &
+                sum((di%val_ptr(:,:,:,i,:) - mean)**2)/(width**3*batch_size) &
+           )
+           if (abs(mean) .gt. tol) then
+             success = .false.
+             write(0,*) 'batchnorm3d layer backward pass failed: &
+                  &mean gradient should be zero'
+           end if
+           if (abs(std) .gt. tol) then
+             success = .false.
+             write(0,*) 'batchnorm3d layer backward pass failed: &
+                  &std gradient should equal gamma'
+           end if
+           if (abs(current%db(i,1) - sum(gradient(:,:,:,i,:))) .gt. tol) then
+             success = .false.
+             write(0,*) 'batchnorm3d layer backward pass failed: &
+                  &std gradient should equal sum of gradients'
+           end if
+        end do
+     class default
         success = .false.
-        write(0,*) 'batchnorm3d layer backward pass failed: &
-             &mean gradient should be zero'
-      end if
-      if (abs(std) .gt. tol) then
-        success = .false.
-        write(0,*) 'batchnorm3d layer backward pass failed: &
-             &std gradient should equal gamma'
-      end if
-      if (abs(current%db(i) - sum(gradient(:,:,:,i,:))) .gt. tol) then
-        success = .false.
-        write(0,*) 'batchnorm3d layer backward pass failed: &
-             &std gradient should equal sum of gradients'
-      end if
-    end do
+        write(0,*) 'dropblock3d layer has not set di type correctly'
+     end select
   end select
 
 
@@ -207,11 +220,11 @@ program test_batchnorm3d_layer
   bn_layer2 = batchnorm3d_layer_type(input_shape=[2,2,2,1], batch_size=1)
   select type(bn_layer1)
   type is(batchnorm3d_layer_type)
-     bn_layer1%dg = 1.E0
+     bn_layer1%dp = 1.E0
      bn_layer1%db = 1.E0
      select type(bn_layer2)
      type is(batchnorm3d_layer_type)
-        bn_layer2%dg = 2.E0
+        bn_layer2%dp = 2.E0
         bn_layer2%db = 2.E0
         bn_layer = bn_layer1 + bn_layer2
         select type(bn_layer)
@@ -267,7 +280,7 @@ program test_batchnorm3d_layer
      stop 1
   end if
 
-  contains
+contains
 
 !!!-----------------------------------------------------------------------------
 !!! compare three layers
@@ -276,7 +289,7 @@ program test_batchnorm3d_layer
      type(batchnorm3d_layer_type), intent(in) :: layer1, layer2, layer3
      logical, intent(inout) :: success
 
-     if(any(abs(layer1%dg-layer2%dg-layer3%dg).gt.tol))then
+     if(any(abs(layer1%dp-layer2%dp-layer3%dp).gt.tol))then
         success = .false.
         write(0,*) 'batchnorm3d layer has wrong gradients'
      end if

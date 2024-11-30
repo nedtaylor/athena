@@ -10,16 +10,17 @@
 !!!#############################################################################
 !! Examples of initialsers in keras: https://keras.io/api/layers/initializers/
 !!!#############################################################################
-module initialiser
-  use misc, only: to_lower
-  use custom_types, only: initialiser_type
-  use initialiser_glorot, only: glorot_uniform, glorot_normal
-  use initialiser_he, only: he_uniform, he_normal
-  use initialiser_lecun, only: lecun_uniform, lecun_normal
-  use initialiser_ones, only: ones
-  use initialiser_zeros, only: zeros
-  use initialiser_ident, only: ident
-  use initialiser_gaussian, only: gaussian
+module athena__initialiser
+  use athena__io_utils, only: stop_program
+  use athena__misc, only: to_lower
+  use athena__misc_types, only: initialiser_type
+  use athena__initialiser_glorot, only: glorot_uniform, glorot_normal
+  use athena__initialiser_he, only: he_uniform, he_normal
+  use athena__initialiser_lecun, only: lecun_uniform, lecun_normal
+  use athena__initialiser_ones, only: ones
+  use athena__initialiser_zeros, only: zeros
+  use athena__initialiser_ident, only: ident
+  use athena__initialiser_gaussian, only: gaussian
   implicit none
 
 
@@ -82,6 +83,8 @@ contains
     character(*), intent(in) :: name
     integer, optional, intent(out) :: error
 
+    character(256) :: err_msg
+
 
     !!--------------------------------------------------------------------------
     !! set initialiser function
@@ -114,12 +117,15 @@ contains
           error = -1
           return
        else
-          stop "Incorrect initialiser name given '"//trim(to_lower(name))//"'"
+          write(err_msg,'("Incorrect initialiser name given ''",A,"''")') &
+               trim(to_lower(name))
+          call stop_program(trim(err_msg))
+          return
        end if
     end select
 
   end function initialiser_setup
 !!!#############################################################################
 
-end module initialiser
+end module athena__initialiser
 !!!#############################################################################

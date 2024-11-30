@@ -15,6 +15,9 @@ auto-tests = true
 auto-examples = false
 module-naming = false
 
+[dependencies]
+graphstruc = { git = "https://github.com/nedtaylor/graphstruc", branch = "vertex_id" }
+
 [install]
 library = false
 
@@ -44,6 +47,12 @@ example_library = { path = "example/example_library"}
 [[example]]
 name = "mnist"
 source-dir = "example/mnist/src"
+[example.dependencies]
+example_library = { path = "example/example_library"}
+
+[[example]]
+name = "mnist_addit"
+source-dir = "example/mnist_addit/src"
 [example.dependencies]
 example_library = { path = "example/example_library"}
 

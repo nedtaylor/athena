@@ -1,5 +1,5 @@
 program test_misc
-  use misc
+  use athena__misc
   implicit none
 
   logical :: success = .true.

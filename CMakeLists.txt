@@ -55,11 +55,32 @@ enable_testing()
 option(BUILD_TESTS "Build the unit tests" ON)
 option(BUILD_EXAMPLES "Build the examples" ON)
 
+
+# set up the graphstruc dependency
+include(FetchContent)
+FetchContent_Declare(
+    graphstruc
+    GIT_REPOSITORY https://github.com/nedtaylor/graphstruc.git
+    GIT_TAG        4811becfa9adff18b6710753e422ca705bfde154 # v0.1.1
+    FIND_PACKAGE_ARGS NAMES graphstruc
+)
+FetchContent_MakeAvailable(graphstruc)
+# find_library(ATHENA_LIBRARY NAMES athena)
+find_package(graphstruc REQUIRED)
+# include_directories(${GRAPHSTRUC_INCLUDE_DIR})
+
+message(STATUS "graphstruc home directory: ${graphstruc_DIR}")
+message(STATUS "graphstruc include directory: ${graphstruc_INCLUDE_DIRS}")
+message(STATUS "graphstruc source directory: ${graphstruc_BUILD_DIRS}")
+
+
+
 # Define the sources
 set(SRC_DIR src)
 set(LIB_DIR ${SRC_DIR}/lib)
 
 set(LIB_FILES
+    mod_io_utils.f90
     mod_constants.f90
     mod_misc.f90
     mod_random.f90
@@ -67,7 +88,11 @@ set(LIB_FILES
     mod_regulariser.f90
     mod_lr_decay.f90
     mod_optimiser.f90
-    mod_types.f90
+    mod_misc_types.f90
+    mod_misc_types_sub.f90
+    mod_graph.f90
+    mod_mpnn_layer.f90
+    mod_mpnn_layer_sub.f90
     mod_metrics.f90
     mod_misc_ml.f90
     mod_activation_gaussian.f90
@@ -94,12 +119,14 @@ set(LIB_FILES
     mod_accuracy.f90
     mod_base_layer.f90
     mod_base_layer_sub.f90
+    mod_conv_mpnn_layer.f90
     mod_batchnorm1d_layer.f90
     mod_batchnorm2d_layer.f90
     mod_batchnorm3d_layer.f90
     mod_conv1d_layer.f90
     mod_conv2d_layer.f90
     mod_conv3d_layer.f90
+    # mod_deepset_layer.f90
     mod_dropout_layer.f90
     mod_dropblock2d_layer.f90
     mod_dropblock3d_layer.f90
@@ -110,14 +137,8 @@ set(LIB_FILES
     mod_maxpool2d_layer.f90
     mod_maxpool3d_layer.f90
     mod_full_layer.f90
-    mod_flatten1d_layer.f90
-    mod_flatten2d_layer.f90
-    mod_flatten3d_layer.f90
-    mod_flatten4d_layer.f90
-    mod_input1d_layer.f90
-    mod_input2d_layer.f90
-    mod_input3d_layer.f90
-    mod_input4d_layer.f90
+    mod_flatten_layer.f90
+    mod_input_layer.f90
     mod_container_layer.f90
     mod_container_layer_sub.f90
     mod_network.f90
@@ -197,11 +218,15 @@ set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${PPFLAGS}")
 # add_compile_options("$<$<CONFIG:mp>:${MPFLAGS}>")
 
 
+
+
 # create the library
 add_library(${PROJECT_NAME} STATIC ${PREPENDED_LIB_FILES} ${PREPENDED_SRC_FILES})
-set(MODULE_DIR ${CMAKE_BUILD_PREFIX}/modules)
+set(MODULE_DIR ${CMAKE_BUILD_PREFIX}/mod)
 set_target_properties(${PROJECT_NAME} PROPERTIES Fortran_MODULE_DIRECTORY ${MODULE_DIR})
 target_link_libraries(${PROJECT_NAME} PUBLIC)
+
+
 
 # replace ".f90" with ".mod"
 string(REGEX REPLACE "\\.[^.]*$" ".mod" MODULE_FILES "${SRC_FILES}")
@@ -218,6 +243,10 @@ target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Dev>:${DEVFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:${DEBUGFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel_Dev>:${MPFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel_Dev>:${DEVFLAGS}>")
+
+# add the graphstruc dependency
+add_dependencies(${PROJECT_NAME} graphstruc)
+target_link_libraries(${PROJECT_NAME} graphstruc)
 
 # include the build test directory
 if(BUILD_TESTS)

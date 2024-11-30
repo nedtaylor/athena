@@ -44,7 +44,7 @@ program test_conv2d_network
 
   if(network%num_layers.ne.3)then
     success = .false.
-    write(*,*) "conv2d network should have 3 layers"
+    write(0,*) "conv2d network should have 3 layers"
   end if
 
   call network%set_batch_size(1)
@@ -52,11 +52,12 @@ program test_conv2d_network
   input_data = 0.0
 
   call network%forward(input_data)
-  call network%model(3)%layer%get_output(output)
+  call network%model(network%output_vertices(1))%layer%get_output(output)
 
   if(any(shape(output).ne.[width-4,width-4,num_filters2,1]))then
      success = .false.
-     write(*,*) "conv2d network output shape should be [28,28,32]"
+     write(0,*) "conv2d network output shape should be [3,3,8]"
+     write(0,*) "output shape is ", shape(output)
   end if
 
 
@@ -70,7 +71,7 @@ program test_conv2d_network
   call network%forward(input_data)
   output_reshaped = reshape(output, [(width-4)**2*num_filters2,1])
   call network%backward(output_reshaped)
-  select type(current => network%model(3)%layer)
+  select type(current => network%model(network%output_vertices(1))%layer)
   type is(conv2d_layer_type)
      gradients = current%get_gradients()
      gradients_weight = &
@@ -82,35 +83,35 @@ program test_conv2d_network
      if(size(gradients).ne.&
           (kernel_size**2*num_filters1 + 1) * num_filters2)then
         success = .false.
-        write(*,*) "conv2d network gradients size should be ", &
+        write(0,*) "conv2d network gradients size should be ", &
              ( kernel_size**2 * num_filters1 + 1 ) * num_filters2
      end if
      if(any(abs(gradients).lt.1.E-6))then
         success = .false.
-        write(*,*) "conv2d network gradients should not be zero"
+        write(0,*) "conv2d network gradients should not be zero"
      end if
      if(any(abs(gradients_weight(1,:,:,:) - &
           gradients_weight(1,1,1,1)).gt.1.E-6))then
         success = .false.
-        write(*,*) "conv2d network gradients first column should be equivalent"
+        write(0,*) "conv2d network gradients first column should be equivalent"
      end if
      if(any(abs(gradients_weight(2,:,:,:) - &
           gradients_weight(2,1,1,1)).gt.1.E-6))then
         success = .false.
-        write(*,*) "conv2d network gradients second column should be equivalent"
+        write(0,*) "conv2d network gradients second column should be equivalent"
      end if
      if(any(abs(gradients_weight(3,:,:,:) - &
           gradients_weight(3,1,1,1)).gt.1.E-6))then
         success = .false.
-        write(*,*) "conv2d network gradients third column should be equivalent"
+        write(0,*) "conv2d network gradients third column should be equivalent"
      end if
      if(any(abs(gradients_bias(:)-gradients_bias(1)).gt.1.E-6))then
         success = .false.
-        write(*,*) "conv2d network gradients bias should be equivalent"
+        write(0,*) "conv2d network gradients bias should be equivalent"
      end if
   class default
      success = .false.
-     write(*,*) "conv2d network layer should be conv2d_layer_type"
+     write(0,*) "conv2d network layer should be conv2d_layer_type"
   end select
 
 !!!-----------------------------------------------------------------------------

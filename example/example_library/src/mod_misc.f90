@@ -30,7 +30,7 @@
 !!! to_lower         (converts all characters in string to lower case)
 !!!#############################################################################
 module misc_mnist
-  use constants_mnist, only: real12
+  use constants_mnist, only: real32
   implicit none
 
 
@@ -101,7 +101,7 @@ contains
   subroutine ralloc2D(arr,list)
     implicit none
     integer, dimension(2), intent(in) :: list
-    real(real12), allocatable, dimension(:,:) :: arr
+    real(real32), allocatable, dimension(:,:) :: arr
     
     allocate(arr(list(1),list(2)))
 
@@ -111,7 +111,7 @@ contains
   subroutine ralloc3D(arr,list)
     implicit none
     integer, dimension(3), intent(in) :: list
-    real(real12), allocatable, dimension(:,:,:) :: arr
+    real(real32), allocatable, dimension(:,:,:) :: arr
 
     allocate(arr(list(1),list(2),list(3)))
 
@@ -160,12 +160,12 @@ contains
   function closest_below(vec,val,optmask) result(int)
     implicit none
     integer :: i,int
-    real(real12) :: val,best,dtmp1
-    real(real12), dimension(:) :: vec
+    real(real32) :: val,best,dtmp1
+    real(real32), dimension(:) :: vec
     logical, dimension(:), optional :: optmask
 
     int=0
-    best=-huge(0._real12)
+    best=-huge(0._real32)
     do i=1,size(vec)
        dtmp1=vec(i)-val
        if(present(optmask))then
@@ -188,12 +188,12 @@ contains
   function closest_above(vec,val,optmask) result(int)
     implicit none
     integer :: i,int
-    real(real12) :: val,best,dtmp1
-    real(real12), dimension(:) :: vec
+    real(real32) :: val,best,dtmp1
+    real(real32), dimension(:) :: vec
     logical, dimension(:), optional :: optmask
 
     int=0
-    best=huge(0._real12)
+    best=huge(0._real32)
     do i=1,size(vec)
        dtmp1=vec(i)-val
        if(present(optmask))then
@@ -344,9 +344,9 @@ contains
   subroutine rsort1D(arr1,arr2,reverse)
     implicit none
     integer :: i,dim,loc,ibuff
-    real(real12) :: rbuff
+    real(real32) :: rbuff
     logical :: udef_reverse
-    real(real12), dimension(:) :: arr1
+    real(real32), dimension(:) :: arr1
     integer, dimension(:),intent(inout),optional :: arr2
     logical, optional, intent(in) :: reverse
 
@@ -385,11 +385,11 @@ contains
   subroutine sort2D(arr,dim)
     implicit none
     integer :: i,j,loc
-    real(real12) :: tol
+    real(real32) :: tol
     integer, dimension(3) :: a123
-    real(real12), dimension(3) :: buff
+    real(real32), dimension(3) :: buff
     integer, intent(in) :: dim
-    real(real12), dimension(dim,3), intent(inout) :: arr
+    real(real32), dimension(dim,3), intent(inout) :: arr
 
     a123(:)=(/1,2,3/)
     tol = 1.E-4
@@ -451,16 +451,16 @@ contains
   subroutine rset(arr, tol)
     implicit none
     integer :: i,n
-    real(real12) :: tiny
-    real(real12), allocatable, dimension(:) :: tmp_arr
+    real(real32) :: tiny
+    real(real32), allocatable, dimension(:) :: tmp_arr
     
-    real(real12), allocatable, dimension(:) :: arr
-    real(real12), optional :: tol
+    real(real32), allocatable, dimension(:) :: arr
+    real(real32), optional :: tol
 
     if(present(tol))then
        tiny = tol
     else
-       tiny = 1.E-4_real12
+       tiny = 1.E-4_real32
     end if
     
     call sort1D(arr)
@@ -578,8 +578,8 @@ contains
     implicit none
     integer :: i,dim,loc
     logical :: udef_reverse
-    real(real12), allocatable, dimension(:) :: dbuff
-    real(real12), dimension(:,:) :: arr1
+    real(real32), allocatable, dimension(:) :: dbuff
+    real(real32), dimension(:,:) :: arr1
 
     integer, intent(in) :: col
     logical, optional, intent(in) :: reverse
@@ -626,7 +626,7 @@ contains
 !!!-----------------------------------------------------
   subroutine rswap(d1,d2)
     implicit none
-    real(real12) :: d1,d2,dtmp
+    real(real32) :: d1,d2,dtmp
 
     dtmp=d1
     d1=d2
@@ -647,8 +647,8 @@ contains
 !!!-----------------------------------------------------
   subroutine rswap_vec(vec1,vec2)
     implicit none
-    real(real12),dimension(:)::vec1,vec2
-    real(real12),allocatable,dimension(:)::tvec
+    real(real32),dimension(:)::vec1,vec2
+    real(real32),allocatable,dimension(:)::tvec
 
     allocate(tvec(size(vec1)))
     tvec=vec1(:)
@@ -665,7 +665,7 @@ contains
     implicit none
     integer :: iseed, istart, num_data
     integer :: itmp1, i, j
-    real(real12) :: r
+    real(real32) :: r
     integer, optional, intent(in) :: seed
     integer, dimension(:), intent(inout) :: list
     
@@ -691,11 +691,11 @@ contains
     integer :: iseed,istart
     integer :: i,j,n_data,iother
     integer :: i1s,i2s,i1e,i2e,j1s,j2s,j1e,j2e
-    real(real12) :: r
-    real(real12), allocatable, dimension(:,:) :: tlist
+    real(real32) :: r
+    real(real32), allocatable, dimension(:,:) :: tlist
 
     integer, intent(in) :: dim
-    real(real12), dimension(:,:), intent(inout) :: arr
+    real(real32), dimension(:,:), intent(inout) :: arr
 
     integer, optional, intent(in) :: seed
 
@@ -741,13 +741,13 @@ contains
     implicit none
     integer :: iseed,istart
     integer :: i,j,n_data
-    real(real12) :: r
+    real(real32) :: r
     integer, dimension(3) :: idx_s,idx_e,jdx_s,jdx_e
     integer, dimension(3,2) :: t_size
-    real(real12), allocatable, dimension(:,:,:) :: tlist
+    real(real32), allocatable, dimension(:,:,:) :: tlist
 
     integer, intent(in) :: dim
-    real(real12), dimension(:,:,:), intent(inout) :: arr
+    real(real32), dimension(:,:,:), intent(inout) :: arr
 
     integer, optional, intent(in) :: seed
 
@@ -809,13 +809,13 @@ contains
     implicit none
     integer :: iseed,istart
     integer :: i,j,n_data
-    real(real12) :: r
+    real(real32) :: r
     integer, dimension(4) :: idx_s,idx_e,jdx_s,jdx_e
     integer, dimension(4,2) :: t_size
-    real(real12), allocatable, dimension(:,:,:,:) :: tlist
+    real(real32), allocatable, dimension(:,:,:,:) :: tlist
 
     integer, intent(in) :: dim
-    real(real12), dimension(:,:,:,:), intent(inout) :: arr
+    real(real32), dimension(:,:,:,:), intent(inout) :: arr
 
     integer, optional, intent(in) :: seed
 
@@ -882,13 +882,13 @@ contains
     implicit none
     integer :: iseed,istart
     integer :: i,j,n_data
-    real(real12) :: r
+    real(real32) :: r
     integer, dimension(5) :: idx_s,idx_e,jdx_s,jdx_e
     integer, dimension(5,2) :: t_size
-    real(real12), allocatable, dimension(:,:,:,:,:) :: tlist
+    real(real32), allocatable, dimension(:,:,:,:,:) :: tlist
 
     integer, intent(in) :: dim
-    real(real12), dimension(:,:,:,:,:), intent(inout) :: arr
+    real(real32), dimension(:,:,:,:,:), intent(inout) :: arr
 
     integer, optional, intent(in) :: seed
 
@@ -965,13 +965,13 @@ contains
     integer :: iseed,istart
     integer :: i,j,n_data
     integer :: itmp1
-    real(real12) :: r
+    real(real32) :: r
     integer, dimension(4) :: idx_s,idx_e,jdx_s,jdx_e
     integer, dimension(4,2) :: t_size
-    real(real12), allocatable, dimension(:,:,:,:) :: tlist
+    real(real32), allocatable, dimension(:,:,:,:) :: tlist
 
     integer, intent(in) :: dim
-    real(real12), dimension(:,:,:,:), intent(inout) :: arr
+    real(real32), dimension(:,:,:,:), intent(inout) :: arr
     integer, dimension(:), intent(inout) :: label
 
     integer, optional, intent(in) :: seed
@@ -1045,13 +1045,13 @@ contains
     integer :: iseed,istart
     integer :: i,j,n_data
     integer :: itmp1
-    real(real12) :: r
+    real(real32) :: r
     integer, dimension(5) :: idx_s,idx_e,jdx_s,jdx_e
     integer, dimension(5,2) :: t_size
-    real(real12), allocatable, dimension(:,:,:,:,:) :: tlist
+    real(real32), allocatable, dimension(:,:,:,:,:) :: tlist
 
     integer, intent(in) :: dim
-    real(real12), dimension(:,:,:,:,:), intent(inout) :: arr
+    real(real32), dimension(:,:,:,:,:), intent(inout) :: arr
     integer, dimension(:), intent(inout) :: label
 
     integer, optional, intent(in) :: seed
@@ -1133,15 +1133,15 @@ contains
     implicit none
     integer :: iseed,istart
     integer :: i,j,n_data
-    real(real12) :: rtmp1
-    real(real12) :: r
+    real(real32) :: rtmp1
+    real(real32) :: r
     integer, dimension(5) :: idx_s,idx_e,jdx_s,jdx_e
     integer, dimension(5,2) :: t_size
-    real(real12), allocatable, dimension(:,:,:,:,:) :: tlist
+    real(real32), allocatable, dimension(:,:,:,:,:) :: tlist
 
     integer, intent(in) :: dim
-    real(real12), dimension(:,:,:,:,:), intent(inout) :: arr
-    real(real12), dimension(:), intent(inout) :: label
+    real(real32), dimension(:,:,:,:,:), intent(inout) :: arr
+    real(real32), dimension(:), intent(inout) :: label
 
     integer, optional, intent(in) :: seed
     integer, optional, dimension(size(arr,dim)), intent(out) :: shuffle_list
@@ -1227,10 +1227,10 @@ contains
        left_size,right_size,&
        shuffle,seed)
     implicit none
-    real(real12), dimension(:,:,:,:,:), intent(in) :: data
-    real(real12), allocatable, dimension(:,:,:,:,:), intent(out) :: left, right
+    real(real32), dimension(:,:,:,:,:), intent(in) :: data
+    real(real32), allocatable, dimension(:,:,:,:,:), intent(out) :: left, right
     integer, intent(in) :: dim
-    real(real12), optional, intent(in) :: left_size, right_size
+    real(real32), optional, intent(in) :: left_size, right_size
     logical, optional, intent(in) :: shuffle
     integer, optional, intent(in) :: seed
 
@@ -1238,10 +1238,10 @@ contains
     logical :: t_shuffle
     integer :: i, j
     integer :: num_redos
-    real(real12) :: rtmp1
+    real(real32) :: rtmp1
     integer, allocatable, dimension(:) :: indices_l, indices_r
-    real(real12), allocatable, dimension(:) :: tlist
-    real(real12), allocatable, dimension(:,:,:,:,:) :: data_copy
+    real(real32), allocatable, dimension(:) :: tlist
+    real(real32), allocatable, dimension(:,:,:,:,:) :: data_copy
 
     type idx_type
        integer, allocatable, dimension(:) :: loc
@@ -1332,12 +1332,12 @@ contains
        left_size,right_size,&
        shuffle,seed,split_list)
     implicit none
-    real(real12), dimension(:,:,:,:,:), intent(in) :: data
-    real(real12), dimension(:), intent(in) :: list
-    real(real12), allocatable, dimension(:,:,:,:,:), intent(out) :: left_data, right_data
-    real(real12), allocatable, dimension(:), intent(out) :: left_list, right_list
+    real(real32), dimension(:,:,:,:,:), intent(in) :: data
+    real(real32), dimension(:), intent(in) :: list
+    real(real32), allocatable, dimension(:,:,:,:,:), intent(out) :: left_data, right_data
+    real(real32), allocatable, dimension(:), intent(out) :: left_list, right_list
     integer, intent(in) :: dim
-    real(real12), optional, intent(in) :: left_size, right_size
+    real(real32), optional, intent(in) :: left_size, right_size
     logical, optional, intent(in) :: shuffle
     integer, optional, intent(in) :: seed
     integer, optional, dimension(size(data,dim)), intent(out) :: split_list
@@ -1346,11 +1346,11 @@ contains
     logical :: t_shuffle
     integer :: i, j
     integer :: num_redos
-    real(real12) :: rtmp1
+    real(real32) :: rtmp1
     integer, allocatable, dimension(:) :: indices_l, indices_r
-    real(real12), allocatable, dimension(:) :: tlist
-    real(real12), allocatable, dimension(:) :: list_copy
-    real(real12), allocatable, dimension(:,:,:,:,:) :: data_copy
+    real(real32), allocatable, dimension(:) :: tlist
+    real(real32), allocatable, dimension(:) :: list_copy
+    real(real32), allocatable, dimension(:,:,:,:,:) :: data_copy
 
     type idx_type
        integer, allocatable, dimension(:) :: loc
