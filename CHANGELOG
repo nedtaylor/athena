@@ -65,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix attempt to assing size of random seed in example/simple
 - Fix abstract interface use in base_layer_type
 - Add appropriate references to neural-fortran in CONTRIBUTING.md and associated procedures, and modules
+- Fixed gradient clipping not being used in update or get_gradients procedures of network_type
 
 ### Removed
 - 
