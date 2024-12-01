@@ -15,7 +15,7 @@ project(athena NONE)
 set( LIB_NAME ${PROJECT_NAME} )
 set( PROJECT_DESCRIPTION
   "Fortran neural network" )
-set( PROJECT_URL "https://https://git.exeter.ac.uk/hepplestone/athena" )
+set( PROJECT_URL "https://github.com/nedtaylor/athena" )
 set( CMAKE_CONFIGURATION_TYPES "Release" "Parallel" "Serial" "Dev" "Debug" "Parallel_Dev"
   CACHE STRING "List of configurations types." )
 set( CMAKE_BUILD_TYPE "Release"

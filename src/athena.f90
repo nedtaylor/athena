@@ -50,6 +50,9 @@ module athena
   !! input layer types
   use athena__input_layer,   only: input_layer_type
 
+  !! activation layer types
+  use actv_layer, only: actv_layer_type, read_actv_layer
+
   !! batch normalisation layer types
   use athena__batchnorm1d_layer, only: batchnorm1d_layer_type, read_batchnorm1d_layer
   use athena__batchnorm2d_layer, only: batchnorm2d_layer_type, read_batchnorm2d_layer

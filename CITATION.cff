@@ -1,0 +1,30 @@
+cff-version: "1.2.0"
+authors:
+- family-names: Taylor
+  given-names: Ned Thaddeus
+  orcid: "https://orcid.org/0000-0002-9134-9712"
+contact:
+- family-names: Taylor
+  given-names: Ned Thaddeus
+  orcid: "https://orcid.org/0000-0002-9134-9712"
+doi: 10.6084/m9.figshare.26158630
+message: If you use this software, please cite our article in the
+  Journal of Open Source Software.
+preferred-citation:
+  authors:
+  - family-names: Taylor
+    given-names: Ned Thaddeus
+    orcid: "https://orcid.org/0000-0002-9134-9712"
+  date-published: 2024-07-04
+  doi: 10.21105/joss.06492
+  issn: 2475-9066
+  issue: 99
+  journal: Journal of Open Source Software
+  publisher:
+    name: Open Journals
+  start: 6492
+  title: "ATHENA: A Fortran package for neural networks"
+  type: article
+  url: "https://joss.theoj.org/papers/10.21105/joss.06492"
+  volume: 9
+title: "ATHENA: A Fortran package for neural networks"

@@ -2,7 +2,7 @@
 [![Latest Release](https://img.shields.io/github/v/release/nedtaylor/athena?sort=semver)](https://github.com/nedtaylor/athena/releases "View on GitHub")
 [![Downloads](https://img.shields.io/github/downloads/nedtaylor/athena/total)](https://github.com/nedtaylor/athena/releases "View on GitHub")
 [![status](https://joss.theoj.org/papers/7806cc51a998f872034abfe0bb24bc24/status.svg)](https://joss.theoj.org/papers/7806cc51a998f872034abfe0bb24bc24)
-[![FPM](https://img.shields.io/badge/fpm-0.9.0-purple)](https://github.com/fortran-lang/fpm "View Fortran Package Manager")
+[![FPM](https://img.shields.io/badge/fpm-0.10.1-purple)](https://github.com/fortran-lang/fpm "View Fortran Package Manager")
 [![CMAKE](https://img.shields.io/badge/cmake-3.17.5-red)](https://github.com/Kitware/CMake/releases/tag/v3.17.5 "View cmake")
 [![GCC compatibility](https://img.shields.io/badge/gcc-13.2.0-green)](https://gcc.gnu.org/gcc-13/ "View GCC")
 [![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/nedtaylor/fd7c07c046ecc92d92eaf7bdcb78c4b5/raw/test.json)](https://nedtaylor.github.io/athena/ "View coverage report")
@@ -25,6 +25,28 @@ It was decided that this project should be migrated to allow for better communit
 
 ---
 
+## Statement of need
+
+The ATHENA library leverages Fortran's strong support of array arithmatics, and its compatibility with parallel and high-performance computing resources.
+Additionally, there exist many improvements made available since Fortran 95, specifically in Fortran 2018 (Reid 2018) (and upcoming ones in Fortran 2023), as well as continued development by the Fortran Standards committee.
+All of this provides a clear incentive to develop further libraries and frameworks focused on providing machine learning capabilities to the Fortran community.
+
+While existing Fortran-based libraries, such as neural-fortran (Curcic 2019), address many aspects of neural networks,
+ATHENA provides implementation of some well-known features not currently available within other libraries; these features include batchnormalisation, regularisation layers (such as dropout and dropblock), and average pooling layers.
+Additionally, the library provides support for 1, 2, and 3D input data for most features currently implemented; this includes 1, 2, and 3D data for convolutional layers.
+Finally, the ATHENA library supports many convolutional techniques, including various data padding types, and stride.
+
+One of the primary intended applications of ATHENA is in materials science, which heavily utilises convolutional and graph neural networks for learning based on charge densities and atomic structures.
+Given the unique data structure of atomic configurations, specifically their graph-based nature, a specialised API must be developed to accommodate these needs.
+
+### References
+- Reid, J. (2018). The new features of fortran 2018. SIGPLAN Fortran Forum, 37(1), 5–43. https://doi.org/10.1145/3206214.3206215
+- Curcic, M. (2019). A parallel fortran framework for neural networks and deep learning. SIGPLAN Fortran Forum, 38(1), 4–21. https://doi.org/10.1145/3323057.3323059
+
+
+Documentation
+-----
+
 ATHENA is distributed with the following directories:
 
 | Directory | Description |
@@ -34,9 +56,6 @@ ATHENA is distributed with the following directories:
 |  _tools/_ |    Additional shell script tools for automating learning  |
 |  _test/_  |    A set of test programs to check functionality of the library works after compilation |
 
-
-Documentation
------
 
 For extended details on the functionality of this library, please check out the [wiki](https://github.com/nedtaylor/athena/wiki)
 
@@ -56,17 +75,17 @@ The ATHENA library can be obtained from the git repository. Use the following co
 
 The library has the following dependencies:
 - A Fortran compiler (compatible with Fortran 2018 or later)
-- [fpm](https://github.com/fortran-lang/fpm) or [CMake](https://cmake.org) for building the library
+- [fpm](https://github.com/fortran-lang/fpm), [CMake](https://cmake.org), or [Spack](https://github.com/spack/spack) for building the library
 - The [graphstruc](https://github.com/nedtaylor/graphstruc) Fortran library (for handing graph structures through derived types)
 
 The library has been developed and tested using the following compilers:
-- gfortran -- gcc 13.2.0
+- gfortran -- gcc 14.1.0
 - ifort -- Intel 2021.10.0.20230609
 - ifx -- IntelLLVM 2023.2.0
 
 #### Tested compilers
 The library has also been tested with and found to support the following libraries:
-- gfortran -- gcc 12.3
+- gfortran -- gcc 12.3, gcc 13.2
 
 ### Building with fpm
 
@@ -113,6 +132,19 @@ To check whether ATHENA has installed correctly and that the compilation works a
 ```
 
 This runs a set of test programs (found within the test/ directory) to ensure the expected output occurs when layers and networks are set up.
+
+
+### Building with Spack
+
+The library can also be installed using the Spack package manager. This can be achieved by running the following commands in the main directory:
+```
+spack repo add .spack
+spack install athena
+```
+
+Currently, Spack compilation requires manual download of ATHENA.
+**NOTE:** There already exists an `athena` package directly on Spack, be aware that these are not related.
+
 
 
 Examples
@@ -185,7 +217,7 @@ Developers
 Contributing
 ------------
 
-Please note that this project adheres to the [Contributing Guide](CONTRIBUTING.md). If you are interested in contributing to this project, please contact [Ned Taylor](mailto:n.t.taylor@exeter.ac.uk?subject=ATHENA%20-%20contribution%20request).
+Please note that this project adheres to the [Contributing Guide](CONTRIBUTING.md). If you want to contribute to this project, please first read through the guide. If you have any questions, please either discuss then in [issues](https://github.com/nedtaylor/athena/issues), or contact [Ned Taylor](mailto:n.t.taylor@exeter.ac.uk?subject=ATHENA%20-%20contribution%20request).
 
 
 License
