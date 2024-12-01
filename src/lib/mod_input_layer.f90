@@ -20,7 +20,6 @@ module athena__input_layer
   type, extends(base_layer_type) :: input_layer_type
      integer :: index = 1
      integer :: num_outputs
-     !  real(real32), allocatable, dimension(:,:) :: output
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_input
      procedure, pass(this) :: init => init_input
