@@ -73,10 +73,10 @@ program test_activations
   activate(9) = scale * tanh(value)
 
   !! initialise expected differentiation values
-  differentiate(1) = scale * value
+  differentiate(1) = scale
   differentiate(2) = - value/1.5E0**2.E0 * activate(2)
   differentiate(3) = scale
-  differentiate(4) = scale * value
+  differentiate(4) = scale
   differentiate(5) = scale
   differentiate(6) = scale
   differentiate(7) = scale * activate(7) * (scale - activate(7))

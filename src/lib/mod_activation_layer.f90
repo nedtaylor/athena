@@ -4,7 +4,7 @@
 !!!#############################################################################
 !!! module contains implementation of an activation layer
 !!!#############################################################################
-module actv_layer
+module athena__actv_layer
   use constants, only: real12
   use base_layer, only: base_layer_type
   use custom_types, only: activation_type
@@ -449,5 +449,5 @@ contains
   end subroutine backward_assumed_rank
 !!!#############################################################################
 
-end module actv_layer
+end module athena__actv_layer
 !!!#############################################################################
