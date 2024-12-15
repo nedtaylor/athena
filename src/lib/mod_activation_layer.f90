@@ -445,16 +445,17 @@ contains
 !!! read layer from file and return layer
 !!!#############################################################################
   function read_actv_layer(unit, verbose) result(layer)
-   implicit none
-   integer, intent(in) :: unit
-   integer, optional, intent(in) :: verbose
-   class(actv_layer_type), allocatable :: layer
+    implicit none
+    integer, intent(in) :: unit
+    integer, optional, intent(in) :: verbose
+    class(base_layer_type), allocatable :: layer
 
-   integer :: verbose_ = 0
+    integer :: verbose_ = 0
 
 
-   if(present(verbose)) verbose_ = verbose
-   call layer%read(unit, verbose=verbose_)
+    if(present(verbose)) verbose_ = verbose
+    allocate(layer, source=actv_layer_type("none"))
+    call layer%read(unit, verbose=verbose_)
 
  end function read_actv_layer
 !!!#############################################################################

@@ -415,12 +415,13 @@ contains
     implicit none
     integer, intent(in) :: unit
     integer, optional, intent(in) :: verbose
-    class(flatten_layer_type), allocatable :: layer
+    class(base_layer_type), allocatable :: layer
 
     integer :: verbose_ = 0
 
 
     if(present(verbose)) verbose_ = verbose
+    allocate(layer, source=flatten_layer_type())
     call layer%read(unit, verbose=verbose_)
 
   end function read_flatten_layer

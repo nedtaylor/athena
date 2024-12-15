@@ -98,6 +98,10 @@ module athena
        array4d_type, &
        array5d_type
 
+  use athena__container_layer, only: &
+       list_of_layer_types, &
+       allocate_list_of_layer_types
+
   implicit none
 
 

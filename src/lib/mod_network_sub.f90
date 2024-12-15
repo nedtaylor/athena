@@ -22,7 +22,8 @@ submodule(athena__network) athena__network_submodule
 #endif
 
   use athena__misc_types, only: array2d_type, array_container_type
-  use athena__container_layer, only: list_of_layer_types
+  use athena__container_layer, only: &
+       list_of_layer_types, allocate_list_of_layer_types
 
   !! layer types
   use athena__input_layer,   only: input_layer_type
@@ -314,46 +315,58 @@ contains
 !!! read network from file
 !!!#############################################################################
   module subroutine read(this, file)
-   implicit none
-   class(network_type), intent(inout) :: this
-   character(*), intent(in) :: file
+    implicit none
+    class(network_type), intent(inout) :: this
+    character(*), intent(in) :: file
    
-   integer :: i, unit, stat
-   character(256) :: buffer, err_msg
-   integer :: layer_index
-   open(newunit=unit,file=file,action='read')
-   i = 0
-   card_loop: do
-      i = i + 1
-      read(unit,'(A)',iostat=stat) buffer
-      if(stat.lt.0)then
-         exit card_loop
-      elseif(stat.gt.0)then
-         call stop_program("error encountered in network read")
-         return
-      end if
-      if(trim(adjustl(buffer)).eq."") cycle card_loop
+    integer :: i, unit, stat
+    character(256) :: buffer, err_msg
+    character(20) :: name
+    integer :: layer_index
 
-      !! check if a tag line
-      if(scan(buffer,'=').ne.0)then
-         write(0,*) "WARNING: unexpected line in read file"
-         write(0,*) trim(buffer)
-         write(0,*) " skipping..."
-         cycle card_loop
-      end if
+    if(.not.allocated(list_of_layer_types))then
+       call allocate_list_of_layer_types()
+    end if
 
-      !! check for card
-      layer_index = findloc(list_of_layer_types%name, trim(adjustl(buffer)), dim=1)
-      if(layer_index.eq.0)then
-         write(err_msg,'("unrecognised card ''",A)') trim(adjustl(buffer))
-         call stop_program(err_msg)
-         return
-      end if
-      call this%add(list_of_layer_types(layer_index)%read_ptr(unit))
-   end do card_loop
-   close(unit)
+    open(newunit=unit,file=file,action='read')
+    i = 0
+    card_loop: do
+       i = i + 1
+       read(unit,'(A)',iostat=stat) buffer
+       if(stat.lt.0)then
+          exit card_loop
+       elseif(stat.gt.0)then
+          call stop_program("error encountered in network read")
+          return
+       end if
+       if(trim(adjustl(buffer)).eq."") cycle card_loop
 
- end subroutine read
+       !! check if a tag line
+       if(scan(buffer,'=').ne.0)then
+          write(0,*) "WARNING: unexpected line in read file"
+          write(0,*) trim(buffer)
+          write(0,*) " skipping..."
+          cycle card_loop
+       end if
+
+       !! check for card
+       name = trim(adjustl(to_lower(buffer)))
+       layer_index = &
+            findloc( &
+                 [ list_of_layer_types(:)%name ], &
+                 name, &
+                 dim = 1 &
+            )
+       if(layer_index.eq.0)then
+          write(err_msg,'("unrecognised card ''",A)') trim(adjustl(buffer))
+          call stop_program(err_msg)
+          return
+       end if
+       call this%add(list_of_layer_types(layer_index)%read_ptr(unit))
+    end do card_loop
+    close(unit)
+
+  end subroutine read
 !!!#############################################################################
 
 

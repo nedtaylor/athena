@@ -10,7 +10,7 @@
 module athena__dropout_layer
   use athena__io_utils, only: stop_program
   use athena__constants, only: real32
-  use athena__base_layer, only: drop_layer_type
+  use athena__base_layer, only: drop_layer_type, base_layer_type
   use athena__misc_types, only: array2d_type
   implicit none
   
@@ -394,12 +394,13 @@ contains
     implicit none
     integer, intent(in) :: unit
     integer, optional, intent(in) :: verbose
-    class(dropout_layer_type), allocatable :: layer
+    class(base_layer_type), allocatable :: layer
 
     integer :: verbose_ = 0
 
 
     if(present(verbose)) verbose_ = verbose
+    allocate(layer, source=dropout_layer_type(rate=0._real32, num_masks=0))
     call layer%read(unit, verbose=verbose_)
 
   end function read_dropout_layer

@@ -7,7 +7,7 @@
 module athena__batchnorm2d_layer
   use athena__io_utils, only: stop_program
   use athena__constants, only: real32
-  use athena__base_layer, only: batch_layer_type, learnable_layer_type
+  use athena__base_layer, only: batch_layer_type, base_layer_type
   use athena__misc_types, only: initialiser_type, array4d_type
   implicit none
   
@@ -550,12 +550,13 @@ contains
    implicit none
    integer, intent(in) :: unit
    integer, optional, intent(in) :: verbose
-   class(batchnorm2d_layer_type), allocatable :: layer
+   class(base_layer_type), allocatable :: layer
 
    integer :: verbose_ = 0
 
 
    if(present(verbose)) verbose_ = verbose
+   allocate(layer, source=batchnorm2d_layer_type())
    call layer%read(unit, verbose=verbose_)
 
  end function read_batchnorm2d_layer

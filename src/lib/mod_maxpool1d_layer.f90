@@ -7,7 +7,7 @@
 module athena__maxpool1d_layer
   use athena__io_utils, only: stop_program
   use athena__constants, only: real32
-  use athena__base_layer, only: pool_layer_type
+  use athena__base_layer, only: pool_layer_type, base_layer_type
   use athena__misc_types, only: array3d_type
   implicit none
   
@@ -393,12 +393,13 @@ contains
    implicit none
    integer, intent(in) :: unit
    integer, optional, intent(in) :: verbose
-   class(maxpool1d_layer_type), allocatable :: layer
+   class(base_layer_type), allocatable :: layer
 
    integer :: verbose_ = 0
 
 
    if(present(verbose)) verbose_ = verbose
+   allocate(layer, source=maxpool1d_layer_type())
    call layer%read(unit, verbose=verbose_)
 
  end function read_maxpool1d_layer
