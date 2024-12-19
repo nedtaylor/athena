@@ -75,6 +75,10 @@ module athena
   use athena__dropblock2d_layer, only: dropblock2d_layer_type, read_dropblock2d_layer
   use athena__dropblock3d_layer, only: dropblock3d_layer_type, read_dropblock3d_layer
 
+
+  !! padding layer types
+  use athena__pad2d_layer, only: pad2d_layer_type, read_pad2d_layer
+
   !! pooling layer types
   use athena__avgpool1d_layer, only: avgpool1d_layer_type, read_avgpool1d_layer
   use athena__avgpool2d_layer, only: avgpool2d_layer_type, read_avgpool2d_layer

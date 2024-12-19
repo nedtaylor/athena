@@ -391,8 +391,8 @@ contains
    end_idx = this%hlf + (this%cen - 1)
    if(allocated(this%params))then
       this%weight( &
-           -this%hlf(1):end_idx(1), &
-           -this%hlf(2):end_idx(2), &
+           1:this%knl(1), &
+           1:this%knl(2), &
            1:this%num_channels, &
            1:this%num_filters &
       ) => this%params(1:this%num_params-this%num_filters)
@@ -401,8 +401,8 @@ contains
    end if
    if(allocated(this%dp))then
       this%dw( &
-           lbound(this%weight,1):ubound(this%weight,1), &
-           lbound(this%weight,2):ubound(this%weight,2), &
+           1:this%knl(1), &
+           1:this%knl(2), &
            1:this%num_channels, &
            1:this%num_filters, &
            1:this%batch_size &
@@ -438,8 +438,8 @@ contains
     !!--------------------------------------------------------------------------
     end_idx = this%hlf + (this%cen - 1)
     this%weight( &
-         -this%hlf(1):end_idx(1), &
-         -this%hlf(2):end_idx(2), &
+         1:this%knl(1), &
+         1:this%knl(2), &
          1:this%num_channels, &
          1:this%num_filters &
     ) => this%params(1:this%num_params-this%num_filters)
@@ -477,8 +477,8 @@ contains
        if(allocated(this%dp)) deallocate(this%dp)
        allocate(this%dp( this%num_params - this%num_filters, this%batch_size), source=0._real32)
        this%dw( &
-            lbound(this%weight,1):ubound(this%weight,1), &
-            lbound(this%weight,2):ubound(this%weight,2), &
+            1:this%knl(1), &
+            1:this%knl(2), &
             1:this%num_channels, &
             1:this%num_filters, &
             1:this%batch_size &
@@ -775,8 +775,8 @@ contains
     class(conv2d_layer_type), intent(inout) :: this
     real(real32), &
          dimension( &
-         -this%pad(1)+1:this%input_shape(1)+this%pad(1), &
-         -this%pad(2)+1:this%input_shape(2)+this%pad(2), &
+         1:this%input_shape(1), &
+         1:this%input_shape(2), &
          this%num_channels,this%batch_size), &
          intent(in) :: input
 
@@ -790,12 +790,12 @@ contains
          i=1:this%output%shape(1):1, &
          j=1:this%output%shape(2):1)
 #if defined(GFORTRAN)
-       stp_idx = ([i,j]-1)*this%stp + 1 + (this%hlf - this%pad)
+       stp_idx = ([i,j]-1)*this%stp + 1
 #else
-       stp_idx(1) = (i-1)*this%stp(1) + 1 + (this%hlf(1) - this%pad(1))
-       stp_idx(2) = (j-1)*this%stp(2) + 1 + (this%hlf(2) - this%pad(2))
+       stp_idx(1) = (i-1)*this%stp(1) + 1
+       stp_idx(2) = (j-1)*this%stp(2) + 1
 #endif
-       start_idx  = stp_idx - this%hlf
+       start_idx  = stp_idx
        end_idx    = start_idx + this%knl - 1
 
        do concurrent(s=1:this%batch_size)
@@ -834,8 +834,8 @@ contains
     class(conv2d_layer_type), intent(inout) :: this
     real(real32), &
          dimension( &
-         -this%pad(1)+1:this%input_shape(1)+this%pad(1), &
-         -this%pad(2)+1:this%input_shape(2)+this%pad(2), &
+         1:this%input_shape(1), &
+         1:this%input_shape(2), &
          this%num_channels,this%batch_size), &
          intent(in) :: input
     real(real32), &
@@ -862,8 +862,8 @@ contains
     !! get size of the input and output feature maps
     !!--------------------------------------------------------------------------
     end_idx = this%hlf + (this%cen - 1)
-    offset  = 1 + this%hlf - this%pad
-    adjust  = 2 * max(this%pad, this%hlf)
+    offset  = 1 + this%hlf
+    adjust  = 2 * this%hlf
 
 
     !! get gradient multiplied by differential of Z
@@ -883,15 +883,15 @@ contains
          s=1:this%batch_size, &
          l=1:this%num_filters, &
          m=1:this%num_channels)
-       do y=-this%hlf(2), end_idx(2), 1
+       do y = 1, this%knl(2), 1
           do j = 1, this%output%shape(2)
-             do x=-this%hlf(1), end_idx(1), 1
+             do x = 1, this%knl(1), 1
                 do i = 1, this%output%shape(1)
                    this%dw(x,y,m,l,s) = this%dw(x,y,m,l,s) + &
                         grad_dz(i,j,l,s) * &
                         input( &
-                             x + offset(1) + ( i - 1 ) * this%stp(1), &
-                             y + offset(2) + ( j - 1 ) * this%stp(2), &
+                             x + ( i - 1 ) * this%stp(1), &
+                             y + ( j - 1 ) * this%stp(2), &
                              m, s &
                         )
                end do

@@ -49,6 +49,7 @@ module athena__base_layer
   private
 
   public :: base_layer_type
+  public :: pad_layer_type
   public :: pool_layer_type
   public :: drop_layer_type
   public :: learnable_layer_type
@@ -213,6 +214,18 @@ module athena__base_layer
 
 
 !!!-----------------------------------------------------------------------------
+!!! padding derived extended type
+!!!-----------------------------------------------------------------------------
+  type, abstract, extends(base_layer_type) :: pad_layer_type
+     integer :: num_channels
+     integer :: imethod = 0
+     integer, allocatable, dimension(:) :: pad
+     character(len=20) :: method = 'valid'
+     integer, allocatable, dimension(:,:) :: trgt_bound, dest_bound
+  end type pad_layer_type
+
+
+!!!-----------------------------------------------------------------------------
 !!! pooling derived extended type
 !!!-----------------------------------------------------------------------------
   type, abstract, extends(base_layer_type) :: pool_layer_type
@@ -264,6 +277,7 @@ module athena__base_layer
 !!!-----------------------------------------------------------------------------
   type, abstract, extends(base_layer_type) :: learnable_layer_type
      integer :: num_params = 0
+     logical :: calc_input_gradients = .true.
      real(real32), allocatable, dimension(:) :: params
      real(real32), allocatable, dimension(:,:) :: dp, db  ! parameter gradients (parameter, batch)
      character(len=14) :: kernel_initialiser='', bias_initialiser=''
@@ -371,7 +385,6 @@ module athena__base_layer
        !! pad = pad
        !! cen = centre
        !! output%shape = dimension (height, width, depth)
-       logical :: calc_input_gradients = .true.
        integer :: num_channels
        integer :: num_filters
        integer, allocatable, dimension(:) :: knl, stp, hlf, pad, cen

@@ -1,0 +1,523 @@
+!!!#############################################################################
+!!! Code written by Ned Thaddeus Taylor
+!!! Code part of the ATHENA library - a feedforward neural network library
+!!!#############################################################################
+!!! module contains implementation of a 2D padding layer
+!!!#############################################################################
+module athena__pad2d_layer
+  use athena__io_utils, only: stop_program
+  use athena__constants, only: real32
+  use athena__base_layer, only: pad_layer_type, base_layer_type
+  use athena__misc_types, only: array4d_type
+  use athena__misc, only: to_lower
+  implicit none
+  
+  
+  type, extends(pad_layer_type) :: pad2d_layer_type
+   contains
+     procedure, pass(this) :: set_hyperparams => set_hyperparams_pad2d
+     procedure, pass(this) :: init => init_pad2d
+     procedure, pass(this) :: set_batch_size => set_batch_size_pad2d
+     procedure, pass(this) :: read => read_pad2d
+     procedure, pass(this) :: forward  => forward_rank
+     procedure, pass(this) :: backward => backward_rank
+     procedure, private, pass(this) :: forward_4d
+     procedure, private, pass(this) :: backward_4d
+  end type pad2d_layer_type
+
+  
+  interface pad2d_layer_type
+     module function layer_setup( &
+          padding, method, &
+          input_shape, batch_size, &
+          verbose ) result(layer)
+       integer, dimension(:), intent(in) :: padding
+       character(*), intent(in) :: method
+       integer, dimension(:), optional, intent(in) :: input_shape
+       integer, optional, intent(in) :: batch_size 
+       integer, optional, intent(in) :: verbose
+       type(pad2d_layer_type) :: layer
+     end function layer_setup
+  end interface pad2d_layer_type
+
+
+  private
+  public :: pad2d_layer_type
+  public :: read_pad2d_layer
+
+
+contains
+
+!!!#############################################################################
+!!! forward propagation assumed rank handler
+!!!#############################################################################
+  pure subroutine forward_rank(this, input)
+    implicit none
+    class(pad2d_layer_type), intent(inout) :: this
+    real(real32), dimension(..), intent(in) :: input
+
+    select rank(input)
+    rank(2)
+       call forward_4d(this, input)
+    rank(4)
+       call forward_4d(this, input)
+    end select
+  end subroutine forward_rank
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! backward propagation assumed rank handler
+!!!#############################################################################
+  pure subroutine backward_rank(this, input, gradient)
+    implicit none
+    class(pad2d_layer_type), intent(inout) :: this
+    real(real32), dimension(..), intent(in) :: input
+    real(real32), dimension(..), intent(in) :: gradient
+
+    select rank(input)
+    rank(2)
+       select rank(gradient)
+       rank(2)
+          call backward_4d(this, input, gradient)
+       end select
+    rank(4)
+       select rank(gradient)
+       rank(4)
+         call backward_4d(this, input, gradient)
+       end select
+    end select
+  end subroutine backward_rank
+!!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
+
+!!!#############################################################################
+!!! set up layer
+!!!#############################################################################
+  module function layer_setup( &
+       padding, method, &
+       input_shape, batch_size, &
+       verbose &
+  ) result(layer)
+    implicit none
+    integer, dimension(:), intent(in) :: padding
+    character(*), intent(in) :: method
+    integer, dimension(:), optional, intent(in) :: input_shape
+    integer, optional, intent(in) :: batch_size 
+    integer, optional, intent(in) :: verbose
+    
+    type(pad2d_layer_type) :: layer
+
+    integer :: verbose_ = 0
+    integer, dimension(2) :: pool_size_, stride_
+
+
+    if(present(verbose)) verbose_ = verbose
+
+    !!--------------------------------------------------------------------------
+    !! set hyperparameters
+    !!--------------------------------------------------------------------------
+    call layer%set_hyperparams( &
+         padding=padding, method=method, verbose=verbose_ &
+    )
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise batch size
+    !!--------------------------------------------------------------------------
+    if(present(batch_size)) layer%batch_size = batch_size
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise layer shape
+    !!--------------------------------------------------------------------------
+    if(present(input_shape)) call layer%init(input_shape=input_shape)
+
+  end function layer_setup
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set hyperparameters
+!!!#############################################################################
+  subroutine set_hyperparams_pad2d(this, padding, method, verbose)
+    implicit none
+    class(pad2d_layer_type), intent(inout) :: this
+    integer, dimension(2), intent(in) :: padding
+    character(*), intent(in) :: method
+    integer, optional, intent(in) :: verbose
+
+
+    this%name = "pad2d"
+    this%type = "pad"
+    this%input_rank = 3
+    this%pad = padding
+    select case(trim(adjustl(to_lower(method))))
+    case("valid", "none")
+       this%imethod = 0
+    case("same", "zero", "constant", "const")
+       this%imethod = 1
+    case("full")
+       this%imethod = 2
+    case("circular", "circ")
+       this%imethod = 3
+    case("reflection", "reflect", "refl")
+       this%imethod = 4
+    case("replication", "replicate", "copy", "repl")
+       this%imethod = 5
+    case default
+       call stop_program("Unrecognised padding method :"//method)
+       return
+    end select
+
+  end subroutine set_hyperparams_pad2d
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! initialise layer
+!!!#############################################################################
+  subroutine init_pad2d(this, input_shape, batch_size, verbose)
+    implicit none
+    class(pad2d_layer_type), intent(inout) :: this
+    integer, dimension(:), intent(in) :: input_shape
+    integer, optional, intent(in) :: batch_size
+    integer, optional, intent(in) :: verbose
+
+    integer :: i
+    integer :: verbose_ = 0
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise optional arguments
+    !!--------------------------------------------------------------------------
+    if(present(verbose)) verbose_ = verbose
+    if(present(batch_size)) this%batch_size = batch_size
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise input shape
+    !!--------------------------------------------------------------------------
+    if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
+    if(.not.allocated(this%trgt_bound)) then
+       allocate(this%trgt_bound(2,2))
+       allocate(this%dest_bound(2,2))
+    end if
+    do i = 1, 2
+       this%trgt_bound(:,i) = [ 1, this%input_shape(i) ]
+       this%dest_bound(:,i) = [ 1, this%input_shape(i) + this%pad(i) * 2 ]
+    end do
+
+
+    !!-----------------------------------------------------------------------
+    !! set up number of channels, width, height
+    !!-----------------------------------------------------------------------
+    this%num_channels = this%input_shape(3)
+    if(allocated(this%output))then
+       if(this%output%allocated) call this%output%deallocate()
+    end if
+    this%output = array4d_type()
+    this%output%shape(3) = this%input_shape(3)
+    this%output%shape(:2) = &
+         this%input_shape(:2) + this%pad(:) * 2
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise batch size-dependent arrays
+    !!--------------------------------------------------------------------------
+    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
+
+  end subroutine init_pad2d
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set batch size
+!!!#############################################################################
+  subroutine set_batch_size_pad2d(this, batch_size, verbose)
+    implicit none
+    class(pad2d_layer_type), intent(inout), target :: this
+    integer, intent(in) :: batch_size
+    integer, optional, intent(in) :: verbose
+
+    integer :: verbose_ = 0
+
+
+    !!--------------------------------------------------------------------------
+    !! initialise optional arguments
+    !!--------------------------------------------------------------------------
+    if(present(verbose)) verbose_ = verbose
+    this%batch_size = batch_size
+
+
+    !!--------------------------------------------------------------------------
+    !! allocate arrays
+    !!--------------------------------------------------------------------------
+    if(allocated(this%input_shape))then
+       if(.not.allocated(this%output)) this%output = array4d_type()
+       if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
+       call this%output%allocate( array_shape = [ &
+            this%output%shape(1), &
+            this%output%shape(2), this%num_channels, &
+            this%batch_size ], &
+            source=0._real32 &
+       )
+       if(.not.allocated(this%di)) this%di = array4d_type()
+       if(this%di%allocated) call this%di%deallocate()
+       call this%di%allocate( array_shape = [ &
+            this%input_shape(1), &
+            this%input_shape(2), &
+            this%input_shape(3), &
+            this%batch_size ], &
+            source=0._real32 &
+       )
+    end if
+
+  end subroutine set_batch_size_pad2d
+!!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
+
+!!!#############################################################################
+!!! read layer from file
+!!!#############################################################################
+  subroutine read_pad2d(this, unit, verbose)
+    use athena__tools_infile, only: assign_val, assign_vec
+    use athena__misc, only: to_lower, to_upper, icount
+    implicit none
+    class(pad2d_layer_type), intent(inout) :: this
+    integer, intent(in) :: unit
+    integer, optional, intent(in) :: verbose
+
+    integer :: verbose_ = 0
+    integer :: stat
+    integer :: itmp1
+    integer, dimension(2) :: padding
+    integer, dimension(3) :: input_shape
+    character(:), allocatable :: method
+    character(256) :: buffer, tag, err_msg
+
+
+    if(present(verbose)) verbose_ = verbose
+
+    !! loop over tags in layer card
+    tag_loop: do
+
+       !! check for end of file
+       read(unit,'(A)',iostat=stat) buffer
+       if(stat.ne.0)then
+          write(err_msg,'("file encountered error (EoF?) before END ",A)') &
+               to_upper(this%name)
+          call stop_program(err_msg)
+          return
+       end if
+       if(trim(adjustl(buffer)).eq."") cycle tag_loop
+
+       !! check for end of convolution card
+       if(trim(adjustl(buffer)).eq."END "//to_upper(trim(this%name)))then
+          backspace(unit)
+          exit tag_loop
+       end if
+
+       tag=trim(adjustl(buffer))
+       if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
+
+       !! read parameters from save file
+       select case(trim(tag))
+       case("INPUT_SHAPE")
+          call assign_vec(buffer, input_shape, itmp1)
+       case("PADDING")
+          call assign_vec(buffer, padding, itmp1)
+       case("METHOD")
+          call assign_val(buffer, method, itmp1)
+       case default
+          !! don't look for "e" due to scientific notation of numbers
+          !! ... i.e. exponent (E+00)
+          if(scan(to_lower(trim(adjustl(buffer))),&
+               'abcdfghijklmnopqrstuvwxyz').eq.0)then
+             cycle tag_loop
+          elseif(tag(:3).eq.'END')then
+             cycle tag_loop
+          end if
+          write(err_msg,'("Unrecognised line in input file: ",A)') &
+               trim(adjustl(buffer))
+          call stop_program(err_msg)
+          return
+       end select
+    end do tag_loop
+
+    !! set transfer activation function
+    call this%set_hyperparams(padding=padding, method=method, verbose=verbose_)
+    call this%init(input_shape = input_shape)
+
+    !! check for end of layer card
+    read(unit,'(A)') buffer
+    if(trim(adjustl(buffer)).ne."END "//to_upper(trim(this%name)))then
+       write(0,*) trim(adjustl(buffer))
+       write(err_msg,'("END ",A," not where expected")') to_upper(this%name)
+       call stop_program(err_msg)
+       return
+    end if
+
+  end subroutine read_pad2d
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! read layer from file and return layer
+!!!#############################################################################
+  function read_pad2d_layer(unit, verbose) result(layer)
+    implicit none
+    integer, intent(in) :: unit
+    integer, optional, intent(in) :: verbose
+    class(base_layer_type), allocatable :: layer
+
+    integer :: verbose_ = 0
+
+
+    if(present(verbose)) verbose_ = verbose
+    allocate(layer, source=pad2d_layer_type(padding=[0,0], method="none"))
+    call layer%read(unit, verbose=verbose_)
+
+  end function read_pad2d_layer
+!!!#############################################################################
+
+
+!!!##########################################################################!!!
+!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
+!!!##########################################################################!!!
+
+
+!!!#############################################################################
+!!! forward propagation
+!!!#############################################################################
+  pure subroutine forward_4d(this, input)
+    implicit none
+    class(pad2d_layer_type), intent(inout) :: this
+    real(real32), dimension( &
+         this%input_shape(1), &
+         this%input_shape(2), &
+         this%num_channels, &
+         this%batch_size), &
+         intent(in) :: input
+
+    integer :: i, j
+    integer :: idim
+    integer, dimension(2) :: bound_store
+    integer, dimension(2,2) :: trgt_bound, dest_bound
+
+
+    select type(output => this%output)
+    type is (array4d_type)
+       dim_loop: do idim = 1, 2
+          dest_bound = this%dest_bound
+          trgt_bound = this%dest_bound
+          dest_bound(:,idim) = [ &
+               this%dest_bound(1,idim), &
+               this%trgt_bound(1,idim) - 1 &
+          ]
+          select case(this%imethod)
+          case(3) ! circular
+             trgt_bound(:,idim) = [ &
+                  this%trgt_bound(2,idim) - this%pad(idim) + 1, &
+                  this%trgt_bound(2,idim) &
+             ]
+          case(4) ! reflection
+             trgt_bound(:,idim) = [ &
+                  this%trgt_bound(1,idim) + 1, &
+                  this%trgt_bound(1,idim) + this%pad(idim) &
+             ]
+          case(5) ! replication
+             trgt_bound(:,idim) = [ &
+                  this%trgt_bound(1,idim), &
+                  this%trgt_bound(1,idim) + this%pad(idim) - 1 &
+             ]
+          case default
+             output%val_ptr(:,:,:,:) = 0._real32
+             exit dim_loop
+          end select
+
+          lr_loop: do j = 1, 2 ! 1 = left padding, 2 = right padding
+
+             output%val_ptr( &
+                  dest_bound(1,1):dest_bound(2,1), &
+                  dest_bound(1,2):dest_bound(2,2), :, : &
+             ) = input( &
+                  trgt_bound(1,1):trgt_bound(2,1), &
+                  trgt_bound(1,2):trgt_bound(2,2), :, : &
+             )
+             if(j.eq.2) exit lr_loop
+             bound_store(:) = dest_bound(:,idim)
+             select case(this%imethod)
+             case(3) ! circular
+                dest_bound(:,idim) = trgt_bound(:,idim) + this%pad(i)
+                trgt_bound(:,idim) = bound_store(:) + this%pad(i)
+             case(4) ! reflection
+                dest_bound(:,idim) = &
+                     trgt_bound(:,idim) + this%input_shape(idim) - 1
+                trgt_bound(:,idim) = bound_store(:) + this%input_shape(idim) - 1
+             case(5) ! replication
+                dest_bound(:,idim) = trgt_bound(:,idim) + this%input_shape(idim)
+                trgt_bound(:,idim) = bound_store(:) + this%input_shape(idim)
+             end select
+          end do lr_loop
+       end do dim_loop
+
+       output%val_ptr( &
+            this%pad(1)+1:this%pad(1)+this%input_shape(1), &
+            this%pad(2)+1:this%pad(2)+this%input_shape(2), :, : &
+       ) = input
+    end select
+
+  end subroutine forward_4d
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! backward propagation
+!!!#############################################################################
+  pure subroutine backward_4d(this, input, gradient)
+    implicit none
+    class(pad2d_layer_type), intent(inout) :: this
+    real(real32), dimension( &
+         this%input_shape(1), &
+         this%input_shape(2), &
+         this%num_channels, &
+         this%batch_size), &
+         intent(in) :: input
+    real(real32), &
+         dimension(&
+         this%output%shape(1), &
+         this%output%shape(2), &
+         this%num_channels, &
+         this%batch_size), &
+         intent(in) :: gradient
+
+    integer :: i, j, m, s
+    integer, dimension(2) :: stride_idx
+
+
+    select type(di => this%di)
+    type is (array4d_type)
+       di%val_ptr = 0._real32
+       di%val_ptr(:,:,:,:) = &
+            gradient(this%pad(1)+1:this%pad(1)+this%input_shape(1), &
+            this%pad(2)+1:this%pad(2)+this%input_shape(2), :, :)
+    end select
+
+    !!!!! TO ADD: di will also, for some padding methods, depend on multiple cells
+
+  end subroutine backward_4d
+!!!#############################################################################
+
+end module athena__pad2d_layer
+!!!#############################################################################

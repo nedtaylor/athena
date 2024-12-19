@@ -14,9 +14,7 @@ submodule(athena__network) athena__network_submodule
   use athena__misc_ml, only: shuffle
 
   use athena__accuracy, only: categorical_score, mae_score, mse_score, r2_score
-  use athena__base_layer, only: &
-       learnable_layer_type, &
-       conv_layer_type
+  use athena__base_layer, only: learnable_layer_type
 #if defined(GFORTRAN)
   use athena__container_layer, only: container_reduction
 #endif
@@ -815,9 +813,9 @@ contains
        )%id)%layer)
        class is(input_layer_type)
           cycle
-       class is(conv_layer_type)
-         input_shape = root%input_shape + [ 2 * root%pad, 0 ]
-         root%calc_input_gradients = .false. !make this an option for all learnable layer types? !or just remove the option entirely
+       class is(learnable_layer_type)
+          root%calc_input_gradients = .false.
+          input_shape = root%input_shape
        class default
          input_shape = root%input_shape
        end select
@@ -1243,22 +1241,12 @@ contains
     integer :: i
     integer :: idx_start, idx_end
 
-    select type(layer => this%model(this%auto_graph%vertex(idx)%id)%layer)
-    class is(conv_layer_type)
-       allocate( &
-            input( &
-                 product(layer%input_shape + [ 2 * layer%pad, 0 ]), &
-                 this%batch_size &
-            ), source=0._real32 &
-       )
-    class default
-       allocate( &
-            input( &
-                 this%model(this%auto_graph%vertex(idx)%id)%layer%di%size, &
-                 this%batch_size &
-            ), source=0._real32 &
-       )
-    end select
+    allocate( &
+         input( &
+              this%model(this%auto_graph%vertex(idx)%id)%layer%di%size, &
+              this%batch_size &
+         ), source=0._real32 &
+    )
     do i = 1, this%auto_graph%num_vertices
        if(this%auto_graph%adjacency(i,idx).ne.0)then
           idx_start = this%io_map( &
