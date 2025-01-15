@@ -80,7 +80,7 @@ contains
          read_procedure_container('maxpool2d', read_maxpool2d_layer), &
          read_procedure_container('maxpool3d', read_maxpool3d_layer), &
          read_procedure_container('pad1d', read_pad1d_layer), &
-         read_procedure_container('pad2d', read_pad2d_layer) &
+         read_procedure_container('pad2d', read_pad2d_layer), &
          read_procedure_container('pad3d', read_pad3d_layer) &
     ]
     if (present(addit_list)) then
