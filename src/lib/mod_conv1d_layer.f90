@@ -18,6 +18,8 @@ module athena__conv1d_layer
      real(real32), allocatable, dimension(:,:,:) :: z
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_conv1d
+     procedure, pass(this), private :: &
+          set_ptrs_hyperparams => set_ptrs_hyperparams_conv1d
      procedure, pass(this) :: set_batch_size => set_batch_size_conv1d
      procedure, pass(this) :: print => print_conv1d
      procedure, pass(this) :: read => read_conv1d
@@ -172,10 +174,10 @@ contains
     type(conv1d_layer_type) :: layer
 
     integer :: i, verbose_ = 0
-    integer :: kernel_size_, stride_
     real(real32) :: scale
     character(len=10) :: activation_function_
     character(len=20) :: padding_
+    integer, dimension(1) :: kernel_size_, stride_
 
 
     if(present(verbose)) verbose_ = verbose
@@ -209,7 +211,7 @@ contains
        rank(0)
           kernel_size_ = kernel_size
        rank(1)
-          kernel_size_ = kernel_size(1)
+          kernel_size_ = kernel_size
        end select
     else
        kernel_size_ = 3
@@ -313,7 +315,7 @@ contains
     implicit none
     class(conv1d_layer_type), intent(inout) :: this
     integer, intent(in) :: num_filters
-    integer, intent(in) :: kernel_size, stride
+    integer, dimension(1), intent(in) :: kernel_size, stride
     character(*), intent(in) :: padding
     character(*), intent(in) :: activation_function
     real(real32), intent(in) :: activation_scale
@@ -333,8 +335,8 @@ contains
          this%pad(this%input_rank-1), &
          this%cen(this%input_rank-1) &
     )
-    this%knl = [kernel_size]
-    this%stp = [stride]
+    this%knl = kernel_size
+    this%stp = stride
     this%cen = 2 - mod(this%knl, 2)
     this%hlf   = (this%knl-1)/2
     padding_ = trim(adjustl(padding))
@@ -361,6 +363,36 @@ contains
     end if
 
   end subroutine set_hyperparams_conv1d
+!!!#############################################################################
+
+
+!!!#############################################################################
+!!! set the pointers to hyperparameters
+!!!#############################################################################
+  subroutine set_ptrs_hyperparams_conv1d(this)
+   implicit none
+   class(conv1d_layer_type), intent(inout), target :: this
+
+
+   if(allocated(this%params))then
+      this%weight( &
+           1:this%knl(1), &
+           1:this%num_channels, &
+           1:this%num_filters &
+      ) => this%params(1:this%num_params-this%num_filters)
+      this%bias(1:this%num_filters) => &
+           this%params(this%num_params-this%num_filters+1:)
+   end if
+   if(allocated(this%dp))then
+      this%dw( &
+           1:this%knl(1), &
+           1:this%num_channels, &
+           1:this%num_filters, &
+           1:this%batch_size &
+      ) => this%dp(:,:)
+   end if
+
+ end subroutine set_ptrs_hyperparams_conv1d
 !!!#############################################################################
 
 
@@ -523,7 +555,7 @@ contains
     character(20) :: padding, activation_function
     character(256) :: buffer, tag, err_msg
 
-    integer :: kernel_size, stride
+    integer, dimension(1) :: kernel_size, stride
     integer, dimension(2) :: input_shape
     real(real32), allocatable, dimension(:) :: data_list
 
@@ -568,9 +600,9 @@ contains
        case("NUM_FILTERS")
           call assign_val(buffer, num_filters, itmp1)
        case("KERNEL_SIZE")
-          call assign_val(buffer, kernel_size, itmp1)
+          call assign_vec(buffer, kernel_size, itmp1)
        case("STRIDE")
-          call assign_val(buffer, stride, itmp1)
+          call assign_vec(buffer, stride, itmp1)
        case("PADDING")
           call assign_val(buffer, padding, itmp1)
           padding = to_lower(padding)
@@ -727,9 +759,9 @@ contains
        do concurrent(l=1:this%num_filters, s=1:this%batch_size)
           this%z(i,l,s) = this%z(i,l,s) + &
                sum( &
-               input( &
-               start_idx:end_idx,:,s) * &
-               this%weight(:,:,l) &
+                    input( &
+                         start_idx:end_idx,:,s &
+                    ) * this%weight(:,:,l) &
                )
        end do
     end do
@@ -765,7 +797,7 @@ contains
          intent(in) :: gradient
 
     integer :: l, m, i, x, s
-    integer :: stp_idx, offset, adjust, end_idx, n_stp
+    integer :: offset, adjust, end_idx, n_stp
     integer, dimension(2) :: lim, lim_w, lim_g
     real(real32), &
          dimension( &
@@ -820,14 +852,13 @@ contains
        type is (array3d_type)
           di%val_ptr = 0._real32
           do concurrent( &
-               s=1:this%batch_size, &
-               l=1:this%num_filters, &
-               m=1:this%num_channels, &
-               i=1:size(di%val_ptr,dim=1):1 &
-               )
+               s = 1 : this%batch_size, &
+               l = 1 : this%num_filters, &
+               m = 1 : this%num_channels, &
+               i = 1 : size(di%val_ptr,dim=1) : 1 &
+          )
 
              !! set weight bounds
-             stp_idx = ( i - offset )/this%stp(1) + 1
              !! max( ...
              !! ... 1. offset of 1st o/p idx from centre of knl     (lim)
              !! ... 2. lwst o/p idx overlap with <<- knl idx (rpt. pattern)
@@ -842,18 +873,20 @@ contains
              if(lim_w(2).gt.lim_w(1)) cycle
 
              !! set gradient bounds
-             lim_g(1) = max(1,                     i - offset)
+             lim_g(1) = max(1,                    i - offset)
              lim_g(2) = min(this%output%shape(1), i - offset + this%knl(1) - 1)
 
              !! apply full convolution to compute input gradients
-             di%val_ptr(i,m,s) = &
-                  di%val_ptr(i,m,s) + &
+             di%val_ptr(i,m,s) = di%val_ptr(i,m,s) + &
                   sum( &
-                  grad_dz( &
-                  lim_g(1):lim_g(2),l,s) * &
-                  this%weight(&
-                  lim_w(1):lim_w(2):-this%stp(1),m,l) )
-
+                       grad_dz( &
+                            lim_g(1):lim_g(2), &
+                            l, s &
+                       ) * this%weight( &
+                            lim_w(1):lim_w(2):-this%stp(1), &
+                            m, l &
+                       ) &
+                  )
           end do
        end select
     end if
