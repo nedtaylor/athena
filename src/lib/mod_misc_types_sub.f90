@@ -4,6 +4,119 @@ submodule(athena__misc_types) athena__misc_types_submodule
 
 contains
 
+
+  module subroutine setup_replication_bounds(this, length, pad)
+    implicit none
+    class(facets_type), intent(inout) :: this
+    integer, dimension(this%rank), intent(in) :: length, pad
+
+    integer :: i, j, k, facet_idx, idim
+    
+    ! Calculate number of facets based on rank and number of fixed dimensions
+    ! For rank n, we have:
+    ! nfixed_dims = 1: n choose 1 * 2 facets (faces, 2 per dimension)
+    ! nfixed_dims = 2: n choose 2 * 4 facets (edges, 4 per dimension pair)
+    ! nfixed_dims = 3: n choose 3 * 8 facets (corners, 8 for 3D)
+    select case(this%nfixed_dims)
+    case(1)
+       this%type = "face"
+       this%num = 2 * this%rank
+    case(2)
+       this%type = "edge"
+       this%num = 4 * nint( &
+            gamma(real(this%rank + 1)) / ( &
+                 gamma(2.0 + 1.0) * gamma(real(this%rank - 2 + 1)) &
+            ) &
+       )
+    case(3)
+       this%type = "corner"
+       this%num = 8
+    case default
+       call stop_program("Invalid number of fixed dimensions")
+       return
+    end select
+    if(this%rank .lt. this%nfixed_dims) then
+       call stop_program("Number of fixed dimensions exceeds rank")
+       return
+    end if
+    
+    ! Allocate arrays
+    if (allocated(this%dim)) deallocate(this%dim)
+    if (allocated(this%orig_bound)) deallocate(this%orig_bound)
+    if (allocated(this%dest_bound)) deallocate(this%dest_bound)
+    
+    allocate(this%dim(this%num))
+    allocate(this%orig_bound(this%rank, this%num))
+    allocate(this%dest_bound(2, this%rank, this%num))
+    
+    ! Initialise all bounds to 1
+    this%orig_bound = 1
+    
+    select case(this%nfixed_dims)
+    case(1)  ! Faces
+       facet_idx = 0
+       do i = 1, this%rank
+           do j = 1, 2  ! Two faces per dimension
+              facet_idx = facet_idx + 1
+              this%dim(facet_idx) = i
+              
+              ! Set destination bounds
+              if(j .eq. 1) then
+                 this%dest_bound(:,1,facet_idx) = [1, pad(k)]
+              else
+                 this%orig_bound(1,facet_idx) = length(i)
+                 this%dest_bound(:,1,facet_idx) = [length(k) + pad(k) + 1, length(k) + pad(k) * 2]
+              end if
+           end do
+       end do
+    case(2)  ! Edges
+       facet_idx = 0
+       idim = 0
+       do j = this%rank, 2, -1
+          do i = j-1, 1, -1
+             idim = idim + 1
+             do k = 0, 3  ! Four combinations per dimension pair
+                facet_idx = facet_idx + 1
+                this%dim(facet_idx) = idim
+                
+                ! Set original bounds using binary pattern
+                if (btest(k,1)) this%orig_bound(1,facet_idx) = length(i)
+                if (btest(k,0)) this%orig_bound(2,facet_idx) = length(j)
+                
+                ! Set destination bounds
+                this%dest_bound(:,1,facet_idx) = &
+                     merge(&
+                          [length(i) + pad(i) + 1, length(i) + pad(i) * 2], &
+                          [1, pad(i)], &
+                          btest(k,1) &
+                     )
+                this%dest_bound(:,2,facet_idx) = &
+                     merge( &
+                          [length(j) + pad(j) + 1, length(j) + pad(j) * 2], &
+                          [1, pad(j)], &
+                          btest(k,0) &
+                     )
+             end do
+          end do
+       end do
+    case(3)  ! Corners (3D only)
+       do i = 1, 8
+          this%dim(i) = 0  ! All dimensions are fixed
+          ! Use binary pattern for all three dimensions
+          do j = 1, this%rank
+             if(btest(i-1, this%rank-j)) then
+                this%orig_bound(j,i) = length(j)
+                this%dest_bound(:,j,i) = [length(j) + pad(j) + 1, length(j) + pad(j) * 2]
+             else
+                this%orig_bound(j,i) = 1
+                this%dest_bound(:,j,i) = [1, pad(j)]
+             end if
+          end do
+       end do
+    end select
+        
+  end subroutine setup_replication_bounds
+
   pure module function add_array(a, b) result(output)
     implicit none
     class(array_type), intent(in) :: a, b 

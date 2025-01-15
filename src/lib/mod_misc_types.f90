@@ -26,6 +26,7 @@ module athena__misc_types
   public :: array_type
   public :: array_container_type
   public :: array1d_type, array2d_type, array3d_type, array4d_type, array5d_type
+  public :: facets_type
 
 
 !!!-----------------------------------------------------------------------------
@@ -492,6 +493,29 @@ module athena__misc_types
     module procedure assign_array4d
     module procedure assign_array5d
   end interface
+ 
+!!!-----------------------------------------------------------------------------
+!!! facet type (for storing faces, edges, and corners for padding)
+!!!-----------------------------------------------------------------------------
+  type :: facets_type
+    integer :: num ! number of facets
+    integer :: rank ! number of dimensions of the shape
+    integer :: nfixed_dims ! number of fixed dimensions
+    character(6) :: type ! type of facet, i.e. face, edge, corner
+    integer, dimension(:), allocatable :: dim ! dimension the facet is in, i.e.
+    integer, dimension(:,:), allocatable :: orig_bound ! (nfixed_dims, num)
+    integer, dimension(:,:,:), allocatable :: dest_bound ! (2, nfixed_dims, num)
+   contains
+    procedure, pass(this) :: setup_replication_bounds
+  end type facets_type
   
+  interface
+    module subroutine setup_replication_bounds(this, length, pad)
+      class(facets_type), intent(inout) :: this
+      integer, dimension(this%rank), intent(in) :: length, pad
+    end subroutine setup_replication_bounds
+  end interface
+
+
 end module athena__misc_types
 !!!#############################################################################

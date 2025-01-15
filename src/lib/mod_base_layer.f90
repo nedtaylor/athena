@@ -43,7 +43,7 @@
 module athena__base_layer
   use athena__constants, only: real32
   use athena__clipper, only: clip_type
-  use athena__misc_types, only: activation_type, array_type
+  use athena__misc_types, only: activation_type, array_type, facets_type
   implicit none
 
   private
@@ -221,7 +221,8 @@ module athena__base_layer
      integer :: imethod = 0
      integer, allocatable, dimension(:) :: pad
      character(len=20) :: method = 'valid'
-     integer, allocatable, dimension(:,:) :: trgt_bound, dest_bound
+     integer, allocatable, dimension(:,:) :: orig_bound, dest_bound
+     type(facets_type), dimension(:), allocatable :: facets
   end type pad_layer_type
 
 

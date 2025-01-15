@@ -77,7 +77,9 @@ module athena
 
 
   !! padding layer types
+  use athena__pad1d_layer, only: pad1d_layer_type, read_pad1d_layer
   use athena__pad2d_layer, only: pad2d_layer_type, read_pad2d_layer
+  use athena__pad3d_layer, only: pad3d_layer_type, read_pad3d_layer
 
   !! pooling layer types
   use athena__avgpool1d_layer, only: avgpool1d_layer_type, read_avgpool1d_layer

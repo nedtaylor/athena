@@ -26,7 +26,9 @@ submodule(athena__container_layer) athena__container_layer_submodule
   use athena__maxpool1d_layer, only: read_maxpool1d_layer
   use athena__maxpool2d_layer, only: read_maxpool2d_layer
   use athena__maxpool3d_layer, only: read_maxpool3d_layer
+  use athena__pad1d_layer, only: read_pad1d_layer
   use athena__pad2d_layer, only: read_pad2d_layer
+  use athena__pad3d_layer, only: read_pad3d_layer
 
 contains
 
@@ -77,7 +79,9 @@ contains
          read_procedure_container('maxpool1d', read_maxpool1d_layer), &
          read_procedure_container('maxpool2d', read_maxpool2d_layer), &
          read_procedure_container('maxpool3d', read_maxpool3d_layer), &
+         read_procedure_container('pad1d', read_pad1d_layer), &
          read_procedure_container('pad2d', read_pad2d_layer) &
+         read_procedure_container('pad3d', read_pad3d_layer) &
     ]
     if (present(addit_list)) then
        list_of_layer_types = [list_of_layer_types, addit_list]
