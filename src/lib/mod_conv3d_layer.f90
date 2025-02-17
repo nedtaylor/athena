@@ -952,13 +952,13 @@ contains
              !! ... 2. lwst o/p idx overlap with <<- knl idx (rpt. pattern)
              !! ...)
              lim_w(2,:) = max(lim(1,:)-[i,j,k],  -this%hlf + &
-                  mod(n_stp+this%knl-[i,j,k],this%stp))
+                  mod(n_stp+this%knl-[i,j,k],this%stp)) + this%cen + 1
              !! min( ...
              !! ... 1. offset of last o/p idx from centre of knl    (lim)
              !! ... 2. hghst o/p idx overlap with ->> knl idx (rpt. pattern)
              !! ...)
              lim_w(1,:) = min(lim(2,:)-[i,j,k], end_idx - &
-                  mod(n_stp-1+[i,j,k],this%stp))
+                  mod(n_stp-1+[i,j,k],this%stp)) + this%cen + 1
              if(any(lim_w(2,:).gt.lim_w(1,:))) cycle
 
              !! set gradient bounds
