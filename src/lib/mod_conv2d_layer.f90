@@ -353,6 +353,9 @@ contains
     do i=1,2
        call set_padding(this%pad(i), this%knl(i), padding_)
     end do
+    if (this%pad(1).ne.0)then
+       call stop_program("Padding not currently implemented directly into 2D convolutional layers")
+    end if
     allocate(this%transfer, &
          source=activation_setup(activation_function, activation_scale) &
     )
@@ -385,10 +388,7 @@ contains
    implicit none
    class(conv2d_layer_type), intent(inout), target :: this
 
-   integer, dimension(this%input_rank-1) :: end_idx
 
-
-   end_idx = this%hlf + (this%cen - 1)
    if(allocated(this%params))then
       this%weight( &
            1:this%knl(1), &
@@ -423,7 +423,6 @@ contains
     integer, optional, intent(in) :: verbose
 
     integer :: verbose_ = 0
-    integer, dimension(this%input_rank-1) :: end_idx
 
 
     !!--------------------------------------------------------------------------
@@ -436,7 +435,6 @@ contains
     !!--------------------------------------------------------------------------
     !! set weights and biases pointers to params array
     !!--------------------------------------------------------------------------
-    end_idx = this%hlf + (this%cen - 1)
     this%weight( &
          1:this%knl(1), &
          1:this%knl(2), &
@@ -475,7 +473,10 @@ contains
             source=0._real32 &
        )
        if(allocated(this%dp)) deallocate(this%dp)
-       allocate(this%dp( this%num_params - this%num_filters, this%batch_size), source=0._real32)
+       allocate( &
+            this%dp( this%num_params - this%num_filters, this%batch_size), &
+            source=0._real32 &
+       )
        this%dw( &
             1:this%knl(1), &
             1:this%knl(2), &
@@ -781,7 +782,7 @@ contains
          intent(in) :: input
 
     integer :: i, j, l, s
-    integer, dimension(2) :: stp_idx, start_idx, end_idx
+    integer, dimension(2) :: start_idx, end_idx
 
 
     !! perform the convolution operation
@@ -790,13 +791,12 @@ contains
          i=1:this%output%shape(1):1, &
          j=1:this%output%shape(2):1)
 #if defined(GFORTRAN)
-       stp_idx = ([i,j]-1)*this%stp + 1
+       start_idx = ([i,j]-1)*this%stp + 1
 #else
-       stp_idx(1) = (i-1)*this%stp(1) + 1
-       stp_idx(2) = (j-1)*this%stp(2) + 1
+       start_idx(1) = (i-1)*this%stp(1) + 1
+       start_idx(2) = (j-1)*this%stp(2) + 1
 #endif
-       start_idx  = stp_idx
-       end_idx    = start_idx + this%knl - 1
+       end_idx   = start_idx + this%knl - 1
 
        do concurrent(s=1:this%batch_size)
           this%z(i,j,:,s) = this%bias(:)
@@ -805,10 +805,10 @@ contains
        do concurrent(l=1:this%num_filters, s=1:this%batch_size)
           this%z(i,j,l,s) = this%z(i,j,l,s) + &
                sum( &
-               input( &
-               start_idx(1):end_idx(1),&
-               start_idx(2):end_idx(2),:,s) * &
-               this%weight(:,:,:,l) &
+                    input( &
+                         start_idx(1):end_idx(1),&
+                         start_idx(2):end_idx(2),:,s &
+                    ) * this%weight(:,:,:,l) &
                )
        end do
     end do
@@ -846,7 +846,7 @@ contains
          intent(in) :: gradient
 
     integer :: l, m, i, j, x, y, s, y_index
-    integer, dimension(2) :: stp_idx, offset, adjust, end_idx, n_stp
+    integer, dimension(2) :: offset, adjust, end_idx, n_stp
     integer, dimension(2,2) :: lim, lim_w, lim_g
     real(real32), &
          dimension( &
@@ -880,9 +880,10 @@ contains
     !! ... whilst the starting index for input is 1
     !!--------------------------------------------------------------------------
     do concurrent( &
-         s=1:this%batch_size, &
-         l=1:this%num_filters, &
-         m=1:this%num_channels)
+         s = 1 : this%batch_size, &
+         l = 1 : this%num_filters, &
+         m = 1 : this%num_channels &
+    )
        do y = 1, this%knl(2), 1
           do j = 1, this%output%shape(2)
              do x = 1, this%knl(1), 1
@@ -894,10 +895,10 @@ contains
                              y + ( j - 1 ) * this%stp(2), &
                              m, s &
                         )
-               end do
-            end do
-         end do
-      end do
+                end do
+             end do
+          end do
+       end do
     end do
 
 
@@ -912,20 +913,14 @@ contains
           di%val_ptr = 0._real32
           !! all elements of the output are separated by stride_x (stride_y)
           do concurrent( &
-               s=1:this%batch_size, &
-               l=1:this%num_filters, &
-               m=1:this%num_channels, &
-               i=1:size(di%val_ptr,dim=1):1, &
-               j=1:size(di%val_ptr,dim=2):1 &
-               )
+               s = 1 : this%batch_size, &
+               l = 1 : this%num_filters, &
+               m = 1 : this%num_channels, &
+               i = 1 : size(di%val_ptr,dim=1) : 1, &
+               j = 1 : size(di%val_ptr,dim=2) : 1 &
+          )
 
              !! set weight bounds
-#if defined(GFORTRAN)
-             stp_idx = ([i,j]-offset)/this%stp + 1
-#else
-             stp_idx(1) = ( i - offset(1) )/this%stp(1) + 1
-             stp_idx(2) = ( j - offset(2) )/this%stp(2) + 1
-#endif
              !! max( ...
              !! ... 1. offset of 1st o/p idx from centre of knl     (lim)
              !! ... 2. lwst o/p idx overlap with <<- knl idx (rpt. pattern)
@@ -941,19 +936,25 @@ contains
              if(any(lim_w(2,:).gt.lim_w(1,:))) cycle
 
              !! set gradient bounds
-             lim_g(1,:) = max(1,                     [i,j] - offset)
-             lim_g(2,:) = min(this%output%shape(:2), [i,j] - offset + this%knl - 1)
+             lim_g(1,:) = max(1, [i,j] - offset)
+             lim_g(2,:) = min( &
+                  this%output%shape(:2), &
+                  [i,j] - offset + this%knl - 1 &
+             )
 
              !! apply full convolution to compute input gradients
-             di%val_ptr(i,j,m,s) = &
-                  di%val_ptr(i,j,m,s) + &
+             di%val_ptr(i,j,m,s) = di%val_ptr(i,j,m,s) + &
                   sum( &
-                  grad_dz( &
-                  lim_g(1,1):lim_g(2,1), &
-                  lim_g(1,2):lim_g(2,2),l,s) * &
-                  this%weight(&
-                  lim_w(1,1):lim_w(2,1):-this%stp(1), &
-                  lim_w(1,2):lim_w(2,2):-this%stp(2),m,l) )
+                       grad_dz( &
+                            lim_g(1,1):lim_g(2,1), &
+                            lim_g(1,2):lim_g(2,2), &
+                            l, s &
+                       ) * this%weight( &
+                            lim_w(1,1):lim_w(2,1):-this%stp(1), &
+                            lim_w(1,2):lim_w(2,2):-this%stp(2), &
+                            m, l &
+                       ) &
+                  )
           end do
        end select
     end if

@@ -54,7 +54,7 @@ program mnist_example
 !!!-----------------------------------------------------------------------------
   train_file = trim(data_dir)//'/MNIST_train.txt'
   call read_mnist_db(train_file,input_images, labels, &
-       maxval(cv_kernel_size), image_size, padding_method)
+       maxval(cv_kernel_size), image_size, "none") !padding_method)
   input_channels = size(input_images, 3)
   num_samples = size(input_images, 4)
 
@@ -64,7 +64,7 @@ program mnist_example
 !!!-----------------------------------------------------------------------------
   test_file = trim(data_dir)//'/MNIST_test.txt'
   call read_mnist_db(test_file,test_images, test_labels, &
-       maxval(cv_kernel_size), itmp1, padding_method)
+       maxval(cv_kernel_size), itmp1, "none") !padding_method)
   num_samples_test = size(test_images, 4)
 
 
@@ -102,10 +102,16 @@ program mnist_example
   else
      write(6,*) "Initialising CNN..."
 
-     call network%add(conv2d_layer_type( &
+     call network%add(pad2d_layer_type( &
            input_shape = [image_size,image_size,input_channels], &
+           padding = [1, 1], &
+           method = padding_method &
+           ))
+     call network%add(conv2d_layer_type( &
+          !  input_shape = [image_size+2,image_size+2,input_channels], &
            num_filters = cv_num_filters, kernel_size = 3, stride = 1, &
-           padding=padding_method, &
+          !  padding=padding_method, &
+           padding="none", &
            calc_input_gradients = .false., &
            activation_function = "relu" &
            ))
