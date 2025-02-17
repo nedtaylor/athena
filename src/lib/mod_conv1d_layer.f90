@@ -8,6 +8,7 @@ module athena__conv1d_layer
   use athena__io_utils, only: stop_program
   use athena__constants, only: real32
   use athena__base_layer, only: conv_layer_type, base_layer_type 
+  use athena__pad1d_layer, only: pad1d_layer_type
   use athena__misc_types, only: initialiser_type, array3d_type
   implicit none
   
@@ -434,8 +435,8 @@ contains
     !! allocate arrays
     !!--------------------------------------------------------------------------
     if(allocated(this%input_shape))then
-      if(.not.allocated(this%output)) this%output = array3d_type()
-      if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
+       if(.not.allocated(this%output)) this%output = array3d_type()
+       if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
        call this%output%allocate( array_shape = [ &
             this%output%shape(1), &
             this%num_filters, &
@@ -748,6 +749,10 @@ contains
     integer :: i, l, s
     integer :: start_idx, end_idx
 
+    select case(allocated(this%pad_layer))
+    case(.true.)
+       call this%pad_layer%forward(input)
+    end select
 
     !! perform the convolution operation
     !!--------------------------------------------------------------------------
