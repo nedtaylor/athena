@@ -875,8 +875,8 @@ contains
     !! get size of the input and output feature maps
     !!--------------------------------------------------------------------------
     end_idx = this%hlf + (this%cen - 1)
-    offset  = 1 + this%hlf - this%pad
-    adjust  = 2 * max(this%pad, this%hlf)
+    offset  = 1 + this%hlf
+    adjust  = 2 * this%hlf
 
 
     !! get gradient multiplied by differential of Z
@@ -915,7 +915,7 @@ contains
                               input( &
                                    x + ( i - 1 ) * this%stp(1), &
                                    y + ( j - 1 ) * this%stp(2), &
-                                   z + ( j - 1 ) * this%stp(3), &
+                                   z + ( k - 1 ) * this%stp(3), &
                                    m, s &
                               )
                       end do
