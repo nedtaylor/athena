@@ -1,10 +1,7 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ATHENA library - a feedforward neural network library
-!!!#############################################################################
-!!! module contains implementation of an activation layer
-!!!#############################################################################
-module athena__actv_layer
+module athena__activation_layer
+  !! Module containing implementation of the activation layer
+  !!
+  !! This module wraps different activation functions into a layer type
   use athena__io_utils, only: stop_program
   use athena__constants, only: real32
   use athena__base_layer, only: base_layer_type
@@ -16,62 +13,81 @@ module athena__actv_layer
        array5d_type
   implicit none
   
-  
+
+  private
+
+  public :: actv_layer_type
+  public :: read_actv_layer
+
+
   type, extends(base_layer_type) :: actv_layer_type
+     !! Layer type for activation layers
      class(activation_type), allocatable :: transfer
+     !! Activation function
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_actv
+     !! Set hyperparameters
      procedure, pass(this) :: init => init_actv
+     !! Initialise layer
      procedure, pass(this) :: set_batch_size => set_batch_size_actv
+     !! Set batch size
      procedure, pass(this) :: print => print_actv
+     !! Print layer to file
      procedure, pass(this) :: read => read_actv
+     !! Read layer from file
      procedure, pass(this) :: forward  => forward_rank
+     !! Forward propagation
      procedure, pass(this) :: backward => backward_rank
+     !! Backward propagation
      procedure, pass(this), private :: forward_assumed_rank
+     !! Forward propagation assumed rank handler
      procedure, pass(this), private :: backward_assumed_rank
+     !! Backward propagation assumed rank handler
   end type actv_layer_type
 
   
   interface actv_layer_type
+     !! Interface for the activation layer type
      module function layer_setup( &
           activation_function, activation_scale, &
           input_shape, batch_size, &
           verbose &
      ) result(layer)
+       !! Set up the activation layer
        character(*), intent(in) :: activation_function
+       !! Activation function name
        real(real32), optional, intent(in) :: activation_scale
+       !! Activation function scale
        integer, dimension(:), optional, intent(in) :: input_shape
+       !! Input shape
        integer, optional, intent(in) :: batch_size
+       !! Batch size
        integer, optional, intent(in) :: verbose
+       !! Verbosity level
        type(actv_layer_type) :: layer
+       !! Instance of the activation layer
      end function layer_setup
   end interface actv_layer_type
 
 
-  private
-  public :: actv_layer_type
-  public :: read_actv_layer
-
 
 contains
 
-!!!#############################################################################
-!!! forward propagation assumed rank handler
-!!!#############################################################################
+!###############################################################################
   pure subroutine forward_rank(this, input)
+    !! Forward propagation handler for activation layer
     implicit none
     class(actv_layer_type), intent(inout) :: this
     real(real32), dimension(..), intent(in) :: input
 
     call this%forward_assumed_rank(input)
   end subroutine forward_rank
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! backward propagation assumed rank handler
-!!!#############################################################################
+!###############################################################################
   pure subroutine backward_rank(this, input, gradient)
+    !! Backward propagation handler for activation layer
     implicit none
     class(actv_layer_type), intent(inout) :: this
     real(real32), dimension(..), intent(in) :: input
@@ -79,42 +95,51 @@ contains
 
     call this%backward_assumed_rank(input, gradient)
   end subroutine backward_rank
-!!!#############################################################################
+!###############################################################################
 
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
-!!!#############################################################################
-!!! set up layer
-!!!#############################################################################
+!###############################################################################
   module function layer_setup( &
        activation_function, activation_scale, &
        input_shape, batch_size, &
        verbose &
   ) result(layer)
-  use athena__activation,  only: activation_setup
+    !! Set up the activation layer
+    use athena__activation,  only: activation_setup
     implicit none
-    character(*), intent(in) :: activation_function
-    real(real32), optional, intent(in) :: activation_scale
-    integer, dimension(:), optional, intent(in) :: input_shape
-    integer, optional, intent(in) :: batch_size
-    integer, optional, intent(in) :: verbose
-    
-    type(actv_layer_type) :: layer
 
+    ! Arguments
+    character(*), intent(in) :: activation_function
+    !! Activation function name
+    real(real32), optional, intent(in) :: activation_scale
+    !! Activation function scale
+    integer, dimension(:), optional, intent(in) :: input_shape
+    !! Input shape
+    integer, optional, intent(in) :: batch_size
+    !! Batch size
+    integer, optional, intent(in) :: verbose
+    !! Verbosity level   
+    type(actv_layer_type) :: layer
+    !! Instance of the activation layer
+
+    ! Local variables
     real(real32) :: activation_scale_
+    !! Activation function scale
     integer :: verbose_
+    !! Verbosity level
 
 
     verbose_ = 0
     if(present(verbose)) verbose_ = verbose
 
-    !!--------------------------------------------------------------------------
-    !! set hyperparameters
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! set hyperparameters
+    !---------------------------------------------------------------------------
     activation_scale_ = 1._real32
     if(present(activation_scale)) activation_scale_ = activation_scale
     call layer%set_hyperparams( &
@@ -124,27 +149,25 @@ contains
     )
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise batch size
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! initialise batch size
+    !---------------------------------------------------------------------------
     if(present(batch_size)) layer%batch_size = batch_size
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise layer shape
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! initialise layer shape
+    !---------------------------------------------------------------------------
     if(present(input_shape)) call layer%init( &
          input_shape=input_shape, &
          verbose=verbose_ &
     )
 
   end function layer_setup
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! set hyperparameters
-!!!#############################################################################
+!###############################################################################
   subroutine set_hyperparams_actv( &
        this, &
        activation_function, &
@@ -152,13 +175,21 @@ contains
        input_rank, &
        verbose &
   )
+    !! Set hyperparameters for activation layer
     use athena__activation,  only: activation_setup
     implicit none
+
+    ! Arguments
     class(actv_layer_type), intent(inout) :: this
+    !! Instance of the activation layer
     integer, optional, intent(in) :: input_rank
+    !! Input rank
     character(*), intent(in) :: activation_function
+    !! Activation function name
     real(real32), intent(in) :: activation_scale
+    !! Activation function scale
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
 
     this%name = "actv"
@@ -177,32 +208,39 @@ contains
     end if
 
   end subroutine set_hyperparams_actv
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! initialise layer
-!!!#############################################################################
+!###############################################################################
   subroutine init_actv(this, input_shape, batch_size, verbose)
+    !! Initialise activation layer
     implicit none
+
+    ! Arguments
     class(actv_layer_type), intent(inout) :: this
+    !! Instance of the activation layer
     integer, dimension(:), intent(in) :: input_shape
+    !! Input shape
     integer, optional, intent(in) :: batch_size
+    !! Batch size
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     integer :: verbose_ = 0
+    !! Verbosity level
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise optional arguments
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! initialise optional arguments
+    !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
     if(present(batch_size)) this%batch_size = batch_size
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise input shape
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! initialise input shape
+    !---------------------------------------------------------------------------
     this%input_rank = size(input_shape)
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
 
@@ -226,38 +264,44 @@ contains
     end select
     
 
-    !!--------------------------------------------------------------------------
-    !! initialise batch size-dependent arrays
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! initialise batch size-dependent arrays
+    !---------------------------------------------------------------------------
     if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
 
   end subroutine init_actv
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! set batch size
-!!!#############################################################################
+!###############################################################################
   subroutine set_batch_size_actv(this, batch_size, verbose)
+    !! Set batch size for activation layer
     implicit none
+
+    ! Arguments
     class(actv_layer_type), intent(inout), target :: this
+    !! Instance of the activation layer
     integer, intent(in) :: batch_size
+    !! Batch size
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     integer :: verbose_
+    !! Verbosity level
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise optional arguments
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! initialise optional arguments
+    !---------------------------------------------------------------------------
     verbose_ = 0
     if(present(verbose)) verbose_ = verbose
     this%batch_size = batch_size
 
 
-    !!--------------------------------------------------------------------------
-    !! allocate arrays
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! allocate arrays
+    !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
        if(allocated(this%output)) deallocate(this%output)
        select case(size(this%input_shape))
@@ -300,72 +344,89 @@ contains
     end if
 
   end subroutine set_batch_size_actv
-!!!#############################################################################
+!###############################################################################
 
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
-!!!#############################################################################
-!!! print layer to file
-!!!#############################################################################
+!###############################################################################
   subroutine print_actv(this, file)
+    !! Print activation layer to file
     implicit none
+
+    ! Arguments
     class(actv_layer_type), intent(in) :: this
+    !! Instance of the activation layer
     character(*), intent(in) :: file
+    !! File name
 
+    ! Local variables
     integer :: unit
+    !! File unit
 
-    !! open file with new unit
-    !!--------------------------------------------------------------------------
+    ! open file with new unit
+    !--------------------------------------------------------------------------
     open(newunit=unit, file=trim(file), access='append')
 
-    !! write convolution initial parameters
-    !!--------------------------------------------------------------------------
+    ! write convolution initial parameters
+    !--------------------------------------------------------------------------
     write(unit,'("ACTV")')
     write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
     write(unit,'(3X,"ACTIVATION_FUNCTION = ",A)') this%transfer%name
     write(unit,'(3X,"ACTIVATION_SCALE = ",1ES20.10)') this%transfer%scale
     write(unit,'("END ACTV")')
 
-    !! close unit
-    !!--------------------------------------------------------------------------
+    ! close unit
+    !--------------------------------------------------------------------------
     close(unit)
 
   end subroutine print_actv
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! read layer from file
-!!!#############################################################################
+!###############################################################################
   subroutine read_actv(this, unit, verbose)
+    !! Read activation layer from file
     use athena__tools_infile, only: assign_val, assign_vec
     use athena__misc, only: to_lower, to_upper, icount
     implicit none
+
+    ! Arguments
     class(actv_layer_type), intent(inout) :: this
+    !! Instance of the activation layer
     integer, intent(in) :: unit
+    !! File unit
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     integer :: verbose_ = 0
+    !! Verbosity level
     integer :: stat
+    !! File status
     integer :: itmp1
+    !! Temporary integer
     real(real32) :: activation_scale
+    !! Activation scale
     integer, dimension(3) :: input_shape
+    !! Input shape
     character(256) :: buffer, tag, err_msg
+    !! Buffer for reading lines, tag for identifying lines, error message
     character(20) :: activation_function
+    !! Activation function name
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise optional arguments
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! initialise optional arguments
+    !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
 
-    !!--------------------------------------------------------------------------
-    !! loop over tags in layer card
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! loop over tags in layer card
+    !---------------------------------------------------------------------------
     tag_loop: do
 
        !! check for end of file
@@ -379,8 +440,8 @@ contains
        end if
        if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
-       !! check for end of layer card
-       !!-----------------------------------------------------------------------
+       ! check for end of layer card
+       !------------------------------------------------------------------------
        if(trim(adjustl(buffer)).eq."END ACTV")then
           backspace(unit)
           exit tag_loop
@@ -389,8 +450,8 @@ contains
        tag=trim(adjustl(buffer))
        if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
 
-       !! read parameters from save file
-       !!-----------------------------------------------------------------------
+       ! read parameters from save file
+       !------------------------------------------------------------------------
        select case(trim(tag))
        case("INPUT_SHAPE")
           call assign_vec(buffer, input_shape, itmp1)
@@ -415,9 +476,9 @@ contains
     end do tag_loop
 
 
-    !!--------------------------------------------------------------------------
-    !! allocate layer
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! allocate layer
+    !---------------------------------------------------------------------------
     call this%set_hyperparams( &
          activation_function = activation_function, &
          activation_scale = activation_scale &
@@ -425,9 +486,9 @@ contains
     call this%init(input_shape = input_shape)
 
 
-    !!--------------------------------------------------------------------------
-    !! check for end of layer card
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! check for end of layer card
+    !---------------------------------------------------------------------------
     read(unit,'(A)') buffer
     if(trim(adjustl(buffer)).ne."END ACTV")then
        write(0,*) trim(adjustl(buffer))
@@ -437,19 +498,25 @@ contains
     end if
 
   end subroutine read_actv
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! read layer from file and return layer
-!!!#############################################################################
+!###############################################################################
   function read_actv_layer(unit, verbose) result(layer)
+    !! Read activation layer from file
     implicit none
-    integer, intent(in) :: unit
-    integer, optional, intent(in) :: verbose
-    class(base_layer_type), allocatable :: layer
 
+    ! Arguments
+    integer, intent(in) :: unit
+    !! File unit
+    integer, optional, intent(in) :: verbose
+    !! Verbosity level
+    class(base_layer_type), allocatable :: layer
+    !! Instance of the activation layer
+
+    ! Local variables
     integer :: verbose_ = 0
+    !! Verbosity level
 
 
     if(present(verbose)) verbose_ = verbose
@@ -457,23 +524,28 @@ contains
     call layer%read(unit, verbose=verbose_)
 
  end function read_actv_layer
-!!!#############################################################################
+!###############################################################################
 
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
-!!!#############################################################################
-!!! forward propagation
-!!!#############################################################################
-   pure subroutine forward_assumed_rank(this, input)
-     implicit none
-     class(actv_layer_type), intent(inout) :: this
-     real(real32), dimension(..), intent(in), target :: input
+!###############################################################################
+  pure subroutine forward_assumed_rank(this, input)
+    !! Forward propagation
+    implicit none
 
-     real(real32), pointer :: input_ptr(:,:)
+    ! Arguments
+    class(actv_layer_type), intent(inout) :: this
+    !! Instance of the activation layer
+    real(real32), dimension(..), intent(in), target :: input
+    !! Input values
+
+    ! Local variables
+    real(real32), pointer :: input_ptr(:,:)
+    !! Input pointer
 
     select rank(input)
     rank(1)
@@ -490,19 +562,25 @@ contains
     this%output%val(:,:) = this%transfer%activate(input_ptr)
 
   end subroutine forward_assumed_rank
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! backward propagation
-!!!#############################################################################
+!###############################################################################
   pure subroutine backward_assumed_rank(this, input, gradient)
+    !! Backward propagation
     implicit none
-    class(actv_layer_type), intent(inout) :: this
-    real(real32), dimension(..), intent(in), target :: input
-    real(real32), dimension(..), intent(in), target :: gradient
 
+    ! Arguments
+    class(actv_layer_type), intent(inout) :: this
+    !! Instance of the activation layer
+    real(real32), dimension(..), intent(in), target :: input
+    !! Input values
+    real(real32), dimension(..), intent(in), target :: gradient
+    !! Gradient values
+
+    ! Local variables
     real(real32), pointer :: input_ptr(:,:), gradient_ptr(:,:)
+    !! Input and gradient pointers
 
     select rank(gradient)
     rank(1)
@@ -532,7 +610,6 @@ contains
     this%di%val(:,:) = gradient_ptr * this%transfer%differentiate(input_ptr)
 
   end subroutine backward_assumed_rank
-!!!#############################################################################
+!###############################################################################
 
-end module athena__actv_layer
-!!!#############################################################################
+end module athena__activation_layer

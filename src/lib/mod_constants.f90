@@ -1,9 +1,9 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor and Francis Huw Davies
-!!!#############################################################################
-!!! module contains various constants used in the code
-!!!#############################################################################
 module athena__constants
+  !! Module with global constants
+  !!
+  !! This module contains global constants that may be used throughout the
+  !! library.
+  !! Code written by Ned Thaddeus Taylor and Francis Huw Davies
   implicit none
   integer, parameter, public :: real32 = Selected_real_kind(6,37)!(15,307)
   real(real32), parameter, public :: pi = 4.e0_real32*atan(1._real32)
