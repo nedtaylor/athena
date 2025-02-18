@@ -9,10 +9,12 @@ program test_conv2d_network
 
   integer :: i
   integer, parameter :: num_channels = 3
-  integer, parameter :: kernel_size = 3
+  integer, parameter :: kernel_size1 = 3
+  integer, parameter :: kernel_size2 = 4
   integer, parameter :: num_filters1 = 4
   integer, parameter :: num_filters2 = 8
-  integer, parameter :: width = 7
+  integer, parameter :: width = 8
+  integer :: output_width
 
   real, allocatable, dimension(:,:) :: output_reshaped
   real, allocatable, dimension(:,:,:,:) :: input_data, output, gradients_weight
@@ -20,19 +22,21 @@ program test_conv2d_network
   logical :: success = .true.
 
 
+  output_width = width - kernel_size1 + 1 - kernel_size2 + 1
+
 !!!-----------------------------------------------------------------------------
 !!! set up network
 !!!-----------------------------------------------------------------------------
   call network%add(conv2d_layer_type( &
        input_shape=[width, width, num_channels], &
        num_filters = num_filters1, &
-       kernel_size = kernel_size, &
+       kernel_size = kernel_size1, &
        kernel_initialiser = "ones", &
        activation_function = "linear" &
        ))
   call network%add(conv2d_layer_type( &
        num_filters = num_filters2, &
-       kernel_size = kernel_size, &
+       kernel_size = kernel_size2, &
        kernel_initialiser = "ones", &
        activation_function = "linear" &
        ))
@@ -54,7 +58,7 @@ program test_conv2d_network
   call network%forward(input_data)
   call network%model(network%output_vertices(1))%layer%get_output(output)
 
-  if(any(shape(output).ne.[width-4,width-4,num_filters2,1]))then
+  if(any(shape(output).ne.[output_width,output_width,num_filters2,1]))then
      success = .false.
      write(0,*) "conv2d network output shape should be [3,3,8]"
      write(0,*) "output shape is ", shape(output)
@@ -65,26 +69,27 @@ program test_conv2d_network
 !!! check gradients
 !!!-----------------------------------------------------------------------------
   output = 0.E0
-  output(:(width-4)/2,:,:,:) = 1.E0
+  output(1,:,:,:) = 1.E0
+  output(output_width,:,:,:) = 1.E0
   input_data = 0.E0
   input_data(:(width)/2,:,:,:) = 1.E0
   call network%forward(input_data)
-  output_reshaped = reshape(output, [(width-4)**2*num_filters2,1])
+  output_reshaped = reshape(output, [output_width**2*num_filters2,1])
   call network%backward(output_reshaped)
   select type(current => network%model(network%output_vertices(1))%layer)
   type is(conv2d_layer_type)
      gradients = current%get_gradients()
      gradients_weight = &
           reshape(&
-          gradients(:kernel_size**2*num_filters1*num_filters2), &
-          [kernel_size,kernel_size,num_filters1,num_filters2])
+          gradients(:kernel_size2**2*num_filters1*num_filters2), &
+          [kernel_size2,kernel_size2,num_filters1,num_filters2])
      gradients_bias = &
-          gradients(kernel_size**2*num_filters1*num_filters2+1:)
+          gradients(kernel_size2**2*num_filters1*num_filters2+1:)
      if(size(gradients).ne.&
-          (kernel_size**2*num_filters1 + 1) * num_filters2)then
+          (kernel_size2**2*num_filters1 + 1) * num_filters2)then
         success = .false.
         write(0,*) "conv2d network gradients size should be ", &
-             ( kernel_size**2 * num_filters1 + 1 ) * num_filters2
+             ( kernel_size2**2 * num_filters1 + 1 ) * num_filters2
      end if
      if(any(abs(gradients).lt.1.E-6))then
         success = .false.

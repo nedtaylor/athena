@@ -390,6 +390,8 @@ module athena__base_layer
        integer :: num_filters
        integer, allocatable, dimension(:) :: knl, stp, hlf, pad, cen
        real(real32), pointer :: bias(:) => null()
+       class(pad_layer_type), allocatable :: pad_layer
+       class(array_type), allocatable :: di_padded
      contains
        procedure, pass(this) :: get_num_params => get_num_params_conv
        procedure, pass(this) :: init => init_conv

@@ -231,7 +231,7 @@ contains
        if(this%output%allocated) call this%output%deallocate()
     end if
     this%output = array3d_type()
-    this%output%shape(3) = this%input_shape(3)
+    this%output%shape(2) = this%input_shape(2)
     this%output%shape(:1) = &
          this%input_shape(:1) + this%pad(:) * 2
 

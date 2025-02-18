@@ -8,6 +8,7 @@ module athena__conv3d_layer
   use athena__io_utils, only: stop_program
   use athena__constants, only: real32
   use athena__base_layer, only: conv_layer_type, base_layer_type
+  use athena__pad3d_layer, only: pad3d_layer_type
   use athena__misc_types, only: initialiser_type, array5d_type
   implicit none
   
@@ -86,6 +87,9 @@ contains
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
     if(allocated(this%di)) deallocate(this%di)
+    if(allocated(this%di_padded)) deallocate(this%di_padded)
+
+    if(allocated(this%pad_layer)) deallocate(this%pad_layer)
 
   end subroutine finalise_conv3d
 !!!#############################################################################
@@ -104,11 +108,17 @@ contains
     class(conv3d_layer_type), intent(inout) :: this
     real(real32), dimension(..), intent(in) :: input
 
-    select rank(input)
-    rank(2)
-       call forward_5d(this, input)
-    rank(5)
-       call forward_5d(this, input)
+    select case(allocated(this%pad_layer))
+    case(.true.)
+       call this%pad_layer%forward(input)
+       call forward_5d(this, this%pad_layer%output%val)
+    case default
+       select rank(input)
+       rank(2)
+          call forward_5d(this, input)
+       rank(5)
+          call forward_5d(this, input)
+       end select
     end select
   end subroutine forward_rank
 !!!#############################################################################
@@ -123,22 +133,46 @@ contains
     real(real32), dimension(..), intent(in) :: input
     real(real32), dimension(..), intent(in) :: gradient
 
-    select rank(input)
-    rank(2)
-       select rank(gradient)
+    select case(allocated(this%pad_layer))
+    case(.true.)
+       select rank(input)
        rank(2)
-          call backward_5d(this, input, gradient)
-       end select
-    rank(5)
-       select rank(gradient)
-       rank(1)
-          call backward_5d(this, input, gradient)
-       rank(2)
-          call backward_5d(this, input, gradient)
+          select rank(gradient)
+          rank(2)
+             call backward_5d(this, this%pad_layer%output%val, gradient, this%di_padded%val)
+          end select
+          call this%pad_layer%backward(input, this%di_padded%val)
        rank(5)
-          call backward_5d(this, input, gradient)
+          select rank(gradient)
+          rank(1)
+             call backward_5d(this, this%pad_layer%output%val, gradient, this%di_padded%val)
+          rank(2)
+             call backward_5d(this, this%pad_layer%output%val, gradient, this%di_padded%val)
+          rank(5)
+             call backward_5d(this, this%pad_layer%output%val, gradient, this%di_padded%val)
+          end select
+          call this%pad_layer%backward(input, this%di_padded%val)
        end select
-    end select    
+       this%di%val = this%di_padded%val
+    case default
+       select rank(input)
+       rank(2)
+          select rank(gradient)
+          rank(2)
+             call backward_5d(this, input, gradient, this%di%val)
+          end select
+       rank(5)
+          select rank(gradient)
+          rank(1)
+             call backward_5d(this, input, gradient, this%di%val)
+          rank(2)
+             call backward_5d(this, input, gradient, this%di%val)
+          rank(5)
+             call backward_5d(this, input, gradient, this%di%val)
+          end select
+       end select
+    end select
+
   end subroutine backward_rank
 !!!#############################################################################
 
@@ -320,7 +354,7 @@ contains
   )
     use athena__activation,  only: activation_setup
     use athena__initialiser, only: get_default_initialiser
-    use athena__misc_ml, only: set_padding
+    use athena__misc, only: to_lower
     implicit none
     class(conv3d_layer_type), intent(inout) :: this
     integer, intent(in) :: num_filters
@@ -350,12 +384,16 @@ contains
     this%cen = 2 - mod(this%knl, 2)
     this%hlf   = (this%knl-1)/2
     padding_ = trim(adjustl(padding))
-    do i=1,3
-       call set_padding(this%pad(i), this%knl(i), padding_)
-    end do
-    if (this%pad(1).ne.0)then
-       call stop_program("Padding not currently implemented directly into 3D convolutional layers")
-    end if
+    select case(trim(adjustl(to_lower(padding_))))
+    case("valid", "none", "")
+       this%pad = 0
+    case default
+       this%pad_layer = pad3d_layer_type( &
+            padding = [ this%hlf ], &
+            method = padding_ &
+       )
+       this%pad = this%hlf
+    end select
     allocate(this%transfer, &
          source=activation_setup(activation_function, activation_scale) &
     )
@@ -435,6 +473,13 @@ contains
 
 
     !!--------------------------------------------------------------------------
+    !! set batch size of padding layer, if allocated
+    !!--------------------------------------------------------------------------
+    if(allocated(this%pad_layer)) &
+         call this%pad_layer%set_batch_size(this%batch_size, verbose=verbose_)
+
+
+    !!--------------------------------------------------------------------------
     !! set weights and biases pointers to params array
     !!--------------------------------------------------------------------------
     this%weight( &
@@ -477,6 +522,20 @@ contains
             this%batch_size ], &
             source=0._real32 &
        )
+
+       if(allocated(this%pad_layer))then
+          if(.not.allocated(this%di_padded)) this%di_padded = array5d_type()
+          if(this%di_padded%allocated) call this%di_padded%deallocate()
+          call this%di_padded%allocate( array_shape = [ &
+               this%input_shape(1) + 2 * this%pad(1), &
+               this%input_shape(2) + 2 * this%pad(2), &
+               this%input_shape(3) + 2 * this%pad(3), &
+               this%input_shape(4), &
+               this%batch_size ], &
+               source=0._real32 &
+          )
+       end if
+
        if(allocated(this%dp)) deallocate(this%dp)
        allocate(this%dp( this%num_params - this%num_filters, this%batch_size), source=0._real32)
        this%dw( &
@@ -779,9 +838,9 @@ contains
     class(conv3d_layer_type), intent(inout) :: this
     real(real32), &
          dimension( &
-         1:this%input_shape(1), &
-         1:this%input_shape(2), &
-         1:this%input_shape(3), &
+         1:this%input_shape(1) + 2 * this%pad(1), &
+         1:this%input_shape(2) + 2 * this%pad(2), &
+         1:this%input_shape(3) + 2 * this%pad(3), &
          this%num_channels,this%batch_size), &
          intent(in) :: input
 
@@ -835,14 +894,14 @@ contains
 !!! backward propagation
 !!! method : gradient descent
 !!!#############################################################################
-  pure subroutine backward_5d(this, input, gradient)
+  pure subroutine backward_5d(this, input, gradient, di)
     implicit none
     class(conv3d_layer_type), intent(inout) :: this
     real(real32), &
     dimension( &
-         1:this%input_shape(1), &
-         1:this%input_shape(2), &
-         1:this%input_shape(3), &
+         1:this%input_shape(1) + 2 * this%pad(1), &
+         1:this%input_shape(2) + 2 * this%pad(2), &
+         1:this%input_shape(3) + 2 * this%pad(3), &
          this%num_channels,this%batch_size), &
          intent(in) :: input
     real(real32), &
@@ -852,13 +911,20 @@ contains
          this%output%shape(3), &
          this%num_filters,this%batch_size), &
          intent(in) :: gradient
+    real(real32), &
+         dimension( &
+         1:this%input_shape(1) + 2 * this%pad(1), &
+         1:this%input_shape(2) + 2 * this%pad(2), &
+         1:this%input_shape(3) + 2 * this%pad(3), &
+         this%num_channels,this%batch_size), &
+         intent(inout) :: di
 
 
     !! NOTE: lim_w is rotated by 180, so first idx is end, then start
     !! ... i.e. lim_w(1,:) = ends
     !! ... i.e. lim_w(2,:) = starts
     integer :: l, m, i, j, k, x, y, z, s
-    integer, dimension(3) :: offset, adjust, end_idx, n_stp
+    integer, dimension(3) :: offset, n_stp
     integer, dimension(2,3) :: lim, lim_w, lim_g
     real(real32), &
          dimension( &
@@ -870,13 +936,6 @@ contains
 
     real(real32), dimension(1) :: bias_diff
     bias_diff = this%transfer%differentiate([1._real32])
-
-
-    !! get size of the input and output feature maps
-    !!--------------------------------------------------------------------------
-    end_idx = this%hlf + (this%cen - 1)
-    offset  = 1 + this%hlf
-    adjust  = 2 * this%hlf
 
 
     !! get gradient multiplied by differential of Z
@@ -930,61 +989,63 @@ contains
     !! apply strided convolution to obtain input gradients
     !!--------------------------------------------------------------------------
     if(this%calc_input_gradients)then
-       lim(1,:) = this%knl - 1
-       lim(2,:) = (this%output%shape(:3) - 1) * this%stp + 1 + end_idx
+       offset  = 1 + this%hlf + (this%cen - 1)
+       lim(1,:) = this%knl + this%hlf
+       lim(2,:) = (this%output%shape(:3) - 1) * this%stp + 1 + this%knl
        n_stp = this%output%shape(:3) * this%stp
-       select type(di => this%di)
-       type is (array5d_type)
-          di%val_ptr = 0._real32
-          !! all elements of the output are separated by stride_x (stride_y)
-          do concurrent( &
-               s = 1 : this%batch_size, &
-               l = 1 : this%num_filters, &
-               m = 1 : this%num_channels, &
-               i = 1 : size(di%val_ptr,dim=1) : 1, &
-               j = 1 : size(di%val_ptr,dim=2) : 1, &
-               k = 1 : size(di%val_ptr,dim=3) : 1 &
+       di = 0._real32
+       !! all elements of the output are separated by stride_x (stride_y)
+       do concurrent( &
+            s = 1 : this%batch_size, &
+            l = 1 : this%num_filters, &
+            m = 1 : this%num_channels, &
+            i = 1 : size(di,dim=1) : 1, &
+            j = 1 : size(di,dim=2) : 1, &
+            k = 1 : size(di,dim=3) : 1 &
+       )
+
+          !! set weight bounds (o/p = output)
+          !! max( ...
+          !! ... 1. offset of 1st o/p idx from centre of knl     (lim)
+          !! ... 2. lwst o/p idx overlap with <<- knl idx (rpt. pattern)
+          !! ...)
+          lim_w(2,:) = max( &
+               lim(1,:)-[i,j,k], &
+               1 + mod(n_stp+this%knl-[i,j,k],this%stp) &
+          )
+          !! min( ...
+          !! ... 1. offset of last o/p idx from centre of knl    (lim)
+          !! ... 2. hghst o/p idx overlap with ->> knl idx (rpt. pattern)
+          !! ...)
+          lim_w(1,:) = min( &
+               lim(2,:)-[i,j,k], &
+               this%knl - mod(n_stp-1+[i,j,k],this%stp) &
+          )
+          if(any(lim_w(2,:).gt.lim_w(1,:))) cycle
+
+          !! set gradient bounds
+          lim_g(1,:) = max(1, [i,j,k] - offset)
+          lim_g(2,:) = min( &
+               this%output%shape(:3), &
+               [i,j,k] - offset + this%knl - 1 &
           )
 
-             !! set weight bounds
-             !! max( ...
-             !! ... 1. offset of 1st o/p idx from centre of knl     (lim)
-             !! ... 2. lwst o/p idx overlap with <<- knl idx (rpt. pattern)
-             !! ...)
-             lim_w(2,:) = max(lim(1,:)-[i,j,k],  -this%hlf + &
-                  mod(n_stp+this%knl-[i,j,k],this%stp)) + this%cen + 1
-             !! min( ...
-             !! ... 1. offset of last o/p idx from centre of knl    (lim)
-             !! ... 2. hghst o/p idx overlap with ->> knl idx (rpt. pattern)
-             !! ...)
-             lim_w(1,:) = min(lim(2,:)-[i,j,k], end_idx - &
-                  mod(n_stp-1+[i,j,k],this%stp)) + this%cen + 1
-             if(any(lim_w(2,:).gt.lim_w(1,:))) cycle
-
-             !! set gradient bounds
-             lim_g(1,:) = max(1, [i,j,k] - offset)
-             lim_g(2,:) = min( &
-                  this%output%shape(:3), &
-                  [i,j,k] - offset + this%knl - 1 &
-             )
-
-             !! apply full convolution to compute input gradients
-             di%val_ptr(i,j,k,m,s) = di%val_ptr(i,j,k,m,s) + &
-                  sum( &
-                       grad_dz( &
-                            lim_g(1,1):lim_g(2,1), &
-                            lim_g(1,2):lim_g(2,2), &
-                            lim_g(1,3):lim_g(2,3), &
-                            l, s &
-                       ) * this%weight( &
-                            lim_w(1,1):lim_w(2,1):-this%stp(1), &
-                            lim_w(1,2):lim_w(2,2):-this%stp(2), &
-                            lim_w(1,3):lim_w(2,3):-this%stp(3), &
-                            m, l &
-                       ) &
-                  )
-          end do
-       end select
+          !! apply full convolution to compute input gradients
+          di(i,j,k,m,s) = di(i,j,k,m,s) + &
+               sum( &
+                    grad_dz( &
+                         lim_g(1,1):lim_g(2,1), &
+                         lim_g(1,2):lim_g(2,2), &
+                         lim_g(1,3):lim_g(2,3), &
+                         l, s &
+                    ) * this%weight( &
+                         lim_w(1,1):lim_w(2,1):-this%stp(1), &
+                         lim_w(1,2):lim_w(2,2):-this%stp(2), &
+                         lim_w(1,3):lim_w(2,3):-this%stp(3), &
+                         m, l &
+                    ) &
+               )
+       end do
     end if
 
   end subroutine backward_5d

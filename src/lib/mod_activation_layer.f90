@@ -153,7 +153,6 @@ contains
        verbose &
   )
     use athena__activation,  only: activation_setup
-    use athena__misc_ml, only: set_padding
     implicit none
     class(actv_layer_type), intent(inout) :: this
     integer, optional, intent(in) :: input_rank

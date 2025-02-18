@@ -399,6 +399,13 @@ end subroutine set_params
 
 
     !!--------------------------------------------------------------------------
+    !! initialise padding layer, if allocated
+    !!--------------------------------------------------------------------------
+    if(allocated(this%pad_layer)) &
+         call this%pad_layer%init(this%input_shape, this%batch_size, verbose_)
+
+
+    !!--------------------------------------------------------------------------
     !! allocate output, activation, bias, and weight shapes
     !!--------------------------------------------------------------------------
     !! NOTE: INPUT SHAPE DOES NOT INCLUDE PADDING WIDTH
@@ -411,7 +418,7 @@ end subroutine set_params
     this%output%shape(this%input_rank) = this%num_filters
     this%output%shape(:this%input_rank-1) = floor( &
          ( &
-              this%input_shape(:this%input_rank-1) - this%knl &
+              this%input_shape(:this%input_rank-1) + 2 * this%pad - this%knl &
          ) / real(this%stp) &
     ) + 1
     this%num_params = this%get_num_params()

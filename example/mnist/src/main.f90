@@ -108,9 +108,7 @@ program mnist_example
            method = padding_method &
            ))
      call network%add(conv2d_layer_type( &
-          !  input_shape = [image_size+2,image_size+2,input_channels], &
            num_filters = cv_num_filters, kernel_size = 3, stride = 1, &
-          !  padding=padding_method, &
            padding="none", &
            calc_input_gradients = .false., &
            activation_function = "relu" &
