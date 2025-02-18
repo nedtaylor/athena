@@ -1,15 +1,14 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ATHENA library - a feedforward neural network library
-!!!#############################################################################
-!!! module contains implementation of the sigmoid activation function
-!!!#############################################################################
 module athena__activation_sigmoid
+  !! Module containing implementation of the sigmoid activation function
+  !!
+  !! This module implements the logistic sigmoid function for normalizing
+  !! outputs between 0 and 1
   use athena__constants, only: real32
   use athena__misc_types, only: activation_type
   implicit none
   
   type, extends(activation_type) :: sigmoid_type
+     !! Type for sigmoid activation function with overloaded procedures
    contains
      procedure, pass(this) :: activate_1d => sigmoid_activate_1d
      procedure, pass(this) :: activate_2d => sigmoid_activate_2d
@@ -35,14 +34,18 @@ module athena__activation_sigmoid
   
 contains
   
-!!!#############################################################################
-!!! initialisation
-!!!#############################################################################
+!###############################################################################
   pure function initialise(threshold, scale)
+    !! Initialise a sigmoid activation function
     implicit none
+
+    ! Arguments
     type(sigmoid_type) :: initialise
+    !! Sigmoid activation type
     real(real32), optional, intent(in) :: threshold
+    !! Optional threshold value for activation cutoff
     real(real32), optional, intent(in) :: scale
+    !! Optional scale factor for activation output
 
     initialise%name = "sigmoid"
 
@@ -59,18 +62,23 @@ contains
     end if
     !initialise%scale = 1._real32
   end function initialise
-!!!#############################################################################
+!###############################################################################
   
   
-!!!#############################################################################
-!!! sigmoid transfer function
-!!! f = 1/(1+exp(-x))
-!!!#############################################################################
+!###############################################################################
   pure function sigmoid_activate_1d(this, val) result(output)
+    !! Apply sigmoid activation to 1D array
+    !!
+    !! Computes: f = 1/(1+exp(-x))
     implicit none
+
+    ! Arguments
     class(sigmoid_type), intent(in) :: this
+    !! Sigmoid activation type
     real(real32), dimension(:), intent(in) :: val
+    !! Input values
     real(real32), dimension(size(val,dim=1)) :: output
+    !! Activated output values in range [0,1]
 
     where(val.lt.this%threshold)
        output = 0._real32
@@ -78,13 +86,21 @@ contains
        output = this%scale /(1._real32 + exp(-val))
     end where
   end function sigmoid_activate_1d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function sigmoid_activate_2d(this, val) result(output)
+    !! Apply sigmoid activation to 2D array
+    !!
+    !! Computes: f = 1/(1+exp(-x))
     implicit none
+
+    ! Arguments
     class(sigmoid_type), intent(in) :: this
+    !! Sigmoid activation type
     real(real32), dimension(:,:), intent(in) :: val
+    !! Input values
     real(real32), dimension(size(val,1),size(val,2)) :: output
+    !! Activated output values in range [0,1]
 
     where(val.lt.this%threshold)
        output = 0._real32
@@ -92,13 +108,21 @@ contains
        output = this%scale /(1._real32 + exp(-val))
     end where
   end function sigmoid_activate_2d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function sigmoid_activate_3d(this, val) result(output)
+    !! Apply sigmoid activation to 3D array
+    !!
+    !! Computes: f = 1/(1+exp(-x))
     implicit none
+
+    ! Arguments
     class(sigmoid_type), intent(in) :: this
+    !! Sigmoid activation type
     real(real32), dimension(:,:,:), intent(in) :: val
+    !! Input values
     real(real32), dimension(size(val,1),size(val,2),size(val,3)) :: output
+    !! Activated output values in range [0,1]
 
     where(val.lt.this%threshold)
        output = 0._real32
@@ -106,14 +130,22 @@ contains
        output = this%scale /(1._real32 + exp(-val))
     end where
   end function sigmoid_activate_3d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function sigmoid_activate_4d(this, val) result(output)
+    !! Apply sigmoid activation to 4D array
+    !!
+    !! Computes: f = 1/(1+exp(-x))
     implicit none
+
+    ! Arguments
     class(sigmoid_type), intent(in) :: this
+    !! Sigmoid activation type
     real(real32), dimension(:,:,:,:), intent(in) :: val
+    !! Input values
     real(real32), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4)) :: output
+    !! Activated output values in range [0,1]
 
     where(val.lt.this%threshold)
        output = 0._real32
@@ -121,14 +153,22 @@ contains
        output = this%scale /(1._real32 + exp(-val))
     end where
   end function sigmoid_activate_4d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function sigmoid_activate_5d(this, val) result(output)
+    !! Apply sigmoid activation to 5D array
+    !!
+    !! Computes: f = 1/(1+exp(-x))
     implicit none
+
+    ! Arguments
     class(sigmoid_type), intent(in) :: this
+    !! Sigmoid activation type
     real(real32), dimension(:,:,:,:,:), intent(in) :: val
+    !! Input values
     real(real32), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
+    !! Activated output values in range [0,1]
 
     where(val.lt.this%threshold)
        output = 0._real32
@@ -136,68 +176,105 @@ contains
        output = this%scale /(1._real32 + exp(-val))
     end where
   end function sigmoid_activate_5d
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! derivative of sigmoid function
-!!! df/dx = f * (1 - f)
-!!!#############################################################################
+!###############################################################################
   pure function sigmoid_differentiate_1d(this, val) result(output)
+    !! Differentiate sigmoid activation for 1D array
+    !!
+    !! Computes derivative: df/dx = f * (1 - f)
     implicit none
+
+    ! Arguments
     class(sigmoid_type), intent(in) :: this
+    !! Sigmoid activation type
     real(real32), dimension(:), intent(in) :: val
+    !! Input values
     real(real32), dimension(size(val,dim=1)) :: output
+    !! Differentiated output values
 
     output = this%activate_1d(val)
     output = this%scale * output * (this%scale - output)
   end function sigmoid_differentiate_1d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function sigmoid_differentiate_2d(this, val) result(output)
+    !! Differentiate sigmoid activation for 2D array
+    !!
+    !! Computes derivative: df/dx = f * (1 - f)
     implicit none
+
+    ! Arguments
     class(sigmoid_type), intent(in) :: this
+    !! Sigmoid activation type
     real(real32), dimension(:,:), intent(in) :: val
+    !! Input values
     real(real32), dimension(size(val,1),size(val,2)) :: output
+    !! Differentiated output values
     
     output = this%activate_2d(val)
     output = this%scale * output * (this%scale - output)
   end function sigmoid_differentiate_2d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function sigmoid_differentiate_3d(this, val) result(output)
+    !! Differentiate sigmoid activation for 3D array
+    !!
+    !! Computes derivative: df/dx = f * (1 - f)
     implicit none
+
+    ! Arguments
     class(sigmoid_type), intent(in) :: this
+    !! Sigmoid activation type
     real(real32), dimension(:,:,:), intent(in) :: val
+    !! Input values
     real(real32), dimension(size(val,1),size(val,2),size(val,3)) :: output
-    
+    !! Differentiated output values
+
     output = this%activate_3d(val)
     output = this%scale * output * (this%scale - output)
   end function sigmoid_differentiate_3d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function sigmoid_differentiate_4d(this, val) result(output)
+    !! Differentiate sigmoid activation for 4D array
+    !!
+    !! Computes derivative: df/dx = f * (1 - f)
     implicit none
+
+    ! Arguments
     class(sigmoid_type), intent(in) :: this
+    !! Sigmoid activation type
     real(real32), dimension(:,:,:,:), intent(in) :: val
+    !! Input values
     real(real32), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4)) :: output
+    !! Differentiated output values
     
     output = this%activate_4d(val)
     output = this%scale * output * (this%scale - output)
   end function sigmoid_differentiate_4d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function sigmoid_differentiate_5d(this, val) result(output)
+    !! Differentiate sigmoid activation for 5D array
+    !!
+    !! Computes derivative: df/dx = f * (1 - f)
     implicit none
+
+    ! Arguments
     class(sigmoid_type), intent(in) :: this
+    !! Sigmoid activation type
     real(real32), dimension(:,:,:,:,:), intent(in) :: val
+    !! Input values
     real(real32), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
+    !! Differentiated output values
     
     output = this%activate_5d(val)
     output = this%scale * output * (this%scale - output)
   end function sigmoid_differentiate_5d
-!!!#############################################################################
+!###############################################################################
 
 end module athena__activation_sigmoid

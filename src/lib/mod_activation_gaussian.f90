@@ -1,16 +1,15 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ATHENA library - a feedforward neural network library
-!!!#############################################################################
-!!! module contains implementation of the Gaussian activation function
-!!!#############################################################################
 module athena__activation_gaussian
+  !! Module containing implementation of the Gaussian activation function
+  !!
+  !! This module implements the Gaussian (bell curve) activation function
   use athena__constants, only: real32, pi
   use athena__misc_types, only: activation_type
   implicit none
   
   type, extends(activation_type) :: gaussian_type
+     !! Type for Gaussian activation function with overloaded procedures
      real(real32) :: sigma
+     !! Standard deviation parameter for Gaussian function
    contains
      procedure, pass(this) :: activate_1d => gaussian_activate_1d
      procedure, pass(this) :: activate_2d => gaussian_activate_2d
@@ -36,15 +35,20 @@ module athena__activation_gaussian
   
 contains
   
-!!!#############################################################################
-!!! initialisation
-!!!#############################################################################
+!###############################################################################
   pure function initialise(threshold, scale, sigma)
+    !! Initialise a Gaussian activation function
     implicit none
+
+    ! Arguments
     type(gaussian_type) :: initialise
+    !! Gaussian activation type
     real(real32), optional, intent(in) :: threshold
+    !! Optional threshold value for activation cutoff
     real(real32), optional, intent(in) :: scale
+    !! Optional scale factor for activation output
     real(real32), optional, intent(in) :: sigma
+    !! Optional standard deviation parameter
 
     initialise%name = "gaussian"
     
@@ -68,18 +72,24 @@ contains
     end if
 
   end function initialise
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! gaussian transfer function
-!!! f = 1/(1+exp(-x))
-!!!#############################################################################
+!###############################################################################
   pure function gaussian_activate_1d(this, val) result(output)
+    !! Apply Gaussian activation to 1D array
+    !!
+    !! Applies the Gaussian function element-wise to input array:
+    !! f = exp(-x^2/(2σ^2))/(σ√(2π))
     implicit none
+
+    ! Arguments
     class(gaussian_type), intent(in) :: this
+    !! Gaussian activation type containing sigma parameter
     real(real32), dimension(:), intent(in) :: val
+    !! Input values
     real(real32), dimension(size(val,dim=1)) :: output
+    !! Gaussian activated output values
 
     where(abs(val).le.this%threshold)
        output = this%scale * 1._real32/(sqrt(2*pi)*this%sigma) * &
@@ -91,10 +101,19 @@ contains
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
   pure function gaussian_activate_2d(this, val) result(output)
+    !! Apply Gaussian activation to 2D array
+    !!
+    !! Applies the Gaussian function element-wise to input array:
+    !! f = exp(-x^2/(2σ^2))/(σ√(2π))
     implicit none
+
+    ! Arguments
     class(gaussian_type), intent(in) :: this
-    real(real32), dimension(:,:), intent(in) :: val
+    !! Gaussian activation type containing sigma parameter
+    real(real32), dimension(:,:), intent(in) :: val 
+    !! Input values
     real(real32), dimension(size(val,1),size(val,2)) :: output
+    !! Gaussian activated output values
 
     where(abs(val).le.this%threshold)
        output = this%scale * 1._real32/(sqrt(2*pi)*this%sigma) * &
@@ -106,10 +125,19 @@ contains
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
   pure function gaussian_activate_3d(this, val) result(output)
+    !! Apply Gaussian activation to 3D array
+    !!
+    !! Applies the Gaussian function element-wise to input array:
+    !! f = exp(-x^2/(2σ^2))/(σ√(2π))
     implicit none
+
+    ! Arguments
     class(gaussian_type), intent(in) :: this
+    !! Gaussian activation type containing sigma parameter
     real(real32), dimension(:,:,:), intent(in) :: val
+    !! Input values
     real(real32), dimension(size(val,1),size(val,2),size(val,3)) :: output
+    !! Gaussian activated output values
 
     where(abs(val).le.this%threshold)
        output = this%scale * 1._real32/(sqrt(2*pi)*this%sigma) * &
@@ -150,28 +178,43 @@ contains
        output = 0._real32
     end where
   end function gaussian_activate_5d
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! derivative of gaussian function
-!!! df/dx = f * (1 - f)
-!!!#############################################################################
+!###############################################################################
   pure function gaussian_differentiate_1d(this, val) result(output)
+    !! Differentiate Gaussian activation for 1D array
+    !!
+    !! Computes the derivative: df/dx = -x/σ^2 * f(x)
+    !! where f(x) is the Gaussian activation
     implicit none
+
+    ! Arguments
     class(gaussian_type), intent(in) :: this
+    !! Gaussian activation type containing sigma parameter
     real(real32), dimension(:), intent(in) :: val
+    !! Input values
     real(real32), dimension(size(val,dim=1)) :: output
+    !! Differentiated output values
 
     output = -val/this%sigma**2._real32 * this%activate_1d(val)
   end function gaussian_differentiate_1d
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
   pure function gaussian_differentiate_2d(this, val) result(output)
+    !! Differentiate Gaussian activation for 2D array
+    !!
+    !! Computes the derivative: df/dx = -x/σ^2 * f(x)
+    !! where f(x) is the Gaussian activation
     implicit none
+
+    ! Arguments
     class(gaussian_type), intent(in) :: this
+    !! Gaussian activation type containing sigma parameter
     real(real32), dimension(:,:), intent(in) :: val
+    !! Input values
     real(real32), dimension(size(val,1),size(val,2)) :: output
+    !! Differentiated output values
 
     output = -val/this%sigma**2._real32 * this%activate_2d(val)
   end function gaussian_differentiate_2d
@@ -199,14 +242,23 @@ contains
 !!!-----------------------------------------------------------------------------
 !!!-----------------------------------------------------------------------------
   pure function gaussian_differentiate_5d(this, val) result(output)
+    !! Differentiate Gaussian activation for 5D array
+    !!
+    !! Computes the derivative: df/dx = -x/σ^2 * f(x)
+    !! where f(x) is the Gaussian activation
     implicit none
+
+    ! Arguments
     class(gaussian_type), intent(in) :: this
+    !! Gaussian activation type containing sigma parameter
     real(real32), dimension(:,:,:,:,:), intent(in) :: val
+    !! Input values
     real(real32), dimension(&
           size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
+    !! Differentiated output values
 
     output = -val/this%sigma**2._real32 * this%activate_5d(val)
   end function gaussian_differentiate_5d
-!!!#############################################################################
+!###############################################################################
 
 end module athena__activation_gaussian
