@@ -5,7 +5,13 @@ module athena__activation_none
   use athena__constants, only: real32
   use athena__misc_types, only: activation_type
   implicit none
-  
+
+
+  private
+
+  public :: none_setup
+
+
   type, extends(activation_type) :: none_type
    contains
      procedure, pass(this) :: activate_1d => none_activate_1d
@@ -23,11 +29,7 @@ module athena__activation_none
   interface none_setup
      procedure initialise
   end interface none_setup
-  
-  
-  private
-  
-  public :: none_setup
+
   
   
 contains

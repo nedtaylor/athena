@@ -6,7 +6,13 @@ module athena__activation_leaky_relu
   use athena__constants, only: real32
   use athena__misc_types, only: activation_type
   implicit none
-  
+
+
+  private
+
+  public :: leaky_relu_setup
+
+
   type, extends(activation_type) :: leaky_relu_type
    contains
      procedure, pass(this) :: activate_1d => leaky_relu_activate_1d
@@ -26,11 +32,7 @@ module athena__activation_leaky_relu
   end interface leaky_relu_setup
   
   
-  private
-  
-  public :: leaky_relu_setup
-  
-  
+
 contains
   
 !###############################################################################

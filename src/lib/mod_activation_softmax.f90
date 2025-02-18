@@ -6,7 +6,13 @@ module athena__activation_softmax
   use athena__constants, only: real32
   use athena__misc_types, only: activation_type
   implicit none
-  
+
+
+  private
+
+  public :: softmax_setup
+
+
   type, extends(activation_type) :: softmax_type
      !! Type for softmax activation function with overloaded procedures
    contains
@@ -25,13 +31,9 @@ module athena__activation_softmax
   interface softmax_setup
      procedure initialise
   end interface softmax_setup
-  
-  
-  private
-  
-  public :: softmax_setup
-  
-  
+
+
+
 contains
   
 !###############################################################################

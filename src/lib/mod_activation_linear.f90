@@ -6,6 +6,12 @@ module athena__activation_linear
   use athena__misc_types, only: activation_type
   implicit none
 
+
+  private
+
+  public :: linear_setup
+
+
   type, extends(activation_type) :: linear_type
    contains
      procedure, pass(this) :: activate_1d => linear_activate_1d
@@ -24,10 +30,6 @@ module athena__activation_linear
      procedure initialise
   end interface linear_setup
 
-  
-  private
-  
-  public :: linear_setup
 
   
 contains

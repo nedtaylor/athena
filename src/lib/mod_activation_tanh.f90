@@ -5,7 +5,13 @@ module athena__activation_tanh
   use athena__constants, only: real32
   use athena__misc_types, only: activation_type
   implicit none
-  
+
+
+  private
+
+  public :: tanh_setup
+
+
   type, extends(activation_type) :: tanh_type
      !! Type for tanh activation function with overloaded procedures
    contains
@@ -24,13 +30,9 @@ module athena__activation_tanh
   interface tanh_setup
      procedure initialise
   end interface tanh_setup
-  
-  
-  private
-  
-  public :: tanh_setup
-  
-  
+
+
+
 contains
   
 !###############################################################################

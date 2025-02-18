@@ -5,6 +5,12 @@ module athena__activation_piecewise
   use athena__misc_types, only: activation_type
   implicit none
 
+
+  private
+
+  public :: piecewise_setup
+
+
   type, extends(activation_type) :: piecewise_type
      !! Type for piecewise activation function with overloaded procedures
      real(real32) :: intercept, min, max
@@ -25,10 +31,6 @@ module athena__activation_piecewise
      procedure initialise
   end interface piecewise_setup
 
-  
-  private
-  
-  public :: piecewise_setup
 
   
 contains

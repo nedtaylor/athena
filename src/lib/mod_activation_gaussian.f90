@@ -5,7 +5,13 @@ module athena__activation_gaussian
   use athena__constants, only: real32, pi
   use athena__misc_types, only: activation_type
   implicit none
-  
+
+
+  private
+
+  public :: gaussian_setup
+
+
   type, extends(activation_type) :: gaussian_type
      !! Type for Gaussian activation function with overloaded procedures
      real(real32) :: sigma
@@ -26,11 +32,7 @@ module athena__activation_gaussian
   interface gaussian_setup
      procedure initialise
   end interface gaussian_setup
-  
-  
-  private
-  
-  public :: gaussian_setup
+
   
   
 contains

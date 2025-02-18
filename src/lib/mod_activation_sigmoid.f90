@@ -6,7 +6,13 @@ module athena__activation_sigmoid
   use athena__constants, only: real32
   use athena__misc_types, only: activation_type
   implicit none
-  
+
+
+  private
+
+  public :: sigmoid_setup
+
+
   type, extends(activation_type) :: sigmoid_type
      !! Type for sigmoid activation function with overloaded procedures
    contains
@@ -25,13 +31,9 @@ module athena__activation_sigmoid
   interface sigmoid_setup
      procedure initialise
   end interface sigmoid_setup
-  
-  
-  private
-  
-  public :: sigmoid_setup
-  
-  
+
+
+
 contains
   
 !###############################################################################

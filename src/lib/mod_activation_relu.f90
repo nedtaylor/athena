@@ -5,7 +5,13 @@ module athena__activation_relu
   use athena__constants, only: real32
   use athena__misc_types, only: activation_type
   implicit none
-  
+
+
+  private
+
+  public :: relu_setup
+
+
   type, extends(activation_type) :: relu_type
      !! Type for ReLU activation function with overloaded procedures
    contains
@@ -24,13 +30,9 @@ module athena__activation_relu
   interface relu_setup
      procedure initialise
   end interface relu_setup
-  
-  
-  private
-  
-  public :: relu_setup
-  
-  
+
+
+
 contains
   
 !###############################################################################
