@@ -1,43 +1,56 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ATHENA library - a feedforward neural network library
-!!!#############################################################################
-!!! module contains implementation of the identity initialiser
-!!!#############################################################################
 module athena__initialiser_ident
+  !! Module containing the implementation of the identity initialiser
+  !!
+  !! This module contains the implementation of the identity initialiser
+  !! for the weights and biases of a layer
   use athena__io_utils, only: stop_program
   use athena__constants, only: real32
   use athena__misc_types, only: initialiser_type
   implicit none
 
 
-  type, extends(initialiser_type) :: ident_type
-   contains
-     procedure, pass(this) :: initialise => ident_initialise
-  end type ident_type
-  type(ident_type) :: ident
-
-  
   private
 
   public :: ident
 
 
+  type, extends(initialiser_type) :: ident_type
+     !! Type for the identity initialiser
+   contains
+     procedure, pass(this) :: initialise => ident_initialise
+     !! Initialise the weights and biases using the identity matrix
+  end type ident_type
+
+  type(ident_type) :: ident
+  !! Identity initialiser object
+
+
+
 contains
 
-!!!#############################################################################
-!!! Ident initialisation
-!!!#############################################################################
+!###############################################################################
   subroutine ident_initialise(this, input, fan_in, fan_out, spacing)
+    !! Initialise the weights and biases using the identity matrix
     implicit none
-    class(ident_type), intent(inout) :: this
-    real(real32), dimension(..), intent(out) :: input
-    integer, optional, intent(in) :: fan_in, fan_out ! no. in and out params
-    integer, dimension(:), optional, intent(in) :: spacing
 
+    ! Arguments
+    class(ident_type), intent(inout) :: this
+    !! Instance of the identity initialiser
+    real(real32), dimension(..), intent(out) :: input
+    !! Weights and biases to initialise
+    integer, optional, intent(in) :: fan_in, fan_out
+    !! Number of input and output parameters
+    integer, dimension(:), optional, intent(in) :: spacing
+    !! Spacing of the input and output units
+
+    ! Local variables
     integer :: i, j
+    !! Loop index
     integer :: ndim
+    !! Number of dimensions
     integer, dimension(:), allocatable :: iprime, iprime2
+    !! Index variables
+
 
     if(all(shape(input).ne.size(input,1)))then
        call stop_program( &
@@ -70,11 +83,19 @@ contains
                 iprime2 = 0
                 iprime2(1) = 1
                 do i = 1, size(input)/spacing(1)
-                   iprime(ndim) = mod((i - 1)/product(spacing(:ndim-1)),product(spacing(:ndim)))
+                   iprime(ndim) = &
+                        mod( &
+                             (i - 1) / product( spacing(:ndim-1) ), &
+                             product(spacing(:ndim)) &
+                        )
                    iprime(ndim) = iprime(ndim) * product(spacing(:ndim-1))
                    do j = ndim - 1, 1, -1
-                     iprime(j) = mod((i - 1),sum(iprime(j+1:))) / product(spacing(:j-1))
-                     iprime(j) = iprime(j) * product(spacing(:j-1))
+                      iprime(j) = &
+                           mod( &
+                                (i - 1), &
+                                sum(iprime(j+1:)) &
+                           ) / product(spacing(:j-1))
+                      iprime(j) = iprime(j) * product(spacing(:j-1))
                   end do
                   input(1 + sum(iprime * ( spacing(1) + iprime2 ))) = 1._real32
                 end do
@@ -111,7 +132,6 @@ contains
     end select
     
   end subroutine ident_initialise
-!!!#############################################################################
+!###############################################################################
 
 end module athena__initialiser_ident
-!!!#############################################################################
