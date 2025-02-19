@@ -1,4 +1,4 @@
-module athena__activation_layer
+module athena__actv_layer
   !! Module containing implementation of the activation layer
   !!
   !! This module wraps different activation functions into a layer type
@@ -612,4 +612,4 @@ contains
   end subroutine backward_assumed_rank
 !###############################################################################
 
-end module athena__activation_layer
+end module athena__actv_layer
