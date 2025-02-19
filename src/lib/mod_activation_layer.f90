@@ -367,11 +367,13 @@ contains
     integer :: unit
     !! File unit
 
-    ! open file with new unit
+
+    ! Open file with new unit
     !--------------------------------------------------------------------------
     open(newunit=unit, file=trim(file), access='append')
 
-    ! write convolution initial parameters
+
+    ! Write initial parameters
     !--------------------------------------------------------------------------
     write(unit,'("ACTV")')
     write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
@@ -379,7 +381,8 @@ contains
     write(unit,'(3X,"ACTIVATION_SCALE = ",1ES20.10)') this%transfer%scale
     write(unit,'("END ACTV")')
 
-    ! close unit
+
+    ! Close unit
     !--------------------------------------------------------------------------
     close(unit)
 
@@ -419,18 +422,17 @@ contains
     !! Activation function name
 
 
-    !---------------------------------------------------------------------------
-    ! initialise optional arguments
+    ! Initialise optional arguments
     !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
 
-    !---------------------------------------------------------------------------
-    ! loop over tags in layer card
+
+    ! Loop over tags in layer card
     !---------------------------------------------------------------------------
     tag_loop: do
 
-       !! check for end of file
-       !!-----------------------------------------------------------------------
+       ! Check for end of file
+       !-----------------------------------------------------------------------
        read(unit,'(A)',iostat=stat) buffer
        if(stat.ne.0)then
           write(err_msg,'("file encountered error (EoF?) before END ",A)') &
@@ -440,7 +442,7 @@ contains
        end if
        if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
-       ! check for end of layer card
+       ! Check for end of layer card
        !------------------------------------------------------------------------
        if(trim(adjustl(buffer)).eq."END ACTV")then
           backspace(unit)
@@ -450,7 +452,7 @@ contains
        tag=trim(adjustl(buffer))
        if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
 
-       ! read parameters from save file
+       ! Read parameters from save file
        !------------------------------------------------------------------------
        select case(trim(tag))
        case("INPUT_SHAPE")
@@ -476,8 +478,7 @@ contains
     end do tag_loop
 
 
-    !---------------------------------------------------------------------------
-    ! allocate layer
+    ! Set hyperparameters and initialise layer
     !---------------------------------------------------------------------------
     call this%set_hyperparams( &
          activation_function = activation_function, &
@@ -486,8 +487,7 @@ contains
     call this%init(input_shape = input_shape)
 
 
-    !---------------------------------------------------------------------------
-    ! check for end of layer card
+    ! Check for end of layer card
     !---------------------------------------------------------------------------
     read(unit,'(A)') buffer
     if(trim(adjustl(buffer)).ne."END ACTV")then

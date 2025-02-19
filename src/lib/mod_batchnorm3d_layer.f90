@@ -500,6 +500,7 @@ contains
     tag_loop: do
 
        ! Check for end of file
+       !-----------------------------------------------------------------------
        read(unit,'(A)',iostat=stat) buffer
        if(stat.ne.0)then
           write(err_msg,'("file encountered error (EoF?) before END ",A)') &
@@ -510,6 +511,7 @@ contains
        if(trim(adjustl(buffer)).eq."") cycle tag_loop
  
        ! Check for end of layer card
+       !-----------------------------------------------------------------------
        if(trim(adjustl(buffer)).eq."END BATCHNORM3D")then
           backspace(unit)
           exit tag_loop
@@ -518,7 +520,8 @@ contains
        tag=trim(adjustl(buffer))
        if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
 
-       !! read parameters from save file
+       ! Read parameters from save file
+       !-----------------------------------------------------------------------
        select case(trim(tag))
        case("INPUT_SHAPE")
           call assign_vec(buffer, input_shape, itmp1)
@@ -541,8 +544,8 @@ contains
           bias_initialiser   = 'zeros'
           exit tag_loop
        case default
-         ! Don't look for "e" due to scientific notation of numbers
-         ! ... i.e. exponent (E+00)
+          ! Don't look for "e" due to scientific notation of numbers
+          ! ... i.e. exponent (E+00)
           if(scan(to_lower(trim(adjustl(buffer))),&
                'abcdfghijklmnopqrstuvwxyz').eq.0)then
              cycle tag_loop
@@ -557,7 +560,7 @@ contains
     end do tag_loop
 
 
-    ! Set transfer activation function
+    ! Set hyperparameters and initialise layer
     !---------------------------------------------------------------------------
     num_channels = input_shape(size(input_shape,1))
     call this%set_hyperparams( &

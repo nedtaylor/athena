@@ -361,12 +361,18 @@ contains
     character(256) :: buffer, tag, err_msg
     !! Buffer for reading lines, tag for identifying lines, error message
 
+
+    ! Initialise optional arguments
+    !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
 
+
     ! Loop over tags in layer card
+    !---------------------------------------------------------------------------
     tag_loop: do
 
        ! Check for end of file
+       !-----------------------------------------------------------------------
        read(unit,'(A)',iostat=stat) buffer
        if(stat.ne.0)then
           call stop_program( &
@@ -377,6 +383,7 @@ contains
        if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
        ! Check for end of layer card
+       !-----------------------------------------------------------------------
        if(trim(adjustl(buffer)).eq."END AVGPOOL3D")then
           backspace(unit)
           exit tag_loop
@@ -386,6 +393,7 @@ contains
        if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
 
        ! Read parameters from save file
+       !-----------------------------------------------------------------------
        select case(trim(tag))
        case("INPUT_SHAPE")
           call assign_vec(buffer, input_shape, itmp1)
@@ -409,11 +417,15 @@ contains
        end select
     end do tag_loop
 
-    ! Set transfer activation function
+
+    ! Set hyperparameters and initialise layer
+    !---------------------------------------------------------------------------
     call this%set_hyperparams(pool_size=pool_size, stride=stride)
     call this%init(input_shape = input_shape)
 
+
     ! Check for end of layer card
+    !---------------------------------------------------------------------------
     read(unit,'(A)') buffer
     if(trim(adjustl(buffer)).ne."END AVGPOOL3D")then
        write(0,*) trim(adjustl(buffer))
