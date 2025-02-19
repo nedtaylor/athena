@@ -1,10 +1,11 @@
 project:
-summary: A feedforward neural network library
-src_dir: src
+summary: A Fortran library for implementing neural networks
+src_dir: ./src
 output_dir: doc/html
-preprocess: true
+preprocess: false
 predocmark: !!
 fpp_extensions: f90
+                F90
 display: public
          protected
          private
@@ -14,6 +15,7 @@ md_extensions: markdown.extensions.toc
 coloured_edges: true
 sort: permission-alpha
 author: Ned Thaddeus Taylor
+github: https://github.com/nedtaylor
 print_creation_date: true
 creation_date: %Y-%m-%d %H:%M %z
 project_github: https://github.com/nedtaylor/athena
