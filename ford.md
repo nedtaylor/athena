@@ -1,7 +1,7 @@
 project:
 summary: A Fortran library for implementing neural networks
 src_dir: ./src
-output_dir: doc/html
+output_dir: docs/html
 preprocess: false
 predocmark: !!
 fpp_extensions: f90
