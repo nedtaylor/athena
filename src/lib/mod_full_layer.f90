@@ -439,7 +439,7 @@ contains
     !!--------------------------------------------------------------------------
     open(newunit=unit, file=trim(file), access='append')
 
-    !! write convolution initial parameters
+    !! Write initial parameters
     !!--------------------------------------------------------------------------
     write(unit,'("FULL")')
     write(unit,'(3X,"NUM_INPUTS = ",I0)') this%num_inputs

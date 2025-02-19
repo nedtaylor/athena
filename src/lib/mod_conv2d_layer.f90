@@ -539,23 +539,23 @@ contains
     !! Verbosity level
 
 
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     ! Initialise optional arguments
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
     this%batch_size = batch_size
 
 
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     ! Set batch size of padding layer, if allocated
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     if(allocated(this%pad_layer)) &
          call this%pad_layer%set_batch_size(this%batch_size, verbose=verbose_)
 
 
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     ! Set weights and biases pointers to params array
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     this%weight( &
          1:this%knl(1), &
          1:this%knl(2), &
@@ -566,9 +566,9 @@ contains
          this%params(this%num_params-this%num_filters+1:)
 
 
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     ! Allocate arrays
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
        if(.not.allocated(this%output)) this%output = array4d_type()
        if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
@@ -763,7 +763,7 @@ contains
     tag_loop: do
 
        ! Check for end of file
-       !-----------------------------------------------------------------------
+       !------------------------------------------------------------------------
        read(unit,'(A)',iostat=stat) buffer
        if(stat.ne.0)then
           write(err_msg,'("file encountered error (EoF?) before END ",A)') &
@@ -774,7 +774,7 @@ contains
        if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
        ! Check for end of layer card
-       !-----------------------------------------------------------------------
+       !------------------------------------------------------------------------
        if(trim(adjustl(buffer)).eq."END CONV2D")then
           backspace(unit)
           exit tag_loop
@@ -785,7 +785,7 @@ contains
 
        ! Read parameters from save file
        select case(trim(tag))
-       !-----------------------------------------------------------------------
+       !------------------------------------------------------------------------
        case("INPUT_SHAPE")
           call assign_vec(buffer, input_shape, itmp1)
        case("NUM_FILTERS")
@@ -868,6 +868,7 @@ contains
        end do
 
        ! Check for end of weights card
+       !------------------------------------------------------------------------
        read(unit,'(A)') buffer
        if(trim(adjustl(buffer)).ne."END WEIGHTS")then
           write(0,*) trim(adjustl(buffer))

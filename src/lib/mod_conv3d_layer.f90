@@ -644,7 +644,7 @@ contains
 
 
     ! Handle different width kernels for x, y, z
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     itmp1 = -1
     do i=1,3
        if(this%pad(i).gt.itmp1)then
@@ -655,7 +655,7 @@ contains
 
 
     ! Determine padding method
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     padding_type = ""
     if(this%pad(idx).eq.this%knl(idx)-1)then
        padding_type = "full"
@@ -667,12 +667,12 @@ contains
 
 
     ! Open file with new unit
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     open(newunit=unit, file=trim(file), access='append')
 
 
-    ! Write convolution initial parameters
-    !--------------------------------------------------------------------------
+    ! Write initial parameters
+    !---------------------------------------------------------------------------
     write(unit,'("CONV3D")')
     write(unit,'(3X,"INPUT_SHAPE = ",4(1X,I0))') this%input_shape
     write(unit,'(3X,"NUM_FILTERS = ",I0)') this%num_filters
@@ -692,8 +692,8 @@ contains
     write(unit,'(3X,"ACTIVATION_SCALE = ",F0.9)') this%transfer%scale
 
 
-    ! Write convolution weights and biases
-    !--------------------------------------------------------------------------
+    ! Write weights and biases
+    !---------------------------------------------------------------------------
     write(unit,'("WEIGHTS")')
     do l=1,this%num_filters
        write(unit,'(5(E16.8E2))', advance="no") this%weight(:,:,:,:,l)
@@ -705,7 +705,7 @@ contains
 
 
     ! Close unit
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     close(unit)
 
   end subroutine print_conv3d
@@ -764,7 +764,7 @@ contains
     tag_loop: do
 
        ! Check for end of file
-       !-----------------------------------------------------------------------
+       !------------------------------------------------------------------------
        read(unit,'(A)',iostat=stat) buffer
        if(stat.ne.0)then
           write(err_msg,'("file encountered error (EoF?) before END ",A)') &
@@ -775,7 +775,7 @@ contains
        if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
        ! Check for end of layer card
-       !-----------------------------------------------------------------------
+       !------------------------------------------------------------------------
        if(trim(adjustl(buffer)).eq."END CONV3D")then
           backspace(unit)
           exit tag_loop
@@ -785,7 +785,7 @@ contains
        if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
 
        ! Read parameters from save file
-       !-----------------------------------------------------------------------
+       !------------------------------------------------------------------------
        select case(trim(tag))
        case("INPUT_SHAPE")
           call assign_vec(buffer, input_shape, itmp1)
@@ -870,7 +870,7 @@ contains
 
 
        ! Check for end of weights card
-       !-----------------------------------------------------------------------
+       !------------------------------------------------------------------------
        read(unit,'(A)') buffer
        if(trim(adjustl(buffer)).ne."END WEIGHTS")then
           write(0,*) trim(adjustl(buffer))
@@ -947,7 +947,7 @@ contains
    
 
     ! Perform the convolution operation
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     do concurrent( &
          i=1:this%output%shape(1):1, &
          j=1:this%output%shape(2):1, &
@@ -979,7 +979,7 @@ contains
    
 
     ! Apply activation function to activation values (z)
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     select type(output => this%output)
     type is (array5d_type)
        output%val_ptr = this%transfer%activate(this%z)
@@ -1045,7 +1045,7 @@ contains
 
 
     ! Get gradient multiplied by differential of Z
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     grad_dz = gradient * &
          this%transfer%differentiate(this%z)
     do concurrent( &
@@ -1063,7 +1063,7 @@ contains
     ! ... = 1          : 2
     ! ... which would be wrong, as size = 1, so it should be 1:1
     ! ... ergo, we need to subtract 1 from upper index
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     do concurrent( &
          s = 1 : this%batch_size, &
          l = 1 : this%num_filters, &
@@ -1093,7 +1093,7 @@ contains
 
 
     ! Apply strided convolution to obtain input gradients
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     if(this%calc_input_gradients)then
        offset  = 1 + this%hlf + (this%cen - 1)
        lim(1,:) = this%knl + this%hlf

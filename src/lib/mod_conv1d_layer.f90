@@ -728,7 +728,7 @@ contains
     tag_loop: do
 
        ! Check for end of file
-       !-----------------------------------------------------------------------
+       !------------------------------------------------------------------------
        read(unit,'(A)',iostat=stat) buffer
        if(stat.ne.0)then
           write(err_msg,'("file encountered error (EoF?) before END ",A)') &
@@ -739,7 +739,7 @@ contains
        if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
        ! Check for end of layer card
-       !-----------------------------------------------------------------------
+       !------------------------------------------------------------------------
        if(trim(adjustl(buffer)).eq."END CONV1D")then
           backspace(unit)
           exit tag_loop
@@ -749,7 +749,7 @@ contains
        if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
 
        ! Read parameters from save file
-       !-----------------------------------------------------------------------
+       !------------------------------------------------------------------------
        select case(trim(tag))
        case("INPUT_SHAPE")
           call assign_vec(buffer, input_shape, itmp1)
@@ -833,6 +833,7 @@ contains
        end do
 
        ! Check for end of weights card
+       !------------------------------------------------------------------------
        read(unit,'(A)') buffer
        if(trim(adjustl(buffer)).ne."END WEIGHTS")then
           write(0,*) trim(adjustl(buffer))

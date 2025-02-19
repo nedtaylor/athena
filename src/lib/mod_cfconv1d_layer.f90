@@ -533,7 +533,7 @@ contains
     !!--------------------------------------------------------------------------
     open(newunit=unit, file=trim(file), access='append')
 
-    !! write convolution initial parameters
+    !! Write initial parameters
     !!--------------------------------------------------------------------------
     write(unit,'("CFCONV1D")')
     write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
@@ -545,7 +545,7 @@ contains
     write(unit,'(3X,"ACTIVATION = ",A)') trim(this%transfer%name)
     write(unit,'(3X,"ACTIVATION_SCALE = ",F0.9)') this%transfer%scale
 
-    !! write convolution weights and biases
+    !! Write weights and biases
     !!--------------------------------------------------------------------------
     write(unit,'("WEIGHTS")')
     do l=1,this%num_filters

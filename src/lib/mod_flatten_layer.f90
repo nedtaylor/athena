@@ -345,7 +345,7 @@ contains
       end if
       if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
-      !! check for end of convolution card
+      !! Check for end of layer card
       if(trim(adjustl(buffer)).eq."END FLATTEN")then
          backspace(unit)
          exit tag_loop

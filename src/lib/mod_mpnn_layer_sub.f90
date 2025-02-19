@@ -442,7 +442,7 @@ contains
     !!--------------------------------------------------------------------------
     open(newunit=unit, file=trim(file), access='append')
 
-    !! write convolution initial parameters
+    !! Write initial parameters
     !!--------------------------------------------------------------------------
     write(unit,'("MPNN")')
     write(unit,'(3X,"NUM_FEATURES = ",2(1X,I0))') &

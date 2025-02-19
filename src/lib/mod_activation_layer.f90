@@ -369,12 +369,12 @@ contains
 
 
     ! Open file with new unit
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     open(newunit=unit, file=trim(file), access='append')
 
 
     ! Write initial parameters
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     write(unit,'("ACTV")')
     write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
     write(unit,'(3X,"ACTIVATION_FUNCTION = ",A)') this%transfer%name
@@ -383,7 +383,7 @@ contains
 
 
     ! Close unit
-    !--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     close(unit)
 
   end subroutine print_actv
@@ -432,7 +432,7 @@ contains
     tag_loop: do
 
        ! Check for end of file
-       !-----------------------------------------------------------------------
+       !------------------------------------------------------------------------
        read(unit,'(A)',iostat=stat) buffer
        if(stat.ne.0)then
           write(err_msg,'("file encountered error (EoF?) before END ",A)') &

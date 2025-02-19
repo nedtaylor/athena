@@ -58,7 +58,7 @@ contains
     !---------------------------------------------------------------------------
     open(newunit=unit, file=trim(file), access='append')
 
-    ! write convolution initial parameters
+    ! Write initial parameters
     !---------------------------------------------------------------------------
     write(unit,'(A)') to_upper(trim(this%name))
     write(fmt,'("(3X,""INPUT_SHAPE ="",",I0,"(1X,I0))")') size(this%input_shape)
