@@ -13,368 +13,417 @@
 !!! - stop_check  - check for <STOP> file and LSTOP or LABORT tags inside
 !!!#############################################################################
 module athena__tools_infile
-  use athena__misc, only: grep,icount
+  !! Module containing custom input file reading functions and subroutines
+  use athena__misc, only: grep, icount
   implicit none
 
+
   private
-  
-!!!-----------------------------------------------------
-!!! assign a value to variable
-!!!-----------------------------------------------------
-!!! buffer   = (S, io) sacrifical input character string
-!!! variable = (*, in) variable to assign data to
-!!! found    = (I, io) count for finding variable
-!!! keyword  = (S, in, opt) keyword to start from
-!!! num      = (I, in, opt) number of tags in tag_list
-!!! tag_list = (S, in, opt) list of tags to search for
-!!!-----------------------------------------------------
-  interface assign_val
-     procedure assignI,assignR,assignD,assignS,assignL
-  end interface assign_val
-  interface assign_vec
-     procedure assignIvec,assignRvec,assignDvec
-  end interface assign_vec
 
-
-  public :: getline, rm_comments
   public :: assign_val, assign_vec
+  public :: getline, rm_comments
   public :: stop_check
 
-  
-!!!updated 2024/03/04
 
+  interface assign_val
+     !! Interface for assigning a value to a variable
+     procedure assignI, assignR, assignD, assignS, assignL
+  end interface assign_val
+
+  interface assign_vec
+     !! Interface for assigning a vector to a variable
+     procedure assignIvec, assignRvec, assignDvec
+  end interface assign_vec
 
 contains
-!!!#############################################################################
-!!! val outputs the section of buffer that occurs after an "="
-!!!#############################################################################
-  function val(buffer)
+
+!###############################################################################
+  function val(buffer) result(output)
+    !! Extract the section of buffer that occurs after an "="
+    implicit none
+
+    ! Arguments
     character(*), intent(in) :: buffer
-    character(100) :: val
+    !! Input buffer
 
-    val=trim(adjustl(buffer((scan(buffer,"=",back=.false.)+1):)))
-    return
+    ! Local variables
+    character(100) :: output
+    !! Extracted value
+
+    output = trim(adjustl(buffer((scan(buffer, "=") + 1):)))
   end function val
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! gets the line from a grep and assigns it to buffer
-!!!#############################################################################
-!!! unit    = (I, in) unit to read from
-!!! pattern = (S, in) pattern to grep for
-!!! buffer  = (S, io) buffer to assign line to
-  subroutine getline(unit,pattern,buffer)
+!###############################################################################
+  subroutine getline(unit, pattern, buffer)
+    !! Get the line from a grep and assign it to buffer
+    implicit none
+
+    ! Arguments
     integer, intent(in) :: unit
+    !! Unit to read from
     character(*), intent(in) :: pattern
+    !! Pattern to grep for
     character(*), intent(out) :: buffer
-    
-    integer :: Reason
+    !! Buffer to assign line to
 
-    call grep(unit,pattern)
-    backspace(unit);read(unit,'(A)',iostat=Reason) buffer
-    
+    ! Local variables
+    integer :: iostat
+    !! I/O status
+
+    call grep(unit, pattern)
+    backspace(unit)
+    read(unit, '(A)', iostat=iostat) buffer
   end subroutine getline
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! assign an integer to variable
-!!!#############################################################################
-  subroutine assignI(buffer,variable,found,keyword)
-    integer, intent(inout) :: found
+!###############################################################################
+  subroutine assignI(buffer, variable, found, keyword)
+    !! Assign an integer to variable
+    implicit none
+
+    ! Arguments
     character(*), intent(inout) :: buffer
+    !! Input buffer
     integer, intent(out) :: variable
+    !! Variable to assign data to
+    integer, intent(inout) :: found
+    !! Count for finding variable
     character(*), optional, intent(in) :: keyword
+    !! Keyword to start from
 
+    ! Local variables
     character(1024) :: buffer2
+    !! Temporary buffer
 
-    if(present(keyword))then
-       buffer=buffer(index(buffer,keyword):)
-    end if
-    if(scan("=",buffer).ne.0) buffer2=val(buffer)
-    if(trim(adjustl(buffer2)).ne.'') then
-       found=found+1
-       read(buffer2,*) variable
+    if(present(keyword)) buffer = buffer(index(buffer, keyword):)
+    if(scan(buffer, "=") /= 0) buffer2 = val(buffer)
+    if(trim(adjustl(buffer2)) /= '') then
+       found = found + 1
+       read(buffer2, *) variable
     end if
   end subroutine assignI
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! assign an arbitrary length vector of integers to variable
-!!!#############################################################################
-  subroutine assignIvec(buffer,variable,found,keyword)
-    integer, intent(inout) :: found
+!###############################################################################
+  subroutine assignIvec(buffer, variable, found, keyword)
+    !! Assign an arbitrary length vector of integers to variable
+    implicit none
+
+    ! Arguments
     character(*), intent(inout) :: buffer
-    integer, dimension(:) :: variable
+    !! Input buffer
+    integer, dimension(:), intent(out) :: variable
+    !! Variable to assign data to
+    integer, intent(inout) :: found
+    !! Count for finding variable
     character(*), optional, intent(in) :: keyword
+    !! Keyword to start from
 
+    ! Local variables
     integer :: i
+    !! Loop index
     character(1024) :: buffer2
+    !! Temporary buffer
 
-    if(present(keyword))then
-       buffer=buffer(index(buffer,keyword):)
-    end if
-    if(scan("=",buffer).ne.0) buffer2=val(buffer)
-    if(trim(adjustl(buffer2)).ne.'') then
-       found=found+1
-       if(icount(buffer2).eq.1.and.&
-            icount(buffer2).ne.size(variable))then
-          read(buffer2,*) variable(1)
+    if(present(keyword)) buffer = buffer(index(buffer, keyword):)
+    if(scan(buffer, "=") /= 0) buffer2 = val(buffer)
+    if(trim(adjustl(buffer2)) /= '') then
+       found = found + 1
+       if(icount(buffer2) == 1 .and. icount(buffer2) /= size(variable)) then
+          read(buffer2, *) variable(1)
           variable = variable(1)
        else
-          read(buffer2,*) (variable(i),i=1,size(variable))
+          read(buffer2, *) (variable(i), i = 1, size(variable))
        end if
     end if
   end subroutine assignIvec
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! assign a real to variable
-!!!#############################################################################
-  subroutine assignR(buffer,variable,found,keyword)
-    integer, intent(inout) :: found
+!###############################################################################
+  subroutine assignR(buffer, variable, found, keyword)
+    !! Assign a real to variable
+    implicit none
+
+    ! Arguments
     character(*), intent(inout) :: buffer
+    !! Input buffer
     real, intent(out) :: variable
+    !! Variable to assign data to
+    integer, intent(inout) :: found
+    !! Count for finding variable
     character(*), optional, intent(in) :: keyword
+    !! Keyword to start from
 
+    ! Local variables
     character(1024) :: buffer2
+    !! Temporary buffer
 
-    if(present(keyword))then
-       buffer=buffer(index(buffer,keyword):)
-    end if
-    if(scan("=",buffer).ne.0) buffer2=val(buffer)
-    if(trim(adjustl(buffer2)).ne.'') then
-       found=found+1
-       read(buffer2,*) variable
+    if(present(keyword)) buffer = buffer(index(buffer, keyword):)
+    if(scan(buffer, "=") /= 0) buffer2 = val(buffer)
+    if(trim(adjustl(buffer2)) /= '') then
+       found = found + 1
+       read(buffer2, *) variable
     end if
   end subroutine assignR
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! assign a DP value to variable
-!!!#############################################################################
-  subroutine assignRvec(buffer,variable,found,keyword)
-    integer, intent(inout) :: found
+!###############################################################################
+  subroutine assignRvec(buffer, variable, found, keyword)
+    !! Assign an arbitrary length vector of reals to variable
+    implicit none
+
+    ! Arguments
     character(*), intent(inout) :: buffer
+    !! Input buffer
     real, dimension(:), intent(out) :: variable
+    !! Variable to assign data to
+    integer, intent(inout) :: found
+    !! Count for finding variable
     character(*), optional, intent(in) :: keyword
+    !! Keyword to start from
 
+    ! Local variables
     integer :: i
+    !! Loop index
     character(1024) :: buffer2
+    !! Temporary buffer
 
-    if(present(keyword))then
-       buffer=buffer(index(buffer,keyword):)
-    end if
-    if(scan("=",buffer).ne.0) buffer2=val(buffer)
-    if(trim(adjustl(buffer2)).ne.'') then
-       found=found+1
-       if(icount(buffer2).eq.1.and.&
-            icount(buffer2).ne.size(variable))then
-          read(buffer2,*) variable(1)
+    if(present(keyword)) buffer = buffer(index(buffer, keyword):)
+    if(scan(buffer, "=") /= 0) buffer2 = val(buffer)
+    if(trim(adjustl(buffer2)) /= '') then
+       found = found + 1
+       if(icount(buffer2) == 1 .and. icount(buffer2) /= size(variable)) then
+          read(buffer2, *) variable(1)
           variable = variable(1)
        else
-          read(buffer2,*) (variable(i),i=1,size(variable))
+          read(buffer2, *) (variable(i), i = 1, size(variable))
        end if
     end if
   end subroutine assignRvec
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! assign a double precision to variable
-!!!#############################################################################
-  subroutine assignD(buffer,variable,found,keyword)
-    integer, intent(inout) :: found
+!###############################################################################
+  subroutine assignD(buffer, variable, found, keyword)
+    !! Assign a double precision to variable
+    implicit none
+
+    ! Arguments
     character(*), intent(inout) :: buffer
+    !! Input buffer
     double precision, intent(out) :: variable
+    !! Variable to assign data to
+    integer, intent(inout) :: found
+    !! Count for finding variable
     character(*), optional, intent(in) :: keyword
+    !! Keyword to start from
 
+    ! Local variables
     character(1024) :: buffer2
+    !! Temporary buffer
 
-    if(present(keyword))then
-       buffer=buffer(index(buffer,keyword):)
-    end if
-    if(scan("=",buffer).ne.0) buffer2=val(buffer)
-    if(trim(adjustl(buffer2)).ne.'') then
-       found=found+1
-       read(buffer2,*) variable
+    if(present(keyword)) buffer = buffer(index(buffer, keyword):)
+    if(scan(buffer, "=") /= 0) buffer2 = val(buffer)
+    if(trim(adjustl(buffer2)) /= '') then
+       found = found + 1
+       read(buffer2, *) variable
     end if
   end subroutine assignD
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! assign an arbitrary length vector of DP to variable
-!!!#############################################################################
-  subroutine assignDvec(buffer,variable,found,keyword)
-    integer, intent(inout) :: found
+!###############################################################################
+  subroutine assignDvec(buffer, variable, found, keyword)
+    !! Assign an arbitrary length vector of double precision to variable
+    implicit none
+
+    ! Arguments
     character(*), intent(inout) :: buffer
+    !! Input buffer
     double precision, dimension(:), intent(out) :: variable
+    !! Variable to assign data to
+    integer, intent(inout) :: found
+    !! Count for finding variable
     character(*), optional, intent(in) :: keyword
+    !! Keyword to start from
 
+    ! Local variables
     integer :: i
+    !! Loop index
     character(1024) :: buffer2
+    !! Temporary buffer
 
-    if(present(keyword))then
-       buffer=buffer(index(buffer,keyword):)
-    end if
-    if(scan("=",buffer).ne.0) buffer2=val(buffer)
-    if(trim(adjustl(buffer2)).ne.'') then
-       found=found+1
-       if(icount(buffer2).eq.1.and.&
-            icount(buffer2).ne.size(variable))then
-          read(buffer2,*) variable(1)
+    if(present(keyword)) buffer = buffer(index(buffer, keyword):)
+    if(scan(buffer, "=") /= 0) buffer2 = val(buffer)
+    if(trim(adjustl(buffer2)) /= '') then
+       found = found + 1
+       if(icount(buffer2) == 1 .and. icount(buffer2) /= size(variable)) then
+          read(buffer2, *) variable(1)
           variable = variable(1)
        else
-          read(buffer2,*) (variable(i),i=1,size(variable))
+          read(buffer2, *) (variable(i), i = 1, size(variable))
        end if
     end if
   end subroutine assignDvec
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! assign a string to variable
-!!!#############################################################################
-  subroutine assignS(buffer,variable,found,keyword)
-    integer, intent(inout) :: found
+!###############################################################################
+  subroutine assignS(buffer, variable, found, keyword)
+    !! Assign a string to variable
+    implicit none
+
+    ! Arguments
     character(*), intent(inout) :: buffer
+    !! Input buffer
     character(*), intent(out) :: variable
+    !! Variable to assign data to
+    integer, intent(inout) :: found
+    !! Count for finding variable
     character(*), optional, intent(in) :: keyword
+    !! Keyword to start from
 
-    character(1024)::buffer2
+    ! Local variables
+    character(1024) :: buffer2
+    !! Temporary buffer
 
-    if(present(keyword))then
-       buffer=buffer(index(buffer,keyword):)
-    end if
-    if(scan("=",buffer).ne.0) buffer2=val(buffer)
-    if(trim(adjustl(buffer2)).ne.'') then
-       found=found+1
-       read(buffer2,'(A)') variable
+    if(present(keyword)) buffer = buffer(index(buffer, keyword):)
+    if(scan(buffer, "=") /= 0) buffer2 = val(buffer)
+    if(trim(adjustl(buffer2)) /= '') then
+       found = found + 1
+       read(buffer2, '(A)') variable
     end if
   end subroutine assignS
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! assign a logical to variable (T/t/1 and F/f/0 accepted
-!!!#############################################################################
-  subroutine assignL(buffer,variable,found,keyword)
-    integer, intent(inout) :: found
+!###############################################################################
+  subroutine assignL(buffer, variable, found, keyword)
+    !! Assign a logical to variable (T/t/1 and F/f/0 accepted)
+    implicit none
+
+    ! Arguments
     character(*), intent(inout) :: buffer
+    !! Input buffer
     logical, intent(out) :: variable
+    !! Variable to assign data to
+    integer, intent(inout) :: found
+    !! Count for finding variable
     character(*), optional, intent(in) :: keyword
+    !! Keyword to start from
 
-    character(1024)::buffer2
+    ! Local variables
+    character(1024) :: buffer2
+    !! Temporary buffer
 
-    if(present(keyword))then
-       buffer=buffer(index(buffer,keyword):)
-    end if
-    if(scan("=",buffer).ne.0) buffer2=val(buffer)
-    if(trim(adjustl(buffer2)).ne.'') then
-       found=found+1
-       if(index(buffer2,"T").ne.0.or.&
-            index(buffer2,"t").ne.0.or.&
-            index(buffer2,"1").ne.0) then
-          variable=.TRUE.
+    if(present(keyword)) buffer = buffer(index(buffer, keyword):)
+    if(scan(buffer, "=") /= 0) buffer2 = val(buffer)
+    if(trim(adjustl(buffer2)) /= '') then
+       found = found + 1
+       if(index(buffer2, "T") /= 0 .or. index(buffer2, "t") /= 0 .or. index(buffer2, "1") /= 0) then
+          variable = .TRUE.
        end if
-       if(index(buffer2,"F").ne.0.or.&
-            index(buffer2,"f").ne.0.or.&
-            index(buffer2,"0").ne.0) then
-          variable=.FALSE.
+       if(index(buffer2, "F") /= 0 .or. index(buffer2, "f") /= 0 .or. index(buffer2, "0") /= 0) then
+          variable = .FALSE.
        end if
     end if
   end subroutine assignL
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! remove comment from a string (anything after ! or #) 
-!!!#############################################################################
-!!! buffer = (S, io) sacrifical input character string
-!!! iline  = (I, in, opt) line number
-  subroutine rm_comments(buffer,iline)
+!###############################################################################
+  subroutine rm_comments(buffer, iline)
+    !! Remove comment from a string (anything after ! or #)
     implicit none
+
+    ! Arguments
     character(*), intent(inout) :: buffer
+    !! Input buffer
     integer, optional, intent(in) :: iline
+    !! Line number
 
-    integer :: lbracket,rbracket,iline_
+    ! Local variables
+    integer :: lbracket, rbracket, iline_
+    !! Bracket positions and line number
 
-    iline_=0
-    if(present(iline)) iline_=iline
+    iline_ = 0
+    if(present(iline)) iline_ = iline
 
-    if(scan(buffer,'!').ne.0) buffer=buffer(:(scan(buffer,'!')-1))
-    if(scan(buffer,'#').ne.0) buffer=buffer(:(scan(buffer,'#')-1))
-    do while(scan(buffer,'(').ne.0.or.scan(buffer,')').ne.0)
-       lbracket=scan(buffer,'(',back=.true.)
-       rbracket=scan(buffer(lbracket:),')')
-       if(lbracket.eq.0.or.rbracket.eq.0)then
-          write(6,'(A,I0)') &
-               ' NOTE: a bracketing error was encountered on line ',iline_
-          buffer=""
+    if(scan(buffer, '!') /= 0) buffer = buffer(:(scan(buffer, '!') - 1))
+    if(scan(buffer, '#') /= 0) buffer = buffer(:(scan(buffer, '#') - 1))
+    do while(scan(buffer, '(') /= 0 .or. scan(buffer, ')') /= 0)
+       lbracket = scan(buffer, '(', back = .true.)
+       rbracket = scan(buffer(lbracket:), ')')
+       if(lbracket == 0 .or. rbracket == 0) then
+          write(6, '(A,I0)') ' NOTE: a bracketing error was encountered on line ', iline_
+          buffer = ""
           return
        end if
-       rbracket=rbracket+lbracket-1
-       buffer=buffer(:(lbracket-1))//buffer((rbracket+1):)
+       rbracket = rbracket + lbracket - 1
+       buffer = buffer(:(lbracket - 1)) // buffer((rbracket + 1):)
     end do
-
-    return
   end subroutine rm_comments
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! logical check for stop file
-!!!#############################################################################
-!!! file   = (S, in, opt) file to check for
+!###############################################################################
   function stop_check(file) result(output)
+    !! Logical check for stop file
     implicit none
-    integer :: Reason,itmp1
-    integer :: unit
-    logical :: lfound
-    logical :: output
+
+    ! Arguments
     character(*), optional, intent(in) :: file
+    !! File to check for
+
+    ! Local variables
+    integer :: Reason, itmp1, unit
+    !! I/O status, temporary integer, and unit
+    logical :: lfound, output
+    !! File found flag and output
     character(248) :: file_
+    !! File name
     character(128) :: buffer, tagname
+    !! Buffer and tag name
 
     unit = 999
     file_ = "STOPCAR"
     if(present(file)) file_ = file
 
     output = .false.
-    !! check if file exists
-    inquire(file=trim(file_),exist=lfound)
-    file_if: if(lfound)then
+    !! Check if file exists
+    inquire(file = trim(file_), exist = lfound)
+    if(lfound) then
        itmp1 = 0
-       open(unit=unit, file=trim(file_))
-       !! read line-by-line
-       file_loop: do
-          read(unit,'(A)',iostat=Reason) buffer
-          if(Reason.ne.0) exit file_loop
+       open(unit = unit, file = trim(file_))
+       !! Read line-by-line
+       do
+          read(unit, '(A)', iostat = Reason) buffer
+          if(Reason /= 0) exit
           call rm_comments(buffer)
-          if(trim(buffer).eq.'') cycle file_loop
-          tagname=trim(adjustl(buffer))
-          if(scan(buffer,"=").ne.0) tagname=trim(tagname(:scan(tagname,"=")-1))
+          if(trim(buffer) == "") cycle
+          tagname = trim(adjustl(buffer))
+          if(scan(buffer, "=") /= 0) tagname = trim(tagname(:scan(tagname, "=") - 1))
           select case(trim(tagname))
           case("LSTOP")
-             call assignL(buffer,output,itmp1)
-             exit file_loop
+             call assignL(buffer, output, itmp1)
+             exit
           case("LABORT")
-             call assignL(buffer,output,itmp1)
-             if(output)then
-                close(unit,status='delete')
-                stop "LABORT ENCOUNTERED IN STOP FILE ("//trim(file_)//")"
+             call assignL(buffer, output, itmp1)
+             if(output) then
+                close(unit, status = 'delete')
+                stop "LABORT ENCOUNTERED IN STOP FILE (" // trim(file_) // ")"
              end if
           end select
-       end do file_loop
-       close(unit,status='delete')
-    end if file_if
-
+       end do
+       close(unit, status = 'delete')
+    end if
   end function stop_check
-!!!#############################################################################
+!###############################################################################
 
 end module athena__tools_infile

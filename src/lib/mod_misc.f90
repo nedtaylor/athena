@@ -117,7 +117,7 @@ contains
 
     greploop: do
        read(unit,'(A100)',iostat=iostat) buffer
-       if(Reason.lt.0) return
+       if(iostat.lt.0) return
        if(index(trim(buffer),trim(input)).ne.0) exit greploop
     end do greploop
   end subroutine grep

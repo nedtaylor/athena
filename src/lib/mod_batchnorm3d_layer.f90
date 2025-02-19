@@ -768,7 +768,7 @@ contains
 
           ! Calculate gradient of inputs
           di%val_ptr(:,:,:,m,:) = &
-               1._real32 / ( *
+               1._real32 / ( &
                     this%norm * sqrt(this%variance(m) + this%epsilon) &
                ) * &
                ( this%norm * dx_hat(:,:,:,m,:) - &
