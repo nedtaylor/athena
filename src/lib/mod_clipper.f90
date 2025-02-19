@@ -1,44 +1,9 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ATHENA library - a feedforward neural network library
-!!!#############################################################################
-!!! module contains routines for clipping gradients
-!!! module includes the following types:
-!!! - clip_type - type containing clipping information
-!!!##################
-!!! clip_type contains the following procedures:
-!!! - read_clip  - read clipping information from strings
-!!! - set_clip   - set clipping information from a dictionary
-!!! - apply_clip - apply clipping to gradients
-!!!#############################################################################
 module athena__clipper
+  !! Module containing functions to clip gradients
+  !!
+  !! This module implements clipping methods for layer gradients
   use athena__constants, only: real32
   implicit none
-
-
-!!!------------------------------------------------------------------------
-!!! gradient clipping type
-!!!------------------------------------------------------------------------
-  type clip_type
-     logical :: l_min_max = .false.
-     logical :: l_norm    = .false.
-     real(real32) :: min  =-huge(1._real32)
-     real(real32) :: max  = huge(1._real32)
-     real(real32) :: norm = huge(1._real32)
-   contains
-     procedure, pass(this) :: read => read_clip
-     procedure, pass(this) :: set => set_clip
-     procedure, pass(this) :: apply => apply_clip
-  end type clip_type
-
-  interface clip_type
-     module function clip_setup( &
-          clip_min, clip_max, clip_norm) result(clip)
-        real(real32), optional, intent(in) :: clip_min, clip_max, clip_norm
-        type(clip_type) :: clip
-     end function clip_setup
-  end interface clip_type
-
 
 
   private
@@ -46,21 +11,59 @@ module athena__clipper
   public :: clip_type
 
 
+  type clip_type
+     !! Type for clipping gradients
+     logical :: l_min_max = .false.
+     !! Boolean whether min/max values are set
+     logical :: l_norm    = .false.
+     !! Boolean whether a norm is set
+     real(real32) :: min  =-huge(1._real32)
+     !! Minimum value for clipping
+     real(real32) :: max  = huge(1._real32)
+     !! Maximum value for clipping
+     real(real32) :: norm = huge(1._real32)
+     !! Maximum L2-norm for clipping
+   contains
+     procedure, pass(this) :: read => read_clip
+     !! Read clipping information
+     procedure, pass(this) :: set => set_clip
+     !! Set clipping information
+     procedure, pass(this) :: apply => apply_clip
+     !! Apply clipping to gradients
+  end type clip_type
+
+  interface clip_type
+     !! Interface for the clip type
+     module function clip_setup( &
+          clip_min, clip_max, clip_norm) result(clip)
+       !! Set up the clip dictionary
+       real(real32), optional, intent(in) :: clip_min, clip_max, clip_norm
+       !! Minimum, maximum, and norm values for clipping
+       type(clip_type) :: clip
+       !! Clip dictionary
+     end function clip_setup
+  end interface clip_type
+
+
+
 contains
 
-!!!#############################################################################
-!!! set clip dictionary
-!!!#############################################################################
+!###############################################################################
   module function clip_setup( &
        clip_min, clip_max, clip_norm) result(clip)
+    !! Set up the clip dictionary
     implicit none
+
+    ! Arguments
     real(real32), optional, intent(in) :: clip_min, clip_max, clip_norm
+    !! Minimum, maximum, and norm values for clipping
     type(clip_type) :: clip
+    !! Instance of the clip type
 
 
-    !!--------------------------------------------------------------------------
-    !! set up clipping limits
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Set up clipping limits
+    !---------------------------------------------------------------------------
     if(present(clip_min))then
        clip%l_min_max = .true.
        clip%min = clip_min
@@ -75,15 +78,19 @@ contains
     end if
 
    end function clip_setup
-!!!#############################################################################
+!###############################################################################
 
-!!!#############################################################################
-!!! get clipping information
-!!!#############################################################################
+
+!###############################################################################
   subroutine read_clip(this, min_str, max_str, norm_str)
+    !! Read clipping information
     implicit none
+
+    ! Arguments
     class(clip_type), intent(inout) :: this
+    !! Instance of the clip type
     character(*), intent(in) :: min_str, max_str, norm_str
+    !! Strings for min, max, and norm values
 
     if(trim(min_str).ne."")then
        read(min_str,*) this%min
@@ -105,22 +112,26 @@ contains
     end if
 
   end subroutine read_clip
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! set clip dictionary
-!!!#############################################################################
+!###############################################################################
   subroutine set_clip(this, clip_dict, clip_min, clip_max, clip_norm)
+    !! Set clipping information
     implicit none
+
+    ! Arguments
     class(clip_type), intent(inout) :: this
+    !! Instance of the clip type
     type(clip_type), optional, intent(in) :: clip_dict
+    !! Clip dictionary
     real(real32), optional, intent(in) :: clip_min, clip_max, clip_norm
+    !! Minimum, maximum, and norm values for clipping
 
 
-    !!--------------------------------------------------------------------------
-    !! set up clipping limits
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Set up clipping limits
+    !---------------------------------------------------------------------------
     if(present(clip_dict))then
        this%l_min_max = clip_dict%l_min_max
        this%l_norm = clip_dict%l_norm
@@ -147,21 +158,29 @@ contains
     end if
 
   end subroutine set_clip
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! gradient norm clipping
-!!!#############################################################################
+!###############################################################################
   pure subroutine apply_clip(this, length, gradient, bias)
+    !! Function to apply clipping to gradients
     implicit none
-    class(clip_type), intent(in) :: this
-    integer, intent(in) :: length
-    real(real32), dimension(length), intent(inout) :: gradient
-    real(real32), dimension(:), optional, intent(inout) :: bias
 
+    ! Arguments
+    class(clip_type), intent(in) :: this
+    !! Instance of the clip type
+    integer, intent(in) :: length
+    !! Length of the gradient
+    real(real32), dimension(length), intent(inout) :: gradient
+    !! Gradient to be clipped
+    real(real32), dimension(:), optional, intent(inout) :: bias
+    !! Bias to be clipped
+
+    ! Local variables
     real(real32) :: scale
+    !! Scaling factor for the gradient
     real(real32), dimension(:), allocatable :: bias_
+    !! Copy of the bias
 
     if(present(bias))then
        bias_ = bias
@@ -169,13 +188,13 @@ contains
        allocate(bias_(1), source=0._real32)
     end if
 
-    !! clip values to within limits of (min,max)
+    ! Clip values to within limits of (min,max)
     if(this%l_min_max)then
        gradient = max(this%min,min(this%max,gradient))
        bias_   = max(this%min,min(this%max,bias_))
     end if
 
-    !! clip values to a maximum L2-norm
+    ! Clip values to a maximum L2-norm
     if(this%l_norm)then
        scale = min(1._real32, &
             this%norm/sqrt(sum(gradient**2._real32) + &
@@ -189,6 +208,6 @@ contains
     if(present(bias)) bias = bias_
 
   end subroutine apply_clip
-!!!#############################################################################
+!###############################################################################
 
 end module athena__clipper

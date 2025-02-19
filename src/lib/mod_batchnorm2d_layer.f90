@@ -71,6 +71,8 @@ module athena__batchnorm2d_layer
      end function layer_setup
   end interface batchnorm2d_layer_type
 
+
+
 contains
 
 !###############################################################################
