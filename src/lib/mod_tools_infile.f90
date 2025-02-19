@@ -1,19 +1,11 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor and Francis Huw Davies
-!!! Code part of the ARTEMIS group (Hepplestone research group).
-!!! Think Hepplestone, think HRG.
-!!!#############################################################################
-!!! module contains customn input file reading functions and subroutines.
-!!! module includes the following functionsand subroutines:
-!!! - assign_val  - assign a value to a variable
-!!! - assign_vec  - assign a vector to a variable
-!!! - getline     - return line using grep and goes back to start of line
-!!! - rm_comments - remove comments from a string (anything after ! or #)
-!!! - cat         - cat lines until user-defined end string is encountered
-!!! - stop_check  - check for <STOP> file and LSTOP or LABORT tags inside
-!!!#############################################################################
 module athena__tools_infile
   !! Module containing custom input file reading functions and subroutines
+  !!
+  !! This module contains custom input file reading functions and subroutines
+  !! for reading and assigning values from a file.
+  !! Code copied from ARTEMIS with permission of the authors
+  !! Ned Thaddeus Taylor and Francis Huw Davies
+  !! https://github.com/ExeQuantCode/ARTEMIS
   use athena__misc, only: grep, icount
   implicit none
 
@@ -99,8 +91,8 @@ contains
     !! Temporary buffer
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
-    if(scan(buffer, "=") /= 0) buffer2 = val(buffer)
-    if(trim(adjustl(buffer2)) /= '') then
+    if(scan(buffer, "=") .ne. 0) buffer2 = val(buffer)
+    if(trim(adjustl(buffer2)) .ne. '') then
        found = found + 1
        read(buffer2, *) variable
     end if
@@ -130,10 +122,10 @@ contains
     !! Temporary buffer
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
-    if(scan(buffer, "=") /= 0) buffer2 = val(buffer)
-    if(trim(adjustl(buffer2)) /= '') then
+    if(scan(buffer, "=") .ne. 0) buffer2 = val(buffer)
+    if(trim(adjustl(buffer2)) .ne. '') then
        found = found + 1
-       if(icount(buffer2) == 1 .and. icount(buffer2) /= size(variable)) then
+       if(icount(buffer2) == 1 .and. icount(buffer2) .ne. size(variable)) then
           read(buffer2, *) variable(1)
           variable = variable(1)
        else
@@ -164,8 +156,8 @@ contains
     !! Temporary buffer
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
-    if(scan(buffer, "=") /= 0) buffer2 = val(buffer)
-    if(trim(adjustl(buffer2)) /= '') then
+    if(scan(buffer, "=") .ne. 0) buffer2 = val(buffer)
+    if(trim(adjustl(buffer2)) .ne. '') then
        found = found + 1
        read(buffer2, *) variable
     end if
@@ -195,10 +187,10 @@ contains
     !! Temporary buffer
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
-    if(scan(buffer, "=") /= 0) buffer2 = val(buffer)
-    if(trim(adjustl(buffer2)) /= '') then
+    if(scan(buffer, "=") .ne. 0) buffer2 = val(buffer)
+    if(trim(adjustl(buffer2)) .ne. '') then
        found = found + 1
-       if(icount(buffer2) == 1 .and. icount(buffer2) /= size(variable)) then
+       if(icount(buffer2) == 1 .and. icount(buffer2) .ne. size(variable)) then
           read(buffer2, *) variable(1)
           variable = variable(1)
        else
@@ -229,8 +221,8 @@ contains
     !! Temporary buffer
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
-    if(scan(buffer, "=") /= 0) buffer2 = val(buffer)
-    if(trim(adjustl(buffer2)) /= '') then
+    if(scan(buffer, "=") .ne. 0) buffer2 = val(buffer)
+    if(trim(adjustl(buffer2)) .ne. '') then
        found = found + 1
        read(buffer2, *) variable
     end if
@@ -260,10 +252,10 @@ contains
     !! Temporary buffer
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
-    if(scan(buffer, "=") /= 0) buffer2 = val(buffer)
-    if(trim(adjustl(buffer2)) /= '') then
+    if(scan(buffer, "=") .ne. 0) buffer2 = val(buffer)
+    if(trim(adjustl(buffer2)) .ne. '') then
        found = found + 1
-       if(icount(buffer2) == 1 .and. icount(buffer2) /= size(variable)) then
+       if(icount(buffer2) == 1 .and. icount(buffer2) .ne. size(variable)) then
           read(buffer2, *) variable(1)
           variable = variable(1)
        else
@@ -294,8 +286,8 @@ contains
     !! Temporary buffer
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
-    if(scan(buffer, "=") /= 0) buffer2 = val(buffer)
-    if(trim(adjustl(buffer2)) /= '') then
+    if(scan(buffer, "=") .ne. 0) buffer2 = val(buffer)
+    if(trim(adjustl(buffer2)) .ne. '') then
        found = found + 1
        read(buffer2, '(A)') variable
     end if
@@ -323,13 +315,21 @@ contains
     !! Temporary buffer
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
-    if(scan(buffer, "=") /= 0) buffer2 = val(buffer)
-    if(trim(adjustl(buffer2)) /= '') then
+    if(scan(buffer, "=") .ne. 0) buffer2 = val(buffer)
+    if(trim(adjustl(buffer2)) .ne. '') then
        found = found + 1
-       if(index(buffer2, "T") /= 0 .or. index(buffer2, "t") /= 0 .or. index(buffer2, "1") /= 0) then
+       if( &
+            index(buffer2, "T") .ne. 0 .or. &
+            index(buffer2, "t") .ne. 0 .or. &
+            index(buffer2, "1") .ne. 0 &
+       ) then
           variable = .TRUE.
        end if
-       if(index(buffer2, "F") /= 0 .or. index(buffer2, "f") /= 0 .or. index(buffer2, "0") /= 0) then
+       if( &
+            index(buffer2, "F") .ne. 0 .or. &
+            index(buffer2, "f") .ne. 0 .or. &
+            index(buffer2, "0") .ne. 0 &
+       ) then
           variable = .FALSE.
        end if
     end if
@@ -355,13 +355,14 @@ contains
     iline_ = 0
     if(present(iline)) iline_ = iline
 
-    if(scan(buffer, '!') /= 0) buffer = buffer(:(scan(buffer, '!') - 1))
-    if(scan(buffer, '#') /= 0) buffer = buffer(:(scan(buffer, '#') - 1))
-    do while(scan(buffer, '(') /= 0 .or. scan(buffer, ')') /= 0)
+    if(scan(buffer, '!') .ne. 0) buffer = buffer(:(scan(buffer, '!') - 1))
+    if(scan(buffer, '#') .ne. 0) buffer = buffer(:(scan(buffer, '#') - 1))
+    do while(scan(buffer, '(') .ne. 0 .or. scan(buffer, ')') .ne. 0)
        lbracket = scan(buffer, '(', back = .true.)
        rbracket = scan(buffer(lbracket:), ')')
        if(lbracket == 0 .or. rbracket == 0) then
-          write(6, '(A,I0)') ' NOTE: a bracketing error was encountered on line ', iline_
+          write(6, '(A,I0)') &
+               ' NOTE: a bracketing error was encountered on line ', iline_
           buffer = ""
           return
        end if
@@ -404,11 +405,12 @@ contains
        !! Read line-by-line
        do
           read(unit, '(A)', iostat = Reason) buffer
-          if(Reason /= 0) exit
+          if(Reason .ne. 0) exit
           call rm_comments(buffer)
           if(trim(buffer) == "") cycle
           tagname = trim(adjustl(buffer))
-          if(scan(buffer, "=") /= 0) tagname = trim(tagname(:scan(tagname, "=") - 1))
+          if(scan(buffer, "=") .ne. 0) &
+               tagname = trim(tagname(:scan(tagname, "=") - 1))
           select case(trim(tagname))
           case("LSTOP")
              call assignL(buffer, output, itmp1)

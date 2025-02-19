@@ -1,8 +1,12 @@
 module athena__misc
   !! Module contains various miscellaneous functions and subroutines.
   !!
-  !! Procedures in this module have been written by Ned Thaddeus Taylor and
-  !! Francis Huw Davies
+  !! This module contains various miscellaneous functions and subroutines that
+  !! are used throughout the library. These include mathematical functions,
+  !! string manipulation functions, and file I/O functions.
+  !! Code copied from ARTEMIS with permission of the authors
+  !! Ned Thaddeus Taylor and Francis Huw Davies
+  !! https://github.com/ExeQuantCode/ARTEMIS
   use athena__constants, only: real32
   implicit none
 
