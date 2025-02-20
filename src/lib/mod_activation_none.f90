@@ -25,15 +25,15 @@ module athena__activation_none
      procedure, pass(this) :: differentiate_4d => none_differentiate_4d
      procedure, pass(this) :: differentiate_5d => none_differentiate_5d
   end type none_type
-  
+
   interface none_setup
      procedure initialise
   end interface none_setup
 
-  
-  
+
+
 contains
-  
+
 !###############################################################################
   pure function initialise(scale)
     !! Initialise a none (no-op) activation function
@@ -54,8 +54,8 @@ contains
     end if
   end function initialise
 !###############################################################################
-  
-  
+
+
 !###############################################################################
   pure function none_activate_1d(this, val) result(output)
     !! Apply identity activation to 1D array

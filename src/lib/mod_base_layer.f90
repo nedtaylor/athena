@@ -10,7 +10,7 @@ module athena__base_layer
   !! - learnable
   !! - convolutional
   !! - batch normalisation
-  !! 
+  !!
   !! The following procedures are based on code from the neural-fortran library
   !! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
   use athena__constants, only: real32

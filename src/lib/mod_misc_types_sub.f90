@@ -58,16 +58,16 @@ contains
     if (allocated(this%dim)) deallocate(this%dim)
     if (allocated(this%orig_bound)) deallocate(this%orig_bound)
     if (allocated(this%dest_bound)) deallocate(this%dest_bound)
-    
+
     allocate(this%dim(this%num))
     allocate(this%orig_bound(this%rank, this%num))
     allocate(this%dest_bound(2, this%rank, this%num))
-    
+
 
     ! Initialise all bounds to 1
     !---------------------------------------------------------------------------
     this%orig_bound = 1
-    
+
 
     ! Set up replication bounds
     !---------------------------------------------------------------------------
@@ -78,7 +78,7 @@ contains
            do j = 1, 2  ! Two faces per dimension
               facet_idx = facet_idx + 1
               this%dim(facet_idx) = i
-              
+
               ! Set destination bounds
               if(j .eq. 1) then
                  this%dest_bound(:,1,facet_idx) = [1, pad(k)]
@@ -98,11 +98,11 @@ contains
              do k = 0, 3  ! Four combinations per dimension pair
                 facet_idx = facet_idx + 1
                 this%dim(facet_idx) = idim
-                
+
                 ! Set original bounds using binary pattern
                 if (btest(k,1)) this%orig_bound(1,facet_idx) = length(i)
                 if (btest(k,0)) this%orig_bound(2,facet_idx) = length(j)
-                
+
                 ! Set destination bounds
                 this%dest_bound(:,1,facet_idx) = &
                      merge(&
@@ -135,7 +135,7 @@ contains
           end do
        end do
     end select
-        
+
   end subroutine setup_replication_bounds
 !###############################################################################
 
@@ -151,7 +151,7 @@ contains
     implicit none
 
     ! Arguments
-    class(array_type), intent(in) :: a, b 
+    class(array_type), intent(in) :: a, b
     !! Input arrays
     class(array_type), allocatable :: output
     !! Output array

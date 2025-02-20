@@ -154,7 +154,7 @@ contains
     !! Batch size
     integer, optional, intent(in) :: verbose
     !! Verbosity level
-    
+
     type(dropblock2d_layer_type) :: layer
     !! Instance of the 2D dropblock layer
 #else
@@ -284,7 +284,7 @@ contains
     ! Generate mask
     !---------------------------------------------------------------------------
     call this%generate_mask()
-    
+
 
     !---------------------------------------------------------------------------
     ! Initialise batch size-dependent arrays
@@ -311,15 +311,15 @@ contains
     ! Local variables
     integer :: verbose_ = 0
     !! Verbosity level
- 
+
 
     !---------------------------------------------------------------------------
     ! Initialise optional arguments
     !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
     this%batch_size = batch_size
- 
- 
+
+
     !---------------------------------------------------------------------------
     ! Allocate arrays
     !---------------------------------------------------------------------------
@@ -337,10 +337,10 @@ contains
        if(this%di%allocated) call this%di%deallocate()
        call this%di%allocate(source=this%output)
     end if
- 
+
   end subroutine set_batch_size_dropblock2d
 !###############################################################################
- 
+
 
 !###############################################################################
   subroutine generate_bernoulli_mask(this)
@@ -358,7 +358,7 @@ contains
     !! Loop indices
     integer, dimension(2) :: ilim, jlim
     !! Limits for mask
-    
+
 
     ! Generate Bernoulli mask
     !---------------------------------------------------------------------------

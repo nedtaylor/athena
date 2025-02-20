@@ -42,7 +42,7 @@ module athena__maxpool3d_layer
        !! Set up the 3D max pooling layer
        integer, dimension(:), optional, intent(in) :: input_shape
        !! Input shape
-       integer, optional, intent(in) :: batch_size 
+       integer, optional, intent(in) :: batch_size
        !! Batch size
        integer, dimension(..), optional, intent(in) :: pool_size
        !! Pool size
@@ -126,7 +126,7 @@ contains
     ! Arguments
     integer, dimension(:), optional, intent(in) :: input_shape
     !! Input shape
-    integer, optional, intent(in) :: batch_size 
+    integer, optional, intent(in) :: batch_size
     !! Batch size
     integer, dimension(..), optional, intent(in) :: pool_size
     !! Pool size
@@ -134,7 +134,7 @@ contains
     !! Stride
     integer, optional, intent(in) :: verbose
     !! Verbosity level
-    
+
     type(maxpool3d_layer_type) :: layer
     !! Instance of the 3D max pooling layer
 

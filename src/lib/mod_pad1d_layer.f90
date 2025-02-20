@@ -48,7 +48,7 @@ module athena__pad1d_layer
        !! Padding method
        integer, dimension(:), optional, intent(in) :: input_shape
        !! Input shape
-       integer, optional, intent(in) :: batch_size 
+       integer, optional, intent(in) :: batch_size
        !! Batch size
        integer, optional, intent(in) :: verbose
        !! Verbosity level
@@ -136,7 +136,7 @@ contains
     !! Batch size
     integer, optional, intent(in) :: verbose
     !! Verbosity level
-    
+
     type(pad1d_layer_type) :: layer
     !! Instance of the 1D padding layer
 

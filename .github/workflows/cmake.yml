@@ -41,23 +41,23 @@ jobs:
     steps:
       - name: checkout repo
         uses: actions/checkout@v4
-      
+
       - name: actions-setup-cmake
         uses: jwlawson/actions-setup-cmake@v2.0.1
         with:
           cmake-version: '3.24.x'
-            
+
       - uses: fortran-lang/setup-fortran@v1
         id: setup-fortran
         with:
           compiler: ${{ matrix.compiler }}
           version: ${{ matrix.version }}
-          
+
       - name: Install gcovr
         run: |
           pip --version
           pip install gcovr
-          
+
       - name: Compile
         run: |
           cmake --version
@@ -72,7 +72,7 @@ jobs:
         run: |
           gfortran --version
           ctest
-          
+
   build-and-test-cmake-release:
     environment:
       name: github-pages
@@ -87,18 +87,18 @@ jobs:
     steps:
       - name: checkout repo
         uses: actions/checkout@v4
-      
+
       - name: actions-setup-cmake
         uses: jwlawson/actions-setup-cmake@v2.0.1
         with:
           cmake-version: '3.24.x'
-            
+
       - uses: fortran-lang/setup-fortran@v1
         id: setup-fortran
         with:
           compiler: ${{ matrix.compiler }}
           version: ${{ matrix.version }}
-          
+
       - name: Compile
         run: |
           cmake --version
@@ -113,5 +113,3 @@ jobs:
         run: |
           gfortran --version
           ctest
-  
-        

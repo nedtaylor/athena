@@ -48,7 +48,7 @@ contains
     !! Instances of metric data
     type(metric_dict_type) :: output
     !! Sum of the metric data
-    
+
     output%key = a%key
     output%val = a%val + b%val
     output%threshold = a%threshold
@@ -76,7 +76,7 @@ contains
     integer :: i
     !! Loop index
 
-    
+
     if(present(length))then
        do i=1,size(input,dim=1)
           allocate(input(i)%history(length))
@@ -127,7 +127,7 @@ contains
                "Convergence achieved, "//trim(this%key)//" threshold reached"
           write(6,*) "Exiting training loop"
           converged = 1
-       elseif(all(abs(this%history-this%val).lt.plateau_threshold))then        
+       elseif(all(abs(this%history-this%val).lt.plateau_threshold))then
           write(0,'("ERROR: ",A," has remained constant for ",I0," runs")') &
                trim(this%key), size(this%history,dim=1)
           write(0,*) this%history

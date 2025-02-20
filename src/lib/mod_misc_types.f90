@@ -1,10 +1,10 @@
 module athena__misc_types
   !! Module containing custom derived types for the ATHENA library
   !!
-  !! This module contains interfaces and derived types for 
+  !! This module contains interfaces and derived types for
   !! activation functions, initialisers, arrays, and facets.
-  !! The activation and initialiser types are abstract types that are used 
-  !! to define the activation functions and initialisers for the 
+  !! The activation and initialiser types are abstract types that are used
+  !! to define the activation functions and initialisers for the
   !! weights and biases in the neural network. The array type is an
   !! abstract type that is used to define the operations that can be performed
   !! on the arrays used in the neural network. The facets type is used to store
@@ -78,7 +78,7 @@ module athena__misc_types
        real(real32), dimension(:), intent(in) :: val
        real(real32), dimension(size(val,1)) :: output
      end function activation_function_1d
-     
+
      pure function activation_function_2d(this, val) result(output)
        import activation_type, real32
        class(activation_type), intent(in) :: this
@@ -269,7 +269,7 @@ module athena__misc_types
      end subroutine set_array
 
      pure module function add_array(a, b) result(output)
-       class(array_type), intent(in) :: a, b 
+       class(array_type), intent(in) :: a, b
        class(array_type), allocatable :: output
      end function add_array
 
@@ -577,7 +577,7 @@ module athena__misc_types
     procedure, pass(this) :: setup_replication_bounds
     !! Procedure for setting up replication bounds
   end type facets_type
-  
+
   interface
     !! Interface for setting up replication bounds
     module subroutine setup_replication_bounds(this, length, pad)

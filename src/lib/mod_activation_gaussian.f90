@@ -28,15 +28,15 @@ module athena__activation_gaussian
      procedure, pass(this) :: differentiate_4d => gaussian_differentiate_4d
      procedure, pass(this) :: differentiate_5d => gaussian_differentiate_5d
   end type gaussian_type
-  
+
   interface gaussian_setup
      procedure initialise
   end interface gaussian_setup
 
-  
-  
+
+
 contains
-  
+
 !###############################################################################
   pure function initialise(threshold, scale, sigma)
     !! Initialise a Gaussian activation function
@@ -53,7 +53,7 @@ contains
     !! Optional standard deviation parameter
 
     initialise%name = "gaussian"
-    
+
     if(present(scale))then
        initialise%scale = scale
     else
@@ -112,7 +112,7 @@ contains
     ! Arguments
     class(gaussian_type), intent(in) :: this
     !! Gaussian activation type containing sigma parameter
-    real(real32), dimension(:,:), intent(in) :: val 
+    real(real32), dimension(:,:), intent(in) :: val
     !! Input values
     real(real32), dimension(size(val,1),size(val,2)) :: output
     !! Gaussian activated output values

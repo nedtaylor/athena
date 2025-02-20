@@ -136,7 +136,7 @@ contains
     !! Batch size
     integer, optional, intent(in) :: verbose
     !! Verbosity level
-    
+
     type(pad2d_layer_type) :: layer
     !! Instance of the 2D padding layer
 
@@ -539,7 +539,7 @@ contains
                   spread(input( &
                        this%orig_bound(2,1),:,:,: &
                   ), dim=1, ncopies=this%pad(1))
-             
+
              output%val_ptr(:,:this%pad(2),:,:) = spread(input( &
                   :,this%orig_bound(1,2),:,: &
              ), dim=2, ncopies=this%pad(2))

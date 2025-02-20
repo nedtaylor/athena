@@ -257,7 +257,7 @@ contains
     !! Calculate input gradients
     integer, optional, intent(in) :: verbose
     !! Verbosity level
-    
+
     type(conv2d_layer_type) :: layer
     !! Instance of the 2D convolutional layer
 
@@ -345,7 +345,7 @@ contains
     else
        stride_ = 1
     end if
-    
+
 
     !---------------------------------------------------------------------------
     ! Set activation and derivative functions based on input name
@@ -972,7 +972,7 @@ contains
                )
        end do
     end do
-    
+
 
     ! Apply activation function to activation values (z)
     !---------------------------------------------------------------------------

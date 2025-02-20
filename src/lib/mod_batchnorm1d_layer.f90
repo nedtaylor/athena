@@ -5,7 +5,7 @@ module athena__batchnorm1d_layer
   use athena__base_layer, only: batch_layer_type, base_layer_type
   use athena__misc_types, only: initialiser_type, array3d_type
   implicit none
-  
+
 
   private
 
@@ -197,7 +197,7 @@ contains
     !! Initialisers
     integer, optional, intent(in) :: verbose
     !! Verbosity level
-    
+
     type(batchnorm1d_layer_type) :: layer
     !! Instance of the 1D batch normalisation layer
 
@@ -224,7 +224,7 @@ contains
        layer%epsilon = 1.E-5_real32
     end if
 
-    
+
     !---------------------------------------------------------------------------
     ! Set up initialiser mean and standard deviations
     !---------------------------------------------------------------------------
@@ -541,7 +541,7 @@ contains
           return
        end if
        if(trim(adjustl(buffer)).eq."") cycle tag_loop
- 
+
        ! Check for end of layer card
        !------------------------------------------------------------------------
        if(trim(adjustl(buffer)).eq."END "//to_upper(trim(this%name)))then

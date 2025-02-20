@@ -189,7 +189,7 @@ contains
     !! Initialisers
     integer, optional, intent(in) :: verbose
     !! Verbosity level
-    
+
     type(batchnorm3d_layer_type) :: layer
     !! Instance of the 3D batch normalisation layer
 
@@ -509,7 +509,7 @@ contains
           return
        end if
        if(trim(adjustl(buffer)).eq."") cycle tag_loop
- 
+
        ! Check for end of layer card
        !------------------------------------------------------------------------
        if(trim(adjustl(buffer)).eq."END "//to_upper(trim(this%name)))then
@@ -695,7 +695,7 @@ contains
              t_mean(m) = sum(input(:,:,:,m,:)) / this%norm
              t_variance(m) = &
                   sum((input(:,:,:,m,:) - t_mean(m))**2._real32) / this%norm
-      
+
              ! Convert to using inverse square root of variance (i.e. inverse std)
              ! Would also need to include epsilon in the sqrt denominator
 
@@ -709,7 +709,7 @@ contains
                 this%mean(m) = t_mean(m)
                 this%variance(m) = t_variance(m)
              end if
-   
+
              ! Normalise each feature
              output%val_ptr(:,:,:,m,:) = this%gamma(m) * (input(:,:,:,m,:) - &
                    this%mean(m)) / &
@@ -762,7 +762,7 @@ contains
          ! Recalculate x_hat (i.e. normalised input)
           x_hat(:,:,:,m,:) = (input(:,:,:,m,:) - this%mean(m)) / &
                sqrt(this%variance(m) + this%epsilon)
- 
+
           ! Calculate gradient of normalised input
           dx_hat(:,:,:,m,:) = gradient(:,:,:,m,:) * this%gamma(m)
 

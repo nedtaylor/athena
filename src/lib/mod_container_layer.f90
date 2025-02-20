@@ -42,7 +42,7 @@ module athena__container_layer
       !! Present layer container
       class(container_layer_type), intent(in) :: rhs
       !! Input layer container
-    end subroutine 
+    end subroutine
   end interface
 #endif
 

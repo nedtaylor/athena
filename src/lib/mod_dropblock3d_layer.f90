@@ -10,7 +10,7 @@ module athena__dropblock3d_layer
   use athena__misc_types, only: array5d_type
   implicit none
 
-  
+
   private
 
   public :: dropblock3d_layer_type
@@ -154,7 +154,7 @@ contains
     !! Batch size
     integer, optional, intent(in) :: verbose
     !! Verbosity level
-    
+
     type(dropblock3d_layer_type) :: layer
     !! Instance of the 3D dropblock layer
 #else
@@ -287,7 +287,7 @@ contains
     ! generate mask
     !---------------------------------------------------------------------------
     call this%generate_mask()
-    
+
 
     !---------------------------------------------------------------------------
     ! initialise batch size-dependent arrays
@@ -321,8 +321,8 @@ contains
     !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
     this%batch_size = batch_size
- 
- 
+
+
     !---------------------------------------------------------------------------
     ! Allocate arrays
     !---------------------------------------------------------------------------
@@ -344,7 +344,7 @@ contains
 
   end subroutine set_batch_size_dropblock3d
  !###############################################################################
- 
+
 
 !###############################################################################
   subroutine generate_bernoulli_mask(this)

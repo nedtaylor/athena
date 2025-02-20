@@ -109,9 +109,9 @@ program mnist_example
   allocate(output(1,size(labels)))
   do n = 1, 100
      sample_list = [(i, i = 1, size(labels) - num_tests)]
-     call shuffle(sample_list) 
+     call shuffle(sample_list)
      do s = 1, size(sample_list)
-        
+
         !write(*,*) n, s
         select type(layer => network%model(2)%layer)
         type is (conv_mpnn_layer_type)
@@ -123,7 +123,7 @@ program mnist_example
         !write(*,*) "predicted",output_tmp(1,1), labels(sample_list(s))
 
         call network%update()
- 
+
      end do
   end do
 

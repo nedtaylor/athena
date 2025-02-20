@@ -251,7 +251,7 @@ contains
     !! Calculate input gradients
     integer, optional, intent(in) :: verbose
     !! Verbosity level
-    
+
     type(conv3d_layer_type) :: layer
     !! Instance of the 3D convolutional layer
 
@@ -339,7 +339,7 @@ contains
     else
        stride_ = 1
     end if
-    
+
 
     !---------------------------------------------------------------------------
     ! Set activation and derivative functions based on input name
@@ -945,7 +945,7 @@ contains
     !! Loop variables
     integer, dimension(3) :: start_idx, end_idx
     !! Start and end indices
-   
+
 
     ! Perform the convolution operation
     !---------------------------------------------------------------------------
@@ -977,7 +977,7 @@ contains
                )
        end do
     end do
-   
+
 
     ! Apply activation function to activation values (z)
     !---------------------------------------------------------------------------
@@ -1060,7 +1060,7 @@ contains
     ! ... whilst the starting index for input is 1
     ! -1 needed in input upper bound indices to account for size, i.e. ...
     ! ...   x + offset : x + offset + size(input)
-    ! ... = 0 + 1      : 0 + 1      + 1 
+    ! ... = 0 + 1      : 0 + 1      + 1
     ! ... = 1          : 2
     ! ... which would be wrong, as size = 1, so it should be 1:1
     ! ... ergo, we need to subtract 1 from upper index

@@ -23,7 +23,7 @@ module athena__initialiser_he
      procedure, pass(this) :: initialise => he_uniform_initialise
      !! Initialise the weights and biases using the He uniform distribution
   end type he_uniform_type
-   
+
   type, extends(initialiser_type) :: he_normal_type
      !! Type for the He initialiser (normal)
    contains
@@ -83,7 +83,7 @@ contains
        call random_number(input)
        input = (input * 2._real32 - 1._real32) * scale
     end select
-    
+
   end subroutine he_uniform_initialise
 !###############################################################################
 
@@ -140,7 +140,7 @@ contains
        input = norm * &
             exp( (-(input * 2._real32 - 1._real32)**2._real32) / scale )
     end select
-    
+
   end subroutine he_normal_initialise
 !###############################################################################
 

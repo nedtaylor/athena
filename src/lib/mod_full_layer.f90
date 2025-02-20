@@ -13,7 +13,7 @@ module athena__full_layer
   use athena__misc_types, only: activation_type, initialiser_type, &
        array2d_type
   implicit none
-  
+
 
   private
 
@@ -208,7 +208,7 @@ contains
     !! Activation function, kernel initialiser, and bias initialiser
     integer, optional, intent(in) :: verbose
     !! Verbosity level
-    
+
     type(full_layer_type) :: layer
     !! Instance of the fully connected layer
 
@@ -235,7 +235,7 @@ contains
     !---------------------------------------------------------------------------
     if(present(kernel_initialiser)) layer%kernel_initialiser =kernel_initialiser
     if(present(bias_initialiser)) layer%bias_initialiser = bias_initialiser
-     
+
 
     !---------------------------------------------------------------------------
     ! Set hyperparameters
@@ -581,7 +581,7 @@ contains
     !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
 
-    
+
     ! Loop over tags in layer card
     !---------------------------------------------------------------------------
     tag_loop: do

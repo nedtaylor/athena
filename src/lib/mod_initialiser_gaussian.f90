@@ -104,7 +104,7 @@ contains
            end do
        end do
     end select
-    
+
   end subroutine gaussian_initialise
 !###############################################################################
 
@@ -132,7 +132,7 @@ contains
     input = sqrt(-2._real32 * log(r1))
     input = input * cos(2._real32 * pi * r2)
     input = mean + std * input
-    
+
   end subroutine box_muller
 !###############################################################################
 

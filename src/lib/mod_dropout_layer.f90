@@ -135,7 +135,7 @@ contains
     !! Input shape
     integer, optional, intent(in) :: batch_size
     !! Batch size
-    
+
     type(dropout_layer_type) :: layer
     !! Instance of the dropout layer
 

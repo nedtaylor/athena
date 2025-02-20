@@ -42,7 +42,7 @@ module athena__maxpool2d_layer
        !! Set up the 2D max pooling layer
        integer, dimension(:), optional, intent(in) :: input_shape
        !! Input shape
-       integer, optional, intent(in) :: batch_size 
+       integer, optional, intent(in) :: batch_size
        !! Batch size
        integer, dimension(..), optional, intent(in) :: pool_size
        !! Pool size
@@ -108,7 +108,7 @@ contains
        rank(4)
           call backward_4d(this, input, gradient)
        end select
-    end select    
+    end select
   end subroutine backward_rank
 !###############################################################################
 
@@ -130,7 +130,7 @@ contains
     ! Arguments
     integer, dimension(:), optional, intent(in) :: input_shape
     !! Input shape
-    integer, optional, intent(in) :: batch_size 
+    integer, optional, intent(in) :: batch_size
     !! Batch size
     integer, dimension(..), optional, intent(in) :: pool_size
     !! Pool size
@@ -138,7 +138,7 @@ contains
     !! Stride
     integer, optional, intent(in) :: verbose
     !! Verbosity level
-    
+
     type(maxpool2d_layer_type) :: layer
     !! Instance of the 2D max pooling layer
 
@@ -440,7 +440,7 @@ contains
        end select
     end do tag_loop
 
-   
+
     ! Set hyperparameters and initialise layer
     !---------------------------------------------------------------------------
     call this%set_hyperparams(pool_size=pool_size, stride=stride)

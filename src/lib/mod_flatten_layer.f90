@@ -353,7 +353,7 @@ contains
           )
        end select
     end if
- 
+
   end subroutine set_batch_size_flatten
 !###############################################################################
 

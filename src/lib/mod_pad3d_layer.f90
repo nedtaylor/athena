@@ -49,7 +49,7 @@ module athena__pad3d_layer
        !! Padding method
        integer, dimension(:), optional, intent(in) :: input_shape
        !! Input shape
-       integer, optional, intent(in) :: batch_size 
+       integer, optional, intent(in) :: batch_size
        !! Batch size
        integer, optional, intent(in) :: verbose
        !! Verbosity level
@@ -137,14 +137,14 @@ contains
     !! Batch size
     integer, optional, intent(in) :: verbose
     !! Verbosity level
-    
+
     type(pad3d_layer_type) :: layer
     !! Instance of the 3D padding layer
 
     ! Local variables
     integer :: verbose_ = 0
     !! Verbosity level
-   
+
 
     if(present(verbose)) verbose_ = verbose
 
@@ -546,7 +546,7 @@ contains
                   spread(input( &
                        this%orig_bound(2,1),:,:,:,: &
                   ), dim=1, ncopies=this%pad(1))
-             
+
              output%val_ptr(:,:this%pad(2),:,:,:) = spread(input( &
                   :,this%orig_bound(1,2),:,:,: &
              ), dim=2, ncopies=this%pad(2))

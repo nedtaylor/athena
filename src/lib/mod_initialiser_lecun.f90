@@ -80,7 +80,7 @@ contains
        call random_number(input)
        input = (input *2._real32 - 1._real32) * scale
     end select
-    
+
   end subroutine lecun_uniform_initialise
 !###############################################################################
 
@@ -137,7 +137,7 @@ contains
        input = norm * &
             exp( (-(input * 2._real32 - 1._real32)**2._real32) / scale )
     end select
-    
+
   end subroutine lecun_normal_initialise
 !###############################################################################
 

@@ -12,7 +12,7 @@ module athena__actv_layer
        array4d_type, &
        array5d_type
   implicit none
-  
+
 
   private
 
@@ -45,7 +45,7 @@ module athena__actv_layer
      !! Backward propagation assumed rank handler
   end type actv_layer_type
 
-  
+
   interface actv_layer_type
      !! Interface for the activation layer type
      module function layer_setup( &
@@ -123,7 +123,7 @@ contains
     integer, optional, intent(in) :: batch_size
     !! Batch size
     integer, optional, intent(in) :: verbose
-    !! Verbosity level   
+    !! Verbosity level
     type(actv_layer_type) :: layer
     !! Instance of the activation layer
 
@@ -262,7 +262,7 @@ contains
        call stop_program('Activation layer only supports input ranks 1-5')
        return
     end select
-    
+
 
     !---------------------------------------------------------------------------
     ! initialise batch size-dependent arrays

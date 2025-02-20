@@ -26,7 +26,7 @@ module athena__activation_relu
      procedure, pass(this) :: differentiate_4d => relu_differentiate_4d
      procedure, pass(this) :: differentiate_5d => relu_differentiate_5d
   end type relu_type
-  
+
   interface relu_setup
      procedure initialise
   end interface relu_setup
@@ -34,7 +34,7 @@ module athena__activation_relu
 
 
 contains
-  
+
 !###############################################################################
   pure function initialise(scale)
     !! Initialise a ReLU activation function
@@ -57,8 +57,8 @@ contains
 
   end function initialise
 !###############################################################################
-  
-  
+
+
 !###############################################################################
   pure function relu_activate_1d(this, val) result(output)
     !! Apply ReLU activation to 1D array

@@ -47,7 +47,7 @@ contains
     ! Check if restart is defined
     !---------------------------------------------------------------------------
     if(present(restart))then
-       restart_ = restart       
+       restart_ = restart
     else
        restart_ = .false.
     end if
@@ -92,7 +92,7 @@ contains
     end if
 
     if(present(num_seed)) num_seed = num_seed_
-    
+
   end subroutine random_setup
 !###############################################################################
 

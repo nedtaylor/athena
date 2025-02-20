@@ -110,7 +110,7 @@ contains
        call stop_program(err_msg)
        return
     end if
- 
+
   end subroutine set_shape_base
 !###############################################################################
 
@@ -125,7 +125,7 @@ contains
     !! Instance of the layer
     real(real32), allocatable, dimension(..), intent(out) :: output
     !! Output of the layer
-  
+
     call this%output%get(output)
   end subroutine get_output_base
 !###############################################################################
@@ -191,7 +191,7 @@ contains
     !! Instance of the layer
     integer :: num_params
     !! Number of parameters
-    
+
     ! No parameters in the base layer
     num_params = 0
 
@@ -206,7 +206,7 @@ contains
     !! Instance of the layer
     integer :: num_params
     !! Number of parameters
-    
+
     ! num_filters x num_channels x kernel_size + num_biases
     ! num_biases = num_filters
     num_params = this%num_filters * this%num_channels * product(this%knl) + &
@@ -217,13 +217,13 @@ contains
   pure module function get_num_params_batch(this) result(num_params)
     !! Get the number of parameters in batch normalisation layer
     implicit none
-    
+
     ! Arguments
     class(batch_layer_type), intent(in) :: this
     !! Instance of the layer
     integer :: num_params
     !! Number of parameters
-    
+
     ! num_filters x num_channels x kernel_size + num_biases
     ! num_biases = num_filters
     num_params = 2 * this%num_channels
@@ -345,10 +345,10 @@ contains
     !! Method to clip the gradients
     real(real32), dimension(this%num_params) :: gradients
     !! Gradients of the layer
-  
+
     gradients = [ sum(this%dp, dim=2) / this%batch_size, &
          sum(this%db, dim=2) / this%batch_size ]
-  
+
     if(present(clip_method)) call clip_method%apply(size(gradients),gradients)
 
   end function get_gradients
@@ -368,7 +368,7 @@ contains
     !! Instance of the layer
     real(real32), dimension(..), intent(in) :: gradients
     !! Gradients of the layer
-  
+
     select rank(gradients)
     rank(0)
        this%dp = gradients
@@ -385,7 +385,7 @@ contains
             this%batch_size &
        )
     end select
-  
+
   end subroutine set_gradients
 !###############################################################################
 
@@ -413,7 +413,7 @@ contains
         this%dp(:,1) = gradients(:this%num_channels) * this%batch_size
         this%db(:,1) = gradients(this%num_channels+1:) * this%batch_size
     end select
-  
+
   end subroutine set_gradients_batch
 !###############################################################################
 

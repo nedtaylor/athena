@@ -1,6 +1,6 @@
 module athena__activation_tanh
   !! Module containing implementation of the tanh activation function
-  !! 
+  !!
   !! This module implements the hyperbolic tangent activation function
   use athena__constants, only: real32
   use athena__misc_types, only: activation_type
@@ -26,7 +26,7 @@ module athena__activation_tanh
      procedure, pass(this) :: differentiate_4d => tanh_differentiate_4d
      procedure, pass(this) :: differentiate_5d => tanh_differentiate_5d
   end type tanh_type
-  
+
   interface tanh_setup
      procedure initialise
   end interface tanh_setup
@@ -34,7 +34,7 @@ module athena__activation_tanh
 
 
 contains
-  
+
 !###############################################################################
   pure function initialise(threshold, scale)
     !! Initialize a tanh activation function
@@ -65,8 +65,8 @@ contains
 
   end function initialise
 !###############################################################################
-  
-  
+
+
 !###############################################################################
   pure function tanh_activate_1d(this, val) result(output)
     !! Apply tanh activation to 1D array
@@ -196,7 +196,7 @@ contains
     !!
     !! Computes the derivative: df/dx = 1 - f^2
     implicit none
-    
+
     ! Arguments
     class(tanh_type), intent(in) :: this
     !! Tanh activation type
@@ -216,7 +216,7 @@ contains
     !!
     !! Computes the derivative: df/dx = 1 - f^2
     implicit none
-    
+
     ! Arguments
     class(tanh_type), intent(in) :: this
     !! Tanh activation type
@@ -236,7 +236,7 @@ contains
     !!
     !! Computes the derivative: df/dx = 1 - f^2
     implicit none
-    
+
     ! Arguments
     class(tanh_type), intent(in) :: this
     !! Tanh activation type
@@ -256,7 +256,7 @@ contains
     !!
     !! Computes the derivative: df/dx = 1 - f^2
     implicit none
-    
+
     ! Arguments
     class(tanh_type), intent(in) :: this
     !! Tanh activation type
@@ -277,7 +277,7 @@ contains
     !!
     !! Computes the derivative: df/dx = 1 - f^2
     implicit none
-    
+
     ! Arguments
     class(tanh_type), intent(in) :: this
     !! Tanh activation type

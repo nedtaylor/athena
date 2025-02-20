@@ -9,7 +9,7 @@ program sine
 
   type(network_type) :: network
   real(real32), dimension(1,1) :: x, y
-  
+
   integer, parameter :: num_iterations = 10000
   integer, parameter :: test_size = 30
 
@@ -19,7 +19,7 @@ program sine
   real(real32), dimension(1,test_size) :: x_test, y_test, y_pred
 
   integer :: i, n
-  
+
 
   !! set random seed
   seed_size = 8

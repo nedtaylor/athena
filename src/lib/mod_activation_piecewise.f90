@@ -32,12 +32,12 @@ module athena__activation_piecewise
   end interface piecewise_setup
 
 
-  
+
 contains
-  
+
 !###############################################################################
   pure function initialise(scale, intercept)
-    !! Initialise a piecewise activation function 
+    !! Initialise a piecewise activation function
     implicit none
 
     ! Arguments
@@ -47,7 +47,7 @@ contains
     !! Optional scale factor for activation output
     real(real32), optional, intent(in) :: intercept
     !! Optional intercept value
-    
+
     initialise%name = "piecewise"
 
     if(present(scale))then
@@ -67,7 +67,7 @@ contains
   end function initialise
 !###############################################################################
 
-       
+
 !###############################################################################
   pure function piecewise_activate_1d(this, val) result(output)
     !! Apply piecewise activation to 1D array
@@ -216,7 +216,7 @@ contains
   pure function piecewise_differentiate_1d(this, val) result(output)
     !! Differentiate piecewise activation for 1D array
     !!
-    !! Computes derivative: 
+    !! Computes derivative:
     !! df/dx = 0 if x ≤ min or x ≥ max
     !! df/dx = scale otherwise
     implicit none
@@ -240,7 +240,7 @@ contains
   pure function piecewise_differentiate_2d(this, val) result(output)
     !! Differentiate piecewise activation for 2D array
     !!
-    !! Computes derivative: 
+    !! Computes derivative:
     !! df/dx = 0 if x ≤ min or x ≥ max
     !! df/dx = scale otherwise
     implicit none
@@ -262,7 +262,7 @@ contains
   pure function piecewise_differentiate_3d(this, val) result(output)
     !! Differentiate piecewise activation for 3D array
     !!
-    !! Computes derivative: 
+    !! Computes derivative:
     !! df/dx = 0 if x ≤ min or x ≥ max
     !! df/dx = scale otherwise
     implicit none
@@ -284,7 +284,7 @@ contains
   pure function piecewise_differentiate_4d(this, val) result(output)
     !! Differentiate piecewise activation for 4D array
     !!
-    !! Computes derivative: 
+    !! Computes derivative:
     !! df/dx = 0 if x ≤ min or x ≥ max
     !! df/dx = scale otherwise
     implicit none
@@ -307,7 +307,7 @@ contains
   pure function piecewise_differentiate_5d(this, val) result(output)
     !! Differentiate piecewise activation for 5D array
     !!
-    !! Computes derivative: 
+    !! Computes derivative:
     !! df/dx = 0 if x ≤ min or x ≥ max
     !! df/dx = scale otherwise
     implicit none

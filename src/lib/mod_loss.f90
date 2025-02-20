@@ -39,7 +39,7 @@ module athena__loss
        !! Loss of the model
      end function compute_loss_function
   end interface
-  
+
   abstract interface
      !! compute the total loss function
      !! predicted = (R, in) predicted values
@@ -149,7 +149,7 @@ contains
     !! Total categorical cross entropy loss
 
     output = sum(compute_loss_cce(predicted,expected),dim=1)
-    
+
   end function total_loss_cce
 !###############################################################################
 
@@ -180,7 +180,7 @@ contains
     !! Total mean absolute error
 
     output = sum(compute_loss_mae(predicted,expected),dim=1) / size(predicted,1)
-    
+
   end function total_loss_mae
 !###############################################################################
 
@@ -212,7 +212,7 @@ contains
 
     output = sum(compute_loss_mse(predicted,expected),dim=1) * &
          2._real32 / size(predicted,1)
-    
+
   end function total_loss_mse
 !###############################################################################
 
@@ -275,7 +275,7 @@ contains
     elsewhere
        output = gamma * (abs(predicted - expected) - 0.5_real32 * gamma)
     end where
-  
+
   end function compute_loss_hubber
 !!!-----------------------------------------------------------------------------
   pure function total_loss_hubber(predicted, expected) result(output)
@@ -287,9 +287,9 @@ contains
     !! Predicted and expected values
     real(real32), dimension(size(predicted,2)) :: output
     !! Total hubber loss
-  
+
     output = sum(compute_loss_hubber(predicted,expected),dim=1) / size(predicted,1)
-    
+
   end function total_loss_hubber
 !!!-----------------------------------------------------------------------------
   pure function compute_loss_hubber_derivative(predicted, expected) &
@@ -306,7 +306,7 @@ contains
     ! Local variables
     real(real32) :: gamma
     !! Gamma value for the hubber loss function
-    
+
     gamma = 1._real32
 
     where (abs(predicted - expected) .le. gamma)

@@ -31,9 +31,9 @@ module athena__activation_linear
   end interface linear_setup
 
 
-  
+
 contains
-  
+
 !###############################################################################
   pure function initialise(scale)
     !! Initialise a linear activation function
@@ -44,7 +44,7 @@ contains
     !! Linear activation type
     real(real32), optional, intent(in) :: scale
     !! Optional scale factor for activation output
-    
+
     initialise%name = "linear"
 
     if(present(scale))then
@@ -56,7 +56,7 @@ contains
   end function initialise
 !###############################################################################
 
-       
+
 !###############################################################################
   pure function linear_activate_1d(this, val) result(output)
     !! Apply linear activation to 1D array

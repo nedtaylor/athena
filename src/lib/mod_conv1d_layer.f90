@@ -98,7 +98,7 @@ contains
     if(allocated(this%hlf)) deallocate(this%hlf)
     if(allocated(this%pad)) deallocate(this%pad)
     if(allocated(this%cen)) deallocate(this%cen)
-    
+
     if(associated(this%bias)) nullify(this%bias)
     if(associated(this%weight)) nullify(this%weight)
     if(associated(this%dw)) nullify(this%dw)
@@ -210,7 +210,7 @@ contains
           end select
        end select
     end select
-    
+
   end subroutine backward_rank
 !###############################################################################
 
@@ -251,7 +251,7 @@ contains
     !! Calculate input gradients
     integer, optional, intent(in) :: verbose
     !! Verbosity level
-    
+
     type(conv1d_layer_type) :: layer
     !! Instance of the 1D convolutional layer
 
@@ -329,7 +329,7 @@ contains
     else
        stride_ = 1
     end if
-    
+
 
     !---------------------------------------------------------------------------
     ! Set activation and derivative functions based on input name
@@ -637,7 +637,7 @@ contains
        padding_type = "same"
     end if
 
-   
+
     ! Open file with new unit
     !---------------------------------------------------------------------------
     open(newunit=unit, file=trim(file), access='append')
@@ -717,7 +717,7 @@ contains
     real(real32), allocatable, dimension(:) :: data_list
     !! List of data values
 
-   
+
     ! Initialise optional arguments
     !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
@@ -928,7 +928,7 @@ contains
                )
        end do
     end do
-    
+
 
     ! Apply activation function to activation values (z)
     !---------------------------------------------------------------------------

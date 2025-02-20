@@ -139,13 +139,13 @@ contains
     do s = 1, size(expected,2)
        ! compute mean of true/expected
        y_mean(s) = sum(expected(:,s),dim=1) / size(expected,dim=1)
- 
+
        ! compute total sum of squares
        tss(s) = sum( ( expected(:,s) - y_mean(s) ) ** 2._real32, dim=1 )
- 
+
        ! compute residual sum of squares
        rss(s) = sum( ( expected(:,s) - predicted(:,s) ) ** 2._real32, dim=1 )
- 
+
        ! compute accuracy (R^2 score)
        if(abs(rss(s)).lt.epsilon)then
          output(s) = 1._real32

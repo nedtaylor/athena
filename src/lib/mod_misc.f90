@@ -41,7 +41,7 @@ contains
     end do
 
     return
-  end function outer_product 
+  end function outer_product
 !###############################################################################
 
 

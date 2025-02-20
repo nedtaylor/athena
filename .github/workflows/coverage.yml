@@ -27,7 +27,7 @@ jobs:
   run-code-coverage:
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }} 
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -37,12 +37,12 @@ jobs:
     steps:
       - name: checkout repo
         uses: actions/checkout@v4
-      
+
       - name: actions-setup-cmake
         uses: jwlawson/actions-setup-cmake@v2.0.1
         with:
           cmake-version: '3.24.x'
-            
+
       - uses: fortran-lang/setup-fortran@v1
         id: setup-fortran
         with:
@@ -53,7 +53,7 @@ jobs:
         run: |
           pip --version
           pip install gcovr
-      
+
       - run: |
           sudo apt-get update
           sudo apt-get install -y cmake make
@@ -68,7 +68,7 @@ jobs:
         run: |
           pip install bs4
           echo "COVERAGE_PERCENTAGE="$(python ./tools/coverage_badge.py) >> $GITHUB_ENV
-  
+
       - name: Create coverage badge
         uses: schneegans/dynamic-badges-action@v1.7.0
         with:
@@ -83,10 +83,9 @@ jobs:
 
       - name: upload artifact
         uses: actions/upload-pages-artifact@v1
-        with: 
+        with:
           path: './build/coverage/'
-      
+
       - name: deploy to Github Pages
         uses: actions/deploy-pages@v2
         id: deployment
-        

@@ -130,7 +130,7 @@ contains
           input(i,i,i,i,i,i) = 1._real32
        end do
     end select
-    
+
   end subroutine ident_initialise
 !###############################################################################
 

@@ -48,7 +48,7 @@ module athena__maxpool1d_layer
        !! Set up the 1D max pooling layer
        integer, dimension(:), optional, intent(in) :: input_shape
        !! Input shape
-       integer, optional, intent(in) :: batch_size 
+       integer, optional, intent(in) :: batch_size
        !! Batch size
        integer, dimension(..), optional, intent(in) :: pool_size
        !! Pool size
@@ -114,7 +114,7 @@ contains
        rank(3)
           call backward_3d(this, input, gradient)
        end select
-    end select    
+    end select
   end subroutine backward_rank
 !###############################################################################
 
@@ -134,7 +134,7 @@ contains
     ! Arguments
     integer, dimension(:), optional, intent(in) :: input_shape
     !! Input shape
-    integer, optional, intent(in) :: batch_size 
+    integer, optional, intent(in) :: batch_size
     !! Batch size
     integer, dimension(..), optional, intent(in) :: pool_size
     !! Pool size
@@ -142,7 +142,7 @@ contains
     !! Stride
     integer, optional, intent(in) :: verbose
     !! Verbosity level
-    
+
     type(maxpool1d_layer_type) :: layer
     !! Instance of the 1D max pooling layer
 

@@ -27,7 +27,7 @@ module athena__activation_sigmoid
      procedure, pass(this) :: differentiate_4d => sigmoid_differentiate_4d
      procedure, pass(this) :: differentiate_5d => sigmoid_differentiate_5d
   end type sigmoid_type
-  
+
   interface sigmoid_setup
      procedure initialise
   end interface sigmoid_setup
@@ -35,7 +35,7 @@ module athena__activation_sigmoid
 
 
 contains
-  
+
 !###############################################################################
   pure function initialise(threshold, scale)
     !! Initialise a sigmoid activation function
@@ -65,8 +65,8 @@ contains
     !initialise%scale = 1._real32
   end function initialise
 !###############################################################################
-  
-  
+
+
 !###############################################################################
   pure function sigmoid_activate_1d(this, val) result(output)
     !! Apply sigmoid activation to 1D array
@@ -214,7 +214,7 @@ contains
     !! Input values
     real(real32), dimension(size(val,1),size(val,2)) :: output
     !! Differentiated output values
-    
+
     output = this%activate_2d(val)
     output = this%scale * output * (this%scale - output)
   end function sigmoid_differentiate_2d
@@ -253,7 +253,7 @@ contains
     real(real32), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4)) :: output
     !! Differentiated output values
-    
+
     output = this%activate_4d(val)
     output = this%scale * output * (this%scale - output)
   end function sigmoid_differentiate_4d
@@ -273,7 +273,7 @@ contains
     real(real32), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
     !! Differentiated output values
-    
+
     output = this%activate_5d(val)
     output = this%scale * output * (this%scale - output)
   end function sigmoid_differentiate_5d

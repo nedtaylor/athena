@@ -196,6 +196,3 @@ This project is licensed under the [MIT License](LICENSE).
 <!-- omit in toc -->
 ## Attribution
 This guide is based on the **contributing-gen**. [Make your own](https://github.com/bttger/contributing-gen)!
-
-
-

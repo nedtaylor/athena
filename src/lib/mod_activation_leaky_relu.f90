@@ -26,15 +26,15 @@ module athena__activation_leaky_relu
      procedure, pass(this) :: differentiate_4d => leaky_relu_differentiate_4d
      procedure, pass(this) :: differentiate_5d => leaky_relu_differentiate_5d
   end type leaky_relu_type
-  
+
   interface leaky_relu_setup
      procedure initialise
   end interface leaky_relu_setup
-  
-  
+
+
 
 contains
-  
+
 !###############################################################################
   pure function initialise(scale)
     !! Initialise a leaky ReLU activation function
@@ -55,7 +55,7 @@ contains
     end if
   end function initialise
 !###############################################################################
-  
+
 
 !###############################################################################
   pure function leaky_relu_activate_1d(this, val) result(output)

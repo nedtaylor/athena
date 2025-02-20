@@ -58,7 +58,7 @@ contains
     rank(6)
        input = 0._real32
     end select
-    
+
   end subroutine zeros_initialise
 !###############################################################################
 
