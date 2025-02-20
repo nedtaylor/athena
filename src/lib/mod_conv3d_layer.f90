@@ -19,7 +19,7 @@ module athena__conv3d_layer
      real(real32), pointer :: weight(:,:,:,:,:) => null()
      !! Weights of the convolutional layer
      real(real32), pointer :: dw(:,:,:,:,:,:) => null()
-     !! Gradient of the weights
+     !! Pointer to weight gradients
      real(real32), allocatable, dimension(:,:,:,:,:) :: z
      !! Activation values
    contains
@@ -727,8 +727,11 @@ contains
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
-    integer :: stat, verbose_ = 0
-    !! Status and verbosity level
+    ! Local variables
+    integer :: stat
+    !! Status of read
+    integer :: verbose_ = 0
+    !! Verbosity level
     integer :: j, k, l, c, itmp1
     !! Loop variables and temporary integer
     integer :: num_filters, num_inputs
@@ -743,7 +746,6 @@ contains
     !! Padding and activation function
     character(256) :: buffer, tag, err_msg
     !! Buffer, tag, and error message
-
     integer, dimension(3) :: kernel_size, stride
     !! Kernel size and stride
     integer, dimension(4) :: input_shape
@@ -752,7 +754,6 @@ contains
     !! Data list
 
 
-    !---------------------------------------------------------------------------
     ! Initialise optional arguments
     !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
@@ -1037,7 +1038,7 @@ contains
          this%output%shape(2), &
          this%output%shape(3),this%num_filters, &
          this%batch_size) :: grad_dz
-    !! Gradient multiplied by differential of Z
+    !! Gradient multiplied by differential of Z (aka delta values)
 
     real(real32), dimension(1) :: bias_diff
     !! Bias differential

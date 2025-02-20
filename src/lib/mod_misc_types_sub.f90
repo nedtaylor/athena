@@ -1,18 +1,30 @@
 submodule(athena__misc_types) athena__misc_types_submodule
+  !! Submodule containing methods (implementations) for derived types
   use athena__io_utils, only: stop_program
   use athena__constants, only: real32
 
+
+
 contains
 
-
+!###############################################################################
   module subroutine setup_replication_bounds(this, length, pad)
+    !! Set up replication bounds for facets
     implicit none
-    class(facets_type), intent(inout) :: this
-    integer, dimension(this%rank), intent(in) :: length, pad
 
+    ! Arguments
+    class(facets_type), intent(inout) :: this
+    !! Instance of the facets type
+    integer, dimension(this%rank), intent(in) :: length, pad
+    !! Length of the shape and padding
+
+    ! Local variables
     integer :: i, j, k, facet_idx, idim
-    
+    !! Loop indices and facet index
+
+
     ! Calculate number of facets based on rank and number of fixed dimensions
+    !---------------------------------------------------------------------------
     ! For rank n, we have:
     ! nfixed_dims = 1: n choose 1 * 2 facets (faces, 2 per dimension)
     ! nfixed_dims = 2: n choose 2 * 4 facets (edges, 4 per dimension pair)
@@ -39,8 +51,10 @@ contains
        call stop_program("Number of fixed dimensions exceeds rank")
        return
     end if
-    
+
+
     ! Allocate arrays
+    !---------------------------------------------------------------------------
     if (allocated(this%dim)) deallocate(this%dim)
     if (allocated(this%orig_bound)) deallocate(this%orig_bound)
     if (allocated(this%dest_bound)) deallocate(this%dest_bound)
@@ -49,9 +63,14 @@ contains
     allocate(this%orig_bound(this%rank, this%num))
     allocate(this%dest_bound(2, this%rank, this%num))
     
+
     ! Initialise all bounds to 1
+    !---------------------------------------------------------------------------
     this%orig_bound = 1
     
+
+    ! Set up replication bounds
+    !---------------------------------------------------------------------------
     select case(this%nfixed_dims)
     case(1)  ! Faces
        facet_idx = 0
@@ -65,7 +84,8 @@ contains
                  this%dest_bound(:,1,facet_idx) = [1, pad(k)]
               else
                  this%orig_bound(1,facet_idx) = length(i)
-                 this%dest_bound(:,1,facet_idx) = [length(k) + pad(k) + 1, length(k) + pad(k) * 2]
+                 this%dest_bound(:,1,facet_idx) = &
+                      [length(k) + pad(k) + 1, length(k) + pad(k) * 2]
               end if
            end do
        end do
@@ -106,7 +126,8 @@ contains
           do j = 1, this%rank
              if(btest(i-1, this%rank-j)) then
                 this%orig_bound(j,i) = length(j)
-                this%dest_bound(:,j,i) = [length(j) + pad(j) + 1, length(j) + pad(j) * 2]
+                this%dest_bound(:,j,i) = &
+                     [length(j) + pad(j) + 1, length(j) + pad(j) * 2]
              else
                 this%orig_bound(j,i) = 1
                 this%dest_bound(:,j,i) = [1, pad(j)]
@@ -116,11 +137,24 @@ contains
     end select
         
   end subroutine setup_replication_bounds
+!###############################################################################
 
+
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
+
+
+!###############################################################################
   pure module function add_array(a, b) result(output)
+    !! Add two arrays
     implicit none
+
+    ! Arguments
     class(array_type), intent(in) :: a, b 
+    !! Input arrays
     class(array_type), allocatable :: output
+    !! Output array
 
     output = a
     if(.not.allocated(a%val).or..not.allocated(b%val))then
@@ -132,19 +166,35 @@ contains
     output%val = a%val + b%val
 
   end function add_array
+!###############################################################################
 
+
+!###############################################################################
   pure module function flatten_array(this) result(output)
+    !! Flatten the array
     implicit none
+
+    ! Arguments
     class(array_type), intent(in) :: this
+    !! Instance of the array type
     real(real32), dimension(this%size) :: output
+    !! Flattened array
 
     output = reshape(this%val, [this%size])
   end function flatten_array
+!###############################################################################
 
+
+!###############################################################################
   pure module subroutine get_array(this, output)
+    !! Get the array
     implicit none
+
+    ! Arguments
     class(array_type), intent(in) :: this
+    !! Instance of the array type
     real(real32), dimension(..), allocatable, intent(out) :: output
+    !! Output array
 
     select rank(output)
     rank(1)
@@ -170,11 +220,19 @@ contains
        return
     end select
   end subroutine get_array
+!###############################################################################
 
+
+!###############################################################################
   pure module subroutine set_array(this, input)
+    !! Set the array
     implicit none
+
+    ! Arguments
     class(array_type), intent(inout) :: this
+    !! Instance of the array type
     real(real32), dimension(..), intent(in) :: input
+    !! Input array
 
     select rank(input)
     rank(1)
@@ -185,11 +243,19 @@ contains
        return
     end select
   end subroutine set_array
+!###############################################################################
 
+
+!###############################################################################
   module subroutine assign_array(this, input)
+    !! Assign the array
     implicit none
+
+    ! Arguments
     class(array_type), intent(out), target :: this
+    !! Instance of the array type
     class(array_type), intent(in) :: input
+    !! Input array
 
     this%rank = input%rank
     this%shape = input%shape
@@ -248,24 +314,45 @@ contains
     end select
 
   end subroutine assign_array
+!###############################################################################
 
 
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
+
+
+!###############################################################################
   module function init_array1d(array_shape) result(output)
+    !! Initialise 1D array
     implicit none
+
+    ! Arguments
     integer, dimension(:), intent(in), optional :: array_shape
+    !! Shape of the array
     type(array1d_type) :: output
+    !! Output array
 
     output%rank = 1
     allocate(output%shape(1))
     if(present(array_shape)) call output%allocate(array_shape)
 
   end function init_array1d
+!###############################################################################
 
+
+!###############################################################################
   module subroutine allocate_array1d(this, array_shape, source)
+    !! Allocate 1D array
     implicit none
+
+    ! Arguments
     class(array1d_type), intent(inout), target :: this
+    !! Instance of the 1D array type
     integer, dimension(:), intent(in), optional :: array_shape
+    !! Shape of the array
     class(*), dimension(..), intent(in), optional :: source
+    !! Source array
 
     if(allocated(this%val).or.this%allocated)then
        call stop_program("Trying to allocate already allocated array values")
@@ -338,13 +425,23 @@ contains
     this%size = product(this%shape)
 
   end subroutine allocate_array1d
+!###############################################################################
 
+
+!###############################################################################
   pure module subroutine deallocate_array1d(this, keep_shape)
+    !! Deallocate 1D array
     implicit none
-    class(array1d_type), intent(inout) :: this
-    logical, intent(in), optional :: keep_shape
 
+    ! Arguments
+    class(array1d_type), intent(inout) :: this
+    !! Instance of the 1D array type
+    logical, intent(in), optional :: keep_shape
+    !! Boolean whether to keep shape
+
+    ! Local variables
     logical :: keep_shape_
+    !! Boolean whether to keep shape
 
     keep_shape_ = .false.
     if(present(keep_shape)) keep_shape_ = keep_shape
@@ -355,11 +452,19 @@ contains
     this%size = 0
 
   end subroutine deallocate_array1d
+!###############################################################################
 
+
+!###############################################################################
   module subroutine assign_array1d(this, input)
+    !! Assign 1D array
     implicit none
+
+    ! Arguments
     type(array1d_type), intent(out), target :: this
+    !! Instance of the 1D array type
     type(array1d_type), intent(in) :: input
+    !! Input array
 
     this%rank = input%rank
     this%shape = input%shape
@@ -370,10 +475,17 @@ contains
          1:this%shape(1) &
     ) => this%val
   end subroutine assign_array1d
+!###############################################################################
 
+
+!###############################################################################
   module subroutine set_ptr_array1d(this)
+    !! Set pointer for 1D array
     implicit none
+
+    ! Arguments
     class(array1d_type), intent(inout), target :: this
+    !! Instance of the 1D array type
 
     if(.not. this%allocated)then
        call stop_program('Array not allocated')
@@ -381,37 +493,61 @@ contains
     end if
     this%val_ptr(1:this%shape(1)) => this%val
   end subroutine set_ptr_array1d
+!###############################################################################
 
+
+!###############################################################################
   module subroutine finalise_array1d(this)
+    !! Finalise 1D array
     implicit none
+
+    ! Arguments
     type(array1d_type), intent(inout) :: this
+    !! Instance of the 1D array type
 
     if(associated(this%val_ptr)) nullify(this%val_ptr)
     if(allocated(this%val)) deallocate(this%val)
     if(allocated(this%shape)) deallocate(this%shape)
   end subroutine finalise_array1d
+!###############################################################################
 
 
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
-
-
+!###############################################################################
   module function init_array2d(array_shape) result(output)
+    !! Initialise 2D array
     implicit none
+
+    ! Arguments
     integer, dimension(:), intent(in), optional :: array_shape
+    !! Shape of the array
     type(array2d_type) :: output
+    !! Output array
 
     output%rank = 1
     allocate(output%shape(1))
     if(present(array_shape)) call output%allocate(array_shape)
 
   end function init_array2d
+!###############################################################################
 
+
+!###############################################################################
   module subroutine allocate_array2d(this, array_shape, source)
+    !! Allocate 2D array
     implicit none
+
+    ! Arguments
     class(array2d_type), intent(inout), target :: this
+    !! Instance of the 2D array type
     integer, dimension(:), intent(in), optional :: array_shape
+    !! Shape of the array
     class(*), dimension(..), intent(in), optional :: source
+    !! Source array
 
     if(allocated(this%val).or.this%allocated)then
        call stop_program("Trying to allocate already allocated array values")
@@ -474,13 +610,23 @@ contains
     this%size = product(this%shape)
 
   end subroutine allocate_array2d
+!###############################################################################
 
+
+!###############################################################################
   pure module subroutine deallocate_array2d(this, keep_shape)
+    !! Deallocate 2D array
     implicit none
-    class(array2d_type), intent(inout) :: this
-    logical, intent(in), optional :: keep_shape
 
+    ! Arguments
+    class(array2d_type), intent(inout) :: this
+    !! Instance of the 2D array type
+    logical, intent(in), optional :: keep_shape
+    !! Boolean whether to keep shape
+
+    ! Local variables
     logical :: keep_shape_
+    !! Boolean whether to keep shape
 
     keep_shape_ = .false.
     if(present(keep_shape)) keep_shape_ = keep_shape
@@ -491,11 +637,19 @@ contains
     this%size = 0
 
   end subroutine deallocate_array2d
+!###############################################################################
 
+
+!###############################################################################
   module subroutine assign_array2d(this, input)
+    !! Assign 2D array
     implicit none
+
+    ! Arguments
     type(array2d_type), intent(out), target :: this
+    !! Instance of the 2D array type
     type(array2d_type), intent(in) :: input
+    !! Input array
 
     this%rank = input%rank
     this%shape = input%shape
@@ -507,10 +661,17 @@ contains
          1:size(this%val, dim=2) &
     ) => this%val
   end subroutine assign_array2d
+!###############################################################################
 
+
+!###############################################################################
   module subroutine set_ptr_array2d(this)
+    !! Set pointer for 2D array
     implicit none
+
+    ! Arguments
     class(array2d_type), intent(inout), target :: this
+    !! Instance of the 2D array type
 
     if(.not. this%allocated)then
        call stop_program('Array not allocated')
@@ -521,36 +682,61 @@ contains
          1:size(this%val, dim=2) &
     ) => this%val
   end subroutine set_ptr_array2d
+!###############################################################################
 
+
+!###############################################################################
   module subroutine finalise_array2d(this)
+    !! Finalise 2D array
     implicit none
+
+    ! Arguments
     type(array2d_type), intent(inout) :: this
+    !! Instance of the 2D array type
 
     if(associated(this%val_ptr)) nullify(this%val_ptr)
     if(allocated(this%val)) deallocate(this%val)
     if(allocated(this%shape)) deallocate(this%shape)
   end subroutine finalise_array2d
+!###############################################################################
 
 
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
-
+!###############################################################################
   module function init_array3d(array_shape) result(output)
+    !! Initialise 3D array
     implicit none
+
+    ! Arguments
     integer, dimension(:), intent(in), optional :: array_shape
+    !! Shape of the array
     type(array3d_type) :: output
+    !! Output array
 
     output%rank = 2
     allocate(output%shape(2))
     if(present(array_shape)) call output%allocate(array_shape)
 
   end function init_array3d
+!###############################################################################
 
+
+!###############################################################################
   module subroutine allocate_array3d(this, array_shape, source)
+    !! Allocate 3D array
     implicit none
+
+    ! Arguments
     class(array3d_type), intent(inout), target :: this
+    !! Instance of the 3D array type
     integer, dimension(:), intent(in), optional :: array_shape
+    !! Shape of the array
     class(*), dimension(..), intent(in), optional :: source
+    !! Source array
 
     if(allocated(this%val).or.this%allocated)then
        call stop_program("Trying to allocate already allocated array values")
@@ -639,13 +825,23 @@ contains
     this%size = product(this%shape)
 
   end subroutine allocate_array3d
+!###############################################################################
 
+
+!###############################################################################
   pure module subroutine deallocate_array3d(this, keep_shape)
+    !! Deallocate 3D array
     implicit none
-    class(array3d_type), intent(inout) :: this
-    logical, intent(in), optional :: keep_shape
 
+    ! Arguments
+    class(array3d_type), intent(inout) :: this
+    !! Instance of the 3D array type
+    logical, intent(in), optional :: keep_shape
+    !! Boolean whether to keep shape
+
+    ! Local variables
     logical :: keep_shape_
+    !! Boolean whether to keep shape
 
     keep_shape_ = .false.
     if(present(keep_shape)) keep_shape_ = keep_shape
@@ -656,11 +852,19 @@ contains
     this%size = 0
 
   end subroutine deallocate_array3d
+!###############################################################################
 
+
+!###############################################################################
   pure module subroutine set_array3d(this, input)
+    !! Set 3D array
     implicit none
+
+    ! Arguments
     class(array3d_type), intent(inout) :: this
+    !! Instance of the 3D array type
     real(real32), dimension(..), intent(in) :: input
+    !! Input array
 
     select rank(input)
     rank(1)
@@ -673,11 +877,19 @@ contains
        return
     end select
   end subroutine set_array3d
+!###############################################################################
 
+
+!###############################################################################
   module subroutine assign_array3d(this, input)
+    !! Assign 3D array
     implicit none
+
+    ! Arguments
     type(array3d_type), intent(out), target :: this
+    !! Instance of the 3D array type
     type(array3d_type), intent(in) :: input
+    !! Input array
 
     this%rank = input%rank
     this%shape = input%shape
@@ -690,10 +902,17 @@ contains
          1:size(this%val, dim=2) &
     ) => this%val
   end subroutine assign_array3d
+!###############################################################################
 
+
+!###############################################################################
   module subroutine set_ptr_array3d(this)
+    !! Set pointer for 3D array
     implicit none
+
+    ! Arguments
     class(array3d_type), intent(inout), target :: this
+    !! Instance of the 3D array type
 
     if(.not. this%allocated)then
        call stop_program('Array not allocated')
@@ -705,35 +924,61 @@ contains
          1:size(this%val, dim=2) &
     ) => this%val
   end subroutine set_ptr_array3d
+!###############################################################################
 
+
+!###############################################################################
   module subroutine finalise_array3d(this)
+    !! Finalise 3D array
     implicit none
+
+    ! Arguments
     type(array3d_type), intent(inout) :: this
+    !! Instance of the 3D array type
 
     if(associated(this%val_ptr)) nullify(this%val_ptr)
     if(allocated(this%val)) deallocate(this%val)
     if(allocated(this%shape)) deallocate(this%shape)
   end subroutine finalise_array3d
+!###############################################################################
 
 
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
+!###############################################################################
   module function init_array4d(array_shape) result(output)
+    !! Initialise 4D array
     implicit none
+
+    ! Arguments
     integer, dimension(:), intent(in), optional :: array_shape
+    !! Shape of the array
     type(array4d_type) :: output
+    !! Output array
 
     output%rank = 3
     allocate(output%shape(3))
     if(present(array_shape)) call output%allocate(array_shape)
 
   end function init_array4d
+!###############################################################################
 
+
+!###############################################################################
   module subroutine allocate_array4d(this, array_shape, source)
+    !! Allocate 4D array
     implicit none
+
+    ! Arguments
     class(array4d_type), intent(inout), target :: this
+    !! Instance of the 4D array type
     integer, dimension(:), intent(in), optional :: array_shape
+    !! Shape of the array
     class(*), dimension(..), intent(in), optional :: source
+    !! Source array
 
     if(allocated(this%val).or.this%allocated)then
        call stop_program("Trying to allocate already allocated array values")
@@ -825,13 +1070,23 @@ contains
     this%size = product(this%shape)
 
   end subroutine allocate_array4d
+!###############################################################################
 
+
+!###############################################################################
   pure module subroutine deallocate_array4d(this, keep_shape)
+    !! Deallocate 4D array
     implicit none
-    class(array4d_type), intent(inout) :: this
-    logical, intent(in), optional :: keep_shape
 
+    ! Arguments
+    class(array4d_type), intent(inout) :: this
+    !! Instance of the 4D array type
+    logical, intent(in), optional :: keep_shape
+    !! Boolean whether to keep shape
+
+    ! Local variables
     logical :: keep_shape_
+    !! Boolean whether to keep shape
 
     keep_shape_ = .false.
     if(present(keep_shape)) keep_shape_ = keep_shape
@@ -842,11 +1097,19 @@ contains
     this%size = 0
 
   end subroutine deallocate_array4d
+!###############################################################################
 
+
+!###############################################################################
   pure module subroutine set_array4d(this, input)
+    !! Set 4D array
     implicit none
+
+    ! Arguments
     class(array4d_type), intent(inout) :: this
+    !! Instance of the 4D array type
     real(real32), dimension(..), intent(in) :: input
+    !! Input array
 
     select rank(input)
     rank(1)
@@ -859,11 +1122,19 @@ contains
        return
     end select
   end subroutine set_array4d
+!###############################################################################
 
+
+!###############################################################################
   module subroutine assign_array4d(this, input)
+    !! Assign 4D array
     implicit none
+
+    ! Arguments
     type(array4d_type), intent(out), target :: this
+    !! Instance of the 4D array type
     type(array4d_type), intent(in) :: input
+    !! Input array
 
     this%rank = input%rank
     this%shape = input%shape
@@ -877,10 +1148,17 @@ contains
          1:size(this%val, dim=2) &
     ) => this%val
   end subroutine assign_array4d
+!###############################################################################
 
+
+!###############################################################################
   module subroutine set_ptr_array4d(this)
+    !! Set pointer for 4D array
     implicit none
+
+    ! Arguments
     class(array4d_type), intent(inout), target :: this
+    !! Instance of the 4D array type
 
     if(.not. this%allocated)then
        call stop_program('Array not allocated')
@@ -893,35 +1171,61 @@ contains
          1:size(this%val, dim=2) &
     ) => this%val
   end subroutine set_ptr_array4d
+!###############################################################################
 
+
+!###############################################################################
   module subroutine finalise_array4d(this)
+    !! Finalise 4D array
     implicit none
+
+    ! Arguments
     type(array4d_type), intent(inout) :: this
+    !! Instance of the 4D array type
 
     if(associated(this%val_ptr)) nullify(this%val_ptr)
     if(allocated(this%val)) deallocate(this%val)
     if(allocated(this%shape)) deallocate(this%shape)
   end subroutine finalise_array4d
+!###############################################################################
 
 
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
+!###############################################################################
   module function init_array5d(array_shape) result(output)
+    !! Initialise 5D array
     implicit none
+
+    ! Arguments
     integer, dimension(:), intent(in), optional :: array_shape
+    !! Shape of the array
     type(array5d_type) :: output
+    !! Output array
 
     output%rank = 4
     allocate(output%shape(4))
     if(present(array_shape)) call output%allocate(array_shape)
 
   end function init_array5d
+!###############################################################################
 
+
+!###############################################################################
   module subroutine allocate_array5d(this, array_shape, source)
+    !! Allocate 5D array
     implicit none
+
+    ! Arguments
     class(array5d_type), intent(inout), target :: this
+    !! Instance of the 5D array type
     integer, dimension(:), intent(in), optional :: array_shape
+    !! Shape of the array
     class(*), dimension(..), intent(in), optional :: source
+    !! Source array
 
     if(allocated(this%val).or.this%allocated)then
        call stop_program("Trying to allocate already allocated array values")
@@ -1016,13 +1320,23 @@ contains
     this%size = product(this%shape)
 
   end subroutine allocate_array5d
+!###############################################################################
 
+
+!###############################################################################
   pure module subroutine deallocate_array5d(this, keep_shape)
+    !! Deallocate 5D array
     implicit none
-    class(array5d_type), intent(inout) :: this
-    logical, intent(in), optional :: keep_shape
 
+    ! Arguments
+    class(array5d_type), intent(inout) :: this
+    !! Instance of the 5D array type
+    logical, intent(in), optional :: keep_shape
+    !! Boolean whether to keep shape
+
+    ! Local variables
     logical :: keep_shape_
+    !! Boolean whether to keep shape
 
     keep_shape_ = .false.
     if(present(keep_shape)) keep_shape_ = keep_shape
@@ -1033,11 +1347,19 @@ contains
     this%size = 0
 
   end subroutine deallocate_array5d
+!###############################################################################
 
+
+!###############################################################################
   pure module subroutine set_array5d(this, input)
+    !! Set 5D array
     implicit none
+
+    ! Arguments
     class(array5d_type), intent(inout) :: this
+    !! Instance of the 5D array type
     real(real32), dimension(..), intent(in) :: input
+    !! Input array
 
     select rank(input)
     rank(1)
@@ -1050,11 +1372,19 @@ contains
        return
     end select
   end subroutine set_array5d
+!###############################################################################
 
+
+!###############################################################################
   module subroutine assign_array5d(this, input)
+    !! Assign 5D array
     implicit none
+
+    ! Arguments
     type(array5d_type), intent(out), target :: this
+    !! Instance of the 5D array type
     type(array5d_type), intent(in) :: input
+    !! Input array
 
     this%rank = input%rank
     this%shape = input%shape
@@ -1069,10 +1399,17 @@ contains
          1:size(this%val, dim=2) &
     ) => this%val
   end subroutine assign_array5d
+!###############################################################################
 
+
+!###############################################################################
   module subroutine set_ptr_array5d(this)
+    !! Set pointer for 5D array
     implicit none
+
+    ! Arguments
     class(array5d_type), intent(inout), target :: this
+    !! Instance of the 5D array type
 
     if(.not. this%allocated)then
        call stop_program('Array not allocated')
@@ -1086,14 +1423,22 @@ contains
          1:size(this%val, dim=2) &
     ) => this%val
   end subroutine set_ptr_array5d
+!###############################################################################
 
+
+!###############################################################################
   module subroutine finalise_array5d(this)
+    !! Finalise 5D array
     implicit none
+
+    ! Arguments
     type(array5d_type), intent(inout) :: this
+    !! Instance of the 5D array type
 
     if(associated(this%val_ptr)) nullify(this%val_ptr)
     if(allocated(this%val)) deallocate(this%val)
     if(allocated(this%shape)) deallocate(this%shape)
   end subroutine finalise_array5d
+!###############################################################################
 
 end submodule athena__misc_types_submodule
