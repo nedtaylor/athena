@@ -523,6 +523,15 @@ contains
          this%num_channels, &
          this%batch_size), &
          intent(in) :: gradient
+    !! Gradient values
+
+    ! Local variables
+    integer :: i, j, f, s, m
+    !! Loop indices
+    integer, dimension(3) :: step
+    !! Step sizes
+    integer, dimension(2,3) :: orig_bound, dest_bound
+    !! Bounds for input and output arrays
 
 
     select type(di => this%di)
@@ -535,103 +544,134 @@ contains
 
        select case(this%imethod)
        case(3) ! circular
-          di%val_ptr(:this%pad(1),:,:,:) = di%val_ptr(:this%pad(1),:,:,:) + &
-               gradient( &
-                    this%output%shape(1)-this%pad(1)+1:this%output%shape(1),:,:,: &
-               )
-          di%val_ptr(this%input_shape(1)-this%pad(1)+1:this%input_shape(1),:,:,:) = &
-               di%val_ptr(this%input_shape(1)-this%pad(1)+1:this%input_shape(1),:,:,:) + &
-               gradient( &
-                    :this%pad(1),:,:,: &
-               )
+          do i = 1, 2
+             orig_bound = this%orig_bound
+             dest_bound = this%dest_bound
+             do j = 1, 2 ! 1 = left padding, 2 = right padding
+                select case(j)
+                case(1)
+                   orig_bound(:,i) = [ 1, this%pad(i) ]
+                   dest_bound(:,i) = [ &
+                         this%dest_bound(2,i) - this%pad(i) + 1, &
+                         this%dest_bound(2,i) &
+                   ]
+                case(2)
+                   orig_bound(:,i) = [ &
+                         this%orig_bound(2,i) - this%pad(i) + 1, &
+                         this%orig_bound(2,i) &
+                   ]
+                   dest_bound(:,i) = [ 1, this%pad(i) ]
+                end select
 
-
-          di%val_ptr(:,:this%pad(2),:,:) = di%val_ptr(:,:this%pad(2),:,:) + &
-               gradient( &
-                    :,this%output%shape(2)-this%pad(2)+1:this%output%shape(2),:,: &
-               )
-          di%val_ptr(:,this%input_shape(2)-this%pad(2)+1:this%input_shape(2),:,:) = &
-               di%val_ptr(:,this%input_shape(2)-this%pad(2)+1:this%input_shape(2),:,:) + &
-               gradient( &
-                    :,:this%pad(2),:,: &
-               )
+                di%val_ptr( &
+                     orig_bound(1,1):orig_bound(2,1), &
+                     orig_bound(1,2):orig_bound(2,2), :, : &
+                ) = di%val_ptr( &
+                     orig_bound(1,1):orig_bound(2,1), &
+                     orig_bound(1,2):orig_bound(2,2), :, : &
+                ) + gradient( &
+                     dest_bound(1,1):dest_bound(2,1), &
+                     dest_bound(1,2):dest_bound(2,2), :, : &
+                )
+             end do
+          end do
        case(4) ! reflection
-          di%val_ptr(:this%pad(1),:,:,:) = di%val_ptr(:this%pad(1),:,:,:) + &
-               gradient( &
-                    2*this%pad(1)+1:this%pad(1)+2:-1,:,:,: &
-               )
-          di%val_ptr(this%input_shape(1)-this%pad(1):this%input_shape(1)-1,:,:,:) = &
-               di%val_ptr(this%input_shape(1)-this%pad(1):this%input_shape(1)-1,:,:,:) + &
-               gradient( &
-                    this%output%shape(1):this%output%shape(1)-this%pad(1)+1:-1,:,:,: &
-               )
+          do i = 1, 2
+             orig_bound = this%orig_bound
+             dest_bound = this%dest_bound
+             step = 1
+             step(i) = -1
+             do j = 1, 2 ! 1 = left padding, 2 = right padding
+                select case(j)
+                case(1)
+                   orig_bound(:,i) = [ 2, this%pad(i) + 1 ]
+                   dest_bound(:,i) = [ this%pad(i), 1 ]
+                case(2)
+                   orig_bound(:,i) = [ &
+                         this%orig_bound(2,i) - this%pad(i), &
+                         this%orig_bound(2,i) - 1 &
+                   ]
+                   dest_bound(:,i) = [ &
+                         this%dest_bound(2,i), &
+                         this%dest_bound(2,i) - this%pad(i) + 1 &
+                   ]
+                end select
 
-          di%val_ptr(:,:this%pad(2),:,:) = di%val_ptr(:,:this%pad(2),:,:) + &
-               gradient( &
-                    :,2*this%pad(2)+1:this%pad(2)+2:-1,:,: &
-               )
-          di%val_ptr(:,this%input_shape(2)-this%pad(2):this%input_shape(2)-1,:,:) = &
-               di%val_ptr(:,this%input_shape(2)-this%pad(2):this%input_shape(2)-1,:,:) + &
-               gradient( &
-                    :,this%output%shape(2):this%output%shape(2)-this%pad(2)+1:-1,:,: &
-               )
+                di%val_ptr( &
+                     orig_bound(1,1):orig_bound(2,1), &
+                     orig_bound(1,2):orig_bound(2,2), :, : &
+                ) = di%val_ptr( &
+                     orig_bound(1,1):orig_bound(2,1), &
+                     orig_bound(1,2):orig_bound(2,2), :, : &
+                ) + gradient( &
+                     dest_bound(1,1):dest_bound(2,1):step(1), &
+                     dest_bound(1,2):dest_bound(2,2):step(2), :, : &
+                )
+             end do
+          end do
        case(5) ! replication
-          di%val_ptr(1,1,:,:) = di%val_ptr(1,1,:,:) + &
-               sum( sum( gradient(1:this%pad(1),1:this%pad(2),:,:), dim = 2 ), dim = 1 )
-          di%val_ptr(1,this%input_shape(2),:,:) = di%val_ptr(1,this%input_shape(2),:,:) + &
-               sum( sum( &
-                    gradient( &
-                         1:this%pad(1), &
-                         this%output%shape(2)-this%pad(2)+1:this%output%shape(2), &
-                         :,: &
-                    ), dim = 2 &
-               ), dim = 1 )
-          di%val_ptr(this%input_shape(1),1,:,:) = di%val_ptr(this%input_shape(1),1,:,:) + &
-               sum( sum( &
-                    gradient( &
-                         this%output%shape(1)-this%pad(1)+1:this%output%shape(1), &
-                         1:this%pad(2), &
-                         :,: &
-                    ), dim = 2 &
-               ), dim = 1 )
-          di%val_ptr(this%input_shape(1),this%input_shape(2),:,:) = &
-               di%val_ptr(this%input_shape(1),this%input_shape(2),:,:) + &
-               sum( sum( &
-                    gradient( &
-                         this%output%shape(1)-this%pad(1)+1:this%output%shape(1), &
-                         this%output%shape(2)-this%pad(2)+1:this%output%shape(2), &
-                         :,: &
-                    ), dim = 2 &
-               ), dim = 1 )
 
+          ! Replicate along edges (aka corners in 2D)
+          do f = 1, this%facets(2)%num
+             do s = 1, this%batch_size
+                do m = 1, this%num_channels
+                   di%val_ptr( &
+                        this%orig_bound(1,f), &
+                        this%orig_bound(2,f), m, s &
+                   ) = di%val_ptr( &
+                        this%orig_bound(1,f), &
+                        this%orig_bound(2,f), m, s &
+                   ) + sum( gradient( &
+                             this%facets(2)%dest_bound(1,1,f) : &
+                             this%facets(2)%dest_bound(2,1,f), &
+                             this%facets(2)%dest_bound(1,2,f) : &
+                             this%facets(2)%dest_bound(2,2,f), m, s &
+                   ) )
+                end do
+             end do
+          end do
 
-          di%val_ptr(1,:,:,:) = di%val_ptr(1,:,:,:) + &
-               sum( &
-                    gradient( &
-                         1:this%pad(1),:,:,: &
-                    ), dim = 1 &
-               )
-          di%val_ptr(this%input_shape(1),:,:,:) = di%val_ptr(this%input_shape(1),:,:,:) + &
-               sum( &
-                    gradient( &
-                         this%output%shape(1)-this%pad(1)+1:this%output%shape(1), &
-                         :,:,: &
-                    ), dim = 1 &
-               )
-          di%val_ptr(:,1,:,:) = di%val_ptr(:,1,:,:) + &
-               sum( &
-                    gradient( &
-                         :,1:this%pad(2),:,: &
-                    ), dim = 1 &
-               )
-          di%val_ptr(:,this%input_shape(2),:,:) = di%val_ptr(:,this%input_shape(2),:,:) + &
-               sum( &
-                    gradient( &
-                         :, &
-                         this%output%shape(2)-this%pad(2)+1:this%output%shape(2), &
-                         :,: &
-                    ), dim = 1 &
-               )
+          ! Replicate along faces (aka edges in 2D)
+          do f = 1, this%facets(1)%num
+             select case(this%facets(1)%dim(f))
+             case(1)
+                do s = 1, this%batch_size
+                   do m = 1, this%num_channels
+                     di%val_ptr(this%facets(1)%orig_bound(1,f), :, m, s) = &
+                          di%val_ptr( &
+                               this%facets(1)%orig_bound(1,f), :, m, s &
+                          ) + &
+                          sum( &
+                               gradient( &
+                                    this%facets(1)%dest_bound(1,1,f) : &
+                                    this%facets(1)%dest_bound(2,1,f), &
+                                    this%pad(2) : &
+                                    this%pad(2) + this%input_shape(2) - 1, &
+                                    m, s &
+                               ), dim=1 &
+                          )
+                   end do
+                end do
+             case(2)
+                do s = 1, this%batch_size
+                   do m = 1, this%num_channels
+                     di%val_ptr(:, this%facets(1)%orig_bound(1,f), m, s) = &
+                          di%val_ptr( &
+                               :, this%facets(1)%orig_bound(1,f), m, s &
+                          ) + &
+                          sum( &
+                               gradient( &
+                                    this%pad(1) : &
+                                    this%pad(1) + this%input_shape(1) - 1, &
+                                    this%facets(1)%dest_bound(1,1,f) : &
+                                    this%facets(1)%dest_bound(2,1,f), &
+                                    m, s &
+                               ), dim=2 &
+                          )
+                   end do
+                end do
+             end select
+          end do
        end select
     end select
 

@@ -589,55 +589,17 @@ contains
                    do m = 1, this%num_channels
                      di%val_ptr(this%facets(1)%orig_bound(1,f), m, s) = &
                           di%val_ptr(this%facets(1)%orig_bound(1,f), m, s) + &
-                          sum(gradient( &
-                               this%facets(1)%dest_bound(1,1,f):this%facets(1)%dest_bound(2,1,f), m, s), dim=1)
+                          sum( &
+                               gradient( &
+                                    this%facets(1)%dest_bound(1,1,f) : &
+                                    this%facets(1)%dest_bound(2,1,f), m, s &
+                               ), dim=1 &
+                          )
                    end do
                 end do
              end select
           end do
 
-       end select
-    end select
-
-
-    select type(di => this%di)
-    type is (array3d_type)
-       di%val_ptr(:,:,:) = &
-            gradient( &
-                 this%pad(1)+1:this%pad(1)+this%input_shape(1), :, : &
-            )
-      
-       select case(this%imethod)
-       case(3) ! circular
-          di%val_ptr(:this%pad(1),:,:) = di%val_ptr(:this%pad(1),:,:) + &
-               gradient( &
-                    this%output%shape(1)-this%pad(1)+1:this%output%shape(1),:,: &
-               )
-          di%val_ptr(this%input_shape(1)-this%pad(1)+1:this%input_shape(1),:,:) = &
-               di%val_ptr(this%input_shape(1)-this%pad(1)+1:this%input_shape(1),:,:) + &
-               gradient( &
-                    :this%pad(1),:,: &
-               )
-       case(4) ! reflection
-          di%val_ptr(:this%pad(1),:,:) = di%val_ptr(:this%pad(1),:,:) + &
-               gradient( &
-                    2*this%pad(1)+1:this%pad(1)+2:-1,:,: &
-               )
-          di%val_ptr(this%input_shape(1)-this%pad(1):this%input_shape(1)-1,:,:) = &
-               di%val_ptr(this%input_shape(1)-this%pad(1):this%input_shape(1)-1,:,:) + &
-               gradient( &
-                    this%output%shape(1):this%output%shape(1)-this%pad(1)+1:-1,:,: &
-               )
-       case(5) ! replication
-          di%val_ptr(1,:,:) = di%val_ptr(1,:,:) + &
-               sum( gradient(1:this%pad(1),:,:), dim = 1 )
-          di%val_ptr(this%input_shape(1),:,:) = &
-               di%val_ptr(this%input_shape(1),:,:) + &
-               sum( &
-                    gradient( &
-                         this%output%shape(1)-this%pad(1)+1:this%output%shape(1),:,: &
-                    ), dim = 1 &
-               )
        end select
     end select
 
