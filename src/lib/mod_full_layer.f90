@@ -513,7 +513,7 @@ contains
 
        !! check for end of layer card
        !!-----------------------------------------------------------------------
-       if(trim(adjustl(buffer)).eq."END FULL")then
+       if(trim(adjustl(buffer)).eq."END "//to_upper(trim(this%name)))then
           backspace(unit)
           exit tag_loop
        end if
@@ -607,7 +607,7 @@ contains
     !! check for end of layer card
     !!--------------------------------------------------------------------------
     read(unit,'(A)') buffer
-    if(trim(adjustl(buffer)).ne."END FULL")then
+    if(trim(adjustl(buffer)).ne."END "//to_upper(trim(this%name)))then
        write(0,*) trim(adjustl(buffer))
        write(err_msg,'("END ",A," not where expected")') to_upper(this%name)
        call stop_program(err_msg)
