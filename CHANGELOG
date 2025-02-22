@@ -41,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    - One that is a procedure contained in the layer derived type, with the layer as the parent
    - One that is a public procedure that returns the layer from the read
 - Changed layers outputs and gradients to derived type to enable generic handling
+- Changed commenting in all Fortran files to adopt FORD compatible documenting
+   - This enables documentation of the modules to be compilable using the FORD code (https://forddocs.readthedocs.io/en/stable/)
+   - This tries to follow the format outlined by the Fortran Lang style guide (https://fortran-lang.org/learn/best_practices/style_guide/)
 
 ### Fixed
 - Fixed unallocated lr_decay reference
