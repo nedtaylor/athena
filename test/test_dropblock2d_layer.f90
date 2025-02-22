@@ -21,7 +21,7 @@ program test_dropblock2d_layer
 
 
 !!!-----------------------------------------------------------------------------
-!!! Initialize random number generator with a seed
+!!! Initialise random number generator with a seed
 !!!-----------------------------------------------------------------------------
   call random_seed(size = seed_size)
   allocate(seed(seed_size), source=0)
@@ -36,7 +36,7 @@ program test_dropblock2d_layer
        block_size = 5, &
        input_shape = [width, width, num_channels], &
        batch_size = 1 &
-       )
+  )
   call db_layer%set_ptrs()
 
   !! check layer name
@@ -86,11 +86,11 @@ program test_dropblock2d_layer
   input_data = max_value
 
   db_layer = dropblock2d_layer_type( &
-      rate = 0.5, &
-      block_size = 5, &
-      input_shape = [width, width, num_channels], &
-      batch_size = 1 &
-      )
+       rate = 0.5, &
+       block_size = 5, &
+       input_shape = [width, width, num_channels], &
+       batch_size = 1 &
+  )
   call db_layer%set_ptrs()
   !! run forward pass
   call db_layer%forward(input_data)
@@ -99,15 +99,16 @@ program test_dropblock2d_layer
   !! check outputs have expected value
   select type(db_layer)
   type is(dropblock2d_layer_type)
-    if(any( &
-         abs( &
-              merge(input_data(:,:,1,1),0.0,db_layer%mask) - &
-              output(:,:,1,1) &
-         ) .gt. tol) &
-    )then
-      success = .false.
-      write(*,*) 'dropblock2d layer forward pass failed: mask incorrectly applied'
-    end if
+     if(any( &
+          abs( &
+               merge(input_data(:,:,1,1),0.0,db_layer%mask) - &
+               output(:,:,1,1) &
+          ) .gt. tol) &
+     )then
+        success = .false.
+        write(*,*) &
+             'dropblock2d layer forward pass failed: mask incorrectly applied'
+     end if
   end select
 
 
@@ -129,9 +130,9 @@ program test_dropblock2d_layer
                   di%val_ptr(:,:,1,1) &
              ) .gt. tol ) &
         )then
-          success = .false.
-          write(*,*) 'dropblock2d layer backward pass failed: mask &
-               &incorrectly applied'
+           success = .false.
+           write(*,*) 'dropblock2d layer backward pass failed: mask &
+                &incorrectly applied'
         end if
      class default
         success = .false.

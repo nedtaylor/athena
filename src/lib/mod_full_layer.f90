@@ -113,6 +113,7 @@ contains
 ! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
 !##############################################################################!
 
+
 !###############################################################################
   pure function get_num_params_full(this) result(num_params)
     !! Get the number of parameters for fully connected layer
@@ -170,10 +171,11 @@ contains
     real(real32), dimension(..), intent(in) :: gradient
     !! Gradient values
 
-    select rank(input); rank(2)
-    select rank(gradient); rank(2)
-       call backward_2d(this, input, gradient)
-    end select
+    select rank(input)
+    rank(2)
+       select rank(gradient); rank(2)
+          call backward_2d(this, input, gradient)
+       end select
     end select
   end subroutine backward_rank
 !###############################################################################
@@ -333,7 +335,7 @@ contains
          this%weight(1:this%num_outputs,1:this%num_inputs+1) => this%params
     if(allocated(this%dp)) &
          this%dw(1:this%num_outputs,1:this%num_inputs,1:this%batch_size) => &
-              this%dp
+         this%dp
 
   end subroutine set_ptrs_hyperparams_full
 !###############################################################################
@@ -660,7 +662,7 @@ contains
     ! Check if WEIGHTS card was found
     !---------------------------------------------------------------------------
     if(.not.found_weights)then
-      write(0,*) "WARNING: WEIGHTS card in FULL not found"
+       write(0,*) "WARNING: WEIGHTS card in FULL not found"
     else
        do i=1,num_inputs+1
           allocate(data_list((num_outputs)), source=0._real32)

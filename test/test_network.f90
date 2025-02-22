@@ -11,7 +11,7 @@ program test_network
        dropblock2d_layer_type, &
        flatten_layer_type, &
        conv3d_layer_type
-   use athena__loss, only: &
+  use athena__loss, only: &
        compute_loss_bce, &
        compute_loss_cce, &
        compute_loss_mae, &
@@ -25,7 +25,7 @@ program test_network
   type(network_type), allocatable :: network2
   real, allocatable, dimension(:) :: gradients
   real, allocatable, dimension(:,:) :: x, y
-  
+
   real, parameter :: learning_rate = 0.1
 
   integer :: seed_size
@@ -38,7 +38,7 @@ program test_network
 
 
 !!!-----------------------------------------------------------------------------
-!!! Initialize random number generator with a seed
+!!! Initialise random number generator with a seed
 !!!-----------------------------------------------------------------------------
   call random_seed(size=seed_size)
   allocate(seed(seed_size), source=1)
@@ -88,7 +88,7 @@ program test_network
 !!! Test network
 !!!-----------------------------------------------------------------------------
   !! create test data
-  write(*,*) 
+  write(*,*)
   x = reshape([0.4, 0.6, 0.8], [3,1])
   y = reshape([0.370368, 0.493824], [2,1])
   call network%test(x, y)
@@ -127,7 +127,7 @@ program test_network
      write(0,*) "Gradients not set correctly"
      success = .false.
   end if
-  
+
 
 !!!-----------------------------------------------------------------------------
 !!! Test network copy and reduce
@@ -142,7 +142,7 @@ program test_network
      success = .false.
   end if
   rtmp1 = network3%metrics(1)%val
-  
+
   !! check network reduce
   call network3%reduce(network)
   if(abs(network3%metrics(1)%val-(network%metrics(1)%val+rtmp1)).gt.1.E-6) then

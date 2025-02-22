@@ -32,26 +32,29 @@ program test_accuracy
      success = .false.
   end if
 
-  !! initialize output test data
-  output = reshape([0.1E0, 0.2E0, 0.3E0, &
-                    0.4E0, 0.5E0, 0.6E0, &
-                    0.7E0, 0.8E0, 0.9E0], [3,3])
+  !! initialise output test data
+  output = reshape([ &
+       0.1E0, 0.2E0, 0.3E0, &
+       0.4E0, 0.5E0, 0.6E0, &
+       0.7E0, 0.8E0, 0.9E0], [3,3])
 
 
 !!!-----------------------------------------------------------------------------
 !!! test mae_score
 !!!-----------------------------------------------------------------------------
-  expected = reshape([0.1E0, 0.2E0, 0.3E0, &
-                      0.4E0, 0.5E0, 0.6E0, &
-                      0.7E0, 0.8E0, 0.9E0], [3,3])
+  expected = reshape([ &
+       0.1E0, 0.2E0, 0.3E0, &
+       0.4E0, 0.5E0, 0.6E0, &
+       0.7E0, 0.8E0, 0.9E0], [3,3])
   result = mae_score(output, expected)
   if (any(abs(result - 1.E0) .gt. 1.E-6)) then
      write(0,*) 'mae_score failed'
      success = .false.
   end if
-  expected = reshape([0.1E0, 0.2E0, 0.1E0, &
-                      0.4E0, 0.5E0, 0.6E0, &
-                      0.0E0, 0.0E0, 0.0E0], [3,3])
+  expected = reshape([ &
+       0.1E0, 0.2E0, 0.1E0, &
+       0.4E0, 0.5E0, 0.6E0, &
+       0.0E0, 0.0E0, 0.0E0], [3,3])
   result = mae_score(output, expected)
   if (any(abs(result - [14.E0/15.E0 ,1.E0, 0.2E0] ) .gt. 1.E-6)) then
      write(0,*) 'mae_score failed'
@@ -63,17 +66,19 @@ program test_accuracy
 !!!-----------------------------------------------------------------------------
 !!! test mse_score
 !!!-----------------------------------------------------------------------------
-  expected = reshape([0.1E0, 0.2E0, 0.3E0, &
-                      0.4E0, 0.5E0, 0.6E0, &
-                      0.7E0, 0.8E0, 0.9E0], [3,3])
+  expected = reshape([ &
+       0.1E0, 0.2E0, 0.3E0, &
+       0.4E0, 0.5E0, 0.6E0, &
+       0.7E0, 0.8E0, 0.9E0], [3,3])
   result = mse_score(output, expected)
   if (any(abs(result - 1.E0) .gt. 1.E-6)) then
      write(0,*) 'mse_score failed'
      success = .false.
   end if
-  expected = reshape([0.0E0, 0.1E0, 0.2E0, &
-                      0.4E0, 0.5E0, 0.6E0, &
-                      0.7E0, 0.8E0, 0.9E0], [3,3])
+  expected = reshape([ &
+       0.0E0, 0.1E0, 0.2E0, &
+       0.4E0, 0.5E0, 0.6E0, &
+       0.7E0, 0.8E0, 0.9E0], [3,3])
   result = mse_score(output, expected)
   if (any(abs(result - [0.99E0, 1.E0, 1.E0]) .gt. 1.E-6)) then
      write(0,*) 'mse_score failed'
@@ -85,17 +90,19 @@ program test_accuracy
 !!!-----------------------------------------------------------------------------
 !!! test r2_score
 !!!-----------------------------------------------------------------------------
-  expected = reshape([0.1E0, 0.2E0, 0.3E0, &
-                      0.4E0, 0.5E0, 0.6E0, &
-                      0.7E0, 0.8E0, 0.9E0], [3,3])
+  expected = reshape([ &
+       0.1E0, 0.2E0, 0.3E0, &
+       0.4E0, 0.5E0, 0.6E0, &
+       0.7E0, 0.8E0, 0.9E0], [3,3])
   result = r2_score(output, expected)
   if (any(abs(result - 1.E0) .gt. 1.E-6)) then
      write(0,*) 'r2_score failed'
      success = .false.
   end if
-  expected = reshape([0.1E0, 0.15E0, 0.3E0, &
-                      0.4E0, 0.5E0, 0.6E0, &
-                      0.7E0, 0.8E0, 0.9E0], [3,3])
+  expected = reshape([ &
+       0.1E0, 0.15E0, 0.3E0, &
+       0.4E0, 0.5E0, 0.6E0, &
+       0.7E0, 0.8E0, 0.9E0], [3,3])
   result = r2_score(output, expected)
   if (any(abs(result - [0.884615421E0, 1.E0, 1.E0]) .gt. 1.E-6)) then
      write(0,*) 'r2_score failed'

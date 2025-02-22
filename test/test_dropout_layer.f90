@@ -18,7 +18,7 @@ program test_dropout_layer
   integer :: seed_size
   integer, allocatable, dimension(:) :: seed
 
-  !! Initialize random number generator with a seed
+  !! Initialise random number generator with a seed
   call random_seed(size = seed_size)
   allocate(seed(seed_size), source=0)
   call random_seed(put = seed)
@@ -29,7 +29,7 @@ program test_dropout_layer
        num_masks = 1, &
        input_shape = [num_inputs], &
        batch_size = 1 &
-       )
+  )
   call drop_layer%set_ptrs()
 
   !! check layer name
@@ -74,11 +74,11 @@ program test_dropout_layer
   input_data = max_value
 
   drop_layer = dropout_layer_type( &
-      rate = 0.5, &
-      num_masks = 1, &
-      input_shape = [num_inputs], &
-      batch_size = 1 &
-      )
+       rate = 0.5, &
+       num_masks = 1, &
+       input_shape = [num_inputs], &
+       batch_size = 1 &
+  )
   call drop_layer%set_ptrs()
   !! run forward pass
   call drop_layer%forward(input_data)
@@ -88,11 +88,11 @@ program test_dropout_layer
   !! check outputs have expected value
   select type(drop_layer)
   type is(dropout_layer_type)
-    if(any(abs(merge(input_data(:,1),0.0,drop_layer%mask(:,1)) / &
-         ( 1.E0 - drop_layer%rate ) - output(:,1)).gt.tol))then
-      success = .false.
-      write(*,*) 'dropout layer forward pass failed: mask incorrectly applied'
-    end if
+     if(any(abs(merge(input_data(:,1),0.0,drop_layer%mask(:,1)) / &
+          ( 1.E0 - drop_layer%rate ) - output(:,1)).gt.tol))then
+        success = .false.
+        write(*,*) 'dropout layer forward pass failed: mask incorrectly applied'
+     end if
   end select
 
   !! run backward pass
@@ -102,17 +102,18 @@ program test_dropout_layer
   !! check gradient has expected value
   select type(drop_layer)
   type is(dropout_layer_type)
-    select type(di => drop_layer%di)
-    type is(array2d_type)
-       if(any(abs(merge(gradient(:,1),0.0,drop_layer%mask(:,1)) - &
-            di%val(:,1)).gt.tol))then
-         success = .false.
-         write(*,*) 'dropout layer backward pass failed: mask incorrectly applied'
-       end if
-    class default
-       success = .false.
-       write(0,*) 'dropout layer has not set di type correctly'
-    end select
+     select type(di => drop_layer%di)
+     type is(array2d_type)
+        if(any(abs(merge(gradient(:,1),0.0,drop_layer%mask(:,1)) - &
+             di%val(:,1)).gt.tol))then
+           success = .false.
+           write(*,*) &
+                'dropout layer backward pass failed: mask incorrectly applied'
+        end if
+     class default
+        success = .false.
+        write(0,*) 'dropout layer has not set di type correctly'
+     end select
   end select
 
   !! check 1d and 2d output are consistent

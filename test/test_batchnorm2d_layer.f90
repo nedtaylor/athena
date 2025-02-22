@@ -1,8 +1,8 @@
 program test_batchnorm2d_layer
   use athena, only: &
-     batchnorm2d_layer_type, &
-     base_layer_type, &
-     learnable_layer_type
+       batchnorm2d_layer_type, &
+       base_layer_type, &
+       learnable_layer_type
   use athena__misc_types, only: array4d_type
   implicit none
 
@@ -23,7 +23,7 @@ program test_batchnorm2d_layer
 
 
 !!!-----------------------------------------------------------------------------
-!!! Initialize random number generator with a seed
+!!! Initialise random number generator with a seed
 !!!-----------------------------------------------------------------------------
   call random_seed(size = seed_size)
   allocate(seed(seed_size), source=0)
@@ -34,50 +34,50 @@ program test_batchnorm2d_layer
 !!! set up layer
 !!!-----------------------------------------------------------------------------
   bn_layer = batchnorm2d_layer_type( &
-     input_shape = [width, width, num_channels], &
-     batch_size = batch_size, &
-     momentum = 0.0, &
-     epsilon = 1e-5, &
-     gamma_init_mean = (gamma), &
-     gamma_init_std = 0.0, &
-     beta_init_mean = beta, &
-     beta_init_std = 0.0, &
-     kernel_initialiser = 'gaussian', &
-     bias_initialiser = 'gaussian', &
-     moving_mean_initialiser = 'zeros', &
-      moving_variance_initialiser = 'zeros' &
-     )
+       input_shape = [width, width, num_channels], &
+       batch_size = batch_size, &
+       momentum = 0.0, &
+       epsilon = 1e-5, &
+       gamma_init_mean = (gamma), &
+       gamma_init_std = 0.0, &
+       beta_init_mean = beta, &
+       beta_init_std = 0.0, &
+       kernel_initialiser = 'gaussian', &
+       bias_initialiser = 'gaussian', &
+       moving_mean_initialiser = 'zeros', &
+       moving_variance_initialiser = 'zeros' &
+  )
   call bn_layer%set_ptrs()
 
   !! check layer name
   if(.not. bn_layer%name .eq. 'batchnorm2d')then
-    success = .false.
-    write(0,*) 'batchnorm2d layer has wrong name'
+     success = .false.
+     write(0,*) 'batchnorm2d layer has wrong name'
   end if
 
   !! check layer type
   select type(bn_layer)
   type is(batchnorm2d_layer_type)
-    !! check input shape
-    if(any(bn_layer%input_shape .ne. [width,width,num_channels]))then
-      success = .false.
-      write(0,*) 'batchnorm2d layer has wrong input_shape'
-    end if
+     !! check input shape
+     if(any(bn_layer%input_shape .ne. [width,width,num_channels]))then
+        success = .false.
+        write(0,*) 'batchnorm2d layer has wrong input_shape'
+     end if
 
-    !! check output shape
-    if(any(bn_layer%output%shape .ne. [width,width,num_channels]))then
-      success = .false.
-      write(0,*) 'batchnorm2d layer has wrong output shape'
-    end if
+     !! check output shape
+     if(any(bn_layer%output%shape .ne. [width,width,num_channels]))then
+        success = .false.
+        write(0,*) 'batchnorm2d layer has wrong output shape'
+     end if
 
-    !! check batch size
-    if(bn_layer%batch_size .ne. batch_size)then
-      success = .false.
-      write(0,*) 'batchnorm2d layer has wrong batch size'
-    end if
+     !! check batch size
+     if(bn_layer%batch_size .ne. batch_size)then
+        success = .false.
+        write(0,*) 'batchnorm2d layer has wrong batch size'
+     end if
   class default
-    success = .false.
-    write(0,*) 'batchnorm2d layer has wrong type'
+     success = .false.
+     write(0,*) 'batchnorm2d layer has wrong type'
   end select
 
 
@@ -87,8 +87,8 @@ program test_batchnorm2d_layer
 !!!-----------------------------------------------------------------------------
   !! initialise sample input
   allocate(input_data(width, width, num_channels, batch_size), source = 0.0)
-  
-   input_data = max_value
+
+  input_data = max_value
 
   !! run forward pass
   call bn_layer%forward(input_data)
@@ -96,9 +96,9 @@ program test_batchnorm2d_layer
 
   !! check outputs all get normalised to zero
   if (any(output-beta.gt. tol)) then
-    success = .false.
-    write(0,*) 'batchnorm2d layer forward pass failed: &
-         &output should all equal beta'
+     success = .false.
+     write(0,*) 'batchnorm2d layer forward pass failed: &
+          &output should all equal beta'
   end if
 
 
@@ -118,14 +118,14 @@ program test_batchnorm2d_layer
      mean = sum(output(:,:,i,:))/(width**2*batch_size)
      std = sqrt(sum((output(:,:,i,:) - mean)**2)/(width**2*batch_size))
      if (abs(mean - beta) .gt. tol) then
-       success = .false.
-       write(0,*) 'batchnorm2d layer forward pass failed: &
-            &mean should equal beta'
+        success = .false.
+        write(0,*) 'batchnorm2d layer forward pass failed: &
+             &mean should equal beta'
      end if
      if (abs(std - gamma) .gt. tol) then
-       success = .false.
-       write(0,*) 'batchnorm2d layer forward pass failed: &
-            &std should equal gamma'
+        success = .false.
+        write(0,*) 'batchnorm2d layer forward pass failed: &
+             &std should equal gamma'
      end if
   end do
 
@@ -143,23 +143,25 @@ program test_batchnorm2d_layer
      select type(di => current%di)
      type is(array4d_type)
         do i = 1, num_channels
-          mean = sum(di%val_ptr(:,:,i,:))/(width**2*batch_size)
-          std = sqrt(sum((di%val_ptr(:,:,i,:) - mean)**2)/(width**2*batch_size))
-          if (abs(mean) .gt. tol) then
-            success = .false.
-            write(0,*) 'batchnorm2d layer backward pass failed: &
-                 &mean gradient should be zero'
-          end if
-          if (abs(std) .gt. tol) then
-            success = .false.
-            write(0,*) 'batchnorm2d layer backward pass failed: &
-                 &std gradient should equal gamma'
-          end if
-          if (abs(current%db(i,1) - sum(gradient(:,:,i,:))) .gt. tol) then
-            success = .false.
-            write(0,*) 'batchnorm2d layer backward pass failed: &
-                 &std gradient should equal sum of gradients'
-          end if
+           mean = sum(di%val_ptr(:,:,i,:))/(width**2*batch_size)
+           std = sqrt( &
+                sum((di%val_ptr(:,:,i,:) - mean)**2)/(width**2*batch_size) &
+           )
+           if (abs(mean) .gt. tol) then
+              success = .false.
+              write(0,*) 'batchnorm2d layer backward pass failed: &
+                   &mean gradient should be zero'
+           end if
+           if (abs(std) .gt. tol) then
+              success = .false.
+              write(0,*) 'batchnorm2d layer backward pass failed: &
+                   &std gradient should equal gamma'
+           end if
+           if (abs(current%db(i,1) - sum(gradient(:,:,i,:))) .gt. tol) then
+              success = .false.
+              write(0,*) 'batchnorm2d layer backward pass failed: &
+                   &std gradient should equal sum of gradients'
+           end if
         end do
      class default
         success = .false.
@@ -176,15 +178,15 @@ program test_batchnorm2d_layer
      !! check parameters
      num_params = bn_layer%get_num_params()
      if (num_params .ne. 2 * num_channels)then
-       write(0,*) 'batchnorm2d layer has wrong number of parameters'
-       success = .false.
+        write(0,*) 'batchnorm2d layer has wrong number of parameters'
+        success = .false.
      end if
      allocate(params1(num_params), source = 12.E0)
      call bn_layer%set_params(params1)
      params2 = bn_layer%get_params()
      if(any(abs(params1 - params2).gt.1.E-6))then
-       write(0,*) 'batchnorm2d layer has wrong parameters'
-       success = .false.
+        write(0,*) 'batchnorm2d layer has wrong parameters'
+        success = .false.
      end if
 
      !! check gradients
@@ -193,14 +195,14 @@ program test_batchnorm2d_layer
      call bn_layer%set_gradients(params1)
      params2 = bn_layer%get_gradients()
      if(any(abs(params1 - params2).gt.1.E-6))then
-       write(0,*) 'batchnorm2d layer has wrong gradients'
-       success = .false.
+        write(0,*) 'batchnorm2d layer has wrong gradients'
+        success = .false.
      end if
      call bn_layer%set_gradients(20.E0)
      params2 = bn_layer%get_gradients()
      if(any(abs(params2 - 20.E0).gt.1.E-6))then
-       write(0,*) 'batchnorm2d layer has wrong gradients'
-       success = .false.
+        write(0,*) 'batchnorm2d layer has wrong gradients'
+        success = .false.
      end if
   class default
      write(0,*) 'batchnorm2d layer has wrong type'
@@ -240,8 +242,8 @@ program test_batchnorm2d_layer
            call compare_batchnorm2d_layers(&
                 bn_layer, bn_layer1, bn_layer2, success)
         class default
-            success = .false.
-            write(0,*) 'batchnorm2d layer has wrong type'
+           success = .false.
+           write(0,*) 'batchnorm2d layer has wrong type'
         end select
      class default
         success = .false.
@@ -281,17 +283,17 @@ contains
 !!! compare three layers
 !!!-----------------------------------------------------------------------------
   subroutine compare_batchnorm2d_layers(layer1, layer2, layer3, success)
-     type(batchnorm2d_layer_type), intent(in) :: layer1, layer2, layer3
-     logical, intent(inout) :: success
+    type(batchnorm2d_layer_type), intent(in) :: layer1, layer2, layer3
+    logical, intent(inout) :: success
 
-     if(any(abs(layer1%dp-layer2%dp-layer3%dp).gt.tol))then
-         success = .false.
-         write(0,*) 'batchnorm2d layer has wrong gradients'
-     end if
-     if(any(abs(layer1%db-layer2%db-layer3%db).gt.tol))then
-         success = .false.
-         write(0,*) 'batchnorm2d layer has wrong gradients'
-     end if
+    if(any(abs(layer1%dp-layer2%dp-layer3%dp).gt.tol))then
+       success = .false.
+       write(0,*) 'batchnorm2d layer has wrong gradients'
+    end if
+    if(any(abs(layer1%db-layer2%db-layer3%db).gt.tol))then
+       success = .false.
+       write(0,*) 'batchnorm2d layer has wrong gradients'
+    end if
 
   end subroutine compare_batchnorm2d_layers
 

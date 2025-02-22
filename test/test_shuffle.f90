@@ -4,7 +4,7 @@ program test_shuffle
 
   integer :: i, j, k, l, o
   integer :: idim
-  
+
   integer, parameter :: n = 10
   integer, parameter :: m = 3
   integer, parameter :: p = 3
@@ -42,7 +42,7 @@ program test_shuffle
 
   logical :: success = .true.
 
-  
+
 !!!-----------------------------------------------------------------------------
 !!! initialise labels
 !!!-----------------------------------------------------------------------------
@@ -54,19 +54,19 @@ program test_shuffle
 !!! 1D array shuffle tests
 !!!-----------------------------------------------------------------------------
 
-  !! initialize the array
+  !! initialise the array
   array_1d_original = (/ (i, i = 1, n) /)
   array_1d_shuffled = array_1d_original ! Make a copy of the original array
 
   !! shuffle the array
   call shuffle(array_1d_shuffled, seed = 1)
-  
+
   !! check if the array is shuffled
   if (all(array_1d_shuffled .eq. array_1d_original)) then
      write(*,*) '1D Array is not shuffled'
      success = .false.
   end if
-  
+
   !! check if all original elements are still in the shuffled array
   do i = 1, n
      if (all(array_1d_shuffled .ne. array_1d_original(i))) then
@@ -93,7 +93,7 @@ program test_shuffle
 !!! 2D array shuffle tests
 !!!-----------------------------------------------------------------------------
 
-  !! initialize the array
+  !! initialise the array
   do i = 1, n
      do j = 1, m
         array_2d_original(i, j) = i * m + j
@@ -128,9 +128,9 @@ program test_shuffle
   do i = 1, n
      do j = 1, m
         if ( all(abs(array_2d_shuffled(i, :) - &
-              array_2d_original(i, j)).gt.1.E-6) ) then
+             array_2d_original(i, j)).gt.1.E-6) ) then
            write(*,*) 'Original element', array_2d_original(i, j), &
-                 'is missing in the shuffled 2D array'
+                'is missing in the shuffled 2D array'
            success = .false.
         end if
      end do
@@ -140,104 +140,104 @@ program test_shuffle
   !!!-----------------------------------------------------------------------------
   !!! 3D integer array shuffle tests
   !!!-----------------------------------------------------------------------------
-  
-  !! initialize the array
-    do i = 1, n
-       do j = 1, m
-          do k = 1, p
-             iarray_3d_original(i, j, k) = i * m * p + j * p + k
-          end do
-       end do
-    end do
-  
-    do idim = 1, 3
-       !! Shuffle the 3D array along the third dimension
-       iarray_3d_shuffled = iarray_3d_original
-       call shuffle(iarray_3d_shuffled, dim = idim, seed = 1)
 
-       !! Check if the 3D array is shuffled along the third dimension
-       if (all(iarray_3d_shuffled .eq. iarray_3d_original)) then
-          write(*,*) '3D Array is not shuffled along the third dimension'
-          success = .false.
-       end if
+  !! initialise the array
+  do i = 1, n
+     do j = 1, m
+        do k = 1, p
+           iarray_3d_original(i, j, k) = i * m * p + j * p + k
+        end do
+     end do
+  end do
 
-       !! Check that seed works for 3D array shuffling
-       iarray_3d_shuffled_tmp = iarray_3d_original
-       call shuffle(iarray_3d_shuffled_tmp, dim = idim, seed = 4)
-       iarray_3d_shuffled = iarray_3d_original
-       call shuffle(iarray_3d_shuffled, dim = idim, seed = 4)
+  do idim = 1, 3
+     !! Shuffle the 3D array along the third dimension
+     iarray_3d_shuffled = iarray_3d_original
+     call shuffle(iarray_3d_shuffled, dim = idim, seed = 1)
 
-       !! Check if iarray_3d_shuffled and iarray_3d_shuffled_tmp are the same
-       if (any(iarray_3d_shuffled_tmp .ne. iarray_3d_shuffled)) then
-          write(*,*) '3D Array shuffle seed does not work as intended'
-          success = .false.
-       end if
-    end do
+     !! Check if the 3D array is shuffled along the third dimension
+     if (all(iarray_3d_shuffled .eq. iarray_3d_original)) then
+        write(*,*) '3D Array is not shuffled along the third dimension'
+        success = .false.
+     end if
 
-    iarray_3d_shuffled = iarray_3d_original
-    ilabel_shuffled = ilabel_original
-    call shuffle(iarray_3d_shuffled, ilabel_shuffled, dim = 1, seed = 1)
+     !! Check that seed works for 3D array shuffling
+     iarray_3d_shuffled_tmp = iarray_3d_original
+     call shuffle(iarray_3d_shuffled_tmp, dim = idim, seed = 4)
+     iarray_3d_shuffled = iarray_3d_original
+     call shuffle(iarray_3d_shuffled, dim = idim, seed = 4)
 
-    !! Check if the label is shuffled
-    if (all(ilabel_shuffled .eq. ilabel_original)) then
-       write(*,*) '3D array label is not shuffled'
-       success = .false.
-    end if
+     !! Check if iarray_3d_shuffled and iarray_3d_shuffled_tmp are the same
+     if (any(iarray_3d_shuffled_tmp .ne. iarray_3d_shuffled)) then
+        write(*,*) '3D Array shuffle seed does not work as intended'
+        success = .false.
+     end if
+  end do
 
-    !! Check if all original elements are still in the shuffled 3D array
-    do i = 1, n
-       do j = 1, m
-          do k = 1, p
-             if ( all(iarray_3d_shuffled(:, j, k) .eq. &
-                   iarray_3d_original(i, j, k)) ) then
-                write(*,*) 'Original element', iarray_3d_original(i, j, k), &
-                      'is missing in the shuffled 3D array'
-                success = .false.
-             end if
-          end do
-       end do
-       if(any(iarray_3d_shuffled(i,:,:) .ne. &
-            iarray_3d_original(ilabel_shuffled(i),:,:))) then
-          write(*,*) '3D array and label shuffle inconsistency'
-          success = .false.
-       end if
-    end do
+  iarray_3d_shuffled = iarray_3d_original
+  ilabel_shuffled = ilabel_original
+  call shuffle(iarray_3d_shuffled, ilabel_shuffled, dim = 1, seed = 1)
 
-    iarray_3d_shuffled = iarray_3d_original
-    rlabel_shuffled = rlabel_original
-    call shuffle(iarray_3d_shuffled, rlabel_shuffled, dim = 1, seed = 1)
+  !! Check if the label is shuffled
+  if (all(ilabel_shuffled .eq. ilabel_original)) then
+     write(*,*) '3D array label is not shuffled'
+     success = .false.
+  end if
 
-    !! Check if the label is shuffled
-    if (all(abs(rlabel_shuffled - rlabel_original).lt.1.E-6)) then
-       write(*,*) '3D array label is not shuffled'
-       success = .false.
-    end if
+  !! Check if all original elements are still in the shuffled 3D array
+  do i = 1, n
+     do j = 1, m
+        do k = 1, p
+           if ( all(iarray_3d_shuffled(:, j, k) .eq. &
+                iarray_3d_original(i, j, k)) ) then
+              write(*,*) 'Original element', iarray_3d_original(i, j, k), &
+                   'is missing in the shuffled 3D array'
+              success = .false.
+           end if
+        end do
+     end do
+     if(any(iarray_3d_shuffled(i,:,:) .ne. &
+          iarray_3d_original(ilabel_shuffled(i),:,:))) then
+        write(*,*) '3D array and label shuffle inconsistency'
+        success = .false.
+     end if
+  end do
 
-    !! Check if all original elements are still in the shuffled 3D array
-    do i = 1, n
-       do j = 1, m
-          do k = 1, p
-             if ( all(iarray_3d_shuffled(:, j, k) .eq. &
-                   iarray_3d_original(i, j, k)) ) then
-                write(*,*) 'Original element', iarray_3d_original(i, j, k), &
-                      'is missing in the shuffled 3D array'
-                success = .false.
-             end if
-          end do
-       end do
-       if(any(iarray_3d_shuffled(i,:,:) .ne. &
-            iarray_3d_original(nint(rlabel_shuffled(i)),:,:))) then
-          write(*,*) '3D array and label shuffle inconsistency'
-          success = .false.
-       end if
-    end do
+  iarray_3d_shuffled = iarray_3d_original
+  rlabel_shuffled = rlabel_original
+  call shuffle(iarray_3d_shuffled, rlabel_shuffled, dim = 1, seed = 1)
+
+  !! Check if the label is shuffled
+  if (all(abs(rlabel_shuffled - rlabel_original).lt.1.E-6)) then
+     write(*,*) '3D array label is not shuffled'
+     success = .false.
+  end if
+
+  !! Check if all original elements are still in the shuffled 3D array
+  do i = 1, n
+     do j = 1, m
+        do k = 1, p
+           if ( all(iarray_3d_shuffled(:, j, k) .eq. &
+                iarray_3d_original(i, j, k)) ) then
+              write(*,*) 'Original element', iarray_3d_original(i, j, k), &
+                   'is missing in the shuffled 3D array'
+              success = .false.
+           end if
+        end do
+     end do
+     if(any(iarray_3d_shuffled(i,:,:) .ne. &
+          iarray_3d_original(nint(rlabel_shuffled(i)),:,:))) then
+        write(*,*) '3D array and label shuffle inconsistency'
+        success = .false.
+     end if
+  end do
 
 
 !!!-----------------------------------------------------------------------------
 !!! 3D real array shuffle tests
 !!!-----------------------------------------------------------------------------
 
-  !! initialize the array
+  !! initialise the array
   do i = 1, n
      do j = 1, m
         do k = 1, p
@@ -262,7 +262,7 @@ program test_shuffle
      call shuffle(rarray_3d_shuffled_tmp, dim = idim, seed = 4)
      rarray_3d_shuffled = rarray_3d_original
      call shuffle(rarray_3d_shuffled, dim = idim, seed = 4)
-   
+
      !! Check if rarray_3d_shuffled and rarray_3d_shuffled_tmp are the same
      if (any(abs(rarray_3d_shuffled_tmp - rarray_3d_shuffled).gt.1.E-6)) then
         write(*,*) '3D Array shuffle seed does not work as intended'
@@ -275,99 +275,100 @@ program test_shuffle
 
   !! Check if all original elements are still in the shuffled 3D array
   do i = 1, n
-    do j = 1, m
-       do k = 1, p
-          if ( all(abs(rarray_3d_shuffled(:, j, k) - &
-               rarray_3d_original(i, j, k)).gt.1.E-6) ) then
-             write(*,*) 'Original element', rarray_3d_original(i, j, k), &
-                  'is missing in the shuffled 3D array'
-             success = .false.
-          end if
-       end do
-    end do
+     do j = 1, m
+        do k = 1, p
+           if ( all(abs(rarray_3d_shuffled(:, j, k) - &
+                rarray_3d_original(i, j, k)).gt.1.E-6) ) then
+              write(*,*) 'Original element', rarray_3d_original(i, j, k), &
+                   'is missing in the shuffled 3D array'
+              success = .false.
+           end if
+        end do
+     end do
   end do
 
 
 !!!-----------------------------------------------------------------------------
 !!! 4D array shuffle tests
 !!!-----------------------------------------------------------------------------
-  
-  !! initialize the array
-    do i = 1, n
-       do j = 1, m
-          do k = 1, p
-            do l = 1, q
-               array_4d_original(i, j, k, l) = i * m * p * q + j * p * q + k * q + l
-            end do
-          end do
-       end do
-    end do
-  
-    do idim = 1, 4
-       !! Shuffle the 4D array along the third dimension
-       array_4d_shuffled = array_4d_original
-       call shuffle(array_4d_shuffled, dim = idim, seed = 1)
 
-       !! Check if the 4D array is shuffled along the third dimension
-       if (all(array_4d_shuffled .eq. array_4d_original)) then
-          write(*,*) '4D Array is not shuffled along the third dimension'
-          success = .false.
-       end if
+  !! initialise the array
+  do i = 1, n
+     do j = 1, m
+        do k = 1, p
+           do l = 1, q
+              array_4d_original(i, j, k, l) = &
+                   i * m * p * q + j * p * q + k * q + l
+           end do
+        end do
+     end do
+  end do
 
-       !! Check that seed works for 4D array shuffling
-       array_4d_shuffled_tmp = array_4d_original
-       call shuffle(array_4d_shuffled_tmp, dim = idim, seed = 4)
-       array_4d_shuffled = array_4d_original
-       call shuffle(array_4d_shuffled, dim = idim, seed = 4)
+  do idim = 1, 4
+     !! Shuffle the 4D array along the third dimension
+     array_4d_shuffled = array_4d_original
+     call shuffle(array_4d_shuffled, dim = idim, seed = 1)
 
-       !! Check if array_4d_shuffled and array_4d_shuffled_tmp are the same
-       if (any(abs(array_4d_shuffled_tmp - array_4d_shuffled).gt.1.E-6)) then
-          write(*,*) '4D Array shuffle seed does not work as intended'
-          success = .false.
-       end if
-    end do
+     !! Check if the 4D array is shuffled along the third dimension
+     if (all(array_4d_shuffled .eq. array_4d_original)) then
+        write(*,*) '4D Array is not shuffled along the third dimension'
+        success = .false.
+     end if
 
-    array_4d_shuffled = array_4d_original
-    ilabel_shuffled = ilabel_original
-    call shuffle(array_4d_shuffled, ilabel_shuffled, dim = 1, seed = 1)
+     !! Check that seed works for 4D array shuffling
+     array_4d_shuffled_tmp = array_4d_original
+     call shuffle(array_4d_shuffled_tmp, dim = idim, seed = 4)
+     array_4d_shuffled = array_4d_original
+     call shuffle(array_4d_shuffled, dim = idim, seed = 4)
 
-    !! Check if the label is shuffled
-    if (all(ilabel_shuffled .eq. ilabel_original)) then
-       write(*,*) '4D array label is not shuffled'
-       success = .false.
-    end if
+     !! Check if array_4d_shuffled and array_4d_shuffled_tmp are the same
+     if (any(abs(array_4d_shuffled_tmp - array_4d_shuffled).gt.1.E-6)) then
+        write(*,*) '4D Array shuffle seed does not work as intended'
+        success = .false.
+     end if
+  end do
 
-    !! Check if all original elements are still in the shuffled 4D array
-    do i = 1, n
-       do j = 1, m
-          do k = 1, p
-             do l = 1, q
-                if ( all(abs(array_4d_shuffled(:, j, k, l) - &
+  array_4d_shuffled = array_4d_original
+  ilabel_shuffled = ilabel_original
+  call shuffle(array_4d_shuffled, ilabel_shuffled, dim = 1, seed = 1)
+
+  !! Check if the label is shuffled
+  if (all(ilabel_shuffled .eq. ilabel_original)) then
+     write(*,*) '4D array label is not shuffled'
+     success = .false.
+  end if
+
+  !! Check if all original elements are still in the shuffled 4D array
+  do i = 1, n
+     do j = 1, m
+        do k = 1, p
+           do l = 1, q
+              if ( all(abs(array_4d_shuffled(:, j, k, l) - &
                    array_4d_original(i, j, k, l)).gt.1.E-6) ) then
-                   write(*,*) 'Original element', &
-                        array_4d_original(i, j, k, l), &
-                        'is missing in the shuffled 4D array'
-                   success = .false.
-                end if
-             end do
-          end do
-       end do
-       if(any(abs(array_4d_shuffled(i,:,:,:) - &
-            array_4d_original(ilabel_shuffled(i),:,:,:)) .gt. 1.E-6)) then
-          write(*,*) '4D array and label shuffle inconsistency'
-          success = .false.
-       end if
-    end do
+                 write(*,*) 'Original element', &
+                      array_4d_original(i, j, k, l), &
+                      'is missing in the shuffled 4D array'
+                 success = .false.
+              end if
+           end do
+        end do
+     end do
+     if(any(abs(array_4d_shuffled(i,:,:,:) - &
+          array_4d_original(ilabel_shuffled(i),:,:,:)) .gt. 1.E-6)) then
+        write(*,*) '4D array and label shuffle inconsistency'
+        success = .false.
+     end if
+  end do
 
 
 !!!-----------------------------------------------------------------------------
 !!! 5D array shuffle tests
 !!!-----------------------------------------------------------------------------
-  
-   !! initialize the array
-   do i = 1, n
-      do j = 1, m
-         do k = 1, p
+
+  !! initialise the array
+  do i = 1, n
+     do j = 1, m
+        do k = 1, p
            do l = 1, q
               do o = 1, s
                  array_5d_original(i, j, k, l, o) = &
@@ -378,58 +379,58 @@ program test_shuffle
                       o
               end do
            end do
-         end do
-      end do
-   end do
+        end do
+     end do
+  end do
 
-   do idim = 1, 5
-      !! Shuffle the 3D array along the third dimension
-      array_5d_shuffled = array_5d_original
-      call shuffle(array_5d_shuffled, dim = idim, seed = 1)
+  do idim = 1, 5
+     !! Shuffle the 3D array along the third dimension
+     array_5d_shuffled = array_5d_original
+     call shuffle(array_5d_shuffled, dim = idim, seed = 1)
 
-      !! Check if the 3D array is shuffled along the third dimension
-      if (all(array_5d_shuffled .eq. array_5d_original)) then
-         write(*,*) '5D Array is not shuffled along the third dimension'
-         success = .false.
-      end if
+     !! Check if the 3D array is shuffled along the third dimension
+     if (all(array_5d_shuffled .eq. array_5d_original)) then
+        write(*,*) '5D Array is not shuffled along the third dimension'
+        success = .false.
+     end if
 
-      !! Check that seed works for 5D array shuffling
-      array_5d_shuffled_tmp = array_5d_original
-      call shuffle(array_5d_shuffled_tmp, dim = idim, seed = 4)
-      array_5d_shuffled = array_5d_original
-      call shuffle(array_5d_shuffled, dim = idim, seed = 4)
+     !! Check that seed works for 5D array shuffling
+     array_5d_shuffled_tmp = array_5d_original
+     call shuffle(array_5d_shuffled_tmp, dim = idim, seed = 4)
+     array_5d_shuffled = array_5d_original
+     call shuffle(array_5d_shuffled, dim = idim, seed = 4)
 
-      !! Check if array_5d_shuffled and array_5d_shuffled_tmp are the same
-      if (any(abs(array_5d_shuffled_tmp - array_5d_shuffled).gt.1.E-6)) then
-         write(*,*) '5D Array shuffle seed does not work as intended'
-         success = .false.
-      end if
-   end do
+     !! Check if array_5d_shuffled and array_5d_shuffled_tmp are the same
+     if (any(abs(array_5d_shuffled_tmp - array_5d_shuffled).gt.1.E-6)) then
+        write(*,*) '5D Array shuffle seed does not work as intended'
+        success = .false.
+     end if
+  end do
 
-   array_5d_shuffled = array_5d_original
-   ilabel_shuffled = ilabel_original
-   call shuffle(array_5d_shuffled, ilabel_shuffled, dim = 1, seed = 1)
+  array_5d_shuffled = array_5d_original
+  ilabel_shuffled = ilabel_original
+  call shuffle(array_5d_shuffled, ilabel_shuffled, dim = 1, seed = 1)
 
-   !! Check if the label is shuffled
-   if (all(ilabel_shuffled .eq. ilabel_original)) then
-      write(*,*) '5D array label is not shuffled'
-      success = .false.
-   end if
+  !! Check if the label is shuffled
+  if (all(ilabel_shuffled .eq. ilabel_original)) then
+     write(*,*) '5D array label is not shuffled'
+     success = .false.
+  end if
 
-   !! Check if all original elements are still in the shuffled 5D array
-   do i = 1, n
+  !! Check if all original elements are still in the shuffled 5D array
+  do i = 1, n
      do j = 1, m
         do k = 1, p
            do l = 1, q
               do o = 1, s
                  if ( all(abs(array_5d_shuffled(:, j, k, l, o) - &
-                    array_5d_original(i, j, k, l, o)).gt.1.E-6) ) then
+                      array_5d_original(i, j, k, l, o)).gt.1.E-6) ) then
                     write(*,*) 'Original element', &
                          array_5d_original(i, j, k, l, o), &
                          'is missing in the shuffled 5D array'
                     success = .false.
                  end if
-               end do
+              end do
            end do
         end do
      end do
@@ -438,32 +439,32 @@ program test_shuffle
         write(*,*) '5D array and label shuffle inconsistency'
         success = .false.
      end if
-   end do
+  end do
 
-   array_5d_shuffled = array_5d_original
-   rlabel_shuffled = rlabel_original
-   call shuffle(array_5d_shuffled, rlabel_shuffled, dim = 1, seed = 1)
+  array_5d_shuffled = array_5d_original
+  rlabel_shuffled = rlabel_original
+  call shuffle(array_5d_shuffled, rlabel_shuffled, dim = 1, seed = 1)
 
-   !! Check if the label is shuffled
-   if (all(abs(rlabel_shuffled - rlabel_original).lt.1.E-6)) then
-      write(*,*) '5D array label is not shuffled'
-      success = .false.
-   end if
+  !! Check if the label is shuffled
+  if (all(abs(rlabel_shuffled - rlabel_original).lt.1.E-6)) then
+     write(*,*) '5D array label is not shuffled'
+     success = .false.
+  end if
 
-   !! Check if all original elements are still in the shuffled 5D array
-   do i = 1, n
+  !! Check if all original elements are still in the shuffled 5D array
+  do i = 1, n
      do j = 1, m
         do k = 1, p
            do l = 1, q
               do o = 1, s
                  if ( all(abs(array_5d_shuffled(:, j, k, l, o) - &
-                    array_5d_original(i, j, k, l, o)).gt.1.E-6) ) then
+                      array_5d_original(i, j, k, l, o)).gt.1.E-6) ) then
                     write(*,*) 'Original element', &
                          array_5d_original(i, j, k, l, o), &
                          'is missing in the shuffled 5D array'
                     success = .false.
                  end if
-               end do
+              end do
            end do
         end do
      end do
@@ -472,7 +473,7 @@ program test_shuffle
         write(*,*) '5D array and label shuffle inconsistency'
         success = .false.
      end if
-   end do
+  end do
 
 
 !!!-----------------------------------------------------------------------------

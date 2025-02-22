@@ -37,7 +37,7 @@ contains
 
 !###############################################################################
   pure function initialise(threshold, scale)
-    !! Initialize a tanh activation function
+    !! Initialise a tanh activation function
     implicit none
 
     ! Arguments
