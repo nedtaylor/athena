@@ -1,5 +1,5 @@
 submodule(athena__misc_types) athena__misc_types_submodule
-  !! Submodule containing methods (implementations) for derived types
+  !! Submodule containing implementations for derived types
   use athena__io_utils, only: stop_program
   use athena__constants, only: real32
 

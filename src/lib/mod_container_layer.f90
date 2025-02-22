@@ -1,5 +1,5 @@
 module athena__container_layer
-  !! Module containing the container layer type
+  !! Module containing types and interfaces for the container type
   !!
   !! This module contains the container layer type which is a container for an
   !! individual layer.

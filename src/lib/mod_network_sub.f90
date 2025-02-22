@@ -1,5 +1,5 @@
 submodule(athena__network) athena__network_submodule
-  !! Submodule containing methods (implementations) for the network module
+  !! Submodule containing implementations for the network module
 #ifdef _OPENMP
   use omp_lib
 #endif

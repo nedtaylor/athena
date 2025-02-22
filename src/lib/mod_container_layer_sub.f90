@@ -1,5 +1,5 @@
 submodule(athena__container_layer) athena__container_layer_submodule
-  !! Submodule containing the methods for the container layer
+  !! Submodule containing the implementation for the container layer
   !!
   !! This submodule contains the implementation of the container layer
   !! which is a container for an individual layer.

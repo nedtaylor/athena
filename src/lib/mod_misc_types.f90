@@ -1,5 +1,5 @@
 module athena__misc_types
-  !! Module containing custom derived types for the ATHENA library
+  !! Module containing custom derived types and interfaces for ATHENA
   !!
   !! This module contains interfaces and derived types for
   !! activation functions, initialisers, arrays, and facets.

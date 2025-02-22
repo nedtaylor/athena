@@ -1,7 +1,8 @@
 module athena__network
   !! Module containing the network class used to define a neural network
   !!
-  !! This module contains the network class used to define a neural network.
+  !! This module contains the types and interfaces for the network class used
+  !! to define a neural network.
   !! The network class is used to define a neural network with overloaded
   !! procedures for training, testing, predicting, and updating the network.
   !! The network class is also used to define the network structure and
