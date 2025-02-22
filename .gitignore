@@ -32,4 +32,4 @@ example/obj/
 DPython_test/
 settings.json
 docs/_build/
-.local-prec-commit-config.yaml
+.local-pre-commit-config.yaml
