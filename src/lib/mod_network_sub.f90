@@ -1,11 +1,5 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ATHENA library - a feedforward neural network library
-!!!#############################################################################
-!!! submodule of the network module
-!!! submodule contains the associated methods from the network module
-!!!#############################################################################
 submodule(athena__network) athena__network_submodule
+  !! Submodule containing implementations for the network module
 #ifdef _OPENMP
   use omp_lib
 #endif
@@ -23,29 +17,35 @@ submodule(athena__network) athena__network_submodule
   use athena__container_layer, only: &
        list_of_layer_types, allocate_list_of_layer_types
 
-  !! layer types
+  ! Layer types
   use athena__input_layer,   only: input_layer_type
   use athena__flatten_layer, only: flatten_layer_type
 
   implicit none
 
 ! #ifdef _OPENMP
-!   !$omp declare reduction(network_reduction:network_type:omp_out%network_reduction(omp_in)) &
+!   !$omp declare reduction( &
+!   !$omp& network_reduction : network_type:omp_out%network_reduction(omp_in)) &
 !   !$omp& initializer(omp_priv = omp_orig)
 ! #endif
 
 contains
 
-!!!#############################################################################
-!!! network addition
-!!!#############################################################################
+!###############################################################################
   module subroutine network_reduction(this, source)
+    !! Procedure to add two networks together
     implicit none
-    class(network_type), intent(inout) :: this
-    type(network_type), intent(in) :: source
 
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    type(network_type), intent(in) :: source
+    !! Instance of network to be added to this
+
+    ! Local variables
     integer :: i
-    
+    !! Loop index
+
     this%metrics(1)%val = this%metrics(1)%val + source%metrics(1)%val
     this%metrics(2)%val = this%metrics(2)%val + source%metrics(2)%val
     do i=1,size(this%model)
@@ -59,18 +59,24 @@ contains
     end do
 
   end subroutine network_reduction
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! network addition
-!!!#############################################################################
+!###############################################################################
   module subroutine network_copy(this, source)
+    !! Procedure to copy a network
     implicit none
-    class(network_type), intent(inout) :: this
-    type(network_type), intent(in), target :: source
 
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    type(network_type), intent(in), target :: source
+    !! Instance of network to be copied
+
+    ! Local variables
     integer :: i
+    !! Loop index
+
 
     this%metrics = source%metrics
     this%model   = source%model
@@ -82,40 +88,50 @@ contains
     this%vertex_order = source%vertex_order
     this%root_vertices = source%root_vertices
     this%output_vertices = source%output_vertices
-    !! check whether you can point to a pointer
     this%get_loss => source%get_loss
     this%get_loss_deriv => source%get_loss_deriv
     this%get_accuracy => source%get_accuracy
     this%auto_graph = source%auto_graph
-!!!-----------------------------------------------------------------------------
-!!! set pointers
-!!!-----------------------------------------------------------------------------
+
+
+    !---------------------------------------------------------------------------
+    ! set pointers
+    !---------------------------------------------------------------------------
     do i = 1, this%num_layers
-       call this%model(i)%layer%set_ptrs() ! name %compile() or %build()?
+       call this%model(i)%layer%set_ptrs()
     end do
   end subroutine network_copy
-!!!#############################################################################
+!###############################################################################
 
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
-!!!#############################################################################
-!!! generate graph order (i.e. sequential order of layers)
-!!!#############################################################################
+!###############################################################################
   module subroutine generate_vertex_order(this)
+    !! Generate the order of the layers in the network
+    !!
+    !! This module contains the subroutine to generate the order of the layers
+    !! in the network. The order is generated by depth first search (DFS) on the
+    !! graph of the network.
     implicit none
-    class(network_type), intent(inout) :: this
 
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+
+    ! Local variables
     integer :: i, order_index
+    !! Loop index
     logical, dimension(this%auto_graph%num_vertices) :: visited
+    !! Array to store whether a vertex has been
 
     visited = .false.
     if(allocated(this%vertex_order)) deallocate(this%vertex_order)
     allocate(this%vertex_order(this%auto_graph%num_vertices), source=0)
-    
+
     order_index = 0
     do i = this%auto_graph%num_vertices, 1, -1
        if(.not.visited(i)) call this%dfs( &
@@ -124,23 +140,31 @@ contains
     end do
 
   end subroutine generate_vertex_order
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! depth first search
-!!!#############################################################################
+!###############################################################################
   module recursive subroutine dfs( &
        this, vertex_index, visited, order, order_index &
   )
+    !! Depth first search algorithm
     implicit none
-    class(network_type), intent(in) :: this
-    integer, intent(in) :: vertex_index
-    logical, dimension(this%auto_graph%num_vertices), intent(inout) :: visited
-    integer, dimension(this%auto_graph%num_vertices), intent(inout) :: order
-    integer, intent(inout) :: order_index
 
+    ! Arguments
+    class(network_type), intent(in) :: this
+    !! Instance of network
+    integer, intent(in) :: vertex_index
+    !! Index of the vertex to start the search from
+    logical, dimension(this%auto_graph%num_vertices), intent(inout) :: visited
+    !! Array to store whether a vertex has been visited
+    integer, dimension(this%auto_graph%num_vertices), intent(inout) :: order
+    !! Array to store the order of the vertices
+    integer, intent(inout) :: order_index
+    !! Index of the current vertex in the order array
+
+    ! Local variables
     integer :: i
+    !! Loop index
 
     visited(vertex_index) = .true.
     do i = 1, this%auto_graph%num_vertices, 1
@@ -152,37 +176,45 @@ contains
     order(order_index) = vertex_index
 
   end subroutine dfs
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! get root vertices
-!!!#############################################################################
+!###############################################################################
   module subroutine calculate_root_vertices(this)
+    !! Calculate the root vertices of the network
     implicit none
+
+    ! Arguments
     class(network_type), intent(inout) :: this
+    !! Instance of network
 
+    ! Local variables
     integer :: i
+    !! Loop index
 
-   if(allocated(this%root_vertices)) deallocate(this%root_vertices)
-   allocate(this%root_vertices(0))
-   do i = 1, this%auto_graph%num_vertices
+    if(allocated(this%root_vertices)) deallocate(this%root_vertices)
+    allocate(this%root_vertices(0))
+    do i = 1, this%auto_graph%num_vertices
        if(all(this%auto_graph%adjacency(:,i).eq.0))then
           this%root_vertices = [this%root_vertices, i]
        end if
     end do
   end subroutine calculate_root_vertices
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! get root vertices
-!!!#############################################################################
+!###############################################################################
   module subroutine calculate_output_vertices(this)
+    !! Calculate the output vertices of the network
     implicit none
-    class(network_type), intent(inout) :: this
 
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+
+    ! Local variables
     integer :: i
+    !! Loop index
 
     if(allocated(this%output_vertices)) deallocate(this%output_vertices)
     allocate(this%output_vertices(0))
@@ -192,17 +224,22 @@ contains
        end if
     end do
   end subroutine calculate_output_vertices
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! calculate map between layer inputs and outputs (and gradients)
-!!!#############################################################################
+!###############################################################################
   module subroutine calculate_io_map(this)
+    !! Calculate the map between layer inputs and outputs (and gradients)
     implicit none
-    class(network_type), intent(inout) :: this
 
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+
+    ! Local variables
     integer :: i, j, num_inputs, num_outputs
+    !! Loop index
+
 
     if(allocated(this%io_map)) deallocate(this%io_map)
     allocate(this%io_map(this%num_layers,this%num_layers,4), source=0)
@@ -235,11 +272,11 @@ contains
                      this%auto_graph%vertex(j)%id, &
                      1 &
                 ) = 1
-                  this%io_map( &
-                        this%auto_graph%vertex(i)%id, &
-                        this%auto_graph%vertex(j)%id, &
-                        2 &
-                  ) = this%model(this%auto_graph%vertex(i)%id)%layer%output%size
+                this%io_map( &
+                     this%auto_graph%vertex(i)%id, &
+                     this%auto_graph%vertex(j)%id, &
+                     2 &
+                ) = this%model(this%auto_graph%vertex(i)%id)%layer%output%size
              end select
           end if
           if(this%auto_graph%adjacency(j,i).ne.0)then
@@ -254,7 +291,7 @@ contains
                      this%auto_graph%vertex(i)%id, &
                      3 &
                 ) = num_outputs
-   
+
                 num_outputs = num_outputs + &
                      this%model( &
                           this%auto_graph%vertex(j)%id &
@@ -281,46 +318,60 @@ contains
     end do
 
   end subroutine calculate_io_map
-!!!#############################################################################
+!###############################################################################
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
-!!!#############################################################################
-!!! print network to file
-!!!#############################################################################
+!###############################################################################
   module subroutine print(this, file)
+    !! Print the network to a file
     implicit none
+
+    ! Arguments
     class(network_type), intent(in) :: this
+    !! Instance of network
     character(*), intent(in) :: file
-    
+    !! File to print the network to
+
+    ! Local variables
     integer :: l, unit
+    !! Loop index
 
     open(newunit=unit,file=file,status='replace')
     close(unit)
-    
+
     do l=1,this%num_layers
        call this%model(l)%layer%print(file)
     end do
 
   end subroutine print
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! read network from file
-!!!#############################################################################
+!###############################################################################
   module subroutine read(this, file)
+    !! Read the network from a file
     implicit none
+
+    ! Arguments
     class(network_type), intent(inout) :: this
+    !! Instance of network
     character(*), intent(in) :: file
-   
+    !! File to read the network from
+
+    ! Local variables
     integer :: i, unit, stat
+    !! Loop index
     character(256) :: buffer, err_msg
+    !! Buffer for reading lines from file
     character(20) :: name
+    !! Name of the layer
     integer :: layer_index
+    !! Index of the layer in the list of layer types
+
 
     if(.not.allocated(list_of_layer_types))then
        call allocate_list_of_layer_types()
@@ -365,29 +416,38 @@ contains
     close(unit)
 
   end subroutine read
-!!!#############################################################################
+!###############################################################################
 
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
-!!!#############################################################################
-!!! append layer to network
-!!!#############################################################################
+!###############################################################################
   module subroutine add(this, layer, input_list, output_list, operator)
+    !! Add a layer to the network
     implicit none
+
+    ! Arguments
     class(network_type), intent(inout) :: this
+    !! Instance of network
     class(base_layer_type), intent(in) :: layer
+    !! Layer to add to the network
     integer, dimension(:), optional, intent(in) :: input_list
+    !! List of input layers
     integer, dimension(:), optional, intent(in) :: output_list
+    !! List of output layers
     class(*), optional, intent(in) :: operator
+    !! Operator to use to connect the layers
 
+    ! Local variables
     integer :: i, vertex_index
+    !! Loop index
     integer :: operator_
+    !! Operator to use to connect the layers
 
-    
+
     if(.not.allocated(this%model))then
        this%model = [container_layer_type(name=layer%type)]
        this%num_layers = 1
@@ -422,11 +482,12 @@ contains
 
     ! edge_index(1) = index of the previous layer
     ! abs(edge_index(2)) = index of the current layer
-    ! the -ve sign of edge_index(2) indicates that the edge goes from the 
+    ! the -ve sign of edge_index(2) indicates that the edge goes from the
     !   previous layer to the current layer
     !   i.e. forward pass flows from positive to negative
     ! adjacency(i,:) is all of the layers that i feeds forward to
-    ! adjacency(:,i) is all of the layers that feed forward to i (i.e. the backward pass)
+    ! adjacency(:,i) is all of the layers that feed forward to i
+    !   (i.e. the backward pass)
     this%auto_graph%directed = .true.
     call this%auto_graph%add_vertex(feature=[1._real32], id=this%num_layers)
     if(present(input_list))then
@@ -436,9 +497,9 @@ contains
                input_list(i), 1 &
           )
           call this%auto_graph%add_edge( &
-                index = [ vertex_index, -this%auto_graph%num_vertices ], &
-                feature = [ 1._real32 ], &
-                id = operator_ &
+               index = [ vertex_index, -this%auto_graph%num_vertices ], &
+               feature = [ 1._real32 ], &
+               id = operator_ &
           )
        end do
     elseif(trim(layer%type).ne."inpt".and.this%auto_graph%num_vertices.gt.1)then
@@ -459,38 +520,48 @@ contains
                output_list(i), 1 &
           )
           call this%auto_graph%add_edge( &
-                index = [ this%auto_graph%num_vertices, -vertex_index ], &
-                feature = [ 1._real32 ], &
-                id = operator_ &
+               index = [ this%auto_graph%num_vertices, -vertex_index ], &
+               feature = [ 1._real32 ], &
+               id = operator_ &
           )
        end do
     end if
-       
+
   end subroutine add
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! set up network
-!!!#############################################################################
+!###############################################################################
   module function network_setup( &
        layers, optimiser, loss_method, accuracy_method, &
-       metrics, batch_size) result(network)
+       metrics, batch_size &
+  ) result(network)
+    !! Setup the network
     implicit none
+
+    ! Arguments
     type(container_layer_type), dimension(:), intent(in) :: layers
+    !! Layers to add to the network
     class(base_optimiser_type), optional, intent(in) :: optimiser
+    !! Optimiser to use for training
     character(*), optional, intent(in) :: loss_method, accuracy_method
+    !! Loss and accuracy methods
     class(*), dimension(..), optional, intent(in) :: metrics
+    !! Metrics
     integer, optional, intent(in) :: batch_size
+    !! Batch size
 
     type(network_type) :: network
+    !! Network to setup
 
+    ! Local variables
     integer :: l
+    !! Loop index
 
 
-!!!-----------------------------------------------------------------------------
-!!! handle optional arguments
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Handle optional arguments
+    !---------------------------------------------------------------------------
     if(present(loss_method)) call network%set_loss(loss_method)
     if(present(accuracy_method)) call network%set_accuracy(accuracy_method)
     if(present(metrics)) call network%set_metrics(metrics)
@@ -498,33 +569,38 @@ contains
     network%auto_graph%directed = .true.
 
 
-!!!-----------------------------------------------------------------------------
-!!! add layers to network
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Add layers to network
+    !---------------------------------------------------------------------------
     do l = 1, size(layers)
        call network%add(layers(l)%layer)
     end do
 
 
-!!!-----------------------------------------------------------------------------
-!!! compile network if optimiser present
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Compile network if optimiser present
+    !---------------------------------------------------------------------------
     if(present(optimiser)) call network%compile(optimiser)
 
   end function network_setup
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! set network metrics
-!!!#############################################################################
+!###############################################################################
   module subroutine set_metrics(this, metrics)
+    !! Set the metrics for the network
     use athena__misc, only: to_lower
     implicit none
-    class(network_type), intent(inout) :: this
-    class(*), dimension(..), intent(in) :: metrics
 
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    class(*), dimension(..), intent(in) :: metrics
+    !! Metrics
+
+    ! Local variables
     integer :: i
+    !! Loop index
 
 
     this%metrics%active = .false.
@@ -536,8 +612,8 @@ contains
     rank(0)
        select type(metrics)
        type is(character(*))
-          !! ERROR: ifort cannot identify that the rank of metrics has been ...
-          !! ... identified as scalar here
+          ! ERROR: ifort cannot identify that the rank of metrics has been ...
+          ! ... identified as scalar here
           where(to_lower(trim(metrics)).eq.this%metrics%key)
              this%metrics%active = .true.
           end where
@@ -565,13 +641,12 @@ contains
     end select
 
   end subroutine set_metrics
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! set network loss
-!!!#############################################################################
+!###############################################################################
   module subroutine set_loss(this, loss_method, verbose)
+    !! Set the loss method for the network
     use athena__misc, only: to_lower
     use athena__loss, only: &
          compute_loss_bce, compute_loss_cce, &
@@ -579,13 +654,22 @@ contains
          compute_loss_nll, compute_loss_hubber, &
          compute_loss_hubber_derivative
     implicit none
-    class(network_type), intent(inout) :: this
-    character(*), intent(in) :: loss_method
-    integer, optional, intent(in) :: verbose
 
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    character(*), intent(in) :: loss_method
+    !! Loss method
+    integer, optional, intent(in) :: verbose
+    !! Verbosity level
+
+    ! Local variables
     integer :: verbose_
+    !! Verbosity level
     character(len=:), allocatable :: loss_method_
+    !! Loss method
     character(256) :: err_msg
+    !! Error message
 
 
     if(present(verbose))then
@@ -594,81 +678,93 @@ contains
        verbose_ = 0
     end if
 
-!!!-----------------------------------------------------------------------------
-!!! handle analogous definitions
-!!!-----------------------------------------------------------------------------
-   loss_method_ = to_lower(loss_method)
-   select case(loss_method)
-   case("binary_crossentropy")
-      loss_method_ = "bce"
-   case("categorical_crossentropy")
-      loss_method_ = "cce"
-   case("mean_absolute_error")
-      loss_method_ = "mae"
-   case("mean_squared_error")
-      loss_method_ = "mse"
-   case("negative_log_likelihood")
-      loss_method_ = "nll"
-   case("hubber")
-      loss_method_ = "hub"
-   end select
+    !---------------------------------------------------------------------------
+    ! Handle analogous definitions
+    !---------------------------------------------------------------------------
+    loss_method_ = to_lower(loss_method)
+    select case(loss_method)
+    case("binary_crossentropy")
+       loss_method_ = "bce"
+    case("categorical_crossentropy")
+       loss_method_ = "cce"
+    case("mean_absolute_error")
+       loss_method_ = "mae"
+    case("mean_squared_error")
+       loss_method_ = "mse"
+    case("negative_log_likelihood")
+       loss_method_ = "nll"
+    case("hubber")
+       loss_method_ = "hub"
+    end select
 
-!!!-----------------------------------------------------------------------------
-!!! set loss method
-!!!-----------------------------------------------------------------------------
-   select case(loss_method_)
-   case("bce")
-      this%get_loss => compute_loss_bce
-      this%get_loss_deriv => comp_loss_deriv
-      if(verbose_.gt.0) write(*,*) "Loss method: Categorical Cross Entropy"
-   case("cce")
-      this%get_loss => compute_loss_cce
-      this%get_loss_deriv => comp_loss_deriv
-      if(verbose_.gt.0) write(*,*) "Loss method: Categorical Cross Entropy"
-   case("mae")
-      this%get_loss => compute_loss_mae
-      this%get_loss_deriv => comp_loss_deriv
-      if(verbose_.gt.0) write(*,*) "Loss method: Mean Absolute Error"
-   case("mse")
-      this%get_loss => compute_loss_mse
-      this%get_loss_deriv => comp_loss_deriv
-      if(verbose_.gt.0) write(*,*) "Loss method: Mean Squared Error"
-   case("nll")
-      this%get_loss => compute_loss_nll
-      this%get_loss_deriv => comp_loss_deriv
-      if(verbose_.gt.0) write(*,*) "Loss method: Negative Log Likelihood"
-   case("hub")
-      this%get_loss => compute_loss_hubber
-      this%get_loss_deriv => compute_loss_hubber_derivative
-      if(verbose_.gt.0) write(*,*) "Loss method: Hubber"
-   case default
-      write(err_msg,'(A)') &
-           "No loss method provided" // &
-           achar(13) // achar(10) // &
-           "Failed loss method: "//trim(loss_method_)
-      call stop_program(trim(err_msg))
-      return
-   end select
+    !---------------------------------------------------------------------------
+    ! Set loss method
+    !---------------------------------------------------------------------------
+    select case(loss_method_)
+    case("bce")
+       this%get_loss => compute_loss_bce
+       this%get_loss_deriv => comp_loss_deriv
+       if(verbose_.gt.0) write(*,*) "Loss method: Categorical Cross Entropy"
+    case("cce")
+       this%get_loss => compute_loss_cce
+       this%get_loss_deriv => comp_loss_deriv
+       if(verbose_.gt.0) write(*,*) "Loss method: Categorical Cross Entropy"
+    case("mae")
+       this%get_loss => compute_loss_mae
+       this%get_loss_deriv => comp_loss_deriv
+       if(verbose_.gt.0) write(*,*) "Loss method: Mean Absolute Error"
+    case("mse")
+       this%get_loss => compute_loss_mse
+       this%get_loss_deriv => comp_loss_deriv
+       if(verbose_.gt.0) write(*,*) "Loss method: Mean Squared Error"
+    case("nll")
+       this%get_loss => compute_loss_nll
+       this%get_loss_deriv => comp_loss_deriv
+       if(verbose_.gt.0) write(*,*) "Loss method: Negative Log Likelihood"
+    case("hub")
+       this%get_loss => compute_loss_hubber
+       this%get_loss_deriv => compute_loss_hubber_derivative
+       if(verbose_.gt.0) write(*,*) "Loss method: Hubber"
+    case default
+       write(err_msg,'(A)') &
+            "No loss method provided" // &
+            achar(13) // achar(10) // &
+            "Failed loss method: "//trim(loss_method_)
+       call stop_program(trim(err_msg))
+       return
+    end select
 
   end subroutine set_loss
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! set network loss
-!!!#############################################################################
+!###############################################################################
   module subroutine set_accuracy(this, accuracy_method, verbose)
+    !! Set the accuracy method for the network
     use athena__misc, only: to_lower
-    use athena__accuracy, only: categorical_score, mae_score, mse_score, rmse_score, &
+    use athena__accuracy, only: &
+         categorical_score, &
+         mae_score, &
+         mse_score, &
+         rmse_score, &
          r2_score
     implicit none
-    class(network_type), intent(inout) :: this
-    character(*), intent(in) :: accuracy_method
-    integer, optional, intent(in) :: verbose
 
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    character(*), intent(in) :: accuracy_method
+    !! Accuracy method
+    integer, optional, intent(in) :: verbose
+    !! Verbosity level
+
+    ! Local variables
     integer :: verbose_
+    !! Verbosity level
     character(len=:), allocatable :: accuracy_method_
+    !! Accuracy method
     character(256) :: err_msg
+    !! Error message
 
 
     if(present(verbose))then
@@ -677,61 +773,63 @@ contains
        verbose_ = 0
     end if
 
-!!!-----------------------------------------------------------------------------
-!!! handle analogous definitions
-!!!-----------------------------------------------------------------------------
-   accuracy_method_ = to_lower(accuracy_method)
-   select case(accuracy_method)
-   case("categorical")
-      accuracy_method_ = "cat"
-   case("mean_absolute_error")
-      accuracy_method_ = "mae"
-   case("mean_squared_error")
-      accuracy_method_ = "mse"
-   case("root_mean_squared_error")
-      accuracy_method_ = "rmse"
-   case("r2", "r^2", "r squared")
-      accuracy_method_ = "r2"
-   end select
+    !---------------------------------------------------------------------------
+    ! Handle analogous definitions
+    !---------------------------------------------------------------------------
+    accuracy_method_ = to_lower(accuracy_method)
+    select case(accuracy_method)
+    case("categorical")
+       accuracy_method_ = "cat"
+    case("mean_absolute_error")
+       accuracy_method_ = "mae"
+    case("mean_squared_error")
+       accuracy_method_ = "mse"
+    case("root_mean_squared_error")
+       accuracy_method_ = "rmse"
+    case("r2", "r^2", "r squared")
+       accuracy_method_ = "r2"
+    end select
 
-!!!-----------------------------------------------------------------------------
-!!! set accuracy method
-!!!-----------------------------------------------------------------------------
-   select case(accuracy_method_)
-   case("cat")
-      this%get_accuracy => categorical_score
-      if(verbose_.gt.0) write(*,*) "Accuracy method: Categorical "
-   case("mae")
-      this%get_accuracy => mae_score
-      if(verbose_.gt.0) write(*,*) "Accuracy method: Mean Absolute Error"
-   case("mse")
-      this%get_accuracy => mse_score
-      if(verbose_.gt.0) write(*,*) "Accuracy method: Mean Squared Error"
-   case("rmse")
-      this%get_accuracy => rmse_score
-      if(verbose_.gt.0) write(*,*) "Accuracy method: Root Mean Squared Error"
-   case("r2")
-      this%get_accuracy => r2_score
-      if(verbose_.gt.0) write(*,*) "Accuracy method: R^2"
-   case default
-      write(err_msg,'(A)') &
-           "No accuracy method provided" // &
-           achar(13) // achar(10) // &
-           "Failed loss method: "//trim(accuracy_method_)
-      call stop_program(trim(err_msg))
-      return
-   end select
+    !---------------------------------------------------------------------------
+    ! Set accuracy method
+    !---------------------------------------------------------------------------
+    select case(accuracy_method_)
+    case("cat")
+       this%get_accuracy => categorical_score
+       if(verbose_.gt.0) write(*,*) "Accuracy method: Categorical "
+    case("mae")
+       this%get_accuracy => mae_score
+       if(verbose_.gt.0) write(*,*) "Accuracy method: Mean Absolute Error"
+    case("mse")
+       this%get_accuracy => mse_score
+       if(verbose_.gt.0) write(*,*) "Accuracy method: Mean Squared Error"
+    case("rmse")
+       this%get_accuracy => rmse_score
+       if(verbose_.gt.0) write(*,*) "Accuracy method: Root Mean Squared Error"
+    case("r2")
+       this%get_accuracy => r2_score
+       if(verbose_.gt.0) write(*,*) "Accuracy method: R^2"
+    case default
+       write(err_msg,'(A)') &
+            "No accuracy method provided" // &
+            achar(13) // achar(10) // &
+            "Failed loss method: "//trim(accuracy_method_)
+       call stop_program(trim(err_msg))
+       return
+    end select
 
   end subroutine set_accuracy
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! reset network
-!!!#############################################################################
+!###############################################################################
   module subroutine reset(this)
+    !! Reset the network
     implicit none
+
+    ! Arguments
     class(network_type), intent(inout) :: this
+    !! Instance of network
 
     this%accuracy = 0._real32
     this%loss = huge(1._real32)
@@ -751,53 +849,69 @@ contains
     if(allocated(this%root_vertices)) deallocate(this%root_vertices)
     this%auto_graph = graph_type(directed=.true.)
 
-   end subroutine reset
-!!!#############################################################################
+  end subroutine reset
+!###############################################################################
 
 
-!!!#############################################################################
-!!! compile network
-!!!#############################################################################
-  module subroutine compile(this, optimiser, loss_method, accuracy_method, &
-       metrics, batch_size, verbose)
+!###############################################################################
+  module subroutine compile( &
+       this, optimiser, loss_method, accuracy_method, &
+       metrics, batch_size, verbose &
+  )
+    !! Compile the network
     implicit none
+
+    ! Arguments
     class(network_type), intent(inout) :: this
+    !! Instance of network
     class(base_optimiser_type), intent(in) :: optimiser
+    !! Optimiser to use for training
     character(*), optional, intent(in) :: loss_method, accuracy_method
+    !! Loss and accuracy methods
     class(*), dimension(..), optional, intent(in) :: metrics
+    !! Metrics
     integer, optional, intent(in) :: batch_size
+    !! Batch size
     integer, optional, intent(in) :: verbose
-    
+    !! Verbosity level
+
+    ! Local variables
     integer :: i, j, k, id, child_id, parent_id
+    !! Loop index
     integer :: verbose_ = 0
+    !! Verbosity level
     logical :: l_flatten_child, l_set_input_shape
-    integer, dimension(:), allocatable :: input_shape, child_vertices, parent_vertices
+    !! Booleans whether to flatten child or set input shape
+    integer, dimension(:), allocatable :: input_shape, &
+         child_vertices, parent_vertices
+    !! Shapes of the input and output of the layers
     class(base_layer_type), allocatable :: t_input_layer, t_flatten_layer
+    !! Temporary input and flatten layers
 
 
-!!!-----------------------------------------------------------------------------
-!!! initialise optional arguments
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Initialise optional arguments
+    !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
 
-    
-!!!-----------------------------------------------------------------------------
-!!! initialise metrics
-!!!-----------------------------------------------------------------------------
+
+    !---------------------------------------------------------------------------
+    ! Initialise metrics
+    !---------------------------------------------------------------------------
     if(present(metrics)) call this%set_metrics(metrics)
 
 
-!!!-----------------------------------------------------------------------------
-!!! initialise loss and accuracy methods
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Initialise loss and accuracy methods
+    !---------------------------------------------------------------------------
     if(present(loss_method)) call this%set_loss(loss_method, verbose_)
     if(present(accuracy_method)) &
          call this%set_accuracy(accuracy_method, verbose_)
 
 
-!!!-----------------------------------------------------------------------------
-!!! check for input layers at root vertices
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Check for input layers at root vertices
+    !---------------------------------------------------------------------------
     call this%calculate_root_vertices()
     do i = 1, size(this%root_vertices)
        if(.not.allocated( &
@@ -817,13 +931,13 @@ contains
           root%calc_input_gradients = .false.
           input_shape = root%input_shape
        class default
-         input_shape = root%input_shape
+          input_shape = root%input_shape
        end select
        t_input_layer = input_layer_type(&
-             input_shape = input_shape, &
-             batch_size = this%batch_size, &
-             index = i, &
-             verbose=verbose_ &
+            input_shape = input_shape, &
+            batch_size = this%batch_size, &
+            index = i, &
+            verbose=verbose_ &
        )
        call this%add( &
             t_input_layer,  &
@@ -840,9 +954,9 @@ contains
     end do
 
 
-!!!-----------------------------------------------------------------------------
-!!! check for required flatten layers
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Check for required flatten layers
+    !---------------------------------------------------------------------------
     i = 0
     vertex_loop: do
        i = i + 1
@@ -873,7 +987,8 @@ contains
              parent_vertices = [parent_vertices, k]
              !check if ranks match, rather than input and output shapes
              if( this%model(id)%layer%input_rank .ne. &
-                  this%model(parent_id)%layer%input_rank ) l_flatten_child = .false.
+                  this%model(parent_id)%layer%input_rank &
+             ) l_flatten_child = .false.
           end do
           t_flatten_layer = flatten_layer_type( &
                input_rank = this%model(id)%layer%input_rank &
@@ -881,12 +996,25 @@ contains
 
           if(l_flatten_child)then
              ! add flatten layer in the place of the child layer
-             call this%auto_graph%remove_edges(indices=[this%auto_graph%adjacency(parent_vertices(:),child_vertices(j))])
-             call this%add(t_flatten_layer, input_list=[parent_vertices(:)], output_list=[child_id])
+             call this%auto_graph%remove_edges( &
+                  indices = [ &
+                       this%auto_graph%adjacency( &
+                            parent_vertices(:),child_vertices(j) &
+                       ) &
+                  ] &
+             )
+             call this%add( &
+                  t_flatten_layer, &
+                  input_list=[parent_vertices(:)], output_list=[child_id] &
+             )
           else
              ! add flatten layer between the current layer and the child layer
-             call this%auto_graph%remove_edges(indices=[this%auto_graph%adjacency(i,child_vertices(j))])
-             call this%add(t_flatten_layer, input_list=[i], output_list=[child_id])
+             call this%auto_graph%remove_edges( &
+                  indices = [this%auto_graph%adjacency(i,child_vertices(j))] &
+             )
+             call this%add( &
+                  t_flatten_layer, input_list = [i], output_list = [child_id] &
+             )
           end if
           deallocate(t_flatten_layer)
           deallocate(child_vertices)
@@ -895,19 +1023,19 @@ contains
        deallocate(child_vertices)
     end do vertex_loop
     call this%generate_vertex_order()
-    
-    !! update number of layers
-    !!--------------------------------------------------------------------------
+
+    ! Update number of layers
+    !---------------------------------------------------------------------------
     this%num_layers = size(this%model,dim=1)
 
 
-!!!-----------------------------------------------------------------------------
-!!! initialise layers
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Initialise layers
+    !---------------------------------------------------------------------------
     call this%generate_vertex_order()
     do i = 1, size(this%vertex_order, dim = 1)
        if(allocated(this%model(this%vertex_order(i))%layer%output))then
-         if( &
+          if( &
                .not.this%model(this%vertex_order(i))%layer%output%allocated &
           ) then
              l_set_input_shape = .true.
@@ -928,16 +1056,16 @@ contains
           )
              if(this%auto_graph%adjacency(j,this%vertex_order(i)).eq.0) cycle
              select case( &
-                   this%auto_graph%edge( &
-                      this%auto_graph%adjacency(j,this%vertex_order(i)) &
-                   )%id &
+                  this%auto_graph%edge( &
+                       this%auto_graph%adjacency(j,this%vertex_order(i)) &
+                  )%id &
              )
              case(1) ! concatenate
                 input_shape(:) = input_shape(:) + &
-                      this%model(j)%layer%output%shape
+                     this%model(j)%layer%output%shape
              case(2) ! add
                 input_shape(:) = max(input_shape(:), &
-                      this%model(j)%layer%output%shape)
+                     this%model(j)%layer%output%shape)
              end select
           end do
           call this%model(this%vertex_order(i))%layer%init( &
@@ -946,7 +1074,7 @@ contains
                verbose = verbose_ &
           )
           deallocate(input_shape)
-      end if
+       end if
        if(verbose_.gt.0)then
           write(*,*) "layer: ", &
                this%vertex_order(i), this%model(this%vertex_order(i))%name
@@ -956,8 +1084,8 @@ contains
     end do
 
 
-    !! set number of outputs
-    !!--------------------------------------------------------------------------
+    ! Set number of outputs
+    !---------------------------------------------------------------------------
     this%num_outputs = 0
     call this%calculate_output_vertices()
     do i = 1, size(this%output_vertices,1)
@@ -970,17 +1098,17 @@ contains
     end do
 
 
-!!!-----------------------------------------------------------------------------
-!!! initialise optimiser
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Initialise optimiser
+    !---------------------------------------------------------------------------
     this%optimiser = optimiser
     this%num_params = this%get_num_params()
     call this%optimiser%init(num_params=this%num_params)
 
 
-!!!-----------------------------------------------------------------------------
-!!! set batch size, if provided
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Set batch size, if provided
+    !---------------------------------------------------------------------------
     if(present(batch_size)) this%batch_size = batch_size
     if(this%batch_size.ne.0)then
        if(this%model(1)%layer%batch_size.ne.0.and.&
@@ -996,18 +1124,24 @@ contains
     end if
 
   end subroutine compile
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! set batch size
-!!!#############################################################################
+!###############################################################################
   module subroutine set_batch_size(this, batch_size)
+    !! Set the batch size for the network
     implicit none
-    class(network_type), intent(inout) :: this
-    integer, intent(in) :: batch_size
 
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    integer, intent(in) :: batch_size
+    !! Batch size
+
+    ! Local variables
     integer :: l
+    !! Loop index
+
 
     this%batch_size = batch_size
     do l = 1, this%num_layers
@@ -1017,24 +1151,29 @@ contains
     call this%calculate_io_map()
 
   end subroutine set_batch_size
-!!!#############################################################################
+!###############################################################################
 
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
-!!!#############################################################################
-!!! return sample from any rank
-!!!#############################################################################
+!###############################################################################
   function get_sample(input, start_index, end_index) result(sample_ptr)
+    !! Get a sample from a rank
     implicit none
-    integer, intent(in) :: start_index, end_index
-    real(real32), dimension(..), intent(in), target :: input
 
+    ! Arguments
+    integer, intent(in) :: start_index, end_index
+    !! Start and end indices
+    real(real32), dimension(..), intent(in), target :: input
+    !! Input array
+
+    ! Local variables
     real(real32), pointer :: sample_ptr(:,:)
-    
+    !! Pointer to sample
+
 
     select rank(input)
     rank(2)
@@ -1057,56 +1196,74 @@ contains
     end select
 
   end function get_sample
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   function get_sample_derived(input, start_index, end_index) result(sample)
+    !! Get a sample from a rank
     implicit none
+
+    ! Arguments
     integer, intent(in) :: start_index, end_index
+    !! Start and end indices
     class(array_type), dimension(:), intent(in), target :: input
+    !! Input array
 
     type(array2d_type), dimension(size(input,1)) :: sample
+    !! Sample array
 
+    ! Local variables
     integer :: i
+    !! Loop index
 
     do i = 1, size(input,1)
        sample(i)%val = get_sample(input(i)%val, start_index, end_index)
     end do
 
   end function get_sample_derived
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! get number of parameters
-!!!#############################################################################
+!###############################################################################
   pure module function get_num_params(this) result(num_params)
-   implicit none
-   class(network_type), intent(in) :: this
-   integer :: num_params
+    !! Get the number of learnable parameters in the network
+    implicit none
 
-   integer :: l
+    ! Arguments
+    class(network_type), intent(in) :: this
+    !! Instance of network
+    integer :: num_params
+    !! Number of parameters
 
-   num_params = 0
-   do l = 1, this%num_layers
-      select type(current => this%model(l)%layer)
-      class is(learnable_layer_type)
-         num_params = num_params + current%num_params
-      end select
-   end do
+    ! Local variables
+    integer :: l
+    !! Loop index
+
+    num_params = 0
+    do l = 1, this%num_layers
+       select type(current => this%model(l)%layer)
+       class is(learnable_layer_type)
+          num_params = num_params + current%num_params
+       end select
+    end do
 
   end function get_num_params
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! get learnable parameters
-!!!#############################################################################
+!###############################################################################
   pure module function get_params(this) result(params)
+    !! Get learnable parameters
     implicit none
+
+    ! Arguments
     class(network_type), intent(in) :: this
+    !! Instance of network
     real(real32), dimension(this%num_params) :: params
-  
+    !! Parameters
+
+    ! Local variables
     integer :: l, start_idx, end_idx
-  
+    !! Loop index
+
     start_idx = 0
     end_idx   = 0
     do l = 1, this%num_layers
@@ -1117,21 +1274,26 @@ contains
           params(start_idx:end_idx) = current%params
        end select
     end do
-  
+
   end function get_params
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! set learnable parameters
-!!!#############################################################################
+!###############################################################################
   module subroutine set_params(this, params)
+    !! Set learnable parameters
     implicit none
+
+    ! Arguments
     class(network_type), intent(inout) :: this
+    !! Instance of network
     real(real32), dimension(this%num_params), intent(in) :: params
-  
+    !! Parameters
+
+    ! Local variables
     integer :: l, start_idx, end_idx
-  
+    !! Loop index
+
     start_idx = 0
     end_idx   = 0
     do l = 1, this%num_layers
@@ -1140,23 +1302,28 @@ contains
           start_idx = end_idx + 1
           end_idx = end_idx + current%num_params
           current%params = params(start_idx:end_idx)
-         !  call current%set_params(params(start_idx:end_idx))
+          !  call current%set_params(params(start_idx:end_idx))
        end select
     end do
-  
+
   end subroutine set_params
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! get gradients
-!!!#############################################################################
+!###############################################################################
   pure module function get_gradients(this) result(gradients)
+    !! Get gradients
     implicit none
-    class(network_type), intent(in) :: this
-    real(real32), dimension(this%num_params) :: gradients
 
+    ! Arguments
+    class(network_type), intent(in) :: this
+    !! Instance of network
+    real(real32), dimension(this%num_params) :: gradients
+    !! Gradients
+
+    ! Local variables
     integer :: l, start_idx, end_idx
+    !! Loop index
 
     start_idx = 0
     end_idx   = 0
@@ -1171,75 +1338,93 @@ contains
     end do
 
   end function get_gradients
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! set gradients
-!!!#############################################################################
+!###############################################################################
   module subroutine set_gradients(this, gradients)
-   implicit none
-   class(network_type), intent(inout) :: this
-   real(real32), dimension(..), intent(in) :: gradients
- 
-   integer :: l, start_idx, end_idx
- 
-   start_idx = 0
-   end_idx   = 0
-   do l = 1, this%num_layers
-      select type(current => this%model(l)%layer)
-      class is(learnable_layer_type)
-         start_idx = end_idx + 1
-         end_idx = end_idx + current%num_params
-         select rank(gradients)
-         rank(0)
-            call current%set_gradients(gradients)
-         rank(1)
-            call current%set_gradients(gradients(start_idx:end_idx))
-         end select
-      end select
-   end do
- 
- end subroutine set_gradients
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! reset gradients
-!!!#############################################################################
-  module subroutine reset_gradients(this)
-   implicit none
-   class(network_type), intent(inout) :: this
- 
-   integer :: l
-
-   do l = 1, this%num_layers
-      select type(current => this%model(l)%layer)
-      class is(learnable_layer_type)
-         current%dp = 0._real32
-         current%db = 0._real32
-      end select
-   end do
- 
- end subroutine reset_gradients
-!!!#############################################################################
-
-
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
-
-
-!!!#############################################################################
-!!!#############################################################################
-  pure module subroutine get_input_autodiff(this, idx, input)
+    !! Set gradients
     implicit none
-    class(network_type), intent(in) :: this
-    integer, intent(in) :: idx
-    real(real32), allocatable, dimension(:,:), intent(out) :: input
 
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    real(real32), dimension(..), intent(in) :: gradients
+    !! Gradients
+
+    ! Local variables
+    integer :: l, start_idx, end_idx
+    !! Loop index
+
+    start_idx = 0
+    end_idx   = 0
+    do l = 1, this%num_layers
+       select type(current => this%model(l)%layer)
+       class is(learnable_layer_type)
+          start_idx = end_idx + 1
+          end_idx = end_idx + current%num_params
+          select rank(gradients)
+          rank(0)
+             call current%set_gradients(gradients)
+          rank(1)
+             call current%set_gradients(gradients(start_idx:end_idx))
+          end select
+       end select
+    end do
+
+  end subroutine set_gradients
+!###############################################################################
+
+
+!###############################################################################
+  module subroutine reset_gradients(this)
+    !! Reset gradients
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+
+    ! Local variables
+    integer :: l
+    !! Loop index
+
+    do l = 1, this%num_layers
+       select type(current => this%model(l)%layer)
+       class is(learnable_layer_type)
+          current%dp = 0._real32
+          current%db = 0._real32
+       end select
+    end do
+
+  end subroutine reset_gradients
+!###############################################################################
+
+
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
+
+
+!###############################################################################
+  pure module subroutine get_input_autodiff(this, idx, input)
+    !! Get the input for each layer via autodiff
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(in) :: this
+    !! Instance of network
+    integer, intent(in) :: idx
+    !! Index of layer
+    real(real32), allocatable, dimension(:,:), intent(out) :: input
+    !! Input for layer
+
+    ! Local variables
     integer :: i
+    !! Loop index
     integer :: idx_start, idx_end
+    !! Start and end indices
+
 
     allocate( &
          input( &
@@ -1278,19 +1463,28 @@ contains
     end do
 
   end subroutine get_input_autodiff
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!!#############################################################################
+!###############################################################################
   pure module subroutine get_gradient_autodiff(this, idx, gradient)
+    !! Get the gradient for each layer via autodiff
     implicit none
-    class(network_type), intent(in) :: this
-    integer, intent(in) :: idx
-    real(real32), allocatable, dimension(:,:), intent(out) :: gradient
 
+    ! Arguments
+    class(network_type), intent(in) :: this
+    !! Instance of network
+    integer, intent(in) :: idx
+    !! Index of layer
+    real(real32), allocatable, dimension(:,:), intent(out) :: gradient
+    !! Gradient for layer
+
+    ! Local variables
     integer :: i
+    !! Loop index
     integer :: idx_start, idx_end
+    !! Start and end indices
+
 
     allocate( &
          gradient( &
@@ -1311,12 +1505,12 @@ contains
                2 &
           )
           select case( &
-                this%auto_graph%edge( &
-                     this%auto_graph%adjacency( &
-                          idx, &
-                          i &
-                     ) &
-                )%id &
+               this%auto_graph%edge( &
+                    this%auto_graph%adjacency( &
+                         idx, &
+                         i &
+                    ) &
+               )%id &
           )
           case(1) ! concatenate
              gradient =  &
@@ -1333,45 +1527,59 @@ contains
     end do
 
   end subroutine get_gradient_autodiff
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! forward pass
-!!!#############################################################################
+!###############################################################################
   pure module subroutine forward_real(this, input)
+    !! Forward pass for real input
     implicit none
+
+    ! Arguments
     class(network_type), intent(inout) :: this
+    !! Instance of network
     real(real32), dimension(..), intent(in) :: input
+    !! Input
 
+    ! Local variables
     integer :: i
+    !! Loop index
     real(real32), dimension(:,:), allocatable :: auto_input
+    !! Autodiff input
 
 
-    !! Forward pass
-    !!--------------------------------------------------------------------------
+    ! Forward pass
+    !---------------------------------------------------------------------------
     do i = 1, size(this%vertex_order,1)
        if(all(this%auto_graph%adjacency(:,this%vertex_order(i)).eq.0))then
           call this%model(this%vertex_order(i))%layer%forward(input)
        else
           call this%get_input_autodiff(this%vertex_order(i), auto_input)
           call this%model(this%vertex_order(i))%layer%forward(auto_input)
-      end if
+       end if
     end do
 
   end subroutine forward_real
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure module subroutine forward_derived(this, input)
+    !! Forward pass for array derived type input
     implicit none
+
+    ! Arguments
     class(network_type), intent(inout) :: this
+    !! Instance of network
     class(array_type), dimension(size(this%root_vertices)), intent(in) :: input
+    !! Input
 
+    ! Local variables
     integer :: i
+    !! Loop index
     real(real32), dimension(:,:), allocatable :: auto_input
+    !! Autodiff input
 
 
-    !! Forward pass
-    !!--------------------------------------------------------------------------
+    ! Forward pass
+    !---------------------------------------------------------------------------
     do i = 1, size(this%vertex_order,1)
        if(all(this%auto_graph%adjacency(:,this%vertex_order(i)).eq.0))then
           select type(layer => this%model(this%vertex_order(i))%layer)
@@ -1387,60 +1595,72 @@ contains
     end do
 
   end subroutine forward_derived
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! backward pass
-!!!#############################################################################
+!###############################################################################
   pure module subroutine backward_real(this, output)
+    !! Backward pass for real output
     implicit none
+
+    ! Arguments
     class(network_type), intent(inout) :: this
+    !! Instance of network
     real(real32), dimension(:,:), intent(in) :: output
+    !! Output
 
+    ! Local variables
     integer :: i
+    !! Loop index
     real(real32), dimension(:,:), allocatable :: input, gradient
+    !! Autodiff input and gradient
 
 
-    !! Backward pass
-    !!--------------------------------------------------------------------------
+    ! Backward pass
+    !---------------------------------------------------------------------------
     do i = size(this%vertex_order,1), 1, -1
-       
-      if(all(this%auto_graph%adjacency(:,this%vertex_order(i)).eq.0))then
+
+       if(all(this%auto_graph%adjacency(:,this%vertex_order(i)).eq.0))then
           cycle ! this is an input layer
-      else
+       else
           call this%get_input_autodiff(this%vertex_order(i), input)
-      end if
+       end if
 
-      if(all(this%auto_graph%adjacency(this%vertex_order(i),:).eq.0))then
-         gradient = this%get_loss_deriv( &
-              this%model(this%vertex_order(i))%layer%output%val, &
-              output &
-         )
-      else
+       if(all(this%auto_graph%adjacency(this%vertex_order(i),:).eq.0))then
+          gradient = this%get_loss_deriv( &
+               this%model(this%vertex_order(i))%layer%output%val, &
+               output &
+          )
+       else
           call this%get_gradient_autodiff(this%vertex_order(i), gradient)
-      end if
+       end if
 
-      call this%model(this%vertex_order(i))%layer%backward(input, gradient)
-   end do
+       call this%model(this%vertex_order(i))%layer%backward(input, gradient)
+    end do
 
   end subroutine backward_real
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! update weights and biases
-!!!#############################################################################
+!###############################################################################
   module subroutine update(this)
+    !! Update the network
     implicit none
+
+    ! Arguments
     class(network_type), intent(inout) :: this
+    !! Instance of network
     real(real32), dimension(this%num_params) :: params, gradients
+    !! Parameters and gradients
 
+    ! Local variables
     integer :: l, start_idx, end_idx
+    !! Loop index
 
-    !!-------------------------------------------------------------------
-    !! Get learnable parameters and gradients
-    !!-------------------------------------------------------------------
+
+    !---------------------------------------------------------------------------
+    ! Get learnable parameters and gradients
+    !---------------------------------------------------------------------------
     start_idx = 0
     end_idx   = 0
     do l = 1, this%num_layers
@@ -1458,43 +1678,58 @@ contains
     ! each layer individually or collectively to the all gradients at once
     call this%optimiser%clip_dict%apply(size(gradients),gradients)
 
-    !!-------------------------------------------------------------------
-    !! Update layers of learnable layer types
-    !!-------------------------------------------------------------------
+
+    !---------------------------------------------------------------------------
+    ! Update layers of learnable layer types
+    !---------------------------------------------------------------------------
     call this%optimiser%minimise(params, gradients)
     call this%set_params(params)
     call this%reset_gradients()
 
-    !! Increment optimiser iteration counter
-    !!-------------------------------------------------------------------
+
+    ! Increment optimiser iteration counter
+    !---------------------------------------------------------------------------
     this%optimiser%iter = this%optimiser%iter + 1
 
   end subroutine update
-!!!#############################################################################
+!###############################################################################
 
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
-!!!#############################################################################
-!!! 
-!!!#############################################################################
+!###############################################################################
+!!!
+!###############################################################################
   subroutine convert_polymorphic_to_array2d( &
        input, output, num_samples, num_input_layers &
   )
+    !! Convert polymorphic input to array2d
     implicit none
+
+    ! Arguments
     class(*), dimension(..), intent(in) :: input
+    !! Input
     type(array2d_type), dimension(:), allocatable, intent(out) :: output
+    !! Output
     integer, intent(out) :: num_samples
+    !! Number of samples
     integer, intent(in) :: num_input_layers
+    !! Number of input layers
 
+    ! Local variables
     integer :: i, input_rank, num_inputs
+    !! Loop index
     logical :: l_valid_rank_type
+    !! Boolean whether rank type is valid
     character(256) :: err_msg
+    !! Error message
 
-    !! Determine the rank of the input
+
+    ! Determine the rank of the input
+    !---------------------------------------------------------------------------
     select rank(input)
     rank(0)
     rank(1)
@@ -1507,7 +1742,9 @@ contains
     end select
     l_valid_rank_type = .false.
 
-    !! Process input based on its rank
+
+    ! Process input based on its rank
+    !---------------------------------------------------------------------------
     rank_select: select rank(input)
     rank(0)
        select type(input)
@@ -1586,8 +1823,13 @@ contains
   contains
 
     function get_num_samples(input) result(num_samples)
+      !! Get the number of samples in the input
+
+      ! Arguments
       class(*), intent(in) :: input
+      !! Input
       integer :: num_samples
+      !! Number of samples
 
       select type(input)
       class is(array_type)
@@ -1595,16 +1837,22 @@ contains
       class is(array_container_type)
          num_samples = size(input%array%val, 2)
       class default
-         call stop_program("Unknown input type in get_num_samples")   
+         call stop_program("Unknown input type in get_num_samples")
          return
       end select
     end function get_num_samples
 
 
     subroutine handle_array_type(input, output, num_samples)
+      !! Handle array type input
+
+      ! Arguments
       class(array_type), intent(in) :: input
+      !! Input
       type(array2d_type), intent(out) :: output
+      !! Output
       integer, intent(in) :: num_samples
+      !! Number of samples
 
       if(size(input%val,2).ne.num_samples)then
          call stop_program("number of samples in input arrays do not match")
@@ -1617,66 +1865,96 @@ contains
     end subroutine handle_array_type
 
   end subroutine convert_polymorphic_to_array2d
-!!!#############################################################################
+!###############################################################################
 
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
-!!!#############################################################################
-!!! training loop
-!!! ... loops over num_epoch number of epochs
-!!! ... i.e. it trains on the same datapoints num_epoch times
-!!!#############################################################################
-  module subroutine train(this, input, output, num_epochs, batch_size, &
-       plateau_threshold, shuffle_batches, batch_print_step, verbose)
+!###############################################################################
+  module subroutine train( &
+       this, input, output, num_epochs, batch_size, &
+       plateau_threshold, shuffle_batches, batch_print_step, verbose &
+  )
+    !! Train the network
+    !!
+    !! This function trains the network on the input data for a number of
+    !! epochs. The input data is split into batches of size batch_size and
+    !! the network is trained on each batch. The network is trained using
+    !! the optimiser specified in the network object.
     use athena__tools_infile, only: stop_check
     implicit none
+
+    ! Arguments
     class(network_type), intent(inout) :: this
+    !! Instance of network
     class(*), dimension(..), intent(in) :: input
+    !! Input data
     class(*), dimension(:,:), intent(in) :: output
+    !! Output data
     integer, intent(in) :: num_epochs
-    integer, optional, intent(in) :: batch_size !! deprecated
-
+    !! Number of epochs
+    integer, optional, intent(in) :: batch_size ! deprecated
+    !! Batch size
     real(real32), optional, intent(in) :: plateau_threshold
+    !! Plateau threshold
     logical, optional, intent(in) :: shuffle_batches
+    !! Shuffle batches
     integer, optional, intent(in) :: batch_print_step
+    !! Batch print step
     integer, optional, intent(in) :: verbose
-    
+    !! Verbosity level
+
+    ! Local variables
     type(array2d_type), dimension(:), allocatable :: input_
+    !! Input array
 
-    !! training and testing monitoring
+    ! Training parameters
     real(real32) :: batch_loss, batch_accuracy, avg_loss, avg_accuracy
+    !! Loss and accuracy
     real(real32), allocatable, dimension(:,:) :: y_true
+    !! True labels
 
-    !! learning parameters
+    ! learning parameters
     integer :: l, num_samples
+    !! Loop index
     integer :: num_batches
+    !! Number of batches
     integer :: converged
+    !! Convergence flag
     integer :: history_length
+    !! Length of history
     integer :: verbose_
+    !! Verbosity level
     integer :: batch_print_step_
+    !! Batch print step
     real(real32) :: plateau_threshold_
+    !! Plateau threshold
     logical :: shuffle_batches_
+    !! Shuffle batches
 
-    !! training loop variables
+    ! Training loop variables
     integer :: epoch, batch, start_index, end_index
+    !! Loop index
     integer, allocatable, dimension(:) :: batch_order
+    !! Batch order
 
     integer :: i, time, time_old, clock_rate
+    !! Loop index
 
 #ifdef _OPENMP
     type(network_type) :: this_copy
+    !! Copy of network
 #endif
     !  integer :: timer_start = 0, timer_stop = 0, timer_sum = 0, timer_tot = 0
     !  integer :: forward_timer = 0, backward_timer = 0, update_timer = 0
 
 
-!!!-----------------------------------------------------------------------------
-!!! check loss and accuracy methods are set
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Check loss and accuracy methods are set
+    !---------------------------------------------------------------------------
     if(.not.associated(this%get_loss))then
        call stop_program("loss method not set")
        return
@@ -1687,11 +1965,11 @@ contains
     end if
 
 
-!!!-----------------------------------------------------------------------------
-!!! initialise optional arguments
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Initialise optional arguments
+    !---------------------------------------------------------------------------
     verbose_ = 0
-    batch_print_step_ = 20 
+    batch_print_step_ = 20
     plateau_threshold_ = 1.E-2_real32
     shuffle_batches_ = .true.
     if(present(plateau_threshold)) plateau_threshold_ = plateau_threshold
@@ -1701,9 +1979,9 @@ contains
     if(present(batch_size)) this%batch_size = batch_size
 
 
-!!!-----------------------------------------------------------------------------
-!!! initialise monitoring variables
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Initialise monitoring variables
+    !---------------------------------------------------------------------------
     history_length = max(ceiling(500._real32/this%batch_size),1)
     do i=1,size(this%metrics,dim=1)
        if(allocated(this%metrics(i)%history)) &
@@ -1713,15 +1991,15 @@ contains
     end do
 
 
-!!!-----------------------------------------------------------------------------
-!!! allocate predicted and true label sets
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Allocate predicted and true label sets
+    !---------------------------------------------------------------------------
     allocate(y_true(this%num_outputs,this%batch_size), source = 0._real32)
 
 
-!!!-----------------------------------------------------------------------------
-!!! if parallel, initialise slices
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! If parallel, initialise slices
+    !---------------------------------------------------------------------------
     num_batches = size(output,dim=2) / this%batch_size
     allocate(batch_order(num_batches))
     do batch = 1, num_batches
@@ -1729,9 +2007,9 @@ contains
     end do
 
 
-!!!-----------------------------------------------------------------------------
-!!! get number of samples
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Get number of samples
+    !---------------------------------------------------------------------------
     call convert_polymorphic_to_array2d( &
          input, input_, num_samples, size(this%root_vertices,1) &
     )
@@ -1744,30 +2022,30 @@ contains
     end if
 
 
-!!!-----------------------------------------------------------------------------
-!!! set/reset batch size for training
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Set/reset batch size for training
+    !---------------------------------------------------------------------------
     call this%set_batch_size(this%batch_size)
 
 
-!!!-----------------------------------------------------------------------------
-!!! turn off inference booleans
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Turn off inference booleans
+    !---------------------------------------------------------------------------
     do l = 1, this%num_layers
        this%model(l)%layer%inference = .false.
     end do
 
 
-!!!-----------------------------------------------------------------------------
-!!! query system clock
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Query system clock
+    !---------------------------------------------------------------------------
     call system_clock(time, count_rate = clock_rate)
 
 
     epoch_loop: do epoch = 1, num_epochs
-       !!-----------------------------------------------------------------------
-       !! shuffle batch order at the start of each epoch
-       !!-----------------------------------------------------------------------
+       !------------------------------------------------------------------------
+       ! Shuffle batch order at the start of each epoch
+       !------------------------------------------------------------------------
        if(shuffle_batches_)then
           call shuffle(batch_order)
        end if
@@ -1775,21 +2053,21 @@ contains
        avg_loss     = 0._real32
        avg_accuracy = 0._real32
 
-       !!-----------------------------------------------------------------------
-       !! batch loop
-       !! ... split data up into minibatches for training
-       !!-----------------------------------------------------------------------
+       !------------------------------------------------------------------------
+       ! Batch loop
+       ! ... split data up into minibatches for training
+       !------------------------------------------------------------------------
        batch_loop: do batch = 1, num_batches
 
 
-          !! set batch start and end index
-          !!--------------------------------------------------------------------
+          ! Set batch start and end index
+          !---------------------------------------------------------------------
           start_index = (batch_order(batch) - 1) * this%batch_size + 1
           end_index = batch_order(batch) * this%batch_size
-          
 
-          !! reinitialise variables
-          !!--------------------------------------------------------------------
+
+          ! Reinitialise variables
+          !---------------------------------------------------------------------
           select type(output)
           type is(integer)
              y_true(:,:) = real(output(:,start_index:end_index:1),real32)
@@ -1798,36 +2076,38 @@ contains
           end select
 
 
-          !! Forward pass
-          !!--------------------------------------------------------------------
+          ! Forward pass
+          !---------------------------------------------------------------------
           !  call system_clock(timer_start)
           call this%forward(get_sample_derived(input_,start_index,end_index))
           !  call system_clock(timer_stop)
           !  forward_timer = forward_timer + timer_stop - timer_start
 
 
-          !! Backward pass and store predicted output
-          !!--------------------------------------------------------------------
+          ! Backward pass and store predicted output
+          !---------------------------------------------------------------------
           !  call system_clock(timer_start)
           call this%backward(y_true(:,:))
           !  call system_clock(timer_stop)
           !  backward_timer = backward_timer + timer_stop - timer_start
-          !! compute loss and accuracy (for monitoring)
-          !!-----------------------------------------------------------------
+
+
+          ! Compute loss and accuracy (for monitoring)
+          !------------------------------------------------------------------
           batch_loss = sum( &
-             this%get_loss( &
-             this%model(this%output_vertices(1))%layer%output%val, &
-             y_true(:,1:this%batch_size)))
+               this%get_loss( &
+                    this%model(this%output_vertices(1))%layer%output%val, &
+                    y_true(:,1:this%batch_size)))
           batch_accuracy = sum( &
-             this%get_accuracy( &
-             this%model(this%output_vertices(1))%layer%output%val, &
-             y_true(:,1:this%batch_size)))
+               this%get_accuracy( &
+                    this%model(this%output_vertices(1))%layer%output%val, &
+                    y_true(:,1:this%batch_size)))
 
 
 
-          !! Average metric over batch size and store
-          !! Check metric convergence
-          !!--------------------------------------------------------------------
+          ! Average metric over batch size and store
+          ! Check metric convergence
+          !---------------------------------------------------------------------
           avg_loss = avg_loss + batch_loss
           avg_accuracy = avg_accuracy + batch_accuracy
           this%metrics(1)%val = batch_loss / this%batch_size
@@ -1840,16 +2120,16 @@ contains
           end do
 
 
-          !! update weights and biases using optimization algorithm
-          !!--------------------------------------------------------------------
+          ! Update weights and biases using optimization algorithm
+          !---------------------------------------------------------------------
           ! call system_clock(timer_start)
           call this%update()
           ! call system_clock(timer_stop)
           ! update_timer = update_timer + timer_stop - timer_start
 
 
-          !! print batch results
-          !!--------------------------------------------------------------------
+          ! Print batch results
+          !---------------------------------------------------------------------
           if(abs(verbose_).gt.0.and.&
                (batch.eq.1.or.abs(mod(batch,batch_print_step_)).lt.1.E-6))then
              write(6,'("epoch=",I0,", batch=",I0,&
@@ -1861,8 +2141,8 @@ contains
           end if
 
 
-          !! time check
-          !!--------------------------------------------------------------------
+          ! Time check
+          !---------------------------------------------------------------------
           if(verbose_.eq.-2)then
              time_old = time
              call system_clock(time)
@@ -1872,8 +2152,8 @@ contains
           end if
 
 
-          !! check for user-name stop file
-          !!--------------------------------------------------------------------
+          ! Check for user-name stop file
+          !---------------------------------------------------------------------
           if(stop_check())then
              write(0,*) "STOPCAR ENCOUNTERED"
              write(0,*) "Exiting training loop..."
@@ -1883,8 +2163,8 @@ contains
        end do batch_loop
 
 
-       !! print epoch summary results
-       !!-----------------------------------------------------------------------
+       ! Print epoch summary results
+       !------------------------------------------------------------------------
        if(verbose_.eq.0)then
           write(6,'("epoch=",I0,&
                &", learning_rate=",F0.3,", val_loss=",F0.3,&
@@ -1902,33 +2182,44 @@ contains
     ! write(*,*) "update timer: ", real(update_timer)/clock_rate
 
   end subroutine train
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! testing loop
-!!!#############################################################################
-  module subroutine test(this, input, output, &
-       verbose)
+!###############################################################################
+  module subroutine test( &
+       this, input, output, verbose &
+  )
+    !! Test the network
     implicit none
+
+    ! Arguments
     class(network_type), intent(inout) :: this
+    !! Instance of network
     class(*), dimension(..), intent(in) :: input
+    !! Input data
     class(*), dimension(:,:), intent(in) :: output
-
-
+    !! Output data
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
+
+    ! Local variables
     type(array2d_type), dimension(:), allocatable :: input_
-
+    !! Input array
     integer :: l, sample, num_samples
+    !! Loop index
     integer :: verbose_, unit
+    !! Verbosity level
     real(real32) :: acc_val, loss_val
+    !! Loss and accuracy
     real(real32), allocatable, dimension(:) :: accuracy_list
+    !! Accuracy list
     real(real32), allocatable, dimension(:,:) :: predicted, y_true
+    !! Predicted and true labels
 
 
-!!!-----------------------------------------------------------------------------
-!!! initialise optional arguments
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Initialise optional arguments
+    !---------------------------------------------------------------------------
     if(present(verbose))then
        verbose_ = verbose
     else
@@ -1955,38 +2246,38 @@ contains
     end select
 
 
-!!!-----------------------------------------------------------------------------
-!!! reset batch size for testing
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Reset batch size for testing
+    !---------------------------------------------------------------------------
     call this%set_batch_size(1)
 
 
-!!!-----------------------------------------------------------------------------
-!!! turn on inference booleans
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Turn on inference booleans
+    !---------------------------------------------------------------------------
     do l = 1, this%num_layers
        this%model(l)%layer%inference = .true.
     end do
 
 
-!!!-----------------------------------------------------------------------------
-!!! testing loop
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Testing loop
+    !---------------------------------------------------------------------------
     test_loop1: do sample = 1, num_samples
 
-       !! Forward pass
-       !!-----------------------------------------------------------------------
+       ! Forward pass
+       !------------------------------------------------------------------------
        call this%forward(get_sample_derived(input_,sample,sample))
 
 
-       !! compute loss and accuracy (for monitoring)
-       !!-----------------------------------------------------------------------
+       ! Compute loss and accuracy (for monitoring)
+       !------------------------------------------------------------------------
        loss_val = sum(this%get_loss( &
             predicted = this%model(this%output_vertices(1))%layer%output%val, &
-            !!!! JUST REPLACE y_true(:,sample) WITH output(:,sample) !!!!
-            !!!! THERE IS NO REASON TO USE y_true, as it is just a copy !!!!
-            !!!! get_loss should handle both integers and reals !!!!
-            !!!! it does not. Instead just wrap real(output(:,sample),real32) !!!!
+            ! JUST REPLACE y_true(:,sample) WITH output(:,sample) !
+            ! THERE IS NO REASON TO USE y_true, as it is just a copy !
+            ! get_loss should handle both integers and reals !
+            ! it does not. Instead just wrap real(output(:,sample),real32) !
             expected  = y_true(:,sample:sample)))
        acc_val = sum(this%get_accuracy( &
             predicted = this%model(this%output_vertices(1))%layer%output%val, &
@@ -1994,13 +2285,14 @@ contains
        this%metrics(2)%val = this%metrics(2)%val + acc_val
        this%metrics(1)%val = this%metrics(1)%val + loss_val
        accuracy_list(sample) = acc_val
-       predicted(:,sample) = this%model(this%output_vertices(1))%layer%output%val(:,1)
+       predicted(:,sample) = &
+            this%model(this%output_vertices(1))%layer%output%val(:,1)
 
     end do test_loop1
 
-    
-    !! print testing results
-    !!--------------------------------------------------------------------
+
+    ! Print testing results
+    !---------------------------------------------------------------------------
     if(abs(verbose_).gt.1)then
        open(file="test_output.out",newunit=unit)
        test_loop2: do concurrent(sample = 1:num_samples)
@@ -2008,10 +2300,14 @@ contains
           type is(integer)
              write(unit,'(I4," Expected=",I3,", Got=",I3,", Accuracy=",F0.3)') &
                   sample, &
-                  maxloc(output(:,sample)), maxloc(predicted(:,sample),dim=1)-1, &
+                  maxloc( output(:,sample) ), &
+                  maxloc( predicted(:,sample), dim = 1 ) - 1, &
                   accuracy_list(sample)
           type is(real)
-             write(unit,'(I4," Expected=",F0.3,", Got=",F0.3,", Accuracy=",F0.3)') &
+             write( &
+                  unit, &
+                  '(I4," Expected=",F0.3,", Got=",F0.3,", Accuracy=",F0.3)' &
+             ) &
                   sample, &
                   output(:,sample), predicted(:,sample), &
                   accuracy_list(sample)
@@ -2021,34 +2317,40 @@ contains
     end if
 
 
-    !! normalise metrics by number of samples
-    !!--------------------------------------------------------------------
+    ! Normalise metrics by number of samples
+    !---------------------------------------------------------------------------
     this%accuracy = this%metrics(2)%val/real(num_samples)
     this%loss     = this%metrics(1)%val/real(num_samples)
 
   end subroutine test
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! predict outputs from input data using trained network
-!!!#############################################################################
-  module function predict_1d(this, input, &
-       verbose) result(output)
+!###############################################################################
+  module function predict_1d( &
+       this, input, verbose &
+  ) result(output)
+    !! Predict the output for a 1D input
     implicit none
+
+    ! Arguments
     class(network_type), intent(inout) :: this
+    !! Instance of network
     real(real32), dimension(..), intent(in) :: input
-    
+    !! Input
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     real(real32), dimension(:,:), allocatable :: output
-    
+    !! Output
     integer :: verbose_, batch_size
+    !! Verbosity level
 
 
-!!!-----------------------------------------------------------------------------
-!!! initialise optional arguments
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Initialise optional arguments
+    !---------------------------------------------------------------------------
     if(present(verbose))then
        verbose_ = verbose
     else
@@ -2071,21 +2373,20 @@ contains
     end select
 
 
-!!!-----------------------------------------------------------------------------
-!!! reset batch size for testing
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Reset batch size for testing
+    !---------------------------------------------------------------------------
     call this%set_batch_size(batch_size)
 
 
-!!!-----------------------------------------------------------------------------
-!!! predict
-!!!-----------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Predict
+    !---------------------------------------------------------------------------
     call this%forward(get_sample(input,1,batch_size))
 
     output = this%model(this%output_vertices(1))%layer%output%val
 
   end function predict_1d
-!!!#############################################################################
+!###############################################################################
 
 end submodule athena__network_submodule
-!!!#############################################################################

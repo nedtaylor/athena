@@ -97,7 +97,7 @@ contains
     else
        t_kernel_size = kernel_size
     end if
-    
+
     if(allocated(images)) deallocate(images)
     allocate(images(image_size, image_size, 1, num_samples))
 
@@ -118,7 +118,7 @@ contains
     call pad_data(images, images_padded, &
          t_kernel_size, t_padding_method, 4, 3)
     images = images_padded
-    
+
 
 !!!-----------------------------------------------------------------------------
 !!! increase label values to match fortran indices

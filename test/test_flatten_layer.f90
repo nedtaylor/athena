@@ -20,7 +20,7 @@ program test_flatten_layer
 
 
 !!!-----------------------------------------------------------------------------
-!!! Initialize random number generator with a seed
+!!! Initialise random number generator with a seed
 !!!-----------------------------------------------------------------------------
   call random_seed(size = seed_size)
   allocate(seed(seed_size), source=0)
@@ -92,8 +92,8 @@ program test_flatten_layer
         write(0,*) 'flatten layer (2D) backward pass incorrect'
      end if
   class default
-      success = .false.
-      write(0,*) 'flatten layer (2D) has not set di type correctly'
+     success = .false.
+     write(0,*) 'flatten layer (2D) has not set di type correctly'
   end select
 
 
@@ -160,8 +160,8 @@ program test_flatten_layer
         write(0,*) 'flatten layer (3D) backward pass incorrect'
      end if
   class default
-      success = .false.
-      write(0,*) 'flatten layer (3D) has not set di type correctly'
+     success = .false.
+     write(0,*) 'flatten layer (3D) has not set di type correctly'
   end select
 
 
@@ -217,8 +217,13 @@ program test_flatten_layer
   call flatten_layer%get_output(output)
 
   !! check outputs have expected value
-  if(any( &
-       abs(pack(input_data5d(:,:,:,:,1),mask=.true.) - output(:,1)).gt.tol) &
+  if( &
+       any( &
+            abs( pack( &
+                 input_data5d(:,:,:,:,1), &
+                 mask=.true. &
+            ) - output(:,1) ) .gt. tol &
+       ) &
   )then
      success = .false.
      write(0,*) 'flatten layer (4D) forward pass incorrect'
@@ -241,8 +246,8 @@ program test_flatten_layer
         write(0,*) 'flatten layer (4D) backward pass incorrect'
      end if
   class default
-      success = .false.
-      write(0,*) 'flatten layer (4D) has not set di type correctly'
+     success = .false.
+     write(0,*) 'flatten layer (4D) has not set di type correctly'
   end select
 
 

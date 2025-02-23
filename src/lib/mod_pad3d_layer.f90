@@ -1,60 +1,77 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ATHENA library - a feedforward neural network library
-!!!#############################################################################
-!!! module contains implementation of a 3D padding layer
-!!!#############################################################################
 module athena__pad3d_layer
+  !! Module containing implementation of a 3D padding layer
   use athena__io_utils, only: stop_program
   use athena__constants, only: real32
   use athena__base_layer, only: pad_layer_type, base_layer_type
   use athena__misc_types, only: array5d_type
   use athena__misc, only: to_lower
   implicit none
-  
-  
-  type, extends(pad_layer_type) :: pad3d_layer_type
-   contains
-     procedure, pass(this) :: set_hyperparams => set_hyperparams_pad3d
-     procedure, pass(this) :: init => init_pad3d
-     procedure, pass(this) :: set_batch_size => set_batch_size_pad3d
-     procedure, pass(this) :: read => read_pad3d
-     procedure, pass(this) :: forward  => forward_rank
-     procedure, pass(this) :: backward => backward_rank
-     procedure, private, pass(this) :: forward_5d
-     procedure, private, pass(this) :: backward_5d
-  end type pad3d_layer_type
-
-  
-  interface pad3d_layer_type
-     module function layer_setup( &
-          padding, method, &
-          input_shape, batch_size, &
-          verbose ) result(layer)
-       integer, dimension(:), intent(in) :: padding
-       character(*), intent(in) :: method
-       integer, dimension(:), optional, intent(in) :: input_shape
-       integer, optional, intent(in) :: batch_size 
-       integer, optional, intent(in) :: verbose
-       type(pad3d_layer_type) :: layer
-     end function layer_setup
-  end interface pad3d_layer_type
 
 
   private
+
   public :: pad3d_layer_type
   public :: read_pad3d_layer
 
 
+  type, extends(pad_layer_type) :: pad3d_layer_type
+     !! Type for 3D padding layer with overloaded procedures
+   contains
+     procedure, pass(this) :: set_hyperparams => set_hyperparams_pad3d
+     !! Set hyperparameters for 3D padding layer
+     procedure, pass(this) :: init => init_pad3d
+     !! Initialise 3D padding layer
+     procedure, pass(this) :: set_batch_size => set_batch_size_pad3d
+     !! Set batch size for 3D padding layer
+     procedure, pass(this) :: read => read_pad3d
+     !! Read 3D padding layer from file
+     procedure, pass(this) :: forward  => forward_rank
+     !! Forward propagation handler for 3D padding layer
+     procedure, pass(this) :: backward => backward_rank
+     !! Backward propagation handler for 3D padding layer
+     procedure, private, pass(this) :: forward_5d
+     !! Forward propagation for 5D input
+     procedure, private, pass(this) :: backward_5d
+     !! Backward propagation for 5D input
+  end type pad3d_layer_type
+
+  interface pad3d_layer_type
+     !! Interface for setting up the 3D padding layer
+     module function layer_setup( &
+          padding, method, &
+          input_shape, batch_size, &
+          verbose &
+     ) result(layer)
+       !! Set up the 3D padding layer
+       integer, dimension(:), intent(in) :: padding
+       !! Padding sizes
+       character(*), intent(in) :: method
+       !! Padding method
+       integer, dimension(:), optional, intent(in) :: input_shape
+       !! Input shape
+       integer, optional, intent(in) :: batch_size
+       !! Batch size
+       integer, optional, intent(in) :: verbose
+       !! Verbosity level
+       type(pad3d_layer_type) :: layer
+       !! Instance of the 3D padding layer
+     end function layer_setup
+  end interface pad3d_layer_type
+
+
+
 contains
 
-!!!#############################################################################
-!!! forward propagation assumed rank handler
-!!!#############################################################################
+!###############################################################################
   pure subroutine forward_rank(this, input)
+    !! Forward propagation handler for 3D padding layer
     implicit none
+
+    ! Arguments
     class(pad3d_layer_type), intent(inout) :: this
+    !! Instance of the 3D padding layer
     real(real32), dimension(..), intent(in) :: input
+    !! Input values
 
     select rank(input)
     rank(2)
@@ -63,17 +80,21 @@ contains
        call forward_5d(this, input)
     end select
   end subroutine forward_rank
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! backward propagation assumed rank handler
-!!!#############################################################################
+!###############################################################################
   pure subroutine backward_rank(this, input, gradient)
+    !! Backward propagation handler for 3D padding layer
     implicit none
+
+    ! Arguments
     class(pad3d_layer_type), intent(inout) :: this
+    !! Instance of the 3D padding layer
     real(real32), dimension(..), intent(in) :: input
+    !! Input values
     real(real32), dimension(..), intent(in) :: gradient
+    !! Gradient values
 
     select rank(input)
     rank(2)
@@ -88,69 +109,81 @@ contains
        end select
     end select
   end subroutine backward_rank
-!!!#############################################################################
+!###############################################################################
 
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
-!!!#############################################################################
-!!! set up layer
-!!!#############################################################################
+!###############################################################################
   module function layer_setup( &
        padding, method, &
        input_shape, batch_size, &
        verbose &
   ) result(layer)
+    !! Set up the 3D padding layer
     implicit none
-    integer, dimension(:), intent(in) :: padding
-    character(*), intent(in) :: method
-    integer, dimension(:), optional, intent(in) :: input_shape
-    integer, optional, intent(in) :: batch_size 
-    integer, optional, intent(in) :: verbose
-    
-    type(pad3d_layer_type) :: layer
 
+    ! Arguments
+    integer, dimension(:), intent(in) :: padding
+    !! Padding sizes
+    character(*), intent(in) :: method
+    !! Padding method
+    integer, dimension(:), optional, intent(in) :: input_shape
+    !! Input shape
+    integer, optional, intent(in) :: batch_size
+    !! Batch size
+    integer, optional, intent(in) :: verbose
+    !! Verbosity level
+
+    type(pad3d_layer_type) :: layer
+    !! Instance of the 3D padding layer
+
+    ! Local variables
     integer :: verbose_ = 0
+    !! Verbosity level
 
 
     if(present(verbose)) verbose_ = verbose
 
-    !!--------------------------------------------------------------------------
-    !! set hyperparameters
-    !!--------------------------------------------------------------------------
-    call layer%set_hyperparams( &
-         padding=padding, method=method, verbose=verbose_ &
-    )
+
+    !---------------------------------------------------------------------------
+    ! Set hyperparameters
+    !---------------------------------------------------------------------------
+    call layer%set_hyperparams(padding=padding, method=method, verbose=verbose_)
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise batch size
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Initialise batch size
+    !---------------------------------------------------------------------------
     if(present(batch_size)) layer%batch_size = batch_size
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise layer shape
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Initialise layer shape
+    !---------------------------------------------------------------------------
     if(present(input_shape)) call layer%init(input_shape=input_shape)
 
   end function layer_setup
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! set hyperparameters
-!!!#############################################################################
+!###############################################################################
   subroutine set_hyperparams_pad3d(this, padding, method, verbose)
+    !! Set hyperparameters for 3D padding layer
     implicit none
-    class(pad3d_layer_type), intent(inout) :: this
-    integer, dimension(3), intent(in) :: padding
-    character(*), intent(in) :: method
-    integer, optional, intent(in) :: verbose
 
+    ! Arguments
+    class(pad3d_layer_type), intent(inout) :: this
+    !! Instance of the 3D padding layer
+    integer, dimension(3), intent(in) :: padding
+    !! Padding sizes
+    character(*), intent(in) :: method
+    !! Padding method
+    integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
     this%name = "pad3d"
     this%type = "pad"
@@ -182,33 +215,41 @@ contains
     end select
 
   end subroutine set_hyperparams_pad3d
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! initialise layer
-!!!#############################################################################
+!###############################################################################
   subroutine init_pad3d(this, input_shape, batch_size, verbose)
+    !! Initialise 3D padding layer
     implicit none
+
+    ! Arguments
     class(pad3d_layer_type), intent(inout) :: this
+    !! Instance of the 3D padding layer
     integer, dimension(:), intent(in) :: input_shape
+    !! Input shape
     integer, optional, intent(in) :: batch_size
+    !! Batch size
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     integer :: i
+    !! Loop index
     integer :: verbose_ = 0
+    !! Verbosity level
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise optional arguments
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Initialise optional arguments
+    !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
     if(present(batch_size)) this%batch_size = batch_size
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise input shape
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Initialise input shape
+    !---------------------------------------------------------------------------
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
     if(.not.allocated(this%orig_bound)) then
        allocate(this%orig_bound(2,3))
@@ -226,10 +267,10 @@ contains
     end do
 
 
-    !!-----------------------------------------------------------------------
-    !! set up number of channels, width, height
-    !!-----------------------------------------------------------------------
-    this%num_channels = this%input_shape(3)
+    !---------------------------------------------------------------------------
+    ! Set up number of channels, width, height
+    !---------------------------------------------------------------------------
+    this%num_channels = this%input_shape(4)
     if(allocated(this%output))then
        if(this%output%allocated) call this%output%deallocate()
     end if
@@ -239,37 +280,43 @@ contains
          this%input_shape(:3) + this%pad(:) * 2
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise batch size-dependent arrays
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Initialise batch size-dependent arrays
+    !---------------------------------------------------------------------------
     if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
 
   end subroutine init_pad3d
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! set batch size
-!!!#############################################################################
+!###############################################################################
   subroutine set_batch_size_pad3d(this, batch_size, verbose)
+    !! Set batch size for 3D padding layer
     implicit none
+
+    ! Arguments
     class(pad3d_layer_type), intent(inout), target :: this
+    !! Instance of the 3D padding layer
     integer, intent(in) :: batch_size
+    !! Batch size
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     integer :: verbose_ = 0
+    !! Verbosity level
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise optional arguments
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Initialise optional arguments
+    !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
     this%batch_size = batch_size
 
 
-    !!--------------------------------------------------------------------------
-    !! allocate arrays
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Allocate arrays
+    !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
        if(.not.allocated(this%output)) this%output = array5d_type()
        if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
@@ -293,40 +340,57 @@ contains
     end if
 
   end subroutine set_batch_size_pad3d
-!!!#############################################################################
+!###############################################################################
 
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
-!!!#############################################################################
-!!! read layer from file
-!!!#############################################################################
+!###############################################################################
   subroutine read_pad3d(this, unit, verbose)
+    !! Read 3D padding layer from file
     use athena__tools_infile, only: assign_val, assign_vec
     use athena__misc, only: to_lower, to_upper, icount
     implicit none
+
+    ! Arguments
     class(pad3d_layer_type), intent(inout) :: this
+    !! Instance of the 3D padding layer
     integer, intent(in) :: unit
+    !! File unit
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     integer :: verbose_ = 0
+    !! Verbosity level
     integer :: stat
+    !! File status
     integer :: itmp1
+    !! Temporary integer
     integer, dimension(3) :: padding
+    !! Padding sizes
     integer, dimension(4) :: input_shape
+    !! Input shape
     character(:), allocatable :: method
+    !! Padding method
     character(256) :: buffer, tag, err_msg
+    !! Buffer for reading lines, tag for identifying lines, error message
 
 
+    ! Initialise optional arguments
+    !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
 
-    !! loop over tags in layer card
+
+    ! Loop over tags in layer card
+    !---------------------------------------------------------------------------
     tag_loop: do
 
-       !! check for end of file
+       ! Check for end of file
+       !------------------------------------------------------------------------
        read(unit,'(A)',iostat=stat) buffer
        if(stat.ne.0)then
           write(err_msg,'("file encountered error (EoF?) before END ",A)') &
@@ -336,7 +400,8 @@ contains
        end if
        if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
-       !! check for end of convolution card
+       ! Check for end of layer card
+       !------------------------------------------------------------------------
        if(trim(adjustl(buffer)).eq."END "//to_upper(trim(this%name)))then
           backspace(unit)
           exit tag_loop
@@ -345,7 +410,8 @@ contains
        tag=trim(adjustl(buffer))
        if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
 
-       !! read parameters from save file
+       ! Read parameters from save file
+       !------------------------------------------------------------------------
        select case(trim(tag))
        case("INPUT_SHAPE")
           call assign_vec(buffer, input_shape, itmp1)
@@ -354,8 +420,8 @@ contains
        case("METHOD")
           call assign_val(buffer, method, itmp1)
        case default
-          !! don't look for "e" due to scientific notation of numbers
-          !! ... i.e. exponent (E+00)
+          ! Don't look for "e" due to scientific notation of numbers
+          ! ... i.e. exponent (E+00)
           if(scan(to_lower(trim(adjustl(buffer))),&
                'abcdfghijklmnopqrstuvwxyz').eq.0)then
              cycle tag_loop
@@ -369,11 +435,15 @@ contains
        end select
     end do tag_loop
 
-    !! set transfer activation function
+
+    ! Set hyperparameters and initialise layer
+    !---------------------------------------------------------------------------
     call this%set_hyperparams(padding=padding, method=method, verbose=verbose_)
     call this%init(input_shape = input_shape)
 
-    !! check for end of layer card
+
+    ! Check for end of layer card
+    !---------------------------------------------------------------------------
     read(unit,'(A)') buffer
     if(trim(adjustl(buffer)).ne."END "//to_upper(trim(this%name)))then
        write(0,*) trim(adjustl(buffer))
@@ -383,40 +453,47 @@ contains
     end if
 
   end subroutine read_pad3d
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! read layer from file and return layer
-!!!#############################################################################
+!###############################################################################
   function read_pad3d_layer(unit, verbose) result(layer)
+    !! Read 3D padding layer from file and return layer
     implicit none
+
+    ! Arguments
     integer, intent(in) :: unit
+    !! File unit
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
     class(base_layer_type), allocatable :: layer
+    !! Instance of the 3D padding layer
 
+    ! Local variables
     integer :: verbose_ = 0
-
+    !! Verbosity level
 
     if(present(verbose)) verbose_ = verbose
     allocate(layer, source=pad3d_layer_type(padding=[0,0,0], method="none"))
     call layer%read(unit, verbose=verbose_)
 
   end function read_pad3d_layer
-!!!#############################################################################
+!###############################################################################
 
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
-!!!#############################################################################
-!!! forward propagation
-!!!#############################################################################
+!###############################################################################
   pure subroutine forward_5d(this, input)
+    !! Forward propagation for 5D input
     implicit none
+
+    ! Arguments
     class(pad3d_layer_type), intent(inout) :: this
+    !! Instance of the 3D padding layer
     real(real32), dimension( &
          this%input_shape(1), &
          this%input_shape(2), &
@@ -424,11 +501,17 @@ contains
          this%num_channels, &
          this%batch_size), &
          intent(in) :: input
+    !! Input values
 
+    ! Local variables
     integer :: i, j
+    !! Loop indices
     integer :: idim
+    !! Dimension index
     integer, dimension(2) :: bound_store
+    !! Temporary storage for bounds
     integer, dimension(2,3) :: orig_bound, dest_bound
+    !! Bounds for input and output arrays
 
 
     select type(output => this%output)
@@ -440,6 +523,7 @@ contains
                this%dest_bound(1,idim), &
                this%orig_bound(1,idim) - 1 &
           ]
+          ! Assign padding values based on method
           select case(this%imethod)
           case(3) ! circular
              orig_bound(:,idim) = [ &
@@ -455,15 +539,22 @@ contains
              output%val_ptr(:this%pad(1),:,:,:,:) = spread(input( &
                   this%orig_bound(1,1),:,:,:,: &
              ), dim=1, ncopies=this%pad(1))
-             output%val_ptr(this%output%shape(1)-this%pad(1)+1:this%output%shape(1),:,:,:,:) = &
+             output%val_ptr( &
+                  this%output%shape(1) - this%pad(1) + 1 : &
+                  this%output%shape(1), :, :, :, : &
+             ) = &
                   spread(input( &
                        this%orig_bound(2,1),:,:,:,: &
                   ), dim=1, ncopies=this%pad(1))
-             
+
              output%val_ptr(:,:this%pad(2),:,:,:) = spread(input( &
                   :,this%orig_bound(1,2),:,:,: &
              ), dim=2, ncopies=this%pad(2))
-             output%val_ptr(:,this%output%shape(2)-this%pad(2)+1:this%output%shape(2),:,:,:) = &
+             output%val_ptr( &
+                  :, &
+                  this%output%shape(2) - this%pad(2) + 1 : &
+                  this%output%shape(2), :, :, : &
+             ) = &
                   spread(input( &
                        :,this%orig_bound(2,2),:,:,: &
                   ), dim=2, ncopies=this%pad(2))
@@ -471,7 +562,11 @@ contains
              output%val_ptr(:,:,:this%pad(3),:,:) = spread(input( &
                   :,:,this%orig_bound(1,3),:,: &
              ), dim=3, ncopies=this%pad(3))
-             output%val_ptr(:,:,this%output%shape(3)-this%pad(3)+1:this%output%shape(3),:,:) = &
+             output%val_ptr( &
+                  :, :, &
+                  this%output%shape(3) - this%pad(3) + 1 : &
+                  this%output%shape(3), :, : &
+             ) = &
                   spread(input( &
                        :,:,this%orig_bound(2,3),:,: &
                   ), dim=3, ncopies=this%pad(3))
@@ -517,15 +612,17 @@ contains
     end select
 
   end subroutine forward_5d
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! backward propagation
-!!!#############################################################################
+!###############################################################################
   pure subroutine backward_5d(this, input, gradient)
+    !! Backward propagation for 5D input
     implicit none
+
+    ! Arguments
     class(pad3d_layer_type), intent(inout) :: this
+    !! Instance of the 3D padding layer
     real(real32), dimension( &
          this%input_shape(1), &
          this%input_shape(2), &
@@ -533,6 +630,7 @@ contains
          this%num_channels, &
          this%batch_size), &
          intent(in) :: input
+    !! Input values
     real(real32), &
          dimension(&
          this%output%shape(1), &
@@ -541,10 +639,15 @@ contains
          this%num_channels, &
          this%batch_size), &
          intent(in) :: gradient
+    !! Gradient values
 
+    ! Local variables
     integer :: i, j, f, s, m, x, y, z
+    !! Loop indices
     integer, dimension(3) :: step
+    !! Step sizes for reflection
     integer, dimension(2,3) :: orig_bound, dest_bound
+    !! Bounds for input and output arrays
 
 
     select type(di => this%di)
@@ -631,6 +734,7 @@ contains
           end do
        case(5) ! replication
 
+          ! Replicate along corners
           do f = 1, this%facets(3)%num
              do s = 1, this%batch_size
                 do m = 1, this%num_channels
@@ -643,14 +747,18 @@ contains
                         this%facets(3)%orig_bound(2,f), &
                         this%facets(3)%orig_bound(3,f), m, s &
                    ) + sum( gradient( &
-                             this%facets(3)%dest_bound(1,1,f):this%facets(3)%dest_bound(2,1,f), &
-                             this%facets(3)%dest_bound(1,2,f):this%facets(3)%dest_bound(2,2,f), &
-                             this%facets(3)%dest_bound(1,3,f):this%facets(3)%dest_bound(2,3,f), m, s &
+                             this%facets(3)%dest_bound(1,1,f) : &
+                             this%facets(3)%dest_bound(2,1,f), &
+                             this%facets(3)%dest_bound(1,2,f) : &
+                             this%facets(3)%dest_bound(2,2,f), &
+                             this%facets(3)%dest_bound(1,3,f) : &
+                             this%facets(3)%dest_bound(2,3,f), m, s &
                    ) )
                 end do
              end do
           end do
 
+          ! Replicate along edges
           do f = 1, this%facets(2)%num
              select case(this%facets(2)%dim(f))
              case(1)
@@ -667,8 +775,10 @@ contains
                               this%orig_bound(2,f), m, s &
                          ) + sum( gradient( &
                                    x + this%pad(1), &
-                                   this%facets(2)%dest_bound(1,1,f):this%facets(2)%dest_bound(2,1,f), &
-                                   this%facets(2)%dest_bound(1,2,f):this%facets(2)%dest_bound(2,2,f), m, s &
+                                   this%facets(2)%dest_bound(1,1,f) : &
+                                   this%facets(2)%dest_bound(2,1,f), &
+                                   this%facets(2)%dest_bound(1,2,f) : &
+                                   this%facets(2)%dest_bound(2,2,f), m, s &
                          ) )
                       end do
                    end do
@@ -686,9 +796,11 @@ contains
                               y, &
                               this%orig_bound(2,f), m, s &
                          ) + sum( gradient( &
-                                   this%facets(2)%dest_bound(1,1,f):this%facets(2)%dest_bound(2,1,f), &
+                                   this%facets(2)%dest_bound(1,1,f) : &
+                                   this%facets(2)%dest_bound(2,1,f), &
                                    y + this%pad(2), &
-                                   this%facets(2)%dest_bound(1,2,f):this%facets(2)%dest_bound(2,2,f), m, s &
+                                   this%facets(2)%dest_bound(1,2,f) : &
+                                   this%facets(2)%dest_bound(2,2,f), m, s &
                          ) )
                       end do
                    end do
@@ -706,8 +818,10 @@ contains
                               this%orig_bound(2,f), &
                               z, m, s &
                          ) + sum( gradient( &
-                                   this%facets(2)%dest_bound(1,1,f):this%facets(2)%dest_bound(2,1,f), &
-                                   this%facets(2)%dest_bound(1,2,f):this%facets(2)%dest_bound(2,2,f), &
+                                   this%facets(2)%dest_bound(1,1,f) : &
+                                   this%facets(2)%dest_bound(2,1,f), &
+                                   this%facets(2)%dest_bound(1,2,f) : &
+                                   this%facets(2)%dest_bound(2,2,f), &
                                    z + this%pad(3), m, s &
                          ) )
                       end do
@@ -716,39 +830,67 @@ contains
              end select
           end do
 
+          ! Replicate along faces
           do f = 1, this%facets(1)%num
              select case(this%facets(1)%dim(f))
              case(1)
                 do s = 1, this%batch_size
                    do m = 1, this%num_channels
                      di%val_ptr(this%facets(1)%orig_bound(1,f), :, :, m, s) = &
-                          di%val_ptr(this%facets(1)%orig_bound(1,f), :, :, m, s) + &
-                          sum(gradient( &
-                               this%facets(1)%dest_bound(1,1,f):this%facets(1)%dest_bound(2,1,f), &
-                               this%pad(2):this%pad(2)+this%input_shape(2), &
-                               this%pad(3):this%pad(3)+this%input_shape(3), m, s), dim=1)
+                          di%val_ptr( &
+                               this%facets(1)%orig_bound(1,f), :, :, m, s &
+                          ) + &
+                          sum( &
+                               gradient( &
+                                    this%facets(1)%dest_bound(1,1,f) : &
+                                    this%facets(1)%dest_bound(2,1,f), &
+                                    this%pad(2) : &
+                                    this%pad(2) + this%input_shape(2) - 1, &
+                                    this%pad(3) : &
+                                    this%pad(3) + this%input_shape(3) - 1, &
+                                    m, s &
+                               ), dim=1 &
+                          )
                    end do
                 end do
              case(2)
                 do s = 1, this%batch_size
                    do m = 1, this%num_channels
                      di%val_ptr(:, this%facets(1)%orig_bound(1,f), :, m, s) = &
-                          di%val_ptr(:, this%facets(1)%orig_bound(1,f), :, m, s) + &
-                          sum(gradient( &
-                               this%pad(1):this%pad(1)+this%input_shape(1), &
-                               this%facets(1)%dest_bound(1,1,f):this%facets(1)%dest_bound(2,1,f), &
-                               this%pad(3):this%pad(3)+this%input_shape(3), m, s), dim=2)
+                          di%val_ptr( &
+                               :, this%facets(1)%orig_bound(1,f), :, m, s &
+                          ) + &
+                          sum( &
+                               gradient( &
+                                    this%pad(1) : &
+                                    this%pad(1) + this%input_shape(1) - 1, &
+                                    this%facets(1)%dest_bound(1,1,f) : &
+                                    this%facets(1)%dest_bound(2,1,f), &
+                                    this%pad(3) : &
+                                    this%pad(3) + this%input_shape(3) - 1, &
+                                    m, s &
+                               ), dim=2 &
+                          )
                    end do
                 end do
              case(3)
                 do s = 1, this%batch_size
                    do m = 1, this%num_channels
                      di%val_ptr(:, :, this%facets(1)%orig_bound(1,f), m, s) = &
-                          di%val_ptr(:, :, this%facets(1)%orig_bound(1,f), m, s) + &
-                          sum(gradient( &
-                               this%pad(1):this%pad(1)+this%input_shape(1), &
-                               this%pad(2):this%pad(2)+this%input_shape(2), &
-                               this%facets(1)%dest_bound(1,1,f):this%facets(1)%dest_bound(2,1,f), m, s), dim=3)
+                          di%val_ptr( &
+                               :, :, this%facets(1)%orig_bound(1,f), m, s &
+                          ) + &
+                          sum( &
+                               gradient( &
+                                    this%pad(1) : &
+                                    this%pad(1) + this%input_shape(1) - 1, &
+                                    this%pad(2) : &
+                                    this%pad(2) + this%input_shape(2) - 1, &
+                                    this%facets(1)%dest_bound(1,1,f) : &
+                                    this%facets(1)%dest_bound(2,1,f), &
+                                    m, s &
+                               ), dim=3 &
+                          )
                    end do
                 end do
              end select
@@ -757,7 +899,6 @@ contains
     end select
 
   end subroutine backward_5d
-!!!#############################################################################
+!###############################################################################
 
 end module athena__pad3d_layer
-!!!#############################################################################

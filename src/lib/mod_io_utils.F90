@@ -7,7 +7,7 @@ module athena__io_utils
   logical :: test_error_handling = .false.
 
   character(len=*), parameter :: athena__version__ = "2.0-alpha"
-  
+
   private
 
   public :: athena__version__
@@ -61,7 +61,7 @@ contains
   end subroutine print_version
 !###############################################################################
 
-  
+
 !###############################################################################
   subroutine print_build_info()
     !! Print the build information of the program.

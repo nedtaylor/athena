@@ -109,10 +109,10 @@ This runs a set of test programs (found within the test/ directory) to ensure th
 
 Run the following commands in the directory containing _CMakeLists.txt_:
 ```
-  mkdir build  
-  cd build  
-  cmake [-DCMAKE_BUILD_TYPE="optim;mp"] ..  
-  make install  
+  mkdir build
+  cd build
+  cmake [-DCMAKE_BUILD_TYPE="optim;mp"] ..
+  make install
 ```
 This will build the library in the build/ directory. All library files will then be found in:
 ```
@@ -188,7 +188,7 @@ After the example program is compiled, the following directories will also exist
 
 | Directory | Description |
 |---|---|
-|  _example/mnist/bin/_  |     Contains binary executable | 
+|  _example/mnist/bin/_  |     Contains binary executable |
 |  _example/mnist/obj/_  |     Contains module/object files (non-linked binary files)|
 
 The example will perform a train over the MNIST dataset. Once complete, it will print its weights and biases to file, and test the trained network on the training set. The output from this can then be compared to the file _expected_output_COMPILER.txt_.
@@ -273,7 +273,7 @@ Files
 |_LICENSE_                          | licence of ATHENA code |
 |_README.md_                        | a readme file with a brief description of the code and files  |
 |_TODO_                             | todo-list in addition to useful machine learning and fortran references |
-|_cmake/CodeCoverage.cmake_         | [cmake-modules](https://github.com/rpavlik/cmake-modules) file to automate unit test coverage reporting| 
+|_cmake/CodeCoverage.cmake_         | [cmake-modules](https://github.com/rpavlik/cmake-modules) file to automate unit test coverage reporting|
 |_example/example_library_          | Utility library shared between the examples |
 |_example/__[_NAME_]__/expected_output.txt_   | expected output from executing [_NAME_] example program  |
 |_example/__[_NAME_]__/test_job.in_           | input file for [_NAME_] example program  |

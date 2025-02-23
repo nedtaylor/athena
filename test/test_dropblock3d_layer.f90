@@ -21,7 +21,7 @@ program test_dropblock3d_layer
 
 
 !!!-----------------------------------------------------------------------------
-!!! Initialize random number generator with a seed
+!!! Initialise random number generator with a seed
 !!!-----------------------------------------------------------------------------
   call random_seed(size = seed_size)
   allocate(seed(seed_size), source=0)
@@ -36,7 +36,7 @@ program test_dropblock3d_layer
        block_size = 5, &
        input_shape = [width, width, width, num_channels], &
        batch_size = 1 &
-       )
+  )
   call db_layer%set_ptrs()
 
   !! check layer name
@@ -86,11 +86,11 @@ program test_dropblock3d_layer
   input_data = max_value
 
   db_layer = dropblock3d_layer_type( &
-      rate = 0.5, &
-      block_size = 5, &
-      input_shape = [width, width, width, num_channels], &
-      batch_size = 1 &
-      )
+       rate = 0.5, &
+       block_size = 5, &
+       input_shape = [width, width, width, num_channels], &
+       batch_size = 1 &
+  )
   call db_layer%set_ptrs()
   !! run forward pass
   call db_layer%forward(input_data)
@@ -99,11 +99,12 @@ program test_dropblock3d_layer
   !! check outputs have expected value
   select type(db_layer)
   type is(dropblock3d_layer_type)
-    if(any(abs(merge(input_data(:,:,:,1,1),0.0,db_layer%mask) - &
-         output(:,:,:,1,1)).gt.tol))then
-      success = .false.
-      write(*,*) 'dropblock3d layer forward pass failed: mask incorrectly applied'
-    end if
+     if(any(abs(merge(input_data(:,:,:,1,1),0.0,db_layer%mask) - &
+          output(:,:,:,1,1)).gt.tol))then
+        success = .false.
+        write(*,*) &
+             'dropblock3d layer forward pass failed: mask incorrectly applied'
+     end if
   end select
 
 
@@ -121,13 +122,13 @@ program test_dropblock3d_layer
      type is(array5d_type)
         if(any(abs(merge(gradient(:,:,:,1,1),0.0,db_layer%mask) - &
              di%val_ptr(:,:,:,1,1)).gt.tol))then
-          success = .false.
-          write(*,*) 'dropblock3d layer backward pass failed: &
-               &mask incorrectly applied'
+           success = .false.
+           write(*,*) 'dropblock3d layer backward pass failed: &
+                &mask incorrectly applied'
         end if
      class default
-         success = .false.
-         write(0,*) 'dropblock3d layer has not set di type correctly'
+        success = .false.
+        write(0,*) 'dropblock3d layer has not set di type correctly'
      end select
   end select
 

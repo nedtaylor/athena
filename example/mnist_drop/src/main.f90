@@ -85,7 +85,7 @@ program mnist_test
         write(6,*) "Check fort.11 and fort.12 to ensure data shuffling &
              &executed properly"
         do i=1,batch_size*2
-           write(11,*) input_images(:,:,:,i) 
+           write(11,*) input_images(:,:,:,i)
         end do
         write(12,*) labels
      end if

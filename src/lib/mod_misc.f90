@@ -1,57 +1,70 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor and Francis Huw Davies
-!!!#############################################################################
-!!! module contains various miscellaneous functions and subroutines.
-!!! module includes the following functions and subroutines:
-!!! - outer_product - calculates the outer product of two vectors
-!!! - Icount        - counts words on line
-!!! - grep          - finds 1st line containing the pattern
-!!! - to_upper      - converts all characters in string to upper case
-!!! - to_lower      - converts all characters in string to lower case
-!!!#############################################################################
 module athena__misc
+  !! Module contains various miscellaneous functions and subroutines.
+  !!
+  !! This module contains various miscellaneous functions and subroutines that
+  !! are used throughout the library. These include mathematical functions,
+  !! string manipulation functions, and file I/O functions.
+  !! Code copied from ARTEMIS with permission of the authors
+  !! Ned Thaddeus Taylor and Francis Huw Davies
+  !! https://github.com/ExeQuantCode/ARTEMIS
   use athena__constants, only: real32
   implicit none
 
+
   private
+
   public :: outer_product
   public :: Icount, grep, to_upper, to_lower
 
 
 contains
 
-!!!#####################################################
-!!! outer product
-!!!#####################################################
+!###############################################################################
   pure function outer_product(a,b) result(c)
+    !! Compute the outer product of two vectors
     implicit none
-    real(real32), dimension(:), intent(in) :: a,b
-    real(real32), dimension(size(a),size(b)) :: c
-    integer :: i,j
 
-    do i=1,size(a)
-       do j=1,size(b)
-          c(i,j)=a(i)*b(j)
+    ! Arguments
+    real(real32), dimension(:), intent(in) :: a,b
+    !! Input vectors
+    real(real32), dimension(size(a),size(b)) :: c
+    !! Outer product of the two vectors
+
+    ! Local variables
+    integer :: i,j
+    !! Loop indices
+
+    do i = 1, size(a)
+       do j = 1, size(b)
+          c(i,j) = a(i) * b(j)
        end do
     end do
 
     return
-  end function outer_product 
-!!!#####################################################
+  end function outer_product
+!###############################################################################
 
 
-!!!#####################################################
-!!! counts the number of words on a line
-!!!#####################################################
+!###############################################################################
   integer function Icount(full_line,tmpchar)
+    !! Count the number of words in a line
     implicit none
-    character(*), intent(in) :: full_line
-    character(*), optional, intent(in) :: tmpchar
 
+    ! Arguments
+    character(*), intent(in) :: full_line
+    !! Line to count the words of
+    character(*), optional, intent(in) :: tmpchar
+    !! Optional field separator
+
+    ! Local variables
     character(len=:), allocatable :: fs
+    !! Field separator
     integer ::items,pos,k,length
-    items=0
-    pos=1
+    !! Number of items, position, loop index, length of field separator
+
+
+    items = 0
+    pos = 1
 
     length=1
     if(present(tmpchar)) length=len(trim(tmpchar))
@@ -63,36 +76,43 @@ contains
           fs = tmpchar
        end if
     else
-       fs=" "
+       fs = " "
     end if
 
     loop: do
-       k=verify(full_line(pos:),fs)
+       k = verify( full_line(pos:), fs )
        if (k.eq.0) exit loop
-       items=items+1
-       pos=k+pos-1
-       k=scan(full_line(pos:),fs)
+       items = items + 1
+       pos = k + pos - 1
+       k = scan( full_line(pos:), fs )
        if (k.eq.0) exit loop
-       pos=k+pos-1
+       pos = k + pos - 1
     end do loop
-    Icount=items
+    Icount = items
   end function Icount
-!!!#####################################################
+!###############################################################################
 
 
-!!!#####################################################
-!!! grep 
-!!!#####################################################
-!!! searches a file untill it finds the mattching patern
+!###############################################################################
   subroutine grep(unit,input,lstart)
+    !! Search a file for a matching pattern
     implicit none
-    integer, intent(in) :: unit
-    character(*), intent(in) :: input
-    logical, optional, intent(in) :: lstart
 
-    integer :: Reason
+    ! Arguments
+    integer, intent(in) :: unit
+    !! Unit number of the file to search
+    character(*), intent(in) :: input
+    !! Pattern to search for
+    logical, optional, intent(in) :: lstart
+    !! Optional boolean whether to rewind the file
+
+    ! Local variables
+    integer :: iostat
+    !! I/O status
     character(1024) :: buffer
-    !  character(1024), intent(out), optional :: linechar
+    !! Buffer to read lines into
+
+
     if(present(lstart))then
        if(lstart) rewind(unit)
     else
@@ -100,56 +120,70 @@ contains
     end if
 
     greploop: do
-       read(unit,'(A100)',iostat=Reason) buffer
-       if(Reason.lt.0) return
+       read(unit,'(A100)',iostat=iostat) buffer
+       if(iostat.lt.0) return
        if(index(trim(buffer),trim(input)).ne.0) exit greploop
     end do greploop
   end subroutine grep
-!!!#####################################################
+!###############################################################################
 
 
-!!!#####################################################
-!!! converts all characters in string to upper case
-!!!#####################################################
+!###############################################################################
   pure function to_upper(buffer) result(upper)
+    !! Convert all characters in a string to upper case
     implicit none
-    character(*), intent(in) :: buffer
-    character(len=:),allocatable :: upper
 
-    integer :: i,j
+    ! Arguments
+    character(*), intent(in) :: buffer
+    !! Input string
+    character(len=:),allocatable :: upper
+    !! Output string
+
+    ! Local variables
+    integer :: i
+    !! Loop index
+    integer :: j
+    !! ASCII value of character
 
 
     allocate(character(len=len(buffer)) :: upper)
-    do i=1,len(buffer)
-       j=iachar(buffer(i:i))
-       if(j.ge.iachar("a").and.j.le.iachar("z"))then
-          upper(i:i)=achar(j-32)
+    do i = 1, len(buffer)
+       j = iachar(buffer(i:i))
+       if( j .ge. iachar("a") .and. j .le. iachar("z") )then
+          upper(i:i) = achar( j - 32 )
        else
-          upper(i:i)=buffer(i:i)
+          upper(i:i) = buffer(i:i)
        end if
     end do
 
     return
   end function to_upper
-!!!#####################################################
+!###############################################################################
 
 
-!!!#####################################################
-!!! converts all characters in string to lower case
-!!!#####################################################
+!###############################################################################
   pure function to_lower(buffer) result(lower)
+    !! Convert all characters in a string to lower case
     implicit none
-    character(*), intent(in) :: buffer
-    character(len=:),allocatable :: lower
 
-    integer :: i,j
+    ! Arguments
+    character(*), intent(in) :: buffer
+    !! Input string
+    character(len=:),allocatable :: lower
+    !! Output string
+
+    ! Local variables
+    integer :: i
+    !! Loop index
+    integer :: j
+    !! ASCII value of character
 
 
     allocate(character(len=len(buffer)) :: lower)
-    do i=1,len(buffer)
-       j=iachar(buffer(i:i))
-       if(j.ge.iachar("A").and.j.le.iachar("Z"))then
-          lower(i:i)=achar(j+32)
+    do i = 1, len(buffer)
+       j = iachar(buffer(i:i))
+       if( j .ge. iachar("A") .and. j .le. iachar("Z") )then
+          lower(i:i) = achar( j + 32 )
        else
           lower(i:i)=buffer(i:i)
        end if
@@ -157,6 +191,6 @@ contains
 
     return
   end function to_lower
-!!!#####################################################
+!###############################################################################
 
 end module athena__misc

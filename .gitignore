@@ -2,6 +2,14 @@
 \#
 bin/
 obj/
+doc/html/
+*.pdf
+*.aux
+*.log
+*.toc
+*.gz
+*.fdb_latexmk
+*.fls
 *.mod
 *.out
 *.o
@@ -24,3 +32,4 @@ example/obj/
 DPython_test/
 settings.json
 docs/_build/
+.local-pre-commit-config.yaml

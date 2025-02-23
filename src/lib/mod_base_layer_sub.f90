@@ -1,46 +1,21 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ATHENA library - a feedforward neural network library
-!!!#############################################################################
-!!! definition of the abstract base layer type, from which all other layers ...
-!!! ... are derived
-!!! module includes the following public abstract types:
-!!! base_layer_type      - abstract type for all layers
-!!! pool_layer_type      - abstract type for spatial pooling layers
-!!! drop_layer_type      - abstract type for dropout layers
-!!! learnable_layer_type - abstract type for layers with learnable parameters
-!!! conv_layer_type      - abstract type for spatial convolutional layers
-!!! batch_layer_type     - abstract type for batch normalisation layers
-!!!##################
-!!! base_layer_type includes the following procedures:
-!!! set_shape            - set the input shape of the layer
-!!! get_num_params       - get the number of parameters in the layer
-!!! print                - print the layer to a file
-!!! get_output           - get the output of the layer
-!!! init                 - initialise the layer
-!!! set_batch_size       - set the batch size of the layer
-!!! forward              - forward pass of layer
-!!! backward             - backward pass of layer
-!!!##################
-!!! learnable_layer_type includes the following unique procedures:
-!!! layer_reduction      - reduce the layer to a single value
-!!! layer_merge          - merge the layer with another layer
-!!! get_params           - get the learnable parameters of the layer
-!!! set_params           - set the learnable parameters of the layer
-!!! get_gradients        - get the gradients of the layer
-!!! set_gradients        - set the gradients of the layer
-!!!#############################################################################
-!!! Attribution statement:
-!!! The following procedures are based on code from the neural-fortran library
-!!! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
-!!! procedures:
-!!! - get_num_params*
-!!! - get_params*
-!!! - set_params*
-!!! - get_gradients*
-!!! - set_gradients*
-!!!#############################################################################
 submodule(athena__base_layer) athena__base_layer_submodule
+  !! Submodule containing the implementation of the base layer types
+  !!
+  !! This submodule contains the implementation of the base layer types
+  !! used in the ATHENA library. The base layer types are the abstract
+  !! types from which all other layer types are derived. The submodule
+  !! contains the implementation of the procedures that are common to
+  !! all layer types, such as setting the input shape, getting the
+  !! number of parameters, and printing the layer to a file.
+  !!
+  !! The following procedures are based on code from the neural-fortran library
+  !! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
+  !! procedures:
+  !! - get_num_params*
+  !! - get_params*
+  !! - set_params*
+  !! - get_gradients*
+  !! - set_gradients*
   use athena__io_utils, only: stop_program
   use athena__misc, only: to_lower, to_upper, icount
   use athena__tools_infile, only: assign_val, assign_vec
@@ -48,34 +23,43 @@ submodule(athena__base_layer) athena__base_layer_submodule
 
 contains
 
-!!!#############################################################################
-!!! print layer to file
-!!!#############################################################################
-!!! this = (T, in) base_layer_type
-!!! file = (I, in) file name
+!###############################################################################
   module subroutine print_base(this, file)
+    !! Print the layer to a file
     implicit none
-    class(base_layer_type), intent(in) :: this
-    character(*), intent(in) :: file
 
-    !! NO NEED TO WRITE ANYTHING FOR A DEFAULT LAYER
+    ! Arguments
+    class(base_layer_type), intent(in) :: this
+    !! Instance of the layer
+    character(*), intent(in) :: file
+    !! File name
+
+    ! No need to write anything for the default layer
     return
   end subroutine print_base
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   module subroutine print_pool(this, file)
+    !! Print pooling layer to a file
     implicit none
+
+    ! Arguments
     class(pool_layer_type), intent(in) :: this
+    !! Instance of the layer
     character(*), intent(in) :: file
+    !! File name
 
+    ! Local variables
     integer :: unit
+    !! Unit number
     character(100) :: fmt
+    !! Format string
 
-    !! open file with new unit
-    !!--------------------------------------------------------------------------
+    ! open file with new unit
+    !---------------------------------------------------------------------------
     open(newunit=unit, file=trim(file), access='append')
 
-    !! write convolution initial parameters
-    !!--------------------------------------------------------------------------
+    ! Write initial parameters
+    !---------------------------------------------------------------------------
     write(unit,'(A)') to_upper(trim(this%name))
     write(fmt,'("(3X,""INPUT_SHAPE ="",",I0,"(1X,I0))")') size(this%input_shape)
     write(unit,fmt) this%input_shape
@@ -93,28 +77,30 @@ contains
     end if
     write(unit,'("END ",A)') to_upper(trim(this%name))
 
-    !! close unit
-    !!--------------------------------------------------------------------------
+    ! close unit
+    !---------------------------------------------------------------------------
     close(unit)
 
   end subroutine print_pool
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! setup input layer shape
-!!!#############################################################################
-!!! this        = (T, inout) base_layer_type
-!!! input_shape = (I, in) input shape
+!###############################################################################
   module subroutine set_shape_base(this, input_shape)
+    !! Set the input shape of the layer
     implicit none
-    class(base_layer_type), intent(inout) :: this
-    integer, dimension(:), intent(in) :: input_shape
-    character(len=100) :: err_msg
 
-    !!--------------------------------------------------------------------------
-    !! initialise input shape
-    !!--------------------------------------------------------------------------
+    ! Arguments
+    class(base_layer_type), intent(inout) :: this
+    !! Instance of the layer
+    integer, dimension(:), intent(in) :: input_shape
+    !! Input shape
+    character(len=100) :: err_msg
+    !! Error message
+
+    !---------------------------------------------------------------------------
+    ! initialise input shape
+    !---------------------------------------------------------------------------
     if(size(input_shape,dim=1).eq.this%input_rank)then
        this%input_shape = input_shape
     else
@@ -124,32 +110,39 @@ contains
        call stop_program(err_msg)
        return
     end if
- 
+
   end subroutine set_shape_base
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! get layer outputs
-!!!#############################################################################
+!###############################################################################
   pure subroutine get_output_base(this, output)
+    !! Get the output of the layer
     implicit none
+
+    ! Arguments
     class(base_layer_type), intent(in) :: this
+    !! Instance of the layer
     real(real32), allocatable, dimension(..), intent(out) :: output
-  
+    !! Output of the layer
+
     call this%output%get(output)
   end subroutine get_output_base
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! set the pointers of the layer
-!!!#############################################################################
+!###############################################################################
   module subroutine set_ptrs(this)
+    !! Set the pointers of the layer
     implicit none
-    class(base_layer_type), intent(inout), target :: this
 
+    ! Arguments
+    class(base_layer_type), intent(inout), target :: this
+    !! Instance of the layer
+
+    ! Local variables
     character(256) :: err_msg
+    !! Error message
 
     if(allocated(this%output))then
        if(.not.this%output%allocated)then
@@ -173,159 +166,209 @@ contains
     call this%set_ptrs_hyperparams()
 
   end subroutine set_ptrs
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   module subroutine set_ptrs_hyperparams(this)
+    !! Set the hyperparameter pointers of the layer
     implicit none
+
+    ! Arguments
     class(base_layer_type), intent(inout), target :: this
+    !! Instance of the layer
+
+    ! No hyperparameters to set for the base layer
+    return
   end subroutine set_ptrs_hyperparams
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! get number of parameters in layer
-!!! procedure modified from neural-fortran library
-!!!#############################################################################
-!!! this       = (T, in) layer_type
-!!! num_params = (I, out) number of parameters
+!###############################################################################
   pure module function get_num_params_base(this) result(num_params)
+    !! Get the number of parameters in the layer
     implicit none
+
+    ! Arguments
     class(base_layer_type), intent(in) :: this
+    !! Instance of the layer
     integer :: num_params
-    
-    !! NO PARAMETERS IN A BASE LAYER
+    !! Number of parameters
+
+    ! No parameters in the base layer
     num_params = 0
 
   end function get_num_params_base
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure module function get_num_params_conv(this) result(num_params)
+    !! Get the number of parameters in convolutional layer
     implicit none
+
+    ! Arguments
     class(conv_layer_type), intent(in) :: this
+    !! Instance of the layer
     integer :: num_params
-    
-    !! num_filters x num_channels x kernel_size + num_biases
-    !! num_biases = num_filters
+    !! Number of parameters
+
+    ! num_filters x num_channels x kernel_size + num_biases
+    ! num_biases = num_filters
     num_params = this%num_filters * this%num_channels * product(this%knl) + &
          this%num_filters
 
   end function get_num_params_conv
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure module function get_num_params_batch(this) result(num_params)
+    !! Get the number of parameters in batch normalisation layer
     implicit none
+
+    ! Arguments
     class(batch_layer_type), intent(in) :: this
+    !! Instance of the layer
     integer :: num_params
-    
-    !! num_filters x num_channels x kernel_size + num_biases
-    !! num_biases = num_filters
+    !! Number of parameters
+
+    ! num_filters x num_channels x kernel_size + num_biases
+    ! num_biases = num_filters
     num_params = 2 * this%num_channels
 
   end function get_num_params_batch
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! layer reduction
-!!!#############################################################################
+!###############################################################################
   module subroutine reduce_learnable(this, rhs)
+    !! Reduce two learnable layers to a single one via summation
     implicit none
+
+    ! Arguments
     class(learnable_layer_type), intent(inout) :: this
+    !! Instance of the layer
     class(learnable_layer_type), intent(in) :: rhs
+    !! Instance of a layer
 
     this%dp = this%dp + rhs%dp
     this%db = this%db + rhs%db
 
   end subroutine  reduce_learnable
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! layer addition
-!!!#############################################################################
+!###############################################################################
   module function add_learnable(a, b) result(output)
+    !! Add two learnable layers together
     implicit none
+
+    ! Arguments
     class(learnable_layer_type), intent(in) :: a, b
+    !! Instances of layers
     class(learnable_layer_type), allocatable :: output
+    !! Output layer
 
     output = a
     output%dp = output%dp + b%dp
     output%db = output%db + b%db
 
   end function add_learnable
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! layer merge
-!!!#############################################################################
+!###############################################################################
   module subroutine merge_learnable(this, input)
+    !! Merge two learnable layers via summation
     implicit none
+
+    ! Arguments
     class(learnable_layer_type), intent(inout) :: this
+    !! Instance of the layer
     class(learnable_layer_type), intent(in) :: input
+    !! Instance of a layer
 
     this%dp = this%dp + input%dp
     this%db = this%db + input%db
 
   end subroutine merge_learnable
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! get learnable parameters of layer
-!!! procedure modified from neural-fortran library
-!!!#############################################################################
+!###############################################################################
   pure module function get_params(this) result(params)
-  implicit none
-  class(learnable_layer_type), intent(in) :: this
-  real(real32), dimension(this%num_params) :: params
+    !! Get the learnable parameters of the layer
+    !!
+    !! This function returns the learnable parameters of the layer
+    !! as a single array.
+    !! This has been modified from the neural-fortran library
+    implicit none
 
-  params = this%params
+    ! Arguments
+    class(learnable_layer_type), intent(in) :: this
+    !! Instance of the layer
+    real(real32), dimension(this%num_params) :: params
+    !! Learnable parameters
 
-end function get_params
-!!!#############################################################################
+    params = this%params
 
-
-!!!#############################################################################
-!!! set learnable parameters of layer
-!!! procedure modified from neural-fortran library
-!!!#############################################################################
-module subroutine set_params(this, params)
-  implicit none
-  class(learnable_layer_type), intent(inout) :: this
-  real(real32), dimension(this%num_params), intent(in) :: params
-
-  this%params = params
-
-end subroutine set_params
-!!!#############################################################################
+  end function get_params
+!###############################################################################
 
 
-!!!#############################################################################
-!!! get gradients of layer
-!!! procedure modified from neural-fortran library
-!!!#############################################################################
+!###############################################################################
+  module subroutine set_params(this, params)
+    !! Set the learnable parameters of the layer
+    !!
+    !! This function sets the learnable parameters of the layer
+    !! from a single array.
+    !! This has been modified from the neural-fortran library
+    implicit none
+
+    ! Arguments
+    class(learnable_layer_type), intent(inout) :: this
+    !! Instance of the layer
+    real(real32), dimension(this%num_params), intent(in) :: params
+    !! Learnable parameters
+
+    this%params = params
+
+  end subroutine set_params
+!###############################################################################
+
+
+!###############################################################################
   pure module function get_gradients(this, clip_method) result(gradients)
+    !! Get the gradients of the layer
+    !!
+    !! This function returns the gradients of the layer as a single array.
+    !! This has been modified from the neural-fortran library
     use athena__clipper, only: clip_type
     implicit none
+
+    ! Arguments
     class(learnable_layer_type), intent(in) :: this
+    !! Instance of the layer
     type(clip_type), optional, intent(in) :: clip_method
+    !! Method to clip the gradients
     real(real32), dimension(this%num_params) :: gradients
-  
+    !! Gradients of the layer
+
     gradients = [ sum(this%dp, dim=2) / this%batch_size, &
          sum(this%db, dim=2) / this%batch_size ]
-  
+
     if(present(clip_method)) call clip_method%apply(size(gradients),gradients)
 
   end function get_gradients
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! set gradients of layer
-!!!#############################################################################
+!###############################################################################
   module subroutine set_gradients(this, gradients)
+    !! Set the gradients of the layer
+    !!
+    !! This function sets the gradients of the layer from a single array.
+    !! This has been modified from the neural-fortran library
     implicit none
+
+    ! Arguments
     class(learnable_layer_type), intent(inout) :: this
+    !! Instance of the layer
     real(real32), dimension(..), intent(in) :: gradients
-  
+    !! Gradients of the layer
+
     select rank(gradients)
     rank(0)
        this%dp = gradients
@@ -342,20 +385,26 @@ end subroutine set_params
             this%batch_size &
        )
     end select
-  
+
   end subroutine set_gradients
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! set gradients of layer
-!!! procedure modified from neural-fortran library
-!!!#############################################################################
+!###############################################################################
   module subroutine set_gradients_batch(this, gradients)
+    !! Set the gradients of a batch normalisation layer
+    !!
+    !! This function sets the gradients of a batch normalisation layer
+    !! from a single array.
+    !! This has been modified from the neural-fortran library
     implicit none
+
+    ! Arguments
     class(batch_layer_type), intent(inout) :: this
+    !! Instance of the layer
     real(real32), dimension(..), intent(in) :: gradients
-  
+    !! Gradients of the layer
+
     select rank(gradients)
     rank(0)
        this%dp = gradients * this%batch_size
@@ -364,53 +413,58 @@ end subroutine set_params
         this%dp(:,1) = gradients(:this%num_channels) * this%batch_size
         this%db(:,1) = gradients(this%num_channels+1:) * this%batch_size
     end select
-  
+
   end subroutine set_gradients_batch
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! initialise layer
-!!!#############################################################################
+!###############################################################################
   module subroutine init_conv(this, input_shape, batch_size, verbose)
+    !! Initialise convolutional layer
     use athena__initialiser, only: initialiser_setup
     use athena__misc_types, only: initialiser_type
     implicit none
+
+    ! Arguments
     class(conv_layer_type), intent(inout) :: this
+    !! Instance of the layer
     integer, dimension(:), intent(in) :: input_shape
+    !! Input shape
     integer, optional, intent(in) :: batch_size
+    !! Batch size
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
     integer :: verbose_ = 0
     class(initialiser_type), allocatable :: initialiser_
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise optional arguments
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! initialise optional arguments
+    !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
     if(present(batch_size)) this%batch_size = batch_size
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise input shape
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! initialise input shape
+    !---------------------------------------------------------------------------
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise padding layer, if allocated
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! initialise padding layer, if allocated
+    !---------------------------------------------------------------------------
     if(allocated(this%pad_layer)) &
          call this%pad_layer%init(this%input_shape, this%batch_size, verbose_)
 
 
-    !!--------------------------------------------------------------------------
-    !! allocate output, activation, bias, and weight shapes
-    !!--------------------------------------------------------------------------
-    !! NOTE: INPUT SHAPE DOES NOT INCLUDE PADDING WIDTH
-    !! THIS IS HANDLED AUTOMATICALLY BY THE CODE
-    !! ... provide the initial input data shape and let us deal with the padding
+    !---------------------------------------------------------------------------
+    ! allocate output, activation, bias, and weight shapes
+    !---------------------------------------------------------------------------
+    ! NOTE: INPUT SHAPE DOES NOT INCLUDE PADDING WIDTH
+    ! THIS IS HANDLED AUTOMATICALLY BY THE CODE
+    ! ... provide the initial input data shape and let us deal with the padding
     this%num_channels = this%input_shape(this%input_rank)
     if(allocated(this%output))then
        if(this%output%allocated) call this%output%deallocate()
@@ -426,9 +480,9 @@ end subroutine set_params
     allocate(this%params(this%num_params), source=0._real32)
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise weights (kernels)
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! initialise weights (kernels)
+    !---------------------------------------------------------------------------
     allocate(initialiser_, source=initialiser_setup(this%kernel_initialiser))
     call initialiser_%initialise( &
          this%params(:this%num_params-this%num_filters), &
@@ -437,8 +491,8 @@ end subroutine set_params
     )
     deallocate(initialiser_)
 
-    !! initialise biases
-    !!--------------------------------------------------------------------------
+    ! initialise biases
+    !---------------------------------------------------------------------------
     allocate(initialiser_, source=initialiser_setup(this%bias_initialiser))
     call initialiser_%initialise( &
          this%params(this%num_params-this%num_filters+1:), &
@@ -447,47 +501,52 @@ end subroutine set_params
     deallocate(initialiser_)
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise batch size-dependent arrays
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! initialise batch size-dependent arrays
+    !---------------------------------------------------------------------------
     if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
 
   end subroutine init_conv
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! initialise layer
-!!!#############################################################################
+!###############################################################################
   module subroutine init_batch(this, input_shape, batch_size, verbose)
+    !! Initialise batch normalisation layer
     use athena__initialiser, only: initialiser_setup
     use athena__misc_types, only: initialiser_type
     implicit none
+
+    ! Arguments
     class(batch_layer_type), intent(inout) :: this
+    !! Instance of the layer
     integer, dimension(:), intent(in) :: input_shape
+    !! Input shape
     integer, optional, intent(in) :: batch_size
+    !! Batch size
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
     integer :: verbose_ = 0
     class(initialiser_type), allocatable :: t_initialiser
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise optional arguments
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! initialise optional arguments
+    !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
     if(present(batch_size)) this%batch_size = batch_size
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise input shape
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! initialise input shape
+    !---------------------------------------------------------------------------
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
 
 
-    !!--------------------------------------------------------------------------
-    !! set up number of channels, width, height
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! set up number of channels, width, height
+    !---------------------------------------------------------------------------
     if(allocated(this%output))then
        if(this%output%allocated) call this%output%deallocate()
     end if
@@ -504,18 +563,16 @@ end subroutine set_params
     allocate(this%db(this%num_channels,1), source=0._real32)
 
 
-    !!--------------------------------------------------------------------------
-    !! allocate mean, variance, gamma, beta, dg, db
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! allocate mean and variance
+    !---------------------------------------------------------------------------
     allocate(this%mean(this%num_channels), source=0._real32)
     allocate(this%variance, source=this%mean)
-    ! allocate(this%gamma, source=this%mean)
-    ! allocate(this%beta, source=this%mean)
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise gamma
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! initialise gamma
+    !---------------------------------------------------------------------------
     allocate(t_initialiser, source=initialiser_setup(this%kernel_initialiser))
     t_initialiser%mean = this%gamma_init_mean
     t_initialiser%std  = this%gamma_init_std
@@ -524,8 +581,8 @@ end subroutine set_params
          fan_out=this%num_channels)
     deallocate(t_initialiser)
 
-    !! initialise beta
-    !!--------------------------------------------------------------------------
+    ! initialise beta
+    !---------------------------------------------------------------------------
     allocate(t_initialiser, source=initialiser_setup(this%bias_initialiser))
     t_initialiser%mean = this%beta_init_mean
     t_initialiser%std  = this%beta_init_std
@@ -535,9 +592,9 @@ end subroutine set_params
     deallocate(t_initialiser)
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise moving mean
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! initialise moving mean
+    !---------------------------------------------------------------------------
     allocate(t_initialiser, &
          source=initialiser_setup(this%moving_mean_initialiser))
     call t_initialiser%initialise(this%mean, &
@@ -545,8 +602,8 @@ end subroutine set_params
          fan_out=this%num_channels)
     deallocate(t_initialiser)
 
-    !! initialise moving variance
-    !!--------------------------------------------------------------------------
+    ! initialise moving variance
+    !---------------------------------------------------------------------------
     allocate(t_initialiser, &
          source=initialiser_setup(this%moving_variance_initialiser))
     call t_initialiser%initialise(this%variance, &
@@ -555,21 +612,23 @@ end subroutine set_params
     deallocate(t_initialiser)
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise batch size-dependent arrays
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! initialise batch size-dependent arrays
+    !---------------------------------------------------------------------------
     if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
 
   end subroutine init_batch
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! set the pointers of the layer
-!!!#############################################################################
+!###############################################################################
   module subroutine set_ptrs_hyperparams_batch(this)
+    !! Set the hyperparameter pointers of a batch normalisation layer
     implicit none
+
+    ! Arguments
     class(batch_layer_type), intent(inout), target :: this
+    !! Instance of the layer
 
     if(allocated(this%params))then
        this%gamma(1:this%num_channels) => this%params(1:this%num_channels)
@@ -578,7 +637,6 @@ end subroutine set_params
     end if
 
   end subroutine set_ptrs_hyperparams_batch
-!!!#############################################################################
+!###############################################################################
 
 end submodule athena__base_layer_submodule
-!!!#############################################################################

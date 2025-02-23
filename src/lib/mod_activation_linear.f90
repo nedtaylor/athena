@@ -1,13 +1,16 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ATHENA library - a feedforward neural network library
-!!!#############################################################################
-!!! module contains implementation of the linear activation function
-!!!#############################################################################
 module athena__activation_linear
+  !! Module containing implementation of the linear activation function
+  !!
+  !! This module implements a scaled linear function f(x) = scale * x
   use athena__constants, only: real32
   use athena__misc_types, only: activation_type
   implicit none
+
+
+  private
+
+  public :: linear_setup
+
 
   type, extends(activation_type) :: linear_type
    contains
@@ -27,22 +30,21 @@ module athena__activation_linear
      procedure initialise
   end interface linear_setup
 
-  
-  private
-  
-  public :: linear_setup
 
-  
+
 contains
-  
-!!!#############################################################################
-!!! initialisation
-!!!#############################################################################
+
+!###############################################################################
   pure function initialise(scale)
+    !! Initialise a linear activation function
     implicit none
+
+    ! Arguments
     type(linear_type) :: initialise
+    !! Linear activation type
     real(real32), optional, intent(in) :: scale
-    
+    !! Optional scale factor for activation output
+
     initialise%name = "linear"
 
     if(present(scale))then
@@ -52,122 +54,194 @@ contains
     end if
 
   end function initialise
-!!!#############################################################################
+!###############################################################################
 
-       
-!!!#############################################################################
-!!! Linear transfer function
-!!! f = gradient * x
-!!!#############################################################################
+
+!###############################################################################
   pure function linear_activate_1d(this, val) result(output)
+    !! Apply linear activation to 1D array
+    !!
+    !! Computes: f = scale * x
     implicit none
+
+    ! Arguments
     class(linear_type), intent(in) :: this
+    !! Linear activation type
     real(real32), dimension(:), intent(in) :: val
+    !! Input values
     real(real32), dimension(size(val,dim=1)) :: output
+    !! Scaled output values
 
     output = this%scale * val
   end function linear_activate_1d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function linear_activate_2d(this, val) result(output)
+    !! Apply linear activation to 2D array
+    !!
+    !! Computes: f = scale * x
     implicit none
+
+    ! Arguments
     class(linear_type), intent(in) :: this
+    !! Linear activation type
     real(real32), dimension(:,:), intent(in) :: val
+    !! Input values
     real(real32), dimension(size(val,1),size(val,2)) :: output
+    !! Scaled output values
 
     output = this%scale * val
   end function linear_activate_2d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function linear_activate_3d(this, val) result(output)
+    !! Apply linear activation to 3D array
+    !!
+    !! Computes: f = scale * x
     implicit none
+
+    ! Arguments
     class(linear_type), intent(in) :: this
+    !! Linear activation type
     real(real32), dimension(:,:,:), intent(in) :: val
+    !! Input values
     real(real32), dimension(size(val,1),size(val,2),size(val,3)) :: output
+    !! Scaled output values
 
     output = this%scale * val
   end function linear_activate_3d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function linear_activate_4d(this, val) result(output)
+    !! Apply linear activation to 4D array
+    !!
+    !! Computes: f = scale * x
     implicit none
+
+    ! Arguments
     class(linear_type), intent(in) :: this
+    !! Linear activation type
     real(real32), dimension(:,:,:,:), intent(in) :: val
+    !! Input values
     real(real32), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4)) :: output
+    !! Scaled output values
 
     output = this%scale * val
   end function linear_activate_4d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function linear_activate_5d(this, val) result(output)
+    !! Apply linear activation to 5D array
+    !!
+    !! Computes: f = scale * x
     implicit none
+
+    ! Arguments
     class(linear_type), intent(in) :: this
+    !! Linear activation type
     real(real32), dimension(:,:,:,:,:), intent(in) :: val
+    !! Input values
     real(real32), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
+    !! Scaled output values
 
     output = this%scale * val
   end function linear_activate_5d
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! derivative of linear transfer function
-!!! e.g. df/dx (gradient * x) = gradient
-!!! we are performing the derivative to identify what weight ...
-!!! ... results in the minimum error
-!!!#############################################################################
+!###############################################################################
   pure function linear_differentiate_1d(this, val) result(output)
+    !! Differentiate linear activation for 1D array
+    !!
+    !! Computes constant derivative: df/dx = scale
     implicit none
+
+    ! Arguments
     class(linear_type), intent(in) :: this
+    !! Linear activation type
     real(real32), dimension(:), intent(in) :: val
+    !! Input values
     real(real32), dimension(size(val,dim=1)) :: output
+    !! Differentiated output (constant)
 
     output = this%scale
   end function linear_differentiate_1d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function linear_differentiate_2d(this, val) result(output)
+    !! Differentiate linear activation for 2D array
+    !!
+    !! Computes constant derivative: df/dx = scale
     implicit none
+
+    ! Arguments
     class(linear_type), intent(in) :: this
+    !! Linear activation type
     real(real32), dimension(:,:), intent(in) :: val
+    !! Input values
     real(real32), dimension(size(val,1),size(val,2)) :: output
+    !! Differentiated output (constant)
 
     output = this%scale
   end function linear_differentiate_2d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function linear_differentiate_3d(this, val) result(output)
+    !! Differentiate linear activation for 3D array
+    !!
+    !! Computes constant derivative: df/dx = scale
     implicit none
+
+    ! Arguments
     class(linear_type), intent(in) :: this
+    !! Linear activation type
     real(real32), dimension(:,:,:), intent(in) :: val
+    !! Input values
     real(real32), dimension(size(val,1),size(val,2),size(val,3)) :: output
+    !! Differentiated output (constant)
 
     output = this%scale
   end function linear_differentiate_3d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function linear_differentiate_4d(this, val) result(output)
+    !! Differentiate linear activation for 4D array
+    !!
+    !! Computes constant derivative: df/dx = scale
     implicit none
+
+    ! Arguments
     class(linear_type), intent(in) :: this
+    !! Linear activation type
     real(real32), dimension(:,:,:,:), intent(in) :: val
+    !! Input values
     real(real32), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4)) :: output
+    !! Differentiated output (constant)
 
     output = this%scale
   end function linear_differentiate_4d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function linear_differentiate_5d(this, val) result(output)
+    !! Differentiate linear activation for 5D array
+    !!
+    !! Computes constant derivative: df/dx = scale
     implicit none
+
+    ! Arguments
     class(linear_type), intent(in) :: this
+    !! Linear activation type
     real(real32), dimension(:,:,:,:,:), intent(in) :: val
+    !! Input values
     real(real32), dimension(&
          size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
+    !! Differentiated output (constant)
 
     output = this%scale
   end function linear_differentiate_5d
-!!!#############################################################################
+!###############################################################################
 
 end module athena__activation_linear

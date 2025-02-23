@@ -1,50 +1,61 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ATHENA library - a feedforward neural network library
-!!!#############################################################################
-!!! module contains random number generator initialisation
-!!! module contains the following procedures:
-!!! - random_setup - seed random number generator from seed vector or randomly
-!!!#############################################################################
 module athena__random
+  !! Module containing functions to initialise the random number generator
   use athena__io_utils, only: stop_program
   implicit none
   logical :: l_random_initialised=.false.
+
 
   private
 
   public :: random_setup
 
 
+
 contains
 
-!!!#############################################################################
-!!! seed random number generator from vector of seeds
-!!!#############################################################################
+!###############################################################################
   subroutine random_setup(seed, num_seed, restart, already_initialised)
+    !! Initialise the random number generator
     implicit none
-    integer, dimension(..), optional, intent(in) :: seed !dimension(..1)
+
+    ! Arguments
+    integer, dimension(..), optional, intent(in) :: seed
+    !! Seed for the random number generator
     integer, optional, intent(out) :: num_seed
+    !! Number of seeds
     logical, optional, intent(in) :: restart
+    !! Restart the random number generator
     logical, optional, intent(out) :: already_initialised
+    !! Check if the random number generator is already initialised
 
+    ! Local variables
     integer :: l
+    !! Loop index
     integer :: itmp1
+    !! Temporary integer
     integer :: num_seed_
+    !! Number of seeds
     logical :: restart_
+    !! Restart the random number generator
     integer, allocatable, dimension(:) :: seed_arr
-
+    !! Seed array
     character(256) :: err_msg
+    !! Error message
 
-    !! check if restart is defined
+
+    !---------------------------------------------------------------------------
+    ! Check if restart is defined
+    !---------------------------------------------------------------------------
     if(present(restart))then
-       restart_ = restart       
+       restart_ = restart
     else
        restart_ = .false.
     end if
     if(present(already_initialised)) already_initialised = .false.
 
-    !! check if already initialised
+    !---------------------------------------------------------------------------
+    ! Check if already initialised
+    !---------------------------------------------------------------------------
     if(l_random_initialised.and..not.restart_)then
        if(present(already_initialised)) already_initialised = .true.
        return !! no need to initialise if already initialised
@@ -81,9 +92,8 @@ contains
     end if
 
     if(present(num_seed)) num_seed = num_seed_
-    
+
   end subroutine random_setup
-!!!#############################################################################
+!###############################################################################
 
 end module athena__random
-!!!#############################################################################

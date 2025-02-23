@@ -11,7 +11,7 @@ program test_mod_regulariser
 
   real, dimension(1) :: params, gradient, expected_gradient
 
-  !! initialize parameters
+  !! initialise parameters
   params = 1.E0
 
   !! test l1 regulariser
@@ -53,30 +53,30 @@ contains
 !!!-----------------------------------------------------------------------------
 !!! check gradients are as expected
 !!!-----------------------------------------------------------------------------
-subroutine check(actual, expected, success)
-  implicit none
-  real, dimension(:), intent(in) :: actual
-  real, dimension(:), intent(in) :: expected
-  real :: diff
-  integer :: i
-  logical, intent(inout) :: success
+  subroutine check(actual, expected, success)
+    implicit none
+    real, dimension(:), intent(in) :: actual
+    real, dimension(:), intent(in) :: expected
+    real :: diff
+    integer :: i
+    logical, intent(inout) :: success
 
-  if (size(actual) .ne. size(expected)) then
-    write(0,*) "Gradient size not expected"
-    success = .false.
-  end if
-
-  write(*,*) actual, expected
-  do i = 1, size(actual)
-    diff = abs(actual(i) - expected(i))
-    if (diff .gt. 1.E-6) then
-      write(0,*) "gradients not as expected"
-      write(0,*) "Index: ", i
-      write(0,*) "Actual: ", actual(i)
-      write(0,*) "Expected: ", expected(i)
-      success = .false.
+    if (size(actual) .ne. size(expected)) then
+       write(0,*) "Gradient size not expected"
+       success = .false.
     end if
-  end do
-end subroutine check
+
+    write(*,*) actual, expected
+    do i = 1, size(actual)
+       diff = abs(actual(i) - expected(i))
+       if (diff .gt. 1.E-6) then
+          write(0,*) "gradients not as expected"
+          write(0,*) "Index: ", i
+          write(0,*) "Actual: ", actual(i)
+          write(0,*) "Expected: ", expected(i)
+          success = .false.
+       end if
+    end do
+  end subroutine check
 
 end program test_mod_regulariser

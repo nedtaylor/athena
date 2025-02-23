@@ -21,7 +21,7 @@ permissions:
 concurrency:
   group: pages
   cancel-in-progress: false
-  
+
 jobs:
   build-and-test-fpm-debug:
     environment:
@@ -45,12 +45,12 @@ jobs:
       with:
         compiler: ${{ matrix.toolchain.compiler }}
         version: ${{ matrix.toolchain.version }}
-          
+
     - uses: fortran-lang/setup-fpm@v5
       id: setup-fpm
       with:
         fpm-version: "v0.10.0"
-        
+
     - name: Download MNIST dataset
       run: |
         echo "Leaving athena directory"

@@ -1,12 +1,5 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ATHENA library - a feedforward neural network library
-!!!#############################################################################
-!!! module to setup the activation function
-!!! module includes the following procedures:
-!!! - activation_setup - set up the activation function
-!!!#############################################################################
 module athena__activation
+  !! Module containing the activation function setup
   use athena__constants, only: real32
   use athena__misc, only: to_lower
   use athena__misc_types, only: activation_type
@@ -27,23 +20,30 @@ module athena__activation
   public :: activation_setup
 
 
+
 contains
 
-!!!#############################################################################
-!!! function to setup the activation function
-!!!#############################################################################
+!###############################################################################
   pure function activation_setup(name, scale) result(transfer)
+    !! Setup the desired activation function
     implicit none
-    real(real32), optional, intent(in) :: scale
-    class(activation_type), allocatable :: transfer
+
+    ! Arguments
     character(*), intent(in) :: name
+    !! Name of the activation function
+    real(real32), optional, intent(in) :: scale
+    !! Optional scale factor for activation output
+    class(activation_type), allocatable :: transfer
+    !! Activation function object
 
+    ! Local variables
     real(real32) :: scale_
+    !! Local scale factor
 
 
-    !!--------------------------------------------------------------------------
-    !! set defaults if not present
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! set defaults if not present
+    !---------------------------------------------------------------------------
     if(present(scale))then
        scale_ = scale
     else
@@ -51,9 +51,9 @@ contains
     end if
 
 
-    !!--------------------------------------------------------------------------
-    !! select desired activation function
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! select desired activation function
+    !---------------------------------------------------------------------------
     select case(trim(to_lower(name)))
     case("gaussian")
        transfer = gaussian_setup(scale = scale_)
@@ -78,7 +78,6 @@ contains
     end select
 
   end function activation_setup
-!!!#############################################################################
+!###############################################################################
 
 end module athena__activation
-!!!#############################################################################

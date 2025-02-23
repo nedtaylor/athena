@@ -1,143 +1,178 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ATHENA library - a feedforward neural network library
-!!!#############################################################################
-!!! module contains implementation of a dropout layer
-!!!#############################################################################
-!!! Dropout reference: ...
-!!! ... https://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf
-!!!#############################################################################
 module athena__dropout_layer
+  !! Module containing implementation of a dropout layer
+  !!
+  !! This module contains the implementation of a dropout layer
+  !! for use in neural networks.
+  !! Dropout reference: https://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf
   use athena__io_utils, only: stop_program
   use athena__constants, only: real32
   use athena__base_layer, only: drop_layer_type, base_layer_type
   use athena__misc_types, only: array2d_type
   implicit none
-  
-  
-  type, extends(drop_layer_type) :: dropout_layer_type
-     !! num_masks              -- number of unique masks = number of samples in batch
-     !! idx                    -- temp index of sample (doesn't need to be accurate)
-     !! keep_prob              -- typical = 0.75-0.95
-     integer :: idx = 0
-     integer :: num_masks
-     logical, allocatable, dimension(:,:) :: mask
-   contains
-     procedure, pass(this) :: set_hyperparams => set_hyperparams_dropout
-     procedure, pass(this) :: init => init_dropout
-     procedure, pass(this) :: set_batch_size => set_batch_size_dropout
-     procedure, pass(this) :: print => print_dropout
-     procedure, pass(this) :: read => read_dropout
-     procedure, pass(this) :: forward  => forward_rank
-     procedure, pass(this) :: backward => backward_rank
-     procedure, private, pass(this) :: forward_2d
-     procedure, private, pass(this) :: backward_2d
-     procedure, pass(this) :: generate_mask => generate_dropout_mask
-  end type dropout_layer_type
-
-  
-  interface dropout_layer_type
-     module function layer_setup( &
-          rate, num_masks, &
-          input_shape, batch_size) result(layer)
-       integer, intent(in) :: num_masks
-       real(real32), intent(in) :: rate
-       integer, dimension(:), optional, intent(in) :: input_shape
-       integer, optional, intent(in) :: batch_size
-       type(dropout_layer_type) :: layer
-     end function layer_setup
-  end interface dropout_layer_type
 
 
   private
+
   public :: dropout_layer_type
   public :: read_dropout_layer
 
 
+  type, extends(drop_layer_type) :: dropout_layer_type
+     !! Type for dropout layer with overloaded procedures
+     integer :: idx = 0
+     !! Temporary index of sample (doesn't need to be accurate)
+     integer :: num_masks
+     !! Number of unique masks = number of samples in batch
+     logical, allocatable, dimension(:,:) :: mask
+     !! Mask for dropout
+   contains
+     procedure, pass(this) :: set_hyperparams => set_hyperparams_dropout
+     !! Set hyperparameters for dropout layer
+     procedure, pass(this) :: init => init_dropout
+     !! Initialise dropout layer
+     procedure, pass(this) :: set_batch_size => set_batch_size_dropout
+     !! Set batch size for dropout layer
+     procedure, pass(this) :: print => print_dropout
+     !! Print dropout layer to file
+     procedure, pass(this) :: read => read_dropout
+     !! Read dropout layer from file
+     procedure, pass(this) :: forward  => forward_rank
+     !! Forward propagation handler for dropout layer
+     procedure, pass(this) :: backward => backward_rank
+     !! Backward propagation handler for dropout layer
+     procedure, private, pass(this) :: forward_2d
+     !! Forward propagation for 2D input
+     procedure, private, pass(this) :: backward_2d
+     !! Backward propagation for 2D input
+     procedure, pass(this) :: generate_mask => generate_dropout_mask
+     !! Generate dropout mask
+  end type dropout_layer_type
+
+  interface dropout_layer_type
+     !! Interface for setting up the dropout layer
+     module function layer_setup( &
+          rate, num_masks, &
+          input_shape, batch_size) result(layer)
+       !! Set up the dropout layer
+       integer, intent(in) :: num_masks
+       !! Number of unique masks
+       real(real32), intent(in) :: rate
+       !! Drop rate
+       integer, dimension(:), optional, intent(in) :: input_shape
+       !! Input shape
+       integer, optional, intent(in) :: batch_size
+       !! Batch size
+       type(dropout_layer_type) :: layer
+       !! Instance of the dropout layer
+     end function layer_setup
+  end interface dropout_layer_type
+
+
+
 contains
 
-!!!#############################################################################
-!!! forward propagation assumed rank handler
-!!!#############################################################################
+!###############################################################################
   pure subroutine forward_rank(this, input)
+    !! Forward propagation handler for dropout layer
     implicit none
-    class(dropout_layer_type), intent(inout) :: this
-    real(real32), dimension(..), intent(in) :: input
 
-    select rank(input); rank(2)
+    ! Arguments
+    class(dropout_layer_type), intent(inout) :: this
+    !! Instance of the dropout layer
+    real(real32), dimension(..), intent(in) :: input
+    !! Input values
+
+    select rank(input)
+    rank(2)
        call forward_2d(this, input)
     end select
   end subroutine forward_rank
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! backward propagation assumed rank handler
-!!!#############################################################################
+!###############################################################################
   pure subroutine backward_rank(this, input, gradient)
+    !! Backward propagation handler for dropout layer
     implicit none
-    class(dropout_layer_type), intent(inout) :: this
-    real(real32), dimension(..), intent(in) :: input
-    real(real32), dimension(..), intent(in) :: gradient
 
-    select rank(input); rank(2)
-    select rank(gradient); rank(2)
-      call backward_2d(this, input, gradient)
-    end select
+    ! Arguments
+    class(dropout_layer_type), intent(inout) :: this
+    !! Instance of the dropout layer
+    real(real32), dimension(..), intent(in) :: input
+    !! Input values
+    real(real32), dimension(..), intent(in) :: gradient
+    !! Gradient values
+
+    select rank(input)
+    rank(2)
+       select rank(gradient)
+       rank(2)
+          call backward_2d(this, input, gradient)
+       end select
     end select
   end subroutine backward_rank
-!!!#############################################################################
+!###############################################################################
 
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
-!!!#############################################################################
-!!! set up layer
-!!!#############################################################################
+!###############################################################################
   module function layer_setup( &
        rate, num_masks, &
        input_shape, batch_size) result(layer)
+    !! Set up the dropout layer
     implicit none
+
+    ! Arguments
     integer, intent(in) :: num_masks
+    !! Number of unique masks
     real(real32), intent(in) :: rate
+    !! Drop rate
     integer, dimension(:), optional, intent(in) :: input_shape
+    !! Input shape
     integer, optional, intent(in) :: batch_size
-    
+    !! Batch size
+
     type(dropout_layer_type) :: layer
+    !! Instance of the dropout layer
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise hyperparameters
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Initialise hyperparameters
+    !---------------------------------------------------------------------------
     call layer%set_hyperparams(rate, num_masks)
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise batch size
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Initialise batch size
+    !---------------------------------------------------------------------------
     if(present(batch_size)) layer%batch_size = batch_size
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise layer shape
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Initialise layer shape
+    !---------------------------------------------------------------------------
     if(present(input_shape)) call layer%init(input_shape=input_shape)
 
   end function layer_setup
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! set hyperparameters
-!!!#############################################################################
+!###############################################################################
   pure subroutine set_hyperparams_dropout(this, rate, num_masks)
+    !! Set hyperparameters for dropout layer
     implicit none
+
+    ! Arguments
     class(dropout_layer_type), intent(inout) :: this
+    !! Instance of the dropout layer
     real(real32), intent(in) :: rate
+    !! Drop rate
     integer, intent(in) :: num_masks
+    !! Number of unique masks
 
     this%name = "dropout"
     this%type = "drop"
@@ -147,38 +182,45 @@ contains
     this%rate = rate
 
   end subroutine set_hyperparams_dropout
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! initialise layer
-!!!#############################################################################
+!###############################################################################
   subroutine init_dropout(this, input_shape, batch_size, verbose)
+    !! Initialise dropout layer
     implicit none
+
+    ! Arguments
     class(dropout_layer_type), intent(inout) :: this
+    !! Instance of the dropout layer
     integer, dimension(:), intent(in) :: input_shape
+    !! Input shape
     integer, optional, intent(in) :: batch_size
+    !! Batch size
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     integer :: verbose_ = 0
+    !! Verbosity level
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise optional arguments
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Initialise optional arguments
+    !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
     if(present(batch_size)) this%batch_size = batch_size
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise input shape
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Initialise input shape
+    !---------------------------------------------------------------------------
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
 
 
-    !!--------------------------------------------------------------------------
-    !! set up number of channels, width, height
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Set up number of channels, width, height
+    !---------------------------------------------------------------------------
     if(allocated(this%output))then
        if(this%output%allocated) call this%output%deallocate()
     end if
@@ -186,49 +228,55 @@ contains
     this%output%shape = this%input_shape
 
 
-    !!--------------------------------------------------------------------------
-    !! allocate mask
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Allocate mask
+    !---------------------------------------------------------------------------
     allocate(this%mask(this%input_shape(1), this%num_masks), source=.true.)
 
 
-    !!--------------------------------------------------------------------------
-    !! generate mask
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Generate mask
+    !---------------------------------------------------------------------------
     call this%generate_mask()
-    
 
-    !!--------------------------------------------------------------------------
-    !! initialise batch size-dependent arrays
-    !!--------------------------------------------------------------------------
+
+    !---------------------------------------------------------------------------
+    ! Initialise batch size-dependent arrays
+    !---------------------------------------------------------------------------
     if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
 
   end subroutine init_dropout
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! set batch size
-!!!#############################################################################
+!###############################################################################
   subroutine set_batch_size_dropout(this, batch_size, verbose)
+    !! Set batch size for dropout layer
     implicit none
+
+    ! Arguments
     class(dropout_layer_type), intent(inout), target :: this
+    !! Instance of the dropout layer
     integer, intent(in) :: batch_size
+    !! Batch size
     integer, optional, intent(in) :: verbose
- 
+    !! Verbosity level
+
+    ! Local variables
     integer :: verbose_ = 0
- 
- 
-    !!--------------------------------------------------------------------------
-    !! initialise optional arguments
-    !!--------------------------------------------------------------------------
+    !! Verbosity level
+
+
+    !---------------------------------------------------------------------------
+    ! Initialise optional arguments
+    !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
     this%batch_size = batch_size
- 
- 
-    !!--------------------------------------------------------------------------
-    !! allocate arrays
-    !!--------------------------------------------------------------------------
+
+
+    !---------------------------------------------------------------------------
+    ! Allocate arrays
+    !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
        if(.not.allocated(this%output)) this%output = array2d_type()
        if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
@@ -240,93 +288,119 @@ contains
        if(this%di%allocated) call this%di%deallocate()
        call this%di%allocate( source=this%output )
     end if
- 
+
   end subroutine set_batch_size_dropout
- !!!#############################################################################
- 
+!###############################################################################
 
-!!!#############################################################################
-!!! generate masks
-!!!#############################################################################
+
+!###############################################################################
   subroutine generate_dropout_mask(this)
+    !! Generate dropout mask
     implicit none
-    class(dropout_layer_type), intent(inout) :: this
-    real(real32), allocatable, dimension(:,:) :: mask_real
 
-    
-    !! generate masks
+    ! Arguments
+    class(dropout_layer_type), intent(inout) :: this
+    !! Instance of the dropout layer
+
+    ! Local variables
+    real(real32), allocatable, dimension(:,:) :: mask_real
+    !! Real mask
+
+    ! Generate masks
+    !---------------------------------------------------------------------------
     allocate(mask_real(size(this%mask,1), size(this%mask,2)))
-    call random_number(mask_real)  ! Generate random values in [0..1]
+    call random_number(mask_real)  !  Generate random values in [0..1]
     this%mask = mask_real > this%rate
 
     this%idx = 0
 
   end subroutine generate_dropout_mask
-!!!#############################################################################
+!###############################################################################
 
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
-!!!#############################################################################
-!!! print layer to file
-!!!#############################################################################
+!###############################################################################
   subroutine print_dropout(this, file)
+    !! Print dropout layer to file
     implicit none
+
+    ! Arguments
     class(dropout_layer_type), intent(in) :: this
+    !! Instance of the dropout layer
     character(*), intent(in) :: file
+    !! File name
 
+    ! Local variables
     integer :: unit
+    !! File unit
 
-
-    !! open file with new unit
-    !!--------------------------------------------------------------------------
+    ! Open file with new unit
+    !---------------------------------------------------------------------------
     open(newunit=unit, file=trim(file), access='append')
 
-    !! write convolution initial parameters
-    !!--------------------------------------------------------------------------
+    ! Write initial parameters
+    !---------------------------------------------------------------------------
     write(unit,'("DROPOUT")')
     write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
     write(unit,'(3X,"RATE = ",F0.9)') this%rate
     write(unit,'(3X,"NUM_MASKS = ",I0)') this%num_masks
     write(unit,'("END DROPOUT")')
 
-    !! close unit
-    !!--------------------------------------------------------------------------
+    ! Close unit
+    !---------------------------------------------------------------------------
     close(unit)
 
   end subroutine print_dropout
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! read layer from file
-!!!#############################################################################
+!###############################################################################
   subroutine read_dropout(this, unit, verbose)
+    !! Read dropout layer from file
     use athena__tools_infile, only: assign_val, assign_vec
     use athena__misc, only: to_lower, to_upper, icount
     implicit none
+
+    ! Arguments
     class(dropout_layer_type), intent(inout) :: this
+    !! Instance of the dropout layer
     integer, intent(in) :: unit
+    !! File unit
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     integer :: verbose_ = 0
+    !! Verbosity level
     integer :: stat
+    !! File status
     integer :: itmp1
+    !! Temporary integer
     integer :: num_masks
+    !! Number of unique masks
     real(real32) :: rate
+    !! Drop rate
     integer, dimension(3) :: input_shape
+    !! Input shape
     character(256) :: buffer, tag, err_msg
+    !! Buffer, tag, and error message
 
 
+    ! Initialise optional arguments
+    !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
 
-    !! loop over tags in layer card
+
+    ! Loop over tags in layer card
+    !---------------------------------------------------------------------------
     tag_loop: do
 
-       !! check for end of file
+       ! Check for end of file
+       !------------------------------------------------------------------------
        read(unit,'(A)',iostat=stat) buffer
        if(stat.ne.0)then
           write(err_msg,'("file encountered error (EoF?) before END ",A)') &
@@ -336,8 +410,9 @@ contains
        end if
        if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
-       !! check for end of convolution card
-       if(trim(adjustl(buffer)).eq."END DROPOUT")then
+       ! Check for end of layer card
+       !------------------------------------------------------------------------
+       if(trim(adjustl(buffer)).eq."END "//to_upper(trim(this%name)))then
           backspace(unit)
           exit tag_loop
        end if
@@ -345,7 +420,8 @@ contains
        tag=trim(adjustl(buffer))
        if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
 
-       !! read parameters from save file
+       ! Read parameters from save file
+       !------------------------------------------------------------------------
        select case(trim(tag))
        case("INPUT_SHAPE")
           call assign_vec(buffer, input_shape, itmp1)
@@ -354,8 +430,8 @@ contains
        case("NUM_MASKS")
           call assign_val(buffer, num_masks, itmp1)
        case default
-          !! don't look for "e" due to scientific notation of numbers
-          !! ... i.e. exponent (E+00)
+          ! Don't look for "e" due to scientific notation of numbers
+          ! ... i.e. exponent (E+00)
           if(scan(to_lower(trim(adjustl(buffer))),&
                'abcdfghijklmnopqrstuvwxyz').eq.0)then
              cycle tag_loop
@@ -369,14 +445,17 @@ contains
        end select
     end do tag_loop
 
-    !! set transfer activation function
 
+    ! Set hyperparameters and initialise layer
+    !---------------------------------------------------------------------------
     call this%set_hyperparams(rate = rate, num_masks = num_masks)
     call this%init(input_shape = input_shape)
 
-    !! check for end of layer card
+
+    ! Check for end of layer card
+    !---------------------------------------------------------------------------
     read(unit,'(A)') buffer
-    if(trim(adjustl(buffer)).ne."END DROPOUT")then
+    if(trim(adjustl(buffer)).ne."END "//to_upper(trim(this%name)))then
        write(0,*) trim(adjustl(buffer))
        write(err_msg,'("END ",A," not where expected")') to_upper(this%name)
        call stop_program(err_msg)
@@ -384,55 +463,65 @@ contains
     end if
 
   end subroutine read_dropout
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! read layer from file and return layer
-!!!#############################################################################
+!###############################################################################
   function read_dropout_layer(unit, verbose) result(layer)
+    !! Read dropout layer from file and return layer
     implicit none
+
+    ! Arguments
     integer, intent(in) :: unit
+    !! File unit
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
     class(base_layer_type), allocatable :: layer
+    !! Instance of the base layer
 
+    ! Local variables
     integer :: verbose_ = 0
-
+    !! Verbosity level
 
     if(present(verbose)) verbose_ = verbose
     allocate(layer, source=dropout_layer_type(rate=0._real32, num_masks=0))
     call layer%read(unit, verbose=verbose_)
 
   end function read_dropout_layer
-!!!#############################################################################
+!###############################################################################
 
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
-!!!#############################################################################
-!!! forward propagation
-!!!#############################################################################
+!###############################################################################
   pure subroutine forward_2d(this, input)
+    !! Forward propagation for 2D input
     implicit none
+
+    ! Arguments
     class(dropout_layer_type), intent(inout) :: this
+    !! Instance of the dropout layer
     real(real32), dimension( &
          this%input_shape(1), this%batch_size), &
          intent(in) :: input
-    
-    integer :: s
+    !! Input values
 
-    
+    ! Local variables
+    integer :: s
+    !! Loop index
+
+
     select type(output => this%output)
     type is (array2d_type)
        select case(this%inference)
        case(.true.)
-          !! do not perform the drop operation
+          ! Do not perform the drop operation
           output%val_ptr = input * ( 1._real32 - this%rate )
        case default
-          !! perform the drop operation
+          ! Perform the drop operation
           this%idx = this%idx + 1
           do concurrent(s=1:this%batch_size)
               output%val_ptr(:,s) = merge( &
@@ -444,31 +533,35 @@ contains
     end select
 
   end subroutine forward_2d
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! backward propagation
-!!!#############################################################################
+!###############################################################################
   pure subroutine backward_2d(this, input, gradient)
+    !! Backward propagation for 2D input
     implicit none
+
+    ! Arguments
     class(dropout_layer_type), intent(inout) :: this
+    !! Instance of the dropout layer
     real(real32), dimension( &
          this%input_shape(1), this%batch_size), &
          intent(in) :: input
+    !! Input values
     real(real32), &
          dimension(this%output%shape(1), this%batch_size), &
          intent(in) :: gradient
+    !! Gradient values
 
 
-    !! compute gradients for input feature map
+    ! Compute gradients for input feature map
+    !---------------------------------------------------------------------------
     select type(di => this%di)
     type is (array2d_type)
        di%val_ptr(:,:) = gradient(:,:)
     end select
 
   end subroutine backward_2d
-!!!#############################################################################
+!###############################################################################
 
 end module athena__dropout_layer
-!!!#############################################################################

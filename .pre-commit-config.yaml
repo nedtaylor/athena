@@ -1,0 +1,18 @@
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0  # Use the ref you want to point at
+    hooks:
+    -   id: trailing-whitespace
+    -   id: end-of-file-fixer
+-   repo: https://github.com/nedtaylor/fortran-format-hooks
+    rev: 0a408a58060f5c2ca895f9491bf06b2e947b2ee3
+    hooks:
+    -   id: check-fortran-indentation
+        args: [--line-length=80]
+# -   repo: local
+#     hooks:
+#     -   id: check-fortran-indentation
+#         name: Check Fortran Line Length
+#         entry: python ../fortran-format-hooks/fortran_format_hooks/check_indentation.py
+#         language: python
+#         args: [--line-length=80, --autofix]

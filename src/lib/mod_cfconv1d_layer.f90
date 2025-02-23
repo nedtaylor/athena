@@ -1,18 +1,20 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ATHENA library - a feedforward neural network library
-!!!#############################################################################
-!!! module contains implementation of a 1D continuous filter convolutional layer
-!!!#############################################################################
 module athena__cfconv1d_layer
+  !! Module containing implementation of a 1D continuous filter convolutional layer
   use athena__io_utils, only: stop_program
   use athena__constants, only: real32
   use athena__base_layer, only: learnable_layer_type, conv_layer_type
   use athena__misc_types, only: initialiser_type
   implicit none
-  
-  
+
+
+  private
+
+  public :: cfconv1d_layer_type
+  public :: read_cfconv1d_layer
+
+
   type, extends(conv_layer_type) :: cfconv1d_layer_type
+     !! Type containing the implementation of a 1D continuous filter convolutional layer
      real(real32), allocatable, dimension(:,:,:) :: weight !!!REMOVE
      real(real32), allocatable, dimension(:,:,:) :: location
      real(real32), allocatable, dimension(:,:,:,:) :: dw ! weight gradient
@@ -35,14 +37,14 @@ module athena__cfconv1d_layer
      procedure, private, pass(this) :: backward_3d
 
      procedure, pass(this) :: filter => null()
-     
-   !   procedure, pass(this) :: reduce => layer_reduction
-   !   procedure, pass(this) :: merge => layer_merge
-   !   procedure :: add_t_t => layer_add  !t = type, r = real, i = int
-   !   generic :: operator(+) => add_t_t !, public
+
+     ! procedure, pass(this) :: reduce => layer_reduction
+     ! procedure, pass(this) :: merge => layer_merge
+     ! procedure :: add_t_t => layer_add  !t = type, r = real, i = int
+     ! generic :: operator(+) => add_t_t !, public
   end type cfconv1d_layer_type
 
-  
+
 !!!-----------------------------------------------------------------------------
 !!! interface for layer set up
 !!!-----------------------------------------------------------------------------
@@ -67,10 +69,6 @@ module athena__cfconv1d_layer
   end interface cfconv1d_layer_type
 
 
-  private
-  public :: cfconv1d_layer_type
-  public :: read_cfconv1d_layer
-
 
 contains
 
@@ -81,12 +79,12 @@ contains
     implicit none
     class(cfconv1d_layer_type), intent(in) :: this
     real(real32), dimension(this%num_params) :: params
-  
+
     params = [ reshape( &
          this%weight, &
          [ this%num_filters * this%num_channels * product(this%knl) ]), &
-         this%bias ]
-  
+    this%bias ]
+
   end function get_params_cfconv1d
 !!!#############################################################################
 
@@ -98,20 +96,20 @@ contains
     implicit none
     class(cfconv1d_layer_type), intent(inout) :: this
     real(real32), dimension(this%num_params), intent(in) :: params
-  
+
     this%weight = reshape( &
          params(1:this%num_filters * this%num_channels * product(this%knl)), &
          shape(this%weight))
     this%bias = params(&
          this%num_filters * this%num_channels * product(this%knl) + 1 : )
-  
+
   end subroutine set_params_cfconv1d
 !!!#############################################################################
 
 
 !!!#############################################################################
 !!! get sample-average gradients
-!!! sum over batch dimension and divide by batch size 
+!!! sum over batch dimension and divide by batch size
 !!!#############################################################################
   pure function get_gradients_cfconv1d(this, clip_method) result(gradients)
     use athena__clipper, only: clip_type
@@ -119,12 +117,12 @@ contains
     class(cfconv1d_layer_type), intent(in) :: this
     type(clip_type), optional, intent(in) :: clip_method
     real(real32), allocatable, dimension(:) :: gradients
-  
+
     gradients = [ reshape( &
          sum(this%dw,dim=4)/this%batch_size, &
          [ this%num_filters * this%num_channels * product(this%knl) ]), &
-         sum(this%db,dim=2)/this%batch_size ]
-  
+    sum(this%db,dim=2)/this%batch_size ]
+
     if(present(clip_method)) call clip_method%apply(size(gradients),gradients)
 
   end function get_gradients_cfconv1d
@@ -149,13 +147,13 @@ contains
        do s=1,this%batch_size
           this%dw(:,:,:,s) = reshape(gradients(:&
                this%num_filters * this%num_channels * product(this%knl)), &
-                shape(this%dw(:,:,:,s)))
+          shape(this%dw(:,:,:,s)))
           this%db(:,s) = gradients(&
                this%num_filters * this%num_channels * product(this%knl)+1:)
        end do
     end select
- 
- end subroutine set_gradients_cfconv1d
+
+  end subroutine set_gradients_cfconv1d
 !!!#############################################################################
 
 
@@ -181,9 +179,9 @@ contains
 !!!#############################################################################
 
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
 !!!#############################################################################
@@ -211,22 +209,22 @@ contains
     real(real32), dimension(..), intent(in) :: gradient
 
     select rank(input); rank(3)
-    select rank(gradient)
-    rank(1)
-       call backward_3d(this, input, gradient)
-    rank(2)
-       call backward_3d(this, input, gradient)
-    rank(3)
-       call backward_3d(this, input, gradient)
+       select rank(gradient)
+       rank(1)
+          call backward_3d(this, input, gradient)
+       rank(2)
+          call backward_3d(this, input, gradient)
+       rank(3)
+          call backward_3d(this, input, gradient)
+       end select
     end select
-    end select    
   end subroutine backward_rank
 !!!#############################################################################
 
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
 !!!#############################################################################
@@ -294,8 +292,8 @@ contains
     else
        layer%num_filters = 32
     end if
-    
-    
+
+
     !!--------------------------------------------------------------------------
     !! set up kernel size
     !!--------------------------------------------------------------------------
@@ -335,7 +333,7 @@ contains
     else
        layer%stp = 1
     end if
-    
+
 
     !!--------------------------------------------------------------------------
     !! set activation and derivative functions based on input name
@@ -365,7 +363,7 @@ contains
     if(present(bias_initialiser)) layer%bias_initialiser = bias_initialiser
     if(trim(layer%bias_initialiser).eq.'') &
          layer%bias_initialiser = get_default_initialiser(&
-         activation_function_, is_bias=.true.)
+              activation_function_, is_bias=.true.)
     write(*,'("CFCONV1D bias initialiser: ",A)') trim(layer%bias_initialiser)
 
 
@@ -456,53 +454,53 @@ contains
 !!! set batch size
 !!!#############################################################################
   subroutine set_batch_size_cfconv1d(this, batch_size, verbose)
-   implicit none
-   class(cfconv1d_layer_type), intent(inout), target :: this
-   integer, intent(in) :: batch_size
-   integer, optional, intent(in) :: verbose
+    implicit none
+    class(cfconv1d_layer_type), intent(inout), target :: this
+    integer, intent(in) :: batch_size
+    integer, optional, intent(in) :: verbose
 
-   integer :: verbose_ = 0
-
-
-   !!--------------------------------------------------------------------------
-   !! initialise optional arguments
-   !!--------------------------------------------------------------------------
-   if(present(verbose)) verbose_ = verbose
-   this%batch_size = batch_size
+    integer :: verbose_ = 0
 
 
-   !!--------------------------------------------------------------------------
-   !! allocate arrays
-   !!--------------------------------------------------------------------------
-   if(allocated(this%input_shape))then
-      if(allocated(this%output)) deallocate(this%output)
-      allocate(this%output( &
-           this%output_shape(1), &
-           this%num_filters, &
-           this%batch_size), source=0._real32)
-      if(allocated(this%z)) deallocate(this%z)
-      allocate(this%z, source=this%output)
-      if(allocated(this%di)) deallocate(this%di)
-      allocate(this%di( &
-           this%input_shape(1), &
-           this%input_shape(2), &
-           this%batch_size), source=0._real32)
-      if(allocated(this%dw)) deallocate(this%dw)
-      allocate(this%dw( &
-           lbound(this%weight,1):ubound(this%weight,1), &
-           this%num_channels, this%num_filters, &
-           this%batch_size), source=0._real32)
-      if(allocated(this%db)) deallocate(this%db)
-      allocate(this%db(this%num_filters, this%batch_size), source=0._real32)
-   end if
+    !---------------------------------------------------------------------------
+    ! Initialise optional arguments
+    !---------------------------------------------------------------------------
+    if(present(verbose)) verbose_ = verbose
+    this%batch_size = batch_size
 
- end subroutine set_batch_size_cfconv1d
+
+    !---------------------------------------------------------------------------
+    ! Allocate arrays
+    !---------------------------------------------------------------------------
+    if(allocated(this%input_shape))then
+       if(allocated(this%output)) deallocate(this%output)
+       allocate(this%output( &
+            this%output_shape(1), &
+            this%num_filters, &
+            this%batch_size), source=0._real32)
+       if(allocated(this%z)) deallocate(this%z)
+       allocate(this%z, source=this%output)
+       if(allocated(this%di)) deallocate(this%di)
+       allocate(this%di( &
+            this%input_shape(1), &
+            this%input_shape(2), &
+            this%batch_size), source=0._real32)
+       if(allocated(this%dw)) deallocate(this%dw)
+       allocate(this%dw( &
+            lbound(this%weight,1):ubound(this%weight,1), &
+            this%num_channels, this%num_filters, &
+            this%batch_size), source=0._real32)
+       if(allocated(this%db)) deallocate(this%db)
+       allocate(this%db(this%num_filters, this%batch_size), source=0._real32)
+    end if
+
+  end subroutine set_batch_size_cfconv1d
 !!!#############################################################################
 
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
 !!!#############################################################################
@@ -533,7 +531,7 @@ contains
     !!--------------------------------------------------------------------------
     open(newunit=unit, file=trim(file), access='append')
 
-    !! write convolution initial parameters
+    !! Write initial parameters
     !!--------------------------------------------------------------------------
     write(unit,'("CFCONV1D")')
     write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
@@ -545,7 +543,7 @@ contains
     write(unit,'(3X,"ACTIVATION = ",A)') trim(this%transfer%name)
     write(unit,'(3X,"ACTIVATION_SCALE = ",F0.9)') this%transfer%scale
 
-    !! write convolution weights and biases
+    !! Write weights and biases
     !!--------------------------------------------------------------------------
     write(unit,'("WEIGHTS")')
     do l=1,this%num_filters
@@ -686,7 +684,7 @@ contains
     if(.not.found_weights)then
        write(0,*) "WARNING: WEIGHTS card in CFCONV1D not found"
     else
-      do l=1,num_filters
+       do l=1,num_filters
           num_inputs = product(layer%knl) + 1 !+1 for bias
           allocate(data_list(num_inputs), source=0._real32)
           c = 1
@@ -699,9 +697,9 @@ contains
              c = c + k
           end do data_concat_loop
           layer%weight(:,:,l) = &
-                reshape(&
-                data_list(1:num_inputs-1),&
-                shape(layer%weight(:,:,l)))
+               reshape(&
+                    data_list(1:num_inputs-1),&
+                    shape(layer%weight(:,:,l)))
           layer%bias(l) = data_list(num_inputs)
           deallocate(data_list)
        end do
@@ -732,9 +730,9 @@ contains
 !!!#############################################################################
 
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
 !!!#############################################################################
@@ -745,8 +743,8 @@ contains
     class(cfconv1d_layer_type), intent(inout) :: this
     real(real32), &
          dimension( &
-         -this%pad(1)+1:this%input_shape(1)+this%pad(1), &
-         this%num_channels,this%batch_size), &
+              -this%pad(1)+1:this%input_shape(1)+this%pad(1), &
+              this%num_channels,this%batch_size), &
          intent(in) :: input
 
     integer :: i, j, s
@@ -773,11 +771,11 @@ contains
           end do
        end do
     end do
-    
+
 
     !! apply activation function to activation values (z)
     !!--------------------------------------------------------------------------
-    this%output = this%transfer%activate(this%z) 
+    this%output = this%transfer%activate(this%z)
 
   end subroutine forward_3d
 !!!#############################################################################
@@ -792,13 +790,13 @@ contains
     class(cfconv1d_layer_type), intent(inout) :: this
     real(real32), &
          dimension( &
-         -this%pad(1)+1:this%input_shape(1)+this%pad(1), &
-         this%num_channels,this%batch_size), &
+              -this%pad(1)+1:this%input_shape(1)+this%pad(1), &
+              this%num_channels,this%batch_size), &
          intent(in) :: input
     real(real32), &
          dimension( &
-         this%output_shape(1), &
-         this%num_filters,this%batch_size), &
+              this%output_shape(1), &
+              this%num_filters,this%batch_size), &
          intent(in) :: gradient
 
     integer :: l, m, i, x, s
@@ -806,8 +804,8 @@ contains
     integer, dimension(2) :: lim, lim_w, lim_g
     real(real32), &
          dimension( &
-         this%output_shape(1),this%num_filters, &
-         this%batch_size) :: grad_dz
+              this%output_shape(1),this%num_filters, &
+              this%batch_size) :: grad_dz
 
 
     real(real32), dimension(1) :: bias_diff
@@ -835,14 +833,14 @@ contains
     !!--------------------------------------------------------------------------
     do concurrent( &
          s=1:this%batch_size, &
-         l=1:this%num_filters, &
-         m=1:this%num_channels, &
-         x=-this%hlf(1):end_idx:1 &
-         )
+      l=1:this%num_filters, &
+      m=1:this%num_channels, &
+      x=-this%hlf(1):end_idx:1 &
+ )
        this%dw(x,m,l,s) = this%dw(x,m,l,s) + &
             sum(grad_dz(:,l,s) * &
-            input( &
-            x+offset:x+offset-1+size(input,1)-adjust:this%stp(1),m,s))
+                 input( &
+                      x+offset:x+offset-1+size(input,1)-adjust:this%stp(1),m,s))
     end do
 
 
@@ -856,10 +854,10 @@ contains
        !! all elements of the output are separated by stride_x (stride_y)
        do concurrent( &
             s=1:this%batch_size, &
-            l=1:this%num_filters, &
-            m=1:this%num_channels, &
-            i=1:size(this%di,dim=1):1 &
-            )
+         l=1:this%num_filters, &
+         m=1:this%num_channels, &
+         i=1:size(this%di,dim=1):1 &
+    )
 
           !! set weight bounds
           stp_idx = ( i - offset )/this%stp(1) + 1
@@ -884,10 +882,10 @@ contains
           this%di(i,m,s) = &
                this%di(i,m,s) + &
                sum( &
-               grad_dz( &
-               lim_g(1):lim_g(2),l,s) * &
-               this%weight(&
-               lim_w(1):lim_w(2):-this%stp(1),m,l) )
+                    grad_dz( &
+                         lim_g(1):lim_g(2),l,s) * &
+                    this%weight(&
+                         lim_w(1):lim_w(2):-this%stp(1),m,l) )
 
        end do
     end if

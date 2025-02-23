@@ -1,43 +1,53 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ATHENA library - a feedforward neural network library
-!!!#############################################################################
-!!! module contains implementation of a 2D convolutional layer
-!!!#############################################################################
 module athena__conv2d_layer
+  !! Module containing implementation of a 2D convolutional layer
   use athena__io_utils, only: stop_program
   use athena__constants, only: real32
   use athena__base_layer, only: conv_layer_type, base_layer_type
   use athena__pad2d_layer, only: pad2d_layer_type
   use athena__misc_types, only: initialiser_type, array4d_type
   implicit none
-  
-  
+
+
+  private
+
+  public :: conv2d_layer_type
+  public :: read_conv2d_layer
+
+
   type, extends(conv_layer_type) :: conv2d_layer_type
+     !! Type for 2D convolutional layer with overloaded procedures
      real(real32), pointer :: weight(:,:,:,:) => null()
+     !! Weights of the convolutional layer
      real(real32), pointer :: dw(:,:,:,:,:) => null()
+     !! Pointer to weight gradients
      real(real32), allocatable, dimension(:,:,:,:) :: z
+     !! Activation values
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_conv2d
+     !! Set hyperparameters for 2D convolutional layer
      procedure, pass(this), private :: &
           set_ptrs_hyperparams => set_ptrs_hyperparams_conv2d
+     !! Set pointers to hyperparameters
      procedure, pass(this) :: set_batch_size => set_batch_size_conv2d
+     !! Set batch size for 2D convolutional layer
      procedure, pass(this) :: print => print_conv2d
+     !! Print 2D convolutional layer to file
      procedure, pass(this) :: read => read_conv2d
-
+     !! Read 2D convolutional layer from file
      procedure, pass(this) :: forward  => forward_rank
+     !! Forward propagation handler for 2D convolutional layer
      procedure, pass(this) :: backward => backward_rank
+     !! Backward propagation handler for 2D convolutional layer
      procedure, private, pass(this) :: forward_4d
+     !! Forward propagation for 4D input
      procedure, private, pass(this) :: backward_4d
-
+     !! Backward propagation for 4D input
      final :: finalise_conv2d
+     !! Finalise 2D convolutional layer
   end type conv2d_layer_type
 
-  
-!!!-----------------------------------------------------------------------------
-!!! interface for layer set up
-!!!-----------------------------------------------------------------------------
   interface conv2d_layer_type
+     !! Interface for setting up the 2D convolutional layer
      module function layer_setup( &
           input_shape, batch_size, &
           num_filters, kernel_size, stride, padding, &
@@ -45,34 +55,45 @@ module athena__conv2d_layer
           kernel_initialiser, bias_initialiser, &
           calc_input_gradients, &
           verbose ) result(layer)
+       !! Set up the 2D convolutional layer
        integer, dimension(:), optional, intent(in) :: input_shape
+       !! Input shape
        integer, optional, intent(in) :: batch_size
+       !! Batch size
        integer, optional, intent(in) :: num_filters
+       !! Number of filters
        integer, dimension(..), optional, intent(in) :: kernel_size
+       !! Kernel size
        integer, dimension(..), optional, intent(in) :: stride
+       !! Stride
        real(real32), optional, intent(in) :: activation_scale
+       !! Activation scale
        character(*), optional, intent(in) :: activation_function, &
             kernel_initialiser, bias_initialiser, padding
+       !! Activation function, kernel initialiser, bias initialiser, padding
        logical, optional, intent(in) :: calc_input_gradients
+       !! Calculate input gradients
        integer, optional, intent(in) :: verbose
+       !! Verbosity level
        type(conv2d_layer_type) :: layer
+       !! Instance of the 2D convolutional layer
      end function layer_setup
   end interface conv2d_layer_type
 
 
-  private
-  public :: conv2d_layer_type
-  public :: read_conv2d_layer
-
 
 contains
 
-!!!#############################################################################
+!###############################################################################
 !!! finalise layer
-!!!#############################################################################
+!###############################################################################
   subroutine finalise_conv2d(this)
+    !! Finalise 2D convolutional layer
     implicit none
+
+    ! Arguments
     type(conv2d_layer_type), intent(inout) :: this
+    !! Instance of the 2D convolutional layer
 
     if(allocated(this%knl)) deallocate(this%knl)
     if(allocated(this%stp)) deallocate(this%stp)
@@ -92,21 +113,26 @@ contains
     if(allocated(this%pad_layer)) deallocate(this%pad_layer)
 
   end subroutine finalise_conv2d
-!!!#############################################################################
+!###############################################################################
 
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
-!!!#############################################################################
+!###############################################################################
 !!! forward propagation assumed rank handler
-!!!#############################################################################
+!###############################################################################
   pure subroutine forward_rank(this, input)
+    !! Forward propagation handler for 2D convolutional layer
     implicit none
+
+    ! Arguments
     class(conv2d_layer_type), intent(inout) :: this
+    !! Instance of the 2D convolutional layer
     real(real32), dimension(..), intent(in) :: input
+    !! Input values
 
     select case(allocated(this%pad_layer))
     case(.true.)
@@ -121,17 +147,23 @@ contains
        end select
     end select
   end subroutine forward_rank
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
+!###############################################################################
 !!! backward propagation assumed rank handler
-!!!#############################################################################
+!###############################################################################
   pure subroutine backward_rank(this, input, gradient)
+    !! Backward propagation handler for 2D convolutional layer
     implicit none
+
+    ! Arguments
     class(conv2d_layer_type), intent(inout) :: this
+    !! Instance of the 2D convolutional layer
     real(real32), dimension(..), intent(in) :: input
+    !! Input values
     real(real32), dimension(..), intent(in) :: gradient
+    !! Gradient values
 
     select case(allocated(this%pad_layer))
     case(.true.)
@@ -139,17 +171,29 @@ contains
        rank(2)
           select rank(gradient)
           rank(2)
-             call backward_4d(this, this%pad_layer%output%val, gradient, this%di_padded%val)
+             call backward_4d( &
+                  this, this%pad_layer%output%val, gradient, &
+                  this%di_padded%val &
+             )
           end select
           call this%pad_layer%backward(input, this%di_padded%val)
        rank(4)
           select rank(gradient)
           rank(1)
-             call backward_4d(this, this%pad_layer%output%val, gradient, this%di_padded%val)
+             call backward_4d( &
+                  this, this%pad_layer%output%val, gradient, &
+                  this%di_padded%val &
+             )
           rank(2)
-             call backward_4d(this, this%pad_layer%output%val, gradient, this%di_padded%val)
+             call backward_4d( &
+                  this, this%pad_layer%output%val, gradient, &
+                  this%di_padded%val &
+             )
           rank(4)
-             call backward_4d(this, this%pad_layer%output%val, gradient, this%di_padded%val)
+             call backward_4d( &
+                  this, this%pad_layer%output%val, gradient, &
+                  this%di_padded%val &
+             )
           end select
           call this%pad_layer%backward(input, this%di_padded%val)
        end select
@@ -174,17 +218,15 @@ contains
     end select
 
   end subroutine backward_rank
-!!!#############################################################################
+!###############################################################################
 
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
-!!!#############################################################################
-!!! set up layer
-!!!#############################################################################
+!###############################################################################
   module function layer_setup( &
        input_shape, batch_size, &
        num_filters, kernel_size, stride, padding, &
@@ -192,33 +234,51 @@ contains
        kernel_initialiser, bias_initialiser, &
        calc_input_gradients, &
        verbose ) result(layer)
-    !! add in dilation
+    !! Set up the 2D convolutional layer
     implicit none
+
+    ! Arguments
     integer, dimension(:), optional, intent(in) :: input_shape
+    !! Input shape
     integer, optional, intent(in) :: batch_size
+    !! Batch size
     integer, optional, intent(in) :: num_filters
+    !! Number of filters
     integer, dimension(..), optional, intent(in) :: kernel_size
+    !! Kernel size
     integer, dimension(..), optional, intent(in) :: stride
+    !! Stride
     real(real32), optional, intent(in) :: activation_scale
+    !! Activation scale
     character(*), optional, intent(in) :: activation_function, &
          kernel_initialiser, bias_initialiser, padding
+    !! Activation function, kernel initialiser, bias initialiser, padding
     logical, optional, intent(in) :: calc_input_gradients
+    !! Calculate input gradients
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
     type(conv2d_layer_type) :: layer
+    !! Instance of the 2D convolutional layer
 
-    integer :: i, verbose_ = 0
+    ! Local variables
+    integer :: verbose_ = 0
+    !! Verbosity level
     real(real32) :: scale
+    !! Activation scale
     character(len=10) :: activation_function_
+    !! Activation function
     character(len=20) :: padding_
+    !! Padding
     integer, dimension(2) :: kernel_size_, stride_
-
+    !! Kernel size and stride
 
     if(present(verbose)) verbose_ = verbose
 
-    !!--------------------------------------------------------------------------
-    !! determine whether to calculate input gradients
-    !!--------------------------------------------------------------------------
+
+    !---------------------------------------------------------------------------
+    ! Determine whether to calculate input gradients
+    !---------------------------------------------------------------------------
     if(present(calc_input_gradients))then
        layer%calc_input_gradients = calc_input_gradients
        write(*,*) "CONV2D input gradients turned off"
@@ -227,19 +287,19 @@ contains
     end if
 
 
-    !!--------------------------------------------------------------------------
-    !! set up number of filters
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Set up number of filters
+    !---------------------------------------------------------------------------
     if(present(num_filters))then
        layer%num_filters = num_filters
     else
        layer%num_filters = 32
     end if
-    
-    
-    !!--------------------------------------------------------------------------
-    !! set up kernel size
-    !!--------------------------------------------------------------------------
+
+
+    !---------------------------------------------------------------------------
+    ! Set up kernel size
+    !---------------------------------------------------------------------------
     if(present(kernel_size))then
        select rank(kernel_size)
        rank(0)
@@ -257,9 +317,9 @@ contains
     end if
 
 
-    !!--------------------------------------------------------------------------
-    !! set up padding name
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Set up padding name
+    !---------------------------------------------------------------------------
     if(present(padding))then
        padding_ = padding
     else
@@ -267,9 +327,9 @@ contains
     end if
 
 
-    !!--------------------------------------------------------------------------
-    !! set up stride
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Set up stride
+    !---------------------------------------------------------------------------
     if(present(stride))then
        select rank(stride)
        rank(0)
@@ -285,11 +345,11 @@ contains
     else
        stride_ = 1
     end if
-    
 
-    !!--------------------------------------------------------------------------
-    !! set activation and derivative functions based on input name
-    !!--------------------------------------------------------------------------
+
+    !---------------------------------------------------------------------------
+    ! Set activation and derivative functions based on input name
+    !---------------------------------------------------------------------------
     if(present(activation_function))then
        activation_function_ = activation_function
     else
@@ -302,16 +362,16 @@ contains
     end if
 
 
-    !!--------------------------------------------------------------------------
-    !! define weights (kernels) and biases initialisers
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Define weights (kernels) and biases initialisers
+    !---------------------------------------------------------------------------
     if(present(kernel_initialiser)) layer%kernel_initialiser =kernel_initialiser
     if(present(bias_initialiser)) layer%bias_initialiser = bias_initialiser
 
 
-    !!--------------------------------------------------------------------------
-    !! set hyperparameters
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Set hyperparameters
+    !---------------------------------------------------------------------------
     call layer%set_hyperparams( &
          num_filters = layer%num_filters, &
          kernel_size = kernel_size_, stride = stride_, &
@@ -323,24 +383,23 @@ contains
          verbose = verbose_ &
     )
 
-    !!--------------------------------------------------------------------------
-    !! initialise batch size
-    !!--------------------------------------------------------------------------
+
+    !---------------------------------------------------------------------------
+    ! Initialise batch size
+    !---------------------------------------------------------------------------
     if(present(batch_size)) layer%batch_size = batch_size
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise layer shape
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Initialise layer shape
+    !---------------------------------------------------------------------------
     if(present(input_shape)) call layer%init(input_shape=input_shape)
 
   end function layer_setup
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! set hyperparameters
-!!!#############################################################################
+!###############################################################################
   subroutine set_hyperparams_conv2d( &
        this, &
        num_filters, &
@@ -352,20 +411,30 @@ contains
        bias_initialiser, &
        verbose &
   )
+    !! Set hyperparameters for 2D convolutional layer
     use athena__activation,  only: activation_setup
     use athena__initialiser, only: get_default_initialiser
     use athena__misc, only: to_lower
     implicit none
-    class(conv2d_layer_type), intent(inout) :: this
-    integer, intent(in) :: num_filters
-    integer, dimension(2), intent(in) :: kernel_size, stride
-    character(*), intent(in) :: padding
-    character(*), intent(in) :: activation_function
-    real(real32), intent(in) :: activation_scale
-    character(*), intent(in) :: kernel_initialiser, bias_initialiser
-    integer, optional, intent(in) :: verbose
 
-    integer :: i
+    ! Arguments
+    class(conv2d_layer_type), intent(inout) :: this
+    !! Instance of the 2D convolutional layer
+    integer, intent(in) :: num_filters
+    !! Number of filters
+    integer, dimension(2), intent(in) :: kernel_size, stride
+    !! Kernel size and stride
+    character(*), intent(in) :: padding
+    !! Padding
+    character(*), intent(in) :: activation_function
+    !! Activation function
+    real(real32), intent(in) :: activation_scale
+    !! Activation scale
+    character(*), intent(in) :: kernel_initialiser, bias_initialiser
+    !! Kernel and bias initialisers
+    integer, optional, intent(in) :: verbose
+    !! Verbosity level
+
     character(len=20) :: padding_
 
     this%name = "conv2d"
@@ -416,70 +485,77 @@ contains
     end if
 
   end subroutine set_hyperparams_conv2d
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! set the pointers to hyperparameters
-!!!#############################################################################
+!###############################################################################
   subroutine set_ptrs_hyperparams_conv2d(this)
-   implicit none
-   class(conv2d_layer_type), intent(inout), target :: this
-
-
-   if(allocated(this%params))then
-      this%weight( &
-           1:this%knl(1), &
-           1:this%knl(2), &
-           1:this%num_channels, &
-           1:this%num_filters &
-      ) => this%params(1:this%num_params-this%num_filters)
-      this%bias(1:this%num_filters) => &
-           this%params(this%num_params-this%num_filters+1:)
-   end if
-   if(allocated(this%dp))then
-      this%dw( &
-           1:this%knl(1), &
-           1:this%knl(2), &
-           1:this%num_channels, &
-           1:this%num_filters, &
-           1:this%batch_size &
-      ) => this%dp(:,:)
-   end if
-
- end subroutine set_ptrs_hyperparams_conv2d
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! set batch size
-!!!#############################################################################
-  subroutine set_batch_size_conv2d(this, batch_size, verbose)
+    !! Set pointers to hyperparameters for 2D convolutional layer
     implicit none
+
+    ! Arguments
     class(conv2d_layer_type), intent(inout), target :: this
+    !! Instance of the 2D convolutional layer
+
+    if(allocated(this%params))then
+       this%weight( &
+            1:this%knl(1), &
+            1:this%knl(2), &
+            1:this%num_channels, &
+            1:this%num_filters &
+       ) => this%params(1:this%num_params-this%num_filters)
+       this%bias(1:this%num_filters) => &
+            this%params(this%num_params-this%num_filters+1:)
+    end if
+    if(allocated(this%dp))then
+       this%dw( &
+            1:this%knl(1), &
+            1:this%knl(2), &
+            1:this%num_channels, &
+            1:this%num_filters, &
+            1:this%batch_size &
+       ) => this%dp(:,:)
+    end if
+
+  end subroutine set_ptrs_hyperparams_conv2d
+!###############################################################################
+
+
+!###############################################################################
+  subroutine set_batch_size_conv2d(this, batch_size, verbose)
+    !! Set batch size for 2D convolutional layer
+    implicit none
+
+    ! Arguments
+    class(conv2d_layer_type), intent(inout), target :: this
+    !! Instance of the 2D convolutional layer
     integer, intent(in) :: batch_size
+    !! Batch size
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     integer :: verbose_ = 0
+    !! Verbosity level
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise optional arguments
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Initialise optional arguments
+    !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
     this%batch_size = batch_size
 
 
-    !!--------------------------------------------------------------------------
-    !! set batch size of padding layer, if allocated
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Set batch size of padding layer, if allocated
+    !---------------------------------------------------------------------------
     if(allocated(this%pad_layer)) &
          call this%pad_layer%set_batch_size(this%batch_size, verbose=verbose_)
 
 
-    !!--------------------------------------------------------------------------
-    !! set weights and biases pointers to params array
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Set weights and biases pointers to params array
+    !---------------------------------------------------------------------------
     this%weight( &
          1:this%knl(1), &
          1:this%knl(2), &
@@ -490,9 +566,9 @@ contains
          this%params(this%num_params-this%num_filters+1:)
 
 
-    !!--------------------------------------------------------------------------
-    !! allocate arrays
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Allocate arrays
+    !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
        if(.not.allocated(this%output)) this%output = array4d_type()
        if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
@@ -547,17 +623,15 @@ contains
     end if
 
   end subroutine set_batch_size_conv2d
-!!!#############################################################################
+!###############################################################################
 
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
-!!!#############################################################################
-!!! print layer to file
-!!!#############################################################################
+!###############################################################################
   subroutine print_conv2d(this, file)
     implicit none
     class(conv2d_layer_type), intent(in) :: this
@@ -568,8 +642,8 @@ contains
     character(:), allocatable :: padding_type
 
 
-    !! handle different width kernels for x, y, z
-    !!--------------------------------------------------------------------------
+    ! Handle different width kernels for x, y, z
+    !---------------------------------------------------------------------------
     itmp1 = -1
     do i=1,2
        if(this%pad(i).gt.itmp1)then
@@ -578,8 +652,9 @@ contains
        end if
     end do
 
-    !! determine padding method
-    !!--------------------------------------------------------------------------
+
+    ! Determine padding method
+    !---------------------------------------------------------------------------
     padding_type = ""
     if(this%pad(idx).eq.this%knl(idx)-1)then
        padding_type = "full"
@@ -589,12 +664,14 @@ contains
        padding_type = "same"
     end if
 
-    !! open file with new unit
-    !!--------------------------------------------------------------------------
+
+    ! Open file with new unit
+    !---------------------------------------------------------------------------
     open(newunit=unit, file=trim(file), access='append')
 
-    !! write convolution initial parameters
-    !!--------------------------------------------------------------------------
+
+    ! Write initial parameters
+    !---------------------------------------------------------------------------
     write(unit,'("CONV2D")')
     write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
     write(unit,'(3X,"NUM_FILTERS = ",I0)') this%num_filters
@@ -613,8 +690,9 @@ contains
     write(unit,'(3X,"ACTIVATION = ",A)') trim(this%transfer%name)
     write(unit,'(3X,"ACTIVATION_SCALE = ",F0.9)') this%transfer%scale
 
-    !! write convolution weights and biases
-    !!--------------------------------------------------------------------------
+
+    ! Write weights and biases
+    !---------------------------------------------------------------------------
     write(unit,'("WEIGHTS")')
     do l=1,this%num_filters
        write(unit,'(5(E16.8E2))', advance="no") this%weight(:,:,:,l)
@@ -624,52 +702,68 @@ contains
     write(unit,'("END WEIGHTS")')
     write(unit,'("END CONV2D")')
 
-    !! close unit
-    !!--------------------------------------------------------------------------
+
+    ! Close unit
+    !---------------------------------------------------------------------------
     close(unit)
 
   end subroutine print_conv2d
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! read layer from file
-!!!#############################################################################
+!###############################################################################
   subroutine read_conv2d(this, unit, verbose)
+    !! Read 2D convolutional layer from file
     use athena__tools_infile, only: assign_val, assign_vec
     use athena__misc, only: to_lower, to_upper, icount
     implicit none
+
+    ! Arguments
     class(conv2d_layer_type), intent(inout) :: this
+    !! Instance of the 2D convolutional layer
     integer, intent(in) :: unit
+    !! Unit number
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
-    integer :: stat, verbose_ = 0
+    ! Local variables
+    integer :: stat
+    !! Status of read
+    integer :: verbose_ = 0
+    !! Verbosity level
     integer :: j, k, l, c, itmp1
+    !! Loop indices
     integer :: num_filters, num_inputs
+    !! Number of filters and inputs
     real(real32) :: activation_scale
+    !! Activation scale
     logical :: found_weights = .false.
+    !! Boolean whether weights card was found
     character(14) :: kernel_initialiser='', bias_initialiser=''
+    !! Kernel and bias initialisers
     character(20) :: padding, activation_function
+    !! Padding and activation function
     character(256) :: buffer, tag, err_msg
-
+    !! Buffer for reading lines
     integer, dimension(2) :: kernel_size, stride
+    !! Kernel size and stride
     integer, dimension(3) :: input_shape
+    !! Input shape
     real(real32), allocatable, dimension(:) :: data_list
+    !! List of data values
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise optional arguments
-    !!--------------------------------------------------------------------------
+    ! Initialise optional arguments
+    !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
 
 
-    !!--------------------------------------------------------------------------
-    !! loop over tags in layer card
-    !!--------------------------------------------------------------------------
+    ! Loop over tags in layer card
+    !---------------------------------------------------------------------------
     tag_loop: do
 
-       !! check for end of file
-       !!-----------------------------------------------------------------------
+       ! Check for end of file
+       !------------------------------------------------------------------------
        read(unit,'(A)',iostat=stat) buffer
        if(stat.ne.0)then
           write(err_msg,'("file encountered error (EoF?) before END ",A)') &
@@ -679,9 +773,9 @@ contains
        end if
        if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
-       !! check for end of layer card
-       !!-----------------------------------------------------------------------
-       if(trim(adjustl(buffer)).eq."END CONV2D")then
+       ! Check for end of layer card
+       !------------------------------------------------------------------------
+       if(trim(adjustl(buffer)).eq."END "//to_upper(trim(this%name)))then
           backspace(unit)
           exit tag_loop
        end if
@@ -689,9 +783,9 @@ contains
        tag=trim(adjustl(buffer))
        if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
 
-       !! read parameters from save file
-       !!-----------------------------------------------------------------------
+       ! Read parameters from save file
        select case(trim(tag))
+       !------------------------------------------------------------------------
        case("INPUT_SHAPE")
           call assign_vec(buffer, input_shape, itmp1)
        case("NUM_FILTERS")
@@ -717,8 +811,8 @@ contains
           bias_initialiser   = 'zeros'
           exit tag_loop
        case default
-          !! don't look for "e" due to scientific notation of numbers
-          !! ... i.e. exponent (E+00)
+          ! Don't look for "e" due to scientific notation of numbers
+          ! ... i.e. exponent (E+00)
           if(scan(to_lower(trim(adjustl(buffer))),&
                'abcdfghijklmnopqrstuvwxyz').eq.0)then
              cycle tag_loop
@@ -733,9 +827,8 @@ contains
     end do tag_loop
 
 
-    !!--------------------------------------------------------------------------
-    !! allocate layer
-    !!--------------------------------------------------------------------------
+    ! Set hyperparameters and initialise layer
+    !---------------------------------------------------------------------------
     call this%set_hyperparams( &
          num_filters = num_filters, &
          kernel_size = kernel_size, stride = stride, &
@@ -749,9 +842,8 @@ contains
     call this%init(input_shape = input_shape)
 
 
-    !!--------------------------------------------------------------------------
-    !! check if WEIGHTS card was found
-    !!--------------------------------------------------------------------------
+    ! Check if WEIGHTS card was found
+    !---------------------------------------------------------------------------
     if(.not.found_weights)then
        write(0,*) "WARNING: WEIGHTS card in CONV2D not found"
     else
@@ -775,8 +867,8 @@ contains
           deallocate(data_list)
        end do
 
-       !! check for end of weights card
-       !!-----------------------------------------------------------------------
+       ! Check for end of weights card
+       !------------------------------------------------------------------------
        read(unit,'(A)') buffer
        if(trim(adjustl(buffer)).ne."END WEIGHTS")then
           write(0,*) trim(adjustl(buffer))
@@ -786,11 +878,10 @@ contains
     end if
 
 
-    !!--------------------------------------------------------------------------
-    !! check for end of layer card
-    !!--------------------------------------------------------------------------
+    ! Check for end of layer card
+    !---------------------------------------------------------------------------
     read(unit,'(A)') buffer
-    if(trim(adjustl(buffer)).ne."END CONV2D")then
+    if(trim(adjustl(buffer)).ne."END "//to_upper(trim(this%name)))then
        write(0,*) trim(adjustl(buffer))
        write(err_msg,'("END ",A," not where expected")') to_upper(this%name)
        call stop_program(err_msg)
@@ -798,53 +889,64 @@ contains
     end if
 
   end subroutine read_conv2d
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! read layer from file and return layer
-!!!#############################################################################
+!###############################################################################
   function read_conv2d_layer(unit, verbose) result(layer)
+    !! Read 2D convolutional layer from file and return layer
     implicit none
+
+    ! Arguments
     integer, intent(in) :: unit
+    !! Unit number
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
     class(base_layer_type), allocatable :: layer
+    !! Instance of the 2D convolutional layer
 
+    ! Local variables
     integer :: verbose_ = 0
-
+    !! Verbosity level
 
     if(present(verbose)) verbose_ = verbose
     allocate(layer, source=conv2d_layer_type())
     call layer%read(unit, verbose=verbose_)
 
   end function read_conv2d_layer
-!!!#############################################################################
+!###############################################################################
 
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
-!!!#############################################################################
-!!! forward propagation
-!!!#############################################################################
+!###############################################################################
   pure subroutine forward_4d(this, input)
+    !! Forward propagation for 4D input
     implicit none
+
+    ! Arguments
     class(conv2d_layer_type), intent(inout) :: this
+    !! Instance of the 2D convolutional layer
     real(real32), &
          dimension( &
          1:this%input_shape(1) + 2 * this%pad(1), &
          1:this%input_shape(2) + 2 * this%pad(2), &
          this%num_channels,this%batch_size), &
          intent(in) :: input
+    !! Input values
 
+    ! Local variables
     integer :: i, j, l, s
+    !! Loop indices
     integer, dimension(2) :: start_idx, end_idx
+    !! Start and end indices for convolution
 
 
-    !! perform the convolution operation
-    !!--------------------------------------------------------------------------
+    ! Perform the convolution operation
+    !---------------------------------------------------------------------------
     do concurrent( &
          i=1:this%output%shape(1):1, &
          j=1:this%output%shape(2):1)
@@ -870,61 +972,73 @@ contains
                )
        end do
     end do
-    
 
-    !! apply activation function to activation values (z)
-    !!--------------------------------------------------------------------------
+
+    ! Apply activation function to activation values (z)
+    !---------------------------------------------------------------------------
     select type(output => this%output)
     type is (array4d_type)
        output%val_ptr = this%transfer%activate(this%z)
     end select
 
   end subroutine forward_4d
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! backward propagation
-!!! method : gradient descent
-!!!#############################################################################
+!###############################################################################
   pure subroutine backward_4d(this, input, gradient, di)
+    !! Backward propagation for 4D input
     implicit none
+
+    ! Arguments
     class(conv2d_layer_type), intent(inout) :: this
+    !! Instance of the 2D convolutional layer
     real(real32), &
          dimension( &
          1:this%input_shape(1) + 2 * this%pad(1), &
          1:this%input_shape(2) + 2 * this%pad(2), &
          this%num_channels,this%batch_size), &
          intent(in) :: input
+    !! Input values
     real(real32), &
          dimension( &
          this%output%shape(1), &
          this%output%shape(2), &
          this%num_filters,this%batch_size), &
          intent(in) :: gradient
+    !! Gradient values
     real(real32), &
          dimension( &
          1:this%input_shape(1) + 2 * this%pad(1), &
          1:this%input_shape(2) + 2 * this%pad(2), &
          this%num_channels,this%batch_size), &
          intent(inout) :: di
+    !! Input gradients
 
-    integer :: l, m, i, j, x, y, s, y_index
+    ! Local variables
+    integer :: l, m, i, j, x, y, s
+    !! Loop indices
     integer, dimension(2) :: offset, n_stp
+    !! Offset and number of steps
     integer, dimension(2,2) :: lim, lim_w, lim_g
+    !! Limits for weights and gradients
     real(real32), &
          dimension( &
          this%output%shape(1),&
          this%output%shape(2),this%num_filters, &
          this%batch_size) :: grad_dz
+    !! Gradient multiplied by differential of Z (aka delta values)
 
-
+    ! Local variables
     real(real32), dimension(1) :: bias_diff
+    !! Differential of bias
+
+
     bias_diff = this%transfer%differentiate([1._real32])
 
 
-    !! get gradient multiplied by differential of Z
-    !!--------------------------------------------------------------------------
+    ! Get gradient multiplied by differential of Z
+    !---------------------------------------------------------------------------
     grad_dz = gradient * &
          this%transfer%differentiate(this%z)
     do concurrent( &
@@ -932,10 +1046,11 @@ contains
        this%db(l,s) = this%db(l,s) + sum(grad_dz(:,:,l,s)) * bias_diff(1)
     end do
 
-    !! apply convolution to compute weight gradients
-    !! offset applied as centre of kernel is 0 ...
-    !! ... whilst the starting index for input is 1
-    !!--------------------------------------------------------------------------
+
+    ! Apply convolution to compute weight gradients
+    ! Offset applied as centre of kernel is 0 ...
+    ! ... whilst the starting index for input is 1
+    !---------------------------------------------------------------------------
     do concurrent( &
          s = 1 : this%batch_size, &
          l = 1 : this%num_filters, &
@@ -959,15 +1074,15 @@ contains
     end do
 
 
-    !! apply strided convolution to obtain input gradients
-    !!--------------------------------------------------------------------------
+    ! Apply strided convolution to obtain input gradients
+    !---------------------------------------------------------------------------
     if(this%calc_input_gradients)then
        offset  = 1 + this%hlf + (this%cen - 1)
        lim(1,:) = this%knl + this%hlf
        lim(2,:) = (this%output%shape(:2) - 1) * this%stp + 1 + this%knl
        n_stp = this%output%shape(:2) * this%stp
        di = 0._real32
-       !! all elements of the output are separated by stride_x (stride_y)
+       ! All elements of the output are separated by stride_x, stride_y
        do concurrent( &
             s = 1 : this%batch_size, &
             l = 1 : this%num_filters, &
@@ -976,33 +1091,33 @@ contains
             j = 1 : size(di,dim=2) : 1 &
        )
 
-          !! set weight bounds (o/p = output)
-          !! max( ...
-          !! ... 1. offset of 1st o/p idx from centre of knl     (lim)
-          !! ... 2. lwst o/p idx overlap with <<- knl idx (rpt. pattern)
-          !! ...)
+          ! Set weight bounds (o/p = output)
+          ! max( ...
+          ! ... 1. offset of 1st o/p idx from centre of knl     (lim)
+          ! ... 2. lwst o/p idx overlap with <<- knl idx (rpt. pattern)
+          ! ...)
           lim_w(2,:) = max( &
                lim(1,:)-[i,j], &
                1 + mod(n_stp+this%knl-[i,j],this%stp) &
           )
-          !! min( ...
-          !! ... 1. offset of last o/p idx from centre of knl    (lim)
-          !! ... 2. hghst o/p idx overlap with ->> knl idx (rpt. pattern)
-          !! ...)
+          ! min( ...
+          ! ... 1. offset of last o/p idx from centre of knl    (lim)
+          ! ... 2. hghst o/p idx overlap with ->> knl idx (rpt. pattern)
+          ! ...)
           lim_w(1,:) = min( &
                lim(2,:)-[i,j], &
                this%knl - mod(n_stp-1+[i,j],this%stp) &
           )
           if(any(lim_w(2,:).gt.lim_w(1,:))) cycle
 
-          !! set gradient bounds
+          ! Set gradient bounds
           lim_g(1,:) = max(1, [i,j] - offset)
           lim_g(2,:) = min( &
                this%output%shape(:2), &
                [i,j] - offset + this%knl - 1 &
           )
 
-          !! apply full convolution to compute input gradients
+          ! Apply full convolution to compute input gradients
           di(i,j,m,s) = di(i,j,m,s) + &
                sum( &
                     grad_dz( &
@@ -1019,7 +1134,6 @@ contains
     end if
 
   end subroutine backward_4d
-!!!#############################################################################
+!###############################################################################
 
 end module athena__conv2d_layer
-!!!#############################################################################

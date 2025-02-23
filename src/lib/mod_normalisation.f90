@@ -1,14 +1,5 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ATHENA library - a feedforward neural network library
-!!!#############################################################################
-!!! module contains procedures for normalising input and output data
-!!! module contains the following procedures:
-!!! - linear_renormalise - renormalises input data to a range
-!!! - renormalise_norm   - renormalises input data to a unit norm
-!!! - renormalise_sum    - renormalises input data to a unit sum
-!!!#############################################################################
 module athena__normalisation
+  !! Module containing procedures for normalising input and output data
   use athena__constants, only: real32
   implicit none
 
@@ -18,100 +9,115 @@ module athena__normalisation
   public :: linear_renormalise
   public :: renormalise_norm
   public :: renormalise_sum
-  
+
+
+
 contains
 
-!!!#############################################################################
-!!! 
-!!!#############################################################################
-subroutine linear_renormalise(input, min, max)
-  implicit none
-  real(real32), dimension(:), intent(inout) :: input
-  real(real32), optional, intent(in) :: min, max
+!###############################################################################
+  subroutine linear_renormalise(input, min, max)
+    !! Renormalise input data to a specified range
+    implicit none
 
-  real(real32) :: lower, width
-  real(real32) :: min_val, max_val
+    ! Arguments
+    real(real32), dimension(:), intent(inout) :: input
+    !! Input data to be renormalised
+    real(real32), optional, intent(in) :: min, max
+    !! Minimum and maximum values for renormalisation
 
-  min_val = minval(input)
-  max_val = maxval(input)
+    ! Local variables
+    real(real32) :: lower, width
+    !! Lower bound and width of the range
+    real(real32) :: min_val, max_val
+    !! Minimum and maximum values of the input data
 
-  if(present(min))then
-     lower = min
-  else
-     lower = -1._real32
-  end if
-  if(present(max))then
-     width = max - min
-  else
-     width = 2._real32
-  end if
+    min_val = minval(input)
+    max_val = maxval(input)
 
-  input = lower + width * (input - min_val)/(max_val - min_val)
- 
-end subroutine linear_renormalise
-!!!#############################################################################
+    if(present(min))then
+       lower = min
+    else
+       lower = -1._real32
+    end if
+    if(present(max))then
+       width = max - min
+    else
+       width = 2._real32
+    end if
 
-
-!!!#############################################################################
-!!!
-!!!#############################################################################
-subroutine renormalise_norm(input, norm, mirror)
-  implicit none
-  real(real32), dimension(:), intent(inout) :: input
-  real(real32), optional, intent(in) :: norm
-  logical, optional, intent(in) :: mirror
- 
-  real(real32) :: scale
-
-  if(present(norm))then
-     scale = norm
-  else
-     scale = 1._real32
-  end if
-  
-  if(present(mirror))then
-     if(mirror) call linear_renormalise(input)
-  end if
-  input = input * scale/sqrt(dot_product(input,input))
-
-end subroutine renormalise_norm
-!!!#############################################################################
+    input = lower + width * (input - min_val)/(max_val - min_val)
+  end subroutine linear_renormalise
+!###############################################################################
 
 
-!!!#############################################################################
-!!!
-!!!#############################################################################
-subroutine renormalise_sum(input, norm, mirror, magnitude)
-  implicit none
-  real(real32), dimension(:), intent(inout) :: input
-  real(real32), optional, intent(in) :: norm
-  logical, optional, intent(in) :: mirror, magnitude
+!###############################################################################
+  subroutine renormalise_norm(input, norm, mirror)
+    !! Renormalise input data to a unit norm
+    implicit none
 
-  logical :: magnitude_
-  
-  real(real32) :: scale
+    ! Arguments
+    real(real32), dimension(:), intent(inout) :: input
+    !! Input data to be renormalised
+    real(real32), optional, intent(in) :: norm
+    !! Desired norm value
+    logical, optional, intent(in) :: mirror
+    !! Boolean whether the data should be mirrored
 
-  if(present(norm))then
-     scale = norm
-  else
-     scale = 1._real32
-  end if
+    ! Local variables
+    real(real32) :: scale
+    !! Scaling factor
 
-  if(present(mirror))then
-     if(mirror) call linear_renormalise(input)
-  end if
-  
-  if(present(magnitude)) magnitude_ = magnitude
-  if(present(magnitude))then
-     scale = scale/sum(abs(input))
-  else
-     scale = scale/sum(input)
-  end if
-  input = input * scale
+    if(present(norm))then
+       scale = norm
+    else
+       scale = 1._real32
+    end if
 
-end subroutine renormalise_sum
-!!!#############################################################################
+    if(present(mirror))then
+       if(mirror) call linear_renormalise(input)
+    end if
+    input = input * scale/sqrt(dot_product(input,input))
+  end subroutine renormalise_norm
+!###############################################################################
 
+
+!###############################################################################
+  subroutine renormalise_sum(input, norm, mirror, magnitude)
+    !! Renormalise input data to a unit sum
+    implicit none
+
+    ! Arguments
+    real(real32), dimension(:), intent(inout) :: input
+    !! Input data to be renormalised
+    real(real32), optional, intent(in) :: norm
+    !! Desired sum value
+    logical, optional, intent(in) :: mirror, magnitude
+    !! Booleans whether the data should be mirrored or use magnitude
+
+    ! Local variables
+    logical :: magnitude_
+    !! Flag to indicate if magnitude should be used
+    real(real32) :: scale
+    !! Scaling factor
+
+    if(present(norm))then
+       scale = norm
+    else
+       scale = 1._real32
+    end if
+
+    if(present(mirror))then
+       if(mirror) call linear_renormalise(input)
+    end if
+
+    if(present(magnitude)) magnitude_ = magnitude
+    if(present(magnitude))then
+       scale = scale/sum(abs(input))
+    else
+       scale = scale/sum(input)
+    end if
+    input = input * scale
+  end subroutine renormalise_sum
+!###############################################################################
 
 end module athena__normalisation
-!!!#############################################################################

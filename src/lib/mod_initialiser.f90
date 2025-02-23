@@ -1,16 +1,9 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ATHENA library - a feedforward neural network library
-!!!#############################################################################
-!!! module contains initialiser functions
-!!! module includes the following procedures:
-!!! - initialiser_setup - set up initialiser
-!!! - get_default_initialiser - get default initialiser based on activation ...
-!!!                             ... function
-!!!#############################################################################
-!! Examples of initialsers in keras: https://keras.io/api/layers/initializers/
-!!!#############################################################################
 module athena__initialiser
+  !! Module containing functions to set up initialisers
+  !!
+  !! This module contains functions to set up initialisers for the weights and
+  !! biases of a neural network model
+  !! Examples of initialsers in keras: https://keras.io/api/layers/initializers/
   use athena__io_utils, only: stop_program
   use athena__misc, only: to_lower
   use athena__misc_types, only: initialiser_type
@@ -31,32 +24,32 @@ module athena__initialiser
 
 contains
 
-!!!#############################################################################
-!!! get default initialiser based on activation function (and if a bias)
-!!!#############################################################################
-!!! activation = (S, in) activation function name
-!!! is_bias    = (B, in) if true, then initialiser is for bias
-!!! name       = (S, out) name of default initialiser
+!###############################################################################
   function get_default_initialiser(activation, is_bias) result(name)
+    !! Get the default initialiser based on the activation function
     implicit none
+
+    ! Arguments
     character(*), intent(in) :: activation
+    !! Activation function
     logical, optional, intent(in) :: is_bias
+    !! Boolean whether initialiser is for bias
 
     character(:), allocatable :: name
 
 
-    !!--------------------------------------------------------------------------
-    !! if bias, use default initialiser of zero
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! If bias, use default initialiser of zero
+    !---------------------------------------------------------------------------
     if(present(is_bias))then
        if(is_bias) name = "zeros"
        return
     end if
 
 
-    !!--------------------------------------------------------------------------
-    !! set default initialiser based on activation
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Set default initialiser based on activation
+    !---------------------------------------------------------------------------
     if(trim(activation).eq."selu")then
        name = "lecun_normal"
     elseif(index(activation,"elu").ne.0)then
@@ -68,27 +61,30 @@ contains
     end if
 
   end function get_default_initialiser
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! set up initialiser
-!!!#############################################################################
-!!! name        = (S, in) name of initialiser
-!!! error       = (I, out) error code
-!!! initialiser = (O, out) initialiser function
+!###############################################################################
   function initialiser_setup(name, error) result(initialiser)
+    !! Set up the initialiser function
     implicit none
+
+    ! Arguments
     class(initialiser_type), allocatable :: initialiser
+    !! Initialiser function
     character(*), intent(in) :: name
+    !! Name of initialiser
     integer, optional, intent(out) :: error
+    !! Error code
 
+    ! Local variables
     character(256) :: err_msg
+    !! Error message
 
 
-    !!--------------------------------------------------------------------------
-    !! set initialiser function
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Set initialiser function
+    !---------------------------------------------------------------------------
     select case(trim(to_lower(name)))
     case("glorot_uniform")
        initialiser = glorot_uniform
@@ -125,7 +121,6 @@ contains
     end select
 
   end function initialiser_setup
-!!!#############################################################################
+!###############################################################################
 
 end module athena__initialiser
-!!!#############################################################################

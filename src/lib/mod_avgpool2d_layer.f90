@@ -1,58 +1,74 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ATHENA library - a feedforward neural network library
-!!!#############################################################################
-!!! module contains implementation of a 2D average pooling layer
-!!!#############################################################################
 module athena__avgpool2d_layer
+  !! Module containing implementation of a 2D average pooling layer
   use athena__io_utils, only: stop_program
   use athena__constants, only: real32
   use athena__base_layer, only: pool_layer_type, base_layer_type
   use athena__misc_types, only: array4d_type
   implicit none
-  
-  
-  type, extends(pool_layer_type) :: avgpool2d_layer_type
-   contains
-     procedure, pass(this) :: set_hyperparams => set_hyperparams_avgpool2d
-     procedure, pass(this) :: init => init_avgpool2d
-     procedure, pass(this) :: set_batch_size => set_batch_size_avgpool2d
-     procedure, pass(this) :: read => read_avgpool2d
-     procedure, pass(this) :: forward  => forward_rank
-     procedure, pass(this) :: backward => backward_rank
-     procedure, private, pass(this) :: forward_4d
-     procedure, private, pass(this) :: backward_4d
-  end type avgpool2d_layer_type
-
-  
-  interface avgpool2d_layer_type
-     module function layer_setup( &
-          input_shape, batch_size, &
-          pool_size, stride, verbose ) result(layer)
-       integer, dimension(:), optional, intent(in) :: input_shape
-       integer, optional, intent(in) :: batch_size 
-       integer, dimension(..), optional, intent(in) :: pool_size
-       integer, dimension(..), optional, intent(in) :: stride
-       integer, optional, intent(in) :: verbose
-       type(avgpool2d_layer_type) :: layer
-     end function layer_setup
-  end interface avgpool2d_layer_type
 
 
   private
+
   public :: avgpool2d_layer_type
   public :: read_avgpool2d_layer
 
 
+  type, extends(pool_layer_type) :: avgpool2d_layer_type
+     !! Type for 2D average pooling layer with overloaded procedures
+   contains
+     procedure, pass(this) :: set_hyperparams => set_hyperparams_avgpool2d
+     !! Set hyperparameters for 2D average pooling layer
+     procedure, pass(this) :: init => init_avgpool2d
+     !! Initialise 2D average pooling layer
+     procedure, pass(this) :: set_batch_size => set_batch_size_avgpool2d
+     !! Set batch size for 2D average pooling layer
+     procedure, pass(this) :: read => read_avgpool2d
+     !! Read 2D average pooling layer from file
+     procedure, pass(this) :: forward  => forward_rank
+     !! Forward propagation handler for 2D average pooling layer
+     procedure, pass(this) :: backward => backward_rank
+     !! Backward propagation handler for 2D average pooling layer
+     procedure, private, pass(this) :: forward_4d
+     !! Forward propagation for 4D input
+     procedure, private, pass(this) :: backward_4d
+     !! Backward propagation for 4D input
+  end type avgpool2d_layer_type
+
+  interface avgpool2d_layer_type
+     !! Interface for setting up the 2D average pooling layer
+     module function layer_setup( &
+          input_shape, batch_size, &
+          pool_size, stride, verbose ) result(layer)
+       !! Set up the 2D average pooling layer
+       integer, dimension(:), optional, intent(in) :: input_shape
+       !! Input shape
+       integer, optional, intent(in) :: batch_size
+       !! Batch size
+       integer, dimension(..), optional, intent(in) :: pool_size
+       !! Pool size
+       integer, dimension(..), optional, intent(in) :: stride
+       !! Stride
+       integer, optional, intent(in) :: verbose
+       !! Verbosity level
+       type(avgpool2d_layer_type) :: layer
+       !! Instance of the 2D average pooling layer
+     end function layer_setup
+  end interface avgpool2d_layer_type
+
+
+
 contains
 
-!!!#############################################################################
-!!! forward propagation assumed rank handler
-!!!#############################################################################
+!###############################################################################
   pure subroutine forward_rank(this, input)
+    !! Forward propagation handler for 2D average pooling layer
     implicit none
+
+    ! Arguments
     class(avgpool2d_layer_type), intent(inout) :: this
+    !! Instance of the 2D average pooling layer
     real(real32), dimension(..), intent(in) :: input
+    !! Input values
 
     select rank(input)
     rank(2)
@@ -61,17 +77,21 @@ contains
        call forward_4d(this, input)
     end select
   end subroutine forward_rank
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! backward propagation assumed rank handler
-!!!#############################################################################
+!###############################################################################
   pure subroutine backward_rank(this, input, gradient)
+    !! Backward propagation handler for 2D average pooling layer
     implicit none
+
+    ! Arguments
     class(avgpool2d_layer_type), intent(inout) :: this
+    !! Instance of the 2D average pooling layer
     real(real32), dimension(..), intent(in) :: input
+    !! Input values
     real(real32), dimension(..), intent(in) :: gradient
+    !! Gradient values
 
     select rank(input)
     rank(2)
@@ -86,43 +106,47 @@ contains
        end select
     end select
   end subroutine backward_rank
-!!!#############################################################################
+!###############################################################################
 
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
-!!!#############################################################################
-!!! set up layer
-!!!#############################################################################
-#if defined(GFORTRAN)
+!###############################################################################
   module function layer_setup( &
        input_shape, batch_size, &
        pool_size, stride, verbose) result(layer)
+    !! Set up the 2D average pooling layer
     implicit none
+
+    ! Arguments
     integer, dimension(:), optional, intent(in) :: input_shape
-    integer, optional, intent(in) :: batch_size 
+    !! Input shape
+    integer, optional, intent(in) :: batch_size
+    !! Batch size
     integer, dimension(..), optional, intent(in) :: pool_size
+    !! Pool size
     integer, dimension(..), optional, intent(in) :: stride
+    !! Stride
     integer, optional, intent(in) :: verbose
-    
+    !! Verbosity level
+
     type(avgpool2d_layer_type) :: layer
-#else
-  module procedure layer_setup
-    implicit none
-#endif
+    !! Instance of the 2D average pooling layer
 
+    !! Local variables
     integer :: verbose_ = 0
+    !! Verbosity level
     integer, dimension(2) :: pool_size_, stride_
-
+    !! Pool size and stride
 
     if(present(verbose)) verbose_ = verbose
 
-    !!-----------------------------------------------------------------------
-    !! set up pool size
-    !!-----------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Set up pool size
+    !---------------------------------------------------------------------------
     if(present(pool_size))then
        select rank(pool_size)
        rank(0)
@@ -140,19 +164,19 @@ contains
     end if
 
 
-    !!-----------------------------------------------------------------------
-    !! set up stride
-    !!-----------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Set up stride
+    !---------------------------------------------------------------------------
     if(present(stride))then
        select rank(stride)
        rank(0)
           stride_ = stride
        rank(1)
-          stride_ = stride(1)
+          stride_(1) = stride(1)
           if(size(stride,dim=1).eq.1)then
-             stride_ = stride(1)
+             stride_(2) = stride(1)
           elseif(size(stride,dim=1).eq.2)then
-             stride_ = stride(2)
+             stride_(2) = stride(2)
           end if
        end select
     else
@@ -160,43 +184,43 @@ contains
     end if
 
 
-    !!--------------------------------------------------------------------------
-    !! set hyperparameters
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Set hyperparameters
+    !---------------------------------------------------------------------------
     call layer%set_hyperparams( &
          pool_size=pool_size_, stride=stride_, verbose=verbose_ &
     )
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise batch size
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Initialise batch size
+    !---------------------------------------------------------------------------
     if(present(batch_size)) layer%batch_size = batch_size
 
 
-    !!--------------------------------------------------------------------------
-    !! initialise layer shape
-    !!--------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
+    ! Initialise layer shape
+    !---------------------------------------------------------------------------
     if(present(input_shape)) call layer%init(input_shape=input_shape)
 
-#if defined(GFORTRAN)
   end function layer_setup
-#else
-  end procedure layer_setup
-#endif
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! set hyperparameters
-!!!#############################################################################
+!###############################################################################
   subroutine set_hyperparams_avgpool2d(this, pool_size, stride, verbose)
+    !! Set hyperparameters for 2D average pooling layer
     implicit none
-    class(avgpool2d_layer_type), intent(inout) :: this
-    integer, dimension(2), intent(in) :: pool_size
-    integer, dimension(2), intent(in) :: stride
-    integer, optional, intent(in) :: verbose
 
+    ! Arguments
+    class(avgpool2d_layer_type), intent(inout) :: this
+    !! Instance of the 2D average pooling layer
+    integer, dimension(2), intent(in) :: pool_size
+    !! Pool size
+    integer, dimension(2), intent(in) :: stride
+    !! Stride
+    integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
     this%name = "avgpool2d"
     this%type = "pool"
@@ -209,38 +233,36 @@ contains
     this%strd = stride
 
   end subroutine set_hyperparams_avgpool2d
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! initialise layer
-!!!#############################################################################
+!###############################################################################
   subroutine init_avgpool2d(this, input_shape, batch_size, verbose)
+    !! Initialise 2D average pooling layer
     implicit none
+
+    ! Arguments
     class(avgpool2d_layer_type), intent(inout) :: this
+    !! Instance of the 2D average pooling layer
     integer, dimension(:), intent(in) :: input_shape
+    !! Input shape
     integer, optional, intent(in) :: batch_size
+    !! Batch size
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    !! Local variables
     integer :: verbose_ = 0
+    !! Verbosity level
 
-
-    !!--------------------------------------------------------------------------
-    !! initialise optional arguments
-    !!--------------------------------------------------------------------------
+    ! Initialise optional arguments
     if(present(verbose)) verbose_ = verbose
     if(present(batch_size)) this%batch_size = batch_size
 
-
-    !!--------------------------------------------------------------------------
-    !! initialise input shape
-    !!--------------------------------------------------------------------------
+    ! Initialise input shape
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
 
-
-    !!-----------------------------------------------------------------------
-    !! set up number of channels, width, height
-    !!-----------------------------------------------------------------------
+    ! Set up number of channels, width, height
     this%num_channels = this%input_shape(3)
     if(allocated(this%output))then
        if(this%output%allocated) call this%output%deallocate()
@@ -249,39 +271,36 @@ contains
     this%output%shape(3) = this%input_shape(3)
     this%output%shape(:2) = &
          floor( (this%input_shape(:2) - this%pool)/real(this%strd)) + 1
-    
 
-    !!--------------------------------------------------------------------------
-    !! initialise batch size-dependent arrays
-    !!--------------------------------------------------------------------------
+    ! Initialise batch size-dependent arrays
     if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
 
   end subroutine init_avgpool2d
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! set batch size
-!!!#############################################################################
+!###############################################################################
   subroutine set_batch_size_avgpool2d(this, batch_size, verbose)
+    !! Set batch size for 2D average pooling layer
     implicit none
+
+    ! Arguments
     class(avgpool2d_layer_type), intent(inout), target :: this
+    !! Instance of the 2D average pooling layer
     integer, intent(in) :: batch_size
+    !! Batch size
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    !! Local variables
     integer :: verbose_ = 0
+    !! Verbosity level
 
-
-    !!--------------------------------------------------------------------------
-    !! initialise optional arguments
-    !!--------------------------------------------------------------------------
+    ! Initialise optional arguments
     if(present(verbose)) verbose_ = verbose
     this%batch_size = batch_size
 
-
-    !!--------------------------------------------------------------------------
-    !! allocate arrays
-    !!--------------------------------------------------------------------------
+    ! Allocate arrays
     if(allocated(this%input_shape))then
        if(.not.allocated(this%output)) this%output = array4d_type()
        if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
@@ -303,39 +322,55 @@ contains
     end if
 
   end subroutine set_batch_size_avgpool2d
-!!!#############################################################################
+!###############################################################################
 
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
-!!!#############################################################################
-!!! read layer from file
-!!!#############################################################################
+!###############################################################################
   subroutine read_avgpool2d(this, unit, verbose)
+    !! Read 2D average pooling layer from file
     use athena__tools_infile, only: assign_val, assign_vec
     use athena__misc, only: to_lower, to_upper, icount
     implicit none
+
+    ! Arguments
     class(avgpool2d_layer_type), intent(inout) :: this
+    !! Instance of the 2D average pooling layer
     integer, intent(in) :: unit
+    !! File unit
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
+    ! Local variables
     integer :: verbose_ = 0
+    !! Verbosity level
     integer :: stat
+    !! File status
     integer :: itmp1
+    !! Temporary integer
     integer, dimension(2) :: pool_size, stride
+    !! Pool size and stride
     integer, dimension(3) :: input_shape
+    !! Input shape
     character(256) :: buffer, tag, err_msg
+    !! Buffer for reading lines, tag for identifying lines, error message
 
 
+    ! Initialise optional arguments
+    !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
 
-    !! loop over tags in layer card
+
+    ! Loop over tags in layer card
+    !---------------------------------------------------------------------------
     tag_loop: do
 
-       !! check for end of file
+       ! Check for end of file
+       !------------------------------------------------------------------------
        read(unit,'(A)',iostat=stat) buffer
        if(stat.ne.0)then
           write(err_msg,'("file encountered error (EoF?) before END ",A)') &
@@ -345,7 +380,8 @@ contains
        end if
        if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
-       !! check for end of convolution card
+       ! Check for end of layer card
+       !------------------------------------------------------------------------
        if(trim(adjustl(buffer)).eq."END "//to_upper(trim(this%name)))then
           backspace(unit)
           exit tag_loop
@@ -354,7 +390,8 @@ contains
        tag=trim(adjustl(buffer))
        if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
 
-       !! read parameters from save file
+       ! Read parameters from save file
+       !------------------------------------------------------------------------
        select case(trim(tag))
        case("INPUT_SHAPE")
           call assign_vec(buffer, input_shape, itmp1)
@@ -363,8 +400,8 @@ contains
        case("STRIDE")
           call assign_vec(buffer, stride, itmp1)
        case default
-          !! don't look for "e" due to scientific notation of numbers
-          !! ... i.e. exponent (E+00)
+          ! Don't look for "e" due to scientific notation of numbers
+          ! ... i.e. exponent (E+00)
           if(scan(to_lower(trim(adjustl(buffer))),&
                'abcdfghijklmnopqrstuvwxyz').eq.0)then
              cycle tag_loop
@@ -378,11 +415,14 @@ contains
        end select
     end do tag_loop
 
-    !! set transfer activation function
+    ! Set hyperparameters and initialise layer
+    !---------------------------------------------------------------------------
     call this%set_hyperparams(pool_size=pool_size, stride=stride)
     call this%init(input_shape = input_shape)
 
-    !! check for end of layer card
+
+    ! Check for end of layer card
+    !---------------------------------------------------------------------------
     read(unit,'(A)') buffer
     if(trim(adjustl(buffer)).ne."END "//to_upper(trim(this%name)))then
        write(0,*) trim(adjustl(buffer))
@@ -392,65 +432,70 @@ contains
     end if
 
   end subroutine read_avgpool2d
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! read layer from file and return layer
-!!!#############################################################################
+!###############################################################################
   function read_avgpool2d_layer(unit, verbose) result(layer)
+    !! Read 2D average pooling layer from file and return layer
     implicit none
+
+    ! Arguments
     integer, intent(in) :: unit
+    !! File unit
     integer, optional, intent(in) :: verbose
+    !! Verbosity level
     class(base_layer_type), allocatable :: layer
+    !! Instance of the 2D average pooling layer
 
+    ! Local variables
     integer :: verbose_ = 0
-
+    !! Verbosity level
 
     if(present(verbose)) verbose_ = verbose
     allocate(layer, source=avgpool2d_layer_type())
     call layer%read(unit, verbose=verbose_)
 
   end function read_avgpool2d_layer
-!!!#############################################################################
+!###############################################################################
 
 
-!!!##########################################################################!!!
-!!! * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * !!!
-!!!##########################################################################!!!
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
 
 
-!!!#############################################################################
-!!! forward propagation
-!!!#############################################################################
+!###############################################################################
   pure subroutine forward_4d(this, input)
+    !! Forward propagation
     implicit none
+
+    ! Arguments
     class(avgpool2d_layer_type), intent(inout) :: this
+    !! Instance of the 2D average pooling layer
     real(real32), dimension( &
          this%input_shape(1), &
          this%input_shape(2), &
          this%num_channels, &
          this%batch_size), &
          intent(in) :: input
+    !! Input values
 
+    ! Local variables
     integer :: i, j, m, s
+    !! Loop indices
     integer, dimension(2) :: stride_idx
+    !! Stride index
 
-    
     select type(output => this%output)
     type is (array4d_type)
-       !! perform the pooling operation
+       ! Perform the pooling operation
        do concurrent(&
             s = 1:this%batch_size, &
             m = 1:this%num_channels, &
             j = 1:this%output%shape(2), &
             i = 1:this%output%shape(1))
-#if defined(GFORTRAN)
           stride_idx = ([i,j] - 1) * this%strd + 1
-#else
-          stride_idx(1) = (i-1) * this%strd(1) + 1
-          stride_idx(2) = (j-1) * this%strd(2) + 1
-#endif
           output%val_ptr(i, j, m, s) = sum(&
                input( &
                stride_idx(1):stride_idx(1)+this%pool(1)-1, &
@@ -460,21 +505,24 @@ contains
     end select
 
   end subroutine forward_4d
-!!!#############################################################################
+!###############################################################################
 
 
-!!!#############################################################################
-!!! backward propagation
-!!!#############################################################################
+!###############################################################################
   pure subroutine backward_4d(this, input, gradient)
+    !! Backward propagation
     implicit none
+
+    ! Arguments
     class(avgpool2d_layer_type), intent(inout) :: this
+    !! Instance of the 2D average pooling layer
     real(real32), dimension( &
          this%input_shape(1), &
          this%input_shape(2), &
          this%num_channels, &
          this%batch_size), &
          intent(in) :: input
+    !! Input values
     real(real32), &
          dimension(&
          this%output%shape(1), &
@@ -482,27 +530,25 @@ contains
          this%num_channels, &
          this%batch_size), &
          intent(in) :: gradient
+    !! Gradient values
 
+    ! Local variables
     integer :: i, j, m, s
+    !! Loop indices
     integer, dimension(2) :: stride_idx
-
+    !! Stride index
 
     select type(di => this%di)
     type is (array4d_type)
        di%val_ptr = 0._real32
-       !! compute gradients for input feature map
+       ! Compute gradients for input feature map
        do concurrent( &
             s = 1:this%batch_size, &
             m = 1:this%num_channels, &
             j = 1:this%output%shape(2), &
             i = 1:this%output%shape(1))
-#if defined(GFORTRAN)
           stride_idx = ([i,j] - 1) * this%strd
-#else
-          stride_idx(1) = (i-1) * this%strd(1)
-          stride_idx(2) = (j-1) * this%strd(2)
-#endif
-          !! compute gradients for input feature map
+          ! Compute gradients for input feature map
           di%val_ptr( &
                stride_idx(1)+1:stride_idx(1)+this%pool(1), &
                stride_idx(2)+1:stride_idx(2)+this%pool(2), m, s) = &
@@ -514,7 +560,6 @@ contains
     end select
 
   end subroutine backward_4d
-!!!#############################################################################
+!###############################################################################
 
 end module athena__avgpool2d_layer
-!!!#############################################################################

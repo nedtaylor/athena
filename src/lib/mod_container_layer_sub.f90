@@ -1,11 +1,10 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ATHENA library - a feedforward neural network library
-!!!#############################################################################
-!!! submodule of the container_layer module
-!!! submodule contains the associated methods from the container_layer module
-!!!#############################################################################
 submodule(athena__container_layer) athena__container_layer_submodule
+  !! Submodule containing the implementation for the container layer
+  !!
+  !! This submodule contains the implementation of the container layer
+  !! which is a container for an individual layer.
+  !! This also provides the initialisation of the list of layer types
+  !! that can be used for reading layers into a network model from a file.
   use athena__base_layer, only: learnable_layer_type
   use athena__actv_layer, only: read_actv_layer
   use athena__avgpool1d_layer, only: read_avgpool1d_layer
@@ -32,7 +31,8 @@ submodule(athena__container_layer) athena__container_layer_submodule
 
 contains
 
-  
+!###############################################################################
+
 #if defined(GFORTRAN)
   subroutine container_reduction(this, rhs)
     implicit none
@@ -91,4 +91,3 @@ contains
 
 
 end submodule athena__container_layer_submodule
-!!!#############################################################################
