@@ -197,9 +197,9 @@ module athena__misc_types
 !------------------------------------------------------------------------------!
 
 
-!!!-----------------------------------------------------------------------------
-!!! base and extended array types
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Base and extended array types
+!-------------------------------------------------------------------------------
   type, abstract :: array_type
      !! Abstract type for array operations
      integer :: rank
@@ -274,9 +274,9 @@ module athena__misc_types
      end function add_array
 
      module subroutine assign_array(this, input)
-      class(array_type), intent(out), target :: this
-      class(array_type), intent(in) :: input
-    end subroutine assign_array
+       class(array_type), intent(out), target :: this
+       class(array_type), intent(in) :: input
+     end subroutine assign_array
   end interface
 
   ! Extend the array type to 1d, 2d, 3d, 4d, and 5d arrays
@@ -341,210 +341,210 @@ module athena__misc_types
   ! Interface for allocating array
   !-----------------------------------------------------------------------------
   interface
-    module subroutine allocate_array1d(this, array_shape, source)
-      class(array1d_type), intent(inout), target :: this
-      integer, dimension(:), intent(in), optional :: array_shape
-      class(*), dimension(..), intent(in), optional :: source
-    end subroutine allocate_array1d
+     module subroutine allocate_array1d(this, array_shape, source)
+       class(array1d_type), intent(inout), target :: this
+       integer, dimension(:), intent(in), optional :: array_shape
+       class(*), dimension(..), intent(in), optional :: source
+     end subroutine allocate_array1d
 
-    module subroutine allocate_array2d(this, array_shape, source)
-      class(array2d_type), intent(inout), target :: this
-      integer, dimension(:), intent(in), optional :: array_shape
-      class(*), dimension(..), intent(in), optional :: source
-    end subroutine allocate_array2d
+     module subroutine allocate_array2d(this, array_shape, source)
+       class(array2d_type), intent(inout), target :: this
+       integer, dimension(:), intent(in), optional :: array_shape
+       class(*), dimension(..), intent(in), optional :: source
+     end subroutine allocate_array2d
 
-    module subroutine allocate_array3d(this, array_shape, source)
-      class(array3d_type), intent(inout), target :: this
-      integer, dimension(:), intent(in), optional :: array_shape
-      class(*), dimension(..), intent(in), optional :: source
-    end subroutine allocate_array3d
+     module subroutine allocate_array3d(this, array_shape, source)
+       class(array3d_type), intent(inout), target :: this
+       integer, dimension(:), intent(in), optional :: array_shape
+       class(*), dimension(..), intent(in), optional :: source
+     end subroutine allocate_array3d
 
-    module subroutine allocate_array4d(this, array_shape, source)
-      class(array4d_type), intent(inout), target :: this
-      integer, dimension(:), intent(in), optional :: array_shape
-      class(*), dimension(..), intent(in), optional :: source
-    end subroutine allocate_array4d
+     module subroutine allocate_array4d(this, array_shape, source)
+       class(array4d_type), intent(inout), target :: this
+       integer, dimension(:), intent(in), optional :: array_shape
+       class(*), dimension(..), intent(in), optional :: source
+     end subroutine allocate_array4d
 
-    module subroutine allocate_array5d(this, array_shape, source)
-      class(array5d_type), intent(inout), target :: this
-      integer, dimension(:), intent(in), optional :: array_shape
-      class(*), dimension(..), intent(in), optional :: source
-    end subroutine allocate_array5d
+     module subroutine allocate_array5d(this, array_shape, source)
+       class(array5d_type), intent(inout), target :: this
+       integer, dimension(:), intent(in), optional :: array_shape
+       class(*), dimension(..), intent(in), optional :: source
+     end subroutine allocate_array5d
   end interface
 
   ! Interface for deallocating array
   !-----------------------------------------------------------------------------
   interface
-    pure module subroutine deallocate_array1d(this, keep_shape)
-      class(array1d_type), intent(inout) :: this
-      logical, intent(in), optional :: keep_shape
-    end subroutine deallocate_array1d
+     pure module subroutine deallocate_array1d(this, keep_shape)
+       class(array1d_type), intent(inout) :: this
+       logical, intent(in), optional :: keep_shape
+     end subroutine deallocate_array1d
 
-    pure module subroutine deallocate_array2d(this, keep_shape)
-      class(array2d_type), intent(inout) :: this
-      logical, intent(in), optional :: keep_shape
-    end subroutine deallocate_array2d
+     pure module subroutine deallocate_array2d(this, keep_shape)
+       class(array2d_type), intent(inout) :: this
+       logical, intent(in), optional :: keep_shape
+     end subroutine deallocate_array2d
 
-    pure module subroutine deallocate_array3d(this, keep_shape)
-      class(array3d_type), intent(inout) :: this
-      logical, intent(in), optional :: keep_shape
-    end subroutine deallocate_array3d
+     pure module subroutine deallocate_array3d(this, keep_shape)
+       class(array3d_type), intent(inout) :: this
+       logical, intent(in), optional :: keep_shape
+     end subroutine deallocate_array3d
 
-    pure module subroutine deallocate_array4d(this, keep_shape)
-      class(array4d_type), intent(inout) :: this
-      logical, intent(in), optional :: keep_shape
-    end subroutine deallocate_array4d
+     pure module subroutine deallocate_array4d(this, keep_shape)
+       class(array4d_type), intent(inout) :: this
+       logical, intent(in), optional :: keep_shape
+     end subroutine deallocate_array4d
 
-    pure module subroutine deallocate_array5d(this, keep_shape)
-      class(array5d_type), intent(inout) :: this
-      logical, intent(in), optional :: keep_shape
-    end subroutine deallocate_array5d
+     pure module subroutine deallocate_array5d(this, keep_shape)
+       class(array5d_type), intent(inout) :: this
+       logical, intent(in), optional :: keep_shape
+     end subroutine deallocate_array5d
   end interface
 
   ! Interface for finalising array
   !-----------------------------------------------------------------------------
   interface
-    module subroutine finalise_array1d(this)
-      type(array1d_type), intent(inout) :: this
-    end subroutine finalise_array1d
+     module subroutine finalise_array1d(this)
+       type(array1d_type), intent(inout) :: this
+     end subroutine finalise_array1d
 
-    module subroutine finalise_array2d(this)
-      type(array2d_type), intent(inout) :: this
-    end subroutine finalise_array2d
+     module subroutine finalise_array2d(this)
+       type(array2d_type), intent(inout) :: this
+     end subroutine finalise_array2d
 
-    module subroutine finalise_array3d(this)
-      type(array3d_type), intent(inout) :: this
-    end subroutine finalise_array3d
+     module subroutine finalise_array3d(this)
+       type(array3d_type), intent(inout) :: this
+     end subroutine finalise_array3d
 
-    module subroutine finalise_array4d(this)
-      type(array4d_type), intent(inout) :: this
-    end subroutine finalise_array4d
+     module subroutine finalise_array4d(this)
+       type(array4d_type), intent(inout) :: this
+     end subroutine finalise_array4d
 
-    module subroutine finalise_array5d(this)
-      type(array5d_type), intent(inout) :: this
-    end subroutine finalise_array5d
+     module subroutine finalise_array5d(this)
+       type(array5d_type), intent(inout) :: this
+     end subroutine finalise_array5d
   end interface
 
   ! Interface for setting pointers
   !-----------------------------------------------------------------------------
   interface
-    module subroutine set_ptr_array1d(this)
-      class(array1d_type), intent(inout), target :: this
-    end subroutine set_ptr_array1d
+     module subroutine set_ptr_array1d(this)
+       class(array1d_type), intent(inout), target :: this
+     end subroutine set_ptr_array1d
 
-    module subroutine set_ptr_array2d(this)
-      class(array2d_type), intent(inout), target :: this
-    end subroutine set_ptr_array2d
+     module subroutine set_ptr_array2d(this)
+       class(array2d_type), intent(inout), target :: this
+     end subroutine set_ptr_array2d
 
-    module subroutine set_ptr_array3d(this)
-      class(array3d_type), intent(inout), target :: this
-    end subroutine set_ptr_array3d
+     module subroutine set_ptr_array3d(this)
+       class(array3d_type), intent(inout), target :: this
+     end subroutine set_ptr_array3d
 
-    module subroutine set_ptr_array4d(this)
-      class(array4d_type), intent(inout), target :: this
-    end subroutine set_ptr_array4d
+     module subroutine set_ptr_array4d(this)
+       class(array4d_type), intent(inout), target :: this
+     end subroutine set_ptr_array4d
 
-    module subroutine set_ptr_array5d(this)
-      class(array5d_type), intent(inout), target :: this
-    end subroutine set_ptr_array5d
+     module subroutine set_ptr_array5d(this)
+       class(array5d_type), intent(inout), target :: this
+     end subroutine set_ptr_array5d
   end interface
 
   ! Interface for setting array
   !-----------------------------------------------------------------------------
   interface
-    pure module subroutine set_array3d(this, input)
-      class(array3d_type), intent(inout) :: this
-      real(real32), dimension(..), intent(in) :: input
-    end subroutine set_array3d
+     pure module subroutine set_array3d(this, input)
+       class(array3d_type), intent(inout) :: this
+       real(real32), dimension(..), intent(in) :: input
+     end subroutine set_array3d
 
-    pure module subroutine set_array4d(this, input)
-      class(array4d_type), intent(inout) :: this
-      real(real32), dimension(..), intent(in) :: input
-    end subroutine set_array4d
+     pure module subroutine set_array4d(this, input)
+       class(array4d_type), intent(inout) :: this
+       real(real32), dimension(..), intent(in) :: input
+     end subroutine set_array4d
 
-    pure module subroutine set_array5d(this, input)
-      class(array5d_type), intent(inout) :: this
-      real(real32), dimension(..), intent(in) :: input
-    end subroutine set_array5d
+     pure module subroutine set_array5d(this, input)
+       class(array5d_type), intent(inout) :: this
+       real(real32), dimension(..), intent(in) :: input
+     end subroutine set_array5d
   end interface
 
   ! Interface for initialising array
   !-----------------------------------------------------------------------------
   interface array1d_type
-    module function init_array1d(array_shape) result(output)
-      integer, dimension(:), intent(in), optional :: array_shape
-      type(array1d_type) :: output
-    end function init_array1d
+     module function init_array1d(array_shape) result(output)
+       integer, dimension(:), intent(in), optional :: array_shape
+       type(array1d_type) :: output
+     end function init_array1d
   end interface array1d_type
 
   interface array2d_type
-    module function init_array2d(array_shape) result(output)
-      integer, dimension(:), intent(in), optional :: array_shape
-      type(array2d_type) :: output
-    end function init_array2d
+     module function init_array2d(array_shape) result(output)
+       integer, dimension(:), intent(in), optional :: array_shape
+       type(array2d_type) :: output
+     end function init_array2d
   end interface array2d_type
 
   interface array3d_type
-    module function init_array3d(array_shape) result(output)
-      integer, dimension(:), intent(in), optional :: array_shape
-      type(array3d_type) :: output
-    end function init_array3d
+     module function init_array3d(array_shape) result(output)
+       integer, dimension(:), intent(in), optional :: array_shape
+       type(array3d_type) :: output
+     end function init_array3d
   end interface array3d_type
 
   interface array4d_type
-    module function init_array4d(array_shape) result(output)
-      integer, dimension(:), intent(in), optional :: array_shape
-      type(array4d_type) :: output
-    end function init_array4d
+     module function init_array4d(array_shape) result(output)
+       integer, dimension(:), intent(in), optional :: array_shape
+       type(array4d_type) :: output
+     end function init_array4d
   end interface array4d_type
 
   interface array5d_type
-    module function init_array5d(array_shape) result(output)
-      integer, dimension(:), intent(in), optional :: array_shape
-      type(array5d_type) :: output
-    end function init_array5d
+     module function init_array5d(array_shape) result(output)
+       integer, dimension(:), intent(in), optional :: array_shape
+       type(array5d_type) :: output
+     end function init_array5d
   end interface array5d_type
 
   ! Interface for assigning array
   !-----------------------------------------------------------------------------
   interface
-    module subroutine assign_array1d(this, input)
-      type(array1d_type), intent(out), target :: this
-      type(array1d_type), intent(in) :: input
-    end subroutine assign_array1d
+     module subroutine assign_array1d(this, input)
+       type(array1d_type), intent(out), target :: this
+       type(array1d_type), intent(in) :: input
+     end subroutine assign_array1d
 
-    module subroutine assign_array2d(this, input)
-      type(array2d_type), intent(out), target :: this
-      type(array2d_type), intent(in) :: input
-    end subroutine assign_array2d
+     module subroutine assign_array2d(this, input)
+       type(array2d_type), intent(out), target :: this
+       type(array2d_type), intent(in) :: input
+     end subroutine assign_array2d
 
-    module subroutine assign_array3d(this, input)
-      type(array3d_type), intent(out), target :: this
-      type(array3d_type), intent(in) :: input
-    end subroutine assign_array3d
+     module subroutine assign_array3d(this, input)
+       type(array3d_type), intent(out), target :: this
+       type(array3d_type), intent(in) :: input
+     end subroutine assign_array3d
 
-    module subroutine assign_array4d(this, input)
-      type(array4d_type), intent(out), target :: this
-      type(array4d_type), intent(in) :: input
-    end subroutine assign_array4d
+     module subroutine assign_array4d(this, input)
+       type(array4d_type), intent(out), target :: this
+       type(array4d_type), intent(in) :: input
+     end subroutine assign_array4d
 
-    module subroutine assign_array5d(this, input)
-      type(array5d_type), intent(out), target :: this
-      type(array5d_type), intent(in) :: input
-    end subroutine assign_array5d
+     module subroutine assign_array5d(this, input)
+       type(array5d_type), intent(out), target :: this
+       type(array5d_type), intent(in) :: input
+     end subroutine assign_array5d
   end interface
 
   type :: array_container_type
-    class(array_type), allocatable :: array
+     class(array_type), allocatable :: array
   end type array_container_type
 
 
   interface assignment (=)
-    module procedure assign_array1d
-    module procedure assign_array2d
-    module procedure assign_array3d
-    module procedure assign_array4d
-    module procedure assign_array5d
+     module procedure assign_array1d
+     module procedure assign_array2d
+     module procedure assign_array3d
+     module procedure assign_array4d
+     module procedure assign_array5d
   end interface
 !-------------------------------------------------------------------------------
 
@@ -554,39 +554,39 @@ module athena__misc_types
 !------------------------------------------------------------------------------!
 
 
-!!!-----------------------------------------------------------------------------
-!!! facet type (for storing faces, edges, and corners for padding)
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Facet type (for storing faces, edges, and corners for padding)
+!-------------------------------------------------------------------------------
   type :: facets_type
-    !! Type for storing faces, edges, and corners for padding
-    integer :: num
-    !! Number of facets
-    integer :: rank
-    !! Number of dimensions of the shape
-    integer :: nfixed_dims
-    !! Number of fixed dimensions
-    character(6) :: type
-    !! Type of facet, i.e. face, edge, corner
-    integer, dimension(:), allocatable :: dim
-    !! Dimension the facet is in, i.e.
-    integer, dimension(:,:), allocatable :: orig_bound
-    !! Original bounds of the facet (nfixed_dims, num)
-    integer, dimension(:,:,:), allocatable :: dest_bound
-    !! Destination bounds of the facet (2, nfixed_dims, num)
+     !! Type for storing faces, edges, and corners for padding
+     integer :: num
+     !! Number of facets
+     integer :: rank
+     !! Number of dimensions of the shape
+     integer :: nfixed_dims
+     !! Number of fixed dimensions
+     character(6) :: type
+     !! Type of facet, i.e. face, edge, corner
+     integer, dimension(:), allocatable :: dim
+     !! Dimension the facet is in, i.e.
+     integer, dimension(:,:), allocatable :: orig_bound
+     !! Original bounds of the facet (nfixed_dims, num)
+     integer, dimension(:,:,:), allocatable :: dest_bound
+     !! Destination bounds of the facet (2, nfixed_dims, num)
    contains
-    procedure, pass(this) :: setup_replication_bounds
-    !! Procedure for setting up replication bounds
+     procedure, pass(this) :: setup_replication_bounds
+     !! Procedure for setting up replication bounds
   end type facets_type
 
   interface
-    !! Interface for setting up replication bounds
-    module subroutine setup_replication_bounds(this, length, pad)
-      !! Procedure for setting up replication bounds
-      class(facets_type), intent(inout) :: this
-      !! Instance of the facets type
-      integer, dimension(this%rank), intent(in) :: length, pad
-      !! Length of the shape and padding
-    end subroutine setup_replication_bounds
+     !! Interface for setting up replication bounds
+     module subroutine setup_replication_bounds(this, length, pad)
+       !! Procedure for setting up replication bounds
+       class(facets_type), intent(inout) :: this
+       !! Instance of the facets type
+       integer, dimension(this%rank), intent(in) :: length, pad
+       !! Length of the shape and padding
+     end subroutine setup_replication_bounds
   end interface
 !-------------------------------------------------------------------------------
 

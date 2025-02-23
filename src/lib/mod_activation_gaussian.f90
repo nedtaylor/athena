@@ -100,8 +100,8 @@ contains
        output = 0._real32
     end where
   end function gaussian_activate_1d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function gaussian_activate_2d(this, val) result(output)
     !! Apply Gaussian activation to 2D array
     !!
@@ -124,8 +124,8 @@ contains
        output = 0._real32
     end where
   end function gaussian_activate_2d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function gaussian_activate_3d(this, val) result(output)
     !! Apply Gaussian activation to 3D array
     !!
@@ -148,8 +148,8 @@ contains
        output = 0._real32
     end where
   end function gaussian_activate_3d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function gaussian_activate_4d(this, val) result(output)
     implicit none
     class(gaussian_type), intent(in) :: this
@@ -164,8 +164,8 @@ contains
        output = 0._real32
     end where
   end function gaussian_activate_4d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function gaussian_activate_5d(this, val) result(output)
     implicit none
     class(gaussian_type), intent(in) :: this
@@ -201,8 +201,8 @@ contains
 
     output = -val/this%sigma**2._real32 * this%activate_1d(val)
   end function gaussian_differentiate_1d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function gaussian_differentiate_2d(this, val) result(output)
     !! Differentiate Gaussian activation for 2D array
     !!
@@ -220,8 +220,8 @@ contains
 
     output = -val/this%sigma**2._real32 * this%activate_2d(val)
   end function gaussian_differentiate_2d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function gaussian_differentiate_3d(this, val) result(output)
     implicit none
     class(gaussian_type), intent(in) :: this
@@ -230,8 +230,8 @@ contains
 
     output = -val/this%sigma**2._real32 * this%activate_3d(val)
   end function gaussian_differentiate_3d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function gaussian_differentiate_4d(this, val) result(output)
     implicit none
     class(gaussian_type), intent(in) :: this
@@ -241,8 +241,8 @@ contains
 
     output = -val/this%sigma**2._real32 * this%activate_4d(val)
   end function gaussian_differentiate_4d
-!!!-----------------------------------------------------------------------------
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function gaussian_differentiate_5d(this, val) result(output)
     !! Differentiate Gaussian activation for 5D array
     !!
@@ -256,7 +256,7 @@ contains
     real(real32), dimension(:,:,:,:,:), intent(in) :: val
     !! Input values
     real(real32), dimension(&
-          size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
+         size(val,1),size(val,2),size(val,3),size(val,4),size(val,5)) :: output
     !! Differentiated output values
 
     output = -val/this%sigma**2._real32 * this%activate_5d(val)

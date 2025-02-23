@@ -101,7 +101,7 @@ contains
     output = -expected*log(predicted+epsilon)
 
   end function compute_loss_bce
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function total_loss_bce(predicted, expected) result(output)
     !! Compute the total binary cross entropy loss of a model
     implicit none
@@ -168,7 +168,7 @@ contains
     output = abs(predicted - expected) !/(size(predicted,1))
 
   end function compute_loss_mae
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function total_loss_mae(predicted, expected) result(output)
     !! Compute the total mean absolute error of a model
     implicit none
@@ -199,7 +199,7 @@ contains
     output = ((predicted - expected)**2._real32) /(2._real32)!*size(predicted,1))
 
   end function compute_loss_mse
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function total_loss_mse(predicted, expected) result(output)
     !! Compute the total mean squared error of a model
     implicit none
@@ -236,7 +236,7 @@ contains
     output = - log(expected - predicted + epsilon)
 
   end function compute_loss_nll
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function total_loss_nll(predicted, expected) result(output)
     !! Compute the total negative log likelihood of a model
     implicit none
@@ -277,7 +277,7 @@ contains
     end where
 
   end function compute_loss_hubber
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function total_loss_hubber(predicted, expected) result(output)
     !! Compute the total hubber loss of a model
     implicit none
@@ -291,7 +291,7 @@ contains
     output = sum(compute_loss_hubber(predicted,expected),dim=1) / size(predicted,1)
 
   end function total_loss_hubber
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function compute_loss_hubber_derivative(predicted, expected) &
        result(output)
     !! Compute the derivative of the hubber loss function
@@ -312,7 +312,7 @@ contains
     where (abs(predicted - expected) .le. gamma)
        output = predicted - expected
     elsewhere
-        output = gamma * sign(1._real32, predicted - expected)
+       output = gamma * sign(1._real32, predicted - expected)
     end where
 
   end function compute_loss_hubber_derivative
