@@ -57,9 +57,12 @@ ATHENA is distributed with the following directories:
 |  _test/_  |    A set of test programs to check functionality of the library works after compilation |
 
 
-For extended details on the functionality of this library, please check out the [wiki](https://github.com/nedtaylor/athena/wiki)
+For extended details on the functionality of this library, please check out the [wiki](https://github.com/nedtaylor/athena/wiki).
 
-**NOTE: There currently exists no manual document. This will be included at a later date**
+**NOTE:** Guides will be moved to the [ReadTheDocs](https://athena-fortran.readthedocs.io/en/latest/) in a later release.
+But, for now, refer to the [wiki](https://github.com/nedtaylor/athena/wiki) for guides.
+
+Refer to the [API Documentation section](#api-documentation) later in this document to see how to access the API-specific documentation.
 
 
 Setup
@@ -198,6 +201,16 @@ In the tools/ directory, there exist scripts that take utilise the wandb python 
 Example wandb project link: https://wandb.ai/ntaylor/cnn_mnist_test/overview?workspace=user-ntaylor
 
 
+API documentation
+-----------------
+
+API documentation can be generated using FORD (Fortran Documenter).
+To do so, follow the installation guide on the [FORD website](https://forddocs.readthedocs.io/en/stable/) to ensure FORD is installed.
+Once FORD is installed, run the following command in the root directory of the git repository:
+
+```
+  ford ford.md
+```
 
 How-to
 -------
