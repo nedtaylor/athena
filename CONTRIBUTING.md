@@ -106,8 +106,7 @@ Follow the [Code Style](#code-style) when contributing code to this project to e
 Rules to adhere to for maintaining a coherent code base:
 - Follow the existing code style and conventions.
 - Use meaningful variable and function names.
-- Write clear and concise comments. Follow [FORD Fortran Documenter](https://forddocs.readthedocs.io/en/stable/) (preferred) or existing file commenting to keep consistency.
-    - **NOTE:** The intention is to move to using compilable comments and documentation using FORD. As such, it is preferred that this format is used to reduce the need to upgrade later.
+- Write clear and concise comments. Follow [FORD Fortran Documenter](https://forddocs.readthedocs.io/en/stable/) as implemented in existing files to keep consistency.
     - Update the wiki with new features and example guides to make athena easier to use.
 
 
