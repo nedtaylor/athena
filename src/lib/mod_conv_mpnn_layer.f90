@@ -69,7 +69,7 @@ module athena__conv_mpnn_layer
        !! Number of vertex features
        integer, intent(in) :: num_edge_features
        !! Number of edge features
-       integer, intetn(in) :: max_vertex_degree
+       integer, intent(in) :: max_vertex_degree
        !! Maximum vertex degree
        integer, intent(in) :: batch_size
        !! Batch size

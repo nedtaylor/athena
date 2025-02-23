@@ -16,6 +16,75 @@ module athena__mpnn_layer
 
 
 !-------------------------------------------------------------------------------
+! Method container
+!-------------------------------------------------------------------------------
+  type, abstract :: method_container_type
+     !! Type for the method container
+     !!
+     !! This derived type contains the implementation of the message passing
+     !! neural network. This includes the message and readout phases.
+     integer :: num_outputs
+     !! Number of outputs
+     integer :: num_time_steps
+     !! Number of time steps
+     integer, dimension(2) :: num_features
+     !! Number of features
+     !! element 1 is vertex features, element 2 is edge features
+     integer :: batch_size
+     !! Batch size
+     class(message_phase_type), dimension(:), allocatable :: message
+     !! Message phase
+     !! elements are the message phases for each time step
+     class(readout_phase_type), allocatable :: readout
+     !! Readout phase
+   contains
+     procedure(init_method), deferred, pass(this) :: init
+     !! Initialise the method container
+     procedure(set_batch_size_method), deferred, pass(this) :: set_batch_size
+     !! Set the batch size for the method container
+  end type method_container_type
+
+  ! Interface for initialising the method container
+  !-----------------------------------------------------------------------------
+  interface
+     !! Interfaces for initialising the method container
+     module subroutine init_method(this, &
+          num_vertex_features, num_edge_features, num_time_steps, &
+          output_shape, batch_size, verbose &
+     )
+       class(method_container_type), intent(inout) :: this
+       !! Instance of the method container
+       integer, intent(in) :: num_vertex_features
+       !! Number of vertex features
+       integer, intent(in) :: num_edge_features
+       !! Number of edge features
+       integer, intent(in) :: num_time_steps
+       !! Number of time steps
+       integer, dimension(1), intent(in) :: output_shape
+       !! Output shape
+       integer, optional, intent(in) :: batch_size
+       !! Batch size
+       integer, optional, intent(in) :: verbose
+       !! Verbosity level
+     end subroutine init_method
+     module subroutine set_batch_size_method(this, batch_size, verbose)
+       class(method_container_type), intent(inout) :: this
+       !! Instance of the method container
+       integer, intent(in) :: batch_size
+       !! Batch size
+       integer, optional, intent(in) :: verbose
+       !! Verbosity level
+     end subroutine set_batch_size_method
+  end interface
+!-------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!------------------------------------------------------------------------------!
+
+
+!-------------------------------------------------------------------------------
 ! Message passing layer
 !-------------------------------------------------------------------------------
   type, extends(learnable_layer_type) :: mpnn_layer_type
@@ -293,75 +362,6 @@ module athena__mpnn_layer
        integer, optional, intent(in) :: verbose
        !! Verbosity level
      end subroutine set_hyperparams_mpnn
-  end interface
-!-------------------------------------------------------------------------------
-
-
-!------------------------------------------------------------------------------!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!------------------------------------------------------------------------------!
-
-
-!-------------------------------------------------------------------------------
-! Method container
-!-------------------------------------------------------------------------------
-  type, abstract :: method_container_type
-     !! Type for the method container
-     !!
-     !! This derived type contains the implementation of the message passing
-     !! neural network. This includes the message and readout phases.
-     integer :: num_outputs
-     !! Number of outputs
-     integer :: num_time_steps
-     !! Number of time steps
-     integer, dimension(2) :: num_features
-     !! Number of features
-     !! element 1 is vertex features, element 2 is edge features
-     integer :: batch_size
-     !! Batch size
-     class(message_phase_type), dimension(:), allocatable :: message
-     !! Message phase
-     !! elements are the message phases for each time step
-     class(readout_phase_type), allocatable :: readout
-     !! Readout phase
-   contains
-     procedure(init_method), deferred, pass(this) :: init
-     !! Initialise the method container
-     procedure(set_batch_size_method), deferred, pass(this) :: set_batch_size
-     !! Set the batch size for the method container
-  end type method_container_type
-
-  ! Interface for initialising the method container
-  !-----------------------------------------------------------------------------
-  interface
-     !! Interfaces for initialising the method container
-     module subroutine init_method(this, &
-          num_vertex_features, num_edge_features, num_time_steps, &
-          output_shape, batch_size, verbose &
-     )
-       class(method_container_type), intent(inout) :: this
-       !! Instance of the method container
-       integer, intent(in) :: num_vertex_features
-       !! Number of vertex features
-       integer, intent(in) :: num_edge_features
-       !! Number of edge features
-       integer, intent(in) :: num_time_steps
-       !! Number of time steps
-       integer, dimension(1), intent(in) :: output_shape
-       !! Output shape
-       integer, optional, intent(in) :: batch_size
-       !! Batch size
-       integer, optional, intent(in) :: verbose
-       !! Verbosity level
-     end subroutine init_method
-     module subroutine set_batch_size_method(this, batch_size, verbose)
-       class(method_container_type), intent(inout) :: this
-       !! Instance of the method container
-       integer, intent(in) :: batch_size
-       !! Batch size
-       integer, optional, intent(in) :: verbose
-       !! Verbosity level
-     end subroutine set_batch_size_method
   end interface
 !-------------------------------------------------------------------------------
 
