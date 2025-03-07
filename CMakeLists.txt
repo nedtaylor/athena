@@ -61,7 +61,7 @@ include(FetchContent)
 FetchContent_Declare(
     graphstruc
     GIT_REPOSITORY https://github.com/nedtaylor/graphstruc.git
-    GIT_TAG        4811becfa9adff18b6710753e422ca705bfde154 # v0.1.1
+    GIT_TAG        vertex_id # v0.1.1
     FIND_PACKAGE_ARGS NAMES graphstruc
 )
 FetchContent_MakeAvailable(graphstruc)
@@ -90,7 +90,6 @@ set(LIB_FILES
     mod_optimiser.f90
     mod_misc_types.f90
     mod_misc_types_sub.f90
-    mod_graph.f90
     mod_mpnn_layer.f90
     mod_mpnn_layer_sub.f90
     mod_metrics.f90
@@ -119,6 +118,7 @@ set(LIB_FILES
     mod_accuracy.f90
     mod_base_layer.f90
     mod_base_layer_sub.f90
+    mod_activation_layer.f90
     mod_conv_mpnn_layer.f90
     mod_batchnorm1d_layer.f90
     mod_batchnorm2d_layer.f90
@@ -136,8 +136,11 @@ set(LIB_FILES
     mod_maxpool1d_layer.f90
     mod_maxpool2d_layer.f90
     mod_maxpool3d_layer.f90
-    mod_full_layer.f90
+    mod_pad1d_layer.f90
+    mod_pad2d_layer.f90
+    mod_pad3d_layer.f90
     mod_flatten_layer.f90
+    mod_full_layer.f90
     mod_input_layer.f90
     mod_container_layer.f90
     mod_container_layer_sub.f90
