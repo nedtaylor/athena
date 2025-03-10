@@ -416,7 +416,7 @@ contains
 
 
 !###############################################################################
-  module subroutine set_hyperparameters_mpnn( &
+  module subroutine set_hyperparams_mpnn( &
        this, method, &
        num_features, num_time_steps, num_outputs, verbose &
   )
@@ -447,7 +447,7 @@ contains
     this%num_edge_features = num_features(2)
     allocate(this%method, source=method)
 
-  end subroutine set_hyperparameters_mpnn
+  end subroutine set_hyperparams_mpnn
 !###############################################################################
 
 

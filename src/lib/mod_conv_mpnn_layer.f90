@@ -205,7 +205,7 @@ module athena__conv_mpnn_layer
   type, extends(mpnn_layer_type) :: conv_mpnn_layer_type
      !! Type for the convolutional message passing neural network layer
    contains
-     procedure, pass(this) :: set_hyperparams_extd => set_hyperparameters_conv
+     procedure, pass(this) :: set_hyperparams_extd => set_hyperparams_conv
      !! Set the hyperparameters
      procedure :: backward_graph => backward_graph_conv
      !! Backward pass for the graph
@@ -816,7 +816,7 @@ contains
 
 
 !###############################################################################
-  module subroutine set_hyperparameters_conv( &
+  module subroutine set_hyperparams_conv( &
        this, &
        num_features, num_time_steps, &
        num_outputs, max_vertex_degree, verbose &
@@ -860,7 +860,7 @@ contains
          verbose = verbose_ &
     ))
 
-  end subroutine set_hyperparameters_conv
+  end subroutine set_hyperparams_conv
 !###############################################################################
 
 
