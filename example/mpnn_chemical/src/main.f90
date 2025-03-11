@@ -36,7 +36,7 @@ program mnist_example
 !!!-----------------------------------------------------------------------------
 !!! read training dataset
 !!!-----------------------------------------------------------------------------
-  train_file = "database.xyz"
+  train_file = "example/mpnn_chemical/database.xyz"
   write(*,*) "Reading training dataset..."
   call read_extxyz_db(train_file, graphs, labels)
   write(*,*) "Reading finished"

@@ -16,7 +16,7 @@ auto-examples = false
 module-naming = false
 
 [dependencies]
-graphstruc = { git = "https://github.com/nedtaylor/graphstruc", branch = "vertex_id" }
+graphstruc = { git = "https://github.com/nedtaylor/graphstruc", branch = "main" }
 
 [install]
 library = false
@@ -71,5 +71,11 @@ example_library = { path = "example/example_library"}
 [[example]]
 name = "mnist_drop"
 source-dir = "example/mnist_drop/src"
+[example.dependencies]
+example_library = { path = "example/example_library"}
+
+[[example]]
+name = "mpnn_chemical"
+source-dir = "example/mpnn_chemical/src"
 [example.dependencies]
 example_library = { path = "example/example_library"}

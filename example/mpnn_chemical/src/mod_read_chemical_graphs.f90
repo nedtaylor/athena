@@ -17,35 +17,35 @@ contains
 !!! read line of unknown length from file
 !!! implemented as written by IanH in stackoverflow:
 !!! https://stackoverflow.com/questions/34746461/how-to-read-text-files-with-possibly-very-long-lines-in-fortran
-subroutine get_line(lun, line, iostat, iomsg)
-   integer, intent(in)           :: lun
-   character(len=:), intent(out), allocatable :: line
-   integer, intent(out)          :: iostat
-   character(*), intent(inout)   :: iomsg
- 
-   integer, parameter            :: buffer_len = 1024
-   character(len=buffer_len)     :: buffer
-   integer                       :: size_read
- 
-   line = ''
-   do
-     read ( lun, '(A)',  &
-         iostat = iostat,  &
-         iomsg = iomsg,  &
-         advance = 'no',  &
-         size = size_read ) buffer
-     if (is_iostat_eor(iostat)) then
-       line = line // buffer(:size_read)
-       iostat = 0
-       exit
-     else if (iostat == 0) then
-       line = line // buffer
-     else
-       exit
-     end if
-     write(*,*) line
-   end do
- end subroutine get_line
+  subroutine get_line(lun, line, iostat, iomsg)
+    integer, intent(in)           :: lun
+    character(len=:), intent(out), allocatable :: line
+    integer, intent(out)          :: iostat
+    character(*), intent(inout)   :: iomsg
+
+    integer, parameter            :: buffer_len = 1024
+    character(len=buffer_len)     :: buffer
+    integer                       :: size_read
+
+    line = ''
+    do
+       read ( lun, '(A)',  &
+            iostat = iostat,  &
+            iomsg = iomsg,  &
+            advance = 'no',  &
+            size = size_read ) buffer
+       if (is_iostat_eor(iostat)) then
+          line = line // buffer(:size_read)
+          iostat = 0
+          exit
+       else if (iostat == 0) then
+          line = line // buffer
+       else
+          exit
+       end if
+       !   write(*,*) line
+    end do
+  end subroutine get_line
 !!!#############################################################################
 
 
@@ -88,7 +88,7 @@ subroutine get_line(lun, line, iostat, iomsg)
        pos_f = pos_i + index(line(pos_i:), '"') - 2
        graph%name = line(pos_i:pos_i+pos_f-1)
        pos_i = pos_f
-       
+
        pos_i = pos_i + index(line(pos_i:), 'graph') - 1
 
        pos_i = pos_i + index(line(pos_i:), '"atom": [') - 1 + 9
@@ -98,9 +98,10 @@ subroutine get_line(lun, line, iostat, iomsg)
        do v = 1, graph%num_vertices
           allocate(graph%vertex(v)%feature(graph%num_vertex_features))
        end do
-       read(line(pos_i:pos_f),*) (graph%vertex(v)%feature(1), v=1,graph%num_vertices)
+       read(line(pos_i:pos_f),*) &
+            (graph%vertex(v)%feature(1), v=1,graph%num_vertices)
        pos_i = pos_f + 1
-          
+
        pos_i = pos_i + index(line(pos_i:), '"bond": [') - 1 + 9
        pos_f = pos_i + index(line(pos_i:), ']') - 2
        graph%num_edges = icount(line(pos_i:pos_f), ',')
@@ -120,7 +121,8 @@ subroutine get_line(lun, line, iostat, iomsg)
        pos_f = pos_i + index(line(pos_i:), ']') - 2
        read(line(pos_i:pos_f),*) (graph%edge(e)%index(2), e=1,graph%num_edges)
 
-       pos_i = pos_i + index(line(pos_i:), '"formation_energy_per_atom": ') - 1 + 30
+       pos_i = pos_i + index(line(pos_i:), '"formation_energy_per_atom": ') - &
+            1 + 30
        pos_f = pos_i + index(line(pos_i:), ',') - 2
        read(line(pos_i:),*) label
 
@@ -169,7 +171,7 @@ subroutine get_line(lun, line, iostat, iomsg)
        if(ierror .ne. 0) exit
        if(trim(buffer).eq."") cycle
        backspace(unit)
-       write(*,*) trim(buffer)
+       !  write(*,*) trim(buffer)
        call geom_read(unit, lattice, basis)
        call get_elements_masses_and_charges(basis)
        graphs = [ graphs, get_graph_from_basis(lattice, basis) ]
@@ -197,7 +199,7 @@ subroutine get_line(lun, line, iostat, iomsg)
     real(real32) :: rtmp1, cutoff_min, cutoff_max
     real(real32), dimension(3) :: diff, vtmp1
 
-    
+
     graph%num_vertices = basis%natom
     graph%num_vertex_features = 2
     graph%num_edge_features = 1
@@ -241,7 +243,7 @@ subroutine get_line(lun, line, iostat, iomsg)
                          vtmp1(3) = diff(3) + real(k, real32)
                          rtmp1 = modu(matmul(vtmp1,lattice))
                          if( rtmp1 .gt. cutoff_min .and. &
-                             rtmp1 .lt. cutoff_max )then
+                              rtmp1 .lt. cutoff_max )then
                             edge%index = [iatom,jatom]
                             edge%feature = [rtmp1]
                             graph%edge = [ graph%edge, edge ]
@@ -316,7 +318,7 @@ subroutine get_line(lun, line, iostat, iomsg)
        case('P')
           mass = 30.974_real32
           charge = 5.0_real32
-       case('S')  
+       case('S')
           mass = 32.06_real32
           charge = 6.0_real32
        case('Cl')
@@ -616,4 +618,4 @@ subroutine get_line(lun, line, iostat, iomsg)
   end subroutine get_elements_masses_and_charges
 !!!#############################################################################
 
-end module read_chemical_graphs          
+end module read_chemical_graphs
