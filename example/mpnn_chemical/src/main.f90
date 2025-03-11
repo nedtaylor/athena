@@ -60,7 +60,7 @@ program mnist_example
 
      call network%add(conv_mpnn_layer_type( &
           num_time_steps=4, &
-          num_vertex_features=2, num_edge_features=1, &
+          num_features=[2,1], &
           num_outputs=10, &
           max_vertex_degree = 10, &
           batch_size=1 ))
@@ -71,21 +71,26 @@ program mnist_example
           activation_function='leaky_relu', &
           kernel_initialiser='he_normal', &
           bias_initialiser='ones' &
-          ))
+     ))
   end if
 
 
 !!!-----------------------------------------------------------------------------
 !!! compile network
 !!!-----------------------------------------------------------------------------
-  allocate(clip, source=clip_type(-1.E2_real32, 1.E2_real32))
+  allocate(clip, source=clip_type(-1.E1_real32, 1.E1_real32))
   metric_dict%active = .false.
   metric_dict(1)%key = "loss"
   metric_dict(2)%key = "accuracy"
   metric_dict%threshold = 1.E-1_real32
-  call network%compile(optimiser=sgd_optimiser_type(clip_dict=clip), &
-       loss_method="mse", metrics=metric_dict, &
-       batch_size = 1, verbose = 0)
+  call network%compile( &
+       optimiser = sgd_optimiser_type( &
+            clip_dict = clip, &
+            learning_rate = 1.E-3_real32 &
+       ), &
+       loss_method = "mse", metrics = metric_dict, &
+       batch_size = 1, verbose = 1 &
+  )
 
 
 !!!-----------------------------------------------------------------------------
@@ -112,15 +117,14 @@ program mnist_example
      call shuffle(sample_list)
      do s = 1, size(sample_list)
 
-        !write(*,*) n, s
-        select type(layer => network%model(2)%layer)
+        ! write(*,*) n, s
+        select type(layer => network%model(1)%layer)
         type is (conv_mpnn_layer_type)
            call layer%set_graph(graphs(sample_list(s):sample_list(s)))
         end select
         call network%forward(reshape([1._real32], [1,1]))
         call network%backward(reshape([labels(sample_list(s))], [1,1]))
-        call network%model(size(network%model,1))%layer%get_output(output_tmp)
-        !write(*,*) "predicted",output_tmp(1,1), labels(sample_list(s))
+        ! write(*,*) "predicted",network%model(2)%layer%output%val, labels(sample_list(s))
 
         call network%update()
 
@@ -133,12 +137,12 @@ program mnist_example
 !!!-----------------------------------------------------------------------------
   write(*,*) "Starting testing..."
   do s = size(labels) - num_tests + 1, size(labels)
-     select type(layer => network%model(2)%layer)
+     select type(layer => network%model(1)%layer)
      type is (conv_mpnn_layer_type)
         call layer%set_graph(graphs(s:s))
      end select
      call network%forward(reshape([1._real32], [1,1]))
-     call network%model(size(network%model,1))%layer%get_output(output_tmp)
+     call network%model(2)%layer%get_output(output_tmp)
      write(*,*) "predicted",output_tmp(1,1), labels(s)
   end do
   write(*,*) "Testing finished"
