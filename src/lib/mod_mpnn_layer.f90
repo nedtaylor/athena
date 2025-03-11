@@ -144,6 +144,8 @@ module athena__mpnn_layer
      !! Get the learnable parameters for message passing layer
      procedure, pass(this) :: set_params => set_params_mpnn
      !! Set the learnable parameters for message passing layer
+     procedure, pass(this) :: set_param_pointers => set_param_pointers_mpnn
+     !! Set the pointers to the learnable parameters for message passing layer
      procedure, pass(this) :: get_gradients => get_gradients_mpnn
      !! Get the gradients for message passing layer
      procedure, pass(this) :: set_gradients => set_gradients_mpnn
@@ -212,6 +214,12 @@ module athena__mpnn_layer
        real(real32), dimension(this%num_params), intent(in) :: params
        !! Parameters
      end subroutine set_params_mpnn
+
+     module subroutine set_param_pointers_mpnn(this)
+       !! Set the pointers to the learnable parameters
+       class(mpnn_layer_type), intent(inout), target :: this
+       !! Instance of the message passing layer
+     end subroutine set_param_pointers_mpnn
 
      pure module function get_gradients_mpnn(this, clip_method) &
           result(gradients)

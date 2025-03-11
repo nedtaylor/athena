@@ -28,10 +28,12 @@ module athena__conv_mpnn_layer
 !-------------------------------------------------------------------------------
   type, extends(message_phase_type) :: conv_message_phase_type
      !! Type for the convolutional message passing phase
-     real(real32), dimension(:,:,:), allocatable :: weight
+     integer :: max_vertex_degree
+     !! Maximum vertex degree
+     real(real32), pointer :: weight(:,:,:) => null()
      !! Weight matrix for the convolutional message passing phase
      !! weight dimensions (feature_out, feature_in, vertex_degree, batch_size)
-     real(real32), dimension(:,:,:,:), allocatable :: dw
+     real(real32), pointer :: dw(:,:,:,:) => null()
      !! Gradient matrix for the convolutional message passing phase
      type(feature_type), dimension(:), allocatable :: z
      !! Hidden features for the convolutional message passing phase
@@ -92,9 +94,9 @@ module athena__conv_mpnn_layer
      !! Type for the convolutional readout phase
      integer :: num_time_steps
      !! Number of time steps
-     real(real32), dimension(:,:,:), allocatable :: weight
+     real(real32), pointer :: weight(:,:,:) => null()
      !! Weight matrix for the convolutional readout phase
-     real(real32), dimension(:,:,:,:), allocatable :: dw
+     real(real32), pointer :: dw(:,:,:,:) => null()
      !! Gradient matrix for the convolutional readout phase
      type(feature_type), dimension(:,:), allocatable :: z
      !! Hidden features for the convolutional readout phase
@@ -207,6 +209,8 @@ module athena__conv_mpnn_layer
    contains
      procedure, pass(this) :: set_hyperparams_extd => set_hyperparams_conv
      !! Set the hyperparameters
+     procedure :: set_param_pointers => set_param_pointers_conv
+     !! Set the pointers to the learnable parameters
      procedure :: backward_graph => backward_graph_conv
      !! Backward pass for the graph
   end type conv_mpnn_layer_type
@@ -253,7 +257,10 @@ contains
     integer :: num_params
     !! Number of learnable parameters
 
-    num_params = size(this%weight)
+    num_params = &
+         this%num_message_features * &
+         this%num_outputs * &
+         this%max_vertex_degree
   end function get_num_params_message_conv
 !-------------------------------------------------------------------------------
   pure function get_num_params_readout_conv(this) result(num_params)
@@ -266,7 +273,8 @@ contains
     integer :: num_params
     !! Number of learnable parameters
 
-    num_params = size(this%weight)
+    num_params = &
+         this%num_inputs * this%num_outputs * (this%num_time_steps + 1)
   end function get_num_params_readout_conv
 !###############################################################################
 
@@ -342,6 +350,75 @@ contains
 
     this%weight = reshape(params, shape(this%weight))
   end subroutine set_params_readout_conv
+!###############################################################################
+
+
+!###############################################################################
+  module subroutine set_param_pointers_conv(this)
+    !! Set the pointers to the learnable parameters
+
+    ! Arguments
+    class(conv_mpnn_layer_type), intent(inout), target :: this
+    !! Instance of the message passing layer
+
+    ! Local variables
+    integer :: i, num_params
+    !! Loop index and number of learnable parameters
+    class(initialiser_type), allocatable :: initialiser_
+    !! Initialiser for the weights
+
+    num_params = 1
+    do i = 1, this%num_time_steps
+       select type(message => this%method%message(i))
+       type is(conv_message_phase_type)
+          message%weight( &
+               1:message%num_message_features, &
+               1:message%num_outputs, &
+               1:message%max_vertex_degree &
+          ) => this%params(num_params:num_params+message%num_params-1)
+          message%dw( &
+               1:message%num_message_features, &
+               1:message%num_outputs, &
+               1:message%max_vertex_degree, &
+               1:this%batch_size &
+          ) => this%dp
+          num_params = num_params + message%num_params
+
+          allocate(initialiser_, source=initialiser_setup("he_normal"))
+          call initialiser_%initialise(message%weight(:,:,:), &
+               fan_in=message%num_message_features*message%max_vertex_degree, &
+               fan_out=message%num_outputs)
+          message%weight = &
+               message%weight / (40._real32 * sum(message%weight))
+          deallocate(initialiser_)
+
+       end select
+    end do
+    select type(readout => this%method%readout)
+    type is(conv_readout_phase_type)
+       readout%weight( &
+            1:readout%num_inputs, &
+            1:readout%num_outputs, &
+            1:this%num_time_steps+1 &
+       ) => this%params(num_params:num_params+readout%num_params-1)
+       readout%dw( &
+            1:readout%num_inputs, &
+            1:readout%num_outputs, &
+            1:this%num_time_steps+1, &
+            1:this%batch_size &
+       ) => this%db
+
+       allocate(initialiser_, source=initialiser_setup("he_normal"))
+       call initialiser_%initialise(readout%weight(:,:,:), &
+            fan_in=readout%num_inputs, &
+            fan_out=readout%num_outputs &
+       )
+       deallocate(initialiser_)
+       readout%weight = readout%weight / size(readout%weight)
+
+    end select
+
+  end subroutine set_param_pointers_conv
 !###############################################################################
 
 
@@ -518,31 +595,16 @@ contains
     type(conv_message_phase_type) :: message_phase
     !! Instance of the convolutional message passing phase
 
-    ! Local variables
-    class(initialiser_type), allocatable :: initialiser_
-    !! Initialiser for the weights
-
 
     message_phase%num_inputs  = num_vertex_features
     message_phase%num_outputs = num_vertex_features
     message_phase%num_message_features = num_vertex_features + num_edge_features
     message_phase%batch_size  = batch_size
+    message_phase%max_vertex_degree = max_vertex_degree
 
     allocate(message_phase%message(batch_size))
     allocate(message_phase%feature(batch_size))
-    allocate(message_phase%weight( &
-         message_phase%num_message_features, &
-         message_phase%num_outputs, &
-         max_vertex_degree), source=0._real32)
     message_phase%num_params = message_phase%get_num_params()
-
-    allocate(initialiser_, source=initialiser_setup("he_normal"))
-    call initialiser_%initialise(message_phase%weight(:,:,:), &
-         fan_in=message_phase%num_message_features*max_vertex_degree, &
-         fan_out=message_phase%num_outputs)
-    message_phase%weight = &
-         message_phase%weight / (40._real32 * sum(message_phase%weight))
-    deallocate(initialiser_)
 
     allocate(message_phase%dw( &
          message_phase%num_message_features, &
@@ -576,26 +638,13 @@ contains
     type(conv_readout_phase_type) :: readout_phase
     !! Instance of the convolutional readout phase
 
-    ! Local variables
-    class(initialiser_type), allocatable :: initialiser_
-    !! Initialiser for the weights
-
 
     readout_phase%num_time_steps = num_time_steps
     readout_phase%num_inputs  = num_inputs
     readout_phase%num_outputs = num_outputs
     readout_phase%batch_size  = batch_size
-    allocate(readout_phase%weight( &
-         num_inputs, num_outputs, num_time_steps+1), source=0._real32)
     readout_phase%num_params = readout_phase%get_num_params()
 
-    allocate(initialiser_, source=initialiser_setup("he_normal"))
-    call initialiser_%initialise(readout_phase%weight(:,:,:), &
-         fan_in=readout_phase%num_inputs, &
-         fan_out=readout_phase%num_outputs)
-    deallocate(initialiser_)
-
-    ! readout_phase%weight = readout_phase%weight / size(readout_phase%weight)
     allocate(readout_phase%dw( &
          num_inputs, num_outputs, num_time_steps+1, batch_size))
     allocate(readout_phase%z(num_time_steps+1, batch_size))
@@ -849,7 +898,7 @@ contains
     this%type = 'mpnn'
     this%input_rank = 1
     this%num_outputs = num_outputs
-    this%input_shape = [ 1._real32 ]
+    this%input_shape = [ 1 ]
     this%num_time_steps = num_time_steps
     this%num_vertex_features = num_features(1)
     this%num_edge_features = num_features(2)

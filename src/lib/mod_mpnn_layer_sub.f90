@@ -149,6 +149,20 @@ contains
 
 
 !###############################################################################
+  module subroutine set_param_pointers_mpnn(this)
+    !! Set the pointers to the learnable parameters
+
+    ! Arguments
+    class(mpnn_layer_type), intent(inout), target :: this
+    !! Instance of the message passing layer
+
+    allocate(this%params(0))
+
+  end subroutine set_param_pointers_mpnn
+!###############################################################################
+
+
+!###############################################################################
   pure module function get_gradients_mpnn(this, clip_method) result(gradients)
     !! Get the gradients of the learnable parameters in the layer
     implicit none
@@ -466,7 +480,25 @@ contains
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
-    this%input_shape = input_shape
+    ! Local variables
+    integer :: t
+    !! Time step
+    integer :: num_params_message
+    !! Number of parameters in the message
+    integer :: num_params_readout
+    !! Number of parameters in the readout
+
+
+    !---------------------------------------------------------------------------
+    ! Initialise optional arguments
+    !---------------------------------------------------------------------------
+    if (present(batch_size)) this%batch_size = batch_size
+
+
+    !---------------------------------------------------------------------------
+    ! Initialise number of inputs
+    !---------------------------------------------------------------------------
+    this%input_shape = [ 1 ] !input_shape
     if(allocated(this%output))then
        if(this%output%allocated) call this%output%deallocate()
     end if
@@ -475,7 +507,23 @@ contains
     !if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
     this%num_params = this%get_num_params()
 
-    if (present(batch_size)) this%batch_size = batch_size
+
+    !---------------------------------------------------------------------------
+    ! Allocateparameters
+    !---------------------------------------------------------------------------
+    if(allocated(this%params)) deallocate(this%params)
+    allocate(this%params(this%num_params), source=0._real32)
+    if(allocated(this%dp)) deallocate(this%dp)
+    num_params_message = 0
+    do t = 1, this%method%num_time_steps
+       num_params_message = &
+            num_params_message + this%method%message(t)%get_num_params()
+    end do
+    allocate(this%dp(num_params_message, this%batch_size), source=0._real32)
+    if(allocated(this%db)) deallocate(this%db)
+    num_params_readout = this%method%readout%get_num_params()
+    allocate(this%db(num_params_readout, this%batch_size), source=0._real32)
+
 
     !---------------------------------------------------------------------------
     ! Initialise batch size-dependent arrays
@@ -528,6 +576,14 @@ contains
             this%num_time_steps, &
             this%output%shape, this%batch_size &
        )
+       if(.not.allocated(this%di)) this%di = array2d_type()
+       if(this%di%allocated) call this%di%deallocate()
+       call this%di%allocate( &
+            [1, this%batch_size], &
+            source=0._real32 &
+       )
+
+       call this%set_param_pointers()
     end if
 
   end subroutine set_batch_size_mpnn
