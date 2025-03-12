@@ -94,6 +94,7 @@ module athena
   !-----------------------------------------------------------------------------
   use athena__mpnn_layer,      only: mpnn_layer_type
   use athena__conv_mpnn_layer, only: conv_mpnn_layer_type
+  use athena__kipf_mpnn_layer, only: kipf_mpnn_layer_type
 
 
   ! Dropout layer types

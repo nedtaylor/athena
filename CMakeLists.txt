@@ -61,7 +61,7 @@ include(FetchContent)
 FetchContent_Declare(
     graphstruc
     GIT_REPOSITORY https://github.com/nedtaylor/graphstruc.git
-    GIT_TAG        main # v0.1.1
+    GIT_TAG        sparse_adjacency # v0.1.1
     FIND_PACKAGE_ARGS NAMES graphstruc
 )
 FetchContent_MakeAvailable(graphstruc)
