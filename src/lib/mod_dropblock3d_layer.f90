@@ -114,15 +114,15 @@ contains
     select rank(input)
     rank(2)
        select rank(gradient)
-        rank(2)
-            call backward_5d(this, input, gradient)
-        end select
+       rank(2)
+          call backward_5d(this, input, gradient)
+       end select
     rank(5)
        select rank(gradient)
        rank(2)
-         call backward_5d(this, input, gradient)
+          call backward_5d(this, input, gradient)
        rank(5)
-         call backward_5d(this, input, gradient)
+          call backward_5d(this, input, gradient)
        end select
     end select
   end subroutine backward_rank
@@ -135,7 +135,6 @@ contains
 
 
 !###############################################################################
-#if defined(GFORTRAN)
   module function layer_setup( &
        rate, block_size, &
        input_shape, batch_size, &
@@ -157,10 +156,6 @@ contains
 
     type(dropblock3d_layer_type) :: layer
     !! Instance of the 3D dropblock layer
-#else
-  module procedure layer_setup
-    implicit none
-#endif
 
     ! Local variables
     integer :: verbose_ = 0
@@ -185,11 +180,7 @@ contains
     !---------------------------------------------------------------------------
     if(present(input_shape)) call layer%init(input_shape=input_shape)
 
-#if defined(GFORTRAN)
   end function layer_setup
-#else
-  end procedure layer_setup
-#endif
 !###############################################################################
 
 
@@ -258,11 +249,8 @@ contains
     ! set up number of channels, width, height
     !---------------------------------------------------------------------------
     this%num_channels = this%input_shape(4)
-    if(allocated(this%output))then
-       if(this%output%allocated) call this%output%deallocate()
-    end if
-    this%output = array5d_type()
-    this%output%shape = this%input_shape
+    allocate(this%output_shape(2))
+    this%output_shape = this%input_shape
 
 
     !---------------------------------------------------------------------------
@@ -272,11 +260,11 @@ contains
     ! drop_rate = 1 - keep_prob
     this%gamma = ( this%rate/this%block_size**3._real32 ) * &
          this%input_shape(1) / &
-              (this%input_shape(1) - this%block_size + 1._real32) * &
+         (this%input_shape(1) - this%block_size + 1._real32) * &
          this%input_shape(2) / &
-              (this%input_shape(2) - this%block_size + 1._real32) * &
+         (this%input_shape(2) - this%block_size + 1._real32) * &
          this%input_shape(3) / &
-              (this%input_shape(3) - this%block_size + 1._real32)
+         (this%input_shape(3) - this%block_size + 1._real32)
     allocate(this%mask( &
          this%input_shape(1), &
          this%input_shape(2), &
@@ -327,23 +315,29 @@ contains
     ! Allocate arrays
     !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
-       if(.not.allocated(this%output)) this%output = array5d_type()
-       if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
-       call this%output%allocate(array_shape = [ &
-            this%output%shape(1), &
-            this%output%shape(2), &
-            this%output%shape(3), &
-            this%num_channels, &
-            this%batch_size ], &
+       if(this%use_graph_input)then
+          call stop_program( &
+               "Graph input not supported for 3D dropblock layer" &
+          )
+          return
+       end if
+       if(allocated(this%output)) deallocate(this%output)
+       allocate( this%output(1,1), source = array5d_type() )
+       call this%output(1,1)%allocate( &
+            array_shape = [ &
+                 this%output_shape(1), &
+                 this%output_shape(2), &
+                 this%output_shape(3), this%num_channels, &
+                 this%batch_size ], &
             source=0._real32 &
        )
-       if(.not.allocated(this%di)) this%di = array5d_type()
-       if(this%di%allocated) call this%di%deallocate()
-       call this%di%allocate(source=this%output)
+       if(allocated(this%di)) deallocate(this%di)
+       allocate( this%di(1,1), source = array5d_type() )
+       call this%di(1,1)%allocate( source = this%output )
     end if
 
   end subroutine set_batch_size_dropblock3d
- !###############################################################################
+!###############################################################################
 
 
 !###############################################################################
@@ -513,8 +507,8 @@ contains
        case("BLOCK_SIZE")
           call assign_val(buffer, block_size, itmp1)
        case default
-           ! Don't look for "e" due to scientific notation of numbers
-           ! ... i.e. exponent (E+00)
+          ! Don't look for "e" due to scientific notation of numbers
+          ! ... i.e. exponent (E+00)
           if(scan(to_lower(trim(adjustl(buffer))),&
                'abcdfghijklmnopqrstuvwxyz').eq.0)then
              cycle tag_loop
@@ -542,10 +536,10 @@ contains
     !---------------------------------------------------------------------------
     read(unit,'(A)') buffer
     if(trim(adjustl(buffer)).ne."END "//to_upper(trim(this%name)))then
-        write(0,*) trim(adjustl(buffer))
-        write(err_msg,'("END ",A," not where expected")') to_upper(this%name)
-        call stop_program(err_msg)
-        return
+       write(0,*) trim(adjustl(buffer))
+       write(err_msg,'("END ",A," not where expected")') to_upper(this%name)
+       call stop_program(err_msg)
+       return
     end if
 
   end subroutine read_dropblock3d
@@ -587,11 +581,12 @@ contains
     ! Arguments
     class(dropblock3d_layer_type), intent(inout) :: this
     !! Instance of the 3D dropblock layer
-    real(real32), dimension( &
-         this%input_shape(1), &
-         this%input_shape(2), &
-         this%input_shape(3), &
-         this%num_channels, this%batch_size), &
+    real(real32), &
+         dimension( &
+              this%input_shape(1), &
+              this%input_shape(2), &
+              this%input_shape(3), &
+              this%num_channels, this%batch_size), &
          intent(in) :: input
     !! Input values
 
@@ -599,7 +594,7 @@ contains
     integer :: m, s
     !! Loop indices
 
-    select type(output => this%output)
+    select type(output => this%output(1,1))
     type is (array5d_type)
        select case(this%inference)
        case(.true.)
@@ -626,19 +621,20 @@ contains
     ! Arguments
     class(dropblock3d_layer_type), intent(inout) :: this
     !! Instance of the 3D dropblock layer
-    real(real32), dimension( &
-         this%input_shape(1), &
-         this%input_shape(2), &
-         this%input_shape(3), &
-         this%num_channels, this%batch_size), &
+    real(real32), &
+         dimension( &
+              this%input_shape(1), &
+              this%input_shape(2), &
+              this%input_shape(3), &
+              this%num_channels, this%batch_size), &
          intent(in) :: input
     !! Input values
     real(real32), &
          dimension(&
-         this%output%shape(1), &
-         this%output%shape(2), &
-         this%output%shape(3), &
-         this%num_channels, this%batch_size), &
+              this%output_shape(1), &
+              this%output_shape(2), &
+              this%output_shape(3), &
+              this%num_channels, this%batch_size), &
          intent(in) :: gradient
     !! Gradient values
 
@@ -649,10 +645,11 @@ contains
 
     ! Compute gradients for input feature map
     !---------------------------------------------------------------------------
-    select type(di => this%di)
+    select type(di => this%di(1,1))
     type is (array5d_type)
        do concurrent(m = 1:this%num_channels, s=1:this%batch_size)
-          di%val_ptr(:,:,:,m,s) = merge(gradient(:,:,:,m,s), 0._real32, this%mask)
+          di%val_ptr(:,:,:,m,s) = &
+               merge(gradient(:,:,:,m,s), 0._real32, this%mask)
        end do
     end select
 

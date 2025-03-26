@@ -9,6 +9,7 @@ module athena__input_layer
        array3d_type, &
        array4d_type, &
        array5d_type
+  use graphstruc, only: graph_type
   implicit none
 
 
@@ -37,8 +38,12 @@ module athena__input_layer
      !! Forward propagation
      procedure, pass(this) :: backward => backward_rank
      !! Backward propagation
-     procedure, pass(this) :: set => set_input
+     procedure, pass(this) :: set_input_real
      !! Set input values
+     procedure, pass(this) :: set_input_graph
+     !! Set input values
+     generic :: set => set_input_real, set_input_graph
+     !! Generic interface for setting input values
   end type input_layer_type
 
   interface input_layer_type
@@ -78,7 +83,7 @@ contains
     real(real32), dimension(..), intent(in) :: input
     !! Input data
 
-    call this%output%set( input )
+    call this%output(1,1)%set( input )
   end subroutine forward_rank
 !###############################################################################
 
@@ -216,24 +221,7 @@ contains
     !---------------------------------------------------------------------------
     this%input_rank = size(input_shape, dim=1)
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
-    if(allocated(this%output))then
-       if(this%output%allocated) call this%output%deallocate()
-    end if
-    select case(this%input_rank + 1)
-    case(1)
-       this%output = array1d_type([ this%input_shape, max(1, this%batch_size) ])
-    case(2)
-       this%output = array2d_type([ this%input_shape, max(1, this%batch_size) ])
-    case(3)
-       this%output = array3d_type([ this%input_shape, max(1, this%batch_size) ])
-    case(4)
-       this%output = array4d_type([ this%input_shape, max(1, this%batch_size) ])
-    case(5)
-       this%output = array5d_type([ this%input_shape, max(1, this%batch_size) ])
-    case default
-       call stop_program('Input layer only supports input ranks 1-5')
-       return
-    end select
+    this%output_shape = this%input_shape
     this%num_outputs = product(this%input_shape)
 
 
@@ -276,53 +264,54 @@ contains
     !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
        if(allocated(this%output)) deallocate(this%output)
-       select case(size(this%input_shape))
-       case(1)
-          this%input_rank = 1
-          this%output = array2d_type()
-          call this%output%allocate( array_shape = [ &
-               this%input_shape(1), this%batch_size ], &
-               source=0._real32 &
-       )
-       case(2)
-          this%input_rank = 2
-          this%output = array3d_type()
-          call this%output%allocate( array_shape = [ &
-               this%input_shape(1), &
-               this%input_shape(2), &
-               this%batch_size ], &
-               source=0._real32 &
-       )
-       case(3)
-          this%input_rank = 3
-          this%output = array4d_type()
-          call this%output%allocate( array_shape = [ &
-               this%input_shape(1), &
-               this%input_shape(2), &
-               this%input_shape(3), this%batch_size ], &
-               source=0._real32 &
-       )
-       case(4)
-          this%input_rank = 4
-          this%output = array5d_type()
-          call this%output%allocate( array_shape = [ &
-               this%input_shape(1), &
-               this%input_shape(2), &
-               this%input_shape(3), &
-               this%input_shape(4), this%batch_size ], &
-               source=0._real32 &
-          )
-      !  case(5)
-      !     this%input_rank = 4
-      !     this%output = array5d_type()
-      !     call this%output%allocate( array_shape = [ &
-      !          this%input_shape(1), &
-      !          this%input_shape(2), &
-      !          this%input_shape(3), &
-      !          this%input_shape(4), this%batch_size ], &
-      !          source=0._real32 &
-      !     )
-       end select
+       if(this%use_graph_input)then
+          allocate(this%output(2,this%batch_size), source=array2d_type())
+       else
+          select case(size(this%input_shape))
+          case(1)
+             this%input_rank = 1
+             allocate(this%output(1,1), source=array2d_type())
+             call this%output(1,1)%allocate( &
+                  array_shape = [ &
+                       this%input_shape(1), this%batch_size ], &
+                  source=0._real32 &
+             )
+          case(2)
+             this%input_rank = 2
+             allocate(this%output(1,1), source=array3d_type())
+             call this%output(1,1)%allocate( &
+                  array_shape = [ &
+                       this%input_shape(1), &
+                       this%input_shape(2), &
+                       this%batch_size ], &
+                  source=0._real32 &
+             )
+          case(3)
+             this%input_rank = 3
+             allocate(this%output(1,1), source=array4d_type())
+             call this%output(1,1)%allocate( &
+                  array_shape = [ &
+                       this%input_shape(1), &
+                       this%input_shape(2), &
+                       this%input_shape(3), this%batch_size ], &
+                  source=0._real32 &
+             )
+          case(4)
+             this%input_rank = 4
+             allocate(this%output(1,1), source=array5d_type())
+             call this%output(1,1)%allocate( &
+                  array_shape = [ &
+                       this%input_shape(1), &
+                       this%input_shape(2), &
+                       this%input_shape(3), &
+                       this%input_shape(4), this%batch_size ], &
+                  source=0._real32 &
+             )
+          case default
+             call stop_program('Input layer only supports input ranks 1-4')
+             return
+          end select
+       end if
     end if
 
   end subroutine set_batch_size_input
@@ -374,10 +363,10 @@ contains
        !------------------------------------------------------------------------
        read(unit,'(A)',iostat=stat) buffer
        if(stat.ne.0)then
-           write(err_msg,'("file encountered error (EoF?) before END ",A)') &
-                to_upper(this%name)
-           call stop_program(err_msg)
-           return
+          write(err_msg,'("file encountered error (EoF?) before END ",A)') &
+               to_upper(this%name)
+          call stop_program(err_msg)
+          return
        end if
        if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
@@ -468,7 +457,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine set_input(this, input)
+  pure subroutine set_input_real(this, input)
     !! Set input values for an input layer
     implicit none
 
@@ -479,10 +468,29 @@ contains
     !! Input data
     !dimension(this%batch_size * this%num_outputs), intent(in) :: input
 
+    call this%output(1,1)%set( input )
 
-    call this%output%set( input )
+  end subroutine set_input_real
+!-------------------------------------------------------------------------------
+  pure subroutine set_input_graph(this, input)
+    !! Set input values for an input layer
+    implicit none
 
-  end subroutine set_input
+    ! Arguments
+    class(input_layer_type), intent(inout) :: this
+    !! Instance of the input layer
+    type(graph_type), dimension(:), intent(in) :: input
+    !! Input data
+    !dimension(this%batch_size * this%num_outputs), intent(in) :: input
+
+    integer :: s
+
+    do s = 1, this%batch_size
+       call this%output(1,s)%set( input(s)%vertex_features )
+       call this%output(2,s)%set( input(s)%edge_features )
+    end do
+
+  end subroutine set_input_graph
 !###############################################################################
 
 end module athena__input_layer

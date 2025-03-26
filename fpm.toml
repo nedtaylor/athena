@@ -16,7 +16,8 @@ auto-examples = false
 module-naming = false
 
 [dependencies]
-graphstruc = { git = "https://github.com/nedtaylor/graphstruc", branch = "sparse_adjacency" }
+# graphstruc = { git = "https://github.com/nedtaylor/graphstruc", branch = "sparse_adjacency" }
+graphstruc = { path = "../graphstruc" }
 
 [install]
 library = false
@@ -74,8 +75,8 @@ source-dir = "example/mnist_drop/src"
 [example.dependencies]
 example_library = { path = "example/example_library"}
 
-[[example]]
-name = "mpnn_chemical"
-source-dir = "example/mpnn_chemical/src"
-[example.dependencies]
-example_library = { path = "example/example_library"}
+# [[example]]
+# name = "mpnn_chemical"
+# source-dir = "example/mpnn_chemical/src"
+# [example.dependencies]
+# example_library = { path = "example/example_library"}

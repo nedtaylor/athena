@@ -75,19 +75,19 @@ contains
     case(1)  ! Faces
        facet_idx = 0
        do i = 1, this%rank
-           do j = 1, 2  ! Two faces per dimension
-              facet_idx = facet_idx + 1
-              this%dim(facet_idx) = i
+          do j = 1, 2  ! Two faces per dimension
+             facet_idx = facet_idx + 1
+             this%dim(facet_idx) = i
 
-              ! Set destination bounds
-              if(j .eq. 1) then
-                 this%dest_bound(:,1,facet_idx) = [1, pad(k)]
-              else
-                 this%orig_bound(1,facet_idx) = length(i)
-                 this%dest_bound(:,1,facet_idx) = &
-                      [length(k) + pad(k) + 1, length(k) + pad(k) * 2]
-              end if
-           end do
+             ! Set destination bounds
+             if(j .eq. 1) then
+                this%dest_bound(:,1,facet_idx) = [1, pad(k)]
+             else
+                this%orig_bound(1,facet_idx) = length(i)
+                this%dest_bound(:,1,facet_idx) = &
+                     [length(k) + pad(k) + 1, length(k) + pad(k) * 2]
+             end if
+          end do
        end do
     case(2)  ! Edges
        facet_idx = 0
@@ -166,6 +166,27 @@ contains
     output%val = a%val + b%val
 
   end function add_array
+!-------------------------------------------------------------------------------
+  pure module function multiply_array(a, b) result(output)
+    !! Add two arrays
+    implicit none
+
+    ! Arguments
+    class(array_type), intent(in) :: a, b
+    !! Input arrays
+    class(array_type), allocatable :: output
+    !! Output array
+
+    output = a
+    if(.not.allocated(a%val).or..not.allocated(b%val))then
+       return
+    elseif(a%size.ne.b%size) then
+       return
+    end if
+
+    output%val = a%val * b%val
+
+  end function multiply_array
 !###############################################################################
 
 
@@ -366,8 +387,8 @@ contains
        this%val_ptr( 1:array_shape(1) ) => this%val
     end if
     if(present(source))then
-      select rank(source)
-      rank(0)
+       select rank(source)
+       rank(0)
           select type(source)
           type is (real(real32))
              if(.not.present(array_shape))then
@@ -377,10 +398,10 @@ contains
              this%val(:,:) = source
           type is (array1d_type)
              if(present(array_shape))then
-                 if(any(array_shape.ne.shape(source%val)))then
-                    call stop_program('Source shape does not match array shape')
-                    return
-                 end if
+                if(any(array_shape.ne.shape(source%val)))then
+                   call stop_program('Source shape does not match array shape')
+                   return
+                end if
              end if
              this = source
           class default
@@ -392,8 +413,10 @@ contains
           type is (real(real32))
              if(present(array_shape))then
                 if(any(array_shape.ne.shape(source))) &
-                  call stop_program('Source shape does not match array shape')
-                  return
+                     call stop_program( &
+                          'Source shape does not match array shape' &
+                     )
+                return
              else
                 allocate( this%val( size(source, dim=1), 1 ) )
                 this%val_ptr( 1:size(source, dim=1) ) => this%val
@@ -557,8 +580,8 @@ contains
     this%allocated = .true.
     if(present(array_shape)) allocate(this%val(array_shape(1), array_shape(2)))
     if(present(source))then
-      select rank(source)
-      rank(0)
+       select rank(source)
+       rank(0)
           select type(source)
           type is (real(real32))
              if(.not.present(array_shape))then
@@ -569,8 +592,8 @@ contains
           type is (array2d_type)
              if(present(array_shape))then
                 if(any(array_shape.ne.shape(source%val)))then
-                  call stop_program('Source shape does not match array shape')
-                  return
+                   call stop_program('Source shape does not match array shape')
+                   return
                 end if
              end if
              this = source
@@ -757,8 +780,8 @@ contains
        ) => this%val
     end if
     if(present(source))then
-      select rank(source)
-      rank(0)
+       select rank(source)
+       rank(0)
           select type(source)
           type is (real(real32))
              if(.not.present(array_shape))then
@@ -768,10 +791,10 @@ contains
              this%val(:,:) = source
           type is (array3d_type)
              if(present(array_shape))then
-                 if(any(array_shape.ne.shape(source%val)))then
-                    call stop_program('Source shape does not match array shape')
-                    return
-                 end if
+                if(any(array_shape.ne.shape(source%val)))then
+                   call stop_program('Source shape does not match array shape')
+                   return
+                end if
              end if
              this = source
              this%val_ptr( &
@@ -1000,8 +1023,8 @@ contains
        ) => this%val
     end if
     if(present(source))then
-      select rank(source)
-      rank(0)
+       select rank(source)
+       rank(0)
           select type(source)
           type is (real(real32))
              if(.not.present(array_shape))then
@@ -1011,10 +1034,10 @@ contains
              this%val(:,:) = source
           type is (array4d_type)
              if(present(array_shape))then
-                 if(any(array_shape.ne.shape(source%val)))then
-                    call stop_program('Source shape does not match array shape')
-                    return
-                 end if
+                if(any(array_shape.ne.shape(source%val)))then
+                   call stop_program('Source shape does not match array shape')
+                   return
+                end if
              end if
              this = source
              this%val_ptr( &
@@ -1248,8 +1271,8 @@ contains
        ) => this%val
     end if
     if(present(source))then
-      select rank(source)
-      rank(0)
+       select rank(source)
+       rank(0)
           select type(source)
           type is (real(real32))
              if(.not.present(array_shape))then
@@ -1259,10 +1282,10 @@ contains
              this%val(:,:) = source
           type is (array5d_type)
              if(present(array_shape))then
-                 if(any(array_shape.ne.shape(source%val)))then
-                    call stop_program('Source shape does not match array shape')
-                    return
-                 end if
+                if(any(array_shape.ne.shape(source%val)))then
+                   call stop_program('Source shape does not match array shape')
+                   return
+                end if
              end if
              this = source
              this%val_ptr( &

@@ -221,11 +221,8 @@ contains
     !---------------------------------------------------------------------------
     ! Set up number of channels, width, height
     !---------------------------------------------------------------------------
-    if(allocated(this%output))then
-       if(this%output%allocated) call this%output%deallocate()
-    end if
-    this%output = array2d_type()
-    this%output%shape = this%input_shape
+    allocate(this%output_shape(2))
+    this%output_shape = this%input_shape
 
 
     !---------------------------------------------------------------------------
@@ -278,15 +275,23 @@ contains
     ! Allocate arrays
     !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
-       if(.not.allocated(this%output)) this%output = array2d_type()
-       if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
-       call this%output%allocate( array_shape = [ &
-            this%output%shape(1), &
-            this%batch_size ], source=0._real32 &
+       if(this%use_graph_input)then
+          call stop_program( &
+               "Graph input not supported for dropout layer" &
+          )
+          return
+       end if
+       if(allocated(this%output)) deallocate(this%output)
+       allocate( this%output(1,1), source = array2d_type() )
+       call this%output(1,1)%allocate( &
+            array_shape = [ &
+                 this%output_shape(1), &
+                 this%batch_size ], &
+            source=0._real32 &
        )
-       if(.not.allocated(this%di)) this%di = array2d_type()
-       if(this%di%allocated) call this%di%deallocate()
-       call this%di%allocate( source=this%output )
+       if(allocated(this%di)) deallocate(this%di)
+       allocate( this%di(1,1), source = array2d_type() )
+       call this%di(1,1)%allocate( source = this%output )
     end if
 
   end subroutine set_batch_size_dropout
@@ -504,8 +509,9 @@ contains
     ! Arguments
     class(dropout_layer_type), intent(inout) :: this
     !! Instance of the dropout layer
-    real(real32), dimension( &
-         this%input_shape(1), this%batch_size), &
+    real(real32), &
+         dimension( &
+              this%input_shape(1), this%batch_size), &
          intent(in) :: input
     !! Input values
 
@@ -514,7 +520,7 @@ contains
     !! Loop index
 
 
-    select type(output => this%output)
+    select type(output => this%output(1,1))
     type is (array2d_type)
        select case(this%inference)
        case(.true.)
@@ -524,10 +530,10 @@ contains
           ! Perform the drop operation
           this%idx = this%idx + 1
           do concurrent(s=1:this%batch_size)
-              output%val_ptr(:,s) = merge( &
+             output%val_ptr(:,s) = merge( &
                   input(:,s), 0._real32, &
                   this%mask(:,this%idx)) / &
-                  ( 1._real32 - this%rate )
+             ( 1._real32 - this%rate )
           end do
        end select
     end select
@@ -544,19 +550,20 @@ contains
     ! Arguments
     class(dropout_layer_type), intent(inout) :: this
     !! Instance of the dropout layer
-    real(real32), dimension( &
-         this%input_shape(1), this%batch_size), &
+    real(real32), &
+         dimension( &
+              this%input_shape(1), this%batch_size), &
          intent(in) :: input
     !! Input values
     real(real32), &
-         dimension(this%output%shape(1), this%batch_size), &
+         dimension(this%output_shape(1), this%batch_size), &
          intent(in) :: gradient
     !! Gradient values
 
 
     ! Compute gradients for input feature map
     !---------------------------------------------------------------------------
-    select type(di => this%di)
+    select type(di => this%di(1,1))
     type is (array2d_type)
        di%val_ptr(:,:) = gradient(:,:)
     end select

@@ -126,7 +126,7 @@ contains
     real(real32), allocatable, dimension(..), intent(out) :: output
     !! Output of the layer
 
-    call this%output%get(output)
+    call this%output(1,1)%get(output)
   end subroutine get_output_base
 !###############################################################################
 
@@ -145,22 +145,22 @@ contains
     !! Error message
 
     if(allocated(this%output))then
-       if(.not.this%output%allocated)then
+       if(.not.this%output(1,1)%allocated)then
           write(err_msg,'("output not allocated for layer ",A," ",I0)') &
                trim(this%name), this%id
           call stop_program(err_msg)
           return
        end if
-       call this%output%set_ptr()
+       call this%output(1,1)%set_ptr()
     end if
     if(allocated(this%di))then
-       if(.not.this%di%allocated)then
+       if(.not.this%di(1,1)%allocated)then
           write(err_msg,'("di not allocated for layer ",A," ",I0)') &
                trim(this%name), this%id
           call stop_program(err_msg)
           return
        end if
-       call this%di%set_ptr()
+       call this%di(1,1)%set_ptr()
     end if
 
     call this%set_ptrs_hyperparams()
@@ -229,6 +229,62 @@ contains
     num_params = 2 * this%num_channels
 
   end function get_num_params_batch
+!###############################################################################
+
+
+!###############################################################################
+  pure module subroutine forward_derived_base(this, input)
+    !! Forward pass for the layer
+    implicit none
+
+    ! Arguments
+    class(base_layer_type), intent(inout) :: this
+    !! Instance of the layer
+    class(array_type), dimension(:,:), intent(in) :: input
+    !! Input data
+
+    this%output = input
+  end subroutine forward_derived_base
+
+  pure module subroutine backward_derived_base(this, input, gradient)
+    !! Backward pass for the layer
+    implicit none
+
+    ! Arguments
+    class(base_layer_type), intent(inout) :: this
+    !! Instance of the layer
+    class(array_type), dimension(:,:), intent(in) :: input
+    !! Input data
+    class(array_type), dimension(:,:), intent(in) :: gradient
+    !! Gradient data
+
+    this%di = gradient
+  end subroutine backward_derived_base
+
+  pure module subroutine set_graph_base(this, graph)
+    !! Set the graph structure of the input data
+    implicit none
+
+    ! Arguments
+    class(base_layer_type), intent(inout) :: this
+    !! Instance of the layer
+    type(graph_type), dimension(:), intent(in) :: graph
+    !! Graph structure of input data
+
+    ! Local variables
+    integer :: s
+    !! Loop index
+
+    if(allocated(this%graph)) deallocate(this%graph)
+    allocate(this%graph(size(graph)))
+    do s = 1, size(graph)
+       this%graph(s)%adj_ia = graph(s)%adj_ia
+       this%graph(s)%adj_ja = graph(s)%adj_ja
+       this%graph(s)%edge_weights = graph(s)%edge_weights
+       this%graph(s)%num_edges = graph(s)%num_edges
+       this%graph(s)%num_vertices = graph(s)%num_vertices
+    end do
+  end subroutine set_graph_base
 !###############################################################################
 
 
@@ -410,11 +466,137 @@ contains
        this%dp = gradients * this%batch_size
        this%db = gradients * this%batch_size
     rank(1)
-        this%dp(:,1) = gradients(:this%num_channels) * this%batch_size
-        this%db(:,1) = gradients(this%num_channels+1:) * this%batch_size
+       this%dp(:,1) = gradients(:this%num_channels) * this%batch_size
+       this%db(:,1) = gradients(this%num_channels+1:) * this%batch_size
     end select
 
   end subroutine set_gradients_batch
+!###############################################################################
+
+
+!###############################################################################
+  subroutine init_pad(this, input_shape, batch_size, verbose)
+    !! Initialise padding layer
+    implicit none
+
+    ! Arguments
+    class(pad_layer_type), intent(inout) :: this
+    !! Instance of the padding layer
+    integer, dimension(:), intent(in) :: input_shape
+    !! Input shape
+    integer, optional, intent(in) :: batch_size
+    !! Batch size
+    integer, optional, intent(in) :: verbose
+    !! Verbosity level
+
+    ! Local variables
+    integer :: i
+    !! Loop index
+    integer :: verbose_ = 0
+    !! Verbosity level
+
+
+    !---------------------------------------------------------------------------
+    ! Initialise optional arguments
+    !---------------------------------------------------------------------------
+    if(present(verbose)) verbose_ = verbose
+    if(present(batch_size)) this%batch_size = batch_size
+
+
+    !---------------------------------------------------------------------------
+    ! Initialise input shape
+    !---------------------------------------------------------------------------
+    if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
+    if(.not.allocated(this%orig_bound)) then
+       allocate(this%orig_bound(2,this%input_rank-1))
+       allocate(this%dest_bound(2,this%input_rank-1))
+    end if
+    do i = 1, this%input_rank - 1
+       this%orig_bound(:,i) = [ 1, this%input_shape(i) ]
+       this%dest_bound(:,i) = [ 1, this%input_shape(i) + this%pad(i) * 2 ]
+       if (this%imethod .eq. 5)then
+          call this%facets(i)%setup_replication_bounds( &
+               length = this%input_shape(:this%input_rank-1), &
+               pad = this%pad &
+          )
+       end if
+    end do
+
+
+    !---------------------------------------------------------------------------
+    ! Set up number of channels, width, height
+    !---------------------------------------------------------------------------
+    this%num_channels = this%input_shape(this%input_rank)
+    if(allocated(this%output_shape)) deallocate(this%output_shape)
+    allocate( this%output_shape(this%input_rank) )
+    this%output_shape(this%input_rank) = this%input_shape(this%input_rank)
+    this%output_shape(:this%input_rank-1) = &
+         this%input_shape(:this%input_rank-1) + this%pad(:) * 2
+
+
+    !---------------------------------------------------------------------------
+    ! Initialise batch size-dependent arrays
+    !---------------------------------------------------------------------------
+    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
+
+  end subroutine init_pad
+!###############################################################################
+
+
+!###############################################################################
+  subroutine init_pool(this, input_shape, batch_size, verbose)
+    !! Initialise pooling layer
+    implicit none
+
+    ! Arguments
+    class(pool_layer_type), intent(inout) :: this
+    !! Instance of the 1D average pooling layer
+    integer, dimension(:), intent(in) :: input_shape
+    !! Input shape
+    integer, optional, intent(in) :: batch_size
+    !! Batch size
+    integer, optional, intent(in) :: verbose
+    !! Verbosity level
+
+    ! Local variables
+    integer :: verbose_ = 0
+    !! Verbosity level
+
+
+    !---------------------------------------------------------------------------
+    ! Initialise optional arguments
+    !---------------------------------------------------------------------------
+    if(present(verbose)) verbose_ = verbose
+    if(present(batch_size)) this%batch_size = batch_size
+
+
+    !---------------------------------------------------------------------------
+    ! Initialise input shape
+    !---------------------------------------------------------------------------
+    if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
+
+
+    !---------------------------------------------------------------------------
+    ! Set up number of channels, width, height
+    !---------------------------------------------------------------------------
+    this%num_channels = this%input_shape(this%input_rank)
+    if(allocated(this%output_shape)) deallocate(this%output_shape)
+    allocate( this%output_shape(this%input_rank) )
+    this%output_shape(this%input_rank) = this%input_shape(this%input_rank)
+    this%output_shape(:this%input_rank-1) = &
+         floor( &
+              ( &
+                   this%input_shape(:this%input_rank-1) - this%pool &
+              ) / real(this%strd) &
+         ) + 1
+
+
+    !---------------------------------------------------------------------------
+    ! Initialise batch size-dependent arrays
+    !---------------------------------------------------------------------------
+    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
+
+  end subroutine init_pool
 !###############################################################################
 
 
@@ -466,11 +648,10 @@ contains
     ! THIS IS HANDLED AUTOMATICALLY BY THE CODE
     ! ... provide the initial input data shape and let us deal with the padding
     this%num_channels = this%input_shape(this%input_rank)
-    if(allocated(this%output))then
-       if(this%output%allocated) call this%output%deallocate()
-    end if
-    this%output%shape(this%input_rank) = this%num_filters
-    this%output%shape(:this%input_rank-1) = floor( &
+    if(allocated(this%output_shape)) deallocate(this%output_shape)
+    allocate( this%output_shape(this%input_rank) )
+    this%output_shape(this%input_rank) = this%num_filters
+    this%output_shape(:this%input_rank-1) = floor( &
          ( &
               this%input_shape(:this%input_rank-1) + 2 * this%pad - this%knl &
          ) / real(this%stp) &
@@ -547,14 +728,13 @@ contains
     !---------------------------------------------------------------------------
     ! set up number of channels, width, height
     !---------------------------------------------------------------------------
-    if(allocated(this%output))then
-       if(this%output%allocated) call this%output%deallocate()
-    end if
+    if(allocated(this%output)) deallocate(this%output)
+    allocate(this%output_shape(this%input_rank))
     if(size(this%input_shape).eq.1)then
-       this%output%shape(1) = this%input_shape(1)
-       this%output%shape(2) = 1
+       this%output_shape(1) = this%input_shape(1)
+       this%output_shape(2) = 1
     else
-       this%output%shape = this%input_shape
+       this%output_shape = this%input_shape
     end if
     this%num_channels = this%input_shape(this%input_rank)
     this%num_params = this%get_num_params()

@@ -18,8 +18,6 @@ module athena__avgpool3d_layer
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_avgpool3d
      !! Set hyperparameters for 3D average pooling layer
-     procedure, pass(this) :: init => init_avgpool3d
-     !! Initialise 3D average pooling layer
      procedure, pass(this) :: set_batch_size => set_batch_size_avgpool3d
      !! Set batch size for 3D average pooling layer
      procedure, pass(this) :: read => read_avgpool3d
@@ -102,7 +100,7 @@ contains
     rank(5)
        select rank(gradient)
        rank(5)
-         call backward_5d(this, input, gradient)
+          call backward_5d(this, input, gradient)
        end select
     end select
   end subroutine backward_rank
@@ -237,49 +235,6 @@ contains
 
 
 !###############################################################################
-  subroutine init_avgpool3d(this, input_shape, batch_size, verbose)
-    !! Initialise 3D average pooling layer
-    implicit none
-
-    ! Arguments
-    class(avgpool3d_layer_type), intent(inout) :: this
-    !! Instance of the 3D average pooling layer
-    integer, dimension(:), intent(in) :: input_shape
-    !! Input shape
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
-    integer, optional, intent(in) :: verbose
-    !! Verbosity level
-
-    ! Local variables
-    integer :: verbose_ = 0
-    !! Verbosity level
-
-    ! Initialise optional arguments
-    if(present(verbose)) verbose_ = verbose
-    if(present(batch_size)) this%batch_size = batch_size
-
-    ! Initialise input shape
-    if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
-
-    ! Set up number of channels, width, height
-    this%num_channels = this%input_shape(4)
-    if(allocated(this%output))then
-       if(this%output%allocated) call this%output%deallocate()
-    end if
-    this%output = array5d_type()
-    this%output%shape(4) = this%input_shape(4)
-    this%output%shape(:3) = &
-         floor( (this%input_shape(:3) - this%pool)/real(this%strd)) + 1
-
-    ! Initialise batch size-dependent arrays
-    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
-
-  end subroutine init_avgpool3d
-!###############################################################################
-
-
-!###############################################################################
   subroutine set_batch_size_avgpool3d(this, batch_size, verbose)
     !! Set batch size for 3D average pooling layer
     implicit none
@@ -296,29 +251,42 @@ contains
     integer :: verbose_ = 0
     !! Verbosity level
 
+    !---------------------------------------------------------------------------
     ! Initialise optional arguments
+    !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
     this%batch_size = batch_size
 
+
+    !---------------------------------------------------------------------------
     ! Allocate arrays
+    !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
-       if(.not.allocated(this%output)) this%output = array5d_type()
-       if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
-       call this%output%allocate( array_shape = [ &
-            this%output%shape(1), &
-            this%output%shape(2), &
-            this%output%shape(3), this%num_channels, &
-            this%batch_size ], &
+       if(this%use_graph_input)then
+          call stop_program( &
+               "Graph input not supported for 3D average pooling layer" &
+          )
+          return
+       end if
+       if(allocated(this%output)) deallocate(this%output)
+       allocate( this%output(1,1), source = array5d_type() )
+       call this%output(1,1)%allocate( &
+            array_shape = [ &
+                 this%output_shape(1), &
+                 this%output_shape(2), &
+                 this%output_shape(3), this%num_channels, &
+                 this%batch_size ], &
             source=0._real32 &
        )
-       if(.not.allocated(this%di)) this%di = array5d_type()
-       if(this%di%allocated) call this%di%deallocate()
-       call this%di%allocate( array_shape = [ &
-            this%input_shape(1), &
-            this%input_shape(2), &
-            this%input_shape(3), &
-            this%input_shape(4), &
-            this%batch_size ], &
+       if(allocated(this%di)) deallocate(this%di)
+       allocate( this%di(1,1), source = array5d_type() )
+       call this%di(1,1)%allocate( &
+            array_shape = [ &
+                 this%input_shape(1), &
+                 this%input_shape(2), &
+                 this%input_shape(3), &
+                 this%input_shape(4), &
+                 this%batch_size ], &
             source=0._real32 &
        )
     end if
@@ -476,12 +444,13 @@ contains
     ! Arguments
     class(avgpool3d_layer_type), intent(inout) :: this
     !! Instance of the 3D average pooling layer
-    real(real32), dimension( &
-         this%input_shape(1), &
-         this%input_shape(2), &
-         this%input_shape(3), &
-         this%num_channels, &
-         this%batch_size), &
+    real(real32), &
+         dimension( &
+              this%input_shape(1), &
+              this%input_shape(2), &
+              this%input_shape(3), &
+              this%num_channels, &
+              this%batch_size), &
          intent(in) :: input
     !! Input values
 
@@ -491,21 +460,21 @@ contains
     integer, dimension(3) :: stride_idx
     !! Stride index
 
-    select type(output => this%output)
+    select type(output => this%output(1,1))
     type is (array5d_type)
        ! Perform the pooling operation
        do concurrent(&
             s = 1:this%batch_size, &
             m = 1:this%num_channels, &
-            k = 1:this%output%shape(3), &
-            j = 1:this%output%shape(2), &
-            i = 1:this%output%shape(1))
+            k = 1:this%output_shape(3), &
+            j = 1:this%output_shape(2), &
+            i = 1:this%output_shape(1))
           stride_idx = ([i,j,k] - 1) * this%strd + 1
           output%val_ptr(i, j, k, m, s) = sum(&
                input( &
-               stride_idx(1):stride_idx(1)+this%pool(1)-1, &
-               stride_idx(2):stride_idx(2)+this%pool(2)-1, &
-               stride_idx(3):stride_idx(3)+this%pool(3)-1, m, s)) / &
+                    stride_idx(1):stride_idx(1)+this%pool(1)-1, &
+                    stride_idx(2):stride_idx(2)+this%pool(2)-1, &
+                    stride_idx(3):stride_idx(3)+this%pool(3)-1, m, s)) / &
                product(this%pool)
        end do
     end select
@@ -522,21 +491,22 @@ contains
     ! Arguments
     class(avgpool3d_layer_type), intent(inout) :: this
     !! Instance of the 3D average pooling layer
-    real(real32), dimension( &
-         this%input_shape(1), &
-         this%input_shape(2), &
-         this%input_shape(3), &
-         this%num_channels, &
-         this%batch_size), &
+    real(real32), &
+         dimension( &
+              this%input_shape(1), &
+              this%input_shape(2), &
+              this%input_shape(3), &
+              this%num_channels, &
+              this%batch_size), &
          intent(in) :: input
     !! Input values
     real(real32), &
          dimension(&
-         this%output%shape(1), &
-         this%output%shape(2), &
-         this%output%shape(3), &
-         this%num_channels, &
-         this%batch_size), &
+              this%output_shape(1), &
+              this%output_shape(2), &
+              this%output_shape(3), &
+              this%num_channels, &
+              this%batch_size), &
          intent(in) :: gradient
     !! Gradient values
 
@@ -546,16 +516,16 @@ contains
     integer, dimension(3) :: stride_idx
     !! Stride index
 
-    select type(di => this%di)
+    select type(di => this%di(1,1))
     type is (array5d_type)
        di%val_ptr = 0._real32
        ! Compute gradients for input feature map
        do concurrent( &
             s = 1:this%batch_size, &
             m = 1:this%num_channels, &
-            k = 1:this%output%shape(3), &
-            j = 1:this%output%shape(2), &
-            i = 1:this%output%shape(1))
+            k = 1:this%output_shape(3), &
+            j = 1:this%output_shape(2), &
+            i = 1:this%output_shape(1))
           stride_idx = ([i,j,k] - 1) * this%strd
           ! Compute gradients for input feature map
           di%val_ptr( &
@@ -563,9 +533,9 @@ contains
                stride_idx(2)+1:stride_idx(2)+this%pool(2), &
                stride_idx(3)+1:stride_idx(3)+this%pool(3), m, s) = &
                di%val_ptr( &
-               stride_idx(1)+1:stride_idx(1)+this%pool(1), &
-               stride_idx(2)+1:stride_idx(2)+this%pool(2), &
-               stride_idx(3)+1:stride_idx(3)+this%pool(3), m, s) + &
+                    stride_idx(1)+1:stride_idx(1)+this%pool(1), &
+                    stride_idx(2)+1:stride_idx(2)+this%pool(2), &
+                    stride_idx(3)+1:stride_idx(3)+this%pool(3), m, s) + &
                gradient(i, j, k, m, s) / product(this%pool)
        end do
     end select

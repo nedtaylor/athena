@@ -24,7 +24,7 @@ program test_avgpool1d_layer
   pool_layer = avgpool1d_layer_type( &
        pool_size = pool, &
        stride = stride &
-       )
+  )
 
   !! check layer name
   if(.not. pool_layer%name .eq. 'avgpool1d')then
@@ -71,7 +71,7 @@ program test_avgpool1d_layer
   pool_layer = avgpool1d_layer_type( &
        pool_size = pool, &
        stride = stride &
-       )
+  )
 
 !!!-----------------------------------------------------------------------------
 
@@ -79,16 +79,16 @@ program test_avgpool1d_layer
   call pool_layer%init(shape(input_data(:,:,1)), batch_size=1)
   select type(pool_layer)
   type is(avgpool1d_layer_type)
-    if(any(pool_layer%input_shape .ne. [width,num_channels]))then
-       success = .false.
-       write(0,*) 'avgpool1d layer has wrong input_shape'
-    end if
-    if(any(pool_layer%output%shape .ne. [output_width,num_channels]))then
-       success = .false.
-       write(0,*) 'avgpool1d layer has wrong output_shape', &
-            pool_layer%output%shape
-       write(0,*) 'expected', [output_width,num_channels]
-    end if
+     if(any(pool_layer%input_shape .ne. [width,num_channels]))then
+        success = .false.
+        write(0,*) 'avgpool1d layer has wrong input_shape'
+     end if
+     if(any(pool_layer%output_shape .ne. [output_width,num_channels]))then
+        success = .false.
+        write(0,*) 'avgpool1d layer has wrong output_shape', &
+             pool_layer%output_shape
+        write(0,*) 'expected', [output_width,num_channels]
+     end if
   end select
 
   !! run forward pass
@@ -96,36 +96,42 @@ program test_avgpool1d_layer
   call pool_layer%get_output(output)
 
   do i = 1, output_width
-   do j = 1, output_width
-     if(  max_loc .ge. (i-1)*stride + 1    .and. &
-          max_loc .le. (i-1)*stride + pool )then
-       if( &
-            abs( output(i, 1, 1) - max_value / pool ) .gt. &
-            1.E-6 &
-       )then
-          success = .false.
-          write(0,*) 'avgpool1d layer forward pass failed'
-       end if
-     else if( abs( output(i, 1, 1) ) .gt. 1.E-6 ) then
-        success = .false.
-        write(0,*) 'avgpool1d layer forward pass failed'
-     end if
-   end do
-end do
+     do j = 1, output_width
+        if(  max_loc .ge. (i-1)*stride + 1    .and. &
+             max_loc .le. (i-1)*stride + pool )then
+           if( &
+                abs( output(i, 1, 1) - max_value / pool ) .gt. &
+                1.E-6 &
+           )then
+              success = .false.
+              write(0,*) 'avgpool1d layer forward pass failed'
+           end if
+        else if( abs( output(i, 1, 1) ) .gt. 1.E-6 ) then
+           success = .false.
+           write(0,*) 'avgpool1d layer forward pass failed'
+        end if
+     end do
+  end do
 
   !! check 1d and 2d output are the same
   call pool_layer%get_output(output_1d)
   call pool_layer%get_output(output_2d)
-  if(any(abs(output_1d - &
-       reshape(output, [output_width*num_channels])) &
-       .gt. 1.E-6))then
+  if( &
+       any( abs( output_1d - &
+            reshape(output, [output_width*num_channels]) &
+       ) .gt. 1.E-6))then
      success = .false.
      write(*,*) 'avgpool1d layer output pass failed'
   end if
-  if(any(abs(&
-       reshape(output_2d, [output_width*num_channels]) - &
-       reshape(output, [output_width*num_channels])) &
-       .gt. 1.E-6))then
+  if( &
+       any( abs( &
+            reshape( &
+                 output_2d, [output_width*num_channels] &
+            ) - &
+            reshape( &
+                 output, [output_width*num_channels] &
+            ) &
+       ) .gt. 1.E-6))then
      success = .false.
      write(*,*) 'avgpool1d layer output pass failed'
   end if
@@ -146,7 +152,7 @@ end do
   !! check gradient has expected value
   select type(di => pool_layer%di)
   type is(array3d_type)
-     if(any(abs(di%val_ptr(:,1,1) - di_compare(:,1,1)) .gt. tol))then
+     if(any(abs(di(1,1)%val_ptr(:,1,1) - di_compare(:,1,1)) .gt. tol))then
         success = .false.
         write(*,*) 'avgpool1d layer backward pass failed'
      end if
@@ -160,25 +166,25 @@ end do
   call pool_layer%forward(di_compare)
   call pool_layer%get_output(output)
 
-   !! check outputs have expected value
+  !! check outputs have expected value
   if (any(abs(output(:,1,1) - (gradient(:,1,1))/real(pool)) .gt. tol)) then
      success = .false.
      write(*,*) 'avgpool1d layer forward pass failed'
      do i = 1, width
-     write(*,'(18(1X,F7.3))') input_data(i,1,1)
+        write(*,'(18(1X,F7.3))') input_data(i,1,1)
      end do
      write(*,*) "----------------------------------------"
      do i = 1, width
-     write(*,'(18(1X,F7.3))') di_compare(i,1,1)
+        write(*,'(18(1X,F7.3))') di_compare(i,1,1)
      end do
      write(*,*) "----------------------------------------"
      write(*,*) "----------------------------------------"
      do i = 1, output_width
-     write(*,'(3(1X,F7.5))') gradient(i,1,1)/pool
+        write(*,'(3(1X,F7.5))') gradient(i,1,1)/pool
      end do
      write(*,*) "----------------------------------------"
      do i = 1, output_width
-     write(*,'(3(1X,F7.5))') output(i,1,1)
+        write(*,'(3(1X,F7.5))') output(i,1,1)
      end do
 
   end if
@@ -187,7 +193,7 @@ end do
   pool_layer = avgpool1d_layer_type( &
        pool_size = [2], &
        stride = [2] &
-       )
+  )
   select type(pool_layer)
   type is (avgpool1d_layer_type)
      if(any(pool_layer%pool .ne. [2]))then
@@ -204,7 +210,7 @@ end do
   pool_layer = avgpool1d_layer_type( &
        pool_size = [4], &
        stride = [4] &
-       )
+  )
   select type(pool_layer)
   type is (avgpool1d_layer_type)
      if(any(pool_layer%pool .ne. 4))then

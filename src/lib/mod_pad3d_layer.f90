@@ -19,8 +19,6 @@ module athena__pad3d_layer
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_pad3d
      !! Set hyperparameters for 3D padding layer
-     procedure, pass(this) :: init => init_pad3d
-     !! Initialise 3D padding layer
      procedure, pass(this) :: set_batch_size => set_batch_size_pad3d
      !! Set batch size for 3D padding layer
      procedure, pass(this) :: read => read_pad3d
@@ -105,7 +103,7 @@ contains
     rank(5)
        select rank(gradient)
        rank(5)
-         call backward_5d(this, input, gradient)
+          call backward_5d(this, input, gradient)
        end select
     end select
   end subroutine backward_rank
@@ -219,77 +217,6 @@ contains
 
 
 !###############################################################################
-  subroutine init_pad3d(this, input_shape, batch_size, verbose)
-    !! Initialise 3D padding layer
-    implicit none
-
-    ! Arguments
-    class(pad3d_layer_type), intent(inout) :: this
-    !! Instance of the 3D padding layer
-    integer, dimension(:), intent(in) :: input_shape
-    !! Input shape
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
-    integer, optional, intent(in) :: verbose
-    !! Verbosity level
-
-    ! Local variables
-    integer :: i
-    !! Loop index
-    integer :: verbose_ = 0
-    !! Verbosity level
-
-
-    !---------------------------------------------------------------------------
-    ! Initialise optional arguments
-    !---------------------------------------------------------------------------
-    if(present(verbose)) verbose_ = verbose
-    if(present(batch_size)) this%batch_size = batch_size
-
-
-    !---------------------------------------------------------------------------
-    ! Initialise input shape
-    !---------------------------------------------------------------------------
-    if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
-    if(.not.allocated(this%orig_bound)) then
-       allocate(this%orig_bound(2,3))
-       allocate(this%dest_bound(2,3))
-    end if
-    do i = 1, 3
-       this%orig_bound(:,i) = [ 1, this%input_shape(i) ]
-       this%dest_bound(:,i) = [ 1, this%input_shape(i) + this%pad(i) * 2 ]
-       if (this%imethod .eq. 5)then
-          call this%facets(i)%setup_replication_bounds( &
-               length = this%input_shape(:3), &
-               pad = this%pad &
-          )
-       end if
-    end do
-
-
-    !---------------------------------------------------------------------------
-    ! Set up number of channels, width, height
-    !---------------------------------------------------------------------------
-    this%num_channels = this%input_shape(4)
-    if(allocated(this%output))then
-       if(this%output%allocated) call this%output%deallocate()
-    end if
-    this%output = array5d_type()
-    this%output%shape(4) = this%input_shape(4)
-    this%output%shape(:3) = &
-         this%input_shape(:3) + this%pad(:) * 2
-
-
-    !---------------------------------------------------------------------------
-    ! Initialise batch size-dependent arrays
-    !---------------------------------------------------------------------------
-    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
-
-  end subroutine init_pad3d
-!###############################################################################
-
-
-!###############################################################################
   subroutine set_batch_size_pad3d(this, batch_size, verbose)
     !! Set batch size for 3D padding layer
     implicit none
@@ -318,23 +245,29 @@ contains
     ! Allocate arrays
     !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
-       if(.not.allocated(this%output)) this%output = array5d_type()
-       if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
-       call this%output%allocate( array_shape = [ &
-            this%output%shape(1), &
-            this%output%shape(2), &
-            this%output%shape(3), this%num_channels, &
-            this%batch_size ], &
+       if(this%use_graph_input)then
+          call stop_program("Graph input not supported for 3D padding layer")
+          return
+       end if
+       if(allocated(this%output)) deallocate(this%output)
+       allocate( this%output(1,1), source = array5d_type() )
+       call this%output(1,1)%allocate( &
+            array_shape = [ &
+                 this%output_shape(1), &
+                 this%output_shape(2), &
+                 this%output_shape(3), this%num_channels, &
+                 this%batch_size ], &
             source=0._real32 &
        )
-       if(.not.allocated(this%di)) this%di = array5d_type()
-       if(this%di%allocated) call this%di%deallocate()
-       call this%di%allocate( array_shape = [ &
-            this%input_shape(1), &
-            this%input_shape(2), &
-            this%input_shape(3), &
-            this%input_shape(4), &
-            this%batch_size ], &
+       if(allocated(this%di)) deallocate(this%di)
+       allocate( this%di(1,1), source = array5d_type() )
+       call this%di(1,1)%allocate( &
+            array_shape = [ &
+                 this%input_shape(1), &
+                 this%input_shape(2), &
+                 this%input_shape(3), &
+                 this%input_shape(4), &
+                 this%batch_size ], &
             source=0._real32 &
        )
     end if
@@ -494,12 +427,13 @@ contains
     ! Arguments
     class(pad3d_layer_type), intent(inout) :: this
     !! Instance of the 3D padding layer
-    real(real32), dimension( &
-         this%input_shape(1), &
-         this%input_shape(2), &
-         this%input_shape(3), &
-         this%num_channels, &
-         this%batch_size), &
+    real(real32), &
+         dimension( &
+              this%input_shape(1), &
+              this%input_shape(2), &
+              this%input_shape(3), &
+              this%num_channels, &
+              this%batch_size), &
          intent(in) :: input
     !! Input values
 
@@ -514,7 +448,7 @@ contains
     !! Bounds for input and output arrays
 
 
-    select type(output => this%output)
+    select type(output => this%output(1,1))
     type is (array5d_type)
        dim_loop: do idim = 1, 3
           dest_bound = this%dest_bound
@@ -540,8 +474,8 @@ contains
                   this%orig_bound(1,1),:,:,:,: &
              ), dim=1, ncopies=this%pad(1))
              output%val_ptr( &
-                  this%output%shape(1) - this%pad(1) + 1 : &
-                  this%output%shape(1), :, :, :, : &
+                  this%output_shape(1) - this%pad(1) + 1 : &
+                  this%output_shape(1), :, :, :, : &
              ) = &
                   spread(input( &
                        this%orig_bound(2,1),:,:,:,: &
@@ -552,8 +486,8 @@ contains
              ), dim=2, ncopies=this%pad(2))
              output%val_ptr( &
                   :, &
-                  this%output%shape(2) - this%pad(2) + 1 : &
-                  this%output%shape(2), :, :, : &
+                  this%output_shape(2) - this%pad(2) + 1 : &
+                  this%output_shape(2), :, :, : &
              ) = &
                   spread(input( &
                        :,this%orig_bound(2,2),:,:,: &
@@ -564,8 +498,8 @@ contains
              ), dim=3, ncopies=this%pad(3))
              output%val_ptr( &
                   :, :, &
-                  this%output%shape(3) - this%pad(3) + 1 : &
-                  this%output%shape(3), :, : &
+                  this%output_shape(3) - this%pad(3) + 1 : &
+                  this%output_shape(3), :, : &
              ) = &
                   spread(input( &
                        :,:,this%orig_bound(2,3),:,: &
@@ -623,21 +557,22 @@ contains
     ! Arguments
     class(pad3d_layer_type), intent(inout) :: this
     !! Instance of the 3D padding layer
-    real(real32), dimension( &
-         this%input_shape(1), &
-         this%input_shape(2), &
-         this%input_shape(3), &
-         this%num_channels, &
-         this%batch_size), &
+    real(real32), &
+         dimension( &
+              this%input_shape(1), &
+              this%input_shape(2), &
+              this%input_shape(3), &
+              this%num_channels, &
+              this%batch_size), &
          intent(in) :: input
     !! Input values
     real(real32), &
          dimension(&
-         this%output%shape(1), &
-         this%output%shape(2), &
-         this%output%shape(3), &
-         this%num_channels, &
-         this%batch_size), &
+              this%output_shape(1), &
+              this%output_shape(2), &
+              this%output_shape(3), &
+              this%num_channels, &
+              this%batch_size), &
          intent(in) :: gradient
     !! Gradient values
 
@@ -650,7 +585,7 @@ contains
     !! Bounds for input and output arrays
 
 
-    select type(di => this%di)
+    select type(di => this%di(1,1))
     type is (array5d_type)
        di%val_ptr(:,:,:,:,:) = &
             gradient( &
@@ -669,13 +604,13 @@ contains
                 case(1)
                    orig_bound(:,i) = [ 1, this%pad(i) ]
                    dest_bound(:,i) = [ &
-                         this%dest_bound(2,i) - this%pad(i) + 1, &
-                         this%dest_bound(2,i) &
+                        this%dest_bound(2,i) - this%pad(i) + 1, &
+                        this%dest_bound(2,i) &
                    ]
                 case(2)
                    orig_bound(:,i) = [ &
-                         this%orig_bound(2,i) - this%pad(i) + 1, &
-                         this%orig_bound(2,i) &
+                        this%orig_bound(2,i) - this%pad(i) + 1, &
+                        this%orig_bound(2,i) &
                    ]
                    dest_bound(:,i) = [ 1, this%pad(i) ]
                 end select
@@ -708,12 +643,12 @@ contains
                    dest_bound(:,i) = [ this%pad(i), 1 ]
                 case(2)
                    orig_bound(:,i) = [ &
-                         this%orig_bound(2,i) - this%pad(i), &
-                         this%orig_bound(2,i) - 1 &
+                        this%orig_bound(2,i) - this%pad(i), &
+                        this%orig_bound(2,i) - 1 &
                    ]
                    dest_bound(:,i) = [ &
-                         this%dest_bound(2,i), &
-                         this%dest_bound(2,i) - this%pad(i) + 1 &
+                        this%dest_bound(2,i), &
+                        this%dest_bound(2,i) - this%pad(i) + 1 &
                    ]
                 end select
 
@@ -753,7 +688,7 @@ contains
                              this%facets(3)%dest_bound(2,2,f), &
                              this%facets(3)%dest_bound(1,3,f) : &
                              this%facets(3)%dest_bound(2,3,f), m, s &
-                   ) )
+                        ) )
                 end do
              end do
           end do
@@ -779,7 +714,7 @@ contains
                                    this%facets(2)%dest_bound(2,1,f), &
                                    this%facets(2)%dest_bound(1,2,f) : &
                                    this%facets(2)%dest_bound(2,2,f), m, s &
-                         ) )
+                              ) )
                       end do
                    end do
                 end do
@@ -801,7 +736,7 @@ contains
                                    y + this%pad(2), &
                                    this%facets(2)%dest_bound(1,2,f) : &
                                    this%facets(2)%dest_bound(2,2,f), m, s &
-                         ) )
+                              ) )
                       end do
                    end do
                 end do
@@ -823,7 +758,7 @@ contains
                                    this%facets(2)%dest_bound(1,2,f) : &
                                    this%facets(2)%dest_bound(2,2,f), &
                                    z + this%pad(3), m, s &
-                         ) )
+                              ) )
                       end do
                    end do
                 end do
@@ -836,61 +771,61 @@ contains
              case(1)
                 do s = 1, this%batch_size
                    do m = 1, this%num_channels
-                     di%val_ptr(this%facets(1)%orig_bound(1,f), :, :, m, s) = &
-                          di%val_ptr( &
-                               this%facets(1)%orig_bound(1,f), :, :, m, s &
-                          ) + &
-                          sum( &
-                               gradient( &
-                                    this%facets(1)%dest_bound(1,1,f) : &
-                                    this%facets(1)%dest_bound(2,1,f), &
-                                    this%pad(2) : &
-                                    this%pad(2) + this%input_shape(2) - 1, &
-                                    this%pad(3) : &
-                                    this%pad(3) + this%input_shape(3) - 1, &
-                                    m, s &
-                               ), dim=1 &
-                          )
+                      di%val_ptr(this%facets(1)%orig_bound(1,f), :, :, m, s) = &
+                           di%val_ptr( &
+                                this%facets(1)%orig_bound(1,f), :, :, m, s &
+                           ) + &
+                           sum( &
+                                gradient( &
+                                     this%facets(1)%dest_bound(1,1,f) : &
+                                     this%facets(1)%dest_bound(2,1,f), &
+                                     this%pad(2) : &
+                                     this%pad(2) + this%input_shape(2) - 1, &
+                                     this%pad(3) : &
+                                     this%pad(3) + this%input_shape(3) - 1, &
+                                     m, s &
+                                ), dim=1 &
+                           )
                    end do
                 end do
              case(2)
                 do s = 1, this%batch_size
                    do m = 1, this%num_channels
-                     di%val_ptr(:, this%facets(1)%orig_bound(1,f), :, m, s) = &
-                          di%val_ptr( &
-                               :, this%facets(1)%orig_bound(1,f), :, m, s &
-                          ) + &
-                          sum( &
-                               gradient( &
-                                    this%pad(1) : &
-                                    this%pad(1) + this%input_shape(1) - 1, &
-                                    this%facets(1)%dest_bound(1,1,f) : &
-                                    this%facets(1)%dest_bound(2,1,f), &
-                                    this%pad(3) : &
-                                    this%pad(3) + this%input_shape(3) - 1, &
-                                    m, s &
-                               ), dim=2 &
-                          )
+                      di%val_ptr(:, this%facets(1)%orig_bound(1,f), :, m, s) = &
+                           di%val_ptr( &
+                                :, this%facets(1)%orig_bound(1,f), :, m, s &
+                           ) + &
+                           sum( &
+                                gradient( &
+                                     this%pad(1) : &
+                                     this%pad(1) + this%input_shape(1) - 1, &
+                                     this%facets(1)%dest_bound(1,1,f) : &
+                                     this%facets(1)%dest_bound(2,1,f), &
+                                     this%pad(3) : &
+                                     this%pad(3) + this%input_shape(3) - 1, &
+                                     m, s &
+                                ), dim=2 &
+                           )
                    end do
                 end do
              case(3)
                 do s = 1, this%batch_size
                    do m = 1, this%num_channels
-                     di%val_ptr(:, :, this%facets(1)%orig_bound(1,f), m, s) = &
-                          di%val_ptr( &
-                               :, :, this%facets(1)%orig_bound(1,f), m, s &
-                          ) + &
-                          sum( &
-                               gradient( &
-                                    this%pad(1) : &
-                                    this%pad(1) + this%input_shape(1) - 1, &
-                                    this%pad(2) : &
-                                    this%pad(2) + this%input_shape(2) - 1, &
-                                    this%facets(1)%dest_bound(1,1,f) : &
-                                    this%facets(1)%dest_bound(2,1,f), &
-                                    m, s &
-                               ), dim=3 &
-                          )
+                      di%val_ptr(:, :, this%facets(1)%orig_bound(1,f), m, s) = &
+                           di%val_ptr( &
+                                :, :, this%facets(1)%orig_bound(1,f), m, s &
+                           ) + &
+                           sum( &
+                                gradient( &
+                                     this%pad(1) : &
+                                     this%pad(1) + this%input_shape(1) - 1, &
+                                     this%pad(2) : &
+                                     this%pad(2) + this%input_shape(2) - 1, &
+                                     this%facets(1)%dest_bound(1,1,f) : &
+                                     this%facets(1)%dest_bound(2,1,f), &
+                                     m, s &
+                                ), dim=3 &
+                           )
                    end do
                 end do
              end select

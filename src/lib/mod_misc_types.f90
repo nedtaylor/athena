@@ -227,8 +227,12 @@ module athena__misc_types
      !! Procedure for setting array
      procedure :: add => add_array
      !! Procedure for adding arrays
+     procedure :: multiply => multiply_array
+     !! Procedure for multiplying arrays
      generic, public :: operator(+) => add
      !! Generic for adding arrays
+     generic, public :: operator(*) => multiply
+     !! Generic for multiplying arrays
      !  procedure :: assign => assign_array
      !  generic, public :: assignment(=) => assign
   end type array_type
@@ -272,6 +276,11 @@ module athena__misc_types
        class(array_type), intent(in) :: a, b
        class(array_type), allocatable :: output
      end function add_array
+
+     pure module function multiply_array(a, b) result(output)
+       class(array_type), intent(in) :: a, b
+       class(array_type), allocatable :: output
+     end function multiply_array
 
      module subroutine assign_array(this, input)
        class(array_type), intent(out), target :: this

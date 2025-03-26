@@ -19,6 +19,7 @@ module athena__network
   use athena__base_layer, only: base_layer_type
   use athena__misc_types, only: array_type
   use athena__container_layer, only: container_layer_type
+  use athena__misc_types, only: array2d_type
   implicit none
 
 
@@ -96,9 +97,13 @@ module athena__network
      !! Calculate output vertices
      procedure, pass(this), private :: calculate_io_map
      !! Calculate input-output map
-     procedure, pass(this), private :: get_input_autodiff
+     procedure, pass(this), private :: get_input_real_autodiff
      !! Get the input of a layer via autodiff
-     procedure, pass(this), private :: get_gradient_autodiff
+
+     procedure, pass(this), private :: get_input_derived_autodiff
+     procedure, pass(this), private :: get_gradient_derived_autodiff
+
+     procedure, pass(this), private :: get_gradient_real_autodiff
      !! Get the gradient of a layer via autodiff
      procedure, pass(this) :: reduce => network_reduction
      !! Reduce two networks down to one (i.e. add two networks - parallel)
@@ -355,7 +360,7 @@ module athena__network
      end subroutine calculate_io_map
 
      !! Interface for getting the input of a layer via autodiff
-     pure module subroutine get_input_autodiff(this, idx, input)
+     pure module subroutine get_input_real_autodiff(this, idx, input)
        !! Get the input of a layer via autodiff
        class(network_type), intent(in) :: this
        !! Instance of the network
@@ -363,10 +368,44 @@ module athena__network
        !! Index
        real(real32), allocatable, dimension(:,:), intent(out) :: input
        !! Input
-     end subroutine get_input_autodiff
+     end subroutine get_input_real_autodiff
+
+
+     pure module subroutine get_input_derived_autodiff(this, idx, input)
+       !! Get the input of a layer via autodiff
+       class(network_type), intent(in) :: this
+       !! Instance of the network
+       integer, intent(in) :: idx
+       !! Index
+       type(array2d_type), intent(inout) :: input
+       !! Input
+     end subroutine get_input_derived_autodiff
+
+
+     pure module subroutine get_input_graph_autodiff(this, idx, input)
+       !! Get the input of a layer via autodiff
+       class(network_type), intent(in) :: this
+       !! Instance of the network
+       integer, intent(in) :: idx
+       !! Index
+       type(array2d_type), dimension(2,this%batch_size), intent(inout) :: input
+       !! Input
+     end subroutine get_input_graph_autodiff
+
+     pure module subroutine get_gradient_derived_autodiff(this, idx, gradient)
+       !! Get the gradient of a layer via autodiff
+       class(network_type), intent(in) :: this
+       !! Instance of the network
+       integer, intent(in) :: idx
+       !! Index
+       type(array2d_type), &
+            dimension(2,this%batch_size), intent(inout) :: gradient
+       !! Gradient
+     end subroutine get_gradient_derived_autodiff
+
 
      !! Interface for getting the gradient of a layer via autodiff
-     pure module subroutine get_gradient_autodiff(this, idx, gradient)
+     pure module subroutine get_gradient_real_autodiff(this, idx, gradient)
        !! Get the gradient of a layer via autodiff
        class(network_type), intent(in) :: this
        !! Instance of the network
@@ -374,7 +413,7 @@ module athena__network
        !! Index
        real(real32), allocatable, dimension(:,:), intent(out) :: gradient
        !! Gradient
-     end subroutine get_gradient_autodiff
+     end subroutine get_gradient_real_autodiff
 
      !! Interface for reducing two networks down to one
      !! (i.e. add two networks - parallel)

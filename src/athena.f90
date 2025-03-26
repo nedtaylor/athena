@@ -85,16 +85,15 @@ module athena
   use athena__conv3d_layer,    only: conv3d_layer_type, read_conv3d_layer
 
 
-!   ! Deep set layer types
-!   !-----------------------------------------------------------------------------
-!   use athena__deepset_layer,   only: deepset_layer_type, read_deepset_layer
+! !   ! Deep set layer types
+! !   !-----------------------------------------------------------------------------
+! !   use athena__deepset_layer,   only: deepset_layer_type, read_deepset_layer
 
 
   ! Message passing layer types
   !-----------------------------------------------------------------------------
-  use athena__mpnn_layer,      only: mpnn_layer_type
-  use athena__conv_mpnn_layer, only: conv_mpnn_layer_type
-  use athena__kipf_mpnn_layer, only: kipf_mpnn_layer_type
+  use athena__msgpass_layer,      only: msgpass_layer_type
+  use athena__kipf_msgpass_layer, only: kipf_msgpass_layer_type
 
 
   ! Dropout layer types

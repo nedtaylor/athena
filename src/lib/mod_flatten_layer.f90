@@ -35,8 +35,6 @@ module athena__flatten_layer
      !! Forward propagation handler for flattening layer
      procedure, pass(this) :: backward => backward_rank
      !! Backward propagation handler for flattening layer
-     procedure, pass(this) :: set_addit_input
-     !! Set additional input for flattening layer
   end type flatten_layer_type
 
   interface flatten_layer_type
@@ -73,24 +71,24 @@ contains
     real(real32), dimension(..), intent(in) :: input
     !! Input values
 
-   !  select type(output => this%output)
-   !  type is (array2d_type)
-       !! can make this even easier by just setting output%val_ptr = input, and then output%val is already rank 2
-   !  end select
+    !  select type(output => this%output)
+    !  type is (array2d_type)
+    !     !! can make this even easier by just setting output%val_ptr = input, and then output%val is already rank 2
+    !  end select
     select rank(input)
     rank(2)
-       this%output%val(:this%num_outputs, :this%batch_size) = input
+       this%output(1,1)%val(:this%num_outputs, :this%batch_size) = input
     rank(3)
-       this%output%val(:this%num_outputs, :this%batch_size) = &
+       this%output(1,1)%val(:this%num_outputs, :this%batch_size) = &
             reshape(input, [this%num_outputs, this%batch_size])
     rank(4)
-       this%output%val(:this%num_outputs, :this%batch_size) = &
+       this%output(1,1)%val(:this%num_outputs, :this%batch_size) = &
             reshape(input, [this%num_outputs, this%batch_size])
     rank(5)
-       this%output%val(:this%num_outputs, :this%batch_size) = &
+       this%output(1,1)%val(:this%num_outputs, :this%batch_size) = &
             reshape(input, [this%num_outputs, this%batch_size])
     rank(6)
-       this%output%val(:this%num_outputs, :this%batch_size) = &
+       this%output(1,1)%val(:this%num_outputs, :this%batch_size) = &
             reshape(input, [this%num_outputs, this%batch_size])
     end select
   end subroutine forward_rank
@@ -112,7 +110,7 @@ contains
 
     select rank(gradient)
     rank(2)
-       select type(di => this%di)
+       select type(di => this%di(1,1))
        type is (array1d_type)
           di%val_ptr = reshape(gradient(:this%num_outputs,:), &
                [size(di%val_ptr)] )
@@ -265,10 +263,10 @@ contains
     !---------------------------------------------------------------------------
     this%num_outputs = product(this%input_shape)
     if(allocated(this%output))then
-       if(this%output%allocated) call this%output%deallocate()
+       if(this%output(1,1)%allocated) call this%output(1,1)%deallocate()
     end if
-    this%output = array2d_type()
-    this%output%shape = [this%num_outputs]
+    allocate(this%output(1,1), source=array2d_type())
+    this%output_shape = [this%num_outputs]
 
 
     !---------------------------------------------------------------------------
@@ -309,49 +307,65 @@ contains
     ! Allocate arrays
     !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
-       if(.not.allocated(this%output)) this%output = array2d_type()
-       if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
-       call this%output%allocate(array_shape = [ &
-            (this%num_outputs), this%batch_size ], &
-            source=0._real32 &
-       )
-       if(allocated(this%di)) deallocate(this%di)
-       select case(size(this%input_shape))
-       case(1)
-          this%input_rank = 1
-          this%di = array2d_type()
-          call this%di%allocate( array_shape = [ &
-               this%input_shape(1), this%batch_size ], &
+       if(this%use_graph_input)then
+          call stop_program( &
+               "Graph input not supported for flatten layer" &
+          )
+          return
+       else
+          if(allocated(this%output)) deallocate(this%output)
+          allocate( this%output(1,1), source = array2d_type() )
+          call this%output(1,1)%allocate( &
+               array_shape = [ &
+                    (this%num_outputs), this%batch_size ], &
                source=0._real32 &
           )
-       case(2)
-          this%input_rank = 2
-          this%di = array3d_type()
-          call this%di%allocate( array_shape = [ &
-               this%input_shape(1), &
-               this%input_shape(2), this%batch_size ], &
-               source=0._real32 &
-          )
-       case(3)
-          this%input_rank = 3
-          this%di = array4d_type()
-          call this%di%allocate( array_shape = [ &
-               this%input_shape(1), &
-               this%input_shape(2), &
-               this%input_shape(3), this%batch_size ], &
-               source=0._real32 &
-          )
-       case(4)
-          this%input_rank = 4
-          this%di = array5d_type()
-          call this%di%allocate( array_shape = [ &
-               this%input_shape(1), &
-               this%input_shape(2), &
-               this%input_shape(3), &
-               this%input_shape(4), this%batch_size ], &
-               source=0._real32 &
-          )
-       end select
+          if(allocated(this%di)) deallocate(this%di)
+          select case(size(this%input_shape))
+          case(1)
+             this%input_rank = 1
+             allocate(this%di(1,1), source=array2d_type())
+             call this%di(1,1)%allocate( &
+                  array_shape = [ &
+                       this%input_shape(1), this%batch_size ], &
+                  source=0._real32 &
+             )
+          case(2)
+             this%input_rank = 2
+             allocate(this%di(1,1), source=array3d_type())
+             call this%di(1,1)%allocate( &
+                  array_shape = [ &
+                       this%input_shape(1), &
+                       this%input_shape(2), &
+                       this%batch_size ], &
+                  source=0._real32 &
+             )
+          case(3)
+             this%input_rank = 3
+             allocate(this%di(1,1), source=array4d_type())
+             call this%di(1,1)%allocate( &
+                  array_shape = [ &
+                       this%input_shape(1), &
+                       this%input_shape(2), &
+                       this%input_shape(3), this%batch_size ], &
+                  source=0._real32 &
+             )
+          case(4)
+             this%input_rank = 4
+             allocate(this%di(1,1), source=array5d_type())
+             call this%di(1,1)%allocate( &
+                  array_shape = [ &
+                       this%input_shape(1), &
+                       this%input_shape(2), &
+                       this%input_shape(3), &
+                       this%input_shape(4), this%batch_size ], &
+                  source=0._real32 &
+             )
+          case default
+             call stop_program('Flatten layer only supports input ranks 1-4')
+             return
+          end select
+       end if
     end if
 
   end subroutine set_batch_size_flatten
@@ -495,25 +509,6 @@ contains
     call layer%read(unit, verbose=verbose_)
 
   end function read_flatten_layer
-!###############################################################################
-
-
-!###############################################################################
-  pure subroutine set_addit_input(this, addit_input)
-    !! Set additional input for flattening layer
-    implicit none
-
-    ! Arguments
-    class(flatten_layer_type), intent(inout) :: this
-    !! Instance of the flattening layer
-    real(real32), dimension(:,:), intent(in) :: addit_input
-    !! Additional input
-
-    select type(output => this%output)
-    type is (array2d_type)
-       output%val_ptr(this%num_outputs+1:, :) = addit_input
-    end select
-  end subroutine set_addit_input
 !###############################################################################
 
 end module athena__flatten_layer

@@ -241,27 +241,9 @@ contains
     !---------------------------------------------------------------------------
     ! initialise input shape
     !---------------------------------------------------------------------------
-    this%input_rank = size(input_shape)
+    this%input_rank = size(input_shape, dim=1)
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
-
-    if(allocated(this%output))then
-       if(this%output%allocated) call this%output%deallocate()
-    end if
-    select case(this%input_rank + 1)
-    case(1)
-       this%output = array1d_type([ this%input_shape, max(1, this%batch_size) ])
-    case(2)
-       this%output = array2d_type([ this%input_shape, max(1, this%batch_size) ])
-    case(3)
-       this%output = array3d_type([ this%input_shape, max(1, this%batch_size) ])
-    case(4)
-       this%output = array4d_type([ this%input_shape, max(1, this%batch_size) ])
-    case(5)
-       this%output = array5d_type([ this%input_shape, max(1, this%batch_size) ])
-    case default
-       call stop_program('Activation layer only supports input ranks 1-5')
-       return
-    end select
+    this%output_shape = this%input_shape
 
 
     !---------------------------------------------------------------------------
@@ -304,43 +286,61 @@ contains
     !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
        if(allocated(this%output)) deallocate(this%output)
-       select case(size(this%input_shape))
-       case(1)
-          this%input_rank = 1
-          this%output = array2d_type()
-          call this%output%allocate( array_shape = [ &
-               this%input_shape(1), this%batch_size ], &
-               source=0._real32 &
-       )
-       case(2)
-          this%input_rank = 2
-          this%output = array3d_type()
-          call this%output%allocate( array_shape = [ &
-               this%input_shape(1), &
-               this%input_shape(2), &
-               this%batch_size ], &
-               source=0._real32 &
-       )
-       case(3)
-          this%input_rank = 3
-          this%output = array4d_type()
-          call this%output%allocate( array_shape = [ &
-               this%input_shape(1), &
-               this%input_shape(2), &
-               this%input_shape(3), this%batch_size ], &
-               source=0._real32 &
-       )
-       case(4)
-          this%input_rank = 4
-          this%output = array5d_type()
-          call this%output%allocate( array_shape = [ &
-               this%input_shape(1), &
-               this%input_shape(2), &
-               this%input_shape(3), &
-               this%input_shape(4), this%batch_size ], &
-               source=0._real32 &
+       if(this%use_graph_input)then
+          allocate(this%output(2,this%batch_size), source=array2d_type())
+          call stop_program( &
+               "Graph input not supported for activation layer" &
           )
-       end select
+          return
+       else
+          select case(size(this%input_shape))
+          case(1)
+             this%input_rank = 1
+             allocate(this%output(1,1), source=array2d_type())
+             call this%output(1,1)%allocate( &
+                  array_shape = [ &
+                       this%input_shape(1), this%batch_size &
+                  ], &
+                  source=0._real32 &
+             )
+          case(2)
+             this%input_rank = 2
+             allocate(this%output(1,1), source=array3d_type())
+             call this%output(1,1)%allocate( &
+                  array_shape = [ &
+                       this%input_shape(1), &
+                       this%input_shape(2), &
+                       this%batch_size ], &
+                  source=0._real32 &
+             )
+          case(3)
+             this%input_rank = 3
+             allocate(this%output(1,1), source=array4d_type())
+             call this%output(1,1)%allocate( &
+                  array_shape = [ &
+                       this%input_shape(1), &
+                       this%input_shape(2), &
+                       this%input_shape(3), this%batch_size &
+                  ], &
+                  source=0._real32 &
+             )
+          case(4)
+             this%input_rank = 4
+             allocate(this%output(1,1), source=array5d_type())
+             call this%output(1,1)%allocate( &
+                  array_shape = [ &
+                       this%input_shape(1), &
+                       this%input_shape(2), &
+                       this%input_shape(3), &
+                       this%input_shape(4), this%batch_size &
+                  ], &
+                  source=0._real32 &
+             )
+          case default
+             call stop_program('Activation layer only supports input ranks 1-4')
+             return
+          end select
+       end if
     end if
 
   end subroutine set_batch_size_actv
@@ -523,7 +523,7 @@ contains
     allocate(layer, source=actv_layer_type("none"))
     call layer%read(unit, verbose=verbose_)
 
- end function read_actv_layer
+  end function read_actv_layer
 !###############################################################################
 
 
@@ -559,7 +559,7 @@ contains
     rank(5)
        input_ptr(1:product(this%input_shape),1:this%batch_size) => input
     end select
-    this%output%val(:,:) = this%transfer%activate(input_ptr)
+    this%output(1,1)%val(:,:) = this%transfer%activate(input_ptr)
 
   end subroutine forward_assumed_rank
 !###############################################################################
@@ -607,7 +607,8 @@ contains
     rank(5)
        input_ptr(1:product(this%input_shape),1:this%batch_size) => input
     end select
-    this%di%val(:,:) = gradient_ptr * this%transfer%differentiate(input_ptr)
+    this%di(1,1)%val(:,:) = &
+         gradient_ptr * this%transfer%differentiate(input_ptr)
 
   end subroutine backward_assumed_rank
 !###############################################################################

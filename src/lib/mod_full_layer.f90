@@ -376,11 +376,9 @@ contains
     !---------------------------------------------------------------------------
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
     this%num_inputs = this%input_shape(1)
-    if(allocated(this%output))then
-       if(this%output%allocated) call this%output%deallocate()
-    end if
-    this%output = array2d_type()
-    this%output%shape = [this%num_outputs]
+    if(allocated(this%output)) deallocate(this%output)
+    allocate(this%output(1,1), source=array2d_type())
+    this%output_shape = [this%num_outputs]
     this%num_params = this%get_num_params()
 
 
@@ -450,14 +448,17 @@ contains
     ! Allocate arrays
     !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
-       if(.not.allocated(this%output)) this%output = array2d_type()
-       if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
-       call this%output%allocate( &
+       if(.not.allocated(this%output))then
+          allocate(this%output(1,1), source=array2d_type())
+       end if
+       if(this%output(1,1)%allocated) &
+            call this%output(1,1)%deallocate(keep_shape=.true.)
+       call this%output(1,1)%allocate( &
             [this%num_outputs, this%batch_size], &
             source=0._real32 &
        )
        if(allocated(this%z)) deallocate(this%z)
-       select type(output => this%output)
+       select type(output => this%output(1,1))
        type is (array2d_type)
           allocate( this%z, source = output%val )
        end select
@@ -472,9 +473,11 @@ contains
             this%dp
        if(allocated(this%db)) deallocate(this%db)
        allocate(this%db(this%num_outputs, this%batch_size), source=0._real32)
-       if(.not.allocated(this%di)) this%di = array2d_type()
-       if(this%di%allocated) call this%di%deallocate()
-       call this%di%allocate( &
+       if(.not.allocated(this%di))then
+          allocate(this%di(1,1), source=array2d_type())
+       end if
+       if(this%di(1,1)%allocated) call this%di(1,1)%deallocate()
+       call this%di(1,1)%allocate( &
             [this%num_inputs, this%batch_size], &
             source=0._real32 &
        )
@@ -761,7 +764,7 @@ contains
 
     ! Apply activation function to activation
     !---------------------------------------------------------------------------
-    this%output%val(:,:) = this%transfer%activate(this%z)
+    this%output(1,1)%val(:,:) = this%transfer%activate(this%z)
 
   end subroutine forward_2d
 !###############################################################################
@@ -821,7 +824,8 @@ contains
        !! ... 'child' node * 'child' weight
        !! dE/dI(l-1) = sum(weight(l) * grad_dz(l))
        !! this prepares dE/dI for when it is passed into the previous layer
-       this%di%val(:,s) = matmul(grad_dz(:,s), this%weight(:,:this%num_inputs))
+       this%di(1,1)%val(:,s) = &
+            matmul(grad_dz(:,s), this%weight(:,:this%num_inputs))
     end do
 
   end subroutine backward_2d

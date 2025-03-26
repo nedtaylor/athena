@@ -49,7 +49,7 @@ module athena__batchnorm1d_layer
           kernel_initialiser, bias_initialiser, &
           moving_mean_initialiser, moving_variance_initialiser, &
           verbose &
-          ) result(layer)
+     ) result(layer)
        !! Set up the 1D batch normalisation layer
        integer, dimension(:), optional, intent(in) :: input_shape
        !! Input shape
@@ -173,7 +173,7 @@ contains
        kernel_initialiser, bias_initialiser, &
        moving_mean_initialiser, moving_variance_initialiser, &
        verbose &
-       ) result(layer)
+  ) result(layer)
     !! Set up the 1D batch normalisation layer
     use athena__initialiser, only: get_default_initialiser
     implicit none
@@ -336,17 +336,17 @@ contains
     this%epsilon = epsilon
     if(trim(this%kernel_initialiser).eq.'') &
          this%kernel_initialiser = 'ones'
-         !get_default_initialiser("batch")
+    !get_default_initialiser("batch")
     if(trim(this%bias_initialiser).eq.'') &
          this%bias_initialiser = 'zeros'
-         !get_default_initialiser("batch")
+    !get_default_initialiser("batch")
 
     if(trim(this%moving_mean_initialiser).eq.'') &
          this%moving_mean_initialiser = 'zeros'
-         !get_default_initialiser("batch")
+    !get_default_initialiser("batch")
     if(trim(this%moving_variance_initialiser).eq.'') &
          this%moving_variance_initialiser = 'ones'
-         !get_default_initialiser("batch")
+    !get_default_initialiser("batch")
 
     if(present(verbose))then
        if(abs(verbose).gt.0)then
@@ -414,17 +414,24 @@ contains
     ! Allocate arrays
     !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
-       if(.not.allocated(this%output)) this%output = array3d_type()
-       if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
-       call this%output%allocate( array_shape = [ &
-            this%num_inputs, &
-            this%num_channels, &
-            this%batch_size ], &
+       if(this%use_graph_input)then
+          call stop_program( &
+               "Graph input not supported for 1D batch normalisation layer" &
+          )
+          return
+       end if
+       if(allocated(this%output)) deallocate(this%output)
+       allocate( this%output(1,1), source = array3d_type() )
+       call this%output(1,1)%allocate( &
+            array_shape = [ &
+                 this%num_inputs, &
+                 this%num_channels, &
+                 this%batch_size ], &
             source=0._real32 &
        )
-       if(.not.allocated(this%di)) this%di = array3d_type()
-       if(this%di%allocated) call this%di%deallocate()
-       call this%di%allocate( source = this%output )
+       if(allocated(this%di)) deallocate(this%di)
+       allocate( this%di(1,1), source = array3d_type() )
+       call this%di(1,1)%allocate( source = this%output )
     end if
 
   end subroutine set_batch_size_batchnorm1d
@@ -615,28 +622,28 @@ contains
     !---------------------------------------------------------------------------
     allocate(data_list(num_channels), source=0._real32)
     do i=1,2
-      if(found_gamma.or.found_beta)then
-         c = 1
-         k = 1
-         data_list = 0._real32
-         data_concat_loop: do while(c.le.num_channels)
-            read(unit,'(A)',iostat=stat) buffer
-            if(stat.ne.0) exit data_concat_loop
-            k = icount(buffer)
-            read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
-            c = c + k
-         end do data_concat_loop
-         if(found_gamma)then
-            this%gamma = data_list
-            found_gamma = .false.
-         elseif(found_beta)then
-            this%beta = data_list
-            found_beta = .false.
-         end if
-         read(unit,'(A)',iostat=stat) buffer
-         if(index(trim(adjustl(buffer)),"GAMMA").eq.1) found_gamma = .true.
-         if(index(trim(adjustl(buffer)),"BETA").eq.1) found_beta = .true.
-      end if
+       if(found_gamma.or.found_beta)then
+          c = 1
+          k = 1
+          data_list = 0._real32
+          data_concat_loop: do while(c.le.num_channels)
+             read(unit,'(A)',iostat=stat) buffer
+             if(stat.ne.0) exit data_concat_loop
+             k = icount(buffer)
+             read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
+             c = c + k
+          end do data_concat_loop
+          if(found_gamma)then
+             this%gamma = data_list
+             found_gamma = .false.
+          elseif(found_beta)then
+             this%beta = data_list
+             found_beta = .false.
+          end if
+          read(unit,'(A)',iostat=stat) buffer
+          if(index(trim(adjustl(buffer)),"GAMMA").eq.1) found_gamma = .true.
+          if(index(trim(adjustl(buffer)),"BETA").eq.1) found_beta = .true.
+       end if
     end do
     deallocate(data_list)
 
@@ -693,10 +700,11 @@ contains
     ! Arguments
     class(batchnorm1d_layer_type), intent(inout) :: this
     !! Instance of the 1D batch normalisation layer
-    real(real32), dimension( &
-         this%num_inputs, &
-         this%num_channels, &
-         this%batch_size), &
+    real(real32), &
+         dimension( &
+              this%num_inputs, &
+              this%num_channels, &
+              this%batch_size), &
          intent(in) :: input
     !! Input values
 
@@ -707,23 +715,24 @@ contains
     !! Temporary mean and variance
 
 
-    select type(output => this%output)
+    select type(output => this%output(1,1))
     type is (array3d_type)
        select case(this%inference)
        case(.true.)
-         do concurrent(m=1:this%num_channels)
-            ! Normalise each feature
-            output%val_ptr(:,m,:) = &
-                 this%gamma(m) * (input(:,m,:) - this%mean(m)) / &
-                 sqrt( &
-                 this%batch_size / (this%batch_size - 1) * this%variance(m) + &
-                 this%epsilon) + &
-                 this%beta(m)
-         end do
+          do concurrent(m=1:this%num_channels)
+             ! Normalise each feature
+             output%val_ptr(:,m,:) = &
+                  this%gamma(m) * (input(:,m,:) - this%mean(m)) / &
+                  sqrt( &
+                       this%batch_size / (this%batch_size - 1) * &
+                       this%variance(m) + &
+                       this%epsilon) + &
+                  this%beta(m)
+          end do
        case default
-         t_mean = 0._real32
-         t_variance = 0._real32
-         do concurrent(m=1:this%num_channels)
+          t_mean = 0._real32
+          t_variance = 0._real32
+          do concurrent(m=1:this%num_channels)
              ! Calculate current mean and variance
              t_mean(m) = sum(input(:,m,:)) / this%norm
              t_variance(m) = &
@@ -735,9 +744,9 @@ contains
              ! Update running averages
              if(this%momentum.gt.1.E-8_real32)then
                 this%mean(m) = this%momentum * this%mean(m) + &
-                      (1._real32 - this%momentum) * t_mean(m)
+                     (1._real32 - this%momentum) * t_mean(m)
                 this%variance(m) = this%momentum * this%variance(m) + &
-                      (1._real32 - this%momentum) * t_variance(m)
+                     (1._real32 - this%momentum) * t_variance(m)
              else
                 this%mean(m) = t_mean(m)
                 this%variance(m) = t_variance(m)
@@ -764,16 +773,18 @@ contains
     ! Arguments
     class(batchnorm1d_layer_type), intent(inout) :: this
     !! Instance of the 1D batch normalisation layer
-    real(real32), dimension( &
-         this%num_inputs, &
-         this%num_channels, &
-         this%batch_size), &
+    real(real32), &
+         dimension( &
+              this%num_inputs, &
+              this%num_channels, &
+              this%batch_size), &
          intent(in) :: input
     !! Input values
-    real(real32), dimension( &
-         this%num_inputs, &
-         this%num_channels, &
-         this%batch_size), &
+    real(real32), &
+         dimension( &
+              this%num_inputs, &
+              this%num_channels, &
+              this%batch_size), &
          intent(in) :: gradient
     !! Gradient values
 
@@ -787,7 +798,7 @@ contains
     !! Normalised input and gradient of normalised input
 
 
-    select type(di => this%di)
+    select type(di => this%di(1,1))
     type is (array3d_type)
        do concurrent(m=1:this%num_channels)
           ! Recalculate x_hat (i.e. normalised input)
@@ -803,8 +814,8 @@ contains
                     this%norm * sqrt(this%variance(m) + this%epsilon) &
                ) * &
                ( this%norm * dx_hat(:,m,:) - &
-               sum(dx_hat(:,m,:)) - x_hat(:,m,:) * &
-               sum(dx_hat(:,m,:) * x_hat(:,m,:)))
+                    sum(dx_hat(:,m,:)) - x_hat(:,m,:) * &
+                    sum(dx_hat(:,m,:) * x_hat(:,m,:)))
 
           ! Calculate gradient of gamma and beta
           this%dp(m,1) = sum(gradient(:,m,:) * x_hat(:,m,:))

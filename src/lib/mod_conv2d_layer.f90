@@ -137,7 +137,7 @@ contains
     select case(allocated(this%pad_layer))
     case(.true.)
        call this%pad_layer%forward(input)
-       call forward_4d(this, this%pad_layer%output%val)
+       call forward_4d(this, this%pad_layer%output(1,1)%val)
     case default
        select rank(input)
        rank(2)
@@ -172,7 +172,7 @@ contains
           select rank(gradient)
           rank(2)
              call backward_4d( &
-                  this, this%pad_layer%output%val, gradient, &
+                  this, this%pad_layer%output(1,1)%val, gradient, &
                   this%di_padded%val &
              )
           end select
@@ -181,38 +181,38 @@ contains
           select rank(gradient)
           rank(1)
              call backward_4d( &
-                  this, this%pad_layer%output%val, gradient, &
+                  this, this%pad_layer%output(1,1)%val, gradient, &
                   this%di_padded%val &
              )
           rank(2)
              call backward_4d( &
-                  this, this%pad_layer%output%val, gradient, &
+                  this, this%pad_layer%output(1,1)%val, gradient, &
                   this%di_padded%val &
              )
           rank(4)
              call backward_4d( &
-                  this, this%pad_layer%output%val, gradient, &
+                  this, this%pad_layer%output(1,1)%val, gradient, &
                   this%di_padded%val &
              )
           end select
           call this%pad_layer%backward(input, this%di_padded%val)
        end select
-       this%di%val = this%di_padded%val
+       this%di(1,1)%val = this%di_padded%val
     case default
        select rank(input)
        rank(2)
           select rank(gradient)
           rank(2)
-             call backward_4d(this, input, gradient, this%di%val)
+             call backward_4d(this, input, gradient, this%di(1,1)%val)
           end select
        rank(4)
           select rank(gradient)
           rank(1)
-             call backward_4d(this, input, gradient, this%di%val)
+             call backward_4d(this, input, gradient, this%di(1,1)%val)
           rank(2)
-             call backward_4d(this, input, gradient, this%di%val)
+             call backward_4d(this, input, gradient, this%di(1,1)%val)
           rank(4)
-             call backward_4d(this, input, gradient, this%di%val)
+             call backward_4d(this, input, gradient, this%di(1,1)%val)
           end select
        end select
     end select
@@ -440,7 +440,6 @@ contains
     this%name = "conv2d"
     this%type = "conv"
     this%input_rank = 3
-    this%output = array4d_type()
     allocate( &
          this%knl(this%input_rank-1), &
          this%stp(this%input_rank-1), &
@@ -471,7 +470,7 @@ contains
          this%kernel_initialiser=get_default_initialiser(activation_function)
     if(trim(this%bias_initialiser).eq.'') &
          this%bias_initialiser = get_default_initialiser(&
-         activation_function, is_bias=.true.)
+              activation_function, is_bias=.true.)
 
     if(present(verbose))then
        if(abs(verbose).gt.0)then
@@ -570,38 +569,47 @@ contains
     ! Allocate arrays
     !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
-       if(.not.allocated(this%output)) this%output = array4d_type()
-       if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
-       call this%output%allocate( array_shape = [ &
-            this%output%shape(1), &
-            this%output%shape(2), &
-            this%num_filters, &
-            this%batch_size ], &
+       if(this%use_graph_input)then
+          call stop_program( &
+               "Graph input not supported for 2D convolutional layer" &
+          )
+          return
+       end if
+       if(allocated(this%output)) deallocate(this%output)
+       allocate( this%output(1,1), source = array4d_type() )
+       call this%output(1,1)%allocate( &
+            array_shape = [ &
+                 this%output_shape(1), &
+                 this%output_shape(2), &
+                 this%num_filters, &
+                 this%batch_size ], &
             source=0._real32 &
        )
        if(allocated(this%z)) deallocate(this%z)
-       select type(output => this%output)
+       select type(output => this%output(1,1))
        type is (array4d_type)
           allocate(this%z, source=output%val_ptr)
        end select
-       if(.not.allocated(this%di)) this%di = array4d_type()
-       if(this%di%allocated) call this%di%deallocate()
-       call this%di%allocate( array_shape = [ &
-            this%input_shape(1), &
-            this%input_shape(2), &
-            this%input_shape(3), &
-            this%batch_size ], &
+       if(allocated(this%di)) deallocate(this%di)
+       allocate( this%di(1,1), source = array4d_type() )
+       call this%di(1,1)%allocate( &
+            array_shape = [ &
+                 this%input_shape(1), &
+                 this%input_shape(2), &
+                 this%input_shape(3), &
+                 this%batch_size ], &
             source=0._real32 &
        )
 
        if(allocated(this%pad_layer))then
           if(.not.allocated(this%di_padded)) this%di_padded = array4d_type()
           if(this%di_padded%allocated) call this%di_padded%deallocate()
-          call this%di_padded%allocate( array_shape = [ &
-               this%input_shape(1) + 2 * this%pad(1), &
-               this%input_shape(2) + 2 * this%pad(2), &
-               this%input_shape(3), &
-               this%batch_size ], &
+          call this%di_padded%allocate( &
+               array_shape = [ &
+                    this%input_shape(1) + 2 * this%pad(1), &
+                    this%input_shape(2) + 2 * this%pad(2), &
+                    this%input_shape(3), &
+                    this%batch_size ], &
                source=0._real32 &
           )
        end if
@@ -784,8 +792,8 @@ contains
        if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
 
        ! Read parameters from save file
-       select case(trim(tag))
        !------------------------------------------------------------------------
+       select case(trim(tag))
        case("INPUT_SHAPE")
           call assign_vec(buffer, input_shape, itmp1)
        case("NUM_FILTERS")
@@ -847,7 +855,7 @@ contains
     if(.not.found_weights)then
        write(0,*) "WARNING: WEIGHTS card in CONV2D not found"
     else
-      do l=1,num_filters
+       do l=1,num_filters
           num_inputs = product(this%knl) + 1 !+1 for bias
           allocate(data_list(num_inputs), source=0._real32)
           c = 1
@@ -860,9 +868,9 @@ contains
              c = c + k
           end do data_concat_loop
           this%weight(:,:,:,l) = &
-                reshape(&
-                data_list(1:num_inputs-1),&
-                shape(this%weight(:,:,:,l)))
+               reshape(&
+                    data_list(1:num_inputs-1),&
+                    shape(this%weight(:,:,:,l)))
           this%bias(l) = data_list(num_inputs)
           deallocate(data_list)
        end do
@@ -932,9 +940,9 @@ contains
     !! Instance of the 2D convolutional layer
     real(real32), &
          dimension( &
-         1:this%input_shape(1) + 2 * this%pad(1), &
-         1:this%input_shape(2) + 2 * this%pad(2), &
-         this%num_channels,this%batch_size), &
+              1:this%input_shape(1) + 2 * this%pad(1), &
+              1:this%input_shape(2) + 2 * this%pad(2), &
+              this%num_channels,this%batch_size), &
          intent(in) :: input
     !! Input values
 
@@ -948,8 +956,8 @@ contains
     ! Perform the convolution operation
     !---------------------------------------------------------------------------
     do concurrent( &
-         i=1:this%output%shape(1):1, &
-         j=1:this%output%shape(2):1)
+         i=1:this%output_shape(1):1, &
+         j=1:this%output_shape(2):1)
 #if defined(GFORTRAN)
        start_idx = ([i,j]-1)*this%stp + 1
 #else
@@ -976,7 +984,7 @@ contains
 
     ! Apply activation function to activation values (z)
     !---------------------------------------------------------------------------
-    select type(output => this%output)
+    select type(output => this%output(1,1))
     type is (array4d_type)
        output%val_ptr = this%transfer%activate(this%z)
     end select
@@ -995,23 +1003,23 @@ contains
     !! Instance of the 2D convolutional layer
     real(real32), &
          dimension( &
-         1:this%input_shape(1) + 2 * this%pad(1), &
-         1:this%input_shape(2) + 2 * this%pad(2), &
-         this%num_channels,this%batch_size), &
+              1:this%input_shape(1) + 2 * this%pad(1), &
+              1:this%input_shape(2) + 2 * this%pad(2), &
+              this%num_channels,this%batch_size), &
          intent(in) :: input
     !! Input values
     real(real32), &
          dimension( &
-         this%output%shape(1), &
-         this%output%shape(2), &
-         this%num_filters,this%batch_size), &
+              this%output_shape(1), &
+              this%output_shape(2), &
+              this%num_filters,this%batch_size), &
          intent(in) :: gradient
     !! Gradient values
     real(real32), &
          dimension( &
-         1:this%input_shape(1) + 2 * this%pad(1), &
-         1:this%input_shape(2) + 2 * this%pad(2), &
-         this%num_channels,this%batch_size), &
+              1:this%input_shape(1) + 2 * this%pad(1), &
+              1:this%input_shape(2) + 2 * this%pad(2), &
+              this%num_channels,this%batch_size), &
          intent(inout) :: di
     !! Input gradients
 
@@ -1024,9 +1032,9 @@ contains
     !! Limits for weights and gradients
     real(real32), &
          dimension( &
-         this%output%shape(1),&
-         this%output%shape(2),this%num_filters, &
-         this%batch_size) :: grad_dz
+              this%output_shape(1),&
+              this%output_shape(2),this%num_filters, &
+              this%batch_size) :: grad_dz
     !! Gradient multiplied by differential of Z (aka delta values)
 
     ! Local variables
@@ -1057,9 +1065,9 @@ contains
          m = 1 : this%num_channels &
     )
        do y = 1, this%knl(2), 1
-          do j = 1, this%output%shape(2)
+          do j = 1, this%output_shape(2)
              do x = 1, this%knl(1), 1
-                do i = 1, this%output%shape(1)
+                do i = 1, this%output_shape(1)
                    this%dw(x,y,m,l,s) = this%dw(x,y,m,l,s) + &
                         grad_dz(i,j,l,s) * &
                         input( &
@@ -1079,8 +1087,8 @@ contains
     if(this%calc_input_gradients)then
        offset  = 1 + this%hlf + (this%cen - 1)
        lim(1,:) = this%knl + this%hlf
-       lim(2,:) = (this%output%shape(:2) - 1) * this%stp + 1 + this%knl
-       n_stp = this%output%shape(:2) * this%stp
+       lim(2,:) = (this%output_shape(:2) - 1) * this%stp + 1 + this%knl
+       n_stp = this%output_shape(:2) * this%stp
        di = 0._real32
        ! All elements of the output are separated by stride_x, stride_y
        do concurrent( &
@@ -1113,7 +1121,7 @@ contains
           ! Set gradient bounds
           lim_g(1,:) = max(1, [i,j] - offset)
           lim_g(2,:) = min( &
-               this%output%shape(:2), &
+               this%output_shape(:2), &
                [i,j] - offset + this%knl - 1 &
           )
 

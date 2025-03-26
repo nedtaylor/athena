@@ -16,6 +16,7 @@ module athena__base_layer
   use athena__constants, only: real32
   use athena__clipper, only: clip_type
   use athena__misc_types, only: activation_type, array_type, facets_type
+  use graphstruc, only: graph_type
   implicit none
 
   private
@@ -41,15 +42,24 @@ module athena__base_layer
      !! Rank of input data
      logical :: inference = .false.
      !! Inference mode
+     logical :: use_graph_input = .false.
+     !! Use graph input
      character(:), allocatable :: name
      !! Layer name
      character(4) :: type = 'base'
      !! Layer type
-     class(array_type), allocatable :: output, di
+     type(graph_type), allocatable, dimension(:) :: graph
+     !! Graph structure of input data
+     logical :: consistent_sample_shape = .true. !! ONLY FALSE FOR GRAPHS
+     !! Boolean whether the layer has a consistent sample shape
+     class(array_type), allocatable, dimension(:,:) :: output, di
      !! Output and gradient of input data
+     !!! HAVE A LOGICAL THAT INDICATES WHETHER input_shape REFERS TO THE DIMENSIONS OF di, OR OF EACH ELEMENT IN di
      integer, allocatable, dimension(:) :: input_shape
      !! Input shape
-  contains
+     integer, allocatable, dimension(:) :: output_shape
+     !! Output shape
+   contains
      procedure, pass(this) :: set_shape => set_shape_base
      !! Set the input shape of the layer
      procedure, pass(this) :: get_num_params => get_num_params_base
@@ -64,6 +74,13 @@ module athena__base_layer
      !! Set the batch size of the layer
      procedure(forward), deferred, pass(this) :: forward
      !! Forward pass of layer
+
+     !! MAKE THESE DEFERRED
+     procedure, pass(this) :: forward_derived => forward_derived_base
+     procedure, pass(this) :: backward_derived => backward_derived_base
+
+
+     !! Forward pass of layer using derived array_type
      procedure(backward), deferred, pass(this) :: backward
      !! Backward pass of layer
      procedure(read_layer), deferred, pass(this) :: read
@@ -72,6 +89,8 @@ module athena__base_layer
      !! Set pointers to layer data
      procedure, pass(this), private :: set_ptrs_hyperparams
      !! Set pointers to hyperparameters
+     procedure, pass(this) :: set_graph => set_graph_base
+     !! Set the graph structure of the input data !! this is adjacency and edge weighting
   end type base_layer_type
 
   interface
@@ -165,6 +184,34 @@ module athena__base_layer
      end subroutine backward
   end interface
 
+  interface
+     pure module subroutine forward_derived_base(this, input)
+       !! Forward pass of layer
+       class(base_layer_type), intent(inout) :: this
+       !! Instance of the layer
+       class(array_type), dimension(:,:), intent(in) :: input
+       !! Input data
+     end subroutine forward_derived_base
+
+     pure module subroutine backward_derived_base(this, input, gradient)
+       !! Backward pass of layer
+       class(base_layer_type), intent(inout) :: this
+       !! Instance of the layer
+       class(array_type), dimension(:,:), intent(in) :: input
+       !! Input data
+       class(array_type), dimension(:,:), intent(in) :: gradient
+       !! Gradient data
+     end subroutine backward_derived_base
+
+     pure module subroutine set_graph_base(this, graph)
+       !! Set the graph structure of the input data
+       class(base_layer_type), intent(inout) :: this
+       !! Instance of the layer
+       type(graph_type), dimension(:), intent(in) :: graph
+       !! Graph structure of input data
+     end subroutine set_graph_base
+  end interface
+
   abstract interface
      module subroutine read_layer(this, unit, verbose)
        !! Read layer from file
@@ -192,7 +239,19 @@ module athena__base_layer
      !! Original and destination bounds
      type(facets_type), dimension(:), allocatable :: facets
      !! Facets of the layer
+   contains
+     procedure, pass(this) :: init => init_pad
+     !! Initialise the layer
   end type pad_layer_type
+
+  interface
+     module subroutine init_pad(this, input_shape, batch_size, verbose)
+       class(pad_layer_type), intent(inout) :: this
+       integer, dimension(:), intent(in) :: input_shape
+       integer, optional, intent(in) :: batch_size
+       integer, optional, intent(in) :: verbose
+     end subroutine init_pad
+  end interface
 
 
   type, abstract, extends(base_layer_type) :: pool_layer_type
@@ -202,6 +261,8 @@ module athena__base_layer
      integer :: num_channels
      !! Number of channels
    contains
+     procedure, pass(this) :: init => init_pool
+     !! Initialise the layer
      procedure, pass(this) :: print => print_pool
      !! Print layer to file
   end type pool_layer_type
@@ -214,6 +275,13 @@ module athena__base_layer
        character(*), intent(in) :: file
        !! File name
      end subroutine print_pool
+
+     module subroutine init_pool(this, input_shape, batch_size, verbose)
+       class(pool_layer_type), intent(inout) :: this
+       integer, dimension(:), intent(in) :: input_shape
+       integer, optional, intent(in) :: batch_size
+       integer, optional, intent(in) :: verbose
+     end subroutine init_pool
   end interface
 
 
