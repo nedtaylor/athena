@@ -124,6 +124,16 @@ contains
     this%num_edge_features = num_features(2)
 
   end subroutine set_hyperparams_msgpass
+
+
+  module subroutine set_param_pointers_msgpass(this)
+    !! Set the pointers to the learnable parameters
+    implicit none
+
+    ! Arguments
+    class(msgpass_layer_type), intent(inout), target :: this
+    !! Instance of the message passing layer
+  end subroutine set_param_pointers_msgpass
 !###############################################################################
 
 

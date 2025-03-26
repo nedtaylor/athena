@@ -20,6 +20,7 @@ submodule(athena__network) athena__network_submodule
   ! Layer types
   use athena__input_layer,   only: input_layer_type
   use athena__flatten_layer, only: flatten_layer_type
+  use athena__msgpass_layer, only: msgpass_layer_type
 
   implicit none
 
@@ -313,7 +314,9 @@ contains
                      this%auto_graph%vertex(j)%id, &
                      this%auto_graph%vertex(i)%id, &
                      4 &
-                ) = this%model(this%auto_graph%vertex(j)%id)%layer%output(1,1)%size
+                ) = this%model( &
+                     this%auto_graph%vertex(j)%id &
+                )%layer%output(1,1)%size
              end select
           end if
        end do
@@ -1038,7 +1041,9 @@ contains
     do i = 1, size(this%vertex_order, dim = 1)
        if(allocated(this%model(this%vertex_order(i))%layer%output))then
           if( &
-               .not.this%model(this%vertex_order(i))%layer%output(1,1)%allocated &
+               .not.this%model( &
+                    this%vertex_order(i) &
+               )%layer%output(1,1)%allocated &
           ) then
              l_set_input_shape = .true.
           else
@@ -1812,42 +1817,68 @@ contains
     ! Local variables
     integer :: i, s
     !! Loop index
+    integer :: input_idx
+    !! Index of input layer
+    integer :: num_vertex_features, num_edge_features
+    !! Number of vertex and edge features
     type(array2d_type), dimension(2,this%batch_size) :: auto_input
     !! Autodiff input
 
 
-    do s = 1, this%batch_size
-       call auto_input(1,s)%allocate( &
-            array_shape = (/ &
-                 12, & !! NUMBER OF FEATURES
-                 1 &  !!! NUMBER OF NODES FOR SAMPLE s
-            /), &
-            source = 0._real32 &
-       )
-       call auto_input(2,s)%allocate( &
-            array_shape = (/ &
-                 12, & !! NUMBER OF FEATURES
-                 1 &  !!! NUMBER OF EDGES FOR SAMPLE s
-            /), &
-            source = 0._real32 &
-       )
-    end do
     ! Forward pass
     !---------------------------------------------------------------------------
-    ! do i = 1, size(this%vertex_order,1)
-    !    call this%model(this%vertex_order(i))%layer%set_graph(input(:,1))
-    !    if(all(this%auto_graph%adjacency(:,this%vertex_order(i)).eq.0))then
-    !       select type(layer => this%model(this%vertex_order(i))%layer)
-    !       class is(input_layer_type)
-    !          call layer%set_input_graph(input(:,layer%index))
-    !       class default
-    !          return
-    !       end select
-    !    else
-    !       call this%get_input_derived_autodiff(this%vertex_order(i), auto_input)
-    !       call this%model(this%vertex_order(i))%layer%forward_derived(auto_input)
-    !    end if
-    ! end do
+    do i = 1, size(this%vertex_order,1)
+       if(all(this%auto_graph%adjacency(:,this%vertex_order(i)).eq.0))then
+          select type(layer => this%model(this%vertex_order(i))%layer)
+          class is(input_layer_type)
+             call layer%set_input_graph(input(:,layer%index))
+          class default
+             return
+          end select
+       else
+          !! CAUTION, set_graph() should only update the adjacency matrix and edge weights
+          !! maybe just make its own fuction for this
+          ! the layer%index only works if this is an input layer
+          ! need to set up a way to identify the root vertex associated with this layer
+          !  input_idx = this%model(this%vertex_order(i))%layer%index
+          input_idx = 1
+          call this%model(this%vertex_order(i))%layer%set_graph( &
+               input(:,input_idx) &
+          )
+          num_vertex_features = 0
+          num_edge_features = 0
+          select type(layer => this%model(this%vertex_order(i))%layer)
+          class is(msgpass_layer_type)
+             ! could set these up within the graph within each layer?
+             num_vertex_features = layer%num_vertex_features
+             num_edge_features = layer%num_edge_features
+          end select
+          do s = 1, this%batch_size
+             call auto_input(1,s)%allocate( &
+                  array_shape = (/ &
+                       num_vertex_features, &
+                       input(s,input_idx)%num_vertices &
+                  /), &
+                  source = 0._real32 &
+             )
+             call auto_input(2,s)%allocate( &
+                  array_shape = (/ &
+                       num_edge_features, &
+                       input(s,input_idx)%num_edges &
+                  /), &
+                  source = 0._real32 &
+             )
+          end do
+          call this%get_input_graph_autodiff(this%vertex_order(i), auto_input)
+          call this%model( &
+               this%vertex_order(i) &
+          )%layer%forward_derived(auto_input)
+          do s = 1, this%batch_size
+             call auto_input(1,s)%deallocate()
+             call auto_input(2,s)%deallocate()
+          end do
+       end if
+    end do
 
   end subroutine forward_graph
 !###############################################################################

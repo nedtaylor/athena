@@ -28,6 +28,9 @@ module athena__kipf_msgpass_layer
 
    contains
 
+     procedure, pass(this) :: read => read_kipf
+     !! Read the message passing layer
+
      procedure, pass(this) :: forward => forward_rank
      !! Forward pass for message passing layer
      procedure, pass(this) :: backward => backward_rank
@@ -70,6 +73,20 @@ module athena__kipf_msgpass_layer
   ! end interface kipf_msgpass_layer_type
 
 contains
+
+  subroutine read_kipf(this, unit, verbose)
+    !! Read the message passing layer
+    implicit none
+
+    ! Arguments
+    class(kipf_msgpass_layer_type), intent(inout) :: this
+    !! Instance of the message passing layer
+    integer, intent(in) :: unit
+    !! Unit to read from
+    integer, optional, intent(in) :: verbose
+    !! Verbosity level
+  end subroutine read_kipf
+
 
   pure subroutine forward_rank(this, input)
     !! Forward pass for message

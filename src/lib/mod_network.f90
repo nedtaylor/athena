@@ -103,6 +103,9 @@ module athena__network
      procedure, pass(this), private :: get_input_derived_autodiff
      procedure, pass(this), private :: get_gradient_derived_autodiff
 
+     procedure, pass(this), private :: get_input_graph_autodiff
+     ! procedure, pass(this), private :: get_gradient_graph_autodiff
+
      procedure, pass(this), private :: get_gradient_real_autodiff
      !! Get the gradient of a layer via autodiff
      procedure, pass(this) :: reduce => network_reduction
