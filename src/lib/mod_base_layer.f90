@@ -203,7 +203,7 @@ module athena__base_layer
        !! Gradient data
      end subroutine backward_derived_base
 
-     pure module subroutine set_graph_base(this, graph)
+     module subroutine set_graph_base(this, graph)
        !! Set the graph structure of the input data
        class(base_layer_type), intent(inout) :: this
        !! Instance of the layer

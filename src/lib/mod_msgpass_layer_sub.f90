@@ -95,35 +95,35 @@ contains
 
 
 !###############################################################################
-  module subroutine set_hyperparams_msgpass( &
-       this, &
-       num_features, num_time_steps, num_outputs, verbose &
-  )
-    !! Set the hyperparameters for the layer
-    implicit none
+  ! module subroutine set_hyperparams_msgpass( &
+  !      this, &
+  !      num_features, num_time_steps, num_outputs, verbose &
+  ! )
+  !   !! Set the hyperparameters for the layer
+  !   implicit none
 
-    ! Arguments
-    class(msgpass_layer_type), intent(inout) :: this
-    !! Instance of the layer type
-    integer, dimension(2), intent(in) :: num_features
-    !! Number of features
-    integer, intent(in) :: num_time_steps
-    !! Number of time steps
-    integer, intent(in) :: num_outputs
-    !! Number of output features
-    integer, optional, intent(in) :: verbose
-    !! Verbosity level
+  !   ! Arguments
+  !   class(msgpass_layer_type), intent(inout) :: this
+  !   !! Instance of the layer type
+  !   integer, dimension(2), intent(in) :: num_features
+  !   !! Number of features
+  !   integer, intent(in) :: num_time_steps
+  !   !! Number of time steps
+  !   integer, intent(in) :: num_outputs
+  !   !! Number of output features
+  !   integer, optional, intent(in) :: verbose
+  !   !! Verbosity level
 
 
-    this%name = 'msgpass'
-    this%type = 'msgp'
-    this%input_rank = 1
-    this%num_outputs = num_outputs
-    this%num_time_steps = num_time_steps
-    this%num_vertex_features = num_features(1)
-    this%num_edge_features = num_features(2)
+  !   this%name = 'msgpass'
+  !   this%type = 'msgp'
+  !   this%input_rank = 1
+  !   this%num_outputs = num_outputs
+  !   this%num_time_steps = num_time_steps
+  !   this%num_vertex_features = num_features(1)
+  !   this%num_edge_features = num_features(2)
 
-  end subroutine set_hyperparams_msgpass
+  ! end subroutine set_hyperparams_msgpass
 
 
   module subroutine set_param_pointers_msgpass(this)
@@ -259,6 +259,84 @@ contains
   end subroutine set_batch_size_msgpass
 !###############################################################################
 
+  module subroutine set_graph_msgpass(this, graph)
+    !! Set the graph structure of the input data
+    implicit none
+
+    ! Arguments
+    class(msgpass_layer_type), intent(inout) :: this
+    !! Instance of the layer
+    type(graph_type), dimension(:), intent(in) :: graph
+    !! Graph structure of input data
+
+    ! Local variables
+    integer :: s, t
+    !! Loop indices
+
+    if(allocated(this%graph))then
+       if(size(this%graph).ne.size(graph))then
+          deallocate(this%graph)
+          allocate(this%graph(size(graph)))
+       end if
+    else
+       allocate(this%graph(size(graph)))
+    end if
+    do s = 1, size(graph)
+       this%graph(s)%adj_ia = graph(s)%adj_ia
+       this%graph(s)%adj_ja = graph(s)%adj_ja
+       this%graph(s)%edge_weights = graph(s)%edge_weights
+       this%graph(s)%num_edges = graph(s)%num_edges
+       this%graph(s)%num_vertices = graph(s)%num_vertices
+    end do
+
+    if(this%use_graph_input)then
+       if(allocated(this%output))then
+          do s = 1, size(graph)
+             call this%output(1,s)%allocate( &
+                  [ this%num_vertex_features, this%graph(s)%num_vertices ] &
+             )
+             call this%output(2,s)%allocate( &
+                  [ this%num_edge_features, this%graph(s)%num_vertices ] &
+             )
+             call this%di(1,s)%allocate( &
+                  [ this%num_vertex_features, this%graph(s)%num_vertices ] &
+             )
+             call this%di(2,s)%allocate( &
+                  [ this%num_edge_features, this%graph(s)%num_vertices ] &
+             )
+          end do
+       end if
+       call this%set_ptrs()
+    end if
+
+    do s = 1, size(graph)
+       call this%vertex_features(0,s)%allocate( &
+            [ this%num_vertex_features, this%graph(s)%num_vertices ] &
+       )
+       call this%edge_features(0,s)%allocate( &
+            [ this%num_edge_features, this%graph(s)%num_edges ] &
+       )
+       do t = 1, this%num_time_steps
+          call this%vertex_features(t,s)%allocate( &
+               [ this%num_vertex_features, this%graph(s)%num_vertices ] &
+          )
+          call this%edge_features(t,s)%allocate( &
+               [ this%num_edge_features, this%graph(s)%num_edges ] &
+          )
+          call this%message(t,s)%allocate( &
+               [ this%num_vertex_features, this%graph(s)%num_vertices ] &
+          )
+          write(*,*) "batch", s, "time", t
+          write(*,*) "message shape", shape(this%message(t,s)%val(:,:))
+
+          call this%z(t,s)%allocate( &
+               [ this%num_vertex_features, this%graph(s)%num_vertices ] &
+          )
+       end do
+    end do
+
+
+  end subroutine set_graph_msgpass
 
 !##############################################################################!
 ! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !

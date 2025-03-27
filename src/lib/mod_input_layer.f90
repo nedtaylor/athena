@@ -58,6 +58,8 @@ module athena__input_layer
        !! Batch size
        integer, optional, intent(in) :: index
        !! Index of the layer
+       logical, optional, intent(in) :: use_graph_input
+       !! Use graph input
        integer, optional, intent(in) :: verbose
        !! Verbosity level
        type(input_layer_type) :: layer
@@ -115,7 +117,7 @@ contains
 
 !###############################################################################
   module function layer_setup( &
-       input_shape, batch_size, index, verbose &
+       input_shape, batch_size, index, use_graph_input, verbose &
   ) result(layer)
     !! Set up layer
     implicit none
@@ -127,6 +129,8 @@ contains
     !! Batch size
     integer, optional, intent(in) :: index
     !! Index of the layer
+    logical, optional, intent(in) :: use_graph_input
+    !! Use graph input
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -138,6 +142,8 @@ contains
     !! Index of the layer
     integer :: verbose_ = 0
     !! Verbosity level
+    logical :: use_graph_input_ = .false.
+    !! Use graph input
 
 
     if(present(verbose)) verbose_ = verbose
@@ -146,7 +152,12 @@ contains
     ! Set hyperparameters
     !---------------------------------------------------------------------------
     if(present(index)) index_ = index
-    call layer%set_hyperparams(index = index_, verbose = verbose_)
+    if(present(use_graph_input)) use_graph_input_ = use_graph_input
+    call layer%set_hyperparams( &
+         index = index_, &
+         use_graph_input = use_graph_input_, &
+         verbose = verbose_ &
+    )
 
 
     !---------------------------------------------------------------------------
@@ -165,7 +176,13 @@ contains
 
 
 !###############################################################################
-  subroutine set_hyperparams_input(this, input_rank, index, verbose)
+  subroutine set_hyperparams_input( &
+       this, &
+       input_rank, &
+       index, &
+       use_graph_input, &
+       verbose &
+  )
     !! Set hyperparameters for an input layer
     implicit none
 
@@ -176,6 +193,8 @@ contains
     !! Rank of the input data
     integer, optional, intent(in) :: index
     !! Index of the layer
+    logical, optional, intent(in) :: use_graph_input
+    !! Use graph input
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -184,6 +203,7 @@ contains
     this%input_rank = 0
     if(present(input_rank)) this%input_rank = input_rank
     if(present(index)) this%index = index
+    if(present(use_graph_input)) this%use_graph_input = use_graph_input
 
   end subroutine set_hyperparams_input
 !###############################################################################
@@ -472,7 +492,7 @@ contains
 
   end subroutine set_input_real
 !-------------------------------------------------------------------------------
-  pure subroutine set_input_graph(this, input)
+  subroutine set_input_graph(this, input)
     !! Set input values for an input layer
     implicit none
 
@@ -486,6 +506,18 @@ contains
     integer :: s
 
     do s = 1, this%batch_size
+       if(this%output(1,s)%allocated) call this%output(1,s)%deallocate()
+       if(this%output(2,s)%allocated) call this%output(2,s)%deallocate()
+       call this%output(1,s)%allocate( &
+            array_shape = [ &
+                 input(s)%num_vertex_features, input(s)%num_vertices &
+            ] &
+       )
+       call this%output(2,s)%allocate( &
+            array_shape = [ &
+                 input(s)%num_edge_features, input(s)%num_edges &
+            ] &
+       )
        call this%output(1,s)%set( input(s)%vertex_features )
        call this%output(2,s)%set( input(s)%edge_features )
     end do

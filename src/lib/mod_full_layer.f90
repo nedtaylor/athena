@@ -376,8 +376,6 @@ contains
     !---------------------------------------------------------------------------
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
     this%num_inputs = this%input_shape(1)
-    if(allocated(this%output)) deallocate(this%output)
-    allocate(this%output(1,1), source=array2d_type())
     this%output_shape = [this%num_outputs]
     this%num_params = this%get_num_params()
 
@@ -438,6 +436,7 @@ contains
     if(present(verbose)) verbose_ = verbose
     this%batch_size = batch_size
 
+
     !---------------------------------------------------------------------------
     ! Set weights and biases pointers to params array
     !---------------------------------------------------------------------------
@@ -448,11 +447,8 @@ contains
     ! Allocate arrays
     !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
-       if(.not.allocated(this%output))then
-          allocate(this%output(1,1), source=array2d_type())
-       end if
-       if(this%output(1,1)%allocated) &
-            call this%output(1,1)%deallocate(keep_shape=.true.)
+       if(allocated(this%output)) deallocate(this%output)
+       allocate(this%output(1,1), source=array2d_type())
        call this%output(1,1)%allocate( &
             [this%num_outputs, this%batch_size], &
             source=0._real32 &
@@ -473,10 +469,8 @@ contains
             this%dp
        if(allocated(this%db)) deallocate(this%db)
        allocate(this%db(this%num_outputs, this%batch_size), source=0._real32)
-       if(.not.allocated(this%di))then
-          allocate(this%di(1,1), source=array2d_type())
-       end if
-       if(this%di(1,1)%allocated) call this%di(1,1)%deallocate()
+       if(allocated(this%di)) deallocate(this%di)
+       allocate(this%di(1,1), source=array2d_type())
        call this%di(1,1)%allocate( &
             [this%num_inputs, this%batch_size], &
             source=0._real32 &

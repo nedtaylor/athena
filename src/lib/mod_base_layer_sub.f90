@@ -144,24 +144,28 @@ contains
     character(256) :: err_msg
     !! Error message
 
-    if(allocated(this%output))then
-       if(.not.this%output(1,1)%allocated)then
+    out_alloc_check: if(allocated(this%output))then
+       if(this%use_graph_input)then
+          exit out_alloc_check
+       elseif(.not.this%output(1,1)%allocated)then
           write(err_msg,'("output not allocated for layer ",A," ",I0)') &
                trim(this%name), this%id
           call stop_program(err_msg)
           return
        end if
        call this%output(1,1)%set_ptr()
-    end if
-    if(allocated(this%di))then
-       if(.not.this%di(1,1)%allocated)then
+    end if out_alloc_check
+    di_alloc_check: if(allocated(this%di))then
+       if(this%use_graph_input)then
+          exit di_alloc_check
+       elseif(.not.this%di(1,1)%allocated)then
           write(err_msg,'("di not allocated for layer ",A," ",I0)') &
                trim(this%name), this%id
           call stop_program(err_msg)
           return
        end if
        call this%di(1,1)%set_ptr()
-    end if
+    end if di_alloc_check
 
     call this%set_ptrs_hyperparams()
 
@@ -261,7 +265,7 @@ contains
     this%di = gradient
   end subroutine backward_derived_base
 
-  pure module subroutine set_graph_base(this, graph)
+  module subroutine set_graph_base(this, graph)
     !! Set the graph structure of the input data
     implicit none
 
@@ -275,8 +279,14 @@ contains
     integer :: s
     !! Loop index
 
-    if(allocated(this%graph)) deallocate(this%graph)
-    allocate(this%graph(size(graph)))
+    if(allocated(this%graph))then
+       if(size(this%graph).ne.size(graph))then
+          deallocate(this%graph)
+          allocate(this%graph(size(graph)))
+       end if
+    else
+       allocate(this%graph(size(graph)))
+    end if
     do s = 1, size(graph)
        this%graph(s)%adj_ia = graph(s)%adj_ia
        this%graph(s)%adj_ja = graph(s)%adj_ja
@@ -284,6 +294,39 @@ contains
        this%graph(s)%num_edges = graph(s)%num_edges
        this%graph(s)%num_vertices = graph(s)%num_vertices
     end do
+
+    if(this%use_graph_input)then
+       if(allocated(this%output))then
+          do s = 1, size(graph)
+             call this%output(1,s)%allocate( &
+                  [ &
+                       this%graph(s)%num_vertex_features, &
+                       this%graph(s)%num_vertices &
+                  ] &
+             )
+             call this%output(2,s)%allocate( &
+                  [ &
+                       this%graph(s)%num_edge_features, &
+                       this%graph(s)%num_vertices &
+                  ] &
+             )
+             call this%di(1,s)%allocate( &
+                  [ &
+                       this%graph(s)%num_vertex_features, &
+                       this%graph(s)%num_vertices &
+                  ] &
+             )
+             call this%di(2,s)%allocate( &
+                  [ &
+                       this%graph(s)%num_edge_features, &
+                       this%graph(s)%num_vertices &
+                  ] &
+             )
+          end do
+       end if
+       call this%set_ptrs()
+    end if
+
   end subroutine set_graph_base
 !###############################################################################
 

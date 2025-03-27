@@ -100,6 +100,8 @@ module athena__network
      procedure, pass(this), private :: get_input_real_autodiff
      !! Get the input of a layer via autodiff
 
+     ! procedure, pass(this), private :: set_graphs
+
      procedure, pass(this), private :: get_input_derived_autodiff
      procedure, pass(this), private :: get_gradient_derived_autodiff
 
@@ -128,7 +130,9 @@ module athena__network
      !! Forward pass for real input
      procedure, pass(this) :: forward_derived
      !! Forward pass for derived input
-     generic :: forward => forward_real, forward_derived
+     procedure, pass(this) :: forward_graph
+     !! Forward pass for graph input
+     generic :: forward => forward_real, forward_derived !, forward_graph
      procedure, pass(this) :: backward => backward_real
      !! Backward pass
   end type network_type
@@ -385,7 +389,7 @@ module athena__network
      end subroutine get_input_derived_autodiff
 
 
-     pure module subroutine get_input_graph_autodiff(this, idx, input)
+     module subroutine get_input_graph_autodiff(this, idx, input)
        !! Get the input of a layer via autodiff
        class(network_type), intent(in) :: this
        !! Instance of the network
@@ -505,6 +509,14 @@ module athena__network
             input
        !! Input data
      end subroutine forward_derived
+     module subroutine forward_graph(this, input)
+       !! Forward pass for derived input
+       class(network_type), intent(inout) :: this
+       !! Instance of the network
+       class(graph_type), dimension(this%batch_size,size(this%root_vertices)), &
+            intent(in) :: input
+       !! Input data
+     end subroutine forward_graph
 
      !! Interface for backward pass
      pure module subroutine backward_real(this, output)

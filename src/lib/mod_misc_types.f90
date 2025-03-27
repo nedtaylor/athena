@@ -213,9 +213,9 @@ module athena__misc_types
      real(real32), dimension(:,:), allocatable :: val
      !! Array values in rank 2 (sample, batch)
    contains
-     procedure (allocate_array), deferred, pass(this) :: allocate
+     procedure(allocate_array), deferred, pass(this) :: allocate
      !! Abstract procedure for allocating array
-     procedure (deallocate_array), deferred, pass(this) :: deallocate
+     procedure(deallocate_array), deferred, pass(this) :: deallocate
      !! Abstract procedure for deallocating array
      procedure (set_ptr_array), deferred, pass(this) :: set_ptr
      !! Abstract procedure for setting pointers

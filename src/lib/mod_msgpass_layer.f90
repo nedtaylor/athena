@@ -53,8 +53,8 @@ module athena__msgpass_layer
      type(array2d_type), dimension(:,:), allocatable :: dfeatures
      !! Derivative of the features
    contains
-     procedure, pass(this) :: set_hyperparams => set_hyperparams_msgpass
-     !! Set the hyperparameters for message passing layer
+     !  procedure, pass(this) :: set_hyperparams => set_hyperparams_msgpass
+     !  !! Set the hyperparameters for message passing layer
      procedure, pass(this) :: init => init_msgpass
      !! Initialise message passing layer
      procedure, pass(this) :: set_batch_size => set_batch_size_msgpass
@@ -63,6 +63,7 @@ module athena__msgpass_layer
      ! !! Print the message passing layer
      ! procedure, pass(this) :: read => read_msgpass
      ! !! Read the message passing layer
+     procedure, pass(this) :: set_graph => set_graph_msgpass
 
 
 
@@ -165,6 +166,17 @@ module athena__msgpass_layer
        class(msgpass_layer_type), intent(inout), target :: this
        !! Instance of the message passing layer
      end subroutine set_param_pointers_msgpass
+
+
+
+     module subroutine set_graph_msgpass(this, graph)
+       !! Set the graph structure of the input data
+       class(msgpass_layer_type), intent(inout) :: this
+       !! Instance of the layer
+       type(graph_type), dimension(:), intent(in) :: graph
+       !! Graph structure of input data
+     end subroutine set_graph_msgpass
+
 
      ! pure module function get_gradients_msgpass(this, clip_method) &
      !      result(gradients)
@@ -288,21 +300,21 @@ module athena__msgpass_layer
        integer, optional, intent(in) :: verbose
        !! Verbosity level
      end subroutine set_batch_size_msgpass
-     module subroutine set_hyperparams_msgpass( &
-          this, num_features, num_time_steps, num_outputs, verbose &
-     )
-       !! Set the hyperparameters for the message passing layer
-       class(msgpass_layer_type), intent(inout) :: this
-       !! Instance of the message passing layer
-       integer, dimension(2), intent(in) :: num_features
-       !! Number of features
-       integer, intent(in) :: num_time_steps
-       !! Number of time steps
-       integer, intent(in) :: num_outputs
-       !! Number of outputs
-       integer, optional, intent(in) :: verbose
-       !! Verbosity level
-     end subroutine set_hyperparams_msgpass
+     !  module subroutine set_hyperparams_msgpass( &
+     !       this, num_features, num_time_steps, num_outputs, verbose &
+     !  )
+     !    !! Set the hyperparameters for the message passing layer
+     !    class(msgpass_layer_type), intent(inout) :: this
+     !    !! Instance of the message passing layer
+     !    integer, dimension(2), intent(in) :: num_features
+     !    !! Number of features
+     !    integer, intent(in) :: num_time_steps
+     !    !! Number of time steps
+     !    integer, intent(in) :: num_outputs
+     !    !! Number of outputs
+     !    integer, optional, intent(in) :: verbose
+     !    !! Verbosity level
+     !  end subroutine set_hyperparams_msgpass
   end interface
 !-------------------------------------------------------------------------------
 

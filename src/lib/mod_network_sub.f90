@@ -259,9 +259,9 @@ contains
                      1 &
                 ) = num_inputs
                 num_inputs = num_inputs + &
-                     this%model( &
+                     product(this%model( &
                           this%auto_graph%vertex(i)%id &
-                     )%layer%output(1,1)%size - 1
+                     )%layer%output_shape) - 1
                 this%io_map( &
                      this%auto_graph%vertex(i)%id, &
                      this%auto_graph%vertex(j)%id, &
@@ -277,9 +277,9 @@ contains
                      this%auto_graph%vertex(i)%id, &
                      this%auto_graph%vertex(j)%id, &
                      2 &
-                ) = this%model( &
-                     this%auto_graph%vertex(i)%id &
-                )%layer%output(1,1)%size
+                ) = product(this%model( &
+                          this%auto_graph%vertex(i)%id &
+                     )%layer%output_shape)
              end select
           end if
           if(this%auto_graph%adjacency(j,i).ne.0)then
@@ -296,9 +296,9 @@ contains
                 ) = num_outputs
 
                 num_outputs = num_outputs + &
-                     this%model( &
+                     product(this%model( &
                           this%auto_graph%vertex(j)%id &
-                     )%layer%output(1,1)%size - 1
+                     )%layer%output_shape) - 1
                 this%io_map( &
                      this%auto_graph%vertex(j)%id, &
                      this%auto_graph%vertex(i)%id, &
@@ -314,9 +314,9 @@ contains
                      this%auto_graph%vertex(j)%id, &
                      this%auto_graph%vertex(i)%id, &
                      4 &
-                ) = this%model( &
-                     this%auto_graph%vertex(j)%id &
-                )%layer%output(1,1)%size
+                ) = product(this%model( &
+                          this%auto_graph%vertex(j)%id &
+                     )%layer%output_shape)
              end select
           end if
        end do
@@ -885,6 +885,8 @@ contains
     !! Loop index
     integer :: verbose_ = 0
     !! Verbosity level
+    logical :: use_graph_input = .false.
+    !! Boolean whether to use graph input
     logical :: l_flatten_child, l_set_input_shape
     !! Booleans whether to flatten child or set input shape
     integer, dimension(:), allocatable :: input_shape, &
@@ -927,6 +929,7 @@ contains
           call stop_program("input_shape of first layer not defined")
           return
        end if
+       use_graph_input = .false.
        select type( root => this%model(this%auto_graph%vertex( &
             this%root_vertices(i) &
        )%id)%layer)
@@ -935,6 +938,7 @@ contains
        class is(learnable_layer_type)
           root%calc_input_gradients = .false.
           input_shape = root%input_shape
+          use_graph_input = root%use_graph_input
        class default
           input_shape = root%input_shape
        end select
@@ -942,6 +946,7 @@ contains
             input_shape = input_shape, &
             batch_size = this%batch_size, &
             index = i, &
+            use_graph_input = use_graph_input, &
             verbose=verbose_ &
        )
        call this%add( &
@@ -1534,7 +1539,7 @@ contains
 
   end subroutine get_input_derived_autodiff
 !-------------------------------------------------------------------------------
-  pure module subroutine get_input_graph_autodiff(this, idx, input)
+  module subroutine get_input_graph_autodiff(this, idx, input)
     !! Get the input for each layer via autodiff
     implicit none
 
@@ -1589,10 +1594,17 @@ contains
           case(1) ! concatenate
              do s = 1, this%batch_size
                 do j = 1, 2
-                   input(j,s)%val(idx_start:idx_end,:) = &
+                   input(j,s)%val(:,:) = &
                         this%model( &
                              this%auto_graph%vertex(i)%id &
                         )%layer%output(j,s)%val
+                   !! issue of concatenation not working because our vertex and edge features are not the same length, so it is
+                   !! looking at number of outputs for vertex and forcing the edge features to be the same length
+                   !! which causes an index overflow error
+                   !  input(j,s)%val(idx_start:idx_end,:) = &
+                   !       this%model( &
+                   !            this%auto_graph%vertex(i)%id &
+                   !       )%layer%output(j,s)%val
                 end do
              end do
           case(2) ! add
@@ -1831,7 +1843,7 @@ contains
        if(all(this%auto_graph%adjacency(:,this%vertex_order(i)).eq.0))then
           select type(layer => this%model(this%vertex_order(i))%layer)
           class is(input_layer_type)
-             call layer%set_input_graph(input(:,layer%index))
+             call layer%set_input_graph( input(:,layer%index) )
           class default
              return
           end select
