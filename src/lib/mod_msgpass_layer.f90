@@ -28,14 +28,18 @@ module athena__msgpass_layer
      !!   - edge - the connections between the nodes
      !! Here, we use the term vertex to refer to the individual elements
      !! in the graph and edge to refer to the connections between vertices.
-     integer :: num_vertex_features
-     !! Number of vertex features
-     integer :: num_edge_features
-     !! Number of edge features
+     integer, dimension(:), allocatable :: num_vertex_features
+     !! Number of vertex features for each time step
+     integer, dimension(:), allocatable :: num_edge_features
+     !! Number of edge features for each time step
      integer :: num_time_steps
      !! Number of time steps
+     integer :: num_output_vertex_features
+     !! Number of output vertex features
+     integer :: num_output_edge_features
+     !! Number of output edge features
      integer :: num_outputs
-     !! Number of outputs
+     !! Number of outputs (if output is not graph structure)
 
      integer, dimension(:), allocatable :: num_params_msg
      !! Number of learnable parameters for each message
@@ -113,7 +117,7 @@ module athena__msgpass_layer
   interface msgpass_layer_type
      !! Interface for setting up the MPNN layer
      module function layer_setup( &
-          num_features, num_time_steps, num_outputs, batch_size, &
+          num_features, num_time_steps, batch_size, &
           verbose &
      ) result(layer)
        !! Set up the MPNN layer
@@ -122,8 +126,6 @@ module athena__msgpass_layer
        !! Number of features
        integer, intent(in) :: num_time_steps
        !! Number of time steps
-       integer, intent(in) :: num_outputs
-       !! Number of outputs
        integer, optional, intent(in) :: batch_size
        !! Batch size
        integer, optional, intent(in) :: verbose

@@ -1746,6 +1746,61 @@ contains
     end do
 
   end subroutine get_gradient_derived_autodiff
+!-------------------------------------------------------------------------------
+  pure module subroutine get_gradient_graph_autodiff(this, idx, gradient)
+    !! Get the gradient for each layer via autodiff
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(in) :: this
+    !! Instance of network
+    integer, intent(in) :: idx
+    !! Index of layer
+    type(array2d_type), dimension(2,this%batch_size), intent(inout) :: gradient
+    !! Gradient for layer
+
+    ! Local variables
+    integer :: i
+    !! Loop index
+    integer :: idx_start, idx_end
+    !! Start and end indices
+
+
+    do i = 1, this%auto_graph%num_vertices
+       if(this%auto_graph%adjacency(idx,i).ne.0)then
+          idx_start = this%io_map( &
+               this%auto_graph%vertex(idx)%id, &
+               this%auto_graph%vertex(i)%id, &
+               1 &
+          )
+          idx_end = this%io_map( &
+               this%auto_graph%vertex(idx)%id, &
+               this%auto_graph%vertex(i)%id, &
+               2 &
+          )
+          ! select case( &
+          !      this%auto_graph%edge( &
+          !           this%auto_graph%adjacency( &
+          !                idx, &
+          !                i &
+          !           ) &
+          !      )%id &
+          ! )
+          ! case(1) ! concatenate
+          !    gradient =  &
+          !         this%model(this%auto_graph%vertex(i)%id)%layer%di(1,1)%val( &
+          !              idx_start:idx_end,: &
+          !         )
+          ! case(2) ! add
+          !    gradient = gradient + &
+          !         this%model(this%auto_graph%vertex(i)%id)%layer%di(1,1)%val( &
+          !              idx_start:idx_end,: &
+          !         )
+          ! end select
+       end if
+    end do
+
+  end subroutine get_gradient_graph_autodiff
 !###############################################################################
 
 
@@ -1862,8 +1917,8 @@ contains
           select type(layer => this%model(this%vertex_order(i))%layer)
           class is(msgpass_layer_type)
              ! could set these up within the graph within each layer?
-             num_vertex_features = layer%num_vertex_features
-             num_edge_features = layer%num_edge_features
+             num_vertex_features = layer%num_vertex_features(1)
+             num_edge_features = layer%num_edge_features(1)
           end select
           do s = 1, this%batch_size
              call auto_input(1,s)%allocate( &
@@ -1986,76 +2041,118 @@ contains
     ! Arguments
     class(network_type), intent(inout) :: this
     !! Instance of network
-    type(array2d_type), dimension(2,this%batch_size), intent(in) :: output
+    !  type(array2d_type), dimension(2,this%batch_size), intent(in) :: output
+    class(graph_type), dimension(this%batch_size,size(this%output_vertices)), &
+         intent(in) :: output
     !! Output
 
     ! Local variables
     integer :: i, s
     !! Loop index
+    integer :: input_idx
+    !! Index of input layer
+    integer :: num_vertex_features, num_edge_features
+    !! Number of vertex and edge features
     type(array2d_type), dimension(2,this%batch_size) :: input, gradient
     !! Autodiff input and gradient
 
 
-    do s = 1, this%batch_size
-       call input(1,s)%allocate( &
-            array_shape = (/ &
-                 12, & !! NUMBER OF FEATURES
-                 1 &  !!! NUMBER OF NODES FOR SAMPLE s
-            /), &
-            source = 0._real32 &
-       )
-       call input(2,s)%allocate( &
-            array_shape = (/ &
-                 12, & !! NUMBER OF FEATURES
-                 1 &  !!! NUMBER OF EDGES FOR SAMPLE s
-            /), &
-            source = 0._real32 &
-       )
-       call gradient(1,s)%allocate( &
-            array_shape = (/ &
-                 12, & !! NUMBER OF FEATURES
-                 1 &  !!! NUMBER OF NODES FOR SAMPLE s
-            /), &
-            source = 0._real32 &
-       )
-       call gradient(2,s)%allocate( &
-            array_shape = (/ &
-                 12, & !! NUMBER OF FEATURES
-                 1 &  !!! NUMBER OF EDGES FOR SAMPLE s
-            /), &
-            source = 0._real32 &
-       )
-    end do
-
-
     ! Backward pass
     !---------------------------------------------------------------------------
-    ! do i = size(this%vertex_order,1), 1, -1
+    do i = size(this%vertex_order,1), 1, -1
 
-    !    if(all(this%auto_graph%adjacency(:,this%vertex_order(i)).eq.0))then
-    !       cycle ! this is an input layer
-    !    else
-    !       call this%get_input_graph_autodiff(this%vertex_order(i), input)
-    !    end if
 
-    !    if(all(this%auto_graph%adjacency(this%vertex_order(i),:).eq.0))then
+       if(all(this%auto_graph%adjacency(:,this%vertex_order(i)).eq.0))then
+          cycle ! this is an input layer
+       end if
 
-    !       do s = 1, this%batch_size
-    !          gradient(1, s)%val = this%get_loss_deriv( &
-    !             this%model(this%vertex_order(i))%layer%output(1,s)%val, &
-    !             output(1,s)%val &
-    !          )
-    !          gradient(2, s)%val = this%get_loss_deriv( &
-    !             this%model(this%vertex_order(i))%layer%output(2,s)%val, &
-    !             output(2,s)%val &
-    !          )
-    !       end do
-    !    else
-    !       call this%get_gradient_graph_autodiff(this%vertex_order(i), gradient)
-    !    end if
 
-    !    call this%model(this%vertex_order(i))%layer%backward_derived(input, gradient)
-    ! end do
+       !  do s = 1, this%batch_size
+       !     call auto_input(1,s)%allocate( &
+       !          array_shape = (/ &
+       !               num_vertex_features, &
+       !               input(s,input_idx)%num_vertices &
+       !          /), &
+       !          source = 0._real32 &
+       !     )
+       !     call auto_input(2,s)%allocate( &
+       !          array_shape = (/ &
+       !               num_edge_features, &
+       !               input(s,input_idx)%num_edges &
+       !          /), &
+       !          source = 0._real32 &
+       !     )
+       !  end do
+       !  input_idx = 1
+       !  call this%model(this%vertex_order(i))%layer%set_graph( &
+       !       input(:,input_idx) &
+       !  )
+       num_vertex_features = 0
+       num_edge_features = 0
+       select type(layer => this%model(this%vertex_order(i))%layer)
+       class is(msgpass_layer_type)
+          ! could set these up within the graph within each layer?
+          num_vertex_features = layer%num_vertex_features(1)
+          num_edge_features = layer%num_edge_features(1)
+          do s = 1, this%batch_size
+             call input(1,s)%allocate( &
+                  array_shape = (/ &
+                       num_vertex_features, &
+                       layer%graph(s)%num_vertices &
+                  /), &
+                  source = 0._real32 &
+             )
+             call input(2,s)%allocate( &
+                  array_shape = (/ &
+                       num_edge_features, &
+                       layer%graph(s)%num_edges &
+                  /), &
+                  source = 0._real32 &
+             )
+             call gradient(1,s)%allocate( &
+                  array_shape = (/ &
+                       num_vertex_features, &
+                       layer%graph(s)%num_vertices &
+                  /), &
+                  source = 0._real32 &
+             )
+             call gradient(2,s)%allocate( &
+                  array_shape = (/ &
+                       num_edge_features, &
+                       layer%graph(s)%num_edges &
+                  /), &
+                  source = 0._real32 &
+             )
+          end do
+       end select
+       call this%get_input_graph_autodiff(this%vertex_order(i), input)
+
+
+       if(all(this%auto_graph%adjacency(this%vertex_order(i),:).eq.0))then
+
+          do s = 1, this%batch_size
+             gradient(1, s)%val = this%get_loss_deriv( &
+                  this%model(this%vertex_order(i))%layer%output(1,s)%val, &
+                  output(1,s)%vertex_features &
+             )
+             gradient(2, s)%val = this%get_loss_deriv( &
+                  this%model(this%vertex_order(i))%layer%output(2,s)%val, &
+                  output(2,s)%edge_features &
+             )
+          end do
+       else
+          call this%get_gradient_graph_autodiff(this%vertex_order(i), gradient)
+       end if
+
+       call this%model(this%vertex_order(i))%layer%backward_derived( &
+            input, &
+            gradient &
+       )
+       do s = 1, this%batch_size
+          call input(1,s)%deallocate()
+          call input(2,s)%deallocate()
+       end do
+    end do
 
   end subroutine backward_graph
 !###############################################################################

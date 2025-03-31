@@ -64,7 +64,7 @@ contains
 
 !###############################################################################
   module function layer_setup( &
-       num_features, num_time_steps, num_outputs, batch_size, &
+       num_features, num_time_steps, batch_size, &
        verbose &
   ) result(layer)
     !! Procedure to set up the layer
@@ -75,8 +75,6 @@ contains
     !! Number of features
     integer, intent(in) :: num_time_steps
     !! Number of time steps
-    integer, intent(in) :: num_outputs
-    !! Number of output features
     integer, optional, intent(in) :: batch_size
     !! Batch size
     integer, optional, intent(in) :: verbose
@@ -293,16 +291,28 @@ contains
        if(allocated(this%output))then
           do s = 1, size(graph)
              call this%output(1,s)%allocate( &
-                  [ this%num_vertex_features, this%graph(s)%num_vertices ] &
+                  [ &
+                       this%num_output_vertex_features, &
+                       this%graph(s)%num_vertices &
+                  ] &
              )
              call this%output(2,s)%allocate( &
-                  [ this%num_edge_features, this%graph(s)%num_vertices ] &
+                  [ &
+                       this%num_output_edge_features, &
+                       this%graph(s)%num_vertices &
+                  ] &
              )
              call this%di(1,s)%allocate( &
-                  [ this%num_vertex_features, this%graph(s)%num_vertices ] &
+                  [ &
+                       this%num_output_vertex_features, &
+                       this%graph(s)%num_vertices &
+                  ] &
              )
              call this%di(2,s)%allocate( &
-                  [ this%num_edge_features, this%graph(s)%num_vertices ] &
+                  [ &
+                       this%num_output_edge_features, &
+                       this%graph(s)%num_vertices &
+                  ] &
              )
           end do
        end if
@@ -318,19 +328,16 @@ contains
        )
        do t = 1, this%num_time_steps
           call this%vertex_features(t,s)%allocate( &
-               [ this%num_vertex_features, this%graph(s)%num_vertices ] &
+               [ this%num_vertex_features(t), this%graph(s)%num_vertices ] &
           )
           call this%edge_features(t,s)%allocate( &
-               [ this%num_edge_features, this%graph(s)%num_edges ] &
+               [ this%num_edge_features(t), this%graph(s)%num_edges ] &
           )
           call this%message(t,s)%allocate( &
-               [ this%num_vertex_features, this%graph(s)%num_vertices ] &
+               [ this%num_vertex_features(t), this%graph(s)%num_vertices ] &
           )
-          write(*,*) "batch", s, "time", t
-          write(*,*) "message shape", shape(this%message(t,s)%val(:,:))
-
           call this%z(t,s)%allocate( &
-               [ this%num_vertex_features, this%graph(s)%num_vertices ] &
+               [ this%num_vertex_features(t), this%graph(s)%num_vertices ] &
           )
        end do
     end do

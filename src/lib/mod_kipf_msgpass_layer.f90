@@ -109,7 +109,7 @@ contains
     integer :: num_params
     !! Number of parameters
 
-    num_params = ( this%num_vertex_features ** 2 ) * this%num_time_steps
+    num_params = ( this%num_vertex_features(1) ** 2 ) * this%num_time_steps
 
   end function get_num_params_kipf
 !###############################################################################
@@ -345,9 +345,9 @@ contains
     allocate(initialiser_, source=initialiser_setup(this%kernel_initialiser))
     call initialiser_%initialise( &
          this%params, &
-         fan_in = this%num_vertex_features, &
-         fan_out = this%num_vertex_features, &
-         spacing = [ this%num_vertex_features ] &
+         fan_in = this%num_vertex_features(1), &
+         fan_out = this%num_vertex_features(1), &
+         spacing = [ this%num_vertex_features(1) ] &
     )
     deallocate(initialiser_)
 
@@ -385,8 +385,8 @@ contains
     ! Set weights and biases pointers to params array
     !---------------------------------------------------------------------------
     this%weight( &
-         1:this%num_vertex_features, &
-         1:this%num_vertex_features, &
+         1:this%num_vertex_features(1), &
+         1:this%num_vertex_features(1), &
          1:this%num_time_steps &
     ) => this%params
 
@@ -419,8 +419,8 @@ contains
             ), source=0._real32 &
        )
        this%dw( &
-            1:this%num_vertex_features, &
-            1:this%num_vertex_features, &
+            1:this%num_vertex_features(1), &
+            1:this%num_vertex_features(1), &
             1:this%num_time_steps, &
             1:this%batch_size &
        ) => this%dp
