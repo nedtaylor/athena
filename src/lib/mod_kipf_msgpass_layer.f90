@@ -232,7 +232,7 @@ contains
     !---------------------------------------------------------------------------
     ! Initialise layer shape
     !---------------------------------------------------------------------------
-    call layer%init(input_shape=[layer%num_vertex_features])
+    call layer%init(input_shape=[layer%num_vertex_features(1)])
 
   end function layer_setup
 !###############################################################################
@@ -273,9 +273,19 @@ contains
     this%name = 'kipf'
     this%type = 'msgp'
     this%input_rank = 1
-    this%num_vertex_features = num_vertex_features
-    this%num_edge_features = num_edge_features
     this%num_time_steps = num_time_steps
+    if(allocated(this%num_vertex_features)) &
+         deallocate(this%num_vertex_features)
+    if(allocated(this%num_edge_features)) &
+         deallocate(this%num_edge_features)
+    allocate( &
+         this%num_vertex_features(this%num_time_steps), &
+         source = num_vertex_features &
+    )
+    allocate( &
+         this%num_edge_features(this%num_time_steps), &
+         source = num_edge_features &
+    )
     this%use_graph_input = .true.
     allocate(this%transfer, &
          source=activation_setup(activation_function, activation_scale))
@@ -430,16 +440,12 @@ contains
     end if
 
 
-    write(*,*) "test0"
     if(allocated(this%vertex_features)) deallocate(this%vertex_features)
     allocate(this%vertex_features(0:this%num_time_steps, 1:this%batch_size))
-    write(*,*) "test1"
     if(allocated(this%edge_features)) deallocate(this%edge_features)
     allocate(this%edge_features(0:this%num_time_steps, 1:this%batch_size))
-    write(*,*) "test2"
     if(allocated(this%message)) deallocate(this%message)
     allocate(this%message(1:this%num_time_steps, 1:this%batch_size))
-    write(*,*) "test3"
 
   end subroutine set_batch_size_kipf
 !###############################################################################

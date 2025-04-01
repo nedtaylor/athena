@@ -1405,7 +1405,7 @@ contains
        select type(current => this%model(l)%layer)
        class is(learnable_layer_type)
           current%dp = 0._real32
-          current%db = 0._real32
+          if(allocated(current%db)) current%db = 0._real32
        end select
     end do
 
@@ -2066,27 +2066,6 @@ contains
           cycle ! this is an input layer
        end if
 
-
-       !  do s = 1, this%batch_size
-       !     call auto_input(1,s)%allocate( &
-       !          array_shape = (/ &
-       !               num_vertex_features, &
-       !               input(s,input_idx)%num_vertices &
-       !          /), &
-       !          source = 0._real32 &
-       !     )
-       !     call auto_input(2,s)%allocate( &
-       !          array_shape = (/ &
-       !               num_edge_features, &
-       !               input(s,input_idx)%num_edges &
-       !          /), &
-       !          source = 0._real32 &
-       !     )
-       !  end do
-       !  input_idx = 1
-       !  call this%model(this%vertex_order(i))%layer%set_graph( &
-       !       input(:,input_idx) &
-       !  )
        num_vertex_features = 0
        num_edge_features = 0
        select type(layer => this%model(this%vertex_order(i))%layer)
@@ -2133,11 +2112,11 @@ contains
           do s = 1, this%batch_size
              gradient(1, s)%val = this%get_loss_deriv( &
                   this%model(this%vertex_order(i))%layer%output(1,s)%val, &
-                  output(1,s)%vertex_features &
+                  output(s,1)%vertex_features &
              )
              gradient(2, s)%val = this%get_loss_deriv( &
                   this%model(this%vertex_order(i))%layer%output(2,s)%val, &
-                  output(2,s)%edge_features &
+                  output(s,1)%edge_features &
              )
           end do
        else
@@ -2151,6 +2130,8 @@ contains
        do s = 1, this%batch_size
           call input(1,s)%deallocate()
           call input(2,s)%deallocate()
+          call gradient(1,s)%deallocate()
+          call gradient(2,s)%deallocate()
        end do
     end do
 
@@ -2185,9 +2166,16 @@ contains
           start_idx = end_idx + 1
           end_idx = end_idx + current%num_params
           params(start_idx:end_idx) = current%params
-          gradients(start_idx:end_idx) = [ &
-               sum(current%dp, dim=2) / this%batch_size, &
-               sum(current%db, dim=2) / this%batch_size ]
+          if(.not.allocated(current%db))then
+             gradients(start_idx:end_idx) = [ &
+                  sum(current%dp, dim=2) / this%batch_size  &
+             ]
+          else
+             gradients(start_idx:end_idx) = [ &
+                  sum(current%dp, dim=2) / this%batch_size, &
+                  sum(current%db, dim=2) / this%batch_size &
+             ]
+          end if
        end select
     end do
     ! have an if statement of whether to apply clipping to to gradients of

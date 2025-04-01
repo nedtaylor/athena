@@ -104,7 +104,7 @@ contains
     if(size(input_shape,dim=1).eq.this%input_rank)then
        this%input_shape = input_shape
     else
-       write(err_msg,'("ERROR: invalid size of input_shape in ",A,&
+       write(err_msg,'("Invalid size of input_shape in ",A,&
             &" expected (",I0,"), got (",I0")")')  &
             trim(this%name), this%input_rank, size(input_shape,dim=1)
        call stop_program(err_msg)
