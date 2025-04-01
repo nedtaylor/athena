@@ -1705,8 +1705,8 @@ contains
     !! Gradient for layer
 
     ! Local variables
-    integer :: i
-    !! Loop index
+    integer :: i, j, s
+    !! Loop indices
     integer :: idx_start, idx_end
     !! Start and end indices
 
@@ -1723,25 +1723,41 @@ contains
                this%auto_graph%vertex(i)%id, &
                2 &
           )
-          ! select case( &
-          !      this%auto_graph%edge( &
-          !           this%auto_graph%adjacency( &
-          !                idx, &
-          !                i &
-          !           ) &
-          !      )%id &
-          ! )
-          ! case(1) ! concatenate
-          !    gradient =  &
-          !         this%model(this%auto_graph%vertex(i)%id)%layer%di(1,1)%val( &
-          !              idx_start:idx_end,: &
-          !         )
-          ! case(2) ! add
-          !    gradient = gradient + &
-          !         this%model(this%auto_graph%vertex(i)%id)%layer%di(1,1)%val( &
-          !              idx_start:idx_end,: &
-          !         )
-          ! end select
+          select case( &
+               this%auto_graph%edge( &
+                    this%auto_graph%adjacency( &
+                         idx, &
+                         i &
+                    ) &
+               )%id &
+          )
+          case(1) ! concatenate
+             do s = 1, this%batch_size
+                do j = 1, 2
+                   gradient(j,s)%val(:,:) = &
+                        this%model( &
+                             this%auto_graph%vertex(i)%id &
+                        )%layer%di(j,s)%val
+                   !! issue of concatenation not working because our vertex and edge features are not the same length, so it is
+                   !! looking at number of outputs for vertex and forcing the edge features to be the same length
+                   !! which causes an index overflow error
+                   !  gradient(j,s)%val(idx_start:idx_end,:) = &
+                   !       this%model( &
+                   !            this%auto_graph%vertex(i)%id &
+                   !       )%layer%output(j,s)%val
+                end do
+             end do
+          case(2) ! add
+             do s = 1, this%batch_size
+                do j = 1, 2
+                   gradient(j,s)%val(idx_start:idx_end,:) = &
+                        gradient(j,s)%val(idx_start:idx_end,:) + &
+                        this%model( &
+                             this%auto_graph%vertex(i)%id &
+                        )%layer%di(j,s)%val
+                end do
+             end do
+          end select
        end if
     end do
 
