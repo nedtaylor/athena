@@ -75,6 +75,12 @@ source-dir = "example/mnist_drop/src"
 [example.dependencies]
 example_library = { path = "example/example_library"}
 
+[[example]]
+name = "msgpass"
+source-dir = "example/msgpass/src"
+[example.dependencies]
+example_library = { path = "example/example_library"}
+
 # [[example]]
 # name = "mpnn_chemical"
 # source-dir = "example/mpnn_chemical/src"
