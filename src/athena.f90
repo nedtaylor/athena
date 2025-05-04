@@ -94,6 +94,7 @@ module athena
   !-----------------------------------------------------------------------------
   use athena__msgpass_layer,      only: msgpass_layer_type
   use athena__kipf_msgpass_layer, only: kipf_msgpass_layer_type
+  use athena__duvenaud_msgpass_layer, only: duvenaud_msgpass_layer_type
 
 
   ! Dropout layer types

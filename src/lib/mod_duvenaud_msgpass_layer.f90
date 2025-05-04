@@ -20,10 +20,16 @@ module athena__duvenaud_msgpass_layer
 
      integer :: max_vertex_degree
      !! Maximum vertex degree
-     real(real32), pointer :: weight(:,:,:,:) => null()
+     real(real32), pointer :: weight_msg(:,:,:,:) => null(), &
+          weight_readout(:,:,:) => null()
      !! Weights for the message passing layer
-     real(real32), pointer :: dw(:,:,:,:,:) => null()
-     !! Weight gradients
+
+     class(activation_type), allocatable :: transfer_readout
+     !! Activation function
+     type(array2d_type), allocatable, dimension(:,:) :: di_msg, di_readout, &
+          z_readout
+     !! Input gradients
+
 
    contains
      procedure, pass(this) :: get_num_params => get_num_params_duvenaud
@@ -404,12 +410,17 @@ contains
     !---------------------------------------------------------------------------
     ! Set weights and biases pointers to params array
     !---------------------------------------------------------------------------
-    this%weight( &
+    this%weight_msg( &
          1:this%num_vertex_features(1) + this%num_edge_features(1), &
          1:this%num_vertex_features(1), &
          1:this%max_vertex_degree, &
          1:this%num_time_steps &
-    ) => this%params
+    ) => this%params(1:sum(this%num_params_msg))
+    this%weight_readout( &
+         1:this%num_vertex_features(1), &
+         1:this%num_outputs, &
+         1:this%num_time_steps &
+    ) => this%params(sum(this%num_params_msg)+1:this%num_params)
 
 
     !---------------------------------------------------------------------------
@@ -439,13 +450,6 @@ contains
                  this%batch_size &
             ), source=0._real32 &
        )
-       this%dw( &
-            1:this%num_vertex_features(1) + this%num_edge_features(1), &
-            1:this%num_vertex_features(1), &
-            1:this%max_vertex_degree, &
-            1:this%num_time_steps, &
-            1:this%batch_size &
-       ) => this%dp
        if(allocated(this%di)) deallocate(this%di)
        allocate(this%di(2,this%batch_size), source=array2d_type())
        !! input val arrays are allocated in set_graph
@@ -493,7 +497,7 @@ contains
     implicit none
 
     ! Arguments
-    class(msgpass_layer_type), intent(inout) :: this
+    class(duvenaud_msgpass_layer_type), intent(inout) :: this
     !! Instance of the layer
     type(graph_type), dimension(:), intent(in) :: graph
     !! Graph structure of input data
@@ -529,7 +533,7 @@ contains
                   call this%di(2,s)%deallocate()
              call this%output(1,s)%allocate( &
                   [ &
-                       this%num_outputs, &
+                       this%num_outputs &
                   ] &
              )
              call this%di(1,s)%allocate( &
@@ -633,7 +637,7 @@ contains
              end do
              this%z(t,s)%val(:,v) = matmul( &
                   this%message(t,s)%val(:,v), &
-                  this%weight(:,:,degree,t) &
+                  this%weight_msg(:,:,degree,t) &
              )
           end do
           this%vertex_features(t,s)%val(:,:) = &
@@ -653,7 +657,7 @@ contains
     !! Instance of the message passing layer
 
     ! Local variables
-    integer :: s, v
+    integer :: s, v, t
     !! Loop indices
 
 
@@ -668,7 +672,7 @@ contains
                   this%vertex_features(t,s)%val(:,v), &
                   this%weight_readout(:,:,t) &
              )
-             this%output(1,s)%val = this%output(1,s)%val + &
+             this%output(1,1)%val(:,s) = this%output(1,1)%val(:,s) + &
                   this%transfer_readout%activate( this%z_readout(t,s)%val(:,v) )
           end do
        end do
@@ -689,8 +693,11 @@ contains
     class(array_type), dimension(:,:), intent(in) :: gradient
     !! Gradient of the loss with respect to the output of the layer
 
+    integer :: degree
+    integer :: t, s, v, i, j, idx
+    real(real32), dimension(:,:), allocatable :: delta
 
-    this%dw = 0._real32
+
     do t = this%num_time_steps, 1, -1
        do concurrent(s=1:this%batch_size)
           ! There is no message passing transfer function
@@ -704,17 +711,42 @@ contains
           ! Partial derivatives of error wrt weights
           ! dE/dW = o/p(l-1) * delta
           do v = 1, this%graph(s)%num_vertices
-             degree = min(this%graph(s)%vertex(v)%degree, this%max_vertex_degree)
+             degree = &
+                  min( &
+                       this%graph(s)%vertex(v)%degree, &
+                       this%max_vertex_degree &
+                  )
              ! i.e. outer product of the input and delta
              ! sum weights and biases errors to use in batch gradient descent
-             this%dw(:,:,degree,t,s) = this%dw(:,:,degree,t,s) + &
-                  outer_product(this%message(t,s)%val(:,v), delta(:,v))
+             do concurrent ( &
+                  i = 1:this%num_vertex_features(1) + &
+                  this%num_edge_features(1), &
+                  j = 1:this%num_vertex_features(1) &
+             )
+                idx = i + &
+                     ( &
+                          this%num_vertex_features(1) + &
+                          this%num_edge_features(1) &
+                     ) * &
+                     ( (j-1) + this%num_vertex_features(1) * ( &
+                          (degree-1) + &
+                          this%max_vertex_degree * (t-1) &
+                     ) )
+                this%dp(idx,s) = this%dp(idx,s) + &
+                     this%vertex_features(t,s)%val(i,v) * delta(j,v)
+             end do
              ! The errors are summed from the delta of the ...
              ! ... 'child' node * 'child' weight
              ! dE/dI(l-1) = sum(weight(l) * delta(l))
              ! this prepares dE/dI for when it is passed into the previous layer
-             this%di(t,s)%val(:,v) = &
-                  matmul(this%weight(:,:,degree,t), delta(:,v))
+             if(t.eq.1)then
+                this%di(1,s)%val(:,v) = &
+                     matmul(this%weight_msg(:,:,degree,t), delta(:,v))
+             else
+                this%di_msg(t,s)%val(:,v) = &
+                     this%di_msg(t,s)%val(:,v) + &
+                     matmul(this%weight_msg(:,:,degree,t), delta(:,v))
+             end if
           end do
        end do
     end do
@@ -734,6 +766,8 @@ contains
     !! Gradient of the loss with respect to the output of the layer
 
     ! Local variables
+    integer :: i, j, idx
+    !! Loop indices
     integer :: s, v, t, num_features
     !! Batch index, vertex index, time step index
     real(real32), dimension(this%num_outputs) :: delta
@@ -741,24 +775,33 @@ contains
     !! i.e. partial derivatives of the error wrt the hidden features
 
 
-    this%dw = 0._real32
     do concurrent(s=1:this%batch_size)
        ! There is no message passing transfer function
 
        ! Partial derivatives of error wrt weights
        ! dE/dW = o/p(l-1) * delta
-       do t = 0, this%num_time_steps, 1
+       do t = 1, this%num_time_steps, 1
           do v = 1, this%graph(s)%num_vertices
 
              delta = &
-                  gradient(1,s)%val * &
-                  this%transfer_readout%differentiate(this%z_readout(t,s)%val(:,v))
+                  gradient(1,s)%val(:,1) * &
+                  this%transfer_readout%differentiate( &
+                       this%z_readout(t,s)%val(:,v) &
+                  )
 
-             this%dw(:,:,t,s) = this%dw(:,:,t,s) + &
-                  outer_product(this%vertex_features(t,s)%val(:,v), delta(:))
+             do concurrent( &
+                  j = 1:this%num_vertex_features(1), &
+                  i = 1:this%num_outputs &
+             )
+                idx = i + (j-1) * this%num_outputs + (t-1) * &
+                     this%num_outputs * &
+                     this%num_vertex_features(1)
+                this%dp(idx,s) = this%dp(idx,s) + &
+                     this%vertex_features(t,s)%val(j,v) * delta(i)
+             end do
 
              this%di_readout(t,s)%val(:,v) = &
-                  matmul(this%weight(:,:,t), delta(:))
+                  matmul(this%weight_readout(:,:,t), delta(:))
           end do
        end do
     end do
