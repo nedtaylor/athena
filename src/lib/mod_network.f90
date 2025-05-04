@@ -528,7 +528,7 @@ module athena__network
        !! Forward pass for derived input
        class(network_type), intent(inout) :: this
        !! Instance of the network
-       class(graph_type), dimension(this%batch_size,size(this%root_vertices)), &
+       type(graph_type), dimension(this%batch_size,size(this%root_vertices)), &
             intent(in) :: input
        !! Input data
      end subroutine forward_graph
