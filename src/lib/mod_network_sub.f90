@@ -1893,7 +1893,7 @@ contains
     ! Arguments
     class(network_type), intent(inout) :: this
     !! Instance of network
-    class(graph_type), dimension(this%batch_size,size(this%root_vertices)), &
+    type(graph_type), dimension(this%batch_size,size(this%root_vertices)), &
          intent(in) :: input
     !! Input
 
@@ -1914,7 +1914,7 @@ contains
        if(all(this%auto_graph%adjacency(:,this%vertex_order(i)).eq.0))then
           select type(layer => this%model(this%vertex_order(i))%layer)
           class is(input_layer_type)
-             call layer%set_input_graph( input(:,layer%index) )
+             call layer%set_input_graph( [ input(:,layer%index) ] )
           class default
              return
           end select
@@ -1926,7 +1926,7 @@ contains
           !  input_idx = this%model(this%vertex_order(i))%layer%index
           input_idx = 1
           call this%model(this%vertex_order(i))%layer%set_graph( &
-               input(:,input_idx) &
+               [ input(:,input_idx) ] &
           )
           num_vertex_features = 0
           num_edge_features = 0
@@ -1938,17 +1938,17 @@ contains
           end select
           do s = 1, this%batch_size
              call auto_input(1,s)%allocate( &
-                  array_shape = (/ &
+                  array_shape = [ &
                        num_vertex_features, &
                        input(s,input_idx)%num_vertices &
-                  /), &
+                  ], &
                   source = 0._real32 &
              )
              call auto_input(2,s)%allocate( &
-                  array_shape = (/ &
+                  array_shape = [ &
                        num_edge_features, &
                        input(s,input_idx)%num_edges &
-                  /), &
+                  ], &
                   source = 0._real32 &
              )
           end do
