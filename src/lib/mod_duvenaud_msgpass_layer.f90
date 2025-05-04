@@ -114,10 +114,11 @@ contains
     integer :: num_params
     !! Number of parameters
 
-    num_params = ( this%num_vertex_features(1) +this%num_edge_features(1) ) * &
+    num_params = ( this%num_vertex_features(1) + this%num_edge_features(1) ) * &
          this%num_vertex_features(1) * &
          this%max_vertex_degree * &
-         this%num_time_steps
+         this%num_time_steps + &
+         this%num_vertex_features(1) * this%num_outputs * this%num_time_steps
 
   end function get_num_params_duvenaud
 !###############################################################################
@@ -240,7 +241,6 @@ contains
     if(present(batch_size)) layer%batch_size = batch_size
 
 
-
     !---------------------------------------------------------------------------
     ! Initialise layer shape
     !---------------------------------------------------------------------------
@@ -316,6 +316,18 @@ contains
        end if
     end if
 
+    if(allocated(this%num_params_msg)) deallocate(this%num_params_msg)
+    allocate(this%num_params_msg(1:this%num_time_steps))
+    this%num_params_msg = &
+         ( this%num_vertex_features(1) + this%num_edge_features(1) ) * &
+         this%num_vertex_features(1) * &
+         this%max_vertex_degree
+    this%num_params_readout = &
+         this%num_vertex_features(1) * this%num_outputs * &
+         this%num_time_steps
+
+    allocate(this%transfer_readout, source=activation_setup('softmax'))
+
   end subroutine set_hyperparams_duvenaud
 !###############################################################################
 
@@ -370,9 +382,15 @@ contains
     !---------------------------------------------------------------------------
     allocate(initialiser_, source=initialiser_setup(this%kernel_initialiser))
     call initialiser_%initialise( &
-         this%params, &
+         this%params(1:sum(this%num_params_msg)), &
          fan_in = this%num_vertex_features(1) + this%num_edge_features(1), &
          fan_out = this%num_vertex_features(1), &
+         spacing = [ this%num_vertex_features(1) ] &
+    )
+    call initialiser_%initialise( &
+         this%params(sum(this%num_params_msg)+1:this%num_params), &
+         fan_in = this%num_vertex_features(1), &
+         fan_out = this%num_outputs, &
          spacing = [ this%num_vertex_features(1) ] &
     )
     deallocate(initialiser_)
@@ -428,7 +446,7 @@ contains
     !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
        if(allocated(this%output)) deallocate(this%output)
-       allocate(this%output(2,this%batch_size), source=array2d_type())
+       allocate(this%output(1,1), source=array2d_type())
        !! output val arrays are allocated in set_graph
        ! call this%output(1,1)%allocate( &
        !      [this%num_outputs, this%batch_size], &
@@ -468,31 +486,7 @@ contains
 
 
 !##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
-
-!###############################################################################
-  subroutine read_duvenaud(this, unit, verbose)
-    !! Read the message passing layer
-    implicit none
-
-    ! Arguments
-    class(duvenaud_msgpass_layer_type), intent(inout) :: this
-    !! Instance of the message passing layer
-    integer, intent(in) :: unit
-    !! Unit to read from
-    integer, optional, intent(in) :: verbose
-    !! Verbosity level
-  end subroutine read_duvenaud
-!###############################################################################
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
-  module subroutine set_graph_duvenaud(this, graph)
+  subroutine set_graph_duvenaud(this, graph)
     !! Set the graph structure of the input data
     implicit none
 
@@ -524,18 +518,19 @@ contains
 
     if(this%use_graph_input)then
        if(allocated(this%output))then
+          if(this%output(1,1)%allocated) &
+               call this%output(1,1)%deallocate()
+          call this%output(1,1)%allocate( &
+               [ &
+                    this%num_outputs, &
+                    size(graph) &
+               ] &
+          )
           do s = 1, size(graph)
-             if(this%output(1,s)%allocated) &
-                  call this%output(1,s)%deallocate()
              if(this%di(1,s)%allocated) &
                   call this%di(1,s)%deallocate()
              if(this%di(2,s)%allocated) &
                   call this%di(2,s)%deallocate()
-             call this%output(1,s)%allocate( &
-                  [ &
-                       this%num_outputs &
-                  ] &
-             )
              call this%di(1,s)%allocate( &
                   [ &
                        this%num_vertex_features, &
@@ -564,7 +559,7 @@ contains
        call this%edge_features(0,s)%allocate( &
             [ this%num_edge_features, this%graph(s)%num_edges ] &
        )
-       do t = 1, this%num_time_steps
+       do t = 1, this%num_time_steps, 1
           if(this%vertex_features(t,s)%allocated) &
                call this%vertex_features(t,s)%deallocate()
           if(this%edge_features(t,s)%allocated) &
@@ -589,8 +584,37 @@ contains
     end do
 
   end subroutine set_graph_duvenaud
+!##############################################################################!
 
 
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
+
+
+!###############################################################################
+  subroutine read_duvenaud(this, unit, verbose)
+    !! Read the message passing layer
+    implicit none
+
+    ! Arguments
+    class(duvenaud_msgpass_layer_type), intent(inout) :: this
+    !! Instance of the message passing layer
+    integer, intent(in) :: unit
+    !! Unit to read from
+    integer, optional, intent(in) :: verbose
+    !! Verbosity level
+  end subroutine read_duvenaud
+!###############################################################################
+
+
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
+
+
+
+!##############################################################################!
   pure subroutine update_message_duvenaud(this, input)
     !! Update the message
     implicit none
@@ -646,8 +670,10 @@ contains
     end do
 
   end subroutine update_message_duvenaud
+!##############################################################################!
 
 
+!##############################################################################!
   pure subroutine update_readout_duvenaud(this)
     !! Update the readout
     implicit none
@@ -679,8 +705,10 @@ contains
     end do
 
   end subroutine update_readout_duvenaud
+!##############################################################################!
 
 
+!##############################################################################!
   pure subroutine backward_message_duvenaud(this, input, gradient)
     !! Backward pass for the message phase
     implicit none
@@ -752,9 +780,10 @@ contains
     end do
 
   end subroutine backward_message_duvenaud
+!##############################################################################!
 
 
-
+!##############################################################################!
   pure subroutine backward_readout_duvenaud(this, gradient)
     !! Backward pass for the readout phase
     implicit none
@@ -807,6 +836,6 @@ contains
     end do
 
   end subroutine backward_readout_duvenaud
-
+!##############################################################################!
 
 end module athena__duvenaud_msgpass_layer
