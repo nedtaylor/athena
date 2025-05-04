@@ -166,7 +166,7 @@ contains
        allocate(u(num,dim))
     end if
 
-    allocate(vtmp(dim))
+10  allocate(vtmp(dim))
 
     !! Evaluates the Gram-Schmidt basis
     u(1,:) = basis(1,:)
@@ -1449,7 +1449,7 @@ contains
 
     a=mod(val,1._real32)
     b=1._real32
-    tiny=1.D-6
+    tiny=1.E-6_real32
     i=0
     do
        i=i+1
@@ -1499,7 +1499,7 @@ contains
           if(abs(div).lt.tol) div=min(abs(vec(i)),old_div)
        end do
     else
-       a=vec(1)
+       a=nint(vec(1))
        do i=2,size(vec)
           if(a.eq.0.and.int(vec(i)).eq.0) cycle
           a=gcd(a,int(vec(i)))
@@ -1511,7 +1511,7 @@ contains
        div=a
     end if
 
-    if(div.eq.0._real32) return
+    if(abs(div).lt.1.E-6_real32) return
     tvec=vec/div
     if(any(abs(tvec(:)-nint(tvec(:))).gt.tol)) return
     vec=tvec
@@ -1540,7 +1540,7 @@ contains
     if(present(tol))then
        tiny = tol
     else
-       tiny = 1.D-5
+       tiny = 1.E-5_real32
     end if
     nelem = size(elem,dim=1)
     dim1 = size(elem,dim=2)
@@ -1743,7 +1743,12 @@ contains
           ilist = cshift(ilist,1)
           weight(t,w,:) = 0._real32
           do w2=1,3
-             if(modu(real(tet(t,ilist(w2),:)-tet(t,ilist(4),:),real32)).eq.1._real32)then
+             if( &
+                  abs( &
+                       modu(real(tet(t,ilist(w2),:)-tet(t,ilist(4),:),real32)) - &
+                       1._real32 &
+                  ).lt.1.E-6_real32 &
+              )then
                 weight(t,w,:) = weight(t,w,:) + (&
                      tet(t,ilist(w2),:)-tet(t,ilist(4),:)&
                 )

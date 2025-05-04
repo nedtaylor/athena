@@ -678,7 +678,7 @@ contains
        write(UNIT,'(3(F15.9))') lat_write(i,:)
     end do
 
-    write(UNIT,'("%endblock LATTICE_",A)') trim(string_lat)
+10  write(UNIT,'("%endblock LATTICE_",A)') trim(string_lat)
 
     write(UNIT,*)
     write(UNIT,'("%block POSITIONS_",A)') trim(string_bas)
@@ -705,8 +705,8 @@ contains
     integer, allocatable, dimension(:) :: tmp_num
     real(real32), dimension(3) :: vec
     real(real32), allocatable, dimension(:,:,:) :: tmp_bas
-    character(len=5) :: ctmp
-    character(len=5), allocatable, dimension(:) :: tmp_spec
+    character(len=3) :: ctmp
+    character(len=3), allocatable, dimension(:) :: tmp_spec
     integer :: i,j,dim
 
     dim=3
