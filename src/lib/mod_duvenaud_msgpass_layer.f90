@@ -30,7 +30,6 @@ module athena__duvenaud_msgpass_layer
           z_readout
      !! Input gradients
 
-
    contains
      procedure, pass(this) :: get_num_params => get_num_params_duvenaud
      !! Get the number of parameters for the message passing layer
@@ -60,6 +59,9 @@ module athena__duvenaud_msgpass_layer
      !! Update the readout
      procedure, pass(this) :: backward_readout => backward_readout_duvenaud
      !! Backward pass for the readout phase
+
+     final :: finalise_duvenaud
+     !! Finalise the message passing layer
   end type duvenaud_msgpass_layer_type
 
   ! Interface for setting up the MPNN layer
@@ -67,7 +69,10 @@ module athena__duvenaud_msgpass_layer
   interface duvenaud_msgpass_layer_type
      !! Interface for setting up the MPNN layer
      module function layer_setup( &
-          num_features, num_time_steps, batch_size, &
+          num_features, num_time_steps, &
+          max_vertex_degree, &
+          num_outputs, &
+          batch_size, &
           activation_function, activation_scale, &
           kernel_initialiser, &
           verbose &
@@ -77,6 +82,10 @@ module athena__duvenaud_msgpass_layer
        !! Number of features
        integer, intent(in) :: num_time_steps
        !! Number of time steps
+       integer, intent(in) :: max_vertex_degree
+       !! Maximum vertex degree
+       integer, intent(in) :: num_outputs
+       !! Number of outputs
        integer, optional, intent(in) :: batch_size
        !! Batch size
        real(real32), optional, intent(in) :: activation_scale
@@ -91,7 +100,32 @@ module athena__duvenaud_msgpass_layer
      end function layer_setup
   end interface duvenaud_msgpass_layer_type
 
+
+
 contains
+
+!###############################################################################
+  subroutine finalise_duvenaud(this)
+    !! Finalise the message passing layer
+    implicit none
+
+    ! Arguments
+    type(duvenaud_msgpass_layer_type), intent(inout) :: this
+    !! Instance of the fully connected layer
+
+    if(associated(this%weight_msg)) nullify(this%weight_msg)
+    if(associated(this%weight_readout)) nullify(this%weight_readout)
+    if(allocated(this%input_shape)) deallocate(this%input_shape)
+    if(allocated(this%output_shape)) deallocate(this%output_shape)
+    if(allocated(this%output)) deallocate(this%output)
+    if(allocated(this%di)) deallocate(this%di)
+    if(allocated(this%di_msg)) deallocate(this%di_msg)
+    if(allocated(this%di_readout)) deallocate(this%di_readout)
+    if(allocated(this%z)) deallocate(this%z)
+    if(allocated(this%z_readout)) deallocate(this%z_readout)
+
+  end subroutine finalise_duvenaud
+!###############################################################################
 
 
 !##############################################################################!
@@ -168,8 +202,10 @@ contains
 
 !###############################################################################
   module function layer_setup( &
-       num_features, num_time_steps, batch_size, &
+       num_features, num_time_steps, &
        max_vertex_degree, &
+       num_outputs, &
+       batch_size, &
        activation_function, activation_scale, &
        kernel_initialiser, &
        verbose &
@@ -182,10 +218,12 @@ contains
     !! Number of features
     integer, intent(in) :: num_time_steps
     !! Number of time steps
+    integer, intent(in) :: max_vertex_degree
+    !! Maximum vertex degree
+    integer, intent(in) :: num_outputs
+    !! Number of outputs
     integer, optional, intent(in) :: batch_size
     !! Batch size
-    integer, optional, intent(in) :: max_vertex_degree
-    !! Maximum vertex degree
     real(real32), optional, intent(in) :: activation_scale
     !! Activation scale
     character(*), optional, intent(in) :: activation_function, &
@@ -228,6 +266,7 @@ contains
          num_edge_features = num_features(2), &
          max_vertex_degree = max_vertex_degree, &
          num_time_steps = num_time_steps, &
+         num_outputs = num_outputs, &
          activation_function = activation_function_, &
          activation_scale = scale, &
          kernel_initialiser = layer%kernel_initialiser, &
@@ -256,6 +295,7 @@ contains
        num_vertex_features, num_edge_features, &
        max_vertex_degree, &
        num_time_steps, &
+       num_outputs, &
        activation_function, activation_scale, &
        kernel_initialiser, &
        verbose &
@@ -276,6 +316,8 @@ contains
     !! Maximum vertex degree
     integer, intent(in) :: num_time_steps
     !! Number of time steps
+    integer, intent(in) :: num_outputs
+    !! Number of outputs
     character(*), intent(in) :: activation_function
     !! Activation function
     real(real32), optional, intent(in) :: activation_scale
@@ -290,6 +332,7 @@ contains
     this%input_rank = 1
     this%max_vertex_degree = max_vertex_degree
     this%num_time_steps = num_time_steps
+    this%num_outputs = num_outputs
     if(allocated(this%num_vertex_features)) &
          deallocate(this%num_vertex_features)
     if(allocated(this%num_edge_features)) &
@@ -470,6 +513,16 @@ contains
        )
        if(allocated(this%di)) deallocate(this%di)
        allocate(this%di(2,this%batch_size), source=array2d_type())
+
+       if(allocated(this%di_msg)) deallocate(this%di_msg)
+       allocate(this%di_msg(this%num_time_steps, this%batch_size))
+
+       if(allocated(this%di_readout)) deallocate(this%di_readout)
+       allocate(this%di_readout(this%num_time_steps, this%batch_size))
+
+       if(allocated(this%z_readout)) deallocate(this%z_readout)
+       allocate(this%z_readout(this%num_time_steps, this%batch_size))
+
        !! input val arrays are allocated in set_graph
     end if
 
@@ -526,6 +579,7 @@ contains
                     size(graph) &
                ] &
           )
+          call this%output(1,1)%set_ptr()
           do s = 1, size(graph)
              if(this%di(1,s)%allocated) &
                   call this%di(1,s)%deallocate()
@@ -543,6 +597,8 @@ contains
                        this%graph(s)%num_edges &
                   ] &
              )
+             call this%di(1,s)%set_ptr()
+             call this%di(2,s)%set_ptr()
           end do
        end if
        call this%set_ptrs()
@@ -732,7 +788,7 @@ contains
           if(t.eq.this%num_time_steps)then
              delta = this%di_readout(t,s)%val
           else
-             delta = this%di_readout(t,s)%val + this%di(t,s)%val
+             delta = this%di_readout(t,s)%val + this%di_msg(t,s)%val
           end if
           delta = delta * this%transfer%differentiate(this%z(t,s)%val(:,:))
 

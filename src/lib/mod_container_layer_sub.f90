@@ -31,6 +31,15 @@ submodule(athena__container_layer) athena__container_layer_submodule
 
 contains
 
+  module subroutine finalise_container_layer(this)
+    !! Finalise the container layer
+    implicit none
+    class(container_layer_type), intent(inout) :: this
+
+    if (allocated(this%layer)) deallocate(this%layer)
+
+  end subroutine finalise_container_layer
+
 !###############################################################################
 
 #if defined(GFORTRAN)

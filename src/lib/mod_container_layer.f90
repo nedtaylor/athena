@@ -30,6 +30,8 @@ module athena__container_layer
 #if defined(GFORTRAN)
      procedure, pass(this) :: reduce => container_reduction
      !! Reduce two layers via summation
+     final :: finalise_container_layer
+     !! Finalise the container layer
 #endif
   end type container_layer_type
 
@@ -77,6 +79,14 @@ module athena__container_layer
             addit_list
        !! Additional list of layer types
      end subroutine allocate_list_of_layer_types
+  end interface
+
+  interface
+     module subroutine finalise_container_layer(this)
+       !! Finalise the container layer
+       class(container_layer_type), intent(inout) :: this
+       !! Present layer container
+     end subroutine finalise_container_layer
   end interface
 
 end module athena__container_layer

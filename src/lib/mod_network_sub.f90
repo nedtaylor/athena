@@ -451,13 +451,20 @@ contains
     !! Loop index
     integer :: operator_
     !! Operator to use to connect the layers
+    type(container_layer_type), allocatable, dimension(:) :: model
+    !! Model to add the layer to
+
 
 
     if(.not.allocated(this%model))then
        this%model = [container_layer_type(name=layer%type)]
        this%num_layers = 1
     else
-       this%model = [this%model(1:), container_layer_type(name=layer%type)]
+       allocate(model(size(this%model,dim=1)+1))
+       do i = 1, size(this%model,dim=1)
+          allocate(model(i)%layer, source=this%model(i)%layer)
+       end do
+       call move_alloc(model, this%model)
        this%num_layers = this%num_layers + 1
     end if
     allocate(this%model(size(this%model,dim=1))%layer, source=layer)
