@@ -509,7 +509,8 @@ contains
   pure function inverse(mat)
     implicit none
     real(real32), dimension(:,:), intent(in) :: mat
-    real(real32), dimension(size(mat(:,1),dim=1),size(mat(1,:),dim=1)) :: inverse
+    real(real32), dimension(size(mat(:,1),dim=1),size(mat(1,:),dim=1)) :: &
+         inverse
 
     if(size(mat(1,:),dim=1).eq.2)then
        inverse=inverse_2x2(mat)
@@ -980,7 +981,8 @@ contains
     integer, allocatable, dimension(:,:) :: grid_list
     real(real32), allocatable, dimension(:,:) :: grid_coord
     real(real32), allocatable, dimension(:,:,:) :: dataset_new
-    real(real32), allocatable, dimension(:,:,:) :: dist_arr, weight_arr, tot_weight_arr
+    real(real32), allocatable, dimension(:,:,:) :: dist_arr, weight_arr, &
+         tot_weight_arr
     real(real32), allocatable, dimension(:,:,:,:) :: coord_arr1,coord_arr2
 
     integer, dimension(3), intent(in) :: grid
@@ -1012,7 +1014,8 @@ contains
     nmax = 1
     do i=1,3
        ijk_max(i) = size(dataset,dim=i)
-       nmax = nmax * min(ijk_max(i), 2*ceiling((ijk_max(i)-1)*utol/modu(lat(i,:)))+1)
+       nmax = nmax * min(ijk_max(i), 2 * &
+            ceiling((ijk_max(i)-1)*utol/modu(lat(i,:)))+1)
     end do
     allocate(grid_list(nmax,3))
     allocate(grid_coord(nmax,3))
@@ -1103,10 +1106,6 @@ contains
           end do knloop
        end do
     end do
-    !dataset_new = dataset_new * (imax*jmax*kmax) / product(grid) !!! feels odd that it's this way round
-    !dataset_new = dataset_new/&
-    !     (sum(dataset_new)*modu(lat(1,:)/grid(1))*modu(lat(2,:)/grid(2))*modu(lat(3,:)/grid(3))) *&
-    !     sum(dataset)*(modu(lat(1,:)/imax)*modu(lat(2,:)/jmax)*modu(lat(3,:)/kmax))
 
 
 
@@ -1119,7 +1118,8 @@ contains
 !!!#####################################################
 !!! LLL algorithm based on the one found on Wikipedia, ...
 !!! ... which is based on Hoffstein, Pipher and Silverman 2008
-!!! https://en.wikipedia.org/wiki/Lenstra–Lenstra–Lovász_lattice_basis_reduction_algorithm
+!!! https://en.wikipedia.org/wiki/Lenstra–Lenstra–Lovász_lattice_basis_&
+!!! &reduction_algorithm
   function LLL_reduce(basis,delta) result(obas)
     implicit none
     integer :: num,dim,i,j,k,loc
@@ -1553,7 +1553,8 @@ contains
 
     elem_check: do i=1,nelem
        if(abs(abs(det(elem(i,:3,:3)))-1._real32).gt.tiny)then
-          write(0,'("ERROR: abs(determinant) of a supplied element is greater than one")')
+          write(0,'("ERROR: abs(determinant) of a supplied element is greater &
+               &than one")')
           write(0,*) "Determinant:", det(elem(i,:3,:3))
           write(0,*) "Element:",i
           write(0,'(4(2X,F9.6))') elem(i,:,:)
@@ -1570,7 +1571,8 @@ contains
        !write(0,'(4(2X,F9.6))') cur_elem(:,:)
        !write(0,*)
        if(present(mask))then
-          where(mask.and.(cur_elem(:,:).lt.-tiny.or.cur_elem(:,:).ge.1._real32-tiny))
+          where(mask.and.(cur_elem(:,:).lt.-tiny.or.cur_elem(:,:).ge. &
+               1._real32-tiny))
              cur_elem(:,:) = cur_elem(:,:) - floor(cur_elem(:,:)+tiny)
           end where
        elseif(dim1.eq.4)then
@@ -1598,7 +1600,8 @@ contains
              iter = iter + 1
              if(iter.ge.10)then
                 write(0,'("ERROR: unending loop in mod_misc_linalg.f90")')
-                write(0,'(2X,"subroutine gen_group in mod_misc_linalg.f90 encountered an unending loop")')
+                write(0,'(2X,"subroutine gen_group in mod_misc_linalg.f90 &
+                     &encountered an unending loop")')
                 write(0,'(2X,"Exiting...")')
                 stop
              end if
@@ -1609,16 +1612,19 @@ contains
              !write(0,'(4(2X,F9.6))') tmp_elem(:,:)
              !write(0,*)
              if(present(mask))then
-                where(mask.and.(tmp_elem(:,:).lt.-tiny.or.tmp_elem(:,:).ge.1._real32-tiny))
+                where(mask.and.(tmp_elem(:,:).lt.-tiny.or.tmp_elem(:,:).ge. &
+                     1._real32-tiny))
                    tmp_elem(:,:) = tmp_elem(:,:) - floor(tmp_elem(:,:)+tiny)
                 end where
              elseif(dim1.eq.4)then
-                where(tmp_elem(4,:3).lt.-tiny.or.tmp_elem(4,:3).ge.1._real32-tiny)
+                where(tmp_elem(4,:3).lt.-tiny.or.tmp_elem(4,:3).ge. &
+                     1._real32-tiny)
                    tmp_elem(4,:3) = tmp_elem(4,:3) - floor(tmp_elem(4,:3)+tiny)
                 end where
              end if
              if(abs(abs(det(tmp_elem(:3,:3)))-1._real32).gt.tiny)then
-                write(0,'("ERROR: abs(determinant) of element greater than one")')
+                write(0,'("ERROR: abs(determinant) of element greater than &
+                     &one")')
                 write(0,*) "determinant:", det(tmp_elem(:3,:3))
                 write(0,*) "Element:",i
                 write(0,'(4(2X,F9.6))') cur_elem(:,:)
@@ -1631,9 +1637,11 @@ contains
              where(abs(tmp_elem).lt.tiny)
                 tmp_elem = 0._real32
              end where
-             if(all(abs(cur_elem(:,:)-tmp_elem(:,:)).lt.tiny)) exit recursive_loop
+             if(all(abs(cur_elem(:,:)-tmp_elem(:,:)).lt.tiny)) &
+                  exit recursive_loop
              do k=1,ntot_elem
-                if(all(abs(tmp_group(k,:,:)-tmp_elem(:,:)).lt.tiny)) cycle recursive_loop
+                if(all(abs(tmp_group(k,:,:)-tmp_elem(:,:)).lt.tiny)) &
+                     cycle recursive_loop
              end do
              ntot_elem = ntot_elem + 1
              tmp_group(ntot_elem,:,:) = tmp_elem(:,:)
@@ -1707,33 +1715,33 @@ contains
     ! the shortest diagonal means those two associated points are in every single
     ! tetrahedron in a box.
     if (ishort.eq.1)then ! 1 - 8
-       tet(1,:,:) = transpose(reshape( [0,0,0, 1,0,0, 1,1,0, 1,1,1], (/3,4/) )) ! 1, 2, 4, 8
-       tet(2,:,:) = transpose(reshape( [0,0,0, 1,0,0, 1,0,1, 1,1,1], (/3,4/) )) ! 1, 2, 6, 8
-       tet(3,:,:) = transpose(reshape( [0,0,0, 0,1,0, 1,1,0, 1,1,1], (/3,4/) )) ! 1, 3, 4, 8
-       tet(4,:,:) = transpose(reshape( [0,0,0, 0,1,0, 0,1,1, 1,1,1], (/3,4/) )) ! 1, 3, 7, 8
-       tet(5,:,:) = transpose(reshape( [0,0,0, 0,0,1, 1,0,1, 1,1,1], (/3,4/) )) ! 1, 5, 6, 8
-       tet(6,:,:) = transpose(reshape( [0,0,0, 0,0,1, 0,1,1, 1,1,1], (/3,4/) )) ! 1, 5, 7, 8
+       tet(1,:,:) = transpose(reshape( [0,0,0, 1,0,0, 1,1,0, 1,1,1], (/3,4/) ))
+       tet(2,:,:) = transpose(reshape( [0,0,0, 1,0,0, 1,0,1, 1,1,1], (/3,4/) ))
+       tet(3,:,:) = transpose(reshape( [0,0,0, 0,1,0, 1,1,0, 1,1,1], (/3,4/) ))
+       tet(4,:,:) = transpose(reshape( [0,0,0, 0,1,0, 0,1,1, 1,1,1], (/3,4/) ))
+       tet(5,:,:) = transpose(reshape( [0,0,0, 0,0,1, 1,0,1, 1,1,1], (/3,4/) ))
+       tet(6,:,:) = transpose(reshape( [0,0,0, 0,0,1, 0,1,1, 1,1,1], (/3,4/) ))
     elseif(ishort.eq.2)then ! 2 - 7
-       tet(1,:,:) = transpose(reshape( [1,0,0, 0,0,0, 0,1,0, 0,1,1], (/3,4/) )) ! 2, 1, 3, 7
-       tet(2,:,:) = transpose(reshape( [1,0,0, 0,0,0, 0,0,1, 0,1,1], (/3,4/) )) ! 2, 1, 5, 7
-       tet(3,:,:) = transpose(reshape( [1,0,0, 1,1,0, 0,1,0, 0,1,1], (/3,4/) )) ! 2, 4, 3, 7
-       tet(4,:,:) = transpose(reshape( [1,0,0, 1,1,0, 1,1,1, 0,1,1], (/3,4/) )) ! 2, 4, 8, 7
-       tet(5,:,:) = transpose(reshape( [1,0,0, 1,0,1, 0,0,1, 0,1,1], (/3,4/) )) ! 2, 6, 5, 7
-       tet(6,:,:) = transpose(reshape( [1,0,0, 1,0,1, 1,1,1, 0,1,1], (/3,4/) )) ! 2, 6, 8, 7
+       tet(1,:,:) = transpose(reshape( [1,0,0, 0,0,0, 0,1,0, 0,1,1], (/3,4/) ))
+       tet(2,:,:) = transpose(reshape( [1,0,0, 0,0,0, 0,0,1, 0,1,1], (/3,4/) ))
+       tet(3,:,:) = transpose(reshape( [1,0,0, 1,1,0, 0,1,0, 0,1,1], (/3,4/) ))
+       tet(4,:,:) = transpose(reshape( [1,0,0, 1,1,0, 1,1,1, 0,1,1], (/3,4/) ))
+       tet(5,:,:) = transpose(reshape( [1,0,0, 1,0,1, 0,0,1, 0,1,1], (/3,4/) ))
+       tet(6,:,:) = transpose(reshape( [1,0,0, 1,0,1, 1,1,1, 0,1,1], (/3,4/) ))
     elseif(ishort.eq.3)then ! 3 - 6
-       tet(1,:,:) = transpose(reshape( [0,1,0, 1,1,0, 1,0,0, 1,0,1], (/3,4/) )) ! 3, 4, 2, 6
-       tet(2,:,:) = transpose(reshape( [0,1,0, 1,1,0, 1,1,1, 1,0,1], (/3,4/) )) ! 3, 4, 8, 6
-       tet(3,:,:) = transpose(reshape( [0,1,0, 0,0,0, 1,0,0, 1,0,1], (/3,4/) )) ! 3, 1, 2, 6
-       tet(4,:,:) = transpose(reshape( [0,1,0, 0,0,0, 0,0,1, 1,0,1], (/3,4/) )) ! 3, 1, 5, 6
-       tet(5,:,:) = transpose(reshape( [0,1,0, 0,1,1, 1,1,1, 1,0,1], (/3,4/) )) ! 3, 7, 8, 6
-       tet(6,:,:) = transpose(reshape( [0,1,0, 0,1,1, 0,0,1, 1,0,1], (/3,4/) )) ! 3, 7, 5, 6
+       tet(1,:,:) = transpose(reshape( [0,1,0, 1,1,0, 1,0,0, 1,0,1], (/3,4/) ))
+       tet(2,:,:) = transpose(reshape( [0,1,0, 1,1,0, 1,1,1, 1,0,1], (/3,4/) ))
+       tet(3,:,:) = transpose(reshape( [0,1,0, 0,0,0, 1,0,0, 1,0,1], (/3,4/) ))
+       tet(4,:,:) = transpose(reshape( [0,1,0, 0,0,0, 0,0,1, 1,0,1], (/3,4/) ))
+       tet(5,:,:) = transpose(reshape( [0,1,0, 0,1,1, 1,1,1, 1,0,1], (/3,4/) ))
+       tet(6,:,:) = transpose(reshape( [0,1,0, 0,1,1, 0,0,1, 1,0,1], (/3,4/) ))
     elseif(ishort.eq.4)then ! 4 - 5
-       tet(1,:,:) = transpose(reshape( [1,1,0, 0,1,0, 0,0,0, 0,0,1], (/3,4/) )) ! 4, 3, 1, 5
-       tet(2,:,:) = transpose(reshape( [1,1,0, 0,1,0, 0,1,1, 0,0,1], (/3,4/) )) ! 4, 3, 7, 5
-       tet(3,:,:) = transpose(reshape( [1,1,0, 1,0,0, 0,0,0, 0,0,1], (/3,4/) )) ! 4, 2, 1, 5
-       tet(4,:,:) = transpose(reshape( [1,1,0, 1,0,0, 1,0,1, 0,0,1], (/3,4/) )) ! 4, 2, 6, 5
-       tet(5,:,:) = transpose(reshape( [1,1,0, 1,1,1, 0,1,1, 0,0,1], (/3,4/) )) ! 4, 8, 7, 5
-       tet(6,:,:) = transpose(reshape( [1,1,0, 1,1,1, 1,0,1, 0,0,1], (/3,4/) )) ! 4, 8, 6, 5
+       tet(1,:,:) = transpose(reshape( [1,1,0, 0,1,0, 0,0,0, 0,0,1], (/3,4/) ))
+       tet(2,:,:) = transpose(reshape( [1,1,0, 0,1,0, 0,1,1, 0,0,1], (/3,4/) ))
+       tet(3,:,:) = transpose(reshape( [1,1,0, 1,0,0, 0,0,0, 0,0,1], (/3,4/) ))
+       tet(4,:,:) = transpose(reshape( [1,1,0, 1,0,0, 1,0,1, 0,0,1], (/3,4/) ))
+       tet(5,:,:) = transpose(reshape( [1,1,0, 1,1,1, 0,1,1, 0,0,1], (/3,4/) ))
+       tet(6,:,:) = transpose(reshape( [1,1,0, 1,1,1, 1,0,1, 0,0,1], (/3,4/) ))
     end if
 
     ! set up the weighting for each tetrahedron corner
@@ -1745,10 +1753,11 @@ contains
           do w2=1,3
              if( &
                   abs( &
-                       modu(real(tet(t,ilist(w2),:)-tet(t,ilist(4),:),real32)) - &
+                       modu(real(tet(t,ilist(w2),:) - &
+                            tet(t,ilist(4),:),real32)) - &
                        1._real32 &
                   ).lt.1.E-6_real32 &
-              )then
+             )then
                 weight(t,w,:) = weight(t,w,:) + (&
                      tet(t,ilist(w2),:)-tet(t,ilist(4),:)&
                 )

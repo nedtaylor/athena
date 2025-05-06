@@ -19,7 +19,7 @@ program mnist_example
   logical :: restart = .false.
 
   !! data loading and preoprocessing
-  type(graph_type), allocatable, dimension(:) :: graphs
+  type(graph_type), allocatable, dimension(:,:) :: graphs
   real(real32), allocatable, dimension(:) :: labels
   character(1024) :: file, train_file
 
@@ -42,7 +42,7 @@ program mnist_example
   call read_extxyz_db(train_file, graphs, labels)
   write(*,*) "Reading finished"
   do s = 1, size(graphs)
-     call graphs(s)%convert_to_sparse()
+     call graphs(s,1)%convert_to_sparse()
   end do
 
 
@@ -124,12 +124,12 @@ program mnist_example
 
         ! write(*,*) n, s
           !  write(*,*) graphs(sample_list(s))%adj_ja(1,:)
-        call network%forward_graph(reshape(graphs(sample_list(s):sample_list(s)), [1,1]))
+        call network%forward_graph( &
+             reshape(graphs(sample_list(s):sample_list(s),1), [1,1]))
         call labels_tmp(1,1)%allocate(array_shape=[1,1])
         call labels_tmp(1,1)%set(labels(sample_list(s)))
         call network%backward_mixed(labels_tmp)
         if(labels_tmp(1,1)%allocated) call labels_tmp(1,1)%deallocate()
-        ! write(*,*) "predicted",network%model(2)%layer%output%val, labels(sample_list(s))
 
         call network%update()
 
@@ -143,11 +143,8 @@ program mnist_example
   write(*,*) "Starting testing..."
   write(*,*) "Testing on", num_tests, "samples", size(labels), size(graphs)
   do s = size(labels) - num_tests + 1, size(labels)
-     select type(layer => network%model(1)%layer)
-     type is (duvenaud_msgpass_layer_type)
-        call layer%set_graph(graphs(s:s))
-     end select
-     call network%forward(reshape([1._real32], [1,1]))
+     call network%forward_graph( &
+          reshape(graphs(sample_list(s):sample_list(s),1), [1,1]))
      call network%model(2)%layer%get_output(output_tmp)
      write(*,*) "predicted",output_tmp(1,1), labels(s)
   end do
