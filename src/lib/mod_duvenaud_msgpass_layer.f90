@@ -18,7 +18,7 @@ module athena__duvenaud_msgpass_layer
 !-------------------------------------------------------------------------------
   type, extends(msgpass_layer_type) :: duvenaud_msgpass_layer_type
 
-     integer :: max_vertex_degree
+     integer :: max_vertex_degree = 0
      !! Maximum vertex degree
      real(real32), pointer :: weight_msg(:,:,:,:) => null(), &
           weight_readout(:,:,:) => null()
@@ -148,11 +148,11 @@ contains
     integer :: num_params
     !! Number of parameters
 
-    num_params = ( this%num_vertex_features(1) + this%num_edge_features(1) ) * &
-         this%num_vertex_features(1) * &
+    num_params = ( this%num_vertex_features(0) + this%num_edge_features(0) ) * &
+         this%num_vertex_features(0) * &
          this%max_vertex_degree * &
          this%num_time_steps + &
-         this%num_vertex_features(1) * this%num_outputs * this%num_time_steps
+         this%num_vertex_features(0) * this%num_outputs * this%num_time_steps
 
   end function get_num_params_duvenaud
 !###############################################################################
@@ -338,11 +338,11 @@ contains
     if(allocated(this%num_edge_features)) &
          deallocate(this%num_edge_features)
     allocate( &
-         this%num_vertex_features(this%num_time_steps), &
+         this%num_vertex_features(0:this%num_time_steps), &
          source = num_vertex_features &
     )
     allocate( &
-         this%num_edge_features(this%num_time_steps), &
+         this%num_edge_features(0:0), &
          source = num_edge_features &
     )
     this%use_graph_input = .true.
@@ -362,11 +362,11 @@ contains
     if(allocated(this%num_params_msg)) deallocate(this%num_params_msg)
     allocate(this%num_params_msg(1:this%num_time_steps))
     this%num_params_msg = &
-         ( this%num_vertex_features(1) + this%num_edge_features(1) ) * &
-         this%num_vertex_features(1) * &
+         ( this%num_vertex_features(0) + this%num_edge_features(0) ) * &
+         this%num_vertex_features(0) * &
          this%max_vertex_degree
     this%num_params_readout = &
-         this%num_vertex_features(1) * this%num_outputs * &
+         this%num_vertex_features(0) * this%num_outputs * &
          this%num_time_steps
 
     allocate(this%transfer_readout, source=activation_setup('softmax'))
@@ -408,7 +408,7 @@ contains
     !---------------------------------------------------------------------------
     ! Initialise number of inputs
     !---------------------------------------------------------------------------
-    if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
+    if(.not.allocated(this%input_shape)) call this%set_shape([input_shape])
     this%output_shape = [this%num_vertex_features]
     this%num_params = this%get_num_params()
 
@@ -426,15 +426,15 @@ contains
     allocate(initialiser_, source=initialiser_setup(this%kernel_initialiser))
     call initialiser_%initialise( &
          this%params(1:sum(this%num_params_msg)), &
-         fan_in = this%num_vertex_features(1) + this%num_edge_features(1), &
-         fan_out = this%num_vertex_features(1), &
-         spacing = [ this%num_vertex_features(1) ] &
+         fan_in = this%num_vertex_features(0) + this%num_edge_features(0), &
+         fan_out = this%num_vertex_features(0), &
+         spacing = [ this%num_vertex_features(0) ] &
     )
     call initialiser_%initialise( &
          this%params(sum(this%num_params_msg)+1:this%num_params), &
-         fan_in = this%num_vertex_features(1), &
+         fan_in = this%num_vertex_features(0), &
          fan_out = this%num_outputs, &
-         spacing = [ this%num_vertex_features(1) ] &
+         spacing = [ this%num_vertex_features(0) ] &
     )
     deallocate(initialiser_)
 
@@ -472,13 +472,13 @@ contains
     ! Set weights and biases pointers to params array
     !---------------------------------------------------------------------------
     this%weight_msg( &
-         1:this%num_vertex_features(1) + this%num_edge_features(1), &
-         1:this%num_vertex_features(1), &
+         1:this%num_vertex_features(0) + this%num_edge_features(0), &
+         1:this%num_vertex_features(0), &
          1:this%max_vertex_degree, &
          1:this%num_time_steps &
     ) => this%params(1:sum(this%num_params_msg))
     this%weight_readout( &
-         1:this%num_vertex_features(1), &
+         1:this%num_vertex_features(0), &
          1:this%num_outputs, &
          1:this%num_time_steps &
     ) => this%params(sum(this%num_params_msg)+1:this%num_params)
@@ -562,11 +562,7 @@ contains
        allocate(this%graph(size(graph)))
     end if
     do s = 1, size(graph)
-       this%graph(s)%adj_ia = graph(s)%adj_ia
-       this%graph(s)%adj_ja = graph(s)%adj_ja
-       this%graph(s)%edge_weights = graph(s)%edge_weights
-       this%graph(s)%num_edges = graph(s)%num_edges
-       this%graph(s)%num_vertices = graph(s)%num_vertices
+       call this%graph(s)%copy(graph(s), sparse=.true.)
     end do
 
     if(this%use_graph_input)then
@@ -618,8 +614,6 @@ contains
        do t = 1, this%num_time_steps, 1
           if(this%vertex_features(t,s)%allocated) &
                call this%vertex_features(t,s)%deallocate()
-          if(this%edge_features(t,s)%allocated) &
-               call this%edge_features(t,s)%deallocate()
           if(this%message(t,s)%allocated) &
                call this%message(t,s)%deallocate()
           if(this%z(t,s)%allocated) &
