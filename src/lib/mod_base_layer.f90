@@ -44,6 +44,8 @@ module athena__base_layer
      !! Inference mode
      logical :: use_graph_input = .false.
      !! Use graph input
+     logical :: use_graph_output = .false.
+     !! Use graph output
      character(:), allocatable :: name
      !! Layer name
      character(4) :: type = 'base'

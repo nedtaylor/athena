@@ -12,7 +12,7 @@ LIBS := mod_constants.f90 \
 	mod_read_mnist.f90 \
 	mod_inputs.f90
 OBJS := $(addprefix $(LIB_DIR)/,$(LIBS))
-SRCS := 
+SRCS :=
 MAIN := mod_misc_linalg.f90 \
 	mod_rw_geom.f90 \
 	mod_read_chemical_graphs.f90 \
@@ -33,7 +33,7 @@ ifneq (,$(filter ifort% ifx%, $(FC)))
 	DEVFLAGS = -check all -warn #all
 	DEBUGFLAGS = -check all -fpe0 -warn -tracekback -debug extended # -check bounds
 	OPTIMFLAGS = -O3
-else ifneq (,$(filter gfortran% gcc%, $(FC))) 
+else ifneq (,$(filter gfortran% gcc%, $(FC)))
 	PPFLAGS = -cpp -gdwarf-2
 	MPFLAGS = -fopenmp -ftree-parallelize-loops=$(NTHREADS)
 	MODULEFLAGS = -J
@@ -154,7 +154,7 @@ $(programs): $(OBJS) | $(BIN_DIR) $(BUILD_DIR)
 install: $(OBJS) | $(INSTALL_DIR) $(BUILD_DIR)
 	$(FC) $(PPFLAGS) $(CFLAGS) $(MODULEFLAGS) $(BUILD_DIR) $(OBJS) $(LATHENA) -o $(programs)
 
-clean: 
+clean:
 	rm -rf $(BUILD_DIR)/ $(BIN_DIR)/
 
 uninstall: $(INSTALL_DIR)/$(NAME)

@@ -134,6 +134,7 @@ module athena__network
      !! Forward pass for graph input
      procedure, pass(this) :: backward_graph
      !! Backward pass for graph input
+     procedure, pass(this) :: backward_mixed
      generic :: forward => forward_real, forward_derived !, forward_graph
      procedure, pass(this) :: backward => backward_real
      !! Backward pass
@@ -550,6 +551,13 @@ module athena__network
             intent(in) :: output
        !! Input data
      end subroutine backward_graph
+     module subroutine backward_mixed(this, output)
+       !! Forward pass for derived input
+       class(network_type), intent(inout) :: this
+       !! Instance of the network
+       type(array2d_type), dimension(:,:), intent(in) :: output
+       !! Input data
+     end subroutine backward_mixed
   end interface
 
 end module athena__network

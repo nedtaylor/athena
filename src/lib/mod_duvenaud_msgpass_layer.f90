@@ -409,7 +409,7 @@ contains
     ! Initialise number of inputs
     !---------------------------------------------------------------------------
     if(.not.allocated(this%input_shape)) call this%set_shape([input_shape])
-    this%output_shape = [this%num_vertex_features]
+    this%output_shape = [this%num_outputs]
     this%num_params = this%get_num_params()
 
 
@@ -583,13 +583,13 @@ contains
                   call this%di(2,s)%deallocate()
              call this%di(1,s)%allocate( &
                   [ &
-                       this%num_vertex_features, &
+                       this%num_vertex_features(0), &
                        this%graph(s)%num_vertices &
                   ] &
              )
              call this%di(2,s)%allocate( &
                   [ &
-                       this%num_edge_features, &
+                       this%num_edge_features(0), &
                        this%graph(s)%num_edges &
                   ] &
              )
@@ -627,8 +627,27 @@ contains
                     this%graph(s)%num_vertices &
                ] &
           )
+          if(this%z_readout(t,s)%allocated) &
+               call this%z_readout(t,s)%deallocate()
+          if(this%z(t,s)%allocated) &
+               call this%z(t,s)%deallocate()
+          if(this%di_readout(t,s)%allocated) &
+               call this%di_readout(t,s)%deallocate()
+          if(this%di_msg(t,s)%allocated) &
+               call this%di_msg(t,s)%deallocate()
           call this%z(t,s)%allocate( &
                [ this%num_vertex_features(t), this%graph(s)%num_vertices ] &
+          )
+          call this%z_readout(t,s)%allocate( &
+               [ this%num_outputs, this%graph(s)%num_vertices ] &
+          )
+          call this%di_readout(t,s)%allocate( &
+               [ this%num_vertex_features(t), &
+                    this%graph(s)%num_vertices ] &
+          )
+          call this%di_msg(t,s)%allocate( &
+               [ this%num_vertex_features(t) + this%num_edge_features(0), &
+                    this%graph(s)%num_vertices ] &
           )
        end do
     end do
@@ -740,9 +759,9 @@ contains
     ! combine %weight and %weight_readout and convert to 1D for each time step
     ! then, in each update_ procedure, use an associate block to convert them
     ! to the appropriate shape for the matmul
+    this%output(1,1)%val = 0._real32
     do s = 1, this%batch_size
-       this%output(1,s)%val = 0._real32
-       do t = 0, this%num_time_steps, 1
+       do t = 1, this%num_time_steps, 1
           do v = 1, this%graph(s)%num_vertices
              this%z_readout(t,s)%val(:,v) = matmul( &
                   this%vertex_features(t,s)%val(:,v), &
@@ -776,42 +795,59 @@ contains
     real(real32), dimension(:,:), allocatable :: delta
 
 
+    this%dp = 0._real32
     do t = this%num_time_steps, 1, -1
        do concurrent(s=1:this%batch_size)
           ! There is no message passing transfer function
-          if(t.eq.this%num_time_steps)then
-             delta = this%di_readout(t,s)%val
-          else
-             delta = this%di_readout(t,s)%val + this%di_msg(t,s)%val
+          if(allocated(delta)) deallocate(delta)
+          allocate(delta( &
+               this%num_vertex_features(t), &
+               this%graph(s)%num_vertices &
+          ), source = 0._real32)
+          delta(:this%num_vertex_features(t),:) = this%di_readout(t,s)%val
+          if(t.lt.this%num_time_steps)then
+             delta = delta + &
+                  this%di_msg(t,s)%val(:this%num_vertex_features(t),:)
           end if
           delta = delta * this%transfer%differentiate(this%z(t,s)%val(:,:))
 
           ! Partial derivatives of error wrt weights
           ! dE/dW = o/p(l-1) * delta
           do v = 1, this%graph(s)%num_vertices
+             ! GET VERTEX DEGREE FOR sparse graph
+             degree = this%graph(s)%adj_ia(v+1) - this%graph(s)%adj_ia(v)
              degree = &
                   min( &
-                       this%graph(s)%vertex(v)%degree, &
+                       degree, &!this%graph(s)%vertex(v)%degree, &
                        this%max_vertex_degree &
                   )
              ! i.e. outer product of the input and delta
              ! sum weights and biases errors to use in batch gradient descent
              do concurrent ( &
-                  i = 1:this%num_vertex_features(1) + &
-                  this%num_edge_features(1), &
-                  j = 1:this%num_vertex_features(1) &
+                  i = 1:this%num_vertex_features(t) + &
+                  this%num_edge_features(0), &
+                  j = 1:this%num_vertex_features(t) &
              )
                 idx = i + &
                      ( &
-                          this%num_vertex_features(1) + &
-                          this%num_edge_features(1) &
+                          this%num_vertex_features(t) + &
+                          this%num_edge_features(0) &
                      ) * &
-                     ( (j-1) + this%num_vertex_features(1) * ( &
+                     ( (j-1) + this%num_vertex_features(t) * ( &
                           (degree-1) + &
                           this%max_vertex_degree * (t-1) &
                      ) )
-                this%dp(idx,s) = this%dp(idx,s) + &
-                     this%vertex_features(t,s)%val(i,v) * delta(j,v)
+                ! ARE WE MISSING THE REST OF delta(:,v)?
+                if(i.gt.this%num_vertex_features(t))then
+                   this%dp(idx,s) = this%dp(idx,s) + &
+                        this%edge_features(0,s)%val( &
+                             i-this%num_vertex_features(t),v &
+                        ) * &
+                        delta(j,v)
+                else
+                   this%dp(idx,s) = this%dp(idx,s) + &
+                        this%vertex_features(t,s)%val(i,v) * delta(j,v)
+                end if
              end do
              ! The errors are summed from the delta of the ...
              ! ... 'child' node * 'child' weight
@@ -819,7 +855,19 @@ contains
              ! this prepares dE/dI for when it is passed into the previous layer
              if(t.eq.1)then
                 this%di(1,s)%val(:,v) = &
-                     matmul(this%weight_msg(:,:,degree,t), delta(:,v))
+                     matmul( &
+                          this%weight_msg( &
+                               :this%num_vertex_features(t),:,degree,t &
+                          ), &
+                          delta(:,v) &
+                     )
+                this%di(2,s)%val(:,v) = &
+                     matmul( &
+                          this%weight_msg( &
+                               this%num_vertex_features(t)+1:,:,degree,t &
+                          ), &
+                          delta(:,v) &
+                     )
              else
                 this%di_msg(t,s)%val(:,v) = &
                      this%di_msg(t,s)%val(:,v) + &
@@ -869,7 +917,7 @@ contains
                   )
 
              do concurrent( &
-                  j = 1:this%num_vertex_features(1), &
+                  j = 1:this%num_vertex_features(0), &
                   i = 1:this%num_outputs &
              )
                 idx = i + (j-1) * this%num_outputs + (t-1) * &

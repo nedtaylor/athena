@@ -30,16 +30,20 @@ program mnist_example
 
   integer :: v, s
   integer, dimension(:), allocatable :: sample_list
+  type(array2d_type), dimension(1,1) :: labels_tmp
 
 
 
 !!!-----------------------------------------------------------------------------
 !!! read training dataset
 !!!-----------------------------------------------------------------------------
-  train_file = "example/mpnn_chemical/database.xyz"
+  train_file = "example/msgpass_chemical/database.xyz"
   write(*,*) "Reading training dataset..."
   call read_extxyz_db(train_file, graphs, labels)
   write(*,*) "Reading finished"
+  do s = 1, size(graphs)
+     call graphs(s)%convert_to_sparse()
+  end do
 
 
 !!!-----------------------------------------------------------------------------
@@ -56,9 +60,9 @@ program mnist_example
      ! call network%read(file=input_file)
      ! write(*,*) "Reading finished"
   else
-     write(6,*) "Initialising MPNN..."
+     write(6,*) "Initialising MSGPASS..."
 
-     call network%add(conv_mpnn_layer_type( &
+     call network%add(duvenaud_msgpass_layer_type( &
           num_time_steps=4, &
           num_features=[2,1], &
           num_outputs=10, &
@@ -91,6 +95,7 @@ program mnist_example
        loss_method = "mse", metrics = metric_dict, &
        batch_size = 1, verbose = 1 &
   )
+  write(*,*) "test3"
 
 
 !!!-----------------------------------------------------------------------------
@@ -118,12 +123,12 @@ program mnist_example
      do s = 1, size(sample_list)
 
         ! write(*,*) n, s
-        select type(layer => network%model(1)%layer)
-        type is (conv_mpnn_layer_type)
-           call layer%set_graph(graphs(sample_list(s):sample_list(s)))
-        end select
-        call network%forward(reshape([1._real32], [1,1]))
-        call network%backward(reshape([labels(sample_list(s))], [1,1]))
+          !  write(*,*) graphs(sample_list(s))%adj_ja(1,:)
+        call network%forward_graph(reshape(graphs(sample_list(s):sample_list(s)), [1,1]))
+        call labels_tmp(1,1)%allocate(array_shape=[1,1])
+        call labels_tmp(1,1)%set(labels(sample_list(s)))
+        call network%backward_mixed(labels_tmp)
+        if(labels_tmp(1,1)%allocated) call labels_tmp(1,1)%deallocate()
         ! write(*,*) "predicted",network%model(2)%layer%output%val, labels(sample_list(s))
 
         call network%update()
@@ -136,9 +141,10 @@ program mnist_example
 !!! testing loop
 !!!-----------------------------------------------------------------------------
   write(*,*) "Starting testing..."
+  write(*,*) "Testing on", num_tests, "samples", size(labels), size(graphs)
   do s = size(labels) - num_tests + 1, size(labels)
      select type(layer => network%model(1)%layer)
-     type is (conv_mpnn_layer_type)
+     type is (duvenaud_msgpass_layer_type)
         call layer%set_graph(graphs(s:s))
      end select
      call network%forward(reshape([1._real32], [1,1]))

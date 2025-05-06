@@ -145,7 +145,7 @@ contains
   subroutine read_extxyz_db(file,graphs,labels)
     implicit none
     character(1024), intent(in) :: file
-    type(graph_type), allocatable, dimension(:), intent(out) :: graphs
+    type(graph_type), allocatable, dimension(:,:), intent(out) :: graphs
     real(real32), allocatable, dimension(:), intent(out) :: labels
 
     integer :: ierror, unit
@@ -157,6 +157,7 @@ contains
     integer :: num_samples
     type(bas_type) :: basis
     real(real32), dimension(3,3) :: lattice
+    type(graph_type), allocatable, dimension(:) :: graphs_tmp
 
 
     open(newunit=unit, file=file, status='old', action='read', iostat=ierror)
@@ -164,7 +165,7 @@ contains
     write(*,*) "Reading data from file: ", trim(file)
 
     igeom_input = 6
-    allocate(graphs(0))
+    allocate(graphs_tmp(0))
     allocate(labels(0))
     do
        read(unit,'(A)',iostat=ierror) buffer
@@ -174,10 +175,12 @@ contains
        !  write(*,*) trim(buffer)
        call geom_read(unit, lattice, basis)
        call get_elements_masses_and_charges(basis)
-       graphs = [ graphs, get_graph_from_basis(lattice, basis) ]
+       graphs_tmp = [ graphs_tmp, get_graph_from_basis(lattice, basis) ]
        labels = [ labels, basis%energy ]
     end do
     close(unit)
+    allocate(graphs(size(graphs_tmp),1))
+    graphs(:,1) = graphs_tmp
 
   end subroutine read_extxyz_db
 !!!#############################################################################
@@ -214,6 +217,7 @@ contains
           allocate(graph%vertex(iatom)%feature(graph%num_vertex_features))
           graph%vertex(iatom)%feature = [ basis%spec(is)%charge / 100._real32, &
                basis%spec(is)%mass / 52._real32 ]
+          graph%vertex(iatom)%id = iatom
        end do
     end do
 
@@ -247,6 +251,7 @@ contains
                             edge%index = [iatom,jatom]
                             edge%feature = [rtmp1]
                             graph%edge = [ graph%edge, edge ]
+                            graph%edge(size(graph%edge))%id = size(graph%edge)
                          end if
                       end do
                    end do
@@ -256,8 +261,9 @@ contains
        end do atom_loop1
     end do spec_loop1
     graph%num_edges = size(graph%edge)
+    call graph%convert_to_sparse()
     call graph%generate_adjacency()
-    call graph%calculate_degree()
+    !  call graph%calculate_degree()
 
 
   end function get_graph_from_basis
