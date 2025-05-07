@@ -911,7 +911,7 @@ contains
           do v = 1, this%graph(s)%num_vertices
 
              delta = &
-                  gradient(1,s)%val(:,1) * &
+                  gradient(1,1)%val(:,s) * &
                   this%transfer_readout%differentiate( &
                        this%z_readout(t,s)%val(:,v) &
                   )
