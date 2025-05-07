@@ -24,11 +24,12 @@ program mnist_example
   character(1024) :: file, train_file
 
   !! training loop variables
-  integer :: num_tests = 10, num_epochs = 100, batch_size = 1
+  integer :: num_tests = 10, num_epochs = 100, batch_size = 2
   integer :: i, itmp1, n, num_iterations
   real(real32), dimension(:,:), allocatable :: output_tmp, output
 
   integer :: num_dense_inputs = 10, num_outputs = 1
+  integer :: num_params
   integer :: v, s
   integer, dimension(:), allocatable :: sample_list
   type(array2d_type), dimension(1,1) :: labels_tmp
@@ -67,15 +68,29 @@ program mnist_example
           num_time_steps = 4, &
           num_features = [2,1], &
           num_outputs = num_dense_inputs, &
-          max_vertex_degree = 10, &
+          max_vertex_degree = 6, &
           batch_size = batch_size ))
      call network%add(full_layer_type( &
           num_inputs  = num_dense_inputs, &
-          num_outputs = num_outputs, &
+          num_outputs = 128, &
+          batch_size  = batch_size, &
+          activation_function = 'sigmoid', &
+          kernel_initialiser = 'he_normal', &
+          bias_initialiser = 'zeros' &
+     ))
+     call network%add(full_layer_type( &
+          num_outputs = 64, &
+          batch_size  = batch_size, &
+          activation_function = 'sigmoid', &
+          kernel_initialiser = 'he_normal', &
+          bias_initialiser = 'zeros' &
+     ))
+     call network%add(full_layer_type( &
+          num_outputs = 1, &
           batch_size  = batch_size, &
           activation_function = 'leaky_relu', &
           kernel_initialiser = 'he_normal', &
-          bias_initialiser = 'ones' &
+          bias_initialiser = 'zeros' &
      ))
   end if
 
@@ -101,7 +116,9 @@ program mnist_example
 !!!-----------------------------------------------------------------------------
 !!! print network and dataset summary
 !!!-----------------------------------------------------------------------------
+  num_params = network%get_num_params()
   write(*,*) "NUMBER OF LAYERS",network%num_layers
+  write(*,*) "Number of parameters", num_params
   write(*,*) "Number of samples",size(labels)
   write(*,*) "Number of tests",num_tests
 
@@ -123,7 +140,8 @@ program mnist_example
         call network%forward_graph( &
              reshape(graphs(sample_list(s:s+batch_size-1),1), [batch_size,1]))
         call labels_tmp(1,1)%allocate(array_shape=[num_outputs,batch_size])
-        call labels_tmp(1,1)%set(labels(sample_list(s:s+batch_size-1)))
+        call labels_tmp(1,1)%set(reshape(labels(sample_list(s:s+batch_size-1)),&
+             [num_outputs,batch_size]))
         call network%backward_mixed(labels_tmp)
         if(labels_tmp(1,1)%allocated) call labels_tmp(1,1)%deallocate()
         call network%update()
@@ -137,11 +155,11 @@ program mnist_example
   allocate(output_tmp(num_outputs,batch_size))
   write(*,*) "Starting testing..."
   write(*,*) "Testing on", num_tests, "samples", size(labels), size(graphs)
-  do s = size(labels) - num_tests + 1, size(labels), 1
+  do s = size(labels) - num_tests + 1, size(labels), batch_size
      call network%forward_graph( &
-          reshape(graphs(s:s,1), [1,1]))
-     call network%model(2)%layer%get_output(output_tmp)
-     write(*,*) "predicted",output_tmp(1,1), labels(s)
+          reshape(graphs(s:s+batch_size-1,1), [batch_size,1]))
+     call network%model(network%output_vertices(1))%layer%get_output(output_tmp)
+     write(*,*) "predicted", output_tmp(1,:), labels(s:s+batch_size-1)
   end do
   write(*,*) "Testing finished"
 
