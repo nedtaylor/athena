@@ -24,10 +24,11 @@ program mnist_example
   character(1024) :: file, train_file
 
   !! training loop variables
-  integer :: num_samples, num_tests
+  integer :: num_tests = 10, num_epochs = 100, batch_size = 1
   integer :: i, itmp1, n, num_iterations
   real(real32), dimension(:,:), allocatable :: output_tmp, output
 
+  integer :: num_dense_inputs = 10, num_outputs = 1
   integer :: v, s
   integer, dimension(:), allocatable :: sample_list
   type(array2d_type), dimension(1,1) :: labels_tmp
@@ -63,18 +64,18 @@ program mnist_example
      write(6,*) "Initialising MSGPASS..."
 
      call network%add(duvenaud_msgpass_layer_type( &
-          num_time_steps=4, &
-          num_features=[2,1], &
-          num_outputs=10, &
+          num_time_steps = 4, &
+          num_features = [2,1], &
+          num_outputs = num_dense_inputs, &
           max_vertex_degree = 10, &
-          batch_size=1 ))
+          batch_size = batch_size ))
      call network%add(full_layer_type( &
-          num_inputs  = 10, &
-          num_outputs = 1, &
-          batch_size  = 1, &
-          activation_function='leaky_relu', &
-          kernel_initialiser='he_normal', &
-          bias_initialiser='ones' &
+          num_inputs  = num_dense_inputs, &
+          num_outputs = num_outputs, &
+          batch_size  = batch_size, &
+          activation_function = 'leaky_relu', &
+          kernel_initialiser = 'he_normal', &
+          bias_initialiser = 'ones' &
      ))
   end if
 
@@ -93,15 +94,13 @@ program mnist_example
             learning_rate = 1.E-3_real32 &
        ), &
        loss_method = "mse", metrics = metric_dict, &
-       batch_size = 1, verbose = 1 &
+       batch_size = batch_size, verbose = 1 &
   )
-  write(*,*) "test3"
 
 
 !!!-----------------------------------------------------------------------------
 !!! print network and dataset summary
 !!!-----------------------------------------------------------------------------
-  num_tests = 10
   write(*,*) "NUMBER OF LAYERS",network%num_layers
   write(*,*) "Number of samples",size(labels)
   write(*,*) "Number of tests",num_tests
@@ -112,27 +111,22 @@ program mnist_example
 !!! ... loops over num_epoch number of epochs
 !!! ... i.e. it trains on the same datapoints num_epoch times
 !!!-----------------------------------------------------------------------------
-  call network%set_batch_size(1)
-  !labels = -1.E0 * labels
-  !labels = labels / maxval(labels)
-  allocate(output_tmp(1,1))
-  allocate(output(1,size(labels)))
-  do n = 1, 100
+  call network%set_batch_size(batch_size)
+  labels = -1.E0 * labels
+  labels = labels / maxval(labels)
+  ! allocate(output(1,size(labels)))
+  do n = 1, num_epochs
+     if(mod(n,10) == 0) write(*,*) "Epoch", n
      sample_list = [(i, i = 1, size(labels) - num_tests)]
      call shuffle(sample_list)
-     do s = 1, size(sample_list)
-
-        ! write(*,*) n, s
-          !  write(*,*) graphs(sample_list(s))%adj_ja(1,:)
+     do s = 1, size(sample_list), batch_size
         call network%forward_graph( &
-             reshape(graphs(sample_list(s):sample_list(s),1), [1,1]))
-        call labels_tmp(1,1)%allocate(array_shape=[1,1])
-        call labels_tmp(1,1)%set(labels(sample_list(s)))
+             reshape(graphs(sample_list(s:s+batch_size-1),1), [batch_size,1]))
+        call labels_tmp(1,1)%allocate(array_shape=[num_outputs,batch_size])
+        call labels_tmp(1,1)%set(labels(sample_list(s:s+batch_size-1)))
         call network%backward_mixed(labels_tmp)
         if(labels_tmp(1,1)%allocated) call labels_tmp(1,1)%deallocate()
-
         call network%update()
-
      end do
   end do
 
@@ -140,6 +134,7 @@ program mnist_example
 !!!-----------------------------------------------------------------------------
 !!! testing loop
 !!!-----------------------------------------------------------------------------
+  allocate(output_tmp(num_outputs,batch_size))
   write(*,*) "Starting testing..."
   write(*,*) "Testing on", num_tests, "samples", size(labels), size(graphs)
   do s = size(labels) - num_tests + 1, size(labels), 1
