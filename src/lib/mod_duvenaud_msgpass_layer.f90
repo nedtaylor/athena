@@ -822,31 +822,30 @@ contains
                   )
              ! i.e. outer product of the input and delta
              ! sum weights and biases errors to use in batch gradient descent
-             do concurrent ( &
-                  i = 1:this%num_vertex_features(t) + &
-                  this%num_edge_features(0), &
-                  j = 1:this%num_vertex_features(t) &
-             )
-                idx = i + &
-                     ( &
-                          this%num_vertex_features(t) + &
-                          this%num_edge_features(0) &
-                     ) * &
-                     ( (j-1) + this%num_vertex_features(t) * ( &
-                          (degree-1) + &
-                          this%max_vertex_degree * (t-1) &
-                     ) )
-                ! ARE WE MISSING THE REST OF delta(:,v)?
-                if(i.gt.this%num_vertex_features(t))then
-                   this%dp(idx,s) = this%dp(idx,s) + &
-                        this%edge_features(0,s)%val( &
-                             i-this%num_vertex_features(t),v &
+             do i = 1, this%num_vertex_features(t) + &
+                  this%num_edge_features(0)
+                do j = 1, this%num_vertex_features(t)
+                   idx = i + &
+                        ( &
+                             this%num_vertex_features(t) + &
+                             this%num_edge_features(0) &
                         ) * &
-                        delta(j,v)
-                else
-                   this%dp(idx,s) = this%dp(idx,s) + &
-                        this%vertex_features(t,s)%val(i,v) * delta(j,v)
-                end if
+                        ( (j-1) + this%num_vertex_features(t) * ( &
+                             (degree-1) + &
+                             this%max_vertex_degree * (t-1) &
+                        ) )
+                   ! ARE WE MISSING THE REST OF delta(:,v)?
+                   if(i.gt.this%num_vertex_features(t))then
+                      this%dp(idx,s) = this%dp(idx,s) + &
+                           this%edge_features(0,s)%val( &
+                                i-this%num_vertex_features(t),v &
+                           ) * &
+                           delta(j,v)
+                   else
+                      this%dp(idx,s) = this%dp(idx,s) + &
+                           this%vertex_features(t,s)%val(i,v) * delta(j,v)
+                   end if
+                end do
              end do
              ! The errors are summed from the delta of the ...
              ! ... 'child' node * 'child' weight
@@ -915,16 +914,15 @@ contains
                        this%z_readout(t,s)%val(:,v) &
                   )
 
-             do concurrent( &
-                  j = 1:this%num_vertex_features(0), &
-                  i = 1:this%num_outputs &
-             )
-                idx = i + (j-1) * this%num_outputs + (t-1) * &
-                     this%num_outputs * &
-                     this%num_vertex_features(0) + &
-                     sum(this%num_params_msg)
-                this%dp(idx,s) = this%dp(idx,s) + &
-                     this%vertex_features(t,s)%val(j,v) * delta(i)
+             do j = 1, this%num_vertex_features(0)
+                do i = 1, this%num_outputs
+                   idx = i + (j-1) * this%num_outputs + (t-1) * &
+                        this%num_outputs * &
+                        this%num_vertex_features(0) + &
+                        sum(this%num_params_msg)
+                   this%dp(idx,s) = this%dp(idx,s) + &
+                        this%vertex_features(t,s)%val(j,v) * delta(i)
+                end do
              end do
 
              this%di_readout(t,s)%val(:,v) = &
