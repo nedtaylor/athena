@@ -42,7 +42,7 @@ program mnist_example
   call read_extxyz_db(train_file, graphs, labels)
   write(*,*) "Reading finished"
   do s = 1, size(graphs)
-     call graphs(s,1)%convert_to_sparse()
+     if(.not.graphs(s,1)%is_sparse) call graphs(s,1)%convert_to_sparse()
   end do
 
 
@@ -142,9 +142,9 @@ program mnist_example
 !!!-----------------------------------------------------------------------------
   write(*,*) "Starting testing..."
   write(*,*) "Testing on", num_tests, "samples", size(labels), size(graphs)
-  do s = size(labels) - num_tests + 1, size(labels)
+  do s = size(labels) - num_tests + 1, size(labels), 1
      call network%forward_graph( &
-          reshape(graphs(sample_list(s):sample_list(s),1), [1,1]))
+          reshape(graphs(s:s,1), [1,1]))
      call network%model(2)%layer%get_output(output_tmp)
      write(*,*) "predicted",output_tmp(1,1), labels(s)
   end do

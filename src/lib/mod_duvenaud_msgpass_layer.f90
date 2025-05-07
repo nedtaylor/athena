@@ -714,7 +714,7 @@ contains
                   degree = this%max_vertex_degree
              if(degree .eq. 0) cycle
              do e = this%graph(s)%adj_ia(v), this%graph(s)%adj_ia(v+1) - 1
-
+                if(this%graph(s)%adj_ja(2,e).eq.0) cycle ! self interaction
                 this%message(t,s)%val(:,v) = &
                      this%message(t,s)%val(:,v) + &
                      [ &
