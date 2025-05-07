@@ -24,7 +24,7 @@ program mnist_example
   character(1024) :: file, train_file
 
   !! training loop variables
-  integer :: num_tests = 10, num_epochs = 100, batch_size = 2
+  integer :: num_tests = 10, num_epochs = 500, batch_size = 4
   integer :: i, itmp1, n, num_iterations
   real(real32), dimension(:,:), allocatable :: output_tmp, output
 
@@ -66,31 +66,36 @@ program mnist_example
 
      call network%add(duvenaud_msgpass_layer_type( &
           num_time_steps = 4, &
-          num_features = [2,1], &
+          num_features = [ &
+               graphs(1,1)%num_vertex_features, &
+               graphs(1,1)%num_edge_features &
+          ], &
           num_outputs = num_dense_inputs, &
+          kernel_initialiser = 'he_normal', &
           max_vertex_degree = 6, &
-          batch_size = batch_size ))
+          batch_size = batch_size &
+     ))
      call network%add(full_layer_type( &
           num_inputs  = num_dense_inputs, &
           num_outputs = 128, &
           batch_size  = batch_size, &
-          activation_function = 'sigmoid', &
+          activation_function = 'leaky_relu', &
           kernel_initialiser = 'he_normal', &
-          bias_initialiser = 'zeros' &
+          bias_initialiser = 'ones' &
      ))
      call network%add(full_layer_type( &
           num_outputs = 64, &
           batch_size  = batch_size, &
-          activation_function = 'sigmoid', &
+          activation_function = 'leaky_relu', &
           kernel_initialiser = 'he_normal', &
-          bias_initialiser = 'zeros' &
+          bias_initialiser = 'ones' &
      ))
      call network%add(full_layer_type( &
           num_outputs = 1, &
           batch_size  = batch_size, &
           activation_function = 'leaky_relu', &
           kernel_initialiser = 'he_normal', &
-          bias_initialiser = 'zeros' &
+          bias_initialiser = 'ones' &
      ))
   end if
 
@@ -98,7 +103,7 @@ program mnist_example
 !!!-----------------------------------------------------------------------------
 !!! compile network
 !!!-----------------------------------------------------------------------------
-  allocate(clip, source=clip_type(-1.E1_real32, 1.E1_real32))
+  allocate(clip, source=clip_type(clip_norm = 1.E1_real32))
   metric_dict%active = .false.
   metric_dict(1)%key = "loss"
   metric_dict(2)%key = "accuracy"
@@ -134,14 +139,24 @@ program mnist_example
   ! allocate(output(1,size(labels)))
   do n = 1, num_epochs
      if(mod(n,10) == 0) write(*,*) "Epoch", n
-     sample_list = [(i, i = 1, size(labels) - num_tests)]
+     sample_list = [ &
+          (i, i = 1, size(labels) - num_tests - batch_size + 1, batch_size) &
+     ]
      call shuffle(sample_list)
-     do s = 1, size(sample_list), batch_size
+     do s = 1, size(sample_list), 1
         call network%forward_graph( &
-             reshape(graphs(sample_list(s:s+batch_size-1),1), [batch_size,1]))
+             reshape( &
+                  graphs(sample_list(s):sample_list(s)+batch_size-1,1), &
+                  [batch_size,1] &
+             ) &
+        )
         call labels_tmp(1,1)%allocate(array_shape=[num_outputs,batch_size])
-        call labels_tmp(1,1)%set(reshape(labels(sample_list(s:s+batch_size-1)),&
-             [num_outputs,batch_size]))
+        call labels_tmp(1,1)%set( &
+             reshape( &
+                  labels(sample_list(s):sample_list(s)+batch_size-1), &
+                  [num_outputs,batch_size] &
+             ) &
+        )
         call network%backward_mixed(labels_tmp)
         if(labels_tmp(1,1)%allocated) call labels_tmp(1,1)%deallocate()
         call network%update()
@@ -155,11 +170,16 @@ program mnist_example
   allocate(output_tmp(num_outputs,batch_size))
   write(*,*) "Starting testing..."
   write(*,*) "Testing on", num_tests, "samples", size(labels), size(graphs)
-  do s = size(labels) - num_tests + 1, size(labels), batch_size
+  do s = 1, size(labels) - batch_size + 1, batch_size
      call network%forward_graph( &
-          reshape(graphs(s:s+batch_size-1,1), [batch_size,1]))
+          reshape( &
+               graphs(s:s+batch_size-1,1), [batch_size,1] &
+          ) &
+     )
      call network%model(network%output_vertices(1))%layer%get_output(output_tmp)
-     write(*,*) "predicted", output_tmp(1,:), labels(s:s+batch_size-1)
+     write(*,*) "imputed", output_tmp(1,:)
+     write(*,*) "expected", labels(s:s+batch_size-1)
+     write(*,*)
   end do
   write(*,*) "Testing finished"
 
