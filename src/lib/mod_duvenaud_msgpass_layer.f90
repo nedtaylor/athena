@@ -795,7 +795,6 @@ contains
     real(real32), dimension(:,:), allocatable :: delta
 
 
-    this%dp = 0._real32
     do t = this%num_time_steps, 1, -1
        do concurrent(s=1:this%batch_size)
           ! There is no message passing transfer function
@@ -922,7 +921,8 @@ contains
              )
                 idx = i + (j-1) * this%num_outputs + (t-1) * &
                      this%num_outputs * &
-                     this%num_vertex_features(1)
+                     this%num_vertex_features(0) + &
+                     sum(this%num_params_msg)
                 this%dp(idx,s) = this%dp(idx,s) + &
                      this%vertex_features(t,s)%val(j,v) * delta(i)
              end do

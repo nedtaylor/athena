@@ -412,6 +412,8 @@ contains
     ! h()                          hidden function
 
 
+    this%dp = 0._real32
+    if(allocated(this%db)) this%db = 0._real32
     call this%backward_readout(gradient)
     call this%backward_message(input, gradient)
 
