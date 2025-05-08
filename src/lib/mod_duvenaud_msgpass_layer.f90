@@ -18,6 +18,7 @@ module athena__duvenaud_msgpass_layer
 !-------------------------------------------------------------------------------
   type, extends(msgpass_layer_type) :: duvenaud_msgpass_layer_type
 
+     integer :: min_vertex_degree = 1
      integer :: max_vertex_degree = 0
      !! Maximum vertex degree
      real(real32), pointer :: weight_msg(:,:,:,:) => null(), &
@@ -72,6 +73,7 @@ module athena__duvenaud_msgpass_layer
           num_features, num_time_steps, &
           max_vertex_degree, &
           num_outputs, &
+          min_vertex_degree, &
           batch_size, &
           activation_function, activation_scale, &
           kernel_initialiser, &
@@ -86,6 +88,8 @@ module athena__duvenaud_msgpass_layer
        !! Maximum vertex degree
        integer, intent(in) :: num_outputs
        !! Number of outputs
+       integer, optional, intent(in) :: min_vertex_degree
+       !! Minimum vertex degree
        integer, optional, intent(in) :: batch_size
        !! Batch size
        real(real32), optional, intent(in) :: activation_scale
@@ -150,7 +154,7 @@ contains
 
     num_params = ( this%num_vertex_features(0) + this%num_edge_features(0) ) * &
          this%num_vertex_features(0) * &
-         this%max_vertex_degree * &
+         ( this%max_vertex_degree - this%min_vertex_degree + 1 ) * &
          this%num_time_steps + &
          this%num_vertex_features(0) * this%num_outputs * this%num_time_steps
 
@@ -205,6 +209,7 @@ contains
        num_features, num_time_steps, &
        max_vertex_degree, &
        num_outputs, &
+       min_vertex_degree, &
        batch_size, &
        activation_function, activation_scale, &
        kernel_initialiser, &
@@ -222,6 +227,8 @@ contains
     !! Maximum vertex degree
     integer, intent(in) :: num_outputs
     !! Number of outputs
+    integer, optional, intent(in) :: min_vertex_degree
+    !! Minimum vertex degree
     integer, optional, intent(in) :: batch_size
     !! Batch size
     real(real32), optional, intent(in) :: activation_scale
@@ -241,6 +248,8 @@ contains
     !! Activation scale
     character(len=10) :: activation_function_ = "none"
     !! Activation function
+    integer :: min_vertex_degree_ = 1
+    !! Minimum vertex degree
 
     if(present(verbose)) verbose_ = verbose
 
@@ -250,6 +259,11 @@ contains
     !---------------------------------------------------------------------------
     if(present(activation_function)) activation_function_ = activation_function
     if(present(activation_scale)) scale = activation_scale
+    if(present(min_vertex_degree)) min_vertex_degree_ = min_vertex_degree
+    if(max_vertex_degree.lt.min_vertex_degree_)then
+       write(0,*) "Error: max_vertex_degree < min_vertex_degree"
+       return
+    end if
 
 
     !---------------------------------------------------------------------------
@@ -264,6 +278,7 @@ contains
     call layer%set_hyperparams( &
          num_vertex_features = num_features(1), &
          num_edge_features = num_features(2), &
+         min_vertex_degree = min_vertex_degree_, &
          max_vertex_degree = max_vertex_degree, &
          num_time_steps = num_time_steps, &
          num_outputs = num_outputs, &
@@ -293,6 +308,7 @@ contains
   subroutine set_hyperparams_duvenaud( &
        this, &
        num_vertex_features, num_edge_features, &
+       min_vertex_degree, &
        max_vertex_degree, &
        num_time_steps, &
        num_outputs, &
@@ -312,6 +328,8 @@ contains
     !! Number of vertex features
     integer, intent(in) :: num_edge_features
     !! Number of edge features
+    integer, intent(in) :: min_vertex_degree
+    !! Minimum vertex degree
     integer, intent(in) :: max_vertex_degree
     !! Maximum vertex degree
     integer, intent(in) :: num_time_steps
@@ -330,6 +348,7 @@ contains
     this%name = 'duvenaud'
     this%type = 'msgp'
     this%input_rank = 1
+    this%min_vertex_degree = min_vertex_degree
     this%max_vertex_degree = max_vertex_degree
     this%num_time_steps = num_time_steps
     this%num_outputs = num_outputs
@@ -364,7 +383,7 @@ contains
     this%num_params_msg = &
          ( this%num_vertex_features(0) + this%num_edge_features(0) ) * &
          this%num_vertex_features(0) * &
-         this%max_vertex_degree
+         ( this%max_vertex_degree - this%min_vertex_degree + 1 )
     this%num_params_readout = &
          this%num_vertex_features(0) * this%num_outputs * &
          this%num_time_steps
@@ -474,7 +493,7 @@ contains
     this%weight_msg( &
          1:this%num_vertex_features(0) + this%num_edge_features(0), &
          1:this%num_vertex_features(0), &
-         1:this%max_vertex_degree, &
+         this%min_vertex_degree:this%max_vertex_degree, &
          1:this%num_time_steps &
     ) => this%params(1:sum(this%num_params_msg))
     this%weight_readout( &
@@ -710,9 +729,10 @@ contains
        do concurrent (s = 1: this%batch_size)
           do v = 1, this%graph(s)%num_vertices
              degree = this%graph(s)%adj_ia(v+1) - this%graph(s)%adj_ia(v)
-             if(degree .gt. this%max_vertex_degree) &
-                  degree = this%max_vertex_degree
-             if(degree .eq. 0) cycle
+             degree = max( &
+                  this%min_vertex_degree, &
+                  min(degree, this%max_vertex_degree) &
+             )
              do e = this%graph(s)%adj_ia(v), this%graph(s)%adj_ia(v+1) - 1
                 if(this%graph(s)%adj_ja(2,e).eq.0) cycle ! self interaction
                 this%message(t,s)%val(:,v) = &
@@ -815,11 +835,10 @@ contains
           do v = 1, this%graph(s)%num_vertices
              ! GET VERTEX DEGREE FOR sparse graph
              degree = this%graph(s)%adj_ia(v+1) - this%graph(s)%adj_ia(v)
-             degree = &
-                  min( &
-                       degree, &!this%graph(s)%vertex(v)%degree, &
-                       this%max_vertex_degree &
-                  )
+             degree = max( &
+                  this%min_vertex_degree, &
+                  min(degree, this%max_vertex_degree) &
+             )
              ! i.e. outer product of the input and delta
              ! sum weights and biases errors to use in batch gradient descent
              do i = 1, this%num_vertex_features(t) + &
@@ -832,7 +851,10 @@ contains
                         ) * &
                         ( (j-1) + this%num_vertex_features(t) * ( &
                              (degree-1) + &
-                             this%max_vertex_degree * (t-1) &
+                             ( &
+                                  this%max_vertex_degree - &
+                                  this%min_vertex_degree + 1 &
+                             ) * (t-1) &
                         ) )
                    ! ARE WE MISSING THE REST OF delta(:,v)?
                    if(i.gt.this%num_vertex_features(t))then
