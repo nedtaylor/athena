@@ -81,8 +81,8 @@ source-dir = "example/msgpass/src"
 [example.dependencies]
 example_library = { path = "example/example_library"}
 
-# [[example]]
-# name = "mpnn_chemical"
-# source-dir = "example/mpnn_chemical/src"
-# [example.dependencies]
-# example_library = { path = "example/example_library"}
+[[example]]
+name = "msgpass_chemical"
+source-dir = "example/msgpass_chemical/src"
+[example.dependencies]
+example_library = { path = "example/example_library"}
