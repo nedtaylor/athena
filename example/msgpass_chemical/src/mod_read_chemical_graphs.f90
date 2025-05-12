@@ -249,7 +249,7 @@ contains
                          if( rtmp1 .gt. cutoff_min .and. &
                               rtmp1 .lt. cutoff_max )then
                             edge%index = [iatom,jatom]
-                            edge%feature = [rtmp1]
+                            edge%feature = [ rtmp1 / cutoff_max ]
                             graph%edge = [ graph%edge, edge ]
                             graph%edge(size(graph%edge))%id = size(graph%edge)
                          end if
