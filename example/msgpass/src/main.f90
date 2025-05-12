@@ -24,10 +24,13 @@ program mnist_example
   character(1024) :: file, train_file
 
   !! training loop variables
-  integer :: num_samples, num_tests
+  integer :: num_tests = 10, num_epochs = 100, batch_size = 4
+  integer :: num_time_steps = 4
+  integer :: num_samples
   integer :: i, itmp1, n, num_iterations
   real(real32), dimension(:,:), allocatable :: output_tmp, output
 
+  integer :: num_params
   integer :: v, s
   integer, dimension(:), allocatable :: sample_list
 
@@ -36,7 +39,7 @@ program mnist_example
 !!!-----------------------------------------------------------------------------
 !!! read training dataset
 !!!-----------------------------------------------------------------------------
-  train_file = "example/mpnn_chemical/database.xyz"
+  train_file = "example/msgpass_chemical/database.xyz"
   write(*,*) "Reading training dataset..."
   call read_extxyz_db(train_file, graphs, labels)
   write(*,*) "Reading finished"
@@ -59,8 +62,11 @@ program mnist_example
      write(6,*) "Initialising MPNN..."
 
      call network%add(kipf_msgpass_layer_type( &
-          num_time_steps=4, &
-          num_features=[2,1] &
+          num_time_steps = num_time_steps, &
+          num_features = [ &
+               graphs(1,1)%num_vertex_features, &
+               graphs(1,1)%num_edge_features &
+          ] &
      ))
      !  call network%add(full_layer_type( &
      !       num_inputs  = 10, &
@@ -94,8 +100,9 @@ program mnist_example
 !!!-----------------------------------------------------------------------------
 !!! print network and dataset summary
 !!!-----------------------------------------------------------------------------
-  num_tests = 10
+  num_params = network%get_num_params()
   write(*,*) "NUMBER OF LAYERS",network%num_layers
+  write(*,*) "Number of parameters", num_params
   write(*,*) "Number of samples",size(labels)
   write(*,*) "Number of tests",num_tests
 
@@ -110,32 +117,47 @@ program mnist_example
   !labels = labels / maxval(labels)
   allocate(output_tmp(1,1))
   allocate(output(1,size(labels)))
-  do n = 1, 100
-     sample_list = [(i, i = 1, size(labels) - num_tests)]
+  do n = 1, num_epochs
+     if(mod(n,10) == 0) write(*,*) "Epoch", n
+     sample_list = [ &
+          (i, i = 1, size(graphs) - num_tests - batch_size + 1, batch_size) &
+     ]
      call shuffle(sample_list)
-     do s = 1, size(sample_list)
+     do s = 1, size(sample_list), 1
 
         ! write(*,*) n, s
-        call network%forward_graph(graphs(s:s,:))
-        call network%backward_graph(graphs(s:s,:)) ! reshape([labels(sample_list(s))], [1,1]))
-        ! write(*,*) "predicted",network%model(2)%layer%output%val, labels(sample_list(s))
-
+        call network%forward_graph( &
+             reshape( &
+                  graphs(sample_list(s):sample_list(s)+batch_size-1,1), &
+                  [batch_size,1] &
+             ) &
+        )
+        call network%backward_graph( &
+             reshape( &
+                  graphs(sample_list(s):sample_list(s)+batch_size-1,1), &
+                  [batch_size,1] &
+             ) &
+        )
         call network%update()
-
      end do
   end do
 
 
-! !!!-----------------------------------------------------------------------------
-! !!! testing loop
-! !!!-----------------------------------------------------------------------------
-!   write(*,*) "Starting testing..."
-!   do s = size(labels) - num_tests + 1, size(labels)
-!      call network%forward(graph)
-!      call network%model(2)%layer%get_output(output_tmp)
-!      write(*,*) "predicted",output_tmp(1,1), labels(s)
-!   end do
-!   write(*,*) "Testing finished"
+!!!-----------------------------------------------------------------------------
+!!! testing loop
+!!!-----------------------------------------------------------------------------
+  write(*,*) "Starting testing..."
+  do s = 1, size(labels) - batch_size + 1, batch_size
+     call network%forward_graph( &
+          reshape( &
+               graphs(s:s+batch_size-1,1), [batch_size,1] &
+          ) &
+     )
+     call network%model(2)%layer%get_output(output_tmp)
+     write(*,*) "imputed", output_tmp
+     write(*,*) "expected", graphs(s,1)%vertex_features
+  end do
+  write(*,*) "Testing finished"
 
 
   ! write(6,'("Overall accuracy=",F0.5)') network%accuracy

@@ -24,7 +24,8 @@ program mnist_example
   character(1024) :: file, train_file
 
   !! training loop variables
-  integer :: num_tests = 10, num_epochs = 500, batch_size = 4
+  integer :: num_tests = 10, num_epochs = 100, batch_size = 4
+  integer :: num_time_steps = 4
   integer :: i, itmp1, n, num_iterations
   real(real32), dimension(:,:), allocatable :: output_tmp, output
 
@@ -65,7 +66,7 @@ program mnist_example
      write(6,*) "Initialising MSGPASS..."
 
      call network%add(duvenaud_msgpass_layer_type( &
-          num_time_steps = 4, &
+          num_time_steps = num_time_steps, &
           num_features = [ &
                graphs(1,1)%num_vertex_features, &
                graphs(1,1)%num_edge_features &

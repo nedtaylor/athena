@@ -109,7 +109,7 @@ contains
     integer :: num_params
     !! Number of parameters
 
-    num_params = ( this%num_vertex_features(1) ** 2 ) * this%num_time_steps
+    num_params = ( this%num_vertex_features(0) ** 2 ) * this%num_time_steps
 
   end function get_num_params_kipf
 !###############################################################################
@@ -279,11 +279,11 @@ contains
     if(allocated(this%num_edge_features)) &
          deallocate(this%num_edge_features)
     allocate( &
-         this%num_vertex_features(this%num_time_steps), &
+         this%num_vertex_features(0:this%num_time_steps), &
          source = num_vertex_features &
     )
     allocate( &
-         this%num_edge_features(this%num_time_steps), &
+         this%num_edge_features(0:this%num_time_steps), &
          source = num_edge_features &
     )
     this%use_graph_input = .true.
@@ -299,6 +299,11 @@ contains
                trim(this%kernel_initialiser)
        end if
     end if
+    if(allocated(this%num_params_msg)) deallocate(this%num_params_msg)
+    allocate(this%num_params_msg(1:this%num_time_steps))
+    this%num_params_msg = &
+         ( this%num_vertex_features(0) ** 2 )
+    this%num_params_readout = 0
 
   end subroutine set_hyperparams_kipf
 !###############################################################################
@@ -338,7 +343,7 @@ contains
     ! Initialise number of inputs
     !---------------------------------------------------------------------------
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
-    this%output_shape = [this%num_vertex_features]
+    this%output_shape = [this%num_vertex_features(0)]
     this%num_params = this%get_num_params()
 
 
@@ -395,8 +400,8 @@ contains
     ! Set weights and biases pointers to params array
     !---------------------------------------------------------------------------
     this%weight( &
-         1:this%num_vertex_features(1), &
-         1:this%num_vertex_features(1), &
+         1:this%num_vertex_features(0), &
+         1:this%num_vertex_features(0), &
          1:this%num_time_steps &
     ) => this%params
 
@@ -429,8 +434,8 @@ contains
             ), source=0._real32 &
        )
        this%dw( &
-            1:this%num_vertex_features(1), &
-            1:this%num_vertex_features(1), &
+            1:this%num_vertex_features(0), &
+            1:this%num_vertex_features(0), &
             1:this%num_time_steps, &
             1:this%batch_size &
        ) => this%dp
@@ -477,7 +482,7 @@ contains
 !##############################################################################!
 
 
-
+!###############################################################################
   pure subroutine update_message_kipf(this, input)
     !! Update the message
     implicit none
@@ -505,29 +510,16 @@ contains
     do t = 1, this%num_time_steps
        do concurrent (s = 1: this%batch_size)
           do v = 1, this%graph(s)%num_vertices
-             !  allocate( xe(2 * this%num_vertex_features + this%num_edge_features, this%graph(s)%vertex(v)%degree) )
+             this%message(t,s)%val(:,v) = 0._real32
              do e = this%graph(s)%adj_ia(v), this%graph(s)%adj_ia(v+1) - 1
-
-                ! this is from Chen 2021 et al
-                ! xe(:,e-this%graph(s)%adj_ia(v)+1) = [ &
-                !      ( this%vertex_features(t-1,s)%val(:,v) + this%vertex_features(t-1,s)%val(:,this%graph(s)%adj_ja(1,e)) ) / 2._real32, &
-                !      abs( this%vertex_features(t-1,s)%val(:,v) - this%vertex_features(t-1,s)%val(:,this%graph(s)%adj_ja(1,e)) ) / 2._real32, &
-                !      this%edge_features(t-1,s)%val(:,e) &
-                ! ]
-
-                ! xe(:,e-this%graph(s)%adj_ia(v)+1) = matmul( &
-                !      this%edge_weight(t)%val(:,:), &
-                !      xe(:,e-this%graph(s)%adj_ia(v)+1) &
-                ! )
-
-
 
                 if( this%graph(s)%adj_ja(2,e) .eq. 0 )then
                    c = 1._real32
                 else
                    c = this%graph(s)%edge_weights(this%graph(s)%adj_ja(2,e))
                 end if
-                ! fix this for lower memory case, where we don't store the vertices as derived types
+                ! fix this for lower memory case,
+                ! where we don't store the vertices as derived types
                 c = c * ( &
                      ( this%graph(s)%adj_ia(v+1) - this%graph(s)%adj_ia(v) ) * &
                      ( &
@@ -566,8 +558,10 @@ contains
     end do
 
   end subroutine update_message_kipf
+!###############################################################################
 
 
+!###############################################################################
   pure subroutine update_readout_kipf(this)
     !! Update the readout
     implicit none
@@ -587,8 +581,10 @@ contains
     end do
 
   end subroutine update_readout_kipf
+!###############################################################################
 
 
+!###############################################################################
   pure subroutine backward_message_kipf(this, input, gradient)
     !! Backward pass for the message phase
     implicit none
@@ -601,10 +597,81 @@ contains
     class(array_type), dimension(:,:), intent(in) :: gradient
     !! Gradient of the loss with respect to the output of the layer
 
+    ! Local variables
+    integer :: s, v, e, t, u
+    !! Batch index, vertex index, edge index, time step, neighbor index
+    real(real32) :: c
+    !! Normalisation constant for the message passing
+    real(real32), dimension(:,:), allocatable :: dz
+    !! Gradient of the loss with respect to z
+    real(real32), dimension(:,:), allocatable :: dv_features
+    !! Gradient of the loss with respect to vertex features
+
+
+    ! Initialise vertex features gradients at time T
+    do s = 1, this%batch_size
+       this%di(1,s)%val = gradient(1,s)%val
+       this%di(2,s)%val = gradient(2,s)%val
+    end do
+
+    ! Backpropagate through time steps
+    do t = this%num_time_steps, 1, -1
+       do s = 1, this%batch_size
+          ! Calculate gradient with respect to z at time t
+          allocate(dz, mold=this%z(t,s)%val)
+          dz = this%transfer%differentiate(this%z(t,s)%val) * this%di(1,s)%val
+
+          ! Calculate gradient with respect to weights
+          do v = 1, this%graph(s)%num_vertices
+             this%dw(:,:,t,s) = this%dw(:,:,t,s) + &
+                  matmul( &
+                       transpose(reshape(this%message(t,s)%val(:,v), &
+                            [1, size(this%message(t,s)%val, 1)] &
+                       )), reshape(dz(:,v), [1, size(dz, 1)]) &
+                  )
+          end do
+
+          ! Allocate space for vertex feature gradients
+          allocate(dv_features, mold=this%vertex_features(t-1,s)%val)
+          dv_features = 0._real32
+
+          ! Backpropagate through message passing
+          do v = 1, this%graph(s)%num_vertices
+             ! Compute gradients for each vertex
+             do e = this%graph(s)%adj_ia(v), this%graph(s)%adj_ia(v+1) - 1
+                u = this%graph(s)%adj_ja(1,e)  ! Neighbor vertex index
+
+                ! Compute normalisation constant
+                if(this%graph(s)%adj_ja(2,e) .eq. 0) then
+                   c = 1._real32
+                else
+                   c = this%graph(s)%edge_weights(this%graph(s)%adj_ja(2,e))
+                end if
+                c = c * ( &
+                     (this%graph(s)%adj_ia(v+1) - this%graph(s)%adj_ia(v)) * &
+                     (this%graph(s)%adj_ia(u+1) - this%graph(s)%adj_ia(u)) &
+                ) ** (-0.5_real32)
+
+                ! Add gradient contribution to neighbour
+                dv_features(:,u) = dv_features(:,u) + &
+                     c * matmul(dz(:,v), this%weight(:,:,t))
+             end do
+          end do
+
+          ! Update input gradient for prior time step (if not the first time step)
+          if(t .gt. 1) then
+             this%di(1,s)%val = dv_features
+          end if
+
+          deallocate(dz, dv_features)
+       end do
+    end do
+
   end subroutine backward_message_kipf
+!###############################################################################
 
 
-
+!###############################################################################
   pure subroutine backward_readout_kipf(this, gradient)
     !! Backward pass for the readout phase
     implicit none
@@ -615,9 +682,17 @@ contains
     class(array_type), dimension(:,:), intent(in) :: gradient
     !! Gradient of the loss with respect to the output of the layer
 
+    ! Local variables
+    integer :: s
+    !! Batch index
+
+    ! Pass gradients from output to final vertex/edge features
+    do s = 1, this%batch_size
+       this%di(1,s)%val = gradient(1,s)%val
+       this%di(2,s)%val = gradient(2,s)%val
+    end do
+
   end subroutine backward_readout_kipf
-
-
-
+!###############################################################################
 
 end module athena__kipf_msgpass_layer
