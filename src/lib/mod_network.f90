@@ -17,9 +17,8 @@ module athena__network
        comp_loss_deriv => compute_loss_derivative
   use athena__accuracy, only: comp_acc_func => compute_accuracy_function
   use athena__base_layer, only: base_layer_type
-  use athena__misc_types, only: array_type
+  use athena__misc_types, only: array_type, array2d_type
   use athena__container_layer, only: container_layer_type
-  use athena__misc_types, only: array2d_type
   implicit none
 
 
@@ -40,6 +39,8 @@ module athena__network
      !! Number of outputs
      integer :: num_params = 0
      !! Number of parameters
+     logical :: use_graph_input = .false.
+     !! Boolean flag for graph input
      class(base_optimiser_type), allocatable :: optimiser
      !! Optimiser for the network
      type(metric_dict_type), dimension(2) :: metrics
@@ -135,7 +136,7 @@ module athena__network
      procedure, pass(this) :: backward_graph
      !! Backward pass for graph input
      procedure, pass(this) :: backward_mixed
-     generic :: forward => forward_real, forward_derived !, forward_graph
+     generic :: forward => forward_real, forward_derived, forward_graph
      procedure, pass(this) :: backward => backward_real
      !! Backward pass
      ! generic :: backward => backward_real, backward_derived !, backward_graph
@@ -559,5 +560,50 @@ module athena__network
        !! Input data
      end subroutine backward_mixed
   end interface
+
+  interface get_sample
+     module function get_sample_ptr( &
+          input, start_index, end_index, batch_size &
+     ) result(sample_ptr)
+       !! Get a sample from a rank
+       implicit none
+       ! Arguments
+       integer, intent(in) :: start_index, end_index
+       !! Start and end indices
+       integer, intent(in) :: batch_size
+       !! Batch size
+       real(real32), dimension(..), intent(in), target :: input
+       !! Input array
+       ! Local variables
+       real(real32), pointer :: sample_ptr(:,:)
+       !! Pointer to sample
+     end function get_sample_ptr
+     module function get_sample_derived( &
+          input, start_index, end_index, batch_size &
+     ) result(sample)
+       !! Get sample for derived input
+       integer, intent(in) :: start_index, end_index
+       !! Start and end indices
+       integer, intent(in) :: batch_size
+       !! Batch size
+       class(array_type), dimension(:), intent(in), target :: input
+       !! Input array
+       type(array2d_type), dimension(size(input,1)) :: sample
+       !! Sample array
+     end function get_sample_derived
+     module function get_sample_graph( &
+          input, start_index, end_index, batch_size &
+     ) result(sample)
+       !! Get sample for graph input
+       integer, intent(in) :: start_index, end_index
+       !! Start and end indices
+       integer, intent(in) :: batch_size
+       !! Batch size
+       class(graph_type), dimension(:,:), intent(in), target :: input
+       !! Input array
+       type(graph_type), dimension(batch_size,size(input,dim=2)) :: sample
+       !! Sample array
+     end function get_sample_graph
+  end interface get_sample
 
 end module athena__network

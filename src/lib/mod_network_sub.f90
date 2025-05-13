@@ -463,12 +463,14 @@ contains
        allocate(model(size(this%model,dim=1)+1))
        do i = 1, size(this%model,dim=1)
           allocate(model(i)%layer, source=this%model(i)%layer)
+          model(i)%name = this%model(i)%layer%type
        end do
        call move_alloc(model, this%model)
        this%num_layers = this%num_layers + 1
     end if
     allocate(this%model(size(this%model,dim=1))%layer, source=layer)
     this%model(size(this%model,dim=1))%layer%id = this%num_layers
+    this%model(size(this%model,dim=1))%name = layer%type
 
 
     operator_ = 1
@@ -972,6 +974,20 @@ contains
 
 
     !---------------------------------------------------------------------------
+    ! Identify whether input is graph type
+    !---------------------------------------------------------------------------
+    if( &
+         this%model( &
+              this%auto_graph%vertex(this%root_vertices(1))%id &
+         )%layer%use_graph_input &
+    )then
+       this%use_graph_input = .true.
+    else
+       this%use_graph_input = .false.
+    end if
+
+
+    !---------------------------------------------------------------------------
     ! Check for required flatten layers
     !---------------------------------------------------------------------------
     i = 0
@@ -1179,17 +1195,20 @@ contains
 
 
 !###############################################################################
-  function get_sample(input, start_index, end_index) result(sample_ptr)
-    !! Get a sample from a rank
+  module function get_sample_ptr( &
+       input, start_index, end_index, batch_size &
+  ) result(sample_ptr)
+    !! Get samples of batch size from a real array
     implicit none
 
     ! Arguments
     integer, intent(in) :: start_index, end_index
     !! Start and end indices
+    integer, intent(in) :: batch_size
+    !! Batch size
     real(real32), dimension(..), intent(in), target :: input
     !! Input array
 
-    ! Local variables
     real(real32), pointer :: sample_ptr(:,:)
     !! Pointer to sample
 
@@ -1214,15 +1233,19 @@ contains
        sample_ptr => null()
     end select
 
-  end function get_sample
+  end function get_sample_ptr
 !-------------------------------------------------------------------------------
-  function get_sample_derived(input, start_index, end_index) result(sample)
-    !! Get a sample from a rank
+  module function get_sample_derived( &
+       input, start_index, end_index, batch_size &
+  ) result(sample)
+    !! Get samples of batch size from a derived type array
     implicit none
 
     ! Arguments
     integer, intent(in) :: start_index, end_index
     !! Start and end indices
+    integer, intent(in) :: batch_size
+    !! Batch size
     class(array_type), dimension(:), intent(in), target :: input
     !! Input array
 
@@ -1234,10 +1257,33 @@ contains
     !! Loop index
 
     do i = 1, size(input,1)
-       sample(i)%val = get_sample(input(i)%val, start_index, end_index)
+       sample(i)%val = get_sample_ptr( &
+            input(i)%val, start_index, end_index, batch_size &
+       )
     end do
 
   end function get_sample_derived
+!-------------------------------------------------------------------------------
+  module function get_sample_graph( &
+       input, start_index, end_index, batch_size &
+  ) result(sample)
+    !! Get samples of batch size from a graph
+    implicit none
+
+    ! Arguments
+    integer, intent(in) :: start_index, end_index
+    !! Start and end indices
+    integer, intent(in) :: batch_size
+    !! Batch size
+    class(graph_type), dimension(:,:), intent(in), target :: input
+    !! Input array
+
+    type(graph_type), dimension(batch_size,size(input,dim=2)) :: sample
+    !! Sample array
+
+    sample(1:batch_size,:) = input(start_index:end_index,:)
+
+  end function get_sample_graph
 !###############################################################################
 
 
@@ -1565,14 +1611,6 @@ contains
     !! Start and end indices
 
 
-    !!! NEED TO ALLOCATE BASED ON INPUT NUMBER OF NODES AND FEATURES
-    ! call input(1)%allocate( &
-    !      array_shape = ( &
-    !           this%model(this%auto_graph%vertex(idx)%id)%layer%di(1,1)%size, &
-    !           this%batch_size &
-    !      ), &
-    !      source = 0._real32 &
-    ! )
     do s = 1, this%batch_size
        do j = 1, 2
           input(j,s)%val = 0._real32
@@ -2409,10 +2447,8 @@ contains
 
 
 !###############################################################################
-!!!
-!###############################################################################
   subroutine convert_polymorphic_to_array2d( &
-       input, output, num_samples, num_input_layers &
+       input, output_array, output_graph, num_samples, num_input_layers &
   )
     !! Convert polymorphic input to array2d
     implicit none
@@ -2420,7 +2456,9 @@ contains
     ! Arguments
     class(*), dimension(..), intent(in) :: input
     !! Input
-    type(array2d_type), dimension(:), allocatable, intent(out) :: output
+    type(array2d_type), dimension(:), allocatable, intent(out) :: output_array
+    !! Output
+    type(graph_type), dimension(:,:), allocatable, intent(out) :: output_graph
     !! Output
     integer, intent(out) :: num_samples
     !! Number of samples
@@ -2445,8 +2483,8 @@ contains
        input_rank = rank(input)
        num_samples = size(input, input_rank)
        num_inputs = size(input) / num_samples
-       allocate(output(1))
-       call output(1)%allocate(array_shape=[num_inputs, num_samples])
+       allocate(output_array(1))
+       call output_array(1)%allocate(array_shape=[num_inputs, num_samples])
     end select
     l_valid_rank_type = .false.
 
@@ -2466,18 +2504,25 @@ contains
           )
           return
        end if
-       allocate(output(1))
+       allocate(output_array(1))
        num_samples = get_num_samples(input)
        select type(input)
        class is(array_type)
-          call handle_array_type(input, output(i), num_samples)
+          call handle_array_type(input, output_array(i), num_samples)
        type is(array_container_type)
-          call handle_array_type(input%array, output(i), num_samples)
+          call handle_array_type(input%array, output_array(i), num_samples)
        end select
     rank(1)
        select type(input)
-       type is(real); exit rank_select
-       class default; l_valid_rank_type = .true.
+       type is(real)
+          exit rank_select
+       type is(graph_type)
+          num_samples = size(input, dim=1)
+          allocate(output_graph(num_samples, num_input_layers))
+          output_graph(:,1) = input(:)
+          return
+       class default
+          l_valid_rank_type = .true.
        end select
        if(size(input,1).ne.num_input_layers)then
           call stop_program( &
@@ -2486,38 +2531,45 @@ contains
           )
           return
        end if
-       allocate(output(size(input,1)))
+       allocate(output_array(size(input,1)))
        num_samples = get_num_samples(input(1))
        do i = 1, size(input,1)
           select type(input)
           class is(array_type)
-             call handle_array_type(input(i), output(i), num_samples)
+             call handle_array_type(input(i), output_array(i), num_samples)
           type is(array_container_type)
-             call handle_array_type(input(i)%array, output(i), num_samples)
+             call handle_array_type( &
+                  input(i)%array, output_array(i), num_samples &
+             )
           end select
        end do
     rank(2)
        select type(input)
        type is(real)
-          output(1)%val = reshape(input, [num_inputs, num_samples])
+          output_array(1)%val = reshape(input, [num_inputs, num_samples])
           l_valid_rank_type = .true.
+       type is(graph_type)
+          num_samples = size(input, dim=1)
+          allocate(output_graph(num_samples, num_input_layers))
+          output_graph(:,:) = input(:,:)
+          return
        end select
     rank(3)
        select type(input)
        type is(real)
-          output(1)%val = reshape(input, [num_inputs, num_samples])
+          output_array(1)%val = reshape(input, [num_inputs, num_samples])
           l_valid_rank_type = .true.
        end select
     rank(4)
        select type(input)
        type is(real)
-          output(1)%val = reshape(input, [num_inputs, num_samples])
+          output_array(1)%val = reshape(input, [num_inputs, num_samples])
           l_valid_rank_type = .true.
        end select
     rank(5)
        select type(input)
        type is(real)
-          output(1)%val = reshape(input, [num_inputs, num_samples])
+          output_array(1)%val = reshape(input, [num_inputs, num_samples])
           l_valid_rank_type = .true.
        end select
     end select rank_select
@@ -2616,8 +2668,10 @@ contains
     !! Verbosity level
 
     ! Local variables
-    type(array2d_type), dimension(:), allocatable :: input_
+    type(array2d_type), dimension(:), allocatable :: input_array
     !! Input array
+    type(graph_type), dimension(:,:), allocatable :: input_graph
+    !! Input graph
 
     ! Training parameters
     real(real32) :: batch_loss, batch_accuracy, avg_loss, avg_accuracy
@@ -2719,12 +2773,13 @@ contains
     ! Get number of samples
     !---------------------------------------------------------------------------
     call convert_polymorphic_to_array2d( &
-         input, input_, num_samples, size(this%root_vertices,1) &
+         input, input_array, input_graph, &
+         num_samples, size(this%root_vertices,1) &
     )
     if(size(output,2).ne.num_samples)then
        call stop_program("number of samples in input and output do not match")
        return
-    elseif(size(output,1).ne.this%num_outputs)then
+    elseif(size(output,1).ne.this%num_outputs.and..not.this%use_graph_input)then
        call stop_program("number of outputs in output does not match network")
        return
     end if
@@ -2787,7 +2842,16 @@ contains
           ! Forward pass
           !---------------------------------------------------------------------
           !  call system_clock(timer_start)
-          call this%forward(get_sample_derived(input_,start_index,end_index))
+          select case(this%use_graph_input)
+          case(.true.)
+             call this%forward(get_sample( &
+                  input_graph,start_index,end_index, this%batch_size &
+             ))
+          case default
+             call this%forward(get_sample( &
+                  input_array,start_index,end_index, this%batch_size &
+             ))
+          end select
           !  call system_clock(timer_stop)
           !  forward_timer = forward_timer + timer_stop - timer_start
 
@@ -2911,8 +2975,10 @@ contains
     !! Verbosity level
 
     ! Local variables
-    type(array2d_type), dimension(:), allocatable :: input_
+    type(array2d_type), dimension(:), allocatable :: input_array
     !! Input array
+    type(graph_type), dimension(:,:), allocatable :: input_graph
+    !! Input graph
     integer :: l, sample, num_samples
     !! Loop index
     integer :: verbose_, unit
@@ -2943,7 +3009,8 @@ contains
 
 
     call convert_polymorphic_to_array2d( &
-         input, input_, num_samples, size(this%root_vertices,1) &
+         input, input_array, input_graph, &
+         num_samples, size(this%root_vertices,1) &
     )
 
     select type(output)
@@ -2975,7 +3042,9 @@ contains
 
        ! Forward pass
        !------------------------------------------------------------------------
-       call this%forward(get_sample_derived(input_,sample,sample))
+       call this%forward(get_sample( &
+            input_array, sample, sample, this%batch_size &
+       ))
 
 
        ! Compute loss and accuracy (for monitoring)
@@ -3094,7 +3163,7 @@ contains
     !---------------------------------------------------------------------------
     ! Predict
     !---------------------------------------------------------------------------
-    call this%forward(get_sample(input,1,batch_size))
+    call this%forward(get_sample(input, 1, batch_size, batch_size))
 
     output = this%model(this%output_vertices(1))%layer%output(1,1)%val
 
