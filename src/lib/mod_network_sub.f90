@@ -457,20 +457,18 @@ contains
 
 
     if(.not.allocated(this%model))then
-       this%model = [container_layer_type(name=layer%type)]
+       this%model = [container_layer_type()]
        this%num_layers = 1
     else
        allocate(model(size(this%model,dim=1)+1))
        do i = 1, size(this%model,dim=1)
           allocate(model(i)%layer, source=this%model(i)%layer)
-          model(i)%name = this%model(i)%layer%type
        end do
        call move_alloc(model, this%model)
        this%num_layers = this%num_layers + 1
     end if
     allocate(this%model(size(this%model,dim=1))%layer, source=layer)
     this%model(size(this%model,dim=1))%layer%id = this%num_layers
-    this%model(size(this%model,dim=1))%name = layer%type
 
 
     operator_ = 1
@@ -1006,7 +1004,7 @@ contains
        end do
        child_loop: do j = 1, size(child_vertices)
           child_id = this%auto_graph%vertex(child_vertices(j))%id
-          if(trim(this%model(id)%name).eq."flat") cycle child_loop
+          if(trim(this%model(id)%layer%type).eq."flat") cycle child_loop
           if( this%model(id)%layer%input_rank .eq. &
                this%model(child_id)%layer%input_rank ) cycle child_loop
 
@@ -1112,7 +1110,7 @@ contains
        end if
        if(verbose_.gt.0)then
           write(*,*) "layer: ", &
-               this%vertex_order(i), this%model(this%vertex_order(i))%name
+               this%vertex_order(i), this%model(this%vertex_order(i))%layer%type
           write(*,*) this%model(this%vertex_order(i))%layer%input_shape
           write(*,*) this%model(this%vertex_order(i))%layer%output_shape
        end if

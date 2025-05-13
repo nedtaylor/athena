@@ -21,9 +21,6 @@ module athena__container_layer
 
   type :: container_layer_type
      !! Container for a layer
-     character(4) :: name
-     !! Name of the layer
-     !! Common names: inpt, batc, conv, drop, full, pool, flat
      class(base_layer_type), allocatable :: layer
      !! Layer
    contains
