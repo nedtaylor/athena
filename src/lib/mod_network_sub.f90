@@ -2701,7 +2701,7 @@ contains
     integer, allocatable, dimension(:) :: batch_order
     !! Batch order
 
-    integer :: i, time, time_old, clock_rate
+    integer :: i, s, time, time_old, clock_rate
     !! Loop index
 
 #ifdef _OPENMP
@@ -2842,13 +2842,20 @@ contains
           !  call system_clock(timer_start)
           select case(this%use_graph_input)
           case(.true.)
-             call this%forward(get_sample( &
+             call this%forward_graph(get_sample_graph( &
                   input_graph,start_index,end_index, this%batch_size &
              ))
+             select type(output)
+             type is(graph_type)
+                call this%backward_graph(output)
+             type is(array2d_type)
+                call this%backward_mixed(output)
+             end select
           case default
              call this%forward(get_sample( &
                   input_array,start_index,end_index, this%batch_size &
              ))
+             call this%backward(y_true(:,:))
           end select
           !  call system_clock(timer_stop)
           !  forward_timer = forward_timer + timer_stop - timer_start
@@ -2857,21 +2864,44 @@ contains
           ! Backward pass and store predicted output
           !---------------------------------------------------------------------
           !  call system_clock(timer_start)
-          call this%backward(y_true(:,:))
           !  call system_clock(timer_stop)
           !  backward_timer = backward_timer + timer_stop - timer_start
 
 
           ! Compute loss and accuracy (for monitoring)
           !------------------------------------------------------------------
-          batch_loss = sum( &
-               this%get_loss( &
-                    this%model(this%output_vertices(1))%layer%output(1,1)%val, &
-                    y_true(:,1:this%batch_size)))
-          batch_accuracy = sum( &
-               this%get_accuracy( &
-                    this%model(this%output_vertices(1))%layer%output(1,1)%val, &
-                    y_true(:,1:this%batch_size)))
+          select type(output)
+          type is(graph_type)
+             batch_loss = 0._real32
+             batch_accuracy = 0._real32
+             do s = start_index, end_index, 1
+                batch_loss = batch_loss + sum( this%get_loss( &
+                     this%model(this%output_vertices(1))%layer%output(1,s)%val, &
+                     output(1,s)%vertex_features &
+                ) )
+                batch_loss = batch_loss + sum( this%get_loss( &
+                     this%model(this%output_vertices(1))%layer%output(2,s)%val, &
+                     output(1,s)%edge_features &
+                ) )
+                batch_accuracy = batch_accuracy + sum( this%get_accuracy( &
+                     this%model(this%output_vertices(1))%layer%output(1,s)%val, &
+                     output(1,s)%vertex_features &
+                ) )
+                batch_accuracy = batch_accuracy + sum( this%get_accuracy( &
+                     this%model(this%output_vertices(1))%layer%output(2,s)%val, &
+                     output(1,s)%edge_features &
+                ) )
+             end do
+          class default
+             batch_loss = sum( &
+                  this%get_loss( &
+                       this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+                       y_true(:,1:this%batch_size)))
+             batch_accuracy = sum( &
+                  this%get_accuracy( &
+                       this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+                       y_true(:,1:this%batch_size)))
+          end select
 
 
 

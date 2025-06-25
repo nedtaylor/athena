@@ -708,7 +708,7 @@ contains
     implicit none
 
     ! Arguments
-    class(duvenaud_msgpass_layer_type), intent(inout) :: this
+    class(duvenaud_msgpass_layer_type), intent(inout), target :: this
     !! Instance of the message passing layer
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input to the message passing layer
@@ -803,7 +803,7 @@ contains
     implicit none
 
     ! Arguments
-    class(duvenaud_msgpass_layer_type), intent(inout) :: this
+    class(duvenaud_msgpass_layer_type), intent(inout), target :: this
     !! Instance of the message passing layer
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input data (i.e. vertex and edge features)

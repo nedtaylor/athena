@@ -24,11 +24,6 @@ module athena__kipf_msgpass_layer
      !  type(array2d_type), dimension(:), allocatable :: vertex_weight
      !  !! Weights for the vertices
 
-     real(real32), pointer :: weight(:,:,:) => null()
-     !! Weights for the message passing layer
-     real(real32), pointer :: dw(:,:,:,:) => null()
-     !! Weight gradients
-
    contains
      procedure, pass(this) :: get_num_params => get_num_params_kipf
      !! Get the number of parameters for the message passing layer
@@ -109,7 +104,14 @@ contains
     integer :: num_params
     !! Number of parameters
 
-    num_params = ( this%num_vertex_features(0) ** 2 ) * this%num_time_steps
+    ! Local variables
+    integer :: t
+    !! Loop index
+
+    do t = 1, this%num_time_steps
+       num_params = num_params + &
+            this%num_vertex_features(t-1) * this%num_vertex_features(t)
+    end do
 
   end function get_num_params_kipf
 !###############################################################################
@@ -159,7 +161,7 @@ contains
 
 !###############################################################################
   module function layer_setup( &
-       num_features, num_time_steps, batch_size, &
+       num_vertex_features, num_edge_features, num_time_steps, batch_size, &
        activation_function, activation_scale, &
        kernel_initialiser, &
        verbose &
@@ -168,7 +170,7 @@ contains
     implicit none
 
     ! Arguments
-    integer, dimension(2), intent(in) :: num_features
+    integer, dimension(:), intent(in) :: num_vertex_features, num_edge_features
     !! Number of features
     integer, intent(in) :: num_time_steps
     !! Number of time steps
@@ -212,8 +214,8 @@ contains
     ! Set hyperparameters
     !---------------------------------------------------------------------------
     call layer%set_hyperparams( &
-         num_vertex_features = num_features(1), &
-         num_edge_features = num_features(2), &
+         num_vertex_features = num_vertex_features, &
+         num_edge_features = num_edge_features, &
          num_time_steps = num_time_steps, &
          activation_function = activation_function_, &
          activation_scale = scale, &
@@ -255,9 +257,9 @@ contains
     ! Arguments
     class(kipf_msgpass_layer_type), intent(inout) :: this
     !! Instance of the message passing layer
-    integer, intent(in) :: num_vertex_features
+    integer, dimension(:), intent(in) :: num_vertex_features
     !! Number of vertex features
-    integer, intent(in) :: num_edge_features
+    integer, dimension(:), intent(in) :: num_edge_features
     !! Number of edge features
     integer, intent(in) :: num_time_steps
     !! Number of time steps
@@ -270,6 +272,10 @@ contains
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
+    ! Local variables
+    integer :: t
+    !! Loop index
+
     this%name = 'kipf'
     this%type = 'msgp'
     this%input_rank = 1
@@ -278,14 +284,29 @@ contains
          deallocate(this%num_vertex_features)
     if(allocated(this%num_edge_features)) &
          deallocate(this%num_edge_features)
-    allocate( &
-         this%num_vertex_features(0:this%num_time_steps), &
-         source = num_vertex_features &
-    )
-    allocate( &
-         this%num_edge_features(0:this%num_time_steps), &
-         source = num_edge_features &
-    )
+    if(size(num_vertex_features, 1) .eq. 1) then
+       allocate(this%num_vertex_features(0:num_time_steps), source=num_vertex_features(1))
+    elseif(size(num_vertex_features, 1) .eq. num_time_steps + 1) then
+         allocate( &
+              this%num_vertex_features(0:this%num_time_steps), &
+              source = num_vertex_features &
+         )
+    else
+       write(*,*) "Error: num_vertex_features must be a scalar or a vector of length num_time_steps + 1"
+       stop
+    end if
+    if(size(num_edge_features, 1) .eq. 1) then
+       ! If num_edge_features is a scalar, convert it to a vector
+       allocate(this%num_edge_features(0:num_time_steps), source=num_edge_features(1))
+    elseif(size(num_edge_features, 1) .eq. num_time_steps + 1) then
+       allocate( &
+            this%num_edge_features(0:this%num_time_steps), &
+            source = num_edge_features &
+       )
+    else
+       write(*,*) "Error: num_edge_features must be a scalar or a vector of length num_time_steps + 1"
+       stop
+    end if
     this%use_graph_input = .true.
     allocate(this%transfer, &
          source=activation_setup(activation_function, activation_scale))
@@ -301,9 +322,10 @@ contains
     end if
     if(allocated(this%num_params_msg)) deallocate(this%num_params_msg)
     allocate(this%num_params_msg(1:this%num_time_steps))
-    this%num_params_msg = &
-         ( this%num_vertex_features(0) ** 2 )
-    this%num_params_readout = 0
+    do t = 1, this%num_time_steps
+       this%num_params_msg(t) = &
+            this%num_vertex_features(t-1) * this%num_vertex_features(t)
+    end do
 
   end subroutine set_hyperparams_kipf
 !###############################################################################
@@ -397,16 +419,6 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Set weights and biases pointers to params array
-    !---------------------------------------------------------------------------
-    this%weight( &
-         1:this%num_vertex_features(0), &
-         1:this%num_vertex_features(0), &
-         1:this%num_time_steps &
-    ) => this%params
-
-
-    !---------------------------------------------------------------------------
     ! Allocate arrays
     !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
@@ -433,12 +445,6 @@ contains
                  this%batch_size &
             ), source=0._real32 &
        )
-       this%dw( &
-            1:this%num_vertex_features(0), &
-            1:this%num_vertex_features(0), &
-            1:this%num_time_steps, &
-            1:this%batch_size &
-       ) => this%dp
        if(allocated(this%di)) deallocate(this%di)
        allocate(this%di(2,this%batch_size), source=array2d_type())
        !! input val arrays are allocated in set_graph
@@ -488,7 +494,7 @@ contains
     implicit none
 
     ! Arguments
-    class(kipf_msgpass_layer_type), intent(inout) :: this
+    class(kipf_msgpass_layer_type), intent(inout), target :: this
     !! Instance of the message passing layer
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input to the message passing layer
@@ -498,7 +504,8 @@ contains
     !! Batch index, vertex index, edge index, time step
     real(real32) :: c
     !! Normalisation constant for the message passing
-
+    real(real32), pointer :: weight(:,:)
+    !! Pointer to the weight matrix
     ! real(real32), dimension(:,:), allocatable :: xe
 
 
@@ -508,6 +515,12 @@ contains
     end do
 
     do t = 1, this%num_time_steps
+       weight(1:this%num_vertex_features(t), 1:this%num_vertex_features(t-1)) => &
+          this%params( &
+            sum(this%num_params_msg(1:t-1)) + 1: &
+            sum(this%num_params_msg(1:t)) &
+          )
+
        do concurrent (s = 1: this%batch_size)
           do v = 1, this%graph(s)%num_vertices
              this%message(t,s)%val(:,v) = 0._real32
@@ -549,7 +562,7 @@ contains
              end do
              this%z(t,s)%val(:,v) = matmul( &
                   this%message(t,s)%val(:,v), &
-                  this%weight(:,:,t) &
+                  weight(:,:) &
              )
           end do
           this%vertex_features(t,s)%val(:,:) = &
@@ -590,7 +603,7 @@ contains
     implicit none
 
     ! Arguments
-    class(kipf_msgpass_layer_type), intent(inout) :: this
+    class(kipf_msgpass_layer_type), intent(inout), target :: this
     !! Instance of the message passing layer
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input data (i.e. vertex and edge features)
@@ -606,6 +619,8 @@ contains
     !! Gradient of the loss with respect to z
     real(real32), dimension(:,:), allocatable :: dv_features
     !! Gradient of the loss with respect to vertex features
+    real(real32), pointer :: weight(:,:), dw(:,:)
+    !! Pointer to the weight matrix and its gradient
 
 
     ! Initialise vertex features gradients at time T
@@ -616,14 +631,24 @@ contains
 
     ! Backpropagate through time steps
     do t = this%num_time_steps, 1, -1
+       weight(1:this%num_vertex_features(t), &
+            1:this%num_vertex_features(t-1)) => this%params( &
+            sum(this%num_params_msg(1:t-1)) + 1: &
+            sum(this%num_params_msg(1:t)) &
+       )
        do s = 1, this%batch_size
           ! Calculate gradient with respect to z at time t
           allocate(dz, mold=this%z(t,s)%val)
           dz = this%transfer%differentiate(this%z(t,s)%val) * this%di(1,s)%val
 
           ! Calculate gradient with respect to weights
+          dw(1:this%num_vertex_features(t-1), &
+               1:this%num_vertex_features(t)) => this%dp( &
+               sum(this%num_params_msg(1:t-1)) + 1: &
+               sum(this%num_params_msg(1:t)), s &
+          )
           do v = 1, this%graph(s)%num_vertices
-             this%dw(:,:,t,s) = this%dw(:,:,t,s) + &
+             dw(:,:) = dw(:,:) + &
                   matmul( &
                        transpose(reshape(this%message(t,s)%val(:,v), &
                             [1, size(this%message(t,s)%val, 1)] &
@@ -654,7 +679,7 @@ contains
 
                 ! Add gradient contribution to neighbour
                 dv_features(:,u) = dv_features(:,u) + &
-                     c * matmul(dz(:,v), this%weight(:,:,t))
+                     c * matmul(dz(:,v), weight(:,:))
              end do
           end do
 

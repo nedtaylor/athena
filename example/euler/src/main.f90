@@ -1,0 +1,202 @@
+!!!#############################################################################
+!!! Code written by Ned Thaddeus Taylor
+!!! Code part of the ARTEMIS group (Hepplestone research group)
+!!! Think Hepplestone, think HRG
+!!!#############################################################################
+program mnist_example
+  use athena
+  use constants_mnist, only: real32
+  use read_euler, only: read_graph
+
+  implicit none
+
+  integer :: seed = 1
+  type(network_type) :: network
+  class(base_layer_type), allocatable :: layer
+  type(metric_dict_type), dimension(2) :: metric_dict
+  class(clip_type), allocatable :: clip
+
+  logical :: restart = .false.
+
+  !! data loading and preoprocessing
+  type(graph_type), allocatable, dimension(:,:) :: graphs_in, graphs_out
+  type(array2d_type), allocatable, dimension(:,:) :: features_out
+  character(1024) :: file, train_file
+
+  !! training loop variables
+  integer :: num_tests = 10, num_epochs = 100, batch_size = 4
+  integer :: num_time_steps = 4
+  integer :: num_samples
+  integer :: i, itmp1, n, num_iterations
+  real(real32), dimension(:,:), allocatable :: output_tmp, output
+
+  integer :: num_params
+  integer :: v, s
+  integer, dimension(:), allocatable :: sample_list
+
+  character(len=1024) :: vertex_file, edge_file
+
+
+
+!!!-----------------------------------------------------------------------------
+!!! read training dataset
+!!!-----------------------------------------------------------------------------
+  vertex_file = "example/euler/data/bump_nodeData_in_1.txt"
+  edge_file = "example/euler/data/bump_edgeData_1.txt"
+  write(*,*) "Reading training dataset..."
+  allocate(graphs_in(1,1))
+  call read_graph(vertex_file, edge_file, graphs_in(1,1))
+  write(*,*) "Reading finished"
+
+  vertex_file = "example/euler/data/bump_nodeData_out_1.txt"
+  allocate(graphs_out(1,1))
+  call read_graph(vertex_file, edge_file, graphs_out(1,1))
+  allocate(features_out(1,1))
+  call features_out(1,1)%allocate( &
+       [ graphs_in(1,1)%num_vertex_features, &
+         graphs_in(1,1)%num_vertices &
+       ] &
+  )
+
+
+
+!!!-----------------------------------------------------------------------------
+!!! initialise random seed
+!!!-----------------------------------------------------------------------------
+  call random_setup(seed, restart=.false.)
+
+
+!!!-----------------------------------------------------------------------------
+!!! initialise convolutional and pooling layers
+!!!-----------------------------------------------------------------------------
+  if(restart)then
+     ! write(*,*) "Reading network from file..."
+     ! call network%read(file=input_file)
+     ! write(*,*) "Reading finished"
+  else
+     write(6,*) "Initialising MPNN..."
+
+     call network%add(kipf_msgpass_layer_type( &
+          num_time_steps = num_time_steps, &
+          num_vertex_features = [ 3, 4, 5, 6, 7 ], &
+          num_edge_features = [ 0 ] &
+          !      graphs_in(1,1)%num_vertex_features, &
+          !      graphs_in(1,1)%num_edge_features &
+          ! ] &
+     ))
+     !  call network%add(full_layer_type( &
+     !       num_inputs  = 10, &
+     !       num_outputs = 1, &
+     !       batch_size  = 1, &
+     !       activation_function='leaky_relu', &
+     !       kernel_initialiser='he_normal', &
+     !       bias_initialiser='ones' &
+     !  ))
+  end if
+
+
+!!!-----------------------------------------------------------------------------
+!!! compile network
+!!!-----------------------------------------------------------------------------
+  allocate(clip, source=clip_type(-1.E1_real32, 1.E1_real32))
+  metric_dict%active = .false.
+  metric_dict(1)%key = "loss"
+  metric_dict(2)%key = "accuracy"
+  metric_dict%threshold = 1.E-1_real32
+  call network%compile( &
+       optimiser = sgd_optimiser_type( &
+            clip_dict = clip, &
+            learning_rate = 1.E-3_real32 &
+       ), &
+       loss_method = "mse", metrics = metric_dict, &
+       batch_size = 1, verbose = 1, &
+       accuracy_method = "mse" &
+  )
+
+
+!!!-----------------------------------------------------------------------------
+!!! print network and dataset summary
+!!!-----------------------------------------------------------------------------
+  num_params = network%get_num_params()
+  write(*,*) "NUMBER OF LAYERS",network%num_layers
+  write(*,*) "Number of parameters", num_params
+  write(*,*) "Number of samples",size(features_out)
+  write(*,*) "Number of tests",num_tests
+  write(*,*) "graphs_in", size(graphs_in)
+  write(*,*) "graphs_out", size(graphs_out)
+  write(*,*) "graphs_in(1,1)%num_vertices", graphs_in(1,1)%num_vertices
+  write(*,*) "graphs_in(1,1)%num_edges", graphs_in(1,1)%num_edges
+  write(*,*) "graphs_in(1,1)%num_vertex_features", graphs_in(1,1)%num_vertex_features
+  write(*,*) "graphs_in(1,1)%num_edge_features", graphs_in(1,1)%num_edge_features
+  write(*,*) "graphs_out(1,1)%num_vertices", graphs_out(1,1)%num_vertices
+  write(*,*) "graphs_out(1,1)%num_edges", graphs_out(1,1)%num_edges
+  write(*,*) "graphs_out(1,1)%num_vertex_features", graphs_out(1,1)%num_vertex_features
+  write(*,*) "graphs_out(1,1)%num_edge_features", graphs_out(1,1)%num_edge_features
+
+
+!!!-----------------------------------------------------------------------------
+!!! training loop
+!!! ... loops over num_epoch number of epochs
+!!! ... i.e. it trains on the same datapoints num_epoch times
+!!!-----------------------------------------------------------------------------
+  write(*,*) "tee"
+  call network%set_batch_size(1)
+  write(*,*) "tar"
+  !labels = -1.E0 * labels
+  !labels = labels / maxval(labels)
+  ! allocate(output_tmp(1,1))
+  ! allocate(output(1,size(labels)))
+  ! output(1,:) = labels
+  call network%train( &
+       graphs_in, &
+       graphs_out, &!features_out, &
+       num_epochs = num_epochs &
+  )
+  ! do n = 1, num_epochs
+  !    if(mod(n,10) == 0) write(*,*) "Epoch", n
+  !    sample_list = [ &
+  !         (i, i = 1, size(graphs_in) - num_tests - batch_size + 1, batch_size) &
+  !    ]
+  !    call shuffle(sample_list)
+  !    do s = 1, size(sample_list), 1
+
+  !       ! write(*,*) n, s
+  !       call network%forward_graph( &
+  !            reshape( &
+  !                 graphs_in(sample_list(s):sample_list(s)+batch_size-1,1), &
+  !                 [batch_size,1] &
+  !            ) &
+  !       )
+  !       call network%backward_graph( &
+  !            reshape( &
+  !                 graphs_in(sample_list(s):sample_list(s)+batch_size-1,1), &
+  !                 [batch_size,1] &
+  !            ) &
+  !       )
+  !       call network%update()
+  !    end do
+  ! end do
+
+
+!!!-----------------------------------------------------------------------------
+!!! testing loop
+!!!-----------------------------------------------------------------------------
+  write(*,*) "Starting testing..."
+  ! do s = 1, size(labels) - batch_size + 1, batch_size
+  !    call network%forward_graph( &
+  !         reshape( &
+  !              graphs_in(s:s+batch_size-1,1), [batch_size,1] &
+  !         ) &
+  !    )
+  !    call network%model(2)%layer%get_output(output_tmp)
+  !    write(*,*) "imputed", output_tmp
+  !    write(*,*) "expected", graphs_in(s,1)%vertex_features
+  ! end do
+  write(*,*) "Testing finished"
+
+
+  ! write(6,'("Overall accuracy=",F0.5)') network%accuracy
+  ! write(6,'("Overall loss=",F0.5)')     network%loss
+
+end program mnist_example
+!!!#############################################################################

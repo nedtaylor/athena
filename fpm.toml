@@ -86,3 +86,9 @@ name = "msgpass_chemical"
 source-dir = "example/msgpass_chemical/src"
 [example.dependencies]
 example_library = { path = "example/example_library"}
+
+[[example]]
+name = "euler"
+source-dir = "example/euler/src"
+[example.dependencies]
+example_library = { path = "example/example_library"}
