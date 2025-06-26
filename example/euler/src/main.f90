@@ -24,8 +24,8 @@ program mnist_example
   character(1024) :: file, train_file
 
   !! training loop variables
-  integer :: num_tests = 10, num_epochs = 100, batch_size = 4
-  integer :: num_time_steps = 4
+  integer :: num_tests = 10, num_epochs = 200, batch_size = 4
+  integer :: num_time_steps = 5
   integer :: num_samples
   integer :: i, itmp1, n, num_iterations
   real(real32), dimension(:,:), allocatable :: output_tmp, output
@@ -33,6 +33,7 @@ program mnist_example
   integer :: num_params
   integer :: v, s
   integer, dimension(:), allocatable :: sample_list
+  real(real32), dimension(:), allocatable :: feature_in_norm, feature_out_norm
 
   character(len=1024) :: vertex_file, edge_file
 
@@ -53,9 +54,7 @@ program mnist_example
   call read_graph(vertex_file, edge_file, graphs_out(1,1))
   allocate(features_out(1,1))
   call features_out(1,1)%allocate( &
-       [ graphs_in(1,1)%num_vertex_features, &
-         graphs_in(1,1)%num_vertices &
-       ] &
+       [ graphs_in(1,1)%num_vertex_features, graphs_in(1,1)%num_vertices ] &
   )
 
 
@@ -78,11 +77,10 @@ program mnist_example
 
      call network%add(kipf_msgpass_layer_type( &
           num_time_steps = num_time_steps, &
-          num_vertex_features = [ 3, 4, 5, 6, 7 ], &
-          num_edge_features = [ 0 ] &
-          !      graphs_in(1,1)%num_vertex_features, &
-          !      graphs_in(1,1)%num_edge_features &
-          ! ] &
+          num_vertex_features = [ 3, 6, 12, 24, 14, 7 ], &
+          num_edge_features = [ 0 ], &
+          activation_function = 'softmax', &
+          kernel_initialiser = 'he_normal' &
      ))
      !  call network%add(full_layer_type( &
      !       num_inputs  = 10, &
@@ -94,17 +92,46 @@ program mnist_example
      !  ))
   end if
 
+  ! normalise the input features
+  allocate(feature_in_norm(graphs_in(1,1)%num_vertex_features))
+  feature_in_norm = 0._real32
+  do i = 1, graphs_in(1,1)%num_vertex_features
+     do s = 1, size(graphs_in,1)
+        feature_in_norm(i) = &
+             max(feature_in_norm(i),maxval(graphs_in(s,1)%vertex_features(i,:)))
+     end do
+     do s = 1, size(graphs_in,1)
+        graphs_in(s,1)%vertex_features(i,:) = &
+             graphs_in(s,1)%vertex_features(i,:) / feature_in_norm(i)
+     end do
+  end do
+
+  ! normalise the output features
+  allocate(feature_out_norm(graphs_out(1,1)%num_vertex_features))
+  feature_out_norm = 0._real32
+  do i = 1, graphs_out(1,1)%num_vertex_features
+     do s = 1, size(graphs_out,1)
+        feature_out_norm(i) = &
+             max(feature_out_norm(i),maxval(graphs_out(s,1)%vertex_features(i,:)))
+     end do
+     do s = 1, size(graphs_out,1)
+        graphs_out(s,1)%vertex_features(i,:) = &
+             graphs_out(s,1)%vertex_features(i,:) / feature_out_norm(i)
+        ! write(14,*) graphs_out(s,1)%vertex_features(i,:)
+     end do
+  end do
+
 
 !!!-----------------------------------------------------------------------------
 !!! compile network
 !!!-----------------------------------------------------------------------------
-  allocate(clip, source=clip_type(-1.E1_real32, 1.E1_real32))
+  allocate(clip, source=clip_type(-1.E-2_real32, 1.E-2_real32))
   metric_dict%active = .false.
   metric_dict(1)%key = "loss"
   metric_dict(2)%key = "accuracy"
   metric_dict%threshold = 1.E-1_real32
   call network%compile( &
-       optimiser = sgd_optimiser_type( &
+       optimiser = adam_optimiser_type( &
             clip_dict = clip, &
             learning_rate = 1.E-3_real32 &
        ), &
@@ -122,16 +149,6 @@ program mnist_example
   write(*,*) "Number of parameters", num_params
   write(*,*) "Number of samples",size(features_out)
   write(*,*) "Number of tests",num_tests
-  write(*,*) "graphs_in", size(graphs_in)
-  write(*,*) "graphs_out", size(graphs_out)
-  write(*,*) "graphs_in(1,1)%num_vertices", graphs_in(1,1)%num_vertices
-  write(*,*) "graphs_in(1,1)%num_edges", graphs_in(1,1)%num_edges
-  write(*,*) "graphs_in(1,1)%num_vertex_features", graphs_in(1,1)%num_vertex_features
-  write(*,*) "graphs_in(1,1)%num_edge_features", graphs_in(1,1)%num_edge_features
-  write(*,*) "graphs_out(1,1)%num_vertices", graphs_out(1,1)%num_vertices
-  write(*,*) "graphs_out(1,1)%num_edges", graphs_out(1,1)%num_edges
-  write(*,*) "graphs_out(1,1)%num_vertex_features", graphs_out(1,1)%num_vertex_features
-  write(*,*) "graphs_out(1,1)%num_edge_features", graphs_out(1,1)%num_edge_features
 
 
 !!!-----------------------------------------------------------------------------
@@ -139,9 +156,7 @@ program mnist_example
 !!! ... loops over num_epoch number of epochs
 !!! ... i.e. it trains on the same datapoints num_epoch times
 !!!-----------------------------------------------------------------------------
-  write(*,*) "tee"
   call network%set_batch_size(1)
-  write(*,*) "tar"
   !labels = -1.E0 * labels
   !labels = labels / maxval(labels)
   ! allocate(output_tmp(1,1))
@@ -149,7 +164,7 @@ program mnist_example
   ! output(1,:) = labels
   call network%train( &
        graphs_in, &
-       graphs_out, &!features_out, &
+       graphs_out, &
        num_epochs = num_epochs &
   )
   ! do n = 1, num_epochs

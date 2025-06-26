@@ -354,7 +354,7 @@ contains
                [ this%num_edge_features(t), this%graph(s)%num_edges ] &
           )
           call this%message(t,s)%allocate( &
-               [ this%num_vertex_features(t), this%graph(s)%num_vertices ] &
+               [ this%num_vertex_features(t-1), this%graph(s)%num_vertices ] &
           )
           call this%z(t,s)%allocate( &
                [ this%num_vertex_features(t), this%graph(s)%num_vertices ] &

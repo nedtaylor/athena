@@ -2183,11 +2183,11 @@ contains
                 gradient(1, s)%val = this%get_loss_deriv( &
                      this%model(this%vertex_order(i))%layer%output(1,s)%val, &
                      output(s,1)%vertex_features &
-                )
+                ) / output(s,1)%num_vertices
                 gradient(2, s)%val = this%get_loss_deriv( &
                      this%model(this%vertex_order(i))%layer%output(2,s)%val, &
                      output(s,1)%edge_features &
-                )
+                ) / output(s,1)%num_edges
              end do
           else
              call this%get_gradient_graph_autodiff( &
@@ -2878,19 +2878,19 @@ contains
                 batch_loss = batch_loss + sum( this%get_loss( &
                      this%model(this%output_vertices(1))%layer%output(1,s)%val, &
                      output(1,s)%vertex_features &
-                ) )
-                batch_loss = batch_loss + sum( this%get_loss( &
-                     this%model(this%output_vertices(1))%layer%output(2,s)%val, &
-                     output(1,s)%edge_features &
-                ) )
+                ) ) / output(1,s)%num_vertices
+                ! batch_loss = batch_loss + sum( this%get_loss( &
+                !      this%model(this%output_vertices(1))%layer%output(2,s)%val, &
+                !      output(1,s)%edge_features &
+                ! ) )
                 batch_accuracy = batch_accuracy + sum( this%get_accuracy( &
                      this%model(this%output_vertices(1))%layer%output(1,s)%val, &
                      output(1,s)%vertex_features &
-                ) )
-                batch_accuracy = batch_accuracy + sum( this%get_accuracy( &
-                     this%model(this%output_vertices(1))%layer%output(2,s)%val, &
-                     output(1,s)%edge_features &
-                ) )
+                ) ) / output(1,s)%num_vertices
+                ! batch_accuracy = batch_accuracy + sum( this%get_accuracy( &
+                !      this%model(this%output_vertices(1))%layer%output(2,s)%val, &
+                !      output(1,s)%edge_features &
+                ! ) )
              end do
           class default
              batch_loss = sum( &

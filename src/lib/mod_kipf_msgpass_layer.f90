@@ -108,6 +108,7 @@ contains
     integer :: t
     !! Loop index
 
+    num_params = 0
     do t = 1, this%num_time_steps
        num_params = num_params + &
             this%num_vertex_features(t-1) * this%num_vertex_features(t)
@@ -285,26 +286,34 @@ contains
     if(allocated(this%num_edge_features)) &
          deallocate(this%num_edge_features)
     if(size(num_vertex_features, 1) .eq. 1) then
-       allocate(this%num_vertex_features(0:num_time_steps), source=num_vertex_features(1))
+       allocate( &
+            this%num_vertex_features(0:num_time_steps), &
+            source = num_vertex_features(1) &
+       )
     elseif(size(num_vertex_features, 1) .eq. num_time_steps + 1) then
-         allocate( &
-              this%num_vertex_features(0:this%num_time_steps), &
-              source = num_vertex_features &
-         )
+       allocate( &
+            this%num_vertex_features(0:this%num_time_steps), &
+            source = num_vertex_features &
+       )
     else
-       write(*,*) "Error: num_vertex_features must be a scalar or a vector of length num_time_steps + 1"
+       write(*,*) "Error: num_vertex_features must be a scalar or a vector of &
+            &length num_time_steps + 1"
        stop
     end if
     if(size(num_edge_features, 1) .eq. 1) then
        ! If num_edge_features is a scalar, convert it to a vector
-       allocate(this%num_edge_features(0:num_time_steps), source=num_edge_features(1))
+       allocate( &
+            this%num_edge_features(0:num_time_steps), &
+            source = num_edge_features(1) &
+       )
     elseif(size(num_edge_features, 1) .eq. num_time_steps + 1) then
        allocate( &
             this%num_edge_features(0:this%num_time_steps), &
             source = num_edge_features &
        )
     else
-       write(*,*) "Error: num_edge_features must be a scalar or a vector of length num_time_steps + 1"
+       write(*,*) "Error: num_edge_features must be a scalar or a vector of &
+            &length num_time_steps + 1"
        stop
     end if
     this%use_graph_input = .true.
@@ -348,6 +357,8 @@ contains
     !! Verbosity level
 
     ! Local variables
+    integer :: t
+    !! Loop index
     integer :: verbose_ = 0
     !! Verbosity level
     class(initialiser_type), allocatable :: initialiser_
@@ -380,12 +391,17 @@ contains
     ! Initialise weights (kernels)
     !---------------------------------------------------------------------------
     allocate(initialiser_, source=initialiser_setup(this%kernel_initialiser))
-    call initialiser_%initialise( &
-         this%params, &
-         fan_in = this%num_vertex_features(1), &
-         fan_out = this%num_vertex_features(1), &
-         spacing = [ this%num_vertex_features(1) ] &
-    )
+    do t = 1, this%num_time_steps
+       call initialiser_%initialise( &
+            this%params( &
+                 sum(this%num_params_msg(1:t-1)) + 1: &
+                 sum(this%num_params_msg(1:t)) &
+            ), &
+            fan_in = this%num_vertex_features(t-1), &
+            fan_out = this%num_vertex_features(t), &
+            spacing = [ this%num_vertex_features(t) ] &
+       )
+    end do
     deallocate(initialiser_)
 
 
@@ -515,11 +531,13 @@ contains
     end do
 
     do t = 1, this%num_time_steps
-       weight(1:this%num_vertex_features(t), 1:this%num_vertex_features(t-1)) => &
-          this%params( &
-            sum(this%num_params_msg(1:t-1)) + 1: &
-            sum(this%num_params_msg(1:t)) &
-          )
+       weight( &
+            1:this%num_vertex_features(t), &
+            1:this%num_vertex_features(t-1) &
+       ) => this%params( &
+            sum(this%num_params_msg(1:t-1:1)) + 1: &
+            sum(this%num_params_msg(1:t:1)) &
+       )
 
        do concurrent (s = 1: this%batch_size)
           do v = 1, this%graph(s)%num_vertices
@@ -561,8 +579,8 @@ contains
                      ]
              end do
              this%z(t,s)%val(:,v) = matmul( &
-                  this%message(t,s)%val(:,v), &
-                  weight(:,:) &
+                  weight(:,:), &
+                  this%message(t,s)%val(:,v) &
              )
           end do
           this%vertex_features(t,s)%val(:,:) = &
@@ -613,6 +631,8 @@ contains
     ! Local variables
     integer :: s, v, e, t, u
     !! Batch index, vertex index, edge index, time step, neighbor index
+    integer :: from, to
+    !! Indices for the weight parameters
     real(real32) :: c
     !! Normalisation constant for the message passing
     real(real32), dimension(:,:), allocatable :: dz
@@ -631,28 +651,30 @@ contains
 
     ! Backpropagate through time steps
     do t = this%num_time_steps, 1, -1
-       weight(1:this%num_vertex_features(t), &
-            1:this%num_vertex_features(t-1)) => this%params( &
-            sum(this%num_params_msg(1:t-1)) + 1: &
-            sum(this%num_params_msg(1:t)) &
-       )
+       from = sum(this%num_params_msg(1:t-1:1)) + 1
+       to = sum(this%num_params_msg(1:t:1))
+       weight( &
+            1:this%num_vertex_features(t), &
+            1:this%num_vertex_features(t-1) &
+       ) => this%params(from:to:1)
        do s = 1, this%batch_size
           ! Calculate gradient with respect to z at time t
           allocate(dz, mold=this%z(t,s)%val)
           dz = this%transfer%differentiate(this%z(t,s)%val) * this%di(1,s)%val
 
           ! Calculate gradient with respect to weights
-          dw(1:this%num_vertex_features(t-1), &
-               1:this%num_vertex_features(t)) => this%dp( &
-               sum(this%num_params_msg(1:t-1)) + 1: &
-               sum(this%num_params_msg(1:t)), s &
-          )
+          dw( &
+               1:this%num_vertex_features(t), &
+               1:this%num_vertex_features(t-1) &
+          ) => this%dp( from:to:1, s)
           do v = 1, this%graph(s)%num_vertices
              dw(:,:) = dw(:,:) + &
                   matmul( &
-                       transpose(reshape(this%message(t,s)%val(:,v), &
+                       reshape(dz(:,v), [size(dz, 1), 1]), &
+                       reshape( &
+                            this%message(t,s)%val(:,v), &
                             [1, size(this%message(t,s)%val, 1)] &
-                       )), reshape(dz(:,v), [1, size(dz, 1)]) &
+                       ) &
                   )
           end do
 
@@ -664,7 +686,7 @@ contains
           do v = 1, this%graph(s)%num_vertices
              ! Compute gradients for each vertex
              do e = this%graph(s)%adj_ia(v), this%graph(s)%adj_ia(v+1) - 1
-                u = this%graph(s)%adj_ja(1,e)  ! Neighbor vertex index
+                u = this%graph(s)%adj_ja(1,e)  ! Neighbour vertex index
 
                 ! Compute normalisation constant
                 if(this%graph(s)%adj_ja(2,e) .eq. 0) then
@@ -679,7 +701,10 @@ contains
 
                 ! Add gradient contribution to neighbour
                 dv_features(:,u) = dv_features(:,u) + &
-                     c * matmul(dz(:,v), weight(:,:))
+                     c * matmul( &
+                          dz(:,v), &
+                          weight(:,:) &
+                     )
              end do
           end do
 
