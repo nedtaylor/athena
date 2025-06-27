@@ -241,8 +241,9 @@ contains
 
 !###############################################################################
   module function optimiser_setup_base( &
-      learning_rate, num_params, &
-      regulariser, clip_dict, lr_decay) result(optimiser)
+       learning_rate, num_params, &
+       regulariser, clip_dict, lr_decay &
+  ) result(optimiser)
     !! Set up the base optimiser
     implicit none
 
@@ -488,8 +489,7 @@ contains
 
     ! Apply regularisation
     if(this%regularisation) &
-         call this%regulariser%regularise( &
-         param, gradient, learning_rate)
+         call this%regulariser%regularise( param, gradient, learning_rate )
 
     gradient = - learning_rate * gradient
     ! Update parameters
@@ -517,8 +517,9 @@ contains
 
 !###############################################################################
   module function optimiser_setup_rmsprop( &
-      learning_rate, beta, epsilon, &
-      num_params, regulariser, clip_dict, lr_decay) result(optimiser)
+       learning_rate, beta, epsilon, &
+       num_params, regulariser, clip_dict, lr_decay &
+  ) result(optimiser)
     !! Set up the RMSprop optimiser
     implicit none
 
@@ -623,8 +624,7 @@ contains
 
     ! Apply regularisation
     if(this%regularisation) &
-         call this%regulariser%regularise( &
-         param, gradient, learning_rate)
+         call this%regulariser%regularise( param, gradient, learning_rate )
 
     this%moving_avg = this%beta * this%moving_avg + &
          (1._real32 - this%beta) * gradient ** 2._real32
@@ -643,8 +643,9 @@ contains
 
 !###############################################################################
   module function optimiser_setup_adagrad( &
-      learning_rate, epsilon, &
-      num_params, regulariser, clip_dict, lr_decay) result(optimiser)
+       learning_rate, epsilon, &
+       num_params, regulariser, clip_dict, lr_decay &
+  ) result(optimiser)
     !! Set up the Adagrad optimiser
     implicit none
 
@@ -747,8 +748,7 @@ contains
 
     ! Apply regularisation
     if(this%regularisation) &
-         call this%regulariser%regularise( &
-         param, gradient, learning_rate)
+         call this%regulariser%regularise( param, gradient, learning_rate )
 
     this%sum_squares = this%sum_squares + gradient ** 2._real32
 
@@ -766,8 +766,9 @@ contains
 
 !###############################################################################
   module function optimiser_setup_adam( &
-      learning_rate, beta1, beta2, epsilon, &
-      num_params, regulariser, clip_dict, lr_decay) result(optimiser)
+       learning_rate, beta1, beta2, epsilon, &
+       num_params, regulariser, clip_dict, lr_decay &
+  ) result(optimiser)
     !! Set up the Adam optimiser
     implicit none
 
@@ -875,8 +876,7 @@ contains
 
     ! Apply regularisation
     if(this%regularisation) &
-         call this%regulariser%regularise( &
-         param, gradient, learning_rate)
+         call this%regulariser%regularise( param, gradient, learning_rate )
 
     ! Adaptive learning method
     this%m = this%beta1 * this%m + &
@@ -892,20 +892,23 @@ contains
        type is (l2_regulariser_type)
           select case(regulariser%decoupled)
           case(.true.)
-             param = param - &
-                  learning_rate * &
-                  ( m_hat / (sqrt(v_hat) + this%epsilon) + &
-                  regulariser%l2 * param )
+             ! decoupled weight decay (AdamW)
+             param = param - learning_rate * &
+                  ( &
+                       m_hat / (sqrt(v_hat) + this%epsilon) + &
+                       regulariser%l2 * param &
+                  )
           case(.false.)
-             param = param + &
-                   learning_rate * &
-                   ( ( m_hat + regulariser%l2 * param ) / &
-                   (sqrt(v_hat) + this%epsilon) )
+             ! classical L2 regularisation (included in gradient)
+             param = param - learning_rate * ( &
+                  ( m_hat + regulariser%l2 * param ) / &
+                  ( sqrt(v_hat) + this%epsilon ) &
+             )
           end select
        class default
-          param = param + &
-               learning_rate * ( ( m_hat + param ) / &
-               (sqrt(v_hat) + this%epsilon) )
+          ! no regularisation — standard Adam
+          param = param - learning_rate * ( &
+               m_hat / (sqrt(v_hat) + this%epsilon) )
        end select
     end associate
   end subroutine minimise_adam
