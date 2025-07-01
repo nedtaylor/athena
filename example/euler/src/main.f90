@@ -42,20 +42,23 @@ program mnist_example
 !!!-----------------------------------------------------------------------------
 !!! read training dataset
 !!!-----------------------------------------------------------------------------
-  vertex_file = "example/euler/data/bump_nodeData_in_1.txt"
-  edge_file = "example/euler/data/bump_edgeData_1.txt"
-  write(*,*) "Reading training dataset..."
-  allocate(graphs_in(1,1))
-  call read_graph(vertex_file, edge_file, graphs_in(1,1))
+  write(edge_file, '(A,I0,A)') "example/euler/data/bump_edgeData_1.txt"
+  n = 12
+  allocate(graphs_in(1,n))
+  allocate(graphs_out(1,n))
+  do i = 1, n
+     write(vertex_file, '(A,I0,A)') "example/euler/data/bump_nodeData_in_", i, ".txt"
+     write(*,*) "Reading training dataset ", i
+     call read_graph(vertex_file, edge_file, graphs_in(1,i))
+     write(vertex_file, '(A,I0,A)') "example/euler/data/bump_nodeData_out_", i, ".txt"
+     call read_graph(vertex_file, edge_file, graphs_out(1,i))
+  end do
   write(*,*) "Reading finished"
 
-  vertex_file = "example/euler/data/bump_nodeData_out_1.txt"
-  allocate(graphs_out(1,1))
-  call read_graph(vertex_file, edge_file, graphs_out(1,1))
-  allocate(features_out(1,1))
-  call features_out(1,1)%allocate( &
-       [ graphs_in(1,1)%num_vertex_features, graphs_in(1,1)%num_vertices ] &
-  )
+  ! allocate(features_out(1,1))
+  ! call features_out(1,1)%allocate( &
+  !      [ graphs_in(1,1)%num_vertex_features, graphs_in(1,1)%num_vertices ] &
+  ! )
 
 
 
@@ -125,7 +128,7 @@ program mnist_example
 !!!-----------------------------------------------------------------------------
 !!! compile network
 !!!-----------------------------------------------------------------------------
-  allocate(clip, source=clip_type(-1.E-2_real32, 1.E-2_real32))
+  allocate(clip, source=clip_type(-1.E2_real32, 1.E2_real32))
   metric_dict%active = .false.
   metric_dict(1)%key = "loss"
   metric_dict(2)%key = "accuracy"
@@ -133,10 +136,10 @@ program mnist_example
   call network%compile( &
        optimiser = adam_optimiser_type( &
             clip_dict = clip, &
-            learning_rate = 1.E-3_real32 &
+            learning_rate = 1.E-2_real32 &
        ), &
        loss_method = "mse", metrics = metric_dict, &
-       batch_size = 1, verbose = 1, &
+       batch_size = batch_size, verbose = 1, &
        accuracy_method = "mse" &
   )
 
@@ -147,7 +150,7 @@ program mnist_example
   num_params = network%get_num_params()
   write(*,*) "NUMBER OF LAYERS",network%num_layers
   write(*,*) "Number of parameters", num_params
-  write(*,*) "Number of samples",size(features_out)
+  write(*,*) "Number of samples",size(graphs_in,2)
   write(*,*) "Number of tests",num_tests
 
 
@@ -156,7 +159,7 @@ program mnist_example
 !!! ... loops over num_epoch number of epochs
 !!! ... i.e. it trains on the same datapoints num_epoch times
 !!!-----------------------------------------------------------------------------
-  call network%set_batch_size(1)
+  call network%set_batch_size(batch_size)
   !labels = -1.E0 * labels
   !labels = labels / maxval(labels)
   ! allocate(output_tmp(1,1))

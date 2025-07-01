@@ -1276,10 +1276,10 @@ contains
     class(graph_type), dimension(:,:), intent(in), target :: input
     !! Input array
 
-    type(graph_type), dimension(batch_size,size(input,dim=2)) :: sample
+    type(graph_type), dimension(size(input,dim=1),batch_size) :: sample
     !! Sample array
 
-    sample(1:batch_size,:) = input(start_index:end_index,:)
+    sample(:,1:batch_size) = input(:,start_index:end_index)
 
   end function get_sample_graph
 !###############################################################################
@@ -1611,6 +1611,7 @@ contains
 
     do s = 1, this%batch_size
        do j = 1, 2
+          if(.not.allocated(input(j,s)%val)) cycle
           input(j,s)%val = 0._real32
        end do
     end do
@@ -1936,7 +1937,7 @@ contains
     ! Arguments
     class(network_type), intent(inout) :: this
     !! Instance of network
-    type(graph_type), dimension(this%batch_size,size(this%root_vertices)), &
+    type(graph_type), dimension(size(this%root_vertices),this%batch_size), &
          intent(in) :: input
     !! Input
 
@@ -1957,7 +1958,7 @@ contains
        if(all(this%auto_graph%adjacency(:,this%vertex_order(i)).eq.0))then
           select type(layer => this%model(this%vertex_order(i))%layer)
           class is(input_layer_type)
-             call layer%set_input_graph( [ input(:,layer%index) ] )
+             call layer%set_input_graph( [ input(layer%index, :) ] )
           class default
              return
           end select
@@ -1969,7 +1970,7 @@ contains
           !  input_idx = this%model(this%vertex_order(i))%layer%index
           input_idx = 1
           call this%model(this%vertex_order(i))%layer%set_graph( &
-               [ input(:,input_idx) ] &
+               [ input(input_idx,:) ] &
           )
           num_vertex_features = 0
           num_edge_features = 0
@@ -1984,14 +1985,14 @@ contains
                 call auto_input(1,s)%allocate( &
                      array_shape = [ &
                           num_vertex_features, &
-                          input(s,input_idx)%num_vertices &
+                          input(input_idx,s)%num_vertices &
                      ], &
                      source = 0._real32 &
                 )
                 call auto_input(2,s)%allocate( &
                      array_shape = [ &
                           num_edge_features, &
-                          input(s,input_idx)%num_edges &
+                          input(input_idx,s)%num_edges &
                      ], &
                      source = 0._real32 &
                 )
@@ -2113,7 +2114,7 @@ contains
     class(network_type), intent(inout) :: this
     !! Instance of network
     !  type(array2d_type), dimension(2,this%batch_size), intent(in) :: output
-    class(graph_type), dimension(this%batch_size,size(this%output_vertices)), &
+    class(graph_type), dimension(size(this%output_vertices),this%batch_size), &
          intent(in) :: output
     !! Output
 
@@ -2182,12 +2183,12 @@ contains
              do s = 1, this%batch_size
                 gradient(1, s)%val = this%get_loss_deriv( &
                      this%model(this%vertex_order(i))%layer%output(1,s)%val, &
-                     output(s,1)%vertex_features &
-                ) / output(s,1)%num_vertices
+                     output(1,s)%vertex_features &
+                ) / output(1,s)%num_vertices
                 gradient(2, s)%val = this%get_loss_deriv( &
                      this%model(this%vertex_order(i))%layer%output(2,s)%val, &
-                     output(s,1)%edge_features &
-                ) / output(s,1)%num_edges
+                     output(1,s)%edge_features &
+                ) / output(1,s)%num_edges
              end do
           else
              call this%get_gradient_graph_autodiff( &
@@ -2547,8 +2548,8 @@ contains
           output_array(1)%val = reshape(input, [num_inputs, num_samples])
           l_valid_rank_type = .true.
        type is(graph_type)
-          num_samples = size(input, dim=1)
-          allocate(output_graph(num_samples, num_input_layers))
+          num_samples = size(input, dim=2)
+          allocate(output_graph(num_input_layers, num_samples))
           output_graph(:,:) = input(:,:)
           return
        end select
@@ -2678,7 +2679,7 @@ contains
     !! True labels
 
     ! learning parameters
-    integer :: l, num_samples
+    integer :: l, num_samples, s_idx
     !! Loop index
     integer :: num_batches
     !! Number of batches
@@ -2875,20 +2876,21 @@ contains
              batch_loss = 0._real32
              batch_accuracy = 0._real32
              do s = start_index, end_index, 1
+                s_idx = s - start_index + 1
                 batch_loss = batch_loss + sum( this%get_loss( &
-                     this%model(this%output_vertices(1))%layer%output(1,s)%val, &
+                     this%model(this%output_vertices(1))%layer%output(1,s_idx)%val, &
                      output(1,s)%vertex_features &
                 ) ) / output(1,s)%num_vertices
                 ! batch_loss = batch_loss + sum( this%get_loss( &
-                !      this%model(this%output_vertices(1))%layer%output(2,s)%val, &
+                !      this%model(this%output_vertices(1))%layer%output(2,s_idx)%val, &
                 !      output(1,s)%edge_features &
                 ! ) )
                 batch_accuracy = batch_accuracy + sum( this%get_accuracy( &
-                     this%model(this%output_vertices(1))%layer%output(1,s)%val, &
+                     this%model(this%output_vertices(1))%layer%output(1,s_idx)%val, &
                      output(1,s)%vertex_features &
                 ) ) / output(1,s)%num_vertices
                 ! batch_accuracy = batch_accuracy + sum( this%get_accuracy( &
-                !      this%model(this%output_vertices(1))%layer%output(2,s)%val, &
+                !      this%model(this%output_vertices(1))%layer%output(2,s_idx)%val, &
                 !      output(1,s)%edge_features &
                 ! ) )
              end do
