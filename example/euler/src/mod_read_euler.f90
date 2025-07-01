@@ -50,6 +50,7 @@ contains
        read(unit, *) index_list(:, i)
     end do
     close(unit)
+    graph%edge_weights = 1.0_real32
 
     call graph%generate_adjacency(index_list)
     deallocate(index_list)
