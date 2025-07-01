@@ -101,7 +101,8 @@ program mnist_example
   do i = 1, graphs_in(1,1)%num_vertex_features
      do s = 1, size(graphs_in,1)
         feature_in_norm(i) = &
-             max(feature_in_norm(i),maxval(graphs_in(s,1)%vertex_features(i,:)))
+             max(feature_in_norm(i),maxval(graphs_in(s,1)%vertex_features(i,:))) - &
+             min(feature_in_norm(i),minval(graphs_in(s,1)%vertex_features(i,:)))
      end do
      do s = 1, size(graphs_in,1)
         graphs_in(s,1)%vertex_features(i,:) = &
@@ -115,7 +116,8 @@ program mnist_example
   do i = 1, graphs_out(1,1)%num_vertex_features
      do s = 1, size(graphs_out,1)
         feature_out_norm(i) = &
-             max(feature_out_norm(i),maxval(graphs_out(s,1)%vertex_features(i,:)))
+             max(feature_out_norm(i),maxval(graphs_out(s,1)%vertex_features(i,:))) - &
+             min(feature_out_norm(i),minval(graphs_out(s,1)%vertex_features(i,:)))
      end do
      do s = 1, size(graphs_out,1)
         graphs_out(s,1)%vertex_features(i,:) = &
