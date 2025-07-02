@@ -987,6 +987,7 @@ contains
           end do
        end if
     end do
+    call this%auto_graph%generate_adjacency()
 
 
     !---------------------------------------------------------------------------
@@ -1655,8 +1656,8 @@ contains
           )
           case(1) ! concatenate
              do s = 1, this%batch_size
-                do j = 1, 2
-                   input(j,s)%val(:,:) = &
+                do j = 1, 1!2
+                   input(j,s)%val(idx_start:idx_end,:) = &
                         this%model( &
                              this%auto_graph%vertex(i)%id &
                         )%layer%output(j,s)%val
