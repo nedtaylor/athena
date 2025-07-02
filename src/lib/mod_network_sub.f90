@@ -325,6 +325,7 @@ contains
   end subroutine calculate_io_map
 !###############################################################################
 
+
 !##############################################################################!
 ! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
 !##############################################################################!
@@ -501,17 +502,26 @@ contains
     ! adjacency(:,i) is all of the layers that feed forward to i
     !   (i.e. the backward pass)
     this%auto_graph%directed = .true.
-    call this%auto_graph%add_vertex(feature=[1._real32], id=this%num_layers)
+    call this%auto_graph%add_vertex( &
+         feature=[1._real32], id=this%num_layers, update_adjacency=.true. &
+    )
     if(present(input_list))then
        do i = 1, size(input_list)
-          vertex_index = findloc( &
-               [this%auto_graph%vertex(:)%id], &
-               input_list(i), 1 &
-          )
+          if(input_list(i).eq.0)then
+             vertex_index = 0
+          elseif(input_list(i).eq.-1)then
+             vertex_index = this%auto_graph%num_vertices - 1
+          else
+             vertex_index = findloc( &
+                  [this%auto_graph%vertex(:)%id], &
+                  input_list(i), 1 &
+             )
+          end if
           call this%auto_graph%add_edge( &
                index = [ vertex_index, -this%auto_graph%num_vertices ], &
                feature = [ 1._real32 ], &
-               id = operator_ &
+               id = operator_, &
+               update_adjacency = .true. &
           )
        end do
     elseif(trim(layer%type).ne."inpt".and.this%auto_graph%num_vertices.gt.1)then
@@ -521,7 +531,8 @@ contains
                  -this%auto_graph%num_vertices &
             ], &
             feature = [ 1._real32 ], &
-            id = operator_ &
+            id = operator_, &
+            update_adjacency = .true. &
        )
     end if
 
@@ -534,7 +545,8 @@ contains
           call this%auto_graph%add_edge( &
                index = [ this%auto_graph%num_vertices, -vertex_index ], &
                feature = [ 1._real32 ], &
-               id = operator_ &
+               id = operator_, &
+               update_adjacency = .true. &
           )
        end do
     end if
@@ -968,6 +980,12 @@ contains
        deallocate(input_shape)
        deallocate(t_input_layer)
        this%root_vertices(i) = this%num_layers
+       if(i.eq.1)then
+          do j = 1, this%auto_graph%num_edges
+             if(this%auto_graph%edge(j)%index(1).eq.0) &
+                  this%auto_graph%edge(j)%index(1) = this%num_layers
+          end do
+       end if
     end do
 
 

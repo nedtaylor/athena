@@ -77,14 +77,83 @@ program mnist_example
      ! write(*,*) "Reading finished"
   else
      write(6,*) "Initialising MPNN..."
+     ! call network%add(kipf_msgpass_layer_type( &
+     !      num_time_steps = num_time_steps, &
+     !      num_vertex_features = [ 3, 6, 12, 24, 14, 7 ], &
+     !      num_edge_features = [ 0 ], &
+     !      activation_function = 'softmax', &
+     !      kernel_initialiser = 'he_normal' &
+     ! ))
 
-     call network%add(kipf_msgpass_layer_type( &
-          num_time_steps = num_time_steps, &
-          num_vertex_features = [ 3, 6, 12, 24, 14, 7 ], &
-          num_edge_features = [ 0 ], &
-          activation_function = 'softmax', &
-          kernel_initialiser = 'he_normal' &
-     ))
+     call network%add( &
+          kipf_msgpass_layer_type( &
+               num_time_steps = 1, &
+               num_vertex_features = [ 4, 6 ], &
+               num_edge_features = [ 0 ], &
+               activation_function = 'softmax', &
+               kernel_initialiser = 'he_normal' &
+          ), &
+     )
+     call network%add( &
+          kipf_msgpass_layer_type( &
+               num_time_steps = 1, &
+               num_vertex_features = [ 8, 14 ], &
+               num_edge_features = [ 0 ], &
+               activation_function = 'softmax', &
+               kernel_initialiser = 'he_normal' &
+          ), &
+          input_list = [ 0, -1 ] &
+     )
+     call network%add( &
+          kipf_msgpass_layer_type( &
+               num_time_steps = 1, &
+               num_vertex_features = [ 16, 32 ], &
+               num_edge_features = [ 0 ], &
+               activation_function = 'softmax', &
+               kernel_initialiser = 'he_normal' &
+          ), &
+          input_list = [ 0, -1 ] &
+     )
+     call network%add( &
+          kipf_msgpass_layer_type( &
+               num_time_steps = 1, &
+               num_vertex_features = [ 34, 64 ], &
+               num_edge_features = [ 0 ], &
+               activation_function = 'softmax', &
+               kernel_initialiser = 'he_normal' &
+          ), &
+          input_list = [ 0, -1 ] &
+     )
+     call network%add( &
+          kipf_msgpass_layer_type( &
+               num_time_steps = 1, &
+               num_vertex_features = [ 66, 32 ], &
+               num_edge_features = [ 0 ], &
+               activation_function = 'softmax', &
+               kernel_initialiser = 'he_normal' &
+          ), &
+          input_list = [ 0, -1 ] &
+     )
+     call network%add( &
+          kipf_msgpass_layer_type( &
+               num_time_steps = 1, &
+               num_vertex_features = [ 34, 14 ], &
+               num_edge_features = [ 0 ], &
+               activation_function = 'softmax', &
+               kernel_initialiser = 'he_normal' &
+          ), &
+          input_list = [ 0, -1 ] &
+     )
+     call network%add( &
+          kipf_msgpass_layer_type( &
+               num_time_steps = 1, &
+               num_vertex_features = [ 16, 7 ], &
+               num_edge_features = [ 0 ], &
+               activation_function = 'softmax', &
+               kernel_initialiser = 'he_normal' &
+          ), &
+          input_list = [ 0, -1 ] &
+     )
      !  call network%add(full_layer_type( &
      !       num_inputs  = 10, &
      !       num_outputs = 1, &
