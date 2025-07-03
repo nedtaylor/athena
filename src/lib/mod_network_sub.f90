@@ -195,9 +195,13 @@ contains
 
     if(allocated(this%root_vertices)) deallocate(this%root_vertices)
     allocate(this%root_vertices(0))
+    ! from = 1
     do i = 1, this%auto_graph%num_vertices
        if(all(this%auto_graph%adjacency(:,i).eq.0))then
           this%root_vertices = [this%root_vertices, i]
+          ! to = from + this%model(i)layer%num_input_data - 1
+          ! this%root_bounds = [ this%root_bounds, reshape([from,to], [2,1]) ]
+          ! from = to + 1
        end if
     end do
   end subroutine calculate_root_vertices
@@ -1604,9 +1608,6 @@ contains
        end if
     end do
 
-    !!! WAIT, can I just pass the vertex and edge feature arrays to each layer and, instead, just set the graph structure of each layer each time a new graph is passed to the network?
-    ! this way, we can use a rank 2 array of array_type types to pass the graph structure to each layer (i.e. input_graph(1,i)%val = vertex_features, input_graph(2,i)%val = edge_features of sample i)
-
   end subroutine get_input_derived_autodiff
 !-------------------------------------------------------------------------------
   module subroutine get_input_graph_autodiff(this, idx, input)
@@ -1683,9 +1684,6 @@ contains
           end select
        end if
     end do
-
-    !!! WAIT, can I just pass the vertex and edge feature arrays to each layer and, instead, just set the graph structure of each layer each time a new graph is passed to the network?
-    ! this way, we can use a rank 2 array of array_type types to pass the graph structure to each layer (i.e. input_graph(1,i)%val = vertex_features, input_graph(2,i)%val = edge_features of sample i)
 
   end subroutine get_input_graph_autodiff
 !###############################################################################
@@ -1839,7 +1837,7 @@ contains
     !! Gradient for layer
 
     ! Local variables
-    integer :: i
+    integer :: i, s
     !! Loop index
     integer :: idx_start, idx_end
     !! Start and end indices
@@ -1857,25 +1855,37 @@ contains
                this%auto_graph%vertex(i)%id, &
                2 &
           )
-          ! select case( &
-          !      this%auto_graph%edge( &
-          !           this%auto_graph%adjacency( &
-          !                idx, &
-          !                i &
-          !           ) &
-          !      )%id &
-          ! )
-          ! case(1) ! concatenate
-          !    gradient =  &
-          !         this%model(this%auto_graph%vertex(i)%id)%layer%di(1,1)%val( &
-          !              idx_start:idx_end,: &
-          !         )
-          ! case(2) ! add
-          !    gradient = gradient + &
-          !         this%model(this%auto_graph%vertex(i)%id)%layer%di(1,1)%val( &
-          !              idx_start:idx_end,: &
-          !         )
-          ! end select
+          select case( &
+               this%auto_graph%edge( &
+                    this%auto_graph%adjacency( &
+                         idx, &
+                         i &
+                    ) &
+               )%id &
+          )
+          case(1) ! concatenate
+             do s = 1, this%batch_size
+                gradient(1,s)%val(:,:) = &
+                     this%model(this%auto_graph%vertex(i)%id)%layer%di(1,s)%val( &
+                          idx_start:idx_end,: &
+                     )
+                ! gradient(2,s)%val(:,:) = &
+                !      this%model(this%auto_graph%vertex(i)%id)%layer%di(2,s)%val( &
+                !           idx_start:idx_end,: &
+                !   )
+             end do
+          case(2) ! add
+             do s = 1, this%batch_size
+                gradient(1,s)%val(:,:) = &
+                     this%model(this%auto_graph%vertex(i)%id)%layer%di(1,s)%val( &
+                          idx_start:idx_end,: &
+                     )
+                ! gradient(2,s)%val(:,:) = &
+                !      this%model(this%auto_graph%vertex(i)%id)%layer%di(2,s)%val( &
+                !           idx_start:idx_end,: &
+                !      )
+             end do
+          end select
        end if
     end do
 
@@ -1978,6 +1988,10 @@ contains
           select type(layer => this%model(this%vertex_order(i))%layer)
           class is(input_layer_type)
              call layer%set_input_graph( [ input(layer%index, :) ] )
+             ! if this were using the root_bounds, then we use the forward_derived instead
+             ! it then becomes
+             ! call layer%forward(input(:,this%root_bounds(1,i):this%root_bounds(2,i))%val)
+             ! The graph, of course, has to be set beforehand and, as such, still provided, I guess.
           class default
              return
           end select
@@ -2263,28 +2277,30 @@ contains
                this%model( &
                     this%vertex_order(i) &
                )%layer%graph(1)%num_vertex_features
-          num_edge_features = &
-               this%model(this%vertex_order(i))%layer%graph(1)%num_edge_features
-          do s = 1, this%batch_size
-             call input(1,s)%allocate( &
-                  array_shape = (/ &
-                       num_vertex_features, &
-                       this%model( &
-                            this%vertex_order(i) &
-                       )%layer%graph(s)%num_vertices &
-                  /), &
-                  source = 0._real32 &
-             )
-             call input(2,s)%allocate( &
-                  array_shape = (/ &
-                       num_edge_features, &
-                       this%model( &
-                            this%vertex_order(i) &
-                       )%layer%graph(s)%num_edges &
-                  /), &
-                  source = 0._real32 &
-             )
-          end do
+          num_vertex_features = 0
+          num_edge_features = 0
+          select type(layer => this%model(this%vertex_order(i))%layer)
+          class is(msgpass_layer_type)
+             ! could set these up within the graph within each layer?
+             num_vertex_features = layer%num_vertex_features(0)
+             num_edge_features = layer%num_edge_features(0)
+             do s = 1, this%batch_size
+                call input(1,s)%allocate( &
+                     array_shape = (/ &
+                          num_vertex_features, &
+                          layer%graph(s)%num_vertices &
+                     /), &
+                     source = 0._real32 &
+                )
+                call input(2,s)%allocate( &
+                     array_shape = (/ &
+                          num_edge_features, &
+                          layer%graph(s)%num_edges &
+                     /), &
+                     source = 0._real32 &
+                )
+             end do
+          end select
           call this%get_input_graph_autodiff(this%vertex_order(i), input)
        else
           call input(1,1)%allocate( &
