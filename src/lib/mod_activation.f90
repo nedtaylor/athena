@@ -10,6 +10,7 @@ module athena__activation
   use athena__activation_leaky_relu, only: leaky_relu_setup
   use athena__activation_sigmoid, only: sigmoid_setup
   use athena__activation_softmax, only: softmax_setup
+  use athena__activation_swish, only: swish_setup
   use athena__activation_tanh, only: tanh_setup
   use athena__activation_none, only: none_setup
   implicit none
@@ -69,6 +70,8 @@ contains
        transfer = sigmoid_setup(scale = scale_)
     case ("softmax")
        transfer = softmax_setup(scale = scale_)
+    case("swish")
+       transfer = swish_setup(scale = scale_)
     case ("tanh")
        transfer = tanh_setup(scale = scale_)
     case ("none")
