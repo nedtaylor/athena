@@ -149,7 +149,7 @@ program mnist_example
                num_time_steps = 1, &
                num_vertex_features = [ 17, 7 ], &
                num_edge_features = [ 0 ], &
-               activation_function = 'softmax', &
+               activation_function = 'swish', &
                kernel_initialiser = 'he_normal' &
           ), &
           input_list = [ 0, -1 ], &
@@ -204,7 +204,7 @@ program mnist_example
 !!!-----------------------------------------------------------------------------
 !!! compile network
 !!!-----------------------------------------------------------------------------
-  allocate(clip, source=clip_type(-1.E2_real32, 1.E2_real32))
+  allocate(clip, source=clip_type(-1.E0_real32, 1.E0_real32))
   metric_dict%active = .false.
   metric_dict(1)%key = "loss"
   metric_dict(2)%key = "accuracy"
