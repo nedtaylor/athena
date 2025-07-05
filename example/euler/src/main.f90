@@ -19,7 +19,8 @@ program mnist_example
   logical :: restart = .false.
 
   !! data loading and preoprocessing
-  type(graph_type), allocatable, dimension(:,:) :: graphs_in, graphs_out
+  type(graph_type), allocatable, dimension(:,:) :: &
+       graphs_in, graphs_out, graphs_predicted
   type(array2d_type), allocatable, dimension(:,:) :: features_out
   character(1024) :: file, train_file
 
