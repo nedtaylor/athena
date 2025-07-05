@@ -1657,19 +1657,17 @@ contains
           )
           case(1) ! concatenate
              do s = 1, this%batch_size
-                do j = 1, 1!2
-                   input(j,s)%val(idx_start:idx_end,:) = &
-                        this%model( &
-                             this%auto_graph%vertex(i)%id &
-                        )%layer%output(j,s)%val
-                   !! issue of concatenation not working because our vertex and edge features are not the same length, so it is
-                   !! looking at number of outputs for vertex and forcing the edge features to be the same length
-                   !! which causes an index overflow error
-                   !  input(j,s)%val(idx_start:idx_end,:) = &
-                   !       this%model( &
-                   !            this%auto_graph%vertex(i)%id &
-                   !       )%layer%output(j,s)%val
-                end do
+                input(1,s)%val(idx_start:idx_end,:) = &
+                     this%model( &
+                          this%auto_graph%vertex(i)%id &
+                     )%layer%output(1,s)%val
+                !! issue of concatenation not working because our vertex and edge features are not the same length, so it is
+                !! looking at number of outputs for vertex and forcing the edge features to be the same length
+                !! which causes an index overflow error
+                !  input(2,j)%val(idx_start:idx_end,:) = &
+                !       this%model( &
+                !            this%auto_graph%vertex(i)%id &
+                !       )%layer%output(2,s)%val
              end do
           case(2) ! add
              do s = 1, this%batch_size
@@ -1794,19 +1792,17 @@ contains
           )
           case(1) ! concatenate
              do s = 1, this%batch_size
-                do j = 1, 2
-                   gradient(j,s)%val(:,:) = &
-                        this%model( &
-                             this%auto_graph%vertex(i)%id &
-                        )%layer%di(j,s)%val
-                   !! issue of concatenation not working because our vertex and edge features are not the same length, so it is
-                   !! looking at number of outputs for vertex and forcing the edge features to be the same length
-                   !! which causes an index overflow error
-                   !  gradient(j,s)%val(idx_start:idx_end,:) = &
-                   !       this%model( &
-                   !            this%auto_graph%vertex(i)%id &
-                   !       )%layer%output(j,s)%val
-                end do
+                gradient(1,s)%val(:,:) = &
+                     this%model( &
+                          this%auto_graph%vertex(i)%id &
+                     )%layer%di(1,s)%val
+                !! issue of concatenation not working because our vertex and edge features are not the same length, so it is
+                !! looking at number of outputs for vertex and forcing the edge features to be the same length
+                !! which causes an index overflow error
+                !  gradient(2,s)%val(idx_start:idx_end,:) = &
+                !       this%model( &
+                !            this%auto_graph%vertex(i)%id &
+                !       )%layer%di(2,s)%val
              end do
           case(2) ! add
              do s = 1, this%batch_size
