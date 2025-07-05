@@ -3231,4 +3231,71 @@ contains
   end function predict_1d
 !###############################################################################
 
+
+!###############################################################################
+  module function predict_graph( &
+       this, input, verbose &
+  ) result(output)
+    !! Predict the output for a graph input
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    type(graph_type), dimension(:,:), intent(in) :: input
+    !! Input graph
+    integer, optional, intent(in) :: verbose
+    !! Verbosity level
+
+    ! Local variables
+    integer :: s
+    !! Loop index
+    type(graph_type), dimension(size(input,dim=1),size(this%output_vertices)) :: &
+         output
+    !! Output graph
+    integer :: verbose_, batch_size
+    !! Verbosity level
+
+
+    !---------------------------------------------------------------------------
+    ! Initialise optional arguments
+    !---------------------------------------------------------------------------
+    if(present(verbose))then
+       verbose_ = verbose
+    else
+       verbose_ = 0
+    end if
+
+    !---------------------------------------------------------------------------
+    ! Reset batch size for testing
+    !---------------------------------------------------------------------------
+    batch_size = size(input, dim=1)
+    call this%set_batch_size(batch_size)
+
+
+    !---------------------------------------------------------------------------
+    ! Predict
+    !---------------------------------------------------------------------------
+    call this%forward(get_sample_graph(input, 1, batch_size, batch_size))
+
+    do s = 1, batch_size
+       output(s,1)%num_vertices = input(s,1)%num_vertices
+       output(s,1)%num_edges = input(s,1)%num_edges
+       output(s,1)%num_vertex_features = this%model( &
+            this%output_vertices(1) &
+       )%layer%output_shape(1)
+       output(s,1)%num_edge_features = this%model( &
+            this%output_vertices(1) &
+       )%layer%output_shape(2)
+       output(s,1)%vertex_features = this%model( &
+            this%output_vertices(1) &
+       )%layer%output(1,s)%val
+       output(s,1)%edge_features = this%model( &
+            this%output_vertices(1) &
+       )%layer%output(2,s)%val
+    end do
+
+  end function predict_graph
+!###############################################################################
+
 end submodule athena__network_submodule

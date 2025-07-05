@@ -55,12 +55,6 @@ program mnist_example
   end do
   write(*,*) "Reading finished"
 
-  ! allocate(features_out(1,1))
-  ! call features_out(1,1)%allocate( &
-  !      [ graphs_in(1,1)%num_vertex_features, graphs_in(1,1)%num_vertices ] &
-  ! )
-
-
 
 !!!-----------------------------------------------------------------------------
 !!! initialise random seed
@@ -197,9 +191,13 @@ program mnist_example
      do s = 1, size(graphs_out,1)
         graphs_out(s,1)%vertex_features(i,:) = &
              graphs_out(s,1)%vertex_features(i,:) / feature_out_norm(i)
-        ! write(14,*) graphs_out(s,1)%vertex_features(i,:)
      end do
   end do
+  open(14, file="fort.14", status="replace")
+  do i = 1, size(graphs_out(1,1)%vertex_features,dim=2)
+     write(14,*) graphs_out(1,1)%vertex_features(:,i)
+  end do
+  close(14)
 
 
 !!!-----------------------------------------------------------------------------
@@ -247,30 +245,6 @@ program mnist_example
        graphs_out, &
        num_epochs = num_epochs &
   )
-  ! do n = 1, num_epochs
-  !    if(mod(n,10) == 0) write(*,*) "Epoch", n
-  !    sample_list = [ &
-  !         (i, i = 1, size(graphs_in) - num_tests - batch_size + 1, batch_size) &
-  !    ]
-  !    call shuffle(sample_list)
-  !    do s = 1, size(sample_list), 1
-
-  !       ! write(*,*) n, s
-  !       call network%forward_graph( &
-  !            reshape( &
-  !                 graphs_in(sample_list(s):sample_list(s)+batch_size-1,1), &
-  !                 [batch_size,1] &
-  !            ) &
-  !       )
-  !       call network%backward_graph( &
-  !            reshape( &
-  !                 graphs_in(sample_list(s):sample_list(s)+batch_size-1,1), &
-  !                 [batch_size,1] &
-  !            ) &
-  !       )
-  !       call network%update()
-  !    end do
-  ! end do
 
 
 !!!-----------------------------------------------------------------------------
@@ -290,8 +264,18 @@ program mnist_example
   write(*,*) "Testing finished"
 
 
-  ! write(6,'("Overall accuracy=",F0.5)') network%accuracy
-  ! write(6,'("Overall loss=",F0.5)')     network%loss
+!!!-----------------------------------------------------------------------------
+!!! predicting
+!!!-----------------------------------------------------------------------------
+  graphs_predicted = network%predict( graphs_in )
+  open(15, file="fort.15", status="replace")
+  do i = 1, size(graphs_predicted(1,1)%vertex_features,dim=2)
+     write(15,*) graphs_predicted(1,1)%vertex_features(:,i)
+  end do
+  close(15)
+
+  write(*,'("Overall accuracy=",F0.5)') network%accuracy
+  write(*,'("Overall loss=",F0.5)')     network%loss
 
 end program mnist_example
 !!!#############################################################################

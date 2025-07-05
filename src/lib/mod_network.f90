@@ -84,8 +84,12 @@ module athena__network
      !! Train the network
      procedure, pass(this) :: test
      !! Test the network
-     procedure, pass(this) :: predict => predict_1d
+     procedure, pass(this) :: predict_1d
      !! Return predicted results from supplied inputs using the trained network
+     procedure, pass(this) :: predict_graph
+     !! Return predicted results from supplied inputs using the trained network (graph input)
+     generic :: predict => predict_1d, predict_graph
+     !! Predict function for different input types
      procedure, pass(this) :: update
      !! Update the learnable parameters of the network based on gradients
      procedure, pass(this), private :: generate_vertex_order
@@ -316,6 +320,21 @@ module athena__network
        real(real32), dimension(:,:), allocatable :: output
        !! Predicted output data
      end function predict_1d
+
+     !! Interface for returning predicted results from supplied inputs
+     !! using the trained network (graph input)
+     module function predict_graph(this, input, verbose) result(output)
+       !! Get predicted results from supplied inputs using the trained network
+       class(network_type), intent(inout) :: this
+       !! Instance of the network
+       type(graph_type), dimension(:,:), intent(in) :: input
+       !! Input data
+       integer, optional, intent(in) :: verbose
+       !! Verbosity level
+       type(graph_type), dimension(size(input,dim=1),size(this%output_vertices)) :: &
+            output
+       !! Predicted output data
+     end function predict_graph
 
      !! Interface for updating the learnable parameters of the network
      !! based on gradients
