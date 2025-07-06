@@ -279,7 +279,7 @@ contains
 
     this%name = 'kipf'
     this%type = 'msgp'
-    this%input_rank = 1
+    this%input_rank = 2
     this%num_time_steps = num_time_steps
     if(allocated(this%num_vertex_features)) &
          deallocate(this%num_vertex_features)
