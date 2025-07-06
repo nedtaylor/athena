@@ -2767,18 +2767,22 @@ contains
                      this%model(this%output_vertices(1))%layer%output(1,s_idx)%val, &
                      output(1,s)%vertex_features &
                 ) ) / output(1,s)%num_vertices
-                ! batch_loss = batch_loss + sum( this%get_loss( &
-                !      this%model(this%output_vertices(1))%layer%output(2,s_idx)%val, &
-                !      output(1,s)%edge_features &
-                ! ) )
                 batch_accuracy = batch_accuracy + sum( this%get_accuracy( &
                      this%model(this%output_vertices(1))%layer%output(1,s_idx)%val, &
                      output(1,s)%vertex_features &
                 ) ) / output(1,s)%num_vertices
-                ! batch_accuracy = batch_accuracy + sum( this%get_accuracy( &
-                !      this%model(this%output_vertices(1))%layer%output(2,s_idx)%val, &
-                !      output(1,s)%edge_features &
-                ! ) )
+                if( &
+                     this%model(this%output_vertices(1))%layer%output_shape(2).gt.0 &
+                )then
+                   batch_loss = batch_loss + sum( this%get_loss( &
+                        this%model(this%output_vertices(1))%layer%output(2,s_idx)%val, &
+                        output(1,s)%edge_features &
+                   ) ) / output(1,s)%num_edges
+                   batch_accuracy = batch_accuracy + sum( this%get_accuracy( &
+                        this%model(this%output_vertices(1))%layer%output(2,s_idx)%val, &
+                        output(1,s)%edge_features &
+                   ) ) / output(1,s)%num_edges
+                end if
              end do
           class default
              batch_loss = sum( &
