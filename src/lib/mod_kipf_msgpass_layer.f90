@@ -235,7 +235,7 @@ contains
     !---------------------------------------------------------------------------
     ! Initialise layer shape
     !---------------------------------------------------------------------------
-    call layer%init(input_shape=[layer%num_vertex_features(0)])
+    call layer%init(input_shape=[layer%num_vertex_features(0), 0])
 
   end function layer_setup
 !###############################################################################
@@ -376,7 +376,7 @@ contains
     ! Initialise number of inputs
     !---------------------------------------------------------------------------
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
-    this%output_shape = [this%num_vertex_features(this%num_time_steps)]
+    this%output_shape = [this%num_vertex_features(this%num_time_steps), 0]
     this%num_params = this%get_num_params()
 
 

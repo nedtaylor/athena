@@ -242,87 +242,81 @@ contains
     !! Instance of network
 
     ! Local variables
-    integer :: i, j, num_inputs, num_outputs
+    integer :: i, j, num_inputs, num_inputs_edge, num_outputs, num_outputs_edge
     !! Loop index
 
 
     if(allocated(this%io_map)) deallocate(this%io_map)
-    allocate(this%io_map(this%num_layers,this%num_layers,4), source=0)
+    if(this%use_graph_input)then
+       allocate(this%io_map(this%num_layers, this%num_layers, 8), source=0)
+    else
+       allocate(this%io_map(this%num_layers,this%num_layers,4), source=0)
+    end if
     do i = 1, this%auto_graph%num_vertices
        num_inputs = 0
+       num_inputs_edge = 0
        do j = 1, this%auto_graph%num_vertices
-          if(this%auto_graph%adjacency(i,j).ne.0)then
-             select case( &
-                  this%auto_graph%edge(this%auto_graph%adjacency(i,j))%id &
-             )
-             case(1) ! concatenate
-                num_inputs = num_inputs + 1
-                this%io_map( &
-                     this%auto_graph%vertex(i)%id, &
-                     this%auto_graph%vertex(j)%id, &
-                     1 &
-                ) = num_inputs
-                num_inputs = num_inputs + &
-                     product(this%model( &
-                          this%auto_graph%vertex(i)%id &
-                     )%layer%output_shape) - 1
-                this%io_map( &
-                     this%auto_graph%vertex(i)%id, &
-                     this%auto_graph%vertex(j)%id, &
-                     2 &
-                ) = num_inputs
-             case(2) ! add
-                this%io_map( &
-                     this%auto_graph%vertex(i)%id, &
-                     this%auto_graph%vertex(j)%id, &
-                     1 &
-                ) = 1
-                this%io_map( &
-                     this%auto_graph%vertex(i)%id, &
-                     this%auto_graph%vertex(j)%id, &
-                     2 &
-                ) = product(this%model( &
-                          this%auto_graph%vertex(i)%id &
-                     )%layer%output_shape)
-             end select
-          end if
-          if(this%auto_graph%adjacency(j,i).ne.0)then
-             select case( &
-                  this%auto_graph%edge(this%auto_graph%adjacency(j,i))%id &
-             )
-             case(1) ! concatenate
-                num_outputs = &
-                     maxval(this%io_map(:,this%auto_graph%vertex(i)%id,4)) + 1
-                this%io_map( &
-                     this%auto_graph%vertex(j)%id, &
-                     this%auto_graph%vertex(i)%id, &
-                     3 &
-                ) = num_outputs
-
-                num_outputs = num_outputs + &
-                     product(this%model( &
-                          this%auto_graph%vertex(j)%id &
-                     )%layer%output_shape) - 1
-                this%io_map( &
-                     this%auto_graph%vertex(j)%id, &
-                     this%auto_graph%vertex(i)%id, &
-                     4 &
-                ) = num_outputs
-             case(2) ! add
-                this%io_map( &
-                     this%auto_graph%vertex(j)%id, &
-                     this%auto_graph%vertex(i)%id, &
-                     3 &
-                ) = 1
-                this%io_map( &
-                     this%auto_graph%vertex(j)%id, &
-                     this%auto_graph%vertex(i)%id, &
-                     4 &
-                ) = product(this%model( &
-                          this%auto_graph%vertex(j)%id &
-                     )%layer%output_shape)
-             end select
-          end if
+          associate( &
+               id_in => this%auto_graph%vertex(i)%id, &
+               id_out => this%auto_graph%vertex(j)%id, &
+               layer_from => this%model(this%auto_graph%vertex(i)%id)%layer, &
+               layer_to => this%model(this%auto_graph%vertex(j)%id)%layer &
+          )
+             if(this%auto_graph%adjacency(i,j).ne.0)then
+                select case( &
+                     this%auto_graph%edge(this%auto_graph%adjacency(i,j))%id &
+                )
+                case(1) ! concatenate
+                   num_inputs = num_inputs + 1
+                   this%io_map( id_in, id_out, 1 ) = num_inputs
+                   if(layer_from%use_graph_input)then
+                      num_inputs = num_inputs + layer_from%output_shape(1) - 1
+                      num_inputs_edge = num_inputs_edge + 1
+                      this%io_map( id_in, id_out, 5 ) = num_inputs_edge
+                      num_inputs_edge = num_inputs_edge + layer_from%output_shape(2) - 1
+                      this%io_map( id_in, id_out, 6 ) = num_inputs_edge
+                   else
+                      num_inputs = num_inputs + product(layer_from%output_shape) - 1
+                   end if
+                   this%io_map( id_in, id_out, 2 ) = num_inputs
+                case(2) ! add
+                   this%io_map( id_in, id_out, 1 ) = 1
+                   if(layer_from%use_graph_input)then
+                      this%io_map( id_in, id_out, 2 ) = layer_from%output_shape(1)
+                      this%io_map( id_in, id_out, 5 ) = layer_from%output_shape(2)
+                   else
+                      this%io_map( id_in, id_out, 2 ) = product(layer_from%output_shape)
+                   end if
+                end select
+             end if
+             if(this%auto_graph%adjacency(j,i).ne.0)then
+                select case( &
+                     this%auto_graph%edge(this%auto_graph%adjacency(j,i))%id &
+                )
+                case(1) ! concatenate
+                   num_outputs = maxval(this%io_map(:,id_in,4)) + 1
+                   this%io_map( id_out, id_in, 3 ) = num_outputs
+                   if(layer_to%use_graph_output)then
+                      num_outputs_edge = maxval(this%io_map(:,id_in,8)) + 1
+                      this%io_map( id_out, id_in, 7 ) = num_outputs_edge
+                      num_outputs = num_outputs + layer_to%output_shape(1) - 1
+                      num_outputs_edge = num_outputs_edge + layer_to%output_shape(2) - 1
+                      this%io_map( id_out, id_in, 8 ) = num_outputs_edge
+                   else
+                      num_outputs = num_outputs + product(layer_to%output_shape) - 1
+                   end if
+                   this%io_map( id_out, id_in, 4 ) = num_outputs
+                case(2) ! add
+                   this%io_map( id_out, id_in, 3 ) = 1
+                   if(layer_to%use_graph_output)then
+                      this%io_map( id_out, id_in, 4 ) = layer_to%output_shape(1)
+                      this%io_map( id_out, id_in, 7 ) = layer_to%output_shape(2)
+                   else
+                      this%io_map( id_out, id_in, 4 ) = product(layer_to%output_shape)
+                   end if
+                end select
+             end if
+          end associate
        end do
     end do
 
@@ -1531,12 +1525,7 @@ contains
                4 &
           )
           select case( &
-               this%auto_graph%edge( &
-                    this%auto_graph%adjacency( &
-                         i, &
-                         idx &
-                    ) &
-               )%id &
+               this%auto_graph%edge( this%auto_graph%adjacency( i, idx ) )%id &
           )
           case(1) ! concatenate
              input(idx_start:idx_end,:) = &
@@ -1549,66 +1538,6 @@ contains
     end do
 
   end subroutine get_input_real_autodiff
-!-------------------------------------------------------------------------------
-  pure module subroutine get_input_derived_autodiff(this, idx, input)
-    !! Get the input for each layer via autodiff
-    implicit none
-
-    ! Arguments
-    class(network_type), intent(in) :: this
-    !! Instance of network
-    integer, intent(in) :: idx
-    !! Index of layer
-    type(array2d_type), intent(inout) :: input
-    !! Input for layer
-
-    ! Local variables
-    integer :: i, j, s
-    !! Loop indices
-    integer :: idx_start, idx_end
-    !! Start and end indices
-
-
-    !!! NEED TO ALLOCATE BASED ON INPUT NUMBER OF NODES AND FEATURES
-    ! call input(1)%allocate( &
-    !      array_shape = ( &
-    !           this%model(this%auto_graph%vertex(idx)%id)%layer%di(1,1)%size, &
-    !           this%batch_size &
-    !      ), &
-    !      source = 0._real32 &
-    ! )
-    do i = 1, this%auto_graph%num_vertices
-       if(this%auto_graph%adjacency(i,idx).ne.0)then
-          idx_start = this%io_map( &
-               this%auto_graph%vertex(i)%id, &
-               this%auto_graph%vertex(idx)%id, &
-               3 &
-          )
-          idx_end = this%io_map( &
-               this%auto_graph%vertex(i)%id, &
-               this%auto_graph%vertex(idx)%id, &
-               4 &
-          )
-          select case( &
-               this%auto_graph%edge( &
-                    this%auto_graph%adjacency( &
-                         i, &
-                         idx &
-                    ) &
-               )%id &
-          )
-          case(1) ! concatenate
-             input%val(idx_start:idx_end,:) = &
-                  this%model(this%auto_graph%vertex(i)%id)%layer%output(1,1)%val
-          case(2) ! add
-             input%val(idx_start:idx_end,:) = &
-                  input%val(idx_start:idx_end,:) + &
-                  this%model(this%auto_graph%vertex(i)%id)%layer%output(1,1)%val
-          end select
-       end if
-    end do
-
-  end subroutine get_input_derived_autodiff
 !-------------------------------------------------------------------------------
   module subroutine get_input_graph_autodiff(this, idx, input)
     !! Get the input for each layer via autodiff
@@ -1625,7 +1554,7 @@ contains
     ! Local variables
     integer :: i, j, s
     !! Loop indices
-    integer :: idx_start, idx_end
+    integer :: idx_start_vertex, idx_end_vertex, idx_start_edge, idx_end_edge
     !! Start and end indices
 
 
@@ -1637,47 +1566,52 @@ contains
     end do
     do i = 1, this%auto_graph%num_vertices
        if(this%auto_graph%adjacency(i,idx).ne.0)then
-          idx_start = this%io_map( &
+          idx_start_vertex = this%io_map( &
                this%auto_graph%vertex(i)%id, &
                this%auto_graph%vertex(idx)%id, &
                3 &
           )
-          idx_end = this%io_map( &
+          idx_end_vertex = this%io_map( &
                this%auto_graph%vertex(i)%id, &
                this%auto_graph%vertex(idx)%id, &
                4 &
           )
+          idx_start_edge = this%io_map( &
+               this%auto_graph%vertex(i)%id, &
+               this%auto_graph%vertex(idx)%id, &
+               7 &
+          )
+          idx_end_edge = this%io_map( &
+               this%auto_graph%vertex(i)%id, &
+               this%auto_graph%vertex(idx)%id, &
+               8 &
+          )
           select case( &
-               this%auto_graph%edge( &
-                    this%auto_graph%adjacency( &
-                         i, &
-                         idx &
-                    ) &
-               )%id &
+               this%auto_graph%edge( this%auto_graph%adjacency( i, idx ) )%id &
           )
           case(1) ! concatenate
              do s = 1, this%batch_size
-                input(1,s)%val(idx_start:idx_end,:) = &
+                input(1,s)%val(idx_start_vertex:idx_end_vertex,:) = &
                      this%model( &
                           this%auto_graph%vertex(i)%id &
                      )%layer%output(1,s)%val
-                !! issue of concatenation not working because our vertex and edge features are not the same length, so it is
-                !! looking at number of outputs for vertex and forcing the edge features to be the same length
-                !! which causes an index overflow error
-                !  input(2,j)%val(idx_start:idx_end,:) = &
-                !       this%model( &
-                !            this%auto_graph%vertex(i)%id &
-                !       )%layer%output(2,s)%val
+                input(2,j)%val(idx_start_edge:idx_end_edge,:) = &
+                     this%model( &
+                          this%auto_graph%vertex(i)%id &
+                     )%layer%output(2,s)%val
              end do
           case(2) ! add
              do s = 1, this%batch_size
-                do j = 1, 2
-                   input(j,s)%val(idx_start:idx_end,:) = &
-                        input(j,s)%val(idx_start:idx_end,:) + &
-                        this%model( &
-                             this%auto_graph%vertex(i)%id &
-                        )%layer%output(j,s)%val
-                end do
+                input(1,s)%val(idx_start_vertex:idx_end_vertex,:) = &
+                     input(1,s)%val(idx_start_vertex:idx_end_vertex,:) + &
+                     this%model( &
+                          this%auto_graph%vertex(i)%id &
+                     )%layer%output(1,s)%val
+                input(2,s)%val(idx_start_edge:idx_end_edge,:) = &
+                     input(2,s)%val(idx_start_edge:idx_end_edge,:) + &
+                     this%model( &
+                          this%auto_graph%vertex(i)%id &
+                     )%layer%output(2,s)%val
              end do
           end select
        end if
@@ -1728,12 +1662,7 @@ contains
                2 &
           )
           select case( &
-               this%auto_graph%edge( &
-                    this%auto_graph%adjacency( &
-                         idx, &
-                         i &
-                    ) &
-               )%id &
+               this%auto_graph%edge( this%auto_graph%adjacency( idx, i ) )%id &
           )
           case(1) ! concatenate
              gradient =  &
@@ -1751,75 +1680,6 @@ contains
 
   end subroutine get_gradient_real_autodiff
 !-------------------------------------------------------------------------------
-  pure module subroutine get_gradient_derived_autodiff(this, idx, gradient)
-    !! Get the gradient for each layer via autodiff
-    implicit none
-
-    ! Arguments
-    class(network_type), intent(in) :: this
-    !! Instance of network
-    integer, intent(in) :: idx
-    !! Index of layer
-    type(array2d_type), dimension(2,this%batch_size), intent(inout) :: gradient
-    !! Gradient for layer
-
-    ! Local variables
-    integer :: i, j, s
-    !! Loop indices
-    integer :: idx_start, idx_end
-    !! Start and end indices
-
-
-    do i = 1, this%auto_graph%num_vertices
-       if(this%auto_graph%adjacency(idx,i).ne.0)then
-          idx_start = this%io_map( &
-               this%auto_graph%vertex(idx)%id, &
-               this%auto_graph%vertex(i)%id, &
-               1 &
-          )
-          idx_end = this%io_map( &
-               this%auto_graph%vertex(idx)%id, &
-               this%auto_graph%vertex(i)%id, &
-               2 &
-          )
-          select case( &
-               this%auto_graph%edge( &
-                    this%auto_graph%adjacency( &
-                         idx, &
-                         i &
-                    ) &
-               )%id &
-          )
-          case(1) ! concatenate
-             do s = 1, this%batch_size
-                gradient(1,s)%val(:,:) = &
-                     this%model( &
-                          this%auto_graph%vertex(i)%id &
-                     )%layer%di(1,s)%val
-                !! issue of concatenation not working because our vertex and edge features are not the same length, so it is
-                !! looking at number of outputs for vertex and forcing the edge features to be the same length
-                !! which causes an index overflow error
-                !  gradient(2,s)%val(idx_start:idx_end,:) = &
-                !       this%model( &
-                !            this%auto_graph%vertex(i)%id &
-                !       )%layer%di(2,s)%val
-             end do
-          case(2) ! add
-             do s = 1, this%batch_size
-                do j = 1, 2
-                   gradient(j,s)%val(idx_start:idx_end,:) = &
-                        gradient(j,s)%val(idx_start:idx_end,:) + &
-                        this%model( &
-                             this%auto_graph%vertex(i)%id &
-                        )%layer%di(j,s)%val
-                end do
-             end do
-          end select
-       end if
-    end do
-
-  end subroutine get_gradient_derived_autodiff
-!-------------------------------------------------------------------------------
   pure module subroutine get_gradient_graph_autodiff(this, idx, gradient)
     !! Get the gradient for each layer via autodiff
     implicit none
@@ -1835,51 +1695,46 @@ contains
     ! Local variables
     integer :: i, s
     !! Loop index
-    integer :: idx_start, idx_end
+    integer :: idx_start_vertex, idx_end_vertex, idx_start_edge, idx_end_edge
     !! Start and end indices
 
 
     do i = 1, this%auto_graph%num_vertices
        if(this%auto_graph%adjacency(idx,i).ne.0)then
-          idx_start = this%io_map( &
+          idx_start_vertex = this%io_map( &
                this%auto_graph%vertex(idx)%id, &
                this%auto_graph%vertex(i)%id, &
                1 &
           )
-          idx_end = this%io_map( &
+          idx_end_vertex = this%io_map( &
                this%auto_graph%vertex(idx)%id, &
                this%auto_graph%vertex(i)%id, &
                2 &
           )
           select case( &
-               this%auto_graph%edge( &
-                    this%auto_graph%adjacency( &
-                         idx, &
-                         i &
-                    ) &
-               )%id &
+               this%auto_graph%edge( this%auto_graph%adjacency( idx, i ) )%id &
           )
           case(1) ! concatenate
              do s = 1, this%batch_size
                 gradient(1,s)%val(:,:) = &
                      this%model(this%auto_graph%vertex(i)%id)%layer%di(1,s)%val( &
-                          idx_start:idx_end,: &
+                          idx_start_vertex:idx_end_vertex,: &
                      )
-                ! gradient(2,s)%val(:,:) = &
-                !      this%model(this%auto_graph%vertex(i)%id)%layer%di(2,s)%val( &
-                !           idx_start:idx_end,: &
-                !   )
+                gradient(2,s)%val(:,:) = &
+                     this%model(this%auto_graph%vertex(i)%id)%layer%di(2,s)%val( &
+                          idx_start_edge:idx_end_edge,: &
+                     )
              end do
           case(2) ! add
              do s = 1, this%batch_size
                 gradient(1,s)%val(:,:) = &
                      this%model(this%auto_graph%vertex(i)%id)%layer%di(1,s)%val( &
-                          idx_start:idx_end,: &
+                          idx_start_vertex:idx_end_vertex,: &
                      )
-                ! gradient(2,s)%val(:,:) = &
-                !      this%model(this%auto_graph%vertex(i)%id)%layer%di(2,s)%val( &
-                !           idx_start:idx_end,: &
-                !      )
+                gradient(2,s)%val(:,:) = &
+                     this%model(this%auto_graph%vertex(i)%id)%layer%di(2,s)%val( &
+                          idx_start_edge:idx_end_edge,: &
+                     )
              end do
           end select
        end if
