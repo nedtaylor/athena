@@ -250,7 +250,7 @@ contains
     if(this%use_graph_input)then
        allocate(this%io_map(this%num_layers, this%num_layers, 8), source=0)
     else
-       allocate(this%io_map(this%num_layers,this%num_layers,4), source=0)
+       allocate(this%io_map(this%num_layers, this%num_layers, 4), source=0)
     end if
     do i = 1, this%auto_graph%num_vertices
        num_inputs = 0
@@ -269,7 +269,7 @@ contains
                 case(1) ! concatenate
                    num_inputs = num_inputs + 1
                    this%io_map( id_in, id_out, 1 ) = num_inputs
-                   if(layer_from%use_graph_input)then
+                   if(layer_to%use_graph_input)then
                       num_inputs = num_inputs + layer_from%output_shape(1) - 1
                       num_inputs_edge = num_inputs_edge + 1
                       this%io_map( id_in, id_out, 5 ) = num_inputs_edge
@@ -281,7 +281,7 @@ contains
                    this%io_map( id_in, id_out, 2 ) = num_inputs
                 case(2) ! add
                    this%io_map( id_in, id_out, 1 ) = 1
-                   if(layer_from%use_graph_input)then
+                   if(layer_to%use_graph_input)then
                       this%io_map( id_in, id_out, 2 ) = layer_from%output_shape(1)
                       this%io_map( id_in, id_out, 5 ) = layer_from%output_shape(2)
                    else
@@ -525,7 +525,7 @@ contains
     elseif(trim(layer%type).ne."inpt".and.this%auto_graph%num_vertices.gt.1)then
        call this%auto_graph%add_edge( &
             index = [ &
-                 this%auto_graph%num_vertices-1, &
+                 this%auto_graph%num_vertices - 1, &
                  -this%auto_graph%num_vertices &
             ], &
             feature = [ 1._real32 ], &
@@ -1624,7 +1624,7 @@ contains
                      this%model( &
                           this%auto_graph%vertex(i)%id &
                      )%layer%output(1,s)%val
-                input(2,j)%val(idx_start_edge:idx_end_edge,:) = &
+                input(2,s)%val(idx_start_edge:idx_end_edge,:) = &
                      this%model( &
                           this%auto_graph%vertex(i)%id &
                      )%layer%output(2,s)%val
@@ -1740,6 +1740,16 @@ contains
                this%auto_graph%vertex(i)%id, &
                2 &
           )
+          idx_start_edge = this%io_map( &
+               this%auto_graph%vertex(idx)%id, &
+               this%auto_graph%vertex(i)%id, &
+               5 &
+          )
+          idx_end_edge = this%io_map( &
+               this%auto_graph%vertex(idx)%id, &
+               this%auto_graph%vertex(i)%id, &
+               6 &
+          )
           select case( &
                this%auto_graph%edge( this%auto_graph%adjacency( idx, i ) )%id &
           )
@@ -1756,11 +1766,11 @@ contains
              end do
           case(2) ! add
              do s = 1, this%batch_size
-                gradient(1,s)%val(:,:) = &
+                gradient(1,s)%val(:,:) = gradient(1,s)%val(:,:) + &
                      this%model(this%auto_graph%vertex(i)%id)%layer%di(1,s)%val( &
                           idx_start_vertex:idx_end_vertex,: &
                      )
-                gradient(2,s)%val(:,:) = &
+                gradient(2,s)%val(:,:) = gradient(2,s)%val(:,:) + &
                      this%model(this%auto_graph%vertex(i)%id)%layer%di(2,s)%val( &
                           idx_start_edge:idx_end_edge,: &
                      )
@@ -2072,6 +2082,10 @@ contains
                      /), &
                      source = 0._real32 &
                 )
+             end do
+             num_vertex_features = layer%num_vertex_features(layer%num_time_steps)
+             num_edge_features = layer%num_edge_features(layer%num_time_steps)
+             do s = 1, this%batch_size
                 call gradient(1,s)%allocate( &
                      array_shape = (/ &
                           num_vertex_features, &

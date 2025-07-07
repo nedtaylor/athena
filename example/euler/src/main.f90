@@ -92,7 +92,7 @@ program mnist_example
      call network%add( &
           kipf_msgpass_layer_type( &
                num_time_steps = 1, &
-               num_vertex_features = [ 8, 14 ], &
+               num_vertex_features = [ 9, 14 ], &
                num_edge_features = [ 0 ], &
                activation_function = 'softmax', &
                kernel_initialiser = 'he_normal' &
@@ -236,11 +236,6 @@ program mnist_example
 !!! ... i.e. it trains on the same datapoints num_epoch times
 !!!-----------------------------------------------------------------------------
   call network%set_batch_size(batch_size)
-  !labels = -1.E0 * labels
-  !labels = labels / maxval(labels)
-  ! allocate(output_tmp(1,1))
-  ! allocate(output(1,size(labels)))
-  ! output(1,:) = labels
   call network%train( &
        graphs_in, &
        graphs_out, &

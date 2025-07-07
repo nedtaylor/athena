@@ -280,6 +280,7 @@ contains
     this%name = 'kipf'
     this%type = 'msgp'
     this%input_rank = 2
+    this%use_graph_output = .true.
     this%num_time_steps = num_time_steps
     if(allocated(this%num_vertex_features)) &
          deallocate(this%num_vertex_features)
@@ -708,10 +709,8 @@ contains
              end do
           end do
 
-          ! Update input gradient for prior time step (if not the first time step)
-          if(t .gt. 1) then
-             this%di(1,s)%val = dv_features
-          end if
+          ! Update input gradient for prior time step
+          this%di(1,s)%val = dv_features
 
           deallocate(dz, dv_features)
        end do

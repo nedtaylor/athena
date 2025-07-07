@@ -203,7 +203,10 @@ contains
     this%input_rank = 0
     if(present(input_rank)) this%input_rank = input_rank
     if(present(index)) this%index = index
-    if(present(use_graph_input)) this%use_graph_input = use_graph_input
+    if(present(use_graph_input))then
+       this%use_graph_input = use_graph_input
+       this%use_graph_output = use_graph_input
+    end if
 
   end subroutine set_hyperparams_input
 !###############################################################################
