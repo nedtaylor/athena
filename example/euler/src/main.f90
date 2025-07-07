@@ -252,18 +252,14 @@ program mnist_example
 !!! testing loop
 !!!-----------------------------------------------------------------------------
   write(*,*) "Starting testing..."
-  ! do s = 1, size(labels) - batch_size + 1, batch_size
-  !    call network%forward_graph( &
-  !         reshape( &
-  !              graphs_in(s:s+batch_size-1,1), [batch_size,1] &
-  !         ) &
-  !    )
-  !    call network%model(2)%layer%get_output(output_tmp)
-  !    write(*,*) "imputed", output_tmp
-  !    write(*,*) "expected", graphs_in(s,1)%vertex_features
-  ! end do
+  call network%test( &
+       graphs_in, &
+       graphs_out &
+  )
   write(*,*) "Testing finished"
 
+  write(*,'("Overall accuracy=",F0.5)') network%accuracy
+  write(*,'("Overall loss=",F0.5)')     network%loss
 
 !!!-----------------------------------------------------------------------------
 !!! predicting
@@ -274,9 +270,6 @@ program mnist_example
      write(15,*) graphs_predicted(1,1)%vertex_features(:,i)
   end do
   close(15)
-
-  write(*,'("Overall accuracy=",F0.5)') network%accuracy
-  write(*,'("Overall loss=",F0.5)')     network%loss
 
 end program mnist_example
 !!!#############################################################################

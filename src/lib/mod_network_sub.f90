@@ -1279,6 +1279,35 @@ contains
 
   end function get_sample_derived
 !-------------------------------------------------------------------------------
+  module function get_sample_mixed( &
+       input, start_index, end_index, batch_size &
+  ) result(sample)
+    !! Get samples of batch size from a derived type array
+    implicit none
+
+    ! Arguments
+    integer, intent(in) :: start_index, end_index
+    !! Start and end indices
+    integer, intent(in) :: batch_size
+    !! Batch size
+    class(array_type), dimension(:,:), intent(in), target :: input
+    !! Input array
+
+    type(array2d_type), dimension(size(input,1), batch_size) :: sample
+    !! Sample array
+
+    ! Local variables
+    integer :: i, s
+    !! Loop index
+
+    do i = 1, size(input,1)
+       do s = start_index, end_index, 1
+          sample(i, s - start_index + 1)%val = input(i, s)%val
+       end do
+    end do
+
+  end function get_sample_mixed
+!-------------------------------------------------------------------------------
   module function get_sample_graph( &
        input, start_index, end_index, batch_size &
   ) result(sample)
@@ -2730,13 +2759,17 @@ contains
           select case(this%use_graph_input)
           case(.true.)
              call this%forward_graph(get_sample_graph( &
-                  input_graph,start_index,end_index, this%batch_size &
+                  input_graph,start_index, end_index, this%batch_size &
              ))
              select type(output)
              type is(graph_type)
-                call this%backward_graph(output)
+                call this%backward_graph(get_sample_graph( &
+                     output, start_index, end_index, this%batch_size &
+                ))
              type is(array2d_type)
-                call this%backward_mixed(output)
+                call this%backward_mixed(get_sample_mixed( &
+                     output, start_index, end_index, this%batch_size &
+                ))
              end select
           case default
              call this%forward(get_sample( &
@@ -2962,32 +2995,64 @@ contains
 
        ! Forward pass
        !------------------------------------------------------------------------
-       call this%forward(get_sample( &
-            input_array, sample, sample, this%batch_size &
-       ))
+       select case(this%use_graph_input)
+       case(.true.)
+          call this%forward_graph(get_sample_graph( &
+               input_graph, sample, sample, 1 &
+          ))
+          select type(output)
+          type is(graph_type)
+             call this%backward_graph(get_sample_graph( &
+                  output, sample, sample, 1 &
+             ))
+          type is(array2d_type)
+             call this%backward_mixed(output)
+          end select
+       case default
+          call this%forward(get_sample( &
+               input_array, sample, sample, 1 &
+          ))
+          call this%backward(y_true(:,sample:sample))
+       end select
 
 
        ! Compute loss and accuracy (for monitoring)
        !------------------------------------------------------------------------
-       loss_val = sum(this%get_loss( &
-            predicted = this%model( &
-                 this%output_vertices(1) &
-            )%layer%output(1,1)%val, &
-            ! JUST REPLACE y_true(:,sample) WITH output(:,sample) !
-            ! THERE IS NO REASON TO USE y_true, as it is just a copy !
-            ! get_loss should handle both integers and reals !
-            ! it does not. Instead just wrap real(output(:,sample),real32) !
-            expected  = y_true(:,sample:sample)))
-       acc_val = sum(this%get_accuracy( &
-            predicted = this%model( &
-                 this%output_vertices(1) &
-            )%layer%output(1,1)%val, &
-            expected  = y_true(:,sample:sample)))
+       select type(output)
+       type is(graph_type)
+          loss_val = sum( this%get_loss( &
+               this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+               output(1,1)%vertex_features &
+          ) ) / output(1,sample)%num_vertices
+          acc_val = sum( this%get_accuracy( &
+               this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+               output(1,1)%vertex_features &
+          ) ) / output(1,sample)%num_vertices
+          if( &
+               this%model(this%output_vertices(1))%layer%output_shape(2).gt.0 &
+          )then
+             loss_val = sum( this%get_loss( &
+                  this%model(this%output_vertices(1))%layer%output(2,1)%val, &
+                  output(1,1)%edge_features &
+             ) ) / output(1,sample)%num_edges
+             acc_val = sum( this%get_accuracy( &
+                  this%model(this%output_vertices(1))%layer%output(2,1)%val, &
+                  output(1,1)%edge_features &
+             ) ) / output(1,sample)%num_edges
+          end if
+       class default
+          loss_val = sum( this%get_loss( &
+               this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+               y_true(:,sample:sample)))
+          acc_val = sum( this%get_accuracy( &
+               this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+               y_true(:,sample:sample)))
+          predicted(:,sample) = &
+               this%model(this%output_vertices(1))%layer%output(1,1)%val(:,1)
+       end select
        this%metrics(2)%val = this%metrics(2)%val + acc_val
        this%metrics(1)%val = this%metrics(1)%val + loss_val
        accuracy_list(sample) = acc_val
-       predicted(:,sample) = &
-            this%model(this%output_vertices(1))%layer%output(1,1)%val(:,1)
 
     end do test_loop1
 
