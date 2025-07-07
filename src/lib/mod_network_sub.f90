@@ -3033,22 +3033,22 @@ contains
        type is(graph_type)
           loss_val = sum( this%get_loss( &
                this%model(this%output_vertices(1))%layer%output(1,1)%val, &
-               output(1,1)%vertex_features &
+               output(1,sample)%vertex_features &
           ) ) / output(1,sample)%num_vertices
           acc_val = sum( this%get_accuracy( &
                this%model(this%output_vertices(1))%layer%output(1,1)%val, &
-               output(1,1)%vertex_features &
+               output(1,sample)%vertex_features &
           ) ) / output(1,sample)%num_vertices
           if( &
                this%model(this%output_vertices(1))%layer%output_shape(2).gt.0 &
           )then
              loss_val = sum( this%get_loss( &
                   this%model(this%output_vertices(1))%layer%output(2,1)%val, &
-                  output(1,1)%edge_features &
+                  output(1,sample)%edge_features &
              ) ) / output(1,sample)%num_edges
              acc_val = sum( this%get_accuracy( &
                   this%model(this%output_vertices(1))%layer%output(2,1)%val, &
-                  output(1,1)%edge_features &
+                  output(1,sample)%edge_features &
              ) ) / output(1,sample)%num_edges
           end if
        type is(real)
