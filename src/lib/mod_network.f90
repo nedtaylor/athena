@@ -128,15 +128,19 @@ module athena__network
      !! Reset learnable parameter gradients
      procedure, pass(this) :: forward_real
      !! Forward pass for real input
+     procedure, pass(this) :: backward_real
+     !! Backward pass for real input
      procedure, pass(this) :: forward_derived
      !! Forward pass for derived input
+     procedure, pass(this) :: backward_derived
+     !! Backward pass for derived input
      procedure, pass(this) :: forward_graph
      !! Forward pass for graph input
      procedure, pass(this) :: backward_graph
      !! Backward pass for graph input
      procedure, pass(this) :: backward_mixed
      generic :: forward => forward_real, forward_derived, forward_graph
-     procedure, pass(this) :: backward => backward_real
+     generic :: backward => backward_real, backward_derived, backward_graph
      !! Backward pass
      ! generic :: backward => backward_real, backward_derived !, backward_graph
   end type network_type
@@ -534,6 +538,13 @@ module athena__network
        real(real32), dimension(:,:), intent(in) :: output
        !! Output data
      end subroutine backward_real
+     pure module subroutine backward_derived(this, output)
+       !! Backward pass
+       class(network_type), intent(inout) :: this
+       !! Instance of the network
+       type(array2d_type), dimension(:), intent(in) :: output
+       !! Output data
+     end subroutine backward_derived
      module subroutine backward_graph(this, output)
        !! Forward pass for derived input
        class(network_type), intent(inout) :: this

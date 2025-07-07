@@ -1978,14 +1978,14 @@ contains
 
   end subroutine backward_real
 !-------------------------------------------------------------------------------
-  module subroutine backward_derived(this, output)
+  pure module subroutine backward_derived(this, output)
     !! Backward pass for real output
     implicit none
 
     ! Arguments
     class(network_type), intent(inout) :: this
     !! Instance of network
-    type(array2d_type), intent(in) :: output
+    type(array2d_type), dimension(:), intent(in) :: output
     !! Output
 
     ! Local variables
@@ -2008,7 +2008,7 @@ contains
        if(all(this%auto_graph%adjacency(this%vertex_order(i),:).eq.0))then
           gradient = this%get_loss_deriv( &
                this%model(this%vertex_order(i))%layer%output(1,1)%val, &
-               output%val &
+               output(1)%val &
           )
        else
           call this%get_gradient_real_autodiff(this%vertex_order(i), gradient)
@@ -2026,7 +2026,6 @@ contains
     ! Arguments
     class(network_type), intent(inout) :: this
     !! Instance of network
-    !  type(array2d_type), dimension(2,this%batch_size), intent(in) :: output
     class(graph_type), dimension(size(this%output_vertices),this%batch_size), &
          intent(in) :: output
     !! Output
@@ -2590,8 +2589,6 @@ contains
     ! Training parameters
     real(real32) :: batch_loss, batch_accuracy, avg_loss, avg_accuracy
     !! Loss and accuracy
-    real(real32), allocatable, dimension(:,:) :: y_true
-    !! True labels
 
     ! learning parameters
     integer :: l, num_samples, s_idx
@@ -2668,12 +2665,6 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Allocate predicted and true label sets
-    !---------------------------------------------------------------------------
-    allocate(y_true(this%num_outputs,this%batch_size), source = 0._real32)
-
-
-    !---------------------------------------------------------------------------
     ! If parallel, initialise slices
     !---------------------------------------------------------------------------
     num_batches = size(output,dim=2) / this%batch_size
@@ -2743,16 +2734,6 @@ contains
           end_index = batch_order(batch) * this%batch_size
 
 
-          ! Reinitialise variables
-          !---------------------------------------------------------------------
-          select type(output)
-          type is(integer)
-             y_true(:,:) = real(output(:,start_index:end_index:1),real32)
-          type is(real)
-             y_true(:,:) = output(:,start_index:end_index:1)
-          end select
-
-
           ! Forward pass
           !---------------------------------------------------------------------
           !  call system_clock(timer_start)
@@ -2775,7 +2756,18 @@ contains
              call this%forward(get_sample( &
                   input_array,start_index,end_index, this%batch_size &
              ))
-             call this%backward(y_true(:,:))
+             select type(output)
+             type is(integer)
+                call this%backward(real(output(:,start_index:end_index:1),real32))
+             type is(real)
+                call this%backward(get_sample( &
+                     output, start_index, end_index, this%batch_size&
+                ))
+             class is(array_type)
+                call this%backward_derived(get_sample_derived( &
+                     output(:,1), start_index, end_index, this%batch_size &
+                ))
+             end select
           end select
           !  call system_clock(timer_stop)
           !  forward_timer = forward_timer + timer_stop - timer_start
@@ -2817,15 +2809,39 @@ contains
                    ) ) / output(1,s)%num_edges
                 end if
              end do
-          class default
+          type is(real)
              batch_loss = sum( &
                   this%get_loss( &
                        this%model(this%output_vertices(1))%layer%output(1,1)%val, &
-                       y_true(:,1:this%batch_size)))
+                       output(:,start_index:end_index:1) &
+                  ))
              batch_accuracy = sum( &
                   this%get_accuracy( &
                        this%model(this%output_vertices(1))%layer%output(1,1)%val, &
-                       y_true(:,1:this%batch_size)))
+                       output(:,start_index:end_index:1) &
+                  ))
+          type is(integer)
+             batch_loss = sum( &
+                  this%get_loss( &
+                       this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+                       real(output(:,start_index:end_index:1),real32) &
+                  ))
+             batch_accuracy = sum( &
+                  this%get_accuracy( &
+                       this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+                       real(output(:,start_index:end_index:1),real32) &
+                  ))
+          class is(array_type)
+             batch_loss = sum( &
+                  this%get_loss( &
+                       this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+                       output(1,1)%val(:,start_index:end_index:1) &
+                  ))
+             batch_accuracy = sum( &
+                  this%get_accuracy( &
+                       this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+                       output(1,1)%val(:,start_index:end_index:1) &
+                  ))
           end select
 
 
@@ -2940,8 +2956,6 @@ contains
     !! Loss and accuracy
     real(real32), allocatable, dimension(:) :: accuracy_list
     !! Accuracy list
-    real(real32), allocatable, dimension(:,:) :: predicted, y_true
-    !! Predicted and true labels
 
 
     !---------------------------------------------------------------------------
@@ -2953,7 +2967,6 @@ contains
        verbose_ = 0
     end if
     num_samples = size(output, dim=2)
-    allocate(predicted(size(output,1), num_samples))
 
     this%metrics%val = 0._real32
     acc_val  = 0._real32
@@ -2965,13 +2978,6 @@ contains
          input, input_array, input_graph, &
          num_samples, size(this%root_vertices,1) &
     )
-
-    select type(output)
-    type is(integer)
-       y_true = real(output(:,:),real32)
-    type is(real)
-       y_true = output(:,:)
-    end select
 
 
     !---------------------------------------------------------------------------
@@ -3000,19 +3006,10 @@ contains
           call this%forward_graph(get_sample_graph( &
                input_graph, sample, sample, 1 &
           ))
-          select type(output)
-          type is(graph_type)
-             call this%backward_graph(get_sample_graph( &
-                  output, sample, sample, 1 &
-             ))
-          type is(array2d_type)
-             call this%backward_mixed(output)
-          end select
        case default
-          call this%forward(get_sample( &
+          call this%forward(get_sample_derived( &
                input_array, sample, sample, 1 &
           ))
-          call this%backward(y_true(:,sample:sample))
        end select
 
 
@@ -3040,47 +3037,39 @@ contains
                   output(1,1)%edge_features &
              ) ) / output(1,sample)%num_edges
           end if
-       class default
+       type is(real)
           loss_val = sum( this%get_loss( &
                this%model(this%output_vertices(1))%layer%output(1,1)%val, &
-               y_true(:,sample:sample)))
+               output(:,sample:sample:1) &
+          ))
           acc_val = sum( this%get_accuracy( &
                this%model(this%output_vertices(1))%layer%output(1,1)%val, &
-               y_true(:,sample:sample)))
-          predicted(:,sample) = &
-               this%model(this%output_vertices(1))%layer%output(1,1)%val(:,1)
+               output(:,sample:sample:1) &
+          ))
+       type is(integer)
+          loss_val = sum( this%get_loss( &
+               this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+               real(output(:,sample:sample:1),real32) &
+          ))
+          acc_val = sum( this%get_accuracy( &
+               this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+               real(output(:,sample:sample:1),real32) &
+          ))
+       class is(array_type)
+          loss_val = sum( this%get_loss( &
+               this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+               output(1,1)%val(:,sample:sample:1) &
+          ))
+          acc_val = sum( this%get_accuracy( &
+               this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+               output(1,1)%val(:,sample:sample:1) &
+          ))
        end select
        this%metrics(2)%val = this%metrics(2)%val + acc_val
        this%metrics(1)%val = this%metrics(1)%val + loss_val
        accuracy_list(sample) = acc_val
 
     end do test_loop1
-
-
-    ! Print testing results
-    !---------------------------------------------------------------------------
-    if(abs(verbose_).gt.1)then
-       open(file="test_output.out",newunit=unit)
-       test_loop2: do concurrent(sample = 1:num_samples)
-          select type(output)
-          type is(integer)
-             write(unit,'(I4," Expected=",I3,", Got=",I3,", Accuracy=",F0.3)') &
-                  sample, &
-                  maxloc( output(:,sample) ), &
-                  maxloc( predicted(:,sample), dim = 1 ) - 1, &
-                  accuracy_list(sample)
-          type is(real)
-             write( &
-                  unit, &
-                  '(I4," Expected=",F0.3,", Got=",F0.3,", Accuracy=",F0.3)' &
-             ) &
-                  sample, &
-                  output(:,sample), predicted(:,sample), &
-                  accuracy_list(sample)
-          end select
-       end do test_loop2
-       close(unit)
-    end if
 
 
     ! Normalise metrics by number of samples
