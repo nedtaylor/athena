@@ -16,8 +16,7 @@ auto-examples = false
 module-naming = false
 
 [dependencies]
-# graphstruc = { git = "https://github.com/nedtaylor/graphstruc", branch = "sparse_adjacency" }
-graphstruc = { path = "../graphstruc" }
+graphstruc = { git = "https://github.com/nedtaylor/graphstruc", branch = "sparse_adjacency" }
 
 [install]
 library = false
