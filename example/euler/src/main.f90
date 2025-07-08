@@ -25,7 +25,7 @@ program mnist_example
   character(1024) :: file, train_file
 
   !! training loop variables
-  integer :: num_tests = 10, num_epochs = 200, batch_size = 4
+  integer :: num_tests = 10, num_epochs = 200, batch_size = 2
   integer :: num_time_steps = 5
   integer :: num_samples
   integer :: i, itmp1, n, num_iterations
@@ -44,7 +44,7 @@ program mnist_example
 !!! read training dataset
 !!!-----------------------------------------------------------------------------
   write(edge_file, '(A,I0,A)') "example/euler/data/bump_edgeData_1.txt"
-  n = 12
+  n = 2
   allocate(graphs_in(1,n))
   allocate(graphs_out(1,n))
   do i = 1, n

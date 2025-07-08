@@ -33,3 +33,4 @@ DPython_test/
 settings.json
 docs/_build/
 .local-pre-commit-config.yaml
+example/*/data/*.txt
