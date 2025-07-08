@@ -239,7 +239,7 @@ module athena__misc_types
 
   ! Interface for allocate, deallocate, and flattening array
   !-----------------------------------------------------------------------------
-  abstract interface
+  interface
      module subroutine allocate_array(this, array_shape, source)
        class(array_type), intent(inout), target :: this
        integer, dimension(:), intent(in), optional :: array_shape
