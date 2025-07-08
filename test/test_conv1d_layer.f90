@@ -23,7 +23,7 @@ program test_conv1d_layer
   conv_layer = conv1d_layer_type( &
        num_filters = num_filters, &
        kernel_size = kernel_size &
-       )
+  )
 
   !! check layer name
   if(.not. conv_layer%name .eq. 'conv1d')then
@@ -71,14 +71,14 @@ program test_conv1d_layer
   call conv_layer%init(input_layer%input_shape)
   select type(conv_layer)
   type is(conv1d_layer_type)
-    if(any(conv_layer%input_shape .ne. [32,3]))then
-       success = .false.
-       write(0,*) 'conv1d layer has wrong input_shape'
-    end if
-    if(any(conv_layer%output%shape .ne. [30,num_filters]))then
-       success = .false.
-       write(0,*) 'conv1d layer has wrong output%shape'
-    end if
+     if(any(conv_layer%input_shape .ne. [32,3]))then
+        success = .false.
+        write(0,*) 'conv1d layer has wrong input_shape'
+     end if
+     if(any(conv_layer%output_shape .ne. [30,num_filters]))then
+        success = .false.
+        write(0,*) 'conv1d layer has wrong output_shape'
+     end if
   end select
 
 
@@ -94,7 +94,7 @@ program test_conv1d_layer
        num_filters = 1, &
        kernel_size = 3, &
        activation_function = 'sigmoid' &
-       )
+  )
   call conv_layer%init(input_layer%input_shape, batch_size=1)
   call conv_layer%set_ptrs()
 
@@ -111,10 +111,10 @@ program test_conv1d_layer
 
   !! check outputs have expected value
   if (any(abs(output - 0.5).gt.tol)) then
-    success = .false.
-    write(*,*) 'conv1d layer with zero input and sigmoid activation must &
-         &return outputs all equal to 0.5'
-    write(*,*) output
+     success = .false.
+     write(*,*) 'conv1d layer with zero input and sigmoid activation must &
+          &return outputs all equal to 0.5'
+     write(*,*) output
   end if
 
 
@@ -138,7 +138,7 @@ program test_conv1d_layer
      end if
 
      !! check layer gradient handling
-     params = conv_layer%get_gradients() 
+     params = conv_layer%get_gradients()
      if(size(params) .eq. 0)then
         success = .false.
         write(0,*) 'conv1d layer has wrong number of gradients'
@@ -159,12 +159,12 @@ program test_conv1d_layer
 
      !! check layer output handling
      call conv_layer%get_output(params)
-     if(size(params) .ne. product(conv_layer%output%shape))then
+     if(size(params) .ne. product(conv_layer%output_shape))then
         success = .false.
         write(0,*) 'conv1d layer has wrong number of outputs'
      end if
      call conv_layer%get_output(outputs)
-     if(any(shape(outputs) .ne. [product(conv_layer%output%shape), 1]))then
+     if(any(shape(outputs) .ne. [product(conv_layer%output_shape), 1]))then
         success = .false.
         write(0,*) 'conv1d layer has wrong number of outputs'
      end if
@@ -177,7 +177,7 @@ program test_conv1d_layer
   conv_layer = conv1d_layer_type( &
        kernel_size = [2], &
        stride = [2] &
-       )
+  )
   select type(conv_layer)
   type is (conv1d_layer_type)
      if(any(conv_layer%knl .ne. 2))then
@@ -197,7 +197,7 @@ program test_conv1d_layer
   conv_layer = conv1d_layer_type( &
        kernel_size = [4], &
        stride = [4] &
-       )
+  )
   select type(conv_layer)
   type is (conv1d_layer_type)
      if(any(conv_layer%knl .ne. 4))then
@@ -218,13 +218,13 @@ program test_conv1d_layer
        num_filters = 1, &
        kernel_size = 3, &
        activation_function = 'sigmoid' &
-       )
+  )
   call conv_layer1%init(input_layer%input_shape, batch_size=1)
   conv_layer2 = conv1d_layer_type( &
        num_filters = 1, &
        kernel_size = 3, &
        activation_function = 'sigmoid' &
-       )
+  )
   call conv_layer2%init(input_layer%input_shape, batch_size=1)
   select type(conv_layer1)
   type is(conv1d_layer_type)
@@ -249,8 +249,8 @@ program test_conv1d_layer
            call compare_conv1d_layers(&
                 conv_layer, conv_layer1, success, conv_layer2)
         class default
-            success = .false.
-            write(0,*) 'conv1d layer has wrong type'
+           success = .false.
+           write(0,*) 'conv1d layer has wrong type'
         end select
      class default
         success = .false.
@@ -280,33 +280,33 @@ contains
 !!! compare two or three layers
 !!!-----------------------------------------------------------------------------
   subroutine compare_conv1d_layers(layer1, layer2, success, layer3)
-     type(conv1d_layer_type), intent(in) :: layer1, layer2
-     logical, intent(inout) :: success
-     type(conv1d_layer_type), optional, intent(in) :: layer3
+    type(conv1d_layer_type), intent(in) :: layer1, layer2
+    logical, intent(inout) :: success
+    type(conv1d_layer_type), optional, intent(in) :: layer3
 
-     if(all(layer1%knl .ne. layer2%knl))then
-        success = .false.
-        write(0,*) 'conv1d layer has wrong kernel_size'
-     end if
-     if(layer1%num_filters .ne. layer2%num_filters)then
-        success = .false.
-        write(0,*) 'conv1d layer has wrong num_filters'
-     end if
-     if(layer1%transfer%name .ne. 'sigmoid')then
-        success = .false.
-        write(0,*) 'conv1d layer has wrong transfer: '//&
-             layer1%transfer%name
-     end if
-     if(present(layer3))then
-        if(any(abs(layer1%dw-layer2%dw-layer3%dw).gt.tol))then
-           success = .false.
-           write(0,*) 'conv1d layer has wrong weights'
-        end if
-        if(any(abs(layer1%db-layer2%db-layer3%db).gt.tol))then
-           success = .false.
-           write(0,*) 'conv1d layer has wrong weights'
-        end if
-     end if
+    if(all(layer1%knl .ne. layer2%knl))then
+       success = .false.
+       write(0,*) 'conv1d layer has wrong kernel_size'
+    end if
+    if(layer1%num_filters .ne. layer2%num_filters)then
+       success = .false.
+       write(0,*) 'conv1d layer has wrong num_filters'
+    end if
+    if(layer1%transfer%name .ne. 'sigmoid')then
+       success = .false.
+       write(0,*) 'conv1d layer has wrong transfer: '//&
+            layer1%transfer%name
+    end if
+    if(present(layer3))then
+       if(any(abs(layer1%dw-layer2%dw-layer3%dw).gt.tol))then
+          success = .false.
+          write(0,*) 'conv1d layer has wrong weights'
+       end if
+       if(any(abs(layer1%db-layer2%db-layer3%db).gt.tol))then
+          success = .false.
+          write(0,*) 'conv1d layer has wrong weights'
+       end if
+    end if
 
   end subroutine compare_conv1d_layers
 

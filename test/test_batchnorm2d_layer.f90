@@ -65,7 +65,7 @@ program test_batchnorm2d_layer
      end if
 
      !! check output shape
-     if(any(bn_layer%output%shape .ne. [width,width,num_channels]))then
+     if(any(bn_layer%output_shape .ne. [width,width,num_channels]))then
         success = .false.
         write(0,*) 'batchnorm2d layer has wrong output shape'
      end if
@@ -140,7 +140,7 @@ program test_batchnorm2d_layer
   !! check gradient has expected value
   select type(current => bn_layer)
   type is(batchnorm2d_layer_type)
-     select type(di => current%di)
+     select type(di => current%di(1,1))
      type is(array4d_type)
         do i = 1, num_channels
            mean = sum(di%val_ptr(:,:,i,:))/(width**2*batch_size)

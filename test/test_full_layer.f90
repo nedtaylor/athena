@@ -13,7 +13,7 @@ program test_full_layer
 !!!-----------------------------------------------------------------------------
   full_layer1 = full_layer_type(num_inputs=1, num_outputs=10, batch_size=1)
   call full_layer1%set_ptrs()
-  
+
   !! check layer name
   if(.not. full_layer1%name .eq. 'full')then
      success = .false.
@@ -25,7 +25,7 @@ program test_full_layer
      write(0,*) 'full layer has wrong input_shape'
   end if
 
-  if(any(full_layer1%output%shape .ne. [10]))then
+  if(any(full_layer1%output_shape .ne. [10]))then
      success = .false.
      write(0,*) 'full layer has wrong output shape'
   end if
@@ -44,14 +44,14 @@ program test_full_layer
   end select
 
   full_layer2 = full_layer_type(num_outputs=20)
-  call full_layer2%init(full_layer1%output%shape)
+  call full_layer2%init(full_layer1%output_shape)
 
   if(any(full_layer2%input_shape .ne. [10]))then
      success = .false.
      write(0,*) 'full layer has wrong input_shape'
   end if
 
-  if(any(full_layer2%output%shape .ne. [20]))then
+  if(any(full_layer2%output_shape .ne. [20]))then
      success = .false.
      write(0,*) 'full layer has wrong input_shape'
   end if
@@ -89,8 +89,8 @@ program test_full_layer
            call compare_full_layers(&
                 full_layer1, full_layer2, success, full_layer3)
         class default
-            success = .false.
-            write(0,*) 'full layer has wrong type'
+           success = .false.
+           write(0,*) 'full layer has wrong type'
         end select
      class default
         success = .false.
@@ -120,33 +120,33 @@ contains
 !!! compare two or three layers
 !!!-----------------------------------------------------------------------------
   subroutine compare_full_layers(layer1, layer2, success, layer3)
-     type(full_layer_type), intent(in) :: layer1, layer2
-     logical, intent(inout) :: success
-     type(full_layer_type), optional, intent(in) :: layer3
+    type(full_layer_type), intent(in) :: layer1, layer2
+    logical, intent(inout) :: success
+    type(full_layer_type), optional, intent(in) :: layer3
 
-     if(layer1%num_inputs .ne. layer2%num_inputs)then
-        success = .false.
-        write(0,*) 'full layer has wrong num_inputs'
-     end if
-     if(layer1%transfer%name .ne. 'sigmoid')then
-        success = .false.
-        write(0,*) 'full layer has wrong transfer: '//&
-             layer1%transfer%name
-     end if
-     if(present(layer3))then
-        if(any(abs(layer1%dp-layer2%dp-layer3%dp).gt.1.E-6))then
-           success = .false.
-           write(0,*) 'full layer has wrong gradients'
-        end if
-        if(any(abs(layer1%dw-layer2%dw-layer3%dw).gt.1.E-6))then
-           success = .false.
-           write(0,*) 'full layer has wrong weight gradients'
-        end if
-        if(any(abs(layer1%db-layer2%db-layer3%db).gt.1.E-6))then
-           success = .false.
-           write(0,*) 'full layer has wrong bias gradients'
-        end if
-     end if
+    if(layer1%num_inputs .ne. layer2%num_inputs)then
+       success = .false.
+       write(0,*) 'full layer has wrong num_inputs'
+    end if
+    if(layer1%transfer%name .ne. 'sigmoid')then
+       success = .false.
+       write(0,*) 'full layer has wrong transfer: '//&
+            layer1%transfer%name
+    end if
+    if(present(layer3))then
+       if(any(abs(layer1%dp-layer2%dp-layer3%dp).gt.1.E-6))then
+          success = .false.
+          write(0,*) 'full layer has wrong gradients'
+       end if
+       if(any(abs(layer1%dw-layer2%dw-layer3%dw).gt.1.E-6))then
+          success = .false.
+          write(0,*) 'full layer has wrong weight gradients'
+       end if
+       if(any(abs(layer1%db-layer2%db-layer3%db).gt.1.E-6))then
+          success = .false.
+          write(0,*) 'full layer has wrong bias gradients'
+       end if
+    end if
 
   end subroutine compare_full_layers
 

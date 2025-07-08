@@ -333,7 +333,7 @@ contains
        )
        if(allocated(this%di)) deallocate(this%di)
        allocate( this%di(1,1), source = array5d_type() )
-       call this%di(1,1)%allocate( source = this%output )
+       call this%di(1,1)%allocate( source = this%output(1,1) )
     end if
 
   end subroutine set_batch_size_dropblock3d

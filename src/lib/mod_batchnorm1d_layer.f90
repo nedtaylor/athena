@@ -331,7 +331,6 @@ contains
     this%name = "batchnorm1d"
     this%type = "batc"
     this%input_rank = 2
-    this%output = array3d_type()
     this%momentum = momentum
     this%epsilon = epsilon
     if(trim(this%kernel_initialiser).eq.'') &
@@ -431,7 +430,7 @@ contains
        )
        if(allocated(this%di)) deallocate(this%di)
        allocate( this%di(1,1), source = array3d_type() )
-       call this%di(1,1)%allocate( source = this%output )
+       call this%di(1,1)%allocate( source = this%output(1,1) )
     end if
 
   end subroutine set_batch_size_batchnorm1d

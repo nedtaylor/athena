@@ -3,7 +3,7 @@ program test_maxpool3d_layer
        maxpool3d_layer_type, &
        base_layer_type, &
        learnable_layer_type
-   use athena__misc_types, only: array5d_type
+  use athena__misc_types, only: array5d_type
   implicit none
 
   class(base_layer_type), allocatable :: pool_layer
@@ -25,7 +25,7 @@ program test_maxpool3d_layer
   pool_layer = maxpool3d_layer_type( &
        pool_size = pool, &
        stride = stride &
-       )
+  )
 
   !! check layer name
   if(.not. pool_layer%name .eq. 'maxpool3d')then
@@ -72,24 +72,24 @@ program test_maxpool3d_layer
   pool_layer = maxpool3d_layer_type( &
        pool_size = pool, &
        stride = stride &
-       )
+  )
 
   !! check layer input and output shape based on input layer
   call pool_layer%init(shape(input_data(:,:,:,:,1)), batch_size=1)
   select type(pool_layer)
   type is(maxpool3d_layer_type)
-    if(any(pool_layer%input_shape .ne. [width,width,width,num_channels]))then
-       success = .false.
-       write(0,*) 'maxpool3d layer has wrong input_shape'
-    end if
-    if(any(pool_layer%output%shape .ne. &
-         [output_width,output_width,output_width,num_channels]))then
-       success = .false.
-       write(0,*) 'maxpool3d layer has wrong output shape', &
-            pool_layer%output%shape
-       write(0,*) 'expected', &
-            [output_width,output_width,output_width,num_channels]
-    end if
+     if(any(pool_layer%input_shape .ne. [width,width,width,num_channels]))then
+        success = .false.
+        write(0,*) 'maxpool3d layer has wrong input_shape'
+     end if
+     if(any(pool_layer%output_shape .ne. &
+          [output_width,output_width,output_width,num_channels]))then
+        success = .false.
+        write(0,*) 'maxpool3d layer has wrong output shape', &
+             pool_layer%output_shape
+        write(0,*) 'expected', &
+             [output_width,output_width,output_width,num_channels]
+     end if
   end select
 
 
@@ -111,10 +111,10 @@ program test_maxpool3d_layer
                 max_loc .le. (j-1)*stride + pool .and. &
                 max_loc .ge. (k-1)*stride + 1    .and. &
                 max_loc .le. (k-1)*stride + pool )then
-             if( abs( output(i, j, k, 1, 1) - max_value ) .gt. 1.E-6 )then
-                success = .false.
-                write(*,*) 'maxpool3d layer forward pass failed'
-             end if
+              if( abs( output(i, j, k, 1, 1) - max_value ) .gt. 1.E-6 )then
+                 success = .false.
+                 write(*,*) 'maxpool3d layer forward pass failed'
+              end if
            else if( abs( output(i, j, k, 1, 1) ) .gt. 1.E-6 ) then
               success = .false.
               write(*,*) 'maxpool3d layer forward pass failed'
@@ -143,7 +143,7 @@ program test_maxpool3d_layer
   call pool_layer%backward(input_data, gradient)
 
   !! check gradient has expected value
-  select type(di => pool_layer%di)
+  select type(di => pool_layer%di(1,1))
   type is(array5d_type)
      do i = 1, width
         num_windows_i = pool - stride + 1 - mod((stride+1)*(i-1),2)
@@ -184,7 +184,7 @@ program test_maxpool3d_layer
   pool_layer = maxpool3d_layer_type( &
        pool_size = [2, 2, 2], &
        stride = [2, 2, 2] &
-       )
+  )
   select type(pool_layer)
   type is (maxpool3d_layer_type)
      if(any(pool_layer%pool .ne. [2, 2, 2]))then
@@ -201,7 +201,7 @@ program test_maxpool3d_layer
   pool_layer = maxpool3d_layer_type( &
        pool_size = [4], &
        stride = [4] &
-       )
+  )
   select type(pool_layer)
   type is (maxpool3d_layer_type)
      if(any(pool_layer%pool .ne. 4))then

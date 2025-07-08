@@ -304,7 +304,6 @@ contains
     this%name = "batchnorm2d"
     this%type = "batc"
     this%input_rank = 3
-    this%output = array4d_type()
     this%momentum = momentum
     this%epsilon = epsilon
     if(trim(this%kernel_initialiser).eq.'') &
@@ -400,7 +399,7 @@ contains
        )
        if(allocated(this%di)) deallocate(this%di)
        allocate( this%di(1,1), source = array4d_type() )
-       call this%di(1,1)%allocate( source = this%output )
+       call this%di(1,1)%allocate( source = this%output(1,1) )
     end if
 
   end subroutine set_batch_size_batchnorm2d

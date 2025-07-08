@@ -48,7 +48,7 @@ program test_dropout_layer
      end if
 
      !! check output shape
-     if(any(drop_layer%output%shape .ne. [num_inputs]))then
+     if(any(drop_layer%output_shape .ne. [num_inputs]))then
         success = .false.
         write(0,*) 'dropout layer has wrong output shape'
      end if
@@ -105,7 +105,7 @@ program test_dropout_layer
      select type(di => drop_layer%di)
      type is(array2d_type)
         if(any(abs(merge(gradient(:,1),0.0,drop_layer%mask(:,1)) - &
-             di%val(:,1)).gt.tol))then
+             di(1,1)%val(:,1)).gt.tol))then
            success = .false.
            write(*,*) &
                 'dropout layer backward pass failed: mask incorrectly applied'

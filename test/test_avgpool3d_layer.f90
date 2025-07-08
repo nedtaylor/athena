@@ -169,7 +169,7 @@ program test_avgpool3d_layer
   end do
 
   !! check gradient has expected value
-  select type(di => pool_layer%di)
+  select type(di => pool_layer%di(1,1))
   type is(array5d_type)
      if(any(abs(di%val_ptr(:,:,:,1,1) - di_compare(:,:,:,1,1)) .gt. tol))then
         success = .false.

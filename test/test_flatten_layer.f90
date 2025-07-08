@@ -46,7 +46,7 @@ program test_flatten_layer
   end if
 
   !! check output shape
-  if(any(flatten_layer%output%shape .ne. [width*num_channels]))then
+  if(any(flatten_layer%output_shape .ne. [width*num_channels]))then
      success = .false.
      write(0,*) 'flatten layer (2D) has wrong output shape'
   end if
@@ -85,7 +85,7 @@ program test_flatten_layer
   call flatten_layer%backward(input_data3d, gradient)
 
   !! check gradient has expected value
-  select type(di => flatten_layer%di)
+  select type(di => flatten_layer%di(1,1))
   type is (array3d_type)
      if(any(abs(di%val_ptr - input_data3d).gt.tol))then
         success = .false.
@@ -113,7 +113,7 @@ program test_flatten_layer
   end if
 
   !! check output shape
-  if(any(flatten_layer%output%shape .ne. [width*width*num_channels]))then
+  if(any(flatten_layer%output_shape .ne. [width*width*num_channels]))then
      success = .false.
      write(0,*) 'flatten layer (3D) has wrong output shape'
   end if
@@ -153,7 +153,7 @@ program test_flatten_layer
   call flatten_layer%backward(input_data4d, gradient)
 
   !! check gradient has expected value
-  select type(di => flatten_layer%di)
+  select type(di => flatten_layer%di(1,1))
   type is (array4d_type)
      if(any(abs(di%val_ptr - input_data4d).gt.tol))then
         success = .false.
@@ -188,7 +188,7 @@ program test_flatten_layer
 
   !! check output shape
   if(any( &
-       flatten_layer%output%shape .ne. &
+       flatten_layer%output_shape .ne. &
        [width*width*width*num_channels] &
   ))then
      success = .false.
@@ -239,7 +239,7 @@ program test_flatten_layer
   call flatten_layer%backward(input_data5d, gradient)
 
   !! check gradient has expected value
-  select type(di => flatten_layer%di)
+  select type(di => flatten_layer%di(1,1))
   type is (array5d_type)
      if(any(abs(di%val_ptr - input_data5d).gt.tol))then
         success = .false.

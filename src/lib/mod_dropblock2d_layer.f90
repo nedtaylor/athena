@@ -329,7 +329,7 @@ contains
        )
        if(allocated(this%di)) deallocate(this%di)
        allocate( this%di(1,1), source = array4d_type() )
-       call this%di(1,1)%allocate( source = this%output )
+       call this%di(1,1)%allocate( source = this%output(1,1) )
     end if
 
 

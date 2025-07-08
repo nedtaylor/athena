@@ -25,7 +25,7 @@ program test_maxpool2d_layer
   pool_layer = maxpool2d_layer_type( &
        pool_size = pool, &
        stride = stride &
-       )
+  )
 
   !! check layer name
   if(.not. pool_layer%name .eq. 'maxpool2d')then
@@ -72,23 +72,23 @@ program test_maxpool2d_layer
   pool_layer = maxpool2d_layer_type( &
        pool_size = pool, &
        stride = stride &
-       )
+  )
 
   !! check layer input and output shape based on input data
   call pool_layer%init(shape(input_data(:,:,:,1)), batch_size=1)
   select type(pool_layer)
   type is(maxpool2d_layer_type)
-    if(any(pool_layer%input_shape .ne. [width,width,num_channels]))then
-       success = .false.
-       write(0,*) 'maxpool2d layer has wrong input_shape'
-    end if
-    if(any(pool_layer%output%shape .ne. &
-         [output_width,output_width,num_channels]))then
-       success = .false.
-       write(0,*) 'maxpool2d layer has wrong output shape', &
-            pool_layer%output%shape
-       write(0,*) 'expected', [output_width,output_width,num_channels]
-    end if
+     if(any(pool_layer%input_shape .ne. [width,width,num_channels]))then
+        success = .false.
+        write(0,*) 'maxpool2d layer has wrong input_shape'
+     end if
+     if(any(pool_layer%output_shape .ne. &
+          [output_width,output_width,num_channels]))then
+        success = .false.
+        write(0,*) 'maxpool2d layer has wrong output shape', &
+             pool_layer%output_shape
+        write(0,*) 'expected', [output_width,output_width,num_channels]
+     end if
   end select
 
 
@@ -103,18 +103,18 @@ program test_maxpool2d_layer
   !! check outputs have expected value
   do i = 1, output_width
      do j = 1, output_width
-       if(  max_loc .ge. (i-1)*stride + 1    .and. &
-            max_loc .le. (i-1)*stride + pool .and. &
-            max_loc .ge. (j-1)*stride + 1    .and. &
-            max_loc .le. (j-1)*stride + pool )then
-         if(abs(output(i, j, 1, 1) - max_value) .gt. 1.E-6)then
-            success = .false.
-            write(*,*) 'maxpool2d layer forward pass failed'
-         end if
-       else if(abs(output(i, j, 1, 1)) .gt. 1.E-6) then
-          success = .false.
-          write(*,*) 'maxpool2d layer forward pass failed'
-       end if
+        if(  max_loc .ge. (i-1)*stride + 1    .and. &
+             max_loc .le. (i-1)*stride + pool .and. &
+             max_loc .ge. (j-1)*stride + 1    .and. &
+             max_loc .le. (j-1)*stride + pool )then
+           if(abs(output(i, j, 1, 1) - max_value) .gt. 1.E-6)then
+              success = .false.
+              write(*,*) 'maxpool2d layer forward pass failed'
+           end if
+        else if(abs(output(i, j, 1, 1)) .gt. 1.E-6) then
+           success = .false.
+           write(*,*) 'maxpool2d layer forward pass failed'
+        end if
      end do
   end do
 
@@ -138,7 +138,7 @@ program test_maxpool2d_layer
   call pool_layer%backward(input_data, gradient)
 
   !! check gradient has expected value
-  select type(di => pool_layer%di)
+  select type(di => pool_layer%di(1,1))
   type is (array4d_type)
      do i = 1, width
         num_windows_i = pool - stride + 1 - mod((stride+1)*(i-1),2)
@@ -146,27 +146,27 @@ program test_maxpool2d_layer
            num_windows_j = pool - stride + 1 - mod((stride+1)*(j-1),2)
            num_windows = num_windows_i * num_windows_j
            if(all([i,j].eq.maxloc(input_data(:,:,1,1))))then
-             if( &
-                  abs( &
-                       di%val_ptr(i, j, 1, 1) - &
-                       maxval( output ) * num_windows &
-                  ) .gt. 1.E-6 &
-             )then
-               success = .false.
-               write(*,*) num_windows_i, num_windows_j
-               write(*,*) 'maxpool2d layer backward pass failed'
-             end if
+              if( &
+                   abs( &
+                        di%val_ptr(i, j, 1, 1) - &
+                        maxval( output ) * num_windows &
+                   ) .gt. 1.E-6 &
+              )then
+                 success = .false.
+                 write(*,*) num_windows_i, num_windows_j
+                 write(*,*) 'maxpool2d layer backward pass failed'
+              end if
            else
-             if( abs( di%val_ptr(i, j, 1, 1) ) .gt. 1.E-6 ) then
-               success = .false.
-               write(*,*) 'maxpool2d layer backward pass failed'
-             end if
+              if( abs( di%val_ptr(i, j, 1, 1) ) .gt. 1.E-6 ) then
+                 success = .false.
+                 write(*,*) 'maxpool2d layer backward pass failed'
+              end if
            end if
-         end do
+        end do
      end do
   class default
-    success = .false.
-    write(0,*) 'maxpool2d layer has not set di type correctly'
+     success = .false.
+     write(0,*) 'maxpool2d layer has not set di type correctly'
   end select
 
 
@@ -176,7 +176,7 @@ program test_maxpool2d_layer
   pool_layer = maxpool2d_layer_type( &
        pool_size = [2, 2], &
        stride = [2, 2] &
-       )
+  )
   select type(pool_layer)
   type is (maxpool2d_layer_type)
      if(any(pool_layer%pool .ne. [2, 2]))then
@@ -193,7 +193,7 @@ program test_maxpool2d_layer
   pool_layer = maxpool2d_layer_type( &
        pool_size = [4], &
        stride = [4] &
-       )
+  )
   select type(pool_layer)
   type is (maxpool2d_layer_type)
      if(any(pool_layer%pool .ne. 4))then

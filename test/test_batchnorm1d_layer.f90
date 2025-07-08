@@ -138,10 +138,10 @@ program test_batchnorm1d_layer
      end if
 
      !! check output shape
-     if(bn_layer%output%shape(2) .ne. width)then
+     if(bn_layer%output_shape(2) .ne. width)then
         success = .false.
         write(0,*) 'batchnorm1d layer has wrong output shape'
-        write(0,*) "output shape", bn_layer%output%shape
+        write(0,*) "output shape", bn_layer%output_shape
         write(0,*) "width", width
      end if
 
@@ -217,7 +217,7 @@ program test_batchnorm1d_layer
   !! check gradient has expected value
   select type(current => bn_layer)
   type is(batchnorm1d_layer_type)
-     select type(di => current%di)
+     select type(di => current%di(1,1))
      type is(array3d_type)
         do i = 1, width
            mean = sum(di%val_ptr(:,i,:))/real(batch_size)

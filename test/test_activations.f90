@@ -16,11 +16,11 @@ program test_activations
        array4d_type, &
        array5d_type
   implicit none
- 
+
   class(base_layer_type), allocatable :: full_layer, conv2d_layer, conv3d_layer
   class(activation_type), allocatable :: activation
   logical :: success = .true.
- 
+
   integer :: i
   real :: scale, value
   integer, parameter :: batch_size = 1
@@ -55,7 +55,7 @@ program test_activations
   activation_names(7) = 'sigmoid'
   activation_names(8) = 'softmax'
   activation_names(9) = 'tanh'
- 
+
   !! initialise expected activation values
   value = 0.25E0
   value_1d = value
@@ -211,7 +211,7 @@ program test_activations
           kernel_initialiser = 'ones', &
           bias_initialiser = 'zeros' )
      call full_layer%set_ptrs()
-   
+
      !! check layer name
      select type(full_layer)
      type is(full_layer_type)
@@ -222,13 +222,13 @@ program test_activations
         else
            call full_layer%forward(input_data)
            call compare_output( &
-                full_layer%output%val, &
+                full_layer%output(1,1)%val, &
                 input_data, activation_names(i), "full", success)
-  
-           full_layer%output%val = 1.E0
+
+           full_layer%output(1,1)%val = 1.E0
            call compare_derivative( &
-                full_layer%transfer%differentiate(full_layer%output%val), &
-                full_layer%output%val, &
+                full_layer%transfer%differentiate(full_layer%output(1,1)%val), &
+                full_layer%output(1,1)%val, &
                 activation_names(i), "full", success)
         end if
      class default
@@ -251,7 +251,7 @@ program test_activations
           kernel_initialiser = 'ones', &
           bias_initialiser = 'zeros' )
      call conv2d_layer%set_ptrs()
-   
+
      !! check layer name
      select type(conv2d_layer)
      type is(conv2d_layer_type)
@@ -261,17 +261,17 @@ program test_activations
                 trim(activation_names(i))
         else
            call conv2d_layer%forward(input_data_conv2d)
-           select type(output => conv2d_layer%output)
+           select type(output => conv2d_layer%output(1,1))
            type is(array4d_type)
               call compare_output( &
                    output%val_ptr, &
                    input_data_conv2d, activation_names(i), "conv2d", success)
-              
+
               output%val = 1.E0
               call compare_derivative( &
-                    conv2d_layer%transfer%differentiate(output%val_ptr), &
-                    output%val_ptr, &
-                    activation_names(i), "conv2d", success)
+                   conv2d_layer%transfer%differentiate(output%val_ptr), &
+                   output%val_ptr, &
+                   activation_names(i), "conv2d", success)
            class default
               success = .false.
               write(0,*) 'conv2d layer output is not of type array4d_type'
@@ -297,7 +297,7 @@ program test_activations
           kernel_initialiser = 'ones', &
           bias_initialiser = 'zeros' )
      call conv3d_layer%set_ptrs()
-   
+
      !! check layer name
      select type(conv3d_layer)
      type is(conv3d_layer_type)
@@ -307,17 +307,17 @@ program test_activations
                 trim(activation_names(i))
         else
            call conv3d_layer%forward(input_data_conv3d)
-           select type(output => conv3d_layer%output)
+           select type(output => conv3d_layer%output(1,1))
            type is(array5d_type)
               call compare_output( &
                    output%val_ptr, &
                    input_data_conv3d, activation_names(i), "conv3d", success)
-              
+
               output%val = 1.E0
               call compare_derivative( &
-                    conv3d_layer%transfer%differentiate(output%val_ptr), &
-                    output%val_ptr, &
-                    activation_names(i), "conv3d", success)
+                   conv3d_layer%transfer%differentiate(output%val_ptr), &
+                   output%val_ptr, &
+                   activation_names(i), "conv3d", success)
            class default
               success = .false.
               write(0,*) 'conv3d layer output is not of type array4d_type'
@@ -329,7 +329,7 @@ program test_activations
      end select
 
   end do
- 
+
 
 !!!-----------------------------------------------------------------------------
 !!! check for any failed tests
@@ -341,56 +341,56 @@ program test_activations
      write(0,*) 'test_activations failed one or more tests'
      stop 1
   end if
- 
+
 contains
 
 !!!-----------------------------------------------------------------------------
 !!! compare output
 !!!-----------------------------------------------------------------------------
   subroutine compare_output(output, input, activation_name, layer_name, success)
-     real, intent(in) :: output(1:1)
-     real, intent(in) :: input(1:1)
-     character(len=*), intent(in) :: activation_name, layer_name
-     logical, intent(inout) :: success
-     real, allocatable :: expected_output(:)
-     integer :: i, j
+    real, intent(in) :: output(1:1)
+    real, intent(in) :: input(1:1)
+    character(len=*), intent(in) :: activation_name, layer_name
+    logical, intent(inout) :: success
+    real, allocatable :: expected_output(:)
+    integer :: i, j
 
-     allocate(expected_output, source=output)
-   
-     select case(activation_name)
-     case('none')
-        expected_output = reshape(input, shape(output))
-     case('gaussian')
-        expected_output = 1.E0 / (sqrt(8.E0 * atan(1.E0)) * 1.5E0) * &
-             exp( - 0.5E0 * (input/1.5E0) ** 2.E0 )
-     case('leaky_relu')
-        expected_output = input
-     case('linear')
-        expected_output = input
-     case('piecewise')
-        expected_output = input
-     case('relu')
-        expected_output = input
-        do i = 1, size(input,1)
-           if(input(i) .lt. 0.E0) expected_output(i) = 0.E0
-        end do
-     case('sigmoid')
-        expected_output = 1.E0 / ( 1.E0 + exp(-input) )
-     case('softmax')
-        expected_output = input
-     case('tanh')
-        expected_output = tanh(input)
-     end select
-   
-     if(all(abs(output - expected_output) .gt. 1.E-6))then
-        success = .false.
-        write(0,*) 'activation ', trim(activation_name), ' failed for layer ', &
-             trim(layer_name)
-        write(0,*) 'input: ', input
-        write(0,*) 'output: ', output
-        write(0,*) 'expected_output: ', expected_output
-     end if
-   
+    allocate(expected_output, source=output)
+
+    select case(activation_name)
+    case('none')
+       expected_output = reshape(input, shape(output))
+    case('gaussian')
+       expected_output = 1.E0 / (sqrt(8.E0 * atan(1.E0)) * 1.5E0) * &
+            exp( - 0.5E0 * (input/1.5E0) ** 2.E0 )
+    case('leaky_relu')
+       expected_output = input
+    case('linear')
+       expected_output = input
+    case('piecewise')
+       expected_output = input
+    case('relu')
+       expected_output = input
+       do i = 1, size(input,1)
+          if(input(i) .lt. 0.E0) expected_output(i) = 0.E0
+       end do
+    case('sigmoid')
+       expected_output = 1.E0 / ( 1.E0 + exp(-input) )
+    case('softmax')
+       expected_output = input
+    case('tanh')
+       expected_output = tanh(input)
+    end select
+
+    if(all(abs(output - expected_output) .gt. 1.E-6))then
+       success = .false.
+       write(0,*) 'activation ', trim(activation_name), ' failed for layer ', &
+            trim(layer_name)
+       write(0,*) 'input: ', input
+       write(0,*) 'output: ', output
+       write(0,*) 'expected_output: ', expected_output
+    end if
+
   end subroutine compare_output
 
 
@@ -408,7 +408,7 @@ contains
     integer :: i, j
 
     allocate(expected_output, source=derivative)
-   
+
     select case(activation_name)
     case('none')
        expected_output = reshape(input, shape(derivative))
@@ -440,16 +440,16 @@ contains
        expected_output = 1.E0 * &
             (1.E0 - (expected_output/1.E0) ** 2.E0)
     end select
-   
+
     if(all(abs(derivative - expected_output) .gt. 1.E-6))then
        success = .false.
        write(0,*) 'activation ', trim(activation_name), ' failed for layer ', &
-             trim(layer_name)
+            trim(layer_name)
        write(0,*) 'input: ', input
        write(0,*) 'derivative: ', derivative
        write(0,*) 'expected_output: ', expected_output
     end if
-   
+
   end subroutine compare_derivative
 
 end program test_activations

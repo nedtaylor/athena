@@ -25,7 +25,7 @@ program test_maxpool1d_layer
   pool_layer = maxpool1d_layer_type( &
        pool_size = pool, &
        stride = stride &
-       )
+  )
 
   !! check layer name
   if(.not. pool_layer%name .eq. 'maxpool1d')then
@@ -72,23 +72,23 @@ program test_maxpool1d_layer
   pool_layer = maxpool1d_layer_type( &
        pool_size = pool, &
        stride = stride &
-       )
+  )
 
   !! check layer input and output shape based on input data
   call pool_layer%init(shape(input_data(:,:,1)), batch_size=1)
   select type(pool_layer)
   type is(maxpool1d_layer_type)
-    if(any(pool_layer%input_shape .ne. [width,num_channels]))then
-       success = .false.
-       write(0,*) 'maxpool1d layer has wrong input_shape'
-    end if
-    if(any(pool_layer%output%shape .ne. &
-         [output_width,num_channels]))then
-       success = .false.
-       write(0,*) 'maxpool1d layer has wrong output%shape', &
-            pool_layer%output%shape
-       write(0,*) 'expected', [output_width,num_channels]
-    end if
+     if(any(pool_layer%input_shape .ne. [width,num_channels]))then
+        success = .false.
+        write(0,*) 'maxpool1d layer has wrong input_shape'
+     end if
+     if(any(pool_layer%output_shape .ne. &
+          [output_width,num_channels]))then
+        success = .false.
+        write(0,*) 'maxpool1d layer has wrong output_shape', &
+             pool_layer%output_shape
+        write(0,*) 'expected', [output_width,num_channels]
+     end if
   end select
 
 
@@ -104,10 +104,10 @@ program test_maxpool1d_layer
   do i = 1, output_width
      if(  max_loc .ge. (i-1)*stride + 1    .and. &
           max_loc .le. (i-1)*stride + pool )then
-       if(abs(output(i, 1, 1) - max_value) .gt. 1.E-6)then
-          success = .false.
-          write(*,*) 'maxpool1d layer forward pass failed'
-       end if
+        if(abs(output(i, 1, 1) - max_value) .gt. 1.E-6)then
+           success = .false.
+           write(*,*) 'maxpool1d layer forward pass failed'
+        end if
      else if(abs(output(i, 1, 1)) .gt. 1.E-6) then
         success = .false.
         write(*,*) 'maxpool1d layer forward pass failed'
@@ -134,31 +134,31 @@ program test_maxpool1d_layer
   call pool_layer%backward(input_data, gradient)
 
   !! check gradient has expected value
-  select type(di => pool_layer%di)
+  select type(di => pool_layer%di(1,1))
   type is (array3d_type)
      do i = 1, width
         num_windows = pool - stride + 1 - mod((stride+1)*(i-1),2)
         if(i.eq.maxloc(input_data(:,1,1),dim=1))then
-          if( &
-               abs( &
-                    di%val_ptr(i, 1, 1) - &
-                    maxval( output ) * num_windows &
-               ) .gt. 1.E-6 &
-          )then
-            success = .false.
-            write(*,*) num_windows
-            write(*,*) 'maxpool1d layer backward pass failed'
-          end if
+           if( &
+                abs( &
+                     di%val_ptr(i, 1, 1) - &
+                     maxval( output ) * num_windows &
+                ) .gt. 1.E-6 &
+           )then
+              success = .false.
+              write(*,*) num_windows
+              write(*,*) 'maxpool1d layer backward pass failed'
+           end if
         else
-          if( abs( di%val_ptr(i, 1, 1) ) .gt. 1.E-6 ) then
-            success = .false.
-            write(*,*) 'maxpool1d layer backward pass failed'
-          end if
+           if( abs( di%val_ptr(i, 1, 1) ) .gt. 1.E-6 ) then
+              success = .false.
+              write(*,*) 'maxpool1d layer backward pass failed'
+           end if
         end if
      end do
   class default
-    success = .false.
-    write(0,*) 'maxpool1d layer has not set di type correctly'
+     success = .false.
+     write(0,*) 'maxpool1d layer has not set di type correctly'
   end select
 
 
@@ -168,7 +168,7 @@ program test_maxpool1d_layer
   pool_layer = maxpool1d_layer_type( &
        pool_size = [2], &
        stride = [2] &
-       )
+  )
   select type(pool_layer)
   type is (maxpool1d_layer_type)
      if(any(pool_layer%pool .ne. [2]))then
@@ -185,7 +185,7 @@ program test_maxpool1d_layer
   pool_layer = maxpool1d_layer_type( &
        pool_size = [4], &
        stride = [4] &
-       )
+  )
   select type(pool_layer)
   type is (maxpool1d_layer_type)
      if(any(pool_layer%pool .ne. 4))then

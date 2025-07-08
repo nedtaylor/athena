@@ -55,7 +55,7 @@ program test_dropblock3d_layer
      end if
 
      !! check output shape
-     if(any(db_layer%output%shape .ne. [width,width,width,num_channels]))then
+     if(any(db_layer%output_shape .ne. [width,width,width,num_channels]))then
         success = .false.
         write(0,*) 'dropblock3d layer has wrong output shape'
      end if
@@ -118,7 +118,7 @@ program test_dropblock3d_layer
   !! check gradient has expected value
   select type(db_layer)
   type is(dropblock3d_layer_type)
-     select type(di => db_layer%di)
+     select type(di => db_layer%di(1,1))
      type is(array5d_type)
         if(any(abs(merge(gradient(:,:,:,1,1),0.0,db_layer%mask) - &
              di%val_ptr(:,:,:,1,1)).gt.tol))then
