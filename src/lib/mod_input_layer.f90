@@ -49,7 +49,7 @@ module athena__input_layer
   interface input_layer_type
      !! Interface for an input layer
      module function layer_setup( &
-          input_shape, batch_size, index, verbose &
+          input_shape, batch_size, index, use_graph_input, verbose &
      ) result(layer)
        !! Set up layer
        integer, dimension(:), optional, intent(in) :: input_shape

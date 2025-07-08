@@ -140,9 +140,9 @@ module athena__network
      !! Backward pass for graph input
      procedure, pass(this) :: backward_mixed
      generic :: forward => forward_real, forward_derived, forward_graph
+     !! Generic for forward propagation
      generic :: backward => backward_real, backward_derived, backward_graph
-     !! Backward pass
-     ! generic :: backward => backward_real, backward_derived !, backward_graph
+     !! Generic for backward propagation
   end type network_type
 
   interface network_type

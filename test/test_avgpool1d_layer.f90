@@ -125,12 +125,8 @@ program test_avgpool1d_layer
   end if
   if( &
        any( abs( &
-            reshape( &
-                 output_2d, [output_width*num_channels] &
-            ) - &
-            reshape( &
-                 output, [output_width*num_channels] &
-            ) &
+            reshape( output_2d, [output_width*num_channels] ) - &
+            reshape( output, [output_width*num_channels] ) &
        ) .gt. 1.E-6))then
      success = .false.
      write(*,*) 'avgpool1d layer output pass failed'
