@@ -1,9 +1,11 @@
 module athena__kipf_msgpass_layer
   !! Module containing the types and interfacees of a message passing layer
+  use athena__io_utils, only: stop_program
   use athena__constants, only: real32
   use graphstruc, only: graph_type
   use athena__misc_types, only: activation_type, initialiser_type, &
        array_type, array2d_type
+  use athena__base_layer, only: base_layer_type
   use athena__msgpass_layer, only: msgpass_layer_type
   implicit none
 
@@ -11,6 +13,7 @@ module athena__kipf_msgpass_layer
   private
 
   public :: kipf_msgpass_layer_type
+  public :: read_kipf_msgpass_layer
 
 
 !-------------------------------------------------------------------------------
@@ -57,13 +60,13 @@ module athena__kipf_msgpass_layer
   interface kipf_msgpass_layer_type
      !! Interface for setting up the MPNN layer
      module function layer_setup( &
-          num_features, num_time_steps, batch_size, &
+          num_vertex_features, num_edge_features, num_time_steps, batch_size, &
           activation_function, activation_scale, &
           kernel_initialiser, &
           verbose &
      ) result(layer)
        !! Set up the message passing layer
-       integer, dimension(2), intent(in) :: num_features
+       integer, dimension(:), intent(in) :: num_vertex_features, num_edge_features
        !! Number of features
        integer, intent(in) :: num_time_steps
        !! Number of time steps
@@ -162,7 +165,7 @@ contains
 
 !###############################################################################
   module function layer_setup( &
-       num_vertex_features, num_edge_features, num_time_steps, batch_size, &
+       num_vertex_features, num_time_steps, batch_size, &
        activation_function, activation_scale, &
        kernel_initialiser, &
        verbose &
@@ -171,7 +174,7 @@ contains
     implicit none
 
     ! Arguments
-    integer, dimension(:), intent(in) :: num_vertex_features, num_edge_features
+    integer, dimension(:), intent(in) :: num_vertex_features
     !! Number of features
     integer, intent(in) :: num_time_steps
     !! Number of time steps
@@ -216,7 +219,6 @@ contains
     !---------------------------------------------------------------------------
     call layer%set_hyperparams( &
          num_vertex_features = num_vertex_features, &
-         num_edge_features = num_edge_features, &
          num_time_steps = num_time_steps, &
          activation_function = activation_function_, &
          activation_scale = scale, &
@@ -244,7 +246,7 @@ contains
 !###############################################################################
   subroutine set_hyperparams_kipf( &
        this, &
-       num_vertex_features, num_edge_features, &
+       num_vertex_features, &
        num_time_steps, &
        activation_function, activation_scale, &
        kernel_initialiser, &
@@ -260,8 +262,6 @@ contains
     !! Instance of the message passing layer
     integer, dimension(:), intent(in) :: num_vertex_features
     !! Number of vertex features
-    integer, dimension(:), intent(in) :: num_edge_features
-    !! Number of edge features
     integer, intent(in) :: num_time_steps
     !! Number of time steps
     character(*), intent(in) :: activation_function
@@ -301,22 +301,7 @@ contains
             &length num_time_steps + 1"
        stop
     end if
-    if(size(num_edge_features, 1) .eq. 1) then
-       ! If num_edge_features is a scalar, convert it to a vector
-       allocate( &
-            this%num_edge_features(0:num_time_steps), &
-            source = num_edge_features(1) &
-       )
-    elseif(size(num_edge_features, 1) .eq. num_time_steps + 1) then
-       allocate( &
-            this%num_edge_features(0:this%num_time_steps), &
-            source = num_edge_features &
-       )
-    else
-       write(*,*) "Error: num_edge_features must be a scalar or a vector of &
-            &length num_time_steps + 1"
-       stop
-    end if
+    allocate( this%num_edge_features(0:this%num_time_steps), source = 0 )
     this%use_graph_input = .true.
     allocate(this%transfer, &
          source=activation_setup(activation_function, activation_scale))
@@ -485,8 +470,70 @@ contains
 
 
 !###############################################################################
+  subroutine print_kipf(this, file)
+    !! Print kipf message passing layer to file
+    use athena__misc, only: to_upper
+    implicit none
+
+    ! Arguments
+    class(kipf_msgpass_layer_type), intent(in) :: this
+    !! Instance of the message passing layer
+    character(*), intent(in) :: file
+    !! Filename
+
+    ! Local variables
+    integer :: t
+    !! Loop index
+    integer :: unit
+    !! Unit number
+    character(100) :: fmt
+    !! Format string
+
+
+    ! Open file with new unit
+    !---------------------------------------------------------------------------
+    open(newunit=unit, file=trim(file), access='append')
+
+
+    ! Write initial parameters
+    !---------------------------------------------------------------------------
+    write(unit,'(A)') to_upper(trim(this%name))
+    write(unit,'(3X,"NUM_TIME_STEPS = ",I0)') this%num_time_steps
+    write(fmt,'("(3X,""NUM_VERTEX_FEATURES ="",",I0,"(1X,I0))")') this%num_time_steps
+    write(unit,fmt) this%num_vertex_features
+    write(fmt,'("(3X,""NUM_EDGE_FEATURES ="",",I0,"(1X,I0))")') this%num_time_steps
+    write(unit,fmt) this%num_edge_features
+
+    write(unit,'(3X,"ACTIVATION = ",A)') trim(this%transfer%name)
+    write(unit,'(3X,"ACTIVATION_SCALE = ",F0.9)') this%transfer%scale
+
+
+    ! Write learned parameters
+    !---------------------------------------------------------------------------
+    write(unit,'("WEIGHTS")')
+    do t = 1, this%num_time_steps, 1
+       write(unit,'(5(E16.8E2))') this%params( &
+            sum(this%num_params_msg(1:t-1:1)) + 1 : &
+            sum(this%num_params_msg(1:t:1)) &
+       )
+    end do
+    write(unit,'("END WEIGHTS")')
+    write(unit,'("END KIPF")')
+
+
+    ! Close unit
+    !---------------------------------------------------------------------------
+    close(unit)
+
+  end subroutine print_kipf
+!###############################################################################
+
+
+!###############################################################################
   subroutine read_kipf(this, unit, verbose)
     !! Read the message passing layer
+    use athena__tools_infile, only: assign_val, assign_vec, get_val
+    use athena__misc, only: to_lower, to_upper, icount
     implicit none
 
     ! Arguments
@@ -496,7 +543,191 @@ contains
     !! Unit to read from
     integer, optional, intent(in) :: verbose
     !! Verbosity level
+
+    ! Local variables
+    integer :: stat
+    !! Status of read
+    integer :: verbose_ = 0
+    !! Verbosity level
+    integer :: t, j, k, c, itmp1, num_params_old, num_params_new
+    !! Loop variables and temporary integer
+    integer :: num_time_steps = 0
+    !! Number of time steps
+    real(real32) :: activation_scale
+    !! Activation scale
+    logical :: found_weights = .false.
+    !! Flag for found weights
+    character(14) :: kernel_initialiser=''
+    !! Kernel and bias initialisers
+    character(20) :: activation_function
+    !! Padding and activation function
+    integer, dimension(:), allocatable :: num_vertex_features
+    !! Number of vertex and edge features
+    character(256) :: buffer, tag, err_msg
+    !! Buffer, tag, and error message
+    real(real32), allocatable, dimension(:) :: data_list
+    !! Data list
+
+    ! Initialise optional arguments
+    !---------------------------------------------------------------------------
+    if(present(verbose)) verbose_ = verbose
+
+
+    !---------------------------------------------------------------------------
+    ! Loop over tags in layer card
+    !---------------------------------------------------------------------------
+    tag_loop: do
+
+       ! Check for end of file
+       !------------------------------------------------------------------------
+       read(unit,'(A)',iostat=stat) buffer
+       if(stat.ne.0)then
+          write(err_msg,'("file encountered error (EoF?) before END ",A)') &
+               to_upper(this%name)
+          call stop_program(err_msg)
+          return
+       end if
+       if(trim(adjustl(buffer)).eq."") cycle tag_loop
+
+       ! Check for end of layer card
+       !------------------------------------------------------------------------
+       if(trim(adjustl(buffer)).eq."END "//to_upper(trim(this%name)))then
+          backspace(unit)
+          exit tag_loop
+       end if
+
+       tag=trim(adjustl(buffer))
+       if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
+
+       ! Read parameters from file
+       !------------------------------------------------------------------------
+       select case(trim(tag))
+       case("NUM_TIME_STEPS")
+          call assign_val(buffer, num_time_steps, itmp1)
+       case("NUM_VERTEX_FEATURES")
+          itmp1 = icount(get_val(buffer))
+          allocate(num_vertex_features(itmp1), source=0)
+          call assign_vec(buffer, num_vertex_features, itmp1)
+     !   case("NUM_EDGE_FEATURES")
+     !      itmp1 = icount(get_val(buffer))
+     !      allocate(num_edge_features(itmp1), source=0)
+     !      call assign_vec(buffer, num_edge_features, itmp1)
+       case("ACTIVATION")
+          call assign_val(buffer, activation_function, itmp1)
+       case("ACTIVATION_SCALE")
+          call assign_val(buffer, activation_scale, itmp1)
+       case("KERNEL_INITIALISER")
+          call assign_val(buffer, kernel_initialiser, itmp1)
+       case("WEIGHTS")
+          found_weights = .true.
+          kernel_initialiser = 'zeros'
+          exit tag_loop
+       case default
+          ! Don't look for "e" due to scientific notation of numbers
+          ! ... i.e. exponent (E+00)
+          if(scan(to_lower(trim(adjustl(buffer))),&
+               'abcdfghijklmnopqrstuvwxyz').eq.0)then
+             cycle tag_loop
+          elseif(tag(:3).eq.'END')then
+             cycle tag_loop
+          end if
+          write(err_msg,'("Unrecognised line in input file: ",A)') &
+               trim(adjustl(buffer))
+          call stop_program(err_msg)
+          return
+       end select
+    end do tag_loop
+
+
+    ! Set hyperparameters and initialise layer
+    !---------------------------------------------------------------------------
+    call this%set_hyperparams( &
+         num_time_steps = num_time_steps, &
+         num_vertex_features = num_vertex_features, &
+         activation_function = activation_function, &
+         activation_scale = activation_scale, &
+         kernel_initialiser = kernel_initialiser, &
+         verbose = verbose_ &
+    )
+    call this%init(input_shape=[this%num_vertex_features(0), 0])
+
+
+    ! Check if WEIGHTS card was found
+    !---------------------------------------------------------------------------
+    if(.not.found_weights)then
+       write(0,*) "WARNING: WEIGHTS card in "//to_upper(trim(this%name))//" not found"
+    else
+       num_params_old = 0
+       do t = 1, this%num_time_steps
+          num_params_new = this%num_vertex_features(t-1) * this%num_vertex_features(t)
+          allocate(data_list((num_params_old + num_params_new)), source=0._real32)
+          c = 1
+          k = 1
+          data_concat_loop: do while(c.le.this%num_vertex_features(t))
+             read(unit,'(A)',iostat=stat) buffer
+             if(stat.ne.0) exit data_concat_loop
+             k = icount(buffer)
+             read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
+             c = c + k
+          end do data_concat_loop
+          this%params( &
+               num_params_old + 1:num_params_old + num_params_new &
+          ) = data_list
+          num_params_old = num_params_old + num_params_new
+          deallocate(data_list)
+       end do
+
+       ! Check for end of weights card
+       !------------------------------------------------------------------------
+       read(unit,'(A)') buffer
+       if(trim(adjustl(buffer)).ne."END WEIGHTS")then
+          write(0,*) trim(adjustl(buffer))
+          call stop_program("END WEIGHTS not where expected")
+          return
+       end if
+    end if
+
+
+    !---------------------------------------------------------------------------
+    ! Check for end of layer card
+    !---------------------------------------------------------------------------
+    read(unit,'(A)') buffer
+    if(trim(adjustl(buffer)).ne."END "//to_upper(trim(this%name)))then
+       write(0,*) trim(adjustl(buffer))
+       write(err_msg,'("END ",A," not where expected")') to_upper(this%name)
+       call stop_program(err_msg)
+       return
+    end if
+
   end subroutine read_kipf
+!###############################################################################
+
+
+!###############################################################################
+  function read_kipf_msgpass_layer(unit, verbose) result(layer)
+    !! Read kipf message passing layer from file and return layer
+    implicit none
+
+    ! Arguments
+    integer, intent(in) :: unit
+    !! Unit number
+    integer, optional, intent(in) :: verbose
+    !! Verbosity level
+    class(base_layer_type), allocatable :: layer
+    !! Instance of the message passing layer
+
+    ! Local variables
+    integer :: verbose_ = 0
+    !! Verbosity level
+
+    if(present(verbose)) verbose_ = verbose
+    allocate(layer, source = kipf_msgpass_layer_type( &
+         num_time_steps = 1, &
+         num_vertex_features = [ 0, 0 ] &
+    ))
+    call layer%read(unit, verbose=verbose_)
+
+  end function read_kipf_msgpass_layer
 !###############################################################################
 
 

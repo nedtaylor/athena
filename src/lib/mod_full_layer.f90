@@ -489,6 +489,7 @@ contains
 !###############################################################################
   subroutine print_full(this, file)
     !! Print fully connected layer to file
+    use athena__misc, only: to_upper
     implicit none
 
     ! Arguments
@@ -511,7 +512,7 @@ contains
 
     ! Write initial parameters
     !---------------------------------------------------------------------------
-    write(unit,'("FULL")')
+    write(unit,'(A)') to_upper(trim(this%name))
     write(unit,'(3X,"NUM_INPUTS = ",I0)') this%num_inputs
     write(unit,'(3X,"NUM_OUTPUTS = ",I0)') this%num_outputs
 
@@ -659,7 +660,7 @@ contains
     ! Check if WEIGHTS card was found
     !---------------------------------------------------------------------------
     if(.not.found_weights)then
-       write(0,*) "WARNING: WEIGHTS card in FULL not found"
+       write(0,*) "WARNING: WEIGHTS card in "//to_upper(trim(this%name))//" not found"
     else
        do i=1,num_inputs+1
           allocate(data_list((num_outputs)), source=0._real32)

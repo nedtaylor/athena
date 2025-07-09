@@ -641,13 +641,23 @@ contains
 
 !###############################################################################
   subroutine print_conv2d(this, file)
+    !! Print 2D convolutional layer to file
+    use athena__misc, only: to_upper
     implicit none
-    class(conv2d_layer_type), intent(in) :: this
-    character(*), intent(in) :: file
 
+    ! Arguments
+    class(conv2d_layer_type), intent(in) :: this
+    !! Instance of the 2D convolutional layer
+    character(*), intent(in) :: file
+    !! File name
+
+    ! Local variables
     integer :: l, i, itmp1, idx
+    !! Loop indices
     integer :: unit
+    !! Unit number
     character(:), allocatable :: padding_type
+    !! Padding type
 
 
     ! Handle different width kernels for x, y, z
@@ -680,7 +690,7 @@ contains
 
     ! Write initial parameters
     !---------------------------------------------------------------------------
-    write(unit,'("CONV2D")')
+    write(unit,'(A)') to_upper(trim(this%name))
     write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
     write(unit,'(3X,"NUM_FILTERS = ",I0)') this%num_filters
     if(all(this%knl.eq.this%knl(1)))then
@@ -853,7 +863,7 @@ contains
     ! Check if WEIGHTS card was found
     !---------------------------------------------------------------------------
     if(.not.found_weights)then
-       write(0,*) "WARNING: WEIGHTS card in CONV2D not found"
+       write(0,*) "WARNING: WEIGHTS card in "//to_upper(trim(this%name))//" not found"
     else
        do l=1,num_filters
           num_inputs = product(this%knl) + 1 !+1 for bias

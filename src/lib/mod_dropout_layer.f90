@@ -331,6 +331,7 @@ contains
 !###############################################################################
   subroutine print_dropout(this, file)
     !! Print dropout layer to file
+    use athena__misc, only: to_upper
     implicit none
 
     ! Arguments
@@ -349,7 +350,7 @@ contains
 
     ! Write initial parameters
     !---------------------------------------------------------------------------
-    write(unit,'("DROPOUT")')
+    write(unit,'(A)') to_upper(trim(this%name))
     write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
     write(unit,'(3X,"RATE = ",F0.9)') this%rate
     write(unit,'(3X,"NUM_MASKS = ",I0)') this%num_masks

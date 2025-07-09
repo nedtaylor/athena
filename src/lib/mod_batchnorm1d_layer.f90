@@ -445,6 +445,7 @@ contains
 !###############################################################################
   subroutine print_batchnorm1d(this, file)
     !! Print 1D batch normalisation layer to file
+    use athena__misc, only: to_upper
     implicit none
 
     ! Arguments
@@ -467,7 +468,7 @@ contains
 
     ! Write initial parameters
     !---------------------------------------------------------------------------
-    write(unit,'("BATCHNORM1D")')
+    write(unit,'(A)') to_upper(trim(this%name))
     write(unit,'(3X,"INPUT_SHAPE = ",2(1X,I0))') this%input_shape
     write(unit,'(3X,"MOMENTUM = ",F0.9)') this%momentum
     write(unit,'(3X,"EPSILON = ",F0.9)') this%epsilon

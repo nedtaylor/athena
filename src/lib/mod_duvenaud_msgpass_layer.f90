@@ -4,6 +4,7 @@ module athena__duvenaud_msgpass_layer
   use graphstruc, only: graph_type
   use athena__misc_types, only: activation_type, initialiser_type, &
        array_type, array2d_type
+  use athena__base_layer, only: base_layer_type
   use athena__msgpass_layer, only: msgpass_layer_type
   implicit none
 
@@ -11,6 +12,7 @@ module athena__duvenaud_msgpass_layer
   private
 
   public :: duvenaud_msgpass_layer_type
+  public :: read_duvenaud_msgpass_layer
 
 
 !-------------------------------------------------------------------------------
@@ -693,6 +695,36 @@ contains
     integer, optional, intent(in) :: verbose
     !! Verbosity level
   end subroutine read_duvenaud
+!###############################################################################
+
+
+!###############################################################################
+  function read_duvenaud_msgpass_layer(unit, verbose) result(layer)
+    !! Read duvenaud message passing layer from file and return layer
+    implicit none
+
+    ! Arguments
+    integer, intent(in) :: unit
+    !! Unit number
+    integer, optional, intent(in) :: verbose
+    !! Verbosity level
+    class(base_layer_type), allocatable :: layer
+    !! Instance of the message passing layer
+
+    ! Local variables
+    integer :: verbose_ = 0
+    !! Verbosity level
+
+    if(present(verbose)) verbose_ = verbose
+    allocate(layer, source = duvenaud_msgpass_layer_type( &
+         num_features = [ 0, 0 ], &
+         num_time_steps = 1, &
+         max_vertex_degree = 0, &
+         num_outputs = 1 &
+    ))
+    call layer%read(unit, verbose=verbose_)
+
+  end function read_duvenaud_msgpass_layer
 !###############################################################################
 
 

@@ -619,6 +619,7 @@ contains
 !###############################################################################
   subroutine print_conv1d(this, file)
     !! Print 1D convolutional layer to file
+    use athena__misc, only: to_upper
     implicit none
 
     ! Arguments
@@ -653,7 +654,7 @@ contains
 
     ! Write initial parameters
     !---------------------------------------------------------------------------
-    write(unit,'("CONV1D")')
+    write(unit,'(A)') to_upper(trim(this%name))
     write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
     write(unit,'(3X,"NUM_FILTERS = ",I0)') this%num_filters
     write(unit,'(3X,"KERNEL_SIZE =",1X,I0)') this%knl(1)
@@ -818,7 +819,7 @@ contains
     ! Check if WEIGHTS card was found
     !---------------------------------------------------------------------------
     if(.not.found_weights)then
-       write(0,*) "WARNING: WEIGHTS card in CONV1D not found"
+       write(0,*) "WARNING: WEIGHTS card in "//to_upper(trim(this%name))//" not found"
     else
        do l=1,num_filters
           num_inputs = product(this%knl) + 1 !+1 for bias

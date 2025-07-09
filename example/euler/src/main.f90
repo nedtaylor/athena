@@ -84,7 +84,6 @@ program mnist_example
           kipf_msgpass_layer_type( &
                num_time_steps = 1, &
                num_vertex_features = [ 3, 6 ], &
-               num_edge_features = [ 0 ], &
                activation_function = 'softmax', &
                kernel_initialiser = 'he_normal' &
           ) &
@@ -93,7 +92,6 @@ program mnist_example
           kipf_msgpass_layer_type( &
                num_time_steps = 1, &
                num_vertex_features = [ 9, 14 ], &
-               num_edge_features = [ 0 ], &
                activation_function = 'softmax', &
                kernel_initialiser = 'he_normal' &
           ), &
@@ -104,7 +102,6 @@ program mnist_example
           kipf_msgpass_layer_type( &
                num_time_steps = 1, &
                num_vertex_features = [ 17, 32 ], &
-               num_edge_features = [ 0 ], &
                activation_function = 'softmax', &
                kernel_initialiser = 'he_normal' &
           ), &
@@ -115,7 +112,6 @@ program mnist_example
           kipf_msgpass_layer_type( &
                num_time_steps = 1, &
                num_vertex_features = [ 35, 64 ], &
-               num_edge_features = [ 0 ], &
                activation_function = 'softmax', &
                kernel_initialiser = 'he_normal' &
           ), &
@@ -126,7 +122,6 @@ program mnist_example
           kipf_msgpass_layer_type( &
                num_time_steps = 1, &
                num_vertex_features = [ 67, 32 ], &
-               num_edge_features = [ 0 ], &
                activation_function = 'softmax', &
                kernel_initialiser = 'he_normal' &
           ), &
@@ -137,7 +132,6 @@ program mnist_example
           kipf_msgpass_layer_type( &
                num_time_steps = 1, &
                num_vertex_features = [ 35, 14 ], &
-               num_edge_features = [ 0 ], &
                activation_function = 'softmax', &
                kernel_initialiser = 'he_normal' &
           ), &
@@ -148,7 +142,6 @@ program mnist_example
           kipf_msgpass_layer_type( &
                num_time_steps = 1, &
                num_vertex_features = [ 17, 7 ], &
-               num_edge_features = [ 0 ], &
                activation_function = 'swish', &
                kernel_initialiser = 'he_normal' &
           ), &
@@ -212,7 +205,8 @@ program mnist_example
   call network%compile( &
        optimiser = adam_optimiser_type( &
             clip_dict = clip, &
-            learning_rate = 1.E-2_real32 &
+            learning_rate = 1.E-2_real32, &
+            lr_decay = exp_lr_decay_type(1.E-3_real32) &
        ), &
        loss_method = "mse", metrics = metric_dict, &
        batch_size = batch_size, verbose = 1, &

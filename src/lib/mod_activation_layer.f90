@@ -355,6 +355,7 @@ contains
 !###############################################################################
   subroutine print_actv(this, file)
     !! Print activation layer to file
+    use athena__misc, only: to_upper
     implicit none
 
     ! Arguments
@@ -375,7 +376,7 @@ contains
 
     ! Write initial parameters
     !---------------------------------------------------------------------------
-    write(unit,'("ACTV")')
+    write(unit,'(A)') to_upper(trim(this%name))
     write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
     write(unit,'(3X,"ACTIVATION_FUNCTION = ",A)') this%transfer%name
     write(unit,'(3X,"ACTIVATION_SCALE = ",1ES20.10)') this%transfer%scale

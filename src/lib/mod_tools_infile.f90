@@ -6,12 +6,14 @@ module athena__tools_infile
   !! Code copied from ARTEMIS with permission of the authors
   !! Ned Thaddeus Taylor and Francis Huw Davies
   !! https://github.com/ExeQuantCode/ARTEMIS
+  use athena__constants, only: real32
   use athena__misc, only: grep, icount
   implicit none
 
 
   private
 
+  public :: get_val
   public :: assign_val, assign_vec
   public :: getline, rm_comments
   public :: stop_check
@@ -19,18 +21,18 @@ module athena__tools_infile
 
   interface assign_val
      !! Interface for assigning a value to a variable
-     procedure assignI, assignR, assignD, assignS, assignL
+     procedure assignI, assignR, assignS, assignL
   end interface assign_val
 
   interface assign_vec
      !! Interface for assigning a vector to a variable
-     procedure assignIvec, assignRvec, assignDvec
+     procedure assignIvec, assignRvec
   end interface assign_vec
 
 contains
 
 !###############################################################################
-  function val(buffer) result(output)
+  function get_val(buffer) result(output)
     !! Extract the section of buffer that occurs after an "="
     implicit none
 
@@ -43,7 +45,7 @@ contains
     !! Extracted value
 
     output = trim(adjustl(buffer((scan(buffer, "=") + 1):)))
-  end function val
+  end function get_val
 !###############################################################################
 
 
@@ -91,7 +93,7 @@ contains
     !! Temporary buffer
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
-    if(scan(buffer, "=") .ne. 0) buffer2 = val(buffer)
+    if(scan(buffer, "=") .ne. 0) buffer2 = get_val(buffer)
     if(trim(adjustl(buffer2)) .ne. '') then
        found = found + 1
        read(buffer2, *) variable
@@ -122,7 +124,7 @@ contains
     !! Temporary buffer
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
-    if(scan(buffer, "=") .ne. 0) buffer2 = val(buffer)
+    if(scan(buffer, "=") .ne. 0) buffer2 = get_val(buffer)
     if(trim(adjustl(buffer2)) .ne. '') then
        found = found + 1
        if(icount(buffer2) == 1 .and. icount(buffer2) .ne. size(variable)) then
@@ -144,7 +146,7 @@ contains
     ! Arguments
     character(*), intent(inout) :: buffer
     !! Input buffer
-    real, intent(out) :: variable
+    real(real32), intent(out) :: variable
     !! Variable to assign data to
     integer, intent(inout) :: found
     !! Count for finding variable
@@ -156,7 +158,7 @@ contains
     !! Temporary buffer
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
-    if(scan(buffer, "=") .ne. 0) buffer2 = val(buffer)
+    if(scan(buffer, "=") .ne. 0) buffer2 = get_val(buffer)
     if(trim(adjustl(buffer2)) .ne. '') then
        found = found + 1
        read(buffer2, *) variable
@@ -173,7 +175,7 @@ contains
     ! Arguments
     character(*), intent(inout) :: buffer
     !! Input buffer
-    real, dimension(:), intent(out) :: variable
+    real(real32), dimension(:), intent(out) :: variable
     !! Variable to assign data to
     integer, intent(inout) :: found
     !! Count for finding variable
@@ -187,7 +189,7 @@ contains
     !! Temporary buffer
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
-    if(scan(buffer, "=") .ne. 0) buffer2 = val(buffer)
+    if(scan(buffer, "=") .ne. 0) buffer2 = get_val(buffer)
     if(trim(adjustl(buffer2)) .ne. '') then
        found = found + 1
        if(icount(buffer2) == 1 .and. icount(buffer2) .ne. size(variable)) then
@@ -198,71 +200,6 @@ contains
        end if
     end if
   end subroutine assignRvec
-!###############################################################################
-
-
-!###############################################################################
-  subroutine assignD(buffer, variable, found, keyword)
-    !! Assign a double precision to variable
-    implicit none
-
-    ! Arguments
-    character(*), intent(inout) :: buffer
-    !! Input buffer
-    double precision, intent(out) :: variable
-    !! Variable to assign data to
-    integer, intent(inout) :: found
-    !! Count for finding variable
-    character(*), optional, intent(in) :: keyword
-    !! Keyword to start from
-
-    ! Local variables
-    character(1024) :: buffer2
-    !! Temporary buffer
-
-    if(present(keyword)) buffer = buffer(index(buffer, keyword):)
-    if(scan(buffer, "=") .ne. 0) buffer2 = val(buffer)
-    if(trim(adjustl(buffer2)) .ne. '') then
-       found = found + 1
-       read(buffer2, *) variable
-    end if
-  end subroutine assignD
-!###############################################################################
-
-
-!###############################################################################
-  subroutine assignDvec(buffer, variable, found, keyword)
-    !! Assign an arbitrary length vector of double precision to variable
-    implicit none
-
-    ! Arguments
-    character(*), intent(inout) :: buffer
-    !! Input buffer
-    double precision, dimension(:), intent(out) :: variable
-    !! Variable to assign data to
-    integer, intent(inout) :: found
-    !! Count for finding variable
-    character(*), optional, intent(in) :: keyword
-    !! Keyword to start from
-
-    ! Local variables
-    integer :: i
-    !! Loop index
-    character(1024) :: buffer2
-    !! Temporary buffer
-
-    if(present(keyword)) buffer = buffer(index(buffer, keyword):)
-    if(scan(buffer, "=") .ne. 0) buffer2 = val(buffer)
-    if(trim(adjustl(buffer2)) .ne. '') then
-       found = found + 1
-       if(icount(buffer2) == 1 .and. icount(buffer2) .ne. size(variable)) then
-          read(buffer2, *) variable(1)
-          variable = variable(1)
-       else
-          read(buffer2, *) (variable(i), i = 1, size(variable))
-       end if
-    end if
-  end subroutine assignDvec
 !###############################################################################
 
 
@@ -286,7 +223,7 @@ contains
     !! Temporary buffer
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
-    if(scan(buffer, "=") .ne. 0) buffer2 = val(buffer)
+    if(scan(buffer, "=") .ne. 0) buffer2 = get_val(buffer)
     if(trim(adjustl(buffer2)) .ne. '') then
        found = found + 1
        read(buffer2, '(A)') variable
@@ -315,7 +252,7 @@ contains
     !! Temporary buffer
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
-    if(scan(buffer, "=") .ne. 0) buffer2 = val(buffer)
+    if(scan(buffer, "=") .ne. 0) buffer2 = get_val(buffer)
     if(trim(adjustl(buffer2)) .ne. '') then
        found = found + 1
        if( &
