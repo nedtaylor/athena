@@ -668,7 +668,7 @@ contains
           allocate(data_list((num_params_old + num_params_new)), source=0._real32)
           c = 1
           k = 1
-          data_concat_loop: do while(c.le.this%num_vertex_features(t))
+          data_concat_loop: do while(c.le.num_params_new)
              read(unit,'(A)',iostat=stat) buffer
              if(stat.ne.0) exit data_concat_loop
              k = icount(buffer)
