@@ -36,6 +36,8 @@ module athena__kipf_msgpass_layer
      !! Initialise the message passing layer
      procedure, pass(this) :: set_batch_size => set_batch_size_kipf
      !! Set batch size
+     procedure, pass(this) :: print => print_kipf
+     !! Print the message passing layer
      procedure, pass(this) :: read => read_kipf
      !! Read the message passing layer
 
@@ -303,6 +305,7 @@ contains
     end if
     allocate( this%num_edge_features(0:this%num_time_steps), source = 0 )
     this%use_graph_input = .true.
+    if(allocated(this%transfer)) deallocate(this%transfer)
     allocate(this%transfer, &
          source=activation_setup(activation_function, activation_scale))
     if(trim(kernel_initialiser).eq.'') &
@@ -499,10 +502,9 @@ contains
     !---------------------------------------------------------------------------
     write(unit,'(A)') to_upper(trim(this%name))
     write(unit,'(3X,"NUM_TIME_STEPS = ",I0)') this%num_time_steps
-    write(fmt,'("(3X,""NUM_VERTEX_FEATURES ="",",I0,"(1X,I0))")') this%num_time_steps
+    write(fmt,'("(3X,""NUM_VERTEX_FEATURES ="",",I0,"(1X,I0))")') &
+         this%num_time_steps + 1
     write(unit,fmt) this%num_vertex_features
-    write(fmt,'("(3X,""NUM_EDGE_FEATURES ="",",I0,"(1X,I0))")') this%num_time_steps
-    write(unit,fmt) this%num_edge_features
 
     write(unit,'(3X,"ACTIVATION = ",A)') trim(this%transfer%name)
     write(unit,'(3X,"ACTIVATION_SCALE = ",F0.9)') this%transfer%scale
@@ -518,7 +520,7 @@ contains
        )
     end do
     write(unit,'("END WEIGHTS")')
-    write(unit,'("END KIPF")')
+    write(unit,'("END ",A)') to_upper(trim(this%name))
 
 
     ! Close unit
@@ -608,10 +610,6 @@ contains
           itmp1 = icount(get_val(buffer))
           allocate(num_vertex_features(itmp1), source=0)
           call assign_vec(buffer, num_vertex_features, itmp1)
-     !   case("NUM_EDGE_FEATURES")
-     !      itmp1 = icount(get_val(buffer))
-     !      allocate(num_edge_features(itmp1), source=0)
-     !      call assign_vec(buffer, num_edge_features, itmp1)
        case("ACTIVATION")
           call assign_val(buffer, activation_function, itmp1)
        case("ACTIVATION_SCALE")
@@ -641,6 +639,13 @@ contains
 
     ! Set hyperparameters and initialise layer
     !---------------------------------------------------------------------------
+    if(num_time_steps.gt.0 .and. num_time_steps.ne.size(num_vertex_features,1)-1)then
+       write(err_msg,'("NUM_TIME_STEPS = ",I0," does not match length of "// &
+            &"NUM_VERTEX_FEATURES = ",I0)') num_time_steps, &
+            size(num_vertex_features,1)-1
+       call stop_program(err_msg)
+       return
+    end if
     call this%set_hyperparams( &
          num_time_steps = num_time_steps, &
          num_vertex_features = num_vertex_features, &

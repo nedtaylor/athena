@@ -527,7 +527,7 @@ contains
        write(unit,'(5(E16.8E2))') this%weight(:,i)
     end do
     write(unit,'("END WEIGHTS")')
-    write(unit,'("END FULL")')
+    write(unit,'("END ",A)') to_upper(trim(this%name))
 
 
     ! Close unit

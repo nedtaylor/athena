@@ -674,7 +674,7 @@ contains
        write(unit,'(E16.8E2)') this%bias(l)
     end do
     write(unit,'("END WEIGHTS")')
-    write(unit,'("END CONV1D")')
+    write(unit,'("END ",A)') to_upper(trim(this%name))
 
 
     ! Close unit

@@ -347,7 +347,7 @@ contains
     open(newunit=unit,file=file,status='replace')
     close(unit)
 
-    do l=1,this%num_layers
+    do l = 1, this%num_layers
        call this%model(l)%layer%print(file)
     end do
 

@@ -427,7 +427,7 @@ contains
     write(unit,'(3X,"INPUT_SHAPE = ",4(1X,I0))') this%input_shape
     write(unit,'(3X,"RATE = ",F0.9)') this%rate
     write(unit,'(3X,"BLOCK_SIZE = ",I0)') this%block_size
-    write(unit,'("END DROPBLOCK3D")')
+    write(unit,'("END ",A)') to_upper(trim(this%name))
 
 
     ! Close unit

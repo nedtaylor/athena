@@ -354,7 +354,7 @@ contains
     write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
     write(unit,'(3X,"RATE = ",F0.9)') this%rate
     write(unit,'(3X,"NUM_MASKS = ",I0)') this%num_masks
-    write(unit,'("END DROPOUT")')
+    write(unit,'("END ",A)') to_upper(trim(this%name))
 
     ! Close unit
     !---------------------------------------------------------------------------
