@@ -224,6 +224,7 @@ contains
     this%name = "maxpool1d"
     this%type = "pool"
     this%input_rank = 2
+    this%output_rank = 2
     allocate( &
          this%pool(this%input_rank-1), &
          this%strd(this%input_rank-1) &

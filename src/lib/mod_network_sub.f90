@@ -273,7 +273,7 @@ contains
                 case(1) ! concatenate
                    num_inputs = num_inputs + 1
                    this%io_map( id_in, id_out, 1 ) = num_inputs
-                   if(layer_to%use_graph_input)then
+                   if(layer_to%use_graph_output)then
                       num_inputs = num_inputs + layer_from%output_shape(1) - 1
                       num_inputs_edge = num_inputs_edge + 1
                       this%io_map( id_in, id_out, 5 ) = num_inputs_edge
@@ -1131,7 +1131,7 @@ contains
        child_loop: do j = 1, size(child_vertices)
           child_id = this%auto_graph%vertex(child_vertices(j))%id
           if(trim(this%model(id)%layer%type).eq."flat") cycle child_loop
-          if( this%model(id)%layer%input_rank .eq. &
+          if( this%model(id)%layer%output_rank .eq. &
                this%model(child_id)%layer%input_rank ) cycle child_loop
 
           ! get all parent vertices of the child vertex
@@ -1143,12 +1143,12 @@ contains
              parent_id = this%auto_graph%vertex(k)%id
              parent_vertices = [parent_vertices, k]
              !check if ranks match, rather than input and output shapes
-             if( this%model(id)%layer%input_rank .ne. &
+             if( this%model(id)%layer%output_rank .ne. &
                   this%model(parent_id)%layer%input_rank &
              ) l_flatten_child = .false.
           end do
           t_flatten_layer = flatten_layer_type( &
-               input_rank = this%model(id)%layer%input_rank &
+               input_rank = this%model(id)%layer%output_rank &
           )
 
           if(l_flatten_child)then

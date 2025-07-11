@@ -196,6 +196,7 @@ contains
     this%type = "actv"
     this%input_rank = 0
     if(present(input_rank)) this%input_rank = input_rank
+    this%output_rank = this%input_rank
     allocate(this%transfer, &
          source=activation_setup(activation_function, activation_scale) &
     )

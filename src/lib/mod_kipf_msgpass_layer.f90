@@ -282,6 +282,7 @@ contains
     this%name = 'kipf'
     this%type = 'msgp'
     this%input_rank = 2
+    this%output_rank = 2
     this%use_graph_output = .true.
     this%num_time_steps = num_time_steps
     if(allocated(this%num_vertex_features)) &

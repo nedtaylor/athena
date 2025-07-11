@@ -223,6 +223,7 @@ contains
     this%name = "avgpool3d"
     this%type = "pool"
     this%input_rank = 4
+    this%output_rank = 4
     allocate( &
          this%pool(this%input_rank-1), &
          this%strd(this%input_rank-1) &

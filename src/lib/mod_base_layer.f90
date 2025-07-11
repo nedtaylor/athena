@@ -40,6 +40,8 @@ module athena__base_layer
      !! Batch size
      integer :: input_rank = 0
      !! Rank of input data
+     integer :: output_rank = 0
+     !! Rank of output data
      logical :: inference = .false.
      !! Inference mode
      logical :: use_graph_input = .false.

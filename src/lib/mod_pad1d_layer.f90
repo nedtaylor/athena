@@ -187,6 +187,7 @@ contains
     this%name = "pad1d"
     this%type = "pad"
     this%input_rank = 2
+    this%output_rank = 2
     this%pad = padding
     allocate(this%facets(this%input_rank - 1))
     this%facets(1)%rank = 1

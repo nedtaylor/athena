@@ -434,6 +434,7 @@ contains
     this%name = "conv3d"
     this%type = "conv"
     this%input_rank = 4
+    this%output_rank = 4
     allocate( &
          this%knl(this%input_rank-1), &
          this%stp(this%input_rank-1), &

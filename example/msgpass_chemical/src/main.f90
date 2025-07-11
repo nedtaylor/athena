@@ -67,10 +67,8 @@ program mnist_example
 
      call network%add(duvenaud_msgpass_layer_type( &
           num_time_steps = num_time_steps, &
-          num_features = [ &
-               graphs(1,1)%num_vertex_features, &
-               graphs(1,1)%num_edge_features &
-          ], &
+          num_vertex_features = [ graphs(1,1)%num_vertex_features ], &
+          num_edge_features =   [ graphs(1,1)%num_edge_features ], &
           num_outputs = num_dense_inputs, &
           kernel_initialiser = 'he_normal', &
           max_vertex_degree = 6, &

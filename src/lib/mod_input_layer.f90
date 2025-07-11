@@ -204,6 +204,7 @@ contains
     this%type = "inpt"
     this%input_rank = 0
     if(present(input_rank)) this%input_rank = input_rank
+    this%output_rank = this%input_rank
     if(present(index)) this%index = index
     if(present(use_graph_input))then
        this%use_graph_input = use_graph_input
@@ -245,6 +246,7 @@ contains
     ! Initialise input shape
     !---------------------------------------------------------------------------
     this%input_rank = size(input_shape, dim=1)
+    this%output_rank = this%input_rank
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
     this%output_shape = this%input_shape
     this%num_outputs = product(this%input_shape)
@@ -338,6 +340,7 @@ contains
           end select
        end if
     end if
+    this%output_rank = this%input_rank
 
   end subroutine set_batch_size_input
 !###############################################################################

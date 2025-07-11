@@ -202,6 +202,7 @@ contains
     this%name = "dropblock3d"
     this%type = "drop"
     this%input_rank = 4
+    this%output_rank = 4
 
     this%rate = rate
     this%block_size = block_size

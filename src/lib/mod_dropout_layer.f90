@@ -177,6 +177,7 @@ contains
     this%name = "dropout"
     this%type = "drop"
     this%input_rank = 1
+    this%output_rank = 1
 
     this%num_masks = num_masks
     this%rate = rate

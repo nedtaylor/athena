@@ -297,6 +297,7 @@ contains
     this%name = "full"
     this%type = "full"
     this%input_rank = 1
+    this%output_rank = 1
     this%num_outputs = num_outputs
     allocate(this%transfer, &
          source=activation_setup(activation_function, activation_scale))

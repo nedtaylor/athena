@@ -29,6 +29,8 @@ module athena__flatten_layer
      !! Initialise flattening layer
      procedure, pass(this) :: set_batch_size => set_batch_size_flatten
      !! Set batch size for flattening layer
+     procedure, pass(this) :: print_to_unit => print_to_unit_flatten
+     !! Print flatten layer to unit
      procedure, pass(this) :: read => read_flatten
      !! Read flattening layer from file
      procedure, pass(this) :: forward  => forward_rank
@@ -220,6 +222,7 @@ contains
     this%name = "flatten"
     this%type = "flat"
     this%input_rank = input_rank
+    this%output_rank = 1
   end subroutine set_hyperparams_flatten
 !###############################################################################
 
@@ -369,6 +372,39 @@ contains
     end if
 
   end subroutine set_batch_size_flatten
+!###############################################################################
+
+
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
+
+
+!###############################################################################
+  subroutine print_to_unit_flatten(this, unit)
+    !! Print flatten layer to unit
+    implicit none
+
+    ! Arguments
+    class(flatten_layer_type), intent(in) :: this
+    !! Instance of the flatten layer
+    integer, intent(in) :: unit
+    !! File unit
+
+    ! Local variables
+    integer :: t
+    !! Loop index
+    character(100) :: fmt
+    !! Format string
+
+
+    ! Write initial parameters
+    !---------------------------------------------------------------------------
+    write(unit,'(3X,"INPUT_RANK = ",I0)') this%input_rank
+    write(fmt,'("(3X,""INPUT_SHAPE ="",",I0,"(1X,I0))")') size(this%input_shape)
+    write(unit,fmt) this%input_shape
+
+  end subroutine print_to_unit_flatten
 !###############################################################################
 
 

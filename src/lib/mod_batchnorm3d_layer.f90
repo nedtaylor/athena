@@ -301,6 +301,7 @@ contains
     this%name = "batchnorm3d"
     this%type = "batc"
     this%input_rank = 4
+    this%output_rank = 4
     this%momentum = momentum
     this%epsilon = epsilon
     if(trim(this%kernel_initialiser).eq.'') &

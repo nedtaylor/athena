@@ -74,7 +74,7 @@ module athena__duvenaud_msgpass_layer
   interface duvenaud_msgpass_layer_type
      !! Interface for setting up the MPNN layer
      module function layer_setup( &
-          num_features, num_time_steps, &
+          num_vertex_features, num_edge_features, num_time_steps, &
           max_vertex_degree, &
           num_outputs, &
           min_vertex_degree, &
@@ -84,8 +84,10 @@ module athena__duvenaud_msgpass_layer
           verbose &
      ) result(layer)
        !! Set up the message passing layer
-       integer, dimension(2), intent(in) :: num_features
-       !! Number of features
+       integer, dimension(:), intent(in) :: num_vertex_features
+       !! Number of vertex features
+       integer, dimension(:), intent(in) :: num_edge_features
+       !! Number of edge features
        integer, intent(in) :: num_time_steps
        !! Number of time steps
        integer, intent(in) :: max_vertex_degree
@@ -210,7 +212,7 @@ contains
 
 !###############################################################################
   module function layer_setup( &
-       num_features, num_time_steps, &
+       num_vertex_features ,num_edge_features, num_time_steps, &
        max_vertex_degree, &
        num_outputs, &
        min_vertex_degree, &
@@ -223,8 +225,10 @@ contains
     implicit none
 
     ! Arguments
-    integer, dimension(2), intent(in) :: num_features
-    !! Number of features
+    integer, dimension(:), intent(in) :: num_vertex_features
+    !! Number of vertex features
+    integer, dimension(:), intent(in) :: num_edge_features
+    !! Number of edge features
     integer, intent(in) :: num_time_steps
     !! Number of time steps
     integer, intent(in) :: max_vertex_degree
@@ -280,8 +284,8 @@ contains
     ! Set hyperparameters
     !---------------------------------------------------------------------------
     call layer%set_hyperparams( &
-         num_vertex_features = num_features(1), &
-         num_edge_features = num_features(2), &
+         num_vertex_features = num_vertex_features, &
+         num_edge_features = num_edge_features, &
          min_vertex_degree = min_vertex_degree_, &
          max_vertex_degree = max_vertex_degree, &
          num_time_steps = num_time_steps, &
@@ -302,7 +306,10 @@ contains
     !---------------------------------------------------------------------------
     ! Initialise layer shape
     !---------------------------------------------------------------------------
-    call layer%init(input_shape=[layer%num_vertex_features(1)])
+    call layer%init(input_shape=[ &
+         layer%num_vertex_features(0), &
+         layer%num_edge_features(0) &
+    ])
 
   end function layer_setup
 !###############################################################################
@@ -328,9 +335,9 @@ contains
     ! Arguments
     class(duvenaud_msgpass_layer_type), intent(inout) :: this
     !! Instance of the message passing layer
-    integer, intent(in) :: num_vertex_features
+    integer, dimension(:), intent(in) :: num_vertex_features
     !! Number of vertex features
-    integer, intent(in) :: num_edge_features
+    integer, dimension(:), intent(in) :: num_edge_features
     !! Number of edge features
     integer, intent(in) :: min_vertex_degree
     !! Minimum vertex degree
@@ -349,9 +356,14 @@ contains
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
+    ! Local variables
+    integer :: t
+    !! Loop index
+
     this%name = 'duvenaud'
     this%type = 'msgp'
-    this%input_rank = 1
+    this%input_rank = 2
+    this%output_rank = 1
     this%min_vertex_degree = min_vertex_degree
     this%max_vertex_degree = max_vertex_degree
     this%num_time_steps = num_time_steps
@@ -360,15 +372,38 @@ contains
          deallocate(this%num_vertex_features)
     if(allocated(this%num_edge_features)) &
          deallocate(this%num_edge_features)
-    allocate( &
-         this%num_vertex_features(0:this%num_time_steps), &
-         source = num_vertex_features &
-    )
-    allocate( &
-         this%num_edge_features(0:0), &
-         source = num_edge_features &
-    )
+    if(size(num_vertex_features, 1) .eq. 1) then
+       allocate( &
+            this%num_vertex_features(0:num_time_steps), &
+            source = num_vertex_features(1) &
+       )
+    elseif(size(num_vertex_features, 1) .eq. num_time_steps + 1) then
+       allocate( &
+            this%num_vertex_features(0:this%num_time_steps), &
+            source = num_vertex_features &
+       )
+    else
+       write(*,*) "Error: num_vertex_features must be a scalar or a vector of &
+            &length num_time_steps + 1"
+       stop
+    end if
+    if(size(num_edge_features, 1) .eq. 1) then
+       allocate( &
+            this%num_edge_features(0:num_time_steps), &
+            source = num_edge_features(1) &
+       )
+    elseif(size(num_edge_features, 1) .eq. num_time_steps + 1) then
+       allocate( &
+            this%num_edge_features(0:this%num_time_steps), &
+            source = num_edge_features &
+       )
+    else
+       write(*,*) "Error: num_edge_features must be a scalar or a vector of &
+            &length num_time_steps + 1"
+       stop
+    end if
     this%use_graph_input = .true.
+    this%use_graph_output = .false.
     allocate(this%transfer, &
          source=activation_setup(activation_function, activation_scale))
     if(trim(kernel_initialiser).eq.'') &
@@ -393,6 +428,8 @@ contains
          this%num_time_steps
 
     allocate(this%transfer_readout, source=activation_setup('softmax'))
+    if(allocated(this%input_shape)) deallocate(this%input_shape)
+    if(allocated(this%output_shape)) deallocate(this%output_shape)
 
   end subroutine set_hyperparams_duvenaud
 !###############################################################################
@@ -765,7 +802,8 @@ contains
 
     if(present(verbose)) verbose_ = verbose
     allocate(layer, source = duvenaud_msgpass_layer_type( &
-         num_features = [ 0, 0 ], &
+         num_vertex_features = [ 0 ], &
+         num_edge_features = [ 0 ], &
          num_time_steps = 1, &
          max_vertex_degree = 0, &
          num_outputs = 1 &
