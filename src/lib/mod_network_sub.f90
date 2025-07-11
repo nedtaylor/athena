@@ -1007,7 +1007,7 @@ contains
     !! Verbosity level
 
     ! Local variables
-    integer :: i, j, k, id, child_id, parent_id
+    integer :: i, j, k, id, child_id, parent_id, num_inputs
     !! Loop index
     integer :: verbose_ = 0
     !! Verbosity level
@@ -1247,7 +1247,57 @@ contains
                  )%layer%output_shape &
             )
     end do
+    call this%calculate_io_map()
 
+
+    !---------------------------------------------------------------------------
+    ! Confirm input_shape of each layer matches data going into it
+    !---------------------------------------------------------------------------
+    do i = 1, size(this%vertex_order, dim = 1)
+       if(this%model(this%vertex_order(i))%layer%type.eq."inpt") cycle
+       id = this%auto_graph%vertex(this%vertex_order(i))%id
+       if(this%model(this%vertex_order(i))%layer%use_graph_input)then
+          num_inputs = this%model(this%vertex_order(i))%layer%input_shape(2)
+          j = minval( &
+               this%io_map( :, id, 7 ), &
+               mask = this%auto_graph%adjacency(:,id).ne.0 &
+          )
+          k = maxval( &
+               this%io_map( :, id, 8 ), &
+               mask = this%auto_graph%adjacency(:,id).ne.0 &
+          )
+          if( j .eq. 0 .and. k .eq. 0 .and. &
+               this%model(this%vertex_order(i))%layer%input_shape(2) .eq. 0 &
+          )then
+          elseif( j .ne. 1 .or. k .ne. num_inputs )then
+             call stop_program( &
+                  "input_shape of layer edges "//&
+                  trim(this%model(this%vertex_order(i))%layer%name)// &
+                  " does not match data going into it" &
+             )
+          end if
+       end if
+       j = minval( &
+            this%io_map( :, id, 3 ), &
+            mask = this%auto_graph%adjacency(:,id).ne.0 &
+       )
+       k = maxval( &
+            this%io_map( :, id, 4 ), &
+            mask = this%auto_graph%adjacency(:,id).ne.0 &
+       )
+       if(this%model(this%vertex_order(i))%layer%use_graph_input)then
+          num_inputs = this%model(this%vertex_order(i))%layer%input_shape(1)
+       else
+          num_inputs = product(this%model(this%vertex_order(i))%layer%input_shape)
+       end if
+       if(j.ne.1.or.k.ne.num_inputs)then
+          call stop_program( &
+               "input_shape of layer "//&
+               trim(this%model(this%vertex_order(i))%layer%name)// &
+               " does not match data going into it" &
+          )
+       end if
+    end do
 
     !---------------------------------------------------------------------------
     ! Initialise optimiser
@@ -1299,7 +1349,6 @@ contains
        call this%model(l)%layer%set_batch_size(this%batch_size)
        call this%model(l)%layer%set_ptrs() ! name %compile() or %build()?
     end do
-    call this%calculate_io_map()
 
   end subroutine set_batch_size
 !###############################################################################
