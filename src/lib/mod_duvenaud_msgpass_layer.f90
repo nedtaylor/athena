@@ -42,6 +42,8 @@ module athena__duvenaud_msgpass_layer
      !! Initialise the message passing layer
      procedure, pass(this) :: set_batch_size => set_batch_size_duvenaud
      !! Set batch size
+     procedure, pass(this) :: print_to_unit => print_to_unit_duvenaud
+     ! !! Print the message passing layer
      procedure, pass(this) :: read => read_duvenaud
      !! Read the message passing layer
 
@@ -680,6 +682,52 @@ contains
 !##############################################################################!
 ! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
 !##############################################################################!
+
+
+!###############################################################################
+  subroutine print_to_unit_duvenaud(this, unit)
+    !! Print kipf message passing layer to unit
+    use athena__misc, only: to_upper
+    implicit none
+
+    ! Arguments
+    class(duvenaud_msgpass_layer_type), intent(in) :: this
+    !! Instance of the message passing layer
+    integer, intent(in) :: unit
+    !! Filename
+
+    ! Local variables
+    integer :: t
+    !! Loop index
+    character(100) :: fmt
+    !! Format string
+
+
+    ! Write initial parameters
+    !---------------------------------------------------------------------------
+    write(unit,'(3X,"NUM_TIME_STEPS = ",I0)') this%num_time_steps
+    write(fmt,'("(3X,""NUM_VERTEX_FEATURES ="",",I0,"(1X,I0))")') this%num_time_steps
+    write(unit,fmt) this%num_vertex_features
+    write(fmt,'("(3X,""NUM_EDGE_FEATURES ="",",I0,"(1X,I0))")') this%num_time_steps
+    write(unit,fmt) this%num_edge_features
+
+    write(unit,'(3X,"ACTIVATION = ",A)') trim(this%transfer%name)
+    write(unit,'(3X,"ACTIVATION_SCALE = ",F0.9)') this%transfer%scale
+
+
+    ! Write learned parameters
+    !---------------------------------------------------------------------------
+    write(unit,'("WEIGHTS")')
+    do t = 1, this%num_time_steps, 1
+       write(unit,'(5(E16.8E2))') this%params( &
+            sum(this%num_params_msg(1:t-1:1)) + 1 : &
+            sum(this%num_params_msg(1:t:1)) &
+       )
+    end do
+    write(unit,'("END WEIGHTS")')
+
+  end subroutine print_to_unit_duvenaud
+!###############################################################################
 
 
 !###############################################################################

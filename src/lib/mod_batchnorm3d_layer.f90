@@ -20,8 +20,8 @@ module athena__batchnorm3d_layer
      !! Set hyperparameters for 3D batch normalisation layer
      procedure, pass(this) :: set_batch_size => set_batch_size_batchnorm3d
      !! Set batch size for 3D batch normalisation layer
-     procedure, pass(this) :: print => print_batchnorm3d
-     !! Print 3D batch normalisation layer to file
+     procedure, pass(this) :: print_to_unit => print_to_unit_batchnorm3d
+     !! Print 3D batch normalisation layer to unit
      procedure, pass(this) :: read => read_batchnorm3d
      !! Read 3D batch normalisation layer from file
      procedure, pass(this) :: forward  => forward_rank
@@ -409,32 +409,24 @@ contains
 
 
 !###############################################################################
-  subroutine print_batchnorm3d(this, file)
-    !! Print 3D batch normalisation layer to file
+  subroutine print_to_unit_batchnorm3d(this, unit)
+    !! Print 3D batch normalisation layer to unit
     use athena__misc, only: to_upper
     implicit none
 
     ! Arguments
     class(batchnorm3d_layer_type), intent(in) :: this
     !! Instance of the 3D batch normalisation layer
-    character(*), intent(in) :: file
-    !! File name
+    integer, intent(in) :: unit
+    !! File unit
 
     ! Local variables
-    integer :: unit
-    !! File unit
     integer :: m
     !! Loop index
 
 
-    ! Open file with new unit
-    !---------------------------------------------------------------------------
-    open(newunit=unit, file=trim(file), access='append')
-
-
     ! Write initial parameters
     !---------------------------------------------------------------------------
-    write(unit,'(A)') to_upper(trim(this%name))
     write(unit,'(3X,"INPUT_SHAPE = ",4(1X,I0))') this%input_shape
     write(unit,'(3X,"MOMENTUM = ",F0.9)') this%momentum
     write(unit,'(3X,"EPSILON = ",F0.9)') this%epsilon
@@ -449,14 +441,8 @@ contains
        write(unit,'(5(E16.8E2))') this%beta(m)
     end do
     write(unit,'("END BETA")')
-    write(unit,'("END BATCHNORM3D")')
 
-
-    ! Close unit
-    !---------------------------------------------------------------------------
-    close(unit)
-
-  end subroutine print_batchnorm3d
+  end subroutine print_to_unit_batchnorm3d
 !###############################################################################
 
 

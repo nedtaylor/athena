@@ -32,8 +32,8 @@ module athena__dropout_layer
      !! Initialise dropout layer
      procedure, pass(this) :: set_batch_size => set_batch_size_dropout
      !! Set batch size for dropout layer
-     procedure, pass(this) :: print => print_dropout
-     !! Print dropout layer to file
+     procedure, pass(this) :: print_to_unit => print_to_unit_dropout
+     !! Print dropout layer to unit
      procedure, pass(this) :: read => read_dropout
      !! Read dropout layer from file
      procedure, pass(this) :: forward  => forward_rank
@@ -329,38 +329,25 @@ contains
 
 
 !###############################################################################
-  subroutine print_dropout(this, file)
-    !! Print dropout layer to file
+  subroutine print_to_unit_dropout(this, unit)
+    !! Print dropout layer to unit
     use athena__misc, only: to_upper
     implicit none
 
     ! Arguments
     class(dropout_layer_type), intent(in) :: this
     !! Instance of the dropout layer
-    character(*), intent(in) :: file
-    !! File name
-
-    ! Local variables
-    integer :: unit
+    integer, intent(in) :: unit
     !! File unit
 
-    ! Open file with new unit
-    !---------------------------------------------------------------------------
-    open(newunit=unit, file=trim(file), access='append')
 
     ! Write initial parameters
     !---------------------------------------------------------------------------
-    write(unit,'(A)') to_upper(trim(this%name))
     write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
     write(unit,'(3X,"RATE = ",F0.9)') this%rate
     write(unit,'(3X,"NUM_MASKS = ",I0)') this%num_masks
-    write(unit,'("END ",A)') to_upper(trim(this%name))
 
-    ! Close unit
-    !---------------------------------------------------------------------------
-    close(unit)
-
-  end subroutine print_dropout
+  end subroutine print_to_unit_dropout
 !###############################################################################
 
 

@@ -20,8 +20,8 @@ module athena__batchnorm2d_layer
      !! Set hyperparameters for 2D batch normalisation layer
      procedure, pass(this) :: set_batch_size => set_batch_size_batchnorm2d
      !! Set batch size for 2D batch normalisation layer
-     procedure, pass(this) :: print => print_batchnorm2d
-     !! Print 2D batch normalisation layer to file
+     procedure, pass(this) :: print_to_unit => print_to_unit_batchnorm2d
+     !! Print 2D batch normalisation layer to unit
      procedure, pass(this) :: read => read_batchnorm2d
      !! Read 2D batch normalisation layer from file
      procedure, pass(this) :: forward  => forward_rank
@@ -412,54 +412,40 @@ contains
 
 
 !###############################################################################
-  subroutine print_batchnorm2d(this, file)
-    !! Print 2D batch normalisation layer to file
+  subroutine print_to_unit_batchnorm2d(this, unit)
+    !! Print 2D batch normalisation layer to unit
     use athena__misc, only: to_upper
     implicit none
 
     ! Arguments
     class(batchnorm2d_layer_type), intent(in) :: this
     !! Instance of the 2D batch normalisation layer
-    character(*), intent(in) :: file
-    !! File name
+    integer, intent(in) :: unit
+    !! File unit
 
     ! Local variables
-    integer :: unit
-    !! File unit
     integer :: m
     !! Loop index
 
 
-    ! Open file with new unit
-    !---------------------------------------------------------------------------
-    open(newunit=unit, file=trim(file), access='append')
-
-
     ! Write initial parameters
     !---------------------------------------------------------------------------
-    write(unit,'(A)') to_upper(trim(this%name))
     write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
     write(unit,'(3X,"MOMENTUM = ",F0.9)') this%momentum
     write(unit,'(3X,"EPSILON = ",F0.9)') this%epsilon
     write(unit,'(3X,"NUM_CHANNELS = ",I0)') this%num_channels
     write(unit,'("GAMMA")')
-    do m=1,this%num_channels
+    do m = 1,this%num_channels
        write(unit,'(5(E16.8E2))') this%gamma(m)
     end do
     write(unit,'("END GAMMA")')
     write(unit,'("BETA")')
-    do m=1,this%num_channels
+    do m = 1,this%num_channels
        write(unit,'(5(E16.8E2))') this%beta(m)
     end do
     write(unit,'("END BETA")')
-    write(unit,'("END BATCHNORM2D")')
 
-
-    ! Close unit
-    !---------------------------------------------------------------------------
-    close(unit)
-
-  end subroutine print_batchnorm2d
+  end subroutine print_to_unit_batchnorm2d
 !###############################################################################
 
 

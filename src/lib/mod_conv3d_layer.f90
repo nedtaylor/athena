@@ -30,8 +30,8 @@ module athena__conv3d_layer
      !! Set pointers to hyperparameters
      procedure, pass(this) :: set_batch_size => set_batch_size_conv3d
      !! Set batch size for 3D convolutional layer
-     procedure, pass(this) :: print => print_conv3d
-     !! Print 3D convolutional layer to file
+     procedure, pass(this) :: print_to_unit => print_to_unit_conv3d
+     !! Print 3D convolutional layer to unit
      procedure, pass(this) :: read => read_conv3d
      !! Read 3D convolutional layer from file
      procedure, pass(this) :: forward  => forward_rank
@@ -636,22 +636,20 @@ contains
 
 
 !###############################################################################
-  subroutine print_conv3d(this, file)
-    !! Print 3D convolutional layer to file
+  subroutine print_to_unit_conv3d(this, unit)
+    !! Print 3D convolutional layer to unit
     use athena__misc, only: to_upper
     implicit none
 
     ! Arguments
     class(conv3d_layer_type), intent(in) :: this
     !! Instance of the 3D convolutional layer
-    character(*), intent(in) :: file
-    !! File name
+    integer, intent(in) :: unit
+    !! File unit
 
     ! Local variables
     integer :: l, i, itmp1, idx
     !! Loop indices
-    integer :: unit
-    !! Unit number
     character(:), allocatable :: padding_type
     !! Padding type
 
@@ -679,14 +677,8 @@ contains
     end if
 
 
-    ! Open file with new unit
-    !---------------------------------------------------------------------------
-    open(newunit=unit, file=trim(file), access='append')
-
-
     ! Write initial parameters
     !---------------------------------------------------------------------------
-    write(unit,'(A)') to_upper(trim(this%name))
     write(unit,'(3X,"INPUT_SHAPE = ",4(1X,I0))') this%input_shape
     write(unit,'(3X,"NUM_FILTERS = ",I0)') this%num_filters
     if(all(this%knl.eq.this%knl(1)))then
@@ -714,14 +706,8 @@ contains
        write(unit,'(E16.8E2)') this%bias(l)
     end do
     write(unit,'("END WEIGHTS")')
-    write(unit,'("END ",A)') to_upper(trim(this%name))
 
-
-    ! Close unit
-    !---------------------------------------------------------------------------
-    close(unit)
-
-  end subroutine print_conv3d
+  end subroutine print_to_unit_conv3d
 !###############################################################################
 
 

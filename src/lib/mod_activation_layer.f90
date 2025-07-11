@@ -31,8 +31,8 @@ module athena__actv_layer
      !! Initialise layer
      procedure, pass(this) :: set_batch_size => set_batch_size_actv
      !! Set batch size
-     procedure, pass(this) :: print => print_actv
-     !! Print layer to file
+     procedure, pass(this) :: print_to_unit => print_to_unit_actv
+     !! Print layer to unit
      procedure, pass(this) :: read => read_actv
      !! Read layer from file
      procedure, pass(this) :: forward  => forward_rank
@@ -353,41 +353,25 @@ contains
 
 
 !###############################################################################
-  subroutine print_actv(this, file)
-    !! Print activation layer to file
+  subroutine print_to_unit_actv(this, unit)
+    !! Print activation layer to unit
     use athena__misc, only: to_upper
     implicit none
 
     ! Arguments
     class(actv_layer_type), intent(in) :: this
     !! Instance of the activation layer
-    character(*), intent(in) :: file
-    !! File name
-
-    ! Local variables
-    integer :: unit
+    integer, intent(in) :: unit
     !! File unit
-
-
-    ! Open file with new unit
-    !---------------------------------------------------------------------------
-    open(newunit=unit, file=trim(file), access='append')
 
 
     ! Write initial parameters
     !---------------------------------------------------------------------------
-    write(unit,'(A)') to_upper(trim(this%name))
     write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
     write(unit,'(3X,"ACTIVATION_FUNCTION = ",A)') this%transfer%name
     write(unit,'(3X,"ACTIVATION_SCALE = ",1ES20.10)') this%transfer%scale
-    write(unit,'("END ACTV")')
 
-
-    ! Close unit
-    !---------------------------------------------------------------------------
-    close(unit)
-
-  end subroutine print_actv
+  end subroutine print_to_unit_actv
 !###############################################################################
 
 

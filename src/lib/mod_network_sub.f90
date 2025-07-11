@@ -332,6 +332,7 @@ contains
 !###############################################################################
   module subroutine print(this, file)
     !! Print the network to a file
+    use athena__misc, only: to_upper
     implicit none
 
     ! Arguments
@@ -341,14 +342,81 @@ contains
     !! File to print the network to
 
     ! Local variables
-    integer :: l, unit
+    integer :: l, v, e, vertex_index, unit
     !! Loop index
+    integer :: operator_in, operator_out
+    !! Operators for the layer
+    character(3) :: operator_str
+    !! String to store the operator
+    character(256) :: suffix, fmt
+    !! Suffix for the layer
+    integer, dimension(:), allocatable :: input_list, output_list
 
     open(newunit=unit,file=file,status='replace')
-    close(unit)
 
-    do l = 1, this%num_layers
-       call this%model(l)%layer%print(file)
+    do v = 1, size(this%vertex_order,dim=1), 1
+       l = this%vertex_order(v)
+       operator_in = -1
+       operator_out = -1
+       allocate(input_list(0), output_list(0))
+       do e = 1, this%auto_graph%num_edges
+         !  write(*,*) l, e, this%auto_graph%edge(e)%index
+          if(-this%auto_graph%edge(e)%index(2).eq.l)then
+             if(operator_in.gt.0.and.this%auto_graph%edge(e)%id.ne.operator_in)then
+                write(*,*) "WARNING: multiple operators for layer ", l
+                write(*,*) "  using operator ", this%auto_graph%edge(e)%id
+             end if
+             operator_in = this%auto_graph%edge(e)%id
+             vertex_index = findloc( this%vertex_order, this%auto_graph%edge(e)%index(1), 1 )
+             input_list = [ input_list, vertex_index ]
+          end if
+          write(*,*) v, l, "edge: ", e, " index: ", this%auto_graph%edge(e)%index
+          if(this%auto_graph%edge(e)%index(1).eq.l)then
+             if(operator_out.gt.0.and.this%auto_graph%edge(e)%id.ne.operator_out)then
+                write(*,*) "WARNING: multiple operators for layer ", l
+                write(*,*) "  using operator ", this%auto_graph%edge(e)%id
+             end if
+             operator_in = this%auto_graph%edge(e)%id
+             vertex_index = findloc( this%vertex_order, this%auto_graph%edge(e)%index(2), 1 )
+             output_list = [ output_list, vertex_index ]
+          end if
+       end do
+
+       suffix = ""
+       write(*,*) "output_list: ", output_list
+       select case(operator_in)
+       case(1)
+          operator_str = " ||"
+       case(2)
+          operator_str = " +"
+       case(3)
+          operator_str = " *"
+       end select
+       ! get size of input_list and make the formatted string
+       if(size(input_list).eq.0)then
+          write(suffix,'(A," []")') trim(operator_str)
+       else
+          write(fmt,'("(A,A,"" ["",",I0,"(1X,I0),"" ]"")")') size(input_list)
+          write(suffix,fmt) trim(suffix), operator_str, input_list
+       end if
+       ! select case(operator_out)
+       ! case(1)
+       !    operator_str = " ||"
+       ! case(2)
+       !    operator_str = " +"
+       ! case(3)
+       !    operator_str = " *"
+       ! end select
+       ! if(size(output_list).gt.0)then
+       !    write(fmt,'("(A,A,"" ["",",I0,"(1X,I0),"" ]"")")') size(output_list)
+       !    write(suffix,fmt) trim(suffix), operator_str, output_list
+       ! end if
+
+       write(unit,'(A,A)') to_upper(trim(this%model(l)%layer%name)), trim(suffix)
+       call this%model(l)%layer%print(unit=unit, print_header_footer=.false.)
+
+       write(unit,'("END ",A)') to_upper(trim(this%model(l)%layer%name))
+       deallocate(input_list, output_list)
     end do
 
   end subroutine print
@@ -358,6 +426,7 @@ contains
 !###############################################################################
   module subroutine read(this, file)
     !! Read the network from a file
+    use athena__misc, only: icount
     implicit none
 
     ! Arguments
@@ -367,12 +436,16 @@ contains
     !! File to read the network from
 
     ! Local variables
-    integer :: i, unit, stat
+    integer :: i, unit, stat, itmp1
     !! Loop index
-    character(256) :: buffer, err_msg
+    integer, dimension(:), allocatable :: input_list, output_list
+    !!! List of input and output layers
+    character(256) :: buffer, err_msg, input_str, output_str
     !! Buffer for reading lines from file
     character(20) :: name
     !! Name of the layer
+    character(2) :: operator_in, operator_out
+    !! Operator for the layer
     integer :: layer_index
     !! Index of the layer in the list of layer types
 
@@ -403,7 +476,32 @@ contains
        end if
 
        !! check for card
-       name = trim(adjustl(to_lower(buffer)))
+       name = trim(adjustl(buffer(1:scan(buffer,' ')-1)))
+       buffer = trim(adjustl(buffer(scan(buffer,' ')+1:)))
+       operator_in = trim(adjustl(buffer(1:scan(buffer,' ')-1)))
+       buffer = trim(adjustl(buffer(scan(buffer,' ')+1:)))
+       input_str = trim(adjustl(buffer(1:scan(buffer,']'))))
+       if(scan(input_str,'[').ne.0)then
+          input_str = trim(adjustl(input_str(scan(input_str,'[')+1:scan(input_str,']')-1)))
+          itmp1 = icount(input_str)
+          allocate(input_list(itmp1))
+          read(input_str,*) input_list
+       else
+          allocate(input_list, source = [-1])
+       end if
+       buffer = trim(adjustl(buffer(scan(buffer,']')+1:)))
+       operator_out = trim(adjustl(buffer(1:scan(buffer,' ')-1)))
+       buffer = trim(adjustl(buffer(scan(buffer,' ')+1:)))
+       output_str = trim(adjustl(buffer(1:scan(buffer,']'))))
+       if(scan(output_str,'[').ne.0)then
+          output_str = trim(adjustl(output_str(scan(output_str,'[')+1:scan(output_str,']')-1)))
+          itmp1 = icount(output_str)
+          allocate(output_list(itmp1))
+          read(output_str,*) output_list
+       else
+          allocate(output_list(0))
+       end if
+       name = trim(adjustl(to_lower(name)))
        layer_index = &
             findloc( &
                  [ list_of_layer_types(:)%name ], &
@@ -415,7 +513,14 @@ contains
           call stop_program(err_msg)
           return
        end if
-       call this%add(list_of_layer_types(layer_index)%read_ptr(unit))
+       call this%add( &
+            list_of_layer_types(layer_index)%read_ptr(unit), &
+            input_list = input_list, &
+            operator = operator_in &
+       )
+       if(allocated(input_list)) deallocate(input_list)
+       if(allocated(output_list)) deallocate(output_list)
+       write(*,*)
     end do card_loop
     close(unit)
 
@@ -504,7 +609,7 @@ contains
          feature=[1._real32], id=this%num_layers, update_adjacency=.true. &
     )
     if(present(input_list))then
-       do i = 1, size(input_list)
+       do i = 1, size(input_list), 1
           if(input_list(i).eq.0)then
              vertex_index = 0
           elseif(input_list(i).eq.-1)then
@@ -535,7 +640,7 @@ contains
     end if
 
     if(present(output_list))then
-       do i = 1, size(output_list)
+       do i = 1, size(output_list), 1
           vertex_index = findloc( &
                [this%auto_graph%vertex(:)%id], &
                output_list(i), 1 &
@@ -1082,16 +1187,8 @@ contains
     !---------------------------------------------------------------------------
     call this%generate_vertex_order()
     do i = 1, size(this%vertex_order, dim = 1)
-       if(allocated(this%model(this%vertex_order(i))%layer%output))then
-          if( &
-               .not.this%model( &
-                    this%vertex_order(i) &
-               )%layer%output(1,1)%allocated &
-          ) then
-             l_set_input_shape = .true.
-          else
-             l_set_input_shape = .false.
-          end if
+       if(allocated(this%model(this%vertex_order(i))%layer%input_shape))then
+          l_set_input_shape = .false.
        else
           l_set_input_shape = .true.
        end if

@@ -69,7 +69,9 @@ module athena__base_layer
      procedure, pass(this) :: get_num_params => get_num_params_base
      !! Get the number of parameters in the layer
      procedure, pass(this) :: print => print_base
-     !! Print the layer to a file
+     !! Print the layer to a file with additional information
+     procedure, pass(this) :: print_to_unit => print_to_unit_base
+     !! Print the layer to a unit
      procedure, pass(this) :: get_output => get_output_base
      !! Get the output of the layer
      procedure(initialise), deferred, pass(this) :: init
@@ -98,13 +100,25 @@ module athena__base_layer
   end type base_layer_type
 
   interface
-     module subroutine print_base(this, file)
+     module subroutine print_base(this, file, unit, print_header_footer)
+       !! Print the layer to a file with additional information
+       class(base_layer_type), intent(in) :: this
+       !! Instance of the layer
+       character(*), optional, intent(in) :: file
+       !! File name
+       integer, optional, intent(in) :: unit
+       !! Unit number
+       logical, optional, intent(in) :: print_header_footer
+       !! Boolean whether to print header and footer
+     end subroutine print_base
+
+     module subroutine print_to_unit_base(this, unit)
        !! Print the layer to a file
        class(base_layer_type), intent(in) :: this
        !! Instance of the layer
-       character(*), intent(in) :: file
-       !! File name
-     end subroutine print_base
+       integer, intent(in) :: unit
+       !! File unit
+     end subroutine print_to_unit_base
 
      module subroutine set_shape_base(this, input_shape)
        !! Set the input shape of the layer
@@ -267,18 +281,18 @@ module athena__base_layer
    contains
      procedure, pass(this) :: init => init_pool
      !! Initialise the layer
-     procedure, pass(this) :: print => print_pool
-     !! Print layer to file
+     procedure, pass(this) :: print_to_unit => print_to_unit_pool
+     !! Print layer to unit
   end type pool_layer_type
 
   interface
-     module subroutine print_pool(this, file)
-       !! Print layer to file
+     module subroutine print_to_unit_pool(this, unit)
+       !! Print layer to unit
        class(pool_layer_type), intent(in) :: this
        !! Instance of the layer
-       character(*), intent(in) :: file
-       !! File name
-     end subroutine print_pool
+       integer, intent(in) :: unit
+       !! File unit
+     end subroutine print_to_unit_pool
 
      module subroutine init_pool(this, input_shape, batch_size, verbose)
        class(pool_layer_type), intent(inout) :: this

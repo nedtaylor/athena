@@ -45,7 +45,7 @@ module athena__full_layer
      !! Initialise fully connected layer
      procedure, pass(this) :: set_batch_size => set_batch_size_full
      !! Set the batch size for fully connected layer
-     procedure, pass(this) :: print => print_full
+     procedure, pass(this) :: print_to_unit => print_to_unit_full
      !! Print the layer to a file
      procedure, pass(this) :: read => read_full
      !! Read the layer from a file
@@ -487,32 +487,24 @@ contains
 
 
 !###############################################################################
-  subroutine print_full(this, file)
-    !! Print fully connected layer to file
+  subroutine print_to_unit_full(this, unit)
+    !! Print fully connected layer to unit
     use athena__misc, only: to_upper
     implicit none
 
     ! Arguments
     class(full_layer_type), intent(in) :: this
     !! Instance of the fully connected layer
-    character(*), intent(in) :: file
-    !! File name
+    integer, intent(in) :: unit
+    !! File unit
 
     ! Local variables
     integer :: i
     !! Loop index
-    integer :: unit
-    !! Unit number
-
-
-    ! Open file with new unit
-    !---------------------------------------------------------------------------
-    open(newunit=unit, file=trim(file), access='append')
 
 
     ! Write initial parameters
     !---------------------------------------------------------------------------
-    write(unit,'(A)') to_upper(trim(this%name))
     write(unit,'(3X,"NUM_INPUTS = ",I0)') this%num_inputs
     write(unit,'(3X,"NUM_OUTPUTS = ",I0)') this%num_outputs
 
@@ -527,14 +519,8 @@ contains
        write(unit,'(5(E16.8E2))') this%weight(:,i)
     end do
     write(unit,'("END WEIGHTS")')
-    write(unit,'("END ",A)') to_upper(trim(this%name))
 
-
-    ! Close unit
-    !---------------------------------------------------------------------------
-    close(unit)
-
-  end subroutine print_full
+  end subroutine print_to_unit_full
 !###############################################################################
 
 

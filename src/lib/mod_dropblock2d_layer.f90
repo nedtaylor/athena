@@ -35,8 +35,8 @@ module athena__dropblock2d_layer
      !! Initialise 2D dropblock layer
      procedure, pass(this) :: set_batch_size => set_batch_size_dropblock2d
      !! Set batch size for 2D dropblock layer
-     procedure, pass(this) :: print => print_dropblock2d
-     !! Print 2D dropblock layer to file
+     procedure, pass(this) :: print_to_unit => print_to_unit_dropblock2d
+     !! Print 2D dropblock layer to unit
      procedure, pass(this) :: read => read_dropblock2d
      !! Read 2D dropblock layer from file
      procedure, pass(this) :: forward  => forward_rank
@@ -389,41 +389,25 @@ contains
 
 
 !###############################################################################
-  subroutine print_dropblock2d(this, file)
-    !! Print 2D dropblock layer to file
+  subroutine print_to_unit_dropblock2d(this, unit)
+    !! Print 2D dropblock layer to unit
     use athena__misc, only: to_upper
     implicit none
 
     ! Arguments
     class(dropblock2d_layer_type), intent(in) :: this
     !! Instance of the 2D dropblock layer
-    character(*), intent(in) :: file
-    !! File name
-
-    ! Local variables
-    integer :: unit
+    integer, intent(in) :: unit
     !! File unit
-
-
-    ! Open file with new unit
-    !---------------------------------------------------------------------------
-    open(newunit=unit, file=trim(file), access='append')
 
 
     ! Write initial parameters
     !---------------------------------------------------------------------------
-    write(unit,'(A)') to_upper(trim(this%name))
     write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
     write(unit,'(3X,"RATE = ",F0.9)') this%rate
     write(unit,'(3X,"BLOCK_SIZE = ",I0)') this%block_size
-    write(unit,'("END ",A)') to_upper(trim(this%name))
 
-
-    ! Close unit
-    !---------------------------------------------------------------------------
-    close(unit)
-
-  end subroutine print_dropblock2d
+  end subroutine print_to_unit_dropblock2d
 !###############################################################################
 
 

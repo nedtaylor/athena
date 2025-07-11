@@ -30,8 +30,8 @@ module athena__conv2d_layer
      !! Set pointers to hyperparameters
      procedure, pass(this) :: set_batch_size => set_batch_size_conv2d
      !! Set batch size for 2D convolutional layer
-     procedure, pass(this) :: print => print_conv2d
-     !! Print 2D convolutional layer to file
+     procedure, pass(this) :: print_to_unit => print_to_unit_conv2d
+     !! Print 2D convolutional layer to unit
      procedure, pass(this) :: read => read_conv2d
      !! Read 2D convolutional layer from file
      procedure, pass(this) :: forward  => forward_rank
@@ -640,22 +640,20 @@ contains
 
 
 !###############################################################################
-  subroutine print_conv2d(this, file)
-    !! Print 2D convolutional layer to file
+  subroutine print_to_unit_conv2d(this, unit)
+    !! Print 2D convolutional layer to unit
     use athena__misc, only: to_upper
     implicit none
 
     ! Arguments
     class(conv2d_layer_type), intent(in) :: this
     !! Instance of the 2D convolutional layer
-    character(*), intent(in) :: file
-    !! File name
+    integer, intent(in) :: unit
+    !! File unit
 
     ! Local variables
     integer :: l, i, itmp1, idx
     !! Loop indices
-    integer :: unit
-    !! Unit number
     character(:), allocatable :: padding_type
     !! Padding type
 
@@ -683,14 +681,8 @@ contains
     end if
 
 
-    ! Open file with new unit
-    !---------------------------------------------------------------------------
-    open(newunit=unit, file=trim(file), access='append')
-
-
     ! Write initial parameters
     !---------------------------------------------------------------------------
-    write(unit,'(A)') to_upper(trim(this%name))
     write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
     write(unit,'(3X,"NUM_FILTERS = ",I0)') this%num_filters
     if(all(this%knl.eq.this%knl(1)))then
@@ -717,15 +709,8 @@ contains
        if(mod(size(this%weight(:,:,:,l)),5).eq.0) write(unit,*)
        write(unit,'(E16.8E2)') this%bias(l)
     end do
-    write(unit,'("END WEIGHTS")')
-    write(unit,'("END ",A)') to_upper(trim(this%name))
 
-
-    ! Close unit
-    !---------------------------------------------------------------------------
-    close(unit)
-
-  end subroutine print_conv2d
+  end subroutine print_to_unit_conv2d
 !###############################################################################
 
 

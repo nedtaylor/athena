@@ -21,15 +21,13 @@ program mnist_example
   !! data loading and preoprocessing
   type(graph_type), allocatable, dimension(:,:) :: &
        graphs_in, graphs_out, graphs_predicted
-  type(array2d_type), allocatable, dimension(:,:) :: features_out
   character(1024) :: file, train_file
 
   !! training loop variables
   integer :: num_tests = 10, num_epochs = 200, batch_size = 2
   integer :: num_time_steps = 5
   integer :: num_samples
-  integer :: i, itmp1, n, num_iterations
-  real(real32), dimension(:,:), allocatable :: output_tmp, output
+  integer :: i, n
 
   integer :: num_params
   integer :: v, s
@@ -67,9 +65,9 @@ program mnist_example
 !!! initialise convolutional and pooling layers
 !!!-----------------------------------------------------------------------------
   if(restart)then
-     ! write(*,*) "Reading network from file..."
-     ! call network%read(file=input_file)
-     ! write(*,*) "Reading finished"
+     write(*,*) "Reading network from file..."
+     call network%read(file="network.txt")
+     write(*,*) "Reading finished"
   else
      write(6,*) "Initialising MPNN..."
      ! call network%add(kipf_msgpass_layer_type( &
@@ -259,6 +257,12 @@ program mnist_example
      write(15,*) graphs_predicted(1,1)%vertex_features(:,i)
   end do
   close(15)
+
+  if(.not.restart)then
+     call network%print(file="network.txt")
+  else
+     call network%print(file="tmp.txt")
+  end if
 
 end program mnist_example
 !!!#############################################################################

@@ -24,43 +24,89 @@ submodule(athena__base_layer) athena__base_layer_submodule
 contains
 
 !###############################################################################
-  module subroutine print_base(this, file)
+  module subroutine print_base(this, file, unit, print_header_footer)
+    !! Print the layer and wrapping info to a file
+    use athena__misc, only: to_upper
+    implicit none
+
+    ! Arguments
+    class(base_layer_type), intent(in) :: this
+    !! Instance of the layer
+    character(*), optional, intent(in) :: file
+    !! File name
+    integer, optional, intent(in) :: unit
+    !! Unit number
+    logical, optional, intent(in) :: print_header_footer
+    !! Boolean whether to print header and footer
+
+    ! Local variables
+    integer :: unit_
+    !! Unit number
+    logical :: filename_provided
+    !! Boolean whether file is
+    logical :: print_header_footer_
+    !! Boolean whether to print header and footer
+
+
+    ! Open file with new unit
+    !---------------------------------------------------------------------------
+    filename_provided = .false.
+    if(present(file).and.present(unit))then
+       call stop_program("print_base: both file and unit specified")
+    elseif(present(file))then
+       filename_provided = .true.
+       open(newunit=unit_, file=trim(file), access='append')
+    elseif(present(unit))then
+       unit_ = unit
+    else
+       call stop_program("print_base: neither file nor unit specified")
+    end if
+    print_header_footer_ = .true.
+    if(present(print_header_footer)) print_header_footer_ = print_header_footer
+
+
+    ! Write card
+    !---------------------------------------------------------------------------
+    if(print_header_footer_) write(unit_,'(A)') to_upper(trim(this%name))
+    call this%print_to_unit(unit_)
+    if(print_header_footer_) write(unit_,'("END ",A)') to_upper(trim(this%name))
+
+
+    ! Close unit
+    !---------------------------------------------------------------------------
+    if(filename_provided) close(unit_)
+
+  end subroutine print_base
+!-------------------------------------------------------------------------------
+  module subroutine print_to_unit_base(this, unit)
     !! Print the layer to a file
     implicit none
 
     ! Arguments
     class(base_layer_type), intent(in) :: this
     !! Instance of the layer
-    character(*), intent(in) :: file
-    !! File name
+    integer, intent(in) :: unit
+    !! File unit
 
-    ! No need to write anything for the default layer
     return
-  end subroutine print_base
+  end subroutine print_to_unit_base
 !-------------------------------------------------------------------------------
-  module subroutine print_pool(this, file)
+  module subroutine print_to_unit_pool(this, unit)
     !! Print pooling layer to a file
     implicit none
 
     ! Arguments
     class(pool_layer_type), intent(in) :: this
     !! Instance of the layer
-    character(*), intent(in) :: file
-    !! File name
+    integer, intent(in) :: unit
+    !! File unit
 
     ! Local variables
-    integer :: unit
-    !! Unit number
     character(100) :: fmt
     !! Format string
 
-    ! open file with new unit
-    !---------------------------------------------------------------------------
-    open(newunit=unit, file=trim(file), access='append')
-
     ! Write initial parameters
     !---------------------------------------------------------------------------
-    write(unit,'(A)') to_upper(trim(this%name))
     write(fmt,'("(3X,""INPUT_SHAPE ="",",I0,"(1X,I0))")') size(this%input_shape)
     write(unit,fmt) this%input_shape
     if(all(this%pool.eq.this%pool(1)))then
@@ -75,13 +121,8 @@ contains
        write(fmt,'("(3X,""STRIDE ="",",I0,"(1X,I0))")') size(this%strd)
        write(unit,fmt) this%strd
     end if
-    write(unit,'("END ",A)') to_upper(trim(this%name))
 
-    ! close unit
-    !---------------------------------------------------------------------------
-    close(unit)
-
-  end subroutine print_pool
+  end subroutine print_to_unit_pool
 !###############################################################################
 
 

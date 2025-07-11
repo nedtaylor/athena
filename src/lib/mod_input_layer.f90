@@ -32,6 +32,8 @@ module athena__input_layer
      !! Initialise layer
      procedure, pass(this) :: set_batch_size => set_batch_size_input
      !! Set batch size
+     procedure, pass(this) :: print_to_unit => print_to_unit_input
+     !! Print layer to unit
      procedure, pass(this) :: read => read_input
      !! Read layer from file
      procedure, pass(this) :: forward  => forward_rank
@@ -341,10 +343,44 @@ contains
 !###############################################################################
 
 
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
+
+
+!###############################################################################
+  subroutine print_to_unit_input(this, unit)
+    !! Print input layer to unit
+    implicit none
+
+    ! Arguments
+    class(input_layer_type), intent(in) :: this
+    !! Instance of the input layer
+    integer, intent(in) :: unit
+    !! File unit
+
+    ! Local variables
+    integer :: t
+    !! Loop index
+    character(100) :: fmt
+    !! Format string
+
+
+    ! Write initial parameters
+    !---------------------------------------------------------------------------
+    write(unit,'(3X,"INPUT_RANK = ",I0)') this%input_rank
+    write(fmt,'("(3X,""INPUT_SHAPE ="",",I0,"(1X,I0))")') size(this%input_shape)
+    write(unit,fmt) this%input_shape
+    write(unit,'(3X,"USE_GRAPH_INPUT = ",L1)') this%use_graph_input
+
+  end subroutine print_to_unit_input
+!###############################################################################
+
+
 !###############################################################################
   subroutine read_input(this, unit, verbose)
     !! Read an input layer from a file
-    use athena__tools_infile, only: assign_val, assign_vec
+    use athena__tools_infile, only: assign_val, assign_vec, get_val
     use athena__misc, only: to_lower, to_upper, icount
     implicit none
 
@@ -367,8 +403,10 @@ contains
     ! Local variables
     integer :: input_rank = 0
     !! Rank of the input data
-    integer, dimension(3) :: input_shape
+    integer, dimension(:), allocatable :: input_shape
     !! Shape of the input data
+    logical :: use_graph_input = .false.
+    !! Use graph input
     character(256) :: buffer, tag, err_msg
     !! Buffer for reading lines, tag for identifying lines, error message
 
@@ -408,6 +446,12 @@ contains
        select case(trim(tag))
        case("INPUT_RANK")
           call assign_val(buffer, input_rank, itmp1)
+       case("INPUT_SHAPE")
+          itmp1 = icount(get_val(buffer))
+          allocate(input_shape(itmp1))
+          call assign_vec(buffer, input_shape, itmp1)
+       case("USE_GRAPH_INPUT")
+          call assign_val(buffer, use_graph_input, itmp1)
        case default
           ! Don't look for "e" due to scientific notation of numbers
           ! ... i.e. exponent (E+00)
@@ -423,12 +467,18 @@ contains
           return
        end select
     end do tag_loop
+    if(.not.allocated(input_shape))then
+       write(err_msg,'("No input shape found in ",A)') to_upper(this%name)
+       call stop_program(err_msg)
+       return
+    end if
 
 
     ! Set hyperparameters and initialise layer
     !---------------------------------------------------------------------------
     call this%set_hyperparams( &
          input_rank = input_rank, &
+         use_graph_input = use_graph_input, &
          verbose = verbose_ &
     )
     call this%init(input_shape = input_shape)

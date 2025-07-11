@@ -36,7 +36,7 @@ module athena__kipf_msgpass_layer
      !! Initialise the message passing layer
      procedure, pass(this) :: set_batch_size => set_batch_size_kipf
      !! Set batch size
-     procedure, pass(this) :: print => print_kipf
+     procedure, pass(this) :: print_to_unit => print_to_unit_kipf
      !! Print the message passing layer
      procedure, pass(this) :: read => read_kipf
      !! Read the message passing layer
@@ -324,6 +324,8 @@ contains
        this%num_params_msg(t) = &
             this%num_vertex_features(t-1) * this%num_vertex_features(t)
     end do
+    if(allocated(this%input_shape)) deallocate(this%input_shape)
+    if(allocated(this%output_shape)) deallocate(this%output_shape)
 
   end subroutine set_hyperparams_kipf
 !###############################################################################
@@ -473,34 +475,26 @@ contains
 
 
 !###############################################################################
-  subroutine print_kipf(this, file)
-    !! Print kipf message passing layer to file
+  subroutine print_to_unit_kipf(this, unit)
+    !! Print kipf message passing layer to unit
     use athena__misc, only: to_upper
     implicit none
 
     ! Arguments
     class(kipf_msgpass_layer_type), intent(in) :: this
     !! Instance of the message passing layer
-    character(*), intent(in) :: file
-    !! Filename
+    integer, intent(in) :: unit
+    !! File unit
 
     ! Local variables
     integer :: t
     !! Loop index
-    integer :: unit
-    !! Unit number
     character(100) :: fmt
     !! Format string
 
 
-    ! Open file with new unit
-    !---------------------------------------------------------------------------
-    open(newunit=unit, file=trim(file), access='append')
-
-
     ! Write initial parameters
     !---------------------------------------------------------------------------
-    write(unit,'(A)') to_upper(trim(this%name))
     write(unit,'(3X,"NUM_TIME_STEPS = ",I0)') this%num_time_steps
     write(fmt,'("(3X,""NUM_VERTEX_FEATURES ="",",I0,"(1X,I0))")') &
          this%num_time_steps + 1
@@ -520,14 +514,8 @@ contains
        )
     end do
     write(unit,'("END WEIGHTS")')
-    write(unit,'("END ",A)') to_upper(trim(this%name))
 
-
-    ! Close unit
-    !---------------------------------------------------------------------------
-    close(unit)
-
-  end subroutine print_kipf
+  end subroutine print_to_unit_kipf
 !###############################################################################
 
 
