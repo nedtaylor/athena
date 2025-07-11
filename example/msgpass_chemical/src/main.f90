@@ -20,7 +20,7 @@ program mnist_example
 
   !! data loading and preoprocessing
   type(graph_type), allocatable, dimension(:,:) :: graphs
-  real(real32), allocatable, dimension(:) :: labels
+  real(real32), allocatable, dimension(:,:) :: labels
   character(1024) :: file, train_file
 
   !! training loop variables
@@ -45,7 +45,7 @@ program mnist_example
   call read_extxyz_db(train_file, graphs, labels)
   write(*,*) "Reading finished"
   do s = 1, size(graphs)
-     if(.not.graphs(s,1)%is_sparse) call graphs(s,1)%convert_to_sparse()
+     if(.not.graphs(1,s)%is_sparse) call graphs(1,s)%convert_to_sparse()
   end do
 
 
@@ -113,7 +113,8 @@ program mnist_example
             learning_rate = 1.E-3_real32 &
        ), &
        loss_method = "mse", metrics = metric_dict, &
-       batch_size = batch_size, verbose = 1 &
+       batch_size = batch_size, verbose = 1, &
+       accuracy_method = "mse" &
   )
 
 
@@ -136,55 +137,26 @@ program mnist_example
   labels = -1.E0 * labels
   labels = labels / maxval(labels)
   ! allocate(output(1,size(labels)))
-  do n = 1, num_epochs
-     if(mod(n,10) == 0) write(*,*) "Epoch", n
-     sample_list = [ &
-          (i, i = 1, size(labels) - num_tests - batch_size + 1, batch_size) &
-     ]
-     call shuffle(sample_list)
-     do s = 1, size(sample_list), 1
-        call network%forward_graph( &
-             reshape( &
-                  graphs(sample_list(s):sample_list(s)+batch_size-1,1), &
-                  [batch_size,1] &
-             ) &
-        )
-        call labels_tmp(1,1)%allocate(array_shape=[num_outputs,batch_size])
-        call labels_tmp(1,1)%set( &
-             reshape( &
-                  labels(sample_list(s):sample_list(s)+batch_size-1), &
-                  [num_outputs,batch_size] &
-             ) &
-        )
-        call network%backward_mixed(labels_tmp)
-        if(labels_tmp(1,1)%allocated) call labels_tmp(1,1)%deallocate()
-        call network%update()
-     end do
-  end do
+  call network%train( &
+       graphs, &
+       labels, &
+       num_epochs = num_epochs &
+  )
 
 
 !!!-----------------------------------------------------------------------------
 !!! testing loop
 !!!-----------------------------------------------------------------------------
-  allocate(output_tmp(num_outputs,batch_size))
   write(*,*) "Starting testing..."
-  write(*,*) "Testing on", num_tests, "samples", size(labels), size(graphs)
-  do s = 1, size(labels) - batch_size + 1, batch_size
-     call network%forward_graph( &
-          reshape( &
-               graphs(s:s+batch_size-1,1), [batch_size,1] &
-          ) &
-     )
-     call network%model(network%output_vertices(1))%layer%get_output(output_tmp)
-     write(*,*) "imputed", output_tmp(1,:)
-     write(*,*) "expected", labels(s:s+batch_size-1)
-     write(*,*)
-  end do
+  call network%test( &
+       graphs, &
+       labels &
+  )
   write(*,*) "Testing finished"
 
 
-  ! write(6,'("Overall accuracy=",F0.5)') network%accuracy
-  ! write(6,'("Overall loss=",F0.5)')     network%loss
+  write(6,'("Overall accuracy=",F0.5)') network%accuracy
+  write(6,'("Overall loss=",F0.5)')     network%loss
 
 end program mnist_example
 !!!#############################################################################

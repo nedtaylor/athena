@@ -354,13 +354,13 @@ module athena__msgpass_layer
      !! interface for the readout forward and backward passes
      pure module subroutine update_readout_msgpass(this)
        !! Update the message
-       class(msgpass_layer_type), intent(inout) :: this
+       class(msgpass_layer_type), intent(inout), target :: this
        !! Instance of the message passing layer
      end subroutine update_readout_msgpass
 
      pure module subroutine backward_readout_msgpass(this, gradient)
        !! Calculate the partials
-       class(msgpass_layer_type), intent(inout) :: this
+       class(msgpass_layer_type), intent(inout), target :: this
        !! Instance of the message passing layer
        class(array_type), dimension(:,:), intent(in) :: gradient
        !! Gradient data

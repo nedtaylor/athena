@@ -146,7 +146,7 @@ contains
     implicit none
     character(1024), intent(in) :: file
     type(graph_type), allocatable, dimension(:,:), intent(out) :: graphs
-    real(real32), allocatable, dimension(:), intent(out) :: labels
+    real(real32), allocatable, dimension(:,:), intent(out) :: labels
 
     integer :: ierror, unit
     real(real32) :: label
@@ -157,6 +157,7 @@ contains
     integer :: num_samples
     type(bas_type) :: basis
     real(real32), dimension(3,3) :: lattice
+    real(real32), allocatable, dimension(:) :: labels_tmp
     type(graph_type), allocatable, dimension(:) :: graphs_tmp
 
 
@@ -166,7 +167,7 @@ contains
 
     igeom_input = 6
     allocate(graphs_tmp(0))
-    allocate(labels(0))
+    allocate(labels_tmp(0))
     do
        read(unit,'(A)',iostat=ierror) buffer
        if(ierror .ne. 0) exit
@@ -176,11 +177,13 @@ contains
        call geom_read(unit, lattice, basis)
        call get_elements_masses_and_charges(basis)
        graphs_tmp = [ graphs_tmp, get_graph_from_basis(lattice, basis) ]
-       labels = [ labels, basis%energy ]
+       labels_tmp = [ labels_tmp, basis%energy ]
     end do
     close(unit)
-    allocate(graphs(size(graphs_tmp),1))
-    graphs(:,1) = graphs_tmp
+    allocate(graphs(1, size(graphs_tmp)))
+    graphs(1,:) = graphs_tmp
+    allocate(labels(1, size(graphs_tmp)))
+    labels(1,:) = labels_tmp
 
   end subroutine read_extxyz_db
 !!!#############################################################################

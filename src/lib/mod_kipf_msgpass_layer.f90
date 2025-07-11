@@ -824,7 +824,7 @@ contains
     implicit none
 
     ! Arguments
-    class(kipf_msgpass_layer_type), intent(inout) :: this
+    class(kipf_msgpass_layer_type), intent(inout), target :: this
     !! Instance of the message passing layer
 
     ! Local variables
@@ -951,7 +951,7 @@ contains
     implicit none
 
     ! Arguments
-    class(kipf_msgpass_layer_type), intent(inout) :: this
+    class(kipf_msgpass_layer_type), intent(inout), target :: this
     !! Instance of the message passing layer
     class(array_type), dimension(:,:), intent(in) :: gradient
     !! Gradient of the loss with respect to the output of the layer

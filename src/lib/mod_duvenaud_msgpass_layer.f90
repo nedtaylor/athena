@@ -23,9 +23,6 @@ module athena__duvenaud_msgpass_layer
      integer :: min_vertex_degree = 1
      integer :: max_vertex_degree = 0
      !! Maximum vertex degree
-     real(real32), pointer :: weight_msg(:,:,:,:) => null(), &
-          weight_readout(:,:,:) => null()
-     !! Weights for the message passing layer
 
      class(activation_type), allocatable :: transfer_readout
      !! Activation function
@@ -123,8 +120,6 @@ contains
     type(duvenaud_msgpass_layer_type), intent(inout) :: this
     !! Instance of the fully connected layer
 
-    if(associated(this%weight_msg)) nullify(this%weight_msg)
-    if(associated(this%weight_readout)) nullify(this%weight_readout)
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output_shape)) deallocate(this%output_shape)
     if(allocated(this%output)) deallocate(this%output)
@@ -419,13 +414,14 @@ contains
 
     if(allocated(this%num_params_msg)) deallocate(this%num_params_msg)
     allocate(this%num_params_msg(1:this%num_time_steps))
-    this%num_params_msg = &
-         ( this%num_vertex_features(0) + this%num_edge_features(0) ) * &
-         this%num_vertex_features(0) * &
-         ( this%max_vertex_degree - this%min_vertex_degree + 1 )
+    do t = 1, this%num_time_steps
+       this%num_params_msg(t) = &
+            ( this%num_vertex_features(t-1) + this%num_edge_features(0) ) * &
+            this%num_vertex_features(t) * &
+            ( this%max_vertex_degree - this%min_vertex_degree + 1 )
+    end do
     this%num_params_readout = &
-         this%num_vertex_features(0) * this%num_outputs * &
-         this%num_time_steps
+         sum( this%num_vertex_features * this%num_outputs )
 
     allocate(this%transfer_readout, source=activation_setup('softmax'))
     if(allocated(this%input_shape)) deallocate(this%input_shape)
@@ -529,22 +525,6 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Set weights and biases pointers to params array
-    !---------------------------------------------------------------------------
-    this%weight_msg( &
-         1:this%num_vertex_features(0) + this%num_edge_features(0), &
-         1:this%num_vertex_features(0), &
-         this%min_vertex_degree:this%max_vertex_degree, &
-         1:this%num_time_steps &
-    ) => this%params(1:sum(this%num_params_msg))
-    this%weight_readout( &
-         1:this%num_vertex_features(0), &
-         1:this%num_outputs, &
-         1:this%num_time_steps &
-    ) => this%params(sum(this%num_params_msg)+1:this%num_params)
-
-
-    !---------------------------------------------------------------------------
     ! Allocate arrays
     !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
@@ -590,7 +570,7 @@ contains
     if(allocated(this%vertex_features)) deallocate(this%vertex_features)
     allocate(this%vertex_features(0:this%num_time_steps, 1:this%batch_size))
     if(allocated(this%edge_features)) deallocate(this%edge_features)
-    allocate(this%edge_features(0:0, 1:this%batch_size))
+    allocate(this%edge_features(0:this%num_time_steps, 1:this%batch_size))
     if(allocated(this%message)) deallocate(this%message)
     allocate(this%message(1:this%num_time_steps, 1:this%batch_size))
 
@@ -836,6 +816,8 @@ contains
     !! Batch index, vertex index, edge index, time step
     integer :: degree
     !! Degree of the vertex
+    real(real32), pointer :: weight(:,:,:)
+    !! Pointer to the weight matrix
 
 
     do s = 1, this%batch_size
@@ -844,6 +826,14 @@ contains
     end do
 
     do t = 1, this%num_time_steps
+       weight( &
+              1:this%num_vertex_features(t), &
+              1:this%num_vertex_features(t-1) + this%num_edge_features(0), &
+              this%min_vertex_degree:this%max_vertex_degree &
+       ) => this%params( &
+            sum(this%num_params_msg(1:t-1:1)) + 1 : &
+            sum(this%num_params_msg(1:t:1)) &
+       )
        do concurrent (s = 1: this%batch_size)
           do v = 1, this%graph(s)%num_vertices
              degree = this%graph(s)%adj_ia(v+1) - this%graph(s)%adj_ia(v)
@@ -867,8 +857,8 @@ contains
                      ]
              end do
              this%z(t,s)%val(:,v) = matmul( &
-                  this%message(t,s)%val(:,v), &
-                  this%weight_msg(:,:,degree,t) &
+                  weight(:,:,degree), &
+                  this%message(t,s)%val(:,v) &
              )
           end do
           this%vertex_features(t,s)%val(:,:) = &
@@ -886,29 +876,39 @@ contains
     implicit none
 
     ! Arguments
-    class(duvenaud_msgpass_layer_type), intent(inout) :: this
+    class(duvenaud_msgpass_layer_type), intent(inout), target :: this
     !! Instance of the message passing layer
 
     ! Local variables
     integer :: s, v, t
     !! Loop indices
+    integer :: num_params_old, num_params_tmp
+    !! Number of parameters in the previous and current time step
+    real(real32), pointer :: weight(:,:)
+    !! Pointer to the weight matrix
 
 
-    ! combine %weight and %weight_readout and convert to 1D for each time step
-    ! then, in each update_ procedure, use an associate block to convert them
-    ! to the appropriate shape for the matmul
     this%output(1,1)%val = 0._real32
-    do s = 1, this%batch_size
-       do t = 1, this%num_time_steps, 1
+    num_params_old = sum(this%num_params_msg)
+    do t = 1, this%num_time_steps, 1
+       num_params_tmp = this%num_vertex_features(t) * this%num_outputs
+       weight( &
+              1:this%num_outputs, &
+              1:this%num_vertex_features(t) &
+       ) => this%params( &
+            num_params_old + 1 : num_params_old + num_params_tmp &
+       )
+       do s = 1, this%batch_size
           do v = 1, this%graph(s)%num_vertices
              this%z_readout(t,s)%val(:,v) = matmul( &
-                  this%vertex_features(t,s)%val(:,v), &
-                  this%weight_readout(:,:,t) &
+                  weight(:,:), &
+                  this%vertex_features(t,s)%val(:,v) &
              )
              this%output(1,1)%val(:,s) = this%output(1,1)%val(:,s) + &
                   this%transfer_readout%activate( this%z_readout(t,s)%val(:,v) )
           end do
        end do
+       num_params_old = num_params_old + num_params_tmp
     end do
 
   end subroutine update_readout_duvenaud
@@ -928,12 +928,26 @@ contains
     class(array_type), dimension(:,:), intent(in) :: gradient
     !! Gradient of the loss with respect to the output of the layer
 
+    ! Local variables
     integer :: degree
+    !! Degree of the vertex
     integer :: t, s, v, i, j, idx
+    !! Loop indices
     real(real32), dimension(:,:), allocatable :: delta
+    !! Delta values for the message phase
+    real(real32), pointer :: weight(:,:,:)
+    !! Pointer to the weight matrix
 
 
     do t = this%num_time_steps, 1, -1
+       weight( &
+              1:this%num_vertex_features(t), &
+              1:this%num_vertex_features(t-1) + this%num_edge_features(0), &
+              this%min_vertex_degree:this%max_vertex_degree &
+       ) => this%params( &
+            sum(this%num_params_msg(1:t-1:1)) + 1 : &
+            sum(this%num_params_msg(1:t:1)) &
+       )
        do concurrent(s=1:this%batch_size)
           ! There is no message passing transfer function
           if(allocated(delta)) deallocate(delta)
@@ -994,22 +1008,22 @@ contains
              if(t.eq.1)then
                 this%di(1,s)%val(:,v) = &
                      matmul( &
-                          this%weight_msg( &
-                               :this%num_vertex_features(t),:,degree,t &
-                          ), &
-                          delta(:,v) &
+                          delta(:,v), &
+                          weight( &
+                               :this%num_vertex_features(t),:,degree &
+                          ) &
                      )
                 this%di(2,s)%val(:,v) = &
                      matmul( &
-                          this%weight_msg( &
-                               this%num_vertex_features(t)+1:,:,degree,t &
-                          ), &
-                          delta(:,v) &
+                          delta(:,v), &
+                          weight( &
+                               this%num_vertex_features(t)+1:,:,degree &
+                          ) &
                      )
              else
                 this%di_msg(t,s)%val(:,v) = &
                      this%di_msg(t,s)%val(:,v) + &
-                     matmul(this%weight_msg(:,:,degree,t), delta(:,v))
+                     matmul(delta(:,v), weight(:,:,degree))
              end if
           end do
        end do
@@ -1025,7 +1039,7 @@ contains
     implicit none
 
     ! Arguments
-    class(duvenaud_msgpass_layer_type), intent(inout) :: this
+    class(duvenaud_msgpass_layer_type), intent(inout), target :: this
     !! Instance of the message passing layer
     class(array_type), dimension(:,:), intent(in) :: gradient
     !! Gradient of the loss with respect to the output of the layer
@@ -1033,19 +1047,29 @@ contains
     ! Local variables
     integer :: i, j, idx
     !! Loop indices
-    integer :: s, v, t, num_features
+    integer :: s, v, t, num_params_old, num_params_tmp
     !! Batch index, vertex index, time step index
     real(real32), dimension(this%num_outputs) :: delta
     !! Delta values for the readout phase
     !! i.e. partial derivatives of the error wrt the hidden features
+    real(real32), pointer :: weight(:,:)
+    !! Pointer to the weight matrix
 
 
-    do concurrent(s=1:this%batch_size)
+    num_params_old = sum(this%num_params_msg)
+    do t = 1, this%num_time_steps, 1
+       num_params_tmp = this%num_vertex_features(t) * this%num_outputs
+       weight( &
+              1:this%num_outputs, &
+              1:this%num_vertex_features(t) &
+       ) => this%params( &
+            num_params_old + 1 : num_params_old + num_params_tmp &
+       )
+       do concurrent(s=1:this%batch_size)
        ! There is no message passing transfer function
 
        ! Partial derivatives of error wrt weights
        ! dE/dW = o/p(l-1) * delta
-       do t = 1, this%num_time_steps, 1
           do v = 1, this%graph(s)%num_vertices
 
              delta = &
@@ -1065,10 +1089,10 @@ contains
                 end do
              end do
 
-             this%di_readout(t,s)%val(:,v) = &
-                  matmul(this%weight_readout(:,:,t), delta(:))
+             this%di_readout(t,s)%val(:,v) = matmul(delta(:), weight(:,:))
           end do
        end do
+       num_params_old = num_params_old + num_params_tmp
     end do
 
   end subroutine backward_readout_duvenaud
