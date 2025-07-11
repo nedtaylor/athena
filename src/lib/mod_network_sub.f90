@@ -366,8 +366,8 @@ contains
        do e = 1, this%auto_graph%num_edges
           if(-this%auto_graph%edge(e)%index(2).eq.l)then
              if(operator_in.gt.0.and.this%auto_graph%edge(e)%id.ne.operator_in)then
-                write(*,*) "WARNING: multiple operators for layer ", l
-                write(*,*) "  using operator ", this%auto_graph%edge(e)%id
+                write(0,*) "WARNING: multiple operators for layer ", l
+                write(0,*) "  using operator ", this%auto_graph%edge(e)%id
              end if
              operator_in = this%auto_graph%edge(e)%id
              vertex_index = &
@@ -376,8 +376,8 @@ contains
           end if
           if(this%auto_graph%edge(e)%index(1).eq.l)then
              if(operator_out.gt.0.and.this%auto_graph%edge(e)%id.ne.operator_out)then
-                write(*,*) "WARNING: multiple operators for layer ", l
-                write(*,*) "  using operator ", this%auto_graph%edge(e)%id
+                write(0,*) "WARNING: multiple operators for layer ", l
+                write(0,*) "  using operator ", this%auto_graph%edge(e)%id
              end if
              operator_in = this%auto_graph%edge(e)%id
              vertex_index = &
@@ -525,7 +525,6 @@ contains
        )
        if(allocated(input_list)) deallocate(input_list)
        if(allocated(output_list)) deallocate(output_list)
-       write(*,*)
     end do card_loop
     close(unit)
 
