@@ -242,8 +242,10 @@ contains
     !! Instance of network
 
     ! Local variables
-    integer :: i, j, num_inputs, num_inputs_edge, num_outputs, num_outputs_edge
+    integer :: i, j, iv, jv
     !! Loop index
+    integer :: num_inputs, num_inputs_edge, num_outputs, num_outputs_edge
+    !! Number of inputs and outputs for the layer
 
 
     if(allocated(this%io_map)) deallocate(this%io_map)
@@ -253,18 +255,20 @@ contains
        allocate(this%io_map(this%num_layers, this%num_layers, 4), source=0)
     end if
     do i = 1, this%auto_graph%num_vertices
+       iv = this%vertex_order(i)
        num_inputs = 0
        num_inputs_edge = 0
        do j = 1, this%auto_graph%num_vertices
+          jv = this%vertex_order(j)
           associate( &
-               id_in => this%auto_graph%vertex(i)%id, &
-               id_out => this%auto_graph%vertex(j)%id, &
-               layer_from => this%model(this%auto_graph%vertex(i)%id)%layer, &
-               layer_to => this%model(this%auto_graph%vertex(j)%id)%layer &
+               id_in => this%auto_graph%vertex(iv)%id, &
+               id_out => this%auto_graph%vertex(jv)%id, &
+               layer_from => this%model(this%auto_graph%vertex(iv)%id)%layer, &
+               layer_to => this%model(this%auto_graph%vertex(jv)%id)%layer &
           )
-             if(this%auto_graph%adjacency(i,j).ne.0)then
+             if(this%auto_graph%adjacency(iv,jv).ne.0)then
                 select case( &
-                     this%auto_graph%edge(this%auto_graph%adjacency(i,j))%id &
+                     this%auto_graph%edge(this%auto_graph%adjacency(iv,jv))%id &
                 )
                 case(1) ! concatenate
                    num_inputs = num_inputs + 1
@@ -289,9 +293,9 @@ contains
                    end if
                 end select
              end if
-             if(this%auto_graph%adjacency(j,i).ne.0)then
+             if(this%auto_graph%adjacency(jv,iv).ne.0)then
                 select case( &
-                     this%auto_graph%edge(this%auto_graph%adjacency(j,i))%id &
+                     this%auto_graph%edge(this%auto_graph%adjacency(jv,iv))%id &
                 )
                 case(1) ! concatenate
                    num_outputs = maxval(this%io_map(:,id_in,4)) + 1
@@ -360,30 +364,29 @@ contains
        operator_out = -1
        allocate(input_list(0), output_list(0))
        do e = 1, this%auto_graph%num_edges
-         !  write(*,*) l, e, this%auto_graph%edge(e)%index
           if(-this%auto_graph%edge(e)%index(2).eq.l)then
              if(operator_in.gt.0.and.this%auto_graph%edge(e)%id.ne.operator_in)then
                 write(*,*) "WARNING: multiple operators for layer ", l
                 write(*,*) "  using operator ", this%auto_graph%edge(e)%id
              end if
              operator_in = this%auto_graph%edge(e)%id
-             vertex_index = findloc( this%vertex_order, this%auto_graph%edge(e)%index(1), 1 )
+             vertex_index = &
+                  findloc( this%vertex_order, this%auto_graph%edge(e)%index(1), 1 )
              input_list = [ input_list, vertex_index ]
           end if
-          write(*,*) v, l, "edge: ", e, " index: ", this%auto_graph%edge(e)%index
           if(this%auto_graph%edge(e)%index(1).eq.l)then
              if(operator_out.gt.0.and.this%auto_graph%edge(e)%id.ne.operator_out)then
                 write(*,*) "WARNING: multiple operators for layer ", l
                 write(*,*) "  using operator ", this%auto_graph%edge(e)%id
              end if
              operator_in = this%auto_graph%edge(e)%id
-             vertex_index = findloc( this%vertex_order, this%auto_graph%edge(e)%index(2), 1 )
+             vertex_index = &
+                  findloc( this%vertex_order, this%auto_graph%edge(e)%index(2), 1 )
              output_list = [ output_list, vertex_index ]
           end if
        end do
 
        suffix = ""
-       write(*,*) "output_list: ", output_list
        select case(operator_in)
        case(1)
           operator_str = " ||"
@@ -482,7 +485,8 @@ contains
        buffer = trim(adjustl(buffer(scan(buffer,' ')+1:)))
        input_str = trim(adjustl(buffer(1:scan(buffer,']'))))
        if(scan(input_str,'[').ne.0)then
-          input_str = trim(adjustl(input_str(scan(input_str,'[')+1:scan(input_str,']')-1)))
+          input_str = &
+               trim(adjustl(input_str(scan(input_str,'[')+1:scan(input_str,']')-1)))
           itmp1 = icount(input_str)
           allocate(input_list(itmp1))
           read(input_str,*) input_list
@@ -494,7 +498,8 @@ contains
        buffer = trim(adjustl(buffer(scan(buffer,' ')+1:)))
        output_str = trim(adjustl(buffer(1:scan(buffer,']'))))
        if(scan(output_str,'[').ne.0)then
-          output_str = trim(adjustl(output_str(scan(output_str,'[')+1:scan(output_str,']')-1)))
+          output_str = &
+               trim(adjustl(output_str(scan(output_str,'[')+1:scan(output_str,']')-1)))
           itmp1 = icount(output_str)
           allocate(output_list(itmp1))
           read(output_str,*) output_list
