@@ -2,7 +2,7 @@ module read_chemical_graphs
   use constants_mnist, only: real32
   use misc_linalg, only: modu
   use rw_geom, only: bas_type, geom_read, igeom_input
-  use athena, only: graph_type, edge_type
+  use athena, only: graph_type, edge_type, array2d_type
   implicit none
 
   private
@@ -146,7 +146,7 @@ contains
     implicit none
     character(1024), intent(in) :: file
     type(graph_type), allocatable, dimension(:,:), intent(out) :: graphs
-    real(real32), allocatable, dimension(:,:), intent(out) :: labels
+    type(array2d_type), dimension(1,1), intent(out) :: labels
 
     integer :: ierror, unit
     real(real32) :: label
@@ -182,8 +182,8 @@ contains
     close(unit)
     allocate(graphs(1, size(graphs_tmp)))
     graphs(1,:) = graphs_tmp
-    allocate(labels(1, size(graphs_tmp)))
-    labels(1,:) = labels_tmp
+    call labels(1,1)%allocate(array_shape=[1,size(graphs_tmp)])
+    labels(1,1)%val(1,:) = labels_tmp
 
   end subroutine read_extxyz_db
 !!!#############################################################################

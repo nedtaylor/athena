@@ -1120,8 +1120,6 @@ contains
        if(i.gt.this%auto_graph%num_vertices) exit vertex_loop
        id = this%auto_graph%vertex(i)%id
 
-! NEED AN if(allocated()) STATEMENT FOR output%shape?
-
        ! get all child vertices
        allocate(child_vertices(0))
        do j = 1, size(this%auto_graph%adjacency(i,:))
@@ -1248,6 +1246,16 @@ contains
             )
     end do
     call this%calculate_io_map()
+    if( &
+         this%model( &
+              this%auto_graph%vertex(this%output_vertices(1))%id &
+         )%layer%use_graph_output &
+    )then
+       this%use_graph_output = .true.
+    else
+       this%use_graph_output = .false.
+    end if
+
 
 
     !---------------------------------------------------------------------------
@@ -2804,7 +2812,18 @@ contains
     !---------------------------------------------------------------------------
     ! If parallel, initialise slices
     !---------------------------------------------------------------------------
-    num_batches = size(output,dim=2) / this%batch_size
+    select type(output)
+    type is(graph_type)
+       num_batches = size(output,dim=2) / this%batch_size
+    type is(array2d_type)
+       if(this%use_graph_output)then
+          num_batches = size(output,dim=2) / this%batch_size
+       else
+          num_batches = size(output(1,1)%val,dim=2) / this%batch_size
+       end if
+    class default
+       num_batches = size(output,dim=2) / this%batch_size
+    end select
     allocate(batch_order(num_batches))
     do batch = 1, num_batches
        batch_order(batch) = batch
@@ -2818,7 +2837,7 @@ contains
          input, input_array, input_graph, &
          num_samples, size(this%root_vertices,1) &
     )
-    if(size(output,2).ne.num_samples)then
+    if(size(output,2).ne.num_samples.and.this%use_graph_output)then
        call stop_program("number of samples in input and output do not match")
        return
     elseif(size(output,1).ne.this%num_outputs.and..not.this%use_graph_input)then
@@ -2885,9 +2904,15 @@ contains
                      output, start_index, end_index, this%batch_size &
                 ))
              type is(array2d_type)
-                call this%backward_mixed(get_sample_mixed( &
-                     output, start_index, end_index, this%batch_size &
-                ))
+                if(this%use_graph_output)then
+                   call this%backward_mixed(get_sample_mixed( &
+                        output, start_index, end_index, this%batch_size &
+                   ))
+                else
+                   call this%backward_mixed(reshape(get_sample_derived( &
+                        output(:,1), start_index, end_index, this%batch_size &
+                   ), [1,1]))
+                end if
              end select
           case default
              call this%forward(get_sample( &

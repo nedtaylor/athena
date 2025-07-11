@@ -257,6 +257,8 @@ contains
   end subroutine set_batch_size_msgpass
 !###############################################################################
 
+
+!###############################################################################
   module subroutine set_graph_msgpass(this, graph)
     !! Set the graph structure of the input data
     implicit none
@@ -333,10 +335,10 @@ contains
        if(this%edge_features(0,s)%allocated) &
             call this%edge_features(0,s)%deallocate()
        call this%vertex_features(0,s)%allocate( &
-            [ this%num_vertex_features, this%graph(s)%num_vertices ] &
+            [ this%num_vertex_features(0), this%graph(s)%num_vertices ] &
        )
        call this%edge_features(0,s)%allocate( &
-            [ this%num_edge_features, this%graph(s)%num_edges ] &
+            [ this%num_edge_features(0), this%graph(s)%num_edges ] &
        )
        do t = 1, this%num_time_steps
           if(this%vertex_features(t,s)%allocated) &
@@ -364,6 +366,8 @@ contains
 
 
   end subroutine set_graph_msgpass
+!###############################################################################
+
 
 !##############################################################################!
 ! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
