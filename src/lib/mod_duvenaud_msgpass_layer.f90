@@ -239,14 +239,14 @@ contains
     !! Minimum vertex degree
     integer, optional, intent(in) :: batch_size
     !! Batch size
-       real(real32), optional, intent(in) :: message_activation_scale, &
-            readout_activation_scale
-       !! Message and readout activation scales
-       character(*), optional, intent(in) :: message_activation_function, &
-            readout_activation_function
-       !! Message and readout activation functions
-       character(*), optional, intent(in) :: kernel_initialiser
-       !!! Kernel initialiser
+    real(real32), optional, intent(in) :: message_activation_scale, &
+         readout_activation_scale
+    !! Message and readout activation scales
+    character(*), optional, intent(in) :: message_activation_function, &
+         readout_activation_function
+    !! Message and readout activation functions
+    character(*), optional, intent(in) :: kernel_initialiser
+    !!! Kernel initialiser
     integer, optional, intent(in) :: verbose
     !! Verbosity level
     type(duvenaud_msgpass_layer_type) :: layer
@@ -425,11 +425,14 @@ contains
     if(allocated(this%transfer)) deallocate(this%transfer)
     if(allocated(this%transfer_readout)) deallocate(this%transfer_readout)
     allocate(this%transfer, &
-         source = activation_setup(message_activation_function, message_activation_scale))
+         source = activation_setup(message_activation_function, &
+              message_activation_scale))
     allocate(this%transfer_readout, &
-         source = activation_setup(readout_activation_function, readout_activation_scale))
+         source = activation_setup(readout_activation_function, &
+              readout_activation_scale))
     if(trim(kernel_initialiser).eq.'') &
-         this%kernel_initialiser = get_default_initialiser(message_activation_function)
+         this%kernel_initialiser = &
+              get_default_initialiser(message_activation_function)
     if(present(verbose))then
        if(abs(verbose).gt.0)then
           write(*,'("DUVENAUD message activation function: ",A)') &
@@ -519,7 +522,7 @@ contains
                  sum(this%num_params_msg(1:t)) &
             ), &
             fan_in = ( this%num_vertex_features(t-1) + this%num_edge_features(0) ) * &
-                 ( this%max_vertex_degree + this%min_vertex_degree ) / 2, &
+            ( this%max_vertex_degree + this%min_vertex_degree ) / 2, &
             fan_out = this%num_vertex_features(t), &
             spacing = [ this%num_vertex_features(t-1) ] &
        )
@@ -529,7 +532,7 @@ contains
             ), &
             fan_in = &
                  ( this%num_vertex_features(t) * &
-                 ( this%max_vertex_degree + this%min_vertex_degree ) / 2 ) * &
+                      ( this%max_vertex_degree + this%min_vertex_degree ) / 2 ) * &
                  this%num_time_steps, &
             fan_out = this%num_outputs, &
             spacing = [ this%num_vertex_features(t) ] &
@@ -774,9 +777,11 @@ contains
     ! Write initial parameters
     !---------------------------------------------------------------------------
     write(unit,'(3X,"NUM_TIME_STEPS = ",I0)') this%num_time_steps
-    write(fmt,'("(3X,""NUM_VERTEX_FEATURES ="",",I0,"(1X,I0))")') this%num_time_steps + 1
+    write(fmt,'("(3X,""NUM_VERTEX_FEATURES ="",",I0,"(1X,I0))")') &
+         this%num_time_steps + 1
     write(unit,fmt) this%num_vertex_features
-    write(fmt,'("(3X,""NUM_EDGE_FEATURES ="",",I0,"(1X,I0))")') this%num_time_steps + 1
+    write(fmt,'("(3X,""NUM_EDGE_FEATURES ="",",I0,"(1X,I0))")') &
+         this%num_time_steps + 1
     write(unit,fmt) this%num_edge_features
 
     write(unit,'(3X,"MESSAGE_ACTIVATION = ",A)') trim(this%transfer%name)
@@ -879,9 +884,9 @@ contains
 
     do t = 1, this%num_time_steps
        weight( &
-              1:this%num_vertex_features(t), &
-              1:this%num_vertex_features(t-1) + this%num_edge_features(0), &
-              this%min_vertex_degree:this%max_vertex_degree &
+            1:this%num_vertex_features(t), &
+            1:this%num_vertex_features(t-1) + this%num_edge_features(0), &
+            this%min_vertex_degree:this%max_vertex_degree &
        ) => this%params( &
             sum(this%num_params_msg(1:t-1:1)) + 1 : &
             sum(this%num_params_msg(1:t:1)) &
@@ -945,8 +950,8 @@ contains
     do t = 1, this%num_time_steps, 1
        num_params_tmp = this%num_vertex_features(t) * this%num_outputs
        weight( &
-              1:this%num_outputs, &
-              1:this%num_vertex_features(t) &
+            1:this%num_outputs, &
+            1:this%num_vertex_features(t) &
        ) => this%params( &
             num_params_old + 1 : num_params_old + num_params_tmp &
        )
@@ -983,25 +988,37 @@ contains
     ! Local variables
     integer :: degree
     !! Degree of the vertex
-    integer :: t, s, v, i, j, idx
+    integer :: t, s, v, e, i, j, idx
     !! Loop indices
     real(real32), dimension(:,:), allocatable :: delta
     !! Delta values for the message phase
-    real(real32), pointer :: weight(:,:,:)
+    real(real32), pointer :: weight(:,:,:), dw(:,:,:)
     !! Pointer to the weight matrix
 
 
     do t = this%num_time_steps, 1, -1
        weight( &
-              1:this%num_vertex_features(t), &
-              1:this%num_vertex_features(t-1) + this%num_edge_features(0), &
-              this%min_vertex_degree:this%max_vertex_degree &
+            1:this%num_vertex_features(t), &
+            1:this%num_vertex_features(t-1) + this%num_edge_features(0), &
+            this%min_vertex_degree:this%max_vertex_degree &
        ) => this%params( &
             sum(this%num_params_msg(1:t-1:1)) + 1 : &
             sum(this%num_params_msg(1:t:1)) &
        )
        do concurrent(s=1:this%batch_size)
-          ! There is no message passing transfer function
+          dw( &
+               1:this%num_vertex_features(t), &
+               1:this%num_vertex_features(t-1) + this%num_edge_features(0), &
+               this%min_vertex_degree:this%max_vertex_degree &
+          ) => this%dp( &
+               sum(this%num_params_msg(1:t-1:1)) + 1 : &
+               sum(this%num_params_msg(1:t:1)), s &
+          )
+          if(t.eq.1)then
+             this%di(1,s)%val = 0._real32
+             this%di(2,s)%val = 0._real32
+          end if
+
           if(allocated(delta)) deallocate(delta)
           allocate(delta( &
                this%num_vertex_features(t), &
@@ -1025,58 +1042,78 @@ contains
              )
              ! i.e. outer product of the input and delta
              ! sum weights and biases errors to use in batch gradient descent
-             do i = 1, this%num_vertex_features(t-1) + &
-                  this%num_edge_features(0)
-                do j = 1, this%num_vertex_features(t)
-                   idx = i + &
-                        ( &
-                             this%num_vertex_features(t-1) + &
-                             this%num_edge_features(0) &
-                        ) * &
-                        ( (j-1) + this%num_vertex_features(t) * ( &
-                             (degree-this%min_vertex_degree) + &
-                             ( &
-                                  this%max_vertex_degree - &
-                                  this%min_vertex_degree + 1 &
-                             ) * (t-1) &
-                        ) )
-                   ! ARE WE MISSING THE REST OF delta(:,v)?
-                   if(i.gt.this%num_vertex_features(t))then
-                      this%dp(idx,s) = this%dp(idx,s) + &
-                           this%edge_features(0,s)%val( &
-                                i-this%num_vertex_features(t),v &
-                           ) * &
-                           delta(j,v)
+             do e = this%graph(s)%adj_ia(v), this%graph(s)%adj_ia(v+1) - 1
+                !if(this%graph(s)%adj_ja(2,e).eq.0) cycle ! self interaction
+                if(this%graph(s)%adj_ja(2,e).eq.0)then
+                   do i = 1, this%num_vertex_features(t-1)
+                      dw(:,i,degree) = dw(:,i,degree) + &
+                           this%vertex_features(t-1,s)%val(i,v) * delta(:,v)
+                   end do
+                   do i = this%num_vertex_features(t-1) + 1, &
+                        this%num_vertex_features(t-1) + this%num_edge_features(0)
+                      dw(:,i,degree) = dw(:,i,degree) + &
+                           1._real32 * delta(:,v)
+                   end do
+                   if(t.eq.1)then
+                      this%di(1,s)%val(:,v) = &
+                           this%di(1,s)%val(:,v) + &
+                           matmul( &
+                                delta(:,v), &
+                                weight( &
+                                     :,:this%num_vertex_features(t-1),degree &
+                                ) &
+                           )
                    else
-                      this%dp(idx,s) = this%dp(idx,s) + &
-                           this%vertex_features(t,s)%val(i,v) * delta(j,v)
+                      this%di_msg(t,s)%val(:,v) = &
+                           this%di_msg(t,s)%val(:,v) + &
+                           matmul(delta(:,v),weight(:,:,degree))
                    end if
-                end do
+                else
+                   do j = 1, this%num_vertex_features(t)
+                      do i = 1, this%num_vertex_features(t-1)
+                         dw(j,i,degree) = dw(j,i,degree) + &
+                              this%vertex_features(t-1,s)%val( &
+                                   i,this%graph(s)%adj_ja(1,e) &
+                              ) * delta(j,v)
+                      end do
+                      do i = this%num_vertex_features(t-1) + 1, &
+                           this%num_vertex_features(t-1) + this%num_edge_features(0)
+                         dw(j,i,degree) = dw(j,i,degree) + &
+                              this%edge_features(0,s)%val( &
+                                   i-this%num_vertex_features(t-1), &
+                                   this%graph(s)%adj_ja(2,e) &
+                              ) * &
+                              delta(j,v)
+                      end do
+                   end do
+                   ! The errors are summed from the delta of the ...
+                   ! ... 'child' node * 'child' weight
+                   ! dE/dI(l-1) = sum(weight(l) * delta(l))
+                   ! this prepares dE/dI for when it is passed into the previous layer
+                   if(t.eq.1)then
+                      this%di(1,s)%val(:,this%graph(s)%adj_ja(1,e)) = &
+                           this%di(1,s)%val(:,this%graph(s)%adj_ja(1,e)) + &
+                           matmul( &
+                                delta(:,v), &
+                                weight( &
+                                     :,:this%num_vertex_features(t-1),degree &
+                                ) &
+                           )
+                      this%di(2,s)%val(:,this%graph(s)%adj_ja(2,e)) = &
+                           this%di(2,s)%val(:,this%graph(s)%adj_ja(2,e)) + &
+                           matmul( &
+                                delta(:,v), &
+                                weight( &
+                                     :,this%num_vertex_features(t-1)+1:,degree &
+                                ) &
+                           )
+                   else
+                      this%di_msg(t,s)%val(:,this%graph(s)%adj_ja(1,e)) = &
+                           this%di_msg(t,s)%val(:,this%graph(s)%adj_ja(1,e)) + &
+                           matmul(delta(:,v),weight(:,:,degree))
+                   end if
+                end if
              end do
-             ! The errors are summed from the delta of the ...
-             ! ... 'child' node * 'child' weight
-             ! dE/dI(l-1) = sum(weight(l) * delta(l))
-             ! this prepares dE/dI for when it is passed into the previous layer
-             if(t.eq.1)then
-                this%di(1,s)%val(:,v) = &
-                     matmul( &
-                          delta(:,v), &
-                          weight( &
-                               :,:this%num_vertex_features(t-1),degree &
-                          ) &
-                     )
-                this%di(2,s)%val(:,v) = &
-                     matmul( &
-                          delta(:,v), &
-                          weight( &
-                               :,this%num_vertex_features(t-1)+1:,degree &
-                          ) &
-                     )
-             else
-                this%di_msg(t,s)%val(:,v) = &
-                     this%di_msg(t,s)%val(:,v) + &
-                     matmul(delta(:,v),weight(:,:,degree))
-             end if
           end do
        end do
     end do
@@ -1112,16 +1149,15 @@ contains
     do t = 1, this%num_time_steps, 1
        num_params_tmp = this%num_vertex_features(t) * this%num_outputs
        weight( &
-              1:this%num_outputs, &
-              1:this%num_vertex_features(t) &
+            1:this%num_outputs, &
+            1:this%num_vertex_features(t) &
        ) => this%params( &
             num_params_old + 1 : num_params_old + num_params_tmp &
        )
        do concurrent(s=1:this%batch_size)
-       ! There is no message passing transfer function
-
-       ! Partial derivatives of error wrt weights
-       ! dE/dW = o/p(l-1) * delta
+          ! There is no message passing transfer function
+          ! Partial derivatives of error wrt weights
+          ! dE/dW = o/p(l-1) * delta
           do v = 1, this%graph(s)%num_vertices
 
              delta = &
@@ -1130,11 +1166,11 @@ contains
                        this%z_readout(t,s)%val(:,v) &
                   )
 
-             do j = 1, this%num_vertex_features(0)
+             do j = 1, this%num_vertex_features(t)
                 do i = 1, this%num_outputs
                    idx = i + (j-1) * this%num_outputs + (t-1) * &
                         this%num_outputs * &
-                        this%num_vertex_features(0) + &
+                        this%num_vertex_features(t) + &
                         sum(this%num_params_msg)
                    this%dp(idx,s) = this%dp(idx,s) + &
                         this%vertex_features(t,s)%val(j,v) * delta(i)
