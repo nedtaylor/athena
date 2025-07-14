@@ -479,10 +479,12 @@ contains
     !! Verbosity level
 
     ! Local variables
+    integer :: t
+    !! Loop index
     integer :: verbose_ = 0
     !! Verbosity level
-    integer :: t, num_params_old, num_params_tmp
-    !! Loop index
+    real(real32) :: mean, std
+    !! Mean and standard deviation of the parameters
     class(initialiser_type), allocatable :: initialiser_
     !! Initialiser
 
@@ -512,34 +514,40 @@ contains
     !---------------------------------------------------------------------------
     ! Initialise weights (kernels)
     !---------------------------------------------------------------------------
-    num_params_old = sum(this%num_params_msg)
     allocate(initialiser_, source=initialiser_setup(this%kernel_initialiser))
     do t = 1, this%num_time_steps, 1
-       num_params_tmp = this%num_vertex_features(t) * this%num_outputs
        call initialiser_%initialise( &
             this%params( &
                  sum(this%num_params_msg(1:t-1)) + 1: &
                  sum(this%num_params_msg(1:t)) &
             ), &
-            fan_in = ( this%num_vertex_features(t-1) + this%num_edge_features(0) ) * &
-            ( this%max_vertex_degree + this%min_vertex_degree ) / 2, &
+            fan_in = this%num_vertex_features(t-1) + this%num_edge_features(0), &
             fan_out = this%num_vertex_features(t), &
             spacing = [ this%num_vertex_features(t-1) ] &
        )
-       call initialiser_%initialise( &
-            this%params( &
-                 num_params_old + 1 : num_params_old + num_params_tmp &
-            ), &
-            fan_in = &
-                 ( this%num_vertex_features(t) * &
-                      ( this%max_vertex_degree + this%min_vertex_degree ) / 2 ) * &
-                 this%num_time_steps, &
-            fan_out = this%num_outputs, &
-            spacing = [ this%num_vertex_features(t) ] &
-       )
-       num_params_old = num_params_old + num_params_tmp
     end do
+    call initialiser_%initialise( &
+         this%params(sum(this%num_params_msg)+1:), &
+         fan_in = sum(this%num_vertex_features), &
+         fan_out = this%num_outputs, &
+         spacing = this%num_vertex_features &
+    )
     deallocate(initialiser_)
+    ! write the standard deviation of the params values
+    !if(verbose_.gt.0)then
+       mean = sum(this%params(:sum(this%num_params_msg))) / &
+            real(sum(this%num_params_msg), kind=real32)
+       std = sqrt(sum((this%params(:sum(this%num_params_msg)) - mean)**2) / &
+            real(sum(this%num_params_msg), kind=real32))
+       write(*,*) "Initialised message parameters with mean = ", mean, &
+            " and std = ", std
+       mean = sum(this%params(sum(this%num_params_msg)+1:)) / &
+            real(this%num_params_readout, kind=real32)
+       std = sqrt(sum((this%params(sum(this%num_params_msg)+1:) - mean)**2) / &
+            real(this%num_params_readout, kind=real32))
+       write(*,*) "Initialised readout parameters with mean = ", mean, &
+            " and std = ", std
+    !end if
 
 
     !---------------------------------------------------------------------------
@@ -893,29 +901,37 @@ contains
        )
        do concurrent (s = 1: this%batch_size)
           do v = 1, this%graph(s)%num_vertices
+             this%message(t,s)%val(:,v) = 0._real32
              degree = this%graph(s)%adj_ia(v+1) - this%graph(s)%adj_ia(v)
              degree = max( &
                   this%min_vertex_degree, &
                   min(degree, this%max_vertex_degree) &
              )
              do e = this%graph(s)%adj_ia(v), this%graph(s)%adj_ia(v+1) - 1
-                if(this%graph(s)%adj_ja(2,e).eq.0) cycle ! self interaction
-                this%message(t,s)%val(:,v) = &
-                     this%message(t,s)%val(:,v) + &
-                     [ &
-                          this%vertex_features(t-1,s)%val( &
-                               :, &
-                               this%graph(s)%adj_ja(1,e) &
-                          ), &
-                          this%edge_features(0,s)%val( &
-                               :, &
-                               this%graph(s)%adj_ja(2,e) &
-                          ) &
-                     ]
+                if(this%graph(s)%adj_ja(2,e).eq.0)then
+                   this%message(t,s)%val(:,v) = &
+                        this%message(t,s)%val(:,v) + [ &
+                             this%vertex_features(t-1,s)%val(:,v), &
+                             1._real32 &
+                        ]
+                else
+                   this%message(t,s)%val(:,v) = &
+                        this%message(t,s)%val(:,v) + &
+                        [ &
+                             this%vertex_features(t-1,s)%val( &
+                                  :, &
+                                  this%graph(s)%adj_ja(1,e) &
+                             ), &
+                             this%edge_features(0,s)%val( &
+                                  :, &
+                                  this%graph(s)%adj_ja(2,e) &
+                             ) &
+                        ]
+                end if
              end do
              this%z(t,s)%val(:,v) = matmul( &
                   weight(:,:,degree), &
-                  this%message(t,s)%val(:,v) &
+                  this%message(t,s)%val(:,v) / degree &
              )
           end do
           this%vertex_features(t,s)%val(:,:) = &

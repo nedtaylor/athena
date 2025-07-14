@@ -43,6 +43,8 @@ module athena__network
      !! Number of parameters
      logical :: use_graph_input = .false.
      !! Boolean flag for graph input
+     logical :: use_graph_output = .false.
+     !! Boolean flag for graph output
      class(base_optimiser_type), allocatable :: optimiser
      !! Optimiser for the network
      type(metric_dict_type), dimension(2) :: metrics
