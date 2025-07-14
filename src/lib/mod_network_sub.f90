@@ -962,6 +962,7 @@ contains
     class(network_type), intent(inout) :: this
     !! Instance of network
 
+    this%epoch = 0
     this%accuracy = 0._real32
     this%loss = huge(1._real32)
     this%batch_size = 0
@@ -2456,6 +2457,19 @@ contains
 
 
     !---------------------------------------------------------------------------
+    ! Increment optimiser iteration counter
+    !---------------------------------------------------------------------------
+    if(this%optimiser%lr_decay%iterate_per_epoch)then
+       if(this%epoch.gt.this%optimiser%epoch)then
+          this%optimiser%epoch = this%epoch
+          this%optimiser%iter = this%optimiser%iter + 1
+       end if
+    else
+       this%optimiser%iter = this%optimiser%iter + 1
+    end if
+
+
+    !---------------------------------------------------------------------------
     ! Get learnable parameters and gradients
     !---------------------------------------------------------------------------
     start_idx = 0
@@ -2489,11 +2503,6 @@ contains
     call this%optimiser%minimise(params, gradients)
     call this%set_params(params)
     call this%reset_gradients()
-
-
-    ! Increment optimiser iteration counter
-    !---------------------------------------------------------------------------
-    this%optimiser%iter = this%optimiser%iter + 1
 
   end subroutine update
 !###############################################################################
@@ -2867,6 +2876,7 @@ contains
 
 
     epoch_loop: do epoch = 1, num_epochs
+       this%epoch = epoch
        !------------------------------------------------------------------------
        ! Shuffle batch order at the start of each epoch
        !------------------------------------------------------------------------
@@ -3037,8 +3047,10 @@ contains
                (batch.eq.1.or.abs(mod(batch,batch_print_step_)).lt.1.E-6))then
              write(6,'("epoch=",I0,", batch=",I0,&
                   &", learning_rate=",F0.3,", loss=",F0.3,", accuracy=",F0.3)')&
-                  epoch, batch, &
-                  this%optimiser%learning_rate, &
+                  this%epoch, batch, &
+                  this%optimiser%lr_decay%get_lr( &
+                       this%optimiser%learning_rate, this%optimiser%iter &
+                   ), &
                   avg_loss/(batch*this%batch_size), &
                   avg_accuracy/(batch*this%batch_size)
           end if
@@ -3072,8 +3084,10 @@ contains
           write(6,'("epoch=",I0,&
                &", learning_rate=",F0.3,", val_loss=",F0.3,&
                &", val_accuracy=",F0.3)') &
-               epoch, &
-               this%optimiser%learning_rate, &
+               this%epoch, &
+               this%optimiser%lr_decay%get_lr( &
+                    this%optimiser%learning_rate, this%optimiser%iter &
+                ), &
                this%metrics(1)%val, this%metrics(2)%val
        end if
 

@@ -32,6 +32,8 @@ module athena__optimiser
      !! Base optimiser type
      integer :: iter = 0
      !! Iteration number
+     integer :: epoch = 0
+     !! Epoch number
      real(real32) :: learning_rate = 0.01_real32
      !! Learning rate hyperparameter
      logical :: regularisation = .false.
@@ -367,7 +369,6 @@ contains
 
     ! Decay learning rate and update iteration
     learning_rate = this%lr_decay%get_lr(this%learning_rate, this%iter)
-    this%iter = this%iter + 1
 
     ! Update parameters
     param = param - learning_rate * gradient
@@ -485,7 +486,6 @@ contains
 
     ! Decay learning rate and update iteration
     learning_rate = this%lr_decay%get_lr(this%learning_rate, this%iter)
-    this%iter = this%iter + 1
 
     ! Apply regularisation
     if(this%regularisation) &
@@ -620,7 +620,6 @@ contains
 
     ! Decay learning rate and update iteration
     learning_rate = this%lr_decay%get_lr(this%learning_rate, this%iter)
-    this%iter = this%iter + 1
 
     ! Apply regularisation
     if(this%regularisation) &
@@ -744,7 +743,6 @@ contains
 
     ! Decay learning rate and update iteration
     learning_rate = this%lr_decay%get_lr(this%learning_rate, this%iter)
-    this%iter = this%iter + 1
 
     ! Apply regularisation
     if(this%regularisation) &
@@ -872,7 +870,6 @@ contains
 
     ! Decay learning rate and update iteration
     learning_rate = this%lr_decay%get_lr(this%learning_rate, this%iter)
-    this%iter = this%iter + 1
 
     ! Apply regularisation
     if(this%regularisation) &

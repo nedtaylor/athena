@@ -20,6 +20,8 @@ module athena__learning_rate_decay
      !! Initial learning rate
      real(real32) :: decay_rate
      !! Decay rate for learning rate
+     logical :: iterate_per_epoch = .false.
+     !! Whether to iterate learning rate decay per epoch
    contains
      procedure :: get_lr => lr_decay_none
      !! Procedure to get the learning rate
@@ -159,6 +161,7 @@ contains
     else
        lr_decay%decay_steps = 100
     end if
+    lr_decay%iterate_per_epoch = .true.
 
   end function setup_lr_decay_step
 !-------------------------------------------------------------------------------

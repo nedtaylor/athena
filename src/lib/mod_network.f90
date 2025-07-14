@@ -33,6 +33,8 @@ module athena__network
      !! Accuracy and loss of the network
      integer :: batch_size = 0
      !! Batch size
+     integer :: epoch = 0
+     !! Epoch number
      integer :: num_layers = 0
      !! Number of layers
      integer :: num_outputs = 0
