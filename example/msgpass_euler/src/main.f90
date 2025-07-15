@@ -13,12 +13,16 @@ program msgpass_euler_example
   implicit none
 
   integer :: seed = 1
+  !! Random seed for the initialisation of the network weights
   type(network_type) :: network
   class(base_layer_type), allocatable :: layer
   type(metric_dict_type), dimension(2) :: metric_dict
   class(clip_type), allocatable :: clip
 
   logical :: restart = .false.
+  !! Boolean whether to restart the training from a saved network or not.
+  logical :: normalise = .false.
+  !! Boolean whether to normalise the input and output features or not.
 
   ! data loading and preoprocessing
   type(graph_type), allocatable, dimension(:,:) :: &
@@ -60,6 +64,55 @@ program msgpass_euler_example
 
 
   !-----------------------------------------------------------------------------
+  ! normalise the input and output features
+  !-----------------------------------------------------------------------------
+  if(normalise)then
+     write(*,*) "Normalising input features..."
+     allocate(feature_in_norm(graphs_in(1,1)%num_vertex_features))
+     feature_in_norm = 0._real32
+     do i = 1, graphs_in(1,1)%num_vertex_features
+        feature_in_norm(i) = &
+             maxval(graphs_in(1,1)%vertex_features(i,:)) - &
+             minval(graphs_in(1,1)%vertex_features(i,:))
+        do s = 2, size(graphs_in,2), 1
+           feature_in_norm(i) = &
+                max( &
+                     feature_in_norm(i), &
+                     maxval(graphs_in(1,s)%vertex_features(i,:)) &
+                ) - &
+                min(feature_in_norm(i),minval(graphs_in(1,s)%vertex_features(i,:)))
+        end do
+        do s = 1, size(graphs_in,2)
+           graphs_in(1,s)%vertex_features(i,:) = &
+                graphs_in(1,s)%vertex_features(i,:) / feature_in_norm(i)
+        end do
+     end do
+
+     write(*,*) "Normalising output features..."
+     allocate(feature_out_norm(graphs_out(1,1)%num_vertex_features))
+     feature_out_norm = 0._real32
+     do i = 1, graphs_out(1,1)%num_vertex_features
+        feature_out_norm(i) = &
+             maxval(graphs_out(1,1)%vertex_features(i,:)) - &
+             minval(graphs_out(1,1)%vertex_features(i,:))
+        do s = 2, size(graphs_out,2), 1
+           feature_out_norm(i) = &
+                max( &
+                     feature_out_norm(i), &
+                     maxval(graphs_out(1,s)%vertex_features(i,:)) &
+                ) - &
+                min(feature_out_norm(i),minval(graphs_out(1,s)%vertex_features(i,:)))
+        end do
+        do s = 1, size(graphs_out,1)
+           graphs_out(1,s)%vertex_features(i,:) = &
+                graphs_out(1,s)%vertex_features(i,:) / feature_out_norm(i)
+        end do
+     end do
+  else
+     write(*,*) "Not normalising input and output features"
+  end if
+
+  !-----------------------------------------------------------------------------
   ! initialise random seed
   !-----------------------------------------------------------------------------
   call random_setup(seed, restart=.false.)
@@ -73,23 +126,18 @@ program msgpass_euler_example
      call network%read(file="network.txt")
      write(*,*) "Reading finished"
   else
-     write(6,*) "Initialising MPNN..."
-     ! call network%add(kipf_msgpass_layer_type( &
-     !      num_time_steps = num_time_steps, &
-     !      num_vertex_features = [ 3, 6, 12, 24, 14, 7 ], &
-     !      num_edge_features = [ 0 ], &
-     !      activation_function = 'softmax', &
-     !      kernel_initialiser = 'he_normal' &
-     ! ))
-
+     write(6,*) "Initialising graph neural network..."
+     ! add the initial message passing layer, this takes in the input features
      call network%add( &
           kipf_msgpass_layer_type( &
-               num_time_steps = 1, &
-               num_vertex_features = [ 3, 6 ], &
-               activation_function = 'softmax', &
-               kernel_initialiser = 'he_normal' &
+               num_time_steps = 1, & ! number of time steps for the message passing
+               num_vertex_features = [ 3, 6 ], & ! input and output vertex feature sizes
+               activation_function = 'softmax', & ! activation function of the layer
+               kernel_initialiser = 'he_normal' & ! initialiser for the weights
           ) &
      )
+     ! add the second message passing layer, this takes in the output of the first layer
+     ! and the input features, and concatenates them
      call network%add( &
           kipf_msgpass_layer_type( &
                num_time_steps = 1, &
@@ -97,9 +145,13 @@ program msgpass_euler_example
                activation_function = 'softmax', &
                kernel_initialiser = 'he_normal' &
           ), &
-          input_list = [ 0, -1 ], &
-          operator = 'concatenate' &
+          input_list = [ 0, -1 ], & ! input list for the layer
+          !  0 is the first layer
+          ! -1 is the output of the previously added layer
+          operator = 'concatenate' & ! operator to use for combining the inputs
      )
+     ! all subsequent layers repeat the same process of the second layer,
+     ! taking in the output of the previous layer and the input features
      call network%add( &
           kipf_msgpass_layer_type( &
                num_time_steps = 1, &
@@ -150,69 +202,29 @@ program msgpass_euler_example
           input_list = [ 0, -1 ], &
           operator = 'concatenate' &
      )
-     !  call network%add(full_layer_type( &
-     !       num_inputs  = 10, &
-     !       num_outputs = 1, &
-     !       batch_size  = 1, &
-     !       activation_function='leaky_relu', &
-     !       kernel_initialiser='he_normal', &
-     !       bias_initialiser='ones' &
-     !  ))
   end if
-
-  ! normalise the input features
-  allocate(feature_in_norm(graphs_in(1,1)%num_vertex_features))
-  feature_in_norm = 0._real32
-  do i = 1, graphs_in(1,1)%num_vertex_features
-     do s = 1, size(graphs_in,1)
-        feature_in_norm(i) = &
-             max(feature_in_norm(i),maxval(graphs_in(s,1)%vertex_features(i,:))) - &
-             min(feature_in_norm(i),minval(graphs_in(s,1)%vertex_features(i,:)))
-     end do
-     ! do s = 1, size(graphs_in,1)
-     !    graphs_in(s,1)%vertex_features(i,:) = &
-     !         graphs_in(s,1)%vertex_features(i,:) / feature_in_norm(i)
-     ! end do
-  end do
-
-  ! normalise the output features
-  allocate(feature_out_norm(graphs_out(1,1)%num_vertex_features))
-  feature_out_norm = 0._real32
-  do i = 1, graphs_out(1,1)%num_vertex_features
-     do s = 1, size(graphs_out,1)
-        feature_out_norm(i) = &
-             max(feature_out_norm(i),maxval(graphs_out(s,1)%vertex_features(i,:))) - &
-             min(feature_out_norm(i),minval(graphs_out(s,1)%vertex_features(i,:)))
-     end do
-     ! do s = 1, size(graphs_out,1)
-     !    graphs_out(s,1)%vertex_features(i,:) = &
-     !         graphs_out(s,1)%vertex_features(i,:) / feature_out_norm(i)
-     ! end do
-  end do
-  open(14, file="fort.14", status="replace")
-  do i = 1, size(graphs_out(1,1)%vertex_features,dim=2)
-     write(14,*) graphs_out(1,1)%vertex_features(:,i)
-  end do
-  close(14)
 
 
   !-----------------------------------------------------------------------------
   ! compile network
   !-----------------------------------------------------------------------------
-  allocate(clip, source=clip_type(-1.E0_real32, 1.E0_real32))
+  ! gradient clipping can be used to avoid exploding gradients
+  allocate(clip, source=clip_type(-1.E0_real32, 1.E0_real32)) ! clip the gradients
   metric_dict%active = .false.
   metric_dict(1)%key = "loss"
   metric_dict(2)%key = "accuracy"
   metric_dict%threshold = 1.E-1_real32
   call network%compile( &
-       optimiser = adam_optimiser_type( &
-            clip_dict = clip, &
-            learning_rate = 1.E-2_real32, &
-            lr_decay = exp_lr_decay_type(1.E-3_real32) &
+       optimiser = adam_optimiser_type( &                 ! use the Adam optimiser
+            clip_dict = clip, &                           ! gradient clipping
+            learning_rate = 2.E-2_real32, &               ! initial learning rate
+            lr_decay = exp_lr_decay_type(1.E-3_real32) &  ! apply learning rate decay
        ), &
-       loss_method = "mse", metrics = metric_dict, &
-       batch_size = batch_size, verbose = 1, &
-       accuracy_method = "mse" &
+       loss_method = "mse", & ! mean squared error loss
+       accuracy_method = "mse", & ! use mean squared error for accuracy calculation
+       metrics = metric_dict, &
+       batch_size = batch_size, &
+       verbose = 1 &
   )
 
 
@@ -254,12 +266,11 @@ program msgpass_euler_example
   ! predicting
   !-----------------------------------------------------------------------------
   graphs_predicted = network%predict( graphs_in )
-  open(15, file="fort.15", status="replace")
-  do i = 1, size(graphs_predicted(1,1)%vertex_features,dim=2)
-     write(15,*) graphs_predicted(1,1)%vertex_features(:,i)
-  end do
-  close(15)
 
+
+  !-----------------------------------------------------------------------------
+  ! print the learned network
+  !-----------------------------------------------------------------------------
   if(.not.restart)then
      call network%print(file="network.txt")
   else
