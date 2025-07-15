@@ -1,9 +1,11 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
-!!!#############################################################################
-program mnist_example
+program msgpass_euler_example
+  !! Program to demonstrate the use of a message passing neural network
+  !!
+  !! This program reads a dataset of graphs and trains a message passing neural
+  !! network to predict the output features of the graphs.
+  !! The dataset is read from text files that give the initial setup of a graph
+  !! of points and the neural network is trained to predict the steady state
+  !! solution of the flow of a fluid over a bump.
   use athena
   use constants_mnist, only: real32
   use read_euler, only: read_graph
@@ -18,12 +20,12 @@ program mnist_example
 
   logical :: restart = .false.
 
-  !! data loading and preoprocessing
+  ! data loading and preoprocessing
   type(graph_type), allocatable, dimension(:,:) :: &
        graphs_in, graphs_out, graphs_predicted
   character(1024) :: file, train_file
 
-  !! training loop variables
+  ! training loop variables
   integer :: num_tests = 10, num_epochs = 200, batch_size = 2
   integer :: num_time_steps = 5
   integer :: num_samples
@@ -38,32 +40,34 @@ program mnist_example
 
 
 
-!!!-----------------------------------------------------------------------------
-!!! read training dataset
-!!!-----------------------------------------------------------------------------
-  write(edge_file, '(A,I0,A)') "example/euler/data/bump_edgeData_1.txt"
+  !-----------------------------------------------------------------------------
+  ! read training dataset
+  !-----------------------------------------------------------------------------
+  write(edge_file, '(A,I0,A)') "example/msgpass_euler/data/bump_edgeData_1.txt"
   n = 2
   allocate(graphs_in(1,n))
   allocate(graphs_out(1,n))
   do i = 1, n
-     write(vertex_file, '(A,I0,A)') "example/euler/data/bump_nodeData_in_", i, ".txt"
+     write(vertex_file, '(A,I0,A)') &
+          "example/msgpass_euler/data/bump_nodeData_in_", i, ".txt"
      write(*,*) "Reading training dataset ", i
      call read_graph(vertex_file, edge_file, graphs_in(1,i))
-     write(vertex_file, '(A,I0,A)') "example/euler/data/bump_nodeData_out_", i, ".txt"
+     write(vertex_file, '(A,I0,A)') &
+          "example/msgpass_euler/data/bump_nodeData_out_", i, ".txt"
      call read_graph(vertex_file, edge_file, graphs_out(1,i))
   end do
   write(*,*) "Reading finished"
 
 
-!!!-----------------------------------------------------------------------------
-!!! initialise random seed
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! initialise random seed
+  !-----------------------------------------------------------------------------
   call random_setup(seed, restart=.false.)
 
 
-!!!-----------------------------------------------------------------------------
-!!! initialise convolutional and pooling layers
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! initialise convolutional and pooling layers
+  !-----------------------------------------------------------------------------
   if(restart)then
      write(*,*) "Reading network from file..."
      call network%read(file="network.txt")
@@ -165,10 +169,10 @@ program mnist_example
              max(feature_in_norm(i),maxval(graphs_in(s,1)%vertex_features(i,:))) - &
              min(feature_in_norm(i),minval(graphs_in(s,1)%vertex_features(i,:)))
      end do
-     do s = 1, size(graphs_in,1)
-        graphs_in(s,1)%vertex_features(i,:) = &
-             graphs_in(s,1)%vertex_features(i,:) / feature_in_norm(i)
-     end do
+     ! do s = 1, size(graphs_in,1)
+     !    graphs_in(s,1)%vertex_features(i,:) = &
+     !         graphs_in(s,1)%vertex_features(i,:) / feature_in_norm(i)
+     ! end do
   end do
 
   ! normalise the output features
@@ -180,10 +184,10 @@ program mnist_example
              max(feature_out_norm(i),maxval(graphs_out(s,1)%vertex_features(i,:))) - &
              min(feature_out_norm(i),minval(graphs_out(s,1)%vertex_features(i,:)))
      end do
-     do s = 1, size(graphs_out,1)
-        graphs_out(s,1)%vertex_features(i,:) = &
-             graphs_out(s,1)%vertex_features(i,:) / feature_out_norm(i)
-     end do
+     ! do s = 1, size(graphs_out,1)
+     !    graphs_out(s,1)%vertex_features(i,:) = &
+     !         graphs_out(s,1)%vertex_features(i,:) / feature_out_norm(i)
+     ! end do
   end do
   open(14, file="fort.14", status="replace")
   do i = 1, size(graphs_out(1,1)%vertex_features,dim=2)
@@ -192,9 +196,9 @@ program mnist_example
   close(14)
 
 
-!!!-----------------------------------------------------------------------------
-!!! compile network
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! compile network
+  !-----------------------------------------------------------------------------
   allocate(clip, source=clip_type(-1.E0_real32, 1.E0_real32))
   metric_dict%active = .false.
   metric_dict(1)%key = "loss"
@@ -212,9 +216,9 @@ program mnist_example
   )
 
 
-!!!-----------------------------------------------------------------------------
-!!! print network and dataset summary
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! print network and dataset summary
+  !-----------------------------------------------------------------------------
   num_params = network%get_num_params()
   write(*,*) "NUMBER OF LAYERS",network%num_layers
   write(*,*) "Number of parameters", num_params
@@ -222,11 +226,9 @@ program mnist_example
   write(*,*) "Number of tests",num_tests
 
 
-!!!-----------------------------------------------------------------------------
-!!! training loop
-!!! ... loops over num_epoch number of epochs
-!!! ... i.e. it trains on the same datapoints num_epoch times
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! training loop
+  !-----------------------------------------------------------------------------
   call network%set_batch_size(batch_size)
   call network%train( &
        graphs_in, &
@@ -235,9 +237,9 @@ program mnist_example
   )
 
 
-!!!-----------------------------------------------------------------------------
-!!! testing loop
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! testing loop
+  !-----------------------------------------------------------------------------
   write(*,*) "Starting testing..."
   call network%test( &
        graphs_in, &
@@ -248,9 +250,9 @@ program mnist_example
   write(*,'("Overall accuracy=",F0.5)') network%accuracy
   write(*,'("Overall loss=",F0.5)')     network%loss
 
-!!!-----------------------------------------------------------------------------
-!!! predicting
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! predicting
+  !-----------------------------------------------------------------------------
   graphs_predicted = network%predict( graphs_in )
   open(15, file="fort.15", status="replace")
   do i = 1, size(graphs_predicted(1,1)%vertex_features,dim=2)
@@ -264,5 +266,4 @@ program mnist_example
      call network%print(file="tmp.txt")
   end if
 
-end program mnist_example
-!!!#############################################################################
+end program msgpass_euler_example

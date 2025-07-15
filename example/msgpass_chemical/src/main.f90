@@ -1,9 +1,9 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
-!!!#############################################################################
-program mnist_example
+program msgpass_chemical_example
+  !! Program to demonstrate the use of a message passing neural network
+  !!
+  !! This program reads a dataset of chemical graphs in the XYZ format
+  !! and trains a message passing neural network to predict the energy of the
+  !! chemical graph.
   use athena
   use constants_mnist, only: real32
   use read_chemical_graphs, only: read_extxyz_db
@@ -18,13 +18,13 @@ program mnist_example
 
   logical :: restart = .false.
 
-  !! data loading and preoprocessing
+  ! data loading and preoprocessing
   type(graph_type), allocatable, dimension(:,:) :: graphs_in
   real(real32), allocatable, dimension(:,:) :: labels
   character(1024) :: file, train_file
 
-  !! training loop variables
-  integer :: num_tests = 10, num_epochs = 100, batch_size = 4
+  ! training loop variables
+  integer :: num_tests = 10, num_epochs = 100, batch_size = 2
   integer :: num_time_steps = 4
   integer :: i, itmp1, n, num_iterations
 
@@ -37,9 +37,9 @@ program mnist_example
 
 
 
-!!!-----------------------------------------------------------------------------
-!!! read training dataset
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! read training dataset
+  !-----------------------------------------------------------------------------
   train_file = "example/msgpass_chemical/database.xyz"
   write(*,*) "Reading training dataset..."
   call read_extxyz_db(train_file, graphs_in, output)!labels)
@@ -49,19 +49,19 @@ program mnist_example
   end do
 
 
-!!!-----------------------------------------------------------------------------
-!!! initialise random seed
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! initialise random seed
+  !-----------------------------------------------------------------------------
   call random_setup(seed, restart=.false.)
 
 
-!!!-----------------------------------------------------------------------------
-!!! initialise convolutional and pooling layers
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! initialise convolutional and pooling layers
+  !-----------------------------------------------------------------------------
   if(restart)then
-     ! write(*,*) "Reading network from file..."
-     ! call network%read(file=input_file)
-     ! write(*,*) "Reading finished"
+     write(*,*) "Reading network from file..."
+     call network%read(file="network.txt")
+     write(*,*) "Reading finished"
   else
      write(6,*) "Initialising MSGPASS..."
 
@@ -70,7 +70,9 @@ program mnist_example
           num_vertex_features = [ graphs_in(1,1)%num_vertex_features ], &
           num_edge_features =   [ graphs_in(1,1)%num_edge_features ], &
           num_outputs = num_dense_inputs, &
-          kernel_initialiser = 'he_normal', &
+          kernel_initialiser = 'glorot_normal', &
+          readout_activation_function = 'softmax', &
+          min_vertex_degree = 3, &
           max_vertex_degree = 6, &
           batch_size = batch_size &
      ))
@@ -90,7 +92,7 @@ program mnist_example
           bias_initialiser = 'ones' &
      ))
      call network%add(full_layer_type( &
-          num_outputs = 1, &
+          num_outputs = num_outputs, &
           batch_size  = batch_size, &
           activation_function = 'leaky_relu', &
           kernel_initialiser = 'he_normal', &
@@ -102,30 +104,34 @@ program mnist_example
   allocate(feature_in_norm(graphs_in(1,1)%num_vertex_features))
   feature_in_norm = 0._real32
   do i = 1, graphs_in(1,1)%num_vertex_features
-     do s = 1, size(graphs_in,1)
+     do s = 1, size(graphs_in,2)
         feature_in_norm(i) = &
-             max(feature_in_norm(i),maxval(graphs_in(s,1)%vertex_features(i,:))) - &
-             min(feature_in_norm(i),minval(graphs_in(s,1)%vertex_features(i,:)))
+             max(feature_in_norm(i),maxval(graphs_in(1,s)%vertex_features(i,:))) - &
+             min(feature_in_norm(i),minval(graphs_in(1,s)%vertex_features(i,:)))
      end do
-     do s = 1, size(graphs_in,1)
-        graphs_in(s,1)%vertex_features(i,:) = &
-             graphs_in(s,1)%vertex_features(i,:) / feature_in_norm(i)
+     do s = 1, size(graphs_in,2)
+        ! graphs_in(1,s)%vertex_features(i,:) = &
+        !      graphs_in(1,s)%vertex_features(i,:) / feature_in_norm(i)
+        write(14,*) graphs_in(1,s)%edge_features(:,:)
      end do
   end do
 
 
-!!!-----------------------------------------------------------------------------
-!!! compile network
-!!!-----------------------------------------------------------------------------
-  allocate(clip, source=clip_type(clip_norm = 1.E1_real32))
+  !-----------------------------------------------------------------------------
+  ! compile network
+  !-----------------------------------------------------------------------------
+  ! allocate(clip, source=clip_type(-1.E0_real32, 1.E0_real32))
+  allocate(clip, source=clip_type(clip_norm = 1.E-1_real32))
   metric_dict%active = .false.
   metric_dict(1)%key = "loss"
   metric_dict(2)%key = "accuracy"
   metric_dict%threshold = 1.E-1_real32
   call network%compile( &
-       optimiser = sgd_optimiser_type( &
+       optimiser = adam_optimiser_type( &
             clip_dict = clip, &
             learning_rate = 1.E-2_real32 &
+            ! lr_decay = exp_lr_decay_type(1.E-2_real32) &
+            ! lr_decay = step_lr_decay_type(0.5_real32, 5) &
        ), &
        loss_method = "mse", metrics = metric_dict, &
        batch_size = batch_size, verbose = 1, &
@@ -133,9 +139,9 @@ program mnist_example
   )
 
 
-!!!-----------------------------------------------------------------------------
-!!! print network and dataset summary
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! print network and dataset summary
+  !-----------------------------------------------------------------------------
   num_params = network%get_num_params()
   write(*,*) "NUMBER OF LAYERS",network%num_layers
   write(*,*) "Number of parameters", num_params
@@ -143,28 +149,27 @@ program mnist_example
   write(*,*) "Number of tests",num_tests
 
 
-!!!-----------------------------------------------------------------------------
-!!! training loop
-!!! ... loops over num_epoch number of epochs
-!!! ... i.e. it trains on the same datapoints num_epoch times
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! training loop
+  !-----------------------------------------------------------------------------
   call network%set_batch_size(batch_size)
   output(1,1)%val = -1._real32 * output(1,1)%val
   output(1,1)%val = output(1,1)%val / maxval(output(1,1)%val)
   call network%train( &
        graphs_in, &
        output, &
-       num_epochs = num_epochs &
+       num_epochs = num_epochs, &
+       shuffle_batches = .true. &
   )
 
 
-!!!-----------------------------------------------------------------------------
-!!! testing loop
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! testing loop
+  !-----------------------------------------------------------------------------
   write(*,*) "Starting testing..."
   call network%test( &
        graphs_in, &
-       labels &
+       output &
   )
   write(*,*) "Testing finished"
 
@@ -178,5 +183,4 @@ program mnist_example
      call network%print(file="tmp.txt")
   end if
 
-end program mnist_example
-!!!#############################################################################
+end program msgpass_chemical_example

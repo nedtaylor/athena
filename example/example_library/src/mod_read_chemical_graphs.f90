@@ -198,7 +198,7 @@ contains
     real(real32), dimension(3,3), intent(in) :: lattice
     type(graph_type) :: graph
 
-    integer :: is, ia, js, ja, i, j, k
+    integer :: is, ia, js, ja, i, j, k, degree
     integer :: iatom, jatom
     integer :: amax, bmax, cmax
     type(edge_type) :: edge
@@ -207,7 +207,7 @@ contains
 
 
     graph%num_vertices = basis%natom
-    graph%num_vertex_features = 2
+    graph%num_vertex_features = 3
     graph%num_edge_features = 1
 
 
@@ -225,7 +225,7 @@ contains
     end do
 
     cutoff_min = 0.5_real32
-    cutoff_max = 6.0_real32
+    cutoff_max = 3.0_real32
     amax = ceiling(cutoff_max/modu(lattice(1,:)))
     bmax = ceiling(cutoff_max/modu(lattice(2,:)))
     cmax = ceiling(cutoff_max/modu(lattice(3,:)))
@@ -236,6 +236,7 @@ contains
        atom_loop1: do ia=1,basis%spec(is)%num
           iatom = iatom + 1
           jatom = 0
+          degree = 0
           spec_loop2: do js=is,basis%nspec
              atom_loop2: do ja=1,basis%spec(js)%num
                 jatom = jatom + 1
@@ -251,6 +252,7 @@ contains
                          rtmp1 = modu(matmul(vtmp1,lattice))
                          if( rtmp1 .gt. cutoff_min .and. &
                               rtmp1 .lt. cutoff_max )then
+                            degree = degree + 1
                             edge%index = [iatom,jatom]
                             edge%feature = [ rtmp1 / cutoff_max ]
                             graph%edge = [ graph%edge, edge ]
@@ -261,6 +263,8 @@ contains
                 end do
              end do atom_loop2
           end do spec_loop2
+          graph%vertex(iatom)%feature = [ graph%vertex(iatom)%feature, &
+               real(degree, real32) / 6._real32 ]
        end do atom_loop1
     end do spec_loop1
     graph%num_edges = size(graph%edge)
