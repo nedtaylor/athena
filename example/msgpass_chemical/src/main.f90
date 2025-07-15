@@ -153,8 +153,8 @@ program msgpass_chemical_example
   ! training loop
   !-----------------------------------------------------------------------------
   call network%set_batch_size(batch_size)
-  output(1,1)%val = -1._real32 * output(1,1)%val
-  output(1,1)%val = output(1,1)%val / maxval(output(1,1)%val)
+  output(1,1)%val = ( output(1,1)%val - minval(output(1,1)%val) ) / &
+       ( maxval(output(1,1)%val) - minval(output(1,1)%val) )
   call network%train( &
        graphs_in, &
        output, &

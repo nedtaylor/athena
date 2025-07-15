@@ -3046,11 +3046,12 @@ contains
           if(abs(verbose_).gt.0.and.&
                (batch.eq.1.or.abs(mod(batch,batch_print_step_)).lt.1.E-6))then
              write(6,'("epoch=",I0,", batch=",I0,&
-                  &", learning_rate=",F0.3,", loss=",F0.3,", accuracy=",F0.3)')&
+                  &", learning_rate=",F0.3,", loss=",F0.3,", accuracy=",F0.3)' &
+             ) &
                   this%epoch, batch, &
                   this%optimiser%lr_decay%get_lr( &
                        this%optimiser%learning_rate, this%optimiser%iter &
-                   ), &
+                  ), &
                   avg_loss/(batch*this%batch_size), &
                   avg_accuracy/(batch*this%batch_size)
           end if
@@ -3083,11 +3084,12 @@ contains
        if(verbose_.eq.0)then
           write(6,'("epoch=",I0,&
                &", learning_rate=",F0.3,", val_loss=",F0.3,&
-               &", val_accuracy=",F0.3)') &
+               &", val_accuracy=",F0.3)' &
+          ) &
                this%epoch, &
                this%optimiser%lr_decay%get_lr( &
                     this%optimiser%learning_rate, this%optimiser%iter &
-                ), &
+               ), &
                this%metrics(1)%val, this%metrics(2)%val
        end if
 
@@ -3142,18 +3144,17 @@ contains
     else
        verbose_ = 0
     end if
-    num_samples = size(output, dim=2)
 
     this%metrics%val = 0._real32
     acc_val  = 0._real32
     loss_val = 0._real32
-    allocate(accuracy_list(num_samples))
 
 
     call convert_polymorphic_to_array2d( &
          input, input_array, input_graph, &
          num_samples, size(this%root_vertices,1) &
     )
+    allocate(accuracy_list(num_samples))
 
 
     !---------------------------------------------------------------------------
