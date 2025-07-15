@@ -41,99 +41,46 @@ contains
     integer, dimension(:), optional, intent(in) :: spacing
     !! Spacing of the input and output units
 
-    integer :: i, j, k, l, m, o
+    ! Local variables
+    integer :: n
+    !! Number of elements in the input array
+    real(real32), dimension(:), allocatable :: u1, u2, z
+    !! Temporary arrays for the random numbers
 
+    n = size(input)
+    allocate(u1(n), u2(n), z(n))
 
+    call random_number(u1)
+    call random_number(u2)
+    where (u1 .lt. 1.E-7_real32)
+       u1 = 1.E-7_real32
+    end where
+
+    ! Box-Muller transform for normal distribution
+    z = sqrt(-2._real32 * log(u1)) * cos(2._real32 * pi * u2)
+    z = this%mean + this%std * z
+
+    ! Assign according to rank
     select rank(input)
     rank(0)
-       call box_muller(input, this%mean, this%std)
+       input = z(1)
     rank(1)
-       do i=1, size(input)
-          call box_muller(input(i), this%mean, this%std)
-       end do
+       input = z
     rank(2)
-       do i=1, size(input,1)
-           do j=1, size(input,2)
-             call box_muller(input(i,j), this%mean, this%std)
-           end do
-       end do
+       input = reshape(z, shape(input))
     rank(3)
-       do i=1, size(input,1)
-           do j=1, size(input,2)
-             do k=1, size(input,3)
-               call box_muller(input(i,j,k), this%mean, this%std)
-             end do
-           end do
-       end do
+       input = reshape(z, shape(input))
     rank(4)
-       do i=1, size(input,1)
-           do j=1, size(input,2)
-             do k=1, size(input,3)
-               do l=1, size(input,4)
-                 call box_muller(input(i,j,k,l), this%mean, this%std)
-               end do
-             end do
-           end do
-       end do
+       input = reshape(z, shape(input))
     rank(5)
-       do i=1, size(input,1)
-           do j=1, size(input,2)
-             do k=1, size(input,3)
-               do l=1, size(input,4)
-                 do m=1, size(input,5)
-                   call box_muller(input(i,j,k,l,m), &
-                        this%mean, this%std)
-                 end do
-               end do
-             end do
-           end do
-       end do
+       input = reshape(z, shape(input))
     rank(6)
-       do i=1, size(input,1)
-           do j=1, size(input,2)
-             do k=1, size(input,3)
-               do l=1, size(input,4)
-                 do m=1, size(input,5)
-                   do o=1, size(input,6)
-                     call box_muller(input(i,j,k,l,m,o), &
-                          this%mean, this%std)
-                    end do
-                 end do
-               end do
-             end do
-           end do
-       end do
+       input = reshape(z, shape(input))
     end select
 
+    deallocate(u1, u2, z)
+
   end subroutine gaussian_initialise
-!###############################################################################
-
-
-!###############################################################################
-  subroutine box_muller(input, mean, std)
-    !! Generate a random number using the Box-Muller transform
-    !!
-    !! This subroutine generates a random number using the Box-Muller
-    !! transform. The random number is generated using two random numbers
-    !! generated using the random_number subroutine
-    !! This is used for element-wise Gaussian initialisation
-    implicit none
-
-    ! Arguments
-    real(real32), intent(out) :: input
-    !! Random number
-    real(real32), intent(in) :: mean, std
-    !! Mean and standard deviation
-
-    real(real32) :: r1, r2
-
-    call random_number(r1)
-    call random_number(r2)
-    input = sqrt(-2._real32 * log(r1))
-    input = input * cos(2._real32 * pi * r2)
-    input = mean + std * input
-
-  end subroutine box_muller
 !###############################################################################
 
 end module athena__initialiser_gaussian
