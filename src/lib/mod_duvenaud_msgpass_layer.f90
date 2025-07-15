@@ -534,7 +534,7 @@ contains
     )
     deallocate(initialiser_)
     ! write the standard deviation of the params values
-    !if(verbose_.gt.0)then
+    if(verbose_.gt.0)then
        mean = sum(this%params(:sum(this%num_params_msg))) / &
             real(sum(this%num_params_msg), kind=real32)
        std = sqrt(sum((this%params(:sum(this%num_params_msg)) - mean)**2) / &
@@ -547,7 +547,7 @@ contains
             real(this%num_params_readout, kind=real32))
        write(*,*) "Initialised readout parameters with mean = ", mean, &
             " and std = ", std
-    !end if
+    end if
 
 
     !---------------------------------------------------------------------------
@@ -909,11 +909,9 @@ contains
              )
              do e = this%graph(s)%adj_ia(v), this%graph(s)%adj_ia(v+1) - 1
                 if(this%graph(s)%adj_ja(2,e).eq.0)then
-                   this%message(t,s)%val(:,v) = &
-                        this%message(t,s)%val(:,v) + [ &
-                             this%vertex_features(t-1,s)%val(:,v), &
-                             1._real32 &
-                        ]
+                   this%message(t,s)%val(:this%num_vertex_features(t-1),v) = &
+                        this%message(t,s)%val(:this%num_vertex_features(t-1),v) + &
+                        this%vertex_features(t-1,s)%val(:,v)
                 else
                    this%message(t,s)%val(:,v) = &
                         this%message(t,s)%val(:,v) + &
@@ -1065,11 +1063,6 @@ contains
                       dw(:,i,degree) = dw(:,i,degree) + &
                            this%vertex_features(t-1,s)%val(i,v) * delta(:,v)
                    end do
-                   do i = this%num_vertex_features(t-1) + 1, &
-                        this%num_vertex_features(t-1) + this%num_edge_features(0)
-                      dw(:,i,degree) = dw(:,i,degree) + &
-                           1._real32 * delta(:,v)
-                   end do
                    if(t.eq.1)then
                       this%di(1,s)%val(:,v) = &
                            this%di(1,s)%val(:,v) + &
@@ -1150,14 +1143,14 @@ contains
     !! Gradient of the loss with respect to the output of the layer
 
     ! Local variables
-    integer :: i, j, idx
+    integer :: i, j
     !! Loop indices
     integer :: s, v, t, num_params_old, num_params_tmp
     !! Batch index, vertex index, time step index
     real(real32), dimension(this%num_outputs) :: delta
     !! Delta values for the readout phase
     !! i.e. partial derivatives of the error wrt the hidden features
-    real(real32), pointer :: weight(:,:)
+    real(real32), pointer :: weight(:,:), dw(:,:)
     !! Pointer to the weight matrix
 
 
@@ -1171,6 +1164,13 @@ contains
             num_params_old + 1 : num_params_old + num_params_tmp &
        )
        do concurrent(s=1:this%batch_size)
+          dw( &
+               1:this%num_outputs, &
+               1:this%num_vertex_features(t) &
+          ) => this%dp( &
+               num_params_old + 1 : num_params_old + num_params_tmp, &
+               s &
+          )
           ! There is no message passing transfer function
           ! Partial derivatives of error wrt weights
           ! dE/dW = o/p(l-1) * delta
@@ -1184,11 +1184,7 @@ contains
 
              do j = 1, this%num_vertex_features(t)
                 do i = 1, this%num_outputs
-                   idx = i + (j-1) * this%num_outputs + (t-1) * &
-                        this%num_outputs * &
-                        this%num_vertex_features(t) + &
-                        sum(this%num_params_msg)
-                   this%dp(idx,s) = this%dp(idx,s) + &
+                   dw(i,j) = dw(i,j) + &
                         this%vertex_features(t,s)%val(j,v) * delta(i)
                 end do
              end do
