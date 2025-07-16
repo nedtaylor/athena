@@ -532,6 +532,240 @@ contains
 !###############################################################################
 
 
+!###############################################################################
+  module subroutine export_onnx(this, file)
+    !! Export the network to ONNX format
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(in) :: this
+    !! Instance of network
+    character(*), intent(in) :: file
+    !! File to export the network to
+
+    ! Local variables
+    integer :: unit, i, j, idx
+    !! Unit number and loop indices
+    character(256) :: layer_name
+    !! Layer name for ONNX
+    character(20) :: node_name
+    !! Node name
+
+    open(newunit=unit, file=file, status='replace')
+
+    ! Write ONNX header
+    write(unit, '(A)') 'ir_version: 8'
+    write(unit, '(A)') 'producer_name: "Athena"'
+    write(unit, '(A)') 'producer_version: "1.0"'
+    write(unit, '(A)') 'domain: "ai.onnx"'
+    write(unit, '(A)') 'model_version: 1'
+    write(unit, '(A)') 'doc_string: "Athena neural network model"'
+    write(unit, '(A)') ''
+
+    ! Write graph definition
+    write(unit, '(A)') 'graph {'
+    write(unit, '(A)') '  name: "athena_network"'
+    write(unit, '(A)') ''
+
+    ! Write nodes (layers)
+    write(unit, '(A)') '  # Nodes'
+    do i = 1, this%auto_graph%num_vertices
+       idx = this%auto_graph%vertex(this%vertex_order(i))%id
+       write(node_name, '("node_", I0)') this%model(idx)%layer%id
+
+       select case(trim(this%model(idx)%layer%name))
+       case('input')
+          layer_name = 'Input'
+       case('full')
+          layer_name = 'MatMul'
+       case('conv2d')
+          layer_name = 'Conv'
+       case('maxpool2d')
+          layer_name = 'MaxPool'
+       case('avgpool2d')
+          layer_name = 'AveragePool'
+       case('actv')
+          layer_name = 'Relu'  ! Default, should check actual activation
+       case('flatten')
+          layer_name = 'Flatten'
+       case('batchnorm2d')
+          layer_name = 'BatchNormalization'
+       case('dropout')
+          layer_name = 'Dropout'
+       case default
+          layer_name = 'Unknown'
+       end select
+
+       write(unit, '(A)') '  node {'
+       write(unit, '(A,A,A)') '    name: "', trim(node_name), '"'
+       write(unit, '(A,A,A)') '    op_type: "', trim(layer_name), '"'
+
+       ! Write input connections
+       if(all(this%auto_graph%adjacency(:,this%vertex_order(i)).eq.0)) then
+          write(unit, '(A)') '    input: "input"'
+       else
+          do j = 1, this%auto_graph%num_vertices
+             if(this%auto_graph%adjacency(j,this%vertex_order(i)).eq.0) cycle
+             write(unit, '(4X,"input: ""node_",I0,"_output""")') &
+                  this%model(this%auto_graph%vertex(j)%id)%layer%id
+          end do
+       end if
+       select type(layer => this%model(idx)%layer)
+       class is(learnable_layer_type)
+          do j = 1, size(layer%weight_shape, dim=2)
+             write(unit, '(4X,"input: ""node_",I0,"_weight",I0,"""")') &
+                  this%model(idx)%layer%id, j
+             if(layer%has_bias) then
+                write(unit, '(4X,"input: ""node_",I0,"_bias",I0,"""")') &
+                     this%model(idx)%layer%id, j
+             end if
+          end do
+       end select
+
+       ! Write output
+       write(unit, '(4X,"output: ""node_",I0,"_output""")') this%model(idx)%layer%id
+
+
+       write(unit, '(A)') '  }'
+       write(unit, '(A)') ''
+
+       select type(layer => this%model(idx)%layer)
+       class is(learnable_layer_type)
+          call this%write_onnx_initializers(unit, idx, prefix = trim(node_name) )
+       end select
+    end do
+
+    ! Write inputs
+    do i = 1, size(this%root_vertices, dim=1)
+       idx = this%root_vertices(i)
+       write(unit, '(A)') '  # Inputs'
+       write(unit, '(A)') '  input {'
+       write(unit, '(A)') '    name: "input"'
+       write(unit, '(A)') '    type {'
+       write(unit, '(A)') '      tensor_type {'
+       write(unit, '(A)') '        elem_type: 1'  ! FLOAT
+       write(unit, '(A)') '        shape {'
+       write(unit, '(A,I0)') '          dim { dim_value: ', this%batch_size
+       write(unit, '(A)') '          }'
+       if (allocated(this%model(idx)%layer%input_shape)) then
+          do j = 1, size(this%model(idx)%layer%input_shape)
+             write(unit, '(A,I0)') '          dim { dim_value: ', &
+                  this%model(idx)%layer%input_shape(j)
+             write(unit, '(A)') '          }'
+          end do
+       end if
+       write(unit, '(A)') '        }'
+       write(unit, '(A)') '      }'
+       write(unit, '(A)') '    }'
+       write(unit, '(A)') '  }'
+       write(unit, '(A)') ''
+    end do
+
+    ! Write outputs
+    do i = 1, size(this%output_vertices, dim=1)
+       idx = this%output_vertices(i)
+       write(unit, '(A)') '  # Outputs'
+       write(unit, '(A)') '  output {'
+       write(unit, '(4X,"name: ""node_",I0,"_output""")') this%model(idx)%layer%id
+       write(unit, '(A)') '    type {'
+       write(unit, '(A)') '      tensor_type {'
+       write(unit, '(A)') '        elem_type: 1'  ! FLOAT
+       write(unit, '(A)') '        shape {'
+       write(unit, '(A,I0)') '          dim { dim_value: ', this%batch_size
+       write(unit, '(A)') '          }'
+       if (allocated(this%model(idx)%layer%output_shape)) then
+          do j = 1, size(this%model(idx)%layer%output_shape)
+             write(unit, '(A,I0)') '          dim { dim_value: ', &
+                  this%model(idx)%layer%output_shape(j)
+             write(unit, '(A)') '          }'
+          end do
+       end if
+       write(unit, '(A)') '        }'
+       write(unit, '(A)') '      }'
+       write(unit, '(A)') '    }'
+       write(unit, '(A)') '  }'
+    end do
+
+    write(unit, '(A)') '}'
+    close(unit)
+
+  end subroutine export_onnx
+!###############################################################################
+
+
+!###############################################################################
+  subroutine write_onnx_initializers(this, unit, idx, prefix)
+    !! Write ONNX initializers (weights and biases)
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(in) :: this
+    integer, intent(in) :: unit
+    !! File unit
+    integer, intent(in) :: idx
+    !! Index of the layer in the network
+    character(*), intent(in) :: prefix
+    !! Optional prefix for weight and bias names
+
+    ! Local variables
+    integer :: i, j, k, num_params, num_params_old
+    !! Loop indices
+    character(20) :: name
+    !! Names for weights and biases
+
+
+    select type(layer => this%model(idx)%layer)
+    class is(learnable_layer_type)
+       if(allocated(layer%params))then
+          num_params_old = 0
+          do i = 1, size(layer%weight_shape, 2)
+             write(name, '(A,A,I0)') trim(prefix), '_weight', i
+             write(unit, '(2X,A)') 'initializer {'
+             write(unit, '(4X,"name: """,A,"""")') trim(name)
+             write(unit, '(4X,A)') 'data_type: 1'  ! FLOAT
+             do j = 1, size(layer%weight_shape, 1)
+                write(unit, '(4X,A,I0)') 'dims: ', layer%weight_shape(j,i)
+             end do
+             num_params = product(layer%weight_shape(:, i))
+
+             write(unit, '(4X,"float_data: [ ",F0.6)', advance='no') &
+                  layer%params(num_params_old + 1)
+             do j = num_params_old + 2, num_params + num_params_old, 1
+                write(unit, '(", ",F0.6)', advance='no') layer%params(j)
+             end do
+             write(unit, '(A)') ' ]'
+             write(unit, '(A)') '  }'
+             write(unit, '(A)') ''
+
+             num_params_old = num_params_old + num_params
+
+             if(layer%has_bias)then
+                write(name, '(A,A,I0)') trim(prefix), '_bias', i
+                write(unit, '(2X,A)') 'initializer {'
+                write(unit, '(4X,"name: """,A,"""")') trim(name)
+                write(unit, '(4X,A)') 'data_type: 1'  ! FLOAT
+                write(unit, '(4X,A,I0)') 'dims: ', layer%bias_shape(i)
+                num_params = layer%bias_shape(i)
+
+                write(unit, '(4X,"float_data: [ ",F0.6)', advance='no') &
+                     layer%params(num_params_old + 1)
+                do j = num_params_old + 2, num_params + num_params_old, 1
+                   write(unit, '(", ",F0.6)', advance='no') layer%params(j)
+                end do
+                write(unit, '(A)') ' ]'
+                write(unit, '(A)') '  }'
+                write(unit, '(A)') ''
+
+                num_params_old = num_params_old + layer%bias_shape(i)
+             end if
+          end do
+       end if
+    end select
+
+  end subroutine write_onnx_initializers
+!###############################################################################
+
+
 !##############################################################################!
 ! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
 !##############################################################################!
