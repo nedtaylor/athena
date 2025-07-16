@@ -66,6 +66,8 @@ module athena__base_layer
      integer, allocatable, dimension(:) :: output_shape
      !! Output shape
    contains
+     procedure, pass(this) :: set_rank => set_rank_base
+     !! Set the input and output ranks of the layer
      procedure, pass(this) :: set_shape => set_shape_base
      !! Set the input shape of the layer
      procedure, pass(this) :: get_num_params => get_num_params_base
@@ -121,6 +123,16 @@ module athena__base_layer
        integer, intent(in) :: unit
        !! File unit
      end subroutine print_to_unit_base
+
+     module subroutine set_rank_base(this, input_rank, output_rank)
+       !! Set the input and output ranks of the layer
+       class(base_layer_type), intent(inout) :: this
+       !! Instance of the layer
+       integer, intent(in) :: input_rank
+       !! Input rank
+       integer, intent(in) :: output_rank
+       !! Output rank
+     end subroutine set_rank_base
 
      module subroutine set_shape_base(this, input_shape)
        !! Set the input shape of the layer

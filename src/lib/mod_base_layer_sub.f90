@@ -127,6 +127,28 @@ contains
 
 
 !###############################################################################
+  module subroutine set_rank_base(this, input_rank, output_rank)
+    !! Set the input and output ranks of the layer
+    implicit none
+
+    ! Arguments
+    class(base_layer_type), intent(inout) :: this
+    !! Instance of the layer
+    integer, intent(in) :: input_rank
+    !! Input rank
+    integer, intent(in) :: output_rank
+    !! Output rank
+
+    !---------------------------------------------------------------------------
+    ! Set input and output ranks
+    !---------------------------------------------------------------------------
+    call stop_program("set_rank_base: this layer cannot have its rank set")
+
+  end subroutine set_rank_base
+!###############################################################################
+
+
+!###############################################################################
   module subroutine set_shape_base(this, input_shape)
     !! Set the input shape of the layer
     implicit none

@@ -25,6 +25,8 @@ module athena__actv_layer
      class(activation_type), allocatable :: transfer
      !! Activation function
    contains
+     procedure, pass(this) :: set_rank => set_rank_actv
+     !! Set the input and output ranks of the layer
      procedure, pass(this) :: set_hyperparams => set_hyperparams_actv
      !! Set hyperparameters
      procedure, pass(this) :: init => init_actv
@@ -243,6 +245,7 @@ contains
     ! initialise input shape
     !---------------------------------------------------------------------------
     this%input_rank = size(input_shape, dim=1)
+    this%output_rank = this%input_rank
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
     this%output_shape = this%input_shape
 
@@ -345,6 +348,39 @@ contains
     end if
 
   end subroutine set_batch_size_actv
+!###############################################################################
+
+
+!###############################################################################
+  subroutine set_rank_actv(this, input_rank, output_rank)
+    !! Set the input and output ranks of the activation layer
+    implicit none
+
+    ! Arguments
+    class(actv_layer_type), intent(inout) :: this
+    !! Instance of the activation layer
+    integer, intent(in) :: input_rank
+    !! Input rank
+    integer, intent(in) :: output_rank
+    !! Output rank
+
+    this%input_rank = input_rank
+    this%output_rank = output_rank
+    if(this%input_rank.ne.this%output_rank)then
+       write(*,*) "Warning: Activation layer input and output ranks differ"
+    end if
+    if(this%input_rank.lt.1) then
+       write(*,*) "Error: Activation layer input rank must be at least 1"
+       call stop_program("Invalid activation layer input rank")
+       return
+    end if
+    if(this%output_rank.lt.1) then
+       write(*,*) "Error: Activation layer output rank must be at least 1"
+       call stop_program("Invalid activation layer output rank")
+       return
+    end if
+
+  end subroutine set_rank_actv
 !###############################################################################
 
 

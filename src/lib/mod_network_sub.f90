@@ -1008,7 +1008,7 @@ contains
     !! Verbosity level
 
     ! Local variables
-    integer :: i, j, k, id, child_id, parent_id, num_inputs
+    integer :: i, j, k, id, child_id, parent_id, num_inputs, input_rank
     !! Loop index
     integer :: verbose_ = 0
     !! Verbosity level
@@ -1110,6 +1110,39 @@ contains
     else
        this%use_graph_input = .false.
     end if
+
+
+    !---------------------------------------------------------------------------
+    ! Check for zero input rank layers
+    !---------------------------------------------------------------------------
+    do i = 1, size(this%auto_graph%vertex, dim = 1)
+       id = this%auto_graph%vertex(i)%id
+       if(this%model(id)%layer%input_rank.eq.0)then
+          if(allocated(parent_vertices)) deallocate(parent_vertices)
+          allocate(parent_vertices(0))
+          do j = 1, size(this%auto_graph%adjacency(:,id), dim = 1)
+             if(this%auto_graph%adjacency(j,id).eq.0) cycle
+             parent_id = this%auto_graph%vertex(j)%id
+             parent_vertices = [parent_vertices, j]
+             if( size(parent_vertices,1) .gt. 1 .and. &
+                  this%model(parent_id)%layer%output_rank .ne. &
+                  this%model(id)%layer%output_rank &
+             )then
+                call stop_program( &
+                     "input rank of layer "//trim(this%model(id)%layer%name) // &
+                     " is zero, but multiple parents with different output ranks" &
+                )
+                return
+             else
+                input_rank = this%model(parent_id)%layer%output_rank
+             end if
+          end do
+          call this%model(id)%layer%set_rank( &
+               input_rank = input_rank, &
+               output_rank = input_rank &
+          )
+       end if
+    end do
 
 
     !---------------------------------------------------------------------------
@@ -2416,9 +2449,7 @@ contains
              end if
           end if
 
-          if( layer%use_graph_input .and. layer%use_graph_output )then
-             call layer%backward_derived( input, gradient )
-          elseif( layer%use_graph_input .and. .not.layer%use_graph_output )then
+          if( layer%use_graph_input)then
              call layer%backward_derived( input, gradient )
           elseif( .not.layer%use_graph_input .and. .not.layer%use_graph_output )then
              call layer%backward( input(1,1)%val, gradient(1,1)%val )
