@@ -509,6 +509,15 @@ contains
     !---------------------------------------------------------------------------
     if(allocated(this%params)) deallocate(this%params)
     allocate(this%params(this%num_params), source=0._real32)
+    allocate(this%weight_shape(2,this%num_time_steps))
+    do t = 1, this%num_time_steps
+       this%weight_shape(:,t) = [ &
+            this%num_vertex_features(t), &
+            this%num_vertex_features(t-1) + this%num_edge_features(0) &
+       ]
+       this%weight_shape(:,t+this%num_time_steps) = &
+            [ this%num_outputs, this%num_vertex_features(t) ]
+    end do
 
 
     !---------------------------------------------------------------------------

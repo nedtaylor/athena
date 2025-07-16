@@ -342,6 +342,12 @@ module athena__base_layer
      !! Number of learnable parameters
      logical :: calc_input_gradients = .true.
      !! Calculate input gradients
+     logical :: has_bias = .false.
+     !! Layer has bias
+     integer, allocatable, dimension(:,:) :: weight_shape
+     !! Shape of weights
+     integer, allocatable, dimension(:) :: bias_shape
+     !! Shape of biases
      real(real32), allocatable, dimension(:) :: params
      !! Learnable parameters
      real(real32), allocatable, dimension(:,:) :: dp, db

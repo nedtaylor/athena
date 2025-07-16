@@ -1233,10 +1233,7 @@ contains
                input_shape(this%model(this%vertex_order(i))%layer%input_rank), &
                source = 0 &
           )
-          do j = 1, size( &
-               this%auto_graph%adjacency(:,this%vertex_order(i)), &
-               dim = 1 &
-          )
+          do j = 1, this%auto_graph%num_vertices
              if(this%auto_graph%adjacency(j,this%vertex_order(i)).eq.0) cycle
              select case( &
                   this%auto_graph%edge( &

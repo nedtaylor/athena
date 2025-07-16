@@ -298,6 +298,7 @@ contains
     this%type = "full"
     this%input_rank = 1
     this%output_rank = 1
+    this%has_bias = .true.
     this%num_outputs = num_outputs
     allocate(this%transfer, &
          source=activation_setup(activation_function, activation_scale))
@@ -359,6 +360,8 @@ contains
     !! Verbosity level
 
     ! Local variables
+    integer :: i
+    !! Loop index
     integer :: verbose_ = 0
     !! Verbosity level
     class(initialiser_type), allocatable :: initialiser_
@@ -386,6 +389,9 @@ contains
     !---------------------------------------------------------------------------
     if(allocated(this%params)) deallocate(this%params)
     allocate(this%params(this%num_params), source=0._real32)
+    allocate(this%weight_shape(2,1))
+    this%weight_shape(:,1) = [ this%num_outputs, this%num_inputs ]
+    this%bias_shape = [ this%num_outputs ]
 
 
     !---------------------------------------------------------------------------

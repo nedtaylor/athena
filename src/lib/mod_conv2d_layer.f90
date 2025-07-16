@@ -441,6 +441,7 @@ contains
     this%type = "conv"
     this%input_rank = 3
     this%output_rank = 3
+    this%has_bias = .true.
     allocate( &
          this%knl(this%input_rank-1), &
          this%stp(this%input_rank-1), &

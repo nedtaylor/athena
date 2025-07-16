@@ -765,6 +765,9 @@ contains
     this%num_params = this%get_num_params()
     if(allocated(this%params)) deallocate(this%params)
     allocate(this%params(this%num_params), source=0._real32)
+    allocate(this%weight_shape(this%input_rank + 1,1))
+    this%weight_shape(:,1) = [ this%knl, this%num_channels, this%num_filters ]
+    this%bias_shape = [this%num_filters]
 
 
     !---------------------------------------------------------------------------
@@ -845,6 +848,9 @@ contains
     this%num_channels = this%input_shape(this%input_rank)
     this%num_params = this%get_num_params()
     allocate(this%params(2 * this%num_channels), source=0._real32)
+    allocate(this%weight_shape(1,1))
+    this%weight_shape(:,1) = [ this%num_channels ]
+    this%bias_shape = [this%num_channels]
     allocate(this%dp(this%num_channels,1), source=0._real32)
     allocate(this%db(this%num_channels,1), source=0._real32)
 
