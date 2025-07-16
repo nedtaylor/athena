@@ -645,8 +645,6 @@ contains
        write(unit, '(A)') '      tensor_type {'
        write(unit, '(A)') '        elem_type: 1'  ! FLOAT
        write(unit, '(A)') '        shape {'
-       write(unit, '(A,I0)') '          dim { dim_value: ', this%batch_size
-       write(unit, '(A)') '          }'
        if (allocated(this%model(idx)%layer%input_shape)) then
           do j = 1, size(this%model(idx)%layer%input_shape)
              write(unit, '(A,I0)') '          dim { dim_value: ', &
@@ -671,8 +669,6 @@ contains
        write(unit, '(A)') '      tensor_type {'
        write(unit, '(A)') '        elem_type: 1'  ! FLOAT
        write(unit, '(A)') '        shape {'
-       write(unit, '(A,I0)') '          dim { dim_value: ', this%batch_size
-       write(unit, '(A)') '          }'
        if (allocated(this%model(idx)%layer%output_shape)) then
           do j = 1, size(this%model(idx)%layer%output_shape)
              write(unit, '(A,I0)') '          dim { dim_value: ', &
