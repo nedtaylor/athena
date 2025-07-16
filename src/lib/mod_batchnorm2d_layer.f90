@@ -52,8 +52,6 @@ module athena__batchnorm2d_layer
        !! Input shape
        integer, optional, intent(in) :: batch_size
        !! Batch size
-       integer, optional, intent(in) :: num_channels, num_inputs
-       !! Number of channels and inputs
        real(real32), optional, intent(in) :: momentum, epsilon
        !! Momentum and epsilon
        real(real32), optional, intent(in) :: gamma_init_mean, gamma_init_std

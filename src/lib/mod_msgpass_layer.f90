@@ -327,7 +327,7 @@ module athena__msgpass_layer
 
 
 
-  abstract interface
+  interface
      !! interface for the message forward and backward passes
      pure module subroutine update_message_msgpass(this, input)
        !! Update the message
@@ -350,7 +350,7 @@ module athena__msgpass_layer
      end subroutine backward_message_msgpass
   end interface
 
-  abstract interface
+  interface
      !! interface for the readout forward and backward passes
      pure module subroutine update_readout_msgpass(this)
        !! Update the message

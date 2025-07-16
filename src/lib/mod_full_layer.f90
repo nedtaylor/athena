@@ -66,7 +66,7 @@ module athena__full_layer
      module function layer_setup( &
           num_outputs, num_inputs, batch_size, &
           activation_function, activation_scale, &
-          kernel_initialiser, bias_initialiser &
+          kernel_initialiser, bias_initialiser, verbose &
      ) result(layer)
        !! Setup a fully connected layer
        integer, intent(in) :: num_outputs
@@ -80,6 +80,8 @@ module athena__full_layer
        character(*), optional, intent(in) :: activation_function, &
             kernel_initialiser, bias_initialiser
        !! Activation function, kernel initialiser, and bias initialiser
+       integer, optional, intent(in) :: verbose
+       !! Verbosity level
        type(full_layer_type) :: layer
        !! Instance of the fully connected layer
      end function layer_setup

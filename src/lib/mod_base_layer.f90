@@ -164,7 +164,7 @@ module athena__base_layer
   end interface
 
 
-  abstract interface
+  interface
      module subroutine initialise(this, input_shape, batch_size, verbose)
        !! Initialise the layer
        class(base_layer_type), intent(inout) :: this
@@ -188,7 +188,7 @@ module athena__base_layer
      end subroutine set_batch_size
   end interface
 
-  abstract interface
+  interface
      pure module function get_num_params(this) result(num_params)
        !! Get number of parameters in layer
        class(base_layer_type), intent(in) :: this
@@ -244,7 +244,7 @@ module athena__base_layer
      end subroutine set_graph_base
   end interface
 
-  abstract interface
+  interface
      module subroutine read_layer(this, unit, verbose)
        !! Read layer from file
        class(base_layer_type), intent(inout) :: this

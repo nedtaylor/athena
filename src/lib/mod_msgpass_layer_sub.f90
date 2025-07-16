@@ -37,7 +37,7 @@ contains
     params = this%params
   end function get_params_msgpass
 !-------------------------------------------------------------------------------
-  pure subroutine set_params_msgpass(this, params)
+  pure module subroutine set_params_msgpass(this, params)
     implicit none
 
     ! Arguments
@@ -203,7 +203,7 @@ contains
 
 
 !###############################################################################
-  subroutine set_batch_size_msgpass(this, batch_size, verbose)
+  module subroutine set_batch_size_msgpass(this, batch_size, verbose)
     implicit none
 
     ! Arguments

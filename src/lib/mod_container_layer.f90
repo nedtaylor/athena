@@ -57,7 +57,7 @@ module athena__container_layer
        list_of_layer_types
   !! List of layer names and their associated read functions
 
-  abstract interface
+  interface
      module function read_layer(unit, verbose) result(layer)
        !! Read a layer from a file
        integer, intent(in) :: unit

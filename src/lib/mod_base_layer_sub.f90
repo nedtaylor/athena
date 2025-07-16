@@ -179,7 +179,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine get_output_base(this, output)
+  pure module subroutine get_output_base(this, output)
     !! Get the output of the layer
     implicit none
 
@@ -581,7 +581,7 @@ contains
 
 
 !###############################################################################
-  subroutine init_pad(this, input_shape, batch_size, verbose)
+  module subroutine init_pad(this, input_shape, batch_size, verbose)
     !! Initialise padding layer
     implicit none
 
@@ -650,7 +650,7 @@ contains
 
 
 !###############################################################################
-  subroutine init_pool(this, input_shape, batch_size, verbose)
+  module subroutine init_pool(this, input_shape, batch_size, verbose)
     !! Initialise pooling layer
     implicit none
 
