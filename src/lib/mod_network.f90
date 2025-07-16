@@ -72,9 +72,8 @@ module athena__network
      !! Read the network from a file
      procedure, pass(this) :: export_onnx
      !! Export the network to ONNX format
-     procedure, pass(this) :: import_onnx
-     !! Import the network from ONNX format
      procedure, pass(this) :: write_onnx_initializers
+     !! Write ONNX initializers
      procedure, pass(this) :: add
      !! Add a layer to the network
      procedure, pass(this) :: reset
@@ -205,26 +204,17 @@ module athena__network
        !! File name
      end subroutine export_onnx
 
-     !! Interface for importing the network from ONNX format
-     module subroutine import_onnx(this, file)
-       !! Import the network from ONNX format
-       class(network_type), intent(inout) :: this
-       !! Instance of the network
-       character(*), intent(in) :: file
-       !! File name
-     end subroutine import_onnx
-
      module subroutine write_onnx_initializers(this, unit, idx, prefix)
-        !! Write ONNX initializers
-        class(network_type), intent(in) :: this
-        !! Instance of the network
-        integer, intent(in) :: unit
-        !! Unit number for output
-        integer, intent(in) :: idx
-        !! Index of the layer
-        character(*), intent(in) :: prefix
-        !! Prefix for the node name (default is 'node_')
-      end subroutine write_onnx_initializers
+       !! Write ONNX initializers
+       class(network_type), intent(in) :: this
+       !! Instance of the network
+       integer, intent(in) :: unit
+       !! Unit number for output
+       integer, intent(in) :: idx
+       !! Index of the layer
+       character(*), intent(in) :: prefix
+       !! Prefix for the node name (default is 'node_')
+     end subroutine write_onnx_initializers
 
      !! Interface for adding a layer to the network
      module subroutine add(this, layer, input_list, output_list, operator)
