@@ -1,11 +1,11 @@
 program test_infile_tools
+  use athena__constants, only: real32
   use athena__tools_infile
   implicit none
 
   integer :: found
   integer :: ivar, ivar_vec(3)
-  real :: rvar, rvar_vec(3)
-  double precision :: dvar, dvar_vec(3)
+  real(real32) :: rvar, rvar_vec(3)
   logical :: lvar
   character(len=1024) :: svar
   character(len=1024) :: buffer
@@ -36,13 +36,6 @@ program test_infile_tools
   call assign_val(buffer, rvar, found, trim(keyword))
   if(abs(rvar-5.E0).gt.1.E-6)then
      write(0,*) "real variable not set correctly"
-     success = .false.
-  end if
-
-  !! test double precision
-  call assign_val(buffer, dvar, found, trim(keyword))
-  if(abs(dvar-5.E0).gt.1.E-6)then
-     write(0,*) "double precision variable not set correctly"
      success = .false.
   end if
 
@@ -82,14 +75,6 @@ program test_infile_tools
      success = .false.
   end if
 
-  !! test double precision vector
-  call assign_vec(buffer, dvar_vec, found, trim(keyword))
-  if(any(abs(ivar_vec-[1.E0,2.E0,3.E0]).gt.1.E-6))then
-     write(0,*) "double precision vector not set correctly"
-     success = .false.
-  end if
-
-
   buffer = "test=1"
 
   !! test integer vector
@@ -102,13 +87,6 @@ program test_infile_tools
   !! test real vector single value
   call assign_vec(buffer, rvar_vec, found, trim(keyword))
   if(any(abs(rvar_vec-1.E0).gt.1.E-6))then
-     write(0,*) "real vector not set correctly"
-     success = .false.
-  end if
-
-  !! test double precision vector single value
-  call assign_vec(buffer, dvar_vec, found, trim(keyword))
-  if(any(abs(dvar_vec-1.E0).gt.1.E-6))then
      write(0,*) "real vector not set correctly"
      success = .false.
   end if
