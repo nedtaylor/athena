@@ -74,7 +74,7 @@ module athena__input_layer
 contains
 
 !###############################################################################
-  pure subroutine forward_rank(this, input)
+  subroutine forward_rank(this, input)
     !! Forward propagation for an input layer
     !!
     !! This is a placeholder to satisfy the deferred procedure
@@ -93,7 +93,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine backward_rank(this, input, gradient)
+  subroutine backward_rank(this, input, gradient)
     !! Backward propagation for an input layer
     !!
     !! This is a placeholder to satisfy the deferred procedure

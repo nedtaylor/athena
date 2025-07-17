@@ -58,7 +58,7 @@ module athena__maxpool3d_layer
 contains
 
 !###############################################################################
-  pure subroutine forward_rank(this, input)
+  subroutine forward_rank(this, input)
     !! Forward propagation handler for 3D max pooling layer
     implicit none
 
@@ -79,7 +79,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine backward_rank(this, input, gradient)
+  subroutine backward_rank(this, input, gradient)
     !! Backward propagation handler for 3D max pooling layer
     implicit none
 
@@ -442,7 +442,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine forward_5d(this, input)
+  subroutine forward_5d(this, input)
     !! Forward propagation
     implicit none
 
@@ -489,7 +489,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine backward_5d(this, input, gradient)
+  subroutine backward_5d(this, input, gradient)
     !! Backward propagation
     implicit none
 

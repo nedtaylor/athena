@@ -1281,6 +1281,7 @@ contains
     !---------------------------------------------------------------------------
     ! Check for input layers at root vertices
     !---------------------------------------------------------------------------
+    this%auto_graph%directed = .true.
     call this%calculate_root_vertices()
     do i = 1, size(this%root_vertices)
        if(.not.allocated( &
@@ -2208,7 +2209,7 @@ contains
 
 
 !###############################################################################
-  pure module subroutine forward_real(this, input)
+  module subroutine forward_real(this, input)
     !! Forward pass for real input
     implicit none
 
@@ -2238,7 +2239,7 @@ contains
 
   end subroutine forward_real
 !-------------------------------------------------------------------------------
-  pure module subroutine forward_derived(this, input)
+  module subroutine forward_derived(this, input)
     !! Forward pass for array derived type input
     implicit none
 
@@ -2371,7 +2372,7 @@ contains
 
 
 !###############################################################################
-  pure module subroutine backward_real(this, output)
+  module subroutine backward_real(this, output)
     !! Backward pass for real output
     implicit none
 
@@ -2412,7 +2413,7 @@ contains
 
   end subroutine backward_real
 !-------------------------------------------------------------------------------
-  pure module subroutine backward_derived(this, output)
+  module subroutine backward_derived(this, output)
     !! Backward pass for real output
     implicit none
 

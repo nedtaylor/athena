@@ -535,14 +535,14 @@ module athena__network
      end subroutine reset_gradients
 
      !! Interface for forward pass
-     pure module subroutine forward_real(this, input)
+     module subroutine forward_real(this, input)
        !! Forward pass for real input
        class(network_type), intent(inout) :: this
        !! Instance of the network
        real(real32), dimension(..), intent(in) :: input
        !! Input data
      end subroutine forward_real
-     pure module subroutine forward_derived(this, input)
+     module subroutine forward_derived(this, input)
        !! Forward pass for derived input
        class(network_type), intent(inout) :: this
        !! Instance of the network
@@ -560,14 +560,14 @@ module athena__network
      end subroutine forward_graph
 
      !! Interface for backward pass
-     pure module subroutine backward_real(this, output)
+     module subroutine backward_real(this, output)
        !! Backward pass
        class(network_type), intent(inout) :: this
        !! Instance of the network
        real(real32), dimension(:,:), intent(in) :: output
        !! Output data
      end subroutine backward_real
-     pure module subroutine backward_derived(this, output)
+     module subroutine backward_derived(this, output)
        !! Backward pass
        class(network_type), intent(inout) :: this
        !! Instance of the network

@@ -61,7 +61,7 @@ module athena__pad2d_layer
 contains
 
 !###############################################################################
-  pure subroutine forward_rank(this, input)
+  subroutine forward_rank(this, input)
     !! Forward propagation handler for 2D padding layer
     implicit none
 
@@ -82,7 +82,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine backward_rank(this, input, gradient)
+  subroutine backward_rank(this, input, gradient)
     !! Backward propagation handler for 2D padding layer
     implicit none
 
@@ -415,7 +415,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine forward_4d(this, input)
+  subroutine forward_4d(this, input)
     !! Forward propagation for 4D input
     implicit none
 
@@ -529,7 +529,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine backward_4d(this, input, gradient)
+  subroutine backward_4d(this, input, gradient)
     !! Backward propagation for 4D input
     implicit none
 

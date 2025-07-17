@@ -143,7 +143,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine forward_rank(this, input)
+  subroutine forward_rank(this, input)
     !! Forward propagation for fully connected layer
     implicit none
 
@@ -161,7 +161,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine backward_rank(this, input, gradient)
+  subroutine backward_rank(this, input, gradient)
     !! Backward propagation for fully connected layer
     implicit none
 
@@ -729,7 +729,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine forward_2d(this, input)
+  subroutine forward_2d(this, input)
     !! Forward propagation for 2D input
     implicit none
 
@@ -764,7 +764,7 @@ contains
 !!! backward propagation
 !!! method : gradient descent
 !###############################################################################
-  pure subroutine backward_2d(this, input, gradient)
+  subroutine backward_2d(this, input, gradient)
     !! Backward propagation for 2D input
     implicit none
 

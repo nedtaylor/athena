@@ -300,7 +300,7 @@ contains
 
 
 !###############################################################################
-  pure module subroutine forward_derived_base(this, input)
+  module subroutine forward_derived_base(this, input)
     !! Forward pass for the layer
     implicit none
 
@@ -313,7 +313,7 @@ contains
     this%output = input
   end subroutine forward_derived_base
 
-  pure module subroutine backward_derived_base(this, input, gradient)
+  module subroutine backward_derived_base(this, input, gradient)
     !! Backward pass for the layer
     implicit none
 

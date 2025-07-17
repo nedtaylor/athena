@@ -173,7 +173,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine forward_rank(this, input)
+  subroutine forward_rank(this, input)
     !! Forward pass for message
     implicit none
 
@@ -188,7 +188,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine backward_rank(this, input, gradient)
+  subroutine backward_rank(this, input, gradient)
     !! Backward pass for message
     implicit none
 
@@ -996,7 +996,7 @@ contains
 
 
 !##############################################################################!
-  pure subroutine backward_message_duvenaud(this, input, gradient)
+  subroutine backward_message_duvenaud(this, input, gradient)
     !! Backward pass for the message phase
     implicit none
 
@@ -1141,7 +1141,7 @@ contains
 
 
 !##############################################################################!
-  pure subroutine backward_readout_duvenaud(this, gradient)
+  subroutine backward_readout_duvenaud(this, gradient)
     !! Backward pass for the readout phase
     implicit none
 

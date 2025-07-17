@@ -63,7 +63,7 @@ module athena__flatten_layer
 contains
 
 !###############################################################################
-  pure subroutine forward_rank(this, input)
+  subroutine forward_rank(this, input)
     !! Forward propagation handler for flattening layer
     implicit none
 
@@ -98,7 +98,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine backward_rank(this, input, gradient)
+  subroutine backward_rank(this, input, gradient)
     !! Backward propagation handler for flattening layer
     implicit none
 

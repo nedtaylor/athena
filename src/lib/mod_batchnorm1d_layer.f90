@@ -105,7 +105,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine forward_rank(this, input)
+  subroutine forward_rank(this, input)
     !! Forward propagation handler for 1D batch normalisation layer
     implicit none
 
@@ -126,7 +126,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine backward_rank(this, input, gradient)
+  subroutine backward_rank(this, input, gradient)
     !! Backward propagation handler for 1D batch normalisation layer
     implicit none
 
@@ -681,7 +681,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine forward_3d(this, input)
+  subroutine forward_3d(this, input)
     !! Forward propagation for 3D input
     implicit none
 
@@ -754,7 +754,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine backward_3d(this, input, gradient)
+  subroutine backward_3d(this, input, gradient)
     !! Backward propagation for 3D input
     implicit none
 

@@ -375,7 +375,7 @@ contains
 
 
 !###############################################################################
-  pure module subroutine forward_derived_msgpass(this, input)
+  module subroutine forward_derived_msgpass(this, input)
     !! Forward propagation for the layer
     implicit none
 
@@ -393,7 +393,7 @@ contains
 
 
 !###############################################################################
-  pure module subroutine backward_derived_msgpass(this, input, gradient)
+  module subroutine backward_derived_msgpass(this, input, gradient)
     !! Backward propagation for the layer
     implicit none
 

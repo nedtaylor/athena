@@ -76,7 +76,7 @@ module athena__actv_layer
 contains
 
 !###############################################################################
-  pure subroutine forward_rank(this, input)
+  subroutine forward_rank(this, input)
     !! Forward propagation handler for activation layer
     implicit none
     class(actv_layer_type), intent(inout) :: this
@@ -88,7 +88,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine backward_rank(this, input, gradient)
+  subroutine backward_rank(this, input, gradient)
     !! Backward propagation handler for activation layer
     implicit none
     class(actv_layer_type), intent(inout) :: this
@@ -555,7 +555,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine forward_assumed_rank(this, input)
+  subroutine forward_assumed_rank(this, input)
     !! Forward propagation
     implicit none
 
@@ -588,7 +588,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine backward_assumed_rank(this, input, gradient)
+  subroutine backward_assumed_rank(this, input, gradient)
     !! Backward propagation
     implicit none
 

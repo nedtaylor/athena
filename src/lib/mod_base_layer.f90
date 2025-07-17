@@ -197,7 +197,7 @@ module athena__base_layer
        !! Number of parameters
      end function get_num_params
 
-     pure module subroutine forward(this, input)
+     module subroutine forward(this, input)
        !! Forward pass of layer
        class(base_layer_type), intent(inout) :: this
        !! Instance of the layer
@@ -205,7 +205,7 @@ module athena__base_layer
        !! Input data
      end subroutine forward
 
-     pure module subroutine backward(this, input, gradient)
+     module subroutine backward(this, input, gradient)
        !! Backward pass of layer
        class(base_layer_type), intent(inout) :: this
        !! Instance of the layer
@@ -217,7 +217,7 @@ module athena__base_layer
   end interface
 
   interface
-     pure module subroutine forward_derived_base(this, input)
+     module subroutine forward_derived_base(this, input)
        !! Forward pass of layer
        class(base_layer_type), intent(inout) :: this
        !! Instance of the layer
@@ -225,7 +225,7 @@ module athena__base_layer
        !! Input data
      end subroutine forward_derived_base
 
-     pure module subroutine backward_derived_base(this, input, gradient)
+     module subroutine backward_derived_base(this, input, gradient)
        !! Backward pass of layer
        class(base_layer_type), intent(inout) :: this
        !! Instance of the layer
