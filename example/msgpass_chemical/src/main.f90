@@ -24,13 +24,12 @@ program msgpass_chemical_example
   character(1024) :: file, train_file
 
   ! training loop variables
-  integer :: num_tests = 10, num_epochs = 100, batch_size = 2
+  integer :: num_tests = 10, num_epochs = 10, batch_size = 8
   integer :: num_time_steps = 4
-  integer :: i, itmp1, n, num_iterations
+  integer :: i, n, s
 
   integer :: num_dense_inputs = 10, num_outputs = 1
   integer :: num_params
-  integer :: v, s
   integer, dimension(:), allocatable :: sample_list
   real(real32), dimension(:), allocatable :: feature_in_norm
   type(array2d_type), dimension(1,1) :: output
@@ -72,8 +71,8 @@ program msgpass_chemical_example
           num_outputs = num_dense_inputs, &
           kernel_initialiser = 'glorot_normal', &
           readout_activation_function = 'softmax', &
-          min_vertex_degree = 3, &
-          max_vertex_degree = 6, &
+          min_vertex_degree = 1, &
+          max_vertex_degree = 10, &
           batch_size = batch_size &
      ))
      call network%add(full_layer_type( &

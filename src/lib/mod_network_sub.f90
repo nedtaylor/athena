@@ -3232,7 +3232,7 @@ contains
                 ))
              class is(array_type)
                 call this%backward_derived(get_sample_derived( &
-                     [ output(:,1) ], start_index, end_index, this%batch_size &
+                     output(:,1), start_index, end_index, this%batch_size &
                 ))
              end select
           end select
