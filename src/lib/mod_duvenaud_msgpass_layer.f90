@@ -757,7 +757,7 @@ contains
                     this%graph(s)%num_vertices ] &
           )
           call this%di_msg(t,s)%allocate( &
-               [ this%num_vertex_features(t) + this%num_edge_features(0), &
+               [ this%num_vertex_features(t-1) + this%num_edge_features(0), &
                     this%graph(s)%num_vertices ] &
           )
        end do
@@ -1051,7 +1051,7 @@ contains
           delta(:this%num_vertex_features(t),:) = this%di_readout(t,s)%val
           if(t.lt.this%num_time_steps)then
              delta = delta + &
-                  this%di_msg(t+1,s)%val(:this%num_vertex_features(t+1),:)
+                  this%di_msg(t+1,s)%val(:this%num_vertex_features(t),:)
           end if
           delta = delta * this%transfer%differentiate(this%z(t,s)%val(:,:))
 

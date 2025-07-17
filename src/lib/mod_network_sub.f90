@@ -1704,6 +1704,37 @@ contains
 
   end function get_sample_derived
 !-------------------------------------------------------------------------------
+  function get_sample_derived_2d( &
+       input, start_index, end_index, batch_size &
+  ) result(sample)
+    !! Get samples of batch size from a derived type array
+    implicit none
+
+    ! Arguments
+    integer, intent(in) :: start_index, end_index
+    !! Start and end indices
+    integer, intent(in) :: batch_size
+    !! Batch size
+    class(array_type), dimension(:,:), intent(in), target :: input
+    !! Input array
+
+    type(array2d_type), dimension(size(input,1),size(input,2)) :: sample
+    !! Sample array
+
+    ! Local variables
+    integer :: i, j
+    !! Loop index
+
+    do i = 1, size(input,1)
+       do j = 1, size(input,2)
+          sample(i,j)%val = get_sample_ptr( &
+               input(i,j)%val, start_index, end_index, batch_size &
+          )
+       end do
+    end do
+
+  end function get_sample_derived_2d
+!-------------------------------------------------------------------------------
   module function get_sample_mixed( &
        input, start_index, end_index, batch_size &
   ) result(sample)
@@ -3183,9 +3214,9 @@ contains
                         output, start_index, end_index, this%batch_size &
                    ))
                 else
-                   call this%backward_mixed(reshape(get_sample_derived( &
-                        [ output(:,1) ], start_index, end_index, this%batch_size &
-                   ), [1,1]))
+                   call this%backward_mixed(get_sample_derived_2d( &
+                        output, start_index, end_index, this%batch_size &
+                   ))
                 end if
              end select
           case default
