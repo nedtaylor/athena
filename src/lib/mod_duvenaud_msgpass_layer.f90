@@ -1041,6 +1041,7 @@ contains
              this%di(1,s)%val = 0._real32
              this%di(2,s)%val = 0._real32
           end if
+          this%di_msg(t,s)%val = 0._real32
 
           if(allocated(delta)) deallocate(delta)
           allocate(delta( &
@@ -1050,7 +1051,7 @@ contains
           delta(:this%num_vertex_features(t),:) = this%di_readout(t,s)%val
           if(t.lt.this%num_time_steps)then
              delta = delta + &
-                  this%di_msg(t,s)%val(:this%num_vertex_features(t),:)
+                  this%di_msg(t+1,s)%val(:this%num_vertex_features(t+1),:)
           end if
           delta = delta * this%transfer%differentiate(this%z(t,s)%val(:,:))
 
