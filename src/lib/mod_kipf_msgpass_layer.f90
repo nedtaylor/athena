@@ -62,13 +62,13 @@ module athena__kipf_msgpass_layer
   interface kipf_msgpass_layer_type
      !! Interface for setting up the MPNN layer
      module function layer_setup( &
-          num_vertex_features, num_edge_features, num_time_steps, batch_size, &
+          num_vertex_features, num_time_steps, batch_size, &
           activation_function, activation_scale, &
           kernel_initialiser, &
           verbose &
      ) result(layer)
        !! Set up the message passing layer
-       integer, dimension(:), intent(in) :: num_vertex_features, num_edge_features
+       integer, dimension(:), intent(in) :: num_vertex_features
        !! Number of features
        integer, intent(in) :: num_time_steps
        !! Number of time steps

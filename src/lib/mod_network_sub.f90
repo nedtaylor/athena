@@ -690,7 +690,7 @@ contains
 
 
 !###############################################################################
-  subroutine write_onnx_initializers(this, unit, idx, prefix)
+  module subroutine write_onnx_initializers(this, unit, idx, prefix)
     !! Write ONNX initializers (weights and biases)
     implicit none
 

@@ -63,7 +63,7 @@ module athena__network
      !! Root and output vertices
      integer, dimension(:,:,:), allocatable :: io_map
      !! Input-output map
-     type(graph_type(directed=.true.)), private :: auto_graph
+     type(graph_type), private :: auto_graph
      !! Graph structure for the network
    contains
      procedure, pass(this) :: print
@@ -554,7 +554,7 @@ module athena__network
        !! Forward pass for derived input
        class(network_type), intent(inout) :: this
        !! Instance of the network
-       type(graph_type), dimension(this%batch_size,size(this%root_vertices)), &
+       type(graph_type), dimension(size(this%root_vertices),this%batch_size), &
             intent(in) :: input
        !! Input data
      end subroutine forward_graph
@@ -577,18 +577,17 @@ module athena__network
      module subroutine backward_graph(this, output)
        !! Forward pass for derived input
        class(network_type), intent(inout) :: this
-       !! Instance of the network
-       class(graph_type), &
-            dimension(this%batch_size,size(this%output_vertices)), &
+       !! Instance of network
+       class(graph_type), dimension(size(this%output_vertices),this%batch_size), &
             intent(in) :: output
-       !! Input data
+       !! Output data
      end subroutine backward_graph
      module subroutine backward_mixed(this, output)
        !! Forward pass for derived input
        class(network_type), intent(inout) :: this
        !! Instance of the network
        type(array2d_type), dimension(:,:), intent(in) :: output
-       !! Input data
+       !! Output data
      end subroutine backward_mixed
   end interface
 
@@ -622,6 +621,19 @@ module athena__network
        type(array2d_type), dimension(size(input,1)) :: sample
        !! Sample array
      end function get_sample_derived
+     module function get_sample_mixed( &
+          input, start_index, end_index, batch_size &
+     ) result(sample)
+       !! Get sample for mixed input
+       integer, intent(in) :: start_index, end_index
+       !! Start and end indices
+       integer, intent(in) :: batch_size
+       !! Batch size
+       class(array_type), dimension(:,:), intent(in), target :: input
+       !! Input array
+       type(array2d_type), dimension(size(input,1), batch_size) :: sample
+    !! Sample array
+     end function get_sample_mixed
      module function get_sample_graph( &
           input, start_index, end_index, batch_size &
      ) result(sample)
@@ -632,7 +644,7 @@ module athena__network
        !! Batch size
        class(graph_type), dimension(:,:), intent(in), target :: input
        !! Input array
-       type(graph_type), dimension(batch_size,size(input,dim=2)) :: sample
+       type(graph_type), dimension(size(input,dim=1),batch_size) :: sample
        !! Sample array
      end function get_sample_graph
   end interface get_sample
