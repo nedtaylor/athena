@@ -509,7 +509,7 @@ contains
     !---------------------------------------------------------------------------
     if(allocated(this%params)) deallocate(this%params)
     allocate(this%params(this%num_params), source=0._real32)
-    allocate(this%weight_shape(2,this%num_time_steps))
+    allocate(this%weight_shape(2,2*this%num_time_steps))
     do t = 1, this%num_time_steps
        this%weight_shape(:,t) = [ &
             this%num_vertex_features(t), &
@@ -942,7 +942,7 @@ contains
              )
           end do
           this%vertex_features(t,s)%val(:,:) = &
-               this%transfer%activate( this%z(t,s)%val(:,:) )
+               this%transfer%activate( this%z(t,s)%val )
        end do
     end do
 
@@ -981,7 +981,7 @@ contains
        do s = 1, this%batch_size
           do v = 1, this%graph(s)%num_vertices
              this%z_readout(t,s)%val(:,v) = matmul( &
-                  weight(:,:), &
+                  weight, &
                   this%vertex_features(t,s)%val(:,v) &
              )
              this%output(1,1)%val(:,s) = this%output(1,1)%val(:,s) + &
@@ -1198,7 +1198,7 @@ contains
                 end do
              end do
 
-             this%di_readout(t,s)%val(:,v) = matmul(delta(:), weight(:,:))
+             this%di_readout(t,s)%val(:,v) = matmul(delta, weight)
           end do
        end do
        num_params_old = num_params_old + num_params_tmp

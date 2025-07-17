@@ -3170,7 +3170,7 @@ contains
           select case(this%use_graph_input)
           case(.true.)
              call this%forward_graph(get_sample_graph( &
-                  input_graph,start_index, end_index, this%batch_size &
+                  input_graph, start_index, end_index, this%batch_size &
              ))
              select type(output)
              type is(graph_type)
@@ -3184,7 +3184,7 @@ contains
                    ))
                 else
                    call this%backward_mixed(reshape(get_sample_derived( &
-                        output(:,1), start_index, end_index, this%batch_size &
+                        [ output(:,1) ], start_index, end_index, this%batch_size &
                    ), [1,1]))
                 end if
              end select
@@ -3201,7 +3201,7 @@ contains
                 ))
              class is(array_type)
                 call this%backward_derived(get_sample_derived( &
-                     output(:,1), start_index, end_index, this%batch_size &
+                     [ output(:,1) ], start_index, end_index, this%batch_size &
                 ))
              end select
           end select
