@@ -789,6 +789,8 @@ contains
     !! Loop index
     integer :: operator_
     !! Operator to use to connect the layers
+    integer, dimension(2) :: vertex_indices
+    !! Indices of the vertices to connect
     type(container_layer_type), allocatable, dimension(:) :: model
     !! Model to add the layer to
 
@@ -854,19 +856,21 @@ contains
                   input_list(i), 1 &
              )
           end if
+          vertex_indices = [ vertex_index, -this%auto_graph%num_vertices ]
           call this%auto_graph%add_edge( &
-               index = [ vertex_index, -this%auto_graph%num_vertices ], &
+               index = vertex_indices, &
                feature = [ 1._real32 ], &
                id = operator_, &
                update_adjacency = .true. &
           )
        end do
     elseif(trim(layer%type).ne."inpt".and.this%auto_graph%num_vertices.gt.1)then
+       vertex_indices = [ &
+            this%auto_graph%num_vertices - 1, &
+            -this%auto_graph%num_vertices &
+       ]
        call this%auto_graph%add_edge( &
-            index = [ &
-                 this%auto_graph%num_vertices - 1, &
-                 -this%auto_graph%num_vertices &
-            ], &
+            index = vertex_indices, &
             feature = [ 1._real32 ], &
             id = operator_, &
             update_adjacency = .true. &
@@ -879,8 +883,9 @@ contains
                [this%auto_graph%vertex(:)%id], &
                output_list(i), 1 &
           )
+          vertex_indices = [ this%auto_graph%num_vertices, -vertex_index ]
           call this%auto_graph%add_edge( &
-               index = [ this%auto_graph%num_vertices, -vertex_index ], &
+               index = vertex_indices, &
                feature = [ 1._real32 ], &
                id = operator_, &
                update_adjacency = .true. &
