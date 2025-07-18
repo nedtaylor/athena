@@ -48,7 +48,7 @@ jobs:
     - uses: fortran-lang/setup-fpm@v5
       id: setup-fpm
       with:
-        fpm-version: "v0.12.0"
+        fpm-version: "v0.11.0"
 
     - name: Download MNIST dataset
       run: |
