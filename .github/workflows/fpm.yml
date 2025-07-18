@@ -36,8 +36,9 @@ jobs:
       fail-fast: false
       matrix:
         toolchain:
-        - {compiler: gcc, version: 13}
-        - {compiler: intel-classic, version: '2021.10'}
+        - {compiler: gcc, version: 14}
+        - {compiler: intel, version: '2025.0'}
+        # - {compiler: lfortran, version: '0.45.0'}
     steps:
     - name: checkout repo
       uses: actions/checkout@v4
@@ -51,7 +52,7 @@ jobs:
     - uses: fortran-lang/setup-fpm@v5
       id: setup-fpm
       with:
-        fpm-version: "v0.10.0"
+        fpm-version: "v0.12.0"
 
     - name: Compile
       run: |
