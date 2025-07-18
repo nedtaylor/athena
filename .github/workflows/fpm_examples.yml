@@ -39,13 +39,13 @@ jobs:
     - name: checkout repo
       uses: actions/checkout@v4
 
-    - uses: fortran-lang/setup-fortran@v1
+    - uses: fortran-lang/setup-fortran@v7
       id: setup-fortran
       with:
         compiler: ${{ matrix.toolchain.compiler }}
         version: ${{ matrix.toolchain.version }}
 
-    - uses: fortran-lang/setup-fpm@v5
+    - uses: fortran-lang/setup-fpm@v7
       id: setup-fpm
       with:
         fpm-version: "v0.11.0"
