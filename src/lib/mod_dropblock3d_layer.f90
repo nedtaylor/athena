@@ -185,7 +185,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine set_hyperparams_dropblock3d(this, rate, block_size, verbose)
+  subroutine set_hyperparams_dropblock3d(this, rate, block_size, verbose)
     !! Set hyperparameters for 3D dropblock layer
     implicit none
 
@@ -241,8 +241,6 @@ contains
     !---------------------------------------------------------------------------
     ! initialise input shape
     !---------------------------------------------------------------------------
-    this%output = array5d_type()
-    this%di = array5d_type()
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
 
 

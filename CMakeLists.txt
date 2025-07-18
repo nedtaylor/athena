@@ -79,88 +79,21 @@ message(STATUS "graphstruc source directory: ${graphstruc_BUILD_DIRS}")
 set(SRC_DIR src)
 set(LIB_DIR ${SRC_DIR}/lib)
 
-set(LIB_FILES
-    mod_io_utils.f90
-    mod_constants.f90
-    mod_misc.f90
-    mod_random.f90
-    mod_clipper.f90
-    mod_regulariser.f90
-    mod_lr_decay.f90
-    mod_optimiser.f90
-    mod_misc_types.f90
-    mod_misc_types_sub.f90
-    mod_mpnn_layer.f90
-    mod_mpnn_layer_sub.f90
-    mod_metrics.f90
-    mod_misc_ml.f90
-    mod_activation_gaussian.f90
-    mod_activation_linear.f90
-    mod_activation_piecewise.f90
-    mod_activation_relu.f90
-    mod_activation_leaky_relu.f90
-    mod_activation_sigmoid.f90
-    mod_activation_tanh.f90
-    mod_activation_none.f90
-    mod_activation_softmax.f90
-    mod_initialiser_glorot.f90
-    mod_initialiser_he.f90
-    mod_initialiser_lecun.f90
-    mod_initialiser_ones.f90
-    mod_initialiser_zeros.f90
-    mod_initialiser_ident.f90
-    mod_initialiser_gaussian.f90
-    mod_activation.f90
-    mod_initialiser.f90
-    mod_tools_infile.f90
-    mod_normalisation.f90
-    mod_loss.f90
-    mod_accuracy.f90
-    mod_base_layer.f90
-    mod_base_layer_sub.f90
-    mod_activation_layer.f90
-    mod_conv_mpnn_layer.f90
-    mod_batchnorm1d_layer.f90
-    mod_batchnorm2d_layer.f90
-    mod_batchnorm3d_layer.f90
-    mod_conv1d_layer.f90
-    mod_conv2d_layer.f90
-    mod_conv3d_layer.f90
-    # mod_deepset_layer.f90
-    mod_dropout_layer.f90
-    mod_dropblock2d_layer.f90
-    mod_dropblock3d_layer.f90
-    mod_avgpool1d_layer.f90
-    mod_avgpool2d_layer.f90
-    mod_avgpool3d_layer.f90
-    mod_maxpool1d_layer.f90
-    mod_maxpool2d_layer.f90
-    mod_maxpool3d_layer.f90
-    mod_pad1d_layer.f90
-    mod_pad2d_layer.f90
-    mod_pad3d_layer.f90
-    mod_flatten_layer.f90
-    mod_full_layer.f90
-    mod_input_layer.f90
-    mod_container_layer.f90
-    mod_container_layer_sub.f90
-    mod_network.f90
-    mod_network_sub.f90
-)
-foreach(lib ${LIB_FILES})
-    list(APPEND PREPENDED_LIB_FILES ${LIB_DIR}/${lib})
-endforeach()
-message(STATUS "Modified LIB_FILES: ${PREPENDED_LIB_FILES}")
+set(SRC_DIR src)
+set(LIB_DIR ${SRC_DIR}/lib)
+# Automatically find all Fortran files in lib/
+file(GLOB LIB_FILES "${LIB_DIR}/*.f90")
 
-if (CMAKE_BUILD_TYPE MATCHES "Parallel*")
-    set(SRC_FILES athena_omp.f90)
-else()
-    set(SRC_FILES athena.f90)
-endif()
-foreach(src ${SRC_FILES})
-    list(APPEND PREPENDED_SRC_FILES ${SRC_DIR}/${src})
-endforeach()
-message(STATUS "Modified SRC_FILES: ${PREPENDED_SRC_FILES}")
+# Collect the main source file
+file(GLOB SRC_FILES "${SRC_DIR}/*.f90")
+
+# Combine all source files
+set(ALL_SOURCES ${SRC_FILES} ${LIB_FILES})
+
+# Optional: print for debugging
+message(STATUS "LIB_FILES: ${LIB_FILES}")
+message(STATUS "SRC_FILES: ${SRC_FILES}")
+message(STATUS "ALL_SOURCES: ${ALL_SOURCES}")
 
 # initialise flags
 set(CPPFLAGS "")
@@ -224,7 +157,7 @@ set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${PPFLAGS}")
 
 
 # create the library
-add_library(${PROJECT_NAME} STATIC ${PREPENDED_LIB_FILES} ${PREPENDED_SRC_FILES})
+add_library(${PROJECT_NAME} STATIC ${ALL_SOURCES})
 set(MODULE_DIR ${CMAKE_BUILD_PREFIX}/mod)
 set_target_properties(${PROJECT_NAME} PROPERTIES Fortran_MODULE_DIRECTORY ${MODULE_DIR})
 target_link_libraries(${PROJECT_NAME} PUBLIC)
