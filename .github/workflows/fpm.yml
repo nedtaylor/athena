@@ -43,7 +43,7 @@ jobs:
     - name: checkout repo
       uses: actions/checkout@v4
 
-    - uses: fortran-lang/setup-fortran@v7
+    - uses: fortran-lang/setup-fortran@v1
       id: setup-fortran
       with:
         compiler: ${{ matrix.toolchain.compiler }}
@@ -80,7 +80,7 @@ jobs:
     - name: checkout repo
       uses: actions/checkout@v4
 
-    - uses: fortran-lang/setup-fortran@v7
+    - uses: fortran-lang/setup-fortran@v1
       id: setup-fortran
       with:
         compiler: ${{ matrix.toolchain.compiler }}
