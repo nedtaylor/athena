@@ -199,6 +199,7 @@ contains
     this%input_rank = 0
     if(present(input_rank)) this%input_rank = input_rank
     this%output_rank = this%input_rank
+    if(allocated(this%transfer)) deallocate(this%transfer)
     allocate(this%transfer, &
          source=activation_setup(activation_function, activation_scale) &
     )
@@ -344,6 +345,7 @@ contains
              call stop_program('Activation layer only supports input ranks 1-4')
              return
           end select
+          allocate(this%di(1,1), source=this%output(1,1))
        end if
     end if
 
@@ -367,7 +369,8 @@ contains
     this%input_rank = input_rank
     this%output_rank = output_rank
     if(this%input_rank.ne.this%output_rank)then
-       write(*,*) "Warning: Activation layer input and output ranks differ"
+       call stop_program("Warning: Activation layer input and output ranks differ")
+       return
     end if
     if(this%input_rank.lt.1) then
        write(*,*) "Error: Activation layer input rank must be at least 1"
@@ -479,7 +482,7 @@ contains
        select case(trim(tag))
        case("INPUT_SHAPE")
           call assign_vec(buffer, input_shape, itmp1)
-       case("ACTIVATION")
+       case("ACTIVATION_FUNCTION")
           call assign_val(buffer, activation_function, itmp1)
        case("ACTIVATION_SCALE")
           call assign_val(buffer, activation_scale, itmp1)

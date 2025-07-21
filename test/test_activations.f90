@@ -9,6 +9,7 @@ program test_activations
   use athena__activation_piecewise, only: piecewise_setup ! intercept
   use athena__activation_sigmoid, only: sigmoid_setup ! threshold
   use athena__activation_softmax, only: softmax_setup ! threshold
+  use athena__activation_swish, only: swish_setup ! threshold
   use athena__activation_tanh, only: tanh_setup ! threshold
   use athena__misc_types, only: activation_type, &
        array2d_type, &
@@ -35,10 +36,10 @@ program test_activations
   real :: gradient(num_outputs, batch_size) = 1.E0
   real :: input_data_conv2d(width,width,num_channels, batch_size) = 1.E0
   real :: input_data_conv3d(width,width, width,num_channels, batch_size) = 1.E0
-  character(len=20) :: activation_names(9)
+  character(len=20) :: activation_names(10)
   integer :: k, j, l, s
   integer, dimension(2) :: stp_idx, start_idx, end_idx
-  real, dimension(9) :: activate, differentiate
+  real, dimension(10) :: activate, differentiate
   real, dimension(1) :: value_1d, rtmp1_1d
   real, dimension(1,1,1) :: value_3d, rtmp1_3d
 
@@ -54,7 +55,8 @@ program test_activations
   activation_names(6) = 'relu'
   activation_names(7) = 'sigmoid'
   activation_names(8) = 'softmax'
-  activation_names(9) = 'tanh'
+  activation_names(9) = 'swish'
+  activation_names(10) = 'tanh'
 
   !! initialise expected activation values
   value = 0.25E0
@@ -70,7 +72,9 @@ program test_activations
   activate(6) = scale * value
   activate(7) = scale / (1.E0 + exp(-value))
   activate(8) = exp(0.E0)
-  activate(9) = scale * tanh(value)
+  ! activate the swish function
+  activate(9) = scale * value / (1.E0 + exp(-value))
+  activate(10) = scale * tanh(value)
 
   !! initialise expected differentiation values
   differentiate(1) = scale
@@ -81,7 +85,10 @@ program test_activations
   differentiate(6) = scale
   differentiate(7) = scale * activate(7) * (scale - activate(7))
   differentiate(8) = activate(8) * (1.E0 - activate(8))
-  differentiate(9) = scale * (1.E0 - (activate(9)/scale)**2.E0)
+  ! differentiate the swish function
+  differentiate(9) = &
+       ( activate(9)  /value + activate(9) * (1.E0 - activate(9) / scale / value) )
+  differentiate(10) = scale * (1.E0 - (activate(10)/scale)**2.E0)
 
 
 !!!-----------------------------------------------------------------------------
@@ -137,6 +144,21 @@ program test_activations
         write(0,*) 'activation has wrong threshold for softmax'
      end if
   end if
+
+
+!!!-----------------------------------------------------------------------------
+!!! check swish setup
+!!!-----------------------------------------------------------------------------
+   activation = swish_setup(threshold = 2.E0)
+   if(.not. activation%name .eq. 'swish')then
+      success = .false.
+      write(0,*) 'activation has wrong name for swish'
+   else
+      if (abs(activation%threshold - 2.E0).gt.1.E-6) then
+         success = .false.
+         write(0,*) 'activation has wrong threshold for swish'
+      end if
+   end if
 
 
 !!!-----------------------------------------------------------------------------
