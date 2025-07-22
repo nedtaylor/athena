@@ -2,6 +2,10 @@ name: run-fpm-examples
 
 on:
   push:
+    branches:
+      - main
+      - development
+      - 'releases/**'
     paths:
       - ".github/workflows/fpm_examples.yml"
       - "fpm.toml"
