@@ -44,6 +44,7 @@ foreach(execid
   clipper
   loss
   tools_infile
+  io_utils
   )
   add_executable(test_${execid} test_${execid}.f90)
   # # Specify the include directories

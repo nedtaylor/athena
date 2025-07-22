@@ -81,11 +81,11 @@ contains
 
              ! Set destination bounds
              if(j .eq. 1) then
-                this%dest_bound(:,1,facet_idx) = [1, pad(k)]
+                this%dest_bound(:,1,facet_idx) = [1, pad(i)]
              else
                 this%orig_bound(1,facet_idx) = length(i)
                 this%dest_bound(:,1,facet_idx) = &
-                     [length(k) + pad(k) + 1, length(k) + pad(k) * 2]
+                     [length(i) + pad(i) + 1, length(i) + pad(i) * 2]
              end if
           end do
        end do

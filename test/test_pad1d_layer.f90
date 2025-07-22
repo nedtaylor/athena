@@ -8,6 +8,7 @@ program test_pad1d_layer
 
   type(pad1d_layer_type) :: pad1d_layer
   class(base_layer_type), allocatable :: read_layer
+
   integer, parameter :: batch_size = 2
   integer, parameter :: width = 6
   integer, parameter :: channels = 3
@@ -99,8 +100,10 @@ program test_pad1d_layer
   input_2d(:width,1) = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
   input_2d(:width,2) = [7.0, 8.0, 9.0, 10.0, 11.0, 12.0]
   do i = 2, channels, 1
-     input_2d(width * (i - 1) + 1:width * i, 1) = input_2d(:width,1) + (i - 1) * width
-     input_2d(width * (i - 1) + 1:width * i, 2) = input_2d(:width,2) + (i - 1) * width
+     input_2d(width * (i - 1) + 1:width * i, 1) = &
+          input_2d(:width,1) + (i - 1) * width
+     input_2d(width * (i - 1) + 1:width * i, 2) = &
+          input_2d(:width,2) + (i - 1) * width
   end do
 
   ! Run forward pass
@@ -216,7 +219,7 @@ program test_pad1d_layer
   character(20), dimension(4) :: padding_methods = [ &
        "zero      ", "same      ", "valid     ", "full      " ]
   integer :: expected_widths(4)
-  integer :: j
+  integer :: method_idx
 
   expected_widths(1) = width + 4  ! zero padding: +2 on each side
   expected_widths(2) = width + 4  ! same padding: +2 on each side
@@ -246,7 +249,8 @@ program test_pad1d_layer
      allocate(input_2d(width * channels, 1))
      input_2d(:width,1) = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
      do j = 2, channels, 1
-        input_2d(width * (j - 1) + 1:width * j, 1) = input_2d(:width,1) + (j - 1) * width
+        input_2d(width * (j - 1) + 1:width * j, 1) = &
+             input_2d(:width,1) + (j - 1) * width
      end do
      
      call pad1d_layer%forward(input_2d)
@@ -261,6 +265,159 @@ program test_pad1d_layer
      deallocate(input_2d, output_2d)
   end do
   end block test_methods_block
+
+
+!-------------------------------------------------------------------------------
+! Test comprehensive padding method functionality
+!-------------------------------------------------------------------------------
+  write(*,*) "Testing comprehensive padding method functionality..."
+
+  comprehensive_methods_block: block
+    real(real32), allocatable :: input_simple(:,:,:), output_simple(:,:,:)
+    integer, parameter :: simple_width = 4, simple_channels = 1
+    integer, parameter :: pad_size = 2
+
+    real(real32), allocatable :: input_back(:,:,:), output_back(:,:,:)
+    real(real32), allocatable :: gradient_out(:,:,:)
+    integer, parameter :: back_width = 3, back_channels = 1
+    
+    allocate(input_back(back_width, back_channels, 1))
+    allocate(gradient_out(back_width+4, back_channels, 1)) ! padding = [2]
+    input_back(:,1,1) = [1.0_real32, 2.0_real32, 3.0_real32]
+    gradient_out(:,1,1) = [0.1_real32, 0.2_real32, 0.3_real32, &
+                           0.4_real32, 0.5_real32]
+
+    
+    ! Create simple test data: [1, 2, 3, 4]
+    allocate(input_simple(simple_width, simple_channels, 1))
+    input_simple(:,1,1) = [1.0_real32, 2.0_real32, 3.0_real32, 4.0_real32]
+    
+    ! Test zero/constant padding
+    write(*,*) "  Testing zero/constant padding..."
+    pad1d_layer = pad1d_layer_type( &
+         padding = [pad_size], &
+         method = "zero", &
+         input_shape = [simple_width, simple_channels], &
+         batch_size = 1 &
+    )
+    call pad1d_layer%forward(input_simple)
+    call pad1d_layer%get_output(output_simple)
+    
+    ! Should be: [0, 0, 1, 2, 3, 4, 0, 0]
+    if (abs(output_simple(1,1,1)) .gt. tol .or. &
+        abs(output_simple(2,1,1)) .gt. tol .or. &
+        abs(output_simple(3,1,1) - 1.0_real32) .gt. tol .or. &
+        abs(output_simple(4,1,1) - 2.0_real32) .gt. tol .or. &
+        abs(output_simple(5,1,1) - 3.0_real32) .gt. tol .or. &
+        abs(output_simple(6,1,1) - 4.0_real32) .gt. tol .or. &
+        abs(output_simple(7,1,1)) .gt. tol .or. &
+        abs(output_simple(8,1,1)) .gt. tol) then
+       success = .false.
+       write(0,*) 'Zero padding method failed'
+       write(0,*) 'Expected: [0,0,1,2,3,4,0,0]'
+       write(0,*) 'Got:', output_simple(:,1,1)
+    end if
+    call pad1d_layer%backward(input_back, gradient_out)
+    
+    select type(di => pad1d_layer%di(1,1))
+    type is(array3d_type)
+       ! For zero padding, gradients should just be extracted from middle
+       if (abs(di%val_ptr(1,1,1) - 0.3_real32) .gt. tol .or. &
+           abs(di%val_ptr(2,1,1) - 0.4_real32) .gt. tol .or. &
+           abs(di%val_ptr(3,1,1) - 0.5_real32) .gt. tol) then
+          success = .false.
+          write(0,*) 'Zero padding backward pass failed'
+          write(0,*) 'Expected gradients: [0.3,0.4,0.5]'
+          write(0,*) 'Got:', di%val_ptr(:,1,1)
+       end if
+    end select
+    
+    deallocate(output_simple)
+    
+    ! Test replication/replicate padding  
+    write(*,*) "  Testing replication padding..."
+    pad1d_layer = pad1d_layer_type( &
+         padding = [pad_size], &
+         method = "replicate", &
+         input_shape = [simple_width, simple_channels], &
+         batch_size = 1 &
+    )
+    call pad1d_layer%forward(input_simple)
+    call pad1d_layer%get_output(output_simple)
+    
+    ! Should be: [1, 1, 1, 2, 3, 4, 4, 4]
+    if (abs(output_simple(1,1,1) - 1.0_real32) .gt. tol .or. &
+        abs(output_simple(2,1,1) - 1.0_real32) .gt. tol .or. &
+        abs(output_simple(3,1,1) - 1.0_real32) .gt. tol .or. &
+        abs(output_simple(4,1,1) - 2.0_real32) .gt. tol .or. &
+        abs(output_simple(5,1,1) - 3.0_real32) .gt. tol .or. &
+        abs(output_simple(6,1,1) - 4.0_real32) .gt. tol .or. &
+        abs(output_simple(7,1,1) - 4.0_real32) .gt. tol .or. &
+        abs(output_simple(8,1,1) - 4.0_real32) .gt. tol) then
+       success = .false.
+       write(0,*) 'Replication padding method failed'
+       write(0,*) 'Expected: [1,1,1,2,3,4,4,4]'
+       write(0,*) 'Got:', output_simple(:,1,1)
+    end if
+    
+    deallocate(output_simple)
+    
+    ! Test reflection padding
+    write(*,*) "  Testing reflection padding..."
+    pad1d_layer = pad1d_layer_type( &
+         padding = [pad_size], &
+         method = "reflect", &
+         input_shape = [simple_width, simple_channels], &
+         batch_size = 1 &
+    )
+    call pad1d_layer%forward(input_simple)
+    call pad1d_layer%get_output(output_simple)
+    
+    ! Should be: [3, 2, 1, 2, 3, 4, 3, 2] (reflect without including edge)
+    if (abs(output_simple(1,1,1) - 3.0_real32) .gt. tol .or. &
+        abs(output_simple(2,1,1) - 2.0_real32) .gt. tol .or. &
+        abs(output_simple(3,1,1) - 1.0_real32) .gt. tol .or. &
+        abs(output_simple(4,1,1) - 2.0_real32) .gt. tol .or. &
+        abs(output_simple(5,1,1) - 3.0_real32) .gt. tol .or. &
+        abs(output_simple(6,1,1) - 4.0_real32) .gt. tol .or. &
+        abs(output_simple(7,1,1) - 3.0_real32) .gt. tol .or. &
+        abs(output_simple(8,1,1) - 2.0_real32) .gt. tol) then
+       success = .false.
+       write(0,*) 'Reflection padding method failed'
+       write(0,*) 'Expected: [3,2,1,2,3,4,3,2]'
+       write(0,*) 'Got:', output_simple(:,1,1)
+    end if
+    
+    deallocate(output_simple)
+    
+    ! Test circular padding
+    write(*,*) "  Testing circular padding..."
+    pad1d_layer = pad1d_layer_type( &
+         padding = [pad_size], &
+         method = "circular", &
+         input_shape = [simple_width, simple_channels], &
+         batch_size = 1 &
+    )
+    call pad1d_layer%forward(input_simple)
+    call pad1d_layer%get_output(output_simple)
+    
+    ! Should be: [3, 4, 1, 2, 3, 4, 1, 2] (wrap around)
+    if (abs(output_simple(1,1,1) - 3.0_real32) .gt. tol .or. &
+        abs(output_simple(2,1,1) - 4.0_real32) .gt. tol .or. &
+        abs(output_simple(3,1,1) - 1.0_real32) .gt. tol .or. &
+        abs(output_simple(4,1,1) - 2.0_real32) .gt. tol .or. &
+        abs(output_simple(5,1,1) - 3.0_real32) .gt. tol .or. &
+        abs(output_simple(6,1,1) - 4.0_real32) .gt. tol .or. &
+        abs(output_simple(7,1,1) - 1.0_real32) .gt. tol .or. &
+        abs(output_simple(8,1,1) - 2.0_real32) .gt. tol) then
+       success = .false.
+       write(0,*) 'Circular padding method failed'
+       write(0,*) 'Expected: [3,4,1,2,3,4,1,2]'
+       write(0,*) 'Got:', output_simple(:,1,1)
+    end if
+    
+    deallocate(input_simple, output_simple)
+  end block comprehensive_methods_block
 
 
 !-------------------------------------------------------------------------------
