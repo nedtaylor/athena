@@ -274,9 +274,19 @@ module athena__base_layer
    contains
      procedure, pass(this) :: init => init_pad
      !! Initialise the layer
+     procedure, pass(this) :: print_to_unit => print_to_unit_pad
+     !! Print layer to unit
   end type pad_layer_type
 
   interface
+     module subroutine print_to_unit_pad(this, unit)
+       !! Print layer to unit
+       class(pad_layer_type), intent(in) :: this
+       !! Instance of the layer
+       integer, intent(in) :: unit
+       !! File unit
+     end subroutine print_to_unit_pad
+
      module subroutine init_pad(this, input_shape, batch_size, verbose)
        class(pad_layer_type), intent(inout) :: this
        integer, dimension(:), intent(in) :: input_shape

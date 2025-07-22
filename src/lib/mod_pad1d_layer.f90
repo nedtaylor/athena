@@ -141,16 +141,28 @@ contains
     ! Local variables
     integer :: verbose_ = 0
     !! Verbosity level
+    integer, dimension(1) :: padding_1d
+    !! 1D padding sizes
 
     if(present(verbose)) verbose_ = verbose
+
+    !---------------------------------------------------------------------------
+    ! Initialise padding sizes
+    !---------------------------------------------------------------------------
+    select case(size(padding))
+    case(1)
+       padding_1d = padding
+    case default
+      write(*,*) size(padding)
+      write(*,*) padding
+       call stop_program("Invalid padding size")
+    end select
 
 
     !---------------------------------------------------------------------------
     ! Set hyperparameters
     !---------------------------------------------------------------------------
-    call layer%set_hyperparams( &
-         padding=padding, method=method, verbose=verbose_ &
-    )
+    call layer%set_hyperparams(padding=padding_1d, method=method, verbose=verbose_)
 
 
     !---------------------------------------------------------------------------
@@ -189,6 +201,7 @@ contains
     this%input_rank = 2
     this%output_rank = 2
     this%pad = padding
+    if(allocated(this%facets)) deallocate(this%facets)
     allocate(this%facets(this%input_rank - 1))
     this%facets(1)%rank = 1
     this%facets(1)%nfixed_dims = 1
@@ -209,6 +222,7 @@ contains
        call stop_program("Unrecognised padding method :"//method)
        return
     end select
+    this%method = trim(adjustl(to_lower(method)))
 
   end subroutine set_hyperparams_pad1d
 !###############################################################################
@@ -300,7 +314,7 @@ contains
     !! Padding sizes
     integer, dimension(2) :: input_shape
     !! Input shape
-    character(:), allocatable :: method
+    character(20) :: method
     !! Padding method
     character(256) :: buffer, tag, err_msg
     !! Buffer for reading lines, tag for identifying lines, error message
@@ -400,7 +414,7 @@ contains
     !! Verbosity level
 
     if(present(verbose)) verbose_ = verbose
-    allocate(layer, source=pad1d_layer_type(padding=[0,0], method="none"))
+    allocate(layer, source=pad1d_layer_type(padding=[0], method="none"))
     call layer%read(unit, verbose=verbose_)
 
   end function read_pad1d_layer

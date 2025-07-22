@@ -123,6 +123,30 @@ contains
     end if
 
   end subroutine print_to_unit_pool
+!-------------------------------------------------------------------------------
+  module subroutine print_to_unit_pad(this, unit)
+    !! Print padding layer to a file
+    implicit none
+
+    ! Arguments
+    class(pad_layer_type), intent(in) :: this
+    !! Instance of the layer
+    integer, intent(in) :: unit
+    !! File unit
+
+    ! Local variables
+    character(100) :: fmt
+    !! Format string
+
+    ! Write initial parameters
+    !---------------------------------------------------------------------------
+    write(fmt,'("(3X,""INPUT_SHAPE ="",",I0,"(1X,I0))")') size(this%input_shape)
+    write(unit,fmt) this%input_shape
+    write(fmt,'("(3X,""PADDING ="",",I0,"(1X,I0))")') size(this%pad)
+    write(unit,fmt) this%pad
+    write(unit,'(3X,"METHOD = ",A)') trim(this%method)
+
+  end subroutine print_to_unit_pad
 !###############################################################################
 
 

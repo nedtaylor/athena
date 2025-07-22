@@ -22,7 +22,11 @@ foreach(execid
   dropblock2d_layer
   dropblock3d_layer
   flatten_layer
+  pad1d_layer
+  pad2d_layer
+  pad3d_layer
   activations
+  activation_layer
   initialisers
   padding
   shuffle
