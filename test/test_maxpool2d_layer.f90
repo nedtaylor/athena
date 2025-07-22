@@ -3,11 +3,14 @@ program test_maxpool2d_layer
        maxpool2d_layer_type, &
        base_layer_type, &
        learnable_layer_type
+  use athena__maxpool2d_layer, only: read_maxpool2d_layer
   use athena__misc_types, only: array4d_type
   implicit none
 
   class(base_layer_type), allocatable :: pool_layer
+  class(base_layer_type), allocatable :: read_layer
   integer, parameter :: num_channels = 3, pool = 3, stride = 2, width = 18
+  integer :: unit
   real, allocatable, dimension(:,:,:,:) :: input_data, output, gradient
   real, allocatable, dimension(:) :: output_1d
   real, allocatable, dimension(:,:) :: output_2d
@@ -19,9 +22,9 @@ program test_maxpool2d_layer
   real, parameter :: max_value = 3.0
 
 
-!!!-----------------------------------------------------------------------------
-!!! set up layer
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! set up layer
+!-------------------------------------------------------------------------------
   pool_layer = maxpool2d_layer_type( &
        pool_size = pool, &
        stride = stride &
@@ -59,9 +62,9 @@ program test_maxpool2d_layer
   end select
 
 
-!!!-----------------------------------------------------------------------------
-!!! check layer input and output shape based on input layer
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! check layer input and output shape based on input layer
+!-------------------------------------------------------------------------------
   !! initialise width and output width
   output_width = floor( (width - pool)/real(stride)) + 1
   max_loc = width / 2 + mod(width, 2)
@@ -119,9 +122,9 @@ program test_maxpool2d_layer
   end do
 
 
-!!!-----------------------------------------------------------------------------
-!!! check output request using rank 1 and rank 2 arrays is consistent
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! check output request using rank 1 and rank 2 arrays is consistent
+!-------------------------------------------------------------------------------
   call pool_layer%get_output(output_1d)
   call pool_layer%get_output(output_2d)
   if(any(abs(output_1d - reshape(output_2d, [size(output_2d)])) .gt. 1.E-6))then
@@ -130,9 +133,9 @@ program test_maxpool2d_layer
   end if
 
 
-!!!-----------------------------------------------------------------------------
-!!! test backward pass and check expected output
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! test backward pass and check expected output
+!-------------------------------------------------------------------------------
   !! run backward pass
   allocate(gradient, source = output)
   call pool_layer%backward(input_data, gradient)
@@ -170,9 +173,9 @@ program test_maxpool2d_layer
   end select
 
 
-!!!-----------------------------------------------------------------------------
-!!! check expected initialisation of pool and stride
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! check expected initialisation of pool and stride
+!-------------------------------------------------------------------------------
   pool_layer = maxpool2d_layer_type( &
        pool_size = [2, 2], &
        stride = [2, 2] &
@@ -207,9 +210,48 @@ program test_maxpool2d_layer
   end select
 
 
-!!!-----------------------------------------------------------------------------
-!!! check for any failed tests
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Test file I/O operations
+!-------------------------------------------------------------------------------
+  write(*,*) "Testing file I/O operations..."
+
+  ! Create a temporary file for testing
+  open(newunit=unit, file='test_maxpool2d_layer.tmp', &
+       status='replace', action='write')
+  
+  ! Write layer to file
+  write(unit,'("MAXPOOL2D")')
+  call pool_layer%print_to_unit(unit)
+  write(unit,'("END MAXPOOL2D")')
+  close(unit)
+
+  ! Read layer from file
+  open(newunit=unit, file='test_maxpool2d_layer.tmp', &
+       status='old', action='read')
+  read(unit,*) ! Skip first line
+  read_layer = read_maxpool2d_layer(unit)
+  close(unit)
+
+  ! Check that read layer has correct properties
+  select type(read_layer)
+  type is (maxpool2d_layer_type)
+     if (.not. read_layer%name .eq. 'maxpool2d') then
+        success = .false.
+        write(0,*) 'read maxpool2d layer has wrong name'
+     end if
+  class default
+     success = .false.
+     write(0,*) 'read layer is not maxpool2d_layer_type'
+  end select
+
+  ! Clean up temporary file
+  open(newunit=unit, file='test_maxpool2d_layer.tmp', status='old')
+  close(unit, status='delete')
+
+
+!-------------------------------------------------------------------------------
+! check for any failed tests
+!-------------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_maxpool2d_layer passed all tests'

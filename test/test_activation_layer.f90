@@ -42,17 +42,17 @@ program test_activation_layer
        "sigmoid   ", "tanh      ", "swish     ", "softmax   ", &
        "gaussian  ", "piecewise ", "invalid   " ]
 
-!!!-----------------------------------------------------------------------------
-!!! Initialise random number generator with a seed
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Initialise random number generator with a seed
+!-------------------------------------------------------------------------------
   call random_seed(size = seed_size)
   allocate(seed(seed_size), source=42)
   call random_seed(put = seed)
 
 
-!!!-----------------------------------------------------------------------------
-!!! Test 1D activation layer setup and properties
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Test 1D activation layer setup and properties
+!-------------------------------------------------------------------------------
   write(*,*) "Testing 1D activation layer..."
   
   ! Test with ReLU activation
@@ -100,9 +100,9 @@ program test_activation_layer
   end if
 
 
-!!!-----------------------------------------------------------------------------
-!!! Test 1D forward pass with ReLU
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Test 1D forward pass with ReLU
+!-------------------------------------------------------------------------------
   ! Initialize test input with some negative and positive values
   allocate(input_1d(width, batch_size))
   input_1d(:,1) = [-2.0, -1.0, 1.0, 2.0]
@@ -126,9 +126,9 @@ program test_activation_layer
   end if
 
 
-!!!-----------------------------------------------------------------------------
-!!! Test 1D backward pass with ReLU
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Test 1D backward pass with ReLU
+!-------------------------------------------------------------------------------
   ! Initialize gradient
   allocate(gradient_1d(width, batch_size))
   gradient_1d = 1.0_real32
@@ -153,9 +153,9 @@ program test_activation_layer
   deallocate(input_1d, output_1d, gradient_1d)
 
 
-!!!-----------------------------------------------------------------------------
-!!! Test 2D activation layer with sigmoid
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Test 2D activation layer with sigmoid
+!-------------------------------------------------------------------------------
   write(*,*) "Testing 2D activation layer..."
 
   actv_layer = actv_layer_type( &
@@ -211,9 +211,9 @@ program test_activation_layer
   deallocate(input_2d, output_2d, gradient_2d)
 
 
-!!!-----------------------------------------------------------------------------
-!!! Test 3D activation layer with tanh
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Test 3D activation layer with tanh
+!-------------------------------------------------------------------------------
   write(*,*) "Testing 3D activation layer..."
 
   actv_layer = actv_layer_type( &
@@ -240,9 +240,9 @@ program test_activation_layer
   deallocate(input_3d, output_3d)
 
 
-!!!-----------------------------------------------------------------------------
-!!! Test 4D activation layer with linear
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Test 4D activation layer with linear
+!-------------------------------------------------------------------------------
   write(*,*) "Testing 4D activation layer..."
 
   actv_layer = actv_layer_type( &
@@ -268,9 +268,9 @@ program test_activation_layer
   deallocate(input_4d, output_4d)
 
 
-!!!-----------------------------------------------------------------------------
-!!! Test activation layer with 'none' activation
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Test activation layer with 'none' activation
+!-------------------------------------------------------------------------------
   write(*,*) "Testing activation layer with 'none' activation..."
 
   actv_layer = actv_layer_type( &
@@ -294,9 +294,9 @@ program test_activation_layer
   deallocate(input_1d, output_1d)
 
 
-!!!-----------------------------------------------------------------------------
-!!! Test setting batch size after initialization
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Test setting batch size after initialization
+!-------------------------------------------------------------------------------
   write(*,*) "Testing batch size modification..."
 
   actv_layer = actv_layer_type( &
@@ -312,9 +312,9 @@ program test_activation_layer
   end if
 
 
-!!!-----------------------------------------------------------------------------
-!!! Test rank setting
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Test rank setting
+!-------------------------------------------------------------------------------
   write(*,*) "Testing rank setting..."
 
   call actv_layer%set_rank(3, 3)
@@ -325,9 +325,9 @@ program test_activation_layer
   end if
 
 
-!!!-----------------------------------------------------------------------------
-!!! Test hyperparameters setting
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Test hyperparameters setting
+!-------------------------------------------------------------------------------
   write(*,*) "Testing hyperparameters setting..."
 
   call actv_layer%set_hyperparams( &
@@ -347,9 +347,9 @@ program test_activation_layer
   end if
 
 
-!!!-----------------------------------------------------------------------------
-!!! Test file I/O operations
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Test file I/O operations
+!-------------------------------------------------------------------------------
   write(*,*) "Testing file I/O operations..."
 
   ! Create a temporary file for testing
@@ -385,9 +385,9 @@ program test_activation_layer
   close(unit, status='delete')
 
 
-!!!-----------------------------------------------------------------------------
-!!! Test with different activation functions
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Test with different activation functions
+!-------------------------------------------------------------------------------
   write(*,*) "Testing different activation functions..."
 
   ! Test each activation function type
@@ -422,9 +422,9 @@ program test_activation_layer
   end do
 
 
-!!!-----------------------------------------------------------------------------
-!!! Test error conditions
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Test error conditions
+!-------------------------------------------------------------------------------
   write(*,*) "Testing error conditions..."
 
   test_error_handling = .true.  ! Enable error handling for tests
@@ -437,9 +437,9 @@ program test_activation_layer
   test_error_handling = .false.  ! Enable error handling for tests
 
 
-!!!-----------------------------------------------------------------------------
-!!! Check for any failed tests
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Check for any failed tests
+!-------------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if (success) then
      write(*,*) 'test_activation_layer passed all tests'

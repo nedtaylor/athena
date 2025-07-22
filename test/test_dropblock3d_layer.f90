@@ -23,17 +23,17 @@ program test_dropblock3d_layer
   integer, allocatable, dimension(:) :: seed
 
 
-!!!-----------------------------------------------------------------------------
-!!! Initialise random number generator with a seed
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Initialise random number generator with a seed
+!-------------------------------------------------------------------------------
   call random_seed(size = seed_size)
   allocate(seed(seed_size), source=0)
   call random_seed(put = seed)
 
 
-!!!-----------------------------------------------------------------------------
-!!! set up layer
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! set up layer
+!-------------------------------------------------------------------------------
   db_layer = dropblock3d_layer_type( &
        rate = 0.0, &
        block_size = 5, &
@@ -111,9 +111,9 @@ program test_dropblock3d_layer
   end select
 
 
-!!!-----------------------------------------------------------------------------
-!!! test backward pass and check expected output
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! test backward pass and check expected output
+!-------------------------------------------------------------------------------
   !! run backward pass
   allocate(gradient, source = output)
   call db_layer%backward(input_data, gradient)
@@ -136,9 +136,9 @@ program test_dropblock3d_layer
   end select
 
 
-!!!-----------------------------------------------------------------------------
-!!! check output request using rank 1 and rank 2 arrays is consistent
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! check output request using rank 1 and rank 2 arrays is consistent
+!-------------------------------------------------------------------------------
   call db_layer%get_output(output_1d)
   call db_layer%get_output(output_2d)
   if(any(abs(output_1d - reshape(output_2d, [size(output_2d)])) .gt. 1.E-6))then
@@ -147,9 +147,9 @@ program test_dropblock3d_layer
   end if
 
 
-!!!-----------------------------------------------------------------------------
-!!! Test file I/O operations
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Test file I/O operations
+!-------------------------------------------------------------------------------
   write(*,*) "Testing file I/O operations..."
 
   ! Create a temporary file for testing
@@ -186,9 +186,9 @@ program test_dropblock3d_layer
   close(unit, status='delete')
 
 
-!!!-----------------------------------------------------------------------------
-!!! check for any failed tests
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! check for any failed tests
+!-------------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_dropblock3d_layer passed all tests'

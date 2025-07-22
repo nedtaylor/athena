@@ -227,6 +227,8 @@ contains
     this%type = "pool"
     this%input_rank = 4
     this%output_rank = 4
+    if(allocated(this%pool)) deallocate(this%pool)
+    if(allocated(this%strd)) deallocate(this%strd)
     allocate( &
          this%pool(this%input_rank-1), &
          this%strd(this%input_rank-1) &

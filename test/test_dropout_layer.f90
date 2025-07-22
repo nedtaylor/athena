@@ -127,9 +127,9 @@ program test_dropout_layer
      write(0,*) 'output_1d and output_2d are not consistent'
   end if
 
-!!!-----------------------------------------------------------------------------
-!!! Test file I/O operations
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Test file I/O operations
+!-------------------------------------------------------------------------------
   write(*,*) "Testing file I/O operations..."
 
   ! Create a temporary file for testing
@@ -166,9 +166,9 @@ program test_dropout_layer
   open(newunit=unit, file='test_dropout_layer.tmp', status='old')
   close(unit, status='delete')
 
-!!!-----------------------------------------------------------------------------
-!!! check for any failed tests
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! check for any failed tests
+!-------------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_dropout_layer passed all tests'

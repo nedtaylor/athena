@@ -532,8 +532,12 @@ contains
     real(real32), dimension(this%num_params) :: gradients
     !! Gradients of the layer
 
-    gradients = [ sum(this%dp, dim=2) / this%batch_size, &
-         sum(this%db, dim=2) / this%batch_size ]
+    if(this%has_bias)then
+       gradients = [ sum(this%dp, dim=2) / this%batch_size, &
+            sum(this%db, dim=2) / this%batch_size ]
+    else
+       gradients = [ sum(this%dp, dim=2) / this%batch_size ]
+    end if
 
     if(present(clip_method)) call clip_method%apply(size(gradients),gradients)
 
@@ -558,18 +562,22 @@ contains
     select rank(gradients)
     rank(0)
        this%dp = gradients
-       this%db = gradients
+       if(this%has_bias) this%db = gradients
     rank(1)
-       this%dp = spread( &
-            gradients(1:this%num_params - size(this%db,1)), &
-            2, &
-            this%batch_size &
-       )
-       this%db = spread( &
-            gradients(this%num_params - size(this%db,1) + 1:), &
-            2, &
-            this%batch_size &
-       )
+       if(this%has_bias)then
+          this%dp = spread( &
+               gradients(1:this%num_params - size(this%db,1)), &
+               2, &
+               this%batch_size &
+          )
+          this%db = spread( &
+               gradients(this%num_params - size(this%db,1) + 1:), &
+               2, &
+               this%batch_size &
+          )
+       else
+          this%dp = spread(gradients(1:this%num_params), 2, this%batch_size)
+       end if
     end select
 
   end subroutine set_gradients

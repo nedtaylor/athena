@@ -370,6 +370,8 @@ contains
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
     this%output_shape = [this%num_vertex_features(this%num_time_steps), 0]
     this%num_params = this%get_num_params()
+    if(allocated(this%weight_shape)) deallocate(this%weight_shape)
+    if(allocated(this%bias_shape)) deallocate(this%bias_shape)
     allocate(this%weight_shape(2,this%num_time_steps))
     do t = 1, this%num_time_steps
        this%weight_shape(:,t) = &

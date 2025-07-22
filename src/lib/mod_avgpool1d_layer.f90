@@ -214,6 +214,8 @@ contains
     this%type = "pool"
     this%input_rank = 2
     this%output_rank = 2
+    if(allocated(this%pool)) deallocate(this%pool)
+    if(allocated(this%strd)) deallocate(this%strd)
     allocate( &
          this%pool(this%input_rank-1), &
          this%strd(this%input_rank-1) &
@@ -311,7 +313,7 @@ contains
     !! Temporary integer
     integer, dimension(1) :: pool_size, stride
     !! Pool size and stride
-    integer, dimension(3) :: input_shape
+    integer, dimension(2) :: input_shape
     !! Input shape
     character(256) :: buffer, tag, err_msg
     !! Buffer for reading lines, tag for identifying lines, error message

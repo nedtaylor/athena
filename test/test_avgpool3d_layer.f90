@@ -3,11 +3,14 @@ program test_avgpool3d_layer
        avgpool3d_layer_type, &
        base_layer_type, &
        learnable_layer_type
+  use athena__avgpool3d_layer, only: read_avgpool3d_layer
   use athena__misc_types, only: array5d_type
   implicit none
 
   class(base_layer_type), allocatable :: pool_layer
+  class(base_layer_type), allocatable :: read_layer
   integer, parameter :: num_channels = 3, pool = 3, stride = 3, width = 9
+  integer :: unit
   real, allocatable, dimension(:) :: output_1d
   real, allocatable, dimension(:,:) :: output_2d
   real, allocatable, dimension(:,:,:,:,:) :: input_data, output, gradient, &
@@ -32,9 +35,10 @@ program test_avgpool3d_layer
      write(0,*) 'avgpool3d layer has wrong name'
   end if
 
-!!!-----------------------------------------------------------------------------
 
-  !! check layer type
+!-------------------------------------------------------------------------------
+! check layer type
+!-------------------------------------------------------------------------------
   select type(pool_layer)
   type is(avgpool3d_layer_type)
      !! check pool size
@@ -59,9 +63,10 @@ program test_avgpool3d_layer
      write(0,*) 'avgpool3d layer has wrong type'
   end select
 
-!!!-----------------------------------------------------------------------------
 
-  !! initialise width and output width
+!-------------------------------------------------------------------------------
+! initialise width and output width
+!-------------------------------------------------------------------------------
   output_width = floor( (width - pool)/real(stride)) + 1
   max_loc = floor(width / 2.0) + mod(width, 2)
 
@@ -73,9 +78,10 @@ program test_avgpool3d_layer
        stride = stride &
   )
 
-!!!-----------------------------------------------------------------------------
 
-  !! check layer input and output shape based on input layer
+!-------------------------------------------------------------------------------
+! check layer input and output shape based on input layer
+!-------------------------------------------------------------------------------
   call pool_layer%init(shape(input_data(:,:,:,:,1)), batch_size=1)
   select type(pool_layer)
   type is(avgpool3d_layer_type)
@@ -146,9 +152,10 @@ program test_avgpool3d_layer
      write(*,*) 'avgpool2d layer output pass failed'
   end if
 
-!!!-----------------------------------------------------------------------------
 
-  !! run backward pass
+!-------------------------------------------------------------------------------
+! run backward pass
+!-------------------------------------------------------------------------------
   allocate(gradient, source = output)
   call pool_layer%backward(input_data, gradient)
   allocate(di_compare(width,width,width,num_channels,1), source = 0.0)
@@ -243,9 +250,49 @@ program test_avgpool3d_layer
      end if
   end select
 
-!!!-----------------------------------------------------------------------------
-!!! check for any failed tests
-!!!-----------------------------------------------------------------------------
+
+!-------------------------------------------------------------------------------
+! Test file I/O operations
+!-------------------------------------------------------------------------------
+  write(*,*) "Testing file I/O operations..."
+
+  ! Create a temporary file for testing
+  open(newunit=unit, file='test_avgpool3d_layer.tmp', &
+       status='replace', action='write')
+  
+  ! Write layer to file
+  write(unit,'("AVGPOOL3D")')
+  call pool_layer%print_to_unit(unit)
+  write(unit,'("END AVGPOOL3D")')
+  close(unit)
+
+  ! Read layer from file
+  open(newunit=unit, file='test_avgpool3d_layer.tmp', &
+       status='old', action='read')
+  read(unit,*) ! Skip first line
+  read_layer = read_avgpool3d_layer(unit)
+  close(unit)
+
+  ! Check that read layer has correct properties
+  select type(read_layer)
+  type is (avgpool3d_layer_type)
+     if (.not. read_layer%name .eq. 'avgpool3d') then
+        success = .false.
+        write(0,*) 'read avgpool3d layer has wrong name'
+     end if
+  class default
+     success = .false.
+     write(0,*) 'read layer is not avgpool3d_layer_type'
+  end select
+
+  ! Clean up temporary file
+  open(newunit=unit, file='test_avgpool3d_layer.tmp', status='old')
+  close(unit, status='delete')
+
+
+!-------------------------------------------------------------------------------
+! check for any failed tests
+!-------------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_avgpool3d_layer passed all tests'

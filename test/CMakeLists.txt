@@ -25,8 +25,9 @@ foreach(execid
   pad1d_layer
   pad2d_layer
   pad3d_layer
-  activations
   activation_layer
+  kipf_msgpass_layer
+  activations
   initialisers
   padding
   shuffle

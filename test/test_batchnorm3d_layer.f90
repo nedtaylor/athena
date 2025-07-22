@@ -28,17 +28,17 @@ program test_batchnorm3d_layer
   !    module procedure assign_base
   ! end interface
 
-!!!-----------------------------------------------------------------------------
-!!! Initialise random number generator with a seed
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Initialise random number generator with a seed
+!-------------------------------------------------------------------------------
   call random_seed(size = seed_size)
   allocate(seed(seed_size), source=0)
   call random_seed(put = seed)
 
 
-!!!-----------------------------------------------------------------------------
-!!! set up layer
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! set up layer
+!-------------------------------------------------------------------------------
   bn_layer = batchnorm3d_layer_type( &
        input_shape = [width, width, width, num_channels], &
        batch_size = batch_size, &
@@ -176,9 +176,9 @@ program test_batchnorm3d_layer
   end select
 
 
-!!!-----------------------------------------------------------------------------
-!!! check handling of layer parameters and gradients
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! check handling of layer parameters and gradients
+!-------------------------------------------------------------------------------
   select type(bn_layer)
   class is(learnable_layer_type)
      !! check parameters
@@ -216,9 +216,9 @@ program test_batchnorm3d_layer
   end select
 
 
-!!!-----------------------------------------------------------------------------
-!!! check layer operations
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! check layer operations
+!-------------------------------------------------------------------------------
   bn_layer1 = batchnorm3d_layer_type(input_shape=[2,2,2,1], batch_size=1)
   bn_layer2 = batchnorm3d_layer_type(input_shape=[2,2,2,1], batch_size=1)
   select type(bn_layer1)
@@ -261,9 +261,9 @@ program test_batchnorm3d_layer
   end select
 
 
-!!!-----------------------------------------------------------------------------
-!!! check output request using rank 1 and rank 2 arrays is consistent
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! check output request using rank 1 and rank 2 arrays is consistent
+!-------------------------------------------------------------------------------
   call bn_layer%get_output(output_1d)
   call bn_layer%get_output(output_2d)
   if(any(abs(output_1d - reshape(output_2d, [size(output_2d)])) .gt. 1.E-6))then
@@ -272,9 +272,9 @@ program test_batchnorm3d_layer
   end if
 
 
-!!!-----------------------------------------------------------------------------
-!!! Test file I/O operations
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Test file I/O operations
+!-------------------------------------------------------------------------------
   write(*,*) "Testing file I/O operations..."
 
   ! Create a temporary file for testing
@@ -311,9 +311,9 @@ program test_batchnorm3d_layer
   close(unit, status='delete')
 
 
-!!!-----------------------------------------------------------------------------
-!!! check for any failed tests
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! check for any failed tests
+!-------------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_batchnorm3d_layer passed all tests'
@@ -324,9 +324,9 @@ program test_batchnorm3d_layer
 
 contains
 
-!!!-----------------------------------------------------------------------------
-!!! compare three layers
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! compare three layers
+!-------------------------------------------------------------------------------
   subroutine compare_batchnorm3d_layers(layer1, layer2, layer3, success)
     type(batchnorm3d_layer_type), intent(in) :: layer1, layer2, layer3
     logical, intent(inout) :: success
