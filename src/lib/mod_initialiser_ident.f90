@@ -74,7 +74,6 @@ contains
              ndim = size(spacing)
              if(ndim.eq.1)then
                 do i = 1, size(input)/spacing(1)
-                   write(*,*) i, 1 + ( i - 1 ) * ( spacing(1) + 1)
                    input(1 + ( i - 1 ) * ( spacing(1) + 1) ) = 1._real32
                 end do
              elseif(ndim.gt.1)then
@@ -90,11 +89,15 @@ contains
                         )
                    iprime(ndim) = iprime(ndim) * product(spacing(:ndim-1))
                    do j = ndim - 1, 1, -1
-                      iprime(j) = &
-                           mod( &
-                                (i - 1), &
-                                sum(iprime(j+1:)) &
-                           ) / product(spacing(:j-1))
+                      if(sum(iprime(j+1:)).eq.0) then
+                         iprime(j) = 0
+                      else
+                         iprime(j) = &
+                              mod( &
+                                   (i - 1), &
+                                   sum(iprime(j+1:)) &
+                              ) / product(spacing(:j-1))
+                      end if
                       iprime(j) = iprime(j) * product(spacing(:j-1))
                   end do
                   input(1 + sum(iprime * ( spacing(1) + iprime2 ))) = 1._real32
