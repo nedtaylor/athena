@@ -436,6 +436,11 @@ contains
     this%input_rank = 4
     this%output_rank = 4
     this%has_bias = .true.
+    if(allocated(this%knl)) deallocate(this%knl)
+    if(allocated(this%stp)) deallocate(this%stp)
+    if(allocated(this%hlf)) deallocate(this%hlf)
+    if(allocated(this%pad)) deallocate(this%pad)
+    if(allocated(this%cen)) deallocate(this%cen)
     allocate( &
          this%knl(this%input_rank-1), &
          this%stp(this%input_rank-1), &
@@ -458,6 +463,7 @@ contains
        )
        this%pad = this%hlf
     end select
+    if(allocated(this%transfer)) deallocate(this%transfer)
     allocate(this%transfer, &
          source=activation_setup(activation_function, activation_scale) &
     )
@@ -702,7 +708,7 @@ contains
     ! Write weights and biases
     !---------------------------------------------------------------------------
     write(unit,'("WEIGHTS")')
-    do l=1,this%num_filters
+    do l = 1, this%num_filters
        write(unit,'(5(E16.8E2))', advance="no") this%weight(:,:,:,:,l)
        if(mod(size(this%weight(:,:,:,:,l)),5).eq.0) write(unit,*)
        write(unit,'(E16.8E2)') this%bias(l)
@@ -716,7 +722,7 @@ contains
 !###############################################################################
   subroutine read_conv3d(this, unit, verbose)
     !! Read 3D convolutional layer from file
-    use athena__tools_infile, only: assign_val, assign_vec
+    use athena__tools_infile, only: assign_val, assign_vec, move
     use athena__misc, only: to_lower, to_upper, icount
     implicit none
 
@@ -733,14 +739,12 @@ contains
     !! Status of read
     integer :: verbose_ = 0
     !! Verbosity level
-    integer :: j, k, l, c, itmp1
+    integer :: j, k, l, c, itmp1, iline, num_params_old
     !! Loop variables and temporary integer
     integer :: num_filters, num_inputs
     !! Number of filters and inputs
     real(real32) :: activation_scale
     !! Activation scale
-    logical :: found_weights = .false.
-    !! Flag for found weights
     character(14) :: kernel_initialiser='', bias_initialiser=''
     !! Kernel and bias initialisers
     character(20) :: padding, activation_function
@@ -753,6 +757,8 @@ contains
     !! Input shape
     real(real32), allocatable, dimension(:) :: data_list
     !! Data list
+    integer :: param_line, final_line
+    !! Parameter line number
 
 
     ! Initialise optional arguments
@@ -760,9 +766,11 @@ contains
     if(present(verbose)) verbose_ = verbose
 
 
-    !---------------------------------------------------------------------------
     ! Loop over tags in layer card
     !---------------------------------------------------------------------------
+    iline = 0
+    param_line = 0
+    final_line = 0
     tag_loop: do
 
        ! Check for end of file
@@ -779,9 +787,11 @@ contains
        ! Check for end of layer card
        !------------------------------------------------------------------------
        if(trim(adjustl(buffer)).eq."END "//to_upper(trim(this%name)))then
+          final_line = iline
           backspace(unit)
           exit tag_loop
        end if
+       iline = iline + 1
 
        tag=trim(adjustl(buffer))
        if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
@@ -809,10 +819,9 @@ contains
        case("BIAS_INITIALISER")
           call assign_val(buffer, bias_initialiser, itmp1)
        case("WEIGHTS")
-          found_weights = .true.
           kernel_initialiser = 'zeros'
           bias_initialiser   = 'zeros'
-          exit tag_loop
+          param_line = iline
        case default
           ! Don't look for "e" due to scientific notation of numbers
           ! ... i.e. exponent (E+00)
@@ -847,10 +856,12 @@ contains
 
     ! Check if WEIGHTS card was found
     !---------------------------------------------------------------------------
-    if(.not.found_weights)then
+    if(param_line.eq.0)then
        write(0,*) "WARNING: WEIGHTS card in "//to_upper(trim(this%name))//" not found"
     else
-       do l=1,num_filters
+       num_params_old = 0
+       call move(unit, param_line - iline, iostat=stat)
+       do l = 1, num_filters
           num_inputs = product(this%knl) + 1 !+1 for bias
           allocate(data_list(num_inputs), source=0._real32)
           c = 1
@@ -862,11 +873,11 @@ contains
              read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
              c = c + k
           end do data_concat_loop
-          this%weight(:,:,:,:,l) = &
-               reshape(&
-                    data_list(1:num_inputs-1),&
-                    shape(this%weight(:,:,:,:,l)))
-          this%bias(l) = data_list(num_inputs)
+          this%params( &
+               num_params_old+1:num_params_old+num_inputs-1 &
+          ) = data_list(1:num_inputs-1)
+          this%params(this%num_params - this%num_filters + l) = data_list(num_inputs)
+          num_params_old = num_params_old + num_inputs - 1
           deallocate(data_list)
        end do
 
@@ -884,6 +895,7 @@ contains
 
     ! Check for end of layer card
     !---------------------------------------------------------------------------
+    call move(unit, final_line - iline, iostat=stat)
     read(unit,'(A)') buffer
     if(trim(adjustl(buffer)).ne."END "//to_upper(trim(this%name)))then
        write(0,*) trim(adjustl(buffer))

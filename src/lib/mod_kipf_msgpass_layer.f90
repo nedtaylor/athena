@@ -564,12 +564,12 @@ contains
     real(real32), allocatable, dimension(:) :: data_list
     !! Data list
 
+
     ! Initialise optional arguments
     !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
 
 
-    !---------------------------------------------------------------------------
     ! Loop over tags in layer card
     !---------------------------------------------------------------------------
     tag_loop: do

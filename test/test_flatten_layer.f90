@@ -1,11 +1,14 @@
 program test_flatten_layer
   use athena__constants, only: real32
-  use athena__flatten_layer, only: flatten_layer_type
+  use athena__flatten_layer, only: flatten_layer_type, read_flatten_layer
+  use athena__base_layer, only: base_layer_type
   use athena__misc_types, only: array3d_type, array4d_type, array5d_type
   implicit none
 
   type(flatten_layer_type) :: flatten_layer
+  class(base_layer_type), allocatable :: read_layer
   integer, parameter :: batch_size = 1, width = 8, num_channels = 3
+  integer :: unit
   real(real32), allocatable, dimension(:,:,:) :: input_data3d
   real(real32), allocatable, dimension(:,:,:,:) :: input_data4d
   real(real32), allocatable, dimension(:,:,:,:,:) :: input_data5d
@@ -253,6 +256,45 @@ program test_flatten_layer
 
 
 
+
+
+!!!-----------------------------------------------------------------------------
+!!! Test file I/O operations
+!!!-----------------------------------------------------------------------------
+  write(*,*) "Testing file I/O operations..."
+
+  ! Create a temporary file for testing
+  open(newunit=unit, file='test_flatten_layer.tmp', &
+       status='replace', action='write')
+  
+  ! Write layer to file
+  write(unit,'("FLATTEN")')
+  call flatten_layer%print_to_unit(unit)
+  write(unit,'("END FLATTEN")')
+  close(unit)
+
+  ! Read layer from file
+  open(newunit=unit, file='test_flatten_layer.tmp', &
+       status='old', action='read')
+  read(unit,*) ! Skip first line
+  read_layer = read_flatten_layer(unit)
+  close(unit)
+
+  ! Check that read layer has correct properties
+  select type(read_layer)
+  type is (flatten_layer_type)
+     if (.not. read_layer%name .eq. 'flatten') then
+        success = .false.
+        write(0,*) 'read flatten layer has wrong name'
+     end if
+  class default
+     success = .false.
+     write(0,*) 'read layer is not flatten_layer_type'
+  end select
+
+  ! Clean up temporary file
+  open(newunit=unit, file='test_flatten_layer.tmp', status='old')
+  close(unit, status='delete')
 
 
 !!!-----------------------------------------------------------------------------

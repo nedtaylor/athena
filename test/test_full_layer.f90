@@ -2,9 +2,12 @@ program test_full_layer
   use athena, only: &
        full_layer_type, &
        base_layer_type
+  use athena__full_layer, only: read_full_layer
   implicit none
 
   class(base_layer_type), allocatable :: full_layer1, full_layer2, full_layer3
+  class(base_layer_type), allocatable :: read_layer
+  integer :: unit
   logical :: success = .true.
 
 
@@ -100,6 +103,45 @@ program test_full_layer
      success = .false.
      write(0,*) 'full layer has wrong type'
   end select
+
+
+!!!-----------------------------------------------------------------------------
+!!! Test file I/O operations
+!!!-----------------------------------------------------------------------------
+  write(*,*) "Testing file I/O operations..."
+
+  ! Create a temporary file for testing
+  open(newunit=unit, file='test_full_layer.tmp', &
+       status='replace', action='write')
+  
+  ! Write layer to file
+  write(unit,'("FULL")')
+  call full_layer1%print_to_unit(unit)
+  write(unit,'("END FULL")')
+  close(unit)
+
+  ! Read layer from file
+  open(newunit=unit, file='test_full_layer.tmp', &
+       status='old', action='read')
+  read(unit,*) ! Skip first line
+  read_layer = read_full_layer(unit)
+  close(unit)
+
+  ! Check that read layer has correct properties
+  select type(read_layer)
+  type is (full_layer_type)
+     if (.not. read_layer%name .eq. 'full') then
+        success = .false.
+        write(0,*) 'read full layer has wrong name'
+     end if
+  class default
+     success = .false.
+     write(0,*) 'read layer is not full_layer_type'
+  end select
+
+  ! Clean up temporary file
+  open(newunit=unit, file='test_full_layer.tmp', status='old')
+  close(unit, status='delete')
 
 
 !!!-----------------------------------------------------------------------------

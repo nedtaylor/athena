@@ -22,7 +22,7 @@ program test_pad2d_layer
   real(real32), allocatable, dimension(:,:,:,:) :: gradient_4d
 
   integer :: i, j, k, l
-  integer :: unit_num = 10
+  integer :: unit
   integer :: expected_width, expected_height
 
   ! Random seed setup
@@ -372,21 +372,21 @@ program test_pad2d_layer
   write(*,*) "Testing file I/O operations..."
 
   ! Create a temporary file for testing
-  open(unit=unit_num, file='test_pad2d_layer.tmp', &
+  open(newunit=unit, file='test_pad2d_layer.tmp', &
        status='replace', action='write')
   
   ! Write layer to file
-  write(unit_num,'("PAD2D")')
-  call pad2d_layer%print_to_unit(unit_num)
-  write(unit_num,'("END PAD2D")')
-  close(unit_num)
+  write(unit,'("PAD2D")')
+  call pad2d_layer%print_to_unit(unit)
+  write(unit,'("END PAD2D")')
+  close(unit)
 
   ! Read layer from file
-  open(unit=unit_num, file='test_pad2d_layer.tmp', &
+  open(newunit=unit, file='test_pad2d_layer.tmp', &
        status='old', action='read')
-  read(unit_num,*) ! Skip first line
-  read_layer = read_pad2d_layer(unit_num)
-  close(unit_num)
+  read(unit,*) ! Skip first line
+  read_layer = read_pad2d_layer(unit)
+  close(unit)
 
   ! Check that read layer has correct properties
   select type(read_layer)
@@ -401,8 +401,8 @@ program test_pad2d_layer
   end select
 
   ! Clean up temporary file
-  open(unit=unit_num, file='test_pad2d_layer.tmp', status='old')
-  close(unit_num, status='delete')
+  open(newunit=unit, file='test_pad2d_layer.tmp', status='old')
+  close(unit, status='delete')
 
 
 !!!-----------------------------------------------------------------------------

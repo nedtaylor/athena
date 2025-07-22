@@ -8,6 +8,7 @@ module athena__tools_infile
   !! https://github.com/ExeQuantCode/ARTEMIS
   use athena__constants, only: real32
   use athena__misc, only: grep, icount
+  use athena__io_utils, only: stop_program
   implicit none
 
 
@@ -17,6 +18,7 @@ module athena__tools_infile
   public :: assign_val, assign_vec
   public :: getline, rm_comments
   public :: stop_check
+  public :: move
 
 
   interface assign_val
@@ -365,4 +367,76 @@ contains
   end function stop_check
 !###############################################################################
 
+
+!###############################################################################
+  subroutine move(unit, change, iostat, err_msg)
+    !! Move current position in file based on relative change
+    implicit none
+
+    ! Arguments
+    integer, intent(in) :: unit
+    !! Unit to read from
+    integer, intent(in) :: change
+    !! Relative change in position
+    integer, intent(out), optional :: iostat
+    !! I/O status
+    character(*), intent(out), optional :: err_msg
+    !! Error message
+
+    ! Local variables
+    integer :: iostat_
+    !! I/O status
+    integer :: i
+    !! Loop index
+    character(256) :: err_msg_
+    !! Error message
+
+    if(change.eq.0) return
+    inquire(unit = unit, iostat = iostat_)
+    if(iostat_ .ne. 0) then
+       write(err_msg_, '(A,I0)') &
+            'ERROR: cannot move in file, unit ', unit
+       if(present(iostat)) iostat = iostat_
+       if(present(err_msg))then
+          err_msg = err_msg_
+       else
+          call stop_program(err_msg_)
+       end if
+       return
+    end if
+    if(change.gt.0)then
+       do i = 1, change
+         read(unit, '(A)', iostat = iostat_)
+         if(iostat_ .ne. 0) then
+            write(err_msg_, '(A,I0)') &
+                 'ERROR: cannot move forward in file, unit ', unit
+            if(present(iostat)) iostat = iostat_
+            if(present(err_msg))then
+               err_msg = err_msg_
+            else
+               call stop_program(err_msg_)
+            end if
+            return
+         end if
+       end do
+    else
+       do i = 1, abs(change)
+         backspace(unit)
+         if(iostat .ne. 0) then
+            write(err_msg_, '(A,I0)') &
+                 'ERROR: cannot move backward in file, unit ', unit
+            if(present(iostat)) iostat = iostat_
+            if(present(err_msg))then
+               err_msg = err_msg_
+            else
+               call stop_program(err_msg_)
+            end if
+            return
+         end if
+       end do
+    end if
+
+  end subroutine move
+!###############################################################################
+    
 end module athena__tools_infile

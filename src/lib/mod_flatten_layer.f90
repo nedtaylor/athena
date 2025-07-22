@@ -411,7 +411,7 @@ contains
 !###############################################################################
   subroutine read_flatten(this, unit, verbose)
     !! Read flattening layer from file
-    use athena__tools_infile, only: assign_val, assign_vec
+    use athena__tools_infile, only: assign_val, assign_vec, get_val
     use athena__misc, only: to_lower, to_upper, icount
     implicit none
 
@@ -470,6 +470,8 @@ contains
        !------------------------------------------------------------------------
        select case(trim(tag))
        case("INPUT_SHAPE")
+          itmp1 = icount(get_val(buffer))
+          allocate(input_shape(itmp1), source=0)
           call assign_vec(buffer, input_shape, itmp1)
        case("INPUT_RANK")
           call assign_val(buffer, input_rank, itmp1)
@@ -493,12 +495,18 @@ contains
        end select
     end do tag_loop
 
-    if(input_rank.eq.0.and.allocated(input_shape))then
-       input_rank = size(input_shape)
-    else
-       call stop_program( &
-            "input_rank or input_shape must be provided to flatten layer" &
-       )
+    if(allocated(input_shape))then
+       if(input_rank.eq.0)then
+          input_rank = size(input_shape)
+       elseif(input_rank.ne.size(input_shape))then
+          write(err_msg,'("input_rank (",I0,") does not match input_shape (",I0,")")') &
+               input_rank, size(input_shape)
+          call stop_program(err_msg)
+          return
+       end if
+    elseif(input_rank.eq.0)then
+       write(err_msg,'("input_rank must be provided if input_shape is not")')
+       call stop_program(err_msg)
        return
     end if
 
@@ -541,7 +549,7 @@ contains
     !! Verbosity level
 
     if(present(verbose)) verbose_ = verbose
-    allocate(layer, source=flatten_layer_type())
+    allocate(layer, source=flatten_layer_type(input_rank=1))
     call layer%read(unit, verbose=verbose_)
 
   end function read_flatten_layer

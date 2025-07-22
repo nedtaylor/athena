@@ -28,7 +28,7 @@ program test_activation_layer
   real(real32), allocatable, dimension(:,:,:,:,:) :: gradient_4d
 
   integer :: i, j, k, l, m
-  integer :: unit_num = 10
+  integer :: unit
 
   ! Random seed setup
   integer :: seed_size
@@ -353,20 +353,20 @@ program test_activation_layer
   write(*,*) "Testing file I/O operations..."
 
   ! Create a temporary file for testing
-  open(unit=unit_num, file='test_actv_layer.tmp', &
+  open(newunit=unit, file='test_actv_layer.tmp', &
        status='replace', action='write')
   
   ! Write layer to file
-  write(unit_num,'("ACTV")')
-  call actv_layer%print_to_unit(unit_num)
-  write(unit_num,'("END ACTV")')
-  close(unit_num)
+  write(unit,'("ACTV")')
+  call actv_layer%print_to_unit(unit)
+  write(unit,'("END ACTV")')
+  close(unit)
 
   ! Read layer from file
-  open(unit=unit_num, file='test_actv_layer.tmp', status='old', action='read')
-  read(unit_num,*) ! Skip first line
-  read_layer = read_actv_layer(unit_num)
-  close(unit_num)
+  open(newunit=unit, file='test_actv_layer.tmp', status='old', action='read')
+  read(unit,*) ! Skip first line
+  read_layer = read_actv_layer(unit)
+  close(unit)
 
   ! Check that read layer has correct properties
   select type(read_layer)
@@ -381,8 +381,8 @@ program test_activation_layer
   end select
 
   ! Clean up temporary file
-  open(unit=unit_num, file='test_actv_layer.tmp', status='old')
-  close(unit_num, status='delete')
+  open(newunit=unit, file='test_actv_layer.tmp', status='old')
+  close(unit, status='delete')
 
 
 !!!-----------------------------------------------------------------------------

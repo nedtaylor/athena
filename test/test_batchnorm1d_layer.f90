@@ -4,10 +4,13 @@ program test_batchnorm1d_layer
        base_layer_type, &
        learnable_layer_type
   use athena__misc_types, only: array3d_type
+  use athena__batchnorm1d_layer, only: read_batchnorm1d_layer
   implicit none
 
   class(base_layer_type), allocatable :: bn_layer, bn_layer1, bn_layer2
+  class(base_layer_type), allocatable :: read_layer
   integer, parameter :: num_channels = 3, width = 8, batch_size = 5
+  integer :: unit
   real, parameter :: gamma  = 0.5, beta = 0.3
   real, allocatable, dimension(:,:) :: input_data, output, gradient
   real, allocatable, dimension(:) :: output_1d, params1, params2
@@ -347,6 +350,45 @@ program test_batchnorm1d_layer
      success = .false.
      write(0,*) 'output_1d and output_2d are not consistent'
   end if
+
+
+!!!-----------------------------------------------------------------------------
+!!! Test file I/O operations
+!!!-----------------------------------------------------------------------------
+  write(*,*) "Testing file I/O operations..."
+
+  ! Create a temporary file for testing
+  open(newunit=unit, file='test_batchnorm1d_layer.tmp', &
+       status='replace', action='write')
+  
+  ! Write layer to file
+  write(unit,'("BATCHNORM1D")')
+  call bn_layer%print_to_unit(unit)
+  write(unit,'("END BATCHNORM1D")')
+  close(unit)
+
+  ! Read layer from file
+  open(newunit=unit, file='test_batchnorm1d_layer.tmp', &
+       status='old', action='read')
+  read(unit,*) ! Skip first line
+  read_layer = read_batchnorm1d_layer(unit)
+  close(unit)
+
+  ! Check that read layer has correct properties
+  select type(read_layer)
+  type is (batchnorm1d_layer_type)
+     if (.not. read_layer%name .eq. 'batchnorm1d') then
+        success = .false.
+        write(0,*) 'read batchnorm1d layer has wrong name'
+     end if
+  class default
+     success = .false.
+     write(0,*) 'read layer is not batchnorm1d_layer_type'
+  end select
+
+  ! Clean up temporary file
+  open(newunit=unit, file='test_batchnorm1d_layer.tmp', status='old')
+  close(unit, status='delete')
 
 
 !!!-----------------------------------------------------------------------------

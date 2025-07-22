@@ -4,11 +4,14 @@ program test_conv1d_layer
        input_layer_type, &
        base_layer_type, &
        learnable_layer_type
+  use athena__conv1d_layer, only: read_conv1d_layer
   implicit none
 
   class(base_layer_type), allocatable :: conv_layer, conv_layer1, conv_layer2
   class(base_layer_type), allocatable :: input_layer
+  class(base_layer_type), allocatable :: read_layer
   integer, parameter :: num_filters = 32, kernel_size = 3
+  integer :: unit
   real, allocatable, dimension(:,:,:) :: input_data, output
   real, parameter :: tol = 1.E-7
   logical :: success = .true.
@@ -260,6 +263,45 @@ program test_conv1d_layer
      success = .false.
      write(0,*) 'conv1d layer has wrong type'
   end select
+
+
+!!!-----------------------------------------------------------------------------
+!!! Test file I/O operations
+!!!-----------------------------------------------------------------------------
+  write(*,*) "Testing file I/O operations..."
+
+  ! Create a temporary file for testing
+  open(newunit=unit, file='test_conv1d_layer.tmp', &
+       status='replace', action='write')
+  
+  ! Write layer to file
+  write(unit,'("CONV1D")')
+  call conv_layer%print_to_unit(unit)
+  write(unit,'("END CONV1D")')
+  close(unit)
+
+  ! Read layer from file
+  open(newunit=unit, file='test_conv1d_layer.tmp', &
+       status='old', action='read')
+  read(unit,*) ! Skip first line
+  read_layer = read_conv1d_layer(unit)
+  close(unit)
+
+  ! Check that read layer has correct properties
+  select type(read_layer)
+  type is (conv1d_layer_type)
+     if (.not. read_layer%name .eq. 'conv1d') then
+        success = .false.
+        write(0,*) 'read conv1d layer has wrong name'
+     end if
+  class default
+     success = .false.
+     write(0,*) 'read layer is not conv1d_layer_type'
+  end select
+
+  ! Clean up temporary file
+  open(newunit=unit, file='test_conv1d_layer.tmp', status='old')
+  close(unit, status='delete')
 
 
 !!!-----------------------------------------------------------------------------

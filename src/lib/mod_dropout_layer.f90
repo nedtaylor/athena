@@ -378,7 +378,7 @@ contains
     !! Number of unique masks
     real(real32) :: rate
     !! Drop rate
-    integer, dimension(3) :: input_shape
+    integer, dimension(1) :: input_shape
     !! Input shape
     character(256) :: buffer, tag, err_msg
     !! Buffer, tag, and error message

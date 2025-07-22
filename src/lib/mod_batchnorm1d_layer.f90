@@ -475,6 +475,7 @@ contains
     do m = 1, this%num_channels
        write(unit,'(5(E16.8E2))') this%beta(m)
     end do
+    write(unit,'("END BETA")')
 
   end subroutine print_to_unit_batchnorm1d
 !###############################################################################
@@ -483,7 +484,7 @@ contains
 !###############################################################################
   subroutine read_batchnorm1d(this, unit, verbose)
     !! Read 1D batch normalisation layer from file
-    use athena__tools_infile, only: assign_val, assign_vec
+    use athena__tools_infile, only: assign_val, assign_vec, move
     use athena__misc, only: to_lower, to_upper, icount
     implicit none
 
@@ -498,23 +499,22 @@ contains
     ! Local variables
     integer :: stat, verbose_ = 0
     !! File status and verbosity level
-    integer :: itmp1, c, i, j, k
+    integer :: i, j, k, c, itmp1, iline, final_line
     !! Temporary integers and loop indices
     integer :: num_channels
     !! Number of channels
     real(real32) :: momentum = 0._real32, epsilon = 1.E-5_real32
     !! Momentum and epsilon
-    logical :: found_gamma=.false., found_beta=.false.
-    !! Flags for gamma and beta
     character(14) :: kernel_initialiser='', bias_initialiser=''
     !! Initialisers
     character(256) :: buffer, tag, err_msg
     !! Buffer, tag, and error message
-
-    integer, dimension(3) :: input_shape
+    integer, dimension(2) :: input_shape
     !! Input shape
     real(real32), allocatable, dimension(:) :: data_list
     !! Data list
+    integer, dimension(2) :: param_lines
+    !! Lines where parameters are found
 
 
     ! Initialise optional arguments
@@ -524,6 +524,9 @@ contains
 
     ! Loop over tags in layer card
     !---------------------------------------------------------------------------
+    iline = 0
+    param_lines = 0
+    final_line = 0
     tag_loop: do
 
        ! Check for end of file
@@ -540,11 +543,13 @@ contains
        ! Check for end of layer card
        !------------------------------------------------------------------------
        if(trim(adjustl(buffer)).eq."END "//to_upper(trim(this%name)))then
+          final_line = iline
           backspace(unit)
           exit tag_loop
        end if
+       iline = iline + 1
 
-       tag=trim(adjustl(buffer))
+       tag = trim(adjustl(buffer))
        if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
 
        ! Read parameters from save file
@@ -556,20 +561,20 @@ contains
           call assign_val(buffer, momentum, itmp1)
        case("EPSILON")
           call assign_val(buffer, epsilon, itmp1)
+       case("NUM_CHANNELS")
+          call assign_val(buffer, num_channels, itmp1)
+          write(0,*) "NUM_CHANNELS and INPUT_SHAPE are conflicting parameters"
+          write(0,*) "NUM_CHANNELS will be ignored"
        case("KERNEL_INITIALISER")
           call assign_val(buffer, kernel_initialiser, itmp1)
        case("BIAS_INITIALISER")
           call assign_val(buffer, bias_initialiser, itmp1)
        case("GAMMA")
-          found_gamma = .true.
           kernel_initialiser = 'zeros'
-          bias_initialiser   = 'zeros'
-          exit tag_loop
+          param_lines(1) = iline
        case("BETA")
-          found_beta = .true.
-          kernel_initialiser = 'zeros'
           bias_initialiser   = 'zeros'
-          exit tag_loop
+          param_lines(2) = iline
        case default
           ! Don't look for "e" due to scientific notation of numbers
           ! ... i.e. exponent (E+00)
@@ -609,35 +614,47 @@ contains
     ! Check if WEIGHTS card was found
     !---------------------------------------------------------------------------
     allocate(data_list(num_channels), source=0._real32)
-    do i=1,2
-       if(found_gamma.or.found_beta)then
-          c = 1
-          k = 1
-          data_list = 0._real32
-          data_concat_loop: do while(c.le.num_channels)
-             read(unit,'(A)',iostat=stat) buffer
-             if(stat.ne.0) exit data_concat_loop
-             k = icount(buffer)
-             read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
-             c = c + k
-          end do data_concat_loop
-          if(found_gamma)then
-             this%gamma = data_list
-             found_gamma = .false.
-          elseif(found_beta)then
-             this%beta = data_list
-             found_beta = .false.
-          end if
+    do i = 2, 1, -1
+       if(param_lines(i).eq.0) cycle
+       call move(unit, param_lines(i) - iline, iostat=stat)
+       iline = param_lines(i) + 1
+       c = 1
+       k = 1
+       data_list = 0._real32
+       data_concat_loop: do while(c.le.num_channels)
+          iline = iline + 1
           read(unit,'(A)',iostat=stat) buffer
-          if(index(trim(adjustl(buffer)),"GAMMA").eq.1) found_gamma = .true.
-          if(index(trim(adjustl(buffer)),"BETA").eq.1) found_beta = .true.
-       end if
+          if(stat.ne.0) exit data_concat_loop
+          k = icount(buffer)
+          read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
+          c = c + k
+       end do data_concat_loop
+       read(unit,'(A)',iostat=stat) buffer
+       select case(i)
+       case(1) ! gamma
+          this%params(1:this%num_channels) = data_list
+          if(trim(adjustl(buffer)).ne."END GAMMA")then
+             write(err_msg,'("END GAMMA not where expected: ",A)') &
+                  trim(adjustl(buffer))
+             call stop_program(err_msg)
+             return
+          end if
+       case(2) ! beta
+          this%params(this%num_channels+1:this%num_channels*2) = data_list
+          if(trim(adjustl(buffer)).ne."END BETA")then
+             write(err_msg,'("END BETA not where expected: ",A)') &
+                  trim(adjustl(buffer))
+             call stop_program(err_msg)
+             return
+          end if
+       end select
     end do
     deallocate(data_list)
 
 
     ! Check for end of layer card
     !---------------------------------------------------------------------------
+    call move(unit, final_line - iline, iostat=stat)
     read(unit,'(A)') buffer
     if(trim(adjustl(buffer)).ne."END "//to_upper(trim(this%name)))then
        write(0,*) trim(adjustl(buffer))

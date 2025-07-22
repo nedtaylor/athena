@@ -3,10 +3,13 @@ program test_dropblock2d_layer
        dropblock2d_layer_type, &
        base_layer_type
   use athena__misc_types, only: array4d_type
+  use athena__dropblock2d_layer, only: read_dropblock2d_layer
   implicit none
 
   class(base_layer_type), allocatable :: db_layer
+  class(base_layer_type), allocatable :: read_layer
   integer, parameter :: num_channels = 3, width = 6
+  integer :: unit
   real, allocatable, dimension(:,:,:,:) :: input_data, output, gradient
   real, allocatable, dimension(:) :: output_1d
   real, allocatable, dimension(:,:) :: output_2d
@@ -150,6 +153,45 @@ program test_dropblock2d_layer
      success = .false.
      write(0,*) 'output_1d and output_2d are not consistent'
   end if
+
+
+!!!-----------------------------------------------------------------------------
+!!! Test file I/O operations
+!!!-----------------------------------------------------------------------------
+  write(*,*) "Testing file I/O operations..."
+
+  ! Create a temporary file for testing
+  open(newunit=unit, file='test_dropblock2d_layer.tmp', &
+       status='replace', action='write')
+  
+  ! Write layer to file
+  write(unit,'("DROPBLOCK2D")')
+  call db_layer%print_to_unit(unit)
+  write(unit,'("END DROPBLOCK2D")')
+  close(unit)
+
+  ! Read layer from file
+  open(newunit=unit, file='test_dropblock2d_layer.tmp', &
+       status='old', action='read')
+  read(unit,*) ! Skip first line
+  read_layer = read_dropblock2d_layer(unit)
+  close(unit)
+
+  ! Check that read layer has correct properties
+  select type(read_layer)
+  type is (dropblock2d_layer_type)
+     if (.not. read_layer%name .eq. 'dropblock2d') then
+        success = .false.
+        write(0,*) 'read dropblock2d layer has wrong name'
+     end if
+  class default
+     success = .false.
+     write(0,*) 'read layer is not dropblock2d_layer_type'
+  end select
+
+  ! Clean up temporary file
+  open(newunit=unit, file='test_dropblock2d_layer.tmp', status='old')
+  close(unit, status='delete')
 
 
 !!!-----------------------------------------------------------------------------
