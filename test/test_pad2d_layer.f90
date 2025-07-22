@@ -247,6 +247,186 @@ program test_pad2d_layer
   end block test_methods_block
 
 
+!!!-----------------------------------------------------------------------------
+! Test comprehensive padding method functionality
+!!!-----------------------------------------------------------------------------
+  write(*,*) "Testing comprehensive padding method functionality..."
+
+  comprehensive_methods_block: block
+    real(real32), allocatable, dimension(:,:,:,:) :: &
+         input_simple, output_simple, output_expected, &
+         input_back, output_back, gradient_out, gradient_expected
+    integer, parameter :: simple_width = 4, simple_height = 4
+    integer, parameter :: simple_channels = 1
+    integer, parameter :: pad_h = 2, pad_w = 2
+    
+    allocate(input_back(simple_width, simple_height, simple_channels, 1))
+    allocate(gradient_expected(simple_width, simple_height, simple_channels, 1))
+    allocate(gradient_out(simple_width + 2 * pad_w, simple_height + 2 * pad_h, simple_channels, 1))
+    input_back(:,:,1,1) = reshape( &
+         [1.0_real32, 5.0_real32,  9.0_real32, 13.0_real32, &
+          2.0_real32, 6.0_real32, 10.0_real32, 14.0_real32, &
+          3.0_real32, 7.0_real32, 11.0_real32, 15.0_real32, &
+          4.0_real32, 8.0_real32, 12.0_real32, 16.0_real32], &
+         [simple_width, simple_height])
+    gradient_out(:,:,1,1) = reshape( &
+         [0.1_real32, 0.2_real32, 0.3_real32, 0.4_real32, &
+          0.5_real32, 0.6_real32, 0.7_real32, 0.8_real32, &
+          0.9_real32, 1.0_real32, 1.1_real32, 1.2_real32, &
+          1.3_real32, 1.4_real32, 1.5_real32, 1.6_real32, &
+          1.7_real32, 1.8_real32, 1.9_real32, 2.0_real32, &
+          2.1_real32, 2.2_real32, 2.3_real32, 2.4_real32, &
+          2.5_real32, 2.6_real32, 2.7_real32, 2.8_real32, &
+          2.9_real32, 3.0_real32, 3.1_real32, 3.2_real32, &
+          3.3_real32, 3.4_real32, 3.5_real32, 3.6_real32, &
+          3.7_real32, 3.8_real32, 3.9_real32, 4.0_real32, &
+          4.1_real32, 4.2_real32, 4.3_real32, 4.4_real32, &
+          4.5_real32, 4.6_real32, 4.7_real32, 4.8_real32, &
+          4.9_real32, 5.0_real32, 5.1_real32, 5.2_real32, &
+          5.3_real32, 5.4_real32, 5.5_real32, 5.6_real32, &
+          5.7_real32, 5.8_real32, 5.9_real32, 6.0_real32, &
+          6.1_real32, 6.2_real32, 6.3_real32, 6.4_real32 ], &
+          [simple_width + 2 * pad_w, simple_height + 2 * pad_h])
+    allocate(output_expected(simple_width + 2 * pad_w, simple_height + 2 * pad_h, simple_channels, 1))
+
+    ! Create simple test data: 4x4 matrix  
+    allocate(input_simple(simple_width, simple_height, simple_channels, 1))
+    input_simple(:,:,1,1) = reshape( &
+         [1.0_real32, 5.0_real32,  9.0_real32, 13.0_real32, &
+          2.0_real32, 6.0_real32, 10.0_real32, 14.0_real32, &
+          3.0_real32, 7.0_real32, 11.0_real32, 15.0_real32, &
+          4.0_real32, 8.0_real32, 12.0_real32, 16.0_real32], &
+         [simple_width, simple_height])
+
+
+
+    ! Test zero/constant padding
+    write(*,*) "  Testing zero/constant padding..."
+    pad2d_layer = pad2d_layer_type( &
+         padding = [pad_w, pad_h], &
+         method = "zero", &
+         input_shape = [simple_width, simple_height, simple_channels], &
+         batch_size = 1 &
+    )
+    call pad2d_layer%forward(input_simple)
+    call pad2d_layer%get_output(output_simple)
+
+    output_expected = 0._real32
+    output_expected(3:6,3:6,1,1) = input_simple(:,:,1,1)
+    if(any(abs(output_simple - output_expected) .gt. tol))then
+       success = .false.
+       write(0,*) 'Zero padding method failed'
+       write(0,*) 'Expected: ', output_expected(:,:,1,1)
+       write(0,*) 'Got:', output_simple(:,:,1,1)
+    end if
+
+    gradient_expected = 0._real32
+    gradient_expected(:,:,1,1) = gradient_out(3:6,3:6,1,1)
+    call pad2d_layer%backward(input_back, gradient_out)
+    select type(di => pad2d_layer%di(1,1))
+    type is(array4d_type)
+       ! For zero padding, gradients should just be extracted from middle
+       if(any(abs(di%val_ptr - gradient_expected) .gt. tol))then
+          success = .false.
+          write(0,*) 'Zero padding backward pass failed'
+          write(0,*) 'Expected: ', gradient_expected(:,:,1,1)
+          write(0,*) 'Got:', di%val_ptr(:,:,1,1)
+       end if
+    end select
+    deallocate(output_simple)
+
+    ! Test replication/replicate padding  
+    write(*,*) "  Testing replication padding..."
+    pad2d_layer = pad2d_layer_type( &
+         padding = [pad_w, pad_h], &
+         method = "replicate", &
+         input_shape = [simple_width, simple_height, simple_channels], &
+         batch_size = 1 &
+    )
+    call pad2d_layer%forward(input_simple)
+    call pad2d_layer%get_output(output_simple)
+    
+    output_expected(3:6,3:6,1,1) = input_simple(:,:,1,1)
+    output_expected(1:2,1:2,1,1) = input_simple(1,1,1,1)
+    output_expected(7:8,7:8,1,1) = input_simple(simple_width,simple_height,1,1)
+    if(any(abs(output_simple - output_expected) .gt. tol))then
+       success = .false.
+       write(0,*) 'Replication padding method failed'
+       write(0,*) 'Expected: ', output_expected(:,:,1,1)
+       write(0,*) 'Got:', output_simple(:,:,1,1)
+    end if
+
+    call pad2d_layer%backward(input_simple, gradient_out)
+    gradient_expected(:,:,1,1) = gradient_out(3:6,3:6,1,1)
+    gradient_expected(1,1,1,1) = gradient_expected(1,1,1,1) + sum(gradient_out(1:2,1:2,1,1))
+    gradient_expected(1,4,1,1) = gradient_expected(1,4,1,1) + sum(gradient_out(1:2,7:8,1,1))
+    gradient_expected(4,1,1,1) = gradient_expected(4,1,1,1) + sum(gradient_out(7:8,1:2,1,1))
+    gradient_expected(4,4,1,1) = gradient_expected(4,4,1,1) + sum(gradient_out(7:8,7:8,1,1))
+    gradient_expected(1,:,1,1) = gradient_expected(1,:,1,1) + sum(gradient_out(1:2,3:6,1,1),dim=1)
+    gradient_expected(4,:,1,1) = gradient_expected(4,:,1,1) + sum(gradient_out(7:8,3:6,1,1),dim=1)
+    gradient_expected(:,1,1,1) = gradient_expected(:,1,1,1) + sum(gradient_out(3:6,1:2,1,1),dim=2)
+    gradient_expected(:,4,1,1) = gradient_expected(:,4,1,1) + sum(gradient_out(3:6,7:8,1,1),dim=2)
+    select type(di => pad2d_layer%di(1,1))
+    type is(array4d_type)
+       if(any(abs(di%val_ptr - gradient_expected) .gt. tol))then
+          success = .false.
+          write(0,*) 'Replication padding backward pass failed'
+          write(0,*) 'Expected: ', gradient_expected(:,1,1,1)
+          write(0,*) 'Got:', di%val_ptr(:,1,1,1)
+       end if
+    end select
+    deallocate(output_simple, gradient_expected)
+    
+    ! Test reflection padding
+    write(*,*) "  Testing reflection padding..."
+    pad2d_layer = pad2d_layer_type( &
+         padding = [pad_w, pad_h], &
+         method = "reflect", &
+         input_shape = [simple_width, simple_height, simple_channels], &
+         batch_size = 1 &
+    )
+    call pad2d_layer%forward(input_simple)
+    call pad2d_layer%get_output(output_simple)
+    
+    output_expected(3:6,3:6,1,1) = input_simple(:,:,1,1)
+    output_expected(2:1:-1,2:1:-1,1,1) = input_simple(2:3,2:3,1,1)
+    output_expected(7:8,7:8,1,1) = input_simple(3:2:-1,3:2:-1,1,1)
+    if(any(abs(output_simple - output_expected) .gt. tol))then
+       success = .false.
+       write(0,*) 'Reflection padding method failed'
+       write(0,*) 'Expected: ', output_expected(:,:,1,1)
+       write(0,*) 'Got:', output_simple(:,:,1,1)
+    end if
+
+    allocate(gradient_expected(simple_width, simple_height, simple_channels, 1))
+    call pad2d_layer%backward(input_simple, gradient_out)
+    gradient_expected(:,:,1,1) = gradient_out(3:6,3:6,1,1)
+    gradient_expected(2:3,2:3,1,1) = gradient_expected(2:3,2:3,1,1) + gradient_out(2:1:-1,2:1:-1,1,1)
+    gradient_expected(3:2:-1,3:2:-1,1,1) = gradient_expected(3:2:-1,3:2:-1,1,1) + gradient_out(7:8,7:8,1,1)
+    gradient_expected(2:3,3:2:-1,1,1) = gradient_expected(2:3,3:2:-1,1,1) + gradient_out(2:1:-1,7:8,1,1)
+    gradient_expected(3:2:-1,2:3,1,1) = gradient_expected(3:2:-1,2:3,1,1) + gradient_out(7:8,2:1:-1,1,1)
+
+    gradient_expected(2:3,:,1,1) = gradient_expected(2:3,:,1,1) + gradient_out(2:1:-1,3:6,1,1)
+    gradient_expected(3:2:-1,:,1,1) = gradient_expected(3:2:-1,:,1,1) + gradient_out(7:8,3:6,1,1)
+    gradient_expected(:,2:3,1,1) = gradient_expected(:,2:3,1,1) + gradient_out(3:6,2:1:-1,1,1)
+    gradient_expected(:,3:2:-1,1,1) = gradient_expected(:,3:2:-1,1,1) + gradient_out(3:6,7:8,1,1)
+    select type(di => pad2d_layer%di(1,1))
+    type is(array4d_type)
+       if(any(abs(di%val_ptr - gradient_expected) .gt. tol))then
+          success = .false.
+          write(0,*) 'Reflection padding backward pass failed'
+          write(0,*) 'Expected: ', gradient_expected(:,:,1,1)
+          write(0,*) 'Got:', di%val_ptr(:,:,1,1)
+       end if
+    end select
+    deallocate(output_simple, gradient_expected)
+    
+
+    deallocate(input_simple)
+  end block comprehensive_methods_block
+
+
+
 !-------------------------------------------------------------------------------
 ! Test different padding sizes
 !-------------------------------------------------------------------------------

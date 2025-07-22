@@ -450,35 +450,38 @@ contains
     ! Local variables
     integer :: i, j
     !! Loop indices
-    integer :: idim
-    !! Dimension index
     integer, dimension(2) :: bound_store
     !! Temporary storage for bounds
     integer, dimension(2,2) :: orig_bound, dest_bound
     !! Bounds for input and output arrays
+    integer, dimension(2) :: step
+    !! Step size for reflection
 
 
     select type(output => this%output(1,1))
     type is (array4d_type)
-       dim_loop: do idim = 1, 2
+       dim_loop: do i = 1, 2
+          step = 1
+          orig_bound = this%orig_bound
           dest_bound = this%dest_bound
-          orig_bound = this%dest_bound
-          dest_bound(:,idim) = [ &
-               this%dest_bound(1,idim), &
-               this%orig_bound(1,idim) - 1 &
+          dest_bound(:,i) = [ &
+               this%dest_bound(1,i), &
+               this%dest_bound(1,i) + this%pad(i) - 1 &
           ]
           ! Assign padding values based on method
           select case(this%imethod)
           case(3) ! circular
-             orig_bound(:,idim) = [ &
-                  this%orig_bound(2,idim) - this%pad(idim) + 1, &
-                  this%orig_bound(2,idim) &
+             orig_bound(:,i) = [ &
+                  this%orig_bound(2,i) - this%pad(i) + 1, &
+                  this%orig_bound(2,i) &
              ]
           case(4) ! reflection
-             orig_bound(:,idim) = [ &
-                  this%orig_bound(1,idim) + 1, &
-                  this%orig_bound(1,idim) + this%pad(idim) &
-             ]
+             orig_bound(:,i) = [ 2, this%pad(i) + 1 ]
+             do j = 1, 2
+                dest_bound(:,j) = this%orig_bound(:,j) + this%pad(j)
+             end do
+             dest_bound(:,i) = [ this%pad(i), 1 ]
+             step(i) = -1
           case(5) ! replication
              output%val_ptr(:this%pad(1),:,:,:) = spread(input( &
                   this%orig_bound(1,1),:,:,: &
@@ -514,22 +517,30 @@ contains
                   dest_bound(1,1):dest_bound(2,1), &
                   dest_bound(1,2):dest_bound(2,2), :, : &
              ) = input( &
-                  orig_bound(1,1):orig_bound(2,1), &
-                  orig_bound(1,2):orig_bound(2,2), :, : &
+                  orig_bound(1,1):orig_bound(2,1):step(1), &
+                  orig_bound(1,2):orig_bound(2,2):step(2), :, : &
              )
              if(j.eq.2) exit lr_loop
-             bound_store(:) = dest_bound(:,idim)
+             bound_store(:) = dest_bound(:,i)
              select case(this%imethod)
              case(3) ! circular
-                dest_bound(:,idim) = orig_bound(:,idim) + this%pad(i)
-                orig_bound(:,idim) = bound_store(:) + this%pad(i)
+                orig_bound(:,i) = [ 1, this%pad(i) ]
+                dest_bound(:,i) = [ &
+                     this%dest_bound(2,i) - this%pad(i) + 1, &
+                     this%dest_bound(2,i) &
+                ]
              case(4) ! reflection
-                dest_bound(:,idim) = &
-                     orig_bound(:,idim) + this%input_shape(idim) - 1
-                orig_bound(:,idim) = bound_store(:) + this%input_shape(idim) - 1
+                orig_bound(:,i) = [ &
+                     this%orig_bound(2,i) - 1, &
+                     this%orig_bound(2,i) - this%pad(i) &
+                ]
+                dest_bound(:,i) =  [&
+                     this%dest_bound(2,i) - this%pad(i) + 1, &
+                     this%dest_bound(2,i) &
+                ]
              case(5) ! replication
-                dest_bound(:,idim) = orig_bound(:,idim) + this%input_shape(idim)
-                orig_bound(:,idim) = bound_store(:) + this%input_shape(idim)
+                dest_bound(:,i) = orig_bound(:,i) + this%input_shape(i)
+                orig_bound(:,i) = bound_store(:) + this%input_shape(i)
              end select
           end do lr_loop
        end do dim_loop
@@ -572,9 +583,9 @@ contains
     ! Local variables
     integer :: i, j, f, s, m
     !! Loop indices
-    integer, dimension(3) :: step
+    integer, dimension(2) :: step
     !! Step sizes
-    integer, dimension(2,3) :: orig_bound, dest_bound
+    integer, dimension(2,2) :: orig_bound, dest_bound
     !! Bounds for input and output arrays
 
 
@@ -625,6 +636,9 @@ contains
              dest_bound = this%dest_bound
              step = 1
              step(i) = -1
+             do j = 1, 2
+                dest_bound(:,j) = this%orig_bound(:,j) + this%pad(j)
+             end do
              do j = 1, 2 ! 1 = left padding, 2 = right padding
                 select case(j)
                 case(1)
@@ -660,11 +674,11 @@ contains
              do s = 1, this%batch_size
                 do m = 1, this%num_channels
                    di%val_ptr( &
-                        this%orig_bound(1,f), &
-                        this%orig_bound(2,f), m, s &
+                        this%facets(2)%orig_bound(1,f), &
+                        this%facets(2)%orig_bound(2,f), m, s &
                    ) = di%val_ptr( &
-                        this%orig_bound(1,f), &
-                        this%orig_bound(2,f), m, s &
+                        this%facets(2)%orig_bound(1,f), &
+                        this%facets(2)%orig_bound(2,f), m, s &
                    ) + sum( gradient( &
                              this%facets(2)%dest_bound(1,1,f) : &
                              this%facets(2)%dest_bound(2,1,f), &
@@ -689,8 +703,8 @@ contains
                                 gradient( &
                                      this%facets(1)%dest_bound(1,1,f) : &
                                      this%facets(1)%dest_bound(2,1,f), &
-                                     this%pad(2) : &
-                                     this%pad(2) + this%input_shape(2) - 1, &
+                                     this%pad(2) + 1 : &
+                                     this%pad(2) + this%input_shape(2), &
                                      m, s &
                                 ), dim=1 &
                            )
@@ -705,8 +719,8 @@ contains
                            ) + &
                            sum( &
                                 gradient( &
-                                     this%pad(1) : &
-                                     this%pad(1) + this%input_shape(1) - 1, &
+                                     this%pad(1) + 1 : &
+                                     this%pad(1) + this%input_shape(1), &
                                      this%facets(1)%dest_bound(1,1,f) : &
                                      this%facets(1)%dest_bound(2,1,f), &
                                      m, s &

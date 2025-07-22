@@ -275,13 +275,11 @@ program test_pad1d_layer
   comprehensive_methods_block: block
     real(real32), allocatable, dimension(:,:,:) :: &
          input_simple, output_simple, output_expected, &
-         input_back, output_back, gradient_out, gradient_expected
+         output_back, gradient_out, gradient_expected
     integer, parameter :: simple_width = 4, simple_channels = 1
     integer, parameter :: pad_size = 2
 
-    allocate(input_back(simple_width, simple_channels, 1))
     allocate(gradient_out(simple_width+2*pad_size, simple_channels, 1))
-    input_back(:,1,1) = [1.0_real32, 2.0_real32, 3.0_real32]
     gradient_out(:,1,1) = [0.1_real32, 0.2_real32, 0.3_real32, &
                            0.4_real32, 0.5_real32, 0.6_real32, &
                            0.7_real32, 0.8_real32]
@@ -306,14 +304,14 @@ program test_pad1d_layer
     allocate(output_expected(simple_width + 2 * pad_size, simple_channels, 1))
     output_expected = 0._real32
     output_expected(3:6,1,1) = input_simple(:,1,1)
-    if(all(abs(output_simple - output_expected) .gt. tol))then
+    if(any(abs(output_simple - output_expected) .gt. tol))then
        success = .false.
        write(0,*) 'Zero padding method failed'
        write(0,*) 'Expected: ', output_expected(:,1,1)
        write(0,*) 'Got:', output_simple(:,1,1)
     end if
 
-    call pad1d_layer%backward(input_back, gradient_out)
+    call pad1d_layer%backward(input_simple, gradient_out)
     select type(di => pad1d_layer%di(1,1))
     type is(array3d_type)
        ! For zero padding, gradients should just be extracted from middle
@@ -341,7 +339,7 @@ program test_pad1d_layer
     output_expected(3:6,1,1) = input_simple(:,1,1)
     output_expected(1:2,1,1) = input_simple(1,1,1)
     output_expected(7:8,1,1) = input_simple(simple_width,1,1)
-    if(all(abs(output_simple - output_expected) .gt. tol))then
+    if(any(abs(output_simple - output_expected) .gt. tol))then
        success = .false.
        write(0,*) 'Replication padding method failed'
        write(0,*) 'Expected: ', output_expected(:,1,1)
@@ -349,7 +347,7 @@ program test_pad1d_layer
     end if
 
     allocate(gradient_expected(simple_width, simple_channels, 1))
-    call pad1d_layer%backward(input_back, gradient_out)
+    call pad1d_layer%backward(input_simple, gradient_out)
     gradient_expected(:,1,1) = gradient_out(3:6,1,1)
     gradient_expected(1,1,1) = gradient_expected(1,1,1) + sum(gradient_out(1:2,1,1))
     gradient_expected(4,1,1) = gradient_expected(4,1,1) + sum(gradient_out(7:8,1,1))
@@ -358,7 +356,7 @@ program test_pad1d_layer
        ! For zero padding, gradients should just be extracted from middle
        if(any(abs(di%val_ptr(:,1,1) - gradient_expected(:,1,1)) .gt. tol))then
           success = .false.
-          write(0,*) 'Zero padding backward pass failed'
+          write(0,*) 'Replication padding backward pass failed'
           write(0,*) 'Expected: ', gradient_expected(:,1,1)
           write(0,*) 'Got:', di%val_ptr(:,1,1)
        end if
@@ -380,7 +378,7 @@ program test_pad1d_layer
     output_expected(3:6,1,1) = input_simple(:,1,1)
     output_expected(2:1:-1,1,1) = input_simple(2:3,1,1)
     output_expected(7:8,1,1) = input_simple(3:2:-1,1,1)
-    if(all(abs(output_simple - output_expected) .gt. tol))then
+    if(any(abs(output_simple - output_expected) .gt. tol))then
        success = .false.
        write(0,*) 'Reflection padding method failed'
        write(0,*) 'Expected: ', output_expected(:,1,1)
@@ -388,7 +386,7 @@ program test_pad1d_layer
     end if
 
     allocate(gradient_expected(simple_width, simple_channels, 1))
-    call pad1d_layer%backward(input_back, gradient_out)
+    call pad1d_layer%backward(input_simple, gradient_out)
     gradient_expected(:,1,1) = gradient_out(3:6,1,1)
     gradient_expected(2:3,1,1) = gradient_expected(2:3,1,1) + gradient_out(2:1:-1,1,1)
     gradient_expected(3:2:-1,1,1) = gradient_expected(3:2:-1,1,1) + gradient_out(7:8,1,1)
@@ -397,7 +395,7 @@ program test_pad1d_layer
        ! For zero padding, gradients should just be extracted from middle
        if(any(abs(di%val_ptr(:,1,1) - gradient_expected(:,1,1)) .gt. tol))then
           success = .false.
-          write(0,*) 'Zero padding backward pass failed'
+          write(0,*) 'Reflection padding backward pass failed'
           write(0,*) 'Expected: ', gradient_expected(:,1,1)
           write(0,*) 'Got:', di%val_ptr(:,1,1)
        end if
@@ -419,7 +417,7 @@ program test_pad1d_layer
     output_expected(3:6,1,1) = input_simple(:,1,1)
     output_expected(1:2,1,1) = input_simple(3:4,1,1)
     output_expected(7:8,1,1) = input_simple(1:2,1,1)
-    if(all(abs(output_simple - output_expected) .gt. tol))then
+    if(any(abs(output_simple - output_expected) .gt. tol))then
        success = .false.
        write(0,*) 'Circular padding method failed'
        write(0,*) 'Expected: ', output_expected(:,1,1)
@@ -427,7 +425,7 @@ program test_pad1d_layer
     end if
 
     allocate(gradient_expected(simple_width, simple_channels, 1))
-    call pad1d_layer%backward(input_back, gradient_out)
+    call pad1d_layer%backward(input_simple, gradient_out)
     gradient_expected(:,1,1) = gradient_out(3:6,1,1)
     gradient_expected(3:4,1,1) = gradient_expected(3:4,1,1) + gradient_out(1:2,1,1)
     gradient_expected(1:2,1,1) = gradient_expected(1:2,1,1) + gradient_out(7:8,1,1)
@@ -436,7 +434,7 @@ program test_pad1d_layer
        ! For zero padding, gradients should just be extracted from middle
        if(any(abs(di%val_ptr(:,1,1) - gradient_expected(:,1,1)) .gt. tol))then
           success = .false.
-          write(0,*) 'Zero padding backward pass failed'
+          write(0,*) 'Circular padding backward pass failed'
           write(0,*) 'Expected: ', gradient_expected(:,1,1)
           write(0,*) 'Got:', di%val_ptr(:,1,1)
        end if

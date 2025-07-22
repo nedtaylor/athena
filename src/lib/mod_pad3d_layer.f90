@@ -456,8 +456,6 @@ contains
     ! Local variables
     integer :: i, j
     !! Loop indices
-    integer :: idim
-    !! Dimension index
     integer, dimension(2) :: bound_store
     !! Temporary storage for bounds
     integer, dimension(2,3) :: orig_bound, dest_bound
@@ -466,24 +464,24 @@ contains
 
     select type(output => this%output(1,1))
     type is (array5d_type)
-       dim_loop: do idim = 1, 3
+       dim_loop: do i = 1, 3
           dest_bound = this%dest_bound
           orig_bound = this%dest_bound
-          dest_bound(:,idim) = [ &
-               this%dest_bound(1,idim), &
-               this%orig_bound(1,idim) - 1 &
+          dest_bound(:,i) = [ &
+               this%dest_bound(1,i), &
+               this%orig_bound(1,i) - 1 &
           ]
           ! Assign padding values based on method
           select case(this%imethod)
           case(3) ! circular
-             orig_bound(:,idim) = [ &
-                  this%orig_bound(2,idim) - this%pad(idim) + 1, &
-                  this%orig_bound(2,idim) &
+             orig_bound(:,i) = [ &
+                  this%orig_bound(2,i) - this%pad(i) + 1, &
+                  this%orig_bound(2,i) &
              ]
           case(4) ! reflection
-             orig_bound(:,idim) = [ &
-                  this%orig_bound(1,idim) + 1, &
-                  this%orig_bound(1,idim) + this%pad(idim) &
+             orig_bound(:,i) = [ &
+                  this%orig_bound(1,i) + 1, &
+                  this%orig_bound(1,i) + this%pad(i) &
              ]
           case(5) ! replication
              output%val_ptr(:this%pad(1),:,:,:,:) = spread(input( &
@@ -538,18 +536,18 @@ contains
                   orig_bound(1,3):orig_bound(2,3), :, : &
              )
              if(j.eq.2) exit lr_loop
-             bound_store(:) = dest_bound(:,idim)
+             bound_store(:) = dest_bound(:,i)
              select case(this%imethod)
              case(3) ! circular
-                dest_bound(:,idim) = orig_bound(:,idim) + this%pad(i)
-                orig_bound(:,idim) = bound_store(:) + this%pad(i)
+                dest_bound(:,i) = orig_bound(:,i) + this%pad(i)
+                orig_bound(:,i) = bound_store(:) + this%pad(i)
              case(4) ! reflection
-                dest_bound(:,idim) = &
-                     orig_bound(:,idim) + this%input_shape(idim) - 1
-                orig_bound(:,idim) = bound_store(:) + this%input_shape(idim) - 1
+                dest_bound(:,i) = &
+                     orig_bound(:,i) + this%input_shape(i) - 1
+                orig_bound(:,i) = bound_store(:) + this%input_shape(i) - 1
              case(5) ! replication
-                dest_bound(:,idim) = orig_bound(:,idim) + this%input_shape(idim)
-                orig_bound(:,idim) = bound_store(:) + this%input_shape(idim)
+                dest_bound(:,i) = orig_bound(:,i) + this%input_shape(i)
+                orig_bound(:,i) = bound_store(:) + this%input_shape(i)
              end select
           end do lr_loop
        end do dim_loop
@@ -718,12 +716,12 @@ contains
                       do x = 1, this%input_shape(this%facets(2)%dim(f))
                          di%val_ptr( &
                               x, &
-                              this%orig_bound(1,f), &
-                              this%orig_bound(2,f), m, s &
+                              this%facets(2)%orig_bound(1,f), &
+                              this%facets(2)%orig_bound(2,f), m, s &
                          ) = di%val_ptr( &
                               x, &
-                              this%orig_bound(1,f), &
-                              this%orig_bound(2,f), m, s &
+                              this%facets(2)%orig_bound(1,f), &
+                              this%facets(2)%orig_bound(2,f), m, s &
                          ) + sum( gradient( &
                                    x + this%pad(1), &
                                    this%facets(2)%dest_bound(1,1,f) : &
@@ -739,13 +737,13 @@ contains
                    do m = 1, this%num_channels
                       do y = 1, this%input_shape(this%facets(2)%dim(f))
                          di%val_ptr( &
-                              this%orig_bound(1,f), &
+                              this%facets(2)%orig_bound(1,f), &
                               y, &
-                              this%orig_bound(2,f), m, s &
+                              this%facets(2)%orig_bound(2,f), m, s &
                          ) = di%val_ptr( &
-                              this%orig_bound(1,f), &
+                              this%facets(2)%orig_bound(1,f), &
                               y, &
-                              this%orig_bound(2,f), m, s &
+                              this%facets(2)%orig_bound(2,f), m, s &
                          ) + sum( gradient( &
                                    this%facets(2)%dest_bound(1,1,f) : &
                                    this%facets(2)%dest_bound(2,1,f), &
@@ -761,12 +759,12 @@ contains
                    do m = 1, this%num_channels
                       do z = 1, this%input_shape(this%facets(2)%dim(f))
                          di%val_ptr( &
-                              this%orig_bound(1,f), &
-                              this%orig_bound(2,f), &
+                              this%facets(2)%orig_bound(1,f), &
+                              this%facets(2)%orig_bound(2,f), &
                               z, m, s &
                          ) = di%val_ptr( &
-                              this%orig_bound(1,f), &
-                              this%orig_bound(2,f), &
+                              this%facets(2)%orig_bound(1,f), &
+                              this%facets(2)%orig_bound(2,f), &
                               z, m, s &
                          ) + sum( gradient( &
                                    this%facets(2)%dest_bound(1,1,f) : &
@@ -795,10 +793,10 @@ contains
                                 gradient( &
                                      this%facets(1)%dest_bound(1,1,f) : &
                                      this%facets(1)%dest_bound(2,1,f), &
-                                     this%pad(2) : &
-                                     this%pad(2) + this%input_shape(2) - 1, &
-                                     this%pad(3) : &
-                                     this%pad(3) + this%input_shape(3) - 1, &
+                                     this%pad(2) + 1 : &
+                                     this%pad(2) + this%input_shape(2), &
+                                     this%pad(3) + 1 : &
+                                     this%pad(3) + this%input_shape(3), &
                                      m, s &
                                 ), dim=1 &
                            )
@@ -813,12 +811,12 @@ contains
                            ) + &
                            sum( &
                                 gradient( &
-                                     this%pad(1) : &
-                                     this%pad(1) + this%input_shape(1) - 1, &
+                                     this%pad(1) + 1 : &
+                                     this%pad(1) + this%input_shape(1), &
                                      this%facets(1)%dest_bound(1,1,f) : &
                                      this%facets(1)%dest_bound(2,1,f), &
-                                     this%pad(3) : &
-                                     this%pad(3) + this%input_shape(3) - 1, &
+                                     this%pad(3) + 1 : &
+                                     this%pad(3) + this%input_shape(3), &
                                      m, s &
                                 ), dim=2 &
                            )
@@ -833,10 +831,10 @@ contains
                            ) + &
                            sum( &
                                 gradient( &
-                                     this%pad(1) : &
-                                     this%pad(1) + this%input_shape(1) - 1, &
-                                     this%pad(2) : &
-                                     this%pad(2) + this%input_shape(2) - 1, &
+                                     this%pad(1) + 1: &
+                                     this%pad(1) + this%input_shape(1), &
+                                     this%pad(2) + 1: &
+                                     this%pad(2) + this%input_shape(2), &
                                      this%facets(1)%dest_bound(1,1,f) : &
                                      this%facets(1)%dest_bound(2,1,f), &
                                      m, s &

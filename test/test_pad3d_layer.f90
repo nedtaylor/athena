@@ -269,6 +269,64 @@ program test_pad3d_layer
   end block test_methods_block
 
 
+!!!-----------------------------------------------------------------------------
+! Test comprehensive padding method functionality
+!!!-----------------------------------------------------------------------------
+  write(*,*) "Testing comprehensive padding method functionality..."
+
+  comprehensive_methods_block: block
+    real(real32), allocatable :: input_simple(:,:,:,:,:), &
+                                 output_simple(:,:,:,:,:)
+    integer, parameter :: simple_width = 2, simple_height = 2, simple_depth = 2
+    integer, parameter :: simple_channels = 1
+    integer, parameter :: pad_w = 1, pad_h = 1, pad_d = 1
+    
+    ! Create simple test data: 2x2x2 cube
+    allocate(input_simple(simple_width, simple_height, simple_depth, &
+                          simple_channels, 1))
+    input_simple(:,:,:,1,1) = reshape( &
+         [1.0_real32, 2.0_real32, 3.0_real32, 4.0_real32, &
+          5.0_real32, 6.0_real32, 7.0_real32, 8.0_real32], &
+         [simple_width, simple_height, simple_depth])
+    
+    ! Test zero/constant padding
+    write(*,*) "  Testing zero/constant padding..."
+    pad3d_layer = pad3d_layer_type( &
+         padding = [pad_w, pad_h, pad_d], &
+         method = "zero", &
+         input_shape = [simple_width, simple_height, simple_depth, &
+                        simple_channels], &
+         batch_size = 1 &
+    )
+    call pad3d_layer%forward(input_simple)
+    call pad3d_layer%get_output(output_simple)
+    
+    ! Should be 4x4x4 with zeros around border and original data in center
+    if (size(output_simple,1) .ne. simple_width+2*pad_w .or. &
+        size(output_simple,2) .ne. simple_height+2*pad_h .or. &
+        size(output_simple,3) .ne. simple_depth+2*pad_d) then
+       success = .false.
+       write(0,*) 'Zero padding 3D wrong size'
+    end if
+    
+    ! Check that center matches input 
+    if (any(abs(output_simple(2:3,2:3,2:3,1,1) - &
+                input_simple(:,:,:,1,1)) .gt. tol)) then
+       success = .false.
+       write(0,*) 'Zero padding 3D center incorrect'
+    end if
+    
+    ! Check that borders are zero (just check one face)
+    if (any(abs(output_simple(1,:,:,1,1)) .gt. tol) .or. &
+        any(abs(output_simple(4,:,:,1,1)) .gt. tol)) then
+       success = .false.
+       write(0,*) 'Zero padding 3D border not zero'
+    end if
+    
+    deallocate(input_simple, output_simple)
+  end block comprehensive_methods_block
+
+
 !-------------------------------------------------------------------------------
 ! Test different padding sizes
 !-------------------------------------------------------------------------------
