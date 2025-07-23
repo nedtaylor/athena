@@ -71,7 +71,7 @@ program test_pad1d_layer
      success = .false.
      write(0,*) 'pad1d layer has wrong output_shape'
      write(0,*) 'Expected:', [expected_width, channels]
-     write(0,*) 'Got:', pad1d_layer%output_shape
+     write(0,*) 'Got:      ', pad1d_layer%output_shape
   end if
 
   if(pad1d_layer%input_rank .ne. 2)then
@@ -241,7 +241,7 @@ program test_pad1d_layer
              write(0,*) 'pad1d layer output shape incorrect for method: ', &
                   trim(padding_methods(i))
              write(0,*) 'Expected:', [expected_widths(i)]
-             write(0,*) 'Got:', pad1d_layer%output_shape
+             write(0,*) 'Got:      ', pad1d_layer%output_shape
           end if
        end if
 
@@ -308,7 +308,7 @@ program test_pad1d_layer
        success = .false.
        write(0,*) 'Zero padding method failed'
        write(0,*) 'Expected: ', output_expected(:,1,1)
-       write(0,*) 'Got:', output_simple(:,1,1)
+       write(0,*) 'Got:      ', output_simple(:,1,1)
     end if
 
     call pad1d_layer%backward(input_simple, gradient_out)
@@ -319,7 +319,7 @@ program test_pad1d_layer
           success = .false.
           write(0,*) 'Zero padding backward pass failed'
           write(0,*) 'Expected: ', gradient_out(3:6,1,1)
-          write(0,*) 'Got:', di%val_ptr(:,1,1)
+          write(0,*) 'Got:      ', di%val_ptr(:,1,1)
        end if
     end select
     deallocate(output_simple)
@@ -343,7 +343,7 @@ program test_pad1d_layer
        success = .false.
        write(0,*) 'Replication padding method failed'
        write(0,*) 'Expected: ', output_expected(:,1,1)
-       write(0,*) 'Got:', output_simple(:,1,1)
+       write(0,*) 'Got:      ', output_simple(:,1,1)
     end if
 
     allocate(gradient_expected(simple_width, simple_channels, 1))
@@ -358,7 +358,7 @@ program test_pad1d_layer
           success = .false.
           write(0,*) 'Replication padding backward pass failed'
           write(0,*) 'Expected: ', gradient_expected(:,1,1)
-          write(0,*) 'Got:', di%val_ptr(:,1,1)
+          write(0,*) 'Got:      ', di%val_ptr(:,1,1)
        end if
     end select
     deallocate(output_simple, gradient_expected)
@@ -382,7 +382,7 @@ program test_pad1d_layer
        success = .false.
        write(0,*) 'Reflection padding method failed'
        write(0,*) 'Expected: ', output_expected(:,1,1)
-       write(0,*) 'Got:', output_simple(:,1,1)
+       write(0,*) 'Got:      ', output_simple(:,1,1)
     end if
 
     allocate(gradient_expected(simple_width, simple_channels, 1))
@@ -398,7 +398,7 @@ program test_pad1d_layer
           success = .false.
           write(0,*) 'Reflection padding backward pass failed'
           write(0,*) 'Expected: ', gradient_expected(:,1,1)
-          write(0,*) 'Got:', di%val_ptr(:,1,1)
+          write(0,*) 'Got:      ', di%val_ptr(:,1,1)
        end if
     end select
     deallocate(output_simple, gradient_expected)
@@ -422,7 +422,7 @@ program test_pad1d_layer
        success = .false.
        write(0,*) 'Circular padding method failed'
        write(0,*) 'Expected: ', output_expected(:,1,1)
-       write(0,*) 'Got:', output_simple(:,1,1)
+       write(0,*) 'Got:      ', output_simple(:,1,1)
     end if
 
     allocate(gradient_expected(simple_width, simple_channels, 1))
@@ -437,7 +437,7 @@ program test_pad1d_layer
           success = .false.
           write(0,*) 'Circular padding backward pass failed'
           write(0,*) 'Expected: ', gradient_expected(:,1,1)
-          write(0,*) 'Got:', di%val_ptr(:,1,1)
+          write(0,*) 'Got:      ', di%val_ptr(:,1,1)
        end if
     end select
     deallocate(output_simple, gradient_expected)
@@ -471,7 +471,7 @@ program test_pad1d_layer
           write(0,*) 'pad1d layer output shape incorrect for padding size:', &
                test_paddings(i)
           write(0,*) 'Expected:', [expected_widths_pad(i)]
-          write(0,*) 'Got:', pad1d_layer%output_shape
+          write(0,*) 'Got:      ', pad1d_layer%output_shape
        end if
 
        ! Test forward pass
