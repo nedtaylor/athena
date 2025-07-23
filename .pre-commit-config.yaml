@@ -5,7 +5,7 @@ repos:
     -   id: trailing-whitespace
     -   id: end-of-file-fixer
 -   repo: https://github.com/nedtaylor/fortran-format-hooks
-    rev: 74b727eaba268b9f73164efa82e8a22ad78c3be4
+    rev: 74c5a55b724bf26ee9ff172529eab52e02c555e5
     hooks:
     -   id: check-fortran-indentation
         args: [--line-length=80]
