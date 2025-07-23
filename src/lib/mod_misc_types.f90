@@ -578,24 +578,26 @@ module athena__misc_types
      !! Type of facet, i.e. face, edge, corner
      integer, dimension(:), allocatable :: dim
      !! Dimension the facet is in, i.e.
-     integer, dimension(:,:), allocatable :: orig_bound
-     !! Original bounds of the facet (nfixed_dims, num)
+     integer, dimension(:,:,:), allocatable :: orig_bound
+     !! Original bounds of the facet (2, nfixed_dims, num)
      integer, dimension(:,:,:), allocatable :: dest_bound
      !! Destination bounds of the facet (2, nfixed_dims, num)
    contains
-     procedure, pass(this) :: setup_replication_bounds
-     !! Procedure for setting up replication bounds
+     procedure, pass(this) :: setup_bounds
+     !! Procedure for setting up bounds
   end type facets_type
 
   interface
-     !! Interface for setting up replication bounds
-     module subroutine setup_replication_bounds(this, length, pad)
-       !! Procedure for setting up replication bounds
+     !! Interface for setting up bounds
+     module subroutine setup_bounds(this, length, pad, imethod)
+       !! Procedure for setting up bounds
        class(facets_type), intent(inout) :: this
        !! Instance of the facets type
        integer, dimension(this%rank), intent(in) :: length, pad
        !! Length of the shape and padding
-     end subroutine setup_replication_bounds
+       integer, intent(in) :: imethod
+       !! Method for setting up bounds
+     end subroutine setup_bounds
   end interface
 !-------------------------------------------------------------------------------
 

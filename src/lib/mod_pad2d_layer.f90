@@ -464,10 +464,10 @@ contains
           step = 1
           orig_bound = this%orig_bound
           dest_bound = this%dest_bound
-          dest_bound(:,i) = [ &
-               this%dest_bound(1,i), &
-               this%dest_bound(1,i) + this%pad(i) - 1 &
-          ]
+         !  dest_bound(:,i) = [ &
+         !       this%dest_bound(1,i), &
+         !       this%dest_bound(1,i) + this%pad(i) - 1 &
+         !  ]
           ! Assign padding values based on method
           select case(this%imethod)
           case(3) ! circular
@@ -512,7 +512,9 @@ contains
           end select
 
           lr_loop: do j = 1, 2 ! 1 = left padding, 2 = right padding
-
+! write(*,*) "j = ", j, " i = ", i
+! write(*,*) "orig: ", orig_bound(:,1), orig_bound(:,2)
+! write(*,*) "dest: ", dest_bound(:,1), dest_bound(:,2)
              output%val_ptr( &
                   dest_bound(1,1):dest_bound(2,1), &
                   dest_bound(1,2):dest_bound(2,2), :, : &
@@ -674,11 +676,11 @@ contains
              do s = 1, this%batch_size
                 do m = 1, this%num_channels
                    di%val_ptr( &
-                        this%facets(2)%orig_bound(1,f), &
-                        this%facets(2)%orig_bound(2,f), m, s &
+                        this%facets(2)%orig_bound(1,1,f), &
+                        this%facets(2)%orig_bound(1,2,f), m, s &
                    ) = di%val_ptr( &
-                        this%facets(2)%orig_bound(1,f), &
-                        this%facets(2)%orig_bound(2,f), m, s &
+                        this%facets(2)%orig_bound(1,1,f), &
+                        this%facets(2)%orig_bound(1,2,f), m, s &
                    ) + sum( gradient( &
                              this%facets(2)%dest_bound(1,1,f) : &
                              this%facets(2)%dest_bound(2,1,f), &
@@ -695,9 +697,9 @@ contains
              case(1)
                 do s = 1, this%batch_size
                    do m = 1, this%num_channels
-                      di%val_ptr(this%facets(1)%orig_bound(1,f), :, m, s) = &
+                      di%val_ptr(this%facets(1)%orig_bound(1,1,f), :, m, s) = &
                            di%val_ptr( &
-                                this%facets(1)%orig_bound(1,f), :, m, s &
+                                this%facets(1)%orig_bound(1,1,f), :, m, s &
                            ) + &
                            sum( &
                                 gradient( &
@@ -713,16 +715,16 @@ contains
              case(2)
                 do s = 1, this%batch_size
                    do m = 1, this%num_channels
-                      di%val_ptr(:, this%facets(1)%orig_bound(1,f), m, s) = &
+                      di%val_ptr(:, this%facets(1)%orig_bound(1,2,f), m, s) = &
                            di%val_ptr( &
-                                :, this%facets(1)%orig_bound(1,f), m, s &
+                                :, this%facets(1)%orig_bound(1,2,f), m, s &
                            ) + &
                            sum( &
                                 gradient( &
                                      this%pad(1) + 1 : &
                                      this%pad(1) + this%input_shape(1), &
-                                     this%facets(1)%dest_bound(1,1,f) : &
-                                     this%facets(1)%dest_bound(2,1,f), &
+                                     this%facets(1)%dest_bound(1,2,f) : &
+                                     this%facets(1)%dest_bound(2,2,f), &
                                      m, s &
                                 ), dim=2 &
                            )

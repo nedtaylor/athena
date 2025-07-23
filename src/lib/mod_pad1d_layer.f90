@@ -443,7 +443,7 @@ contains
     !! Input values
 
     ! Local variables
-    integer :: i, j
+    integer :: f
     !! Loop indices
     integer :: idim
     !! Dimension index
@@ -457,74 +457,47 @@ contains
 
     select type(output => this%output(1,1))
     type is (array3d_type)
-       dim_loop: do i = 1, 1
-          step = 1
-          orig_bound = this%dest_bound
-          dest_bound = this%dest_bound
-          dest_bound(:,i) = [ &
-               this%dest_bound(1,i), &
-               this%dest_bound(1,i) + this%pad(i) - 1 &
-          ]
-          ! Assign padding values based on method
-          select case(this%imethod)
-          case(3) ! circular
-             orig_bound(:,i) = [ &
-                  this%orig_bound(2,i) - this%pad(i) + 1, &
-                  this%orig_bound(2,i) &
-             ]
-          case(4) ! reflection
-             orig_bound(:,i) = [ &
-                  this%orig_bound(1,i) + this%pad(i), &
-                  this%orig_bound(1,i) + 1 &
-             ]
-             step(i) = -1
-          case(5) ! replication
-             output%val_ptr(:this%pad(1),:,:) = spread(input( &
-                  this%orig_bound(1,i),:,: &
-             ), dim=i, ncopies=this%pad(i))
-             output%val_ptr( &
-                  this%output_shape(1) - this%pad(1)+1 : &
-                  this%output_shape(1), :, : &
-             ) = &
-                  spread(input( &
-                       this%orig_bound(2,i),:,: &
-                  ), dim=1, ncopies=this%pad(i))
-             exit dim_loop
-          case default
-             output%val_ptr(:,:,:) = 0._real32
-             exit dim_loop
-          end select
-
-          lr_loop: do j = 1, 2 ! 1 = left padding, 2 = right padding
-             output%val_ptr( &
-                  dest_bound(1,1):dest_bound(2,1), :, : &
-             ) = input( &
-                  orig_bound(1,1):orig_bound(2,1):step(i), :, : &
-             )
-             if(j.eq.2) exit lr_loop
-             bound_store(:) = dest_bound(:,i)
-             select case(this%imethod)
-             case(3) ! circular
-                orig_bound(:,i) = [ 1, this%pad(i) ]
-                dest_bound(:,i) = [ &
-                     this%dest_bound(2,i) - this%pad(i) + 1, &
-                     this%dest_bound(2,i) &
-                ]
-             case(4) ! reflection
-                orig_bound(:,i) = [ &
-                     this%orig_bound(2,i) - 1, &
-                     this%orig_bound(2,i) - this%pad(i) &
-                ]
-                dest_bound(:,i) =  [&
-                     this%dest_bound(2,i) - this%pad(i) + 1, &
-                     this%dest_bound(2,i) &
-                ]
-             case(5) ! replication
-                dest_bound(:,i) = orig_bound(:,i) + this%input_shape(i)
-                orig_bound(:,i) = bound_store(:) + this%input_shape(i)
+       select case(this%imethod)
+       case(3) ! circular
+          do f = 1, this%facets(1)%num
+             select case(this%facets(1)%dim(f))
+             case(1)
+                output%val_ptr( &
+                     this%facets(1)%dest_bound(1,1,f) : &
+                     this%facets(1)%dest_bound(2,1,f), :, : &
+                ) = input( &
+                     this%facets(1)%orig_bound(1,1,f) : &
+                     this%facets(1)%orig_bound(2,1,f), :, : &
+                 )
              end select
-          end do lr_loop
-       end do dim_loop
+          end do
+       case(4) ! reflection
+          do f = 1, this%facets(1)%num
+             select case(this%facets(1)%dim(f))
+             case(1)
+                output%val_ptr( &
+                     this%facets(1)%dest_bound(1,1,f) : &
+                     this%facets(1)%dest_bound(2,1,f), :, : &
+                ) = input( &
+                     this%facets(1)%orig_bound(1,1,f) : &
+                     this%facets(1)%orig_bound(2,1,f) : -1, :, : &
+                 )
+             end select
+          end do
+       case(5) ! replication
+          output%val_ptr(:this%pad(1),:,:) = spread(input( &
+               this%orig_bound(1,1),:,: &
+          ), dim=1, ncopies=this%pad(1))
+          output%val_ptr( &
+               this%output_shape(1) - this%pad(1)+1 : &
+               this%output_shape(1), :, : &
+          ) = &
+               spread(input( &
+                    this%orig_bound(2,1),:,: &
+               ), dim=1, ncopies=this%pad(1))
+       case default
+          output%val_ptr(:,:,:) = 0._real32
+       end select
 
        output%val_ptr( &
             this%pad(1)+1:this%pad(1)+this%input_shape(1), :, : &
@@ -578,75 +551,46 @@ contains
        ! Assign gradient values to padding regions based on method
        select case(this%imethod)
        case(3) ! circular
-          do i = 1, 1
-             orig_bound = this%orig_bound
-             dest_bound = this%dest_bound
-             do j = 1, 2 ! 1 = left padding, 2 = right padding
-                select case(j)
-                case(1)
-                   orig_bound(:,i) = [ 1, this%pad(i) ]
-                   dest_bound(:,i) = [ &
-                        this%dest_bound(2,i) - this%pad(i) + 1, &
-                        this%dest_bound(2,i) &
-                   ]
-                case(2)
-                   orig_bound(:,i) = [ &
-                        this%orig_bound(2,i) - this%pad(i) + 1, &
-                        this%orig_bound(2,i) &
-                   ]
-                   dest_bound(:,i) = [ 1, this%pad(i) ]
-                end select
-
+          do f = 1, this%facets(1)%num
+             select case(this%facets(1)%dim(f))
+             case(1)
                 di%val_ptr( &
-                     orig_bound(1,1):orig_bound(2,1), :, : &
+                     this%facets(1)%orig_bound(1,1,f) : &
+                     this%facets(1)%orig_bound(2,1,f), :, : &
                 ) = di%val_ptr( &
-                     orig_bound(1,1):orig_bound(2,1), :, : &
-                ) + gradient( &
-                     dest_bound(1,1):dest_bound(2,1), :, : &
-                )
-             end do
+                     this%facets(1)%orig_bound(1,1,f) : &
+                     this%facets(1)%orig_bound(2,1,f), :, : &
+                 ) + gradient( &
+                     this%facets(1)%dest_bound(1,1,f) : &
+                     this%facets(1)%dest_bound(2,1,f), :, : &
+                 )
+             end select
           end do
        case(4) ! reflection
-          do i = 1, 1
-             orig_bound = this%orig_bound
-             dest_bound = this%dest_bound
-             step = 1
-             step(i) = -1
-             do j = 1, 2 ! 1 = left padding, 2 = right padding
-                select case(j)
-                case(1)
-                   orig_bound(:,i) = [ 2, this%pad(i) + 1 ]
-                   dest_bound(:,i) = [ this%pad(i), 1 ]
-                case(2)
-                   orig_bound(:,i) = [ &
-                        this%orig_bound(2,i) - this%pad(i), &
-                        this%orig_bound(2,i) - 1 &
-                   ]
-                   dest_bound(:,i) = [ &
-                        this%dest_bound(2,i), &
-                        this%dest_bound(2,i) - this%pad(i) + 1 &
-                   ]
-                end select
-
+          do f = 1, this%facets(1)%num
+             select case(this%facets(1)%dim(f))
+             case(1)
                 di%val_ptr( &
-                     orig_bound(1,1):orig_bound(2,1), :, : &
+                     this%facets(1)%orig_bound(1,1,f) : &
+                     this%facets(1)%orig_bound(2,1,f) : -1, :, : &
                 ) = di%val_ptr( &
-                     orig_bound(1,1):orig_bound(2,1), :, : &
-                ) + gradient( &
-                     dest_bound(1,1):dest_bound(2,1):step(1), :, : &
-                )
-             end do
+                     this%facets(1)%orig_bound(1,1,f) : &
+                     this%facets(1)%orig_bound(2,1,f) : -1, :, : &
+                 ) + gradient( &
+                     this%facets(1)%dest_bound(1,1,f) : &
+                     this%facets(1)%dest_bound(2,1,f), :, : &
+                 )
+             end select
           end do
        case(5) ! replication
-
           ! Replicate along faces (aka ends in 1D)
           do f = 1, this%facets(1)%num
              select case(this%facets(1)%dim(f))
              case(1)
                 do s = 1, this%batch_size
                    do m = 1, this%num_channels
-                      di%val_ptr(this%facets(1)%orig_bound(1,f), m, s) = &
-                           di%val_ptr(this%facets(1)%orig_bound(1,f), m, s) + &
+                      di%val_ptr(this%facets(1)%orig_bound(1,1,f), m, s) = &
+                           di%val_ptr(this%facets(1)%orig_bound(1,1,f), m, s) + &
                            sum( &
                                 gradient( &
                                      this%facets(1)%dest_bound(1,1,f) : &
@@ -657,7 +601,6 @@ contains
                 end do
              end select
           end do
-
        end select
     end select
 

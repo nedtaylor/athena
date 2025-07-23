@@ -688,13 +688,13 @@ contains
              do s = 1, this%batch_size
                 do m = 1, this%num_channels
                    di%val_ptr( &
-                        this%facets(3)%orig_bound(1,f), &
-                        this%facets(3)%orig_bound(2,f), &
-                        this%facets(3)%orig_bound(3,f), m, s &
+                        this%facets(3)%orig_bound(1,1,f), &
+                        this%facets(3)%orig_bound(1,2,f), &
+                        this%facets(3)%orig_bound(1,3,f), m, s &
                    ) = di%val_ptr( &
-                        this%facets(3)%orig_bound(1,f), &
-                        this%facets(3)%orig_bound(2,f), &
-                        this%facets(3)%orig_bound(3,f), m, s &
+                        this%facets(3)%orig_bound(1,1,f), &
+                        this%facets(3)%orig_bound(1,2,f), &
+                        this%facets(3)%orig_bound(1,3,f), m, s &
                    ) + sum( gradient( &
                              this%facets(3)%dest_bound(1,1,f) : &
                              this%facets(3)%dest_bound(2,1,f), &
@@ -716,12 +716,12 @@ contains
                       do x = 1, this%input_shape(this%facets(2)%dim(f))
                          di%val_ptr( &
                               x, &
-                              this%facets(2)%orig_bound(1,f), &
-                              this%facets(2)%orig_bound(2,f), m, s &
+                              this%facets(2)%orig_bound(1,2,f), &
+                              this%facets(2)%orig_bound(1,3,f), m, s &
                          ) = di%val_ptr( &
                               x, &
-                              this%facets(2)%orig_bound(1,f), &
-                              this%facets(2)%orig_bound(2,f), m, s &
+                              this%facets(2)%orig_bound(1,2,f), &
+                              this%facets(2)%orig_bound(1,3,f), m, s &
                          ) + sum( gradient( &
                                    x + this%pad(1), &
                                    this%facets(2)%dest_bound(1,1,f) : &
@@ -737,13 +737,13 @@ contains
                    do m = 1, this%num_channels
                       do y = 1, this%input_shape(this%facets(2)%dim(f))
                          di%val_ptr( &
-                              this%facets(2)%orig_bound(1,f), &
+                              this%facets(2)%orig_bound(1,1,f), &
                               y, &
-                              this%facets(2)%orig_bound(2,f), m, s &
+                              this%facets(2)%orig_bound(1,3,f), m, s &
                          ) = di%val_ptr( &
-                              this%facets(2)%orig_bound(1,f), &
+                              this%facets(2)%orig_bound(1,1,f), &
                               y, &
-                              this%facets(2)%orig_bound(2,f), m, s &
+                              this%facets(2)%orig_bound(1,3,f), m, s &
                          ) + sum( gradient( &
                                    this%facets(2)%dest_bound(1,1,f) : &
                                    this%facets(2)%dest_bound(2,1,f), &
@@ -759,12 +759,12 @@ contains
                    do m = 1, this%num_channels
                       do z = 1, this%input_shape(this%facets(2)%dim(f))
                          di%val_ptr( &
-                              this%facets(2)%orig_bound(1,f), &
-                              this%facets(2)%orig_bound(2,f), &
+                              this%facets(2)%orig_bound(1,1,f), &
+                              this%facets(2)%orig_bound(1,2,f), &
                               z, m, s &
                          ) = di%val_ptr( &
-                              this%facets(2)%orig_bound(1,f), &
-                              this%facets(2)%orig_bound(2,f), &
+                              this%facets(2)%orig_bound(1,1,f), &
+                              this%facets(2)%orig_bound(1,2,f), &
                               z, m, s &
                          ) + sum( gradient( &
                                    this%facets(2)%dest_bound(1,1,f) : &
@@ -785,9 +785,9 @@ contains
              case(1)
                 do s = 1, this%batch_size
                    do m = 1, this%num_channels
-                      di%val_ptr(this%facets(1)%orig_bound(1,f), :, :, m, s) = &
+                      di%val_ptr(this%facets(1)%orig_bound(1,1,f), :, :, m, s) = &
                            di%val_ptr( &
-                                this%facets(1)%orig_bound(1,f), :, :, m, s &
+                                this%facets(1)%orig_bound(1,1,f), :, :, m, s &
                            ) + &
                            sum( &
                                 gradient( &
@@ -805,9 +805,9 @@ contains
              case(2)
                 do s = 1, this%batch_size
                    do m = 1, this%num_channels
-                      di%val_ptr(:, this%facets(1)%orig_bound(1,f), :, m, s) = &
+                      di%val_ptr(:, this%facets(1)%orig_bound(1,2,f), :, m, s) = &
                            di%val_ptr( &
-                                :, this%facets(1)%orig_bound(1,f), :, m, s &
+                                :, this%facets(1)%orig_bound(1,2,f), :, m, s &
                            ) + &
                            sum( &
                                 gradient( &
@@ -825,9 +825,9 @@ contains
              case(3)
                 do s = 1, this%batch_size
                    do m = 1, this%num_channels
-                      di%val_ptr(:, :, this%facets(1)%orig_bound(1,f), m, s) = &
+                      di%val_ptr(:, :, this%facets(1)%orig_bound(1,3,f), m, s) = &
                            di%val_ptr( &
-                                :, :, this%facets(1)%orig_bound(1,f), m, s &
+                                :, :, this%facets(1)%orig_bound(1,3,f), m, s &
                            ) + &
                            sum( &
                                 gradient( &

@@ -8,7 +8,7 @@ submodule(athena__misc_types) athena__misc_types_submodule
 contains
 
 !###############################################################################
-  module subroutine setup_replication_bounds(this, length, pad)
+  module subroutine setup_bounds(this, length, pad, imethod)
     !! Set up replication bounds for facets
     implicit none
 
@@ -17,10 +17,15 @@ contains
     !! Instance of the facets type
     integer, dimension(this%rank), intent(in) :: length, pad
     !! Length of the shape and padding
+    integer, intent(in) :: imethod
+    !! Method for padding:
+    !! 3 - circular, 4 - reflection, 5 - replication
 
     ! Local variables
     integer :: i, j, k, facet_idx, idim
     !! Loop indices and facet index
+    logical :: btest_k0, btest_k1
+    !! Binary test variables for edge cases
 
 
     ! Calculate number of facets based on rank and number of fixed dimensions
@@ -60,14 +65,13 @@ contains
     if (allocated(this%dest_bound)) deallocate(this%dest_bound)
 
     allocate(this%dim(this%num))
-    allocate(this%orig_bound(this%rank, this%num))
+    allocate(this%orig_bound(2, this%rank, this%num))
     allocate(this%dest_bound(2, this%rank, this%num))
 
 
     ! Initialise all bounds to 1
     !---------------------------------------------------------------------------
     this%orig_bound = 1
-
 
     ! Set up replication bounds
     !---------------------------------------------------------------------------
@@ -79,12 +83,31 @@ contains
              facet_idx = facet_idx + 1
              this%dim(facet_idx) = i
 
+             ! Set origin bounds
+             select case(imethod)
+             case(3) ! circular
+                if(j .eq. 1) then
+                   this%orig_bound(:,i,facet_idx) = &
+                        [ length(i) - pad(i) + 1, length(i) ]
+                else
+                   this%orig_bound(:,i,facet_idx) = [ 1, pad(i) ]
+                end if
+             case(4) ! reflection
+                if(j .eq. 1) then
+                   this%orig_bound(:,i,facet_idx) = [ pad(i) + 1, 2 ]
+                else
+                   this%orig_bound(:,i,facet_idx) = &
+                        [ length(i) - 1, length(i) - pad(i) ]
+                end if
+             case(5) ! replication
+                if(j .ne. 1) this%orig_bound(:,i,facet_idx) = length(i)
+             end select
+
              ! Set destination bounds
              if(j .eq. 1) then
-                this%dest_bound(:,1,facet_idx) = [1, pad(i)]
+                this%dest_bound(:,i,facet_idx) = [1, pad(i)]
              else
-                this%orig_bound(1,facet_idx) = length(i)
-                this%dest_bound(:,1,facet_idx) = &
+                this%dest_bound(:,i,facet_idx) = &
                      [length(i) + pad(i) + 1, length(i) + pad(i) * 2]
              end if
           end do
@@ -98,24 +121,70 @@ contains
              do k = 0, 3  ! Four combinations per dimension pair
                 facet_idx = facet_idx + 1
                 this%dim(facet_idx) = idim
+                btest_k0 = btest(k,0)
+                btest_k1 = btest(k,1)
 
                 ! Set original bounds using binary pattern
-                if (btest(k,1)) this%orig_bound(1,facet_idx) = length(i)
-                if (btest(k,0)) this%orig_bound(2,facet_idx) = length(j)
+                select case(imethod)
+                case(3) ! circular
+                     if(btest_k1) then
+                        this%orig_bound(:,i,facet_idx) = &
+                             [ 1, pad(i) ]
+                     else
+                        this%orig_bound(:,i,facet_idx) = &
+                             [ length(i) - pad(i) + 1, length(i) ]
+                     end if
+                     if(btest_k0) then
+                        this%orig_bound(:,j,facet_idx) = &
+                             [ 1, pad(j) ]
+                     else
+                        this%orig_bound(:,j,facet_idx) = &
+                             [ length(j) - pad(j) + 1, length(j) ]
+                     end if
+                case(4) ! reflection
+                   this%orig_bound(:,i,facet_idx) = &
+                        [ length(i) - 1, length(i) - pad(i) ]
+                   this%orig_bound(:,j,facet_idx) = &
+                        [ length(j) - 1, length(j) - pad(j) ]
+                  !  this%orig_bound(:,j,facet_idx) = [2, pad(j) + 1]
+                  !  if (btest_k1) then
+                  !     this%orig_bound(:,i,facet_idx) = [2, pad(i) + 1]
+                  !  else
+                  !     this%orig_bound(:,i,facet_idx) = &
+                  !          [length(i) - 1, length(i) - pad(i)]
+                  !  end if
+                  !  if (btest_k0) then
+                  !     this%orig_bound(:,j,facet_idx) = [2, pad(j) + 1]
+                  !  else
+                  !     this%orig_bound(:,j,facet_idx) = &
+                  !          [length(j) - 1, length(j) - pad(j)]
+                  !  end if
+                case(5) ! replication
+                   if(btest_k1) this%orig_bound(:,i,facet_idx) = length(i)
+                   if(btest_k0) this%orig_bound(:,j,facet_idx) = length(j)
+                end select
 
                 ! Set destination bounds
-                this%dest_bound(:,1,facet_idx) = &
+                this%dest_bound(:,i,facet_idx) = &
                      merge(&
-                          [length(i) + pad(i) + 1, length(i) + pad(i) * 2], &
-                          [1, pad(i)], &
-                          btest(k,1) &
+                          [ length(i) + pad(i) + 1, length(i) + pad(i) * 2 ], &
+                          [ 1, pad(i) ], &
+                          btest_k1 &
                      )
-                this%dest_bound(:,2,facet_idx) = &
+                this%dest_bound(:,j,facet_idx) = &
                      merge( &
-                          [length(j) + pad(j) + 1, length(j) + pad(j) * 2], &
-                          [1, pad(j)], &
-                          btest(k,0) &
+                          [ length(j) + pad(j) + 1, length(j) + pad(j) * 2 ], &
+                          [ 1, pad(j) ], &
+                          btest_k0 &
                      )
+               !  write(*,*) "i,j,k:", i, j, k
+               !  write(*,*) btest_k0, btest_k1
+               !  write(*,*) this%dest_bound(:,i,facet_idx), &
+               !       this%dest_bound(:,j,facet_idx)
+               !  write(*,*) this%orig_bound(:,i,facet_idx), &
+               !       this%orig_bound(:,j,facet_idx)
+               !       write(*,*)
+               !       write(*,*)
              end do
           end do
        end do
@@ -125,18 +194,18 @@ contains
           ! Use binary pattern for all three dimensions
           do j = 1, this%rank
              if(btest(i-1, this%rank-j)) then
-                this%orig_bound(j,i) = length(j)
+                this%orig_bound(:,j,i) = length(j)
                 this%dest_bound(:,j,i) = &
-                     [length(j) + pad(j) + 1, length(j) + pad(j) * 2]
+                     [ length(j) + pad(j) + 1, length(j) + pad(j) * 2 ]
              else
-                this%orig_bound(j,i) = 1
+                this%orig_bound(:,j,i) = 1
                 this%dest_bound(:,j,i) = [1, pad(j)]
              end if
           end do
        end do
     end select
 
-  end subroutine setup_replication_bounds
+  end subroutine setup_bounds
 !###############################################################################
 
 
