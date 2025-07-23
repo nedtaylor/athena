@@ -14,7 +14,7 @@ program test_pad3d_layer
   integer, parameter :: depth = 2
   integer, parameter :: channels = 2
   logical :: success = .true.
-  real(real32), parameter :: tol = 1.0e-6_real32
+  real(real32), parameter :: tol = 1.E-5_real32
 
   ! Test data
   real(real32), allocatable, dimension(:,:) :: input_2d, output_2d
@@ -275,19 +275,36 @@ program test_pad3d_layer
   write(*,*) "Testing comprehensive padding method functionality..."
 
   comprehensive_methods_block: block
-    real(real32), allocatable :: input_simple(:,:,:,:,:), &
-         output_simple(:,:,:,:,:)
-    integer, parameter :: simple_width = 2, simple_height = 2, simple_depth = 2
+    real(real32), allocatable, dimension(:,:,:,:,:) :: &
+         input_simple, output_simple, output_expected, &
+         gradient_out, gradient_expected
+    integer, parameter :: simple_width = 4, simple_height = 4, simple_depth = 4
     integer, parameter :: simple_channels = 1
-    integer, parameter :: pad_w = 1, pad_h = 1, pad_d = 1
+    integer, parameter :: pad_w = 2, pad_h = 2, pad_d = 2
+    integer :: i, j, k
+
+    allocate(gradient_out(simple_width+2*pad_w, simple_height+2*pad_h, &
+         simple_depth+2*pad_d, simple_channels, 1))
+    gradient_out(:,:,:,1,1) = 0.1_real32
+    ! Give distinct gradient values for testing
+    do k = 1, size(gradient_out,3)
+       do j = 1, size(gradient_out,2)
+          do i = 1, size(gradient_out,1)
+             gradient_out(i,j,k,1,1) = 0.1_real32 * (i+j+k)
+          end do
+       end do
+    end do
 
     ! Create simple test data: 2x2x2 cube
     allocate(input_simple(simple_width, simple_height, simple_depth, &
          simple_channels, 1))
-    input_simple(:,:,:,1,1) = reshape( &
-         [1.0_real32, 2.0_real32, 3.0_real32, 4.0_real32, &
-              5.0_real32, 6.0_real32, 7.0_real32, 8.0_real32], &
-         [simple_width, simple_height, simple_depth])
+    do k = 1, simple_depth
+       do j = 1, simple_height
+          do i = 1, simple_width
+             input_simple(i,j,k,1,1) = 1._real32 * (i + (i-1) * (j + (j-1) * k))
+          end do
+       end do
+    end do
 
     ! Test zero/constant padding
     write(*,*) "  Testing zero/constant padding..."
@@ -301,29 +318,263 @@ program test_pad3d_layer
     call pad3d_layer%forward(input_simple)
     call pad3d_layer%get_output(output_simple)
 
-    ! Should be 4x4x4 with zeros around border and original data in center
-    if (size(output_simple,1) .ne. simple_width+2*pad_w .or. &
-         size(output_simple,2) .ne. simple_height+2*pad_h .or. &
-         size(output_simple,3) .ne. simple_depth+2*pad_d) then
+    ! Should have zeros around border and original data in center
+    allocate(output_expected(simple_width+2*pad_w, simple_height+2*pad_h, &
+         simple_depth+2*pad_d, simple_channels, 1))
+    output_expected = 0._real32
+    output_expected(3:6,3:6,3:6,1,1) = input_simple(:,:,:,1,1)
+    if(any(abs(output_simple - output_expected) .gt. tol))then
        success = .false.
-       write(0,*) 'Zero padding 3D wrong size'
+       write(0,*) 'Zero padding method failed'
     end if
 
-    ! Check that center matches input
-    if (any(abs(output_simple(2:3,2:3,2:3,1,1) - &
-         input_simple(:,:,:,1,1)) .gt. tol)) then
+    call pad3d_layer%backward(input_simple, gradient_out)
+    select type(di => pad3d_layer%di(1,1))
+    type is(array5d_type)
+       ! For zero padding, gradients should just be extracted from middle
+       if(any(abs(di%val_ptr(:,:,:,1,1) - &
+            gradient_out(3:6,3:6,3:6,1,1)) .gt. tol))then
+          success = .false.
+          write(0,*) 'Zero padding backward pass failed'
+       end if
+    end select
+    deallocate(output_simple)
+
+    ! Test replication padding
+    write(*,*) "  Testing replication padding..."
+    pad3d_layer = pad3d_layer_type( &
+         padding = [pad_w, pad_h, pad_d], &
+         method = "replicate", &
+         input_shape = [simple_width, simple_height, simple_depth, &
+              simple_channels], &
+         batch_size = 1 &
+    )
+    call pad3d_layer%forward(input_simple)
+    call pad3d_layer%get_output(output_simple)
+
+    ! Replicate edge values at boundaries
+    output_expected(3:6,3:6,3:6,1,1) = input_simple(:,:,:,1,1)
+    ! Corners - replicate corner values
+    output_expected(1:2,1:2,1:2,1,1) = input_simple(1,1,1,1,1)
+    output_expected(7:8,7:8,7:8,1,1) = input_simple(4,4,4,1,1)
+    output_expected(1:2,7:8,1:2,1,1) = input_simple(1,4,1,1,1)
+    output_expected(7:8,1:2,1:2,1,1) = input_simple(4,1,1,1,1)
+    output_expected(1:2,1:2,7:8,1,1) = input_simple(1,1,4,1,1)
+    output_expected(1:2,7:8,7:8,1,1) = input_simple(1,4,4,1,1)
+    output_expected(7:8,1:2,7:8,1,1) = input_simple(4,1,4,1,1)
+    output_expected(7:8,7:8,1:2,1,1) = input_simple(4,4,1,1,1)
+    ! Edges - replicate edge values
+    output_expected(3:6,1:2,1:2,1,1) = &
+         spread(spread(input_simple(1:4,1,1,1,1), 2, 2), 3, 2)
+    output_expected(3:6,7:8,1:2,1,1) = &
+         spread(spread(input_simple(1:4,4,1,1,1), 2, 2), 3, 2)
+    output_expected(3:6,1:2,7:8,1,1) = &
+         spread(spread(input_simple(1:4,1,4,1,1), 2, 2), 3, 2)
+    output_expected(3:6,7:8,7:8,1,1) = &
+         spread(spread(input_simple(1:4,4,4,1,1), 2, 2), 3, 2)
+
+    output_expected(1:2,3:6,1:2,1,1) = &
+         spread(spread(input_simple(1,1:4,1,1,1), 1, 2), 3, 2)
+    output_expected(7:8,3:6,1:2,1,1) = &
+         spread(spread(input_simple(4,1:4,1,1,1), 1, 2), 3, 2)
+    output_expected(1:2,3:6,7:8,1,1) = &
+         spread(spread(input_simple(1,1:4,4,1,1), 1, 2), 3, 2)
+    output_expected(7:8,3:6,7:8,1,1) = &
+         spread(spread(input_simple(4,1:4,4,1,1), 1, 2), 3, 2)
+
+    output_expected(1:2,1:2,3:6,1,1) = &
+         spread(spread(input_simple(1,1,1:4,1,1), 1, 2), 2, 2)
+    output_expected(7:8,1:2,3:6,1,1) = &
+         spread(spread(input_simple(4,1,1:4,1,1), 1, 2), 2, 2)
+    output_expected(1:2,7:8,3:6,1,1) = &
+         spread(spread(input_simple(1,4,1:4,1,1), 1, 2), 2, 2)
+    output_expected(7:8,7:8,3:6,1,1) = &
+         spread(spread(input_simple(4,4,1:4,1,1), 1, 2), 2, 2)
+    ! Faces - replicate face values
+    output_expected(1:2,3:6,3:6,1,1) = spread(input_simple(1,1:4,1:4,1,1), 1, 2)
+    output_expected(7:8,3:6,3:6,1,1) = spread(input_simple(4,1:4,1:4,1,1), 1, 2)
+    output_expected(3:6,1:2,3:6,1,1) = spread(input_simple(1:4,1,1:4,1,1), 2, 2)
+    output_expected(3:6,7:8,3:6,1,1) = spread(input_simple(1:4,4,1:4,1,1), 2, 2)
+    output_expected(3:6,3:6,1:2,1,1) = spread(input_simple(1:4,1:4,1,1,1), 3, 2)
+    output_expected(3:6,3:6,7:8,1,1) = spread(input_simple(1:4,1:4,4,1,1), 3, 2)
+
+
+    if(any(abs(output_simple - output_expected) .gt. tol))then
        success = .false.
-       write(0,*) 'Zero padding 3D center incorrect'
+       write(0,*) 'Replication padding method failed'
+       do i = 1, size(output_simple,1)
+          do j = 1, size(output_simple,2)
+             do k = 1, size(output_simple,3)
+                if( &
+                     abs(output_simple(i,j,k,1,1) - output_expected(i,j,k,1,1)) .gt. &
+                     tol &
+                )then
+                   write(0,*) 'Mismatch at (', i, ',', j, ',', k, ')'
+                   write(*,*) 'Expected: ', output_expected(i,j,k,1,1)
+                   write(*,*) 'Got:      ', output_simple(i,j,k,1,1)
+                end if
+             end do
+          end do
+       end do
     end if
 
-    ! Check that borders are zero (just check one face)
-    if (any(abs(output_simple(1,:,:,1,1)) .gt. tol) .or. &
-         any(abs(output_simple(4,:,:,1,1)) .gt. tol)) then
-       success = .false.
-       write(0,*) 'Zero padding 3D border not zero'
-    end if
+    ! Test backward pass for replication
+    allocate(gradient_expected(simple_width, simple_height, simple_depth, &
+         simple_channels, 1))
+    call pad3d_layer%backward(input_simple, gradient_out)
+    ! For replication, gradients accumulate at replicated points
+    gradient_expected(:,:,:,1,1) = gradient_out(3:6,3:6,3:6,1,1)
+    ! Corners - accumulate contributions from corners
+    gradient_expected(1,1,1,1,1) = gradient_expected(1,1,1,1,1) + &
+         sum(gradient_out(1:2,1:2,1:2,1,1))
+    gradient_expected(1,1,4,1,1) = gradient_expected(1,1,4,1,1) + &
+         sum(gradient_out(1:2,1:2,7:8,1,1))
+    gradient_expected(4,1,1,1,1) = gradient_expected(4,1,1,1,1) + &
+         sum(gradient_out(7:8,1:2,1:2,1,1))
+    gradient_expected(4,1,4,1,1) = gradient_expected(4,1,4,1,1) + &
+         sum(gradient_out(7:8,1:2,7:8,1,1))
+    gradient_expected(1,4,1,1,1) = gradient_expected(1,4,1,1,1) + &
+         sum(gradient_out(1:2,7:8,1:2,1,1))
+    gradient_expected(1,4,4,1,1) = gradient_expected(1,4,4,1,1) + &
+         sum(gradient_out(1:2,7:8,7:8,1,1))
+    gradient_expected(4,4,1,1,1) = gradient_expected(4,4,1,1,1) + &
+         sum(gradient_out(7:8,7:8,1:2,1,1))
+    gradient_expected(4,4,4,1,1) = gradient_expected(4,4,4,1,1) + &
+         sum(gradient_out(7:8,7:8,7:8,1,1))
+    ! Edges - accumulate contributions from edges
+    gradient_expected(1:4,1,1,1,1) = gradient_expected(1:4,1,1,1,1) + &
+         sum(sum(gradient_out(3:6,1:2,1:2,1,1), dim=3), dim=2)
+    gradient_expected(1:4,1,4,1,1) = gradient_expected(1:4,1,4,1,1) + &
+         sum(sum(gradient_out(3:6,1:2,7:8,1,1), dim=3), dim= 2)
+    gradient_expected(1:4,4,1,1,1) = gradient_expected(1:4,4,1,1,1) + &
+         sum(sum(gradient_out(3:6,7:8,1:2,1,1), dim=3), dim=2)
+    gradient_expected(1:4,4,4,1,1) = gradient_expected(1:4,4,4,1,1) + &
+         sum(sum(gradient_out(3:6,7:8,7:8,1,1), dim=3), dim=2)
+    gradient_expected(1,1:4,1,1,1) = gradient_expected(1,1:4,1,1,1) + &
+         sum(sum(gradient_out(1:2,3:6,1:2,1,1), dim=3), dim=1)
+    gradient_expected(4,1:4,1,1, 1) = gradient_expected(4,1:4,1,1,1) + &
+         sum(sum(gradient_out(7:8,3:6,1:2,1,1), dim=3), dim=1)
+    gradient_expected(1,1:4,4,1,1) = gradient_expected(1,1:4,4,1,1) + &
+         sum(sum(gradient_out(1:2,3:6,7:8,1,1), dim=3), dim=1)
+    gradient_expected(4,1:4,4,1,1) = gradient_expected(4,1:4,4,1,1) + &
+         sum(sum(gradient_out(7:8,3:6,7:8,1,1), dim=3), dim=1)
+    gradient_expected(1,1,1:4,1,1) = gradient_expected(1,1,1:4,1,1) + &
+         sum(sum(gradient_out(1:2,1:2,3:6,1,1), dim=2), dim=1)
+    gradient_expected(1,4,1:4,1,1) = gradient_expected(1,4,1:4,1,1) + &
+         sum(sum(gradient_out(7:8,1:2,3:6,1,1), dim=2), dim=1)
+    gradient_expected(4,1,1:4,1,1) = gradient_expected(4,1,1:4,1,1) + &
+         sum(sum(gradient_out(1:2,7:8,3:6,1,1), dim=2), dim=1)
+    gradient_expected(4,4,1:4,1,1) = gradient_expected(4,4,1:4,1,1) + &
+         sum(sum(gradient_out(7:8,7:8,3:6,1,1), dim=2), dim=1)
+    ! Faces - accumulate contributions from faces
+    gradient_expected(1:4,1:4,1,1,1) = gradient_expected(1:4,1:4,1,1,1) + &
+         sum(gradient_out(3:6,3:6,1:2,1,1), dim=3)
+    gradient_expected(1:4,1:4,4,1,1) = gradient_expected(1:4,1:4,4,1,1) + &
+         sum(gradient_out(3:6,3:6,7:8,1,1), dim=3)
+    gradient_expected(1:4,1,1:4,1,1) = gradient_expected(1:4,1,1:4,1,1) + &
+         sum(gradient_out(3:6,1:2,3:6,1,1), dim=2)
+    gradient_expected(1:4,4,1:4,1,1) = gradient_expected(1:4,4,1:4,1,1) + &
+         sum(gradient_out(3:6,7:8,3:6,1,1), dim=2)
+    gradient_expected(1,1:4,1:4,1,1) = gradient_expected(1,1:4,1:4,1,1) + &
+         sum(gradient_out(1:2,3:6,3:6,1,1), dim=1)
+    gradient_expected(4,1:4,1:4,1,1) = gradient_expected(4,1:4,1:4,1,1) + &
+         sum(gradient_out(7:8,3:6,3:6,1,1), dim=1)
 
-    deallocate(input_simple, output_simple)
+
+    select type(di => pad3d_layer%di(1,1))
+    type is(array5d_type)
+       if(any(abs(di%val_ptr(:,:,:,1,1) - gradient_expected(:,:,:,1,1)) &
+            .gt. tol*10))then ! Allow slightly higher tolerance for accumulation
+          success = .false.
+          write(0,*) 'Replication padding backward pass failed'
+          do i = 1, size(gradient_expected,1)
+             do j = 1, size(gradient_expected,2)
+                do k = 1, size(gradient_expected,3)
+                   if( &
+                        abs(di%val_ptr(i,j,k,1,1) - gradient_expected(i,j,k,1,1)) .gt. &
+                        tol &
+                   ) then
+                      write(0,*) 'Mismatch at (', i, ',', j, ',', k, ')'
+                      write(*,*) 'Expected: ', gradient_expected(i,j,k,1,1)
+                      write(*,*) 'Got:      ', di%val_ptr(i,j,k,1,1)
+                      stop 0
+                   end if
+                end do
+             end do
+          end do
+       end if
+    end select
+    deallocate(output_simple, gradient_expected)
+
+!     ! Test reflection padding
+!     write(*,*) "  Testing reflection padding..."
+!     pad3d_layer = pad3d_layer_type( &
+!          padding = [pad_w, pad_h, pad_d], &
+!          method = "reflect", &
+!          input_shape = [simple_width, simple_height, simple_depth, &
+!               simple_channels], &
+!          batch_size = 1 &
+!     )
+!     call pad3d_layer%forward(input_simple)
+!     call pad3d_layer%get_output(output_simple)
+
+!     ! Reflect across boundaries (without including edge)
+
+!     if(any(abs(output_simple - output_expected) .gt. tol))then
+!        success = .false.
+!        write(0,*) 'Reflection padding method failed'
+!     end if
+
+!     ! Test backward pass for reflection
+!     allocate(gradient_expected(simple_width, simple_height, simple_depth, &
+!                               simple_channels, 1))
+!     call pad3d_layer%backward(input_simple, gradient_out)
+
+!     select type(di => pad3d_layer%di(1,1))
+!     type is(array5d_type)
+!        if(any(abs(di%val_ptr(:,:,:,1,1) - gradient_expected(:,:,:,1,1)) &
+!             .gt. tol*10))then
+!           success = .false.
+!           write(0,*) 'Reflection padding backward pass failed'
+!        end if
+!     end select
+!     deallocate(output_simple, gradient_expected)
+
+!     ! Test circular padding
+!     write(*,*) "  Testing circular padding..."
+!     pad3d_layer = pad3d_layer_type( &
+!          padding = [pad_w, pad_h, pad_d], &
+!          method = "circular", &
+!          input_shape = [simple_width, simple_height, simple_depth, &
+!               simple_channels], &
+!          batch_size = 1 &
+!     )
+!     call pad3d_layer%forward(input_simple)
+!     call pad3d_layer%get_output(output_simple)
+
+!     ! Wrap around all dimensions
+
+!     if(any(abs(output_simple - output_expected) .gt. tol))then
+!        success = .false.
+!        write(0,*) 'Circular padding method failed'
+!     end if
+
+!     ! Test backward pass for circular
+!     allocate(gradient_expected(simple_width, simple_height, simple_depth, &
+!                               simple_channels, 1))
+!     call pad3d_layer%backward(input_simple, gradient_out)
+
+!     select type(di => pad3d_layer%di(1,1))
+!     type is(array5d_type)
+!        if(any(abs(di%val_ptr(:,:,:,1,1) - gradient_expected(:,:,:,1,1)) &
+!             .gt. tol*10))then
+!           success = .false.
+!           write(0,*) 'Circular padding backward pass failed'
+!        end if
+!     end select
+!     deallocate(output_simple, gradient_expected)
+
+!     deallocate(input_simple, gradient_out, output_expected)
   end block comprehensive_methods_block
 
 

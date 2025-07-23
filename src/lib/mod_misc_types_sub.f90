@@ -22,7 +22,7 @@ contains
     !! 3 - circular, 4 - reflection, 5 - replication
 
     ! Local variables
-    integer :: i, j, k, facet_idx, idim
+    integer :: i, j, k, l, facet_idx, idim
     !! Loop indices and facet index
     logical :: btest_k0, btest_k1
     !! Binary test variables for edge cases
@@ -82,6 +82,10 @@ contains
           do j = 1, 2  ! Two faces per dimension
              facet_idx = facet_idx + 1
              this%dim(facet_idx) = i
+             do l = 1, this%rank
+                this%orig_bound(:,l,facet_idx) = [ 1, length(l) ]
+                this%dest_bound(:,l,facet_idx) = [ pad(l) + 1, pad(l) + length(l) ]
+             end do
 
              ! Set origin bounds
              select case(imethod)
@@ -123,42 +127,33 @@ contains
                 this%dim(facet_idx) = idim
                 btest_k0 = btest(k,0)
                 btest_k1 = btest(k,1)
+                do l = 1, this%rank
+                   this%orig_bound(:,l,facet_idx) = [ 1, length(l) ]
+                   this%dest_bound(:,l,facet_idx) = [ pad(l) + 1, pad(l) + length(l) ]
+                end do
 
                 ! Set original bounds using binary pattern
                 select case(imethod)
                 case(3) ! circular
-                     if(btest_k1) then
-                        this%orig_bound(:,i,facet_idx) = &
-                             [ 1, pad(i) ]
-                     else
-                        this%orig_bound(:,i,facet_idx) = &
-                             [ length(i) - pad(i) + 1, length(i) ]
-                     end if
-                     if(btest_k0) then
-                        this%orig_bound(:,j,facet_idx) = &
-                             [ 1, pad(j) ]
-                     else
-                        this%orig_bound(:,j,facet_idx) = &
-                             [ length(j) - pad(j) + 1, length(j) ]
-                     end if
+                   if(btest_k1) then
+                      this%orig_bound(:,i,facet_idx) = &
+                           [ 1, pad(i) ]
+                   else
+                      this%orig_bound(:,i,facet_idx) = &
+                           [ length(i) - pad(i) + 1, length(i) ]
+                   end if
+                   if(btest_k0) then
+                      this%orig_bound(:,j,facet_idx) = &
+                           [ 1, pad(j) ]
+                   else
+                      this%orig_bound(:,j,facet_idx) = &
+                           [ length(j) - pad(j) + 1, length(j) ]
+                   end if
                 case(4) ! reflection
                    this%orig_bound(:,i,facet_idx) = &
                         [ length(i) - 1, length(i) - pad(i) ]
                    this%orig_bound(:,j,facet_idx) = &
                         [ length(j) - 1, length(j) - pad(j) ]
-                  !  this%orig_bound(:,j,facet_idx) = [2, pad(j) + 1]
-                  !  if (btest_k1) then
-                  !     this%orig_bound(:,i,facet_idx) = [2, pad(i) + 1]
-                  !  else
-                  !     this%orig_bound(:,i,facet_idx) = &
-                  !          [length(i) - 1, length(i) - pad(i)]
-                  !  end if
-                  !  if (btest_k0) then
-                  !     this%orig_bound(:,j,facet_idx) = [2, pad(j) + 1]
-                  !  else
-                  !     this%orig_bound(:,j,facet_idx) = &
-                  !          [length(j) - 1, length(j) - pad(j)]
-                  !  end if
                 case(5) ! replication
                    if(btest_k1) this%orig_bound(:,i,facet_idx) = length(i)
                    if(btest_k0) this%orig_bound(:,j,facet_idx) = length(j)
@@ -177,14 +172,6 @@ contains
                           [ 1, pad(j) ], &
                           btest_k0 &
                      )
-               !  write(*,*) "i,j,k:", i, j, k
-               !  write(*,*) btest_k0, btest_k1
-               !  write(*,*) this%dest_bound(:,i,facet_idx), &
-               !       this%dest_bound(:,j,facet_idx)
-               !  write(*,*) this%orig_bound(:,i,facet_idx), &
-               !       this%orig_bound(:,j,facet_idx)
-               !       write(*,*)
-               !       write(*,*)
              end do
           end do
        end do
