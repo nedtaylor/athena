@@ -30,7 +30,7 @@ program msgpass_euler_example
   character(1024) :: file, train_file
 
   ! training loop variables
-  integer :: num_tests = 10, num_epochs = 200, batch_size = 2
+  integer :: num_epochs = 200, batch_size = 2
   integer :: num_time_steps = 5
   integer :: num_samples
   integer :: i, n
@@ -235,7 +235,6 @@ program msgpass_euler_example
   write(*,*) "NUMBER OF LAYERS",network%num_layers
   write(*,*) "Number of parameters", num_params
   write(*,*) "Number of samples",size(graphs_in,2)
-  write(*,*) "Number of tests",num_tests
 
 
   !-----------------------------------------------------------------------------
