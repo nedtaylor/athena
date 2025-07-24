@@ -314,13 +314,13 @@ contains
              )
              call this%di(1,s)%allocate( &
                   [ &
-                       this%num_vertex_features, &
+                       this%num_vertex_features(0), &
                        this%graph(s)%num_vertices &
                   ] &
              )
              call this%di(2,s)%allocate( &
                   [ &
-                       this%num_edge_features, &
+                       this%num_edge_features(0), &
                        this%graph(s)%num_edges &
                   ] &
              )

@@ -337,6 +337,7 @@ contains
   module subroutine print(this, file)
     !! Print the network to a file
     use athena__misc, only: to_upper
+    use athena__io_utils, only: athena__version__
     implicit none
 
     ! Arguments
@@ -357,6 +358,26 @@ contains
     integer, dimension(:), allocatable :: input_list, output_list
 
     open(newunit=unit,file=file,status='replace')
+
+    write(unit,'("NETWORK_SETTINGS")')
+    write(unit,'(3X,"ATHENA_VERSION = ",A)') trim(adjustl(athena__version__))
+    if(allocated(this%name)) write(unit,'(3X,"NAME = ",A)') trim(adjustl(this%name))
+    write(unit,'(3X,"EPOCH = ",I0)') this%epoch
+    write(unit,'(3X,"BATCH_SIZE = ",I0)') this%batch_size
+    write(unit,'(3X,"ACCURACY = ",F0.9)') this%accuracy
+    write(unit,'(3X,"LOSS = ",F0.9)') this%loss
+    if(allocated(this%accuracy_method))then
+       write(unit,'(3X,"ACCURACY_METHOD = ",A)') trim(adjustl(this%accuracy_method))
+    end if
+    if(allocated(this%loss_method))then
+       write(unit,'(3X,"LOSS_METHOD = ",A)') trim(adjustl(this%loss_method))
+    end if
+    if(allocated(this%optimiser))then
+       write(unit,'(3X,"OPTIMISER: ",A)') trim(adjustl(this%optimiser%name))
+       call this%optimiser%print_to_unit(unit=unit)
+       write(unit,'(3X,"END OPTIMISER")')
+    end if
+    write(unit,'("END NETWORK_SETTINGS")')
 
     do v = 1, size(this%vertex_order,dim=1), 1
        l = this%vertex_order(v)
@@ -421,6 +442,7 @@ contains
        write(unit,'("END ",A)') to_upper(trim(this%model(l)%layer%name))
        deallocate(input_list, output_list)
     end do
+    close(unit)
 
   end subroutine print
 !###############################################################################
@@ -480,6 +502,10 @@ contains
 
        !! check for card
        name = trim(adjustl(buffer(1:scan(buffer,' ')-1)))
+       if(name.eq."NETWORK_SETTINGS")then
+          call this%read_network_settings(unit)
+          cycle card_loop
+       end if
        buffer = trim(adjustl(buffer(scan(buffer,' ')+1:)))
        operator_in = trim(adjustl(buffer(1:scan(buffer,' ')-1)))
        buffer = trim(adjustl(buffer(scan(buffer,' ')+1:)))
@@ -529,6 +555,168 @@ contains
     close(unit)
 
   end subroutine read
+!###############################################################################
+
+
+!###############################################################################
+  module subroutine read_network_settings(this, unit)
+    !! Read the network settings from a file
+    use athena__tools_infile, only: assign_val, assign_vec
+    use athena__misc, only: to_lower, to_upper, icount
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    integer, intent(in) :: unit
+    !! File unit
+
+    ! Local variables
+    integer :: stat
+    !! File status
+    integer :: itmp1
+    !! Temporary integer
+    character(20) :: accuracy_method, loss_method
+    !! Methods for accuracy and loss
+    character(256) :: buffer, tag, err_msg, name_
+    !! Buffer for reading lines, tag for identifying lines, error message
+
+
+    ! Loop over tags in layer card
+    !---------------------------------------------------------------------------
+    accuracy_method = ""
+    loss_method = ""
+    tag_loop: do
+
+       ! Check for end of file
+       !------------------------------------------------------------------------
+       read(unit,'(A)',iostat=stat) buffer
+       if(stat.ne.0)then
+          write(err_msg,'("file encountered error (EoF?) before END ",A)') &
+               to_upper(this%name)
+          call stop_program(err_msg)
+          return
+       end if
+       if(trim(adjustl(buffer)).eq."") cycle tag_loop
+
+       ! Check for end of layer card
+       !------------------------------------------------------------------------
+       if(trim(adjustl(buffer)).eq."END NETWORK_SETTINGS")then
+          backspace(unit)
+          exit tag_loop
+       end if
+
+       tag=trim(adjustl(buffer))
+       if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
+       if(scan(buffer,":").ne.0) tag=trim(tag(:scan(tag,":")-1))
+
+       ! Read parameters from save file
+       !------------------------------------------------------------------------
+       select case(trim(tag))
+       case("ATHENA_VERSION")
+          ! Ignore this tag, it is only for information
+       case("NAME")
+          call assign_val(buffer, name_, itmp1)
+          if(len(trim(adjustl(name_))) .gt. 0) then
+             this%name = trim(adjustl(name_))
+          end if
+       case("EPOCH")
+          call assign_val(buffer, this%epoch, itmp1)
+       case("BATCH_SIZE")
+          call assign_val(buffer, this%batch_size, itmp1)
+       case("ACCURACY")
+          call assign_val(buffer, this%accuracy, itmp1)
+       case("LOSS")
+          call assign_val(buffer, this%loss, itmp1)
+       case("ACCURACY_METHOD")
+          call assign_val(buffer, accuracy_method, itmp1)
+          call this%set_accuracy(accuracy_method)
+       case("LOSS_METHOD")
+          call assign_val(buffer, loss_method, itmp1)
+          call this%set_loss(loss_method)
+       case("OPTIMISER")
+          backspace(unit)
+          call this%read_optimiser_settings(unit)
+       case default
+          ! Don't look for "e" due to scientific notation of numbers
+          ! ... i.e. exponent (E+00)
+          if(scan(to_lower(trim(adjustl(buffer))),&
+               'abcdfghijklmnopqrstuvwxyz').eq.0)then
+             cycle tag_loop
+          elseif(tag(:3).eq.'END')then
+             cycle tag_loop
+          end if
+          write(err_msg,'("Unrecognised line in input file: ",A)') &
+               trim(adjustl(buffer))
+          call stop_program(err_msg)
+          return
+       end select
+    end do tag_loop
+
+
+    ! Check for end of layer card
+    !---------------------------------------------------------------------------
+    read(unit,'(A)') buffer
+    if(trim(adjustl(buffer)).ne."END NETWORK_SETTINGS")then
+       write(0,*) trim(adjustl(buffer))
+       write(err_msg,'("END NETWORK_SETTINGS not where expected")')
+       call stop_program(err_msg)
+       return
+    end if
+
+  end subroutine read_network_settings
+!-------------------------------------------------------------------------------
+  module subroutine read_optimiser_settings(this, unit)
+    !! Read the optimiser settings from a file
+    use athena__misc, only: to_lower, to_upper, icount
+    use athena__optimiser, only: &
+         sgd_optimiser_type, adam_optimiser_type, rmsprop_optimiser_type, &
+         adagrad_optimiser_type, base_optimiser_type
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    integer, intent(in) :: unit
+    !! File unit
+
+    ! Local variables
+    integer :: stat
+    !! File status
+    character(20) :: optimiser_name
+    !! Name of the optimiser
+    character(256) :: buffer, err_msg, tmp
+    !! Buffer for reading lines, error message
+
+    ! Read until end of optimiser settings
+    read(unit,'(A)',iostat=stat) buffer
+    if(stat.ne.0)then
+       write(err_msg,'("file encountered error (EoF?) before END ",A)') &
+            to_upper(this%name)
+       call stop_program(err_msg)
+       return
+    end if
+    read(buffer,*) tmp, optimiser_name
+
+    select case(trim(adjustl(to_lower(optimiser_name))))
+    case("sgd")
+       this%optimiser = sgd_optimiser_type()
+    case("adam")
+       this%optimiser = adam_optimiser_type()
+    case("rmsprop")
+       this%optimiser = rmsprop_optimiser_type()
+    case("adagrad")
+       this%optimiser = adagrad_optimiser_type()
+    case("","base")
+       this%optimiser = base_optimiser_type()
+    case default
+       write(err_msg,'("Unrecognised optimiser: ",A)') trim(adjustl(optimiser_name))
+       call stop_program(err_msg)
+       return
+    end select
+    call this%optimiser%read(unit)
+
+  end subroutine read_optimiser_settings
 !###############################################################################
 
 
@@ -1099,6 +1287,7 @@ contains
        call stop_program(trim(err_msg))
        return
     end select
+    this%loss_method = loss_method_
 
   end subroutine set_loss
 !###############################################################################
@@ -1183,6 +1372,7 @@ contains
        call stop_program(trim(err_msg))
        return
     end select
+    this%accuracy_method = accuracy_method_
 
   end subroutine set_accuracy
 !###############################################################################

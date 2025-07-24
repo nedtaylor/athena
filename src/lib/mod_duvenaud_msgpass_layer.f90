@@ -860,7 +860,7 @@ contains
          num_vertex_features = [ 0 ], &
          num_edge_features = [ 0 ], &
          num_time_steps = 1, &
-         max_vertex_degree = 0, &
+         max_vertex_degree = 1, &
          num_outputs = 1 &
     ))
     call layer%read(unit, verbose=verbose_)

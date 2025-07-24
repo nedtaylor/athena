@@ -11,6 +11,7 @@ module athena__optimiser
   !! The same applies to the implementation of the sgd_optimiser_type, ...
   !! ... rmsprop_optimiser_type, adagrad_optimiser_type, and adam_optimiser_type
   use athena__constants, only: real32
+  use athena__io_utils, only: stop_program
   use athena__clipper, only: clip_type
   use athena__regulariser, only: base_regulariser_type, l2_regulariser_type
   use athena__learning_rate_decay, only: base_lr_decay_type
@@ -30,6 +31,8 @@ module athena__optimiser
 
   type :: base_optimiser_type
      !! Base optimiser type
+     character(len=20) :: name
+     !! Name of the optimiser
      integer :: iter = 0
      !! Iteration number
      integer :: epoch = 0
@@ -47,6 +50,10 @@ module athena__optimiser
    contains
      procedure, pass(this) :: init => init_base
      !! Initialise base optimiser
+     procedure, pass(this) :: print_to_unit => print_to_unit_base
+     !! Print base optimiser information
+     procedure, pass(this) :: read => read_base
+     !! Read base optimiser information
      procedure, pass(this) :: init_gradients => init_gradients_base
      !! Initialise gradients
      procedure, pass(this) :: minimise => minimise_base
@@ -269,6 +276,9 @@ contains
     !! Number of parameters
 
 
+    ! Initialise optimiser name
+    optimiser%name = "base"
+
     ! Apply regularisation
     if(present(regulariser))then
        optimiser%regularisation = .true.
@@ -382,6 +392,124 @@ contains
 
 
 !###############################################################################
+  subroutine print_to_unit_base(this, unit)
+    !! Print base optimiser information
+    implicit none
+
+    ! Arguments
+    class(base_optimiser_type), intent(in) :: this
+    !! Instance of the base optimiser
+    integer, intent(in) :: unit
+    !! File unit
+
+
+    write(unit,'(3X,"NAME = ",A)') this%name
+    write(unit,'(3X,"LEARNING_RATE = ",F10.5)') this%learning_rate
+    write(unit,'(3X,"ITERATION = ",I10)') this%iter
+    write(unit,'(3X,"EPOCH = ",I10)') this%epoch
+    write(unit,'(3X,"REGULARISATION = ",L1)') this%regularisation
+
+  end subroutine print_to_unit_base
+!###############################################################################
+
+
+!###############################################################################
+  subroutine read_base(this, unit)
+    !! Read base optimiser information
+    use athena__tools_infile, only: assign_val, assign_vec
+    use athena__misc, only: to_lower, to_upper, icount
+    implicit none
+
+    ! Arguments
+    class(base_optimiser_type), intent(inout) :: this
+    !! Instance of the base optimiser
+    integer, intent(in) :: unit
+    !! File unit
+
+    ! Local variables
+    integer :: stat
+    !! File status
+    integer :: itmp1
+    !! Temporary integer
+    character(256) :: buffer, tag, err_msg
+    !! Buffer for reading lines, tag for identifying lines, error message
+
+
+    ! Loop over tags in layer card
+    !---------------------------------------------------------------------------
+    tag_loop: do
+
+       ! Check for end of file
+       !------------------------------------------------------------------------
+       read(unit,'(A)',iostat=stat) buffer
+       if(stat.ne.0)then
+          write(err_msg,'("file encountered error (EoF?) before END ",A)') &
+               to_upper(this%name)
+          call stop_program(err_msg)
+          return
+       end if
+       if(trim(adjustl(buffer)).eq."") cycle tag_loop
+
+       ! Check for end of layer card
+       !------------------------------------------------------------------------
+       if(trim(adjustl(buffer)).eq."END OPTIMISER")then
+          backspace(unit)
+          exit tag_loop
+       end if
+
+       tag=trim(adjustl(buffer))
+       if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
+
+       ! Read parameters from save file
+       !------------------------------------------------------------------------
+       select case(trim(tag))
+       case("NAME")
+          call assign_val(buffer, this%name, itmp1)
+       case("LEARNING_RATE")
+          call assign_val(buffer, this%learning_rate, itmp1)
+       case("ITERATION")
+          call assign_val(buffer, this%iter, itmp1)
+       case("EPOCH")
+          call assign_val(buffer, this%epoch, itmp1)
+       case("REGULARISATION")
+          call assign_val(buffer, this%regularisation, itmp1)
+       case default
+          ! Don't look for "e" due to scientific notation of numbers
+          ! ... i.e. exponent (E+00)
+          if(scan(to_lower(trim(adjustl(buffer))),&
+               'abcdfghijklmnopqrstuvwxyz').eq.0)then
+             cycle tag_loop
+          elseif(tag(:3).eq.'END')then
+             cycle tag_loop
+          end if
+          write(err_msg,'("Unrecognised line in input file: ",A)') &
+               trim(adjustl(buffer))
+          call stop_program(err_msg)
+          return
+       end select
+    end do tag_loop
+
+
+    ! Check for end of layer card
+    !---------------------------------------------------------------------------
+    read(unit,'(A)') buffer
+    if(trim(adjustl(buffer)).ne."END OPTIMISER")then
+       write(0,*) trim(adjustl(buffer))
+       write(err_msg,'("END OPTIMISER not where expected")')
+       call stop_program(err_msg)
+       return
+    end if
+
+  end subroutine read_base
+!################################################################################
+
+
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
+
+
+!###############################################################################
   module function optimiser_setup_sgd( &
        learning_rate, momentum, &
        nesterov, num_params, &
@@ -410,6 +538,9 @@ contains
     integer :: num_params_
     !! Number of parameters
 
+
+    ! Initialise optimiser name
+    optimiser%name = "sgd"
 
     ! Apply regularisation
     if(present(regulariser))then
@@ -545,6 +676,9 @@ contains
     !! Number of parameters
 
 
+    ! Initialise optimiser name
+    optimiser%name = "rmsprop"
+
     ! Apply regularisation
     if(present(regulariser))then
        optimiser%regularisation = .true.
@@ -670,6 +804,9 @@ contains
     !! Number of parameters
 
 
+    ! Initialise optimiser name
+    optimiser%name = "adagrad"
+
     ! Apply regularisation
     if(present(regulariser))then
        optimiser%regularisation = .true.
@@ -791,6 +928,9 @@ contains
     integer :: num_params_
     !! Number of parameters
 
+
+    ! Initialise optimiser name
+    optimiser%name = "adam"
 
     ! Apply regularisation
     if(present(regulariser))then

@@ -431,6 +431,157 @@ contains
 
 
 !###############################################################################
+  subroutine fill_corner_region(this, input, output, orig, dest, s, m)
+    !! Fill a corner region based on padding method
+    implicit none
+
+    ! Arguments
+    class(pad2d_layer_type), intent(in) :: this
+    real(real32), dimension(:,:,:,:), intent(in) :: input
+    real(real32), dimension(:,:,:,:), intent(inout) :: output
+    integer, dimension(2,2), intent(in) :: orig
+    integer, dimension(2,2), intent(in) :: dest
+    integer, intent(in) :: s, m
+
+    ! Local variables
+    integer :: step
+
+    select case(this%imethod)
+    case(3, 4) ! circular or reflection
+       ! Set step direction: 1 for circular, -1 for reflection
+       step = merge(1, -1, this%imethod .eq. 3)
+       output(dest(1,1):dest(2,1), dest(1,2):dest(2,2), m, s) = &
+            input(orig(1,1):orig(2,1):step, orig(1,2):orig(2,2):step, m, s)
+
+    case(5) ! replication
+       output(dest(1,1):dest(2,1), dest(1,2):dest(2,2), m, s) = &
+            input(orig(1,1), orig(1,2), m, s)
+    end select
+
+  end subroutine fill_corner_region
+!###############################################################################
+
+
+!###############################################################################
+  subroutine fill_edge_region(this, input, output, orig, dest, f, s, m)
+    !! Fill an edge region based on padding method and dimension
+    implicit none
+
+    ! Arguments
+    class(pad2d_layer_type), intent(in) :: this
+    real(real32), dimension(:,:,:,:), intent(in) :: input
+    real(real32), dimension(:,:,:,:), intent(inout) :: output
+    integer, dimension(2,2), intent(in) :: orig
+    integer, dimension(2,2), intent(in) :: dest
+    integer, intent(in) :: f, s, m
+
+    ! Local variables
+    integer :: step1, step2
+
+    select case(this%imethod)
+    case(3, 4) ! circular or reflection
+       ! for step1: -1 if reflection and idim = 1, otherwise 1
+       ! for step2: -1 if reflection and idim = 2, otherwise 1
+       step1 = merge(-1, 1, this%imethod .eq. 4 .and. this%facets(1)%dim(f) .eq. 1)
+       step2 = merge(-1, 1, this%imethod .eq. 4 .and. this%facets(1)%dim(f) .eq. 2)
+       output(dest(1,1):dest(2,1), dest(1,2):dest(2,2), m, s) = &
+            input(orig(1,1):orig(2,1):step1, orig(1,2):orig(2,2):step2, m, s)
+    case(5) ! replication
+       select case(this%facets(1)%dim(f))
+       case(1) ! Dimension 1 padding
+          output(dest(1,1):dest(2,1), dest(1,2):dest(2,2), m, s) = &
+               spread( input(orig(1,1), :, m, s), dim=1, ncopies=this%pad(1) )
+       case(2) ! Dimension 2 padding
+          output(dest(1,1):dest(2,1), dest(1,2):dest(2,2), m, s) = &
+               spread( input(:, orig(1,2), m, s), dim=2, ncopies=this%pad(2) )
+       end select
+    end select
+
+  end subroutine fill_edge_region
+!###############################################################################
+
+
+!###############################################################################
+  subroutine accumulate_corner_gradient(this, gradient, di_ptr, orig, dest, s, m)
+    !! Accumulate gradient from a corner region based on padding method
+    implicit none
+
+    ! Arguments
+    class(pad2d_layer_type), intent(in) :: this
+    real(real32), dimension(:,:,:,:), intent(in) :: gradient
+    real(real32), dimension(:,:,:,:), intent(inout) :: di_ptr
+    integer, dimension(2,2), intent(in) :: orig
+    integer, dimension(2,2), intent(in) :: dest
+    integer, intent(in) :: s, m
+
+    ! Local variables
+    integer :: step
+
+    select case(this%imethod)
+    case(3, 4) ! circular or reflection
+       step = merge(1, -1, this%imethod .eq. 3)
+       di_ptr(orig(1,1):orig(2,1):step, orig(1,2):orig(2,2):step, m, s) = &
+            di_ptr(orig(1,1):orig(2,1):step, orig(1,2):orig(2,2):step, m, s) + &
+            gradient(dest(1,1):dest(2,1), dest(1,2):dest(2,2), m, s)
+
+    case(5) ! replication
+       di_ptr(orig(1,1), orig(1,2), m, s) = &
+            di_ptr(orig(1,1), orig(1,2), m, s) + &
+            sum(gradient(dest(1,1):dest(2,1), dest(1,2):dest(2,2), m, s))
+    end select
+
+  end subroutine accumulate_corner_gradient
+!###############################################################################
+
+
+!###############################################################################
+  subroutine accumulate_edge_gradient(this, gradient, di_ptr, orig, dest, f, s, m)
+    !! Accumulate gradient from an edge region based on padding method
+    implicit none
+
+    ! Arguments
+    class(pad2d_layer_type), intent(in) :: this
+    real(real32), dimension(:,:,:,:), intent(in) :: gradient
+    real(real32), dimension(:,:,:,:), intent(inout) :: di_ptr
+    integer, dimension(2,2), intent(in) :: orig
+    integer, dimension(2,2), intent(in) :: dest
+    integer, intent(in) :: f, s, m
+
+    ! Local variables
+    integer :: step1, step2
+
+    select case(this%imethod)
+    case(3, 4) ! circular or reflection
+       ! for step1: -1 if reflection and idim = 1, otherwise 1
+       ! for step2: -1 if reflection and idim = 2, otherwise 1
+       step1 = merge(-1, 1, this%imethod .eq. 4 .and. this%facets(1)%dim(f) .eq. 1)
+       step2 = merge(-1, 1, this%imethod .eq. 4 .and. this%facets(1)%dim(f) .eq. 2)
+       di_ptr(orig(1,1):orig(2,1):step1, orig(1,2):orig(2,2):step2, m, s) = &
+            di_ptr(orig(1,1):orig(2,1):step1, orig(1,2):orig(2,2):step2, m, s) + &
+            gradient(dest(1,1):dest(2,1), dest(1,2):dest(2,2), m, s)
+    case(5) ! replication
+       select case(this%facets(1)%dim(f))
+       case(1) ! Dimension 1 padding
+          di_ptr(orig(1,1), :, m, s) = &
+               di_ptr(orig(1,1), :, m, s) + &
+               sum(gradient(dest(1,1):dest(2,1), dest(1,2):dest(2,2), m, s), dim=1)
+       case(2) ! Dimension 2 padding
+          di_ptr(:, orig(1,2), m, s) = &
+               di_ptr(:, orig(1,2), m, s) + &
+               sum(gradient(dest(1,1):dest(2,1), dest(1,2):dest(2,2), m, s), dim=2)
+       end select
+    end select
+
+  end subroutine accumulate_edge_gradient
+!###############################################################################
+
+
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
+
+
+!###############################################################################
   subroutine forward_4d(this, input)
     !! Forward propagation for 4D input
     implicit none
@@ -448,107 +599,48 @@ contains
     !! Input values
 
     ! Local variables
-    integer :: i, j
+    integer :: f, s, m
     !! Loop indices
-    integer, dimension(2) :: bound_store
-    !! Temporary storage for bounds
-    integer, dimension(2,2) :: orig_bound, dest_bound
-    !! Bounds for input and output arrays
-    integer, dimension(2) :: step
-    !! Step size for reflection
-
 
     select type(output => this%output(1,1))
     type is (array4d_type)
-       dim_loop: do i = 1, 2
-          step = 1
-          orig_bound = this%orig_bound
-          dest_bound = this%dest_bound
-          dest_bound(:,i) = [ &
-               this%dest_bound(1,i), &
-               this%dest_bound(1,i) + this%pad(i) - 1 &
-          ]
-          ! Assign padding values based on method
-          select case(this%imethod)
-          case(3) ! circular
-             orig_bound(:,i) = [ &
-                  this%orig_bound(2,i) - this%pad(i) + 1, &
-                  this%orig_bound(2,i) &
-             ]
-          case(4) ! reflection
-             orig_bound(:,i) = [ 2, this%pad(i) + 1 ]
-             do j = 1, 2
-                dest_bound(:,j) = this%orig_bound(:,j) + this%pad(j)
-             end do
-             dest_bound(:,i) = [ this%pad(i), 1 ]
-             step(i) = -1
-          case(5) ! replication
-             output%val_ptr(:this%pad(1),:,:,:) = spread(input( &
-                  this%orig_bound(1,1),:,:,: &
-             ), dim=1, ncopies=this%pad(1))
-             output%val_ptr( &
-                  this%output_shape(1) - this%pad(1) + 1 : &
-                  this%output_shape(1), :, :, : &
-             ) = &
-                  spread(input( &
-                       this%orig_bound(2,1),:,:,: &
-                  ), dim=1, ncopies=this%pad(1))
+       ! Initialize with zeros for default case
+       output%val_ptr(:,:,:,:) = 0._real32
 
-             output%val_ptr(:,:this%pad(2),:,:) = spread(input( &
-                  :,this%orig_bound(1,2),:,: &
-             ), dim=2, ncopies=this%pad(2))
-             output%val_ptr( &
-                  :, &
-                  this%output_shape(2) - this%pad(2) + 1 : &
-                  this%output_shape(2), :, : &
-             ) = &
-                  spread(input( &
-                       :,this%orig_bound(2,2),:,: &
-                  ), dim=2, ncopies=this%pad(2))
-             exit dim_loop
-          case default
-             output%val_ptr(:,:,:,:) = 0._real32
-             exit dim_loop
-          end select
-
-          lr_loop: do j = 1, 2 ! 1 = left padding, 2 = right padding
-
-             output%val_ptr( &
-                  dest_bound(1,1):dest_bound(2,1), &
-                  dest_bound(1,2):dest_bound(2,2), :, : &
-             ) = input( &
-                  orig_bound(1,1):orig_bound(2,1):step(1), &
-                  orig_bound(1,2):orig_bound(2,2):step(2), :, : &
-             )
-             if(j.eq.2) exit lr_loop
-             bound_store(:) = dest_bound(:,i)
-             select case(this%imethod)
-             case(3) ! circular
-                orig_bound(:,i) = [ 1, this%pad(i) ]
-                dest_bound(:,i) = [ &
-                     this%dest_bound(2,i) - this%pad(i) + 1, &
-                     this%dest_bound(2,i) &
-                ]
-             case(4) ! reflection
-                orig_bound(:,i) = [ &
-                     this%orig_bound(2,i) - 1, &
-                     this%orig_bound(2,i) - this%pad(i) &
-                ]
-                dest_bound(:,i) =  [&
-                     this%dest_bound(2,i) - this%pad(i) + 1, &
-                     this%dest_bound(2,i) &
-                ]
-             case(5) ! replication
-                dest_bound(:,i) = orig_bound(:,i) + this%input_shape(i)
-                orig_bound(:,i) = bound_store(:) + this%input_shape(i)
-             end select
-          end do lr_loop
-       end do dim_loop
-
+       ! Copy main input region to output
        output%val_ptr( &
             this%pad(1)+1:this%pad(1)+this%input_shape(1), &
             this%pad(2)+1:this%pad(2)+this%input_shape(2), :, : &
        ) = input
+
+       ! Handle padding methods that require boundary filling
+       if (this%imethod .ge. 3 .and. this%imethod .le. 5) then
+          ! Process corners (2D edges)
+          do f = 1, this%facets(2)%num
+             do s = 1, this%batch_size
+                do m = 1, this%num_channels
+                   call fill_corner_region( this, &
+                        input, output%val_ptr, &
+                        this%facets(2)%orig_bound(:,:,f), &
+                        this%facets(2)%dest_bound(:,:,f), s, m &
+                   )
+                end do
+             end do
+          end do
+
+          ! Process edges (1D faces)
+          do f = 1, this%facets(1)%num
+             do s = 1, this%batch_size
+                do m = 1, this%num_channels
+                   call fill_edge_region( this, &
+                        input, output%val_ptr, &
+                        this%facets(1)%orig_bound(:,:,f), &
+                        this%facets(1)%dest_bound(:,:,f), f, s, m &
+                   )
+                end do
+             end do
+          end do
+       end if
     end select
 
   end subroutine forward_4d
@@ -581,156 +673,44 @@ contains
     !! Gradient values
 
     ! Local variables
-    integer :: i, j, f, s, m
+    integer :: f, s, m
     !! Loop indices
-    integer, dimension(2) :: step
-    !! Step sizes
-    integer, dimension(2,2) :: orig_bound, dest_bound
-    !! Bounds for input and output arrays
-
 
     select type(di => this%di(1,1))
     type is (array4d_type)
+       ! Copy main gradient region
        di%val_ptr(:,:,:,:) = &
             gradient( &
                  this%pad(1)+1:this%pad(1)+this%input_shape(1), &
                  this%pad(2)+1:this%pad(2)+this%input_shape(2), :, : &
             )
 
-       select case(this%imethod)
-       case(3) ! circular
-          do i = 1, 2
-             orig_bound = this%orig_bound
-             dest_bound = this%dest_bound
-             do j = 1, 2 ! 1 = left padding, 2 = right padding
-                select case(j)
-                case(1)
-                   orig_bound(:,i) = [ 1, this%pad(i) ]
-                   dest_bound(:,i) = [ &
-                        this%dest_bound(2,i) - this%pad(i) + 1, &
-                        this%dest_bound(2,i) &
-                   ]
-                case(2)
-                   orig_bound(:,i) = [ &
-                        this%orig_bound(2,i) - this%pad(i) + 1, &
-                        this%orig_bound(2,i) &
-                   ]
-                   dest_bound(:,i) = [ 1, this%pad(i) ]
-                end select
-
-                di%val_ptr( &
-                     orig_bound(1,1):orig_bound(2,1), &
-                     orig_bound(1,2):orig_bound(2,2), :, : &
-                ) = di%val_ptr( &
-                     orig_bound(1,1):orig_bound(2,1), &
-                     orig_bound(1,2):orig_bound(2,2), :, : &
-                ) + gradient( &
-                     dest_bound(1,1):dest_bound(2,1), &
-                     dest_bound(1,2):dest_bound(2,2), :, : &
-                )
-             end do
-          end do
-       case(4) ! reflection
-          do i = 1, 2
-             orig_bound = this%orig_bound
-             dest_bound = this%dest_bound
-             step = 1
-             step(i) = -1
-             do j = 1, 2
-                dest_bound(:,j) = this%orig_bound(:,j) + this%pad(j)
-             end do
-             do j = 1, 2 ! 1 = left padding, 2 = right padding
-                select case(j)
-                case(1)
-                   orig_bound(:,i) = [ 2, this%pad(i) + 1 ]
-                   dest_bound(:,i) = [ this%pad(i), 1 ]
-                case(2)
-                   orig_bound(:,i) = [ &
-                        this%orig_bound(2,i) - this%pad(i), &
-                        this%orig_bound(2,i) - 1 &
-                   ]
-                   dest_bound(:,i) = [ &
-                        this%dest_bound(2,i), &
-                        this%dest_bound(2,i) - this%pad(i) + 1 &
-                   ]
-                end select
-
-                di%val_ptr( &
-                     orig_bound(1,1):orig_bound(2,1), &
-                     orig_bound(1,2):orig_bound(2,2), :, : &
-                ) = di%val_ptr( &
-                     orig_bound(1,1):orig_bound(2,1), &
-                     orig_bound(1,2):orig_bound(2,2), :, : &
-                ) + gradient( &
-                     dest_bound(1,1):dest_bound(2,1):step(1), &
-                     dest_bound(1,2):dest_bound(2,2):step(2), :, : &
-                )
-             end do
-          end do
-       case(5) ! replication
-
-          ! Replicate along edges (aka corners in 2D)
+       ! Handle padding methods that require boundary accumulation
+       if (this%imethod .ge. 3 .and. this%imethod .le. 5) then
+          ! Process corners (2D edges)
           do f = 1, this%facets(2)%num
              do s = 1, this%batch_size
                 do m = 1, this%num_channels
-                   di%val_ptr( &
-                        this%facets(2)%orig_bound(1,f), &
-                        this%facets(2)%orig_bound(2,f), m, s &
-                   ) = di%val_ptr( &
-                        this%facets(2)%orig_bound(1,f), &
-                        this%facets(2)%orig_bound(2,f), m, s &
-                   ) + sum( gradient( &
-                             this%facets(2)%dest_bound(1,1,f) : &
-                             this%facets(2)%dest_bound(2,1,f), &
-                             this%facets(2)%dest_bound(1,2,f) : &
-                             this%facets(2)%dest_bound(2,2,f), m, s &
-                        ) )
+                   call accumulate_corner_gradient( this, &
+                        gradient, di%val_ptr, &
+                        this%facets(2)%orig_bound(:,:,f), &
+                        this%facets(2)%dest_bound(:,:,f), s, m)
                 end do
              end do
           end do
 
-          ! Replicate along faces (aka edges in 2D)
+          ! Process edges (1D faces)
           do f = 1, this%facets(1)%num
-             select case(this%facets(1)%dim(f))
-             case(1)
-                do s = 1, this%batch_size
-                   do m = 1, this%num_channels
-                      di%val_ptr(this%facets(1)%orig_bound(1,f), :, m, s) = &
-                           di%val_ptr( &
-                                this%facets(1)%orig_bound(1,f), :, m, s &
-                           ) + &
-                           sum( &
-                                gradient( &
-                                     this%facets(1)%dest_bound(1,1,f) : &
-                                     this%facets(1)%dest_bound(2,1,f), &
-                                     this%pad(2) + 1 : &
-                                     this%pad(2) + this%input_shape(2), &
-                                     m, s &
-                                ), dim=1 &
-                           )
-                   end do
+             do s = 1, this%batch_size
+                do m = 1, this%num_channels
+                   call accumulate_edge_gradient( this, &
+                        gradient, di%val_ptr, &
+                        this%facets(1)%orig_bound(:,:,f), &
+                        this%facets(1)%dest_bound(:,:,f), f, s, m)
                 end do
-             case(2)
-                do s = 1, this%batch_size
-                   do m = 1, this%num_channels
-                      di%val_ptr(:, this%facets(1)%orig_bound(1,f), m, s) = &
-                           di%val_ptr( &
-                                :, this%facets(1)%orig_bound(1,f), m, s &
-                           ) + &
-                           sum( &
-                                gradient( &
-                                     this%pad(1) + 1 : &
-                                     this%pad(1) + this%input_shape(1), &
-                                     this%facets(1)%dest_bound(1,1,f) : &
-                                     this%facets(1)%dest_bound(2,1,f), &
-                                     m, s &
-                                ), dim=2 &
-                           )
-                   end do
-                end do
-             end select
+             end do
           end do
-       end select
+       end if
     end select
 
   end subroutine backward_4d

@@ -47,19 +47,19 @@ program test_kipf_msgpass_layer
      !! check number of vertex features
      if(any(msgpass_layer%num_vertex_features .ne. [ num_features, num_outputs ]))then
         success = .false.
-        write(0,*) 'kipf_msgpass layer has wrong input features'
+        write(0,*) 'kipf layer has wrong input features'
      end if
 
      !! check number of outputs
      if(msgpass_layer%num_vertex_features(num_time_steps) .ne. num_outputs)then
         success = .false.
-        write(0,*) 'kipf_msgpass layer has wrong output features'
+        write(0,*) 'kipf layer has wrong output features'
      end if
 
      !! check number of time steps
      if(msgpass_layer%num_time_steps .ne. num_time_steps)then
         success = .false.
-        write(0,*) 'kipf_msgpass layer has wrong number of time steps'
+        write(0,*) 'kipf layer has wrong number of time steps'
      end if
   end select
 
@@ -75,7 +75,7 @@ program test_kipf_msgpass_layer
   graph(1)%is_sparse = .true.
   allocate(graph(1)%vertex_features(num_features, num_vertices))
   graph(1)%vertex_features = 1.0
-  
+
   ! Set up edge connectivity (creating a simple connected graph)
   block
     integer, allocatable :: index_list(:, :)
@@ -88,7 +88,7 @@ program test_kipf_msgpass_layer
     index_list(:, 6) = [4, 5]
     index_list(:, 7) = [4, 6]
     index_list(:, 8) = [5, 6]
-    
+
     ! Generate adjacency matrix
     call graph(1)%generate_adjacency(index_list)
     deallocate(index_list)
@@ -115,40 +115,40 @@ program test_kipf_msgpass_layer
      params = msgpass_layer%get_params()
      if(size(params) .eq. 0)then
         success = .false.
-        write(0,*) 'kipf_msgpass layer has wrong number of parameters'
+        write(0,*) 'kipf layer has wrong number of parameters'
      end if
      params = 1.E0
      call msgpass_layer%set_params(params)
      params = msgpass_layer%get_params()
      if(any(abs(params - 1.E0).gt.tol))then
         success = .false.
-        write(0,*) 'kipf_msgpass layer has wrong parameters'
+        write(0,*) 'kipf layer has wrong parameters'
      end if
 
      !! check layer gradient handling
      params = msgpass_layer%get_gradients()
      if(size(params) .eq. 0)then
         success = .false.
-        write(0,*) 'kipf_msgpass layer has wrong number of gradients'
+        write(0,*) 'kipf layer has wrong number of gradients'
      end if
      params = 1.E0
      call msgpass_layer%set_gradients(params)
      params = msgpass_layer%get_gradients()
      if(any(abs(params - 1.E0).gt.tol))then
         success = .false.
-        write(0,*) 'kipf_msgpass layer has wrong gradients'
+        write(0,*) 'kipf layer has wrong gradients'
      end if
      call msgpass_layer%set_gradients(10.E0)
      params = msgpass_layer%get_gradients()
      if(any(abs(params - 10.E0).gt.tol))then
         success = .false.
-        write(0,*) 'kipf_msgpass layer has wrong gradients'
+        write(0,*) 'kipf layer has wrong gradients'
      end if
 
      !! check layer output handling
      if(any(shape(msgpass_layer%output) .ne. [2, batch_size]))then
         success = .false.
-        write(0,*) 'kipf_msgpass layer has wrong derived type output shape'
+        write(0,*) 'kipf layer has wrong derived type output shape'
      end if
      allocate(input(2, batch_size))
      call input(1,1)%allocate(source = graph(1)%vertex_features)
@@ -156,12 +156,13 @@ program test_kipf_msgpass_layer
      call msgpass_layer%forward_derived(input)
      if(size(msgpass_layer%output(1,1)%val,1) .ne. msgpass_layer%output_shape(1))then
         success = .false.
-        write(0,*) 'kipf_msgpass layer has wrong number of outputs'
+        write(0,*) 'kipf layer has wrong number of outputs'
      end if
      call msgpass_layer%get_output(outputs)
-     if(any(shape(msgpass_layer%output(1,1)%val) .ne. [msgpass_layer%output_shape(1), num_vertices]))then
+     if(any(shape(msgpass_layer%output(1,1)%val) .ne. &
+          [msgpass_layer%output_shape(1), num_vertices]))then
         success = .false.
-        write(0,*) 'kipf_msgpass layer has wrong number of outputs'
+        write(0,*) 'kipf layer has wrong number of outputs'
      end if
   end select
 
@@ -174,7 +175,7 @@ program test_kipf_msgpass_layer
   ! Create a temporary file for testing
   open(newunit=unit, file='test_kipf_msgpass_layer.tmp', &
        status='replace', action='write')
-  
+
   ! Write layer to file
   write(unit,'("KIPF")')
   call msgpass_layer%print_to_unit(unit)

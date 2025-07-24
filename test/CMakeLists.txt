@@ -9,6 +9,7 @@ foreach(execid
   conv3d_network
   full_layer
   full_network
+  msgpass_network
   maxpool1d_layer
   maxpool2d_layer
   maxpool3d_layer
@@ -21,6 +22,7 @@ foreach(execid
   dropout_layer
   dropblock2d_layer
   dropblock3d_layer
+  duvenaud_msgpass_layer
   flatten_layer
   pad1d_layer
   pad2d_layer

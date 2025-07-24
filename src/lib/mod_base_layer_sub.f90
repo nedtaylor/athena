@@ -652,10 +652,11 @@ contains
     do i = 1, this%input_rank - 1
        this%orig_bound(:,i) = [ 1, this%input_shape(i) ]
        this%dest_bound(:,i) = [ 1, this%input_shape(i) + this%pad(i) * 2 ]
-       if (this%imethod .eq. 5)then
-          call this%facets(i)%setup_replication_bounds( &
+       if (this%imethod .ge. 3)then
+          call this%facets(i)%setup_bounds( &
                length = this%input_shape(:this%input_rank-1), &
-               pad = this%pad &
+               pad = this%pad, &
+               imethod = this%imethod &
           )
        end if
     end do

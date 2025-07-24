@@ -29,6 +29,8 @@ module athena__network
 
   type :: network_type
      !! Type for defining a neural network with overloaded procedures
+     character(len=:), allocatable :: name
+     !! Name of the network
      real(real32) :: accuracy, loss
      !! Accuracy and loss of the network
      integer :: batch_size = 0
@@ -51,6 +53,8 @@ module athena__network
      !! Metrics for the network
      type(container_layer_type), allocatable, dimension(:) :: model
      !! Model layers
+     character(len=:), allocatable :: loss_method, accuracy_method
+     !! Loss and accuracy methods
      procedure(comp_loss_func), nopass, pointer :: get_loss => null()
      !! Pointer to loss function
      procedure(comp_loss_deriv), nopass, pointer :: get_loss_deriv => null()
@@ -70,6 +74,10 @@ module athena__network
      !! Print the network to file
      procedure, pass(this) :: read
      !! Read the network from a file
+     procedure, pass(this), private :: read_network_settings
+     !! Read network settings from a file
+     procedure, pass(this), private :: read_optimiser_settings
+     !! Read optimiser settings from a file
      procedure, pass(this) :: export_onnx
      !! Export the network to ONNX format
      procedure, pass(this) :: write_onnx_initializers
@@ -194,6 +202,24 @@ module athena__network
        character(*), intent(in) :: file
        !! File name
      end subroutine read
+
+     !! Interface for reading network settings from a file
+     module subroutine read_network_settings(this, unit)
+       !! Read network settings from a file
+       class(network_type), intent(inout) :: this
+       !! Instance of the network
+       integer, intent(in) :: unit
+       !! Unit number for input
+     end subroutine read_network_settings
+
+     !! Interface for reading optimiser settings from a file
+     module subroutine read_optimiser_settings(this, unit)
+       !! Read optimiser settings from a file
+       class(network_type), intent(inout) :: this
+       !! Instance of the network
+       integer, intent(in) :: unit
+       !! Unit number for input
+     end subroutine read_optimiser_settings
 
      !! Interface for exporting the network to ONNX format
      module subroutine export_onnx(this, file)

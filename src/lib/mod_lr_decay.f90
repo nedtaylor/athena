@@ -16,6 +16,8 @@ module athena__learning_rate_decay
 
   type base_lr_decay_type
      !! Type for learning rate decay
+     character(len=20) :: name
+     !! Name of the learning rate decay type
      real(real32) :: initial_learning_rate
      !! Initial learning rate
      real(real32) :: decay_rate
@@ -117,6 +119,7 @@ contains
     type(base_lr_decay_type) :: lr_decay
     !! Instance of the base learning rate decay type
 
+    lr_decay%name = "base"
     lr_decay%decay_rate = 0._real32
 
   end function setup_lr_decay_base
@@ -131,6 +134,7 @@ contains
     type(exp_lr_decay_type) :: lr_decay
     !! Exponential learning rate decay type
 
+    lr_decay%name = "exp"
     if(present(decay_rate))then
        lr_decay%decay_rate = decay_rate
     else
@@ -151,6 +155,7 @@ contains
     type(step_lr_decay_type) :: lr_decay
     !! Step learning rate decay type
 
+    lr_decay%name = "step"
     if(present(decay_rate))then
        lr_decay%decay_rate = decay_rate
     else
@@ -175,6 +180,7 @@ contains
     type(inv_lr_decay_type) :: lr_decay
     !! Inverse learning rate decay type
 
+    lr_decay%name = "inv"
     if(present(decay_rate))then
        lr_decay%decay_rate = decay_rate
     else
