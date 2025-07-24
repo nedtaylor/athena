@@ -1,5 +1,5 @@
 module athena__kipf_msgpass_layer
-  !! Module containing the types and interfacees of a message passing layer
+  !! Module containing the types and interfaces of a message passing layer
   use athena__io_utils, only: stop_program
   use athena__constants, only: real32
   use graphstruc, only: graph_type
@@ -300,9 +300,10 @@ contains
             source = num_vertex_features &
        )
     else
-       write(*,*) "Error: num_vertex_features must be a scalar or a vector of &
-            &length num_time_steps + 1"
-       stop
+       call stop_program( &
+            "Error: num_vertex_features must be a scalar or a vector of length &
+            &num_time_steps + 1" &
+       )
     end if
     allocate( this%num_edge_features(0:this%num_time_steps), source = 0 )
     this%use_graph_input = .true.

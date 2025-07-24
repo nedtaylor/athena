@@ -1,5 +1,5 @@
 module athena__msgpass_layer
-  !! Module containing the types and interfacees of a message passing layer
+  !! Module containing the types and interfaces of a message passing layer
   use athena__constants, only: real32
   use graphstruc, only: graph_type
   use athena__base_layer, only: learnable_layer_type

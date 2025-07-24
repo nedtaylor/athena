@@ -224,7 +224,7 @@ contains
   end function add_array
 !-------------------------------------------------------------------------------
   pure module function multiply_array(a, b) result(output)
-    !! Add two arrays
+    !! Multiply two arrays
     implicit none
 
     ! Arguments

@@ -391,6 +391,8 @@ contains
     character(256) :: err_msg_
     !! Error message
 
+    if(present(iostat)) iostat = 0
+    if(present(err_msg)) err_msg = ""
     if(change.eq.0) return
     inquire(unit = unit, iostat = iostat_)
     if(iostat_ .ne. 0) then
@@ -406,37 +408,37 @@ contains
     end if
     if(change.gt.0)then
        do i = 1, change
-         read(unit, '(A)', iostat = iostat_)
-         if(iostat_ .ne. 0) then
-            write(err_msg_, '(A,I0)') &
-                 'ERROR: cannot move forward in file, unit ', unit
-            if(present(iostat)) iostat = iostat_
-            if(present(err_msg))then
-               err_msg = err_msg_
-            else
-               call stop_program(err_msg_)
-            end if
-            return
-         end if
+          read(unit, '(A)', iostat = iostat_)
+          if(iostat_ .ne. 0) then
+             write(err_msg_, '(A,I0)') &
+                  'ERROR: cannot move forward in file, unit ', unit
+             if(present(iostat)) iostat = iostat_
+             if(present(err_msg))then
+                err_msg = err_msg_
+             else
+                call stop_program(err_msg_)
+             end if
+             return
+          end if
        end do
     else
        do i = 1, abs(change)
-         backspace(unit)
-         if(iostat .ne. 0) then
-            write(err_msg_, '(A,I0)') &
-                 'ERROR: cannot move backward in file, unit ', unit
-            if(present(iostat)) iostat = iostat_
-            if(present(err_msg))then
-               err_msg = err_msg_
-            else
-               call stop_program(err_msg_)
-            end if
-            return
-         end if
+          backspace(unit)
+          if(iostat .ne. 0) then
+             write(err_msg_, '(A,I0)') &
+                  'ERROR: cannot move backward in file, unit ', unit
+             if(present(iostat)) iostat = iostat_
+             if(present(err_msg))then
+                err_msg = err_msg_
+             else
+                call stop_program(err_msg_)
+             end if
+             return
+          end if
        end do
     end if
 
   end subroutine move
 !###############################################################################
-    
+
 end module athena__tools_infile
