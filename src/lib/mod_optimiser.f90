@@ -30,6 +30,8 @@ module athena__optimiser
 
   type :: base_optimiser_type
      !! Base optimiser type
+     character(len=20) :: name
+     !! Name of the optimiser
      integer :: iter = 0
      !! Iteration number
      integer :: epoch = 0
@@ -47,6 +49,8 @@ module athena__optimiser
    contains
      procedure, pass(this) :: init => init_base
      !! Initialise base optimiser
+     procedure, pass(this) :: print => print_base
+     !! Print base optimiser information
      procedure, pass(this) :: init_gradients => init_gradients_base
      !! Initialise gradients
      procedure, pass(this) :: minimise => minimise_base
@@ -269,6 +273,9 @@ contains
     !! Number of parameters
 
 
+    ! Initialise optimiser name
+    optimiser%name = "base"
+
     ! Apply regularisation
     if(present(regulariser))then
        optimiser%regularisation = .true.
@@ -382,6 +389,33 @@ contains
 
 
 !###############################################################################
+  subroutine print_base(this, unit)
+    !! Print base optimiser information
+    implicit none
+
+    ! Arguments
+    class(base_optimiser_type), intent(in) :: this
+    !! Instance of the base optimiser
+    integer, intent(in) :: unit
+    !! File unit
+
+
+    write(unit,'(3X,"NAME = ",A)') this%name
+    write(unit,'(3X,"LEARNING RATE = ",F10.5)') this%learning_rate
+    write(unit,'(3X,"ITERATION = ",I10)') this%iter
+    write(unit,'(3X,"EPOCH = ",I10)') this%epoch
+    write(unit,'(3X,"REGULARISATION = ",L1)') this%regularisation
+
+  end subroutine print_base
+!###############################################################################
+
+
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
+
+
+!###############################################################################
   module function optimiser_setup_sgd( &
        learning_rate, momentum, &
        nesterov, num_params, &
@@ -410,6 +444,9 @@ contains
     integer :: num_params_
     !! Number of parameters
 
+
+    ! Initialise optimiser name
+    optimiser%name = "sgd"
 
     ! Apply regularisation
     if(present(regulariser))then
@@ -545,6 +582,9 @@ contains
     !! Number of parameters
 
 
+    ! Initialise optimiser name
+    optimiser%name = "rmsprop"
+
     ! Apply regularisation
     if(present(regulariser))then
        optimiser%regularisation = .true.
@@ -670,6 +710,9 @@ contains
     !! Number of parameters
 
 
+    ! Initialise optimiser name
+    optimiser%name = "adagrad"
+
     ! Apply regularisation
     if(present(regulariser))then
        optimiser%regularisation = .true.
@@ -791,6 +834,9 @@ contains
     integer :: num_params_
     !! Number of parameters
 
+
+    ! Initialise optimiser name
+    optimiser%name = "adam"
 
     ! Apply regularisation
     if(present(regulariser))then
