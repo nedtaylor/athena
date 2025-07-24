@@ -269,7 +269,7 @@ contains
     if(allocated(this%input_shape))then
        if(this%use_graph_input)then
           call stop_program( &
-               "Graph input not supported for 1D average pooling layer" &
+               "Graph input not supported for 1D max pooling layer" &
           )
           return
        end if
