@@ -64,7 +64,6 @@ program test_network
 !-------------------------------------------------------------------------------
 ! Create network
 !-------------------------------------------------------------------------------
-  write(*,*) "test0"
   ! call network%add(input_layer_type(input_shape=[1]))
   call network%add(full_layer_type( &
        num_inputs=3, num_outputs=5, activation_function="tanh"))
@@ -75,7 +74,6 @@ program test_network
        loss_method="mse", accuracy_method="mse", metrics=["loss"], verbose=0 &
   )
   call network%set_batch_size(1)
-  write(*,*) "test1"
 
 
 !-------------------------------------------------------------------------------
@@ -100,7 +98,6 @@ program test_network
      write(0,*) "Accuracy: ", network%accuracy
      success = .false.
   end if
-  write(*,*) "test2"
 
 
 !-------------------------------------------------------------------------------
@@ -146,7 +143,6 @@ program test_network
      write(0,*) "Gradients not set correctly"
      success = .false.
   end if
-  write(*,*) "test3"
 
 
 !-------------------------------------------------------------------------------
@@ -169,7 +165,6 @@ program test_network
      write(0,*) "Network reduction failed"
      success = .false.
   end if
-  write(*,*) "test4"
 
 
 !-------------------------------------------------------------------------------
