@@ -404,7 +404,7 @@ contains
 
 
     write(unit,'(3X,"NAME = ",A)') this%name
-    write(unit,'(3X,"LEARNING RATE = ",F10.5)') this%learning_rate
+    write(unit,'(3X,"LEARNING_RATE = ",F10.5)') this%learning_rate
     write(unit,'(3X,"ITERATION = ",I10)') this%iter
     write(unit,'(3X,"EPOCH = ",I10)') this%epoch
     write(unit,'(3X,"REGULARISATION = ",L1)') this%regularisation
@@ -463,10 +463,10 @@ contains
        ! Read parameters from save file
        !------------------------------------------------------------------------
        select case(trim(tag))
-       case("LEARNING_RATE")
-          call assign_val(buffer, this%learning_rate, itmp1)
        case("NAME")
           call assign_val(buffer, this%name, itmp1)
+       case("LEARNING_RATE")
+          call assign_val(buffer, this%learning_rate, itmp1)
        case("ITERATION")
           call assign_val(buffer, this%iter, itmp1)
        case("EPOCH")
