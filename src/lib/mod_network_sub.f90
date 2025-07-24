@@ -578,7 +578,7 @@ contains
     !! Temporary integer
     character(20) :: accuracy_method, loss_method
     !! Methods for accuracy and loss
-    character(256) :: buffer, tag, err_msg
+    character(256) :: buffer, tag, err_msg, name_
     !! Buffer for reading lines, tag for identifying lines, error message
 
 
@@ -616,7 +616,10 @@ contains
        case("ATHENA_VERSION")
           ! Ignore this tag, it is only for information
        case("NAME")
-          call assign_val(buffer, this%name, itmp1)
+          call assign_val(buffer, name_, itmp1)
+          if(len(trim(adjustl(name_))) .gt. 0) then
+             this%name = trim(adjustl(name_))
+          end if
        case("EPOCH")
           call assign_val(buffer, this%epoch, itmp1)
        case("BATCH_SIZE")

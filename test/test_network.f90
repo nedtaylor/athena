@@ -333,6 +333,7 @@ program test_network
 ! check file I/O
 !-------------------------------------------------------------------------------
   call network%reset()
+  network%name = "test network"
   call network%add(input_layer_type(input_shape=[3]))
   call network%add(full_layer_type(num_outputs=8, &
        activation_function="tanh"))
@@ -349,6 +350,12 @@ program test_network
   call network3%reset()
   call network3%read("test_network.dat")
   call network3%compile(optimiser=base_optimiser_type(learning_rate=0.01))
+
+  if(network3%name.ne.network%name)then
+     write(0,*) "Network name mismatch after read"
+     write(0,*) "Expected: ", network%name, " Found: ", network3%name
+     success = .false.
+  end if
 
   if(network3%get_num_params().ne.network%get_num_params())then
      write(0,*) "Network parameter count mismatch after read"
