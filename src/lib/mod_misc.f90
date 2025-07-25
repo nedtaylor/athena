@@ -14,7 +14,7 @@ module athena__misc
   private
 
   public :: outer_product
-  public :: Icount, grep, to_upper, to_lower
+  public :: Icount, grep, to_upper, to_lower, to_camel_case
 
 
 contains
@@ -191,6 +191,74 @@ contains
 
     return
   end function to_lower
+!###############################################################################
+
+
+!###############################################################################
+  pure function to_camel_case(input, capitalise_first_letter) result(output)
+    !! Convert a string to camel case
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: input
+    !! Input string
+    logical, intent(in), optional :: capitalise_first_letter
+    !! Boolean to capitalise the first letter
+    character(len=:), allocatable :: output
+    !! Output string
+
+    ! Local variables
+    integer :: i, j, len_input
+    !! Loop indices and length of input string
+    character(:), allocatable :: input_lower
+    !! Lowercase version of input string
+    logical :: capitalise_first_letter_
+    !! Local copy of capitalise_first_letter
+
+
+    ! Default value for capitalise_first_letter
+    capitalise_first_letter_ = .true.
+    if(present(capitalise_first_letter)) &
+         capitalise_first_letter_ = capitalise_first_letter
+
+    ! Convert input to lowercase and allocate output
+    input_lower = to_lower(trim(adjustl(input)))
+    len_input = len_trim(input_lower)
+    allocate(character(len=len_input) :: output)
+
+    ! Convert to camel case
+    j = 1
+    i = 1
+    do while ( i .lt. len_input )
+       if(input_lower(i:i) == "_") then
+          output(j:j) = achar(iachar(input_lower(i+1:i+1)) - 32)
+          i = i + 1
+       elseif(input_lower(i:i) == " ") then
+          output(j:j) = achar(iachar(input_lower(i+1:i+1)) - 32)
+          i = i + 1
+       else
+          output(j:j) = input_lower(i:i)
+       end if
+       j = j + 1
+       i = i + 1
+    end do
+    if(input_lower(len_input:len_input) .ne. "_") then
+       output(j:j) = input_lower(len_input:len_input)
+       j = j + 1
+    end if
+    output = trim(adjustl(output))
+
+    ! Capitalise the first letter if required
+    if (capitalise_first_letter_.and. len(output) .gt. 0 .and. &
+         iachar(output(1:1)) .ge. iachar("a") .and. &
+         iachar(output(1:1)) .le. iachar("z") &
+    ) then
+       ! Capitalise the first letter if required
+       output(1:1) = achar(iachar(output(1:1)) - 32)
+    end if
+
+    return
+  end function to_camel_case
 !###############################################################################
 
 end module athena__misc

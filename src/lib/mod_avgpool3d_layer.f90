@@ -222,6 +222,7 @@ contains
 
     this%name = "avgpool3d"
     this%type = "pool"
+    this%subtype = "average"
     this%input_rank = 4
     this%output_rank = 4
     if(allocated(this%pool)) deallocate(this%pool)

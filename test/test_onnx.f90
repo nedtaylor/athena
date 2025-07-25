@@ -13,6 +13,10 @@ program test_onnx
        kernel_size=[3,3], &
        num_filters=1 &
   ))
+  call network%add(maxpool2d_layer_type( &
+       pool_size=[2,2], &
+       stride=[2,2] &
+  ))
   call network%add(full_layer_type(num_outputs=64))
   call network%add(actv_layer_type('relu'))
   call network%add(full_layer_type(num_outputs=10))
@@ -28,7 +32,7 @@ program test_onnx
   ! write(*,*) network%get_params()
 
   ! Export to ONNX
-  call network%export_onnx('test_model.onnx')
+  call write_onnx('test_model.onnx', network)
   print *, 'Network exported to test_model.onnx'
 
   write(*,*) 'ONNX test completed successfully!'

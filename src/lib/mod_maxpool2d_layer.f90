@@ -229,6 +229,7 @@ contains
 
     this%name = "maxpool2d"
     this%type = "pool"
+    this%subtype = "max"
     this%input_rank = 3
     this%output_rank = 3
     if(allocated(this%pool)) deallocate(this%pool)

@@ -179,6 +179,7 @@ contains
   )
     !! Set hyperparameters for activation layer
     use athena__activation,  only: activation_setup
+    use athena__misc, only: to_lower
     implicit none
 
     ! Arguments
@@ -203,6 +204,7 @@ contains
     allocate(this%transfer, &
          source=activation_setup(activation_function, activation_scale) &
     )
+    this%subtype = trim(to_lower(activation_function))
 
     if(present(verbose))then
        if(abs(verbose).gt.0)then

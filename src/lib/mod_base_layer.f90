@@ -52,6 +52,7 @@ module athena__base_layer
      !! Layer name
      character(4) :: type = 'base'
      !! Layer type
+     character(20) :: subtype = repeat(" ",20)
      type(graph_type), allocatable, dimension(:) :: graph
      !! Graph structure of input data
      logical :: consistent_sample_shape = .true. !! ONLY FALSE FOR GRAPHS

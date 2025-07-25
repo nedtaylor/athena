@@ -13,6 +13,7 @@ module athena
   use athena__network, only: network_type
   use athena__metrics, only: metric_dict_type
   use graphstruc, only: graph_type, edge_type, vertex_type
+  use athena__onnx, only: write_onnx
 
 
   ! Accuracy methods
