@@ -21,6 +21,7 @@ module athena__misc_types
   public :: array_container_type
   public :: array1d_type, array2d_type, array3d_type, array4d_type, array5d_type
   public :: facets_type
+  public :: attributes_type
 
 
 !-------------------------------------------------------------------------------
@@ -599,6 +600,28 @@ module athena__misc_types
        !! Method for setting up bounds
      end subroutine setup_bounds
   end interface
+!-------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!------------------------------------------------------------------------------!
+
+
+!-------------------------------------------------------------------------------
+! Attributes type (for ONNX export)
+!-------------------------------------------------------------------------------
+  type :: attributes_type
+     !! Type for storing attributes for ONNX export
+     character(20) :: name
+     !! Name of the attribute
+     character(20) :: type
+     !! Type of the attribute (e.g. 'int', 'float', 'string')
+     character(len=:), allocatable :: value
+     !! Value of the attribute as a string
+     !! This allows for flexible storage of different types
+     !! of attributes without needing to define a specific type
+   end type attributes_type
 !-------------------------------------------------------------------------------
 
 

@@ -15,7 +15,7 @@ module athena__base_layer
   !! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
   use athena__constants, only: real32
   use athena__clipper, only: clip_type
-  use athena__misc_types, only: activation_type, array_type, facets_type
+  use athena__misc_types, only: activation_type, array_type, facets_type, attributes_type
   use graphstruc, only: graph_type
   implicit none
 
@@ -77,6 +77,8 @@ module athena__base_layer
      !! Print the layer to a file with additional information
      procedure, pass(this) :: print_to_unit => print_to_unit_base
      !! Print the layer to a unit
+     procedure, pass(this) :: get_attributes => get_attributes_base
+     !! Get the attributes of the layer (for ONNX export)
      procedure, pass(this) :: get_output => get_output_base
      !! Get the output of the layer
      procedure(initialise), deferred, pass(this) :: init
@@ -124,6 +126,14 @@ module athena__base_layer
        integer, intent(in) :: unit
        !! File unit
      end subroutine print_to_unit_base
+
+     module function get_attributes_base(this) result(attributes)
+       !! Get the attributes of the layer (for ONNX export)
+       class(base_layer_type), intent(in) :: this
+       !! Instance of the layer
+       type(attributes_type), allocatable, dimension(:) :: attributes
+       !! Attributes of the layer
+     end function get_attributes_base
 
      module subroutine set_rank_base(this, input_rank, output_rank)
        !! Set the input and output ranks of the layer

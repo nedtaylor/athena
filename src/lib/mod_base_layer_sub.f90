@@ -151,6 +151,45 @@ contains
 
 
 !###############################################################################
+  module function get_attributes_base(this) result(attributes)
+    !! Get the attributes of the layer (for ONNX export)
+    implicit none
+
+    ! Arguments
+    class(base_layer_type), intent(in) :: this
+    !! Instance of the layer
+    type(attributes_type), allocatable, dimension(:) :: attributes
+    !! Attributes of the layer
+
+    ! Allocate attributes array
+    allocate(attributes(0))
+    ! attributes(0)%name = this%name
+    ! attributes(0)%value = this%get_type_name()
+    ! attributes(0)%type = ""
+
+  end function get_attributes_base
+!-------------------------------------------------------------------------------
+  module function get_attributes_conv(this) result(attributes)
+    !! Get the attributes of a convolutional layer (for ONNX export)
+    implicit none
+
+    ! Arguments
+    class(conv_layer_type), intent(in) :: this
+    !! Instance of the layer
+    type(attributes_type), allocatable, dimension(:) :: attributes
+    !! Attributes of the layer
+
+    ! Allocate attributes array
+    allocate(attributes(2))
+    attributes(1)%name = "kernel_shape"
+    ! attributes(1)%value = ! Convert kernel size to string
+    attributes(1)%type = "ints"
+
+  end function get_attributes_conv
+!###############################################################################
+
+
+!###############################################################################
   module subroutine set_rank_base(this, input_rank, output_rank)
     !! Set the input and output ranks of the layer
     implicit none

@@ -3,6 +3,8 @@ module athena__onnx
   use athena__constants, only: real32
   use athena__network, only: network_type
   use athena__base_layer, only: base_layer_type, learnable_layer_type
+  use athena__misc_types, only: attributes_type
+  use athena__misc, only: to_lower, to_upper, to_camel_case, icount
   implicit none
 
 
@@ -17,7 +19,6 @@ contains
 !###############################################################################
   subroutine write_onnx(file, network)
     !! Export the network to ONNX format
-    use athena__misc, only: to_camel_case
     implicit none
 
     ! Arguments
@@ -113,6 +114,7 @@ contains
        ! Write output
        write(unit, '(4X,"output: ""node_",I0,"_output""")') network%model(idx)%layer%id
 
+       call write_onnx_attributes(unit, network%model(idx)%layer)
 
        write(unit, '(A)') '  }'
        write(unit, '(A)') ''
@@ -243,6 +245,62 @@ contains
     end if
 
   end subroutine write_onnx_initializers
+!###############################################################################
+
+
+!###############################################################################
+  subroutine write_onnx_attributes(unit, layer)
+    !! Write ONNX attributes for a layer
+    implicit none
+
+    ! Arguments
+    integer, intent(in) :: unit
+    !! File unit
+    class(base_layer_type), intent(in) :: layer
+    !! Instance of a layer
+
+    ! Local variables
+    integer :: i, j, itmp1
+    !! Loop index
+    type(attributes_type), allocatable, dimension(:) :: attributes
+    character(:), allocatable :: type_lw, type_up
+    integer, allocatable, dimension(:) :: ivar_list
+    real(real32), allocatable, dimension(:) :: rvar_list
+
+
+    attributes = layer%get_attributes()
+    if(allocated(attributes).and. size(attributes) .gt. 0) then
+       do i = 1, size(attributes)
+          write(unit, '(4X,A)') 'attribute {'
+          write(unit, '(6X,"name: """,A,"""")') trim(attributes(i)%name)
+          ! determine whether the attribute is a list or a single value
+          type_lw = to_lower(trim(adjustl(attributes(i)%type)))
+          type_up = to_upper(trim(adjustl(attributes(i)%type)))
+          itmp1 = icount(attributes(i)%value)
+          select case(type_lw)
+          case('ints','int')
+             allocate(ivar_list(itmp1))
+             read(attributes(i)%value,*) ivar_list
+             do j = 1, size(ivar_list)
+                write(unit, '(6X,A": ",I0)') type_lw, ivar_list(j)
+             end do
+          case('floats','float')
+             allocate(rvar_list(itmp1))
+             read(attributes(i)%value,*) rvar_list
+             do j = 1, size(rvar_list), 1
+                write(unit, '(6X,A": ",F0.6)') type_lw, rvar_list(j)
+             end do
+          case('strings','string')
+          case default
+             write(unit, '(6X,A": ",A)') trim(adjustl(attributes(i)%type)), &
+                  trim(adjustl(attributes(i)%value))
+          end select
+          write(unit,'(6X,"type: ",A)') type_up
+          write(unit,'(4X,"}")')
+       end do
+    end if
+
+  end subroutine write_onnx_attributes
 !###############################################################################
 
 end module athena__onnx
