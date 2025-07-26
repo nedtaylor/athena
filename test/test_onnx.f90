@@ -13,10 +13,21 @@ program test_onnx
        kernel_size=[3,3], &
        num_filters=1 &
   ))
-  call network%add(maxpool2d_layer_type( &
-       pool_size=[2,2], &
-       stride=[2,2] &
-  ))
+  call network%add( &
+       conv2d_layer_type( &
+            kernel_size=[3,3], &
+            num_filters=1 &
+       ), &
+       input_list = [1] &
+  )
+  call network%add( &
+       maxpool2d_layer_type( &
+            pool_size=[2,2], &
+            stride=[2,2] &
+       ), &
+       input_list = [2, 3], &
+       operator = 'add' &
+  )
   call network%add(full_layer_type(num_outputs=64))
   call network%add(actv_layer_type('relu'))
   call network%add(full_layer_type(num_outputs=10))
