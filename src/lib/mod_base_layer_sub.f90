@@ -179,13 +179,55 @@ contains
     type(attributes_type), allocatable, dimension(:) :: attributes
     !! Attributes of the layer
 
+    ! Local variables
+    character(256) :: buffer, fmt
+    !! Buffer for formatting
+
     ! Allocate attributes array
     allocate(attributes(2))
     attributes(1)%name = "kernel_shape"
-    ! attributes(1)%value = ! Convert kernel size to string
+    write(fmt,'("(",I0,"(1X,I0))")') size(this%knl)
+    write(buffer,fmt) this%knl
+    attributes(1)%value = trim(adjustl(buffer))
     attributes(1)%type = "ints"
 
+    attributes(2)%name = "strides"
+    write(fmt,'("(",I0,"(1X,I0))")') size(this%stp)
+    write(buffer,fmt) this%stp
+    attributes(2)%value = trim(adjustl(buffer))
+    attributes(2)%type = "ints"
+
   end function get_attributes_conv
+!-------------------------------------------------------------------------------
+  module function get_attributes_pool(this) result(attributes)
+    !! Get the attributes of a pooling layer (for ONNX export)
+    implicit none
+
+    ! Arguments
+    class(pool_layer_type), intent(in) :: this
+    !! Instance of the layer
+    type(attributes_type), allocatable, dimension(:) :: attributes
+    !! Attributes of the layer
+
+    ! Local variables
+    character(256) :: buffer, fmt
+    !! Buffer for formatting
+
+    ! Allocate attributes array
+    allocate(attributes(2))
+    attributes(1)%name = "kernel_shape"
+    write(fmt,'("(",I0,"(1X,I0))")') size(this%pool)
+    write(buffer,fmt) this%pool
+    attributes(1)%value = trim(adjustl(buffer))
+    attributes(1)%type = "ints"
+
+    attributes(2)%name = "strides"
+    write(fmt,'("(",I0,"(1X,I0))")') size(this%strd)
+    write(buffer,fmt) this%strd
+    attributes(2)%value = trim(adjustl(buffer))
+    attributes(2)%type = "ints"
+
+  end function get_attributes_pool
 !###############################################################################
 
 

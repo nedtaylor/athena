@@ -276,23 +276,27 @@ contains
           ! determine whether the attribute is a list or a single value
           type_lw = to_lower(trim(adjustl(attributes(i)%type)))
           type_up = to_upper(trim(adjustl(attributes(i)%type)))
+          write(*,*) 'Attribute type: ', trim(type_lw)
           itmp1 = icount(attributes(i)%value)
           select case(type_lw)
           case('ints','int')
              allocate(ivar_list(itmp1))
              read(attributes(i)%value,*) ivar_list
              do j = 1, size(ivar_list)
-                write(unit, '(6X,A": ",I0)') type_lw, ivar_list(j)
+                write(*,*) ivar_list(j)
+                write(unit, '(6X,A,": ",I0)') type_lw, ivar_list(j)
              end do
+             deallocate(ivar_list)
           case('floats','float')
              allocate(rvar_list(itmp1))
              read(attributes(i)%value,*) rvar_list
              do j = 1, size(rvar_list), 1
-                write(unit, '(6X,A": ",F0.6)') type_lw, rvar_list(j)
+                write(unit, '(6X,A,": ",F0.6)') type_lw, rvar_list(j)
              end do
+             deallocate(rvar_list)
           case('strings','string')
           case default
-             write(unit, '(6X,A": ",A)') trim(adjustl(attributes(i)%type)), &
+             write(unit, '(6X,A,": ",A)') trim(adjustl(attributes(i)%type)), &
                   trim(adjustl(attributes(i)%value))
           end select
           write(unit,'(6X,"type: ",A)') type_up

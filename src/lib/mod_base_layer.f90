@@ -318,6 +318,8 @@ module athena__base_layer
      !! Initialise the layer
      procedure, pass(this) :: print_to_unit => print_to_unit_pool
      !! Print layer to unit
+     procedure, pass(this) :: get_attributes => get_attributes_pool
+     !! Get the attributes of the layer (for ONNX export)
   end type pool_layer_type
 
   interface
@@ -335,6 +337,14 @@ module athena__base_layer
        integer, optional, intent(in) :: batch_size
        integer, optional, intent(in) :: verbose
      end subroutine init_pool
+
+     module function get_attributes_pool(this) result(attributes)
+       !! Get the attributes of the layer (for ONNX export)
+       class(pool_layer_type), intent(in) :: this
+       !! Instance of the layer
+       type(attributes_type), allocatable, dimension(:) :: attributes
+       !! Attributes of the layer
+     end function get_attributes_pool
   end interface
 
 
@@ -479,6 +489,8 @@ module athena__base_layer
      !! Get the number of parameters in the layer
      procedure, pass(this) :: init => init_conv
      !! Initialise the layer
+     procedure, pass(this) :: get_attributes => get_attributes_conv
+     !! Get the attributes of the layer (for ONNX export)
   end type conv_layer_type
 
 
@@ -541,6 +553,10 @@ module athena__base_layer
        integer, optional, intent(in) :: batch_size
        integer, optional, intent(in) :: verbose
      end subroutine init_conv
+     module function get_attributes_conv(this) result(attributes)
+       class(conv_layer_type), intent(in) :: this
+       type(attributes_type), allocatable, dimension(:) :: attributes
+     end function get_attributes_conv
      module subroutine init_batch(this, input_shape, batch_size, verbose)
        class(batch_layer_type), intent(inout) :: this
        integer, dimension(:), intent(in) :: input_shape
