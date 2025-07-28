@@ -7,6 +7,16 @@ program test_onnx
 
   type(network_type) :: network, network_imported
 
+  integer :: num_seed, i
+  integer, allocatable, dimension(:) :: seed, seed_check
+  real(real32), allocatable :: params(:)
+
+  call random_seed(size=num_seed)
+  allocate(seed(num_seed))
+  seed = (/ (i, i=1, num_seed) /)
+
+  call random_setup(seed, restart=.false.)
+
   ! Create a simple network
   call network%add(input_layer_type(input_shape=[21,21,3]))
   call network%add(conv2d_layer_type( &

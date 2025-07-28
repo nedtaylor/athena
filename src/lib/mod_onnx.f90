@@ -131,6 +131,32 @@ contains
        end select
     end do
 
+
+    ! write all layer output shapes
+    do i = 1, network%auto_graph%num_vertices
+       idx = network%auto_graph%vertex(network%vertex_order(i))%id
+       write(unit, '(A)') '  value_info {'
+       write(unit, '(A,I0,A)') '    name: "node_',network%model(idx)%layer%id,'_output"'
+       write(unit, '(A)') '    type {'
+       write(unit, '(A)') '      tensor_type {'
+       write(unit, '(A)') '        elem_type: 1'
+       write(unit, '(A)') '        shape {'
+       if (allocated(network%model(idx)%layer%output_shape)) then
+          write(unit, '(A,I0)') '          dim { dim_value: ', &
+               max(1,network%batch_size)
+          write(unit, '(A)') '          }'
+          do j = size(network%model(idx)%layer%output_shape), 1, -1
+             write(unit, '(A,I0)') '          dim { dim_value: ', &
+                  network%model(idx)%layer%output_shape(j)
+             write(unit, '(A)') '          }'
+          end do
+       end if
+       write(unit, '(A)') '        }'
+       write(unit, '(A)') '      }'
+       write(unit, '(A)') '    }'
+       write(unit, '(A)') '  }'
+    end do
+
     ! Write inputs
     do i = 1, size(network%root_vertices, dim=1)
        idx = network%root_vertices(i)
@@ -142,7 +168,10 @@ contains
        write(unit, '(A)') '        elem_type: 1'  ! FLOAT
        write(unit, '(A)') '        shape {'
        if (allocated(network%model(idx)%layer%input_shape)) then
-          do j = 1, size(network%model(idx)%layer%input_shape)
+          write(unit, '(A,I0)') '          dim { dim_value: ', &
+               max(1,network%batch_size)
+          write(unit, '(A)') '          }'
+          do j = size(network%model(idx)%layer%input_shape), 1, -1
              write(unit, '(A,I0)') '          dim { dim_value: ', &
                   network%model(idx)%layer%input_shape(j)
              write(unit, '(A)') '          }'
@@ -152,7 +181,6 @@ contains
        write(unit, '(A)') '      }'
        write(unit, '(A)') '    }'
        write(unit, '(A)') '  }'
-       write(unit, '(A)') ''
     end do
 
     ! Write outputs
@@ -166,7 +194,10 @@ contains
        write(unit, '(A)') '        elem_type: 1'  ! FLOAT
        write(unit, '(A)') '        shape {'
        if (allocated(network%model(idx)%layer%output_shape)) then
-          do j = 1, size(network%model(idx)%layer%output_shape)
+          write(unit, '(A,I0)') '          dim { dim_value: ', &
+               max(1,network%batch_size)
+          write(unit, '(A)') '          }'
+          do j = size(network%model(idx)%layer%output_shape), 1, -1
              write(unit, '(A,I0)') '          dim { dim_value: ', &
                   network%model(idx)%layer%output_shape(j)
              write(unit, '(A)') '          }'
@@ -206,7 +237,7 @@ contains
     !! Optional prefix for weight and bias names
 
     ! Local variables
-    integer :: i, j, k, num_params, num_params_old
+    integer :: i, j, num_params, num_params_old
     !! Loop indices
     character(20) :: name
     !! Names for weights and biases
@@ -219,15 +250,16 @@ contains
           write(unit, '(2X,A)') 'initializer {'
           write(unit, '(4X,"name: """,A,"""")') trim(name)
           write(unit, '(4X,A)') 'data_type: 1'  ! FLOAT
-          do j = 1, size(layer%weight_shape, 1)
+          do j = size(layer%weight_shape, 1), 1, -1
              write(unit, '(4X,A,I0)') 'dims: ', layer%weight_shape(j,i)
           end do
           num_params = product(layer%weight_shape(:, i))
 
           write(unit, '(4X,"float_data: [ ",F0.6)', advance='no') &
                layer%params(num_params_old + 1)
-          do j = num_params_old + 2, num_params + num_params_old, 1
-             write(unit, '(", ",F0.6)', advance='no') layer%params(j)
+          do j = 2, num_params, 1
+            !  k = get_transposed_index(layer%weight_shape(:, i), j)
+             write(unit, '(", ",F0.6)', advance='no') layer%params(num_params_old + j)
           end do
           write(unit, '(A)') ' ]'
           write(unit, '(A)') '  }'
@@ -289,14 +321,12 @@ contains
           ! determine whether the attribute is a list or a single value
           type_lw = to_lower(trim(adjustl(attributes(i)%type)))
           type_up = to_upper(trim(adjustl(attributes(i)%type)))
-          write(*,*) 'Attribute type: ', trim(type_lw)
           itmp1 = icount(attributes(i)%value)
           select case(type_lw)
           case('ints','int')
              allocate(ivar_list(itmp1))
              read(attributes(i)%value,*) ivar_list
              do j = 1, size(ivar_list)
-                write(*,*) ivar_list(j)
                 write(unit, '(6X,A,": ",I0)') type_lw, ivar_list(j)
              end do
              deallocate(ivar_list)

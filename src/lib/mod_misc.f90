@@ -13,7 +13,7 @@ module athena__misc
 
   private
 
-  public :: outer_product
+  public :: outer_product, get_transposed_index
   public :: Icount, grep, to_upper, to_lower, to_camel_case
 
 
@@ -42,6 +42,39 @@ contains
 
     return
   end function outer_product
+!###############################################################################
+
+
+!###############################################################################
+  function get_transposed_index(shape, idx) result(output)
+    !! Get the transposed index for a given index in a multi-dimensional array
+    implicit none
+
+    ! Arguments
+    integer, intent(in) :: idx
+    !! Index in the original order
+    integer, dimension(:), intent(in) :: shape
+    !! Shape of the multi-dimensional array
+
+    integer :: output
+
+    ! Local variables
+    integer :: i
+    integer, dimension(size(shape)) :: t, tp, cumulative_shape, inv_cumulative_shape
+
+    inv_cumulative_shape(1) = 1
+    do i = 1, size(shape)
+       cumulative_shape(i) = product(shape(i:))
+       if(i.gt.1) inv_cumulative_shape(i) = product(shape(:i-1))
+    end do
+    t = ( idx - 1 ) / cumulative_shape
+    do i = 2, size(shape), 1
+       tp(i-1) = ( idx - 1 - t(i-1) * cumulative_shape(i-1) ) / cumulative_shape(i)
+    end do
+    tp(size(shape)) = idx - 1 - t(i-1) * cumulative_shape(i-1)
+    output = sum( inv_cumulative_shape * tp) + 1
+
+  end function get_transposed_index
 !###############################################################################
 
 
