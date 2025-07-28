@@ -20,7 +20,7 @@ module athena
   use athena__accuracy, only: categorical_score, mae_score, mse_score, r2_score
 
 
-  ! Optimisation and regularisation types
+  ! Optimisation, loss, and regularisation types
   !-----------------------------------------------------------------------------
   use athena__clipper, only: clip_type
   use athena__regulariser, only: &
@@ -39,6 +39,14 @@ module athena
        rmsprop_optimiser_type, &
        adagrad_optimiser_type, &
        adam_optimiser_type
+  use athena__loss, only: &
+       base_loss_type, &
+       bce_loss_type, &
+       cce_loss_type, &
+       mae_loss_type, &
+       mse_loss_type, &
+       nll_loss_type, &
+       huber_loss_type
 
 
   ! Normalisation methods

@@ -258,8 +258,8 @@ program msgpass_euler_example
   )
   write(*,*) "Testing finished"
 
-  write(*,'("Overall accuracy=",F0.5)') network%accuracy
-  write(*,'("Overall loss=",F0.5)')     network%loss
+  write(*,'("Overall accuracy=",F0.5)') network%accuracy_val
+  write(*,'("Overall loss=",F0.5)')     network%loss_val
 
   !-----------------------------------------------------------------------------
   ! predicting

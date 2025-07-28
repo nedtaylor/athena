@@ -195,8 +195,8 @@ program mnist_example
   write(*,*) "Starting testing..."
   call network%test(test_container,input_labels)
   write(*,*) "Testing finished"
-  write(6,'("Overall accuracy=",F0.5)') network%accuracy
-  write(6,'("Overall loss=",F0.5)')     network%loss
+  write(6,'("Overall accuracy=",F0.5)') network%accuracy_val
+  write(6,'("Overall loss=",F0.5)')     network%loss_val
 
 end program mnist_example
   !#############################################################################

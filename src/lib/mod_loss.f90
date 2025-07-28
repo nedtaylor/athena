@@ -9,58 +9,240 @@ module athena__loss
 
   private
 
-  public :: compute_loss_derivative
-  public :: compute_loss_hubber_derivative
+  public :: base_loss_type
+  public :: bce_loss_type
+  public :: cce_loss_type
+  public :: mae_loss_type
+  public :: mse_loss_type
+  public :: nll_loss_type
+  public :: huber_loss_type
 
-  public :: compute_loss_function
-  public :: compute_loss_bce
-  public :: compute_loss_cce
-  public :: compute_loss_mae
-  public :: compute_loss_mse
-  public :: compute_loss_nll
-  public :: compute_loss_hubber
 
-  public :: total_loss_function
-  public :: total_loss_bce
-  public :: total_loss_cce
-  public :: total_loss_mae
-  public :: total_loss_mse
-  public :: total_loss_nll
-  public :: total_loss_hubber
-
+  type, abstract :: base_loss_type
+     !! Abstract type for loss functions
+     character(len=:), allocatable :: name
+     !! Name of the loss function
+     real(real32) :: epsilon = 1.E-10_real32
+     !! Small value to prevent log(0)
+   contains
+     procedure(get_loss_base), deferred, pass(this) :: get_loss
+     !! Compute the loss of a model
+     procedure, pass(this) :: get_derivative => get_derivative_base
+     !! Compute the derivative of the loss function
+  end type base_loss_type
 
   abstract interface
-     pure function compute_loss_function(predicted, expected) result(output)
+     pure module function get_loss_base(this, predicted, expected) result(output)
        !! Compute the loss of a model
-       import real32
+       class(base_loss_type), intent(in) :: this
+       !! Instance of the loss function type
        real(real32), dimension(:,:), intent(in) :: predicted, expected
        !! Predicted and expected values
        real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
        !! Loss of the model
-     end function compute_loss_function
+     end function get_loss_base
   end interface
 
-  abstract interface
-     !! compute the total loss function
-     !! predicted = (R, in) predicted values
-     !! expected  = (R, in) expected values
-     !! output    = (R, in) loss function
-     pure function total_loss_function(predicted, expected) result(output)
-       !! Compute the total loss of a model
-       import real32
+  interface
+     pure module function get_derivative_base(this, predicted, expected) result(output)
+       !! Compute the derivative of the loss function
+       class(base_loss_type), intent(in) :: this
+       !! Instance of the loss function type
        real(real32), dimension(:,:), intent(in) :: predicted, expected
        !! Predicted and expected values
-       real(real32), dimension(size(predicted,2)) :: output
-       !! Loss of the model
-     end function total_loss_function
+       real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
+       !! Derivative of the loss function
+     end function get_derivative_base
   end interface
+
+!-------------------------------------------------------------------------------
+
+  type, extends(base_loss_type) :: bce_loss_type
+     !! Binary cross entropy loss function
+   contains
+     procedure :: get_loss => get_loss_bce
+     !! Compute the loss of a model
+  end type bce_loss_type
+
+  interface bce_loss_type
+     !! Interface for binary cross entropy loss function
+     module function setup_loss_bce() result(loss)
+       !! Set up binary cross entropy loss function
+       type(bce_loss_type) :: loss
+       !! Binary cross entropy loss function
+     end function setup_loss_bce
+  end interface bce_loss_type
+
+!-------------------------------------------------------------------------------
+
+  type, extends(base_loss_type) :: cce_loss_type
+     !! Categorical cross entropy loss function
+   contains
+     procedure :: get_loss => get_loss_cce
+     !! Compute the loss of a model
+  end type cce_loss_type
+
+  interface cce_loss_type
+     !! Interface for categorical cross entropy loss function
+     module function setup_loss_cce() result(loss)
+       !! Set up categorical cross entropy loss function
+       type(cce_loss_type) :: loss
+       !! Categorical cross entropy loss function
+     end function setup_loss_cce
+  end interface cce_loss_type
+
+!-------------------------------------------------------------------------------
+
+  type, extends(base_loss_type) :: mae_loss_type
+     !! Mean absolute error loss function
+   contains
+     procedure :: get_loss => get_loss_mae
+     !! Compute the loss of a model
+  end type mae_loss_type
+
+  interface mae_loss_type
+     !! Interface for mean absolute error loss function
+     module function setup_loss_mae() result(loss)
+       !! Set up mean absolute error loss function
+       type(mae_loss_type) :: loss
+       !! Mean absolute error loss function
+     end function setup_loss_mae
+  end interface mae_loss_type
+
+!-------------------------------------------------------------------------------
+
+  type, extends(base_loss_type) :: mse_loss_type
+     !! Mean squared error loss function
+   contains
+     procedure :: get_loss => get_loss_mse
+     !! Compute the loss of a model
+  end type mse_loss_type
+
+  interface mse_loss_type
+     !! Interface for mean squared error loss function
+     module function setup_loss_mse() result(loss)
+       !! Set up mean squared error loss function
+       type(mse_loss_type) :: loss
+       !! Mean squared error loss function
+     end function setup_loss_mse
+  end interface mse_loss_type
+
+!-------------------------------------------------------------------------------
+
+  type, extends(base_loss_type) :: nll_loss_type
+     !! Negative log likelihood loss function
+   contains
+     procedure :: get_loss => get_loss_nll
+     !! Compute the loss of a model
+  end type nll_loss_type
+
+  interface nll_loss_type
+     !! Interface for negative log likelihood loss function
+     module function setup_loss_nll() result(loss)
+       !! Set up negative log likelihood loss function
+       type(nll_loss_type) :: loss
+       !! Negative log likelihood loss function
+     end function setup_loss_nll
+  end interface nll_loss_type
+
+!-------------------------------------------------------------------------------
+
+  type, extends(base_loss_type) :: huber_loss_type
+     !! Huber loss function
+     real(real32) :: gamma = 1._real32
+     !! Gamma value for the huber loss function
+   contains
+     procedure :: get_loss => get_loss_huber
+     !! Compute the loss of a model
+     procedure :: get_derivative => get_derivative_huber
+     !! Compute the derivative of the loss function
+  end type huber_loss_type
+
+  interface huber_loss_type
+     !! Interface for huber loss function
+     module function setup_loss_huber() result(loss)
+       !! Set up huber loss function
+       type(huber_loss_type) :: loss
+       !! Huber loss function
+     end function setup_loss_huber
+  end interface huber_loss_type
+
+!-------------------------------------------------------------------------------
 
 
 
 contains
+!###############################################################################
+  module function setup_loss_bce() result(loss)
+    !! Set up binary cross entropy loss function
+    implicit none
+
+    ! Local variables
+    type(bce_loss_type) :: loss
+    !! Binary cross entropy loss function
+
+    loss%name = 'bce'
+  end function setup_loss_bce
+!-------------------------------------------------------------------------------
+  module function setup_loss_cce() result(loss)
+    !! Set up categorical cross entropy loss function
+    implicit none
+
+    ! Local variables
+    type(cce_loss_type) :: loss
+    !! Categorical cross entropy loss function
+
+    loss%name = 'cce'
+  end function setup_loss_cce
+!-------------------------------------------------------------------------------
+  module function setup_loss_mae() result(loss)
+    !! Set up mean absolute error loss function
+    implicit none
+
+    ! Local variables
+    type(mae_loss_type) :: loss
+    !! Mean absolute error loss function
+
+    loss%name = 'mae'
+  end function setup_loss_mae
+!-------------------------------------------------------------------------------
+  module function setup_loss_mse() result(loss)
+    !! Set up mean squared error loss function
+    implicit none
+
+    ! Local variables
+    type(mse_loss_type) :: loss
+    !! Mean squared error loss function
+
+    loss%name = 'mse'
+  end function setup_loss_mse
+!-------------------------------------------------------------------------------
+  module function setup_loss_nll() result(loss)
+    !! Set up negative log likelihood loss function
+    implicit none
+
+    ! Local variables
+    type(nll_loss_type) :: loss
+    !! Negative log likelihood loss function
+
+    loss%name = 'nll'
+  end function setup_loss_nll
+!-------------------------------------------------------------------------------
+  module function setup_loss_huber() result(loss)
+    !! Set up huber loss function
+    implicit none
+
+    ! Local variables
+    type(huber_loss_type) :: loss
+    !! Huber loss function
+
+    loss%name = 'hub'
+  end function setup_loss_huber
+!###############################################################################
+
 
 !###############################################################################
-  pure function compute_loss_derivative(predicted, expected) result(output)
+  pure module function get_derivative_base(this, predicted, expected) result(output)
     !! Compute the derivative of the loss function
     !!
     !! This function computes the derivative of the loss function
@@ -72,94 +254,64 @@ contains
     implicit none
 
     ! Arguments
+    class(base_loss_type), intent(in) :: this
+    !! Instance of the loss function type
     real(real32), dimension(:,:), intent(in) :: predicted, expected
     !! Predicted and expected values
     real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
     !! Derivative of the loss function
 
     output = predicted - expected
-  end function compute_loss_derivative
+  end function get_derivative_base
 !###############################################################################
 
 
 !###############################################################################
-  pure function compute_loss_bce(predicted, expected) result(output)
+  pure function get_loss_bce(this, predicted, expected) result(output)
     !! Compute the binary cross entropy loss of a model
     implicit none
 
     ! Arguments
+    class(bce_loss_type), intent(in) :: this
+    !! Instance of the binary cross entropy loss function
     real(real32), dimension(:,:), intent(in) :: predicted, expected
     !! Predicted and expected values
     real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
     !! Binary cross entropy loss
 
-    ! Local variables
-    real(real32) :: epsilon
-    !! Small value to prevent log(0)
+    output = -expected*log(predicted+this%epsilon)
 
-    epsilon = 1.E-10_real32
-    output = -expected*log(predicted+epsilon)
-
-  end function compute_loss_bce
-!-------------------------------------------------------------------------------
-  pure function total_loss_bce(predicted, expected) result(output)
-    !! Compute the total binary cross entropy loss of a model
-    implicit none
-
-    ! Arguments
-    real(real32), dimension(:,:), intent(in) :: predicted, expected
-    !! Predicted and expected values
-    real(real32), dimension(size(predicted,2)) :: output
-    !! Total binary cross entropy loss
-
-    output = sum(compute_loss_bce(predicted,expected),dim=1)
-
-  end function total_loss_bce
+  end function get_loss_bce
 !###############################################################################
 
 
 !###############################################################################
-  pure function compute_loss_cce(predicted, expected) result(output)
+  pure function get_loss_cce(this, predicted, expected) result(output)
     !! Compute the categorical cross entropy loss of a model
     implicit none
 
     ! Arguments
+    class(cce_loss_type), intent(in) :: this
+    !! Instance of the categorical cross entropy loss function
     real(real32), dimension(:,:), intent(in) :: predicted, expected
     !! Predicted and expected values
     real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
     !! Categorical cross entropy loss
 
-    ! Local variables
-    real(real32) :: epsilon
-    !! Small value to prevent log(0)
+    output = -expected * log(predicted + this%epsilon)
 
-    epsilon = 1.E-10_real32
-    output = -expected * log(predicted + epsilon)
-
-  end function compute_loss_cce
-!-------------------------------------------------------------------------------
-  pure function total_loss_cce(predicted, expected) result(output)
-    !! Compute the total categorical cross entropy loss of a model
-    implicit none
-
-    ! Arguments
-    real(real32), dimension(:,:), intent(in) :: predicted, expected
-    !! Predicted and expected values
-    real(real32), dimension(size(predicted,2)) :: output
-    !! Total categorical cross entropy loss
-
-    output = sum(compute_loss_cce(predicted,expected),dim=1)
-
-  end function total_loss_cce
+  end function get_loss_cce
 !###############################################################################
 
 
 !###############################################################################
-  pure function compute_loss_mae(predicted, expected) result(output)
+  pure module function get_loss_mae(this, predicted, expected) result(output)
     !! Compute the mean absolute error of a model
     implicit none
 
     ! Arguments
+    class(mae_loss_type), intent(in) :: this
+    !! Instance of the mean absolute error loss function
     real(real32), dimension(:,:), intent(in) :: predicted, expected
     !! Predicted and expected values
     real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
@@ -167,30 +319,18 @@ contains
 
     output = abs(predicted - expected) !/(size(predicted,1))
 
-  end function compute_loss_mae
-!-------------------------------------------------------------------------------
-  pure function total_loss_mae(predicted, expected) result(output)
-    !! Compute the total mean absolute error of a model
-    implicit none
-
-    ! Arguments
-    real(real32), dimension(:,:), intent(in) :: predicted, expected
-    !! Predicted and expected values
-    real(real32), dimension(size(predicted,2)) :: output
-    !! Total mean absolute error
-
-    output = sum(compute_loss_mae(predicted,expected),dim=1) / size(predicted,1)
-
-  end function total_loss_mae
+  end function get_loss_mae
 !###############################################################################
 
 
 !###############################################################################
-  pure function compute_loss_mse(predicted, expected) result(output)
+  pure module function get_loss_mse(this, predicted, expected) result(output)
     !! Compute the mean squared error of a model
     implicit none
 
     ! Arguments
+    class(mse_loss_type), intent(in) :: this
+    !! Instance of the mean squared error loss function
     real(real32), dimension(:,:), intent(in) :: predicted, expected
     !! Predicted and expected values
     real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
@@ -198,124 +338,70 @@ contains
 
     output = ((predicted - expected)**2._real32) /(2._real32)!*size(predicted,1))
 
-  end function compute_loss_mse
-!-------------------------------------------------------------------------------
-  pure function total_loss_mse(predicted, expected) result(output)
-    !! Compute the total mean squared error of a model
-    implicit none
-
-    ! Arguments
-    real(real32), dimension(:,:), intent(in) :: predicted, expected
-    !! Predicted and expected values
-    real(real32), dimension(size(predicted,2)) :: output
-    !! Total mean squared error
-
-    output = sum(compute_loss_mse(predicted,expected),dim=1) * &
-         2._real32 / size(predicted,1)
-
-  end function total_loss_mse
+  end function get_loss_mse
 !###############################################################################
 
 
 !###############################################################################
-  pure function compute_loss_nll(predicted, expected) result(output)
+  pure function get_loss_nll(this, predicted, expected) result(output)
     !! Compute the negative log likelihood of a model
     implicit none
 
     ! Arguments
+    class(nll_loss_type), intent(in) :: this
+    !! Instance of the negative log likelihood loss function
     real(real32), dimension(:,:), intent(in) :: predicted, expected
     !! Predicted and expected values
     real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
     !! Negative log likelihood
 
-    ! Local variables
-    real(real32) :: epsilon
-    !! Small value to prevent log(0)
+    output = - log(expected - predicted + this%epsilon)
 
-    epsilon = 1.E-10_real32
-    output = - log(expected - predicted + epsilon)
-
-  end function compute_loss_nll
-!-------------------------------------------------------------------------------
-  pure function total_loss_nll(predicted, expected) result(output)
-    !! Compute the total negative log likelihood of a model
-    implicit none
-
-    ! Arguments
-    real(real32), dimension(:,:), intent(in) :: predicted, expected
-    !! Predicted and expected values
-    real(real32), dimension(size(predicted,2)) :: output
-    !! Total negative log likelihood
-
-    output = sum(compute_loss_nll(predicted,expected),dim=1) / size(predicted,1)
-
-  end function total_loss_nll
+  end function get_loss_nll
 !###############################################################################
 
 
 !###############################################################################
-  pure function compute_loss_hubber(predicted, expected) result(output)
-    !! Compute the hubber loss of a model
+  pure function get_loss_huber(this, predicted, expected) result(output)
+    !! Compute the huber loss of a model
     implicit none
 
     ! Arguments
+    class(huber_loss_type), intent(in) :: this
+    !! Instance of the huber loss function
     real(real32), dimension(:,:), intent(in) :: predicted, expected
     !! Predicted and expected values
     real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
-    !! Hubber loss
+    !! huber loss
 
-    ! Local variables
-    real(real32) :: gamma
-    !! Gamma value for the hubber loss function
-
-    gamma = 1._real32
-
-    where (abs(predicted - expected) .le. gamma)
+    where (abs(predicted - expected) .le. this%gamma)
        output = 0.5_real32 * (predicted - expected)**2._real32
     elsewhere
-       output = gamma * (abs(predicted - expected) - 0.5_real32 * gamma)
+       output = this%gamma * (abs(predicted - expected) - 0.5_real32 * this%gamma)
     end where
 
-  end function compute_loss_hubber
+  end function get_loss_huber
 !-------------------------------------------------------------------------------
-  pure function total_loss_hubber(predicted, expected) result(output)
-    !! Compute the total hubber loss of a model
-    implicit none
-
-    ! Arguments
-    real(real32), dimension(:,:), intent(in) :: predicted, expected
-    !! Predicted and expected values
-    real(real32), dimension(size(predicted,2)) :: output
-    !! Total hubber loss
-
-    output = sum(compute_loss_hubber(predicted,expected),dim=1) / size(predicted,1)
-
-  end function total_loss_hubber
-!-------------------------------------------------------------------------------
-  pure function compute_loss_hubber_derivative(predicted, expected) &
+  pure function get_derivative_huber(this, predicted, expected) &
        result(output)
-    !! Compute the derivative of the hubber loss function
+    !! Compute the derivative of the huber loss function
     implicit none
 
     ! Arguments
+    class(huber_loss_type), intent(in) :: this
+    !! Instance of the huber loss function
     real(real32), dimension(:,:), intent(in) :: predicted, expected
     !! Predicted and expected values
     real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
-    !! Derivative of the hubber loss function
+    !! Derivative of the huber loss function
 
-    ! Local variables
-    real(real32) :: gamma
-    !! Gamma value for the hubber loss function
-
-    gamma = 1._real32
-
-    where (abs(predicted - expected) .le. gamma)
+    where (abs(predicted - expected) .le. this%gamma)
        output = predicted - expected
     elsewhere
-       output = gamma * sign(1._real32, predicted - expected)
+       output = this%gamma * sign(1._real32, predicted - expected)
     end where
 
-  end function compute_loss_hubber_derivative
+  end function get_derivative_huber
 !###############################################################################
 
 end module athena__loss

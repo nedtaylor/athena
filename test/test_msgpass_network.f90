@@ -75,14 +75,14 @@ program test_msgpass_network
     call kipf_network%test(graph_data_kipf, graph_data_kipf)
 
     ! Check that network produces reasonable outputs
-    if(kipf_network%accuracy .lt. 0.0 .or. kipf_network%accuracy .gt. 1.0) then
+    if(kipf_network%accuracy_val .lt. 0.0 .or. kipf_network%accuracy_val .gt. 1.0) then
        success = .false.
-       write(0,*) 'Kipf network accuracy out of range:', kipf_network%accuracy
+       write(0,*) 'Kipf network accuracy out of range:', kipf_network%accuracy_val
     end if
 
-    if(kipf_network%loss .lt. 0.0) then
+    if(kipf_network%loss_val .lt. 0.0) then
        success = .false.
-       write(0,*) 'Kipf network loss is negative:', kipf_network%loss
+       write(0,*) 'Kipf network loss is negative:', kipf_network%loss_val
     end if
 
     deallocate(target_array(1,1)%val)
@@ -138,16 +138,16 @@ program test_msgpass_network
     call duvenaud_network%test(graph_data_duvenaud, target_array)
 
     ! Check that network produces reasonable outputs
-    if(duvenaud_network%accuracy < 0.0 .or. &
-         duvenaud_network%accuracy > 1.0) then
+    if(duvenaud_network%accuracy_val < 0.0 .or. &
+         duvenaud_network%accuracy_val > 1.0) then
        success = .false.
        write(0,*) 'Duvenaud network accuracy out of range:', &
-            duvenaud_network%accuracy
+            duvenaud_network%accuracy_val
     end if
 
-    if(duvenaud_network%loss < 0.0) then
+    if(duvenaud_network%loss_val < 0.0) then
        success = .false.
-       write(0,*) 'Duvenaud network loss is negative:', duvenaud_network%loss
+       write(0,*) 'Duvenaud network loss is negative:', duvenaud_network%loss_val
     end if
 
     deallocate(target_array(1,1)%val)

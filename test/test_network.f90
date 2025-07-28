@@ -13,12 +13,13 @@ program test_network
        flatten_layer_type, &
        conv3d_layer_type
   use athena__loss, only: &
-       compute_loss_bce, &
-       compute_loss_cce, &
-       compute_loss_mae, &
-       compute_loss_mse, &
-       compute_loss_nll, &
-       compute_loss_function
+       base_loss_type, &
+       bce_loss_type, &
+       cce_loss_type, &
+       mae_loss_type, &
+       mse_loss_type, &
+       nll_loss_type, &
+       huber_loss_type
   use athena__accuracy, only: &
        compute_accuracy_function, &
        categorical_score, &
@@ -49,7 +50,6 @@ program test_network
   integer :: i, n
   real :: rtmp1
   logical :: success = .true.
-  procedure(compute_loss_function), pointer :: get_loss => null()
   procedure(compute_accuracy_function), pointer :: get_accuracy => null()
 
 
@@ -95,7 +95,7 @@ program test_network
   end if
   if(abs(network%metrics(2)%val).lt.0.95)then
      write(0,*) "Training accuracy higher than expected"
-     write(0,*) "Accuracy: ", network%accuracy
+     write(0,*) "Accuracy: ", network%accuracy_val
      success = .false.
   end if
 
@@ -108,14 +108,14 @@ program test_network
   x = reshape([0.4, 0.6, 0.8], [3,1])
   y = reshape([0.370368, 0.493824], [2,1])
   call network%test(x, y)
-  if(network%loss.gt.1.E-1)then
+  if(network%loss_val.gt.1.E-1)then
      write(0,*) "Test loss higher than expected"
-     write(0,*) "Loss: ", network%loss
+     write(0,*) "Loss: ", network%loss_val
      success = .false.
   end if
-  if(network%accuracy.lt.0.7)then
+  if(network%accuracy_val.lt.0.7)then
      write(0,*) "Test accuracy higher than expected"
-     write(0,*) "Accuracy: ", network%accuracy
+     write(0,*) "Accuracy: ", network%accuracy_val
      success = .false.
   end if
 
@@ -198,33 +198,33 @@ program test_network
 ! check loss procedure setup
 !-------------------------------------------------------------------------------
   call network3%set_loss("binary_crossentropy")
-  get_loss => compute_loss_bce
-  if(.not.associated(network3%get_loss, get_loss))then
+  if(network3%loss%name.ne.'bce')then
      write(0,*) "BCE loss method not set correctly"
      success = .false.
   end if
   call network3%set_loss("categorical_crossentropy")
-  get_loss => compute_loss_cce
-  if(.not.associated(network3%get_loss, get_loss))then
+  if(network3%loss%name.ne.'cce')then
      write(0,*) "CCE loss method not set correctly"
      success = .false.
   end if
   call network3%set_loss("mean_absolute_error")
-  get_loss => compute_loss_mae
-  if(.not.associated(network3%get_loss, get_loss))then
+  if(network3%loss%name.ne.'mae')then
      write(0,*) "MAE loss method not set correctly"
      success = .false.
   end if
   call network3%set_loss("mean_squared_error")
-  get_loss => compute_loss_mse
-  if(.not.associated(network3%get_loss, get_loss))then
+  if(network3%loss%name.ne.'mse')then
      write(0,*) "MSE loss method not set correctly"
      success = .false.
   end if
   call network3%set_loss("negative_log_likelihood")
-  get_loss => compute_loss_nll
-  if(.not.associated(network3%get_loss, get_loss))then
+  if(network3%loss%name.ne.'nll')then
      write(0,*) "NLL loss method not set correctly"
+     success = .false.
+  end if
+  call network3%set_loss("huber")
+  if(network3%loss%name.ne.'hub')then
+     write(0,*) "Huber loss method not set correctly"
      success = .false.
   end if
 

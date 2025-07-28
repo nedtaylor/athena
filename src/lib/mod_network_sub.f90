@@ -89,8 +89,7 @@ contains
     this%vertex_order = source%vertex_order
     this%root_vertices = source%root_vertices
     this%output_vertices = source%output_vertices
-    this%get_loss => source%get_loss
-    this%get_loss_deriv => source%get_loss_deriv
+    this%loss = source%loss
     this%get_accuracy => source%get_accuracy
     this%auto_graph = source%auto_graph
 
@@ -364,8 +363,8 @@ contains
     if(allocated(this%name)) write(unit,'(3X,"NAME = ",A)') trim(adjustl(this%name))
     write(unit,'(3X,"EPOCH = ",I0)') this%epoch
     write(unit,'(3X,"BATCH_SIZE = ",I0)') this%batch_size
-    write(unit,'(3X,"ACCURACY = ",F0.9)') this%accuracy
-    write(unit,'(3X,"LOSS = ",F0.9)') this%loss
+    write(unit,'(3X,"ACCURACY = ",F0.9)') this%accuracy_val
+    write(unit,'(3X,"LOSS = ",F0.9)') this%loss_val
     if(allocated(this%accuracy_method))then
        write(unit,'(3X,"ACCURACY_METHOD = ",A)') trim(adjustl(this%accuracy_method))
     end if
@@ -625,9 +624,9 @@ contains
        case("BATCH_SIZE")
           call assign_val(buffer, this%batch_size, itmp1)
        case("ACCURACY")
-          call assign_val(buffer, this%accuracy, itmp1)
+          call assign_val(buffer, this%accuracy_val, itmp1)
        case("LOSS")
-          call assign_val(buffer, this%loss, itmp1)
+          call assign_val(buffer, this%loss_val, itmp1)
        case("ACCURACY_METHOD")
           call assign_val(buffer, accuracy_method, itmp1)
           call this%set_accuracy(accuracy_method)
@@ -1098,8 +1097,10 @@ contains
     !! Layers to add to the network
     class(base_optimiser_type), optional, intent(in) :: optimiser
     !! Optimiser to use for training
-    character(*), optional, intent(in) :: loss_method, accuracy_method
-    !! Loss and accuracy methods
+    class(*), optional, intent(in) :: loss_method
+    !! Loss method
+    character(*), optional, intent(in) :: accuracy_method
+    !! Accuracy method
     class(*), dimension(..), optional, intent(in) :: metrics
     !! Metrics
     integer, optional, intent(in) :: batch_size
@@ -1203,16 +1204,18 @@ contains
     !! Set the loss method for the network
     use athena__misc, only: to_lower
     use athena__loss, only: &
-         compute_loss_bce, compute_loss_cce, &
-         compute_loss_mae, compute_loss_mse, &
-         compute_loss_nll, compute_loss_hubber, &
-         compute_loss_hubber_derivative
+         bce_loss_type, &
+         cce_loss_type, &
+         mae_loss_type, &
+         mse_loss_type, &
+         nll_loss_type, &
+         huber_loss_type
     implicit none
 
     ! Arguments
     class(network_type), intent(inout) :: this
     !! Instance of network
-    character(*), intent(in) :: loss_method
+    class(*), intent(in) :: loss_method
     !! Loss method
     integer, optional, intent(in) :: verbose
     !! Verbosity level
@@ -1235,57 +1238,57 @@ contains
     !---------------------------------------------------------------------------
     ! Handle analogous definitions
     !---------------------------------------------------------------------------
-    loss_method_ = to_lower(loss_method)
-    select case(loss_method)
-    case("binary_crossentropy")
-       loss_method_ = "bce"
-    case("categorical_crossentropy")
-       loss_method_ = "cce"
-    case("mean_absolute_error")
-       loss_method_ = "mae"
-    case("mean_squared_error")
-       loss_method_ = "mse"
-    case("negative_log_likelihood")
-       loss_method_ = "nll"
-    case("hubber")
-       loss_method_ = "hub"
-    end select
 
     !---------------------------------------------------------------------------
     ! Set loss method
     !---------------------------------------------------------------------------
-    select case(loss_method_)
-    case("bce")
-       this%get_loss => compute_loss_bce
-       this%get_loss_deriv => comp_loss_deriv
-       if(verbose_.gt.0) write(*,*) "Loss method: Categorical Cross Entropy"
-    case("cce")
-       this%get_loss => compute_loss_cce
-       this%get_loss_deriv => comp_loss_deriv
-       if(verbose_.gt.0) write(*,*) "Loss method: Categorical Cross Entropy"
-    case("mae")
-       this%get_loss => compute_loss_mae
-       this%get_loss_deriv => comp_loss_deriv
-       if(verbose_.gt.0) write(*,*) "Loss method: Mean Absolute Error"
-    case("mse")
-       this%get_loss => compute_loss_mse
-       this%get_loss_deriv => comp_loss_deriv
-       if(verbose_.gt.0) write(*,*) "Loss method: Mean Squared Error"
-    case("nll")
-       this%get_loss => compute_loss_nll
-       this%get_loss_deriv => comp_loss_deriv
-       if(verbose_.gt.0) write(*,*) "Loss method: Negative Log Likelihood"
-    case("hub")
-       this%get_loss => compute_loss_hubber
-       this%get_loss_deriv => compute_loss_hubber_derivative
-       if(verbose_.gt.0) write(*,*) "Loss method: Hubber"
-    case default
-       write(err_msg,'(A)') &
-            "No loss method provided" // &
-            achar(13) // achar(10) // &
-            "Failed loss method: "//trim(loss_method_)
-       call stop_program(trim(err_msg))
-       return
+    select type(loss_method)
+    class is(base_loss_type)
+       this%loss = loss_method
+       if(verbose_.gt.0) write(*,*) "Loss method: ", trim(loss_method%name)
+    type is(character(*))
+       loss_method_ = to_lower(loss_method)
+       select case(loss_method)
+       case("binary_crossentropy")
+          loss_method_ = "bce"
+       case("categorical_crossentropy")
+          loss_method_ = "cce"
+       case("mean_absolute_error")
+          loss_method_ = "mae"
+       case("mean_squared_error")
+          loss_method_ = "mse"
+       case("negative_log_likelihood")
+          loss_method_ = "nll"
+       case("huber")
+          loss_method_ = "hub"
+       end select
+       select case(loss_method_)
+       case("bce")
+          this%loss = bce_loss_type()
+          if(verbose_.gt.0) write(*,*) "Loss method: Binary Cross Entropy"
+       case("cce")
+          this%loss = cce_loss_type()
+          if(verbose_.gt.0) write(*,*) "Loss method: Categorical Cross Entropy"
+       case("mae")
+          this%loss = mae_loss_type()
+          if(verbose_.gt.0) write(*,*) "Loss method: Mean Absolute Error"
+       case("mse")
+          this%loss = mse_loss_type()
+          if(verbose_.gt.0) write(*,*) "Loss method: Mean Squared Error"
+       case("nll")
+          this%loss = nll_loss_type()
+          if(verbose_.gt.0) write(*,*) "Loss method: Negative Log Likelihood"
+       case("hub")
+          this%loss = huber_loss_type()
+          if(verbose_.gt.0) write(*,*) "Loss method: Huber"
+       case default
+          write(err_msg,'(A)') &
+               "No loss method provided" // &
+               achar(13) // achar(10) // &
+               "Failed loss method: "//trim(loss_method_)
+          call stop_program(trim(err_msg))
+          return
+       end select
     end select
     this%loss_method = loss_method_
 
@@ -1388,16 +1391,15 @@ contains
     !! Instance of network
 
     this%epoch = 0
-    this%accuracy = 0._real32
-    this%loss = huge(1._real32)
+    this%accuracy_val = 0._real32
+    this%loss_val = huge(1._real32)
     this%batch_size = 0
     this%num_layers = 0
     this%num_outputs = 0
     if(allocated(this%optimiser)) deallocate(this%optimiser)
     call this%set_metrics(["loss"])
     if(allocated(this%model)) deallocate(this%model)
-    this%get_loss => null()
-    this%get_loss_deriv => null()
+    if(allocated(this%loss)) deallocate(this%loss)
     this%get_accuracy => null()
 
     if(allocated(this%io_map)) deallocate(this%io_map)
@@ -1423,8 +1425,10 @@ contains
     !! Instance of network
     class(base_optimiser_type), intent(in) :: optimiser
     !! Optimiser to use for training
-    character(*), optional, intent(in) :: loss_method, accuracy_method
-    !! Loss and accuracy methods
+    class(*), optional, intent(in) :: loss_method
+    !! Loss method
+    character(*), optional, intent(in) :: accuracy_method
+    !! Accuracy method
     class(*), dimension(..), optional, intent(in) :: metrics
     !! Metrics
     integer, optional, intent(in) :: batch_size
@@ -2621,7 +2625,7 @@ contains
        end if
 
        if(all(this%auto_graph%adjacency(this%vertex_order(i),:).eq.0))then
-          gradient = this%get_loss_deriv( &
+          gradient = this%loss%get_derivative( &
                this%model(this%vertex_order(i))%layer%output(1,1)%val, &
                output &
           )
@@ -2662,7 +2666,7 @@ contains
        end if
 
        if(all(this%auto_graph%adjacency(this%vertex_order(i),:).eq.0))then
-          gradient = this%get_loss_deriv( &
+          gradient = this%loss%get_derivative( &
                this%model(this%vertex_order(i))%layer%output(1,1)%val, &
                output(1)%val &
           )
@@ -2753,11 +2757,11 @@ contains
 
           if(all(this%auto_graph%adjacency(this%vertex_order(i),:).eq.0))then
              do s = 1, this%batch_size
-                gradient(1, s)%val = this%get_loss_deriv( &
+                gradient(1, s)%val = this%loss%get_derivative( &
                      this%model(this%vertex_order(i))%layer%output(1,s)%val, &
                      output(1,s)%vertex_features &
                 ) / output(1,s)%num_vertices
-                gradient(2, s)%val = this%get_loss_deriv( &
+                gradient(2, s)%val = this%loss%get_derivative( &
                      this%model(this%vertex_order(i))%layer%output(2,s)%val, &
                      output(1,s)%edge_features &
                 ) / output(1,s)%num_edges
@@ -2867,11 +2871,11 @@ contains
              end do
              if(all(this%auto_graph%adjacency(this%vertex_order(i),:).eq.0))then
                 do s = 1, this%batch_size
-                   gradient(1, s)%val = this%get_loss_deriv( &
+                   gradient(1, s)%val = this%loss%get_derivative( &
                         layer%output(1,s)%val, &
                         output(s,1)%val &
                    )
-                   gradient(2, s)%val = this%get_loss_deriv( &
+                   gradient(2, s)%val = this%loss%get_derivative( &
                         layer%output(2,s)%val, &
                         output(s,1)%val &
                    )
@@ -2891,7 +2895,7 @@ contains
                   source = 0._real32 &
              )
              if(all(this%auto_graph%adjacency(this%vertex_order(i),:).eq.0))then
-                gradient(1,1)%val = this%get_loss_deriv( &
+                gradient(1,1)%val = this%loss%get_derivative( &
                      layer%output(1,1)%val, &
                      output(1,1)%val &
                 )
@@ -3267,7 +3271,7 @@ contains
     !---------------------------------------------------------------------------
     ! Check loss and accuracy methods are set
     !---------------------------------------------------------------------------
-    if(.not.associated(this%get_loss))then
+    if(.not.allocated(this%loss))then
        call stop_program("loss method not set")
        return
     end if
@@ -3445,7 +3449,7 @@ contains
              batch_accuracy = 0._real32
              do s = start_index, end_index, 1
                 s_idx = s - start_index + 1
-                batch_loss = batch_loss + sum( this%get_loss( &
+                batch_loss = batch_loss + sum( this%loss%get_loss( &
                      this%model(this%output_vertices(1))%layer%output(1,s_idx)%val, &
                      output(1,s)%vertex_features &
                 ) ) / output(1,s)%num_vertices
@@ -3456,7 +3460,7 @@ contains
                 if( &
                      this%model(this%output_vertices(1))%layer%output_shape(2).gt.0 &
                 )then
-                   batch_loss = batch_loss + sum( this%get_loss( &
+                   batch_loss = batch_loss + sum( this%loss%get_loss( &
                         this%model(this%output_vertices(1))%layer%output(2,s_idx)%val, &
                         output(1,s)%edge_features &
                    ) ) / output(1,s)%num_edges
@@ -3468,7 +3472,7 @@ contains
              end do
           type is(real)
              batch_loss = sum( &
-                  this%get_loss( &
+                  this%loss%get_loss( &
                        this%model(this%output_vertices(1))%layer%output(1,1)%val, &
                        output(:,start_index:end_index:1) &
                   ))
@@ -3479,7 +3483,7 @@ contains
                   ))
           type is(integer)
              batch_loss = sum( &
-                  this%get_loss( &
+                  this%loss%get_loss( &
                        this%model(this%output_vertices(1))%layer%output(1,1)%val, &
                        real(output(:,start_index:end_index:1),real32) &
                   ))
@@ -3490,7 +3494,7 @@ contains
                   ))
           class is(array_type)
              batch_loss = sum( &
-                  this%get_loss( &
+                  this%loss%get_loss( &
                        this%model(this%output_vertices(1))%layer%output(1,1)%val, &
                        output(1,1)%val(:,start_index:end_index:1) &
                   ))
@@ -3679,7 +3683,7 @@ contains
        !------------------------------------------------------------------------
        select type(output)
        type is(graph_type)
-          loss_val = sum( this%get_loss( &
+          loss_val = sum( this%loss%get_loss( &
                this%model(this%output_vertices(1))%layer%output(1,1)%val, &
                output(1,sample)%vertex_features &
           ) ) / output(1,sample)%num_vertices
@@ -3690,7 +3694,7 @@ contains
           if( &
                this%model(this%output_vertices(1))%layer%output_shape(2).gt.0 &
           )then
-             loss_val = sum( this%get_loss( &
+             loss_val = sum( this%loss%get_loss( &
                   this%model(this%output_vertices(1))%layer%output(2,1)%val, &
                   output(1,sample)%edge_features &
              ) ) / output(1,sample)%num_edges
@@ -3700,7 +3704,7 @@ contains
              ) ) / output(1,sample)%num_edges
           end if
        type is(real)
-          loss_val = sum( this%get_loss( &
+          loss_val = sum( this%loss%get_loss( &
                this%model(this%output_vertices(1))%layer%output(1,1)%val, &
                output(:,sample:sample:1) &
           ))
@@ -3709,7 +3713,7 @@ contains
                output(:,sample:sample:1) &
           ))
        type is(integer)
-          loss_val = sum( this%get_loss( &
+          loss_val = sum( this%loss%get_loss( &
                this%model(this%output_vertices(1))%layer%output(1,1)%val, &
                real(output(:,sample:sample:1),real32) &
           ))
@@ -3718,7 +3722,7 @@ contains
                real(output(:,sample:sample:1),real32) &
           ))
        class is(array_type)
-          loss_val = sum( this%get_loss( &
+          loss_val = sum( this%loss%get_loss( &
                this%model(this%output_vertices(1))%layer%output(1,1)%val, &
                output(1,1)%val(:,sample:sample:1) &
           ))
@@ -3736,8 +3740,8 @@ contains
 
     ! Normalise metrics by number of samples
     !---------------------------------------------------------------------------
-    this%accuracy = this%metrics(2)%val/real(num_samples)
-    this%loss     = this%metrics(1)%val/real(num_samples)
+    this%accuracy_val = this%metrics(2)%val/real(num_samples)
+    this%loss_val     = this%metrics(1)%val/real(num_samples)
 
   end subroutine test
 !###############################################################################

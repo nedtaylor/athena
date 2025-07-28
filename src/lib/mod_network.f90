@@ -12,9 +12,7 @@ module athena__network
   use graphstruc, only: graph_type
   use athena__metrics, only: metric_dict_type
   use athena__optimiser, only: base_optimiser_type
-  use athena__loss, only: &
-       comp_loss_func => compute_loss_function, &
-       comp_loss_deriv => compute_loss_derivative
+  use athena__loss, only: base_loss_type
   use athena__accuracy, only: comp_acc_func => compute_accuracy_function
   use athena__base_layer, only: base_layer_type
   use athena__misc_types, only: array_type, array2d_type
@@ -31,7 +29,7 @@ module athena__network
      !! Type for defining a neural network with overloaded procedures
      character(len=:), allocatable :: name
      !! Name of the network
-     real(real32) :: accuracy, loss
+     real(real32) :: accuracy_val, loss_val
      !! Accuracy and loss of the network
      integer :: batch_size = 0
      !! Batch size
@@ -49,16 +47,14 @@ module athena__network
      !! Boolean flag for graph output
      class(base_optimiser_type), allocatable :: optimiser
      !! Optimiser for the network
+     class(base_loss_type), allocatable :: loss
+     !! Loss method for the network
      type(metric_dict_type), dimension(2) :: metrics
      !! Metrics for the network
      type(container_layer_type), allocatable, dimension(:) :: model
      !! Model layers
      character(len=:), allocatable :: loss_method, accuracy_method
-     !! Loss and accuracy methods
-     procedure(comp_loss_func), nopass, pointer :: get_loss => null()
-     !! Pointer to loss function
-     procedure(comp_loss_deriv), nopass, pointer :: get_loss_deriv => null()
-     !! Pointer to loss derivative function
+     !! Loss and accuracy method names
      procedure(comp_acc_func), nopass, pointer :: get_accuracy => null()
      !! Pointer to accuracy function
      integer, dimension(:), allocatable :: vertex_order
@@ -173,8 +169,10 @@ module athena__network
        !! Layers
        class(base_optimiser_type), optional, intent(in) :: optimiser
        !! Optimiser
-       character(*), optional, intent(in) :: loss_method, accuracy_method
-       !! Loss method and accuracy method
+       class(*), optional, intent(in) :: loss_method
+       !! Loss method
+       character(*), optional, intent(in) :: accuracy_method
+       !! Accuracy method
        class(*), dimension(..), optional, intent(in) :: metrics
        !! Metrics
        integer, optional, intent(in) :: batch_size
@@ -272,8 +270,10 @@ module athena__network
        !! Instance of the network
        class(base_optimiser_type), intent(in) :: optimiser
        !! Optimiser
-       character(*), optional, intent(in) :: loss_method, accuracy_method
-       !! Loss method and accuracy method
+       class(*), optional, intent(in) :: loss_method
+       !! Loss method
+       character(*), optional, intent(in) :: accuracy_method
+       !! Accuracy method
        class(*), dimension(..), optional, intent(in) :: metrics
        !! Metrics
        integer, optional, intent(in) :: batch_size
@@ -305,7 +305,7 @@ module athena__network
        !! Set network loss method
        class(network_type), intent(inout) :: this
        !! Instance of the network
-       character(*), intent(in) :: loss_method
+       class(*), intent(in) :: loss_method
        !! Loss method
        integer, optional, intent(in) :: verbose
        !! Verbosity level
@@ -658,7 +658,7 @@ module athena__network
        class(array_type), dimension(:,:), intent(in), target :: input
        !! Input array
        type(array2d_type), dimension(size(input,1), batch_size) :: sample
-    !! Sample array
+       !! Sample array
      end function get_sample_mixed
      module function get_sample_graph( &
           input, start_index, end_index, batch_size &
