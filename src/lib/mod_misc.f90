@@ -208,7 +208,7 @@ contains
     !! Output string
 
     ! Local variables
-    integer :: i, j, len_input
+    integer :: i, j, len_input, idx
     !! Loop indices and length of input string
     character(:), allocatable :: input_lower
     !! Lowercase version of input string
@@ -225,27 +225,41 @@ contains
     input_lower = to_lower(trim(adjustl(input)))
     len_input = len_trim(input_lower)
     allocate(character(len=len_input) :: output)
+    output(:) = ' '  ! Initialise output with spaces
 
     ! Convert to camel case
-    j = 1
     i = 1
+    j = 1
     do while ( i .lt. len_input )
-       if(input_lower(i:i) == "_") then
-          output(j:j) = achar(iachar(input_lower(i+1:i+1)) - 32)
+       ! find the next word after the separator
+       idx = verify(input_lower(i:), '_, ')
+       if (idx .eq. 0) exit
+       i = i + idx - 1
+
+       ! Capitalise the first letter of the word
+       if (i .le. len_input) then
+          if (iachar(input_lower(i:i)) .ge. iachar('a') .and. &
+               iachar(input_lower(i:i)) .le. iachar('z')) then
+             output(j:j) = achar(iachar(input_lower(i:i)) - 32)
+          else
+             output(j:j) = input_lower(i:i)
+          end if
+          j = j + 1
           i = i + 1
-       elseif(input_lower(i:i) == " ") then
-          output(j:j) = achar(iachar(input_lower(i+1:i+1)) - 32)
-          i = i + 1
-       else
-          output(j:j) = input_lower(i:i)
        end if
-       j = j + 1
-       i = i + 1
+
+       ! find the next word separator (underscore or space)
+       idx = scan(input_lower(i:), '_, ')
+       ! get the smallest of the two indices that is not zero
+       if(idx .eq. 0) then
+          output(j:len_input-i+j) = input_lower(i:len_input)
+          exit
+       else
+          output(j:j + idx - 1) = input_lower(i:i + idx - 1)
+          j = j + idx - 1
+          i = i + idx - 1
+       end if
     end do
-    if(input_lower(len_input:len_input) .ne. "_") then
-       output(j:j) = input_lower(len_input:len_input)
-       j = j + 1
-    end if
     output = trim(adjustl(output))
 
     ! Capitalise the first letter if required
@@ -255,6 +269,13 @@ contains
     ) then
        ! Capitalise the first letter if required
        output(1:1) = achar(iachar(output(1:1)) - 32)
+    elseif(.not. capitalise_first_letter_ .and. &
+         len(output) .gt. 0 .and. &
+         iachar(output(1:1)) .ge. iachar("A") .and. &
+         iachar(output(1:1)) .le. iachar("Z") &
+    ) then
+       ! Convert the first letter to lowercase if not capitalising
+       output(1:1) = achar(iachar(output(1:1)) + 32)
     end if
 
     return
