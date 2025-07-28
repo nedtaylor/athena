@@ -60,6 +60,7 @@ contains
        select case(trim(network%model(idx)%layer%type))
        case('inpt')
           layer_name = 'Input'
+          cycle
        case('full')
           layer_name = 'MatMul'
        case('conv')
@@ -95,8 +96,13 @@ contains
        else
           do j = 1, network%auto_graph%num_vertices
              if(network%auto_graph%adjacency(j,network%vertex_order(i)).eq.0) cycle
-             write(unit, '(4X,"input: ""node_",I0,"_output""")') &
-                  network%model(network%auto_graph%vertex(j)%id)%layer%id
+             if(all(network%auto_graph%adjacency(:,j).eq.0))then
+                write(unit, '(4X,"input: ""input_",I0,"""")') &
+                     network%model(network%auto_graph%vertex(j)%id)%layer%id
+             else
+                write(unit, '(4X,"input: ""node_",I0,"_output""")') &
+                     network%model(network%auto_graph%vertex(j)%id)%layer%id
+             end if
           end do
        end if
        select type(layer => network%model(idx)%layer)
@@ -130,7 +136,7 @@ contains
        idx = network%root_vertices(i)
        write(unit, '(A)') '  # Inputs'
        write(unit, '(A)') '  input {'
-       write(unit, '(A,I0,A)') '    name: "input',i,'"'
+       write(unit, '(A,I0,A)') '    name: "input_',i,'"'
        write(unit, '(A)') '    type {'
        write(unit, '(A)') '      tensor_type {'
        write(unit, '(A)') '        elem_type: 1'  ! FLOAT
@@ -173,6 +179,13 @@ contains
     end do
 
     write(unit, '(A)') '}'
+
+    ! Write ONNX footer
+    write(unit, '(A)') 'opset_import {'
+    write(unit, '(A)') '  domain: "ai.onnx"'
+    write(unit, '(A,I0)') '  version: ', 13  ! ONNX version
+    write(unit, '(A)') '}'
+
     close(unit)
 
   end subroutine write_onnx
