@@ -21,7 +21,8 @@ program test_onnx
   call network%add(input_layer_type(input_shape=[21,21,3]))
   call network%add(conv2d_layer_type( &
        kernel_size=[3,3], &
-       num_filters=1 &
+       num_filters=1, &
+       activation_function='swish' &
   ))
   call network%add( &
        conv2d_layer_type( &
