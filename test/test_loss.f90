@@ -17,7 +17,7 @@ program test_loss
 !-------------------------------------------------------------------------------
   loss = bce_loss_type()
   expected_loss = -expected * log(predicted + 1.E-7)
-  actual_loss = loss%get_loss(predicted, expected)
+  actual_loss = loss%compute(predicted, expected)
   if (any(abs(actual_loss - expected_loss) .gt. 1.E-6)) then
      write(0,*) "Error: compute_loss_bce did not return the expected result."
      write(0,*) "actual_loss: ", actual_loss
@@ -31,7 +31,7 @@ program test_loss
 !-------------------------------------------------------------------------------
   loss = cce_loss_type()
   expected_loss = -expected * log(predicted + 1.E-7)
-  actual_loss = loss%get_loss(predicted, expected)
+  actual_loss = loss%compute(predicted, expected)
   if (any(abs(actual_loss - expected_loss) .gt. 1.E-6)) then
      write(0,*) "Error: compute_loss_cce did not return the expected result."
      write(0,*) "actual_loss: ", actual_loss
@@ -45,7 +45,7 @@ program test_loss
 !-------------------------------------------------------------------------------
   loss = mae_loss_type()
   expected_loss = abs(predicted - expected)
-  actual_loss = loss%get_loss(predicted, expected)
+  actual_loss = loss%compute(predicted, expected)
   if (any(abs(actual_loss - expected_loss) .gt. 1.E-6)) then
      write(0,*) "Error: compute_loss_mae did not return the expected result."
      write(0,*) "actual_loss: ", actual_loss
@@ -59,7 +59,7 @@ program test_loss
 !-------------------------------------------------------------------------------
   loss = mse_loss_type()
   expected_loss = ((predicted - expected)**2.E0) /(2.E0)
-  actual_loss = loss%get_loss(predicted, expected)
+  actual_loss = loss%compute(predicted, expected)
   if (any(abs(actual_loss - expected_loss) .gt. 1.E-6)) then
      write(0,*) "Error: compute_loss_mse did not return the expected result."
      write(0,*) "actual_loss: ", actual_loss
@@ -73,7 +73,7 @@ program test_loss
 !-------------------------------------------------------------------------------
   loss = nll_loss_type()
   expected_loss = - log(expected - predicted + 1.E-7)
-  actual_loss = loss%get_loss(predicted, expected)
+  actual_loss = loss%compute(predicted, expected)
   if (any(abs(actual_loss - expected_loss) .gt. 1.E-6)) then
      write(0,*) "Error: compute_loss_nll did not return the expected result."
      write(0,*) "actual_loss: ", actual_loss
@@ -91,7 +91,7 @@ program test_loss
   elsewhere
      expected_loss = 1.0 * (abs(predicted - expected) - 0.5 * 1.0)
   end where
-  actual_loss = loss%get_loss(predicted, expected)
+  actual_loss = loss%compute(predicted, expected)
   if (any(abs(actual_loss - expected_loss) .gt. 1.E-6)) then
      write(0,*) "Error: compute_loss_huber did not return the expected result."
      write(0,*) "actual_loss: ", actual_loss

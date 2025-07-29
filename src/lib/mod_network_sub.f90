@@ -2625,7 +2625,7 @@ contains
        end if
 
        if(all(this%auto_graph%adjacency(this%vertex_order(i),:).eq.0))then
-          gradient = this%loss%get_derivative( &
+          gradient = this%loss%compute_derivative( &
                this%model(this%vertex_order(i))%layer%output(1,1)%val, &
                output &
           )
@@ -2666,7 +2666,7 @@ contains
        end if
 
        if(all(this%auto_graph%adjacency(this%vertex_order(i),:).eq.0))then
-          gradient = this%loss%get_derivative( &
+          gradient = this%loss%compute_derivative( &
                this%model(this%vertex_order(i))%layer%output(1,1)%val, &
                output(1)%val &
           )
@@ -2757,11 +2757,11 @@ contains
 
           if(all(this%auto_graph%adjacency(this%vertex_order(i),:).eq.0))then
              do s = 1, this%batch_size
-                gradient(1, s)%val = this%loss%get_derivative( &
+                gradient(1, s)%val = this%loss%compute_derivative( &
                      this%model(this%vertex_order(i))%layer%output(1,s)%val, &
                      output(1,s)%vertex_features &
                 ) / output(1,s)%num_vertices
-                gradient(2, s)%val = this%loss%get_derivative( &
+                gradient(2, s)%val = this%loss%compute_derivative( &
                      this%model(this%vertex_order(i))%layer%output(2,s)%val, &
                      output(1,s)%edge_features &
                 ) / output(1,s)%num_edges
@@ -2871,11 +2871,11 @@ contains
              end do
              if(all(this%auto_graph%adjacency(this%vertex_order(i),:).eq.0))then
                 do s = 1, this%batch_size
-                   gradient(1, s)%val = this%loss%get_derivative( &
+                   gradient(1, s)%val = this%loss%compute_derivative( &
                         layer%output(1,s)%val, &
                         output(s,1)%val &
                    )
-                   gradient(2, s)%val = this%loss%get_derivative( &
+                   gradient(2, s)%val = this%loss%compute_derivative( &
                         layer%output(2,s)%val, &
                         output(s,1)%val &
                    )
@@ -2895,7 +2895,7 @@ contains
                   source = 0._real32 &
              )
              if(all(this%auto_graph%adjacency(this%vertex_order(i),:).eq.0))then
-                gradient(1,1)%val = this%loss%get_derivative( &
+                gradient(1,1)%val = this%loss%compute_derivative( &
                      layer%output(1,1)%val, &
                      output(1,1)%val &
                 )
@@ -3449,7 +3449,7 @@ contains
              batch_accuracy = 0._real32
              do s = start_index, end_index, 1
                 s_idx = s - start_index + 1
-                batch_loss = batch_loss + sum( this%loss%get_loss( &
+                batch_loss = batch_loss + sum( this%loss%compute( &
                      this%model(this%output_vertices(1))%layer%output(1,s_idx)%val, &
                      output(1,s)%vertex_features &
                 ) ) / output(1,s)%num_vertices
@@ -3460,7 +3460,7 @@ contains
                 if( &
                      this%model(this%output_vertices(1))%layer%output_shape(2).gt.0 &
                 )then
-                   batch_loss = batch_loss + sum( this%loss%get_loss( &
+                   batch_loss = batch_loss + sum( this%loss%compute( &
                         this%model(this%output_vertices(1))%layer%output(2,s_idx)%val, &
                         output(1,s)%edge_features &
                    ) ) / output(1,s)%num_edges
@@ -3472,7 +3472,7 @@ contains
              end do
           type is(real)
              batch_loss = sum( &
-                  this%loss%get_loss( &
+                  this%loss%compute( &
                        this%model(this%output_vertices(1))%layer%output(1,1)%val, &
                        output(:,start_index:end_index:1) &
                   ))
@@ -3483,7 +3483,7 @@ contains
                   ))
           type is(integer)
              batch_loss = sum( &
-                  this%loss%get_loss( &
+                  this%loss%compute( &
                        this%model(this%output_vertices(1))%layer%output(1,1)%val, &
                        real(output(:,start_index:end_index:1),real32) &
                   ))
@@ -3494,7 +3494,7 @@ contains
                   ))
           class is(array_type)
              batch_loss = sum( &
-                  this%loss%get_loss( &
+                  this%loss%compute( &
                        this%model(this%output_vertices(1))%layer%output(1,1)%val, &
                        output(1,1)%val(:,start_index:end_index:1) &
                   ))
@@ -3683,7 +3683,7 @@ contains
        !------------------------------------------------------------------------
        select type(output)
        type is(graph_type)
-          loss_val = sum( this%loss%get_loss( &
+          loss_val = sum( this%loss%compute( &
                this%model(this%output_vertices(1))%layer%output(1,1)%val, &
                output(1,sample)%vertex_features &
           ) ) / output(1,sample)%num_vertices
@@ -3694,7 +3694,7 @@ contains
           if( &
                this%model(this%output_vertices(1))%layer%output_shape(2).gt.0 &
           )then
-             loss_val = sum( this%loss%get_loss( &
+             loss_val = sum( this%loss%compute( &
                   this%model(this%output_vertices(1))%layer%output(2,1)%val, &
                   output(1,sample)%edge_features &
              ) ) / output(1,sample)%num_edges
@@ -3704,7 +3704,7 @@ contains
              ) ) / output(1,sample)%num_edges
           end if
        type is(real)
-          loss_val = sum( this%loss%get_loss( &
+          loss_val = sum( this%loss%compute( &
                this%model(this%output_vertices(1))%layer%output(1,1)%val, &
                output(:,sample:sample:1) &
           ))
@@ -3713,7 +3713,7 @@ contains
                output(:,sample:sample:1) &
           ))
        type is(integer)
-          loss_val = sum( this%loss%get_loss( &
+          loss_val = sum( this%loss%compute( &
                this%model(this%output_vertices(1))%layer%output(1,1)%val, &
                real(output(:,sample:sample:1),real32) &
           ))
@@ -3722,7 +3722,7 @@ contains
                real(output(:,sample:sample:1),real32) &
           ))
        class is(array_type)
-          loss_val = sum( this%loss%get_loss( &
+          loss_val = sum( this%loss%compute( &
                this%model(this%output_vertices(1))%layer%output(1,1)%val, &
                output(1,1)%val(:,sample:sample:1) &
           ))

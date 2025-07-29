@@ -25,14 +25,14 @@ module athena__loss
      real(real32) :: epsilon = 1.E-10_real32
      !! Small value to prevent log(0)
    contains
-     procedure(get_loss_base), deferred, pass(this) :: get_loss
+     procedure(compute_base), deferred, pass(this) :: compute
      !! Compute the loss of a model
-     procedure, pass(this) :: get_derivative => get_derivative_base
+     procedure, pass(this) :: compute_derivative => compute_derivative_base
      !! Compute the derivative of the loss function
   end type base_loss_type
 
   abstract interface
-     pure module function get_loss_base(this, predicted, expected) result(output)
+     pure module function compute_base(this, predicted, expected) result(output)
        !! Compute the loss of a model
        class(base_loss_type), intent(in) :: this
        !! Instance of the loss function type
@@ -40,11 +40,12 @@ module athena__loss
        !! Predicted and expected values
        real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
        !! Loss of the model
-     end function get_loss_base
+     end function compute_base
   end interface
 
   interface
-     pure module function get_derivative_base(this, predicted, expected) result(output)
+     pure module function compute_derivative_base(this, predicted, expected) &
+          result(output)
        !! Compute the derivative of the loss function
        class(base_loss_type), intent(in) :: this
        !! Instance of the loss function type
@@ -52,7 +53,7 @@ module athena__loss
        !! Predicted and expected values
        real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
        !! Derivative of the loss function
-     end function get_derivative_base
+     end function compute_derivative_base
   end interface
 
 !-------------------------------------------------------------------------------
@@ -60,7 +61,7 @@ module athena__loss
   type, extends(base_loss_type) :: bce_loss_type
      !! Binary cross entropy loss function
    contains
-     procedure :: get_loss => get_loss_bce
+     procedure :: compute => compute_bce
      !! Compute the loss of a model
   end type bce_loss_type
 
@@ -78,7 +79,7 @@ module athena__loss
   type, extends(base_loss_type) :: cce_loss_type
      !! Categorical cross entropy loss function
    contains
-     procedure :: get_loss => get_loss_cce
+     procedure :: compute => compute_cce
      !! Compute the loss of a model
   end type cce_loss_type
 
@@ -96,7 +97,7 @@ module athena__loss
   type, extends(base_loss_type) :: mae_loss_type
      !! Mean absolute error loss function
    contains
-     procedure :: get_loss => get_loss_mae
+     procedure :: compute => compute_mae
      !! Compute the loss of a model
   end type mae_loss_type
 
@@ -114,7 +115,7 @@ module athena__loss
   type, extends(base_loss_type) :: mse_loss_type
      !! Mean squared error loss function
    contains
-     procedure :: get_loss => get_loss_mse
+     procedure :: compute => compute_mse
      !! Compute the loss of a model
   end type mse_loss_type
 
@@ -132,7 +133,7 @@ module athena__loss
   type, extends(base_loss_type) :: nll_loss_type
      !! Negative log likelihood loss function
    contains
-     procedure :: get_loss => get_loss_nll
+     procedure :: compute => compute_nll
      !! Compute the loss of a model
   end type nll_loss_type
 
@@ -152,9 +153,9 @@ module athena__loss
      real(real32) :: gamma = 1._real32
      !! Gamma value for the huber loss function
    contains
-     procedure :: get_loss => get_loss_huber
+     procedure :: compute => compute_huber
      !! Compute the loss of a model
-     procedure :: get_derivative => get_derivative_huber
+     procedure :: compute_derivative => compute_derivative_huber
      !! Compute the derivative of the loss function
   end type huber_loss_type
 
@@ -242,7 +243,7 @@ contains
 
 
 !###############################################################################
-  pure module function get_derivative_base(this, predicted, expected) result(output)
+  pure module function compute_derivative_base(this, predicted, expected) result(output)
     !! Compute the derivative of the loss function
     !!
     !! This function computes the derivative of the loss function
@@ -262,12 +263,12 @@ contains
     !! Derivative of the loss function
 
     output = predicted - expected
-  end function get_derivative_base
+  end function compute_derivative_base
 !###############################################################################
 
 
 !###############################################################################
-  pure function get_loss_bce(this, predicted, expected) result(output)
+  pure function compute_bce(this, predicted, expected) result(output)
     !! Compute the binary cross entropy loss of a model
     implicit none
 
@@ -281,12 +282,12 @@ contains
 
     output = -expected*log(predicted+this%epsilon)
 
-  end function get_loss_bce
+  end function compute_bce
 !###############################################################################
 
 
 !###############################################################################
-  pure function get_loss_cce(this, predicted, expected) result(output)
+  pure function compute_cce(this, predicted, expected) result(output)
     !! Compute the categorical cross entropy loss of a model
     implicit none
 
@@ -300,12 +301,12 @@ contains
 
     output = -expected * log(predicted + this%epsilon)
 
-  end function get_loss_cce
+  end function compute_cce
 !###############################################################################
 
 
 !###############################################################################
-  pure module function get_loss_mae(this, predicted, expected) result(output)
+  pure module function compute_mae(this, predicted, expected) result(output)
     !! Compute the mean absolute error of a model
     implicit none
 
@@ -319,12 +320,12 @@ contains
 
     output = abs(predicted - expected) !/(size(predicted,1))
 
-  end function get_loss_mae
+  end function compute_mae
 !###############################################################################
 
 
 !###############################################################################
-  pure module function get_loss_mse(this, predicted, expected) result(output)
+  pure module function compute_mse(this, predicted, expected) result(output)
     !! Compute the mean squared error of a model
     implicit none
 
@@ -338,12 +339,12 @@ contains
 
     output = ((predicted - expected)**2._real32) /(2._real32)!*size(predicted,1))
 
-  end function get_loss_mse
+  end function compute_mse
 !###############################################################################
 
 
 !###############################################################################
-  pure function get_loss_nll(this, predicted, expected) result(output)
+  pure function compute_nll(this, predicted, expected) result(output)
     !! Compute the negative log likelihood of a model
     implicit none
 
@@ -357,12 +358,12 @@ contains
 
     output = - log(expected - predicted + this%epsilon)
 
-  end function get_loss_nll
+  end function compute_nll
 !###############################################################################
 
 
 !###############################################################################
-  pure function get_loss_huber(this, predicted, expected) result(output)
+  pure function compute_huber(this, predicted, expected) result(output)
     !! Compute the huber loss of a model
     implicit none
 
@@ -380,9 +381,9 @@ contains
        output = this%gamma * (abs(predicted - expected) - 0.5_real32 * this%gamma)
     end where
 
-  end function get_loss_huber
+  end function compute_huber
 !-------------------------------------------------------------------------------
-  pure function get_derivative_huber(this, predicted, expected) &
+  pure function compute_derivative_huber(this, predicted, expected) &
        result(output)
     !! Compute the derivative of the huber loss function
     implicit none
@@ -401,7 +402,7 @@ contains
        output = this%gamma * sign(1._real32, predicted - expected)
     end where
 
-  end function get_derivative_huber
+  end function compute_derivative_huber
 !###############################################################################
 
 end module athena__loss
