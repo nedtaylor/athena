@@ -24,7 +24,7 @@ program msgpass_euler_example
   logical :: normalise = .false.
   !! Boolean whether to normalise the input and output features or not.
 
-  ! data loading and preoprocessing
+  ! data loading and preprocessing
   type(graph_type), allocatable, dimension(:,:) :: &
        graphs_in, graphs_out, graphs_predicted
   character(1024) :: file, train_file

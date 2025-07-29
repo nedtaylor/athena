@@ -88,7 +88,7 @@ LATHENA = -I$(ATHENAROOT)/include -L$(ATHENAROOT)/lib -lathena
 # COMPILATION SECTION
 ##########################################
 INSTALL_DIR?=$(HOME)/bin
-NAME = chemical_graph
+NAME = msgpass_chemical
 
 CFLAGS =
 

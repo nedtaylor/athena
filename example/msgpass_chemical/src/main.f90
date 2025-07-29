@@ -18,7 +18,7 @@ program msgpass_chemical_example
 
   logical :: restart = .false.
 
-  ! data loading and preoprocessing
+  ! data loading and preprocessing
   type(graph_type), allocatable, dimension(:,:) :: graphs_in
   real(real32), allocatable, dimension(:,:) :: labels
   character(1024) :: file, train_file
