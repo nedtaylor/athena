@@ -7,7 +7,7 @@ module read_chemical_graphs
 
   private
 
-  public :: read_mp_db, read_extxyz_db
+  public :: read_mp_db, read_extxyz_db, get_elements_masses_and_charges
 
 contains
 

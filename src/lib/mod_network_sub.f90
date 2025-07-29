@@ -1415,7 +1415,7 @@ contains
 !###############################################################################
   module subroutine compile( &
        this, optimiser, loss_method, accuracy_method, &
-       metrics, batch_size, verbose &
+       metrics, batch_size, calc_input_gradients, verbose &
   )
     !! Compile the network
     implicit none
@@ -1433,6 +1433,8 @@ contains
     !! Metrics
     integer, optional, intent(in) :: batch_size
     !! Batch size
+    logical, optional, intent(in) :: calc_input_gradients
+    !! Boolean whether to calculate input gradients, default = .false.
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -1443,6 +1445,8 @@ contains
     !! Verbosity level
     logical :: use_graph_input = .false.
     !! Boolean whether to use graph input
+    logical :: calc_input_gradients_ = .false.
+    !! Boolean whether to calculate input gradients
     logical :: l_flatten_child, l_set_input_shape
     !! Booleans whether to flatten child or set input shape
     integer, dimension(:), allocatable :: input_shape, &
@@ -1456,6 +1460,7 @@ contains
     ! Initialise optional arguments
     !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
+    if(present(calc_input_gradients)) calc_input_gradients_ = calc_input_gradients
 
 
     !---------------------------------------------------------------------------
@@ -1493,7 +1498,7 @@ contains
        class is(input_layer_type)
           cycle
        class is(learnable_layer_type)
-          root%calc_input_gradients = .false.
+          root%calc_input_gradients = calc_input_gradients_
           input_shape = root%input_shape
           use_graph_input = root%use_graph_input
        class default

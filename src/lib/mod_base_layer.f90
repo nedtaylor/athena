@@ -52,6 +52,8 @@ module athena__base_layer
      !! Layer name
      character(4) :: type = 'base'
      !! Layer type
+     logical :: requires_grad = .false.
+     !! Boolean whether the layer requires gradients
      type(graph_type), allocatable, dimension(:) :: graph
      !! Graph structure of input data
      logical :: consistent_sample_shape = .true. !! ONLY FALSE FOR GRAPHS
@@ -61,6 +63,8 @@ module athena__base_layer
      class(array_type), allocatable, dimension(:,:) :: di
      !! Gradient of input data
      !!! HAVE A LOGICAL THAT INDICATES WHETHER input_shape REFERS TO THE DIMENSIONS OF di, OR OF EACH ELEMENT IN di
+     class(array_type), allocatable, dimension(:,:) :: jacobian
+     !! Gradient of output data (forward mode differentiation)
      integer, allocatable, dimension(:) :: input_shape
      !! Input shape
      integer, allocatable, dimension(:) :: output_shape

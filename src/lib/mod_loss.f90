@@ -24,6 +24,12 @@ module athena__loss
      !! Name of the loss function
      real(real32) :: epsilon = 1.E-10_real32
      !! Small value to prevent log(0)
+     logical :: requires_inputs = .false.
+     !! Whether the loss function requires inputs to be passed
+     integer :: batch_index = 1
+     !! Index of the batch to compute the loss for
+     integer :: sample_index = 1
+     !! Index of the sample to compute the loss for
    contains
      procedure(compute_base), deferred, pass(this) :: compute
      !! Compute the loss of a model

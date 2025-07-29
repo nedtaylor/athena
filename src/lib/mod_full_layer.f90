@@ -768,6 +768,19 @@ contains
     !---------------------------------------------------------------------------
     this%output(1,1)%val(:,:) = this%transfer%activate(this%z)
 
+    if(this%requires_grad)then
+       gradient_block: block
+         integer :: i, idx_start, idx_end
+         do concurrent(s=1:this%batch_size)
+            idx_start = (s-1) * this%num_outputs + 1
+            idx_end = s * this%num_outputs
+            this%jacobian(1,1)%val(idx_start:idx_end,s) = &
+                 this%transfer%differentiate(this%z(:,s)) * this%weight(i,:) * &
+                 this%jacobian(1,1)%val(idx_start:idx_end,s)
+         end do
+       end block gradient_block
+    end if
+
   end subroutine forward_2d
 !###############################################################################
 
