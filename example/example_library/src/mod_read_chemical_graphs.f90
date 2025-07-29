@@ -173,7 +173,6 @@ contains
        if(ierror .ne. 0) exit
        if(trim(buffer).eq."") cycle
        backspace(unit)
-       !  write(*,*) trim(buffer)
        call geom_read(unit, lattice, basis)
        call get_elements_masses_and_charges(basis)
        graphs_tmp = [ graphs_tmp, get_graph_from_basis(lattice, basis) ]
@@ -207,7 +206,7 @@ contains
 
 
     graph%num_vertices = basis%natom
-    graph%num_vertex_features = 3
+    graph%num_vertex_features = 6
     graph%num_edge_features = 1
 
 
@@ -263,8 +262,11 @@ contains
                 end do
              end do atom_loop2
           end do spec_loop2
-          graph%vertex(iatom)%feature = [ graph%vertex(iatom)%feature, &
-               real(degree, real32) / 6._real32 ]
+          graph%vertex(iatom)%feature = [ &
+               basis%spec(is)%force(ia,:), &
+               graph%vertex(iatom)%feature, &
+               real(degree, real32) / 6._real32 &
+          ]
        end do atom_loop1
     end do spec_loop1
     graph%num_edges = size(graph%edge)

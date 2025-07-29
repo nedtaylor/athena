@@ -23,6 +23,7 @@ module rw_geom
 
   type :: spec_type
      real(real32), allocatable ,dimension(:,:) :: atom
+     real(real32), allocatable, dimension(:,:) :: force
      real(real32) :: mass
      real(real32) :: charge
      character(len=3) :: name
@@ -802,8 +803,8 @@ contains
     integer :: index1, index2
     integer, intent(in), optional :: length
     integer, allocatable, dimension(:) :: tmp_num
-    real(real32), dimension(3) :: vec
-    real(real32), allocatable, dimension(:,:,:) :: tmp_bas
+    real(real32), dimension(3) :: vec, force
+    real(real32), allocatable, dimension(:,:,:) :: tmp_bas, tmp_force
     character(len=5) :: ctmp
     character(len=5), allocatable, dimension(:) :: tmp_spec
     character(len=1024) :: buffer
@@ -843,22 +844,25 @@ contains
     allocate(tmp_spec(basis%natom))
     allocate(tmp_num(basis%natom))
     allocate(tmp_bas(basis%natom,basis%natom,dim))
+    allocate(tmp_force(basis%natom,basis%natom,3))
     tmp_num(:)=0
     tmp_spec=""
     tmp_bas=0
     basis%nspec=0
     do i=1,basis%natom
-       read(UNIT,*,iostat=Reason) ctmp,vec(1:3)
+       read(UNIT,*,iostat=Reason) ctmp, vec(1:3), force(1:3)
        if(.not.any(tmp_spec(1:basis%nspec).eq.ctmp))then
           basis%nspec=basis%nspec+1
           tmp_spec(basis%nspec)=ctmp
           tmp_bas(basis%nspec,1,1:3)=vec(1:3)
+          tmp_force(basis%nspec,1,1:3)=force(1:3)
           tmp_num(basis%nspec)=1
        else
           checkspec: do j=1,basis%nspec
              if(tmp_spec(j).eq.ctmp)then
                 tmp_num(j)=tmp_num(j)+1
                 tmp_bas(j,tmp_num(j),1:3)=vec(1:3)
+                tmp_force(j,tmp_num(j),1:3)=force(1:3)
                 exit checkspec
              end if
           end do checkspec
@@ -877,8 +881,11 @@ contains
        basis%spec(i)%name=tmp_spec(i)
        basis%spec(i)%num=tmp_num(i)
        allocate(basis%spec(i)%atom(tmp_num(i),dim))
+       allocate(basis%spec(i)%force(tmp_num(i),3))
        basis%spec(i)%atom(:,:)=0
        basis%spec(i)%atom(1:tmp_num(i),1:3)=tmp_bas(i,1:tmp_num(i),1:3)
+       basis%spec(i)%force(:,:)=0
+       basis%spec(i)%force(1:tmp_num(i),1:3)=tmp_force(i,1:tmp_num(i),1:3)
        write(buffer,'(I0,A)') basis%spec(i)%num,trim(basis%spec(i)%name)
        basis%sysname = basis%sysname//trim(buffer)
        if(i.lt.basis%nspec) basis%sysname = basis%sysname//"_"
@@ -1071,6 +1078,7 @@ contains
     if(allocated(outbas%spec))then
        do i=1,outbas%nspec
           if(allocated(outbas%spec(i)%atom)) deallocate(outbas%spec(i)%atom)
+          if(allocated(outbas%spec(i)%force)) deallocate(outbas%spec(i)%force)
        end do
        deallocate(outbas%spec)
     end if
@@ -1083,6 +1091,8 @@ contains
     do i=1,inbas%nspec
        allocate(outbas%spec(i)%atom(&
             inbas%spec(i)%num,outdim))
+       allocate(outbas%spec(i)%force(&
+            inbas%spec(i)%num,3))
        if(indim.eq.outdim)then
           outbas%spec(i)%atom(:,:indim) = inbas%spec(i)%atom(:,:indim)
        elseif(outdim.gt.indim)then
@@ -1091,6 +1101,7 @@ contains
        else
           outbas%spec(i)%atom(:,:outdim) = inbas%spec(i)%atom(:,:outdim)
        end if
+       outbas%spec(i)%force(:,:) = inbas%spec(i)%force(:,:)
        outbas%spec(i)%mass = inbas%spec(i)%mass
        outbas%spec(i)%num = inbas%spec(i)%num
        outbas%spec(i)%name = inbas%spec(i)%name
