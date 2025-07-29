@@ -10,7 +10,7 @@ program msgpass_chemical_example
 
   implicit none
 
-  integer :: seed = 1
+  integer :: seed = 42
   type(network_type) :: network
   class(base_layer_type), allocatable :: layer
   type(metric_dict_type), dimension(2) :: metric_dict
