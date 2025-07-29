@@ -228,6 +228,46 @@ contains
     attributes(2)%type = "ints"
 
   end function get_attributes_pool
+!-------------------------------------------------------------------------------
+  module function get_attributes_batch(this) result(attributes)
+    !! Get the attributes of a batch normalisation layer (for ONNX export)
+    implicit none
+
+    ! Arguments
+    class(batch_layer_type), intent(in) :: this
+    !! Instance of the layer
+    type(attributes_type), allocatable, dimension(:) :: attributes
+    !! Attributes of the layer
+
+    ! Local variables
+    character(256) :: buffer, fmt
+    !! Buffer for formatting
+
+    ! Allocate attributes array
+    allocate(attributes(4))
+    attributes(1)%name = "epsilon"
+    write(buffer,'("(",F0.6,")")') this%epsilon
+    attributes(1)%value = trim(adjustl(buffer))
+    attributes(1)%type = "float"
+
+    attributes(2)%name = "momentum"
+    write(buffer,'("(",F0.6,")")') this%momentum
+    attributes(2)%value = trim(adjustl(buffer))
+    attributes(2)%type = "float"
+
+    attributes(3)%name = "scale"
+    write(fmt,'("(",I0,"(1X,I0))")') this%num_channels
+    write(buffer,fmt) this%params(1:this%num_channels)
+    attributes(3)%value = trim(adjustl(buffer))
+    attributes(3)%type = "float"
+
+    attributes(4)%name = "B"
+    write(fmt,'("(",I0,"(1X,I0))")') this%num_channels
+    write(buffer,fmt) this%params(this%num_channels+1:2*this%num_channels)
+    attributes(4)%value = trim(adjustl(buffer))
+    attributes(4)%type = "float"
+
+  end function get_attributes_batch
 !###############################################################################
 
 
