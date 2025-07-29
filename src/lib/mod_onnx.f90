@@ -127,6 +127,11 @@ contains
        end if
        select type(layer => network%model(idx)%layer)
        class is(learnable_layer_type)
+          if(layer%transfer%name.ne."none")then
+             suffix = '_pre_function'
+          else
+             suffix = ''
+          end if
           do j = 1, size(layer%weight_shape, dim=2)
              write(unit, '(4X,"input: ""node_",I0,"_weight",I0,"""")') &
                   network%model(idx)%layer%id, j
@@ -135,17 +140,19 @@ contains
                      network%model(idx)%layer%id, j
              end if
           end do
+       class default
+          suffix = ''
        end select
 
        ! Write output
        if(network%model(idx)%layer%use_graph_output) then
-          write(unit, '(4X,"output: ""node_",I0,"_vertex_output""")') &
-               network%model(idx)%layer%id
-          write(unit, '(4X,"output: ""node_",I0,"_edge_output""")') &
-               network%model(idx)%layer%id
+          write(unit, '(4X,"output: ""node_",I0,"_vertex_output",A,"""")') &
+               network%model(idx)%layer%id, trim(adjustl(suffix))
+          write(unit, '(4X,"output: ""node_",I0,"_edge_output",A,"""")') &
+               network%model(idx)%layer%id, trim(adjustl(suffix))
        else
-          write(unit, '(4X,"output: ""node_",I0,"_output""")') &
-               network%model(idx)%layer%id
+          write(unit, '(4X,"output: ""node_",I0,"_output",A,"""")') &
+               network%model(idx)%layer%id, trim(adjustl(suffix))
        end if
 
        call write_onnx_attributes(unit, network%model(idx)%layer)
@@ -156,6 +163,25 @@ contains
        select type(layer => network%model(idx)%layer)
        class is(learnable_layer_type)
           call write_onnx_initializers(unit, layer, prefix = trim(node_name) )
+          if(layer%transfer%name.ne."none")then
+             if(layer%use_graph_output)then
+                call write_onnx_function( &
+                     unit, layer%transfer%name, &
+                     prefix = trim(node_name)//'_vertex' &
+                )
+                if(network%model(idx)%layer%input_shape(2) .gt. 0)then
+                   call write_onnx_function( &
+                        unit, layer%transfer%name, &
+                        prefix = trim(node_name)//'_edge' &
+                   )
+                end if
+             else
+                call write_onnx_function( &
+                     unit, layer%transfer%name, &
+                     prefix = trim(node_name) &
+                )
+             end if
+          end if
        end select
     end do
 
@@ -389,6 +415,46 @@ contains
     end if
 
   end subroutine write_onnx_initializers
+!###############################################################################
+
+
+!###############################################################################
+  subroutine write_onnx_function(unit, function_name, prefix)
+    !! Write ONNX function definition
+    implicit none
+
+    ! Arguments
+    integer, intent(in) :: unit
+    !! File unit
+    character(*), intent(in) :: function_name
+    !! Name of the function
+    character(*), intent(in) :: prefix
+    !! Optional prefix for the function name
+
+    ! Local variables
+    character(256) :: full_name
+    !! Full name of the function
+    character(:), allocatable :: function_name_camel_case
+    !! Camel case version of the function name
+
+    function_name_camel_case = &
+         to_camel_case(trim(adjustl(function_name)), capitalise_first_letter = .true.)
+    if(prefix .eq. "")then
+       full_name = trim(adjustl(function_name))
+    else
+       full_name = trim(prefix) // "_" // trim(adjustl(function_name))
+    end if
+
+
+    write(unit, '(A)') '  node {'
+    write(unit, '(A,A,A)') '    name: "', trim(full_name), '"'
+    write(unit, '(A,A,A)') '    op_type: "', trim(function_name_camel_case), '"'
+    write(unit, '(A,A,A)') '    input: "', trim(prefix), '_output_pre_function"'
+    write(unit, '(A,A,A)') '    output: "', trim(prefix), '_output"'
+    write(unit, '(A)') '  }'
+    write(unit, '(A)') ''
+
+  end subroutine write_onnx_function
 !###############################################################################
 
 
