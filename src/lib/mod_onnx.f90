@@ -32,8 +32,10 @@ contains
     !! Unit number and loop indices
     character(256) :: layer_name
     !! Layer name for ONNX
-    character(20) :: node_name
+    character(20) :: node_name, input_name, tmp_input_name
     !! Node name
+    character(:), allocatable :: suffix
+    !!! Suffix for input names
 
     open(newunit=unit, file=file, status='replace')
 
@@ -82,6 +84,8 @@ contains
           layer_name = 'BatchNormalization'
        case('drop')
           layer_name = 'Dropout'
+       case('msgp')
+          layer_name = 'GNNLayer'
        case default
           layer_name = 'Unknown'
        end select
@@ -92,16 +96,32 @@ contains
 
        ! Write input connections
        if(all(network%auto_graph%adjacency(:,network%vertex_order(i)).eq.0)) then
-          write(unit, '(A,I0,A)') '    input: "input',network%model(idx)%layer%id,'"'
+          cycle
+          ! write(unit, '(A,I0,A)') '    input: "input_',network%model(idx)%layer%id,'"'
        else
           do j = 1, network%auto_graph%num_vertices
              if(network%auto_graph%adjacency(j,network%vertex_order(i)).eq.0) cycle
              if(all(network%auto_graph%adjacency(:,j).eq.0))then
-                write(unit, '(4X,"input: ""input_",I0,"""")') &
+                write(input_name,'("input_",I0)') &
                      network%model(network%auto_graph%vertex(j)%id)%layer%id
+                suffix = ''
              else
-                write(unit, '(4X,"input: ""node_",I0,"_output""")') &
+                write(input_name,'("node_",I0)') &
                      network%model(network%auto_graph%vertex(j)%id)%layer%id
+                suffix = '_output'
+             end if
+             if(network%model(idx)%layer%use_graph_input)then
+                write(tmp_input_name,'(A,A,A)') &
+                     trim(adjustl(input_name)), '_vertex', suffix
+                write(unit,'(4X,"input: """,A,"""")') trim(adjustl(tmp_input_name))
+                if(network%model(idx)%layer%input_shape(2) .gt. 0)then
+                   write(tmp_input_name,'(A,A,A)') &
+                        trim(adjustl(input_name)), '_edge', suffix
+                   write(unit,'(4X,"input: """,A,"""")') trim(adjustl(tmp_input_name))
+                end if
+             else
+                write(unit,'(4X,"input: """,A,A,"""")') &
+                     trim(adjustl(input_name)), suffix
              end if
           end do
        end if
@@ -118,7 +138,15 @@ contains
        end select
 
        ! Write output
-       write(unit, '(4X,"output: ""node_",I0,"_output""")') network%model(idx)%layer%id
+       if(network%model(idx)%layer%use_graph_output) then
+          write(unit, '(4X,"output: ""node_",I0,"_vertex_output""")') &
+               network%model(idx)%layer%id
+          write(unit, '(4X,"output: ""node_",I0,"_edge_output""")') &
+               network%model(idx)%layer%id
+       else
+          write(unit, '(4X,"output: ""node_",I0,"_output""")') &
+               network%model(idx)%layer%id
+       end if
 
        call write_onnx_attributes(unit, network%model(idx)%layer)
 
@@ -135,78 +163,106 @@ contains
     ! write all layer output shapes
     do i = 1, network%auto_graph%num_vertices
        idx = network%auto_graph%vertex(network%vertex_order(i))%id
-       write(unit, '(A)') '  value_info {'
-       write(unit, '(A,I0,A)') '    name: "node_',network%model(idx)%layer%id,'_output"'
-       write(unit, '(A)') '    type {'
-       write(unit, '(A)') '      tensor_type {'
-       write(unit, '(A)') '        elem_type: 1'
-       write(unit, '(A)') '        shape {'
-       if (allocated(network%model(idx)%layer%output_shape)) then
-          write(unit, '(A,I0)') '          dim { dim_value: ', &
-               max(1,network%batch_size)
-          write(unit, '(A)') '          }'
-          do j = size(network%model(idx)%layer%output_shape), 1, -1
-             write(unit, '(A,I0)') '          dim { dim_value: ', &
-                  network%model(idx)%layer%output_shape(j)
-             write(unit, '(A)') '          }'
-          end do
+       if(.not.allocated(network%model(idx)%layer%output_shape)) cycle
+       if(network%model(idx)%layer%use_graph_output) then
+          write(node_name, '("node_",I0,"_vertex_output")') network%model(idx)%layer%id
+          call write_onnx_tensor( &
+               unit, &
+               "value_info", &
+               trim(adjustl(node_name)), &
+               [ network%model(idx)%layer%output_shape(1) ], &
+               network%batch_size &
+          )
+          if(network%model(idx)%layer%output_shape(2) .gt. 0)then
+             write(node_name, '("node_",I0,"_edge_output")') network%model(idx)%layer%id
+             call write_onnx_tensor( &
+                  unit, &
+                  "value_info", &
+                  trim(adjustl(node_name)), &
+                  [ network%model(idx)%layer%output_shape(2) ], &
+                  network%batch_size &
+             )
+          end if
+       else
+          write(node_name, '("node_",I0,"_output")') network%model(idx)%layer%id
+          call write_onnx_tensor( &
+               unit, &
+               "value_info", &
+               trim(adjustl(node_name)), &
+               network%model(idx)%layer%output_shape, &
+               network%batch_size &
+          )
        end if
-       write(unit, '(A)') '        }'
-       write(unit, '(A)') '      }'
-       write(unit, '(A)') '    }'
-       write(unit, '(A)') '  }'
     end do
 
     ! Write inputs
+    write(unit, '(A)') '  # Inputs'
     do i = 1, size(network%root_vertices, dim=1)
        idx = network%root_vertices(i)
-       write(unit, '(A)') '  # Inputs'
-       write(unit, '(A)') '  input {'
-       write(unit, '(A,I0,A)') '    name: "input_',network%model(idx)%layer%id,'"'
-       write(unit, '(A)') '    type {'
-       write(unit, '(A)') '      tensor_type {'
-       write(unit, '(A)') '        elem_type: 1'  ! FLOAT
-       write(unit, '(A)') '        shape {'
-       if (allocated(network%model(idx)%layer%input_shape)) then
-          write(unit, '(A,I0)') '          dim { dim_value: ', &
-               max(1,network%batch_size)
-          write(unit, '(A)') '          }'
-          do j = size(network%model(idx)%layer%input_shape), 1, -1
-             write(unit, '(A,I0)') '          dim { dim_value: ', &
-                  network%model(idx)%layer%input_shape(j)
-             write(unit, '(A)') '          }'
-          end do
+       if(network%model(idx)%layer%use_graph_output) then
+          write(node_name, '("input_",I0,"_vertex")') network%model(idx)%layer%id
+          call write_onnx_tensor( &
+               unit, &
+               "input", &
+               trim(adjustl(node_name)), &
+               [ network%model(idx)%layer%input_shape(1) ], &
+               network%batch_size &
+          )
+          if(network%model(idx)%layer%input_shape(2) .gt. 0)then
+             write(node_name, '("input_",I0,"_edge")') network%model(idx)%layer%id
+             call write_onnx_tensor( &
+                  unit, &
+                  "input", &
+                  trim(adjustl(node_name)), &
+                  [ network%model(idx)%layer%input_shape(2) ], &
+                  network%batch_size &
+             )
+          end if
+       else
+          write(node_name, '("input_",I0)') network%model(idx)%layer%id
+          call write_onnx_tensor( &
+               unit, &
+               "input", &
+               trim(adjustl(node_name)), &
+               network%model(idx)%layer%input_shape, &
+               network%batch_size &
+          )
        end if
-       write(unit, '(A)') '        }'
-       write(unit, '(A)') '      }'
-       write(unit, '(A)') '    }'
-       write(unit, '(A)') '  }'
     end do
 
     ! Write outputs
+    write(unit, '(A)') '  # Outputs'
     do i = 1, size(network%output_vertices, dim=1)
        idx = network%output_vertices(i)
-       write(unit, '(A)') '  # Outputs'
-       write(unit, '(A)') '  output {'
-       write(unit, '(4X,"name: ""node_",I0,"_output""")') network%model(idx)%layer%id
-       write(unit, '(A)') '    type {'
-       write(unit, '(A)') '      tensor_type {'
-       write(unit, '(A)') '        elem_type: 1'  ! FLOAT
-       write(unit, '(A)') '        shape {'
-       if (allocated(network%model(idx)%layer%output_shape)) then
-          write(unit, '(A,I0)') '          dim { dim_value: ', &
-               max(1,network%batch_size)
-          write(unit, '(A)') '          }'
-          do j = size(network%model(idx)%layer%output_shape), 1, -1
-             write(unit, '(A,I0)') '          dim { dim_value: ', &
-                  network%model(idx)%layer%output_shape(j)
-             write(unit, '(A)') '          }'
-          end do
+       if(network%model(idx)%layer%use_graph_output) then
+          write(node_name, '("node_",I0,"_vertex_output")') network%model(idx)%layer%id
+          call write_onnx_tensor( &
+               unit, &
+               "output", &
+               trim(adjustl(node_name)), &
+               [ network%model(idx)%layer%output_shape(1) ], &
+               network%batch_size &
+          )
+          if(network%model(idx)%layer%output_shape(2) .gt. 0)then
+             write(node_name, '("node_",I0,"_edge_output")') network%model(idx)%layer%id
+             call write_onnx_tensor( &
+                  unit, &
+                  "output", &
+                  trim(adjustl(node_name)), &
+                  [ network%model(idx)%layer%output_shape(2) ], &
+                  network%batch_size &
+             )
+          end if
+       else
+          write(node_name, '("node_",I0,"_output")') network%model(idx)%layer%id
+          call write_onnx_tensor( &
+               unit, &
+               "output", &
+               trim(adjustl(node_name)), &
+               network%model(idx)%layer%output_shape, &
+               network%batch_size &
+          )
        end if
-       write(unit, '(A)') '        }'
-       write(unit, '(A)') '      }'
-       write(unit, '(A)') '    }'
-       write(unit, '(A)') '  }'
     end do
 
     write(unit, '(A)') '}'
@@ -220,6 +276,49 @@ contains
     close(unit)
 
   end subroutine write_onnx
+!###############################################################################
+
+
+!###############################################################################
+  module subroutine write_onnx_tensor(unit, tensor_type, name, output_shape, batch_size)
+    !! Write ONNX value info for a layer
+    implicit none
+
+    ! Arguments
+    integer, intent(in) :: unit
+    !! File unit
+    character(*), intent(in) :: tensor_type
+    !! Type of the tensor
+    character(*), intent(in) :: name
+    !! Name of the layer
+    integer, intent(in), dimension(:) :: output_shape
+    !! Shape of the layer output
+    integer, intent(in) :: batch_size
+    !! Batch size for the output
+
+    ! Local variables
+    integer :: i
+    !! Loop index
+
+
+    write(unit, '(A,A,A)') '  ',tensor_type,' {'
+    write(unit, '(A,A,A)') '    name: "',name,'"'
+    write(unit, '(A)') '    type {'
+    write(unit, '(A)') '      tensor_type {'
+    write(unit, '(A)') '        elem_type: 1'
+    write(unit, '(A)') '        shape {'
+    write(unit, '(A,I0)') '          dim { dim_value: ', max(1,batch_size)
+    write(unit, '(A)') '          }'
+    do i = size(output_shape), 1, -1
+       write(unit, '(A,I0)') '          dim { dim_value: ', output_shape(i)
+       write(unit, '(A)') '          }'
+    end do
+    write(unit, '(A)') '        }'
+    write(unit, '(A)') '      }'
+    write(unit, '(A)') '    }'
+    write(unit, '(A)') '  }'
+
+  end subroutine write_onnx_tensor
 !###############################################################################
 
 
