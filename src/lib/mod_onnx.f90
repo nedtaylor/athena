@@ -162,7 +162,7 @@ contains
        idx = network%root_vertices(i)
        write(unit, '(A)') '  # Inputs'
        write(unit, '(A)') '  input {'
-       write(unit, '(A,I0,A)') '    name: "input_',i,'"'
+       write(unit, '(A,I0,A)') '    name: "input_',network%model(idx)%layer%id,'"'
        write(unit, '(A)') '    type {'
        write(unit, '(A)') '      tensor_type {'
        write(unit, '(A)') '        elem_type: 1'  ! FLOAT
@@ -258,7 +258,7 @@ contains
           write(unit, '(4X,"float_data: [ ",F0.6)', advance='no') &
                layer%params(num_params_old + 1)
           do j = 2, num_params, 1
-            !  k = get_transposed_index(layer%weight_shape(:, i), j)
+             ! k = get_transposed_index(layer%weight_shape(:, i), j)
              write(unit, '(", ",F0.6)', advance='no') layer%params(num_params_old + j)
           end do
           write(unit, '(A)') ' ]'
