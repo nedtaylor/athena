@@ -22,6 +22,9 @@ module athena__misc_types
   public :: array1d_type, array2d_type, array3d_type, array4d_type, array5d_type
   public :: facets_type
 
+  public :: operator(+), operator(-), operator(*), operator(/), operator(**)
+  public :: sin, cos, tan, exp, log, sqrt, tanh, sigmoid
+
 
 !-------------------------------------------------------------------------------
 ! Activation (transfer) function base type
@@ -200,7 +203,7 @@ module athena__misc_types
 !-------------------------------------------------------------------------------
 ! Base and extended array types
 !-------------------------------------------------------------------------------
-  type, abstract :: array_type
+  type :: array_type
      !! Abstract type for array operations
      integer :: rank
      !! Rank of the array
@@ -212,12 +215,23 @@ module athena__misc_types
      !! Logical flag for array allocation
      real(real32), dimension(:,:), allocatable :: val
      !! Array values in rank 2 (sample, batch)
+     logical :: requires_grad = .false.
+     !! Flag indicating if gradients should be computed
+     logical :: is_leaf = .true.
+     !! Flag indicating if this is a leaf node (parameter)
+     class(array_type), pointer :: grad => null()
+     !! Gradient array (same type as value)
+     class(array_type), pointer :: left_operand => null()
+     !! Left operand for backward pass
+     class(array_type), pointer :: right_operand => null()
+     !! Right operand for backward pass
+     character(len=32) :: operation = 'none'
    contains
-     procedure(allocate_array), deferred, pass(this) :: allocate
+     procedure, pass(this) :: allocate => allocate_array
      !! Abstract procedure for allocating array
-     procedure(deallocate_array), deferred, pass(this) :: deallocate
+     procedure, pass(this) :: deallocate => deallocate_array
      !! Abstract procedure for deallocating array
-     procedure (set_ptr_array), deferred, pass(this) :: set_ptr
+     procedure, pass(this) :: set_ptr => set_ptr_array
      !! Abstract procedure for setting pointers
      procedure, pass(this) :: flatten => flatten_array
      !! Procedure for flattening array
@@ -229,12 +243,25 @@ module athena__misc_types
      !! Procedure for adding arrays
      procedure :: multiply => multiply_array
      !! Procedure for multiplying arrays
-     generic, public :: operator(+) => add
-     !! Generic for adding arrays
-     generic, public :: operator(*) => multiply
-     !! Generic for multiplying arrays
+     !  generic, public :: operator(+) => add
+     !  !! Generic for adding arrays
+     !  generic, public :: operator(*) => multiply
+     !  !! Generic for multiplying arrays
      !  procedure :: assign => assign_array
      !  generic, public :: assignment(=) => assign
+
+     procedure :: backward => backward_autodiff
+     !! Backward pass for gradient computation
+     procedure :: zero_grad => zero_grad_autodiff
+     !! Zero the gradients
+     procedure :: detach => detach_autodiff
+     !! Detach from computation graph
+     procedure :: backward_op => backward_op_array
+     !! Deferred procedure for operation-specific backward pass
+     procedure :: set_requires_grad => set_requires_grad_autodiff
+     !! Set requires_grad flag
+     final :: finalise_array
+     !! Finaliser for array type
   end type array_type
 
   ! Interface for allocate, deallocate, and flattening array
@@ -254,6 +281,37 @@ module athena__misc_types
      module subroutine set_ptr_array(this)
        class(array_type), intent(inout), target :: this
      end subroutine set_ptr_array
+
+     module subroutine finalise_array(this)
+       type(array_type), intent(inout) :: this
+     end subroutine finalise_array
+
+
+
+     module subroutine backward_op_array(this, upstream_grad)
+       class(array_type), intent(inout) :: this
+       class(array_type), intent(in) :: upstream_grad
+     end subroutine backward_op_array
+
+     module subroutine set_requires_grad_autodiff(this, requires_grad)
+       class(array_type), intent(inout) :: this
+       logical, intent(in) :: requires_grad
+     end subroutine set_requires_grad_autodiff
+
+     module subroutine backward_autodiff(this)
+       !! Perform backward pass starting from this array
+       class(array_type), intent(inout) :: this
+     end subroutine backward_autodiff
+
+     module subroutine zero_grad_autodiff(this)
+       !! Zero the gradients of this array
+       class(array_type), intent(inout) :: this
+     end subroutine zero_grad_autodiff
+
+     module subroutine detach_autodiff(this)
+       !! Detach this array from the computation graph
+       class(array_type), intent(inout) :: this
+     end subroutine detach_autodiff
   end interface
 
   interface
@@ -272,21 +330,86 @@ module athena__misc_types
        real(real32), dimension(..), intent(in) :: input
      end subroutine set_array
 
-     pure module function add_array(a, b) result(output)
+     module function add_array(a, b) result(output)
        class(array_type), intent(in) :: a, b
-       class(array_type), allocatable :: output
+       type(array_type) :: output
      end function add_array
 
-     pure module function multiply_array(a, b) result(output)
+     module function multiply_array(a, b) result(output)
        class(array_type), intent(in) :: a, b
-       class(array_type), allocatable :: output
+       type(array_type) :: output
      end function multiply_array
 
      module subroutine assign_array(this, input)
        class(array_type), intent(out), target :: this
-       class(array_type), intent(in) :: input
+       type(array_type), intent(in) :: input
      end subroutine assign_array
   end interface
+
+  !-----------------------------------------------------------------------------
+  ! Operator interfaces
+  !-----------------------------------------------------------------------------
+  interface operator(+)
+     module procedure add_arrays
+  end interface
+
+  interface operator(-)
+     module procedure subtract_arrays
+     module procedure negate_array
+  end interface
+
+  interface operator(*)
+     module procedure multiply_arrays
+     module procedure multiply_scalar
+     module procedure scalar_multiply_autodiff
+  end interface
+
+  interface operator(/)
+     module procedure divide_arrays
+     module procedure divide_scalar
+  end interface
+
+  interface operator(**)
+     module procedure power_arrays
+     module procedure power_scalar
+  end interface
+
+  !-----------------------------------------------------------------------------
+  ! Mathematical function interfaces
+  !-----------------------------------------------------------------------------
+  interface sin
+     module procedure sin_array
+  end interface
+
+  interface cos
+     module procedure cos_array
+  end interface
+
+  interface tan
+     module procedure tan_array
+  end interface
+
+  interface exp
+     module procedure exp_array
+  end interface
+
+  interface log
+     module procedure log_array
+  end interface
+
+  interface sqrt
+     module procedure sqrt_array
+  end interface
+
+  interface tanh
+     module procedure tanh_array
+  end interface
+
+  interface sigmoid
+     module procedure sigmoid_array
+  end interface
+
+
 
   ! Extend the array type to 1d, 2d, 3d, 4d, and 5d arrays
   !-----------------------------------------------------------------------------
@@ -549,6 +672,7 @@ module athena__misc_types
 
 
   interface assignment (=)
+     module procedure assign_array
      module procedure assign_array1d
      module procedure assign_array2d
      module procedure assign_array3d
@@ -600,6 +724,303 @@ module athena__misc_types
      end subroutine setup_bounds
   end interface
 !-------------------------------------------------------------------------------
+
+
+contains
+
+
+
+  !-----------------------------------------------------------------------------
+  ! Addition operation
+  !-----------------------------------------------------------------------------
+  function add_arrays(a, b) result(c)
+    !! Add two autodiff arrays
+    class(array_type), intent(in), target :: a, b
+    type(array_type) :: c
+
+    ! Perform forward pass
+    c%val = a%val + b%val
+
+    ! Set up computation graph
+    if(a%requires_grad .or. b%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'add'
+       c%left_operand => a
+       c%right_operand => b
+    end if
+  end function add_arrays
+
+  !-----------------------------------------------------------------------------
+  ! Subtraction operation
+  !-----------------------------------------------------------------------------
+  function subtract_arrays(a, b) result(c)
+    !! Subtract two autodiff arrays
+    class(array_type), intent(in), target :: a, b
+    type(array_type) :: c
+
+    c%val = a%val - b%val
+
+    if(a%requires_grad .or. b%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'subtract'
+       c%left_operand => a
+       c%right_operand => b
+    end if
+  end function subtract_arrays
+
+  function negate_array(a) result(c)
+    !! Negate an autodiff array
+    class(array_type), intent(in), target :: a
+    type(array_type) :: c
+
+    c%val = -a%val
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'negate'
+       c%left_operand => a
+    end if
+  end function negate_array
+
+  !-----------------------------------------------------------------------------
+  ! Multiplication operations
+  !-----------------------------------------------------------------------------
+  function multiply_arrays(a, b) result(c)
+    !! Multiply two autodiff arrays (element-wise)
+    class(array_type), intent(in), target :: a, b
+    type(array_type) :: c
+
+    c%val = a%val * b%val
+
+    if(a%requires_grad .or. b%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'multiply'
+       c%left_operand => a
+       c%right_operand => b
+    end if
+  end function multiply_arrays
+
+  function multiply_scalar(a, scalar) result(c)
+    !! Multiply autodiff array by scalar
+    class(array_type), intent(in), target :: a
+    real(real32), intent(in) :: scalar
+    type(array_type) :: c
+
+    c%val = a%val * scalar
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'multiply_scalar'
+       c%left_operand => a
+    end if
+  end function multiply_scalar
+
+  function scalar_multiply_autodiff(scalar, a) result(c)
+    !! Multiply scalar by autodiff array
+    real(real32), intent(in) :: scalar
+    class(array_type), intent(in), target :: a
+    type(array_type) :: c
+
+    c = multiply_scalar(a, scalar)
+  end function scalar_multiply_autodiff
+
+  !-----------------------------------------------------------------------------
+  ! Division operations
+  !-----------------------------------------------------------------------------
+  function divide_arrays(a, b) result(c)
+    !! Divide two autodiff arrays (element-wise)
+    class(array_type), intent(in), target :: a, b
+    type(array_type) :: c
+
+    c%val = a%val / b%val
+
+    if(a%requires_grad .or. b%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'divide'
+       c%left_operand => a
+       c%right_operand => b
+    end if
+  end function divide_arrays
+
+  function divide_scalar(a, scalar) result(c)
+    !! Divide autodiff array by scalar
+    class(array_type), intent(in), target :: a
+    real(real32), intent(in) :: scalar
+    type(array_type) :: c
+
+    c%val = a%val / scalar
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'divide_scalar'
+       c%left_operand => a
+    end if
+  end function divide_scalar
+
+  !-----------------------------------------------------------------------------
+  ! Power operations
+  !-----------------------------------------------------------------------------
+  function power_arrays(a, b) result(c)
+    !! Raise autodiff array to power of another array
+    class(array_type), intent(in), target :: a, b
+    type(array_type) :: c
+
+    c%val = a%val ** b%val
+
+    if(a%requires_grad .or. b%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'power'
+       c%left_operand => a
+       c%right_operand => b
+    end if
+  end function power_arrays
+
+  function power_scalar(a, scalar) result(c)
+    !! Raise autodiff array to scalar power
+    class(array_type), intent(in), target :: a
+    real(real32), intent(in) :: scalar
+    type(array_type) :: c
+
+    c%val = a%val ** scalar
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'power_scalar'
+       c%left_operand => a
+    end if
+  end function power_scalar
+
+  !-----------------------------------------------------------------------------
+  ! Mathematical functions
+  !-----------------------------------------------------------------------------
+  function sin_array(a) result(c)
+    !! Sine function for autodiff arrays
+    class(array_type), intent(in), target :: a
+    type(array_type) :: c
+
+    c%val = sin(a%val)
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'sin'
+       c%left_operand => a
+    end if
+  end function sin_array
+
+  function cos_array(a) result(c)
+    !! Cosine function for autodiff arrays
+    class(array_type), intent(in), target :: a
+    type(array_type) :: c
+
+    c%val = cos(a%val)
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'cos'
+       c%left_operand => a
+    end if
+  end function cos_array
+
+  function tan_array(a) result(c)
+    !! Tangent function for autodiff arrays
+    class(array_type), intent(in), target :: a
+    type(array_type) :: c
+
+    c%val = tan(a%val)
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'tan'
+       c%left_operand => a
+    end if
+  end function tan_array
+
+  function exp_array(a) result(c)
+    !! Exponential function for autodiff arrays
+    class(array_type), intent(in), target :: a
+    type(array_type) :: c
+
+    c%val = exp(a%val)
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'exp'
+       c%left_operand => a
+    end if
+  end function exp_array
+
+  function log_array(a) result(c)
+    !! Natural logarithm function for autodiff arrays
+    class(array_type), intent(in), target :: a
+    type(array_type) :: c
+
+    c%val = log(a%val)
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'log'
+       c%left_operand => a
+    end if
+  end function log_array
+
+  function sqrt_array(a) result(c)
+    !! Square root function for autodiff arrays
+    class(array_type), intent(in), target :: a
+    type(array_type) :: c
+
+    c%val = sqrt(a%val)
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'sqrt'
+       c%left_operand => a
+    end if
+  end function sqrt_array
+
+  function tanh_array(a) result(c)
+    !! Hyperbolic tangent function for autodiff arrays
+    class(array_type), intent(in), target :: a
+    type(array_type) :: c
+
+    c%val = tanh(a%val)
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'tanh'
+       c%left_operand => a
+    end if
+  end function tanh_array
+
+  function sigmoid_array(a) result(c)
+    !! Sigmoid function for autodiff arrays
+    class(array_type), intent(in), target :: a
+    type(array_type) :: c
+
+    c%val = 1.0_real32 / (1.0_real32 + exp(-a%val))
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'sigmoid'
+       c%left_operand => a
+    end if
+  end function sigmoid_array
 
 
 end module athena__misc_types

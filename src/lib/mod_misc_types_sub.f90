@@ -202,14 +202,145 @@ contains
 
 
 !###############################################################################
-  pure module function add_array(a, b) result(output)
+  pure module subroutine deallocate_array(this, keep_shape)
+    !! Deallocate array
+    implicit none
+
+    ! Arguments
+    class(array_type), intent(inout) :: this
+    !! Instance of the array type
+    logical, intent(in), optional :: keep_shape
+    !! Boolean whether to keep shape
+
+    ! Local variables
+    logical :: keep_shape_
+    !! Boolean whether to keep shape
+
+    keep_shape_ = .false.
+    if(present(keep_shape)) keep_shape_ = keep_shape
+    if(.not.keep_shape_) this%shape = 0
+    if(allocated(this%val)) deallocate(this%val)
+    this%allocated = .false.
+    this%size = 0
+
+  end subroutine deallocate_array
+!###############################################################################
+
+
+!###############################################################################
+  module subroutine set_ptr_array(this)
+    !! Set pointer for array
+    implicit none
+
+    ! Arguments
+    class(array_type), intent(inout), target :: this
+    !! Instance of the array type
+
+    if(.not. this%allocated)then
+       call stop_program('Array not allocated')
+       return
+    end if
+  end subroutine set_ptr_array
+!###############################################################################
+
+
+!###############################################################################
+  module subroutine allocate_array(this, array_shape, source)
+    !! Allocate array
+    implicit none
+
+    ! Arguments
+    class(array_type), intent(inout), target :: this
+    !! Instance of the array type
+    integer, dimension(:), intent(in), optional :: array_shape
+    !! Shape of the array
+    class(*), dimension(..), intent(in), optional :: source
+    !! Source array
+
+    if(allocated(this%val).or.this%allocated)then
+       call stop_program("Trying to allocate already allocated array values")
+       return
+    end if
+    if(present(array_shape))then
+       if(size(array_shape) .ne. 2) then
+          call stop_program('Array shape must be of size 2 for 2D array')
+          return
+       end if
+       allocate(this%val(array_shape(1), array_shape(2)))
+    end if
+    if(present(source))then
+       select rank(source)
+       rank(0)
+          select type(source)
+          type is (real(real32))
+             if(.not.present(array_shape))then
+                call stop_program('Source shape not provided')
+                return
+             end if
+             this%val(:,:) = source
+          type is (array_type)
+             if(present(array_shape))then
+                if(any(array_shape.ne.shape(source%val)))then
+                   call stop_program('Source shape does not match array shape')
+                   return
+                end if
+             end if
+             this = source
+             !  this%val_ptr( &
+             !       1:source%shape(1), &
+             !       1:size(source%val, dim=2) &
+             !  ) => this%val
+          class default
+             call stop_program('Incompatible source type for rank 0')
+             return
+          end select
+       rank(2)
+          select type(source)
+          type is (real(real32))
+             if(present(array_shape))then
+                if(any(array_shape.ne.shape(source)))then
+                   call stop_program('Source shape does not match array shape')
+                   return
+                end if
+             end if
+             this%val = source
+             !  this%val_ptr( &
+             !       1:size(source, dim=1), &
+             !       1:size(source, dim=2) &
+             !  ) => this%val
+          class default
+             call stop_program('Incompatible source type for rank 2')
+             return
+          end select
+       rank default
+          call stop_program('Unrecognised source rank')
+          return
+       end select
+    end if
+    if(.not.present(source).and..not.present(array_shape))then
+       call stop_program('No shape or source provided')
+       return
+    end if
+    this%rank = 1
+    this%allocated = .true.
+    !  this%val_ptr(1:size(this%val, dim=1), 1:size(this%val, dim=2)) => this%val
+    this%shape = [ size(this%val, dim=1) ]
+    this%size = product(this%shape)
+
+
+  end subroutine allocate_array
+!###############################################################################
+
+
+!###############################################################################
+  module function add_array(a, b) result(output)
     !! Add two arrays
     implicit none
 
     ! Arguments
     class(array_type), intent(in) :: a, b
     !! Input arrays
-    class(array_type), allocatable :: output
+    type(array_type) :: output
     !! Output array
 
     output = a
@@ -223,14 +354,14 @@ contains
 
   end function add_array
 !-------------------------------------------------------------------------------
-  pure module function multiply_array(a, b) result(output)
+  module function multiply_array(a, b) result(output)
     !! Multiply two arrays
     implicit none
 
     ! Arguments
     class(array_type), intent(in) :: a, b
     !! Input arrays
-    class(array_type), allocatable :: output
+    type(array_type) :: output
     !! Output array
 
     output = a
@@ -331,7 +462,7 @@ contains
     ! Arguments
     class(array_type), intent(out), target :: this
     !! Instance of the array type
-    class(array_type), intent(in) :: input
+    type(array_type), intent(in) :: input
     !! Input array
 
     this%rank = input%rank
@@ -339,59 +470,233 @@ contains
     this%size = input%size
     this%allocated = input%allocated
     this%val = input%val
-    select type(input)
-    type is(array1d_type)
-       select type(this)
-       type is(array1d_type)
-          this%val_ptr( &
-               1:this%shape(1) &
-          ) => this%val
-       end select
-    type is(array2d_type)
-       select type(this)
-       type is(array2d_type)
-          this%val_ptr( &
-               1:this%shape(1), &
-               1:size(this%val, dim=2) &
-          ) => this%val
-       end select
-    type is(array3d_type)
-       select type(this)
-       type is(array3d_type)
-          this%val_ptr( &
-               1:this%shape(1), &
-               1:this%shape(2),  &
-               1:size(this%val, dim=2) &
-          ) => this%val
-       end select
-    type is(array4d_type)
-       select type(this)
-       type is(array4d_type)
-          this%val_ptr( &
-               1:this%shape(1), &
-               1:this%shape(2), &
-               1:this%shape(3),  &
-               1:size(this%val, dim=2) &
-          ) => this%val
-       end select
-    type is(array5d_type)
-       select type(this)
-       type is(array5d_type)
-          this%val_ptr( &
-               1:this%shape(1), &
-               1:this%shape(2), &
-               1:this%shape(3), &
-               1:this%shape(4),  &
-               1:size(this%val, dim=2) &
-          ) => this%val
-       end select
-    class default
-       call stop_program('Incompatible types')
-       return
-    end select
+    !  select type(input)
+    !  type is(array1d_type)
+    !     select type(this)
+    !     type is(array1d_type)
+    !        this%val_ptr( &
+    !             1:this%shape(1) &
+    !        ) => this%val
+    !     end select
+    !  type is(array2d_type)
+    !     select type(this)
+    !     type is(array2d_type)
+    !        this%val_ptr( &
+    !             1:this%shape(1), &
+    !             1:size(this%val, dim=2) &
+    !        ) => this%val
+    !     end select
+    !  type is(array3d_type)
+    !     select type(this)
+    !     type is(array3d_type)
+    !        this%val_ptr( &
+    !             1:this%shape(1), &
+    !             1:this%shape(2),  &
+    !             1:size(this%val, dim=2) &
+    !        ) => this%val
+    !     end select
+    !  type is(array4d_type)
+    !     select type(this)
+    !     type is(array4d_type)
+    !        this%val_ptr( &
+    !             1:this%shape(1), &
+    !             1:this%shape(2), &
+    !             1:this%shape(3),  &
+    !             1:size(this%val, dim=2) &
+    !        ) => this%val
+    !     end select
+    !  type is(array5d_type)
+    !     select type(this)
+    !     type is(array5d_type)
+    !        this%val_ptr( &
+    !             1:this%shape(1), &
+    !             1:this%shape(2), &
+    !             1:this%shape(3), &
+    !             1:this%shape(4),  &
+    !             1:size(this%val, dim=2) &
+    !        ) => this%val
+    !     end select
+    !  class default
+    !     call stop_program('Incompatible types')
+    !     return
+    !  end select
 
   end subroutine assign_array
 !###############################################################################
+
+
+!###############################################################################
+  module subroutine finalise_array(this)
+    !! Finalise 2D autodiff array
+    type(array_type), intent(inout) :: this
+
+    if(associated(this%grad)) then
+       call this%grad%deallocate()
+       deallocate(this%grad)
+    end if
+  end subroutine finalise_array
+!###############################################################################
+
+  !-----------------------------------------------------------------------------
+  ! Core autodiff procedures
+  !-----------------------------------------------------------------------------
+  subroutine backward_autodiff(this)
+    !! Perform backward pass starting from this array
+    class(array_type), intent(inout) :: this
+
+    ! Initialize gradient if not allocated
+    if(.not. associated(this%grad)) then
+       allocate(this%grad, source=this)
+       call this%grad%zero_grad()
+       ! Set gradient to ones for starting node
+       this%grad%val = 1.0_real32
+    end if
+
+    ! Recursively compute gradients
+    call this%backward_op(this%grad)
+  end subroutine backward_autodiff
+
+  subroutine zero_grad_autodiff(this)
+    !! Zero the gradients of this array
+    class(array_type), intent(inout) :: this
+
+    if(associated(this%grad)) then
+       this%grad%val = 0.0_real32
+    end if
+  end subroutine zero_grad_autodiff
+
+  subroutine detach_autodiff(this)
+    !! Detach this array from the computation graph
+    class(array_type), intent(inout) :: this
+
+    this%requires_grad = .false.
+    this%is_leaf = .true.
+    this%operation = 'none'
+    this%left_operand => null()
+    this%right_operand => null()
+  end subroutine detach_autodiff
+
+  subroutine set_requires_grad_autodiff(this, requires_grad)
+    !! Set the requires_grad flag
+    class(array_type), intent(inout) :: this
+    logical, intent(in) :: requires_grad
+
+    this%requires_grad = requires_grad
+  end subroutine set_requires_grad_autodiff
+
+  module subroutine backward_op_array(this, upstream_grad)
+    !! Backward operation for arrays
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+
+    select case(trim(this%operation))
+    case('add')
+       if(associated(this%left_operand) .and. &
+            this%left_operand%requires_grad) then
+          call accumulate_gradient(this%left_operand, upstream_grad)
+       end if
+       if(associated(this%right_operand) .and. &
+            this%right_operand%requires_grad) then
+          call accumulate_gradient(this%right_operand, upstream_grad)
+       end if
+
+    case('subtract')
+       if(associated(this%left_operand) .and. &
+            this%left_operand%requires_grad) then
+          call accumulate_gradient(this%left_operand, upstream_grad)
+       end if
+       if(associated(this%right_operand) .and. &
+            this%right_operand%requires_grad) then
+          call accumulate_gradient(this%right_operand, -upstream_grad)
+       end if
+
+    case('multiply')
+       if(associated(this%left_operand) .and. &
+            this%left_operand%requires_grad) then
+          call accumulate_gradient(this%left_operand, &
+               upstream_grad * this%right_operand)
+       end if
+       if(associated(this%right_operand) .and. &
+            this%right_operand%requires_grad) then
+          call accumulate_gradient(this%right_operand, &
+               upstream_grad * this%left_operand)
+       end if
+
+    case('divide')
+       if(associated(this%left_operand) .and. &
+            this%left_operand%requires_grad) then
+          call accumulate_gradient(this%left_operand, &
+               upstream_grad / this%right_operand)
+       end if
+       if(associated(this%right_operand) .and. &
+            this%right_operand%requires_grad) then
+          call accumulate_gradient(this%right_operand, &
+               -upstream_grad * this%left_operand / &
+               (this%right_operand * this%right_operand))
+       end if
+
+    case('sin')
+       if(associated(this%left_operand) .and. &
+            this%left_operand%requires_grad) then
+          call accumulate_gradient(this%left_operand, &
+               upstream_grad * cos(this%left_operand))
+       end if
+
+    case('cos')
+       if(associated(this%left_operand) .and. &
+            this%left_operand%requires_grad) then
+          call accumulate_gradient(this%left_operand, &
+               -upstream_grad * sin(this%left_operand))
+       end if
+
+    case('exp')
+       if(associated(this%left_operand) .and. &
+            this%left_operand%requires_grad) then
+          call accumulate_gradient(this%left_operand, &
+               upstream_grad * exp(this%left_operand))
+       end if
+
+       ! case('log')
+       !    if(associated(this%left_operand) .and. &
+       !       this%left_operand%requires_grad) then
+       !       call accumulate_gradient(this%left_operand, &
+       !            upstream_grad / this%left_operand)
+       !    end if
+
+       ! case('tanh')
+       !    if(associated(this%left_operand) .and. &
+       !       this%left_operand%requires_grad) then
+       !       call accumulate_gradient(this%left_operand, &
+       !            upstream_grad * (1.0_real32 - tanh(this%left_operand)**2))
+       !    end if
+
+    case('negate')
+       if(associated(this%left_operand) .and. &
+            this%left_operand%requires_grad) then
+          call accumulate_gradient(this%left_operand, -upstream_grad)
+       end if
+
+    case default
+       ! No gradient computation needed for leaf nodes or unknown operations
+    end select
+  end subroutine backward_op_array
+
+  subroutine accumulate_gradient(array, grad)
+    !! Accumulate gradient for 2D array
+    class(array_type), intent(inout) :: array
+    class(array_type), intent(in) :: grad
+
+    if(.not. associated(array%grad)) then
+       allocate(array%grad, source=array)
+       call array%grad%zero_grad()
+    end if
+
+    array%grad%val = array%grad%val + grad%val
+
+    if(.not. array%is_leaf) then
+       call array%backward_op(grad)
+    end if
+  end subroutine accumulate_gradient
 
 
 !##############################################################################!
@@ -727,13 +1032,14 @@ contains
     logical :: keep_shape_
     !! Boolean whether to keep shape
 
-    keep_shape_ = .false.
-    if(present(keep_shape)) keep_shape_ = keep_shape
-    if(.not.keep_shape_) this%shape = 0
-    if(allocated(this%val)) deallocate(this%val)
     this%val_ptr => null()
-    this%allocated = .false.
-    this%size = 0
+    call this%array_type%deallocate()
+    !  keep_shape_ = .false.
+    !  if(present(keep_shape)) keep_shape_ = keep_shape
+    !  if(.not.keep_shape_) this%shape = 0
+    !  if(allocated(this%val)) deallocate(this%val)
+    !  this%allocated = .false.
+    !  this%size = 0
 
   end subroutine deallocate_array2d
 !###############################################################################
