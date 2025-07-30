@@ -5,7 +5,7 @@ program test_autodiff
        operator(*), sin, cos, exp
   implicit none
 
-  type(array_type) :: x, y, z, result(3)
+  type(array_type) :: x, y, z, result
   logical :: success = .true.
 
   write(*,*) 'Testing autodifferentiation functionality...'
@@ -31,18 +31,14 @@ program test_autodiff
 
   ! Perform some operations: result = sin(x * y) + exp(z)
   write(*,*) "test4"
-  ! result = x * y
-  result(1) = x * y
-  result(2) = exp(result(1))
-  result(3) = result(2) + z
-  ! result = sin( x * y ) + exp(z)
+  result = sin( x * y ) + exp(z)
 
   write(*,*) 'Forward pass completed.'
-  write(*,*) 'Result values:', result(3)%val(:,1)
+  write(*,*) 'Result values:', result%val(:,1)
 
   ! Perform backward pass
   write(*,*) "test5"
-  call result(3)%backward()
+  call result%backward()
 
   write(*,*) 'Backward pass completed.'
 

@@ -736,9 +736,10 @@ contains
   function add_arrays(a, b) result(c)
     !! Add two autodiff arrays
     class(array_type), intent(in), target :: a, b
-    type(array_type) :: c
+    type(array_type), pointer :: c
 
     ! Perform forward pass
+    allocate(c)
     c%val = a%val + b%val
 
     ! Set up computation graph
@@ -757,8 +758,9 @@ contains
   function subtract_arrays(a, b) result(c)
     !! Subtract two autodiff arrays
     class(array_type), intent(in), target :: a, b
-    type(array_type) :: c
+    type(array_type), pointer :: c
 
+    allocate(c)
     c%val = a%val - b%val
 
     if(a%requires_grad .or. b%requires_grad) then
@@ -773,8 +775,9 @@ contains
   function negate_array(a) result(c)
     !! Negate an autodiff array
     class(array_type), intent(in), target :: a
-    type(array_type) :: c
+    type(array_type), pointer :: c
 
+    allocate(c)
     c%val = -a%val
 
     if(a%requires_grad) then
@@ -791,8 +794,9 @@ contains
   function multiply_arrays(a, b) result(c)
     !! Multiply two autodiff arrays (element-wise)
     class(array_type), intent(in), target :: a, b
-    type(array_type) :: c
+    type(array_type), pointer :: c
 
+    allocate(c)
     c%val = a%val * b%val
 
     if(a%requires_grad .or. b%requires_grad) then
@@ -808,8 +812,9 @@ contains
     !! Multiply autodiff array by scalar
     class(array_type), intent(in), target :: a
     real(real32), intent(in) :: scalar
-    type(array_type) :: c
+    type(array_type), pointer :: c
 
+    allocate(c)
     c%val = a%val * scalar
 
     if(a%requires_grad) then
@@ -824,7 +829,7 @@ contains
     !! Multiply scalar by autodiff array
     real(real32), intent(in) :: scalar
     class(array_type), intent(in), target :: a
-    type(array_type) :: c
+    type(array_type), pointer :: c
 
     c = multiply_scalar(a, scalar)
   end function scalar_multiply_autodiff
@@ -835,8 +840,9 @@ contains
   function divide_arrays(a, b) result(c)
     !! Divide two autodiff arrays (element-wise)
     class(array_type), intent(in), target :: a, b
-    type(array_type) :: c
+    type(array_type), pointer :: c
 
+    allocate(c)
     c%val = a%val / b%val
 
     if(a%requires_grad .or. b%requires_grad) then
@@ -852,8 +858,9 @@ contains
     !! Divide autodiff array by scalar
     class(array_type), intent(in), target :: a
     real(real32), intent(in) :: scalar
-    type(array_type) :: c
+    type(array_type), pointer :: c
 
+    allocate(c)
     c%val = a%val / scalar
 
     if(a%requires_grad) then
@@ -870,8 +877,9 @@ contains
   function power_arrays(a, b) result(c)
     !! Raise autodiff array to power of another array
     class(array_type), intent(in), target :: a, b
-    type(array_type) :: c
+    type(array_type), pointer :: c
 
+    allocate(c)
     c%val = a%val ** b%val
 
     if(a%requires_grad .or. b%requires_grad) then
@@ -887,8 +895,9 @@ contains
     !! Raise autodiff array to scalar power
     class(array_type), intent(in), target :: a
     real(real32), intent(in) :: scalar
-    type(array_type) :: c
+    type(array_type), pointer :: c
 
+    allocate(c)
     c%val = a%val ** scalar
 
     if(a%requires_grad) then
@@ -905,8 +914,9 @@ contains
   function sin_array(a) result(c)
     !! Sine function for autodiff arrays
     class(array_type), intent(in), target :: a
-    type(array_type) :: c
+    type(array_type), pointer :: c
 
+    allocate(c)
     c%val = sin(a%val)
 
     if(a%requires_grad) then
@@ -920,8 +930,9 @@ contains
   function cos_array(a) result(c)
     !! Cosine function for autodiff arrays
     class(array_type), intent(in), target :: a
-    type(array_type) :: c
+    type(array_type), pointer :: c
 
+    allocate(c)
     c%val = cos(a%val)
 
     if(a%requires_grad) then
@@ -935,8 +946,9 @@ contains
   function tan_array(a) result(c)
     !! Tangent function for autodiff arrays
     class(array_type), intent(in), target :: a
-    type(array_type) :: c
+    type(array_type), pointer :: c
 
+    allocate(c)
     c%val = tan(a%val)
 
     if(a%requires_grad) then
@@ -950,8 +962,9 @@ contains
   function exp_array(a) result(c)
     !! Exponential function for autodiff arrays
     class(array_type), intent(in), target :: a
-    type(array_type) :: c
+    type(array_type), pointer :: c
 
+    allocate(c)
     c%val = exp(a%val)
 
     if(a%requires_grad) then
@@ -965,8 +978,9 @@ contains
   function log_array(a) result(c)
     !! Natural logarithm function for autodiff arrays
     class(array_type), intent(in), target :: a
-    type(array_type) :: c
+    type(array_type), pointer :: c
 
+    allocate(c)
     c%val = log(a%val)
 
     if(a%requires_grad) then
@@ -980,8 +994,9 @@ contains
   function sqrt_array(a) result(c)
     !! Square root function for autodiff arrays
     class(array_type), intent(in), target :: a
-    type(array_type) :: c
+    type(array_type), pointer :: c
 
+    allocate(c)
     c%val = sqrt(a%val)
 
     if(a%requires_grad) then
@@ -995,8 +1010,9 @@ contains
   function tanh_array(a) result(c)
     !! Hyperbolic tangent function for autodiff arrays
     class(array_type), intent(in), target :: a
-    type(array_type) :: c
+    type(array_type), pointer :: c
 
+    allocate(c)
     c%val = tanh(a%val)
 
     if(a%requires_grad) then
@@ -1010,8 +1026,9 @@ contains
   function sigmoid_array(a) result(c)
     !! Sigmoid function for autodiff arrays
     class(array_type), intent(in), target :: a
-    type(array_type) :: c
+    type(array_type), pointer :: c
 
+    allocate(c)
     c%val = 1.0_real32 / (1.0_real32 + exp(-a%val))
 
     if(a%requires_grad) then
