@@ -3,7 +3,8 @@ module athena__activation_tanh
   !!
   !! This module implements the hyperbolic tangent activation function
   use athena__constants, only: real32
-  use athena__misc_types, only: activation_type
+  use athena__misc_types, only: activation_type, array_type, operator(+), operator(-), &
+       operator(*), operator(/), exp
   implicit none
 
 
@@ -15,6 +16,7 @@ module athena__activation_tanh
   type, extends(activation_type) :: tanh_type
      !! Type for tanh activation function with overloaded procedures
    contains
+     procedure, pass(this) :: activate_array => tanh_activate_array
      procedure, pass(this) :: activate_1d => tanh_activate_1d
      procedure, pass(this) :: activate_2d => tanh_activate_2d
      procedure, pass(this) :: activate_3d => tanh_activate_3d
@@ -68,7 +70,32 @@ contains
 
 
 !###############################################################################
-  pure function tanh_activate_1d(this, val) result(output)
+  function tanh_activate_array(this, val) result(output)
+    !! Apply tanh activation to 1D array
+    !!
+    !! Applies the hyperbolic tangent function element-wise to input array:
+    !! f = (exp(x) - exp(-x))/(exp(x) + exp(-x))
+    implicit none
+
+    ! Arguments
+    class(tanh_type), intent(in) :: this
+    !! Tanh activation type
+    type(array_type), intent(in) :: val
+    !! Input values
+    type(array_type) :: output
+    !! Activated output values
+
+    ! !! fix rounding errors of division of small numbers
+    ! !! alt. could add an epsilon
+    ! where(abs(val).gt.this%threshold)
+    !    output = sign(1._real32, val) * this%scale
+    ! elsewhere
+    !    output = this%scale * (exp(val) - exp(-val))/(exp(val) + exp(-val))
+    ! end where
+  end function tanh_activate_array
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+  function tanh_activate_1d(this, val) result(output)
     !! Apply tanh activation to 1D array
     !!
     !! Applies the hyperbolic tangent function element-wise to input array:
@@ -93,7 +120,7 @@ contains
   end function tanh_activate_1d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function tanh_activate_2d(this, val) result(output)
+  function tanh_activate_2d(this, val) result(output)
     !! Apply tanh activation to 2D array
     !!
     !! Applies the hyperbolic tangent function element-wise to input array:
@@ -118,7 +145,7 @@ contains
   end function tanh_activate_2d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function tanh_activate_3d(this, val) result(output)
+  function tanh_activate_3d(this, val) result(output)
     !! Apply tanh activation to 3D array
     !!
     !! Applies the hyperbolic tangent function element-wise to input array:
@@ -141,7 +168,7 @@ contains
   end function tanh_activate_3d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function tanh_activate_4d(this, val) result(output)
+  function tanh_activate_4d(this, val) result(output)
     !! Apply tanh activation to 4D array
     !!
     !! Applies the hyperbolic tangent function element-wise to input array:
@@ -165,7 +192,7 @@ contains
   end function tanh_activate_4d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function tanh_activate_5d(this, val) result(output)
+  function tanh_activate_5d(this, val) result(output)
     !! Apply tanh activation to 5D array
     !!
     !! Applies the hyperbolic tangent function element-wise to input array:
@@ -191,7 +218,7 @@ contains
 
 
 !###############################################################################
-  pure function tanh_differentiate_1d(this, val) result(output)
+  function tanh_differentiate_1d(this, val) result(output)
     !! Differentiate tanh activation for 1D array
     !!
     !! Computes the derivative: df/dx = 1 - f^2
@@ -211,7 +238,7 @@ contains
   end function tanh_differentiate_1d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function tanh_differentiate_2d(this, val) result(output)
+  function tanh_differentiate_2d(this, val) result(output)
     !! Differentiate tanh activation for 2D array
     !!
     !! Computes the derivative: df/dx = 1 - f^2
@@ -231,7 +258,7 @@ contains
   end function tanh_differentiate_2d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function tanh_differentiate_3d(this, val) result(output)
+  function tanh_differentiate_3d(this, val) result(output)
     !! Differentiate tanh activation for 3D array
     !!
     !! Computes the derivative: df/dx = 1 - f^2
@@ -251,7 +278,7 @@ contains
   end function tanh_differentiate_3d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function tanh_differentiate_4d(this, val) result(output)
+  function tanh_differentiate_4d(this, val) result(output)
     !! Differentiate tanh activation for 4D array
     !!
     !! Computes the derivative: df/dx = 1 - f^2
@@ -272,7 +299,7 @@ contains
   end function tanh_differentiate_4d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function tanh_differentiate_5d(this, val) result(output)
+  function tanh_differentiate_5d(this, val) result(output)
     !! Differentiate tanh activation for 5D array
     !!
     !! Computes the derivative: df/dx = 1 - f^2

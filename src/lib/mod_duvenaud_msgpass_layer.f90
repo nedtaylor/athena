@@ -593,7 +593,7 @@ contains
     !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
        if(allocated(this%output)) deallocate(this%output)
-       allocate(this%output(1,1), source=array2d_type())
+       allocate(this%output(1,1))
        !! output val arrays are allocated in set_graph
        ! call this%output(1,1)%allocate( &
        !      [this%num_outputs, this%batch_size], &
@@ -875,7 +875,7 @@ contains
 
 
 !##############################################################################!
-  pure subroutine update_message_duvenaud(this, input)
+  subroutine update_message_duvenaud(this, input)
     !! Update the message
     implicit none
 
@@ -908,7 +908,7 @@ contains
             sum(this%num_params_msg(1:t-1:1)) + 1 : &
             sum(this%num_params_msg(1:t:1)) &
        )
-       do concurrent (s = 1: this%batch_size)
+       do s = 1, this%batch_size
           do v = 1, this%graph(s)%num_vertices
              this%message(t,s)%val(:,v) = 0._real32
              degree = this%graph(s)%adj_ia(v+1) - this%graph(s)%adj_ia(v)
@@ -951,7 +951,7 @@ contains
 
 
 !##############################################################################!
-  pure subroutine update_readout_duvenaud(this)
+  subroutine update_readout_duvenaud(this)
     !! Update the readout
     implicit none
 
@@ -1028,7 +1028,7 @@ contains
             sum(this%num_params_msg(1:t-1:1)) + 1 : &
             sum(this%num_params_msg(1:t:1)) &
        )
-       do concurrent(s=1:this%batch_size)
+       do s = 1, this%batch_size
           dw( &
                1:this%num_vertex_features(t), &
                1:this%num_vertex_features(t-1) + this%num_edge_features(0), &
@@ -1173,7 +1173,7 @@ contains
        ) => this%params( &
             num_params_old + 1 : num_params_old + num_params_tmp &
        )
-       do concurrent(s=1:this%batch_size)
+       do s = 1, this%batch_size
           dw( &
                1:this%num_outputs, &
                1:this%num_vertex_features(t) &

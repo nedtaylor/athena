@@ -2,7 +2,8 @@
 module athena__activation_piecewise
   !! Module containing implementation of the piecewise activation function
   use athena__constants, only: real32
-  use athena__misc_types, only: activation_type
+  use athena__misc_types, only: activation_type, array_type, operator(+), operator(-), &
+       operator(*), operator(/), exp
   implicit none
 
 
@@ -15,6 +16,7 @@ module athena__activation_piecewise
      !! Type for piecewise activation function with overloaded procedures
      real(real32) :: intercept, min, max
    contains
+     procedure, pass(this) :: activate_array => piecewise_activate_array
      procedure, pass(this) :: activate_1d => piecewise_activate_1d
      procedure, pass(this) :: activate_2d => piecewise_activate_2d
      procedure, pass(this) :: activate_3d => piecewise_activate_3d
@@ -69,6 +71,33 @@ contains
 
 
 !###############################################################################
+  pure function piecewise_activate_array(this, val) result(output)
+    !! Apply piecewise activation to 1D array
+    !!
+    !! Computes piecewise function:
+    !! f = 0 if x ≤ min
+    !! f = scale if x ≥ max
+    !! f = scale * x + intercept otherwise
+    implicit none
+
+    ! Arguments
+    class(piecewise_type), intent(in) :: this
+    !! Piecewise activation type
+    type(array_type), intent(in) :: val
+    !! Input values
+    type(array_type) :: output
+    !! Activated output values
+
+    !  where(val.le.this%min)
+    !     output = 0._real32
+    !  elsewhere(val.ge.this%max)
+    !     output = this%scale
+    !  elsewhere
+    !     output = this%scale * val + this%intercept
+    !  end where
+  end function piecewise_activate_array
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function piecewise_activate_1d(this, val) result(output)
     !! Apply piecewise activation to 1D array
     !!

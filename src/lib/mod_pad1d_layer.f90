@@ -262,7 +262,7 @@ contains
           return
        end if
        if(allocated(this%output)) deallocate(this%output)
-       allocate( this%output(1,1), source = array3d_type() )
+       allocate( this%output(1,1) )
        call this%output(1,1)%allocate( &
             array_shape = [ &
                  this%output_shape(1), this%num_channels, &
@@ -510,27 +510,27 @@ contains
     ! Local variables
     integer :: f, s, m
 
-    select type(output => this%output(1,1))
-    type is (array3d_type)
-       ! Initialize with zeros for default case
-       output%val_ptr(:,:,:) = 0._real32
+    !  select type(output => this%output(1,1))
+    !  type is (array3d_type)
+    !     ! Initialize with zeros for default case
+    !     output%val_ptr(:,:,:) = 0._real32
 
-       ! Copy main input region to output
-       output%val_ptr( &
-            this%pad(1)+1:this%pad(1)+this%input_shape(1), :, : &
-       ) = input
+    !     ! Copy main input region to output
+    !     output%val_ptr( &
+    !          this%pad(1)+1:this%pad(1)+this%input_shape(1), :, : &
+    !     ) = input
 
-       ! Handle padding methods that require boundary filling
-       if (this%imethod .ge. 3 .and. this%imethod .le. 5) then
-          do f = 1, this%facets(1)%num
-             call fill_edge_region( this, &
-                  input, output%val_ptr, &
-                  this%facets(1)%orig_bound(:,:,f), &
-                  this%facets(1)%dest_bound(:,:,f) &
-             )
-          end do
-       end if
-    end select
+    !     ! Handle padding methods that require boundary filling
+    !     if (this%imethod .ge. 3 .and. this%imethod .le. 5) then
+    !        do f = 1, this%facets(1)%num
+    !           call fill_edge_region( this, &
+    !                input, output%val_ptr, &
+    !                this%facets(1)%orig_bound(:,:,f), &
+    !                this%facets(1)%dest_bound(:,:,f) &
+    !           )
+    !        end do
+    !     end if
+    !  end select
 
   end subroutine forward_3d
 !###############################################################################

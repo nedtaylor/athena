@@ -268,7 +268,7 @@ contains
     if(allocated(this%output))then
        if(this%output(1,1)%allocated) call this%output(1,1)%deallocate()
     end if
-    allocate(this%output(1,1), source=array2d_type())
+    allocate(this%output(1,1))
     this%output_shape = [this%num_outputs]
 
 
@@ -317,7 +317,7 @@ contains
           return
        else
           if(allocated(this%output)) deallocate(this%output)
-          allocate( this%output(1,1), source = array2d_type() )
+          allocate( this%output(1,1) )
           call this%output(1,1)%allocate( &
                array_shape = [ &
                     (this%num_outputs), this%batch_size ], &

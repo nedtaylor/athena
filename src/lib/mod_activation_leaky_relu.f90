@@ -4,7 +4,8 @@ module athena__activation_leaky_relu
   !! This module implements the Leaky Rectified Linear Unit function:
   !! f(x) = x if x > 0, 0.01x otherwise
   use athena__constants, only: real32
-  use athena__misc_types, only: activation_type
+  use athena__misc_types, only: activation_type, array_type, operator(+), operator(-), &
+       operator(*), operator(/), exp
   implicit none
 
 
@@ -15,6 +16,7 @@ module athena__activation_leaky_relu
 
   type, extends(activation_type) :: leaky_relu_type
    contains
+     procedure, pass(this) :: activate_array => leaky_relu_activate_array
      procedure, pass(this) :: activate_1d => leaky_relu_activate_1d
      procedure, pass(this) :: activate_2d => leaky_relu_activate_2d
      procedure, pass(this) :: activate_3d => leaky_relu_activate_3d
@@ -58,7 +60,25 @@ contains
 
 
 !###############################################################################
-  pure function leaky_relu_activate_1d(this, val) result(output)
+  function leaky_relu_activate_array(this, val) result(output)
+    !! Apply leaky ReLU activation to 1D array
+    !!
+    !! Computes: f = max(0.01x, x)
+    implicit none
+
+    ! Arguments
+    class(leaky_relu_type), intent(in) :: this
+    !! Leaky ReLU activation type
+    type(array_type), intent(in) :: val
+    !! Input values
+    type(array_type) :: output
+    !! Activated output values
+
+    !output = max(0.01_real32*val, val) * this%scale
+  end function leaky_relu_activate_array
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+  function leaky_relu_activate_1d(this, val) result(output)
     !! Apply leaky ReLU activation to 1D array
     !!
     !! Computes: f = max(0.01x, x)
@@ -76,7 +96,7 @@ contains
   end function leaky_relu_activate_1d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function leaky_relu_activate_2d(this, val) result(output)
+  function leaky_relu_activate_2d(this, val) result(output)
     !! Apply leaky ReLU activation to 2D array
     !!
     !! Computes: f = max(0.01x, x)
@@ -94,7 +114,7 @@ contains
   end function leaky_relu_activate_2d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function leaky_relu_activate_3d(this, val) result(output)
+  function leaky_relu_activate_3d(this, val) result(output)
     !! Apply leaky ReLU activation to 3D array
     !!
     !! Computes: f = max(0.01x, x)
@@ -112,7 +132,7 @@ contains
   end function leaky_relu_activate_3d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function leaky_relu_activate_4d(this, val) result(output)
+  function leaky_relu_activate_4d(this, val) result(output)
     !! Apply leaky ReLU activation to 4D array
     !!
     !! Computes: f = max(0.01x, x)
@@ -131,7 +151,7 @@ contains
   end function leaky_relu_activate_4d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function leaky_relu_activate_5d(this, val) result(output)
+  function leaky_relu_activate_5d(this, val) result(output)
     !! Apply leaky ReLU activation to 5D array
     !!
     !! Computes: f = max(0.01x, x)
@@ -152,7 +172,7 @@ contains
 
 
 !###############################################################################
-  pure function leaky_relu_differentiate_1d(this, val) result(output)
+  function leaky_relu_differentiate_1d(this, val) result(output)
     !! Differentiate leaky ReLU activation for 1D array
     !!
     !! Computes derivative: df/dx = 1 if x > 0, 0.01 otherwise
@@ -174,7 +194,7 @@ contains
   end function leaky_relu_differentiate_1d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function leaky_relu_differentiate_2d(this, val) result(output)
+  function leaky_relu_differentiate_2d(this, val) result(output)
     !! Differentiate leaky ReLU activation for 2D array
     !!
     !! Computes derivative: df/dx = 1 if x > 0, 0.01 otherwise
@@ -196,7 +216,7 @@ contains
   end function leaky_relu_differentiate_2d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function leaky_relu_differentiate_3d(this, val) result(output)
+  function leaky_relu_differentiate_3d(this, val) result(output)
     !! Differentiate leaky ReLU activation for 3D array
     !!
     !! Computes derivative: df/dx = 1 if x > 0, 0.01 otherwise
@@ -218,7 +238,7 @@ contains
   end function leaky_relu_differentiate_3d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function leaky_relu_differentiate_4d(this, val) result(output)
+  function leaky_relu_differentiate_4d(this, val) result(output)
     !! Differentiate leaky ReLU activation for 4D array
     !!
     !! Computes derivative: df/dx = 1 if x > 0, 0.01 otherwise
@@ -241,7 +261,7 @@ contains
   end function leaky_relu_differentiate_4d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function leaky_relu_differentiate_5d(this, val) result(output)
+  function leaky_relu_differentiate_5d(this, val) result(output)
     !! Differentiate leaky ReLU activation for 5D array
     !!
     !! Computes derivative: df/dx = 1 if x > 0, 0.01 otherwise

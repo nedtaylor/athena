@@ -4,7 +4,8 @@ module athena__activation_sigmoid
   !! This module implements the logistic sigmoid function for normalizing
   !! outputs between 0 and 1
   use athena__constants, only: real32
-  use athena__misc_types, only: activation_type
+  use athena__misc_types, only: activation_type, array_type, operator(+), operator(-), &
+       operator(*), operator(/), exp
   implicit none
 
 
@@ -16,6 +17,7 @@ module athena__activation_sigmoid
   type, extends(activation_type) :: sigmoid_type
      !! Type for sigmoid activation function with overloaded procedures
    contains
+     procedure, pass(this) :: activate_array => sigmoid_activate_array
      procedure, pass(this) :: activate_1d => sigmoid_activate_1d
      procedure, pass(this) :: activate_2d => sigmoid_activate_2d
      procedure, pass(this) :: activate_3d => sigmoid_activate_3d
@@ -68,6 +70,28 @@ contains
 
 
 !###############################################################################
+  pure function sigmoid_activate_array(this, val) result(output)
+    !! Apply sigmoid activation to 1D array
+    !!
+    !! Computes: f = 1/(1+exp(-x))
+    implicit none
+
+    ! Arguments
+    class(sigmoid_type), intent(in) :: this
+    !! Sigmoid activation type
+    type(array_type), intent(in) :: val
+    !! Input values
+    type(array_type) :: output
+    !! Activated output values in range [0,1]
+
+    ! where(val.lt.this%threshold)
+    !    output = 0._real32
+    ! elsewhere
+    !    output = this%scale /(1._real32 + exp(-val))
+    ! end where
+  end function sigmoid_activate_array
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   pure function sigmoid_activate_1d(this, val) result(output)
     !! Apply sigmoid activation to 1D array
     !!

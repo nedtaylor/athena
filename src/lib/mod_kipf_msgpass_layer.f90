@@ -439,7 +439,7 @@ contains
     !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
        if(allocated(this%output)) deallocate(this%output)
-       allocate(this%output(2,this%batch_size), source=array2d_type())
+       allocate(this%output(2,this%batch_size))
        !! output val arrays are allocated in set_graph
        ! call this%output(1,1)%allocate( &
        !      [this%num_outputs, this%batch_size], &
@@ -739,7 +739,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine update_message_kipf(this, input)
+  subroutine update_message_kipf(this, input)
     !! Update the message
     implicit none
 
@@ -773,7 +773,7 @@ contains
             sum(this%num_params_msg(1:t:1)) &
        )
 
-       do concurrent (s = 1: this%batch_size)
+       do s = 1, this%batch_size
           do v = 1, this%graph(s)%num_vertices
              this%message(t,s)%val(:,v) = 0._real32
              do e = this%graph(s)%adj_ia(v), this%graph(s)%adj_ia(v+1) - 1
@@ -827,7 +827,7 @@ contains
 
 
 !###############################################################################
-  pure subroutine update_readout_kipf(this)
+  subroutine update_readout_kipf(this)
     !! Update the readout
     implicit none
 

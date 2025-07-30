@@ -15,7 +15,7 @@ module athena__network
   use athena__loss, only: base_loss_type
   use athena__accuracy, only: comp_acc_func => compute_accuracy_function
   use athena__base_layer, only: base_layer_type
-  use athena__misc_types, only: array_type, array2d_type
+  use athena__misc_types, only: array_type, array_type
   use athena__container_layer, only: container_layer_type
   implicit none
 
@@ -143,6 +143,8 @@ module athena__network
      procedure, pass(this) :: backward_real
      !! Backward pass for real input
      procedure, pass(this) :: forward_derived
+     !! Forward pass for derived input
+     procedure, pass(this) :: forward_derived2d
      !! Forward pass for derived input
      procedure, pass(this) :: backward_derived
      !! Backward pass for derived input
@@ -464,7 +466,7 @@ module athena__network
        !! Instance of the network
        integer, intent(in) :: idx
        !! Index
-       type(array2d_type), dimension(2,this%batch_size), intent(inout) :: input
+       type(array_type), dimension(2,this%batch_size), intent(inout) :: input
        !! Input
      end subroutine get_input_graph_autodiff
 
@@ -486,7 +488,7 @@ module athena__network
        !! Instance of the network
        integer, intent(in) :: idx
        !! Index
-       type(array2d_type), &
+       type(array_type), &
             dimension(2,this%batch_size), intent(inout) :: gradient
        !! Gradient
      end subroutine get_gradient_graph_autodiff
@@ -578,6 +580,14 @@ module athena__network
             input
        !! Input data
      end subroutine forward_derived
+     module subroutine forward_derived2d(this, input)
+       !! Forward pass for derived input
+       class(network_type), intent(inout) :: this
+       !! Instance of the network
+       class(array_type), dimension(size(this%root_vertices),1), intent(in) :: &
+            input
+       !! Input data
+     end subroutine forward_derived2d
      module subroutine forward_graph(this, input)
        !! Forward pass for derived input
        class(network_type), intent(inout) :: this
@@ -599,7 +609,7 @@ module athena__network
        !! Backward pass
        class(network_type), intent(inout) :: this
        !! Instance of the network
-       type(array2d_type), dimension(:), intent(in) :: output
+       type(array_type), dimension(:), intent(in) :: output
        !! Output data
      end subroutine backward_derived
      module subroutine backward_graph(this, output)
@@ -614,7 +624,7 @@ module athena__network
        !! Forward pass for derived input
        class(network_type), intent(inout) :: this
        !! Instance of the network
-       type(array2d_type), dimension(:,:), intent(in) :: output
+       type(array_type), dimension(:,:), intent(in) :: output
        !! Output data
      end subroutine backward_mixed
   end interface
@@ -646,7 +656,7 @@ module athena__network
        !! Batch size
        class(array_type), dimension(:), intent(in), target :: input
        !! Input array
-       type(array2d_type), dimension(size(input,1)) :: sample
+       type(array_type), dimension(size(input,1)) :: sample
        !! Sample array
      end function get_sample_derived
      module function get_sample_mixed( &
@@ -659,7 +669,7 @@ module athena__network
        !! Batch size
        class(array_type), dimension(:,:), intent(in), target :: input
        !! Input array
-       type(array2d_type), dimension(size(input,1), batch_size) :: sample
+       type(array_type), dimension(size(input,1), batch_size) :: sample
        !! Sample array
      end function get_sample_mixed
      module function get_sample_graph( &

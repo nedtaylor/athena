@@ -3,7 +3,8 @@ module athena__activation_relu
   !!
   !! This module implements the Rectified Linear Unit activation function
   use athena__constants, only: real32
-  use athena__misc_types, only: activation_type
+  use athena__misc_types, only: activation_type, array_type, operator(+), operator(-), &
+       operator(*), operator(/)
   implicit none
 
 
@@ -15,6 +16,7 @@ module athena__activation_relu
   type, extends(activation_type) :: relu_type
      !! Type for ReLU activation function with overloaded procedures
    contains
+     procedure, pass(this) :: activate_array => relu_activate_array
      procedure, pass(this) :: activate_1d => relu_activate_1d
      procedure, pass(this) :: activate_2d => relu_activate_2d
      procedure, pass(this) :: activate_3d => relu_activate_3d
@@ -60,7 +62,25 @@ contains
 
 
 !###############################################################################
-  pure function relu_activate_1d(this, val) result(output)
+  function relu_activate_array(this, val) result(output)
+    !! Apply ReLU activation to 1D array
+    !!
+    !! Computes: f = max(0,x)
+    implicit none
+
+    ! Arguments
+    class(relu_type), intent(in) :: this
+    !! ReLU activation type
+    type(array_type), intent(in) :: val
+    !! Input values
+    type(array_type) :: output
+    !! Activated output values
+
+    !output = max(this%threshold, val) * this%scale
+  end function relu_activate_array
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+  function relu_activate_1d(this, val) result(output)
     !! Apply ReLU activation to 1D array
     !!
     !! Computes: f = max(0,x)
@@ -78,7 +98,7 @@ contains
   end function relu_activate_1d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function relu_activate_2d(this, val) result(output)
+  function relu_activate_2d(this, val) result(output)
     !! Apply ReLU activation to 2D array
     !!
     !! Computes: f = max(0,x)
@@ -96,7 +116,7 @@ contains
   end function relu_activate_2d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function relu_activate_3d(this, val) result(output)
+  function relu_activate_3d(this, val) result(output)
     !! Apply ReLU activation to 3D array
     !!
     !! Computes: f = max(0,x)
@@ -114,7 +134,7 @@ contains
   end function relu_activate_3d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function relu_activate_4d(this, val) result(output)
+  function relu_activate_4d(this, val) result(output)
     !! Apply ReLU activation to 4D array
     !!
     !! Computes: f = max(0,x)
@@ -133,7 +153,7 @@ contains
   end function relu_activate_4d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function relu_activate_5d(this, val) result(output)
+  function relu_activate_5d(this, val) result(output)
     !! Apply ReLU activation to 5D array
     !!
     !! Computes: f = max(0,x)
@@ -159,7 +179,7 @@ contains
 !!! we are performing the derivative to identify what weight ...
 !!! ... results in the minimum error
 !###############################################################################
-  pure function relu_differentiate_1d(this, val) result(output)
+  function relu_differentiate_1d(this, val) result(output)
     !! Differentiate ReLU activation for 1D array
     !!
     !! Computes derivative: df/dx = 1 if x > 0, 0 otherwise
@@ -181,7 +201,7 @@ contains
   end function relu_differentiate_1d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function relu_differentiate_2d(this, val) result(output)
+  function relu_differentiate_2d(this, val) result(output)
     !! Differentiate ReLU activation for 2D array
     !!
     !! Computes derivative: df/dx = 1 if x > 0, 0 otherwise
@@ -203,7 +223,7 @@ contains
   end function relu_differentiate_2d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function relu_differentiate_3d(this, val) result(output)
+  function relu_differentiate_3d(this, val) result(output)
     !! Differentiate ReLU activation for 3D array
     !!
     !! Computes derivative: df/dx = 1 if x > 0, 0 otherwise
@@ -225,7 +245,7 @@ contains
   end function relu_differentiate_3d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function relu_differentiate_4d(this, val) result(output)
+  function relu_differentiate_4d(this, val) result(output)
     !! Differentiate ReLU activation for 4D array
     !!
     !! Computes derivative: df/dx = 1 if x > 0, 0 otherwise
@@ -248,7 +268,7 @@ contains
   end function relu_differentiate_4d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function relu_differentiate_5d(this, val) result(output)
+  function relu_differentiate_5d(this, val) result(output)
     !! Differentiate ReLU activation for 5D array
     !!
     !! Computes derivative: df/dx = 1 if x > 0, 0 otherwise

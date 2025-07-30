@@ -1888,7 +1888,7 @@ contains
     class(array_type), dimension(:), intent(in), target :: input
     !! Input array
 
-    type(array2d_type), dimension(size(input,1)) :: sample
+    type(array_type), dimension(size(input,1)) :: sample
     !! Sample array
 
     ! Local variables
@@ -1917,7 +1917,7 @@ contains
     class(array_type), dimension(:,:), intent(in), target :: input
     !! Input array
 
-    type(array2d_type), dimension(size(input,1),size(input,2)) :: sample
+    type(array_type), dimension(size(input,1),size(input,2)) :: sample
     !! Sample array
 
     ! Local variables
@@ -1926,6 +1926,8 @@ contains
 
     do i = 1, size(input,1)
        do j = 1, size(input,2)
+          call sample(i,j)%zero_grad()
+          call sample(i,j)%set_requires_grad(.true.)
           sample(i,j)%val = get_sample_ptr( &
                input(i,j)%val, start_index, end_index, batch_size &
           )
@@ -1948,7 +1950,7 @@ contains
     class(array_type), dimension(:,:), intent(in), target :: input
     !! Input array
 
-    type(array2d_type), dimension(size(input,1), batch_size) :: sample
+    type(array_type), dimension(size(input,1), batch_size) :: sample
     !! Sample array
 
     ! Local variables
@@ -2232,7 +2234,7 @@ contains
     !! Instance of network
     integer, intent(in) :: idx
     !! Index of layer
-    type(array2d_type), dimension(2,this%batch_size), intent(inout) :: input
+    type(array_type), dimension(2,this%batch_size), intent(inout) :: input
     !! Input for layer
 
     ! Local variables
@@ -2373,7 +2375,7 @@ contains
     !! Instance of network
     integer, intent(in) :: idx
     !! Index of layer
-    type(array2d_type), dimension(2,this%batch_size), intent(inout) :: gradient
+    type(array_type), dimension(2,this%batch_size), intent(inout) :: gradient
     !! Gradient for layer
 
     ! Local variables
@@ -2504,6 +2506,44 @@ contains
 
   end subroutine forward_derived
 !-------------------------------------------------------------------------------
+  module subroutine forward_derived2d(this, input)
+    !! Forward pass for array derived type input
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    class(array_type), dimension(size(this%root_vertices),1), intent(in) :: input
+    !! Input
+
+    ! Local variables
+    integer :: i
+    !! Loop index
+    real(real32), dimension(:,:), allocatable :: auto_input
+    !! Autodiff input
+
+
+    write(*,*) "forward_derived"
+    ! Forward pass
+    !---------------------------------------------------------------------------
+    do i = 1, size(this%vertex_order,1)
+       if(all(this%auto_graph%adjacency(:,this%vertex_order(i)).eq.0))then
+          select type(layer => this%model(this%vertex_order(i))%layer)
+          class is(input_layer_type)
+             !  call layer%forward(input(layer%index)%val)
+             call layer%forward_derived(input(layer%index:layer%index,:))
+          class default
+             return
+          end select
+       else
+          call this%get_input_real_autodiff(this%vertex_order(i), auto_input)
+          call this%model(this%vertex_order(i))%layer%forward(auto_input)
+          call this%model(this%vertex_order(i))%layer%forward_derived(input(1:1,:))
+       end if
+    end do
+
+  end subroutine forward_derived2d
+!-------------------------------------------------------------------------------
   module subroutine forward_graph(this, input)
     !! Forward pass for array derived type input
     implicit none
@@ -2522,7 +2562,7 @@ contains
     !! Index of input layer
     integer :: num_vertex_features, num_edge_features
     !! Number of vertex and edge features
-    type(array2d_type), dimension(2,this%batch_size) :: auto_input
+    type(array_type), dimension(2,this%batch_size) :: auto_input
     !! Autodiff input
 
 
@@ -2650,7 +2690,7 @@ contains
     ! Arguments
     class(network_type), intent(inout) :: this
     !! Instance of network
-    type(array2d_type), dimension(:), intent(in) :: output
+    type(array_type), dimension(:), intent(in) :: output
     !! Output
 
     ! Local variables
@@ -2702,7 +2742,7 @@ contains
     !! Index of input layer
     integer :: num_vertex_features, num_edge_features
     !! Number of vertex and edge features
-    type(array2d_type), dimension(2,this%batch_size) :: input, gradient
+    type(array_type), dimension(2,this%batch_size) :: input, gradient
     !! Autodiff input and gradient
 
 
@@ -2799,7 +2839,7 @@ contains
     ! Arguments
     class(network_type), intent(inout) :: this
     !! Instance of network
-    type(array2d_type), dimension(:,:), intent(in) :: output
+    type(array_type), dimension(:,:), intent(in) :: output
     !! Output
 
     ! Local variables
@@ -2810,7 +2850,7 @@ contains
     integer :: num_vertex_features_in, num_edge_features_in, &
          num_vertex_features_out, num_edge_features_out
     !! Number of vertex and edge features
-    type(array2d_type), dimension(2,this%batch_size) :: input, gradient
+    type(array_type), dimension(2,this%batch_size) :: input, gradient
     !! Autodiff input and gradient
 
 
@@ -3017,7 +3057,7 @@ contains
     ! Arguments
     class(*), dimension(..), intent(in) :: input
     !! Input
-    type(array2d_type), dimension(:), allocatable, intent(out) :: output_array
+    type(array_type), dimension(:), allocatable, intent(out) :: output_array
     !! Output
     type(graph_type), dimension(:,:), allocatable, intent(out) :: output_graph
     !! Output
@@ -3170,7 +3210,7 @@ contains
       ! Arguments
       class(array_type), intent(in) :: input
       !! Input
-      type(array2d_type), intent(out) :: output
+      type(array_type), intent(out) :: output
       !! Output
       integer, intent(in) :: num_samples
       !! Number of samples
@@ -3229,7 +3269,7 @@ contains
     !! Verbosity level
 
     ! Local variables
-    type(array2d_type), dimension(:), allocatable :: input_array
+    type(array_type), dimension(:), allocatable :: input_array
     !! Input array
     type(graph_type), dimension(:,:), allocatable :: input_graph
     !! Input graph
@@ -3318,7 +3358,7 @@ contains
     select type(output)
     type is(graph_type)
        num_batches = size(output,dim=2) / this%batch_size
-    type is(array2d_type)
+    type is(array_type)
        if(this%use_graph_output)then
           num_batches = size(output,dim=2) / this%batch_size
        else
@@ -3407,7 +3447,7 @@ contains
                 call this%backward_graph(get_sample_graph( &
                      output, start_index, end_index, this%batch_size &
                 ))
-             type is(array2d_type)
+             type is(array_type)
                 if(this%use_graph_output)then
                    call this%backward_mixed(get_sample_mixed( &
                         output, start_index, end_index, this%batch_size &
@@ -3419,8 +3459,8 @@ contains
                 end if
              end select
           case default
-             call this%forward(get_sample( &
-                  input_array,start_index,end_index, this%batch_size &
+             call this%forward_derived2d(get_sample_derived_2d( &
+                  reshape(input_array, [1,1]),start_index,end_index, this%batch_size &
              ))
              select type(output)
              type is(integer)
@@ -3616,7 +3656,7 @@ contains
     !! Verbosity level
 
     ! Local variables
-    type(array2d_type), dimension(:), allocatable :: input_array
+    type(array_type), dimension(:), allocatable :: input_array
     !! Input array
     type(graph_type), dimension(:,:), allocatable :: input_graph
     !! Input graph

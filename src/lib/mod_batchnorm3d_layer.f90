@@ -387,7 +387,7 @@ contains
           return
        end if
        if(allocated(this%output)) deallocate(this%output)
-       allocate( this%output(1,1), source = array5d_type() )
+       allocate( this%output(1,1) )
        call this%output(1,1)%allocate( &
             array_shape = [ &
                  this%output_shape(1), &
@@ -687,47 +687,47 @@ contains
     !! Temporary mean and variance
 
 
-    select type(output => this%output(1,1))
-    type is (array5d_type)
-       select case(this%inference)
-       case(.true.)
-          do concurrent(m=1:this%num_channels)
-             ! Normalise each feature
-             output%val_ptr(:,:,:,m,:) = this%gamma(m) * (input(:,:,:,m,:) - &
-                  this%mean(m)) / &
-             sqrt( &
-                  this%batch_size / (this%batch_size - 1) * this%variance(m) + &
-                  this%epsilon) + &
-             this%beta(m)
-          end do
-       case default
-          do concurrent(m=1:this%num_channels)
-             ! Calculate current mean and variance
-             t_mean(m) = sum(input(:,:,:,m,:)) / this%norm
-             t_variance(m) = &
-                  sum((input(:,:,:,m,:) - t_mean(m))**2._real32) / this%norm
+    !  select type(output => this%output(1,1))
+    !  type is (array5d_type)
+    !     select case(this%inference)
+    !     case(.true.)
+    !        do concurrent(m=1:this%num_channels)
+    !           ! Normalise each feature
+    !           output%val_ptr(:,:,:,m,:) = this%gamma(m) * (input(:,:,:,m,:) - &
+    !                this%mean(m)) / &
+    !           sqrt( &
+    !                this%batch_size / (this%batch_size - 1) * this%variance(m) + &
+    !                this%epsilon) + &
+    !           this%beta(m)
+    !        end do
+    !     case default
+    !        do concurrent(m=1:this%num_channels)
+    !           ! Calculate current mean and variance
+    !           t_mean(m) = sum(input(:,:,:,m,:)) / this%norm
+    !           t_variance(m) = &
+    !                sum((input(:,:,:,m,:) - t_mean(m))**2._real32) / this%norm
 
-             ! Convert to using inverse square root of variance (i.e. inverse std)
-             ! Would also need to include epsilon in the sqrt denominator
+    !           ! Convert to using inverse square root of variance (i.e. inverse std)
+    !           ! Would also need to include epsilon in the sqrt denominator
 
-             ! Update running averages
-             if(abs(this%momentum) .gt. 1.E-6_real32)then
-                this%mean(m) = this%momentum * this%mean(m) + &
-                     (1._real32 - this%momentum) * t_mean(m)
-                this%variance(m) = this%momentum * this%variance(m) + &
-                     (1._real32 - this%momentum) * t_variance(m)
-             else
-                this%mean(m) = t_mean(m)
-                this%variance(m) = t_variance(m)
-             end if
+    !           ! Update running averages
+    !           if(abs(this%momentum) .gt. 1.E-6_real32)then
+    !              this%mean(m) = this%momentum * this%mean(m) + &
+    !                   (1._real32 - this%momentum) * t_mean(m)
+    !              this%variance(m) = this%momentum * this%variance(m) + &
+    !                   (1._real32 - this%momentum) * t_variance(m)
+    !           else
+    !              this%mean(m) = t_mean(m)
+    !              this%variance(m) = t_variance(m)
+    !           end if
 
-             ! Normalise each feature
-             output%val_ptr(:,:,:,m,:) = this%gamma(m) * (input(:,:,:,m,:) - &
-                  this%mean(m)) / &
-             sqrt(this%variance(m) + this%epsilon) + this%beta(m)
-          end do
-       end select
-    end select
+    !           ! Normalise each feature
+    !           output%val_ptr(:,:,:,m,:) = this%gamma(m) * (input(:,:,:,m,:) - &
+    !                this%mean(m)) / &
+    !           sqrt(this%variance(m) + this%epsilon) + this%beta(m)
+    !        end do
+    !     end select
+    !  end select
 
   end subroutine forward_5d
 !###############################################################################

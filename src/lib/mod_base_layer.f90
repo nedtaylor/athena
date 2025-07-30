@@ -58,13 +58,11 @@ module athena__base_layer
      !! Graph structure of input data
      logical :: consistent_sample_shape = .true. !! ONLY FALSE FOR GRAPHS
      !! Boolean whether the layer has a consistent sample shape
-     class(array_type), allocatable, dimension(:,:) :: output
+     type(array_type), allocatable, dimension(:,:) :: output
      !! Output
      class(array_type), allocatable, dimension(:,:) :: di
      !! Gradient of input data
      !!! HAVE A LOGICAL THAT INDICATES WHETHER input_shape REFERS TO THE DIMENSIONS OF di, OR OF EACH ELEMENT IN di
-     class(array_type), allocatable, dimension(:,:) :: jacobian
-     !! Gradient of output data (forward mode differentiation)
      integer, allocatable, dimension(:) :: input_shape
      !! Input shape
      integer, allocatable, dimension(:) :: output_shape

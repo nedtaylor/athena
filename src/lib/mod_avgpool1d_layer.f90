@@ -262,7 +262,7 @@ contains
           return
        end if
        if(allocated(this%output)) deallocate(this%output)
-       allocate( this%output(1,1), source = array3d_type() )
+       allocate( this%output(1,1) )
        call this%output(1,1)%allocate( &
             array_shape = [ &
                  this%output_shape(1), this%num_channels, &
@@ -447,19 +447,19 @@ contains
     integer :: stride_idx
     !! Stride index
 
-    select type(output => this%output(1,1))
-    type is (array3d_type)
-       ! Perform the pooling operation
-       do concurrent(&
-            s = 1:this%batch_size, &
-            m = 1:this%num_channels, &
-            i = 1:this%output_shape(1))
-          stride_idx = (i - 1) * this%strd(1) + 1
-          output%val_ptr(i, m, s) = sum(&
-               input( &
-                    stride_idx:stride_idx+this%pool(1)-1, m, s)) / this%pool(1)
-       end do
-    end select
+    !  select type(output => this%output(1,1))
+    !  type is (array3d_type)
+    !     ! Perform the pooling operation
+    !     do concurrent(&
+    !          s = 1:this%batch_size, &
+    !          m = 1:this%num_channels, &
+    !          i = 1:this%output_shape(1))
+    !        stride_idx = (i - 1) * this%strd(1) + 1
+    !        output%val_ptr(i, m, s) = sum(&
+    !             input( &
+    !                  stride_idx:stride_idx+this%pool(1)-1, m, s)) / this%pool(1)
+    !     end do
+    !  end select
 
   end subroutine forward_3d
 !###############################################################################

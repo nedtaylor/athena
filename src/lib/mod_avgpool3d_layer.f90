@@ -272,7 +272,7 @@ contains
           return
        end if
        if(allocated(this%output)) deallocate(this%output)
-       allocate( this%output(1,1), source = array5d_type() )
+       allocate( this%output(1,1) )
        call this%output(1,1)%allocate( &
             array_shape = [ &
                  this%output_shape(1), &
@@ -463,24 +463,24 @@ contains
     integer, dimension(3) :: stride_idx
     !! Stride index
 
-    select type(output => this%output(1,1))
-    type is (array5d_type)
-       ! Perform the pooling operation
-       do concurrent(&
-            s = 1:this%batch_size, &
-            m = 1:this%num_channels, &
-            k = 1:this%output_shape(3), &
-            j = 1:this%output_shape(2), &
-            i = 1:this%output_shape(1))
-          stride_idx = ([i,j,k] - 1) * this%strd + 1
-          output%val_ptr(i, j, k, m, s) = sum(&
-               input( &
-                    stride_idx(1):stride_idx(1)+this%pool(1)-1, &
-                    stride_idx(2):stride_idx(2)+this%pool(2)-1, &
-                    stride_idx(3):stride_idx(3)+this%pool(3)-1, m, s)) / &
-               product(this%pool)
-       end do
-    end select
+    !  select type(output => this%output(1,1))
+    !  type is (array5d_type)
+    !     ! Perform the pooling operation
+    !     do concurrent(&
+    !          s = 1:this%batch_size, &
+    !          m = 1:this%num_channels, &
+    !          k = 1:this%output_shape(3), &
+    !          j = 1:this%output_shape(2), &
+    !          i = 1:this%output_shape(1))
+    !        stride_idx = ([i,j,k] - 1) * this%strd + 1
+    !        output%val_ptr(i, j, k, m, s) = sum(&
+    !             input( &
+    !                  stride_idx(1):stride_idx(1)+this%pool(1)-1, &
+    !                  stride_idx(2):stride_idx(2)+this%pool(2)-1, &
+    !                  stride_idx(3):stride_idx(3)+this%pool(3)-1, m, s)) / &
+    !             product(this%pool)
+    !     end do
+    !  end select
 
   end subroutine forward_5d
 !###############################################################################

@@ -3,7 +3,7 @@ module athena__activation_gaussian
   !!
   !! This module implements the Gaussian (bell curve) activation function
   use athena__constants, only: real32, pi
-  use athena__misc_types, only: activation_type
+  use athena__misc_types, only: activation_type, array_type
   implicit none
 
 
@@ -17,6 +17,7 @@ module athena__activation_gaussian
      real(real32) :: sigma
      !! Standard deviation parameter for Gaussian function
    contains
+     procedure, pass(this) :: activate_array => gaussian_activate_array
      procedure, pass(this) :: activate_1d => gaussian_activate_1d
      procedure, pass(this) :: activate_2d => gaussian_activate_2d
      procedure, pass(this) :: activate_3d => gaussian_activate_3d
@@ -78,7 +79,26 @@ contains
 
 
 !###############################################################################
-  pure function gaussian_activate_1d(this, val) result(output)
+  function gaussian_activate_array(this, val) result(output)
+    !! Apply Gaussian activation to array
+    !!
+    !! Applies the Gaussian function element-wise to input array:
+    !! f = exp(-x^2/(2σ^2))/(σ√(2π))
+    implicit none
+
+    ! Arguments
+    class(gaussian_type), intent(in) :: this
+    !! Gaussian activation type containing sigma parameter
+    type(array_type), intent(in) :: val
+    !! Input values
+    type(array_type) :: output
+    !! Gaussian activated output values
+
+    ! output = gauss(val, this%sigma, this%scale, this%threshold)
+  end function gaussian_activate_array
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+  function gaussian_activate_1d(this, val) result(output)
     !! Apply Gaussian activation to 1D array
     !!
     !! Applies the Gaussian function element-wise to input array:
@@ -102,7 +122,7 @@ contains
   end function gaussian_activate_1d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function gaussian_activate_2d(this, val) result(output)
+  function gaussian_activate_2d(this, val) result(output)
     !! Apply Gaussian activation to 2D array
     !!
     !! Applies the Gaussian function element-wise to input array:
@@ -126,7 +146,7 @@ contains
   end function gaussian_activate_2d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function gaussian_activate_3d(this, val) result(output)
+  function gaussian_activate_3d(this, val) result(output)
     !! Apply Gaussian activation to 3D array
     !!
     !! Applies the Gaussian function element-wise to input array:
@@ -150,7 +170,7 @@ contains
   end function gaussian_activate_3d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function gaussian_activate_4d(this, val) result(output)
+  function gaussian_activate_4d(this, val) result(output)
     implicit none
     class(gaussian_type), intent(in) :: this
     real(real32), dimension(:,:,:,:), intent(in) :: val
@@ -166,7 +186,7 @@ contains
   end function gaussian_activate_4d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function gaussian_activate_5d(this, val) result(output)
+  function gaussian_activate_5d(this, val) result(output)
     implicit none
     class(gaussian_type), intent(in) :: this
     real(real32), dimension(:,:,:,:,:), intent(in) :: val
@@ -184,7 +204,26 @@ contains
 
 
 !###############################################################################
-  pure function gaussian_differentiate_1d(this, val) result(output)
+  function gaussian_differentiate_array(this, val) result(output)
+    !! Differentiate Gaussian activation for 1D array
+    !!
+    !! Computes the derivative: df/dx = -x/σ^2 * f(x)
+    !! where f(x) is the Gaussian activation
+    implicit none
+
+    ! Arguments
+    class(gaussian_type), intent(in) :: this
+    !! Gaussian activation type containing sigma parameter
+    type(array_type), intent(in) :: val
+    !! Input values
+    type(array_type) :: output
+    !! Differentiated output values
+
+    !output = -val / this%sigma ** 2._real32 * this%activate_array(val)
+  end function gaussian_differentiate_array
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+  function gaussian_differentiate_1d(this, val) result(output)
     !! Differentiate Gaussian activation for 1D array
     !!
     !! Computes the derivative: df/dx = -x/σ^2 * f(x)
@@ -203,7 +242,7 @@ contains
   end function gaussian_differentiate_1d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function gaussian_differentiate_2d(this, val) result(output)
+  function gaussian_differentiate_2d(this, val) result(output)
     !! Differentiate Gaussian activation for 2D array
     !!
     !! Computes the derivative: df/dx = -x/σ^2 * f(x)
@@ -222,7 +261,7 @@ contains
   end function gaussian_differentiate_2d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function gaussian_differentiate_3d(this, val) result(output)
+  function gaussian_differentiate_3d(this, val) result(output)
     implicit none
     class(gaussian_type), intent(in) :: this
     real(real32), dimension(:,:,:), intent(in) :: val
@@ -232,7 +271,7 @@ contains
   end function gaussian_differentiate_3d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function gaussian_differentiate_4d(this, val) result(output)
+  function gaussian_differentiate_4d(this, val) result(output)
     implicit none
     class(gaussian_type), intent(in) :: this
     real(real32), dimension(:,:,:,:), intent(in) :: val
@@ -243,7 +282,7 @@ contains
   end function gaussian_differentiate_4d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function gaussian_differentiate_5d(this, val) result(output)
+  function gaussian_differentiate_5d(this, val) result(output)
     !! Differentiate Gaussian activation for 5D array
     !!
     !! Computes the derivative: df/dx = -x/σ^2 * f(x)

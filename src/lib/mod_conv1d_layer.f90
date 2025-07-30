@@ -565,7 +565,7 @@ contains
           return
        end if
        if(allocated(this%output)) deallocate(this%output)
-       allocate( this%output(1,1), source = array3d_type() )
+       allocate( this%output(1,1) )
        call this%output(1,1)%allocate( &
             array_shape = [ &
                  this%output_shape(1), &
@@ -574,10 +574,10 @@ contains
             source=0._real32 &
        )
        if(allocated(this%z)) deallocate(this%z)
-       select type(output => this%output(1,1))
-       type is (array3d_type)
-          allocate(this%z, source=output%val_ptr)
-       end select
+       !  select type(output => this%output(1,1))
+       !  type is (array3d_type)
+       !     allocate(this%z, source=output%val_ptr)
+       !  end select
        if(allocated(this%di)) deallocate(this%di)
        allocate( this%di(1,1), source = array3d_type() )
        call this%di(1,1)%allocate( &
@@ -942,10 +942,10 @@ contains
 
     ! Apply activation function to activation values (z)
     !---------------------------------------------------------------------------
-    select type(output => this%output(1,1))
-    type is (array3d_type)
-       output%val_ptr = this%transfer%activate(this%z)
-    end select
+    !  select type(output => this%output(1,1))
+    !  type is (array3d_type)
+    !     output%val_ptr = this%transfer%activate(this%z)
+    !  end select
 
   end subroutine forward_3d
 !###############################################################################

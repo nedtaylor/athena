@@ -4,7 +4,7 @@ module athena__activation_softmax
   !! This module implements the softmax activation function for normalising
   !! outputs into probability distributions
   use athena__constants, only: real32
-  use athena__misc_types, only: activation_type
+  use athena__misc_types, only: activation_type, array_type
   implicit none
 
 
@@ -16,6 +16,7 @@ module athena__activation_softmax
   type, extends(activation_type) :: softmax_type
      !! Type for softmax activation function with overloaded procedures
    contains
+     procedure, pass(this) :: activate_array => softmax_activate_array
      procedure, pass(this) :: activate_1d => softmax_activate_1d
      procedure, pass(this) :: activate_2d => softmax_activate_2d
      procedure, pass(this) :: activate_3d => softmax_activate_3d
@@ -67,7 +68,30 @@ contains
 
 
 !###############################################################################
-  pure function softmax_activate_1d(this, val) result(output)
+  function softmax_activate_array(this, val) result(output)
+    !! Apply softmax activation to 1D array
+    !!
+    !! Computes: f = exp(x-max)/sum(exp(x-max))
+    implicit none
+
+    ! Arguments
+    class(softmax_type), intent(in) :: this
+    !! Softmax activation type
+    type(array_type), intent(in) :: val
+    !! Input values
+    type(array_type) :: output
+    !! Normalised probability distribution output
+
+    ! !! compute softmax values
+    ! output = exp(val - maxval(val))
+
+    ! !! normalise softmax values
+    ! output = output / sum(output)
+
+  end function softmax_activate_array
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+  function softmax_activate_1d(this, val) result(output)
     !! Apply softmax activation to 1D array
     !!
     !! Computes: f = exp(x-max)/sum(exp(x-max))
@@ -90,7 +114,7 @@ contains
   end function softmax_activate_1d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function softmax_activate_2d(this, val) result(output)
+  function softmax_activate_2d(this, val) result(output)
     !! Apply softmax activation to 2D array
     !!
     !! Computes: f = exp(x-max)/sum(exp(x-max))
@@ -109,17 +133,17 @@ contains
     !! Loop index
 
     do s = 1, size(val,2)
-      !! compute softmax values
-      output(:,s) = exp(val(:,s) - maxval(val(:,s)))
+       !! compute softmax values
+       output(:,s) = exp(val(:,s) - maxval(val(:,s)))
 
-      !! normalise softmax values
-      output(:,s) = output(:,s) / sum(output(:,s))
+       !! normalise softmax values
+       output(:,s) = output(:,s) / sum(output(:,s))
     end do
 
   end function softmax_activate_2d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function softmax_activate_3d(this, val) result(output)
+  function softmax_activate_3d(this, val) result(output)
     !! Apply softmax activation to 3D array
     !!
     !! Computes: f = exp(x-max)/sum(exp(x-max))
@@ -138,7 +162,7 @@ contains
     !! Loop index
 
     do s=1,size(val,3)
-      ! compute softmax values
+       ! compute softmax values
        output(:,:,s) = exp(val(:,:,s) - maxval(val(:,:,s)))
 
        ! normalise softmax values
@@ -148,7 +172,7 @@ contains
   end function softmax_activate_3d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function softmax_activate_4d(this, val) result(output)
+  function softmax_activate_4d(this, val) result(output)
     !! Apply softmax activation to 4D array
     !!
     !! Computes: f = exp(x-max)/sum(exp(x-max))
@@ -168,17 +192,17 @@ contains
     !! Loop index
 
     do s=1,size(val,4)
-      ! compute softmax values
-      output(:,:,:,s) = exp(val(:,:,:,s) - maxval(val(:,:,:,s)))
+       ! compute softmax values
+       output(:,:,:,s) = exp(val(:,:,:,s) - maxval(val(:,:,:,s)))
 
-      ! normalise softmax values
-      output(:,:,:,s) = output(:,:,:,s) / sum(output(:,:,:,s))
+       ! normalise softmax values
+       output(:,:,:,s) = output(:,:,:,s) / sum(output(:,:,:,s))
     end do
 
   end function softmax_activate_4d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function softmax_activate_5d(this, val) result(output)
+  function softmax_activate_5d(this, val) result(output)
     !! Apply softmax activation to 5D array
     !!
     !! Computes: f = exp(x-max)/sum(exp(x-max))
@@ -198,11 +222,11 @@ contains
     !! Loop index
 
     do s=1,size(val,5)
-      ! compute softmax values
-      output(:,:,:,:,s) = exp(val(:,:,:,:,s) - maxval(val(:,:,:,:,s)))
+       ! compute softmax values
+       output(:,:,:,:,s) = exp(val(:,:,:,:,s) - maxval(val(:,:,:,:,s)))
 
-      ! normalise softmax values
-      output(:,:,:,:,s) = output(:,:,:,:,s) / sum(output(:,:,:,:,s))
+       ! normalise softmax values
+       output(:,:,:,:,s) = output(:,:,:,:,s) / sum(output(:,:,:,:,s))
     end do
 
   end function softmax_activate_5d
@@ -210,7 +234,7 @@ contains
 
 
 !###############################################################################
-  pure function softmax_differentiate_1d(this, val) result(output)
+  function softmax_differentiate_1d(this, val) result(output)
     !! Differentiate softmax activation for 1D array
     !!
     !! Computes the derivative: df/dx = f * (1 - f)
@@ -231,7 +255,7 @@ contains
   end function softmax_differentiate_1d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function softmax_differentiate_2d(this, val) result(output)
+  function softmax_differentiate_2d(this, val) result(output)
     !! Differentiate softmax activation for 1D array
     !!
     !! Computes the derivative: df/dx = f * (1 - f)
@@ -252,7 +276,7 @@ contains
   end function softmax_differentiate_2d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function softmax_differentiate_3d(this, val) result(output)
+  function softmax_differentiate_3d(this, val) result(output)
     !! Differentiate softmax activation for 1D array
     !!
     !! Computes the derivative: df/dx = f * (1 - f)
@@ -273,7 +297,7 @@ contains
   end function softmax_differentiate_3d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function softmax_differentiate_4d(this, val) result(output)
+  function softmax_differentiate_4d(this, val) result(output)
     !! Differentiate softmax activation for 1D array
     !!
     !! Computes the derivative: df/dx = f * (1 - f)
@@ -295,7 +319,7 @@ contains
   end function softmax_differentiate_4d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function softmax_differentiate_5d(this, val) result(output)
+  function softmax_differentiate_5d(this, val) result(output)
     !! Differentiate softmax activation for 1D array
     !!
     !! Computes the derivative: df/dx = f * (1 - f)

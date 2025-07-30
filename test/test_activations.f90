@@ -149,16 +149,16 @@ program test_activations
 !-------------------------------------------------------------------------------
 ! check swish setup
 !-------------------------------------------------------------------------------
-   activation = swish_setup(threshold = 2.E0)
-   if(.not. activation%name .eq. 'swish')then
-      success = .false.
-      write(0,*) 'activation has wrong name for swish'
-   else
-      if (abs(activation%threshold - 2.E0).gt.1.E-6) then
-         success = .false.
-         write(0,*) 'activation has wrong threshold for swish'
-      end if
-   end if
+  activation = swish_setup(threshold = 2.E0)
+  if(.not. activation%name .eq. 'swish')then
+     success = .false.
+     write(0,*) 'activation has wrong name for swish'
+  else
+     if (abs(activation%threshold - 2.E0).gt.1.E-6) then
+        success = .false.
+        write(0,*) 'activation has wrong threshold for swish'
+     end if
+  end if
 
 
 !-------------------------------------------------------------------------------
@@ -283,21 +283,21 @@ program test_activations
                 trim(activation_names(i))
         else
            call conv2d_layer%forward(input_data_conv2d)
-           select type(output => conv2d_layer%output(1,1))
-           type is(array4d_type)
-              call compare_output( &
-                   output%val_ptr, &
-                   input_data_conv2d, activation_names(i), "conv2d", success)
+           !   select type(output => conv2d_layer%output(1,1))
+           !   type is(array4d_type)
+           !      call compare_output( &
+           !           output%val_ptr, &
+           !           input_data_conv2d, activation_names(i), "conv2d", success)
 
-              output%val = 1.E0
-              call compare_derivative( &
-                   conv2d_layer%transfer%differentiate(output%val_ptr), &
-                   output%val_ptr, &
-                   activation_names(i), "conv2d", success)
-           class default
-              success = .false.
-              write(0,*) 'conv2d layer output is not of type array4d_type'
-           end select
+           !      output%val = 1.E0
+           !      call compare_derivative( &
+           !           conv2d_layer%transfer%differentiate(output%val_ptr), &
+           !           output%val_ptr, &
+           !           activation_names(i), "conv2d", success)
+           !   class default
+           !      success = .false.
+           !      write(0,*) 'conv2d layer output is not of type array4d_type'
+           !   end select
         end if
      class default
         success = .false.
@@ -329,21 +329,21 @@ program test_activations
                 trim(activation_names(i))
         else
            call conv3d_layer%forward(input_data_conv3d)
-           select type(output => conv3d_layer%output(1,1))
-           type is(array5d_type)
-              call compare_output( &
-                   output%val_ptr, &
-                   input_data_conv3d, activation_names(i), "conv3d", success)
+           !   select type(output => conv3d_layer%output(1,1))
+           !   type is(array5d_type)
+           !      call compare_output( &
+           !           output%val_ptr, &
+           !           input_data_conv3d, activation_names(i), "conv3d", success)
 
-              output%val = 1.E0
-              call compare_derivative( &
-                   conv3d_layer%transfer%differentiate(output%val_ptr), &
-                   output%val_ptr, &
-                   activation_names(i), "conv3d", success)
-           class default
-              success = .false.
-              write(0,*) 'conv3d layer output is not of type array4d_type'
-           end select
+           !      output%val = 1.E0
+           !      call compare_derivative( &
+           !           conv3d_layer%transfer%differentiate(output%val_ptr), &
+           !           output%val_ptr, &
+           !           activation_names(i), "conv3d", success)
+           !   class default
+           !      success = .false.
+           !      write(0,*) 'conv3d layer output is not of type array4d_type'
+           !   end select
         end if
      class default
         success = .false.

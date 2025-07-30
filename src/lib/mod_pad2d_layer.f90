@@ -263,7 +263,7 @@ contains
           return
        end if
        if(allocated(this%output)) deallocate(this%output)
-       allocate( this%output(1,1), source = array4d_type() )
+       allocate( this%output(1,1) )
        call this%output(1,1)%allocate( &
             array_shape = [ &
                  this%output_shape(1), &
@@ -602,46 +602,46 @@ contains
     integer :: f, s, m
     !! Loop indices
 
-    select type(output => this%output(1,1))
-    type is (array4d_type)
-       ! Initialize with zeros for default case
-       output%val_ptr(:,:,:,:) = 0._real32
+    !  select type(output => this%output(1,1))
+    !  type is (array4d_type)
+    !     ! Initialize with zeros for default case
+    !     output%val_ptr(:,:,:,:) = 0._real32
 
-       ! Copy main input region to output
-       output%val_ptr( &
-            this%pad(1)+1:this%pad(1)+this%input_shape(1), &
-            this%pad(2)+1:this%pad(2)+this%input_shape(2), :, : &
-       ) = input
+    !     ! Copy main input region to output
+    !     output%val_ptr( &
+    !          this%pad(1)+1:this%pad(1)+this%input_shape(1), &
+    !          this%pad(2)+1:this%pad(2)+this%input_shape(2), :, : &
+    !     ) = input
 
-       ! Handle padding methods that require boundary filling
-       if (this%imethod .ge. 3 .and. this%imethod .le. 5) then
-          ! Process corners (2D edges)
-          do f = 1, this%facets(2)%num
-             do s = 1, this%batch_size
-                do m = 1, this%num_channels
-                   call fill_corner_region( this, &
-                        input, output%val_ptr, &
-                        this%facets(2)%orig_bound(:,:,f), &
-                        this%facets(2)%dest_bound(:,:,f), s, m &
-                   )
-                end do
-             end do
-          end do
+    !     ! Handle padding methods that require boundary filling
+    !     if (this%imethod .ge. 3 .and. this%imethod .le. 5) then
+    !        ! Process corners (2D edges)
+    !        do f = 1, this%facets(2)%num
+    !           do s = 1, this%batch_size
+    !              do m = 1, this%num_channels
+    !                 call fill_corner_region( this, &
+    !                      input, output%val_ptr, &
+    !                      this%facets(2)%orig_bound(:,:,f), &
+    !                      this%facets(2)%dest_bound(:,:,f), s, m &
+    !                 )
+    !              end do
+    !           end do
+    !        end do
 
-          ! Process edges (1D faces)
-          do f = 1, this%facets(1)%num
-             do s = 1, this%batch_size
-                do m = 1, this%num_channels
-                   call fill_edge_region( this, &
-                        input, output%val_ptr, &
-                        this%facets(1)%orig_bound(:,:,f), &
-                        this%facets(1)%dest_bound(:,:,f), f, s, m &
-                   )
-                end do
-             end do
-          end do
-       end if
-    end select
+    !        ! Process edges (1D faces)
+    !        do f = 1, this%facets(1)%num
+    !           do s = 1, this%batch_size
+    !              do m = 1, this%num_channels
+    !                 call fill_edge_region( this, &
+    !                      input, output%val_ptr, &
+    !                      this%facets(1)%orig_bound(:,:,f), &
+    !                      this%facets(1)%dest_bound(:,:,f), f, s, m &
+    !                 )
+    !              end do
+    !           end do
+    !        end do
+    !     end if
+    !  end select
 
   end subroutine forward_4d
 !###############################################################################

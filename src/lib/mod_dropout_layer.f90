@@ -283,7 +283,7 @@ contains
           return
        end if
        if(allocated(this%output)) deallocate(this%output)
-       allocate( this%output(1,1), source = array2d_type() )
+       allocate( this%output(1,1) )
        call this%output(1,1)%allocate( &
             array_shape = [ &
                  this%output_shape(1), &
@@ -509,23 +509,23 @@ contains
     !! Loop index
 
 
-    select type(output => this%output(1,1))
-    type is (array2d_type)
-       select case(this%inference)
-       case(.true.)
-          ! Do not perform the drop operation
-          output%val_ptr = input * ( 1._real32 - this%rate )
-       case default
-          ! Perform the drop operation
-          this%idx = this%idx + 1
-          do concurrent(s=1:this%batch_size)
-             output%val_ptr(:,s) = merge( &
-                  input(:,s), 0._real32, &
-                  this%mask(:,this%idx)) / &
-             ( 1._real32 - this%rate )
-          end do
-       end select
-    end select
+    ! select type(output => this%output(1,1))
+    ! type is (array2d_type)
+    !    select case(this%inference)
+    !    case(.true.)
+    !       ! Do not perform the drop operation
+    !       output%val_ptr = input * ( 1._real32 - this%rate )
+    !    case default
+    !       ! Perform the drop operation
+    !       this%idx = this%idx + 1
+    !       do concurrent(s=1:this%batch_size)
+    !          output%val_ptr(:,s) = merge( &
+    !               input(:,s), 0._real32, &
+    !               this%mask(:,this%idx)) / &
+    !          ( 1._real32 - this%rate )
+    !       end do
+    !    end select
+    ! end select
 
   end subroutine forward_2d
 !###############################################################################

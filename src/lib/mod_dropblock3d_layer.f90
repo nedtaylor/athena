@@ -321,7 +321,7 @@ contains
           return
        end if
        if(allocated(this%output)) deallocate(this%output)
-       allocate( this%output(1,1), source = array5d_type() )
+       allocate( this%output(1,1) )
        call this%output(1,1)%allocate( &
             array_shape = [ &
                  this%output_shape(1), &
@@ -578,20 +578,20 @@ contains
     integer :: m, s
     !! Loop indices
 
-    select type(output => this%output(1,1))
-    type is (array5d_type)
-       select case(this%inference)
-       case(.true.)
-          !! do not perform the drop operation
-          output%val_ptr = input * ( 1._real32 - this%rate )
-       case default
-          !! perform the drop operation
-          do concurrent(m = 1:this%num_channels, s=1:this%batch_size)
-             output%val_ptr(:,:,:,m,s) = &
-                  merge(input(:,:,:,m,s), 0._real32, this%mask)
-          end do
-       end select
-    end select
+    !  select type(output => this%output(1,1))
+    !  type is (array5d_type)
+    !     select case(this%inference)
+    !     case(.true.)
+    !        !! do not perform the drop operation
+    !        output%val_ptr = input * ( 1._real32 - this%rate )
+    !     case default
+    !        !! perform the drop operation
+    !        do concurrent(m = 1:this%num_channels, s=1:this%batch_size)
+    !           output%val_ptr(:,:,:,m,s) = &
+    !                merge(input(:,:,:,m,s), 0._real32, this%mask)
+    !        end do
+    !     end select
+    !  end select
 
   end subroutine forward_5d
 !###############################################################################

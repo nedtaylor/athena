@@ -466,10 +466,10 @@ contains
     !! Input array
 
     this%rank = input%rank
-    this%shape = input%shape
     this%size = input%size
     this%allocated = input%allocated
-    this%val = input%val
+    if(allocated(input%shape)) this%shape = input%shape
+    if(allocated(input%val)) this%val = input%val
     !  select type(input)
     !  type is(array1d_type)
     !     select type(this)
@@ -595,11 +595,10 @@ contains
             this%left_operand%requires_grad) then
           call accumulate_gradient(this%left_operand, upstream_grad)
        end if
-       if(associated(this%right_operand) .and. &
-            this%right_operand%requires_grad) then
-          call accumulate_gradient(this%right_operand, upstream_grad)
+       if(associated(this%right_operand))then
+          if(this%right_operand%requires_grad) &
+               call accumulate_gradient(this%right_operand, upstream_grad)
        end if
-
     case('subtract')
        if(associated(this%left_operand) .and. &
             this%left_operand%requires_grad) then

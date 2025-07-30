@@ -3,7 +3,8 @@ module athena__activation_linear
   !!
   !! This module implements a scaled linear function f(x) = scale * x
   use athena__constants, only: real32
-  use athena__misc_types, only: activation_type
+  use athena__misc_types, only: activation_type, array_type, operator(+), operator(-), &
+       operator(*), operator(/), exp
   implicit none
 
 
@@ -14,6 +15,7 @@ module athena__activation_linear
 
   type, extends(activation_type) :: linear_type
    contains
+     procedure, pass(this) :: activate_array => linear_activate_array
      procedure, pass(this) :: activate_1d => linear_activate_1d
      procedure, pass(this) :: activate_2d => linear_activate_2d
      procedure, pass(this) :: activate_3d => linear_activate_3d
@@ -58,7 +60,25 @@ contains
 
 
 !###############################################################################
-  pure function linear_activate_1d(this, val) result(output)
+  function linear_activate_array(this, val) result(output)
+    !! Apply linear activation to 1D array
+    !!
+    !! Computes: f = scale * x
+    implicit none
+
+    ! Arguments
+    class(linear_type), intent(in) :: this
+    !! Linear activation type
+    type(array_type), intent(in) :: val
+    !! Input values
+    type(array_type) :: output
+    !! Scaled output values
+
+    output = this%scale * val
+  end function linear_activate_array
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+  function linear_activate_1d(this, val) result(output)
     !! Apply linear activation to 1D array
     !!
     !! Computes: f = scale * x
@@ -76,7 +96,7 @@ contains
   end function linear_activate_1d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function linear_activate_2d(this, val) result(output)
+  function linear_activate_2d(this, val) result(output)
     !! Apply linear activation to 2D array
     !!
     !! Computes: f = scale * x
@@ -94,7 +114,7 @@ contains
   end function linear_activate_2d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function linear_activate_3d(this, val) result(output)
+  function linear_activate_3d(this, val) result(output)
     !! Apply linear activation to 3D array
     !!
     !! Computes: f = scale * x
@@ -112,7 +132,7 @@ contains
   end function linear_activate_3d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function linear_activate_4d(this, val) result(output)
+  function linear_activate_4d(this, val) result(output)
     !! Apply linear activation to 4D array
     !!
     !! Computes: f = scale * x
@@ -131,7 +151,7 @@ contains
   end function linear_activate_4d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function linear_activate_5d(this, val) result(output)
+  function linear_activate_5d(this, val) result(output)
     !! Apply linear activation to 5D array
     !!
     !! Computes: f = scale * x
@@ -152,7 +172,7 @@ contains
 
 
 !###############################################################################
-  pure function linear_differentiate_1d(this, val) result(output)
+  function linear_differentiate_1d(this, val) result(output)
     !! Differentiate linear activation for 1D array
     !!
     !! Computes constant derivative: df/dx = scale
@@ -170,7 +190,7 @@ contains
   end function linear_differentiate_1d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function linear_differentiate_2d(this, val) result(output)
+  function linear_differentiate_2d(this, val) result(output)
     !! Differentiate linear activation for 2D array
     !!
     !! Computes constant derivative: df/dx = scale
@@ -188,7 +208,7 @@ contains
   end function linear_differentiate_2d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function linear_differentiate_3d(this, val) result(output)
+  function linear_differentiate_3d(this, val) result(output)
     !! Differentiate linear activation for 3D array
     !!
     !! Computes constant derivative: df/dx = scale
@@ -206,7 +226,7 @@ contains
   end function linear_differentiate_3d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function linear_differentiate_4d(this, val) result(output)
+  function linear_differentiate_4d(this, val) result(output)
     !! Differentiate linear activation for 4D array
     !!
     !! Computes constant derivative: df/dx = scale
@@ -225,7 +245,7 @@ contains
   end function linear_differentiate_4d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function linear_differentiate_5d(this, val) result(output)
+  function linear_differentiate_5d(this, val) result(output)
     !! Differentiate linear activation for 5D array
     !!
     !! Computes constant derivative: df/dx = scale

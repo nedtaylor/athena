@@ -3,7 +3,8 @@ module athena__activation_none
   !!
   !! This module implements the identity function f(x) = x
   use athena__constants, only: real32
-  use athena__misc_types, only: activation_type
+  use athena__misc_types, only: activation_type, array_type, operator(+), operator(-), &
+       operator(*), operator(/), exp
   implicit none
 
 
@@ -14,6 +15,7 @@ module athena__activation_none
 
   type, extends(activation_type) :: none_type
    contains
+     procedure, pass(this) :: activate_array => none_activate_array
      procedure, pass(this) :: activate_1d => none_activate_1d
      procedure, pass(this) :: activate_2d => none_activate_2d
      procedure, pass(this) :: activate_3d => none_activate_3d
@@ -57,7 +59,25 @@ contains
 
 
 !###############################################################################
-  pure function none_activate_1d(this, val) result(output)
+  function none_activate_array(this, val) result(output)
+    !! Apply identity activation to 1D array
+    !!
+    !! Simply returns scaled input: f = scale * x
+    implicit none
+
+    ! Arguments
+    class(none_type), intent(in) :: this
+    !! None activation type
+    type(array_type), intent(in) :: val
+    !! Input values
+    type(array_type) :: output
+    !! Scaled output values
+
+    output = val * this%scale
+  end function none_activate_array
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+  function none_activate_1d(this, val) result(output)
     !! Apply identity activation to 1D array
     !!
     !! Simply returns scaled input: f = scale * x
@@ -75,7 +95,7 @@ contains
   end function none_activate_1d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function none_activate_2d(this, val) result(output)
+  function none_activate_2d(this, val) result(output)
     !! Apply identity activation to 2D array
     !!
     !! Simply returns scaled input: f = scale * x
@@ -93,7 +113,7 @@ contains
   end function none_activate_2d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function none_activate_3d(this, val) result(output)
+  function none_activate_3d(this, val) result(output)
     !! Apply identity activation to 3D array
     !!
     !! Simply returns scaled input: f = scale * x
@@ -111,7 +131,7 @@ contains
   end function none_activate_3d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function none_activate_4d(this, val) result(output)
+  function none_activate_4d(this, val) result(output)
     !! Apply identity activation to 4D array
     !!
     !! Simply returns scaled input: f = scale * x
@@ -130,7 +150,7 @@ contains
   end function none_activate_4d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function none_activate_5d(this, val) result(output)
+  function none_activate_5d(this, val) result(output)
     !! Apply identity activation to 5D array
     !!
     !! Simply returns scaled input: f = scale * x
@@ -151,7 +171,7 @@ contains
 
 
 !###############################################################################
-  pure function none_differentiate_1d(this, val) result(output)
+  function none_differentiate_1d(this, val) result(output)
     !! Differentiate identity activation for 1D array
     !!
     !! Returns constant scale factor as derivative: df/dx = scale
@@ -169,7 +189,7 @@ contains
   end function none_differentiate_1d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function none_differentiate_2d(this, val) result(output)
+  function none_differentiate_2d(this, val) result(output)
     !! Differentiate identity activation for 2D array
     !!
     !! Returns constant scale factor as derivative: df/dx = scale
@@ -187,7 +207,7 @@ contains
   end function none_differentiate_2d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function none_differentiate_3d(this, val) result(output)
+  function none_differentiate_3d(this, val) result(output)
     !! Differentiate identity activation for 3D array
     !!
     !! Returns constant scale factor as derivative: df/dx = scale
@@ -205,7 +225,7 @@ contains
   end function none_differentiate_3d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function none_differentiate_4d(this, val) result(output)
+  function none_differentiate_4d(this, val) result(output)
     !! Differentiate identity activation for 4D array
     !!
     !! Returns constant scale factor as derivative: df/dx = scale
@@ -224,7 +244,7 @@ contains
   end function none_differentiate_4d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function none_differentiate_5d(this, val) result(output)
+  function none_differentiate_5d(this, val) result(output)
     !! Differentiate identity activation for 5D array
     !!
     !! Returns constant scale factor as derivative: df/dx = scale

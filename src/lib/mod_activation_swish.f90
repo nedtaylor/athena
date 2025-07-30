@@ -4,7 +4,8 @@ module athena__activation_swish
   !! This module implements the swish activation function: f(x) = x * sigmoid(β*x)
   !! where β is a learnable parameter (default β=1)
   use athena__constants, only: real32
-  use athena__misc_types, only: activation_type
+  use athena__misc_types, only: activation_type, array_type, operator(+), operator(-), &
+       operator(*), operator(/), exp
   implicit none
 
   private
@@ -16,6 +17,7 @@ module athena__activation_swish
      real(real32) :: beta = 1._real32
      !! Beta parameter for swish function
    contains
+     procedure, pass(this) :: activate_array => swish_activate_array
      procedure, pass(this) :: activate_1d => swish_activate_1d
      !! Apply swish activation to 1D array
      procedure, pass(this) :: activate_2d => swish_activate_2d
@@ -85,7 +87,31 @@ contains
 
 
 !###############################################################################
-  pure function swish_activate_1d(this, val) result(output)
+  function swish_activate_array(this, val) result(output)
+    !! Apply swish activation to 1D array
+    !!
+    !! Computes: f(x) = x * sigmoid(β*x) = x / (1 + exp(-β*x))
+    implicit none
+
+    ! Arguments
+    class(swish_type), intent(in) :: this
+    !! Swish activation type
+    type(array_type), intent(in) :: val
+    !! Input values
+    type(array_type) :: output
+    !! Swish activation output
+
+    ! Local variables
+    type(array_type) :: sigmoid_part
+    !! Sigmoid component
+
+    ! Compute sigmoid(β*x)
+    sigmoid_part = 1._real32 / (1._real32 + exp(-this%beta * val))
+
+    ! Compute swish: x * sigmoid(β*x)
+    output = this%scale * val * sigmoid_part
+  end function swish_activate_array
+  function swish_activate_1d(this, val) result(output)
     !! Apply swish activation to 1D array
     !!
     !! Computes: f(x) = x * sigmoid(β*x) = x / (1 + exp(-β*x))
@@ -113,7 +139,7 @@ contains
 
 
 !###############################################################################
-  pure function swish_activate_2d(this, val) result(output)
+  function swish_activate_2d(this, val) result(output)
     !! Apply swish activation to 2D array
     !!
     !! Computes: f(x) = x * sigmoid(β*x) = x / (1 + exp(-β*x))
@@ -141,7 +167,7 @@ contains
 
 
 !###############################################################################
-  pure function swish_activate_3d(this, val) result(output)
+  function swish_activate_3d(this, val) result(output)
     !! Apply swish activation to 3D array
     !!
     !! Computes: f(x) = x * sigmoid(β*x) = x / (1 + exp(-β*x))
@@ -169,7 +195,7 @@ contains
 
 
 !###############################################################################
-  pure function swish_activate_4d(this, val) result(output)
+  function swish_activate_4d(this, val) result(output)
     !! Apply swish activation to 4D array
     !!
     !! Computes: f(x) = x * sigmoid(β*x) = x / (1 + exp(-β*x))
@@ -199,7 +225,7 @@ contains
 
 
 !###############################################################################
-  pure function swish_activate_5d(this, val) result(output)
+  function swish_activate_5d(this, val) result(output)
     !! Apply swish activation to 5D array
     !!
     !! Computes: f(x) = x * sigmoid(β*x) = x / (1 + exp(-β*x))
@@ -229,7 +255,7 @@ contains
 
 
 !###############################################################################
-  pure function swish_differentiate_1d(this, val) result(output)
+  function swish_differentiate_1d(this, val) result(output)
     !! Differentiate swish activation for 1D array
     !!
     !! Computes the derivative:
@@ -259,7 +285,7 @@ contains
 
 
 !###############################################################################
-  pure function swish_differentiate_2d(this, val) result(output)
+  function swish_differentiate_2d(this, val) result(output)
     !! Differentiate swish activation for 2D array
     !!
     !! Computes the derivative:
@@ -289,7 +315,7 @@ contains
 
 
 !###############################################################################
-  pure function swish_differentiate_3d(this, val) result(output)
+  function swish_differentiate_3d(this, val) result(output)
     !! Differentiate swish activation for 3D array
     !!
     !! Computes the derivative:
@@ -319,7 +345,7 @@ contains
 
 
 !###############################################################################
-  pure function swish_differentiate_4d(this, val) result(output)
+  function swish_differentiate_4d(this, val) result(output)
     !! Differentiate swish activation for 4D array
     !!
     !! Computes the derivative:
@@ -351,7 +377,7 @@ contains
 
 
 !###############################################################################
-  pure function swish_differentiate_5d(this, val) result(output)
+  function swish_differentiate_5d(this, val) result(output)
     !! Differentiate swish activation for 5D array
     !!
     !! Computes the derivative:

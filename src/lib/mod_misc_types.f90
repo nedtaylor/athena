@@ -22,7 +22,7 @@ module athena__misc_types
   public :: array1d_type, array2d_type, array3d_type, array4d_type, array5d_type
   public :: facets_type
 
-  public :: operator(+), operator(-), operator(*), operator(/), operator(**)
+  public :: operator(+), operator(-), operator(*), operator(/), operator(**), operator(.mmul.)
   public :: sin, cos, tan, exp, log, sqrt, tanh, sigmoid
 
 
@@ -38,6 +38,7 @@ module athena__misc_types
      real(real32) :: threshold
      !! Threshold of the activation function
    contains
+     procedure (activation_function_array), deferred, pass(this) :: activate_array
      procedure (activation_function_1d), deferred, pass(this) :: activate_1d
      !! Abstract procedure for 1D activation function
      procedure (derivative_function_1d), deferred, pass(this) :: &
@@ -63,7 +64,7 @@ module athena__misc_types
      procedure (derivative_function_5d), deferred, pass(this) :: &
           differentiate_5d
      !! Abstract procedure for 5D derivative of activation function
-     generic :: activate => activate_1d, activate_2d, &
+     generic :: activate => activate_array, activate_1d, activate_2d, &
           activate_3d , activate_4d, activate_5d
      !! Generic for activation function
      generic :: differentiate => differentiate_1d, differentiate_2d, &
@@ -74,7 +75,8 @@ module athena__misc_types
   ! Interface for activation function
   !-----------------------------------------------------------------------------
   abstract interface
-     pure function activation_function_1d(this, val) result(output)
+
+     function activation_function_1d(this, val) result(output)
        !! Interface for activation function
        import activation_type, real32
        class(activation_type), intent(in) :: this
@@ -82,21 +84,21 @@ module athena__misc_types
        real(real32), dimension(size(val,1)) :: output
      end function activation_function_1d
 
-     pure function activation_function_2d(this, val) result(output)
+     function activation_function_2d(this, val) result(output)
        import activation_type, real32
        class(activation_type), intent(in) :: this
        real(real32), dimension(:,:), intent(in) :: val
        real(real32), dimension(size(val,1),size(val,2)) :: output
      end function activation_function_2d
 
-     pure function activation_function_3d(this, val) result(output)
+     function activation_function_3d(this, val) result(output)
        import activation_type, real32
        class(activation_type), intent(in) :: this
        real(real32), dimension(:,:,:), intent(in) :: val
        real(real32), dimension(size(val,1),size(val,2),size(val,3)) :: output
      end function activation_function_3d
 
-     pure function activation_function_4d(this, val) result(output)
+     function activation_function_4d(this, val) result(output)
        import activation_type, real32
        class(activation_type), intent(in) :: this
        real(real32), dimension(:,:,:,:), intent(in) :: val
@@ -104,7 +106,7 @@ module athena__misc_types
             size(val,1),size(val,2),size(val,3),size(val,4)) :: output
      end function activation_function_4d
 
-     pure function activation_function_5d(this, val) result(output)
+     function activation_function_5d(this, val) result(output)
        import activation_type, real32
        class(activation_type), intent(in) :: this
        real(real32), dimension(:,:,:,:,:), intent(in) :: val
@@ -117,28 +119,28 @@ module athena__misc_types
   ! Interface for derivative function
   !-----------------------------------------------------------------------------
   abstract interface
-     pure function derivative_function_1d(this, val) result(output)
+     function derivative_function_1d(this, val) result(output)
        import activation_type, real32
        class(activation_type), intent(in) :: this
        real(real32), dimension(:), intent(in) :: val
        real(real32), dimension(size(val,1)) :: output
      end function derivative_function_1d
 
-     pure function derivative_function_2d(this, val) result(output)
+     function derivative_function_2d(this, val) result(output)
        import activation_type, real32
        class(activation_type), intent(in) :: this
        real(real32), dimension(:,:), intent(in) :: val
        real(real32), dimension(size(val,1),size(val,2)) :: output
      end function derivative_function_2d
 
-     pure function derivative_function_3d(this, val) result(output)
+     function derivative_function_3d(this, val) result(output)
        import activation_type, real32
        class(activation_type), intent(in) :: this
        real(real32), dimension(:,:,:), intent(in) :: val
        real(real32), dimension(size(val,1),size(val,2),size(val,3)) :: output
      end function derivative_function_3d
 
-     pure function derivative_function_4d(this, val) result(output)
+     function derivative_function_4d(this, val) result(output)
        import activation_type, real32
        class(activation_type), intent(in) :: this
        real(real32), dimension(:,:,:,:), intent(in) :: val
@@ -146,7 +148,7 @@ module athena__misc_types
             size(val,1),size(val,2),size(val,3),size(val,4)) :: output
      end function derivative_function_4d
 
-     pure function derivative_function_5d(this, val) result(output)
+     function derivative_function_5d(this, val) result(output)
        import activation_type, real32
        class(activation_type), intent(in) :: this
        real(real32), dimension(:,:,:,:,:), intent(in) :: val
@@ -247,8 +249,8 @@ module athena__misc_types
      !  !! Generic for adding arrays
      !  generic, public :: operator(*) => multiply
      !  !! Generic for multiplying arrays
-     !  procedure :: assign => assign_array
-     !  generic, public :: assignment(=) => assign
+     procedure :: assign => assign_array
+     generic, public :: assignment(=) => assign
 
      procedure :: backward => backward_autodiff
      !! Backward pass for gradient computation
@@ -351,6 +353,12 @@ module athena__misc_types
   !-----------------------------------------------------------------------------
   interface operator(+)
      module procedure add_arrays
+     module procedure add_real2d
+     module procedure real2d_add
+     module procedure add_real1d
+     module procedure real1d_add
+     module procedure add_scalar
+     module procedure scalar_add
   end interface
 
   interface operator(-)
@@ -361,17 +369,24 @@ module athena__misc_types
   interface operator(*)
      module procedure multiply_arrays
      module procedure multiply_scalar
-     module procedure scalar_multiply_autodiff
+     module procedure scalar_multiply
   end interface
 
   interface operator(/)
      module procedure divide_arrays
      module procedure divide_scalar
+     module procedure scalar_divide
   end interface
 
   interface operator(**)
      module procedure power_arrays
      module procedure power_scalar
+  end interface
+
+  interface operator(.mmul.)
+     module procedure matmul_arrays
+     module procedure real2d_matmul
+     module procedure matmul_real2d
   end interface
 
   !-----------------------------------------------------------------------------
@@ -672,7 +687,7 @@ module athena__misc_types
 
 
   interface assignment (=)
-     module procedure assign_array
+     !  module procedure assign_array
      module procedure assign_array1d
      module procedure assign_array2d
      module procedure assign_array3d
@@ -725,7 +740,15 @@ module athena__misc_types
   end interface
 !-------------------------------------------------------------------------------
 
-
+  abstract interface
+     function activation_function_array(this, val) result(output)
+       !! Interface for activation function
+       import activation_type, real32, array_type
+       class(activation_type), intent(in) :: this
+       type(array_type), intent(in) :: val
+       type(array_type) :: output
+     end function activation_function_array
+  end interface
 contains
 
 
@@ -751,6 +774,94 @@ contains
        c%right_operand => b
     end if
   end function add_arrays
+
+  function add_real2d(a, b) result(c)
+    !! Matrix multiplication of two autodiff arrays
+    class(array_type), intent(in), target :: a
+    real(real32), dimension(:,:), intent(in) :: b
+    type(array_type), pointer :: c
+
+    integer :: s
+
+    allocate(c)
+    call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
+    c%val = a%val + b
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'add'
+       c%left_operand => a
+    end if
+  end function add_real2d
+
+  function real2d_add(a, b) result(c)
+    !! Add a real array to an autodiff array
+    real(real32), dimension(:,:), intent(in) :: a
+    class(array_type), intent(in), target :: b
+    type(array_type), pointer :: c
+
+    c = add_real2d(b, a)
+  end function real2d_add
+
+  function add_real1d(a, b) result(c)
+    !! Add a real array to an autodiff array
+    class(array_type), intent(in), target :: a
+    real(real32), dimension(:), intent(in) :: b
+    type(array_type), pointer :: c
+
+    integer :: s
+
+    allocate(c)
+    call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
+    do concurrent(s=1:size(a%val,2))
+       c%val(:,s) = a%val(:,s) + b(:)
+    end do
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'add'
+       c%left_operand => a
+    end if
+    write(*,*) "tat3", shape(c%val), c%val
+  end function add_real1d
+
+  function real1d_add(a, b) result(c)
+    !! Add a real array to an autodiff array
+    real(real32), dimension(:), intent(in) :: a
+    class(array_type), intent(in), target :: b
+    type(array_type), pointer :: c
+
+    c = add_real1d(b, a)
+    write(*,*) "hot"
+  end function real1d_add
+
+  function add_scalar(a, b) result(c)
+    !! Add a scalar to an autodiff array
+    class(array_type), intent(in), target :: a
+    real(real32), intent(in) :: b
+    type(array_type), pointer :: c
+
+    allocate(c)
+    c%val = a%val + b
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'add'
+       c%left_operand => a
+    end if
+  end function add_scalar
+
+  function scalar_add(a, b) result(c)
+    !! Add a scalar to an autodiff array
+    real(real32), intent(in) :: a
+    class(array_type), intent(in), target :: b
+    type(array_type), pointer :: c
+
+    c = add_scalar(b, a)
+  end function scalar_add
 
   !-----------------------------------------------------------------------------
   ! Subtraction operation
@@ -825,14 +936,83 @@ contains
     end if
   end function multiply_scalar
 
-  function scalar_multiply_autodiff(scalar, a) result(c)
+  function scalar_multiply(scalar, a) result(c)
     !! Multiply scalar by autodiff array
     real(real32), intent(in) :: scalar
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
     c = multiply_scalar(a, scalar)
-  end function scalar_multiply_autodiff
+  end function scalar_multiply
+
+  function matmul_arrays(a, b) result(c)
+    !! Matrix multiplication of two autodiff arrays
+    class(array_type), intent(in), target :: a, b
+    type(array_type), pointer :: c
+
+    integer :: s
+
+    write(*,*) "mmul_arrays"
+    allocate(c)
+    call c%allocate(array_shape=[size(a%val,1), size(b%val,2)])
+    do concurrent(s=1:size(a%val,2))
+       c%val(:,s) = matmul(a%val, b%val(:,s))
+    end do
+
+    if(a%requires_grad .or. b%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'matmul'
+       c%left_operand => a
+       c%right_operand => b
+    end if
+  end function matmul_arrays
+
+  function matmul_real2d(a, b) result(c)
+    !! Matrix multiplication of a real array and an autodiff array
+    class(array_type), intent(in), target :: a
+    real(real32), dimension(:,:), intent(in) :: b
+    type(array_type), pointer :: c
+
+    integer :: s
+
+    write(*,*) "mmul_real"
+    allocate(c)
+    call c%allocate(array_shape=[size(b,1), size(a%val,2)])
+    do concurrent(s=1:size(a%val,2))
+       c%val(:,s) = matmul(b, a%val(:,s))
+    end do
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'matmul'
+       c%left_operand => a
+    end if
+  end function matmul_real2d
+
+  function real2d_matmul(a, b) result(c)
+    !! Matrix multiplication of two autodiff arrays
+    real(real32), dimension(:,:), intent(in) :: a
+    class(array_type), intent(in), target :: b
+    type(array_type), pointer :: c
+
+    integer :: s
+
+    write(*,*) "real_mmul"
+    allocate(c)
+    call c%allocate(array_shape=[size(a,1), size(b%val,2)])
+    do concurrent(s=1:size(b%val,2))
+       c%val(:,s) = matmul(a, b%val(:,s))
+    end do
+
+    if(b%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'matmul'
+       c%left_operand => b
+    end if
+  end function real2d_matmul
 
   !-----------------------------------------------------------------------------
   ! Division operations
@@ -870,6 +1050,23 @@ contains
        c%left_operand => a
     end if
   end function divide_scalar
+
+  function scalar_divide(scalar, a) result(c)
+    !! Divide scalar by autodiff array
+    real(real32), intent(in) :: scalar
+    class(array_type), intent(in), target :: a
+    type(array_type), pointer :: c
+
+    allocate(c)
+    c%val = scalar / a%val
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'scalar_divide'
+       c%left_operand => a
+    end if
+  end function scalar_divide
 
   !-----------------------------------------------------------------------------
   ! Power operations

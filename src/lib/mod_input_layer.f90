@@ -292,12 +292,12 @@ contains
     if(allocated(this%input_shape))then
        if(allocated(this%output)) deallocate(this%output)
        if(this%use_graph_input)then
-          allocate(this%output(2,this%batch_size), source=array2d_type())
+          allocate(this%output(2,this%batch_size))
        else
           select case(size(this%input_shape))
           case(1)
              this%input_rank = 1
-             allocate(this%output(1,1), source=array2d_type())
+             allocate(this%output(1,1))
              call this%output(1,1)%allocate( &
                   array_shape = [ &
                        this%input_shape(1), this%batch_size ], &
@@ -305,7 +305,7 @@ contains
              )
           case(2)
              this%input_rank = 2
-             allocate(this%output(1,1), source=array3d_type())
+             allocate(this%output(1,1))
              call this%output(1,1)%allocate( &
                   array_shape = [ &
                        this%input_shape(1), &
@@ -315,7 +315,7 @@ contains
              )
           case(3)
              this%input_rank = 3
-             allocate(this%output(1,1), source=array4d_type())
+             allocate(this%output(1,1))
              call this%output(1,1)%allocate( &
                   array_shape = [ &
                        this%input_shape(1), &
@@ -325,7 +325,7 @@ contains
              )
           case(4)
              this%input_rank = 4
-             allocate(this%output(1,1), source=array5d_type())
+             allocate(this%output(1,1))
              call this%output(1,1)%allocate( &
                   array_shape = [ &
                        this%input_shape(1), &
