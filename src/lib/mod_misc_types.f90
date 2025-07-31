@@ -10,6 +10,7 @@ module athena__misc_types
   !! on the arrays used in the neural network. The facets type is used to store
   !! the faces, edges, and corners of the arrays for padding.
   use athena__constants, only: real32
+  use athena__io_utils, only: stop_program
   implicit none
 
 
@@ -22,8 +23,9 @@ module athena__misc_types
   public :: array1d_type, array2d_type, array3d_type, array4d_type, array5d_type
   public :: facets_type
 
-  public :: operator(+), operator(-), operator(*), operator(/), operator(**), operator(.mmul.)
-  public :: sin, cos, tan, exp, log, sqrt, tanh, sigmoid
+  public :: operator(+), operator(-), operator(*), operator(/), &
+       operator(**), operator(.mmul.)
+  public :: sin, cos, tan, exp, log, sqrt, tanh, sigmoid, transpose
 
 
 !-------------------------------------------------------------------------------
@@ -422,6 +424,10 @@ module athena__misc_types
 
   interface sigmoid
      module procedure sigmoid_array
+  end interface
+
+  interface transpose
+     module procedure transpose_array
   end interface
 
 
@@ -824,7 +830,6 @@ contains
        c%operation = 'add'
        c%left_operand => a
     end if
-    write(*,*) "tat3", shape(c%val), c%val
   end function add_real1d
 
   function real1d_add(a, b) result(c)
@@ -834,7 +839,6 @@ contains
     type(array_type), pointer :: c
 
     c = add_real1d(b, a)
-    write(*,*) "hot"
   end function real1d_add
 
   function add_scalar(a, b) result(c)
@@ -952,7 +956,6 @@ contains
 
     integer :: s
 
-    write(*,*) "mmul_arrays"
     allocate(c)
     call c%allocate(array_shape=[size(a%val,1), size(b%val,2)])
     do concurrent(s=1:size(a%val,2))
@@ -976,7 +979,6 @@ contains
 
     integer :: s
 
-    write(*,*) "mmul_real"
     allocate(c)
     call c%allocate(array_shape=[size(b,1), size(a%val,2)])
     do concurrent(s=1:size(a%val,2))
@@ -986,7 +988,7 @@ contains
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
-       c%operation = 'matmul'
+       c%operation = 'matmul_scalar'
        c%left_operand => a
     end if
   end function matmul_real2d
@@ -999,7 +1001,6 @@ contains
 
     integer :: s
 
-    write(*,*) "real_mmul"
     allocate(c)
     call c%allocate(array_shape=[size(a,1), size(b%val,2)])
     do concurrent(s=1:size(b%val,2))
@@ -1009,10 +1010,37 @@ contains
     if(b%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
-       c%operation = 'matmul'
+       c%operation = 'matmul_scalar'
        c%left_operand => b
     end if
   end function real2d_matmul
+
+  function transpose_array(a) result(c)
+    !! Transpose an autodiff array
+    class(array_type), intent(in), target :: a
+    type(array_type), pointer :: c
+
+    integer :: i, j, s
+
+    if(size(a%shape) .ne. 2)then
+       call stop_program("transpose_array: only 2D arrays can be transposed")
+    end if
+    allocate(c)
+    call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
+    ! transpose 1D array by using shape to swap dimensions
+    do concurrent(s=1:size(a%val,2))
+       do concurrent(i=1:a%shape(1), j=1:a%shape(2))
+          c%val( (i-1)*a%shape(2) + j, s) = a%val( (j-1)*a%shape(1) + i, s)
+       end do
+    end do
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'transpose'
+       c%left_operand => a
+    end if
+  end function transpose_array
 
   !-----------------------------------------------------------------------------
   ! Division operations

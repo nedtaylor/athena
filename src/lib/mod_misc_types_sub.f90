@@ -470,56 +470,12 @@ contains
     this%allocated = input%allocated
     if(allocated(input%shape)) this%shape = input%shape
     if(allocated(input%val)) this%val = input%val
-    !  select type(input)
-    !  type is(array1d_type)
-    !     select type(this)
-    !     type is(array1d_type)
-    !        this%val_ptr( &
-    !             1:this%shape(1) &
-    !        ) => this%val
-    !     end select
-    !  type is(array2d_type)
-    !     select type(this)
-    !     type is(array2d_type)
-    !        this%val_ptr( &
-    !             1:this%shape(1), &
-    !             1:size(this%val, dim=2) &
-    !        ) => this%val
-    !     end select
-    !  type is(array3d_type)
-    !     select type(this)
-    !     type is(array3d_type)
-    !        this%val_ptr( &
-    !             1:this%shape(1), &
-    !             1:this%shape(2),  &
-    !             1:size(this%val, dim=2) &
-    !        ) => this%val
-    !     end select
-    !  type is(array4d_type)
-    !     select type(this)
-    !     type is(array4d_type)
-    !        this%val_ptr( &
-    !             1:this%shape(1), &
-    !             1:this%shape(2), &
-    !             1:this%shape(3),  &
-    !             1:size(this%val, dim=2) &
-    !        ) => this%val
-    !     end select
-    !  type is(array5d_type)
-    !     select type(this)
-    !     type is(array5d_type)
-    !        this%val_ptr( &
-    !             1:this%shape(1), &
-    !             1:this%shape(2), &
-    !             1:this%shape(3), &
-    !             1:this%shape(4),  &
-    !             1:size(this%val, dim=2) &
-    !        ) => this%val
-    !     end select
-    !  class default
-    !     call stop_program('Incompatible types')
-    !     return
-    !  end select
+    this%requires_grad = input%requires_grad
+    this%is_leaf = input%is_leaf
+    if(associated(input%grad)) this%grad => input%grad
+    if(associated(input%left_operand)) this%left_operand => input%left_operand
+    if(associated(input%right_operand)) this%right_operand => input%right_operand
+    this%operation = input%operation
 
   end subroutine assign_array
 !###############################################################################
@@ -531,8 +487,8 @@ contains
     type(array_type), intent(inout) :: this
 
     if(associated(this%grad)) then
-       call this%grad%deallocate()
-       deallocate(this%grad)
+       if(this%grad%allocated) call this%grad%deallocate()
+       nullify(this%grad)
     end if
   end subroutine finalise_array
 !###############################################################################
@@ -620,6 +576,29 @@ contains
           call accumulate_gradient(this%right_operand, &
                upstream_grad * this%left_operand)
        end if
+    case('multiply_scalar')
+       if(associated(this%left_operand) .and. &
+            this%left_operand%requires_grad) then
+          call accumulate_gradient(this%left_operand, &
+               upstream_grad)
+       end if
+    case('matmul_scalar')
+       if(associated(this%left_operand) .and. &
+            this%left_operand%requires_grad) then
+          call accumulate_gradient(this%left_operand, &
+               upstream_grad)
+       end if
+    case('matmul')
+       if(associated(this%left_operand) .and. &
+            this%left_operand%requires_grad) then
+          call accumulate_gradient(this%left_operand, &
+               upstream_grad .mmul. transpose(this%right_operand))
+       end if
+       if(associated(this%right_operand) .and. &
+            this%right_operand%requires_grad) then
+          call accumulate_gradient(this%right_operand, &
+               transpose(this%left_operand) .mmul. upstream_grad)
+       end if
 
     case('divide')
        if(associated(this%left_operand) .and. &
@@ -676,6 +655,11 @@ contains
        end if
 
     case default
+       ! write(*,*) "Unknown operation: ", trim(this%operation)
+       ! write(*,*) "left associated: ", associated(this%left_operand)
+       ! write(*,*) "right associated: ", associated(this%right_operand)
+       ! write(*,*) "requires_grad: ", this%requires_grad
+       ! write(*,*) "is_leaf: ", this%is_leaf
        ! No gradient computation needed for leaf nodes or unknown operations
     end select
   end subroutine backward_op_array

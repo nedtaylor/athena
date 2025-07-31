@@ -148,6 +148,7 @@ module athena__network
      !! Forward pass for derived input
      procedure, pass(this) :: backward_derived
      !! Backward pass for derived input
+     procedure, pass(this) :: backward_derived2d
      procedure, pass(this) :: forward_graph
      !! Forward pass for graph input
      procedure, pass(this) :: backward_graph
@@ -612,6 +613,13 @@ module athena__network
        type(array_type), dimension(:), intent(in) :: output
        !! Output data
      end subroutine backward_derived
+     module subroutine backward_derived2d(this, output)
+       !! Backward pass for derived input
+       class(network_type), intent(inout) :: this
+       !! Instance of the network
+       type(array_type), dimension(:,:), intent(in) :: output
+       !! Output data
+     end subroutine backward_derived2d
      module subroutine backward_graph(this, output)
        !! Forward pass for derived input
        class(network_type), intent(inout) :: this

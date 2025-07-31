@@ -877,16 +877,16 @@ contains
     call this%z%zero_grad()
     call this%z%set_requires_grad(.true.)
 
-    write(*,*) "forward_derived_full"
     ! Generate outputs from weights, biases, and inputs
     !---------------------------------------------------------------------------
     this%z = ( this%weight(:,:this%num_inputs) .mmul. input(1,1) ) + &
          [ this%weight(:,this%num_inputs+1) ]
-    write(*,*) "done"
 
     ! Apply activation function to activation
     !---------------------------------------------------------------------------
     this%output(1,1) = this%transfer%activate(this%z)
+
+    call this%output(1,1)%backward()
 
   end subroutine forward_derived_full
 !###############################################################################
@@ -922,31 +922,32 @@ contains
     ! bias_diff = this%transfer%differentiate([1._real32])
 
 
-    ! ! Get gradient multiplied by differential of Z
-    ! !---------------------------------------------------------------------------
-    ! ! The grad_dz values are the error multipled by the derivative ...
-    ! ! ... of the transfer function
-    ! ! grad_dz(l) = g'(a) * dE/dI(l)
-    ! ! grad_dz(l) = differential of activation * error from next layer
-    ! grad_dz = gradient * this%transfer%differentiate(this%z)
-    ! this%db(:,:) = this%db(:,:) + grad_dz * bias_diff(1)
+    ! Get gradient multiplied by differential of Z
+    !---------------------------------------------------------------------------
+    ! The grad_dz values are the error multipled by the derivative ...
+    ! ... of the transfer function
+    ! grad_dz(l) = g'(a) * dE/dI(l)
+    ! grad_dz(l) = differential of activation * error from next layer
+
+    grad_dz = gradient(1,1)%val * this%z%grad%val !this%transfer%differentiate(this%z)
+    this%db(:,:) = this%db(:,:) + grad_dz * bias_diff(1)
 
 
-    ! ! Update weights
-    ! !---------------------------------------------------------------------------
-    ! do concurrent(s=1:this%batch_size)
-    !    !! partial derivatives of error wrt weights
-    !    !! dE/dW = o/p(l-1) * grad_dz
-    !    do j = 1, this%num_inputs
-    !       this%dw(:,j,s) = this%dw(:,j,s) + input(j,s) * grad_dz(:,s)
-    !    end do
-    !    !! the errors are summed from the grad_dz of the ...
-    !    !! ... 'child' node * 'child' weight
-    !    !! dE/dI(l-1) = sum(weight(l) * grad_dz(l))
-    !    !! this prepares dE/dI for when it is passed into the previous layer
-    !    this%di(1,1)%val(:,s) = &
-    !         matmul(grad_dz(:,s), this%weight(:,:this%num_inputs))
-    ! end do
+    ! Update weights
+    !---------------------------------------------------------------------------
+    do concurrent(s=1:this%batch_size)
+       !! partial derivatives of error wrt weights
+       !! dE/dW = o/p(l-1) * grad_dz
+       do j = 1, this%num_inputs
+          this%dw(:,j,s) = this%dw(:,j,s) + input(1,1)%val(j,s) * grad_dz(:,s)
+       end do
+       !! the errors are summed from the grad_dz of the ...
+       !! ... 'child' node * 'child' weight
+       !! dE/dI(l-1) = sum(weight(l) * grad_dz(l))
+       !! this prepares dE/dI for when it is passed into the previous layer
+       this%di(1,1)%val(:,s) = &
+            matmul(grad_dz(:,s), this%weight(:,:this%num_inputs))
+    end do
 
   end subroutine backward_derived_full
 !###############################################################################

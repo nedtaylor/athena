@@ -2523,7 +2523,7 @@ contains
     !! Autodiff input
 
 
-    write(*,*) "forward_derived"
+    !  write(*,*) "forward_derived"
     ! Forward pass
     !---------------------------------------------------------------------------
     do i = 1, size(this%vertex_order,1)
@@ -2723,6 +2723,54 @@ contains
     end do
 
   end subroutine backward_derived
+!-------------------------------------------------------------------------------
+  module subroutine backward_derived2d(this, output)
+    !! Backward pass for real output
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    type(array_type), dimension(:,:), intent(in) :: output
+    !! Output
+
+    ! Local variables
+    integer :: i, s
+    !! Loop index
+    real(real32), dimension(:,:), allocatable :: input, gradient
+    !! Autodiff input and gradient
+    type(array_type), dimension(1,1) :: input_2d, gradient_2d
+
+
+    !  write(*,*) "backward_derived2d"
+    ! Backward pass
+    !---------------------------------------------------------------------------
+    do i = size(this%vertex_order,1), 1, -1
+
+       if(all(this%auto_graph%adjacency(:,this%vertex_order(i)).eq.0))then
+          cycle ! this is an input layer
+       else
+          call this%get_input_real_autodiff(this%vertex_order(i), input)
+       end if
+
+       if(all(this%auto_graph%adjacency(this%vertex_order(i),:).eq.0))then
+          gradient = this%loss%compute_derivative( &
+               this%model(this%vertex_order(i))%layer%output(1,1)%val, &
+               output(1,1)%val &
+          )
+       else
+          call this%get_gradient_real_autodiff(this%vertex_order(i), gradient)
+       end if
+
+       input_2d(1,1)%val = input(:,:)
+       gradient_2d(1,1)%val = gradient(:,:)
+       !call this%model(this%vertex_order(i))%layer%backward(input, gradient)
+       call this%model(this%vertex_order(i))%layer%backward_derived( &
+            input_2d, gradient_2d &
+       )
+    end do
+
+  end subroutine backward_derived2d
 !-------------------------------------------------------------------------------
   module subroutine backward_graph(this, output)
     !! Backward pass for real output
@@ -3154,6 +3202,9 @@ contains
           allocate(output_graph(num_input_layers, num_samples))
           output_graph(:,:) = input(:,:)
           return
+       type is(array_type)
+          output_array(1)%val = reshape(input(1,1)%val, [num_inputs, num_samples])
+          l_valid_rank_type = .true.
        end select
     rank(3)
        select type(input)
@@ -3470,8 +3521,11 @@ contains
                      output, start_index, end_index, this%batch_size&
                 ))
              class is(array_type)
-                call this%backward_derived(get_sample_derived( &
-                     output(:,1), start_index, end_index, this%batch_size &
+                !  call this%backward_derived(get_sample_derived( &
+                !       output(:,1), start_index, end_index, this%batch_size &
+                !  ))
+                call this%backward_derived2d(get_sample_derived_2d( &
+                     output(:,:), start_index, end_index, this%batch_size &
                 ))
              end select
           end select
