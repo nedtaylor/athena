@@ -121,7 +121,7 @@ contains
 
     write(*,*) "tar0"
     call network%add(full_layer_type( &
-         num_inputs=1, &
+         num_inputs=2, &
          num_outputs=1, &
          kernel_initialiser='ones' &
     ))
@@ -135,21 +135,37 @@ contains
          verbose=1 &
     )
     training: block
-      real, dimension(1,1) :: x, y
+      type(array_type), dimension(1,1) :: x, y
       real :: tol = 1.E-3
       integer :: n
-      integer, parameter :: num_iterations = 10
+      integer, parameter :: num_iterations = 100
 
-      x(1,1) = 0.124
-      y(1,1) = 0.765
+      write(*,*) 'Testing basic operations...'
+
+      ! Initialize
+      call x(1,1)%allocate([2, 2])
+      call y(1,1)%allocate([1, 2])
+
+      x(1,1)%val(:,1) = [0.4,0.124]
+      y(1,1)%val(:,1) = [0.765]
+      x(1,1)%val(:,2) = [0.5,0.125]
+      y(1,1)%val(:,2) = [0.8]
 
       call network%train(x, y, num_iterations)
       write(*,*) shape(network%model(1)%layer%output(1,1)%val)
       write(*,*) network%model(1)%layer%output(1,1)%val(:,1)
 
-      if(n.gt.num_iterations)then
+      if(network%epoch.ge.num_iterations)then
          success = .false.
          write(0,*) 'network failed to converge'
+      end if
+
+      if(associated(network%model(1)%layer%output(1,1)%grad)) then
+         write(*,*) 'SUCCESS: Gradients computed for x'
+         write(*,*) 'x gradient:', network%model(1)%layer%output(1,1)%grad%val(:,1)
+      else
+         write(*,*) 'ERROR: No gradients computed for x'
+         success = .false.
       end if
 
     end block training

@@ -2536,8 +2536,8 @@ contains
              return
           end select
        else
-          call this%get_input_real_autodiff(this%vertex_order(i), auto_input)
-          call this%model(this%vertex_order(i))%layer%forward(auto_input)
+         !  call this%get_input_real_autodiff(this%vertex_order(i), auto_input)
+         !  call this%model(this%vertex_order(i))%layer%forward(auto_input)
           call this%model(this%vertex_order(i))%layer%forward_derived(input(1:1,:))
        end if
     end do
@@ -3128,6 +3128,20 @@ contains
     select rank(input)
     rank(0)
     rank(1)
+    rank(2)
+       select type(input)
+       class is(array_type)
+          num_samples = size(input(1,1)%val, 2)
+          num_inputs = size(input(1,1)%val, 1)
+          allocate(output_array(1))
+          call output_array(1)%allocate(array_shape=[num_inputs, num_samples])
+       class default
+          input_rank = rank(input)
+          num_samples = size(input, input_rank)
+          num_inputs = size(input) / num_samples
+          allocate(output_array(1))
+          call output_array(1)%allocate(array_shape=[num_inputs, num_samples])
+       end select
     rank default
        input_rank = rank(input)
        num_samples = size(input, input_rank)

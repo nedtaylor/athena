@@ -262,11 +262,10 @@ contains
        return
     end if
     if(present(array_shape))then
-       if(size(array_shape) .ne. 2) then
-          call stop_program('Array shape must be of size 2 for 2D array')
-          return
-       end if
-       allocate(this%val(array_shape(1), array_shape(2)))
+       allocate(this%val( &
+            product(array_shape(1:size(array_shape)-1)),  &
+            array_shape(size(array_shape)) &
+       ))
     end if
     if(present(source))then
        select rank(source)
@@ -324,7 +323,7 @@ contains
     this%rank = 1
     this%allocated = .true.
     !  this%val_ptr(1:size(this%val, dim=1), 1:size(this%val, dim=2)) => this%val
-    this%shape = [ size(this%val, dim=1) ]
+    if(.not.allocated(this%shape)) this%shape = [ size(this%val, dim=1) ]
     this%size = product(this%shape)
 
 
@@ -586,7 +585,12 @@ contains
        if(associated(this%left_operand) .and. &
             this%left_operand%requires_grad) then
           call accumulate_gradient(this%left_operand, &
-               upstream_grad)
+               upstream_grad .mmul. transpose(this%right_operand))
+       end if
+       if(associated(this%right_operand) .and. &
+            this%right_operand%requires_grad) then
+          call accumulate_gradient(this%right_operand, &
+               transpose(this%left_operand) .mmul. upstream_grad)
        end if
     case('matmul')
        if(associated(this%left_operand) .and. &

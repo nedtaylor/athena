@@ -976,8 +976,9 @@ contains
     class(array_type), intent(in), target :: a
     real(real32), dimension(:,:), intent(in) :: b
     type(array_type), pointer :: c
+    type(array_type), pointer :: b_array
 
-    integer :: s
+    integer :: s, i
 
     allocate(c)
     call c%allocate(array_shape=[size(b,1), size(a%val,2)])
@@ -991,6 +992,15 @@ contains
        c%operation = 'matmul_scalar'
        c%left_operand => a
     end if
+    allocate(b_array)
+    b_array%shape = shape(b)
+    b_array%requires_grad = .false.
+    b_array%is_leaf = .false.
+    call b_array%allocate(array_shape=[size(b,1), size(b,2), 1])
+    do i = 1, size(b,2)
+       b_array%val((i-1)*size(b,1)+1:i*size(b,1), 1) = b(:,i)
+    end do
+    c%right_operand => b_array
   end function matmul_real2d
 
   function real2d_matmul(a, b) result(c)
@@ -998,8 +1008,9 @@ contains
     real(real32), dimension(:,:), intent(in) :: a
     class(array_type), intent(in), target :: b
     type(array_type), pointer :: c
+    type(array_type), pointer :: a_array
 
-    integer :: s
+    integer :: s, i
 
     allocate(c)
     call c%allocate(array_shape=[size(a,1), size(b%val,2)])
@@ -1011,8 +1022,17 @@ contains
        c%requires_grad = .true.
        c%is_leaf = .false.
        c%operation = 'matmul_scalar'
-       c%left_operand => b
+       c%right_operand => b
     end if
+    allocate(a_array)
+    a_array%shape = shape(a)
+    a_array%requires_grad = .false.
+    a_array%is_leaf = .false.
+    call a_array%allocate(array_shape=[size(a,1), size(a,2), 1])
+    do i = 1, size(a,2)
+       a_array%val((i-1)*size(a,1)+1:i*size(a,1), 1) = a(:,i)
+    end do
+    c%left_operand => a_array
   end function real2d_matmul
 
   function transpose_array(a) result(c)
