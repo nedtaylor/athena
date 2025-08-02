@@ -154,15 +154,16 @@ contains
       call network%train(x, y, num_iterations)
       write(*,*) shape(network%model(1)%layer%output(1,1)%val)
       write(*,*) network%model(1)%layer%output(1,1)%val(:,1)
+      write(*,*) "associated:", associated(network%model(2)%layer%output(1,1)%grad)
 
       if(network%epoch.ge.num_iterations)then
          success = .false.
          write(0,*) 'network failed to converge'
       end if
 
-      if(associated(network%model(1)%layer%output(1,1)%grad)) then
+      if(associated(network%model(2)%layer%output(1,1)%grad)) then
          write(*,*) 'SUCCESS: Gradients computed for x'
-         write(*,*) 'x gradient:', network%model(1)%layer%output(1,1)%grad%val(:,1)
+         write(*,*) 'x gradient:', network%model(2)%layer%output(1,1)%grad%val(:,1)
       else
          write(*,*) 'ERROR: No gradients computed for x'
          success = .false.
