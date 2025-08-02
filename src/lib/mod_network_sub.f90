@@ -2517,7 +2517,7 @@ contains
     !! Input
 
     ! Local variables
-    integer :: i
+    integer :: i, j
     !! Loop index
     real(real32), dimension(:,:), allocatable :: auto_input
     !! Autodiff input
@@ -2535,10 +2535,15 @@ contains
           class default
              return
           end select
+       elseif(count(this%auto_graph%adjacency(:,this%vertex_order(i)).gt.0).eq.1)then
+          j = maxloc(this%auto_graph%adjacency(:,this%vertex_order(i)),dim=1)
+          j = this%auto_graph%vertex(j)%id
+          call this%model(this%vertex_order(i))%layer%forward_derived( &
+               this%model(j)%layer%output &
+          )
        else
           ! call this%get_input_real_autodiff(this%vertex_order(i), auto_input)
-          ! call this%model(this%vertex_order(i))%layer%forward(auto_input)
-          call this%model(this%vertex_order(i))%layer%forward_derived(input(1:1,:))
+          ! call this%model(this%vertex_order(i))%layer%forward_derived(input(1:1,:))
        end if
     end do
 
