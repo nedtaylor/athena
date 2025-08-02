@@ -33,22 +33,22 @@ program test_conv2d_network
        kernel_size = kernel_size1, &
        kernel_initialiser = "ones", &
        activation_function = "linear" &
-       ))
+  ))
   call network%add(conv2d_layer_type( &
        num_filters = num_filters2, &
        kernel_size = kernel_size2, &
        kernel_initialiser = "ones", &
        activation_function = "linear" &
-       ))
-    
+  ))
+
   call network%compile( &
        optimiser = base_optimiser_type(learning_rate=1.0), &
        loss_method="mse", metrics=["loss"], verbose=1, &
        batch_size=1)
 
   if(network%num_layers.ne.3)then
-    success = .false.
-    write(0,*) "conv2d network should have 3 layers"
+     success = .false.
+     write(0,*) "conv2d network should have 3 layers"
   end if
 
   call network%set_batch_size(1)
@@ -56,7 +56,7 @@ program test_conv2d_network
   input_data = 0.0
 
   call network%forward(input_data)
-  call network%model(network%output_vertices(1))%layer%get_output(output)
+  call network%model(network%leaf_vertices(1))%layer%get_output(output)
 
   if(any(shape(output).ne.[output_width,output_width,num_filters2,1]))then
      success = .false.
@@ -76,13 +76,13 @@ program test_conv2d_network
   call network%forward(input_data)
   output_reshaped = reshape(output, [output_width**2*num_filters2,1])
   call network%backward(output_reshaped)
-  select type(current => network%model(network%output_vertices(1))%layer)
+  select type(current => network%model(network%leaf_vertices(1))%layer)
   type is(conv2d_layer_type)
      gradients = current%get_gradients()
      gradients_weight = &
           reshape(&
-          gradients(:kernel_size2**2*num_filters1*num_filters2), &
-          [kernel_size2,kernel_size2,num_filters1,num_filters2])
+               gradients(:kernel_size2**2*num_filters1*num_filters2), &
+               [kernel_size2,kernel_size2,num_filters1,num_filters2])
      gradients_bias = &
           gradients(kernel_size2**2*num_filters1*num_filters2+1:)
      if(size(gradients).ne.&

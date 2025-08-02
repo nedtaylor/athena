@@ -88,7 +88,7 @@ contains
     this%optimiser = source%optimiser
     this%vertex_order = source%vertex_order
     this%root_vertices = source%root_vertices
-    this%output_vertices = source%output_vertices
+    this%leaf_vertices = source%leaf_vertices
     this%loss = source%loss
     this%get_accuracy => source%get_accuracy
     this%auto_graph = source%auto_graph
@@ -208,7 +208,7 @@ contains
 
 
 !###############################################################################
-  module subroutine calculate_output_vertices(this)
+  module subroutine calculate_leaf_vertices(this)
     !! Calculate the output vertices of the network
     implicit none
 
@@ -220,14 +220,14 @@ contains
     integer :: i
     !! Loop index
 
-    if(allocated(this%output_vertices)) deallocate(this%output_vertices)
-    allocate(this%output_vertices(0))
+    if(allocated(this%leaf_vertices)) deallocate(this%leaf_vertices)
+    allocate(this%leaf_vertices(0))
     do i = 1, this%auto_graph%num_vertices
        if(all(this%auto_graph%adjacency(i,:).eq.0))then
-          this%output_vertices = [this%output_vertices, i]
+          this%leaf_vertices = [this%leaf_vertices, i]
        end if
     end do
-  end subroutine calculate_output_vertices
+  end subroutine calculate_leaf_vertices
 !###############################################################################
 
 
@@ -847,8 +847,8 @@ contains
     end do
 
     ! Write outputs
-    do i = 1, size(this%output_vertices, dim=1)
-       idx = this%output_vertices(i)
+    do i = 1, size(this%leaf_vertices, dim=1)
+       idx = this%leaf_vertices(i)
        write(unit, '(A)') '  # Outputs'
        write(unit, '(A)') '  output {'
        write(unit, '(4X,"name: ""node_",I0,"_output""")') this%model(idx)%layer%id
@@ -1404,7 +1404,7 @@ contains
 
     if(allocated(this%io_map)) deallocate(this%io_map)
     if(allocated(this%vertex_order)) deallocate(this%vertex_order)
-    if(allocated(this%output_vertices)) deallocate(this%output_vertices)
+    if(allocated(this%leaf_vertices)) deallocate(this%leaf_vertices)
     if(allocated(this%root_vertices)) deallocate(this%root_vertices)
     this%auto_graph = graph_type(directed=.true.)
 
@@ -1702,19 +1702,19 @@ contains
     ! Set number of outputs
     !---------------------------------------------------------------------------
     this%num_outputs = 0
-    call this%calculate_output_vertices()
-    do i = 1, size(this%output_vertices,1)
+    call this%calculate_leaf_vertices()
+    do i = 1, size(this%leaf_vertices,1)
        this%num_outputs = this%num_outputs + &
             product( &
                  this%model( &
-                      this%auto_graph%vertex(this%output_vertices(i))%id &
+                      this%auto_graph%vertex(this%leaf_vertices(i))%id &
                  )%layer%output_shape &
             )
     end do
     call this%calculate_io_map()
     if( &
          this%model( &
-              this%auto_graph%vertex(this%output_vertices(1))%id &
+              this%auto_graph%vertex(this%leaf_vertices(1))%id &
          )%layer%use_graph_output &
     )then
        this%use_graph_output = .true.
@@ -2536,8 +2536,8 @@ contains
              return
           end select
        else
-         !  call this%get_input_real_autodiff(this%vertex_order(i), auto_input)
-         !  call this%model(this%vertex_order(i))%layer%forward(auto_input)
+          ! call this%get_input_real_autodiff(this%vertex_order(i), auto_input)
+          ! call this%model(this%vertex_order(i))%layer%forward(auto_input)
           call this%model(this%vertex_order(i))%layer%forward_derived(input(1:1,:))
        end if
     end do
@@ -2779,7 +2779,7 @@ contains
     ! Arguments
     class(network_type), intent(inout) :: this
     !! Instance of network
-    class(graph_type), dimension(size(this%output_vertices),this%batch_size), &
+    class(graph_type), dimension(size(this%leaf_vertices),this%batch_size), &
          intent(in) :: output
     !! Output
 
@@ -3096,32 +3096,39 @@ contains
 
 
 !###############################################################################
-  subroutine convert_polymorphic_to_array2d( &
-       input, output_array, output_graph, num_samples, num_input_layers &
-  )
-    !! Convert polymorphic input to array2d
+  function save_input_to_network( this, input ) result(num_samples)
+    !! Save input to network
     implicit none
 
     ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
     class(*), dimension(..), intent(in) :: input
     !! Input
-    type(array_type), dimension(:), allocatable, intent(out) :: output_array
-    !! Output
-    type(graph_type), dimension(:,:), allocatable, intent(out) :: output_graph
-    !! Output
-    integer, intent(out) :: num_samples
+
+    integer :: num_samples
     !! Number of samples
-    integer, intent(in) :: num_input_layers
-    !! Number of input layers
 
     ! Local variables
-    integer :: i, input_rank, num_inputs
+    integer :: i, j, input_rank, num_inputs
     !! Loop index
+    integer :: num_input_layers
+    !! Number of input layers
     logical :: l_valid_rank_type
     !! Boolean whether rank type is valid
     character(256) :: err_msg
     !! Error message
 
+    num_input_layers = size(this%root_vertices, 1)
+    if(allocated(this%input_array))then
+       do i = 1, size(this%input_array, 1)
+          do j = 1, size(this%input_array, 2)
+             call this%input_array(i,j)%deallocate()
+          end do
+       end do
+       deallocate(this%input_array)
+    end if
+    if(allocated(this%input_graph)) deallocate(this%input_graph)
 
     ! Determine the rank of the input
     !---------------------------------------------------------------------------
@@ -3133,21 +3140,21 @@ contains
        class is(array_type)
           num_samples = size(input(1,1)%val, 2)
           num_inputs = size(input(1,1)%val, 1)
-          allocate(output_array(1))
-          call output_array(1)%allocate(array_shape=[num_inputs, num_samples])
+          allocate(this%input_array(1,1))
+          call this%input_array(1,1)%allocate(array_shape=[num_inputs, num_samples])
        class default
           input_rank = rank(input)
           num_samples = size(input, input_rank)
           num_inputs = size(input) / num_samples
-          allocate(output_array(1))
-          call output_array(1)%allocate(array_shape=[num_inputs, num_samples])
+          allocate(this%input_array(1,1))
+          call this%input_array(1,1)%allocate(array_shape=[num_inputs, num_samples])
        end select
     rank default
        input_rank = rank(input)
        num_samples = size(input, input_rank)
        num_inputs = size(input) / num_samples
-       allocate(output_array(1))
-       call output_array(1)%allocate(array_shape=[num_inputs, num_samples])
+       allocate(this%input_array(1,1))
+       call this%input_array(1,1)%allocate(array_shape=[num_inputs, num_samples])
     end select
     l_valid_rank_type = .false.
 
@@ -3167,13 +3174,13 @@ contains
           )
           return
        end if
-       allocate(output_array(1))
+       allocate(this%input_array(1,1))
        num_samples = get_num_samples(input)
        select type(input)
        class is(array_type)
-          call handle_array_type(input, output_array(i), num_samples)
+          call handle_array_type(input, this%input_array(1,1), num_samples)
        type is(array_container_type)
-          call handle_array_type(input%array, output_array(i), num_samples)
+          call handle_array_type(input%array, this%input_array(1,1), num_samples)
        end select
     rank(1)
        select type(input)
@@ -3181,8 +3188,8 @@ contains
           exit rank_select
        type is(graph_type)
           num_samples = size(input, dim=1)
-          allocate(output_graph(num_samples, num_input_layers))
-          output_graph(:,1) = input(:)
+          allocate(this%input_graph(num_samples, num_input_layers))
+          this%input_graph(:,1) = input(:)
           return
        class default
           l_valid_rank_type = .true.
@@ -3194,48 +3201,48 @@ contains
           )
           return
        end if
-       allocate(output_array(size(input,1)))
+       allocate(this%input_array(1,size(input,1)))
        num_samples = get_num_samples(input(1))
        do i = 1, size(input,1)
           select type(input)
           class is(array_type)
-             call handle_array_type(input(i), output_array(i), num_samples)
+             call handle_array_type(input(i), this%input_array(1,i), num_samples)
           type is(array_container_type)
              call handle_array_type( &
-                  input(i)%array, output_array(i), num_samples &
+                  input(i)%array, this%input_array(1,i), num_samples &
              )
           end select
        end do
     rank(2)
        select type(input)
        type is(real)
-          output_array(1)%val = reshape(input, [num_inputs, num_samples])
+          this%input_array(1,1)%val = reshape(input, [num_inputs, num_samples])
           l_valid_rank_type = .true.
        type is(graph_type)
           num_samples = size(input, dim=2)
-          allocate(output_graph(num_input_layers, num_samples))
-          output_graph(:,:) = input(:,:)
+          allocate(this%input_graph(num_input_layers, num_samples))
+          this%input_graph(:,:) = input(:,:)
           return
        type is(array_type)
-          output_array(1)%val = reshape(input(1,1)%val, [num_inputs, num_samples])
+          this%input_array = input
           l_valid_rank_type = .true.
        end select
     rank(3)
        select type(input)
        type is(real)
-          output_array(1)%val = reshape(input, [num_inputs, num_samples])
+          this%input_array(1,1)%val = reshape(input, [num_inputs, num_samples])
           l_valid_rank_type = .true.
        end select
     rank(4)
        select type(input)
        type is(real)
-          output_array(1)%val = reshape(input, [num_inputs, num_samples])
+          this%input_array(1,1)%val = reshape(input, [num_inputs, num_samples])
           l_valid_rank_type = .true.
        end select
     rank(5)
        select type(input)
        type is(real)
-          output_array(1)%val = reshape(input, [num_inputs, num_samples])
+          this%input_array(1,1)%val = reshape(input, [num_inputs, num_samples])
           l_valid_rank_type = .true.
        end select
     end select rank_select
@@ -3290,7 +3297,7 @@ contains
       output%val = input%val
     end subroutine handle_array_type
 
-  end subroutine convert_polymorphic_to_array2d
+  end function save_input_to_network
 !###############################################################################
 
 
@@ -3332,12 +3339,6 @@ contains
     !! Batch print step
     integer, optional, intent(in) :: verbose
     !! Verbosity level
-
-    ! Local variables
-    type(array_type), dimension(:), allocatable :: input_array
-    !! Input array
-    type(graph_type), dimension(:,:), allocatable :: input_graph
-    !! Input graph
 
     ! Training parameters
     real(real32) :: batch_loss, batch_accuracy, avg_loss, avg_accuracy
@@ -3441,10 +3442,9 @@ contains
     !---------------------------------------------------------------------------
     ! Get number of samples
     !---------------------------------------------------------------------------
-    call convert_polymorphic_to_array2d( &
-         input, input_array, input_graph, &
-         num_samples, size(this%root_vertices,1) &
-    )
+    write(*,*) "test0"
+    num_samples = this%save_input( input )
+    write(*,*) "test1"
     if(size(output,2).ne.num_samples.and.this%use_graph_output)then
        call stop_program("number of samples in input and output do not match")
        return
@@ -3505,7 +3505,7 @@ contains
           select case(this%use_graph_input)
           case(.true.)
              call this%forward_graph(get_sample_graph( &
-                  input_graph, start_index, end_index, this%batch_size &
+                  this%input_graph, start_index, end_index, this%batch_size &
              ))
              select type(output)
              type is(graph_type)
@@ -3525,7 +3525,7 @@ contains
              end select
           case default
              call this%forward_derived2d(get_sample_derived_2d( &
-                  reshape(input_array, [1,1]),start_index,end_index, this%batch_size &
+                  this%input_array, start_index, end_index, this%batch_size &
              ))
              select type(output)
              type is(integer)
@@ -3563,22 +3563,22 @@ contains
              do s = start_index, end_index, 1
                 s_idx = s - start_index + 1
                 batch_loss = batch_loss + sum( this%loss%compute( &
-                     this%model(this%output_vertices(1))%layer%output(1,s_idx)%val, &
+                     this%model(this%leaf_vertices(1))%layer%output(1,s_idx)%val, &
                      output(1,s)%vertex_features &
                 ) ) / output(1,s)%num_vertices
                 batch_accuracy = batch_accuracy + sum( this%get_accuracy( &
-                     this%model(this%output_vertices(1))%layer%output(1,s_idx)%val, &
+                     this%model(this%leaf_vertices(1))%layer%output(1,s_idx)%val, &
                      output(1,s)%vertex_features &
                 ) ) / output(1,s)%num_vertices
                 if( &
-                     this%model(this%output_vertices(1))%layer%output_shape(2).gt.0 &
+                     this%model(this%leaf_vertices(1))%layer%output_shape(2).gt.0 &
                 )then
                    batch_loss = batch_loss + sum( this%loss%compute( &
-                        this%model(this%output_vertices(1))%layer%output(2,s_idx)%val, &
+                        this%model(this%leaf_vertices(1))%layer%output(2,s_idx)%val, &
                         output(1,s)%edge_features &
                    ) ) / output(1,s)%num_edges
                    batch_accuracy = batch_accuracy + sum( this%get_accuracy( &
-                        this%model(this%output_vertices(1))%layer%output(2,s_idx)%val, &
+                        this%model(this%leaf_vertices(1))%layer%output(2,s_idx)%val, &
                         output(1,s)%edge_features &
                    ) ) / output(1,s)%num_edges
                 end if
@@ -3586,34 +3586,34 @@ contains
           type is(real)
              batch_loss = sum( &
                   this%loss%compute( &
-                       this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+                       this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
                        output(:,start_index:end_index:1) &
                   ))
              batch_accuracy = sum( &
                   this%get_accuracy( &
-                       this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+                       this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
                        output(:,start_index:end_index:1) &
                   ))
           type is(integer)
              batch_loss = sum( &
                   this%loss%compute( &
-                       this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+                       this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
                        real(output(:,start_index:end_index:1),real32) &
                   ))
              batch_accuracy = sum( &
                   this%get_accuracy( &
-                       this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+                       this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
                        real(output(:,start_index:end_index:1),real32) &
                   ))
           class is(array_type)
              batch_loss = sum( &
                   this%loss%compute( &
-                       this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+                       this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
                        output(1,1)%val(:,start_index:end_index:1) &
                   ))
              batch_accuracy = sum( &
                   this%get_accuracy( &
-                       this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+                       this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
                        output(1,1)%val(:,start_index:end_index:1) &
                   ))
           end select
@@ -3724,10 +3724,6 @@ contains
     !! Verbosity level
 
     ! Local variables
-    type(array_type), dimension(:), allocatable :: input_array
-    !! Input array
-    type(graph_type), dimension(:,:), allocatable :: input_graph
-    !! Input graph
     integer :: l, sample, num_samples
     !! Loop index
     integer :: verbose_, unit
@@ -3752,10 +3748,7 @@ contains
     loss_val = 0._real32
 
 
-    call convert_polymorphic_to_array2d( &
-         input, input_array, input_graph, &
-         num_samples, size(this%root_vertices,1) &
-    )
+    num_samples = this%save_input( input )
     allocate(accuracy_list(num_samples))
 
 
@@ -3783,11 +3776,11 @@ contains
        select case(this%use_graph_input)
        case(.true.)
           call this%forward_graph(get_sample_graph( &
-               input_graph, sample, sample, 1 &
+               this%input_graph, sample, sample, 1 &
           ))
        case default
           call this%forward(get_sample_derived( &
-               input_array, sample, sample, 1 &
+               this%input_array(1,:), sample, sample, 1 &
           ))
        end select
 
@@ -3797,50 +3790,50 @@ contains
        select type(output)
        type is(graph_type)
           loss_val = sum( this%loss%compute( &
-               this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
                output(1,sample)%vertex_features &
           ) ) / output(1,sample)%num_vertices
           acc_val = sum( this%get_accuracy( &
-               this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
                output(1,sample)%vertex_features &
           ) ) / output(1,sample)%num_vertices
           if( &
-               this%model(this%output_vertices(1))%layer%output_shape(2).gt.0 &
+               this%model(this%leaf_vertices(1))%layer%output_shape(2).gt.0 &
           )then
              loss_val = sum( this%loss%compute( &
-                  this%model(this%output_vertices(1))%layer%output(2,1)%val, &
+                  this%model(this%leaf_vertices(1))%layer%output(2,1)%val, &
                   output(1,sample)%edge_features &
              ) ) / output(1,sample)%num_edges
              acc_val = sum( this%get_accuracy( &
-                  this%model(this%output_vertices(1))%layer%output(2,1)%val, &
+                  this%model(this%leaf_vertices(1))%layer%output(2,1)%val, &
                   output(1,sample)%edge_features &
              ) ) / output(1,sample)%num_edges
           end if
        type is(real)
           loss_val = sum( this%loss%compute( &
-               this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
                output(:,sample:sample:1) &
           ))
           acc_val = sum( this%get_accuracy( &
-               this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
                output(:,sample:sample:1) &
           ))
        type is(integer)
           loss_val = sum( this%loss%compute( &
-               this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
                real(output(:,sample:sample:1),real32) &
           ))
           acc_val = sum( this%get_accuracy( &
-               this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
                real(output(:,sample:sample:1),real32) &
           ))
        class is(array_type)
           loss_val = sum( this%loss%compute( &
-               this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
                output(1,1)%val(:,sample:sample:1) &
           ))
           acc_val = sum( this%get_accuracy( &
-               this%model(this%output_vertices(1))%layer%output(1,1)%val, &
+               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
                output(1,1)%val(:,sample:sample:1) &
           ))
        end select
@@ -3918,7 +3911,7 @@ contains
     !---------------------------------------------------------------------------
     call this%forward(get_sample(input, 1, batch_size, batch_size))
 
-    output = this%model(this%output_vertices(1))%layer%output(1,1)%val
+    output = this%model(this%leaf_vertices(1))%layer%output(1,1)%val
 
   end function predict_1d
 !###############################################################################
@@ -3942,7 +3935,7 @@ contains
     ! Local variables
     integer :: s
     !! Loop index
-    type(graph_type), dimension(size(input,dim=1),size(this%output_vertices)) :: &
+    type(graph_type), dimension(size(input,dim=1),size(this%leaf_vertices)) :: &
          output
     !! Output graph
     integer :: verbose_, batch_size
@@ -3974,16 +3967,16 @@ contains
        output(s,1)%num_vertices = input(s,1)%num_vertices
        output(s,1)%num_edges = input(s,1)%num_edges
        output(s,1)%num_vertex_features = this%model( &
-            this%output_vertices(1) &
+            this%leaf_vertices(1) &
        )%layer%output_shape(1)
        output(s,1)%num_edge_features = this%model( &
-            this%output_vertices(1) &
+            this%leaf_vertices(1) &
        )%layer%output_shape(2)
        output(s,1)%vertex_features = this%model( &
-            this%output_vertices(1) &
+            this%leaf_vertices(1) &
        )%layer%output(1,s)%val
        output(s,1)%edge_features = this%model( &
-            this%output_vertices(1) &
+            this%leaf_vertices(1) &
        )%layer%output(2,s)%val
     end do
 

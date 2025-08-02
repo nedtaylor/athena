@@ -59,12 +59,17 @@ module athena__network
      !! Pointer to accuracy function
      integer, dimension(:), allocatable :: vertex_order
      !! Order of vertices
-     integer, dimension(:), allocatable :: root_vertices, output_vertices
+     integer, dimension(:), allocatable :: root_vertices, leaf_vertices
      !! Root and output vertices
      integer, dimension(:,:,:), allocatable :: io_map
      !! Input-output map
      type(graph_type), private :: auto_graph
      !! Graph structure for the network
+
+     type(array_type), dimension(:,:), allocatable :: input_array
+     !! Input array for the network
+     type(graph_type), dimension(:,:), allocatable :: input_graph
+     !! Input graph for the network
    contains
      procedure, pass(this) :: print
      !! Print the network to file
@@ -92,6 +97,10 @@ module athena__network
      !! Set network loss method
      procedure, pass(this) :: set_accuracy
      !! Set network accuracy method
+
+     procedure, pass(this) :: save_input => save_input_to_network
+     !! Convert and save polymorphic input to array or graph
+
      procedure, pass(this) :: train
      !! Train the network
      procedure, pass(this) :: test
@@ -110,7 +119,7 @@ module athena__network
      !! Depth first search
      procedure, pass(this), private :: calculate_root_vertices
      !! Calculate root vertices
-     procedure, pass(this), private :: calculate_output_vertices
+     procedure, pass(this), private :: calculate_leaf_vertices
      !! Calculate output vertices
      procedure, pass(this), private :: calculate_io_map
      !! Calculate input-output map
@@ -327,6 +336,18 @@ module athena__network
        !! Verbosity level
      end subroutine set_accuracy
 
+     !! Interface for saving input to network
+     module function save_input_to_network( this, input ) result(num_samples)
+       !! Convert and save polymorphic input to array or graph
+       class(network_type), intent(inout) :: this
+       !! Instance of network
+       class(*), dimension(..), intent(in) :: input
+       !! Input
+       integer :: num_samples
+       !! Number of samples
+     end function save_input_to_network
+
+
      !! Interface for training the network
      module subroutine train( &
           this, input, output, num_epochs, batch_size, &
@@ -390,7 +411,7 @@ module athena__network
        !! Input data
        integer, optional, intent(in) :: verbose
        !! Verbosity level
-       type(graph_type), dimension(size(input,dim=1),size(this%output_vertices)) :: &
+       type(graph_type), dimension(size(input,dim=1),size(this%leaf_vertices)) :: &
             output
        !! Predicted output data
      end function predict_graph
@@ -436,11 +457,11 @@ module athena__network
      end subroutine calculate_root_vertices
 
      !! Interface for calculating output vertices
-     module subroutine calculate_output_vertices(this)
+     module subroutine calculate_leaf_vertices(this)
        !! Calculate output vertices
        class(network_type), intent(inout) :: this
        !! Instance of the network
-     end subroutine calculate_output_vertices
+     end subroutine calculate_leaf_vertices
 
      !! Interface for calculating input-output map
      module subroutine calculate_io_map(this)
@@ -624,7 +645,7 @@ module athena__network
        !! Forward pass for derived input
        class(network_type), intent(inout) :: this
        !! Instance of network
-       class(graph_type), dimension(size(this%output_vertices),this%batch_size), &
+       class(graph_type), dimension(size(this%leaf_vertices),this%batch_size), &
             intent(in) :: output
        !! Output data
      end subroutine backward_graph
