@@ -4,7 +4,8 @@ module athena__activation_softmax
   !! This module implements the softmax activation function for normalising
   !! outputs into probability distributions
   use athena__constants, only: real32
-  use athena__misc_types, only: activation_type, array_type
+  use athena__misc_types, only: activation_type, array_type, &
+       operator(+), operator(*), operator(-), operator(/), exp, sum, maxval
   implicit none
 
 
@@ -82,11 +83,11 @@ contains
     type(array_type) :: output
     !! Normalised probability distribution output
 
-    ! !! compute softmax values
-    ! output = exp(val - maxval(val))
+    !! compute softmax values
+    output = exp(val) - maxval(val, dim=1)
 
-    ! !! normalise softmax values
-    ! output = output / sum(output)
+    !! normalise softmax values
+    output = output / sum(output,dim=1)
 
   end function softmax_activate_array
 !-------------------------------------------------------------------------------
@@ -106,10 +107,10 @@ contains
     !! Normalised probability distribution output
 
     !! compute softmax values
-    output = exp(val - maxval(val))
+    output = exp(val - maxval(val, dim=1))
 
     !! normalise softmax values
-    output = output / sum(output)
+    output = output / sum(output, dim=1)
 
   end function softmax_activate_1d
 !-------------------------------------------------------------------------------

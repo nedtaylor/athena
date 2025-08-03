@@ -2,7 +2,7 @@ module read_chemical_graphs_extd
   use constants_mnist, only: real32
   use misc_linalg, only: modu
   use rw_geom, only: bas_type, geom_read, igeom_input
-  use athena, only: graph_type, edge_type, array2d_type
+  use athena, only: graph_type, edge_type, array_type
   use read_chemical_graphs, only: get_elements_masses_and_charges
   implicit none
 
@@ -21,7 +21,7 @@ contains
     implicit none
     character(1024), intent(in) :: file
     type(graph_type), allocatable, dimension(:,:), intent(out) :: graphs
-    type(array2d_type), dimension(1,1), intent(out) :: labels
+    type(array_type), dimension(1,1), intent(out) :: labels
 
     integer :: ierror, unit
     real(real32) :: label
@@ -80,6 +80,7 @@ contains
     real(real32), dimension(3) :: diff, vtmp1
 
 
+    graph%directed = .false.
     graph%num_vertices = basis%natom
     graph%num_vertex_features = 9
     graph%num_edge_features = 1
@@ -138,7 +139,7 @@ contains
              end do atom_loop2
           end do spec_loop2
           graph%vertex(iatom)%feature = [ &
-               basis%spec(is)%atom(ia,:), &
+               basis%spec(is)%atom(ia,:3), &
                basis%spec(is)%force(ia,:), &
                graph%vertex(iatom)%feature, &
                real(degree, real32) / 6._real32 &

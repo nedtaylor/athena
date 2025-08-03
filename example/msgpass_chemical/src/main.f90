@@ -32,7 +32,7 @@ program msgpass_chemical_example
   integer :: num_params
   integer, dimension(:), allocatable :: sample_list
   real(real32), dimension(:), allocatable :: feature_in_norm
-  type(array2d_type), dimension(1,1) :: output
+  type(array_type), dimension(1,1) :: output
 
 
 

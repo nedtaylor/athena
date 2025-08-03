@@ -26,7 +26,7 @@ module athena__duvenaud_msgpass_layer
 
      class(activation_type), allocatable :: transfer_readout
      !! Activation function
-     type(array2d_type), allocatable, dimension(:,:) :: di_msg, di_readout, &
+     type(array_type), allocatable, dimension(:,:) :: di_msg, di_readout, &
           z_readout
      !! Input gradients
 
@@ -894,6 +894,8 @@ contains
     do s = 1, this%batch_size
        this%vertex_features(0,s) = input(1,s)
        this%edge_features(0,s) = input(2,s)
+       call this%vertex_features(0,s)%set_requires_grad(.true.)
+       call this%edge_features(0,s)%set_requires_grad(.true.)
     end do
 
     do t = 1, this%num_time_steps
@@ -906,15 +908,20 @@ contains
             sum(this%num_params_msg(1:t:1)) &
        )
        do s = 1, this%batch_size
+          call this%z(t,s)%set_requires_grad(.true.)
+          call this%vertex_features(t,s)%set_requires_grad(.true.)
+          call this%message(t,s)%set_requires_grad(.true.)
+          call this%z(t,s)%zero_grad()
+          call this%vertex_features(t,s)%zero_grad()
+          call this%message(t,s)%zero_grad()
           do v = 1, this%graph(s)%num_vertices
-             this%message(t,s)%val(:,v) = 0._real32
-             degree = this%graph(s)%adj_ia(v+1) - this%graph(s)%adj_ia(v)
+             e_start = this%graph(s)%adj_ia(v)
+             e_end = this%graph(s)%adj_ia(v+1) - 1
+             degree = e_end - e_start + 1
              degree = max( &
                   this%min_vertex_degree, &
                   min(degree, this%max_vertex_degree) &
              )
-             e_start = this%graph(s)%adj_ia(v)
-             e_end = this%graph(s)%adj_ia(v+1) - 1
              this%message(t,s) = &
                   ( this%vertex_features(t-1,s) .index. this%graph(s)%adj_ja(1,e_start:e_end) ) .concat. &
                   ( this%edge_features(0,s) .index. this%graph(s)%adj_ja(2,e_start:e_end) )
@@ -963,14 +970,17 @@ contains
             num_params_old + 1 : num_params_old + num_params_tmp &
        )
        do s = 1, this%batch_size
-          do v = 1, this%graph(s)%num_vertices
-             this%z_readout(t,s)%val(:,v) = matmul( &
-                  weight, &
-                  this%vertex_features(t,s)%val(:,v) &
-             )
-             this%output(1,1)%val(:,s) = this%output(1,1)%val(:,s) + &
-                  this%transfer_readout%activate( this%z_readout(t,s)%val(:,v) )
-          end do
+          this%z_readout(t,s) = weight .mmul. this%vertex_features(t,s)
+          this%output(1,1) = &!this%output(1,1) + &
+               this%transfer_readout%activate( this%z_readout(t,s) )
+          ! do v = 1, this%graph(s)%num_vertices
+          !    this%z_readout(t,s)%val(:,v) = matmul( &
+          !         weight, &
+          !         this%vertex_features(t,s)%val(:,v) &
+          !    )
+          !    this%output(1,1)%val(:,s) = this%output(1,1)%val(:,s) + &
+          !         this%transfer_readout%activate( this%z_readout(t,s)%val(:,v) )
+          ! end do
        end do
        num_params_old = num_params_old + num_params_tmp
     end do

@@ -32,7 +32,7 @@ program msgpass_chemical_example
   integer :: num_params
   integer, dimension(:), allocatable :: sample_list
   real(real32), dimension(:), allocatable :: feature_in_norm
-  type(array2d_type), dimension(1,1) :: output
+  type(array_type), dimension(1,1) :: output
 
 
 
@@ -44,6 +44,7 @@ program msgpass_chemical_example
   call read_extxyz_db(train_file, graphs_in, output)!labels)
   write(*,*) "Reading finished"
   do s = 1, size(graphs_in)
+     call graphs_in(1,s)%add_self_loops()
      if(.not.graphs_in(1,s)%is_sparse) call graphs_in(1,s)%convert_to_sparse()
   end do
 

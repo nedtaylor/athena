@@ -2,7 +2,7 @@ module read_chemical_graphs
   use constants_mnist, only: real32
   use misc_linalg, only: modu
   use rw_geom, only: bas_type, geom_read, igeom_input
-  use athena, only: graph_type, edge_type, array2d_type
+  use athena, only: graph_type, edge_type, array_type
   implicit none
 
   private
@@ -146,7 +146,7 @@ contains
     implicit none
     character(1024), intent(in) :: file
     type(graph_type), allocatable, dimension(:,:), intent(out) :: graphs
-    type(array2d_type), dimension(1,1), intent(out) :: labels
+    type(array_type), dimension(1,1), intent(out) :: labels
 
     integer :: ierror, unit
     real(real32) :: label

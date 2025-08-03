@@ -26,6 +26,8 @@ module athena__misc_types
   public :: operator(+), operator(-), operator(*), operator(/), &
        operator(**), operator(.mmul.), operator(.concat.), operator(.ltrim.), &
        operator(.rtrim.), operator(.index.)
+  public :: operator(.lt.)
+  public :: merge, maxval, sum
   public :: sin, cos, tan, exp, log, sqrt, tanh, sigmoid, transpose
 
 
@@ -368,6 +370,7 @@ module athena__misc_types
 
   interface operator(-)
      module procedure subtract_arrays
+     module procedure subtract_real1d
      module procedure negate_array
   end interface
 
@@ -381,6 +384,7 @@ module athena__misc_types
      module procedure divide_arrays
      module procedure divide_scalar
      module procedure scalar_divide
+     module procedure divide_real1d
   end interface
 
   interface operator(**)
@@ -408,6 +412,22 @@ module athena__misc_types
 
   interface operator(.index.)
      module procedure index_array
+  end interface
+
+  interface operator(.lt.)
+     module procedure lt_scalar
+  end interface
+
+  interface sum
+     module procedure sum_array
+  end interface
+
+  interface maxval
+     module procedure maxval_array
+  end interface
+
+  interface merge
+     module procedure merge_scalar
   end interface
 
   !-----------------------------------------------------------------------------
@@ -866,8 +886,14 @@ contains
     real(real32), intent(in) :: b
     type(array_type), pointer :: c
 
+    write(*,*) 'add_scalar'
     allocate(c)
+    write(*,*) 't0'
+    call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
+    write(*,*) 't1'
     c%val = a%val + b
+    write(*,*) 't2'
+    write(*,*) 'a%requires_grad = ', a%requires_grad
 
     if(a%requires_grad) then
        c%requires_grad = .true.
@@ -875,6 +901,7 @@ contains
        c%operation = 'add'
        c%left_operand => a
     end if
+    write(8,*) "t3"
   end function add_scalar
 
   function scalar_add(a, b) result(c)
@@ -883,7 +910,9 @@ contains
     class(array_type), intent(in), target :: b
     type(array_type), pointer :: c
 
+    write(*,*) 'scalar_add'
     c = add_scalar(b, a)
+    write(*,*) 'done'
   end function scalar_add
 
   !-----------------------------------------------------------------------------
@@ -906,13 +935,37 @@ contains
     end if
   end function subtract_arrays
 
+  function subtract_real1d(a, b) result(c)
+    !! Subtract a real array from an autodiff array
+    class(array_type), intent(in), target :: a
+    real(real32), dimension(:), intent(in) :: b
+    type(array_type), pointer :: c
+
+    integer :: s
+
+    allocate(c)
+    call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
+    do concurrent(s=1:size(a%val,2))
+       c%val(:,s) = a%val(:,s) - b(:)
+    end do
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'subtract'
+       c%left_operand => a
+    end if
+  end function subtract_real1d
+
   function negate_array(a) result(c)
     !! Negate an autodiff array
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
     allocate(c)
+    call c%allocate(array_shape=a%shape)
     c%val = -a%val
+    write(*,*) "negate", a%requires_grad
 
     if(a%requires_grad) then
        c%requires_grad = .true.
@@ -1036,6 +1089,7 @@ contains
     do concurrent(s=1:size(b%val,2))
        c%val(:,s) = matmul(a, b%val(:,s))
     end do
+    write(*,*) "real2d_matmul: b requires_grad = ", b%requires_grad
 
     if(b%requires_grad) then
        c%requires_grad = .true.
@@ -1178,6 +1232,107 @@ contains
     end if
   end function transpose_array
 
+  function lt_scalar(a, b) result(c)
+    !! Less than comparison between autodiff array and scalar
+    class(array_type), intent(in), target :: a
+    real(real32), intent(in) :: b
+    logical, dimension(size(a%val,1), size(a%val,2)) :: c
+
+    c = a%val .lt. b
+
+  end function lt_scalar
+
+  function maxval_array(a, dim) result(c)
+    !! Find maximum value along a dimension
+    class(array_type), intent(in), target :: a
+    integer, intent(in) :: dim
+    real(real32), dimension(:), allocatable :: c
+
+    integer :: i, s
+
+    if(size(a%shape) .ne. 2)then
+       call stop_program("maxval: only 2D arrays can be used")
+    end if
+
+    if(dim.eq.1)then
+       allocate(c(size(a%val,2)))
+       do concurrent(s=1:size(a%val,2))
+          c(s) = maxval(a%val(:,s))
+       end do
+    else if(dim.eq.2)then
+       allocate(c(size(a%val,1)))
+       do concurrent(i=1:size(a%val,1))
+          c(i) = maxval(a%val(i,:))
+       end do
+    else
+       call stop_program("maxval: only 1 or 2 dimensions are supported")
+    end if
+
+  end function maxval_array
+
+  function sum_array(a, dim) result(c)
+    !! Sum values along a dimension
+    class(array_type), intent(in), target :: a
+    integer, intent(in) :: dim
+    real(real32), dimension(:), allocatable :: c
+
+    integer :: i, s
+
+    if(size(a%shape) .ne. 2)then
+       call stop_program("sum_array: only 2D arrays can be used")
+    end if
+
+    if(dim.eq.1)then
+       allocate(c(size(a%val,2)))
+       do concurrent(s=1:size(a%val,2))
+          c(s) = sum(a%val(:,s))
+       end do
+    else if(dim.eq.2)then
+       allocate(c(size(a%val,1)))
+       do concurrent(i=1:size(a%val,1))
+          c(i) = sum(a%val(i,:))
+       end do
+    else
+       call stop_program("sum_array: only 1 or 2 dimensions are supported")
+    end if
+
+  end function sum_array
+
+  function merge_scalar(tsource, fsource, mask) result(c)
+    !! Merge two autodiff arrays based on a mask
+    class(array_type), intent(in), target :: tsource
+    real(real32), intent(in) :: fsource
+    logical, dimension(:,:), intent(in) :: mask
+    type(array_type), pointer :: c
+
+    integer :: i, j, s
+
+    write(*,*) "here"
+    if(size(tsource%shape) .ne. 2)then
+       call stop_program("merge_array: only 2D arrays can be merged")
+    end if
+
+    allocate(c)
+    call c%allocate(array_shape=[size(tsource%val,1), size(tsource%val,2)])
+    ! merge 1D array by using shape to swap dimensions
+    do concurrent(s=1:size(tsource%val,2))
+       do concurrent(i=1:size(tsource%val,1), j=1:size(tsource%val,2))
+          if(mask(i,j)) then
+             c%val(i,j) = tsource%val(i,j)
+          else
+             c%val(i,j) = fsource
+          end if
+       end do
+    end do
+
+    if(tsource%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'merge'
+       c%left_operand => tsource
+    end if
+  end function merge_scalar
+
   !-----------------------------------------------------------------------------
   ! Division operations
   !-----------------------------------------------------------------------------
@@ -1205,6 +1360,7 @@ contains
     type(array_type), pointer :: c
 
     allocate(c)
+    call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
     c%val = a%val / scalar
 
     if(a%requires_grad) then
@@ -1221,7 +1377,9 @@ contains
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
+    write(*,*) "scalar_divide"
     allocate(c)
+    call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
     c%val = scalar / a%val
 
     if(a%requires_grad) then
@@ -1231,6 +1389,28 @@ contains
        c%left_operand => a
     end if
   end function scalar_divide
+
+  function divide_real1d(a, b) result(c)
+    !! Divide autodiff array by a real array
+    class(array_type), intent(in), target :: a
+    real(real32), dimension(:), intent(in) :: b
+    type(array_type), pointer :: c
+
+    integer :: s
+
+    allocate(c)
+    call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
+    do concurrent(s=1:size(a%val,2))
+       c%val(:,s) = a%val(:,s) / b(:)
+    end do
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'divide_real1d'
+       c%left_operand => a
+    end if
+  end function divide_real1d
 
   !-----------------------------------------------------------------------------
   ! Power operations
@@ -1325,7 +1505,9 @@ contains
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
+    write(*,*) "exp"
     allocate(c)
+    call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
     c%val = exp(a%val)
 
     if(a%requires_grad) then

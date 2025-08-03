@@ -2581,6 +2581,15 @@ contains
           class default
              return
           end select
+       elseif(count(this%auto_graph%adjacency(:,this%vertex_order(i)).gt.0).eq.1)then
+          j = maxloc(this%auto_graph%adjacency(:,this%vertex_order(i)),dim=1)
+          j = this%auto_graph%vertex(j)%id
+          call this%model(this%vertex_order(i))%layer%set_graph( &
+               [ input(input_idx,:) ] &
+          )
+          call this%model(this%vertex_order(i))%layer%forward_derived( &
+               this%model(j)%layer%output &
+          )
        else
           !! CAUTION, set_graph() should only update the adjacency matrix and edge weights
           !! maybe just make its own fuction for this
@@ -3425,7 +3434,7 @@ contains
     select type(output)
     type is(graph_type)
        num_batches = size(output,dim=2) / this%batch_size
-    type is(array_type)
+    class is(array_type)
        if(this%use_graph_output)then
           num_batches = size(output,dim=2) / this%batch_size
        else
@@ -3443,9 +3452,7 @@ contains
     !---------------------------------------------------------------------------
     ! Get number of samples
     !---------------------------------------------------------------------------
-    write(*,*) "test0"
     num_samples = this%save_input( input )
-    write(*,*) "test1"
     if(size(output,2).ne.num_samples.and.this%use_graph_output)then
        call stop_program("number of samples in input and output do not match")
        return

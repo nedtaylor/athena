@@ -5,7 +5,7 @@ module athena__activation_sigmoid
   !! outputs between 0 and 1
   use athena__constants, only: real32
   use athena__misc_types, only: activation_type, array_type, operator(+), operator(-), &
-       operator(*), operator(/), exp
+       operator(*), operator(/), exp, merge, operator(.lt.)
   implicit none
 
 
@@ -70,7 +70,7 @@ contains
 
 
 !###############################################################################
-  pure function sigmoid_activate_array(this, val) result(output)
+  function sigmoid_activate_array(this, val) result(output)
     !! Apply sigmoid activation to 1D array
     !!
     !! Computes: f = 1/(1+exp(-x))
@@ -84,15 +84,12 @@ contains
     type(array_type) :: output
     !! Activated output values in range [0,1]
 
-    ! where(val.lt.this%threshold)
-    !    output = 0._real32
-    ! elsewhere
-    !    output = this%scale /(1._real32 + exp(-val))
-    ! end where
+    output = this%scale /(1._real32 + exp(-val))
+    !output = merge( this%scale /(1._real32 + exp(-val)), 0._real32, val.lt.this%threshold )
   end function sigmoid_activate_array
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function sigmoid_activate_1d(this, val) result(output)
+  function sigmoid_activate_1d(this, val) result(output)
     !! Apply sigmoid activation to 1D array
     !!
     !! Computes: f = 1/(1+exp(-x))
@@ -114,7 +111,7 @@ contains
   end function sigmoid_activate_1d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function sigmoid_activate_2d(this, val) result(output)
+  function sigmoid_activate_2d(this, val) result(output)
     !! Apply sigmoid activation to 2D array
     !!
     !! Computes: f = 1/(1+exp(-x))
@@ -136,7 +133,7 @@ contains
   end function sigmoid_activate_2d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function sigmoid_activate_3d(this, val) result(output)
+  function sigmoid_activate_3d(this, val) result(output)
     !! Apply sigmoid activation to 3D array
     !!
     !! Computes: f = 1/(1+exp(-x))
@@ -158,7 +155,7 @@ contains
   end function sigmoid_activate_3d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function sigmoid_activate_4d(this, val) result(output)
+  function sigmoid_activate_4d(this, val) result(output)
     !! Apply sigmoid activation to 4D array
     !!
     !! Computes: f = 1/(1+exp(-x))
@@ -181,7 +178,7 @@ contains
   end function sigmoid_activate_4d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function sigmoid_activate_5d(this, val) result(output)
+  function sigmoid_activate_5d(this, val) result(output)
     !! Apply sigmoid activation to 5D array
     !!
     !! Computes: f = 1/(1+exp(-x))
@@ -206,7 +203,7 @@ contains
 
 
 !###############################################################################
-  pure function sigmoid_differentiate_1d(this, val) result(output)
+  function sigmoid_differentiate_1d(this, val) result(output)
     !! Differentiate sigmoid activation for 1D array
     !!
     !! Computes derivative: df/dx = f * (1 - f)
@@ -225,7 +222,7 @@ contains
   end function sigmoid_differentiate_1d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function sigmoid_differentiate_2d(this, val) result(output)
+  function sigmoid_differentiate_2d(this, val) result(output)
     !! Differentiate sigmoid activation for 2D array
     !!
     !! Computes derivative: df/dx = f * (1 - f)
@@ -244,7 +241,7 @@ contains
   end function sigmoid_differentiate_2d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function sigmoid_differentiate_3d(this, val) result(output)
+  function sigmoid_differentiate_3d(this, val) result(output)
     !! Differentiate sigmoid activation for 3D array
     !!
     !! Computes derivative: df/dx = f * (1 - f)
@@ -263,7 +260,7 @@ contains
   end function sigmoid_differentiate_3d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function sigmoid_differentiate_4d(this, val) result(output)
+  function sigmoid_differentiate_4d(this, val) result(output)
     !! Differentiate sigmoid activation for 4D array
     !!
     !! Computes derivative: df/dx = f * (1 - f)
@@ -283,7 +280,7 @@ contains
   end function sigmoid_differentiate_4d
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-  pure function sigmoid_differentiate_5d(this, val) result(output)
+  function sigmoid_differentiate_5d(this, val) result(output)
     !! Differentiate sigmoid activation for 5D array
     !!
     !! Computes derivative: df/dx = f * (1 - f)
