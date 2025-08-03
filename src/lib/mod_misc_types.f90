@@ -24,7 +24,8 @@ module athena__misc_types
   public :: facets_type
 
   public :: operator(+), operator(-), operator(*), operator(/), &
-       operator(**), operator(.mmul.)
+       operator(**), operator(.mmul.), operator(.concat.), operator(.ltrim.), &
+       operator(.rtrim.), operator(.index.)
   public :: sin, cos, tan, exp, log, sqrt, tanh, sigmoid, transpose
 
 
@@ -219,6 +220,8 @@ module athena__misc_types
      !! Logical flag for array allocation
      real(real32), dimension(:,:), allocatable :: val
      !! Array values in rank 2 (sample, batch)
+     integer, dimension(:), allocatable :: indices
+     !! Indices for gradient accumulation
      logical :: requires_grad = .false.
      !! Flag indicating if gradients should be computed
      logical :: is_leaf = .true.
@@ -389,6 +392,22 @@ module athena__misc_types
      module procedure matmul_arrays
      module procedure real2d_matmul
      module procedure matmul_real2d
+  end interface
+
+  interface operator(.concat.)
+     module procedure concat_arrays
+  end interface
+
+  interface operator(.ltrim.)
+     module procedure ltrim_array
+  end interface
+
+  interface operator(.rtrim.)
+     module procedure rtrim_array
+  end interface
+
+  interface operator(.index.)
+     module procedure index_array
   end interface
 
   !-----------------------------------------------------------------------------
@@ -1034,6 +1053,103 @@ contains
     end do
     c%left_operand => a_array
   end function real2d_matmul
+
+  function concat_arrays(a, b) result(c)
+    !! Concatenate two autodiff arrays along the first dimension
+    class(array_type), intent(in), target :: a, b
+    type(array_type), pointer :: c
+
+    integer :: i, j, s
+
+    allocate(c)
+    call c%allocate(array_shape=[size(a%val,1) + size(b%val,1), size(a%val,2)])
+    ! concatenate 1D array by using shape to swap dimensions
+    do concurrent(s=1:size(a%val,2))
+       do concurrent(i=1:1, j=1:size(a%val,1))
+          c%val( i, s) = a%val( i, s)
+       end do
+       do concurrent(i=1:1, j=1:size(b%val,1))
+          c%val( size(a%val,1) + i, s) = b%val( i, s)
+       end do
+    end do
+
+    if(a%requires_grad .or. b%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'concat'
+       c%left_operand => a
+       c%right_operand => b
+    end if
+  end function concat_arrays
+
+  function ltrim_array(a, b) result(c)
+    !! Left trim an autodiff array
+    class(array_type), intent(in), target :: a
+    integer, intent(in) :: b
+    type(array_type), pointer :: c
+
+    integer :: i, j, s
+
+    allocate(c)
+    call c%allocate(array_shape=[b, size(a%val,2)])
+    ! left trim 1D array by using shape to swap dimensions
+    do concurrent(s=1:size(a%val,2))
+       c%val( :, s) = a%val( 1:b, s)
+    end do
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'ltrim'
+       c%left_operand => a
+    end if
+  end function ltrim_array
+
+  function rtrim_array(a, b) result(c)
+    !! Right trim an autodiff array
+    class(array_type), intent(in), target :: a
+    integer, intent(in) :: b
+    type(array_type), pointer :: c
+
+    integer :: i, j, s
+
+    allocate(c)
+    call c%allocate(array_shape=[b, size(a%val,2)])
+    ! right trim 1D array by using shape to swap dimensions
+    do concurrent(s=1:size(a%val,2))
+       c%val( :, s) = a%val( size(a%val,1)-b+1:size(a%val,1), s)
+    end do
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'rtrim'
+       c%left_operand => a
+    end if
+  end function rtrim_array
+
+  function index_array(a, indices) result(c)
+    !! Index an autodiff array
+    class(array_type), intent(in), target :: a
+    integer, dimension(:), intent(in) :: indices
+    type(array_type), pointer :: c
+
+    integer :: i, s
+
+    allocate(c)
+    call c%allocate(array_shape=[size(a%val,1), size(indices)])
+    do concurrent(s=1:size(indices), i=1:size(a%val,1))
+       c%val(i, s) = a%val(i, indices(s))
+    end do
+    c%indices = indices
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'index'
+       c%left_operand => a
+    end if
+  end function index_array
 
   function transpose_array(a) result(c)
     !! Transpose an autodiff array

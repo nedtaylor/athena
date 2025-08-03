@@ -220,6 +220,7 @@ contains
     if(present(keep_shape)) keep_shape_ = keep_shape
     if(.not.keep_shape_) this%shape = 0
     if(allocated(this%val)) deallocate(this%val)
+    if(allocated(this%indices)) deallocate(this%indices)
     this%allocated = .false.
     this%size = 0
 
@@ -475,6 +476,7 @@ contains
     if(associated(input%left_operand)) this%left_operand => input%left_operand
     if(associated(input%right_operand)) this%right_operand => input%right_operand
     this%operation = input%operation
+    if(allocated(input%indices)) this%indices = input%indices
 
   end subroutine assign_array
 !###############################################################################
@@ -604,6 +606,23 @@ contains
                transpose(this%left_operand) .mmul. upstream_grad)
        end if
 
+    case('concat')
+       if(associated(this%left_operand) .and. &
+            this%left_operand%requires_grad) then
+          call accumulate_gradient(this%left_operand, upstream_grad .ltrim. &
+               this%left_operand%shape(1))
+       end if
+       if(associated(this%right_operand) .and. &
+            this%right_operand%requires_grad) then
+          call accumulate_gradient(this%right_operand, upstream_grad .rtrim. &
+               this%right_operand%shape(1))
+       end if
+    case('index')
+       if(associated(this%left_operand) .and. &
+            this%left_operand%requires_grad) then
+          call accumulate_gradient_index(this%left_operand, upstream_grad)
+       end if
+
     case('divide')
        if(associated(this%left_operand) .and. &
             this%left_operand%requires_grad) then
@@ -684,6 +703,28 @@ contains
        call array%backward_op(grad)
     end if
   end subroutine accumulate_gradient
+
+  subroutine accumulate_gradient_index(array, grad)
+    !! Accumulate gradient for indexed array
+    class(array_type), intent(inout) :: array
+    class(array_type), intent(in) :: grad
+
+    integer :: i
+
+    if(.not. associated(array%grad)) then
+       allocate(array%grad, source=array)
+       call array%grad%zero_grad()
+    end if
+
+    ! Assuming grad is already indexed correctly
+    do i = 1, size(grad%indices)
+       array%grad%val(:,grad%indices(i)) = array%grad%val(:,grad%indices(i)) + grad%val(:,i)
+    end do
+
+    if(.not. array%is_leaf) then
+       call array%backward_op(grad)
+    end if
+  end subroutine accumulate_gradient_index
 
 
 !##############################################################################!

@@ -385,8 +385,18 @@ contains
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input data (i.e. vertex and edge features)
 
+    ! Local variables
+    integer :: i, j
+    !! Loop indices
+
     call this%update_message(input)
     call this%update_readout()
+
+    do i = 1, size(this%output, 1)
+       do j = 1, size(this%output, 2)
+          call this%output(i,j)%backward()
+       end do
+    end do
 
   end subroutine forward_derived_msgpass
 !###############################################################################

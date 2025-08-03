@@ -46,16 +46,14 @@ module athena__msgpass_layer
      integer :: num_params_readout
      !! Number of learnable parameters for the readout
 
-     type(array2d_type), dimension(:,:), allocatable :: vertex_features
+     type(array_type), dimension(:,:), allocatable :: vertex_features
      !! Vertex features for each time step
-     type(array2d_type), dimension(:,:), allocatable :: edge_features
+     type(array_type), dimension(:,:), allocatable :: edge_features
      !! Edge features for each time step
-     type(array2d_type), dimension(:,:), allocatable :: message
+     type(array_type), dimension(:,:), allocatable :: message
      !! Message for each time step
-     type(array2d_type), dimension(:,:), allocatable :: z
+     type(array_type), dimension(:,:), allocatable :: z
      !! Non-transformed message for each time step
-     type(array2d_type), dimension(:,:), allocatable :: dfeatures
-     !! Derivative of the features
    contains
      !  procedure, pass(this) :: set_hyperparams => set_hyperparams_msgpass
      !  !! Set the hyperparameters for message passing layer

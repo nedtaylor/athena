@@ -446,10 +446,7 @@ contains
        !      source=0._real32 &
        ! )
        if(allocated(this%z)) deallocate(this%z)
-       allocate( &
-            this%z(this%num_time_steps, this%batch_size), &
-            source=array2d_type() &
-       )
+       allocate(this%z(this%num_time_steps, this%batch_size))
        ! select type(output => this%output(1,1))
        ! type is (array2d_type)
        !    allocate( this%z, source = output%val )

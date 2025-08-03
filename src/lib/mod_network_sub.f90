@@ -2519,18 +2519,14 @@ contains
     ! Local variables
     integer :: i, j
     !! Loop index
-    real(real32), dimension(:,:), allocatable :: auto_input
-    !! Autodiff input
 
 
-    !  write(*,*) "forward_derived"
     ! Forward pass
     !---------------------------------------------------------------------------
     do i = 1, size(this%vertex_order,1)
        if(all(this%auto_graph%adjacency(:,this%vertex_order(i)).eq.0))then
           select type(layer => this%model(this%vertex_order(i))%layer)
           class is(input_layer_type)
-             !  call layer%forward(input(layer%index)%val)
              call layer%forward_derived(input(layer%index:layer%index,:))
           class default
              return

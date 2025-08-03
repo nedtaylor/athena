@@ -3,7 +3,7 @@ module athena__duvenaud_msgpass_layer
   use athena__constants, only: real32
   use graphstruc, only: graph_type
   use athena__misc_types, only: activation_type, initialiser_type, &
-       array_type, array2d_type
+       array_type, array2d_type, operator(.concat.), operator(.index.), operator(.mmul.), operator(/)
   use athena__base_layer, only: base_layer_type
   use athena__msgpass_layer, only: msgpass_layer_type
   implicit none
@@ -600,10 +600,7 @@ contains
        !      source=0._real32 &
        ! )
        if(allocated(this%z)) deallocate(this%z)
-       allocate( &
-            this%z(this%num_time_steps, this%batch_size), &
-            source=array2d_type() &
-       )
+       allocate(this%z(this%num_time_steps, this%batch_size))
        ! select type(output => this%output(1,1))
        ! type is (array2d_type)
        !    allocate( this%z, source = output%val )
@@ -886,7 +883,7 @@ contains
     !! Input to the message passing layer
 
     ! Local variables
-    integer :: s, v, e, t
+    integer :: s, v, e, t, e_start, e_end
     !! Batch index, vertex index, edge index, time step
     integer :: degree
     !! Degree of the vertex
@@ -895,8 +892,8 @@ contains
 
 
     do s = 1, this%batch_size
-       this%vertex_features(0,s)%val = input(1,s)%val
-       this%edge_features(0,s)%val = input(2,s)%val
+       this%vertex_features(0,s) = input(1,s)
+       this%edge_features(0,s) = input(2,s)
     end do
 
     do t = 1, this%num_time_steps
@@ -916,33 +913,20 @@ contains
                   this%min_vertex_degree, &
                   min(degree, this%max_vertex_degree) &
              )
-             do e = this%graph(s)%adj_ia(v), this%graph(s)%adj_ia(v+1) - 1
-                if(this%graph(s)%adj_ja(2,e).eq.0)then
-                   this%message(t,s)%val(:this%num_vertex_features(t-1),v) = &
-                        this%message(t,s)%val(:this%num_vertex_features(t-1),v) + &
-                        this%vertex_features(t-1,s)%val(:,v)
-                else
-                   this%message(t,s)%val(:,v) = &
-                        this%message(t,s)%val(:,v) + &
-                        [ &
-                             this%vertex_features(t-1,s)%val( &
-                                  :, &
-                                  this%graph(s)%adj_ja(1,e) &
-                             ), &
-                             this%edge_features(0,s)%val( &
-                                  :, &
-                                  this%graph(s)%adj_ja(2,e) &
-                             ) &
-                        ]
-                end if
-             end do
-             this%z(t,s)%val(:,v) = matmul( &
-                  weight(:,:,degree), &
-                  this%message(t,s)%val(:,v) / degree &
-             )
+             e_start = this%graph(s)%adj_ia(v)
+             e_end = this%graph(s)%adj_ia(v+1) - 1
+             this%message(t,s) = &
+                  ( this%vertex_features(t-1,s) .index. this%graph(s)%adj_ja(1,e_start:e_end) ) .concat. &
+                  ( this%edge_features(0,s) .index. this%graph(s)%adj_ja(2,e_start:e_end) )
+             ! if(t.eq.1)then
+             !    this%message(t,s) = &
+             !         ( input(1,s) .index. this%graph(s)%adj_ja(1,e_start:e_end) ) .concat. &
+             !         ( input(2,s) .index. this%graph(s)%adj_ja(2,e_start:e_end) )
+             ! else
+             ! end if
+             this%z(t,s) = weight(:,:,degree) .mmul. ( this%message(t,s) / real(degree, real32) )
           end do
-          this%vertex_features(t,s)%val(:,:) = &
-               this%transfer%activate( this%z(t,s)%val )
+          this%vertex_features(t,s) = this%transfer%activate( this%z(t,s) )
        end do
     end do
 

@@ -866,24 +866,17 @@ contains
     real(real32) :: tmp
 
 
-    !   select type(input)
-    !   type is (array_type)
-    !      write(*,*) "array_type"
-    !   type is (array2d_type)
-    !      write(*,*) "tat"
-    !      class default
-    !       write(*,*) "default"
-    ! end select
-    call this%z%zero_grad()
     call this%z%set_requires_grad(.true.)
 
     ! Generate outputs from weights, biases, and inputs
     !---------------------------------------------------------------------------
+    call this%z%zero_grad()
     this%z = ( this%weight(:,:this%num_inputs) .mmul. input(1,1) ) + &
          [ this%weight(:,this%num_inputs+1) ]
 
     ! Apply activation function to activation
     !---------------------------------------------------------------------------
+    call this%output(1,1)%zero_grad()
     this%output(1,1) = this%transfer%activate(this%z)
 
     call this%output(1,1)%backward()
