@@ -846,6 +846,7 @@ contains
     class(array_type), intent(in), target :: b
     type(array_type), pointer :: c
 
+    allocate(c)
     c = add_real2d(b, a)
   end function real2d_add
 
@@ -877,6 +878,7 @@ contains
     class(array_type), intent(in), target :: b
     type(array_type), pointer :: c
 
+    allocate(c)
     c = add_real1d(b, a)
   end function real1d_add
 
@@ -886,14 +888,9 @@ contains
     real(real32), intent(in) :: b
     type(array_type), pointer :: c
 
-    write(*,*) 'add_scalar'
     allocate(c)
-    write(*,*) 't0'
     call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
-    write(*,*) 't1'
     c%val = a%val + b
-    write(*,*) 't2'
-    write(*,*) 'a%requires_grad = ', a%requires_grad
 
     if(a%requires_grad) then
        c%requires_grad = .true.
@@ -901,7 +898,6 @@ contains
        c%operation = 'add'
        c%left_operand => a
     end if
-    write(8,*) "t3"
   end function add_scalar
 
   function scalar_add(a, b) result(c)
@@ -910,9 +906,8 @@ contains
     class(array_type), intent(in), target :: b
     type(array_type), pointer :: c
 
-    write(*,*) 'scalar_add'
+    allocate(c)
     c = add_scalar(b, a)
-    write(*,*) 'done'
   end function scalar_add
 
   !-----------------------------------------------------------------------------
@@ -965,7 +960,6 @@ contains
     allocate(c)
     call c%allocate(array_shape=a%shape)
     c%val = -a%val
-    write(*,*) "negate", a%requires_grad
 
     if(a%requires_grad) then
        c%requires_grad = .true.
@@ -1089,7 +1083,6 @@ contains
     do concurrent(s=1:size(b%val,2))
        c%val(:,s) = matmul(a, b%val(:,s))
     end do
-    write(*,*) "real2d_matmul: b requires_grad = ", b%requires_grad
 
     if(b%requires_grad) then
        c%requires_grad = .true.
@@ -1250,8 +1243,8 @@ contains
 
     integer :: i, s
 
-    if(size(a%shape) .ne. 2)then
-       call stop_program("maxval: only 2D arrays can be used")
+    if(size(a%shape) .ne. 1)then
+       call stop_program("maxval: only 1D arrays can be used")
     end if
 
     if(dim.eq.1)then
@@ -1278,8 +1271,8 @@ contains
 
     integer :: i, s
 
-    if(size(a%shape) .ne. 2)then
-       call stop_program("sum_array: only 2D arrays can be used")
+    if(size(a%shape) .ne. 1)then
+       call stop_program("sum_array: only 1D arrays can be used")
     end if
 
     if(dim.eq.1)then
@@ -1307,9 +1300,8 @@ contains
 
     integer :: i, j, s
 
-    write(*,*) "here"
-    if(size(tsource%shape) .ne. 2)then
-       call stop_program("merge_array: only 2D arrays can be merged")
+    if(size(tsource%shape) .ne. 1)then
+       call stop_program("merge_array: only 1D arrays can be merged")
     end if
 
     allocate(c)
@@ -1377,7 +1369,6 @@ contains
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
-    write(*,*) "scalar_divide"
     allocate(c)
     call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
     c%val = scalar / a%val
@@ -1505,7 +1496,6 @@ contains
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
-    write(*,*) "exp"
     allocate(c)
     call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
     c%val = exp(a%val)
