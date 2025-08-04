@@ -651,7 +651,7 @@ module athena__network
      end subroutine backward_graph
      module subroutine backward_mixed(this, output)
        !! Forward pass for derived input
-       class(network_type), intent(inout) :: this
+       class(network_type), intent(inout), target :: this
        !! Instance of the network
        type(array_type), dimension(:,:), intent(in) :: output
        !! Output data

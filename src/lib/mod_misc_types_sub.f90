@@ -623,6 +623,18 @@ contains
           call accumulate_gradient_index(this%left_operand, upstream_grad)
        end if
 
+      case('max')
+       if(associated(this%left_operand) .and. &
+            this%left_operand%requires_grad) then
+          call accumulate_gradient(this%left_operand, &
+               upstream_grad * (this%val .eq. this%left_operand%val))
+       end if
+       if(associated(this%right_operand) .and. &
+            this%right_operand%requires_grad) then
+          call accumulate_gradient(this%right_operand, &
+               upstream_grad * (this%val .eq. this%right_operand%val))
+       end if
+
     case('divide')
        if(associated(this%left_operand) .and. &
             this%left_operand%requires_grad) then

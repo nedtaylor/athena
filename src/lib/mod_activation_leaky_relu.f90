@@ -5,7 +5,7 @@ module athena__activation_leaky_relu
   !! f(x) = x if x > 0, 0.01x otherwise
   use athena__constants, only: real32
   use athena__misc_types, only: activation_type, array_type, operator(+), operator(-), &
-       operator(*), operator(/), exp
+       operator(*), operator(/), exp, max
   implicit none
 
 
@@ -74,7 +74,7 @@ contains
     type(array_type) :: output
     !! Activated output values
 
-    !output = max(0.01_real32*val, val) * this%scale
+    output = max(val * 0.01_real32, val) * this%scale
   end function leaky_relu_activate_array
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------

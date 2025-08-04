@@ -27,7 +27,7 @@ module athena__misc_types
        operator(**), operator(.mmul.), operator(.concat.), operator(.ltrim.), &
        operator(.rtrim.), operator(.index.)
   public :: operator(.lt.)
-  public :: merge, maxval, sum
+  public :: merge, maxval, max, sum
   public :: sin, cos, tan, exp, log, sqrt, tanh, sigmoid, transpose
 
 
@@ -218,6 +218,8 @@ module athena__misc_types
      !! Shape of the array
      integer :: size
      !! Size of the array
+     logical :: is_constant = .false.
+     !! Logical flag for constant array
      logical :: allocated = .false.
      !! Logical flag for array allocation
      real(real32), dimension(:,:), allocatable :: val
@@ -378,6 +380,7 @@ module athena__misc_types
      module procedure multiply_arrays
      module procedure multiply_scalar
      module procedure scalar_multiply
+     module procedure multiply_logical
   end interface
 
   interface operator(/)
@@ -424,6 +427,10 @@ module athena__misc_types
 
   interface maxval
      module procedure maxval_array
+  end interface
+
+  interface max
+     module procedure max_array
   end interface
 
   interface merge
@@ -1015,18 +1022,55 @@ contains
     c = multiply_scalar(a, scalar)
   end function scalar_multiply
 
+  function multiply_logical(a, b) result(c)
+    !! Multiply two logical arrays (element-wise)
+    class(array_type), intent(in), target :: a
+    logical, dimension(:,:), intent(in) :: b
+    type(array_type), pointer :: c
+
+    integer :: s, i
+
+    allocate(c)
+    call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
+    do concurrent(s=1:size(a%val,2), i=1:size(a%val,1))
+       if(b(i,s)) then
+          c%val(i,s) = a%val(i,s)
+       else
+          c%val(i,s) = 0.0_real32
+       end if
+    end do
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'multiply_logical'
+       c%left_operand => a
+    end if
+
+  end function multiply_logical
+
   function matmul_arrays(a, b) result(c)
     !! Matrix multiplication of two autodiff arrays
     class(array_type), intent(in), target :: a, b
     type(array_type), pointer :: c
 
     integer :: s
+    real(real32), pointer :: temp(:,:)
 
     allocate(c)
-    call c%allocate(array_shape=[size(a%val,1), size(b%val,2)])
-    do concurrent(s=1:size(a%val,2))
-       c%val(:,s) = matmul(a%val, b%val(:,s))
-    end do
+    if(a%is_constant)then
+       call c%allocate(array_shape=[a%shape(1), size(b%val,2)])
+       temp(1:a%shape(1), 1:a%shape(2)) => a%val
+       do concurrent(s=1:size(b%val,2))
+          c%val(:,s) = matmul(temp, b%val(:,s))
+       end do
+    else
+       call c%allocate(array_shape=[size(a%val,1), b%shape(2)])
+       temp(1:b%shape(1), 1:b%shape(2)) => b%val
+       do concurrent(s=1:size(a%val,2))
+          c%val(:,s) = matmul(a%val(:,s), temp)
+       end do
+    end if
 
     if(a%requires_grad .or. b%requires_grad) then
        c%requires_grad = .true.
@@ -1059,6 +1103,7 @@ contains
        c%left_operand => a
     end if
     allocate(b_array)
+    b_array%is_constant = .true.
     b_array%shape = shape(b)
     b_array%requires_grad = .false.
     b_array%is_leaf = .false.
@@ -1091,6 +1136,7 @@ contains
        c%right_operand => b
     end if
     allocate(a_array)
+    a_array%is_constant = .true.
     a_array%shape = shape(a)
     a_array%requires_grad = .false.
     a_array%is_leaf = .false.
@@ -1262,6 +1308,23 @@ contains
     end if
 
   end function maxval_array
+
+  function max_array(a, b) result(c)
+    !! Find maximum value between two autodiff arrays
+    class(array_type), intent(in), target :: a, b
+    type(array_type), pointer :: c
+
+    allocate(c)
+    c%val = max(a%val, b%val)
+
+    if(a%requires_grad .or. b%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'max'
+       c%left_operand => a
+       c%right_operand => b
+    end if
+  end function max_array
 
   function sum_array(a, dim) result(c)
     !! Sum values along a dimension

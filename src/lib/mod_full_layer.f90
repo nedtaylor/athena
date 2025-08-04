@@ -867,6 +867,7 @@ contains
 
 
     call this%z%set_requires_grad(.true.)
+    call this%output(1,1)%set_requires_grad(.true.)
 
     ! Generate outputs from weights, biases, and inputs
     !---------------------------------------------------------------------------
@@ -879,7 +880,6 @@ contains
     call this%output(1,1)%zero_grad()
     this%output(1,1) = this%transfer%activate(this%z)
 
-    call this%output(1,1)%backward()
 
   end subroutine forward_derived_full
 !###############################################################################
