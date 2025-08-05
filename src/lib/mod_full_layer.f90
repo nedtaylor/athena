@@ -912,7 +912,7 @@ contains
     !! Loop indices
 
 
-    ! bias_diff = this%transfer%differentiate([1._real32])
+    bias_diff = this%transfer%differentiate([1._real32])
 
 
     ! Get gradient multiplied by differential of Z

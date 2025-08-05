@@ -747,6 +747,7 @@ contains
        ! Safely initialize gradient without copying computation graph
        call array%grad%allocate(array_shape=[size(array%val,1), &
             size(array%val,2)])
+       array%grad%val = 0.0_real32
        array%grad%requires_grad = .false.
        array%grad%is_leaf = .true.
        array%grad%operation = 'none'
