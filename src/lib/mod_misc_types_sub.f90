@@ -619,7 +619,7 @@ contains
        if(associated(this%left_operand) .and. &
             this%left_operand%requires_grad) then
           call accumulate_gradient(this%left_operand, &
-               upstream_grad)
+               upstream_grad * this%right_operand%val(1,1))
        end if
     case('matmul_scalar')
        if(associated(this%left_operand) .and. &
@@ -684,6 +684,19 @@ contains
           call accumulate_gradient(this%right_operand, &
                -upstream_grad * this%left_operand / &
                (this%right_operand * this%right_operand))
+       end if
+    case('divide_scalar')
+       if(associated(this%left_operand) .and. &
+            this%left_operand%requires_grad) then
+          call accumulate_gradient(this%left_operand, &
+               upstream_grad / this%right_operand%val(1,1))
+       end if
+    case('scalar_divide')
+       if(associated(this%left_operand) .and. &
+            this%left_operand%requires_grad) then
+          call accumulate_gradient(this%left_operand, &
+               -upstream_grad * this%right_operand%val(1,1) / &
+               (this%left_operand * this%left_operand))
        end if
 
     case('sin')

@@ -1004,6 +1004,7 @@ contains
     class(array_type), intent(in), target :: a
     real(real32), intent(in) :: scalar
     type(array_type), pointer :: c
+    type(array_type), pointer :: b_array
 
     c => a%create_result()
     c%val = a%val * scalar
@@ -1014,6 +1015,13 @@ contains
        c%operation = 'multiply_scalar'
        c%left_operand => a
     end if
+    allocate(b_array)
+    b_array%is_constant = .true.
+    b_array%requires_grad = .false.
+    b_array%is_leaf = .false.
+    call b_array%allocate(array_shape=[1, 1])
+    b_array%val(1, 1) = scalar
+    c%right_operand => b_array
   end function multiply_scalar
 
   function scalar_multiply(scalar, a) result(c)
@@ -1451,6 +1459,7 @@ contains
     class(array_type), intent(in), target :: a
     real(real32), intent(in) :: scalar
     type(array_type), pointer :: c
+    type(array_type), pointer :: b_array
 
     allocate(c)
     call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
@@ -1462,6 +1471,13 @@ contains
        c%operation = 'divide_scalar'
        c%left_operand => a
     end if
+    allocate(b_array)
+    b_array%is_constant = .true.
+    b_array%requires_grad = .false.
+    b_array%is_leaf = .false.
+    call b_array%allocate(array_shape=[1, 1])
+    b_array%val(1, 1) = scalar
+    c%right_operand => b_array
   end function divide_scalar
 
   function scalar_divide(scalar, a) result(c)
@@ -1469,6 +1485,7 @@ contains
     real(real32), intent(in) :: scalar
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
+    type(array_type), pointer :: b_array
 
     allocate(c)
     call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
@@ -1480,6 +1497,13 @@ contains
        c%operation = 'scalar_divide'
        c%left_operand => a
     end if
+    allocate(b_array)
+    b_array%is_constant = .true.
+    b_array%requires_grad = .false.
+    b_array%is_leaf = .false.
+    call b_array%allocate(array_shape=[1, 1])
+    b_array%val(1, 1) = scalar
+    c%right_operand => b_array
   end function scalar_divide
 
   function divide_real1d(a, b) result(c)
