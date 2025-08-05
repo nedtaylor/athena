@@ -202,7 +202,7 @@ contains
 
 
 !###############################################################################
-  pure module subroutine deallocate_array(this, keep_shape)
+  module subroutine deallocate_array(this, keep_shape)
     !! Deallocate array
     implicit none
 
@@ -221,6 +221,19 @@ contains
     if(.not.keep_shape_) this%shape = 0
     if(allocated(this%val)) deallocate(this%val)
     if(allocated(this%indices)) deallocate(this%indices)
+
+    ! Clean up gradients
+    if(associated(this%grad) .and. this%owns_gradient) then
+       call this%grad%deallocate()
+       deallocate(this%grad)
+    end if
+    this%grad => null()
+    this%owns_gradient = .false.
+
+    ! Nullify computation graph pointers
+    this%left_operand => null()
+    this%right_operand => null()
+
     this%allocated = .false.
     this%size = 0
 
@@ -267,6 +280,7 @@ contains
             product(array_shape(1:size(array_shape)-1)),  &
             array_shape(size(array_shape)) &
        ))
+       this%shape = array_shape(1:size(array_shape)-1)
     end if
     if(present(source))then
        select rank(source)
@@ -476,7 +490,13 @@ contains
     if(associated(input%left_operand)) this%left_operand => input%left_operand
     if(associated(input%right_operand)) this%right_operand => input%right_operand
     this%operation = input%operation
+    this%owns_gradient = .false.  ! Dont copy gradient ownership
     if(allocated(input%indices)) this%indices = input%indices
+
+    !  ! Don't copy pointers to avoid aliasing issues
+    !  this%left_operand => null()
+    !  this%right_operand => null()
+    !  this%grad => null()
 
   end subroutine assign_array
 !###############################################################################
@@ -484,13 +504,20 @@ contains
 
 !###############################################################################
   module subroutine finalise_array(this)
-    !! Finalise 2D autodiff array
+    !! Finalise array - clean up memory safely
     type(array_type), intent(inout) :: this
 
-    if(associated(this%grad)) then
-       if(this%grad%allocated) call this%grad%deallocate()
-       nullify(this%grad)
+    ! Clean up gradient if we own it
+    if(associated(this%grad) .and. this%owns_gradient) then
+       call this%grad%deallocate()
+       deallocate(this%grad)
     end if
+
+    ! Nullify pointers but don't deallocate targets (they may be used elsewhere)
+    this%left_operand => null()
+    this%right_operand => null()
+    this%grad => null()
+    this%owns_gradient = .false.
   end subroutine finalise_array
 !###############################################################################
 
@@ -503,7 +530,17 @@ contains
 
     ! Initialize gradient if not allocated
     if(.not. associated(this%grad)) then
-       allocate(this%grad, source=this)
+       allocate(this%grad)
+       ! Safely initialize gradient without copying computation graph
+       call this%grad%allocate(array_shape=[size(this%val,1), size(this%val,2)])
+       this%grad%requires_grad = .false.
+       this%grad%is_leaf = .true.
+       this%grad%operation = 'none'
+       this%grad%left_operand => null()
+       this%grad%right_operand => null()
+       this%grad%grad => null()
+       this%grad%owns_gradient = .false.
+       this%owns_gradient = .true.
        call this%grad%zero_grad()
        ! Set gradient to ones for starting node
        this%grad%val = 1.0_real32
@@ -546,6 +583,7 @@ contains
     class(array_type), intent(inout) :: this
     class(array_type), intent(in) :: upstream_grad
 
+    !  write(*,*) "Performing backward operation for:", trim(this%operation)
     select case(trim(this%operation))
     case('add')
        if(associated(this%left_operand) .and. &
@@ -623,7 +661,7 @@ contains
           call accumulate_gradient_index(this%left_operand, upstream_grad)
        end if
 
-      case('max')
+    case('max')
        if(associated(this%left_operand) .and. &
             this%left_operand%requires_grad) then
           call accumulate_gradient(this%left_operand, &
@@ -700,12 +738,23 @@ contains
   end subroutine backward_op_array
 
   subroutine accumulate_gradient(array, grad)
-    !! Accumulate gradient for 2D array
+    !! Accumulate gradient for array with safe memory management
     class(array_type), intent(inout) :: array
     class(array_type), intent(in) :: grad
 
     if(.not. associated(array%grad)) then
-       allocate(array%grad, source=array)
+       allocate(array%grad)
+       ! Safely initialize gradient without copying computation graph
+       call array%grad%allocate(array_shape=[size(array%val,1), &
+            size(array%val,2)])
+       array%grad%requires_grad = .false.
+       array%grad%is_leaf = .true.
+       array%grad%operation = 'none'
+       array%grad%left_operand => null()
+       array%grad%right_operand => null()
+       array%grad%grad => null()
+       array%grad%owns_gradient = .false.
+       array%owns_gradient = .true.
        call array%grad%zero_grad()
     end if
 
@@ -717,26 +766,62 @@ contains
   end subroutine accumulate_gradient
 
   subroutine accumulate_gradient_index(array, grad)
-    !! Accumulate gradient for indexed array
+    !! Accumulate gradient for indexed array with safe memory management
     class(array_type), intent(inout) :: array
     class(array_type), intent(in) :: grad
 
     integer :: i
 
     if(.not. associated(array%grad)) then
-       allocate(array%grad, source=array)
+       allocate(array%grad)
+       ! Safely initialize gradient without copying computation graph
+       call array%grad%allocate(array_shape=[size(array%val,1), &
+            size(array%val,2)])
+       array%grad%requires_grad = .false.
+       array%grad%is_leaf = .true.
+       array%grad%operation = 'none'
+       array%grad%left_operand => null()
+       array%grad%right_operand => null()
+       array%grad%grad => null()
+       array%grad%owns_gradient = .false.
+       array%owns_gradient = .true.
        call array%grad%zero_grad()
     end if
 
     ! Assuming grad is already indexed correctly
     do i = 1, size(grad%indices)
-       array%grad%val(:,grad%indices(i)) = array%grad%val(:,grad%indices(i)) + grad%val(:,i)
+       array%grad%val(:,grad%indices(i)) = &
+            array%grad%val(:,grad%indices(i)) + grad%val(:,i)
     end do
 
     if(.not. array%is_leaf) then
        call array%backward_op(grad)
     end if
   end subroutine accumulate_gradient_index
+
+  module function create_result_array(this, shape_arr) result(result_ptr)
+    !! Helper function to safely create result arrays with proper initialization
+    class(array_type), intent(in) :: this
+    integer, dimension(:), intent(in), optional :: shape_arr
+    type(array_type), pointer :: result_ptr
+
+    allocate(result_ptr)
+
+    if(present(shape_arr)) then
+       call result_ptr%allocate(array_shape=shape_arr)
+    else
+       call result_ptr%allocate(array_shape=[this%shape, &
+            size(this%val,2)])
+    end if
+
+    ! Initialize autodiff fields
+    result_ptr%requires_grad = .false.
+    result_ptr%is_leaf = .true.
+    result_ptr%operation = 'none'
+    result_ptr%owns_gradient = .false.
+    result_ptr%left_operand => null()
+    result_ptr%right_operand => null()
+  end function create_result_array
 
 
 !##############################################################################!
@@ -863,7 +948,7 @@ contains
 
 
 !###############################################################################
-  pure module subroutine deallocate_array1d(this, keep_shape)
+  module subroutine deallocate_array1d(this, keep_shape)
     !! Deallocate 1D array
     implicit none
 
@@ -1058,7 +1143,7 @@ contains
 
 
 !###############################################################################
-  pure module subroutine deallocate_array2d(this, keep_shape)
+  module subroutine deallocate_array2d(this, keep_shape)
     !! Deallocate 2D array
     implicit none
 
@@ -1284,7 +1369,7 @@ contains
 
 
 !###############################################################################
-  pure module subroutine deallocate_array3d(this, keep_shape)
+  module subroutine deallocate_array3d(this, keep_shape)
     !! Deallocate 3D array
     implicit none
 
@@ -1539,7 +1624,7 @@ contains
 
 
 !###############################################################################
-  pure module subroutine deallocate_array4d(this, keep_shape)
+  module subroutine deallocate_array4d(this, keep_shape)
     !! Deallocate 4D array
     implicit none
 
@@ -1799,7 +1884,7 @@ contains
 
 
 !###############################################################################
-  pure module subroutine deallocate_array5d(this, keep_shape)
+  module subroutine deallocate_array5d(this, keep_shape)
     !! Deallocate 5D array
     implicit none
 

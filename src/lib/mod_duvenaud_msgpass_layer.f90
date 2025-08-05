@@ -3,7 +3,9 @@ module athena__duvenaud_msgpass_layer
   use athena__constants, only: real32
   use graphstruc, only: graph_type
   use athena__misc_types, only: activation_type, initialiser_type, &
-       array_type, array2d_type, operator(.concat.), operator(.index.), operator(.mmul.), operator(/)
+       array_type, array2d_type, &
+       operator(.concat.), operator(.index.), operator(.mmul.), operator(/), &
+       sum, operator(+)
   use athena__base_layer, only: base_layer_type
   use athena__msgpass_layer, only: msgpass_layer_type
   implicit none
@@ -668,6 +670,13 @@ contains
        this%graph(s)%edge_weights = graph(s)%edge_weights
        this%graph(s)%num_edges = graph(s)%num_edges
        this%graph(s)%num_vertices = graph(s)%num_vertices
+       if(any(this%graph(s)%adj_ja(1,:).gt.this%graph(s)%num_vertices))then
+          write(*,*) "Error: graph adjacency matrix has indices greater than &
+               &the number of vertices", s, &
+               this%graph(s)%num_vertices
+          write(*,*) "Adjacency matrix indices: ", this%graph(s)%adj_ja
+          stop
+       end if
     end do
 !     do s = 1, size(graph)
 !        call this%graph(s)%copy(graph(s), sparse=.true.)
@@ -922,16 +931,25 @@ contains
                   this%min_vertex_degree, &
                   min(degree, this%max_vertex_degree) &
              )
-             this%message(t,s) = &
-                  ( this%vertex_features(t-1,s) .index. this%graph(s)%adj_ja(1,e_start:e_end) ) .concat. &
-                  ( this%edge_features(0,s) .index. this%graph(s)%adj_ja(2,e_start:e_end) )
+             this%message(t,s) = &!this%message(t,s) + &
+                  sum( &
+                       ( &
+                            this%vertex_features(t-1,s) .index. &
+                            this%graph(s)%adj_ja(1,e_start:e_end) &
+                       ) .concat. ( &
+                            this%edge_features(0,s) .index. &
+                            this%graph(s)%adj_ja(2,e_start:e_end) &
+                       ), &
+                       dim=2, new_dim_index=v, new_dim_size=this%graph(s)%num_vertices &
+                  )
              ! if(t.eq.1)then
              !    this%message(t,s) = &
              !         ( input(1,s) .index. this%graph(s)%adj_ja(1,e_start:e_end) ) .concat. &
              !         ( input(2,s) .index. this%graph(s)%adj_ja(2,e_start:e_end) )
              ! else
              ! end if
-             this%z(t,s) = weight(:,:,degree) .mmul. ( this%message(t,s) / real(degree, real32) )
+             this%z(t,s) = &
+                  weight(:,:,degree) .mmul. ( this%message(t,s) / real(degree, real32) )
           end do
           this%vertex_features(t,s) = this%transfer%activate( this%z(t,s) )
        end do
@@ -972,7 +990,10 @@ contains
        do s = 1, this%batch_size
           this%z_readout(t,s) = weight .mmul. this%vertex_features(t,s)
           this%output(1,1) = &!this%output(1,1) + &
-               this%transfer_readout%activate( this%z_readout(t,s) )
+               sum( &
+                    this%transfer_readout%activate( this%z_readout(t,s) ), &
+                    dim = 2, new_dim_index=s, new_dim_size=this%batch_size &
+               )
           ! do v = 1, this%graph(s)%num_vertices
           !    this%z_readout(t,s)%val(:,v) = matmul( &
           !         weight, &

@@ -237,6 +237,8 @@ module athena__misc_types
      class(array_type), pointer :: right_operand => null()
      !! Right operand for backward pass
      character(len=32) :: operation = 'none'
+     logical :: owns_gradient = .false.
+     !! Flag indicating if this array owns its gradient memory
    contains
      procedure, pass(this) :: allocate => allocate_array
      !! Abstract procedure for allocating array
@@ -271,6 +273,8 @@ module athena__misc_types
      !! Deferred procedure for operation-specific backward pass
      procedure :: set_requires_grad => set_requires_grad_autodiff
      !! Set requires_grad flag
+     procedure :: create_result => create_result_array
+     !! Helper to safely create result arrays
      final :: finalise_array
      !! Finaliser for array type
   end type array_type
@@ -284,7 +288,7 @@ module athena__misc_types
        class(*), dimension(..), intent(in), optional :: source
      end subroutine allocate_array
 
-     pure module subroutine deallocate_array(this, keep_shape)
+     module subroutine deallocate_array(this, keep_shape)
        class(array_type), intent(inout) :: this
        logical, intent(in), optional :: keep_shape
      end subroutine deallocate_array
@@ -296,6 +300,12 @@ module athena__misc_types
      module subroutine finalise_array(this)
        type(array_type), intent(inout) :: this
      end subroutine finalise_array
+
+     module function create_result_array(this, shape_arr) result(result_ptr)
+       class(array_type), intent(in) :: this
+       integer, dimension(:), intent(in), optional :: shape_arr
+       type(array_type), pointer :: result_ptr
+     end function create_result_array
 
 
 
@@ -423,6 +433,7 @@ module athena__misc_types
 
   interface sum
      module procedure sum_array
+     module procedure sum_array_output_array
   end interface
 
   interface maxval
@@ -574,27 +585,27 @@ module athena__misc_types
   ! Interface for deallocating array
   !-----------------------------------------------------------------------------
   interface
-     pure module subroutine deallocate_array1d(this, keep_shape)
+     module subroutine deallocate_array1d(this, keep_shape)
        class(array1d_type), intent(inout) :: this
        logical, intent(in), optional :: keep_shape
      end subroutine deallocate_array1d
 
-     pure module subroutine deallocate_array2d(this, keep_shape)
+     module subroutine deallocate_array2d(this, keep_shape)
        class(array2d_type), intent(inout) :: this
        logical, intent(in), optional :: keep_shape
      end subroutine deallocate_array2d
 
-     pure module subroutine deallocate_array3d(this, keep_shape)
+     module subroutine deallocate_array3d(this, keep_shape)
        class(array3d_type), intent(inout) :: this
        logical, intent(in), optional :: keep_shape
      end subroutine deallocate_array3d
 
-     pure module subroutine deallocate_array4d(this, keep_shape)
+     module subroutine deallocate_array4d(this, keep_shape)
        class(array4d_type), intent(inout) :: this
        logical, intent(in), optional :: keep_shape
      end subroutine deallocate_array4d
 
-     pure module subroutine deallocate_array5d(this, keep_shape)
+     module subroutine deallocate_array5d(this, keep_shape)
        class(array5d_type), intent(inout) :: this
        logical, intent(in), optional :: keep_shape
      end subroutine deallocate_array5d
@@ -813,8 +824,8 @@ contains
     class(array_type), intent(in), target :: a, b
     type(array_type), pointer :: c
 
-    ! Perform forward pass
-    allocate(c)
+    ! Safely create result array
+    c => a%create_result()
     c%val = a%val + b%val
 
     ! Set up computation graph
@@ -828,15 +839,12 @@ contains
   end function add_arrays
 
   function add_real2d(a, b) result(c)
-    !! Matrix multiplication of two autodiff arrays
+    !! Add a real array to an autodiff array
     class(array_type), intent(in), target :: a
     real(real32), dimension(:,:), intent(in) :: b
     type(array_type), pointer :: c
 
-    integer :: s
-
-    allocate(c)
-    call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
+    c => a%create_result()
     c%val = a%val + b
 
     if(a%requires_grad) then
@@ -853,8 +861,7 @@ contains
     class(array_type), intent(in), target :: b
     type(array_type), pointer :: c
 
-    allocate(c)
-    c = add_real2d(b, a)
+    c => add_real2d(b, a)
   end function real2d_add
 
   function add_real1d(a, b) result(c)
@@ -865,8 +872,7 @@ contains
 
     integer :: s
 
-    allocate(c)
-    call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
+    c => a%create_result()
     do concurrent(s=1:size(a%val,2))
        c%val(:,s) = a%val(:,s) + b(:)
     end do
@@ -885,8 +891,7 @@ contains
     class(array_type), intent(in), target :: b
     type(array_type), pointer :: c
 
-    allocate(c)
-    c = add_real1d(b, a)
+    c => add_real1d(b, a)
   end function real1d_add
 
   function add_scalar(a, b) result(c)
@@ -896,7 +901,8 @@ contains
     type(array_type), pointer :: c
 
     allocate(c)
-    call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
+    call c%allocate(array_shape=[ a%shape, size(a%val,2) ])
+    ! c => a%create_result()
     c%val = a%val + b
 
     if(a%requires_grad) then
@@ -913,8 +919,7 @@ contains
     class(array_type), intent(in), target :: b
     type(array_type), pointer :: c
 
-    allocate(c)
-    c = add_scalar(b, a)
+    c => add_scalar(b, a)
   end function scalar_add
 
   !-----------------------------------------------------------------------------
@@ -925,7 +930,7 @@ contains
     class(array_type), intent(in), target :: a, b
     type(array_type), pointer :: c
 
-    allocate(c)
+    c => a%create_result()
     c%val = a%val - b%val
 
     if(a%requires_grad .or. b%requires_grad) then
@@ -945,10 +950,9 @@ contains
 
     integer :: s
 
-    allocate(c)
-    call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
+    c => a%create_result()
     do concurrent(s=1:size(a%val,2))
-       c%val(:,s) = a%val(:,s) - b(:)
+       c%val(:,s) = a%val(:,s) - b(s)
     end do
 
     if(a%requires_grad) then
@@ -964,8 +968,7 @@ contains
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
-    allocate(c)
-    call c%allocate(array_shape=a%shape)
+    c => a%create_result(a%shape)
     c%val = -a%val
 
     if(a%requires_grad) then
@@ -984,7 +987,7 @@ contains
     class(array_type), intent(in), target :: a, b
     type(array_type), pointer :: c
 
-    allocate(c)
+    c => a%create_result()
     c%val = a%val * b%val
 
     if(a%requires_grad .or. b%requires_grad) then
@@ -1002,7 +1005,7 @@ contains
     real(real32), intent(in) :: scalar
     type(array_type), pointer :: c
 
-    allocate(c)
+    c => a%create_result()
     c%val = a%val * scalar
 
     if(a%requires_grad) then
@@ -1255,7 +1258,7 @@ contains
        call stop_program("transpose_array: only 2D arrays can be transposed")
     end if
     allocate(c)
-    call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
+    call c%allocate(array_shape=[a%shape(2), a%shape(1), size(a%val,2)])
     ! transpose 1D array by using shape to swap dimensions
     do concurrent(s=1:size(a%val,2))
        do concurrent(i=1:a%shape(1), j=1:a%shape(2))
@@ -1263,6 +1266,7 @@ contains
        end do
     end do
 
+    c%is_constant = a%is_constant
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -1314,7 +1318,7 @@ contains
     class(array_type), intent(in), target :: a, b
     type(array_type), pointer :: c
 
-    allocate(c)
+    c => a%create_result()
     c%val = max(a%val, b%val)
 
     if(a%requires_grad .or. b%requires_grad) then
@@ -1353,6 +1357,40 @@ contains
     end if
 
   end function sum_array
+
+  function sum_array_output_array(a, dim, new_dim_index, new_dim_size) result(c)
+    !! Sum values along a dimension and return an autodiff array
+    class(array_type), intent(in), target :: a
+    integer, intent(in) :: dim
+    integer, intent(in) :: new_dim_index
+    integer, intent(in) :: new_dim_size
+    type(array_type), pointer :: c
+
+    integer :: i, s
+
+    if(size(a%shape) .ne. 1)then
+       call stop_program("sum_array_output_array: only 1D arrays can be used")
+    end if
+
+    allocate(c)
+    call c%allocate(array_shape=[size(a%val,1), new_dim_size])
+    ! sum 1D array by using shape to swap dimensions
+    do concurrent(s=1:new_dim_size, i=1:size(a%val,1))
+       if(i .eq. new_dim_index) then
+          c%val(i,s) = sum(a%val(i,:))
+       else
+          c%val(i,s) = 0.0_real32
+       end if
+    end do
+
+    c%is_constant = a%is_constant
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'sum'
+       c%left_operand => a
+    end if
+  end function sum_array_output_array
 
   function merge_scalar(tsource, fsource, mask) result(c)
     !! Merge two autodiff arrays based on a mask
@@ -1455,7 +1493,7 @@ contains
     allocate(c)
     call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
     do concurrent(s=1:size(a%val,2))
-       c%val(:,s) = a%val(:,s) / b(:)
+       c%val(:,s) = a%val(:,s) / b(s)
     end do
 
     if(a%requires_grad) then
