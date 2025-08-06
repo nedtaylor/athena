@@ -71,7 +71,7 @@ contains
     !! Linear activation type
     type(array_type), intent(in) :: val
     !! Input values
-    type(array_type) :: output
+    type(array_type), pointer :: output
     !! Scaled output values
 
     output = this%scale * val

@@ -80,14 +80,14 @@ contains
     !! Softmax activation type
     type(array_type), intent(in) :: val
     !! Input values
-    type(array_type) :: output
+    type(array_type), pointer :: output
     !! Normalised probability distribution output
 
     !! compute softmax values
-    output = exp(val) - maxval(val, dim=1)
+    output => exp(val) - maxval(val, dim=1)
 
     !! normalise softmax values
-    output = output / sum(output,dim=1)
+    output => output / sum(output,dim=1)
 
   end function softmax_activate_array
 !-------------------------------------------------------------------------------

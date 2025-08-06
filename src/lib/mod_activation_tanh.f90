@@ -82,7 +82,7 @@ contains
     !! Tanh activation type
     type(array_type), intent(in) :: val
     !! Input values
-    type(array_type) :: output
+    type(array_type), pointer :: output
     !! Activated output values
 
     ! !! fix rounding errors of division of small numbers

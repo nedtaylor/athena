@@ -574,6 +574,10 @@ contains
                  input(s)%num_edge_features, input(s)%num_edges &
             ] &
        )
+       call this%output(1,s)%zero_grad()
+       call this%output(2,s)%zero_grad()
+       call this%output(1,s)%set_requires_grad(.true.)
+       call this%output(2,s)%set_requires_grad(.true.)
        call this%output(1,s)%set( input(s)%vertex_features )
        call this%output(2,s)%set( input(s)%edge_features )
     end do

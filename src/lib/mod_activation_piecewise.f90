@@ -85,7 +85,7 @@ contains
     !! Piecewise activation type
     type(array_type), intent(in) :: val
     !! Input values
-    type(array_type) :: output
+    type(array_type), pointer :: output
     !! Activated output values
 
     !  where(val.le.this%min)

@@ -541,6 +541,7 @@ contains
        this%grad%grad => null()
        this%grad%owns_gradient = .false.
        this%owns_gradient = .true.
+       if(allocated(this%indices)) this%grad%indices = this%indices
        call this%grad%zero_grad()
        ! Set gradient to ones for starting node
        this%grad%val = 1.0_real32
@@ -583,7 +584,7 @@ contains
     class(array_type), intent(inout) :: this
     class(array_type), intent(in) :: upstream_grad
 
-    !  write(*,*) "Performing backward operation for:", trim(this%operation)
+    !   write(*,*) "Performing backward operation for:", trim(this%operation)
     select case(trim(this%operation))
     case('add')
        if(associated(this%left_operand) .and. &
@@ -602,6 +603,11 @@ contains
        if(associated(this%right_operand) .and. &
             this%right_operand%requires_grad) then
           call accumulate_gradient(this%right_operand, -upstream_grad)
+       end if
+    case('subtract_scalar')
+       if(associated(this%left_operand) .and. &
+            this%left_operand%requires_grad) then
+          call accumulate_gradient(this%left_operand, upstream_grad)
        end if
 
     case('multiply')
@@ -658,7 +664,12 @@ contains
     case('index')
        if(associated(this%left_operand) .and. &
             this%left_operand%requires_grad) then
-          call accumulate_gradient_index(this%left_operand, upstream_grad)
+          !  call accumulate_gradient_index(this%left_operand, upstream_grad)
+          call accumulate_gradient(this%left_operand, &
+               reverse_index( &
+                    upstream_grad, indices=this%indices, from=.false., &
+                    new_index_size=size(this%left_operand%val, 2) &
+               ))
        end if
 
     case('max')
@@ -685,6 +696,12 @@ contains
                -upstream_grad * this%left_operand / &
                (this%right_operand * this%right_operand))
        end if
+    case('divide_real1d')
+       if(associated(this%left_operand) .and. &
+            this%left_operand%requires_grad) then
+          call accumulate_gradient(this%left_operand, &
+               upstream_grad / this%right_operand%val(1,:))
+       end if
     case('divide_scalar')
        if(associated(this%left_operand) .and. &
             this%left_operand%requires_grad) then
@@ -697,6 +714,14 @@ contains
           call accumulate_gradient(this%left_operand, &
                -upstream_grad * this%right_operand%val(1,1) / &
                (this%left_operand * this%left_operand))
+       end if
+
+    case('sum_array_output_array')
+       if(associated(this%left_operand) .and. &
+            this%left_operand%requires_grad) then
+          call accumulate_gradient(this%left_operand, &
+               spread(upstream_grad, dim=this%indices(1), index=this%indices(2), &
+                    ncopies= size(this%left_operand%val, 2)))
        end if
 
     case('sin')
@@ -769,6 +794,7 @@ contains
        array%grad%grad => null()
        array%grad%owns_gradient = .false.
        array%owns_gradient = .true.
+       !  if(allocated(array%indices)) array%grad%indices = array%indices
        call array%grad%zero_grad()
     end if
 
@@ -779,39 +805,96 @@ contains
     end if
   end subroutine accumulate_gradient
 
-  subroutine accumulate_gradient_index(array, grad)
-    !! Accumulate gradient for indexed array with safe memory management
-    class(array_type), intent(inout) :: array
-    class(array_type), intent(in) :: grad
+!   subroutine accumulate_gradient_index(array, grad)
+!     !! Accumulate gradient for indexed array with safe memory management
+!     class(array_type), intent(inout) :: array
+!     class(array_type), intent(in) :: grad
 
-    integer :: i
+!     integer :: i
 
-    if(.not. associated(array%grad)) then
-       allocate(array%grad)
-       ! Safely initialize gradient without copying computation graph
-       call array%grad%allocate(array_shape=[size(array%val,1), &
-            size(array%val,2)])
-       array%grad%requires_grad = .false.
-       array%grad%is_leaf = .true.
-       array%grad%operation = 'none'
-       array%grad%left_operand => null()
-       array%grad%right_operand => null()
-       array%grad%grad => null()
-       array%grad%owns_gradient = .false.
-       array%owns_gradient = .true.
-       call array%grad%zero_grad()
-    end if
+!     if(.not. associated(array%grad)) then
+!        allocate(array%grad)
+!        ! Safely initialize gradient without copying computation graph
+!        call array%grad%allocate(array_shape=[size(array%val,1), &
+!             size(array%val,2)])
+!        array%grad%requires_grad = .false.
+!        array%grad%is_leaf = .true.
+!        array%grad%operation = 'none'
+!        array%grad%left_operand => null()
+!        array%grad%right_operand => null()
+!        array%grad%grad => null()
+!        array%grad%owns_gradient = .false.
+!        array%owns_gradient = .true.
+!        if(allocated(array%indices)) array%grad%indices = array%indices
+!        call array%grad%zero_grad()
+!     end if
 
-    ! Assuming grad is already indexed correctly
-    do i = 1, size(grad%indices)
-       array%grad%val(:,grad%indices(i)) = &
-            array%grad%val(:,grad%indices(i)) + grad%val(:,i)
-    end do
+!     ! Assuming grad is already indexed correctly
+!     do i = 1, size(grad%indices)
+!        array%grad%val(:,grad%indices(i)) = &
+!             array%grad%val(:,grad%indices(i)) + grad%val(:,i)
+!     end do
 
-    if(.not. array%is_leaf) then
-       call array%backward_op(grad)
-    end if
-  end subroutine accumulate_gradient_index
+!     if(.not. array%is_leaf) then
+!        call array%backward_op(grad)
+!     end if
+!   end subroutine accumulate_gradient_index
+
+!   subroutine accumulate_gradient_sum_array_output_array(array, grad, indices)
+!     !! Accumulate gradient for sum operation with output array
+!     class(array_type), intent(inout) :: array
+!     class(array_type), intent(in) :: grad
+!     integer, dimension(:), intent(in) :: indices
+!     type(array_type) :: upstream_grad
+
+!     integer :: i
+
+!     if(.not. associated(array%grad)) then
+!        allocate(array%grad)
+!        ! Safely initialize gradient without copying computation graph
+!        call array%grad%allocate(array_shape=[size(array%val,1), &
+!             size(array%val,2)])
+!        array%grad%requires_grad = .false.
+!        array%grad%is_leaf = .true.
+!        array%grad%operation = 'none'
+!        array%grad%left_operand => null()
+!        array%grad%right_operand => null()
+!        array%grad%grad => null()
+!        array%grad%owns_gradient = .false.
+!        array%owns_gradient = .true.
+!       !  if(allocated(array%indices)) array%grad%indices = array%indices
+!        call array%grad%zero_grad()
+!     end if
+
+!     ! Assuming grad is already summed correctly
+!     if(indices(1) .eq. 1)then
+
+!        do i = 1, size(array%grad%val, 1)
+!           upstream_grad%val(i,:) = grad%val(indices(2),:)
+!           array%grad%val(i,:) = array%grad%val(i,:) + grad%val(indices(2),:)
+!        end do
+!     elseif(indices(1) .eq. 2) then
+!       write(*,*) "b"
+!       write(*,*) shape(grad%val)
+!       write(*,*) associated(array%grad)
+!       write(*,*) allocated(array%grad%val)
+!       write(*,*) shape(array%val)
+!       write(*,*) shape(array%grad%val)
+!        do i = 1, size(array%grad%val, 2)
+!           upstream_grad(:,i) = grad%val(:,indices(2))
+!           array%grad%val(:,i) = array%grad%val(:,i) + grad%val(:,indices(2))
+!        end do
+!     else
+!        call stop_program("Invalid indices for sum_array_output_array")
+!        return
+!     end if
+
+!     if(.not. array%is_leaf) then
+!        write(*,*) "array shape", shape(array%grad%val)
+!        write(*,*) "grad shape", shape(grad%val)
+!        call array%backward_op(grad)
+!     end if
+!   end subroutine accumulate_gradient_sum_array_output_array
 
   module function create_result_array(this, shape_arr) result(result_ptr)
     !! Helper function to safely create result arrays with proper initialization

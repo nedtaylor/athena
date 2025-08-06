@@ -73,7 +73,7 @@ contains
     !! ReLU activation type
     type(array_type), intent(in) :: val
     !! Input values
-    type(array_type) :: output
+    type(array_type), pointer :: output
     !! Activated output values
 
     !output = max(this%threshold, val) * this%scale

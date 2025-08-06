@@ -71,10 +71,11 @@ contains
     !! Leaky ReLU activation type
     type(array_type), intent(in) :: val
     !! Input values
-    type(array_type) :: output
+    type(array_type), pointer :: output
     !! Activated output values
 
-    output = max(val * 0.01_real32, val) * this%scale
+    ! allocate(output)
+    output => max(val * 0.01_real32, val) * this%scale
   end function leaky_relu_activate_array
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------

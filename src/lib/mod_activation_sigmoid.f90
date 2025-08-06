@@ -81,10 +81,10 @@ contains
     !! Sigmoid activation type
     type(array_type), intent(in) :: val
     !! Input values
-    type(array_type) :: output
+    type(array_type), pointer :: output
     !! Activated output values in range [0,1]
 
-    output = this%scale /(1._real32 + exp(-val))
+    output => this%scale /(1._real32 + exp(-val))
     !output = merge( this%scale /(1._real32 + exp(-val)), 0._real32, val.lt.this%threshold )
   end function sigmoid_activate_array
 !-------------------------------------------------------------------------------

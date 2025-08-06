@@ -27,7 +27,7 @@ module athena__misc_types
        operator(**), operator(.mmul.), operator(.concat.), operator(.ltrim.), &
        operator(.rtrim.), operator(.index.)
   public :: operator(.lt.)
-  public :: merge, maxval, max, sum
+  public :: merge, maxval, max, sum, spread, reverse_index
   public :: sin, cos, tan, exp, log, sqrt, tanh, sigmoid, transpose
 
 
@@ -448,6 +448,14 @@ module athena__misc_types
      module procedure merge_scalar
   end interface
 
+  interface spread
+     module procedure spread_array
+  end interface
+
+  interface reverse_index
+     module procedure reverse_index_array
+  end interface
+
   !-----------------------------------------------------------------------------
   ! Mathematical function interfaces
   !-----------------------------------------------------------------------------
@@ -809,7 +817,7 @@ module athena__misc_types
        import activation_type, real32, array_type
        class(activation_type), intent(in) :: this
        type(array_type), intent(in) :: val
-       type(array_type) :: output
+       type(array_type), pointer :: output
      end function activation_function_array
   end interface
 contains
@@ -958,7 +966,7 @@ contains
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
-       c%operation = 'subtract'
+       c%operation = 'subtract_scalar'
        c%left_operand => a
     end if
   end function subtract_real1d
@@ -968,7 +976,7 @@ contains
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
-    c => a%create_result(a%shape)
+    c => a%create_result()
     c%val = -a%val
 
     if(a%requires_grad) then
@@ -1255,6 +1263,39 @@ contains
     end if
   end function index_array
 
+  function reverse_index_array(a, indices, from, new_index_size) result(c)
+    !! Index an autodiff array
+    class(array_type), intent(in), target :: a
+    integer, dimension(:), intent(in) :: indices
+    logical, intent(in) :: from
+    integer, intent(in) :: new_index_size
+    type(array_type), pointer :: c
+
+    integer :: i, s
+
+    allocate(c)
+    if(from) then
+       call c%allocate(array_shape=[size(a%val,1), new_index_size])
+       do concurrent(s=1:size(indices), i=1:size(a%val,1))
+          c%val(i, s) = a%val(i, indices(s))
+       end do
+    else
+       call c%allocate(array_shape=[size(a%val,1), new_index_size])
+       c%val = 0.0_real32
+       do concurrent(s=1:size(indices), i=1:size(a%val,1))
+          c%val(i, indices(s)) = a%val(i, s)
+       end do
+    end if
+    c%indices = indices
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'index'
+       c%left_operand => a
+    end if
+  end function reverse_index_array
+
   function transpose_array(a) result(c)
     !! Transpose an autodiff array
     class(array_type), intent(in), target :: a
@@ -1381,23 +1422,25 @@ contains
     end if
 
     allocate(c)
-    call c%allocate(array_shape=[size(a%val,1), new_dim_size])
     ! sum 1D array by using shape to swap dimensions
-    do concurrent(s=1:new_dim_size, i=1:size(a%val,1))
-       if(i .eq. new_dim_index) then
-          c%val(i,s) = sum(a%val(i,:))
-       else
-          c%val(i,s) = 0.0_real32
-       end if
-    end do
+    if(dim.eq.1)then
+       call c%allocate(array_shape=[new_dim_size, size(a%val,2)])
+       c%val = 0.0_real32
+       c%val(new_dim_index,:) = sum(a%val(:,:), dim=1)
+    else if(dim.eq.2)then
+       call c%allocate(array_shape=[size(a%val,1), new_dim_size])
+       c%val = 0.0_real32
+       c%val(:,new_dim_index) = sum(a%val(:,:), dim=2)
+    end if
 
     c%is_constant = a%is_constant
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
-       c%operation = 'sum'
+       c%operation = 'sum_array_output_array'
        c%left_operand => a
     end if
+    c%indices = [dim, new_dim_index]
   end function sum_array_output_array
 
   function merge_scalar(tsource, fsource, mask) result(c)
@@ -1433,6 +1476,43 @@ contains
        c%left_operand => tsource
     end if
   end function merge_scalar
+
+  function spread_array(source, dim, index, ncopies) result(c)
+    !! Spread an autodiff array along a dimension
+    class(array_type), intent(in), target :: source
+    integer, intent(in) :: dim
+    integer, intent(in) :: index
+    integer, intent(in) :: ncopies
+    type(array_type), pointer :: c
+
+    integer :: i, s
+
+    if(size(source%shape) .ne. 1)then
+       call stop_program("spread: only 1D arrays can be used")
+    end if
+
+    allocate(c)
+    if(dim.eq.1)then
+       call c%allocate(array_shape=[ncopies, size(source%val,2)])
+       do concurrent(s=1:ncopies)
+          c%val(s, :) = source%val(index, :)
+       end do
+    else if(dim.eq.2)then
+       call c%allocate(array_shape=[size(source%val,1), ncopies])
+       do concurrent(s=1:ncopies)
+          c%val(:, s) = source%val(:, index)
+       end do
+    else
+       call stop_program("spread: only 1 or 2 dimensions are supported")
+    end if
+
+    if(source%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'spread'
+       c%left_operand => source
+    end if
+  end function spread_array
 
   !-----------------------------------------------------------------------------
   ! Division operations
@@ -1511,6 +1591,7 @@ contains
     class(array_type), intent(in), target :: a
     real(real32), dimension(:), intent(in) :: b
     type(array_type), pointer :: c
+    type(array_type), pointer :: b_array
 
     integer :: s
 
@@ -1526,6 +1607,13 @@ contains
        c%operation = 'divide_real1d'
        c%left_operand => a
     end if
+    allocate(b_array)
+    b_array%is_constant = .true.
+    b_array%requires_grad = .false.
+    b_array%is_leaf = .false.
+    call b_array%allocate(array_shape=[1, size(b)])
+    b_array%val(1,:) = b
+    c%right_operand => b_array
   end function divide_real1d
 
   !-----------------------------------------------------------------------------

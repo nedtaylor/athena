@@ -91,7 +91,7 @@ contains
     !! Gaussian activation type containing sigma parameter
     type(array_type), intent(in) :: val
     !! Input values
-    type(array_type) :: output
+    type(array_type), pointer :: output
     !! Gaussian activated output values
 
     ! output = gauss(val, this%sigma, this%scale, this%threshold)
@@ -216,7 +216,7 @@ contains
     !! Gaussian activation type containing sigma parameter
     type(array_type), intent(in) :: val
     !! Input values
-    type(array_type) :: output
+    type(array_type), pointer :: output
     !! Differentiated output values
 
     !output = -val / this%sigma ** 2._real32 * this%activate_array(val)

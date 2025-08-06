@@ -5,7 +5,7 @@ module athena__duvenaud_msgpass_layer
   use athena__misc_types, only: activation_type, initialiser_type, &
        array_type, array2d_type, &
        operator(.concat.), operator(.index.), operator(.mmul.), operator(/), &
-       sum, operator(+)
+       sum, operator(+), operator(*), operator(-)
   use athena__base_layer, only: base_layer_type
   use athena__msgpass_layer, only: msgpass_layer_type
   implicit none
@@ -905,6 +905,8 @@ contains
        this%edge_features(0,s) = input(2,s)
        call this%vertex_features(0,s)%set_requires_grad(.true.)
        call this%edge_features(0,s)%set_requires_grad(.true.)
+       call this%vertex_features(0,s)%zero_grad()
+       call this%edge_features(0,s)%zero_grad()
     end do
 
     do t = 1, this%num_time_steps
@@ -975,8 +977,11 @@ contains
     !! Number of parameters in the previous and current time step
     real(real32), pointer :: weight(:,:)
     !! Pointer to the weight matrix
+    type(array_type), pointer :: temp
 
 
+    call this%output(1,1)%set_requires_grad(.true.)
+    call this%output(1,1)%zero_grad()
     this%output(1,1)%val = 0._real32
     num_params_old = sum(this%num_params_msg)
     do t = 1, this%num_time_steps, 1
@@ -988,10 +993,15 @@ contains
             num_params_old + 1 : num_params_old + num_params_tmp &
        )
        do s = 1, this%batch_size
+          call this%z_readout(t,s)%set_requires_grad(.true.)
+          call this%z_readout(t,s)%zero_grad()
           this%z_readout(t,s) = weight .mmul. this%vertex_features(t,s)
+          ! allocate(temp)
+          temp => this%transfer_readout%activate( this%z_readout(t,s) )
           this%output(1,1) = &!this%output(1,1) + &
                sum( &
-                    this%transfer_readout%activate( this%z_readout(t,s) ), &
+                    ! this%transfer_readout%activate( this%z_readout(t,s) ), &
+                    temp, &
                     dim = 2, new_dim_index=s, new_dim_size=this%batch_size &
                )
           ! do v = 1, this%graph(s)%num_vertices
