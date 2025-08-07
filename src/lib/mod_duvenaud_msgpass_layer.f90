@@ -898,11 +898,12 @@ contains
     !! Degree of the vertex
     real(real32), pointer :: weight(:,:,:)
     !! Pointer to the weight matrix
+    type(array_type), pointer :: msg_ptr
 
 
     do s = 1, this%batch_size
-       this%vertex_features(0,s) = input(1,s)
-       this%edge_features(0,s) = input(2,s)
+       this%vertex_features(0,s) = input(1,s) * 1._real32
+       this%edge_features(0,s) = input(2,s) * 1._real32
        call this%vertex_features(0,s)%set_requires_grad(.true.)
        call this%edge_features(0,s)%set_requires_grad(.true.)
        call this%vertex_features(0,s)%zero_grad()
@@ -925,6 +926,15 @@ contains
           call this%z(t,s)%zero_grad()
           call this%vertex_features(t,s)%zero_grad()
           call this%message(t,s)%zero_grad()
+          allocate(msg_ptr)
+          call msg_ptr%allocate( &
+               [ &
+                    this%num_vertex_features(t) + this%num_edge_features(0), &
+                    this%graph(s)%num_vertices &
+               ], source=0._real32 &
+          )
+          call msg_ptr%set_requires_grad(.true.)
+          call msg_ptr%zero_grad()
           do v = 1, this%graph(s)%num_vertices
              e_start = this%graph(s)%adj_ia(v)
              e_end = this%graph(s)%adj_ia(v+1) - 1
@@ -933,26 +943,38 @@ contains
                   this%min_vertex_degree, &
                   min(degree, this%max_vertex_degree) &
              )
-             this%message(t,s) = &!this%message(t,s) + &
-                  sum( &
-                       ( &
-                            this%vertex_features(t-1,s) .index. &
-                            this%graph(s)%adj_ja(1,e_start:e_end) &
-                       ) .concat. ( &
-                            this%edge_features(0,s) .index. &
-                            this%graph(s)%adj_ja(2,e_start:e_end) &
-                       ), &
-                       dim=2, new_dim_index=v, new_dim_size=this%graph(s)%num_vertices &
-                  )
-             ! if(t.eq.1)then
-             !    this%message(t,s) = &
-             !         ( input(1,s) .index. this%graph(s)%adj_ja(1,e_start:e_end) ) .concat. &
-             !         ( input(2,s) .index. this%graph(s)%adj_ja(2,e_start:e_end) )
-             ! else
-             ! end if
-             this%z(t,s) = &
-                  weight(:,:,degree) .mmul. ( this%message(t,s) / real(degree, real32) )
+             if(t.eq.1)then
+                msg_ptr => msg_ptr + &
+                     sum( &
+                          ( &
+                               input(1,s) .index. &
+                               this%graph(s)%adj_ja(1,e_start:e_end) &
+                          ) .concat. ( &
+                               input(2,s) .index. &
+                               this%graph(s)%adj_ja(2,e_start:e_end) &
+                          ), &
+                          dim=2, new_dim_index=v, &
+                          new_dim_size=this%graph(s)%num_vertices &
+                     )
+             else
+                msg_ptr => msg_ptr + &
+                     sum( &
+                          ( &
+                               this%vertex_features(t-1,s) .index. &
+                               this%graph(s)%adj_ja(1,e_start:e_end) &
+                          ) .concat. ( &
+                               input(2,s) .index. &
+                               this%graph(s)%adj_ja(2,e_start:e_end) &
+                          ), &
+                          dim=2, new_dim_index=v, &
+                          new_dim_size=this%graph(s)%num_vertices &
+                     )
+             end if
           end do
+          this%message(t,s) = msg_ptr
+          msg_ptr => null()
+          this%z(t,s) = &
+               weight(:,:,degree) .mmul. ( this%message(t,s) / real(degree, real32) )
           this%vertex_features(t,s) = this%transfer%activate( this%z(t,s) )
        end do
     end do
@@ -977,11 +999,18 @@ contains
     !! Number of parameters in the previous and current time step
     real(real32), pointer :: weight(:,:)
     !! Pointer to the weight matrix
-    type(array_type), pointer :: temp
+    type(array_type), pointer :: temp, output_ptr
 
 
     call this%output(1,1)%set_requires_grad(.true.)
     call this%output(1,1)%zero_grad()
+    allocate(output_ptr)
+    call output_ptr%allocate( &
+         [this%num_outputs, this%batch_size], &
+         source=0._real32 &
+    )
+    call output_ptr%set_requires_grad(.true.)
+    call output_ptr%zero_grad()
     this%output(1,1)%val = 0._real32
     num_params_old = sum(this%num_params_msg)
     do t = 1, this%num_time_steps, 1
@@ -996,25 +1025,16 @@ contains
           call this%z_readout(t,s)%set_requires_grad(.true.)
           call this%z_readout(t,s)%zero_grad()
           this%z_readout(t,s) = weight .mmul. this%vertex_features(t,s)
-          ! allocate(temp)
           temp => this%transfer_readout%activate( this%z_readout(t,s) )
-          this%output(1,1) = &!this%output(1,1) + &
+          output_ptr => output_ptr + &
                sum( &
-                    ! this%transfer_readout%activate( this%z_readout(t,s) ), &
                     temp, &
                     dim = 2, new_dim_index=s, new_dim_size=this%batch_size &
                )
-          ! do v = 1, this%graph(s)%num_vertices
-          !    this%z_readout(t,s)%val(:,v) = matmul( &
-          !         weight, &
-          !         this%vertex_features(t,s)%val(:,v) &
-          !    )
-          !    this%output(1,1)%val(:,s) = this%output(1,1)%val(:,s) + &
-          !         this%transfer_readout%activate( this%z_readout(t,s)%val(:,v) )
-          ! end do
        end do
        num_params_old = num_params_old + num_params_tmp
     end do
+    this%output(1,1) = output_ptr
 
   end subroutine update_readout_duvenaud
 !###############################################################################
