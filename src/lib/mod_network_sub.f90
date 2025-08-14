@@ -3825,7 +3825,7 @@ contains
     ! Local variables
     integer :: s
     !! Loop index
-    type(graph_type), dimension(size(input,dim=1),size(this%output_vertices)) :: &
+    type(graph_type), dimension(size(this%output_vertices),size(input,dim=1)) :: &
          output
     !! Output graph
     integer :: verbose_, batch_size
@@ -3854,18 +3854,18 @@ contains
     call this%forward(get_sample_graph(input, 1, batch_size, batch_size))
 
     do s = 1, batch_size
-       output(s,1)%num_vertices = input(s,1)%num_vertices
-       output(s,1)%num_edges = input(s,1)%num_edges
-       output(s,1)%num_vertex_features = this%model( &
+       output(1,s)%num_vertices = input(1,s)%num_vertices
+       output(1,s)%num_edges = input(1,s)%num_edges
+       output(1,s)%num_vertex_features = this%model( &
             this%output_vertices(1) &
        )%layer%output_shape(1)
-       output(s,1)%num_edge_features = this%model( &
+       output(1,s)%num_edge_features = this%model( &
             this%output_vertices(1) &
        )%layer%output_shape(2)
-       output(s,1)%vertex_features = this%model( &
+       output(1,s)%vertex_features = this%model( &
             this%output_vertices(1) &
        )%layer%output(1,s)%val
-       output(s,1)%edge_features = this%model( &
+       output(1,s)%edge_features = this%model( &
             this%output_vertices(1) &
        )%layer%output(2,s)%val
     end do
