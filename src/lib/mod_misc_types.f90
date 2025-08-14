@@ -1514,6 +1514,30 @@ contains
     end if
   end function spread_array
 
+!   function duvenaud_propagate(vertex_features, edge_features, edge_index) result(c)
+!     !! Propagate values from one autodiff array to another
+!     class(array_type), intent(in), target :: vertex_features, edge_features
+!     integer, intent(in) :: edge_index
+!     type(array_type), pointer :: c
+
+!     allocate(c)
+!     call c%allocate(array_shape=[size(vertex_features%val,1), size(vertex_features%val,2)])
+!     ! propagate 1D array by using shape to swap dimensions
+!     do concurrent(s=1:size(vertex_features%val,2))
+!        do concurrent(i=1:size(vertex_features%val,1))
+!           c%val(i,s) = vertex_features%val(i,s) + edge_features%val(i,s)
+!        end do
+!     end do
+
+!     if(vertex_features%requires_grad .or. edge_features%requires_grad) then
+!        c%requires_grad = .true.
+!        c%is_leaf = .false.
+!        c%operation = 'duvenaud_propagate'
+!        c%left_operand => vertex_features
+!        c%right_operand => edge_features
+!     end if
+!   end function duvenaud_propagate
+
   !-----------------------------------------------------------------------------
   ! Division operations
   !-----------------------------------------------------------------------------

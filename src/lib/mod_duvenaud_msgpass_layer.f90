@@ -935,6 +935,16 @@ contains
           )
           call msg_ptr%set_requires_grad(.true.)
           call msg_ptr%zero_grad()
+          ! replace this vertex loop with an operation that does it all in one go
+          ! this is needed as it always just uses the same left and right operands,
+          ! it just combines them in different ways
+
+          ! but how can I make it general such that no one needs to edit the mod_misc_types.f90 when adding their own message passing layer?
+          ! msg_ptr = 0._real32
+          ! if(t.eq.1)then
+          !    msg_ptr => message( &
+
+
           do v = 1, this%graph(s)%num_vertices
              e_start = this%graph(s)%adj_ia(v)
              e_end = this%graph(s)%adj_ia(v+1) - 1
