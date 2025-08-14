@@ -37,6 +37,7 @@ program msgpass_euler_example
   integer :: num_samples
   integer :: i, n
 
+  integer :: unit
   integer :: num_params
   integer :: v, s
   integer, dimension(:), allocatable :: sample_list
@@ -276,6 +277,13 @@ program msgpass_euler_example
   ! predicting
   !-----------------------------------------------------------------------------
   graphs_predicted = network%predict( graphs_in_expected )
+
+  open(newunit=unit, file="predicted_vs_expected.txt")
+  do v = 1, graphs_out_expected(1,1)%num_vertices
+     write(unit, *) v, graphs_out_expected(1,1)%vertex_features(:,v), &
+          graphs_predicted(1,1)%vertex_features(:,v)
+  end do
+  close(unit)
 
 
   !-----------------------------------------------------------------------------
