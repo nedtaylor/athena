@@ -5,7 +5,7 @@ module athena__duvenaud_msgpass_layer
   use athena__misc_types, only: activation_type, initialiser_type, &
        array_type, array2d_type, &
        operator(.concat.), operator(.index.), operator(.mmul.), operator(/), &
-       sum, operator(+), operator(*), operator(-)
+       sum, operator(+), operator(*), operator(-), duvenaud_propagate
   use athena__base_layer, only: base_layer_type
   use athena__msgpass_layer, only: msgpass_layer_type
   implicit none
@@ -941,46 +941,55 @@ contains
 
           ! but how can I make it general such that no one needs to edit the mod_misc_types.f90 when adding their own message passing layer?
           ! msg_ptr = 0._real32
-          ! if(t.eq.1)then
-          !    msg_ptr => message( &
-
-
-          do v = 1, this%graph(s)%num_vertices
-             e_start = this%graph(s)%adj_ia(v)
-             e_end = this%graph(s)%adj_ia(v+1) - 1
-             degree = e_end - e_start + 1
-             degree = max( &
-                  this%min_vertex_degree, &
-                  min(degree, this%max_vertex_degree) &
+          if(t.eq.1)then
+             msg_ptr => duvenaud_propagate( &
+                  input(1,s), input(2,s), &
+                  this%graph(s)%adj_ia, this%graph(s)%adj_ja &
              )
-             if(t.eq.1)then
-                msg_ptr => msg_ptr + &
-                     sum( &
-                          ( &
-                               input(1,s) .index. &
-                               this%graph(s)%adj_ja(1,e_start:e_end) &
-                          ) .concat. ( &
-                               input(2,s) .index. &
-                               this%graph(s)%adj_ja(2,e_start:e_end) &
-                          ), &
-                          dim=2, new_dim_index=v, &
-                          new_dim_size=this%graph(s)%num_vertices &
-                     )
-             else
-                msg_ptr => msg_ptr + &
-                     sum( &
-                          ( &
-                               this%vertex_features(t-1,s) .index. &
-                               this%graph(s)%adj_ja(1,e_start:e_end) &
-                          ) .concat. ( &
-                               input(2,s) .index. &
-                               this%graph(s)%adj_ja(2,e_start:e_end) &
-                          ), &
-                          dim=2, new_dim_index=v, &
-                          new_dim_size=this%graph(s)%num_vertices &
-                     )
-             end if
-          end do
+          else
+             msg_ptr => duvenaud_propagate( &
+                  this%vertex_features(t-1,s), input(2,s), &
+                  this%graph(s)%adj_ia, this%graph(s)%adj_ja &
+             )
+          end if
+
+
+          ! do v = 1, this%graph(s)%num_vertices
+          !    e_start = this%graph(s)%adj_ia(v)
+          !    e_end = this%graph(s)%adj_ia(v+1) - 1
+          !    degree = e_end - e_start + 1
+          !    degree = max( &
+          !         this%min_vertex_degree, &
+          !         min(degree, this%max_vertex_degree) &
+          !    )
+          !    if(t.eq.1)then
+          !       msg_ptr => msg_ptr + &
+          !            sum( &
+          !                 ( &
+          !                      input(1,s) .index. &
+          !                      this%graph(s)%adj_ja(1,e_start:e_end) &
+          !                 ) .concat. ( &
+          !                      input(2,s) .index. &
+          !                      this%graph(s)%adj_ja(2,e_start:e_end) &
+          !                 ), &
+          !                 dim=2, new_dim_index=v, &
+          !                 new_dim_size=this%graph(s)%num_vertices &
+          !            )
+          !    else
+          !       msg_ptr => msg_ptr + &
+          !            sum( &
+          !                 ( &
+          !                      this%vertex_features(t-1,s) .index. &
+          !                      this%graph(s)%adj_ja(1,e_start:e_end) &
+          !                 ) .concat. ( &
+          !                      input(2,s) .index. &
+          !                      this%graph(s)%adj_ja(2,e_start:e_end) &
+          !                 ), &
+          !                 dim=2, new_dim_index=v, &
+          !                 new_dim_size=this%graph(s)%num_vertices &
+          !            )
+          !    end if
+          ! end do
           this%message(t,s) = msg_ptr
           msg_ptr => null()
           this%z(t,s) = &

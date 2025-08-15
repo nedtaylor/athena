@@ -27,6 +27,7 @@ module athena__misc_types
        operator(**), operator(.mmul.), operator(.concat.), operator(.ltrim.), &
        operator(.rtrim.), operator(.index.)
   public :: operator(.lt.)
+  public :: duvenaud_propagate, reverse_duvenaud_propagate
   public :: merge, maxval, max, sum, spread, reverse_index
   public :: sin, cos, tan, exp, log, sqrt, tanh, sigmoid, transpose
 
@@ -226,6 +227,8 @@ module athena__misc_types
      !! Array values in rank 2 (sample, batch)
      integer, dimension(:), allocatable :: indices
      !! Indices for gradient accumulation
+     integer, dimension(:), allocatable :: adj_ia
+     integer, dimension(:,:), allocatable :: adj_ja
      logical :: requires_grad = .false.
      !! Flag indicating if gradients should be computed
      logical :: is_leaf = .true.
@@ -1514,29 +1517,88 @@ contains
     end if
   end function spread_array
 
-!   function duvenaud_propagate(vertex_features, edge_features, edge_index) result(c)
-!     !! Propagate values from one autodiff array to another
-!     class(array_type), intent(in), target :: vertex_features, edge_features
-!     integer, intent(in) :: edge_index
-!     type(array_type), pointer :: c
+  function duvenaud_propagate(vertex_features, edge_features, adj_ia, adj_ja) result(c)
+    !! Propagate values from one autodiff array to another
+    class(array_type), intent(in), target :: vertex_features, edge_features
+    integer, dimension(:), intent(in) :: adj_ia
+    integer, dimension(:,:), intent(in) :: adj_ja
+    type(array_type), pointer :: c
 
-!     allocate(c)
-!     call c%allocate(array_shape=[size(vertex_features%val,1), size(vertex_features%val,2)])
-!     ! propagate 1D array by using shape to swap dimensions
-!     do concurrent(s=1:size(vertex_features%val,2))
-!        do concurrent(i=1:size(vertex_features%val,1))
-!           c%val(i,s) = vertex_features%val(i,s) + edge_features%val(i,s)
-!        end do
-!     end do
+    integer :: v, w
 
-!     if(vertex_features%requires_grad .or. edge_features%requires_grad) then
-!        c%requires_grad = .true.
-!        c%is_leaf = .false.
-!        c%operation = 'duvenaud_propagate'
-!        c%left_operand => vertex_features
-!        c%right_operand => edge_features
-!     end if
-!   end function duvenaud_propagate
+    allocate(c)
+    call c%allocate(array_shape = [ &
+         size(vertex_features%val,1) + size(edge_features%val,1), &
+         size(vertex_features%val,2) &
+    ])
+    ! propagate 1D array by using shape to swap dimensions
+    do concurrent(v=1:size(vertex_features%val,2))
+       c%val(:,v) = 0.0_real32
+       do w = adj_ia(v), adj_ia(v+1)-1
+          c%val(:,v) = c%val(:,v) + [ &
+               vertex_features%val(:, adj_ja(1, w)), &
+               edge_features%val(:, adj_ja(2, w)) &
+          ]
+       end do
+    end do
+
+    c%adj_ia = adj_ia
+    c%adj_ja = adj_ja
+    if(vertex_features%requires_grad .or. edge_features%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'duvenaud_propagate'
+       c%left_operand => vertex_features
+       c%right_operand => edge_features
+    end if
+  end function duvenaud_propagate
+
+  function reverse_duvenaud_propagate( &
+       a, adj_ia, adj_ja, num_features, num_elements, left &
+  ) result(c)
+    !! Reverse propagate values from one autodiff array to another
+    class(array_type), intent(in), target :: a
+    logical, intent(in) :: left
+    integer, dimension(:), intent(in) :: adj_ia
+    integer, dimension(:,:), intent(in) :: adj_ja
+    integer, dimension(2), intent(in) :: num_features, num_elements
+    type(array_type), pointer :: c
+
+    integer :: v, w
+
+    allocate(c)
+    if(left)then
+       call c%allocate(array_shape=[num_features(1), num_elements(1)])
+       c%val = 0.0_real32
+       do concurrent(v=1:num_elements(1))
+          do w = adj_ia(v), adj_ia(v+1)-1
+             c%val(:,adj_ja(1,w)) = c%val(:,adj_ja(1,w)) + &
+                  [ a%val(1:num_features(1), v) ]
+          end do
+       end do
+    else
+       call c%allocate(array_shape=[num_features(2), num_elements(2)])
+       c%val = 0.0_real32
+       do concurrent(v=1:num_elements(1))
+          do w = adj_ia(v), adj_ia(v+1)-1
+             c%val(:,adj_ja(2,w)) = c%val(:,adj_ja(2,w)) + &
+                  [ a%val(num_features(1)+1:, v) ]
+          end do
+       end do
+    end if
+
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'reverse_duvenaud_propagate'
+       if(left) then
+          c%left_operand => a
+       else
+          c%right_operand => a
+       end if
+    end if
+  end function reverse_duvenaud_propagate
+
 
   !-----------------------------------------------------------------------------
   ! Division operations

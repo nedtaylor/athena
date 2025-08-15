@@ -492,6 +492,8 @@ contains
     this%operation = input%operation
     this%owns_gradient = .false.  ! Dont copy gradient ownership
     if(allocated(input%indices)) this%indices = input%indices
+    if(allocated(input%adj_ia)) this%adj_ia = input%adj_ia
+    if(allocated(input%adj_ja)) this%adj_ja = input%adj_ja
 
     !  ! Don't copy pointers to avoid aliasing issues
     !  this%left_operand => null()
@@ -672,6 +674,38 @@ contains
                ))
        end if
 
+
+
+    case('duvenaud_propagate')
+       if(associated(this%left_operand) .and. &
+            this%left_operand%requires_grad) then
+          call accumulate_gradient(this%left_operand, &
+               reverse_duvenaud_propagate( upstream_grad, &
+                    this%adj_ia, this%adj_ja, &
+                    num_features = [ &
+                         this%left_operand%shape(1), this%right_operand%shape(1) &
+                    ], &
+                    num_elements = [ &
+                         size(this%left_operand%val,2), size(this%right_operand%val,2) &
+                    ], &
+                    left = .true. ))
+       end if
+       if(associated(this%right_operand) .and. &
+            this%right_operand%requires_grad) then
+          call accumulate_gradient(this%right_operand, &
+               reverse_duvenaud_propagate( upstream_grad, &
+                    this%adj_ia, this%adj_ja, &
+                    num_features = [ &
+                         this%left_operand%shape(1), this%right_operand%shape(1) &
+                    ], &
+                    num_elements = [ &
+                         size(this%left_operand%val,2), size(this%right_operand%val,2) &
+                    ], &
+                    left = .false. ))
+       end if
+
+
+
     case('max')
        if(associated(this%left_operand) .and. &
             this%left_operand%requires_grad) then
@@ -711,9 +745,18 @@ contains
     case('scalar_divide')
        if(associated(this%left_operand) .and. &
             this%left_operand%requires_grad) then
-          call accumulate_gradient(this%left_operand, &
-               -upstream_grad * this%right_operand%val(1,1) / &
-               (this%left_operand * this%left_operand))
+          block
+            class(array_type), pointer :: grad, div
+            allocate(grad)
+            allocate(div)
+            grad = -upstream_grad * this%right_operand%val(1,1)
+            div = this%left_operand * this%left_operand
+            grad => grad / div
+            call accumulate_gradient(this%left_operand, grad)
+          end block
+          !  call accumulate_gradient(this%left_operand, &
+          !       -upstream_grad * this%right_operand%val(1,1) / &
+          !       (this%left_operand * this%left_operand))
        end if
 
     case('sum_array_output_array')
@@ -741,8 +784,15 @@ contains
     case('exp')
        if(associated(this%left_operand) .and. &
             this%left_operand%requires_grad) then
-          call accumulate_gradient(this%left_operand, &
-               upstream_grad * exp(this%left_operand))
+          block
+            class(array_type), pointer :: grad
+            allocate(grad)
+            grad = exp(this%left_operand)
+            grad => grad * upstream_grad
+            call accumulate_gradient(this%left_operand, grad)
+          end block
+          !  call accumulate_gradient(this%left_operand, &
+          !       upstream_grad * exp(this%left_operand))
        end if
 
        ! case('log')

@@ -24,7 +24,7 @@ program msgpass_chemical_example
   character(1024) :: file, train_file
 
   ! training loop variables
-  integer :: num_tests = 10, num_epochs = 100, batch_size = 8
+  integer :: num_tests = 10, num_epochs = 10, batch_size = 8
   integer :: num_time_steps = 4
   integer :: i, n, s
 
@@ -161,6 +161,8 @@ program msgpass_chemical_example
        num_epochs = num_epochs, &
        shuffle_batches = .true. &
   )
+  write(*,*) "autodifferentiation"
+  write(*,*) network%model(network%root_vertices(1))%layer%output(1,1)%grad%val
 
 
   !-----------------------------------------------------------------------------
