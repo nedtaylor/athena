@@ -4,6 +4,7 @@ module athena__loss
   !! This module contains functions to compute the loss of a model
   !! The loss functions are used to determine how well a model is performing
   use athena__constants, only: real32
+  use athena__misc_types, only: array_type
   implicit none
 
 
@@ -35,6 +36,9 @@ module athena__loss
      !! Compute the loss of a model
      procedure, pass(this) :: compute_derivative => compute_derivative_base
      !! Compute the derivative of the loss function
+     procedure, pass(this) :: compute_pinn => compute_pinn_base
+     !! Compute the derivative of the loss function involving derivatives
+     procedure, pass(this) :: compute_pinn_derivative => compute_pinn_derivative_base
   end type base_loss_type
 
   abstract interface
@@ -409,6 +413,45 @@ contains
     end where
 
   end function compute_derivative_huber
+!###############################################################################
+
+
+!###############################################################################
+  module function compute_pinn_base(this, predicted, expected, input) result(output)
+    !! Compute the physics-informed neural network loss
+    implicit none
+
+    ! Arguments
+    class(base_loss_type), intent(in) :: this
+    !! Instance of the physics-informed neural network loss function
+    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    !! Predicted and expected values
+    type(array_type), dimension(:), intent(in) :: input
+    !! Input data, which contains the derivatives
+    real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
+    !! Physics-informed neural network loss
+
+    output = 0._real32
+
+  end function compute_pinn_base
+!-------------------------------------------------------------------------------
+  module function compute_pinn_derivative_base(this, predicted, expected, input) result(output)
+    !! Compute the derivative of the physics-informed neural network loss
+    implicit none
+
+    ! Arguments
+    class(base_loss_type), intent(in) :: this
+    !! Instance of the physics-informed neural network loss function
+    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    !! Predicted and expected values
+    type(array_type), dimension(:), intent(in) :: input
+    !! Input data, which contains the derivatives
+    real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
+    !! Derivative of the physics-informed neural network loss
+
+    output = 0._real32
+
+  end function compute_pinn_derivative_base
 !###############################################################################
 
 end module athena__loss

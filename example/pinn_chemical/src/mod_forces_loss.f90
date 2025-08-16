@@ -1,6 +1,6 @@
 module forces_loss
   use constants_mnist, only: real32
-  use athena, only: base_loss_type
+  use athena, only: base_loss_type, array_type
   implicit none
 
   private
@@ -9,10 +9,11 @@ module forces_loss
 
 
   type, extends(base_loss_type) :: forces_loss_type
-     type(graph_type), allocatable, dimension(:) :: graphs, gradient_graphs
+     !type(graph_type), allocatable, dimension(:) :: graphs, gradient_graphs
    contains
      procedure :: compute => compute_loss_forces
-     procedure :: compute_derivative => compute_derivative_forces
+     procedure :: compute_pinn => compute_pinn_loss_forces
+     procedure :: compute_pinn_derivative => compute_pinn_derivative_forces
   end type forces_loss_type
 
   interface forces_loss_type
@@ -31,25 +32,8 @@ contains
     !! Set up forces loss function
     type(forces_loss_type) :: loss
 
-    allocate(loss%graphs(0))
     loss%name = "for"
   end function setup_loss_forces
-
-
-  pure module function compute_derivative_forces(this, predicted, expected) &
-       result(output)
-    implicit none
-    class(forces_loss_type), intent(in) :: this
-    !! Instance of the loss function type
-    real(real32), dimension(:,:), intent(in) :: predicted, expected
-    !! Predicted and expected values
-    real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
-    !! Derivative of the loss function
-
-    output = predicted - expected + &
-         (this%graphs(this%batch_index)%vertex_features(1:3,:) - &
-              this%gradient_graphs(this%batch_index)%vertex_features(1:3,:))
-  end function compute_derivative_forces
 
 
   pure function compute_loss_forces(this, predicted, expected) result(output)
@@ -60,10 +44,46 @@ contains
     !! Predicted and expected values
     real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
 
-    output = ( predicted - expected )**2 + ( &
-         this%graphs(this%batch_index)%vertex_features(1:3,:) - &
-         this%gradient_graphs(this%batch_index)%vertex_features(1:3,:) )**2
+    output = 0._real32
 
   end function compute_loss_forces
+
+
+  module function compute_pinn_loss_forces(this, predicted, expected, input) result(output)
+    implicit none
+    class(forces_loss_type), intent(in) :: this
+    !! Instance of the loss function type
+    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    !! Predicted and expected values
+    type(array_type), dimension(:), intent(in) :: input
+    real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
+
+    integer :: s
+
+    do s = 1, size(input)
+       output(:,s) = (predicted(:,s) - expected(:,s))**2 + &
+            ( sum( input(s)%val(4:6,:) - input(s)%grad%val(1:3,:) ) / size(input(s)%val, dim = 2) )**2
+    end do
+  end function compute_pinn_loss_forces
+
+
+  module function compute_pinn_derivative_forces(this, predicted, expected, input) &
+       result(output)
+    implicit none
+    class(forces_loss_type), intent(in) :: this
+    !! Instance of the loss function type
+    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    !! Predicted and expected values
+    type(array_type), dimension(:), intent(in) :: input
+    real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
+    !! Derivative of the loss function
+
+    integer :: s
+
+    do s = 1, size(input)
+       output(:,s) = predicted(:,s) - expected(:,s) + &
+            sum( input(s)%val(4:6,:) - input(s)%grad%val(1:3,:) ) / size(input(s)%val, dim = 2)
+    end do
+  end function compute_pinn_derivative_forces
 
 end module forces_loss

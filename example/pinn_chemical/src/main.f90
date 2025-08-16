@@ -6,6 +6,7 @@ program msgpass_chemical_example
   !! chemical graph.
   use athena
   use constants_mnist, only: real32
+  use forces_loss, only: forces_loss_type
   use read_chemical_graphs_extd, only: read_extxyz_db
 
   implicit none
@@ -24,7 +25,7 @@ program msgpass_chemical_example
   character(1024) :: file, train_file
 
   ! training loop variables
-  integer :: num_tests = 10, num_epochs = 10, batch_size = 8
+  integer :: num_tests = 10, num_epochs = 100, batch_size = 8
   integer :: num_time_steps = 4
   integer :: i, n, s
 
@@ -133,7 +134,8 @@ program msgpass_chemical_example
             ! lr_decay = exp_lr_decay_type(1.E-2_real32) &
             ! lr_decay = step_lr_decay_type(0.5_real32, 5) &
        ), &
-       loss_method = "mse", metrics = metric_dict, &
+       loss_method = forces_loss_type(), &
+       metrics = metric_dict, &
        batch_size = batch_size, verbose = 1, &
        accuracy_method = "mse" &
   )

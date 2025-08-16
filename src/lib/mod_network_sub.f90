@@ -1246,6 +1246,7 @@ contains
     class is(base_loss_type)
        this%loss = loss_method
        if(verbose_.gt.0) write(*,*) "Loss method: ", trim(loss_method%name)
+       loss_method_ = trim(loss_method%name)
     type is(character(*))
        loss_method_ = to_lower(loss_method)
        select case(loss_method)
@@ -2774,10 +2775,20 @@ contains
        end if
 
        if(all(this%auto_graph%adjacency(this%vertex_order(i),:).eq.0))then
-          gradient = this%loss%compute_derivative( &
-               this%model(this%vertex_order(i))%layer%output(1,1)%val, &
-               output(1,1)%val &
-          )
+          if(.true.)then
+             write(*,*) "TRUE"
+             gradient = this%loss%compute_pinn_derivative( &
+                  this%model(this%vertex_order(i))%layer%output(1,1)%val, &
+                  output(1,1)%val, &
+                  this%model(this%root_vertices(1))%layer%output(1,:) &
+             )
+          else
+             write(*,*) "FALSE"
+             gradient = this%loss%compute_derivative( &
+                  this%model(this%vertex_order(i))%layer%output(1,1)%val, &
+                  output(1,1)%val &
+             )
+          end if
        else
           call this%get_gradient_real_autodiff(this%vertex_order(i), gradient)
        end if
@@ -2981,21 +2992,42 @@ contains
              if(layer%use_graph_output)then
                 allocate(gradient(2,this%batch_size))
                 do s = 1, this%batch_size
-                   gradient(1, s)%val = this%loss%compute_derivative( &
-                        layer%output(1,s)%val, &
-                        output(s,1)%val &
-                   )
-                   gradient(2, s)%val = this%loss%compute_derivative( &
-                        layer%output(2,s)%val, &
-                        output(s,1)%val &
-                   )
+                   if(.true.)then
+                      gradient(1, s)%val = this%loss%compute_pinn_derivative( &
+                           layer%output(1,s)%val, &
+                           output(s,1)%val, &
+                           this%model(this%root_vertices(1))%layer%output(1,s:s) &
+                      )
+                      gradient(2, s)%val = this%loss%compute_pinn_derivative( &
+                           layer%output(2,s)%val, &
+                           output(s,1)%val, &
+                           this%model(this%root_vertices(1))%layer%output(2,s:s) &
+                      )
+                   else
+                      gradient(1, s)%val = this%loss%compute_derivative( &
+                           layer%output(1,s)%val, &
+                           output(s,1)%val &
+                      )
+                      gradient(2, s)%val = this%loss%compute_derivative( &
+                           layer%output(2,s)%val, &
+                           output(s,1)%val &
+                      )
+                   end if
                 end do
              else
                 allocate(gradient(1,1))
-                gradient(1,1)%val = this%loss%compute_derivative( &
-                     layer%output(1,1)%val, &
-                     output(1,1)%val &
-                )
+                if(.true.)then
+                   gradient(1,1)%val = this%loss%compute_pinn_derivative( &
+                        layer%output(1,1)%val, &
+                        output(1,1)%val, &
+                        this%model(this%root_vertices(1))%layer%output(1,:) &
+                   )
+                else
+                   gradient(1,1)%val = this%loss%compute_derivative( &
+                        layer%output(1,1)%val, &
+                        output(1,1)%val &
+                   )
+                end if
              end if
           elseif(count(this%auto_graph%adjacency(this%vertex_order(i),:).gt.0).eq.1)then
              j = maxloc(this%auto_graph%adjacency(this%vertex_order(i),:),dim=1)
@@ -3669,11 +3701,20 @@ contains
                        real(output(:,start_index:end_index:1),real32) &
                   ))
           class is(array_type)
-             batch_loss = sum( &
-                  this%loss%compute( &
-                       this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-                       output(1,1)%val(:,start_index:end_index:1) &
-                  ))
+             if(.true.)then
+                batch_loss = sum( &
+                     this%loss%compute_pinn( &
+                          this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
+                          output(1,1)%val(:,start_index:end_index:1), &
+                          this%model(this%root_vertices(1))%layer%output(1,:) &
+                     ))
+             else
+                batch_loss = sum( &
+                     this%loss%compute( &
+                          this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
+                          output(1,1)%val(:,start_index:end_index:1) &
+                     ))
+             end if
              batch_accuracy = sum( &
                   this%get_accuracy( &
                        this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
