@@ -227,8 +227,8 @@ module athena__misc_types
      !! Array values in rank 2 (sample, batch)
      integer, dimension(:), allocatable :: indices
      !! Indices for gradient accumulation
-     integer, dimension(:), allocatable :: adj_ia
      integer, dimension(:,:), allocatable :: adj_ja
+     !! Sparse adjacency matrix for graph structure
      logical :: requires_grad = .false.
      !! Flag indicating if gradients should be computed
      logical :: is_leaf = .true.
@@ -1542,7 +1542,7 @@ contains
        end do
     end do
 
-    c%adj_ia = adj_ia
+    c%indices = adj_ia
     c%adj_ja = adj_ja
     if(vertex_features%requires_grad .or. edge_features%requires_grad) then
        c%requires_grad = .true.

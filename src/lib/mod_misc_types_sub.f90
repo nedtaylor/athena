@@ -492,7 +492,6 @@ contains
     this%operation = input%operation
     this%owns_gradient = .false.  ! Dont copy gradient ownership
     if(allocated(input%indices)) this%indices = input%indices
-    if(allocated(input%adj_ia)) this%adj_ia = input%adj_ia
     if(allocated(input%adj_ja)) this%adj_ja = input%adj_ja
 
     !  ! Don't copy pointers to avoid aliasing issues
@@ -681,7 +680,7 @@ contains
             this%left_operand%requires_grad) then
           call accumulate_gradient(this%left_operand, &
                reverse_duvenaud_propagate( upstream_grad, &
-                    this%adj_ia, this%adj_ja, &
+                    this%indices, this%adj_ja, &
                     num_features = [ &
                          this%left_operand%shape(1), this%right_operand%shape(1) &
                     ], &
@@ -694,7 +693,7 @@ contains
             this%right_operand%requires_grad) then
           call accumulate_gradient(this%right_operand, &
                reverse_duvenaud_propagate( upstream_grad, &
-                    this%adj_ia, this%adj_ja, &
+                    this%indices, this%adj_ja, &
                     num_features = [ &
                          this%left_operand%shape(1), this%right_operand%shape(1) &
                     ], &
