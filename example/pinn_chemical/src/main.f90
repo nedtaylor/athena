@@ -121,8 +121,8 @@ program msgpass_chemical_example
   !-----------------------------------------------------------------------------
   ! compile network
   !-----------------------------------------------------------------------------
-  ! allocate(clip, source=clip_type(-1.E0_real32, 1.E0_real32))
-  allocate(clip, source=clip_type(clip_norm = 1.E-1_real32))
+  allocate(clip, source=clip_type(-1.E0_real32, 1.E0_real32))
+!   allocate(clip, source=clip_type(clip_norm = 1.E-1_real32))
   metric_dict%active = .false.
   metric_dict(1)%key = "loss"
   metric_dict(2)%key = "accuracy"
@@ -164,7 +164,7 @@ program msgpass_chemical_example
        shuffle_batches = .true. &
   )
   write(*,*) "autodifferentiation"
-  write(*,*) network%model(network%root_vertices(1))%layer%output(1,1)%grad%val
+  write(*,*) network%model(network%root_vertices(1))%layer%output(1,1)%grad%val(:,1)
 
 
   !-----------------------------------------------------------------------------

@@ -2775,7 +2775,7 @@ contains
        end if
 
        if(all(this%auto_graph%adjacency(this%vertex_order(i),:).eq.0))then
-          if(.true.)then
+          if(this%loss%requires_autodiff)then
              write(*,*) "TRUE"
              gradient = this%loss%compute_pinn_derivative( &
                   this%model(this%vertex_order(i))%layer%output(1,1)%val, &
@@ -2992,7 +2992,7 @@ contains
              if(layer%use_graph_output)then
                 allocate(gradient(2,this%batch_size))
                 do s = 1, this%batch_size
-                   if(.true.)then
+                   if(this%loss%requires_autodiff)then
                       gradient(1, s)%val = this%loss%compute_pinn_derivative( &
                            layer%output(1,s)%val, &
                            output(s,1)%val, &
@@ -3016,7 +3016,7 @@ contains
                 end do
              else
                 allocate(gradient(1,1))
-                if(.true.)then
+                if(this%loss%requires_autodiff)then
                    gradient(1,1)%val = this%loss%compute_pinn_derivative( &
                         layer%output(1,1)%val, &
                         output(1,1)%val, &
@@ -3701,7 +3701,7 @@ contains
                        real(output(:,start_index:end_index:1),real32) &
                   ))
           class is(array_type)
-             if(.true.)then
+             if(this%loss%requires_autodiff)then
                 batch_loss = sum( &
                      this%loss%compute_pinn( &
                           this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
