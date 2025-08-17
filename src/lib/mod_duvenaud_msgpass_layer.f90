@@ -5,7 +5,7 @@ module athena__duvenaud_msgpass_layer
   use athena__misc_types, only: activation_type, initialiser_type, &
        array_type, array2d_type, &
        operator(.concat.), operator(.index.), operator(.mmul.), operator(/), &
-       sum, operator(+), operator(*), operator(-), duvenaud_propagate
+       sum, operator(+), operator(*), operator(-), duvenaud_propagate, duvenaud_update
   use athena__base_layer, only: base_layer_type
   use athena__msgpass_layer, only: msgpass_layer_type
   implicit none
@@ -898,7 +898,6 @@ contains
     !! Degree of the vertex
     real(real32), pointer :: weight(:,:,:)
     !! Pointer to the weight matrix
-    type(array_type), pointer :: msg_ptr
 
 
     do s = 1, this%batch_size
@@ -926,74 +925,22 @@ contains
           call this%z(t,s)%zero_grad()
           call this%vertex_features(t,s)%zero_grad()
           call this%message(t,s)%zero_grad()
-          allocate(msg_ptr)
-          call msg_ptr%allocate( &
-               [ &
-                    this%num_vertex_features(t) + this%num_edge_features(0), &
-                    this%graph(s)%num_vertices &
-               ], source=0._real32 &
-          )
-          call msg_ptr%set_requires_grad(.true.)
-          call msg_ptr%zero_grad()
-          ! replace this vertex loop with an operation that does it all in one go
-          ! this is needed as it always just uses the same left and right operands,
-          ! it just combines them in different ways
-
-          ! but how can I make it general such that no one needs to edit the mod_misc_types.f90 when adding their own message passing layer?
-          ! msg_ptr = 0._real32
           if(t.eq.1)then
-             msg_ptr => duvenaud_propagate( &
+             this%message(t,s) = duvenaud_propagate( &
                   input(1,s), input(2,s), &
                   this%graph(s)%adj_ia, this%graph(s)%adj_ja &
              )
           else
-             msg_ptr => duvenaud_propagate( &
+             this%message(t,s) = duvenaud_propagate( &
                   this%vertex_features(t-1,s), input(2,s), &
                   this%graph(s)%adj_ia, this%graph(s)%adj_ja &
              )
           end if
 
-
-          ! do v = 1, this%graph(s)%num_vertices
-          !    e_start = this%graph(s)%adj_ia(v)
-          !    e_end = this%graph(s)%adj_ia(v+1) - 1
-          !    degree = e_end - e_start + 1
-          !    degree = max( &
-          !         this%min_vertex_degree, &
-          !         min(degree, this%max_vertex_degree) &
-          !    )
-          !    if(t.eq.1)then
-          !       msg_ptr => msg_ptr + &
-          !            sum( &
-          !                 ( &
-          !                      input(1,s) .index. &
-          !                      this%graph(s)%adj_ja(1,e_start:e_end) &
-          !                 ) .concat. ( &
-          !                      input(2,s) .index. &
-          !                      this%graph(s)%adj_ja(2,e_start:e_end) &
-          !                 ), &
-          !                 dim=2, new_dim_index=v, &
-          !                 new_dim_size=this%graph(s)%num_vertices &
-          !            )
-          !    else
-          !       msg_ptr => msg_ptr + &
-          !            sum( &
-          !                 ( &
-          !                      this%vertex_features(t-1,s) .index. &
-          !                      this%graph(s)%adj_ja(1,e_start:e_end) &
-          !                 ) .concat. ( &
-          !                      input(2,s) .index. &
-          !                      this%graph(s)%adj_ja(2,e_start:e_end) &
-          !                 ), &
-          !                 dim=2, new_dim_index=v, &
-          !                 new_dim_size=this%graph(s)%num_vertices &
-          !            )
-          !    end if
-          ! end do
-          this%message(t,s) = msg_ptr
-          msg_ptr => null()
-          this%z(t,s) = &
-               weight(:,:,degree) .mmul. ( this%message(t,s) / real(degree, real32) )
+          this%z(t,s) = duvenaud_update( &
+               this%message(t,s), weight, this%graph(s)%adj_ia, &
+               this%min_vertex_degree, this%max_vertex_degree &
+          )
           this%vertex_features(t,s) = this%transfer%activate( this%z(t,s) )
        end do
     end do
