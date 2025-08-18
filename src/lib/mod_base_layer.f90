@@ -369,7 +369,7 @@ module athena__base_layer
        !! Combine two layers (forward)
        class(merge_layer_type), intent(inout) :: this
        !! Instance of the layer
-       type(array_type), dimension(:,:), intent(in) :: input1, input2
+       class(array_type), dimension(:,:), intent(in) :: input1, input2
        !! Input values
      end subroutine combine_merge
 

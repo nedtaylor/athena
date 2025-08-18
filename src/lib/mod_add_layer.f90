@@ -450,14 +450,21 @@ contains
     ! Arguments
     class(add_layer_type), intent(inout) :: this
     !! Instance of the add layer
-    type(array_type), dimension(:,:), intent(in) :: input1, input2
+    class(array_type), dimension(:,:), intent(in) :: input1, input2
     !! Input values
 
     ! Local variables
     integer :: s
     !! Loop index
 
-    this%output(1,1) = input1(1,1) + input2(1,1)
+    if(this%use_graph_input)then
+       do s = 1, this%batch_size
+          this%output(1,s) = input1(1,s) + input2(1,s)
+          this%output(2,s) = input1(2,s) + input2(2,s)
+       end do
+    else
+       this%output(1,1) = input1(1,1) + input2(1,1)
+    end if
 
   end subroutine combine_add
 !###############################################################################
