@@ -1,62 +1,56 @@
-module athena__flatten_layer
-  !! Module containing implementation of a 1D flattening layer
+module athena__add_layer
+  !! Module containing implementation of a add layer
   use athena__io_utils, only: stop_program
   use athena__constants, only: real32
-  use athena__base_layer, only: base_layer_type
-  use athena__misc_types, only: &
-       array1d_type, &
-       array2d_type, &
-       array3d_type, &
-       array4d_type, &
-       array5d_type
+  use athena__base_layer, only: merge_layer_type, base_layer_type
+  use athena__misc_types, only: array_type, operator(+)
   implicit none
 
 
   private
 
-  public :: flatten_layer_type
-  public :: read_flatten_layer
+  public :: add_layer_type
+  public :: read_add_layer
 
 
-  type, extends(base_layer_type) :: flatten_layer_type
-     !! Type for 1D flattening layer with overloaded procedures
-     integer :: num_outputs
-     !! Number of outputs
+  type, extends(merge_layer_type) :: add_layer_type
+     !! Type for add layer with overloaded procedures
    contains
-     procedure, pass(this) :: set_hyperparams => set_hyperparams_flatten
-     !! Set hyperparameters for flattening layer
-     procedure, pass(this) :: init => init_flatten
-     !! Initialise flattening layer
-     procedure, pass(this) :: set_batch_size => set_batch_size_flatten
-     !! Set batch size for flattening layer
-     procedure, pass(this) :: print_to_unit => print_to_unit_flatten
-     !! Print flatten layer to unit
-     procedure, pass(this) :: read => read_flatten
-     !! Read flattening layer from file
-     procedure, pass(this) :: forward  => forward_rank
-     !! Forward propagation handler for flattening layer
-     procedure, pass(this) :: backward => backward_rank
-     !! Backward propagation handler for flattening layer
-  end type flatten_layer_type
+     procedure, pass(this) :: set_hyperparams => set_hyperparams_add
+     !! Set the hyperparameters for add layer
+     procedure, pass(this) :: init => init_add
+     !! Initialise add layer
+     procedure, pass(this) :: set_batch_size => set_batch_size_add
+     !! Set the batch size for add layer
+     procedure, pass(this) :: print_to_unit => print_to_unit_add
+     !! Print the layer to a file
+     procedure, pass(this) :: read => read_add
+     !! Read the layer from a file
 
-  interface flatten_layer_type
-     !! Interface for setting up the flattening layer
+     procedure, pass(this) :: forward  => forward_rank
+     !! Forward propagation for add layer
+     procedure, pass(this) :: backward => backward_rank
+     !! Backward propagation for add layer
+
+     procedure, pass(this) :: combine => combine_add
+     procedure, pass(this) :: split => split_add
+  end type add_layer_type
+
+  interface add_layer_type
+     !! Interface for setting up the add layer
      module function layer_setup( &
-          input_shape, batch_size, input_rank, verbose &
+          input_layer_ids, batch_size, verbose &
      ) result(layer)
-       !! Set up the flattening layer
-       integer, dimension(:), optional, intent(in) :: input_shape
-       !! Input shape
+       !! Setup a add layer
+       integer, dimension(:), intent(in) :: input_layer_ids
+       !! Input layer IDs
        integer, optional, intent(in) :: batch_size
        !! Batch size
-       integer, optional, intent(in) :: input_rank
-       !! Input rank
        integer, optional, intent(in) :: verbose
        !! Verbosity level
-       type(flatten_layer_type) :: layer
-       !! Instance of the flattening layer
+       type(add_layer_type) :: layer
      end function layer_setup
-  end interface flatten_layer_type
+  end interface add_layer_type
 
 
 
@@ -68,31 +62,11 @@ contains
     implicit none
 
     ! Arguments
-    class(flatten_layer_type), intent(inout) :: this
+    class(add_layer_type), intent(inout) :: this
     !! Instance of the flattening layer
     real(real32), dimension(..), intent(in) :: input
     !! Input values
 
-    !  select type(output => this%output)
-    !  type is (array2d_type)
-    !     !! can make this even easier by just setting output%val_ptr = input, and then output%val is already rank 2
-    !  end select
-    select rank(input)
-    rank(2)
-       this%output(1,1)%val(:this%num_outputs, :this%batch_size) = input
-    rank(3)
-       this%output(1,1)%val(:this%num_outputs, :this%batch_size) = &
-            reshape(input, [this%num_outputs, this%batch_size])
-    rank(4)
-       this%output(1,1)%val(:this%num_outputs, :this%batch_size) = &
-            reshape(input, [this%num_outputs, this%batch_size])
-    rank(5)
-       this%output(1,1)%val(:this%num_outputs, :this%batch_size) = &
-            reshape(input, [this%num_outputs, this%batch_size])
-    rank(6)
-       this%output(1,1)%val(:this%num_outputs, :this%batch_size) = &
-            reshape(input, [this%num_outputs, this%batch_size])
-    end select
   end subroutine forward_rank
 !###############################################################################
 
@@ -103,40 +77,13 @@ contains
     implicit none
 
     ! Arguments
-    class(flatten_layer_type), intent(inout) :: this
+    class(add_layer_type), intent(inout) :: this
     !! Instance of the flattening layer
     real(real32), dimension(..), intent(in) :: input
     !! Input values
     real(real32), dimension(..), intent(in) :: gradient
     !! Gradient values
 
-    select rank(gradient)
-    rank(2)
-       select type(di => this%di(1,1))
-       type is (array1d_type)
-          di%val_ptr = reshape(gradient(:this%num_outputs,:), &
-               [size(di%val_ptr)] )
-       type is (array2d_type)
-          di%val_ptr = reshape(gradient(:this%num_outputs,:), &
-               [this%input_shape(1), this%batch_size] )
-       type is (array3d_type)
-          di%val_ptr = reshape(gradient(:this%num_outputs,:), &
-               [this%input_shape(1), this%input_shape(2), this%batch_size] )
-       type is (array4d_type)
-          di%val_ptr = reshape(gradient(:this%num_outputs,:), [ &
-               this%input_shape(1), &
-               this%input_shape(2), &
-               this%input_shape(3), &
-               this%batch_size ] )
-       type is (array5d_type)
-          di%val_ptr = reshape(gradient(:this%num_outputs,:), [ &
-               this%input_shape(1), &
-               this%input_shape(2), &
-               this%input_shape(3), &
-               this%input_shape(4), &
-               this%batch_size ] )
-       end select
-    end select
   end subroutine backward_rank
 !###############################################################################
 
@@ -148,27 +95,23 @@ contains
 
 !###############################################################################
   module function layer_setup( &
-       input_shape, batch_size, input_rank, verbose &
+          input_layer_ids, batch_size, verbose &
   ) result(layer)
-    !! Set up the flattening layer
+    !! Setup a add layer
     implicit none
 
     ! Arguments
-    integer, dimension(:), optional, intent(in) :: input_shape
-    !! Input shape
+    integer, dimension(:), intent(in) :: input_layer_ids
+    !! Input layer IDs
     integer, optional, intent(in) :: batch_size
     !! Batch size
-    integer, optional, intent(in) :: input_rank
-    !! Input rank
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
-    type(flatten_layer_type) :: layer
-    !! Instance of the flattening layer
+    type(add_layer_type) :: layer
+    !! Instance of the add layer
 
     ! Local variables
-    integer :: input_rank_ = 0
-    !! Input rank
     integer :: verbose_ = 0
     !! Verbosity level
 
@@ -178,17 +121,10 @@ contains
     !---------------------------------------------------------------------------
     ! Set hyperparameters
     !---------------------------------------------------------------------------
-    if(present(input_rank))then
-       input_rank_ = input_rank
-    elseif(present(input_shape))then
-       input_rank_ = size(input_shape)
-    else
-       call stop_program( &
-            "input_rank or input_shape must be provided to flatten layer" &
-       )
-       return
-    end if
-    call layer%set_hyperparams(input_rank_, verbose_)
+    call layer%set_hyperparams( &
+         input_layer_ids = input_layer_ids, &
+         verbose = verbose_ &
+    )
 
 
     !---------------------------------------------------------------------------
@@ -196,45 +132,44 @@ contains
     !---------------------------------------------------------------------------
     if(present(batch_size)) layer%batch_size = batch_size
 
-
-    !---------------------------------------------------------------------------
-    ! Initialise layer shape
-    !---------------------------------------------------------------------------
-    if(present(input_shape)) call layer%init(input_shape=input_shape)
-
   end function layer_setup
 !###############################################################################
 
 
 !###############################################################################
-  subroutine set_hyperparams_flatten(this, input_rank, verbose)
-    !! Set hyperparameters for flattening layer
+  subroutine set_hyperparams_add( &
+       this, &
+       input_layer_ids, &
+       verbose &
+  )
+    !! Set the hyperparameters for add layer
     implicit none
 
     ! Arguments
-    class(flatten_layer_type), intent(inout) :: this
-    !! Instance of the flattening layer
-    integer, intent(in) :: input_rank
-    !! Input rank
+    class(add_layer_type), intent(inout) :: this
+    !! Instance of the add layer
+    integer, dimension(:), intent(in) :: input_layer_ids
+    !! Input layer IDs
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
-    this%name = "flatten"
-    this%type = "flat"
-    this%input_rank = input_rank
-    this%output_rank = 1
-  end subroutine set_hyperparams_flatten
+
+    this%name = "add"
+    this%type = "merg"
+    this%input_layer_ids = input_layer_ids
+
+  end subroutine set_hyperparams_add
 !###############################################################################
 
 
 !###############################################################################
-  subroutine init_flatten(this, input_shape, batch_size, verbose)
-    !! Initialise flattening layer
+  subroutine init_add(this, input_shape, batch_size, verbose)
+    !! Initialise add layer
     implicit none
 
     ! Arguments
-    class(flatten_layer_type), intent(inout) :: this
-    !! Instance of the flattening layer
+    class(add_layer_type), intent(inout) :: this
+    !! Instance of the add layer
     integer, dimension(:), intent(in) :: input_shape
     !! Input shape
     integer, optional, intent(in) :: batch_size
@@ -243,6 +178,8 @@ contains
     !! Verbosity level
 
     ! Local variables
+    integer :: i
+    !! Loop index
     integer :: verbose_ = 0
     !! Verbosity level
 
@@ -264,12 +201,7 @@ contains
     !---------------------------------------------------------------------------
     ! Initialise output shape
     !---------------------------------------------------------------------------
-    this%num_outputs = product(this%input_shape)
-    if(allocated(this%output))then
-       if(this%output(1,1)%allocated) call this%output(1,1)%deallocate()
-    end if
-    allocate(this%output(1,1))
-    this%output_shape = [this%num_outputs]
+    this%output_shape = this%input_shape
 
 
     !---------------------------------------------------------------------------
@@ -277,26 +209,21 @@ contains
     !---------------------------------------------------------------------------
     if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
 
-  end subroutine init_flatten
+  end subroutine init_add
 !###############################################################################
 
 
 !###############################################################################
-  subroutine set_batch_size_flatten(this, batch_size, verbose)
-    !! Set batch size for flattening layer
+  subroutine set_batch_size_add(this, batch_size, verbose)
+    !! Set the batch size for add layer
     implicit none
 
     ! Arguments
-    class(flatten_layer_type), intent(inout), target :: this
-    !! Instance of the flattening layer
+    class(add_layer_type), intent(inout), target :: this
     integer, intent(in) :: batch_size
-    !! Batch size
     integer, optional, intent(in) :: verbose
-    !! Verbosity level
 
-    ! Local variables
     integer :: verbose_ = 0
-    !! Verbosity level
 
 
     !---------------------------------------------------------------------------
@@ -310,68 +237,21 @@ contains
     ! Allocate arrays
     !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
-       if(this%use_graph_input)then
-          call stop_program( &
-               "Graph input not supported for flatten layer" &
-          )
-          return
-       else
-          if(allocated(this%output)) deallocate(this%output)
-          allocate( this%output(1,1) )
+       if(allocated(this%output)) deallocate(this%output)
+       if(.not.this%use_graph_input)then
+          allocate(this%output(1,1))
+          this%input_rank = size(this%input_shape)
+          this%output_rank = size(this%output_shape)
           call this%output(1,1)%allocate( &
-               array_shape = [ &
-                    (this%num_outputs), this%batch_size ], &
+               [ this%output_shape, this%batch_size ], &
                source=0._real32 &
           )
-          if(allocated(this%di)) deallocate(this%di)
-          select case(size(this%input_shape))
-          case(1)
-             this%input_rank = 1
-             allocate(this%di(1,1), source=array2d_type())
-             call this%di(1,1)%allocate( &
-                  array_shape = [ &
-                       this%input_shape(1), this%batch_size ], &
-                  source=0._real32 &
-             )
-          case(2)
-             this%input_rank = 2
-             allocate(this%di(1,1), source=array3d_type())
-             call this%di(1,1)%allocate( &
-                  array_shape = [ &
-                       this%input_shape(1), &
-                       this%input_shape(2), &
-                       this%batch_size ], &
-                  source=0._real32 &
-             )
-          case(3)
-             this%input_rank = 3
-             allocate(this%di(1,1), source=array4d_type())
-             call this%di(1,1)%allocate( &
-                  array_shape = [ &
-                       this%input_shape(1), &
-                       this%input_shape(2), &
-                       this%input_shape(3), this%batch_size ], &
-                  source=0._real32 &
-             )
-          case(4)
-             this%input_rank = 4
-             allocate(this%di(1,1), source=array5d_type())
-             call this%di(1,1)%allocate( &
-                  array_shape = [ &
-                       this%input_shape(1), &
-                       this%input_shape(2), &
-                       this%input_shape(3), &
-                       this%input_shape(4), this%batch_size ], &
-                  source=0._real32 &
-             )
-          case default
-             call stop_program('Flatten layer only supports input ranks 1-4')
-             return
-          end select
+       else
+          allocate(this%output(2,this%batch_size))
        end if
     end if
 
-  end subroutine set_batch_size_flatten
+  end subroutine set_batch_size_add
 !###############################################################################
 
 
@@ -381,19 +261,20 @@ contains
 
 
 !###############################################################################
-  subroutine print_to_unit_flatten(this, unit)
-    !! Print flatten layer to unit
+  subroutine print_to_unit_add(this, unit)
+    !! Print add layer to unit
     implicit none
 
     ! Arguments
-    class(flatten_layer_type), intent(in) :: this
-    !! Instance of the flatten layer
+    class(add_layer_type), intent(in) :: this
+    !! Instance of the add layer
     integer, intent(in) :: unit
     !! File unit
 
     ! Local variables
+    integer :: i
+    !! Loop index
     character(100) :: fmt
-    !! Format string
 
 
     ! Write initial parameters
@@ -401,23 +282,25 @@ contains
     write(unit,'(3X,"INPUT_RANK = ",I0)') this%input_rank
     write(fmt,'("(3X,""INPUT_SHAPE ="",",I0,"(1X,I0))")') size(this%input_shape)
     write(unit,fmt) this%input_shape
+    write(fmt,'("(3X,""INPUT_LAYER_IDS ="",",I0,"(1X,I0))")') size(this%input_layer_ids)
+    write(unit,fmt) this%input_layer_ids
 
-  end subroutine print_to_unit_flatten
+  end subroutine print_to_unit_add
 !###############################################################################
 
 
 !###############################################################################
-  subroutine read_flatten(this, unit, verbose)
-    !! Read flattening layer from file
+  subroutine read_add(this, unit, verbose)
+    !! Read add layer from file
     use athena__tools_infile, only: assign_val, assign_vec, get_val
     use athena__misc, only: to_lower, to_upper, icount
     implicit none
 
     ! Arguments
-    class(flatten_layer_type), intent(inout) :: this
-    !! Instance of the flattening layer
+    class(add_layer_type), intent(inout) :: this
+    !! Instance of the add layer
     integer, intent(in) :: unit
-    !! File unit
+    !! Unit number
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -428,7 +311,7 @@ contains
     !! Temporary integer
     integer :: input_rank = 0
     !! Input rank
-    integer, dimension(:), allocatable :: input_shape
+    integer, dimension(:), allocatable :: input_shape, input_layer_ids
     !! Input shape
     character(256) :: buffer, tag, err_msg
     !! Buffer, tag, and error message
@@ -464,7 +347,7 @@ contains
        tag=trim(adjustl(buffer))
        if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
 
-       ! Read parameters from save file
+       ! Read parameters from file
        !------------------------------------------------------------------------
        select case(trim(tag))
        case("INPUT_SHAPE")
@@ -473,15 +356,15 @@ contains
           call assign_vec(buffer, input_shape, itmp1)
        case("INPUT_RANK")
           call assign_val(buffer, input_rank, itmp1)
+       case("INPUT_LAYER_IDS")
+          itmp1 = icount(get_val(buffer))
+          allocate(input_layer_ids(itmp1), source=0)
+          call assign_vec(buffer, input_layer_ids, itmp1)
        case default
           ! Don't look for "e" due to scientific notation of numbers
           ! ... i.e. exponent (E+00)
-          if( &
-               scan( &
-                    to_lower(trim(adjustl(buffer))),  &
-                    'abcdfghijklmnopqrstuvwxyz' &
-               ) .eq. 0 &
-          )then
+          if(scan(to_lower(trim(adjustl(buffer))),&
+               'abcdfghijklmnopqrstuvwxyz').eq.0)then
              cycle tag_loop
           elseif(tag(:3).eq.'END')then
              cycle tag_loop
@@ -511,7 +394,7 @@ contains
 
     ! Set hyperparameters and initialise layer
     !---------------------------------------------------------------------------
-    call this%set_hyperparams(input_rank = input_rank, verbose = verbose_)
+    call this%set_hyperparams(input_layer_ids = input_layer_ids, verbose = verbose_)
     call this%init(input_shape = input_shape)
 
 
@@ -525,32 +408,88 @@ contains
        return
     end if
 
-  end subroutine read_flatten
+  end subroutine read_add
 !###############################################################################
 
 
 !###############################################################################
-  function read_flatten_layer(unit, verbose) result(layer)
-    !! Read flattening layer from file and return layer
+  function read_add_layer(unit, verbose) result(layer)
+    !! Read add layer from file and return layer
     implicit none
 
     ! Arguments
     integer, intent(in) :: unit
-    !! File unit
+    !! Unit number
     integer, optional, intent(in) :: verbose
     !! Verbosity level
     class(base_layer_type), allocatable :: layer
-    !! Instance of the flattening layer
+    !! Instance of the add layer
 
     ! Local variables
     integer :: verbose_ = 0
     !! Verbosity level
 
     if(present(verbose)) verbose_ = verbose
-    allocate(layer, source=flatten_layer_type(input_rank=1))
+    allocate(layer, source=add_layer_type(input_layer_ids=[0,0]))
     call layer%read(unit, verbose=verbose_)
 
-  end function read_flatten_layer
+  end function read_add_layer
 !###############################################################################
 
-end module athena__flatten_layer
+
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
+
+
+!###############################################################################
+  subroutine combine_add(this, input1, input2)
+    !! Forward propagation for 2D input
+    implicit none
+
+    ! Arguments
+    class(add_layer_type), intent(inout) :: this
+    !! Instance of the add layer
+    type(array_type), dimension(:,:), intent(in) :: input1, input2
+    !! Input values
+
+    ! Local variables
+    integer :: s
+    !! Loop index
+
+    this%output(1,1) = input1(1,1) + input2(1,1)
+
+  end subroutine combine_add
+!###############################################################################
+
+
+!###############################################################################
+  subroutine split_add(this, input1, input2, gradient)
+    !! Backward propagation for 2D input
+    implicit none
+
+    ! Arguments
+    class(add_layer_type), intent(inout) :: this
+    !! Instance of the add layer
+    class(array_type), dimension(:,:), intent(in) :: input1, input2
+    !! Input values
+    class(array_type), dimension(:,:), intent(in) :: gradient
+    !! Gradient values
+
+    ! Local variables
+    integer :: s
+    !! Loop index
+
+    if(this%use_graph_input)then
+       do s = 1, this%batch_size
+          this%di(1,s) = gradient(1,s)
+          this%di(2,s) = gradient(2,s)
+       end do
+    else
+       this%di(1,1) = gradient(1,1)
+    end if
+
+  end subroutine split_add
+!###############################################################################
+
+end module athena__add_layer

@@ -28,6 +28,7 @@ module athena__base_layer
   public :: learnable_layer_type
   public :: conv_layer_type
   public :: batch_layer_type
+  public :: merge_layer_type
 
 !-------------------------------------------------------------------------------
 ! layer abstract type
@@ -347,6 +348,41 @@ module athena__base_layer
      end subroutine generate_mask
   end interface
 
+
+  type, abstract, extends(base_layer_type) :: merge_layer_type
+     !! Type for merge layers (i.e. add, multiply, concatenate)
+     character(len=20) :: method
+     !! Merge method
+     integer :: num_input_layers = 0
+     !! Number of input layers
+     integer, allocatable, dimension(:) :: input_layer_ids
+     !! IDs of input layers
+   contains
+     procedure(combine_merge), deferred, pass(this) :: combine
+     !! Merge two layers (forward)
+     procedure(split_merge), deferred, pass(this) :: split
+     !! Split two layers (backward)
+  end type merge_layer_type
+
+  abstract interface
+     module subroutine combine_merge(this, input1, input2)
+       !! Combine two layers (forward)
+       class(merge_layer_type), intent(inout) :: this
+       !! Instance of the layer
+       type(array_type), dimension(:,:), intent(in) :: input1, input2
+       !! Input values
+     end subroutine combine_merge
+
+     module subroutine split_merge(this, input1, input2, gradient)
+       !! Split two layers (backward)
+       class(merge_layer_type), intent(inout) :: this
+       !! Instance of the layer
+       class(array_type), dimension(:,:), intent(in) :: input1, input2
+       !! Input values
+       class(array_type), dimension(:,:), intent(in) :: gradient
+       !! Gradient values
+     end subroutine split_merge
+  end interface
 
   type, abstract, extends(base_layer_type) :: learnable_layer_type
      !! Type for layers with learnable parameters

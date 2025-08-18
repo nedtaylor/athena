@@ -64,7 +64,8 @@ module athena
        learnable_layer_type, &
        batch_layer_type, &
        conv_layer_type, &
-       pool_layer_type
+       pool_layer_type, &
+       merge_layer_type
 
 
   ! Input layer types
@@ -86,6 +87,7 @@ module athena
   use athena__batchnorm3d_layer, only: &
        batchnorm3d_layer_type, read_batchnorm3d_layer
 
+
   ! Convolution layer types
   !-----------------------------------------------------------------------------
   use athena__conv1d_layer,    only: conv1d_layer_type, read_conv1d_layer
@@ -96,13 +98,6 @@ module athena
 ! !   ! Deep set layer types
 ! !   !-----------------------------------------------------------------------------
 ! !   use athena__deepset_layer,   only: deepset_layer_type, read_deepset_layer
-
-
-  ! Message passing layer types
-  !-----------------------------------------------------------------------------
-  use athena__msgpass_layer,      only: msgpass_layer_type
-  use athena__kipf_msgpass_layer, only: kipf_msgpass_layer_type
-  use athena__duvenaud_msgpass_layer, only: duvenaud_msgpass_layer_type
 
 
   ! Dropout layer types
@@ -139,6 +134,17 @@ module athena
   ! Fully connected (dense) layer types
   !-----------------------------------------------------------------------------
   use athena__full_layer,      only: full_layer_type, read_full_layer
+
+
+  ! Merge layer types
+  !-----------------------------------------------------------------------------
+  use athena__add_layer, only: add_layer_type
+
+  ! Message passing layer types
+  !-----------------------------------------------------------------------------
+  use athena__msgpass_layer,      only: msgpass_layer_type
+  use athena__kipf_msgpass_layer, only: kipf_msgpass_layer_type
+  use athena__duvenaud_msgpass_layer, only: duvenaud_msgpass_layer_type
 
 
   ! Array types
