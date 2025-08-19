@@ -4,7 +4,7 @@ module athena__activation_tanh
   !! This module implements the hyperbolic tangent activation function
   use athena__constants, only: real32
   use athena__misc_types, only: activation_type, array_type, operator(+), operator(-), &
-       operator(*), operator(/), exp
+       operator(*), operator(/), exp, merge, sign, operator(.lt.)
   implicit none
 
 
@@ -92,6 +92,8 @@ contains
     ! elsewhere
     !    output = this%scale * (exp(val) - exp(-val))/(exp(val) + exp(-val))
     ! end where
+    output => this%scale * (exp(val) - exp(-val))/(exp(val) + exp(-val))
+    output => merge( output, sign(this%scale, val), val.lt.this%threshold )
   end function tanh_activate_array
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------

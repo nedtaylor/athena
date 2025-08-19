@@ -29,7 +29,7 @@ module athena__misc_types
   public :: operator(.lt.)
   public :: duvenaud_propagate, duvenaud_update, &
        reverse_duvenaud_propagate, reverse_duvenaud_update
-  public :: merge, maxval, max, sum, spread, reverse_index
+  public :: sign, merge, maxval, max, sum, spread, reverse_index
   public :: sin, cos, tan, exp, log, sqrt, tanh, sigmoid, transpose, add, concat
 
 
@@ -435,6 +435,10 @@ module athena__misc_types
      module procedure lt_scalar
   end interface
 
+  interface sign
+     module procedure sign_array
+  end interface
+
   interface sum
      module procedure sum_array
      module procedure sum_array_output_array
@@ -450,6 +454,7 @@ module athena__misc_types
 
   interface merge
      module procedure merge_scalar
+     module procedure merge_real2d
   end interface
 
   interface spread
@@ -871,6 +876,30 @@ contains
        c => c .concat. a(i)%array(idx1, idx2)
     end do
   end function concat_array_ptr
+
+  !-----------------------------------------------------------------------------
+  ! Sign addition
+  !-----------------------------------------------------------------------------
+  function sign_array(scalar, array) result(c)
+    !! Add a scalar sign to an autodiff array
+    real(real32), intent(in) :: scalar
+    class(array_type), intent(in), target :: array
+    real(real32), dimension(:,:), allocatable :: c
+    ! type(array_type), pointer :: c
+
+    allocate(c(size(array%val,1), size(array%val,2)))
+    c = sign(scalar, array%val)
+    ! allocate(c)
+    ! call c%allocate(array_shape=array%shape)
+    ! c%val = sign(scalar, array%val)
+
+    ! if(array%requires_grad) then
+    !    c%requires_grad = .true.
+    !    c%is_leaf = .false.
+    !    c%operation = 'sign'
+    !    c%left_operand => array
+    ! end if
+  end function sign_array
 
   !-----------------------------------------------------------------------------
   ! Addition operation
@@ -1524,6 +1553,40 @@ contains
        c%left_operand => tsource
     end if
   end function merge_scalar
+
+  function merge_real2d(tsource, fsource, mask) result(c)
+    !! Merge two autodiff arrays based on a mask
+    class(array_type), intent(in), target :: tsource
+    real(real32), dimension(:,:), intent(in) :: fsource
+    logical, dimension(:,:), intent(in) :: mask
+    type(array_type), pointer :: c
+
+    integer :: i, j, s
+
+    if(size(tsource%shape) .ne. 1)then
+       call stop_program("merge_array: only 1D arrays can be merged")
+    end if
+
+    allocate(c)
+    call c%allocate(array_shape=[size(tsource%val,1), size(tsource%val,2)])
+    ! merge 1D array by using shape to swap dimensions
+    do concurrent(s=1:size(tsource%val,2))
+       do concurrent(i=1:size(tsource%val,1), j=1:size(tsource%val,2))
+          if(mask(i,j)) then
+             c%val(i,j) = tsource%val(i,j)
+          else
+             c%val(i,j) = fsource(i,j)
+          end if
+       end do
+    end do
+
+    if(tsource%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'merge'
+       c%left_operand => tsource
+    end if
+  end function merge_real2d
 
   function spread_array(source, dim, index, ncopies) result(c)
     !! Spread an autodiff array along a dimension
