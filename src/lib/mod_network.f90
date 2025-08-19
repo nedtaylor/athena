@@ -167,7 +167,9 @@ module athena__network
      !! Backward pass for graph input
      procedure, pass(this) :: backward_mixed
 
-     procedure, pass(this) :: calc_loss_grad_output
+     procedure, pass(this) :: calc_output_accuracy
+     procedure, pass(this) :: calc_output_loss
+     procedure, pass(this) :: calc_output_loss_grad
 
      generic :: forward => forward_real, forward_derived, forward_graph
      !! Generic for forward propagation
@@ -592,7 +594,32 @@ module athena__network
        !! Instance of the network
      end subroutine reset_gradients
 
-     module function calc_loss_grad_output(this, output) result(gradient)
+     module function calc_output_accuracy(this, output, start_index, end_index) &
+          result(accuracy)
+       !! Get the accuracy for the output
+       class(network_type), intent(in) :: this
+       !! Instance of network
+       class(*), dimension(:,:), intent(in) :: output
+       !! Output
+       integer, intent(in) :: start_index, end_index
+       !! Start and end batch indices
+       real(real32) :: accuracy
+       !! Accuracy value
+     end function calc_output_accuracy
+
+     module function calc_output_loss(this, output, start_index, end_index) result(loss)
+       !! Get the loss for the output
+       class(network_type), intent(in) :: this
+       !! Instance of network
+       class(*), dimension(:,:), intent(in) :: output
+       !! Output
+       integer, intent(in) :: start_index, end_index
+       !! Start and end batch indices
+       real(real32) :: loss
+       !! Loss value
+     end function calc_output_loss
+
+     module function calc_output_loss_grad(this, output) result(gradient)
        !! Get the loss for the output
        class(network_type), intent(in) :: this
        !! Instance of network
@@ -601,7 +628,7 @@ module athena__network
        ! Local variables
        type(array_type), dimension(size(output,1),size(output,2)) :: gradient
        !! Loss value
-     end function calc_loss_grad_output
+     end function calc_output_loss_grad
 
      !! Interface for forward pass
      module subroutine forward_real(this, input)

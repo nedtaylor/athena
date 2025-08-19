@@ -2394,6 +2394,235 @@ contains
 
 
 !###############################################################################
+  module function calc_output_accuracy(this, output, start_index, end_index) &
+       result(accuracy)
+    !! Get the loss for the output
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(in) :: this
+    !! Instance of network
+    class(*), dimension(:,:), intent(in) :: output
+    !! Output
+    integer, intent(in) :: start_index, end_index
+    !! Start and end batch indices
+
+    real(real32) :: accuracy
+    !! Loss value
+
+    ! Local variables
+    integer :: s, s_idx
+    !! Loop index
+
+    accuracy = 0._real32
+    select type(output)
+    type is(graph_type)
+       do s = start_index, end_index, 1
+          s_idx = s - start_index + 1
+          accuracy = accuracy + sum( this%get_accuracy( &
+               this%model(this%leaf_vertices(1))%layer%output(1,s_idx)%val, &
+               output(1,s)%vertex_features &
+          ) ) / output(1,s)%num_vertices
+          if( &
+               this%model(this%leaf_vertices(1))%layer%output_shape(2).gt.0 &
+          )then
+             accuracy = accuracy + sum( this%get_accuracy( &
+                  this%model(this%leaf_vertices(1))%layer%output(2,s_idx)%val, &
+                  output(1,s)%edge_features &
+             ) ) / output(1,s)%num_edges
+          end if
+       end do
+    type is(real)
+       accuracy = sum( &
+            this%get_accuracy( &
+                 this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
+                 output(:,start_index:end_index:1) &
+            ))
+    type is(integer)
+       accuracy = sum( &
+            this%get_accuracy( &
+                 this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
+                 real(output(:,start_index:end_index:1),real32) &
+            ))
+    class is(array_type)
+       accuracy = sum( &
+            this%get_accuracy( &
+                 this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
+                 output(1,1)%val(:,start_index:end_index:1) &
+            ))
+    end select
+
+  end function calc_output_accuracy
+!-------------------------------------------------------------------------------
+  module function calc_output_loss(this, output, start_index, end_index) result(loss)
+    !! Get the loss for the output
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(in) :: this
+    !! Instance of network
+    class(*), dimension(:,:), intent(in) :: output
+    !! Output
+    integer, intent(in) :: start_index, end_index
+    !! Start and end batch indices
+
+    real(real32) :: loss
+    !! Loss value
+
+    ! Local variables
+    integer :: s, s_idx
+    !! Loop index
+
+    loss = 0._real32
+    if(this%loss%requires_autodiff)then
+       select type(output)
+       type is(graph_type)
+          do s = start_index, end_index, 1
+             s_idx = s - start_index + 1
+             loss = loss + sum( this%loss%compute_pinn( &
+                  this%model(this%leaf_vertices(1))%layer%output(1,s_idx)%val, &
+                  output(1,s)%vertex_features, &
+                  this%model(this%root_vertices(1))%layer%output(1,:) &
+             ) ) / output(1,s)%num_vertices
+             if( &
+                  this%model(this%leaf_vertices(1))%layer%output_shape(2).gt.0 &
+             )then
+                loss = loss + sum( this%loss%compute_pinn( &
+                     this%model(this%leaf_vertices(1))%layer%output(2,s_idx)%val, &
+                     output(1,s)%edge_features, &
+                     this%model(this%root_vertices(1))%layer%output(1,:) &
+                ) ) / output(1,s)%num_edges
+             end if
+          end do
+       type is(real)
+          loss = sum( &
+               this%loss%compute_pinn( &
+                    this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
+                    output(:,start_index:end_index:1), &
+                    this%model(this%root_vertices(1))%layer%output(1,:) &
+               ))
+       type is(integer)
+          loss = sum( &
+               this%loss%compute_pinn( &
+                    this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
+                    real(output(:,start_index:end_index:1),real32), &
+                    this%model(this%root_vertices(1))%layer%output(1,:) &
+               ))
+       class is(array_type)
+          loss = sum( &
+               this%loss%compute_pinn( &
+                    this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
+                    output(1,1)%val(:,start_index:end_index:1), &
+                    this%model(this%root_vertices(1))%layer%output(1,:) &
+               ))
+       end select
+    else
+       select type(output)
+       type is(graph_type)
+          do s = start_index, end_index, 1
+             s_idx = s - start_index + 1
+             loss = loss + sum( this%loss%compute( &
+                  this%model(this%leaf_vertices(1))%layer%output(1,s_idx)%val, &
+                  output(1,s)%vertex_features &
+             ) ) / output(1,s)%num_vertices
+             if( &
+                  this%model(this%leaf_vertices(1))%layer%output_shape(2).gt.0 &
+             )then
+                loss = loss + sum( this%loss%compute( &
+                     this%model(this%leaf_vertices(1))%layer%output(2,s_idx)%val, &
+                     output(1,s)%edge_features &
+                ) ) / output(1,s)%num_edges
+             end if
+          end do
+       type is(real)
+          loss = sum( &
+               this%loss%compute( &
+                    this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
+                    output(:,start_index:end_index:1) &
+               ))
+       type is(integer)
+          loss = sum( &
+               this%loss%compute( &
+                    this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
+                    real(output(:,start_index:end_index:1),real32) &
+               ))
+       class is(array_type)
+          loss = sum( &
+               this%loss%compute( &
+                    this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
+                    output(1,1)%val(:,start_index:end_index:1) &
+               ))
+       end select
+    end if
+
+  end function calc_output_loss
+!-------------------------------------------------------------------------------
+  module function calc_output_loss_grad(this, output) result(gradient)
+    !! Get the loss for the output
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(in) :: this
+    !! Instance of network
+    class(*), dimension(:,:), intent(in) :: output
+    !! Output
+
+    type(array_type), dimension(size(output,1),size(output,2)) :: gradient
+    !! Loss value
+
+    ! Local variables
+    integer :: i, s
+
+
+    associate( layer => this%model(this%leaf_vertices(1))%layer )
+       do s = 1, size(output,2)
+          select type(output)
+          type is(graph_type)
+             if(this%loss%requires_autodiff)then
+                gradient(1,s)%val = this%loss%compute_pinn_derivative( &
+                     layer%output(1,s)%val, &
+                     output(1,s)%vertex_features, &
+                     this%model(this%root_vertices(1))%layer%output(1,s:s) &
+                ) / output(1,s)%num_vertices
+                gradient(2,s)%val = this%loss%compute_pinn_derivative( &
+                     layer%output(2,s)%val, &
+                     output(1,s)%edge_features, &
+                     this%model(this%root_vertices(1))%layer%output(2,s:s) &
+                ) / output(1,s)%num_edges
+             else
+                gradient(1,s)%val = this%loss%compute_derivative( &
+                     layer%output(1,s)%val, &
+                     output(1,s)%vertex_features &
+                ) / output(1,s)%num_vertices
+                gradient(2,s)%val = this%loss%compute_derivative( &
+                     layer%output(2,s)%val, &
+                     output(1,s)%edge_features &
+                ) / output(1,s)%num_edges
+             end if
+          class is(array_type)
+             do i = 1, size(output,1)
+                if(this%loss%requires_autodiff)then
+                   gradient(i,s)%val = this%loss%compute_pinn_derivative( &
+                        layer%output(i,s)%val, &
+                        output(i,s)%val, &
+                        this%model(this%root_vertices(1))%layer%output(i,:) &
+                   )
+                else
+                   gradient(i,s)%val = this%loss%compute_derivative( &
+                        layer%output(i,s)%val, &
+                        output(i,s)%val &
+                   )
+                end if
+             end do
+          end select
+       end do
+    end associate
+
+  end function calc_output_loss_grad
+!###############################################################################
+
+
+!###############################################################################
   module subroutine forward_real(this, input)
     !! Forward pass for real input
     implicit none
@@ -2886,7 +3115,7 @@ contains
        if(num_output_layers.eq.0)then
           ! make generic function that handles array_type or graph_type output
           allocate(gradient_ptr(size(output,1),size(output,2)))
-          gradient_ptr = this%calc_loss_grad_output(output)
+          gradient_ptr = this%calc_output_loss_grad(output)
        elseif(num_output_layers.eq.1)then
           j = maxloc(this%auto_graph%adjacency(this%vertex_order(l),:),dim=1)
           j = this%auto_graph%vertex(j)%id
@@ -2912,68 +3141,6 @@ contains
     end do
 
   end subroutine backward_generic2d
-  module function calc_loss_grad_output(this, output) result(gradient)
-    !! Get the loss for the output
-    implicit none
-
-    ! Arguments
-    class(network_type), intent(in) :: this
-    !! Instance of network
-    class(*), dimension(:,:), intent(in) :: output
-    !! Output
-
-    type(array_type), dimension(size(output,1),size(output,2)) :: gradient
-    !! Loss value
-
-    ! Local variables
-    integer :: i, s
-
-
-    associate( layer => this%model(this%leaf_vertices(1))%layer )
-       do s = 1, size(output,2)
-          select type(output)
-          type is(graph_type)
-             if(this%loss%requires_autodiff)then
-                gradient(1,s)%val = this%loss%compute_pinn_derivative( &
-                     layer%output(1,s)%val, &
-                     output(1,s)%vertex_features, &
-                     this%model(this%root_vertices(1))%layer%output(1,s:s) &
-                ) / output(1,s)%num_vertices
-                gradient(2,s)%val = this%loss%compute_pinn_derivative( &
-                     layer%output(2,s)%val, &
-                     output(1,s)%edge_features, &
-                     this%model(this%root_vertices(1))%layer%output(2,s:s) &
-                ) / output(1,s)%num_edges
-             else
-                gradient(1,s)%val = this%loss%compute_derivative( &
-                     layer%output(1,s)%val, &
-                     output(1,s)%vertex_features &
-                ) / output(1,s)%num_vertices
-                gradient(2,s)%val = this%loss%compute_derivative( &
-                     layer%output(2,s)%val, &
-                     output(1,s)%edge_features &
-                ) / output(1,s)%num_edges
-             end if
-          class is(array_type)
-             do i = 1, size(output,1)
-                if(this%loss%requires_autodiff)then
-                   gradient(i,s)%val = this%loss%compute_pinn_derivative( &
-                        layer%output(i,s)%val, &
-                        output(i,s)%val, &
-                        this%model(this%root_vertices(1))%layer%output(i,:) &
-                   )
-                else
-                   gradient(i,s)%val = this%loss%compute_derivative( &
-                        layer%output(i,s)%val, &
-                        output(i,s)%val &
-                   )
-                end if
-             end do
-          end select
-       end do
-    end associate
-
-  end function calc_loss_grad_output
 !-------------------------------------------------------------------------------
   module subroutine backward_derived2d(this, output)
     !! Backward pass for real output
@@ -3711,8 +3878,8 @@ contains
     !! Number of batches
     integer :: converged
     !! Convergence flag
-    integer :: history_length
-    !! Length of history
+    integer :: window_width
+    !! Length of convergence check window
     integer :: verbose_
     !! Verbosity level
     integer :: batch_print_step_
@@ -3771,12 +3938,9 @@ contains
     !---------------------------------------------------------------------------
     ! Initialise monitoring variables
     !---------------------------------------------------------------------------
-    history_length = max(ceiling(500._real32/this%batch_size),1)
-    do i=1,size(this%metrics,dim=1)
-       if(allocated(this%metrics(i)%history)) &
-            deallocate(this%metrics(i)%history)
-       allocate(this%metrics(i)%history(history_length))
-       this%metrics(i)%history = -huge(1._real32)
+    window_width = max(ceiling(500._real32/this%batch_size),1)
+    do i = 1, size(this%metrics,dim=1)
+       this%metrics(i)%window_width = window_width
     end do
 
 
@@ -3900,78 +4064,9 @@ contains
 
 
           ! Compute loss and accuracy (for monitoring)
-          !------------------------------------------------------------------
-          select type(output)
-          type is(graph_type)
-             batch_loss = 0._real32
-             batch_accuracy = 0._real32
-             do s = start_index, end_index, 1
-                s_idx = s - start_index + 1
-                batch_loss = batch_loss + sum( this%loss%compute( &
-                     this%model(this%leaf_vertices(1))%layer%output(1,s_idx)%val, &
-                     output(1,s)%vertex_features &
-                ) ) / output(1,s)%num_vertices
-                batch_accuracy = batch_accuracy + sum( this%get_accuracy( &
-                     this%model(this%leaf_vertices(1))%layer%output(1,s_idx)%val, &
-                     output(1,s)%vertex_features &
-                ) ) / output(1,s)%num_vertices
-                if( &
-                     this%model(this%leaf_vertices(1))%layer%output_shape(2).gt.0 &
-                )then
-                   batch_loss = batch_loss + sum( this%loss%compute( &
-                        this%model(this%leaf_vertices(1))%layer%output(2,s_idx)%val, &
-                        output(1,s)%edge_features &
-                   ) ) / output(1,s)%num_edges
-                   batch_accuracy = batch_accuracy + sum( this%get_accuracy( &
-                        this%model(this%leaf_vertices(1))%layer%output(2,s_idx)%val, &
-                        output(1,s)%edge_features &
-                   ) ) / output(1,s)%num_edges
-                end if
-             end do
-          type is(real)
-             batch_loss = sum( &
-                  this%loss%compute( &
-                       this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-                       output(:,start_index:end_index:1) &
-                  ))
-             batch_accuracy = sum( &
-                  this%get_accuracy( &
-                       this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-                       output(:,start_index:end_index:1) &
-                  ))
-          type is(integer)
-             batch_loss = sum( &
-                  this%loss%compute( &
-                       this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-                       real(output(:,start_index:end_index:1),real32) &
-                  ))
-             batch_accuracy = sum( &
-                  this%get_accuracy( &
-                       this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-                       real(output(:,start_index:end_index:1),real32) &
-                  ))
-          class is(array_type)
-             if(this%loss%requires_autodiff)then
-                batch_loss = sum( &
-                     this%loss%compute_pinn( &
-                          this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-                          output(1,1)%val(:,start_index:end_index:1), &
-                          this%model(this%root_vertices(1))%layer%output(1,:) &
-                     ))
-             else
-                batch_loss = sum( &
-                     this%loss%compute( &
-                          this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-                          output(1,1)%val(:,start_index:end_index:1) &
-                     ))
-             end if
-             batch_accuracy = sum( &
-                  this%get_accuracy( &
-                       this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-                       output(1,1)%val(:,start_index:end_index:1) &
-                  ))
-          end select
-
+          !---------------------------------------------------------------------
+          batch_loss = this%calc_output_loss(output, start_index, end_index)
+          batch_accuracy = this%calc_output_accuracy(output, start_index, end_index)
 
 
           ! Average metric over batch size and store
@@ -3979,8 +4074,8 @@ contains
           !---------------------------------------------------------------------
           avg_loss = avg_loss + batch_loss
           avg_accuracy = avg_accuracy + batch_accuracy
-          this%metrics(1)%val = batch_loss / this%batch_size
-          this%metrics(2)%val = batch_accuracy / this%batch_size
+          call this%metrics(1)%append(batch_loss / this%batch_size)
+          call this%metrics(2)%append(batch_accuracy / this%batch_size)
           do i = 1, size(this%metrics,dim=1)
              call this%metrics(i)%check(plateau_threshold_, converged)
              if(converged.ne.0)then
