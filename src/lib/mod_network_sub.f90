@@ -1875,8 +1875,8 @@ contains
 
   end function get_sample_ptr
 !-------------------------------------------------------------------------------
-  module function get_sample_derived( &
-       input, start_index, end_index, batch_size &
+  module function get_sample_array( &
+       input, start_index, end_index, batch_size, as_graph &
   ) result(sample)
     !! Get samples of batch size from a derived type array
     implicit none
@@ -1886,88 +1886,37 @@ contains
     !! Start and end indices
     integer, intent(in) :: batch_size
     !! Batch size
-    class(array_type), dimension(:), intent(in), target :: input
+    class(array_type), dimension(:,:), intent(in) :: input
     !! Input array
+    logical, intent(in) :: as_graph
+    !! Boolean whether to treat the input as a graph
 
-    type(array_type), dimension(size(input,1)) :: sample
-    !! Sample array
-
-    ! Local variables
-    integer :: i
-    !! Loop index
-
-    do i = 1, size(input,1)
-       sample(i)%val = get_sample_ptr( &
-            input(i)%val, start_index, end_index, batch_size &
-       )
-    end do
-
-  end function get_sample_derived
-!-------------------------------------------------------------------------------
-  function get_sample_derived_2d( &
-       input, start_index, end_index, batch_size &
-  ) result(sample)
-    !! Get samples of batch size from a derived type array
-    implicit none
-
-    ! Arguments
-    integer, intent(in) :: start_index, end_index
-    !! Start and end indices
-    integer, intent(in) :: batch_size
-    !! Batch size
-    class(array_type), dimension(:,:), intent(in), target :: input
-    !! Input array
-
-    type(array_type), pointer :: sample(:,:)
+    type(array_type), dimension(:,:), allocatable :: sample
     !! Sample array
 
     ! Local variables
     integer :: i, j
     !! Loop index
 
-    allocate(sample(size(input,1),size(input,2)))
-    do i = 1, size(input,1)
-       do j = 1, size(input,2)
-          call sample(i,j)%zero_grad()
-          call sample(i,j)%set_requires_grad(.true.)
-          sample(i,j)%val = get_sample_ptr( &
-               input(i,j)%val, start_index, end_index, batch_size &
-          )
+    if(as_graph)then
+       allocate(sample(size(input,1), batch_size))
+       do i = 1, size(input,1)
+          do j = start_index, end_index, 1
+             sample(i, j - start_index + 1)%val = input(i, j)%val
+          end do
        end do
-    end do
+    else
+       allocate(sample(size(input,1), size(input,2)))
+       do i = 1, size(input,1)
+          do j = 1, size(input,2)
+             sample(i,j)%val = get_sample_ptr( &
+                  input(i,j)%val, start_index, end_index, batch_size &
+             )
+          end do
+       end do
+    end if
 
-  end function get_sample_derived_2d
-!-------------------------------------------------------------------------------
-  module function get_sample_mixed( &
-       input, start_index, end_index, batch_size &
-  ) result(sample)
-    !! Get samples of batch size from a derived type array
-    implicit none
-
-    ! Arguments
-    integer, intent(in) :: start_index, end_index
-    !! Start and end indices
-    integer, intent(in) :: batch_size
-    !! Batch size
-    class(array_type), dimension(:,:), intent(in), target :: input
-    !! Input array
-
-    type(array_type), pointer :: sample(:,:)
-    !! Sample array
-
-    ! Local variables
-    integer :: i, s
-    !! Loop index
-
-    !  allocate(sample(size(input,1), batch_size))
-    sample(1:size(input,1),1:batch_size) => input(:,start_index:end_index)
-    !  do i = 1, size(input,1)
-    !     do s = start_index, end_index, 1
-    !        sample(i, s - start_index + 1)%val = input(i, s)%val
-    !     end do
-    !  end do
-
-  end function get_sample_mixed
+  end function get_sample_array
 !-------------------------------------------------------------------------------
   module function get_sample_graph( &
        input, start_index, end_index, batch_size &
@@ -1980,13 +1929,13 @@ contains
     !! Start and end indices
     integer, intent(in) :: batch_size
     !! Batch size
-    class(graph_type), dimension(:,:), intent(in), target :: input
+    class(graph_type), dimension(:,:), intent(in) :: input
     !! Input array
 
-    type(graph_type), pointer :: sample(:,:)
+    type(graph_type), dimension(size(input,1), batch_size) :: sample
     !! Sample array
 
-    sample(1:size(input,1),1:batch_size) => input(:,start_index:end_index)
+    sample(1:size(input,1),1:batch_size) = input(:,start_index:end_index)
 
   end function get_sample_graph
 !###############################################################################
@@ -3782,6 +3731,8 @@ contains
     integer :: i, s, time, time_old, clock_rate
     !! Loop index
 
+    class(*), allocatable :: data_poly(:,:)
+
 #ifdef _OPENMP
     type(network_type) :: this_copy
     !! Copy of network
@@ -3913,45 +3864,17 @@ contains
           !  call system_clock(timer_start)
           select case(this%use_graph_input)
           case(.true.)
-             call this%forward_generic2d(get_sample_graph( &
+             data_poly = get_sample_graph( &
                   this%input_graph, start_index, end_index, this%batch_size &
-             ))
-             select type(output)
-             type is(graph_type)
-                call this%backward_generic2d(get_sample_graph( &
-                     output, start_index, end_index, this%batch_size &
-                ))
-             type is(array_type)
-                if(this%use_graph_output)then
-                   call this%backward_generic2d(get_sample_mixed( &
-                        output, start_index, end_index, this%batch_size &
-                   ))
-                else
-                   call this%backward_generic2d(get_sample_derived_2d( &
-                        output, start_index, end_index, this%batch_size &
-                   ))
-                end if
-             end select
+             )
           case default
-             call this%forward_derived2d(get_sample_derived_2d( &
-                  this%input_array, start_index, end_index, this%batch_size &
-             ))
-             select type(output)
-             type is(integer)
-                call this%backward(real(output(:,start_index:end_index:1),real32))
-             type is(real)
-                call this%backward(get_sample( &
-                     output, start_index, end_index, this%batch_size&
-                ))
-             class is(array_type)
-                !  call this%backward_derived(get_sample_derived( &
-                !       output(:,1), start_index, end_index, this%batch_size &
-                !  ))
-                call this%backward_derived2d(get_sample_derived_2d( &
-                     output(:,:), start_index, end_index, this%batch_size &
-                ))
-             end select
+             data_poly = get_sample_array( &
+                  this%input_array, start_index, end_index, this%batch_size, &
+                  as_graph = .false. &
+             )
           end select
+          call this%forward_generic2d(data_poly)
+          deallocate(data_poly)
           !  call system_clock(timer_stop)
           !  forward_timer = forward_timer + timer_stop - timer_start
 
@@ -3959,6 +3882,19 @@ contains
           ! Backward pass and store predicted output
           !---------------------------------------------------------------------
           !  call system_clock(timer_start)
+          select type(output)
+          type is(graph_type)
+             data_poly = get_sample_graph( &
+                  output, start_index, end_index, this%batch_size &
+             )
+          type is(array_type)
+             data_poly = get_sample_array( &
+                  output, start_index, end_index, this%batch_size, &
+                  as_graph = this%use_graph_output &
+             )
+          end select
+          call this%backward_generic2d(data_poly)
+          deallocate(data_poly)
           !  call system_clock(timer_stop)
           !  backward_timer = backward_timer + timer_stop - timer_start
 
@@ -4150,7 +4086,8 @@ contains
     !! Loss and accuracy
     real(real32), allocatable, dimension(:) :: accuracy_list
     !! Accuracy list
-
+    class(*), allocatable, dimension(:,:) :: data_poly
+    !! Polymorphic data array
 
     !---------------------------------------------------------------------------
     ! Initialise optional arguments
@@ -4193,14 +4130,17 @@ contains
        !------------------------------------------------------------------------
        select case(this%use_graph_input)
        case(.true.)
-          call this%forward_graph(get_sample_graph( &
+          data_poly = get_sample_graph( &
                this%input_graph, sample, sample, 1 &
-          ))
+          )
        case default
-          call this%forward(get_sample_derived( &
-               this%input_array(1,:), sample, sample, 1 &
-          ))
+          data_poly = get_sample_array( &
+               this%input_array, sample, sample, 1, &
+               as_graph = .false. &
+          )
        end select
+       call this%forward_generic2d(data_poly)
+       deallocate(data_poly)
 
 
        ! Compute loss and accuracy (for monitoring)

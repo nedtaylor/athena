@@ -709,32 +709,21 @@ module athena__network
        real(real32), pointer :: sample_ptr(:,:)
        !! Pointer to sample
      end function get_sample_ptr
-     module function get_sample_derived( &
-          input, start_index, end_index, batch_size &
-     ) result(sample)
-       !! Get sample for derived input
-       integer, intent(in) :: start_index, end_index
-       !! Start and end indices
-       integer, intent(in) :: batch_size
-       !! Batch size
-       class(array_type), dimension(:), intent(in), target :: input
-       !! Input array
-       type(array_type), dimension(size(input,1)) :: sample
-       !! Sample array
-     end function get_sample_derived
-     module function get_sample_mixed( &
-          input, start_index, end_index, batch_size &
+     module function get_sample_array( &
+          input, start_index, end_index, batch_size, as_graph&
      ) result(sample)
        !! Get sample for mixed input
        integer, intent(in) :: start_index, end_index
        !! Start and end indices
        integer, intent(in) :: batch_size
        !! Batch size
-       class(array_type), dimension(:,:), intent(in), target :: input
+       class(array_type), dimension(:,:), intent(in) :: input
        !! Input array
-       type(array_type), pointer :: sample(:,:)
+       logical, intent(in) :: as_graph
+       !! Boolean whether to treat the input as a graph
+       type(array_type), dimension(:,:), allocatable :: sample
        !! Sample array
-     end function get_sample_mixed
+     end function get_sample_array
      module function get_sample_graph( &
           input, start_index, end_index, batch_size &
      ) result(sample)
@@ -743,9 +732,9 @@ module athena__network
        !! Start and end indices
        integer, intent(in) :: batch_size
        !! Batch size
-       class(graph_type), dimension(:,:), intent(in), target :: input
+       class(graph_type), dimension(:,:), intent(in) :: input
        !! Input array
-       type(graph_type), pointer :: sample(:,:)
+       type(graph_type), dimension(size(input,1), batch_size) :: sample
        !! Sample array
      end function get_sample_graph
   end interface get_sample
