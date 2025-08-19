@@ -903,8 +903,6 @@ contains
     do s = 1, this%batch_size
        this%vertex_features(0,s) = input(1,s) * 1._real32
        this%edge_features(0,s) = input(2,s) * 1._real32
-       call this%vertex_features(0,s)%set_requires_grad(.true.)
-       call this%edge_features(0,s)%set_requires_grad(.true.)
        call this%vertex_features(0,s)%zero_grad()
        call this%edge_features(0,s)%zero_grad()
     end do
@@ -919,9 +917,6 @@ contains
             sum(this%num_params_msg(1:t:1)) &
        )
        do s = 1, this%batch_size
-          call this%z(t,s)%set_requires_grad(.true.)
-          call this%vertex_features(t,s)%set_requires_grad(.true.)
-          call this%message(t,s)%set_requires_grad(.true.)
           call this%z(t,s)%zero_grad()
           call this%vertex_features(t,s)%zero_grad()
           call this%message(t,s)%zero_grad()
@@ -936,6 +931,7 @@ contains
                   this%graph(s)%adj_ia, this%graph(s)%adj_ja &
              )
           end if
+
 
           this%z(t,s) = duvenaud_update( &
                this%message(t,s), weight, this%graph(s)%adj_ia, &
@@ -968,14 +964,12 @@ contains
     type(array_type), pointer :: temp, output_ptr
 
 
-    call this%output(1,1)%set_requires_grad(.true.)
     call this%output(1,1)%zero_grad()
     allocate(output_ptr)
     call output_ptr%allocate( &
          [this%num_outputs, this%batch_size], &
          source=0._real32 &
     )
-    call output_ptr%set_requires_grad(.true.)
     call output_ptr%zero_grad()
     this%output(1,1)%val = 0._real32
     num_params_old = sum(this%num_params_msg)
@@ -988,7 +982,6 @@ contains
             num_params_old + 1 : num_params_old + num_params_tmp &
        )
        do s = 1, this%batch_size
-          call this%z_readout(t,s)%set_requires_grad(.true.)
           call this%z_readout(t,s)%zero_grad()
           this%z_readout(t,s) = weight .mmul. this%vertex_features(t,s)
           temp => this%transfer_readout%activate( this%z_readout(t,s) )

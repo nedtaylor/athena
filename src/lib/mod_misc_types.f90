@@ -1759,7 +1759,7 @@ contains
     real(real32), pointer :: w_ptr(:,:)
 
     allocate(c)
-    call c%allocate(array_shape=[size(weight%val,2), size(a%val,2)])
+    call c%allocate(array_shape=[weight%shape(2), size(a%val,2)])
     do v = 1, size(a%val,2)
        d = max( weight%indices(1), &
             min( adj_ia(v+1) - adj_ia(v), weight%indices(2) ) ) - weight%indices(1) + 1

@@ -866,9 +866,6 @@ contains
     real(real32) :: tmp
 
 
-    call this%z%set_requires_grad(.true.)
-    call this%output(1,1)%set_requires_grad(.true.)
-
     ! Generate outputs from weights, biases, and inputs
     !---------------------------------------------------------------------------
     call this%z%zero_grad()

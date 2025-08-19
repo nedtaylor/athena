@@ -557,7 +557,7 @@ contains
     class(array_type), intent(inout) :: this
 
     if(associated(this%grad)) then
-       this%grad%val = 0.0_real32
+       if(allocated(this%grad%val)) this%grad%val = 0.0_real32
     end if
   end subroutine zero_grad_autodiff
 

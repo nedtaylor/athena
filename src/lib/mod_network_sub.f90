@@ -2409,6 +2409,9 @@ contains
                 call layer%set_input_graph( [ input(layer%index, :) ] )
              class is(array_type)
                 call layer%forward_derived(input(layer%index:layer%index,:))
+                !!! NEED TO MAKE SURE THIS APPLIES TO ALL
+                call layer%output(1,1)%set_requires_grad(.true.)
+                call layer%output(1,1)%set_requires_grad(.true.)
              class default
                 call stop_program( &
                      "input type for layer "// &
@@ -2451,7 +2454,6 @@ contains
        end select
 
     end do
-    call this%model(this%leaf_vertices(1))%layer%output(1,1)%backward()
 
   end subroutine forward_generic2d
 !###############################################################################
@@ -3024,6 +3026,7 @@ contains
              )
           end select
           call this%forward_generic2d(data_poly)
+          call this%model(this%leaf_vertices(1))%layer%output(1,1)%backward()
           deallocate(data_poly)
           !  call system_clock(timer_stop)
           !  forward_timer = forward_timer + timer_stop - timer_start
