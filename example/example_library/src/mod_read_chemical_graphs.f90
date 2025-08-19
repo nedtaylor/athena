@@ -205,6 +205,7 @@ contains
     real(real32), dimension(3) :: diff, vtmp1
 
 
+    graph%directed = .false.
     graph%num_vertices = basis%natom
     graph%num_vertex_features = 6
     graph%num_edge_features = 1
@@ -272,8 +273,6 @@ contains
     graph%num_edges = size(graph%edge)
     call graph%convert_to_sparse()
     call graph%generate_adjacency()
-    !  call graph%calculate_degree()
-
 
   end function get_graph_from_basis
 !!!#############################################################################
