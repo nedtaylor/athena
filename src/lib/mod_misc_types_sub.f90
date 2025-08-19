@@ -580,7 +580,7 @@ contains
     this%requires_grad = requires_grad
   end subroutine set_requires_grad_autodiff
 
-  module subroutine backward_op_array(this, upstream_grad)
+  module recursive subroutine backward_op_array(this, upstream_grad)
     !! Backward operation for arrays
     class(array_type), intent(inout) :: this
     class(array_type), intent(in) :: upstream_grad
@@ -831,7 +831,7 @@ contains
     end select
   end subroutine backward_op_array
 
-  subroutine accumulate_gradient(array, grad)
+  recursive subroutine accumulate_gradient(array, grad)
     !! Accumulate gradient for array with safe memory management
     class(array_type), intent(inout) :: array
     class(array_type), intent(in) :: grad

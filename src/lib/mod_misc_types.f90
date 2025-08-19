@@ -313,7 +313,7 @@ module athena__misc_types
 
 
 
-     module subroutine backward_op_array(this, upstream_grad)
+     module recursive subroutine backward_op_array(this, upstream_grad)
        class(array_type), intent(inout) :: this
        class(array_type), intent(in) :: upstream_grad
      end subroutine backward_op_array
