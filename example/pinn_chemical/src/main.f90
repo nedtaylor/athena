@@ -165,7 +165,7 @@ program pinn_chemical_example
   call network%train( &
        graphs_in, &
        output, &
-       num_epochs = 50, &
+       num_epochs = num_epochs, &
        shuffle_batches = .true. &
   )
   write(*,*) "autodifferentiation"
