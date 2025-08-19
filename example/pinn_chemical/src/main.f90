@@ -1,4 +1,4 @@
-program msgpass_chemical_example
+program pinn_chemical_example
   !! Program to demonstrate the use of a message passing neural network
   !!
   !! This program reads a dataset of chemical graphs in the XYZ format
@@ -187,4 +187,4 @@ program msgpass_chemical_example
      call network%print(file="tmp.txt")
   end if
 
-end program msgpass_chemical_example
+end program pinn_chemical_example
