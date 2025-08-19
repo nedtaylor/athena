@@ -3170,6 +3170,7 @@ contains
     class(*), allocatable, dimension(:,:) :: data_poly
     !! Polymorphic data array
 
+
     !---------------------------------------------------------------------------
     ! Initialise optional arguments
     !---------------------------------------------------------------------------
@@ -3180,8 +3181,8 @@ contains
     end if
 
     this%metrics%val = 0._real32
-    acc_val  = 0._real32
-    loss_val = 0._real32
+    loss_val  = 0._real32
+    acc_val = 0._real32
 
 
     num_samples = this%save_input( input )
@@ -3226,67 +3227,19 @@ contains
 
        ! Compute loss and accuracy (for monitoring)
        !------------------------------------------------------------------------
-       select type(output)
-       type is(graph_type)
-          loss_val = sum( this%loss%compute( &
-               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-               output(1,sample)%vertex_features &
-          ) ) / output(1,sample)%num_vertices
-          acc_val = sum( this%get_accuracy( &
-               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-               output(1,sample)%vertex_features &
-          ) ) / output(1,sample)%num_vertices
-          if( &
-               this%model(this%leaf_vertices(1))%layer%output_shape(2).gt.0 &
-          )then
-             loss_val = sum( this%loss%compute( &
-                  this%model(this%leaf_vertices(1))%layer%output(2,1)%val, &
-                  output(1,sample)%edge_features &
-             ) ) / output(1,sample)%num_edges
-             acc_val = sum( this%get_accuracy( &
-                  this%model(this%leaf_vertices(1))%layer%output(2,1)%val, &
-                  output(1,sample)%edge_features &
-             ) ) / output(1,sample)%num_edges
-          end if
-       type is(real)
-          loss_val = sum( this%loss%compute( &
-               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-               output(:,sample:sample:1) &
-          ))
-          acc_val = sum( this%get_accuracy( &
-               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-               output(:,sample:sample:1) &
-          ))
-       type is(integer)
-          loss_val = sum( this%loss%compute( &
-               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-               real(output(:,sample:sample:1),real32) &
-          ))
-          acc_val = sum( this%get_accuracy( &
-               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-               real(output(:,sample:sample:1),real32) &
-          ))
-       class is(array_type)
-          loss_val = sum( this%loss%compute( &
-               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-               output(1,1)%val(:,sample:sample:1) &
-          ))
-          acc_val = sum( this%get_accuracy( &
-               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-               output(1,1)%val(:,sample:sample:1) &
-          ))
-       end select
+       loss_val = this%calc_output_loss(output, sample, sample)
+       acc_val = this%calc_output_accuracy(output, sample, sample)
+
        this%metrics(2)%val = this%metrics(2)%val + acc_val
        this%metrics(1)%val = this%metrics(1)%val + loss_val
-       accuracy_list(sample) = acc_val
 
     end do test_loop1
 
 
     ! Normalise metrics by number of samples
     !---------------------------------------------------------------------------
-    this%accuracy_val = this%metrics(2)%val/real(num_samples)
-    this%loss_val     = this%metrics(1)%val/real(num_samples)
+    this%accuracy_val = this%metrics(2)%val / real(num_samples, real32)
+    this%loss_val     = this%metrics(1)%val / real(num_samples, real32)
 
   end subroutine test
 !###############################################################################
@@ -3343,6 +3296,14 @@ contains
     ! Reset batch size for testing
     !---------------------------------------------------------------------------
     call this%set_batch_size(batch_size)
+
+
+    ! !---------------------------------------------------------------------------
+    ! ! Turn on inference booleans
+    ! !---------------------------------------------------------------------------
+    ! do l = 1, this%num_layers
+    !    this%model(l)%layer%inference = .true.
+    ! end do
 
 
     !---------------------------------------------------------------------------
@@ -3420,6 +3381,100 @@ contains
     end do
 
   end function predict_graph
+!###############################################################################
+
+
+!###############################################################################
+  module function predict_generic( this, input, verbose, output_as_graph ) &
+       result(output)
+    !! Predict the output for a generic input
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    class(*), dimension(:,:), intent(in) :: input
+    !! Input graph
+    integer, intent(in), optional :: verbose
+    !! Verbosity level
+    logical, intent(in), optional :: output_as_graph
+    !! Boolean whether to output as graph
+
+    class(*), dimension(:,:), allocatable :: output
+
+    ! Local variables
+    integer :: s
+    !! Loop index
+    integer :: num_samples
+    !! Number of samples
+    logical :: output_as_graph_
+    !! Boolean whether to output as graph
+    integer :: verbose_
+    !! Verbosity level
+
+
+    !---------------------------------------------------------------------------
+    ! Initialise optional arguments
+    !---------------------------------------------------------------------------
+    if(present(verbose))then
+       verbose_ = verbose
+    else
+       verbose_ = 0
+    end if
+    if(present(output_as_graph)) output_as_graph_ = output_as_graph
+
+    if(output_as_graph_.and..not.this%use_graph_output)then
+       call stop_program("output_as_graph is true but network does not use &
+            &graph output")
+    end if
+
+
+
+    num_samples = this%save_input( input )
+    call this%set_batch_size(num_samples)
+
+    select case(this%use_graph_input)
+    case(.true.)
+       call this%forward_generic2d(this%input_graph)
+    case default
+       call this%forward_generic2d(this%input_array)
+    end select
+
+    if(output_as_graph_)then
+       allocate(output(num_samples, size(this%leaf_vertices)), source = graph_type())
+
+       select type(output)
+       type is(graph_type)
+          select type(input)
+          type is(graph_type)
+             do s = 1, num_samples
+                output(s,1)%num_vertices = input(s,1)%num_vertices
+                output(s,1)%num_edges = input(s,1)%num_edges
+                output(s,1)%num_vertex_features = this%model( &
+                     this%leaf_vertices(1) &
+                )%layer%output_shape(1)
+                output(s,1)%num_edge_features = this%model( &
+                     this%leaf_vertices(1) &
+                )%layer%output_shape(2)
+                output(s,1)%vertex_features = this%model( &
+                     this%leaf_vertices(1) &
+                )%layer%output(1,s)%val
+                output(s,1)%edge_features = this%model( &
+                     this%leaf_vertices(1) &
+                )%layer%output(2,s)%val
+             end do
+          class default
+             call stop_program("input is not of type graph_type")
+          end select
+       class default
+          call stop_program("allocation of output as graph_type failed")
+       end select
+
+    else
+       output = this%model(this%leaf_vertices(1))%layer%output
+    end if
+
+  end function predict_generic
 !###############################################################################
 
 end submodule athena__network_submodule
