@@ -292,7 +292,7 @@ module athena__misc_types
        class(*), dimension(..), intent(in), optional :: source
      end subroutine allocate_array
 
-     module subroutine deallocate_array(this, keep_shape)
+     module recursive subroutine deallocate_array(this, keep_shape)
        class(array_type), intent(inout) :: this
        logical, intent(in), optional :: keep_shape
      end subroutine deallocate_array
@@ -301,7 +301,7 @@ module athena__misc_types
        class(array_type), intent(inout), target :: this
      end subroutine set_ptr_array
 
-     module subroutine finalise_array(this)
+     module recursive subroutine finalise_array(this)
        type(array_type), intent(inout) :: this
      end subroutine finalise_array
 

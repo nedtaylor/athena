@@ -1918,13 +1918,14 @@ contains
     class(array_type), dimension(:,:), intent(in), target :: input
     !! Input array
 
-    type(array_type), dimension(size(input,1),size(input,2)) :: sample
+    type(array_type), pointer :: sample(:,:)
     !! Sample array
 
     ! Local variables
     integer :: i, j
     !! Loop index
 
+    allocate(sample(size(input,1),size(input,2)))
     do i = 1, size(input,1)
        do j = 1, size(input,2)
           call sample(i,j)%zero_grad()
@@ -1951,18 +1952,20 @@ contains
     class(array_type), dimension(:,:), intent(in), target :: input
     !! Input array
 
-    type(array_type), dimension(size(input,1), batch_size) :: sample
+    type(array_type), pointer :: sample(:,:)
     !! Sample array
 
     ! Local variables
     integer :: i, s
     !! Loop index
 
-    do i = 1, size(input,1)
-       do s = start_index, end_index, 1
-          sample(i, s - start_index + 1)%val = input(i, s)%val
-       end do
-    end do
+    !  allocate(sample(size(input,1), batch_size))
+    sample(1:size(input,1),1:batch_size) => input(:,start_index:end_index)
+    !  do i = 1, size(input,1)
+    !     do s = start_index, end_index, 1
+    !        sample(i, s - start_index + 1)%val = input(i, s)%val
+    !     end do
+    !  end do
 
   end function get_sample_mixed
 !-------------------------------------------------------------------------------
@@ -1980,10 +1983,10 @@ contains
     class(graph_type), dimension(:,:), intent(in), target :: input
     !! Input array
 
-    type(graph_type), dimension(size(input,dim=1),batch_size) :: sample
+    type(graph_type), pointer :: sample(:,:)
     !! Sample array
 
-    sample(:,1:batch_size) = input(:,start_index:end_index)
+    sample(1:size(input,1),1:batch_size) => input(:,start_index:end_index)
 
   end function get_sample_graph
 !###############################################################################
@@ -2518,7 +2521,7 @@ contains
     !! Input
 
     ! Local variables
-    integer :: i, j
+    integer :: l, j
     !! Loop index
     integer :: num_input_layers
     !! Number of input layers
@@ -2527,46 +2530,134 @@ contains
 
     ! Forward pass
     !---------------------------------------------------------------------------
-    do i = 1, size(this%vertex_order,1)
-       num_input_layers = count(this%auto_graph%adjacency(:,this%vertex_order(i)).gt.0)
-       if(all(this%auto_graph%adjacency(:,this%vertex_order(i)).eq.0))then
-          select type(layer => this%model(this%vertex_order(i))%layer)
+    do l = 1, size(this%vertex_order,1)
+       num_input_layers = count(this%auto_graph%adjacency(:,this%vertex_order(l)).gt.0)
+       if(all(this%auto_graph%adjacency(:,this%vertex_order(l)).eq.0))then
+          select type(layer => this%model(this%vertex_order(l))%layer)
           class is(input_layer_type)
              call layer%forward_derived(input(layer%index:layer%index,:))
           class default
              return
           end select
        elseif(num_input_layers.eq.1)then
-          j = maxloc(this%auto_graph%adjacency(:,this%vertex_order(i)),dim=1)
+          j = maxloc(this%auto_graph%adjacency(:,this%vertex_order(l)),dim=1)
           j = this%auto_graph%vertex(j)%id
-          call this%model(this%vertex_order(i))%layer%forward_derived( &
+          call this%model(this%vertex_order(l))%layer%forward_derived( &
                this%model(j)%layer%output &
           )
        else
           allocate(input_list(num_input_layers))
           do j = 1, size(this%vertex_order,1)
-             if(this%auto_graph%adjacency(j,this%vertex_order(i)).gt.0)then
-                input_list(j)%array => this%model(this%vertex_order(i))%layer%output
+             if(this%auto_graph%adjacency(j,this%vertex_order(l)).gt.0)then
+                input_list(j)%array => this%model(this%vertex_order(l))%layer%output
              end if
           end do
-          select type(layer => this%model(this%vertex_order(i))%layer)
+          select type(layer => this%model(this%vertex_order(l))%layer)
           class is(merge_layer_type)
              call layer%combine(input_list)
           end select
           deallocate(input_list)
-          ! call this%get_input_real_autodiff(this%vertex_order(i), auto_input)
-          ! call this%model(this%vertex_order(i))%layer%forward_derived(input(1:1,:))
        end if
     end do
+    call this%model(this%leaf_vertices(1))%layer%output(1,1)%backward()
 
   end subroutine forward_derived2d
+!-------------------------------------------------------------------------------
+  module subroutine forward_generic2d(this, input)
+    !! Forward pass for array derived type input
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout), target :: this
+    !! Instance of network
+    class(*), dimension(:,:), intent(in) :: input
+    !! Input
+
+    ! Local variables
+    integer :: l, j
+    !! Loop index
+    integer :: input_idx
+    !! Index of input layer
+    integer :: num_input_layers
+    !! Number of input layers
+    type(array_type), pointer :: input_ptr(:,:) => null()
+    type(array_ptr_type), dimension(:), allocatable :: input_list
+
+
+    select type(input)
+    type is(graph_type)
+       do j = 1, this%batch_size
+          if(any(input(1,j)%adj_ja(1,:).gt.input(1,j)%num_vertices))then
+             call stop_program( &
+                  "input graph has more vertices than expected" &
+             )
+          end if
+       end do
+    end select
+    ! Forward pass
+    !---------------------------------------------------------------------------
+    do l = 1, size(this%vertex_order,1)
+       num_input_layers = count(this%auto_graph%adjacency(:,this%vertex_order(l)).gt.0)
+       if(num_input_layers.eq.0)then
+          select type(layer => this%model(this%vertex_order(l))%layer)
+          class is(input_layer_type)
+             select type(input)
+             type is(graph_type)
+                call layer%set_input_graph( [ input(layer%index, :) ] )
+                cycle
+             class is(array_type)
+                call layer%forward_derived(input(layer%index:layer%index,:))
+             class default
+                call stop_program( &
+                     "input type for layer "// &
+                     trim(layer%name) // &
+                     " is not supported" &
+                )
+             end select
+          class default
+             return
+          end select
+       elseif(num_input_layers.eq.1)then
+          j = maxloc(this%auto_graph%adjacency(:,this%vertex_order(l)),dim=1)
+          input_idx = findloc(this%root_vertices, j, dim=1)
+          j = this%auto_graph%vertex(j)%id
+          input_ptr => this%model(j)%layer%output
+          !  input_ptr( &
+          !       1:size(this%model(j)%layer%output,1), &
+          !       1:size(this%model(j)%layer%output,2) ) => this%model(j)%layer%output
+          select type(input)
+          type is(graph_type)
+             call this%model(this%vertex_order(l))%layer%set_graph( [ input(1,:) ] )
+          end select
+       else
+          allocate(input_list(num_input_layers))
+          do j = 1, size(this%vertex_order,1)
+             if(this%auto_graph%adjacency(j,this%vertex_order(l)).gt.0)then
+                input_list(j)%array => this%model(this%vertex_order(l))%layer%output
+             end if
+          end do
+       end if
+
+       select type(layer => this%model(this%vertex_order(l))%layer)
+       class is(merge_layer_type)
+          call layer%combine(input_list)
+          deallocate(input_list)
+       class default
+          call layer%forward_derived(input_ptr)
+          input_ptr => null()
+       end select
+
+    end do
+    call this%model(this%leaf_vertices(1))%layer%output(1,1)%backward()
+
+  end subroutine forward_generic2d
 !-------------------------------------------------------------------------------
   module subroutine forward_graph(this, input)
     !! Forward pass for array derived type input
     implicit none
 
     ! Arguments
-    class(network_type), intent(inout) :: this
+    class(network_type), intent(inout), target :: this
     !! Instance of network
     type(graph_type), dimension(size(this%root_vertices),this%batch_size), &
          intent(in) :: input
@@ -2583,8 +2674,45 @@ contains
     !! Autodiff input
 
 
-    ! Forward pass
-    !---------------------------------------------------------------------------
+    !  ! Forward pass
+    !  !---------------------------------------------------------------------------
+    !  do l = 1, size(this%vertex_order,1)
+    !     num_input_layers = count(this%auto_graph%adjacency(:,this%vertex_order(l)).gt.0)
+    !     if(all(this%auto_graph%adjacency(:,this%vertex_order(l)).eq.0))then
+    !        select type(layer => this%model(this%vertex_order(l))%layer)
+    !        class is(input_layer_type)
+    !           call layer%set_input_graph( [ input(layer%index, :) ] )
+    !        class default
+    !           return
+    !        end select
+    !     elseif(num_input_layers.eq.1)then
+    !        j = maxloc(this%auto_graph%adjacency(:,this%vertex_order(l)),dim=1)
+    !        j = this%auto_graph%vertex(j)%id
+    !        input_ptr => this%model(j)%layer%output
+    !        call this%model(this%vertex_order(i))%layer%set_graph( &
+    !             [ input(1,:) ] &
+    !        )
+    !     else
+    !        allocate(input_list(num_input_layers))
+    !        do j = 1, size(this%vertex_order,1)
+    !           if(this%auto_graph%adjacency(j,this%vertex_order(l)).gt.0)then
+    !              input_list(j)%array => this%model(this%vertex_order(l))%layer%output
+    !           end if
+    !        end do
+    !     end if
+
+    !     select type(layer => this%model(this%vertex_order(l))%layer)
+    !     class is(merge_layer_type)
+    !        call layer%combine(input_list)
+    !     class default
+    !        call layer%forward_derived(input_ptr)
+    !     end select
+
+    !     if(num_input_layers.gt.1) deallocate(input_list)
+    !     input_ptr => null()
+    !  end do
+
+
     do i = 1, size(this%vertex_order,1)
        do s = 1, this%batch_size
           if(any(input(1,s)%adj_ja(1,:).gt.input(1,s)%num_vertices))then
@@ -2761,59 +2889,230 @@ contains
 
   end subroutine backward_derived
 !-------------------------------------------------------------------------------
+  module subroutine backward_generic2d(this, output)
+    !! Backward pass for real output
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout), target :: this
+    !! Instance of network
+    class(*), dimension(:,:), intent(in) :: output
+    !! Output
+
+    ! Local variables
+    integer :: l, i, j, s
+    !! Loop index
+    integer :: num_input_layers, num_output_layers
+    !! Number of input and output layers
+    type(array_type), pointer :: input_ptr(:,:), gradient_ptr(:,:)
+    !! Autodiff input and gradient
+    type(array_ptr_type), dimension(:), allocatable :: input_list
+    !! List of input pointers
+
+
+    ! Backward pass
+    !---------------------------------------------------------------------------
+    do l = size(this%vertex_order,1), 1, -1
+
+       num_input_layers = count(this%auto_graph%adjacency(:,this%vertex_order(l)).gt.0)
+       if(num_input_layers.eq.0)then
+          cycle ! this is an input layer
+       elseif(num_input_layers.eq.1)then
+          j = maxloc(this%auto_graph%adjacency(:,this%vertex_order(l)),dim=1)
+          j = this%auto_graph%vertex(j)%id
+          input_ptr => this%model(j)%layer%output
+          !  input( &
+          !       1:size(this%model(j)%layer%output,1), &
+          !       1:size(this%model(j)%layer%output,2) ) => this%model(j)%layer%output
+       else
+          allocate(input_list(num_input_layers))
+          do j = 1, size(this%vertex_order,1)
+             if(this%auto_graph%adjacency(j,this%vertex_order(l)).gt.0)then
+                input_list(j)%array => this%model(this%vertex_order(l))%layer%output
+             end if
+          end do
+       end if
+
+       num_output_layers = count(this%auto_graph%adjacency(this%vertex_order(l),:).gt.0)
+       if(num_output_layers.eq.0)then
+          ! make generic function that handles array_type or graph_type output
+          allocate(gradient_ptr(size(output,1),size(output,2)))
+          gradient_ptr = this%calc_loss_grad_output(output)
+       elseif(num_output_layers.eq.1)then
+          j = maxloc(this%auto_graph%adjacency(this%vertex_order(l),:),dim=1)
+          j = this%auto_graph%vertex(j)%id
+          gradient_ptr => this%model(j)%layer%di
+          !  gradient_ptr( &
+          !       1:size(this%model(j)%layer%di,1), &
+          !       1:size(this%model(j)%layer%di,2) ) => this%model(j)%layer%di
+       else
+          write(0,*) "Error: More than one output layer. NOT YET SET UP"
+          stop 0
+       end if
+
+       select type(layer => this%model(this%vertex_order(l))%layer)
+       class is(merge_layer_type)
+          call layer%split( input_list, gradient_ptr )
+       class default
+          call layer%backward_derived( input_ptr, gradient_ptr )
+       end select
+
+       if(num_input_layers.gt.1) deallocate(input_list)
+       input_ptr => null()
+       gradient_ptr => null()
+    end do
+
+  end subroutine backward_generic2d
+  module function calc_loss_grad_output(this, output) result(gradient)
+    !! Get the loss for the output
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(in) :: this
+    !! Instance of network
+    class(*), dimension(:,:), intent(in) :: output
+    !! Output
+
+    type(array_type), dimension(size(output,1),size(output,2)) :: gradient
+    !! Loss value
+
+    ! Local variables
+    integer :: i, s
+
+
+    associate( layer => this%model(this%leaf_vertices(1))%layer )
+       do s = 1, size(output,2)
+          select type(output)
+          type is(graph_type)
+             if(this%loss%requires_autodiff)then
+                gradient(1,s)%val = this%loss%compute_pinn_derivative( &
+                     layer%output(1,s)%val, &
+                     output(1,s)%vertex_features, &
+                     this%model(this%root_vertices(1))%layer%output(1,s:s) &
+                ) / output(1,s)%num_vertices
+                gradient(2,s)%val = this%loss%compute_pinn_derivative( &
+                     layer%output(2,s)%val, &
+                     output(1,s)%edge_features, &
+                     this%model(this%root_vertices(1))%layer%output(2,s:s) &
+                ) / output(1,s)%num_edges
+             else
+                gradient(1,s)%val = this%loss%compute_derivative( &
+                     layer%output(1,s)%val, &
+                     output(1,s)%vertex_features &
+                ) / output(1,s)%num_vertices
+                gradient(2,s)%val = this%loss%compute_derivative( &
+                     layer%output(2,s)%val, &
+                     output(1,s)%edge_features &
+                ) / output(1,s)%num_edges
+             end if
+          class is(array_type)
+             do i = 1, size(output,1)
+                if(this%loss%requires_autodiff)then
+                   gradient(i,s)%val = this%loss%compute_pinn_derivative( &
+                        layer%output(i,s)%val, &
+                        output(i,s)%val, &
+                        this%model(this%root_vertices(1))%layer%output(i,:) &
+                   )
+                else
+                   gradient(i,s)%val = this%loss%compute_derivative( &
+                        layer%output(i,s)%val, &
+                        output(i,s)%val &
+                   )
+                end if
+             end do
+          end select
+       end do
+    end associate
+
+  end function calc_loss_grad_output
+!-------------------------------------------------------------------------------
   module subroutine backward_derived2d(this, output)
     !! Backward pass for real output
     implicit none
 
     ! Arguments
-    class(network_type), intent(inout) :: this
+    class(network_type), intent(inout), target :: this
     !! Instance of network
     type(array_type), dimension(:,:), intent(in) :: output
     !! Output
 
     ! Local variables
-    integer :: i, s
+    integer :: l, i, j, s
     !! Loop index
-    real(real32), dimension(:,:), allocatable :: input, gradient
+    integer :: num_input_layers, num_output_layers
+    !! Number of input and output layers
+    type(array_type), pointer :: input_ptr(:,:), gradient_ptr(:,:)
     !! Autodiff input and gradient
-    type(array_type), dimension(1,1) :: input_2d, gradient_2d
+    type(array_ptr_type), dimension(:), allocatable :: input_list
+    !! List of input pointers
 
 
     ! Backward pass
     !---------------------------------------------------------------------------
-    do i = size(this%vertex_order,1), 1, -1
+    do l = size(this%vertex_order,1), 1, -1
 
-       if(all(this%auto_graph%adjacency(:,this%vertex_order(i)).eq.0))then
+       num_input_layers = count(this%auto_graph%adjacency(:,this%vertex_order(l)).gt.0)
+       if(num_input_layers.eq.0)then
           cycle ! this is an input layer
+       elseif(num_input_layers.eq.1)then
+          j = maxloc(this%auto_graph%adjacency(:,this%vertex_order(l)),dim=1)
+          j = this%auto_graph%vertex(j)%id
+          input_ptr => this%model(j)%layer%output
+          !  input( &
+          !       1:size(this%model(j)%layer%output,1), &
+          !       1:size(this%model(j)%layer%output,2) ) => this%model(j)%layer%output
        else
-          call this%get_input_real_autodiff(this%vertex_order(i), input)
+          allocate(input_list(num_input_layers))
+          do j = 1, size(this%vertex_order,1)
+             if(this%auto_graph%adjacency(j,this%vertex_order(l)).gt.0)then
+                input_list(j)%array => this%model(this%vertex_order(l))%layer%output
+             end if
+          end do
        end if
 
-       if(all(this%auto_graph%adjacency(this%vertex_order(i),:).eq.0))then
-          if(this%loss%requires_autodiff)then
-             write(*,*) "TRUE"
-             gradient = this%loss%compute_pinn_derivative( &
-                  this%model(this%vertex_order(i))%layer%output(1,1)%val, &
-                  output(1,1)%val, &
-                  this%model(this%root_vertices(1))%layer%output(1,:) &
-             )
-          else
-             write(*,*) "FALSE"
-             gradient = this%loss%compute_derivative( &
-                  this%model(this%vertex_order(i))%layer%output(1,1)%val, &
-                  output(1,1)%val &
-             )
-          end if
+       num_output_layers = count(this%auto_graph%adjacency(this%vertex_order(l),:).gt.0)
+       if(num_output_layers.eq.0)then
+          ! make generic function that handles array_type or graph_type output
+          allocate(gradient_ptr(size(output,1),size(output,2)))
+          do s = 1, size(output,2)
+             do i = 1, size(output,1)
+                if(this%loss%requires_autodiff)then
+                   gradient_ptr(i,s)%val = this%loss%compute_pinn_derivative( &
+                        this%model(this%vertex_order(l))%layer%output(i,s)%val, &
+                        output(i,s)%val, &
+                        this%model(this%root_vertices(1))%layer%output(i,:) &
+                   )
+                else
+                   gradient_ptr(i,s)%val = this%loss%compute_derivative( &
+                        this%model(this%vertex_order(l))%layer%output(i,s)%val, &
+                        output(i,s)%val &
+                   )
+                end if
+             end do
+          end do
+       elseif(num_output_layers.eq.1)then
+          j = maxloc(this%auto_graph%adjacency(this%vertex_order(l),:),dim=1)
+          j = this%auto_graph%vertex(j)%id
+          !  gradient_ptr => this%model(j)%layer%di
+          gradient_ptr( &
+               1:size(this%model(j)%layer%di,1), &
+               1:size(this%model(j)%layer%di,2) ) => this%model(j)%layer%di
+          !  call this%get_gradient_real_autodiff(this%vertex_order(i), gradient)
        else
-          call this%get_gradient_real_autodiff(this%vertex_order(i), gradient)
+          write(0,*) "Error: More than one output layer. NOT YET SET UP"
+          stop 0
        end if
 
-       input_2d(1,1)%val = input(:,:)
-       gradient_2d(1,1)%val = gradient(:,:)
-       !call this%model(this%vertex_order(i))%layer%backward(input, gradient)
-       call this%model(this%vertex_order(i))%layer%backward_derived( &
-            input_2d, gradient_2d &
-       )
+       select type(layer => this%model(this%vertex_order(l))%layer)
+       class is(merge_layer_type)
+          call layer%split( input_list, gradient_ptr )
+       class default
+          call layer%backward_derived( input_ptr, gradient_ptr )
+       end select
+
+       if(num_input_layers.gt.1) deallocate(input_list)
+       input_ptr => null()
+       gradient_ptr => null()
     end do
 
   end subroutine backward_derived2d
@@ -3010,22 +3309,22 @@ contains
                    if(this%loss%requires_autodiff)then
                       gradient(1, s)%val = this%loss%compute_pinn_derivative( &
                            layer%output(1,s)%val, &
-                           output(s,1)%val, &
+                           output(1,s)%val, &
                            this%model(this%root_vertices(1))%layer%output(1,s:s) &
                       )
                       gradient(2, s)%val = this%loss%compute_pinn_derivative( &
                            layer%output(2,s)%val, &
-                           output(s,1)%val, &
+                           output(2,s)%val, &
                            this%model(this%root_vertices(1))%layer%output(2,s:s) &
                       )
                    else
                       gradient(1, s)%val = this%loss%compute_derivative( &
                            layer%output(1,s)%val, &
-                           output(s,1)%val &
+                           output(1,s)%val &
                       )
                       gradient(2, s)%val = this%loss%compute_derivative( &
                            layer%output(2,s)%val, &
-                           output(s,1)%val &
+                           output(2,s)%val &
                       )
                    end if
                 end do
@@ -3614,21 +3913,21 @@ contains
           !  call system_clock(timer_start)
           select case(this%use_graph_input)
           case(.true.)
-             call this%forward_graph(get_sample_graph( &
+             call this%forward_generic2d(get_sample_graph( &
                   this%input_graph, start_index, end_index, this%batch_size &
              ))
              select type(output)
              type is(graph_type)
-                call this%backward_graph(get_sample_graph( &
+                call this%backward_generic2d(get_sample_graph( &
                      output, start_index, end_index, this%batch_size &
                 ))
              type is(array_type)
                 if(this%use_graph_output)then
-                   call this%backward_mixed(get_sample_mixed( &
+                   call this%backward_generic2d(get_sample_mixed( &
                         output, start_index, end_index, this%batch_size &
                    ))
                 else
-                   call this%backward_mixed(get_sample_derived_2d( &
+                   call this%backward_generic2d(get_sample_derived_2d( &
                         output, start_index, end_index, this%batch_size &
                    ))
                 end if

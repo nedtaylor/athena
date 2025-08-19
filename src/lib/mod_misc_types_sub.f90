@@ -202,7 +202,7 @@ contains
 
 
 !###############################################################################
-  module subroutine deallocate_array(this, keep_shape)
+  module recursive subroutine deallocate_array(this, keep_shape)
     !! Deallocate array
     implicit none
 
@@ -504,7 +504,7 @@ contains
 
 
 !###############################################################################
-  module subroutine finalise_array(this)
+  module recursive subroutine finalise_array(this)
     !! Finalise array - clean up memory safely
     type(array_type), intent(inout) :: this
 

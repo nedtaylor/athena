@@ -155,14 +155,20 @@ module athena__network
      !! Forward pass for derived input
      procedure, pass(this) :: forward_derived2d
      !! Forward pass for derived input
+     procedure, pass(this) :: forward_generic2d
+     !! Forward pass for generic 2D input
      procedure, pass(this) :: backward_derived
      !! Backward pass for derived input
      procedure, pass(this) :: backward_derived2d
+     procedure, pass(this) :: backward_generic2d
      procedure, pass(this) :: forward_graph
      !! Forward pass for graph input
      procedure, pass(this) :: backward_graph
      !! Backward pass for graph input
      procedure, pass(this) :: backward_mixed
+
+     procedure, pass(this) :: calc_loss_grad_output
+
      generic :: forward => forward_real, forward_derived, forward_graph
      !! Generic for forward propagation
      generic :: backward => backward_real, backward_derived, backward_graph
@@ -586,6 +592,17 @@ module athena__network
        !! Instance of the network
      end subroutine reset_gradients
 
+     module function calc_loss_grad_output(this, output) result(gradient)
+       !! Get the loss for the output
+       class(network_type), intent(in) :: this
+       !! Instance of network
+       class(*), dimension(:,:), intent(in) :: output
+       !! Output
+       ! Local variables
+       type(array_type), dimension(size(output,1),size(output,2)) :: gradient
+       !! Loss value
+     end function calc_loss_grad_output
+
      !! Interface for forward pass
      module subroutine forward_real(this, input)
        !! Forward pass for real input
@@ -610,9 +627,16 @@ module athena__network
             input
        !! Input data
      end subroutine forward_derived2d
+     module subroutine forward_generic2d(this, input)
+       !! Forward pass for generic 2D input
+       class(network_type), intent(inout), target :: this
+       !! Instance of the network
+       class(*), dimension(:,:), intent(in) :: input
+       !! Input data
+     end subroutine forward_generic2d
      module subroutine forward_graph(this, input)
        !! Forward pass for derived input
-       class(network_type), intent(inout) :: this
+       class(network_type), intent(inout), target :: this
        !! Instance of the network
        type(graph_type), dimension(size(this%root_vertices),this%batch_size), &
             intent(in) :: input
@@ -636,11 +660,21 @@ module athena__network
      end subroutine backward_derived
      module subroutine backward_derived2d(this, output)
        !! Backward pass for derived input
-       class(network_type), intent(inout) :: this
+       class(network_type), intent(inout), target :: this
        !! Instance of the network
        type(array_type), dimension(:,:), intent(in) :: output
        !! Output data
      end subroutine backward_derived2d
+     module subroutine backward_generic2d(this, output)
+       !! Backward pass for derived input
+       class(network_type), intent(inout), target :: this
+       !! Instance of the network
+       class(*), dimension(:,:), intent(in) :: output
+       !! Output data
+     end subroutine backward_generic2d
+
+
+
      module subroutine backward_graph(this, output)
        !! Forward pass for derived input
        class(network_type), intent(inout) :: this
@@ -698,7 +732,7 @@ module athena__network
        !! Batch size
        class(array_type), dimension(:,:), intent(in), target :: input
        !! Input array
-       type(array_type), dimension(size(input,1), batch_size) :: sample
+       type(array_type), pointer :: sample(:,:)
        !! Sample array
      end function get_sample_mixed
      module function get_sample_graph( &
@@ -711,7 +745,7 @@ module athena__network
        !! Batch size
        class(graph_type), dimension(:,:), intent(in), target :: input
        !! Input array
-       type(graph_type), dimension(size(input,dim=1),batch_size) :: sample
+       type(graph_type), pointer :: sample(:,:)
        !! Sample array
      end function get_sample_graph
   end interface get_sample
