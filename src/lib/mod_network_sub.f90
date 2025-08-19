@@ -3429,10 +3429,16 @@ contains
     end if
 
 
-
+    !---------------------------------------------------------------------------
+    ! Set number of samples for predicting
+    !---------------------------------------------------------------------------
     num_samples = this%save_input( input )
     call this%set_batch_size(num_samples)
 
+
+    !---------------------------------------------------------------------------
+    ! Forward pass
+    !---------------------------------------------------------------------------
     select case(this%use_graph_input)
     case(.true.)
        call this%forward_generic2d(this%input_graph)
@@ -3440,6 +3446,10 @@ contains
        call this%forward_generic2d(this%input_array)
     end select
 
+
+    !---------------------------------------------------------------------------
+    ! Allocate output data
+    !---------------------------------------------------------------------------
     if(output_as_graph_)then
        allocate(output(num_samples, size(this%leaf_vertices)), source = graph_type())
 
@@ -3469,7 +3479,6 @@ contains
        class default
           call stop_program("allocation of output as graph_type failed")
        end select
-
     else
        output = this%model(this%leaf_vertices(1))%layer%output
     end if
