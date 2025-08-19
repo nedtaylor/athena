@@ -3261,6 +3261,8 @@ contains
     !! Verbosity level
 
     ! Local variables
+    integer :: l
+    !! Loop index
     real(real32), dimension(:,:), allocatable :: output
     !! Output
     integer :: verbose_, batch_size
@@ -3298,12 +3300,12 @@ contains
     call this%set_batch_size(batch_size)
 
 
-    ! !---------------------------------------------------------------------------
-    ! ! Turn on inference booleans
-    ! !---------------------------------------------------------------------------
-    ! do l = 1, this%num_layers
-    !    this%model(l)%layer%inference = .true.
-    ! end do
+    !---------------------------------------------------------------------------
+    ! Turn on inference booleans
+    !---------------------------------------------------------------------------
+    do l = 1, this%num_layers
+       this%model(l)%layer%inference = .true.
+    end do
 
 
     !---------------------------------------------------------------------------
@@ -3333,7 +3335,7 @@ contains
     !! Verbosity level
 
     ! Local variables
-    integer :: s
+    integer :: l, s
     !! Loop index
     type(graph_type), dimension(size(input,dim=1),size(this%leaf_vertices)) :: &
          output
@@ -3356,6 +3358,14 @@ contains
     !---------------------------------------------------------------------------
     batch_size = size(input, dim=1)
     call this%set_batch_size(batch_size)
+
+
+    !---------------------------------------------------------------------------
+    ! Turn on inference booleans
+    !---------------------------------------------------------------------------
+    do l = 1, this%num_layers
+       this%model(l)%layer%inference = .true.
+    end do
 
 
     !---------------------------------------------------------------------------
