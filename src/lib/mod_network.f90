@@ -123,14 +123,6 @@ module athena__network
      !! Calculate output vertices
      procedure, pass(this), private :: calculate_io_map
      !! Calculate input-output map
-     procedure, pass(this), private :: get_input_real_autodiff
-     !! Get the input of a layer via autodiff
-     procedure, pass(this), private :: get_gradient_real_autodiff
-     !! Get the gradient of a layer via autodiff
-     procedure, pass(this), private :: get_input_graph_autodiff
-     !! Get the input of a layer via autodiff (graph input)
-     procedure, pass(this), private :: get_gradient_graph_autodiff
-     !! Get the gradient of a layer via autodiff (graph input)
      procedure, pass(this) :: reduce => network_reduction
      !! Reduce two networks down to one (i.e. add two networks - parallel)
      procedure, pass(this) :: copy => network_copy
@@ -147,33 +139,18 @@ module athena__network
      !! Set learnable parameter gradients
      procedure, pass(this) :: reset_gradients
      !! Reset learnable parameter gradients
-     procedure, pass(this) :: forward_real
-     !! Forward pass for real input
-     procedure, pass(this) :: backward_real
-     !! Backward pass for real input
-     procedure, pass(this) :: forward_derived
-     !! Forward pass for derived input
-     procedure, pass(this) :: forward_derived2d
-     !! Forward pass for derived input
      procedure, pass(this) :: forward_generic2d
      !! Forward pass for generic 2D input
-     procedure, pass(this) :: backward_derived
-     !! Backward pass for derived input
-     procedure, pass(this) :: backward_derived2d
      procedure, pass(this) :: backward_generic2d
-     procedure, pass(this) :: forward_graph
-     !! Forward pass for graph input
-     procedure, pass(this) :: backward_graph
-     !! Backward pass for graph input
-     procedure, pass(this) :: backward_mixed
+     !! Backward pass for generic 2D input
 
      procedure, pass(this) :: calc_output_accuracy
      procedure, pass(this) :: calc_output_loss
      procedure, pass(this) :: calc_output_loss_grad
 
-     generic :: forward => forward_real, forward_derived, forward_graph
+     generic :: forward => forward_generic2d
      !! Generic for forward propagation
-     generic :: backward => backward_real, backward_derived, backward_graph
+     generic :: backward => backward_generic2d
      !! Generic for backward propagation
   end type network_type
 
@@ -631,29 +608,6 @@ module athena__network
      end function calc_output_loss_grad
 
      !! Interface for forward pass
-     module subroutine forward_real(this, input)
-       !! Forward pass for real input
-       class(network_type), intent(inout) :: this
-       !! Instance of the network
-       real(real32), dimension(..), intent(in) :: input
-       !! Input data
-     end subroutine forward_real
-     module subroutine forward_derived(this, input)
-       !! Forward pass for derived input
-       class(network_type), intent(inout) :: this
-       !! Instance of the network
-       class(array_type), dimension(size(this%root_vertices)), intent(in) :: &
-            input
-       !! Input data
-     end subroutine forward_derived
-     module subroutine forward_derived2d(this, input)
-       !! Forward pass for derived input
-       class(network_type), intent(inout), target :: this
-       !! Instance of the network
-       class(array_type), dimension(size(this%root_vertices),1), intent(in) :: &
-            input
-       !! Input data
-     end subroutine forward_derived2d
      module subroutine forward_generic2d(this, input)
        !! Forward pass for generic 2D input
        class(network_type), intent(inout), target :: this
@@ -661,37 +615,8 @@ module athena__network
        class(*), dimension(:,:), intent(in) :: input
        !! Input data
      end subroutine forward_generic2d
-     module subroutine forward_graph(this, input)
-       !! Forward pass for derived input
-       class(network_type), intent(inout), target :: this
-       !! Instance of the network
-       type(graph_type), dimension(size(this%root_vertices),this%batch_size), &
-            intent(in) :: input
-       !! Input data
-     end subroutine forward_graph
 
      !! Interface for backward pass
-     module subroutine backward_real(this, output)
-       !! Backward pass
-       class(network_type), intent(inout) :: this
-       !! Instance of the network
-       real(real32), dimension(:,:), intent(in) :: output
-       !! Output data
-     end subroutine backward_real
-     module subroutine backward_derived(this, output)
-       !! Backward pass
-       class(network_type), intent(inout) :: this
-       !! Instance of the network
-       type(array_type), dimension(:), intent(in) :: output
-       !! Output data
-     end subroutine backward_derived
-     module subroutine backward_derived2d(this, output)
-       !! Backward pass for derived input
-       class(network_type), intent(inout), target :: this
-       !! Instance of the network
-       type(array_type), dimension(:,:), intent(in) :: output
-       !! Output data
-     end subroutine backward_derived2d
      module subroutine backward_generic2d(this, output)
        !! Backward pass for derived input
        class(network_type), intent(inout), target :: this
@@ -699,24 +624,6 @@ module athena__network
        class(*), dimension(:,:), intent(in) :: output
        !! Output data
      end subroutine backward_generic2d
-
-
-
-     module subroutine backward_graph(this, output)
-       !! Forward pass for derived input
-       class(network_type), intent(inout) :: this
-       !! Instance of network
-       class(graph_type), dimension(size(this%leaf_vertices),this%batch_size), &
-            intent(in) :: output
-       !! Output data
-     end subroutine backward_graph
-     module subroutine backward_mixed(this, output)
-       !! Forward pass for derived input
-       class(network_type), intent(inout), target :: this
-       !! Instance of the network
-       type(array_type), dimension(:,:), intent(in) :: output
-       !! Output data
-     end subroutine backward_mixed
   end interface
 
   interface get_sample
