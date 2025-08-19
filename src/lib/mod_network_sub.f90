@@ -3401,9 +3401,10 @@ contains
     !! Boolean whether to output as graph
 
     class(*), dimension(:,:), allocatable :: output
+    !! Predicted output
 
     ! Local variables
-    integer :: s
+    integer :: l, s
     !! Loop index
     integer :: num_samples
     !! Number of samples
@@ -3435,6 +3436,13 @@ contains
     num_samples = this%save_input( input )
     call this%set_batch_size(num_samples)
 
+
+    !---------------------------------------------------------------------------
+    ! Turn on inference booleans
+    !---------------------------------------------------------------------------
+    do l = 1, this%num_layers
+       this%model(l)%layer%inference = .true.
+    end do
 
     !---------------------------------------------------------------------------
     ! Forward pass
