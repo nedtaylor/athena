@@ -3226,6 +3226,7 @@ contains
        end select
        call this%forward_generic2d(data_poly)
        deallocate(data_poly)
+       call this%model(this%leaf_vertices(1))%layer%output(1,1)%backward()
 
 
        ! Compute loss and accuracy (for monitoring)
