@@ -19,7 +19,7 @@ module athena__misc_types
   public :: activation_type
   public :: initialiser_type
   public :: array_type
-  public :: array_container_type
+  public :: array_container_type, array_ptr_type
   public :: array1d_type, array2d_type, array3d_type, array4d_type, array5d_type
   public :: facets_type
 
@@ -27,9 +27,10 @@ module athena__misc_types
        operator(**), operator(.mmul.), operator(.concat.), operator(.ltrim.), &
        operator(.rtrim.), operator(.index.)
   public :: operator(.lt.)
-  public :: duvenaud_propagate, reverse_duvenaud_propagate, duvenaud_update, reverse_duvenaud_update
+  public :: duvenaud_propagate, duvenaud_update, &
+       reverse_duvenaud_propagate, reverse_duvenaud_update
   public :: merge, maxval, max, sum, spread, reverse_index
-  public :: sin, cos, tan, exp, log, sqrt, tanh, sigmoid, transpose
+  public :: sin, cos, tan, exp, log, sqrt, tanh, sigmoid, transpose, add, concat
 
 
 !-------------------------------------------------------------------------------
@@ -459,6 +460,14 @@ module athena__misc_types
      module procedure reverse_index_array
   end interface
 
+  interface add
+     module procedure add_array_ptr
+  end interface
+
+  interface concat
+     module procedure concat_array_ptr
+  end interface
+
   !-----------------------------------------------------------------------------
   ! Mathematical function interfaces
   !-----------------------------------------------------------------------------
@@ -759,6 +768,10 @@ module athena__misc_types
      class(array_type), allocatable :: array
   end type array_container_type
 
+  type :: array_ptr_type
+     type(array_type), pointer :: array(:,:)
+  end type array_ptr_type
+
 
   interface assignment (=)
      !  module procedure assign_array
@@ -826,6 +839,38 @@ module athena__misc_types
 contains
 
 
+  !-----------------------------------------------------------------------------
+  ! Array pointer list operations
+  !-----------------------------------------------------------------------------
+  function add_array_ptr(a, idx1, idx2) result(c)
+    !! Add two autodiff arrays
+    type(array_ptr_type), dimension(:), intent(in) :: a
+    integer, intent(in) :: idx1, idx2
+    type(array_type), pointer :: c
+
+    integer :: i
+
+    allocate(c)
+    c => a(1)%array(idx1, idx2) + a(2)%array(idx1, idx2)
+    do i = 2, size(a)
+       c => c + a(i)%array(idx1, idx2)
+    end do
+  end function add_array_ptr
+
+  function concat_array_ptr(a, idx1, idx2, dim) result(c)
+    !! Concatenate two autodiff arrays along a specified dimension
+    type(array_ptr_type), dimension(:), intent(in) :: a
+    integer, intent(in) :: idx1, idx2, dim
+    type(array_type), pointer :: c
+
+    integer :: i
+
+    allocate(c)
+    c => a(1)%array(idx1, idx2) .concat. a(2)%array(idx1, idx2)
+    do i = 3, size(a)
+       c => c .concat. a(i)%array(idx1, idx2)
+    end do
+  end function concat_array_ptr
 
   !-----------------------------------------------------------------------------
   ! Addition operation
@@ -1613,7 +1658,8 @@ contains
     allocate(c)
     call c%allocate(array_shape=[size(weight,1), size(a%val,2)])
     do v = 1, size(a%val,2)
-       d = max( min_degree, min( adj_ia(v+1) - adj_ia(v), max_degree ) ) - min_degree + 1
+       d = max( min_degree, min( adj_ia(v+1) - adj_ia(v), max_degree ) ) - &
+            min_degree + 1
        c%val(:,v) = matmul(weight(:,:,d), a%val(:,v) / real(d, real32))
     end do
 

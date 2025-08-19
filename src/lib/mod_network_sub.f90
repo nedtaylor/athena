@@ -8,12 +8,12 @@ submodule(athena__network) athena__network_submodule
   use athena__misc_ml, only: shuffle
 
   use athena__accuracy, only: categorical_score, mae_score, mse_score, r2_score
-  use athena__base_layer, only: learnable_layer_type
+  use athena__base_layer, only: learnable_layer_type, merge_layer_type
 #if defined(GFORTRAN)
   use athena__container_layer, only: container_reduction
 #endif
 
-  use athena__misc_types, only: array_container_type
+  use athena__misc_types, only: array_container_type, array_ptr_type
   use athena__container_layer, only: &
        list_of_layer_types, allocate_list_of_layer_types
 
@@ -2512,7 +2512,7 @@ contains
     implicit none
 
     ! Arguments
-    class(network_type), intent(inout) :: this
+    class(network_type), intent(inout), target :: this
     !! Instance of network
     class(array_type), dimension(size(this%root_vertices),1), intent(in) :: input
     !! Input
@@ -2520,11 +2520,15 @@ contains
     ! Local variables
     integer :: i, j
     !! Loop index
+    integer :: num_input_layers
+    !! Number of input layers
+    type(array_ptr_type), dimension(:), allocatable :: input_list
 
 
     ! Forward pass
     !---------------------------------------------------------------------------
     do i = 1, size(this%vertex_order,1)
+       num_input_layers = count(this%auto_graph%adjacency(:,this%vertex_order(i)).gt.0)
        if(all(this%auto_graph%adjacency(:,this%vertex_order(i)).eq.0))then
           select type(layer => this%model(this%vertex_order(i))%layer)
           class is(input_layer_type)
@@ -2532,13 +2536,24 @@ contains
           class default
              return
           end select
-       elseif(count(this%auto_graph%adjacency(:,this%vertex_order(i)).gt.0).eq.1)then
+       elseif(num_input_layers.eq.1)then
           j = maxloc(this%auto_graph%adjacency(:,this%vertex_order(i)),dim=1)
           j = this%auto_graph%vertex(j)%id
           call this%model(this%vertex_order(i))%layer%forward_derived( &
                this%model(j)%layer%output &
           )
        else
+          allocate(input_list(num_input_layers))
+          do j = 1, size(this%vertex_order,1)
+             if(this%auto_graph%adjacency(j,this%vertex_order(i)).gt.0)then
+                input_list(j)%array => this%model(this%vertex_order(i))%layer%output
+             end if
+          end do
+          select type(layer => this%model(this%vertex_order(i))%layer)
+          class is(merge_layer_type)
+             call layer%combine(input_list)
+          end select
+          deallocate(input_list)
           ! call this%get_input_real_autodiff(this%vertex_order(i), auto_input)
           ! call this%model(this%vertex_order(i))%layer%forward_derived(input(1:1,:))
        end if

@@ -604,7 +604,7 @@ module athena__network
      end subroutine forward_derived
      module subroutine forward_derived2d(this, input)
        !! Forward pass for derived input
-       class(network_type), intent(inout) :: this
+       class(network_type), intent(inout), target :: this
        !! Instance of the network
        class(array_type), dimension(size(this%root_vertices),1), intent(in) :: &
             input

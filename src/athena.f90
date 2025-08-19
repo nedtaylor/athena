@@ -138,7 +138,8 @@ module athena
 
   ! Merge layer types
   !-----------------------------------------------------------------------------
-  use athena__add_layer, only: add_layer_type
+  use athena__add_layer, only: add_layer_type, read_add_layer
+  use athena__concat_layer, only: concat_layer_type, read_concat_layer
 
   ! Message passing layer types
   !-----------------------------------------------------------------------------

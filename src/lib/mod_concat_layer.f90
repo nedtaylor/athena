@@ -1,56 +1,60 @@
-module athena__add_layer
-  !! Module containing implementation of a add layer
+module athena__concat_layer
+  !! Module containing implementation of a concatenate layer
   use athena__io_utils, only: stop_program
   use athena__constants, only: real32
   use athena__base_layer, only: merge_layer_type, base_layer_type
-  use athena__misc_types, only: array_type, array_ptr_type, operator(+), add
+  use athena__misc_types, only: array_type, array_ptr_type, operator(+), concat
   implicit none
 
 
   private
 
-  public :: add_layer_type
-  public :: read_add_layer
+  public :: concat_layer_type
+  public :: read_concat_layer
 
 
-  type, extends(merge_layer_type) :: add_layer_type
-     !! Type for add layer with overloaded procedures
+  type, extends(merge_layer_type) :: concat_layer_type
+     !! Type for concatenate layer with overloaded procedures
+     integer :: dim
+     !! Dimension along which to concatenate
+     integer, dimension(:,:), allocatable :: io_map
+     !! I/O mapping for the layer
    contains
-     procedure, pass(this) :: set_hyperparams => set_hyperparams_add
-     !! Set the hyperparameters for add layer
-     procedure, pass(this) :: init => init_add
-     !! Initialise add layer
-     procedure, pass(this) :: set_batch_size => set_batch_size_add
-     !! Set the batch size for add layer
-     procedure, pass(this) :: print_to_unit => print_to_unit_add
+     procedure, pass(this) :: set_hyperparams => set_hyperparams_concat
+     !! Set the hyperparameters for concatenate layer
+     procedure, pass(this) :: init => init_concat
+     !! Initialise concatenate layer
+     procedure, pass(this) :: set_batch_size => set_batch_size_concat
+     !! Set the batch size for concatenate layer
+     procedure, pass(this) :: print_to_unit => print_to_unit_concat
      !! Print the layer to a file
-     procedure, pass(this) :: read => read_add
+     procedure, pass(this) :: read => read_concat
      !! Read the layer from a file
 
      procedure, pass(this) :: forward  => forward_rank
-     !! Forward propagation for add layer
+     !! Forward propagation for concatenate layer
      procedure, pass(this) :: backward => backward_rank
-     !! Backward propagation for add layer
+     !! Backward propagation for concatenate layer
 
-     procedure, pass(this) :: combine => combine_add
-     procedure, pass(this) :: split => split_add
-  end type add_layer_type
+     procedure, pass(this) :: combine => combine_concat
+     procedure, pass(this) :: split => split_concat
+  end type concat_layer_type
 
-  interface add_layer_type
-     !! Interface for setting up the add layer
+  interface concat_layer_type
+     !! Interface for setting up the concatenate layer
      module function layer_setup( &
           input_layer_ids, batch_size, verbose &
      ) result(layer)
-       !! Setup a add layer
+       !! Setup a concatenate layer
        integer, dimension(:), intent(in) :: input_layer_ids
        !! Input layer IDs
        integer, optional, intent(in) :: batch_size
        !! Batch size
        integer, optional, intent(in) :: verbose
        !! Verbosity level
-       type(add_layer_type) :: layer
+       type(concat_layer_type) :: layer
      end function layer_setup
-  end interface add_layer_type
+  end interface concat_layer_type
 
 
 
@@ -62,7 +66,7 @@ contains
     implicit none
 
     ! Arguments
-    class(add_layer_type), intent(inout) :: this
+    class(concat_layer_type), intent(inout) :: this
     !! Instance of the flattening layer
     real(real32), dimension(..), intent(in) :: input
     !! Input values
@@ -77,7 +81,7 @@ contains
     implicit none
 
     ! Arguments
-    class(add_layer_type), intent(inout) :: this
+    class(concat_layer_type), intent(inout) :: this
     !! Instance of the flattening layer
     real(real32), dimension(..), intent(in) :: input
     !! Input values
@@ -97,7 +101,7 @@ contains
   module function layer_setup( &
        input_layer_ids, batch_size, verbose &
   ) result(layer)
-    !! Setup a add layer
+    !! Setup a concatenate layer
     implicit none
 
     ! Arguments
@@ -108,8 +112,8 @@ contains
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
-    type(add_layer_type) :: layer
-    !! Instance of the add layer
+    type(concat_layer_type) :: layer
+    !! Instance of the concatenate layer
 
     ! Local variables
     integer :: verbose_ = 0
@@ -137,39 +141,39 @@ contains
 
 
 !###############################################################################
-  subroutine set_hyperparams_add( &
+  subroutine set_hyperparams_concat( &
        this, &
        input_layer_ids, &
        verbose &
   )
-    !! Set the hyperparameters for add layer
+    !! Set the hyperparameters for concatenate layer
     implicit none
 
     ! Arguments
-    class(add_layer_type), intent(inout) :: this
-    !! Instance of the add layer
+    class(concat_layer_type), intent(inout) :: this
+    !! Instance of the concatenate layer
     integer, dimension(:), intent(in) :: input_layer_ids
     !! Input layer IDs
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
 
-    this%name = "add"
+    this%name = "concatenate"
     this%type = "merg"
     this%input_layer_ids = input_layer_ids
 
-  end subroutine set_hyperparams_add
+  end subroutine set_hyperparams_concat
 !###############################################################################
 
 
 !###############################################################################
-  subroutine init_add(this, input_shape, batch_size, verbose)
-    !! Initialise add layer
+  subroutine init_concat(this, input_shape, batch_size, verbose)
+    !! Initialise concatenate layer
     implicit none
 
     ! Arguments
-    class(add_layer_type), intent(inout) :: this
-    !! Instance of the add layer
+    class(concat_layer_type), intent(inout) :: this
+    !! Instance of the concatenate layer
     integer, dimension(:), intent(in) :: input_shape
     !! Input shape
     integer, optional, intent(in) :: batch_size
@@ -209,17 +213,17 @@ contains
     !---------------------------------------------------------------------------
     if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
 
-  end subroutine init_add
+  end subroutine init_concat
 !###############################################################################
 
 
 !###############################################################################
-  subroutine set_batch_size_add(this, batch_size, verbose)
-    !! Set the batch size for add layer
+  subroutine set_batch_size_concat(this, batch_size, verbose)
+    !! Set the batch size for concatenate layer
     implicit none
 
     ! Arguments
-    class(add_layer_type), intent(inout), target :: this
+    class(concat_layer_type), intent(inout), target :: this
     integer, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
 
@@ -251,7 +255,7 @@ contains
        end if
     end if
 
-  end subroutine set_batch_size_add
+  end subroutine set_batch_size_concat
 !###############################################################################
 
 
@@ -261,13 +265,13 @@ contains
 
 
 !###############################################################################
-  subroutine print_to_unit_add(this, unit)
-    !! Print add layer to unit
+  subroutine print_to_unit_concat(this, unit)
+    !! Print concatenate layer to unit
     implicit none
 
     ! Arguments
-    class(add_layer_type), intent(in) :: this
-    !! Instance of the add layer
+    class(concat_layer_type), intent(in) :: this
+    !! Instance of the concatenate layer
     integer, intent(in) :: unit
     !! File unit
 
@@ -285,20 +289,20 @@ contains
     write(fmt,'("(3X,""INPUT_LAYER_IDS ="",",I0,"(1X,I0))")') size(this%input_layer_ids)
     write(unit,fmt) this%input_layer_ids
 
-  end subroutine print_to_unit_add
+  end subroutine print_to_unit_concat
 !###############################################################################
 
 
 !###############################################################################
-  subroutine read_add(this, unit, verbose)
-    !! Read add layer from file
+  subroutine read_concat(this, unit, verbose)
+    !! Read concatenate layer from file
     use athena__tools_infile, only: assign_val, assign_vec, get_val
     use athena__misc, only: to_lower, to_upper, icount
     implicit none
 
     ! Arguments
-    class(add_layer_type), intent(inout) :: this
-    !! Instance of the add layer
+    class(concat_layer_type), intent(inout) :: this
+    !! Instance of the concatenate layer
     integer, intent(in) :: unit
     !! Unit number
     integer, optional, intent(in) :: verbose
@@ -408,13 +412,13 @@ contains
        return
     end if
 
-  end subroutine read_add
+  end subroutine read_concat
 !###############################################################################
 
 
 !###############################################################################
-  function read_add_layer(unit, verbose) result(layer)
-    !! Read add layer from file and return layer
+  function read_concat_layer(unit, verbose) result(layer)
+    !! Read concatenate layer from file and return layer
     implicit none
 
     ! Arguments
@@ -423,17 +427,17 @@ contains
     integer, optional, intent(in) :: verbose
     !! Verbosity level
     class(base_layer_type), allocatable :: layer
-    !! Instance of the add layer
+    !! Instance of the concatenate layer
 
     ! Local variables
     integer :: verbose_ = 0
     !! Verbosity level
 
     if(present(verbose)) verbose_ = verbose
-    allocate(layer, source=add_layer_type(input_layer_ids=[0,0]))
+    allocate(layer, source=concat_layer_type(input_layer_ids=[0,0]))
     call layer%read(unit, verbose=verbose_)
 
-  end function read_add_layer
+  end function read_concat_layer
 !###############################################################################
 
 
@@ -443,13 +447,13 @@ contains
 
 
 !###############################################################################
-  subroutine combine_add(this, input_list)
+  subroutine combine_concat(this, input_list)
     !! Forward propagation for 2D input
     implicit none
 
     ! Arguments
-    class(add_layer_type), intent(inout) :: this
-    !! Instance of the add layer
+    class(concat_layer_type), intent(inout) :: this
+    !! Instance of the concatenate layer
     type(array_ptr_type), dimension(:), intent(in) :: input_list
     !! Input values
 
@@ -460,34 +464,40 @@ contains
 
     do i = 1, size(input_list(1)%array, 1)
        do s = 1, size(input_list(1)%array, 2)
-          this%output(i,s) = add(input_list, i, s)
+          this%output(i,s) = concat(input_list, i, s, dim = this%dim)
        end do
     end do
 
-  end subroutine combine_add
+  end subroutine combine_concat
 !###############################################################################
 
 
 !###############################################################################
-  subroutine split_add(this, input_list, gradient)
+  subroutine split_concat(this, input_list, gradient)
     !! Backward propagation for 2D input
     implicit none
 
     ! Arguments
-    class(add_layer_type), intent(inout) :: this
-    !! Instance of the add layer
+    class(concat_layer_type), intent(inout) :: this
+    !! Instance of the concatenate layer
     type(array_ptr_type), dimension(:), intent(in) :: input_list
     !! Input values
     class(array_type), dimension(:,:), intent(in) :: gradient
     !! Gradient values
 
     ! Local variables
-    integer :: s
+    integer :: i, j, s
     !! Loop index
 
-    this%di = gradient
+    do j = 1, size(this%input_layer_ids)
+       do i = 1, size(input_list(1)%array, 1)
+          do s = 1, size(input_list(j)%array, 2)
+             this%di(this%io_map(i,j),s) = gradient(i,s)
+          end do
+       end do
+    end do
 
-  end subroutine split_add
+  end subroutine split_concat
 !###############################################################################
 
-end module athena__add_layer
+end module athena__concat_layer

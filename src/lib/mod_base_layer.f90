@@ -15,7 +15,7 @@ module athena__base_layer
   !! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
   use athena__constants, only: real32
   use athena__clipper, only: clip_type
-  use athena__misc_types, only: activation_type, array_type, facets_type
+  use athena__misc_types, only: activation_type, array_type, facets_type, array_ptr_type
   use graphstruc, only: graph_type
   implicit none
 
@@ -365,19 +365,19 @@ module athena__base_layer
   end type merge_layer_type
 
   abstract interface
-     module subroutine combine_merge(this, input1, input2)
+     module subroutine combine_merge(this, input_list)
        !! Combine two layers (forward)
        class(merge_layer_type), intent(inout) :: this
        !! Instance of the layer
-       class(array_type), dimension(:,:), intent(in) :: input1, input2
+       type(array_ptr_type), dimension(:), intent(in) :: input_list
        !! Input values
      end subroutine combine_merge
 
-     module subroutine split_merge(this, input1, input2, gradient)
+     module subroutine split_merge(this, input_list, gradient)
        !! Split two layers (backward)
        class(merge_layer_type), intent(inout) :: this
        !! Instance of the layer
-       class(array_type), dimension(:,:), intent(in) :: input1, input2
+       type(array_ptr_type), dimension(:), intent(in) :: input_list
        !! Input values
        class(array_type), dimension(:,:), intent(in) :: gradient
        !! Gradient values
