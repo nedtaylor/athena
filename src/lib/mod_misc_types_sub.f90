@@ -493,6 +493,7 @@ contains
     this%owns_gradient = .false.  ! Dont copy gradient ownership
     if(allocated(input%indices)) this%indices = input%indices
     if(allocated(input%adj_ja)) this%adj_ja = input%adj_ja
+    if(allocated(input%mask)) this%mask = input%mask
 
     !  ! Don't copy pointers to avoid aliasing issues
     !  this%left_operand => null()
@@ -585,7 +586,7 @@ contains
     class(array_type), intent(inout) :: this
     class(array_type), intent(in) :: upstream_grad
 
-    !   write(*,*) "Performing backward operation for:", trim(this%operation)
+    ! write(*,*) "Performing backward operation for:", trim(this%operation)
     select case(trim(this%operation))
     case('add')
        if(associated(this%left_operand) .and. &
@@ -672,6 +673,11 @@ contains
                     new_index_size=size(this%left_operand%val, 2) &
                ))
        end if
+    case('merge')
+       if(associated(this%left_operand) .and. &
+            this%left_operand%requires_grad) then
+          call accumulate_gradient(this%left_operand, merge(upstream_grad, 0._real32, this%mask))
+       end if
 
 
 
@@ -732,9 +738,15 @@ contains
        end if
        if(associated(this%right_operand) .and. &
             this%right_operand%requires_grad) then
-          call accumulate_gradient(this%right_operand, &
-               -upstream_grad * this%left_operand / &
-               (this%right_operand * this%right_operand))
+          block
+            class(array_type), pointer :: grad, div
+            allocate(grad)
+            allocate(div)
+            grad = -upstream_grad * this%left_operand
+            div = this%right_operand * this%right_operand
+            grad => grad / div
+            call accumulate_gradient(this%right_operand, grad)
+          end block
        end if
     case('divide_real1d')
        if(associated(this%left_operand) .and. &
@@ -829,6 +841,7 @@ contains
        ! write(*,*) "is_leaf: ", this%is_leaf
        ! No gradient computation needed for leaf nodes or unknown operations
     end select
+    ! write(*,*) "ending operation:", trim(this%operation)
   end subroutine backward_op_array
 
   recursive subroutine accumulate_gradient(array, grad)

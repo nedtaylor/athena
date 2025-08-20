@@ -2305,7 +2305,7 @@ contains
     class(*), dimension(:,:), intent(in) :: output
     !! Output
 
-    type(array_type), dimension(size(output,1),size(output,2)) :: gradient
+    type(array_type), dimension(:,:), allocatable :: gradient
     !! Loss value
 
     ! Local variables
@@ -2313,9 +2313,10 @@ contains
 
 
     associate( layer => this%model(this%leaf_vertices(1))%layer )
-       do s = 1, size(output,2)
-          select type(output)
-          type is(graph_type)
+       select type(output)
+       type is(graph_type)
+          allocate(gradient(2,size(output,2)))
+          do s = 1, size(output,2)
              if(this%loss%requires_autodiff)then
                 gradient(1,s)%val = this%loss%compute_pinn_derivative( &
                      layer%output(1,s)%val, &
@@ -2337,7 +2338,10 @@ contains
                      output(1,s)%edge_features &
                 ) / output(1,s)%num_edges
              end if
-          class is(array_type)
+          end do
+       class is(array_type)
+          allocate(gradient(size(output,1),size(output,2)))
+          do s = 1, size(output,2)
              do i = 1, size(output,1)
                 if(this%loss%requires_autodiff)then
                    gradient(i,s)%val = this%loss%compute_pinn_derivative( &
@@ -2352,8 +2356,20 @@ contains
                    )
                 end if
              end do
-          end select
-       end do
+          end do
+       type is(real)
+          allocate(gradient(1,1))
+          gradient(1,1)%val = this%loss%compute_derivative( &
+               layer%output(1,1)%val, &
+               output &
+          )
+       class default
+          call stop_program( &
+               "output type for layer "// &
+               trim(layer%name) // &
+               " is not supported" &
+          )
+       end select
     end associate
 
   end function calc_output_loss_grad
@@ -2407,11 +2423,22 @@ contains
              select type(input)
              type is(graph_type)
                 call layer%set_input_graph( [ input(layer%index, :) ] )
+                cycle
              class is(array_type)
                 call layer%forward_derived(input(layer%index:layer%index,:))
                 !!! NEED TO MAKE SURE THIS APPLIES TO ALL
                 call layer%output(1,1)%set_requires_grad(.true.)
                 call layer%output(1,1)%set_requires_grad(.true.)
+                cycle
+             type is(real)
+                allocate(input_ptr(1,1))
+                call input_ptr(1,1)%allocate(shape(input))
+                call input_ptr(1,1)%set(input)
+                call layer%forward_derived(input_ptr)
+                call layer%output(1,1)%set_requires_grad(.true.)
+                call layer%output(1,1)%set_requires_grad(.true.)
+                input_ptr => null()
+                cycle
              class default
                 call stop_program( &
                      "input type for layer "// &
@@ -2419,7 +2446,6 @@ contains
                      " is not supported" &
                 )
              end select
-             cycle
           class default
              return
           end select

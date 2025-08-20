@@ -617,8 +617,7 @@ module athena__network
        !! Instance of network
        class(*), dimension(:,:), intent(in) :: output
        !! Output
-       ! Local variables
-       type(array_type), dimension(size(output,1),size(output,2)) :: gradient
+       type(array_type), dimension(:,:), allocatable :: gradient
        !! Loss value
      end function calc_output_loss_grad
 

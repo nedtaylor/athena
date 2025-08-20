@@ -5,7 +5,7 @@ module athena__activation_sigmoid
   !! outputs between 0 and 1
   use athena__constants, only: real32
   use athena__misc_types, only: activation_type, array_type, operator(+), operator(-), &
-       operator(*), operator(/), exp, merge, operator(.lt.)
+       operator(*), operator(/), exp, merge, operator(.gt.)
   implicit none
 
 
@@ -85,7 +85,7 @@ contains
     !! Activated output values in range [0,1]
 
     output => this%scale /(1._real32 + exp(-val))
-    !output => merge( output, 0._real32, val.lt.this%threshold )
+    output => merge( output, 0._real32, val.gt.this%threshold )
   end function sigmoid_activate_array
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------

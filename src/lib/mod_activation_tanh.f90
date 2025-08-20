@@ -92,8 +92,12 @@ contains
     ! elsewhere
     !    output = this%scale * (exp(val) - exp(-val))/(exp(val) + exp(-val))
     ! end where
+
+    ! output => exp(val) - exp(-val)
+    ! output => output / ( exp(val) + exp(-val) )
+    ! output => this%scale * output
     output => this%scale * (exp(val) - exp(-val))/(exp(val) + exp(-val))
-    output => merge( output, sign(this%scale, val), val.lt.this%threshold )
+    ! output => merge( output, sign(this%scale, val), val.lt.this%threshold )
   end function tanh_activate_array
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------

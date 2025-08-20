@@ -26,7 +26,7 @@ module athena__misc_types
   public :: operator(+), operator(-), operator(*), operator(/), &
        operator(**), operator(.mmul.), operator(.concat.), operator(.ltrim.), &
        operator(.rtrim.), operator(.index.)
-  public :: operator(.lt.)
+  public :: operator(.lt.), operator(.gt.)
   public :: duvenaud_propagate, duvenaud_update, &
        reverse_duvenaud_propagate, reverse_duvenaud_update
   public :: sign, merge, maxval, max, sum, spread, reverse_index
@@ -230,6 +230,8 @@ module athena__misc_types
      !! Indices for gradient accumulation
      integer, dimension(:,:), allocatable :: adj_ja
      !! Sparse adjacency matrix for graph structure
+     logical, dimension(:,:), allocatable :: mask
+     !! Mask for operation
      logical :: requires_grad = .false.
      !! Flag indicating if gradients should be computed
      logical :: is_leaf = .true.
@@ -433,6 +435,10 @@ module athena__misc_types
 
   interface operator(.lt.)
      module procedure lt_scalar
+  end interface
+
+  interface operator(.gt.)
+     module procedure gt_scalar
   end interface
 
   interface sign
@@ -1091,7 +1097,10 @@ contains
     type(array_type), pointer :: c
     type(array_type), pointer :: b_array
 
-    c => a%create_result()
+    !  c => a%create_result()
+    allocate(c)
+    !  call c%allocate(array_shape=[a%shape, size(a%val,2)])
+    call c%allocate(array_shape=shape(a%val))
     c%val = a%val * scalar
 
     if(a%requires_grad) then
@@ -1115,7 +1124,7 @@ contains
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
-    c = multiply_scalar(a, scalar)
+    c => multiply_scalar(a, scalar)
   end function scalar_multiply
 
   function multiply_logical(a, b) result(c)
@@ -1411,6 +1420,16 @@ contains
 
   end function lt_scalar
 
+  function gt_scalar(a, b) result(c)
+    !! Greater than comparison between autodiff array and scalar
+    class(array_type), intent(in), target :: a
+    real(real32), intent(in) :: b
+    logical, dimension(size(a%val,1), size(a%val,2)) :: c
+
+    c = a%val .gt. b
+
+  end function gt_scalar
+
   function maxval_array(a, dim) result(c)
     !! Find maximum value along a dimension
     class(array_type), intent(in), target :: a
@@ -1545,6 +1564,7 @@ contains
           end if
        end do
     end do
+    c%mask = mask
 
     if(tsource%requires_grad) then
        c%requires_grad = .true.
@@ -1561,24 +1581,38 @@ contains
     logical, dimension(:,:), intent(in) :: mask
     type(array_type), pointer :: c
 
-    integer :: i, j, s
+    integer :: i, j !, itmp1
+    !  integer, dimension(:,:), allocatable :: adj_ja_tmp
 
-    if(size(tsource%shape) .ne. 1)then
-       call stop_program("merge_array: only 1D arrays can be merged")
+    if(allocated(tsource%shape))then
+       if(size(tsource%shape) .ne. 1)then
+          call stop_program("merge_array: only 1D arrays can be merged")
+       end if
     end if
 
     allocate(c)
     call c%allocate(array_shape=[size(tsource%val,1), size(tsource%val,2)])
     ! merge 1D array by using shape to swap dimensions
-    do concurrent(s=1:size(tsource%val,2))
-       do concurrent(i=1:size(tsource%val,1), j=1:size(tsource%val,2))
-          if(mask(i,j)) then
-             c%val(i,j) = tsource%val(i,j)
-          else
-             c%val(i,j) = fsource(i,j)
-          end if
-       end do
+    !  allocate(adj_ja_tmp(1, size(mask)))
+    !  itmp1 = 0
+    do concurrent( i = 1: size(tsource%val,1), j = 1: size(tsource%val,2))
+       if(mask(i,j)) then
+          c%val(i,j) = tsource%val(i,j)
+          !  if(.not.allocated(c%indices))then
+          !    c%indices = [i]
+          !  elseif(c%indices(size(c%indices)) .ne. i) then
+          !    c%indices = [c%indices, i]
+          !  end if
+          !  itmp1 = itmp1 + 1
+          !  adj_ja_tmp(1,itmp1) = j
+       else
+          c%val(i,j) = fsource(i,j)
+       end if
     end do
+    c%mask = mask
+    !  allocate(c%adj_ja(1, itmp1))
+    !  c%adj_ja(1,:) = adj_ja_tmp(1,1:itmp1)
+
 
     if(tsource%requires_grad) then
        c%requires_grad = .true.
