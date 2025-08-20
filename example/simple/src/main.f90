@@ -10,7 +10,9 @@ program simple
   implicit none
 
   type(network_type) :: network
-  real(real32), allocatable, dimension(:,:) :: x, y
+  real(real32), allocatable, dimension(:,:) :: x, y, prediction
+  type(array_type) :: x_array(1), y_array(1,1)
+  type(array_type), allocatable :: loss(:,:)
 
   integer, parameter :: num_iterations = 500
 
@@ -50,6 +52,8 @@ program simple
   !-----------------------------------------------------------------------------
   x = reshape([0.2, 0.4, 0.6], [3,1])
   y = reshape([0.123456, 0.246802], [2,1])
+  call x_array(1)%allocate(source=x)
+  call y_array(1,1)%allocate(source=y)
 
 
   !-----------------------------------------------------------------------------
@@ -62,11 +66,15 @@ program simple
 
      call network%set_batch_size(1)
      call network%forward(x)
-     call network%model(network%leaf_vertices(1))%layer%output(1,1)%backward()
-     call network%backward(y)
+     loss = network%loss%compute_generic( &
+          network%model(network%leaf_vertices(1))%layer%output,  y_array, x_array &
+     )
+     call loss(1,1)%backward()
+     ! call network%backward(y)
      call network%update()
 
-     if (mod(n, 50) == 0) write(*,'(I7,2(1X,F9.6))') n, network%predict(input=x)
+     prediction = network%predict(input=x)
+     if (mod(n, 50) == 0) write(*,'(I7,2(1X,F9.6))') n, prediction
 
   end do
 

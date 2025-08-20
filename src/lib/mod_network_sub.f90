@@ -1953,14 +1953,16 @@ contains
     !! Number of parameters
 
     ! Local variables
-    integer :: l
+    integer :: l, i
     !! Loop index
 
     num_params = 0
     do l = 1, this%num_layers
        select type(current => this%model(l)%layer)
        class is(learnable_layer_type)
-          num_params = num_params + current%num_params
+          do i = 1, size(current%params_array)
+             num_params = num_params + size(current%params_array(i)%val, 1)
+          end do
        end select
     end do
 
@@ -2010,7 +2012,7 @@ contains
     !! Parameters
 
     ! Local variables
-    integer :: l, start_idx, end_idx
+    integer :: l, i, start_idx, end_idx
     !! Loop index
 
     start_idx = 0
@@ -2018,9 +2020,11 @@ contains
     do l = 1, this%num_layers
        select type(current => this%model(l)%layer)
        class is(learnable_layer_type)
-          start_idx = end_idx + 1
-          end_idx = end_idx + current%num_params
-          current%params = params(start_idx:end_idx)
+          do i = 1, size(current%params_array)
+             start_idx = end_idx + 1
+             end_idx = end_idx + size(current%params_array(i)%val, 1)
+             current%params_array(i)%val(:,1) = params(start_idx:end_idx)
+          end do
           !  call current%set_params(params(start_idx:end_idx))
        end select
     end do
@@ -2105,14 +2109,17 @@ contains
     !! Instance of network
 
     ! Local variables
-    integer :: l
+    integer :: l, i
     !! Loop index
 
     do l = 1, this%num_layers
        select type(current => this%model(l)%layer)
        class is(learnable_layer_type)
-          current%dp = 0._real32
-          if(allocated(current%db)) current%db = 0._real32
+          do i = 1, size(current%params_array)
+             call current%params_array(i)%zero_grad()
+          end do
+          ! current%dp = 0._real32
+          ! if(allocated(current%db)) current%db = 0._real32
        end select
     end do
 
@@ -2575,7 +2582,7 @@ contains
     !! Parameters and gradients
 
     ! Local variables
-    integer :: l, start_idx, end_idx
+    integer :: l, i, start_idx, end_idx
     !! Loop index
 
 
@@ -2600,25 +2607,19 @@ contains
     do l = 1, this%num_layers
        select type(current => this%model(l)%layer)
        class is(learnable_layer_type)
-          start_idx = end_idx + 1
-          end_idx = end_idx + current%num_params
-          params(start_idx:end_idx) = current%params
-          if(.not.allocated(current%db))then
+          do i = 1, size(current%params_array)
+             start_idx = end_idx + 1
+             end_idx = end_idx + size(current%params_array(i)%val, 1)
+             params(start_idx:end_idx) = current%params_array(i)%val(:,1)
              gradients(start_idx:end_idx) = [ &
-                  sum(current%dp, dim=2) / this%batch_size  &
+                  sum(current%params_array(i)%grad%val, dim=2) / this%batch_size &
              ]
-          else
-             gradients(start_idx:end_idx) = [ &
-                  sum(current%dp, dim=2) / this%batch_size, &
-                  sum(current%db, dim=2) / this%batch_size &
-             ]
-          end if
+          end do
        end select
     end do
     ! have an if statement of whether to apply clipping to to gradients of
     ! each layer individually or collectively to the all gradients at once
     call this%optimiser%clip_dict%apply(size(gradients),gradients)
-
 
     !---------------------------------------------------------------------------
     ! Update layers of learnable layer types

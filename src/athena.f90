@@ -158,6 +158,16 @@ module athena
        array3d_type, &
        array4d_type, &
        array5d_type
+  use athena__misc_types, only: &
+       operator(+), operator(-), operator(*), operator(/), &
+       operator(**), &
+       operator(.mmul.), operator(.outer.), &
+       operator(.concat.), &
+       operator(.ltrim.), operator(.rtrim.), &
+       operator(.index.), &
+       operator(.lt.), operator(.gt.)
+!   public :: sign, merge, maxval, max, sum, spread, reverse_index
+!   public :: sin, cos, tan, exp, log, sqrt, tanh, sigmoid, transpose, add, concat
 
 
   ! List of layer types

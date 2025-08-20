@@ -4,7 +4,8 @@ module athena__loss
   !! This module contains functions to compute the loss of a model
   !! The loss functions are used to determine how well a model is performing
   use athena__constants, only: real32
-  use athena__misc_types, only: array_type
+  use athena__misc_types, only: array_type, &
+       operator(+), operator(-), operator(/), operator(*), operator(**)
   implicit none
 
 
@@ -37,8 +38,9 @@ module athena__loss
      procedure, pass(this) :: compute_derivative => compute_derivative_base
      !! Compute the derivative of the loss function
      procedure, pass(this) :: compute_pinn => compute_pinn_base
-     !! Compute the derivative of the loss function involving derivatives
+     procedure, pass(this) :: compute_pinn_generic => compute_pinn_generic_base
      procedure, pass(this) :: compute_pinn_derivative => compute_pinn_derivative_base
+     generic :: compute_generic => compute, compute_pinn, compute_pinn_generic
   end type base_loss_type
 
   abstract interface
@@ -127,6 +129,7 @@ module athena__loss
    contains
      procedure :: compute => compute_mse
      !! Compute the loss of a model
+     procedure :: compute_pinn_generic => compute_pinn_generic_mse
   end type mse_loss_type
 
   interface mse_loss_type
@@ -226,6 +229,7 @@ contains
     !! Mean squared error loss function
 
     loss%name = 'mse'
+    loss%requires_autodiff = .true.
   end function setup_loss_mse
 !-------------------------------------------------------------------------------
   module function setup_loss_nll() result(loss)
@@ -350,6 +354,28 @@ contains
     output = ((predicted - expected)**2._real32) /(2._real32)!*size(predicted,1))
 
   end function compute_mse
+  module function compute_pinn_generic_mse(this, predicted, expected, input) &
+       result(output)
+    !! Compute the physics-informed neural network loss
+    implicit none
+
+    ! Arguments
+    class(mse_loss_type), intent(in) :: this
+    !! Instance of the physics-informed neural network loss function
+    type(array_type), dimension(:,:), intent(inout) :: predicted
+    type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
+         expected
+    !! Predicted and expected values
+    type(array_type), dimension(:), intent(in) :: input
+    !! Input data, which contains the derivatives
+    type(array_type), pointer :: output(:,:)
+    !! Physics-informed neural network loss
+    type(array_type), pointer :: tmp
+
+    allocate(output(size(predicted,1),size(predicted,2)))
+    output(1,1) = ((predicted(1,1) - expected(1,1))**2) /2._real32
+
+  end function compute_pinn_generic_mse
 !###############################################################################
 
 
@@ -435,7 +461,8 @@ contains
 
   end function compute_pinn_base
 !-------------------------------------------------------------------------------
-  module function compute_pinn_derivative_base(this, predicted, expected, input) result(output)
+  module function compute_pinn_derivative_base(this, predicted, expected, input) &
+       result(output)
     !! Compute the derivative of the physics-informed neural network loss
     implicit none
 
@@ -452,6 +479,25 @@ contains
     output = 0._real32
 
   end function compute_pinn_derivative_base
+!-------------------------------------------------------------------------------
+  module function compute_pinn_generic_base(this, predicted, expected, input) &
+       result(output)
+    !! Compute the physics-informed neural network loss
+    implicit none
+
+    ! Arguments
+    class(base_loss_type), intent(in) :: this
+    !! Instance of the physics-informed neural network loss function
+    type(array_type), dimension(:,:), intent(inout) :: predicted
+    type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
+         expected
+    !! Predicted and expected values
+    type(array_type), dimension(:), intent(in) :: input
+    !! Input data, which contains the derivatives
+    type(array_type), pointer :: output(:,:)
+    !! Physics-informed neural network loss
+
+  end function compute_pinn_generic_base
 !###############################################################################
 
 end module athena__loss

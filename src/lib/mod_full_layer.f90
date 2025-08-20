@@ -341,11 +341,11 @@ contains
     class(full_layer_type), intent(inout), target :: this
     !! Instance of the fully connected layer
 
-    if(allocated(this%params)) &
-         this%weight(1:this%num_outputs,1:this%num_inputs+1) => this%params
-    if(allocated(this%dp)) &
-         this%dw(1:this%num_outputs,1:this%num_inputs,1:this%batch_size) => &
-         this%dp
+    ! if(allocated(this%params)) &
+    !      this%weight(1:this%num_outputs,1:this%num_inputs+1) => this%params
+    ! if(allocated(this%dp)) &
+    !      this%dw(1:this%num_outputs,1:this%num_inputs,1:this%batch_size) => &
+    !      this%dp
 
   end subroutine set_ptrs_hyperparams_full
 !###############################################################################
@@ -401,13 +401,20 @@ contains
     this%weight_shape(:,1) = [ this%num_outputs, this%num_inputs ]
     this%bias_shape = [ this%num_outputs ]
 
+    allocate(this%params_array(2))
+    call this%params_array(1)%allocate([this%weight_shape(:,1), 1])
+    call this%params_array(1)%set_requires_grad(.true.)
+    this%params_array(1)%is_constant = .true.
+    call this%params_array(2)%allocate([this%bias_shape, 1])
+    call this%params_array(2)%set_requires_grad(.true.)
+    this%params_array(2)%is_constant = .true.
 
     !---------------------------------------------------------------------------
     ! Initialise weights (kernels)
     !---------------------------------------------------------------------------
     allocate(initialiser_, source=initialiser_setup(this%kernel_initialiser))
     call initialiser_%initialise( &
-         this%params(:this%num_params-this%num_outputs), &
+         this%params_array(1)%val(:,1), &
          fan_in = this%num_inputs + 1, fan_out = this%num_outputs, &
          spacing = [ this%num_outputs ] &
     )
@@ -417,7 +424,7 @@ contains
     !---------------------------------------------------------------------------
     allocate(initialiser_, source=initialiser_setup(this%bias_initialiser))
     call initialiser_%initialise( &
-         this%params(this%num_params-this%num_outputs+1:), &
+         this%params_array(2)%val(:,1), &
          fan_in=this%num_inputs+1, fan_out=this%num_outputs &
     )
     deallocate(initialiser_)
@@ -455,7 +462,7 @@ contains
     !---------------------------------------------------------------------------
     ! Set weights and biases pointers to params array
     !---------------------------------------------------------------------------
-    this%weight(1:this%num_outputs,1:this%num_inputs+1) => this%params
+    ! this%weight(1:this%num_outputs,1:this%num_inputs+1) => this%params_array%val
 
 
     !---------------------------------------------------------------------------
@@ -485,10 +492,10 @@ contains
                  this%batch_size &
             ), source=0._real32 &
        )
-       this%dw(1:this%num_outputs,1:this%num_inputs,1:this%batch_size) => &
-            this%dp
-       if(allocated(this%db)) deallocate(this%db)
-       allocate(this%db(this%num_outputs, this%batch_size), source=0._real32)
+       !  this%dw(1:this%num_outputs,1:this%num_inputs,1:this%batch_size) => &
+       !       this%dp
+       !  if(allocated(this%db)) deallocate(this%db)
+       !  allocate(this%db(this%num_outputs, this%batch_size), source=0._real32)
        if(allocated(this%di)) deallocate(this%di)
        allocate(this%di(1,1), source=array2d_type())
        call this%di(1,1)%allocate( &
@@ -869,8 +876,9 @@ contains
     ! Generate outputs from weights, biases, and inputs
     !---------------------------------------------------------------------------
     call this%z%zero_grad()
-    this%z = ( this%weight(:,:this%num_inputs) .mmul. input(1,1) ) + &
-         [ this%weight(:,this%num_inputs+1) ]
+    ! this%z = ( this%weight(:,:this%num_inputs) .mmul. input(1,1) ) + &
+    !      [ this%weight(:,this%num_inputs+1) ]
+    this%z = ( this%params_array(1) .mmul. input(1,1) ) + this%params_array(2)
 
     ! Apply activation function to activation
     !---------------------------------------------------------------------------

@@ -397,6 +397,7 @@ module athena__base_layer
      integer, allocatable, dimension(:) :: bias_shape
      !! Shape of biases
      real(real32), allocatable, dimension(:) :: params
+     type(array_type), allocatable, dimension(:) :: params_array
      !! Learnable parameters
      real(real32), allocatable, dimension(:,:) :: dp, db
      !! Gradients of parameters and biases

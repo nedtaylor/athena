@@ -25,7 +25,7 @@ module athena__misc_types
 
   public :: operator(+), operator(-), operator(*), operator(/), &
        operator(**), operator(.mmul.), operator(.concat.), operator(.ltrim.), &
-       operator(.rtrim.), operator(.index.)
+       operator(.rtrim.), operator(.index.), operator(.outer.)
   public :: operator(.lt.), operator(.gt.)
   public :: duvenaud_propagate, duvenaud_update, &
        reverse_duvenaud_propagate, reverse_duvenaud_update
@@ -408,13 +408,18 @@ module athena__misc_types
 
   interface operator(**)
      module procedure power_arrays
-     module procedure power_scalar
+     module procedure power_real_scalar
+     module procedure power_int_scalar
   end interface
 
   interface operator(.mmul.)
      module procedure matmul_arrays
      module procedure real2d_matmul
      module procedure matmul_real2d
+  end interface
+
+  interface operator(.outer.)
+     module procedure outer_product_arrays
   end interface
 
   interface operator(.concat.)
@@ -991,9 +996,10 @@ contains
     real(real32), intent(in) :: b
     type(array_type), pointer :: c
 
-    allocate(c)
-    call c%allocate(array_shape=[ a%shape, size(a%val,2) ])
-    ! c => a%create_result()
+    !  allocate(c)
+    c => a%create_result()
+    !  call c%allocate(array_shape=[ a%shape, size(a%val,2) ])
+    !  ! c => a%create_result()
     c%val = a%val + b
 
     if(a%requires_grad) then
@@ -1097,10 +1103,10 @@ contains
     type(array_type), pointer :: c
     type(array_type), pointer :: b_array
 
-    !  c => a%create_result()
-    allocate(c)
+    c => a%create_result()
+    !  allocate(c)
     !  call c%allocate(array_shape=[a%shape, size(a%val,2)])
-    call c%allocate(array_shape=shape(a%val))
+    !  call c%allocate(array_shape=shape(a%val))
     c%val = a%val * scalar
 
     if(a%requires_grad) then
@@ -1135,8 +1141,9 @@ contains
 
     integer :: s, i
 
-    allocate(c)
-    call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
+    c => a%create_result()
+    !  allocate(c)
+    !  call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
     do concurrent(s=1:size(a%val,2), i=1:size(a%val,1))
        if(b(i,s)) then
           c%val(i,s) = a%val(i,s)
@@ -1160,21 +1167,25 @@ contains
     type(array_type), pointer :: c
 
     integer :: s
-    real(real32), pointer :: temp(:,:)
+    real(real32), pointer :: temp_a(:,:), temp_b(:,:)
+    integer, dimension(:), allocatable :: array_shape
 
     allocate(c)
     if(a%is_constant)then
        call c%allocate(array_shape=[a%shape(1), size(b%val,2)])
-       temp(1:a%shape(1), 1:a%shape(2)) => a%val
+       temp_a(1:a%shape(1), 1:a%shape(2)) => a%val
        do concurrent(s=1:size(b%val,2))
-          c%val(:,s) = matmul(temp, b%val(:,s))
+          c%val(:,s) = matmul(temp_a, b%val(:,s))
+       end do
+    elseif(b%is_constant) then
+       call c%allocate(array_shape=[size(a%val,1), b%shape(2)])
+       temp_b(1:b%shape(1), 1:b%shape(2)) => b%val
+       do concurrent(s=1:size(a%val,2))
+          c%val(:,s) = matmul(a%val(:,s), temp_b)
        end do
     else
-       call c%allocate(array_shape=[size(a%val,1), b%shape(2)])
-       temp(1:b%shape(1), 1:b%shape(2)) => b%val
-       do concurrent(s=1:size(a%val,2))
-          c%val(:,s) = matmul(a%val(:,s), temp)
-       end do
+       write(0,*) "NOT SURE WHAT TO DO YET"
+       stop 0
     end if
 
     if(a%requires_grad .or. b%requires_grad) then
@@ -1251,6 +1262,31 @@ contains
     end do
     c%left_operand => a_array
   end function real2d_matmul
+
+  function outer_product_arrays(a, b) result(c)
+    !! Outer product of two autodiff arrays
+    class(array_type), intent(in), target :: a, b
+    type(array_type), pointer :: c
+
+    integer :: i, j, s
+
+    allocate(c)
+    call c%allocate(array_shape=[size(a%val,1), size(b%val,1), size(a%val,2)])
+    ! outer product 1D array by using shape to swap dimensions
+    do concurrent(s=1:size(a%val,2))
+       do concurrent(i=1:size(a%val,1), j=1:size(b%val,1))
+          c%val(i + (j-1)*size(a%val,1),s) = a%val(i,s) * b%val(j,s)
+       end do
+    end do
+
+    if(a%requires_grad .or. b%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'outer_product'
+       c%left_operand => a
+       c%right_operand => b
+    end if
+  end function outer_product_arrays
 
   function concat_arrays(a, b) result(c)
     !! Concatenate two autodiff arrays along the first dimension
@@ -1390,6 +1426,7 @@ contains
     integer :: i, j, s
 
     if(size(a%shape) .ne. 2)then
+       write(*,*) "ashape", a%shape
        call stop_program("transpose_array: only 2D arrays can be transposed")
     end if
     allocate(c)
@@ -1818,7 +1855,7 @@ contains
     class(array_type), intent(in), target :: a, b
     type(array_type), pointer :: c
 
-    allocate(c)
+    c => a%create_result()
     c%val = a%val / b%val
 
     if(a%requires_grad .or. b%requires_grad) then
@@ -1837,8 +1874,9 @@ contains
     type(array_type), pointer :: c
     type(array_type), pointer :: b_array
 
-    allocate(c)
-    call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
+    c => a%create_result()
+    !  allocate(c)
+    !  call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
     c%val = a%val / scalar
 
     if(a%requires_grad) then
@@ -1863,8 +1901,9 @@ contains
     type(array_type), pointer :: c
     type(array_type), pointer :: b_array
 
-    allocate(c)
-    call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
+    c => a%create_result()
+    !  allocate(c)
+    !  call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
     c%val = scalar / a%val
 
     if(a%requires_grad) then
@@ -1891,8 +1930,9 @@ contains
 
     integer :: s
 
-    allocate(c)
-    call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
+    c => a%create_result()
+    !  allocate(c)
+    !  call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
     do concurrent(s=1:size(a%val,2))
        c%val(:,s) = a%val(:,s) / b(s)
     end do
@@ -1920,7 +1960,7 @@ contains
     class(array_type), intent(in), target :: a, b
     type(array_type), pointer :: c
 
-    allocate(c)
+    c => a%create_result()
     c%val = a%val ** b%val
 
     if(a%requires_grad .or. b%requires_grad) then
@@ -1932,13 +1972,14 @@ contains
     end if
   end function power_arrays
 
-  function power_scalar(a, scalar) result(c)
+  function power_real_scalar(a, scalar) result(c)
     !! Raise autodiff array to scalar power
     class(array_type), intent(in), target :: a
     real(real32), intent(in) :: scalar
     type(array_type), pointer :: c
+    type(array_type), pointer :: b_array
 
-    allocate(c)
+    c => a%create_result()
     c%val = a%val ** scalar
 
     if(a%requires_grad) then
@@ -1947,7 +1988,25 @@ contains
        c%operation = 'power_scalar'
        c%left_operand => a
     end if
-  end function power_scalar
+    allocate(b_array)
+    b_array%is_constant = .true.
+    b_array%requires_grad = .false.
+    b_array%is_leaf = .false.
+    call b_array%allocate(array_shape=[1, 1])
+    b_array%val(1, 1) = scalar
+    c%right_operand => b_array
+
+  end function power_real_scalar
+
+  function power_int_scalar(a, scalar) result(c)
+    !! Raise autodiff array to scalar power
+    class(array_type), intent(in), target :: a
+    integer, intent(in) :: scalar
+    type(array_type), pointer :: c
+    type(array_type), pointer :: b_array
+
+    c => power_real_scalar(a, real(scalar, real32))
+  end function power_int_scalar
 
   !-----------------------------------------------------------------------------
   ! Mathematical functions
@@ -1957,7 +2016,8 @@ contains
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
-    allocate(c)
+    !  allocate(c)
+    c => a%create_result()
     c%val = sin(a%val)
 
     if(a%requires_grad) then
@@ -1973,7 +2033,8 @@ contains
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
-    allocate(c)
+    !  allocate(c)
+    c => a%create_result()
     c%val = cos(a%val)
 
     if(a%requires_grad) then
@@ -1989,7 +2050,8 @@ contains
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
-    allocate(c)
+    !  allocate(c)
+    c => a%create_result()
     c%val = tan(a%val)
 
     if(a%requires_grad) then
@@ -2005,8 +2067,9 @@ contains
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
-    allocate(c)
-    call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
+    c => a%create_result()
+    !  allocate(c)
+    !  call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
     c%val = exp(a%val)
 
     if(a%requires_grad) then
@@ -2022,7 +2085,8 @@ contains
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
-    allocate(c)
+    !  allocate(c)
+    c => a%create_result()
     c%val = log(a%val)
 
     if(a%requires_grad) then
@@ -2038,7 +2102,8 @@ contains
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
-    allocate(c)
+    !  allocate(c)
+    c => a%create_result()
     c%val = sqrt(a%val)
 
     if(a%requires_grad) then
@@ -2054,7 +2119,8 @@ contains
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
-    allocate(c)
+    !  allocate(c)
+    c => a%create_result()
     c%val = tanh(a%val)
 
     if(a%requires_grad) then
@@ -2070,7 +2136,8 @@ contains
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
-    allocate(c)
+    !  allocate(c)
+    c => a%create_result()
     c%val = 1.0_real32 / (1.0_real32 + exp(-a%val))
 
     if(a%requires_grad) then

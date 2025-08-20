@@ -643,13 +643,29 @@ contains
     case('matmul')
        if(associated(this%left_operand) .and. &
             this%left_operand%requires_grad) then
-          call accumulate_gradient(this%left_operand, &
-               upstream_grad .mmul. transpose(this%right_operand))
+          if(size(this%right_operand%shape).eq.2)then
+             call accumulate_gradient(this%left_operand, &
+                  upstream_grad .mmul. transpose(this%right_operand))
+          elseif(size(upstream_grad%shape).eq.2)then
+             call accumulate_gradient(this%left_operand, &
+                  transpose(upstream_grad) .mmul. this%right_operand)
+          else
+             call accumulate_gradient(this%left_operand, &
+                  upstream_grad .outer. this%right_operand)
+          end if
        end if
        if(associated(this%right_operand) .and. &
             this%right_operand%requires_grad) then
-          call accumulate_gradient(this%right_operand, &
-               transpose(this%left_operand) .mmul. upstream_grad)
+          if(size(this%left_operand%shape).eq.2)then
+             call accumulate_gradient(this%right_operand, &
+                  transpose(this%left_operand) .mmul. upstream_grad)
+          elseif(size(upstream_grad%shape).eq.2)then
+             call accumulate_gradient(this%right_operand, &
+                  this%left_operand .mmul. transpose(upstream_grad))
+          else
+             call accumulate_gradient(this%right_operand, &
+                  this%left_operand .outer. upstream_grad)
+          end if
        end if
 
     case('concat')
@@ -676,7 +692,8 @@ contains
     case('merge')
        if(associated(this%left_operand) .and. &
             this%left_operand%requires_grad) then
-          call accumulate_gradient(this%left_operand, merge(upstream_grad, 0._real32, this%mask))
+          call accumulate_gradient(this%left_operand, &
+               merge(upstream_grad, 0._real32, this%mask))
        end if
 
 
@@ -775,6 +792,14 @@ contains
           !  call accumulate_gradient(this%left_operand, &
           !       -upstream_grad * this%right_operand%val(1,1) / &
           !       (this%left_operand * this%left_operand))
+       end if
+
+    case('power_scalar')
+       if(associated(this%left_operand) .and. &
+            this%left_operand%requires_grad) then
+          call accumulate_gradient(this%left_operand, &
+               upstream_grad * this%right_operand%val(1,1) * &
+               this%left_operand**(this%right_operand%val(1,1) - 1.0_real32))
        end if
 
     case('sum_array_output_array')
@@ -885,8 +910,12 @@ contains
     if(present(shape_arr)) then
        call result_ptr%allocate(array_shape=shape_arr)
     else
-       call result_ptr%allocate(array_shape=[this%shape, &
-            size(this%val,2)])
+       if(allocated(this%shape))then
+          call result_ptr%allocate(array_shape=[this%shape, &
+               size(this%val,2)])
+       else
+          call result_ptr%allocate(array_shape=shape(this%val))
+       end if
     end if
 
     ! Initialize autodiff fields
