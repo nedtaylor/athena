@@ -542,9 +542,8 @@ contains
     ! Write fully connected weights and biases
     !---------------------------------------------------------------------------
     write(unit,'("WEIGHTS")')
-    do i=1,this%num_inputs+1
-       write(unit,'(5(E16.8E2))') this%weight(:,i)
-    end do
+    write(unit,'(5(E16.8E2))') this%params_array(1)%val(:,1)
+    write(unit,'(5(E16.8E2))') this%params_array(2)%val(:,1)
     write(unit,'("END WEIGHTS")')
 
   end subroutine print_to_unit_full

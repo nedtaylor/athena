@@ -481,6 +481,7 @@ contains
 
     this%rank = input%rank
     this%size = input%size
+    this%is_constant = input%is_constant
     this%allocated = input%allocated
     if(allocated(input%shape)) this%shape = input%shape
     if(allocated(input%val)) this%val = input%val
@@ -535,6 +536,7 @@ contains
        allocate(this%grad)
        ! Safely initialize gradient without copying computation graph
        call this%grad%allocate(array_shape=[size(this%val,1), size(this%val,2)])
+       this%grad%is_constant = this%is_constant
        this%grad%requires_grad = .false.
        this%grad%is_leaf = .true.
        this%grad%operation = 'none'
@@ -732,6 +734,12 @@ contains
                reverse_duvenaud_update( upstream_grad, this%left_operand, &
                     this%indices ) )
        end if
+       if(associated(this%left_operand) .and. &
+            this%left_operand%requires_grad) then
+          call accumulate_gradient(this%left_operand, &
+               reverse_duvenaud_update_weight( upstream_grad, this%right_operand, &
+                    this%left_operand%indices, this%indices ) )
+       end if
 
 
 
@@ -874,12 +882,15 @@ contains
     class(array_type), intent(inout) :: array
     class(array_type), intent(in) :: grad
 
+    integer :: s
+
     if(.not. associated(array%grad)) then
        allocate(array%grad)
        ! Safely initialize gradient without copying computation graph
        call array%grad%allocate(array_shape=[size(array%val,1), &
             size(array%val,2)])
        array%grad%val = 0.0_real32
+       array%grad%is_constant = array%is_constant
        array%grad%requires_grad = .false.
        array%grad%is_leaf = .true.
        array%grad%operation = 'none'
@@ -892,7 +903,13 @@ contains
        call array%grad%zero_grad()
     end if
 
-    array%grad%val = array%grad%val + grad%val
+    if(array%is_constant)then
+       do s = 1, size(grad%val, 2)
+          array%grad%val(:,1) = array%grad%val(:,1) + grad%val(:,s)
+       end do
+    else
+       array%grad%val = array%grad%val + grad%val
+    end if
 
     if(.not. array%is_leaf) then
        call array%backward_op(grad)

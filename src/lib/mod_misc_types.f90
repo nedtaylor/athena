@@ -28,7 +28,8 @@ module athena__misc_types
        operator(.rtrim.), operator(.index.), operator(.outer.)
   public :: operator(.lt.), operator(.gt.)
   public :: duvenaud_propagate, duvenaud_update, &
-       reverse_duvenaud_propagate, reverse_duvenaud_update
+       reverse_duvenaud_propagate, reverse_duvenaud_update, &
+       reverse_duvenaud_update_weight
   public :: sign, merge, maxval, max, sum, spread, reverse_index
   public :: sin, cos, tan, exp, log, sqrt, tanh, sigmoid, transpose, add, concat
 
@@ -920,9 +921,17 @@ contains
     class(array_type), intent(in), target :: a, b
     type(array_type), pointer :: c
 
+    integer :: s
+
     ! Safely create result array
     c => a%create_result()
-    c%val = a%val + b%val
+    if(b%is_constant)then
+       do s = 1, size(a%val, 2)
+          c%val(:,s) = a%val(:,s) + b%val(:,1)
+       end do
+    else
+       c%val = a%val + b%val
+    end if
 
     ! Set up computation graph
     if(a%requires_grad .or. b%requires_grad) then
@@ -1781,20 +1790,26 @@ contains
   function duvenaud_update(a, weight, adj_ia, min_degree, max_degree) result(c)
     !! Update the message passing layer
     class(array_type), intent(in), target :: a
-    real(real32), dimension(:,:,:), intent(in) :: weight
+    class(array_type), intent(in), target :: weight
+    ! real(real32), dimension(:,:,:), intent(in) :: weight
     integer, dimension(:), intent(in) :: adj_ia
     integer, intent(in) :: min_degree, max_degree
     type(array_type), pointer :: c
     type(array_type), pointer :: weight_array
 
     integer :: v, i, d
+    integer :: interval
+    real(real32), pointer :: w_ptr(:,:)
 
     allocate(c)
-    call c%allocate(array_shape=[size(weight,1), size(a%val,2)])
+    call c%allocate(array_shape=[weight%shape(1), size(a%val,2)])
+    interval = weight%shape(1) * weight%shape(2)
     do v = 1, size(a%val,2)
        d = max( min_degree, min( adj_ia(v+1) - adj_ia(v), max_degree ) ) - &
             min_degree + 1
-       c%val(:,v) = matmul(weight(:,:,d), a%val(:,v) / real(d, real32))
+       w_ptr(1:weight%shape(1), 1:weight%shape(2)) => &
+            weight%val(interval*(d-1)+1:interval*d,1)
+       c%val(:,v) = matmul(w_ptr, a%val(:,v) / real(d, real32))
     end do
 
     if(a%requires_grad) then
@@ -1802,21 +1817,22 @@ contains
        c%is_leaf = .false.
        c%operation = 'duvenaud_update'
        c%right_operand => a
+       c%left_operand => weight
     end if
 
     c%indices = adj_ia
-    allocate(weight_array)
-    weight_array%is_constant = .true.
-    weight_array%requires_grad = .false.
-    weight_array%is_leaf = .false.
-    weight_array%indices = [ min_degree, max_degree ]
-    call weight_array%allocate(array_shape=shape(weight))
-    do d = 1, size(weight,3)
-       do i = 1, size(weight,2)
-          weight_array%val((i-1)*size(weight,1)+1:i*size(weight,1), d) = weight(:,i,d)
-       end do
-    end do
-    c%left_operand => weight_array
+    !  allocate(weight_array)
+    !  weight_array%is_constant = .true.
+    !  weight_array%requires_grad = .false.
+    !  weight_array%is_leaf = .false.
+    !  weight_array%indices = [ min_degree, max_degree ]
+    !  call weight_array%allocate(array_shape=shape(weight))
+    !  do d = 1, size(weight,3)
+    !     do i = 1, size(weight,2)
+    !        weight_array%val((i-1)*size(weight,1)+1:i*size(weight,1), d) = weight(:,i,d)
+    !     end do
+    !  end do
+    !  c%left_operand => weight_array
 
   end function duvenaud_update
 
@@ -1827,14 +1843,17 @@ contains
     type(array_type), pointer :: c
 
     integer :: v, d
+    integer :: interval
     real(real32), pointer :: w_ptr(:,:)
 
     allocate(c)
-    call c%allocate(array_shape=[weight%shape(2), size(a%val,2)])
+    call c%allocate( array_shape = [weight%shape(2), size(a%val,2)] )
+    interval = weight%shape(1) * weight%shape(2)
     do v = 1, size(a%val,2)
        d = max( weight%indices(1), &
             min( adj_ia(v+1) - adj_ia(v), weight%indices(2) ) ) - weight%indices(1) + 1
-       w_ptr(1:weight%shape(1), 1:weight%shape(2)) => weight%val(:,d)
+       w_ptr(1:weight%shape(1), 1:weight%shape(2)) => &
+            weight%val(interval*(d-1)+1:interval*d,1)
        c%val(:,v) = matmul(transpose(w_ptr), a%val(:,v))
     end do
 
@@ -1846,6 +1865,43 @@ contains
     ! end if
 
   end function reverse_duvenaud_update
+
+  function reverse_duvenaud_update_weight(a, b, indices, adj_ia) result(c)
+    !! Reverse update the message passing layer for weights
+    class(array_type), intent(in), target :: a, b
+    integer, dimension(2), intent(in) :: indices
+    integer, dimension(:), intent(in) :: adj_ia
+    type(array_type), pointer :: c
+
+    integer :: v, d, i
+    integer :: interval
+    real(real32), pointer :: c_ptr(:,:)
+
+    allocate(c)
+    call c%allocate( array_shape = &
+         [size(a%val,1), size(b%val,1), indices(2)-indices(1)+1,1] &
+    )
+    interval = c%shape(1) * c%shape(2)
+    c%val = 0.0_real32
+    do v = 1, size(a%val,2)
+       d = max( indices(1), &
+            min( adj_ia(v+1) - adj_ia(v), indices(2) ) ) - indices(1) + 1
+       c_ptr(1:c%shape(1), 1:c%shape(2)) => c%val(interval*(d-1)+1:interval*d,1)
+       ! do the outer product of a and b, c is the weight matrix
+       do i = 1, size(a%val,1)
+          c_ptr(i,:) = c_ptr(i,:) + a%val(i,v) * b%val(:,v)
+       end do
+    end do
+
+    !  if(weight%requires_grad) then
+    !     c%requires_grad = .true.
+    !     c%is_leaf = .false.
+    !     c%operation = 'reverse_duvenaud_update_weight'
+    !     c%left_operand => weight
+    !     c%right_operand => a
+    !  end if
+
+  end function reverse_duvenaud_update_weight
 
   !-----------------------------------------------------------------------------
   ! Division operations

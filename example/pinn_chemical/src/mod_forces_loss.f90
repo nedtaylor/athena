@@ -1,6 +1,7 @@
 module forces_loss
   use constants_mnist, only: real32
-  use athena, only: base_loss_type, array_type
+  use athena, only: base_loss_type, array_type, &
+       operator(+), operator(-), operator(/), operator(*), operator(**)
   implicit none
 
   private
@@ -15,6 +16,7 @@ module forces_loss
      procedure :: compute => compute_loss_forces
      procedure :: compute_pinn => compute_pinn_loss_forces
      procedure :: compute_pinn_derivative => compute_pinn_derivative_forces
+     procedure :: compute_pinn_generic => compute_pinn_loss_generic_forces
   end type forces_loss_type
 
   interface forces_loss_type
@@ -53,7 +55,8 @@ contains
   end function compute_loss_forces
 
 
-  module function compute_pinn_loss_forces(this, predicted, expected, input) result(output)
+  module function compute_pinn_loss_forces(this, predicted, expected, input) &
+       result(output)
     implicit none
     class(forces_loss_type), intent(in) :: this
     !! Instance of the loss function type
@@ -93,5 +96,34 @@ contains
             size(input(s)%val, dim = 2)
     end do
   end function compute_pinn_derivative_forces
+
+
+  module function compute_pinn_loss_generic_forces( &
+       this, predicted, expected, input &
+  ) result(output)
+    implicit none
+    class(forces_loss_type), intent(in) :: this
+    !! Instance of the loss function type
+    type(array_type), dimension(:,:), intent(inout) :: predicted
+    type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
+         expected
+    !! Predicted and expected values
+    type(array_type), dimension(:), intent(in) :: input
+    type(array_type), pointer :: output(:,:)
+
+    integer :: s
+    real(real32) :: forces_loss
+    call predicted(1,1)%backward()
+    forces_loss = 0._real32
+    do s = 1, size(input)
+       forces_loss = forces_loss + &
+            sum( input(s)%grad%val(1:3,:) - input(s)%val(4:6,:) ) ** 2 / &
+            size(input(s)%val, dim = 2)
+    end do
+    allocate(output(size(predicted,1),size(predicted,2)))
+    output(1,1) = this%alpha * ( predicted(1,1) - expected(1,1) ) ** 2._real32 + &
+         this%beta * forces_loss
+
+  end function compute_pinn_loss_generic_forces
 
 end module forces_loss

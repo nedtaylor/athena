@@ -511,15 +511,27 @@ contains
     !---------------------------------------------------------------------------
     if(allocated(this%params)) deallocate(this%params)
     allocate(this%params(this%num_params), source=0._real32)
-    allocate(this%weight_shape(2,2*this%num_time_steps))
+    allocate(this%weight_shape(3,2*this%num_time_steps))
+    allocate(this%params_array(this%num_time_steps*2))
     do t = 1, this%num_time_steps
        this%weight_shape(:,t) = [ &
             this%num_vertex_features(t), &
-            this%num_vertex_features(t-1) + this%num_edge_features(0) &
+            this%num_vertex_features(t-1) + this%num_edge_features(0), &
+            this%max_vertex_degree - this%min_vertex_degree + 1 &
        ]
        this%weight_shape(:,t+this%num_time_steps) = &
-            [ this%num_outputs, this%num_vertex_features(t) ]
+            [ this%num_outputs, this%num_vertex_features(t), 1 ]
+       call this%params_array(t)%allocate( [ this%weight_shape(:,t), 1 ] )
+       call this%params_array(t+this%num_time_steps)%allocate( &
+            [ this%weight_shape(:2,t+this%num_time_steps), 1 ] &
+       )
+       call this%params_array(t)%set_requires_grad(.true.)
+       this%params_array(t)%is_constant = .true.
+       this%params_array(t)%indices = [ this%min_vertex_degree, this%max_vertex_degree ]
+       call this%params_array(t+this%num_time_steps)%set_requires_grad(.true.)
+       this%params_array(t+this%num_time_steps)%is_constant = .true.
     end do
+
 
 
     !---------------------------------------------------------------------------
@@ -528,21 +540,18 @@ contains
     allocate(initialiser_, source=initialiser_setup(this%kernel_initialiser))
     do t = 1, this%num_time_steps, 1
        call initialiser_%initialise( &
-            this%params( &
-                 sum(this%num_params_msg(1:t-1)) + 1: &
-                 sum(this%num_params_msg(1:t)) &
-            ), &
+            this%params_array(t)%val(:,1), &
             fan_in = this%num_vertex_features(t-1) + this%num_edge_features(0), &
             fan_out = this%num_vertex_features(t), &
             spacing = [ this%num_vertex_features(t-1) ] &
        )
+       call initialiser_%initialise( &
+            this%params_array(t+this%num_time_steps)%val(:,1), &
+            fan_in = sum(this%num_vertex_features), &
+            fan_out = this%num_outputs, &
+            spacing = this%num_vertex_features &
+       )
     end do
-    call initialiser_%initialise( &
-         this%params(sum(this%num_params_msg)+1:), &
-         fan_in = sum(this%num_vertex_features), &
-         fan_out = this%num_outputs, &
-         spacing = this%num_vertex_features &
-    )
     deallocate(initialiser_)
     ! write the standard deviation of the params values
     if(verbose_.gt.0)then
@@ -934,7 +943,7 @@ contains
 
 
           this%z(t,s) = duvenaud_update( &
-               this%message(t,s), weight, this%graph(s)%adj_ia, &
+               this%message(t,s), this%params_array(t), this%graph(s)%adj_ia, &
                this%min_vertex_degree, this%max_vertex_degree &
           )
           this%vertex_features(t,s) = this%transfer%activate( this%z(t,s) )
@@ -983,7 +992,9 @@ contains
        )
        do s = 1, this%batch_size
           call this%z_readout(t,s)%zero_grad()
-          this%z_readout(t,s) = weight .mmul. this%vertex_features(t,s)
+          this%z_readout(t,s) = &
+               this%params_array(t+this%num_time_steps) .mmul. &
+               this%vertex_features(t,s)
           temp => this%transfer_readout%activate( this%z_readout(t,s) )
           output_ptr => output_ptr + &
                sum( &

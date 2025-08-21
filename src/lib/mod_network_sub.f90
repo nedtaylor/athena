@@ -2196,6 +2196,123 @@ contains
 
 
 !###############################################################################
+  module function loss_backward(this, output, start_index, end_index) result(loss)
+    !! Get the loss for the output
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    class(*), dimension(:,:), intent(inout) :: output
+    !! Output
+    integer, intent(in) :: start_index, end_index
+    !! Start and end batch indices
+
+    type(array_type), dimension(:,:), allocatable :: loss
+    !! Loss value
+
+    ! Local variables
+    integer :: s, s_idx
+    !! Loop index
+    type(array_type) :: tmp_output(1,1)
+
+
+    allocate(loss(1,1))
+    if(this%loss%requires_autodiff)then
+       select type(output)
+          !  type is(graph_type)
+          !     do s = start_index, end_index, 1
+          !        s_idx = s - start_index + 1
+          !        loss = loss + sum( this%loss%compute_pinn( &
+          !             this%model(this%leaf_vertices(1))%layer%output(1,s_idx)%val, &
+          !             output(1,s)%vertex_features, &
+          !             this%model(this%root_vertices(1))%layer%output(1,:) &
+          !        ) ) / output(1,s)%num_vertices
+          !        if( &
+          !             this%model(this%leaf_vertices(1))%layer%output_shape(2).gt.0 &
+          !        )then
+          !           loss = loss + sum( this%loss%compute_pinn( &
+          !                this%model(this%leaf_vertices(1))%layer%output(2,s_idx)%val, &
+          !                output(1,s)%edge_features, &
+          !                this%model(this%root_vertices(1))%layer%output(1,:) &
+          !           ) ) / output(1,s)%num_edges
+          !        end if
+          !     end do
+          !  type is(real)
+          !     loss = sum( &
+          !          this%loss%compute_pinn( &
+          !               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
+          !               output(:,start_index:end_index:1), &
+          !               this%model(this%root_vertices(1))%layer%output(1,:) &
+          !          ))
+          !  type is(integer)
+          !     loss = sum( &
+          !          this%loss%compute_pinn( &
+          !               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
+          !               real(output(:,start_index:end_index:1),real32), &
+          !               this%model(this%root_vertices(1))%layer%output(1,:) &
+          !          ))
+       class is(array_type)
+          !  loss = sum( &
+          !       this%loss%compute_pinn( &
+          !            this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
+          !            output(1,1)%val(:,start_index:end_index:1), &
+          !            this%model(this%root_vertices(1))%layer%output(1,:) &
+          !       ))
+          tmp_output(1,1)%val = output(1,1)%val(:,start_index:end_index:1)
+          loss = this%loss%compute_pinn_generic( &
+               this%model(this%leaf_vertices(1))%layer%output, &
+               tmp_output, &
+               this%model(this%root_vertices(1))%layer%output(1,:) &
+          )
+       class default
+          call stop_program("loss_backward: output type not supported")
+          return
+       end select
+    else
+       !  select type(output)
+       !  type is(graph_type)
+       !     do s = start_index, end_index, 1
+       !        s_idx = s - start_index + 1
+       !        loss = loss + sum( this%loss%compute( &
+       !             this%model(this%leaf_vertices(1))%layer%output(1,s_idx)%val, &
+       !             output(1,s)%vertex_features &
+       !        ) ) / output(1,s)%num_vertices
+       !        if( &
+       !             this%model(this%leaf_vertices(1))%layer%output_shape(2).gt.0 &
+       !        )then
+       !           loss = loss + sum( this%loss%compute( &
+       !                this%model(this%leaf_vertices(1))%layer%output(2,s_idx)%val, &
+       !                output(1,s)%edge_features &
+       !           ) ) / output(1,s)%num_edges
+       !        end if
+       !     end do
+       !  type is(real)
+       !     loss = sum( &
+       !          this%loss%compute( &
+       !               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
+       !               output(:,start_index:end_index:1) &
+       !          ))
+       !  type is(integer)
+       !     loss = sum( &
+       !          this%loss%compute( &
+       !               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
+       !               real(output(:,start_index:end_index:1),real32) &
+       !          ))
+       !  class is(array_type)
+       !     loss = sum( &
+       !          this%loss%compute( &
+       !               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
+       !               output(1,1)%val(:,start_index:end_index:1) &
+       !          ))
+       !  end select
+    end if
+
+  end function loss_backward
+!###############################################################################
+
+
+!###############################################################################
   module function calc_output_loss(this, output, start_index, end_index) result(loss)
     !! Get the loss for the output
     implicit none
@@ -2914,6 +3031,7 @@ contains
     !! Loop index
 
     class(*), allocatable :: data_poly(:,:)
+    type(array_type), allocatable :: loss_array(:,:)
 
 #ifdef _OPENMP
     type(network_type) :: this_copy
@@ -2991,6 +3109,7 @@ contains
        call stop_program("number of outputs in output does not match network")
        return
     end if
+    allocate(this%expected_array, source=output)
 
 
     !---------------------------------------------------------------------------
@@ -3053,7 +3172,7 @@ contains
              )
           end select
           call this%forward_generic2d(data_poly)
-          call this%model(this%leaf_vertices(1))%layer%output(1,1)%backward()
+          !  call this%model(this%leaf_vertices(1))%layer%output(1,1)%backward()
           deallocate(data_poly)
           !  call system_clock(timer_stop)
           !  forward_timer = forward_timer + timer_stop - timer_start
@@ -3062,27 +3181,38 @@ contains
           ! Backward pass and store predicted output
           !---------------------------------------------------------------------
           !  call system_clock(timer_start)
-          select type(output)
-          type is(graph_type)
-             data_poly = get_sample_graph( &
-                  output, start_index, end_index, this%batch_size &
-             )
-          type is(array_type)
-             data_poly = get_sample_array( &
-                  output, start_index, end_index, this%batch_size, &
-                  as_graph = this%use_graph_output &
-             )
-          end select
-          call this%backward_generic2d(data_poly)
-          deallocate(data_poly)
+
+
+          !  select type(output)
+          !  type is(graph_type)
+          !     data_poly = get_sample_graph( &
+          !          output, start_index, end_index, this%batch_size &
+          !     )
+          !  type is(array_type)
+          !     data_poly = get_sample_array( &
+          !          output, start_index, end_index, this%batch_size, &
+          !          as_graph = this%use_graph_output &
+          !     )
+          !  end select
+          !  data_poly = this%loss%compute_generic( &
+          !       this%model(this%leaf_vertices(1))%layer%output,  y_array, x_array &
+          !  )
+          loss_array = this%loss_backward(this%expected_array, start_index, end_index)
+          call loss_array(1,1)%backward()
+
+
+
+          !  call this%backward_generic2d(data_poly)
           !  call system_clock(timer_stop)
           !  backward_timer = backward_timer + timer_stop - timer_start
 
 
           ! Compute loss and accuracy (for monitoring)
           !---------------------------------------------------------------------
-          batch_loss = this%calc_output_loss(output, start_index, end_index)
+          batch_loss = sum(loss_array(1,1)%val)
+          ! batch_loss = this%calc_output_loss(output, start_index, end_index)
           batch_accuracy = this%calc_output_accuracy(output, start_index, end_index)
+          deallocate(loss_array)
 
 
           ! Average metric over batch size and store
