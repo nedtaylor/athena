@@ -234,6 +234,9 @@ contains
     this%left_operand => null()
     this%right_operand => null()
 
+    this%get_partial_left => null()
+    this%get_partial_right => null()
+
     this%allocated = .false.
     this%size = 0
 
@@ -481,7 +484,8 @@ contains
 
     this%rank = input%rank
     this%size = input%size
-    this%is_constant = input%is_constant
+    this%is_sample_dependent = input%is_sample_dependent
+    this%is_scalar = input%is_scalar
     this%allocated = input%allocated
     if(allocated(input%shape)) this%shape = input%shape
     if(allocated(input%val)) this%val = input%val
@@ -495,6 +499,11 @@ contains
     if(allocated(input%indices)) this%indices = input%indices
     if(allocated(input%adj_ja)) this%adj_ja = input%adj_ja
     if(allocated(input%mask)) this%mask = input%mask
+
+    if(associated(input%get_partial_left)) &
+         this%get_partial_left => input%get_partial_left
+    if(associated(input%get_partial_right)) &
+         this%get_partial_right => input%get_partial_right
 
     !  ! Don't copy pointers to avoid aliasing issues
     !  this%left_operand => null()
@@ -521,6 +530,8 @@ contains
     this%right_operand => null()
     this%grad => null()
     this%owns_gradient = .false.
+    this%get_partial_left => null()
+    this%get_partial_right => null()
   end subroutine finalise_array
 !###############################################################################
 
@@ -536,7 +547,7 @@ contains
        allocate(this%grad)
        ! Safely initialize gradient without copying computation graph
        call this%grad%allocate(array_shape=[size(this%val,1), size(this%val,2)])
-       this%grad%is_constant = this%is_constant
+       this%grad%is_sample_dependent = this%is_sample_dependent
        this%grad%requires_grad = .false.
        this%grad%is_leaf = .true.
        this%grad%operation = 'none'
@@ -590,86 +601,6 @@ contains
 
     ! write(*,*) "Performing backward operation for:", trim(this%operation)
     select case(trim(this%operation))
-    case('add')
-       if(associated(this%left_operand) .and. &
-            this%left_operand%requires_grad) then
-          call accumulate_gradient(this%left_operand, upstream_grad)
-       end if
-       if(associated(this%right_operand))then
-          if(this%right_operand%requires_grad) &
-               call accumulate_gradient(this%right_operand, upstream_grad)
-       end if
-    case('subtract')
-       if(associated(this%left_operand) .and. &
-            this%left_operand%requires_grad) then
-          call accumulate_gradient(this%left_operand, upstream_grad)
-       end if
-       if(associated(this%right_operand) .and. &
-            this%right_operand%requires_grad) then
-          call accumulate_gradient(this%right_operand, -upstream_grad)
-       end if
-    case('subtract_scalar')
-       if(associated(this%left_operand) .and. &
-            this%left_operand%requires_grad) then
-          call accumulate_gradient(this%left_operand, upstream_grad)
-       end if
-
-    case('multiply')
-       if(associated(this%left_operand) .and. &
-            this%left_operand%requires_grad) then
-          call accumulate_gradient(this%left_operand, &
-               upstream_grad * this%right_operand)
-       end if
-       if(associated(this%right_operand) .and. &
-            this%right_operand%requires_grad) then
-          call accumulate_gradient(this%right_operand, &
-               upstream_grad * this%left_operand)
-       end if
-    case('multiply_scalar')
-       if(associated(this%left_operand) .and. &
-            this%left_operand%requires_grad) then
-          call accumulate_gradient(this%left_operand, &
-               upstream_grad * this%right_operand%val(1,1))
-       end if
-    case('matmul_scalar')
-       if(associated(this%left_operand) .and. &
-            this%left_operand%requires_grad) then
-          call accumulate_gradient(this%left_operand, &
-               upstream_grad .mmul. transpose(this%right_operand))
-       end if
-       if(associated(this%right_operand) .and. &
-            this%right_operand%requires_grad) then
-          call accumulate_gradient(this%right_operand, &
-               transpose(this%left_operand) .mmul. upstream_grad)
-       end if
-    case('matmul')
-       if(associated(this%left_operand) .and. &
-            this%left_operand%requires_grad) then
-          if(size(this%right_operand%shape).eq.2)then
-             call accumulate_gradient(this%left_operand, &
-                  upstream_grad .mmul. transpose(this%right_operand))
-          elseif(size(upstream_grad%shape).eq.2)then
-             call accumulate_gradient(this%left_operand, &
-                  transpose(upstream_grad) .mmul. this%right_operand)
-          else
-             call accumulate_gradient(this%left_operand, &
-                  upstream_grad .outer. this%right_operand)
-          end if
-       end if
-       if(associated(this%right_operand) .and. &
-            this%right_operand%requires_grad) then
-          if(size(this%left_operand%shape).eq.2)then
-             call accumulate_gradient(this%right_operand, &
-                  transpose(this%left_operand) .mmul. upstream_grad)
-          elseif(size(upstream_grad%shape).eq.2)then
-             call accumulate_gradient(this%right_operand, &
-                  this%left_operand .mmul. transpose(upstream_grad))
-          else
-             call accumulate_gradient(this%right_operand, &
-                  this%left_operand .outer. upstream_grad)
-          end if
-       end if
-
     case('concat')
        if(associated(this%left_operand) .and. &
             this%left_operand%requires_grad) then
@@ -755,61 +686,6 @@ contains
                upstream_grad * (this%val .eq. this%right_operand%val))
        end if
 
-    case('divide')
-       if(associated(this%left_operand) .and. &
-            this%left_operand%requires_grad) then
-          call accumulate_gradient(this%left_operand, &
-               upstream_grad / this%right_operand)
-       end if
-       if(associated(this%right_operand) .and. &
-            this%right_operand%requires_grad) then
-          block
-            class(array_type), pointer :: grad, div
-            allocate(grad)
-            allocate(div)
-            grad = -upstream_grad * this%left_operand
-            div = this%right_operand * this%right_operand
-            grad => grad / div
-            call accumulate_gradient(this%right_operand, grad)
-          end block
-       end if
-    case('divide_real1d')
-       if(associated(this%left_operand) .and. &
-            this%left_operand%requires_grad) then
-          call accumulate_gradient(this%left_operand, &
-               upstream_grad / this%right_operand%val(1,:))
-       end if
-    case('divide_scalar')
-       if(associated(this%left_operand) .and. &
-            this%left_operand%requires_grad) then
-          call accumulate_gradient(this%left_operand, &
-               upstream_grad / this%right_operand%val(1,1))
-       end if
-    case('scalar_divide')
-       if(associated(this%left_operand) .and. &
-            this%left_operand%requires_grad) then
-          block
-            class(array_type), pointer :: grad, div
-            allocate(grad)
-            allocate(div)
-            grad = -upstream_grad * this%right_operand%val(1,1)
-            div = this%left_operand * this%left_operand
-            grad => grad / div
-            call accumulate_gradient(this%left_operand, grad)
-          end block
-          !  call accumulate_gradient(this%left_operand, &
-          !       -upstream_grad * this%right_operand%val(1,1) / &
-          !       (this%left_operand * this%left_operand))
-       end if
-
-    case('power_scalar')
-       if(associated(this%left_operand) .and. &
-            this%left_operand%requires_grad) then
-          call accumulate_gradient(this%left_operand, &
-               upstream_grad * this%right_operand%val(1,1) * &
-               this%left_operand**(this%right_operand%val(1,1) - 1.0_real32))
-       end if
-
     case('sum_array_output_array')
        if(associated(this%left_operand) .and. &
             this%left_operand%requires_grad) then
@@ -832,20 +708,6 @@ contains
                -upstream_grad * sin(this%left_operand))
        end if
 
-    case('exp')
-       if(associated(this%left_operand) .and. &
-            this%left_operand%requires_grad) then
-          block
-            class(array_type), pointer :: grad
-            allocate(grad)
-            grad = exp(this%left_operand)
-            grad => grad * upstream_grad
-            call accumulate_gradient(this%left_operand, grad)
-          end block
-          !  call accumulate_gradient(this%left_operand, &
-          !       upstream_grad * exp(this%left_operand))
-       end if
-
        ! case('log')
        !    if(associated(this%left_operand) .and. &
        !       this%left_operand%requires_grad) then
@@ -860,13 +722,19 @@ contains
        !            upstream_grad * (1.0_real32 - tanh(this%left_operand)**2))
        !    end if
 
-    case('negate')
-       if(associated(this%left_operand) .and. &
-            this%left_operand%requires_grad) then
-          call accumulate_gradient(this%left_operand, -upstream_grad)
-       end if
-
     case default
+       if(associated(this%left_operand))then
+          if(this%left_operand%requires_grad) then
+             call accumulate_gradient(this%left_operand, &
+                  this%get_partial_left(upstream_grad))
+          end if
+       end if
+       if(associated(this%right_operand))then
+          if(this%right_operand%requires_grad)then
+             call accumulate_gradient(this%right_operand, &
+                  this%get_partial_right(upstream_grad))
+          end if
+       end if
        ! write(*,*) "Unknown operation: ", trim(this%operation)
        ! write(*,*) "left associated: ", associated(this%left_operand)
        ! write(*,*) "right associated: ", associated(this%right_operand)
@@ -890,7 +758,8 @@ contains
        call array%grad%allocate(array_shape=[size(array%val,1), &
             size(array%val,2)])
        array%grad%val = 0.0_real32
-       array%grad%is_constant = array%is_constant
+       array%grad%is_scalar = array%is_scalar
+       array%grad%is_sample_dependent = array%is_sample_dependent
        array%grad%requires_grad = .false.
        array%grad%is_leaf = .true.
        array%grad%operation = 'none'
@@ -903,12 +772,12 @@ contains
        call array%grad%zero_grad()
     end if
 
-    if(array%is_constant)then
+    if(array%is_sample_dependent)then
+       array%grad%val = array%grad%val + grad%val
+    else
        do s = 1, size(grad%val, 2)
           array%grad%val(:,1) = array%grad%val(:,1) + grad%val(:,s)
        end do
-    else
-       array%grad%val = array%grad%val + grad%val
     end if
 
     if(.not. array%is_leaf) then

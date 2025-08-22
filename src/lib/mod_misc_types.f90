@@ -221,8 +221,10 @@ module athena__misc_types
      !! Shape of the array
      integer :: size
      !! Size of the array
-     logical :: is_constant = .false.
-     !! Logical flag for constant array
+     logical :: is_sample_dependent = .true.
+     !! Boolean whether array is sample-dependent
+     logical :: is_scalar = .false.
+     !! Boolean whether array is contains a scalar value
      logical :: allocated = .false.
      !! Logical flag for array allocation
      real(real32), dimension(:,:), allocatable :: val
@@ -246,6 +248,10 @@ module athena__misc_types
      character(len=32) :: operation = 'none'
      logical :: owns_gradient = .false.
      !! Flag indicating if this array owns its gradient memory
+
+     procedure(get_partial), pass(this), pointer :: get_partial_left => null()!get_partial_add
+     procedure(get_partial), pass(this), pointer :: get_partial_right => null()!get_partial_add
+
    contains
      procedure, pass(this) :: allocate => allocate_array
      !! Abstract procedure for allocating array
@@ -282,7 +288,7 @@ module athena__misc_types
      !! Set requires_grad flag
      procedure :: create_result => create_result_array
      !! Helper to safely create result arrays
-     final :: finalise_array
+     !final :: finalise_array
      !! Finaliser for array type
   end type array_type
 
@@ -342,6 +348,15 @@ module athena__misc_types
      end subroutine detach_autodiff
   end interface
 
+  abstract interface
+     module function get_partial(this, upstream_grad) result(output)
+       class(array_type), intent(inout) :: this
+       class(array_type), intent(in) :: upstream_grad
+       type(array_type) :: output
+     end function get_partial
+  end interface
+
+
   interface
      pure module function flatten_array(this) result(output)
        class(array_type), intent(in) :: this
@@ -390,6 +405,7 @@ module athena__misc_types
   interface operator(-)
      module procedure subtract_arrays
      module procedure subtract_real1d
+     module procedure subtract_scalar
      module procedure negate_array
   end interface
 
@@ -913,6 +929,155 @@ contains
     ! end if
   end function sign_array
 
+
+  !-----------------------------------------------------------------------------
+  ! Partial derivative operations
+  !-----------------------------------------------------------------------------
+  module function get_partial_add(this, upstream_grad) result(output)
+    !! Get partial derivative with respect to left operand
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    output = upstream_grad
+  end function get_partial_add
+
+  module function get_partial_negate(this, upstream_grad) result(output)
+    !! Get partial derivative with respect to left operand
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    output = -upstream_grad
+  end function get_partial_negate
+
+  module function get_partial_exp(this, upstream_grad) result(output)
+    !! Get partial derivative with respect to left operand
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    output = upstream_grad * exp(this%left_operand)
+  end function get_partial_exp
+
+  module function get_partial_multiply_left(this, upstream_grad) result(output)
+    !! Get partial derivative with respect to left operand
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    if(this%right_operand%is_scalar)then
+       output = upstream_grad * this%right_operand%val(1,1)
+    else
+       output = upstream_grad * this%right_operand
+    end if
+  end function get_partial_multiply_left
+
+  module function get_partial_multiply_right(this, upstream_grad) result(output)
+    !! Get partial derivative with respect to right operand
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    if(this%left_operand%is_scalar)then
+       output = upstream_grad * this%left_operand%val(1,1)
+    else
+       output = upstream_grad * this%left_operand
+    end if
+  end function get_partial_multiply_right
+
+  module function get_partial_divide_left(this, upstream_grad) result(output)
+    !! Get partial derivative with respect to left operand
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    if(this%right_operand%is_scalar)then
+       output = upstream_grad / this%right_operand%val(1,1)
+    else
+       output = upstream_grad / this%right_operand
+    end if
+  end function get_partial_divide_left
+
+  module function get_partial_divide_right(this, upstream_grad) result(output)
+    !! Get partial derivative with respect to right operand
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+    class(array_type), pointer :: grad, div
+
+    allocate(grad)
+    allocate(div)
+    if(this%left_operand%is_scalar)then
+       grad = -upstream_grad * this%left_operand%val(1,1)
+    else
+       grad = -upstream_grad * this%left_operand
+    end if
+    div = this%right_operand * this%right_operand
+    output = grad / div
+  end function get_partial_divide_right
+
+  module function get_partial_power_base(this, upstream_grad) result(output)
+    !! Get the partial gradient with respect to the base of the power operation
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    if(this%right_operand%is_scalar)then
+       output = upstream_grad * this%right_operand%val(1,1) * &
+            this%left_operand ** ( this%right_operand%val(1,1) - 1.0_real32 )
+    else
+       output = upstream_grad * this%right_operand * &
+            this%left_operand ** ( this%right_operand - 1.0_real32 )
+    end if
+  end function get_partial_power_base
+
+  module function get_partial_power_exponent(this, upstream_grad) result(output)
+    !! Get the partial gradient with respect to the exponent of the power operation
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    if(this%left_operand%is_scalar)then
+       output = upstream_grad * log(this%left_operand%val(1,1)) * &
+            this%left_operand ** ( this%right_operand%val(1,1) )
+    else
+       output = upstream_grad * log(this%left_operand) * &
+            this%left_operand ** ( this%right_operand )
+    end if
+  end function get_partial_power_exponent
+
+  module function get_partial_matmul_left(this, upstream_grad) result(output)
+    !! Get partial derivative with respect to left operand of matmul
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    if(size(this%right_operand%shape).eq.2)then
+       output = upstream_grad .mmul. transpose(this%right_operand)
+    elseif(size(upstream_grad%shape).eq.2)then
+       output = transpose(upstream_grad) .mmul. this%right_operand
+    else
+       output = upstream_grad .outer. this%right_operand
+    end if
+
+  end function get_partial_matmul_left
+
+  module function get_partial_matmul_right(this, upstream_grad) result(output)
+    !! Get partial derivative with respect to right operand of matmul
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    if(size(this%left_operand%shape).eq.2)then
+       output = transpose(this%left_operand) .mmul. upstream_grad
+    elseif(size(upstream_grad%shape).eq.2)then
+       output = this%left_operand .mmul. transpose(upstream_grad)
+    else
+       output = this%left_operand .outer. upstream_grad
+    end if
+
+  end function get_partial_matmul_right
   !-----------------------------------------------------------------------------
   ! Addition operation
   !-----------------------------------------------------------------------------
@@ -925,14 +1090,16 @@ contains
 
     ! Safely create result array
     c => a%create_result()
-    if(b%is_constant)then
+    if(b%is_sample_dependent)then
+       c%val = a%val + b%val
+    else
        do s = 1, size(a%val, 2)
           c%val(:,s) = a%val(:,s) + b%val(:,1)
        end do
-    else
-       c%val = a%val + b%val
     end if
 
+    c%get_partial_left => get_partial_add
+    c%get_partial_right => get_partial_add
     ! Set up computation graph
     if(a%requires_grad .or. b%requires_grad) then
        c%requires_grad = .true.
@@ -952,6 +1119,7 @@ contains
     c => a%create_result()
     c%val = a%val + b
 
+    c%get_partial_left => get_partial_add
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -982,6 +1150,7 @@ contains
        c%val(:,s) = a%val(:,s) + b(:)
     end do
 
+    c%get_partial_left => get_partial_add
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -1011,6 +1180,7 @@ contains
     !  ! c => a%create_result()
     c%val = a%val + b
 
+    c%get_partial_left => get_partial_add
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -1039,6 +1209,8 @@ contains
     c => a%create_result()
     c%val = a%val - b%val
 
+    c%get_partial_left => get_partial_add
+    c%get_partial_right => get_partial_negate
     if(a%requires_grad .or. b%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -1061,6 +1233,7 @@ contains
        c%val(:,s) = a%val(:,s) - b(s)
     end do
 
+    c%get_partial_left => get_partial_add
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -1068,6 +1241,24 @@ contains
        c%left_operand => a
     end if
   end function subtract_real1d
+
+  function subtract_scalar(a, b) result(c)
+    !! Subtract a scalar from an autodiff array
+    class(array_type), intent(in), target :: a
+    real(real32), intent(in) :: b
+    type(array_type), pointer :: c
+
+    c => a%create_result()
+    c%val = a%val - b
+
+    c%get_partial_left => get_partial_add
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'subtract_scalar'
+       c%left_operand => a
+    end if
+  end function subtract_scalar
 
   function negate_array(a) result(c)
     !! Negate an autodiff array
@@ -1077,6 +1268,7 @@ contains
     c => a%create_result()
     c%val = -a%val
 
+    c%get_partial_left => get_partial_negate
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -1096,6 +1288,8 @@ contains
     c => a%create_result()
     c%val = a%val * b%val
 
+    c%get_partial_left => get_partial_multiply_left
+    c%get_partial_right => get_partial_multiply_right
     if(a%requires_grad .or. b%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -1118,6 +1312,7 @@ contains
     !  call c%allocate(array_shape=shape(a%val))
     c%val = a%val * scalar
 
+    c%get_partial_left => get_partial_multiply_left
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -1125,7 +1320,7 @@ contains
        c%left_operand => a
     end if
     allocate(b_array)
-    b_array%is_constant = .true.
+    b_array%is_scalar = .true.
     b_array%requires_grad = .false.
     b_array%is_leaf = .false.
     call b_array%allocate(array_shape=[1, 1])
@@ -1180,13 +1375,13 @@ contains
     integer, dimension(:), allocatable :: array_shape
 
     allocate(c)
-    if(a%is_constant)then
+    if(.not.a%is_sample_dependent)then
        call c%allocate(array_shape=[a%shape(1), size(b%val,2)])
        temp_a(1:a%shape(1), 1:a%shape(2)) => a%val
        do concurrent(s=1:size(b%val,2))
           c%val(:,s) = matmul(temp_a, b%val(:,s))
        end do
-    elseif(b%is_constant) then
+    elseif(.not.b%is_sample_dependent) then
        call c%allocate(array_shape=[size(a%val,1), b%shape(2)])
        temp_b(1:b%shape(1), 1:b%shape(2)) => b%val
        do concurrent(s=1:size(a%val,2))
@@ -1197,6 +1392,8 @@ contains
        stop 0
     end if
 
+    c%get_partial_left => get_partial_matmul_left
+    c%get_partial_right => get_partial_matmul_right
     if(a%requires_grad .or. b%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -1221,6 +1418,8 @@ contains
        c%val(:,s) = matmul(b, a%val(:,s))
     end do
 
+    c%get_partial_left => get_partial_matmul_left
+    c%get_partial_right => get_partial_matmul_right
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -1228,7 +1427,7 @@ contains
        c%left_operand => a
     end if
     allocate(b_array)
-    b_array%is_constant = .true.
+    b_array%is_sample_dependent = .false.
     b_array%shape = shape(b)
     b_array%requires_grad = .false.
     b_array%is_leaf = .false.
@@ -1254,6 +1453,8 @@ contains
        c%val(:,s) = matmul(a, b%val(:,s))
     end do
 
+    c%get_partial_left => get_partial_matmul_left
+    c%get_partial_right => get_partial_matmul_right
     if(b%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -1261,7 +1462,7 @@ contains
        c%right_operand => b
     end if
     allocate(a_array)
-    a_array%is_constant = .true.
+    a_array%is_sample_dependent = .false.
     a_array%shape = shape(a)
     a_array%requires_grad = .false.
     a_array%is_leaf = .false.
@@ -1447,7 +1648,7 @@ contains
        end do
     end do
 
-    c%is_constant = a%is_constant
+    c%is_sample_dependent = a%is_sample_dependent
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -1575,7 +1776,7 @@ contains
        c%val(:,new_dim_index) = sum(a%val(:,:), dim=2)
     end if
 
-    c%is_constant = a%is_constant
+    c%is_sample_dependent = a%is_sample_dependent
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -1822,7 +2023,7 @@ contains
 
     c%indices = adj_ia
     !  allocate(weight_array)
-    !  weight_array%is_constant = .true.
+    !  weight_array%is_sample_dependent = .false.
     !  weight_array%requires_grad = .false.
     !  weight_array%is_leaf = .false.
     !  weight_array%indices = [ min_degree, max_degree ]
@@ -1914,6 +2115,8 @@ contains
     c => a%create_result()
     c%val = a%val / b%val
 
+    c%get_partial_left => get_partial_divide_left
+    c%get_partial_right => get_partial_divide_right
     if(a%requires_grad .or. b%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -1935,6 +2138,8 @@ contains
     !  call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
     c%val = a%val / scalar
 
+    c%get_partial_left => get_partial_divide_left
+    c%get_partial_right => get_partial_divide_right
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -1942,7 +2147,8 @@ contains
        c%left_operand => a
     end if
     allocate(b_array)
-    b_array%is_constant = .true.
+    b_array%is_scalar = .true.
+    b_array%is_sample_dependent = .false.
     b_array%requires_grad = .false.
     b_array%is_leaf = .false.
     call b_array%allocate(array_shape=[1, 1])
@@ -1962,19 +2168,22 @@ contains
     !  call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
     c%val = scalar / a%val
 
+    c%get_partial_left => get_partial_divide_left
+    c%get_partial_right => get_partial_divide_right
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
        c%operation = 'scalar_divide'
-       c%left_operand => a
+       c%right_operand => a
     end if
     allocate(b_array)
-    b_array%is_constant = .true.
+    b_array%is_scalar = .true.
+    b_array%is_sample_dependent = .false.
     b_array%requires_grad = .false.
     b_array%is_leaf = .false.
     call b_array%allocate(array_shape=[1, 1])
     b_array%val(1, 1) = scalar
-    c%right_operand => b_array
+    c%left_operand => b_array
   end function scalar_divide
 
   function divide_real1d(a, b) result(c)
@@ -2000,7 +2209,7 @@ contains
        c%left_operand => a
     end if
     allocate(b_array)
-    b_array%is_constant = .true.
+    b_array%is_sample_dependent = .false.
     b_array%requires_grad = .false.
     b_array%is_leaf = .false.
     call b_array%allocate(array_shape=[1, size(b)])
@@ -2019,6 +2228,8 @@ contains
     c => a%create_result()
     c%val = a%val ** b%val
 
+    c%get_partial_left => get_partial_power_base
+    c%get_partial_right => get_partial_power_exponent
     if(a%requires_grad .or. b%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -2038,6 +2249,8 @@ contains
     c => a%create_result()
     c%val = a%val ** scalar
 
+    c%get_partial_left => get_partial_power_base
+    c%get_partial_right => get_partial_power_exponent
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -2045,7 +2258,8 @@ contains
        c%left_operand => a
     end if
     allocate(b_array)
-    b_array%is_constant = .true.
+    b_array%is_scalar = .true.
+    b_array%is_sample_dependent = .false.
     b_array%requires_grad = .false.
     b_array%is_leaf = .false.
     call b_array%allocate(array_shape=[1, 1])
@@ -2128,6 +2342,7 @@ contains
     !  call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
     c%val = exp(a%val)
 
+    c%get_partial_left => get_partial_exp
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.

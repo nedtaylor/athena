@@ -526,10 +526,10 @@ contains
             [ this%weight_shape(:2,t+this%num_time_steps), 1 ] &
        )
        call this%params_array(t)%set_requires_grad(.true.)
-       this%params_array(t)%is_constant = .true.
+       this%params_array(t)%is_sample_dependent = .false.
        this%params_array(t)%indices = [ this%min_vertex_degree, this%max_vertex_degree ]
        call this%params_array(t+this%num_time_steps)%set_requires_grad(.true.)
-       this%params_array(t+this%num_time_steps)%is_constant = .true.
+       this%params_array(t+this%num_time_steps)%is_sample_dependent = .false.
     end do
 
 
