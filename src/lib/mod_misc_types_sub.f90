@@ -557,71 +557,18 @@ contains
     class(array_type), intent(in) :: upstream_grad
 
     ! write(*,*) "Performing backward operation for:", trim(this%operation)
-    select case(trim(this%operation))
-    case('duvenaud_propagate')
-       if(associated(this%left_operand) .and. &
-            this%left_operand%requires_grad) then
+    if(associated(this%left_operand))then
+       if(this%left_operand%requires_grad) then
           call accumulate_gradient(this%left_operand, &
-               reverse_duvenaud_propagate( upstream_grad, &
-                    this%indices, this%adj_ja, &
-                    num_features = [ &
-                         this%left_operand%shape(1), this%right_operand%shape(1) &
-                    ], &
-                    num_elements = [ &
-                         size(this%left_operand%val,2), size(this%right_operand%val,2) &
-                    ], &
-                    left = .true. ))
+               this%get_partial_left(upstream_grad))
        end if
-       if(associated(this%right_operand) .and. &
-            this%right_operand%requires_grad) then
+    end if
+    if(associated(this%right_operand))then
+       if(this%right_operand%requires_grad)then
           call accumulate_gradient(this%right_operand, &
-               reverse_duvenaud_propagate( upstream_grad, &
-                    this%indices, this%adj_ja, &
-                    num_features = [ &
-                         this%left_operand%shape(1), this%right_operand%shape(1) &
-                    ], &
-                    num_elements = [ &
-                         size(this%left_operand%val,2), size(this%right_operand%val,2) &
-                    ], &
-                    left = .false. ))
+               this%get_partial_right(upstream_grad))
        end if
-    case('duvenaud_update')
-       if(associated(this%right_operand) .and. &
-            this%right_operand%requires_grad) then
-          call accumulate_gradient(this%right_operand, &
-               reverse_duvenaud_update( upstream_grad, this%left_operand, &
-                    this%indices ) )
-       end if
-       if(associated(this%left_operand) .and. &
-            this%left_operand%requires_grad) then
-          call accumulate_gradient(this%left_operand, &
-               reverse_duvenaud_update_weight( upstream_grad, this%right_operand, &
-                    this%left_operand%indices, this%indices ) )
-       end if
-
-
-
-    case default
-       if(associated(this%left_operand))then
-          if(this%left_operand%requires_grad) then
-             call accumulate_gradient(this%left_operand, &
-                  this%get_partial_left(upstream_grad))
-          end if
-       end if
-       if(associated(this%right_operand))then
-          if(this%right_operand%requires_grad)then
-             call accumulate_gradient(this%right_operand, &
-                  this%get_partial_right(upstream_grad))
-          end if
-       end if
-       ! write(*,*) "Unknown operation: ", trim(this%operation)
-       ! write(*,*) "left associated: ", associated(this%left_operand)
-       ! write(*,*) "right associated: ", associated(this%right_operand)
-       ! write(*,*) "requires_grad: ", this%requires_grad
-       ! write(*,*) "is_leaf: ", this%is_leaf
-       ! No gradient computation needed for leaf nodes or unknown operations
-    end select
-    ! write(*,*) "ending operation:", trim(this%operation)
+    end if
   end subroutine backward_op_array
 
   recursive subroutine accumulate_gradient(array, grad)
