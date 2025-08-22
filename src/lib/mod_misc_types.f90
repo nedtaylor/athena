@@ -246,7 +246,7 @@ module athena__misc_types
      class(array_type), pointer :: right_operand => null()
      !! Right operand for backward pass
      character(len=32) :: operation = 'none'
-     logical :: owns_gradient = .false.
+     logical :: owns_gradient = .true.
      !! Flag indicating if this array owns its gradient memory
 
      procedure(get_partial), pass(this), pointer :: get_partial_left => null()!get_partial_add
@@ -265,10 +265,6 @@ module athena__misc_types
      !! Procedure for getting array
      procedure, pass(this) :: set => set_array
      !! Procedure for setting array
-     procedure :: add => add_array
-     !! Procedure for adding arrays
-     procedure :: multiply => multiply_array
-     !! Procedure for multiplying arrays
      !  generic, public :: operator(+) => add
      !  !! Generic for adding arrays
      !  generic, public :: operator(*) => multiply
@@ -372,16 +368,6 @@ module athena__misc_types
        class(array_type), intent(inout) :: this
        real(real32), dimension(..), intent(in) :: input
      end subroutine set_array
-
-     module function add_array(a, b) result(output)
-       class(array_type), intent(in) :: a, b
-       type(array_type) :: output
-     end function add_array
-
-     module function multiply_array(a, b) result(output)
-       class(array_type), intent(in) :: a, b
-       type(array_type) :: output
-     end function multiply_array
 
      module subroutine assign_array(this, input)
        class(array_type), intent(out), target :: this
@@ -1078,6 +1064,123 @@ contains
     end if
 
   end function get_partial_matmul_right
+
+  module function get_partial_log(this, upstream_grad) result(output)
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    output = upstream_grad / this%left_operand
+
+  end function get_partial_log
+
+  module function get_partial_sqrt(this, upstream_grad) result(output)
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    output = upstream_grad / ( 2._real32 * sqrt( this%left_operand ) )
+
+  end function get_partial_sqrt
+
+  module function get_partial_sin(this, upstream_grad) result(output)
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    output = upstream_grad * cos( this%left_operand )
+
+  end function get_partial_sin
+
+  module function get_partial_cos(this, upstream_grad) result(output)
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    output = -upstream_grad * sin( this%left_operand )
+
+  end function get_partial_cos
+
+  module function get_partial_tan(this, upstream_grad) result(output)
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    output = upstream_grad / ( cos( this%left_operand ) ** 2 )
+
+  end function get_partial_tan
+
+  module function get_partial_index(this, upstream_grad) result(output)
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    output = reverse_index( &
+         upstream_grad, indices=this%indices, from=.false., &
+         new_index_size=size(this%left_operand%val, 2) &
+    )
+
+  end function get_partial_index
+
+  module function get_partial_merge(this, upstream_grad) result(output)
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    output = merge(upstream_grad, 0._real32, this%mask)
+
+  end function get_partial_merge
+
+  module function get_partial_concat_left(this, upstream_grad) result(output)
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    output = upstream_grad .ltrim. this%left_operand%shape(1)
+
+  end function get_partial_concat_left
+
+  module function get_partial_concat_right(this, upstream_grad) result(output)
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    output = upstream_grad .rtrim. this%right_operand%shape(1)
+
+  end function get_partial_concat_right
+
+  module function get_partial_max_left(this, upstream_grad) result(output)
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    output = upstream_grad * (this%val .eq. this%left_operand%val)
+
+  end function get_partial_max_left
+
+  module function get_partial_max_right(this, upstream_grad) result(output)
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    output = upstream_grad * (this%val .eq. this%right_operand%val)
+
+  end function get_partial_max_right
+
+  module function get_partial_sum_array_output_array(this, upstream_grad) result(output)
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    output = spread( &
+         upstream_grad, &
+         dim=this%indices(1), &
+         index=this%indices(2), &
+         ncopies= size(this%left_operand%val, 2) &
+    )
+
+  end function get_partial_sum_array_output_array
+
   !-----------------------------------------------------------------------------
   ! Addition operation
   !-----------------------------------------------------------------------------
@@ -1517,6 +1620,8 @@ contains
        end do
     end do
 
+    c%get_partial_left => get_partial_concat_left
+    c%get_partial_right => get_partial_concat_right
     if(a%requires_grad .or. b%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -1587,6 +1692,7 @@ contains
     end do
     c%indices = indices
 
+    c%get_partial_left => get_partial_index
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -1713,6 +1819,8 @@ contains
     c => a%create_result()
     c%val = max(a%val, b%val)
 
+    c%get_partial_left => get_partial_max_left
+    c%get_partial_right => get_partial_max_right
     if(a%requires_grad .or. b%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -1776,6 +1884,7 @@ contains
        c%val(:,new_dim_index) = sum(a%val(:,:), dim=2)
     end if
 
+    c%get_partial_left => get_partial_sum_array_output_array
     c%is_sample_dependent = a%is_sample_dependent
     if(a%requires_grad) then
        c%requires_grad = .true.
@@ -1813,6 +1922,7 @@ contains
     end do
     c%mask = mask
 
+    c%get_partial_left => get_partial_merge
     if(tsource%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -1861,6 +1971,7 @@ contains
     !  c%adj_ja(1,:) = adj_ja_tmp(1,1:itmp1)
 
 
+    c%get_partial_left => get_partial_merge
     if(tsource%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -2112,8 +2223,24 @@ contains
     class(array_type), intent(in), target :: a, b
     type(array_type), pointer :: c
 
-    c => a%create_result()
-    c%val = a%val / b%val
+    integer :: s
+
+    if(all(shape(a%val) .eq. shape(b%val))) then
+       c => a%create_result()
+       c%val = a%val / b%val
+    elseif(size(a%val,1).ne.size(b%val,1).and.size(a%val,2).eq.size(b%val,2))then
+       if(size(a%val,1) .eq. 1)then
+          c => b%create_result()
+          do concurrent(s=1:size(a%val,2))
+             c%val(:,s) = a%val(1,s) / b%val(:,s)
+          end do
+       elseif(size(b%val,1) .eq. 1)then
+          c => a%create_result()
+          do concurrent(s=1:size(a%val,2))
+             c%val(:,s) = a%val(:,s) / b%val(1,s)
+          end do
+       end if
+    end if
 
     c%get_partial_left => get_partial_divide_left
     c%get_partial_right => get_partial_divide_right
@@ -2202,6 +2329,8 @@ contains
        c%val(:,s) = a%val(:,s) / b(s)
     end do
 
+    c%get_partial_left => get_partial_divide_left
+    c%get_partial_right => get_partial_divide_right
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -2290,6 +2419,7 @@ contains
     c => a%create_result()
     c%val = sin(a%val)
 
+    c%get_partial_left => get_partial_sin
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -2307,6 +2437,7 @@ contains
     c => a%create_result()
     c%val = cos(a%val)
 
+    c%get_partial_left => get_partial_cos
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -2324,6 +2455,7 @@ contains
     c => a%create_result()
     c%val = tan(a%val)
 
+    c%get_partial_left => get_partial_tan
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -2360,6 +2492,7 @@ contains
     c => a%create_result()
     c%val = log(a%val)
 
+    c%get_partial_left => get_partial_log
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -2377,6 +2510,7 @@ contains
     c => a%create_result()
     c%val = sqrt(a%val)
 
+    c%get_partial_left => get_partial_sqrt
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.

@@ -221,6 +221,8 @@ contains
     if(.not.keep_shape_) this%shape = 0
     if(allocated(this%val)) deallocate(this%val)
     if(allocated(this%indices)) deallocate(this%indices)
+    if(allocated(this%adj_ja)) deallocate(this%adj_ja)
+    if(allocated(this%mask)) deallocate(this%mask)
 
     ! Clean up gradients
     if(associated(this%grad) .and. this%owns_gradient) then
@@ -346,51 +348,6 @@ contains
 
 
   end subroutine allocate_array
-!###############################################################################
-
-
-!###############################################################################
-  module function add_array(a, b) result(output)
-    !! Add two arrays
-    implicit none
-
-    ! Arguments
-    class(array_type), intent(in) :: a, b
-    !! Input arrays
-    type(array_type) :: output
-    !! Output array
-
-    output = a
-    if(.not.allocated(a%val).or..not.allocated(b%val))then
-       return
-    elseif(a%size.ne.b%size) then
-       return
-    end if
-
-    output%val = a%val + b%val
-
-  end function add_array
-!-------------------------------------------------------------------------------
-  module function multiply_array(a, b) result(output)
-    !! Multiply two arrays
-    implicit none
-
-    ! Arguments
-    class(array_type), intent(in) :: a, b
-    !! Input arrays
-    type(array_type) :: output
-    !! Output array
-
-    output = a
-    if(.not.allocated(a%val).or..not.allocated(b%val))then
-       return
-    elseif(a%size.ne.b%size) then
-       return
-    end if
-
-    output%val = a%val * b%val
-
-  end function multiply_array
 !###############################################################################
 
 
@@ -601,36 +558,6 @@ contains
 
     ! write(*,*) "Performing backward operation for:", trim(this%operation)
     select case(trim(this%operation))
-    case('concat')
-       if(associated(this%left_operand) .and. &
-            this%left_operand%requires_grad) then
-          call accumulate_gradient(this%left_operand, upstream_grad .ltrim. &
-               this%left_operand%shape(1))
-       end if
-       if(associated(this%right_operand) .and. &
-            this%right_operand%requires_grad) then
-          call accumulate_gradient(this%right_operand, upstream_grad .rtrim. &
-               this%right_operand%shape(1))
-       end if
-    case('index')
-       if(associated(this%left_operand) .and. &
-            this%left_operand%requires_grad) then
-          !  call accumulate_gradient_index(this%left_operand, upstream_grad)
-          call accumulate_gradient(this%left_operand, &
-               reverse_index( &
-                    upstream_grad, indices=this%indices, from=.false., &
-                    new_index_size=size(this%left_operand%val, 2) &
-               ))
-       end if
-    case('merge')
-       if(associated(this%left_operand) .and. &
-            this%left_operand%requires_grad) then
-          call accumulate_gradient(this%left_operand, &
-               merge(upstream_grad, 0._real32, this%mask))
-       end if
-
-
-
     case('duvenaud_propagate')
        if(associated(this%left_operand) .and. &
             this%left_operand%requires_grad) then
@@ -673,54 +600,6 @@ contains
        end if
 
 
-
-    case('max')
-       if(associated(this%left_operand) .and. &
-            this%left_operand%requires_grad) then
-          call accumulate_gradient(this%left_operand, &
-               upstream_grad * (this%val .eq. this%left_operand%val))
-       end if
-       if(associated(this%right_operand) .and. &
-            this%right_operand%requires_grad) then
-          call accumulate_gradient(this%right_operand, &
-               upstream_grad * (this%val .eq. this%right_operand%val))
-       end if
-
-    case('sum_array_output_array')
-       if(associated(this%left_operand) .and. &
-            this%left_operand%requires_grad) then
-          call accumulate_gradient(this%left_operand, &
-               spread(upstream_grad, dim=this%indices(1), index=this%indices(2), &
-                    ncopies= size(this%left_operand%val, 2)))
-       end if
-
-    case('sin')
-       if(associated(this%left_operand) .and. &
-            this%left_operand%requires_grad) then
-          call accumulate_gradient(this%left_operand, &
-               upstream_grad * cos(this%left_operand))
-       end if
-
-    case('cos')
-       if(associated(this%left_operand) .and. &
-            this%left_operand%requires_grad) then
-          call accumulate_gradient(this%left_operand, &
-               -upstream_grad * sin(this%left_operand))
-       end if
-
-       ! case('log')
-       !    if(associated(this%left_operand) .and. &
-       !       this%left_operand%requires_grad) then
-       !       call accumulate_gradient(this%left_operand, &
-       !            upstream_grad / this%left_operand)
-       !    end if
-
-       ! case('tanh')
-       !    if(associated(this%left_operand) .and. &
-       !       this%left_operand%requires_grad) then
-       !       call accumulate_gradient(this%left_operand, &
-       !            upstream_grad * (1.0_real32 - tanh(this%left_operand)**2))
-       !    end if
 
     case default
        if(associated(this%left_operand))then
@@ -811,6 +690,8 @@ contains
     result_ptr%owns_gradient = .false.
     result_ptr%left_operand => null()
     result_ptr%right_operand => null()
+    result_ptr%get_partial_left => null()
+    result_ptr%get_partial_right => null()
   end function create_result_array
 
 
