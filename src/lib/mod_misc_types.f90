@@ -247,6 +247,8 @@ module athena__misc_types
      logical :: owns_gradient = .true.
      !! Flag indicating if this array owns its gradient memory
 
+     real(real32), dimension(:), allocatable :: direction
+
      procedure(get_partial), pass(this), pointer :: get_partial_left => null()
      procedure(get_partial), pass(this), pointer :: get_partial_right => null()
 
@@ -270,7 +272,8 @@ module athena__misc_types
      procedure :: assign => assign_array
      generic, public :: assignment(=) => assign
 
-     procedure :: forward => forward_over_reverse
+     procedure, pass(this) :: set_direction
+     procedure, pass(this) :: forward => forward_over_reverse
 
      procedure :: backward => backward_autodiff
      !! Backward pass for gradient computation
@@ -421,6 +424,8 @@ module athena__misc_types
      module procedure power_arrays
      module procedure power_real_scalar
      module procedure power_int_scalar
+     module procedure scalar_power
+     module procedure int_scalar_power
   end interface
 
   interface operator(.mmul.)
@@ -927,6 +932,19 @@ contains
   !-----------------------------------------------------------------------------
   ! Partial derivative operations
   !-----------------------------------------------------------------------------
+  subroutine set_direction(this, direction)
+    !! Set the direction for the array (for higher-order derivatives)
+    class(array_type), intent(inout) :: this
+    real(real32), dimension(:), intent(in) :: direction
+
+    if(allocated(this%direction)) deallocate(this%direction)
+    if(size(this%val,1).ne.size(direction)) then
+       call stop_program('Direction size does not match array size in set_direction')
+    end if
+    this%direction = direction
+
+  end subroutine set_direction
+
   module function get_partial_add(this, upstream_grad) result(output)
     !! Get partial derivative with respect to left operand
     class(array_type), intent(inout) :: this
@@ -1034,7 +1052,7 @@ contains
 
     if(this%left_operand%is_scalar)then
        output = upstream_grad * log(this%left_operand%val(1,1)) * &
-            this%left_operand ** ( this%right_operand%val(1,1) )
+            this%left_operand%val(1,1) ** ( this%right_operand )
     else
        output = upstream_grad * log(this%left_operand) * &
             this%left_operand ** ( this%right_operand )
@@ -1397,7 +1415,11 @@ contains
     type(array_type), pointer :: c
 
     c => a%create_result()
-    c%val = a%val * b%val
+    if(b%is_scalar)then
+       c%val = a%val * b%val(1,1)
+    else
+       c%val = a%val * b%val
+    end if
 
     c%get_partial_left => get_partial_multiply_left
     c%get_partial_right => get_partial_multiply_right
@@ -1418,9 +1440,6 @@ contains
     type(array_type), pointer :: b_array
 
     c => a%create_result()
-    !  allocate(c)
-    !  call c%allocate(array_shape=[a%shape, size(a%val,2)])
-    !  call c%allocate(array_shape=shape(a%val))
     c%val = a%val * scalar
 
     c%get_partial_left => get_partial_multiply_left
@@ -1457,8 +1476,6 @@ contains
     integer :: s, i
 
     c => a%create_result()
-    !  allocate(c)
-    !  call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
     do concurrent(s=1:size(a%val,2), i=1:size(a%val,1))
        if(b(i,s)) then
           c%val(i,s) = a%val(i,s)
@@ -2189,7 +2206,6 @@ contains
     c%val = a%val ** scalar
 
     c%get_partial_left => get_partial_power_base
-    c%get_partial_right => get_partial_power_exponent
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -2212,10 +2228,44 @@ contains
     class(array_type), intent(in), target :: a
     integer, intent(in) :: scalar
     type(array_type), pointer :: c
-    type(array_type), pointer :: b_array
 
     c => power_real_scalar(a, real(scalar, real32))
   end function power_int_scalar
+
+  function scalar_power(scalar, a) result(c)
+    real(real32), intent(in) :: scalar
+    class(array_type), intent(in), target :: a
+    type(array_type), pointer :: c
+    type(array_type), pointer :: b_array
+
+    c => a%create_result()
+    c%val = scalar ** a%val
+
+    c%get_partial_left => get_partial_power_base
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'scalar_power'
+       c%right_operand => a
+    end if
+    allocate(b_array)
+    b_array%is_scalar = .true.
+    b_array%is_sample_dependent = .false.
+    b_array%requires_grad = .false.
+    b_array%is_leaf = .false.
+    call b_array%allocate(array_shape=[1, 1])
+    b_array%val(1, 1) = scalar
+    c%left_operand => b_array
+
+  end function scalar_power
+
+  function int_scalar_power(scalar, a) result(c)
+    integer, intent(in) :: scalar
+    class(array_type), intent(in), target :: a
+    type(array_type), pointer :: c
+
+    c => scalar_power(real(scalar, real32), a)
+  end function int_scalar_power
 
   !-----------------------------------------------------------------------------
   ! Mathematical functions

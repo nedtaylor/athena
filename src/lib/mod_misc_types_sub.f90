@@ -501,70 +501,62 @@ contains
     class(array_type), intent(inout) :: this
     class(array_type), intent(inout) :: variable
     type(array_type) :: output
-    type(array_type) :: left_deriv, right_deriv
     integer :: itmp
+
+    integer :: s
+    logical :: is_right_a_variable, is_left_a_variable
+    type(array_type) :: left_deriv, right_deriv
 
     itmp = itmp + 1
     if(itmp.gt.50)then
-       write(*,*) "MAX RECURSION DEPTH REACHED"
+       write(0,*) "MAX RECURSION DEPTH REACHED"
        return
     end if
-    write(*,*) "forward: ", trim(this%operation), loc(this), itmp
     if(loc(this).eq.loc(variable))then
-       write(*,*) "IS THE SAME, val", this%val
-       output = this
-       write(*,*) "allocated", associated(this%grad)
-       output%val(:,:) = 1._real32
-       write(*,*) "done"
+       call output%allocate(array_shape=[this%shape, size(this%val,2)])
+       if(allocated(this%direction))then
+          do s = 1, size(output%val,2)
+             output%val(:,s) = this%direction
+          end do
+       else
+          output%val(:,:) = 1._real32
+       end if
 
     elseif(associated(this%left_operand).or.associated(this%right_operand))then
-       write(*,*) "associated", &
-            associated(this%left_operand), associated(this%right_operand)
+       is_left_a_variable = .false.
        if(associated(this%left_operand)) then
-          left_deriv = forward_over_reverse(this%left_operand, variable, itmp)
-          call left_deriv%set_requires_grad(.false.)
-          write(*,*) "operationl: ", this%left_operand%operation
+          if(associated(this%get_partial_left))then
+             is_left_a_variable = .true.
+             left_deriv = forward_over_reverse(this%left_operand, variable, itmp)
+             call left_deriv%set_requires_grad(.false.)
+             left_deriv = this%get_partial_left(left_deriv)
+          end if
        end if
 
+       is_right_a_variable = .false.
        if(associated(this%right_operand)) then
-          right_deriv = forward_over_reverse(this%right_operand, variable, itmp)
-          call right_deriv%set_requires_grad(.false.)
-          write(*,*) "operationr: ", this%right_operand%operation
+          if(associated(this%get_partial_right))then
+             is_right_a_variable = .true.
+             right_deriv = forward_over_reverse(this%right_operand, variable, itmp)
+             call right_deriv%set_requires_grad(.false.)
+             right_deriv = this%get_partial_right(right_deriv)
+          end if
        end if
 
-       write(*,*) "associated partials", &
-            associated(this%get_partial_left), associated(this%get_partial_right)
-       if(associated(this%left_operand))then
-          left_deriv = this%get_partial_left(left_deriv) !or is it just this%grad
-       end if
-       write(*,*) "left done"
-       if(associated(this%right_operand))then
-          right_deriv = this%get_partial_right(right_deriv)
-       end if
-
-       write(*,*) "after"
-       if(associated(this%left_operand).and. associated(this%right_operand))then
-          write(*,*) "LEFT DERIV:", left_deriv%val
-          write(*,*) "RIGHT DERIV:", right_deriv%val
+       if(is_left_a_variable.and.is_right_a_variable)then
           output = left_deriv + right_deriv
-       elseif(associated(this%left_operand)) then
-          write(*,*) "LEFT DERIV:", left_deriv%val
+       elseif(is_left_a_variable)then
           output = left_deriv
-       elseif(associated(this%right_operand)) then
-          write(*,*) "RIGHT DERIV:", right_deriv%val
+       elseif(is_right_a_variable) then
           output = right_deriv
        else
           write(*,*) "!!!SHOULDN'T!!!"
        end if
-       write(*,*) "after after"
 
     else
-       write(*,*) "SHOULD NOT HAPPEN",   size(this%val)!, this%grad%val
        call output%allocate(array_shape=[this%shape, size(this%val,2)])
        output%val(:,:) = 0._real32
     end if
-    write(*,*) "OUT: ", this%operation
-    write(*,*)
 
   end function forward_over_reverse
 
@@ -665,7 +657,11 @@ contains
        array%grad%val = 0.0_real32
        array%grad%is_scalar = array%is_scalar
        array%grad%is_sample_dependent = array%is_sample_dependent
-       array%grad%requires_grad = .true.
+       if(.not.array%is_scalar)then
+          array%grad%requires_grad = .true.
+       else
+          array%grad%requires_grad = .false.
+       end if
        array%grad%is_leaf = .true.
        array%grad%operation = 'none'
        array%grad%left_operand => null()
@@ -678,30 +674,27 @@ contains
 
        if(array%is_sample_dependent)then
           array%grad = grad
-          write(*,*) "op: ", array%grad%operation
        else
-          write(*,*) "not"
           do s = 1, size(grad%val, 2)
              array%grad%val(:,1) = grad%val(:,s)
+          end do
+       end if
+       if(allocated(array%direction))then
+          do s = 1, size(grad%val, 2)
+             array%grad%val(:, s) = array%grad%val(:, s) * array%direction
           end do
        end if
     else
 
        if(array%is_sample_dependent)then
-          write(*,*) "sample dependent", &
-               associated(array%grad), loc(array%grad), loc(grad)
-          write(*,*) "grad op: ", grad%operation
           ! array%grad%val = array%grad%val + grad%val
           array%grad => array%grad + grad
-          write(*,*) "op: ", array%grad%operation
        else
-          write(*,*) "not"
           !! NEED TO FIX THIS ONE
           do s = 1, size(grad%val, 2)
              array%grad%val(:,1) = array%grad%val(:,1) + grad%val(:,s)
           end do
        end if
-       write(*,*) "next up"
 
     end if
 
@@ -732,6 +725,8 @@ contains
     ! Initialize autodiff fields
     result_ptr%requires_grad = .false.
     result_ptr%is_leaf = .true.
+    result_ptr%is_scalar = this%is_scalar
+    result_ptr%is_sample_dependent = this%is_sample_dependent
     result_ptr%operation = 'none'
     result_ptr%owns_gradient = .false.
     result_ptr%left_operand => null()
