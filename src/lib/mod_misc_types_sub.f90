@@ -495,6 +495,81 @@ contains
   !-----------------------------------------------------------------------------
   ! Core autodiff procedures
   !-----------------------------------------------------------------------------
+
+  module recursive function forward_over_reverse(this, variable, itmp) result(output)
+    implicit none
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(inout) :: variable
+    type(array_type) :: output
+    type(array_type) :: left_deriv, right_deriv
+    integer :: itmp
+
+    itmp = itmp + 1
+    if(itmp.gt.50)then
+       write(*,*) "MAX RECURSION DEPTH REACHED"
+       return
+    end if
+    write(*,*) "forward: ", trim(this%operation), loc(this), itmp
+    if(loc(this).eq.loc(variable))then
+       write(*,*) "IS THE SAME, val", this%val
+       output = this
+       write(*,*) "allocated", associated(this%grad)
+       output%val(:,:) = 1._real32
+       write(*,*) "done"
+
+    elseif(associated(this%left_operand).or.associated(this%right_operand))then
+       write(*,*) "associated", &
+            associated(this%left_operand), associated(this%right_operand)
+       if(associated(this%left_operand)) then
+          left_deriv = forward_over_reverse(this%left_operand, variable, itmp)
+          call left_deriv%set_requires_grad(.false.)
+          write(*,*) "operationl: ", this%left_operand%operation
+       end if
+
+       if(associated(this%right_operand)) then
+          right_deriv = forward_over_reverse(this%right_operand, variable, itmp)
+          call right_deriv%set_requires_grad(.false.)
+          write(*,*) "operationr: ", this%right_operand%operation
+       end if
+
+       write(*,*) "associated partials", &
+            associated(this%get_partial_left), associated(this%get_partial_right)
+       if(associated(this%left_operand))then
+          left_deriv = this%get_partial_left(left_deriv) !or is it just this%grad
+       end if
+       write(*,*) "left done"
+       if(associated(this%right_operand))then
+          right_deriv = this%get_partial_right(right_deriv)
+       end if
+
+       write(*,*) "after"
+       if(associated(this%left_operand).and. associated(this%right_operand))then
+          write(*,*) "LEFT DERIV:", left_deriv%val
+          write(*,*) "RIGHT DERIV:", right_deriv%val
+          output = left_deriv + right_deriv
+       elseif(associated(this%left_operand)) then
+          write(*,*) "LEFT DERIV:", left_deriv%val
+          output = left_deriv
+       elseif(associated(this%right_operand)) then
+          write(*,*) "RIGHT DERIV:", right_deriv%val
+          output = right_deriv
+       else
+          write(*,*) "!!!SHOULDN'T!!!"
+       end if
+       write(*,*) "after after"
+
+    else
+       write(*,*) "SHOULD NOT HAPPEN",   size(this%val)!, this%grad%val
+       call output%allocate(array_shape=[this%shape, size(this%val,2)])
+       output%val(:,:) = 0._real32
+    end if
+    write(*,*) "OUT: ", this%operation
+    write(*,*)
+
+  end function forward_over_reverse
+
+
+
   subroutine backward_autodiff(this)
     !! Perform backward pass starting from this array
     class(array_type), intent(inout) :: this
@@ -505,7 +580,7 @@ contains
        ! Safely initialize gradient without copying computation graph
        call this%grad%allocate(array_shape=[size(this%val,1), size(this%val,2)])
        this%grad%is_sample_dependent = this%is_sample_dependent
-       this%grad%requires_grad = .false.
+       this%grad%requires_grad = .true.
        this%grad%is_leaf = .true.
        this%grad%operation = 'none'
        this%grad%left_operand => null()
@@ -556,17 +631,21 @@ contains
     class(array_type), intent(inout) :: this
     class(array_type), intent(in) :: upstream_grad
 
+    type(array_type), pointer :: left_partial, right_partial
+
     ! write(*,*) "Performing backward operation for:", trim(this%operation)
     if(associated(this%left_operand))then
        if(this%left_operand%requires_grad) then
-          call accumulate_gradient(this%left_operand, &
-               this%get_partial_left(upstream_grad))
+          allocate(left_partial)
+          left_partial = this%get_partial_left(upstream_grad)
+          call accumulate_gradient(this%left_operand, left_partial)
        end if
     end if
     if(associated(this%right_operand))then
        if(this%right_operand%requires_grad)then
-          call accumulate_gradient(this%right_operand, &
-               this%get_partial_right(upstream_grad))
+          allocate(right_partial)
+          right_partial = this%get_partial_right(upstream_grad)
+          call accumulate_gradient(this%right_operand, right_partial)
        end if
     end if
   end subroutine backward_op_array
@@ -574,7 +653,7 @@ contains
   recursive subroutine accumulate_gradient(array, grad)
     !! Accumulate gradient for array with safe memory management
     class(array_type), intent(inout) :: array
-    class(array_type), intent(in) :: grad
+    class(array_type), intent(in), pointer :: grad
 
     integer :: s
 
@@ -586,7 +665,7 @@ contains
        array%grad%val = 0.0_real32
        array%grad%is_scalar = array%is_scalar
        array%grad%is_sample_dependent = array%is_sample_dependent
-       array%grad%requires_grad = .false.
+       array%grad%requires_grad = .true.
        array%grad%is_leaf = .true.
        array%grad%operation = 'none'
        array%grad%left_operand => null()
@@ -596,14 +675,34 @@ contains
        array%owns_gradient = .true.
        !  if(allocated(array%indices)) array%grad%indices = array%indices
        call array%grad%zero_grad()
-    end if
 
-    if(array%is_sample_dependent)then
-       array%grad%val = array%grad%val + grad%val
+       if(array%is_sample_dependent)then
+          array%grad = grad
+          write(*,*) "op: ", array%grad%operation
+       else
+          write(*,*) "not"
+          do s = 1, size(grad%val, 2)
+             array%grad%val(:,1) = grad%val(:,s)
+          end do
+       end if
     else
-       do s = 1, size(grad%val, 2)
-          array%grad%val(:,1) = array%grad%val(:,1) + grad%val(:,s)
-       end do
+
+       if(array%is_sample_dependent)then
+          write(*,*) "sample dependent", &
+               associated(array%grad), loc(array%grad), loc(grad)
+          write(*,*) "grad op: ", grad%operation
+          ! array%grad%val = array%grad%val + grad%val
+          array%grad => array%grad + grad
+          write(*,*) "op: ", array%grad%operation
+       else
+          write(*,*) "not"
+          !! NEED TO FIX THIS ONE
+          do s = 1, size(grad%val, 2)
+             array%grad%val(:,1) = array%grad%val(:,1) + grad%val(:,s)
+          end do
+       end if
+       write(*,*) "next up"
+
     end if
 
     if(.not. array%is_leaf) then

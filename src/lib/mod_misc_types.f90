@@ -247,8 +247,8 @@ module athena__misc_types
      logical :: owns_gradient = .true.
      !! Flag indicating if this array owns its gradient memory
 
-     procedure(get_partial), pass(this), pointer :: get_partial_left => null()!get_partial_add
-     procedure(get_partial), pass(this), pointer :: get_partial_right => null()!get_partial_add
+     procedure(get_partial), pass(this), pointer :: get_partial_left => null()
+     procedure(get_partial), pass(this), pointer :: get_partial_right => null()
 
    contains
      procedure, pass(this) :: allocate => allocate_array
@@ -269,6 +269,8 @@ module athena__misc_types
      !  !! Generic for multiplying arrays
      procedure :: assign => assign_array
      generic, public :: assignment(=) => assign
+
+     procedure :: forward => forward_over_reverse
 
      procedure :: backward => backward_autodiff
      !! Backward pass for gradient computation
@@ -315,6 +317,14 @@ module athena__misc_types
      end function create_result_array
 
 
+     module recursive function forward_over_reverse(this, variable, itmp) &
+          result(output)
+       implicit none
+       class(array_type), intent(inout) :: this
+       class(array_type), intent(inout) :: variable
+       type(array_type) :: output
+       integer :: itmp
+     end function forward_over_reverse
 
      module recursive subroutine backward_op_array(this, upstream_grad)
        class(array_type), intent(inout) :: this
