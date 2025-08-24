@@ -28,7 +28,7 @@ module athena__misc_types
        operator(.rtrim.), operator(.index.), operator(.outer.)
   public :: operator(.lt.), operator(.gt.)
 
-  public :: sign, merge, maxval, max, sum, spread, reverse_index
+  public :: sign, merge, maxval, max, sum, spread, reverse_index, pack, unpack
   public :: sin, cos, tan, exp, log, sqrt, tanh, sigmoid, transpose, add, concat
 
 
@@ -498,6 +498,14 @@ module athena__misc_types
 
   interface concat
      module procedure concat_array_ptr
+  end interface
+
+  interface pack
+     module procedure pack_array
+  end interface
+
+  interface unpack
+     module procedure unpack_array
   end interface
 
   !-----------------------------------------------------------------------------
@@ -1207,6 +1215,31 @@ contains
 
   end function get_partial_sum_array_output_array
 
+  module function get_partial_pack(this, upstream_grad) result(output)
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    integer :: dim, new_size
+
+    dim = this%adj_ja(1,1)
+    new_size = size(this%left_operand%val,dim)
+    output = unpack(upstream_grad, this%indices, dim, new_size)
+
+  end function get_partial_pack
+
+  module function get_partial_unpack(this, upstream_grad) result(output)
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    integer :: dim
+
+    dim = this%adj_ja(1,1)
+    output = pack(upstream_grad, this%indices, dim)
+
+  end function get_partial_unpack
+
   !-----------------------------------------------------------------------------
   ! Addition operation
   !-----------------------------------------------------------------------------
@@ -1701,6 +1734,74 @@ contains
        c%left_operand => a
     end if
   end function rtrim_array
+
+  function pack_array(a, indices, dim) result(c)
+    !! Pack an autodiff array
+    class(array_type), intent(in), target :: a
+    integer, dimension(:), intent(in) :: indices
+    integer, intent(in) :: dim
+    type(array_type), pointer :: c
+
+    integer :: i, s
+
+    allocate(c)
+    if(dim.eq.1)then
+       call c%allocate(array_shape=[size(indices), size(a%val,2)])
+       do concurrent(s=1:size(a%val,2), i=1:size(indices))
+          c%val(i, s) = a%val(indices(i), s)
+       end do
+    elseif(dim.eq.2)then
+       call c%allocate(array_shape=[size(a%val,1), size(indices)])
+       do concurrent(s=1:size(indices), i=1:size(a%val,1))
+          c%val(i, s) = a%val(i, indices(s))
+       end do
+    end if
+    c%indices = indices
+    allocate(c%adj_ja(1,1))
+    c%adj_ja(1,1) = dim
+
+    c%get_partial_left => get_partial_pack
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'pack'
+       c%left_operand => a
+    end if
+  end function pack_array
+
+  function unpack_array(a, indices, dim, new_size) result(c)
+    !! Unpack an autodiff array
+    class(array_type), intent(in), target :: a
+    integer, dimension(:), intent(in) :: indices
+    integer, intent(in) :: new_size, dim
+    type(array_type), pointer :: c
+
+    integer :: i, s
+
+
+    allocate(c)
+    if(dim.eq.1)then
+       call c%allocate( array_shape = [ new_size, size(a%val,2) ] )
+       do concurrent(i=1:size(indices,1), s=1:size(a%val,2))
+          c%val(indices(i),s) = a%val(i,s)
+       end do
+    elseif(dim.eq.2)then
+       do concurrent(i=1:size(a%val,1), s=1:new_size)
+          c%val(i,indices(s)) = a%val(i,s)
+       end do
+    end if
+    c%indices = indices
+    allocate(c%adj_ja(1,1))
+    c%adj_ja(1,1) = dim
+
+    c%get_partial_left => get_partial_unpack
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'unpack'
+       c%left_operand => a
+    end if
+  end function unpack_array
 
   function index_array(a, indices) result(c)
     !! Index an autodiff array

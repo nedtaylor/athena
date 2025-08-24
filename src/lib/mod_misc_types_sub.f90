@@ -648,6 +648,17 @@ contains
     class(array_type), intent(in), pointer :: grad
 
     integer :: s
+    class(array_type), pointer :: directed_grad
+
+    if(allocated(array%direction))then
+       allocate(directed_grad)
+       directed_grad = grad
+       do s = 1, size(grad%val, 2)
+          directed_grad%val(:, s) = grad%val(:, s) * array%direction
+       end do
+    else
+       directed_grad => grad
+    end if
 
     if(.not. associated(array%grad)) then
        allocate(array%grad)
@@ -673,33 +684,28 @@ contains
        call array%grad%zero_grad()
 
        if(array%is_sample_dependent)then
-          array%grad = grad
+          array%grad = directed_grad
        else
           do s = 1, size(grad%val, 2)
-             array%grad%val(:,1) = grad%val(:,s)
-          end do
-       end if
-       if(allocated(array%direction))then
-          do s = 1, size(grad%val, 2)
-             array%grad%val(:, s) = array%grad%val(:, s) * array%direction
+             array%grad%val(:,1) = directed_grad%val(:,s)
           end do
        end if
     else
 
        if(array%is_sample_dependent)then
           ! array%grad%val = array%grad%val + grad%val
-          array%grad => array%grad + grad
+          array%grad => array%grad + directed_grad
        else
           !! NEED TO FIX THIS ONE
           do s = 1, size(grad%val, 2)
-             array%grad%val(:,1) = array%grad%val(:,1) + grad%val(:,s)
+             array%grad%val(:,1) = array%grad%val(:,1) + directed_grad%val(:,s)
           end do
        end if
 
     end if
 
     if(.not. array%is_leaf) then
-       call array%backward_op(grad)
+       call array%backward_op(directed_grad)
     end if
   end subroutine accumulate_gradient
 
