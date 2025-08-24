@@ -1220,11 +1220,7 @@ contains
     class(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
-    integer :: dim, new_size
-
-    dim = this%adj_ja(1,1)
-    new_size = size(this%left_operand%val,dim)
-    output = unpack(upstream_grad, this%indices, dim, new_size)
+    output = unpack(upstream_grad, this%indices, this%adj_ja(1,1), this%adj_ja(2,1))
 
   end function get_partial_pack
 
@@ -1233,10 +1229,7 @@ contains
     class(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
-    integer :: dim
-
-    dim = this%adj_ja(1,1)
-    output = pack(upstream_grad, this%indices, dim)
+    output = pack(upstream_grad, this%indices, this%adj_ja(1,1))
 
   end function get_partial_unpack
 
@@ -1757,10 +1750,11 @@ contains
        end do
     end if
     c%indices = indices
-    allocate(c%adj_ja(1,1))
-    c%adj_ja(1,1) = dim
+    allocate(c%adj_ja(2,1))
+    c%adj_ja(:,1) = [ dim, size(a%val,dim) ]
 
     c%get_partial_left => get_partial_pack
+    c%get_partial_right => get_partial_unpack
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -1786,15 +1780,17 @@ contains
           c%val(indices(i),s) = a%val(i,s)
        end do
     elseif(dim.eq.2)then
+       call c%allocate( array_shape = [ size(a%val,1), new_size ] )
        do concurrent(i=1:size(a%val,1), s=1:new_size)
           c%val(i,indices(s)) = a%val(i,s)
        end do
     end if
     c%indices = indices
-    allocate(c%adj_ja(1,1))
-    c%adj_ja(1,1) = dim
+    allocate(c%adj_ja(2,1))
+    c%adj_ja(:,1) = [ dim, new_size ]
 
     c%get_partial_left => get_partial_unpack
+    c%get_partial_right => get_partial_pack
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.

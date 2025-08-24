@@ -512,6 +512,7 @@ contains
        write(0,*) "MAX RECURSION DEPTH REACHED"
        return
     end if
+    ! write(*,*) "Performing forward-over-reverse operation for: ", trim(this%operation)
     if(loc(this).eq.loc(variable))then
        call output%allocate(array_shape=[this%shape, size(this%val,2)])
        if(allocated(this%direction))then
@@ -523,13 +524,26 @@ contains
        end if
 
     elseif(associated(this%left_operand).or.associated(this%right_operand))then
+       ! if(associated(this%grad))then
+       !    output = this%grad
+       ! else
        is_left_a_variable = .false.
        if(associated(this%left_operand)) then
           if(associated(this%get_partial_left))then
              is_left_a_variable = .true.
+             !if(associated(this%left_operand%grad))then
+             !    left_deriv = this%left_operand%grad
+             !else
              left_deriv = forward_over_reverse(this%left_operand, variable, itmp)
              call left_deriv%set_requires_grad(.false.)
-             left_deriv = this%get_partial_left(left_deriv)
+             if( associated(this%get_partial_right) .and. &
+                  .not.associated(this%right_operand) &
+             )then
+                left_deriv = this%get_partial_right(left_deriv)
+             else
+                left_deriv = this%get_partial_left(left_deriv)
+             end if
+             !end if
           end if
        end if
 
@@ -537,9 +551,13 @@ contains
        if(associated(this%right_operand)) then
           if(associated(this%get_partial_right))then
              is_right_a_variable = .true.
+             !if(associated(this%right_operand%grad))then
+             !  right_deriv = this%right_operand%grad
+             !else
              right_deriv = forward_over_reverse(this%right_operand, variable, itmp)
              call right_deriv%set_requires_grad(.false.)
              right_deriv = this%get_partial_right(right_deriv)
+             !end if
           end if
        end if
 
@@ -553,6 +571,7 @@ contains
           write(*,*) "!!!SHOULDN'T!!!"
        end if
 
+       ! end if
     else
        call output%allocate(array_shape=[this%shape, size(this%val,2)])
        output%val(:,:) = 0._real32
@@ -577,6 +596,8 @@ contains
        this%grad%operation = 'none'
        this%grad%left_operand => null()
        this%grad%right_operand => null()
+       this%grad%get_partial_left => null()
+       this%grad%get_partial_right => null()
        this%grad%grad => null()
        this%grad%owns_gradient = .false.
        this%owns_gradient = .true.
@@ -625,7 +646,7 @@ contains
 
     type(array_type), pointer :: left_partial, right_partial
 
-    ! write(*,*) "Performing backward operation for:", trim(this%operation)
+    ! write(*,*) "Performing backward operation for: ", trim(this%operation)
     if(associated(this%left_operand))then
        if(this%left_operand%requires_grad) then
           allocate(left_partial)
@@ -661,31 +682,33 @@ contains
     end if
 
     if(.not. associated(array%grad)) then
-       allocate(array%grad)
-       ! Safely initialize gradient without copying computation graph
-       call array%grad%allocate(array_shape=[size(array%val,1), &
-            size(array%val,2)])
-       array%grad%val = 0.0_real32
-       array%grad%is_scalar = array%is_scalar
-       array%grad%is_sample_dependent = array%is_sample_dependent
-       if(.not.array%is_scalar)then
-          array%grad%requires_grad = .true.
-       else
-          array%grad%requires_grad = .false.
-       end if
-       array%grad%is_leaf = .true.
-       array%grad%operation = 'none'
-       array%grad%left_operand => null()
-       array%grad%right_operand => null()
-       array%grad%grad => null()
-       array%grad%owns_gradient = .false.
-       array%owns_gradient = .true.
-       !  if(allocated(array%indices)) array%grad%indices = array%indices
-       call array%grad%zero_grad()
-
        if(array%is_sample_dependent)then
-          array%grad = directed_grad
+          array%grad => directed_grad
        else
+          allocate(array%grad)
+          ! Safely initialize gradient without copying computation graph
+          call array%grad%allocate(array_shape=[size(array%val,1), &
+               size(array%val,2)])
+          array%grad%val = 0.0_real32
+          array%grad%is_scalar = array%is_scalar
+          array%grad%is_sample_dependent = array%is_sample_dependent
+          if(.not.array%is_scalar)then
+             array%grad%requires_grad = .true.
+          else
+             array%grad%requires_grad = .false.
+          end if
+          array%grad%is_leaf = .true.
+          array%grad%operation = 'none'
+          array%grad%left_operand => null()
+          array%grad%right_operand => null()
+          array%grad%get_partial_left => null()
+          array%grad%get_partial_right => null()
+          array%grad%grad => null()
+          array%grad%owns_gradient = .false.
+          array%owns_gradient = .true.
+          !  if(allocated(array%indices)) array%grad%indices = array%indices
+          call array%grad%zero_grad()
+
           do s = 1, size(grad%val, 2)
              array%grad%val(:,1) = directed_grad%val(:,s)
           end do
