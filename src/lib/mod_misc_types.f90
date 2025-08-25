@@ -291,7 +291,7 @@ module athena__misc_types
      !! Set requires_grad flag
      procedure :: create_result => create_result_array
      !! Helper to safely create result arrays
-     !final :: finalise_array
+     final :: finalise_array
      !! Finaliser for array type
   end type array_type
 

@@ -11,6 +11,8 @@ program sine
 
   type(network_type) :: network
   real(real32), dimension(1,1) :: x, y
+  type(array_type) :: x_array(1), y_array(1,1)
+  type(array_type), allocatable :: loss(:,:)
 
   integer, parameter :: num_iterations = 10000
   integer, parameter :: test_size = 30
@@ -57,6 +59,8 @@ program sine
      x_test(1,i) = ( ( i - 1 ) * 2._real32 * pi ) / test_size
      y_test(1,i) = ( sin(x_test(1,i)) + 1._real32 ) / 2._real32
   end do
+  call x_array(1)%allocate(array_shape=[1,1])
+  call y_array(1,1)%allocate(array_shape=[1,1])
 
 
   !-----------------------------------------------------------------------------
@@ -69,11 +73,15 @@ program sine
      call random_number(x)
      x = x * 2._real32 * pi
      y = (sin(x) + 1._real32) / 2._real32
+     x_array(1)%val = x
+     y_array(1,1)%val = y
 
      call network%set_batch_size(1)
      call network%forward(x)
-     call network%model(network%leaf_vertices(1))%layer%output(1,1)%grad_reverse()
-     call network%backward(y)
+     loss = network%loss%compute_generic( &
+          network%model(network%leaf_vertices(1))%layer%output,  y_array, x_array &
+     )
+     call loss(1,1)%grad_reverse()
      call network%update()
 
      if (mod(n, 1000) == 0) then

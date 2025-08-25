@@ -720,21 +720,27 @@ contains
     logical, intent(in) :: record_graph
 
     integer :: s
-    class(array_type), pointer :: directed_grad
+    logical :: is_directional
+    class(array_type), pointer :: directional_grad
 
+    is_directional = .false.
     if(allocated(array%direction))then
-       allocate(directed_grad)
-       directed_grad = grad
+       if(size(array%direction).gt.0) is_directional = .true.
+    end if
+
+    if(is_directional)then
+       allocate(directional_grad)
+       directional_grad = grad
        do s = 1, size(grad%val, 2)
-          directed_grad%val(:, s) = grad%val(:, s) * array%direction
+          directional_grad%val(:, s) = grad%val(:, s) * array%direction
        end do
     else
-       directed_grad => grad
+       directional_grad => grad
     end if
 
     if(.not. associated(array%grad)) then
        if(array%is_sample_dependent)then
-          array%grad => directed_grad
+          array%grad => directional_grad
        else
           allocate(array%grad)
           ! Safely initialize gradient without copying computation graph
@@ -761,25 +767,25 @@ contains
           call array%grad%zero_grad()
 
           do s = 1, size(grad%val, 2)
-             array%grad%val(:,1) = directed_grad%val(:,s)
+             array%grad%val(:,1) = directional_grad%val(:,s)
           end do
        end if
     else
 
        if(array%is_sample_dependent)then
           ! array%grad%val = array%grad%val + grad%val
-          array%grad => array%grad + directed_grad
+          array%grad => array%grad + directional_grad
        else
           !! NEED TO FIX THIS ONE
           do s = 1, size(grad%val, 2)
-             array%grad%val(:,1) = array%grad%val(:,1) + directed_grad%val(:,s)
+             array%grad%val(:,1) = array%grad%val(:,1) + directional_grad%val(:,s)
           end do
        end if
 
     end if
 
     if(.not. array%is_leaf) then
-       call array%reverse_mode(directed_grad, record_graph)
+       call array%reverse_mode(directional_grad, record_graph)
     end if
   end subroutine accumulate_gradient
 

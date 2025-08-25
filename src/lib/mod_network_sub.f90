@@ -2214,7 +2214,7 @@ contains
     ! Local variables
     integer :: s, s_idx
     !! Loop index
-    type(array_type) :: tmp_output(1,1)
+    type(array_type), pointer :: tmp_output(:,:)
 
 
     allocate(loss(1,1))
@@ -2259,6 +2259,7 @@ contains
           !            output(1,1)%val(:,start_index:end_index:1), &
           !            this%model(this%root_vertices(1))%layer%output(1,:) &
           !       ))
+          allocate(tmp_output(1,1))
           tmp_output(1,1)%val = output(1,1)%val(:,start_index:end_index:1)
           loss = this%loss%compute_pinn_generic( &
                this%model(this%leaf_vertices(1))%layer%output, &
