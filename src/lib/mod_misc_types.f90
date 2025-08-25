@@ -493,6 +493,7 @@ module athena__misc_types
 
   interface max
      module procedure max_array
+     module procedure max_scalar
   end interface
 
   interface merge
@@ -1967,6 +1968,24 @@ contains
        c%right_operand => b
     end if
   end function max_array
+
+  function max_scalar(a, scalar) result(c)
+    !! Find maximum value between an autodiff array and a scalar
+    class(array_type), intent(in), target :: a
+    real(real32), intent(in) :: scalar
+    type(array_type), pointer :: c
+
+    c => a%create_result()
+    c%val = max(a%val, scalar)
+
+    c%get_partial_left => get_partial_max_left
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'max_scalar'
+       c%left_operand => a
+    end if
+  end function max_scalar
 
   function sum_array(a, dim) result(c)
     !! Sum values along a dimension

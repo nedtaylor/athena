@@ -476,19 +476,19 @@ contains
     !! Finalise array - clean up memory safely
     type(array_type), intent(inout) :: this
 
-    ! Clean up gradient if we own it
-    if(associated(this%grad) .and. this%owns_gradient) then
-       call this%grad%deallocate()
+    if (associated(this%grad) .and. this%owns_gradient) then
        deallocate(this%grad)
     end if
 
-    ! Nullify pointers but don't deallocate targets (they may be used elsewhere)
-    this%left_operand => null()
-    this%right_operand => null()
-    this%grad => null()
+    ! Nullify pointers safely
+    if(associated(this%left_operand)) nullify(this%left_operand)
+    if(associated(this%right_operand)) nullify(this%right_operand)
+    if(associated(this%grad)) nullify(this%grad)
+
     this%owns_gradient = .false.
-    this%get_partial_left => null()
-    this%get_partial_right => null()
+    nullify(this%get_partial_left)
+    nullify(this%get_partial_right)
+
   end subroutine finalise_array
 !###############################################################################
 
@@ -711,6 +711,7 @@ contains
           call accumulate_gradient(this%right_operand, right_partial, record_graph)
        end if
     end if
+    ! write(*,*) "done operation: ", trim(this%operation)
   end subroutine reverse_mode
 
   recursive subroutine accumulate_gradient(array, grad, record_graph)
