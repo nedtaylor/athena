@@ -6,9 +6,8 @@ program example_hessian
 
   ! Variables
   type(array_type) :: x, y, f
-  type(array_type) :: hessian
+  type(array_type) :: hessian, grad
   integer :: i, j
-  integer :: itmp
 
   write(*,*) "=== Second-Order Derivatives Example ==="
 
@@ -30,7 +29,7 @@ program example_hessian
 
   ! Compute first derivatives (gradient)
   call x%set_direction([1._real32, 1._real32])
-  call f%backward( record_graph=.true.)
+  call f%grad_reverse( record_graph=.true.)
   write(*,*) "First derivatives (gradient):"
   if(associated(x%grad)) then
      write(*,*) "  df/dx1 =", x%grad%val(1,1)
@@ -40,25 +39,28 @@ program example_hessian
   ! Compute second derivatives (Hessian)
   write(*,*) "Computing Hessian matrix..."
   call x%set_direction([1._real32, 0._real32])
-  itmp = 0
-  hessian = x%grad%forward(x, itmp)
-  write(*,*) "  d^2f/dxdx1 =", hessian%val(1,1)
-  write(*,*) "  d^2f/dxdx2 =", hessian%val(2,1)
+  hessian = x%grad%grad_forward(x)
+  write(*,*) "  d^2f/dx1dx1 =", hessian%val(1,1)
+  write(*,*) "  d^2f/dx1dx2 =", hessian%val(2,1)
+
+  call x%set_direction([0._real32, 1._real32])
+  hessian = x%grad%grad_forward(x)
+  write(*,*) "  d^2f/dx2dx1 =", hessian%val(1,1)
+  write(*,*) "  d^2f/dx2dx2 =", hessian%val(2,1)
 
   write(*,*) "=== Example 1 Complete ==="
 
 
-!   call f%reset_graph()
   call x%set_requires_grad(.true.)
   call y%set_requires_grad(.true.)
 
-  f = x ** 4._real32 + x * y
+  f = x ** 4._real32 + x ** 2 * y
 
   write(*,*) "Function value f =", f%val(1,1)
 
   ! Compute first derivatives (gradient)
   call x%set_direction([1._real32, 1._real32])
-  call f%backward( record_graph=.true., reset_graph=.true. )
+  call f%grad_reverse( record_graph=.true., reset_graph=.true. )
   write(*,*) "First derivatives (gradient):"
   if(associated(x%grad)) then
      write(*,*) "  df/dx1 =", x%grad%val(1,1)
@@ -72,12 +74,29 @@ program example_hessian
   ! Compute second derivatives (Hessian)
   write(*,*) "Computing Hessian matrix..."
   call x%set_direction([1._real32, 1._real32])
-  itmp = 0
-  hessian = x%grad%forward(x, itmp)
+  hessian = x%grad%grad_forward(x)
   write(*,*) "  d^2f/dx^2 =", hessian%val(1,1)
   write(*,*) "  d^2f/dx^2 =", hessian%val(2,1)
 
+  hessian = y%grad%grad_forward(x)
+  write(*,*) "  d^2f/dydx =", hessian%val(1,1)
+  write(*,*) "  d^2f/dydx =", hessian%val(2,1)
+
   write(*,*) "=== Example 2 Complete ==="
 
+
+  ! Compute gradients using forward mode
+  call f%reset_graph()
+  f = x ** 4._real32 + x ** 2 * y
+  write(*,*) "Function value f =", f%val(1,1)
+  grad = f%grad_forward(x)
+  write(*,*) "Gradient (first derivatives):"
+  write(*,*) "  df/dx1 =", grad%val(1,1)
+  write(*,*) "  df/dx2 =", grad%val(2,1)
+  grad = f%grad_forward(y)
+  write(*,*) "  df/dy1 =", grad%val(1,1)
+  write(*,*) "  df/dy2 =", grad%val(2,1)
+
+  write(*,*) "=== Example 3 Complete ==="
 
 end program example_hessian

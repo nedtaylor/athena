@@ -568,7 +568,7 @@ contains
        elseif(is_right_a_variable) then
           output = right_deriv
        else
-          write(*,*) "!!!SHOULDN'T!!!"
+          write(0,*) "!!!SHOULDN'T!!!"
        end if
 
        ! end if
@@ -579,9 +579,22 @@ contains
 
   end function forward_over_reverse
 
+  module function grad_forward(this, variable) result(output)
+    !! Perform forward-mode automatic differentiation
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(inout) :: variable
+    type(array_type) :: output
+
+    integer :: itmp
+
+    itmp = 0
+    output = this%forward_over_reverse(variable, itmp)
+
+  end function grad_forward
 
 
-  subroutine backward_autodiff(this, record_graph, reset_graph)
+
+  subroutine grad_reverse(this, record_graph, reset_graph)
     !! Perform backward pass starting from this array
     class(array_type), intent(inout) :: this
     logical, intent(in), optional :: record_graph
@@ -616,17 +629,17 @@ contains
     end if
 
     ! Recursively compute gradients
-    call this%backward_op(this%grad, record_graph_)
-  end subroutine backward_autodiff
+    call this%reverse_mode(this%grad, record_graph_)
+  end subroutine grad_reverse
 
-  subroutine zero_grad_autodiff(this)
+  subroutine zero_grad(this)
     !! Zero the gradients of this array
     class(array_type), intent(inout) :: this
 
     if(associated(this%grad)) then
        if(allocated(this%grad%val)) this%grad%val = 0.0_real32
     end if
-  end subroutine zero_grad_autodiff
+  end subroutine zero_grad
 
   recursive subroutine reset_graph(this)
     !! Reset the gradient graph of this array
@@ -675,7 +688,7 @@ contains
     this%requires_grad = requires_grad
   end subroutine set_requires_grad_autodiff
 
-  module recursive subroutine backward_op_array(this, upstream_grad, record_graph)
+  module recursive subroutine reverse_mode(this, upstream_grad, record_graph)
     !! Backward operation for arrays
     class(array_type), intent(inout) :: this
     class(array_type), intent(in) :: upstream_grad
@@ -698,7 +711,7 @@ contains
           call accumulate_gradient(this%right_operand, right_partial, record_graph)
        end if
     end if
-  end subroutine backward_op_array
+  end subroutine reverse_mode
 
   recursive subroutine accumulate_gradient(array, grad, record_graph)
     !! Accumulate gradient for array with safe memory management
@@ -766,7 +779,7 @@ contains
     end if
 
     if(.not. array%is_leaf) then
-       call array%backward_op(directed_grad, record_graph)
+       call array%reverse_mode(directed_grad, record_graph)
     end if
   end subroutine accumulate_gradient
 

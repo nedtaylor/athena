@@ -34,7 +34,7 @@ program test_autodiff
   write(*,*) 'Result values:', result%val(:,1)
 
   ! Perform backward pass
-  call result%backward()
+  call result%grad_reverse()
 
   write(*,*) 'Backward pass completed.'
 

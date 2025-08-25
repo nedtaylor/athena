@@ -273,18 +273,21 @@ module athena__misc_types
      generic, public :: assignment(=) => assign
 
      procedure, pass(this) :: set_direction
-     procedure, pass(this) :: forward => forward_over_reverse
+     procedure, pass(this) :: grad_reverse
+     !! Reverse-mode: accumulate gradients wrt all inputs
+     procedure, pass(this) :: grad_forward
+     !! Forward-mode: return derivative wrt variable pointer
 
-     procedure :: backward => backward_autodiff
      !! Backward pass for gradient computation
-     procedure, pass(this) :: zero_grad => zero_grad_autodiff
+     procedure, pass(this) :: zero_grad
      !! Zero the gradients
      procedure, pass(this) :: reset_graph
-     procedure :: detach => detach_autodiff
+     procedure, pass(this) :: detach => detach_autodiff
      !! Detach from computation graph
-     procedure :: backward_op => backward_op_array
+     procedure, private, pass(this) :: reverse_mode
+     procedure, private, pass(this) :: forward_over_reverse
      !! Deferred procedure for operation-specific backward pass
-     procedure :: set_requires_grad => set_requires_grad_autodiff
+     procedure, pass(this) :: set_requires_grad => set_requires_grad_autodiff
      !! Set requires_grad flag
      procedure :: create_result => create_result_array
      !! Helper to safely create result arrays
@@ -321,42 +324,46 @@ module athena__misc_types
      end function create_result_array
 
 
+     module function grad_forward(this, variable) result(output)
+       class(array_type), intent(inout) :: this
+       class(array_type), intent(inout) :: variable
+       type(array_type) :: output
+     end function grad_forward
+
+     module subroutine grad_reverse(this, record_graph, reset_graph)
+       class(array_type), intent(inout) :: this
+       logical, intent(in), optional :: record_graph
+       logical, intent(in), optional :: reset_graph
+     end subroutine grad_reverse
+
      module recursive function forward_over_reverse(this, variable, itmp) &
           result(output)
-       implicit none
        class(array_type), intent(inout) :: this
        class(array_type), intent(inout) :: variable
        type(array_type) :: output
        integer :: itmp
      end function forward_over_reverse
 
-     module recursive subroutine backward_op_array(this, upstream_grad, record_graph)
+     module recursive subroutine reverse_mode(this, upstream_grad, record_graph)
        class(array_type), intent(inout) :: this
        class(array_type), intent(in) :: upstream_grad
        logical, intent(in) :: record_graph
-     end subroutine backward_op_array
+     end subroutine reverse_mode
 
      module subroutine set_requires_grad_autodiff(this, requires_grad)
        class(array_type), intent(inout) :: this
        logical, intent(in) :: requires_grad
      end subroutine set_requires_grad_autodiff
 
-     module subroutine backward_autodiff(this, record_graph, reset_graph)
-       !! Perform backward pass starting from this array
-       class(array_type), intent(inout) :: this
-       logical, intent(in), optional :: record_graph
-       logical, intent(in), optional :: reset_graph
-     end subroutine backward_autodiff
-
      module recursive subroutine reset_graph(this)
        !! Reset the gradients of this array
        class(array_type), intent(inout) :: this
      end subroutine reset_graph
 
-     module subroutine zero_grad_autodiff(this)
+     module subroutine zero_grad(this)
        !! Zero the gradients of this array
        class(array_type), intent(inout) :: this
-     end subroutine zero_grad_autodiff
+     end subroutine zero_grad
 
      module subroutine detach_autodiff(this)
        !! Detach this array from the computation graph

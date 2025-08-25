@@ -72,7 +72,7 @@ program sine
 
      call network%set_batch_size(1)
      call network%forward(x)
-     call network%model(network%leaf_vertices(1))%layer%output(1,1)%backward()
+     call network%model(network%leaf_vertices(1))%layer%output(1,1)%grad_reverse()
      call network%backward(y)
      call network%update()
 

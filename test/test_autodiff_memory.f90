@@ -41,7 +41,7 @@ program test_autodiff_memory
 
   ! Test 2: Gradient computation
   write(*,*) "Test 2: Gradient computation"
-  call e%backward()
+  call e%grad_reverse()
 
   if(associated(a%grad)) then
      write(*,*) "Gradient computed for a:", maxval(abs(a%grad%val))
@@ -72,7 +72,7 @@ program test_autodiff_memory
 
      c = a + b
      d = c * c
-     call d%backward()
+     call d%grad_reverse()
 
    !   deallocate(c, d)
      call a%deallocate()

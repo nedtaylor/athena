@@ -69,7 +69,7 @@ program simple
      loss = network%loss%compute_generic( &
           network%model(network%leaf_vertices(1))%layer%output,  y_array, x_array &
      )
-     call loss(1,1)%backward()
+     call loss(1,1)%grad_reverse()
      ! call network%backward(y)
      call network%update()
 

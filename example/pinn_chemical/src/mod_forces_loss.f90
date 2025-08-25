@@ -113,7 +113,7 @@ contains
 
     integer :: s
     real(real32) :: forces_loss
-    call predicted(1,1)%backward()
+    call predicted(1,1)%grad_reverse()
     forces_loss = 0._real32
     do s = 1, size(input)
        forces_loss = forces_loss + &

@@ -34,9 +34,9 @@ program pinn_chemical_example
   integer, dimension(:), allocatable :: sample_list
   real(real32), dimension(:), allocatable :: feature_in_norm
   type(array_type), dimension(1,1) :: output
+  real(real32) :: output_min, output_max
 
   class(*), allocatable, dimension(:,:) :: data_poly
-  real(real32) :: output_min, output_max
 
 
 

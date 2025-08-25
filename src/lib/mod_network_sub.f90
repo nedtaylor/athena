@@ -3172,7 +3172,7 @@ contains
              )
           end select
           call this%forward_generic2d(data_poly)
-          !  call this%model(this%leaf_vertices(1))%layer%output(1,1)%backward()
+          !  call this%model(this%leaf_vertices(1))%layer%output(1,1)%grad_reverse()
           deallocate(data_poly)
           !  call system_clock(timer_stop)
           !  forward_timer = forward_timer + timer_stop - timer_start
@@ -3198,7 +3198,7 @@ contains
           !       this%model(this%leaf_vertices(1))%layer%output,  y_array, x_array &
           !  )
           loss_array = this%loss_backward(this%expected_array, start_index, end_index)
-          call loss_array(1,1)%backward()
+          call loss_array(1,1)%grad_reverse()
 
 
 
@@ -3383,7 +3383,7 @@ contains
        end select
        call this%forward_generic2d(data_poly)
        deallocate(data_poly)
-       call this%model(this%leaf_vertices(1))%layer%output(1,1)%backward()
+       call this%model(this%leaf_vertices(1))%layer%output(1,1)%grad_reverse()
 
 
        ! Compute loss and accuracy (for monitoring)
