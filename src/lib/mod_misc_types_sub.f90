@@ -581,9 +581,17 @@ contains
 
 
 
-  subroutine backward_autodiff(this)
+  subroutine backward_autodiff(this, record_graph, reset_graph)
     !! Perform backward pass starting from this array
     class(array_type), intent(inout) :: this
+    logical, intent(in), optional :: record_graph
+    logical, intent(in), optional :: reset_graph
+
+    logical :: record_graph_
+
+    record_graph_ = .false.
+    if(present(record_graph)) record_graph_ = record_graph
+    if(present(reset_graph)) call this%reset_graph()
 
     ! Initialize gradient if not allocated
     if(.not. associated(this%grad)) then
@@ -591,7 +599,7 @@ contains
        ! Safely initialize gradient without copying computation graph
        call this%grad%allocate(array_shape=[size(this%val,1), size(this%val,2)])
        this%grad%is_sample_dependent = this%is_sample_dependent
-       this%grad%requires_grad = .true.
+       this%grad%requires_grad = record_graph_
        this%grad%is_leaf = .true.
        this%grad%operation = 'none'
        this%grad%left_operand => null()
@@ -608,7 +616,7 @@ contains
     end if
 
     ! Recursively compute gradients
-    call this%backward_op(this%grad)
+    call this%backward_op(this%grad, record_graph_)
   end subroutine backward_autodiff
 
   subroutine zero_grad_autodiff(this)
@@ -619,6 +627,34 @@ contains
        if(allocated(this%grad%val)) this%grad%val = 0.0_real32
     end if
   end subroutine zero_grad_autodiff
+
+  recursive subroutine reset_graph(this)
+    !! Reset the gradient graph of this array
+    class(array_type), intent(inout) :: this
+
+    if(associated(this%left_operand))then
+       call this%left_operand%reset_graph()
+       call this%left_operand%zero_grad()
+       if(associated(this%left_operand%grad)) then
+          call this%left_operand%grad%zero_grad()
+          this%left_operand%grad => null()
+       end if
+    end if
+
+    if(associated(this%right_operand)) then
+       call this%right_operand%reset_graph()
+       if(associated(this%right_operand%grad)) then
+          call this%right_operand%zero_grad()
+          this%right_operand%grad => null()
+       end if
+    end if
+
+    if(associated(this%grad)) then
+       call this%grad%zero_grad()
+       this%grad => null()
+    end if
+
+  end subroutine reset_graph
 
   subroutine detach_autodiff(this)
     !! Detach this array from the computation graph
@@ -639,10 +675,11 @@ contains
     this%requires_grad = requires_grad
   end subroutine set_requires_grad_autodiff
 
-  module recursive subroutine backward_op_array(this, upstream_grad)
+  module recursive subroutine backward_op_array(this, upstream_grad, record_graph)
     !! Backward operation for arrays
     class(array_type), intent(inout) :: this
     class(array_type), intent(in) :: upstream_grad
+    logical, intent(in) :: record_graph
 
     type(array_type), pointer :: left_partial, right_partial
 
@@ -651,22 +688,23 @@ contains
        if(this%left_operand%requires_grad) then
           allocate(left_partial)
           left_partial = this%get_partial_left(upstream_grad)
-          call accumulate_gradient(this%left_operand, left_partial)
+          call accumulate_gradient(this%left_operand, left_partial, record_graph)
        end if
     end if
     if(associated(this%right_operand))then
        if(this%right_operand%requires_grad)then
           allocate(right_partial)
           right_partial = this%get_partial_right(upstream_grad)
-          call accumulate_gradient(this%right_operand, right_partial)
+          call accumulate_gradient(this%right_operand, right_partial, record_graph)
        end if
     end if
   end subroutine backward_op_array
 
-  recursive subroutine accumulate_gradient(array, grad)
+  recursive subroutine accumulate_gradient(array, grad, record_graph)
     !! Accumulate gradient for array with safe memory management
     class(array_type), intent(inout) :: array
     class(array_type), intent(in), pointer :: grad
+    logical, intent(in) :: record_graph
 
     integer :: s
     class(array_type), pointer :: directed_grad
@@ -693,7 +731,7 @@ contains
           array%grad%is_scalar = array%is_scalar
           array%grad%is_sample_dependent = array%is_sample_dependent
           if(.not.array%is_scalar)then
-             array%grad%requires_grad = .true.
+             array%grad%requires_grad = record_graph
           else
              array%grad%requires_grad = .false.
           end if
@@ -728,7 +766,7 @@ contains
     end if
 
     if(.not. array%is_leaf) then
-       call array%backward_op(directed_grad)
+       call array%backward_op(directed_grad, record_graph)
     end if
   end subroutine accumulate_gradient
 

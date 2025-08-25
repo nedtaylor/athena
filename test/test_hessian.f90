@@ -24,15 +24,13 @@ program example_hessian
   write(*,*) "Computing function: f"
   write(*,*) "At point: x =", x%val(1,1)
 
-!   f = x ** 4._real32 + x * y
-!   ! implement indexing in the other direction
-  f = pack(x, [1], 1) + pack(x, [2], 1) **2 * pack(x, [1], 1)
+  f = pack(x, [1], 1) * pack(x, [2], 1) **2 + pack(x, [1], 1)**2
 
   write(*,*) "Function value f =", f%val(1,1)
 
   ! Compute first derivatives (gradient)
-  call x%set_direction([0._real32, 1._real32])
-  call f%backward()
+  call x%set_direction([1._real32, 1._real32])
+  call f%backward( record_graph=.true.)
   write(*,*) "First derivatives (gradient):"
   if(associated(x%grad)) then
      write(*,*) "  df/dx1 =", x%grad%val(1,1)
@@ -44,9 +42,42 @@ program example_hessian
   call x%set_direction([1._real32, 0._real32])
   itmp = 0
   hessian = x%grad%forward(x, itmp)
-  write(*,*) "  df/dx1dx1 =", hessian%val(1,1)
-  write(*,*) "  df/dx2dx2 =", hessian%val(2,1)
+  write(*,*) "  d^2f/dxdx1 =", hessian%val(1,1)
+  write(*,*) "  d^2f/dxdx2 =", hessian%val(2,1)
 
-  write(*,*) "=== Example Complete ==="
+  write(*,*) "=== Example 1 Complete ==="
+
+
+!   call f%reset_graph()
+  call x%set_requires_grad(.true.)
+  call y%set_requires_grad(.true.)
+
+  f = x ** 4._real32 + x * y
+
+  write(*,*) "Function value f =", f%val(1,1)
+
+  ! Compute first derivatives (gradient)
+  call x%set_direction([1._real32, 1._real32])
+  call f%backward( record_graph=.true., reset_graph=.true. )
+  write(*,*) "First derivatives (gradient):"
+  if(associated(x%grad)) then
+     write(*,*) "  df/dx1 =", x%grad%val(1,1)
+     write(*,*) "  df/dx2 =", x%grad%val(2,1)
+  end if
+  if(associated(y%grad)) then
+     write(*,*) "  df/dy1 =", y%grad%val(1,1)
+     write(*,*) "  df/dy2 =", y%grad%val(2,1)
+  end if
+
+  ! Compute second derivatives (Hessian)
+  write(*,*) "Computing Hessian matrix..."
+  call x%set_direction([1._real32, 1._real32])
+  itmp = 0
+  hessian = x%grad%forward(x, itmp)
+  write(*,*) "  d^2f/dx^2 =", hessian%val(1,1)
+  write(*,*) "  d^2f/dx^2 =", hessian%val(2,1)
+
+  write(*,*) "=== Example 2 Complete ==="
+
 
 end program example_hessian

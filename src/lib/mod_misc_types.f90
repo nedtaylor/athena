@@ -277,8 +277,9 @@ module athena__misc_types
 
      procedure :: backward => backward_autodiff
      !! Backward pass for gradient computation
-     procedure :: zero_grad => zero_grad_autodiff
+     procedure, pass(this) :: zero_grad => zero_grad_autodiff
      !! Zero the gradients
+     procedure, pass(this) :: reset_graph
      procedure :: detach => detach_autodiff
      !! Detach from computation graph
      procedure :: backward_op => backward_op_array
@@ -329,9 +330,10 @@ module athena__misc_types
        integer :: itmp
      end function forward_over_reverse
 
-     module recursive subroutine backward_op_array(this, upstream_grad)
+     module recursive subroutine backward_op_array(this, upstream_grad, record_graph)
        class(array_type), intent(inout) :: this
        class(array_type), intent(in) :: upstream_grad
+       logical, intent(in) :: record_graph
      end subroutine backward_op_array
 
      module subroutine set_requires_grad_autodiff(this, requires_grad)
@@ -339,10 +341,17 @@ module athena__misc_types
        logical, intent(in) :: requires_grad
      end subroutine set_requires_grad_autodiff
 
-     module subroutine backward_autodiff(this)
+     module subroutine backward_autodiff(this, record_graph, reset_graph)
        !! Perform backward pass starting from this array
        class(array_type), intent(inout) :: this
+       logical, intent(in), optional :: record_graph
+       logical, intent(in), optional :: reset_graph
      end subroutine backward_autodiff
+
+     module recursive subroutine reset_graph(this)
+       !! Reset the gradients of this array
+       class(array_type), intent(inout) :: this
+     end subroutine reset_graph
 
      module subroutine zero_grad_autodiff(this)
        !! Zero the gradients of this array
