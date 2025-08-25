@@ -102,14 +102,14 @@ contains
     !! Swish activation output
 
     ! Local variables
-    type(array_type) :: sigmoid_part
+    type(array_type), pointer :: sigmoid_part
     !! Sigmoid component
 
     ! Compute sigmoid(β*x)
-    sigmoid_part = 1._real32 / (1._real32 + exp(-this%beta * val))
+    sigmoid_part => 1._real32 / (1._real32 + exp(-this%beta * val))
 
     ! Compute swish: x * sigmoid(β*x)
-    output = this%scale * val * sigmoid_part
+    output => this%scale * val * sigmoid_part
   end function swish_activate_array
   function swish_activate_1d(this, val) result(output)
     !! Apply swish activation to 1D array

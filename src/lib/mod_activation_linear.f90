@@ -74,7 +74,7 @@ contains
     type(array_type), pointer :: output
     !! Scaled output values
 
-    output = this%scale * val
+    output => this%scale * val
   end function linear_activate_array
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------

@@ -73,7 +73,7 @@ contains
     type(array_type), pointer :: output
     !! Scaled output values
 
-    output = val * this%scale
+    output => val * this%scale
   end function none_activate_array
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------

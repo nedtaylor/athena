@@ -4,7 +4,7 @@ module athena__activation_relu
   !! This module implements the Rectified Linear Unit activation function
   use athena__constants, only: real32
   use athena__misc_types, only: activation_type, array_type, operator(+), operator(-), &
-       operator(*), operator(/)
+       operator(*), operator(/), max
   implicit none
 
 
@@ -76,7 +76,7 @@ contains
     type(array_type), pointer :: output
     !! Activated output values
 
-    !output = max(this%threshold, val) * this%scale
+    output => max(val, this%threshold) * this%scale
   end function relu_activate_array
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
