@@ -282,12 +282,12 @@ module athena__misc_types
      procedure, pass(this) :: zero_grad
      !! Zero the gradients
      procedure, pass(this) :: reset_graph
-     procedure, pass(this) :: detach => detach_autodiff
+     procedure, pass(this) :: detach
      !! Detach from computation graph
      procedure, private, pass(this) :: reverse_mode
      procedure, private, pass(this) :: forward_over_reverse
      !! Deferred procedure for operation-specific backward pass
-     procedure, pass(this) :: set_requires_grad => set_requires_grad_autodiff
+     procedure, pass(this) :: set_requires_grad
      !! Set requires_grad flag
      procedure :: create_result => create_result_array
      !! Helper to safely create result arrays
@@ -350,10 +350,10 @@ module athena__misc_types
        logical, intent(in) :: record_graph
      end subroutine reverse_mode
 
-     module subroutine set_requires_grad_autodiff(this, requires_grad)
+     module subroutine set_requires_grad(this, requires_grad)
        class(array_type), intent(inout) :: this
        logical, intent(in) :: requires_grad
-     end subroutine set_requires_grad_autodiff
+     end subroutine set_requires_grad
 
      module recursive subroutine reset_graph(this)
        !! Reset the gradients of this array
@@ -365,10 +365,10 @@ module athena__misc_types
        class(array_type), intent(inout) :: this
      end subroutine zero_grad
 
-     module subroutine detach_autodiff(this)
+     module subroutine detach(this)
        !! Detach this array from the computation graph
        class(array_type), intent(inout) :: this
-     end subroutine detach_autodiff
+     end subroutine detach
   end interface
 
   abstract interface

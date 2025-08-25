@@ -669,7 +669,7 @@ contains
 
   end subroutine reset_graph
 
-  subroutine detach_autodiff(this)
+  subroutine detach(this)
     !! Detach this array from the computation graph
     class(array_type), intent(inout) :: this
 
@@ -678,15 +678,15 @@ contains
     this%operation = 'none'
     this%left_operand => null()
     this%right_operand => null()
-  end subroutine detach_autodiff
+  end subroutine detach
 
-  subroutine set_requires_grad_autodiff(this, requires_grad)
+  subroutine set_requires_grad(this, requires_grad)
     !! Set the requires_grad flag
     class(array_type), intent(inout) :: this
     logical, intent(in) :: requires_grad
 
     this%requires_grad = requires_grad
-  end subroutine set_requires_grad_autodiff
+  end subroutine set_requires_grad
 
   module recursive subroutine reverse_mode(this, upstream_grad, record_graph)
     !! Backward operation for arrays
