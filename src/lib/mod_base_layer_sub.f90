@@ -802,13 +802,21 @@ contains
     this%weight_shape(:,1) = [ this%knl, this%num_channels, this%num_filters ]
     this%bias_shape = [this%num_filters]
 
+    allocate(this%params_array(2))
+    call this%params_array(1)%allocate([this%weight_shape(:,1), 1])
+    call this%params_array(1)%set_requires_grad(.true.)
+    this%params_array(1)%is_sample_dependent = .false.
+    call this%params_array(2)%allocate([this%bias_shape, 1])
+    call this%params_array(2)%set_requires_grad(.true.)
+    this%params_array(2)%is_sample_dependent = .false.
+
 
     !---------------------------------------------------------------------------
     ! initialise weights (kernels)
     !---------------------------------------------------------------------------
     allocate(initialiser_, source=initialiser_setup(this%kernel_initialiser))
     call initialiser_%initialise( &
-         this%params(:this%num_params-this%num_filters), &
+         this%params_array(1)%val(:,1), &
          fan_in = product(this%knl)+1, fan_out = 1, &
          spacing = [ this%knl, this%num_channels, this%num_filters ] &
     )
@@ -818,7 +826,7 @@ contains
     !---------------------------------------------------------------------------
     allocate(initialiser_, source=initialiser_setup(this%bias_initialiser))
     call initialiser_%initialise( &
-         this%params(this%num_params-this%num_filters+1:), &
+         this%params_array(2)%val(:,1), &
          fan_in = product(this%knl)+1, fan_out = 1 &
     )
     deallocate(initialiser_)

@@ -4,7 +4,7 @@ module athena__conv2d_layer
   use athena__constants, only: real32
   use athena__base_layer, only: conv_layer_type, base_layer_type
   use athena__pad2d_layer, only: pad2d_layer_type
-  use athena__misc_types, only: initialiser_type, array4d_type
+  use athena__misc_types, only: initialiser_type, array4d_type, array_type
   implicit none
 
 
@@ -16,12 +16,13 @@ module athena__conv2d_layer
 
   type, extends(conv_layer_type) :: conv2d_layer_type
      !! Type for 2D convolutional layer with overloaded procedures
-     real(real32), pointer :: weight(:,:,:,:) => null()
-     !! Weights of the convolutional layer
-     real(real32), pointer :: dw(:,:,:,:,:) => null()
-     !! Pointer to weight gradients
-     real(real32), allocatable, dimension(:,:,:,:) :: z
+     !   real(real32), pointer :: weight(:,:,:,:) => null()
+     !   !! Weights of the convolutional layer
+     !   real(real32), pointer :: dw(:,:,:,:,:) => null()
+     !   !! Pointer to weight gradients
+     !   real(real32), allocatable, dimension(:,:,:,:) :: z
      !! Activation values
+     type(array_type) :: z
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_conv2d
      !! Set hyperparameters for 2D convolutional layer
@@ -42,6 +43,9 @@ module athena__conv2d_layer
      !! Forward propagation for 4D input
      procedure, private, pass(this) :: backward_4d
      !! Backward propagation for 4D input
+
+     procedure, pass(this) :: forward_derived => forward_derived_conv2d
+
      final :: finalise_conv2d
      !! Finalise 2D convolutional layer
   end type conv2d_layer_type
@@ -101,15 +105,9 @@ contains
     if(allocated(this%pad)) deallocate(this%pad)
     if(allocated(this%cen)) deallocate(this%cen)
 
-    if(associated(this%bias)) nullify(this%bias)
-    if(associated(this%weight)) nullify(this%weight)
-    if(associated(this%dw)) nullify(this%dw)
-    if(allocated(this%z)) deallocate(this%z)
+    if(this%z%allocated) call this%z%deallocate()
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
-    if(allocated(this%di)) deallocate(this%di)
-    if(allocated(this%di_padded)) deallocate(this%di_padded)
-
     if(allocated(this%pad_layer)) deallocate(this%pad_layer)
 
   end subroutine finalise_conv2d
@@ -504,25 +502,25 @@ contains
     class(conv2d_layer_type), intent(inout), target :: this
     !! Instance of the 2D convolutional layer
 
-    if(allocated(this%params))then
-       this%weight( &
-            1:this%knl(1), &
-            1:this%knl(2), &
-            1:this%num_channels, &
-            1:this%num_filters &
-       ) => this%params(1:this%num_params-this%num_filters)
-       this%bias(1:this%num_filters) => &
-            this%params(this%num_params-this%num_filters+1:)
-    end if
-    if(allocated(this%dp))then
-       this%dw( &
-            1:this%knl(1), &
-            1:this%knl(2), &
-            1:this%num_channels, &
-            1:this%num_filters, &
-            1:this%batch_size &
-       ) => this%dp(:,:)
-    end if
+    !  if(allocated(this%params))then
+    !     this%weight( &
+    !          1:this%knl(1), &
+    !          1:this%knl(2), &
+    !          1:this%num_channels, &
+    !          1:this%num_filters &
+    !     ) => this%params(1:this%num_params-this%num_filters)
+    !     this%bias(1:this%num_filters) => &
+    !          this%params(this%num_params-this%num_filters+1:)
+    !  end if
+    !  if(allocated(this%dp))then
+    !     this%dw( &
+    !          1:this%knl(1), &
+    !          1:this%knl(2), &
+    !          1:this%num_channels, &
+    !          1:this%num_filters, &
+    !          1:this%batch_size &
+    !     ) => this%dp(:,:)
+    !  end if
 
   end subroutine set_ptrs_hyperparams_conv2d
 !###############################################################################
@@ -561,19 +559,6 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Set weights and biases pointers to params array
-    !---------------------------------------------------------------------------
-    this%weight( &
-         1:this%knl(1), &
-         1:this%knl(2), &
-         1:this%num_channels, &
-         1:this%num_filters &
-    ) => this%params(1:this%num_params-this%num_filters)
-    this%bias(1:this%num_filters) => &
-         this%params(this%num_params-this%num_filters+1:)
-
-
-    !---------------------------------------------------------------------------
     ! Allocate arrays
     !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
@@ -593,49 +578,49 @@ contains
                  this%batch_size ], &
             source=0._real32 &
        )
-       if(allocated(this%z)) deallocate(this%z)
+       if(this%z%allocated) call this%z%deallocate()
        !  select type(output => this%output(1,1))
        !  type is (array4d_type)
        !     allocate(this%z, source=output%val_ptr)
        !  end select
-       if(allocated(this%di)) deallocate(this%di)
-       allocate( this%di(1,1), source = array4d_type() )
-       call this%di(1,1)%allocate( &
-            array_shape = [ &
-                 this%input_shape(1), &
-                 this%input_shape(2), &
-                 this%input_shape(3), &
-                 this%batch_size ], &
-            source=0._real32 &
-       )
+       !  if(allocated(this%di)) deallocate(this%di)
+       !  allocate( this%di(1,1), source = array4d_type() )
+       !  call this%di(1,1)%allocate( &
+       !       array_shape = [ &
+       !            this%input_shape(1), &
+       !            this%input_shape(2), &
+       !            this%input_shape(3), &
+       !            this%batch_size ], &
+       !       source=0._real32 &
+       !  )
 
        if(allocated(this%pad_layer))then
           if(.not.allocated(this%di_padded)) this%di_padded = array4d_type()
           if(this%di_padded%allocated) call this%di_padded%deallocate()
-          call this%di_padded%allocate( &
-               array_shape = [ &
-                    this%input_shape(1) + 2 * this%pad(1), &
-                    this%input_shape(2) + 2 * this%pad(2), &
-                    this%input_shape(3), &
-                    this%batch_size ], &
-               source=0._real32 &
-          )
+          !  call this%di_padded%allocate( &
+          !       array_shape = [ &
+          !            this%input_shape(1) + 2 * this%pad(1), &
+          !            this%input_shape(2) + 2 * this%pad(2), &
+          !            this%input_shape(3), &
+          !            this%batch_size ], &
+          !       source=0._real32 &
+          !  )
        end if
 
-       if(allocated(this%dp)) deallocate(this%dp)
-       allocate( &
-            this%dp( this%num_params - this%num_filters, this%batch_size), &
-            source=0._real32 &
-       )
-       this%dw( &
-            1:this%knl(1), &
-            1:this%knl(2), &
-            1:this%num_channels, &
-            1:this%num_filters, &
-            1:this%batch_size &
-       ) => this%dp(:,:)
-       if(allocated(this%db)) deallocate(this%db)
-       allocate(this%db(this%num_filters, this%batch_size), source=0._real32)
+       !  if(allocated(this%dp)) deallocate(this%dp)
+       !  allocate( &
+       !       this%dp( this%num_params - this%num_filters, this%batch_size), &
+       !       source=0._real32 &
+       !  )
+       !  this%dw( &
+       !       1:this%knl(1), &
+       !       1:this%knl(2), &
+       !       1:this%num_channels, &
+       !       1:this%num_filters, &
+       !       1:this%batch_size &
+       !  ) => this%dp(:,:)
+       !  if(allocated(this%db)) deallocate(this%db)
+       !  allocate(this%db(this%num_filters, this%batch_size), source=0._real32)
     end if
 
   end subroutine set_batch_size_conv2d
@@ -712,11 +697,8 @@ contains
     ! Write weights and biases
     !---------------------------------------------------------------------------
     write(unit,'("WEIGHTS")')
-    do l = 1, this%num_filters
-       write(unit,'(5(E16.8E2))', advance="no") this%weight(:,:,:,l)
-       if(mod(size(this%weight(:,:,:,l)),5).eq.0) write(unit,*)
-       write(unit,'(E16.8E2)') this%bias(l)
-    end do
+    write(unit,'(5(E16.8E2))') this%params_array(1)%val(:,1)
+    write(unit,'(5(E16.8E2))') this%params_array(2)%val(:,1)
     write(unit,'("END WEIGHTS")')
 
   end subroutine print_to_unit_conv2d
@@ -964,41 +946,41 @@ contains
     !! Start and end indices for convolution
 
 
-    ! Perform the convolution operation
-    !---------------------------------------------------------------------------
-    do concurrent( &
-         i=1:this%output_shape(1):1, &
-         j=1:this%output_shape(2):1)
-#if defined(GFORTRAN)
-       start_idx = ([i,j]-1)*this%stp + 1
-#else
-       start_idx(1) = (i-1)*this%stp(1) + 1
-       start_idx(2) = (j-1)*this%stp(2) + 1
-#endif
-       end_idx   = start_idx + this%knl - 1
+!     ! Perform the convolution operation
+!     !---------------------------------------------------------------------------
+!     do concurrent( &
+!          i=1:this%output_shape(1):1, &
+!          j=1:this%output_shape(2):1)
+! #if defined(GFORTRAN)
+!        start_idx = ([i,j]-1)*this%stp + 1
+! #else
+!        start_idx(1) = (i-1)*this%stp(1) + 1
+!        start_idx(2) = (j-1)*this%stp(2) + 1
+! #endif
+!        end_idx   = start_idx + this%knl - 1
 
-       do concurrent(s=1:this%batch_size)
-          this%z(i,j,:,s) = this%bias(:)
-       end do
+!        do concurrent(s=1:this%batch_size)
+!           this%z(i,j,:,s) = this%bias(:)
+!        end do
 
-       do concurrent(l=1:this%num_filters, s=1:this%batch_size)
-          this%z(i,j,l,s) = this%z(i,j,l,s) + &
-               sum( &
-                    input( &
-                         start_idx(1):end_idx(1),&
-                         start_idx(2):end_idx(2),:,s &
-                    ) * this%weight(:,:,:,l) &
-               )
-       end do
-    end do
+!        do concurrent(l=1:this%num_filters, s=1:this%batch_size)
+!           this%z(i,j,l,s) = this%z(i,j,l,s) + &
+!                sum( &
+!                     input( &
+!                          start_idx(1):end_idx(1),&
+!                          start_idx(2):end_idx(2),:,s &
+!                     ) * this%weight(:,:,:,l) &
+!                )
+!        end do
+!     end do
 
 
-    ! Apply activation function to activation values (z)
-    !---------------------------------------------------------------------------
-    !  select type(output => this%output(1,1))
-    !  type is (array4d_type)
-    !     output%val_ptr = this%transfer%activate(this%z)
-    !  end select
+!     ! Apply activation function to activation values (z)
+!     !---------------------------------------------------------------------------
+!     !  select type(output => this%output(1,1))
+!     !  type is (array4d_type)
+!     !     output%val_ptr = this%transfer%activate(this%z)
+!     !  end select
 
   end subroutine forward_4d
 !###############################################################################
@@ -1053,106 +1035,143 @@ contains
     !! Differential of bias
 
 
-    bias_diff = this%transfer%differentiate([1._real32])
+    !  bias_diff = this%transfer%differentiate([1._real32])
 
 
-    ! Get gradient multiplied by differential of Z
-    !---------------------------------------------------------------------------
-    grad_dz = gradient * &
-         this%transfer%differentiate(this%z)
-    do concurrent( &
-         l=1:this%num_filters, s=1:this%batch_size)
-       this%db(l,s) = this%db(l,s) + sum(grad_dz(:,:,l,s)) * bias_diff(1)
-    end do
+    !  ! Get gradient multiplied by differential of Z
+    !  !---------------------------------------------------------------------------
+    !  grad_dz = gradient * &
+    !       this%transfer%differentiate(this%z)
+    !  do concurrent( &
+    !       l=1:this%num_filters, s=1:this%batch_size)
+    !     this%db(l,s) = this%db(l,s) + sum(grad_dz(:,:,l,s)) * bias_diff(1)
+    !  end do
 
 
-    ! Apply convolution to compute weight gradients
-    ! Offset applied as centre of kernel is 0 ...
-    ! ... whilst the starting index for input is 1
-    !---------------------------------------------------------------------------
-    do concurrent( &
-         s = 1 : this%batch_size, &
-         l = 1 : this%num_filters, &
-         m = 1 : this%num_channels &
-    )
-       do y = 1, this%knl(2), 1
-          do j = 1, this%output_shape(2)
-             do x = 1, this%knl(1), 1
-                do i = 1, this%output_shape(1)
-                   this%dw(x,y,m,l,s) = this%dw(x,y,m,l,s) + &
-                        grad_dz(i,j,l,s) * &
-                        input( &
-                             x + ( i - 1 ) * this%stp(1), &
-                             y + ( j - 1 ) * this%stp(2), &
-                             m, s &
-                        )
-                end do
-             end do
-          end do
-       end do
-    end do
+    !  ! Apply convolution to compute weight gradients
+    !  ! Offset applied as centre of kernel is 0 ...
+    !  ! ... whilst the starting index for input is 1
+    !  !---------------------------------------------------------------------------
+    !  do concurrent( &
+    !       s = 1 : this%batch_size, &
+    !       l = 1 : this%num_filters, &
+    !       m = 1 : this%num_channels &
+    !  )
+    !     do y = 1, this%knl(2), 1
+    !        do j = 1, this%output_shape(2)
+    !           do x = 1, this%knl(1), 1
+    !              do i = 1, this%output_shape(1)
+    !                 this%dw(x,y,m,l,s) = this%dw(x,y,m,l,s) + &
+    !                      grad_dz(i,j,l,s) * &
+    !                      input( &
+    !                           x + ( i - 1 ) * this%stp(1), &
+    !                           y + ( j - 1 ) * this%stp(2), &
+    !                           m, s &
+    !                      )
+    !              end do
+    !           end do
+    !        end do
+    !     end do
+    !  end do
 
 
-    ! Apply strided convolution to obtain input gradients
-    !---------------------------------------------------------------------------
-    if(this%calc_input_gradients)then
-       offset  = 1 + this%hlf + (this%cen - 1)
-       lim(1,:) = this%knl + this%hlf
-       lim(2,:) = (this%output_shape(:2) - 1) * this%stp + 1 + this%knl
-       n_stp = this%output_shape(:2) * this%stp
-       di = 0._real32
-       ! All elements of the output are separated by stride_x, stride_y
-       do concurrent( &
-            s = 1 : this%batch_size, &
-            l = 1 : this%num_filters, &
-            m = 1 : this%num_channels, &
-            i = 1 : size(di,dim=1) : 1, &
-            j = 1 : size(di,dim=2) : 1 &
-       )
+    !  ! Apply strided convolution to obtain input gradients
+    !  !---------------------------------------------------------------------------
+    !  if(this%calc_input_gradients)then
+    !     offset  = 1 + this%hlf + (this%cen - 1)
+    !     lim(1,:) = this%knl + this%hlf
+    !     lim(2,:) = (this%output_shape(:2) - 1) * this%stp + 1 + this%knl
+    !     n_stp = this%output_shape(:2) * this%stp
+    !     di = 0._real32
+    !     ! All elements of the output are separated by stride_x, stride_y
+    !     do concurrent( &
+    !          s = 1 : this%batch_size, &
+    !          l = 1 : this%num_filters, &
+    !          m = 1 : this%num_channels, &
+    !          i = 1 : size(di,dim=1) : 1, &
+    !          j = 1 : size(di,dim=2) : 1 &
+    !     )
 
-          ! Set weight bounds (o/p = output)
-          ! max( ...
-          ! ... 1. offset of 1st o/p idx from centre of knl     (lim)
-          ! ... 2. lwst o/p idx overlap with <<- knl idx (rpt. pattern)
-          ! ...)
-          lim_w(2,:) = max( &
-               lim(1,:)-[i,j], &
-               1 + mod(n_stp+this%knl-[i,j],this%stp) &
-          )
-          ! min( ...
-          ! ... 1. offset of last o/p idx from centre of knl    (lim)
-          ! ... 2. hghst o/p idx overlap with ->> knl idx (rpt. pattern)
-          ! ...)
-          lim_w(1,:) = min( &
-               lim(2,:)-[i,j], &
-               this%knl - mod(n_stp-1+[i,j],this%stp) &
-          )
-          if(any(lim_w(2,:).gt.lim_w(1,:))) cycle
+    !        ! Set weight bounds (o/p = output)
+    !        ! max( ...
+    !        ! ... 1. offset of 1st o/p idx from centre of knl     (lim)
+    !        ! ... 2. lwst o/p idx overlap with <<- knl idx (rpt. pattern)
+    !        ! ...)
+    !        lim_w(2,:) = max( &
+    !             lim(1,:)-[i,j], &
+    !             1 + mod(n_stp+this%knl-[i,j],this%stp) &
+    !        )
+    !        ! min( ...
+    !        ! ... 1. offset of last o/p idx from centre of knl    (lim)
+    !        ! ... 2. hghst o/p idx overlap with ->> knl idx (rpt. pattern)
+    !        ! ...)
+    !        lim_w(1,:) = min( &
+    !             lim(2,:)-[i,j], &
+    !             this%knl - mod(n_stp-1+[i,j],this%stp) &
+    !        )
+    !        if(any(lim_w(2,:).gt.lim_w(1,:))) cycle
 
-          ! Set gradient bounds
-          lim_g(1,:) = max(1, [i,j] - offset)
-          lim_g(2,:) = min( &
-               this%output_shape(:2), &
-               [i,j] - offset + this%knl - 1 &
-          )
+    !        ! Set gradient bounds
+    !        lim_g(1,:) = max(1, [i,j] - offset)
+    !        lim_g(2,:) = min( &
+    !             this%output_shape(:2), &
+    !             [i,j] - offset + this%knl - 1 &
+    !        )
 
-          ! Apply full convolution to compute input gradients
-          di(i,j,m,s) = di(i,j,m,s) + &
-               sum( &
-                    grad_dz( &
-                         lim_g(1,1):lim_g(2,1), &
-                         lim_g(1,2):lim_g(2,2), &
-                         l, s &
-                    ) * this%weight( &
-                         lim_w(1,1):lim_w(2,1):-this%stp(1), &
-                         lim_w(1,2):lim_w(2,2):-this%stp(2), &
-                         m, l &
-                    ) &
-               )
-       end do
-    end if
+    !        ! Apply full convolution to compute input gradients
+    !        di(i,j,m,s) = di(i,j,m,s) + &
+    !             sum( &
+    !                  grad_dz( &
+    !                       lim_g(1,1):lim_g(2,1), &
+    !                       lim_g(1,2):lim_g(2,2), &
+    !                       l, s &
+    !                  ) * this%weight( &
+    !                       lim_w(1,1):lim_w(2,1):-this%stp(1), &
+    !                       lim_w(1,2):lim_w(2,2):-this%stp(2), &
+    !                       m, l &
+    !                  ) &
+    !             )
+    !     end do
+    !  end if
 
   end subroutine backward_4d
+!###############################################################################
+
+
+!###############################################################################
+  subroutine forward_derived_conv2d(this, input)
+    !! Forward propagation for 4D input
+    implicit none
+
+    ! Arguments
+    class(conv2d_layer_type), intent(inout) :: this ! target
+    !! Instance of the 2D convolutional layer
+    class(array_type), dimension(:,:), intent(in) :: input
+    !! Input values
+
+    !! Loop indices
+    type(array_type), pointer :: bias_spread, input_ptr
+
+
+    select case(allocated(this%pad_layer))
+    case(.true.)
+       call this%pad_layer%forward_derived(input)
+       !input_ptr => this%pad_layer%output(1,1)
+    case default
+       allocate(input_ptr)
+       input_ptr = input(1,1)
+    end select
+    ! Generate outputs from weights, biases, and inputs
+    !---------------------------------------------------------------------------
+    call this%z%zero_grad()
+    !this%z = convolve(input_ptr, this%params_array(1), this%stp) + bias_spread
+
+    ! Apply activation function to activation
+    !---------------------------------------------------------------------------
+    call this%output(1,1)%zero_grad()
+    this%output(1,1) = this%transfer%activate(this%z)
+
+  end subroutine forward_derived_conv2d
 !###############################################################################
 
 end module athena__conv2d_layer

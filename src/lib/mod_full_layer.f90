@@ -27,12 +27,12 @@ module athena__full_layer
      !! Number of inputs
      integer :: num_outputs
      !! Number of outputs
-     real(real32), pointer :: weight(:,:) => null()
-     !! Pointer to weights (kernels)
-     real(real32), pointer :: dw(:,:,:) => null()
-     !! Pointer to weight gradients
-     !  real(real32), allocatable, dimension(:,:) :: z
-     !  !! Activation values
+     !  real(real32), pointer :: weight(:,:) => null()
+     !  !! Pointer to weights (kernels)
+     !  real(real32), pointer :: dw(:,:,:) => null()
+     !  !! Pointer to weight gradients
+     !  !  real(real32), allocatable, dimension(:,:) :: z
+     !  !  !! Activation values
      type(array_type) :: z
    contains
      procedure, pass(this) :: get_num_params => get_num_params_full
@@ -105,12 +105,9 @@ contains
     type(full_layer_type), intent(inout) :: this
     !! Instance of the fully connected layer
 
-    if(associated(this%weight)) nullify(this%weight)
-    if(associated(this%dw)) nullify(this%dw)
-    ! if(allocated(this%z)) deallocate(this%z)
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
-    if(allocated(this%di)) deallocate(this%di)
+    if(this%z%allocated) call this%z%deallocate()
 
   end subroutine finalise_full
 !###############################################################################
@@ -460,12 +457,6 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Set weights and biases pointers to params array
-    !---------------------------------------------------------------------------
-    ! this%weight(1:this%num_outputs,1:this%num_inputs+1) => this%params_array%val
-
-
-    !---------------------------------------------------------------------------
     ! Allocate arrays
     !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
@@ -476,30 +467,8 @@ contains
             source=0._real32 &
        )
        if(this%z%allocated) call this%z%deallocate()
-       !  if(allocated(this%z)) deallocate(this%z)
-       !  select type(output => this%output(1,1))
-       !  type is (array2d_type)
-       !     allocate( this%z, source = output%val )
-       !  end select
        call this%z%allocate( &
             [this%num_outputs, this%batch_size], &
-            source=0._real32 &
-       )
-       if(allocated(this%dp)) deallocate(this%dp)
-       allocate( &
-            this%dp( &
-                 this%num_params - this%num_outputs, &
-                 this%batch_size &
-            ), source=0._real32 &
-       )
-       !  this%dw(1:this%num_outputs,1:this%num_inputs,1:this%batch_size) => &
-       !       this%dp
-       !  if(allocated(this%db)) deallocate(this%db)
-       !  allocate(this%db(this%num_outputs, this%batch_size), source=0._real32)
-       if(allocated(this%di)) deallocate(this%di)
-       allocate(this%di(1,1), source=array2d_type())
-       call this%di(1,1)%allocate( &
-            [this%num_inputs, this%batch_size], &
             source=0._real32 &
        )
     end if
@@ -866,17 +835,10 @@ contains
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input values
 
-    ! Local variables
-    integer :: s
-    !! Loop index
-    real(real32) :: tmp
-
 
     ! Generate outputs from weights, biases, and inputs
     !---------------------------------------------------------------------------
     call this%z%zero_grad()
-    ! this%z = ( this%weight(:,:this%num_inputs) .mmul. input(1,1) ) + &
-    !      [ this%weight(:,this%num_inputs+1) ]
     this%z = ( this%params_array(1) .mmul. input(1,1) ) + this%params_array(2)
 
     ! Apply activation function to activation
@@ -914,37 +876,6 @@ contains
     ! Loop variables
     integer :: s, j
     !! Loop indices
-
-
-    bias_diff = this%transfer%differentiate([1._real32])
-
-
-    ! Get gradient multiplied by differential of Z
-    !---------------------------------------------------------------------------
-    ! The grad_dz values are the error multipled by the derivative ...
-    ! ... of the transfer function
-    ! grad_dz(l) = g'(a) * dE/dI(l)
-    ! grad_dz(l) = differential of activation * error from next layer
-
-    grad_dz = gradient(1,1)%val * this%z%grad%val !this%transfer%differentiate(this%z)
-    this%db(:,:) = this%db(:,:) + grad_dz * bias_diff(1)
-
-
-    ! Update weights
-    !---------------------------------------------------------------------------
-    do concurrent(s=1:this%batch_size)
-       !! partial derivatives of error wrt weights
-       !! dE/dW = o/p(l-1) * grad_dz
-       do j = 1, this%num_inputs
-          this%dw(:,j,s) = this%dw(:,j,s) + input(1,1)%val(j,s) * grad_dz(:,s)
-       end do
-       !! the errors are summed from the grad_dz of the ...
-       !! ... 'child' node * 'child' weight
-       !! dE/dI(l-1) = sum(weight(l) * grad_dz(l))
-       !! this prepares dE/dI for when it is passed into the previous layer
-       this%di(1,1)%val(:,s) = &
-            matmul(grad_dz(:,s), this%weight(:,:this%num_inputs))
-    end do
 
   end subroutine backward_derived_full
 !###############################################################################
