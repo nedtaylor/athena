@@ -36,7 +36,7 @@ contains
     type(forces_loss_type) :: loss
 
     loss%alpha = 0.5_real32
-    loss%beta = 5.E-2_real32
+    loss%beta = 1.E-4_real32
     loss%name = "for"
     loss%requires_autodiff = .true.
   end function setup_loss_forces
@@ -113,7 +113,8 @@ contains
 
     integer :: s
     real(real32) :: forces_loss
-    call predicted(1,1)%grad_reverse()
+
+    call predicted(1,1)%grad_reverse(reset_graph=.true.)
     forces_loss = 0._real32
     do s = 1, size(input)
        forces_loss = forces_loss + &

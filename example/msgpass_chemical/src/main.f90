@@ -35,6 +35,8 @@ program msgpass_chemical_example
   type(array_type), dimension(1,1) :: output
   real(real32) :: output_min, output_max
 
+  class(*), allocatable, dimension(:,:) :: data_poly
+
 
 
   !-----------------------------------------------------------------------------
@@ -134,7 +136,8 @@ program msgpass_chemical_example
             ! lr_decay = exp_lr_decay_type(1.E-2_real32) &
             ! lr_decay = step_lr_decay_type(0.5_real32, 5) &
        ), &
-       loss_method = "mse", metrics = metric_dict, &
+       loss_method = "mse", &
+       metrics = metric_dict, &
        batch_size = batch_size, verbose = 1, &
        accuracy_method = "mse" &
   )
@@ -176,6 +179,13 @@ program msgpass_chemical_example
   )
   write(*,*) "Testing finished"
 
+  data_poly = network%predict_generic( graphs_in, output_as_graph = .false.)
+  select type(data_poly)
+  type is(array_type)
+     write(*,*) "Predicted output:"
+     write(*,*) data_poly(1,1)%val * ( output_max - output_min ) + output_min
+     write(*,*) output(1,1)%val * ( output_max - output_min ) + output_min
+  end select
 
   write(6,'("Overall accuracy=",F0.5)') network%accuracy_val
   write(6,'("Overall loss=",F0.5)')     network%loss_val

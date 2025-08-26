@@ -124,8 +124,8 @@ program pinn_chemical_example
   !-----------------------------------------------------------------------------
   ! compile network
   !-----------------------------------------------------------------------------
-  allocate(clip, source=clip_type(-1.E0_real32, 1.E0_real32))
-!   allocate(clip, source=clip_type(clip_norm = 1.E-1_real32))
+  ! allocate(clip, source=clip_type(-1.E0_real32, 1.E0_real32))
+  allocate(clip, source=clip_type(clip_norm = 1.E-1_real32))
   metric_dict%active = .false.
   metric_dict(1)%key = "loss"
   metric_dict(2)%key = "accuracy"
@@ -133,7 +133,7 @@ program pinn_chemical_example
   call network%compile( &
        optimiser = adam_optimiser_type( &
             clip_dict = clip, &
-            learning_rate = 1.E-4_real32 &
+            learning_rate = 1.E-2_real32 &
             ! lr_decay = exp_lr_decay_type(1.E-2_real32) &
             ! lr_decay = step_lr_decay_type(0.5_real32, 5) &
        ), &

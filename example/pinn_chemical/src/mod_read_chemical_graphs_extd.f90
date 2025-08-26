@@ -31,6 +31,7 @@ contains
 
     integer :: num_samples
     type(bas_type) :: basis
+    type(graph_type) :: graph_tmp
     real(real32), dimension(3,3) :: lattice
     real(real32), allocatable, dimension(:) :: labels_tmp
     type(graph_type), allocatable, dimension(:) :: graphs_tmp
@@ -50,7 +51,8 @@ contains
        backspace(unit)
        call geom_read(unit, lattice, basis)
        call get_elements_masses_and_charges(basis)
-       graphs_tmp = [ graphs_tmp, get_input_graph_from_basis(lattice, basis) ]
+       graph_tmp = get_input_graph_from_basis(lattice, basis)
+       graphs_tmp = [ graphs_tmp, graph_tmp ]
        labels_tmp = [ labels_tmp, basis%energy ]
     end do
     close(unit)

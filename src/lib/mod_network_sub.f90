@@ -3199,7 +3199,7 @@ contains
           !       this%model(this%leaf_vertices(1))%layer%output,  y_array, x_array &
           !  )
           loss_array = this%loss_backward(this%expected_array, start_index, end_index)
-          call loss_array(1,1)%grad_reverse()
+          call loss_array(1,1)%grad_reverse(reset_graph=.true.)
 
 
 
