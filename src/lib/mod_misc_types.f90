@@ -28,7 +28,8 @@ module athena__misc_types
        operator(.rtrim.), operator(.index.), operator(.outer.)
   public :: operator(.lt.), operator(.gt.)
 
-  public :: sign, merge, maxval, max, sum, spread, reverse_index, pack, unpack
+  public :: sign, merge, maxval, max, sum, mean, spread
+  public :: pack, unpack
   public :: sin, cos, tan, exp, log, sqrt, tanh, sigmoid, transpose, add, concat
 
 
@@ -291,6 +292,7 @@ module athena__misc_types
      !! Set requires_grad flag
      procedure :: create_result => create_result_array
      !! Helper to safely create result arrays
+
      final :: finalise_array
      !! Finaliser for array type
   end type array_type
@@ -485,6 +487,10 @@ module athena__misc_types
   interface sum
      module procedure sum_array
      module procedure sum_array_output_array
+  end interface
+
+  interface mean
+     module procedure mean_array
   end interface
 
   interface maxval
@@ -1218,7 +1224,7 @@ contains
 
   end function get_partial_max_right
 
-  module function get_partial_sum_array_output_array(this, upstream_grad) result(output)
+  module function get_partial_sum_array(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
     class(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -1227,10 +1233,29 @@ contains
          upstream_grad, &
          dim=this%indices(1), &
          index=this%indices(2), &
-         ncopies= size(this%left_operand%val, 2) &
+         ncopies= size(this%left_operand%val, this%indices(1)) &
     )
 
-  end function get_partial_sum_array_output_array
+  end function get_partial_sum_array
+
+  module function get_partial_mean_array(this, upstream_grad) result(output)
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    real(real32) :: rtmp1
+
+    ! Calculate the number of elements that were averaged
+    rtmp1 = real(size(this%left_operand%val, this%indices(1)), real32)
+
+    output = spread( &
+         upstream_grad / rtmp1, &
+         dim=this%indices(1), &
+         index=this%indices(2), &
+         ncopies= size(this%left_operand%val, this%indices(1)) &
+    )
+
+  end function get_partial_mean_array
 
   module function get_partial_pack(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
@@ -1991,6 +2016,45 @@ contains
     !! Sum values along a dimension
     class(array_type), intent(in), target :: a
     integer, intent(in) :: dim
+    type(array_type), pointer :: c
+
+    integer :: i, s
+
+    if(size(a%shape) .ne. 1)then
+       call stop_program("sum_array: only 1D arrays can be used")
+    end if
+
+    allocate(c)
+    if(dim.eq.1)then
+       call c%allocate(array_shape=[1, size(a%val,2)])
+       do concurrent(s=1:size(a%val,2))
+          c%val(1,s) = sum(a%val(:,s))
+       end do
+    else if(dim.eq.2)then
+       call c%allocate(array_shape=[size(a%val,1), 1])
+       do concurrent(i=1:size(a%val,1))
+          c%val(i,1) = sum(a%val(i,:))
+       end do
+       c%is_sample_dependent = .false.
+    else
+       call stop_program("sum_array: only 1 or 2 dimensions are supported")
+    end if
+    c%indices = [dim, 1]
+
+    c%get_partial_left => get_partial_sum_array
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'sum_array'
+       c%left_operand => a
+    end if
+
+  end function sum_array
+
+  function sum_array_output_real(a, dim) result(c)
+    !! Sum values along a dimension
+    class(array_type), intent(in), target :: a
+    integer, intent(in) :: dim
     real(real32), dimension(:), allocatable :: c
 
     integer :: i, s
@@ -2013,7 +2077,7 @@ contains
        call stop_program("sum_array: only 1 or 2 dimensions are supported")
     end if
 
-  end function sum_array
+  end function sum_array_output_real
 
   function sum_array_output_array(a, dim, new_dim_index, new_dim_size) result(c)
     !! Sum values along a dimension and return an autodiff array
@@ -2041,7 +2105,7 @@ contains
        c%val(:,new_dim_index) = sum(a%val(:,:), dim=2)
     end if
 
-    c%get_partial_left => get_partial_sum_array_output_array
+    c%get_partial_left => get_partial_sum_array
     c%is_sample_dependent = a%is_sample_dependent
     if(a%requires_grad) then
        c%requires_grad = .true.
@@ -2051,6 +2115,48 @@ contains
     end if
     c%indices = [dim, new_dim_index]
   end function sum_array_output_array
+
+  function mean_array(a, dim) result(c)
+    !! Compute mean values along a dimension
+    class(array_type), intent(in), target :: a
+    integer, intent(in) :: dim
+    type(array_type), pointer :: c
+
+    integer :: i, s
+    real(real32) :: rtmp1
+
+    if(size(a%shape) .ne. 1)then
+       call stop_program("mean_array: only 1D arrays can be used")
+    end if
+
+    allocate(c)
+    if(dim.eq.1)then
+       call c%allocate(array_shape=[1, size(a%val,2)])
+       rtmp1 = real(size(a%val,1), real32)
+       do concurrent(s=1:size(a%val,2))
+          c%val(1,s) = sum(a%val(:,s)) / rtmp1
+       end do
+    else if(dim.eq.2)then
+       call c%allocate(array_shape=[size(a%val,1), 1])
+       rtmp1 = real(size(a%val,2), real32)
+       do concurrent(i=1:size(a%val,1))
+          c%val(i,1) = sum(a%val(i,:)) / rtmp1
+       end do
+       c%is_sample_dependent = .false.
+    else
+       call stop_program("mean_array: only 1 or 2 dimensions are supported")
+    end if
+    c%indices = [dim, 1]
+
+    c%get_partial_left => get_partial_mean_array
+    if(a%requires_grad) then
+       c%requires_grad = .true.
+       c%is_leaf = .false.
+       c%operation = 'mean_array'
+       c%left_operand => a
+    end if
+
+  end function mean_array
 
   function merge_scalar(tsource, fsource, mask) result(c)
     !! Merge two autodiff arrays based on a mask
