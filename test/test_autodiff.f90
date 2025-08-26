@@ -123,7 +123,8 @@ contains
     call network%add(full_layer_type( &
          num_inputs=2, &
          num_outputs=1, &
-         kernel_initialiser='ones' &
+         kernel_initialiser='ones', &
+         activation_function='sigmoid' &
     ))
     write(*,*) "tar1"
     call network%compile( &
