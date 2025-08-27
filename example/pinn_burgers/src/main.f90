@@ -147,9 +147,10 @@ program pinn_burgers_example
             ! lr_decay = exp_lr_decay_type(1.E-2_real32) &
             ! lr_decay = step_lr_decay_type(0.5_real32, 5) &
        ), &
-       loss_method = burgers_loss_type(), &
+       ! loss_method = burgers_loss_type(), &
        metrics = metric_dict, &
-       batch_size = batch_size, verbose = 1, &
+       ! batch_size = batch_size, &
+       verbose = 1, &
        accuracy_method = "mse" &
   )
 
@@ -166,7 +167,7 @@ program pinn_burgers_example
   !-----------------------------------------------------------------------------
   ! training loop
   !-----------------------------------------------------------------------------
-  call network%set_batch_size(batch_size)
+  ! call network%set_batch_size(batch_size)
   do i = 1, num_epochs
      ! write(*,*) "residual"
      ! set direction to only calculate u_xx
@@ -186,8 +187,7 @@ program pinn_burgers_example
           u * pack(u_i, [1], dim = 1) - &
           nu * pack(u_xx, [1], dim = 1)
      loss_f => mean( f_pred ** 2, 2 )
-     ! call f_pred%reset_graph()
-     ! call loss_f%set_requires_grad(.false.)
+     call loss_f%set_requires_grad(.false.)
 
      ! write(*,*) "boundary conditions"
      u_left_pred = network%predict_array(X_b_left)
@@ -203,10 +203,11 @@ program pinn_burgers_example
      ! write(*,*) "loss"
      loss =>  loss_f%val + loss_0 + loss_b
      ! write(*,*) "backward"
-     call loss%grad_reverse(reset_graph=.true.)
+     call loss%grad_reverse(reset_graph=.false.)
      ! write(*,*) "updating"
      call network%update()
      write(*,*) "epoch: ", i, "loss: ", loss%val(1,1)
+     call loss%reset_graph()
 
   end do
   !-----------------------------------------------------------------------------
@@ -220,8 +221,8 @@ program pinn_burgers_example
 !   write(*,*) "Testing finished"
 
 
-  write(6,'("Overall accuracy=",F0.5)') network%accuracy_val
-  write(6,'("Overall loss=",F0.5)')     network%loss_val
+!   write(6,'("Overall accuracy=",F0.5)') network%accuracy_val
+!   write(6,'("Overall loss=",F0.5)')     network%loss_val
 
   if(.not.restart)then
      call network%print(file="network.txt")

@@ -1214,12 +1214,8 @@ contains
     class(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
-    type(array_type), pointer :: tanh_grad
-
-    tanh_grad => tanh(this%left_operand) ** 2 !OR this ** 2
-    tanh_grad => 1._real32 - tanh_grad
-
-    output = upstream_grad * tanh_grad
+    ! as: this = tanh(this%left_operand)
+    output = upstream_grad * (1._real32 - this ** 2)
 
   end function get_partial_tanh
 

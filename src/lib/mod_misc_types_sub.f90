@@ -509,8 +509,8 @@ contains
     type(array_type) :: left_deriv, right_deriv
 
     itmp = itmp + 1
-    if(itmp.gt.50)then
-       write(0,*) "MAX RECURSION DEPTH REACHED"
+    if(itmp.gt.500)then
+       write(0,*) "MAX RECURSION DEPTH REACHED", itmp
        return
     end if
     this%is_forward = .true.

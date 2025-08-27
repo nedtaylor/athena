@@ -3580,6 +3580,7 @@ contains
     !! Number of samples
     integer :: verbose_
     !! Verbosity level
+    logical, dimension(:), allocatable :: inference_store
 
 
     !---------------------------------------------------------------------------
@@ -3596,13 +3597,15 @@ contains
     ! Set number of samples for predicting
     !---------------------------------------------------------------------------
     num_samples = this%save_input( input )
-    call this%set_batch_size(num_samples)
+    ! call this%set_batch_size(num_samples)
 
 
     !---------------------------------------------------------------------------
     ! Turn on inference booleans
     !---------------------------------------------------------------------------
+    allocate(inference_store(this%num_layers))
     do l = 1, this%num_layers
+       inference_store(l) = this%model(l)%layer%inference
        this%model(l)%layer%inference = .true.
     end do
 
@@ -3621,6 +3624,14 @@ contains
     ! Allocate output data
     !---------------------------------------------------------------------------
     output = this%model(this%leaf_vertices(1))%layer%output
+
+
+    !---------------------------------------------------------------------------
+    ! Reset inference booleans
+    !---------------------------------------------------------------------------
+    do l = 1, this%num_layers
+       this%model(l)%layer%inference = inference_store(l)
+    end do
 
   end function predict_array
 !###############################################################################
