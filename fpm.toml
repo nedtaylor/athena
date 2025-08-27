@@ -91,3 +91,9 @@ name = "pinn_chemical"
 source-dir = "example/pinn_chemical/src"
 [example.dependencies]
 example_library = { path = "example/example_library"}
+
+[[example]]
+name = "pinn_burgers"
+source-dir = "example/pinn_burgers/src"
+[example.dependencies]
+example_library = { path = "example/example_library"}
