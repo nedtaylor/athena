@@ -3557,7 +3557,7 @@ contains
 
 
 !###############################################################################
-  module function predict_generic( this, input, verbose, output_as_graph ) &
+  module function predict_array( this, input, verbose ) &
        result(output)
     !! Predict the output for a generic input
     implicit none
@@ -3569,10 +3569,8 @@ contains
     !! Input graph
     integer, intent(in), optional :: verbose
     !! Verbosity level
-    logical, intent(in), optional :: output_as_graph
-    !! Boolean whether to output as graph
 
-    class(*), dimension(:,:), allocatable :: output
+    type(array_type), dimension(:,:), allocatable :: output
     !! Predicted output
 
     ! Local variables
@@ -3580,8 +3578,6 @@ contains
     !! Loop index
     integer :: num_samples
     !! Number of samples
-    logical :: output_as_graph_
-    !! Boolean whether to output as graph
     integer :: verbose_
     !! Verbosity level
 
@@ -3594,9 +3590,80 @@ contains
     else
        verbose_ = 0
     end if
-    if(present(output_as_graph)) output_as_graph_ = output_as_graph
 
-    if(output_as_graph_.and..not.this%use_graph_output)then
+
+    !---------------------------------------------------------------------------
+    ! Set number of samples for predicting
+    !---------------------------------------------------------------------------
+    num_samples = this%save_input( input )
+    call this%set_batch_size(num_samples)
+
+
+    !---------------------------------------------------------------------------
+    ! Turn on inference booleans
+    !---------------------------------------------------------------------------
+    do l = 1, this%num_layers
+       this%model(l)%layer%inference = .true.
+    end do
+
+    !---------------------------------------------------------------------------
+    ! Forward pass
+    !---------------------------------------------------------------------------
+    select case(this%use_graph_input)
+    case(.true.)
+       call this%forward_generic2d(this%input_graph)
+    case default
+       call this%forward_generic2d(this%input_array)
+    end select
+
+
+    !---------------------------------------------------------------------------
+    ! Allocate output data
+    !---------------------------------------------------------------------------
+    output = this%model(this%leaf_vertices(1))%layer%output
+
+  end function predict_array
+!###############################################################################
+
+
+!###############################################################################
+  module function predict_generic( this, input, verbose, output_as_graph ) &
+       result(output)
+    !! Predict the output for a generic input
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    class(*), dimension(:,:), intent(in) :: input
+    !! Input graph
+    integer, intent(in), optional :: verbose
+    !! Verbosity level
+    logical, intent(in) :: output_as_graph
+    !! Boolean whether to output as graph
+
+    class(*), dimension(:,:), allocatable :: output
+    !! Predicted output
+
+    ! Local variables
+    integer :: l, s
+    !! Loop index
+    integer :: num_samples
+    !! Number of samples
+    integer :: verbose_
+    !! Verbosity level
+
+
+    !---------------------------------------------------------------------------
+    ! Initialise optional arguments
+    !---------------------------------------------------------------------------
+    if(present(verbose))then
+       verbose_ = verbose
+    else
+       verbose_ = 0
+    end if
+
+    if(output_as_graph.and..not.this%use_graph_output)then
        call stop_program("output_as_graph is true but network does not use &
             &graph output")
     end if
@@ -3630,7 +3697,7 @@ contains
     !---------------------------------------------------------------------------
     ! Allocate output data
     !---------------------------------------------------------------------------
-    if(output_as_graph_)then
+    if(output_as_graph)then
        allocate(output(num_samples, size(this%leaf_vertices)), source = graph_type())
 
        select type(output)

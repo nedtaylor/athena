@@ -111,6 +111,7 @@ module athena__network
      !! Return predicted results from supplied inputs using the trained network
      procedure, pass(this) :: predict_graph
      !! Return predicted results from supplied inputs using the trained network (graph input)
+     procedure, pass(this) :: predict_array
      procedure, pass(this) :: predict_generic
      generic :: predict => predict_1d, predict_graph
      !! Predict function for different input types
@@ -405,6 +406,18 @@ module athena__network
        !! Predicted output data
      end function predict_graph
 
+     module function predict_array( this, input, verbose ) &
+          result(output)
+       !! Predict the output for a generic input
+       class(network_type), intent(inout) :: this
+       !! Instance of network
+       class(*), dimension(:,:), intent(in) :: input
+       !! Input graph
+       integer, intent(in), optional :: verbose
+       !! Verbosity level
+       type(array_type), dimension(:,:), allocatable :: output
+     end function predict_array
+
      module function predict_generic( this, input, verbose, output_as_graph ) &
           result(output)
        !! Predict the output for a generic input
@@ -414,7 +427,7 @@ module athena__network
        !! Input graph
        integer, intent(in), optional :: verbose
        !! Verbosity level
-       logical, intent(in), optional :: output_as_graph
+       logical, intent(in) :: output_as_graph
        !! Boolean whether to output as graph
        class(*), dimension(:,:), allocatable :: output
      end function predict_generic
