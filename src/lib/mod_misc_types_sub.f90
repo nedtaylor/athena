@@ -442,6 +442,7 @@ contains
     this%rank = input%rank
     this%size = input%size
     this%is_sample_dependent = input%is_sample_dependent
+    this%is_forward = input%is_forward
     this%is_scalar = input%is_scalar
     this%allocated = input%allocated
     if(allocated(input%shape)) this%shape = input%shape
@@ -512,9 +513,11 @@ contains
        write(0,*) "MAX RECURSION DEPTH REACHED"
        return
     end if
+    this%is_forward = .true.
     ! write(*,*) "Performing forward-over-reverse operation for: ", trim(this%operation)
     if(loc(this).eq.loc(variable))then
-       call output%allocate(array_shape=[this%shape, size(this%val,2)])
+       ! call output%allocate(array_shape=[this%shape, size(this%val,2)])
+       output = this
        if(allocated(this%direction))then
           do s = 1, size(output%val,2)
              output%val(:,s) = this%direction
@@ -573,9 +576,12 @@ contains
 
        ! end if
     else
-       call output%allocate(array_shape=[this%shape, size(this%val,2)])
+       output = this
+       ! call output%allocate(array_shape=[this%shape, size(this%val,2)])
        output%val(:,:) = 0._real32
     end if
+    ! write(*,*) "done operation: ", trim(this%operation)
+    this%is_forward = .false.
 
   end function forward_over_reverse
 
@@ -814,6 +820,7 @@ contains
     result_ptr%is_leaf = .true.
     result_ptr%is_scalar = this%is_scalar
     result_ptr%is_sample_dependent = this%is_sample_dependent
+    result_ptr%is_forward = this%is_forward
     result_ptr%operation = 'none'
     result_ptr%owns_gradient = .false.
     result_ptr%left_operand => null()

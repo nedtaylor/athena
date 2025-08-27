@@ -224,6 +224,8 @@ module athena__misc_types
      !! Boolean whether array is sample-dependent
      logical :: is_scalar = .false.
      !! Boolean whether array is contains a scalar value
+     logical :: is_forward = .false.
+     !! Boolean whether operation is forward-mode
      logical :: allocated = .false.
      !! Logical flag for array allocation
      real(real32), dimension(:,:), allocatable :: val
@@ -509,6 +511,10 @@ module athena__misc_types
 
   interface spread
      module procedure spread_array
+  end interface
+
+  interface unspread
+     module procedure unspread_array
   end interface
 
   interface reverse_index
@@ -1097,9 +1103,17 @@ contains
     type(array_type) :: output
 
     if(size(this%right_operand%shape).eq.2)then
-       output = upstream_grad .mmul. transpose(this%right_operand)
+       if(this%is_forward)then
+          output = upstream_grad .mmul. this%right_operand
+       else
+          output = upstream_grad .mmul. transpose(this%right_operand)
+       end if
     elseif(size(upstream_grad%shape).eq.2)then
-       output = transpose(upstream_grad) .mmul. this%right_operand
+       if(this%is_forward)then
+          output = upstream_grad .mmul. this%right_operand
+       else
+          output = transpose(upstream_grad) .mmul. this%right_operand
+       end if
     else
        output = upstream_grad .outer. this%right_operand
     end if
@@ -1113,14 +1127,41 @@ contains
     type(array_type) :: output
 
     if(size(this%left_operand%shape).eq.2)then
-       output = transpose(this%left_operand) .mmul. upstream_grad
+       if(this%is_forward)then
+          output = this%left_operand .mmul. upstream_grad
+       else
+          output = transpose(this%left_operand) .mmul. upstream_grad
+       end if
     elseif(size(upstream_grad%shape).eq.2)then
-       output = this%left_operand .mmul. transpose(upstream_grad)
+       if(this%is_forward)then
+          output = this%left_operand .mmul. upstream_grad
+       else
+          output = this%left_operand .mmul. transpose(upstream_grad)
+       end if
     else
        output = this%left_operand .outer. upstream_grad
     end if
 
   end function get_partial_matmul_right
+
+
+  module function get_partial_transpose_left(this, upstream_grad) result(output)
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    output = transpose(upstream_grad)
+
+  end function get_partial_transpose_left
+
+!   module function get_partial_transpose_right(this, upstream_grad) result(output)
+!     class(array_type), intent(inout) :: this
+!     class(array_type), intent(in) :: upstream_grad
+!     type(array_type) :: output
+
+!     output = transpose(this%left_operand)
+
+!   end function get_partial_transpose_right
 
   module function get_partial_log(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
@@ -1224,7 +1265,7 @@ contains
 
   end function get_partial_max_right
 
-  module function get_partial_sum_array(this, upstream_grad) result(output)
+  module function get_partial_sum_reverse(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
     class(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -1236,7 +1277,19 @@ contains
          ncopies= size(this%left_operand%val, this%indices(1)) &
     )
 
-  end function get_partial_sum_array
+  end function get_partial_sum_reverse
+
+  module function get_partial_sum_forward(this, upstream_grad) result(output)
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    output = sum( &
+         upstream_grad, &
+         dim = this%indices(1) &
+    )
+
+  end function get_partial_sum_forward
 
   module function get_partial_mean_array(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
@@ -1274,6 +1327,38 @@ contains
     output = pack(upstream_grad, this%indices, this%adj_ja(1,1))
 
   end function get_partial_unpack
+
+  module function get_partial_spread(this, upstream_grad) result(output)
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    integer :: i, s
+
+    output = unspread( &
+         upstream_grad, &
+         this%indices(1), &
+         this%adj_ja(1,1), &
+         this%adj_ja(2,1) &
+    )
+
+  end function get_partial_spread
+
+  module function get_partial_unspread(this, upstream_grad) result(output)
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    integer :: i, s
+
+    output = spread( &
+         upstream_grad, &
+         this%indices(1), &
+         this%adj_ja(1,1), &
+         this%adj_ja(2,1) &
+    )
+
+  end function get_partial_unspread
 
   !-----------------------------------------------------------------------------
   ! Addition operation
@@ -1482,10 +1567,29 @@ contains
     class(array_type), intent(in), target :: a, b
     type(array_type), pointer :: c
 
-    c => a%create_result()
+    integer :: s
+
     if(b%is_scalar)then
+       c => a%create_result()
        c%val = a%val * b%val(1,1)
+    elseif(.not.b%is_sample_dependent)then
+       do s = 1, size(a%val,2)
+          c%val(:,s) = a%val(:,s) * b%val(:,1)
+       end do
+    elseif(size(a%val,1).ne.size(b%val,1).and.size(a%val,2).eq.size(b%val,2))then
+       if(size(a%val,1) .eq. 1)then
+          c => b%create_result()
+          do concurrent(s=1:size(a%val,2))
+             c%val(:,s) = a%val(1,s) * b%val(:,s)
+          end do
+       elseif(size(b%val,1) .eq. 1)then
+          c => a%create_result()
+          do concurrent(s=1:size(a%val,2))
+             c%val(:,s) = a%val(:,s) * b%val(1,s)
+          end do
+       end if
     else
+       c => a%create_result()
        c%val = a%val * b%val
     end if
 
@@ -1572,13 +1676,21 @@ contains
 
     allocate(c)
     if(.not.a%is_sample_dependent)then
+       if(size(b%shape).ne.1)then
+          call stop_program( &
+               'Matrix multiplication not implemented for these shapes yet' )
+       end if
        call c%allocate(array_shape=[a%shape(1), size(b%val,2)])
        temp_a(1:a%shape(1), 1:a%shape(2)) => a%val
        do concurrent(s=1:size(b%val,2))
           c%val(:,s) = matmul(temp_a, b%val(:,s))
        end do
-    elseif(.not.b%is_sample_dependent) then
-       call c%allocate(array_shape=[size(a%val,1), b%shape(2)])
+    elseif(.not.b%is_sample_dependent)then
+       if(size(a%shape).ne.1)then
+          call stop_program( &
+               'Matrix multiplication not implemented for these shapes yet' )
+       end if
+       call c%allocate(array_shape=[b%shape(2), size(a%val,2)])
        temp_b(1:b%shape(1), 1:b%shape(2)) => b%val
        do concurrent(s=1:size(a%val,2))
           c%val(:,s) = matmul(a%val(:,s), temp_b)
@@ -1588,6 +1700,7 @@ contains
        stop 0
     end if
 
+    c%is_sample_dependent = .true.
     c%get_partial_left => get_partial_matmul_left
     c%get_partial_right => get_partial_matmul_right
     if(a%requires_grad .or. b%requires_grad) then
@@ -1609,11 +1722,12 @@ contains
     integer :: s, i
 
     allocate(c)
-    call c%allocate(array_shape=[size(b,1), size(a%val,2)])
+    call c%allocate(array_shape=[size(b,2), size(a%val,2)])
     do concurrent(s=1:size(a%val,2))
-       c%val(:,s) = matmul(b, a%val(:,s))
+       c%val(:,s) = matmul(a%val(:,s), b)
     end do
 
+    c%is_sample_dependent = a%is_sample_dependent
     c%get_partial_left => get_partial_matmul_left
     c%get_partial_right => get_partial_matmul_right
     if(a%requires_grad) then
@@ -1649,6 +1763,7 @@ contains
        c%val(:,s) = matmul(a, b%val(:,s))
     end do
 
+    c%is_sample_dependent = b%is_sample_dependent
     c%get_partial_left => get_partial_matmul_left
     c%get_partial_right => get_partial_matmul_right
     if(b%requires_grad) then
@@ -1918,6 +2033,8 @@ contains
        end do
     end do
 
+    c%get_partial_left => get_partial_transpose_left
+    ! c%get_partial_right => get_partial_transpose_right
     c%is_sample_dependent = a%is_sample_dependent
     if(a%requires_grad) then
        c%requires_grad = .true.
@@ -2041,7 +2158,8 @@ contains
     end if
     c%indices = [dim, 1]
 
-    c%get_partial_left => get_partial_sum_array
+    c%get_partial_left => get_partial_sum_reverse
+    c%get_partial_right => get_partial_sum_forward
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -2105,7 +2223,7 @@ contains
        c%val(:,new_dim_index) = sum(a%val(:,:), dim=2)
     end if
 
-    c%get_partial_left => get_partial_sum_array
+    c%get_partial_left => get_partial_sum_reverse
     c%is_sample_dependent = a%is_sample_dependent
     if(a%requires_grad) then
        c%requires_grad = .true.
@@ -2271,7 +2389,11 @@ contains
     else
        call stop_program("spread: only 1 or 2 dimensions are supported")
     end if
+    c%indices = [index]
+    allocate(c%adj_ja(2,1))
+    c%adj_ja(:,1) = [ dim, size(source%val,dim) ]
 
+    c%get_partial_left => get_partial_spread
     if(source%requires_grad) then
        c%requires_grad = .true.
        c%is_leaf = .false.
@@ -2279,6 +2401,42 @@ contains
        c%left_operand => source
     end if
   end function spread_array
+
+  function unspread_array(source, index, dim, new_size) result(c)
+    !! Unpack an autodiff array
+    class(array_type), intent(in), target :: source
+    integer, intent(in) :: index
+    integer, intent(in) :: new_size, dim
+    type(array_type), pointer :: c
+
+    integer :: i, s
+
+
+    allocate(c)
+    if(dim.eq.1)then
+       call c%allocate( array_shape = [ new_size, size(source%val,2) ] )
+       do concurrent(i=1:size(source%val,1), s=1:size(source%val,2))
+          c%val(index,s) = c%val(index,s) + source%val(i,s)
+       end do
+    elseif(dim.eq.2)then
+       call c%allocate( array_shape = [ size(source%val,1), new_size ] )
+       do concurrent(i=1:size(source%val,1), s=1:size(source%val,2))
+          c%val(i,index) = c%val(i,index) + source%val(i,s)
+       end do
+    end if
+    c%indices = [index]
+    allocate(c%adj_ja(2,1))
+    c%adj_ja(:,1) = [ dim, new_size ]
+
+    c%get_partial_left => get_partial_unspread
+    if(source%requires_grad) then
+       c%requires_grad = .true.
+       c%is_forward = source%is_forward
+       c%is_leaf = .false.
+       c%operation = 'unspread'
+       c%left_operand => source
+    end if
+  end function unspread_array
 
   !-----------------------------------------------------------------------------
   ! Division operations

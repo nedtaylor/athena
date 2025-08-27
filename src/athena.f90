@@ -165,7 +165,8 @@ module athena
        operator(.concat.), &
        operator(.ltrim.), operator(.rtrim.), &
        operator(.index.), &
-       operator(.lt.), operator(.gt.)
+       operator(.lt.), operator(.gt.), &
+       mean, pack, sum
 !   public :: sign, merge, maxval, max, sum, spread, reverse_index
 !   public :: sin, cos, tan, exp, log, sqrt, tanh, sigmoid, transpose, add, concat
 
