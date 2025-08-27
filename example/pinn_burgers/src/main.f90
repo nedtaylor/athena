@@ -21,7 +21,7 @@ program pinn_burgers_example
   character(1024) :: file, train_file
 
   ! training loop variables
-  integer :: num_tests = 10, num_epochs = 10, batch_size = 8
+  integer :: num_tests = 10, num_epochs = 100, batch_size = 8
 
   integer :: i, num_params
 
@@ -100,27 +100,27 @@ program pinn_burgers_example
           kernel_initialiser = 'he_normal', &
           bias_initialiser = 'ones' &
      ))
-     ! call network%add(full_layer_type( &
-     !      num_outputs = 50, &
-     !      batch_size  = batch_size, &
-     !      activation_function = 'tanh', &
-     !      kernel_initialiser = 'he_normal', &
-     !      bias_initialiser = 'ones' &
-     ! ))
-     ! call network%add(full_layer_type( &
-     !      num_outputs = 50, &
-     !      batch_size  = batch_size, &
-     !      activation_function = 'tanh', &
-     !      kernel_initialiser = 'he_normal', &
-     !      bias_initialiser = 'ones' &
-     ! ))
-     ! call network%add(full_layer_type( &
-     !      num_outputs = 50, &
-     !      batch_size  = batch_size, &
-     !      activation_function = 'tanh', &
-     !      kernel_initialiser = 'he_normal', &
-     !      bias_initialiser = 'ones' &
-     ! ))
+     call network%add(full_layer_type( &
+          num_outputs = 50, &
+          batch_size  = batch_size, &
+          activation_function = 'tanh', &
+          kernel_initialiser = 'he_normal', &
+          bias_initialiser = 'ones' &
+     ))
+     call network%add(full_layer_type( &
+          num_outputs = 50, &
+          batch_size  = batch_size, &
+          activation_function = 'tanh', &
+          kernel_initialiser = 'he_normal', &
+          bias_initialiser = 'ones' &
+     ))
+     call network%add(full_layer_type( &
+          num_outputs = 50, &
+          batch_size  = batch_size, &
+          activation_function = 'tanh', &
+          kernel_initialiser = 'he_normal', &
+          bias_initialiser = 'ones' &
+     ))
      call network%add(full_layer_type( &
           num_outputs = 1, &
           batch_size  = batch_size, &
@@ -168,10 +168,9 @@ program pinn_burgers_example
   !-----------------------------------------------------------------------------
   call network%set_batch_size(batch_size)
   do i = 1, num_epochs
-     write(*,*) "residual"
+     ! write(*,*) "residual"
      ! set direction to only calculate u_xx
      call network%forward(X_f)
-     ! write(*,*) "forward done"
      input => network%model(network%root_vertices(1))%layer%output(1,1)
      u => network%model(network%leaf_vertices(1))%layer%output(1,1)
      ! write(*,*) "setting direction"
@@ -187,25 +186,25 @@ program pinn_burgers_example
           u * pack(u_i, [1], dim = 1) - &
           nu * pack(u_xx, [1], dim = 1)
      loss_f => mean( f_pred ** 2, 2 )
-     call f_pred%reset_graph()
+     ! call f_pred%reset_graph()
      ! call loss_f%set_requires_grad(.false.)
 
-     write(*,*) "boundary conditions"
+     ! write(*,*) "boundary conditions"
      u_left_pred = network%predict_array(X_b_left)
      u_right_pred = network%predict_array(X_b_right)
 
      loss_b => mean( u_left_pred(1,1) ** 2, 2 ) + mean( u_right_pred(1,1) ** 2, 2 )
 
-     write(*,*) "zero condition"
+     ! write(*,*) "zero condition"
      call network%forward(X_0)
      u0_pred => network%model(network%leaf_vertices(1))%layer%output(1,1)
      loss_0 => mean( ( u0_pred - u0 ) ** 2, 2)
 
-     write(*,*) "loss"
+     ! write(*,*) "loss"
      loss =>  loss_f%val + loss_0 + loss_b
-     write(*,*) "backward"
+     ! write(*,*) "backward"
      call loss%grad_reverse(reset_graph=.true.)
-     write(*,*) "updating"
+     ! write(*,*) "updating"
      call network%update()
      write(*,*) "epoch: ", i, "loss: ", loss%val(1,1)
 
