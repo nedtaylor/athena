@@ -1385,6 +1385,7 @@ contains
     ! Set up computation graph
     if(a%requires_grad .or. b%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward .or. b%is_forward
        c%is_leaf = .false.
        c%operation = 'add'
        c%left_operand => a
@@ -1404,6 +1405,7 @@ contains
     c%get_partial_left => get_partial_add
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'add'
        c%left_operand => a
@@ -1435,6 +1437,7 @@ contains
     c%get_partial_left => get_partial_add
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'add'
        c%left_operand => a
@@ -1465,6 +1468,7 @@ contains
     c%get_partial_left => get_partial_add
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'add'
        c%left_operand => a
@@ -1495,6 +1499,7 @@ contains
     c%get_partial_right => get_partial_negate
     if(a%requires_grad .or. b%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward .or. b%is_forward
        c%is_leaf = .false.
        c%operation = 'subtract'
        c%left_operand => a
@@ -1518,6 +1523,7 @@ contains
     c%get_partial_left => get_partial_add
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'subtract_scalar'
        c%left_operand => a
@@ -1536,6 +1542,7 @@ contains
     c%get_partial_left => get_partial_add
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'subtract_scalar'
        c%left_operand => a
@@ -1553,6 +1560,7 @@ contains
     c%get_partial_left => get_partial_negate
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'negate'
        c%left_operand => a
@@ -1597,6 +1605,7 @@ contains
     c%get_partial_right => get_partial_multiply_right
     if(a%requires_grad .or. b%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward .or. b%is_forward
        c%is_leaf = .false.
        c%operation = 'multiply'
        c%left_operand => a
@@ -1617,6 +1626,7 @@ contains
     c%get_partial_left => get_partial_multiply_left
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'multiply_scalar'
        c%left_operand => a
@@ -1658,6 +1668,7 @@ contains
 
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'multiply_logical'
        c%left_operand => a
@@ -1705,6 +1716,7 @@ contains
     c%get_partial_right => get_partial_matmul_right
     if(a%requires_grad .or. b%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward .or. b%is_forward
        c%is_leaf = .false.
        c%operation = 'matmul'
        c%left_operand => a
@@ -1732,6 +1744,7 @@ contains
     c%get_partial_right => get_partial_matmul_right
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'matmul_scalar'
        c%left_operand => a
@@ -1768,6 +1781,7 @@ contains
     c%get_partial_right => get_partial_matmul_right
     if(b%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = b%is_forward
        c%is_leaf = .false.
        c%operation = 'matmul_scalar'
        c%right_operand => b
@@ -1802,6 +1816,7 @@ contains
 
     if(a%requires_grad .or. b%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward .or. b%is_forward
        c%is_leaf = .false.
        c%operation = 'outer_product'
        c%left_operand => a
@@ -1832,6 +1847,7 @@ contains
     c%get_partial_right => get_partial_concat_right
     if(a%requires_grad .or. b%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward .or. b%is_forward
        c%is_leaf = .false.
        c%operation = 'concat'
        c%left_operand => a
@@ -1856,6 +1872,7 @@ contains
 
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'ltrim'
        c%left_operand => a
@@ -1879,6 +1896,7 @@ contains
 
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'rtrim'
        c%left_operand => a
@@ -1914,6 +1932,7 @@ contains
     c%get_partial_right => get_partial_unpack
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'pack'
        c%left_operand => a
@@ -1950,6 +1969,7 @@ contains
     c%get_partial_right => get_partial_pack
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'unpack'
        c%left_operand => a
@@ -1974,6 +1994,7 @@ contains
     c%get_partial_left => get_partial_index
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'index'
        c%left_operand => a
@@ -2007,6 +2028,7 @@ contains
 
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'index'
        c%left_operand => a
@@ -2038,6 +2060,7 @@ contains
     c%is_sample_dependent = a%is_sample_dependent
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'transpose'
        c%left_operand => a
@@ -2104,6 +2127,7 @@ contains
     c%get_partial_right => get_partial_max_right
     if(a%requires_grad .or. b%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward .or. b%is_forward
        c%is_leaf = .false.
        c%operation = 'max'
        c%left_operand => a
@@ -2123,6 +2147,7 @@ contains
     c%get_partial_left => get_partial_max_left
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'max_scalar'
        c%left_operand => a
@@ -2162,6 +2187,7 @@ contains
     c%get_partial_right => get_partial_sum_forward
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'sum_array'
        c%left_operand => a
@@ -2227,6 +2253,7 @@ contains
     c%is_sample_dependent = a%is_sample_dependent
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'sum_array_output_array'
        c%left_operand => a
@@ -2269,6 +2296,7 @@ contains
     c%get_partial_left => get_partial_mean_array
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'mean_array'
        c%left_operand => a
@@ -2306,6 +2334,7 @@ contains
     c%get_partial_left => get_partial_merge
     if(tsource%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = tsource%is_forward
        c%is_leaf = .false.
        c%operation = 'merge'
        c%left_operand => tsource
@@ -2355,6 +2384,7 @@ contains
     c%get_partial_left => get_partial_merge
     if(tsource%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = tsource%is_forward
        c%is_leaf = .false.
        c%operation = 'merge'
        c%left_operand => tsource
@@ -2396,6 +2426,7 @@ contains
     c%get_partial_left => get_partial_spread
     if(source%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = source%is_forward
        c%is_leaf = .false.
        c%operation = 'spread'
        c%left_operand => source
@@ -2469,6 +2500,7 @@ contains
     c%get_partial_right => get_partial_divide_right
     if(a%requires_grad .or. b%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward .or. b%is_forward
        c%is_leaf = .false.
        c%operation = 'divide'
        c%left_operand => a
@@ -2492,6 +2524,7 @@ contains
     c%get_partial_right => get_partial_divide_right
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'divide_scalar'
        c%left_operand => a
@@ -2522,6 +2555,7 @@ contains
     c%get_partial_right => get_partial_divide_right
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'scalar_divide'
        c%right_operand => a
@@ -2556,6 +2590,7 @@ contains
     c%get_partial_right => get_partial_divide_right
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'divide_real1d'
        c%left_operand => a
@@ -2584,6 +2619,7 @@ contains
     c%get_partial_right => get_partial_power_exponent
     if(a%requires_grad .or. b%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward .or. b%is_forward
        c%is_leaf = .false.
        c%operation = 'power'
        c%left_operand => a
@@ -2604,6 +2640,7 @@ contains
     c%get_partial_left => get_partial_power_base
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'power_scalar'
        c%left_operand => a
@@ -2640,6 +2677,7 @@ contains
     c%get_partial_left => get_partial_power_base
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'scalar_power'
        c%right_operand => a
@@ -2678,6 +2716,7 @@ contains
     c%get_partial_left => get_partial_sin
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'sin'
        c%left_operand => a
@@ -2696,6 +2735,7 @@ contains
     c%get_partial_left => get_partial_cos
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'cos'
        c%left_operand => a
@@ -2714,6 +2754,7 @@ contains
     c%get_partial_left => get_partial_tan
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'tan'
        c%left_operand => a
@@ -2733,6 +2774,7 @@ contains
     c%get_partial_left => get_partial_exp
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'exp'
        c%left_operand => a
@@ -2751,6 +2793,7 @@ contains
     c%get_partial_left => get_partial_log
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'log'
        c%left_operand => a
@@ -2769,6 +2812,7 @@ contains
     c%get_partial_left => get_partial_sqrt
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'sqrt'
        c%left_operand => a
@@ -2786,6 +2830,7 @@ contains
 
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'tanh'
        c%left_operand => a
@@ -2803,6 +2848,7 @@ contains
 
     if(a%requires_grad) then
        c%requires_grad = .true.
+       c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'sigmoid'
        c%left_operand => a
