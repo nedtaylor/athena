@@ -423,6 +423,7 @@ module athena__misc_types
      module procedure subtract_arrays
      module procedure subtract_real1d
      module procedure subtract_scalar
+     module procedure scalar_subtract
      module procedure negate_array
   end interface
 
@@ -1208,6 +1209,20 @@ contains
 
   end function get_partial_tan
 
+  module function get_partial_tanh(this, upstream_grad) result(output)
+    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    type(array_type), pointer :: tanh_grad
+
+    tanh_grad => tanh(this%left_operand) ** 2 !OR this ** 2
+    tanh_grad => 1._real32 - tanh_grad
+
+    output = upstream_grad * tanh_grad
+
+  end function get_partial_tanh
+
   module function get_partial_index(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
     class(array_type), intent(in) :: upstream_grad
@@ -1548,6 +1563,25 @@ contains
        c%left_operand => a
     end if
   end function subtract_scalar
+
+  function scalar_subtract(a, b) result(c)
+    !! Subtract an autodiff array from a scalar
+    real(real32), intent(in) :: a
+    class(array_type), intent(in), target :: b
+    type(array_type), pointer :: c
+
+    c => negate_array(b)
+    c%val = a + c%val
+
+    c%get_partial_left => get_partial_negate
+    if(b%requires_grad) then
+       c%requires_grad = .true.
+       c%is_forward = b%is_forward
+       c%is_leaf = .false.
+       c%operation = 'subtract_scalar'
+       c%left_operand => b
+    end if
+  end function scalar_subtract
 
   function negate_array(a) result(c)
     !! Negate an autodiff array
@@ -2828,6 +2862,7 @@ contains
     c => a%create_result()
     c%val = tanh(a%val)
 
+    c%get_partial_left => get_partial_tanh
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_forward = a%is_forward
