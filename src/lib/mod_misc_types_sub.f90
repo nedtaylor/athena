@@ -439,6 +439,7 @@ contains
     type(array_type), intent(in) :: input
     !! Input array
 
+    this%id = input%id
     this%rank = input%rank
     this%size = input%size
     this%is_sample_dependent = input%is_sample_dependent
@@ -676,8 +677,9 @@ contains
   end subroutine reset_graph
 
   module subroutine duplicate_graph(this)
-    use iso_c_binding
     !! Duplicate the computation graph of this array
+    use iso_c_binding
+    implicit none
     class(array_type), intent(inout) :: this
 
     type(c_ptr), dimension(:,:), allocatable :: pointer_map
@@ -688,8 +690,9 @@ contains
   end subroutine duplicate_graph
 
   module recursive subroutine duplicate_graph_ptrs(this, pointer_map)
-    use iso_c_binding
     !! Duplicate the computation graph of this array
+    use iso_c_binding
+    implicit none
     class(array_type), intent(inout) :: this
     type(c_ptr), dimension(:,:), allocatable, intent(inout) :: pointer_map
 
@@ -715,6 +718,7 @@ contains
 
   function duplicate_pointer(input_ptr, pointer_map) result(output_ptr)
     use iso_c_binding
+    implicit none
     type(array_type), pointer :: input_ptr
     type(c_ptr), dimension(:,:), allocatable, intent(inout) :: pointer_map
     type(array_type), pointer :: output_ptr
@@ -772,6 +776,28 @@ contains
     !  end if
 
   end function duplicate_pointer
+
+  module recursive function get_ptr_from_id(this, id) result(ptr)
+    use iso_c_binding
+    implicit none
+    class(array_type), intent(in), target :: this
+    integer, intent(in) :: id
+    class(array_type), pointer :: ptr
+
+    ptr => null()
+    if(this%id .eq. id) then
+       ptr => this
+       return
+    end if
+    if(associated(this%left_operand))then
+       ptr => this%left_operand%get_ptr_from_id(id)
+       if(associated(ptr)) return
+    end if
+    if(associated(this%right_operand))then
+       ptr => this%right_operand%get_ptr_from_id(id)
+       if(associated(ptr)) return
+    end if
+  end function get_ptr_from_id
 
   subroutine detach(this)
     !! Detach this array from the computation graph

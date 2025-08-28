@@ -216,6 +216,7 @@ module athena__misc_types
 !-------------------------------------------------------------------------------
   type :: array_type
      !! Abstract type for array operations
+     integer :: id = -1
      integer :: rank
      !! Rank of the array
      integer, dimension(:), allocatable :: shape
@@ -290,6 +291,7 @@ module athena__misc_types
      procedure, pass(this) :: reset_graph
      procedure, pass(this) :: duplicate_graph
      procedure, pass(this) :: duplicate_graph_ptrs
+     procedure, pass(this) :: get_ptr_from_id
      procedure, pass(this) :: detach
      !! Detach from computation graph
      procedure, private, pass(this) :: reverse_mode
@@ -383,6 +385,13 @@ module athena__misc_types
        class(array_type), intent(inout) :: this
        type(c_ptr), dimension(:,:), allocatable, intent(inout) :: pointer_map
      end subroutine duplicate_graph_ptrs
+
+     module recursive function get_ptr_from_id(this, id) result(ptr)
+       use iso_c_binding
+       class(array_type), intent(in), target :: this
+       integer, intent(in) :: id
+       class(array_type), pointer :: ptr
+     end function get_ptr_from_id
 
      module subroutine detach(this)
        !! Detach this array from the computation graph
