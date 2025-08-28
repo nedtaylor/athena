@@ -23,21 +23,21 @@ program pinn_burgers_example
   ! training loop variables
   integer :: num_tests = 10, num_epochs = 100, batch_size = 1
   character(32) :: activation_function
-  class(initialiser_type), allocatable :: kernel_initialiser, bias_initialiser
+  class(*), allocatable :: kernel_initialiser, bias_initialiser
 
-  integer :: i, num_params
+  integer :: i, j, itmp1, num_params
   real(real32), dimension(:), allocatable :: params
 
   integer :: x_min, x_max, t_min, t_max
-  integer :: N_f, N_0, N_b
+  integer :: N_f, N_0, N_b, N_x, N_t
   real(real32) :: nu
   real(real32), dimension(:), allocatable :: u0
-  real(real32), dimension(:,:), allocatable :: X_f, X_0, X_b_left, X_b_right
+  real(real32), dimension(:,:), allocatable :: X_f, X_0, X_b_left, X_b_right, XT
   type(array_type), pointer :: u, u_i, u_xx
 
   type(array_type), pointer :: loss, loss_f, loss_0, loss_b, f_pred, input, u0_pred
-!   type(array_type), dimension(:,:), allocatable :: u_left_pred, u_right_pred
-  type(array_type), pointer :: u_left_pred, u_right_pred
+  type(array_type), dimension(:,:), allocatable :: u_pred
+  type(array_type) :: u_left_pred, u_right_pred
 
 
   !-----------------------------------------------------------------------------
@@ -141,7 +141,7 @@ program pinn_burgers_example
   !-----------------------------------------------------------------------------
   ! compile network
   !-----------------------------------------------------------------------------
-  allocate(clip, source=clip_type(-1.E0_real32, 1.E0_real32))
+  ! allocate(clip, source=clip_type(-1.E-3_real32, 1.E-3_real32))
   ! allocate(clip, source=clip_type(clip_norm = 1.E-1_real32))
   metric_dict%active = .false.
   metric_dict(1)%key = "loss"
@@ -150,6 +150,9 @@ program pinn_burgers_example
   call network%compile( &
        optimiser = adam_optimiser_type( &
             ! clip_dict = clip, &
+            beta1 = 0.9_real32, &
+            beta2 = 0.999_real32, &
+            epsilon = 1.E-8_real32, &
             learning_rate = 1.E-3_real32 &
             ! lr_decay = exp_lr_decay_type(1.E-2_real32) &
             ! lr_decay = step_lr_decay_type(0.5_real32, 5) &
@@ -178,44 +181,45 @@ program pinn_burgers_example
   !-----------------------------------------------------------------------------
   ! call network%set_batch_size(batch_size)
   do i = 1, num_epochs
-     ! write(*,*) "residual"
-     ! set direction to only calculate u_xx
-     call network%forward(X_f)
-     input => network%model(network%root_vertices(1))%layer%output(1,1)
-     u => network%model(network%leaf_vertices(1))%layer%output(1,1)
-     ! write(*,*) "setting direction"
-     call input%set_direction([1._real32, 1._real32])
-     call u%grad_reverse(record_graph=.true., reset_graph=.true.)
-     u_i => input%grad
-     call input%set_direction([1._real32, 0._real32])
-     allocate(u_xx)
-     u_xx = u_i%grad_forward(input)
+     ! ! write(*,*) "residual"
+     ! ! set direction to only calculate u_xx
+     ! call network%forward(X_f)
+     ! input => network%model(network%root_vertices(1))%layer%output(1,1)
+     ! u => network%model(network%leaf_vertices(1))%layer%output(1,1)
+     ! ! write(*,*) "setting direction"
+     ! call input%set_direction([1._real32, 1._real32])
+     ! call u%grad_reverse(record_graph=.true., reset_graph=.true.)
+     ! u_i => input%grad
+     ! call input%set_direction([1._real32, 0._real32])
+     ! allocate(u_xx)
+     ! u_xx = u_i%grad_forward(input)
 
-     f_pred => &
-          pack(u_i, [2], dim = 1) + &
-          u * pack(u_i, [1], dim = 1) - &
-          nu * pack(u_xx, [1], dim = 1)
-     loss_f => mean( f_pred ** 2, 2 )
-     call loss_f%set_requires_grad(.false.)
+     ! f_pred => &
+     !      pack(u_i, [2], dim = 1) + &
+     !      u * pack(u_i, [1], dim = 1) - &
+     !      nu * pack(u_xx, [1], dim = 1)
+     ! loss_f => mean( f_pred ** 2, 2 )
+     ! call loss_f%set_requires_grad(.false.)
+     ! write(11,*) network%get_gradients()
 
      ! write(*,*) "boundary conditions"
      call network%forward(X_b_left)
-     allocate(u_left_pred)
      u_left_pred = network%model(network%leaf_vertices(1))%layer%output(1,1)
 
      call network%forward(X_b_right)
-     allocate(u_right_pred)
      u_right_pred = network%model(network%leaf_vertices(1))%layer%output(1,1)
      loss_b => mean( u_left_pred ** 2, 2 ) + mean( u_right_pred ** 2, 2 )
 
-     ! write(*,*) "zero condition"
-     call network%forward(X_0)
-     allocate(u0_pred)
-     u0_pred = network%model(network%leaf_vertices(1))%layer%output(1,1)
-     loss_0 => mean( ( u0_pred - u0 ) ** 2, 2)
+     ! ! write(*,*) "zero condition"
+     ! call network%forward(X_0)
+     ! allocate(u0_pred)
+     ! u0_pred = network%model(network%leaf_vertices(1))%layer%output(1,1)
+     ! loss_0 => mean( ( u0_pred - u0 ) ** 2, 2)
 
      ! write(*,*) "loss"
-     loss => loss_f%val + loss_0 + loss_b
+     ! write(*,*) loss_f%val(1,1), loss_0%val(1,1), loss_b%val(1,1)
+     ! loss => loss_f%val + loss_0 + loss_b
+     loss => loss_b
      ! write(*,*) "backward"
      call loss%grad_reverse(reset_graph=.false.)
      ! write(*,*) "updating"
@@ -227,12 +231,27 @@ program pinn_burgers_example
   !-----------------------------------------------------------------------------
   ! testing loop
   !-----------------------------------------------------------------------------
-!   write(*,*) "Starting testing..."
-!   call network%test( &
-!        graphs_in, &
-!        output &
-!   )
-!   write(*,*) "Testing finished"
+  N_x = 256
+  N_t = 100
+  itmp1 = 0
+  allocate(XT(2, N_x * N_t))
+  do i = 1, N_t
+     do j = 1, N_x
+          itmp1 = itmp1 + 1
+          XT(1,itmp1) = (real(j-1) * (x_max - x_min) / real(N_x - 1) + x_min)
+          XT(2,itmp1) = (real(i-1) * (t_max - t_min) / real(N_t - 1) + t_min)
+     end do
+  end do
+  write(*,*) "Starting testing..."
+  u_pred = network%predict_array(XT)
+  write(*,*) "Testing finished"
+  itmp1 = 0
+  do i = 1, N_t
+     do j = 1, N_x
+          itmp1 = itmp1 + 1
+          write(20,'(3F12.5)') XT(1,itmp1), XT(2,itmp1), u_pred(1,1)%val(1,itmp1)
+     end do
+  end do
 
 
 !   write(6,'("Overall accuracy=",F0.5)') network%accuracy_val

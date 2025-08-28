@@ -750,31 +750,29 @@ contains
           array%grad => directional_grad
        else
           array%grad => mean( directional_grad, dim=2 )
-          array%grad%is_scalar = array%is_scalar
-          array%grad%is_sample_dependent = array%is_sample_dependent
-          if(.not.array%is_scalar)then
-             array%grad%requires_grad = record_graph
-          else
-             array%grad%requires_grad = .false.
-          end if
-          array%grad%is_leaf = .true.
-          array%grad%operation = 'none'
-          array%grad%left_operand => null()
-          array%grad%right_operand => null()
-          array%grad%get_partial_left => null()
-          array%grad%get_partial_right => null()
-          array%grad%grad => null()
-          array%grad%owns_gradient = .false.
-          array%owns_gradient = .true.
-          !  if(allocated(array%indices)) array%grad%indices = array%indices
-
        end if
+       array%grad%is_scalar = array%is_scalar
+       array%grad%is_sample_dependent = array%is_sample_dependent
+       if(.not.array%is_scalar)then
+          array%grad%requires_grad = record_graph
+       else
+          array%grad%requires_grad = .false.
+       end if
+       array%grad%is_leaf = .true.
+       array%grad%operation = 'none'
+       array%grad%left_operand => null()
+       array%grad%right_operand => null()
+       array%grad%get_partial_left => null()
+       array%grad%get_partial_right => null()
+       array%grad%grad => null()
+       array%grad%owns_gradient = .false.
+       array%owns_gradient = .true.
     else
 
        if(array%is_sample_dependent)then
           array%grad => array%grad + directional_grad
        else
-          array%grad => array%grad + mean( directional_grad, dim=2 )
+          array%grad => array%grad + mean( directional_grad, dim = 2 )
        end if
 
     end if

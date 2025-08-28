@@ -2056,12 +2056,14 @@ contains
        select type(current => this%model(l)%layer)
        class is(learnable_layer_type)
           do i = 1, size(current%params_array)
-             start_idx = end_idx + 1
-             end_idx = end_idx + size(current%params_array(i)%val, 1)
-             gradients(start_idx:end_idx) = [ &
-                  sum(current%params_array(i)%grad%val, dim=2) / &
-                  size(current%params_array(i)%grad%val, dim=2) &
-             ]
+             if(associated(current%params_array(i)%grad)) then
+                start_idx = end_idx + 1
+                end_idx = end_idx + size(current%params_array(i)%val, 1)
+                gradients(start_idx:end_idx) = [ &
+                     sum(current%params_array(i)%grad%val, dim=2) / &
+                     size(current%params_array(i)%grad%val, dim=2) &
+                ]
+             end if
           end do
        end select
     end do
@@ -2125,8 +2127,6 @@ contains
           do i = 1, size(current%params_array)
              call current%params_array(i)%zero_grad()
           end do
-          ! current%dp = 0._real32
-          ! if(allocated(current%db)) current%db = 0._real32
        end select
     end do
 
