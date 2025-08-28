@@ -232,9 +232,9 @@ module athena__misc_types
      !! Logical flag for array allocation
      real(real32), dimension(:,:), allocatable :: val
      !! Array values in rank 2 (sample, batch)
-     integer, dimension(:), allocatable :: indices
+     integer, dimension(:), allocatable :: indices ! store_1
      !! Indices for gradient accumulation
-     integer, dimension(:,:), allocatable :: adj_ja
+     integer, dimension(:,:), allocatable :: adj_ja ! store_2
      !! Sparse adjacency matrix for graph structure
      logical, dimension(:,:), allocatable :: mask
      !! Mask for operation
@@ -251,6 +251,7 @@ module athena__misc_types
      character(len=32) :: operation = 'none'
      logical :: owns_gradient = .true.
      !! Flag indicating if this array owns its gradient memory
+     logical :: fix_pointer = .false.
 
      real(real32), dimension(:), allocatable :: direction
 
@@ -287,6 +288,8 @@ module athena__misc_types
      procedure, pass(this) :: zero_grad
      !! Zero the gradients
      procedure, pass(this) :: reset_graph
+     procedure, pass(this) :: duplicate_graph
+     procedure, pass(this) :: duplicate_graph_ptrs
      procedure, pass(this) :: detach
      !! Detach from computation graph
      procedure, private, pass(this) :: reverse_mode
@@ -370,6 +373,16 @@ module athena__misc_types
        !! Zero the gradients of this array
        class(array_type), intent(inout) :: this
      end subroutine zero_grad
+
+     module subroutine duplicate_graph(this)
+       class(array_type), intent(inout) :: this
+     end subroutine duplicate_graph
+
+     module recursive subroutine duplicate_graph_ptrs(this, pointer_map)
+       use iso_c_binding
+       class(array_type), intent(inout) :: this
+       type(c_ptr), dimension(:,:), allocatable, intent(inout) :: pointer_map
+     end subroutine duplicate_graph_ptrs
 
      module subroutine detach(this)
        !! Detach this array from the computation graph
@@ -1215,7 +1228,7 @@ contains
     type(array_type) :: output
 
     ! as: this = tanh(this%left_operand)
-    output = upstream_grad * (1._real32 - this ** 2)
+    output = upstream_grad * (1._real32 - this ** 2._real32)
 
   end function get_partial_tanh
 
@@ -2300,9 +2313,9 @@ contains
     integer :: i, s
     real(real32) :: rtmp1
 
-   !  if(size(a%shape) .ne. 1)then
-   !     call stop_program("mean_array: only 1D arrays can be used")
-   !  end if
+    ! if(size(a%shape) .ne. 1)then
+    !    call stop_program("mean_array: only 1D arrays can be used")
+    ! end if
 
     allocate(c)
     if(dim.eq.1)then

@@ -165,6 +165,16 @@ program pinn_burgers_example
   )
   params = network%get_params()
   write(*,*) "some of the parameters", params(:20)
+  open(unit=10, file="params.txt", status='replace')
+  do i = 1, network%num_layers
+     select type(layer => network%model(i)%layer)
+     class is (learnable_layer_type)
+        write(10,*) layer%params_array(1)%val(:,1)
+        write(10,*) layer%params_array(2)%val(:,1)
+  end select
+end do
+
+
 
 
   !-----------------------------------------------------------------------------
@@ -200,29 +210,33 @@ program pinn_burgers_example
      !      nu * pack(u_xx, [1], dim = 1)
      ! loss_f => mean( f_pred ** 2, 2 )
      ! call loss_f%set_requires_grad(.false.)
-     ! write(11,*) network%get_gradients()
 
      ! write(*,*) "boundary conditions"
      call network%forward(X_b_left)
      u_left_pred = network%model(network%leaf_vertices(1))%layer%output(1,1)
+     call u_left_pred%duplicate_graph()
 
      call network%forward(X_b_right)
      u_right_pred = network%model(network%leaf_vertices(1))%layer%output(1,1)
+     call u_right_pred%duplicate_graph()
      loss_b => mean( u_left_pred ** 2, 2 ) + mean( u_right_pred ** 2, 2 )
 
-     ! ! write(*,*) "zero condition"
-     ! call network%forward(X_0)
-     ! allocate(u0_pred)
-     ! u0_pred = network%model(network%leaf_vertices(1))%layer%output(1,1)
-     ! loss_0 => mean( ( u0_pred - u0 ) ** 2, 2)
+     ! write(*,*) "zero condition"
+     call network%forward(X_0)
+     allocate(u0_pred)
+     u0_pred = network%model(network%leaf_vertices(1))%layer%output(1,1)
+     loss_0 => mean( ( u0_pred - u0 ) ** 2, 2)
 
      ! write(*,*) "loss"
      ! write(*,*) loss_f%val(1,1), loss_0%val(1,1), loss_b%val(1,1)
      ! loss => loss_f%val + loss_0 + loss_b
-     loss => loss_b
+     loss => loss_0 + loss_b
      ! write(*,*) "backward"
      call loss%grad_reverse(reset_graph=.false.)
      ! write(*,*) "updating"
+     ! deallocate(u_left_pred, u_right_pred)
+     ! deallocate(u0_pred)
+
      call network%update()
      write(*,'("epoch: ",I0,"/",I0," loss: ",F0.5)') i, num_epochs, loss%val(1,1)
      call loss%reset_graph()

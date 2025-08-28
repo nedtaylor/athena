@@ -675,6 +675,104 @@ contains
 
   end subroutine reset_graph
 
+  module subroutine duplicate_graph(this)
+    use iso_c_binding
+    !! Duplicate the computation graph of this array
+    class(array_type), intent(inout) :: this
+
+    type(c_ptr), dimension(:,:), allocatable :: pointer_map
+
+    call this%duplicate_graph_ptrs(pointer_map)
+    if(allocated(pointer_map)) deallocate(pointer_map)
+
+  end subroutine duplicate_graph
+
+  module recursive subroutine duplicate_graph_ptrs(this, pointer_map)
+    use iso_c_binding
+    !! Duplicate the computation graph of this array
+    class(array_type), intent(inout) :: this
+    type(c_ptr), dimension(:,:), allocatable, intent(inout) :: pointer_map
+
+    left_if: if(associated(this%left_operand))then
+       call this%left_operand%duplicate_graph_ptrs(pointer_map)
+       if(this%left_operand%fix_pointer) exit left_if
+       this%left_operand => duplicate_pointer(this%left_operand, pointer_map)
+    end if left_if
+
+    right_if: if(associated(this%right_operand)) then
+       call this%right_operand%duplicate_graph_ptrs(pointer_map)
+       if(this%right_operand%fix_pointer) exit right_if
+       this%right_operand => duplicate_pointer(this%right_operand, pointer_map)
+    end if right_if
+
+    grad_if: if(associated(this%grad)) then
+       call this%grad%duplicate_graph_ptrs(pointer_map)
+       if(this%grad%fix_pointer) exit grad_if
+       this%grad => duplicate_pointer(this%grad, pointer_map)
+    end if grad_if
+
+  end subroutine duplicate_graph_ptrs
+
+  function duplicate_pointer(input_ptr, pointer_map) result(output_ptr)
+    use iso_c_binding
+    type(array_type), pointer :: input_ptr
+    type(c_ptr), dimension(:,:), allocatable, intent(inout) :: pointer_map
+    type(array_type), pointer :: output_ptr
+    integer :: i, n
+    type(c_ptr), dimension(:,:), allocatable :: pointer_map_store
+
+    if(allocated(pointer_map))then
+       n = size(pointer_map, dim=2)
+       do i = 1, n
+          if( c_associated( c_loc(input_ptr), pointer_map(1,i) ) ) then
+             call c_f_pointer( pointer_map(2,i), output_ptr )
+             return
+          end if
+       end do
+    end if
+
+    ! Not found, so duplicate and add to list
+    allocate(output_ptr)
+    output_ptr = input_ptr
+    ! output_ptr%fix_pointer = .true.
+
+    if(.not. allocated(pointer_map)) then
+       allocate(pointer_map(2,1))
+       pointer_map(:,1) = [ c_loc(input_ptr), c_loc(output_ptr) ]
+    else
+       pointer_map_store = pointer_map
+       deallocate(pointer_map)
+       allocate(pointer_map(2, size(pointer_map_store, dim=2) + 1))
+       pointer_map(:,1:size(pointer_map_store, dim=2)) = pointer_map_store
+       pointer_map(:,size(pointer_map_store, dim=2)+1) = &
+            [ c_loc(input_ptr), c_loc(output_ptr) ]
+       deallocate(pointer_map_store)
+    end if
+    !  if(.not. allocated(pointer_map)) then
+    !     allocate(pointer_map(2,1))
+    !     pointer_map = c_null_ptr
+    !  end if
+    !  if(.not. any(pointer_map(1,:) .eq. c_loc(this%left_operand))) then
+    !     call move_alloc(pointer_map, pointer_map_store)
+    !     allocate(pointer_map(2, size(pointer_map, 2)))
+    !     pointer_map(2,:size(pointer_map_store, 2)) = pointer_map_store(2,:)
+    !     pointer_map(1, size(pointer_map_store, 2)+1) = c_loc(this%left_operand%id)
+    !     allocate(tmp_ptr)
+    !     tmp_ptr = this%left_operand
+    !     pointer_map(2, size(pointer_map_store, 2)+1) = c_loc(tmp_ptr%id)
+    !     this%left_operand => tmp_ptr
+    !  else
+    !     do i = 1, size(pointer_map, 2)
+    !        if(pointer_map(1,i) .eq. c_loc(this%left_operand))then
+    !           idx = i
+    !           exit
+    !        end if
+    !     end do
+    !     call c_f_pointer(pointer_map(2, idx), this%left_operand)
+    !  end if
+
+  end function duplicate_pointer
+
   subroutine detach(this)
     !! Detach this array from the computation graph
     class(array_type), intent(inout) :: this
