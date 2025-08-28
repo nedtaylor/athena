@@ -749,11 +749,7 @@ contains
        if(array%is_sample_dependent)then
           array%grad => directional_grad
        else
-          allocate(array%grad)
-          ! Safely initialize gradient without copying computation graph
-          call array%grad%allocate(array_shape=[size(array%val,1), &
-               size(array%val,2)])
-          array%grad%val = 0.0_real32
+          array%grad => mean( directional_grad, dim=2 )
           array%grad%is_scalar = array%is_scalar
           array%grad%is_sample_dependent = array%is_sample_dependent
           if(.not.array%is_scalar)then
@@ -771,22 +767,14 @@ contains
           array%grad%owns_gradient = .false.
           array%owns_gradient = .true.
           !  if(allocated(array%indices)) array%grad%indices = array%indices
-          call array%grad%zero_grad()
 
-          do s = 1, size(grad%val, 2)
-             array%grad%val(:,1) = directional_grad%val(:,s)
-          end do
        end if
     else
 
        if(array%is_sample_dependent)then
-          ! array%grad%val = array%grad%val + grad%val
           array%grad => array%grad + directional_grad
        else
-          !! NEED TO FIX THIS ONE
-          do s = 1, size(grad%val, 2)
-             array%grad%val(:,1) = array%grad%val(:,1) + directional_grad%val(:,s)
-          end do
+          array%grad => array%grad + mean( directional_grad, dim=2 )
        end if
 
     end if

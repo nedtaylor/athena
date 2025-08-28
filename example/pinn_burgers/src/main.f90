@@ -36,7 +36,8 @@ program pinn_burgers_example
   type(array_type), pointer :: u, u_i, u_xx
 
   type(array_type), pointer :: loss, loss_f, loss_0, loss_b, f_pred, input, u0_pred
-  type(array_type), dimension(:,:), allocatable :: u_left_pred, u_right_pred
+!   type(array_type), dimension(:,:), allocatable :: u_left_pred, u_right_pred
+  type(array_type), pointer :: u_left_pred, u_right_pred
 
 
   !-----------------------------------------------------------------------------
@@ -130,7 +131,7 @@ program pinn_burgers_example
      call network%add(full_layer_type( &
           num_outputs = 1, &
           batch_size  = batch_size, &
-          activation_function = activation_function, &
+          activation_function = "none", &
           kernel_initialiser = kernel_initialiser, &
           bias_initialiser = bias_initialiser &
      ))
@@ -148,7 +149,7 @@ program pinn_burgers_example
   metric_dict%threshold = 1.E-1_real32
   call network%compile( &
        optimiser = adam_optimiser_type( &
-            !clip_dict = clip, &
+            ! clip_dict = clip, &
             learning_rate = 1.E-3_real32 &
             ! lr_decay = exp_lr_decay_type(1.E-2_real32) &
             ! lr_decay = step_lr_decay_type(0.5_real32, 5) &
@@ -198,14 +199,19 @@ program pinn_burgers_example
      call loss_f%set_requires_grad(.false.)
 
      ! write(*,*) "boundary conditions"
-     u_left_pred = network%predict_array(X_b_left)
-     u_right_pred = network%predict_array(X_b_right)
+     call network%forward(X_b_left)
+     allocate(u_left_pred)
+     u_left_pred = network%model(network%leaf_vertices(1))%layer%output(1,1)
 
-     loss_b => mean( u_left_pred(1,1) ** 2, 2 ) + mean( u_right_pred(1,1) ** 2, 2 )
+     call network%forward(X_b_right)
+     allocate(u_right_pred)
+     u_right_pred = network%model(network%leaf_vertices(1))%layer%output(1,1)
+     loss_b => mean( u_left_pred ** 2, 2 ) + mean( u_right_pred ** 2, 2 )
 
      ! write(*,*) "zero condition"
      call network%forward(X_0)
-     u0_pred => network%model(network%leaf_vertices(1))%layer%output(1,1)
+     allocate(u0_pred)
+     u0_pred = network%model(network%leaf_vertices(1))%layer%output(1,1)
      loss_0 => mean( ( u0_pred - u0 ) ** 2, 2)
 
      ! write(*,*) "loss"
@@ -214,7 +220,7 @@ program pinn_burgers_example
      call loss%grad_reverse(reset_graph=.false.)
      ! write(*,*) "updating"
      call network%update()
-     write(*,*) "epoch: ", i, "loss: ", loss%val(1,1)
+     write(*,'("epoch: ",I0,"/",I0," loss: ",F0.5)') i, num_epochs, loss%val(1,1)
      call loss%reset_graph()
 
   end do

@@ -1091,11 +1091,9 @@ contains
     type(array_type) :: output
 
     if(this%left_operand%is_scalar)then
-       output = upstream_grad * log(this%left_operand%val(1,1)) * &
-            this%left_operand%val(1,1) ** ( this%right_operand )
+       output = upstream_grad * log(this%left_operand%val(1,1)) * this
     else
-       output = upstream_grad * log(this%left_operand) * &
-            this%left_operand ** ( this%right_operand )
+       output = upstream_grad * log(this%left_operand) * this
     end if
   end function get_partial_power_exponent
 
@@ -1304,7 +1302,7 @@ contains
 
   end function get_partial_sum_forward
 
-  module function get_partial_mean_array(this, upstream_grad) result(output)
+  module function get_partial_mean(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
     class(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -1314,14 +1312,18 @@ contains
     ! Calculate the number of elements that were averaged
     rtmp1 = real(size(this%left_operand%val, this%indices(1)), real32)
 
-    output = spread( &
-         upstream_grad / rtmp1, &
-         dim=this%indices(1), &
-         index=this%indices(2), &
-         ncopies= size(this%left_operand%val, this%indices(1)) &
-    )
+    if(this%is_forward)then
+       output = sum( upstream_grad, dim = this%indices(1) ) / rtmp1
+    else
+       output = spread( &
+            upstream_grad / rtmp1, &
+            dim=this%indices(1), &
+            index=this%indices(2), &
+            ncopies= size(this%left_operand%val, this%indices(1)) &
+       )
+    end if
 
-  end function get_partial_mean_array
+  end function get_partial_mean
 
   module function get_partial_pack(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
@@ -2194,10 +2196,6 @@ contains
 
     integer :: i, s
 
-    if(size(a%shape) .ne. 1)then
-       call stop_program("sum_array: only 1D arrays can be used")
-    end if
-
     allocate(c)
     if(dim.eq.1)then
        call c%allocate(array_shape=[1, size(a%val,2)])
@@ -2205,7 +2203,7 @@ contains
           c%val(1,s) = sum(a%val(:,s))
        end do
     else if(dim.eq.2)then
-       call c%allocate(array_shape=[size(a%val,1), 1])
+       call c%allocate(array_shape=[a%shape, 1])
        do concurrent(i=1:size(a%val,1))
           c%val(i,1) = sum(a%val(i,:))
        end do
@@ -2302,9 +2300,9 @@ contains
     integer :: i, s
     real(real32) :: rtmp1
 
-    if(size(a%shape) .ne. 1)then
-       call stop_program("mean_array: only 1D arrays can be used")
-    end if
+   !  if(size(a%shape) .ne. 1)then
+   !     call stop_program("mean_array: only 1D arrays can be used")
+   !  end if
 
     allocate(c)
     if(dim.eq.1)then
@@ -2314,7 +2312,7 @@ contains
           c%val(1,s) = sum(a%val(:,s)) / rtmp1
        end do
     else if(dim.eq.2)then
-       call c%allocate(array_shape=[size(a%val,1), 1])
+       call c%allocate(array_shape=[a%shape, 1])
        rtmp1 = real(size(a%val,2), real32)
        do concurrent(i=1:size(a%val,1))
           c%val(i,1) = sum(a%val(i,:)) / rtmp1
@@ -2325,7 +2323,7 @@ contains
     end if
     c%indices = [dim, 1]
 
-    c%get_partial_left => get_partial_mean_array
+    c%get_partial_left => get_partial_mean
     if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_forward = a%is_forward
