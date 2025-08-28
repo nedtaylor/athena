@@ -21,7 +21,7 @@ module athena__initialiser_he
 
   type, extends(initialiser_type) :: he_uniform_type
      !! Type for the He initialiser (uniform)
-     integer :: mode
+     integer, private :: mode = 1
    contains
      procedure, pass(this) :: initialise => he_uniform_initialise
      !! Initialise the weights and biases using the He uniform distribution
@@ -29,7 +29,7 @@ module athena__initialiser_he
 
   type, extends(initialiser_type) :: he_normal_type
      !! Type for the He initialiser (normal)
-     integer :: mode
+     integer, private :: mode = 1
    contains
      procedure, pass(this) :: initialise => he_normal_initialise
      !! Initialise the weights and biases using the He normal distribution
@@ -156,7 +156,14 @@ contains
     if(.not.present(fan_in)) &
          call stop_program("he_uniform_initialise: fan_in not present")
 
-    limit = this%scale * sqrt(6._real32 / real(fan_in, real32))
+    select case(this%mode)
+    case(1)
+       limit = this%scale * sqrt(6._real32 / real(fan_in, real32))
+    case(2)
+       limit = this%scale * sqrt(6._real32 / real(fan_out, real32))
+    case default
+       call stop_program("he_uniform_initialise: invalid mode")
+    end select
     n = size(input)
     allocate(r(n))
     call random_number(r)
@@ -211,7 +218,14 @@ contains
     if(.not.present(fan_in)) &
          call stop_program("he_normal_initialise: fan_in not present")
 
-    sigma = this%scale * sqrt(2._real32/real(fan_in,real32))
+    select case(this%mode)
+    case(1)
+       sigma = this%scale * sqrt(2._real32/real(fan_in,real32))
+    case(2)
+       sigma = this%scale * sqrt(2._real32/real(fan_out,real32))
+    case default
+       call stop_program("he_uniform_initialise: invalid mode")
+    end select
     n = size(input)
     allocate(u1(n), u2(n), z(n))
 
