@@ -21,9 +21,12 @@ program pinn_burgers_example
   character(1024) :: file, train_file
 
   ! training loop variables
-  integer :: num_tests = 10, num_epochs = 100, batch_size = 8
+  integer :: num_tests = 10, num_epochs = 100, batch_size = 1
+  character(32) :: activation_function
+  class(initialiser_type), allocatable :: kernel_initialiser, bias_initialiser
 
   integer :: i, num_params
+  real(real32), dimension(:), allocatable :: params
 
   integer :: x_min, x_max, t_min, t_max
   integer :: N_f, N_0, N_b
@@ -50,7 +53,7 @@ program pinn_burgers_example
   t_min = 0._real32
   t_max = 1._real32
 
-  N_f = 100
+  N_f = 1000
   N_0 = 200
   N_b = 200
 
@@ -91,42 +94,45 @@ program pinn_burgers_example
      write(*,*) "Reading finished"
   else
      write(6,*) "Initialising PINN..."
+     activation_function = "tanh"
+     kernel_initialiser = he_uniform_type(scale = 1._real32/sqrt(6._real32))
+     bias_initialiser = he_uniform_type(scale = 1._real32/sqrt(6._real32))
 
      call network%add(full_layer_type( &
           num_inputs  = 2, &
           num_outputs = 50, &
           batch_size  = batch_size, &
-          activation_function = 'tanh', &
-          kernel_initialiser = 'he_normal', &
-          bias_initialiser = 'ones' &
+          activation_function = activation_function, &
+          kernel_initialiser = kernel_initialiser, &
+          bias_initialiser = bias_initialiser &
      ))
      call network%add(full_layer_type( &
           num_outputs = 50, &
           batch_size  = batch_size, &
-          activation_function = 'tanh', &
-          kernel_initialiser = 'he_normal', &
-          bias_initialiser = 'ones' &
+          activation_function = activation_function, &
+          kernel_initialiser = kernel_initialiser, &
+          bias_initialiser = bias_initialiser &
      ))
      call network%add(full_layer_type( &
           num_outputs = 50, &
           batch_size  = batch_size, &
-          activation_function = 'tanh', &
-          kernel_initialiser = 'he_normal', &
-          bias_initialiser = 'ones' &
+          activation_function = activation_function, &
+          kernel_initialiser = kernel_initialiser, &
+          bias_initialiser = bias_initialiser &
      ))
      call network%add(full_layer_type( &
           num_outputs = 50, &
           batch_size  = batch_size, &
-          activation_function = 'tanh', &
-          kernel_initialiser = 'he_normal', &
-          bias_initialiser = 'ones' &
+          activation_function = activation_function, &
+          kernel_initialiser = kernel_initialiser, &
+          bias_initialiser = bias_initialiser &
      ))
      call network%add(full_layer_type( &
           num_outputs = 1, &
           batch_size  = batch_size, &
-          activation_function = 'tanh', &
-          kernel_initialiser = 'he_normal', &
-          bias_initialiser = 'ones' &
+          activation_function = activation_function, &
+          kernel_initialiser = kernel_initialiser, &
+          bias_initialiser = bias_initialiser &
      ))
   end if
 
@@ -135,14 +141,14 @@ program pinn_burgers_example
   ! compile network
   !-----------------------------------------------------------------------------
   allocate(clip, source=clip_type(-1.E0_real32, 1.E0_real32))
-!   allocate(clip, source=clip_type(clip_norm = 1.E-1_real32))
+  ! allocate(clip, source=clip_type(clip_norm = 1.E-1_real32))
   metric_dict%active = .false.
   metric_dict(1)%key = "loss"
   metric_dict(2)%key = "accuracy"
   metric_dict%threshold = 1.E-1_real32
   call network%compile( &
        optimiser = adam_optimiser_type( &
-            clip_dict = clip, &
+            !clip_dict = clip, &
             learning_rate = 1.E-3_real32 &
             ! lr_decay = exp_lr_decay_type(1.E-2_real32) &
             ! lr_decay = step_lr_decay_type(0.5_real32, 5) &
@@ -153,6 +159,8 @@ program pinn_burgers_example
        verbose = 1, &
        accuracy_method = "mse" &
   )
+  params = network%get_params()
+  write(*,*) "some of the parameters", params(:20)
 
 
   !-----------------------------------------------------------------------------
@@ -201,7 +209,7 @@ program pinn_burgers_example
      loss_0 => mean( ( u0_pred - u0 ) ** 2, 2)
 
      ! write(*,*) "loss"
-     loss =>  loss_f%val + loss_0 + loss_b
+     loss => loss_f%val + loss_0 + loss_b
      ! write(*,*) "backward"
      call loss%grad_reverse(reset_graph=.false.)
      ! write(*,*) "updating"

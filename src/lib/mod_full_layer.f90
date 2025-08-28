@@ -82,9 +82,9 @@ module athena__full_layer
        !! Batch size
        real(real32), optional, intent(in) :: activation_scale
        !! Activation scale
-       character(*), optional, intent(in) :: activation_function, &
-            kernel_initialiser, bias_initialiser
+       character(*), optional, intent(in) :: activation_function
        !! Activation function, kernel initialiser, and bias initialiser
+       class(*), optional, intent(in) :: kernel_initialiser, bias_initialiser
        integer, optional, intent(in) :: verbose
        !! Verbosity level
        type(full_layer_type) :: layer
@@ -198,6 +198,7 @@ contains
        kernel_initialiser, bias_initialiser, verbose &
   ) result(layer)
     !! Setup a fully connected layer
+    use athena__initialiser, only: initialiser_setup
     implicit none
 
     ! Arguments
@@ -209,8 +210,8 @@ contains
     !! Batch size
     real(real32), optional, intent(in) :: activation_scale
     !! Activation scale
-    character(*), optional, intent(in) :: activation_function, &
-         kernel_initialiser, bias_initialiser
+    character(*), optional, intent(in) :: activation_function
+    class(*), optional, intent(in) :: kernel_initialiser, bias_initialiser
     !! Activation function, kernel initialiser, and bias initialiser
     integer, optional, intent(in) :: verbose
     !! Verbosity level
@@ -239,8 +240,12 @@ contains
     !---------------------------------------------------------------------------
     ! Define weights (kernels) and biases initialisers
     !---------------------------------------------------------------------------
-    if(present(kernel_initialiser)) layer%kernel_initialiser =kernel_initialiser
-    if(present(bias_initialiser)) layer%bias_initialiser = bias_initialiser
+    if(present(kernel_initialiser))then
+       layer%kernel_init = initialiser_setup(kernel_initialiser)
+    end if
+    if(present(bias_initialiser))then
+       layer%bias_init = initialiser_setup(bias_initialiser)
+    end if
 
 
     !---------------------------------------------------------------------------
@@ -250,8 +255,8 @@ contains
          num_outputs = num_outputs, &
          activation_function = activation_function_, &
          activation_scale = scale, &
-         kernel_initialiser = layer%kernel_initialiser, &
-         bias_initialiser = layer%bias_initialiser, &
+         kernel_initialiser = layer%kernel_init, &
+         bias_initialiser = layer%bias_init, &
          verbose = verbose_ &
     )
 
@@ -280,7 +285,7 @@ contains
   )
     !! Set the hyperparameters for fully connected layer
     use athena__activation, only: activation_setup
-    use athena__initialiser, only: get_default_initialiser
+    use athena__initialiser, only: get_default_initialiser, initialiser_setup
     implicit none
 
     ! Arguments
@@ -292,10 +297,13 @@ contains
     !! Activation function
     real(real32), intent(in) :: activation_scale
     !! Activation scale
-    character(*), intent(in) :: kernel_initialiser, bias_initialiser
+    class(initialiser_type), allocatable, intent(in) :: kernel_initialiser, bias_initialiser
     !! Kernel and bias initialisers
     integer, optional, intent(in) :: verbose
     !! Verbosity level
+
+    ! Local variable
+    character(len=256) :: buffer
 
 
     this%name = "full"
@@ -307,21 +315,25 @@ contains
     if(allocated(this%transfer)) deallocate(this%transfer)
     allocate(this%transfer, &
          source=activation_setup(activation_function, activation_scale))
-    if(trim(kernel_initialiser).eq.'') &
-         this%kernel_initialiser = get_default_initialiser(activation_function)
-    if(trim(bias_initialiser).eq.'') &
-         this%bias_initialiser = get_default_initialiser( &
-              activation_function, &
-              is_bias=.true. &
-         )
+    if(.not.allocated(kernel_initialiser))then
+       buffer = get_default_initialiser(activation_function)
+       this%kernel_init = initialiser_setup(buffer)
+    end if
+    if(.not.allocated(bias_initialiser))then
+       buffer = get_default_initialiser( &
+            activation_function, &
+            is_bias=.true. &
+       )
+       this%bias_init = initialiser_setup(buffer)
+    end if
     if(present(verbose))then
        if(abs(verbose).gt.0)then
           write(*,'("FULL activation function: ",A)') &
                trim(activation_function)
           write(*,'("FULL kernel initialiser: ",A)') &
-               trim(this%kernel_initialiser)
+               trim(this%kernel_init%name)
           write(*,'("FULL bias initialiser: ",A)') &
-               trim(this%bias_initialiser)
+               trim(this%bias_init%name)
        end if
     end if
 
@@ -351,7 +363,6 @@ contains
 !###############################################################################
   subroutine init_full(this, input_shape, batch_size, verbose)
     !! Initialise fully connected layer
-    use athena__initialiser, only: initialiser_setup
     implicit none
 
     ! Arguments
@@ -409,22 +420,18 @@ contains
     !---------------------------------------------------------------------------
     ! Initialise weights (kernels)
     !---------------------------------------------------------------------------
-    allocate(initialiser_, source=initialiser_setup(this%kernel_initialiser))
-    call initialiser_%initialise( &
+    call this%kernel_init%initialise( &
          this%params_array(1)%val(:,1), &
          fan_in = this%num_inputs + 1, fan_out = this%num_outputs, &
          spacing = [ this%num_outputs ] &
     )
-    deallocate(initialiser_)
 
     ! Initialise biases
     !---------------------------------------------------------------------------
-    allocate(initialiser_, source=initialiser_setup(this%bias_initialiser))
-    call initialiser_%initialise( &
+    call this%bias_init%initialise( &
          this%params_array(2)%val(:,1), &
          fan_in=this%num_inputs+1, fan_out=this%num_outputs &
     )
-    deallocate(initialiser_)
 
 
     !---------------------------------------------------------------------------
@@ -524,6 +531,7 @@ contains
     !! Read fully connected layer from file
     use athena__tools_infile, only: assign_val, assign_vec, move
     use athena__misc, only: to_lower, to_upper, icount
+    use athena__initialiser, only: initialiser_setup
     implicit none
 
     ! Arguments
@@ -545,10 +553,11 @@ contains
     !! Number of inputs and outputs
     real(real32) :: activation_scale
     !! Activation scale
-    character(14) :: kernel_initialiser='', bias_initialiser=''
+    character(14) :: kernel_initialiser_name='', bias_initialiser_name=''
     !! Initialisers
     character(20) :: activation_function
     !! Activation function
+    class(initialiser_type), allocatable :: kernel_initialiser, bias_initialiser
     character(256) :: buffer, tag, err_msg
     !! Buffer, tag, and error message
     integer, dimension(2) :: input_shape
@@ -606,12 +615,12 @@ contains
        case("ACTIVATION_SCALE")
           call assign_val(buffer, activation_scale, itmp1)
        case("KERNEL_INITIALISER")
-          call assign_val(buffer, kernel_initialiser, itmp1)
+          call assign_val(buffer, kernel_initialiser_name, itmp1)
        case("BIAS_INITIALISER")
-          call assign_val(buffer, bias_initialiser, itmp1)
+          call assign_val(buffer, bias_initialiser_name, itmp1)
        case("WEIGHTS")
-          kernel_initialiser = 'zeros'
-          bias_initialiser   = 'zeros'
+          kernel_initialiser_name = 'zeros'
+          bias_initialiser_name   = 'zeros'
           param_line = iline
        case default
           ! Don't look for "e" due to scientific notation of numbers
@@ -628,6 +637,8 @@ contains
           return
        end select
     end do tag_loop
+    kernel_initialiser = initialiser_setup(kernel_initialiser_name)
+    bias_initialiser = initialiser_setup(bias_initialiser_name)
 
 
     ! Set hyperparameters and initialise layer

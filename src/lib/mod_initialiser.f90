@@ -65,15 +65,16 @@ contains
 
 
 !###############################################################################
-  function initialiser_setup(name, error) result(initialiser)
+  function initialiser_setup(input, error) result(initialiser)
     !! Set up the initialiser function
     implicit none
 
     ! Arguments
     class(initialiser_type), allocatable :: initialiser
     !! Initialiser function
-    character(*), intent(in) :: name
-    !! Name of initialiser
+   !  character(*), intent(in) :: name
+    class(*) :: input
+    !! Name of initialiser or initialiser type
     integer, optional, intent(out) :: error
     !! Error code
 
@@ -85,40 +86,55 @@ contains
     !---------------------------------------------------------------------------
     ! Set initialiser function
     !---------------------------------------------------------------------------
-    select case(trim(to_lower(name)))
-    case("glorot_uniform")
-       initialiser = glorot_uniform
-    case("glorot_normal")
-       initialiser = glorot_normal
-    case("he_uniform")
-       initialiser = he_uniform
-    case("he_normal")
-       initialiser = he_normal
-    case("lecun_uniform")
-       initialiser = lecun_uniform
-    case("lecun_normal")
-       initialiser = lecun_normal
-    case("ones")
-       initialiser = ones
-    case("zeros")
-       initialiser = zeros
-    case("ident")
-       initialiser = ident
-    case("gaussian")
-       initialiser = gaussian
-    case("normal")
-       initialiser = gaussian
-    case default
+    select type(input)
+    class is(initialiser_type)
+       initialiser = input
+    type is(character(*))
+       select case(trim(to_lower(input)))
+       case("glorot_uniform")
+          initialiser = glorot_uniform
+       case("glorot_normal")
+          initialiser = glorot_normal
+       case("he_uniform")
+          initialiser = he_uniform
+       case("he_normal")
+          initialiser = he_normal
+       case("lecun_uniform")
+          initialiser = lecun_uniform
+       case("lecun_normal")
+          initialiser = lecun_normal
+       case("ones")
+          initialiser = ones
+       case("zeros")
+          initialiser = zeros
+       case("ident")
+          initialiser = ident
+       case("gaussian")
+          initialiser = gaussian
+       case("normal")
+          initialiser = gaussian
+       case default
+          if(present(error))then
+             error = -1
+             return
+          else
+             write(err_msg,'("Incorrect initialiser name given ''",A,"''")') &
+                  trim(to_lower(input))
+             call stop_program(trim(err_msg))
+             return
+          end if
+       end select
+    class default
        if(present(error))then
           error = -1
           return
        else
-          write(err_msg,'("Incorrect initialiser name given ''",A,"''")') &
-               trim(to_lower(name))
+          write(err_msg,'("Unknown input type given")')
           call stop_program(trim(err_msg))
           return
        end if
     end select
+
 
   end function initialiser_setup
 !###############################################################################

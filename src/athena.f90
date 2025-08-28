@@ -57,6 +57,13 @@ module athena
        renormalise_sum
 
 
+  ! Initialisation methods
+  !-----------------------------------------------------------------------------
+  use athena__misc_types, only: initialiser_type
+  use athena__initialiser_he, only: he_uniform_type, he_normal_type
+  ! use athena__initialiser_he, only: glorot_uniform_type, glorot_normal_type
+
+
   ! Abstract layer types
   !-----------------------------------------------------------------------------
   use athena__base_layer, only: &

@@ -177,6 +177,8 @@ module athena__misc_types
 !-------------------------------------------------------------------------------
   type, abstract :: initialiser_type
      !! Abstract type for initialising weights and biases
+     character(len=20) :: name
+     !! Name of the initialiser
      real(real32) :: scale = 1._real32, mean = 1._real32, std = 0.01_real32
      !! Scale, mean, and standard deviation of the initialiser
    contains

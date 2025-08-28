@@ -1982,7 +1982,7 @@ contains
     !! Parameters
 
     ! Local variables
-    integer :: l, start_idx, end_idx
+    integer :: l, i, start_idx, end_idx
     !! Loop index
 
     start_idx = 0
@@ -1990,9 +1990,11 @@ contains
     do l = 1, this%num_layers
        select type(current => this%model(l)%layer)
        class is(learnable_layer_type)
-          start_idx = end_idx + 1
-          end_idx = end_idx + current%num_params
-          params(start_idx:end_idx) = current%params
+          do i = 1, size(current%params_array)
+             start_idx = end_idx + 1
+             end_idx = end_idx + size(current%params_array(i)%val, 1)
+             params(start_idx:end_idx) = current%params_array(i)%val(:,1)
+          end do
        end select
     end do
 
