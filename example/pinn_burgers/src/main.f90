@@ -5,7 +5,6 @@ program pinn_burgers_example
   !! https://www.marktechpost.com/2025/03/28/a-step-by-step-guide-to-solve-1d-burgers-equation-with-physics-informed-neural-networks-pinns-a-pytorch-approach-using-automatic-differentiation-and-collocation-methods/
   use athena
   use constants_mnist, only: real32, pi
-  use burgers_loss, only: burgers_loss_type
 
   implicit none
 
@@ -59,17 +58,22 @@ program pinn_burgers_example
   N_0 = 200
   N_b = 200
 
-  nu = 0.01 / pi
+  nu = 0.01_real32 / pi
   allocate(X_f(2,N_f))
   ! assign random
   call random_number(X_f)
   X_f(1,:) = x_min + (x_max - x_min) * X_f(1,:)
   X_f(2,:) = t_min + (t_max - t_min) * X_f(2,:)
+  open(unit=10, file="X_f.txt", status="replace")
+  do i = 1, N_f
+     write(10,*) X_f(1,i), X_f(2,i)
+  end do
+  close(10)
+
 
   allocate(u0(N_0))
   allocate(X_0(2,N_0))
   ! assign random
-  call random_number(X_0)
   ! fortran version of linspace from x_min to x_max with N_0 steps
   do i = 1, N_0
      X_0(1,i) = real(i-1) * (x_max - x_min) / real(N_0 - 1) + x_min

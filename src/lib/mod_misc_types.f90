@@ -1031,7 +1031,7 @@ contains
     class(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
-    output = upstream_grad * exp(this%left_operand)
+    output = upstream_grad * this
   end function get_partial_exp
 
   module function get_partial_multiply_left(this, upstream_grad) result(output)
@@ -1200,7 +1200,7 @@ contains
     class(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
-    output = upstream_grad / ( 2._real32 * sqrt( this%left_operand ) )
+    output = upstream_grad / ( 2._real32 * this )
 
   end function get_partial_sqrt
 
@@ -1227,7 +1227,7 @@ contains
     class(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
-    output = upstream_grad / ( cos( this%left_operand ) ** 2 )
+    output = upstream_grad / ( cos( this%left_operand ) ** 2._real32 )
 
   end function get_partial_tan
 
@@ -2008,11 +2008,13 @@ contains
     allocate(c)
     if(dim.eq.1)then
        call c%allocate( array_shape = [ new_size, size(a%val,2) ] )
+       c%val = 0.0_real32
        do concurrent(i=1:size(indices,1), s=1:size(a%val,2))
           c%val(indices(i),s) = a%val(i,s)
        end do
     elseif(dim.eq.2)then
        call c%allocate( array_shape = [ size(a%val,1), new_size ] )
+       c%val = 0.0_real32
        do concurrent(i=1:size(a%val,1), s=1:new_size)
           c%val(i,indices(s)) = a%val(i,s)
        end do
@@ -2070,6 +2072,7 @@ contains
     allocate(c)
     if(from) then
        call c%allocate(array_shape=[size(a%val,1), new_index_size])
+       c%val = 0.0_real32
        do concurrent(s=1:size(indices), i=1:size(a%val,1))
           c%val(i, s) = a%val(i, indices(s))
        end do
@@ -2498,11 +2501,13 @@ contains
     allocate(c)
     if(dim.eq.1)then
        call c%allocate( array_shape = [ new_size, size(source%val,2) ] )
+       c%val = 0.0_real32
        do concurrent(i=1:size(source%val,1), s=1:size(source%val,2))
           c%val(index,s) = c%val(index,s) + source%val(i,s)
        end do
     elseif(dim.eq.2)then
        call c%allocate( array_shape = [ size(source%val,1), new_size ] )
+       c%val = 0.0_real32
        do concurrent(i=1:size(source%val,1), s=1:size(source%val,2))
           c%val(i,index) = c%val(i,index) + source%val(i,s)
        end do
