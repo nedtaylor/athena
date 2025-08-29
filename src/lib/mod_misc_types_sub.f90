@@ -827,6 +827,7 @@ contains
     type(array_type), pointer :: left_partial, right_partial
 
     ! write(*,*) "Performing backward operation for: ", trim(this%operation)
+    this%is_forward = .false.
     if(associated(this%left_operand))then
        if(this%left_operand%requires_grad) then
           allocate(left_partial)
