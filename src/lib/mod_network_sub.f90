@@ -2061,7 +2061,7 @@ contains
                 end_idx = end_idx + size(current%params_array(i)%val, 1)
                 gradients(start_idx:end_idx) = [ &
                      sum(current%params_array(i)%grad%val, dim=2) / &
-                     size(current%params_array(i)%grad%val, dim=2) &
+                     real(size(current%params_array(i)%grad%val, dim=2), real32) &
                 ]
              end if
           end do
@@ -2738,7 +2738,7 @@ contains
              params(start_idx:end_idx) = current%params_array(i)%val(:,1)
              gradients(start_idx:end_idx) = [ &
                   sum(current%params_array(i)%grad%val, dim=2) / &
-                  size(current%params_array(i)%grad%val, dim=2) &
+                  real(size(current%params_array(i)%grad%val, dim=2), real32) &
              ]
           end do
        end select
