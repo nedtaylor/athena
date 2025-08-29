@@ -11,7 +11,7 @@ module athena__full_layer
   use athena__constants, only: real32
   use athena__base_layer, only: learnable_layer_type, base_layer_type
   use athena__misc_types, only: activation_type, initialiser_type, &
-       array_type, array2d_type, operator(.mmul.), operator(+)
+       array_type, operator(.mmul.), operator(+)
   implicit none
 
 

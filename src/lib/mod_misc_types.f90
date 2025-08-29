@@ -20,7 +20,7 @@ module athena__misc_types
   public :: initialiser_type
   public :: array_type
   public :: array_container_type, array_ptr_type
-  public :: array1d_type, array2d_type, array3d_type, array4d_type, array5d_type
+!   public :: array1d_type, array2d_type, array3d_type, array4d_type, array5d_type
   public :: facets_type
 
   public :: operator(+), operator(-), operator(*), operator(/), &
@@ -243,11 +243,11 @@ module athena__misc_types
      !! Flag indicating if gradients should be computed
      logical :: is_leaf = .true.
      !! Flag indicating if this is a leaf node (parameter)
-     class(array_type), pointer :: grad => null()
+     type(array_type), pointer :: grad => null()
      !! Gradient array (same type as value)
-     class(array_type), pointer :: left_operand => null()
+     type(array_type), pointer :: left_operand => null()
      !! Left operand for backward pass
-     class(array_type), pointer :: right_operand => null()
+     type(array_type), pointer :: right_operand => null()
      !! Right operand for backward pass
      character(len=32) :: operation = 'none'
      logical :: owns_gradient = .true.
@@ -264,7 +264,7 @@ module athena__misc_types
      !! Abstract procedure for allocating array
      procedure, pass(this) :: deallocate => deallocate_array
      !! Abstract procedure for deallocating array
-     procedure, pass(this) :: set_ptr => set_ptr_array
+     !   procedure, pass(this) :: set_ptr => set_ptr_array
      !! Abstract procedure for setting pointers
      procedure, pass(this) :: flatten => flatten_array
      !! Procedure for flattening array
@@ -290,20 +290,20 @@ module athena__misc_types
      !! Zero the gradients
      procedure, pass(this) :: reset_graph
      procedure, pass(this) :: duplicate_graph
-     procedure, pass(this) :: duplicate_graph_ptrs
+     !   procedure, pass(this) :: duplicate_graph_ptrs
      procedure, pass(this) :: get_ptr_from_id
      procedure, pass(this) :: detach
      !! Detach from computation graph
      procedure, private, pass(this) :: reverse_mode
-     procedure, private, pass(this) :: forward_over_reverse
+     !   procedure, private, pass(this) :: forward_over_reverse
      !! Deferred procedure for operation-specific backward pass
      procedure, pass(this) :: set_requires_grad
      !! Set requires_grad flag
      procedure :: create_result => create_result_array
      !! Helper to safely create result arrays
 
-     final :: finalise_array
-     !! Finaliser for array type
+     ! final :: finalise_array
+     ! !! Finaliser for array type
   end type array_type
 
   ! Interface for allocate, deallocate, and flattening array
@@ -320,9 +320,9 @@ module athena__misc_types
        logical, intent(in), optional :: keep_shape
      end subroutine deallocate_array
 
-     module subroutine set_ptr_array(this)
-       class(array_type), intent(inout), target :: this
-     end subroutine set_ptr_array
+     !   module subroutine set_ptr_array(this)
+     !     class(array_type), intent(inout), target :: this
+     !   end subroutine set_ptr_array
 
      module recursive subroutine finalise_array(this)
        type(array_type), intent(inout) :: this
@@ -337,7 +337,7 @@ module athena__misc_types
 
      module function grad_forward(this, variable) result(output)
        class(array_type), intent(inout) :: this
-       class(array_type), intent(inout) :: variable
+       type(array_type), intent(in) :: variable
        type(array_type) :: output
      end function grad_forward
 
@@ -347,17 +347,17 @@ module athena__misc_types
        logical, intent(in), optional :: reset_graph
      end subroutine grad_reverse
 
-     module recursive function forward_over_reverse(this, variable, itmp) &
-          result(output)
-       class(array_type), intent(inout) :: this
-       class(array_type), intent(inout) :: variable
-       type(array_type) :: output
-       integer :: itmp
-     end function forward_over_reverse
+     !   module recursive function forward_over_reverse(this, variable, itmp) &
+     !        result(output)
+     !     class(array_type), intent(inout) :: this
+     !     type(array_type), intent(inout) :: variable
+     !     type(array_type) :: output
+     !     integer :: itmp
+     !   end function forward_over_reverse
 
      module recursive subroutine reverse_mode(this, upstream_grad, record_graph)
        class(array_type), intent(inout) :: this
-       class(array_type), intent(in) :: upstream_grad
+       type(array_type), intent(in) :: upstream_grad
        logical, intent(in) :: record_graph
      end subroutine reverse_mode
 
@@ -380,17 +380,17 @@ module athena__misc_types
        class(array_type), intent(inout) :: this
      end subroutine duplicate_graph
 
-     module recursive subroutine duplicate_graph_ptrs(this, pointer_map)
-       use iso_c_binding
-       class(array_type), intent(inout) :: this
-       type(c_ptr), dimension(:,:), allocatable, intent(inout) :: pointer_map
-     end subroutine duplicate_graph_ptrs
+     !   module recursive subroutine duplicate_graph_ptrs(this, pointer_map)
+     !     use iso_c_binding
+     !     class(array_type), intent(inout) :: this
+     !     type(c_ptr), dimension(:,:), allocatable, intent(inout) :: pointer_map
+     !   end subroutine duplicate_graph_ptrs
 
      module recursive function get_ptr_from_id(this, id) result(ptr)
        use iso_c_binding
        class(array_type), intent(in), target :: this
        integer, intent(in) :: id
-       class(array_type), pointer :: ptr
+       type(array_type), pointer :: ptr
      end function get_ptr_from_id
 
      module subroutine detach(this)
@@ -399,10 +399,10 @@ module athena__misc_types
      end subroutine detach
   end interface
 
-  abstract interface
+  interface
      module function get_partial(this, upstream_grad) result(output)
        class(array_type), intent(inout) :: this
-       class(array_type), intent(in) :: upstream_grad
+       type(array_type), intent(in) :: upstream_grad
        type(array_type) :: output
      end function get_partial
   end interface
@@ -603,261 +603,8 @@ module athena__misc_types
 
 
 
-  ! Extend the array type to 1d, 2d, 3d, 4d, and 5d arrays
+  ! Array container types
   !-----------------------------------------------------------------------------
-  type, extends(array_type) :: array1d_type
-     !! Type for 1D array
-     real(real32), pointer :: val_ptr(:) => null()
-   contains
-     procedure :: allocate => allocate_array1d
-     procedure :: deallocate => deallocate_array1d
-     procedure :: set_ptr => set_ptr_array1d
-     final :: finalise_array1d
-  end type array1d_type
-
-  type, extends(array_type) :: array2d_type
-     !! Type for 2D array
-     real(real32), pointer :: val_ptr(:,:) => null()
-     !! Pointer with rank 2 to the value of the array
-   contains
-     procedure :: allocate => allocate_array2d
-     procedure :: deallocate => deallocate_array2d
-     procedure :: set_ptr => set_ptr_array2d
-     final :: finalise_array2d
-  end type array2d_type
-
-  type, extends(array_type) :: array3d_type
-     !! Type for 3D array
-     real(real32), pointer :: val_ptr(:,:,:) => null()
-     !! Pointer with rank 3 to the value of the array
-   contains
-     procedure :: allocate => allocate_array3d
-     procedure :: deallocate => deallocate_array3d
-     procedure :: set_ptr => set_ptr_array3d
-     procedure, pass(this) :: set => set_array3d
-     final :: finalise_array3d
-  end type array3d_type
-
-  type, extends(array_type) :: array4d_type
-     !! Type for 4D array
-     real(real32), pointer :: val_ptr(:,:,:,:) => null()
-     !! Pointer with rank 4 to the value of the array
-   contains
-     procedure :: allocate => allocate_array4d
-     procedure :: deallocate => deallocate_array4d
-     procedure :: set_ptr => set_ptr_array4d
-     procedure, pass(this) :: set => set_array4d
-     final :: finalise_array4d
-  end type array4d_type
-
-  type, extends(array_type) :: array5d_type
-     !! Type for 5D array
-     real(real32), pointer :: val_ptr(:,:,:,:,:) => null()
-     !! Pointer with rank 5 to the value of the array
-   contains
-     procedure :: allocate => allocate_array5d
-     procedure :: deallocate => deallocate_array5d
-     procedure :: set_ptr => set_ptr_array5d
-     procedure, pass(this) :: set => set_array5d
-     final :: finalise_array5d
-  end type array5d_type
-
-  ! Interface for allocating array
-  !-----------------------------------------------------------------------------
-  interface
-     module subroutine allocate_array1d(this, array_shape, source)
-       class(array1d_type), intent(inout), target :: this
-       integer, dimension(:), intent(in), optional :: array_shape
-       class(*), dimension(..), intent(in), optional :: source
-     end subroutine allocate_array1d
-
-     module subroutine allocate_array2d(this, array_shape, source)
-       class(array2d_type), intent(inout), target :: this
-       integer, dimension(:), intent(in), optional :: array_shape
-       class(*), dimension(..), intent(in), optional :: source
-     end subroutine allocate_array2d
-
-     module subroutine allocate_array3d(this, array_shape, source)
-       class(array3d_type), intent(inout), target :: this
-       integer, dimension(:), intent(in), optional :: array_shape
-       class(*), dimension(..), intent(in), optional :: source
-     end subroutine allocate_array3d
-
-     module subroutine allocate_array4d(this, array_shape, source)
-       class(array4d_type), intent(inout), target :: this
-       integer, dimension(:), intent(in), optional :: array_shape
-       class(*), dimension(..), intent(in), optional :: source
-     end subroutine allocate_array4d
-
-     module subroutine allocate_array5d(this, array_shape, source)
-       class(array5d_type), intent(inout), target :: this
-       integer, dimension(:), intent(in), optional :: array_shape
-       class(*), dimension(..), intent(in), optional :: source
-     end subroutine allocate_array5d
-  end interface
-
-  ! Interface for deallocating array
-  !-----------------------------------------------------------------------------
-  interface
-     module subroutine deallocate_array1d(this, keep_shape)
-       class(array1d_type), intent(inout) :: this
-       logical, intent(in), optional :: keep_shape
-     end subroutine deallocate_array1d
-
-     module subroutine deallocate_array2d(this, keep_shape)
-       class(array2d_type), intent(inout) :: this
-       logical, intent(in), optional :: keep_shape
-     end subroutine deallocate_array2d
-
-     module subroutine deallocate_array3d(this, keep_shape)
-       class(array3d_type), intent(inout) :: this
-       logical, intent(in), optional :: keep_shape
-     end subroutine deallocate_array3d
-
-     module subroutine deallocate_array4d(this, keep_shape)
-       class(array4d_type), intent(inout) :: this
-       logical, intent(in), optional :: keep_shape
-     end subroutine deallocate_array4d
-
-     module subroutine deallocate_array5d(this, keep_shape)
-       class(array5d_type), intent(inout) :: this
-       logical, intent(in), optional :: keep_shape
-     end subroutine deallocate_array5d
-  end interface
-
-  ! Interface for finalising array
-  !-----------------------------------------------------------------------------
-  interface
-     module subroutine finalise_array1d(this)
-       type(array1d_type), intent(inout) :: this
-     end subroutine finalise_array1d
-
-     module subroutine finalise_array2d(this)
-       type(array2d_type), intent(inout) :: this
-     end subroutine finalise_array2d
-
-     module subroutine finalise_array3d(this)
-       type(array3d_type), intent(inout) :: this
-     end subroutine finalise_array3d
-
-     module subroutine finalise_array4d(this)
-       type(array4d_type), intent(inout) :: this
-     end subroutine finalise_array4d
-
-     module subroutine finalise_array5d(this)
-       type(array5d_type), intent(inout) :: this
-     end subroutine finalise_array5d
-  end interface
-
-  ! Interface for setting pointers
-  !-----------------------------------------------------------------------------
-  interface
-     module subroutine set_ptr_array1d(this)
-       class(array1d_type), intent(inout), target :: this
-     end subroutine set_ptr_array1d
-
-     module subroutine set_ptr_array2d(this)
-       class(array2d_type), intent(inout), target :: this
-     end subroutine set_ptr_array2d
-
-     module subroutine set_ptr_array3d(this)
-       class(array3d_type), intent(inout), target :: this
-     end subroutine set_ptr_array3d
-
-     module subroutine set_ptr_array4d(this)
-       class(array4d_type), intent(inout), target :: this
-     end subroutine set_ptr_array4d
-
-     module subroutine set_ptr_array5d(this)
-       class(array5d_type), intent(inout), target :: this
-     end subroutine set_ptr_array5d
-  end interface
-
-  ! Interface for setting array
-  !-----------------------------------------------------------------------------
-  interface
-     pure module subroutine set_array3d(this, input)
-       class(array3d_type), intent(inout) :: this
-       real(real32), dimension(..), intent(in) :: input
-     end subroutine set_array3d
-
-     pure module subroutine set_array4d(this, input)
-       class(array4d_type), intent(inout) :: this
-       real(real32), dimension(..), intent(in) :: input
-     end subroutine set_array4d
-
-     pure module subroutine set_array5d(this, input)
-       class(array5d_type), intent(inout) :: this
-       real(real32), dimension(..), intent(in) :: input
-     end subroutine set_array5d
-  end interface
-
-  ! Interface for initialising array
-  !-----------------------------------------------------------------------------
-  interface array1d_type
-     module function init_array1d(array_shape) result(output)
-       integer, dimension(:), intent(in), optional :: array_shape
-       type(array1d_type) :: output
-     end function init_array1d
-  end interface array1d_type
-
-  interface array2d_type
-     module function init_array2d(array_shape) result(output)
-       integer, dimension(:), intent(in), optional :: array_shape
-       type(array2d_type) :: output
-     end function init_array2d
-  end interface array2d_type
-
-  interface array3d_type
-     module function init_array3d(array_shape) result(output)
-       integer, dimension(:), intent(in), optional :: array_shape
-       type(array3d_type) :: output
-     end function init_array3d
-  end interface array3d_type
-
-  interface array4d_type
-     module function init_array4d(array_shape) result(output)
-       integer, dimension(:), intent(in), optional :: array_shape
-       type(array4d_type) :: output
-     end function init_array4d
-  end interface array4d_type
-
-  interface array5d_type
-     module function init_array5d(array_shape) result(output)
-       integer, dimension(:), intent(in), optional :: array_shape
-       type(array5d_type) :: output
-     end function init_array5d
-  end interface array5d_type
-
-  ! Interface for assigning array
-  !-----------------------------------------------------------------------------
-  interface
-     module subroutine assign_array1d(this, input)
-       type(array1d_type), intent(out), target :: this
-       type(array1d_type), intent(in) :: input
-     end subroutine assign_array1d
-
-     module subroutine assign_array2d(this, input)
-       type(array2d_type), intent(out), target :: this
-       type(array2d_type), intent(in) :: input
-     end subroutine assign_array2d
-
-     module subroutine assign_array3d(this, input)
-       type(array3d_type), intent(out), target :: this
-       type(array3d_type), intent(in) :: input
-     end subroutine assign_array3d
-
-     module subroutine assign_array4d(this, input)
-       type(array4d_type), intent(out), target :: this
-       type(array4d_type), intent(in) :: input
-     end subroutine assign_array4d
-
-     module subroutine assign_array5d(this, input)
-       type(array5d_type), intent(out), target :: this
-       type(array5d_type), intent(in) :: input
-     end subroutine assign_array5d
-  end interface
-
   type :: array_container_type
      class(array_type), allocatable :: array
   end type array_container_type
@@ -867,14 +614,6 @@ module athena__misc_types
   end type array_ptr_type
 
 
-  interface assignment (=)
-     !  module procedure assign_array
-     module procedure assign_array1d
-     module procedure assign_array2d
-     module procedure assign_array3d
-     module procedure assign_array4d
-     module procedure assign_array5d
-  end interface
 !-------------------------------------------------------------------------------
 
 
@@ -1007,37 +746,37 @@ contains
 
   end subroutine set_direction
 
-  module function get_partial_add(this, upstream_grad) result(output)
+  function get_partial_add(this, upstream_grad) result(output)
     !! Get partial derivative with respect to left operand
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     output = upstream_grad
   end function get_partial_add
 
-  module function get_partial_negate(this, upstream_grad) result(output)
+  function get_partial_negate(this, upstream_grad) result(output)
     !! Get partial derivative with respect to left operand
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     output = -upstream_grad
   end function get_partial_negate
 
-  module function get_partial_exp(this, upstream_grad) result(output)
+  function get_partial_exp(this, upstream_grad) result(output)
     !! Get partial derivative with respect to left operand
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     output = upstream_grad * this
   end function get_partial_exp
 
-  module function get_partial_multiply_left(this, upstream_grad) result(output)
+  function get_partial_multiply_left(this, upstream_grad) result(output)
     !! Get partial derivative with respect to left operand
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     if(this%right_operand%is_scalar)then
@@ -1047,10 +786,10 @@ contains
     end if
   end function get_partial_multiply_left
 
-  module function get_partial_multiply_right(this, upstream_grad) result(output)
+  function get_partial_multiply_right(this, upstream_grad) result(output)
     !! Get partial derivative with respect to right operand
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     if(this%left_operand%is_scalar)then
@@ -1060,10 +799,10 @@ contains
     end if
   end function get_partial_multiply_right
 
-  module function get_partial_divide_left(this, upstream_grad) result(output)
+  function get_partial_divide_left(this, upstream_grad) result(output)
     !! Get partial derivative with respect to left operand
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     if(this%right_operand%is_scalar)then
@@ -1073,10 +812,10 @@ contains
     end if
   end function get_partial_divide_left
 
-  module function get_partial_divide_right(this, upstream_grad) result(output)
+  function get_partial_divide_right(this, upstream_grad) result(output)
     !! Get partial derivative with respect to right operand
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
     class(array_type), pointer :: grad, div
 
@@ -1091,10 +830,10 @@ contains
     output = grad / div
   end function get_partial_divide_right
 
-  module function get_partial_power_base(this, upstream_grad) result(output)
+  function get_partial_power_base(this, upstream_grad) result(output)
     !! Get the partial gradient with respect to the base of the power operation
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     if(this%right_operand%is_scalar)then
@@ -1106,10 +845,10 @@ contains
     end if
   end function get_partial_power_base
 
-  module function get_partial_power_exponent(this, upstream_grad) result(output)
+  function get_partial_power_exponent(this, upstream_grad) result(output)
     !! Get the partial gradient with respect to the exponent of the power operation
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     if(this%left_operand%is_scalar)then
@@ -1119,10 +858,10 @@ contains
     end if
   end function get_partial_power_exponent
 
-  module function get_partial_matmul_left(this, upstream_grad) result(output)
+  function get_partial_matmul_left(this, upstream_grad) result(output)
     !! Get partial derivative with respect to left operand of matmul
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     if(size(this%right_operand%shape).eq.2)then
@@ -1143,10 +882,10 @@ contains
 
   end function get_partial_matmul_left
 
-  module function get_partial_matmul_right(this, upstream_grad) result(output)
+  function get_partial_matmul_right(this, upstream_grad) result(output)
     !! Get partial derivative with respect to right operand of matmul
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     if(size(this%left_operand%shape).eq.2)then
@@ -1168,72 +907,72 @@ contains
   end function get_partial_matmul_right
 
 
-  module function get_partial_transpose_left(this, upstream_grad) result(output)
+  function get_partial_transpose_left(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     output = transpose(upstream_grad)
 
   end function get_partial_transpose_left
 
-!   module function get_partial_transpose_right(this, upstream_grad) result(output)
+!   function get_partial_transpose_right(this, upstream_grad) result(output)
 !     class(array_type), intent(inout) :: this
-!     class(array_type), intent(in) :: upstream_grad
+!     type(array_type), intent(in) :: upstream_grad
 !     type(array_type) :: output
 
 !     output = transpose(this%left_operand)
 
 !   end function get_partial_transpose_right
 
-  module function get_partial_log(this, upstream_grad) result(output)
+  function get_partial_log(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     output = upstream_grad / this%left_operand
 
   end function get_partial_log
 
-  module function get_partial_sqrt(this, upstream_grad) result(output)
+  function get_partial_sqrt(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     output = upstream_grad / ( 2._real32 * this )
 
   end function get_partial_sqrt
 
-  module function get_partial_sin(this, upstream_grad) result(output)
+  function get_partial_sin(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     output = upstream_grad * cos( this%left_operand )
 
   end function get_partial_sin
 
-  module function get_partial_cos(this, upstream_grad) result(output)
+  function get_partial_cos(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     output = -upstream_grad * sin( this%left_operand )
 
   end function get_partial_cos
 
-  module function get_partial_tan(this, upstream_grad) result(output)
+  function get_partial_tan(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     output = upstream_grad / ( cos( this%left_operand ) ** 2._real32 )
 
   end function get_partial_tan
 
-  module function get_partial_tanh(this, upstream_grad) result(output)
+  function get_partial_tanh(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     ! as: this = tanh(this%left_operand)
@@ -1241,9 +980,9 @@ contains
 
   end function get_partial_tanh
 
-  module function get_partial_index(this, upstream_grad) result(output)
+  function get_partial_index(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     output = reverse_index( &
@@ -1253,54 +992,54 @@ contains
 
   end function get_partial_index
 
-  module function get_partial_merge(this, upstream_grad) result(output)
+  function get_partial_merge(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     output = merge(upstream_grad, 0._real32, this%mask)
 
   end function get_partial_merge
 
-  module function get_partial_concat_left(this, upstream_grad) result(output)
+  function get_partial_concat_left(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     output = upstream_grad .ltrim. this%left_operand%shape(1)
 
   end function get_partial_concat_left
 
-  module function get_partial_concat_right(this, upstream_grad) result(output)
+  function get_partial_concat_right(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     output = upstream_grad .rtrim. this%right_operand%shape(1)
 
   end function get_partial_concat_right
 
-  module function get_partial_max_left(this, upstream_grad) result(output)
+  function get_partial_max_left(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     output = upstream_grad * (this%val .eq. this%left_operand%val)
 
   end function get_partial_max_left
 
-  module function get_partial_max_right(this, upstream_grad) result(output)
+  function get_partial_max_right(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     output = upstream_grad * (this%val .eq. this%right_operand%val)
 
   end function get_partial_max_right
 
-  module function get_partial_sum_reverse(this, upstream_grad) result(output)
+  function get_partial_sum_reverse(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     output = spread( &
@@ -1312,9 +1051,9 @@ contains
 
   end function get_partial_sum_reverse
 
-  module function get_partial_sum_forward(this, upstream_grad) result(output)
+  function get_partial_sum_forward(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     output = sum( &
@@ -1324,9 +1063,9 @@ contains
 
   end function get_partial_sum_forward
 
-  module function get_partial_mean(this, upstream_grad) result(output)
+  function get_partial_mean(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     real(real32) :: rtmp1
@@ -1347,27 +1086,27 @@ contains
 
   end function get_partial_mean
 
-  module function get_partial_pack(this, upstream_grad) result(output)
+  function get_partial_pack(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     output = unpack(upstream_grad, this%indices, this%adj_ja(1,1), this%adj_ja(2,1))
 
   end function get_partial_pack
 
-  module function get_partial_unpack(this, upstream_grad) result(output)
+  function get_partial_unpack(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     output = pack(upstream_grad, this%indices, this%adj_ja(1,1))
 
   end function get_partial_unpack
 
-  module function get_partial_spread(this, upstream_grad) result(output)
+  function get_partial_spread(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     integer :: i, s
@@ -1381,9 +1120,9 @@ contains
 
   end function get_partial_spread
 
-  module function get_partial_unspread(this, upstream_grad) result(output)
+  function get_partial_unspread(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     integer :: i, s

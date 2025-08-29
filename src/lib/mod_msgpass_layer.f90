@@ -4,7 +4,7 @@ module athena__msgpass_layer
   use graphstruc, only: graph_type
   use athena__base_layer, only: learnable_layer_type
   use athena__clipper, only: clip_type
-  use athena__misc_types, only: array_type, array2d_type
+  use athena__misc_types, only: array_type
   implicit none
 
 

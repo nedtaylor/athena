@@ -80,8 +80,8 @@ module athena__base_layer
      !! Print the layer to a file with additional information
      procedure, pass(this) :: print_to_unit => print_to_unit_base
      !! Print the layer to a unit
-     procedure, pass(this) :: get_output => get_output_base
-     !! Get the output of the layer
+     ! procedure, pass(this) :: get_output => get_output_base
+     ! !! Get the output of the layer
      procedure(initialise), deferred, pass(this) :: init
      !! Initialise the layer
      procedure(set_batch_size), deferred, pass(this) :: set_batch_size
@@ -365,7 +365,7 @@ module athena__base_layer
      !! Split two layers (backward)
   end type merge_layer_type
 
-  abstract interface
+  interface
      module subroutine combine_merge(this, input_list)
        !! Combine two layers (forward)
        class(merge_layer_type), intent(inout) :: this

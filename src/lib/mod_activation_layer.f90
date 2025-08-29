@@ -5,12 +5,7 @@ module athena__actv_layer
   use athena__io_utils, only: stop_program
   use athena__constants, only: real32
   use athena__base_layer, only: base_layer_type
-  use athena__misc_types, only: activation_type, &
-       array1d_type, &
-       array2d_type, &
-       array3d_type, &
-       array4d_type, &
-       array5d_type
+  use athena__misc_types, only: activation_type
   implicit none
 
 

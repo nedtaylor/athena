@@ -2764,7 +2764,7 @@ contains
 
 
 !###############################################################################
-  function save_input_to_network( this, input ) result(num_samples)
+  module function save_input_to_network( this, input ) result(num_samples)
     !! Save input to network
     implicit none
 
@@ -3040,7 +3040,7 @@ contains
     !! Loop index
 
     class(*), allocatable :: data_poly(:,:)
-    type(array_type), allocatable :: loss_array(:,:)
+    class(array_type), allocatable :: loss_array(:,:)
 
 #ifdef _OPENMP
     type(network_type) :: this_copy

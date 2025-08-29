@@ -3,7 +3,7 @@ module athena__duvenaud_msgpass_layer
   use athena__constants, only: real32
   use graphstruc, only: graph_type
   use athena__misc_types, only: activation_type, initialiser_type, &
-       array_type, array2d_type, &
+       array_type, &
        operator(.concat.), operator(.index.), operator(.mmul.), operator(/), &
        sum, operator(+), operator(*), operator(-)
   use athena__base_layer, only: base_layer_type
@@ -623,8 +623,8 @@ contains
                  this%batch_size &
             ), source=0._real32 &
        )
-       if(allocated(this%di)) deallocate(this%di)
-       allocate(this%di(2,this%batch_size), source=array2d_type())
+       !   if(allocated(this%di)) deallocate(this%di)
+       !   allocate(this%di(2,this%batch_size), source=array2d_type())
 
        if(allocated(this%di_msg)) deallocate(this%di_msg)
        allocate(this%di_msg(this%num_time_steps, this%batch_size))
@@ -701,7 +701,7 @@ contains
                     size(graph) &
                ] &
           )
-          call this%output(1,1)%set_ptr()
+          ! call this%output(1,1)%set_ptr()
           do s = 1, size(graph)
              if(this%di(1,s)%allocated) &
                   call this%di(1,s)%deallocate()
@@ -719,8 +719,8 @@ contains
                        this%graph(s)%num_edges &
                   ] &
              )
-             call this%di(1,s)%set_ptr()
-             call this%di(2,s)%set_ptr()
+             !    call this%di(1,s)%set_ptr()
+             !    call this%di(2,s)%set_ptr()
           end do
        end if
        call this%set_ptrs()
@@ -1358,57 +1358,57 @@ contains
 
   end function duvenaud_update
 
-  module function get_partial_duvenaud_update(this, upstream_grad) result(output)
+  function get_partial_duvenaud_update(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     output = reverse_duvenaud_update( upstream_grad, this%left_operand, &
-                    this%indices )
+         this%indices )
 
   end function get_partial_duvenaud_update
 
-  module function get_partial_duvenaud_update_weight(this, upstream_grad) result(output)
+  function get_partial_duvenaud_update_weight(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
-     output = reverse_duvenaud_update_weight( upstream_grad, this%right_operand, &
-                    this%left_operand%indices, this%indices )
+    output = reverse_duvenaud_update_weight( upstream_grad, this%right_operand, &
+         this%left_operand%indices, this%indices )
 
   end function get_partial_duvenaud_update_weight
 
-  module function get_partial_duvenaud_propagate_left(this, upstream_grad) result(output)
+  function get_partial_duvenaud_propagate_left(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     output = reverse_duvenaud_propagate( upstream_grad, &
-                    this%indices, this%adj_ja, &
-                    num_features = [ &
-                         this%left_operand%shape(1), this%right_operand%shape(1) &
-                    ], &
-                    num_elements = [ &
-                         size(this%left_operand%val,2), size(this%right_operand%val,2) &
-                    ], &
-                    left = .true. )
+         this%indices, this%adj_ja, &
+         num_features = [ &
+              this%left_operand%shape(1), this%right_operand%shape(1) &
+         ], &
+         num_elements = [ &
+              size(this%left_operand%val,2), size(this%right_operand%val,2) &
+         ], &
+         left = .true. )
 
   end function get_partial_duvenaud_propagate_left
 
-  module function get_partial_duvenaud_propagate_right(this, upstream_grad) result(output)
+  function get_partial_duvenaud_propagate_right(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
     output = reverse_duvenaud_propagate( upstream_grad, &
-                    this%indices, this%adj_ja, &
-                    num_features = [ &
-                         this%left_operand%shape(1), this%right_operand%shape(1) &
-                    ], &
-                    num_elements = [ &
-                         size(this%left_operand%val,2), size(this%right_operand%val,2) &
-                    ], &
-                    left = .false. )
+         this%indices, this%adj_ja, &
+         num_features = [ &
+              this%left_operand%shape(1), this%right_operand%shape(1) &
+         ], &
+         num_elements = [ &
+              size(this%left_operand%val,2), size(this%right_operand%val,2) &
+         ], &
+         left = .false. )
 
   end function get_partial_duvenaud_propagate_right
 

@@ -55,7 +55,7 @@ contains
   end function compute_loss_forces
 
 
-  module function compute_pinn_loss_forces(this, predicted, expected, input) &
+  function compute_pinn_loss_forces(this, predicted, expected, input) &
        result(output)
     implicit none
     class(forces_loss_type), intent(in) :: this
@@ -76,7 +76,7 @@ contains
   end function compute_pinn_loss_forces
 
 
-  module function compute_pinn_derivative_forces(this, predicted, expected, input) &
+  function compute_pinn_derivative_forces(this, predicted, expected, input) &
        result(output)
     implicit none
     class(forces_loss_type), intent(in) :: this
@@ -98,7 +98,7 @@ contains
   end function compute_pinn_derivative_forces
 
 
-  module function compute_pinn_loss_generic_forces( &
+  function compute_pinn_loss_generic_forces( &
        this, predicted, expected, input &
   ) result(output)
     implicit none

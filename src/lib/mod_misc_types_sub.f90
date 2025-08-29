@@ -246,21 +246,21 @@ contains
 !###############################################################################
 
 
-!###############################################################################
-  module subroutine set_ptr_array(this)
-    !! Set pointer for array
-    implicit none
+! !###############################################################################
+!   module subroutine set_ptr_array(this)
+!     !! Set pointer for array
+!     implicit none
 
-    ! Arguments
-    class(array_type), intent(inout), target :: this
-    !! Instance of the array type
+!     ! Arguments
+!     class(array_type), intent(inout), target :: this
+!     !! Instance of the array type
 
-    if(.not. this%allocated)then
-       call stop_program('Array not allocated')
-       return
-    end if
-  end subroutine set_ptr_array
-!###############################################################################
+!     if(.not. this%allocated)then
+!        call stop_program('Array not allocated')
+!        return
+!     end if
+!   end subroutine set_ptr_array
+! !###############################################################################
 
 
 !###############################################################################
@@ -378,29 +378,29 @@ contains
     real(real32), dimension(..), allocatable, intent(out) :: output
     !! Output array
 
-    select rank(output)
-    rank(1)
-       output = this%flatten()
-    rank(2)
-       output = this%val
-    rank(3)
-       select type(this)
-       type is(array3d_type)
-          output = this%val_ptr
-       end select
-    rank(4)
-       select type(this)
-       type is(array4d_type)
-          output = this%val_ptr
-       end select
-    rank(5)
-       select type(this)
-       type is(array5d_type)
-          output = this%val_ptr
-       end select
-    rank default
-       return
-    end select
+!     select rank(output)
+!     rank(1)
+!        output = this%flatten()
+!     rank(2)
+!        output = this%val
+!     rank(3)
+!        select type(this)
+!        type is(array3d_type)
+!           output = this%val_ptr
+!        end select
+!     rank(4)
+!        select type(this)
+!        type is(array4d_type)
+!           output = this%val_ptr
+!        end select
+!     rank(5)
+!        select type(this)
+!        type is(array5d_type)
+!           output = this%val_ptr
+!        end select
+!     rank default
+!        return
+!     end select
   end subroutine get_array
 !###############################################################################
 
@@ -476,6 +476,7 @@ contains
 !###############################################################################
   module recursive subroutine finalise_array(this)
     !! Finalise array - clean up memory safely
+    implicit none
     type(array_type), intent(inout) :: this
 
     if (associated(this%grad) .and. this%owns_gradient) then
@@ -498,16 +499,16 @@ contains
   ! Core autodiff procedures
   !-----------------------------------------------------------------------------
 
-  module recursive function forward_over_reverse(this, variable, itmp) result(output)
+  recursive function forward_over_reverse(this, variable, itmp) result(output)
     implicit none
     class(array_type), intent(inout) :: this
-    class(array_type), intent(inout) :: variable
-    type(array_type) :: output
+    type(array_type), intent(in) :: variable
     integer :: itmp
+    type(array_type) :: output
 
     integer :: s
     logical :: is_right_a_variable, is_left_a_variable
-    type(array_type) :: left_deriv, right_deriv
+    class(array_type), allocatable :: left_deriv, right_deriv
 
     itmp = itmp + 1
     if(itmp.gt.500)then
@@ -588,21 +589,23 @@ contains
 
   module function grad_forward(this, variable) result(output)
     !! Perform forward-mode automatic differentiation
+    implicit none
     class(array_type), intent(inout) :: this
-    class(array_type), intent(inout) :: variable
+    type(array_type), intent(in) :: variable
     type(array_type) :: output
 
     integer :: itmp
 
     itmp = 0
-    output = this%forward_over_reverse(variable, itmp)
+    output = forward_over_reverse(this, variable, itmp)
 
   end function grad_forward
 
 
 
-  subroutine grad_reverse(this, record_graph, reset_graph)
+  module subroutine grad_reverse(this, record_graph, reset_graph)
     !! Perform backward pass starting from this array
+    implicit none
     class(array_type), intent(inout) :: this
     logical, intent(in), optional :: record_graph
     logical, intent(in), optional :: reset_graph
@@ -639,8 +642,9 @@ contains
     call this%reverse_mode(this%grad, record_graph_)
   end subroutine grad_reverse
 
-  subroutine zero_grad(this)
+  module subroutine zero_grad(this)
     !! Zero the gradients of this array
+    implicit none
     class(array_type), intent(inout) :: this
 
     if(associated(this%grad)) then
@@ -648,8 +652,9 @@ contains
     end if
   end subroutine zero_grad
 
-  recursive subroutine reset_graph(this)
+  module recursive subroutine reset_graph(this)
     !! Reset the gradient graph of this array
+    implicit none
     class(array_type), intent(inout) :: this
 
     if(associated(this%left_operand))then
@@ -684,34 +689,40 @@ contains
 
     type(c_ptr), dimension(:,:), allocatable :: pointer_map
 
-    call this%duplicate_graph_ptrs(pointer_map)
+    select type(this)
+    type is(array_type)
+       call duplicate_graph_ptrs(this, pointer_map)
+    class default
+       call stop_program('Unsupported type for duplicate_graph. Currently only supports array_type')
+       return
+    end select
     if(allocated(pointer_map)) deallocate(pointer_map)
 
   end subroutine duplicate_graph
 
-  module recursive subroutine duplicate_graph_ptrs(this, pointer_map)
+  recursive subroutine duplicate_graph_ptrs(array, pointer_map)
     !! Duplicate the computation graph of this array
     use iso_c_binding
     implicit none
-    class(array_type), intent(inout) :: this
+    type(array_type), intent(inout) :: array
     type(c_ptr), dimension(:,:), allocatable, intent(inout) :: pointer_map
 
-    left_if: if(associated(this%left_operand))then
-       call this%left_operand%duplicate_graph_ptrs(pointer_map)
-       if(this%left_operand%fix_pointer) exit left_if
-       this%left_operand => duplicate_pointer(this%left_operand, pointer_map)
+    left_if: if(associated(array%left_operand))then
+       call duplicate_graph_ptrs(array%left_operand, pointer_map)
+       if(array%left_operand%fix_pointer) exit left_if
+       array%left_operand => duplicate_pointer(array%left_operand, pointer_map)
     end if left_if
 
-    right_if: if(associated(this%right_operand)) then
-       call this%right_operand%duplicate_graph_ptrs(pointer_map)
-       if(this%right_operand%fix_pointer) exit right_if
-       this%right_operand => duplicate_pointer(this%right_operand, pointer_map)
+    right_if: if(associated(array%right_operand)) then
+       call duplicate_graph_ptrs(array%right_operand, pointer_map)
+       if(array%right_operand%fix_pointer) exit right_if
+       array%right_operand => duplicate_pointer(array%right_operand, pointer_map)
     end if right_if
 
-    grad_if: if(associated(this%grad)) then
-       call this%grad%duplicate_graph_ptrs(pointer_map)
-       if(this%grad%fix_pointer) exit grad_if
-       this%grad => duplicate_pointer(this%grad, pointer_map)
+    grad_if: if(associated(array%grad)) then
+       call duplicate_graph_ptrs(array%grad, pointer_map)
+       if(array%grad%fix_pointer) exit grad_if
+       array%grad => duplicate_pointer(array%grad, pointer_map)
     end if grad_if
 
   end subroutine duplicate_graph_ptrs
@@ -752,28 +763,6 @@ contains
             [ c_loc(input_ptr), c_loc(output_ptr) ]
        deallocate(pointer_map_store)
     end if
-    !  if(.not. allocated(pointer_map)) then
-    !     allocate(pointer_map(2,1))
-    !     pointer_map = c_null_ptr
-    !  end if
-    !  if(.not. any(pointer_map(1,:) .eq. c_loc(this%left_operand))) then
-    !     call move_alloc(pointer_map, pointer_map_store)
-    !     allocate(pointer_map(2, size(pointer_map, 2)))
-    !     pointer_map(2,:size(pointer_map_store, 2)) = pointer_map_store(2,:)
-    !     pointer_map(1, size(pointer_map_store, 2)+1) = c_loc(this%left_operand%id)
-    !     allocate(tmp_ptr)
-    !     tmp_ptr = this%left_operand
-    !     pointer_map(2, size(pointer_map_store, 2)+1) = c_loc(tmp_ptr%id)
-    !     this%left_operand => tmp_ptr
-    !  else
-    !     do i = 1, size(pointer_map, 2)
-    !        if(pointer_map(1,i) .eq. c_loc(this%left_operand))then
-    !           idx = i
-    !           exit
-    !        end if
-    !     end do
-    !     call c_f_pointer(pointer_map(2, idx), this%left_operand)
-    !  end if
 
   end function duplicate_pointer
 
@@ -782,7 +771,7 @@ contains
     implicit none
     class(array_type), intent(in), target :: this
     integer, intent(in) :: id
-    class(array_type), pointer :: ptr
+    type(array_type), pointer :: ptr
 
     ptr => null()
     if(this%id .eq. id) then
@@ -799,8 +788,9 @@ contains
     end if
   end function get_ptr_from_id
 
-  subroutine detach(this)
+  module subroutine detach(this)
     !! Detach this array from the computation graph
+    implicit none
     class(array_type), intent(inout) :: this
 
     this%requires_grad = .false.
@@ -810,8 +800,9 @@ contains
     this%right_operand => null()
   end subroutine detach
 
-  subroutine set_requires_grad(this, requires_grad)
+  module subroutine set_requires_grad(this, requires_grad)
     !! Set the requires_grad flag
+    implicit none
     class(array_type), intent(inout) :: this
     logical, intent(in) :: requires_grad
 
@@ -820,8 +811,9 @@ contains
 
   module recursive subroutine reverse_mode(this, upstream_grad, record_graph)
     !! Backward operation for arrays
+    implicit none
     class(array_type), intent(inout) :: this
-    class(array_type), intent(in) :: upstream_grad
+    type(array_type), intent(in) :: upstream_grad
     logical, intent(in) :: record_graph
 
     type(array_type), pointer :: left_partial, right_partial
@@ -847,8 +839,9 @@ contains
 
   recursive subroutine accumulate_gradient(array, grad, record_graph)
     !! Accumulate gradient for array with safe memory management
-    class(array_type), intent(inout) :: array
-    class(array_type), intent(in), pointer :: grad
+    implicit none
+    type(array_type), intent(inout) :: array
+    type(array_type), intent(in), pointer :: grad
     logical, intent(in) :: record_graph
 
     integer :: s
@@ -909,6 +902,7 @@ contains
 
   module function create_result_array(this, shape_arr) result(result_ptr)
     !! Helper function to safely create result arrays with proper initialization
+    implicit none
     class(array_type), intent(in) :: this
     integer, dimension(:), intent(in), optional :: shape_arr
     type(array_type), pointer :: result_ptr
@@ -939,1183 +933,6 @@ contains
     result_ptr%get_partial_left => null()
     result_ptr%get_partial_right => null()
   end function create_result_array
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
-
-!###############################################################################
-  module function init_array1d(array_shape) result(output)
-    !! Initialise 1D array
-    implicit none
-
-    ! Arguments
-    integer, dimension(:), intent(in), optional :: array_shape
-    !! Shape of the array
-    type(array1d_type) :: output
-    !! Output array
-
-    output%rank = 1
-    allocate(output%shape(1))
-    if(present(array_shape)) call output%allocate(array_shape)
-
-  end function init_array1d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine allocate_array1d(this, array_shape, source)
-    !! Allocate 1D array
-    implicit none
-
-    ! Arguments
-    class(array1d_type), intent(inout), target :: this
-    !! Instance of the 1D array type
-    integer, dimension(:), intent(in), optional :: array_shape
-    !! Shape of the array
-    class(*), dimension(..), intent(in), optional :: source
-    !! Source array
-
-    if(allocated(this%val).or.this%allocated)then
-       call stop_program("Trying to allocate already allocated array values")
-       return
-    end if
-    if(present(array_shape))then
-       if(size(array_shape) .ne. 1) then
-          call stop_program('Array shape must be of size 1 for 1D array')
-          return
-       end if
-       this%shape = array_shape
-       allocate( this%val( array_shape(1), 1 ) )
-       this%val_ptr( 1:array_shape(1) ) => this%val
-    end if
-    if(present(source))then
-       select rank(source)
-       rank(0)
-          select type(source)
-          type is (real(real32))
-             if(.not.present(array_shape))then
-                call stop_program('Source shape not provided')
-                return
-             end if
-             this%val(:,:) = source
-          type is (array1d_type)
-             if(present(array_shape))then
-                if(any(array_shape.ne.shape(source%val)))then
-                   call stop_program('Source shape does not match array shape')
-                   return
-                end if
-             end if
-             this = source
-          class default
-             call stop_program('Incompatible source type for rank 0')
-             return
-          end select
-       rank(1)
-          select type(source)
-          type is (real(real32))
-             if(present(array_shape))then
-                if(any(array_shape.ne.shape(source))) &
-                     call stop_program( &
-                          'Source shape does not match array shape' &
-                     )
-                return
-             else
-                allocate( this%val( size(source, dim=1), 1 ) )
-                this%val_ptr( 1:size(source, dim=1) ) => this%val
-             end if
-             this%val_ptr = source
-          class default
-             call stop_program('Incompatible source type for rank 1')
-             return
-          end select
-       rank(2)
-          select type(source)
-          type is (real(real32))
-             if(present(array_shape))then
-                if(any(array_shape.ne.shape(source)))then
-                   call stop_program('Source shape does not match array shape')
-                   return
-                end if
-             end if
-             this%val = source
-             this%val_ptr( 1:size(source, dim=1) ) => this%val
-          class default
-             call stop_program('Incompatible source type for rank 2')
-             return
-          end select
-       rank default
-          call stop_program('Unrecognised source rank')
-          return
-       end select
-    end if
-    if(.not.present(source).and..not.present(array_shape))then
-       call stop_program('No shape or source provided')
-       return
-    end if
-    this%rank = 1
-    this%allocated = .true.
-    this%shape = shape(this%val_ptr)
-    this%size = product(this%shape)
-
-  end subroutine allocate_array1d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine deallocate_array1d(this, keep_shape)
-    !! Deallocate 1D array
-    implicit none
-
-    ! Arguments
-    class(array1d_type), intent(inout) :: this
-    !! Instance of the 1D array type
-    logical, intent(in), optional :: keep_shape
-    !! Boolean whether to keep shape
-
-    ! Local variables
-    logical :: keep_shape_
-    !! Boolean whether to keep shape
-
-    keep_shape_ = .false.
-    if(present(keep_shape)) keep_shape_ = keep_shape
-    if(.not.keep_shape_) this%shape = 0
-    if(allocated(this%val)) deallocate(this%val)
-    this%val_ptr => null()
-    this%allocated = .false.
-    this%size = 0
-
-  end subroutine deallocate_array1d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine assign_array1d(this, input)
-    !! Assign 1D array
-    implicit none
-
-    ! Arguments
-    type(array1d_type), intent(out), target :: this
-    !! Instance of the 1D array type
-    type(array1d_type), intent(in) :: input
-    !! Input array
-
-    this%rank = input%rank
-    this%shape = input%shape
-    this%size = input%size
-    this%allocated = input%allocated
-    this%val = input%val
-    this%val_ptr( &
-         1:this%shape(1) &
-    ) => this%val
-  end subroutine assign_array1d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine set_ptr_array1d(this)
-    !! Set pointer for 1D array
-    implicit none
-
-    ! Arguments
-    class(array1d_type), intent(inout), target :: this
-    !! Instance of the 1D array type
-
-    if(.not. this%allocated)then
-       call stop_program('Array not allocated')
-       return
-    end if
-    this%val_ptr(1:this%shape(1)) => this%val
-  end subroutine set_ptr_array1d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine finalise_array1d(this)
-    !! Finalise 1D array
-    implicit none
-
-    ! Arguments
-    type(array1d_type), intent(inout) :: this
-    !! Instance of the 1D array type
-
-    if(associated(this%val_ptr)) nullify(this%val_ptr)
-    if(allocated(this%val)) deallocate(this%val)
-    if(allocated(this%shape)) deallocate(this%shape)
-  end subroutine finalise_array1d
-!###############################################################################
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
-
-!###############################################################################
-  module function init_array2d(array_shape) result(output)
-    !! Initialise 2D array
-    implicit none
-
-    ! Arguments
-    integer, dimension(:), intent(in), optional :: array_shape
-    !! Shape of the array
-    type(array2d_type) :: output
-    !! Output array
-
-    output%rank = 1
-    allocate(output%shape(1))
-    if(present(array_shape)) call output%allocate(array_shape)
-
-  end function init_array2d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine allocate_array2d(this, array_shape, source)
-    !! Allocate 2D array
-    implicit none
-
-    ! Arguments
-    class(array2d_type), intent(inout), target :: this
-    !! Instance of the 2D array type
-    integer, dimension(:), intent(in), optional :: array_shape
-    !! Shape of the array
-    class(*), dimension(..), intent(in), optional :: source
-    !! Source array
-
-    if(allocated(this%val).or.this%allocated)then
-       call stop_program("Trying to allocate already allocated array values")
-       return
-    end if
-    if(present(array_shape))then
-       if(size(array_shape) .ne. 2) then
-          call stop_program('Array shape must be of size 2 for 2D array')
-          return
-       end if
-       allocate(this%val(array_shape(1), array_shape(2)))
-    end if
-    if(present(source))then
-       select rank(source)
-       rank(0)
-          select type(source)
-          type is (real(real32))
-             if(.not.present(array_shape))then
-                call stop_program('Source shape not provided')
-                return
-             end if
-             this%val(:,:) = source
-          type is (array2d_type)
-             if(present(array_shape))then
-                if(any(array_shape.ne.shape(source%val)))then
-                   call stop_program('Source shape does not match array shape')
-                   return
-                end if
-             end if
-             this = source
-             this%val_ptr( &
-                  1:source%shape(1), &
-                  1:size(source%val, dim=2) &
-             ) => this%val
-          class default
-             call stop_program('Incompatible source type for rank 0')
-             return
-          end select
-       rank(2)
-          select type(source)
-          type is (real(real32))
-             if(present(array_shape))then
-                if(any(array_shape.ne.shape(source)))then
-                   call stop_program('Source shape does not match array shape')
-                   return
-                end if
-             end if
-             this%val = source
-             this%val_ptr( &
-                  1:size(source, dim=1), &
-                  1:size(source, dim=2) &
-             ) => this%val
-          class default
-             call stop_program('Incompatible source type for rank 2')
-             return
-          end select
-       rank default
-          call stop_program('Unrecognised source rank')
-          return
-       end select
-    end if
-    if(.not.present(source).and..not.present(array_shape))then
-       call stop_program('No shape or source provided')
-       return
-    end if
-    this%rank = 1
-    this%allocated = .true.
-    this%val_ptr(1:size(this%val, dim=1), 1:size(this%val, dim=2)) => this%val
-    this%shape = [ size(this%val, dim=1) ]
-    this%size = product(this%shape)
-
-  end subroutine allocate_array2d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine deallocate_array2d(this, keep_shape)
-    !! Deallocate 2D array
-    implicit none
-
-    ! Arguments
-    class(array2d_type), intent(inout) :: this
-    !! Instance of the 2D array type
-    logical, intent(in), optional :: keep_shape
-    !! Boolean whether to keep shape
-
-    ! Local variables
-    logical :: keep_shape_
-    !! Boolean whether to keep shape
-
-    this%val_ptr => null()
-    call this%array_type%deallocate()
-    !  keep_shape_ = .false.
-    !  if(present(keep_shape)) keep_shape_ = keep_shape
-    !  if(.not.keep_shape_) this%shape = 0
-    !  if(allocated(this%val)) deallocate(this%val)
-    !  this%allocated = .false.
-    !  this%size = 0
-
-  end subroutine deallocate_array2d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine assign_array2d(this, input)
-    !! Assign 2D array
-    implicit none
-
-    ! Arguments
-    type(array2d_type), intent(out), target :: this
-    !! Instance of the 2D array type
-    type(array2d_type), intent(in) :: input
-    !! Input array
-
-    this%rank = input%rank
-    this%shape = input%shape
-    this%size = input%size
-    this%allocated = input%allocated
-    this%val = input%val
-    this%val_ptr( &
-         1:this%shape(1), &
-         1:size(this%val, dim=2) &
-    ) => this%val
-  end subroutine assign_array2d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine set_ptr_array2d(this)
-    !! Set pointer for 2D array
-    implicit none
-
-    ! Arguments
-    class(array2d_type), intent(inout), target :: this
-    !! Instance of the 2D array type
-
-    if(.not. this%allocated)then
-       call stop_program('Array not allocated')
-       return
-    end if
-    this%val_ptr( &
-         1:this%shape(1), &
-         1:size(this%val, dim=2) &
-    ) => this%val
-  end subroutine set_ptr_array2d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine finalise_array2d(this)
-    !! Finalise 2D array
-    implicit none
-
-    ! Arguments
-    type(array2d_type), intent(inout) :: this
-    !! Instance of the 2D array type
-
-    if(associated(this%val_ptr)) nullify(this%val_ptr)
-    if(allocated(this%val)) deallocate(this%val)
-    if(allocated(this%shape)) deallocate(this%shape)
-  end subroutine finalise_array2d
-!###############################################################################
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
-
-!###############################################################################
-  module function init_array3d(array_shape) result(output)
-    !! Initialise 3D array
-    implicit none
-
-    ! Arguments
-    integer, dimension(:), intent(in), optional :: array_shape
-    !! Shape of the array
-    type(array3d_type) :: output
-    !! Output array
-
-    output%rank = 2
-    allocate(output%shape(2))
-    if(present(array_shape)) call output%allocate(array_shape)
-
-  end function init_array3d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine allocate_array3d(this, array_shape, source)
-    !! Allocate 3D array
-    implicit none
-
-    ! Arguments
-    class(array3d_type), intent(inout), target :: this
-    !! Instance of the 3D array type
-    integer, dimension(:), intent(in), optional :: array_shape
-    !! Shape of the array
-    class(*), dimension(..), intent(in), optional :: source
-    !! Source array
-
-    if(allocated(this%val).or.this%allocated)then
-       call stop_program("Trying to allocate already allocated array values")
-       return
-    end if
-    if(present(array_shape))then
-       if(size(array_shape) .ne. 3) then
-          call stop_program('Array shape must be of size 3 for 3D array')
-          return
-       end if
-       this%shape = array_shape
-       allocate(this%val(&
-            product(array_shape(1:2)),&
-            array_shape(3) &
-       ) )
-       this%val_ptr( &
-            1:array_shape(1), &
-            1:array_shape(2), &
-            1:array_shape(3) &
-       ) => this%val
-    end if
-    if(present(source))then
-       select rank(source)
-       rank(0)
-          select type(source)
-          type is (real(real32))
-             if(.not.present(array_shape))then
-                call stop_program('Source shape not provided')
-                return
-             end if
-             this%val(:,:) = source
-          type is (array3d_type)
-             if(present(array_shape))then
-                if(any(array_shape.ne.shape(source%val)))then
-                   call stop_program('Source shape does not match array shape')
-                   return
-                end if
-             end if
-             this = source
-             this%val_ptr( &
-                  1:source%shape(1), &
-                  1:source%shape(2), &
-                  1:size(source%val, dim=2) &
-             ) => this%val
-          class default
-             call stop_program('Incompatible source type for rank 0')
-             return
-          end select
-       rank(2)
-          select type(source)
-          type is (real(real32))
-             if(present(array_shape))then
-                if(any(array_shape.ne.shape(source)))then
-                   call stop_program('Source shape does not match array shape')
-                   return
-                end if
-             end if
-             this%val = source
-          class default
-             call stop_program('Incompatible source type for rank 2')
-             return
-          end select
-       rank(3)
-          select type(source)
-          type is (real(real32))
-             if(present(array_shape))then
-                if(any(array_shape.ne.shape(source)))then
-                   call stop_program('Source shape does not match array shape')
-                   return
-                end if
-             else
-                allocate(this%val(size(source(:,:,1)), size(source,3)))
-                this%val_ptr( &
-                     1:size(source, dim=1), &
-                     1:size(source, dim=2), &
-                     1:size(source, dim=3) &
-                ) => this%val
-             end if
-             this%val_ptr = source
-          class default
-             call stop_program('Incompatible source type for rank 3')
-             return
-          end select
-       rank default
-          call stop_program('Unrecognised source rank')
-          return
-       end select
-    end if
-    if(.not.present(source).and..not.present(array_shape))then
-       call stop_program('No shape or source provided')
-       return
-    end if
-    this%rank = 2
-    this%allocated = .true.
-    this%shape = shape(this%val_ptr(:,:,1))
-    this%size = product(this%shape)
-
-  end subroutine allocate_array3d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine deallocate_array3d(this, keep_shape)
-    !! Deallocate 3D array
-    implicit none
-
-    ! Arguments
-    class(array3d_type), intent(inout) :: this
-    !! Instance of the 3D array type
-    logical, intent(in), optional :: keep_shape
-    !! Boolean whether to keep shape
-
-    ! Local variables
-    logical :: keep_shape_
-    !! Boolean whether to keep shape
-
-    keep_shape_ = .false.
-    if(present(keep_shape)) keep_shape_ = keep_shape
-    if(.not.keep_shape_) this%shape = 0
-    if(allocated(this%val)) deallocate(this%val)
-    this%val_ptr => null()
-    this%allocated = .false.
-    this%size = 0
-
-  end subroutine deallocate_array3d
-!###############################################################################
-
-
-!###############################################################################
-  pure module subroutine set_array3d(this, input)
-    !! Set 3D array
-    implicit none
-
-    ! Arguments
-    class(array3d_type), intent(inout) :: this
-    !! Instance of the 3D array type
-    real(real32), dimension(..), intent(in) :: input
-    !! Input array
-
-    select rank(input)
-    rank(1)
-       this%val(:,1) = input
-    rank(2)
-       this%val(:,:) = input
-    rank(3)
-       this%val_ptr(:,:,:) = input
-    rank default
-       return
-    end select
-  end subroutine set_array3d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine assign_array3d(this, input)
-    !! Assign 3D array
-    implicit none
-
-    ! Arguments
-    type(array3d_type), intent(out), target :: this
-    !! Instance of the 3D array type
-    type(array3d_type), intent(in) :: input
-    !! Input array
-
-    this%rank = input%rank
-    this%shape = input%shape
-    this%size = input%size
-    this%allocated = input%allocated
-    this%val = input%val
-    this%val_ptr( &
-         1:this%shape(1), &
-         1:this%shape(2), &
-         1:size(this%val, dim=2) &
-    ) => this%val
-  end subroutine assign_array3d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine set_ptr_array3d(this)
-    !! Set pointer for 3D array
-    implicit none
-
-    ! Arguments
-    class(array3d_type), intent(inout), target :: this
-    !! Instance of the 3D array type
-
-    if(.not. this%allocated)then
-       call stop_program('Array not allocated')
-       return
-    end if
-    this%val_ptr( &
-         1:this%shape(1), &
-         1:this%shape(2), &
-         1:size(this%val, dim=2) &
-    ) => this%val
-  end subroutine set_ptr_array3d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine finalise_array3d(this)
-    !! Finalise 3D array
-    implicit none
-
-    ! Arguments
-    type(array3d_type), intent(inout) :: this
-    !! Instance of the 3D array type
-
-    if(associated(this%val_ptr)) nullify(this%val_ptr)
-    if(allocated(this%val)) deallocate(this%val)
-    if(allocated(this%shape)) deallocate(this%shape)
-  end subroutine finalise_array3d
-!###############################################################################
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
-
-!###############################################################################
-  module function init_array4d(array_shape) result(output)
-    !! Initialise 4D array
-    implicit none
-
-    ! Arguments
-    integer, dimension(:), intent(in), optional :: array_shape
-    !! Shape of the array
-    type(array4d_type) :: output
-    !! Output array
-
-    output%rank = 3
-    allocate(output%shape(3))
-    if(present(array_shape)) call output%allocate(array_shape)
-
-  end function init_array4d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine allocate_array4d(this, array_shape, source)
-    !! Allocate 4D array
-    implicit none
-
-    ! Arguments
-    class(array4d_type), intent(inout), target :: this
-    !! Instance of the 4D array type
-    integer, dimension(:), intent(in), optional :: array_shape
-    !! Shape of the array
-    class(*), dimension(..), intent(in), optional :: source
-    !! Source array
-
-    if(allocated(this%val).or.this%allocated)then
-       call stop_program("Trying to allocate already allocated array values")
-       return
-    end if
-    if(present(array_shape))then
-       if(size(array_shape) .ne. 4) then
-          call stop_program('Array shape must be of size 4 for 4D array')
-          return
-       end if
-       this%shape = array_shape
-       allocate(this%val(&
-            product(array_shape(1:3)),&
-            array_shape(4) &
-       ) )
-       this%val_ptr( &
-            1:array_shape(1), &
-            1:array_shape(2), &
-            1:array_shape(3), &
-            1:array_shape(4) &
-       ) => this%val
-    end if
-    if(present(source))then
-       select rank(source)
-       rank(0)
-          select type(source)
-          type is (real(real32))
-             if(.not.present(array_shape))then
-                call stop_program('Source shape not provided')
-                return
-             end if
-             this%val(:,:) = source
-          type is (array4d_type)
-             if(present(array_shape))then
-                if(any(array_shape.ne.shape(source%val)))then
-                   call stop_program('Source shape does not match array shape')
-                   return
-                end if
-             end if
-             this = source
-             this%val_ptr( &
-                  1:source%shape(1), &
-                  1:source%shape(2), &
-                  1:source%shape(3), &
-                  1:size(source%val, dim=2) &
-             ) => this%val
-          class default
-             call stop_program('Incompatible source type for rank 0')
-             return
-          end select
-       rank(2)
-          select type(source)
-          type is (real(real32))
-             if(present(array_shape))then
-                if(any(array_shape.ne.shape(source)))then
-                   call stop_program('Source shape does not match array shape')
-                   return
-                end if
-             end if
-             this%val = source
-          class default
-             call stop_program('Incompatible source type for rank 2')
-             return
-          end select
-       rank(4)
-          select type(source)
-          type is (real(real32))
-             if(present(array_shape))then
-                if(any(array_shape.ne.shape(source)))then
-                   call stop_program('Source shape does not match array shape')
-                   return
-                end if
-             else
-                allocate(this%val(size(source(:,:,:,1)), size(source,4)))
-                this%val_ptr( &
-                     1:size(source, dim=1), &
-                     1:size(source, dim=2), &
-                     1:size(source, dim=3), &
-                     1:size(source, dim=4) &
-                ) => this%val
-             end if
-             this%val_ptr = source
-          class default
-             call stop_program('Incompatible source type for rank 4')
-             return
-          end select
-       rank default
-          call stop_program('Unrecognised source rank')
-          return
-       end select
-    end if
-    if(.not.present(source).and..not.present(array_shape))then
-       call stop_program('No shape or source provided')
-       return
-    end if
-    this%rank = 3
-    this%allocated = .true.
-    this%shape = shape(this%val_ptr(:,:,:,1))
-    this%size = product(this%shape)
-
-  end subroutine allocate_array4d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine deallocate_array4d(this, keep_shape)
-    !! Deallocate 4D array
-    implicit none
-
-    ! Arguments
-    class(array4d_type), intent(inout) :: this
-    !! Instance of the 4D array type
-    logical, intent(in), optional :: keep_shape
-    !! Boolean whether to keep shape
-
-    ! Local variables
-    logical :: keep_shape_
-    !! Boolean whether to keep shape
-
-    keep_shape_ = .false.
-    if(present(keep_shape)) keep_shape_ = keep_shape
-    if(.not.keep_shape_) this%shape = 0
-    if(allocated(this%val)) deallocate(this%val)
-    this%val_ptr => null()
-    this%allocated = .false.
-    this%size = 0
-
-  end subroutine deallocate_array4d
-!###############################################################################
-
-
-!###############################################################################
-  pure module subroutine set_array4d(this, input)
-    !! Set 4D array
-    implicit none
-
-    ! Arguments
-    class(array4d_type), intent(inout) :: this
-    !! Instance of the 4D array type
-    real(real32), dimension(..), intent(in) :: input
-    !! Input array
-
-    select rank(input)
-    rank(1)
-       this%val(:,1) = input
-    rank(2)
-       this%val(:,:) = input
-    rank(4)
-       this%val_ptr(:,:,:,:) = input
-    rank default
-       return
-    end select
-  end subroutine set_array4d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine assign_array4d(this, input)
-    !! Assign 4D array
-    implicit none
-
-    ! Arguments
-    type(array4d_type), intent(out), target :: this
-    !! Instance of the 4D array type
-    type(array4d_type), intent(in) :: input
-    !! Input array
-
-    this%rank = input%rank
-    this%shape = input%shape
-    this%size = input%size
-    this%allocated = input%allocated
-    this%val = input%val
-    this%val_ptr( &
-         1:this%shape(1), &
-         1:this%shape(2), &
-         1:this%shape(3), &
-         1:size(this%val, dim=2) &
-    ) => this%val
-  end subroutine assign_array4d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine set_ptr_array4d(this)
-    !! Set pointer for 4D array
-    implicit none
-
-    ! Arguments
-    class(array4d_type), intent(inout), target :: this
-    !! Instance of the 4D array type
-
-    if(.not. this%allocated)then
-       call stop_program('Array not allocated')
-       return
-    end if
-    this%val_ptr( &
-         1:this%shape(1), &
-         1:this%shape(2), &
-         1:this%shape(3), &
-         1:size(this%val, dim=2) &
-    ) => this%val
-  end subroutine set_ptr_array4d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine finalise_array4d(this)
-    !! Finalise 4D array
-    implicit none
-
-    ! Arguments
-    type(array4d_type), intent(inout) :: this
-    !! Instance of the 4D array type
-
-    if(associated(this%val_ptr)) nullify(this%val_ptr)
-    if(allocated(this%val)) deallocate(this%val)
-    if(allocated(this%shape)) deallocate(this%shape)
-  end subroutine finalise_array4d
-!###############################################################################
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
-
-!###############################################################################
-  module function init_array5d(array_shape) result(output)
-    !! Initialise 5D array
-    implicit none
-
-    ! Arguments
-    integer, dimension(:), intent(in), optional :: array_shape
-    !! Shape of the array
-    type(array5d_type) :: output
-    !! Output array
-
-    output%rank = 4
-    allocate(output%shape(4))
-    if(present(array_shape)) call output%allocate(array_shape)
-
-  end function init_array5d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine allocate_array5d(this, array_shape, source)
-    !! Allocate 5D array
-    implicit none
-
-    ! Arguments
-    class(array5d_type), intent(inout), target :: this
-    !! Instance of the 5D array type
-    integer, dimension(:), intent(in), optional :: array_shape
-    !! Shape of the array
-    class(*), dimension(..), intent(in), optional :: source
-    !! Source array
-
-    if(allocated(this%val).or.this%allocated)then
-       call stop_program("Trying to allocate already allocated array values")
-       return
-    end if
-    if(present(array_shape))then
-       if(size(array_shape) .ne. 5) then
-          call stop_program('Array shape must be of size 5 for 5D array')
-          return
-       end if
-       this%shape = array_shape
-       allocate(this%val(&
-            product(array_shape(1:4)),&
-            array_shape(5) &
-       ) )
-       this%val_ptr( &
-            1:array_shape(1), &
-            1:array_shape(2), &
-            1:array_shape(3), &
-            1:array_shape(4), &
-            1:array_shape(5) &
-       ) => this%val
-    end if
-    if(present(source))then
-       select rank(source)
-       rank(0)
-          select type(source)
-          type is (real(real32))
-             if(.not.present(array_shape))then
-                call stop_program('Source shape not provided')
-                return
-             end if
-             this%val(:,:) = source
-          type is (array5d_type)
-             if(present(array_shape))then
-                if(any(array_shape.ne.shape(source%val)))then
-                   call stop_program('Source shape does not match array shape')
-                   return
-                end if
-             end if
-             this = source
-             this%val_ptr( &
-                  1:source%shape(1), &
-                  1:source%shape(2), &
-                  1:source%shape(3), &
-                  1:source%shape(4), &
-                  1:size(source%val, dim=2) &
-             ) => this%val
-          class default
-             call stop_program('Incompatible source type for rank 0')
-             return
-          end select
-       rank(2)
-          select type(source)
-          type is (real(real32))
-             if(present(array_shape))then
-                if(any(array_shape.ne.shape(source)))then
-                   call stop_program('Source shape does not match array shape')
-                   return
-                end if
-             end if
-             this%val = source
-          class default
-             call stop_program('Incompatible source type for rank 2')
-             return
-          end select
-       rank(5)
-          select type(source)
-          type is (real(real32))
-             if(present(array_shape))then
-                if(any(array_shape.ne.shape(source)))then
-                   call stop_program('Source shape does not match array shape')
-                   return
-                end if
-             else
-                allocate(this%val(size(source(:,:,:,:,1)), size(source,5)))
-                this%val_ptr( &
-                     1:size(source, dim=1), &
-                     1:size(source, dim=2), &
-                     1:size(source, dim=3), &
-                     1:size(source, dim=4), &
-                     1:size(source, dim=5) &
-                ) => this%val
-             end if
-             this%val_ptr = source
-          class default
-             call stop_program('Incompatible source type for rank 5')
-             return
-          end select
-       rank default
-          call stop_program('Unrecognised source rank')
-          return
-       end select
-    end if
-    if(.not.present(source).and..not.present(array_shape))then
-       call stop_program('No shape or source provided')
-       return
-    end if
-    this%rank = 4
-    this%allocated = .true.
-    this%shape = shape(this%val_ptr(:,:,:,:,1))
-    this%size = product(this%shape)
-
-  end subroutine allocate_array5d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine deallocate_array5d(this, keep_shape)
-    !! Deallocate 5D array
-    implicit none
-
-    ! Arguments
-    class(array5d_type), intent(inout) :: this
-    !! Instance of the 5D array type
-    logical, intent(in), optional :: keep_shape
-    !! Boolean whether to keep shape
-
-    ! Local variables
-    logical :: keep_shape_
-    !! Boolean whether to keep shape
-
-    keep_shape_ = .false.
-    if(present(keep_shape)) keep_shape_ = keep_shape
-    if(.not.keep_shape_) this%shape = 0
-    if(allocated(this%val)) deallocate(this%val)
-    this%val_ptr => null()
-    this%allocated = .false.
-    this%size = 0
-
-  end subroutine deallocate_array5d
-!###############################################################################
-
-
-!###############################################################################
-  pure module subroutine set_array5d(this, input)
-    !! Set 5D array
-    implicit none
-
-    ! Arguments
-    class(array5d_type), intent(inout) :: this
-    !! Instance of the 5D array type
-    real(real32), dimension(..), intent(in) :: input
-    !! Input array
-
-    select rank(input)
-    rank(1)
-       this%val(:,1) = input
-    rank(2)
-       this%val(:,:) = input
-    rank(5)
-       this%val_ptr(:,:,:,:,:) = input
-    rank default
-       return
-    end select
-  end subroutine set_array5d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine assign_array5d(this, input)
-    !! Assign 5D array
-    implicit none
-
-    ! Arguments
-    type(array5d_type), intent(out), target :: this
-    !! Instance of the 5D array type
-    type(array5d_type), intent(in) :: input
-    !! Input array
-
-    this%rank = input%rank
-    this%shape = input%shape
-    this%size = input%size
-    this%allocated = input%allocated
-    this%val = input%val
-    this%val_ptr( &
-         1:this%shape(1), &
-         1:this%shape(2), &
-         1:this%shape(3), &
-         1:this%shape(4), &
-         1:size(this%val, dim=2) &
-    ) => this%val
-  end subroutine assign_array5d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine set_ptr_array5d(this)
-    !! Set pointer for 5D array
-    implicit none
-
-    ! Arguments
-    class(array5d_type), intent(inout), target :: this
-    !! Instance of the 5D array type
-
-    if(.not. this%allocated)then
-       call stop_program('Array not allocated')
-       return
-    end if
-    this%val_ptr( &
-         1:this%shape(1), &
-         1:this%shape(2), &
-         1:this%shape(3), &
-         1:this%shape(4), &
-         1:size(this%val, dim=2) &
-    ) => this%val
-  end subroutine set_ptr_array5d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine finalise_array5d(this)
-    !! Finalise 5D array
-    implicit none
-
-    ! Arguments
-    type(array5d_type), intent(inout) :: this
-    !! Instance of the 5D array type
-
-    if(associated(this%val_ptr)) nullify(this%val_ptr)
-    if(allocated(this%val)) deallocate(this%val)
-    if(allocated(this%shape)) deallocate(this%shape)
-  end subroutine finalise_array5d
 !###############################################################################
 
 end submodule athena__misc_types_submodule

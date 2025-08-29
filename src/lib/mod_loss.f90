@@ -43,7 +43,7 @@ module athena__loss
      generic :: compute_generic => compute, compute_pinn, compute_pinn_generic
   end type base_loss_type
 
-  abstract interface
+  interface
      pure module function compute_base(this, predicted, expected) result(output)
        !! Compute the loss of a model
        class(base_loss_type), intent(in) :: this
@@ -320,7 +320,7 @@ contains
 
 
 !###############################################################################
-  pure module function compute_mae(this, predicted, expected) result(output)
+  pure function compute_mae(this, predicted, expected) result(output)
     !! Compute the mean absolute error of a model
     implicit none
 
@@ -339,7 +339,7 @@ contains
 
 
 !###############################################################################
-  pure module function compute_mse(this, predicted, expected) result(output)
+  pure function compute_mse(this, predicted, expected) result(output)
     !! Compute the mean squared error of a model
     implicit none
 
@@ -354,7 +354,7 @@ contains
     output = ((predicted - expected)**2._real32) /(2._real32)!*size(predicted,1))
 
   end function compute_mse
-  module function compute_pinn_generic_mse(this, predicted, expected, input) &
+  function compute_pinn_generic_mse(this, predicted, expected, input) &
        result(output)
     !! Compute the physics-informed neural network loss
     implicit none
@@ -443,7 +443,7 @@ contains
 
 
 !###############################################################################
-  module function compute_pinn_base(this, predicted, expected, input) result(output)
+  function compute_pinn_base(this, predicted, expected, input) result(output)
     !! Compute the physics-informed neural network loss
     implicit none
 
@@ -461,7 +461,7 @@ contains
 
   end function compute_pinn_base
 !-------------------------------------------------------------------------------
-  module function compute_pinn_derivative_base(this, predicted, expected, input) &
+  function compute_pinn_derivative_base(this, predicted, expected, input) &
        result(output)
     !! Compute the derivative of the physics-informed neural network loss
     implicit none
@@ -480,7 +480,7 @@ contains
 
   end function compute_pinn_derivative_base
 !-------------------------------------------------------------------------------
-  module function compute_pinn_generic_base(this, predicted, expected, input) &
+  function compute_pinn_generic_base(this, predicted, expected, input) &
        result(output)
     !! Compute the physics-informed neural network loss
     implicit none

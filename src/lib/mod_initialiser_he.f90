@@ -54,10 +54,12 @@ module athena__initialiser_he
   end interface he_uniform_type
 
   interface he_normal_type
-     module function initialiser_normal_setup(scale) result(initialiser)
+     module function initialiser_normal_setup(scale, mode) result(initialiser)
        !! Interface for the He normal initialiser
        real(real32), intent(in), optional :: scale
        !! Scaling factor (default: 1.0)
+       character(len=*), intent(in), optional :: mode
+       !! Mode for calculating the scaling factor (default: "fan_in")
        type(he_normal_type) :: initialiser
        !! He normal initialiser object
      end function initialiser_normal_setup

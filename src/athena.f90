@@ -85,52 +85,52 @@ module athena
   use athena__actv_layer, only: actv_layer_type, read_actv_layer
 
 
-  ! Batch normalisation layer types
-  !-----------------------------------------------------------------------------
-  use athena__batchnorm1d_layer, only: &
-       batchnorm1d_layer_type, read_batchnorm1d_layer
-  use athena__batchnorm2d_layer, only: &
-       batchnorm2d_layer_type, read_batchnorm2d_layer
-  use athena__batchnorm3d_layer, only: &
-       batchnorm3d_layer_type, read_batchnorm3d_layer
+!   ! Batch normalisation layer types
+!   !-----------------------------------------------------------------------------
+!   use athena__batchnorm1d_layer, only: &
+!        batchnorm1d_layer_type, read_batchnorm1d_layer
+!   use athena__batchnorm2d_layer, only: &
+!        batchnorm2d_layer_type, read_batchnorm2d_layer
+!   use athena__batchnorm3d_layer, only: &
+!        batchnorm3d_layer_type, read_batchnorm3d_layer
 
 
-  ! Convolution layer types
-  !-----------------------------------------------------------------------------
-  use athena__conv1d_layer,    only: conv1d_layer_type, read_conv1d_layer
-  use athena__conv2d_layer,    only: conv2d_layer_type, read_conv2d_layer
-  use athena__conv3d_layer,    only: conv3d_layer_type, read_conv3d_layer
+!   ! Convolution layer types
+!   !-----------------------------------------------------------------------------
+!   use athena__conv1d_layer,    only: conv1d_layer_type, read_conv1d_layer
+!   use athena__conv2d_layer,    only: conv2d_layer_type, read_conv2d_layer
+!   use athena__conv3d_layer,    only: conv3d_layer_type, read_conv3d_layer
 
 
-! !   ! Deep set layer types
-! !   !-----------------------------------------------------------------------------
-! !   use athena__deepset_layer,   only: deepset_layer_type, read_deepset_layer
+! ! !   ! Deep set layer types
+! ! !   !-----------------------------------------------------------------------------
+! ! !   use athena__deepset_layer,   only: deepset_layer_type, read_deepset_layer
 
 
-  ! Dropout layer types
-  !-----------------------------------------------------------------------------
-  use athena__dropout_layer, only: dropout_layer_type, read_dropout_layer
-  use athena__dropblock2d_layer, only: &
-       dropblock2d_layer_type, read_dropblock2d_layer
-  use athena__dropblock3d_layer, only: &
-       dropblock3d_layer_type, read_dropblock3d_layer
+!   ! Dropout layer types
+!   !-----------------------------------------------------------------------------
+!   use athena__dropout_layer, only: dropout_layer_type, read_dropout_layer
+!   use athena__dropblock2d_layer, only: &
+!        dropblock2d_layer_type, read_dropblock2d_layer
+!   use athena__dropblock3d_layer, only: &
+!        dropblock3d_layer_type, read_dropblock3d_layer
 
 
-  ! Padding layer types
-  !-----------------------------------------------------------------------------
-  use athena__pad1d_layer, only: pad1d_layer_type, read_pad1d_layer
-  use athena__pad2d_layer, only: pad2d_layer_type, read_pad2d_layer
-  use athena__pad3d_layer, only: pad3d_layer_type, read_pad3d_layer
+!   ! Padding layer types
+!   !-----------------------------------------------------------------------------
+!   use athena__pad1d_layer, only: pad1d_layer_type, read_pad1d_layer
+!   use athena__pad2d_layer, only: pad2d_layer_type, read_pad2d_layer
+!   use athena__pad3d_layer, only: pad3d_layer_type, read_pad3d_layer
 
 
-  ! Pooling layer types
-  !-----------------------------------------------------------------------------
-  use athena__avgpool1d_layer, only: avgpool1d_layer_type, read_avgpool1d_layer
-  use athena__avgpool2d_layer, only: avgpool2d_layer_type, read_avgpool2d_layer
-  use athena__avgpool3d_layer, only: avgpool3d_layer_type, read_avgpool3d_layer
-  use athena__maxpool1d_layer, only: maxpool1d_layer_type, read_maxpool1d_layer
-  use athena__maxpool2d_layer, only: maxpool2d_layer_type, read_maxpool2d_layer
-  use athena__maxpool3d_layer, only: maxpool3d_layer_type, read_maxpool3d_layer
+!   ! Pooling layer types
+!   !-----------------------------------------------------------------------------
+!   use athena__avgpool1d_layer, only: avgpool1d_layer_type, read_avgpool1d_layer
+!   use athena__avgpool2d_layer, only: avgpool2d_layer_type, read_avgpool2d_layer
+!   use athena__avgpool3d_layer, only: avgpool3d_layer_type, read_avgpool3d_layer
+!   use athena__maxpool1d_layer, only: maxpool1d_layer_type, read_maxpool1d_layer
+!   use athena__maxpool2d_layer, only: maxpool2d_layer_type, read_maxpool2d_layer
+!   use athena__maxpool3d_layer, only: maxpool3d_layer_type, read_maxpool3d_layer
 
 
   ! Flatten layer types
@@ -159,12 +159,12 @@ module athena
   !-----------------------------------------------------------------------------
   use athena__misc_types, only: &
        array_container_type, &
-       array_type, &
-       array1d_type, &
-       array2d_type, &
-       array3d_type, &
-       array4d_type, &
-       array5d_type
+       array_type!, &
+     !   array1d_type, &
+     !   array2d_type, &
+     !   array3d_type, &
+     !   array4d_type, &
+     !   array5d_type
   use athena__misc_types, only: &
        operator(+), operator(-), operator(*), operator(/), &
        operator(**), &

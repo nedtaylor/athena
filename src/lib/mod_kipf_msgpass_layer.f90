@@ -4,7 +4,7 @@ module athena__kipf_msgpass_layer
   use athena__constants, only: real32
   use graphstruc, only: graph_type
   use athena__misc_types, only: activation_type, initialiser_type, &
-       array_type, array2d_type
+       array_type
   use athena__base_layer, only: base_layer_type
   use athena__msgpass_layer, only: msgpass_layer_type
   implicit none
@@ -458,8 +458,8 @@ contains
                  this%batch_size &
             ), source=0._real32 &
        )
-       if(allocated(this%di)) deallocate(this%di)
-       allocate(this%di(2,this%batch_size), source=array2d_type())
+       !   if(allocated(this%di)) deallocate(this%di)
+       !   allocate(this%di(2,this%batch_size), source=array2d_type())
        !! input val arrays are allocated in set_graph
     end if
 

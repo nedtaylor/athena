@@ -202,20 +202,26 @@ contains
 !###############################################################################
 
 
-!###############################################################################
-  pure module subroutine get_output_base(this, output)
-    !! Get the output of the layer
-    implicit none
+! !###############################################################################
+!   pure module subroutine get_output_base(this, output)
+!     !! Get the output of the layer
+!     implicit none
 
-    ! Arguments
-    class(base_layer_type), intent(in) :: this
-    !! Instance of the layer
-    real(real32), allocatable, dimension(..), intent(out) :: output
-    !! Output of the layer
+!     ! Arguments
+!     class(base_layer_type), intent(in) :: this
+!     !! Instance of the layer
+!     real(real32), allocatable, dimension(..), intent(out) :: output
+!     !! Output of the Layer
 
-    call this%output(1,1)%get(output)
-  end subroutine get_output_base
-!###############################################################################
+!     real(real32), allocatable, dimension(:,:) :: output_tmp
+
+!     do j = 1, size(this%output, 2)
+!        do i = 1, size(this%output, 1)
+!           call this%output(i,j)%get(output_tmp)
+!        end do
+!     end do
+!   end subroutine get_output_base
+! !###############################################################################
 
 
 !###############################################################################
@@ -231,28 +237,28 @@ contains
     character(256) :: err_msg
     !! Error message
 
-    out_alloc_check: if(allocated(this%output))then
-       if(this%use_graph_input)then
-          exit out_alloc_check
-       elseif(.not.this%output(1,1)%allocated)then
-          write(err_msg,'("output not allocated for layer ",A," ",I0)') &
-               trim(this%name), this%id
-          call stop_program(err_msg)
-          return
-       end if
-       call this%output(1,1)%set_ptr()
-    end if out_alloc_check
-    di_alloc_check: if(allocated(this%di))then
-       if(this%use_graph_input)then
-          exit di_alloc_check
-       elseif(.not.this%di(1,1)%allocated)then
-          write(err_msg,'("di not allocated for layer ",A," ",I0)') &
-               trim(this%name), this%id
-          call stop_program(err_msg)
-          return
-       end if
-       call this%di(1,1)%set_ptr()
-    end if di_alloc_check
+    ! out_alloc_check: if(allocated(this%output))then
+    !    if(this%use_graph_input)then
+    !       exit out_alloc_check
+    !    elseif(.not.this%output(1,1)%allocated)then
+    !       write(err_msg,'("output not allocated for layer ",A," ",I0)') &
+    !            trim(this%name), this%id
+    !       call stop_program(err_msg)
+    !       return
+    !    end if
+    !    call this%output(1,1)%set_ptr()
+    ! end if out_alloc_check
+    ! di_alloc_check: if(allocated(this%di))then
+    !    if(this%use_graph_input)then
+    !       exit di_alloc_check
+    !    elseif(.not.this%di(1,1)%allocated)then
+    !       write(err_msg,'("di not allocated for layer ",A," ",I0)') &
+    !            trim(this%name), this%id
+    !       call stop_program(err_msg)
+    !       return
+    !    end if
+    !    call this%di(1,1)%set_ptr()
+    ! end if di_alloc_check
 
     call this%set_ptrs_hyperparams()
 
