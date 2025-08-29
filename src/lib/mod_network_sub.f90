@@ -2178,7 +2178,7 @@ contains
              ) ) / output(1,s)%num_edges
           end if
        end do
-    type is(real)
+    type is(real(real32))
        accuracy = sum( &
             this%get_accuracy( &
                  this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
@@ -2361,7 +2361,7 @@ contains
                 ) ) / output(1,s)%num_edges
              end if
           end do
-       type is(real)
+       type is(real(real32))
           loss = sum( &
                this%loss%compute_pinn( &
                     this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
@@ -2401,7 +2401,7 @@ contains
                 ) ) / output(1,s)%num_edges
              end if
           end do
-       type is(real)
+       type is(real(real32))
           loss = sum( &
                this%loss%compute( &
                     this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
@@ -2489,7 +2489,7 @@ contains
                 end if
              end do
           end do
-       type is(real)
+       type is(real(real32))
           allocate(gradient(1,1))
           gradient(1,1)%val = this%loss%compute_derivative( &
                layer%output(1,1)%val, &
@@ -2562,7 +2562,7 @@ contains
                 call layer%output(1,1)%set_requires_grad(.true.)
                 call layer%output(1,1)%set_requires_grad(.true.)
                 cycle
-             type is(real)
+             type is(real(real32))
                 allocate(input_ptr(1,1))
                 call input_ptr(1,1)%allocate(shape(input))
                 call input_ptr(1,1)%set(input)
@@ -2852,7 +2852,7 @@ contains
        end select
     rank(1)
        select type(input)
-       type is(real)
+       type is(real(real32))
           exit rank_select
        type is(graph_type)
           num_samples = size(input, dim=1)
@@ -2883,7 +2883,7 @@ contains
        end do
     rank(2)
        select type(input)
-       type is(real)
+       type is(real(real32))
           this%input_array(1,1)%val = reshape(input, [num_inputs, num_samples])
           l_valid_rank_type = .true.
        type is(graph_type)
@@ -2897,19 +2897,19 @@ contains
        end select
     rank(3)
        select type(input)
-       type is(real)
+       type is(real(real32))
           this%input_array(1,1)%val = reshape(input, [num_inputs, num_samples])
           l_valid_rank_type = .true.
        end select
     rank(4)
        select type(input)
-       type is(real)
+       type is(real(real32))
           this%input_array(1,1)%val = reshape(input, [num_inputs, num_samples])
           l_valid_rank_type = .true.
        end select
     rank(5)
        select type(input)
-       type is(real)
+       type is(real(real32))
           this%input_array(1,1)%val = reshape(input, [num_inputs, num_samples])
           l_valid_rank_type = .true.
        end select
