@@ -44,35 +44,35 @@ main = "main.f90"
 [example.dependencies]
 example_library = { path = "example/example_library"}
 
-[[example]]
-name = "mnist"
-source-dir = "example/mnist/src"
-[example.dependencies]
-example_library = { path = "example/example_library"}
-
-[[example]]
-name = "mnist_addit"
-source-dir = "example/mnist_addit/src"
-[example.dependencies]
-example_library = { path = "example/example_library"}
-
-[[example]]
-name = "mnist_3D"
-source-dir = "example/mnist_3D/src"
-[example.dependencies]
-example_library = { path = "example/example_library"}
-
-[[example]]
-name = "mnist_bn"
-source-dir = "example/mnist_bn/src"
-[example.dependencies]
-example_library = { path = "example/example_library"}
-
-[[example]]
-name = "mnist_drop"
-source-dir = "example/mnist_drop/src"
-[example.dependencies]
-example_library = { path = "example/example_library"}
+# [[example]]
+# name = "mnist"
+# source-dir = "example/mnist/src"
+# [example.dependencies]
+# example_library = { path = "example/example_library"}
+#
+# [[example]]
+# name = "mnist_addit"
+# source-dir = "example/mnist_addit/src"
+# [example.dependencies]
+# example_library = { path = "example/example_library"}
+#
+# [[example]]
+# name = "mnist_3D"
+# source-dir = "example/mnist_3D/src"
+# [example.dependencies]
+# example_library = { path = "example/example_library"}
+#
+# [[example]]
+# name = "mnist_bn"
+# source-dir = "example/mnist_bn/src"
+# [example.dependencies]
+# example_library = { path = "example/example_library"}
+#
+# [[example]]
+# name = "mnist_drop"
+# source-dir = "example/mnist_drop/src"
+# [example.dependencies]
+# example_library = { path = "example/example_library"}
 
 [[example]]
 name = "msgpass_chemical"
