@@ -464,11 +464,6 @@ contains
     if(associated(input%get_partial_right)) &
          this%get_partial_right => input%get_partial_right
 
-    !  ! Don't copy pointers to avoid aliasing issues
-    !  this%left_operand => null()
-    !  this%right_operand => null()
-    !  this%grad => null()
-
   end subroutine assign_array
 !###############################################################################
 
@@ -664,6 +659,22 @@ contains
        if(allocated(this%grad%val)) this%grad%val = 0.0_real32
     end if
   end subroutine zero_grad
+
+  module recursive subroutine zero_all_grads(this)
+    !! Zero the gradients of this array
+    implicit none
+    class(array_type), intent(inout) :: this
+
+    if(associated(this%left_operand))then
+       call this%left_operand%zero_all_grads()
+    end if
+    if(associated(this%right_operand)) then
+       call this%right_operand%zero_all_grads()
+    end if
+    if(associated(this%grad)) then
+       if(allocated(this%grad%val)) this%grad%val = 0.0_real32
+    end if
+  end subroutine zero_all_grads
 
   module recursive subroutine reset_graph(this)
     !! Reset the gradient graph of this array

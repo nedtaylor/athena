@@ -287,6 +287,7 @@ module athena__misc_types
 
      !! Backward pass for gradient computation
      procedure, pass(this) :: zero_grad
+     procedure, pass(this) :: zero_all_grads
      !! Zero the gradients
      procedure, pass(this) :: reset_graph
      procedure, pass(this) :: duplicate_graph
@@ -382,6 +383,11 @@ module athena__misc_types
        !! Zero the gradients of this array
        class(array_type), intent(inout) :: this
      end subroutine zero_grad
+
+     module recursive subroutine zero_all_grads(this)
+       !! Zero the gradients of this array
+       class(array_type), intent(inout) :: this
+     end subroutine zero_all_grads
 
      module subroutine duplicate_graph(this)
        class(array_type), intent(inout) :: this
@@ -742,6 +748,7 @@ contains
   !-----------------------------------------------------------------------------
   subroutine set_direction(this, direction)
     !! Set the direction for the array (for higher-order derivatives)
+    implicit none
     class(array_type), intent(inout) :: this
     real(real32), dimension(:), intent(in) :: direction
 
@@ -755,6 +762,7 @@ contains
 
   function get_partial_add(this, upstream_grad) result(output)
     !! Get partial derivative with respect to left operand
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -764,6 +772,7 @@ contains
 
   function get_partial_negate(this, upstream_grad) result(output)
     !! Get partial derivative with respect to left operand
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -773,6 +782,7 @@ contains
 
   function get_partial_exp(this, upstream_grad) result(output)
     !! Get partial derivative with respect to left operand
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -782,6 +792,7 @@ contains
 
   function get_partial_multiply_left(this, upstream_grad) result(output)
     !! Get partial derivative with respect to left operand
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -795,6 +806,7 @@ contains
 
   function get_partial_multiply_right(this, upstream_grad) result(output)
     !! Get partial derivative with respect to right operand
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -808,6 +820,7 @@ contains
 
   function get_partial_divide_left(this, upstream_grad) result(output)
     !! Get partial derivative with respect to left operand
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -821,6 +834,7 @@ contains
 
   function get_partial_divide_right(this, upstream_grad) result(output)
     !! Get partial derivative with respect to right operand
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -839,6 +853,7 @@ contains
 
   function get_partial_power_base(this, upstream_grad) result(output)
     !! Get the partial gradient with respect to the base of the power operation
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -854,6 +869,7 @@ contains
 
   function get_partial_power_exponent(this, upstream_grad) result(output)
     !! Get the partial gradient with respect to the exponent of the power operation
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -867,6 +883,7 @@ contains
 
   function get_partial_matmul_left(this, upstream_grad) result(output)
     !! Get partial derivative with respect to left operand of matmul
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -891,6 +908,7 @@ contains
 
   function get_partial_matmul_right(this, upstream_grad) result(output)
     !! Get partial derivative with respect to right operand of matmul
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -915,6 +933,7 @@ contains
 
 
   function get_partial_transpose_left(this, upstream_grad) result(output)
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -933,6 +952,7 @@ contains
 !   end function get_partial_transpose_right
 
   function get_partial_log(this, upstream_grad) result(output)
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -942,6 +962,7 @@ contains
   end function get_partial_log
 
   function get_partial_sqrt(this, upstream_grad) result(output)
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -951,6 +972,7 @@ contains
   end function get_partial_sqrt
 
   function get_partial_sin(this, upstream_grad) result(output)
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -960,6 +982,7 @@ contains
   end function get_partial_sin
 
   function get_partial_cos(this, upstream_grad) result(output)
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -969,6 +992,7 @@ contains
   end function get_partial_cos
 
   function get_partial_tan(this, upstream_grad) result(output)
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -978,6 +1002,7 @@ contains
   end function get_partial_tan
 
   function get_partial_tanh(this, upstream_grad) result(output)
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -989,6 +1014,7 @@ contains
   end function get_partial_tanh
 
   function get_partial_tanh_reverse_left(this, upstream_grad) result(output)
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -1000,6 +1026,7 @@ contains
   end function get_partial_tanh_reverse_left
 
   function get_partial_tanh_reverse_right(this, upstream_grad) result(output)
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -1009,6 +1036,7 @@ contains
   end function get_partial_tanh_reverse_right
 
   function get_partial_index(this, upstream_grad) result(output)
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -1021,6 +1049,7 @@ contains
   end function get_partial_index
 
   function get_partial_merge(this, upstream_grad) result(output)
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -1030,6 +1059,7 @@ contains
   end function get_partial_merge
 
   function get_partial_concat_left(this, upstream_grad) result(output)
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -1039,6 +1069,7 @@ contains
   end function get_partial_concat_left
 
   function get_partial_concat_right(this, upstream_grad) result(output)
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -1048,6 +1079,7 @@ contains
   end function get_partial_concat_right
 
   function get_partial_max_left(this, upstream_grad) result(output)
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -1057,6 +1089,7 @@ contains
   end function get_partial_max_left
 
   function get_partial_max_right(this, upstream_grad) result(output)
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -1066,6 +1099,7 @@ contains
   end function get_partial_max_right
 
   function get_partial_sum_reverse(this, upstream_grad) result(output)
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -1080,6 +1114,7 @@ contains
   end function get_partial_sum_reverse
 
   function get_partial_sum_forward(this, upstream_grad) result(output)
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -1092,6 +1127,7 @@ contains
   end function get_partial_sum_forward
 
   function get_partial_mean(this, upstream_grad) result(output)
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -1115,6 +1151,7 @@ contains
   end function get_partial_mean
 
   function get_partial_pack(this, upstream_grad) result(output)
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -1124,6 +1161,7 @@ contains
   end function get_partial_pack
 
   function get_partial_unpack(this, upstream_grad) result(output)
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -1133,6 +1171,7 @@ contains
   end function get_partial_unpack
 
   function get_partial_spread(this, upstream_grad) result(output)
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
@@ -1149,6 +1188,7 @@ contains
   end function get_partial_spread
 
   function get_partial_unspread(this, upstream_grad) result(output)
+    implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
