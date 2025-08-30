@@ -1141,6 +1141,7 @@ contains
   !-----------------------------------------------------------------------------
   function add_arrays(a, b) result(c)
     !! Add two autodiff arrays
+    implicit none
     class(array_type), intent(in), target :: a, b
     type(array_type), pointer :: c
 
@@ -1171,6 +1172,7 @@ contains
 
   function add_real2d(a, b) result(c)
     !! Add a real array to an autodiff array
+    implicit none
     class(array_type), intent(in), target :: a
     real(real32), dimension(:,:), intent(in) :: b
     type(array_type), pointer :: c
@@ -1190,6 +1192,7 @@ contains
 
   function real2d_add(a, b) result(c)
     !! Add a real array to an autodiff array
+    implicit none
     real(real32), dimension(:,:), intent(in) :: a
     class(array_type), intent(in), target :: b
     type(array_type), pointer :: c
@@ -1199,6 +1202,7 @@ contains
 
   function add_real1d(a, b) result(c)
     !! Add a real array to an autodiff array
+    implicit none
     class(array_type), intent(in), target :: a
     real(real32), dimension(:), intent(in) :: b
     type(array_type), pointer :: c
@@ -1222,6 +1226,7 @@ contains
 
   function real1d_add(a, b) result(c)
     !! Add a real array to an autodiff array
+    implicit none
     real(real32), dimension(:), intent(in) :: a
     class(array_type), intent(in), target :: b
     type(array_type), pointer :: c
@@ -1231,6 +1236,7 @@ contains
 
   function add_scalar(a, b) result(c)
     !! Add a scalar to an autodiff array
+    implicit none
     class(array_type), intent(in), target :: a
     real(real32), intent(in) :: b
     type(array_type), pointer :: c
@@ -1253,6 +1259,7 @@ contains
 
   function scalar_add(a, b) result(c)
     !! Add a scalar to an autodiff array
+    implicit none
     real(real32), intent(in) :: a
     class(array_type), intent(in), target :: b
     type(array_type), pointer :: c
@@ -1265,6 +1272,7 @@ contains
   !-----------------------------------------------------------------------------
   function subtract_arrays(a, b) result(c)
     !! Subtract two autodiff arrays
+    implicit none
     class(array_type), intent(in), target :: a, b
     type(array_type), pointer :: c
 
@@ -1285,6 +1293,7 @@ contains
 
   function subtract_real1d(a, b) result(c)
     !! Subtract a real array from an autodiff array
+    implicit none
     class(array_type), intent(in), target :: a
     real(real32), dimension(:), intent(in) :: b
     type(array_type), pointer :: c
@@ -1308,6 +1317,7 @@ contains
 
   function subtract_scalar(a, b) result(c)
     !! Subtract a scalar from an autodiff array
+    implicit none
     class(array_type), intent(in), target :: a
     real(real32), intent(in) :: b
     type(array_type), pointer :: c
@@ -1327,6 +1337,7 @@ contains
 
   function scalar_subtract(a, b) result(c)
     !! Subtract an autodiff array from a scalar
+    implicit none
     real(real32), intent(in) :: a
     class(array_type), intent(in), target :: b
     type(array_type), pointer :: c
@@ -1346,6 +1357,7 @@ contains
 
   function negate_array(a) result(c)
     !! Negate an autodiff array
+    implicit none
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
@@ -1367,6 +1379,7 @@ contains
   !-----------------------------------------------------------------------------
   function multiply_arrays(a, b) result(c)
     !! Multiply two autodiff arrays (element-wise)
+    implicit none
     class(array_type), intent(in), target :: a, b
     type(array_type), pointer :: c
 
@@ -1410,6 +1423,7 @@ contains
 
   function multiply_scalar(a, scalar) result(c)
     !! Multiply autodiff array by scalar
+    implicit none
     class(array_type), intent(in), target :: a
     real(real32), intent(in) :: scalar
     type(array_type), pointer :: c
@@ -1437,6 +1451,7 @@ contains
 
   function scalar_multiply(scalar, a) result(c)
     !! Multiply scalar by autodiff array
+    implicit none
     real(real32), intent(in) :: scalar
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
@@ -1446,6 +1461,7 @@ contains
 
   function multiply_logical(a, b) result(c)
     !! Multiply two logical arrays (element-wise)
+    implicit none
     class(array_type), intent(in), target :: a
     logical, dimension(:,:), intent(in) :: b
     type(array_type), pointer :: c
@@ -1473,6 +1489,7 @@ contains
 
   function matmul_arrays(a, b) result(c)
     !! Matrix multiplication of two autodiff arrays
+    implicit none
     class(array_type), intent(in), target :: a, b
     type(array_type), pointer :: c
 
@@ -1521,6 +1538,7 @@ contains
 
   function matmul_real2d(a, b) result(c)
     !! Matrix multiplication of a real array and an autodiff array
+    implicit none
     class(array_type), intent(in), target :: a
     real(real32), dimension(:,:), intent(in) :: b
     type(array_type), pointer :: c
@@ -1558,6 +1576,7 @@ contains
 
   function real2d_matmul(a, b) result(c)
     !! Matrix multiplication of two autodiff arrays
+    implicit none
     real(real32), dimension(:,:), intent(in) :: a
     class(array_type), intent(in), target :: b
     type(array_type), pointer :: c
@@ -1595,6 +1614,7 @@ contains
 
   function outer_product_arrays(a, b) result(c)
     !! Outer product of two autodiff arrays
+    implicit none
     class(array_type), intent(in), target :: a, b
     type(array_type), pointer :: c
 
@@ -1621,6 +1641,7 @@ contains
 
   function concat_arrays(a, b) result(c)
     !! Concatenate two autodiff arrays along the first dimension
+    implicit none
     class(array_type), intent(in), target :: a, b
     type(array_type), pointer :: c
 
@@ -1652,6 +1673,7 @@ contains
 
   function ltrim_array(a, b) result(c)
     !! Left trim an autodiff array
+    implicit none
     class(array_type), intent(in), target :: a
     integer, intent(in) :: b
     type(array_type), pointer :: c
@@ -1676,6 +1698,7 @@ contains
 
   function rtrim_array(a, b) result(c)
     !! Right trim an autodiff array
+    implicit none
     class(array_type), intent(in), target :: a
     integer, intent(in) :: b
     type(array_type), pointer :: c
@@ -1700,6 +1723,7 @@ contains
 
   function pack_array(a, indices, dim) result(c)
     !! Pack an autodiff array
+    implicit none
     class(array_type), intent(in), target :: a
     integer, dimension(:), intent(in) :: indices
     integer, intent(in) :: dim
@@ -1736,6 +1760,7 @@ contains
 
   function unpack_array(a, indices, dim, new_size) result(c)
     !! Unpack an autodiff array
+    implicit none
     class(array_type), intent(in), target :: a
     integer, dimension(:), intent(in) :: indices
     integer, intent(in) :: new_size, dim
@@ -1775,6 +1800,7 @@ contains
 
   function index_array(a, indices) result(c)
     !! Index an autodiff array
+    implicit none
     class(array_type), intent(in), target :: a
     integer, dimension(:), intent(in) :: indices
     type(array_type), pointer :: c
@@ -1800,6 +1826,7 @@ contains
 
   function reverse_index_array(a, indices, from, new_index_size) result(c)
     !! Index an autodiff array
+    implicit none
     class(array_type), intent(in), target :: a
     integer, dimension(:), intent(in) :: indices
     logical, intent(in) :: from
@@ -1835,6 +1862,7 @@ contains
 
   function transpose_array(a) result(c)
     !! Transpose an autodiff array
+    implicit none
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
@@ -1867,6 +1895,7 @@ contains
 
   function lt_scalar(a, b) result(c)
     !! Less than comparison between autodiff array and scalar
+    implicit none
     class(array_type), intent(in), target :: a
     real(real32), intent(in) :: b
     logical, dimension(size(a%val,1), size(a%val,2)) :: c
@@ -1877,6 +1906,7 @@ contains
 
   function gt_scalar(a, b) result(c)
     !! Greater than comparison between autodiff array and scalar
+    implicit none
     class(array_type), intent(in), target :: a
     real(real32), intent(in) :: b
     logical, dimension(size(a%val,1), size(a%val,2)) :: c
@@ -1887,6 +1917,7 @@ contains
 
   function maxval_array(a, dim) result(c)
     !! Find maximum value along a dimension
+    implicit none
     class(array_type), intent(in), target :: a
     integer, intent(in) :: dim
     real(real32), dimension(:), allocatable :: c
@@ -1915,6 +1946,7 @@ contains
 
   function max_array(a, b) result(c)
     !! Find maximum value between two autodiff arrays
+    implicit none
     class(array_type), intent(in), target :: a, b
     type(array_type), pointer :: c
 
@@ -1935,6 +1967,7 @@ contains
 
   function max_scalar(a, scalar) result(c)
     !! Find maximum value between an autodiff array and a scalar
+    implicit none
     class(array_type), intent(in), target :: a
     real(real32), intent(in) :: scalar
     type(array_type), pointer :: c
@@ -1954,6 +1987,7 @@ contains
 
   function sum_array(a, dim) result(c)
     !! Sum values along a dimension
+    implicit none
     class(array_type), intent(in), target :: a
     integer, intent(in) :: dim
     type(array_type), pointer :: c
@@ -1991,6 +2025,7 @@ contains
 
   function sum_array_output_real(a, dim) result(c)
     !! Sum values along a dimension
+    implicit none
     class(array_type), intent(in), target :: a
     integer, intent(in) :: dim
     real(real32), dimension(:), allocatable :: c
@@ -2019,6 +2054,7 @@ contains
 
   function sum_array_output_array(a, dim, new_dim_index, new_dim_size) result(c)
     !! Sum values along a dimension and return an autodiff array
+    implicit none
     class(array_type), intent(in), target :: a
     integer, intent(in) :: dim
     integer, intent(in) :: new_dim_index
@@ -2057,6 +2093,7 @@ contains
 
   function mean_array(a, dim) result(c)
     !! Compute mean values along a dimension
+    implicit none
     class(array_type), intent(in), target :: a
     integer, intent(in) :: dim
     type(array_type), pointer :: c
@@ -2100,6 +2137,7 @@ contains
 
   function merge_scalar(tsource, fsource, mask) result(c)
     !! Merge two autodiff arrays based on a mask
+    implicit none
     class(array_type), intent(in), target :: tsource
     real(real32), intent(in) :: fsource
     logical, dimension(:,:), intent(in) :: mask
@@ -2137,6 +2175,7 @@ contains
 
   function merge_real2d(tsource, fsource, mask) result(c)
     !! Merge two autodiff arrays based on a mask
+    implicit none
     class(array_type), intent(in), target :: tsource
     real(real32), dimension(:,:), intent(in) :: fsource
     logical, dimension(:,:), intent(in) :: mask
@@ -2187,6 +2226,7 @@ contains
 
   function spread_array(source, dim, index, ncopies) result(c)
     !! Spread an autodiff array along a dimension
+    implicit none
     class(array_type), intent(in), target :: source
     integer, intent(in) :: dim
     integer, intent(in) :: index
@@ -2229,6 +2269,7 @@ contains
 
   function unspread_array(source, index, dim, new_size) result(c)
     !! Unpack an autodiff array
+    implicit none
     class(array_type), intent(in), target :: source
     integer, intent(in) :: index
     integer, intent(in) :: new_size, dim
@@ -2270,6 +2311,7 @@ contains
   !-----------------------------------------------------------------------------
   function divide_arrays(a, b) result(c)
     !! Divide two autodiff arrays (element-wise)
+    implicit none
     class(array_type), intent(in), target :: a, b
     type(array_type), pointer :: c
 
@@ -2306,6 +2348,7 @@ contains
 
   function divide_scalar(a, scalar) result(c)
     !! Divide autodiff array by scalar
+    implicit none
     class(array_type), intent(in), target :: a
     real(real32), intent(in) :: scalar
     type(array_type), pointer :: c
@@ -2337,6 +2380,7 @@ contains
 
   function scalar_divide(scalar, a) result(c)
     !! Divide scalar by autodiff array
+    implicit none
     real(real32), intent(in) :: scalar
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
@@ -2368,6 +2412,7 @@ contains
 
   function divide_real1d(a, b) result(c)
     !! Divide autodiff array by a real array
+    implicit none
     class(array_type), intent(in), target :: a
     real(real32), dimension(:), intent(in) :: b
     type(array_type), pointer :: c
@@ -2405,6 +2450,7 @@ contains
   !-----------------------------------------------------------------------------
   function power_arrays(a, b) result(c)
     !! Raise autodiff array to power of another array
+    implicit none
     class(array_type), intent(in), target :: a, b
     type(array_type), pointer :: c
 
@@ -2425,6 +2471,7 @@ contains
 
   function power_real_scalar(a, scalar) result(c)
     !! Raise autodiff array to scalar power
+    implicit none
     class(array_type), intent(in), target :: a
     real(real32), intent(in) :: scalar
     type(array_type), pointer :: c
@@ -2454,6 +2501,7 @@ contains
 
   function power_int_scalar(a, scalar) result(c)
     !! Raise autodiff array to scalar power
+    implicit none
     class(array_type), intent(in), target :: a
     integer, intent(in) :: scalar
     type(array_type), pointer :: c
@@ -2462,6 +2510,7 @@ contains
   end function power_int_scalar
 
   function scalar_power(scalar, a) result(c)
+    implicit none
     real(real32), intent(in) :: scalar
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
@@ -2490,6 +2539,7 @@ contains
   end function scalar_power
 
   function int_scalar_power(scalar, a) result(c)
+    implicit none
     integer, intent(in) :: scalar
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
@@ -2502,6 +2552,7 @@ contains
   !-----------------------------------------------------------------------------
   function sin_array(a) result(c)
     !! Sine function for autodiff arrays
+    implicit none
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
@@ -2521,6 +2572,7 @@ contains
 
   function cos_array(a) result(c)
     !! Cosine function for autodiff arrays
+    implicit none
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
@@ -2540,6 +2592,7 @@ contains
 
   function tan_array(a) result(c)
     !! Tangent function for autodiff arrays
+    implicit none
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
@@ -2559,6 +2612,7 @@ contains
 
   function exp_array(a) result(c)
     !! Exponential function for autodiff arrays
+    implicit none
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
@@ -2579,6 +2633,7 @@ contains
 
   function log_array(a) result(c)
     !! Natural logarithm function for autodiff arrays
+    implicit none
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
@@ -2598,6 +2653,7 @@ contains
 
   function sqrt_array(a) result(c)
     !! Square root function for autodiff arrays
+    implicit none
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
@@ -2617,6 +2673,7 @@ contains
 
   function tanh_array(a) result(c)
     !! Hyperbolic tangent function for autodiff arrays
+    implicit none
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
@@ -2636,6 +2693,7 @@ contains
 
   function sigmoid_array(a) result(c)
     !! Sigmoid function for autodiff arrays
+    implicit none
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
