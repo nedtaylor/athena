@@ -671,23 +671,14 @@ contains
     if(associated(this%left_operand))then
        call this%left_operand%reset_graph()
        call this%left_operand%zero_grad()
-       if(associated(this%left_operand%grad))then
-          this%left_operand%grad => null()
-       end if
     end if
 
     if(associated(this%right_operand)) then
        call this%right_operand%reset_graph()
        call this%right_operand%zero_grad()
-       if(associated(this%right_operand%grad))then
-          this%right_operand%grad => null()
-       end if
     end if
 
     call this%zero_grad()
-    if(associated(this%grad)) then
-       this%grad => null()
-    end if
 
   end subroutine reset_graph
 
