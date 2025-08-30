@@ -857,8 +857,11 @@ contains
     ! Apply activation function to activation
     !---------------------------------------------------------------------------
     call this%output(1,1)%zero_grad()
-    this%output(1,1) = this%transfer%activate(this%z)
-
+    if(trim(this%transfer%name) .eq. "none") then
+       this%output(1,1) = this%z
+    else
+       this%output(1,1) = this%transfer%activate(this%z)
+    end if
 
   end subroutine forward_derived_full
 !###############################################################################

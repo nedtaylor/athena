@@ -302,6 +302,8 @@ module athena__misc_types
      procedure :: create_result => create_result_array
      !! Helper to safely create result arrays
 
+     procedure, pass(this) :: print_graph
+
      ! final :: finalise_array
      ! !! Finaliser for array type
   end type array_type
@@ -333,6 +335,11 @@ module athena__misc_types
        integer, dimension(:), intent(in), optional :: shape_arr
        type(array_type), pointer :: result_ptr
      end function create_result_array
+
+
+     module subroutine print_graph(this)
+       class(array_type), intent(in) :: this
+     end subroutine print_graph
 
 
      module function grad_forward(this, variable) result(output)
@@ -976,9 +983,30 @@ contains
     type(array_type) :: output
 
     ! as: this = tanh(this%left_operand)
-    output = upstream_grad * (1._real32 - this ** 2._real32)
+    output = tanh_reverse_array( this, upstream_grad )
+    ! output = upstream_grad * (1._real32 - this ** 2._real32)
 
   end function get_partial_tanh
+
+  function get_partial_tanh_reverse_left(this, upstream_grad) result(output)
+    class(array_type), intent(inout) :: this
+    type(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    output = upstream_grad * &
+         ( - 2._real32 * this%left_operand ) * &
+         ( 1._real32 - this%left_operand ** 2._real32 )
+
+  end function get_partial_tanh_reverse_left
+
+  function get_partial_tanh_reverse_right(this, upstream_grad) result(output)
+    class(array_type), intent(inout) :: this
+    type(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    output = upstream_grad * this
+
+  end function get_partial_tanh_reverse_right
 
   function get_partial_index(this, upstream_grad) result(output)
     class(array_type), intent(inout) :: this
@@ -2690,6 +2718,29 @@ contains
        c%left_operand => a
     end if
   end function tanh_array
+
+  function tanh_reverse_array(a, b) result(c)
+    !! Reverse mode for tanh function
+    implicit none
+    class(array_type), intent(in), target :: a, b
+    type(array_type), pointer :: c
+
+    !  allocate(output)
+    c => a%create_result()
+    c%val = b%val * (1._real32 - a%val ** 2._real32)
+
+    c%get_partial_left => get_partial_tanh_reverse_left
+    c%get_partial_right => get_partial_tanh_reverse_right
+    if(a%requires_grad.or.b%requires_grad) then
+       c%requires_grad = .true.
+       c%is_forward = a%is_forward
+       c%is_leaf = .false.
+       c%operation = 'tanh_reverse'
+       c%left_operand => a
+       c%right_operand => b
+    end if
+
+  end function tanh_reverse_array
 
   function sigmoid_array(a) result(c)
     !! Sigmoid function for autodiff arrays

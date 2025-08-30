@@ -96,8 +96,9 @@ contains
     ! output => exp(val) - exp(-val)
     ! output => output / ( exp(val) + exp(-val) )
     ! output => this%scale * output
-    output => this%scale * (exp(val) - exp(-val))/(exp(val) + exp(-val))
-    output => this%scale * tanh(val)
+    ! output => this%scale * (exp(val) - exp(-val))/(exp(val) + exp(-val))
+    ! output => this%scale * tanh(val)
+    output => tanh(val)
     ! output => merge( output, sign(this%scale, val), val.lt.this%threshold )
   end function tanh_activate_array
 !-------------------------------------------------------------------------------

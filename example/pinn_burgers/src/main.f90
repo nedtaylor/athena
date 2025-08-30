@@ -236,7 +236,6 @@ program pinn_burgers_example
 
      ! write(*,*) "loss"
      ! write(*,*) loss_f%val(1,1), loss_0%val(1,1), loss_b%val(1,1)
-     ! loss => loss_f%val + loss_0 + loss_b
      loss => loss_f + loss_0 + loss_b
      ! write(*,*) "backward"
      call loss%grad_reverse(reset_graph=.false.)

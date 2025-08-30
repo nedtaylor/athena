@@ -544,7 +544,7 @@ contains
              !else
              left_deriv_tmp => &
                   forward_over_reverse(this%left_operand, variable, itmp)
-             call left_deriv_tmp%set_requires_grad(.false.)
+             ! call left_deriv_tmp%set_requires_grad(.false.)
              allocate(left_deriv)
              if( associated(this%get_partial_right) .and. &
                   .not.associated(this%right_operand) &
@@ -566,7 +566,7 @@ contains
              !else
              right_deriv_tmp => &
                   forward_over_reverse(this%right_operand, variable, itmp)
-             call right_deriv_tmp%set_requires_grad(.false.)
+             ! call right_deriv_tmp%set_requires_grad(.false.)
              allocate(right_deriv)
              right_deriv = this%get_partial_right(right_deriv_tmp)
              !end if
@@ -607,6 +607,8 @@ contains
 
     itmp = 0
     output = forward_over_reverse(this, variable, itmp)
+    this%is_leaf = .false.
+    this%requires_grad = .true.
 
   end function grad_forward
 
@@ -679,6 +681,9 @@ contains
     end if
 
     call this%zero_grad()
+    if(associated(this%grad))then
+       this%grad => null()
+    end if
 
   end subroutine reset_graph
 
@@ -820,7 +825,8 @@ contains
 
     type(array_type), pointer :: left_partial, right_partial
 
-    ! write(*,*) "Performing backward operation for: ", trim(this%operation)
+    ! write(*,'("Performing backward operation for: ",A,T60,"id: ",I0)') &
+    !      trim(this%operation), this%id
     this%is_forward = .false.
     if(associated(this%left_operand))then
        if(this%left_operand%requires_grad) then
@@ -892,7 +898,8 @@ contains
 
     end if
 
-    if(.not. array%is_leaf) then
+    !if(.not. array%is_leaf) then
+    if(associated(array%left_operand).or.associated(array%right_operand))then
        call array%reverse_mode(directional_grad, record_graph)
     end if
   end subroutine accumulate_gradient
@@ -930,6 +937,54 @@ contains
     result_ptr%get_partial_left => null()
     result_ptr%get_partial_right => null()
   end function create_result_array
+!###############################################################################
+
+
+
+!###############################################################################
+  module subroutine print_graph(this)
+    implicit none
+    class(array_type), intent(in) :: this
+
+    print *, '--- Computation Graph Tree ---'
+    call print_tree(this, '')
+    print *, '--- End Graph ---'
+
+  contains
+    recursive subroutine print_tree(node, prefix)
+      class(array_type), intent(in) :: node
+      character(len=*), intent(in) :: prefix
+      character(len=1024) :: new_prefix
+      integer :: node_addr
+
+      node_addr = int(loc(node))
+      print *, trim(prefix) // '└── [' // trim(node%operation) // &
+           '] @' // trim(adjustl(itoa(node_addr)))
+
+      ! Print left operand
+      if (associated(node%left_operand)) then
+         if (associated(node%right_operand)) then
+            new_prefix = trim(prefix) // '    ├── L: '
+         else
+            new_prefix = trim(prefix) // '    └── L: '
+         end if
+         call print_tree(node%left_operand, new_prefix)
+      end if
+
+      ! Print right operand
+      if (associated(node%right_operand)) then
+         new_prefix = trim(prefix) // '    └── R: '
+         call print_tree(node%right_operand, new_prefix)
+      end if
+    end subroutine print_tree
+
+    function itoa(i) result(str)
+      integer, intent(in) :: i
+      character(len=20) :: str
+      write(str, '(I0)') i
+    end function itoa
+
+  end subroutine print_graph
 !###############################################################################
 
 end submodule athena__misc_types_submodule
