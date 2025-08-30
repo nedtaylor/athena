@@ -346,7 +346,7 @@ module athena__misc_types
      module function grad_forward(this, variable) result(output)
        class(array_type), intent(inout) :: this
        type(array_type), intent(in) :: variable
-       type(array_type) :: output
+       type(array_type), pointer :: output
      end function grad_forward
 
      module subroutine grad_reverse(this, record_graph, reset_graph)
@@ -838,7 +838,7 @@ contains
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
-    class(array_type), pointer :: grad, div
+    type(array_type), pointer :: grad, div
 
     allocate(grad)
     allocate(div)
@@ -1018,10 +1018,13 @@ contains
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
+    type(array_type), pointer :: left, right
 
-    output = upstream_grad * &
-         ( - 2._real32 * this%left_operand ) * &
-         ( 1._real32 - this%left_operand ** 2._real32 )
+    allocate(left)
+    allocate(right)
+    left = -2._real32 * this%left_operand
+    right = left * upstream_grad
+    output = left * this
 
   end function get_partial_tanh_reverse_left
 
@@ -1031,7 +1034,7 @@ contains
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
-    output = upstream_grad * this
+    output = tanh_reverse_array( this%left_operand, upstream_grad )
 
   end function get_partial_tanh_reverse_right
 

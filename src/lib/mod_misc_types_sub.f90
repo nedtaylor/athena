@@ -596,12 +596,12 @@ contains
     implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: variable
-    type(array_type) :: output
+    type(array_type), pointer :: output
 
     integer :: itmp
 
     itmp = 0
-    output = forward_over_reverse(this, variable, itmp)
+    output => forward_over_reverse(this, variable, itmp)
     this%is_leaf = .false.
     this%requires_grad = .true.
 
