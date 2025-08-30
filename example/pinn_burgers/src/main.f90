@@ -261,7 +261,13 @@ program pinn_burgers_example
      end do
   end do
   write(*,*) "Starting testing..."
+! check compiler, if gfortran, do the following
+#ifdef __GNUC__
+  allocate(u_pred(1,1))
+  u_pred = network%predict_array(XT)
+#else
   u_pred(1:1,1:1) => network%predict_array(XT)
+#endif
   write(*,*) "Testing finished"
   itmp1 = 0
   do i = 1, N_t
