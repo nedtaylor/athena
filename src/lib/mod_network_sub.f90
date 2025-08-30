@@ -3578,11 +3578,11 @@ contains
     integer, intent(in), optional :: verbose
     !! Verbosity level
 
-    type(array_type), dimension(:,:), allocatable :: output
+    type(array_type), pointer :: output(:,:)
     !! Predicted output
 
     ! Local variables
-    integer :: l, s
+    integer :: l, s, i
     !! Loop index
     integer :: num_samples
     !! Number of samples
@@ -3631,8 +3631,15 @@ contains
     !---------------------------------------------------------------------------
     ! Allocate output data
     !---------------------------------------------------------------------------
-    output = this%model(this%leaf_vertices(1))%layer%output
-
+    allocate(output( &
+         size(this%model(this%leaf_vertices(1))%layer%output, 1), &
+         size(this%model(this%leaf_vertices(1))%layer%output, 2) &
+    ))
+    do s = 1, size(this%model(this%leaf_vertices(1))%layer%output, 2)
+       do i = 1, size(this%model(this%leaf_vertices(1))%layer%output, 1)
+          output(i,s) = this%model(this%leaf_vertices(1))%layer%output(i,s)
+       end do
+    end do
 
     !---------------------------------------------------------------------------
     ! Reset inference booleans

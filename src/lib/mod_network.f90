@@ -415,7 +415,7 @@ module athena__network
        !! Input graph
        integer, intent(in), optional :: verbose
        !! Verbosity level
-       type(array_type), dimension(:,:), allocatable :: output
+       type(array_type), pointer :: output(:,:)
      end function predict_array
 
      module function predict_generic( this, input, verbose, output_as_graph ) &

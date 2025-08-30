@@ -36,7 +36,7 @@ program pinn_burgers_example
   type(array_type) :: u_xx
 
   type(array_type), pointer :: loss, loss_f, loss_0, loss_b, f_pred, input, u0_pred
-  type(array_type), dimension(:,:), allocatable :: u_pred
+  type(array_type), pointer :: u_pred(:,:)
   type(array_type) :: u, u_left_pred, u_right_pred
 
 
@@ -261,7 +261,7 @@ program pinn_burgers_example
      end do
   end do
   write(*,*) "Starting testing..."
-  u_pred = network%predict_array(XT)
+  u_pred(1:1,1:1) => network%predict_array(XT)
   write(*,*) "Testing finished"
   itmp1 = 0
   do i = 1, N_t

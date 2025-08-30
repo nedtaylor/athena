@@ -160,11 +160,11 @@ module athena
   use athena__misc_types, only: &
        array_container_type, &
        array_type!, &
-     !   array1d_type, &
-     !   array2d_type, &
-     !   array3d_type, &
-     !   array4d_type, &
-     !   array5d_type
+  !   array1d_type, &
+  !   array2d_type, &
+  !   array3d_type, &
+  !   array4d_type, &
+  !   array5d_type
   use athena__misc_types, only: &
        operator(+), operator(-), operator(*), operator(/), &
        operator(**), &
