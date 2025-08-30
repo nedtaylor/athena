@@ -501,14 +501,15 @@ contains
 
   recursive function forward_over_reverse(this, variable, itmp) result(output)
     implicit none
-    class(array_type), intent(inout) :: this
+    type(array_type), intent(inout) :: this
     type(array_type), intent(in) :: variable
     integer :: itmp
-    type(array_type) :: output
+    type(array_type), pointer :: output
 
     integer :: s
     logical :: is_right_a_variable, is_left_a_variable
-    class(array_type), allocatable :: left_deriv, right_deriv
+    type(array_type), pointer :: left_deriv_tmp, right_deriv_tmp
+    type(array_type), pointer :: left_deriv, right_deriv
 
     itmp = itmp + 1
     if(itmp.gt.500)then
@@ -519,6 +520,7 @@ contains
     ! write(*,*) "Performing forward-over-reverse operation for: ", trim(this%operation)
     if(loc(this).eq.loc(variable))then
        ! call output%allocate(array_shape=[this%shape, size(this%val,2)])
+       allocate(output)
        output = this
        if(allocated(this%direction))then
           do s = 1, size(output%val,2)
@@ -527,6 +529,7 @@ contains
        else
           output%val(:,:) = 1._real32
        end if
+       if(allocated(output%direction)) deallocate(output%direction)
 
     elseif(associated(this%left_operand).or.associated(this%right_operand))then
        ! if(associated(this%grad))then
@@ -539,14 +542,16 @@ contains
              !if(associated(this%left_operand%grad))then
              !    left_deriv = this%left_operand%grad
              !else
-             left_deriv = forward_over_reverse(this%left_operand, variable, itmp)
-             call left_deriv%set_requires_grad(.false.)
+             left_deriv_tmp => &
+                  forward_over_reverse(this%left_operand, variable, itmp)
+             call left_deriv_tmp%set_requires_grad(.false.)
+             allocate(left_deriv)
              if( associated(this%get_partial_right) .and. &
                   .not.associated(this%right_operand) &
              )then
-                left_deriv = this%get_partial_right(left_deriv)
+                left_deriv = this%get_partial_right(left_deriv_tmp)
              else
-                left_deriv = this%get_partial_left(left_deriv)
+                left_deriv = this%get_partial_left(left_deriv_tmp)
              end if
              !end if
           end if
@@ -559,26 +564,30 @@ contains
              !if(associated(this%right_operand%grad))then
              !  right_deriv = this%right_operand%grad
              !else
-             right_deriv = forward_over_reverse(this%right_operand, variable, itmp)
-             call right_deriv%set_requires_grad(.false.)
-             right_deriv = this%get_partial_right(right_deriv)
+             right_deriv_tmp => &
+                  forward_over_reverse(this%right_operand, variable, itmp)
+             call right_deriv_tmp%set_requires_grad(.false.)
+             allocate(right_deriv)
+             right_deriv = this%get_partial_right(right_deriv_tmp)
              !end if
           end if
        end if
 
        if(is_left_a_variable.and.is_right_a_variable)then
-          output = left_deriv + right_deriv
+          output => left_deriv + right_deriv
        elseif(is_left_a_variable)then
-          output = left_deriv
+          output => left_deriv
        elseif(is_right_a_variable) then
-          output = right_deriv
+          output => right_deriv
        else
           write(0,*) "!!!SHOULDN'T!!!"
        end if
 
        ! end if
     else
+       allocate(output)
        output = this
+       if(allocated(output%direction)) deallocate(output%direction)
        ! call output%allocate(array_shape=[this%shape, size(this%val,2)])
        output%val(:,:) = 0._real32
     end if
@@ -614,7 +623,9 @@ contains
 
     record_graph_ = .false.
     if(present(record_graph)) record_graph_ = record_graph
-    if(present(reset_graph)) call this%reset_graph()
+    if(present(reset_graph))then
+       if(reset_graph) call this%reset_graph()
+    end if
 
     ! Initialize gradient if not allocated
     if(.not. associated(this%grad)) then
@@ -660,22 +671,21 @@ contains
     if(associated(this%left_operand))then
        call this%left_operand%reset_graph()
        call this%left_operand%zero_grad()
-       if(associated(this%left_operand%grad)) then
-          call this%left_operand%grad%zero_grad()
+       if(associated(this%left_operand%grad))then
           this%left_operand%grad => null()
        end if
     end if
 
     if(associated(this%right_operand)) then
        call this%right_operand%reset_graph()
-       if(associated(this%right_operand%grad)) then
-          call this%right_operand%zero_grad()
+       call this%right_operand%zero_grad()
+       if(associated(this%right_operand%grad))then
           this%right_operand%grad => null()
        end if
     end if
 
+    call this%zero_grad()
     if(associated(this%grad)) then
-       call this%grad%zero_grad()
        this%grad => null()
     end if
 
@@ -693,7 +703,8 @@ contains
     type is(array_type)
        call duplicate_graph_ptrs(this, pointer_map)
     class default
-       call stop_program('Unsupported type for duplicate_graph. Currently only supports array_type')
+       call stop_program('Unsupported type for duplicate_graph. &
+            &Currently only supports array_type')
        return
     end select
     if(allocated(pointer_map)) deallocate(pointer_map)
@@ -719,11 +730,11 @@ contains
        array%right_operand => duplicate_pointer(array%right_operand, pointer_map)
     end if right_if
 
-    grad_if: if(associated(array%grad)) then
-       call duplicate_graph_ptrs(array%grad, pointer_map)
-       if(array%grad%fix_pointer) exit grad_if
-       array%grad => duplicate_pointer(array%grad, pointer_map)
-    end if grad_if
+    ! grad_if: if(associated(array%grad)) then
+    !    call duplicate_graph_ptrs(array%grad, pointer_map)
+    !    if(array%grad%fix_pointer) exit grad_if
+    !    array%grad => duplicate_pointer(array%grad, pointer_map)
+    ! end if grad_if
 
   end subroutine duplicate_graph_ptrs
 
@@ -846,7 +857,7 @@ contains
 
     integer :: s
     logical :: is_directional
-    class(array_type), pointer :: directional_grad
+    type(array_type), pointer :: directional_grad
 
     is_directional = .false.
     if(allocated(array%direction))then
@@ -877,11 +888,6 @@ contains
           array%grad%requires_grad = .false.
        end if
        array%grad%is_leaf = .true.
-       array%grad%operation = 'none'
-       array%grad%left_operand => null()
-       array%grad%right_operand => null()
-       array%grad%get_partial_left => null()
-       array%grad%get_partial_right => null()
        array%grad%grad => null()
        array%grad%owns_gradient = .false.
        array%owns_gradient = .true.

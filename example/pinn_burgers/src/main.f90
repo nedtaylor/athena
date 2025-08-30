@@ -219,6 +219,7 @@ program pinn_burgers_example
      loss_f => mean( f_pred ** 2, 2 )
 
      ! write(*,*) "boundary conditions"
+     call network%model(network%leaf_vertices(1))%layer%output(1,1)%reset_graph()
      call network%forward(X_b_left)
      u_left_pred = network%model(network%leaf_vertices(1))%layer%output(1,1)
      call u_left_pred%duplicate_graph()
