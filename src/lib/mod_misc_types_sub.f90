@@ -698,6 +698,35 @@ contains
 
   end subroutine reset_graph
 
+  module recursive subroutine nullify_graph(this)
+    !! Reset the gradient graph of this array
+    implicit none
+    class(array_type), intent(inout) :: this
+
+    if(associated(this%left_operand))then
+       call this%left_operand%nullify_graph()
+    end if
+
+    if(associated(this%right_operand)) then
+       call this%right_operand%nullify_graph()
+    end if
+
+    if(associated(this%left_operand))then
+       this%left_operand => null()
+    end if
+    if(associated(this%right_operand))then
+       this%right_operand => null()
+    end if
+
+    if(associated(this%grad))then
+       call this%grad%nullify_graph()
+       if(this%owns_gradient) deallocate(this%grad)
+       this%grad => null()
+    end if
+
+  end subroutine nullify_graph
+
+
   module subroutine duplicate_graph(this)
     !! Duplicate the computation graph of this array
     use iso_c_binding

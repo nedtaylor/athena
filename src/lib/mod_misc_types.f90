@@ -291,6 +291,7 @@ module athena__misc_types
      !! Zero the gradients
      procedure, pass(this) :: reset_graph
      procedure, pass(this) :: duplicate_graph
+     procedure, pass(this) :: nullify_graph
      !   procedure, pass(this) :: duplicate_graph_ptrs
      procedure, pass(this) :: get_ptr_from_id
      procedure, pass(this) :: detach
@@ -378,6 +379,11 @@ module athena__misc_types
        !! Reset the gradients of this array
        class(array_type), intent(inout) :: this
      end subroutine reset_graph
+
+     module recursive subroutine nullify_graph(this)
+       !! Nullify the gradients of this array
+       class(array_type), intent(inout) :: this
+     end subroutine nullify_graph
 
      module subroutine zero_grad(this)
        !! Zero the gradients of this array
