@@ -623,6 +623,7 @@ contains
     if(present(reset_graph))then
        if(reset_graph) call this%reset_graph()
     end if
+    call zero_all_fixed_pointer_grads(this)
 
     ! Initialize gradient if not allocated
     if(.not. associated(this%grad)) then
@@ -676,6 +677,22 @@ contains
     end if
   end subroutine zero_all_grads
 
+  module recursive subroutine zero_all_fixed_pointer_grads(this)
+    !! Zero the gradients of this array
+    implicit none
+    type(array_type), intent(inout) :: this
+
+    if(associated(this%left_operand))then
+       call zero_all_fixed_pointer_grads(this%left_operand)
+    end if
+    if(associated(this%right_operand)) then
+       call zero_all_fixed_pointer_grads(this%right_operand)
+    end if
+    if(this%fix_pointer.and.associated(this%grad)) then
+       if(allocated(this%grad%val)) this%grad%val = 0.0_real32
+    end if
+  end subroutine zero_all_fixed_pointer_grads
+
   module recursive subroutine reset_graph(this)
     !! Reset the gradient graph of this array
     implicit none
@@ -692,7 +709,7 @@ contains
     end if
 
     call this%zero_grad()
-    if(associated(this%grad))then
+    if(this%owns_gradient.and.associated(this%grad))then
        this%grad => null()
     end if
 
@@ -737,6 +754,7 @@ contains
 
     select type(this)
     type is(array_type)
+       call add_pointer_mapping(this, pointer_map)
        call duplicate_graph_ptrs(this, pointer_map)
     class default
        call stop_program('Unsupported type for duplicate_graph. &
@@ -747,6 +765,29 @@ contains
 
   end subroutine duplicate_graph
 
+
+  subroutine add_pointer_mapping(array, pointer_map)
+    !! Add a pointer mapping for the given array to the pointer map
+    use iso_c_binding
+    implicit none
+    type(array_type), intent(in), target :: array
+    type(c_ptr), dimension(:,:), allocatable, intent(inout) :: pointer_map
+    type(c_ptr), dimension(:,:), allocatable :: pointer_map_store
+
+    if(.not. allocated(pointer_map)) then
+       allocate(pointer_map(2, 1))
+       pointer_map(:, 1) = [ c_loc(array), c_loc(array) ]
+    else
+       pointer_map_store = pointer_map
+       deallocate(pointer_map)
+       allocate(pointer_map(2, size(pointer_map_store, dim=2) + 1))
+       pointer_map(:,1:size(pointer_map_store, dim=2)) = pointer_map_store
+       pointer_map(:,size(pointer_map_store, dim=2)+1) = &
+            [ c_loc(array), c_loc(array) ]
+       deallocate(pointer_map_store)
+    end if
+  end subroutine add_pointer_mapping
+
   recursive subroutine duplicate_graph_ptrs(array, pointer_map)
     !! Duplicate the computation graph of this array
     use iso_c_binding
@@ -755,26 +796,55 @@ contains
     type(c_ptr), dimension(:,:), allocatable, intent(inout) :: pointer_map
 
     left_if: if(associated(array%left_operand))then
-       call duplicate_graph_ptrs(array%left_operand, pointer_map)
-       if(array%left_operand%fix_pointer) exit left_if
-       array%left_operand => duplicate_pointer(array%left_operand, pointer_map)
+       if(check_already_handled_in_duplicate(array%left_operand, pointer_map)) return
+       if(array%left_operand%fix_pointer)then
+          call add_pointer_mapping(array%left_operand, pointer_map)
+       else
+          array%left_operand => duplicate_pointer(array%left_operand, pointer_map)
+       end if
     end if left_if
 
     right_if: if(associated(array%right_operand)) then
-       call duplicate_graph_ptrs(array%right_operand, pointer_map)
-       if(array%right_operand%fix_pointer) exit right_if
-       array%right_operand => duplicate_pointer(array%right_operand, pointer_map)
+       if(check_already_handled_in_duplicate(array%right_operand, pointer_map)) return
+       if(array%right_operand%fix_pointer)then
+          call add_pointer_mapping(array%right_operand, pointer_map)
+       else
+          array%right_operand => duplicate_pointer(array%right_operand, pointer_map)
+       end if
     end if right_if
 
-    ! grad_if: if(associated(array%grad)) then
-    !    call duplicate_graph_ptrs(array%grad, pointer_map)
-    !    if(array%grad%fix_pointer) exit grad_if
-    !    array%grad => duplicate_pointer(array%grad, pointer_map)
-    ! end if grad_if
+    grad_if: if(associated(array%grad)) then
+       if(check_already_handled_in_duplicate(array%grad, pointer_map)) return
+       if(array%grad%fix_pointer)then
+          call add_pointer_mapping(array%grad, pointer_map)
+       else
+          array%grad => duplicate_pointer(array%grad, pointer_map)
+       end if
+    end if grad_if
 
   end subroutine duplicate_graph_ptrs
 
-  function duplicate_pointer(input_ptr, pointer_map) result(output_ptr)
+  function check_already_handled_in_duplicate(array, pointer_map) result(is_handled)
+    use iso_c_binding
+    implicit none
+    type(array_type), intent(in), target :: array
+    type(c_ptr), dimension(:,:), allocatable, intent(in) :: pointer_map
+    logical :: is_handled
+    integer :: i, n
+
+    is_handled = .false.
+    if(allocated(pointer_map)) then
+       n = size(pointer_map, dim=2)
+       do i = 1, n
+          if( c_associated( c_loc(array), pointer_map(2,i) ) ) then
+             is_handled = .true.
+             return
+          end if
+       end do
+    end if
+  end function check_already_handled_in_duplicate
+
+  recursive function duplicate_pointer(input_ptr, pointer_map) result(output_ptr)
     use iso_c_binding
     implicit none
     type(array_type), pointer :: input_ptr
@@ -793,6 +863,7 @@ contains
        end do
     end if
 
+    call duplicate_graph_ptrs(input_ptr, pointer_map)
     ! Not found, so duplicate and add to list
     allocate(output_ptr)
     output_ptr = input_ptr
