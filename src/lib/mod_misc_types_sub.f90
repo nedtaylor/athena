@@ -915,17 +915,17 @@ contains
     end if
   end subroutine accumulate_gradient
 
-  module function create_result_array(this, shape_arr) result(result_ptr)
+  module function create_result_array(this, array_shape) result(result_ptr)
     !! Helper function to safely create result arrays with proper initialization
     implicit none
     class(array_type), intent(in) :: this
-    integer, dimension(:), intent(in), optional :: shape_arr
+    integer, dimension(:), intent(in), optional :: array_shape
     type(array_type), pointer :: result_ptr
 
     allocate(result_ptr)
 
-    if(present(shape_arr)) then
-       call result_ptr%allocate(array_shape=shape_arr)
+    if(present(array_shape)) then
+       call result_ptr%allocate(array_shape=array_shape)
     else
        if(allocated(this%shape))then
           call result_ptr%allocate(array_shape=[this%shape, &

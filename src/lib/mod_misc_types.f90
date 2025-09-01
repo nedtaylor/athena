@@ -331,9 +331,9 @@ module athena__misc_types
        type(array_type), intent(inout) :: this
      end subroutine finalise_array
 
-     module function create_result_array(this, shape_arr) result(result_ptr)
+     module function create_result_array(this, array_shape) result(result_ptr)
        class(array_type), intent(in) :: this
-       integer, dimension(:), intent(in), optional :: shape_arr
+       integer, dimension(:), intent(in), optional :: array_shape
        type(array_type), pointer :: result_ptr
      end function create_result_array
 
@@ -696,7 +696,6 @@ contains
 
     integer :: i
 
-    allocate(c)
     c => a(1)%array(idx1, idx2) + a(2)%array(idx1, idx2)
     do i = 2, size(a)
        c => c + a(i)%array(idx1, idx2)
@@ -858,6 +857,13 @@ contains
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
+    if(all(abs(this%right_operand%val - 1._real32).lt.1.E-6_real32)) then
+       output = upstream_grad
+       return
+    elseif(all(abs(this%right_operand%val - 2._real32).lt.1.E-6_real32)) then
+       output = upstream_grad * 2._real32 * this%left_operand
+       return
+    end if
     if(this%right_operand%is_scalar)then
        output = upstream_grad * this%right_operand%val(1,1) * &
             this%left_operand ** ( this%right_operand%val(1,1) - 1.0_real32 )
@@ -1008,35 +1014,23 @@ contains
     type(array_type) :: output
 
     ! as: this = tanh(this%left_operand)
-    output = tanh_reverse_array( this, upstream_grad )
+    output = upstream_grad * tanh_reverse_array( this )
     ! output = upstream_grad * (1._real32 - this ** 2._real32)
 
   end function get_partial_tanh
 
-  function get_partial_tanh_reverse_left(this, upstream_grad) result(output)
+  function get_partial_tanh_reverse(this, upstream_grad) result(output)
     implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
-    type(array_type), pointer :: left, right
+    type(array_type), pointer :: left
 
     allocate(left)
-    allocate(right)
     left = -2._real32 * this%left_operand
-    right = left * upstream_grad
     output = left * this
 
-  end function get_partial_tanh_reverse_left
-
-  function get_partial_tanh_reverse_right(this, upstream_grad) result(output)
-    implicit none
-    class(array_type), intent(inout) :: this
-    type(array_type), intent(in) :: upstream_grad
-    type(array_type) :: output
-
-    output = tanh_reverse_array( this%left_operand, upstream_grad )
-
-  end function get_partial_tanh_reverse_right
+  end function get_partial_tanh_reverse
 
   function get_partial_index(this, upstream_grad) result(output)
     implicit none
@@ -1312,10 +1306,7 @@ contains
     real(real32), intent(in) :: b
     type(array_type), pointer :: c
 
-    !  allocate(c)
     c => a%create_result()
-    !  call c%allocate(array_shape=[ a%shape, size(a%val,2) ])
-    !  ! c => a%create_result()
     c%val = a%val + b
 
     c%get_partial_left => get_partial_add
@@ -1565,29 +1556,27 @@ contains
     type(array_type), pointer :: c
 
     integer :: s
-    real(real32), pointer :: temp_a(:,:), temp_b(:,:)
-    integer, dimension(:), allocatable :: array_shape
+    real(real32), pointer :: temp(:,:)
 
-    allocate(c)
     if(.not.a%is_sample_dependent)then
        if(size(b%shape).ne.1)then
           call stop_program( &
                'Matrix multiplication not implemented for these shapes yet' )
        end if
-       call c%allocate(array_shape=[a%shape(1), size(b%val,2)])
-       temp_a(1:a%shape(1), 1:a%shape(2)) => a%val
+       c => a%create_result(array_shape=[a%shape(1), size(b%val,2)])
+       temp(1:a%shape(1), 1:a%shape(2)) => a%val
        do concurrent(s=1:size(b%val,2))
-          c%val(:,s) = matmul(temp_a, b%val(:,s))
+          c%val(:,s) = matmul(temp, b%val(:,s))
        end do
     elseif(.not.b%is_sample_dependent)then
        if(size(a%shape).ne.1)then
           call stop_program( &
                'Matrix multiplication not implemented for these shapes yet' )
        end if
-       call c%allocate(array_shape=[b%shape(2), size(a%val,2)])
-       temp_b(1:b%shape(1), 1:b%shape(2)) => b%val
+       c => b%create_result(array_shape=[b%shape(2), size(a%val,2)])
+       temp(1:b%shape(1), 1:b%shape(2)) => b%val
        do concurrent(s=1:size(a%val,2))
-          c%val(:,s) = matmul(a%val(:,s), temp_b)
+          c%val(:,s) = matmul(a%val(:,s), temp)
        end do
     else
        write(0,*) "NOT SURE WHAT TO DO YET"
@@ -1617,8 +1606,7 @@ contains
 
     integer :: s, i
 
-    allocate(c)
-    call c%allocate(array_shape=[size(b,2), size(a%val,2)])
+    c => a%create_result(array_shape = [size(b,2), size(a%val,2)])
     do concurrent(s=1:size(a%val,2))
        c%val(:,s) = matmul(a%val(:,s), b)
     end do
@@ -1655,8 +1643,7 @@ contains
 
     integer :: s, i
 
-    allocate(c)
-    call c%allocate(array_shape=[size(a,1), size(b%val,2)])
+    c => b%create_result(array_shape = [size(a,1), size(b%val,2)])
     do concurrent(s=1:size(b%val,2))
        c%val(:,s) = matmul(a, b%val(:,s))
     end do
@@ -1691,8 +1678,7 @@ contains
 
     integer :: i, j, s
 
-    allocate(c)
-    call c%allocate(array_shape=[size(a%val,1), size(b%val,1), size(a%val,2)])
+    c => a%create_result(array_shape = [size(a%val,1), size(b%val,1), size(a%val,2)])
     ! outer product 1D array by using shape to swap dimensions
     do concurrent(s=1:size(a%val,2))
        do concurrent(i=1:size(a%val,1), j=1:size(b%val,1))
@@ -1718,8 +1704,7 @@ contains
 
     integer :: i, j, s
 
-    allocate(c)
-    call c%allocate(array_shape=[size(a%val,1) + size(b%val,1), size(a%val,2)])
+    c => a%create_result(array_shape = [size(a%val,1) + size(b%val,1), size(a%val,2)])
     ! concatenate 1D array by using shape to swap dimensions
     do concurrent(s=1:size(a%val,2))
        do concurrent(i=1:1, j=1:size(a%val,1))
@@ -1751,8 +1736,7 @@ contains
 
     integer :: i, j, s
 
-    allocate(c)
-    call c%allocate(array_shape=[b, size(a%val,2)])
+    c => a%create_result(array_shape = [b, size(a%val,2)])
     ! left trim 1D array by using shape to swap dimensions
     do concurrent(s=1:size(a%val,2))
        c%val( :, s) = a%val( 1:b, s)
@@ -1776,8 +1760,7 @@ contains
 
     integer :: i, j, s
 
-    allocate(c)
-    call c%allocate(array_shape=[b, size(a%val,2)])
+    c => a%create_result(array_shape = [b, size(a%val,2)])
     ! right trim 1D array by using shape to swap dimensions
     do concurrent(s=1:size(a%val,2))
        c%val( :, s) = a%val( size(a%val,1)-b+1:size(a%val,1), s)
@@ -1802,14 +1785,13 @@ contains
 
     integer :: i, s
 
-    allocate(c)
     if(dim.eq.1)then
-       call c%allocate(array_shape=[size(indices), size(a%val,2)])
+       c => a%create_result(array_shape=[size(indices), size(a%val,2)])
        do concurrent(s=1:size(a%val,2), i=1:size(indices))
           c%val(i, s) = a%val(indices(i), s)
        end do
     elseif(dim.eq.2)then
-       call c%allocate(array_shape=[size(a%val,1), size(indices)])
+       c => a%create_result(array_shape=[size(a%val,1), size(indices)])
        do concurrent(s=1:size(indices), i=1:size(a%val,1))
           c%val(i, s) = a%val(i, indices(s))
        end do
@@ -1840,15 +1822,14 @@ contains
     integer :: i, s
 
 
-    allocate(c)
     if(dim.eq.1)then
-       call c%allocate( array_shape = [ new_size, size(a%val,2) ] )
+       c => a%create_result(array_shape = [ new_size, size(a%val,2) ])
        c%val = 0.0_real32
        do concurrent(i=1:size(indices,1), s=1:size(a%val,2))
           c%val(indices(i),s) = a%val(i,s)
        end do
     elseif(dim.eq.2)then
-       call c%allocate( array_shape = [ size(a%val,1), new_size ] )
+       c => a%create_result(array_shape = [ size(a%val,1), new_size ])
        c%val = 0.0_real32
        do concurrent(i=1:size(a%val,1), s=1:new_size)
           c%val(i,indices(s)) = a%val(i,s)
@@ -1943,8 +1924,7 @@ contains
        write(*,*) "ashape", a%shape
        call stop_program("transpose_array: only 2D arrays can be transposed")
     end if
-    allocate(c)
-    call c%allocate(array_shape=[a%shape(2), a%shape(1), size(a%val,2)])
+    c => a%create_result(array_shape=[a%shape(2), a%shape(1), size(a%val,2)])
     ! transpose 1D array by using shape to swap dimensions
     do concurrent(s=1:size(a%val,2))
        do concurrent(i=1:a%shape(1), j=1:a%shape(2))
@@ -2065,14 +2045,13 @@ contains
 
     integer :: i, s
 
-    allocate(c)
     if(dim.eq.1)then
-       call c%allocate(array_shape=[1, size(a%val,2)])
+       c => a%create_result(array_shape=[1, size(a%val,2)])
        do concurrent(s=1:size(a%val,2))
           c%val(1,s) = sum(a%val(:,s))
        end do
     else if(dim.eq.2)then
-       call c%allocate(array_shape=[a%shape, 1])
+       c => a%create_result(array_shape=[a%shape, 1])
        do concurrent(i=1:size(a%val,1))
           c%val(i,1) = sum(a%val(i,:))
        end do
@@ -2176,15 +2155,14 @@ contains
     !    call stop_program("mean_array: only 1D arrays can be used")
     ! end if
 
-    allocate(c)
     if(dim.eq.1)then
-       call c%allocate(array_shape=[1, size(a%val,2)])
+       c => a%create_result(array_shape = [1, size(a%val,2)])
        rtmp1 = real(size(a%val,1), real32)
        do concurrent(s=1:size(a%val,2))
           c%val(1,s) = sum(a%val(:,s)) / rtmp1
        end do
     else if(dim.eq.2)then
-       call c%allocate(array_shape=[a%shape, 1])
+       c => a%create_result(array_shape = [a%shape, 1])
        rtmp1 = real(size(a%val,2), real32)
        do concurrent(i=1:size(a%val,1))
           c%val(i,1) = sum(a%val(i,:)) / rtmp1
@@ -2310,14 +2288,13 @@ contains
        call stop_program("spread: only 1D arrays can be used")
     end if
 
-    allocate(c)
     if(dim.eq.1)then
-       call c%allocate(array_shape=[ncopies, size(source%val,2)])
+       c => source%create_result(array_shape=[ncopies, size(source%val,2)])
        do concurrent(s=1:ncopies)
           c%val(s, :) = source%val(index, :)
        end do
     else if(dim.eq.2)then
-       call c%allocate(array_shape=[size(source%val,1), ncopies])
+       c => source%create_result(array_shape=[size(source%val,1), ncopies])
        do concurrent(s=1:ncopies)
           c%val(:, s) = source%val(:, index)
        end do
@@ -2349,15 +2326,14 @@ contains
     integer :: i, s
 
 
-    allocate(c)
     if(dim.eq.1)then
-       call c%allocate( array_shape = [ new_size, size(source%val,2) ] )
+       c => source%create_result(array_shape = [ new_size, size(source%val,2) ])
        c%val = 0.0_real32
        do concurrent(i=1:size(source%val,1), s=1:size(source%val,2))
           c%val(index,s) = c%val(index,s) + source%val(i,s)
        end do
     elseif(dim.eq.2)then
-       call c%allocate( array_shape = [ size(source%val,1), new_size ] )
+       c => source%create_result( array_shape = [ size(source%val,1), new_size ] )
        c%val = 0.0_real32
        do concurrent(i=1:size(source%val,1), s=1:size(source%val,2))
           c%val(i,index) = c%val(i,index) + source%val(i,s)
@@ -2426,8 +2402,6 @@ contains
     type(array_type), pointer :: b_array
 
     c => a%create_result()
-    !  allocate(c)
-    !  call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
     c%val = a%val / scalar
 
     c%get_partial_left => get_partial_divide_left
@@ -2458,8 +2432,6 @@ contains
     type(array_type), pointer :: b_array
 
     c => a%create_result()
-    !  allocate(c)
-    !  call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
     c%val = scalar / a%val
 
     c%get_partial_left => get_partial_divide_left
@@ -2492,8 +2464,6 @@ contains
     integer :: s
 
     c => a%create_result()
-    !  allocate(c)
-    !  call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
     do concurrent(s=1:size(a%val,2))
        c%val(:,s) = a%val(:,s) / b(s)
     end do
@@ -2667,7 +2637,6 @@ contains
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
-    !  allocate(c)
     c => a%create_result()
     c%val = tan(a%val)
 
@@ -2688,8 +2657,6 @@ contains
     type(array_type), pointer :: c
 
     c => a%create_result()
-    !  allocate(c)
-    !  call c%allocate(array_shape=[size(a%val,1), size(a%val,2)])
     c%val = exp(a%val)
 
     c%get_partial_left => get_partial_exp
@@ -2708,7 +2675,6 @@ contains
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
-    !  allocate(c)
     c => a%create_result()
     c%val = log(a%val)
 
@@ -2728,7 +2694,6 @@ contains
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
-    !  allocate(c)
     c => a%create_result()
     c%val = sqrt(a%val)
 
@@ -2748,7 +2713,6 @@ contains
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
-    !  allocate(c)
     c => a%create_result()
     c%val = tanh(a%val)
 
@@ -2762,25 +2726,23 @@ contains
     end if
   end function tanh_array
 
-  function tanh_reverse_array(a, b) result(c)
+  function tanh_reverse_array(a) result(c)
     !! Reverse mode for tanh function
     implicit none
-    class(array_type), intent(in), target :: a, b
+    class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
     !  allocate(output)
     c => a%create_result()
-    c%val = b%val * (1._real32 - a%val ** 2._real32)
+    c%val = (1._real32 - a%val ** 2._real32)
 
-    c%get_partial_left => get_partial_tanh_reverse_left
-    c%get_partial_right => get_partial_tanh_reverse_right
-    if(a%requires_grad.or.b%requires_grad) then
+    c%get_partial_left => get_partial_tanh_reverse
+    if(a%requires_grad) then
        c%requires_grad = .true.
        c%is_forward = a%is_forward
        c%is_leaf = .false.
        c%operation = 'tanh_reverse'
        c%left_operand => a
-       c%right_operand => b
     end if
 
   end function tanh_reverse_array
@@ -2791,7 +2753,6 @@ contains
     class(array_type), intent(in), target :: a
     type(array_type), pointer :: c
 
-    !  allocate(c)
     c => a%create_result()
     c%val = 1.0_real32 / (1.0_real32 + exp(-a%val))
 
