@@ -28,8 +28,7 @@ module athena__duvenaud_msgpass_layer
 
      class(activation_type), allocatable :: transfer_readout
      !! Activation function
-     type(array_type), allocatable, dimension(:,:) :: di_msg, di_readout, &
-          z_readout
+     type(array_type), allocatable, dimension(:,:) :: z_readout
      !! Input gradients
 
    contains
@@ -129,9 +128,6 @@ contains
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output_shape)) deallocate(this%output_shape)
     if(allocated(this%output)) deallocate(this%output)
-    if(allocated(this%di)) deallocate(this%di)
-    if(allocated(this%di_msg)) deallocate(this%di_msg)
-    if(allocated(this%di_readout)) deallocate(this%di_readout)
     if(allocated(this%z)) deallocate(this%z)
     if(allocated(this%z_readout)) deallocate(this%z_readout)
 
@@ -623,14 +619,6 @@ contains
                  this%batch_size &
             ), source=0._real32 &
        )
-       !   if(allocated(this%di)) deallocate(this%di)
-       !   allocate(this%di(2,this%batch_size), source=array2d_type())
-
-       if(allocated(this%di_msg)) deallocate(this%di_msg)
-       allocate(this%di_msg(this%num_time_steps, this%batch_size))
-
-       if(allocated(this%di_readout)) deallocate(this%di_readout)
-       allocate(this%di_readout(this%num_time_steps, this%batch_size))
 
        if(allocated(this%z_readout)) deallocate(this%z_readout)
        allocate(this%z_readout(this%num_time_steps, this%batch_size))
@@ -701,27 +689,6 @@ contains
                     size(graph) &
                ] &
           )
-          ! call this%output(1,1)%set_ptr()
-          do s = 1, size(graph)
-             if(this%di(1,s)%allocated) &
-                  call this%di(1,s)%deallocate()
-             if(this%di(2,s)%allocated) &
-                  call this%di(2,s)%deallocate()
-             call this%di(1,s)%allocate( &
-                  [ &
-                       this%num_vertex_features(0), &
-                       this%graph(s)%num_vertices &
-                  ] &
-             )
-             call this%di(2,s)%allocate( &
-                  [ &
-                       this%num_edge_features(0), &
-                       this%graph(s)%num_edges &
-                  ] &
-             )
-             !    call this%di(1,s)%set_ptr()
-             !    call this%di(2,s)%set_ptr()
-          end do
        end if
        call this%set_ptrs()
     end if
@@ -757,23 +724,11 @@ contains
                call this%z_readout(t,s)%deallocate()
           if(this%z(t,s)%allocated) &
                call this%z(t,s)%deallocate()
-          if(this%di_readout(t,s)%allocated) &
-               call this%di_readout(t,s)%deallocate()
-          if(this%di_msg(t,s)%allocated) &
-               call this%di_msg(t,s)%deallocate()
           call this%z(t,s)%allocate( &
                [ this%num_vertex_features(t), this%graph(s)%num_vertices ] &
           )
           call this%z_readout(t,s)%allocate( &
                [ this%num_outputs, this%graph(s)%num_vertices ] &
-          )
-          call this%di_readout(t,s)%allocate( &
-               [ this%num_vertex_features(t), &
-                    this%graph(s)%num_vertices ] &
-          )
-          call this%di_msg(t,s)%allocate( &
-               [ this%num_vertex_features(t-1) + this%num_edge_features(0), &
-                    this%graph(s)%num_vertices ] &
           )
        end do
     end do
@@ -1034,123 +989,123 @@ contains
     !! Pointer to the weight matrix
 
 
-    do t = this%num_time_steps, 1, -1
-       weight( &
-            1:this%num_vertex_features(t), &
-            1:this%num_vertex_features(t-1) + this%num_edge_features(0), &
-            this%min_vertex_degree:this%max_vertex_degree &
-       ) => this%params( &
-            sum(this%num_params_msg(1:t-1:1)) + 1 : &
-            sum(this%num_params_msg(1:t:1)) &
-       )
-       do s = 1, this%batch_size
-          dw( &
-               1:this%num_vertex_features(t), &
-               1:this%num_vertex_features(t-1) + this%num_edge_features(0), &
-               this%min_vertex_degree:this%max_vertex_degree &
-          ) => this%dp( &
-               sum(this%num_params_msg(1:t-1:1)) + 1 : &
-               sum(this%num_params_msg(1:t:1)), s &
-          )
-          if(t.eq.1)then
-             this%di(1,s)%val = 0._real32
-             this%di(2,s)%val = 0._real32
-          end if
-          this%di_msg(t,s)%val = 0._real32
+!     do t = this%num_time_steps, 1, -1
+!        weight( &
+!             1:this%num_vertex_features(t), &
+!             1:this%num_vertex_features(t-1) + this%num_edge_features(0), &
+!             this%min_vertex_degree:this%max_vertex_degree &
+!        ) => this%params( &
+!             sum(this%num_params_msg(1:t-1:1)) + 1 : &
+!             sum(this%num_params_msg(1:t:1)) &
+!        )
+!        do s = 1, this%batch_size
+!           dw( &
+!                1:this%num_vertex_features(t), &
+!                1:this%num_vertex_features(t-1) + this%num_edge_features(0), &
+!                this%min_vertex_degree:this%max_vertex_degree &
+!           ) => this%dp( &
+!                sum(this%num_params_msg(1:t-1:1)) + 1 : &
+!                sum(this%num_params_msg(1:t:1)), s &
+!           )
+!           if(t.eq.1)then
+!              this%di(1,s)%val = 0._real32
+!              this%di(2,s)%val = 0._real32
+!           end if
+!           this%di_msg(t,s)%val = 0._real32
 
-          if(allocated(delta)) deallocate(delta)
-          allocate(delta( &
-               this%num_vertex_features(t), &
-               this%graph(s)%num_vertices &
-          ), source = 0._real32)
-          delta(:this%num_vertex_features(t),:) = this%di_readout(t,s)%val
-          if(t.lt.this%num_time_steps)then
-             delta = delta + &
-                  this%di_msg(t+1,s)%val(:this%num_vertex_features(t),:)
-          end if
-          delta = delta * this%transfer%differentiate(this%z(t,s)%val(:,:))
+!           if(allocated(delta)) deallocate(delta)
+!           allocate(delta( &
+!                this%num_vertex_features(t), &
+!                this%graph(s)%num_vertices &
+!           ), source = 0._real32)
+!           delta(:this%num_vertex_features(t),:) = this%di_readout(t,s)%val
+!           if(t.lt.this%num_time_steps)then
+!              delta = delta + &
+!                   this%di_msg(t+1,s)%val(:this%num_vertex_features(t),:)
+!           end if
+!           delta = delta * this%transfer%differentiate(this%z(t,s)%val(:,:))
 
-          ! Partial derivatives of error wrt weights
-          ! dE/dW = o/p(l-1) * delta
-          do v = 1, this%graph(s)%num_vertices
-             ! GET VERTEX DEGREE FOR sparse graph
-             degree = this%graph(s)%adj_ia(v+1) - this%graph(s)%adj_ia(v)
-             degree = max( &
-                  this%min_vertex_degree, &
-                  min(degree, this%max_vertex_degree) &
-             )
-             ! i.e. outer product of the input and delta
-             ! sum weights and biases errors to use in batch gradient descent
-             do e = this%graph(s)%adj_ia(v), this%graph(s)%adj_ia(v+1) - 1
-                !if(this%graph(s)%adj_ja(2,e).eq.0) cycle ! self interaction
-                if(this%graph(s)%adj_ja(2,e).eq.0)then
-                   do i = 1, this%num_vertex_features(t-1)
-                      dw(:,i,degree) = dw(:,i,degree) + &
-                           this%vertex_features(t-1,s)%val(i,v) * delta(:,v)
-                   end do
-                   if(t.eq.1)then
-                      this%di(1,s)%val(:,v) = &
-                           this%di(1,s)%val(:,v) + &
-                           matmul( &
-                                delta(:,v), &
-                                weight( &
-                                     :,:this%num_vertex_features(t-1),degree &
-                                ) &
-                           )
-                   else
-                      this%di_msg(t,s)%val(:,v) = &
-                           this%di_msg(t,s)%val(:,v) + &
-                           matmul(delta(:,v),weight(:,:,degree))
-                   end if
-                else
-                   do j = 1, this%num_vertex_features(t)
-                      do i = 1, this%num_vertex_features(t-1)
-                         dw(j,i,degree) = dw(j,i,degree) + &
-                              this%vertex_features(t-1,s)%val( &
-                                   i,this%graph(s)%adj_ja(1,e) &
-                              ) * delta(j,v)
-                      end do
-                      do i = this%num_vertex_features(t-1) + 1, &
-                           this%num_vertex_features(t-1) + this%num_edge_features(0)
-                         dw(j,i,degree) = dw(j,i,degree) + &
-                              this%edge_features(0,s)%val( &
-                                   i-this%num_vertex_features(t-1), &
-                                   this%graph(s)%adj_ja(2,e) &
-                              ) * &
-                              delta(j,v)
-                      end do
-                   end do
-                   ! The errors are summed from the delta of the ...
-                   ! ... 'child' node * 'child' weight
-                   ! dE/dI(l-1) = sum(weight(l) * delta(l))
-                   ! this prepares dE/dI for when it is passed into the previous layer
-                   if(t.eq.1)then
-                      this%di(1,s)%val(:,this%graph(s)%adj_ja(1,e)) = &
-                           this%di(1,s)%val(:,this%graph(s)%adj_ja(1,e)) + &
-                           matmul( &
-                                delta(:,v), &
-                                weight( &
-                                     :,:this%num_vertex_features(t-1),degree &
-                                ) &
-                           )
-                      this%di(2,s)%val(:,this%graph(s)%adj_ja(2,e)) = &
-                           this%di(2,s)%val(:,this%graph(s)%adj_ja(2,e)) + &
-                           matmul( &
-                                delta(:,v), &
-                                weight( &
-                                     :,this%num_vertex_features(t-1)+1:,degree &
-                                ) &
-                           )
-                   else
-                      this%di_msg(t,s)%val(:,this%graph(s)%adj_ja(1,e)) = &
-                           this%di_msg(t,s)%val(:,this%graph(s)%adj_ja(1,e)) + &
-                           matmul(delta(:,v),weight(:,:,degree))
-                   end if
-                end if
-             end do
-          end do
-       end do
-    end do
+!           ! Partial derivatives of error wrt weights
+!           ! dE/dW = o/p(l-1) * delta
+!           do v = 1, this%graph(s)%num_vertices
+!              ! GET VERTEX DEGREE FOR sparse graph
+!              degree = this%graph(s)%adj_ia(v+1) - this%graph(s)%adj_ia(v)
+!              degree = max( &
+!                   this%min_vertex_degree, &
+!                   min(degree, this%max_vertex_degree) &
+!              )
+!              ! i.e. outer product of the input and delta
+!              ! sum weights and biases errors to use in batch gradient descent
+!              do e = this%graph(s)%adj_ia(v), this%graph(s)%adj_ia(v+1) - 1
+!                 !if(this%graph(s)%adj_ja(2,e).eq.0) cycle ! self interaction
+!                 if(this%graph(s)%adj_ja(2,e).eq.0)then
+!                    do i = 1, this%num_vertex_features(t-1)
+!                       dw(:,i,degree) = dw(:,i,degree) + &
+!                            this%vertex_features(t-1,s)%val(i,v) * delta(:,v)
+!                    end do
+!                    if(t.eq.1)then
+!                       this%di(1,s)%val(:,v) = &
+!                            this%di(1,s)%val(:,v) + &
+!                            matmul( &
+!                                 delta(:,v), &
+!                                 weight( &
+!                                      :,:this%num_vertex_features(t-1),degree &
+!                                 ) &
+!                            )
+!                    else
+!                       this%di_msg(t,s)%val(:,v) = &
+!                            this%di_msg(t,s)%val(:,v) + &
+!                            matmul(delta(:,v),weight(:,:,degree))
+!                    end if
+!                 else
+!                    do j = 1, this%num_vertex_features(t)
+!                       do i = 1, this%num_vertex_features(t-1)
+!                          dw(j,i,degree) = dw(j,i,degree) + &
+!                               this%vertex_features(t-1,s)%val( &
+!                                    i,this%graph(s)%adj_ja(1,e) &
+!                               ) * delta(j,v)
+!                       end do
+!                       do i = this%num_vertex_features(t-1) + 1, &
+!                            this%num_vertex_features(t-1) + this%num_edge_features(0)
+!                          dw(j,i,degree) = dw(j,i,degree) + &
+!                               this%edge_features(0,s)%val( &
+!                                    i-this%num_vertex_features(t-1), &
+!                                    this%graph(s)%adj_ja(2,e) &
+!                               ) * &
+!                               delta(j,v)
+!                       end do
+!                    end do
+!                    ! The errors are summed from the delta of the ...
+!                    ! ... 'child' node * 'child' weight
+!                    ! dE/dI(l-1) = sum(weight(l) * delta(l))
+!                    ! this prepares dE/dI for when it is passed into the previous layer
+!                    if(t.eq.1)then
+!                       this%di(1,s)%val(:,this%graph(s)%adj_ja(1,e)) = &
+!                            this%di(1,s)%val(:,this%graph(s)%adj_ja(1,e)) + &
+!                            matmul( &
+!                                 delta(:,v), &
+!                                 weight( &
+!                                      :,:this%num_vertex_features(t-1),degree &
+!                                 ) &
+!                            )
+!                       this%di(2,s)%val(:,this%graph(s)%adj_ja(2,e)) = &
+!                            this%di(2,s)%val(:,this%graph(s)%adj_ja(2,e)) + &
+!                            matmul( &
+!                                 delta(:,v), &
+!                                 weight( &
+!                                      :,this%num_vertex_features(t-1)+1:,degree &
+!                                 ) &
+!                            )
+!                    else
+!                       this%di_msg(t,s)%val(:,this%graph(s)%adj_ja(1,e)) = &
+!                            this%di_msg(t,s)%val(:,this%graph(s)%adj_ja(1,e)) + &
+!                            matmul(delta(:,v),weight(:,:,degree))
+!                    end if
+!                 end if
+!              end do
+!           end do
+!        end do
+!     end do
 
   end subroutine backward_message_duvenaud
 !###############################################################################
@@ -1179,46 +1134,46 @@ contains
     !! Pointer to the weight matrix
 
 
-    num_params_old = sum(this%num_params_msg)
-    do t = 1, this%num_time_steps, 1
-       num_params_tmp = this%num_vertex_features(t) * this%num_outputs
-       weight( &
-            1:this%num_outputs, &
-            1:this%num_vertex_features(t) &
-       ) => this%params( &
-            num_params_old + 1 : num_params_old + num_params_tmp &
-       )
-       do s = 1, this%batch_size
-          dw( &
-               1:this%num_outputs, &
-               1:this%num_vertex_features(t) &
-          ) => this%dp( &
-               num_params_old + 1 : num_params_old + num_params_tmp, &
-               s &
-          )
-          ! There is no message passing transfer function
-          ! Partial derivatives of error wrt weights
-          ! dE/dW = o/p(l-1) * delta
-          do v = 1, this%graph(s)%num_vertices
+!     num_params_old = sum(this%num_params_msg)
+!     do t = 1, this%num_time_steps, 1
+!        num_params_tmp = this%num_vertex_features(t) * this%num_outputs
+!        weight( &
+!             1:this%num_outputs, &
+!             1:this%num_vertex_features(t) &
+!        ) => this%params( &
+!             num_params_old + 1 : num_params_old + num_params_tmp &
+!        )
+!        do s = 1, this%batch_size
+!           dw( &
+!                1:this%num_outputs, &
+!                1:this%num_vertex_features(t) &
+!           ) => this%dp( &
+!                num_params_old + 1 : num_params_old + num_params_tmp, &
+!                s &
+!           )
+!           ! There is no message passing transfer function
+!           ! Partial derivatives of error wrt weights
+!           ! dE/dW = o/p(l-1) * delta
+!           do v = 1, this%graph(s)%num_vertices
 
-             delta = &
-                  gradient(1,1)%val(:,s) * &
-                  this%transfer_readout%differentiate( &
-                       this%z_readout(t,s)%val(:,v) &
-                  )
+!              delta = &
+!                   gradient(1,1)%val(:,s) * &
+!                   this%transfer_readout%differentiate( &
+!                        this%z_readout(t,s)%val(:,v) &
+!                   )
 
-             do j = 1, this%num_vertex_features(t)
-                do i = 1, this%num_outputs
-                   dw(i,j) = dw(i,j) + &
-                        this%vertex_features(t,s)%val(j,v) * delta(i)
-                end do
-             end do
+!              do j = 1, this%num_vertex_features(t)
+!                 do i = 1, this%num_outputs
+!                    dw(i,j) = dw(i,j) + &
+!                         this%vertex_features(t,s)%val(j,v) * delta(i)
+!                 end do
+!              end do
 
-             this%di_readout(t,s)%val(:,v) = matmul(delta, weight)
-          end do
-       end do
-       num_params_old = num_params_old + num_params_tmp
-    end do
+!              this%di_readout(t,s)%val(:,v) = matmul(delta, weight)
+!           end do
+!        end do
+!        num_params_old = num_params_old + num_params_tmp
+!     end do
 
   end subroutine backward_readout_duvenaud
 !###############################################################################
