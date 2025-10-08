@@ -32,12 +32,11 @@ program pinn_burgers_example
   real(real32) :: nu
   real(real32), dimension(:), allocatable :: u0
   real(real32), dimension(:,:), allocatable :: X_f, X_0, X_b_left, X_b_right, XT
-  type(array_type), pointer :: u_i
-  type(array_type) :: u_xx
+  type(array_type), pointer :: u_i, u_xx, u_t, u_x
 
-  type(array_type), pointer :: loss, loss_f, loss_0, loss_b, f_pred, input, u0_pred
+  type(array_type), pointer :: input, u0_pred
   type(array_type), pointer :: u_pred(:,:)
-  type(array_type) :: u, u_left_pred, u_right_pred
+  type(array_type) :: u, u_left_pred, u_right_pred, f_pred, loss_f, loss_0, loss_b, loss
 
 
   !-----------------------------------------------------------------------------
@@ -206,18 +205,15 @@ program pinn_burgers_example
      input => u%get_ptr_from_id(1)
 
      ! write(*,*) "setting direction"
-     call input%set_direction([1._real32, 1._real32])
-     call u%grad_reverse(record_graph=.true., reset_graph=.true.)
-     u_i => input%grad
+     call input%set_direction([0._real32, 1._real32])
+     u_t => u%grad_forward(input)
      call input%set_direction([1._real32, 0._real32])
-     u_xx = u_i%grad_forward(input)
+     u_x => u%grad_forward(input)
+     u_xx => u_x%grad_forward(input)
 
-     f_pred => &
-          pack(u_i, [2], dim = 1) + &
-          u * pack(u_i, [1], dim = 1) - &
-          nu * pack(u_xx, [1], dim = 1)
-     loss_f => mean( f_pred ** 2, 2 )
-     call loss_f%reset_graph()
+     f_pred = u_t + u * u_x - nu * u_xx
+     loss_f = mean( f_pred ** 2, 2 )
+
 
      ! write(*,*) "boundary conditions"
      call network%forward(X_b_left)
@@ -227,22 +223,22 @@ program pinn_burgers_example
      call network%forward(X_b_right)
      u_right_pred = network%model(network%leaf_vertices(1))%layer%output(1,1)
      call u_right_pred%duplicate_graph()
-     loss_b => mean( u_left_pred ** 2, 2 ) + mean( u_right_pred ** 2, 2 )
+     loss_b = mean( u_left_pred ** 2, 2 ) + mean( u_right_pred ** 2, 2 )
 
      ! write(*,*) "zero condition"
      call network%forward(X_0)
      u0_pred => network%model(network%leaf_vertices(1))%layer%output(1,1)
-     loss_0 => mean( ( u0_pred - u0 ) ** 2, 2)
+     loss_0 = mean( ( u0_pred - u0 ) ** 2, 2)
 
      ! write(*,*) "loss"
      ! write(*,*) loss_f%val(1,1), loss_0%val(1,1), loss_b%val(1,1)
-     loss => loss_f + loss_0 + loss_b
+     loss = loss_f + loss_0 + loss_b
      ! write(*,*) "backward"
-     call loss%grad_reverse(reset_graph=.false.)
+     call loss%grad_reverse(record_graph=.false., reset_graph=.false.)
      ! write(*,*) "updating"
      call network%update()
      write(*,'("epoch: ",I0,"/",I0," loss: ",F0.5)') i, num_epochs, loss%val(1,1)
-     call loss%reset_graph()
+     call loss%zero_all_grads()
 
   end do
   !-----------------------------------------------------------------------------

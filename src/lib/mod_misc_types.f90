@@ -366,7 +366,7 @@ module athena__misc_types
 
      module recursive subroutine reverse_mode(this, upstream_grad, record_graph)
        class(array_type), intent(inout) :: this
-       type(array_type), intent(in) :: upstream_grad
+       type(array_type), pointer, intent(in) :: upstream_grad
        logical, intent(in) :: record_graph
      end subroutine reverse_mode
 

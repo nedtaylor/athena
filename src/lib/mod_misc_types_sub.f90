@@ -931,7 +931,7 @@ contains
     !! Backward operation for arrays
     implicit none
     class(array_type), intent(inout) :: this
-    type(array_type), intent(in) :: upstream_grad
+    type(array_type), pointer, intent(in) :: upstream_grad
     logical, intent(in) :: record_graph
 
     type(array_type), pointer :: left_partial, right_partial
