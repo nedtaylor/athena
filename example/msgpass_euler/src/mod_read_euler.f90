@@ -1,7 +1,6 @@
 module read_euler
   use constants_mnist, only: real32
   use misc_linalg, only: modu
-  use rw_geom, only: bas_type, geom_read, igeom_input
   use athena, only: graph_type, edge_type
   implicit none
 

@@ -1,9 +1,7 @@
 module read_chemical_graphs_extd
   use constants_mnist, only: real32
-  use misc_linalg, only: modu
-  use rw_geom, only: bas_type, geom_read, igeom_input
+  use atomstruc, only: basis_type, geom_read, igeom_input
   use athena, only: graph_type, edge_type, array_type
-  use read_chemical_graphs, only: get_elements_masses_and_charges
   implicit none
 
   private
@@ -30,9 +28,8 @@ contains
     character(1024) :: buffer
 
     integer :: num_samples
-    type(bas_type) :: basis
+    type(basis_type) :: basis
     type(graph_type) :: graph_tmp
-    real(real32), dimension(3,3) :: lattice
     real(real32), allocatable, dimension(:) :: labels_tmp
     type(graph_type), allocatable, dimension(:) :: graphs_tmp
 
@@ -49,9 +46,9 @@ contains
        if(ierror .ne. 0) exit
        if(trim(buffer).eq."") cycle
        backspace(unit)
-       call geom_read(unit, lattice, basis)
-       call get_elements_masses_and_charges(basis)
-       graph_tmp = get_input_graph_from_basis(lattice, basis)
+       call geom_read(unit, basis)
+       call basis%set_element_properties_to_default()
+       graph_tmp = get_input_graph_from_basis(basis)
        graphs_tmp = [ graphs_tmp, graph_tmp ]
        labels_tmp = [ labels_tmp, basis%energy ]
     end do
@@ -68,10 +65,9 @@ contains
 !!!#############################################################################
 !!! convert basis to graph
 !!!#############################################################################
-  function get_input_graph_from_basis(lattice, basis) result(graph)
+  function get_input_graph_from_basis(basis) result(graph)
     implicit none
-    type(bas_type), intent(in) :: basis
-    real(real32), dimension(3,3), intent(in) :: lattice
+    type(basis_type), intent(in) :: basis
     type(graph_type) :: graph
 
     integer :: is, ia, js, ja, i, j, k, degree
@@ -103,9 +99,9 @@ contains
 
     cutoff_min = 0.5_real32
     cutoff_max = 3.0_real32
-    amax = ceiling(cutoff_max/modu(lattice(1,:)))
-    bmax = ceiling(cutoff_max/modu(lattice(2,:)))
-    cmax = ceiling(cutoff_max/modu(lattice(3,:)))
+    amax = ceiling(cutoff_max/norm2(basis%lat(1,:)))
+    bmax = ceiling(cutoff_max/norm2(basis%lat(2,:)))
+    cmax = ceiling(cutoff_max/norm2(basis%lat(3,:)))
 
     iatom = 0
     allocate(graph%edge(0))
@@ -118,7 +114,7 @@ contains
              atom_loop2: do ja=1,basis%spec(js)%num
                 jatom = jatom + 1
                 if(is.eq.js.and.ja.lt.ia) cycle atom_loop2
-                diff = basis%spec(is)%atom(ia,:3) -  basis%spec(js)%atom(ja,:3)
+                diff = basis%spec(is)%atom(:3,ia) -  basis%spec(js)%atom(:3,ja)
                 diff = diff - ceiling(diff - 0.5_real32)
                 do i=-amax,amax+1,1
                    vtmp1(1) = diff(1) + real(i, real32)
@@ -126,7 +122,7 @@ contains
                       vtmp1(2) = diff(2) + real(j, real32)
                       do k=-cmax,cmax+1,1
                          vtmp1(3) = diff(3) + real(k, real32)
-                         rtmp1 = modu(matmul(vtmp1,lattice))
+                         rtmp1 = norm2(matmul(vtmp1,basis%lat))
                          if( rtmp1 .gt. cutoff_min .and. &
                               rtmp1 .lt. cutoff_max )then
                             degree = degree + 1
@@ -141,8 +137,8 @@ contains
              end do atom_loop2
           end do spec_loop2
           graph%vertex(iatom)%feature = [ &
-               basis%spec(is)%atom(ia,:3), &
-               basis%spec(is)%force(ia,:), &
+               basis%spec(is)%atom(:3,ia), &
+               basis%spec(is)%force(:,ia), &
                graph%vertex(iatom)%feature, &
                real(degree, real32) / 6._real32 &
           ]

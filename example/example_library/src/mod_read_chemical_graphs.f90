@@ -1,13 +1,13 @@
 module read_chemical_graphs
   use coreutils, only: real32
   use misc_linalg, only: modu
-  use rw_geom, only: bas_type, geom_read, igeom_input
+  use atomstruc, only: basis_type, geom_read, igeom_input
   use athena, only: graph_type, edge_type, array_type
   implicit none
 
   private
 
-  public :: read_mp_db, read_extxyz_db, get_elements_masses_and_charges
+  public :: read_mp_db, read_extxyz_db
 
 contains
 
@@ -53,7 +53,7 @@ contains
 !!! read mnist dataset
 !!!#############################################################################
   subroutine read_mp_db(file,graphs,labels)
-    use misc_mnist, only: icount
+    use coreutils, only: icount
     implicit none
     integer ::v, e, pos_i, pos_f, length, Reason, unit
     character(:), allocatable :: line
@@ -155,9 +155,8 @@ contains
     character(1024) :: buffer
 
     integer :: num_samples
-    type(bas_type) :: basis
+    type(basis_type) :: basis
     type(graph_type) :: graph_tmp
-    real(real32), dimension(3,3) :: lattice
     real(real32), allocatable, dimension(:) :: labels_tmp
     type(graph_type), allocatable, dimension(:) :: graphs_tmp
 
@@ -174,9 +173,9 @@ contains
        if(ierror .ne. 0) exit
        if(trim(buffer).eq."") cycle
        backspace(unit)
-       call geom_read(unit, lattice, basis)
-       call get_elements_masses_and_charges(basis)
-       graph_tmp = get_graph_from_basis(lattice, basis)
+       call geom_read(unit, basis)
+       call basis%set_element_properties_to_default()
+       graph_tmp = get_graph_from_basis(basis)
        graphs_tmp = [ graphs_tmp, graph_tmp ]
        labels_tmp = [ labels_tmp, basis%energy ]
     end do
@@ -193,10 +192,9 @@ contains
 !!!#############################################################################
 !!! convert basis to graph
 !!!#############################################################################
-  function get_graph_from_basis(lattice, basis) result(graph)
+  function get_graph_from_basis(basis) result(graph)
     implicit none
-    type(bas_type), intent(in) :: basis
-    real(real32), dimension(3,3), intent(in) :: lattice
+    type(basis_type), intent(in) :: basis
     type(graph_type) :: graph
 
     integer :: is, ia, js, ja, i, j, k, degree
@@ -228,22 +226,22 @@ contains
 
     cutoff_min = 0.5_real32
     cutoff_max = 3.0_real32
-    amax = ceiling(cutoff_max/modu(lattice(1,:)))
-    bmax = ceiling(cutoff_max/modu(lattice(2,:)))
-    cmax = ceiling(cutoff_max/modu(lattice(3,:)))
+    amax = ceiling(cutoff_max/modu(basis%lat(1,:)))
+    bmax = ceiling(cutoff_max/modu(basis%lat(2,:)))
+    cmax = ceiling(cutoff_max/modu(basis%lat(3,:)))
 
     iatom = 0
     allocate(graph%edge(0))
-    spec_loop1: do is=1,basis%nspec
-       atom_loop1: do ia=1,basis%spec(is)%num
+    spec_loop1: do is = 1, basis%nspec
+       atom_loop1: do ia = 1, basis%spec(is)%num
           iatom = iatom + 1
           jatom = 0
           degree = 0
-          spec_loop2: do js=is,basis%nspec
-             atom_loop2: do ja=1,basis%spec(js)%num
+          spec_loop2: do js = is, basis%nspec
+             atom_loop2: do ja = 1, basis%spec(js)%num
                 jatom = jatom + 1
                 if(is.eq.js.and.ja.lt.ia) cycle atom_loop2
-                diff = basis%spec(is)%atom(ia,:3) -  basis%spec(js)%atom(ja,:3)
+                diff = basis%spec(is)%atom(:3,ia) -  basis%spec(js)%atom(:3,ja)
                 diff = diff - ceiling(diff - 0.5_real32)
                 do i=-amax,amax+1,1
                    vtmp1(1) = diff(1) + real(i, real32)
@@ -251,7 +249,7 @@ contains
                       vtmp1(2) = diff(2) + real(j, real32)
                       do k=-cmax,cmax+1,1
                          vtmp1(3) = diff(3) + real(k, real32)
-                         rtmp1 = modu(matmul(vtmp1,lattice))
+                         rtmp1 = modu(matmul(vtmp1,basis%lat))
                          if( rtmp1 .gt. cutoff_min .and. &
                               rtmp1 .lt. cutoff_max )then
                             degree = degree + 1
@@ -266,7 +264,7 @@ contains
              end do atom_loop2
           end do spec_loop2
           graph%vertex(iatom)%feature = [ &
-               basis%spec(is)%force(ia,:), &
+               basis%spec(is)%force(:,ia), &
                graph%vertex(iatom)%feature, &
                real(degree, real32) / 6._real32 &
           ]
@@ -277,361 +275,6 @@ contains
     call graph%generate_adjacency()
 
   end function get_graph_from_basis
-!!!#############################################################################
-
-
-!!!#############################################################################
-!!! get elements masses and charges
-!!!#############################################################################
-  subroutine get_elements_masses_and_charges(basis)
-    implicit none
-    type(bas_type), intent(inout) :: basis
-
-    integer :: i
-    real(real32) :: mass, charge
-
-    do i = 1, basis%nspec
-       select case(basis%spec(i)%name)
-       case('H')
-          mass = 1.00784_real32
-          charge = 1.0_real32
-       case('He')
-          mass = 4.0026_real32
-          charge = 2.0_real32
-       case('Li')
-          mass = 6.94_real32
-          charge = 3.0_real32
-       case('Be')
-          mass = 9.0122_real32
-          charge = 4.0_real32
-       case('B')
-          mass = 10.81_real32
-          charge = 5.0_real32
-       case('C')
-          mass = 12.011_real32
-          charge = 4.0_real32
-       case('N')
-          mass = 14.007_real32
-          charge = 5.0_real32
-       case('O')
-          mass = 15.999_real32
-          charge = 6.0_real32
-       case('F')
-          mass = 18.998_real32
-          charge = 7.0_real32
-       case('Na')
-          mass = 22.989_real32
-          charge = 1.0_real32
-       case('Mg')
-          mass = 24.305_real32
-          charge = 2.0_real32
-       case('Al')
-          mass = 26.982_real32
-          charge = 3.0_real32
-       case('Si')
-          mass = 28.085_real32
-          charge = 4.0_real32
-       case('P')
-          mass = 30.974_real32
-          charge = 5.0_real32
-       case('S')
-          mass = 32.06_real32
-          charge = 6.0_real32
-       case('Cl')
-          mass = 35.453_real32
-          charge = 8.0_real32
-       case('K')
-          mass = 39.098_real32
-          charge = 1.0_real32
-       case('Ca')
-          mass = 40.078_real32
-          charge = 2.0_real32
-       case('Sc')
-          mass = 44.956_real32
-          charge = 3.0_real32
-       case('Ti')
-          mass = 47.867_real32
-          charge = 4.0_real32
-       case('V')
-          mass = 50.942_real32
-          charge = 5.0_real32
-       case('Cr')
-          mass = 51.996_real32
-          charge = 6.0_real32
-       case('Mn')
-          mass = 54.938_real32
-          charge = 7.0_real32
-       case('Fe')
-          mass = 55.845_real32
-          charge = 8.0_real32
-       case('Co')
-          mass = 58.933_real32
-          charge = 9.0_real32
-       case('Ni')
-          mass = 58.693_real32
-          charge = 10.0_real32
-       case('Cu')
-          mass = 63.546_real32
-          charge = 11.0_real32
-       case('Zn')
-          mass = 65.38_real32
-          charge = 12.0_real32
-       case('Ga')
-          mass = 69.723_real32
-          charge = 13.0_real32
-       case('Ge')
-          mass = 72.63_real32
-          charge = 14.0_real32
-       case('As')
-          mass = 74.922_real32
-          charge = 15.0_real32
-       case('Se')
-          mass = 78.971_real32
-          charge = 16.0_real32
-       case('Br')
-          mass = 79.904_real32
-          charge = 17.0_real32
-       case('Kr')
-          mass = 83.798_real32
-          charge = 18.0_real32
-       case('Rb')
-          mass = 85.468_real32
-          charge = 19.0_real32
-       case('Sr')
-          mass = 87.62_real32
-          charge = 20.0_real32
-       case('Y')
-          mass = 88.906_real32
-          charge = 21.0_real32
-       case('Zr')
-          mass = 91.224_real32
-          charge = 22.0_real32
-       case('Nb')
-          mass = 92.906_real32
-          charge = 23.0_real32
-       case('Mo')
-          mass = 95.95_real32
-          charge = 24.0_real32
-       case('Tc')
-          mass = 98.0_real32
-          charge = 25.0_real32
-       case('Ru')
-          mass = 101.07_real32
-          charge = 26.0_real32
-       case('Rh')
-          mass = 102.91_real32
-          charge = 27.0_real32
-       case('Pd')
-          mass = 106.42_real32
-          charge = 28.0_real32
-       case('Ag')
-          mass = 107.87_real32
-          charge = 29.0_real32
-       case('Cd')
-          mass = 112.41_real32
-          charge = 30.0_real32
-       case('In')
-          mass = 114.82_real32
-          charge = 31.0_real32
-       case('Sn')
-          mass = 118.71_real32
-          charge = 32.0_real32
-       case('Sb')
-          mass = 121.76_real32
-          charge = 33.0_real32
-       case('Te')
-          mass = 127.6_real32
-          charge = 34.0_real32
-       case('I')
-          mass = 126.9_real32
-          charge = 35.0_real32
-       case('Xe')
-          mass = 131.29_real32
-          charge = 36.0_real32
-       case('Cs')
-          mass = 132.91_real32
-          charge = 37.0_real32
-       case('Ba')
-          mass = 137.33_real32
-          charge = 38.0_real32
-       case('La')
-          mass = 138.91_real32
-          charge = 39.0_real32
-       case('Ce')
-          mass = 140.12_real32
-          charge = 40.0_real32
-       case('Pr')
-          mass = 140.91_real32
-          charge = 41.0_real32
-       case('Nd')
-          mass = 144.24_real32
-          charge = 42.0_real32
-       case('Pm')
-          mass = 145.0_real32
-          charge = 43.0_real32
-       case('Sm')
-          mass = 150.36_real32
-          charge = 44.0_real32
-       case('Eu')
-          mass = 152.0_real32
-          charge = 45.0_real32
-       case('Gd')
-          mass = 157.25_real32
-          charge = 46.0_real32
-       case('Tb')
-          mass = 158.93_real32
-          charge = 47.0_real32
-       case('Dy')
-          mass = 162.5_real32
-          charge = 48.0_real32
-       case('Ho')
-          mass = 164.93_real32
-          charge = 49.0_real32
-       case('Er')
-          mass = 167.26_real32
-          charge = 50.0_real32
-       case('Tm')
-          mass = 168.93_real32
-          charge = 51.0_real32
-       case('Yb')
-          mass = 173.05_real32
-          charge = 52.0_real32
-       case('Lu')
-          mass = 174.97_real32
-          charge = 53.0_real32
-       case('Hf')
-          mass = 178.49_real32
-          charge = 54.0_real32
-       case('Ta')
-          mass = 180.95_real32
-          charge = 55.0_real32
-       case('W')
-          mass = 183.84_real32
-          charge = 56.0_real32
-       case('Re')
-          mass = 186.21_real32
-          charge = 57.0_real32
-       case('Os')
-          mass = 190.23_real32
-          charge = 58.0_real32
-       case('Ir')
-          mass = 192.22_real32
-          charge = 59.0_real32
-       case('Pt')
-          mass = 195.08_real32
-          charge = 60.0_real32
-       case('Au')
-          mass = 196.97_real32
-          charge = 61.0_real32
-       case('Hg')
-          mass = 200.59_real32
-          charge = 62.0_real32
-       case('Tl')
-          mass = 204.38_real32
-          charge = 63.0_real32
-       case('Pb')
-          mass = 207.2_real32
-          charge = 64.0_real32
-       case('Bi')
-          mass = 208.98_real32
-          charge = 65.0_real32
-       case('Th')
-          mass = 232.04_real32
-          charge = 66.0_real32
-       case('Pa')
-          mass = 231.04_real32
-          charge = 67.0_real32
-       case('U')
-          mass = 238.03_real32
-          charge = 68.0_real32
-       case('Np')
-          mass = 237.0_real32
-          charge = 69.0_real32
-       case('Pu')
-          mass = 244.0_real32
-          charge = 70.0_real32
-       case('Am')
-          mass = 243.0_real32
-          charge = 71.0_real32
-       case('Cm')
-          mass = 247.0_real32
-          charge = 72.0_real32
-       case('Bk')
-          mass = 247.0_real32
-          charge = 73.0_real32
-       case('Cf')
-          mass = 251.0_real32
-          charge = 74.0_real32
-       case('Es')
-          mass = 252.0_real32
-          charge = 75.0_real32
-       case('Fm')
-          mass = 257.0_real32
-          charge = 76.0_real32
-       case('Md')
-          mass = 258.0_real32
-          charge = 77.0_real32
-       case('No')
-          mass = 259.0_real32
-          charge = 78.0_real32
-       case('Lr')
-          mass = 262.0_real32
-          charge = 79.0_real32
-       case('Rf')
-          mass = 267.0_real32
-          charge = 80.0_real32
-       case('Db')
-          mass = 270.0_real32
-          charge = 81.0_real32
-       case('Sg')
-          mass = 271.0_real32
-          charge = 82.0_real32
-       case('Bh')
-          mass = 270.0_real32
-          charge = 83.0_real32
-       case('Hs')
-          mass = 277.0_real32
-          charge = 84.0_real32
-       case('Mt')
-          mass = 276.0_real32
-          charge = 85.0_real32
-       case('Ds')
-          mass = 281.0_real32
-          charge = 86.0_real32
-       case('Rg')
-          mass = 280.0_real32
-          charge = 87.0_real32
-       case('Cn')
-          mass = 285.0_real32
-          charge = 88.0_real32
-       case('Nh')
-          mass = 284.0_real32
-          charge = 89.0_real32
-       case('Fl')
-          mass = 289.0_real32
-          charge = 90.0_real32
-       case('Mc')
-          mass = 288.0_real32
-          charge = 91.0_real32
-       case('Lv')
-          mass = 293.0_real32
-          charge = 92.0_real32
-       case('Ts')
-          mass = 294.0_real32
-          charge = 93.0_real32
-       case('Og')
-          mass = 294.0_real32
-          charge = 94.0_real32
-       case default
-          ! handle unknown element
-          mass = 0.0_real32
-          charge = 0.0_real32
-       end select
-       basis%spec(i)%mass = mass
-       basis%spec(i)%charge = charge
-    end do
-
-  end subroutine get_elements_masses_and_charges
 !!!#############################################################################
 
 end module read_chemical_graphs

@@ -14,7 +14,7 @@ module inputs
        l1l2_regulariser_type, &
        l1_regulariser_type, &
        l2_regulariser_type
-  use misc_mnist, only: icount, flagmaker, file_check, to_lower
+  use coreutils, only: icount, flagmaker, file_check, to_lower
   implicit none
   integer :: verbosity    ! verbose printing
   integer :: seed         ! random seed
