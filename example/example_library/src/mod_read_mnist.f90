@@ -1,5 +1,5 @@
 module read_mnist
-  use constants_mnist, only: real32
+  use coreutils, only: real32
   use athena, only: pad_data
   implicit none
 

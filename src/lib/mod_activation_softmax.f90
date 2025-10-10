@@ -3,9 +3,10 @@ module athena__activation_softmax
   !!
   !! This module implements the softmax activation function for normalising
   !! outputs into probability distributions
-  use athena__constants, only: real32
-  use athena__misc_types, only: activation_type, array_type, &
-       operator(+), operator(*), operator(-), operator(/), exp, sum, maxval
+  use coreutils, only: real32
+  use diffstruc, only: array_type, operator(+), operator(-), &
+       operator(*), operator(/), exp, sum, maxval
+  use athena__misc_types, only: activation_type
   implicit none
 
 

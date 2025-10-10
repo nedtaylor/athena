@@ -11,7 +11,8 @@
 !!!    -xyz (read only)
 !!!#############################################################################
 module rw_geom
-  use constants_mnist, only: pi,real32
+  use coreutils, only: real32
+  use constants_mnist, only: pi
   use misc_mnist, only: to_upper,jump,Icount
   use misc_linalg, only: LUinv,modu
   implicit none

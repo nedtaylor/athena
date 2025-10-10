@@ -1,9 +1,9 @@
 module athena__add_layer
   !! Module containing implementation of a add layer
-  use athena__io_utils, only: stop_program
-  use athena__constants, only: real32
+  use coreutils, only: real32, stop_program
   use athena__base_layer, only: merge_layer_type, base_layer_type
-  use athena__misc_types, only: array_type, array_ptr_type, operator(+), add
+  use athena__misc_types, only: array_ptr_type, add
+  use diffstruc, only: array_type, operator(+)
   implicit none
 
 

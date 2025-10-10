@@ -3,9 +3,10 @@ module athena__activation_swish
   !!
   !! This module implements the swish activation function: f(x) = x * sigmoid(β*x)
   !! where β is a learnable parameter (default β=1)
-  use athena__constants, only: real32
-  use athena__misc_types, only: activation_type, array_type, operator(+), operator(-), &
+  use coreutils, only: real32
+  use diffstruc, only: array_type, operator(+), operator(-), &
        operator(*), operator(/), exp
+  use athena__misc_types, only: activation_type
   implicit none
 
   private

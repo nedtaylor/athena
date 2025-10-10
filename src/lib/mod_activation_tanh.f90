@@ -2,9 +2,10 @@ module athena__activation_tanh
   !! Module containing implementation of the tanh activation function
   !!
   !! This module implements the hyperbolic tangent activation function
-  use athena__constants, only: real32
-  use athena__misc_types, only: activation_type, array_type, operator(+), operator(-), &
-       operator(*), operator(/), exp, merge, sign, operator(.lt.), tanh
+  use coreutils, only: real32
+  use diffstruc, only: array_type, operator(+), operator(-), &
+       operator(*), operator(/), tanh
+  use athena__misc_types, only: activation_type
   implicit none
 
 

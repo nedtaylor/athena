@@ -3,9 +3,9 @@ module athena__loss
   !!
   !! This module contains functions to compute the loss of a model
   !! The loss functions are used to determine how well a model is performing
-  use athena__constants, only: real32
-  use athena__misc_types, only: array_type, &
-       operator(+), operator(-), operator(/), operator(*), operator(**)
+  use coreutils, only: real32
+  use diffstruc, only: array_type, operator(+), operator(-), &
+       operator(*), operator(/), operator(**)
   implicit none
 
 

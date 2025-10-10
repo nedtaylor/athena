@@ -1,9 +1,9 @@
 module athena__duvenaud_msgpass_layer
   !! Module containing the types and interfacees of a message passing layer
-  use athena__constants, only: real32
+  use coreutils, only: real32
   use graphstruc, only: graph_type
-  use athena__misc_types, only: activation_type, initialiser_type, &
-       array_type, &
+  use athena__misc_types, only: activation_type, initialiser_type
+  use diffstruc, only: array_type, &
        operator(.concat.), operator(.index.), operator(.mmul.), operator(/), &
        sum, operator(+), operator(*), operator(-)
   use athena__base_layer, only: base_layer_type

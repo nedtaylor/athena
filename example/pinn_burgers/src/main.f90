@@ -4,7 +4,8 @@ program pinn_burgers_example
   !! Example is a port of the following python example:
   !! https://www.marktechpost.com/2025/03/28/a-step-by-step-guide-to-solve-1d-burgers-equation-with-physics-informed-neural-networks-pinns-a-pytorch-approach-using-automatic-differentiation-and-collocation-methods/
   use athena
-  use constants_mnist, only: real32, pi
+  use coreutils, only: real32
+  use constants_mnist, only: pi
 
   implicit none
 

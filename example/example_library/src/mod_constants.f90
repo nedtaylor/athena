@@ -1,6 +1,6 @@
 module constants_mnist
+  use coreutils, only: real32
   implicit none
-  integer, parameter, public :: real32 = Selected_real_kind(6,37)!(15,307)
   real(real32), parameter, public :: k_b = 1.3806503e-23_real32
   real(real32), parameter, public :: k_b_ev = 8.61733326e-5_real32
   real(real32), parameter, public :: hbar = 1.05457148e-34_real32

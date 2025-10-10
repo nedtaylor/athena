@@ -1,10 +1,9 @@
 module athena__kipf_msgpass_layer
   !! Module containing the types and interfaces of a message passing layer
-  use athena__io_utils, only: stop_program
-  use athena__constants, only: real32
+  use coreutils, only: real32, stop_program
   use graphstruc, only: graph_type
-  use athena__misc_types, only: activation_type, initialiser_type, &
-       array_type
+  use athena__misc_types, only: activation_type, initialiser_type
+  use diffstruc, only: array_type
   use athena__base_layer, only: base_layer_type
   use athena__msgpass_layer, only: msgpass_layer_type
   implicit none

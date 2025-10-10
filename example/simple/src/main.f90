@@ -5,7 +5,8 @@ program simple
   !! This file contains a modified version of the "simple" example found in neural fortran:
   !! https://github.com/modern-fortran/neural-fortran/blob/main/example/simple.f90
   use athena
-  use constants_mnist, only: real32, pi
+  use coreutils, only: real32
+  use constants_mnist, only: pi
 
   implicit none
 

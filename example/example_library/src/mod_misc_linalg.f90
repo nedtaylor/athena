@@ -48,7 +48,8 @@
 !!! initialise_tetrahedra   (initialise tetrahedra and their weights)
 !!!#############################################################################
 module misc_linalg
-  use constants_mnist, only: real32, pi
+  use coreutils, only: real32
+  use constants_mnist, only: pi
   implicit none
   integer, parameter, private :: QuadInt_K = selected_int_kind (16)
 

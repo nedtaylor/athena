@@ -6,8 +6,8 @@ module athena__constants
   !! Code copied from ARTEMIS with permission of the authors
   !! Ned Thaddeus Taylor and Francis Huw Davies
   !! https://github.com/ExeQuantCode/ARTEMIS
+  use coreutils, only: real32
   implicit none
-  integer, parameter, public :: real32 = Selected_real_kind(6,37)!(15,307)
   real(real32), parameter, public :: pi = 4.e0_real32*atan(1._real32)
   real(real32), parameter, public :: INF = huge(0._real32)
   complex(real32), parameter, public :: imag=(0._real32, 1._real32)

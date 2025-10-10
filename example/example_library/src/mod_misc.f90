@@ -6,7 +6,7 @@
 !!! module contains various miscellaneous functions and subroutines.
 !!! module includes the following functions and subroutines:
 !!! increment_list   (iteratively increment a list)
-!!! alloc            (allocate using an 1D array as the shape) 
+!!! alloc            (allocate using an 1D array as the shape)
 !!! find_loc         (version of findloc for pre fortran2008)
 !!! closest_below    (returns closest element below input number)
 !!! closest_above    (returns closest element above input number)
@@ -30,7 +30,7 @@
 !!! to_lower         (converts all characters in string to lower case)
 !!!#############################################################################
 module misc_mnist
-  use constants_mnist, only: real32
+  use coreutils, only: real32
   implicit none
 
 
@@ -68,30 +68,30 @@ contains
 !!!#####################################################
 !!! increment a list
 !!!#####################################################
- recursive subroutine increment_list(list,max_list,dim,fixed_dim)
-   implicit none
-   integer, intent(in) :: dim,fixed_dim
-   integer, dimension(:), intent(in) :: max_list
-   integer, dimension(:), intent(inout) :: list
+  recursive subroutine increment_list(list,max_list,dim,fixed_dim)
+    implicit none
+    integer, intent(in) :: dim,fixed_dim
+    integer, dimension(:), intent(in) :: max_list
+    integer, dimension(:), intent(inout) :: list
 
-   if(dim.eq.fixed_dim)then
-      call increment_list(list,max_list,dim-1,fixed_dim)
-      return
-   elseif(dim.gt.size(list))then
-      call increment_list(list,max_list,size(list),fixed_dim)
-   elseif(dim.le.0)then
-      list = 0
-      return
-   end if
+    if(dim.eq.fixed_dim)then
+       call increment_list(list,max_list,dim-1,fixed_dim)
+       return
+    elseif(dim.gt.size(list))then
+       call increment_list(list,max_list,size(list),fixed_dim)
+    elseif(dim.le.0)then
+       list = 0
+       return
+    end if
 
-   list(dim) = list(dim) + 1
-   
-   if(list(dim).gt.max_list(dim))then
-      list(dim) = 1
-      call increment_list(list,max_list,dim-1,fixed_dim)
-   end if
+    list(dim) = list(dim) + 1
 
- end subroutine increment_list
+    if(list(dim).gt.max_list(dim))then
+       list(dim) = 1
+       call increment_list(list,max_list,dim-1,fixed_dim)
+    end if
+
+  end subroutine increment_list
 !!!#####################################################
 
 
@@ -102,7 +102,7 @@ contains
     implicit none
     integer, dimension(2), intent(in) :: list
     real(real32), allocatable, dimension(:,:) :: arr
-    
+
     allocate(arr(list(1),list(2)))
 
   end subroutine ralloc2D
@@ -228,7 +228,7 @@ contains
 !    else
 !       ludef_case = .false.
 !    end if
-!    
+!
 !    if(ludef_case)then
 !       allocate(character(len=charlen) :: tlist(size(list)))
 !       tlist = list
@@ -244,7 +244,7 @@ contains
 !       call cswap(list(i),list(loc+i-1))
 !    end do
 !    if(ludef_case) list=tlist
-!    
+!
 !    return
 !  end subroutine sort_str
 !!!!-----------------------------------------------------
@@ -274,12 +274,12 @@ contains
 !          list(i) = to_upper(list(i))
 !       end do
 !    end if
-!    
+!
 !    allocate(torder(size(list, dim=1)))
 !    do i=1,size(list)
 !       torder(i) = i
 !    end do
-!    
+!
 !    do i=1,size(list,dim=1)
 !       loc = minloc(list(i:),dim=1)
 !       if(loc.eq.1) cycle
@@ -287,14 +287,14 @@ contains
 !       call cswap(list(i),list(loc+i-1))
 !       call iswap(torder(i),torder(loc+i-1))
 !    end do
-!    
+!
 !    allocate(order(size(list)))
 !    do i=1,size(list)
 !       order(i) = findloc(torder,i,dim=1)
 !    end do
-!    
+!
 !    if(ludef_case) list=tlist
-!    
+!
 !    return
 !  end function sort_str_order
 !!!!#####################################################
@@ -322,7 +322,7 @@ contains
     dim=size(arr1,dim=1)
     do i=1,dim
        if(udef_reverse)then
-          loc=maxloc(arr1(i:dim),dim=1)+i-1          
+          loc=maxloc(arr1(i:dim),dim=1)+i-1
        else
           loc=minloc(arr1(i:dim),dim=1)+i-1
        end if
@@ -359,7 +359,7 @@ contains
     dim=size(arr1,dim=1)
     do i=1,dim
        if(udef_reverse)then
-          loc=maxloc(arr1(i:dim),dim=1)+i-1          
+          loc=maxloc(arr1(i:dim),dim=1)+i-1
        else
           loc=minloc(arr1(i:dim),dim=1)+i-1
        end if
@@ -404,10 +404,14 @@ contains
        scndrow: do i=j,dim
           if(abs( abs(arr(j,a123(1))) - &
                abs(arr(i,a123(1))) ).gt.tol) exit scndrow
-          loc=minloc(abs(arr(i:dim,a123(2)))+abs(arr(i:dim,a123(3))),dim=1,&
-               mask=(&
-               abs(abs(arr(j,a123(1))) - &
-               abs(arr(i:dim,a123(1)))).lt.tol))+i-1
+          loc = minloc( &
+               abs(arr(i:dim,a123(2)))+abs(arr(i:dim,a123(3))), &
+               dim=1, &
+               mask = (&
+                    abs(abs(arr(j,a123(1))) - &
+                    abs(arr(i:dim,a123(1)))).lt.tol
+               )
+          ) + i - 1
           buff(:)=arr(i,:)
           arr(i,:)=arr(loc,:)
           arr(loc,:)=buff(:)
@@ -428,7 +432,7 @@ contains
     implicit none
     integer :: i,n
     integer, allocatable, dimension(:) :: tmp_arr
-    
+
     integer, allocatable, dimension(:) :: arr
 
     call sort1D(arr)
@@ -444,7 +448,7 @@ contains
     deallocate(arr); allocate(arr(n))
     arr(:n) = tmp_arr(:n)
     !call move_alloc(tmp_arr, arr)
-    
+
   end subroutine iset
 !!!-----------------------------------------------------
 !!!-----------------------------------------------------
@@ -453,7 +457,7 @@ contains
     integer :: i,n
     real(real32) :: tiny
     real(real32), allocatable, dimension(:) :: tmp_arr
-    
+
     real(real32), allocatable, dimension(:) :: arr
     real(real32), optional :: tol
 
@@ -462,7 +466,7 @@ contains
     else
        tiny = 1.E-4_real32
     end if
-    
+
     call sort1D(arr)
     allocate(tmp_arr(size(arr)))
 
@@ -475,7 +479,7 @@ contains
     end do
     deallocate(arr); allocate(arr(n))
     arr(:n) = tmp_arr(:n)
-    
+
   end subroutine rset
 !!!-----------------------------------------------------
 !!!-----------------------------------------------------
@@ -492,11 +496,11 @@ contains
 !    else
 !       call sort_str(arr)
 !    end if
-!    
+!
 !    allocate(character(len=len(arr(1))) :: tmp_arr(size(arr)))
 !    tmp_arr(1) = arr(1)
 !    n=1
-!    
+!
 !    do i=2,size(arr)
 !       if(trim(arr(i)).eq.trim(tmp_arr(n))) cycle
 !       n = n + 1
@@ -534,7 +538,7 @@ contains
 !    else
 !       order=sort_str_order(arr)
 !    end if
-!    
+!
 !    allocate(character(len=len(arr(1))) :: tmp_arr(size(arr)))
 !    tmp_arr(1) = arr(1)
 !    n=1
@@ -550,7 +554,7 @@ contains
 !       tmp_arr(n) = arr(i)
 !    end do
 !    write(0,*) order
-!    
+!
 !    if(present(lkeep_size))then
 !       ludef_keep_size=lkeep_size
 !    else
@@ -596,7 +600,7 @@ contains
     dim=size(arr1,dim=1)
     do i=1,dim
        if(udef_reverse)then
-          loc=maxloc(arr1(i:dim,col),dim=1)+i-1          
+          loc=maxloc(arr1(i:dim,col),dim=1)+i-1
        else
           loc=minloc(arr1(i:dim,col),dim=1)+i-1
        end if
@@ -668,7 +672,7 @@ contains
     real(real32) :: r
     integer, optional, intent(in) :: seed
     integer, dimension(:), intent(inout) :: list
-    
+
     if(present(seed)) iseed = seed
 
     num_data = size(list,dim=1)
@@ -801,7 +805,7 @@ contains
             t_size(2,1):t_size(2,2),&
             t_size(3,1):t_size(3,2))
     end do
-    
+
   end subroutine shuffle_3Ddata
 !!!-----------------------------------------------------
 !!!-----------------------------------------------------
@@ -832,7 +836,7 @@ contains
        if(i.eq.dim) then
           t_size(i,2) = 1
        else
-          t_size(i,2) = size(arr,dim=i)      
+          t_size(i,2) = size(arr,dim=i)
        end if
     end do
 
@@ -1251,7 +1255,8 @@ contains
 
     !! determine number of elements for left and right split
     if(.not.present(left_size).and..not.present(right_size))then
-       stop "ERROR: neither left_size nor right_size provided to split. Expected at least one."
+       stop "ERROR: neither left_size nor right_size provided to split. &
+            &Expected at least one."
     elseif(present(left_size).and..not.present(right_size))then
        t_left_num  = nint(left_size*size(data,dim))
        t_right_num = size(data,dim) - t_left_num
@@ -1282,14 +1287,14 @@ contains
     !! copy input data
     data_copy = data
     if(t_shuffle) call shuffle_5Ddata(data_copy,dim,t_seed)
-    
+
     !! get list of indices for right split
     num_redos = 0
     allocate(tlist(t_right_num))
     call random_number(tlist)
     indices_r = floor(tlist*size(data,dim)) + 1
     i = 1
-    indices_r_loop: do 
+    indices_r_loop: do
        if(i.ge.t_right_num) exit indices_r_loop
        i = i + 1
        if(any(indices_r(:i-1).eq.indices_r(i)))then
@@ -1309,7 +1314,7 @@ contains
        end if
     end do
     right = data_copy(idx(1)%loc,idx(2)%loc,idx(3)%loc,idx(4)%loc,idx(5)%loc)
-    
+
     !! get list of indices for left split
     indices_l_loop: do i=1,size(data,dim)
        if(any(indices_r.eq.i)) cycle indices_l_loop
@@ -1352,7 +1357,7 @@ contains
     real(real32), allocatable, dimension(:) :: list_copy
     real(real32), allocatable, dimension(:,:,:,:,:) :: data_copy
 
-    type idx_type
+    type :: idx_type
        integer, allocatable, dimension(:) :: loc
     end type idx_type
     type(idx_type), dimension(5) :: idx
@@ -1399,7 +1404,7 @@ contains
     call random_number(tlist)
     indices_r = floor(tlist*size(data,dim)) + 1
     i = 1
-    indices_r_loop: do 
+    indices_r_loop: do
        if(i.ge.t_right_num) exit indices_r_loop
        i = i + 1
        if(any(indices_r(:i-1).eq.indices_r(i)))then
@@ -1536,7 +1541,7 @@ contains
 
 
 !!!#####################################################
-!!! grep 
+!!! grep
 !!!#####################################################
 !!! searches a file untill it finds the mattching patern
   subroutine grep(unit,input,lstart)
@@ -1574,7 +1579,7 @@ contains
 
     pos=1
     count_occ=0
-    countloop: do 
+    countloop: do
        i=verify(string(pos:), substring)
        if (i.eq.0) exit countloop
        if(pos.eq.len(string)) exit countloop
@@ -1627,7 +1632,7 @@ contains
     character(1), optional, intent(in) :: loaded
 
     real :: tiny
-    character(1) :: yn,creturn 
+    character(1) :: yn,creturn
 
     tiny = 1.E-5
     creturn = achar(13)

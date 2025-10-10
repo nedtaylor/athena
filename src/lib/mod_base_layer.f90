@@ -13,10 +13,11 @@ module athena__base_layer
   !!
   !! The following procedures are based on code from the neural-fortran library
   !! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
-  use athena__constants, only: real32
+  use coreutils, only: real32
   use athena__clipper, only: clip_type
+  use diffstruc, only: array_type
   use athena__misc_types, only: activation_type, initialiser_type, &
-       array_type, facets_type, array_ptr_type
+       facets_type, array_ptr_type
   use graphstruc, only: graph_type
   implicit none
 

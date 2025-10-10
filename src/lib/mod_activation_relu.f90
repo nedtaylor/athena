@@ -2,9 +2,10 @@ module athena__activation_relu
   !! Module containing implementation of the ReLU activation function
   !!
   !! This module implements the Rectified Linear Unit activation function
-  use athena__constants, only: real32
-  use athena__misc_types, only: activation_type, array_type, operator(+), operator(-), &
+  use coreutils, only: real32
+  use diffstruc, only: array_type, operator(+), operator(-), &
        operator(*), operator(/), max
+  use athena__misc_types, only: activation_type
   implicit none
 
 

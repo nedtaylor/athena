@@ -5,7 +5,7 @@ program pinn_chemical_example
   !! and trains a message passing neural network to predict the energy of the
   !! chemical graph.
   use athena
-  use constants_mnist, only: real32
+  use coreutils, only: real32
   use forces_loss, only: forces_loss_type
   use read_chemical_graphs_extd, only: read_extxyz_db
 

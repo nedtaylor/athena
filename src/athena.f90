@@ -157,25 +157,8 @@ module athena
 
   ! Array types
   !-----------------------------------------------------------------------------
-  use athena__misc_types, only: &
-       array_container_type, &
-       array_type!, &
-  !   array1d_type, &
-  !   array2d_type, &
-  !   array3d_type, &
-  !   array4d_type, &
-  !   array5d_type
-  use athena__misc_types, only: &
-       operator(+), operator(-), operator(*), operator(/), &
-       operator(**), &
-       operator(.mmul.), operator(.outer.), &
-       operator(.concat.), &
-       operator(.ltrim.), operator(.rtrim.), &
-       operator(.index.), &
-       operator(.lt.), operator(.gt.), &
-       mean, pack, sum
-!   public :: sign, merge, maxval, max, sum, spread, reverse_index
-!   public :: sin, cos, tan, exp, log, sqrt, tanh, sigmoid, transpose, add, concat
+  use diffstruc
+  use athena__misc_types, only: array_container_type
 
 
   ! List of layer types

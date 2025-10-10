@@ -7,11 +7,10 @@ module athena__full_layer
   !! The get_num_params procedure is based on code from the
   !! neural-fortran library
   !! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
-  use athena__io_utils, only: stop_program
-  use athena__constants, only: real32
+  use coreutils, only: real32, stop_program
   use athena__base_layer, only: learnable_layer_type, base_layer_type
-  use athena__misc_types, only: activation_type, initialiser_type, &
-       array_type, operator(.mmul.), operator(+)
+  use athena__misc_types, only: activation_type, initialiser_type
+  use diffstruc, only: array_type, operator(.mmul.), operator(+)
   implicit none
 
 
@@ -297,7 +296,8 @@ contains
     !! Activation function
     real(real32), intent(in) :: activation_scale
     !! Activation scale
-    class(initialiser_type), allocatable, intent(in) :: kernel_initialiser, bias_initialiser
+    class(initialiser_type), allocatable, intent(in) :: &
+         kernel_initialiser, bias_initialiser
     !! Kernel and bias initialisers
     integer, optional, intent(in) :: verbose
     !! Verbosity level

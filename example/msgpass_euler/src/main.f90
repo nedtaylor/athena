@@ -7,7 +7,7 @@ program msgpass_euler_example
   !! of points and the neural network is trained to predict the steady state
   !! solution of the flow of a fluid over a bump.
   use athena
-  use constants_mnist, only: real32
+  use coreutils, only: real32
   use read_euler, only: read_graph
 
   implicit none

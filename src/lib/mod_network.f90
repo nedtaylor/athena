@@ -8,14 +8,14 @@ module athena__network
   !! The network class is also used to define the network structure and
   !! compile the network with an optimiser, loss function, and accuracy
   !! function.
-  use athena__constants, only: real32
+  use coreutils, only: real32
   use graphstruc, only: graph_type
   use athena__metrics, only: metric_dict_type
   use athena__optimiser, only: base_optimiser_type
   use athena__loss, only: base_loss_type
   use athena__accuracy, only: comp_acc_func => compute_accuracy_function
   use athena__base_layer, only: base_layer_type
-  use athena__misc_types, only: array_type, array_type
+  use diffstruc, only: array_type
   use athena__container_layer, only: container_layer_type
   implicit none
 
