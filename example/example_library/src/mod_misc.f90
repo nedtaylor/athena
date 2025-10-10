@@ -393,12 +393,16 @@ contains
 
     a123(:)=(/1,2,3/)
     tol = 1.E-4
-    do j=1,3
-       do i=j,dim
-          loc=minloc(abs(arr(i:dim,a123(1))),dim=1,mask=(abs(arr(i:dim,a123(1))).gt.1.D-5))+i-1
-          buff(:)=arr(i,:)
-          arr(i,:)=arr(loc,:)
-          arr(loc,:)=buff(:)
+    do j = 1, 3
+       do i = j, dim
+          loc = minloc( &
+               abs(arr(i:dim,a123(1))), &
+               dim = 1, &
+               mask = (abs(arr(i:dim,a123(1))).gt.1.D-5) &
+          ) + i - 1
+          buff(:) = arr(i,:)
+          arr(i,:) = arr(loc,:)
+          arr(loc,:) = buff(:)
        end do
 
        scndrow: do i=j,dim
@@ -408,13 +412,12 @@ contains
                abs(arr(i:dim,a123(2)))+abs(arr(i:dim,a123(3))), &
                dim=1, &
                mask = (&
-                    abs(abs(arr(j,a123(1))) - &
-                    abs(arr(i:dim,a123(1)))).lt.tol
-               )
+                    abs(abs(arr(j,a123(1))) - abs(arr(i:dim,a123(1)))).lt.tol &
+               ) &
           ) + i - 1
-          buff(:)=arr(i,:)
-          arr(i,:)=arr(loc,:)
-          arr(loc,:)=buff(:)
+          buff(:) = arr(i,:)
+          arr(i,:) = arr(loc,:)
+          arr(loc,:) = buff(:)
        end do scndrow
 
        a123=cshift(a123,1)
@@ -1247,7 +1250,7 @@ contains
     real(real32), allocatable, dimension(:) :: tlist
     real(real32), allocatable, dimension(:,:,:,:,:) :: data_copy
 
-    type idx_type
+    type :: idx_type
        integer, allocatable, dimension(:) :: loc
     end type idx_type
     type(idx_type), dimension(5) :: idx
@@ -1339,7 +1342,8 @@ contains
     implicit none
     real(real32), dimension(:,:,:,:,:), intent(in) :: data
     real(real32), dimension(:), intent(in) :: list
-    real(real32), allocatable, dimension(:,:,:,:,:), intent(out) :: left_data, right_data
+    real(real32), allocatable, dimension(:,:,:,:,:), intent(out) :: &
+         left_data, right_data
     real(real32), allocatable, dimension(:), intent(out) :: left_list, right_list
     integer, intent(in) :: dim
     real(real32), optional, intent(in) :: left_size, right_size
