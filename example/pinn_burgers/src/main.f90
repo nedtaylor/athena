@@ -9,6 +9,7 @@ program pinn_burgers_example
 
   implicit none
 
+  integer :: verbose = 0
   integer :: seed = 42
   type(network_type), target :: network
   class(base_layer_type), allocatable :: layer
@@ -169,7 +170,9 @@ program pinn_burgers_example
        accuracy_method = "mse" &
   )
   params = network%get_params()
-  write(*,*) "some of the parameters", params(:20)
+  if(verbose.gt.2)then
+     write(*,*) "some of the parameters", params(:20)
+  end if
   open(unit=10, file="params.txt", status='replace')
   do i = 1, network%num_layers
      select type(layer => network%model(i)%layer)
@@ -180,15 +183,12 @@ program pinn_burgers_example
   end do
 
 
-
-
   !-----------------------------------------------------------------------------
   ! print network and dataset summary
   !-----------------------------------------------------------------------------
   num_params = network%get_num_params()
   write(*,*) "NUMBER OF LAYERS",network%num_layers
   write(*,*) "Number of parameters", num_params
-!   write(*,*) "Number of samples",size(output(1,1)%val,2)
 
 
   !-----------------------------------------------------------------------------
@@ -196,8 +196,6 @@ program pinn_burgers_example
   !-----------------------------------------------------------------------------
   ! call network%set_batch_size(batch_size)
   do i = 1, num_epochs
-     ! write(*,*) "residual"
-     ! set direction to only calculate u_xx
      call network%forward(X_f)
      network%model(network%root_vertices(1))%layer%output(1,1)%id = 1
      ! find what the new input loc is now
@@ -205,18 +203,23 @@ program pinn_burgers_example
      call u%duplicate_graph()
      input => u%get_ptr_from_id(1)
 
-     ! write(*,*) "setting direction"
+     ! set direction (t,x) to compute u_t, u_x, u_xx
      call input%set_direction([0._real32, 1._real32])
      u_t => u%grad_forward(input)
      call input%set_direction([1._real32, 0._real32])
      u_x => u%grad_forward(input)
      u_xx => u_x%grad_forward(input)
+     if(verbose.gt.1)then
+        write(*,*) u_t%val(1,:5)
+        write(*,*) u_x%val(1,:5)
+        write(*,*) u_xx%val(1,:5)
+     end if
 
      f_pred = u_t + u * u_x - nu * u_xx
      loss_f = mean( f_pred ** 2, 2 )
 
 
-     ! write(*,*) "boundary conditions"
+     ! boundary conditions
      call network%forward(X_b_left)
      u_left_pred = network%model(network%leaf_vertices(1))%layer%output(1,1)
      call u_left_pred%duplicate_graph()
@@ -226,18 +229,23 @@ program pinn_burgers_example
      call u_right_pred%duplicate_graph()
      loss_b = mean( u_left_pred ** 2, 2 ) + mean( u_right_pred ** 2, 2 )
 
-     ! write(*,*) "zero condition"
+     ! zero time condition
      call network%forward(X_0)
      u0_pred => network%model(network%leaf_vertices(1))%layer%output(1,1)
      loss_0 = mean( ( u0_pred - u0 ) ** 2, 2)
 
-     ! write(*,*) "loss"
-     ! write(*,*) loss_f%val(1,1), loss_0%val(1,1), loss_b%val(1,1)
+     ! loss
+     if(verbose.gt.0)then
+        write(*,*) loss_f%val(1,1), loss_0%val(1,1), loss_b%val(1,1)
+     end if
      loss = loss_f + loss_0 + loss_b
-     ! write(*,*) "backward"
+
+     ! backward pass
      call loss%grad_reverse(record_graph=.false., reset_graph=.false.)
-     ! write(*,*) "updating"
+
+     ! update learnable parameters
      call network%update()
+
      write(*,'("epoch: ",I0,"/",I0," loss: ",F0.5)') i, num_epochs, loss%val(1,1)
      call loss%zero_all_grads()
 

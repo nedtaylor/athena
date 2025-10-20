@@ -2559,16 +2559,16 @@ contains
              class is(array_type)
                 call layer%forward_derived(input(layer%index:layer%index,:))
                 !!! NEED TO MAKE SURE THIS APPLIES TO ALL
-                call layer%output(1,1)%set_requires_grad(.true.)
-                call layer%output(1,1)%set_requires_grad(.true.)
+                call layer%output(1,1)%set_requires_grad(.false.)
+                call layer%output(1,1)%set_requires_grad(.false.)
                 cycle
              type is(real(real32))
                 allocate(input_ptr(1,1))
                 call input_ptr(1,1)%allocate(shape(input))
                 call input_ptr(1,1)%set(input)
                 call layer%forward_derived(input_ptr)
-                call layer%output(1,1)%set_requires_grad(.true.)
-                call layer%output(1,1)%set_requires_grad(.true.)
+                call layer%output(1,1)%set_requires_grad(.false.)
+                call layer%output(1,1)%set_requires_grad(.false.)
                 input_ptr => null()
                 cycle
              class default
@@ -2736,10 +2736,15 @@ contains
              start_idx = end_idx + 1
              end_idx = end_idx + size(current%params_array(i)%val, 1)
              params(start_idx:end_idx) = current%params_array(i)%val(:,1)
-             gradients(start_idx:end_idx) = [ &
-                  sum(current%params_array(i)%grad%val, dim=2) / &
-                  real(size(current%params_array(i)%grad%val, dim=2), real32) &
-             ]
+             select case(size(current%params_array(i)%grad%val,2))
+             case(1)
+                gradients(start_idx:end_idx) = current%params_array(i)%grad%val(:,1)
+             case default
+                gradients(start_idx:end_idx) = [ &
+                     sum(current%params_array(i)%grad%val, dim=2) / &
+                     real(size(current%params_array(i)%grad%val, dim=2), real32) &
+                ]
+             end select
           end do
        end select
     end do
