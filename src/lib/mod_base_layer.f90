@@ -94,6 +94,9 @@ module athena__base_layer
      procedure, pass(this) :: forward_derived => forward_derived_base
      procedure, pass(this) :: backward_derived => backward_derived_base
 
+     procedure, pass(this) :: nullify_graph => nullify_graph_base
+     !! Nullify the forward pass data of the layer to free memory
+
 
      !! Forward pass of layer using derived array_type
      procedure(backward), deferred, pass(this) :: backward
@@ -247,6 +250,12 @@ module athena__base_layer
        type(graph_type), dimension(:), intent(in) :: graph
        !! Graph structure of input data
      end subroutine set_graph_base
+
+     module subroutine nullify_graph_base(this)
+       !! Nullify the forward pass data of the layer to free memory
+       class(base_layer_type), intent(inout) :: this
+       !! Instance of the layer
+     end subroutine nullify_graph_base
   end interface
 
   interface

@@ -421,6 +421,16 @@ contains
     end if
 
   end subroutine set_graph_base
+
+  module subroutine nullify_graph_base(this)
+    !! Nullify the forward pass data of the layer to free memory
+    implicit none
+
+    ! Arguments
+    class(base_layer_type), intent(inout) :: this
+    !! Instance of the layer
+
+  end subroutine nullify_graph_base
 !###############################################################################
 
 

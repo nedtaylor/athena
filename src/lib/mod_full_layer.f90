@@ -32,7 +32,7 @@ module athena__full_layer
      !  !! Pointer to weight gradients
      !  !  real(real32), allocatable, dimension(:,:) :: z
      !  !  !! Activation values
-     type(array_type) :: z
+     type(array_type), dimension(2) :: z
    contains
      procedure, pass(this) :: get_num_params => get_num_params_full
      !! Get the number of parameters for fully connected layer
@@ -57,6 +57,8 @@ module athena__full_layer
      !! Forward propagation for 2D input
      procedure, private, pass(this) :: backward_2d
      !! Backward propagation for 2D input
+
+     procedure, pass(this) :: nullify_graph => nullify_graph_full
 
      procedure, pass(this) :: forward_derived => forward_derived_full
      procedure, pass(this) :: backward_derived => backward_derived_full
@@ -106,7 +108,8 @@ contains
 
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
-    if(this%z%allocated) call this%z%deallocate()
+    if(this%z(1)%allocated) call this%z(1)%deallocate()
+    if(this%z(2)%allocated) call this%z(2)%deallocate()
 
   end subroutine finalise_full
 !###############################################################################
@@ -455,6 +458,7 @@ contains
     integer, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
 
+    integer :: i
     integer :: verbose_ = 0
 
 
@@ -475,11 +479,13 @@ contains
             [this%num_outputs, this%batch_size], &
             source=0._real32 &
        )
-       if(this%z%allocated) call this%z%deallocate()
-       call this%z%allocate( &
-            [this%num_outputs, this%batch_size], &
-            source=0._real32 &
-       )
+       do i = 1, 2
+          if(this%z(i)%allocated) call this%z(i)%deallocate()
+          call this%z(i)%allocate( &
+               [this%num_outputs, this%batch_size], &
+               source=0._real32 &
+          )
+       end do
     end if
 
   end subroutine set_batch_size_full
@@ -851,19 +857,38 @@ contains
 
     ! Generate outputs from weights, biases, and inputs
     !---------------------------------------------------------------------------
-    call this%z%zero_grad()
-    this%z = ( this%params_array(1) .mmul. input(1,1) ) + this%params_array(2)
+    call this%z(1)%zero_grad()
+    call this%z(2)%zero_grad()
+    this%z(1) = this%params_array(1) .mmul. input(1,1)
 
     ! Apply activation function to activation
     !---------------------------------------------------------------------------
     call this%output(1,1)%zero_grad()
     if(trim(this%transfer%name) .eq. "none") then
-       this%output(1,1) = this%z
+       this%output(1,1) = this%z(1) + this%params_array(2)
     else
-       this%output(1,1) = this%transfer%activate(this%z)
+       this%z(2) = this%z(1) + this%params_array(2)
+       this%output(1,1) = this%transfer%activate(this%z(2))
     end if
 
   end subroutine forward_derived_full
+!###############################################################################
+
+
+!###############################################################################
+  subroutine nullify_graph_full(this)
+    !! Nullify computation graph for fully connected layer
+    implicit none
+
+    ! Arguments
+    class(full_layer_type), intent(inout) :: this
+    !! Instance of the fully connected layer
+
+    !call this%z(1)%nullify_graph()
+    call this%z(2)%nullify_graph()
+    call this%output(1,1)%nullify_graph()
+
+  end subroutine nullify_graph_full
 !###############################################################################
 
 
