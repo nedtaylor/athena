@@ -854,21 +854,27 @@ contains
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input values
 
+    type(array_type), pointer :: ptr
+
 
     ! Generate outputs from weights, biases, and inputs
     !---------------------------------------------------------------------------
     call this%z(1)%zero_grad()
     call this%z(2)%zero_grad()
-    this%z(1) = this%params_array(1) .mmul. input(1,1)
+    ptr => this%params_array(1) .mmul. input(1,1)
+    call this%z(1)%assign_and_deallocate_source(ptr)
 
     ! Apply activation function to activation
     !---------------------------------------------------------------------------
     call this%output(1,1)%zero_grad()
     if(trim(this%transfer%name) .eq. "none") then
-       this%output(1,1) = this%z(1) + this%params_array(2)
+       ptr => this%z(1) + this%params_array(2)
+       call this%output(1,1)%assign_and_deallocate_source(ptr)
     else
-       this%z(2) = this%z(1) + this%params_array(2)
-       this%output(1,1) = this%transfer%activate(this%z(2))
+       ptr => this%z(1) + this%params_array(2)
+       call this%z(2)%assign_and_deallocate_source(ptr)
+       ptr => this%transfer%activate(this%z(2))
+       call this%output(1,1)%assign_and_deallocate_source(ptr)
     end if
 
   end subroutine forward_derived_full
@@ -884,7 +890,7 @@ contains
     class(full_layer_type), intent(inout) :: this
     !! Instance of the fully connected layer
 
-    !call this%z(1)%nullify_graph()
+    call this%z(1)%nullify_graph()
     call this%z(2)%nullify_graph()
     call this%output(1,1)%nullify_graph()
 

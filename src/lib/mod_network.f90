@@ -148,6 +148,8 @@ module athena__network
      procedure, pass(this) :: backward_generic2d
      !! Backward pass for generic 2D input
 
+     procedure, pass(this) :: nullify_graph
+
      procedure, pass(this) :: calc_output_accuracy
      procedure, pass(this) :: loss_backward
      procedure, pass(this) :: calc_output_loss
@@ -667,6 +669,12 @@ module athena__network
        class(*), dimension(:,:), intent(in) :: output
        !! Output data
      end subroutine backward_generic2d
+
+     module subroutine nullify_graph(this)
+       !! Nullify graph data in the network to free memory
+       class(network_type), intent(inout) :: this
+       !! Instance of the network
+     end subroutine nullify_graph
   end interface
 
   interface get_sample

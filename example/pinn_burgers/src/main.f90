@@ -37,8 +37,8 @@ program pinn_burgers_example
   type(array_type), pointer :: u_i, u_xx, u_t, u_x
 
   type(array_type), pointer :: input, u0_pred
-  type(array_type), pointer :: u_pred(:,:)
-  type(array_type) :: u, u_left_pred, u_right_pred, f_pred, loss_f, loss_0, loss_b, loss
+  type(array_type), pointer :: u_pred(:,:), loss_f, loss_0, loss_b, loss
+  type(array_type) :: u, u_left_pred, u_right_pred, f_pred
 
 
   !-----------------------------------------------------------------------------
@@ -216,7 +216,7 @@ program pinn_burgers_example
      end if
 
      f_pred = u_t + u * u_x - nu * u_xx
-     loss_f = mean( f_pred ** 2, 2 )
+     loss_f => mean( f_pred ** 2, 2 )
 
 
      ! boundary conditions
@@ -227,18 +227,20 @@ program pinn_burgers_example
      call network%forward(X_b_right)
      u_right_pred = network%model(network%leaf_vertices(1))%layer%output(1,1)
      call u_right_pred%duplicate_graph()
-     loss_b = mean( u_left_pred ** 2, 2 ) + mean( u_right_pred ** 2, 2 )
+     loss_b => mean( u_left_pred ** 2, 2 ) + mean( u_right_pred ** 2, 2 )
 
      ! zero time condition
      call network%forward(X_0)
      u0_pred => network%model(network%leaf_vertices(1))%layer%output(1,1)
-     loss_0 = mean( ( u0_pred - u0 ) ** 2, 2)
+     loss_0 => mean( ( u0_pred - u0 ) ** 2, 2)
 
      ! loss
      if(verbose.gt.0)then
         write(*,*) loss_f%val(1,1), loss_0%val(1,1), loss_b%val(1,1)
      end if
-     loss = loss_f + loss_0 + loss_b
+     loss => loss_f + loss_0 + loss_b
+     loss%owns_left_operand = .true.
+     loss%owns_right_operand = .true.
 
      ! backward pass
      call loss%grad_reverse(record_graph=.false., reset_graph=.false.)
@@ -247,7 +249,12 @@ program pinn_burgers_example
      call network%update()
 
      write(*,'("epoch: ",I0,"/",I0," loss: ",F0.5)') i, num_epochs, loss%val(1,1)
-     call loss%zero_all_grads()
+     call network%nullify_graph()
+     call loss%nullify_graph()
+     deallocate(u_x,u_t,u_xx,input)
+     ! call loss%zero_all_grads()
+
+     ! if(i.gt.4) exit
 
   end do
   !-----------------------------------------------------------------------------

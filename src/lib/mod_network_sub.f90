@@ -2769,6 +2769,31 @@ contains
 
 
 !###############################################################################
+  module subroutine nullify_graph(this)
+    !! Nullify the input graph
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+
+    ! Local variables
+    integer :: l
+
+    do l = 1, this%num_layers
+       call this%model(l)%layer%nullify_graph()
+    end do
+
+  end subroutine nullify_graph
+!###############################################################################
+
+
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
+
+
+!###############################################################################
   module function save_input_to_network( this, input ) result(num_samples)
     !! Save input to network
     implicit none
