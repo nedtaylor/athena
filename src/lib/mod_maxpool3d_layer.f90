@@ -1,9 +1,9 @@
 module athena__maxpool3d_layer
   !! Module containing implementation of a 3D max pooling layer
-  use athena__io_utils, only: stop_program
-  use athena__constants, only: real32
+  use coreutils, only: real32, stop_program
   use athena__base_layer, only: pool_layer_type, base_layer_type
-  use athena__misc_types, only: array5d_type
+  use diffstruc, only: array_type
+  use athena__diffstruc_extd, only: maxpool3d
   implicit none
 
 
@@ -22,14 +22,10 @@ module athena__maxpool3d_layer
      !! Set batch size for 3D max pooling layer
      procedure, pass(this) :: read => read_maxpool3d
      !! Read 3D max pooling layer from file
-     procedure, pass(this) :: forward  => forward_rank
-     !! Forward propagation handler for 3D max pooling layer
-     procedure, pass(this) :: backward => backward_rank
-     !! Backward propagation handler for 3D max pooling layer
-     procedure, private, pass(this) :: forward_5d
-     !! Forward propagation for 5D input
-     procedure, private, pass(this) :: backward_5d
-     !! Backward propagation for 5D input
+
+     procedure, pass(this) :: forward_derived => forward_derived_maxpool3d
+     !! Forward propagation derived type handler
+
   end type maxpool3d_layer_type
 
   interface maxpool3d_layer_type
@@ -56,63 +52,6 @@ module athena__maxpool3d_layer
 
 
 contains
-
-!###############################################################################
-  subroutine forward_rank(this, input)
-    !! Forward propagation handler for 3D max pooling layer
-    implicit none
-
-    ! Arguments
-    class(maxpool3d_layer_type), intent(inout) :: this
-    !! Instance of the 3D max pooling layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input values
-
-    select rank(input)
-    rank(2)
-       call forward_5d(this, input)
-    rank(5)
-       call forward_5d(this, input)
-    end select
-  end subroutine forward_rank
-!###############################################################################
-
-
-!###############################################################################
-  subroutine backward_rank(this, input, gradient)
-    !! Backward propagation handler for 3D max pooling layer
-    implicit none
-
-    ! Arguments
-    class(maxpool3d_layer_type), intent(inout) :: this
-    !! Instance of the 3D max pooling layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input values
-    real(real32), dimension(..), intent(in) :: gradient
-    !! Gradient values
-
-    select rank(input)
-    rank(2)
-       select rank(gradient)
-       rank(2)
-          call backward_5d(this, input, gradient)
-       end select
-    rank(5)
-       select rank(gradient)
-       rank(2)
-          call backward_5d(this, input, gradient)
-       rank(5)
-          call backward_5d(this, input, gradient)
-       end select
-    end select
-  end subroutine backward_rank
-!###############################################################################
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
 
 !###############################################################################
   module function layer_setup( &
@@ -285,17 +224,6 @@ contains
                  this%batch_size ], &
             source=0._real32 &
        )
-       if(allocated(this%di)) deallocate(this%di)
-       allocate( this%di(1,1), source = array5d_type() )
-       call this%di(1,1)%allocate( &
-            array_shape = [ &
-                 this%input_shape(1), &
-                 this%input_shape(2), &
-                 this%input_shape(3), &
-                 this%input_shape(4), &
-                 this%batch_size ], &
-            source=0._real32 &
-       )
     end if
 
   end subroutine set_batch_size_maxpool3d
@@ -444,116 +372,24 @@ contains
 
 
 !###############################################################################
-  subroutine forward_5d(this, input)
+  subroutine forward_derived_maxpool3d(this, input)
     !! Forward propagation
     implicit none
 
     ! Arguments
     class(maxpool3d_layer_type), intent(inout) :: this
     !! Instance of the 3D max pooling layer
-    real(real32), &
-         dimension( &
-              this%input_shape(1), &
-              this%input_shape(2), &
-              this%input_shape(3), &
-              this%num_channels, &
-              this%batch_size), &
-         intent(in) :: input
+    class(array_type), dimension(:,:), intent(in) :: input
     !! Input values
 
-    ! Local variables
-    integer :: i, j, k, m, s
-    !! Loop indices
-    integer, dimension(3) :: stride_idx
-    !! Stride index
+    type(array_type), pointer :: ptr
 
 
-    !  select type(output => this%output(1,1))
-    !  type is (array5d_type)
-    !     ! Perform the pooling operation
-    !     do concurrent(&
-    !          s = 1:this%batch_size, &
-    !          m = 1:this%num_channels, &
-    !          k = 1:this%output_shape(3), &
-    !          j = 1:this%output_shape(2), &
-    !          i = 1:this%output_shape(1))
-    !        stride_idx = ([i,j,k] - 1) * this%strd + 1
-    !        output%val_ptr(i, j, k, m, s) = maxval(&
-    !             input( &
-    !                  stride_idx(1):stride_idx(1)+this%pool(1)-1, &
-    !                  stride_idx(2):stride_idx(2)+this%pool(2)-1, &
-    !                  stride_idx(3):stride_idx(3)+this%pool(3)-1, m, s))
-    !     end do
-    !  end select
+    call this%output(1,1)%zero_grad()
+    ptr => maxpool3d(input(1,1), this%pool, this%strd)
+    call this%output(1,1)%assign_and_deallocate_source(ptr)
 
-  end subroutine forward_5d
-!###############################################################################
-
-
-!###############################################################################
-  subroutine backward_5d(this, input, gradient)
-    !! Backward propagation
-    implicit none
-
-    ! Arguments
-    class(maxpool3d_layer_type), intent(inout) :: this
-    !! Instance of the 3D max pooling layer
-    real(real32), &
-         dimension( &
-              this%input_shape(1), &
-              this%input_shape(2), &
-              this%input_shape(3), &
-              this%num_channels, &
-              this%batch_size), &
-         intent(in) :: input
-    !! Input values
-    real(real32), &
-         dimension(&
-              this%output_shape(1), &
-              this%output_shape(2), &
-              this%output_shape(3), &
-              this%num_channels, &
-              this%batch_size), &
-         intent(in) :: gradient
-    !! Gradient values
-
-    ! Local variables
-    integer :: i, j, k, m, s
-    !! Loop indices
-    integer, dimension(3) :: stride_idx, max_idx
-    !! Stride index and max index
-
-
-    select type(di => this%di(1,1))
-    type is (array5d_type)
-       di%val_ptr = 0._real32
-       ! Compute gradients for input feature map
-       do concurrent( &
-            s = 1:this%batch_size, &
-            m = 1:this%num_channels, &
-            k = 1:this%output_shape(3), &
-            j = 1:this%output_shape(2), &
-            i = 1:this%output_shape(1))
-          stride_idx = ([i,j,k] - 1) * this%strd
-          ! Find the index of the maximum value in the corresponding pooling window
-          max_idx = maxloc(input( &
-               stride_idx(1)+1:stride_idx(1)+this%pool(1), &
-               stride_idx(2)+1:stride_idx(2)+this%pool(2), &
-               stride_idx(3)+1:stride_idx(3)+this%pool(3), m, s))
-
-          ! Compute gradients for input feature map
-          di%val_ptr( &
-               stride_idx(1)+max_idx(1), &
-               stride_idx(2)+max_idx(2), &
-               stride_idx(3)+max_idx(3), m, s) = &
-               di%val_ptr( &
-                    stride_idx(1)+max_idx(1), &
-                    stride_idx(2)+max_idx(2), &
-                    stride_idx(3)+max_idx(3), m, s) + gradient(i, j, k, m, s)
-       end do
-    end select
-
-  end subroutine backward_5d
+  end subroutine forward_derived_maxpool3d
 !###############################################################################
 
 end module athena__maxpool3d_layer

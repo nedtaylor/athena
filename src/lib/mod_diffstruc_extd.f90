@@ -1,5 +1,6 @@
 module athena__diffstruc_extd
   !! Module for extended differential structure types for Athena
+  use coreutils, only: real32
   use diffstruc, only: array_type, operator(+), operator(.concat.)
   implicit none
 
@@ -8,6 +9,8 @@ module athena__diffstruc_extd
 
   public :: array_container_type, array_ptr_type
   public :: add, concat
+  public :: avgpool1d, avgpool2d, avgpool3d
+  public :: maxpool1d, maxpool2d, maxpool3d
 
 
 
@@ -42,12 +45,49 @@ module athena__diffstruc_extd
 !-------------------------------------------------------------------------------
 
   interface
-    module function avgpool(input, pool_size, stride) result(output)
+    module function avgpool1d(input, pool_size, stride) result(output)
       type(array_type), intent(in), target :: input
       integer, intent(in) :: pool_size
       integer, intent(in) :: stride
       type(array_type), pointer :: output
-    end function avgpool
+    end function avgpool1d
+
+    module function avgpool2d(input, pool_size, stride) result(output)
+      type(array_type), intent(in), target :: input
+      integer, dimension(2), intent(in) :: pool_size
+      integer, dimension(2), intent(in) :: stride
+      type(array_type), pointer :: output
+    end function avgpool2d
+
+    module function avgpool3d(input, pool_size, stride) result(output)
+      type(array_type), intent(in), target :: input
+      integer, dimension(3), intent(in) :: pool_size
+      integer, dimension(3), intent(in) :: stride
+      type(array_type), pointer :: output
+    end function avgpool3d
+  end interface
+
+  interface
+    module function maxpool1d(input, pool_size, stride) result(output)
+      type(array_type), intent(in), target :: input
+      integer, intent(in) :: pool_size
+      integer, intent(in) :: stride
+      type(array_type), pointer :: output
+    end function maxpool1d
+
+    module function maxpool2d(input, pool_size, stride) result(output)
+      type(array_type), intent(in), target :: input
+      integer, dimension(2), intent(in) :: pool_size
+      integer, dimension(2), intent(in) :: stride
+      type(array_type), pointer :: output
+    end function maxpool2d
+
+    module function maxpool3d(input, pool_size, stride) result(output)
+      type(array_type), intent(in), target :: input
+      integer, dimension(3), intent(in) :: pool_size
+      integer, dimension(3), intent(in) :: stride
+      type(array_type), pointer :: output
+    end function maxpool3d
   end interface
 
 end module athena__diffstruc_extd
