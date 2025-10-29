@@ -145,8 +145,6 @@ module athena__network
      !! Reset learnable parameter gradients
      procedure, pass(this) :: forward_generic2d
      !! Forward pass for generic 2D input
-     procedure, pass(this) :: backward_generic2d
-     !! Backward pass for generic 2D input
 
      procedure, pass(this) :: nullify_graph
 
@@ -157,8 +155,6 @@ module athena__network
 
      generic :: forward => forward_generic2d
      !! Generic for forward propagation
-     generic :: backward => backward_generic2d
-     !! Generic for backward propagation
   end type network_type
 
   interface network_type
@@ -660,15 +656,6 @@ module athena__network
        class(*), dimension(:,:), intent(in) :: input
        !! Input data
      end subroutine forward_generic2d
-
-     !! Interface for backward pass
-     module subroutine backward_generic2d(this, output)
-       !! Backward pass for derived input
-       class(network_type), intent(inout), target :: this
-       !! Instance of the network
-       class(*), dimension(:,:), intent(in) :: output
-       !! Output data
-     end subroutine backward_generic2d
 
      module subroutine nullify_graph(this)
        !! Nullify graph data in the network to free memory

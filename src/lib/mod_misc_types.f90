@@ -10,7 +10,7 @@ module athena__misc_types
   !! on the arrays used in the neural network. The facets type is used to store
   !! the faces, edges, and corners of the arrays for padding.
   use coreutils, only: real32
-  use diffstruc
+  use diffstruc, only: array_type
   implicit none
 
 
@@ -20,8 +20,6 @@ module athena__misc_types
   public :: initialiser_type
   public :: facets_type
 
-  public :: array_container_type, array_ptr_type
-  public :: add, concat
 
 
 !-------------------------------------------------------------------------------
@@ -209,35 +207,6 @@ module athena__misc_types
 !------------------------------------------------------------------------------!
 
 
-
-!-------------------------------------------------------------------------------
-! Array container types
-!-------------------------------------------------------------------------------
-  type :: array_container_type
-     class(array_type), allocatable :: array
-  end type array_container_type
-
-  type :: array_ptr_type
-     type(array_type), pointer :: array(:,:)
-  end type array_ptr_type
-
-  ! Operator interfaces
-  !-----------------------------------------------------------------------------
-  interface add
-     module procedure add_array_ptr
-  end interface
-
-  interface concat
-     module procedure concat_array_ptr
-  end interface
-!-------------------------------------------------------------------------------
-
-
-!------------------------------------------------------------------------------!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!------------------------------------------------------------------------------!
-
-
 !-------------------------------------------------------------------------------
 ! Facet type (for storing faces, edges, and corners for padding)
 !-------------------------------------------------------------------------------
@@ -275,43 +244,5 @@ module athena__misc_types
      end subroutine setup_bounds
   end interface
 !-------------------------------------------------------------------------------
-
-
-
-contains
-
-!###############################################################################
-  function add_array_ptr(a, idx1, idx2) result(c)
-    !! Add two autodiff arrays
-    type(array_ptr_type), dimension(:), intent(in) :: a
-    integer, intent(in) :: idx1, idx2
-    type(array_type), pointer :: c
-
-    integer :: i
-
-    c => a(1)%array(idx1, idx2) + a(2)%array(idx1, idx2)
-    do i = 2, size(a)
-       c => c + a(i)%array(idx1, idx2)
-    end do
-  end function add_array_ptr
-!###############################################################################
-
-
-!###############################################################################
-  function concat_array_ptr(a, idx1, idx2, dim) result(c)
-    !! Concatenate two autodiff arrays along a specified dimension
-    type(array_ptr_type), dimension(:), intent(in) :: a
-    integer, intent(in) :: idx1, idx2, dim
-    type(array_type), pointer :: c
-
-    integer :: i
-
-    allocate(c)
-    c => a(1)%array(idx1, idx2) .concat. a(2)%array(idx1, idx2)
-    do i = 3, size(a)
-       c => c .concat. a(i)%array(idx1, idx2)
-    end do
-  end function concat_array_ptr
-!###############################################################################
 
 end module athena__misc_types

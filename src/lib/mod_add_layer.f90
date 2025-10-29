@@ -2,7 +2,7 @@ module athena__add_layer
   !! Module containing implementation of a add layer
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: merge_layer_type, base_layer_type
-  use athena__misc_types, only: array_ptr_type, add
+  use athena__diffstruc_extd, only: array_ptr_type, add
   use diffstruc, only: array_type, operator(+)
   implicit none
 
@@ -27,11 +27,6 @@ module athena__add_layer
      procedure, pass(this) :: read => read_add
      !! Read the layer from a file
 
-     procedure, pass(this) :: forward  => forward_rank
-     !! Forward propagation for add layer
-     procedure, pass(this) :: backward => backward_rank
-     !! Backward propagation for add layer
-
      procedure, pass(this) :: combine => combine_add
      procedure, pass(this) :: split => split_add
   end type add_layer_type
@@ -55,43 +50,6 @@ module athena__add_layer
 
 
 contains
-
-!###############################################################################
-  subroutine forward_rank(this, input)
-    !! Forward propagation handler for flattening layer
-    implicit none
-
-    ! Arguments
-    class(add_layer_type), intent(inout) :: this
-    !! Instance of the flattening layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input values
-
-  end subroutine forward_rank
-!###############################################################################
-
-
-!###############################################################################
-  subroutine backward_rank(this, input, gradient)
-    !! Backward propagation handler for flattening layer
-    implicit none
-
-    ! Arguments
-    class(add_layer_type), intent(inout) :: this
-    !! Instance of the flattening layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input values
-    real(real32), dimension(..), intent(in) :: gradient
-    !! Gradient values
-
-  end subroutine backward_rank
-!###############################################################################
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
 
 !###############################################################################
   module function layer_setup( &

@@ -22,14 +22,10 @@ module athena__avgpool1d_layer
      !! Set batch size for 1D average pooling layer
      procedure, pass(this) :: read => read_avgpool1d
      !! Read 1D average pooling layer from file
-     procedure, pass(this) :: forward  => forward_rank
-     !! Forward propagation handler for 1D average pooling layer
-     procedure, pass(this) :: backward => backward_rank
-     !! Backward propagation handler for 1D average pooling layer
-     procedure, private, pass(this) :: forward_3d
-     !! Forward propagation for 3D input
-     procedure, private, pass(this) :: backward_3d
-     !! Backward propagation for 3D input
+
+     procedure, pass(this) :: forward_derived => forward_derived_avgpool1d
+     !! Forward propagation derived type handler
+
   end type avgpool1d_layer_type
 
   interface avgpool1d_layer_type
@@ -426,92 +422,24 @@ contains
 
 
 !###############################################################################
-  subroutine forward_3d(this, input)
+  subroutine forward_derived_avgpool1d(this, input)
     !! Forward propagation
     implicit none
 
     ! Arguments
     class(avgpool1d_layer_type), intent(inout) :: this
-    !! Instance of the 1D average pooling layer
-    real(real32), &
-         dimension( &
-              this%input_shape(1), &
-              this%num_channels, &
-              this%batch_size), &
-         intent(in) :: input
+    !! Instance of the fully connected layer
+    class(array_type), dimension(:,:), intent(in) :: input
     !! Input values
 
-    ! Local variables
-    integer :: i, m, s
-    !! Loop indices
-    integer :: stride_idx
-    !! Stride index
-
-    !  select type(output => this%output(1,1))
-    !  type is (array3d_type)
-    !     ! Perform the pooling operation
-    !     do concurrent(&
-    !          s = 1:this%batch_size, &
-    !          m = 1:this%num_channels, &
-    !          i = 1:this%output_shape(1))
-    !        stride_idx = (i - 1) * this%strd(1) + 1
-    !        output%val_ptr(i, m, s) = sum(&
-    !             input( &
-    !                  stride_idx:stride_idx+this%pool(1)-1, m, s)) / this%pool(1)
-    !     end do
-    !  end select
-
-  end subroutine forward_3d
-!###############################################################################
+    type(array_type), pointer :: ptr
 
 
-!###############################################################################
-  subroutine backward_3d(this, input, gradient)
-    !! Backward propagation
-    implicit none
+    call this%output(1,1)%zero_grad()
+    ptr => avgpool(input(1,1), this%pool(1), this%strd(1))
+    call this%output(1,1)%assign_and_deallocate_source(ptr)
 
-    ! Arguments
-    class(avgpool1d_layer_type), intent(inout) :: this
-    !! Instance of the 1D average pooling layer
-    real(real32), &
-         dimension( &
-              this%input_shape(1), &
-              this%num_channels, &
-              this%batch_size), &
-         intent(in) :: input
-    !! Input values
-    real(real32), &
-         dimension(&
-              this%output_shape(1), &
-              this%num_channels, &
-              this%batch_size), &
-         intent(in) :: gradient
-    !! Gradient values
-
-    ! Local variables
-    integer :: i, m, s
-    !! Loop indices
-    integer :: stride_idx
-    !! Stride index
-
-    select type(di => this%di(1,1))
-    type is (array3d_type)
-       di%val_ptr = 0._real32
-       ! Compute gradients for input feature map
-       do concurrent( &
-            s = 1:this%batch_size, &
-            m = 1:this%num_channels, &
-            i = 1:this%output_shape(1))
-          stride_idx = (i - 1) * this%strd(1)
-          ! Compute gradients for input feature map
-          di%val_ptr( &
-               stride_idx+1:stride_idx+this%pool(1), m, s) = &
-               di%val_ptr(stride_idx+1:stride_idx+this%pool(1), m, s) + &
-               gradient(i, m, s) / this%pool(1)
-       end do
-    end select
-
-  end subroutine backward_3d
+  end subroutine forward_derived_avgpool1d
 !###############################################################################
 
 end module athena__avgpool1d_layer

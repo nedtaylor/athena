@@ -6,6 +6,7 @@ module athena__actv_layer
   use athena__constants, only: real32
   use athena__base_layer, only: base_layer_type
   use athena__misc_types, only: activation_type
+  use diffstruc, only: array_type
   implicit none
 
 
@@ -32,14 +33,8 @@ module athena__actv_layer
      !! Print layer to unit
      procedure, pass(this) :: read => read_actv
      !! Read layer from file
-     procedure, pass(this) :: forward  => forward_rank
-     !! Forward propagation
-     procedure, pass(this) :: backward => backward_rank
-     !! Backward propagation
-     procedure, pass(this), private :: forward_assumed_rank
-     !! Forward propagation assumed rank handler
-     procedure, pass(this), private :: backward_assumed_rank
-     !! Backward propagation assumed rank handler
+     procedure, pass(this) :: forward_derived => forward_derived_actv
+     !! Forward propagation derived type handler
   end type actv_layer_type
 
 
@@ -69,36 +64,6 @@ module athena__actv_layer
 
 
 contains
-
-!###############################################################################
-  subroutine forward_rank(this, input)
-    !! Forward propagation handler for activation layer
-    implicit none
-    class(actv_layer_type), intent(inout) :: this
-    real(real32), dimension(..), intent(in) :: input
-
-    call this%forward_assumed_rank(input)
-  end subroutine forward_rank
-!###############################################################################
-
-
-!###############################################################################
-  subroutine backward_rank(this, input, gradient)
-    !! Backward propagation handler for activation layer
-    implicit none
-    class(actv_layer_type), intent(inout) :: this
-    real(real32), dimension(..), intent(in) :: input
-    real(real32), dimension(..), intent(in) :: gradient
-
-    call this%backward_assumed_rank(input, gradient)
-  end subroutine backward_rank
-!###############################################################################
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
 
 !###############################################################################
   module function layer_setup( &
@@ -553,84 +518,22 @@ contains
 
 
 !###############################################################################
-  subroutine forward_assumed_rank(this, input)
+  subroutine forward_derived_actv(this, input)
     !! Forward propagation
     implicit none
 
     ! Arguments
     class(actv_layer_type), intent(inout) :: this
-    !! Instance of the activation layer
-    real(real32), dimension(..), intent(in), target :: input
+    !! Instance of the fully connected layer
+    class(array_type), dimension(:,:), intent(in) :: input
     !! Input values
 
-    ! Local variables
-    real(real32), pointer :: input_ptr(:,:)
-    !! Input pointer
+    type(array_type), pointer :: ptr
 
-    select rank(input)
-    rank(1)
-       input_ptr(1:product(this%input_shape),1:this%batch_size) => input
-    rank(2)
-       input_ptr(1:product(this%input_shape),1:this%batch_size) => input
-    rank(3)
-       input_ptr(1:product(this%input_shape),1:this%batch_size) => input
-    rank(4)
-       input_ptr(1:product(this%input_shape),1:this%batch_size) => input
-    rank(5)
-       input_ptr(1:product(this%input_shape),1:this%batch_size) => input
-    end select
-    this%output(1,1)%val(:,:) = this%transfer%activate(input_ptr)
+    ptr => this%transfer%activate(input(1,1))
+    call this%output(1,1)%assign_and_deallocate_source(ptr)
 
-  end subroutine forward_assumed_rank
-!###############################################################################
-
-
-!###############################################################################
-  subroutine backward_assumed_rank(this, input, gradient)
-    !! Backward propagation
-    implicit none
-
-    ! Arguments
-    class(actv_layer_type), intent(inout) :: this
-    !! Instance of the activation layer
-    real(real32), dimension(..), intent(in), target :: input
-    !! Input values
-    real(real32), dimension(..), intent(in), target :: gradient
-    !! Gradient values
-
-    ! Local variables
-    real(real32), pointer :: input_ptr(:,:), gradient_ptr(:,:)
-    !! Input and gradient pointers
-
-    select rank(gradient)
-    rank(1)
-       gradient_ptr(1:product(this%input_shape),1:this%batch_size) => gradient
-    rank(2)
-       gradient_ptr(1:product(this%input_shape),1:this%batch_size) => gradient
-    rank(3)
-       gradient_ptr(1:product(this%input_shape),1:this%batch_size) => gradient
-    rank(4)
-       gradient_ptr(1:product(this%input_shape),1:this%batch_size) => gradient
-    rank(5)
-       gradient_ptr(1:product(this%input_shape),1:this%batch_size) => gradient
-    end select
-
-    select rank(input)
-    rank(1)
-       input_ptr(1:product(this%input_shape),1:this%batch_size) => input
-    rank(2)
-       input_ptr(1:product(this%input_shape),1:this%batch_size) => input
-    rank(3)
-       input_ptr(1:product(this%input_shape),1:this%batch_size) => input
-    rank(4)
-       input_ptr(1:product(this%input_shape),1:this%batch_size) => input
-    rank(5)
-       input_ptr(1:product(this%input_shape),1:this%batch_size) => input
-    end select
-    this%di(1,1)%val(:,:) = &
-         gradient_ptr * this%transfer%differentiate(input_ptr)
-
-  end subroutine backward_assumed_rank
+  end subroutine forward_derived_actv
 !###############################################################################
 
 end module athena__actv_layer

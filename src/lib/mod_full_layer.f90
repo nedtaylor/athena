@@ -26,13 +26,8 @@ module athena__full_layer
      !! Number of inputs
      integer :: num_outputs
      !! Number of outputs
-     !  real(real32), pointer :: weight(:,:) => null()
-     !  !! Pointer to weights (kernels)
-     !  real(real32), pointer :: dw(:,:,:) => null()
-     !  !! Pointer to weight gradients
-     !  !  real(real32), allocatable, dimension(:,:) :: z
-     !  !  !! Activation values
      type(array_type), dimension(2) :: z
+     !! Temporary arrays for forward propagation
    contains
      procedure, pass(this) :: get_num_params => get_num_params_full
      !! Get the number of parameters for fully connected layer
@@ -49,19 +44,11 @@ module athena__full_layer
      !! Print the layer to a file
      procedure, pass(this) :: read => read_full
      !! Read the layer from a file
-     procedure, pass(this) :: forward  => forward_rank
-     !! Forward propagation for fully connected layer
-     procedure, pass(this) :: backward => backward_rank
-     !! Backward propagation for fully connected layer
-     procedure, private, pass(this) :: forward_2d
-     !! Forward propagation for 2D input
-     procedure, private, pass(this) :: backward_2d
-     !! Backward propagation for 2D input
 
      procedure, pass(this) :: nullify_graph => nullify_graph_full
 
      procedure, pass(this) :: forward_derived => forward_derived_full
-     procedure, pass(this) :: backward_derived => backward_derived_full
+     !! Forward propagation derived type handler
 
      final :: finalise_full
      !! Finalise fully connected layer
@@ -138,52 +125,6 @@ contains
     num_params = ( this%num_inputs + 1 )* this%num_outputs
 
   end function get_num_params_full
-!###############################################################################
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
-
-!###############################################################################
-  subroutine forward_rank(this, input)
-    !! Forward propagation for fully connected layer
-    implicit none
-
-    ! Arguments
-    class(full_layer_type), intent(inout) :: this
-    !! Instance of the fully connected layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input values
-
-    select rank(input); rank(2)
-       call forward_2d(this, input)
-    end select
-  end subroutine forward_rank
-!###############################################################################
-
-
-!###############################################################################
-  subroutine backward_rank(this, input, gradient)
-    !! Backward propagation for fully connected layer
-    implicit none
-
-    ! Arguments
-    class(full_layer_type), intent(inout) :: this
-    !! Instance of the fully connected layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input values
-    real(real32), dimension(..), intent(in) :: gradient
-    !! Gradient values
-
-    select rank(input)
-    rank(2)
-       select rank(gradient); rank(2)
-          call backward_2d(this, input, gradient)
-       end select
-    end select
-  end subroutine backward_rank
 !###############################################################################
 
 
@@ -745,107 +686,8 @@ contains
 
 
 !###############################################################################
-  subroutine forward_2d(this, input)
-    !! Forward propagation for 2D input
-    implicit none
-
-    ! Arguments
-    class(full_layer_type), intent(inout) :: this
-    !! Instance of the fully connected layer
-    real(real32), dimension(this%num_inputs, this%batch_size), &
-         intent(in) :: input
-    !! Input values
-
-    ! Local variables
-    integer :: s
-    !! Loop index
-
-
-    ! ! Generate outputs from weights, biases, and inputs
-    ! !---------------------------------------------------------------------------
-    ! do concurrent(s=1:this%batch_size)
-    !    this%z(:,s) = this%weight(:,this%num_inputs+1) + &
-    !         matmul(this%weight(:,:this%num_inputs),input(:,s))
-    ! end do
-
-    ! ! Apply activation function to activation
-    ! !---------------------------------------------------------------------------
-    ! this%output(1,1)%val(:,:) = this%transfer%activate(this%z)
-
-  end subroutine forward_2d
-!###############################################################################
-
-
-!###############################################################################
-!!! backward propagation
-!!! method : gradient descent
-!###############################################################################
-  subroutine backward_2d(this, input, gradient)
-    !! Backward propagation for 2D input
-    implicit none
-
-    ! Arguments
-    class(full_layer_type), intent(inout) :: this
-    !! Instance of the fully connected layer
-    real(real32), dimension(this%num_inputs, this%batch_size), &
-         intent(in) :: input
-    !! Input values
-    real(real32), dimension(this%num_outputs, this%batch_size), &
-         intent(in) :: gradient
-    !! Gradient values
-
-    ! Local variables
-    real(real32), dimension(this%num_outputs, this%batch_size) :: grad_dz
-    !! Gradient multiplied by differential of Z (aka delta values)
-    real(real32), dimension(1) :: bias_diff
-    !! Differential of bias
-
-    ! Loop variables
-    integer :: s, j
-    !! Loop indices
-
-
-    ! bias_diff = this%transfer%differentiate([1._real32])
-
-
-    ! ! Get gradient multiplied by differential of Z
-    ! !---------------------------------------------------------------------------
-    ! ! The grad_dz values are the error multipled by the derivative ...
-    ! ! ... of the transfer function
-    ! ! grad_dz(l) = g'(a) * dE/dI(l)
-    ! ! grad_dz(l) = differential of activation * error from next layer
-    ! grad_dz = gradient * this%transfer%differentiate(this%z)
-    ! this%db(:,:) = this%db(:,:) + grad_dz * bias_diff(1)
-
-
-    ! ! Update weights
-    ! !---------------------------------------------------------------------------
-    ! do concurrent(s=1:this%batch_size)
-    !    !! partial derivatives of error wrt weights
-    !    !! dE/dW = o/p(l-1) * grad_dz
-    !    do j = 1, this%num_inputs
-    !       this%dw(:,j,s) = this%dw(:,j,s) + input(j,s) * grad_dz(:,s)
-    !    end do
-    !    !! the errors are summed from the grad_dz of the ...
-    !    !! ... 'child' node * 'child' weight
-    !    !! dE/dI(l-1) = sum(weight(l) * grad_dz(l))
-    !    !! this prepares dE/dI for when it is passed into the previous layer
-    !    this%di(1,1)%val(:,s) = &
-    !         matmul(grad_dz(:,s), this%weight(:,:this%num_inputs))
-    ! end do
-
-  end subroutine backward_2d
-!###############################################################################
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
-
-!###############################################################################
   subroutine forward_derived_full(this, input)
-    !! Forward propagation for 2D input
+    !! Forward propagation
     implicit none
 
     ! Arguments
@@ -890,41 +732,11 @@ contains
     class(full_layer_type), intent(inout) :: this
     !! Instance of the fully connected layer
 
-    call this%z(1)%nullify_graph()
-    call this%z(2)%nullify_graph()
+    ! call this%z(1)%nullify_graph()
+    ! call this%z(2)%nullify_graph()
     call this%output(1,1)%nullify_graph()
 
   end subroutine nullify_graph_full
-!###############################################################################
-
-
-!###############################################################################
-!!! backward propagation
-!!! method : gradient descent
-!###############################################################################
-  subroutine backward_derived_full(this, input, gradient)
-    !! Backward propagation for 2D input
-    implicit none
-
-    ! Arguments
-    class(full_layer_type), intent(inout) :: this
-    !! Instance of the fully connected layer
-    class(array_type), dimension(:,:), intent(in) :: input
-    !! Input values
-    class(array_type), dimension(:,:), intent(in) :: gradient
-    !! Gradient values
-
-    ! Local variables
-    real(real32), dimension(this%num_outputs, this%batch_size) :: grad_dz
-    !! Gradient multiplied by differential of Z (aka delta values)
-    real(real32), dimension(1) :: bias_diff
-    !! Differential of bias
-
-    ! Loop variables
-    integer :: s, j
-    !! Loop indices
-
-  end subroutine backward_derived_full
 !###############################################################################
 
 end module athena__full_layer

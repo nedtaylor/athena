@@ -16,8 +16,8 @@ module athena__base_layer
   use coreutils, only: real32
   use athena__clipper, only: clip_type
   use diffstruc, only: array_type
-  use athena__misc_types, only: activation_type, initialiser_type, &
-       facets_type, array_ptr_type
+  use athena__diffstruc_extd, only: array_ptr_type
+  use athena__misc_types, only: activation_type, initialiser_type, facets_type
   use graphstruc, only: graph_type
   implicit none
 
@@ -87,20 +87,14 @@ module athena__base_layer
      !! Initialise the layer
      procedure(set_batch_size), deferred, pass(this) :: set_batch_size
      !! Set the batch size of the layer
-     procedure(forward), deferred, pass(this) :: forward
-     !! Forward pass of layer
 
      !! MAKE THESE DEFERRED
      procedure, pass(this) :: forward_derived => forward_derived_base
-     procedure, pass(this) :: backward_derived => backward_derived_base
 
      procedure, pass(this) :: nullify_graph => nullify_graph_base
      !! Nullify the forward pass data of the layer to free memory
 
 
-     !! Forward pass of layer using derived array_type
-     procedure(backward), deferred, pass(this) :: backward
-     !! Backward pass of layer
      procedure(read_layer), deferred, pass(this) :: read
      !! Read layer from file
      procedure, pass(this) :: set_ptrs
@@ -204,24 +198,6 @@ module athena__base_layer
        integer :: num_params
        !! Number of parameters
      end function get_num_params
-
-     module subroutine forward(this, input)
-       !! Forward pass of layer
-       class(base_layer_type), intent(inout) :: this
-       !! Instance of the layer
-       real(real32), dimension(..), intent(in) :: input
-       !! Input data
-     end subroutine forward
-
-     module subroutine backward(this, input, gradient)
-       !! Backward pass of layer
-       class(base_layer_type), intent(inout) :: this
-       !! Instance of the layer
-       real(real32), dimension(..), intent(in) :: input
-       !! Input data
-       real(real32), dimension(..), intent(in) :: gradient
-       !! Gradient data
-     end subroutine backward
   end interface
 
   interface
@@ -232,16 +208,6 @@ module athena__base_layer
        class(array_type), dimension(:,:), intent(in) :: input
        !! Input data
      end subroutine forward_derived_base
-
-     module subroutine backward_derived_base(this, input, gradient)
-       !! Backward pass of layer
-       class(base_layer_type), intent(inout) :: this
-       !! Instance of the layer
-       class(array_type), dimension(:,:), intent(in) :: input
-       !! Input data
-       class(array_type), dimension(:,:), intent(in) :: gradient
-       !! Gradient data
-     end subroutine backward_derived_base
 
      module subroutine set_graph_base(this, graph)
        !! Set the graph structure of the input data

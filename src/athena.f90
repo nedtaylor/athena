@@ -158,7 +158,7 @@ module athena
   ! Array types
   !-----------------------------------------------------------------------------
   use diffstruc
-  use athena__misc_types, only: array_container_type
+  use athena__diffstruc_extd, only: array_container_type
 
 
   ! List of layer types

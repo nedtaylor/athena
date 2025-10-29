@@ -13,7 +13,7 @@ submodule(athena__network) athena__network_submodule
   use athena__container_layer, only: container_reduction
 #endif
 
-  use athena__misc_types, only: array_container_type, array_ptr_type
+  use athena__diffstruc_extd, only: array_container_type, array_ptr_type
   use athena__container_layer, only: &
        list_of_layer_types, allocate_list_of_layer_types
 
@@ -2614,84 +2614,6 @@ contains
     end do
 
   end subroutine forward_generic2d
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine backward_generic2d(this, output)
-    !! Backward pass for real output
-    implicit none
-
-    ! Arguments
-    class(network_type), intent(inout), target :: this
-    !! Instance of network
-    class(*), dimension(:,:), intent(in) :: output
-    !! Output
-
-    ! Local variables
-    integer :: l, i, j, s
-    !! Loop index
-    integer :: num_input_layers, num_output_layers
-    !! Number of input and output layers
-    type(array_type), pointer :: input_ptr(:,:), gradient_ptr(:,:)
-    !! Autodiff input and gradient
-    type(array_ptr_type), dimension(:), allocatable :: input_list
-    !! List of input pointers
-
-
-    ! Backward pass
-    !---------------------------------------------------------------------------
-    do l = size(this%vertex_order,1), 1, -1
-
-       num_input_layers = count(this%auto_graph%adjacency(:,this%vertex_order(l)).gt.0)
-       if(num_input_layers.eq.0)then
-          cycle ! this is an input layer
-       elseif(num_input_layers.eq.1)then
-          j = maxloc(this%auto_graph%adjacency(:,this%vertex_order(l)),dim=1)
-          j = this%auto_graph%vertex(j)%id
-          input_ptr => this%model(j)%layer%output
-          !  input( &
-          !       1:size(this%model(j)%layer%output,1), &
-          !       1:size(this%model(j)%layer%output,2) ) => this%model(j)%layer%output
-       else
-          allocate(input_list(num_input_layers))
-          do j = 1, size(this%vertex_order,1)
-             if(this%auto_graph%adjacency(j,this%vertex_order(l)).gt.0)then
-                input_list(j)%array => this%model(this%vertex_order(l))%layer%output
-             end if
-          end do
-       end if
-
-       num_output_layers = count(this%auto_graph%adjacency(this%vertex_order(l),:).gt.0)
-       if(num_output_layers.eq.0)then
-          ! make generic function that handles array_type or graph_type output
-          allocate(gradient_ptr(size(output,1),size(output,2)))
-          gradient_ptr = this%calc_output_loss_grad(output)
-       elseif(num_output_layers.eq.1)then
-          j = maxloc(this%auto_graph%adjacency(this%vertex_order(l),:),dim=1)
-          j = this%auto_graph%vertex(j)%id
-          gradient_ptr => this%model(j)%layer%di
-          !  gradient_ptr( &
-          !       1:size(this%model(j)%layer%di,1), &
-          !       1:size(this%model(j)%layer%di,2) ) => this%model(j)%layer%di
-       else
-          write(0,*) "Error: More than one output layer. NOT YET SET UP"
-          stop 0
-       end if
-
-       select type(layer => this%model(this%vertex_order(l))%layer)
-       class is(merge_layer_type)
-          call layer%split( input_list, gradient_ptr )
-       class default
-          call layer%backward_derived( input_ptr, gradient_ptr )
-       end select
-
-       if(num_input_layers.gt.1) deallocate(input_list)
-       input_ptr => null()
-       gradient_ptr => null()
-    end do
-
-  end subroutine backward_generic2d
 !###############################################################################
 
 

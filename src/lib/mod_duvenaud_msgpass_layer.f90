@@ -1209,7 +1209,6 @@ contains
     c%get_partial_right => get_partial_duvenaud_propagate_right
     if(vertex_features%requires_grad .or. edge_features%requires_grad) then
        c%requires_grad = .true.
-       c%is_leaf = .false.
        c%operation = 'duvenaud_propagate'
        c%left_operand => vertex_features
        c%right_operand => edge_features
@@ -1252,7 +1251,6 @@ contains
 
     ! if(a%requires_grad) then
     !    c%requires_grad = .true.
-    !    c%is_leaf = .false.
     !    c%operation = 'reverse_duvenaud_propagate'
     !    if(left) then
     !       c%left_operand => a
@@ -1291,7 +1289,6 @@ contains
     c%get_partial_right => get_partial_duvenaud_update
     if(a%requires_grad) then
        c%requires_grad = .true.
-       c%is_leaf = .false.
        c%operation = 'duvenaud_update'
        c%right_operand => a
        c%left_operand => weight
@@ -1301,7 +1298,6 @@ contains
     !  allocate(weight_array)
     !  weight_array%is_sample_dependent = .false.
     !  weight_array%requires_grad = .false.
-    !  weight_array%is_leaf = .false.
     !  weight_array%indices = [ min_degree, max_degree ]
     !  call weight_array%allocate(array_shape=shape(weight))
     !  do d = 1, size(weight,3)
@@ -1390,7 +1386,6 @@ contains
 
     ! if(a%requires_grad) then
     !    c%requires_grad = .true.
-    !    c%is_leaf = .false.
     !    c%operation = 'reverse_duvenaud_update'
     !    c%left_operand => a
     ! end if
@@ -1426,7 +1421,6 @@ contains
 
     !  if(weight%requires_grad) then
     !     c%requires_grad = .true.
-    !     c%is_leaf = .false.
     !     c%operation = 'reverse_duvenaud_update_weight'
     !     c%left_operand => weight
     !     c%right_operand => a

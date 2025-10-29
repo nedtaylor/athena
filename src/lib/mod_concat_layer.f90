@@ -2,8 +2,8 @@ module athena__concat_layer
   !! Module containing implementation of a concatenate layer
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: merge_layer_type, base_layer_type
-  use athena__misc_types, only: array_ptr_type, concat
   use diffstruc, only: array_type, operator(+)
+  use athena__diffstruc_extd, only: array_ptr_type, concat
   implicit none
 
 

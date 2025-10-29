@@ -343,21 +343,6 @@ contains
     this%output = input
   end subroutine forward_derived_base
 
-  module subroutine backward_derived_base(this, input, gradient)
-    !! Backward pass for the layer
-    implicit none
-
-    ! Arguments
-    class(base_layer_type), intent(inout) :: this
-    !! Instance of the layer
-    class(array_type), dimension(:,:), intent(in) :: input
-    !! Input data
-    class(array_type), dimension(:,:), intent(in) :: gradient
-    !! Gradient data
-
-    this%di = gradient
-  end subroutine backward_derived_base
-
   module subroutine set_graph_base(this, graph)
     !! Set the graph structure of the input data
     implicit none
