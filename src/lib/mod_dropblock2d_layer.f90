@@ -4,10 +4,10 @@ module athena__dropblock2d_layer
   !! This module contains the implementation of a 2D dropblock layer
   !! for use in neural networks.
   !! DropBlock reference: https://arxiv.org/pdf/1810.12890.pdf
-  use athena__io_utils, only: stop_program
-  use athena__constants, only: real32
+  use coreutils, only: real32, stop_program
   use athena__base_layer, only: drop_layer_type, base_layer_type
-  use athena__misc_types, only: array4d_type
+  use diffstruc, only: array_type, operator(*)
+  use athena__diffstruc_extd, only: merge_over_channels
   implicit none
 
 
@@ -39,14 +39,10 @@ module athena__dropblock2d_layer
      !! Print 2D dropblock layer to unit
      procedure, pass(this) :: read => read_dropblock2d
      !! Read 2D dropblock layer from file
-     procedure, pass(this) :: forward  => forward_rank
-     !! Forward propagation handler for 2D dropblock layer
-     procedure, pass(this) :: backward => backward_rank
-     !! Backward propagation handler for 2D dropblock layer
-     procedure, private, pass(this) :: forward_4d
-     !! Forward propagation for 4D input
-     procedure, private, pass(this) :: backward_4d
-     !! Backward propagation for 4D input
+
+     procedure, pass(this) :: forward_derived => forward_derived_dropblock2d
+     !! Forward propagation derived type handler
+
      procedure, pass(this) :: generate_mask => generate_bernoulli_mask
      !! Generate Bernoulli mask
   end type dropblock2d_layer_type
@@ -76,63 +72,6 @@ module athena__dropblock2d_layer
 
 
 contains
-
-!###############################################################################
-  subroutine forward_rank(this, input)
-    !! Forward propagation handler for 2D dropblock layer
-    implicit none
-
-    ! Arguments
-    class(dropblock2d_layer_type), intent(inout) :: this
-    !! Instance of the 2D dropblock layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input values
-
-    select rank(input)
-    rank(2)
-       call forward_4d(this, input)
-    rank(4)
-       call forward_4d(this, input)
-    end select
-  end subroutine forward_rank
-!###############################################################################
-
-
-!###############################################################################
-  subroutine backward_rank(this, input, gradient)
-    !! Backward propagation handler for 2D dropblock layer
-    implicit none
-
-    ! Arguments
-    class(dropblock2d_layer_type), intent(inout) :: this
-    !! Instance of the 2D dropblock layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input values
-    real(real32), dimension(..), intent(in) :: gradient
-    !! Gradient values
-
-    select rank(input)
-    rank(2)
-       select rank(gradient)
-       rank(2)
-          call backward_4d(this, input, gradient)
-       end select
-    rank(4)
-       select rank(gradient)
-       rank(2)
-          call backward_4d(this, input, gradient)
-       rank(4)
-          call backward_4d(this, input, gradient)
-       end select
-    end select
-  end subroutine backward_rank
-!###############################################################################
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
 
 !###############################################################################
   module function layer_setup( &
@@ -328,9 +267,6 @@ contains
                  this%batch_size ], &
             source=0._real32 &
        )
-       if(allocated(this%di)) deallocate(this%di)
-       allocate( this%di(1,1), source = array4d_type() )
-       call this%di(1,1)%allocate( source = this%output(1,1) )
     end if
 
 
@@ -522,8 +458,6 @@ contains
 
 
 !###############################################################################
-!!! read layer from file and return layer
-!###############################################################################
   function read_dropblock2d_layer(unit, verbose) result(layer)
     !! Read 2D dropblock layer from file and return layer
     implicit none
@@ -554,86 +488,36 @@ contains
 
 
 !###############################################################################
-!!! forward propagation
-!###############################################################################
-  subroutine forward_4d(this, input)
-    !! Forward propagation for 4D input
+  subroutine forward_derived_dropblock2d(this, input)
+    !! Forward propagation
     implicit none
 
     ! Arguments
     class(dropblock2d_layer_type), intent(inout) :: this
     !! Instance of the 2D dropblock layer
-    real(real32), &
-         dimension( &
-              this%input_shape(1), &
-              this%input_shape(2), &
-              this%num_channels, this%batch_size), &
-         intent(in) :: input
+    class(array_type), dimension(:,:), intent(in) :: input
     !! Input values
 
     ! Local variables
-    integer :: m, s
-    !! Loop indices
+    real(real32) :: rtmp1
+    type(array_type), pointer :: ptr
 
 
-    !  select type(output => this%output(1,1))
-    !  type is (array4d_type)
-    !     select case(this%inference)
-    !     case(.true.)
-    !        ! do not perform drop operation
-    !        output%val_ptr = input * ( 1._real32 - this%rate )
-    !     case default
-    !        ! perform the drop operation
-    !        do concurrent(m = 1:this%num_channels, s = 1:this%batch_size)
-    !           output%val_ptr(:,:,m,s) = &
-    !                merge(input(:,:,m,s), 0._real32, this%mask)
-    !        end do
-    !     end select
-    !  end select
-
-  end subroutine forward_4d
-!###############################################################################
-
-
-!###############################################################################
-!!! backward propagation
-!###############################################################################
-  subroutine backward_4d(this, input, gradient)
-    !! Backward propagation for 4D input
-    implicit none
-
-    ! Arguments
-    class(dropblock2d_layer_type), intent(inout) :: this
-    !! Instance of the 2D dropblock layer
-    real(real32), &
-         dimension( &
-              this%input_shape(1), &
-              this%input_shape(2), &
-              this%num_channels, this%batch_size), &
-         intent(in) :: input
-    !! Input values
-    real(real32), &
-         dimension(&
-              this%output_shape(1), &
-              this%output_shape(2), &
-              this%num_channels, this%batch_size), &
-         intent(in) :: gradient
-    !! Gradient values
-
-    ! Local variables
-    integer :: m, s
-    !! Loop indices
-
-    ! compute gradients for input feature map
-    !---------------------------------------------------------------------------
-    select type(di => this%di(1,1))
-    type is (array4d_type)
-       do concurrent(m = 1:this%num_channels, s=1:this%batch_size)
-          di%val_ptr(:,:,m,s) = merge(gradient(:,:,m,s), 0._real32, this%mask)
-       end do
+    select case(this%inference)
+    case(.true.)
+       rtmp1 = 1._real32 - this%rate
+       ! Do not perform the drop operation
+       ptr => input(1,1) * rtmp1
+    case default
+       ! Perform the drop operation
+       ptr => merge_over_channels( &
+            input(1,1), 0._real32, &
+            reshape(this%mask, shape = [product(shape(this%mask)), 1]) &
+       )
     end select
+    call this%output(1,1)%assign_and_deallocate_source(ptr)
 
-  end subroutine backward_4d
+  end subroutine forward_derived_dropblock2d
 !###############################################################################
 
 end module athena__dropblock2d_layer

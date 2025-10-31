@@ -13,6 +13,7 @@ module athena__diffstruc_extd
   public :: avgpool1d, avgpool2d, avgpool3d
   public :: maxpool1d, maxpool2d, maxpool3d
   public :: pad1d, pad2d, pad3d
+  public :: merge_over_channels
 
 
 
@@ -116,6 +117,15 @@ module athena__diffstruc_extd
        integer, intent(in) :: imethod
        type(array_type), pointer :: output
      end function pad3d
+  end interface
+
+  interface merge_over_channels
+     module function merge_scalar_over_channels(tsource, fsource, mask) result(output)
+       class(array_type), intent(in), target :: tsource
+       real(real32), intent(in) :: fsource
+       logical, dimension(:,:), intent(in) :: mask
+       type(array_type), pointer :: output
+     end function merge_scalar_over_channels
   end interface
 
 end module athena__diffstruc_extd

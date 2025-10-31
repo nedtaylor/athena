@@ -107,13 +107,13 @@ module athena
 ! ! !   use athena__deepset_layer,   only: deepset_layer_type, read_deepset_layer
 
 
-!   ! Dropout layer types
-!   !-----------------------------------------------------------------------------
-!   use athena__dropout_layer, only: dropout_layer_type, read_dropout_layer
-!   use athena__dropblock2d_layer, only: &
-!        dropblock2d_layer_type, read_dropblock2d_layer
-!   use athena__dropblock3d_layer, only: &
-!        dropblock3d_layer_type, read_dropblock3d_layer
+  ! Dropout layer types
+  !-----------------------------------------------------------------------------
+  use athena__dropout_layer, only: dropout_layer_type, read_dropout_layer
+  use athena__dropblock2d_layer, only: &
+       dropblock2d_layer_type, read_dropblock2d_layer
+  use athena__dropblock3d_layer, only: &
+       dropblock3d_layer_type, read_dropblock3d_layer
 
 
   ! Padding layer types
