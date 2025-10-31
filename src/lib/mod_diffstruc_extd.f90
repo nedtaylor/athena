@@ -12,7 +12,7 @@ module athena__diffstruc_extd
   public :: add, concat
   public :: avgpool1d, avgpool2d, avgpool3d
   public :: maxpool1d, maxpool2d, maxpool3d
-  public :: pad1d
+  public :: pad1d, pad2d, pad3d
 
 
 
@@ -100,6 +100,22 @@ module athena__diffstruc_extd
        integer, intent(in) :: imethod
        type(array_type), pointer :: output
      end function pad1d
+
+     module function pad2d(input, facets, pad_size, imethod) result(output)
+       type(array_type), intent(in), target :: input
+       type(facets_type), dimension(2), intent(in) :: facets
+       integer, dimension(2), intent(in) :: pad_size
+       integer, intent(in) :: imethod
+       type(array_type), pointer :: output
+     end function pad2d
+
+     module function pad3d(input, facets, pad_size, imethod) result(output)
+       type(array_type), intent(in), target :: input
+       type(facets_type), dimension(3), intent(in) :: facets
+       integer, dimension(3), intent(in) :: pad_size
+       integer, intent(in) :: imethod
+       type(array_type), pointer :: output
+     end function pad3d
   end interface
 
 end module athena__diffstruc_extd
