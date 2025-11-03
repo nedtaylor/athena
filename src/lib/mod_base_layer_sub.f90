@@ -889,12 +889,11 @@ contains
     end if
     this%num_channels = this%input_shape(this%input_rank)
     this%num_params = this%get_num_params()
-    allocate(this%params(2 * this%num_channels), source=0._real32)
+    allocate(this%params_array(1))
+    call this%params_array(1)%allocate([2 * this%num_channels, 1])
     allocate(this%weight_shape(1,1))
     this%weight_shape(:,1) = [ this%num_channels ]
     this%bias_shape = [this%num_channels]
-    allocate(this%dp(this%num_channels,1), source=0._real32)
-    allocate(this%db(this%num_channels,1), source=0._real32)
 
 
     !---------------------------------------------------------------------------
@@ -910,7 +909,7 @@ contains
     allocate(t_initialiser, source=initialiser_setup(this%kernel_initialiser))
     t_initialiser%mean = this%gamma_init_mean
     t_initialiser%std  = this%gamma_init_std
-    call t_initialiser%initialise(this%params(1:this%num_channels), &
+    call t_initialiser%initialise(this%params_array(1)%val(1:this%num_channels,1), &
          fan_in =this%num_channels, &
          fan_out=this%num_channels)
     deallocate(t_initialiser)
@@ -920,7 +919,7 @@ contains
     allocate(t_initialiser, source=initialiser_setup(this%bias_initialiser))
     t_initialiser%mean = this%beta_init_mean
     t_initialiser%std  = this%beta_init_std
-    call t_initialiser%initialise(this%params(this%num_channels+1:), &
+    call t_initialiser%initialise(this%params_array(1)%val(this%num_channels+1:,1), &
          fan_in =this%num_channels, &
          fan_out=this%num_channels)
     deallocate(t_initialiser)
@@ -952,25 +951,6 @@ contains
     if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
 
   end subroutine init_batch
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine set_ptrs_hyperparams_batch(this)
-    !! Set the hyperparameter pointers of a batch normalisation layer
-    implicit none
-
-    ! Arguments
-    class(batch_layer_type), intent(inout), target :: this
-    !! Instance of the layer
-
-    if(allocated(this%params))then
-       this%gamma(1:this%num_channels) => this%params(1:this%num_channels)
-       this%beta(1:this%num_channels) => &
-            this%params(this%num_channels+1:this%num_channels*2)
-    end if
-
-  end subroutine set_ptrs_hyperparams_batch
 !###############################################################################
 
 end submodule athena__base_layer_submodule

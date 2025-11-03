@@ -85,14 +85,14 @@ module athena
   use athena__actv_layer, only: actv_layer_type, read_actv_layer
 
 
-!   ! Batch normalisation layer types
-!   !-----------------------------------------------------------------------------
-!   use athena__batchnorm1d_layer, only: &
-!        batchnorm1d_layer_type, read_batchnorm1d_layer
-!   use athena__batchnorm2d_layer, only: &
-!        batchnorm2d_layer_type, read_batchnorm2d_layer
-!   use athena__batchnorm3d_layer, only: &
-!        batchnorm3d_layer_type, read_batchnorm3d_layer
+  ! Batch normalisation layer types
+  !-----------------------------------------------------------------------------
+  use athena__batchnorm1d_layer, only: &
+       batchnorm1d_layer_type, read_batchnorm1d_layer
+  use athena__batchnorm2d_layer, only: &
+       batchnorm2d_layer_type, read_batchnorm2d_layer
+  use athena__batchnorm3d_layer, only: &
+       batchnorm3d_layer_type, read_batchnorm3d_layer
 
 
 !   ! Convolution layer types

@@ -61,7 +61,7 @@ module athena__base_layer
      !! Graph structure of input data
      logical :: consistent_sample_shape = .true. !! ONLY FALSE FOR GRAPHS
      !! Boolean whether the layer has a consistent sample shape
-     type(array_type), allocatable, dimension(:,:) :: output
+     class(array_type), allocatable, dimension(:,:) :: output
      !! Output
      class(array_type), allocatable, dimension(:,:) :: di
      !! Gradient of input data
@@ -509,8 +509,6 @@ module athena__base_layer
      !! Initialisers for moving mean and variance
      real(real32), allocatable, dimension(:) :: mean, variance
      !! Mean and variance (not learnable)
-     real(real32), pointer :: gamma(:) => null(), beta(:) => null()
-     !! Gamma and beta pointers (learnable)
    contains
      procedure, pass(this) :: get_num_params => get_num_params_batch
      !! Get the number of parameters in the layer
@@ -518,8 +516,6 @@ module athena__base_layer
      !! Set the gradients of the layer
      procedure, pass(this) :: init => init_batch
      !! Initialise the layer
-     procedure, pass(this) :: set_ptrs_hyperparams => set_ptrs_hyperparams_batch
-     !! Set pointers to hyperparameters
   end type batch_layer_type
 
 
@@ -553,9 +549,6 @@ module athena__base_layer
        integer, optional, intent(in) :: batch_size
        integer, optional, intent(in) :: verbose
      end subroutine init_batch
-     module subroutine set_ptrs_hyperparams_batch(this)
-       class(batch_layer_type), intent(inout), target :: this
-     end subroutine set_ptrs_hyperparams_batch
   end interface
 
 

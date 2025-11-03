@@ -14,7 +14,14 @@ module athena__diffstruc_extd
   public :: maxpool1d, maxpool2d, maxpool3d
   public :: pad1d, pad2d, pad3d
   public :: merge_over_channels
+  public :: batchnorm_array_type, batchnorm, batchnorm_inference
 
+
+  type, extends(array_type) :: batchnorm_array_type
+     real(real32), dimension(:), allocatable :: mean
+     real(real32), dimension(:), allocatable :: variance
+     real(real32) :: epsilon
+  end type batchnorm_array_type
 
 
 !-------------------------------------------------------------------------------
@@ -126,6 +133,33 @@ module athena__diffstruc_extd
        logical, dimension(:,:), intent(in) :: mask
        type(array_type), pointer :: output
      end function merge_scalar_over_channels
+  end interface
+
+  interface
+     module function batchnorm( &
+          input, params, norm, momentum, mean, variance, epsilon &
+     ) result( output )
+       class(array_type), intent(in), target :: input
+       class(array_type), intent(in), target :: params
+       real(real32), intent(in) :: norm
+       real(real32), intent(in) :: momentum
+       real(real32), dimension(:), intent(in) :: mean
+       real(real32), dimension(:), intent(in) :: variance
+       real(real32), intent(in) :: epsilon
+       type(batchnorm_array_type), pointer :: output
+     end function batchnorm
+
+     module function batchnorm_inference( &
+          input, params, norm, mean, variance, epsilon &
+     ) result( output )
+       class(array_type), intent(in), target :: input
+       class(array_type), intent(in), target :: params
+       real(real32), intent(in) :: norm
+       real(real32), dimension(:), intent(in) :: mean
+       real(real32), dimension(:), intent(in) :: variance
+       real(real32), intent(in) :: epsilon
+       type(batchnorm_array_type), pointer :: output
+     end function batchnorm_inference
   end interface
 
 end module athena__diffstruc_extd
