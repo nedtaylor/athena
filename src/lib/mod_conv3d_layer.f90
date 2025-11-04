@@ -760,7 +760,7 @@ contains
     case(.true.)
        call this%pad_layer%forward_derived(input)
        ptr => conv3d(this%pad_layer%output(1,1), this%params_array(1), &
-            this%stp, this%dil
+            this%stp, this%dil &
        )
     case default
        ptr => conv3d(input(1,1), this%params_array(1), this%stp, this%dil)

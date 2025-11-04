@@ -705,15 +705,14 @@ contains
     call this%z(2)%zero_grad()
     ptr => this%params_array(1) .mmul. input(1,1)
     call this%z(1)%assign_and_deallocate_source(ptr)
+    ptr => this%z(1) + this%params_array(2)
 
     ! Apply activation function to activation
     !---------------------------------------------------------------------------
     call this%output(1,1)%zero_grad()
     if(trim(this%transfer%name) .eq. "none") then
-       ptr => this%z(1) + this%params_array(2)
        call this%output(1,1)%assign_and_deallocate_source(ptr)
     else
-       ptr => this%z(1) + this%params_array(2)
        call this%z(2)%assign_and_deallocate_source(ptr)
        ptr => this%transfer%activate(this%z(2))
        call this%output(1,1)%assign_and_deallocate_source(ptr)
