@@ -10,11 +10,13 @@ module athena__diffstruc_extd
 
   public :: array_container_type, array_ptr_type
   public :: add, concat
+  public :: add_bias
   public :: avgpool1d, avgpool2d, avgpool3d
   public :: maxpool1d, maxpool2d, maxpool3d
   public :: pad1d, pad2d, pad3d
   public :: merge_over_channels
   public :: batchnorm_array_type, batchnorm, batchnorm_inference
+  public :: conv1d, conv2d, conv3d
 
 
   type, extends(array_type) :: batchnorm_array_type
@@ -160,6 +162,41 @@ module athena__diffstruc_extd
        real(real32), intent(in) :: epsilon
        type(batchnorm_array_type), pointer :: output
      end function batchnorm_inference
+  end interface
+
+  interface
+     module function conv1d(input, kernel, stride, dilation) result(output)
+       type(array_type), intent(in), target :: input
+       type(array_type), intent(in), target :: kernel
+       integer, intent(in) :: stride
+       integer, intent(in) :: dilation
+       type(array_type), pointer :: output
+     end function conv1d
+
+     module function conv2d(input, kernel, stride, dilation) result(output)
+       type(array_type), intent(in), target :: input
+       type(array_type), intent(in), target :: kernel
+       integer, dimension(2), intent(in) :: stride
+       integer, dimension(2), intent(in) :: dilation
+       type(array_type), pointer :: output
+     end function conv2d
+
+     module function conv3d(input, kernel, stride, dilation) result(output)
+       type(array_type), intent(in), target :: input
+       type(array_type), intent(in), target :: kernel
+       integer, dimension(3), intent(in) :: stride
+       integer, dimension(3), intent(in) :: dilation
+       type(array_type), pointer :: output
+     end function conv3d
+  end interface
+
+  interface
+     module function add_bias(input, bias, dim) result(output)
+       class(array_type), intent(in), target :: input
+       class(array_type), intent(in), target :: bias
+       integer, intent(in) :: dim
+       type(array_type), pointer :: output
+     end function add_bias
   end interface
 
 end module athena__diffstruc_extd

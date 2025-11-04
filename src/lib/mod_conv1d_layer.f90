@@ -1,10 +1,10 @@
 module athena__conv1d_layer
   !! Module containing implementation of a 1D convolutional layer
-  use athena__io_utils, only: stop_program
-  use athena__constants, only: real32
+  use coreutils, only: real32, stop_program
   use athena__base_layer, only: conv_layer_type, base_layer_type
   use athena__pad1d_layer, only: pad1d_layer_type
-  use athena__misc_types, only: initialiser_type, array3d_type
+  use diffstruc, only: array_type
+  use athena__diffstruc_extd, only: conv1d, add_bias
   implicit none
 
 
@@ -16,32 +16,21 @@ module athena__conv1d_layer
 
   type, extends(conv_layer_type) :: conv1d_layer_type
      !! Type for 1D convolutional layer with overloaded procedures
-     real(real32), pointer :: weight(:,:,:) => null()
-     !! Weights of the convolutional layer
-     real(real32), pointer :: dw(:,:,:,:) => null()
-     !! Pointer to weight gradients
-     real(real32), allocatable, dimension(:,:,:) :: z
-     !! Activation values
+     type(array_type), dimension(2) :: z
+     !! Temporary arrays for forward propagation
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_conv1d
      !! Set hyperparameters for 1D convolutional layer
-     procedure, pass(this), private :: &
-          set_ptrs_hyperparams => set_ptrs_hyperparams_conv1d
-     !! Set pointers to hyperparameters
      procedure, pass(this) :: set_batch_size => set_batch_size_conv1d
      !! Set batch size for 1D convolutional layer
      procedure, pass(this) :: print_to_unit => print_to_unit_conv1d
      !! Print 1D convolutional layer to unit
      procedure, pass(this) :: read => read_conv1d
      !! Read 1D convolutional layer from file
-     procedure, pass(this) :: forward  => forward_rank
-     !! Forward propagation handler for 1D convolutional layer
-     procedure, pass(this) :: backward => backward_rank
-     !! Backward propagation handler for 1D convolutional layer
-     procedure, private, pass(this) :: forward_3d
-     !! Forward propagation for 3D input
-     procedure, private, pass(this) :: backward_3d
-     !! Backward propagation for 3D input
+
+     procedure, pass(this) :: forward_derived => forward_derived_conv1d
+     !! Forward propagation derived type handler
+
      final :: finalise_conv1d
      !! Finalise 1D convolutional layer
   end type conv1d_layer_type
@@ -99,10 +88,6 @@ contains
     if(allocated(this%pad)) deallocate(this%pad)
     if(allocated(this%cen)) deallocate(this%cen)
 
-    if(associated(this%bias)) nullify(this%bias)
-    if(associated(this%weight)) nullify(this%weight)
-    if(associated(this%dw)) nullify(this%dw)
-    if(allocated(this%z)) deallocate(this%z)
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
     if(allocated(this%di)) deallocate(this%di)
@@ -111,107 +96,6 @@ contains
     if(allocated(this%pad_layer)) deallocate(this%pad_layer)
 
   end subroutine finalise_conv1d
-!###############################################################################
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
-
-!###############################################################################
-  subroutine forward_rank(this, input)
-    !! Forward propagation handler for 1D convolutional layer
-    implicit none
-
-    ! Arguments
-    class(conv1d_layer_type), intent(inout) :: this
-    !! Instance of the 1D convolutional layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input values
-
-    select case(allocated(this%pad_layer))
-    case(.true.)
-       call this%pad_layer%forward(input)
-       call forward_3d(this, this%pad_layer%output(1,1)%val)
-    case default
-       select rank(input)
-       rank(2)
-          call forward_3d(this, input)
-       rank(3)
-          call forward_3d(this, input)
-       end select
-    end select
-  end subroutine forward_rank
-!###############################################################################
-
-
-!###############################################################################
-  subroutine backward_rank(this, input, gradient)
-    !! Backward propagation handler for 1D convolutional layer
-    implicit none
-
-    ! Arguments
-    class(conv1d_layer_type), intent(inout) :: this
-    !! Instance of the 1D convolutional layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input values
-    real(real32), dimension(..), intent(in) :: gradient
-    !! Gradient values
-
-    select case(allocated(this%pad_layer))
-    case(.true.)
-       select rank(input)
-       rank(2)
-          select rank(gradient)
-          rank(2)
-             call backward_3d( &
-                  this, this%pad_layer%output(1,1)%val, gradient, &
-                  this%di_padded%val &
-             )
-          end select
-          call this%pad_layer%backward(input, this%di_padded%val)
-       rank(3)
-          select rank(gradient)
-          rank(1)
-             call backward_3d( &
-                  this, this%pad_layer%output(1,1)%val, gradient, &
-                  this%di_padded%val &
-             )
-          rank(2)
-             call backward_3d( &
-                  this, this%pad_layer%output(1,1)%val, gradient, &
-                  this%di_padded%val &
-             )
-          rank(3)
-             call backward_3d( &
-                  this, this%pad_layer%output(1,1)%val, gradient, &
-                  this%di_padded%val &
-             )
-          end select
-          call this%pad_layer%backward(input, this%di_padded%val)
-       end select
-       this%di(1,1)%val = this%di_padded%val
-    case default
-       select rank(input)
-       rank(2)
-          select rank(gradient)
-          rank(2)
-             call backward_3d(this, input, gradient, this%di(1,1)%val)
-          end select
-       rank(3)
-          select rank(gradient)
-          rank(1)
-             call backward_3d(this, input, gradient, this%di(1,1)%val)
-          rank(2)
-             call backward_3d(this, input, gradient, this%di(1,1)%val)
-          rank(3)
-             call backward_3d(this, input, gradient, this%di(1,1)%val)
-          end select
-       end select
-    end select
-
-  end subroutine backward_rank
 !###############################################################################
 
 
@@ -480,37 +364,6 @@ contains
 
 
 !###############################################################################
-  subroutine set_ptrs_hyperparams_conv1d(this)
-    !! Set pointers to hyperparameters for 1D convolutional layer
-    implicit none
-
-    ! Arguments
-    class(conv1d_layer_type), intent(inout), target :: this
-    !! Instance of the 1D convolutional layer
-
-    if(allocated(this%params))then
-       this%weight( &
-            1:this%knl(1), &
-            1:this%num_channels, &
-            1:this%num_filters &
-       ) => this%params(1:this%num_params-this%num_filters)
-       this%bias(1:this%num_filters) => &
-            this%params(this%num_params-this%num_filters+1:)
-    end if
-    if(allocated(this%dp))then
-       this%dw( &
-            1:this%knl(1), &
-            1:this%num_channels, &
-            1:this%num_filters, &
-            1:this%batch_size &
-       ) => this%dp(:,:)
-    end if
-
-  end subroutine set_ptrs_hyperparams_conv1d
-!###############################################################################
-
-
-!###############################################################################
   subroutine set_batch_size_conv1d(this, batch_size, verbose)
     !! Set batch size for 1D convolutional layer
     implicit none
@@ -526,6 +379,8 @@ contains
     ! Local variables
     integer :: verbose_ = 0
     !! Verbosity level
+    integer :: i
+    !! Loop index
 
 
     !---------------------------------------------------------------------------
@@ -540,18 +395,6 @@ contains
     !---------------------------------------------------------------------------
     if(allocated(this%pad_layer)) &
          call this%pad_layer%set_batch_size(this%batch_size, verbose=verbose_)
-
-
-    !---------------------------------------------------------------------------
-    ! Set weights and biases pointers to params array
-    !---------------------------------------------------------------------------
-    this%weight( &
-         1:this%knl(1), &
-         1:this%num_channels, &
-         1:this%num_filters &
-    ) => this%params(1:this%num_params-this%num_filters)
-    this%bias(1:this%num_filters) => &
-         this%params(this%num_params-this%num_filters+1:)
 
 
     !---------------------------------------------------------------------------
@@ -573,46 +416,16 @@ contains
                  this%batch_size ], &
             source=0._real32 &
        )
-       if(allocated(this%z)) deallocate(this%z)
-       !  select type(output => this%output(1,1))
-       !  type is (array3d_type)
-       !     allocate(this%z, source=output%val_ptr)
-       !  end select
-       if(allocated(this%di)) deallocate(this%di)
-       allocate( this%di(1,1), source = array3d_type() )
-       call this%di(1,1)%allocate( &
-            array_shape = [ &
-                 this%input_shape(1), &
-                 this%input_shape(2), &
-                 this%batch_size ], &
-            source=0._real32 &
-       )
-
-       if(allocated(this%pad_layer))then
-          if(.not.allocated(this%di_padded)) this%di_padded = array3d_type()
-          if(this%di_padded%allocated) call this%di_padded%deallocate()
-          call this%di_padded%allocate( &
+       do i = 1, 2
+          if(this%z(i)%allocated) call this%z(i)%deallocate()
+          call this%z(i)%allocate( &
                array_shape = [ &
-                    this%input_shape(1) + 2 * this%pad(1), &
-                    this%input_shape(2), &
+                    this%output_shape(1), &
+                    this%num_filters, &
                     this%batch_size ], &
                source=0._real32 &
           )
-       end if
-
-       if(allocated(this%dp)) deallocate(this%dp)
-       allocate( &
-            this%dp( this%num_params - this%num_filters, this%batch_size), &
-            source=0._real32 &
-       )
-       this%dw( &
-            1:this%knl(1), &
-            1:this%num_channels, &
-            1:this%num_filters, &
-            1:this%batch_size &
-       ) => this%dp(:,:)
-       if(allocated(this%db)) deallocate(this%db)
-       allocate(this%db(this%num_filters, this%batch_size), source=0._real32)
+       end do
     end if
 
   end subroutine set_batch_size_conv1d
@@ -637,7 +450,7 @@ contains
     !! File unit
 
     ! Local variables
-    integer :: l
+    integer :: l, num_elements
     !! Loop index
     character(:), allocatable :: padding_type
     !! Padding type
@@ -668,11 +481,8 @@ contains
     ! Write weights and biases
     !---------------------------------------------------------------------------
     write(unit,'("WEIGHTS")')
-    do l = 1, this%num_filters
-       write(unit,'(5(E16.8E2))', advance="no") this%weight(:,:,l)
-       if(mod(size(this%weight(:,:,l)),5).eq.0) write(unit,*)
-       write(unit,'(E16.8E2)') this%bias(l)
-    end do
+    write(unit,'(5(E16.8E2))') this%params_array(1)%val(:,1)
+    write(unit,'(5(E16.8E2))') this%params_array(2)%val(:,1)
     write(unit,'("END WEIGHTS")')
 
   end subroutine print_to_unit_conv1d
@@ -898,192 +708,47 @@ contains
 
 
 !###############################################################################
-  subroutine forward_3d(this, input)
-    !! Forward propagation for 3D input
+  subroutine forward_derived_conv1d(this, input)
+    !! Forward propagation
     implicit none
 
     ! Arguments
     class(conv1d_layer_type), intent(inout) :: this
     !! Instance of the 1D convolutional layer
-    real(real32), &
-         dimension( &
-              1:this%input_shape(1) + 2 * this%pad(1), &
-              this%num_channels,this%batch_size), &
-         intent(in) :: input
+    class(array_type), dimension(:,:), intent(in) :: input
     !! Input values
 
-    ! Local variables
-    integer :: i, l, s
-    !! Loop indices
-    integer :: start_idx, end_idx
-    !! Start and end indices for convolution
+    type(array_type), pointer :: ptr
 
 
-    ! Perform the convolution operation
+    ! Generate outputs from weights, biases, and inputs
     !---------------------------------------------------------------------------
-    do concurrent(i=1:this%output_shape(1):1)
-       start_idx = (i-1)*this%stp(1) + 1
-       end_idx   = start_idx + this%knl(1) - 1
-
-       do concurrent(s=1:this%batch_size)
-          this%z(i,:,s) = this%bias(:)
-       end do
-
-       do concurrent(l=1:this%num_filters, s=1:this%batch_size)
-          this%z(i,l,s) = this%z(i,l,s) + &
-               sum( &
-                    input( &
-                         start_idx:end_idx,:,s &
-                    ) * this%weight(:,:,l) &
-               )
-       end do
-    end do
-
-
-    ! Apply activation function to activation values (z)
-    !---------------------------------------------------------------------------
-    !  select type(output => this%output(1,1))
-    !  type is (array3d_type)
-    !     output%val_ptr = this%transfer%activate(this%z)
-    !  end select
-
-  end subroutine forward_3d
-!###############################################################################
-
-
-!###############################################################################
-  subroutine backward_3d(this, input, gradient, di)
-    !! Backward propagation for 3D input
-    implicit none
-
-    ! Arguments
-    class(conv1d_layer_type), intent(inout) :: this
-    !! Instance of the 1D convolutional layer
-    real(real32), &
-         dimension( &
-              1:this%input_shape(1) + 2 * this%pad(1), &
-              this%num_channels,this%batch_size), &
-         intent(in) :: input
-    !! Input values
-    real(real32), &
-         dimension( &
-              this%output_shape(1), &
-              this%num_filters,this%batch_size), &
-         intent(in) :: gradient
-    !! Gradient values
-    real(real32), &
-         dimension( &
-              1:this%input_shape(1) + 2 * this%pad(1), &
-              this%num_channels,this%batch_size), &
-         intent(inout) :: di
-    !! Input gradients
-
-    ! Local variables
-    integer :: l, m, i, x, s
-    !! Loop indices
-    integer :: offset, n_stp
-    !! Offset and number of steps
-    integer, dimension(2) :: lim, lim_w, lim_g
-    !! Limits for weights and gradients
-    real(real32), &
-         dimension( &
-              this%output_shape(1),this%num_filters, &
-              this%batch_size) :: grad_dz
-    !! Gradient multiplied by differential of Z (aka delta values)
-
-    ! Local variables
-    real(real32), dimension(1) :: bias_diff
-    !! Differential of bias
-
-
-    bias_diff = this%transfer%differentiate([1._real32])
-
-
-    ! Get gradient multiplied by differential of Z
-    !---------------------------------------------------------------------------
-    grad_dz = gradient * &
-         this%transfer%differentiate(this%z)
-    do concurrent(l=1:this%num_filters, s=1:this%batch_size)
-       this%db(l,s) = this%db(l,s) + sum(grad_dz(:,l,s)) * bias_diff(1)
-    end do
-
-
-    ! Apply convolution to compute weight gradients
-    ! Offset applied as centre of kernel is 0 ...
-    ! ... whilst the starting index for input is 1
-    !---------------------------------------------------------------------------
-    do concurrent( &
-         s = 1 : this%batch_size, &
-         l = 1 : this%num_filters, &
-         m = 1 : this%num_channels &
-    )
-       do x = 1, this%knl(1), 1
-          do i = 1, this%output_shape(1)
-             this%dw(x,m,l,s) = this%dw(x,m,l,s) + &
-                  grad_dz(i,l,s) * &
-                  input( &
-                       x + ( i - 1 ) * this%stp(1), &
-                       m, s &
-                  )
-          end do
-       end do
-    end do
-
-
-    ! Apply strided convolution to obtain input gradients
-    !---------------------------------------------------------------------------
-    if(this%calc_input_gradients)then
-       offset  = 1 + this%hlf(1) + (this%cen(1) - 1)
-       lim(1) = this%knl(1) + this%hlf(1)
-       lim(2) = (this%output_shape(1) - 1) * this%stp(1) + 1 + this%knl(1)
-       n_stp = this%output_shape(1) * this%stp(1)
-       ! All elements of the output are separated by stride_x
-       di = 0._real32
-       do concurrent( &
-            s = 1 : this%batch_size, &
-            l = 1 : this%num_filters, &
-            m = 1 : this%num_channels, &
-            i = 1 : size(di,dim=1) : 1 &
+    call this%z(1)%zero_grad()
+    call this%z(2)%zero_grad()
+    select case(allocated(this%pad_layer))
+    case(.true.)
+       call this%pad_layer%forward_derived(input)
+       ptr => conv1d(this%pad_layer%output(1,1), this%params_array(1), &
+            this%stp(1), this%dil(1) &
        )
+    case default
+       ptr => conv1d(input(1,1), this%params_array(1), this%stp(1), this%dil(1))
+    end select
+    call this%z(1)%assign_and_deallocate_source(ptr)
+    ptr => add_bias(this%z(1), this%params_array(2), dim=2)
 
-          ! Set weight bounds (o/p = output)
-          ! max( ...
-          ! ... 1. offset of 1st o/p idx from centre of knl     (lim)
-          ! ... 2. lwst o/p idx overlap with <<- knl idx (rpt. pattern)
-          ! ...)
-          lim_w(2) = max( &
-               lim(1) - i, &
-               1 + mod(n_stp+this%knl(1)-i,this%stp(1)) &
-          )
-          ! min( ...
-          ! ... 1. offset of last o/p idx from centre of knl    (lim)
-          ! ... 2. hghst o/p idx overlap with ->> knl idx (rpt. pattern)
-          ! ...)
-          lim_w(1) = min( &
-               lim(2) - i, &
-               this%knl(1) - mod(n_stp-1+i,this%stp(1)) &
-          )
-          if(lim_w(2).gt.lim_w(1)) cycle
-
-          ! Set gradient bounds
-          lim_g(1) = max(1,                    i - offset)
-          lim_g(2) = min(this%output_shape(1), i - offset + this%knl(1) - 1)
-
-          ! Apply full convolution to compute input gradients
-          di(i,m,s) = di(i,m,s) + &
-               sum( &
-                    grad_dz( &
-                         lim_g(1):lim_g(2), &
-                         l, s &
-                    ) * this%weight( &
-                         lim_w(1):lim_w(2):-this%stp(1), &
-                         m, l &
-                    ) &
-               )
-       end do
+    ! Apply activation function to activation
+    !---------------------------------------------------------------------------
+    call this%output(1,1)%zero_grad()
+    if(trim(this%transfer%name) .eq. "none") then
+       call this%output(1,1)%assign_and_deallocate_source(ptr)
+    else
+       call this%z(2)%assign_and_deallocate_source(ptr)
+       ptr => this%transfer%activate(this%z(2))
+       call this%output(1,1)%assign_and_deallocate_source(ptr)
     end if
 
-  end subroutine backward_3d
+  end subroutine forward_derived_conv1d
 !###############################################################################
 
 end module athena__conv1d_layer

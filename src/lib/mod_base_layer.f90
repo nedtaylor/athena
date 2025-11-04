@@ -470,7 +470,7 @@ module athena__base_layer
      !! Number of channels
      integer :: num_filters
      !! Number of filters
-     integer, allocatable, dimension(:) :: knl, stp, pad
+     integer, allocatable, dimension(:) :: knl, stp, pad, dil
      !! Kernel, stride, and padding sizes
      integer, allocatable, dimension(:) :: hlf, cen
      !! Half and centre sizes

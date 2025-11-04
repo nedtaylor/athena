@@ -61,7 +61,7 @@ module athena
   !-----------------------------------------------------------------------------
   use athena__misc_types, only: initialiser_type
   use athena__initialiser_he, only: he_uniform_type, he_normal_type
-  ! use athena__initialiser_he, only: glorot_uniform_type, glorot_normal_type
+  ! use athena__initialiser_glorot, only: glorot_uniform_type, glorot_normal_type
 
 
   ! Abstract layer types
@@ -95,11 +95,11 @@ module athena
        batchnorm3d_layer_type, read_batchnorm3d_layer
 
 
-!   ! Convolution layer types
-!   !-----------------------------------------------------------------------------
-!   use athena__conv1d_layer,    only: conv1d_layer_type, read_conv1d_layer
-!   use athena__conv2d_layer,    only: conv2d_layer_type, read_conv2d_layer
-!   use athena__conv3d_layer,    only: conv3d_layer_type, read_conv3d_layer
+  ! Convolution layer types
+  !-----------------------------------------------------------------------------
+  use athena__conv1d_layer,    only: conv1d_layer_type, read_conv1d_layer
+  use athena__conv2d_layer,    only: conv2d_layer_type, read_conv2d_layer
+  use athena__conv3d_layer,    only: conv3d_layer_type, read_conv3d_layer
 
 
 ! ! !   ! Deep set layer types
