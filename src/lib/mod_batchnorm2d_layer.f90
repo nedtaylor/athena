@@ -84,7 +84,6 @@ contains
     if(allocated(this%variance)) deallocate(this%variance)
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
-    if(allocated(this%di)) deallocate(this%di)
 
   end subroutine finalise_batchnorm2d
 !###############################################################################

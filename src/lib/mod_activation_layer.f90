@@ -305,7 +305,6 @@ contains
              call stop_program('Activation layer only supports input ranks 1-4')
              return
           end select
-          allocate(this%di(1,1), source=this%output(1,1))
        end if
     end if
 
