@@ -54,7 +54,7 @@ contains
        class is(learnable_layer_type)
           select type(layer_source => source%model(i)%layer)
           class is(learnable_layer_type)
-             call layer_this%merge(layer_source)
+             call layer_this%reduce(layer_source)
           end select
        end select
     end do

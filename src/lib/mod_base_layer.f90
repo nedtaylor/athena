@@ -15,7 +15,7 @@ module athena__base_layer
   !! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
   use coreutils, only: real32
   use athena__clipper, only: clip_type
-  use diffstruc, only: array_type
+  use diffstruc, only: array_type, operator(+)
   use athena__diffstruc_extd, only: array_ptr_type
   use athena__misc_types, only: activation_type, initialiser_type, facets_type
   use graphstruc, only: graph_type
@@ -394,9 +394,7 @@ module athena__base_layer
      !! Set learnable parameters of layer
 
      procedure, pass(this) :: reduce => reduce_learnable
-     !! Reduce two layers to a single value
-     procedure, pass(this) :: merge => merge_learnable
-     !! Merge two layers
+     !! Merge another learnable layer into this one
      procedure :: add_t_t => add_learnable
      !! Add two layers
      generic :: operator(+) => add_t_t
@@ -404,21 +402,13 @@ module athena__base_layer
   end type learnable_layer_type
 
   interface
-     module subroutine reduce_learnable(this, rhs)
-       !! Reduce two layers to a single value
-       class(learnable_layer_type), intent(inout) :: this
-       !! Instance of the layer
-       class(learnable_layer_type), intent(in) :: rhs
-       !! Instance of the layer
-     end subroutine reduce_learnable
-
-     module subroutine merge_learnable(this, input)
-       !! Merge two layers
+     module subroutine reduce_learnable(this, input)
+       !! Merge another learnable layer into this one
        class(learnable_layer_type), intent(inout) :: this
        !! Instance of the layer
        class(learnable_layer_type), intent(in) :: input
-       !! Instance of the layer
-     end subroutine merge_learnable
+       !! Other layer to merge
+     end subroutine reduce_learnable
 
      module function add_learnable(a, b) result(output)
        !! Add two layers

@@ -85,12 +85,6 @@ program test_full_layer
            call full_layer1%reduce(full_layer3)
            call compare_full_layers(&
                 full_layer1, full_layer2, success, full_layer3)
-
-           !! check layer merge
-           full_layer1 = full_layer2
-           call full_layer1%merge(full_layer3)
-           call compare_full_layers(&
-                full_layer1, full_layer2, success, full_layer3)
         class default
            success = .false.
            write(0,*) 'full layer has wrong type'
@@ -113,7 +107,7 @@ program test_full_layer
   ! Create a temporary file for testing
   open(newunit=unit, file='test_full_layer.tmp', &
        status='replace', action='write')
-  
+
   ! Write layer to file
   write(unit,'("FULL")')
   call full_layer1%print_to_unit(unit)
@@ -179,10 +173,6 @@ contains
        if(any(abs(layer1%dp-layer2%dp-layer3%dp).gt.1.E-6))then
           success = .false.
           write(0,*) 'full layer has wrong gradients'
-       end if
-       if(any(abs(layer1%dw-layer2%dw-layer3%dw).gt.1.E-6))then
-          success = .false.
-          write(0,*) 'full layer has wrong weight gradients'
        end if
        if(any(abs(layer1%db-layer2%db-layer3%db).gt.1.E-6))then
           success = .false.

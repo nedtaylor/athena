@@ -420,20 +420,34 @@ contains
 
 
 !###############################################################################
-  module subroutine reduce_learnable(this, rhs)
-    !! Reduce two learnable layers to a single one via summation
+  module subroutine reduce_learnable(this, input)
+    !! Merge two learnable layers via summation
     implicit none
 
     ! Arguments
     class(learnable_layer_type), intent(inout) :: this
     !! Instance of the layer
-    class(learnable_layer_type), intent(in) :: rhs
+    class(learnable_layer_type), intent(in) :: input
     !! Instance of a layer
 
-    this%dp = this%dp + rhs%dp
-    this%db = this%db + rhs%db
+    ! Local variables
+    integer :: i
+    !! Loop index
 
-  end subroutine  reduce_learnable
+    if(allocated(this%params_array).and.allocated(input%params_array))then
+       if(size(this%params_array).ne.size(input%params_array))then
+          call stop_program("reduce_learnable: incompatible parameter sizes")
+          return
+       end if
+       do i = 1, size(this%params_array,1)
+          this%params_array(i) = this%params_array(i) + input%params_array(i)
+       end do
+    else
+       call stop_program("reduce_learnable: unallocated parameter arrays")
+       return
+    end if
+
+  end subroutine reduce_learnable
 !###############################################################################
 
 
@@ -448,29 +462,25 @@ contains
     class(learnable_layer_type), allocatable :: output
     !! Output layer
 
+    ! Local variables
+    integer :: i
+    !! Loop index
+
     output = a
-    output%dp = output%dp + b%dp
-    output%db = output%db + b%db
+    if(allocated(a%params_array).and.allocated(b%params_array))then
+       if(size(a%params_array).ne.size(b%params_array))then
+          call stop_program("add_learnable: incompatible parameter sizes")
+          return
+       end if
+       do i = 1, size(a%params_array,1)
+          output%params_array(i) = a%params_array(i) + b%params_array(i)
+       end do
+    else
+       call stop_program("add_learnable: unallocated parameter arrays")
+       return
+    end if
 
   end function add_learnable
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine merge_learnable(this, input)
-    !! Merge two learnable layers via summation
-    implicit none
-
-    ! Arguments
-    class(learnable_layer_type), intent(inout) :: this
-    !! Instance of the layer
-    class(learnable_layer_type), intent(in) :: input
-    !! Instance of a layer
-
-    this%dp = this%dp + input%dp
-    this%db = this%db + input%db
-
-  end subroutine merge_learnable
 !###############################################################################
 
 
@@ -489,7 +499,17 @@ contains
     real(real32), dimension(this%num_params) :: params
     !! Learnable parameters
 
-    params = this%params
+    ! Local variables
+    integer :: i, start_idx, end_idx
+    !! Loop indices
+
+    start_idx = 0
+    end_idx = 0
+    do i = 1, size(this%params_array)
+       start_idx = end_idx + 1
+       end_idx = start_idx + size(this%params_array(i)%val,1) - 1
+       params(start_idx:end_idx) = this%params_array(i)%val(:,1)
+    end do
 
   end function get_params
 !###############################################################################
@@ -510,7 +530,21 @@ contains
     real(real32), dimension(this%num_params), intent(in) :: params
     !! Learnable parameters
 
-    this%params = params
+    ! Local variables
+    integer :: i, start_idx, end_idx
+    !! Loop indices
+
+    if(.not.allocated(this%params_array)) then
+       call stop_program("set_params: params not allocated")
+       return
+    end if
+    start_idx = 0
+    end_idx = 0
+    do i = 1, size(this%params_array)
+       start_idx = end_idx + 1
+       end_idx = start_idx + size(this%params_array(i)%val,1) - 1
+       this%params_array(i)%val(:,1) = params(start_idx:end_idx)
+    end do
 
   end subroutine set_params
 !###############################################################################
@@ -533,12 +567,25 @@ contains
     real(real32), dimension(this%num_params) :: gradients
     !! Gradients of the layer
 
-    if(this%has_bias)then
-       gradients = [ sum(this%dp, dim=2) / this%batch_size, &
-            sum(this%db, dim=2) / this%batch_size ]
-    else
-       gradients = [ sum(this%dp, dim=2) / this%batch_size ]
+    ! Local variables
+    integer :: i, start_idx, end_idx
+    !! Loop indices
+
+    if(.not.allocated(this%params_array)) then
+       return
     end if
+    start_idx = 0
+    end_idx = 0
+    do i = 1, size(this%params_array)
+       start_idx = end_idx + 1
+       end_idx = start_idx + size(this%params_array(i)%val,1) - 1
+       if(.not.associated(this%params_array(i)%grad)) then
+          gradients(start_idx:end_idx) = 0._real32
+       else
+          gradients(start_idx:end_idx) = &
+               sum( this%params_array(i)%grad%val, dim=2 ) / this%batch_size
+       end if
+    end do
 
     if(present(clip_method)) call clip_method%apply(size(gradients),gradients)
 
@@ -560,25 +607,32 @@ contains
     real(real32), dimension(..), intent(in) :: gradients
     !! Gradients of the layer
 
+    ! Local variables
+    integer :: i, start_idx, end_idx
+    !! Loop indices
+
+    start_idx = 0
+    end_idx = 0
     select rank(gradients)
     rank(0)
-       this%dp = gradients
-       if(this%has_bias) this%db = gradients
+       do i = 1, size(this%params_array)
+          if(.not.associated(this%params_array(i)%grad)) then
+             this%params_array(i)%grad => this%params_array(i)%create_result()
+          end if
+          start_idx = end_idx + 1
+          end_idx = start_idx + size(this%params_array(i)%val,1) - 1
+          this%params_array(i)%grad%val(:,1) = gradients
+       end do
     rank(1)
-       if(this%has_bias)then
-          this%dp = spread( &
-               gradients(1:this%num_params - size(this%db,1)), &
-               2, &
-               this%batch_size &
-          )
-          this%db = spread( &
-               gradients(this%num_params - size(this%db,1) + 1:), &
-               2, &
-               this%batch_size &
-          )
-       else
-          this%dp = spread(gradients(1:this%num_params), 2, this%batch_size)
-       end if
+       do i = 1, size(this%params_array)
+          if(.not.associated(this%params_array(i)%grad)) then
+             this%params_array(i)%grad => this%params_array(i)%create_result()
+          end if
+          start_idx = end_idx + 1
+          end_idx = start_idx + size(this%params_array(i)%val,1) - 1
+          this%params_array(i)%grad%val = &
+               spread(gradients(start_idx:end_idx), 2, this%batch_size)
+       end do
     end select
 
   end subroutine set_gradients
@@ -797,12 +851,11 @@ contains
          ) / real(this%stp) &
     ) + 1
     this%num_params = this%get_num_params()
-    if(allocated(this%params)) deallocate(this%params)
-    allocate(this%params(this%num_params), source=0._real32)
     allocate(this%weight_shape(this%input_rank + 1,1))
     this%weight_shape(:,1) = [ this%knl, this%num_channels, this%num_filters ]
     this%bias_shape = [this%num_filters]
 
+    if(allocated(this%params_array)) deallocate(this%params_array)
     allocate(this%params_array(2))
     call this%params_array(1)%allocate([this%weight_shape(:,1), 1])
     call this%params_array(1)%set_requires_grad(.true.)

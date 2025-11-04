@@ -33,9 +33,6 @@ module athena__full_layer
      !! Get the number of parameters for fully connected layer
      procedure, pass(this) :: set_hyperparams => set_hyperparams_full
      !! Set the hyperparameters for fully connected layer
-     procedure, pass(this), private :: &
-          set_ptrs_hyperparams => set_ptrs_hyperparams_full
-     !! Set the pointers to hyperparameters
      procedure, pass(this) :: init => init_full
      !! Initialise fully connected layer
      procedure, pass(this) :: set_batch_size => set_batch_size_full
@@ -282,25 +279,6 @@ contains
     end if
 
   end subroutine set_hyperparams_full
-!###############################################################################
-
-
-!###############################################################################
-  subroutine set_ptrs_hyperparams_full(this)
-    !! Set the pointers to hyperparameters
-    implicit none
-
-    ! Arguments
-    class(full_layer_type), intent(inout), target :: this
-    !! Instance of the fully connected layer
-
-    ! if(allocated(this%params)) &
-    !      this%weight(1:this%num_outputs,1:this%num_inputs+1) => this%params
-    ! if(allocated(this%dp)) &
-    !      this%dw(1:this%num_outputs,1:this%num_inputs,1:this%batch_size) => &
-    !      this%dp
-
-  end subroutine set_ptrs_hyperparams_full
 !###############################################################################
 
 
