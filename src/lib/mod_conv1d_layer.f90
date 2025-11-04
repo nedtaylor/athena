@@ -82,6 +82,7 @@ contains
     type(conv1d_layer_type), intent(inout) :: this
     !! Instance of the 1D convolutional layer
 
+    if(allocated(this%dil)) deallocate(this%dil)
     if(allocated(this%knl)) deallocate(this%knl)
     if(allocated(this%stp)) deallocate(this%stp)
     if(allocated(this%hlf)) deallocate(this%hlf)
@@ -316,12 +317,14 @@ contains
     if(allocated(this%pad)) deallocate(this%pad)
     if(allocated(this%cen)) deallocate(this%cen)
     allocate( &
+         this%dil(this%input_rank-1), &
          this%knl(this%input_rank-1), &
          this%stp(this%input_rank-1), &
          this%hlf(this%input_rank-1), &
          this%pad(this%input_rank-1), &
          this%cen(this%input_rank-1) &
     )
+    this%dil = 1
     this%knl = kernel_size
     this%stp = stride
     this%cen = 2 - mod(this%knl, 2)

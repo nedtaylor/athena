@@ -4,7 +4,7 @@ module athena__activation_gaussian
   !! This module implements the Gaussian (bell curve) activation function
   use athena__constants, only: pi
   use coreutils, only: real32
-  use diffstruc, only: array_type
+  use diffstruc, only: array_type, gaussian, operator(*)
   use athena__misc_types, only: activation_type
   implicit none
 
@@ -96,7 +96,8 @@ contains
     type(array_type), pointer :: output
     !! Gaussian activated output values
 
-    ! output = gauss(val, this%sigma, this%scale, this%threshold)
+    output => this%scale * gaussian(val, 0._real32, this%sigma)
+
   end function gaussian_activate_array
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------

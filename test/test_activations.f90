@@ -1,4 +1,5 @@
 program test_activations
+  use coreutils, only: real32
   use athena, only: &
        full_layer_type, &
        conv2d_layer_type, &
@@ -11,11 +12,8 @@ program test_activations
   use athena__activation_softmax, only: softmax_setup ! threshold
   use athena__activation_swish, only: swish_setup ! threshold
   use athena__activation_tanh, only: tanh_setup ! threshold
-  use athena__misc_types, only: activation_type, &
-       array2d_type, &
-       array3d_type, &
-       array4d_type, &
-       array5d_type
+  use athena__misc_types, only: activation_type
+  use diffstruc, only: array_type
   implicit none
 
   class(base_layer_type), allocatable :: full_layer, conv2d_layer, conv3d_layer
@@ -42,6 +40,7 @@ program test_activations
   real, dimension(10) :: activate, differentiate
   real, dimension(1) :: value_1d, rtmp1_1d
   real, dimension(1,1,1) :: value_3d, rtmp1_3d
+  type(array_type) :: input(1,1)
 
 
 !-------------------------------------------------------------------------------
@@ -242,16 +241,19 @@ program test_activations
            write(0,*) 'activation has wrong name for ', &
                 trim(activation_names(i))
         else
-           call full_layer%forward(input_data)
+           call input(1,1)%allocate(array_shape=[num_inputs, batch_size], &
+                source=1._real32)
+           call full_layer%forward_derived(input)
            call compare_output( &
                 full_layer%output(1,1)%val, &
-                input_data, activation_names(i), "full", success)
+                input(1,1)%val, activation_names(i), "full", success)
 
            full_layer%output(1,1)%val = 1.E0
            call compare_derivative( &
                 full_layer%transfer%differentiate(full_layer%output(1,1)%val), &
                 full_layer%output(1,1)%val, &
                 activation_names(i), "full", success)
+           call input(1,1)%deallocate()
         end if
      class default
         success = .false.
@@ -282,22 +284,21 @@ program test_activations
            write(0,*) 'activation has wrong name for ', &
                 trim(activation_names(i))
         else
-           call conv2d_layer%forward(input_data_conv2d)
-           !   select type(output => conv2d_layer%output(1,1))
-           !   type is(array4d_type)
-           !      call compare_output( &
-           !           output%val_ptr, &
-           !           input_data_conv2d, activation_names(i), "conv2d", success)
+           call input(1,1)%allocate( &
+                array_shape = [width, width, num_channels, batch_size], &
+                source = 1._real32 &
+           )
+           call conv2d_layer%forward_derived(input)
+           call compare_output( &
+                conv2d_layer%output(1,1)%val, &
+                input(1,1)%val, activation_names(i), "conv2d", success)
 
-           !      output%val = 1.E0
-           !      call compare_derivative( &
-           !           conv2d_layer%transfer%differentiate(output%val_ptr), &
-           !           output%val_ptr, &
-           !           activation_names(i), "conv2d", success)
-           !   class default
-           !      success = .false.
-           !      write(0,*) 'conv2d layer output is not of type array4d_type'
-           !   end select
+           conv2d_layer%output(1,1)%val = 1.E0
+           call compare_derivative( &
+                conv2d_layer%transfer%differentiate(conv2d_layer%output(1,1)%val), &
+                conv2d_layer%output(1,1)%val, &
+                activation_names(i), "conv2d", success)
+           call input(1,1)%deallocate()
         end if
      class default
         success = .false.
@@ -328,22 +329,20 @@ program test_activations
            write(0,*) 'activation has wrong name for ', &
                 trim(activation_names(i))
         else
-           call conv3d_layer%forward(input_data_conv3d)
-           !   select type(output => conv3d_layer%output(1,1))
-           !   type is(array5d_type)
-           !      call compare_output( &
-           !           output%val_ptr, &
-           !           input_data_conv3d, activation_names(i), "conv3d", success)
-
-           !      output%val = 1.E0
-           !      call compare_derivative( &
-           !           conv3d_layer%transfer%differentiate(output%val_ptr), &
-           !           output%val_ptr, &
-           !           activation_names(i), "conv3d", success)
-           !   class default
-           !      success = .false.
-           !      write(0,*) 'conv3d layer output is not of type array4d_type'
-           !   end select
+           call input(1,1)%allocate( &
+                array_shape = [width, width, width, num_channels, batch_size], &
+                source = 1._real32 &
+           )
+           call conv3d_layer%forward_derived(input)
+           call compare_output( &
+                conv3d_layer%output(1,1)%val, &
+                input(1,1)%val, activation_names(i), "conv3d", success)
+           conv3d_layer%output(1,1)%val = 1.E0
+           call compare_derivative( &
+                conv3d_layer%transfer%differentiate(conv3d_layer%output(1,1)%val), &
+                conv3d_layer%output(1,1)%val, &
+                activation_names(i), "conv3d", success)
+           call input(1,1)%deallocate()
         end if
      class default
         success = .false.

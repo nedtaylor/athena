@@ -160,6 +160,7 @@ contains
     window_width = min(this%window_width, this%num_entries)
     if(window_width .le. 0) then
        call stop_program("Window width is zero or negative")
+       return
     end if
     window_ubound = this%num_entries
     window_lbound = window_ubound - window_width + 1

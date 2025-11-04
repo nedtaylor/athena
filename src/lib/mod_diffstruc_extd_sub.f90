@@ -1,6 +1,7 @@
 submodule (athena__diffstruc_extd) athena__diffstruc_extd_submodule
   !! Submodule containing implementations for extended diffstruc array operations
   use coreutils, only: stop_program
+  use diffstruc, only: operator(+), operator(-), operator(*), operator(.concat.), exp, sum
 
 contains
 
@@ -152,6 +153,120 @@ contains
     end do
 
   end function get_partial_add_bias
+!###############################################################################
+
+
+!###############################################################################
+  module function piecewise_array(input, min_val, max_val, intercept) result(output)
+    !! Apply piecewise activation function to input array
+    implicit none
+
+    ! Arguments
+    class(array_type), intent(in), target :: input
+    real(real32), intent(in) :: min_val
+    real(real32), intent(in) :: max_val
+    real(real32), intent(in) :: intercept
+    type(array_type), pointer :: output
+    type(array_type), pointer :: b_array
+
+    output => input%create_result()
+    where(input%val.le.min_val)
+       output%val = 0._real32
+    elsewhere(input%val.ge.max_val)
+       output%val = 1._real32
+    elsewhere
+       output%val = input%val + intercept
+    end where
+
+    output%get_partial_left => get_partial_piecewise
+    if(input%requires_grad)then
+       output%requires_grad = .true.
+       output%is_forward = input%is_forward
+       output%operation = 'piecewise'
+       output%left_operand => input
+    end if
+    allocate(b_array)
+    b_array%is_sample_dependent = .false.
+    b_array%requires_grad = .false.
+    call b_array%allocate(array_shape=[3, 1])
+    b_array%val(1,1) = min_val
+    b_array%val(2,1) = max_val
+    b_array%val(3,1) = intercept
+    output%right_operand => b_array
+    output%owns_left_operand = .true.
+
+  end function piecewise_array
+!-------------------------------------------------------------------------------
+  function get_partial_piecewise(this, upstream_grad) result(output)
+    !! Get partial derivative of piecewise activation
+    implicit none
+    class(array_type), intent(inout) :: this
+    type(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    call output%allocate(array_shape = [this%shape, size(this%val, 2)])
+    where(this%left_operand%val.gt.this%right_operand%val(1,1) .and. &
+         this%left_operand%val.lt.this%right_operand%val(2,1) &
+    )
+       output%val = upstream_grad%val
+    elsewhere
+       output%val = 0._real32
+    end where
+
+  end function get_partial_piecewise
+!###############################################################################
+
+
+!###############################################################################
+  module function softmax_array(input, dim) result(output)
+    implicit none
+    class(array_type), intent(in), target :: input
+    integer, intent(in) :: dim
+    type(array_type), pointer :: output
+
+    integer :: i
+
+    output => input%create_result()
+    if(dim.eq.1)then
+       do i = 1, size(input%val, 1)
+          output%val(i, :) = exp(input%val(i, :) - maxval(input%val(i,:)))
+          output%val(i, :) = output%val(i, :) / sum(output%val(i, :))
+       end do
+    elseif(dim.eq.2)then
+       do i = 1, size(input%val, 2)
+          output%val(:, i) = exp(input%val(:, i) - maxval(input%val(:, i)))
+          output%val(:, i) = output%val(:, i) / sum(output%val(:, i))
+       end do
+    else
+       call stop_program("softmax_array: Unsupported dimension")
+    end if
+    allocate(output%indices(1))
+    output%indices(1) = dim
+
+    output%get_partial_left => get_partial_softmax
+    if(input%requires_grad)then
+       output%requires_grad = .true.
+       output%is_forward = input%is_forward
+       output%operation = 'softmax'
+       output%left_operand => input
+    end if
+
+  end function softmax_array
+!-------------------------------------------------------------------------------
+  function get_partial_softmax(this, upstream_grad) result(output)
+    !! Get partial derivative of softmax activation
+    implicit none
+    class(array_type), intent(inout) :: this
+    type(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+    type(array_type), pointer :: ptr
+
+    ! Note: Full Jacobian is not computed for efficiency; this is a simplified version
+    call output%allocate(array_shape = [this%shape, size(this%val, this%indices(1))])
+    ptr => this * upstream_grad
+    output = ptr - this * sum(ptr, dim=this%indices(1))
+
+  end function get_partial_softmax
 !###############################################################################
 
 end submodule athena__diffstruc_extd_submodule

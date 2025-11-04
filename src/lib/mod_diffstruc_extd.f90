@@ -11,6 +11,7 @@ module athena__diffstruc_extd
   public :: array_container_type, array_ptr_type
   public :: add, concat
   public :: add_bias
+  public :: piecewise, softmax
   public :: avgpool1d, avgpool2d, avgpool3d
   public :: maxpool1d, maxpool2d, maxpool3d
   public :: pad1d, pad2d, pad3d
@@ -56,6 +57,44 @@ module athena__diffstruc_extd
   end interface
 !-------------------------------------------------------------------------------
 
+
+!-------------------------------------------------------------------------------
+! Activation functions and other operations
+!-------------------------------------------------------------------------------
+  interface
+     module function add_bias(input, bias, dim) result(output)
+       class(array_type), intent(in), target :: input
+       class(array_type), intent(in), target :: bias
+       integer, intent(in) :: dim
+       type(array_type), pointer :: output
+     end function add_bias
+  end interface
+
+  interface piecewise
+     module function piecewise_array( &
+          input, min_val, max_val, intercept &
+     ) result( output )
+       class(array_type), intent(in), target :: input
+       real(real32), intent(in) :: min_val
+       real(real32), intent(in) :: max_val
+       real(real32), intent(in) :: intercept
+       type(array_type), pointer :: output
+     end function piecewise_array
+  end interface
+
+  interface softmax
+     module function softmax_array(input, dim) result(output)
+       class(array_type), intent(in), target :: input
+       integer, intent(in) :: dim
+       type(array_type), pointer :: output
+     end function softmax_array
+  end interface
+!-------------------------------------------------------------------------------
+
+
+!-------------------------------------------------------------------------------
+! Layer operations
+!-------------------------------------------------------------------------------
   interface
      module function avgpool1d(input, pool_size, stride) result(output)
        type(array_type), intent(in), target :: input
@@ -189,14 +228,6 @@ module athena__diffstruc_extd
        type(array_type), pointer :: output
      end function conv3d
   end interface
-
-  interface
-     module function add_bias(input, bias, dim) result(output)
-       class(array_type), intent(in), target :: input
-       class(array_type), intent(in), target :: bias
-       integer, intent(in) :: dim
-       type(array_type), pointer :: output
-     end function add_bias
-  end interface
+!-------------------------------------------------------------------------------
 
 end module athena__diffstruc_extd

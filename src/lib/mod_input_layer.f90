@@ -1,9 +1,9 @@
 module athena__input_layer
   !! Module containing procedures for an input layer
-  use athena__io_utils, only: stop_program
-  use athena__constants, only: real32
+  use coreutils, only: real32, stop_program
   use athena__base_layer, only: base_layer_type
   use graphstruc, only: graph_type
+  use diffstruc, only: array_type
   implicit none
 
 
@@ -30,10 +30,6 @@ module athena__input_layer
      !! Print layer to unit
      procedure, pass(this) :: read => read_input
      !! Read layer from file
-     procedure, pass(this) :: forward  => forward_rank
-     !! Forward propagation
-     procedure, pass(this) :: backward => backward_rank
-     !! Backward propagation
      procedure, pass(this) :: set_input_real
      !! Set input values
      procedure, pass(this) :: set_input_graph
@@ -66,50 +62,6 @@ module athena__input_layer
 
 
 contains
-
-!###############################################################################
-  subroutine forward_rank(this, input)
-    !! Forward propagation for an input layer
-    !!
-    !! This is a placeholder to satisfy the deferred procedure
-    !! declaration in the base layer type
-    implicit none
-
-    ! Arguments
-    class(input_layer_type), intent(inout) :: this
-    !! Instance of the input layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input data
-
-    call this%output(1,1)%set( input )
-  end subroutine forward_rank
-!###############################################################################
-
-
-!###############################################################################
-  subroutine backward_rank(this, input, gradient)
-    !! Backward propagation for an input layer
-    !!
-    !! This is a placeholder to satisfy the deferred procedure
-    !! declaration in the base layer type
-    implicit none
-
-    ! Arguments
-    class(input_layer_type), intent(inout) :: this
-    !! Instance of the input layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input data
-    real(real32), dimension(..), intent(in) :: gradient
-    !! Gradient data
-    return
-  end subroutine backward_rank
-!###############################################################################
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
 
 !###############################################################################
   module function layer_setup( &
@@ -524,6 +476,23 @@ contains
 !##############################################################################!
 ! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
 !##############################################################################!
+
+
+!###############################################################################
+  subroutine forward_derived_input(this, input)
+    !! Forward propagation for an input layer
+    implicit none
+
+    ! Arguments
+    class(input_layer_type), intent(inout) :: this
+    !! Instance of the input layer
+    class(array_type), dimension(:,:), intent(in) :: input
+    !! Input data
+
+    this%output = input
+
+  end subroutine forward_derived_input
+!###############################################################################
 
 
 !###############################################################################

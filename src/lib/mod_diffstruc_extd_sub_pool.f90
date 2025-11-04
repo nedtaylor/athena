@@ -43,7 +43,7 @@ contains
        output%requires_grad = .true.
        output%is_forward = input%is_forward
        output%operation = 'avgpool'
-       output%left_operand = input
+       output%left_operand => input
     end if
 
   end function avgpool1d
@@ -69,7 +69,7 @@ contains
     output%val = 0._real32
 
     do concurrent(&
-         s = 1:this%shape(3), &
+         s = 1:input_shape(3), &
          m = 1:this%shape(2), &
          i = 1:this%shape(1))
        stride_idx = (i - 1) * this%adj_ja(1,2) + (m - 1) * input_shape(1)
@@ -135,7 +135,7 @@ contains
        output%requires_grad = .true.
        output%is_forward = input%is_forward
        output%operation = 'avgpool'
-       output%left_operand = input
+       output%left_operand => input
     end if
 
   end function avgpool2d
@@ -154,10 +154,11 @@ contains
     integer :: i_step, j_step
     integer :: in_idx, out_idx
     real(real32) :: pool_norm, channel_size_in, channel_size_out
-    integer, dimension(4) :: input_shape, pool_size, stride
+    integer, dimension(4) :: input_shape
+    integer, dimension(2) :: pool_size, stride
 
     ! Unpack parameters
-    input_shape = this%left_operand%shape
+    input_shape = [ this%left_operand%shape, size(this%val, dim=2) ]
     pool_size = this%adj_ja(:,1)
     stride    = this%adj_ja(:,2)
     channel_size_in = real( input_shape(1) * input_shape(2), real32 )
@@ -169,7 +170,7 @@ contains
     pool_norm = 1.0_real32 / real(pool_size(1) * pool_size(2), real32)
 
     do concurrent( &
-         s = 1:this%shape(4), &    ! batch
+         s = 1:input_shape(4), &
          m = 1:this%shape(3), &    ! channels
          j = 1:this%shape(2), &  ! pooled width
          i = 1:this%shape(1))    ! pooled height
@@ -267,7 +268,7 @@ contains
        output%requires_grad = .true.
        output%is_forward = input%is_forward
        output%operation = 'avgpool3d'
-       output%left_operand = input
+       output%left_operand => input
     end if
 
   end function avgpool3d
@@ -290,7 +291,7 @@ contains
     integer, dimension(3) :: pool_size, stride
 
     ! Unpack parameters
-    input_shape = this%left_operand%shape
+    input_shape = [ this%left_operand%shape, size(this%val, dim=2) ]
     pool_size = this%adj_ja(:,1)
     stride    = this%adj_ja(:,2)
 
@@ -304,7 +305,7 @@ contains
          real( this%shape(1) * this%shape(2) * this%shape(3), real32 )
 
     do concurrent( &
-         s = 1:this%shape(5), &     ! batch
+         s = 1:input_shape(5), &
          m = 1:this%shape(4), &     ! channels
          k = 1:this%shape(3), &  ! pooled depth
          j = 1:this%shape(2), &  ! pooled width
@@ -379,7 +380,7 @@ contains
        output%requires_grad = .true.
        output%is_forward = input%is_forward
        output%operation = 'maxpool'
-       output%left_operand = input
+       output%left_operand => input
     end if
 
   end function maxpool1d
@@ -403,7 +404,7 @@ contains
     output%val = 0._real32
 
     do concurrent(&
-         s = 1:this%shape(3), &
+         s = 1:input_shape(3), &
          m = 1:this%shape(2), &
          i = 1:this%shape(1))
        stride_idx = (i - 1) * this%adj_ja(1,2) + (m - 1) * input_shape(1)
@@ -474,7 +475,7 @@ contains
        output%requires_grad = .true.
        output%is_forward = input%is_forward
        output%operation = 'maxpool'
-       output%left_operand = input
+       output%left_operand => input
     end if
 
   end function maxpool2d
@@ -493,10 +494,11 @@ contains
     integer :: i_step, j_step
     integer :: in_idx, out_idx, max_i, max_j
     real(real32) :: pool_max, channel_size_in, channel_size_out
-    integer, dimension(4) :: input_shape, pool_size, stride
+    integer, dimension(4) :: input_shape
+    integer, dimension(2) :: pool_size, stride
 
     ! Unpack parameters
-    input_shape = this%left_operand%shape
+    input_shape = [ this%left_operand%shape, size(this%val, dim=2) ]
     pool_size = this%adj_ja(:,1)
     stride    = this%adj_ja(:,2)
     channel_size_in = real( input_shape(1) * input_shape(2), real32 )
@@ -505,7 +507,7 @@ contains
     call output%allocate(array_shape = input_shape)
     output%val = 0._real32
 
-    do s = 1, this%shape(4)
+    do s = 1, input_shape(4)
        do m = 1, this%shape(3)
           do j = 1, this%shape(2)
              do i = 1, this%shape(1)
@@ -617,7 +619,7 @@ contains
        output%requires_grad = .true.
        output%is_forward = input%is_forward
        output%operation = 'maxpool3d'
-       output%left_operand = input
+       output%left_operand => input
     end if
 
   end function maxpool3d
@@ -640,7 +642,7 @@ contains
     integer, dimension(3) :: pool_size, stride
 
     ! Unpack parameters
-    input_shape = this%left_operand%shape
+    input_shape = [ this%left_operand%shape, size(this%val, dim=2) ]
     pool_size = this%adj_ja(:,1)
     stride    = this%adj_ja(:,2)
 
@@ -653,7 +655,7 @@ contains
          real( this%shape(1) * this%shape(2) * this%shape(3), real32 )
     tmp_multi = input_shape(1) * input_shape(2)
 
-    do s = 1, this%shape(5)
+    do s = 1, input_shape(5)
        do m = 1, this%shape(4)
           do k = 1, this%shape(3)
              do j = 1, this%shape(2)

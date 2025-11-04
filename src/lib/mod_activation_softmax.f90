@@ -6,6 +6,7 @@ module athena__activation_softmax
   use coreutils, only: real32
   use diffstruc, only: array_type, operator(+), operator(-), &
        operator(*), operator(/), exp, sum, maxval
+  use athena__diffstruc_extd, only: softmax
   use athena__misc_types, only: activation_type
   implicit none
 
@@ -85,10 +86,7 @@ contains
     !! Normalised probability distribution output
 
     !! compute softmax values
-    output => exp(val) - maxval(val, dim=1)
-
-    !! normalise softmax values
-    output => output / sum(output,dim=1)
+    output => softmax(val, dim=2)
 
   end function softmax_activate_array
 !-------------------------------------------------------------------------------

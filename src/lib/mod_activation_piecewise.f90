@@ -2,8 +2,8 @@
 module athena__activation_piecewise
   !! Module containing implementation of the piecewise activation function
   use coreutils, only: real32
-  use diffstruc, only: array_type, operator(+), operator(-), &
-       operator(*), operator(/), exp
+  use diffstruc, only: array_type, operator(*)
+  use athena__diffstruc_extd, only: piecewise
   use athena__misc_types, only: activation_type
   implicit none
 
@@ -72,7 +72,7 @@ contains
 
 
 !###############################################################################
-  pure function piecewise_activate_array(this, val) result(output)
+  function piecewise_activate_array(this, val) result(output)
     !! Apply piecewise activation to 1D array
     !!
     !! Computes piecewise function:
@@ -89,13 +89,7 @@ contains
     type(array_type), pointer :: output
     !! Activated output values
 
-    !  where(val.le.this%min)
-    !     output = 0._real32
-    !  elsewhere(val.ge.this%max)
-    !     output = this%scale
-    !  elsewhere
-    !     output = this%scale * val + this%intercept
-    !  end where
+    output => this%scale * piecewise(val, this%min, this%max, this%intercept/this%scale)
   end function piecewise_activate_array
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
