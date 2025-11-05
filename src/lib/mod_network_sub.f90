@@ -2134,6 +2134,84 @@ contains
 !###############################################################################
 
 
+!###############################################################################
+  module function get_output(this) result(output)
+    !! Get the output of the network
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(in) :: this
+    !! Instance of network
+    type(array_type), dimension(:,:), allocatable :: output
+    !! Output
+
+    ! Local variables
+    integer :: i, start_idx, end_idx, layer_idx, output_id
+    !! Loop indices
+    integer, dimension(2) :: output_shape
+    !! Output shape
+    integer, dimension(this%num_outputs) :: output_ids
+    !! Output IDs
+
+
+    ! array data: [ layer idx, empty ]
+    ! graph data: [ vertex/edge idx, sample idx]
+    output_shape = [1,1]
+
+    if(this%use_graph_output)then
+       output_shape = [2, this%batch_size]
+       do i = 1, size(this%leaf_vertices,1), 1
+          layer_idx = this%auto_graph%vertex(this%leaf_vertices(i))%id
+          if(size(this%model(layer_idx)%layer%output,2).ne.this%batch_size)then
+             call stop_program( &
+                  "Inconsistent batch size in output layers" &
+             )
+             return
+          end if
+          output_id = this%model(layer_idx)%layer%id
+          output_ids(output_id) = size( this%model(layer_idx)%layer%output, 1 )
+          output_shape(1) = output_shape(1) + output_ids(output_id)
+       end do
+       allocate(output(output_shape(1), output_shape(2)))
+       do i = 1, size(this%leaf_vertices,1)
+          layer_idx = this%auto_graph%vertex(this%leaf_vertices(i))%id
+          output_id = sum(output_ids(1:this%model(layer_idx)%layer%id-1)) + 1
+          output(output_id,:) = this%model(layer_idx)%layer%output(1,:)
+          if(output_ids(this%model(layer_idx)%layer%id).gt.1)then
+             output(output_id+1,:) = this%model(layer_idx)%layer%output(2,:)
+          end if
+       end do
+    else
+       output_shape = [1, 1]
+       do i = 1, size(this%leaf_vertices,1)
+          layer_idx = this%auto_graph%vertex(this%leaf_vertices(i))%id
+          if(size(this%model(layer_idx)%layer%output,2).ne.1)then
+             call stop_program( &
+                  "Inconsistent size of dimension 2 in output layers" &
+             )
+             return
+          end if
+          output_shape(1) = &
+               output_shape(1) + size( this%model(layer_idx)%layer%output, 1 )
+          output_id = this%model(layer_idx)%layer%id
+          output_ids(output_id) = size( this%model(layer_idx)%layer%output, 1 )
+       end do
+       allocate(output(output_shape(1), output_shape(2)))
+       start_idx = 1
+       end_idx = 0
+       do i = 1, size(this%leaf_vertices,1)
+          layer_idx = this%auto_graph%vertex(this%leaf_vertices(i))%id
+          output_id = this%model(layer_idx)%layer%id
+          end_idx = end_idx + output_ids(output_id)
+          output(start_idx:end_idx,1) = this%model(layer_idx)%layer%output(:,1)
+          start_idx = end_idx + 1
+       end do
+    end if
+
+  end function get_output
+!###############################################################################
+
+
 !##############################################################################!
 ! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
 !##############################################################################!

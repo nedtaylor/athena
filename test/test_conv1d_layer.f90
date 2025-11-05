@@ -19,8 +19,7 @@ program test_conv1d_layer
   real, parameter :: tol = 1.E-7
   logical :: success = .true.
 
-   real, allocatable, dimension(:) :: params
-   real, allocatable, dimension(:,:) :: outputs
+  real, allocatable, dimension(:) :: params
 
 
 !-------------------------------------------------------------------------------
@@ -101,19 +100,19 @@ program test_conv1d_layer
        kernel_size = 3, &
        activation_function = 'sigmoid' &
   )
-  call conv_layer%init([3,1], batch_size=1)
+  call conv_layer%init(input(1,1)%shape, batch_size=1)
   call conv_layer%set_ptrs()
 
-  !! run forward pass using the new array_type based API
+  !! run forward pass
   call conv_layer%forward_derived(input)
   output => conv_layer%output(1,1)
 
   !! check outputs have expected value
   if (any(abs(output%val(:,1) - 0.5) .gt. tol)) then
      success = .false.
-   write(*,*) 'conv1d layer with zero input and sigmoid activation must'//&
-        ' return outputs all equal to 0.5'
-   write(*,*) output%val(:,1)
+     write(*,*) 'conv1d layer with zero input and sigmoid activation must'//&
+          ' return outputs all equal to 0.5'
+     write(*,*) output%val(:,1)
   end if
 
 
@@ -329,11 +328,11 @@ contains
             layer1%transfer%name
     end if
     if(present(layer3))then
-      if( &
-           associated(layer1%params_array(1)%grad).and. &
-           associated(layer2%params_array(1)%grad).and. &
-           associated(layer3%params_array(1)%grad) &
-      )then
+       if( &
+            associated(layer1%params_array(1)%grad).and. &
+            associated(layer2%params_array(1)%grad).and. &
+            associated(layer3%params_array(1)%grad) &
+       )then
           if(any(abs( &
                layer1%params_array(1)%grad%val - &
                layer2%params_array(1)%grad%val - &

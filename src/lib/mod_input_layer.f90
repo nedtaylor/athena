@@ -36,6 +36,10 @@ module athena__input_layer
      !! Set input values
      generic :: set => set_input_real, set_input_graph
      !! Generic interface for setting input values
+
+     procedure, pass(this) :: forward_derived => forward_derived_input
+     !! Forward propagation derived type handler
+
   end type input_layer_type
 
   interface input_layer_type
@@ -489,7 +493,19 @@ contains
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input data
 
-    this%output = input
+    ! Local variables
+    integer :: i, j
+    !! Loop indices
+
+    do i = 1, size(input, 1)
+       do j = 1, size(input, 2)
+          if(.not.input(i,j)%allocated)then
+             call stop_program('Input to input layer not allocated')
+             return
+          end if
+          this%output(i,j) = input(i,j)
+       end do
+    end do
 
   end subroutine forward_derived_input
 !###############################################################################

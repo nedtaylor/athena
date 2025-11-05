@@ -192,7 +192,7 @@ contains
        this%input_shape = input_shape
     else
        write(err_msg,'("Invalid size of input_shape in ",A,&
-            &" expected (",I0,"), got (",I0")")')  &
+            &" expected (",I0,"), got (",I0,")")')  &
             trim(this%name), this%input_rank, size(input_shape,dim=1)
        call stop_program(err_msg)
        return
@@ -340,7 +340,20 @@ contains
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input data
 
-    this%output = input
+    ! Local variables
+    integer :: i, j
+    !! Loop indices
+
+    do i = 1, size(input, 1)
+       do j = 1, size(input, 2)
+          if(.not.input(i,j)%allocated)then
+             call stop_program('Input to input layer not allocated')
+             return
+          end if
+          this%output(i,j) = input(i,j)
+       end do
+    end do
+
   end subroutine forward_derived_base
 
   module subroutine set_graph_base(this, graph)

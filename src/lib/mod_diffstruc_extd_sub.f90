@@ -1,7 +1,8 @@
 submodule (athena__diffstruc_extd) athena__diffstruc_extd_submodule
   !! Submodule containing implementations for extended diffstruc array operations
   use coreutils, only: stop_program
-  use diffstruc, only: operator(+), operator(-), operator(*), operator(.concat.), exp, sum
+  use diffstruc, only: &
+       operator(+), operator(-), operator(*), operator(.concat.), exp, sum
 
 contains
 
@@ -65,7 +66,7 @@ contains
     type(array_type), pointer :: output
 
     ! Local variables
-    integer :: i, j, k, s, idx
+    integer :: i, j, k, s, idx, itmp1
     integer :: num_elements_pre, num_elements_post, num_dims
 
     num_dims = size(input%shape)
@@ -78,17 +79,20 @@ contains
     end if
     output => input%create_result()
     num_elements_pre = 1
+    num_elements_post = 1
     do i = 1, num_dims
        if(i .lt. dim)then
           num_elements_pre = num_elements_pre * input%shape(i)
+       elseif(i .gt. dim)then
+          num_elements_post = num_elements_post * input%shape(i)
        end if
     end do
-    num_elements_post = num_elements_pre * bias%shape(1)
 
+    itmp1 = num_elements_pre * input%shape(dim)
     do s = 1, size(input%val, 2)
        do k = 1, num_elements_post
           do j = 1, bias%shape(1)
-             idx = (j - 1) * num_elements_pre + (k - 1) * num_elements_post
+             idx = (j - 1) * num_elements_pre + (k - 1) * itmp1
              do i = 1, num_elements_pre
                 output%val(idx + i, s) = input%val(idx + i, s) + bias%val(j,1)
              end do
@@ -127,24 +131,27 @@ contains
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
-    integer :: i, j, k, s, idx
+    integer :: i, j, k, s, idx, itmp1
     integer :: num_elements_pre, num_elements_post, num_dims
 
     num_dims = size(this%left_operand%shape)
     num_elements_pre = 1
+    num_elements_post = 1
     do i = 1, num_dims
        if(i .lt. this%indices(1))then
           num_elements_pre = num_elements_pre * this%left_operand%shape(i)
+       elseif(i .gt. this%indices(1))then
+          num_elements_post = num_elements_post * this%left_operand%shape(i)
        end if
     end do
-    num_elements_post = num_elements_pre * this%right_operand%shape(1)
 
-    call output%allocate(array_shape = this%right_operand%shape)
+    itmp1 = num_elements_pre * this%left_operand%shape(this%indices(1))
+    call output%allocate(array_shape = [ this%right_operand%shape, 1 ])
     output%val = 0._real32
     do s = 1, size(upstream_grad%val, 2)
        do k = 1, num_elements_post
           do j = 1, this%right_operand%shape(1)
-             idx = (j - 1) * num_elements_pre + (k - 1) * num_elements_post
+             idx = (j - 1) * num_elements_pre + (k - 1) * itmp1
              do i = 1, num_elements_pre
                 output%val(j,1) = output%val(j,1) + upstream_grad%val(idx + i, s)
              end do

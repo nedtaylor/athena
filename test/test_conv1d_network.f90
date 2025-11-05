@@ -1,8 +1,10 @@
 program test_conv1d_network
+  use coreutils, only: real32
   use athena, only: &
        network_type, &
        conv1d_layer_type, &
        base_optimiser_type
+  use diffstruc, only: array_type
   implicit none
 
   type(network_type) :: network
@@ -16,10 +18,11 @@ program test_conv1d_network
   integer, parameter :: width = 8
   integer :: output_width
 
-  real, allocatable, dimension(:,:) :: output_reshaped
-  real, allocatable, dimension(:,:,:) :: input_data, output, gradients_weight
+  real, allocatable, dimension(:,:,:) :: data_tmp, gradients_weight
   real, allocatable, dimension(:) :: gradients, gradients_bias
   logical :: success = .true.
+  type(array_type) :: input(1,1)
+  type(array_type), dimension(:,:), allocatable :: output
 
 
   output_width = width - kernel_size1 + 1 - kernel_size2 + 1
@@ -52,30 +55,31 @@ program test_conv1d_network
   end if
 
   call network%set_batch_size(1)
-  allocate(input_data(width, num_channels, 1))
-  input_data = 0.0
+  call input(1,1)%allocate([width, num_channels, 1], source=0._real32)
+  call input(1,1)%set_requires_grad(.true.)
 
-  call network%forward(input_data)
-  call network%model(network%leaf_vertices(1))%layer%get_output(output)
+  call network%forward_generic2d(input)
+  output = network%get_output()
 
-  if(any(shape(output).ne.[output_width,num_filters2,1]))then
+  if(any([output(1,1)%shape,size(output(1,1)%val,2)].ne.[output_width,num_filters2,1]))then
      success = .false.
      write(0,*) "conv1d network output shape should be [3,8]"
      write(0,*) "output shape is ", shape(output)
   end if
+  call input(1,1)%deallocate()
 
 
 !-------------------------------------------------------------------------------
 ! check gradients
 !-------------------------------------------------------------------------------
-  output = 0.E0
-  output(1,:,:) = 1.E0
-  output(output_width,:,:) = 1.E0
-  input_data = 0.E0
-  input_data(:(width)/2,:,:) = 1.E0
-  call network%forward(input_data)
-  output_reshaped = reshape(output, [output_width*num_filters2,1])
-  call network%backward(output_reshaped)
+  allocate(data_tmp(width, num_channels, 1))
+  data_tmp = 0.E0
+  data_tmp(:(width)/2,:,:) = 1.E0
+  call input(1,1)%allocate([width, num_channels, 1], source=0._real32)
+  call input(1,1)%set_requires_grad(.true.)
+  call input(1,1)%set(data_tmp)
+  call network%forward_generic2d(input)
+  call network%model(network%leaf_vertices(1))%layer%output(1,1)%grad_reverse()
   select type(current => network%model(network%leaf_vertices(1))%layer)
   type is(conv1d_layer_type)
      gradients = current%get_gradients()

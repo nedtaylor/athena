@@ -91,9 +91,6 @@ contains
 
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
-    if(allocated(this%di)) deallocate(this%di)
-    if(allocated(this%di_padded)) deallocate(this%di_padded)
-
     if(allocated(this%pad_layer)) deallocate(this%pad_layer)
 
   end subroutine finalise_conv1d

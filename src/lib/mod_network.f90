@@ -143,6 +143,8 @@ module athena__network
      !! Set learnable parameter gradients
      procedure, pass(this) :: reset_gradients
      !! Reset learnable parameter gradients
+     procedure, pass(this) :: get_output
+     !! Get the output of the network
      procedure, pass(this) :: forward_generic2d
      !! Forward pass for generic 2D input
 
@@ -599,6 +601,13 @@ module athena__network
        class(network_type), intent(inout) :: this
        !! Instance of the network
      end subroutine reset_gradients
+
+     module function get_output(this) result(output)
+       class(network_type), intent(in) :: this
+       !! Instance of the network
+       type(array_type), dimension(:,:), allocatable :: output
+       !! Output
+     end function get_output
 
      module function calc_output_accuracy(this, output, start_index, end_index) &
           result(accuracy)

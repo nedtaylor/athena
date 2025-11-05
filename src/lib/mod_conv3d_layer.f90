@@ -91,9 +91,6 @@ contains
 
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
-    if(allocated(this%di)) deallocate(this%di)
-    if(allocated(this%di_padded)) deallocate(this%di_padded)
-
     if(allocated(this%pad_layer)) deallocate(this%pad_layer)
 
   end subroutine finalise_conv3d
@@ -143,6 +140,8 @@ contains
     ! Local variables
     integer :: verbose_ = 0
     !! Verbosity level
+    integer :: num_filters_
+    !! Number of filters
     real(real32) :: scale
     !! Activation scale
     character(len=10) :: activation_function_
@@ -170,9 +169,9 @@ contains
     ! Set up number of filters
     !---------------------------------------------------------------------------
     if(present(num_filters))then
-       layer%num_filters = num_filters
+       num_filters_ = num_filters
     else
-       layer%num_filters = 32
+       num_filters_ = 32
     end if
 
 
@@ -252,7 +251,7 @@ contains
     ! Set hyperparameters
     !---------------------------------------------------------------------------
     call layer%set_hyperparams( &
-         num_filters = layer%num_filters, &
+         num_filters = num_filters_, &
          kernel_size = kernel_size_, stride = stride_, &
          padding = padding_, &
          activation_function = activation_function_, &
@@ -321,6 +320,7 @@ contains
     this%input_rank = 4
     this%output_rank = 4
     this%has_bias = .true.
+    if(allocated(this%dil)) deallocate(this%dil)
     if(allocated(this%knl)) deallocate(this%knl)
     if(allocated(this%stp)) deallocate(this%stp)
     if(allocated(this%hlf)) deallocate(this%hlf)
@@ -339,7 +339,9 @@ contains
     this%stp = stride
     this%cen = 2 - mod(this%knl, 2)
     this%hlf   = (this%knl-1)/2
+    this%num_filters = num_filters
     padding_ = trim(adjustl(padding))
+
     select case(trim(adjustl(to_lower(padding_))))
     case("valid", "none", "")
        this%pad = 0
@@ -665,23 +667,34 @@ contains
     else
        num_params_old = 0
        call move(unit, param_line - iline, iostat=stat)
+       num_inputs = product(this%knl) * input_shape(4) * num_filters
+       allocate(data_list(num_inputs), source=0._real32)
        do l = 1, num_filters
-          num_inputs = product(this%knl) + 1 !+1 for bias
-          allocate(data_list(num_inputs), source=0._real32)
           c = 1
           k = 1
-          data_concat_loop: do while(c.le.num_inputs)
+          data_concat_loop1: do while(c.le.num_inputs)
              read(unit,'(A)',iostat=stat) buffer
-             if(stat.ne.0) exit data_concat_loop
+             if(stat.ne.0) exit data_concat_loop1
              k = icount(buffer)
              read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
              c = c + k
-          end do data_concat_loop
-          this%params( &
-               num_params_old+1:num_params_old+num_inputs-1 &
-          ) = data_list(1:num_inputs-1)
-          this%params(this%num_params - this%num_filters + l) = data_list(num_inputs)
-          num_params_old = num_params_old + num_inputs - 1
+          end do data_concat_loop1
+          num_params_old = num_params_old + num_inputs
+       end do
+       this%params_array(1)%val(:,1) = data_list
+       deallocate(data_list)
+       do l = 1, num_filters
+          allocate(data_list(num_filters), source=0._real32)
+          c = 1
+          k = 1
+          data_concat_loop2: do while(c.le.num_filters)
+             read(unit,'(A)',iostat=stat) buffer
+             if(stat.ne.0) exit data_concat_loop2
+             k = icount(buffer)
+             read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
+             c = c + k
+          end do data_concat_loop2
+          this%params_array(2)%val(:,1) = data_list(1:num_filters)
           deallocate(data_list)
        end do
 
