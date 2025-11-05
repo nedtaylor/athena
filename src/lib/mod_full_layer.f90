@@ -9,7 +9,7 @@ module athena__full_layer
   !! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: learnable_layer_type, base_layer_type
-  use athena__misc_types, only: activation_type, initialiser_type
+  use athena__misc_types, only: initialiser_type
   use diffstruc, only: array_type, operator(.mmul.), operator(+)
   implicit none
 
@@ -70,6 +70,7 @@ module athena__full_layer
        character(*), optional, intent(in) :: activation_function
        !! Activation function, kernel initialiser, and bias initialiser
        class(*), optional, intent(in) :: kernel_initialiser, bias_initialiser
+       !! Kernel and bias initialisers
        integer, optional, intent(in) :: verbose
        !! Verbosity level
        type(full_layer_type) :: layer
@@ -166,6 +167,8 @@ contains
     !! Activation scale
     character(len=10) :: activation_function_ = "none"
     !! Activation function
+    class(initialiser_type), allocatable :: kernel_initialiser_, bias_initialiser_
+    !! Kernel and bias initialisers
 
     if(present(verbose)) verbose_ = verbose
 
@@ -181,10 +184,10 @@ contains
     ! Define weights (kernels) and biases initialisers
     !---------------------------------------------------------------------------
     if(present(kernel_initialiser))then
-       layer%kernel_init = initialiser_setup(kernel_initialiser)
+       kernel_initialiser_ = initialiser_setup(kernel_initialiser)
     end if
     if(present(bias_initialiser))then
-       layer%bias_init = initialiser_setup(bias_initialiser)
+       bias_initialiser_ = initialiser_setup(bias_initialiser)
     end if
 
 
@@ -195,8 +198,8 @@ contains
          num_outputs = num_outputs, &
          activation_function = activation_function_, &
          activation_scale = scale, &
-         kernel_initialiser = layer%kernel_init, &
-         bias_initialiser = layer%bias_init, &
+         kernel_initialiser = kernel_initialiser_, &
+         bias_initialiser = bias_initialiser_, &
          verbose = verbose_ &
     )
 
@@ -243,7 +246,7 @@ contains
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
-    ! Local variable
+    ! Local variables
     character(len=256) :: buffer
 
 
@@ -255,10 +258,13 @@ contains
     this%num_outputs = num_outputs
     if(allocated(this%transfer)) deallocate(this%transfer)
     allocate(this%transfer, &
-         source=activation_setup(activation_function, activation_scale))
+         source=activation_setup(activation_function, activation_scale) &
+    )
     if(.not.allocated(kernel_initialiser))then
        buffer = get_default_initialiser(activation_function)
        this%kernel_init = initialiser_setup(buffer)
+    else
+       this%kernel_init = kernel_initialiser
     end if
     if(.not.allocated(bias_initialiser))then
        buffer = get_default_initialiser( &
@@ -266,6 +272,8 @@ contains
             is_bias=.true. &
        )
        this%bias_init = initialiser_setup(buffer)
+    else
+       this%bias_init = bias_initialiser
     end if
     if(present(verbose))then
        if(abs(verbose).gt.0)then
@@ -485,6 +493,7 @@ contains
     character(20) :: activation_function
     !! Activation function
     class(initialiser_type), allocatable :: kernel_initialiser, bias_initialiser
+    !! Initialisers
     character(256) :: buffer, tag, err_msg
     !! Buffer, tag, and error message
     integer, dimension(2) :: input_shape
@@ -541,9 +550,9 @@ contains
           call assign_val(buffer, activation_function, itmp1)
        case("ACTIVATION_SCALE")
           call assign_val(buffer, activation_scale, itmp1)
-       case("KERNEL_INITIALISER")
+       case("KERNEL_INITIALISER", "KERNEL_INIT", "KERNEL_INITIALIZER")
           call assign_val(buffer, kernel_initialiser_name, itmp1)
-       case("BIAS_INITIALISER")
+       case("BIAS_INITIALISER", "BIAS_INIT", "BIAS_INITIALIZER")
           call assign_val(buffer, bias_initialiser_name, itmp1)
        case("WEIGHTS")
           kernel_initialiser_name = 'zeros'

@@ -11,7 +11,7 @@ module athena__initialiser_ident
 
   private
 
-  public :: ident
+  public :: ident_type
 
 
   type, extends(initialiser_type) :: ident_type
@@ -21,12 +21,32 @@ module athena__initialiser_ident
      !! Initialise the weights and biases using the identity matrix
   end type ident_type
 
-  type(ident_type) :: ident
-  !! Identity initialiser object
+
+  interface ident_type
+     module function initialiser_ident_setup() result(initialiser)
+       !! Interface for the Identity initialiser
+       type(ident_type) :: initialiser
+       !! Identity initialiser object
+     end function initialiser_ident_setup
+  end interface ident_type
 
 
 
 contains
+
+!###############################################################################
+  module function initialiser_ident_setup() result(initialiser)
+    !! Interface for the Identity initialiser
+    implicit none
+
+    type(ident_type) :: initialiser
+    !! Identity initialiser object
+
+    initialiser%name = "ident"
+
+  end function initialiser_ident_setup
+!###############################################################################
+
 
 !###############################################################################
   subroutine ident_initialise(this, input, fan_in, fan_out, spacing)
@@ -99,8 +119,8 @@ contains
                               ) / product(spacing(:j-1))
                       end if
                       iprime(j) = iprime(j) * product(spacing(:j-1))
-                  end do
-                  input(1 + sum(iprime * ( spacing(1) + iprime2 ))) = 1._real32
+                   end do
+                   input(1 + sum(iprime * ( spacing(1) + iprime2 ))) = 1._real32
                 end do
              end if
           end if

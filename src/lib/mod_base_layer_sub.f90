@@ -824,8 +824,9 @@ contains
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
+    ! Local variables
     integer :: verbose_ = 0
-    class(initialiser_type), allocatable :: initialiser_
+    !! Verbosity level
 
 
     !---------------------------------------------------------------------------
@@ -881,22 +882,18 @@ contains
     !---------------------------------------------------------------------------
     ! initialise weights (kernels)
     !---------------------------------------------------------------------------
-    allocate(initialiser_, source=initialiser_setup(this%kernel_initialiser))
-    call initialiser_%initialise( &
+    call this%kernel_init%initialise( &
          this%params_array(1)%val(:,1), &
          fan_in = product(this%knl)+1, fan_out = 1, &
          spacing = [ this%knl, this%num_channels, this%num_filters ] &
     )
-    deallocate(initialiser_)
 
     ! initialise biases
     !---------------------------------------------------------------------------
-    allocate(initialiser_, source=initialiser_setup(this%bias_initialiser))
-    call initialiser_%initialise( &
+    call this%bias_init%initialise( &
          this%params_array(2)%val(:,1), &
          fan_in = product(this%knl)+1, fan_out = 1 &
     )
-    deallocate(initialiser_)
 
 
     !---------------------------------------------------------------------------

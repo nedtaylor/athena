@@ -7,13 +7,13 @@ module athena__initialiser
   use athena__io_utils, only: stop_program
   use athena__misc, only: to_lower
   use athena__misc_types, only: initialiser_type
-  use athena__initialiser_glorot, only: glorot_uniform, glorot_normal
-  use athena__initialiser_he, only: he_uniform, he_normal
-  use athena__initialiser_lecun, only: lecun_uniform, lecun_normal
-  use athena__initialiser_ones, only: ones
-  use athena__initialiser_zeros, only: zeros
-  use athena__initialiser_ident, only: ident
-  use athena__initialiser_gaussian, only: gaussian
+  use athena__initialiser_glorot, only: glorot_uniform_type, glorot_normal_type
+  use athena__initialiser_he, only: he_uniform_type, he_normal_type
+  use athena__initialiser_lecun, only: lecun_uniform_type, lecun_normal_type
+  use athena__initialiser_ones, only: ones_type
+  use athena__initialiser_zeros, only: zeros_type
+  use athena__initialiser_ident, only: ident_type
+  use athena__initialiser_gaussian, only: gaussian_type
   implicit none
 
 
@@ -72,7 +72,6 @@ contains
     ! Arguments
     class(initialiser_type), allocatable :: initialiser
     !! Initialiser function
-   !  character(*), intent(in) :: name
     class(*) :: input
     !! Name of initialiser or initialiser type
     integer, optional, intent(out) :: error
@@ -92,27 +91,27 @@ contains
     type is(character(*))
        select case(trim(to_lower(input)))
        case("glorot_uniform")
-          initialiser = glorot_uniform
+          initialiser = glorot_uniform_type()
        case("glorot_normal")
-          initialiser = glorot_normal
+          initialiser = glorot_normal_type()
        case("he_uniform")
-          initialiser = he_uniform
+          initialiser = he_uniform_type()
        case("he_normal")
-          initialiser = he_normal
+          initialiser = he_normal_type()
        case("lecun_uniform")
-          initialiser = lecun_uniform
+          initialiser = lecun_uniform_type()
        case("lecun_normal")
-          initialiser = lecun_normal
+          initialiser = lecun_normal_type()
        case("ones")
-          initialiser = ones
+          initialiser = ones_type()
        case("zeros")
-          initialiser = zeros
+          initialiser = zeros_type()
        case("ident")
-          initialiser = ident
+          initialiser = ident_type()
        case("gaussian")
-          initialiser = gaussian
+          initialiser = gaussian_type()
        case("normal")
-          initialiser = gaussian
+          initialiser = gaussian_type(name="normal")
        case default
           if(present(error))then
              error = -1

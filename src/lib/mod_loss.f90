@@ -362,7 +362,7 @@ contains
     ! Arguments
     class(mse_loss_type), intent(in) :: this
     !! Instance of the physics-informed neural network loss function
-    type(array_type), dimension(:,:), intent(inout) :: predicted
+    type(array_type), dimension(:,:), intent(in), target :: predicted
     type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
          expected
     !! Predicted and expected values
@@ -370,10 +370,13 @@ contains
     !! Input data, which contains the derivatives
     type(array_type), pointer :: output(:,:)
     !! Physics-informed neural network loss
-    type(array_type), pointer :: tmp
+    type(array_type), pointer :: ptr1, ptr2, ptr3
 
     allocate(output(size(predicted,1),size(predicted,2)))
-    output(1,1) = ((predicted(1,1) - expected(1,1))**2) /2._real32
+    ptr1 => predicted(1,1) - expected(1,1)
+    ptr2 => ptr1 ** 2
+    ptr3 => ptr2 / 2._real32
+    call output(1,1)%assign_and_deallocate_source(ptr3)
 
   end function compute_pinn_generic_mse
 !###############################################################################
@@ -488,7 +491,7 @@ contains
     ! Arguments
     class(base_loss_type), intent(in) :: this
     !! Instance of the physics-informed neural network loss function
-    type(array_type), dimension(:,:), intent(inout) :: predicted
+    type(array_type), dimension(:,:), intent(in), target :: predicted
     type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
          expected
     !! Predicted and expected values

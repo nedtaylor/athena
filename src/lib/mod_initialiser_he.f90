@@ -15,7 +15,6 @@ module athena__initialiser_he
 
   private
 
-  public :: he_uniform, he_normal
   public :: he_uniform_type, he_normal_type
 
 
@@ -34,11 +33,6 @@ module athena__initialiser_he
      procedure, pass(this) :: initialise => he_normal_initialise
      !! Initialise the weights and biases using the He normal distribution
   end type he_normal_type
-
-  type(he_uniform_type) :: he_uniform
-  !! He initialiser object
-  type(he_normal_type) :: he_normal
-  !! He initialiser object
 
 
   interface he_uniform_type
@@ -64,6 +58,8 @@ module athena__initialiser_he
        !! He normal initialiser object
      end function initialiser_normal_setup
   end interface he_normal_type
+
+
 
 contains
 
@@ -97,10 +93,7 @@ contains
     end if
 
   end function initialiser_uniform_setup
-!###############################################################################
-
-
-!###############################################################################
+!-------------------------------------------------------------------------------
   module function initialiser_normal_setup(scale, mode) result(initialiser)
     implicit none
     ! Arguments

@@ -12,8 +12,8 @@ module athena__initialiser_lecun
 
   private
 
-  public :: lecun_uniform
-  public :: lecun_normal
+  public :: lecun_uniform_type
+  public :: lecun_normal_type
 
 
   type, extends(initialiser_type) :: lecun_uniform_type
@@ -29,14 +29,51 @@ module athena__initialiser_lecun
      !! Initialise the weights and biases using the LeCun normal distribution
   end type lecun_normal_type
 
-  type(lecun_uniform_type) :: lecun_uniform
-  !! LeCun initialiser object
-  type(lecun_normal_type) :: lecun_normal
-  !! LeCun initialiser object
+
+  interface lecun_uniform_type
+     module function initialiser_lecun_uniform_setup() result(initialiser)
+       !! Interface for the LeCun uniform initialiser
+       type(lecun_uniform_type) :: initialiser
+       !! LeCun uniform initialiser object
+     end function initialiser_lecun_uniform_setup
+  end interface lecun_uniform_type
+
+  interface lecun_normal_type
+     module function initialiser_lecun_normal_setup() result(initialiser)
+       !! Interface for the LeCun normal initialiser
+       type(lecun_normal_type) :: initialiser
+       !! LeCun normal initialiser object
+     end function initialiser_lecun_normal_setup
+  end interface lecun_normal_type
 
 
 
 contains
+
+!###############################################################################
+  module function initialiser_lecun_uniform_setup() result(initialiser)
+    !! Interface for the LeCun uniform initialiser
+    implicit none
+
+    type(lecun_uniform_type) :: initialiser
+    !! LeCun uniform initialiser object
+
+    initialiser%name = "lecun_uniform"
+
+  end function initialiser_lecun_uniform_setup
+!-------------------------------------------------------------------------------
+  module function initialiser_lecun_normal_setup() result(initialiser)
+    !! Interface for the LeCun normal initialiser
+    implicit none
+
+    type(lecun_normal_type) :: initialiser
+    !! LeCun normal initialiser object
+
+    initialiser%name = "lecun_normal"
+
+  end function initialiser_lecun_normal_setup
+!###############################################################################
+
 
 !###############################################################################
   subroutine lecun_uniform_initialise(this, input, fan_in, fan_out, spacing)

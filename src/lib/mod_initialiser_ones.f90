@@ -10,7 +10,7 @@ module athena__initialiser_ones
 
   private
 
-  public :: ones
+  public :: ones_type
 
 
   type, extends(initialiser_type) :: ones_type
@@ -20,12 +20,32 @@ module athena__initialiser_ones
      !! Initialise the weights and biases using the Ones distribution
   end type ones_type
 
-  type(ones_type) :: ones
-  !! Ones initialiser object
+
+  interface ones_type
+     module function initialiser_ones_setup() result(initialiser)
+       !! Interface for the Ones initialiser
+       type(ones_type) :: initialiser
+       !! Ones initialiser object
+     end function initialiser_ones_setup
+  end interface ones_type
 
 
 
 contains
+
+!###############################################################################
+  module function initialiser_ones_setup() result(initialiser)
+    !! Interface for the Ones initialiser
+    implicit none
+
+    type(ones_type) :: initialiser
+    !! Ones initialiser object
+
+    initialiser%name = "ones"
+
+  end function initialiser_ones_setup
+!###############################################################################
+
 
 !###############################################################################
   pure subroutine ones_initialise(this, input, fan_in, fan_out, spacing)

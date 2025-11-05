@@ -1,14 +1,17 @@
 program test_full_network
+  use coreutils, only: real32
   use athena, only: &
        network_type, &
        full_layer_type, &
        sgd_optimiser_type
+  use diffstruc, only: array_type
   implicit none
 
   type(network_type) :: network
 
   real, allocatable, dimension(:) :: output_1d
   real, allocatable, dimension(:,:) :: output_2d
+  type(array_type), pointer :: loss(:,:)
 
   logical :: success = .true.
 
@@ -50,8 +53,10 @@ program test_full_network
 
      train_loop: do n=1, num_iterations
         call network%forward(x)
-        call network%backward(y)
+        loss => network%loss_backward(y, 1, 1)
+        call loss(1,1)%grad_reverse()
         call network%update()
+        write(*,*) network%predict(x)
         if(all(abs(network%predict(x)-y) .lt. tol)) exit train_loop
       end do train_loop
 
@@ -66,8 +71,8 @@ program test_full_network
 !-------------------------------------------------------------------------------
 ! check output request using rank 1 and rank 2 arrays is consistent
 !-------------------------------------------------------------------------------
-  call network%model(network%root_vertices(1))%layer%get_output(output_1d)
-  call network%model(network%root_vertices(1))%layer%get_output(output_2d)
+  call network%extract_output(output_1d)
+  call network%extract_output(output_2d)
   if(any(abs(output_1d - reshape(output_2d, [size(output_2d)])) .gt. 1.E-6))then
      success = .false.
      write(0,*) 'output_1d and output_2d are not consistent'
@@ -77,7 +82,7 @@ program test_full_network
 !!!-----------------------------------------------------------------------------
 !!! check adding layers works as expected
 !!! check compile adds input_layer at the start
-!!!-----------------------------------------------------------------------------  
+!!!-----------------------------------------------------------------------------
   !! reset network
   call network%reset()
   call network%add(full_layer_type(num_inputs=760, num_outputs=30))
@@ -91,7 +96,7 @@ program test_full_network
        batch_size = 1, &
        verbose=1 &
        )
-  
+
   !! check network has correct number of layers
   if(network%num_layers .ne. 4)then
      success = .false.

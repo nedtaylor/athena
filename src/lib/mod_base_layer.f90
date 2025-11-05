@@ -365,8 +365,6 @@ module athena__base_layer
      !! Type for layers with learnable parameters
      integer :: num_params = 0
      !! Number of learnable parameters
-     logical :: calc_input_gradients = .true.
-     !! Calculate input gradients
      logical :: has_bias = .false.
      !! Layer has bias
      integer, allocatable, dimension(:,:) :: weight_shape

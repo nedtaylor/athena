@@ -170,13 +170,34 @@ contains
             layer1%transfer%name
     end if
     if(present(layer3))then
-       if(any(abs(layer1%dp-layer2%dp-layer3%dp).gt.1.E-6))then
-          success = .false.
-          write(0,*) 'full layer has wrong gradients'
+       if( &
+            associated(layer1%params_array(1)%grad).and. &
+            associated(layer2%params_array(1)%grad).and. &
+            associated(layer3%params_array(1)%grad) &
+       )then
+          if(any(abs( &
+               layer1%params_array(1)%grad%val - &
+               layer2%params_array(1)%grad%val - &
+               layer3%params_array(1)%grad%val &
+          ).gt.1.E-6))then
+             success = .false.
+             write(0,*) 'full layer has wrong gradients'
+          end if
        end if
-       if(any(abs(layer1%db-layer2%db-layer3%db).gt.1.E-6))then
-          success = .false.
-          write(0,*) 'full layer has wrong bias gradients'
+
+       if( &
+            associated(layer1%params_array(2)%grad).and. &
+            associated(layer2%params_array(2)%grad).and. &
+            associated(layer3%params_array(2)%grad) &
+       )then
+          if(any(abs( &
+               layer1%params_array(2)%grad%val - &
+               layer2%params_array(2)%grad%val - &
+               layer3%params_array(2)%grad%val &
+          ).gt.1.E-6))then
+             success = .false.
+             write(0,*) 'full layer has wrong bias gradients'
+          end if
        end if
     end if
 

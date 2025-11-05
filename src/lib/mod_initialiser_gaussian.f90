@@ -10,7 +10,7 @@ module athena__initialiser_gaussian
 
   private
 
-  public :: gaussian
+  public :: gaussian_type
 
 
   type, extends(initialiser_type) :: gaussian_type
@@ -19,12 +19,43 @@ module athena__initialiser_gaussian
      procedure, pass(this) :: initialise => gaussian_initialise
      !! Initialise the weights and biases using the Gaussian distribution
   end type gaussian_type
-  type(gaussian_type) :: gaussian
-  !! Gaussian initialiser object
+
+
+  interface gaussian_type
+     module function initialiser_gaussian_setup(name) result(initialiser)
+       !! Interface for the Gaussian initialiser
+       type(gaussian_type) :: initialiser
+       !! Gaussian initialiser object
+       character(*), optional, intent(in) :: name
+       !! Name of the initialiser
+     end function initialiser_gaussian_setup
+  end interface gaussian_type
 
 
 
 contains
+
+!###############################################################################
+  module function initialiser_gaussian_setup(name) result(initialiser)
+    !! Interface for the Gaussian initialiser
+    implicit none
+    ! Arguments
+    character(*), optional, intent(in) :: name
+    !! Name of the initialiser
+
+
+    type(gaussian_type) :: initialiser
+    !! Gaussian initialiser object
+
+    if(present(name)) then
+       initialiser%name = trim(adjustl(name))
+    else
+       initialiser%name = "gaussian"
+    end if
+
+  end function initialiser_gaussian_setup
+!###############################################################################
+
 
 !###############################################################################
   subroutine gaussian_initialise(this, input, fan_in, fan_out, spacing)

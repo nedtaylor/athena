@@ -55,7 +55,7 @@ contains
 
 
 !###############################################################################
-  module function add_bias(input, bias, dim) result(output)
+  module function add_bias(input, bias, dim, dim_act_on_shape) result(output)
     !! Add bias to input array along specified dimension
     implicit none
 
@@ -63,44 +63,58 @@ contains
     class(array_type), intent(in), target :: input
     class(array_type), intent(in), target :: bias
     integer, intent(in) :: dim
+    logical, intent(in), optional :: dim_act_on_shape
     type(array_type), pointer :: output
 
     ! Local variables
     integer :: i, j, k, s, idx, itmp1
     integer :: num_elements_pre, num_elements_post, num_dims
+    logical :: dim_act_on_shape_
 
-    num_dims = size(input%shape)
-    if(dim .gt. num_dims) then
-       call stop_program("Dimension for add_bias exceeds input dimensions")
-       return
-    elseif(size(bias%shape) .ne. 1)then
-       call stop_program("Bias must be a 1D array")
-       return
+    if(present(dim_act_on_shape))then
+       dim_act_on_shape_ = dim_act_on_shape
+    else
+       dim_act_on_shape_ = .false.
     end if
-    output => input%create_result()
-    num_elements_pre = 1
-    num_elements_post = 1
-    do i = 1, num_dims
-       if(i .lt. dim)then
-          num_elements_pre = num_elements_pre * input%shape(i)
-       elseif(i .gt. dim)then
-          num_elements_post = num_elements_post * input%shape(i)
-       end if
-    end do
 
-    itmp1 = num_elements_pre * input%shape(dim)
-    do s = 1, size(input%val, 2)
-       do k = 1, num_elements_post
-          do j = 1, bias%shape(1)
-             idx = (j - 1) * num_elements_pre + (k - 1) * itmp1
-             do i = 1, num_elements_pre
-                output%val(idx + i, s) = input%val(idx + i, s) + bias%val(j,1)
+    output => input%create_result()
+    allocate(output%indices(2))
+    output%indices(1) = dim
+    if(dim_act_on_shape_)then
+       num_dims = size(input%shape)
+       if(dim .gt. num_dims) then
+          call stop_program("Dimension for add_bias exceeds input dimensions")
+          return
+       elseif(size(bias%shape) .ne. 1)then
+          call stop_program("Bias must be a 1D array")
+          return
+       end if
+       num_elements_pre = 1
+       num_elements_post = 1
+       do i = 1, num_dims
+          if(i .lt. dim)then
+             num_elements_pre = num_elements_pre * input%shape(i)
+          elseif(i .gt. dim)then
+             num_elements_post = num_elements_post * input%shape(i)
+          end if
+       end do
+
+       itmp1 = num_elements_pre * input%shape(dim)
+       do s = 1, size(input%val, 2)
+          do k = 1, num_elements_post
+             do j = 1, bias%shape(1)
+                idx = (j - 1) * num_elements_pre + (k - 1) * itmp1
+                do i = 1, num_elements_pre
+                   output%val(idx + i, s) = input%val(idx + i, s) + bias%val(j,1)
+                end do
              end do
           end do
        end do
-    end do
-    allocate(output%indices(1))
-    output%indices(1) = dim
+       output%indices(2) = 1
+    else
+       call stop_program("add_bias: dim_act_on_shape=.false. not implemented yet")
+       output%indices(2) = 0
+    end if
 
     output%get_partial_left => get_partial_add
     output%get_partial_right => get_partial_add_bias

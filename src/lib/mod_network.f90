@@ -145,6 +145,7 @@ module athena__network
      !! Reset learnable parameter gradients
      procedure, pass(this) :: get_output
      !! Get the output of the network
+     procedure, pass(this) :: extract_output => extract_output_real
      procedure, pass(this) :: forward_generic2d
      !! Forward pass for generic 2D input
 
@@ -265,7 +266,7 @@ module athena__network
      !! Interface for compiling the network
      module subroutine compile( &
           this, optimiser, loss_method, accuracy_method, &
-          metrics, batch_size, calc_input_gradients, verbose &
+          metrics, batch_size, verbose &
      )
        !! Compile the network
        class(network_type), intent(inout) :: this
@@ -280,8 +281,6 @@ module athena__network
        !! Metrics
        integer, optional, intent(in) :: batch_size
        !! Batch size
-       logical, optional, intent(in) :: calc_input_gradients
-       !! Boolean whether to calculate input gradients, default = .false.
        integer, optional, intent(in) :: verbose
        !! Verbosity level
      end subroutine compile
@@ -609,6 +608,13 @@ module athena__network
        !! Output
      end function get_output
 
+     module subroutine extract_output_real(this, output)
+       class(network_type), intent(in) :: this
+       !! Instance of network
+       real(real32), dimension(..), allocatable :: output
+       !! Output
+     end subroutine extract_output_real
+
      module function calc_output_accuracy(this, output, start_index, end_index) &
           result(accuracy)
        !! Get the accuracy for the output
@@ -625,14 +631,14 @@ module athena__network
      module function loss_backward(this, output, start_index, end_index) result(loss)
        !! Get the loss for the output
        ! Arguments
-       class(network_type), intent(inout) :: this
+       class(network_type), intent(inout), target :: this
        !! Instance of network
        class(*), dimension(:,:), intent(inout) :: output
        !! Output
        integer, intent(in) :: start_index, end_index
        !! Start and end batch indices
 
-       type(array_type), dimension(:,:), allocatable :: loss
+       type(array_type), pointer :: loss(:,:)
      end function loss_backward
 
      module function calc_output_loss(this, output, start_index, end_index) result(loss)

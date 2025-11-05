@@ -62,10 +62,11 @@ module athena__diffstruc_extd
 ! Activation functions and other operations
 !-------------------------------------------------------------------------------
   interface
-     module function add_bias(input, bias, dim) result(output)
+     module function add_bias(input, bias, dim, dim_act_on_shape) result(output)
        class(array_type), intent(in), target :: input
        class(array_type), intent(in), target :: bias
        integer, intent(in) :: dim
+       logical, intent(in), optional :: dim_act_on_shape
        type(array_type), pointer :: output
      end function add_bias
   end interface

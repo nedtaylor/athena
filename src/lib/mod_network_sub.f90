@@ -3,7 +3,7 @@ submodule(athena__network) athena__network_submodule
 #ifdef _OPENMP
   use omp_lib
 #endif
-  use athena__io_utils, only: stop_program
+  use coreutils, only: stop_program, print_warning
   use athena__misc, only: to_lower
   use athena__misc_ml, only: shuffle
 
@@ -1416,7 +1416,7 @@ contains
 !###############################################################################
   module subroutine compile( &
        this, optimiser, loss_method, accuracy_method, &
-       metrics, batch_size, calc_input_gradients, verbose &
+       metrics, batch_size, verbose &
   )
     !! Compile the network
     implicit none
@@ -1434,8 +1434,6 @@ contains
     !! Metrics
     integer, optional, intent(in) :: batch_size
     !! Batch size
-    logical, optional, intent(in) :: calc_input_gradients
-    !! Boolean whether to calculate input gradients, default = .false.
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -1446,8 +1444,6 @@ contains
     !! Verbosity level
     logical :: use_graph_input = .false.
     !! Boolean whether to use graph input
-    logical :: calc_input_gradients_ = .false.
-    !! Boolean whether to calculate input gradients
     logical :: l_flatten_child, l_set_input_shape
     !! Booleans whether to flatten child or set input shape
     integer, dimension(:), allocatable :: input_shape, &
@@ -1461,7 +1457,6 @@ contains
     ! Initialise optional arguments
     !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
-    if(present(calc_input_gradients)) calc_input_gradients_ = calc_input_gradients
 
 
     !---------------------------------------------------------------------------
@@ -1499,7 +1494,6 @@ contains
        class is(input_layer_type)
           cycle
        class is(learnable_layer_type)
-          root%calc_input_gradients = calc_input_gradients_
           input_shape = root%input_shape
           use_graph_input = root%use_graph_input
        class default
@@ -2182,7 +2176,7 @@ contains
           end if
        end do
     else
-       output_shape = [1, 1]
+       output_shape = [0, 1]
        do i = 1, size(this%leaf_vertices,1)
           layer_idx = this%auto_graph%vertex(this%leaf_vertices(i))%id
           if(size(this%model(layer_idx)%layer%output,2).ne.1)then
@@ -2209,6 +2203,78 @@ contains
     end if
 
   end function get_output
+!-------------------------------------------------------------------------------
+  module subroutine extract_output_real(this, output)
+    !! Get the output of the network as real array
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(in) :: this
+    !! Instance of network
+    real(real32), dimension(..), allocatable :: output
+    !! Output
+
+    type(array_type), dimension(:,:), allocatable :: output_array
+    !! Temporary output array
+    character(len=10) :: rank_str
+
+
+    output_array = this%get_output()
+    if(any(shape(output_array).ne.1))then
+       call print_warning("Output is not compatible with real array")
+       write(0,*) "shape(output_array): ", shape(output_array)
+       return
+    end if
+    select rank(output)
+    rank(1)
+       output = reshape( output_array(1,1)%val, [ &
+            product( output_array(1,1)%shape ) * size(output_array,2) &
+       ] )
+    rank(2)
+       output = output_array(1,1)%val
+    rank default
+       if(size(output_array(1,1)%shape,1).ne.rank(output))then
+          write(rank_str,*) rank(output)
+          call print_warning( &
+               "Output data rank mismatch, expected rank "//trim(adjustl(rank_str)) &
+          )
+          return
+       end if
+       select rank(output)
+       rank(3)
+          output = reshape( &
+               output_array(1,1)%val, &
+               [ &
+                    output_array(1,1)%shape(1), &
+                    output_array(1,1)%shape(2), &
+                    size(output_array,2) &
+               ] &
+          )
+       rank(4)
+          output = reshape( &
+               output_array(1,1)%val, &
+               [ &
+                    output_array(1,1)%shape(1), &
+                    output_array(1,1)%shape(2), &
+                    output_array(1,1)%shape(3), &
+                    size(output_array,2) &
+               ] &
+          )
+       rank(5)
+          output = reshape( &
+               output_array(1,1)%val, &
+               [ &
+                    output_array(1,1)%shape(1), &
+                    output_array(1,1)%shape(2), &
+                    output_array(1,1)%shape(3), &
+                    output_array(1,1)%shape(4), &
+                    size(output_array,2) &
+               ] &
+          )
+       end select
+    end select
+
+  end subroutine extract_output_real
 !###############################################################################
 
 
@@ -2286,20 +2352,20 @@ contains
     implicit none
 
     ! Arguments
-    class(network_type), intent(inout) :: this
+    class(network_type), intent(inout), target :: this
     !! Instance of network
     class(*), dimension(:,:), intent(inout) :: output
     !! Output
     integer, intent(in) :: start_index, end_index
     !! Start and end batch indices
 
-    type(array_type), dimension(:,:), allocatable :: loss
+    type(array_type), pointer :: loss(:,:)
     !! Loss value
 
     ! Local variables
     integer :: s, s_idx
     !! Loop index
-    type(array_type), pointer :: tmp_output(:,:)
+    type(array_type), pointer :: tmp_output(:,:), predicted(:,:), input(:)
 
 
     allocate(loss(1,1))
@@ -2351,6 +2417,19 @@ contains
                tmp_output, &
                this%model(this%root_vertices(1))%layer%output(1,:) &
           )
+       type is(real)
+          allocate(tmp_output(1,1))
+          call tmp_output(1,1)%allocate(array_shape = [ &
+               size(output,1), end_index - start_index + 1 &
+          ])
+          call tmp_output(1,1)%set(output(:,start_index:end_index:1))
+          predicted => this%model(this%leaf_vertices(1))%layer%output
+          loss => this%loss%compute_pinn_generic( &
+               predicted, &
+               tmp_output, &
+               [ this%model(this%root_vertices(1))%layer%output(1,:) ] &
+          )
+
        class default
           call stop_program("loss_backward: output type not supported")
           return
@@ -2647,6 +2726,7 @@ contains
                 call layer%forward_derived(input_ptr)
                 call layer%output(1,1)%set_requires_grad(.false.)
                 call layer%output(1,1)%set_requires_grad(.false.)
+                deallocate(input_ptr)
                 input_ptr => null()
                 cycle
              class default
@@ -2736,6 +2816,13 @@ contains
              start_idx = end_idx + 1
              end_idx = end_idx + size(current%params_array(i)%val, 1)
              params(start_idx:end_idx) = current%params_array(i)%val(:,1)
+             if(.not.associated(current%params_array(i)%grad)) then
+                call stop_program( &
+                     "Gradient not allocated for parameters in layer "// &
+                     trim(current%name) // &
+                     "." &
+                )
+             end if
              select case(size(current%params_array(i)%grad%val,2))
              case(1)
                 gradients(start_idx:end_idx) = current%params_array(i)%grad%val(:,1)
