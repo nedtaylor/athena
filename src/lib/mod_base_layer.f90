@@ -81,8 +81,8 @@ module athena__base_layer
      !! Print the layer to a file with additional information
      procedure, pass(this) :: print_to_unit => print_to_unit_base
      !! Print the layer to a unit
-     ! procedure, pass(this) :: get_output => get_output_base
-     ! !! Get the output of the layer
+     procedure, pass(this) :: extract_output => extract_output_base
+     !! Extract the output of the layer as a standard real array
      procedure(initialise), deferred, pass(this) :: init
      !! Initialise the layer
      procedure(set_batch_size), deferred, pass(this) :: set_batch_size
@@ -144,13 +144,13 @@ module athena__base_layer
        !! Input shape
      end subroutine set_shape_base
 
-     pure module subroutine get_output_base(this, output)
-       !! Get the output of the layer
+     module subroutine extract_output_base(this, output)
+       !! Extract the output of the layer as a standard real array
        class(base_layer_type), intent(in) :: this
        !! Instance of the layer
-       real(real32), allocatable, dimension(..), intent(out) :: output
+       real(real32), dimension(..), allocatable, intent(out) :: output
        !! Output values
-     end subroutine get_output_base
+     end subroutine extract_output_base
 
      module subroutine set_ptrs(this)
        !! Set pointers to layer data

@@ -16,7 +16,7 @@ submodule(athena__base_layer) athena__base_layer_submodule
   !! - set_params*
   !! - get_gradients*
   !! - set_gradients*
-  use athena__io_utils, only: stop_program
+  use coreutils, only: stop_program, print_warning
   use athena__misc, only: to_lower, to_upper, icount
   use athena__tools_infile, only: assign_val, assign_vec
   implicit none
@@ -202,26 +202,27 @@ contains
 !###############################################################################
 
 
-! !###############################################################################
-!   pure module subroutine get_output_base(this, output)
-!     !! Get the output of the layer
-!     implicit none
+!###############################################################################
+  module subroutine extract_output_base(this, output)
+    !! Get the output of the layer
+    implicit none
 
-!     ! Arguments
-!     class(base_layer_type), intent(in) :: this
-!     !! Instance of the layer
-!     real(real32), allocatable, dimension(..), intent(out) :: output
-!     !! Output of the Layer
+    ! Arguments
+    class(base_layer_type), intent(in) :: this
+    !! Instance of the layer
+    real(real32), allocatable, dimension(..), intent(out) :: output
+    !! Output of the Layer
 
-!     real(real32), allocatable, dimension(:,:) :: output_tmp
+    if(size(this%output).gt.1)then
+       call print_warning("extract_output_base: output has more than one"&
+            &" sample, cannot extract")
+       return
+    end if
 
-!     do j = 1, size(this%output, 2)
-!        do i = 1, size(this%output, 1)
-!           call this%output(i,j)%get(output_tmp)
-!        end do
-!     end do
-!   end subroutine get_output_base
-! !###############################################################################
+    call this%output(1,1)%extract(output)
+
+  end subroutine extract_output_base
+!###############################################################################
 
 
 !###############################################################################
@@ -720,13 +721,13 @@ contains
     do i = 1, this%input_rank - 1
        this%orig_bound(:,i) = [ 1, this%input_shape(i) ]
        this%dest_bound(:,i) = [ 1, this%input_shape(i) + this%pad(i) * 2 ]
-       if (this%imethod .ge. 3)then
+       !if (this%imethod .ge. 3)then
           call this%facets(i)%setup_bounds( &
                length = this%input_shape(:this%input_rank-1), &
                pad = this%pad, &
                imethod = this%imethod &
           )
-       end if
+       !end if
     end do
 
 

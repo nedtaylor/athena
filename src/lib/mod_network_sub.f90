@@ -2214,9 +2214,11 @@ contains
     real(real32), dimension(..), allocatable :: output
     !! Output
 
+    ! Local variables
+    character(len=10) :: rank_str
+    !! String for rank
     type(array_type), dimension(:,:), allocatable :: output_array
     !! Temporary output array
-    character(len=10) :: rank_str
 
 
     output_array = this%get_output()
@@ -2233,7 +2235,7 @@ contains
     rank(2)
        output = output_array(1,1)%val
     rank default
-       if(size(output_array(1,1)%shape,1).ne.rank(output))then
+       if(size(output_array(1,1)%shape,1) + 1 .ne. rank(output))then
           write(rank_str,*) rank(output)
           call print_warning( &
                "Output data rank mismatch, expected rank "//trim(adjustl(rank_str)) &
