@@ -17,8 +17,8 @@ program test_avgpool3d_layer
   type(array_type) :: input(1,1), di_compare(1,1)
   type(array_type), pointer :: output, gradient
 
-  integer :: i, j, k, m, output_width, max_loc
-  integer :: ip1, ip2, jp1, jp2, kp1, kp2
+  integer :: i, j, k, c, output_width, max_loc
+  integer :: ip1, jp1, kp1
   real, parameter :: max_value = 3.0
 
 
@@ -74,10 +74,10 @@ program test_avgpool3d_layer
        array_shape=[width, width, width, num_channels, 1], &
        source = 0._real32)
   call input(1,1)%set_requires_grad(.true.)
-  do m = 1, num_channels
+  do c = 1, num_channels
      input(1,1)%val(&
           max_loc + (max_loc-1)*width + (max_loc-1)*width*width + &
-          (m-1)*width*width*width, 1) = max_value
+          (c-1)*width*width*width, 1) = max_value
   end do
   pool_layer = avgpool3d_layer_type( &
        pool_size = pool, &
@@ -149,7 +149,7 @@ program test_avgpool3d_layer
   call gradient%grad_reverse()
   call di_compare(1,1)%allocate(&
        array_shape=[width,width,width,num_channels,1], source = 0.0)
-  do m = 1, num_channels
+  do c = 1, num_channels
      do i = 1, output_width
         do j = 1, output_width
            do k = 1, output_width
@@ -158,10 +158,10 @@ program test_avgpool3d_layer
                     do kp1 = (k-1) * stride + 1, (k-1) * stride + pool
                        di_compare(1,1)%val(&
                             ip1 + (jp1-1)*width + (kp1-1)*width*width + &
-                            (m-1)*width*width*width, 1) = &
+                            (c-1)*width*width*width, 1) = &
                             di_compare(1,1)%val(&
                                  ip1 + (jp1-1)*width + (kp1-1)*width*width + &
-                                 (m-1)*width*width*width, 1 &
+                                 (c-1)*width*width*width, 1 &
                             ) + &
                             gradient%val(&
                                  i + (j-1)*output_width + &

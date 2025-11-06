@@ -17,8 +17,8 @@ program test_avgpool1d_layer
   type(array_type) :: input(1,1), di_compare(1,1)
   type(array_type), pointer :: output, gradient
 
-  integer :: i, j, k, output_width, max_loc
-  integer :: ip1, ip2
+  integer :: i, c, output_width, max_loc
+  integer :: ip1
   real, parameter :: max_value = 3.0
 
 
@@ -70,8 +70,8 @@ program test_avgpool1d_layer
   !! initialise sample input
   call input(1,1)%allocate(array_shape=[width, num_channels, 1], source = 0._real32)
   call input(1,1)%set_requires_grad(.true.)
-  do j = 1, num_channels
-     input(1,1)%val(max_loc + (j-1)*width, 1) = max_value
+  do c = 1, num_channels
+     input(1,1)%val(max_loc + (c-1)*width, 1) = max_value
   end do
   pool_layer = avgpool1d_layer_type( &
        pool_size = pool, &
@@ -101,21 +101,19 @@ program test_avgpool1d_layer
   output => pool_layer%output(1,1)
 
   do i = 1, output_width
-     do j = 1, output_width
-        if(  max_loc .ge. (i-1)*stride + 1    .and. &
-             max_loc .le. (i-1)*stride + pool )then
-           if( &
-                abs( output%val(i, 1) - max_value / pool ) .gt. &
-                1.E-6 &
-           )then
-              success = .false.
-              write(0,*) 'avgpool1d layer forward pass failed'
-           end if
-        else if( abs( output%val(i, 1) ) .gt. 1.E-6 ) then
+     if(  max_loc .ge. (i-1)*stride + 1    .and. &
+          max_loc .le. (i-1)*stride + pool )then
+        if( &
+             abs( output%val(i, 1) - max_value / pool ) .gt. &
+             1.E-6 &
+        )then
            success = .false.
            write(0,*) 'avgpool1d layer forward pass failed'
         end if
-     end do
+     else if( abs( output%val(i, 1) ) .gt. 1.E-6 ) then
+        success = .false.
+        write(0,*) 'avgpool1d layer forward pass failed'
+     end if
   end do
 
 !-------------------------------------------------------------------------------
@@ -127,12 +125,10 @@ program test_avgpool1d_layer
   call gradient%grad_reverse()
 !   call pool_layer%output(1,1)%grad_reverse()
   call di_compare(1,1)%allocate(array_shape=[width,num_channels,1], source = 0.0)
-  do j = 1, num_channels
+  do c = 1, num_channels
      do i = 1, output_width
-        ip1 = (i-1) * stride + 1
-        ip2 = (i-1) * stride + pool
-        do k = ip1, ip2
-           di_compare(1,1)%val(k + (j-1)*width,1) = gradient%val(i,1) / real(pool)
+        do ip1 = (i-1) * stride + 1, (i-1) * stride + pool
+           di_compare(1,1)%val(ip1 + (c-1)*width,1) = gradient%val(i,1) / real(pool)
         end do
      end do
   end do

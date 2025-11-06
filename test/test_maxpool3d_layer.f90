@@ -1,24 +1,24 @@
 program test_maxpool3d_layer
+  use coreutils, only: real32
   use athena, only: &
        maxpool3d_layer_type, &
        base_layer_type, &
        learnable_layer_type
   use athena__maxpool3d_layer, only: read_maxpool3d_layer
-  use athena__misc_types, only: array5d_type
+  use diffstruc, only: array_type, operator(+), operator(-)
   implicit none
 
-  class(base_layer_type), allocatable :: pool_layer
+  class(base_layer_type), allocatable, target :: pool_layer
   class(base_layer_type), allocatable :: read_layer
   integer, parameter :: num_channels = 3, pool = 3, stride = 2, width = 18
   integer :: unit
-  real, allocatable, dimension(:,:,:,:,:) :: input_data, output, gradient
-  real, allocatable, dimension(:) :: output_1d
-  real, allocatable, dimension(:,:) :: output_2d
   real, parameter :: tol = 1.E-7
   logical :: success = .true.
+  type(array_type) :: input(1,1), di_compare(1,1)
+  type(array_type), pointer :: output, gradient
 
-  integer :: i, j, k, output_width, max_loc
-  integer :: num_windows_i, num_windows_j, num_windows_k, num_windows
+  integer :: i, j, k, c, output_width, max_loc
+  integer :: ip1, jp1, kp1
   real, parameter :: max_value = 3.0
 
 
@@ -70,15 +70,22 @@ program test_maxpool3d_layer
   max_loc = width / 2 + mod(width, 2)
 
   !! initialise sample input
-  allocate(input_data(width, width, width, num_channels, 1), source = 0.0)
-  input_data(max_loc, max_loc, max_loc, :, 1) = max_value
+  call input(1,1)%allocate(&
+       array_shape=[width, width, width, num_channels, 1], &
+       source = 0._real32)
+  call input(1,1)%set_requires_grad(.true.)
+  do c = 1, num_channels
+     input(1,1)%val(&
+          max_loc + (max_loc-1)*width + (max_loc-1)*width*width + &
+          (c-1)*width*width*width, 1) = max_value
+  end do
   pool_layer = maxpool3d_layer_type( &
        pool_size = pool, &
        stride = stride &
   )
 
   !! check layer input and output shape based on input layer
-  call pool_layer%init(shape(input_data(:,:,:,:,1)), batch_size=1)
+  call pool_layer%init(input(1,1)%shape, batch_size=1)
   select type(pool_layer)
   type is(maxpool3d_layer_type)
      if(any(pool_layer%input_shape .ne. [width,width,width,num_channels]))then
@@ -101,8 +108,8 @@ program test_maxpool3d_layer
 ! use existing layer
 !-------------------------------------------------------------------------------
   !! run forward pass
-  call pool_layer%forward(input_data)
-  call pool_layer%get_output(output)
+  call pool_layer%forward_derived(input)
+  output => pool_layer%output(1,1)
 
   !! check outputs have expected value
   do i = 1, output_width
@@ -114,11 +121,16 @@ program test_maxpool3d_layer
                 max_loc .le. (j-1)*stride + pool .and. &
                 max_loc .ge. (k-1)*stride + 1    .and. &
                 max_loc .le. (k-1)*stride + pool )then
-              if( abs( output(i, j, k, 1, 1) - max_value ) .gt. 1.E-6 )then
+              if( abs( output%val(&
+                   i + (j-1)*output_width + &
+                   (k-1)*output_width*output_width, 1) - max_value ) .gt. &
+                   1.E-6 )then
                  success = .false.
                  write(*,*) 'maxpool3d layer forward pass failed'
               end if
-           else if( abs( output(i, j, k, 1, 1) ) .gt. 1.E-6 ) then
+           else if( abs( output%val(&
+                i + (j-1)*output_width + &
+                (k-1)*output_width*output_width, 1) ) .gt. 1.E-6 ) then
               success = .false.
               write(*,*) 'maxpool3d layer forward pass failed'
            end if
@@ -128,57 +140,62 @@ program test_maxpool3d_layer
 
 
 !-------------------------------------------------------------------------------
-! check output request using rank 1 and rank 2 arrays is consistent
+! check output request using rank 1 and rank 2 arrays is consistent
 !-------------------------------------------------------------------------------
-  call pool_layer%get_output(output_1d)
-  call pool_layer%get_output(output_2d)
-  if(any(abs(output_1d - reshape(output_2d, [size(output_2d)])) .gt. 1.E-6))then
-     success = .false.
-     write(0,*) 'output_1d and output_2d are not consistent'
-  end if
+!  call pool_layer%get_output(output_1d)
+!  call pool_layer%get_output(output_2d)
+!  if(any(abs(output_1d - reshape(output_2d, [size(output_2d)])) .gt. 1.E-6))then
+!     success = .false.
+!     write(0,*) 'output_1d and output_2d are not consistent'
+!  end if
 
 
 !-------------------------------------------------------------------------------
 ! test backward pass and check expected output
 !-------------------------------------------------------------------------------
   !! run backward pass
-  allocate(gradient, source = output)
-  call pool_layer%backward(input_data, gradient)
-
-  !! check gradient has expected value
-  select type(di => pool_layer%di(1,1))
-  type is(array5d_type)
-     do i = 1, width
-        num_windows_i = pool - stride + 1 - mod((stride+1)*(i-1),2)
-        do j = 1, width
-           num_windows_j = pool - stride + 1 - mod((stride+1)*(j-1),2)
-           do k = 1, width
-              num_windows_k = pool - stride + 1 - mod((stride+1)*(k-1),2)
-              num_windows = num_windows_i * num_windows_j * num_windows_k
-              if(all([i,j,k].eq.maxloc(input_data(:,:,:,1,1))))then
-                 if( &
-                      abs( &
-                           di%val_ptr(i, j, k, 1, 1) - &
-                           maxval( output ) * num_windows &
-                      ) .gt. 1.E-6 &
-                 )then
-                    success = .false.
-                    write(*,*) num_windows_i, num_windows_j, num_windows_k
-                    write(*,*) 'maxpool3d layer backward pass failed'
-                 end if
-              else
-                 if( abs( di%val_ptr(i, j, k, 1, 1) ) .gt. 1.E-6 ) then
-                    success = .false.
-                    write(*,*) 'maxpool3d layer backward pass failed'
-                 end if
-              end if
+  gradient => output
+  allocate(gradient%grad)
+  gradient%grad = output
+  call gradient%grad_reverse()
+  call di_compare(1,1)%allocate(&
+       array_shape=[width,width,width,num_channels,1], source = 0.0)
+  do c = 1, num_channels
+     do i = 1, output_width
+        do j = 1, output_width
+           do k = 1, output_width
+              do ip1 = (i-1) * stride + 1, (i-1) * stride + pool
+                 do jp1 = (j-1) * stride + 1, (j-1) * stride + pool
+                    do kp1 = (k-1) * stride + 1, (k-1) * stride + pool
+                       if(all([ip1,jp1,kp1].eq. &
+                            [max_loc,max_loc,max_loc]))then
+                          di_compare(1,1)%val(&
+                               ip1 + (jp1-1)*width + (kp1-1)*width*width + &
+                               (c-1)*width*width*width, 1) = &
+                               di_compare(1,1)%val(&
+                                    ip1 + (jp1-1)*width + (kp1-1)*width*width + &
+                                    (c-1)*width*width*width, 1 &
+                               ) + &
+                               gradient%val(&
+                                    i + (j-1)*output_width + &
+                                    (k-1)*output_width*output_width, 1)
+                       end if
+                    end do
+                 end do
+              end do
            end do
         end do
      end do
-  class default
+  end do
+
+  !! check gradient has expected value
+  if(any(abs(input(1,1)%grad%val(:,1) - di_compare(1,1)%val(:,1)) .gt. &
+       tol))then
      success = .false.
-     write(0,*) 'maxpool3d layer has not set di type correctly'
-  end select
+     write(*,*) 'maxpool3d layer backward pass failed'
+     write(*,*) 'Expected:', di_compare(1,1)%val(:,1)
+     write(*,*) 'Got:', input(1,1)%grad%val(:,1)
+  end if
 
 
 !-------------------------------------------------------------------------------
@@ -226,7 +243,7 @@ program test_maxpool3d_layer
   ! Create a temporary file for testing
   open(newunit=unit, file='test_maxpool3d_layer.tmp', &
        status='replace', action='write')
-  
+
   ! Write layer to file
   write(unit,'("MAXPOOL3D")')
   call pool_layer%print_to_unit(unit)
