@@ -109,7 +109,6 @@ program mnist_example
      call network%add(conv2d_layer_type( &
           num_filters = cv_num_filters, kernel_size = 3, stride = 1, &
           padding="none", &
-          calc_input_gradients = .false., &
           activation_function = "relu" &
      ))
      call network%add(maxpool2d_layer_type(&

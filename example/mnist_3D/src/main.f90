@@ -109,7 +109,6 @@ program mnist_example
           input_shape = [image_size,image_size,1,input_channels], &
           num_filters = cv_num_filters, kernel_size = [3,3,1], stride = 1, &
           padding = padding_method, &
-          calc_input_gradients = .false., &
           activation_function = "relu" &
      ))
      call network%add(maxpool3d_layer_type(&
