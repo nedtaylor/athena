@@ -23,14 +23,14 @@ program test_full_network
        num_inputs=1, &
        num_outputs=1, &
        kernel_initialiser='ones' &
-       ))
+  ))
   call network%compile( &
        optimiser=sgd_optimiser_type(learning_rate=1.0), &
        loss_method='mse', &
        metrics=['loss'], &
        batch_size = 1, &
        verbose=1 &
-       )
+  )
 
   !! check network has correct number of layers
   if(network%num_layers .ne. 2)then
@@ -43,27 +43,27 @@ program test_full_network
 ! manually train network
 !-------------------------------------------------------------------------------
   training: block
-     real, dimension(1,1) :: x, y
-     real :: tol = 1.E-3
-     integer :: n
-     integer, parameter :: num_iterations = 1000
+    real, dimension(1,1) :: x, y
+    real :: tol = 1.E-3
+    integer :: n
+    integer, parameter :: num_iterations = 1000
 
-     x(1,1) = 0.124
-     y(1,1) = 0.765
+    x(1,1) = 0.124
+    y(1,1) = 0.765
 
-     train_loop: do n=1, num_iterations
-        call network%forward(x)
-        loss => network%loss_backward(y, 1, 1)
-        call loss(1,1)%grad_reverse()
-        call network%update()
-        write(*,*) network%predict(x)
-        if(all(abs(network%predict(x)-y) .lt. tol)) exit train_loop
-      end do train_loop
+    train_loop: do n=1, num_iterations
+       call network%forward(x)
+       loss => network%loss_backward(y, 1, 1)
+       call loss(1,1)%grad_reverse()
+       call network%update()
+       write(*,*) network%predict(x)
+       if(all(abs(network%predict(x)-y) .lt. tol)) exit train_loop
+    end do train_loop
 
-      if(n.gt.num_iterations)then
-         success = .false.
-         write(0,*) 'network failed to converge'
-      end if
+    if(n.gt.num_iterations)then
+       success = .false.
+       write(0,*) 'network failed to converge'
+    end if
 
   end block training
 
@@ -95,7 +95,7 @@ program test_full_network
        metrics=['loss'], &
        batch_size = 1, &
        verbose=1 &
-       )
+  )
 
   !! check network has correct number of layers
   if(network%num_layers .ne. 4)then
