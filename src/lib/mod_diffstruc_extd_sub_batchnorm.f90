@@ -32,7 +32,8 @@ contains
                     input%val(i + (c-1) * num_elements:i + c * num_elements - 1, s) &
                     - mean(c) &
                ) / &
-               sqrt(variance(c) + output%epsilon) + params%val(c+input%shape(num_dims),1)
+               sqrt(variance(c) + output%epsilon) + &
+               params%val(c+input%shape(num_dims),1)
        end do
     end do
 
@@ -59,7 +60,9 @@ contains
     integer :: num_elements, num_dims
     real(real32) :: mu, var
 
-    call output%allocate(array_shape = input%shape)
+    allocate(output)
+    if(output%allocated) call output%deallocate()
+    call output%allocate(array_shape = [ input%shape, size(input%val,2) ])
     output%epsilon = epsilon
     output%mean = mean
     output%variance = variance
@@ -68,14 +71,9 @@ contains
     do concurrent(c = 1:input%shape(num_dims))
        mu = 0._real32
        var = 0._real32
-       do concurrent(i=1:num_elements)
-          mu = mu + sum(input%val(i + (c-1) * num_elements,:))
-       end do
-       mu = mu / num_elements
-       do concurrent(i=1:num_elements)
-          var = var + sum(input%val(i + (c-1) * num_elements,:) - mu) ** 2
-       end do
-       var = var / num_elements
+       mu = sum(input%val((c-1) * num_elements+1:c*num_elements,:)) / norm
+       var = sum( (input%val((c-1) * num_elements+1:c*num_elements,:) - mu) ** 2 ) / &
+            norm
 
        if(momentum .gt. 1.E-8_real32) then
           output%mean(c) = momentum * mean(c) + (1._real32 - momentum) * mu
@@ -85,12 +83,9 @@ contains
           output%variance(c) = var
        end if
 
-       do concurrent(i=1:num_elements)
-          output%val(i + (c-1) * num_elements:i + c * num_elements - 1, s) = &
-               params%val(c,1) * ( &
-                    input%val(i + (c-1) * num_elements:i + c * num_elements - 1, s) &
-                    - mu &
-               ) / &
+       do concurrent(s = 1:size(input%val,2), i = 1:num_elements)
+          output%val(i + (c-1) * num_elements, s) = &
+               params%val(c,1) * ( input%val(i + (c-1) * num_elements, s) - mu ) / &
                sqrt(var + output%epsilon) + params%val(c+input%shape(num_dims),1)
        end do
     end do
@@ -113,9 +108,9 @@ contains
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
-    integer :: c, i, num_dims, num_elements
+    integer :: i, c, s, num_dims, num_elements
     real(real32), allocatable :: x_hat(:,:), dx_hat(:,:)
-    real(real32) :: mu, var, eps
+    real(real32) :: mu, var, eps, norm
     class(array_type), pointer :: input, params
 
     input => this%left_operand
@@ -126,11 +121,15 @@ contains
        num_dims = size(this%shape)
        num_elements = product(this%shape(1:num_dims - 1))
 
-       call output%allocate(array_shape = input%shape)
+       call output%allocate(array_shape = [ input%shape, size(upstream_grad%val,2) ])
        output%val = 0._real32
 
        allocate(x_hat(num_elements, size(upstream_grad%val,2)))
        allocate(dx_hat(num_elements, size(upstream_grad%val,2)))
+       norm = real( &
+            product(input%shape(1:num_dims - 1)) * size(upstream_grad%val,2), &
+            real32 &
+       )
 
        do concurrent(c = 1:input%shape(num_dims))
           mu = this%mean(c)
@@ -145,9 +144,11 @@ contains
                params%val(c,1)
 
           ! Gradient wrt input
-          output%val((c-1)*num_elements+1:c*num_elements,:) = &
-               (1._real32 / (num_elements * sqrt(var + eps))) * &
-               (num_elements * dx_hat - sum(dx_hat) - x_hat * sum(dx_hat * x_hat))
+          do concurrent(s = 1:size(upstream_grad%val,2), i = 1:num_elements)
+             output%val(i + (c-1)*num_elements,s) = &
+                  (1._real32 / (norm * sqrt(var + eps))) * &
+                  (norm * dx_hat(i,s) - sum(dx_hat) - x_hat(i,s) * sum(dx_hat * x_hat))
+          end do
        end do
     end select
   end function get_partial_batchnorm_left
@@ -164,13 +165,14 @@ contains
     class(array_type), pointer :: input, params
 
     input => this%left_operand
+    params => this%right_operand
     select type(this)
     type is (batchnorm_array_type)
        eps = this%epsilon
        num_dims = size(this%shape)
        num_elements = product(this%shape(1:num_dims - 1))
 
-       call output%allocate(array_shape = input%shape)
+       call output%allocate(array_shape = [ params%shape, 1 ])
        output%val = 0._real32
 
        allocate(x_hat(num_elements, size(upstream_grad%val,2)))
@@ -180,7 +182,7 @@ contains
           var = this%variance(c)
 
           ! Normalised input
-          x_hat = (input%val((c-1)*num_elements+1:c*num_elements,:) - mu) / &
+          x_hat(:,:) = (input%val((c-1)*num_elements+1:c*num_elements,:) - mu) / &
                sqrt(var + eps)
 
           output%val(c,1) = &

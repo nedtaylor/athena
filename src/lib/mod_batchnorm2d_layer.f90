@@ -620,7 +620,7 @@ contains
     end select
     select type(output => this%output(1,1))
     type is(batchnorm_array_type)
-       output = ptr
+       call output%assign_shallow(ptr)
        output%epsilon = ptr%epsilon
        output%mean = ptr%mean
        output%variance = ptr%variance

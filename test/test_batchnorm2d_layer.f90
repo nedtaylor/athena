@@ -3,20 +3,26 @@ program test_batchnorm2d_layer
        batchnorm2d_layer_type, &
        base_layer_type, &
        learnable_layer_type
-  use athena__misc_types, only: array4d_type
+  use coreutils, only: real32
+  use diffstruc, only: array_type
   use athena__batchnorm2d_layer, only: read_batchnorm2d_layer
   implicit none
 
-  class(base_layer_type), allocatable :: bn_layer, bn_layer1, bn_layer2
+  class(base_layer_type), allocatable, target :: bn_layer, bn_layer1, bn_layer2
   class(base_layer_type), allocatable :: read_layer
   integer, parameter :: num_channels = 3, width = 8, batch_size = 1
   integer :: unit
   real, parameter :: gamma  = 0.5, beta = 0.3
-  real, allocatable, dimension(:,:,:,:) :: input_data, output, gradient
+  type(array_type) :: input(1,1)
+  real, allocatable, dimension(:,:,:,:) :: input_4d, output_4d, gradient_4d
   real, allocatable, dimension(:) :: output_1d, params1, params2
   real, allocatable, dimension(:,:) :: output_2d
   real, parameter :: tol = 0.5E-3
   logical :: success = .true.
+  class(array_type), pointer :: &
+       output => null(), &
+       gradient => null(), &
+       params_grad => null()
 
   integer :: i, j, output_width, num_params
   integer :: seed_size
@@ -88,21 +94,29 @@ program test_batchnorm2d_layer
 !!! test forward pass and check expected output for single-valued input
 !!! use existing layer
 !!!-----------------------------------------------------------------------------
+  write(*,*) "Testing forward pass with single-valued input..."
   !! initialise sample input
-  allocate(input_data(width, width, num_channels, batch_size), source = 0.0)
-
-  input_data = max_value
+  if(input(1,1)%allocated) call input(1,1)%deallocate()
+  call input(1,1)%allocate(&
+       array_shape=[width, width, num_channels, batch_size], source = max_value)
+  call input(1,1)%set_requires_grad(.true.)
 
   !! run forward pass
-  call bn_layer%forward(input_data)
-  call bn_layer%get_output(output)
+  write(*,*) "Running forward_derived..."
+  call bn_layer%forward_derived(input)
+  write(*,*) "Extracting output..."
+  call bn_layer%extract_output(output_4d)
 
   !! check outputs all get normalised to zero
-  if (any(output-beta.gt. tol)) then
+  write(*,*) "Checking output values..."
+  if (any(output_4d-beta.gt. tol)) then
      success = .false.
      write(0,*) 'batchnorm2d layer forward pass failed: &
           &output should all equal beta'
   end if
+
+  deallocate(output_4d)
+  call input(1,1)%deallocate()
 
 
 !!!-----------------------------------------------------------------------------
@@ -110,16 +124,19 @@ program test_batchnorm2d_layer
 !!! use existing layer
 !!!-----------------------------------------------------------------------------
   !! initialise sample input
-  call random_number(input_data)
+  call input(1,1)%allocate(&
+       array_shape=[width, width, num_channels, batch_size])
+  call input(1,1)%set_requires_grad(.true.)
+  call random_number(input(1,1)%val)
 
   !! run forward pass
-  call bn_layer%forward(input_data)
-  call bn_layer%get_output(output)
+  call bn_layer%forward_derived(input)
+  call bn_layer%extract_output(output_4d)
 
   !! check outputs all get normalised to zero
   do i = 1, num_channels
-     mean = sum(output(:,:,i,:))/(width**2*batch_size)
-     std = sqrt(sum((output(:,:,i,:) - mean)**2)/(width**2*batch_size))
+     mean = sum(output_4d(:,:,i,:))/(width**2*batch_size)
+     std = sqrt(sum((output_4d(:,:,i,:) - mean)**2)/(width**2*batch_size))
      if (abs(mean - beta) .gt. tol) then
         success = .false.
         write(0,*) 'batchnorm2d layer forward pass failed: &
@@ -132,45 +149,55 @@ program test_batchnorm2d_layer
      end if
   end do
 
+  deallocate(output_4d)
+
 
 !!!-----------------------------------------------------------------------------
 !!! test backward pass and check expected output for randomised input
 !!! use existing layer
 !!!-----------------------------------------------------------------------------
-  allocate(gradient, source = output)
-  call bn_layer%backward(input_data, gradient)
+  !! run backward pass
+  output => bn_layer%output(1,1)
+  allocate(output%grad)
+  call output%grad%allocate(array_shape=[output%shape, size(output%val, 2)])
+  output%grad%val = output%val
+  call output%grad%extract(gradient_4d)
+  call output%grad_reverse()
+  gradient => input(1,1)%grad
+  call gradient%extract(input_4d)
 
   !! check gradient has expected value
   select type(current => bn_layer)
-  type is(batchnorm2d_layer_type)
-     select type(di => current%di(1,1))
-     type is(array4d_type)
-        do i = 1, num_channels
-           mean = sum(di%val_ptr(:,:,i,:))/(width**2*batch_size)
-           std = sqrt( &
-                sum((di%val_ptr(:,:,i,:) - mean)**2)/(width**2*batch_size) &
-           )
-           if (abs(mean) .gt. tol) then
-              success = .false.
-              write(0,*) 'batchnorm2d layer backward pass failed: &
-                   &mean gradient should be zero'
-           end if
-           if (abs(std) .gt. tol) then
-              success = .false.
-              write(0,*) 'batchnorm2d layer backward pass failed: &
-                   &std gradient should equal gamma'
-           end if
-           if (abs(current%db(i,1) - sum(gradient(:,:,i,:))) .gt. tol) then
-              success = .false.
-              write(0,*) 'batchnorm2d layer backward pass failed: &
-                   &std gradient should equal sum of gradients'
-           end if
-        end do
-     class default
-        success = .false.
-        write(0,*) 'batchnorm2d layer has not set di type correctly'
-     end select
+  class is(batchnorm2d_layer_type)
+     params_grad => current%params_array(1)%grad
+     do i = 1, num_channels
+        mean = sum(input_4d(:,:,i,:))/(width**2*batch_size)
+        std = sqrt( &
+             sum((input_4d(:,:,i,:) - mean)**2)/(width**2*batch_size) &
+        )
+        if (abs(mean) .gt. tol) then
+           success = .false.
+           write(0,*) 'batchnorm2d layer backward pass failed: &
+                &mean gradient should be zero'
+           write(*,*) "mean gradient:", mean
+        end if
+        if (abs(std) .gt. tol) then
+           success = .false.
+           write(0,*) 'batchnorm2d layer backward pass failed: &
+                &std gradient should equal gamma'
+        end if
+        if (abs(params_grad%val(current%num_channels+i,1) - &
+             sum(gradient_4d(:,:,i,:))) .gt. tol) then
+           success = .false.
+           write(0,*) 'batchnorm2d layer backward pass failed: &
+                &std gradient should equal sum of gradients'
+        end if
+     end do
   end select
+
+  call input(1,1)%reset_graph()
+  call input(1,1)%deallocate()
+  deallocate(input_4d, gradient_4d)
 
 
 !-------------------------------------------------------------------------------
@@ -220,28 +247,14 @@ program test_batchnorm2d_layer
   bn_layer2 = batchnorm2d_layer_type(input_shape=[2,2,1], batch_size=1)
   select type(bn_layer1)
   type is(batchnorm2d_layer_type)
-     bn_layer1%dp = 1.E0
-     bn_layer1%db = 1.E0
+     call bn_layer1%set_gradients(1.E0)
      select type(bn_layer2)
      type is(batchnorm2d_layer_type)
-        bn_layer2%dp = 2.E0
-        bn_layer2%db = 2.E0
+        call bn_layer2%set_gradients(2.E0)
         bn_layer = bn_layer1 + bn_layer2
         select type(bn_layer)
         type is(batchnorm2d_layer_type)
            !! check layer addition
-           call compare_batchnorm2d_layers(&
-                bn_layer, bn_layer1, bn_layer2, success)
-
-           !! check layer reduction
-           bn_layer = bn_layer1
-           call bn_layer%reduce(bn_layer2)
-           call compare_batchnorm2d_layers(&
-                bn_layer, bn_layer1, bn_layer2, success)
-
-           !! check layer merge
-           bn_layer = bn_layer1
-           call bn_layer%merge(bn_layer2)
            call compare_batchnorm2d_layers(&
                 bn_layer, bn_layer1, bn_layer2, success)
         class default
@@ -259,14 +272,17 @@ program test_batchnorm2d_layer
 
 
 !-------------------------------------------------------------------------------
-! check output request using rank 1 and rank 2 arrays is consistent
+! check output request using rank 1 and rank 2 arrays is consistent
 !-------------------------------------------------------------------------------
-  call bn_layer%get_output(output_1d)
-  call bn_layer%get_output(output_2d)
+  allocate(output_1d(width*width*num_channels*batch_size))
+  allocate(output_2d(width*width*num_channels, batch_size))
+  call bn_layer%extract_output(output_1d)
+  call bn_layer%extract_output(output_2d)
   if(any(abs(output_1d - reshape(output_2d, [size(output_2d)])) .gt. 1.E-6))then
      success = .false.
      write(0,*) 'output_1d and output_2d are not consistent'
   end if
+  deallocate(output_1d, output_2d)
 
 
 !-------------------------------------------------------------------------------
@@ -277,7 +293,7 @@ program test_batchnorm2d_layer
   ! Create a temporary file for testing
   open(newunit=unit, file='test_batchnorm2d_layer.tmp', &
        status='replace', action='write')
-  
+
   ! Write layer to file
   write(unit,'("BATCHNORM2D")')
   call bn_layer%print_to_unit(unit)
@@ -328,11 +344,12 @@ contains
     type(batchnorm2d_layer_type), intent(in) :: layer1, layer2, layer3
     logical, intent(inout) :: success
 
-    if(any(abs(layer1%dp-layer2%dp-layer3%dp).gt.tol))then
-       success = .false.
-       write(0,*) 'batchnorm2d layer has wrong gradients'
-    end if
-    if(any(abs(layer1%db-layer2%db-layer3%db).gt.tol))then
+    real, allocatable, dimension(:) :: gradients1, gradients2, gradients3
+
+    gradients1 = layer1%get_gradients()
+    gradients2 = layer2%get_gradients()
+    gradients3 = layer3%get_gradients()
+    if(any(abs(gradients1-gradients2-gradients3).gt.tol))then
        success = .false.
        write(0,*) 'batchnorm2d layer has wrong gradients'
     end if

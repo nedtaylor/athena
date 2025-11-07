@@ -55,8 +55,6 @@ module athena__base_layer
      !! Layer name
      character(4) :: type = 'base'
      !! Layer type
-     logical :: requires_grad = .false.
-     !! Boolean whether the layer requires gradients
      type(graph_type), allocatable, dimension(:) :: graph
      !! Graph structure of input data
      logical :: consistent_sample_shape = .true. !! ONLY FALSE FOR GRAPHS
@@ -500,8 +498,6 @@ module athena__base_layer
    contains
      procedure, pass(this) :: get_num_params => get_num_params_batch
      !! Get the number of parameters in the layer
-     procedure, pass(this) :: set_gradients => set_gradients_batch
-     !! Set the gradients of the layer
      procedure, pass(this) :: init => init_batch
      !! Initialise the layer
   end type batch_layer_type
@@ -517,10 +513,6 @@ module athena__base_layer
        class(batch_layer_type), intent(in) :: this
        integer :: num_params
      end function get_num_params_batch
-     module subroutine set_gradients_batch(this, gradients)
-       class(batch_layer_type), intent(inout) :: this
-       real(real32), dimension(..), intent(in) :: gradients
-     end subroutine set_gradients_batch
      pure module function get_num_params_conv(this) result(num_params)
        class(conv_layer_type), intent(in) :: this
        integer :: num_params

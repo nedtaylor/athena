@@ -455,6 +455,11 @@ contains
        end if
        do i = 1, size(this%params_array,1)
           this%params_array(i) = this%params_array(i) + input%params_array(i)
+          if(associated(this%params_array(i)%grad).and.&
+               associated(input%params_array(i)%grad))then
+             this%params_array(i)%grad = this%params_array(i)%grad + &
+                  input%params_array(i)%grad
+          end if
        end do
     else
        call stop_program("reduce_learnable: unallocated parameter arrays")
@@ -487,7 +492,14 @@ contains
           return
        end if
        do i = 1, size(a%params_array,1)
+          output%params_array(i)%grad => null()
           output%params_array(i) = a%params_array(i) + b%params_array(i)
+          if(associated(a%params_array(i)%grad).and.&
+               associated(b%params_array(i)%grad))then
+             allocate(output%params_array(i)%grad)
+             output%params_array(i)%grad = a%params_array(i)%grad + &
+                  b%params_array(i)%grad
+          end if
        end do
     else
        call stop_program("add_learnable: unallocated parameter arrays")
@@ -596,8 +608,7 @@ contains
        if(.not.associated(this%params_array(i)%grad)) then
           gradients(start_idx:end_idx) = 0._real32
        else
-          gradients(start_idx:end_idx) = &
-               sum( this%params_array(i)%grad%val, dim=2 ) / this%batch_size
+          gradients(start_idx:end_idx) = this%params_array(i)%grad%val(:,1)
        end if
     end do
 
@@ -633,8 +644,6 @@ contains
           if(.not.associated(this%params_array(i)%grad)) then
              this%params_array(i)%grad => this%params_array(i)%create_result()
           end if
-          start_idx = end_idx + 1
-          end_idx = start_idx + size(this%params_array(i)%val,1) - 1
           this%params_array(i)%grad%val(:,1) = gradients
        end do
     rank(1)
@@ -644,40 +653,11 @@ contains
           end if
           start_idx = end_idx + 1
           end_idx = start_idx + size(this%params_array(i)%val,1) - 1
-          this%params_array(i)%grad%val = &
-               spread(gradients(start_idx:end_idx), 2, this%batch_size)
+          this%params_array(i)%grad%val(:,1) = gradients(start_idx:end_idx)
        end do
     end select
 
   end subroutine set_gradients
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine set_gradients_batch(this, gradients)
-    !! Set the gradients of a batch normalisation layer
-    !!
-    !! This function sets the gradients of a batch normalisation layer
-    !! from a single array.
-    !! This has been modified from the neural-fortran library
-    implicit none
-
-    ! Arguments
-    class(batch_layer_type), intent(inout) :: this
-    !! Instance of the layer
-    real(real32), dimension(..), intent(in) :: gradients
-    !! Gradients of the layer
-
-    select rank(gradients)
-    rank(0)
-       this%dp = gradients * this%batch_size
-       this%db = gradients * this%batch_size
-    rank(1)
-       this%dp(:,1) = gradients(:this%num_channels) * this%batch_size
-       this%db(:,1) = gradients(this%num_channels+1:) * this%batch_size
-    end select
-
-  end subroutine set_gradients_batch
 !###############################################################################
 
 
@@ -721,13 +701,11 @@ contains
     do i = 1, this%input_rank - 1
        this%orig_bound(:,i) = [ 1, this%input_shape(i) ]
        this%dest_bound(:,i) = [ 1, this%input_shape(i) + this%pad(i) * 2 ]
-       !if (this%imethod .ge. 3)then
-          call this%facets(i)%setup_bounds( &
-               length = this%input_shape(:this%input_rank-1), &
-               pad = this%pad, &
-               imethod = this%imethod &
-          )
-       !end if
+       call this%facets(i)%setup_bounds( &
+            length = this%input_shape(:this%input_rank-1), &
+            pad = this%pad, &
+            imethod = this%imethod &
+       )
     end do
 
 
@@ -955,6 +933,7 @@ contains
     this%num_params = this%get_num_params()
     allocate(this%params_array(1))
     call this%params_array(1)%allocate([2 * this%num_channels, 1])
+    call this%params_array(1)%set_requires_grad(.true.)
     allocate(this%weight_shape(1,1))
     this%weight_shape(:,1) = [ this%num_channels ]
     this%bias_shape = [this%num_channels]
