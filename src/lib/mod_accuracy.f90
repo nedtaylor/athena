@@ -1,6 +1,6 @@
 module athena__accuracy
   !! Module containing functions to compute the accuracy of a model
-  use athena__constants, only: real32
+  use coreutils, only: real32
   implicit none
 
 

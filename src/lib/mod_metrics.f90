@@ -2,8 +2,7 @@ module athena__metrics
   !! Module containing functions to compute the accuracy of a model
   !!
   !! This module contains a derived type for storing and handling metric data
-  use athena__io_utils, only: stop_program
-  use athena__constants, only: real32
+  use coreutils, only: real32, stop_program
   implicit none
 
 

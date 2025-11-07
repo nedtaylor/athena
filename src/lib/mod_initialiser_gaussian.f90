@@ -3,7 +3,7 @@ module athena__initialiser_gaussian
   !!
   !! This module contains the implementation of the Gaussian initialisation
   !! for the weights and biases of a layer
-  use athena__constants, only: real32, pi
+  use coreutils, only: real32, pi
   use athena__misc_types, only: initialiser_type
   implicit none
 

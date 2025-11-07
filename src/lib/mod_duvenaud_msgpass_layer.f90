@@ -745,7 +745,7 @@ contains
 !###############################################################################
   subroutine print_to_unit_duvenaud(this, unit)
     !! Print kipf message passing layer to unit
-    use athena__misc, only: to_upper
+    use coreutils, only: to_upper
     implicit none
 
     ! Arguments

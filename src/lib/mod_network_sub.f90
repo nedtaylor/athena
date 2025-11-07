@@ -3,8 +3,7 @@ submodule(athena__network) athena__network_submodule
 #ifdef _OPENMP
   use omp_lib
 #endif
-  use coreutils, only: stop_program, print_warning
-  use athena__misc, only: to_lower
+  use coreutils, only: stop_program, print_warning, to_lower
   use athena__misc_ml, only: shuffle
 
   use athena__accuracy, only: categorical_score, mae_score, mse_score, r2_score
@@ -335,7 +334,7 @@ contains
 !###############################################################################
   module subroutine print(this, file)
     !! Print the network to a file
-    use athena__misc, only: to_upper
+    use coreutils, only: to_upper
     use athena__io_utils, only: athena__version__
     implicit none
 
@@ -450,7 +449,7 @@ contains
 !###############################################################################
   module subroutine read(this, file)
     !! Read the network from a file
-    use athena__misc, only: icount
+    use coreutils, only: icount
     implicit none
 
     ! Arguments
@@ -561,7 +560,7 @@ contains
   module subroutine read_network_settings(this, unit)
     !! Read the network settings from a file
     use athena__tools_infile, only: assign_val, assign_vec
-    use athena__misc, only: to_lower, to_upper, icount
+    use coreutils, only: to_lower, to_upper, icount
     implicit none
 
     ! Arguments
@@ -667,7 +666,7 @@ contains
 !-------------------------------------------------------------------------------
   module subroutine read_optimiser_settings(this, unit)
     !! Read the optimiser settings from a file
-    use athena__misc, only: to_lower, to_upper, icount
+    use coreutils, only: to_lower, to_upper, icount
     use athena__optimiser, only: &
          sgd_optimiser_type, adam_optimiser_type, rmsprop_optimiser_type, &
          adagrad_optimiser_type, base_optimiser_type
@@ -1144,7 +1143,7 @@ contains
 !###############################################################################
   module subroutine set_metrics(this, metrics)
     !! Set the metrics for the network
-    use athena__misc, only: to_lower
+    use coreutils, only: to_lower
     implicit none
 
     ! Arguments
@@ -1202,7 +1201,7 @@ contains
 !###############################################################################
   module subroutine set_loss(this, loss_method, verbose)
     !! Set the loss method for the network
-    use athena__misc, only: to_lower
+    use coreutils, only: to_lower
     use athena__loss, only: &
          bce_loss_type, &
          cce_loss_type, &
@@ -1300,7 +1299,7 @@ contains
 !###############################################################################
   module subroutine set_accuracy(this, accuracy_method, verbose)
     !! Set the accuracy method for the network
-    use athena__misc, only: to_lower
+    use coreutils, only: to_lower
     use athena__accuracy, only: &
          categorical_score, &
          mae_score, &

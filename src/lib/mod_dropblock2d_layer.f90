@@ -328,7 +328,7 @@ contains
 !###############################################################################
   subroutine print_to_unit_dropblock2d(this, unit)
     !! Print 2D dropblock layer to unit
-    use athena__misc, only: to_upper
+    use coreutils, only: to_upper
     implicit none
 
     ! Arguments
@@ -352,7 +352,7 @@ contains
   subroutine read_dropblock2d(this, unit, verbose)
     !! Read 2D dropblock layer from file
     use athena__tools_infile, only: assign_val, assign_vec
-    use athena__misc, only: to_lower, to_upper, icount
+    use coreutils, only: to_lower, to_upper, icount
     implicit none
 
     ! Arguments

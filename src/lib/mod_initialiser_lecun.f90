@@ -4,8 +4,7 @@ module athena__initialiser_lecun
   !! This module contains the implementation of the LeCun initialiser
   !! for the weights and biases of a layer
   !! Reference: https://dl.acm.org/doi/10.5555/645754.668382
-  use athena__constants, only: real32, pi
-  use athena__io_utils, only: stop_program
+  use coreutils, only: real32, pi, stop_program
   use athena__misc_types, only: initialiser_type
   implicit none
 

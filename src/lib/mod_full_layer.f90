@@ -427,7 +427,7 @@ contains
 !###############################################################################
   subroutine print_to_unit_full(this, unit)
     !! Print fully connected layer to unit
-    use athena__misc, only: to_upper
+    use coreutils, only: to_upper
     implicit none
 
     ! Arguments
@@ -465,7 +465,7 @@ contains
   subroutine read_full(this, unit, verbose)
     !! Read fully connected layer from file
     use athena__tools_infile, only: assign_val, assign_vec, move
-    use athena__misc, only: to_lower, to_upper, icount
+    use coreutils, only: to_lower, to_upper, icount
     use athena__initialiser, only: initialiser_setup
     implicit none
 

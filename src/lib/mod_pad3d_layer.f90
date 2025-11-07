@@ -4,7 +4,6 @@ module athena__pad3d_layer
   use athena__base_layer, only: pad_layer_type, base_layer_type
   use diffstruc, only: array_type
   use athena__diffstruc_extd, only: pad3d
-  use athena__misc, only: to_lower
   implicit none
 
 
@@ -125,6 +124,7 @@ contains
 !###############################################################################
   subroutine set_hyperparams_pad3d(this, padding, method, verbose)
     !! Set hyperparameters for 3D padding layer
+    use coreutils, only: to_lower
     implicit none
 
     ! Arguments
@@ -231,7 +231,7 @@ contains
   subroutine read_pad3d(this, unit, verbose)
     !! Read 3D padding layer from file
     use athena__tools_infile, only: assign_val, assign_vec
-    use athena__misc, only: to_lower, to_upper, icount
+    use coreutils, only: to_lower, to_upper, icount
     implicit none
 
     ! Arguments

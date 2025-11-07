@@ -1,7 +1,6 @@
 program test_activation_layer
   !! Unit tests for the activation layer module
-  use coreutils, only: real32
-  use athena__io_utils, only: test_error_handling
+  use coreutils, only: real32, test_error_handling
   use athena__actv_layer, only: actv_layer_type, read_actv_layer
   use athena__base_layer, only: base_layer_type
   use diffstruc, only: array_type, operator(-)

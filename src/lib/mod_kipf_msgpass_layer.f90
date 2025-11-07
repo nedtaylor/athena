@@ -482,7 +482,7 @@ contains
 !###############################################################################
   subroutine print_to_unit_kipf(this, unit)
     !! Print kipf message passing layer to unit
-    use athena__misc, only: to_upper
+    use coreutils, only: to_upper
     implicit none
 
     ! Arguments
@@ -528,7 +528,7 @@ contains
   subroutine read_kipf(this, unit, verbose)
     !! Read the message passing layer
     use athena__tools_infile, only: assign_val, assign_vec, get_val
-    use athena__misc, only: to_lower, to_upper, icount
+    use coreutils, only: to_lower, to_upper, icount
     implicit none
 
     ! Arguments

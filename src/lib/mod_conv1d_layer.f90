@@ -283,7 +283,7 @@ contains
     !! Set hyperparameters for 1D convolutional layer
     use athena__activation,  only: activation_setup
     use athena__initialiser, only: get_default_initialiser, initialiser_setup
-    use athena__misc, only: to_lower
+    use coreutils, only: to_lower
     implicit none
 
     ! Arguments
@@ -457,7 +457,7 @@ contains
 !###############################################################################
   subroutine print_to_unit_conv1d(this, unit)
     !! Print 1D convolutional layer to unit
-    use athena__misc, only: to_upper
+    use coreutils, only: to_upper
     implicit none
 
     ! Arguments
@@ -511,7 +511,7 @@ contains
   subroutine read_conv1d(this, unit, verbose)
     !! Read 1D convolutional layer from file
     use athena__tools_infile, only: assign_val, assign_vec, move
-    use athena__misc, only: to_lower, to_upper, icount
+    use coreutils, only: to_lower, to_upper, icount
     use athena__initialiser, only: initialiser_setup
     implicit none
 

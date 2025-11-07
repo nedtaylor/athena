@@ -2,8 +2,7 @@ module athena__activation_gaussian
   !! Module containing implementation of the Gaussian activation function
   !!
   !! This module implements the Gaussian (bell curve) activation function
-  use athena__constants, only: pi
-  use coreutils, only: real32
+  use coreutils, only: real32, pi
   use diffstruc, only: array_type, gaussian, operator(*)
   use athena__misc_types, only: activation_type
   implicit none

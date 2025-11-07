@@ -6,10 +6,8 @@ module athena__initialiser_he
   !! The He initialiser is also known as the Kaiming initialiser
   !! The He initialiser is also known as the MSRA initialiser
   !! Reference: https://doi.org/10.48550/arXiv.1502.01852
-  use athena__constants, only: real32, pi
-  use athena__io_utils, only: stop_program
+  use coreutils, only: real32, pi, to_lower, stop_program
   use athena__misc_types, only: initialiser_type
-  use athena__misc, only: to_lower
   implicit none
 
 

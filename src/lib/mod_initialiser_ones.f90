@@ -3,7 +3,7 @@ module athena__initialiser_ones
   !!
   !! This module contains the implementation of the Ones initialiser
   !! for the weights and biases of a layer
-  use athena__constants, only: real32
+  use coreutils, only: real32
   use athena__misc_types, only: initialiser_type
   implicit none
 

@@ -297,7 +297,7 @@ contains
   subroutine read_concat(this, unit, verbose)
     !! Read concatenate layer from file
     use athena__tools_infile, only: assign_val, assign_vec, get_val
-    use athena__misc, only: to_lower, to_upper, icount
+    use coreutils, only: to_lower, to_upper, icount
     implicit none
 
     ! Arguments

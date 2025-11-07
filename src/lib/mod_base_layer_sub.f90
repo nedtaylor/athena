@@ -16,8 +16,7 @@ submodule(athena__base_layer) athena__base_layer_submodule
   !! - set_params*
   !! - get_gradients*
   !! - set_gradients*
-  use coreutils, only: stop_program, print_warning
-  use athena__misc, only: to_lower, to_upper, icount
+  use coreutils, only: stop_program, print_warning, to_lower, to_upper, icount
   use athena__tools_infile, only: assign_val, assign_vec
   implicit none
 
@@ -26,7 +25,7 @@ contains
 !###############################################################################
   module subroutine print_base(this, file, unit, print_header_footer)
     !! Print the layer and wrapping info to a file
-    use athena__misc, only: to_upper
+    use coreutils, only: to_upper
     implicit none
 
     ! Arguments

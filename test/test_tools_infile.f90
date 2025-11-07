@@ -1,5 +1,5 @@
 program test_infile_tools
-  use athena__constants, only: real32
+  use coreutils, only: real32
   use athena__tools_infile
   implicit none
 
@@ -107,7 +107,7 @@ program test_infile_tools
     integer :: unit, iostat_val
     character(256) :: err_msg_val
     character(100) :: line
-    
+
     ! Create a temporary test file with multiple lines
     open(newunit=unit, file='test_move.tmp', &
          status='replace', action='write')
@@ -117,25 +117,25 @@ program test_infile_tools
     write(unit, '(A)') 'line 4'
     write(unit, '(A)') 'line 5'
     close(unit)
-    
+
     ! Test forward movement
     open(newunit=unit, file='test_move.tmp', &
          status='old', action='read')
-    
+
     ! Read first line
     read(unit, '(A)') line
     if(trim(line) .ne. 'line 1')then
        write(0,*) "move test setup failed - wrong first line"
        success = .false.
     end if
-    
+
     ! Move forward 2 lines
     call move(unit, 2, iostat=iostat_val, err_msg=err_msg_val)
     if(iostat_val .ne. 0)then
        write(0,*) "move forward failed: ", trim(err_msg_val)
        success = .false.
     end if
-    
+
     ! Should now be at line 4
     read(unit, '(A)') line
     if(trim(line) .ne. 'line 4')then
@@ -143,14 +143,14 @@ program test_infile_tools
                   trim(line)
        success = .false.
     end if
-    
+
     ! Move backward 1 line
     call move(unit, -1, iostat=iostat_val, err_msg=err_msg_val)
     if(iostat_val .ne. 0)then
        write(0,*) "move backward failed: ", trim(err_msg_val)
        success = .false.
     end if
-    
+
     ! After backspace -1, we should be positioned to re-read line 4
     read(unit, '(A)') line
     if(trim(line) .ne. 'line 4')then
@@ -158,14 +158,14 @@ program test_infile_tools
                   trim(line)
        success = .false.
     end if
-    
+
     ! Test zero movement (should be no-op) - we're now at line 5
     call move(unit, 0, iostat=iostat_val, err_msg=err_msg_val)
     if(iostat_val .ne. 0)then
        write(0,*) "move zero failed: ", trim(err_msg_val)
        success = .false.
     end if
-    
+
     ! Position should be unchanged - next line should be line 5
     read(unit, '(A)') line
     if(trim(line) .ne. 'line 5')then
@@ -173,16 +173,16 @@ program test_infile_tools
                   trim(line)
        success = .false.
     end if
-    
+
     close(unit)
-    
+
     ! Test error conditions - try to move with invalid unit
     call move(999, 1, iostat=iostat_val, err_msg=err_msg_val)
     if(iostat_val .eq. 0)then
        write(0,*) "move should fail with invalid unit"
        success = .false.
     end if
-    
+
     ! Clean up temporary file
     open(newunit=unit, file='test_move.tmp', status='old')
     close(unit, status='delete')

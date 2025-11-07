@@ -2,7 +2,7 @@ module athena__clipper
   !! Module containing functions to clip gradients
   !!
   !! This module implements clipping methods for layer gradients
-  use athena__constants, only: real32
+  use coreutils, only: real32
   implicit none
 
 

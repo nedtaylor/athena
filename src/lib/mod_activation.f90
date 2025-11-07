@@ -1,7 +1,6 @@
 module athena__activation
   !! Module containing the activation function setup
-  use athena__constants, only: real32
-  use athena__misc, only: to_lower
+  use coreutils, only: real32, to_lower
   use athena__misc_types, only: activation_type
   use athena__activation_gaussian, only: gaussian_setup
   use athena__activation_linear, only: linear_setup

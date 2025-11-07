@@ -236,7 +236,7 @@ contains
   subroutine read_avgpool2d(this, unit, verbose)
     !! Read 2D average pooling layer from file
     use athena__tools_infile, only: assign_val, assign_vec
-    use athena__misc, only: to_lower, to_upper, icount
+    use coreutils, only: to_lower, to_upper, icount
     implicit none
 
     ! Arguments

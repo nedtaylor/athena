@@ -1,6 +1,6 @@
 module athena__normalisation
   !! Module containing procedures for normalising input and output data
-  use athena__constants, only: real32
+  use coreutils, only: real32
   implicit none
 
 

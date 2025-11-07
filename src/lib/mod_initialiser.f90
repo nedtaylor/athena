@@ -4,8 +4,7 @@ module athena__initialiser
   !! This module contains functions to set up initialisers for the weights and
   !! biases of a neural network model
   !! Examples of initialsers in keras: https://keras.io/api/layers/initializers/
-  use athena__io_utils, only: stop_program
-  use athena__misc, only: to_lower
+  use coreutils, only: stop_program, to_lower
   use athena__misc_types, only: initialiser_type
   use athena__initialiser_glorot, only: glorot_uniform_type, glorot_normal_type
   use athena__initialiser_he, only: he_uniform_type, he_normal_type

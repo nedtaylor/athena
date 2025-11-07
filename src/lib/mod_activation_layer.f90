@@ -2,8 +2,7 @@ module athena__actv_layer
   !! Module containing implementation of the activation layer
   !!
   !! This module wraps different activation functions into a layer type
-  use athena__io_utils, only: stop_program
-  use athena__constants, only: real32
+  use coreutils, only: real32, stop_program
   use athena__base_layer, only: base_layer_type
   use athena__misc_types, only: activation_type
   use diffstruc, only: array_type
@@ -354,7 +353,7 @@ contains
 !###############################################################################
   subroutine print_to_unit_actv(this, unit)
     !! Print activation layer to unit
-    use athena__misc, only: to_upper
+    use coreutils, only: to_upper
     implicit none
 
     ! Arguments
@@ -378,7 +377,7 @@ contains
   subroutine read_actv(this, unit, verbose)
     !! Read activation layer from file
     use athena__tools_infile, only: assign_val, assign_vec
-    use athena__misc, only: to_lower, to_upper, icount
+    use coreutils, only: to_lower, to_upper, icount
     implicit none
 
     ! Arguments

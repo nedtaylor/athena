@@ -3,8 +3,7 @@ module athena__initialiser_ident
   !!
   !! This module contains the implementation of the identity initialiser
   !! for the weights and biases of a layer
-  use athena__io_utils, only: stop_program
-  use athena__constants, only: real32
+  use coreutils, only: real32, stop_program
   use athena__misc_types, only: initialiser_type
   implicit none
 

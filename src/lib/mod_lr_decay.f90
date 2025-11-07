@@ -1,6 +1,6 @@
 module athena__learning_rate_decay
   !! Module containing learning decay rate types and procedures
-  use athena__constants, only: real32
+  use coreutils, only: real32
   implicit none
 
 

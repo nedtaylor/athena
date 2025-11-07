@@ -5,8 +5,7 @@ module athena__initialiser_glorot
   !! for the weights and biases of a layer
   !! The Glorot initialiser is also known as the Xavier initialiser
   !! Reference: https://proceedings.mlr.press/v9/glorot10a.html
-  use athena__constants, only: real32, pi
-  use athena__io_utils, only: stop_program
+  use coreutils, only: real32, pi, stop_program
   use athena__misc_types, only: initialiser_type
   implicit none
 

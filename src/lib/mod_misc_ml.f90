@@ -4,8 +4,7 @@ module athena__misc_ml
   !! This module contains various procedures that are useful for machine
   !! learning tasks. These include shuffling data, splitting data into
   !! train and test sets, and padding data.
-  use athena__io_utils, only: stop_program
-  use athena__constants, only: real32
+  use coreutils, only: real32, stop_program
   implicit none
 
 
@@ -2009,7 +2008,7 @@ contains
 !###############################################################################
   subroutine set_padding(pad, kernel_size, padding_method, verbose)
     !! Set padding for convolutional layers
-    use athena__misc, only: to_lower
+    use coreutils, only: to_lower
     implicit none
 
     ! Arguments

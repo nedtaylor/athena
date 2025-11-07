@@ -6,9 +6,7 @@ module athena__tools_infile
   !! Code copied from ARTEMIS with permission of the authors
   !! Ned Thaddeus Taylor and Francis Huw Davies
   !! https://github.com/ExeQuantCode/ARTEMIS
-  use athena__constants, only: real32
-  use athena__misc, only: grep, icount
-  use athena__io_utils, only: stop_program
+  use coreutils, only: real32, grep, icount, stop_program
   implicit none
 
 

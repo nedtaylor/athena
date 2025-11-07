@@ -277,7 +277,7 @@ contains
 !###############################################################################
   subroutine print_to_unit_dropout(this, unit)
     !! Print dropout layer to unit
-    use athena__misc, only: to_upper
+    use coreutils, only: to_upper
     implicit none
 
     ! Arguments
@@ -301,7 +301,7 @@ contains
   subroutine read_dropout(this, unit, verbose)
     !! Read dropout layer from file
     use athena__tools_infile, only: assign_val, assign_vec
-    use athena__misc, only: to_lower, to_upper, icount
+    use coreutils, only: to_lower, to_upper, icount
     implicit none
 
     ! Arguments
