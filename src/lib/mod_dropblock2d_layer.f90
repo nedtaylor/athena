@@ -503,17 +503,18 @@ contains
     type(array_type), pointer :: ptr
 
 
+    rtmp1 = 1._real32 - this%rate
     select case(this%inference)
     case(.true.)
-       rtmp1 = 1._real32 - this%rate
        ! Do not perform the drop operation
        ptr => input(1,1) * rtmp1
     case default
        ! Perform the drop operation
+       rtmp1 = 1._real32 / rtmp1
        ptr => merge_over_channels( &
             input(1,1), 0._real32, &
             reshape(this%mask, shape = [product(shape(this%mask)), 1]) &
-       )
+       ) * rtmp1
     end select
     call this%output(1,1)%assign_and_deallocate_source(ptr)
 

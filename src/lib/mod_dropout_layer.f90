@@ -6,7 +6,8 @@ module athena__dropout_layer
   !! Dropout reference: https://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: drop_layer_type, base_layer_type
-  use diffstruc, only: array_type, operator(*), merge
+  use diffstruc, only: array_type, operator(*)
+  use athena__diffstruc_extd, only: merge_over_channels
   implicit none
 
 
@@ -460,7 +461,7 @@ contains
        this%idx = this%idx + 1
 
        rtmp1 = 1._real32 / rtmp1
-       ptr => merge( input(1,1), 0._real32, this%mask) * rtmp1
+       ptr => merge_over_channels( input(1,1), 0._real32, this%mask) * rtmp1
     end select
     call this%output(1,1)%assign_and_deallocate_source(ptr)
 

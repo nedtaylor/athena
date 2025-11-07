@@ -1,9 +1,9 @@
 program test_batchnorm3d_layer
+  use coreutils, only: real32
   use athena, only: &
        batchnorm3d_layer_type, &
        base_layer_type, &
        learnable_layer_type
-  use coreutils, only: real32
   use diffstruc, only: array_type
   use athena__batchnorm3d_layer, only: read_batchnorm3d_layer
   implicit none
