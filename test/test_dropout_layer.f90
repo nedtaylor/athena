@@ -117,7 +117,7 @@ program test_dropout_layer
         write(0,*) 'dropout layer forward pass failed: mask incorrectly applied'
         write(0,*) merge(input_3d(:,1,1),0.0,drop_layer%mask(:,1)) / &
              ( 1.E0 - drop_layer%rate )
-         write(0,*) output_3d(:,1,1)
+        write(0,*) output_3d(:,1,1)
      end if
   end select
   deallocate(input_3d)
@@ -146,7 +146,6 @@ program test_dropout_layer
         write(0,*)  gradient_3d(:,1,1)
         write(0,*)  output_3d(:,1,1)
      end if
-     deallocate(gradient_3d)
   end select
 
   deallocate(output_3d, gradient_3d)
