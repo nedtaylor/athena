@@ -94,7 +94,6 @@ contains
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
     if(this%z(1)%allocated) call this%z(1)%deallocate()
-    if(this%z(2)%allocated) call this%z(2)%deallocate()
 
   end subroutine finalise_full
 !###############################################################################
@@ -344,10 +343,12 @@ contains
     call this%params_array(1)%set_requires_grad(.true.)
     this%params_array(1)%fix_pointer = .true.
     this%params_array(1)%is_sample_dependent = .false.
+    this%params_array(1)%is_temporary = .false.
     call this%params_array(2)%allocate([this%bias_shape, 1])
     call this%params_array(2)%set_requires_grad(.true.)
     this%params_array(2)%fix_pointer = .true.
     this%params_array(2)%is_sample_dependent = .false.
+    this%params_array(2)%is_temporary = .false.
 
     !---------------------------------------------------------------------------
     ! Initialise weights (kernels)
@@ -406,13 +407,11 @@ contains
             [this%num_outputs, this%batch_size], &
             source=0._real32 &
        )
-       do i = 1, 2
-          if(this%z(i)%allocated) call this%z(i)%deallocate()
-          call this%z(i)%allocate( &
-               [this%num_outputs, this%batch_size], &
-               source=0._real32 &
-          )
-       end do
+       if(this%z(1)%allocated) call this%z(1)%deallocate()
+       call this%z(1)%allocate( &
+            [this%num_outputs, this%batch_size], &
+            source=0._real32 &
+       )
     end if
 
   end subroutine set_batch_size_full
@@ -688,11 +687,7 @@ contains
 
     ! Generate outputs from weights, biases, and inputs
     !---------------------------------------------------------------------------
-    call this%z(1)%zero_grad()
-    call this%z(2)%zero_grad()
-    ptr => this%params_array(1) .mmul. input(1,1)
-    call this%z(1)%assign_and_deallocate_source(ptr)
-    ptr => this%z(1) + this%params_array(2)
+    ptr => ( this%params_array(1) .mmul. input(1,1) ) + this%params_array(2)
 
     ! Apply activation function to activation
     !---------------------------------------------------------------------------
@@ -700,10 +695,13 @@ contains
     if(trim(this%transfer%name) .eq. "none") then
        call this%output(1,1)%assign_and_deallocate_source(ptr)
     else
-       call this%z(2)%assign_and_deallocate_source(ptr)
-       ptr => this%transfer%activate(this%z(2))
+       call this%z(1)%zero_grad()
+       call this%z(1)%assign_and_deallocate_source(ptr)
+       this%z(1)%is_temporary = .false.
+       ptr => this%transfer%activate(this%z(1))
        call this%output(1,1)%assign_and_deallocate_source(ptr)
     end if
+    this%output(1,1)%is_temporary = .false.
 
   end subroutine forward_derived_full
 !###############################################################################
@@ -718,8 +716,6 @@ contains
     class(full_layer_type), intent(inout) :: this
     !! Instance of the fully connected layer
 
-    ! call this%z(1)%nullify_graph()
-    ! call this%z(2)%nullify_graph()
     call this%output(1,1)%nullify_graph()
 
   end subroutine nullify_graph_full

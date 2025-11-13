@@ -503,7 +503,8 @@ contains
              call stop_program('Input to input layer not allocated')
              return
           end if
-          this%output(i,j) = input(i,j)
+          call this%output(i,j)%assign_shallow( input(i,j) )
+          this%output(i,j)%is_temporary = .false.
        end do
     end do
 
