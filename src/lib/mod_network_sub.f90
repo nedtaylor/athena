@@ -18,7 +18,6 @@ submodule(athena__network) athena__network_submodule
 
   ! Layer types
   use athena__input_layer,   only: input_layer_type
-  use athena__flatten_layer, only: flatten_layer_type
   use athena__msgpass_layer, only: msgpass_layer_type
 
   implicit none
