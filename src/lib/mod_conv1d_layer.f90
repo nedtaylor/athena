@@ -528,10 +528,10 @@ contains
     !! Status of read
     integer :: verbose_ = 0
     !! Verbosity level
-    integer :: j, k, l, c, itmp1, iline, num_params_old
+    integer :: j, k, l, c, itmp1, iline, num_params
     !! Loop variables and temporary integer
-    integer :: num_filters, num_inputs
-    !! Number of filters and inputs
+    integer :: num_filters
+    !! Number of filters
     real(real32) :: activation_scale
     !! Activation scale
     character(14) :: kernel_initialiser_name='', bias_initialiser_name=''
@@ -654,38 +654,32 @@ contains
     if(param_line.eq.0)then
        write(0,*) "WARNING: WEIGHTS card in "//to_upper(trim(this%name))//" not found"
     else
-       num_params_old = 0
        call move(unit, param_line - iline, iostat=stat)
-       num_inputs = product(this%knl) * input_shape(2) * num_filters
-       allocate(data_list(num_inputs), source=0._real32)
-       do l = 1, num_filters
-          c = 1
-          k = 1
-          data_concat_loop1: do while(c.le.num_inputs)
-             read(unit,'(A)',iostat=stat) buffer
-             if(stat.ne.0) exit data_concat_loop1
-             k = icount(buffer)
-             read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
-             c = c + k
-          end do data_concat_loop1
-          num_params_old = num_params_old + num_inputs
-       end do
+       num_params = product(this%knl) * input_shape(2) * num_filters
+       allocate(data_list(num_params), source=0._real32)
+       c = 1
+       k = 1
+       data_concat_loop1: do while(c.le.num_params)
+          read(unit,'(A)',iostat=stat) buffer
+          if(stat.ne.0) exit data_concat_loop1
+          k = icount(buffer)
+          read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
+          c = c + k
+       end do data_concat_loop1
        this%params_array(1)%val(:,1) = data_list
        deallocate(data_list)
-       do l = 1, num_filters
-          allocate(data_list(num_filters), source=0._real32)
-          c = 1
-          k = 1
-          data_concat_loop2: do while(c.le.num_filters)
-             read(unit,'(A)',iostat=stat) buffer
-             if(stat.ne.0) exit data_concat_loop2
-             k = icount(buffer)
-             read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
-             c = c + k
-          end do data_concat_loop2
-          this%params_array(2)%val(:,1) = data_list(1:num_filters)
-          deallocate(data_list)
-       end do
+       allocate(data_list(num_filters), source=0._real32)
+       c = 1
+       k = 1
+       data_concat_loop2: do while(c.le.num_filters)
+          read(unit,'(A)',iostat=stat) buffer
+          if(stat.ne.0) exit data_concat_loop2
+          k = icount(buffer)
+          read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
+          c = c + k
+       end do data_concat_loop2
+       this%params_array(2)%val(:,1) = data_list
+       deallocate(data_list)
 
        ! Check for end of weights card
        !------------------------------------------------------------------------

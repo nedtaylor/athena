@@ -26,7 +26,7 @@ module athena__full_layer
      !! Number of inputs
      integer :: num_outputs
      !! Number of outputs
-     type(array_type), dimension(2) :: z
+     type(array_type), dimension(1) :: z
      !! Temporary arrays for forward propagation
    contains
      procedure, pass(this) :: get_num_params => get_num_params_full
@@ -481,7 +481,7 @@ contains
     !! Status of read
     integer :: verbose_ = 0
     !! Verbosity level
-    integer :: i, j, k, c, itmp1, iline, num_params_old
+    integer :: i, j, k, c, itmp1, iline, num_params
     !! Loop variables and temporary integer
     integer :: num_inputs, num_outputs
     !! Number of inputs and outputs
@@ -594,25 +594,32 @@ contains
     if(param_line.eq.0)then
        write(0,*) "WARNING: WEIGHTS card in "//to_upper(trim(this%name))//" not found"
     else
-       num_params_old = 0
        call move(unit, param_line - iline, iostat=stat)
-       do i = 1, num_inputs + 1
-          allocate(data_list((num_outputs)), source=0._real32)
-          c = 1
-          k = 1
-          data_concat_loop: do while(c.le.num_outputs)
-             read(unit,'(A)',iostat=stat) buffer
-             if(stat.ne.0) exit data_concat_loop
-             k = icount(buffer)
-             read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
-             c = c + k
-          end do data_concat_loop
-          this%params( &
-               num_params_old + 1:num_params_old + num_outputs &
-          ) = data_list
-          num_params_old = num_params_old + num_outputs
-          deallocate(data_list)
-       end do
+       num_params = this%num_inputs * this%num_outputs
+       allocate(data_list(num_params), source=0._real32)
+       c = 1
+       k = 1
+       data_concat_loop: do while(c.le.num_params)
+          read(unit,'(A)',iostat=stat) buffer
+          if(stat.ne.0) exit data_concat_loop
+          k = icount(buffer)
+          read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
+          c = c + k
+       end do data_concat_loop
+       this%params_array(1)%val(:,1) = data_list
+       deallocate(data_list)
+       allocate(data_list(num_outputs), source=0._real32)
+       c = 1
+       k = 1
+       data_concat_loop2: do while(c.le.num_outputs)
+          read(unit,'(A)',iostat=stat) buffer
+          if(stat.ne.0) exit data_concat_loop2
+          k = icount(buffer)
+          read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
+          c = c + k
+       end do data_concat_loop2
+       this%params_array(2)%val(:,1) = data_list(1:num_outputs)
+       deallocate(data_list)
 
        ! Check for end of weights card
        !------------------------------------------------------------------------
@@ -682,7 +689,7 @@ contains
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input values
 
-    type(array_type), pointer :: ptr
+    type(array_type), pointer :: ptr => null()
 
 
     ! Generate outputs from weights, biases, and inputs
