@@ -137,6 +137,7 @@ program test_pad3d_layer
      write(0,*) 'Got shape:', shape(output_2d)
   end if
 
+  call pad3d_layer%output(1,1)%nullify_graph()
   deallocate(output_2d)
   call input(1,1)%deallocate()
 
@@ -230,6 +231,7 @@ program test_pad3d_layer
      write(0,*) 'pad3d layer backward did not allocate input gradient'
   end if
 
+  call pad3d_layer%output(1,1)%nullify_graph()
   call input(1,1)%deallocate()
 
 
@@ -263,6 +265,7 @@ program test_pad3d_layer
                trim(padding_methods(i))
        end if
 
+       call pad3d_layer%output(1,1)%nullify_graph()
        deallocate(output_5d)
        call input(1,1)%deallocate()
     end do
@@ -349,6 +352,7 @@ program test_pad3d_layer
        success = .false.
        write(0,*) 'Zero padding backward pass failed'
     end if
+    call pad3d_layer%output(1,1)%nullify_graph()
     deallocate(output_simple, gradient_expected)
 
     ! Test replication padding
@@ -448,6 +452,7 @@ program test_pad3d_layer
     end if
     deallocate(output_simple, gradient_expected)
 
+    call pad3d_layer%output(1,1)%nullify_graph()
     deallocate(input_simple, gradient_out, output_expected)
     call input(1,1)%deallocate()
   end block comprehensive_methods_block
@@ -525,6 +530,7 @@ program test_pad3d_layer
           end if
        end if
 
+       call pad3d_layer%output(1,1)%nullify_graph()
        deallocate(output_5d)
        call input(1,1)%deallocate()
     end do
@@ -571,6 +577,7 @@ program test_pad3d_layer
      write(0,*) 'pad3d layer asymmetric padding center incorrect'
   end if
 
+  call pad3d_layer%output(1,1)%nullify_graph()
   deallocate(input_5d, output_5d)
   call input(1,1)%deallocate()
 
@@ -656,6 +663,7 @@ program test_pad3d_layer
      write(0,*) 'pad3d layer edge case (no padding) incorrect'
   end if
 
+  call pad3d_layer%output(1,1)%nullify_graph()
   deallocate(output_5d)
   call input(1,1)%deallocate()
 

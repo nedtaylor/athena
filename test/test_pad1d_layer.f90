@@ -137,6 +137,7 @@ program test_pad1d_layer
      write(0,*) 'Got middle:', output_2d(3:8,1)
   end if
 
+  call pad1d_layer%output(1,1)%nullify_graph()
   deallocate(output_2d)
   call input(1,1)%deallocate()
 
@@ -208,6 +209,7 @@ program test_pad1d_layer
      write(0,*) 'pad1d layer backward did not allocate input gradient'
   end if
 
+  call pad1d_layer%output(1,1)%nullify_graph()
   call input(1,1)%deallocate()
 
 
@@ -263,6 +265,7 @@ program test_pad1d_layer
                trim(padding_methods(i))
        end if
 
+       call pad1d_layer%output(1,1)%nullify_graph()
        deallocate(output_2d)
        call input(1,1)%deallocate()
     end do
@@ -290,7 +293,8 @@ program test_pad1d_layer
     ! Create simple test data: [1, 2, 3, 4]
     allocate(input_simple(simple_width, simple_channels, 1))
     input_simple(:,1,1) = [1.0_real32, 2.0_real32, 3.0_real32, 4.0_real32]
-    call input(1,1)%allocate(array_shape=[simple_width, simple_channels, 1], source = 0.0)
+    call input(1,1)%allocate(array_shape=[simple_width, simple_channels, 1], &
+         source = 0.0)
     call input(1,1)%set_requires_grad(.true.)
     call input(1,1)%set(input_simple)
 
@@ -329,6 +333,7 @@ program test_pad1d_layer
        write(0,*) 'Expected: ', gradient_out(3:6,1,1)
        write(0,*) 'Got:      ', gradient%val(:simple_width,1)
     end if
+    call pad1d_layer%output(1,1)%nullify_graph()
     deallocate(output_simple)
 
     ! Test replication/replicate padding
@@ -371,6 +376,7 @@ program test_pad1d_layer
        write(0,*) 'Expected: ', gradient_expected(:,1,1)
        write(0,*) 'Got:      ', gradient%val(:simple_width,1)
     end if
+    call pad1d_layer%output(1,1)%nullify_graph()
     deallocate(output_simple, gradient_expected)
 
     ! Test reflection padding
@@ -414,6 +420,7 @@ program test_pad1d_layer
        write(0,*) 'Expected: ', gradient_expected(:,1,1)
        write(0,*) 'Got:      ', gradient%val(:simple_width,1)
     end if
+    call pad1d_layer%output(1,1)%nullify_graph()
     deallocate(output_simple, gradient_expected)
 
     ! Test circular padding
@@ -458,6 +465,7 @@ program test_pad1d_layer
     end if
     deallocate(output_simple, gradient_expected)
 
+    call pad1d_layer%output(1,1)%nullify_graph()
     deallocate(input_simple)
     call input(1,1)%deallocate()
   end block comprehensive_methods_block

@@ -20,8 +20,6 @@ submodule(athena__network) athena__network_submodule
   use athena__input_layer,   only: input_layer_type
   use athena__msgpass_layer, only: msgpass_layer_type
 
-  implicit none
-
 ! #ifdef _OPENMP
 !   !$omp declare reduction( &
 !   !$omp& network_reduction : network_type:omp_out%network_reduction(omp_in)) &
@@ -1438,6 +1436,8 @@ contains
     ! Local variables
     integer :: i, j, k, id, child_id, parent_id, num_inputs, input_rank
     !! Loop index
+    integer :: layer_rank, previous_rank
+    !! Ranks of layers
     integer :: verbose_ = 0
     !! Verbosity level
     logical :: use_graph_input = .false.
@@ -1573,72 +1573,72 @@ contains
     end do
 
 
-    !---------------------------------------------------------------------------
-    ! Check for required flatten layers
-    !---------------------------------------------------------------------------
-    i = 0
-    vertex_loop: do
-       i = i + 1
-       if(i.gt.this%auto_graph%num_vertices) exit vertex_loop
-       id = this%auto_graph%vertex(i)%id
+    ! !---------------------------------------------------------------------------
+    ! ! Check for required flatten layers
+    ! !---------------------------------------------------------------------------
+    ! i = 0
+    ! vertex_loop: do
+    !    i = i + 1
+    !    if(i.gt.this%auto_graph%num_vertices) exit vertex_loop
+    !    id = this%auto_graph%vertex(i)%id
 
-       ! get all child vertices
-       allocate(child_vertices(0))
-       do j = 1, size(this%auto_graph%adjacency(i,:))
-          if(this%auto_graph%adjacency(i,j).eq.0) cycle
-          child_vertices = [child_vertices, j]
-       end do
-       child_loop: do j = 1, size(child_vertices)
-          child_id = this%auto_graph%vertex(child_vertices(j))%id
-          if(trim(this%model(id)%layer%type).eq."flat") cycle child_loop
-          if( this%model(id)%layer%output_rank .eq. &
-               this%model(child_id)%layer%input_rank ) cycle child_loop
+    !    ! get all child vertices
+    !    allocate(child_vertices(0))
+    !    do j = 1, size(this%auto_graph%adjacency(i,:))
+    !       if(this%auto_graph%adjacency(i,j).eq.0) cycle
+    !       child_vertices = [child_vertices, j]
+    !    end do
+    !    child_loop: do j = 1, size(child_vertices)
+    !       child_id = this%auto_graph%vertex(child_vertices(j))%id
+    !       if(trim(this%model(id)%layer%type).eq."flat") cycle child_loop
+    !       if( this%model(id)%layer%output_rank .eq. &
+    !            this%model(child_id)%layer%input_rank ) cycle child_loop
 
-          ! get all parent vertices of the child vertex
-          if(allocated(parent_vertices)) deallocate(parent_vertices)
-          allocate(parent_vertices(0))
-          l_flatten_child = .true.
-          do k = 1, size(this%auto_graph%adjacency(:,child_vertices(j)))
-             if(this%auto_graph%adjacency(k,child_vertices(j)).eq.0) cycle
-             parent_id = this%auto_graph%vertex(k)%id
-             parent_vertices = [parent_vertices, k]
-             !check if ranks match, rather than input and output shapes
-             if( this%model(id)%layer%output_rank .ne. &
-                  this%model(parent_id)%layer%input_rank &
-             ) l_flatten_child = .false.
-          end do
-          t_flatten_layer = flatten_layer_type( &
-               input_rank = this%model(id)%layer%output_rank &
-          )
+    !       ! get all parent vertices of the child vertex
+    !       if(allocated(parent_vertices)) deallocate(parent_vertices)
+    !       allocate(parent_vertices(0))
+    !       l_flatten_child = .true.
+    !       do k = 1, size(this%auto_graph%adjacency(:,child_vertices(j)))
+    !          if(this%auto_graph%adjacency(k,child_vertices(j)).eq.0) cycle
+    !          parent_id = this%auto_graph%vertex(k)%id
+    !          parent_vertices = [parent_vertices, k]
+    !          !check if ranks match, rather than input and output shapes
+    !          if( this%model(id)%layer%output_rank .ne. &
+    !               this%model(parent_id)%layer%input_rank &
+    !          ) l_flatten_child = .false.
+    !       end do
+    !       t_flatten_layer = flatten_layer_type( &
+    !            input_rank = this%model(id)%layer%output_rank &
+    !       )
 
-          if(l_flatten_child)then
-             ! add flatten layer in the place of the child layer
-             call this%auto_graph%remove_edges( &
-                  indices = [ &
-                       this%auto_graph%adjacency( &
-                            parent_vertices(:),child_vertices(j) &
-                       ) &
-                  ] &
-             )
-             call this%add( &
-                  t_flatten_layer, &
-                  input_list=[parent_vertices(:)], output_list=[child_id] &
-             )
-          else
-             ! add flatten layer between the current layer and the child layer
-             call this%auto_graph%remove_edges( &
-                  indices = [this%auto_graph%adjacency(i,child_vertices(j))] &
-             )
-             call this%add( &
-                  t_flatten_layer, input_list = [i], output_list = [child_id] &
-             )
-          end if
-          deallocate(t_flatten_layer)
-          deallocate(child_vertices)
-          cycle vertex_loop
-       end do child_loop
-       deallocate(child_vertices)
-    end do vertex_loop
+    !       if(l_flatten_child)then
+    !          ! add flatten layer in the place of the child layer
+    !          call this%auto_graph%remove_edges( &
+    !               indices = [ &
+    !                    this%auto_graph%adjacency( &
+    !                         parent_vertices(:),child_vertices(j) &
+    !                    ) &
+    !               ] &
+    !          )
+    !          call this%add( &
+    !               t_flatten_layer, &
+    !               input_list=[parent_vertices(:)], output_list=[child_id] &
+    !          )
+    !       else
+    !          ! add flatten layer between the current layer and the child layer
+    !          call this%auto_graph%remove_edges( &
+    !               indices = [this%auto_graph%adjacency(i,child_vertices(j))] &
+    !          )
+    !          call this%add( &
+    !               t_flatten_layer, input_list = [i], output_list = [child_id] &
+    !          )
+    !       end if
+    !       deallocate(t_flatten_layer)
+    !       deallocate(child_vertices)
+    !       cycle vertex_loop
+    !    end do child_loop
+    !    deallocate(child_vertices)
+    ! end do vertex_loop
     call this%generate_vertex_order()
 
     ! Update number of layers
@@ -1657,23 +1657,44 @@ contains
           l_set_input_shape = .true.
        end if
        if(l_set_input_shape) then
+          layer_rank = this%model(this%vertex_order(i))%layer%input_rank
+          previous_rank = 0
           allocate( &
                input_shape(this%model(this%vertex_order(i))%layer%input_rank), &
                source = 0 &
           )
           do j = 1, this%auto_graph%num_vertices
              if(this%auto_graph%adjacency(j,this%vertex_order(i)).eq.0) cycle
+             previous_rank = this%model(j)%layer%output_rank
              select case( &
                   this%auto_graph%edge( &
                        this%auto_graph%adjacency(j,this%vertex_order(i)) &
                   )%id &
              )
              case(1) ! concatenate
-                input_shape(:) = input_shape(:) + &
-                     this%model(j)%layer%output_shape
+                if(layer_rank .eq. previous_rank)then
+                   input_shape(:) = input_shape(:) + this%model(j)%layer%output_shape
+                elseif(layer_rank .eq. 1)then
+                   input_shape(1) = input_shape(1) + product( &
+                        this%model(j)%layer%output_shape &
+                   )
+                else
+                   call stop_program( &
+                        "cannot concatenate layers with different ranks" &
+                   )
+                end if
              case(2) ! add
-                input_shape(:) = max(input_shape(:), &
-                     this%model(j)%layer%output_shape)
+                if(layer_rank .eq. previous_rank)then
+                   input_shape(:) = max(input_shape(:), &
+                        this%model(j)%layer%output_shape)
+                elseif(layer_rank .eq. 1)then
+                   input_shape(1) = max(input_shape(1), &
+                        product(this%model(j)%layer%output_shape))
+                else
+                   call stop_program( &
+                        "cannot add layers with different ranks" &
+                   )
+                end if
              end select
           end do
           call this%model(this%vertex_order(i))%layer%init( &
@@ -1714,7 +1735,6 @@ contains
     else
        this%use_graph_output = .false.
     end if
-
 
 
     !---------------------------------------------------------------------------
@@ -1901,6 +1921,8 @@ contains
        allocate(sample(size(input,1), size(input,2)))
        do i = 1, size(input,1)
           do j = 1, size(input,2)
+             call sample(i,j)%allocate(array_shape=[input(i,j)%shape(1), &
+                  end_index - start_index + 1])
              sample(i,j)%val = get_sample_ptr( &
                   input(i,j)%val, start_index, end_index, batch_size &
              )
@@ -2354,7 +2376,7 @@ contains
     ! Arguments
     class(network_type), intent(inout), target :: this
     !! Instance of network
-    class(*), dimension(:,:), intent(inout) :: output
+    class(*), dimension(:,:), intent(inout), target :: output
     !! Output
     integer, intent(in) :: start_index, end_index
     !! Start and end batch indices
@@ -2365,113 +2387,82 @@ contains
     ! Local variables
     integer :: s, s_idx
     !! Loop index
-    type(array_type), pointer :: tmp_output(:,:), predicted(:,:), input(:)
+    type(array_type), pointer :: tmp_output(:,:), tmp_input(:), predicted(:,:), ptr
 
 
-    allocate(loss(1,1))
-    if(this%loss%requires_autodiff)then
-       select type(output)
-          !  type is(graph_type)
-          !     do s = start_index, end_index, 1
-          !        s_idx = s - start_index + 1
-          !        loss = loss + sum( this%loss%compute_pinn( &
-          !             this%model(this%leaf_vertices(1))%layer%output(1,s_idx)%val, &
-          !             output(1,s)%vertex_features, &
-          !             this%model(this%root_vertices(1))%layer%output(1,:) &
-          !        ) ) / output(1,s)%num_vertices
-          !        if( &
-          !             this%model(this%leaf_vertices(1))%layer%output_shape(2).gt.0 &
-          !        )then
-          !           loss = loss + sum( this%loss%compute_pinn( &
-          !                this%model(this%leaf_vertices(1))%layer%output(2,s_idx)%val, &
-          !                output(1,s)%edge_features, &
-          !                this%model(this%root_vertices(1))%layer%output(1,:) &
-          !           ) ) / output(1,s)%num_edges
-          !        end if
-          !     end do
-          !  type is(real)
-          !     loss = sum( &
-          !          this%loss%compute_pinn( &
-          !               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-          !               output(:,start_index:end_index:1), &
-          !               this%model(this%root_vertices(1))%layer%output(1,:) &
-          !          ))
-          !  type is(integer)
-          !     loss = sum( &
-          !          this%loss%compute_pinn( &
-          !               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-          !               real(output(:,start_index:end_index:1),real32), &
-          !               this%model(this%root_vertices(1))%layer%output(1,:) &
-          !          ))
-       class is(array_type)
-          !  loss = sum( &
-          !       this%loss%compute_pinn( &
-          !            this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-          !            output(1,1)%val(:,start_index:end_index:1), &
-          !            this%model(this%root_vertices(1))%layer%output(1,:) &
-          !       ))
-          allocate(tmp_output(1,1))
-          tmp_output(1,1)%val = output(1,1)%val(:,start_index:end_index:1)
-          loss = this%loss%compute_pinn_generic( &
-               this%model(this%leaf_vertices(1))%layer%output, &
-               tmp_output, &
-               this%model(this%root_vertices(1))%layer%output(1,:) &
-          )
-       type is(real)
-          allocate(tmp_output(1,1))
-          call tmp_output(1,1)%allocate(array_shape = [ &
-               size(output,1), end_index - start_index + 1 &
-          ])
-          call tmp_output(1,1)%set(output(:,start_index:end_index:1))
-          predicted => this%model(this%leaf_vertices(1))%layer%output
-          loss => this%loss%compute_pinn_generic( &
-               predicted, &
-               tmp_output, &
-               [ this%model(this%root_vertices(1))%layer%output(1,:) ] &
-          )
-
-       class default
-          call stop_program("loss_backward: output type not supported")
-          return
-       end select
-    else
-       !  select type(output)
-       !  type is(graph_type)
-       !     do s = start_index, end_index, 1
-       !        s_idx = s - start_index + 1
-       !        loss = loss + sum( this%loss%compute( &
-       !             this%model(this%leaf_vertices(1))%layer%output(1,s_idx)%val, &
-       !             output(1,s)%vertex_features &
-       !        ) ) / output(1,s)%num_vertices
-       !        if( &
-       !             this%model(this%leaf_vertices(1))%layer%output_shape(2).gt.0 &
-       !        )then
-       !           loss = loss + sum( this%loss%compute( &
-       !                this%model(this%leaf_vertices(1))%layer%output(2,s_idx)%val, &
-       !                output(1,s)%edge_features &
-       !           ) ) / output(1,s)%num_edges
-       !        end if
-       !     end do
-       !  type is(real)
-       !     loss = sum( &
-       !          this%loss%compute( &
-       !               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-       !               output(:,start_index:end_index:1) &
-       !          ))
-       !  type is(integer)
-       !     loss = sum( &
-       !          this%loss%compute( &
-       !               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-       !               real(output(:,start_index:end_index:1),real32) &
-       !          ))
-       !  class is(array_type)
-       !     loss = sum( &
-       !          this%loss%compute( &
-       !               this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-       !               output(1,1)%val(:,start_index:end_index:1) &
-       !          ))
-       !  end select
-    end if
+    select type(output)
+       ! type is(graph_type)
+       !    do s = start_index, end_index, 1
+       !       s_idx = s - start_index + 1
+       !       loss = loss + sum( this%loss%compute_pinn( &
+       !            this%model(this%leaf_vertices(1))%layer%output(1,s_idx)%val, &
+       !            output(1,s)%vertex_features, &
+       !            this%model(this%root_vertices(1))%layer%output(1,:) &
+       !       ) ) / output(1,s)%num_vertices
+       !       if( &
+       !            this%model(this%leaf_vertices(1))%layer%output_shape(2).gt.0 &
+       !       )then
+       !          loss = loss + sum( this%loss%compute_pinn( &
+       !               this%model(this%leaf_vertices(1))%layer%output(2,s_idx)%val, &
+       !               output(1,s)%edge_features, &
+       !               this%model(this%root_vertices(1))%layer%output(1,:) &
+       !          ) ) / output(1,s)%num_edges
+       !       end if
+       !    end do
+       ! type is(real)
+       !    loss = sum( &
+       !         this%loss%compute_pinn( &
+       !              this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
+       !              output(:,start_index:end_index:1), &
+       !              this%model(this%root_vertices(1))%layer%output(1,:) &
+       !         ))
+       ! type is(integer)
+       !    loss = sum( &
+       !         this%loss%compute_pinn( &
+       !              this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
+       !              real(output(:,start_index:end_index:1),real32), &
+       !              this%model(this%root_vertices(1))%layer%output(1,:) &
+       !         ))
+    class is(array_type)
+       allocate(tmp_output(1,1))
+       call tmp_output(1,1)%allocate(array_shape = [ &
+            output(1,1)%shape, end_index - start_index + 1 &
+       ])
+       tmp_output(1,1)%val = output(1,1)%val(:,start_index:end_index:1)
+       predicted => this%model(this%leaf_vertices(1))%layer%output
+       allocate(tmp_input(1))
+       call tmp_input(1)%allocate(array_shape = [ &
+            this%model(this%root_vertices(1))%layer%output_shape(1), 1 &
+       ])
+       tmp_input(1)%val = this%input_array(1,1)%val(:,start_index:end_index:1)
+       loss => this%loss%compute_pinn_generic( &
+            predicted, &
+            tmp_output, &
+            tmp_input &
+       )
+    type is(real)
+       allocate(tmp_output(1,1))
+       call tmp_output(1,1)%allocate(array_shape = [ &
+            size(output,1), end_index - start_index + 1 &
+       ])
+       call tmp_output(1,1)%set(output(:,start_index:end_index:1))
+       predicted => this%model(this%leaf_vertices(1))%layer%output
+       allocate(tmp_input(1))
+       call tmp_input(1)%allocate(array_shape = [ &
+            this%model(this%root_vertices(1))%layer%output_shape(1), 1 &
+       ])
+       tmp_input(1)%val = this%model( &
+            this%root_vertices(1)&
+       )%layer%output(1,1)%val(:,start_index:end_index:1)
+       loss => this%loss%compute_pinn_generic( &
+            predicted, &
+            tmp_output, &
+            tmp_input &
+       )
+    class default
+       call stop_program("loss_backward: output type not supported")
+       return
+    end select
 
   end function loss_backward
 !###############################################################################
@@ -2725,7 +2716,6 @@ contains
                 call input_ptr(1,1)%set(input)
                 call layer%forward_derived(input_ptr)
                 call layer%output(1,1)%set_requires_grad(.false.)
-                call layer%output(1,1)%set_requires_grad(.false.)
                 deallocate(input_ptr)
                 input_ptr => null()
                 cycle
@@ -2867,9 +2857,11 @@ contains
     ! Local variables
     integer :: l
 
+    write(*,*) "zero"
     do l = 1, this%num_layers
        call this%model(l)%layer%nullify_graph()
     end do
+    write(*,*) "one"
 
   end subroutine nullify_graph
 !###############################################################################
@@ -2925,8 +2917,13 @@ contains
        class is(array_type)
           num_samples = size(input(1,1)%val, 2)
           num_inputs = size(input(1,1)%val, 1)
-          allocate(this%input_array(1,1))
-          call this%input_array(1,1)%allocate(array_shape=[num_inputs, num_samples])
+          allocate(this%input_array(size(input,1), size(input,2)))
+          do i = 1, size(input,1)
+             do j = 1, size(input,2)
+                call this%input_array(i,j)%assign_shallow(input(i,j))
+             end do
+          end do
+          return
        class default
           input_rank = rank(input)
           num_samples = size(input, input_rank)
@@ -3009,6 +3006,7 @@ contains
           this%input_graph(:,:) = input(:,:)
           return
        type is(array_type)
+          call stop_program("SHOULD NOT GET HERE")
           this%input_array = input
           l_valid_rank_type = .true.
        end select
@@ -3153,11 +3151,11 @@ contains
     integer, allocatable, dimension(:) :: batch_order
     !! Batch order
 
-    integer :: i, s, time, time_old, clock_rate
+    integer :: i, j, s, time, time_old, clock_rate
     !! Loop index
 
     class(*), allocatable :: data_poly(:,:)
-    class(array_type), allocatable :: loss_array(:,:)
+    type(array_type), pointer :: loss_array(:,:)
 
 #ifdef _OPENMP
     type(network_type) :: this_copy
@@ -3231,10 +3229,10 @@ contains
     if(size(output,2).ne.num_samples.and.this%use_graph_output)then
        call stop_program("number of samples in input and output do not match")
        return
-    elseif(size(output,1).ne.this%num_outputs.and..not.this%use_graph_input)then
-       call stop_program("number of outputs in output does not match network")
-       return
     end if
+    ! elseif(size(output,1).ne.this%num_outputs.and..not.this%use_graph_input)then
+    !    call stop_program("number of outputs in output does not match network")
+    !    return
     allocate(this%expected_array, source=output)
 
 
@@ -3298,47 +3296,29 @@ contains
              )
           end select
           call this%forward_generic2d(data_poly)
-          !  call this%model(this%leaf_vertices(1))%layer%output(1,1)%grad_reverse()
           deallocate(data_poly)
           !  call system_clock(timer_stop)
           !  forward_timer = forward_timer + timer_stop - timer_start
 
 
-          ! Backward pass and store predicted output
+          ! Backward pass
           !---------------------------------------------------------------------
           !  call system_clock(timer_start)
-
-
-          !  select type(output)
-          !  type is(graph_type)
-          !     data_poly = get_sample_graph( &
-          !          output, start_index, end_index, this%batch_size &
-          !     )
-          !  type is(array_type)
-          !     data_poly = get_sample_array( &
-          !          output, start_index, end_index, this%batch_size, &
-          !          as_graph = this%use_graph_output &
-          !     )
-          !  end select
-          !  data_poly = this%loss%compute_generic( &
-          !       this%model(this%leaf_vertices(1))%layer%output,  y_array, x_array &
-          !  )
-          loss_array = this%loss_backward(this%expected_array, start_index, end_index)
+          loss_array => this%loss_backward(this%expected_array, start_index, end_index)
           call loss_array(1,1)%grad_reverse(reset_graph=.true.)
-
-
-
-          !  call this%backward_generic2d(data_poly)
           !  call system_clock(timer_stop)
           !  backward_timer = backward_timer + timer_stop - timer_start
 
 
           ! Compute loss and accuracy (for monitoring)
           !---------------------------------------------------------------------
-          batch_loss = sum(loss_array(1,1)%val)
-          ! batch_loss = this%calc_output_loss(output, start_index, end_index)
+          batch_loss = 0._real32
+          do i = 1, size(loss_array,1)
+             do j = 1, size(loss_array,2)
+                batch_loss = batch_loss + sum(loss_array(i,j)%val)
+             end do
+          end do
           batch_accuracy = this%calc_output_accuracy(output, start_index, end_index)
-          deallocate(loss_array)
 
 
           ! Average metric over batch size and store
@@ -3356,12 +3336,18 @@ contains
           end do
 
 
-          ! Update weights and biases using optimization algorithm
+          ! Update weights and biases using optimisation algorithm
           !---------------------------------------------------------------------
           ! call system_clock(timer_start)
           call this%update()
           ! call system_clock(timer_stop)
           ! update_timer = update_timer + timer_stop - timer_start
+          do i = 1, size(loss_array,1)
+             do j = 1, size(loss_array,2)
+                call loss_array(i,j)%nullify_graph()
+             end do
+          end do
+          deallocate(loss_array)
 
 
           ! Print batch results

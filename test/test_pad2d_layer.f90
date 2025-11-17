@@ -127,6 +127,7 @@ program test_pad2d_layer
      write(*,*) pad2d_layer%output(1,1)%shape
   end if
 
+  call pad2d_layer%output(1,1)%nullify_graph()
   deallocate(output_2d)
   call input(1,1)%deallocate()
 
@@ -209,6 +210,7 @@ program test_pad2d_layer
      write(0,*) 'pad2d layer backward did not allocate input gradient'
   end if
 
+  call pad2d_layer%output(1,1)%nullify_graph()
   call input(1,1)%deallocate()
 
 
@@ -242,6 +244,7 @@ program test_pad2d_layer
                trim(padding_methods(i))
        end if
 
+       call pad2d_layer%output(1,1)%nullify_graph()
        deallocate(output_4d)
        call input(1,1)%deallocate()
     end do
@@ -337,6 +340,7 @@ program test_pad2d_layer
        write(0,*) 'Expected: ', gradient_out(3:6,3:6,1,1)
        write(0,*) 'Got:      ', gradient_expected(:,:,1,1)
     end if
+    call pad2d_layer%output(1,1)%nullify_graph()
     deallocate(output_simple, gradient_expected)
 
     ! Test replication/replicate padding
@@ -414,6 +418,7 @@ program test_pad2d_layer
        write(*,*) 'Expected: ', gradient_expected
        write(*,*) 'Got:      ', gradient_predicted
     end if
+    call pad2d_layer%output(1,1)%nullify_graph()
     deallocate(output_simple, gradient_expected)
 
     ! Test reflection padding
@@ -454,6 +459,7 @@ program test_pad2d_layer
     call output%grad_reverse()
     gradient => input(1,1)%grad
     allocate(gradient_expected(simple_width, simple_height, simple_channels, 1))
+    gradient_expected(:,:,1,1) = gradient_out(3:6,3:6,1,1)
     gradient_expected(2:3,2:3,1,1) = &
          gradient_expected(2:3,2:3,1,1) + gradient_out(2:1:-1,2:1:-1,1,1)
     gradient_expected(3:2:-1,3:2:-1,1,1) = &
@@ -471,15 +477,21 @@ program test_pad2d_layer
          gradient_expected(:,2:3,1,1) + gradient_out(3:6,2:1:-1,1,1)
     gradient_expected(:,3:2:-1,1,1) = &
          gradient_expected(:,3:2:-1,1,1) + gradient_out(3:6,7:8,1,1)
-!     select type(di => pad2d_layer%di(1,1))
-!     type is(array4d_type)
-!        if(any(abs(di%val_ptr - gradient_expected) .gt. tol))then
-!           success = .false.
-!           write(0,*) 'Reflection padding backward pass failed'
-!           write(0,*) 'Expected: ', gradient_expected(:,:,1,1)
-!           write(0,*) 'Got:      ', di%val_ptr(:,:,1,1)
-!        end if
-!     end select
+    if(any( &
+         abs( &
+              gradient%val(:simple_width*simple_height,1) - &
+              reshape(&
+                   gradient_expected(:,:,1,1), &
+                   shape([simple_width*simple_height]) &
+              ) &
+         ) .gt. tol &
+    ))then
+       success = .false.
+       write(0,*) 'Reflection padding backward pass failed'
+       write(0,*) 'Expected: ', gradient_expected(:,:,1,1)
+       write(0,*) 'Got:      ', gradient%val(:simple_width*simple_height,1)
+    end if
+    call pad2d_layer%output(1,1)%nullify_graph()
     deallocate(output_simple, gradient_expected)
 
     ! Test circular padding
@@ -537,19 +549,18 @@ program test_pad2d_layer
          gradient_expected(:,3:4,1,1) + gradient_out(3:6,1:2,1,1)
     gradient_expected(:,1:2,1,1) = &
          gradient_expected(:,1:2,1,1) + gradient_out(3:6,7:8,1,1)
-!     select type(di => pad2d_layer%di(1,1))
-!     type is(array4d_type)
-!        ! For zero padding, gradients should just be extracted from middle
-!        if(any(abs(di%val_ptr - gradient_expected) .gt. tol))then
-!           success = .false.
-!           write(0,*) 'Circular padding backward pass failed'
-!           write(0,*) 'Expected: ', gradient_expected(:,:,1,1)
-!           write(0,*) 'Got:      ', di%val_ptr(:,:,1,1)
-!        end if
-!     end select
+    ! For zero padding, gradients should just be extracted from middle
+    if(any(abs(gradient%val - &
+         reshape(gradient_expected, shape(gradient%val))) .gt. tol))then
+       success = .false.
+       write(0,*) 'Circular padding backward pass failed'
+       write(0,*) 'Expected: ', gradient_expected(:,:,1,1)
+       write(0,*) 'Got:      ', gradient%val(:simple_width*simple_height,1)
+    end if
     deallocate(output_simple, gradient_expected)
 
 
+    call pad2d_layer%output(1,1)%nullify_graph()
     deallocate(input_simple)
     call input(1,1)%deallocate()
   end block comprehensive_methods_block

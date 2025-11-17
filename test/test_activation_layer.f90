@@ -101,6 +101,7 @@ program test_activation_layer
   input(1,1)%val(:,1) = [-2.0, -1.0, 1.0, 2.0]
   input(1,1)%val(:,2) = [-1.5, 0.5, 1.5, 2.5]
   call input(1,1)%set_requires_grad(.true.)
+  input%is_temporary = .false.
 
   ! Run forward pass
   call actv_layer%forward_derived(input)
@@ -141,7 +142,9 @@ program test_activation_layer
      success = .false.
      write(0,*) 'activation layer (1D) has not set di type correctly'
   end if
+  call actv_layer%output(1,1)%nullify_graph()
   call input(1,1)%deallocate()
+  deallocate(loss)
 
 
 !-------------------------------------------------------------------------------
@@ -172,6 +175,7 @@ program test_activation_layer
   call random_number(input(1,1)%val)
   input(1,1)%val = input(1,1)%val * 4.0_real32 - 2.0_real32  ! Scale to [-2, 2]
   call input(1,1)%set_requires_grad(.true.)
+  input%is_temporary = .false.
 
   call actv_layer%forward_derived(input)
   output => actv_layer%output(1,1)
@@ -198,7 +202,9 @@ program test_activation_layer
      success = .false.
      write(0,*) 'activation layer (2D) has not set di type correctly'
   end if
+  call actv_layer%output(1,1)%nullify_graph()
   call input(1,1)%deallocate()
+  deallocate(loss)
 
 
 !-------------------------------------------------------------------------------

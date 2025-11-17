@@ -633,7 +633,7 @@ module athena__network
        ! Arguments
        class(network_type), intent(inout), target :: this
        !! Instance of network
-       class(*), dimension(:,:), intent(inout) :: output
+       class(*), dimension(:,:), intent(inout), target :: output
        !! Output
        integer, intent(in) :: start_index, end_index
        !! Start and end batch indices

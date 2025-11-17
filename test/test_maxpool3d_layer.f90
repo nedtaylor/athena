@@ -121,10 +121,12 @@ program test_maxpool3d_layer
                 max_loc .le. (j-1)*stride + pool .and. &
                 max_loc .ge. (k-1)*stride + 1    .and. &
                 max_loc .le. (k-1)*stride + pool )then
-              if( abs( output%val(&
-                   i + (j-1)*output_width + &
-                   (k-1)*output_width*output_width, 1) - max_value ) .gt. &
-                   1.E-6 )then
+              if( abs( &
+                   output%val(&
+                        i + (j-1)*output_width + &
+                        (k-1)*output_width*output_width, 1 &
+                   ) - max_value &
+              ) .gt. 1.E-6 )then
                  success = .false.
                  write(*,*) 'maxpool3d layer forward pass failed'
               end if
@@ -239,6 +241,7 @@ program test_maxpool3d_layer
 ! Test file I/O operations
 !-------------------------------------------------------------------------------
   write(*,*) "Testing file I/O operations..."
+  call pool_layer%init(input(1,1)%shape, batch_size=1)
 
   ! Create a temporary file for testing
   open(newunit=unit, file='test_maxpool3d_layer.tmp', &

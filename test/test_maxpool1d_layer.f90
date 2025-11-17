@@ -193,6 +193,7 @@ program test_maxpool1d_layer
 ! Test file I/O operations
 !-------------------------------------------------------------------------------
   write(*,*) "Testing file I/O operations..."
+  call pool_layer%init(input(1,1)%shape, batch_size=1)
 
   ! Create a temporary file for testing
   open(newunit=unit, file='test_maxpool1d_layer.tmp', &

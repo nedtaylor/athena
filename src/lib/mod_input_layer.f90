@@ -525,6 +525,7 @@ contains
     !dimension(this%batch_size * this%num_outputs), intent(in) :: input
 
     call this%output(1,1)%set( input )
+    this%output(1,1)%is_temporary = .false.
 
   end subroutine set_input_real
 !-------------------------------------------------------------------------------

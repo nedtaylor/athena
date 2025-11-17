@@ -51,13 +51,14 @@ program test_full_network
     x(1,1) = 0.124
     y(1,1) = 0.765
 
-    train_loop: do n=1, num_iterations
+    train_loop: do n = 1, num_iterations
        call network%forward(x)
        loss => network%loss_backward(y, 1, 1)
        call loss(1,1)%grad_reverse()
        call network%update()
-       write(*,*) network%predict(x)
        if(all(abs(network%predict(x)-y) .lt. tol)) exit train_loop
+       call loss(1,1)%nullify_graph()
+       loss => null()
     end do train_loop
 
     if(n.gt.num_iterations)then

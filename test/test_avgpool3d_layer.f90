@@ -119,13 +119,12 @@ program test_avgpool3d_layer
                 max_loc .le. (j-1)*stride + pool .and. &
                 max_loc .ge. (k-1)*stride + 1    .and. &
                 max_loc .le. (k-1)*stride + pool )then
-              if( &
-                   abs( output%val(&
+              if( abs( &
+                   output%val(&
                         i + (j-1)*output_width + &
-                        (k-1)*output_width*output_width, 1) - &
-                        max_value / pool ** 3 &
-                   ) .gt. 1.E-6 &
-              )then
+                        (k-1)*output_width*output_width, 1 &
+                   ) - max_value / pool ** 3 &
+              ) .gt. 1.E-6 )then
                  success = .false.
                  write(*,*) 'avgpool3d layer forward pass failed, &
                       &max_value/pool**3 expected'
@@ -252,6 +251,7 @@ program test_avgpool3d_layer
 ! Test file I/O operations
 !-------------------------------------------------------------------------------
   write(*,*) "Testing file I/O operations..."
+  call pool_layer%init(input(1,1)%shape, batch_size=1)
 
   ! Create a temporary file for testing
   open(newunit=unit, file='test_avgpool3d_layer.tmp', &
