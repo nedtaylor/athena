@@ -3326,7 +3326,7 @@ contains
           !---------------------------------------------------------------------
           avg_loss = avg_loss + batch_loss
           avg_accuracy = avg_accuracy + batch_accuracy
-          call this%metrics(1)%append(batch_loss / this%batch_size)
+          call this%metrics(1)%append(batch_loss)
           call this%metrics(2)%append(batch_accuracy / this%batch_size)
           do i = 1, size(this%metrics,dim=1)
              call this%metrics(i)%check(plateau_threshold_, converged)
@@ -3362,7 +3362,7 @@ contains
                   this%optimiser%lr_decay%get_lr( &
                        this%optimiser%learning_rate, this%optimiser%iter &
                   ), &
-                  avg_loss/(batch*this%batch_size), &
+                  avg_loss/batch, &
                   avg_accuracy/(batch*this%batch_size)
           end if
 

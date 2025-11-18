@@ -77,7 +77,11 @@ contains
     type(array_type), pointer :: output
     !! Activated output values
 
-    output => max(val, this%threshold) * this%scale
+    if(abs(this%scale - 1._real32).lt.1.e-6_real32)then
+       output => max(val, this%threshold)
+    else
+       output => max(val, this%threshold) * this%scale
+    end if
   end function relu_activate_array
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
