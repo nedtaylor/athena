@@ -203,6 +203,7 @@ program pinn_burgers_example
 
      ! set direction (t,x) to compute u_t, u_x, u_xx
      call input%set_direction([0._real32, 1._real32])
+     call input%set_requires_grad(.true.)
      u_t => u%grad_forward(input)
      call input%set_direction([1._real32, 0._real32])
      u_x => u%grad_forward(input)
@@ -218,11 +219,15 @@ program pinn_burgers_example
 
      ! boundary conditions
      call network%forward(X_b_left)
-     u_left_pred => network%model(network%leaf_vertices(1))%layer%output(1,1)%duplicate_graph()
+     u_left_pred => &
+          network%model(network%leaf_vertices(1))%layer%output(1,1)%duplicate_graph()
 
      call network%forward(X_b_right)
-     u_right_pred => network%model(network%leaf_vertices(1))%layer%output(1,1)%duplicate_graph()
-     loss_b => mean( u_left_pred ** 2._real32, 2 ) + mean( u_right_pred ** 2._real32, 2 )
+     u_right_pred => &
+          network%model(network%leaf_vertices(1))%layer%output(1,1)%duplicate_graph()
+     loss_b => &
+          mean( u_left_pred ** 2._real32, 2 ) + &
+          mean( u_right_pred ** 2._real32, 2 )
 
      ! zero time condition
      call network%forward(X_0)
@@ -237,7 +242,7 @@ program pinn_burgers_example
      loss%is_temporary = .false.
 
      ! backward pass
-     call loss%grad_reverse(record_graph=.true., reset_graph=.false.)
+     call loss%grad_reverse(reset_graph=.false.)
 
      ! update learnable parameters
      call network%update()

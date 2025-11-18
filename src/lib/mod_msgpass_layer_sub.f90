@@ -244,13 +244,6 @@ contains
        !      this%num_time_steps, &
        !      this%output%shape, this%batch_size &
        ! )
-       ! if(.not.allocated(this%di)) this%di = array2d_type()
-       ! if(this%di%allocated) call this%di%deallocate()
-       ! call this%di%allocate( &
-       !      [1, this%batch_size], &
-       !      source=0._real32 &
-       ! )
-
        call this%set_param_pointers()
     end if
 
@@ -296,10 +289,6 @@ contains
                   call this%output(1,s)%deallocate()
              if(this%output(2,s)%allocated) &
                   call this%output(2,s)%deallocate()
-             if(this%di(1,s)%allocated) &
-                  call this%di(1,s)%deallocate()
-             if(this%di(2,s)%allocated) &
-                  call this%di(2,s)%deallocate()
              call this%output(1,s)%allocate( &
                   [ &
                        this%num_output_vertex_features, &
@@ -310,18 +299,6 @@ contains
                   [ &
                        this%num_output_edge_features, &
                        this%graph(s)%num_vertices &
-                  ] &
-             )
-             call this%di(1,s)%allocate( &
-                  [ &
-                       this%num_vertex_features(0), &
-                       this%graph(s)%num_vertices &
-                  ] &
-             )
-             call this%di(2,s)%allocate( &
-                  [ &
-                       this%num_edge_features(0), &
-                       this%graph(s)%num_edges &
                   ] &
              )
           end do

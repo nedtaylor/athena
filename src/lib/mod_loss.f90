@@ -5,7 +5,7 @@ module athena__loss
   !! The loss functions are used to determine how well a model is performing
   use coreutils, only: real32
   use diffstruc, only: array_type, operator(+), operator(-), &
-       operator(*), operator(/), operator(**), mean
+       operator(*), operator(/), operator(**), mean, sum, log
   implicit none
 
 
@@ -93,6 +93,8 @@ module athena__loss
    contains
      procedure :: compute => compute_cce
      !! Compute the loss of a model
+     procedure :: compute_pinn_generic => compute_pinn_generic_cce
+     !! Compute the physics-informed neural network loss
   end type cce_loss_type
 
   interface cce_loss_type
@@ -316,6 +318,29 @@ contains
     output = -expected * log(predicted + this%epsilon)
 
   end function compute_cce
+  function compute_pinn_generic_cce(this, predicted, expected, input) &
+       result(output)
+    !! Compute the physics-informed neural network loss
+    implicit none
+
+    ! Arguments
+    class(cce_loss_type), intent(in) :: this
+    !! Instance of the physics-informed neural network loss function
+    type(array_type), dimension(:,:), intent(in), target :: predicted
+    type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
+         expected
+    !! Predicted and expected values
+    type(array_type), dimension(:), intent(in) :: input
+    !! Input data, which contains the derivatives
+    type(array_type), pointer :: output(:,:)
+    !! Physics-informed neural network loss
+    type(array_type), pointer :: ptr
+
+    allocate(output(size(predicted,1),size(predicted,2)))
+    ptr => mean(-expected(1,1) * log(predicted(1,1) + this%epsilon), dim=2)
+    call output(1,1)%assign_and_deallocate_source(ptr)
+
+  end function compute_pinn_generic_cce
 !###############################################################################
 
 

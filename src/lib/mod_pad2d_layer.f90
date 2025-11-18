@@ -378,6 +378,7 @@ contains
     call this%output(1,1)%zero_grad()
     ptr => pad2d(input(1,1), this%facets, this%pad, this%imethod)
     call this%output(1,1)%assign_and_deallocate_source(ptr)
+    this%output(1,1)%is_temporary = .false.
 
   end subroutine forward_derived_pad2d
 !###############################################################################

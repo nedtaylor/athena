@@ -282,12 +282,97 @@ contains
     type(array_type) :: output
     type(array_type), pointer :: ptr
 
-    ! Note: Full Jacobian is not computed for efficiency; this is a simplified version
-    call output%allocate(array_shape = [this%shape, size(this%val, this%indices(1))])
-    ptr => this * upstream_grad
-    output = ptr - this * sum(ptr, dim=this%indices(1))
+    integer :: dim
+
+    if(this%indices(1).eq.1)then
+       dim = 2
+    else
+       dim = 1
+    end if
+    ! ptr => this * upstream_grad
+    ! ptr => ptr - this * sum(ptr, dim=dim)
+    ptr => softmax_reverse_array(this, upstream_grad, this%indices(1))
+    call output%assign_and_deallocate_source(ptr)
 
   end function get_partial_softmax
+!###############################################################################
+
+
+!###############################################################################
+  function softmax_reverse_array(softmax, gradient, dim) result(output)
+    !! Softmax function for reverse mode autodiff
+    implicit none
+    class(array_type), intent(in), target :: softmax
+    class(array_type), intent(in), target :: gradient
+    integer, intent(in) :: dim
+    type(array_type), pointer :: output
+
+    integer :: i
+    real(real32), dimension(size(softmax%val,1), size(softmax%val,2)) :: temp_val
+
+
+    output => softmax%create_result()
+    temp_val = gradient%val * softmax%val
+    if(dim.eq.1)then
+       do concurrent(i=1:size(softmax%val,1))
+          temp_val(i, :) = temp_val(i, :) - softmax%val(i, :) * sum(temp_val(i, :))
+       end do
+    elseif(dim.eq.2)then
+       do concurrent(i=1:size(softmax%val,2))
+          temp_val(:, i) = temp_val(:, i) - softmax%val(:, i) * sum(temp_val(:, i))
+       end do
+    else
+       call stop_program("softmax_reverse_array: Unsupported dimension")
+    end if
+    output%val = temp_val
+    output%indices = [dim]
+
+    output%get_partial_left => get_partial_softmax_reverse_left
+    output%get_partial_left => get_partial_softmax_reverse_right
+    if(softmax%requires_grad .or. gradient%requires_grad)then
+       output%requires_grad = .true.
+       output%is_forward = softmax%is_forward .or. gradient%is_forward
+       output%operation = 'softmax_reverse'
+       output%left_operand => softmax
+       output%right_operand => gradient
+    end if
+
+  end function softmax_reverse_array
+!-------------------------------------------------------------------------------
+  function get_partial_softmax_reverse_left(this, upstream_grad) result(output)
+    !! Get partial derivative of softmax reverse operation
+    implicit none
+    class(array_type), intent(inout) :: this
+    type(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    type(array_type), pointer :: sum_yg, sum_yu
+    type(array_type), pointer :: ptr
+
+    sum_yg => sum(this%left_operand * this%right_operand, dim=this%indices(1))
+    sum_yu => sum(this%left_operand * upstream_grad, dim=this%indices(1))
+
+    ptr => upstream_grad * (this%right_operand - sum_yg) - this%right_operand * sum_yu
+    call output%assign_and_deallocate_source(ptr)
+
+  end function get_partial_softmax_reverse_left
+!-------------------------------------------------------------------------------
+  function get_partial_softmax_reverse_right(this, upstream_grad) result(output)
+    !! Get partial derivative of softmax reverse operation
+    implicit none
+    class(array_type), intent(inout) :: this
+    type(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    type(array_type), pointer :: ptr
+
+    ptr => ( &
+         upstream_grad - &
+         sum(this%left_operand * upstream_grad, dim=this%indices(1)) &
+    ) * this%left_operand
+    call output%assign_and_deallocate_source(ptr)
+
+  end function get_partial_softmax_reverse_right
 !###############################################################################
 
 end submodule athena__diffstruc_extd_submodule

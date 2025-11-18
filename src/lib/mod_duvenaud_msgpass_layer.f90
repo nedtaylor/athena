@@ -4,7 +4,7 @@ module athena__duvenaud_msgpass_layer
   use graphstruc, only: graph_type
   use athena__misc_types, only: activation_type, initialiser_type
   use diffstruc, only: array_type, &
-       operator(.concat.), operator(.index.), operator(.mmul.), operator(/), &
+       operator(.concat.), operator(.index.), matmul, operator(/), &
        sum, operator(+), operator(*), operator(-)
   use athena__base_layer, only: base_layer_type
   use athena__msgpass_layer, only: msgpass_layer_type
@@ -948,8 +948,8 @@ contains
        do s = 1, this%batch_size
           call this%z_readout(t,s)%zero_grad()
           this%z_readout(t,s) = &
-               this%params_array(t+this%num_time_steps) .mmul. &
-               this%vertex_features(t,s)
+               matmul( this%params_array(t+this%num_time_steps), &
+                    this%vertex_features(t,s) )
           temp => this%transfer_readout%activate( this%z_readout(t,s) )
           output_ptr => output_ptr + &
                sum( &

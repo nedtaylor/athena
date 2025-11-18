@@ -389,6 +389,7 @@ contains
     call this%output(1,1)%zero_grad()
     ptr => maxpool2d(input(1,1), this%pool, this%strd)
     call this%output(1,1)%assign_and_deallocate_source(ptr)
+    this%output(1,1)%is_temporary = .false.
 
   end subroutine forward_derived_maxpool2d
 !###############################################################################

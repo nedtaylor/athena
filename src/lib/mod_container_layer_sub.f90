@@ -20,6 +20,7 @@ submodule(athena__container_layer) athena__container_layer_submodule
   use athena__dropblock3d_layer, only: read_dropblock3d_layer
   use athena__dropout_layer, only: read_dropout_layer
   use athena__duvenaud_msgpass_layer, only: read_duvenaud_msgpass_layer
+  use athena__flatten_layer, only: read_flatten_layer
   use athena__full_layer, only: read_full_layer
   use athena__input_layer, only: read_input_layer
   use athena__kipf_msgpass_layer, only: read_kipf_msgpass_layer
@@ -84,6 +85,7 @@ contains
          read_procedure_container('dropblock3d', read_dropblock3d_layer), &
          read_procedure_container('dropout', read_dropout_layer), &
          read_procedure_container('duvenaud', read_duvenaud_msgpass_layer), &
+         read_procedure_container('flatten', read_flatten_layer), &
          read_procedure_container('full', read_full_layer), &
          read_procedure_container('input', read_input_layer), &
          read_procedure_container('kipf', read_kipf_msgpass_layer), &

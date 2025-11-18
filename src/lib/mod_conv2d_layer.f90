@@ -793,12 +793,11 @@ contains
     !! Input values
 
     type(array_type), pointer :: ptr
+    !! Pointer arrays
 
 
     ! Generate outputs from weights, biases, and inputs
     !---------------------------------------------------------------------------
-    call this%z(1)%zero_grad()
-    call this%z(2)%zero_grad()
     select case(allocated(this%pad_layer))
     case(.true.)
        call this%pad_layer%forward_derived(input)
@@ -808,8 +807,7 @@ contains
     case default
        ptr => conv2d(input(1,1), this%params_array(1), this%stp(1), this%dil)
     end select
-    call this%z(1)%assign_and_deallocate_source(ptr)
-    ptr => add_bias(this%z(1), this%params_array(2), dim=3, dim_act_on_shape=.true.)
+    ptr => add_bias(ptr, this%params_array(2), dim=3, dim_act_on_shape=.true.)
 
     ! Apply activation function to activation
     !---------------------------------------------------------------------------
@@ -817,10 +815,10 @@ contains
     if(trim(this%transfer%name) .eq. "none") then
        call this%output(1,1)%assign_and_deallocate_source(ptr)
     else
-       call this%z(2)%assign_and_deallocate_source(ptr)
-       ptr => this%transfer%activate(this%z(2))
+       ptr => this%transfer%activate(ptr)
        call this%output(1,1)%assign_and_deallocate_source(ptr)
     end if
+    this%output(1,1)%is_temporary = .false.
 
   end subroutine forward_derived_conv2d
 !###############################################################################

@@ -17,6 +17,7 @@ submodule(athena__network) athena__network_submodule
        list_of_layer_types, allocate_list_of_layer_types
 
   ! Layer types
+  use athena__flatten_layer, only: flatten_layer_type
   use athena__input_layer,   only: input_layer_type
   use athena__msgpass_layer, only: msgpass_layer_type
 
@@ -1573,72 +1574,72 @@ contains
     end do
 
 
-    ! !---------------------------------------------------------------------------
-    ! ! Check for required flatten layers
-    ! !---------------------------------------------------------------------------
-    ! i = 0
-    ! vertex_loop: do
-    !    i = i + 1
-    !    if(i.gt.this%auto_graph%num_vertices) exit vertex_loop
-    !    id = this%auto_graph%vertex(i)%id
+    !---------------------------------------------------------------------------
+    ! Check for required flatten layers
+    !---------------------------------------------------------------------------
+    i = 0
+    vertex_loop: do
+       i = i + 1
+       if(i.gt.this%auto_graph%num_vertices) exit vertex_loop
+       id = this%auto_graph%vertex(i)%id
 
-    !    ! get all child vertices
-    !    allocate(child_vertices(0))
-    !    do j = 1, size(this%auto_graph%adjacency(i,:))
-    !       if(this%auto_graph%adjacency(i,j).eq.0) cycle
-    !       child_vertices = [child_vertices, j]
-    !    end do
-    !    child_loop: do j = 1, size(child_vertices)
-    !       child_id = this%auto_graph%vertex(child_vertices(j))%id
-    !       if(trim(this%model(id)%layer%type).eq."flat") cycle child_loop
-    !       if( this%model(id)%layer%output_rank .eq. &
-    !            this%model(child_id)%layer%input_rank ) cycle child_loop
+       ! get all child vertices
+       allocate(child_vertices(0))
+       do j = 1, size(this%auto_graph%adjacency(i,:))
+          if(this%auto_graph%adjacency(i,j).eq.0) cycle
+          child_vertices = [child_vertices, j]
+       end do
+       child_loop: do j = 1, size(child_vertices)
+          child_id = this%auto_graph%vertex(child_vertices(j))%id
+          if(trim(this%model(id)%layer%type).eq."flat") cycle child_loop
+          if( this%model(id)%layer%output_rank .eq. &
+               this%model(child_id)%layer%input_rank ) cycle child_loop
 
-    !       ! get all parent vertices of the child vertex
-    !       if(allocated(parent_vertices)) deallocate(parent_vertices)
-    !       allocate(parent_vertices(0))
-    !       l_flatten_child = .true.
-    !       do k = 1, size(this%auto_graph%adjacency(:,child_vertices(j)))
-    !          if(this%auto_graph%adjacency(k,child_vertices(j)).eq.0) cycle
-    !          parent_id = this%auto_graph%vertex(k)%id
-    !          parent_vertices = [parent_vertices, k]
-    !          !check if ranks match, rather than input and output shapes
-    !          if( this%model(id)%layer%output_rank .ne. &
-    !               this%model(parent_id)%layer%input_rank &
-    !          ) l_flatten_child = .false.
-    !       end do
-    !       t_flatten_layer = flatten_layer_type( &
-    !            input_rank = this%model(id)%layer%output_rank &
-    !       )
+          ! get all parent vertices of the child vertex
+          if(allocated(parent_vertices)) deallocate(parent_vertices)
+          allocate(parent_vertices(0))
+          l_flatten_child = .true.
+          do k = 1, size(this%auto_graph%adjacency(:,child_vertices(j)))
+             if(this%auto_graph%adjacency(k,child_vertices(j)).eq.0) cycle
+             parent_id = this%auto_graph%vertex(k)%id
+             parent_vertices = [parent_vertices, k]
+             !check if ranks match, rather than input and output shapes
+             if( this%model(id)%layer%output_rank .ne. &
+                  this%model(parent_id)%layer%input_rank &
+             ) l_flatten_child = .false.
+          end do
+          t_flatten_layer = flatten_layer_type( &
+               input_rank = this%model(id)%layer%output_rank &
+          )
 
-    !       if(l_flatten_child)then
-    !          ! add flatten layer in the place of the child layer
-    !          call this%auto_graph%remove_edges( &
-    !               indices = [ &
-    !                    this%auto_graph%adjacency( &
-    !                         parent_vertices(:),child_vertices(j) &
-    !                    ) &
-    !               ] &
-    !          )
-    !          call this%add( &
-    !               t_flatten_layer, &
-    !               input_list=[parent_vertices(:)], output_list=[child_id] &
-    !          )
-    !       else
-    !          ! add flatten layer between the current layer and the child layer
-    !          call this%auto_graph%remove_edges( &
-    !               indices = [this%auto_graph%adjacency(i,child_vertices(j))] &
-    !          )
-    !          call this%add( &
-    !               t_flatten_layer, input_list = [i], output_list = [child_id] &
-    !          )
-    !       end if
-    !       deallocate(t_flatten_layer)
-    !       deallocate(child_vertices)
-    !       cycle vertex_loop
-    !    end do child_loop
-    !    deallocate(child_vertices)
-    ! end do vertex_loop
+          if(l_flatten_child)then
+             ! add flatten layer in the place of the child layer
+             call this%auto_graph%remove_edges( &
+                  indices = [ &
+                       this%auto_graph%adjacency( &
+                            parent_vertices(:),child_vertices(j) &
+                       ) &
+                  ] &
+             )
+             call this%add( &
+                  t_flatten_layer, &
+                  input_list=[parent_vertices(:)], output_list=[child_id] &
+             )
+          else
+             ! add flatten layer between the current layer and the child layer
+             call this%auto_graph%remove_edges( &
+                  indices = [this%auto_graph%adjacency(i,child_vertices(j))] &
+             )
+             call this%add( &
+                  t_flatten_layer, input_list = [i], output_list = [child_id] &
+             )
+          end if
+          deallocate(t_flatten_layer)
+          deallocate(child_vertices)
+          cycle vertex_loop
+       end do child_loop
+       deallocate(child_vertices)
+    end do vertex_loop
     call this%generate_vertex_order()
 
     ! Update number of layers
@@ -1921,7 +1922,7 @@ contains
        allocate(sample(size(input,1), size(input,2)))
        do i = 1, size(input,1)
           do j = 1, size(input,2)
-             call sample(i,j)%allocate(array_shape=[input(i,j)%shape(1), &
+             call sample(i,j)%allocate(array_shape=[input(i,j)%shape, &
                   end_index - start_index + 1])
              sample(i,j)%val = get_sample_ptr( &
                   input(i,j)%val, start_index, end_index, batch_size &
@@ -2434,7 +2435,7 @@ contains
        call tmp_input(1)%allocate(array_shape = [ &
             this%model(this%root_vertices(1))%layer%output_shape(1), 1 &
        ])
-       tmp_input(1)%val = this%input_array(1,1)%val(:,start_index:end_index:1)
+       tmp_input(1)%val = this%model( this%root_vertices(1) )%layer%output(1,1)%val
        loss => this%loss%compute_pinn_generic( &
             predicted, &
             tmp_output, &
@@ -2451,9 +2452,7 @@ contains
        call tmp_input(1)%allocate(array_shape = [ &
             this%model(this%root_vertices(1))%layer%output_shape(1), 1 &
        ])
-       tmp_input(1)%val = this%model( &
-            this%root_vertices(1)&
-       )%layer%output(1,1)%val(:,start_index:end_index:1)
+       tmp_input(1)%val = this%model( this%root_vertices(1) )%layer%output(1,1)%val
        loss => this%loss%compute_pinn_generic( &
             predicted, &
             tmp_output, &
@@ -2936,7 +2935,7 @@ contains
        num_samples = size(input, input_rank)
        num_inputs = size(input) / num_samples
        allocate(this%input_array(1,1))
-       call this%input_array(1,1)%allocate(array_shape=[num_inputs, num_samples])
+       call this%input_array(1,1)%allocate(array_shape=shape(input))
     end select
     l_valid_rank_type = .false.
 
@@ -3013,19 +3012,19 @@ contains
     rank(3)
        select type(input)
        type is(real(real32))
-          this%input_array(1,1)%val = reshape(input, [num_inputs, num_samples])
+          call this%input_array(1,1)%set(input)
           l_valid_rank_type = .true.
        end select
     rank(4)
        select type(input)
        type is(real(real32))
-          this%input_array(1,1)%val = reshape(input, [num_inputs, num_samples])
+          call this%input_array(1,1)%set(input)
           l_valid_rank_type = .true.
        end select
     rank(5)
        select type(input)
        type is(real(real32))
-          this%input_array(1,1)%val = reshape(input, [num_inputs, num_samples])
+          call this%input_array(1,1)%set(input)
           l_valid_rank_type = .true.
        end select
     end select rank_select
@@ -3305,6 +3304,7 @@ contains
           !---------------------------------------------------------------------
           !  call system_clock(timer_start)
           loss_array => this%loss_backward(this%expected_array, start_index, end_index)
+          loss_array(1,1)%is_temporary = .false.
           call loss_array(1,1)%grad_reverse(reset_graph=.true.)
           !  call system_clock(timer_stop)
           !  backward_timer = backward_timer + timer_stop - timer_start
@@ -3348,6 +3348,7 @@ contains
              end do
           end do
           deallocate(loss_array)
+          nullify(loss_array)
 
 
           ! Print batch results

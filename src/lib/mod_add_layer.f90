@@ -443,7 +443,7 @@ contains
     integer :: s
     !! Loop index
 
-    this%di = gradient
+    ! this%di = gradient
 
   end subroutine split_add
 !###############################################################################

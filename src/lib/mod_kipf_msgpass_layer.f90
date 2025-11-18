@@ -457,8 +457,6 @@ contains
                  this%batch_size &
             ), source=0._real32 &
        )
-       !   if(allocated(this%di)) deallocate(this%di)
-       !   allocate(this%di(2,this%batch_size), source=array2d_type())
        !! input val arrays are allocated in set_graph
     end if
 
@@ -873,11 +871,11 @@ contains
     !! Pointer to the weight matrix and its gradient
 
 
-    ! Initialise vertex features gradients at time T
-    do s = 1, this%batch_size
-       this%di(1,s)%val = gradient(1,s)%val
-       this%di(2,s)%val = gradient(2,s)%val
-    end do
+!     ! Initialise vertex features gradients at time T
+!     do s = 1, this%batch_size
+!        this%di(1,s)%val = gradient(1,s)%val
+!        this%di(2,s)%val = gradient(2,s)%val
+!     end do
 
     ! Backpropagate through time steps
     do t = this%num_time_steps, 1, -1
@@ -890,7 +888,7 @@ contains
        do s = 1, this%batch_size
           ! Calculate gradient with respect to z at time t
           allocate(dz, mold=this%z(t,s)%val)
-          dz = this%transfer%differentiate(this%z(t,s)%val) * this%di(1,s)%val
+          ! dz = this%transfer%differentiate(this%z(t,s)%val) * this%di(1,s)%val
 
           ! Calculate gradient with respect to weights
           dw( &
@@ -939,7 +937,7 @@ contains
           end do
 
           ! Update input gradient for prior time step
-          this%di(1,s)%val = dv_features
+          ! this%di(1,s)%val = dv_features
 
           deallocate(dz, dv_features)
        end do
@@ -964,11 +962,11 @@ contains
     integer :: s
     !! Batch index
 
-    ! Pass gradients from output to final vertex/edge features
-    do s = 1, this%batch_size
-       this%di(1,s)%val = gradient(1,s)%val
-       this%di(2,s)%val = gradient(2,s)%val
-    end do
+!     ! Pass gradients from output to final vertex/edge features
+!     do s = 1, this%batch_size
+!        this%di(1,s)%val = gradient(1,s)%val
+!        this%di(2,s)%val = gradient(2,s)%val
+!     end do
 
   end subroutine backward_readout_kipf
 !###############################################################################

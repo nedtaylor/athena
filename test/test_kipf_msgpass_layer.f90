@@ -2,9 +2,10 @@ program test_kipf_msgpass_layer
   use athena, only: &
        kipf_msgpass_layer_type, &
        base_layer_type, &
-       learnable_layer_type, array2d_type
+       learnable_layer_type
   use athena__kipf_msgpass_layer, only: read_kipf_msgpass_layer
   use graphstruc, only: graph_type
+  use diffstruc, only: array_type
   implicit none
 
   class(base_layer_type), allocatable :: msgpass_layer
@@ -17,7 +18,7 @@ program test_kipf_msgpass_layer
   real, allocatable, dimension(:,:) :: vertex_features, output
   real, parameter :: tol = 1.E-7
   logical :: success = .true.
-  type(array2d_type), allocatable, dimension(:,:) :: input
+  type(array_type), allocatable, dimension(:,:) :: input
 
   real, allocatable, dimension(:) :: params
   real, allocatable, dimension(:,:) :: outputs
@@ -158,7 +159,6 @@ program test_kipf_msgpass_layer
         success = .false.
         write(0,*) 'kipf layer has wrong number of outputs'
      end if
-     call msgpass_layer%get_output(outputs)
      if(any(shape(msgpass_layer%output(1,1)%val) .ne. &
           [msgpass_layer%output_shape(1), num_vertices]))then
         success = .false.

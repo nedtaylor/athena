@@ -7,6 +7,7 @@ program mnist_example
   use omp_lib
 #endif
   use athena
+  use diffstruc
   use constants_mnist, only: real32
   use read_mnist, only: read_mnist_db
   use inputs
@@ -18,7 +19,7 @@ program mnist_example
   ! data loading and preoprocessing
   real(real32), allocatable, dimension(:,:,:,:) :: input_images, test_images
   integer, allocatable, dimension(:) :: labels, test_labels
-  integer, allocatable, dimension(:,:) :: input_labels
+  real(real32), allocatable, dimension(:,:) :: input_labels
   character(1024) :: train_file, test_file
 
   ! neural network size and shape variables
@@ -28,6 +29,9 @@ program mnist_example
 
   ! training loop variables
   integer :: num_samples, num_samples_test
+
+  type(array_type) :: input_array(1,1), input_batch(1,1), expected_array(1,1)
+  type(array_type), pointer :: ptr, loss
 
 
   integer :: i, itmp1
@@ -140,14 +144,17 @@ program mnist_example
   ! ... loops over num_epoch number of epochs
   ! ... i.e. it trains on the same datapoints num_epoch times
   !-----------------------------------------------------------------------------
-  allocate(input_labels(num_classes,num_samples))
-  input_labels = 0
+  allocate(input_labels(num_classes,num_samples), source = 0._real32)
   do i=1,num_samples
-     input_labels(labels(i),i) = 1
+     input_labels(labels(i),i) = 1._real32
   end do
 
+  call input_array(1,1)%allocate(shape(input_images))
+  call input_array(1,1)%set(input_images)
+  call expected_array(1,1)%allocate(shape(input_labels))
+  call expected_array(1,1)%set(input_labels)
   write(6,*) "Starting training..."
-  call network%train(input_images, input_labels, num_epochs, batch_size, &
+  call network%train(input_array, expected_array, num_epochs, batch_size, &
        plateau_threshold = plateau_threshold, &
        shuffle_batches = shuffle_dataset, &
        batch_print_step = batch_print_step, verbose = verbosity)

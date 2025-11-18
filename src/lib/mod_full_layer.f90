@@ -10,7 +10,7 @@ module athena__full_layer
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: learnable_layer_type, base_layer_type
   use athena__misc_types, only: initialiser_type
-  use diffstruc, only: array_type, operator(.mmul.), operator(+)
+  use diffstruc, only: array_type, matmul, operator(+)
   implicit none
 
 
@@ -41,8 +41,6 @@ module athena__full_layer
      !! Print the layer to a file
      procedure, pass(this) :: read => read_full
      !! Read the layer from a file
-
-     procedure, pass(this) :: nullify_graph => nullify_graph_full
 
      procedure, pass(this) :: forward_derived => forward_derived_full
      !! Forward propagation derived type handler
@@ -694,7 +692,7 @@ contains
 
     ! Generate outputs from weights, biases, and inputs
     !---------------------------------------------------------------------------
-    ptr => ( this%params_array(1) .mmul. input(1,1) ) + this%params_array(2)
+    ptr => matmul(this%params_array(1), input(1,1) ) + this%params_array(2)
 
     ! Apply activation function to activation
     !---------------------------------------------------------------------------
@@ -702,30 +700,15 @@ contains
     if(trim(this%transfer%name) .eq. "none") then
        call this%output(1,1)%assign_and_deallocate_source(ptr)
     else
-       call this%z(1)%zero_grad()
-       call this%z(1)%assign_and_deallocate_source(ptr)
-       this%z(1)%is_temporary = .false.
-       ptr => this%transfer%activate(this%z(1))
+       !  call this%z(1)%zero_grad()
+       !  call this%z(1)%assign_and_deallocate_source(ptr)
+       ! this%z(1)%is_temporary = .false.
+       ptr => this%transfer%activate(ptr)
        call this%output(1,1)%assign_and_deallocate_source(ptr)
     end if
     this%output(1,1)%is_temporary = .false.
 
   end subroutine forward_derived_full
-!###############################################################################
-
-
-!###############################################################################
-  subroutine nullify_graph_full(this)
-    !! Nullify computation graph for fully connected layer
-    implicit none
-
-    ! Arguments
-    class(full_layer_type), intent(inout) :: this
-    !! Instance of the fully connected layer
-
-    call this%output(1,1)%nullify_graph()
-
-  end subroutine nullify_graph_full
 !###############################################################################
 
 end module athena__full_layer

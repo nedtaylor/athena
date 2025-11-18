@@ -13,7 +13,7 @@ program simple
   type(network_type) :: network
   real(real32), allocatable, dimension(:,:) :: x, y, prediction
   type(array_type) :: x_array(1), y_array(1,1)
-  type(array_type), allocatable :: loss(:,:)
+  type(array_type), pointer :: loss(:,:)
 
   integer, parameter :: num_iterations = 500
 
@@ -67,11 +67,8 @@ program simple
 
      call network%set_batch_size(1)
      call network%forward(x)
-     loss = network%loss%compute_generic( &
-          network%model(network%leaf_vertices(1))%layer%output,  y_array, x_array &
-     )
+     loss => network%loss_backward(y, 1, 1)
      call loss(1,1)%grad_reverse()
-     ! call network%backward(y)
      call network%update()
 
      prediction = network%predict(input=x)
