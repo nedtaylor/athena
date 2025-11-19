@@ -277,6 +277,8 @@ contains
 
     output%get_partial_left => get_partial_conv2d_input
     output%get_partial_right => get_partial_conv2d_kernel
+    output%get_partial_left_val => get_partial_conv2d_input_val
+    output%get_partial_right_val => get_partial_conv2d_kernel_val
     if(input%requires_grad .or. kernel%requires_grad)then
        output%requires_grad = .true.
        output%is_forward = input%is_forward
@@ -294,6 +296,33 @@ contains
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
+
+    call output%allocate(array_shape = [ this%left_operand%shape, &
+         size(this%left_operand%val, dim=2) ])
+    call this%get_partial_left_val(upstream_grad%val, output%val)
+
+  end function get_partial_conv2d_input
+!-------------------------------------------------------------------------------
+  function get_partial_conv2d_kernel(this, upstream_grad) result(output)
+    !! Get partial derivative wrt kernel for 2D convolution
+    implicit none
+
+    class(array_type), intent(inout) :: this
+    type(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    call output%allocate(array_shape = [ this%right_operand%shape, 1 ])
+    call this%get_partial_right_val(upstream_grad%val, output%val)
+
+  end function get_partial_conv2d_kernel
+!-------------------------------------------------------------------------------
+  subroutine get_partial_conv2d_input_val(this, upstream_grad, output)
+    !! Get partial derivative wrt input for 2D convolution (subroutine version)
+    implicit none
+
+    class(array_type), intent(inout) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
 
     ! Local variables
     integer :: i, j, ki, kj, c_in, c_out, s
@@ -323,16 +352,14 @@ contains
     channel_size_in  = input_h * input_w
     channel_size_out = output_h * output_w
 
-    call output%allocate(array_shape = [ input%shape, size(input%val, dim=2) ])
-    output%val = 0._real32
-
-    do s = 1, size(upstream_grad%val, dim=2)
+    output = 0._real32
+    do s = 1, size(upstream_grad, dim=2)
        do c_in = 1, num_channels
           do j = 1, output_w
              do i = 1, output_h
                 do c_out = 1, num_filters
                    out_idx = i + (j-1)*output_h + (c_out-1)*channel_size_out
-                   grad_val = upstream_grad%val(out_idx, s)
+                   grad_val = upstream_grad(out_idx, s)
 
                    do kj = 1, kernel_w
                       j_in = (j - 1) * stride(2) + (kj - 1) * dilation(2) + 1
@@ -347,7 +374,7 @@ contains
                                     (kernel_w - kj) * kernel_h + &
                                     (c_in - 1) * kernel_h * kernel_w + &
                                     (c_out - 1) * kernel_h * kernel_w * num_channels
-                               output%val(in_idx, s) = output%val(in_idx, s) + &
+                               output(in_idx, s) = output(in_idx, s) + &
                                     grad_val * kernel%val(k_idx, 1)
                             end if
                          end do
@@ -359,15 +386,15 @@ contains
        end do
     end do
 
-  end function get_partial_conv2d_input
+  end subroutine get_partial_conv2d_input_val
 !-------------------------------------------------------------------------------
-  function get_partial_conv2d_kernel(this, upstream_grad) result(output)
-    !! Get partial derivative wrt kernel for 2D convolution
+  subroutine get_partial_conv2d_kernel_val(this, upstream_grad, output)
+    !! Get partial derivative wrt kernel for 2D convolution (subroutine version)
     implicit none
 
     class(array_type), intent(inout) :: this
-    type(array_type), intent(in) :: upstream_grad
-    type(array_type) :: output
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
 
     ! Local variables
     integer :: i, j, ki, kj, c_in, c_out, s
@@ -397,10 +424,8 @@ contains
     channel_size_in  = input_h * input_w
     channel_size_out = output_h * output_w
 
-    call output%allocate(array_shape = [ kernel%shape, 1 ])
-    output%val = 0._real32
-
-    do s = 1, size(upstream_grad%val, dim=2)
+    output = 0._real32
+    do s = 1, size(upstream_grad, dim=2)
        do c_out = 1, num_filters
           do c_in = 1, num_channels
              do kj = 1, kernel_w
@@ -419,8 +444,8 @@ contains
                                     (c_in - 1) * channel_size_in
                                out_idx = i + (j - 1) * output_h + &
                                     (c_out - 1) * channel_size_out
-                               output%val(k_idx, 1) = output%val(k_idx, 1) + &
-                                    upstream_grad%val(out_idx, s) * input%val(in_idx, s)
+                               output(k_idx, 1) = output(k_idx, 1) + &
+                                    upstream_grad(out_idx, s) * input%val(in_idx, s)
                             end if
                          end do
                       end if
@@ -431,7 +456,7 @@ contains
        end do
     end do
 
-  end function get_partial_conv2d_kernel
+  end subroutine get_partial_conv2d_kernel_val
 !###############################################################################
 
 
@@ -604,7 +629,8 @@ contains
                          k_in = ( k - 1 ) * stride(3) + ( kk - 1 ) * dilation(3) + 1
                          if( k_in .ge. 1 .and. k_in .le. input_d )then
                             do kj = 1, kernel_w
-                               j_in = ( j - 1 ) * stride(2) + ( kj - 1 ) * dilation(2) + 1
+                               j_in = ( j - 1 ) * stride(2) + ( kj - 1 ) * &
+                                    dilation(2) + 1
                                if( j_in .ge. 1 .and. j_in .le. input_w )then
                                   do ki = 1, kernel_h
                                      i_in = ( i - 1 ) * stride(1) + &
@@ -619,7 +645,8 @@ contains
                                              kernel_d + &
                                              ( c_out - 1 ) * kernel_h * kernel_w * &
                                              kernel_d * num_channels
-                                        output%val(in_idx, s) = output%val(in_idx, s) + &
+                                        output%val(in_idx, s) = &
+                                             output%val(in_idx, s) + &
                                              grad_val * kernel%val(k_idx, 1)
                                      end if
                                   end do

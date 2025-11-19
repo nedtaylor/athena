@@ -32,7 +32,7 @@ program pinn_burgers_example
   integer :: x_min, x_max, t_min, t_max
   integer :: N_f, N_0, N_b, N_x, N_t
   real(real32) :: nu
-  real(real32), dimension(:), allocatable :: u0
+  real(real32), dimension(:,:), allocatable :: u0
   real(real32), dimension(:,:), allocatable :: X_f, X_0, X_b_left, X_b_right, XT
   type(array_type), pointer :: u_i, u_xx, u_t, u_x
 
@@ -71,14 +71,14 @@ program pinn_burgers_example
   close(10)
 
 
-  allocate(u0(N_0))
+  allocate(u0(1,N_0))
   allocate(X_0(2,N_0))
   ! assign random
   ! fortran version of linspace from x_min to x_max with N_0 steps
   do i = 1, N_0
      X_0(1,i) = real(i-1) * (x_max - x_min) / real(N_0 - 1) + x_min
      X_0(2,i) = 0._real32
-     u0(i) = -sin(pi * X_0(1,i))
+     u0(1,i) = -sin(pi * X_0(1,i))
   end do
 
   allocate(X_b_left(2,N_b))

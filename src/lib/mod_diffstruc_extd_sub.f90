@@ -118,6 +118,8 @@ contains
 
     output%get_partial_left => get_partial_add
     output%get_partial_right => get_partial_add_bias
+    output%get_partial_left_val => get_partial_add_val
+    output%get_partial_right_val => get_partial_add_bias_val
     if(input%requires_grad .or. bias%requires_grad)then
        output%requires_grad = .true.
        output%is_forward = input%is_forward .or. bias%is_forward
@@ -138,12 +140,47 @@ contains
     output = upstream_grad
   end function get_partial_add
 !-------------------------------------------------------------------------------
+  subroutine get_partial_add_val(this, upstream_grad, output)
+    !! Get partial derivative with respect to left operand
+    implicit none
+    class(array_type), intent(inout) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    if(size(upstream_grad,2).ne.size(output,2))then
+       if(size(output,1).eq.1)then
+          output(1,1) = sum(upstream_grad)
+       else
+          output(:,1) = sum(upstream_grad, dim=2)
+       end if
+    else
+       if(size(output,1).eq.1.and.size(output,1).ne.size(upstream_grad,1))then
+          output(1,:) = sum(upstream_grad,1)
+       else
+          output = upstream_grad
+       end if
+    end if
+  end subroutine get_partial_add_val
+!-------------------------------------------------------------------------------
   function get_partial_add_bias(this, upstream_grad) result(output)
     !! Get partial derivative with respect to bias operand
     implicit none
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
+
+    call output%allocate(array_shape = [ this%right_operand%shape, 1 ])
+    call this%get_partial_right_val(upstream_grad%val, output%val)
+
+  end function get_partial_add_bias
+!-------------------------------------------------------------------------------
+  subroutine get_partial_add_bias_val(this, upstream_grad, output)
+    implicit none
+
+    ! Arguments
+    class(array_type), intent(inout) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
 
     integer :: i, j, k, s, idx, itmp1
     integer :: num_elements_pre, num_elements_post, num_dims
@@ -160,20 +197,19 @@ contains
     end do
 
     itmp1 = num_elements_pre * this%left_operand%shape(this%indices(1))
-    call output%allocate(array_shape = [ this%right_operand%shape, 1 ])
-    output%val = 0._real32
-    do s = 1, size(upstream_grad%val, 2)
+    output = 0._real32
+    do s = 1, size(upstream_grad, 2)
        do k = 1, num_elements_post
           do j = 1, this%right_operand%shape(1)
              idx = (j - 1) * num_elements_pre + (k - 1) * itmp1
              do i = 1, num_elements_pre
-                output%val(j,1) = output%val(j,1) + upstream_grad%val(idx + i, s)
+                output(j,1) = output(j,1) + upstream_grad(idx + i, s)
              end do
           end do
        end do
     end do
 
-  end function get_partial_add_bias
+  end subroutine get_partial_add_bias_val
 !###############################################################################
 
 
@@ -265,6 +301,7 @@ contains
     output%indices(1) = dim
 
     output%get_partial_left => get_partial_softmax
+    output%get_partial_left_val => get_partial_softmax_val
     if(input%requires_grad)then
        output%requires_grad = .true.
        output%is_forward = input%is_forward
@@ -295,6 +332,32 @@ contains
     call output%assign_and_deallocate_source(ptr)
 
   end function get_partial_softmax
+!-------------------------------------------------------------------------------
+  subroutine get_partial_softmax_val(this, upstream_grad, output)
+    !! Get partial derivative of softmax activation (in-place version)
+    implicit none
+    class(array_type), intent(inout) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    integer :: s, dim
+
+    if(this%indices(1).eq.1)then
+       dim = 2
+    else
+       dim = 1
+    end if
+    output = this%val * upstream_grad
+    if(dim.eq.1)then
+       do s = 1, size(this%val, 2)
+          output(:, s) = output(:, s) - this%val(:, s) * sum(output(:, s))
+       end do
+    elseif(dim.eq.2)then
+       do s = 1, size(this%val, 1)
+          output(s, :) = output(s, :) - this%val(s, :) * sum(output(s, :))
+       end do
+    end if
+  end subroutine get_partial_softmax_val
 !###############################################################################
 
 

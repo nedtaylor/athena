@@ -471,6 +471,7 @@ contains
     output%adj_ja(:,2) = stride
 
     output%get_partial_left => get_partial_maxpool2d
+    output%get_partial_left_val => get_partial_maxpool2d_val
     if(input%requires_grad)then
        output%requires_grad = .true.
        output%is_forward = input%is_forward
@@ -489,6 +490,21 @@ contains
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
+    call output%allocate(array_shape = &
+         [ this%left_operand%shape, size(this%val, dim=2) ] &
+    )
+    call this%get_partial_left_val(upstream_grad%val, output%val)
+
+  end function get_partial_maxpool2d
+!-------------------------------------------------------------------------------
+  subroutine get_partial_maxpool2d_val(this, upstream_grad, output)
+    implicit none
+
+    ! Arguments
+    class(array_type), intent(inout) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
     ! Local variables
     integer :: i, j, m, s
     integer :: i_step, j_step
@@ -504,8 +520,7 @@ contains
     channel_size_in = real( input_shape(1) * input_shape(2), real32 )
     channel_size_out = real( this%shape(1) * this%shape(2), real32 )
 
-    call output%allocate(array_shape = input_shape)
-    output%val = 0._real32
+    output = 0._real32
 
     do s = 1, input_shape(4)
        do m = 1, this%shape(3)
@@ -535,17 +550,17 @@ contains
                      ( (j-1) * stride(2) + max_j ) * input_shape(1) + &
                      (m-1) * channel_size_in
 
-                out_idx = i + (j-1) * upstream_grad%shape(1) + &
+                out_idx = i + (j-1) * this%shape(1) + &
                      (m-1) * channel_size_out
 
-                output%val(in_idx + 1, s) = output%val(in_idx + 1, s) + &
-                     upstream_grad%val(out_idx, s)
+                output(in_idx + 1, s) = output(in_idx + 1, s) + &
+                     upstream_grad(out_idx, s)
              end do
           end do
        end do
     end do
 
-  end function get_partial_maxpool2d
+  end subroutine get_partial_maxpool2d_val
 !###############################################################################
 
 
