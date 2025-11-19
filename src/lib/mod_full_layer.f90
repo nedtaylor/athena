@@ -700,10 +700,10 @@ contains
     if(trim(this%transfer%name) .eq. "none") then
        call this%output(1,1)%assign_and_deallocate_source(ptr)
     else
-       !  call this%z(1)%zero_grad()
-       !  call this%z(1)%assign_and_deallocate_source(ptr)
-       ! this%z(1)%is_temporary = .false.
-       ptr => this%transfer%activate(ptr)
+       call this%z(1)%zero_grad()
+       call this%z(1)%assign_and_deallocate_source(ptr)
+       this%z(1)%is_temporary = .false.
+       ptr => this%transfer%activate(this%z(1))
        call this%output(1,1)%assign_and_deallocate_source(ptr)
     end if
     this%output(1,1)%is_temporary = .false.

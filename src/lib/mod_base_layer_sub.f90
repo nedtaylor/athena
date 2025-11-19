@@ -396,7 +396,7 @@ contains
     end if
 
   end subroutine set_graph_base
-
+!-------------------------------------------------------------------------------
   module subroutine nullify_graph_base(this)
     !! Nullify the forward pass data of the layer to free memory
     implicit none

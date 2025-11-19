@@ -2856,11 +2856,9 @@ contains
     ! Local variables
     integer :: l
 
-    write(*,*) "zero"
     do l = 1, this%num_layers
        call this%model(l)%layer%nullify_graph()
     end do
-    write(*,*) "one"
 
   end subroutine nullify_graph
 !###############################################################################
