@@ -331,7 +331,7 @@ module athena__msgpass_layer
        !! Update the message
        class(msgpass_layer_type), intent(inout), target :: this
        !! Instance of the message passing layer
-       class(array_type), dimension(:,:), intent(in) :: input
+       class(array_type), dimension(:,:), intent(in), target :: input
        !! Input data (i.e. vertex and edge features)
      end subroutine update_message_msgpass
 

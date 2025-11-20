@@ -852,7 +852,7 @@ contains
     ! Arguments
     class(duvenaud_msgpass_layer_type), intent(inout), target :: this
     !! Instance of the message passing layer
-    class(array_type), dimension(:,:), intent(in) :: input
+    class(array_type), dimension(:,:), intent(in), target :: input
     !! Input to the message passing layer
 
     ! Local variables

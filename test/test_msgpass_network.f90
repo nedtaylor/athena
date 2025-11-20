@@ -6,7 +6,7 @@ program test_msgpass_network
        full_layer_type, &
        base_optimiser_type, &
        sgd_optimiser_type
-  use athena__misc_types, only: array2d_type
+  use diffstruc, only: array_type
   use graphstruc, only: graph_type
   implicit none
 
@@ -35,7 +35,7 @@ program test_msgpass_network
 ! Test Kipf msgpass network
 !-------------------------------------------------------------------------------
   kipf_network_test: block
-    type(array2d_type), dimension(1,1) :: target_array
+    type(array_type), dimension(1,1) :: target_array
 
     call kipf_network%add(kipf_msgpass_layer_type( &
          num_vertex_features = [num_vertex_features, num_vertex_features], &
@@ -93,7 +93,7 @@ program test_msgpass_network
 ! Test Duvenaud msgpass network
 !-------------------------------------------------------------------------------
   duvenaud_network_test: block
-    type(array2d_type), dimension(1,1) :: target_array
+    type(array_type), dimension(1,1) :: target_array
 
     call duvenaud_network%add(duvenaud_msgpass_layer_type( &
          num_vertex_features = [num_vertex_features], &

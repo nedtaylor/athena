@@ -147,12 +147,11 @@ program test_duvenaud_msgpass_layer
      end if
 
      !! check layer output handling
-     call msgpass_layer%get_output(params)
      if(size(params) .ne. product(msgpass_layer%output_shape))then
         success = .false.
         write(0,*) 'duvenaud layer has wrong number of outputs'
      end if
-     call msgpass_layer%get_output(outputs)
+     call msgpass_layer%output(1,1)%extract(outputs)
      if(any(shape(outputs) .ne. [product(msgpass_layer%output_shape), 1]))then
         success = .false.
         write(0,*) 'duvenaud layer has wrong number of outputs'
