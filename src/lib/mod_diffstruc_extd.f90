@@ -18,6 +18,7 @@ module athena__diffstruc_extd
   public :: merge_over_channels
   public :: batchnorm_array_type, batchnorm, batchnorm_inference
   public :: conv1d, conv2d, conv3d
+  public :: kipf_propagate, kipf_update
 
 
   type, extends(array_type) :: batchnorm_array_type
@@ -228,6 +229,24 @@ module athena__diffstruc_extd
        integer, dimension(3), intent(in) :: dilation
        type(array_type), pointer :: output
      end function conv3d
+  end interface
+
+  interface
+     module function kipf_propagate(vertex_features, adj_ia, adj_ja) result(c)
+       !! Propagate values from one autodiff array to another
+       class(array_type), intent(in), target :: vertex_features
+       integer, dimension(:), intent(in) :: adj_ia
+       integer, dimension(:,:), intent(in) :: adj_ja
+       type(array_type), pointer :: c
+     end function kipf_propagate
+
+     module function kipf_update(a, weight, adj_ia) result(c)
+       !! Update the message passing layer
+       class(array_type), intent(in), target :: a
+       class(array_type), intent(in), target :: weight
+       integer, dimension(:), intent(in) :: adj_ia
+       type(array_type), pointer :: c
+     end function kipf_update
   end interface
 !-------------------------------------------------------------------------------
 
