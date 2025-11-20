@@ -110,26 +110,24 @@ contains
     call output%allocate(array_shape = [ input%shape, size(input%val, dim=2) ])
     output%val = 0._real32
 
-    do s = 1, size(upstream_grad%val, dim=2)
-       do c_in = 1, num_channels
-          do i = 1, output_h
-             do c_out = 1, num_filters
-                out_idx = i + (c_out-1)*output_h
-                grad_val = upstream_grad%val(out_idx, s)
+    ! Parallelised over batch, channels, and output positions
+    do concurrent(s = 1:size(upstream_grad%val, dim=2), c_in = 1:num_channels, &
+         i = 1:output_h, c_out = 1:num_filters)
+       out_idx = i + (c_out-1)*output_h
+       grad_val = upstream_grad%val(out_idx, s)
 
-                do k = 1, kernel_h
-                   i_in = ( i - 1 ) * stride + ( k - 1 ) * dilation + 1
-                   if(i_in .ge. 1 .and. i_in .le. input_h)then
-                      k_idx = k + ( c_in - 1 ) * kernel_h + &
-                           ( c_out - 1 ) * kernel_h * num_channels
-                      output%val(i_in + ( c_in - 1 ) * input_h, s) = &
-                           output%val(i_in + ( c_in - 1 ) * input_h, s) + &
-                           grad_val * kernel%val(k_idx, 1)
-                   end if
-                end do
-             end do
+       if(abs(grad_val) > 1.e-30_real32)then
+          do k = 1, kernel_h
+             i_in = ( i - 1 ) * stride + ( k - 1 ) * dilation + 1
+             if(i_in .ge. 1 .and. i_in .le. input_h)then
+                k_idx = k + ( c_in - 1 ) * kernel_h + &
+                     ( c_out - 1 ) * kernel_h * num_channels
+                output%val(i_in + ( c_in - 1 ) * input_h, s) = &
+                     output%val(i_in + ( c_in - 1 ) * input_h, s) + &
+                     grad_val * kernel%val(k_idx, 1)
+             end if
           end do
-       end do
+       end if
     end do
 
   end function get_partial_conv1d_input
@@ -167,23 +165,20 @@ contains
     call output%allocate(array_shape = [ kernel%shape, size(input%val, dim=2)])
     output%val = 0._real32
 
-    do s = 1, size(upstream_grad%val, dim=2)
-       do c_out = 1, num_filters
-          do c_in = 1, num_channels
-             do k = 1, kernel_h
-                k_idx = k + ( c_in - 1 ) * kernel_h + &
-                     ( c_out - 1 ) * kernel_h * num_channels
+    ! Parallelised over filters, channels, and kernel positions
+    do concurrent(c_out = 1:num_filters, c_in = 1:num_channels, k = 1:kernel_h)
+       k_idx = k + ( c_in - 1 ) * kernel_h + &
+            ( c_out - 1 ) * kernel_h * num_channels
 
-                do i = 1, output_h
-                   i_in = ( i - 1 ) * stride + ( k - 1 ) * dilation + 1
-                   if(i_in .ge. 1 .and. i_in .le. input_h)then
-                      out_idx = i + ( c_out - 1 ) * output_h
-                      output%val(k_idx, 1) = output%val(k_idx, 1) + &
-                           upstream_grad%val(out_idx, s) * &
-                           input%val(i_in + ( c_in - 1 ) * input_h, s)
-                   end if
-                end do
-             end do
+       do s = 1, size(upstream_grad%val, dim=2)
+          do i = 1, output_h
+             i_in = ( i - 1 ) * stride + ( k - 1 ) * dilation + 1
+             if(i_in .ge. 1 .and. i_in .le. input_h)then
+                out_idx = i + ( c_out - 1 ) * output_h
+                output%val(k_idx, 1) = output%val(k_idx, 1) + &
+                     upstream_grad%val(out_idx, s) * &
+                     input%val(i_in + ( c_in - 1 ) * input_h, s)
+             end if
           end do
        end do
     end do
@@ -206,10 +201,11 @@ contains
 
     ! Local variables
     integer :: i, j, ki, kj, c_in, c_out, s
-    integer :: i_in, j_in, k_idx, out_idx, in_idx
+    integer :: i_in, j_in, k_idx, out_idx, in_idx, in_base_idx, k_base_idx
     integer :: input_h, input_w, kernel_h, kernel_w
     integer :: output_h, output_w, num_channels, num_filters
-    integer :: channel_size_in, channel_size_out
+    integer :: channel_size_in, channel_size_out, kernel_channel_size
+    integer :: dil_kernel_h_m1, dil_kernel_w_m1
     real(real32) :: conv_sum
     integer, dimension(4) :: output_shape
 
@@ -223,18 +219,21 @@ contains
     kernel_w = kernel%shape(2)
     num_filters = kernel%shape(4)
 
+    ! Pre-compute common values
+    channel_size_in = input_h * input_w
+    kernel_channel_size = kernel_h * kernel_w
+    dil_kernel_h_m1 = dilation(1) * (kernel_h - 1)
+    dil_kernel_w_m1 = dilation(2) * (kernel_w - 1)
+
     ! Calculate output dimensions
-    output_h = (input_h - dilation(1)*(kernel_h - 1) - 1) / &
-         stride(1) + 1
-    output_w = (input_w - dilation(2)*(kernel_w - 1) - 1) / &
-         stride(2) + 1
+    output_h = (input_h - dil_kernel_h_m1 - 1) / stride(1) + 1
+    output_w = (input_w - dil_kernel_w_m1 - 1) / stride(2) + 1
     output_shape = [output_h, output_w, num_filters, &
          size(input%val, dim=2)]
 
     output => input%create_result(array_shape = output_shape)
     output%val = 0._real32
 
-    channel_size_in = input_h * input_w
     channel_size_out = output_h * output_w
 
     ! Perform convolution
@@ -242,17 +241,17 @@ contains
          j = 1:output_w, i = 1:output_h)
        conv_sum = 0._real32
        do c_in = 1, num_channels
+          in_base_idx = (c_in - 1) * channel_size_in
+          k_base_idx = (c_in - 1) * kernel_channel_size + &
+               (c_out - 1) * kernel_channel_size * num_channels
           do kj = 1, kernel_w
-             j_in = ( j - 1 ) * stride(2) + ( kj - 1 ) * dilation(2) + 1
+             j_in = (j - 1) * stride(2) + (kj - 1) * dilation(2) + 1
              if(j_in .ge. 1 .and. j_in .le. input_w)then
                 do ki = 1, kernel_h
-                   i_in = ( i - 1 ) * stride(1) + ( ki - 1 ) * dilation(1) + 1
+                   i_in = (i - 1) * stride(1) + (ki - 1) * dilation(1) + 1
                    if(i_in .ge. 1 .and. i_in .le. input_h)then
-                      in_idx = i_in + ( j_in - 1 ) * input_h + &
-                           ( c_in - 1 ) * channel_size_in
-                      k_idx = ki + ( kj - 1 ) * kernel_h + &
-                           ( c_in - 1 ) * kernel_h * kernel_w + &
-                           ( c_out - 1 ) * kernel_h * kernel_w * num_channels
+                      in_idx = i_in + (j_in - 1) * input_h + in_base_idx
+                      k_idx = ki + (kj - 1) * kernel_h + k_base_idx
                       conv_sum = conv_sum + input%val(in_idx, s) * &
                            kernel%val(k_idx, 1)
                    end if
@@ -260,7 +259,7 @@ contains
              end if
           end do
        end do
-       out_idx = i + ( j - 1 ) * output_h + ( c_out - 1 ) * channel_size_out
+       out_idx = i + (j - 1) * output_h + (c_out - 1) * channel_size_out
        output%val(out_idx, s) = conv_sum
     end do
 
@@ -327,11 +326,12 @@ contains
     ! Local variables
     integer :: i, j, ki, kj, c_in, c_out, s
     integer :: i_in, j_in, k_idx, out_idx, in_idx
+    integer :: in_base_idx, k_base_idx, kernel_channel_size
     integer :: input_h, input_w, kernel_h, kernel_w
     integer :: output_h, output_w, num_channels, num_filters
     integer, dimension(2) :: stride, dilation
     integer :: channel_size_in, channel_size_out
-    real(real32) :: grad_val
+    real(real32) :: grad_val, kernel_val
     class(array_type), pointer :: input, kernel
 
     input => this%left_operand
@@ -351,39 +351,40 @@ contains
     output_w = this%shape(2)
     channel_size_in  = input_h * input_w
     channel_size_out = output_h * output_w
+    kernel_channel_size = kernel_h * kernel_w
 
     output = 0._real32
-    do s = 1, size(upstream_grad, dim=2)
-       do c_in = 1, num_channels
-          do j = 1, output_w
-             do i = 1, output_h
-                do c_out = 1, num_filters
-                   out_idx = i + (j-1)*output_h + (c_out-1)*channel_size_out
-                   grad_val = upstream_grad(out_idx, s)
 
-                   do kj = 1, kernel_w
-                      j_in = (j - 1) * stride(2) + (kj - 1) * dilation(2) + 1
-                      if(j_in .ge. 1 .and. j_in .le. input_w)then
-                         do ki = 1, kernel_h
-                            i_in = (i - 1) * stride(1) + (ki - 1) * dilation(1) + 1
-                            if(i_in .ge. 1 .and. i_in .le. input_h)then
-                               in_idx = i_in + (j_in - 1) * input_h + &
-                                    (c_in - 1) * channel_size_in
-                               k_idx = &
-                                    (kernel_h - ki + 1) + &
-                                    (kernel_w - kj) * kernel_h + &
-                                    (c_in - 1) * kernel_h * kernel_w + &
-                                    (c_out - 1) * kernel_h * kernel_w * num_channels
-                               output(in_idx, s) = output(in_idx, s) + &
-                                    grad_val * kernel%val(k_idx, 1)
-                            end if
-                         end do
+    ! Parallelised over batch, output channels, output spatial dims
+    do concurrent(s = 1:size(upstream_grad, dim=2), c_out = 1:num_filters, &
+         j = 1:output_w, i = 1:output_h)
+       out_idx = i + (j-1)*output_h + (c_out-1)*channel_size_out
+       grad_val = upstream_grad(out_idx, s)
+
+       if(abs(grad_val) .gt. 1.e-30_real32)then
+          do c_in = 1, num_channels
+             in_base_idx = (c_in - 1) * channel_size_in
+             k_base_idx = (c_in - 1) * kernel_channel_size + &
+                  (c_out - 1) * kernel_channel_size * num_channels
+
+             do kj = 1, kernel_w
+                j_in = (j - 1) * stride(2) + (kj - 1) * dilation(2) + 1
+                if(j_in .ge. 1 .and. j_in .le. input_w)then
+                   do ki = 1, kernel_h
+                      i_in = (i - 1) * stride(1) + (ki - 1) * dilation(1) + 1
+                      if(i_in .ge. 1 .and. i_in .le. input_h)then
+                         in_idx = i_in + (j_in - 1) * input_h + in_base_idx
+                         k_idx = (kernel_h - ki + 1) + &
+                              (kernel_w - kj) * kernel_h + k_base_idx
+                         kernel_val = kernel%val(k_idx, 1)
+                         output(in_idx, s) = output(in_idx, s) + &
+                              grad_val * kernel_val
                       end if
                    end do
-                end do
+                end if
              end do
           end do
-       end do
+       end if
     end do
 
   end subroutine get_partial_conv2d_input_val
@@ -399,10 +400,12 @@ contains
     ! Local variables
     integer :: i, j, ki, kj, c_in, c_out, s
     integer :: i_in, j_in, k_idx, out_idx, in_idx
+    integer :: in_base_idx, out_base_idx, k_base_idx, kernel_channel_size
     integer :: input_h, input_w, kernel_h, kernel_w
     integer :: output_h, output_w, num_channels, num_filters
     integer, dimension(2) :: stride, dilation
     integer :: channel_size_in, channel_size_out
+    real(real32) :: grad_sum
 
     class(array_type), pointer :: input, kernel
 
@@ -423,37 +426,37 @@ contains
     output_w = this%shape(2)
     channel_size_in  = input_h * input_w
     channel_size_out = output_h * output_w
+    kernel_channel_size = kernel_h * kernel_w
 
     output = 0._real32
-    do s = 1, size(upstream_grad, dim=2)
-       do c_out = 1, num_filters
-          do c_in = 1, num_channels
-             do kj = 1, kernel_w
-                do ki = 1, kernel_h
-                   k_idx = ki + (kj-1)*kernel_h + &
-                        (c_in-1)*kernel_h*kernel_w + &
-                        (c_out-1)*kernel_h*kernel_w*num_channels
 
-                   do j = 1, output_w
-                      j_in = (j - 1) * stride(2) + (kj - 1) * dilation(2) + 1
-                      if(j_in .ge. 1 .and. j_in .le. input_w)then
-                         do i = 1, output_h
-                            i_in = (i - 1) * stride(1) + (ki - 1) * dilation(1) + 1
-                            if(i_in .ge. 1 .and. i_in .le. input_h)then
-                               in_idx  = i_in + (j_in - 1) * input_h + &
-                                    (c_in - 1) * channel_size_in
-                               out_idx = i + (j - 1) * output_h + &
-                                    (c_out - 1) * channel_size_out
-                               output(k_idx, 1) = output(k_idx, 1) + &
-                                    upstream_grad(out_idx, s) * input%val(in_idx, s)
-                            end if
-                         end do
-                      end if
-                   end do
+    ! Parallelised over filters, channels, and kernel dimensions
+    do concurrent(c_out = 1:num_filters, c_in = 1:num_channels, &
+         kj = 1:kernel_w, ki = 1:kernel_h)
+       out_base_idx = (c_out - 1) * channel_size_out
+       in_base_idx = (c_in - 1) * channel_size_in
+       k_base_idx = (c_in - 1) * kernel_channel_size + &
+            (c_out - 1) * kernel_channel_size * num_channels
+       k_idx = ki + (kj - 1) * kernel_h + k_base_idx
+
+       grad_sum = 0._real32
+       do s = 1, size(upstream_grad, dim=2)
+          do j = 1, output_w
+             j_in = (j - 1) * stride(2) + (kj - 1) * dilation(2) + 1
+             if(j_in .ge. 1 .and. j_in .le. input_w)then
+                do i = 1, output_h
+                   i_in = (i - 1) * stride(1) + (ki - 1) * dilation(1) + 1
+                   if(i_in .ge. 1 .and. i_in .le. input_h)then
+                      in_idx  = i_in + (j_in - 1) * input_h + in_base_idx
+                      out_idx = i + (j - 1) * output_h + out_base_idx
+                      grad_sum = grad_sum + &
+                           upstream_grad(out_idx, s) * input%val(in_idx, s)
+                   end if
                 end do
-             end do
+             end if
           end do
        end do
+       output(k_idx, 1) = grad_sum
     end do
 
   end subroutine get_partial_conv2d_kernel_val
@@ -510,10 +513,10 @@ contains
     channel_size_in = input_h * input_w * input_d
     channel_size_out = output_h * output_w * output_d
 
-    ! Perform convolution
+    ! Perform convolution - optimised with do concurrent
     do concurrent(s = 1:output_shape(5), c_out = 1:num_filters, &
-         k = 1:output_d, j = 1:output_w, i = 1:output_h &
-    )
+         k = 1:output_d, j = 1:output_w, i = 1:output_h)
+
        conv_sum = 0._real32
        do c_in = 1, num_channels
           do kk = 1, kernel_d
@@ -523,16 +526,18 @@ contains
                    j_in = ( j - 1 ) * stride(2) + (kj - 1) * dilation(2) + 1
                    if(j_in .ge. 1 .and. j_in .le. input_w)then
                       do ki = 1, kernel_h
-                         i_in = ( i - 1 ) * stride(1) + ( ki - 1 ) * dilation(1) + 1
+                         i_in = ( i - 1 ) * stride(1) + &
+                              ( ki - 1 ) * dilation(1) + 1
                          if(i_in .ge. 1 .and. i_in .le. input_h)then
                             in_idx = i_in + ( j_in - 1 ) * input_h + &
                                  ( k_in - 1 ) * input_h * input_w + &
                                  ( c_in - 1 ) * channel_size_in
                             k_idx = ki + ( kj - 1 ) * kernel_h + &
                                  ( kk - 1 ) * kernel_h * kernel_w + &
-                                 ( c_in - 1 ) * kernel_h * kernel_w * kernel_d + &
-                                 ( c_out - 1 ) * kernel_h * kernel_w *  kernel_d * &
-                                 num_channels
+                                 ( c_in - 1 ) * kernel_h * kernel_w * &
+                                 kernel_d + &
+                                 ( c_out - 1 ) * kernel_h * kernel_w * &
+                                 kernel_d * num_channels
                             conv_sum = conv_sum + input%val(in_idx, s) * &
                                  kernel%val(k_idx, 1)
                          end if
@@ -542,7 +547,8 @@ contains
              end if
           end do
        end do
-       out_idx = i + ( j - 1 ) * output_h + ( k - 1 ) * output_h * output_w + &
+       out_idx = i + ( j - 1 ) * output_h + &
+            ( k - 1 ) * output_h * output_w + &
             ( c_out - 1 ) * channel_size_out
        output%val(out_idx, s) = conv_sum
     end do
