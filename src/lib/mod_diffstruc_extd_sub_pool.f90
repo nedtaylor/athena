@@ -437,8 +437,9 @@ contains
 
     ! Local variables
     integer :: i, j, m, s, i_step, j_step
-    integer :: stride_idx, idx
-    real(real32) :: pool_max, channel_size_in, channel_size_out
+    integer :: base_idx, stride_idx, idx, input_h
+    real(real32) :: pool_max, val_tmp
+    integer :: channel_size_in, channel_size_out
     integer, dimension(4) :: output_shape
 
     output_shape = [ &
@@ -447,25 +448,40 @@ contains
          input%shape(3), &
          size(input%val, dim=2)]
     output => input%create_result(array_shape = output_shape)
-    channel_size_in = real( input%shape(1) * input%shape(2), real32 )
-    channel_size_out = real( output_shape(1) * output_shape(2), real32 )
+
+    ! Pre-compute as integers to avoid type conversion in loop
+    input_h = input%shape(1)
+    channel_size_in = input_h * input%shape(2)
+    channel_size_out = output_shape(1) * output_shape(2)
+
     do concurrent(&
          s = 1:output_shape(4), &
          m = 1:output_shape(3), &
          j = 1:output_shape(2), &
          i = 1:output_shape(1))
-       pool_max = -huge(1.0_real32)
+
+       ! Compute indices once per output position
+       base_idx = (i-1)*stride(1) + ((j-1)*stride(2)) * input_h + &
+            (m-1) * channel_size_in
+       idx = i + (j - 1) * output_shape(1) + (m - 1) * channel_size_out
+
+       ! Find max value - initialize with first element for better performance
+       stride_idx = base_idx + 1
+       pool_max = input%val(stride_idx, s)
+
+       ! Continue with remaining elements
        do j_step = 0, pool_size(2)-1
           do i_step = 0, pool_size(1)-1
-             stride_idx = (i-1)*stride(1) + i_step + &
-                  ((j-1)*stride(2) + j_step) * input%shape(1) + &
-                  (m-1) * channel_size_in
-             pool_max = max(pool_max, input%val(stride_idx + 1, s))
+             if(i_step .eq. 0 .and. j_step .eq. 0) cycle  ! Already processed
+             stride_idx = base_idx + i_step + j_step * input_h + 1
+             if(input%val(stride_idx, s) > pool_max) &
+                  pool_max = input%val(stride_idx, s)
           end do
        end do
-       idx = i + (j - 1) * output_shape(1) + (m - 1) * channel_size_out
+
        output%val(idx, s) = pool_max
     end do
+
     allocate(output%adj_ja(2,2))
     output%adj_ja(:,1) = pool_size
     output%adj_ja(:,2) = stride
@@ -508,8 +524,9 @@ contains
     ! Local variables
     integer :: i, j, m, s
     integer :: i_step, j_step
-    integer :: in_idx, out_idx, max_i, max_j
-    real(real32) :: pool_max, channel_size_in, channel_size_out
+    integer :: base_idx, in_idx, out_idx, max_idx, input_h
+    real(real32) :: pool_max, val_tmp, grad_val
+    integer :: channel_size_in, channel_size_out
     integer, dimension(4) :: input_shape
     integer, dimension(2) :: pool_size, stride
 
@@ -517,47 +534,42 @@ contains
     input_shape = [ this%left_operand%shape, size(this%val, dim=2) ]
     pool_size = this%adj_ja(:,1)
     stride    = this%adj_ja(:,2)
-    channel_size_in = real( input_shape(1) * input_shape(2), real32 )
-    channel_size_out = real( this%shape(1) * this%shape(2), real32 )
+    input_h = input_shape(1)
+    channel_size_in = input_h * input_shape(2)
+    channel_size_out = this%shape(1) * this%shape(2)
 
     output = 0._real32
 
-    do s = 1, input_shape(4)
-       do m = 1, this%shape(3)
-          do j = 1, this%shape(2)
-             do i = 1, this%shape(1)
-                ! Find max value location in pooling window
-                pool_max = -huge(1.0_real32)
-                max_i = 0
-                max_j = 0
+    ! Parallelized over batch and spatial/channel dimensions
+    do concurrent(s = 1:input_shape(4), m = 1:this%shape(3), &
+         j = 1:this%shape(2), i = 1:this%shape(1))
 
-                do j_step = 0, pool_size(2) - 1
-                   do i_step = 0, pool_size(1) - 1
-                      in_idx = ( (i-1) * stride(1) + i_step ) + &
-                           ( (j-1) * stride(2) + j_step ) * input_shape(1) + &
-                           (m-1) * channel_size_in
+       ! Compute indices once
+       base_idx = (i-1) * stride(1) + ((j-1) * stride(2)) * input_h + &
+            (m-1) * channel_size_in
+       out_idx = i + (j-1) * this%shape(1) + (m-1) * channel_size_out
+       grad_val = upstream_grad(out_idx, s)
 
-                      if (this%left_operand%val(in_idx + 1, s) > pool_max) then
-                         pool_max = this%left_operand%val(in_idx + 1, s)
-                         max_i = i_step
-                         max_j = j_step
-                      end if
-                   end do
-                end do
+       ! Find max value location - initialize with first element
+       max_idx = base_idx + 1
+       pool_max = this%left_operand%val(max_idx, s)
 
-                ! Assign gradient to max location
-                in_idx = ( (i-1) * stride(1) + max_i ) + &
-                     ( (j-1) * stride(2) + max_j ) * input_shape(1) + &
-                     (m-1) * channel_size_in
+       ! Search remaining elements for max
+       do j_step = 0, pool_size(2) - 1
+          do i_step = 0, pool_size(1) - 1
+             if(i_step == 0 .and. j_step == 0) cycle  ! Already processed
+             in_idx = base_idx + i_step + j_step * input_h + 1
+             val_tmp = this%left_operand%val(in_idx, s)
 
-                out_idx = i + (j-1) * this%shape(1) + &
-                     (m-1) * channel_size_out
-
-                output(in_idx + 1, s) = output(in_idx + 1, s) + &
-                     upstream_grad(out_idx, s)
-             end do
+             if (val_tmp .gt. pool_max) then
+                pool_max = val_tmp
+                max_idx = in_idx
+             end if
           end do
        end do
+
+       ! Assign gradient to max location
+       output(max_idx, s) = output(max_idx, s) + grad_val
     end do
 
   end subroutine get_partial_maxpool2d_val
