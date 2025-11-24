@@ -41,8 +41,10 @@ contains
     c%get_partial_left_val => get_partial_kipf_propagate_left_val
     if(vertex_features%requires_grad)then
        c%requires_grad = .true.
+       c%is_forward = vertex_features%is_forward
        c%operation = 'kipf_propagate'
        c%left_operand => vertex_features
+       c%owns_left_operand = vertex_features%is_temporary
     end if
   end function kipf_propagate
 !-------------------------------------------------------------------------------
@@ -165,15 +167,17 @@ contains
        end do
     end do
 
-    ! if(a%requires_grad) then
-    !    c%requires_grad = .true.
-    !    c%operation = 'reverse_duvenaud_propagate'
-    !    if(left) then
-    !       c%left_operand => a
-    !    else
-    !       c%right_operand => a
-    !    end if
-    ! end if
+    c%indices = adj_ia
+    c%adj_ja = adj_ja
+    ! c%get_partial_left => get_partial_reverse_kipf_propagate_left
+    ! c%get_partial_left_val => get_partial_reverse_kipf_propagate_left_val
+    if(a%requires_grad)then
+       c%requires_grad = .true.
+       c%is_forward = a%is_forward
+       c%operation = 'reverse_kipf_propagate'
+       c%left_operand => a
+       c%owns_left_operand = a%is_temporary
+    end if
   end function reverse_kipf_propagate
 !###############################################################################
 

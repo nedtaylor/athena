@@ -2437,110 +2437,55 @@ contains
 
 
 !###############################################################################
-  module function loss_backward(this, output, start_index, end_index) result(loss)
+  module function loss_backward(this, start_index, end_index) result(loss)
     !! Get the loss for the output
     implicit none
 
     ! Arguments
     class(network_type), intent(inout), target :: this
     !! Instance of network
-    class(*), dimension(:,:), intent(inout), target :: output
-    !! Output
     integer, intent(in) :: start_index, end_index
     !! Start and end batch indices
 
-    type(array_type), pointer :: loss(:,:)
+    type(array_type), pointer :: loss
     !! Loss value
 
     ! Local variables
-    integer :: s, s_idx
+    integer :: i, s
     !! Loop index
-    type(array_type), pointer :: tmp_output(:,:), tmp_input(:), predicted(:,:), &
-         graph_loss(:,:), ptr1, ptr2
+    type(array_type), pointer :: tmp_output(:,:), tmp_input(:), predicted(:,:)
 
 
-    select type(output)
-    class is(graph_type)
-       allocate(tmp_output(2,end_index - start_index + 1))
-       do s = start_index, end_index, 1
-          s_idx = s - start_index + 1
-          call tmp_output(1,s_idx)%allocate(array_shape = [ &
-               output(1,s)%num_vertex_features, output(1,s)%num_vertices &
-          ])
-          tmp_output(1,s_idx)%val = output(1,s)%vertex_features
-          if( &
-               this%model(this%leaf_vertices(1))%layer%output_shape(2).gt.0 &
-          )then
-             call tmp_output(2,s_idx)%allocate(array_shape = [ &
-                  output(1,s)%num_edge_features, output(1,s)%num_edges &
-             ])
-             tmp_output(2,s_idx)%val = output(1,s)%edge_features
-          end if
-       end do
-       predicted => this%model(this%leaf_vertices(1))%layer%output
-       allocate(tmp_input(1))
-       call tmp_input(1)%allocate(array_shape = [ &
-            this%model(this%root_vertices(1))%layer%output_shape(1), 1 &
-       ])
-       tmp_input(1)%val = this%model( this%root_vertices(1) )%layer%output(1,1)%val
-       graph_loss => this%loss%compute_pinn_generic( &
-            predicted, &
-            tmp_output, &
-            tmp_input &
-       )
-       ptr1 => graph_loss(1,1)
-       do s = 2, end_index - start_index + 1, 1
-          ptr1 => ptr1 + graph_loss(1,s)
-       end do
-       if( this%model(this%leaf_vertices(1))%layer%output_shape(2).gt.0 )then
-          ptr2 => graph_loss(2,1)
-          do s = 2, end_index - start_index + 1, 1
-             ptr2 => ptr2 + graph_loss(2,s)
+    if(this%use_graph_output)then
+       tmp_output(1:2, 1: end_index - start_index + 1) => &
+            this%expected_array( :, start_index:end_index )
+    else
+       allocate(tmp_output(size(this%expected_array,1), size(this%expected_array,2)))
+       do s = 1, size(this%expected_array,2)
+          do i = 1, size(this%expected_array,1)
+             call tmp_output(i,s)%allocate( &
+                  array_shape = [ &
+                       this%expected_array(i,s)%shape, &
+                       size(this%expected_array(i,s)%val,2) &
+                  ] &
+             )
+             tmp_output(i,s)%val = this%expected_array(i,s)%val(:, &
+                  start_index:end_index:1)
           end do
-          allocate(loss(1,1))
-          loss(1,1) = ptr1 + ptr2
-       else
-          allocate(loss(1,1))
-          call loss(1,1)%assign_and_deallocate_source(ptr1)
-       end if
-    class is(array_type)
-       allocate(tmp_output(1,1))
-       call tmp_output(1,1)%allocate(array_shape = [ &
-            output(1,1)%shape, end_index - start_index + 1 &
-       ])
-       tmp_output(1,1)%val = output(1,1)%val(:,start_index:end_index:1)
-       predicted => this%model(this%leaf_vertices(1))%layer%output
-       allocate(tmp_input(1))
-       call tmp_input(1)%allocate(array_shape = [ &
-            this%model(this%root_vertices(1))%layer%output_shape(1), 1 &
-       ])
-       tmp_input(1)%val = this%model( this%root_vertices(1) )%layer%output(1,1)%val
-       loss => this%loss%compute_pinn_generic( &
-            predicted, &
-            tmp_output, &
-            tmp_input &
-       )
-    type is(real)
-       allocate(tmp_output(1,1))
-       call tmp_output(1,1)%allocate(array_shape = [ &
-            size(output,1), end_index - start_index + 1 &
-       ])
-       call tmp_output(1,1)%set(output(:,start_index:end_index:1))
-       predicted => this%model(this%leaf_vertices(1))%layer%output
-       allocate(tmp_input(1))
-       call tmp_input(1)%allocate(array_shape = [ &
-            this%model(this%root_vertices(1))%layer%output_shape(1), 1 &
-       ])
-       tmp_input(1)%val = this%model( this%root_vertices(1) )%layer%output(1,1)%val
-       loss => this%loss%compute_pinn_generic( &
-            predicted, &
-            tmp_output, &
-            tmp_input &
-       )
-    class default
-       call stop_program("loss_backward: output type not supported")
-       return
-    end select
+       end do
+    end if
+
+    predicted => this%model(this%leaf_vertices(1))%layer%output
+    allocate(tmp_input(1))
+    call tmp_input(1)%allocate(array_shape = [ &
+         this%model(this%root_vertices(1))%layer%output_shape(1), 1 &
+    ])
+    tmp_input(1)%val = this%model( this%root_vertices(1) )%layer%output(1,1)%val
+    loss => this%loss%compute_pinn_generic( &
+         predicted, &
+         tmp_output, &
+         tmp_input &
+    )
 
   end function loss_backward
 !###############################################################################
@@ -2670,65 +2615,65 @@ contains
     integer :: i, s
 
 
-    associate( layer => this%model(this%leaf_vertices(1))%layer )
-       select type(output)
-       type is(graph_type)
-          allocate(gradient(2,size(output,2)))
-          do s = 1, size(output,2)
-             if(this%loss%requires_autodiff)then
-                gradient(1,s)%val = this%loss%compute_pinn_derivative( &
-                     layer%output(1,s)%val, &
-                     output(1,s)%vertex_features, &
-                     this%model(this%root_vertices(1))%layer%output(1,s:s) &
-                ) / output(1,s)%num_vertices
-                gradient(2,s)%val = this%loss%compute_pinn_derivative( &
-                     layer%output(2,s)%val, &
-                     output(1,s)%edge_features, &
-                     this%model(this%root_vertices(1))%layer%output(2,s:s) &
-                ) / output(1,s)%num_edges
-             else
-                gradient(1,s)%val = this%loss%compute_derivative( &
-                     layer%output(1,s)%val, &
-                     output(1,s)%vertex_features &
-                ) / output(1,s)%num_vertices
-                gradient(2,s)%val = this%loss%compute_derivative( &
-                     layer%output(2,s)%val, &
-                     output(1,s)%edge_features &
-                ) / output(1,s)%num_edges
-             end if
-          end do
-       class is(array_type)
-          allocate(gradient(size(output,1),size(output,2)))
-          do s = 1, size(output,2)
-             do i = 1, size(output,1)
-                if(this%loss%requires_autodiff)then
-                   gradient(i,s)%val = this%loss%compute_pinn_derivative( &
-                        layer%output(i,s)%val, &
-                        output(i,s)%val, &
-                        this%model(this%root_vertices(1))%layer%output(i,:) &
-                   )
-                else
-                   gradient(i,s)%val = this%loss%compute_derivative( &
-                        layer%output(i,s)%val, &
-                        output(i,s)%val &
-                   )
-                end if
-             end do
-          end do
-       type is(real(real32))
-          allocate(gradient(1,1))
-          gradient(1,1)%val = this%loss%compute_derivative( &
-               layer%output(1,1)%val, &
-               output &
-          )
-       class default
-          call stop_program( &
-               "output type for layer "// &
-               trim(layer%name) // &
-               " is not supported" &
-          )
-       end select
-    end associate
+   !  associate( layer => this%model(this%leaf_vertices(1))%layer )
+   !     select type(output)
+   !     type is(graph_type)
+   !        allocate(gradient(2,size(output,2)))
+   !        do s = 1, size(output,2)
+   !           if(this%loss%requires_autodiff)then
+   !              gradient(1,s)%val = this%loss%compute_pinn_derivative( &
+   !                   layer%output(1,s)%val, &
+   !                   output(1,s)%vertex_features, &
+   !                   this%model(this%root_vertices(1))%layer%output(1,s:s) &
+   !              ) / output(1,s)%num_vertices
+   !              gradient(2,s)%val = this%loss%compute_pinn_derivative( &
+   !                   layer%output(2,s)%val, &
+   !                   output(1,s)%edge_features, &
+   !                   this%model(this%root_vertices(1))%layer%output(2,s:s) &
+   !              ) / output(1,s)%num_edges
+   !           else
+   !              gradient(1,s)%val = this%loss%compute_derivative( &
+   !                   layer%output(1,s)%val, &
+   !                   output(1,s)%vertex_features &
+   !              ) / output(1,s)%num_vertices
+   !              gradient(2,s)%val = this%loss%compute_derivative( &
+   !                   layer%output(2,s)%val, &
+   !                   output(1,s)%edge_features &
+   !              ) / output(1,s)%num_edges
+   !           end if
+   !        end do
+   !     class is(array_type)
+   !        allocate(gradient(size(output,1),size(output,2)))
+   !        do s = 1, size(output,2)
+   !           do i = 1, size(output,1)
+   !              if(this%loss%requires_autodiff)then
+   !                 gradient(i,s)%val = this%loss%compute_pinn_derivative( &
+   !                      layer%output(i,s)%val, &
+   !                      output(i,s)%val, &
+   !                      this%model(this%root_vertices(1))%layer%output(i,:) &
+   !                 )
+   !              else
+   !                 gradient(i,s)%val = this%loss%compute_derivative( &
+   !                      layer%output(i,s)%val, &
+   !                      output(i,s)%val &
+   !                 )
+   !              end if
+   !           end do
+   !        end do
+   !     type is(real(real32))
+   !        allocate(gradient(1,1))
+   !        gradient(1,1)%val = this%loss%compute_derivative( &
+   !             layer%output(1,1)%val, &
+   !             output &
+   !        )
+   !     class default
+   !        call stop_program( &
+   !             "output type for layer "// &
+   !             trim(layer%name) // &
+   !             " is not supported" &
+   !        )
+   !     end select
+   !  end associate
 
   end function calc_output_loss_grad
 !###############################################################################
@@ -3233,7 +3178,7 @@ contains
     !! Loop index
 
     class(*), allocatable :: data_poly(:,:)
-    type(array_type), pointer :: loss_array(:,:)
+    type(array_type), pointer :: loss => null()
 
 #ifdef _OPENMP
     type(network_type) :: this_copy
@@ -3311,7 +3256,73 @@ contains
     ! elseif(size(output,1).ne.this%num_outputs.and..not.this%use_graph_input)then
     !    call stop_program("number of outputs in output does not match network")
     !    return
-    allocate(this%expected_array, source=output)
+    if(allocated(this%expected_array)) deallocate(this%expected_array)
+    select type(output)
+    type is(graph_type)
+       allocate(this%expected_array(2,this%batch_size))
+       do s = 1, this%batch_size
+          if(this%expected_array(1,s)%allocated) &
+               call this%expected_array(1,s)%deallocate()
+          if(this%expected_array(2,s)%allocated) &
+               call this%expected_array(2,s)%deallocate()
+          call this%expected_array(1,s)%allocate( &
+               array_shape = [ &
+                    output(1,s)%num_vertex_features, output(1,s)%num_vertices &
+               ] &
+          )
+          call this%expected_array(1,s)%zero_grad()
+          call this%expected_array(1,s)%set_requires_grad(.false.)
+          call this%expected_array(1,s)%set( output(1,s)%vertex_features )
+          this%expected_array(1,s)%is_temporary = .false.
+          if(output(1,s)%num_edge_features.le.0) cycle
+          call this%expected_array(2,s)%allocate( &
+               array_shape = [ &
+                    output(1,s)%num_edge_features, output(1,s)%num_edges &
+               ] &
+          )
+          call this%expected_array(2,s)%set_requires_grad(.false.)
+          call this%expected_array(2,s)%set( output(1,s)%edge_features )
+          this%expected_array(2,s)%is_temporary = .false.
+       end do
+    class is(array_type)
+       allocate(this%expected_array(size(output,1),size(output,2)))
+       do s = 1, size(output,2)
+          do i = 1, size(output,1)
+             if(this%expected_array(i,s)%allocated) &
+                  call this%expected_array(i,s)%deallocate()
+             call this%expected_array(i,s)%allocate( &
+                  array_shape = [ &
+                       output(i,s)%shape, size(output(i,s)%val,2) &
+                  ] &
+             )
+             call this%expected_array(i,s)%set_requires_grad(.false.)
+             call this%expected_array(i,s)%set( output(i,s)%val )
+             this%expected_array(i,s)%is_temporary = .false.
+          end do
+       end do
+    type is(real)
+       allocate(this%expected_array(1,1))
+       if(this%expected_array(1,1)%allocated) &
+            call this%expected_array(1,1)%deallocate()
+       call this%expected_array(1,1)%allocate( &
+            array_shape = [ size(output,1), size(output,2) ] &
+       )
+       call this%expected_array(1,1)%set_requires_grad(.false.)
+       call this%expected_array(1,1)%set( output )
+       this%expected_array(1,1)%is_temporary = .false.
+    type is(integer)
+       allocate(this%expected_array(1,1))
+       if(this%expected_array(1,1)%allocated) &
+            call this%expected_array(1,1)%deallocate()
+       call this%expected_array(1,1)%allocate( &
+            array_shape = [ size(output,1), size(output,2) ] &
+       )
+       call this%expected_array(1,1)%set_requires_grad(.false.)
+       this%expected_array(1,1)%val = real(output, real32)
+       this%expected_array(1,1)%is_temporary = .false.
+    class default
+       call stop_program("output type not supported in training")
+    end select
 
 
     !---------------------------------------------------------------------------
@@ -3382,21 +3393,16 @@ contains
           ! Backward pass
           !---------------------------------------------------------------------
           !  call system_clock(timer_start)
-          loss_array => this%loss_backward(this%expected_array, start_index, end_index)
-          loss_array(1,1)%is_temporary = .false.
-          call loss_array(1,1)%grad_reverse(reset_graph=.true.)
+          loss => this%loss_backward(start_index, end_index)
+          loss%is_temporary = .false.
+          call loss%grad_reverse(reset_graph=.true.)
           !  call system_clock(timer_stop)
           !  backward_timer = backward_timer + timer_stop - timer_start
 
 
           ! Compute loss and accuracy (for monitoring)
           !---------------------------------------------------------------------
-          batch_loss = 0._real32
-          do i = 1, size(loss_array,1)
-             do j = 1, size(loss_array,2)
-                batch_loss = batch_loss + sum(loss_array(i,j)%val)
-             end do
-          end do
+          batch_loss = sum(loss%val)
           batch_accuracy = this%calc_output_accuracy(output, start_index, end_index)
 
 
@@ -3421,13 +3427,9 @@ contains
           call this%update()
           ! call system_clock(timer_stop)
           ! update_timer = update_timer + timer_stop - timer_start
-          do i = 1, size(loss_array,1)
-             do j = 1, size(loss_array,2)
-                call loss_array(i,j)%nullify_graph()
-             end do
-          end do
-          deallocate(loss_array)
-          nullify(loss_array)
+          call loss%nullify_graph()
+          deallocate(loss)
+          nullify(loss)
 
 
           ! Print batch results

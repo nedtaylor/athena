@@ -304,9 +304,9 @@ contains
     if(input%requires_grad)then
        output%requires_grad = .true.
        output%is_forward = input%is_forward
-       output%owns_left_operand = input%is_temporary
        output%operation = 'softmax'
        output%left_operand => input
+       output%owns_left_operand = input%is_temporary
     end if
 
   end function softmax_array
@@ -380,9 +380,9 @@ contains
     if(input%requires_grad)then
        output%requires_grad = .true.
        output%is_forward = input%is_forward
-       output%owns_left_operand = input%is_temporary
        output%operation = 'swish'
        output%left_operand => input
+       output%owns_left_operand = input%is_temporary
     end if
     allocate(b_array)
     b_array%is_sample_dependent = .false.
@@ -471,6 +471,8 @@ contains
        output%operation = 'softmax_reverse'
        output%left_operand => softmax
        output%right_operand => gradient
+       output%owns_left_operand = softmax%is_temporary
+       output%owns_right_operand = gradient%is_temporary
     end if
 
   end function softmax_reverse_array

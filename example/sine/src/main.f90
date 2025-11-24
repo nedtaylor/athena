@@ -13,7 +13,7 @@ program sine
   type(network_type) :: network
   real(real32), dimension(1,1) :: x, y
   type(array_type) :: x_array(1), y_array(1,1)
-  type(array_type), pointer :: loss(:,:)
+  type(array_type), pointer :: loss
 
   integer, parameter :: num_iterations = 10000
   integer, parameter :: test_size = 30
@@ -80,7 +80,7 @@ program sine
      call network%set_batch_size(1)
      call network%forward(x)
      loss => network%loss_backward(y, 1, 1)
-     call loss(1,1)%grad_reverse()
+     call loss%grad_reverse()
      call network%update()
 
      if (mod(n, 1000) == 0) then

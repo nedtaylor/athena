@@ -70,7 +70,7 @@ module athena__network
      !! Input array for the network
      type(graph_type), dimension(:,:), allocatable :: input_graph
      !! Input graph for the network
-     class(*), dimension(:,:), allocatable :: expected_array
+     type(array_type), dimension(:,:), allocatable :: expected_array
      !! Expected output array for the network
    contains
      procedure, pass(this) :: print
@@ -628,17 +628,15 @@ module athena__network
        !! Accuracy value
      end function calc_output_accuracy
 
-     module function loss_backward(this, output, start_index, end_index) result(loss)
+     module function loss_backward(this, start_index, end_index) result(loss)
        !! Get the loss for the output
        ! Arguments
        class(network_type), intent(inout), target :: this
        !! Instance of network
-       class(*), dimension(:,:), intent(inout), target :: output
-       !! Output
        integer, intent(in) :: start_index, end_index
        !! Start and end batch indices
 
-       type(array_type), pointer :: loss(:,:)
+       type(array_type), pointer :: loss
      end function loss_backward
 
      module function calc_output_loss(this, output, start_index, end_index) result(loss)
