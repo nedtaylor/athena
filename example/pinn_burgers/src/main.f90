@@ -9,7 +9,6 @@ program pinn_burgers_example
 
   implicit none
 
-  integer :: verbose = 0
   integer :: seed = 42
   type(network_type), target :: network
   class(base_layer_type), allocatable :: layer
@@ -34,10 +33,7 @@ program pinn_burgers_example
   real(real32) :: nu
   real(real32), dimension(:,:), allocatable :: u0
   real(real32), dimension(:,:), allocatable :: X_f, X_0, X_b_left, X_b_right, XT
-  type(array_type), pointer :: u_i, u_xx, u_t, u_x
-
-  type(array_type), pointer :: input, u0_pred, f_pred, u_left_pred, u_right_pred, u
-  type(array_type), pointer :: u_pred(:,:), loss_f, loss_0, loss_b, loss
+  type(array_type), pointer :: u_pred(:,:), loss
 
 
   !-----------------------------------------------------------------------------
@@ -169,9 +165,6 @@ program pinn_burgers_example
        accuracy_method = "mse" &
   )
   params = network%get_params()
-  if(verbose.gt.2)then
-     write(*,*) "some of the parameters", params(:20)
-  end if
   open(unit=10, file="params.txt", status='replace')
   do i = 1, network%num_layers
      select type(layer => network%model(i)%layer)
@@ -195,51 +188,8 @@ program pinn_burgers_example
   !-----------------------------------------------------------------------------
   ! call network%set_batch_size(batch_size)
   do i = 1, num_epochs
-     call network%forward(X_f)
-     network%model(network%root_vertices(1))%layer%output(1,1)%id = 1
-     ! find what the new input loc is now
-     u => network%model(network%leaf_vertices(1))%layer%output(1,1)%duplicate_graph()
-     input => u%get_ptr_from_id(1)
-
-     ! set direction (t,x) to compute u_t, u_x, u_xx
-     call input%set_direction([0._real32, 1._real32])
-     call input%set_requires_grad(.true.)
-     u_t => u%grad_forward(input)
-     call input%set_direction([1._real32, 0._real32])
-     u_x => u%grad_forward(input)
-     u_xx => u_x%grad_forward(input)
-     if(verbose.gt.1)then
-        write(*,*) u_t%val(1,:5)
-        write(*,*) u_x%val(1,:5)
-        write(*,*) u_xx%val(1,:5)
-     end if
-
-     f_pred => u_t + u * u_x - nu * u_xx
-     loss_f => mean( f_pred ** 2._real32, 2 )
-
-     ! boundary conditions
-     call network%forward(X_b_left)
-     u_left_pred => &
-          network%model(network%leaf_vertices(1))%layer%output(1,1)%duplicate_graph()
-
-     call network%forward(X_b_right)
-     u_right_pred => &
-          network%model(network%leaf_vertices(1))%layer%output(1,1)%duplicate_graph()
-     loss_b => &
-          mean( u_left_pred ** 2._real32, 2 ) + &
-          mean( u_right_pred ** 2._real32, 2 )
-
-     ! zero time condition
-     call network%forward(X_0)
-     u0_pred => network%model(network%leaf_vertices(1))%layer%output(1,1)
-     loss_0 => mean( ( u0_pred - u0 ) ** 2._real32, 2)
-
-     ! loss
-     if(verbose.gt.0)then
-        write(*,*) loss_f%val(1,1), loss_0%val(1,1), loss_b%val(1,1)
-     end if
-     loss => loss_f + loss_0 + loss_b
-     loss%is_temporary = .false.
+     ! forward pass
+     loss => loss_func(network)
 
      ! backward pass
      call loss%grad_reverse(reset_graph=.false.)
@@ -248,6 +198,8 @@ program pinn_burgers_example
      call network%update()
 
      write(*,'("epoch: ",I0,"/",I0," loss: ",F0.5)') i, num_epochs, loss%val(1,1)
+
+     ! clean memory
      call loss%nullify_graph()
      deallocate(loss)
      nullify(loss)
@@ -285,14 +237,62 @@ program pinn_burgers_example
      end do
   end do
 
-
-!   write(6,'("Overall accuracy=",F0.5)') network%accuracy_val
-!   write(6,'("Overall loss=",F0.5)')     network%loss_val
-
   if(.not.restart)then
      call network%print(file="network.txt")
   else
      call network%print(file="tmp.txt")
   end if
+
+contains
+
+  function loss_func(this) result(loss)
+    class(network_type), intent(inout), target :: this
+    !! Instance of the burgers network type
+
+    type(array_type), pointer :: loss
+
+    type(array_type), pointer :: u_i, u_xx, u_t, u_x
+
+    type(array_type), pointer :: input, u0_pred, f_pred, u_left_pred, u_right_pred, u
+    type(array_type), pointer :: loss_f, loss_0, loss_b
+
+    call this%forward(X_f)
+    this%model(this%root_vertices(1))%layer%output(1,1)%id = 1
+    ! find what the new input loc is now
+    u => this%model(this%leaf_vertices(1))%layer%output(1,1)%duplicate_graph()
+    input => u%get_ptr_from_id(1)
+
+    ! set direction (t,x) to compute u_t, u_x, u_xx
+    call input%set_direction([0._real32, 1._real32])
+    call input%set_requires_grad(.true.)
+    u_t => u%grad_forward(input)
+    call input%set_direction([1._real32, 0._real32])
+    u_x => u%grad_forward(input)
+    u_xx => u_x%grad_forward(input)
+
+    f_pred => u_t + u * u_x - nu * u_xx
+    loss_f => mean( f_pred ** 2._real32, 2 )
+
+    ! boundary conditions
+    call this%forward(X_b_left)
+    u_left_pred => &
+         this%model(this%leaf_vertices(1))%layer%output(1,1)%duplicate_graph()
+
+    call this%forward(X_b_right)
+    u_right_pred => &
+         this%model(this%leaf_vertices(1))%layer%output(1,1)%duplicate_graph()
+    loss_b => &
+         mean( u_left_pred ** 2._real32, 2 ) + &
+         mean( u_right_pred ** 2._real32, 2 )
+
+    ! zero time condition
+    call this%forward(X_0)
+    u0_pred => this%model(this%leaf_vertices(1))%layer%output(1,1)
+    loss_0 => mean( ( u0_pred - u0 ) ** 2._real32, 2)
+
+    loss => loss_f + loss_0 + loss_b
+    loss%is_temporary = .false.
+
+  end function loss_func
 
 end program pinn_burgers_example
