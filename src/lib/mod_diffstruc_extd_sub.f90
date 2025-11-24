@@ -40,7 +40,6 @@ contains
     ! Local variables
     integer :: i
 
-    allocate(c)
     c => a(1)%array(idx1, idx2) .concat. a(2)%array(idx1, idx2)
     do i = 3, size(a)
        c => c .concat. a(i)%array(idx1, idx2)
@@ -305,6 +304,7 @@ contains
     if(input%requires_grad)then
        output%requires_grad = .true.
        output%is_forward = input%is_forward
+       output%owns_left_operand = input%is_temporary
        output%operation = 'softmax'
        output%left_operand => input
     end if
@@ -358,6 +358,79 @@ contains
        end do
     end if
   end subroutine get_partial_softmax_val
+!###############################################################################
+
+
+!###############################################################################
+  module function swish_array(input, beta) result(output)
+    !! Swish activation function
+    implicit none
+
+    ! Arguments
+    class(array_type), intent(in), target :: input
+    real(real32), intent(in) :: beta
+    type(array_type), pointer :: output
+    type(array_type), pointer :: b_array
+
+    output => input%create_result()
+    output%val = input%val * (1._real32 / (1._real32 + exp(-beta * input%val)))
+
+    output%get_partial_left => get_partial_swish
+    output%get_partial_left_val => get_partial_swish_val
+    if(input%requires_grad)then
+       output%requires_grad = .true.
+       output%is_forward = input%is_forward
+       output%owns_left_operand = input%is_temporary
+       output%operation = 'swish'
+       output%left_operand => input
+    end if
+    allocate(b_array)
+    b_array%is_sample_dependent = .false.
+    b_array%is_scalar = .true.
+    b_array%requires_grad = .false.
+    call b_array%allocate(array_shape=[1, 1])
+    b_array%val(1,1) = beta
+    output%right_operand => b_array
+    output%owns_right_operand = .true.
+
+  end function swish_array
+!-------------------------------------------------------------------------------
+  function get_partial_swish(this, upstream_grad) result(output)
+    !! Get partial derivative of swish activation
+    implicit none
+    class(array_type), intent(inout) :: this
+    type(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    type(array_type), pointer :: ptr
+    type(array_type), pointer :: exp_term
+
+    exp_term => exp(this%right_operand%val(1,1) * this%left_operand)
+
+    ptr => upstream_grad * exp_term * ( &
+         this%right_operand%val(1,1) * this%left_operand + &
+         exp_term + 1._real32 &
+    ) / ( ( exp_term + 1._real32 )**2._real32 )
+
+    call output%assign_and_deallocate_source(ptr)
+  end function get_partial_swish
+!-------------------------------------------------------------------------------
+  subroutine get_partial_swish_val(this, upstream_grad, output)
+    !! Get partial derivative of swish activation (in-place version)
+    implicit none
+    class(array_type), intent(inout) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    real(real32), dimension(size(this%val,1), size(this%val,2)) :: exp_term
+
+    exp_term = exp(this%right_operand%val(1,1) * this%left_operand%val)
+    output = upstream_grad * exp_term * ( &
+         this%right_operand%val(1,1) * this%left_operand%val + &
+         exp_term + 1._real32 &
+    ) / ( ( exp_term + 1._real32 )**2._real32 )
+
+  end subroutine get_partial_swish_val
 !###############################################################################
 
 

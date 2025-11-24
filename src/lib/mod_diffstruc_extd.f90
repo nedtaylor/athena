@@ -11,7 +11,7 @@ module athena__diffstruc_extd
   public :: array_container_type, array_ptr_type
   public :: add, concat
   public :: add_bias
-  public :: piecewise, softmax
+  public :: piecewise, softmax, swish
   public :: avgpool1d, avgpool2d, avgpool3d
   public :: maxpool1d, maxpool2d, maxpool3d
   public :: pad1d, pad2d, pad3d
@@ -90,6 +90,14 @@ module athena__diffstruc_extd
        integer, intent(in) :: dim
        type(array_type), pointer :: output
      end function softmax_array
+  end interface
+
+  interface swish
+     module function swish_array(input, beta) result(output)
+       class(array_type), intent(in), target :: input
+       real(real32), intent(in) :: beta
+       type(array_type), pointer :: output
+     end function swish_array
   end interface
 !-------------------------------------------------------------------------------
 

@@ -223,7 +223,7 @@ program msgpass_euler_example
        loss_method = "mse", & ! mean squared error loss
        accuracy_method = "mse", & ! use mean squared error for accuracy calculation
        metrics = metric_dict, &
-       batch_size = batch_size, &
+       batch_size = min(batch_size, size(graphs_in,2)), &
        verbose = 1 &
   )
 
@@ -240,7 +240,7 @@ program msgpass_euler_example
   !-----------------------------------------------------------------------------
   ! training loop
   !-----------------------------------------------------------------------------
-  call network%set_batch_size(batch_size)
+  call network%set_batch_size(min(batch_size, size(graphs_in,2)))
   call network%train( &
        graphs_in, &
        graphs_out, &

@@ -550,17 +550,20 @@ contains
                  input(s)%num_vertex_features, input(s)%num_vertices &
             ] &
        )
+       call this%output(1,s)%zero_grad()
+       call this%output(1,s)%set_requires_grad(.false.)
+       call this%output(1,s)%set( input(s)%vertex_features )
+       this%output(1,s)%is_temporary = .false.
+       if(input(s)%num_edge_features.le.0) cycle
        call this%output(2,s)%allocate( &
             array_shape = [ &
                  input(s)%num_edge_features, input(s)%num_edges &
             ] &
        )
-       call this%output(1,s)%zero_grad()
        call this%output(2,s)%zero_grad()
-       call this%output(1,s)%set_requires_grad(.false.)
        call this%output(2,s)%set_requires_grad(.false.)
-       call this%output(1,s)%set( input(s)%vertex_features )
        call this%output(2,s)%set( input(s)%edge_features )
+       this%output(2,s)%is_temporary = .false.
     end do
 
   end subroutine set_input_graph

@@ -282,64 +282,64 @@ contains
        this%graph(s)%num_vertices = graph(s)%num_vertices
     end do
 
-    if(this%use_graph_input)then
-       if(allocated(this%output))then
-          do s = 1, size(graph)
-             if(this%output(1,s)%allocated) &
-                  call this%output(1,s)%deallocate()
-             if(this%output(2,s)%allocated) &
-                  call this%output(2,s)%deallocate()
-             call this%output(1,s)%allocate( &
-                  [ &
-                       this%num_output_vertex_features, &
-                       this%graph(s)%num_vertices &
-                  ] &
-             )
-             call this%output(2,s)%allocate( &
-                  [ &
-                       this%num_output_edge_features, &
-                       this%graph(s)%num_vertices &
-                  ] &
-             )
-          end do
-       end if
-       call this%set_ptrs()
-    end if
+!     if(this%use_graph_input)then
+!        if(allocated(this%output))then
+!           do s = 1, size(graph)
+!              if(this%output(1,s)%allocated) &
+!                   call this%output(1,s)%deallocate()
+!              if(this%output(2,s)%allocated) &
+!                   call this%output(2,s)%deallocate()
+!              call this%output(1,s)%allocate( &
+!                   [ &
+!                        this%num_output_vertex_features, &
+!                        this%graph(s)%num_vertices &
+!                   ] &
+!              )
+!              call this%output(2,s)%allocate( &
+!                   [ &
+!                        this%num_output_edge_features, &
+!                        this%graph(s)%num_vertices &
+!                   ] &
+!              )
+!           end do
+!        end if
+!        call this%set_ptrs()
+!     end if
 
-    do s = 1, size(graph)
-       if(this%vertex_features(0,s)%allocated) &
-            call this%vertex_features(0,s)%deallocate()
-       if(this%edge_features(0,s)%allocated) &
-            call this%edge_features(0,s)%deallocate()
-       call this%vertex_features(0,s)%allocate( &
-            [ this%num_vertex_features(0), this%graph(s)%num_vertices ] &
-       )
-       call this%edge_features(0,s)%allocate( &
-            [ this%num_edge_features(0), this%graph(s)%num_edges ] &
-       )
-       do t = 1, this%num_time_steps
-          if(this%vertex_features(t,s)%allocated) &
-               call this%vertex_features(t,s)%deallocate()
-          if(this%edge_features(t,s)%allocated) &
-               call this%edge_features(t,s)%deallocate()
-          if(this%message(t,s)%allocated) &
-               call this%message(t,s)%deallocate()
-          if(this%z(t,s)%allocated) &
-               call this%z(t,s)%deallocate()
-          call this%vertex_features(t,s)%allocate( &
-               [ this%num_vertex_features(t), this%graph(s)%num_vertices ] &
-          )
-          call this%edge_features(t,s)%allocate( &
-               [ this%num_edge_features(t), this%graph(s)%num_edges ] &
-          )
-          call this%message(t,s)%allocate( &
-               [ this%num_vertex_features(t-1), this%graph(s)%num_vertices ] &
-          )
-          call this%z(t,s)%allocate( &
-               [ this%num_vertex_features(t), this%graph(s)%num_vertices ] &
-          )
-       end do
-    end do
+!     do s = 1, size(graph)
+!        if(this%vertex_features(0,s)%allocated) &
+!             call this%vertex_features(0,s)%deallocate()
+!        if(this%edge_features(0,s)%allocated) &
+!             call this%edge_features(0,s)%deallocate()
+!        call this%vertex_features(0,s)%allocate( &
+!             [ this%num_vertex_features(0), this%graph(s)%num_vertices ] &
+!        )
+!        call this%edge_features(0,s)%allocate( &
+!             [ this%num_edge_features(0), this%graph(s)%num_edges ] &
+!        )
+!        do t = 1, this%num_time_steps
+!           if(this%vertex_features(t,s)%allocated) &
+!                call this%vertex_features(t,s)%deallocate()
+!           if(this%edge_features(t,s)%allocated) &
+!                call this%edge_features(t,s)%deallocate()
+!           if(this%message(t,s)%allocated) &
+!                call this%message(t,s)%deallocate()
+!           if(this%z(t,s)%allocated) &
+!                call this%z(t,s)%deallocate()
+!           call this%vertex_features(t,s)%allocate( &
+!                [ this%num_vertex_features(t), this%graph(s)%num_vertices ] &
+!           )
+!           call this%edge_features(t,s)%allocate( &
+!                [ this%num_edge_features(t), this%graph(s)%num_edges ] &
+!           )
+!           call this%message(t,s)%allocate( &
+!                [ this%num_vertex_features(t-1), this%graph(s)%num_vertices ] &
+!           )
+!           call this%z(t,s)%allocate( &
+!                [ this%num_vertex_features(t), this%graph(s)%num_vertices ] &
+!           )
+!        end do
+!     end do
 
 
   end subroutine set_graph_msgpass
@@ -371,39 +371,6 @@ contains
 
 
   end subroutine forward_derived_msgpass
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine backward_derived_msgpass(this, input, gradient)
-    !! Backward propagation for the layer
-    implicit none
-
-    ! Arguments
-    class(msgpass_layer_type), intent(inout) :: this
-    !! Instance of the layer type
-    class(array_type), dimension(:,:), intent(in) :: input
-    !! Input data (i.e. vertex and edge features)
-    class(array_type), dimension(:,:), intent(in) :: gradient
-    !! Gradient data
-
-    ! Local variables
-    integer :: s, t
-    !! Batch index, time step
-
-
-    ! df/dv_c = h(M_c) * df/dM_y
-
-    ! M_y = sum_c v_c * h(M_c)     message for output y
-    ! h()                          hidden function
-
-
-    this%dp = 0._real32
-    if(allocated(this%db)) this%db = 0._real32
-    call this%backward_readout(gradient)
-    call this%backward_message(input, gradient)
-
-  end subroutine backward_derived_msgpass
 !###############################################################################
 
 end submodule athena__msgpass_layer_submodule

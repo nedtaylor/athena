@@ -46,14 +46,6 @@ module athena__msgpass_layer
      integer :: num_params_readout
      !! Number of learnable parameters for the readout
 
-     type(array_type), dimension(:,:), allocatable :: vertex_features
-     !! Vertex features for each time step
-     type(array_type), dimension(:,:), allocatable :: edge_features
-     !! Edge features for each time step
-     type(array_type), dimension(:,:), allocatable :: message
-     !! Message for each time step
-     type(array_type), dimension(:,:), allocatable :: z
-     !! Non-transformed message for each time step
    contains
      !  procedure, pass(this) :: set_hyperparams => set_hyperparams_msgpass
      !  !! Set the hyperparameters for message passing layer
@@ -86,28 +78,13 @@ module athena__msgpass_layer
      ! procedure, pass(this) :: set_gradients => set_gradients_msgpass
      ! !! Set the gradients for message passing layer
 
-     ! procedure, pass(this) :: forward => forward_rank
-     ! !! Forward pass for message passing layer
-     ! procedure, pass(this) :: backward => backward_rank
-     ! !! Backward pass for message passing layer
-
      procedure, pass(this) :: forward_derived => forward_derived_msgpass
      !! Forward pass for message passing layer
-     procedure, pass(this) :: backward_derived => backward_derived_msgpass
-     !! Backward pass for message passing layer
-
 
      procedure(update_message_msgpass), deferred, pass(this) :: update_message
      !! Update the message
      procedure(update_readout_msgpass), deferred, pass(this) :: update_readout
      !! Update the readout
-
-     procedure(backward_message_msgpass), deferred, pass(this) :: &
-          backward_message
-     !! Calculate the partials of the message
-     procedure(backward_readout_msgpass), deferred, pass(this) :: &
-          backward_readout
-     !! Calculate the partials of the readout
   end type msgpass_layer_type
 
   ! Interface for setting up the MPNN layer
@@ -222,25 +199,6 @@ module athena__msgpass_layer
   ! Interface for handling forward and backward passes
   !-----------------------------------------------------------------------------
   interface
-     ! !! Interfaces for handling forward and backward passes of the MPNN
-     ! module subroutine forward_rank(this, input)
-     !   !! Forward pass for the message passing layer
-     !   class(msgpass_layer_type), intent(inout) :: this
-     !   !! Instance of the message passing layer
-     !   real(real32), dimension(..), intent(in) :: input
-     !   !! Input
-     ! end subroutine forward_rank
-
-     ! module subroutine backward_rank(this, input, gradient)
-     !   !! Backward pass for the message passing layer
-     !   class(msgpass_layer_type), intent(inout) :: this
-     !   !! Instance of the message passing layer
-     !   real(real32), dimension(..), intent(in) :: input
-     !   !! Input
-     !   real(real32), dimension(..), intent(in) :: gradient
-     !   !! Gradient
-     ! end subroutine backward_rank
-
      module subroutine forward_derived_msgpass(this, input)
        !! Forward pass for the message passing layer
        class(msgpass_layer_type), intent(inout) :: this
@@ -248,16 +206,6 @@ module athena__msgpass_layer
        class(array_type), dimension(:,:), intent(in) :: input
        !! Input data (i.e. vertex and edge features)
      end subroutine forward_derived_msgpass
-
-     module subroutine backward_derived_msgpass(this, input, gradient)
-       !! Backward pass for the message passing layer
-       class(msgpass_layer_type), intent(inout) :: this
-       !! Instance of the layer type
-       class(array_type), dimension(:,:), intent(in) :: input
-       !! Input data (i.e. vertex and edge features)
-       class(array_type), dimension(:,:), intent(in) :: gradient
-       !! Gradient data
-     end subroutine backward_derived_msgpass
   end interface
 
   ! Interface for handling graphs and outputs
@@ -334,18 +282,6 @@ module athena__msgpass_layer
        class(array_type), dimension(:,:), intent(in), target :: input
        !! Input data (i.e. vertex and edge features)
      end subroutine update_message_msgpass
-
-     module subroutine backward_message_msgpass( &
-          this, input, gradient &
-     )
-       !! Calculate the partials
-       class(msgpass_layer_type), intent(inout), target :: this
-       !! Instance of the message passing layer
-       class(array_type), dimension(:,:), intent(in) :: input
-       !! Input data (i.e. vertex and edge features)
-       class(array_type), dimension(:,:), intent(in) :: gradient
-       !! Gradient data
-     end subroutine backward_message_msgpass
   end interface
 
   interface
@@ -355,14 +291,6 @@ module athena__msgpass_layer
        class(msgpass_layer_type), intent(inout), target :: this
        !! Instance of the message passing layer
      end subroutine update_readout_msgpass
-
-     module subroutine backward_readout_msgpass(this, gradient)
-       !! Calculate the partials
-       class(msgpass_layer_type), intent(inout), target :: this
-       !! Instance of the message passing layer
-       class(array_type), dimension(:,:), intent(in) :: gradient
-       !! Gradient data
-     end subroutine backward_readout_msgpass
   end interface
 
 

@@ -49,13 +49,9 @@ module athena__kipf_msgpass_layer
 
      procedure, pass(this) :: update_message => update_message_kipf
      !! Update the message
-     procedure, pass(this) :: backward_message => backward_message_kipf
-     !! Backward pass for the message phase
 
      procedure, pass(this) :: update_readout => update_readout_kipf
      !! Update the readout
-     procedure, pass(this) :: backward_readout => backward_readout_kipf
-     !! Backward pass for the readout phase
   end type kipf_msgpass_layer_type
 
   ! Interface for setting up the MPNN layer
@@ -384,8 +380,18 @@ contains
     !---------------------------------------------------------------------------
     ! Allocate weight, weight steps (velocities), output, and activation
     !---------------------------------------------------------------------------
-    if(allocated(this%params)) deallocate(this%params)
-    allocate(this%params(this%num_params), source=0._real32)
+    allocate(this%params_array(this%num_time_steps))
+    do t = 1, this%num_time_steps
+       call this%params_array(t)%allocate( &
+            array_shape = [ this%weight_shape(:,t), 1 ] &
+       )
+       call this%params_array(t)%set_requires_grad(.true.)
+       this%params_array(t)%is_sample_dependent = .false.
+       this%params_array(t)%is_temporary = .false.
+       this%params_array(t)%fix_pointer = .true.
+       write(*,*) "ID FOR LAYER", this%id
+       this%params_array(t)%id = this%id * 1000 + t
+    end do
 
 
     !---------------------------------------------------------------------------
@@ -394,10 +400,7 @@ contains
     allocate(initialiser_, source=initialiser_setup(this%kernel_initialiser))
     do t = 1, this%num_time_steps
        call initialiser_%initialise( &
-            this%params( &
-                 sum(this%num_params_msg(1:t-1)) + 1: &
-                 sum(this%num_params_msg(1:t)) &
-            ), &
+            this%params_array(t)%val(:,1), &
             fan_in = this%num_vertex_features(t-1), &
             fan_out = this%num_vertex_features(t), &
             spacing = [ this%num_vertex_features(t) ] &
@@ -441,34 +444,7 @@ contains
     if(allocated(this%input_shape))then
        if(allocated(this%output)) deallocate(this%output)
        allocate(this%output(2,this%batch_size))
-       !! output val arrays are allocated in set_graph
-       ! call this%output(1,1)%allocate( &
-       !      [this%num_outputs, this%batch_size], &
-       !      source=0._real32 &
-       ! )
-       if(allocated(this%z)) deallocate(this%z)
-       allocate(this%z(this%num_time_steps, this%batch_size))
-       ! select type(output => this%output(1,1))
-       ! type is (array2d_type)
-       !    allocate( this%z, source = output%val )
-       ! end select
-       if(allocated(this%dp)) deallocate(this%dp)
-       allocate( &
-            this%dp( &
-                 this%num_params, &
-                 this%batch_size &
-            ), source=0._real32 &
-       )
-       !! input val arrays are allocated in set_graph
     end if
-
-
-    if(allocated(this%vertex_features)) deallocate(this%vertex_features)
-    allocate(this%vertex_features(0:this%num_time_steps, 1:this%batch_size))
-    if(allocated(this%edge_features)) deallocate(this%edge_features)
-    allocate(this%edge_features(0:this%num_time_steps, 1:this%batch_size))
-    if(allocated(this%message)) deallocate(this%message)
-    allocate(this%message(1:this%num_time_steps, 1:this%batch_size))
 
   end subroutine set_batch_size_kipf
 !###############################################################################
@@ -755,14 +731,10 @@ contains
     do s = 1, this%batch_size
        ptr1 => input(1,s)
        do t = 1, this%num_time_steps
-          call this%z(t,s)%zero_grad()
-          call this%vertex_features(t,s)%zero_grad()
-          call this%message(t,s)%zero_grad()
           ptr2 => kipf_propagate( &
                ptr1, &
                this%graph(s)%adj_ia, this%graph(s)%adj_ja &
           )
-
 
           ! this%z(t,s) = kipf_update( &
           !      this%message(t,s), this%params_array(t), this%graph(s)%adj_ia &
@@ -770,6 +742,8 @@ contains
           ptr3 =>  matmul( this%params_array(t), ptr2 )
           ptr1 => this%transfer%activate( ptr3 )
        end do
+       call this%output(1,s)%assign_and_deallocate_source(ptr1)
+       this%output(1,s)%is_temporary = .false.
     end do
 
   end subroutine update_message_kipf
@@ -878,141 +852,12 @@ contains
     !! Loop indices
 
 
-    do s = 1, this%batch_size
-       this%output(1,s)%val = this%vertex_features(this%num_time_steps,s)%val
-       this%output(2,s)%val = this%edge_features(this%num_time_steps,s)%val
-    end do
+   !  do s = 1, this%batch_size
+   !     this%output(1,s)%val = this%vertex_features(this%num_time_steps,s)%val
+   !     this%output(2,s)%val = this%edge_features(this%num_time_steps,s)%val
+   !  end do
 
   end subroutine update_readout_kipf
-!###############################################################################
-
-
-!###############################################################################
-  subroutine backward_message_kipf(this, input, gradient)
-    !! Backward pass for the message phase
-    implicit none
-
-    ! Arguments
-    class(kipf_msgpass_layer_type), intent(inout), target :: this
-    !! Instance of the message passing layer
-    class(array_type), dimension(:,:), intent(in) :: input
-    !! Input data (i.e. vertex and edge features)
-    class(array_type), dimension(:,:), intent(in) :: gradient
-    !! Gradient of the loss with respect to the output of the layer
-
-    ! Local variables
-    integer :: s, v, e, t, u
-    !! Batch index, vertex index, edge index, time step, neighbor index
-    integer :: from, to
-    !! Indices for the weight parameters
-    real(real32) :: c
-    !! Normalisation constant for the message passing
-    real(real32), dimension(:,:), allocatable :: dz
-    !! Gradient of the loss with respect to z
-    real(real32), dimension(:,:), allocatable :: dv_features
-    !! Gradient of the loss with respect to vertex features
-    real(real32), pointer :: weight(:,:), dw(:,:)
-    !! Pointer to the weight matrix and its gradient
-
-
-!     ! Initialise vertex features gradients at time T
-!     do s = 1, this%batch_size
-!        this%di(1,s)%val = gradient(1,s)%val
-!        this%di(2,s)%val = gradient(2,s)%val
-!     end do
-
-    ! Backpropagate through time steps
-    do t = this%num_time_steps, 1, -1
-       from = sum(this%num_params_msg(1:t-1:1)) + 1
-       to = sum(this%num_params_msg(1:t:1))
-       weight( &
-            1:this%num_vertex_features(t), &
-            1:this%num_vertex_features(t-1) &
-       ) => this%params(from:to:1)
-       do s = 1, this%batch_size
-          ! Calculate gradient with respect to z at time t
-          allocate(dz, mold=this%z(t,s)%val)
-          ! dz = this%transfer%differentiate(this%z(t,s)%val) * this%di(1,s)%val
-
-          ! Calculate gradient with respect to weights
-          dw( &
-               1:this%num_vertex_features(t), &
-               1:this%num_vertex_features(t-1) &
-          ) => this%dp( from:to:1, s)
-          do v = 1, this%graph(s)%num_vertices
-             dw(:,:) = dw(:,:) + &
-                  matmul( &
-                       reshape(dz(:,v), [size(dz, 1), 1]), &
-                       reshape( &
-                            this%message(t,s)%val(:,v), &
-                            [1, size(this%message(t,s)%val, 1)] &
-                       ) &
-                  )
-          end do
-
-          ! Allocate space for vertex feature gradients
-          allocate(dv_features, mold=this%vertex_features(t-1,s)%val)
-          dv_features = 0._real32
-
-          ! Backpropagate through message passing
-          do v = 1, this%graph(s)%num_vertices
-             ! Compute gradients for each vertex
-             do e = this%graph(s)%adj_ia(v), this%graph(s)%adj_ia(v+1) - 1
-                u = this%graph(s)%adj_ja(1,e)  ! Neighbour vertex index
-
-                ! Compute normalisation constant
-                if(this%graph(s)%adj_ja(2,e) .eq. 0) then
-                   c = 1._real32
-                else
-                   c = this%graph(s)%edge_weights(this%graph(s)%adj_ja(2,e))
-                end if
-                c = c * ( &
-                     (this%graph(s)%adj_ia(v+1) - this%graph(s)%adj_ia(v)) * &
-                     (this%graph(s)%adj_ia(u+1) - this%graph(s)%adj_ia(u)) &
-                ) ** (-0.5_real32)
-
-                ! Add gradient contribution to neighbour
-                dv_features(:,u) = dv_features(:,u) + &
-                     c * matmul( &
-                          dz(:,v), &
-                          weight(:,:) &
-                     )
-             end do
-          end do
-
-          ! Update input gradient for prior time step
-          ! this%di(1,s)%val = dv_features
-
-          deallocate(dz, dv_features)
-       end do
-    end do
-
-  end subroutine backward_message_kipf
-!###############################################################################
-
-
-!###############################################################################
-  subroutine backward_readout_kipf(this, gradient)
-    !! Backward pass for the readout phase
-    implicit none
-
-    ! Arguments
-    class(kipf_msgpass_layer_type), intent(inout), target :: this
-    !! Instance of the message passing layer
-    class(array_type), dimension(:,:), intent(in) :: gradient
-    !! Gradient of the loss with respect to the output of the layer
-
-    ! Local variables
-    integer :: s
-    !! Batch index
-
-!     ! Pass gradients from output to final vertex/edge features
-!     do s = 1, this%batch_size
-!        this%di(1,s)%val = gradient(1,s)%val
-!        this%di(2,s)%val = gradient(2,s)%val
-!     end do
-
-  end subroutine backward_readout_kipf
 !###############################################################################
 
 end module athena__kipf_msgpass_layer

@@ -395,12 +395,22 @@ contains
     !! Input data, which contains the derivatives
     type(array_type), pointer :: output(:,:)
     !! Physics-informed neural network loss
+
+    ! Local variables
+    integer :: s, i
+    !! Loop indices
     type(array_type), pointer :: ptr
 
     allocate(output(size(predicted,1),size(predicted,2)))
-    ptr => mean( ( predicted(1,1) - expected(1,1) )  ** 2._real32, dim=2 ) / &
-         2._real32
-    call output(1,1)%assign_and_deallocate_source(ptr)
+    do s = 1, size(predicted,2)
+       do i = 1, size(predicted,1)
+          if(.not.predicted(i,s)%allocated .or. &
+               .not.expected(i,s)%allocated) cycle
+          ptr => mean( ( predicted(i,s) - expected(i,s) )  ** 2._real32, dim=2 ) / &
+               2._real32
+          call output(i,s)%assign_and_deallocate_source(ptr)
+       end do
+    end do
 
   end function compute_pinn_generic_mse
 !###############################################################################

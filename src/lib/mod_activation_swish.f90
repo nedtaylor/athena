@@ -7,6 +7,7 @@ module athena__activation_swish
   use diffstruc, only: array_type, operator(+), operator(-), &
        operator(*), operator(/), exp
   use athena__misc_types, only: activation_type
+  use athena__diffstruc_extd, only: swish
   implicit none
 
   private
@@ -102,15 +103,9 @@ contains
     type(array_type), pointer :: output
     !! Swish activation output
 
-    ! Local variables
-    type(array_type), pointer :: sigmoid_part
-    !! Sigmoid component
-
     ! Compute sigmoid(β*x)
-    sigmoid_part => 1._real32 / (1._real32 + exp(-this%beta * val))
-
     ! Compute swish: x * sigmoid(β*x)
-    output => this%scale * val * sigmoid_part
+    output => this%scale * swish(val, this%beta)
   end function swish_activate_array
   function swish_activate_1d(this, val) result(output)
     !! Apply swish activation to 1D array

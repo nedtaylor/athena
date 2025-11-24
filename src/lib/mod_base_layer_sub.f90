@@ -375,25 +375,25 @@ contains
        this%graph(s)%num_vertices = graph(s)%num_vertices
     end do
 
-    if(this%use_graph_input)then
-       if(allocated(this%output))then
-          do s = 1, size(graph)
-             call this%output(1,s)%allocate( &
-                  [ &
-                       this%graph(s)%num_vertex_features, &
-                       this%graph(s)%num_vertices &
-                  ] &
-             )
-             call this%output(2,s)%allocate( &
-                  [ &
-                       this%graph(s)%num_edge_features, &
-                       this%graph(s)%num_vertices &
-                  ] &
-             )
-          end do
-       end if
-       call this%set_ptrs()
-    end if
+    ! if(this%use_graph_input)then
+    !    if(allocated(this%output))then
+    !       do s = 1, size(graph)
+    !          call this%output(1,s)%allocate( &
+    !               [ &
+    !                    this%graph(s)%num_vertex_features, &
+    !                    this%graph(s)%num_vertices &
+    !               ] &
+    !          )
+    !          call this%output(2,s)%allocate( &
+    !               [ &
+    !                    this%graph(s)%num_edge_features, &
+    !                    this%graph(s)%num_vertices &
+    !               ] &
+    !          )
+    !       end do
+    !    end if
+    !    call this%set_ptrs()
+    ! end if
 
   end subroutine set_graph_base
 !-------------------------------------------------------------------------------

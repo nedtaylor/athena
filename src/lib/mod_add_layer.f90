@@ -41,6 +41,8 @@ module athena__add_layer
        !! Input layer IDs
        integer, optional, intent(in) :: batch_size
        !! Batch size
+       integer, optional, intent(in) :: input_rank
+       !! Input rank
        integer, optional, intent(in) :: verbose
        !! Verbosity level
        type(add_layer_type) :: layer
@@ -53,7 +55,7 @@ contains
 
 !###############################################################################
   module function layer_setup( &
-       input_layer_ids, batch_size, verbose &
+       input_layer_ids, batch_size, input_rank, verbose &
   ) result(layer)
     !! Setup a add layer
     implicit none
@@ -63,6 +65,8 @@ contains
     !! Input layer IDs
     integer, optional, intent(in) :: batch_size
     !! Batch size
+    integer, optional, intent(in) :: input_rank
+    !! Input rank
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -70,6 +74,8 @@ contains
     !! Instance of the add layer
 
     ! Local variables
+    integer :: input_rank_ = 0
+    !! Input rank
     integer :: verbose_ = 0
     !! Verbosity level
 
@@ -79,8 +85,17 @@ contains
     !---------------------------------------------------------------------------
     ! Set hyperparameters
     !---------------------------------------------------------------------------
+    if(present(input_rank))then
+       input_rank_ = input_rank
+    else
+       call stop_program( &
+            "input_rank or input_shape must be provided to concat layer" &
+       )
+       return
+    end if
     call layer%set_hyperparams( &
          input_layer_ids = input_layer_ids, &
+         input_rank = input_rank_, &
          verbose = verbose_ &
     )
 
@@ -98,6 +113,7 @@ contains
   subroutine set_hyperparams_add( &
        this, &
        input_layer_ids, &
+       input_rank, &
        verbose &
   )
     !! Set the hyperparameters for add layer
@@ -108,6 +124,8 @@ contains
     !! Instance of the add layer
     integer, dimension(:), intent(in) :: input_layer_ids
     !! Input layer IDs
+    integer, intent(in) :: input_rank
+    !! Input rank
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -115,6 +133,7 @@ contains
     this%name = "add"
     this%type = "merg"
     this%input_layer_ids = input_layer_ids
+    this%input_rank = input_rank
 
   end subroutine set_hyperparams_add
 !###############################################################################
@@ -352,7 +371,11 @@ contains
 
     ! Set hyperparameters and initialise layer
     !---------------------------------------------------------------------------
-    call this%set_hyperparams(input_layer_ids = input_layer_ids, verbose = verbose_)
+    call this%set_hyperparams( &
+         input_layer_ids = input_layer_ids, &
+         input_rank = input_rank, &
+         verbose = verbose_ &
+    )
     call this%init(input_shape = input_shape)
 
 

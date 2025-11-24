@@ -31,11 +31,6 @@ module athena__concat_layer
      procedure, pass(this) :: read => read_concat
      !! Read the layer from a file
 
-     procedure, pass(this) :: forward  => forward_rank
-     !! Forward propagation for concatenate layer
-     procedure, pass(this) :: backward => backward_rank
-     !! Backward propagation for concatenate layer
-
      procedure, pass(this) :: combine => combine_concat
      procedure, pass(this) :: split => split_concat
   end type concat_layer_type
@@ -43,13 +38,15 @@ module athena__concat_layer
   interface concat_layer_type
      !! Interface for setting up the concatenate layer
      module function layer_setup( &
-          input_layer_ids, batch_size, verbose &
+          input_layer_ids, batch_size, input_rank, verbose &
      ) result(layer)
        !! Setup a concatenate layer
        integer, dimension(:), intent(in) :: input_layer_ids
        !! Input layer IDs
        integer, optional, intent(in) :: batch_size
        !! Batch size
+       integer, optional, intent(in) :: input_rank
+       !! Input rank
        integer, optional, intent(in) :: verbose
        !! Verbosity level
        type(concat_layer_type) :: layer
@@ -61,45 +58,8 @@ module athena__concat_layer
 contains
 
 !###############################################################################
-  subroutine forward_rank(this, input)
-    !! Forward propagation handler for flattening layer
-    implicit none
-
-    ! Arguments
-    class(concat_layer_type), intent(inout) :: this
-    !! Instance of the flattening layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input values
-
-  end subroutine forward_rank
-!###############################################################################
-
-
-!###############################################################################
-  subroutine backward_rank(this, input, gradient)
-    !! Backward propagation handler for flattening layer
-    implicit none
-
-    ! Arguments
-    class(concat_layer_type), intent(inout) :: this
-    !! Instance of the flattening layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input values
-    real(real32), dimension(..), intent(in) :: gradient
-    !! Gradient values
-
-  end subroutine backward_rank
-!###############################################################################
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
-
-!###############################################################################
   module function layer_setup( &
-       input_layer_ids, batch_size, verbose &
+       input_layer_ids, batch_size, input_rank, verbose &
   ) result(layer)
     !! Setup a concatenate layer
     implicit none
@@ -109,6 +69,8 @@ contains
     !! Input layer IDs
     integer, optional, intent(in) :: batch_size
     !! Batch size
+    integer, optional, intent(in) :: input_rank
+    !! Input rank
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -116,6 +78,8 @@ contains
     !! Instance of the concatenate layer
 
     ! Local variables
+    integer :: input_rank_ = 0
+    !! Input rank
     integer :: verbose_ = 0
     !! Verbosity level
 
@@ -125,8 +89,17 @@ contains
     !---------------------------------------------------------------------------
     ! Set hyperparameters
     !---------------------------------------------------------------------------
+    if(present(input_rank))then
+       input_rank_ = input_rank
+    else
+       call stop_program( &
+            "input_rank or input_shape must be provided to concat layer" &
+       )
+       return
+    end if
     call layer%set_hyperparams( &
          input_layer_ids = input_layer_ids, &
+         input_rank = input_rank_, &
          verbose = verbose_ &
     )
 
@@ -144,6 +117,7 @@ contains
   subroutine set_hyperparams_concat( &
        this, &
        input_layer_ids, &
+       input_rank, &
        verbose &
   )
     !! Set the hyperparameters for concatenate layer
@@ -154,6 +128,8 @@ contains
     !! Instance of the concatenate layer
     integer, dimension(:), intent(in) :: input_layer_ids
     !! Input layer IDs
+    integer, intent(in) :: input_rank
+    !! Input rank
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -161,6 +137,7 @@ contains
     this%name = "concatenate"
     this%type = "merg"
     this%input_layer_ids = input_layer_ids
+    this%input_rank = input_rank
 
   end subroutine set_hyperparams_concat
 !###############################################################################
@@ -398,7 +375,11 @@ contains
 
     ! Set hyperparameters and initialise layer
     !---------------------------------------------------------------------------
-    call this%set_hyperparams(input_layer_ids = input_layer_ids, verbose = verbose_)
+    call this%set_hyperparams( &
+         input_layer_ids = input_layer_ids, &
+         input_rank = input_rank, &
+         verbose = verbose_ &
+    )
     call this%init(input_shape = input_shape)
 
 
@@ -458,14 +439,19 @@ contains
     !! Input values
 
     ! Local variables
-    integer :: i, s
+    integer :: i, j, s
     !! Loop index
-    type(array_type), pointer :: temp(:)
+    type(array_type), pointer :: ptr
 
-    do i = 1, size(input_list(1)%array, 1)
-       do s = 1, size(input_list(1)%array, 2)
-          this%output(i,s) = concat(input_list, i, s, dim = this%dim)
-       end do
+    do s = 1, size(input_list(1)%array, 2)
+       index_loop: do i = 1, size(input_list(1)%array, 1)
+          do j = 1, size(input_list,1)
+             if(.not.input_list(j)%array(i,s)%allocated) cycle index_loop
+          end do
+          ptr => concat(input_list, i, s, dim = this%dim)
+          call this%output(1,s)%assign_and_deallocate_source(ptr)
+          this%output(1,s)%is_temporary = .false.
+       end do index_loop
     end do
 
   end subroutine combine_concat

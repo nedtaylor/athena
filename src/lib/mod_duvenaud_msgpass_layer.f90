@@ -48,20 +48,11 @@ module athena__duvenaud_msgpass_layer
      procedure, pass(this) :: set_graph => set_graph_duvenaud
      !! Set the graph for the message passing layer
 
-     procedure, pass(this) :: forward => forward_rank
-     !! Forward pass for message passing layer
-     procedure, pass(this) :: backward => backward_rank
-     !! Backward pass for message passing layer
-
      procedure, pass(this) :: update_message => update_message_duvenaud
      !! Update the message
-     procedure, pass(this) :: backward_message => backward_message_duvenaud
-     !! Backward pass for the message phase
 
      procedure, pass(this) :: update_readout => update_readout_duvenaud
      !! Update the readout
-     procedure, pass(this) :: backward_readout => backward_readout_duvenaud
-     !! Backward pass for the readout phase
 
      final :: finalise_duvenaud
      !! Finalise the message passing layer
@@ -128,8 +119,6 @@ contains
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output_shape)) deallocate(this%output_shape)
     if(allocated(this%output)) deallocate(this%output)
-    if(allocated(this%z)) deallocate(this%z)
-    if(allocated(this%z_readout)) deallocate(this%z_readout)
 
   end subroutine finalise_duvenaud
 !###############################################################################
@@ -162,43 +151,6 @@ contains
          this%num_vertex_features(0) * this%num_outputs * this%num_time_steps
 
   end function get_num_params_duvenaud
-!###############################################################################
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
-
-!###############################################################################
-  subroutine forward_rank(this, input)
-    !! Forward pass for message
-    implicit none
-
-    ! Arguments
-    class(duvenaud_msgpass_layer_type), intent(inout) :: this
-    !! Instance of the message passing layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input to the message passing layer
-
-  end subroutine forward_rank
-!###############################################################################
-
-
-!###############################################################################
-  subroutine backward_rank(this, input, gradient)
-    !! Backward pass for message
-    implicit none
-
-    ! Arguments
-    class(duvenaud_msgpass_layer_type), intent(inout) :: this
-    !! Instance of the message passing layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input to the message passing layer
-    real(real32), dimension(..), intent(in) :: gradient
-    !! Gradient of the loss with respect to the output of the layer
-
-  end subroutine backward_rank
 !###############################################################################
 
 
@@ -601,38 +553,7 @@ contains
     if(allocated(this%input_shape))then
        if(allocated(this%output)) deallocate(this%output)
        allocate(this%output(1,1))
-       !! output val arrays are allocated in set_graph
-       ! call this%output(1,1)%allocate( &
-       !      [this%num_outputs, this%batch_size], &
-       !      source=0._real32 &
-       ! )
-       if(allocated(this%z)) deallocate(this%z)
-       allocate(this%z(this%num_time_steps, this%batch_size))
-       ! select type(output => this%output(1,1))
-       ! type is (array2d_type)
-       !    allocate( this%z, source = output%val )
-       ! end select
-       if(allocated(this%dp)) deallocate(this%dp)
-       allocate( &
-            this%dp( &
-                 this%num_params, &
-                 this%batch_size &
-            ), source=0._real32 &
-       )
-
-       if(allocated(this%z_readout)) deallocate(this%z_readout)
-       allocate(this%z_readout(this%num_time_steps, this%batch_size))
-
-       !! input val arrays are allocated in set_graph
     end if
-
-
-    if(allocated(this%vertex_features)) deallocate(this%vertex_features)
-    allocate(this%vertex_features(0:this%num_time_steps, 1:this%batch_size))
-    if(allocated(this%edge_features)) deallocate(this%edge_features)
-    allocate(this%edge_features(0:this%num_time_steps, 1:this%batch_size))
-    if(allocated(this%message)) deallocate(this%message)
-    allocate(this%message(1:this%num_time_steps, 1:this%batch_size))
 
   end subroutine set_batch_size_duvenaud
 !###############################################################################
@@ -679,59 +600,19 @@ contains
 !        call this%graph(s)%copy(graph(s), sparse=.true.)
 !     end do
 
-    if(this%use_graph_input)then
-       if(allocated(this%output))then
-          if(this%output(1,1)%allocated) &
-               call this%output(1,1)%deallocate()
-          call this%output(1,1)%allocate( &
-               [ &
-                    this%num_outputs, &
-                    size(graph) &
-               ] &
-          )
-       end if
-       call this%set_ptrs()
-    end if
-
-    do s = 1, size(graph)
-       if(this%vertex_features(0,s)%allocated) &
-            call this%vertex_features(0,s)%deallocate()
-       if(this%edge_features(0,s)%allocated) &
-            call this%edge_features(0,s)%deallocate()
-       call this%vertex_features(0,s)%allocate( &
-            [ this%num_vertex_features(0), this%graph(s)%num_vertices ] &
-       )
-       call this%edge_features(0,s)%allocate( &
-            [ this%num_edge_features(0), this%graph(s)%num_edges ] &
-       )
-       do t = 1, this%num_time_steps, 1
-          if(this%vertex_features(t,s)%allocated) &
-               call this%vertex_features(t,s)%deallocate()
-          if(this%message(t,s)%allocated) &
-               call this%message(t,s)%deallocate()
-          if(this%z(t,s)%allocated) &
-               call this%z(t,s)%deallocate()
-          call this%vertex_features(t,s)%allocate( &
-               [ this%num_vertex_features(t), this%graph(s)%num_vertices ] &
-          )
-          call this%message(t,s)%allocate( &
-               [ &
-                    this%num_vertex_features(t) + this%num_edge_features(0), &
-                    this%graph(s)%num_vertices &
-               ] &
-          )
-          if(this%z_readout(t,s)%allocated) &
-               call this%z_readout(t,s)%deallocate()
-          if(this%z(t,s)%allocated) &
-               call this%z(t,s)%deallocate()
-          call this%z(t,s)%allocate( &
-               [ this%num_vertex_features(t), this%graph(s)%num_vertices ] &
-          )
-          call this%z_readout(t,s)%allocate( &
-               [ this%num_outputs, this%graph(s)%num_vertices ] &
-          )
-       end do
-    end do
+!     if(this%use_graph_input)then
+!        if(allocated(this%output))then
+!           if(this%output(1,1)%allocated) &
+!                call this%output(1,1)%deallocate()
+!           call this%output(1,1)%allocate( &
+!                [ &
+!                     this%num_outputs, &
+!                     size(graph) &
+!                ] &
+!           )
+!        end if
+!        call this%set_ptrs()
+!     end if
 
   end subroutine set_graph_duvenaud
 !##############################################################################!
@@ -864,46 +745,46 @@ contains
     !! Pointer to the weight matrix
 
 
-    do s = 1, this%batch_size
-       this%vertex_features(0,s) = input(1,s) * 1._real32
-       this%edge_features(0,s) = input(2,s) * 1._real32
-       call this%vertex_features(0,s)%zero_grad()
-       call this%edge_features(0,s)%zero_grad()
-    end do
+!     do s = 1, this%batch_size
+!        this%vertex_features(0,s) = input(1,s) * 1._real32
+!        this%edge_features(0,s) = input(2,s) * 1._real32
+!        call this%vertex_features(0,s)%zero_grad()
+!        call this%edge_features(0,s)%zero_grad()
+!     end do
 
-    do t = 1, this%num_time_steps
-       weight( &
-            1:this%num_vertex_features(t), &
-            1:this%num_vertex_features(t-1) + this%num_edge_features(0), &
-            this%min_vertex_degree:this%max_vertex_degree &
-       ) => this%params( &
-            sum(this%num_params_msg(1:t-1:1)) + 1 : &
-            sum(this%num_params_msg(1:t:1)) &
-       )
-       do s = 1, this%batch_size
-          call this%z(t,s)%zero_grad()
-          call this%vertex_features(t,s)%zero_grad()
-          call this%message(t,s)%zero_grad()
-          if(t.eq.1)then
-             this%message(t,s) = duvenaud_propagate( &
-                  input(1,s), input(2,s), &
-                  this%graph(s)%adj_ia, this%graph(s)%adj_ja &
-             )
-          else
-             this%message(t,s) = duvenaud_propagate( &
-                  this%vertex_features(t-1,s), input(2,s), &
-                  this%graph(s)%adj_ia, this%graph(s)%adj_ja &
-             )
-          end if
+!     do t = 1, this%num_time_steps
+!        weight( &
+!             1:this%num_vertex_features(t), &
+!             1:this%num_vertex_features(t-1) + this%num_edge_features(0), &
+!             this%min_vertex_degree:this%max_vertex_degree &
+!        ) => this%params( &
+!             sum(this%num_params_msg(1:t-1:1)) + 1 : &
+!             sum(this%num_params_msg(1:t:1)) &
+!        )
+!        do s = 1, this%batch_size
+!           call this%z(t,s)%zero_grad()
+!           call this%vertex_features(t,s)%zero_grad()
+!           call this%message(t,s)%zero_grad()
+!           if(t.eq.1)then
+!              this%message(t,s) = duvenaud_propagate( &
+!                   input(1,s), input(2,s), &
+!                   this%graph(s)%adj_ia, this%graph(s)%adj_ja &
+!              )
+!           else
+!              this%message(t,s) = duvenaud_propagate( &
+!                   this%vertex_features(t-1,s), input(2,s), &
+!                   this%graph(s)%adj_ia, this%graph(s)%adj_ja &
+!              )
+!           end if
 
 
-          this%z(t,s) = duvenaud_update( &
-               this%message(t,s), this%params_array(t), this%graph(s)%adj_ia, &
-               this%min_vertex_degree, this%max_vertex_degree &
-          )
-          this%vertex_features(t,s) = this%transfer%activate( this%z(t,s) )
-       end do
-    end do
+!           this%z(t,s) = duvenaud_update( &
+!                this%message(t,s), this%params_array(t), this%graph(s)%adj_ia, &
+!                this%min_vertex_degree, this%max_vertex_degree &
+!           )
+!           this%vertex_features(t,s) = this%transfer%activate( this%z(t,s) )
+!        end do
+!     end do
 
   end subroutine update_message_duvenaud
 !###############################################################################
@@ -928,38 +809,38 @@ contains
     type(array_type), pointer :: temp, output_ptr
 
 
-    call this%output(1,1)%zero_grad()
-    allocate(output_ptr)
-    call output_ptr%allocate( &
-         [this%num_outputs, this%batch_size], &
-         source=0._real32 &
-    )
-    call output_ptr%zero_grad()
-    this%output(1,1)%val = 0._real32
-    num_params_old = sum(this%num_params_msg)
-    do t = 1, this%num_time_steps, 1
-       num_params_tmp = this%num_vertex_features(t) * this%num_outputs
-       weight( &
-            1:this%num_outputs, &
-            1:this%num_vertex_features(t) &
-       ) => this%params( &
-            num_params_old + 1 : num_params_old + num_params_tmp &
-       )
-       do s = 1, this%batch_size
-          call this%z_readout(t,s)%zero_grad()
-          this%z_readout(t,s) = &
-               matmul( this%params_array(t+this%num_time_steps), &
-                    this%vertex_features(t,s) )
-          temp => this%transfer_readout%activate( this%z_readout(t,s) )
-          output_ptr => output_ptr + &
-               sum( &
-                    temp, &
-                    dim = 2, new_dim_index=s, new_dim_size=this%batch_size &
-               )
-       end do
-       num_params_old = num_params_old + num_params_tmp
-    end do
-    this%output(1,1) = output_ptr
+!     call this%output(1,1)%zero_grad()
+!     allocate(output_ptr)
+!     call output_ptr%allocate( &
+!          [this%num_outputs, this%batch_size], &
+!          source=0._real32 &
+!     )
+!     call output_ptr%zero_grad()
+!     this%output(1,1)%val = 0._real32
+!     num_params_old = sum(this%num_params_msg)
+!     do t = 1, this%num_time_steps, 1
+!        num_params_tmp = this%num_vertex_features(t) * this%num_outputs
+!        weight( &
+!             1:this%num_outputs, &
+!             1:this%num_vertex_features(t) &
+!        ) => this%params( &
+!             num_params_old + 1 : num_params_old + num_params_tmp &
+!        )
+!        do s = 1, this%batch_size
+!           call this%z_readout(t,s)%zero_grad()
+!           this%z_readout(t,s) = &
+!                matmul( this%params_array(t+this%num_time_steps), &
+!                     this%vertex_features(t,s) )
+!           temp => this%transfer_readout%activate( this%z_readout(t,s) )
+!           output_ptr => output_ptr + &
+!                sum( &
+!                     temp, &
+!                     dim = 2, new_dim_index=s, new_dim_size=this%batch_size &
+!                )
+!        end do
+!        num_params_old = num_params_old + num_params_tmp
+!     end do
+!     this%output(1,1) = output_ptr
 
   end subroutine update_readout_duvenaud
 !###############################################################################
