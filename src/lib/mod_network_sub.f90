@@ -2449,7 +2449,7 @@ contains
     ! Local variables
     integer :: i, s
     !! Loop index
-    type(array_type), pointer :: tmp_output(:,:), tmp_input(:), predicted(:,:)
+    type(array_type), pointer :: tmp_output(:,:), predicted(:,:)
 
 
     if(this%use_graph_output)then
@@ -2472,15 +2472,9 @@ contains
     end if
 
     predicted => this%model(this%leaf_vertices(1))%layer%output
-    allocate(tmp_input(1))
-    call tmp_input(1)%allocate(array_shape = [ &
-         this%model(this%root_vertices(1))%layer%output_shape(1), 1 &
-    ])
-    tmp_input(1)%val = this%model( this%root_vertices(1) )%layer%output(1,1)%val
-    loss => this%loss%compute_pinn_generic( &
+    loss => this%loss%compute( &
          predicted, &
-         tmp_output, &
-         tmp_input &
+         tmp_output &
     )
 
   end function loss_backward

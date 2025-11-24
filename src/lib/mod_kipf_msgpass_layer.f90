@@ -487,10 +487,7 @@ contains
     !---------------------------------------------------------------------------
     write(unit,'("WEIGHTS")')
     do t = 1, this%num_time_steps, 1
-       write(unit,'(5(E16.8E2))') this%params( &
-            sum(this%num_params_msg(1:t-1:1)) + 1 : &
-            sum(this%num_params_msg(1:t:1)) &
-       )
+       write(unit,'(5(E16.8E2))') this%params_array(t)%val
     end do
     write(unit,'("END WEIGHTS")')
 

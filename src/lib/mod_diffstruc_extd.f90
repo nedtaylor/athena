@@ -1,7 +1,7 @@
 module athena__diffstruc_extd
   !! Module for extended differential structure types for Athena
   use coreutils, only: real32
-  use diffstruc, only: array_type, operator(+), operator(.concat.)
+  use diffstruc, only: array_type
   use athena__misc_types, only: facets_type
   implicit none
 
@@ -12,6 +12,7 @@ module athena__diffstruc_extd
   public :: add, concat
   public :: add_bias
   public :: piecewise, softmax, swish
+  public :: huber
   public :: avgpool1d, avgpool2d, avgpool3d
   public :: maxpool1d, maxpool2d, maxpool3d
   public :: pad1d, pad2d, pad3d
@@ -98,6 +99,19 @@ module athena__diffstruc_extd
        real(real32), intent(in) :: beta
        type(array_type), pointer :: output
      end function swish_array
+  end interface
+!-------------------------------------------------------------------------------
+
+
+!-------------------------------------------------------------------------------
+! Loss functions
+!-------------------------------------------------------------------------------
+  interface huber
+     module function huber_array(delta, gamma) result( output )
+       class(array_type), intent(in), target :: delta
+       real(real32), intent(in) :: gamma
+       type(array_type), pointer :: output
+     end function huber_array
   end interface
 !-------------------------------------------------------------------------------
 

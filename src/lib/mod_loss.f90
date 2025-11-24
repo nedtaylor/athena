@@ -5,7 +5,8 @@ module athena__loss
   !! The loss functions are used to determine how well a model is performing
   use coreutils, only: real32
   use diffstruc, only: array_type, operator(+), operator(-), &
-       operator(*), operator(/), operator(**), mean, sum, log
+       operator(*), operator(/), operator(**), mean, sum, log, abs, merge
+  use athena__diffstruc_extd, only: huber
   implicit none
 
 
@@ -35,20 +36,20 @@ module athena__loss
    contains
      procedure(compute_base), deferred, pass(this) :: compute
      !! Compute the loss of a model
-     procedure, pass(this) :: compute_pinn => compute_pinn_base
-     procedure, pass(this) :: compute_pinn_generic => compute_pinn_generic_base
-     generic :: compute_generic => compute, compute_pinn, compute_pinn_generic
   end type base_loss_type
 
   interface
-     pure module function compute_base(this, predicted, expected) result(output)
+     module function compute_base(this, predicted, expected) result(output)
        !! Compute the loss of a model
        class(base_loss_type), intent(in) :: this
-       !! Instance of the loss function type
-       real(real32), dimension(:,:), intent(in) :: predicted, expected
-       !! Predicted and expected values
-       real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
-       !! Loss of the model
+       !! Instance of the physics-informed neural network loss function
+       type(array_type), dimension(:,:), intent(in), target :: predicted
+       !! Predicted values
+       type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
+            expected
+       !! Expected values
+       type(array_type), pointer :: output
+       !! Physics-informed neural network loss
      end function compute_base
   end interface
 
@@ -77,8 +78,6 @@ module athena__loss
    contains
      procedure :: compute => compute_cce
      !! Compute the loss of a model
-     procedure :: compute_pinn_generic => compute_pinn_generic_cce
-     !! Compute the physics-informed neural network loss
   end type cce_loss_type
 
   interface cce_loss_type
@@ -115,7 +114,6 @@ module athena__loss
    contains
      procedure :: compute => compute_mse
      !! Compute the loss of a model
-     procedure :: compute_pinn_generic => compute_pinn_generic_mse
   end type mse_loss_type
 
   interface mse_loss_type
@@ -241,42 +239,45 @@ contains
 
 
 !###############################################################################
-  pure function compute_bce(this, predicted, expected) result(output)
+  function compute_bce(this, predicted, expected) result(output)
     !! Compute the binary cross entropy loss of a model
     implicit none
 
     ! Arguments
     class(bce_loss_type), intent(in) :: this
-    !! Instance of the binary cross entropy loss function
-    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    !! Instance of the physics-informed neural network loss function
+    type(array_type), dimension(:,:), intent(in), target :: predicted
+    type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
+         expected
     !! Predicted and expected values
-    real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
-    !! Binary cross entropy loss
+    type(array_type), pointer :: output
+    !! Physics-informed neural network loss
+    type(array_type), pointer :: ptr
+    !! Temporary pointer for calculations
 
-    output = -expected*log(predicted+this%epsilon)
+    ! Local variables
+    integer :: s, i
+    !! Loop indices
+
+    output => mean(-expected(1,1) * log(predicted(1,1) + this%epsilon), dim=2)
+    if(any(shape(predicted).gt.1))then
+       do s = 1, size(predicted,2)
+          do i = 1, size(predicted,1)
+             if(.not.predicted(i,s)%allocated .or. &
+                  .not.expected(i,s)%allocated) cycle
+             ptr => mean(-expected(i,s) * log(predicted(i,s) + this%epsilon), dim=2)
+
+             output => output + ptr
+          end do
+       end do
+    end if
 
   end function compute_bce
 !###############################################################################
 
 
 !###############################################################################
-  pure function compute_cce(this, predicted, expected) result(output)
-    !! Compute the categorical cross entropy loss of a model
-    implicit none
-
-    ! Arguments
-    class(cce_loss_type), intent(in) :: this
-    !! Instance of the categorical cross entropy loss function
-    real(real32), dimension(:,:), intent(in) :: predicted, expected
-    !! Predicted and expected values
-    real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
-    !! Categorical cross entropy loss
-
-    output = -expected * log(predicted + this%epsilon)
-
-  end function compute_cce
-  function compute_pinn_generic_cce(this, predicted, expected, input) &
-       result(output)
+  function compute_cce(this, predicted, expected) result(output)
     !! Compute the physics-informed neural network loss
     implicit none
 
@@ -287,193 +288,194 @@ contains
     type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
          expected
     !! Predicted and expected values
-    type(array_type), dimension(:), intent(in) :: input
-    !! Input data, which contains the derivatives
     type(array_type), pointer :: output
     !! Physics-informed neural network loss
-    type(array_type), pointer :: ptr1, ptr2
+    type(array_type), pointer :: ptr
+    !! Temporary pointer for calculations
 
+    ! Local variables
     integer :: s, i
+    !! Loop indices
 
-    ptr1 => mean(-expected(1,1) * log(predicted(1,1) + this%epsilon), dim=2)
+    output => mean(-expected(1,1) * log(predicted(1,1) + this%epsilon), dim=2)
     if(any(shape(predicted).gt.1))then
        do s = 1, size(predicted,2)
           do i = 1, size(predicted,1)
              if(.not.predicted(i,s)%allocated .or. &
                   .not.expected(i,s)%allocated) cycle
-             ptr2 => mean(-expected(i,s) * log(predicted(i,s) + this%epsilon), dim=2)
+             ptr => mean(-expected(i,s) * log(predicted(i,s) + this%epsilon), dim=2)
 
-             ptr1 => ptr1 + ptr2
+             output => output + ptr
           end do
        end do
     end if
-    output => ptr1
 
-  end function compute_pinn_generic_cce
+  end function compute_cce
 !###############################################################################
 
 
 !###############################################################################
-  pure function compute_mae(this, predicted, expected) result(output)
+  function compute_mae(this, predicted, expected) result(output)
     !! Compute the mean absolute error of a model
     implicit none
 
     ! Arguments
     class(mae_loss_type), intent(in) :: this
-    !! Instance of the mean absolute error loss function
-    real(real32), dimension(:,:), intent(in) :: predicted, expected
-    !! Predicted and expected values
-    real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
-    !! Mean absolute error
-
-    output = abs(predicted - expected) !/(size(predicted,1))
-
-  end function compute_mae
-!###############################################################################
-
-
-!###############################################################################
-  pure function compute_mse(this, predicted, expected) result(output)
-    !! Compute the mean squared error of a model
-    implicit none
-
-    ! Arguments
-    class(mse_loss_type), intent(in) :: this
-    !! Instance of the mean squared error loss function
-    real(real32), dimension(:,:), intent(in) :: predicted, expected
-    !! Predicted and expected values
-    real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
-    !! Mean squared error
-
-    output = ((predicted - expected)**2._real32) /(2._real32)!*size(predicted,1))
-
-  end function compute_mse
-  function compute_pinn_generic_mse(this, predicted, expected, input) &
-       result(output)
-    !! Compute the physics-informed neural network loss
-    implicit none
-
-    ! Arguments
-    class(mse_loss_type), intent(in) :: this
-    !! Instance of the physics-informed neural network loss function
     type(array_type), dimension(:,:), intent(in), target :: predicted
+    !! Predicted values
     type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
          expected
-    !! Predicted and expected values
-    type(array_type), dimension(:), intent(in) :: input
-    !! Input data, which contains the derivatives
+    !! Expected values
     type(array_type), pointer :: output
-    !! Physics-informed neural network loss
+    !! Mean absolute error
 
     ! Local variables
     integer :: s, i
     !! Loop indices
-    type(array_type), pointer :: ptr1, ptr2
+    type(array_type), pointer :: ptr
+    !! Temporary pointer for calculations
 
-    ptr1 => mean( ( predicted(1,1) - expected(1,1) )  ** 2._real32, dim=2 ) / &
+    output => mean( abs( predicted(1,1) - expected(1,1) ), dim=2 ) / &
          2._real32
     if(any(shape(predicted).gt.1))then
        do s = 1, size(predicted,2)
           do i = 1, size(predicted,1)
              if(.not.predicted(i,s)%allocated .or. &
                   .not.expected(i,s)%allocated) cycle
-             ptr2 => mean( ( predicted(i,s) - expected(i,s) )  ** 2._real32, dim=2 ) / &
+             ptr => mean( abs( predicted(i,s) - expected(i,s) ), dim=2 ) / &
                   2._real32
 
-             ptr1 => ptr1 + ptr2
+             output => output + ptr
           end do
        end do
     end if
-    output => ptr1
 
-  end function compute_pinn_generic_mse
+  end function compute_mae
 !###############################################################################
 
 
 !###############################################################################
-  pure function compute_nll(this, predicted, expected) result(output)
+  function compute_mse(this, predicted, expected) result(output)
+    !! Compute the physics-informed neural network loss
+    implicit none
+
+    ! Arguments
+    class(mse_loss_type), intent(in) :: this
+    !! Instance of the physics-informed neural network loss function
+    type(array_type), dimension(:,:), intent(in), target :: predicted
+    !! Predicted values
+    type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
+         expected
+    !! Expected values
+    type(array_type), pointer :: output
+    !! Physics-informed neural network loss
+
+    ! Local variables
+    integer :: s, i
+    !! Loop indices
+    type(array_type), pointer :: ptr
+    !! Temporary pointer for calculations
+
+    output => mean( ( predicted(1,1) - expected(1,1) )  ** 2._real32, dim=2 ) / &
+         2._real32
+    if(any(shape(predicted).gt.1))then
+       do s = 1, size(predicted,2)
+          do i = 1, size(predicted,1)
+             if(.not.predicted(i,s)%allocated .or. &
+                  .not.expected(i,s)%allocated) cycle
+             ptr => mean( ( predicted(i,s) - expected(i,s) )  ** 2._real32, dim=2 ) / &
+                  2._real32
+
+             output => output + ptr
+          end do
+       end do
+    end if
+
+  end function compute_mse
+!###############################################################################
+
+
+!###############################################################################
+  function compute_nll(this, predicted, expected) result(output)
     !! Compute the negative log likelihood of a model
     implicit none
 
     ! Arguments
     class(nll_loss_type), intent(in) :: this
-    !! Instance of the negative log likelihood loss function
-    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    !! Instance of the physics-informed neural network loss function
+    type(array_type), dimension(:,:), intent(in), target :: predicted
+    type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
+         expected
     !! Predicted and expected values
-    real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
-    !! Negative log likelihood
+    type(array_type), pointer :: output
+    !! Physics-informed neural network loss
+    type(array_type), pointer :: ptr
+    !! Temporary pointer for calculations
 
-    output = - log(expected - predicted + this%epsilon)
+    ! Local variables
+    integer :: s, i
+    !! Loop indices
+
+    if(any(shape(predicted).gt.1))then
+       do s = 1, size(predicted,2)
+          do i = 1, size(predicted,1)
+             if(.not.predicted(i,s)%allocated .or. &
+                  .not.expected(i,s)%allocated) cycle
+             ptr => mean(-log(expected(i,s) - predicted(i,s) + this%epsilon), dim=2)
+
+             output => output + ptr
+          end do
+       end do
+    end if
 
   end function compute_nll
 !###############################################################################
 
 
 !###############################################################################
-  pure function compute_huber(this, predicted, expected) result(output)
+  function compute_huber(this, predicted, expected) result(output)
     !! Compute the huber loss of a model
     implicit none
 
     ! Arguments
     class(huber_loss_type), intent(in) :: this
-    !! Instance of the huber loss function
-    real(real32), dimension(:,:), intent(in) :: predicted, expected
+    !! Instance of the physics-informed neural network loss function
+    type(array_type), dimension(:,:), intent(in), target :: predicted
+    type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
+         expected
     !! Predicted and expected values
-    real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
-    !! huber loss
+    type(array_type), pointer :: output
+    !! Physics-informed neural network loss
+    type(array_type), pointer :: ptr
 
-    where (abs(predicted - expected) .le. this%gamma)
-       output = 0.5_real32 * (predicted - expected)**2._real32
-    elsewhere
-       output = this%gamma * (abs(predicted - expected) - 0.5_real32 * this%gamma)
-    end where
+    ! Local variables
+    integer :: s, i
+    !! Loop indices
+
+    ptr => predicted(1,1) - expected(1,1)
+    output => huber(predicted(1,1) - expected(1,1), this%gamma)
+    do s = 1, size(predicted,2)
+       do i = 1, size(predicted,1)
+          if(.not.predicted(i,s)%allocated .or. &
+               .not.expected(i,s)%allocated) cycle
+          ptr => predicted(i,s) - expected(i,s)
+
+          output => output + huber(ptr, this%gamma)
+       end do
+    end do
+
+    ! output => merge( &
+    !      0.5_real32 * (ptr)**2._real32, &
+    !      this%gamma * (abs(ptr) - 0.5_real32 * this%gamma), &
+    !      abs(ptr) .le. this%gamma &
+    ! )
 
   end function compute_huber
-!-------------------------------------------------------------------------------
-  pure function compute_derivative_huber(this, predicted, expected) &
-       result(output)
-    !! Compute the derivative of the huber loss function
-    implicit none
-
-    ! Arguments
-    class(huber_loss_type), intent(in) :: this
-    !! Instance of the huber loss function
-    real(real32), dimension(:,:), intent(in) :: predicted, expected
-    !! Predicted and expected values
-    real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
-    !! Derivative of the huber loss function
-
-    where (abs(predicted - expected) .le. this%gamma)
-       output = predicted - expected
-    elsewhere
-       output = this%gamma * sign(1._real32, predicted - expected)
-    end where
-
-  end function compute_derivative_huber
 !###############################################################################
 
 
 !###############################################################################
-  function compute_pinn_base(this, predicted, expected, input) result(output)
-    !! Compute the physics-informed neural network loss
-    implicit none
-
-    ! Arguments
-    class(base_loss_type), intent(in) :: this
-    !! Instance of the physics-informed neural network loss function
-    real(real32), dimension(:,:), intent(in) :: predicted, expected
-    !! Predicted and expected values
-    type(array_type), dimension(:), intent(in) :: input
-    !! Input data, which contains the derivatives
-    real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
-    !! Physics-informed neural network loss
-
-    output = 0._real32
-
-  end function compute_pinn_base
-!-------------------------------------------------------------------------------
-  function compute_pinn_generic_base(this, predicted, expected, input) &
-       result(output)
+  module function compute_base(this, predicted, expected) result(output)
     !! Compute the physics-informed neural network loss
     implicit none
 
@@ -481,15 +483,14 @@ contains
     class(base_loss_type), intent(in) :: this
     !! Instance of the physics-informed neural network loss function
     type(array_type), dimension(:,:), intent(in), target :: predicted
+    !! Predicted values
     type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
          expected
-    !! Predicted and expected values
-    type(array_type), dimension(:), intent(in) :: input
-    !! Input data, which contains the derivatives
+    !! Expected values
     type(array_type), pointer :: output
     !! Physics-informed neural network loss
 
-  end function compute_pinn_generic_base
+  end function compute_base
 !###############################################################################
 
 end module athena__loss
