@@ -3341,8 +3341,8 @@ contains
        verbose_ = 0
     end if
 
-    do i = 1, size(this%metrics,dim=1)
-       this%metrics(i)%val = 0._real32
+    do l = 1, size(this%metrics,dim=1)
+       this%metrics(l)%val = 0._real32
     end do
     loss_val  = 0._real32
     acc_val = 0._real32
