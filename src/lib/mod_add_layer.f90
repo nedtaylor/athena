@@ -28,7 +28,6 @@ module athena__add_layer
      !! Read the layer from a file
 
      procedure, pass(this) :: combine => combine_add
-     procedure, pass(this) :: split => split_add
   end type add_layer_type
 
   interface add_layer_type
@@ -446,29 +445,6 @@ contains
     end do
 
   end subroutine combine_add
-!###############################################################################
-
-
-!###############################################################################
-  subroutine split_add(this, input_list, gradient)
-    !! Backward propagation for 2D input
-    implicit none
-
-    ! Arguments
-    class(add_layer_type), intent(inout) :: this
-    !! Instance of the add layer
-    type(array_ptr_type), dimension(:), intent(in) :: input_list
-    !! Input values
-    class(array_type), dimension(:,:), intent(in) :: gradient
-    !! Gradient values
-
-    ! Local variables
-    integer :: s
-    !! Loop index
-
-    ! this%di = gradient
-
-  end subroutine split_add
 !###############################################################################
 
 end module athena__add_layer

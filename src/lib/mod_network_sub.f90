@@ -2597,88 +2597,6 @@ contains
 !###############################################################################
 
 
-!###############################################################################
-  module function calc_output_loss_grad(this, output) result(gradient)
-    !! Get the loss for the output
-    implicit none
-
-    ! Arguments
-    class(network_type), intent(in) :: this
-    !! Instance of network
-    class(*), dimension(:,:), intent(in) :: output
-    !! Output
-
-    type(array_type), dimension(:,:), allocatable :: gradient
-    !! Loss value
-
-    ! Local variables
-    integer :: i, s
-
-
-   !  associate( layer => this%model(this%leaf_vertices(1))%layer )
-   !     select type(output)
-   !     type is(graph_type)
-   !        allocate(gradient(2,size(output,2)))
-   !        do s = 1, size(output,2)
-   !           if(this%loss%requires_autodiff)then
-   !              gradient(1,s)%val = this%loss%compute_pinn_derivative( &
-   !                   layer%output(1,s)%val, &
-   !                   output(1,s)%vertex_features, &
-   !                   this%model(this%root_vertices(1))%layer%output(1,s:s) &
-   !              ) / output(1,s)%num_vertices
-   !              gradient(2,s)%val = this%loss%compute_pinn_derivative( &
-   !                   layer%output(2,s)%val, &
-   !                   output(1,s)%edge_features, &
-   !                   this%model(this%root_vertices(1))%layer%output(2,s:s) &
-   !              ) / output(1,s)%num_edges
-   !           else
-   !              gradient(1,s)%val = this%loss%compute_derivative( &
-   !                   layer%output(1,s)%val, &
-   !                   output(1,s)%vertex_features &
-   !              ) / output(1,s)%num_vertices
-   !              gradient(2,s)%val = this%loss%compute_derivative( &
-   !                   layer%output(2,s)%val, &
-   !                   output(1,s)%edge_features &
-   !              ) / output(1,s)%num_edges
-   !           end if
-   !        end do
-   !     class is(array_type)
-   !        allocate(gradient(size(output,1),size(output,2)))
-   !        do s = 1, size(output,2)
-   !           do i = 1, size(output,1)
-   !              if(this%loss%requires_autodiff)then
-   !                 gradient(i,s)%val = this%loss%compute_pinn_derivative( &
-   !                      layer%output(i,s)%val, &
-   !                      output(i,s)%val, &
-   !                      this%model(this%root_vertices(1))%layer%output(i,:) &
-   !                 )
-   !              else
-   !                 gradient(i,s)%val = this%loss%compute_derivative( &
-   !                      layer%output(i,s)%val, &
-   !                      output(i,s)%val &
-   !                 )
-   !              end if
-   !           end do
-   !        end do
-   !     type is(real(real32))
-   !        allocate(gradient(1,1))
-   !        gradient(1,1)%val = this%loss%compute_derivative( &
-   !             layer%output(1,1)%val, &
-   !             output &
-   !        )
-   !     class default
-   !        call stop_program( &
-   !             "output type for layer "// &
-   !             trim(layer%name) // &
-   !             " is not supported" &
-   !        )
-   !     end select
-   !  end associate
-
-  end function calc_output_loss_grad
-!###############################################################################
-
-
 !##############################################################################!
 ! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
 !##############################################################################!
@@ -2757,9 +2675,6 @@ contains
           input_idx = findloc(this%root_vertices, j, dim=1)
           j = this%auto_graph%vertex(j)%id
           input_ptr => this%model(j)%layer%output
-          !  input_ptr( &
-          !       1:size(this%model(j)%layer%output,1), &
-          !       1:size(this%model(j)%layer%output,2) ) => this%model(j)%layer%output
           select type(input)
           type is(graph_type)
              call this%model(this%vertex_order(l))%layer%set_graph( [ input(1,:) ] )

@@ -79,7 +79,8 @@ program sine
 
      call network%set_batch_size(1)
      call network%forward(x)
-     loss => network%loss_backward(y, 1, 1)
+     network%expected_array = y_array
+     loss => network%loss_backward(1, 1)
      call loss%grad_reverse()
      call network%update()
 

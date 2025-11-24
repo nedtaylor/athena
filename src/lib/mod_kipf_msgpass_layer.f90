@@ -389,8 +389,6 @@ contains
        this%params_array(t)%is_sample_dependent = .false.
        this%params_array(t)%is_temporary = .false.
        this%params_array(t)%fix_pointer = .true.
-       write(*,*) "ID FOR LAYER", this%id
-       this%params_array(t)%id = this%id * 1000 + t
     end do
 
 
@@ -742,100 +740,13 @@ contains
           ptr3 =>  matmul( this%params_array(t), ptr2 )
           ptr1 => this%transfer%activate( ptr3 )
        end do
+       call this%output(1,s)%zero_grad()
        call this%output(1,s)%assign_and_deallocate_source(ptr1)
        this%output(1,s)%is_temporary = .false.
     end do
 
   end subroutine update_message_kipf
 !###############################################################################
-
-
-! !###############################################################################
-!   subroutine update_message_kipf(this, input)
-!     !! Update the message
-!     implicit none
-
-!     ! Arguments
-!     class(kipf_msgpass_layer_type), intent(inout), target :: this
-!     !! Instance of the message passing layer
-!     class(array_type), dimension(:,:), intent(in) :: input
-!     !! Input to the message passing layer
-
-!     ! Local variables
-!     integer :: s, v, e, t
-!     !! Batch index, vertex index, edge index, time step
-!     real(real32) :: c
-!     !! Normalisation constant for the message passing
-!     real(real32), pointer :: weight(:,:)
-!     !! Pointer to the weight matrix
-!     ! real(real32), dimension(:,:), allocatable :: xe
-
-
-!     do s = 1, this%batch_size
-!        this%vertex_features(0,s)%val = input(1,s)%val
-!        this%edge_features(0,s)%val = input(2,s)%val
-!     end do
-
-!     do t = 1, this%num_time_steps
-!        weight( &
-!             1:this%num_vertex_features(t), &
-!             1:this%num_vertex_features(t-1) &
-!        ) => this%params( &
-!             sum(this%num_params_msg(1:t-1:1)) + 1: &
-!             sum(this%num_params_msg(1:t:1)) &
-!        )
-
-!        do s = 1, this%batch_size
-!           do v = 1, this%graph(s)%num_vertices
-!              this%message(t,s)%val(:,v) = 0._real32
-!              do e = this%graph(s)%adj_ia(v), this%graph(s)%adj_ia(v+1) - 1
-
-!                 if( this%graph(s)%adj_ja(2,e) .eq. 0 )then
-!                    c = 1._real32
-!                 else
-!                    c = this%graph(s)%edge_weights(this%graph(s)%adj_ja(2,e))
-!                 end if
-!                 ! fix this for lower memory case,
-!                 ! where we don't store the vertices as derived types
-!                 c = c * ( &
-!                      ( this%graph(s)%adj_ia(v+1) - this%graph(s)%adj_ia(v) ) * &
-!                      ( &
-!                           ( this%graph(s)%adj_ia( &
-!                                this%graph(s)%adj_ja(1,e) + 1 &
-!                           ) - this%graph(s)%adj_ia( &
-!                                this%graph(s)%adj_ja(1,e) &
-!                           ) ) &
-!                      ) ) ** ( -0.5_real32 )
-
-!                 ! c = c * ( &
-!                 !      ( this%graph(s)%vertex(v)%degree + 1 ) * &
-!                 !      ( &
-!                 !           this%graph(s)%vertex( &
-!                 !                this%graph(s)%adj_ja(1,e) &
-!                 !           )%degree + 1 &
-!                 !      ) &
-!                 ! ) ** ( -0.5_real32 )
-!                 this%message(t,s)%val(:,v) = &
-!                      this%message(t,s)%val(:,v) + &
-!                      c * [ &
-!                           this%vertex_features(t-1,s)%val( &
-!                                :, &
-!                                this%graph(s)%adj_ja(1,e) &
-!                           ) &
-!                      ]
-!              end do
-!              this%z(t,s)%val(:,v) = matmul( &
-!                   weight(:,:), &
-!                   this%message(t,s)%val(:,v) &
-!              )
-!           end do
-!           this%vertex_features(t,s)%val(:,:) = &
-!                this%transfer%activate( this%z(t,s)%val(:,:) )
-!        end do
-!     end do
-
-!   end subroutine update_message_kipf
-! !###############################################################################
 
 
 !###############################################################################
@@ -852,10 +763,10 @@ contains
     !! Loop indices
 
 
-   !  do s = 1, this%batch_size
-   !     this%output(1,s)%val = this%vertex_features(this%num_time_steps,s)%val
-   !     this%output(2,s)%val = this%edge_features(this%num_time_steps,s)%val
-   !  end do
+    ! do s = 1, this%batch_size
+    !    this%output(1,s)%val = this%vertex_features(this%num_time_steps,s)%val
+    !    this%output(2,s)%val = this%edge_features(this%num_time_steps,s)%val
+    ! end do
 
   end subroutine update_readout_kipf
 !###############################################################################

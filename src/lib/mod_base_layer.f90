@@ -332,8 +332,6 @@ module athena__base_layer
    contains
      procedure(combine_merge), deferred, pass(this) :: combine
      !! Merge two layers (forward)
-     procedure(split_merge), deferred, pass(this) :: split
-     !! Split two layers (backward)
   end type merge_layer_type
 
   interface
@@ -344,16 +342,6 @@ module athena__base_layer
        type(array_ptr_type), dimension(:), intent(in) :: input_list
        !! Input values
      end subroutine combine_merge
-
-     module subroutine split_merge(this, input_list, gradient)
-       !! Split two layers (backward)
-       class(merge_layer_type), intent(inout) :: this
-       !! Instance of the layer
-       type(array_ptr_type), dimension(:), intent(in) :: input_list
-       !! Input values
-       class(array_type), dimension(:,:), intent(in) :: gradient
-       !! Gradient values
-     end subroutine split_merge
   end interface
 
   type, abstract, extends(base_layer_type) :: learnable_layer_type

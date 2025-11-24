@@ -11,7 +11,7 @@ program test_full_network
 
   real, allocatable, dimension(:) :: output_1d
   real, allocatable, dimension(:,:) :: output_2d
-  type(array_type), pointer :: loss(:,:)
+  type(array_type), pointer :: loss
 
   logical :: success = .true.
 
@@ -53,11 +53,13 @@ program test_full_network
 
     train_loop: do n = 1, num_iterations
        call network%forward(x)
-       loss => network%loss_backward(y, 1, 1)
-       call loss(1,1)%grad_reverse()
+       allocate(network%expected_array(1,1))
+       call network%expected_array(1,1)%allocate(source=y)
+       loss => network%loss_backward(1, 1)
+       call loss%grad_reverse()
        call network%update()
        if(all(abs(network%predict(x)-y) .lt. tol)) exit train_loop
-       call loss(1,1)%nullify_graph()
+       call loss%nullify_graph()
        loss => null()
     end do train_loop
 

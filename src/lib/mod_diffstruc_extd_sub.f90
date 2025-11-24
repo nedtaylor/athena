@@ -41,7 +41,7 @@ contains
     integer :: i
 
     c => a(1)%array(idx1, idx2) .concat. a(2)%array(idx1, idx2)
-    do i = 3, size(a)
+    do i = 3, size(a), 1
        c => c .concat. a(i)%array(idx1, idx2)
     end do
   end function concat_array_ptr

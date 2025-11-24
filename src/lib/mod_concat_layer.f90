@@ -32,7 +32,6 @@ module athena__concat_layer
      !! Read the layer from a file
 
      procedure, pass(this) :: combine => combine_concat
-     procedure, pass(this) :: split => split_concat
   end type concat_layer_type
 
   interface concat_layer_type
@@ -449,41 +448,13 @@ contains
              if(.not.input_list(j)%array(i,s)%allocated) cycle index_loop
           end do
           ptr => concat(input_list, i, s, dim = this%dim)
-          call this%output(1,s)%assign_and_deallocate_source(ptr)
-          this%output(1,s)%is_temporary = .false.
+          call this%output(i,s)%zero_grad()
+          call this%output(i,s)%assign_and_deallocate_source(ptr)
+          this%output(i,s)%is_temporary = .false.
        end do index_loop
     end do
 
   end subroutine combine_concat
-!###############################################################################
-
-
-!###############################################################################
-  subroutine split_concat(this, input_list, gradient)
-    !! Backward propagation for 2D input
-    implicit none
-
-    ! Arguments
-    class(concat_layer_type), intent(inout) :: this
-    !! Instance of the concatenate layer
-    type(array_ptr_type), dimension(:), intent(in) :: input_list
-    !! Input values
-    class(array_type), dimension(:,:), intent(in) :: gradient
-    !! Gradient values
-
-    ! Local variables
-    integer :: i, j, s
-    !! Loop index
-
-    ! do j = 1, size(this%input_layer_ids)
-    !    do i = 1, size(input_list(1)%array, 1)
-    !       do s = 1, size(input_list(j)%array, 2)
-    !          this%di(this%io_map(i,j),s) = gradient(i,s)
-    !       end do
-    !    end do
-    ! end do
-
-  end subroutine split_concat
 !###############################################################################
 
 end module athena__concat_layer
