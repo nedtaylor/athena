@@ -1655,62 +1655,58 @@ contains
     !---------------------------------------------------------------------------
     i = 0
     merge_loop: do
-         i = i + 1
-         if(i.gt.this%auto_graph%num_vertices) exit merge_loop
-         id = this%auto_graph%vertex(i)%id
-         if(this%model(id)%layer%type.eq."merg") cycle merge_loop
+       i = i + 1
+       if(i.gt.this%auto_graph%num_vertices) exit merge_loop
+       id = this%auto_graph%vertex(i)%id
+       if(this%model(id)%layer%type.eq."merg") cycle merge_loop
 
-         ! get all child vertices
-         parent_vertices = pack( &
-              [(j, j=1,size(this%auto_graph%adjacency(:,i)))], &
-              this%auto_graph%adjacency(:,i) .ne. 0 &
-         )
-         if(size(parent_vertices).le.1) cycle merge_loop
+       ! get all child vertices
+       parent_vertices = pack( &
+            [(j, j=1,size(this%auto_graph%adjacency(:,i)))], &
+            this%auto_graph%adjacency(:,i) .ne. 0 &
+       )
+       if(size(parent_vertices).le.1) cycle merge_loop
 
-         ! if multiple children, add a merge layer in between
-         ! make all children feed into the merge layer and then the merge layer
-         ! feeds into this layer
+       ! get edge id for merge layer
+       operator = this%auto_graph%edge( &
+            this%auto_graph%adjacency(parent_vertices(1),i) &
+       )%id
 
-         ! get edge id for merge layer
-         operator = this%auto_graph%edge( &
-              this%auto_graph%adjacency(parent_vertices(1),i) &
-         )%id
-
-         ! remove edges from parents to this layer
-         do j = 1, size(parent_vertices)
-            call this%auto_graph%remove_edges( &
-                 indices = [this%auto_graph%adjacency(parent_vertices(j),i)] &
-            )
-         end do
-         select case(operator)
-         case(1) ! concatenate
-            t_merge_layer = concat_layer_type( &
-                 input_layer_ids = parent_vertices, &
-                 input_rank = this%model(id)%layer%input_rank &
-            )
-         case(2) ! add
-            t_merge_layer = add_layer_type( &
-                 input_layer_ids = parent_vertices, &
-                 input_rank = this%model(id)%layer%input_rank &
-            )
-         ! case(3) ! multiply
-         !    t_merge_layer = multiply_layer_type( &
-         !         input_layer_ids = parent_vertices &
-         !    )
-         case default
-            write(0,*) "invalid merge operator: ", operator
-            call stop_program("invalid merge operator")
-            return
-         end select
-         t_merge_layer%use_graph_input = this%model(id)%layer%use_graph_input
-         t_merge_layer%use_graph_output = t_merge_layer%use_graph_input
-         call this%add( &
-              t_merge_layer, &
-              input_list = parent_vertices, &
-              output_list = [id] &
-         )
-         deallocate(t_merge_layer)
-      end do merge_loop
+       ! remove edges from parents to this layer
+       do j = 1, size(parent_vertices)
+          call this%auto_graph%remove_edges( &
+               indices = [this%auto_graph%adjacency(parent_vertices(j),i)] &
+          )
+       end do
+       select case(operator)
+       case(1) ! concatenate
+          t_merge_layer = concat_layer_type( &
+               input_layer_ids = parent_vertices, &
+               input_rank = this%model(id)%layer%input_rank &
+          )
+       case(2) ! add
+          t_merge_layer = add_layer_type( &
+               input_layer_ids = parent_vertices, &
+               input_rank = this%model(id)%layer%input_rank &
+          )
+          ! case(3) ! multiply
+          !    t_merge_layer = multiply_layer_type( &
+          !         input_layer_ids = parent_vertices &
+          !    )
+       case default
+          write(0,*) "invalid merge operator: ", operator
+          call stop_program("invalid merge operator")
+          return
+       end select
+       t_merge_layer%use_graph_input = this%model(id)%layer%use_graph_input
+       t_merge_layer%use_graph_output = t_merge_layer%use_graph_input
+       call this%add( &
+            t_merge_layer, &
+            input_list = parent_vertices, &
+            output_list = [id] &
+       )
+       deallocate(t_merge_layer)
+    end do merge_loop
 
 
     !---------------------------------------------------------------------------
@@ -1844,14 +1840,14 @@ contains
        else
           num_inputs = product(this%model(this%vertex_order(i))%layer%input_shape)
        end if
-      !  if(j.ne.1.or.k.ne.num_inputs)then
-      !     write(*,*) j, k, num_inputs
-      !     call stop_program( &
-      !          "input_shape of layer "//&
-      !          trim(this%model(this%vertex_order(i))%layer%name)// &
-      !          " does not match data going into it" &
-      !     )
-      !  end if
+       ! if(j.ne.1.or.k.ne.num_inputs)then
+       !    write(*,*) j, k, num_inputs
+       !    call stop_program( &
+       !         "input_shape of layer "//&
+       !         trim(this%model(this%vertex_order(i))%layer%name)// &
+       !         " does not match data going into it" &
+       !    )
+       ! end if
     end do
 
     !---------------------------------------------------------------------------
@@ -2488,112 +2484,6 @@ contains
     )
 
   end function loss_backward
-!###############################################################################
-
-
-!###############################################################################
-  module function calc_output_loss(this, output, start_index, end_index) result(loss)
-    !! Get the loss for the output
-    implicit none
-
-    ! Arguments
-    class(network_type), intent(in) :: this
-    !! Instance of network
-    class(*), dimension(:,:), intent(in) :: output
-    !! Output
-    integer, intent(in) :: start_index, end_index
-    !! Start and end batch indices
-
-    real(real32) :: loss
-    !! Loss value
-
-    ! Local variables
-    integer :: s, s_idx
-    !! Loop index
-
-    loss = 0._real32
-    if(this%loss%requires_autodiff)then
-       select type(output)
-       type is(graph_type)
-          do s = start_index, end_index, 1
-             s_idx = s - start_index + 1
-             loss = loss + sum( this%loss%compute_pinn( &
-                  this%model(this%leaf_vertices(1))%layer%output(1,s_idx)%val, &
-                  output(1,s)%vertex_features, &
-                  this%model(this%root_vertices(1))%layer%output(1,:) &
-             ) ) / output(1,s)%num_vertices
-             if( &
-                  this%model(this%leaf_vertices(1))%layer%output_shape(2).gt.0 &
-             )then
-                loss = loss + sum( this%loss%compute_pinn( &
-                     this%model(this%leaf_vertices(1))%layer%output(2,s_idx)%val, &
-                     output(1,s)%edge_features, &
-                     this%model(this%root_vertices(1))%layer%output(1,:) &
-                ) ) / output(1,s)%num_edges
-             end if
-          end do
-       type is(real(real32))
-          loss = sum( &
-               this%loss%compute_pinn( &
-                    this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-                    output(:,start_index:end_index:1), &
-                    this%model(this%root_vertices(1))%layer%output(1,:) &
-               ))
-       type is(integer)
-          loss = sum( &
-               this%loss%compute_pinn( &
-                    this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-                    real(output(:,start_index:end_index:1),real32), &
-                    this%model(this%root_vertices(1))%layer%output(1,:) &
-               ))
-       class is(array_type)
-          loss = sum( &
-               this%loss%compute_pinn( &
-                    this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-                    output(1,1)%val(:,start_index:end_index:1), &
-                    this%model(this%root_vertices(1))%layer%output(1,:) &
-               ))
-       end select
-    else
-       select type(output)
-       type is(graph_type)
-          do s = start_index, end_index, 1
-             s_idx = s - start_index + 1
-             loss = loss + sum( this%loss%compute( &
-                  this%model(this%leaf_vertices(1))%layer%output(1,s_idx)%val, &
-                  output(1,s)%vertex_features &
-             ) ) / output(1,s)%num_vertices
-             if( &
-                  this%model(this%leaf_vertices(1))%layer%output_shape(2).gt.0 &
-             )then
-                loss = loss + sum( this%loss%compute( &
-                     this%model(this%leaf_vertices(1))%layer%output(2,s_idx)%val, &
-                     output(1,s)%edge_features &
-                ) ) / output(1,s)%num_edges
-             end if
-          end do
-       type is(real(real32))
-          loss = sum( &
-               this%loss%compute( &
-                    this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-                    output(:,start_index:end_index:1) &
-               ))
-       type is(integer)
-          loss = sum( &
-               this%loss%compute( &
-                    this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-                    real(output(:,start_index:end_index:1),real32) &
-               ))
-       class is(array_type)
-          loss = sum( &
-               this%loss%compute( &
-                    this%model(this%leaf_vertices(1))%layer%output(1,1)%val, &
-                    output(1,1)%val(:,start_index:end_index:1) &
-               ))
-       end select
-    end if
-
-  end function calc_output_loss
 !###############################################################################
 
 
@@ -3438,6 +3328,8 @@ contains
     !! Accuracy list
     class(*), allocatable, dimension(:,:) :: data_poly
     !! Polymorphic data array
+    type(array_type), pointer :: loss => null()
+    !! Loss
 
 
     !---------------------------------------------------------------------------
@@ -3449,7 +3341,9 @@ contains
        verbose_ = 0
     end if
 
-    this%metrics%val = 0._real32
+    do i = 1, size(this%metrics,dim=1)
+       this%metrics(i)%val = 0._real32
+    end do
     loss_val  = 0._real32
     acc_val = 0._real32
 
@@ -3492,12 +3386,15 @@ contains
        end select
        call this%forward_generic2d(data_poly)
        deallocate(data_poly)
-       call this%model(this%leaf_vertices(1))%layer%output(1,1)%grad_reverse()
 
 
        ! Compute loss and accuracy (for monitoring)
        !------------------------------------------------------------------------
-       loss_val = this%calc_output_loss(output, sample, sample)
+       loss => this%loss_backward(sample, sample)
+       loss_val = sum(loss%val)
+       call loss%nullify_graph()
+       deallocate(loss)
+       nullify(loss)
        acc_val = this%calc_output_accuracy(output, sample, sample)
 
        this%metrics(2)%val = this%metrics(2)%val + acc_val

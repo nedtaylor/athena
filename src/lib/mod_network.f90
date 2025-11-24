@@ -153,7 +153,6 @@ module athena__network
 
      procedure, pass(this) :: calc_output_accuracy
      procedure, pass(this) :: loss_backward
-     procedure, pass(this) :: calc_output_loss
 
      generic :: forward => forward_generic2d
      !! Generic for forward propagation
@@ -637,18 +636,6 @@ module athena__network
 
        type(array_type), pointer :: loss
      end function loss_backward
-
-     module function calc_output_loss(this, output, start_index, end_index) result(loss)
-       !! Get the loss for the output
-       class(network_type), intent(in) :: this
-       !! Instance of network
-       class(*), dimension(:,:), intent(in) :: output
-       !! Output
-       integer, intent(in) :: start_index, end_index
-       !! Start and end batch indices
-       real(real32) :: loss
-       !! Loss value
-     end function calc_output_loss
 
      !! Interface for forward pass
      module subroutine forward_generic2d(this, input)
