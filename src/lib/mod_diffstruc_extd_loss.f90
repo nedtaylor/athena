@@ -51,16 +51,19 @@ contains
 
     type(array_type), pointer :: ptr
 
-    ptr => merge( this%left_operand, this%right_operand%val(1,1) * sign(1._real32, this%left_operand), &
-         abs(this%left_operand) .le. this%right_operand%val(1,1) )
+    ptr => merge( &
+         this%left_operand, &
+         this%right_operand%val(1,1) * sign(1._real32, this%left_operand), &
+         abs(this%left_operand) .le. this%right_operand%val(1,1) &
+    )
 
     call output%assign_and_deallocate_source(ptr)
   end function get_partial_huber
 !-------------------------------------------------------------------------------
-  subroutine get_partial_huber_val(this, upstream_grad, output)
+  pure subroutine get_partial_huber_val(this, upstream_grad, output)
     !! Get partial derivative of huber loss (in-place version)
     implicit none
-    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: this
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 

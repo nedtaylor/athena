@@ -139,10 +139,10 @@ contains
     output = upstream_grad
   end function get_partial_add
 !-------------------------------------------------------------------------------
-  subroutine get_partial_add_val(this, upstream_grad, output)
+  pure subroutine get_partial_add_val(this, upstream_grad, output)
     !! Get partial derivative with respect to left operand
     implicit none
-    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: this
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 
@@ -173,11 +173,11 @@ contains
 
   end function get_partial_add_bias
 !-------------------------------------------------------------------------------
-  subroutine get_partial_add_bias_val(this, upstream_grad, output)
+  pure subroutine get_partial_add_bias_val(this, upstream_grad, output)
     implicit none
 
     ! Arguments
-    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: this
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 
@@ -333,10 +333,10 @@ contains
 
   end function get_partial_softmax
 !-------------------------------------------------------------------------------
-  subroutine get_partial_softmax_val(this, upstream_grad, output)
+  pure subroutine get_partial_softmax_val(this, upstream_grad, output)
     !! Get partial derivative of softmax activation (in-place version)
     implicit none
-    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: this
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 
@@ -415,10 +415,10 @@ contains
     call output%assign_and_deallocate_source(ptr)
   end function get_partial_swish
 !-------------------------------------------------------------------------------
-  subroutine get_partial_swish_val(this, upstream_grad, output)
+  pure subroutine get_partial_swish_val(this, upstream_grad, output)
     !! Get partial derivative of swish activation (in-place version)
     implicit none
-    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: this
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 

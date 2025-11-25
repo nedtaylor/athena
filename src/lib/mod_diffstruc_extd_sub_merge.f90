@@ -54,9 +54,11 @@ contains
 
   end function get_partial_merge_scalar_over_channels
 !-------------------------------------------------------------------------------
-  subroutine get_partial_merge_scalar_over_channels_val(this, upstream_grad, output)
+  pure subroutine get_partial_merge_scalar_over_channels_val( &
+       this, upstream_grad, output &
+  )
     implicit none
-    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: this
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 

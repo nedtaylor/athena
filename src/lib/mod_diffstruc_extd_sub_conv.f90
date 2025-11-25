@@ -107,11 +107,11 @@ contains
 
   end function get_partial_conv1d_kernel
 !-------------------------------------------------------------------------------
-  subroutine get_partial_conv1d_input_val(this, upstream_grad, output)
+  pure subroutine get_partial_conv1d_input_val(this, upstream_grad, output)
     !! Get partial derivative wrt input for 1D convolution (subroutine version)
     implicit none
 
-    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: this
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 
@@ -121,10 +121,7 @@ contains
     integer :: input_h, kernel_h, output_h, num_channels, num_filters
     integer :: stride, dilation
     real(real32) :: grad_val, kernel_val
-    class(array_type), pointer :: input, kernel
 
-    input => this%left_operand
-    kernel => this%right_operand
 
     ! Unpack parameters
     num_channels = this%indices(1)
@@ -133,7 +130,7 @@ contains
     dilation = this%adj_ja(1,2)
     kernel_h = this%adj_ja(1,3)
 
-    input_h = input%shape(1)
+    input_h = this%left_operand%shape(1)
     output_h = this%shape(1)
 
     output = 0._real32
@@ -150,7 +147,7 @@ contains
              if(i_in .ge. 1 .and. i_in .le. input_h)then
                 k_idx = k + ( c_in - 1 ) * kernel_h + &
                      ( c_out - 1 ) * kernel_h * num_channels
-                kernel_val = kernel%val(k_idx, 1)
+                kernel_val = this%right_operand%val(k_idx, 1)
                 output(i_in + ( c_in - 1 ) * input_h, s) = &
                      output(i_in + ( c_in - 1 ) * input_h, s) + &
                      grad_val * kernel_val
@@ -161,11 +158,11 @@ contains
 
   end subroutine get_partial_conv1d_input_val
 !-------------------------------------------------------------------------------
-  subroutine get_partial_conv1d_kernel_val(this, upstream_grad, output)
+  pure subroutine get_partial_conv1d_kernel_val(this, upstream_grad, output)
     !! Get partial derivative wrt kernel for 1D convolution (subroutine version)
     implicit none
 
-    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: this
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 
@@ -175,10 +172,7 @@ contains
     integer :: input_h, kernel_h, output_h, num_channels, num_filters
     integer :: stride, dilation
     real(real32) :: grad_sum
-    class(array_type), pointer :: input, kernel
 
-    input => this%left_operand
-    kernel => this%right_operand
 
     ! Unpack parameters
     num_channels = this%indices(1)
@@ -187,7 +181,7 @@ contains
     dilation = this%adj_ja(1,2)
     kernel_h = this%adj_ja(1,3)
 
-    input_h = input%shape(1)
+    input_h = this%left_operand%shape(1)
     output_h = this%shape(1)
 
     output = 0._real32
@@ -204,7 +198,7 @@ contains
              if(i_in .ge. 1 .and. i_in .le. input_h)then
                 out_idx = i + ( c_out - 1 ) * output_h
                 grad_sum = grad_sum + upstream_grad(out_idx, s) * &
-                     input%val(i_in + ( c_in - 1 ) * input_h, s)
+                     this%left_operand%val(i_in + ( c_in - 1 ) * input_h, s)
              end if
           end do
        end do
@@ -343,11 +337,11 @@ contains
 
   end function get_partial_conv2d_kernel
 !-------------------------------------------------------------------------------
-  subroutine get_partial_conv2d_input_val(this, upstream_grad, output)
+  pure subroutine get_partial_conv2d_input_val(this, upstream_grad, output)
     !! Get partial derivative wrt input for 2D convolution (subroutine version)
     implicit none
 
-    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: this
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 
@@ -360,10 +354,7 @@ contains
     integer, dimension(2) :: stride, dilation
     integer :: channel_size_in, channel_size_out
     real(real32) :: grad_val, kernel_val
-    class(array_type), pointer :: input, kernel
 
-    input => this%left_operand
-    kernel => this%right_operand
 
     ! Unpack parameters
     num_channels = this%indices(1)
@@ -373,8 +364,8 @@ contains
     kernel_h = this%adj_ja(1,3)
     kernel_w = this%adj_ja(2,3)
 
-    input_h = input%shape(1)
-    input_w = input%shape(2)
+    input_h = this%left_operand%shape(1)
+    input_w = this%left_operand%shape(2)
     output_h = this%shape(1)
     output_w = this%shape(2)
     channel_size_in  = input_h * input_w
@@ -404,7 +395,7 @@ contains
                          in_idx = i_in + (j_in - 1) * input_h + in_base_idx
                          k_idx = (kernel_h - ki + 1) + &
                               (kernel_w - kj) * kernel_h + k_base_idx
-                         kernel_val = kernel%val(k_idx, 1)
+                         kernel_val = this%right_operand%val(k_idx, 1)
                          output(in_idx, s) = output(in_idx, s) + &
                               grad_val * kernel_val
                       end if
@@ -417,11 +408,11 @@ contains
 
   end subroutine get_partial_conv2d_input_val
 !-------------------------------------------------------------------------------
-  subroutine get_partial_conv2d_kernel_val(this, upstream_grad, output)
+  pure subroutine get_partial_conv2d_kernel_val(this, upstream_grad, output)
     !! Get partial derivative wrt kernel for 2D convolution (subroutine version)
     implicit none
 
-    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: this
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 
@@ -435,10 +426,6 @@ contains
     integer :: channel_size_in, channel_size_out
     real(real32) :: grad_sum
 
-    class(array_type), pointer :: input, kernel
-
-    input => this%left_operand
-    kernel => this%right_operand
 
     ! Unpack parameters
     num_channels = this%indices(1)
@@ -448,8 +435,8 @@ contains
     kernel_h = this%adj_ja(1,3)
     kernel_w = this%adj_ja(2,3)
 
-    input_h = input%shape(1)
-    input_w = input%shape(2)
+    input_h = this%left_operand%shape(1)
+    input_w = this%left_operand%shape(2)
     output_h = this%shape(1)
     output_w = this%shape(2)
     channel_size_in  = input_h * input_w
@@ -478,7 +465,7 @@ contains
                       in_idx  = i_in + (j_in - 1) * input_h + in_base_idx
                       out_idx = i + (j - 1) * output_h + out_base_idx
                       grad_sum = grad_sum + &
-                           upstream_grad(out_idx, s) * input%val(in_idx, s)
+                           upstream_grad(out_idx, s) * this%left_operand%val(in_idx, s)
                    end if
                 end do
              end if
@@ -633,11 +620,11 @@ contains
 
   end function get_partial_conv3d_kernel
 !-------------------------------------------------------------------------------
-  subroutine get_partial_conv3d_input_val(this, upstream_grad, output)
+  pure subroutine get_partial_conv3d_input_val(this, upstream_grad, output)
     !! Get partial derivative wrt input for 3D convolution (subroutine version)
     implicit none
 
-    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: this
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 
@@ -650,10 +637,7 @@ contains
     integer :: channel_size_in, channel_size_out
     integer, dimension(3) :: stride, dilation
     real(real32) :: grad_val, kernel_val
-    class(array_type), pointer :: input, kernel
 
-    input => this%left_operand
-    kernel => this%right_operand
 
     ! Unpack parameters
     num_channels = this%indices(1)
@@ -664,9 +648,9 @@ contains
     kernel_w = this%adj_ja(2,3)
     kernel_d = this%adj_ja(3,3)
 
-    input_h = input%shape(1)
-    input_w = input%shape(2)
-    input_d = input%shape(3)
+    input_h = this%left_operand%shape(1)
+    input_w = this%left_operand%shape(2)
+    input_d = this%left_operand%shape(3)
     output_h = this%shape(1)
     output_w = this%shape(2)
     output_d = this%shape(3)
@@ -710,7 +694,7 @@ contains
                                              kernel_w * kernel_d + &
                                              ( c_out - 1 ) * kernel_h * &
                                              kernel_w * kernel_d * num_channels
-                                        kernel_val = kernel%val(k_idx, 1)
+                                        kernel_val = this%right_operand%val(k_idx, 1)
                                         output(in_idx, s) = &
                                              output(in_idx, s) + &
                                              grad_val * kernel_val
@@ -729,11 +713,11 @@ contains
 
   end subroutine get_partial_conv3d_input_val
 !-------------------------------------------------------------------------------
-  subroutine get_partial_conv3d_kernel_val(this, upstream_grad, output)
+  pure subroutine get_partial_conv3d_kernel_val(this, upstream_grad, output)
     !! Get partial derivative wrt kernel for 3D convolution (subroutine version)
     implicit none
 
-    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: this
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 
@@ -746,10 +730,7 @@ contains
     integer :: channel_size_in, channel_size_out
     integer, dimension(3) :: stride, dilation
     real(real32) :: grad_sum
-    class(array_type), pointer :: input, kernel
 
-    input => this%left_operand
-    kernel => this%right_operand
 
     ! Unpack parameters
     num_channels = this%indices(1)
@@ -760,9 +741,9 @@ contains
     kernel_w = this%adj_ja(2,3)
     kernel_d = this%adj_ja(3,3)
 
-    input_h = input%shape(1)
-    input_w = input%shape(2)
-    input_d = input%shape(3)
+    input_h = this%left_operand%shape(1)
+    input_w = this%left_operand%shape(2)
+    input_d = this%left_operand%shape(3)
     output_h = this%shape(1)
     output_w = this%shape(2)
     output_d = this%shape(3)
@@ -803,7 +784,7 @@ contains
                                              (c_out-1)*channel_size_out
                                         grad_sum = grad_sum + &
                                              upstream_grad(out_idx, s) * &
-                                             input%val(in_idx, s)
+                                             this%left_operand%val(in_idx, s)
                                      end if
                                   end do
                                end if

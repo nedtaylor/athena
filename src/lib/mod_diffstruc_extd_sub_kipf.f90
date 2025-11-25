@@ -65,8 +65,8 @@ contains
 
   end function get_partial_kipf_propagate_left
 !-------------------------------------------------------------------------------
-  subroutine get_partial_kipf_propagate_left_val(this, upstream_grad, output)
-    class(array_type), intent(inout) :: this
+  pure subroutine get_partial_kipf_propagate_left_val(this, upstream_grad, output)
+    class(array_type), intent(in) :: this
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 

@@ -46,7 +46,7 @@ contains
 
   end subroutine fill_edge_region_1d
 !-------------------------------------------------------------------------------
-  subroutine accumulate_edge_gradients_1d_val(upstream_grad, output, &
+  pure subroutine accumulate_edge_gradients_1d_val(upstream_grad, output, &
        input_shape, indices, adj_ja)
     !! Accumulate edge gradients for 1D padding - raw array version
     implicit none
@@ -149,8 +149,8 @@ contains
                 do i = dest(1,1), dest(2,1)
                    idx_out = i + (j-1) * output_h + (m - 1) * output_h * output_w
                    idx_in = orig(1,1) + step * (i - dest(1,1)) + &
-                           (orig(1,2) + step * (j - dest(1,2)) - 1) * input_h + &
-                           (m - 1) * input_h * input_w
+                        (orig(1,2) + step * (j - dest(1,2)) - 1) * input_h + &
+                        (m - 1) * input_h * input_w
                    output%val(idx_out, s) = input%val(idx_in, s)
                 end do
              end do
@@ -207,8 +207,8 @@ contains
                 do i = dest(1,1), dest(2,1)
                    idx_out = i + (j-1) * output_h + (m - 1) * output_h * output_w
                    idx_in = orig(1,1) + step1 * (i - dest(1,1)) + &
-                           (orig(1,2) + step2 * (j - dest(1,2)) - 1) * input_h + &
-                           (m - 1) * input_h * input_w
+                        (orig(1,2) + step2 * (j - dest(1,2)) - 1) * input_h + &
+                        (m - 1) * input_h * input_w
                    output%val(idx_out, s) = input%val(idx_in, s)
                 end do
              end do
@@ -239,7 +239,7 @@ contains
 
   end subroutine fill_edge_region_2d
 !-------------------------------------------------------------------------------
-  subroutine accumulate_corner_gradients_2d_val(upstream_grad, output, &
+  pure subroutine accumulate_corner_gradients_2d_val(upstream_grad, output, &
        input_shape, indices, adj_ja)
     !! Accumulate corner gradients for 2D padding - raw array version
     implicit none
@@ -276,17 +276,20 @@ contains
           do concurrent( &
                s = 1:input_shape(4), &
                m = 1:input_shape(3), &
-               j = adj_ja(1,(f-1)*4 + 3 + adj_ja_offset):&
-                  adj_ja(1,(f-1)*4 + 4 + adj_ja_offset), &
-               i = adj_ja(1,(f-1)*4 + 1 + adj_ja_offset):&
-                  adj_ja(1,(f-1)*4 + 2 + adj_ja_offset))
+               j = adj_ja(1,(f-1)*4 + 3 + adj_ja_offset) : &
+                    adj_ja(1,(f-1)*4 + 4 + adj_ja_offset), &
+               i = adj_ja(1,(f-1)*4 + 1 + adj_ja_offset) : &
+                    adj_ja(1,(f-1)*4 + 2 + adj_ja_offset) &
+          )
              idx_in = i + (j-1) * input_size_h + &
                   (m-1) * input_size_h * input_size_w
-             idx_out = (adj_ja(2,(f-1)*4 + 1 + adj_ja_offset) + &
-                  (i - adj_ja(1,(f-1)*4 + 1 + adj_ja_offset))) + &
-                  (adj_ja(2,(f-1)*4 + 3 + adj_ja_offset) + &
-                  (j - adj_ja(1,(f-1)*4 + 3 + adj_ja_offset)) - 1) * &
-                  output_size_h + (m-1) * output_size_h * output_size_w
+             idx_out = ( &
+                  adj_ja(2,(f-1)*4 + 1 + adj_ja_offset) + &
+                  (i - adj_ja(1,(f-1)*4 + 1 + adj_ja_offset)) &
+             ) + ( &
+                  adj_ja(2,(f-1)*4 + 3 + adj_ja_offset) + &
+                  (j - adj_ja(1,(f-1)*4 + 3 + adj_ja_offset)) - 1 &
+             ) * output_size_h + (m-1) * output_size_h * output_size_w
              output(idx_in, s) = output(idx_in, s) + upstream_grad(idx_out, s)
           end do
        end do
@@ -295,17 +298,20 @@ contains
           do concurrent( &
                s = 1:input_shape(4), &
                m = 1:input_shape(3), &
-               j = adj_ja(1,(f-1)*4 + 3 + adj_ja_offset):&
-                  adj_ja(1,(f-1)*4 + 4 + adj_ja_offset), &
-               i = adj_ja(1,(f-1)*4 + 1 + adj_ja_offset):&
-                  adj_ja(1,(f-1)*4 + 2 + adj_ja_offset))
+               j = adj_ja(1,(f-1)*4 + 3 + adj_ja_offset) : &
+                    adj_ja(1,(f-1)*4 + 4 + adj_ja_offset), &
+               i = adj_ja(1,(f-1)*4 + 1 + adj_ja_offset) : &
+                    adj_ja(1,(f-1)*4 + 2 + adj_ja_offset) &
+          )
              idx_in = i + (j-1) * input_size_h + &
                   (m-1) * input_size_h * input_size_w
-             idx_out = (adj_ja(2,(f-1)*4 + 2 + adj_ja_offset) - &
-                  (i - adj_ja(1,(f-1)*4 + 1 + adj_ja_offset))) + &
-                  (adj_ja(2,(f-1)*4 + 4 + adj_ja_offset) - &
-                  (j - adj_ja(1,(f-1)*4 + 3 + adj_ja_offset)) - 1) * &
-                  output_size_h + (m-1) * output_size_h * output_size_w
+             idx_out = ( &
+                  adj_ja(2,(f-1)*4 + 2 + adj_ja_offset) - &
+                  (i - adj_ja(1,(f-1)*4 + 1 + adj_ja_offset)) &
+             ) + ( &
+                  adj_ja(2,(f-1)*4 + 4 + adj_ja_offset) - &
+                  (j - adj_ja(1,(f-1)*4 + 3 + adj_ja_offset)) - 1 &
+             ) * output_size_h + (m-1) * output_size_h * output_size_w
              output(idx_in, s) = output(idx_in, s) + upstream_grad(idx_out, s)
           end do
        end do
@@ -334,7 +340,7 @@ contains
 
   end subroutine accumulate_corner_gradients_2d_val
 !-------------------------------------------------------------------------------
-  subroutine accumulate_edge_gradients_2d_val(upstream_grad, output, &
+  pure subroutine accumulate_edge_gradients_2d_val(upstream_grad, output, &
        input_shape, indices, adj_ja)
     !! Accumulate edge gradients for 2D padding - raw array version
     implicit none
@@ -375,8 +381,11 @@ contains
                   i = adj_ja(1,(f-1)*4 + 1):adj_ja(1,(f-1)*4 + 2))
                 idx_in = i + (j-1) * input_size_h + &
                      (m-1) * input_size_h * input_size_w
-                idx_out = (adj_ja(2,(f-1)*4 + 1) + &
-                     (i - adj_ja(1,(f-1)*4 + 1))) + &
+                idx_out = &
+                     ( &
+                          adj_ja(2,(f-1)*4 + 1) + &
+                          (i - adj_ja(1,(f-1)*4 + 1)) &
+                     ) + &
                      (j + adj_ja(2,(f-1)*4 + 3) - adj_ja(1,(f-1)*4 + 3) - 1) * &
                      output_size_h + (m-1) * output_size_h * output_size_w
                 output(idx_in, s) = output(idx_in, s) + &
@@ -390,10 +399,14 @@ contains
                   i = adj_ja(1,(f-1)*4 + 1):adj_ja(1,(f-1)*4 + 2))
                 idx_in = i + (j-1) * input_size_h + &
                      (m-1) * input_size_h * input_size_w
-                idx_out = (i + adj_ja(2,(f-1)*4 + 1) - &
-                     adj_ja(1,(f-1)*4 + 1)) + &
-                     (adj_ja(2,(f-1)*4 + 3) + &
-                     (j - adj_ja(1,(f-1)*4 + 3)) - 1) * output_size_h + &
+                idx_out = &
+                     ( &
+                          i + adj_ja(2,(f-1)*4 + 1) - &
+                          adj_ja(1,(f-1)*4 + 1) &
+                     ) + ( &
+                          adj_ja(2,(f-1)*4 + 3) + &
+                          (j - adj_ja(1,(f-1)*4 + 3)) - 1 &
+                     ) * output_size_h + &
                      (m-1) * output_size_h * output_size_w
                 output(idx_in, s) = output(idx_in, s) + &
                      upstream_grad(idx_out, s)
@@ -411,8 +424,11 @@ contains
                   i = adj_ja(1,(f-1)*4 + 1):adj_ja(1,(f-1)*4 + 2))
                 idx_in = i + (j-1) * input_size_h + &
                      (m-1) * input_size_h * input_size_w
-                idx_out = (adj_ja(2,(f-1)*4 + 2) - &
-                     (i - adj_ja(1,(f-1)*4 + 1))) + &
+                idx_out = &
+                     ( &
+                          adj_ja(2,(f-1)*4 + 2) - &
+                          (i - adj_ja(1,(f-1)*4 + 1)) &
+                     ) + &
                      (j + adj_ja(2,(f-1)*4 + 3) - adj_ja(1,(f-1)*4 + 3) - 1) * &
                      output_size_h + (m-1) * output_size_h * output_size_w
                 output(idx_in, s) = output(idx_in, s) + &
@@ -426,10 +442,14 @@ contains
                   i = adj_ja(1,(f-1)*4 + 1):adj_ja(1,(f-1)*4 + 2))
                 idx_in = i + (j-1) * input_size_h + &
                      (m-1) * input_size_h * input_size_w
-                idx_out = (i + adj_ja(2,(f-1)*4 + 1) - &
-                     adj_ja(1,(f-1)*4 + 1)) + &
-                     (adj_ja(2,(f-1)*4 + 4) - &
-                     (j - adj_ja(1,(f-1)*4 + 3)) - 1) * output_size_h + &
+                idx_out = &
+                     ( &
+                          i + adj_ja(2,(f-1)*4 + 1) - &
+                          adj_ja(1,(f-1)*4 + 1) &
+                     ) + ( &
+                          adj_ja(2,(f-1)*4 + 4) - &
+                          (j - adj_ja(1,(f-1)*4 + 3)) - 1 &
+                     ) * output_size_h + &
                      (m-1) * output_size_h * output_size_w
                 output(idx_in, s) = output(idx_in, s) + &
                      upstream_grad(idx_out, s)
@@ -445,8 +465,11 @@ contains
                    do j = adj_ja(1,(f-1)*4 + 3), adj_ja(1,(f-1)*4 + 4)
                       grad_sum = 0._real32
                       do i = adj_ja(2,(f-1)*4 + 1), adj_ja(2,(f-1)*4 + 2)
-                         idx_out = i + (j + adj_ja(2,(f-1)*4 + 3) - &
-                              adj_ja(1,(f-1)*4 + 3) - 1) * output_size_h + &
+                         idx_out = i + &
+                              ( &
+                                   j + adj_ja(2,(f-1)*4 + 3) - &
+                                   adj_ja(1,(f-1)*4 + 3) - 1 &
+                              ) * output_size_h + &
                               (m-1) * output_size_h * output_size_w
                          grad_sum = grad_sum + upstream_grad(idx_out, s)
                       end do
@@ -462,8 +485,9 @@ contains
                    do i = adj_ja(1,(f-1)*4 + 1), adj_ja(1,(f-1)*4 + 2)
                       grad_sum = 0._real32
                       do j = adj_ja(2,(f-1)*4 + 3), adj_ja(2,(f-1)*4 + 4)
-                         idx_out = (i + adj_ja(2,(f-1)*4 + 1) - &
-                              adj_ja(1,(f-1)*4 + 1)) + (j-1) * output_size_h + &
+                         idx_out = &
+                              ( i + adj_ja(2,(f-1)*4 + 1) - adj_ja(1,(f-1)*4 + 1) ) + &
+                              (j-1) * output_size_h + &
                               (m-1) * output_size_h * output_size_w
                          grad_sum = grad_sum + upstream_grad(idx_out, s)
                       end do
@@ -772,7 +796,7 @@ contains
 
   end subroutine fill_face_region_3d
 !-------------------------------------------------------------------------------
-  subroutine accumulate_corner_gradients_3d_val(upstream_grad, output, &
+  pure subroutine accumulate_corner_gradients_3d_val(upstream_grad, output, &
        input_shape, indices, adj_ja)
     !! Accumulate corner gradients for 3D padding - raw array version
     implicit none
@@ -869,7 +893,7 @@ contains
 
   end subroutine accumulate_corner_gradients_3d_val
 !-------------------------------------------------------------------------------
-  subroutine accumulate_edge_gradients_3d_val(upstream_grad, output, &
+  pure subroutine accumulate_edge_gradients_3d_val(upstream_grad, output, &
        input_shape, indices, adj_ja)
     !! Accumulate edge gradients for 3D padding - raw array version
     implicit none
@@ -1017,7 +1041,7 @@ contains
 
   end subroutine accumulate_edge_gradients_3d_val
 !-------------------------------------------------------------------------------
-  subroutine accumulate_face_gradients_3d_val(upstream_grad, output, &
+  pure subroutine accumulate_face_gradients_3d_val(upstream_grad, output, &
        input_shape, indices, adj_ja)
     !! Accumulate face gradients for 3D padding - raw array version
     implicit none
@@ -1250,12 +1274,12 @@ contains
 
   end function get_partial_pad1d
 !-------------------------------------------------------------------------------
-  subroutine get_partial_pad1d_val(this, upstream_grad, output)
+  pure subroutine get_partial_pad1d_val(this, upstream_grad, output)
     !! Get the partial derivative for the pad1d operation - raw array version
     implicit none
 
     ! Arguments
-    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: this
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 
@@ -1412,12 +1436,12 @@ contains
 
   end function get_partial_pad2d
 !-------------------------------------------------------------------------------
-  subroutine get_partial_pad2d_val(this, upstream_grad, output)
+  pure subroutine get_partial_pad2d_val(this, upstream_grad, output)
     !! Get the partial derivative for the pad2d operation - raw array version
     implicit none
 
     ! Arguments
-    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: this
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 
@@ -1612,12 +1636,12 @@ contains
 
   end function get_partial_pad3d
 !-------------------------------------------------------------------------------
-  subroutine get_partial_pad3d_val(this, upstream_grad, output)
+  pure subroutine get_partial_pad3d_val(this, upstream_grad, output)
     !! Get the partial derivative for the pad3d operation - raw array version
     implicit none
 
     ! Arguments
-    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: this
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 

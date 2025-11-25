@@ -65,12 +65,12 @@ contains
 
   end function get_partial_avgpool1d
 !-------------------------------------------------------------------------------
-  subroutine get_partial_avgpool1d_val(this, upstream_grad, output)
+  pure subroutine get_partial_avgpool1d_val(this, upstream_grad, output)
     !! Optimized backward pass for 1D average pooling
     implicit none
 
     ! Arguments
-    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: this
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 
@@ -192,12 +192,12 @@ contains
 
   end function get_partial_avgpool2d
 !-------------------------------------------------------------------------------
-  subroutine get_partial_avgpool2d_val(this, upstream_grad, output)
+  pure subroutine get_partial_avgpool2d_val(this, upstream_grad, output)
     !! Optimized backward pass for 2D average pooling
     implicit none
 
     ! Arguments
-    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: this
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 
@@ -342,12 +342,12 @@ contains
 
   end function get_partial_avgpool3d
 !-------------------------------------------------------------------------------
-  subroutine get_partial_avgpool3d_val(this, upstream_grad, output)
+  pure subroutine get_partial_avgpool3d_val(this, upstream_grad, output)
     !! Optimized backward pass for 3D average pooling
     implicit none
 
     ! Arguments
-    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: this
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 
@@ -471,12 +471,12 @@ contains
 
   end function get_partial_maxpool1d
 !-------------------------------------------------------------------------------
-  subroutine get_partial_maxpool1d_val(this, upstream_grad, output)
+  pure subroutine get_partial_maxpool1d_val(this, upstream_grad, output)
     !! Optimized backward pass for 1D max pooling
     implicit none
 
     ! Arguments
-    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: this
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 
@@ -611,11 +611,11 @@ contains
 
   end function get_partial_maxpool2d
 !-------------------------------------------------------------------------------
-  subroutine get_partial_maxpool2d_val(this, upstream_grad, output)
+  pure subroutine get_partial_maxpool2d_val(this, upstream_grad, output)
     implicit none
 
     ! Arguments
-    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: this
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 
@@ -689,7 +689,8 @@ contains
     integer :: i, j, k, m, s
     integer :: i_step, j_step, k_step
     integer :: stride_idx, idx
-    real(real32) :: pool_max, channel_size_in, channel_size_out
+    integer :: channel_size_in, channel_size_out
+    real(real32) :: pool_max
     integer, dimension(5) :: output_shape
 
     ! output_shape = [H_out, W_out, D_out, C, B]
@@ -729,11 +730,17 @@ contains
           do j_step = 0, pool_size(2)-1
              do i_step = 0, pool_size(1)-1
                 if(i_step == 0 .and. j_step == 0 .and. k_step == 0) cycle
-                if(input%val(stride_idx + i_step + j_step * input%shape(1) + &
-                     k_step * input%shape(1) * input%shape(2), s) > pool_max) &
-                     pool_max = input%val(stride_idx + i_step + &
-                     j_step * input%shape(1) + &
-                     k_step * input%shape(1) * input%shape(2), s)
+                if( &
+                     input%val( &
+                          stride_idx + i_step + &
+                          j_step * input%shape(1) + &
+                          k_step * input%shape(1) * input%shape(2), s &
+                     ) .gt. pool_max &
+                )then
+                   pool_max = input%val(stride_idx + i_step + &
+                        j_step * input%shape(1) + &
+                        k_step * input%shape(1) * input%shape(2), s)
+                end if
              end do
           end do
        end do
@@ -772,12 +779,12 @@ contains
 
   end function get_partial_maxpool3d
 !-------------------------------------------------------------------------------
-  subroutine get_partial_maxpool3d_val(this, upstream_grad, output)
+  pure subroutine get_partial_maxpool3d_val(this, upstream_grad, output)
     !! Optimized backward pass for 3D max pooling
     implicit none
 
     ! Arguments
-    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: this
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 

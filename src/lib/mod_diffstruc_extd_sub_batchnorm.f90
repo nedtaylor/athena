@@ -119,60 +119,6 @@ contains
 
   end function get_partial_batchnorm_left
 !-------------------------------------------------------------------------------
-  subroutine get_partial_batchnorm_left_val(this, upstream_grad, output)
-    !! Get partial derivative wrt input for batchnorm (subroutine version)
-    implicit none
-
-    class(array_type), intent(inout) :: this
-    real(real32), dimension(:,:), intent(in) :: upstream_grad
-    real(real32), dimension(:,:), intent(out) :: output
-
-    integer :: i, c, s, num_dims, num_elements
-    real(real32), allocatable :: x_hat(:,:), dx_hat(:,:)
-    real(real32) :: mu, var, eps, norm
-    class(array_type), pointer :: input, params
-
-    input => this%left_operand
-    params => this%right_operand
-
-    select type(this)
-    type is (batchnorm_array_type)
-       eps = this%epsilon
-       num_dims = size(this%shape)
-       num_elements = product(this%shape(1:num_dims - 1))
-
-       output = 0._real32
-
-       allocate(x_hat(num_elements, size(upstream_grad,2)))
-       allocate(dx_hat(num_elements, size(upstream_grad,2)))
-       norm = real( &
-            product(input%shape(1:num_dims - 1)) * size(upstream_grad,2), &
-            real32 &
-       )
-
-       do c = 1, input%shape(num_dims)
-          mu = this%mean(c)
-          var = this%variance(c)
-
-          ! Normalised input
-          x_hat = (input%val((c-1)*num_elements+1:c*num_elements,:) - mu) / &
-               sqrt(var + eps)
-
-          ! Gradient of normalised input
-          dx_hat = upstream_grad((c-1)*num_elements+1:c*num_elements,:) * &
-               params%val(c,1)
-
-          ! Gradient wrt input
-          do concurrent(s = 1:size(upstream_grad,2), i = 1:num_elements)
-             output(i + (c-1)*num_elements,s) = &
-                  (1._real32 / (norm * sqrt(var + eps))) * &
-                  (norm * dx_hat(i,s) - sum(dx_hat) - x_hat(i,s) * sum(dx_hat * x_hat))
-          end do
-       end do
-    end select
-
-  end subroutine get_partial_batchnorm_left_val
-!-------------------------------------------------------------------------------
   function get_partial_batchnorm_right(this, upstream_grad) result(output)
     implicit none
     class(array_type), intent(inout) :: this
@@ -188,20 +134,75 @@ contains
 
   end function get_partial_batchnorm_right
 !-------------------------------------------------------------------------------
-  subroutine get_partial_batchnorm_right_val(this, upstream_grad, output)
+  pure subroutine get_partial_batchnorm_left_val(this, upstream_grad, output)
+    !! Get partial derivative wrt input for batchnorm (subroutine version)
+    implicit none
+
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    integer :: i, c, s, num_dims, num_elements
+    real(real32), allocatable :: x_hat(:,:), dx_hat(:,:)
+    real(real32) :: mu, var, eps, norm
+    real(real32), dimension(size(this%shape)) :: input_shape
+
+    input_shape = this%left_operand%shape
+
+    select type(this)
+    type is (batchnorm_array_type)
+       eps = this%epsilon
+       num_dims = size(this%shape)
+       num_elements = product(this%shape(1:num_dims - 1))
+
+       output = 0._real32
+
+       allocate(x_hat(num_elements, size(upstream_grad,2)))
+       allocate(dx_hat(num_elements, size(upstream_grad,2)))
+       norm = real( &
+            product(input_shape(1:num_dims - 1)) * size(upstream_grad,2), &
+            real32 &
+       )
+
+       do c = 1, input_shape(num_dims)
+          mu = this%mean(c)
+          var = this%variance(c)
+
+          ! Normalised input
+          x_hat = ( &
+               this%left_operand%val((c-1)*num_elements+1:c*num_elements,:) - &
+               mu &
+          ) / sqrt(var + eps)
+
+          ! Gradient of normalised input
+          dx_hat = upstream_grad((c-1)*num_elements+1:c*num_elements,:) * &
+               this%right_operand%val(c,1)
+
+          ! Gradient wrt input
+          do concurrent(s = 1:size(upstream_grad,2), i = 1:num_elements)
+             output(i + (c-1)*num_elements,s) = &
+                  (1._real32 / (norm * sqrt(var + eps))) * &
+                  (norm * dx_hat(i,s) - sum(dx_hat) - x_hat(i,s) * sum(dx_hat * x_hat))
+          end do
+       end do
+    end select
+
+  end subroutine get_partial_batchnorm_left_val
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_batchnorm_right_val(this, upstream_grad, output)
     !! Get partial derivative wrt params for batchnorm (subroutine version)
     implicit none
 
-    class(array_type), intent(inout) :: this
+    class(array_type), intent(in) :: this
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:,:), intent(out) :: output
 
     integer :: c, num_dims, num_elements
     real(real32), allocatable :: x_hat(:,:)
     real(real32) :: mu, var, eps
-    class(array_type), pointer :: input
+    real(real32), dimension(size(this%shape)) :: input_shape
 
-    input => this%left_operand
+    input_shape = this%left_operand%shape
 
     select type(this)
     type is (batchnorm_array_type)
@@ -213,17 +214,18 @@ contains
 
        allocate(x_hat(num_elements, size(upstream_grad,2)))
 
-       do c = 1, input%shape(num_dims)
+       do c = 1, input_shape(num_dims)
           mu = this%mean(c)
           var = this%variance(c)
 
           ! Normalised input
-          x_hat(:,:) = (input%val((c-1)*num_elements+1:c*num_elements,:) - mu) / &
-               sqrt(var + eps)
+          x_hat(:,:) = ( &
+               this%left_operand%val((c-1)*num_elements+1:c*num_elements,:) - mu &
+          ) / sqrt(var + eps)
 
           output(c,1) = &
                sum(upstream_grad((c-1)*num_elements+1:c*num_elements,:) * x_hat)
-          output(c + input%shape(num_dims),1) = &
+          output(c + input_shape(num_dims),1) = &
                sum(upstream_grad((c-1)*num_elements+1:c*num_elements,:))
 
        end do
