@@ -33,7 +33,7 @@ module athena__add_layer
   interface add_layer_type
      !! Interface for setting up the add layer
      module function layer_setup( &
-          input_layer_ids, batch_size, verbose &
+          input_layer_ids, batch_size, input_rank, verbose &
      ) result(layer)
        !! Setup a add layer
        integer, dimension(:), intent(in) :: input_layer_ids

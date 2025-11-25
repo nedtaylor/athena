@@ -4,7 +4,7 @@ submodule (athena__diffstruc_extd) athena__diffstruc_extd_submodule_conv
 contains
 
 !###############################################################################
-  function conv1d(input, kernel, stride, dilation) result(output)
+  module function conv1d(input, kernel, stride, dilation) result(output)
     !! 1D convolution operation
     implicit none
 
@@ -216,7 +216,7 @@ contains
 
 
 !###############################################################################
-  function conv2d(input, kernel, stride, dilation) result(output)
+  module function conv2d(input, kernel, stride, dilation) result(output)
     !! 2D convolution operation
     implicit none
 
@@ -492,7 +492,7 @@ contains
 
 
 !###############################################################################
-  function conv3d(input, kernel, stride, dilation) result(output)
+  module function conv3d(input, kernel, stride, dilation) result(output)
     !! 3D convolution operation
     implicit none
 
