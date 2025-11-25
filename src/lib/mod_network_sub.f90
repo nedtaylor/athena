@@ -3112,8 +3112,8 @@ contains
     if(allocated(this%expected_array)) deallocate(this%expected_array)
     select type(output)
     type is(graph_type)
-       allocate(this%expected_array(2,this%batch_size))
-       do s = 1, this%batch_size
+       allocate(this%expected_array(2,size(output,2)))
+       do s = 1, size(output,2)
           if(this%expected_array(1,s)%allocated) &
                call this%expected_array(1,s)%deallocate()
           if(this%expected_array(2,s)%allocated) &
