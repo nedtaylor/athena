@@ -451,17 +451,6 @@ contains
                  this%batch_size ], &
             source=0._real32 &
        )
-       do i = 1, 2
-          if(this%z(i)%allocated) call this%z(i)%deallocate()
-          call this%z(i)%allocate( &
-               array_shape = [ &
-                    this%output_shape(1), &
-                    this%output_shape(2), &
-                    this%num_filters, &
-                    this%batch_size ], &
-               source=0._real32 &
-          )
-       end do
     end if
 
   end subroutine set_batch_size_conv2d
@@ -792,8 +781,9 @@ contains
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input values
 
+    ! Local variables
     type(array_type), pointer :: ptr
-    !! Pointer arrays
+    !! Pointer array
 
 
     ! Generate outputs from weights, biases, and inputs
@@ -805,7 +795,7 @@ contains
             this%stp, this%dil &
        )
     case default
-       ptr => conv2d(input(1,1), this%params_array(1), this%stp(1), this%dil)
+       ptr => conv2d(input(1,1), this%params_array(1), this%stp, this%dil)
     end select
     ptr => add_bias(ptr, this%params_array(2), dim=3, dim_act_on_shape=.true.)
 

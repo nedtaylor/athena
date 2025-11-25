@@ -446,18 +446,6 @@ contains
                  this%batch_size ], &
             source=0._real32 &
        )
-       do i = 1, 2
-          if(this%z(i)%allocated) call this%z(i)%deallocate()
-          call this%z(i)%allocate( &
-               array_shape = [ &
-                    this%output_shape(1), &
-                    this%output_shape(2), &
-                    this%output_shape(3), &
-                    this%num_filters, &
-                    this%batch_size ], &
-               source=0._real32 &
-          )
-       end do
     end if
 
   end subroutine set_batch_size_conv3d
@@ -721,7 +709,6 @@ contains
        this%params_array(2)%val(:,1) = data_list
        deallocate(data_list)
 
-
        ! Check for end of weights card
        !------------------------------------------------------------------------
        read(unit,'(A)') buffer
@@ -788,13 +775,13 @@ contains
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input values
 
+    ! Local variables
     type(array_type), pointer :: ptr
+    !! Pointer array
 
 
     ! Generate outputs from weights, biases, and inputs
     !---------------------------------------------------------------------------
-    call this%z(1)%zero_grad()
-    call this%z(2)%zero_grad()
     select case(allocated(this%pad_layer))
     case(.true.)
        call this%pad_layer%forward(input)
@@ -804,8 +791,7 @@ contains
     case default
        ptr => conv3d(input(1,1), this%params_array(1), this%stp, this%dil)
     end select
-    call this%z(1)%assign_and_deallocate_source(ptr)
-    ptr => add_bias(this%z(1), this%params_array(2), dim=4, dim_act_on_shape=.true.)
+    ptr => add_bias(ptr, this%params_array(2), dim=4, dim_act_on_shape=.true.)
 
     ! Apply activation function to activation
     !---------------------------------------------------------------------------
@@ -813,10 +799,10 @@ contains
     if(trim(this%transfer%name) .eq. "none") then
        call this%output(1,1)%assign_and_deallocate_source(ptr)
     else
-       call this%z(2)%assign_and_deallocate_source(ptr)
-       ptr => this%transfer%activate(this%z(2))
+       ptr => this%transfer%activate(ptr)
        call this%output(1,1)%assign_and_deallocate_source(ptr)
     end if
+    this%output(1,1)%is_temporary = .false.
 
   end subroutine forward_conv3d
 !###############################################################################

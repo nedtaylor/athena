@@ -369,12 +369,15 @@ contains
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input values
 
+    ! Local variables
     type(array_type), pointer :: ptr
+    !! Pointer array
 
 
     call this%output(1,1)%zero_grad()
     ptr => pad1d(input(1,1), this%facets(1), this%pad(1), this%imethod)
     call this%output(1,1)%assign_and_deallocate_source(ptr)
+    this%output(1,1)%is_temporary = .false.
 
   end subroutine forward_pad1d
 !###############################################################################

@@ -368,12 +368,15 @@ contains
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input values
 
+    ! Local variables
     type(array_type), pointer :: ptr
+    !! Pointer array
 
 
     call this%output(1,1)%zero_grad()
     ptr => avgpool1d(input(1,1), this%pool(1), this%strd(1))
     call this%output(1,1)%assign_and_deallocate_source(ptr)
+    this%output(1,1)%is_temporary = .false.
 
   end subroutine forward_avgpool1d
 !###############################################################################

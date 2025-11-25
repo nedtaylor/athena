@@ -1371,7 +1371,7 @@ contains
        write(err_msg,'(A)') &
             "No accuracy method provided" // &
             achar(13) // achar(10) // &
-            "Failed loss method: "//trim(accuracy_method_)
+            "Failed accuracy method: "//trim(accuracy_method_)
        call stop_program(trim(err_msg))
        return
     end select
