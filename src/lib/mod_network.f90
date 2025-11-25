@@ -103,6 +103,9 @@ module athena__network
      procedure, pass(this) :: save_input => save_input_to_network
      !! Convert and save polymorphic input to array or graph
 
+     procedure, pass(this) :: layer_from_id
+     !! Get the layer of the network from its ID
+
      procedure, pass(this) :: train
      !! Train the network
      procedure, pass(this) :: test
@@ -148,6 +151,8 @@ module athena__network
      procedure, pass(this) :: extract_output => extract_output_real
      procedure, pass(this) :: forward_generic2d
      !! Forward pass for generic 2D input
+     procedure, pass(this) :: forward_eval
+     !! Forward pass and return pointer to output (only works for single output layer models)
 
      procedure, pass(this) :: nullify_graph
 
@@ -333,6 +338,16 @@ module athena__network
        integer :: num_samples
        !! Number of samples
      end function save_input_to_network
+
+     module function layer_from_id(this, id) result(layer)
+       !! Get the layer of the network from its ID
+       class(network_type), intent(in), target :: this
+       !! Instance of the network
+       integer, intent(in) :: id
+       !! Layer ID
+       class(base_layer_type), pointer :: layer
+       !! Layer pointer
+     end function layer_from_id
 
 
      !! Interface for training the network
@@ -645,6 +660,16 @@ module athena__network
        class(*), dimension(:,:), intent(in) :: input
        !! Input data
      end subroutine forward_generic2d
+
+     module function forward_eval(this, input) result(output)
+       !! Forward pass evaluation
+       class(network_type), intent(inout), target :: this
+       !! Instance of the network
+       class(*), dimension(:,:), intent(in) :: input
+       !! Input data
+       type(array_type), pointer :: output(:,:)
+       !! Output data
+     end function forward_eval
 
      module subroutine nullify_graph(this)
        !! Nullify graph data in the network to free memory

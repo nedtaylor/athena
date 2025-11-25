@@ -1905,6 +1905,40 @@ contains
 !###############################################################################
 
 
+!###############################################################################
+  module function layer_from_id(this, id) result(layer)
+    !! Get layer from its ID
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(in), target :: this
+    !! Instance of network
+    integer, intent(in) :: id
+    !! Layer ID
+
+    class(base_layer_type), pointer :: layer
+    !! Layer
+
+    ! Local variables
+    integer :: i, itmp1
+    !! Loop index
+
+    itmp1 = 0
+    do i = 1, size(this%model, dim = 1)
+       if(this%model(i)%layer%id.eq.id)then
+          if(itmp1.ne.0)then
+             call stop_program("multiple layers with same ID found")
+             return
+          end if
+          layer => this%model(i)%layer
+          itmp1 = itmp1 + 1
+       end if
+    end do
+
+  end function layer_from_id
+!###############################################################################
+
+
 !##############################################################################!
 ! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
 !##############################################################################!
@@ -2586,6 +2620,26 @@ contains
     end do
 
   end subroutine forward_generic2d
+!-------------------------------------------------------------------------------
+  module function forward_eval(this, input) result(output)
+    !! Forward pass for evaluation
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout), target :: this
+    !! Instance of network
+    class(*), dimension(:,:), intent(in) :: input
+    !! Input
+
+    type(array_type), pointer :: output(:,:)
+    !! Output
+
+    ! Local variables
+
+    call this%forward_generic2d(input)
+    output => this%model(this%leaf_vertices(1))%layer%output
+
+  end function forward_eval
 !###############################################################################
 
 
@@ -3183,7 +3237,7 @@ contains
                   as_graph = .false. &
              )
           end select
-          call this%forward_generic2d(data_poly)
+          call this%forward(data_poly)
           deallocate(data_poly)
           !  call system_clock(timer_stop)
           !  forward_timer = forward_timer + timer_stop - timer_start
@@ -3378,7 +3432,7 @@ contains
                as_graph = .false. &
           )
        end select
-       call this%forward_generic2d(data_poly)
+       call this%forward(data_poly)
        deallocate(data_poly)
 
 
@@ -3613,9 +3667,9 @@ contains
     !---------------------------------------------------------------------------
     select case(this%use_graph_input)
     case(.true.)
-       call this%forward_generic2d(this%input_graph)
+       call this%forward(this%input_graph)
     case default
-       call this%forward_generic2d(this%input_array)
+       call this%forward(this%input_array)
     end select
 
 
@@ -3705,9 +3759,9 @@ contains
     !---------------------------------------------------------------------------
     select case(this%use_graph_input)
     case(.true.)
-       call this%forward_generic2d(this%input_graph)
+       call this%forward(this%input_graph)
     case default
-       call this%forward_generic2d(this%input_array)
+       call this%forward(this%input_array)
     end select
 
 
