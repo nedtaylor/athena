@@ -416,6 +416,7 @@ contains
     integer :: s, i
     !! Loop indices
 
+    output => mean(-log(expected(1,1) - predicted(1,1) + this%epsilon), dim=2)
     if(any(shape(predicted).gt.1))then
        do s = 1, size(predicted,2)
           do i = 1, size(predicted,1)
@@ -454,15 +455,18 @@ contains
 
     ptr => predicted(1,1) - expected(1,1)
     output => huber(predicted(1,1) - expected(1,1), this%gamma)
-    do s = 1, size(predicted,2)
-       do i = 1, size(predicted,1)
-          if(.not.predicted(i,s)%allocated .or. &
-               .not.expected(i,s)%allocated) cycle
-          ptr => predicted(i,s) - expected(i,s)
+    if(any(shape(predicted).gt.1))then
+       do s = 1, size(predicted,2)
+          do i = 1, size(predicted,1)
+             if(.not.predicted(i,s)%allocated .or. &
+                  .not.expected(i,s)%allocated) cycle
+             ptr => predicted(i,s) - expected(i,s)
 
-          output => output + huber(ptr, this%gamma)
+             output => output + huber(ptr, this%gamma)
+          end do
        end do
-    end do
+     end if
+     output => mean(output, dim=2)
 
     ! output => merge( &
     !      0.5_real32 * (ptr)**2._real32, &

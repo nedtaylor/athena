@@ -105,7 +105,7 @@ program test_conv3d_layer
   call conv_layer%set_ptrs()
 
   !! set input data in input_layer
-  call conv_layer%forward_derived(input)
+  call conv_layer%forward(input)
   output => conv_layer%output(1,1)
 
   !! check outputs have expected value

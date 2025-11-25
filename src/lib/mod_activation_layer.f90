@@ -32,7 +32,7 @@ module athena__actv_layer
      !! Print layer to unit
      procedure, pass(this) :: read => read_actv
      !! Read layer from file
-     procedure, pass(this) :: forward_derived => forward_derived_actv
+     procedure, pass(this) :: forward => forward_actv
      !! Forward propagation derived type handler
   end type actv_layer_type
 
@@ -516,7 +516,7 @@ contains
 
 
 !###############################################################################
-  subroutine forward_derived_actv(this, input)
+  subroutine forward_actv(this, input)
     !! Forward propagation
     implicit none
 
@@ -531,7 +531,7 @@ contains
     ptr => this%transfer%activate(input(1,1))
     call this%output(1,1)%assign_and_deallocate_source(ptr)
 
-  end subroutine forward_derived_actv
+  end subroutine forward_actv
 !###############################################################################
 
 end module athena__actv_layer

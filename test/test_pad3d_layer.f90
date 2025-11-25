@@ -122,7 +122,7 @@ program test_pad3d_layer
   end do
 
   ! Run forward pass
-  call pad3d_layer%forward_derived(input)
+  call pad3d_layer%forward(input)
   call pad3d_layer%extract_output(output_2d)
 
   ! Check output dimensions
@@ -154,7 +154,7 @@ program test_pad3d_layer
   call random_number(input(1,1)%val)
 
   ! Run forward pass
-  call pad3d_layer%forward_derived(input)
+  call pad3d_layer%forward(input)
   call pad3d_layer%extract_output(output_5d)
 
   ! Check output dimensions
@@ -256,7 +256,7 @@ program test_pad3d_layer
        call input(1,1)%allocate(&
             array_shape=[width, height, depth, 1, 1], source = 1.0_real32)
 
-       call pad3d_layer%forward_derived(input)
+       call pad3d_layer%forward(input)
        call pad3d_layer%extract_output(output_5d)
 
        if(.not. allocated(output_5d))then
@@ -324,7 +324,7 @@ program test_pad3d_layer
               simple_channels], &
          batch_size = 1 &
     )
-    call pad3d_layer%forward_derived(input)
+    call pad3d_layer%forward(input)
     call pad3d_layer%extract_output(output_simple)
 
     ! Should have zeros around border and original data in center
@@ -364,7 +364,7 @@ program test_pad3d_layer
               simple_channels], &
          batch_size = 1 &
     )
-    call pad3d_layer%forward_derived(input)
+    call pad3d_layer%forward(input)
     call pad3d_layer%extract_output(output_simple)
 
     ! Replicate edge values at boundaries
@@ -496,7 +496,7 @@ program test_pad3d_layer
        call input(1,1)%allocate(&
             array_shape=[width, height, depth, 1, 1], source = 1.0_real32)
 
-       call pad3d_layer%forward_derived(input)
+       call pad3d_layer%forward(input)
        call pad3d_layer%extract_output(output_5d)
 
        ! For zero padding, check that padding is actually zero
@@ -562,7 +562,7 @@ program test_pad3d_layer
      end do
   end do
 
-  call pad3d_layer%forward_derived(input)
+  call pad3d_layer%forward(input)
   call pad3d_layer%extract_output(output_5d)
 
   ! Check that the center part matches the input
@@ -655,7 +655,7 @@ program test_pad3d_layer
 
   call input(1,1)%allocate(array_shape=[1, 1, 1, 1, 1], source = 42.0_real32)
 
-  call pad3d_layer%forward_derived(input)
+  call pad3d_layer%forward(input)
   call pad3d_layer%extract_output(output_5d)
 
   if(any(abs(output_5d - 42.0_real32) .gt. tol))then

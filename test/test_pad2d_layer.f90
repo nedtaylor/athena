@@ -112,7 +112,7 @@ program test_pad2d_layer
   end do
 
   ! Run forward pass
-  call pad2d_layer%forward_derived(input)
+  call pad2d_layer%forward(input)
   call pad2d_layer%extract_output(output_2d)
 
   ! Check output dimensions
@@ -144,7 +144,7 @@ program test_pad2d_layer
   call random_number(input(1,1)%val)
 
   ! Run forward pass
-  call pad2d_layer%forward_derived(input)
+  call pad2d_layer%forward(input)
   call pad2d_layer%extract_output(output_4d)
 
   ! Check output dimensions
@@ -235,7 +235,7 @@ program test_pad2d_layer
        call input(1,1)%allocate(&
             array_shape=[width, height, 1, 1], source = 1.0_real32)
 
-       call pad2d_layer%forward_derived(input)
+       call pad2d_layer%forward(input)
        call pad2d_layer%extract_output(output_4d)
 
        if(.not. allocated(output_4d))then
@@ -313,7 +313,7 @@ program test_pad2d_layer
          input_shape = [simple_width, simple_height, simple_channels], &
          batch_size = 1 &
     )
-    call pad2d_layer%forward_derived(input)
+    call pad2d_layer%forward(input)
     call pad2d_layer%extract_output(output_simple)
 
     output_expected = 0._real32
@@ -351,7 +351,7 @@ program test_pad2d_layer
          input_shape = [simple_width, simple_height, simple_channels], &
          batch_size = 1 &
     )
-    call pad2d_layer%forward_derived(input)
+    call pad2d_layer%forward(input)
     call pad2d_layer%extract_output(output_simple)
 
     output_expected(3:6,3:6,1,1) = input_simple(:,:,1,1)
@@ -429,7 +429,7 @@ program test_pad2d_layer
          input_shape = [simple_width, simple_height, simple_channels], &
          batch_size = 1 &
     )
-    call pad2d_layer%forward_derived(input)
+    call pad2d_layer%forward(input)
     call pad2d_layer%extract_output(output_simple)
 
     output_expected(3:6,3:6,1,1) = input_simple(:,:,1,1)
@@ -502,7 +502,7 @@ program test_pad2d_layer
          input_shape = [simple_width, simple_height, simple_channels], &
          batch_size = 1 &
     )
-    call pad2d_layer%forward_derived(input)
+    call pad2d_layer%forward(input)
     call pad2d_layer%extract_output(output_simple)
 
     output_expected(3:6,3:6,1,1) = input_simple(:,:,1,1)
@@ -603,7 +603,7 @@ program test_pad2d_layer
        call input(1,1)%allocate(&
             array_shape=[width, height, 1, 1], source = 1.0)
 
-       call pad2d_layer%forward_derived(input)
+       call pad2d_layer%forward(input)
        call pad2d_layer%extract_output(output_4d)
 
        ! For zero padding, check that padding is actually zero
@@ -655,7 +655,7 @@ program test_pad2d_layer
      end do
   end do
 
-  call pad2d_layer%forward_derived(input)
+  call pad2d_layer%forward(input)
   call pad2d_layer%extract_output(output_4d)
 
   ! Check that the center part matches the input

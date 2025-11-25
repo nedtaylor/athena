@@ -319,7 +319,7 @@ contains
 
 
 !###############################################################################
-  module subroutine forward_derived_base(this, input)
+  module subroutine forward_base(this, input)
     !! Forward pass for the layer
     implicit none
 
@@ -343,7 +343,23 @@ contains
        end do
     end do
 
-  end subroutine forward_derived_base
+  end subroutine forward_base
+
+  module function forward_eval_base(this, input) result(output)
+    !! Forward pass of layer and return output for evaluation
+    implicit none
+
+    ! Arguments
+    class(base_layer_type), intent(inout), target :: this
+    !! Instance of the layer
+    class(array_type), dimension(:,:), intent(in) :: input
+    !! Input data
+    type(array_type), pointer :: output(:,:)
+    !! Output data
+
+    call this%forward(input)
+    output => this%output
+  end function forward_eval_base
 
   module subroutine set_graph_base(this, graph)
     !! Set the graph structure of the input data
@@ -374,26 +390,6 @@ contains
        this%graph(s)%num_edges = graph(s)%num_edges
        this%graph(s)%num_vertices = graph(s)%num_vertices
     end do
-
-    ! if(this%use_graph_input)then
-    !    if(allocated(this%output))then
-    !       do s = 1, size(graph)
-    !          call this%output(1,s)%allocate( &
-    !               [ &
-    !                    this%graph(s)%num_vertex_features, &
-    !                    this%graph(s)%num_vertices &
-    !               ] &
-    !          )
-    !          call this%output(2,s)%allocate( &
-    !               [ &
-    !                    this%graph(s)%num_edge_features, &
-    !                    this%graph(s)%num_vertices &
-    !               ] &
-    !          )
-    !       end do
-    !    end if
-    !    call this%set_ptrs()
-    ! end if
 
   end subroutine set_graph_base
 !-------------------------------------------------------------------------------

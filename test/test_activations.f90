@@ -243,7 +243,7 @@ program test_activations
         else
            call input(1,1)%allocate(array_shape=[num_inputs, batch_size], &
                 source=1._real32)
-           call full_layer%forward_derived(input)
+           call full_layer%forward(input)
            call compare_output( &
                 full_layer%output(1,1)%val, &
                 input(1,1)%val, activation_names(i), "full", success)
@@ -288,7 +288,7 @@ program test_activations
                 array_shape = [width, width, num_channels, batch_size], &
                 source = 1._real32 &
            )
-           call conv2d_layer%forward_derived(input)
+           call conv2d_layer%forward(input)
            call compare_output( &
                 conv2d_layer%output(1,1)%val, &
                 input(1,1)%val, activation_names(i), "conv2d", success)
@@ -333,7 +333,7 @@ program test_activations
                 array_shape = [width, width, width, num_channels, batch_size], &
                 source = 1._real32 &
            )
-           call conv3d_layer%forward_derived(input)
+           call conv3d_layer%forward(input)
            call compare_output( &
                 conv3d_layer%output(1,1)%val, &
                 input(1,1)%val, activation_names(i), "conv3d", success)

@@ -154,7 +154,7 @@ program test_kipf_msgpass_layer
      allocate(input(2, batch_size))
      call input(1,1)%allocate(source = graph(1)%vertex_features)
      call input(2,1)%allocate(source = graph(1)%edge_features)
-     call msgpass_layer%forward_derived(input)
+     call msgpass_layer%forward(input)
      if(size(msgpass_layer%output(1,1)%val,1) .ne. msgpass_layer%output_shape(1))then
         success = .false.
         write(0,*) 'kipf layer has wrong number of outputs'

@@ -27,7 +27,7 @@ module athena__batchnorm2d_layer
      procedure, pass(this) :: read => read_batchnorm2d
      !! Read 2D batch normalisation layer from file
 
-     procedure, pass(this) :: forward_derived => forward_derived_batchnorm2d
+     procedure, pass(this) :: forward => forward_batchnorm2d
      !! Forward propagation derived type handler
 
      final :: finalise_batchnorm2d
@@ -585,7 +585,7 @@ contains
 
 
 !###############################################################################
-  subroutine forward_derived_batchnorm2d(this, input)
+  subroutine forward_batchnorm2d(this, input)
     !! Forward propagation
     implicit none
 
@@ -627,7 +627,7 @@ contains
     end select
     deallocate(ptr)
 
-  end subroutine forward_derived_batchnorm2d
+  end subroutine forward_batchnorm2d
 !###############################################################################
 
 end module athena__batchnorm2d_layer

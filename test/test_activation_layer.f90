@@ -104,7 +104,7 @@ program test_activation_layer
   input%is_temporary = .false.
 
   ! Run forward pass
-  call actv_layer%forward_derived(input)
+  call actv_layer%forward(input)
   output => actv_layer%output(1,1)
 
   ! Check ReLU activation (negative values should be zero)
@@ -177,7 +177,7 @@ program test_activation_layer
   call input(1,1)%set_requires_grad(.true.)
   input%is_temporary = .false.
 
-  call actv_layer%forward_derived(input)
+  call actv_layer%forward(input)
   output => actv_layer%output(1,1)
 
   ! Check that sigmoid output is in (0,1)
@@ -224,7 +224,7 @@ program test_activation_layer
   call random_number(input(1,1)%val)
   input(1,1)%val = input(1,1)%val * 2.0_real32 - 1.0_real32  ! Scale to [-1, 1]
 
-  call actv_layer%forward_derived(input)
+  call actv_layer%forward(input)
   output => actv_layer%output(1,1)
 
   ! Check that tanh output is in (-1,1)
@@ -251,7 +251,7 @@ program test_activation_layer
   call input(1,1)%allocate(array_shape=[width, height, depth, channels, batch_size])
   call random_number(input(1,1)%val)
 
-  call actv_layer%forward_derived(input)
+  call actv_layer%forward(input)
   output => actv_layer%output(1,1)
 
   ! Check that linear activation with scale 2.0 doubles the input
@@ -276,7 +276,7 @@ program test_activation_layer
   call input(1,1)%allocate(array_shape=[width, batch_size])
   call random_number(input(1,1)%val)
 
-  call actv_layer%forward_derived(input)
+  call actv_layer%forward(input)
   output => actv_layer%output(1,1)
 
   ! Check that 'none' activation returns input unchanged
@@ -402,7 +402,7 @@ program test_activation_layer
      call input(1,1)%allocate(array_shape=[width, 1])
      input(1,1)%val(:,1) = [0.1, 0.2, 0.3, 0.4]
 
-     call actv_layer%forward_derived(input)
+     call actv_layer%forward(input)
      output => actv_layer%output(1,1)
 
      if(.not. allocated(output%val)) then

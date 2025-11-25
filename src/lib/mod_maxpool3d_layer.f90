@@ -23,7 +23,7 @@ module athena__maxpool3d_layer
      procedure, pass(this) :: read => read_maxpool3d
      !! Read 3D max pooling layer from file
 
-     procedure, pass(this) :: forward_derived => forward_derived_maxpool3d
+     procedure, pass(this) :: forward => forward_maxpool3d
      !! Forward propagation derived type handler
 
   end type maxpool3d_layer_type
@@ -372,7 +372,7 @@ contains
 
 
 !###############################################################################
-  subroutine forward_derived_maxpool3d(this, input)
+  subroutine forward_maxpool3d(this, input)
     !! Forward propagation
     implicit none
 
@@ -389,7 +389,7 @@ contains
     ptr => maxpool3d(input(1,1), this%pool, this%strd)
     call this%output(1,1)%assign_and_deallocate_source(ptr)
 
-  end subroutine forward_derived_maxpool3d
+  end subroutine forward_maxpool3d
 !###############################################################################
 
 end module athena__maxpool3d_layer

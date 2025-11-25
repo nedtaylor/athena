@@ -352,7 +352,7 @@ contains
 
 
 !###############################################################################
-  module subroutine forward_derived_msgpass(this, input)
+  module subroutine forward_msgpass(this, input)
     !! Forward propagation for the layer
     implicit none
 
@@ -362,15 +362,11 @@ contains
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input data (i.e. vertex and edge features)
 
-    ! Local variables
-    integer :: i, j
-    !! Loop indices
 
     call this%update_message(input)
     call this%update_readout()
 
-
-  end subroutine forward_derived_msgpass
+  end subroutine forward_msgpass
 !###############################################################################
 
 end submodule athena__msgpass_layer_submodule

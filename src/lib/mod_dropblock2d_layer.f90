@@ -40,7 +40,7 @@ module athena__dropblock2d_layer
      procedure, pass(this) :: read => read_dropblock2d
      !! Read 2D dropblock layer from file
 
-     procedure, pass(this) :: forward_derived => forward_derived_dropblock2d
+     procedure, pass(this) :: forward => forward_dropblock2d
      !! Forward propagation derived type handler
 
      procedure, pass(this) :: generate_mask => generate_bernoulli_mask
@@ -488,7 +488,7 @@ contains
 
 
 !###############################################################################
-  subroutine forward_derived_dropblock2d(this, input)
+  subroutine forward_dropblock2d(this, input)
     !! Forward propagation
     implicit none
 
@@ -518,7 +518,7 @@ contains
     end select
     call this%output(1,1)%assign_and_deallocate_source(ptr)
 
-  end subroutine forward_derived_dropblock2d
+  end subroutine forward_dropblock2d
 !###############################################################################
 
 end module athena__dropblock2d_layer

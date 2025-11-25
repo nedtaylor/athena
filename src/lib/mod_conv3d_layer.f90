@@ -29,7 +29,7 @@ module athena__conv3d_layer
      procedure, pass(this) :: read => read_conv3d
      !! Read 3D convolutional layer from file
 
-     procedure, pass(this) :: forward_derived => forward_derived_conv3d
+     procedure, pass(this) :: forward => forward_conv3d
      !! Forward propagation derived type handler
 
      final :: finalise_conv3d
@@ -778,7 +778,7 @@ contains
 
 
 !###############################################################################
-  subroutine forward_derived_conv3d(this, input)
+  subroutine forward_conv3d(this, input)
     !! Forward propagation
     implicit none
 
@@ -797,7 +797,7 @@ contains
     call this%z(2)%zero_grad()
     select case(allocated(this%pad_layer))
     case(.true.)
-       call this%pad_layer%forward_derived(input)
+       call this%pad_layer%forward(input)
        ptr => conv3d(this%pad_layer%output(1,1), this%params_array(1), &
             this%stp, this%dil &
        )
@@ -818,7 +818,7 @@ contains
        call this%output(1,1)%assign_and_deallocate_source(ptr)
     end if
 
-  end subroutine forward_derived_conv3d
+  end subroutine forward_conv3d
 !###############################################################################
 
 end module athena__conv3d_layer

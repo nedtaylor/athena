@@ -107,7 +107,7 @@ program test_pad1d_layer
   end do
 
   ! Run forward pass
-  call pad1d_layer%forward_derived(input)
+  call pad1d_layer%forward(input)
   call pad1d_layer%extract_output(output_2d)
 
   ! Check output dimensions
@@ -153,7 +153,7 @@ program test_pad1d_layer
   call random_number(input(1,1)%val)
 
   ! Run forward pass
-  call pad1d_layer%forward_derived(input)
+  call pad1d_layer%forward(input)
   call pad1d_layer%extract_output(output_3d)
 
   ! Check output dimensions
@@ -256,7 +256,7 @@ program test_pad1d_layer
                input(1,1)%val(:width,1) + (j - 1) * width
        end do
 
-       call pad1d_layer%forward_derived(input)
+       call pad1d_layer%forward(input)
        call pad1d_layer%extract_output(output_2d)
 
        if(.not. allocated(output_2d))then
@@ -306,7 +306,7 @@ program test_pad1d_layer
          input_shape = [simple_width, simple_channels], &
          batch_size = 1 &
     )
-    call pad1d_layer%forward_derived(input)
+    call pad1d_layer%forward(input)
     call pad1d_layer%extract_output(output_simple)
 
     ! Should be: [0, 0, 1, 2, 3, 4, 0, 0]
@@ -344,7 +344,7 @@ program test_pad1d_layer
          input_shape = [simple_width, simple_channels], &
          batch_size = 1 &
     )
-    call pad1d_layer%forward_derived(input)
+    call pad1d_layer%forward(input)
     call pad1d_layer%extract_output(output_simple)
 
     ! Should be: [1, 1, 1, 2, 3, 4, 4, 4]
@@ -387,7 +387,7 @@ program test_pad1d_layer
          input_shape = [simple_width, simple_channels], &
          batch_size = 1 &
     )
-    call pad1d_layer%forward_derived(input)
+    call pad1d_layer%forward(input)
     call pad1d_layer%extract_output(output_simple)
 
     ! Should be: [3, 2, 1, 2, 3, 4, 3, 2] (reflect without including edge)
@@ -431,7 +431,7 @@ program test_pad1d_layer
          input_shape = [simple_width, simple_channels], &
          batch_size = 1 &
     )
-    call pad1d_layer%forward_derived(input)
+    call pad1d_layer%forward(input)
     call pad1d_layer%extract_output(output_simple)
 
     ! Should be: [3, 4, 1, 2, 3, 4, 1, 2] (wrap around)
@@ -502,7 +502,7 @@ program test_pad1d_layer
        ! Test forward pass
        call input(1,1)%allocate(array_shape=[width, channels, 1], source = 1.0_real32)
 
-       call pad1d_layer%forward_derived(input)
+       call pad1d_layer%forward(input)
        call pad1d_layer%extract_output(output_2d)
 
        ! For zero padding, check that padding is actually zero

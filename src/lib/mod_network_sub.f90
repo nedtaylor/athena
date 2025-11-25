@@ -2530,16 +2530,16 @@ contains
                 call layer%set_input_graph( [ input(layer%index, :) ] )
                 cycle
              class is(array_type)
-                call layer%forward_derived(input(layer%index:layer%index,:))
-                !!! NEED TO MAKE SURE THIS APPLIES TO ALL
-                call layer%output(1,1)%set_requires_grad(.false.)
-                call layer%output(1,1)%set_requires_grad(.false.)
+                call layer%forward(input(layer%index:layer%index,:))
+                do concurrent(i=1:size(layer%output,1), j=1:size(layer%output,2))
+                   call layer%output(i,j)%set_requires_grad(.false.)
+                end do
                 cycle
              type is(real(real32))
                 allocate(input_ptr(1,1))
                 call input_ptr(1,1)%allocate(shape(input))
                 call input_ptr(1,1)%set(input)
-                call layer%forward_derived(input_ptr)
+                call layer%forward(input_ptr)
                 call layer%output(1,1)%set_requires_grad(.false.)
                 deallocate(input_ptr)
                 input_ptr => null()
@@ -2579,7 +2579,7 @@ contains
           call layer%combine(input_list)
           deallocate(input_list)
        class default
-          call layer%forward_derived(input_ptr)
+          call layer%forward(input_ptr)
           input_ptr => null()
        end select
 

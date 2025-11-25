@@ -78,7 +78,7 @@ module athena__msgpass_layer
      ! procedure, pass(this) :: set_gradients => set_gradients_msgpass
      ! !! Set the gradients for message passing layer
 
-     procedure, pass(this) :: forward_derived => forward_derived_msgpass
+     procedure, pass(this) :: forward => forward_msgpass
      !! Forward pass for message passing layer
 
      procedure(update_message_msgpass), deferred, pass(this) :: update_message
@@ -199,13 +199,13 @@ module athena__msgpass_layer
   ! Interface for handling forward and backward passes
   !-----------------------------------------------------------------------------
   interface
-     module subroutine forward_derived_msgpass(this, input)
+     module subroutine forward_msgpass(this, input)
        !! Forward pass for the message passing layer
        class(msgpass_layer_type), intent(inout) :: this
        !! Instance of the layer type
        class(array_type), dimension(:,:), intent(in) :: input
        !! Input data (i.e. vertex and edge features)
-     end subroutine forward_derived_msgpass
+     end subroutine forward_msgpass
   end interface
 
   ! Interface for handling graphs and outputs

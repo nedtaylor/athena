@@ -23,7 +23,7 @@ module athena__pad1d_layer
      procedure, pass(this) :: read => read_pad1d
      !! Read 1D padding layer from file
 
-     procedure, pass(this) :: forward_derived => forward_derived_pad1d
+     procedure, pass(this) :: forward => forward_pad1d
      !! Forward propagation derived type handler
 
   end type pad1d_layer_type
@@ -359,7 +359,7 @@ contains
 
 
 !###############################################################################
-  subroutine forward_derived_pad1d(this, input)
+  subroutine forward_pad1d(this, input)
     !! Forward propagation
     implicit none
 
@@ -376,7 +376,7 @@ contains
     ptr => pad1d(input(1,1), this%facets(1), this%pad(1), this%imethod)
     call this%output(1,1)%assign_and_deallocate_source(ptr)
 
-  end subroutine forward_derived_pad1d
+  end subroutine forward_pad1d
 !###############################################################################
 
 end module athena__pad1d_layer

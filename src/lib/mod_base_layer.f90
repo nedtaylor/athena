@@ -83,8 +83,10 @@ module athena__base_layer
      procedure(set_batch_size), deferred, pass(this) :: set_batch_size
      !! Set the batch size of the layer
 
-     !! MAKE THESE DEFERRED
-     procedure, pass(this) :: forward_derived => forward_derived_base
+     procedure, pass(this) :: forward => forward_base
+     !! Forward pass of layer
+     procedure, pass(this) :: forward_eval => forward_eval_base
+     !! Forward pass of layer and return output for evaluation
 
      procedure, pass(this) :: nullify_graph => nullify_graph_base
      !! Nullify the forward pass data of the layer to free memory
@@ -196,13 +198,23 @@ module athena__base_layer
   end interface
 
   interface
-     module subroutine forward_derived_base(this, input)
+     module subroutine forward_base(this, input)
        !! Forward pass of layer
        class(base_layer_type), intent(inout) :: this
        !! Instance of the layer
        class(array_type), dimension(:,:), intent(in) :: input
        !! Input data
-     end subroutine forward_derived_base
+     end subroutine forward_base
+
+     module function forward_eval_base(this, input) result(output)
+       !! Forward pass of layer and return output for evaluation
+       class(base_layer_type), intent(inout), target :: this
+       !! Instance of the layer
+       class(array_type), dimension(:,:), intent(in) :: input
+       !! Input data
+       type(array_type), pointer :: output(:,:)
+       !! Output data
+     end function forward_eval_base
 
      module subroutine set_graph_base(this, graph)
        !! Set the graph structure of the input data

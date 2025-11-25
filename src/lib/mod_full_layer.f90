@@ -42,7 +42,7 @@ module athena__full_layer
      procedure, pass(this) :: read => read_full
      !! Read the layer from a file
 
-     procedure, pass(this) :: forward_derived => forward_derived_full
+     procedure, pass(this) :: forward => forward_full
      !! Forward propagation derived type handler
 
      final :: finalise_full
@@ -677,7 +677,7 @@ contains
 
 
 !###############################################################################
-  subroutine forward_derived_full(this, input)
+  subroutine forward_full(this, input)
     !! Forward propagation
     implicit none
 
@@ -708,7 +708,7 @@ contains
     end if
     this%output(1,1)%is_temporary = .false.
 
-  end subroutine forward_derived_full
+  end subroutine forward_full
 !###############################################################################
 
 end module athena__full_layer

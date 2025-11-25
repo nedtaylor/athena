@@ -177,8 +177,8 @@ program test_batchnorm1d_layer
   call input(1,1)%set_requires_grad(.true.)
 
   !! run forward pass
-  write(*,*) "Running forward_derived..."
-  call bn_layer%forward_derived(input)
+  write(*,*) "Running forward..."
+  call bn_layer%forward(input)
   write(*,*) "Extracting output..."
   call bn_layer%extract_output(output_3d)
 
@@ -204,7 +204,7 @@ program test_batchnorm1d_layer
   call random_number(input(1,1)%val)
 
   !! run forward pass
-  call bn_layer%forward_derived(input)
+  call bn_layer%forward(input)
   call bn_layer%extract_output(output_3d)
 
   !! check outputs all get normalised to zero

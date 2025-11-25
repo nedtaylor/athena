@@ -42,11 +42,6 @@ module athena__kipf_msgpass_layer
      procedure, pass(this) :: read => read_kipf
      !! Read the message passing layer
 
-     procedure, pass(this) :: forward => forward_rank
-     !! Forward pass for message passing layer
-     procedure, pass(this) :: backward => backward_rank
-     !! Backward pass for message passing layer
-
      procedure, pass(this) :: update_message => update_message_kipf
      !! Update the message
 
@@ -117,43 +112,6 @@ contains
     end do
 
   end function get_num_params_kipf
-!###############################################################################
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
-
-!###############################################################################
-  subroutine forward_rank(this, input)
-    !! Forward pass for message
-    implicit none
-
-    ! Arguments
-    class(kipf_msgpass_layer_type), intent(inout) :: this
-    !! Instance of the message passing layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input to the message passing layer
-
-  end subroutine forward_rank
-!###############################################################################
-
-
-!###############################################################################
-  subroutine backward_rank(this, input, gradient)
-    !! Backward pass for message
-    implicit none
-
-    ! Arguments
-    class(kipf_msgpass_layer_type), intent(inout) :: this
-    !! Instance of the message passing layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input to the message passing layer
-    real(real32), dimension(..), intent(in) :: gradient
-    !! Gradient of the loss with respect to the output of the layer
-
-  end subroutine backward_rank
 !###############################################################################
 
 

@@ -37,7 +37,7 @@ module athena__input_layer
      generic :: set => set_input_real, set_input_graph
      !! Generic interface for setting input values
 
-     procedure, pass(this) :: forward_derived => forward_derived_input
+     procedure, pass(this) :: forward => forward_input
      !! Forward propagation derived type handler
 
   end type input_layer_type
@@ -483,7 +483,7 @@ contains
 
 
 !###############################################################################
-  subroutine forward_derived_input(this, input)
+  subroutine forward_input(this, input)
     !! Forward propagation for an input layer
     implicit none
 
@@ -508,7 +508,7 @@ contains
        end do
     end do
 
-  end subroutine forward_derived_input
+  end subroutine forward_input
 !###############################################################################
 
 

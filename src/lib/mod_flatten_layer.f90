@@ -29,7 +29,7 @@ module athena__flatten_layer
      procedure, pass(this) :: read => read_flatten
      !! Read flattening layer from file
 
-     procedure, pass(this) :: forward_derived => forward_derived_flatten
+     procedure, pass(this) :: forward => forward_flatten
      !! Forward propagation derived type handler
 
   end type flatten_layer_type
@@ -425,7 +425,7 @@ contains
 
 
 !###############################################################################
-  subroutine forward_derived_flatten(this, input)
+  subroutine forward_flatten(this, input)
     !! Forward propagation
     implicit none
 
@@ -445,7 +445,7 @@ contains
     call this%output(1,1)%assign_and_deallocate_source(ptr)
     this%output(1,1)%is_temporary = .false.
 
-  end subroutine forward_derived_flatten
+  end subroutine forward_flatten
 !###############################################################################
 
 end module athena__flatten_layer

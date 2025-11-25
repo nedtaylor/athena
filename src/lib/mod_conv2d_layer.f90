@@ -29,7 +29,7 @@ module athena__conv2d_layer
      procedure, pass(this) :: read => read_conv2d
      !! Read 2D convolutional layer from file
 
-     procedure, pass(this) :: forward_derived => forward_derived_conv2d
+     procedure, pass(this) :: forward => forward_conv2d
      !! Forward propagation derived type handler
 
      final :: finalise_conv2d
@@ -782,7 +782,7 @@ contains
 
 
 !###############################################################################
-  subroutine forward_derived_conv2d(this, input)
+  subroutine forward_conv2d(this, input)
     !! Forward propagation
     implicit none
 
@@ -800,7 +800,7 @@ contains
     !---------------------------------------------------------------------------
     select case(allocated(this%pad_layer))
     case(.true.)
-       call this%pad_layer%forward_derived(input)
+       call this%pad_layer%forward(input)
        ptr => conv2d(this%pad_layer%output(1,1), this%params_array(1), &
             this%stp, this%dil &
        )
@@ -820,7 +820,7 @@ contains
     end if
     this%output(1,1)%is_temporary = .false.
 
-  end subroutine forward_derived_conv2d
+  end subroutine forward_conv2d
 !###############################################################################
 
 end module athena__conv2d_layer

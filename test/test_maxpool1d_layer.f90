@@ -104,7 +104,7 @@ program test_maxpool1d_layer
 !!! use existing layer
 !!!-----------------------------------------------------------------------------
   !! run forward pass
-  call pool_layer%forward_derived(input)
+  call pool_layer%forward(input)
   output => pool_layer%output(1,1)
 
   !! check outputs have expected value

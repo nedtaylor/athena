@@ -23,7 +23,7 @@ module athena__avgpool3d_layer
      procedure, pass(this) :: read => read_avgpool3d
      !! Read 3D average pooling layer from file
 
-     procedure, pass(this) :: forward_derived => forward_derived_avgpool3d
+     procedure, pass(this) :: forward => forward_avgpool3d
      !! Forward propagation derived type handler
 
   end type avgpool3d_layer_type
@@ -370,7 +370,7 @@ contains
 
 
 !###############################################################################
-  subroutine forward_derived_avgpool3d(this, input)
+  subroutine forward_avgpool3d(this, input)
     !! Forward propagation
     implicit none
 
@@ -387,7 +387,7 @@ contains
     ptr => avgpool3d(input(1,1), this%pool, this%strd)
     call this%output(1,1)%assign_and_deallocate_source(ptr)
 
-  end subroutine forward_derived_avgpool3d
+  end subroutine forward_avgpool3d
 !###############################################################################
 
 end module athena__avgpool3d_layer

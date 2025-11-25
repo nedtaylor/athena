@@ -104,7 +104,7 @@ program test_dropblock2d_layer
   call input(1,1)%set(input_4d)
 
   !! run forward pass
-  call db_layer%forward_derived(input)
+  call db_layer%forward(input)
   call db_layer%extract_output(output_4d)
 
   !! check outputs have expected value

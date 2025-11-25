@@ -37,7 +37,7 @@ module athena__dropout_layer
      procedure, pass(this) :: read => read_dropout
      !! Read dropout layer from file
 
-     procedure, pass(this) :: forward_derived => forward_derived_dropout
+     procedure, pass(this) :: forward => forward_dropout
      !! Forward propagation derived type handler
 
      procedure, pass(this) :: generate_mask => generate_dropout_mask
@@ -436,7 +436,7 @@ contains
 
 
 !###############################################################################
-  subroutine forward_derived_dropout(this, input)
+  subroutine forward_dropout(this, input)
     !! Forward propagation
     implicit none
 
@@ -465,7 +465,7 @@ contains
     end select
     call this%output(1,1)%assign_and_deallocate_source(ptr)
 
-  end subroutine forward_derived_dropout
+  end subroutine forward_dropout
 !###############################################################################
 
 end module athena__dropout_layer

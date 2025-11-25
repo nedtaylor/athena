@@ -23,7 +23,7 @@ module athena__pad3d_layer
      procedure, pass(this) :: read => read_pad3d
      !! Read 3D padding layer from file
 
-     procedure, pass(this) :: forward_derived => forward_derived_pad3d
+     procedure, pass(this) :: forward => forward_pad3d
      !! Forward propagation derived type handler
 
   end type pad3d_layer_type
@@ -366,7 +366,7 @@ contains
 
 
 !###############################################################################
-  subroutine forward_derived_pad3d(this, input)
+  subroutine forward_pad3d(this, input)
     !! Forward propagation
     implicit none
 
@@ -383,7 +383,7 @@ contains
     ptr => pad3d(input(1,1), this%facets, this%pad, this%imethod)
     call this%output(1,1)%assign_and_deallocate_source(ptr)
 
-  end subroutine forward_derived_pad3d
+  end subroutine forward_pad3d
 !###############################################################################
 
 end module athena__pad3d_layer

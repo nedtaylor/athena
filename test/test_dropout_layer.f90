@@ -104,7 +104,7 @@ program test_dropout_layer
   call input(1,1)%set(input_3d)
 
   !! run forward pass
-  call drop_layer%forward_derived(input)
+  call drop_layer%forward(input)
   call drop_layer%extract_output(output_3d)
 
 

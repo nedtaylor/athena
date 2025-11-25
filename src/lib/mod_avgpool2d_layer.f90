@@ -23,7 +23,7 @@ module athena__avgpool2d_layer
      procedure, pass(this) :: read => read_avgpool2d
      !! Read 2D average pooling layer from file
 
-     procedure, pass(this) :: forward_derived => forward_derived_avgpool2d
+     procedure, pass(this) :: forward => forward_avgpool2d
      !! Forward propagation derived type handler
 
   end type avgpool2d_layer_type
@@ -368,7 +368,7 @@ contains
 
 
 !###############################################################################
-  subroutine forward_derived_avgpool2d(this, input)
+  subroutine forward_avgpool2d(this, input)
     !! Forward propagation
     implicit none
 
@@ -385,7 +385,7 @@ contains
     ptr => avgpool2d(input(1,1), this%pool, this%strd)
     call this%output(1,1)%assign_and_deallocate_source(ptr)
 
-  end subroutine forward_derived_avgpool2d
+  end subroutine forward_avgpool2d
 !###############################################################################
 
 end module athena__avgpool2d_layer

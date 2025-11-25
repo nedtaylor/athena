@@ -106,7 +106,7 @@ program test_avgpool3d_layer
   end select
 
   !! run forward pass
-  call pool_layer%forward_derived(input)
+  call pool_layer%forward(input)
   output => pool_layer%output(1,1)
 
   !! check outputs have expected value
@@ -186,7 +186,7 @@ program test_avgpool3d_layer
   !! check backward pass recovers input (with division by pool**3)
   !! https://stats.stackexchange.com/questions/565032/
   !! cnn-upsampling-backprop-gradients-across-average-pooling-layer
-  call pool_layer%forward_derived(di_compare)
+  call pool_layer%forward(di_compare)
   output => pool_layer%output(1,1)
 
   !! check outputs have expected value

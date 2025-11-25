@@ -29,7 +29,7 @@ module athena__conv1d_layer
      procedure, pass(this) :: read => read_conv1d
      !! Read 1D convolutional layer from file
 
-     procedure, pass(this) :: forward_derived => forward_derived_conv1d
+     procedure, pass(this) :: forward => forward_conv1d
      !! Forward propagation derived type handler
 
      final :: finalise_conv1d
@@ -738,7 +738,7 @@ contains
 
 
 !###############################################################################
-  subroutine forward_derived_conv1d(this, input)
+  subroutine forward_conv1d(this, input)
     !! Forward propagation
     implicit none
 
@@ -757,7 +757,7 @@ contains
     call this%z(2)%zero_grad()
     select case(allocated(this%pad_layer))
     case(.true.)
-       call this%pad_layer%forward_derived(input)
+       call this%pad_layer%forward(input)
        ptr => conv1d(this%pad_layer%output(1,1), this%params_array(1), &
             this%stp(1), this%dil(1) &
        )
@@ -778,7 +778,7 @@ contains
        call this%output(1,1)%assign_and_deallocate_source(ptr)
     end if
 
-  end subroutine forward_derived_conv1d
+  end subroutine forward_conv1d
 !###############################################################################
 
 end module athena__conv1d_layer

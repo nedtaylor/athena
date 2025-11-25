@@ -23,7 +23,7 @@ module athena__pad2d_layer
      procedure, pass(this) :: read => read_pad2d
      !! Read 2D padding layer from file
 
-     procedure, pass(this) :: forward_derived => forward_derived_pad2d
+     procedure, pass(this) :: forward => forward_pad2d
      !! Forward propagation derived type handler
 
   end type pad2d_layer_type
@@ -362,7 +362,7 @@ contains
 
 
 !###############################################################################
-  subroutine forward_derived_pad2d(this, input)
+  subroutine forward_pad2d(this, input)
     !! Forward propagation
     implicit none
 
@@ -380,7 +380,7 @@ contains
     call this%output(1,1)%assign_and_deallocate_source(ptr)
     this%output(1,1)%is_temporary = .false.
 
-  end subroutine forward_derived_pad2d
+  end subroutine forward_pad2d
 !###############################################################################
 
 end module athena__pad2d_layer
