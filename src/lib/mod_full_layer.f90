@@ -307,8 +307,6 @@ contains
     !! Loop index
     integer :: verbose_ = 0
     !! Verbosity level
-    class(initialiser_type), allocatable :: initialiser_
-    !! Initialiser
 
 
     !---------------------------------------------------------------------------

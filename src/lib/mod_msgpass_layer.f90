@@ -67,16 +67,6 @@ module athena__msgpass_layer
      ! !! Merge message passing layer
      procedure, pass(this) :: get_num_params => get_num_params_msgpass
      !! Get the number of learnable parameters for message passing layer
-     procedure, pass(this) :: get_params => get_params_msgpass
-     !! Get the learnable parameters for message passing layer
-     procedure, pass(this) :: set_params => set_params_msgpass
-     !! Set the learnable parameters for message passing layer
-     procedure, pass(this) :: set_param_pointers => set_param_pointers_msgpass
-     !! Set the pointers to the learnable parameters for message passing layer
-     ! procedure, pass(this) :: get_gradients => get_gradients_msgpass
-     ! !! Get the gradients for message passing layer
-     ! procedure, pass(this) :: set_gradients => set_gradients_msgpass
-     ! !! Set the gradients for message passing layer
 
      procedure, pass(this) :: forward => forward_msgpass
      !! Forward pass for message passing layer
@@ -122,30 +112,6 @@ module athena__msgpass_layer
        !! Number of learnable parameters
      end function get_num_params_msgpass
 
-     pure module function get_params_msgpass(this) result(params)
-       !! Get the learnable parameters for the message passing layer
-       class(msgpass_layer_type), intent(in) :: this
-       !! Instance of the message passing layer
-       real(real32), dimension(this%num_params) :: params
-       !! Parameters
-     end function get_params_msgpass
-
-     pure module subroutine set_params_msgpass(this, params)
-       !! Set the learnable parameters for the message passing layer
-       class(msgpass_layer_type), intent(inout) :: this
-       !! Instance of the message passing layer
-       real(real32), dimension(this%num_params), intent(in) :: params
-       !! Parameters
-     end subroutine set_params_msgpass
-
-     module subroutine set_param_pointers_msgpass(this)
-       !! Set the pointers to the learnable parameters
-       class(msgpass_layer_type), intent(inout), target :: this
-       !! Instance of the message passing layer
-     end subroutine set_param_pointers_msgpass
-
-
-
      module subroutine set_graph_msgpass(this, graph)
        !! Set the graph structure of the input data
        class(msgpass_layer_type), intent(inout) :: this
@@ -153,26 +119,6 @@ module athena__msgpass_layer
        type(graph_type), dimension(:), intent(in) :: graph
        !! Graph structure of input data
      end subroutine set_graph_msgpass
-
-
-     ! pure module function get_gradients_msgpass(this, clip_method) &
-     !      result(gradients)
-     !   !! Get the gradients for the message passing layer
-     !   class(msgpass_layer_type), intent(in) :: this
-     !   !! Instance of the message passing layer
-     !   type(clip_type), optional, intent(in) :: clip_method
-     !   !! Clip method
-     !   real(real32), dimension(this%num_params) :: gradients
-     !   !! Gradients
-     ! end function get_gradients_msgpass
-
-     ! pure module subroutine set_gradients_msgpass(this, gradients)
-     !   !! Set the gradients for the message passing layer
-     !   class(msgpass_layer_type), intent(inout) :: this
-     !   !! Instance of the message passing layer
-     !   real(real32), dimension(..), intent(in) :: gradients
-     !   !! Gradients
-     ! end subroutine set_gradients_msgpass
   end interface
 
   ! ! Interface for reducing and merging layers

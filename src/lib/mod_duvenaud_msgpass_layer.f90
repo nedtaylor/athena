@@ -172,6 +172,7 @@ contains
        verbose &
   ) result(layer)
     !! Set up the message passing layer
+    use athena__initialiser, only: initialiser_setup
     implicit none
 
     ! Arguments
@@ -213,6 +214,8 @@ contains
          message_activation_function_ = "sigmoid", &
          readout_activation_function_ = "softmax"
     !! Activation function
+    class(initialiser_type), allocatable :: kernel_initialiser_
+    !! Kernel and bias initialisers
     integer :: min_vertex_degree_ = 1
     !! Minimum vertex degree
 
@@ -238,7 +241,9 @@ contains
     !---------------------------------------------------------------------------
     ! Define weights (kernels) and biases initialisers
     !---------------------------------------------------------------------------
-    if(present(kernel_initialiser)) layer%kernel_initialiser =kernel_initialiser
+    if(present(kernel_initialiser))then
+       kernel_initialiser_ = initialiser_setup(kernel_initialiser)
+    end if
 
 
     !---------------------------------------------------------------------------
@@ -255,7 +260,7 @@ contains
          message_activation_scale = message_scale, &
          readout_activation_function = readout_activation_function_, &
          readout_activation_scale = readout_scale, &
-         kernel_initialiser = layer%kernel_initialiser, &
+         kernel_initialiser = kernel_initialiser_, &
          verbose = verbose_ &
     )
 
@@ -293,7 +298,7 @@ contains
   )
     !! Set the hyperparameters for the message passing layer
     use athena__activation, only: activation_setup
-    use athena__initialiser, only: get_default_initialiser
+    use athena__initialiser, only: get_default_initialiser, initialiser_setup
     implicit none
 
     ! Arguments
@@ -319,14 +324,16 @@ contains
          message_activation_scale, &
          readout_activation_scale
     !! Message and readout activation scales
-    character(*), optional, intent(in) :: kernel_initialiser
-    !! Kernel initialiser
+    class(initialiser_type), allocatable, intent(in) :: kernel_initialiser
+    !! Kernel and bias initialisers
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
     ! Local variables
     integer :: t
     !! Loop index
+    character(len=256) :: buffer
+
 
     this%name = 'duvenaud'
     this%type = 'msgp'
@@ -380,9 +387,12 @@ contains
     allocate(this%transfer_readout, &
          source = activation_setup(readout_activation_function, &
               readout_activation_scale))
-    if(trim(kernel_initialiser).eq.'') &
-         this%kernel_initialiser = &
-              get_default_initialiser(message_activation_function)
+    if(.not.allocated(kernel_initialiser))then
+       buffer = get_default_initialiser(message_activation_function)
+       this%kernel_init = initialiser_setup(buffer)
+    else
+       this%kernel_init = kernel_initialiser
+    end if
     if(present(verbose))then
        if(abs(verbose).gt.0)then
           write(*,'("DUVENAUD message activation function: ",A)') &
@@ -390,7 +400,7 @@ contains
           write(*,'("DUVENAUD readout activation function: ",A)') &
                trim(readout_activation_function)
           write(*,'("DUVENAUD kernel initialiser: ",A)') &
-               trim(this%kernel_initialiser)
+               trim(this%kernel_init%name)
        end if
     end if
 
@@ -435,8 +445,6 @@ contains
     !! Verbosity level
     real(real32) :: mean, std
     !! Mean and standard deviation of the parameters
-    class(initialiser_type), allocatable :: initialiser_
-    !! Initialiser
 
 
     !---------------------------------------------------------------------------
@@ -485,22 +493,20 @@ contains
     !---------------------------------------------------------------------------
     ! Initialise weights (kernels)
     !---------------------------------------------------------------------------
-    allocate(initialiser_, source=initialiser_setup(this%kernel_initialiser))
     do t = 1, this%num_time_steps, 1
-       call initialiser_%initialise( &
+       call this%kernel_init%initialise( &
             this%params_array(t)%val(:,1), &
             fan_in = this%num_vertex_features(t-1) + this%num_edge_features(0), &
             fan_out = this%num_vertex_features(t), &
             spacing = [ this%num_vertex_features(t-1) ] &
        )
-       call initialiser_%initialise( &
+       call this%kernel_init%initialise( &
             this%params_array(t+this%num_time_steps)%val(:,1), &
             fan_in = sum(this%num_vertex_features), &
             fan_out = this%num_outputs, &
             spacing = this%num_vertex_features &
        )
     end do
-    deallocate(initialiser_)
     ! write the standard deviation of the params values
     if(verbose_.gt.0)then
        mean = sum(this%params(:sum(this%num_params_msg))) / &
@@ -596,23 +602,6 @@ contains
           stop
        end if
     end do
-!     do s = 1, size(graph)
-!        call this%graph(s)%copy(graph(s), sparse=.true.)
-!     end do
-
-!     if(this%use_graph_input)then
-!        if(allocated(this%output))then
-!           if(this%output(1,1)%allocated) &
-!                call this%output(1,1)%deallocate()
-!           call this%output(1,1)%allocate( &
-!                [ &
-!                     this%num_outputs, &
-!                     size(graph) &
-!                ] &
-!           )
-!        end if
-!        call this%set_ptrs()
-!     end if
 
   end subroutine set_graph_duvenaud
 !##############################################################################!
@@ -662,10 +651,10 @@ contains
     !---------------------------------------------------------------------------
     write(unit,'("WEIGHTS")')
     do t = 1, this%num_time_steps, 1
-       write(unit,'(5(E16.8E2))') this%params( &
-            sum(this%num_params_msg(1:t-1:1)) + 1 : &
-            sum(this%num_params_msg(1:t:1)) &
-       )
+       write(unit,'(5(E16.8E2))') this%params_array(t)%val(:,1)
+    end do
+    do t = 1, this%num_time_steps, 1
+       write(unit,'(5(E16.8E2))') this%params_array(t+this%num_time_steps)%val(:,1)
     end do
     write(unit,'("END WEIGHTS")')
 

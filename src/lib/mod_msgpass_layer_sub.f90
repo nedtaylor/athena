@@ -23,37 +23,6 @@ contains
 
     num_params = sum(this%num_params_msg) + this%num_params_readout
   end function get_num_params_msgpass
-!-------------------------------------------------------------------------------
-  pure module function get_params_msgpass(this) result(params)
-    !! Get the learnable parameters in the layer
-    implicit none
-
-    ! Arguments
-    class(msgpass_layer_type), intent(in) :: this
-    !! Instance of the layer type
-    real(real32), dimension(this%num_params) :: params
-    !! Learnable parameters
-
-    params = this%params
-  end function get_params_msgpass
-!-------------------------------------------------------------------------------
-  pure module subroutine set_params_msgpass(this, params)
-    implicit none
-
-    ! Arguments
-    class(msgpass_layer_type), intent(inout) :: this
-    !! Instance of the layer type
-    real(real32), dimension(this%num_params), intent(in) :: params
-    !! Learnable parameters
-
-    ! Local variables
-    integer :: t
-    !! Time step
-    integer :: istart, iend
-    !! Start and end indices
-
-    this%params = params
-  end subroutine set_params_msgpass
 !###############################################################################
 
 
@@ -122,16 +91,6 @@ contains
   !   this%num_edge_features = num_features(2)
 
   ! end subroutine set_hyperparams_msgpass
-
-
-  module subroutine set_param_pointers_msgpass(this)
-    !! Set the pointers to the learnable parameters
-    implicit none
-
-    ! Arguments
-    class(msgpass_layer_type), intent(inout), target :: this
-    !! Instance of the message passing layer
-  end subroutine set_param_pointers_msgpass
 !###############################################################################
 
 
@@ -230,21 +189,8 @@ contains
     ! Allocate arrays
     !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
-       ! if(.not.allocated(this%output)) this%output = array2d_type()
-       ! if(this%output%allocated) call this%output%deallocate(keep_shape=.true.)
-       ! call this%output%allocate( &
-       !      [ &
-       !           this%output%shape(1), &
-       !           this%batch_size &
-       !      ], &
-       !      source=0._real32 &
-       ! )
-       ! call this%method%init( &
-       !      this%num_vertex_features, this%num_edge_features, &
-       !      this%num_time_steps, &
-       !      this%output%shape, this%batch_size &
-       ! )
-       call this%set_param_pointers()
+       if(allocated(this%output)) deallocate(this%output)
+       allocate(this%output(2, this%batch_size))
     end if
 
   end subroutine set_batch_size_msgpass

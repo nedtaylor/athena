@@ -51,10 +51,10 @@ program test_full_network
     x(1,1) = 0.124
     y(1,1) = 0.765
 
+    allocate(network%expected_array(1,1))
+    call network%expected_array(1,1)%allocate(source=y)
     train_loop: do n = 1, num_iterations
        call network%forward(x)
-       allocate(network%expected_array(1,1))
-       call network%expected_array(1,1)%allocate(source=y)
        loss => network%loss_backward(1, 1)
        call loss%grad_reverse()
        call network%update()

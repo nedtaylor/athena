@@ -44,7 +44,7 @@ program test_msgpass_network
     ))
 
     call kipf_network%compile( &
-         optimiser = sgd_optimiser_type(learning_rate=0.1), &
+         optimiser = sgd_optimiser_type(learning_rate=0.01), &
          loss_method = 'mse', &
          accuracy_method = 'mse', &
          metrics = ['loss'], &

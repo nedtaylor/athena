@@ -91,7 +91,9 @@ contains
     end do
 
     output%get_partial_left => get_partial_batchnorm_left
+    output%get_partial_left_val => get_partial_batchnorm_left_val
     output%get_partial_right => get_partial_batchnorm_right
+    output%get_partial_right_val => get_partial_batchnorm_right_val
     if(input%requires_grad .or. params%requires_grad) then
        output%requires_grad = .true.
        output%is_forward = input%is_forward .or. params%is_forward
@@ -108,6 +110,23 @@ contains
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
+    class(array_type), pointer :: input
+
+    input => this%left_operand
+    call output%allocate(array_shape = [ input%shape, size(upstream_grad%val,2) ])
+
+    call this%get_partial_left_val(upstream_grad%val, output%val)
+
+  end function get_partial_batchnorm_left
+!-------------------------------------------------------------------------------
+  subroutine get_partial_batchnorm_left_val(this, upstream_grad, output)
+    !! Get partial derivative wrt input for batchnorm (subroutine version)
+    implicit none
+
+    class(array_type), intent(inout) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
     integer :: i, c, s, num_dims, num_elements
     real(real32), allocatable :: x_hat(:,:), dx_hat(:,:)
     real(real32) :: mu, var, eps, norm
@@ -115,23 +134,23 @@ contains
 
     input => this%left_operand
     params => this%right_operand
+
     select type(this)
     type is (batchnorm_array_type)
        eps = this%epsilon
        num_dims = size(this%shape)
        num_elements = product(this%shape(1:num_dims - 1))
 
-       call output%allocate(array_shape = [ input%shape, size(upstream_grad%val,2) ])
-       output%val = 0._real32
+       output = 0._real32
 
-       allocate(x_hat(num_elements, size(upstream_grad%val,2)))
-       allocate(dx_hat(num_elements, size(upstream_grad%val,2)))
+       allocate(x_hat(num_elements, size(upstream_grad,2)))
+       allocate(dx_hat(num_elements, size(upstream_grad,2)))
        norm = real( &
-            product(input%shape(1:num_dims - 1)) * size(upstream_grad%val,2), &
+            product(input%shape(1:num_dims - 1)) * size(upstream_grad,2), &
             real32 &
        )
 
-       do concurrent(c = 1:input%shape(num_dims))
+       do c = 1, input%shape(num_dims)
           mu = this%mean(c)
           var = this%variance(c)
 
@@ -140,18 +159,19 @@ contains
                sqrt(var + eps)
 
           ! Gradient of normalised input
-          dx_hat = upstream_grad%val((c-1)*num_elements+1:c*num_elements,:) * &
+          dx_hat = upstream_grad((c-1)*num_elements+1:c*num_elements,:) * &
                params%val(c,1)
 
           ! Gradient wrt input
-          do concurrent(s = 1:size(upstream_grad%val,2), i = 1:num_elements)
-             output%val(i + (c-1)*num_elements,s) = &
+          do concurrent(s = 1:size(upstream_grad,2), i = 1:num_elements)
+             output(i + (c-1)*num_elements,s) = &
                   (1._real32 / (norm * sqrt(var + eps))) * &
                   (norm * dx_hat(i,s) - sum(dx_hat) - x_hat(i,s) * sum(dx_hat * x_hat))
           end do
        end do
     end select
-  end function get_partial_batchnorm_left
+
+  end subroutine get_partial_batchnorm_left_val
 !-------------------------------------------------------------------------------
   function get_partial_batchnorm_right(this, upstream_grad) result(output)
     implicit none
@@ -159,25 +179,41 @@ contains
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
-    integer :: c, i, num_dims, num_elements
-    real(real32), allocatable :: x_hat(:,:), dx_hat(:,:)
+    class(array_type), pointer :: params
+
+    params => this%right_operand
+    call output%allocate(array_shape = [ params%shape, 1 ])
+
+    call this%get_partial_right_val(upstream_grad%val, output%val)
+
+  end function get_partial_batchnorm_right
+!-------------------------------------------------------------------------------
+  subroutine get_partial_batchnorm_right_val(this, upstream_grad, output)
+    !! Get partial derivative wrt params for batchnorm (subroutine version)
+    implicit none
+
+    class(array_type), intent(inout) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    integer :: c, num_dims, num_elements
+    real(real32), allocatable :: x_hat(:,:)
     real(real32) :: mu, var, eps
-    class(array_type), pointer :: input, params
+    class(array_type), pointer :: input
 
     input => this%left_operand
-    params => this%right_operand
+
     select type(this)
     type is (batchnorm_array_type)
        eps = this%epsilon
        num_dims = size(this%shape)
        num_elements = product(this%shape(1:num_dims - 1))
 
-       call output%allocate(array_shape = [ params%shape, 1 ])
-       output%val = 0._real32
+       output = 0._real32
 
-       allocate(x_hat(num_elements, size(upstream_grad%val,2)))
+       allocate(x_hat(num_elements, size(upstream_grad,2)))
 
-       do concurrent(c = 1:input%shape(num_dims))
+       do c = 1, input%shape(num_dims)
           mu = this%mean(c)
           var = this%variance(c)
 
@@ -185,14 +221,15 @@ contains
           x_hat(:,:) = (input%val((c-1)*num_elements+1:c*num_elements,:) - mu) / &
                sqrt(var + eps)
 
-          output%val(c,1) = &
-               sum(upstream_grad%val((c-1)*num_elements+1:c*num_elements,:) * x_hat)
-          output%val(c + input%shape(num_dims),1) = &
-               sum(upstream_grad%val((c-1)*num_elements+1:c*num_elements,:))
+          output(c,1) = &
+               sum(upstream_grad((c-1)*num_elements+1:c*num_elements,:) * x_hat)
+          output(c + input%shape(num_dims),1) = &
+               sum(upstream_grad((c-1)*num_elements+1:c*num_elements,:))
 
        end do
     end select
-  end function get_partial_batchnorm_right
+
+  end subroutine get_partial_batchnorm_right_val
 !###############################################################################
 
 end submodule athena__diffstruc_extd_submodule_batchnorm

@@ -128,6 +128,7 @@ contains
        verbose &
   ) result(layer)
     !! Set up the message passing layer
+    use athena__initialiser, only: initialiser_setup
     implicit none
 
     ! Arguments
@@ -154,6 +155,8 @@ contains
     !! Activation scale
     character(len=10) :: activation_function_ = "none"
     !! Activation function
+    class(initialiser_type), allocatable :: kernel_initialiser_
+    !! Kernel initialisers
 
     if(present(verbose)) verbose_ = verbose
 
@@ -168,7 +171,9 @@ contains
     !---------------------------------------------------------------------------
     ! Define weights (kernels) and biases initialisers
     !---------------------------------------------------------------------------
-    if(present(kernel_initialiser)) layer%kernel_initialiser =kernel_initialiser
+    if(present(kernel_initialiser))then
+       kernel_initialiser_ = initialiser_setup(kernel_initialiser)
+    end if
 
 
     !---------------------------------------------------------------------------
@@ -179,7 +184,7 @@ contains
          num_time_steps = num_time_steps, &
          activation_function = activation_function_, &
          activation_scale = scale, &
-         kernel_initialiser = layer%kernel_initialiser, &
+         kernel_initialiser = kernel_initialiser_, &
          verbose = verbose_ &
     )
 
@@ -211,7 +216,7 @@ contains
   )
     !! Set the hyperparameters for the message passing layer
     use athena__activation, only: activation_setup
-    use athena__initialiser, only: get_default_initialiser
+    use athena__initialiser, only: get_default_initialiser, initialiser_setup
     implicit none
 
     ! Arguments
@@ -225,7 +230,7 @@ contains
     !! Activation function
     real(real32), optional, intent(in) :: activation_scale
     !! Activation scale
-    character(*), optional, intent(in) :: kernel_initialiser
+    class(initialiser_type), allocatable, intent(in) :: kernel_initialiser
     !! Kernel initialiser
     integer, optional, intent(in) :: verbose
     !! Verbosity level
@@ -233,6 +238,8 @@ contains
     ! Local variables
     integer :: t
     !! Loop index
+    character(len=256) :: buffer
+
 
     this%name = 'kipf'
     this%type = 'msgp'
@@ -265,14 +272,18 @@ contains
     if(allocated(this%transfer)) deallocate(this%transfer)
     allocate(this%transfer, &
          source=activation_setup(activation_function, activation_scale))
-    if(trim(kernel_initialiser).eq.'') &
-         this%kernel_initialiser = get_default_initialiser(activation_function)
+    if(.not.allocated(kernel_initialiser))then
+       buffer = get_default_initialiser(activation_function)
+       this%kernel_init = initialiser_setup(buffer)
+    else
+       this%kernel_init = kernel_initialiser
+    end if
     if(present(verbose))then
        if(abs(verbose).gt.0)then
           write(*,'("KIPF activation function: ",A)') &
                trim(activation_function)
           write(*,'("KIPF kernel initialiser: ",A)') &
-               trim(this%kernel_initialiser)
+               trim(this%kernel_init%name)
        end if
     end if
     if(allocated(this%num_params_msg)) deallocate(this%num_params_msg)
@@ -309,8 +320,6 @@ contains
     !! Loop index
     integer :: verbose_ = 0
     !! Verbosity level
-    class(initialiser_type), allocatable :: initialiser_
-    !! Initialiser
 
 
     !---------------------------------------------------------------------------
@@ -338,6 +347,7 @@ contains
     !---------------------------------------------------------------------------
     ! Allocate weight, weight steps (velocities), output, and activation
     !---------------------------------------------------------------------------
+    if(allocated(this%params_array)) deallocate(this%params_array)
     allocate(this%params_array(this%num_time_steps))
     do t = 1, this%num_time_steps
        call this%params_array(t)%allocate( &
@@ -353,16 +363,14 @@ contains
     !---------------------------------------------------------------------------
     ! Initialise weights (kernels)
     !---------------------------------------------------------------------------
-    allocate(initialiser_, source=initialiser_setup(this%kernel_initialiser))
     do t = 1, this%num_time_steps
-       call initialiser_%initialise( &
+       call this%kernel_init%initialise( &
             this%params_array(t)%val(:,1), &
             fan_in = this%num_vertex_features(t-1), &
             fan_out = this%num_vertex_features(t), &
             spacing = [ this%num_vertex_features(t) ] &
        )
     end do
-    deallocate(initialiser_)
 
 
     !---------------------------------------------------------------------------
@@ -456,8 +464,9 @@ contains
 !###############################################################################
   subroutine read_kipf(this, unit, verbose)
     !! Read the message passing layer
-    use athena__tools_infile, only: assign_val, assign_vec, get_val
+    use athena__tools_infile, only: assign_val, assign_vec, get_val, move
     use coreutils, only: to_lower, to_upper, icount
+    use athena__initialiser, only: initialiser_setup
     implicit none
 
     ! Arguments
@@ -473,24 +482,26 @@ contains
     !! Status of read
     integer :: verbose_ = 0
     !! Verbosity level
-    integer :: t, j, k, c, itmp1, num_params_old, num_params_new
+    integer :: t, j, k, c, itmp1, iline
     !! Loop variables and temporary integer
     integer :: num_time_steps = 0
     !! Number of time steps
     real(real32) :: activation_scale
     !! Activation scale
-    logical :: found_weights = .false.
-    !! Flag for found weights
-    character(14) :: kernel_initialiser=''
-    !! Kernel and bias initialisers
+    character(14) :: kernel_initialiser_name=''
+    !! Initialisers
     character(20) :: activation_function
-    !! Padding and activation function
+    !! Activation function
+    class(initialiser_type), allocatable :: kernel_initialiser
+    !! Initialisers
     integer, dimension(:), allocatable :: num_vertex_features
     !! Number of vertex and edge features
     character(256) :: buffer, tag, err_msg
     !! Buffer, tag, and error message
     real(real32), allocatable, dimension(:) :: data_list
     !! Data list
+    integer :: param_line, final_line
+    !! Parameter line number
 
 
     ! Initialise optional arguments
@@ -500,6 +511,9 @@ contains
 
     ! Loop over tags in layer card
     !---------------------------------------------------------------------------
+    iline = 0
+    param_line = 0
+    final_line = 0
     tag_loop: do
 
        ! Check for end of file
@@ -516,9 +530,11 @@ contains
        ! Check for end of layer card
        !------------------------------------------------------------------------
        if(trim(adjustl(buffer)).eq."END "//to_upper(trim(this%name)))then
+          final_line = iline
           backspace(unit)
           exit tag_loop
        end if
+       iline = iline + 1
 
        tag=trim(adjustl(buffer))
        if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
@@ -536,12 +552,11 @@ contains
           call assign_val(buffer, activation_function, itmp1)
        case("ACTIVATION_SCALE")
           call assign_val(buffer, activation_scale, itmp1)
-       case("KERNEL_INITIALISER")
-          call assign_val(buffer, kernel_initialiser, itmp1)
+       case("KERNEL_INITIALISER", "KERNEL_INIT", "KERNEL_INITIALIZER")
+          call assign_val(buffer, kernel_initialiser_name, itmp1)
        case("WEIGHTS")
-          found_weights = .true.
-          kernel_initialiser = 'zeros'
-          exit tag_loop
+          kernel_initialiser_name = 'zeros'
+          param_line = iline
        case default
           ! Don't look for "e" due to scientific notation of numbers
           ! ... i.e. exponent (E+00)
@@ -557,6 +572,7 @@ contains
           return
        end select
     end do tag_loop
+    kernel_initialiser = initialiser_setup(kernel_initialiser_name)
 
 
     ! Set hyperparameters and initialise layer
@@ -581,26 +597,22 @@ contains
 
     ! Check if WEIGHTS card was found
     !---------------------------------------------------------------------------
-    if(.not.found_weights)then
+    if(param_line.eq.0)then
        write(0,*) "WARNING: WEIGHTS card in "//to_upper(trim(this%name))//" not found"
     else
-       num_params_old = 0
+       call move(unit, param_line - iline, iostat=stat)
        do t = 1, this%num_time_steps
-          num_params_new = this%num_vertex_features(t-1) * this%num_vertex_features(t)
-          allocate(data_list((num_params_old + num_params_new)), source=0._real32)
+          allocate(data_list(this%num_params_msg(t)), source=0._real32)
           c = 1
           k = 1
-          data_concat_loop: do while(c.le.num_params_new)
+          data_concat_loop: do while(c.le.this%num_params_msg(t))
              read(unit,'(A)',iostat=stat) buffer
              if(stat.ne.0) exit data_concat_loop
              k = icount(buffer)
              read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
              c = c + k
           end do data_concat_loop
-          this%params( &
-               num_params_old + 1:num_params_old + num_params_new &
-          ) = data_list
-          num_params_old = num_params_old + num_params_new
+          this%params_array(t)%val(:,1) = data_list(1:this%num_params_msg(t))
           deallocate(data_list)
        end do
 

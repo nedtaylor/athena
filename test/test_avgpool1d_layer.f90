@@ -123,7 +123,6 @@ program test_avgpool1d_layer
   allocate(gradient%grad)
   gradient%grad = output
   call gradient%grad_reverse()
-!   call pool_layer%output(1,1)%grad_reverse()
   call di_compare(1,1)%allocate(array_shape=[width,num_channels,1], source = 0.0)
   do c = 1, num_channels
      do i = 1, output_width

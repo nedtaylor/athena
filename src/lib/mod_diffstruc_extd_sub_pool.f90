@@ -39,6 +39,7 @@ contains
     output%adj_ja(1,2) = stride
 
     output%get_partial_left => get_partial_avgpool1d
+    output%get_partial_left_val => get_partial_avgpool1d_val
     if(input%requires_grad)then
        output%requires_grad = .true.
        output%is_forward = input%is_forward
@@ -57,29 +58,55 @@ contains
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
-    ! Local variables
-    integer :: i, m, s
-    integer :: stride_idx, idx
-    real(real32) :: pool_norm
-    integer, dimension(3) :: input_shape
-
-    pool_norm = 1.0_real32 / real(this%adj_ja(1,1), real32)
-    input_shape = [ this%left_operand%shape, size(this%val, dim=2) ]
-    call output%allocate(array_shape = input_shape)
-    output%val = 0._real32
-
-    do concurrent(&
-         s = 1:input_shape(3), &
-         m = 1:this%shape(2), &
-         i = 1:this%shape(1))
-       stride_idx = (i - 1) * this%adj_ja(1,2) + (m - 1) * input_shape(1)
-       idx = i + (m - 1) * this%shape(1)
-       output%val( stride_idx + 1 : stride_idx + this%adj_ja(1,1), s ) = &
-            output%val( stride_idx + 1 : stride_idx + this%adj_ja(1,1), s ) + &
-            upstream_grad%val(idx, s) * pool_norm
-    end do
+    call output%allocate(array_shape = &
+         [ this%left_operand%shape, size(this%val, dim=2) ] &
+    )
+    call this%get_partial_left_val(upstream_grad%val, output%val)
 
   end function get_partial_avgpool1d
+!-------------------------------------------------------------------------------
+  subroutine get_partial_avgpool1d_val(this, upstream_grad, output)
+    !! Optimized backward pass for 1D average pooling
+    implicit none
+
+    ! Arguments
+    class(array_type), intent(inout) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    ! Local variables
+    integer :: i, m, s, p
+    integer :: base_idx, out_idx, input_h
+    real(real32) :: pool_norm, grad_val
+    integer, dimension(3) :: input_shape
+    integer, dimension(1) :: pool_size, stride
+
+    ! Unpack parameters
+    input_shape = [ this%left_operand%shape, size(this%val, dim=2) ]
+    pool_size(1) = this%adj_ja(1,1)
+    stride(1) = this%adj_ja(1,2)
+    input_h = input_shape(1)
+
+    output = 0._real32
+
+    pool_norm = 1.0_real32 / real(pool_size(1), real32)
+
+    ! Parallelized over batch and spatial/channel dimensions
+    do concurrent(s = 1:input_shape(3), m = 1:this%shape(2), &
+         i = 1:this%shape(1))
+
+       ! Compute indices once
+       base_idx = (i - 1) * stride(1) + (m - 1) * input_h
+       out_idx = i + (m - 1) * this%shape(1)
+       grad_val = upstream_grad(out_idx, s) * pool_norm
+
+       ! Distribute gradient over pooling window
+       do p = 0, pool_size(1) - 1
+          output(base_idx + p + 1, s) = output(base_idx + p + 1, s) + grad_val
+       end do
+    end do
+
+  end subroutine get_partial_avgpool1d_val
 !###############################################################################
 
 
@@ -97,7 +124,8 @@ contains
     ! Local variables
     integer :: i, j, m, s, i_step, j_step
     integer :: stride_idx, idx, multiplier
-    real(real32) :: pool_sum, pool_norm, channel_size_in, channel_size_out
+    integer :: channel_size_in, channel_size_out
+    real(real32) :: pool_sum, pool_norm
     integer, dimension(4) :: output_shape
 
     output_shape = [ &
@@ -107,23 +135,30 @@ contains
          size(input%val, dim=2)]
     output => input%create_result(array_shape = output_shape)
     pool_norm = 1.0_real32 / real(pool_size(1) * pool_size(2), real32)
-    channel_size_in = real( input%shape(1) * input%shape(2), real32 )
-    channel_size_out = real( output_shape(1) * output_shape(2), real32 )
+
+    ! Pre-compute as integers
+    channel_size_in = input%shape(1) * input%shape(2)
+    channel_size_out = output_shape(1) * output_shape(2)
+
     do concurrent(&
          s = 1:output_shape(4), &
          m = 1:output_shape(3), &
          j = 1:output_shape(2), &
          i = 1:output_shape(1))
+
+       ! Compute indices once
+       stride_idx = (i-1)*stride(1) + &
+            ((j-1)*stride(2)) * input%shape(1) + &
+            (m-1) * channel_size_in
+       idx = i + (j - 1) * output_shape(1) + (m - 1) * channel_size_out
+
        pool_sum = 0._real32
        do j_step = 0, pool_size(2)-1
           do i_step = 0, pool_size(1)-1
-             stride_idx = (i-1)*stride(1) + i_step + &
-                  ((j-1)*stride(2) + j_step) * input%shape(1) + &
-                  (m-1) * channel_size_in
-             pool_sum = pool_sum + input%val(stride_idx + 1, s)
+             pool_sum = pool_sum + &
+                  input%val(stride_idx + i_step + j_step * input%shape(1) + 1, s)
           end do
        end do
-       idx = i + (j - 1) * output_shape(1) + (m - 1) * channel_size_out
        output%val(idx, s) = pool_sum * pool_norm
     end do
     allocate(output%adj_ja(2,2))
@@ -131,6 +166,7 @@ contains
     output%adj_ja(:,2) = stride
 
     output%get_partial_left => get_partial_avgpool2d
+    output%get_partial_left_val => get_partial_avgpool2d_val
     if(input%requires_grad)then
        output%requires_grad = .true.
        output%is_forward = input%is_forward
@@ -149,11 +185,28 @@ contains
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
+    call output%allocate(array_shape = &
+         [ this%left_operand%shape, size(this%val, dim=2) ] &
+    )
+    call this%get_partial_left_val(upstream_grad%val, output%val)
+
+  end function get_partial_avgpool2d
+!-------------------------------------------------------------------------------
+  subroutine get_partial_avgpool2d_val(this, upstream_grad, output)
+    !! Optimized backward pass for 2D average pooling
+    implicit none
+
+    ! Arguments
+    class(array_type), intent(inout) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
     ! Local variables
     integer :: i, j, m, s
     integer :: i_step, j_step
-    integer :: in_idx, out_idx
-    real(real32) :: pool_norm, channel_size_in, channel_size_out
+    integer :: base_idx, in_idx, out_idx, input_h
+    integer :: channel_size_in, channel_size_out
+    real(real32) :: pool_norm, grad_val
     integer, dimension(4) :: input_shape
     integer, dimension(2) :: pool_size, stride
 
@@ -161,39 +214,36 @@ contains
     input_shape = [ this%left_operand%shape, size(this%val, dim=2) ]
     pool_size = this%adj_ja(:,1)
     stride    = this%adj_ja(:,2)
-    channel_size_in = real( input_shape(1) * input_shape(2), real32 )
-    channel_size_out = real( this%shape(1) * this%shape(2), real32 )
+    input_h = input_shape(1)
+    channel_size_in = input_h * input_shape(2)
+    channel_size_out = this%shape(1) * this%shape(2)
 
-    call output%allocate(array_shape = input_shape)
-    output%val = 0._real32
+    output = 0._real32
 
     pool_norm = 1.0_real32 / real(pool_size(1) * pool_size(2), real32)
 
     do concurrent( &
          s = 1:input_shape(4), &
-         m = 1:this%shape(3), &    ! channels
-         j = 1:this%shape(2), &  ! pooled width
-         i = 1:this%shape(1))    ! pooled height
+         m = 1:this%shape(3), &
+         j = 1:this%shape(2), &
+         i = 1:this%shape(1))
+
+       ! Compute indices once
+       base_idx = (i-1) * stride(1) + ((j-1) * stride(2)) * input_h + &
+            (m-1) * channel_size_in
+       out_idx = i + (j-1) * this%shape(1) + (m-1) * channel_size_out
+       grad_val = upstream_grad(out_idx, s) * pool_norm
 
        ! Distribute gradient over pooling window
        do j_step = 0, pool_size(2) - 1
           do i_step = 0, pool_size(1) - 1
-
-             in_idx = ( (i-1) * stride(1) + i_step ) + &
-                  ( (j-1) * stride(2) + j_step ) * input_shape(1) + &
-                  (m-1) * channel_size_in
-
-             out_idx = i + (j-1) * upstream_grad%shape(1) + &
-                  (m-1) *  channel_size_out
-
-             output%val(in_idx + 1, s) = output%val(in_idx + 1, s) + &
-                  upstream_grad%val(out_idx, s) * pool_norm
-
+             in_idx = base_idx + i_step + j_step * input_h + 1
+             output(in_idx, s) = output(in_idx, s) + grad_val
           end do
        end do
     end do
 
-  end function get_partial_avgpool2d
+  end subroutine get_partial_avgpool2d_val
 !###############################################################################
 
 
@@ -212,7 +262,8 @@ contains
     integer :: i, j, k, m, s
     integer :: i_step, j_step, k_step
     integer :: stride_idx, idx
-    real(real32) :: pool_sum, pool_norm, channel_size_in, channel_size_out
+    integer :: channel_size_in, channel_size_out
+    real(real32) :: pool_sum, pool_norm
     integer, dimension(5) :: output_shape
 
     ! output_shape = [H_out, W_out, D_out, C, B]
@@ -225,10 +276,10 @@ contains
 
     output => input%create_result(array_shape = output_shape)
     pool_norm = 1.0_real32 / real(product(pool_size), real32)
-    channel_size_in = &
-         real( input%shape(1) * input%shape(2) * input%shape(3), real32 )
-    channel_size_out = &
-         real( output_shape(1) * output_shape(2) * output_shape(3), real32 )
+
+    ! Pre-compute as integers
+    channel_size_in = input%shape(1) * input%shape(2) * input%shape(3)
+    channel_size_out = output_shape(1) * output_shape(2) * output_shape(3)
 
     do concurrent( &
          s = 1:output_shape(5), &
@@ -237,24 +288,25 @@ contains
          j = 1:output_shape(2), &
          i = 1:output_shape(1))
 
-       pool_sum = 0._real32
-
-       do k_step = 0, pool_size(3)-1
-          do j_step = 0, pool_size(2)-1
-             do i_step = 0, pool_size(1)-1
-                stride_idx = ((i-1)*stride(1) + i_step) + &
-                     ((j-1)*stride(2) + j_step) * input%shape(1) + &
-                     ((k-1)*stride(3) + k_step) * &
-                     input%shape(1) * input%shape(2) + &
-                     (m-1) * channel_size_in
-                pool_sum = pool_sum + input%val(stride_idx + 1, s)
-             end do
-          end do
-       end do
-
+       ! Compute indices once
+       stride_idx = ((i-1)*stride(1)) + &
+            ((j-1)*stride(2)) * input%shape(1) + &
+            ((k-1)*stride(3)) * input%shape(1) * input%shape(2) + &
+            (m-1) * channel_size_in
        idx = i + (j-1) * output_shape(1) + &
             (k-1) * output_shape(1)*output_shape(2) + &
             (m-1) * channel_size_out
+
+       pool_sum = 0._real32
+       do k_step = 0, pool_size(3)-1
+          do j_step = 0, pool_size(2)-1
+             do i_step = 0, pool_size(1)-1
+                pool_sum = pool_sum + input%val(stride_idx + i_step + &
+                     j_step * input%shape(1) + &
+                     k_step * input%shape(1) * input%shape(2) + 1, s)
+             end do
+          end do
+       end do
 
        output%val(idx, s) = pool_sum * pool_norm
     end do
@@ -264,6 +316,7 @@ contains
     output%adj_ja(:,2) = stride
 
     output%get_partial_left => get_partial_avgpool3d
+    output%get_partial_left_val => get_partial_avgpool3d_val
     if (input%requires_grad) then
        output%requires_grad = .true.
        output%is_forward = input%is_forward
@@ -282,11 +335,28 @@ contains
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
+    call output%allocate(array_shape = &
+         [ this%left_operand%shape, size(this%val, dim=2) ] &
+    )
+    call this%get_partial_left_val(upstream_grad%val, output%val)
+
+  end function get_partial_avgpool3d
+!-------------------------------------------------------------------------------
+  subroutine get_partial_avgpool3d_val(this, upstream_grad, output)
+    !! Optimized backward pass for 3D average pooling
+    implicit none
+
+    ! Arguments
+    class(array_type), intent(inout) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
     ! Local variables
     integer :: i, j, k, m, s
     integer :: i_step, j_step, k_step
-    integer :: in_idx, out_idx
-    real(real32) :: pool_norm, channel_size_in, channel_size_out
+    integer :: base_idx, in_idx, out_idx, input_h, input_hw
+    integer :: channel_size_in, channel_size_out
+    real(real32) :: pool_norm, grad_val
     integer, dimension(5) :: input_shape
     integer, dimension(3) :: pool_size, stride
 
@@ -294,44 +364,43 @@ contains
     input_shape = [ this%left_operand%shape, size(this%val, dim=2) ]
     pool_size = this%adj_ja(:,1)
     stride    = this%adj_ja(:,2)
+    input_h = input_shape(1)
+    input_hw = input_h * input_shape(2)
+    channel_size_in = input_hw * input_shape(3)
+    channel_size_out = this%shape(1) * this%shape(2) * this%shape(3)
 
-    call output%allocate(array_shape = input_shape)
-    output%val = 0._real32
+    output = 0._real32
 
     pool_norm = 1.0_real32 / real(product(pool_size), real32)
-    channel_size_in = &
-         real( input_shape(1) * input_shape(2) * input_shape(3), real32 )
-    channel_size_out = &
-         real( this%shape(1) * this%shape(2) * this%shape(3), real32 )
 
     do concurrent( &
          s = 1:input_shape(5), &
-         m = 1:this%shape(4), &     ! channels
-         k = 1:this%shape(3), &  ! pooled depth
-         j = 1:this%shape(2), &  ! pooled width
-         i = 1:this%shape(1))    ! pooled height
+         m = 1:this%shape(4), &
+         k = 1:this%shape(3), &
+         j = 1:this%shape(2), &
+         i = 1:this%shape(1))
+
+       ! Compute indices once
+       base_idx = (i-1)*stride(1) + ((j-1)*stride(2)) * input_h + &
+            ((k-1)*stride(3)) * input_hw + (m-1) * channel_size_in
+       out_idx = i + (j-1) * this%shape(1) + &
+            (k-1) * this%shape(1)*this%shape(2) + &
+            (m-1) * channel_size_out
+       grad_val = upstream_grad(out_idx, s) * pool_norm
 
        ! Distribute gradient over pooling window
        do k_step = 0, pool_size(3)-1
           do j_step = 0, pool_size(2)-1
              do i_step = 0, pool_size(1)-1
-                in_idx = ((i-1)*stride(1) + i_step) + &
-                     ((j-1)*stride(2) + j_step) * input_shape(1) + &
-                     ((k-1)*stride(3) + k_step) * input_shape(1)*input_shape(2) + &
-                     (m-1) * channel_size_in
-
-                out_idx = i + (j-1) * upstream_grad%shape(1) + &
-                     (k-1) * upstream_grad%shape(1)*upstream_grad%shape(2) + &
-                     (m-1) * channel_size_out
-
-                output%val(in_idx + 1, s) = output%val(in_idx + 1, s) + &
-                     upstream_grad%val(out_idx, s) * pool_norm
+                in_idx = base_idx + i_step + j_step * input_h + &
+                     k_step * input_hw + 1
+                output(in_idx, s) = output(in_idx, s) + grad_val
              end do
           end do
        end do
     end do
 
-  end function get_partial_avgpool3d
+  end subroutine get_partial_avgpool3d_val
 !###############################################################################
 
 
@@ -376,6 +445,7 @@ contains
     output%adj_ja(1,2) = stride
 
     output%get_partial_left => get_partial_maxpool1d
+    output%get_partial_left_val => get_partial_maxpool1d_val
     if(input%requires_grad)then
        output%requires_grad = .true.
        output%is_forward = input%is_forward
@@ -394,33 +464,61 @@ contains
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
-    ! Local variables
-    integer :: i, m, s, max_idx
-    integer :: stride_idx, idx, p
-    integer, dimension(3) :: input_shape
-
-    input_shape = [ this%left_operand%shape, size(this%val, dim=2) ]
-    call output%allocate(array_shape = input_shape)
-    output%val = 0._real32
-
-    do concurrent(&
-         s = 1:input_shape(3), &
-         m = 1:this%shape(2), &
-         i = 1:this%shape(1))
-       stride_idx = (i - 1) * this%adj_ja(1,2) + (m - 1) * input_shape(1)
-       idx = i + (m - 1) * this%shape(1)
-
-       ! Find the max value index within the pooling window
-       max_idx = maxloc( &
-            this%left_operand%val( &
-                 stride_idx + 1 : stride_idx + this%adj_ja(1,1), s &
-            ), dim = 1 )
-
-       output%val( stride_idx + max_idx, s ) = &
-            output%val( stride_idx + max_idx, s ) + upstream_grad%val(idx, s)
-    end do
+    call output%allocate(array_shape = &
+         [ this%left_operand%shape, size(this%val, dim=2) ] &
+    )
+    call this%get_partial_left_val(upstream_grad%val, output%val)
 
   end function get_partial_maxpool1d
+!-------------------------------------------------------------------------------
+  subroutine get_partial_maxpool1d_val(this, upstream_grad, output)
+    !! Optimized backward pass for 1D max pooling
+    implicit none
+
+    ! Arguments
+    class(array_type), intent(inout) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    ! Local variables
+    integer :: i, m, s, p
+    integer :: base_idx, max_idx, out_idx, input_h
+    real(real32) :: pool_max, grad_val
+    integer, dimension(3) :: input_shape
+    integer, dimension(1) :: pool_size, stride
+
+    input_shape = [ this%left_operand%shape, size(this%val, dim=2) ]
+    pool_size(1) = this%adj_ja(1,1)
+    stride(1) = this%adj_ja(1,2)
+    input_h = input_shape(1)
+
+    output = 0._real32
+
+    do concurrent(s = 1:input_shape(3), m = 1:this%shape(2), &
+         i = 1:this%shape(1))
+
+       ! Compute indices once
+       base_idx = (i - 1) * stride(1) + (m - 1) * input_h
+       out_idx = i + (m - 1) * this%shape(1)
+       grad_val = upstream_grad(out_idx, s)
+
+       ! Find max value location - initialize with first element
+       max_idx = base_idx + 1
+       pool_max = this%left_operand%val(max_idx, s)
+
+       ! Search remaining elements for max
+       do p = 1, pool_size(1) - 1
+          if(this%left_operand%val(base_idx + p + 1, s) > pool_max) then
+             pool_max = this%left_operand%val(base_idx + p + 1, s)
+             max_idx = base_idx + p + 1
+          end if
+       end do
+
+       ! Assign gradient to max location
+       output(max_idx, s) = output(max_idx, s) + grad_val
+    end do
+
+  end subroutine get_partial_maxpool1d_val
 !###############################################################################
 
 
@@ -603,10 +701,10 @@ contains
          size(input%val, dim=2) ]
 
     output => input%create_result(array_shape = output_shape)
-    channel_size_in = &
-         real( input%shape(1) * input%shape(2) * input%shape(3), real32 )
-    channel_size_out = &
-         real( output_shape(1) * output_shape(2) * output_shape(3), real32 )
+
+    ! Pre-compute as integers
+    channel_size_in = input%shape(1) * input%shape(2) * input%shape(3)
+    channel_size_out = output_shape(1) * output_shape(2) * output_shape(3)
 
     do concurrent( &
          s = 1:output_shape(5), &
@@ -615,24 +713,30 @@ contains
          j = 1:output_shape(2), &
          i = 1:output_shape(1))
 
-       pool_max = -huge(1.0_real32)
+       ! Compute indices once per output position
+       stride_idx = ((i-1)*stride(1)) + &
+            ((j-1)*stride(2)) * input%shape(1) + &
+            ((k-1)*stride(3)) * input%shape(1) * input%shape(2) + &
+            (m-1) * channel_size_in + 1
+       idx = i + (j-1) * output_shape(1) + &
+            (k-1) * output_shape(1)*output_shape(2) + &
+            (m-1) * channel_size_out
+
+       ! Find max value - initialize with first element
+       pool_max = input%val(stride_idx, s)
 
        do k_step = 0, pool_size(3)-1
           do j_step = 0, pool_size(2)-1
              do i_step = 0, pool_size(1)-1
-                stride_idx = ((i-1)*stride(1) + i_step) + &
-                     ((j-1)*stride(2) + j_step) * input%shape(1) + &
-                     ((k-1)*stride(3) + k_step) * &
-                     input%shape(1) * input%shape(2) + &
-                     (m-1) * channel_size_in
-                pool_max = max(pool_max, input%val(stride_idx + 1, s))
+                if(i_step == 0 .and. j_step == 0 .and. k_step == 0) cycle
+                if(input%val(stride_idx + i_step + j_step * input%shape(1) + &
+                     k_step * input%shape(1) * input%shape(2), s) > pool_max) &
+                     pool_max = input%val(stride_idx + i_step + &
+                     j_step * input%shape(1) + &
+                     k_step * input%shape(1) * input%shape(2), s)
              end do
           end do
        end do
-
-       idx = i + (j-1) * output_shape(1) + &
-            (k-1) * output_shape(1)*output_shape(2) + &
-            (m-1) * channel_size_out
 
        output%val(idx, s) = pool_max
     end do
@@ -642,6 +746,7 @@ contains
     output%adj_ja(:,2) = stride
 
     output%get_partial_left => get_partial_maxpool3d
+    output%get_partial_left_val => get_partial_maxpool3d_val
     if (input%requires_grad) then
        output%requires_grad = .true.
        output%is_forward = input%is_forward
@@ -660,11 +765,29 @@ contains
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
+    call output%allocate(array_shape = &
+         [ this%left_operand%shape, size(this%val, dim=2) ] &
+    )
+    call this%get_partial_left_val(upstream_grad%val, output%val)
+
+  end function get_partial_maxpool3d
+!-------------------------------------------------------------------------------
+  subroutine get_partial_maxpool3d_val(this, upstream_grad, output)
+    !! Optimized backward pass for 3D max pooling
+    implicit none
+
+    ! Arguments
+    class(array_type), intent(inout) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
     ! Local variables
     integer :: i, j, k, m, s
     integer :: i_step, j_step, k_step
-    integer :: in_idx, out_idx, max_i, max_j, max_k
-    real(real32) :: pool_max, channel_size_in, channel_size_out, tmp_multi
+    integer :: base_idx, in_idx, out_idx, max_idx
+    integer :: input_h, input_hw
+    integer :: channel_size_in, channel_size_out
+    real(real32) :: pool_max, val_tmp, grad_val
     integer, dimension(5) :: input_shape
     integer, dimension(3) :: pool_size, stride
 
@@ -672,64 +795,51 @@ contains
     input_shape = [ this%left_operand%shape, size(this%val, dim=2) ]
     pool_size = this%adj_ja(:,1)
     stride    = this%adj_ja(:,2)
+    input_h = input_shape(1)
+    input_hw = input_h * input_shape(2)
+    channel_size_in = input_hw * input_shape(3)
+    channel_size_out = this%shape(1) * this%shape(2) * this%shape(3)
 
-    call output%allocate(array_shape = input_shape)
-    output%val = 0._real32
+    output = 0._real32
 
-    channel_size_in = &
-         real( input_shape(1) * input_shape(2) * input_shape(3), real32 )
-    channel_size_out = &
-         real( this%shape(1) * this%shape(2) * this%shape(3), real32 )
-    tmp_multi = input_shape(1) * input_shape(2)
+    ! Parallelized over batch and spatial/channel dimensions
+    do concurrent(s = 1:input_shape(5), m = 1:this%shape(4), &
+         k = 1:this%shape(3), j = 1:this%shape(2), i = 1:this%shape(1))
 
-    do s = 1, input_shape(5)
-       do m = 1, this%shape(4)
-          do k = 1, this%shape(3)
-             do j = 1, this%shape(2)
-                do i = 1, this%shape(1)
-                   ! Find max value location in pooling window
-                   pool_max = -huge(1.0_real32)
-                   max_i = 0
-                   max_j = 0
-                   max_k = 0
+       ! Compute indices once
+       base_idx = (i-1)*stride(1) + ((j-1)*stride(2)) * input_h + &
+            ((k-1)*stride(3)) * input_hw + (m-1) * channel_size_in
+       out_idx = i + (j-1) * this%shape(1) + &
+            (k-1) * this%shape(1)*this%shape(2) + &
+            (m-1) * channel_size_out
+       grad_val = upstream_grad(out_idx, s)
 
-                   do k_step = 0, pool_size(3)-1
-                      do j_step = 0, pool_size(2)-1
-                         do i_step = 0, pool_size(1)-1
-                            in_idx = ((i-1)*stride(1) + i_step) + &
-                                 ((j-1)*stride(2) + j_step) * input_shape(1) + &
-                                 ((k-1)*stride(3) + k_step) * tmp_multi + &
-                                 (m-1) * channel_size_in
+       ! Find max value location - initialize with first element
+       max_idx = base_idx + 1
+       pool_max = this%left_operand%val(max_idx, s)
 
-                            if (this%left_operand%val(in_idx + 1, s) > pool_max) then
-                               pool_max = this%left_operand%val(in_idx + 1, s)
-                               max_i = i_step
-                               max_j = j_step
-                               max_k = k_step
-                            end if
-                         end do
-                      end do
-                   end do
+       ! Search remaining elements for max
+       do k_step = 0, pool_size(3)-1
+          do j_step = 0, pool_size(2)-1
+             do i_step = 0, pool_size(1)-1
+                if(i_step == 0 .and. j_step == 0 .and. k_step == 0) cycle
+                in_idx = base_idx + i_step + j_step * input_h + &
+                     k_step * input_hw + 1
+                val_tmp = this%left_operand%val(in_idx, s)
 
-                   ! Assign gradient to max location
-                   in_idx = ((i-1)*stride(1) + max_i) + &
-                        ((j-1)*stride(2) + max_j) * input_shape(1) + &
-                        ((k-1)*stride(3) + max_k) * tmp_multi + &
-                        (m-1) * channel_size_in
-
-                   out_idx = i + (j-1) * upstream_grad%shape(1) + &
-                        (k-1) * upstream_grad%shape(1)*upstream_grad%shape(2) + &
-                        (m-1) * channel_size_out
-
-                   output%val(in_idx + 1, s) = output%val(in_idx + 1, s) + &
-                        upstream_grad%val(out_idx, s)
-                end do
+                if (val_tmp .gt. pool_max) then
+                   pool_max = val_tmp
+                   max_idx = in_idx
+                end if
              end do
           end do
        end do
+
+       ! Assign gradient to max location
+       output(max_idx, s) = output(max_idx, s) + grad_val
     end do
 
-  end function get_partial_maxpool3d
+  end subroutine get_partial_maxpool3d_val
 !###############################################################################
 
 end submodule athena__diffstruc_extd_submodule_pool

@@ -104,7 +104,7 @@ program test_kipf_msgpass_layer
   ! Set the graph for the layer
   call msgpass_layer%set_graph(graph)
 
-  ! ! Initialize the layer
+  ! ! Initialise the layer
   ! call msgpass_layer%init([num_features, num_vertices], batch_size=1)
 
 !-------------------------------------------------------------------------------

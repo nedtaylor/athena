@@ -68,6 +68,8 @@ contains
 
     output%get_partial_left => get_partial_conv1d_input
     output%get_partial_right => get_partial_conv1d_kernel
+    output%get_partial_left_val => get_partial_conv1d_input_val
+    output%get_partial_right_val => get_partial_conv1d_kernel_val
     if(input%requires_grad .or. kernel%requires_grad)then
        output%requires_grad = .true.
        output%is_forward = input%is_forward
@@ -86,49 +88,9 @@ contains
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
-    ! Local variables
-    integer :: i, k, c_in, c_out, s
-    integer :: i_in, k_idx, out_idx
-    integer :: input_h, kernel_h, output_h, num_channels, num_filters
-    integer :: stride, dilation
-    real(real32) :: grad_val
-    class(array_type), pointer :: input, kernel
-
-    input => this%left_operand
-    kernel => this%right_operand
-
-    ! Unpack parameters
-    num_channels = this%indices(1)
-    num_filters = this%indices(2)
-    stride = this%adj_ja(1,1)
-    dilation = this%adj_ja(1,2)
-    kernel_h = this%adj_ja(1,3)
-
-    input_h = input%shape(1)
-    output_h = this%shape(1)
-
-    call output%allocate(array_shape = [ input%shape, size(input%val, dim=2) ])
-    output%val = 0._real32
-
-    ! Parallelised over batch, channels, and output positions
-    do concurrent(s = 1:size(upstream_grad%val, dim=2), c_in = 1:num_channels, &
-         i = 1:output_h, c_out = 1:num_filters)
-       out_idx = i + (c_out-1)*output_h
-       grad_val = upstream_grad%val(out_idx, s)
-
-       if(abs(grad_val) > 1.e-30_real32)then
-          do k = 1, kernel_h
-             i_in = ( i - 1 ) * stride + ( k - 1 ) * dilation + 1
-             if(i_in .ge. 1 .and. i_in .le. input_h)then
-                k_idx = k + ( c_in - 1 ) * kernel_h + &
-                     ( c_out - 1 ) * kernel_h * num_channels
-                output%val(i_in + ( c_in - 1 ) * input_h, s) = &
-                     output%val(i_in + ( c_in - 1 ) * input_h, s) + &
-                     grad_val * kernel%val(k_idx, 1)
-             end if
-          end do
-       end if
-    end do
+    call output%allocate(array_shape = [ this%left_operand%shape, &
+         size(this%left_operand%val, dim=2) ])
+    call this%get_partial_left_val(upstream_grad%val, output%val)
 
   end function get_partial_conv1d_input
 !-------------------------------------------------------------------------------
@@ -140,12 +102,25 @@ contains
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
+    call output%allocate(array_shape = [ this%right_operand%shape, 1 ])
+    call this%get_partial_right_val(upstream_grad%val, output%val)
+
+  end function get_partial_conv1d_kernel
+!-------------------------------------------------------------------------------
+  subroutine get_partial_conv1d_input_val(this, upstream_grad, output)
+    !! Get partial derivative wrt input for 1D convolution (subroutine version)
+    implicit none
+
+    class(array_type), intent(inout) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
     ! Local variables
     integer :: i, k, c_in, c_out, s
     integer :: i_in, k_idx, out_idx
     integer :: input_h, kernel_h, output_h, num_channels, num_filters
     integer :: stride, dilation
-    real(real32) :: grad_val
+    real(real32) :: grad_val, kernel_val
     class(array_type), pointer :: input, kernel
 
     input => this%left_operand
@@ -158,32 +133,85 @@ contains
     dilation = this%adj_ja(1,2)
     kernel_h = this%adj_ja(1,3)
 
+    input_h = input%shape(1)
+    output_h = this%shape(1)
+
+    output = 0._real32
+
+    ! Parallelized over batch, channels, and output positions
+    do concurrent(s = 1:size(upstream_grad, dim=2), c_in = 1:num_channels, &
+         i = 1:output_h, c_out = 1:num_filters)
+       out_idx = i + (c_out-1)*output_h
+       grad_val = upstream_grad(out_idx, s)
+
+       if(abs(grad_val) > 1.e-30_real32)then
+          do k = 1, kernel_h
+             i_in = ( i - 1 ) * stride + ( k - 1 ) * dilation + 1
+             if(i_in .ge. 1 .and. i_in .le. input_h)then
+                k_idx = k + ( c_in - 1 ) * kernel_h + &
+                     ( c_out - 1 ) * kernel_h * num_channels
+                kernel_val = kernel%val(k_idx, 1)
+                output(i_in + ( c_in - 1 ) * input_h, s) = &
+                     output(i_in + ( c_in - 1 ) * input_h, s) + &
+                     grad_val * kernel_val
+             end if
+          end do
+       end if
+    end do
+
+  end subroutine get_partial_conv1d_input_val
+!-------------------------------------------------------------------------------
+  subroutine get_partial_conv1d_kernel_val(this, upstream_grad, output)
+    !! Get partial derivative wrt kernel for 1D convolution (subroutine version)
+    implicit none
+
+    class(array_type), intent(inout) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    ! Local variables
+    integer :: i, k, c_in, c_out, s
+    integer :: i_in, k_idx, out_idx
+    integer :: input_h, kernel_h, output_h, num_channels, num_filters
+    integer :: stride, dilation
+    real(real32) :: grad_sum
+    class(array_type), pointer :: input, kernel
+
+    input => this%left_operand
+    kernel => this%right_operand
+
+    ! Unpack parameters
+    num_channels = this%indices(1)
+    num_filters = this%indices(2)
+    stride = this%adj_ja(1,1)
+    dilation = this%adj_ja(1,2)
+    kernel_h = this%adj_ja(1,3)
 
     input_h = input%shape(1)
     output_h = this%shape(1)
 
-    call output%allocate(array_shape = [ kernel%shape, size(input%val, dim=2)])
-    output%val = 0._real32
+    output = 0._real32
 
-    ! Parallelised over filters, channels, and kernel positions
+    ! Parallelized over filters, channels, and kernel positions
     do concurrent(c_out = 1:num_filters, c_in = 1:num_channels, k = 1:kernel_h)
        k_idx = k + ( c_in - 1 ) * kernel_h + &
             ( c_out - 1 ) * kernel_h * num_channels
 
-       do s = 1, size(upstream_grad%val, dim=2)
+       grad_sum = 0._real32
+       do s = 1, size(upstream_grad, dim=2)
           do i = 1, output_h
              i_in = ( i - 1 ) * stride + ( k - 1 ) * dilation + 1
              if(i_in .ge. 1 .and. i_in .le. input_h)then
                 out_idx = i + ( c_out - 1 ) * output_h
-                output%val(k_idx, 1) = output%val(k_idx, 1) + &
-                     upstream_grad%val(out_idx, s) * &
+                grad_sum = grad_sum + upstream_grad(out_idx, s) * &
                      input%val(i_in + ( c_in - 1 ) * input_h, s)
              end if
           end do
        end do
+       output(k_idx, 1) = grad_sum
     end do
 
-  end function get_partial_conv1d_kernel
+  end subroutine get_partial_conv1d_kernel_val
 !###############################################################################
 
 
@@ -566,6 +594,8 @@ contains
 
     output%get_partial_left => get_partial_conv3d_input
     output%get_partial_right => get_partial_conv3d_kernel
+    output%get_partial_left_val => get_partial_conv3d_input_val
+    output%get_partial_right_val => get_partial_conv3d_kernel_val
     if(input%requires_grad .or. kernel%requires_grad)then
        output%requires_grad = .true.
        output%is_forward = input%is_forward
@@ -584,88 +614,9 @@ contains
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
-    ! Local variables
-    integer :: i, j, k, ki, kj, kk, c_in, c_out, s
-    integer :: i_in, j_in, k_in, k_idx, out_idx, in_idx
-    integer :: input_h, input_w, input_d, kernel_h, kernel_w, kernel_d
-    integer :: output_h, output_w, output_d
-    integer :: num_channels, num_filters
-    integer :: channel_size_in, channel_size_out
-    integer, dimension(3) :: stride, dilation
-    real(real32) :: grad_val
-    class(array_type), pointer :: input, kernel
-
-    input => this%left_operand
-    kernel => this%right_operand
-
-    ! Unpack parameters
-    num_channels = this%indices(1)
-    num_filters = this%indices(2)
-    stride = this%adj_ja(1:3,1)
-    dilation = this%adj_ja(1:3,2)
-    kernel_h = this%adj_ja(1,3)
-    kernel_w = this%adj_ja(2,3)
-    kernel_d = this%adj_ja(3,3)
-
-    input_h = input%shape(1)
-    input_w = input%shape(2)
-    input_d = input%shape(3)
-    output_h = this%shape(1)
-    output_w = this%shape(2)
-    output_d = this%shape(3)
-
-    call output%allocate(array_shape = [ input%shape, size(input%val, dim=2) ])
-    output%val = 0._real32
-
-    channel_size_in = input_h * input_w * input_d
-    channel_size_out = output_h * output_w * output_d
-
-    do s = 1, size(upstream_grad%val, dim=2)
-       do c_in = 1, num_channels
-          do k = 1, output_d
-             do j = 1, output_w
-                do i = 1, output_h
-                   do c_out = 1, num_filters
-                      out_idx = i + ( j - 1 ) * output_h + &
-                           ( k - 1 ) * output_h * output_w + &
-                           ( c_out - 1 ) * channel_size_out
-                      grad_val = upstream_grad%val(out_idx, s)
-
-                      do kk = 1, kernel_d
-                         k_in = ( k - 1 ) * stride(3) + ( kk - 1 ) * dilation(3) + 1
-                         if( k_in .ge. 1 .and. k_in .le. input_d )then
-                            do kj = 1, kernel_w
-                               j_in = ( j - 1 ) * stride(2) + ( kj - 1 ) * &
-                                    dilation(2) + 1
-                               if( j_in .ge. 1 .and. j_in .le. input_w )then
-                                  do ki = 1, kernel_h
-                                     i_in = ( i - 1 ) * stride(1) + &
-                                          ( ki - 1 ) * dilation(1) + 1
-                                     if( i_in .ge. 1 .and. i_in .le. input_h )then
-                                        in_idx = i_in + ( j_in - 1 ) * input_h + &
-                                             ( k_in - 1 ) * input_h * input_w + &
-                                             ( c_in - 1 ) * channel_size_in
-                                        k_idx = ki + ( kj - 1 ) * kernel_h + &
-                                             ( kk - 1 ) * kernel_h * kernel_w + &
-                                             ( c_in - 1 ) * kernel_h * kernel_w * &
-                                             kernel_d + &
-                                             ( c_out - 1 ) * kernel_h * kernel_w * &
-                                             kernel_d * num_channels
-                                        output%val(in_idx, s) = &
-                                             output%val(in_idx, s) + &
-                                             grad_val * kernel%val(k_idx, 1)
-                                     end if
-                                  end do
-                               end if
-                            end do
-                         end if
-                      end do
-                   end do
-                end do
-             end do
-          end do
-       end do
-    end do
+    call output%allocate(array_shape = [ this%left_operand%shape, &
+         size(this%left_operand%val, dim=2) ])
+    call this%get_partial_left_val(upstream_grad%val, output%val)
 
   end function get_partial_conv3d_input
 !-------------------------------------------------------------------------------
@@ -677,6 +628,19 @@ contains
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
+    call output%allocate(array_shape = [ this%right_operand%shape, 1 ])
+    call this%get_partial_right_val(upstream_grad%val, output%val)
+
+  end function get_partial_conv3d_kernel
+!-------------------------------------------------------------------------------
+  subroutine get_partial_conv3d_input_val(this, upstream_grad, output)
+    !! Get partial derivative wrt input for 3D convolution (subroutine version)
+    implicit none
+
+    class(array_type), intent(inout) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
     ! Local variables
     integer :: i, j, k, ki, kj, kk, c_in, c_out, s
     integer :: i_in, j_in, k_in, k_idx, out_idx, in_idx
@@ -685,6 +649,7 @@ contains
     integer :: num_channels, num_filters
     integer :: channel_size_in, channel_size_out
     integer, dimension(3) :: stride, dilation
+    real(real32) :: grad_val, kernel_val
     class(array_type), pointer :: input, kernel
 
     input => this%left_operand
@@ -706,43 +671,49 @@ contains
     output_w = this%shape(2)
     output_d = this%shape(3)
 
-    call output%allocate(array_shape = [ kernel%shape, size(input%val, dim=2)])
-    output%val = 0._real32
+    output = 0._real32
 
     channel_size_in = input_h * input_w * input_d
     channel_size_out = output_h * output_w * output_d
 
-    do s = 1, size(upstream_grad%val, dim=2)
-       do c_out = 1, num_filters
-          do c_in = 1, num_channels
-             do kk = 1, kernel_d
-                do kj = 1, kernel_w
-                   do ki = 1, kernel_h
-                      k_idx = ki + (kj-1)*kernel_h + &
-                           (kk-1)*kernel_h*kernel_w + &
-                           (c_in-1)*kernel_h*kernel_w*kernel_d + &
-                           (c_out-1)*kernel_h*kernel_w*kernel_d*num_channels
+    do s = 1, size(upstream_grad, dim=2)
+       do c_in = 1, num_channels
+          do k = 1, output_d
+             do j = 1, output_w
+                do i = 1, output_h
+                   do c_out = 1, num_filters
+                      out_idx = i + ( j - 1 ) * output_h + &
+                           ( k - 1 ) * output_h * output_w + &
+                           ( c_out - 1 ) * channel_size_out
+                      grad_val = upstream_grad(out_idx, s)
 
-                      do k = 1, output_d
-                         k_in = (k-1)*stride(3) + (kk-1)*dilation(3) + 1
-                         if(k_in >= 1 .and. k_in <= input_d)then
-                            do j = 1, output_w
-                               j_in = (j-1)*stride(2) + (kj-1)*dilation(2) + 1
-                               if(j_in >= 1 .and. j_in <= input_w)then
-                                  do i = 1, output_h
-                                     i_in = (i-1)*stride(1) + &
-                                          (ki-1)*dilation(1) + 1
-                                     if(i_in >= 1 .and. i_in <= input_h)then
-                                        in_idx = i_in + (j_in-1)*input_h + &
-                                             (k_in-1)*input_h*input_w + &
-                                             (c_in-1)*channel_size_in
-                                        out_idx = i + (j-1)*output_h + &
-                                             (k-1)*output_h*output_w + &
-                                             (c_out-1)*channel_size_out
-                                        output%val(k_idx, 1) = &
-                                             output%val(k_idx, 1) + &
-                                             upstream_grad%val(out_idx, s) * &
-                                             input%val(in_idx, s)
+                      do kk = 1, kernel_d
+                         k_in = ( k - 1 ) * stride(3) + &
+                              ( kk - 1 ) * dilation(3) + 1
+                         if( k_in .ge. 1 .and. k_in .le. input_d )then
+                            do kj = 1, kernel_w
+                               j_in = ( j - 1 ) * stride(2) + &
+                                    ( kj - 1 ) * dilation(2) + 1
+                               if( j_in .ge. 1 .and. j_in .le. input_w )then
+                                  do ki = 1, kernel_h
+                                     i_in = ( i - 1 ) * stride(1) + &
+                                          ( ki - 1 ) * dilation(1) + 1
+                                     if( i_in .ge. 1 .and. &
+                                          i_in .le. input_h )then
+                                        in_idx = i_in + &
+                                             ( j_in - 1 ) * input_h + &
+                                             ( k_in - 1 ) * input_h * input_w + &
+                                             ( c_in - 1 ) * channel_size_in
+                                        k_idx = ki + ( kj - 1 ) * kernel_h + &
+                                             ( kk - 1 ) * kernel_h * kernel_w + &
+                                             ( c_in - 1 ) * kernel_h * &
+                                             kernel_w * kernel_d + &
+                                             ( c_out - 1 ) * kernel_h * &
+                                             kernel_w * kernel_d * num_channels
+                                        kernel_val = kernel%val(k_idx, 1)
+                                        output(in_idx, s) = &
+                                             output(in_idx, s) + &
+                                             grad_val * kernel_val
                                      end if
                                   end do
                                end if
@@ -756,7 +727,98 @@ contains
        end do
     end do
 
-  end function get_partial_conv3d_kernel
+  end subroutine get_partial_conv3d_input_val
+!-------------------------------------------------------------------------------
+  subroutine get_partial_conv3d_kernel_val(this, upstream_grad, output)
+    !! Get partial derivative wrt kernel for 3D convolution (subroutine version)
+    implicit none
+
+    class(array_type), intent(inout) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    ! Local variables
+    integer :: i, j, k, ki, kj, kk, c_in, c_out, s
+    integer :: i_in, j_in, k_in, k_idx, out_idx, in_idx
+    integer :: input_h, input_w, input_d, kernel_h, kernel_w, kernel_d
+    integer :: output_h, output_w, output_d
+    integer :: num_channels, num_filters
+    integer :: channel_size_in, channel_size_out
+    integer, dimension(3) :: stride, dilation
+    real(real32) :: grad_sum
+    class(array_type), pointer :: input, kernel
+
+    input => this%left_operand
+    kernel => this%right_operand
+
+    ! Unpack parameters
+    num_channels = this%indices(1)
+    num_filters = this%indices(2)
+    stride = this%adj_ja(1:3,1)
+    dilation = this%adj_ja(1:3,2)
+    kernel_h = this%adj_ja(1,3)
+    kernel_w = this%adj_ja(2,3)
+    kernel_d = this%adj_ja(3,3)
+
+    input_h = input%shape(1)
+    input_w = input%shape(2)
+    input_d = input%shape(3)
+    output_h = this%shape(1)
+    output_w = this%shape(2)
+    output_d = this%shape(3)
+
+    output = 0._real32
+
+    channel_size_in = input_h * input_w * input_d
+    channel_size_out = output_h * output_w * output_d
+
+    do c_out = 1, num_filters
+       do c_in = 1, num_channels
+          do kk = 1, kernel_d
+             do kj = 1, kernel_w
+                do ki = 1, kernel_h
+                   k_idx = ki + (kj-1)*kernel_h + &
+                        (kk-1)*kernel_h*kernel_w + &
+                        (c_in-1)*kernel_h*kernel_w*kernel_d + &
+                        (c_out-1)*kernel_h*kernel_w*kernel_d*num_channels
+
+                   grad_sum = 0._real32
+                   do s = 1, size(upstream_grad, dim=2)
+                      do k = 1, output_d
+                         k_in = (k-1)*stride(3) + (kk-1)*dilation(3) + 1
+                         if(k_in >= 1 .and. k_in <= input_d)then
+                            do j = 1, output_w
+                               j_in = (j-1)*stride(2) + &
+                                    (kj-1)*dilation(2) + 1
+                               if(j_in >= 1 .and. j_in <= input_w)then
+                                  do i = 1, output_h
+                                     i_in = (i-1)*stride(1) + &
+                                          (ki-1)*dilation(1) + 1
+                                     if(i_in >= 1 .and. i_in <= input_h)then
+                                        in_idx = i_in + (j_in-1)*input_h + &
+                                             (k_in-1)*input_h*input_w + &
+                                             (c_in-1)*channel_size_in
+                                        out_idx = i + (j-1)*output_h + &
+                                             (k-1)*output_h*output_w + &
+                                             (c_out-1)*channel_size_out
+                                        grad_sum = grad_sum + &
+                                             upstream_grad(out_idx, s) * &
+                                             input%val(in_idx, s)
+                                     end if
+                                  end do
+                               end if
+                            end do
+                         end if
+                      end do
+                   end do
+                   output(k_idx, 1) = grad_sum
+                end do
+             end do
+          end do
+       end do
+    end do
+
+  end subroutine get_partial_conv3d_kernel_val
 !###############################################################################
 
 end submodule athena__diffstruc_extd_submodule_conv
