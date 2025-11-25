@@ -383,7 +383,9 @@ contains
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input values
 
+    ! Local variables
     type(array_type), pointer :: ptr
+    !! Pointer array
 
 
     call this%output(1,1)%zero_grad()

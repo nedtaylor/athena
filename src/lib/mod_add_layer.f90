@@ -434,14 +434,21 @@ contains
     !! Input values
 
     ! Local variables
-    integer :: i, s
+    integer :: i, j, s
     !! Loop index
-    type(array_type), pointer :: temp(:)
+    type(array_type), pointer :: ptr
+    !! Pointer array
 
-    do i = 1, size(input_list(1)%array, 1)
-       do s = 1, size(input_list(1)%array, 2)
-          this%output(i,s) = add(input_list, i, s)
-       end do
+    do s = 1, size(input_list(1)%array, 2)
+       index_loop: do i = 1, size(input_list(1)%array, 1)
+          do j = 1, size(input_list,1)
+             if(.not.input_list(j)%array(i,s)%allocated) cycle index_loop
+          end do
+          ptr => add(input_list, i, s)
+          call this%output(i,s)%zero_grad()
+          call this%output(i,s)%assign_and_deallocate_source(ptr)
+          this%output(i,s)%is_temporary = .false.
+       end do index_loop
     end do
 
   end subroutine combine_add

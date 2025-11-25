@@ -636,8 +636,8 @@ contains
     !! Input values
 
     ! Local variables
-    real(real32), dimension(this%num_channels) :: arr1
     class(batchnorm_array_type), pointer :: ptr
+    ! Pointer array
 
 
     select case(this%inference)
@@ -666,6 +666,7 @@ contains
        output%variance = ptr%variance
     end select
     deallocate(ptr)
+    this%output(1,1)%is_temporary = .false.
 
   end subroutine forward_batchnorm1d
 !###############################################################################

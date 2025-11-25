@@ -506,7 +506,9 @@ contains
 
     ! Local variables
     real(real32) :: rtmp1
+    !! Temporary variable
     type(array_type), pointer :: ptr
+    !! Pointer array
 
 
     rtmp1 = 1._real32 - this%rate
@@ -523,6 +525,7 @@ contains
        ) * rtmp1
     end select
     call this%output(1,1)%assign_and_deallocate_source(ptr)
+    this%output(1,1)%is_temporary = .false.
 
   end subroutine forward_dropblock3d
 !###############################################################################

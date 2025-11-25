@@ -441,6 +441,7 @@ contains
     integer :: i, j, s
     !! Loop index
     type(array_type), pointer :: ptr
+    !! Pointer array
 
     do s = 1, size(input_list(1)%array, 2)
        index_loop: do i = 1, size(input_list(1)%array, 1)

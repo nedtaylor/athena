@@ -64,12 +64,12 @@ source-dir = "example/mnist_3D/src"
 [example.dependencies]
 example_library = { path = "example/example_library"}
 
-# [[example]]
-# name = "mnist_bn"
-# source-dir = "example/mnist_bn/src"
-# [example.dependencies]
-# example_library = { path = "example/example_library"}
-#
+[[example]]
+name = "mnist_bn"
+source-dir = "example/mnist_bn/src"
+[example.dependencies]
+example_library = { path = "example/example_library"}
+
 # [[example]]
 # name = "mnist_drop"
 # source-dir = "example/mnist_drop/src"
