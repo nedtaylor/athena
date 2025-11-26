@@ -768,7 +768,6 @@ contains
           call this%z(t,s)%zero_grad()
           call this%z(t,s)%assign_and_deallocate_source(ptr3)
           this%z(t,s)%is_temporary = .false.
-          this%z(t,s)%id = t * this%batch_size + s
           ptr1 => this%z(t,s)
        end do
     end do

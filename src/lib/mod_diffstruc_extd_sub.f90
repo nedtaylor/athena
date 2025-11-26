@@ -464,7 +464,9 @@ contains
     output%indices = [dim]
 
     output%get_partial_left => get_partial_softmax_reverse_left
-    output%get_partial_left => get_partial_softmax_reverse_right
+    output%get_partial_left_val => get_partial_softmax_reverse_left_val
+    output%get_partial_right => get_partial_softmax_reverse_right
+    output%get_partial_right_val => get_partial_softmax_reverse_right_val
     if(softmax%requires_grad .or. gradient%requires_grad)then
        output%requires_grad = .true.
        output%is_forward = softmax%is_forward .or. gradient%is_forward
@@ -511,6 +513,61 @@ contains
     call output%assign_and_deallocate_source(ptr)
 
   end function get_partial_softmax_reverse_right
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_softmax_reverse_left_val(this, upstream_grad, output)
+    !! Get partial derivative of softmax reverse operation (in-place version)
+    implicit none
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    integer :: dim, i
+    real(real32), dimension(size(this%val,3-this%indices(1))) :: sum_yg
+    real(real32), dimension(size(this%val,3-this%indices(1))) :: sum_yu
+
+    dim = this%indices(1)
+    sum_yg = sum(this%left_operand%val * this%right_operand%val, dim=dim)
+    sum_yu = sum(this%left_operand%val * upstream_grad, dim=dim)
+
+    if(dim.eq.1)then
+       do concurrent(i=1:size(this%val,2))
+          output(:, i) = &
+               upstream_grad(:, i) * (this%right_operand%val(:, i) - sum_yg(i)) - &
+               this%right_operand%val(:, i) * sum_yu(i)
+       end do
+    else
+       do concurrent(i=1:size(this%val,1))
+          output(i, :) = &
+               upstream_grad(i, :) * (this%right_operand%val(i, :) - sum_yg(i)) - &
+               this%right_operand%val(i, :) * sum_yu(i)
+       end do
+    end if
+
+  end subroutine get_partial_softmax_reverse_left_val
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_softmax_reverse_right_val(this, upstream_grad, output)
+    !! Get partial derivative of softmax reverse operation (in-place version)
+    implicit none
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    integer :: dim, i
+    real(real32), dimension(size(this%val,3-this%indices(1))) :: sum_yu
+
+    dim = this%indices(1)
+    if(dim.eq.1)then
+       sum_yu = sum(this%left_operand%val * upstream_grad, dim=dim)
+       do concurrent(i=1:size(this%val,1))
+          output(i, :) = upstream_grad(i, :) - sum_yu(i) * this%left_operand%val(i, :)
+       end do
+    else
+       sum_yu = sum(this%left_operand%val * upstream_grad, dim=dim)
+       do concurrent(i=1:size(this%val,2))
+          output(:, i) = upstream_grad(:, i) - sum_yu(i) * this%left_operand%val(:, i)
+       end do
+    end if
+   end subroutine get_partial_softmax_reverse_right_val
 !###############################################################################
 
 end submodule athena__diffstruc_extd_submodule
