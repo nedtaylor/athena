@@ -1450,6 +1450,8 @@ contains
     integer, dimension(:), allocatable :: input_shape, &
          child_vertices, parent_vertices
     !! Shapes of the input and output of the layers
+    integer, dimension(:,:), allocatable :: merge_shape
+    !! Shapes of the inputs to merge layers
     class(base_layer_type), allocatable :: &
          t_input_layer, t_flatten_layer, t_merge_layer
     !! Temporary input, flatten, and merge layers
@@ -1588,15 +1590,16 @@ contains
 
        ! get all child vertices
        allocate(child_vertices(0))
-       do j = 1, size(this%auto_graph%adjacency(i,:))
-          if(this%auto_graph%adjacency(i,j).eq.0) cycle
-          child_vertices = [child_vertices, j]
-       end do
+       child_vertices = pack( &
+            [(j, j=1,size(this%auto_graph%adjacency(i,:)))], &
+            this%auto_graph%adjacency(i,:) .ne. 0 &
+       )
        child_loop: do j = 1, size(child_vertices)
           child_id = this%auto_graph%vertex(child_vertices(j))%id
           if(trim(this%model(id)%layer%type).eq."flat") cycle child_loop
           if( this%model(id)%layer%output_rank .eq. &
                this%model(child_id)%layer%input_rank ) cycle child_loop
+          if(this%model(id)%layer%output_rank.eq.0) cycle child_loop
 
           ! get all parent vertices of the child vertex
           if(allocated(parent_vertices)) deallocate(parent_vertices)
@@ -1617,6 +1620,9 @@ contains
 
           if(l_flatten_child)then
              ! add flatten layer in the place of the child layer
+             operator = this%auto_graph%edge( &
+                  this%auto_graph%adjacency(parent_vertices(1),child_vertices(j)) &
+             )%id
              call this%auto_graph%remove_edges( &
                   indices = [ &
                        this%auto_graph%adjacency( &
@@ -1626,7 +1632,8 @@ contains
              )
              call this%add( &
                   t_flatten_layer, &
-                  input_list=[parent_vertices(:)], output_list=[child_id] &
+                  input_list=[parent_vertices(:)], output_list=[child_id], &
+                  operator=operator &
              )
           else
              ! add flatten layer between the current layer and the child layer
@@ -1634,7 +1641,8 @@ contains
                   indices = [this%auto_graph%adjacency(i,child_vertices(j))] &
              )
              call this%add( &
-                  t_flatten_layer, input_list = [i], output_list = [child_id] &
+                  t_flatten_layer, input_list = [i], output_list = [child_id], &
+                  operator=operator &
              )
           end if
           deallocate(t_flatten_layer)
@@ -1644,10 +1652,6 @@ contains
        deallocate(child_vertices)
     end do flatten_loop
     call this%generate_vertex_order()
-
-    ! Update number of layers
-    !---------------------------------------------------------------------------
-    this%num_layers = size(this%model,dim=1)
 
 
     !---------------------------------------------------------------------------
@@ -1707,12 +1711,18 @@ contains
        )
        deallocate(t_merge_layer)
     end do merge_loop
+    call this%generate_vertex_order()
+
+
+    ! Update number of layers
+    !---------------------------------------------------------------------------
+    this%num_layers = size(this%model,dim=1)
+
 
 
     !---------------------------------------------------------------------------
     ! Initialise layers
     !---------------------------------------------------------------------------
-    call this%generate_vertex_order()
     do i = 1, size(this%vertex_order, dim = 1)
        if(allocated(this%model(this%vertex_order(i))%layer%input_shape))then
           l_set_input_shape = .false.
@@ -1722,44 +1732,39 @@ contains
        if(l_set_input_shape) then
           layer_rank = this%model(this%vertex_order(i))%layer%input_rank
           previous_rank = 0
-          allocate( &
-               input_shape(this%model(this%vertex_order(i))%layer%input_rank), &
-               source = 0 &
-          )
-          do j = 1, this%auto_graph%num_vertices
-             if(this%auto_graph%adjacency(j,this%vertex_order(i)).eq.0) cycle
-             previous_rank = this%model(j)%layer%output_rank
-             select case( &
-                  this%auto_graph%edge( &
-                       this%auto_graph%adjacency(j,this%vertex_order(i)) &
-                  )%id &
+
+          select type( layer => this%model(this%vertex_order(i))%layer )
+          class is(merge_layer_type)
+             ! loop over all parent layers
+             allocate(merge_shape( &
+                  this%model(this%vertex_order(i))%layer%input_rank, &
+                  size(layer%input_layer_ids)) &
              )
-             case(1) ! concatenate
+             do k = 1, size(layer%input_layer_ids)
+                merge_shape(:,k) = &
+                     this%model(layer%input_layer_ids(k))%layer%output_shape
+             end do
+             input_shape = layer%calc_input_shape(merge_shape)
+             deallocate(merge_shape)
+          class default
+
+             allocate( &
+                  input_shape(this%model(this%vertex_order(i))%layer%input_rank), &
+                  source = 0 &
+             )
+             do j = 1, this%auto_graph%num_vertices
+                if(this%auto_graph%adjacency(j,this%vertex_order(i)).eq.0) cycle
+                previous_rank = this%model(j)%layer%output_rank
+
                 if(layer_rank .eq. previous_rank)then
                    input_shape(:) = input_shape(:) + this%model(j)%layer%output_shape
                 elseif(layer_rank .eq. 1)then
                    input_shape(1) = input_shape(1) + product( &
                         this%model(j)%layer%output_shape &
                    )
-                else
-                   call stop_program( &
-                        "cannot concatenate layers with different ranks" &
-                   )
                 end if
-             case(2) ! add
-                if(layer_rank .eq. previous_rank)then
-                   input_shape(:) = max(input_shape(:), &
-                        this%model(j)%layer%output_shape)
-                elseif(layer_rank .eq. 1)then
-                   input_shape(1) = max(input_shape(1), &
-                        product(this%model(j)%layer%output_shape))
-                else
-                   call stop_program( &
-                        "cannot add layers with different ranks" &
-                   )
-                end if
-             end select
-          end do
+             end do
+          end select
           call this%model(this%vertex_order(i))%layer%init( &
                input_shape = input_shape, &
                batch_size = this%batch_size, &

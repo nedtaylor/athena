@@ -31,6 +31,9 @@ module athena__concat_layer
      procedure, pass(this) :: read => read_concat
      !! Read the layer from a file
 
+     procedure, pass(this) :: calc_input_shape => calc_input_shape_concat
+     !! Calculate input shape based on shapes of input layers
+
      procedure, pass(this) :: combine => combine_concat
   end type concat_layer_type
 
@@ -135,8 +138,10 @@ contains
 
     this%name = "concatenate"
     this%type = "merg"
+    this%merge_mode = 2 ! concatenate mode
     this%input_layer_ids = input_layer_ids
     this%input_rank = input_rank
+    this%output_rank = input_rank
 
   end subroutine set_hyperparams_concat
 !###############################################################################
@@ -418,6 +423,31 @@ contains
     call layer%read(unit, verbose=verbose_)
 
   end function read_concat_layer
+!###############################################################################
+
+
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
+
+
+!###############################################################################
+  function calc_input_shape_concat(this, input_shapes) result(input_shape)
+    !! Calculate input shape based on shapes of input layers
+    implicit none
+
+    ! Arguments
+    class(concat_layer_type), intent(in) :: this
+    !! Instance of the layer
+    integer, dimension(:,:), intent(in) :: input_shapes
+    !! Input shapes
+    integer, allocatable, dimension(:) :: input_shape
+    !! Calculated input shape
+
+
+    input_shape = sum(input_shapes, dim=2)
+
+  end function calc_input_shape_concat
 !###############################################################################
 
 

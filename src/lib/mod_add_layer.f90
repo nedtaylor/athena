@@ -27,6 +27,9 @@ module athena__add_layer
      procedure, pass(this) :: read => read_add
      !! Read the layer from a file
 
+     procedure, pass(this) :: calc_input_shape => calc_input_shape_add
+     !! Calculate input shape based on shapes of input layers
+
      procedure, pass(this) :: combine => combine_add
   end type add_layer_type
 
@@ -131,8 +134,10 @@ contains
 
     this%name = "add"
     this%type = "merg"
+    this%merge_mode = 1 ! pointwise mode
     this%input_layer_ids = input_layer_ids
     this%input_rank = input_rank
+    this%output_rank = input_rank
 
   end subroutine set_hyperparams_add
 !###############################################################################
@@ -415,6 +420,43 @@ contains
 
   end function read_add_layer
 !###############################################################################
+
+
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
+
+
+!###############################################################################
+  function calc_input_shape_add(this, input_shapes) result(input_shape)
+    !! Calculate input shape based on shapes of input layers
+    implicit none
+
+    ! Arguments
+    class(add_layer_type), intent(in) :: this
+    !! Instance of the layer
+    integer, dimension(:,:), intent(in) :: input_shapes
+    !! Input shapes
+    integer, allocatable, dimension(:) :: input_shape
+    !! Calculated input shape
+
+    ! Local variables
+    integer :: i
+
+    ! Check that all input shapes are the same
+    do i = 2, size(input_shapes, 2), 1
+       if(any(input_shapes(:,1).ne.input_shapes(:,i)))then
+          call stop_program("All input shapes to add layer must be the same")
+          return
+       end if
+    end do
+
+    ! Set input shape
+    input_shape = input_shapes(:,1)
+
+  end function calc_input_shape_add
+!###############################################################################
+
 
 
 !##############################################################################!

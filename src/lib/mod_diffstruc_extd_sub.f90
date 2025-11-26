@@ -20,7 +20,7 @@ contains
     integer :: i
 
     c => a(1)%array(idx1, idx2) + a(2)%array(idx1, idx2)
-    do i = 2, size(a)
+    do i = 3, size(a), 1
        c => c + a(i)%array(idx1, idx2)
     end do
   end function add_array_ptr

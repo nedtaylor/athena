@@ -335,6 +335,12 @@ module athena__base_layer
 
   type, abstract, extends(base_layer_type) :: merge_layer_type
      !! Type for merge layers (i.e. add, multiply, concatenate)
+     integer :: merge_mode = 1
+     !! Integer code for fundamental merge method
+     !! 1 = pointwise
+     !! 2 = concatenate
+     !! 3 = reduction
+     !! 4 = parametric (NOT IMPLEMENTED)
      character(len=20) :: method
      !! Merge method
      integer :: num_input_layers = 0
@@ -344,6 +350,8 @@ module athena__base_layer
    contains
      procedure(combine_merge), deferred, pass(this) :: combine
      !! Merge two layers (forward)
+     procedure(calc_input_shape), deferred, pass(this) :: calc_input_shape
+     !! Calculate input shape based on shapes of input layers
   end type merge_layer_type
 
   interface
@@ -354,6 +362,16 @@ module athena__base_layer
        type(array_ptr_type), dimension(:), intent(in) :: input_list
        !! Input values
      end subroutine combine_merge
+
+     module function calc_input_shape(this, input_shapes) result(input_shape)
+       !! Calculate input shape based on shapes of input layers
+       class(merge_layer_type), intent(in) :: this
+       !! Instance of the layer
+       integer, dimension(:,:), intent(in) :: input_shapes
+       !! Input shapes
+       integer, allocatable, dimension(:) :: input_shape
+       !! Calculated input shape
+     end function calc_input_shape
   end interface
 
   type, abstract, extends(base_layer_type) :: learnable_layer_type
