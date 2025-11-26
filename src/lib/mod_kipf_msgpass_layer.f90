@@ -704,7 +704,7 @@ contains
           ! this%z(t,s) = kipf_update( &
           !      this%message(t,s), this%params_array(t), this%graph(s)%adj_ia &
           ! )
-          ptr3 =>  matmul( this%params_array(t), ptr2 )
+          ptr3 => matmul( this%params_array(t), ptr2 )
           ptr1 => this%transfer%activate( ptr3 )
        end do
        call this%output(1,s)%zero_grad()

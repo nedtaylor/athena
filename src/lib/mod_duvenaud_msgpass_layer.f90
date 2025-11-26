@@ -3,11 +3,10 @@ module athena__duvenaud_msgpass_layer
   use coreutils, only: real32
   use graphstruc, only: graph_type
   use athena__misc_types, only: activation_type, initialiser_type
-  use diffstruc, only: array_type, &
-       operator(.concat.), operator(.index.), matmul, operator(/), &
-       sum, operator(+), operator(*), operator(-)
+  use diffstruc, only: array_type, sum, matmul, operator(+)
   use athena__base_layer, only: base_layer_type
   use athena__msgpass_layer, only: msgpass_layer_type
+  use athena__diffstruc_extd, only: duvenaud_propagate, duvenaud_update
   implicit none
 
 
@@ -28,6 +27,7 @@ module athena__duvenaud_msgpass_layer
 
      class(activation_type), allocatable :: transfer_readout
      !! Activation function
+     type(array_type), allocatable, dimension(:,:) :: z
      type(array_type), allocatable, dimension(:,:) :: z_readout
      !! Input gradients
 
@@ -482,12 +482,15 @@ contains
             [ this%weight_shape(:2,t+this%num_time_steps), 1 ] &
        )
        call this%params_array(t)%set_requires_grad(.true.)
+       this%params_array(t)%fix_pointer = .true.
+       this%params_array(t)%is_temporary = .false.
        this%params_array(t)%is_sample_dependent = .false.
        this%params_array(t)%indices = [ this%min_vertex_degree, this%max_vertex_degree ]
        call this%params_array(t+this%num_time_steps)%set_requires_grad(.true.)
+       this%params_array(t+this%num_time_steps)%fix_pointer = .true.
+       this%params_array(t+this%num_time_steps)%is_temporary = .false.
        this%params_array(t+this%num_time_steps)%is_sample_dependent = .false.
     end do
-
 
 
     !---------------------------------------------------------------------------
@@ -559,6 +562,8 @@ contains
     if(allocated(this%input_shape))then
        if(allocated(this%output)) deallocate(this%output)
        allocate(this%output(1,1))
+       if(allocated(this%z)) deallocate(this%z)
+       allocate(this%z(this%num_time_steps,this%batch_size))
     end if
 
   end subroutine set_batch_size_duvenaud
@@ -726,54 +731,47 @@ contains
     !! Input to the message passing layer
 
     ! Local variables
-    integer :: s, v, e, t, e_start, e_end
-    !! Batch index, vertex index, edge index, time step
-    integer :: degree
-    !! Degree of the vertex
-    real(real32), pointer :: weight(:,:,:)
-    !! Pointer to the weight matrix
+    integer :: s, t
+    !! Batch index, time step
+    logical :: has_activation
+    type(array_type), pointer :: ptr1, ptr2, ptr3, ptr_edge, ptr_params
+    !! Pointers to arrays
 
 
-!     do s = 1, this%batch_size
-!        this%vertex_features(0,s) = input(1,s) * 1._real32
-!        this%edge_features(0,s) = input(2,s) * 1._real32
-!        call this%vertex_features(0,s)%zero_grad()
-!        call this%edge_features(0,s)%zero_grad()
-!     end do
+    if(.not.allocated(this%transfer))then
+       has_activation = .false.
+    else
+       if(trim(this%transfer%name).eq."none")then
+          has_activation = .true.
+       else
+          has_activation = .true.
+       end if
+    end if
+    do s = 1, this%batch_size
+       ptr1 => input(1,s)
+       ptr_edge => input(2,s)
+       do t = 1, this%num_time_steps
+          ptr2 => duvenaud_propagate( &
+               ptr1, ptr_edge, &
+               this%graph(s)%adj_ia, this%graph(s)%adj_ja &
+          )
 
-!     do t = 1, this%num_time_steps
-!        weight( &
-!             1:this%num_vertex_features(t), &
-!             1:this%num_vertex_features(t-1) + this%num_edge_features(0), &
-!             this%min_vertex_degree:this%max_vertex_degree &
-!        ) => this%params( &
-!             sum(this%num_params_msg(1:t-1:1)) + 1 : &
-!             sum(this%num_params_msg(1:t:1)) &
-!        )
-!        do s = 1, this%batch_size
-!           call this%z(t,s)%zero_grad()
-!           call this%vertex_features(t,s)%zero_grad()
-!           call this%message(t,s)%zero_grad()
-!           if(t.eq.1)then
-!              this%message(t,s) = duvenaud_propagate( &
-!                   input(1,s), input(2,s), &
-!                   this%graph(s)%adj_ia, this%graph(s)%adj_ja &
-!              )
-!           else
-!              this%message(t,s) = duvenaud_propagate( &
-!                   this%vertex_features(t-1,s), input(2,s), &
-!                   this%graph(s)%adj_ia, this%graph(s)%adj_ja &
-!              )
-!           end if
-
-
-!           this%z(t,s) = duvenaud_update( &
-!                this%message(t,s), this%params_array(t), this%graph(s)%adj_ia, &
-!                this%min_vertex_degree, this%max_vertex_degree &
-!           )
-!           this%vertex_features(t,s) = this%transfer%activate( this%z(t,s) )
-!        end do
-!     end do
+          ptr_params => this%params_array(t)
+          ptr3 => duvenaud_update( &
+               ptr2, ptr_params, &
+               this%graph(s)%adj_ia, &
+               this%min_vertex_degree, this%max_vertex_degree &
+          )
+          if(has_activation)then
+             ptr3 => this%transfer%activate( ptr3 )
+          end if
+          call this%z(t,s)%zero_grad()
+          call this%z(t,s)%assign_and_deallocate_source(ptr3)
+          this%z(t,s)%is_temporary = .false.
+          this%z(t,s)%id = t * this%batch_size + s
+          ptr1 => this%z(t,s)
+       end do
+    end do
 
   end subroutine update_message_duvenaud
 !###############################################################################
@@ -789,513 +787,34 @@ contains
     !! Instance of the message passing layer
 
     ! Local variables
-    integer :: s, v, t
+    integer :: s, t
     !! Loop indices
-    integer :: num_params_old, num_params_tmp
-    !! Number of parameters in the previous and current time step
-    real(real32), pointer :: weight(:,:)
-    !! Pointer to the weight matrix
-    type(array_type), pointer :: temp, output_ptr
+    type(array_type), pointer :: ptr1, ptr2, ptr3, ptr_params, ptr_z
 
 
-!     call this%output(1,1)%zero_grad()
-!     allocate(output_ptr)
-!     call output_ptr%allocate( &
-!          [this%num_outputs, this%batch_size], &
-!          source=0._real32 &
-!     )
-!     call output_ptr%zero_grad()
-!     this%output(1,1)%val = 0._real32
-!     num_params_old = sum(this%num_params_msg)
-!     do t = 1, this%num_time_steps, 1
-!        num_params_tmp = this%num_vertex_features(t) * this%num_outputs
-!        weight( &
-!             1:this%num_outputs, &
-!             1:this%num_vertex_features(t) &
-!        ) => this%params( &
-!             num_params_old + 1 : num_params_old + num_params_tmp &
-!        )
-!        do s = 1, this%batch_size
-!           call this%z_readout(t,s)%zero_grad()
-!           this%z_readout(t,s) = &
-!                matmul( this%params_array(t+this%num_time_steps), &
-!                     this%vertex_features(t,s) )
-!           temp => this%transfer_readout%activate( this%z_readout(t,s) )
-!           output_ptr => output_ptr + &
-!                sum( &
-!                     temp, &
-!                     dim = 2, new_dim_index=s, new_dim_size=this%batch_size &
-!                )
-!        end do
-!        num_params_old = num_params_old + num_params_tmp
-!     end do
-!     this%output(1,1) = output_ptr
+    call this%output(1,1)%zero_grad()
+    do t = 1, this%num_time_steps, 1
+       do s = 1, this%batch_size
+          ptr_params => this%params_array(t+this%num_time_steps)
+          ptr_z => this%z(t,s)
+          ptr1 => matmul( &
+               ptr_params, &
+               ptr_z &
+          )
+          ptr2 => this%transfer_readout%activate( ptr1 )
+          if(t.eq.1.and.s.eq.1)then
+             ptr3 => &
+                  sum( ptr2, dim = 2, new_dim_index=s, new_dim_size=this%batch_size )
+          else
+             ptr3 => ptr3 + &
+                  sum( ptr2, dim = 2, new_dim_index=s, new_dim_size=this%batch_size )
+          end if
+       end do
+    end do
+    call this%output(1,1)%assign_and_deallocate_source(ptr3)
+    this%output(1,1)%is_temporary = .false.
 
   end subroutine update_readout_duvenaud
 !###############################################################################
-
-
-!##############################################################################!
-  subroutine backward_message_duvenaud(this, input, gradient)
-    !! Backward pass for the message phase
-    implicit none
-
-    ! Arguments
-    class(duvenaud_msgpass_layer_type), intent(inout), target :: this
-    !! Instance of the message passing layer
-    class(array_type), dimension(:,:), intent(in) :: input
-    !! Input data (i.e. vertex and edge features)
-    class(array_type), dimension(:,:), intent(in) :: gradient
-    !! Gradient of the loss with respect to the output of the layer
-
-    ! Local variables
-    integer :: degree
-    !! Degree of the vertex
-    integer :: t, s, v, e, i, j, idx
-    !! Loop indices
-    real(real32), dimension(:,:), allocatable :: delta
-    !! Delta values for the message phase
-    real(real32), pointer :: weight(:,:,:), dw(:,:,:)
-    !! Pointer to the weight matrix
-
-
-!     do t = this%num_time_steps, 1, -1
-!        weight( &
-!             1:this%num_vertex_features(t), &
-!             1:this%num_vertex_features(t-1) + this%num_edge_features(0), &
-!             this%min_vertex_degree:this%max_vertex_degree &
-!        ) => this%params( &
-!             sum(this%num_params_msg(1:t-1:1)) + 1 : &
-!             sum(this%num_params_msg(1:t:1)) &
-!        )
-!        do s = 1, this%batch_size
-!           dw( &
-!                1:this%num_vertex_features(t), &
-!                1:this%num_vertex_features(t-1) + this%num_edge_features(0), &
-!                this%min_vertex_degree:this%max_vertex_degree &
-!           ) => this%dp( &
-!                sum(this%num_params_msg(1:t-1:1)) + 1 : &
-!                sum(this%num_params_msg(1:t:1)), s &
-!           )
-!           if(t.eq.1)then
-!              this%di(1,s)%val = 0._real32
-!              this%di(2,s)%val = 0._real32
-!           end if
-!           this%di_msg(t,s)%val = 0._real32
-
-!           if(allocated(delta)) deallocate(delta)
-!           allocate(delta( &
-!                this%num_vertex_features(t), &
-!                this%graph(s)%num_vertices &
-!           ), source = 0._real32)
-!           delta(:this%num_vertex_features(t),:) = this%di_readout(t,s)%val
-!           if(t.lt.this%num_time_steps)then
-!              delta = delta + &
-!                   this%di_msg(t+1,s)%val(:this%num_vertex_features(t),:)
-!           end if
-!           delta = delta * this%transfer%differentiate(this%z(t,s)%val(:,:))
-
-!           ! Partial derivatives of error wrt weights
-!           ! dE/dW = o/p(l-1) * delta
-!           do v = 1, this%graph(s)%num_vertices
-!              ! GET VERTEX DEGREE FOR sparse graph
-!              degree = this%graph(s)%adj_ia(v+1) - this%graph(s)%adj_ia(v)
-!              degree = max( &
-!                   this%min_vertex_degree, &
-!                   min(degree, this%max_vertex_degree) &
-!              )
-!              ! i.e. outer product of the input and delta
-!              ! sum weights and biases errors to use in batch gradient descent
-!              do e = this%graph(s)%adj_ia(v), this%graph(s)%adj_ia(v+1) - 1
-!                 !if(this%graph(s)%adj_ja(2,e).eq.0) cycle ! self interaction
-!                 if(this%graph(s)%adj_ja(2,e).eq.0)then
-!                    do i = 1, this%num_vertex_features(t-1)
-!                       dw(:,i,degree) = dw(:,i,degree) + &
-!                            this%vertex_features(t-1,s)%val(i,v) * delta(:,v)
-!                    end do
-!                    if(t.eq.1)then
-!                       this%di(1,s)%val(:,v) = &
-!                            this%di(1,s)%val(:,v) + &
-!                            matmul( &
-!                                 delta(:,v), &
-!                                 weight( &
-!                                      :,:this%num_vertex_features(t-1),degree &
-!                                 ) &
-!                            )
-!                    else
-!                       this%di_msg(t,s)%val(:,v) = &
-!                            this%di_msg(t,s)%val(:,v) + &
-!                            matmul(delta(:,v),weight(:,:,degree))
-!                    end if
-!                 else
-!                    do j = 1, this%num_vertex_features(t)
-!                       do i = 1, this%num_vertex_features(t-1)
-!                          dw(j,i,degree) = dw(j,i,degree) + &
-!                               this%vertex_features(t-1,s)%val( &
-!                                    i,this%graph(s)%adj_ja(1,e) &
-!                               ) * delta(j,v)
-!                       end do
-!                       do i = this%num_vertex_features(t-1) + 1, &
-!                            this%num_vertex_features(t-1) + this%num_edge_features(0)
-!                          dw(j,i,degree) = dw(j,i,degree) + &
-!                               this%edge_features(0,s)%val( &
-!                                    i-this%num_vertex_features(t-1), &
-!                                    this%graph(s)%adj_ja(2,e) &
-!                               ) * &
-!                               delta(j,v)
-!                       end do
-!                    end do
-!                    ! The errors are summed from the delta of the ...
-!                    ! ... 'child' node * 'child' weight
-!                    ! dE/dI(l-1) = sum(weight(l) * delta(l))
-!                    ! this prepares dE/dI for when it is passed into the previous layer
-!                    if(t.eq.1)then
-!                       this%di(1,s)%val(:,this%graph(s)%adj_ja(1,e)) = &
-!                            this%di(1,s)%val(:,this%graph(s)%adj_ja(1,e)) + &
-!                            matmul( &
-!                                 delta(:,v), &
-!                                 weight( &
-!                                      :,:this%num_vertex_features(t-1),degree &
-!                                 ) &
-!                            )
-!                       this%di(2,s)%val(:,this%graph(s)%adj_ja(2,e)) = &
-!                            this%di(2,s)%val(:,this%graph(s)%adj_ja(2,e)) + &
-!                            matmul( &
-!                                 delta(:,v), &
-!                                 weight( &
-!                                      :,this%num_vertex_features(t-1)+1:,degree &
-!                                 ) &
-!                            )
-!                    else
-!                       this%di_msg(t,s)%val(:,this%graph(s)%adj_ja(1,e)) = &
-!                            this%di_msg(t,s)%val(:,this%graph(s)%adj_ja(1,e)) + &
-!                            matmul(delta(:,v),weight(:,:,degree))
-!                    end if
-!                 end if
-!              end do
-!           end do
-!        end do
-!     end do
-
-  end subroutine backward_message_duvenaud
-!###############################################################################
-
-
-!##############################################################################!
-  subroutine backward_readout_duvenaud(this, gradient)
-    !! Backward pass for the readout phase
-    implicit none
-
-    ! Arguments
-    class(duvenaud_msgpass_layer_type), intent(inout), target :: this
-    !! Instance of the message passing layer
-    class(array_type), dimension(:,:), intent(in) :: gradient
-    !! Gradient of the loss with respect to the output of the layer
-
-    ! Local variables
-    integer :: i, j
-    !! Loop indices
-    integer :: s, v, t, num_params_old, num_params_tmp
-    !! Batch index, vertex index, time step index
-    real(real32), dimension(this%num_outputs) :: delta
-    !! Delta values for the readout phase
-    !! i.e. partial derivatives of the error wrt the hidden features
-    real(real32), pointer :: weight(:,:), dw(:,:)
-    !! Pointer to the weight matrix
-
-
-!     num_params_old = sum(this%num_params_msg)
-!     do t = 1, this%num_time_steps, 1
-!        num_params_tmp = this%num_vertex_features(t) * this%num_outputs
-!        weight( &
-!             1:this%num_outputs, &
-!             1:this%num_vertex_features(t) &
-!        ) => this%params( &
-!             num_params_old + 1 : num_params_old + num_params_tmp &
-!        )
-!        do s = 1, this%batch_size
-!           dw( &
-!                1:this%num_outputs, &
-!                1:this%num_vertex_features(t) &
-!           ) => this%dp( &
-!                num_params_old + 1 : num_params_old + num_params_tmp, &
-!                s &
-!           )
-!           ! There is no message passing transfer function
-!           ! Partial derivatives of error wrt weights
-!           ! dE/dW = o/p(l-1) * delta
-!           do v = 1, this%graph(s)%num_vertices
-
-!              delta = &
-!                   gradient(1,1)%val(:,s) * &
-!                   this%transfer_readout%differentiate( &
-!                        this%z_readout(t,s)%val(:,v) &
-!                   )
-
-!              do j = 1, this%num_vertex_features(t)
-!                 do i = 1, this%num_outputs
-!                    dw(i,j) = dw(i,j) + &
-!                         this%vertex_features(t,s)%val(j,v) * delta(i)
-!                 end do
-!              end do
-
-!              this%di_readout(t,s)%val(:,v) = matmul(delta, weight)
-!           end do
-!        end do
-!        num_params_old = num_params_old + num_params_tmp
-!     end do
-
-  end subroutine backward_readout_duvenaud
-!###############################################################################
-
-  function duvenaud_propagate(vertex_features, edge_features, adj_ia, adj_ja) result(c)
-    !! Propagate values from one autodiff array to another
-    class(array_type), intent(in), target :: vertex_features, edge_features
-    integer, dimension(:), intent(in) :: adj_ia
-    integer, dimension(:,:), intent(in) :: adj_ja
-    type(array_type), pointer :: c
-
-    integer :: v, w
-
-    allocate(c)
-    call c%allocate(array_shape = [ &
-         size(vertex_features%val,1) + size(edge_features%val,1), &
-         size(vertex_features%val,2) &
-    ])
-    ! propagate 1D array by using shape to swap dimensions
-    do concurrent(v=1:size(vertex_features%val,2))
-       c%val(:,v) = 0.0_real32
-       do w = adj_ia(v), adj_ia(v+1)-1
-          c%val(:,v) = c%val(:,v) + [ &
-               vertex_features%val(:, adj_ja(1, w)), &
-               edge_features%val(:, adj_ja(2, w)) &
-          ]
-       end do
-    end do
-
-    c%indices = adj_ia
-    c%adj_ja = adj_ja
-    c%get_partial_left => get_partial_duvenaud_propagate_left
-    c%get_partial_right => get_partial_duvenaud_propagate_right
-    if(vertex_features%requires_grad .or. edge_features%requires_grad) then
-       c%requires_grad = .true.
-       c%operation = 'duvenaud_propagate'
-       c%left_operand => vertex_features
-       c%right_operand => edge_features
-    end if
-  end function duvenaud_propagate
-
-  function reverse_duvenaud_propagate( &
-       a, adj_ia, adj_ja, num_features, num_elements, left &
-  ) result(c)
-    !! Reverse propagate values from one autodiff array to another
-    class(array_type), intent(in), target :: a
-    logical, intent(in) :: left
-    integer, dimension(:), intent(in) :: adj_ia
-    integer, dimension(:,:), intent(in) :: adj_ja
-    integer, dimension(2), intent(in) :: num_features, num_elements
-    type(array_type), pointer :: c
-
-    integer :: v, w
-
-    allocate(c)
-    if(left)then
-       call c%allocate(array_shape=[num_features(1), num_elements(1)])
-       c%val = 0.0_real32
-       do concurrent(v=1:num_elements(1))
-          do w = adj_ia(v), adj_ia(v+1)-1
-             c%val(:,adj_ja(1,w)) = c%val(:,adj_ja(1,w)) + &
-                  [ a%val(1:num_features(1), v) ]
-          end do
-       end do
-    else
-       call c%allocate(array_shape=[num_features(2), num_elements(2)])
-       c%val = 0.0_real32
-       do concurrent(v=1:num_elements(1))
-          do w = adj_ia(v), adj_ia(v+1)-1
-             c%val(:,adj_ja(2,w)) = c%val(:,adj_ja(2,w)) + &
-                  [ a%val(num_features(1)+1:, v) ]
-          end do
-       end do
-    end if
-
-    ! if(a%requires_grad) then
-    !    c%requires_grad = .true.
-    !    c%operation = 'reverse_duvenaud_propagate'
-    !    if(left) then
-    !       c%left_operand => a
-    !    else
-    !       c%right_operand => a
-    !    end if
-    ! end if
-  end function reverse_duvenaud_propagate
-
-  function duvenaud_update(a, weight, adj_ia, min_degree, max_degree) result(c)
-    !! Update the message passing layer
-    class(array_type), intent(in), target :: a
-    class(array_type), intent(in), target :: weight
-    ! real(real32), dimension(:,:,:), intent(in) :: weight
-    integer, dimension(:), intent(in) :: adj_ia
-    integer, intent(in) :: min_degree, max_degree
-    type(array_type), pointer :: c
-    type(array_type), pointer :: weight_array
-
-    integer :: v, i, d
-    integer :: interval
-    real(real32), pointer :: w_ptr(:,:)
-
-    allocate(c)
-    call c%allocate(array_shape=[weight%shape(1), size(a%val,2)])
-    interval = weight%shape(1) * weight%shape(2)
-    do v = 1, size(a%val,2)
-       d = max( min_degree, min( adj_ia(v+1) - adj_ia(v), max_degree ) ) - &
-            min_degree + 1
-       w_ptr(1:weight%shape(1), 1:weight%shape(2)) => &
-            weight%val(interval*(d-1)+1:interval*d,1)
-       c%val(:,v) = matmul(w_ptr, a%val(:,v) / real(d, real32))
-    end do
-
-    c%get_partial_left => get_partial_duvenaud_update_weight
-    c%get_partial_right => get_partial_duvenaud_update
-    if(a%requires_grad) then
-       c%requires_grad = .true.
-       c%operation = 'duvenaud_update'
-       c%right_operand => a
-       c%left_operand => weight
-    end if
-
-    c%indices = adj_ia
-    !  allocate(weight_array)
-    !  weight_array%is_sample_dependent = .false.
-    !  weight_array%requires_grad = .false.
-    !  weight_array%indices = [ min_degree, max_degree ]
-    !  call weight_array%allocate(array_shape=shape(weight))
-    !  do d = 1, size(weight,3)
-    !     do i = 1, size(weight,2)
-    !        weight_array%val((i-1)*size(weight,1)+1:i*size(weight,1), d) = weight(:,i,d)
-    !     end do
-    !  end do
-    !  c%left_operand => weight_array
-
-  end function duvenaud_update
-
-  function get_partial_duvenaud_update(this, upstream_grad) result(output)
-    class(array_type), intent(inout) :: this
-    type(array_type), intent(in) :: upstream_grad
-    type(array_type) :: output
-
-    output = reverse_duvenaud_update( upstream_grad, this%left_operand, &
-         this%indices )
-
-  end function get_partial_duvenaud_update
-
-  function get_partial_duvenaud_update_weight(this, upstream_grad) result(output)
-    class(array_type), intent(inout) :: this
-    type(array_type), intent(in) :: upstream_grad
-    type(array_type) :: output
-
-    output = reverse_duvenaud_update_weight( upstream_grad, this%right_operand, &
-         this%left_operand%indices, this%indices )
-
-  end function get_partial_duvenaud_update_weight
-
-  function get_partial_duvenaud_propagate_left(this, upstream_grad) result(output)
-    class(array_type), intent(inout) :: this
-    type(array_type), intent(in) :: upstream_grad
-    type(array_type) :: output
-
-    output = reverse_duvenaud_propagate( upstream_grad, &
-         this%indices, this%adj_ja, &
-         num_features = [ &
-              this%left_operand%shape(1), this%right_operand%shape(1) &
-         ], &
-         num_elements = [ &
-              size(this%left_operand%val,2), size(this%right_operand%val,2) &
-         ], &
-         left = .true. )
-
-  end function get_partial_duvenaud_propagate_left
-
-  function get_partial_duvenaud_propagate_right(this, upstream_grad) result(output)
-    class(array_type), intent(inout) :: this
-    type(array_type), intent(in) :: upstream_grad
-    type(array_type) :: output
-
-    output = reverse_duvenaud_propagate( upstream_grad, &
-         this%indices, this%adj_ja, &
-         num_features = [ &
-              this%left_operand%shape(1), this%right_operand%shape(1) &
-         ], &
-         num_elements = [ &
-              size(this%left_operand%val,2), size(this%right_operand%val,2) &
-         ], &
-         left = .false. )
-
-  end function get_partial_duvenaud_propagate_right
-
-  function reverse_duvenaud_update(a, weight, adj_ia) result(c)
-    !! Reverse update the message passing layer
-    class(array_type), intent(in), target :: a, weight
-    integer, dimension(:), intent(in) :: adj_ia
-    type(array_type), pointer :: c
-
-    integer :: v, d
-    integer :: interval
-    real(real32), pointer :: w_ptr(:,:)
-
-    allocate(c)
-    call c%allocate( array_shape = [weight%shape(2), size(a%val,2)] )
-    interval = weight%shape(1) * weight%shape(2)
-    do v = 1, size(a%val,2)
-       d = max( weight%indices(1), &
-            min( adj_ia(v+1) - adj_ia(v), weight%indices(2) ) ) - weight%indices(1) + 1
-       w_ptr(1:weight%shape(1), 1:weight%shape(2)) => &
-            weight%val(interval*(d-1)+1:interval*d,1)
-       c%val(:,v) = matmul(transpose(w_ptr), a%val(:,v))
-    end do
-
-    ! if(a%requires_grad) then
-    !    c%requires_grad = .true.
-    !    c%operation = 'reverse_duvenaud_update'
-    !    c%left_operand => a
-    ! end if
-
-  end function reverse_duvenaud_update
-
-  function reverse_duvenaud_update_weight(a, b, indices, adj_ia) result(c)
-    !! Reverse update the message passing layer for weights
-    class(array_type), intent(in), target :: a, b
-    integer, dimension(2), intent(in) :: indices
-    integer, dimension(:), intent(in) :: adj_ia
-    type(array_type), pointer :: c
-
-    integer :: v, d, i
-    integer :: interval
-    real(real32), pointer :: c_ptr(:,:)
-
-    allocate(c)
-    call c%allocate( array_shape = &
-         [size(a%val,1), size(b%val,1), indices(2)-indices(1)+1,1] &
-    )
-    interval = c%shape(1) * c%shape(2)
-    c%val = 0.0_real32
-    do v = 1, size(a%val,2)
-       d = max( indices(1), &
-            min( adj_ia(v+1) - adj_ia(v), indices(2) ) ) - indices(1) + 1
-       c_ptr(1:c%shape(1), 1:c%shape(2)) => c%val(interval*(d-1)+1:interval*d,1)
-       ! do the outer product of a and b, c is the weight matrix
-       do i = 1, size(a%val,1)
-          c_ptr(i,:) = c_ptr(i,:) + a%val(i,v) * b%val(:,v)
-       end do
-    end do
-
-    !  if(weight%requires_grad) then
-    !     c%requires_grad = .true.
-    !     c%operation = 'reverse_duvenaud_update_weight'
-    !     c%left_operand => weight
-    !     c%right_operand => a
-    !  end if
-
-  end function reverse_duvenaud_update_weight
 
 end module athena__duvenaud_msgpass_layer

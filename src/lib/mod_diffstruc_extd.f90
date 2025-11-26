@@ -20,6 +20,7 @@ module athena__diffstruc_extd
   public :: batchnorm_array_type, batchnorm, batchnorm_inference
   public :: conv1d, conv2d, conv3d
   public :: kipf_propagate, kipf_update
+  public :: duvenaud_propagate, duvenaud_update
 
 
   type, extends(array_type) :: batchnorm_array_type
@@ -269,6 +270,30 @@ module athena__diffstruc_extd
        integer, dimension(:), intent(in) :: adj_ia
        type(array_type), pointer :: c
      end function kipf_update
+  end interface
+
+  interface
+     module function duvenaud_propagate( &
+          vertex_features, edge_features, adj_ia, adj_ja &
+     ) result(c)
+       !! Duvenaud message passing function
+       class(array_type), intent(in), target :: vertex_features
+       class(array_type), intent(in), target :: edge_features
+       integer, dimension(:), intent(in) :: adj_ia
+       integer, dimension(:,:), intent(in) :: adj_ja
+       type(array_type), pointer :: c
+     end function duvenaud_propagate
+
+     module function duvenaud_update( &
+          a, weight, adj_ia, min_degree, max_degree &
+     ) result(c)
+       !! Duvenaud update function
+       class(array_type), intent(in), target :: a
+       class(array_type), intent(in), target :: weight
+       integer, dimension(:), intent(in) :: adj_ia
+       integer, intent(in) :: min_degree, max_degree
+       type(array_type), pointer :: c
+     end function duvenaud_update
   end interface
 !-------------------------------------------------------------------------------
 

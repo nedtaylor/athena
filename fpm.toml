@@ -81,7 +81,7 @@ name = "msgpass_chemical"
 source-dir = "example/msgpass_chemical/src"
 [example.dependencies]
 example_library = { path = "example/example_library"}
-atomstruc = { git = "https://github.com/nedtaylor/atomstruc" }
+atomstruc = { git = "https://github.com/nedtaylor/atomstruc", branch = "column-major-order" }
 
 [[example]]
 name = "msgpass_euler"
@@ -94,7 +94,7 @@ example_library = { path = "example/example_library"}
 # source-dir = "example/pinn_chemical/src"
 # [example.dependencies]
 # example_library = { path = "example/example_library"}
-# atomstruc = { git = "https://github.com/nedtaylor/atomstruc" }
+# atomstruc = { git = "https://github.com/nedtaylor/atomstruc", branch = "column-major-order" }
 
 [[example]]
 name = "pinn_burgers"
