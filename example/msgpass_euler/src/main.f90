@@ -26,7 +26,9 @@ program msgpass_euler_example
 
   ! data loading and preprocessing
   type(graph_type), allocatable, dimension(:,:) :: &
-       graphs_in, graphs_out, graphs_predicted
+       graphs_in, graphs_out, &
+       graphs_in_expected, graphs_out_expected, &
+       graphs_predicted
   character(1024) :: file, train_file
 
   ! training loop variables
@@ -35,6 +37,7 @@ program msgpass_euler_example
   integer :: num_samples
   integer :: i, n
 
+  integer :: unit
   integer :: num_params
   integer :: v, s
   integer, dimension(:), allocatable :: sample_list
@@ -60,6 +63,15 @@ program msgpass_euler_example
           "example/msgpass_euler/data/bump_nodeData_out_", i, ".txt"
      call read_graph(vertex_file, edge_file, graphs_out(1,i))
   end do
+  allocate(graphs_in_expected(1,1))
+  allocate(graphs_out_expected(1,1))
+  write(vertex_file, '(A)') &
+       "example/msgpass_euler/data/bump_nodeData_in_expected.txt"
+  write(*,*) "Reading training dataset expected"
+  call read_graph(vertex_file, edge_file, graphs_in_expected(1,1))
+  write(vertex_file, '(A)') &
+       "example/msgpass_euler/data/bump_nodeData_out_expected.txt"
+  call read_graph(vertex_file, edge_file, graphs_out_expected(1,1))
   write(*,*) "Reading finished"
 
 
@@ -264,7 +276,14 @@ program msgpass_euler_example
   !-----------------------------------------------------------------------------
   ! predicting
   !-----------------------------------------------------------------------------
-  graphs_predicted = network%predict( graphs_in )
+  graphs_predicted = network%predict( graphs_in_expected )
+
+  open(newunit=unit, file="predicted_vs_expected.txt")
+  do v = 1, graphs_out_expected(1,1)%num_vertices
+     write(unit, *) v, graphs_out_expected(1,1)%vertex_features(:,v), &
+          graphs_predicted(1,1)%vertex_features(:,v)
+  end do
+  close(unit)
 
 
   !-----------------------------------------------------------------------------

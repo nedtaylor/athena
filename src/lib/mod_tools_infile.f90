@@ -388,28 +388,27 @@ contains
     !! Loop index
     character(256) :: err_msg_
     !! Error message
-    logical :: file_exists
-    !! File exists boolean
+    logical :: opened
+    !! File existence check
 
     if(present(iostat)) iostat = 0
     if(present(err_msg)) err_msg = ""
     if(change.eq.0) return
-    inquire(unit = unit, iostat = iostat_, exist = file_exists)
-    if(.not. file_exists) then
+    inquire(unit = unit, iostat = iostat_, opened = opened)
+    if(iostat_ .ne. 0) then
        write(err_msg_, '(A,I0)') &
-            'ERROR: unit ', unit, ' does not exist'
-       if(present(iostat)) iostat = -1
+            'Cannot move in file, unit ', unit
+       if(present(iostat)) iostat = iostat_
        if(present(err_msg))then
           err_msg = err_msg_
        else
           call stop_program(err_msg_)
        end if
        return
-    end if
-    if(iostat_ .ne. 0) then
+    elseif( .not.opened) then
        write(err_msg_, '(A,I0)') &
-            'ERROR: cannot move in file, unit ', unit
-       if(present(iostat)) iostat = iostat_
+            'File is not opened, unit ', unit
+       if(present(iostat)) iostat = 44
        if(present(err_msg))then
           err_msg = err_msg_
        else
@@ -422,7 +421,7 @@ contains
           read(unit, '(A)', iostat = iostat_)
           if(iostat_ .ne. 0) then
              write(err_msg_, '(A,I0)') &
-                  'ERROR: cannot move forward in file, unit ', unit
+                  'Cannot move forward in file, unit ', unit
              if(present(iostat)) iostat = iostat_
              if(present(err_msg))then
                 err_msg = err_msg_
@@ -437,7 +436,7 @@ contains
           backspace(unit)
           if(iostat .ne. 0) then
              write(err_msg_, '(A,I0)') &
-                  'ERROR: cannot move backward in file, unit ', unit
+                  'Cannot move backward in file, unit ', unit
              if(present(iostat)) iostat = iostat_
              if(present(err_msg))then
                 err_msg = err_msg_
