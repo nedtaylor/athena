@@ -8,6 +8,7 @@ program pinn_chemical_example
   use coreutils, only: real32
   use forces_loss, only: forces_loss_type
   use read_chemical_graphs_extd, only: read_extxyz_db
+  use diffstruc, only: diffstruc__max_recursion_depth
 
   implicit none
 
@@ -26,14 +27,14 @@ program pinn_chemical_example
 
   ! training loop variables
   integer :: num_tests = 10, num_epochs = 100, batch_size = 8
-  integer :: num_time_steps = 4
+  integer :: num_time_steps = 2
   integer :: i, n, s
 
   integer :: num_dense_inputs = 10, num_outputs = 1
   integer :: num_params
   integer, dimension(:), allocatable :: sample_list
   real(real32), dimension(:), allocatable :: feature_in_norm
-  type(array_type), dimension(1,1) :: output
+  type(array_type), dimension(1,1) :: output, expected
   real(real32) :: output_min, output_max
   type(forces_loss_type) :: loss_method
   type(array_type), dimension(:), allocatable :: forces
@@ -41,6 +42,8 @@ program pinn_chemical_example
 
   class(*), allocatable, dimension(:,:) :: data_poly
 
+  diffstruc__max_recursion_depth = 5000
+  loss_method = forces_loss_type()
 
 
   !-----------------------------------------------------------------------------
@@ -120,11 +123,11 @@ program pinn_chemical_example
              max(feature_in_norm(i),maxval(graphs_in(1,s)%vertex_features(i,:))) - &
              min(feature_in_norm(i),minval(graphs_in(1,s)%vertex_features(i,:)))
      end do
-     do s = 1, size(graphs_in,2)
-        ! graphs_in(1,s)%vertex_features(i,:) = &
-        !      graphs_in(1,s)%vertex_features(i,:) / feature_in_norm(i)
-        write(14,*) graphs_in(1,s)%edge_features(:,:)
-     end do
+     ! do s = 1, size(graphs_in,2)
+     !    ! graphs_in(1,s)%vertex_features(i,:) = &
+     !    !      graphs_in(1,s)%vertex_features(i,:) / feature_in_norm(i)
+     !    write(14,*) graphs_in(1,s)%edge_features(:,:)
+     ! end do
   end do
 
 
@@ -176,41 +179,34 @@ program pinn_chemical_example
 !        num_epochs = num_epochs, &
 !        shuffle_batches = .true. &
 !   )
+  call expected(1,1)%allocate(array_shape=[1,batch_size])
+  expected(1,1)%is_temporary = .false.
+  expected(1,1)%fix_pointer = .true.
 
   loss_method%network => network
   do i = 1, num_epochs
-     predicted => network%forward_eval(graphs_in(1:1,1:batch_size))
-     loss_method%expected_forces = forces(1:size(predicted,2))
-     loss => loss_method%compute(predicted, output)
-     call loss%grad_reverse(reset_graph=.true.)
-     call network%update()
-     if(mod(i,10) == 0) write(*,'("epoch ",I4,":",2(3X,F8.6))') i, loss%val(1,1)
+     do s = 1, size(graphs_in,2), batch_size
+        n = min(batch_size, size(graphs_in,2) - s + 1)
+        if(n .lt. batch_size) cycle
+        predicted => network%forward_eval(graphs_in(1:1,s:s+batch_size-1))
+        loss_method%expected_forces = forces(1:size(predicted,2))
+        loss_method%expected_forces(:)%is_temporary = .false.
+        loss_method%expected_forces(:)%fix_pointer = .true.
+        expected(1,1)%val = output(1,1)%val(:,s:s+batch_size-1)
+        loss => loss_method%compute(predicted, expected)
+        call loss%grad_reverse(reset_graph=.true.)
+        call network%update()
+        ! have it print every 10 batch steps
+        if(mod(s/batch_size,10) == 0) then
+           write(*,'("Epoch: ", I0, "/", I0, " Batch: ", I0, " Loss: ", F8.6)') &
+                i, num_epochs, s/batch_size + 1, sum(loss%val(1,:))/real(batch_size)
+        end if
+        call loss%nullify_graph()
+        deallocate(loss)
+        nullify(loss)
+     end do
   end do
 
-  write(*,*) "autodifferentiation"
-  write(*,*) network%model(network%root_vertices(1))%layer%output(1,1)%grad%val(:,1)
-
-
-  !-----------------------------------------------------------------------------
-  ! testing loop
-  !-----------------------------------------------------------------------------
-  write(*,*) "Starting testing..."
-  call network%test( &
-       graphs_in, &
-       output &
-  )
-  write(*,*) "Testing finished"
-
-  data_poly = network%predict_generic( graphs_in, output_as_graph = .false.)
-  select type(data_poly)
-  type is(array_type)
-     write(*,*) "Predicted output:"
-     write(*,*) data_poly(1,1)%val * ( output_max - output_min ) + output_min
-     write(*,*) output(1,1)%val * ( output_max - output_min ) + output_min
-  end select
-
-  write(6,'("Overall accuracy=",F0.5)') network%accuracy_val
-  write(6,'("Overall loss=",F0.5)')     network%loss_val
 
   if(.not.restart)then
      call network%print(file="network.txt")

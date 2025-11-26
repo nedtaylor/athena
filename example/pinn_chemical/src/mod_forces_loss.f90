@@ -4,6 +4,7 @@ module forces_loss
   use diffstruc
   implicit none
 
+
   private
 
   public :: forces_loss_type
@@ -29,6 +30,7 @@ module forces_loss
 
 contains
 
+!###############################################################################
   module function setup_loss_forces() result(loss)
     !! Set up forces loss function
     type(forces_loss_type) :: loss
@@ -36,9 +38,11 @@ contains
     loss%alpha = 0.5_real32
     loss%beta = 1.E-4_real32
     loss%name = "for"
-    loss%requires_autodiff = .true.
   end function setup_loss_forces
+!###############################################################################
 
+
+!###############################################################################
   function compute_forces( this, predicted, expected ) result(output)
     implicit none
     class(forces_loss_type), intent(in), target :: this
@@ -59,15 +63,18 @@ contains
        num_atoms = size(input%val, dim=2)
        forces => predicted(1,1)%grad_forward(input)
        if(s.eq.1)then
-          forces_loss => sum( forces - this%expected_forces(s), dim=2 ) ** 2 / real(num_atoms, real32)
+          forces_loss => sum( forces - this%expected_forces(s), dim=2 ) ** 2 / &
+               real(num_atoms, real32)
        else
           forces_loss => forces_loss + &
-               sum( forces - this%expected_forces(s), dim=2 ) ** 2 / real(num_atoms, real32)
+               sum( forces - this%expected_forces(s), dim=2 ) ** 2 / &
+               real(num_atoms, real32)
        end if
     end do
     output => this%alpha * ( predicted(1,1) - expected(1,1) ) ** 2._real32 + &
          this%beta * forces_loss
 
   end function compute_forces
+!###############################################################################
 
 end module forces_loss

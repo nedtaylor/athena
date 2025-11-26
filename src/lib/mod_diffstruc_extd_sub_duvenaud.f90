@@ -229,7 +229,7 @@ contains
        ) - min_degree + 1
        tmp = reshape(this%left_operand%val((d-1)*interval+1:d*interval,1), &
             [num_output_features, num_input_features] )
-       output(:,v) = matmul(upstream_grad(:,v), transpose(tmp))
+       output(:,v) = matmul(upstream_grad(:,v), tmp)
     end do
 
   end subroutine get_partial_duvenaud_update_val
@@ -259,13 +259,10 @@ contains
        ) - min_degree ) * interval
        do concurrent(i = 1:num_output_features, j=1:num_input_features)
           output(d+i+num_output_features*(j-1),1) = &
-              output(d+i+num_output_features*(j-1),1) + &
-              upstream_grad(i,v) * this%right_operand%val(j,v)
+               output(d+i+num_output_features*(j-1),1) + &
+               upstream_grad(i,v) * this%right_operand%val(j,v)
        end do
     end do
-    !upstream = nfeat x nelem
-    !right = nfeat(-1) x nelem
-    !weight = nfeat x nfeat(-1) x ndegree
 
   end subroutine get_partial_duvenaud_update_weight_val
 !###############################################################################

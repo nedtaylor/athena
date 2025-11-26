@@ -27,8 +27,6 @@ module athena__loss
      !! Name of the loss function
      real(real32) :: epsilon = 1.E-10_real32
      !! Small value to prevent log(0)
-     logical :: requires_autodiff = .false.
-     !! Whether the loss function requires autodiff to be passed
      integer :: batch_index = 1
      !! Index of the batch to compute the loss for
      integer :: sample_index = 1
@@ -211,7 +209,6 @@ contains
     !! Mean squared error loss function
 
     loss%name = 'mse'
-    loss%requires_autodiff = .true.
   end function setup_loss_mse
 !-------------------------------------------------------------------------------
   module function setup_loss_nll() result(loss)
@@ -465,8 +462,8 @@ contains
              output => output + huber(ptr, this%gamma)
           end do
        end do
-     end if
-     output => mean(output, dim=2)
+    end if
+    output => mean(output, dim=2)
 
     ! output => merge( &
     !      0.5_real32 * (ptr)**2._real32, &
