@@ -152,9 +152,9 @@ print("Training complete!")
 
 N_x, N_t = 256, 100
 if output_from_athena:
-  fort20_data = np.loadtxt("../../fort.20")
-  X = fort20_data[:, 0].reshape(N_t, N_x)
-  T = fort20_data[:, 1].reshape(N_t, N_x)
+  fort_data = np.loadtxt("../../u_pred.txt")
+  X = fort_data[:, 0].reshape(N_t, N_x)
+  T = fort_data[:, 1].reshape(N_t, N_x)
 else:
   x = np.linspace(x_min, x_max, N_x)
   t = np.linspace(t_min, t_max, N_t)
@@ -163,8 +163,8 @@ XT = np.hstack((X.flatten()[:, None], T.flatten()[:, None]))
 XT_tensor = torch.tensor(XT, dtype=torch.float32).to(device)
 
 if output_from_athena:
-    # read file from fort.20 as X, T, u_pred
-    u_pred = fort20_data[:, 2].reshape(N_t, N_x)
+    # read file from u_pred.txt as X, T, u_pred
+    u_pred = fort_data[:, 2].reshape(N_t, N_x)
     label = "athena"
 else:
     model.eval()

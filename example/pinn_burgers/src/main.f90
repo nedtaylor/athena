@@ -229,6 +229,7 @@ program pinn_burgers_example
   u_pred(1:1,1:1) => network%predict_array(XT)
 #endif
   write(*,*) "Testing finished"
+  open(unit=20, file="u_pred.txt", status='replace')
   itmp1 = 0
   do i = 1, N_t
      do j = 1, N_x
@@ -236,6 +237,7 @@ program pinn_burgers_example
         write(20,'(3F12.5)') XT(1,itmp1), XT(2,itmp1), u_pred(1,1)%val(1,itmp1)
      end do
   end do
+  close(20)
 
   if(.not.restart)then
      call network%print(file="network.txt")

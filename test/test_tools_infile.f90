@@ -140,7 +140,7 @@ program test_infile_tools
     read(unit, '(A)') line
     if(trim(line) .ne. 'line 4')then
        write(0,*) "move forward test failed - expected 'line 4', got: ", &
-                  trim(line)
+            trim(line)
        success = .false.
     end if
 
@@ -155,7 +155,7 @@ program test_infile_tools
     read(unit, '(A)') line
     if(trim(line) .ne. 'line 4')then
        write(0,*) "move backward test failed - expected 'line 4', got: ", &
-                  trim(line)
+            trim(line)
        success = .false.
     end if
 
@@ -170,18 +170,44 @@ program test_infile_tools
     read(unit, '(A)') line
     if(trim(line) .ne. 'line 5')then
        write(0,*) "move zero test failed - expected 'line 5', got: ", &
-                  trim(line)
+            trim(line)
        success = .false.
     end if
 
     close(unit)
 
     ! Test error conditions - try to move with invalid unit
-    call move(999, 1, iostat=iostat_val, err_msg=err_msg_val)
-    if(iostat_val .eq. 0)then
-       write(0,*) "move should fail with invalid unit"
-       success = .false.
-    end if
+    ! First find a unit number that doesn't have an associated file
+    block
+      integer :: test_unit
+      logical :: file_exists
+
+      test_unit = 999
+      write(line, '(A,I0)') 'fort.', test_unit
+      inquire(file=trim(line), exist=file_exists)
+      do while(file_exists)
+         write(line, '(A,I0)') 'fort.', test_unit
+         test_unit = test_unit + 1
+         inquire(file=trim(line), exist=file_exists)
+      end do
+
+      call move(test_unit, 1, iostat=iostat_val, err_msg=err_msg_val)
+      if(iostat_val .eq. 0)then
+         write(0,*) "move should fail with invalid unit"
+         success = .false.
+      end if
+
+      ! Check if a fort.UNIT file was created and remove it
+      file_exists = .false.
+      write(line, '(A,I0)') 'fort.', test_unit
+      inquire(file=trim(line), exist=file_exists)
+      if(file_exists)then
+         open(newunit=unit, file=trim(line), status='old')
+         close(unit, status='delete')
+      end if
+    end block
+
+
 
     ! Clean up temporary file
     open(newunit=unit, file='test_move.tmp', status='old')

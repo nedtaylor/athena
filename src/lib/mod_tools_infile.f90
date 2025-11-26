@@ -388,11 +388,24 @@ contains
     !! Loop index
     character(256) :: err_msg_
     !! Error message
+    logical :: file_exists
+    !! File exists boolean
 
     if(present(iostat)) iostat = 0
     if(present(err_msg)) err_msg = ""
     if(change.eq.0) return
-    inquire(unit = unit, iostat = iostat_)
+    inquire(unit = unit, iostat = iostat_, exist = file_exists)
+    if(.not. file_exists) then
+       write(err_msg_, '(A,I0)') &
+            'ERROR: unit ', unit, ' does not exist'
+       if(present(iostat)) iostat = -1
+       if(present(err_msg))then
+          err_msg = err_msg_
+       else
+          call stop_program(err_msg_)
+       end if
+       return
+    end if
     if(iostat_ .ne. 0) then
        write(err_msg_, '(A,I0)') &
             'ERROR: cannot move in file, unit ', unit
