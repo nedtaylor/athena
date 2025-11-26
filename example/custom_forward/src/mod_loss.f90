@@ -13,8 +13,8 @@ contains
 
   function my_compute(this, predicted, expected) result(output)
     implicit none
-    class(my_loss_type), intent(in) :: this
-    type(array_type), dimension(:,:), intent(in), target :: predicted
+    class(my_loss_type), intent(in), target :: this
+    type(array_type), dimension(:,:), intent(inout), target :: predicted
     type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
          expected
     type(array_type), pointer :: output

@@ -12,7 +12,7 @@ program pinn_chemical_example
   implicit none
 
   integer :: seed = 42
-  type(network_type) :: network
+  type(network_type), target :: network
   class(base_layer_type), allocatable :: layer
   type(metric_dict_type), dimension(2) :: metric_dict
   class(clip_type), allocatable :: clip
@@ -35,6 +35,9 @@ program pinn_chemical_example
   real(real32), dimension(:), allocatable :: feature_in_norm
   type(array_type), dimension(1,1) :: output
   real(real32) :: output_min, output_max
+  type(forces_loss_type) :: loss_method
+  type(array_type), dimension(:), allocatable :: forces
+  type(array_type), pointer :: loss, predicted(:,:)
 
   class(*), allocatable, dimension(:,:) :: data_poly
 
@@ -47,9 +50,13 @@ program pinn_chemical_example
   write(*,*) "Reading training dataset..."
   call read_extxyz_db(train_file, graphs_in, output)!labels)
   write(*,*) "Reading finished"
+  allocate(forces(size(graphs_in)))
   do s = 1, size(graphs_in)
      call graphs_in(1,s)%add_self_loops()
      if(.not.graphs_in(1,s)%is_sparse) call graphs_in(1,s)%convert_to_sparse()
+     graphs_in(1,s)%num_vertex_features = 6
+     graphs_in(1,s)%vertex_features = graphs_in(1,s)%vertex_features(1:6,:)
+     forces(s)%val = graphs_in(1,s)%vertex_features(4:6,:)
   end do
 
 
@@ -137,7 +144,7 @@ program pinn_chemical_example
             ! lr_decay = exp_lr_decay_type(1.E-2_real32) &
             ! lr_decay = step_lr_decay_type(0.5_real32, 5) &
        ), &
-       loss_method = forces_loss_type(), &
+       loss_method = loss_method, &
        metrics = metric_dict, &
        batch_size = batch_size, verbose = 1, &
        accuracy_method = "mse" &
@@ -162,12 +169,24 @@ program pinn_chemical_example
   output_max = maxval(output(1,1)%val)
   output(1,1)%val = ( output(1,1)%val - output_min ) / &
        ( output_max - output_min )
-  call network%train( &
-       graphs_in, &
-       output, &
-       num_epochs = num_epochs, &
-       shuffle_batches = .true. &
-  )
+  write(*,*) "Starting training..."
+!   call network%train( &
+!        graphs_in, &
+!        output, &
+!        num_epochs = num_epochs, &
+!        shuffle_batches = .true. &
+!   )
+
+  loss_method%network => network
+  do i = 1, num_epochs
+     predicted => network%forward_eval(graphs_in(1:1,1:batch_size))
+     loss_method%expected_forces = forces(1:size(predicted,2))
+     loss => loss_method%compute(predicted, output)
+     call loss%grad_reverse(reset_graph=.true.)
+     call network%update()
+     if(mod(i,10) == 0) write(*,'("epoch ",I4,":",2(3X,F8.6))') i, loss%val(1,1)
+  end do
+
   write(*,*) "autodifferentiation"
   write(*,*) network%model(network%root_vertices(1))%layer%output(1,1)%grad%val(:,1)
 

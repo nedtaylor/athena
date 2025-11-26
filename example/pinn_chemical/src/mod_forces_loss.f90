@@ -1,7 +1,7 @@
 module forces_loss
   use constants_mnist, only: real32
-  use athena, only: base_loss_type, array_type, &
-       operator(+), operator(-), operator(/), operator(*), operator(**)
+  use athena, only: network_type, base_loss_type
+  use diffstruc
   implicit none
 
   private
@@ -11,12 +11,10 @@ module forces_loss
 
   type, extends(base_loss_type) :: forces_loss_type
      real(real32) :: alpha, beta
-     !type(graph_type), allocatable, dimension(:) :: graphs, gradient_graphs
+     type(network_type), pointer :: network
+     type(array_type), dimension(:), allocatable :: expected_forces
    contains
-     procedure :: compute => compute_loss_forces
-     procedure :: compute_pinn => compute_pinn_loss_forces
-     procedure :: compute_pinn_derivative => compute_pinn_derivative_forces
-     procedure :: compute_pinn_generic => compute_pinn_loss_generic_forces
+     procedure :: compute => compute_forces
   end type forces_loss_type
 
   interface forces_loss_type
@@ -41,90 +39,35 @@ contains
     loss%requires_autodiff = .true.
   end function setup_loss_forces
 
-
-  pure function compute_loss_forces(this, predicted, expected) result(output)
+  function compute_forces( this, predicted, expected ) result(output)
     implicit none
-    class(forces_loss_type), intent(in) :: this
+    class(forces_loss_type), intent(in), target :: this
     !! Instance of the loss function type
-    real(real32), dimension(:,:), intent(in) :: predicted, expected
-    !! Predicted and expected values
-    real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
-
-    output = 0._real32
-
-  end function compute_loss_forces
-
-
-  function compute_pinn_loss_forces(this, predicted, expected, input) &
-       result(output)
-    implicit none
-    class(forces_loss_type), intent(in) :: this
-    !! Instance of the loss function type
-    real(real32), dimension(:,:), intent(in) :: predicted, expected
-    !! Predicted and expected values
-    type(array_type), dimension(:), intent(in) :: input
-    real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
-
-    integer :: s
-
-    do s = 1, size(input)
-       output(:,s) = this%alpha * ( predicted(:,s) - expected(:,s) )**2 + &
-            this%beta * &
-            sum( input(s)%grad%val(1:3,:) - input(s)%val(4:6,:) ) ** 2 / &
-            size(input(s)%val, dim = 2)
-    end do
-  end function compute_pinn_loss_forces
-
-
-  function compute_pinn_derivative_forces(this, predicted, expected, input) &
-       result(output)
-    implicit none
-    class(forces_loss_type), intent(in) :: this
-    !! Instance of the loss function type
-    real(real32), dimension(:,:), intent(in) :: predicted, expected
-    !! Predicted and expected values
-    type(array_type), dimension(:), intent(in) :: input
-    real(real32), dimension(size(predicted,1),size(predicted,2)) :: output
-    !! Derivative of the loss function
-
-    integer :: s
-
-    do s = 1, size(input)
-       output(:,s) = 2._real32 * this%alpha * ( predicted(:,s) - expected(:,s) ) + &
-            2._real32 * this%beta * &
-            sum( input(s)%grad%val(1:3,:) - input(s)%val(4:6,:) ) / &
-            size(input(s)%val, dim = 2)
-    end do
-  end function compute_pinn_derivative_forces
-
-
-  function compute_pinn_loss_generic_forces( &
-       this, predicted, expected, input &
-  ) result(output)
-    implicit none
-    class(forces_loss_type), intent(in) :: this
-    !! Instance of the loss function type
-    type(array_type), dimension(:,:), intent(inout) :: predicted
+    type(array_type), dimension(:,:), intent(inout), target :: predicted
     type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
          expected
     !! Predicted and expected values
-    type(array_type), dimension(:), intent(in) :: input
-    type(array_type), pointer :: output(:,:)
+    type(array_type), pointer :: output
 
     integer :: s
-    real(real32) :: forces_loss
+    integer :: num_atoms
+    type(array_type), pointer :: input, forces, forces_loss
 
-    call predicted(1,1)%grad_reverse(reset_graph=.true.)
-    forces_loss = 0._real32
-    do s = 1, size(input)
-       forces_loss = forces_loss + &
-            sum( input(s)%grad%val(1:3,:) - input(s)%val(4:6,:) ) ** 2 / &
-            size(input(s)%val, dim = 2)
+    do s = 1, size(predicted, 2)
+       input => this%network%model(this%network%root_vertices(1))%layer%output(1,s)
+       call input%set_requires_grad(.true.)
+       num_atoms = size(input%val, dim=2)
+       forces => predicted(1,1)%grad_forward(input)
+       if(s.eq.1)then
+          forces_loss => sum( forces - this%expected_forces(s), dim=2 ) ** 2 / real(num_atoms, real32)
+       else
+          forces_loss => forces_loss + &
+               sum( forces - this%expected_forces(s), dim=2 ) ** 2 / real(num_atoms, real32)
+       end if
     end do
-    allocate(output(size(predicted,1),size(predicted,2)))
-    output(1,1) = this%alpha * ( predicted(1,1) - expected(1,1) ) ** 2._real32 + &
+    output => this%alpha * ( predicted(1,1) - expected(1,1) ) ** 2._real32 + &
          this%beta * forces_loss
 
-  end function compute_pinn_loss_generic_forces
+  end function compute_forces
 
 end module forces_loss

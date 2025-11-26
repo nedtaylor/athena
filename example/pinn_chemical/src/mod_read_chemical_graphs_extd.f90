@@ -138,9 +138,9 @@ contains
           end do spec_loop2
           graph%vertex(iatom)%feature = [ &
                basis%spec(is)%atom(:3,ia), &
-               basis%spec(is)%force(:,ia), &
                graph%vertex(iatom)%feature, &
-               real(degree, real32) / 6._real32 &
+               real(degree, real32) / 6._real32, &
+               basis%spec(is)%force(:,ia) &
           ]
        end do atom_loop1
     end do spec_loop1

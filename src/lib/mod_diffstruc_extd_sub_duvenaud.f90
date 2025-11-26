@@ -54,15 +54,15 @@ contains
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
-    output = reverse_duvenaud_propagate( upstream_grad, &
-         this%indices, this%adj_ja, &
-         num_features = [ &
-              this%left_operand%shape(1), this%right_operand%shape(1) &
-         ], &
-         num_elements = [ &
-              size(this%left_operand%val,2), size(this%right_operand%val,2) &
-         ], &
-         left = .true. )
+    logical :: right_is_temporary_local
+    type(array_type), pointer :: ptr
+
+    right_is_temporary_local = this%right_operand%is_temporary
+    this%right_operand%is_temporary = .false.
+    ptr => duvenaud_propagate( upstream_grad, this%right_operand, &
+         this%indices, this%adj_ja )
+    this%right_operand%is_temporary = right_is_temporary_local
+    call output%assign_and_deallocate_source(ptr)
 
   end function get_partial_duvenaud_propagate_left
 !-------------------------------------------------------------------------------
@@ -72,15 +72,15 @@ contains
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
-    output = reverse_duvenaud_propagate( upstream_grad, &
-         this%indices, this%adj_ja, &
-         num_features = [ &
-              this%left_operand%shape(1), this%right_operand%shape(1) &
-         ], &
-         num_elements = [ &
-              size(this%left_operand%val,2), size(this%right_operand%val,2) &
-         ], &
-         left = .false. )
+    logical :: left_is_temporary_local
+    type(array_type), pointer :: ptr
+
+    left_is_temporary_local = this%left_operand%is_temporary
+    this%left_operand%is_temporary = .false.
+    ptr => duvenaud_propagate( this%left_operand, upstream_grad, &
+         this%indices, this%adj_ja )
+    this%left_operand%is_temporary = left_is_temporary_local
+    call output%assign_and_deallocate_source(ptr)
 
   end function get_partial_duvenaud_propagate_right
 !-------------------------------------------------------------------------------
@@ -125,46 +125,6 @@ contains
        end do
     end do
   end subroutine get_partial_duvenaud_propagate_right_val
-!###############################################################################
-
-
-!###############################################################################
-  function reverse_duvenaud_propagate( &
-       a, adj_ia, adj_ja, num_features, num_elements, left &
-  ) result(c)
-    !! Reverse propagate values from one autodiff array to another
-    implicit none
-    class(array_type), intent(in), target :: a
-    logical, intent(in) :: left
-    integer, dimension(:), intent(in) :: adj_ia
-    integer, dimension(:,:), intent(in) :: adj_ja
-    integer, dimension(2), intent(in) :: num_features, num_elements
-    type(array_type), pointer :: c
-
-    integer :: v, w
-
-    allocate(c)
-    if(left)then
-       call c%allocate(array_shape=[num_features(1), num_elements(1)])
-       c%val = 0.0_real32
-       do concurrent(v=1:num_elements(1))
-          do w = adj_ia(v), adj_ia(v+1)-1
-             c%val(:,adj_ja(1,w)) = c%val(:,adj_ja(1,w)) + &
-                  [ a%val(1:num_features(1), v) ]
-          end do
-       end do
-    else
-       call c%allocate(array_shape=[num_features(2), num_elements(2)])
-       c%val = 0.0_real32
-       do concurrent(v=1:num_elements(1))
-          do w = adj_ia(v), adj_ia(v+1)-1
-             c%val(:,adj_ja(2,w)) = c%val(:,adj_ja(2,w)) + &
-                  [ a%val(num_features(1)+1:, v) ]
-          end do
-       end do
-    end if
-
-  end function reverse_duvenaud_propagate
 !###############################################################################
 
 
@@ -215,9 +175,15 @@ contains
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
+    logical :: left_is_temporary_local
+    type(array_type), pointer :: ptr
 
-    output = reverse_duvenaud_update( upstream_grad, this%left_operand, &
-         this%indices )
+    left_is_temporary_local = this%left_operand%is_temporary
+    this%left_operand%is_temporary = .false.
+    ptr => duvenaud_update( upstream_grad, this%left_operand, &
+         this%indices, this%left_operand%indices(1), this%left_operand%indices(2) )
+    this%left_operand%is_temporary = left_is_temporary_local
+    call output%assign_and_deallocate_source(ptr)
 
   end function get_partial_duvenaud_update
 !-------------------------------------------------------------------------------
@@ -225,9 +191,15 @@ contains
     class(array_type), intent(inout) :: this
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
+    logical :: right_is_temporary_local
+    type(array_type), pointer :: ptr
 
-    output = reverse_duvenaud_update_weight( upstream_grad, this%right_operand, &
-         this%left_operand%indices, this%indices )
+    right_is_temporary_local = this%right_operand%is_temporary
+    this%right_operand%is_temporary = .false.
+    ptr => duvenaud_update( this%right_operand, upstream_grad, &
+         this%indices, this%left_operand%indices(1), this%left_operand%indices(2) )
+    this%right_operand%is_temporary = right_is_temporary_local
+    call output%assign_and_deallocate_source(ptr)
 
   end function get_partial_duvenaud_update_weight
 !-------------------------------------------------------------------------------
@@ -257,7 +229,7 @@ contains
        ) - min_degree + 1
        tmp = reshape(this%left_operand%val((d-1)*interval+1:d*interval,1), &
             [num_output_features, num_input_features] )
-       output(:,v) = matmul(transpose(tmp), upstream_grad(:,v))
+       output(:,v) = matmul(upstream_grad(:,v), transpose(tmp))
     end do
 
   end subroutine get_partial_duvenaud_update_val
@@ -296,61 +268,6 @@ contains
     !weight = nfeat x nfeat(-1) x ndegree
 
   end subroutine get_partial_duvenaud_update_weight_val
-!###############################################################################
-
-
-!###############################################################################
-  function reverse_duvenaud_update(a, weight, adj_ia) result(c)
-    !! Reverse update the message passing layer
-    class(array_type), intent(in), target :: a, weight
-    integer, dimension(:), intent(in) :: adj_ia
-    type(array_type), pointer :: c
-
-    integer :: v, d
-    integer :: interval
-    real(real32), pointer :: w_ptr(:,:)
-
-    allocate(c)
-    call c%allocate( array_shape = [weight%shape(2), size(a%val,2)] )
-    interval = weight%shape(1) * weight%shape(2)
-    do v = 1, size(a%val,2)
-       d = max( weight%indices(1), &
-            min( adj_ia(v+1) - adj_ia(v), weight%indices(2) ) ) - weight%indices(1) + 1
-       w_ptr(1:weight%shape(1), 1:weight%shape(2)) => &
-            weight%val(interval*(d-1)+1:interval*d,1)
-       c%val(:,v) = matmul(transpose(w_ptr), a%val(:,v))
-    end do
-
-  end function reverse_duvenaud_update
-!-------------------------------------------------------------------------------
-  function reverse_duvenaud_update_weight(a, b, indices, adj_ia) result(c)
-    !! Reverse update the message passing layer for weights
-    class(array_type), intent(in), target :: a, b
-    integer, dimension(2), intent(in) :: indices
-    integer, dimension(:), intent(in) :: adj_ia
-    type(array_type), pointer :: c
-
-    integer :: v, d, i
-    integer :: interval
-    real(real32), pointer :: c_ptr(:,:)
-
-    allocate(c)
-    call c%allocate( array_shape = &
-         [size(a%val,1), size(b%val,1), indices(2)-indices(1)+1,1] &
-    )
-    interval = c%shape(1) * c%shape(2)
-    c%val = 0.0_real32
-    do v = 1, size(a%val,2)
-       d = max( indices(1), &
-            min( adj_ia(v+1) - adj_ia(v), indices(2) ) ) - indices(1) + 1
-       c_ptr(1:c%shape(1), 1:c%shape(2)) => c%val(interval*(d-1)+1:interval*d,1)
-       ! do the outer product of a and b, c is the weight matrix
-       do i = 1, size(a%val,1)
-          c_ptr(i,:) = c_ptr(i,:) + a%val(i,v) * b%val(:,v)
-       end do
-    end do
-
-  end function reverse_duvenaud_update_weight
 !###############################################################################
 
 end submodule athena__diffstruc_extd_submodule_msgpass_duvenaud

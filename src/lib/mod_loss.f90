@@ -41,9 +41,9 @@ module athena__loss
   interface
      module function compute_base(this, predicted, expected) result(output)
        !! Compute the loss of a model
-       class(base_loss_type), intent(in) :: this
+       class(base_loss_type), intent(in), target :: this
        !! Instance of the physics-informed neural network loss function
-       type(array_type), dimension(:,:), intent(in), target :: predicted
+       type(array_type), dimension(:,:), intent(inout), target :: predicted
        !! Predicted values
        type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
             expected
@@ -244,9 +244,9 @@ contains
     implicit none
 
     ! Arguments
-    class(bce_loss_type), intent(in) :: this
+    class(bce_loss_type), intent(in), target :: this
     !! Instance of the physics-informed neural network loss function
-    type(array_type), dimension(:,:), intent(in), target :: predicted
+    type(array_type), dimension(:,:), intent(inout), target :: predicted
     type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
          expected
     !! Predicted and expected values
@@ -282,9 +282,9 @@ contains
     implicit none
 
     ! Arguments
-    class(cce_loss_type), intent(in) :: this
+    class(cce_loss_type), intent(in), target :: this
     !! Instance of the physics-informed neural network loss function
-    type(array_type), dimension(:,:), intent(in), target :: predicted
+    type(array_type), dimension(:,:), intent(inout), target :: predicted
     type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
          expected
     !! Predicted and expected values
@@ -320,8 +320,8 @@ contains
     implicit none
 
     ! Arguments
-    class(mae_loss_type), intent(in) :: this
-    type(array_type), dimension(:,:), intent(in), target :: predicted
+    class(mae_loss_type), intent(in), target :: this
+    type(array_type), dimension(:,:), intent(inout), target :: predicted
     !! Predicted values
     type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
          expected
@@ -360,9 +360,9 @@ contains
     implicit none
 
     ! Arguments
-    class(mse_loss_type), intent(in) :: this
+    class(mse_loss_type), intent(in), target :: this
     !! Instance of the physics-informed neural network loss function
-    type(array_type), dimension(:,:), intent(in), target :: predicted
+    type(array_type), dimension(:,:), intent(inout), target :: predicted
     !! Predicted values
     type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
          expected
@@ -401,9 +401,9 @@ contains
     implicit none
 
     ! Arguments
-    class(nll_loss_type), intent(in) :: this
+    class(nll_loss_type), intent(in), target :: this
     !! Instance of the physics-informed neural network loss function
-    type(array_type), dimension(:,:), intent(in), target :: predicted
+    type(array_type), dimension(:,:), intent(inout), target :: predicted
     type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
          expected
     !! Predicted and expected values
@@ -439,9 +439,9 @@ contains
     implicit none
 
     ! Arguments
-    class(huber_loss_type), intent(in) :: this
+    class(huber_loss_type), intent(in), target :: this
     !! Instance of the physics-informed neural network loss function
-    type(array_type), dimension(:,:), intent(in), target :: predicted
+    type(array_type), dimension(:,:), intent(inout), target :: predicted
     type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
          expected
     !! Predicted and expected values
@@ -484,9 +484,9 @@ contains
     implicit none
 
     ! Arguments
-    class(base_loss_type), intent(in) :: this
+    class(base_loss_type), intent(in), target :: this
     !! Instance of the physics-informed neural network loss function
-    type(array_type), dimension(:,:), intent(in), target :: predicted
+    type(array_type), dimension(:,:), intent(inout), target :: predicted
     !! Predicted values
     type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
          expected
