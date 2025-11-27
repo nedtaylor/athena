@@ -123,7 +123,7 @@ program test_msgpass_network
     end if
 
     ! Set up target output for testing
-    allocate(target_array(1,1)%val(num_outputs, 1))
+    call target_array(1,1)%allocate(array_shape=[num_outputs, 1])
     target_array(1,1)%val = reshape([0.4, 0.4, 0.2], [num_outputs, 1])
 
     ! Test training for a few epochs
@@ -133,6 +133,7 @@ program test_msgpass_network
          num_epochs = 5, &
          shuffle_batches = .false. &
     )
+    write(*,*) "d"
 
     ! Test prediction
     call duvenaud_network%test(graph_data_duvenaud, target_array)
