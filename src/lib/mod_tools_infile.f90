@@ -15,7 +15,7 @@ module athena__tools_infile
   private
 
   public :: get_val
-  public :: assign_val, assign_vec
+  public :: assign_val, assign_vec, allocate_and_assign_vec
   public :: getline, rm_comments
   public :: stop_check
   public :: move
@@ -31,22 +31,35 @@ module athena__tools_infile
      procedure assignIvec, assignRvec
   end interface assign_vec
 
+  interface allocate_and_assign_vec
+     !! Interface for allocating and assigning a vector to a variable
+     procedure allocate_and_assignRvec
+  end interface allocate_and_assign_vec
+
+
 contains
 
 !###############################################################################
-  function get_val(buffer) result(output)
-    !! Extract the section of buffer that occurs after an "="
+  function get_val(buffer, fs) result(output)
+    !! Extract the section of buffer that occurs after the field separator fs
     implicit none
 
     ! Arguments
     character(*), intent(in) :: buffer
     !! Input buffer
+    character(1), intent(in), optional :: fs
+    !! Field separator
 
     ! Local variables
-    character(100) :: output
+    character(:), allocatable :: output
     !! Extracted value
+    character(1) :: fs_
+    !! Field separator
 
-    output = trim(adjustl(buffer((scan(buffer, "=") + 1):)))
+    fs_ = '='
+    if(present(fs)) fs_ = fs
+
+    output = trim(adjustl(buffer((scan(buffer, fs_) + 1):)))
   end function get_val
 !###############################################################################
 
@@ -76,7 +89,7 @@ contains
 
 
 !###############################################################################
-  subroutine assignI(buffer, variable, found, keyword)
+  subroutine assignI(buffer, variable, found, keyword, fs)
     !! Assign an integer to variable
     implicit none
 
@@ -89,13 +102,20 @@ contains
     !! Count for finding variable
     character(*), optional, intent(in) :: keyword
     !! Keyword to start from
+    character(1), optional, intent(in) :: fs
+    !! Field separator
 
     ! Local variables
     character(1024) :: buffer2
     !! Temporary buffer
+    character(1) :: fs_
+    !! Field separator
+
+    fs_ = '='
+    if(present(fs)) fs_ = fs
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
-    if(scan(buffer, "=") .ne. 0) buffer2 = get_val(buffer)
+    if(scan(buffer, fs_) .ne. 0) buffer2 = get_val(buffer, fs_)
     if(trim(adjustl(buffer2)) .ne. '') then
        found = found + 1
        read(buffer2, *) variable
@@ -105,7 +125,7 @@ contains
 
 
 !###############################################################################
-  subroutine assignIvec(buffer, variable, found, keyword)
+  subroutine assignIvec(buffer, variable, found, keyword, fs)
     !! Assign an arbitrary length vector of integers to variable
     implicit none
 
@@ -118,15 +138,22 @@ contains
     !! Count for finding variable
     character(*), optional, intent(in) :: keyword
     !! Keyword to start from
+    character(1), optional, intent(in) :: fs
+    !! Field separator
 
     ! Local variables
     integer :: i
     !! Loop index
     character(1024) :: buffer2
     !! Temporary buffer
+    character(1) :: fs_
+    !! Field separator
+
+    fs_ = '='
+    if(present(fs)) fs_ = fs
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
-    if(scan(buffer, "=") .ne. 0) buffer2 = get_val(buffer)
+    if(scan(buffer, fs_) .ne. 0) buffer2 = get_val(buffer, fs_)
     if(trim(adjustl(buffer2)) .ne. '') then
        found = found + 1
        if(icount(buffer2) == 1 .and. icount(buffer2) .ne. size(variable)) then
@@ -141,7 +168,7 @@ contains
 
 
 !###############################################################################
-  subroutine assignR(buffer, variable, found, keyword)
+  subroutine assignR(buffer, variable, found, keyword, fs)
     !! Assign a real to variable
     implicit none
 
@@ -154,13 +181,20 @@ contains
     !! Count for finding variable
     character(*), optional, intent(in) :: keyword
     !! Keyword to start from
+    character(1), optional, intent(in) :: fs
+    !! Field separator
 
     ! Local variables
     character(1024) :: buffer2
     !! Temporary buffer
+    character(1) :: fs_
+    !! Field separator
+
+    fs_ = '='
+    if(present(fs)) fs_ = fs
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
-    if(scan(buffer, "=") .ne. 0) buffer2 = get_val(buffer)
+    if(scan(buffer, fs_) .ne. 0) buffer2 = get_val(buffer, fs_)
     if(trim(adjustl(buffer2)) .ne. '') then
        found = found + 1
        read(buffer2, *) variable
@@ -170,7 +204,7 @@ contains
 
 
 !###############################################################################
-  subroutine assignRvec(buffer, variable, found, keyword)
+  subroutine assignRvec(buffer, variable, found, keyword, fs)
     !! Assign an arbitrary length vector of reals to variable
     implicit none
 
@@ -183,15 +217,22 @@ contains
     !! Count for finding variable
     character(*), optional, intent(in) :: keyword
     !! Keyword to start from
+    character(1), optional, intent(in) :: fs
+    !! Field separator
 
     ! Local variables
     integer :: i
     !! Loop index
     character(1024) :: buffer2
     !! Temporary buffer
+    character(1) :: fs_
+    !! Field separator
+
+    fs_ = '='
+    if(present(fs)) fs_ = fs
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
-    if(scan(buffer, "=") .ne. 0) buffer2 = get_val(buffer)
+    if(scan(buffer, fs_) .ne. 0) buffer2 = get_val(buffer, fs_)
     if(trim(adjustl(buffer2)) .ne. '') then
        found = found + 1
        if(icount(buffer2) == 1 .and. icount(buffer2) .ne. size(variable)) then
@@ -206,7 +247,64 @@ contains
 
 
 !###############################################################################
-  subroutine assignS(buffer, variable, found, keyword)
+  subroutine allocate_and_assignRvec(buffer, variable, keyword, fs)
+    !! Allocate and assign an arbitrary length vector of reals to variable
+    implicit none
+
+    ! Arguments
+    character(*), intent(inout) :: buffer
+    !! Input buffer
+    real(real32), dimension(:), allocatable, intent(out) :: variable
+    !! Variable to assign data to
+    character(*), optional, intent(in) :: keyword
+    !! Keyword to start from
+    character(1), optional, intent(in) :: fs
+    !! Field separator
+
+    ! Local variables
+    integer :: i
+    !! Number of values and loop index
+    character(1024) :: buffer2
+    !! Temporary buffer
+    character(1) :: fs_
+    !! Field separator
+    character(1), parameter :: open_brackets(3) = ['[', '(', '{']
+    character(1), parameter :: close_brackets(3) = [']', ')', '}']
+
+    fs_ = '='
+    if(present(fs)) fs_ = fs
+
+    if(present(keyword)) buffer = buffer(index(buffer, keyword):)
+    if(scan(buffer, fs_) .ne. 0)then
+       buffer2 = get_val(buffer, fs_)
+    else
+       buffer2 = buffer
+    end if
+    buffer2 = adjustl(buffer2)
+    if(any(index(buffer2,open_brackets).eq.1)) then
+       do i = 1, size(open_brackets)
+          if(index(buffer2, open_brackets(i)) .eq. 1) then
+             buffer2 = buffer2(2:)
+          end if
+       end do
+    end if
+    if(any(index(trim(buffer2),close_brackets).eq.len(trim(buffer2)))) then
+       do i = 1, size(close_brackets)
+          if(index(trim(buffer2), close_brackets(i)) .eq. len(trim(buffer2))) then
+             buffer2 = buffer2(:len(trim(buffer2))-1)
+          end if
+       end do
+    end if
+    ! count number of values
+    i = icount(buffer2)
+    allocate(variable(i))
+    read(buffer2, *) (variable(i), i = 1, size(variable))
+  end subroutine allocate_and_assignRvec
+!###############################################################################
+
+
+!###############################################################################
+  subroutine assignS(buffer, variable, found, keyword, fs)
     !! Assign a string to variable
     implicit none
 
@@ -219,15 +317,33 @@ contains
     !! Count for finding variable
     character(*), optional, intent(in) :: keyword
     !! Keyword to start from
+    character(1), optional, intent(in) :: fs
+    !! Field separator
 
     ! Local variables
     character(1024) :: buffer2
     !! Temporary buffer
+    character(1) :: fs_
+    !! Field separator
+
+    fs_ = '='
+    if(present(fs)) fs_ = fs
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
-    if(scan(buffer, "=") .ne. 0) buffer2 = get_val(buffer)
-    if(trim(adjustl(buffer2)) .ne. '') then
+    if(scan(buffer, fs_) .ne. 0) buffer2 = get_val(buffer, fs_)
+    if(trim(adjustl(buffer2)) .ne. '')then
        found = found + 1
+       if( &
+            ( &
+                 buffer2(1:1) .eq. '"' .and. &
+                 buffer2(len(trim(buffer2)):len(trim(buffer2))) .eq. '"' &
+            ) .or. ( &
+                 buffer2(1:1) .eq. '''' .and. &
+                 buffer2(len(trim(buffer2)):len(trim(buffer2))) .eq. '''' &
+            ) &
+       )then
+          buffer2 = buffer2(2:len(trim(buffer2))-1)
+       end if
        read(buffer2, '(A)') variable
     end if
   end subroutine assignS
@@ -235,7 +351,7 @@ contains
 
 
 !###############################################################################
-  subroutine assignL(buffer, variable, found, keyword)
+  subroutine assignL(buffer, variable, found, keyword, fs)
     !! Assign a logical to variable (T/t/1 and F/f/0 accepted)
     implicit none
 
@@ -248,13 +364,20 @@ contains
     !! Count for finding variable
     character(*), optional, intent(in) :: keyword
     !! Keyword to start from
+    character(1), optional, intent(in) :: fs
+    !! Field separator
 
     ! Local variables
     character(1024) :: buffer2
     !! Temporary buffer
+    character(1) :: fs_
+    !! Field separator
+
+    fs_ = '='
+    if(present(fs)) fs_ = fs
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
-    if(scan(buffer, "=") .ne. 0) buffer2 = get_val(buffer)
+    if(scan(buffer, fs_) .ne. 0) buffer2 = get_val(buffer, fs_)
     if(trim(adjustl(buffer2)) .ne. '') then
        found = found + 1
        if( &

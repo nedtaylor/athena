@@ -7,12 +7,38 @@ program test_onnx
 
   type(network_type) :: network, network_imported
 
+  integer :: num_seed, i
+  integer, allocatable, dimension(:) :: seed, seed_check
+  real(real32), allocatable :: params(:)
+
+  call random_seed(size=num_seed)
+  allocate(seed(num_seed))
+  seed = (/ (i, i=1, num_seed) /)
+
+  call random_setup(seed, restart=.false.)
+
   ! Create a simple network
   call network%add(input_layer_type(input_shape=[21,21,3]))
   call network%add(conv2d_layer_type( &
        kernel_size=[3,3], &
-       num_filters=1 &
+       num_filters=1, &
+       activation_function='swish' &
   ))
+  call network%add( &
+       conv2d_layer_type( &
+            kernel_size=[3,3], &
+            num_filters=1 &
+       ), &
+       input_list = [1] &
+  )
+  call network%add( &
+       maxpool2d_layer_type( &
+            pool_size=[2,2], &
+            stride=[2,2] &
+       ), &
+       input_list = [2, 3], &
+       operator = 'add' &
+  )
   call network%add(full_layer_type(num_outputs=64))
   call network%add(actv_layer_type('relu'))
   call network%add(full_layer_type(num_outputs=10))
@@ -28,7 +54,7 @@ program test_onnx
   ! write(*,*) network%get_params()
 
   ! Export to ONNX
-  call network%export_onnx('test_model.onnx')
+  call write_onnx('test_model.onnx', network)
   print *, 'Network exported to test_model.onnx'
 
   write(*,*) 'ONNX test completed successfully!'

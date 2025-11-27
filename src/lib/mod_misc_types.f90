@@ -21,6 +21,7 @@ module athena__misc_types
   public :: array_container_type
   public :: array1d_type, array2d_type, array3d_type, array4d_type, array5d_type
   public :: facets_type
+  public :: onnx_attribute_type, onnx_node_type, onnx_initialiser_type
 
 
 !-------------------------------------------------------------------------------
@@ -601,5 +602,49 @@ module athena__misc_types
   end interface
 !-------------------------------------------------------------------------------
 
+
+!------------------------------------------------------------------------------!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!------------------------------------------------------------------------------!
+
+
+!-------------------------------------------------------------------------------
+! Attributes type (for ONNX export)
+!-------------------------------------------------------------------------------
+  type :: onnx_attribute_type
+     !! Type for storing attributes for ONNX export
+     character(20) :: name
+     !! Name of the attribute
+     character(20) :: type
+     !! Type of the attribute (e.g. 'int', 'float', 'string')
+     character(len=:), allocatable :: value
+     !! Value of the attribute as a string
+     !! This allows for flexible storage of different types
+     !! of attributes without needing to define a specific type
+  end type onnx_attribute_type
+!-------------------------------------------------------------------------------
+
+!-------------------------------------------------------------------------------
+! ONNX node type
+!-------------------------------------------------------------------------------
+  type :: onnx_node_type
+     character(256) :: op_type
+     character(20) :: name
+     character(20), allocatable, dimension(:) :: inputs
+     character(20), allocatable, dimension(:) :: outputs
+     type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+     integer :: num_inputs, num_outputs
+  end type onnx_node_type
+!-------------------------------------------------------------------------------
+
+!-------------------------------------------------------------------------------
+! ONNX initialiser type
+!-------------------------------------------------------------------------------
+  type :: onnx_initialiser_type
+     character(20) :: name
+     integer, allocatable, dimension(:) :: dims
+     real(real32), allocatable, dimension(:) :: data
+  end type onnx_initialiser_type
+!-------------------------------------------------------------------------------
 
 end module athena__misc_types

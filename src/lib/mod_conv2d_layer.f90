@@ -4,14 +4,15 @@ module athena__conv2d_layer
   use athena__constants, only: real32
   use athena__base_layer, only: conv_layer_type, base_layer_type
   use athena__pad2d_layer, only: pad2d_layer_type
-  use athena__misc_types, only: initialiser_type, array4d_type
+  use athena__misc_types, only: initialiser_type, array4d_type, &
+       onnx_node_type, onnx_initialiser_type
   implicit none
 
 
   private
 
   public :: conv2d_layer_type
-  public :: read_conv2d_layer
+  public :: read_conv2d_layer, create_from_onnx_conv2d_layer
 
 
   type, extends(conv_layer_type) :: conv2d_layer_type
@@ -34,6 +35,8 @@ module athena__conv2d_layer
      !! Print 2D convolutional layer to unit
      procedure, pass(this) :: read => read_conv2d
      !! Read 2D convolutional layer from file
+     procedure, pass(this) :: build_from_onnx => build_from_onnx_conv2d
+     !! Build 2D convolutional layer from ONNX node and initialiser
      procedure, pass(this) :: forward  => forward_rank
      !! Forward propagation handler for 2D convolutional layer
      procedure, pass(this) :: backward => backward_rank
@@ -933,6 +936,98 @@ contains
     call layer%read(unit, verbose=verbose_)
 
   end function read_conv2d_layer
+!###############################################################################
+
+
+!###############################################################################
+  subroutine build_from_onnx_conv2d(this, node, initialisers, verbose )
+    !! Read ONNX attributes for 2D convolutional layer
+    implicit none
+
+    ! Arguments
+    class(conv2d_layer_type), intent(inout) :: this
+    !! Instance of the 2D convolutional layer
+    type(onnx_node_type), intent(in) :: node
+    !! Instance of ONNX node information
+    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
+    !! Instance of ONNX initialiser information
+    integer, intent(in) :: verbose
+    !! Verbosity level
+
+    ! Local variables
+    integer :: verbose_ = 0
+    !! Verbosity level
+    integer :: i
+    !! Loop index and temporary integer
+    integer :: num_filters
+    !! Number of filters
+    integer, dimension(2) :: padding, stride, kernel_size
+    !! Padding, stride, and kernel size
+    character(256) :: val
+    !! Attribute value
+
+    do i = 1, size(node%attributes)
+       val = node%attributes(i)%value
+       select case(trim(adjustl(node%attributes(i)%name)))
+       case("pads")
+          read(val,*) padding
+       case("strides")
+          read(val,*) stride
+       case("kernel_shape")
+          read(val,*) kernel_size
+       case("dilations")
+          write(0,*) "WARNING: dilations not yet implemented for conv2d layer"
+       case default
+          ! Do nothing
+          write(0,*) "WARNING: Unrecognised attribute in ONNX CONV2D layer: ", &
+               trim(adjustl(node%attributes(i)%name))
+       end select
+    end do
+
+
+    ! Initialise parameters from initialisers
+    write(0,*) "WARNING: Weights initialisation from ONNX not yet implemented &
+         &for conv2d layer"
+
+    call this%set_hyperparams( &
+         num_filters = num_filters, &
+         kernel_size = kernel_size, stride = stride, &
+         padding = "valid", &
+         activation_function = "none", &
+         activation_scale = 1._real32, &
+         verbose = verbose_, &
+         kernel_initialiser = "zeros", &
+         bias_initialiser = "zeros" &
+    )
+
+  end subroutine build_from_onnx_conv2d
+!###############################################################################
+
+
+!###############################################################################
+  function create_from_onnx_conv2d_layer(node, initialisers, verbose) result(layer)
+    !! Build 2D convolutional layer from attributes and return layer
+    implicit none
+
+    ! Arguments
+    type(onnx_node_type), intent(in) :: node
+    !! Instance of ONNX node information
+    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
+    !! Instance of ONNX initialiser information
+    integer, optional, intent(in) :: verbose
+    !! Verbosity level
+    class(base_layer_type), allocatable :: layer
+    !! Instance of the 2D convolutional layer
+
+    ! Local variables
+    integer :: verbose_ = 0
+    !! Verbosity level
+
+    if(present(verbose)) verbose_ = verbose
+    allocate(layer, source=conv2d_layer_type())
+    call layer%build_from_onnx(node, initialisers, verbose=verbose_)
+
+  end function create_from_onnx_conv2d_layer
 !###############################################################################
 
 

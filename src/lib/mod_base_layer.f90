@@ -15,7 +15,8 @@ module athena__base_layer
   !! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
   use athena__constants, only: real32
   use athena__clipper, only: clip_type
-  use athena__misc_types, only: activation_type, array_type, facets_type
+  use athena__misc_types, only: activation_type, array_type, facets_type, &
+       onnx_attribute_type, onnx_node_type, onnx_initialiser_type
   use graphstruc, only: graph_type
   implicit none
 
@@ -52,6 +53,7 @@ module athena__base_layer
      !! Layer name
      character(4) :: type = 'base'
      !! Layer type
+     character(20) :: subtype = repeat(" ",20)
      type(graph_type), allocatable, dimension(:) :: graph
      !! Graph structure of input data
      logical :: consistent_sample_shape = .true. !! ONLY FALSE FOR GRAPHS
@@ -76,6 +78,8 @@ module athena__base_layer
      !! Print the layer to a file with additional information
      procedure, pass(this) :: print_to_unit => print_to_unit_base
      !! Print the layer to a unit
+     procedure, pass(this) :: get_attributes => get_attributes_base
+     !! Get the attributes of the layer (for ONNX export)
      procedure, pass(this) :: get_output => get_output_base
      !! Get the output of the layer
      procedure(initialise), deferred, pass(this) :: init
@@ -93,8 +97,10 @@ module athena__base_layer
      !! Forward pass of layer using derived array_type
      procedure(backward), deferred, pass(this) :: backward
      !! Backward pass of layer
-     procedure(read_layer), deferred, pass(this) :: read
+     procedure(read_base), deferred, pass(this) :: read
      !! Read layer from file
+     procedure, pass(this) :: build_from_onnx => build_from_onnx_base
+     !! Build layer from ONNX node and initialiser
      procedure, pass(this) :: set_ptrs
      !! Set pointers to layer data
      procedure, pass(this), private :: set_ptrs_hyperparams
@@ -123,6 +129,14 @@ module athena__base_layer
        integer, intent(in) :: unit
        !! File unit
      end subroutine print_to_unit_base
+
+     module function get_attributes_base(this) result(attributes)
+       !! Get the attributes of the layer (for ONNX export)
+       class(base_layer_type), intent(in) :: this
+       !! Instance of the layer
+       type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+       !! Attributes of the layer
+     end function get_attributes_base
 
      module subroutine set_rank_base(this, input_rank, output_rank)
        !! Set the input and output ranks of the layer
@@ -245,7 +259,7 @@ module athena__base_layer
   end interface
 
   interface
-     module subroutine read_layer(this, unit, verbose)
+     module subroutine read_base(this, unit, verbose)
        !! Read layer from file
        class(base_layer_type), intent(inout) :: this
        !! Instance of the layer
@@ -253,7 +267,19 @@ module athena__base_layer
        !! File unit
        integer, optional, intent(in) :: verbose
        !! Verbosity level
-     end subroutine read_layer
+     end subroutine read_base
+
+     module subroutine build_from_onnx_base(this, node, initialisers, verbose)
+       !! Build layer from ONNX node
+       class(base_layer_type), intent(inout) :: this
+       !! Instance of the layer
+       type(onnx_node_type), intent(in) :: node
+       !! ONNX node
+       type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
+       !! ONNX initialisers
+       integer, intent(in) :: verbose
+       !! Verbosity level
+     end subroutine build_from_onnx_base
   end interface
 
 
@@ -307,6 +333,8 @@ module athena__base_layer
      !! Initialise the layer
      procedure, pass(this) :: print_to_unit => print_to_unit_pool
      !! Print layer to unit
+     procedure, pass(this) :: get_attributes => get_attributes_pool
+     !! Get the attributes of the layer (for ONNX export)
   end type pool_layer_type
 
   interface
@@ -324,6 +352,14 @@ module athena__base_layer
        integer, optional, intent(in) :: batch_size
        integer, optional, intent(in) :: verbose
      end subroutine init_pool
+
+     module function get_attributes_pool(this) result(attributes)
+       !! Get the attributes of the layer (for ONNX export)
+       class(pool_layer_type), intent(in) :: this
+       !! Instance of the layer
+       type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+       !! Attributes of the layer
+     end function get_attributes_pool
   end interface
 
 
@@ -468,6 +504,8 @@ module athena__base_layer
      !! Get the number of parameters in the layer
      procedure, pass(this) :: init => init_conv
      !! Initialise the layer
+     procedure, pass(this) :: get_attributes => get_attributes_conv
+     !! Get the attributes of the layer (for ONNX export)
   end type conv_layer_type
 
 
@@ -530,6 +568,10 @@ module athena__base_layer
        integer, optional, intent(in) :: batch_size
        integer, optional, intent(in) :: verbose
      end subroutine init_conv
+     module function get_attributes_conv(this) result(attributes)
+       class(conv_layer_type), intent(in) :: this
+       type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+     end function get_attributes_conv
      module subroutine init_batch(this, input_shape, batch_size, verbose)
        class(batch_layer_type), intent(inout) :: this
        integer, dimension(:), intent(in) :: input_shape

@@ -17,7 +17,8 @@ module athena__network
        comp_loss_deriv => compute_loss_derivative
   use athena__accuracy, only: comp_acc_func => compute_accuracy_function
   use athena__base_layer, only: base_layer_type
-  use athena__misc_types, only: array_type, array2d_type
+  use athena__misc_types, only: array_type, array2d_type, &
+       onnx_node_type, onnx_initialiser_type
   use athena__container_layer, only: container_layer_type
   implicit none
 
@@ -67,7 +68,7 @@ module athena__network
      !! Root and output vertices
      integer, dimension(:,:,:), allocatable :: io_map
      !! Input-output map
-     type(graph_type), private :: auto_graph
+     type(graph_type) :: auto_graph
      !! Graph structure for the network
    contains
      procedure, pass(this) :: print
@@ -78,10 +79,8 @@ module athena__network
      !! Read network settings from a file
      procedure, pass(this), private :: read_optimiser_settings
      !! Read optimiser settings from a file
-     procedure, pass(this) :: export_onnx
-     !! Export the network to ONNX format
-     procedure, pass(this) :: write_onnx_initializers
-     !! Write ONNX initializers
+     procedure, pass(this) :: build_from_onnx
+     !! Build network from ONNX nodes and initialisers
      procedure, pass(this) :: add
      !! Add a layer to the network
      procedure, pass(this) :: reset
@@ -221,26 +220,18 @@ module athena__network
        !! Unit number for input
      end subroutine read_optimiser_settings
 
-     !! Interface for exporting the network to ONNX format
-     module subroutine export_onnx(this, file)
-       !! Export the network to ONNX format
-       class(network_type), intent(in) :: this
+     !! Interface for building network from ONNX nodes and initialisers
+     module subroutine build_from_onnx(this, nodes, initialisers, verbose)
+       !! Build network from ONNX nodes and initialisers
+       class(network_type), intent(inout) :: this
        !! Instance of the network
-       character(*), intent(in) :: file
-       !! File name
-     end subroutine export_onnx
-
-     module subroutine write_onnx_initializers(this, unit, idx, prefix)
-       !! Write ONNX initializers
-       class(network_type), intent(in) :: this
-       !! Instance of the network
-       integer, intent(in) :: unit
-       !! Unit number for output
-       integer, intent(in) :: idx
-       !! Index of the layer
-       character(*), intent(in) :: prefix
-       !! Prefix for the node name (default is 'node_')
-     end subroutine write_onnx_initializers
+       type(onnx_node_type), dimension(:), intent(in) :: nodes
+       !! Array of ONNX nodes
+       type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
+       !! Array of ONNX initialisers
+       integer, optional, intent(in) :: verbose
+       !! Verbosity level
+     end subroutine build_from_onnx
 
      !! Interface for adding a layer to the network
      module subroutine add(this, layer, input_list, output_list, operator)
@@ -658,7 +649,7 @@ module athena__network
        class(array_type), dimension(:,:), intent(in), target :: input
        !! Input array
        type(array2d_type), dimension(size(input,1), batch_size) :: sample
-    !! Sample array
+       !! Sample array
      end function get_sample_mixed
      module function get_sample_graph( &
           input, start_index, end_index, batch_size &

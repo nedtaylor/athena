@@ -13,9 +13,11 @@ submodule(athena__network) athena__network_submodule
   use athena__container_layer, only: container_reduction
 #endif
 
-  use athena__misc_types, only: array_container_type
+  use athena__misc_types, only: array_container_type, &
+       onnx_node_type, onnx_initialiser_type
   use athena__container_layer, only: &
-       list_of_layer_types, allocate_list_of_layer_types
+       list_of_layer_types, allocate_list_of_layer_types, &
+       list_of_onnx_layer_creators, allocate_list_of_onnx_layer_creators
 
   ! Layer types
   use athena__input_layer,   only: input_layer_type
@@ -721,232 +723,103 @@ contains
 
 
 !###############################################################################
-  module subroutine export_onnx(this, file)
-    !! Export the network to ONNX format
+  module subroutine build_from_onnx(this, nodes, initialisers, verbose)
+    !! Build network from ONNX nodes and initialisers
+    use athena__misc, only: to_lower
     implicit none
 
     ! Arguments
-    class(network_type), intent(in) :: this
+    class(network_type), intent(inout) :: this
     !! Instance of network
-    character(*), intent(in) :: file
-    !! File to export the network to
+    type(onnx_node_type), dimension(:), intent(in) :: nodes
+    !! Array of ONNX nodes
+    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
+    !! Array of ONNX initialisers
+    integer, optional, intent(in) :: verbose
+    !! Verbosity level
 
     ! Local variables
-    integer :: unit, i, j, idx
-    !! Unit number and loop indices
-    character(256) :: layer_name
-    !! Layer name for ONNX
-    character(20) :: node_name
-    !! Node name
-
-    open(newunit=unit, file=file, status='replace')
-
-    ! Write ONNX header
-    write(unit, '(A)') 'ir_version: 8'
-    write(unit, '(A)') 'producer_name: "Athena"'
-    write(unit, '(A)') 'producer_version: "1.0"'
-    write(unit, '(A)') 'domain: "ai.onnx"'
-    write(unit, '(A)') 'model_version: 1'
-    write(unit, '(A)') 'doc_string: "Athena neural network model"'
-    write(unit, '(A)') ''
-
-    ! Write graph definition
-    write(unit, '(A)') 'graph {'
-    write(unit, '(A)') '  name: "athena_network"'
-    write(unit, '(A)') ''
-
-    ! Write nodes (layers)
-    write(unit, '(A)') '  # Nodes'
-    do i = 1, this%auto_graph%num_vertices
-       idx = this%auto_graph%vertex(this%vertex_order(i))%id
-       write(node_name, '("node_", I0)') this%model(idx)%layer%id
-
-       select case(trim(this%model(idx)%layer%name))
-       case('input')
-          layer_name = 'Input'
-       case('full')
-          layer_name = 'MatMul'
-       case('conv2d')
-          layer_name = 'Conv'
-       case('maxpool2d')
-          layer_name = 'MaxPool'
-       case('avgpool2d')
-          layer_name = 'AveragePool'
-       case('actv')
-          layer_name = 'Relu'  ! Default, should check actual activation
-       case('flatten')
-          layer_name = 'Flatten'
-       case('batchnorm2d')
-          layer_name = 'BatchNormalization'
-       case('dropout')
-          layer_name = 'Dropout'
-       case default
-          layer_name = 'Unknown'
-       end select
-
-       write(unit, '(A)') '  node {'
-       write(unit, '(A,A,A)') '    name: "', trim(node_name), '"'
-       write(unit, '(A,A,A)') '    op_type: "', trim(layer_name), '"'
-
-       ! Write input connections
-       if(all(this%auto_graph%adjacency(:,this%vertex_order(i)).eq.0)) then
-          write(unit, '(A)') '    input: "input"'
-       else
-          do j = 1, this%auto_graph%num_vertices
-             if(this%auto_graph%adjacency(j,this%vertex_order(i)).eq.0) cycle
-             write(unit, '(4X,"input: ""node_",I0,"_output""")') &
-                  this%model(this%auto_graph%vertex(j)%id)%layer%id
-          end do
-       end if
-       select type(layer => this%model(idx)%layer)
-       class is(learnable_layer_type)
-          do j = 1, size(layer%weight_shape, dim=2)
-             write(unit, '(4X,"input: ""node_",I0,"_weight",I0,"""")') &
-                  this%model(idx)%layer%id, j
-             if(layer%has_bias) then
-                write(unit, '(4X,"input: ""node_",I0,"_bias",I0,"""")') &
-                     this%model(idx)%layer%id, j
-             end if
-          end do
-       end select
-
-       ! Write output
-       write(unit, '(4X,"output: ""node_",I0,"_output""")') this%model(idx)%layer%id
-
-
-       write(unit, '(A)') '  }'
-       write(unit, '(A)') ''
-
-       select type(layer => this%model(idx)%layer)
-       class is(learnable_layer_type)
-          call this%write_onnx_initializers(unit, idx, prefix = trim(node_name) )
-       end select
-    end do
-
-    ! Write inputs
-    do i = 1, size(this%root_vertices, dim=1)
-       idx = this%root_vertices(i)
-       write(unit, '(A)') '  # Inputs'
-       write(unit, '(A)') '  input {'
-       write(unit, '(A)') '    name: "input"'
-       write(unit, '(A)') '    type {'
-       write(unit, '(A)') '      tensor_type {'
-       write(unit, '(A)') '        elem_type: 1'  ! FLOAT
-       write(unit, '(A)') '        shape {'
-       if (allocated(this%model(idx)%layer%input_shape)) then
-          do j = 1, size(this%model(idx)%layer%input_shape)
-             write(unit, '(A,I0)') '          dim { dim_value: ', &
-                  this%model(idx)%layer%input_shape(j)
-             write(unit, '(A)') '          }'
-          end do
-       end if
-       write(unit, '(A)') '        }'
-       write(unit, '(A)') '      }'
-       write(unit, '(A)') '    }'
-       write(unit, '(A)') '  }'
-       write(unit, '(A)') ''
-    end do
-
-    ! Write outputs
-    do i = 1, size(this%output_vertices, dim=1)
-       idx = this%output_vertices(i)
-       write(unit, '(A)') '  # Outputs'
-       write(unit, '(A)') '  output {'
-       write(unit, '(4X,"name: ""node_",I0,"_output""")') this%model(idx)%layer%id
-       write(unit, '(A)') '    type {'
-       write(unit, '(A)') '      tensor_type {'
-       write(unit, '(A)') '        elem_type: 1'  ! FLOAT
-       write(unit, '(A)') '        shape {'
-       if (allocated(this%model(idx)%layer%output_shape)) then
-          do j = 1, size(this%model(idx)%layer%output_shape)
-             write(unit, '(A,I0)') '          dim { dim_value: ', &
-                  this%model(idx)%layer%output_shape(j)
-             write(unit, '(A)') '          }'
-          end do
-       end if
-       write(unit, '(A)') '        }'
-       write(unit, '(A)') '      }'
-       write(unit, '(A)') '    }'
-       write(unit, '(A)') '  }'
-    end do
-
-    write(unit, '(A)') '}'
-    close(unit)
-
-  end subroutine export_onnx
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine write_onnx_initializers(this, unit, idx, prefix)
-    !! Write ONNX initializers (weights and biases)
-    implicit none
-
-    ! Arguments
-    class(network_type), intent(in) :: this
-    integer, intent(in) :: unit
-    !! File unit
-    integer, intent(in) :: idx
-    !! Index of the layer in the network
-    character(*), intent(in) :: prefix
-    !! Optional prefix for weight and bias names
-
-    ! Local variables
-    integer :: i, j, k, num_params, num_params_old
+    integer :: i, j, k, j_out, layer_index
     !! Loop indices
-    character(20) :: name
-    !! Names for weights and biases
+    integer :: num_initialisers
+    !! Number of initialisers for a specific node
+    integer :: verbose_ = 0
+    !! Verbosity level
+    character(20) :: op_type
+    !! Lowercase op_type
+    character(256) :: err_msg
+    !! Error message
+    class(base_layer_type), allocatable :: layer
+    !! Layer to add to the network
+    integer, dimension(:), allocatable :: input_list
+    !! List of input layers
+    type(onnx_initialiser_type), dimension(:), allocatable :: init_list
+    !! List of initialisers for a specific node
+
+    verbose_ = 0
+    if(present(verbose)) verbose_ = verbose
 
 
-    select type(layer => this%model(idx)%layer)
-    class is(learnable_layer_type)
-       if(allocated(layer%params))then
-          num_params_old = 0
-          do i = 1, size(layer%weight_shape, 2)
-             write(name, '(A,A,I0)') trim(prefix), '_weight', i
-             write(unit, '(2X,A)') 'initializer {'
-             write(unit, '(4X,"name: """,A,"""")') trim(name)
-             write(unit, '(4X,A)') 'data_type: 1'  ! FLOAT
-             do j = 1, size(layer%weight_shape, 1)
-                write(unit, '(4X,A,I0)') 'dims: ', layer%weight_shape(j,i)
-             end do
-             num_params = product(layer%weight_shape(:, i))
+    if(.not.allocated(list_of_onnx_layer_creators))then
+       call allocate_list_of_onnx_layer_creators()
+    end if
 
-             write(unit, '(4X,"float_data: [ ",F0.6)', advance='no') &
-                  layer%params(num_params_old + 1)
-             do j = num_params_old + 2, num_params + num_params_old, 1
-                write(unit, '(", ",F0.6)', advance='no') layer%params(j)
-             end do
-             write(unit, '(A)') ' ]'
-             write(unit, '(A)') '  }'
-             write(unit, '(A)') ''
+    ! Loop through nodes and create layers
+    do i = 1, size(nodes)
+       write(*,*) "Processing ONNX node: ", trim(nodes(i)%name), &
+            " (", trim(nodes(i)%op_type), ")"
+       op_type = trim(adjustl(nodes(i)%op_type))
 
-             num_params_old = num_params_old + num_params
+       layer_index = &
+            findloc( &
+                 [ list_of_onnx_layer_creators(:)%op_type ], &
+                 op_type, &
+                 dim = 1 &
+            )
+       if(layer_index.eq.0)then
+          write(err_msg,'("unrecognised op_type ''",A)') trim(adjustl(nodes(i)%op_type))
+          call stop_program(err_msg)
+          return
+       end if
 
-             if(layer%has_bias)then
-                write(name, '(A,A,I0)') trim(prefix), '_bias', i
-                write(unit, '(2X,A)') 'initializer {'
-                write(unit, '(4X,"name: """,A,"""")') trim(name)
-                write(unit, '(4X,A)') 'data_type: 1'  ! FLOAT
-                write(unit, '(4X,A,I0)') 'dims: ', layer%bias_shape(i)
-                num_params = layer%bias_shape(i)
-
-                write(unit, '(4X,"float_data: [ ",F0.6)', advance='no') &
-                     layer%params(num_params_old + 1)
-                do j = num_params_old + 2, num_params + num_params_old, 1
-                   write(unit, '(", ",F0.6)', advance='no') layer%params(j)
-                end do
-                write(unit, '(A)') ' ]'
-                write(unit, '(A)') '  }'
-                write(unit, '(A)') ''
-
-                num_params_old = num_params_old + layer%bias_shape(i)
+       ! find all input layers and initialisers for this node
+       ! ... i.e. check over inputs for name matches
+       j_out = 0
+       allocate(init_list(0))
+       allocate(input_list(0))
+       do j = 1, size(nodes(i)%inputs)
+          do k = 1, size(initialisers)
+             if(trim(nodes(i)%inputs(j)) .eq. trim(initialisers(k)%name))then
+                init_list = [ init_list, initialisers(k) ]
              end if
           end do
+          do k = 1, size(nodes)
+             if(trim(nodes(i)%inputs(j)) .eq. trim(nodes(k)%name))then
+                input_list = [ input_list, k ]
+             end if
+          end do
+       end do
+       if(size(init_list)+size(input_list).ne.size(nodes(i)%inputs))then
+          if(verbose_.gt.0)then
+             write(0,*) "WARNING: not all inputs found for node ", &
+                  trim(nodes(i)%name)
+          end if
        end if
-    end select
 
-  end subroutine write_onnx_initializers
+       ! assume default operator
+
+       call this%add( &
+            list_of_onnx_layer_creators(layer_index)%create_ptr( &
+                 nodes(i), init_list &
+            ), &
+            input_list = input_list &
+            ! operator = operator_in &
+       )
+       deallocate(input_list)
+       deallocate(init_list)
+    end do
+
+  end subroutine build_from_onnx
 !###############################################################################
 
 
