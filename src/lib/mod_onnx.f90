@@ -1,11 +1,10 @@
 module athena__onnx
   !! Module containing the types and interfaces for ONNX operations
-  use athena__constants, only: real32
   use athena__network, only: network_type
   use athena__base_layer, only: base_layer_type, learnable_layer_type
   use athena__misc_types, only: &
        onnx_attribute_type, onnx_node_type, onnx_initialiser_type
-  use coreutils, only: to_lower, to_upper, to_camel_case, icount
+  use coreutils, only: real32, to_lower, to_upper, to_camel_case, icount
   use athena__tools_infile, only: assign_val, assign_vec, allocate_and_assign_vec
   implicit none
 
@@ -261,8 +260,8 @@ contains
 
     ! Write outputs
     write(unit, '(A)') '  # Outputs'
-    do i = 1, size(network%output_vertices, dim=1)
-       idx = network%output_vertices(i)
+    do i = 1, size(network%leaf_vertices, dim=1)
+       idx = network%leaf_vertices(i)
        if(network%model(idx)%layer%use_graph_output)then
           write(node_name, '("node_",I0,"_vertex_output")') network%model(idx)%layer%id
           call write_onnx_tensor( &

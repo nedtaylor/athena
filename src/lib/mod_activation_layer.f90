@@ -5,12 +5,7 @@ module athena__actv_layer
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: base_layer_type
   use athena__misc_types, only: activation_type, &
-       onnx_node_type, onnx_initialiser_type, &
-       array1d_type, &
-       array2d_type, &
-       array3d_type, &
-       array4d_type, &
-       array5d_type
+       onnx_node_type, onnx_initialiser_type
   use athena__misc_types, only: activation_type
   use diffstruc, only: array_type
   implicit none
@@ -41,16 +36,10 @@ module athena__actv_layer
      !! Read layer from file
      procedure, pass(this) :: build_from_onnx => build_from_onnx_actv
      !! Build activation layer from ONNX node and initialiser
-     procedure, pass(this) :: forward  => forward_rank
-     !! Forward propagation
-     procedure, pass(this) :: backward => backward_rank
-     !! Backward propagation
-     procedure, pass(this), private :: forward_assumed_rank
-     !! Forward propagation assumed rank handler
-     procedure, pass(this), private :: backward_assumed_rank
-     !! Backward propagation assumed rank handler
+
      procedure, pass(this) :: forward => forward_actv
      !! Forward propagation derived type handler
+
   end type actv_layer_type
 
 
@@ -155,7 +144,7 @@ contains
   )
     !! Set hyperparameters for activation layer
     use athena__activation,  only: activation_setup
-    use athena__misc, only: to_lower
+    use coreutils, only: to_lower
     implicit none
 
     ! Arguments
@@ -555,7 +544,7 @@ contains
 !###############################################################################
   function create_from_onnx_actv_layer(node, initialisers, verbose) result(layer)
     !! Build activation layer from attributes and return layer
-    use athena__misc, only: to_lower
+    use coreutils, only: to_lower
     implicit none
 
     ! Arguments

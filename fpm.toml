@@ -106,9 +106,8 @@ example_library = { path = "example/example_library"}
 name = "custom_forward"
 source-dir = "example/custom_forward/src"
 [example.dependencies]
+example_library = { path = "example/example_library"}
 
 [[example]]
-example_library = { path = "example/example_library"}
 name = "onnx"
 source-dir = "example/onnx/src"
-main = "main.f90"

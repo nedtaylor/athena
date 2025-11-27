@@ -2,8 +2,7 @@ module athena__maxpool2d_layer
   !! Module containing implementation of a 2D max pooling layer
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: pool_layer_type, base_layer_type
-  use athena__misc_types, only: array4d_type, &
-       onnx_node_type, onnx_initialiser_type
+  use athena__misc_types, only: onnx_node_type, onnx_initialiser_type
   use diffstruc, only: array_type
   use athena__diffstruc_extd, only: maxpool2d
   implicit none

@@ -15,7 +15,10 @@ module athena__base_layer
   !! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
   use coreutils, only: real32
   use athena__clipper, only: clip_type
-  use athena__misc_types, only: activation_type, array_type, facets_type
+  use athena__misc_types, only: activation_type, initialiser_type, facets_type, &
+       onnx_attribute_type, onnx_node_type, onnx_initialiser_type
+  use diffstruc, only: array_type
+  use athena__diffstruc_extd, only: array_ptr_type
   use graphstruc, only: graph_type
   implicit none
 
@@ -75,8 +78,10 @@ module athena__base_layer
      !! Print the layer to a file with additional information
      procedure, pass(this) :: print_to_unit => print_to_unit_base
      !! Print the layer to a unit
-     procedure, pass(this) :: get_output => get_output_base
-     !! Get the output of the layer
+     procedure, pass(this) :: get_attributes => get_attributes_base
+     !! Get the attributes of the layer (for ONNX export)
+     procedure, pass(this) :: extract_output => extract_output_base
+     !! Extract the output of the layer as a standard real array
      procedure(initialise), deferred, pass(this) :: init
      !! Initialise the layer
      procedure(set_batch_size), deferred, pass(this) :: set_batch_size
@@ -92,8 +97,6 @@ module athena__base_layer
 
 
      !! Forward pass of layer using derived array_type
-     procedure(backward), deferred, pass(this) :: backward
-     !! Backward pass of layer
      procedure(read_layer), deferred, pass(this) :: read
      !! Read layer from file
      procedure, pass(this) :: build_from_onnx => build_from_onnx_base
@@ -244,7 +247,7 @@ module athena__base_layer
   end interface
 
   interface
-     module subroutine read_base(this, unit, verbose)
+     module subroutine read_layer(this, unit, verbose)
        !! Read layer from file
        class(base_layer_type), intent(inout) :: this
        !! Instance of the layer
@@ -252,7 +255,7 @@ module athena__base_layer
        !! File unit
        integer, optional, intent(in) :: verbose
        !! Verbosity level
-     end subroutine read_base
+     end subroutine read_layer
 
      module subroutine build_from_onnx_base(this, node, initialisers, verbose)
        !! Build layer from ONNX node

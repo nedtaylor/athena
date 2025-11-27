@@ -9,10 +9,8 @@ module athena__full_layer
   !! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: learnable_layer_type, base_layer_type
-  use athena__misc_types, only: activation_type, initialiser_type, &
-       onnx_node_type, onnx_initialiser_type, &
-       array2d_type
-  use athena__misc_types, only: initialiser_type
+  use athena__misc_types, only: initialiser_type, &
+       onnx_node_type, onnx_initialiser_type
   use diffstruc, only: array_type, matmul, operator(+)
   implicit none
 

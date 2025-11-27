@@ -723,7 +723,7 @@ contains
 !###############################################################################
   module subroutine build_from_onnx(this, nodes, initialisers, verbose)
     !! Build network from ONNX nodes and initialisers
-    use athena__misc, only: to_lower
+    use coreutils, only: to_lower
     implicit none
 
     ! Arguments
@@ -1609,9 +1609,11 @@ contains
           select type( layer => this%model(this%vertex_order(i))%layer )
           class is(merge_layer_type)
              ! loop over all parent layers
-             allocate(merge_shape( &
-                  this%model(this%vertex_order(i))%layer%input_rank, &
-                  size(layer%input_layer_ids)) &
+             allocate( &
+                  merge_shape( &
+                       this%model(this%vertex_order(i))%layer%input_rank, &
+                       size(layer%input_layer_ids) &
+                  ) &
              )
              do k = 1, size(layer%input_layer_ids)
                 merge_shape(:,k) = &

@@ -3,7 +3,7 @@ module athena__conv2d_layer
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: conv_layer_type, base_layer_type
   use athena__pad2d_layer, only: pad2d_layer_type
-  use athena__misc_types, only: initialiser_type, array4d_type, &
+  use athena__misc_types, only: initialiser_type, &
        onnx_node_type, onnx_initialiser_type
   use athena__misc_types, only: activation_type, initialiser_type
   use diffstruc, only: array_type
@@ -791,10 +791,11 @@ contains
     !! Loop index and temporary integer
     integer :: num_filters
     !! Number of filters
-    integer, dimension(2) :: padding, stride, kernel_size
-    !! Padding, stride, and kernel size
+    integer, dimension(2) :: padding, stride, kernel_size, dilation
+    !! Padding, stride, kernel size, and dilation
     character(256) :: val
     !! Attribute value
+    class(initialiser_type), allocatable :: kernel_initialiser, bias_initialiser
 
     do i = 1, size(node%attributes)
        val = node%attributes(i)%value
@@ -806,7 +807,7 @@ contains
        case("kernel_shape")
           read(val,*) kernel_size
        case("dilations")
-          write(0,*) "WARNING: dilations not yet implemented for conv2d layer"
+          read(val,*) dilation
        case default
           ! Do nothing
           write(0,*) "WARNING: Unrecognised attribute in ONNX CONV2D layer: ", &
@@ -822,12 +823,13 @@ contains
     call this%set_hyperparams( &
          num_filters = num_filters, &
          kernel_size = kernel_size, stride = stride, &
+         dilation = dilation, &
          padding = "valid", &
          activation_function = "none", &
          activation_scale = 1._real32, &
          verbose = verbose_, &
-         kernel_initialiser = "zeros", &
-         bias_initialiser = "zeros" &
+         kernel_initialiser = kernel_initialiser, &
+         bias_initialiser = bias_initialiser &
     )
 
   end subroutine build_from_onnx_conv2d
