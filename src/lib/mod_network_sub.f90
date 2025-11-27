@@ -785,11 +785,11 @@ contains
        ! find all input layers and initialisers for this node
        ! ... i.e. check over inputs for name matches
        j_out = 0
+       allocate(init_list(0))
        allocate(input_list(0))
        do j = 1, size(nodes(i)%inputs)
           do k = 1, size(initialisers)
              if(trim(nodes(i)%inputs(j)) .eq. trim(initialisers(k)%name))then
-                j_out = j_out + 1
                 init_list = [ init_list, initialisers(k) ]
              end if
           end do
@@ -799,14 +799,11 @@ contains
              end if
           end do
        end do
-       if(j_out.ne.size(nodes(i)%inputs))then
-          ! some inputs are not initialisers, so just clear the list
+       if(size(init_list)+size(input_list).ne.size(nodes(i)%inputs))then
           if(verbose_.gt.0)then
-             write(*,*) "  Note: not all inputs are initialisers for node ", &
+             write(0,*) "WARNING: not all inputs found for node ", &
                   trim(nodes(i)%name)
           end if
-          if(allocated(init_list)) deallocate(init_list)
-          allocate(init_list(0))
        end if
 
        ! assume default operator
@@ -818,6 +815,8 @@ contains
             input_list = input_list &
             ! operator = operator_in &
        )
+       deallocate(input_list)
+       deallocate(init_list)
     end do
 
   end subroutine build_from_onnx

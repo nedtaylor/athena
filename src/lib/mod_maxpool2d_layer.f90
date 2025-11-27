@@ -3,14 +3,15 @@ module athena__maxpool2d_layer
   use athena__io_utils, only: stop_program
   use athena__constants, only: real32
   use athena__base_layer, only: pool_layer_type, base_layer_type
-  use athena__misc_types, only: array4d_type
+  use athena__misc_types, only: array4d_type, &
+       onnx_node_type, onnx_initialiser_type
   implicit none
 
 
   private
 
   public :: maxpool2d_layer_type
-  public :: read_maxpool2d_layer
+  public :: read_maxpool2d_layer, create_from_onnx_maxpool2d_layer
 
 
   type, extends(pool_layer_type) :: maxpool2d_layer_type
@@ -22,6 +23,8 @@ module athena__maxpool2d_layer
      !! Set batch size for 2D max pooling layer
      procedure, pass(this) :: read => read_maxpool2d
      !! Read 2D max pooling layer from file
+     procedure, pass(this) :: build_from_onnx => build_from_onnx_maxpool2d
+     !! Build 2D max pooling layer from ONNX node and initialiser
      procedure, pass(this) :: forward  => forward_rank
      !! Forward propagation handler for 2D max pooling layer
      procedure, pass(this) :: backward => backward_rank
@@ -438,6 +441,89 @@ contains
     call layer%read(unit, verbose=verbose_)
 
   end function read_maxpool2d_layer
+!###############################################################################
+
+
+!###############################################################################
+  subroutine build_from_onnx_maxpool2d(this, node, initialisers, verbose )
+    !! Read ONNX attributes for 2D max pooling layer
+    implicit none
+
+    ! Arguments
+    class(maxpool2d_layer_type), intent(inout) :: this
+    !! Instance of the 2D max pooling layer
+    type(onnx_node_type), intent(in) :: node
+    !! Instance of ONNX node information
+    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
+    !! Instance of ONNX initialiser information
+    integer, intent(in) :: verbose
+    !! Verbosity level
+
+    ! Local variables
+    integer :: verbose_ = 0
+    !! Verbosity level
+    integer :: i
+    !! Loop index and temporary integer
+    integer, dimension(2) :: stride, pool_size
+    !! Padding, stride, and kernel size
+    character(256) :: val
+    !! Attribute value
+
+    do i = 1, size(node%attributes)
+       val = node%attributes(i)%value
+       select case(trim(adjustl(node%attributes(i)%name)))
+       case("kernel_shape")
+          read(val,*) pool_size
+       case("strides")
+          read(val,*) stride
+       case("dilations")
+          write(0,*) "WARNING: dilations not yet implemented for conv2d layer"
+       case default
+          ! Do nothing
+          write(0,*) "WARNING: Unrecognised attribute in ONNX CONV2D layer: ", &
+               trim(adjustl(node%attributes(i)%name))
+       end select
+    end do
+
+
+    ! Check size of initialisers is zero
+    if(size(initialisers).ne.0)then
+       write(0,*) "WARNING: initialisers not used for ONNX MAXPOOL2D layer"
+    end if
+
+    call this%set_hyperparams( &
+         stride = stride, &
+         pool_size=pool_size &
+    )
+
+  end subroutine build_from_onnx_maxpool2d
+!###############################################################################
+
+
+!###############################################################################
+  function create_from_onnx_maxpool2d_layer(node, initialisers, verbose) result(layer)
+    !! Build 2D max pooling layer from attributes and return layer
+    implicit none
+
+    ! Arguments
+    type(onnx_node_type), intent(in) :: node
+    !! Instance of ONNX node information
+    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
+    !! Instance of ONNX initialiser information
+    integer, optional, intent(in) :: verbose
+    !! Verbosity level
+    class(base_layer_type), allocatable :: layer
+    !! Instance of the 2D max pooling layer
+
+    ! Local variables
+    integer :: verbose_ = 0
+    !! Verbosity level
+
+    if(present(verbose)) verbose_ = verbose
+    allocate(layer, source=maxpool2d_layer_type())
+    call layer%build_from_onnx(node, initialisers, verbose=verbose_)
+
+  end function create_from_onnx_maxpool2d_layer
 !###############################################################################
 
 

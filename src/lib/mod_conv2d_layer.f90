@@ -942,7 +942,6 @@ contains
 !###############################################################################
   subroutine build_from_onnx_conv2d(this, node, initialisers, verbose )
     !! Read ONNX attributes for 2D convolutional layer
-    use athena__tools_infile, only: assign_val, assign_vec
     implicit none
 
     ! Arguments
@@ -958,7 +957,7 @@ contains
     ! Local variables
     integer :: verbose_ = 0
     !! Verbosity level
-    integer :: i, itmp1
+    integer :: i
     !! Loop index and temporary integer
     integer :: num_filters
     !! Number of filters

@@ -4,6 +4,7 @@ module athena__flatten_layer
   use athena__constants, only: real32
   use athena__base_layer, only: base_layer_type
   use athena__misc_types, only: &
+       onnx_node_type, onnx_initialiser_type, &
        array1d_type, &
        array2d_type, &
        array3d_type, &
@@ -15,7 +16,7 @@ module athena__flatten_layer
   private
 
   public :: flatten_layer_type
-  public :: read_flatten_layer
+  public :: read_flatten_layer, create_from_onnx_flatten_layer
 
 
   type, extends(base_layer_type) :: flatten_layer_type
@@ -33,6 +34,8 @@ module athena__flatten_layer
      !! Print flatten layer to unit
      procedure, pass(this) :: read => read_flatten
      !! Read flattening layer from file
+     procedure, pass(this) :: build_from_onnx => build_from_onnx_flatten
+     !! Build flattening layer from ONNX node and initialisers
      procedure, pass(this) :: forward  => forward_rank
      !! Forward propagation handler for flattening layer
      procedure, pass(this) :: backward => backward_rank
@@ -553,6 +556,56 @@ contains
     call layer%read(unit, verbose=verbose_)
 
   end function read_flatten_layer
+!###############################################################################
+
+
+!###############################################################################
+  subroutine build_from_onnx_flatten(this, node, initialisers, verbose )
+    !! Read ONNX attributes for flattening layer
+    implicit none
+
+    ! Arguments
+    class(flatten_layer_type), intent(inout) :: this
+    !! Instance of the flattening layer
+    type(onnx_node_type), intent(in) :: node
+    !! Instance of ONNX node information
+    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
+    !! Instance of ONNX initialiser information
+    integer, intent(in) :: verbose
+    !! Verbosity level
+
+    ! Local variables
+    integer :: verbose_ = 0
+    !! Verbosity level
+
+  end subroutine build_from_onnx_flatten
+!###############################################################################
+
+
+!###############################################################################
+  function create_from_onnx_flatten_layer(node, initialisers, verbose) result(layer)
+    !! Build flattening layer from attributes and return layer
+    implicit none
+
+    ! Arguments
+    type(onnx_node_type), intent(in) :: node
+    !! Instance of ONNX node information
+    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
+    !! Instance of ONNX initialiser information
+    integer, optional, intent(in) :: verbose
+    !! Verbosity level
+    class(base_layer_type), allocatable :: layer
+    !! Instance of the flattening layer
+
+    ! Local variables
+    integer :: verbose_ = 0
+    !! Verbosity level
+
+    if(present(verbose)) verbose_ = verbose
+    allocate(layer, source=flatten_layer_type(input_rank=0))
+    call layer%build_from_onnx(node, initialisers, verbose=verbose_)
+
+  end function create_from_onnx_flatten_layer
 !###############################################################################
 
 end module athena__flatten_layer
