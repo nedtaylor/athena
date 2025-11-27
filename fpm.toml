@@ -85,3 +85,8 @@ name = "msgpass_euler"
 source-dir = "example/msgpass_euler/src"
 [example.dependencies]
 example_library = { path = "example/example_library"}
+
+[[example]]
+name = "onnx"
+source-dir = "example/onnx/src"
+main = "main.f90"
