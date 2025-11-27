@@ -950,7 +950,7 @@ contains
     !! Instance of the 2D convolutional layer
     type(onnx_node_type), intent(in) :: node
     !! Instance of ONNX node information
-    type(onnx_initialiser_type), intent(in) :: initialisers
+    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
     !! Instance of ONNX initialiser information
     integer, intent(in) :: verbose
     !! Verbosity level
@@ -971,11 +971,11 @@ contains
        val = node%attributes(i)%value
        select case(trim(adjustl(node%attributes(i)%name)))
        case("pads")
-          call assign_vec(val, padding, itmp1)
+          read(val,*) padding
        case("strides")
-          call assign_vec(val, stride, itmp1)
+          read(val,*) stride
        case("kernel_shape")
-          call assign_vec(val, kernel_size, itmp1)
+          read(val,*) kernel_size
        case("dilations")
           write(0,*) "WARNING: dilations not yet implemented for conv2d layer"
        case default
@@ -987,7 +987,8 @@ contains
 
 
     ! Initialise parameters from initialisers
-    write(0,*) "WARNING: Weights initialisation from ONNX not yet implemented for conv2d layer"
+    write(0,*) "WARNING: Weights initialisation from ONNX not yet implemented &
+         &for conv2d layer"
 
     call this%set_hyperparams( &
          num_filters = num_filters, &
@@ -1012,7 +1013,7 @@ contains
     ! Arguments
     type(onnx_node_type), intent(in) :: node
     !! Instance of ONNX node information
-    type(onnx_initialiser_type), intent(in) :: initialisers
+    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
     !! Instance of ONNX initialiser information
     integer, optional, intent(in) :: verbose
     !! Verbosity level

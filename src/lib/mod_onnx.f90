@@ -331,23 +331,21 @@ contains
     integer, allocatable, dimension(:) :: dims
     integer :: num_inputs, num_outputs, batch_size
     real(real32), allocatable, dimension(:) :: float_data
-    logical :: in_node, in_initializer, in_attribute, reading_dims, reading_data
+    logical :: in_node, in_initialiser, reading_dims, reading_data
     integer :: node_id
     type(onnx_attribute_type), allocatable, dimension(:) :: attributes
-    integer :: num_attributes
 
+    integer :: verbose_
     character(1024) :: buffer1
     character(20) :: buffer2
     character(20), allocatable :: inputs(:), outputs(:)
-
-
 
     ! Node information storage
     type(onnx_node_type), allocatable, dimension(:) :: nodes
 
     ! Initializer storage
     type(onnx_initialiser_type), allocatable, dimension(:) :: initializers
-    integer :: num_initializers
+    integer :: num_initialisers
 
     ! Tensor info storage (inputs, outputs, value_info)
     type :: tensor_info_type
@@ -359,6 +357,9 @@ contains
          output_tensors
     integer :: num_input_tensors, num_output_tensors
 
+    verbose_ = 0
+    if(present(verbose)) verbose_ = verbose
+
     open(newunit=unit, file=file, status='old', action='read', iostat=stat)
     if(stat .ne. 0)then
        write(*,*) "ERROR: Could not open file: ", trim(file)
@@ -367,12 +368,11 @@ contains
 
     ! Initialise counters
     node_count = 0
-    num_initializers = 0
+    num_initialisers = 0
     num_input_tensors = 0
     num_output_tensors = 0
     in_node = .false.
-    in_initializer = .false.
-    in_attribute = .false.
+    in_initialiser = .false.
     reading_dims = .false.
     reading_data = .false.
     batch_size = 1
@@ -388,7 +388,7 @@ contains
        if(index(trimmed_line, 'node {') .gt. 0)then
           node_count = node_count + 1
        elseif(index(trimmed_line, 'initializer {') .gt. 0)then
-          num_initializers = num_initializers + 1
+          num_initialisers = num_initialisers + 1
        elseif(index(trimmed_line, 'input {') .gt. 0)then
           num_input_tensors = num_input_tensors + 1
        elseif(index(trimmed_line, 'output {') .gt. 0)then
@@ -398,7 +398,7 @@ contains
 
     ! Allocate storage
     allocate(nodes(node_count))
-    allocate(initializers(num_initializers))
+    allocate(initializers(num_initialisers))
     allocate(input_tensors(num_input_tensors))
     allocate(output_tensors(num_output_tensors))
 
@@ -406,10 +406,9 @@ contains
     rewind(unit)
 
     node_count = 0
-    num_initializers = 0
+    num_initialisers = 0
     num_input_tensors = 0
     num_output_tensors = 0
-    num_attributes = 0
 
     ! Initialise node structures
     do i = 1, node_count
@@ -431,19 +430,17 @@ contains
        if(index(trimmed_line, 'node {') .gt. 0)then
           in_node = .true.
           node_count = node_count + 1
-          num_attributes = 0
           nodes(node_count)%num_inputs = 0
           nodes(node_count)%num_outputs = 0
           allocate(inputs(0))
           allocate(outputs(0))
+          allocate(attributes(0))
 
-       elseif(in_node .and. in_attribute .and. index(trimmed_line, '}') .gt. 0)then
-          in_attribute = .false.
        elseif(in_node .and. index(trimmed_line, '}') .gt. 0)then
           in_node = .false.
-          if(num_attributes .gt. 0)then
-             allocate(nodes(node_count)%attributes(num_attributes))
-             do i = 1, num_attributes
+          if(size(attributes) .gt. 0)then
+             allocate(nodes(node_count)%attributes(size(attributes)))
+             do i = 1, size(attributes)
                 nodes(node_count)%attributes(i) = attributes(i)
              end do
           end if
@@ -459,6 +456,7 @@ contains
                 nodes(node_count)%outputs(i) = outputs(i)
              end do
           end if
+          deallocate(attributes)
           deallocate(inputs)
           deallocate(outputs)
 
@@ -479,44 +477,26 @@ contains
              buffer2 = trim(adjustl(trimmed_line(index(trimmed_line, 'output:') + 7:)))
              outputs = [ outputs, buffer2 ]
           elseif(index(trimmed_line, 'attribute {') .gt. 0)then
-             in_attribute = .true.
-             num_attributes = num_attributes + 1
-             if(.not.allocated(attributes))then
-                allocate(attributes(10))  ! Initial allocation
-             elseif(num_attributes > size(attributes))then
-                ! Reallocate if needed
-                block
-                  type(onnx_attribute_type), allocatable :: temp_attrs(:)
-                  allocate(temp_attrs(size(attributes)*2))
-                  temp_attrs(1:size(attributes)) = attributes
-                  deallocate(attributes)
-                  call move_alloc(temp_attrs, attributes)
-                end block
-             end if
-          elseif(in_attribute .and. index(trimmed_line, '}') .gt. 0)then
-             in_attribute = .false.
-          elseif(in_attribute)then
-             call parse_attribute(trimmed_line, &
-                  attributes(num_attributes))
+             attributes = [attributes, read_attribute(unit)]
           end if
        end if
 
        ! Parse initialisers
        if(index(trimmed_line, 'initializer {') .gt. 0)then
-          in_initializer = .true.
-          num_initializers = num_initializers + 1
+          in_initialiser = .true.
+          num_initialisers = num_initialisers + 1
           reading_dims = .false.
           reading_data = .false.
 
-       elseif(in_initializer .and. index(trimmed_line, '}') .gt. 0)then
-          in_initializer = .false.
+       elseif(in_initialiser .and. index(trimmed_line, '}') .gt. 0)then
+          in_initialiser = .false.
           reading_dims = .false.
           reading_data = .false.
 
-       elseif(in_initializer)then
+       elseif(in_initialiser)then
           if(index(trimmed_line, 'name:') .gt. 0)then
              call assign_val(buffer1, &
-                  initializers(num_initializers)%name, itmp1, fs=":")
+                  initializers(num_initialisers)%name, itmp1, fs=":")
           elseif(index(trimmed_line, 'dims:') .gt. 0)then
              if(.not. reading_dims)then
                 reading_dims = .true.
@@ -525,10 +505,10 @@ contains
              end if
              call assign_val(buffer1, j, itmp1, fs=":")
              dims = [dims, j]
-             initializers(num_initializers)%dims = dims
+             initializers(num_initialisers)%dims = dims
           elseif(index(trimmed_line, 'float_data:') .gt. 0)then
              reading_data = .true.
-             allocate(initializers(num_initializers)%data(0))
+             allocate(initializers(num_initialisers)%data(0))
              do while(reading_data)
                 read(unit, '(A)', iostat=stat) line
                 if(stat .ne. 0) exit
@@ -540,8 +520,8 @@ contains
                    reading_data = .false.
                 elseif(trim(adjustl(trimmed_line)) .ne. '')then
                    call allocate_and_assign_vec(trimmed_line, float_data, fs=":")
-                   initializers(num_initializers)%data = &
-                        [initializers(num_initializers)%data, float_data]
+                   initializers(num_initialisers)%data = &
+                        [initializers(num_initialisers)%data, float_data]
                    deallocate(float_data)
                 end if
              end do
@@ -551,7 +531,7 @@ contains
 
        ! Parse input tensors
        if(index(trimmed_line, 'input {') .gt. 0 .and. &
-            .not. in_node .and. .not. in_initializer)then
+            .not. in_node .and. .not. in_initialiser)then
           num_input_tensors = num_input_tensors + 1
        elseif(num_input_tensors > 0 .and. &
             index(trimmed_line, 'name:') .gt. 0)then
@@ -569,7 +549,7 @@ contains
 
        ! Parse output tensors
        if(index(trimmed_line, 'output {') .gt. 0 .and. &
-            .not. in_node .and. .not. in_initializer)then
+            .not. in_node .and. .not. in_initialiser)then
           num_output_tensors = num_output_tensors + 1
        elseif(num_output_tensors > 0 .and. &
             index(trimmed_line, 'name:') .gt. 0)then
@@ -581,39 +561,97 @@ contains
     close(unit)
 
     ! Now construct the network from parsed information
+    call network%build_from_onnx( &
+         nodes, initializers, &
+         verbose=verbose_ &
+    )
 
   end function read_onnx
 !###############################################################################
 
 
 !###############################################################################
-  subroutine parse_attribute(line, attr)
+  function read_attribute(unit) result(attr)
+    !! Reads an entire attribute block from an ONNX file
+    !! Handles multi-line attributes (e.g., multiple ints or floats)
     implicit none
-    character(*), intent(in) :: line
-    type(onnx_attribute_type), intent(inout) :: attr
-    integer :: colon_pos
-    character(256) :: buffer
-    integer :: itmp1
+    integer, intent(in) :: unit
+    type(onnx_attribute_type) :: attr
+    character(1024) :: line, trimmed_line
+    character(1024) :: value_buffer
+    character(20) :: key, attr_type_key
+    character(256) :: value_str
+    integer :: stat, colon_pos
+    logical :: done
 
-    buffer = trim(adjustl(line))
-    if(index(buffer, 'name:') .gt. 0)then
-       call assign_val(buffer, attr%name, itmp1, fs=":")
-    elseif(index(buffer, 'type:') .gt. 0)then
-       call assign_val(buffer, attr%type, itmp1, fs=":")
-    elseif( &
-         index(line, 'ints:') .gt. 0 .or. &
-         index(line, 'floats:') .gt. 0 .or. &
-         index(line, 'strings:') .gt. 0 .or. &
-         index(line, 'int:') .gt. 0 .or. &
-         index(line, 'float:') .gt. 0 .or. &
-         index(line, 'string:') .gt. 0 &
-    )then
-       colon_pos = index(line, ':')
-       if(colon_pos > 0)then
-          attr%value = adjustl(trim(line(colon_pos+1:)))
+    ! Initialise attribute
+    attr%name = ""
+    attr%type = ""
+    allocate(character(0) :: attr%value)
+    value_buffer = ""
+
+    ! Read the opening "attribute {" line (already read by caller, so we're inside)
+    done = .false.
+
+    do while(.not. done)
+       read(unit, '(A)', iostat=stat) line
+       if(stat .ne. 0) exit
+
+       trimmed_line = adjustl(trim(line))
+       if(trim(trimmed_line) .eq. 'attribute {') cycle
+
+       ! Check for closing brace
+       if(index(trimmed_line, '}') .gt. 0) then
+          done = .true.
+          exit
        end if
+
+       ! Parse line with colon separator
+       colon_pos = index(trimmed_line, ':')
+       if(colon_pos .gt. 0) then
+          key = adjustl(trim(trimmed_line(1:colon_pos-1)))
+          value_str = adjustl(trim(trimmed_line(colon_pos+1:)))
+          ! strip all quotes from value_str if present
+          if( &
+               ( &
+                    value_str(1:1) .eq. '"' .and. &
+                    value_str(len(trim(value_str)):len(trim(value_str))) .eq. '"' &
+               ) .or. ( &
+                    value_str(1:1) .eq. '''' .and. &
+                    value_str(len(trim(value_str)):len(trim(value_str))) .eq. '''' &
+               ) &
+          )then
+             value_str = value_str(2:len(trim(value_str))-1)
+          end if
+
+          select case(trim(key))
+          case('name')
+             attr%name = trim(value_str)
+          case('type')
+             if(attr%type .ne. '')then
+                write(0,*) "WARNING: Multiple 'type' entries in attribute. &
+                     &Using the first one."
+                cycle
+             end if
+             attr_type_key = trim(value_str)
+             attr%type = to_lower(trim(attr_type_key))
+          case('ints', 'floats', 'strings', 'i', 'f', 's')
+             ! Accumulate multiple values with space separator
+             if(len_trim(value_buffer) .eq. 0) then
+                value_buffer = trim(value_str)
+             else
+                value_buffer = trim(value_buffer) // ' ' // trim(value_str)
+             end if
+          end select
+       end if
+    end do
+
+    ! Store accumulated values
+    if(len_trim(value_buffer) .gt. 0) then
+       attr%value = trim(value_buffer)
     end if
-  end subroutine parse_attribute
+
+  end function read_attribute
 !###############################################################################
 
 

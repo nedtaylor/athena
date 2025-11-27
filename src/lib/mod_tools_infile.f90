@@ -331,8 +331,19 @@ contains
 
     if(present(keyword)) buffer = buffer(index(buffer, keyword):)
     if(scan(buffer, fs_) .ne. 0) buffer2 = get_val(buffer, fs_)
-    if(trim(adjustl(buffer2)) .ne. '') then
+    if(trim(adjustl(buffer2)) .ne. '')then
        found = found + 1
+       if( &
+            ( &
+                 buffer2(1:1) .eq. '"' .and. &
+                 buffer2(len(trim(buffer2)):len(trim(buffer2))) .eq. '"' &
+            ) .or. ( &
+                 buffer2(1:1) .eq. '''' .and. &
+                 buffer2(len(trim(buffer2)):len(trim(buffer2))) .eq. '''' &
+            ) &
+       )then
+          buffer2 = buffer2(2:len(trim(buffer2))-1)
+       end if
        read(buffer2, '(A)') variable
     end if
   end subroutine assignS

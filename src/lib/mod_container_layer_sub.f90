@@ -14,7 +14,7 @@ submodule(athena__container_layer) athena__container_layer_submodule
   use athena__batchnorm2d_layer, only: read_batchnorm2d_layer
   use athena__batchnorm3d_layer, only: read_batchnorm3d_layer
   use athena__conv1d_layer, only: read_conv1d_layer
-  use athena__conv2d_layer, only: read_conv2d_layer
+  use athena__conv2d_layer, only: read_conv2d_layer, create_from_onnx_conv2d_layer
   use athena__conv3d_layer, only: read_conv3d_layer
   use athena__dropblock2d_layer, only: read_dropblock2d_layer
   use athena__dropblock3d_layer, only: read_dropblock3d_layer
@@ -68,7 +68,7 @@ contains
          addit_list
 
 
-    allocate(list_of_layer_types(0))
+    if(.not.allocated(list_of_layer_types)) allocate(list_of_layer_types(0))
     list_of_layer_types = [ &
          list_of_layer_types, &
          read_procedure_container('actv', read_actv_layer), &
@@ -96,11 +96,28 @@ contains
          read_procedure_container('pad2d', read_pad2d_layer), &
          read_procedure_container('pad3d', read_pad3d_layer) &
     ]
-    if (present(addit_list)) then
+    if(present(addit_list))then
        list_of_layer_types = [list_of_layer_types, addit_list]
     end if
 
   end subroutine allocate_list_of_layer_types
 
+  module subroutine allocate_list_of_onnx_layer_creators(addit_list)
+    implicit none
+    type(onnx_create_procedure_container), dimension(:), intent(in), optional :: &
+         addit_list
+
+    if(.not.allocated(list_of_onnx_layer_creators)) &
+         allocate(list_of_onnx_layer_creators(0))
+    list_of_onnx_layer_creators = [ &
+         list_of_onnx_layer_creators, &
+         onnx_create_procedure_container( &
+              'Conv', create_from_onnx_conv2d_layer) & ! make a global create_from_onnx_conv_layer that allocates depending on the attributes
+    ]
+    if(present(addit_list))then
+       list_of_onnx_layer_creators = [list_of_onnx_layer_creators, addit_list]
+    end if
+
+  end subroutine allocate_list_of_onnx_layer_creators
 
 end submodule athena__container_layer_submodule

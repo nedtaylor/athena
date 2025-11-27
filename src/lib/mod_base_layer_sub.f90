@@ -281,7 +281,7 @@ contains
     !! Instance of the layer
     type(onnx_node_type), intent(in) :: node
     !! ONNX node
-    type(onnx_initialiser_type), intent(in) :: initialisers
+    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
     !! ONNX initialisers
     integer, intent(in) :: verbose
     !! Verbosity level

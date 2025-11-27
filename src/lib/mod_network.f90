@@ -17,7 +17,8 @@ module athena__network
        comp_loss_deriv => compute_loss_derivative
   use athena__accuracy, only: comp_acc_func => compute_accuracy_function
   use athena__base_layer, only: base_layer_type
-  use athena__misc_types, only: array_type, array2d_type
+  use athena__misc_types, only: array_type, array2d_type, &
+       onnx_node_type, onnx_initialiser_type
   use athena__container_layer, only: container_layer_type
   implicit none
 
@@ -78,6 +79,8 @@ module athena__network
      !! Read network settings from a file
      procedure, pass(this), private :: read_optimiser_settings
      !! Read optimiser settings from a file
+     procedure, pass(this) :: build_from_onnx
+     !! Build network from ONNX nodes and initialisers
      procedure, pass(this) :: add
      !! Add a layer to the network
      procedure, pass(this) :: reset
@@ -216,6 +219,19 @@ module athena__network
        integer, intent(in) :: unit
        !! Unit number for input
      end subroutine read_optimiser_settings
+
+     !! Interface for building network from ONNX nodes and initialisers
+     module subroutine build_from_onnx(this, nodes, initialisers, verbose)
+       !! Build network from ONNX nodes and initialisers
+       class(network_type), intent(inout) :: this
+       !! Instance of the network
+       type(onnx_node_type), dimension(:), intent(in) :: nodes
+       !! Array of ONNX nodes
+       type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
+       !! Array of ONNX initialisers
+       integer, optional, intent(in) :: verbose
+       !! Verbosity level
+     end subroutine build_from_onnx
 
      !! Interface for adding a layer to the network
      module subroutine add(this, layer, input_list, output_list, operator)

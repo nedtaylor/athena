@@ -13,9 +13,11 @@ submodule(athena__network) athena__network_submodule
   use athena__container_layer, only: container_reduction
 #endif
 
-  use athena__misc_types, only: array_container_type
+  use athena__misc_types, only: array_container_type, &
+       onnx_node_type, onnx_initialiser_type
   use athena__container_layer, only: &
-       list_of_layer_types, allocate_list_of_layer_types
+       list_of_layer_types, allocate_list_of_layer_types, &
+       list_of_onnx_layer_creators, allocate_list_of_onnx_layer_creators
 
   ! Layer types
   use athena__input_layer,   only: input_layer_type
@@ -717,6 +719,108 @@ contains
     call this%optimiser%read(unit)
 
   end subroutine read_optimiser_settings
+!###############################################################################
+
+
+!###############################################################################
+  module subroutine build_from_onnx(this, nodes, initialisers, verbose)
+    !! Build network from ONNX nodes and initialisers
+    use athena__misc, only: to_lower
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    type(onnx_node_type), dimension(:), intent(in) :: nodes
+    !! Array of ONNX nodes
+    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
+    !! Array of ONNX initialisers
+    integer, optional, intent(in) :: verbose
+    !! Verbosity level
+
+    ! Local variables
+    integer :: i, j, k, j_out, layer_index
+    !! Loop indices
+    integer :: num_initialisers
+    !! Number of initialisers for a specific node
+    integer :: verbose_ = 0
+    !! Verbosity level
+    character(20) :: op_type
+    !! Lowercase op_type
+    character(256) :: err_msg
+    !! Error message
+    class(base_layer_type), allocatable :: layer
+    !! Layer to add to the network
+    integer, dimension(:), allocatable :: input_list
+    !! List of input layers
+    type(onnx_initialiser_type), dimension(:), allocatable :: init_list
+    !! List of initialisers for a specific node
+
+    verbose_ = 0
+    if(present(verbose)) verbose_ = verbose
+
+
+    if(.not.allocated(list_of_onnx_layer_creators))then
+       call allocate_list_of_onnx_layer_creators()
+    end if
+
+    ! Loop through nodes and create layers
+    do i = 1, size(nodes)
+       write(*,*) "Processing ONNX node: ", trim(nodes(i)%name), &
+            " (", trim(nodes(i)%op_type), ")"
+       op_type = trim(adjustl(nodes(i)%op_type))
+
+       layer_index = &
+            findloc( &
+                 [ list_of_onnx_layer_creators(:)%op_type ], &
+                 op_type, &
+                 dim = 1 &
+            )
+       if(layer_index.eq.0)then
+          write(err_msg,'("unrecognised op_type ''",A)') trim(adjustl(nodes(i)%op_type))
+          call stop_program(err_msg)
+          return
+       end if
+
+       ! find all input layers and initialisers for this node
+       ! ... i.e. check over inputs for name matches
+       j_out = 0
+       allocate(input_list(0))
+       do j = 1, size(nodes(i)%inputs)
+          do k = 1, size(initialisers)
+             if(trim(nodes(i)%inputs(j)) .eq. trim(initialisers(k)%name))then
+                j_out = j_out + 1
+                init_list = [ init_list, initialisers(k) ]
+             end if
+          end do
+          do k = 1, size(nodes)
+             if(trim(nodes(i)%inputs(j)) .eq. trim(nodes(k)%name))then
+                input_list = [ input_list, k ]
+             end if
+          end do
+       end do
+       if(j_out.ne.size(nodes(i)%inputs))then
+          ! some inputs are not initialisers, so just clear the list
+          if(verbose_.gt.0)then
+             write(*,*) "  Note: not all inputs are initialisers for node ", &
+                  trim(nodes(i)%name)
+          end if
+          if(allocated(init_list)) deallocate(init_list)
+          allocate(init_list(0))
+       end if
+
+       ! assume default operator
+
+       call this%add( &
+            list_of_onnx_layer_creators(layer_index)%create_ptr( &
+                 nodes(i), init_list &
+            ), &
+            input_list = input_list &
+            ! operator = operator_in &
+       )
+    end do
+
+  end subroutine build_from_onnx
 !###############################################################################
 
 

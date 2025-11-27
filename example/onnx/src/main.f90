@@ -11,7 +11,7 @@ program test_onnx_read
 
   call network_write%add(conv2d_layer_type( &
        input_shape=[28,28,1], &
-       num_filters=32, &
+       num_filters=6, &
        kernel_size=3, &
        activation_function="relu"))
 
@@ -20,7 +20,7 @@ program test_onnx_read
        stride=2))
 
   call network_write%add(full_layer_type( &
-       num_outputs=128, &
+       num_outputs=12, &
        activation_function="relu"))
 
   call network_write%add(full_layer_type( &
