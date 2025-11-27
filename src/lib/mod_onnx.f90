@@ -162,7 +162,7 @@ contains
 
        select type(layer => network%model(idx)%layer)
        class is(learnable_layer_type)
-          call write_onnx_initializers(unit, layer, prefix = trim(node_name) )
+          call write_onnx_initialisers(unit, layer, prefix = trim(node_name) )
           if(layer%transfer%name.ne."none")then
              if(layer%use_graph_output)then
                 call write_onnx_function( &
@@ -349,8 +349,8 @@ contains
 
 
 !###############################################################################
-  module subroutine write_onnx_initializers(unit, layer, prefix)
-    !! Write ONNX initializers (weights and biases)
+  module subroutine write_onnx_initialisers(unit, layer, prefix)
+    !! Write ONNX initialisers (weights and biases)
     implicit none
 
     ! Arguments
@@ -413,7 +413,7 @@ contains
        end do
     end if
 
-  end subroutine write_onnx_initializers
+  end subroutine write_onnx_initialisers
 !###############################################################################
 
 
