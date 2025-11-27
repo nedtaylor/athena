@@ -158,7 +158,7 @@ contains
     ! Arguments
     class(base_layer_type), intent(in) :: this
     !! Instance of the layer
-    type(attributes_type), allocatable, dimension(:) :: attributes
+    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
     !! Attributes of the layer
 
     ! Allocate attributes array
@@ -176,7 +176,7 @@ contains
     ! Arguments
     class(conv_layer_type), intent(in) :: this
     !! Instance of the layer
-    type(attributes_type), allocatable, dimension(:) :: attributes
+    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
     !! Attributes of the layer
 
     ! Local variables
@@ -206,7 +206,7 @@ contains
     ! Arguments
     class(pool_layer_type), intent(in) :: this
     !! Instance of the layer
-    type(attributes_type), allocatable, dimension(:) :: attributes
+    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
     !! Attributes of the layer
 
     ! Local variables
@@ -236,7 +236,7 @@ contains
     ! Arguments
     class(batch_layer_type), intent(in) :: this
     !! Instance of the layer
-    type(attributes_type), allocatable, dimension(:) :: attributes
+    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
     !! Attributes of the layer
 
     ! Local variables
@@ -268,6 +268,28 @@ contains
     attributes(4)%type = "float"
 
   end function get_attributes_batch
+!###############################################################################
+
+
+!###############################################################################
+  module subroutine build_from_onnx_base(this, node, initialisers, verbose)
+    !! Build layer from ONNX node and initialiser
+    implicit none
+
+    ! Arguments
+    class(base_layer_type), intent(inout) :: this
+    !! Instance of the layer
+    type(onnx_node_type), intent(in) :: node
+    !! ONNX node
+    type(onnx_initialiser_type), intent(in) :: initialisers
+    !! ONNX initialisers
+    integer, intent(in) :: verbose
+    !! Verbosity level
+
+    write(0,*) "build_from_onnx_base: " // &
+         trim(this%name) // " layer cannot be built from ONNX"
+
+  end subroutine build_from_onnx_base
 !###############################################################################
 
 
