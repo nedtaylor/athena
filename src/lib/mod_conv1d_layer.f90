@@ -754,12 +754,10 @@ contains
     case default
        ptr => conv1d(input(1,1), this%params_array(1), this%stp(1), this%dil(1))
     end select
-    call this%z(1)%assign_and_deallocate_source(ptr)
     ptr => add_bias(ptr, this%params_array(2), dim=2, dim_act_on_shape=.true.)
 
     ! Apply activation function to activation
     !---------------------------------------------------------------------------
-    call this%output(1,1)%zero_grad()
     if(trim(this%transfer%name) .eq. "none") then
        call this%output(1,1)%assign_and_deallocate_source(ptr)
     else
