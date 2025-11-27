@@ -383,7 +383,6 @@ contains
           write(unit, '(4X,"float_data: [ ",F0.6)', advance='no') &
                layer%params(num_params_old + 1)
           do j = 2, num_params, 1
-             ! k = get_transposed_index(layer%weight_shape(:, i), j)
              write(unit, '(", ",F0.6)', advance='no') layer%params(num_params_old + j)
           end do
           write(unit, '(A)') ' ]'
