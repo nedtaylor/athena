@@ -150,6 +150,149 @@ contains
 
 
 !###############################################################################
+  module function get_attributes_base(this) result(attributes)
+    !! Get the attributes of the layer (for ONNX export)
+    implicit none
+
+    ! Arguments
+    class(base_layer_type), intent(in) :: this
+    !! Instance of the layer
+    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+    !! Attributes of the layer
+
+    ! Allocate attributes array
+    allocate(attributes(0))
+    ! attributes(0)%name = this%name
+    ! attributes(0)%value = this%get_type_name()
+    ! attributes(0)%type = ""
+
+  end function get_attributes_base
+!-------------------------------------------------------------------------------
+  module function get_attributes_conv(this) result(attributes)
+    !! Get the attributes of a convolutional layer (for ONNX export)
+    implicit none
+
+    ! Arguments
+    class(conv_layer_type), intent(in) :: this
+    !! Instance of the layer
+    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+    !! Attributes of the layer
+
+    ! Local variables
+    character(256) :: buffer, fmt
+    !! Buffer for formatting
+
+    ! Allocate attributes array
+    allocate(attributes(2))
+    attributes(1)%name = "kernel_shape"
+    write(fmt,'("(",I0,"(1X,I0))")') size(this%knl)
+    write(buffer,fmt) this%knl
+    attributes(1)%value = trim(adjustl(buffer))
+    attributes(1)%type = "ints"
+
+    attributes(2)%name = "strides"
+    write(fmt,'("(",I0,"(1X,I0))")') size(this%stp)
+    write(buffer,fmt) this%stp
+    attributes(2)%value = trim(adjustl(buffer))
+    attributes(2)%type = "ints"
+
+  end function get_attributes_conv
+!-------------------------------------------------------------------------------
+  module function get_attributes_pool(this) result(attributes)
+    !! Get the attributes of a pooling layer (for ONNX export)
+    implicit none
+
+    ! Arguments
+    class(pool_layer_type), intent(in) :: this
+    !! Instance of the layer
+    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+    !! Attributes of the layer
+
+    ! Local variables
+    character(256) :: buffer, fmt
+    !! Buffer for formatting
+
+    ! Allocate attributes array
+    allocate(attributes(2))
+    attributes(1)%name = "kernel_shape"
+    write(fmt,'("(",I0,"(1X,I0))")') size(this%pool)
+    write(buffer,fmt) this%pool
+    attributes(1)%value = trim(adjustl(buffer))
+    attributes(1)%type = "ints"
+
+    attributes(2)%name = "strides"
+    write(fmt,'("(",I0,"(1X,I0))")') size(this%strd)
+    write(buffer,fmt) this%strd
+    attributes(2)%value = trim(adjustl(buffer))
+    attributes(2)%type = "ints"
+
+  end function get_attributes_pool
+!-------------------------------------------------------------------------------
+  module function get_attributes_batch(this) result(attributes)
+    !! Get the attributes of a batch normalisation layer (for ONNX export)
+    implicit none
+
+    ! Arguments
+    class(batch_layer_type), intent(in) :: this
+    !! Instance of the layer
+    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+    !! Attributes of the layer
+
+    ! Local variables
+    character(256) :: buffer, fmt
+    !! Buffer for formatting
+
+    ! Allocate attributes array
+    allocate(attributes(4))
+    attributes(1)%name = "epsilon"
+    write(buffer,'("(",F0.6,")")') this%epsilon
+    attributes(1)%value = trim(adjustl(buffer))
+    attributes(1)%type = "float"
+
+    attributes(2)%name = "momentum"
+    write(buffer,'("(",F0.6,")")') this%momentum
+    attributes(2)%value = trim(adjustl(buffer))
+    attributes(2)%type = "float"
+
+    attributes(3)%name = "scale"
+    write(fmt,'("(",I0,"(1X,I0))")') this%num_channels
+    write(buffer,fmt) this%params(1:this%num_channels)
+    attributes(3)%value = trim(adjustl(buffer))
+    attributes(3)%type = "float"
+
+    attributes(4)%name = "B"
+    write(fmt,'("(",I0,"(1X,I0))")') this%num_channels
+    write(buffer,fmt) this%params(this%num_channels+1:2*this%num_channels)
+    attributes(4)%value = trim(adjustl(buffer))
+    attributes(4)%type = "float"
+
+  end function get_attributes_batch
+!###############################################################################
+
+
+!###############################################################################
+  module subroutine build_from_onnx_base(this, node, initialisers, verbose)
+    !! Build layer from ONNX node and initialiser
+    implicit none
+
+    ! Arguments
+    class(base_layer_type), intent(inout) :: this
+    !! Instance of the layer
+    type(onnx_node_type), intent(in) :: node
+    !! ONNX node
+    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
+    !! ONNX initialisers
+    integer, intent(in) :: verbose
+    !! Verbosity level
+
+    write(0,*) "build_from_onnx_base: " // &
+         trim(this%name) // " layer cannot be built from ONNX"
+
+  end subroutine build_from_onnx_base
+!###############################################################################
+
+
+!###############################################################################
   module subroutine set_rank_base(this, input_rank, output_rank)
     !! Set the input and output ranks of the layer
     implicit none

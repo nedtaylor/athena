@@ -4,6 +4,13 @@ module athena__actv_layer
   !! This module wraps different activation functions into a layer type
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: base_layer_type
+  use athena__misc_types, only: activation_type, &
+       onnx_node_type, onnx_initialiser_type, &
+       array1d_type, &
+       array2d_type, &
+       array3d_type, &
+       array4d_type, &
+       array5d_type
   use athena__misc_types, only: activation_type
   use diffstruc, only: array_type
   implicit none
@@ -12,7 +19,7 @@ module athena__actv_layer
   private
 
   public :: actv_layer_type
-  public :: read_actv_layer
+  public :: read_actv_layer, create_from_onnx_actv_layer
 
 
   type, extends(base_layer_type) :: actv_layer_type
@@ -32,6 +39,16 @@ module athena__actv_layer
      !! Print layer to unit
      procedure, pass(this) :: read => read_actv
      !! Read layer from file
+     procedure, pass(this) :: build_from_onnx => build_from_onnx_actv
+     !! Build activation layer from ONNX node and initialiser
+     procedure, pass(this) :: forward  => forward_rank
+     !! Forward propagation
+     procedure, pass(this) :: backward => backward_rank
+     !! Backward propagation
+     procedure, pass(this), private :: forward_assumed_rank
+     !! Forward propagation assumed rank handler
+     procedure, pass(this), private :: backward_assumed_rank
+     !! Backward propagation assumed rank handler
      procedure, pass(this) :: forward => forward_actv
      !! Forward propagation derived type handler
   end type actv_layer_type
@@ -138,6 +155,7 @@ contains
   )
     !! Set hyperparameters for activation layer
     use athena__activation,  only: activation_setup
+    use athena__misc, only: to_lower
     implicit none
 
     ! Arguments
@@ -162,6 +180,7 @@ contains
     allocate(this%transfer, &
          source=activation_setup(activation_function, activation_scale) &
     )
+    this%subtype = trim(to_lower(activation_function))
 
     if(present(verbose))then
        if(abs(verbose).gt.0)then
@@ -507,6 +526,57 @@ contains
     call layer%read(unit, verbose=verbose_)
 
   end function read_actv_layer
+!###############################################################################
+
+
+!###############################################################################
+  subroutine build_from_onnx_actv(this, node, initialisers, verbose )
+    !! Read ONNX attributes for activation layer
+    implicit none
+
+    ! Arguments
+    class(actv_layer_type), intent(inout) :: this
+    !! Instance of the activation layer
+    type(onnx_node_type), intent(in) :: node
+    !! Instance of ONNX node information
+    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
+    !! Instance of ONNX initialiser information
+    integer, intent(in) :: verbose
+    !! Verbosity level
+
+    ! Local variables
+    integer :: verbose_ = 0
+    !! Verbosity level
+
+  end subroutine build_from_onnx_actv
+!###############################################################################
+
+
+!###############################################################################
+  function create_from_onnx_actv_layer(node, initialisers, verbose) result(layer)
+    !! Build activation layer from attributes and return layer
+    use athena__misc, only: to_lower
+    implicit none
+
+    ! Arguments
+    type(onnx_node_type), intent(in) :: node
+    !! Instance of ONNX node information
+    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
+    !! Instance of ONNX initialiser information
+    integer, optional, intent(in) :: verbose
+    !! Verbosity level
+    class(base_layer_type), allocatable :: layer
+    !! Instance of the activation layer
+
+    ! Local variables
+    integer :: verbose_ = 0
+    !! Verbosity level
+
+    if(present(verbose)) verbose_ = verbose
+    allocate(layer, source=actv_layer_type(to_lower(trim(node%op_type))))
+    call layer%build_from_onnx(node, initialisers, verbose=verbose_)
+
+  end function create_from_onnx_actv_layer
 !###############################################################################
 
 

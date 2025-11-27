@@ -9,6 +9,9 @@ module athena__full_layer
   !! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: learnable_layer_type, base_layer_type
+  use athena__misc_types, only: activation_type, initialiser_type, &
+       onnx_node_type, onnx_initialiser_type, &
+       array2d_type
   use athena__misc_types, only: initialiser_type
   use diffstruc, only: array_type, matmul, operator(+)
   implicit none
@@ -17,7 +20,7 @@ module athena__full_layer
   private
 
   public :: full_layer_type
-  public :: read_full_layer
+  public :: read_full_layer, create_from_onnx_full_layer
 
 
   type, extends(learnable_layer_type) :: full_layer_type
@@ -41,6 +44,8 @@ module athena__full_layer
      !! Print the layer to a file
      procedure, pass(this) :: read => read_full
      !! Read the layer from a file
+     procedure, pass(this) :: build_from_onnx => build_from_onnx_full
+     !! Build fully connected layer from ONNX node and initialiser
 
      procedure, pass(this) :: forward => forward_full
      !! Forward propagation derived type handler
@@ -666,6 +671,62 @@ contains
     call layer%read(unit, verbose=verbose_)
 
   end function read_full_layer
+!###############################################################################
+
+
+!###############################################################################
+  subroutine build_from_onnx_full(this, node, initialisers, verbose )
+    !! Read ONNX attributes for fully connected layer
+    implicit none
+
+    ! Arguments
+    class(full_layer_type), intent(inout) :: this
+    !! Instance of the fully connected layer
+    type(onnx_node_type), intent(in) :: node
+    !! Instance of ONNX node information
+    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
+    !! Instance of ONNX initialiser information
+    integer, intent(in) :: verbose
+    !! Verbosity level
+
+    ! Local variables
+    integer :: verbose_ = 0
+    !! Verbosity level
+
+    ! Initialise parameters from initialisers
+    write(0,*) "WARNING: Weights initialisation from ONNX not yet implemented &
+         &for fully connected layer"
+
+    ! call this%set_hyperparams(num_outputs=...)
+
+  end subroutine build_from_onnx_full
+!###############################################################################
+
+
+!###############################################################################
+  function create_from_onnx_full_layer(node, initialisers, verbose) result(layer)
+    !! Build fully connected layer from attributes and return layer
+    implicit none
+
+    ! Arguments
+    type(onnx_node_type), intent(in) :: node
+    !! Instance of ONNX node information
+    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
+    !! Instance of ONNX initialiser information
+    integer, optional, intent(in) :: verbose
+    !! Verbosity level
+    class(base_layer_type), allocatable :: layer
+    !! Instance of the 2D convolutional layer
+
+    ! Local variables
+    integer :: verbose_ = 0
+    !! Verbosity level
+
+    if(present(verbose)) verbose_ = verbose
+    allocate(layer, source=full_layer_type(num_outputs=0))
+    call layer%build_from_onnx(node, initialisers, verbose=verbose_)
+
+  end function create_from_onnx_full_layer
 !###############################################################################
 
 
