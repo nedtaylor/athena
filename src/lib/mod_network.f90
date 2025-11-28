@@ -152,7 +152,7 @@ module athena__network
      procedure, pass(this) :: get_output_shape
      !! Get the output shape of the network
 
-     !  procedure, pass(this) :: extract_output => extract_output_real
+     procedure, pass(this) :: extract_output => extract_output_real
 
      procedure, pass(this) :: forward_generic2d
      !! Forward pass for generic 2D input
@@ -579,7 +579,7 @@ module athena__network
      module function get_output_shape(this) result(output_shape)
        class(network_type), intent(in) :: this
        !! Instance of the network
-      integer, dimension(2) :: output_shape
+       integer, dimension(2) :: output_shape
        !! Output shape
      end function get_output_shape
 
