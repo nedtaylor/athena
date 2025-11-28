@@ -2123,6 +2123,54 @@ contains
 
 
 !###############################################################################
+  module function get_output_shape(this) result(output_shape)
+    !! Get the output of the network
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(in) :: this
+    !! Instance of network
+    integer, dimension(2) :: output_shape
+    !! Output shape
+
+    ! Local variables
+    integer :: i, layer_idx
+    !! Loop indices
+
+
+    ! array data: [ layer idx, empty ]
+    ! graph data: [ vertex/edge idx, sample idx]
+
+    if(this%use_graph_output)then
+       output_shape = [2, this%batch_size]
+       do i = 1, size(this%leaf_vertices,1), 1
+          layer_idx = this%auto_graph%vertex(this%leaf_vertices(i))%id
+          if(size(this%model(layer_idx)%layer%output,2).ne.this%batch_size)then
+             call stop_program( &
+                  "Inconsistent batch size in output layers" &
+             )
+             return
+          end if
+          output_shape(1) = output_shape(1) + &
+               size( this%model(layer_idx)%layer%output, 1 )
+       end do
+    else
+       output_shape = [0, 1]
+       do i = 1, size(this%leaf_vertices,1)
+          layer_idx = this%auto_graph%vertex(this%leaf_vertices(i))%id
+          if(size(this%model(layer_idx)%layer%output,2).ne.1)then
+             call stop_program( &
+                  "Inconsistent size of dimension 2 in output layers" &
+             )
+             return
+          end if
+          output_shape(1) = &
+               output_shape(1) + size( this%model(layer_idx)%layer%output, 1 )
+       end do
+    end if
+
+  end function get_output_shape
+!-------------------------------------------------------------------------------
   module function get_output(this) result(output)
     !! Get the output of the network
     implicit none
@@ -2144,7 +2192,6 @@ contains
 
     ! array data: [ layer idx, empty ]
     ! graph data: [ vertex/edge idx, sample idx]
-    output_shape = [1,1]
 
     if(this%use_graph_output)then
        output_shape = [2, this%batch_size]
@@ -2204,17 +2251,27 @@ contains
 
     ! Arguments
     class(network_type), intent(in) :: this
-    !! Instance of network
-    real(real32), dimension(..), allocatable :: output
+    ! Instance of network
+    real(real32), dimension(..), allocatable, intent(out) :: output
     !! Output
 
     ! Local variables
     character(len=10) :: rank_str
     !! String for rank
+! if intel compiler, do this
+#if defined(__INTEL_COMPILER)
+    integer, dimension(2) :: output_shape
+    type(array_type), pointer :: output_array(:,:)
+#else
     type(array_type), dimension(:,:), allocatable :: output_array
+#endif
     !! Temporary output array
 
 
+#if defined(__INTEL_COMPILER)
+    output_shape = this%get_output_shape()
+    allocate(output_array(output_shape(1), output_shape(2)))
+#endif
     output_array = this%get_output()
     if(any(shape(output_array).ne.1))then
        call print_warning("Output is not compatible with real array")
@@ -2269,6 +2326,9 @@ contains
           )
        end select
     end select
+#if defined(__INTEL_COMPILER)
+    deallocate(output_array)
+#endif
 
   end subroutine extract_output_real
 !###############################################################################

@@ -114,7 +114,9 @@ module athena__network
      procedure, pass(this) :: predict_graph
      !! Return predicted results from supplied inputs using the trained network (graph input)
      procedure, pass(this) :: predict_array
+     !! Predict array type output for a generic input
      procedure, pass(this) :: predict_generic
+     !! Predict generic type output for a generic input
      generic :: predict => predict_1d, predict_graph
      !! Predict function for different input types
      procedure, pass(this) :: update
@@ -147,16 +149,23 @@ module athena__network
      !! Reset learnable parameter gradients
      procedure, pass(this) :: get_output
      !! Get the output of the network
-     procedure, pass(this) :: extract_output => extract_output_real
+     procedure, pass(this) :: get_output_shape
+     !! Get the output shape of the network
+
+     !  procedure, pass(this) :: extract_output => extract_output_real
+
      procedure, pass(this) :: forward_generic2d
      !! Forward pass for generic 2D input
      procedure, pass(this) :: forward_eval
      !! Forward pass and return pointer to output (only works for single output layer models)
 
      procedure, pass(this) :: nullify_graph
+     !! Nullify graph data in the network to free memory
 
      procedure, pass(this) :: calc_output_accuracy
+     !! Get the accuracy for the output
      procedure, pass(this) :: loss_backward
+     !! Get the loss for the output
 
      generic :: forward => forward_generic2d
      !! Generic for forward propagation
@@ -489,51 +498,6 @@ module athena__network
        !! Instance of the network
      end subroutine calculate_io_map
 
-     !! Interface for getting the input of a layer via autodiff
-     pure module subroutine get_input_real_autodiff(this, idx, input)
-       !! Get the input of a layer via autodiff
-       class(network_type), intent(in) :: this
-       !! Instance of the network
-       integer, intent(in) :: idx
-       !! Index
-       real(real32), allocatable, dimension(:,:), intent(out) :: input
-       !! Input
-     end subroutine get_input_real_autodiff
-
-     !! Interface for getting the input of a layer via autodiff (graph input)
-     module subroutine get_input_graph_autodiff(this, idx, input)
-       !! Get the input of a layer via autodiff
-       class(network_type), intent(in) :: this
-       !! Instance of the network
-       integer, intent(in) :: idx
-       !! Index
-       type(array_type), dimension(2,this%batch_size), intent(inout) :: input
-       !! Input
-     end subroutine get_input_graph_autodiff
-
-     !! Interface for getting the gradient of a layer via autodiff
-     pure module subroutine get_gradient_real_autodiff(this, idx, gradient)
-       !! Get the gradient of a layer via autodiff
-       class(network_type), intent(in) :: this
-       !! Instance of the network
-       integer, intent(in) :: idx
-       !! Index
-       real(real32), allocatable, dimension(:,:), intent(out) :: gradient
-       !! Gradient
-     end subroutine get_gradient_real_autodiff
-
-     !! Interface for getting the gradient of a layer via autodiff (graph input)
-     pure module subroutine get_gradient_graph_autodiff(this, idx, gradient)
-       !! Get the gradient of a layer via autodiff
-       class(network_type), intent(in) :: this
-       !! Instance of the network
-       integer, intent(in) :: idx
-       !! Index
-       type(array_type), &
-            dimension(2,this%batch_size), intent(inout) :: gradient
-       !! Gradient
-     end subroutine get_gradient_graph_autodiff
-
      !! Interface for reducing two networks down to one
      !! (i.e. add two networks - parallel)
      module subroutine network_reduction(this, source)
@@ -612,10 +576,17 @@ module athena__network
        !! Output
      end function get_output
 
+     module function get_output_shape(this) result(output_shape)
+       class(network_type), intent(in) :: this
+       !! Instance of the network
+      integer, dimension(2) :: output_shape
+       !! Output shape
+     end function get_output_shape
+
      module subroutine extract_output_real(this, output)
        class(network_type), intent(in) :: this
        !! Instance of network
-       real(real32), dimension(..), allocatable :: output
+       real(real32), dimension(..), allocatable, intent(out) :: output
        !! Output
      end subroutine extract_output_real
 
