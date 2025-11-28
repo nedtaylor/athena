@@ -1,0 +1,19 @@
+project: diffstruc
+summary: A Fortran library for implementing neural networks
+author: Ned Thaddeus Taylor
+src_dir: ../../src
+output_dir: ./output
+output: html
+preprocess: false
+predocmark: "!!"
+fpp_extensions: f90
+display: public
+         protected
+         private
+source: true
+graph: true
+coloured_edges: true
+sort: permission-alpha
+project_github: https://github.com/nedtaylor/athena
+project_download: https://github.com/nedtaylor/athena/releases
+github: https://github.com/athena
