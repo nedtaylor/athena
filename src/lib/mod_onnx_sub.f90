@@ -688,7 +688,7 @@ contains
 
 
 !###############################################################################
-  module subroutine write_onnx_initialisers(unit, layer, prefix)
+  subroutine write_onnx_initialisers(unit, layer, prefix)
     !! Write ONNX initialisers (weights and biases)
     implicit none
 
