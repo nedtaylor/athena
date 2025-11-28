@@ -36,14 +36,27 @@ jobs:
       fail-fast: false
       matrix:
         toolchain:
-        - {compiler: gcc, version: 14}
-        - {compiler: intel, version: '2025.0'}
-        # - {compiler: lfortran, version: '0.45.0'}
+        - {compiler: gcc, version: 15}
+        - {compiler: intel, version: '2025.2'}
     steps:
     - name: checkout repo
       uses: actions/checkout@v4
 
-    - uses: fortran-lang/setup-fortran@v1
+    - name: Setup conda (for gfortran on Linux)
+      if: runner.os == 'Linux' && matrix.toolchain.compiler == 'gcc'
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        auto-update-conda: true
+        python-version: 3.11
+
+    - name: Install gfortran via conda
+      if: runner.os == 'Linux' && matrix.toolchain.compiler == 'gcc'
+      run: |
+        conda install -y -c conda-forge "gfortran=${{ matrix.toolchain.version }}"
+        echo "FC=$(which gfortran)" >> $GITHUB_ENV
+
+    - if: ${{ !(runner.os == 'Linux' && matrix.toolchain.compiler == 'gcc') }}
+      uses: fortran-lang/setup-fortran@v1
       id: setup-fortran
       with:
         compiler: ${{ matrix.toolchain.compiler }}
@@ -73,14 +86,28 @@ jobs:
       fail-fast: false
       matrix:
         toolchain:
-        - {compiler: gcc, version: 13}
-        - {compiler: intel-classic, version: '2021.10'}
+        - {compiler: gcc, version: 15}
+        - {compiler: intel, version: '2025.2'}
 
     steps:
     - name: checkout repo
       uses: actions/checkout@v4
 
-    - uses: fortran-lang/setup-fortran@v1
+    - name: Setup conda (for gfortran on Linux)
+      if: runner.os == 'Linux' && matrix.toolchain.compiler == 'gcc'
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        auto-update-conda: true
+        python-version: 3.11
+
+    - name: Install gfortran via conda
+      if: runner.os == 'Linux' && matrix.toolchain.compiler == 'gcc'
+      run: |
+        conda install -y -c conda-forge "gfortran=${{ matrix.toolchain.version }}"
+        echo "FC=$(which gfortran)" >> $GITHUB_ENV
+
+    - if: ${{ !(runner.os == 'Linux' && matrix.toolchain.compiler == 'gcc') }}
+      uses: fortran-lang/setup-fortran@v1
       id: setup-fortran
       with:
         compiler: ${{ matrix.toolchain.compiler }}
