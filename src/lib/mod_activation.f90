@@ -1,6 +1,6 @@
 module athena__activation
   !! Module containing the activation function setup
-  use coreutils, only: real32, to_lower
+  use coreutils, only: stop_program, to_lower
   use athena__misc_types, only: activation_type
   use athena__activation_gaussian, only: gaussian_setup
   use athena__activation_linear, only: linear_setup
@@ -24,59 +24,71 @@ module athena__activation
 contains
 
 !###############################################################################
-  pure function activation_setup(name, scale) result(transfer)
+  function activation_setup(input, error) result(activation)
     !! Setup the desired activation function
     implicit none
 
     ! Arguments
-    character(*), intent(in) :: name
-    !! Name of the activation function
-    real(real32), optional, intent(in) :: scale
-    !! Optional scale factor for activation output
-    class(activation_type), allocatable :: transfer
+    class(*), intent(in) :: input
+    !! Name of the activation function or activation object
+    class(activation_type), allocatable :: activation
     !! Activation function object
+    integer, optional, intent(out) :: error
+    !! Error code
 
     ! Local variables
-    real(real32) :: scale_
-    !! Local scale factor
-
-
-    !---------------------------------------------------------------------------
-    ! set defaults if not present
-    !---------------------------------------------------------------------------
-    if(present(scale))then
-       scale_ = scale
-    else
-       scale_ = 1._real32
-    end if
+    character(256) :: err_msg
+    !! Error message
 
 
     !---------------------------------------------------------------------------
     ! select desired activation function
     !---------------------------------------------------------------------------
-    select case(trim(to_lower(name)))
-    case("gaussian")
-       transfer = gaussian_setup(scale = scale_)
-    case ("linear")
-       transfer = linear_setup(scale = scale_)
-    case ("piecewise")
-       transfer = piecewise_setup(scale = scale_)
-    case ("relu")
-       transfer = relu_setup(scale = scale_)
-    case ("leaky_relu")
-       transfer = leaky_relu_setup(scale = scale_)
-    case ("sigmoid")
-       transfer = sigmoid_setup(scale = scale_)
-    case ("softmax")
-       transfer = softmax_setup(scale = scale_)
-    case("swish")
-       transfer = swish_setup(scale = scale_)
-    case ("tanh")
-       transfer = tanh_setup(scale = scale_)
-    case ("none")
-       transfer = none_setup()
-    case default
-       transfer = none_setup()
+    select type(input)
+    class is(activation_type)
+       activation = input
+    type is(character(*))
+       select case(trim(to_lower(input)))
+       case("gaussian")
+          activation = gaussian_setup()
+       case ("linear")
+          activation = linear_setup()
+       case ("piecewise")
+          activation = piecewise_setup()
+       case ("relu")
+          activation = relu_setup()
+       case ("leaky_relu")
+          activation = leaky_relu_setup()
+       case ("sigmoid")
+          activation = sigmoid_setup()
+       case ("softmax")
+          activation = softmax_setup()
+       case("swish")
+          activation = swish_setup()
+       case ("tanh")
+          activation = tanh_setup()
+       case ("none")
+          activation = none_setup()
+       case default
+          if(present(error))then
+             error = -1
+             return
+          else
+             write(err_msg,'("Incorrect activation name given ''",A,"''")') &
+                  trim(to_lower(input))
+             call stop_program(trim(err_msg))
+             return
+          end if
+       end select
+    class default
+       if(present(error))then
+          error = -1
+          return
+       else
+          write(err_msg,'("Unknown input type given for activation setup")')
+          call stop_program(trim(err_msg))
+          return
+       end if
     end select
 
   end function activation_setup

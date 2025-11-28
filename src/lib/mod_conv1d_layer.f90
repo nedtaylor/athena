@@ -41,7 +41,8 @@ module athena__conv1d_layer
      module function layer_setup( &
           input_shape, batch_size, &
           num_filters, kernel_size, stride, dilation, padding, &
-          activation_function, activation_scale, &
+          use_bias, &
+          activation, &
           kernel_initialiser, bias_initialiser, &
           verbose ) result(layer)
        !! Set up the 1D convolutional layer
@@ -57,11 +58,13 @@ module athena__conv1d_layer
        !! Stride
        integer, dimension(..), optional, intent(in) :: dilation
        !! Dilation
-       real(real32), optional, intent(in) :: activation_scale
-       !! Activation scale
-       character(*), optional, intent(in) :: activation_function, &
-            kernel_initialiser, bias_initialiser, padding
-       !! Activation function, kernel initialiser, bias initialiser, padding
+       logical, optional, intent(in) :: use_bias
+       !! Use bias
+       class(*), optional, intent(in) :: activation, &
+            kernel_initialiser, bias_initialiser
+       !! Activation function, kernel initialiser, bias initialiser
+       character(*), optional, intent(in) :: padding
+       !! Padding method
        integer, optional, intent(in) :: verbose
        !! Verbosity level
        type(conv1d_layer_type) :: layer
@@ -106,10 +109,12 @@ contains
   module function layer_setup( &
        input_shape, batch_size, &
        num_filters, kernel_size, stride, dilation, padding, &
-       activation_function, activation_scale, &
+       use_bias, &
+       activation, &
        kernel_initialiser, bias_initialiser, &
        verbose ) result(layer)
     !! Set up the 1D convolutional layer
+    use athena__activation, only: activation_setup
     use athena__initialiser, only: initialiser_setup
     implicit none
 
@@ -126,11 +131,14 @@ contains
     !! Stride
     integer, dimension(..), optional, intent(in) :: dilation
     !! Dilation
-    real(real32), optional, intent(in) :: activation_scale
-    !! Activation scale
-    character(*), optional, intent(in) :: activation_function, &
-         kernel_initialiser, bias_initialiser, padding
-    !! Activation function, kernel initialiser, bias initialiser, padding
+    logical, optional, intent(in) :: use_bias
+    !! Use bias
+    class(*), optional, intent(in) :: activation
+    !! Activation function
+    class(*), optional, intent(in) :: kernel_initialiser, bias_initialiser
+    !! Activation function, kernel initialiser, and bias initialiser
+    character(*), optional, intent(in) :: padding
+    !! Padding method
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -142,14 +150,16 @@ contains
     !! Verbosity level
     integer :: num_filters_
     !! Number of filters
-    real(real32) :: scale = 1._real32
-    !! Activation scale
+    logical :: use_bias_ = .true.
+    !! Use bias
     character(len=10) :: activation_function_ = "none"
     !! Activation function
     character(len=20) :: padding_
     !! Padding
     integer, dimension(1) :: kernel_size_, stride_, dilation_
     !! Kernel size and stride
+    class(activation_type), allocatable :: activation_
+    !! Activation function
     class(initialiser_type), allocatable :: kernel_initialiser_, bias_initialiser_
     !! Kernel and bias initialisers
 
@@ -157,10 +167,30 @@ contains
 
 
     !---------------------------------------------------------------------------
+    ! Set use_bias
+    !---------------------------------------------------------------------------
+    if(present(use_bias)) use_bias_ = use_bias
+
+
+    !---------------------------------------------------------------------------
     ! Set activation and derivative functions based on input name
     !---------------------------------------------------------------------------
-    if(present(activation_function)) activation_function_ = activation_function
-    if(present(activation_scale)) scale = activation_scale
+    if(present(activation))then
+       activation_ = activation_setup(activation)
+    else
+       activation_ = activation_setup("none")
+    end if
+
+
+    !---------------------------------------------------------------------------
+    ! Define weights (kernels) and biases initialisers
+    !---------------------------------------------------------------------------
+    if(present(kernel_initialiser))then
+       kernel_initialiser_ = initialiser_setup(kernel_initialiser)
+    end if
+    if(present(bias_initialiser))then
+       bias_initialiser_ = initialiser_setup(bias_initialiser)
+    end if
 
 
     !---------------------------------------------------------------------------
@@ -229,25 +259,14 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Define weights (kernels) and biases initialisers
-    !---------------------------------------------------------------------------
-    if(present(kernel_initialiser))then
-       kernel_initialiser_ = initialiser_setup(kernel_initialiser)
-    end if
-    if(present(bias_initialiser))then
-       bias_initialiser_ = initialiser_setup(bias_initialiser)
-    end if
-
-
-    !---------------------------------------------------------------------------
     ! Set hyperparameters
     !---------------------------------------------------------------------------
     call layer%set_hyperparams( &
          num_filters = num_filters_, &
          kernel_size = kernel_size_, stride = stride_, dilation = dilation_, &
          padding = padding_, &
-         activation_function = activation_function_, &
-         activation_scale = scale, &
+         use_bias = use_bias_, &
+         activation = activation_, &
          kernel_initialiser = kernel_initialiser_, &
          bias_initialiser = bias_initialiser_, &
          verbose = verbose_ &
@@ -275,8 +294,8 @@ contains
        num_filters, &
        kernel_size, stride, dilation, &
        padding, &
-       activation_function, &
-       activation_scale, &
+       use_bias, &
+       activation, &
        kernel_initialiser, bias_initialiser, &
        verbose &
   )
@@ -295,10 +314,10 @@ contains
     !! Kernel size, stride, dilation
     character(*), intent(in) :: padding
     !! Padding
-    character(*), intent(in) :: activation_function
+    logical, intent(in) :: use_bias
+    !! Use bias
+    class(activation_type), allocatable, intent(in) :: activation
     !! Activation function
-    real(real32), intent(in) :: activation_scale
-    !! Activation scale
     class(initialiser_type), allocatable, intent(in) :: &
          kernel_initialiser, bias_initialiser
     !! Kernel and bias initialisers
@@ -313,7 +332,7 @@ contains
     this%type = "conv"
     this%input_rank = 2
     this%output_rank = 2
-    this%has_bias = .true.
+    this%use_bias = use_bias
     if(allocated(this%dil)) deallocate(this%dil)
     if(allocated(this%knl)) deallocate(this%knl)
     if(allocated(this%stp)) deallocate(this%stp)
@@ -346,19 +365,20 @@ contains
        )
        this%pad = this%hlf
     end select
-    if(allocated(this%transfer)) deallocate(this%transfer)
-    allocate(this%transfer, &
-         source=activation_setup(activation_function, activation_scale) &
-    )
+    if(.not.allocated(activation))then
+       this%transfer = activation_setup("none")
+    else
+       this%transfer = activation
+    end if
     if(.not.allocated(kernel_initialiser))then
-       buffer = get_default_initialiser(activation_function)
+       buffer = get_default_initialiser(this%transfer%name)
        this%kernel_init = initialiser_setup(buffer)
     else
        this%kernel_init = kernel_initialiser
     end if
     if(.not.allocated(bias_initialiser))then
        buffer = get_default_initialiser( &
-            activation_function, &
+            this%transfer%name, &
             is_bias=.true. &
        )
        this%bias_init = initialiser_setup(buffer)
@@ -368,7 +388,7 @@ contains
     if(present(verbose))then
        if(abs(verbose).gt.0)then
           write(*,'("CONV1D activation function: ",A)') &
-               trim(activation_function)
+               trim(this%transfer%name)
           write(*,'("CONV1D kernel initialiser: ",A)') &
                trim(this%kernel_init%name)
           write(*,'("CONV1D bias initialiser: ",A)') &
@@ -502,6 +522,7 @@ contains
     !! Read 1D convolutional layer from file
     use athena__tools_infile, only: assign_val, assign_vec, move
     use coreutils, only: to_lower, to_upper, icount
+    use athena__activation, only: activation_setup
     use athena__initialiser, only: initialiser_setup
     implicit none
 
@@ -522,12 +543,14 @@ contains
     !! Loop variables and temporary integer
     integer :: num_filters
     !! Number of filters
-    real(real32) :: activation_scale
-    !! Activation scale
+    logical :: use_bias = .true.
+    !! Whether to use bias
     character(14) :: kernel_initialiser_name='', bias_initialiser_name=''
     !! Kernel and bias initialisers
-    character(20) :: padding, activation_function
+    character(20) :: padding, activation_name=''
     !! Padding and activation function
+    class(activation_type), allocatable :: activation
+    !! Activation function
     class(initialiser_type), allocatable :: kernel_initialiser, bias_initialiser
     !! Initialisers
     character(256) :: buffer, tag, err_msg
@@ -590,13 +613,13 @@ contains
           call assign_vec(buffer, stride, itmp1)
        case("DILATION")
           call assign_vec(buffer, dilation, itmp1)
+       case("USE_BIAS")
+          call assign_val(buffer, use_bias, itmp1)
        case("PADDING")
           call assign_val(buffer, padding, itmp1)
           padding = to_lower(padding)
        case("ACTIVATION")
-          call assign_val(buffer, activation_function, itmp1)
-       case("ACTIVATION_SCALE")
-          call assign_val(buffer, activation_scale, itmp1)
+          call assign_val(buffer, activation_name, itmp1)
        case("KERNEL_INITIALISER", "KERNEL_INIT", "KERNEL_INITIALIZER")
           call assign_val(buffer, kernel_initialiser_name, itmp1)
        case("BIAS_INITIALISER", "BIAS_INIT", "BIAS_INITIALIZER")
@@ -620,6 +643,7 @@ contains
           return
        end select
     end do tag_loop
+    activation = activation_setup(activation_name)
     kernel_initialiser = initialiser_setup(kernel_initialiser_name)
     bias_initialiser = initialiser_setup(bias_initialiser_name)
 
@@ -630,8 +654,8 @@ contains
          num_filters = num_filters, &
          kernel_size = kernel_size, stride = stride, dilation = dilation, &
          padding = padding, &
-         activation_function = activation_function, &
-         activation_scale = activation_scale, &
+         use_bias = use_bias, &
+         activation = activation, &
          kernel_initialiser = kernel_initialiser, &
          bias_initialiser = bias_initialiser, &
          verbose = verbose_ &

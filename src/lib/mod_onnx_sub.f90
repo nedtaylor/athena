@@ -127,7 +127,7 @@ contains
           do j = 1, size(layer%weight_shape, dim=2)
              write(unit, '(4X,"input: ""node_",I0,"_weight",I0,"""")') &
                   network%model(idx)%layer%id, j
-             if(layer%has_bias)then
+             if(layer%use_bias)then
                 write(unit, '(4X,"input: ""node_",I0,"_bias",I0,"""")') &
                      network%model(idx)%layer%id, j
              end if
@@ -728,7 +728,7 @@ contains
 
           num_params_old = num_params_old + num_params
 
-          if(layer%has_bias)then
+          if(layer%use_bias)then
              write(name, '(A,A,I0)') trim(prefix), '_bias', i
              write(unit, '(2X,A)') 'initializer {'
              write(unit, '(4X,"name: """,A,"""")') trim(name)

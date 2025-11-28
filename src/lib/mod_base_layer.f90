@@ -415,7 +415,7 @@ module athena__base_layer
      !! Type for layers with learnable parameters
      integer :: num_params = 0
      !! Number of learnable parameters
-     logical :: has_bias = .false.
+     logical :: use_bias = .false.
      !! Layer has bias
      integer, allocatable, dimension(:,:) :: weight_shape
      !! Shape of weights

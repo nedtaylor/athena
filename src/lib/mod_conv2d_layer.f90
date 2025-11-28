@@ -334,7 +334,7 @@ contains
     this%type = "conv"
     this%input_rank = 3
     this%output_rank = 3
-    this%has_bias = .true.
+    this%use_bias = .true.
     if(allocated(this%dil)) deallocate(this%dil)
     if(allocated(this%knl)) deallocate(this%knl)
     if(allocated(this%stp)) deallocate(this%stp)

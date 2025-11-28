@@ -72,7 +72,7 @@ contains
     class(initialiser_type), allocatable :: initialiser
     !! Initialiser function
     class(*) :: input
-    !! Name of initialiser or initialiser type
+    !! Name of initialiser or initialiser object
     integer, optional, intent(out) :: error
     !! Error code
 
@@ -127,12 +127,11 @@ contains
           error = -1
           return
        else
-          write(err_msg,'("Unknown input type given")')
+          write(err_msg,'("Unknown input type given for initialiser setup")')
           call stop_program(trim(err_msg))
           return
        end if
     end select
-
 
   end function initialiser_setup
 !###############################################################################

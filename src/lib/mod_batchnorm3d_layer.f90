@@ -238,7 +238,7 @@ contains
     this%type = "batc"
     this%input_rank = 4
     this%output_rank = 4
-    this%has_bias = .true.
+    this%use_bias = .true.
     this%momentum = momentum
     this%epsilon = epsilon
     if(trim(this%kernel_initialiser).eq.'') &
