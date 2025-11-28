@@ -554,39 +554,51 @@ module athena__base_layer
      !! Get the number of parameters in the layer
      procedure, pass(this) :: init => init_batch
      !! Initialise the layer
+     procedure, pass(this) :: get_attributes => get_attributes_batch
+     !! Get the attributes of the layer (for ONNX export)
   end type batch_layer_type
-
-
 
   interface
      pure module function get_num_params_base(this) result(num_params)
        class(base_layer_type), intent(in) :: this
        integer :: num_params
      end function get_num_params_base
+
      pure module function get_num_params_batch(this) result(num_params)
        class(batch_layer_type), intent(in) :: this
        integer :: num_params
      end function get_num_params_batch
+
      pure module function get_num_params_conv(this) result(num_params)
        class(conv_layer_type), intent(in) :: this
        integer :: num_params
      end function get_num_params_conv
+
      module subroutine init_conv(this, input_shape, batch_size, verbose)
        class(conv_layer_type), intent(inout) :: this
        integer, dimension(:), intent(in) :: input_shape
        integer, optional, intent(in) :: batch_size
        integer, optional, intent(in) :: verbose
      end subroutine init_conv
+
      module function get_attributes_conv(this) result(attributes)
        class(conv_layer_type), intent(in) :: this
        type(onnx_attribute_type), allocatable, dimension(:) :: attributes
      end function get_attributes_conv
+
      module subroutine init_batch(this, input_shape, batch_size, verbose)
        class(batch_layer_type), intent(inout) :: this
        integer, dimension(:), intent(in) :: input_shape
        integer, optional, intent(in) :: batch_size
        integer, optional, intent(in) :: verbose
      end subroutine init_batch
+
+     module function get_attributes_batch(this) result(attributes)
+       class(batch_layer_type), intent(in) :: this
+       !! Instance of the layer
+       type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+       !! Attributes of the layer
+     end function get_attributes_batch
   end interface
 
 

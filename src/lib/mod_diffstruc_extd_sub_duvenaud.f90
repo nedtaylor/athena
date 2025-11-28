@@ -4,7 +4,9 @@ submodule (athena__diffstruc_extd) athena__diffstruc_extd_submodule_msgpass_duve
 contains
 
 !###############################################################################
-  function duvenaud_propagate(vertex_features, edge_features, adj_ia, adj_ja) result(c)
+  module function duvenaud_propagate( &
+       vertex_features, edge_features, adj_ia, adj_ja &
+  ) result(c)
     !! Propagate values from one autodiff array to another
     implicit none
     class(array_type), intent(in), target :: vertex_features, edge_features
@@ -129,7 +131,7 @@ contains
 
 
 !###############################################################################
-  function duvenaud_update(a, weight, adj_ia, min_degree, max_degree) result(c)
+  module function duvenaud_update(a, weight, adj_ia, min_degree, max_degree) result(c)
     !! Update the message passing layer
     implicit none
     class(array_type), intent(in), target :: a

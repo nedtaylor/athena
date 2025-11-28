@@ -145,7 +145,7 @@ contains
     integer :: i, c, s, num_dims, num_elements
     real(real32), allocatable :: x_hat(:,:), dx_hat(:,:)
     real(real32) :: mu, var, eps, norm
-    real(real32), dimension(size(this%shape)) :: input_shape
+    integer, dimension(size(this%shape)) :: input_shape
 
     input_shape = this%left_operand%shape
 
@@ -200,7 +200,7 @@ contains
     integer :: c, num_dims, num_elements
     real(real32), allocatable :: x_hat(:,:)
     real(real32) :: mu, var, eps
-    real(real32), dimension(size(this%shape)) :: input_shape
+    integer, dimension(size(this%shape)) :: input_shape
 
     input_shape = this%left_operand%shape
 
