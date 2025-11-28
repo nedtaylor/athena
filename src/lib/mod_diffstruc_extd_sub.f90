@@ -2,7 +2,7 @@ submodule (athena__diffstruc_extd) athena__diffstruc_extd_submodule
   !! Submodule containing implementations for extended diffstruc array operations
   use coreutils, only: stop_program
   use diffstruc, only: &
-       operator(+), operator(-), operator(*), operator(.concat.), exp, sum
+       operator(+), operator(-), operator(*), operator(.concat.), exp, sum, merge
 
 contains
 
@@ -213,28 +213,28 @@ contains
 
 
 !###############################################################################
-  module function piecewise_array(input, min_val, max_val, intercept) result(output)
+  module function piecewise_array(input, gradient, limit) result(output)
     !! Apply piecewise activation function to input array
     implicit none
 
     ! Arguments
     class(array_type), intent(in), target :: input
-    real(real32), intent(in) :: min_val
-    real(real32), intent(in) :: max_val
-    real(real32), intent(in) :: intercept
+    real(real32), intent(in) :: gradient
+    real(real32), intent(in) :: limit
     type(array_type), pointer :: output
     type(array_type), pointer :: b_array
 
     output => input%create_result()
-    where(input%val.le.min_val)
-       output%val = 0._real32
-    elsewhere(input%val.ge.max_val)
-       output%val = 1._real32
+    where(input%val.ge.limit)
+       output%val = gradient * (input%val - limit) + limit
+    elsewhere(input%val.le.-limit)
+       output%val = gradient * (input%val + limit) - limit
     elsewhere
-       output%val = input%val + intercept
+       output%val = input%val
     end where
 
     output%get_partial_left => get_partial_piecewise
+    output%get_partial_left_val => get_partial_piecewise_val
     if(input%requires_grad)then
        output%requires_grad = .true.
        output%is_forward = input%is_forward
@@ -244,10 +244,9 @@ contains
     allocate(b_array)
     b_array%is_sample_dependent = .false.
     b_array%requires_grad = .false.
-    call b_array%allocate(array_shape=[3, 1])
-    b_array%val(1,1) = min_val
-    b_array%val(2,1) = max_val
-    b_array%val(3,1) = intercept
+    call b_array%allocate(array_shape=[2, 1])
+    b_array%val(1,1) = gradient
+    b_array%val(2,1) = limit
     output%right_operand => b_array
     output%owns_left_operand = .true.
 
@@ -260,16 +259,34 @@ contains
     type(array_type), intent(in) :: upstream_grad
     type(array_type) :: output
 
-    call output%allocate(array_shape = [this%shape, size(this%val, 2)])
-    where(this%left_operand%val.gt.this%right_operand%val(1,1) .and. &
-         this%left_operand%val.lt.this%right_operand%val(2,1) &
+    type(array_type), pointer :: ptr
+
+    ptr => merge( &
+         upstream_grad, &
+         upstream_grad * this%right_operand%val(1,1), &
+         this%left_operand%val.le.-this%right_operand%val(2,1) .or. &
+         this%left_operand%val.ge.this%right_operand%val(2,1) &
     )
-       output%val = upstream_grad%val
-    elsewhere
-       output%val = 0._real32
-    end where
+    call output%assign_and_deallocate_source(ptr)
 
   end function get_partial_piecewise
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_piecewise_val(this, upstream_grad, output)
+    !! Get partial derivative of piecewise activation (in-place version)
+    implicit none
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    where(this%left_operand%val.le.this%right_operand%val(2,1) .or. &
+         this%left_operand%val.ge.-this%right_operand%val(2,1) &
+    )
+       output = upstream_grad
+    elsewhere
+       output = upstream_grad * this%right_operand%val(1,1)
+    end where
+
+  end subroutine get_partial_piecewise_val
 !###############################################################################
 
 

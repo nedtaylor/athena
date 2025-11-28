@@ -74,9 +74,9 @@ contains
     case ("tanh")
        transfer = tanh_setup(scale = scale_)
     case ("none")
-       transfer = none_setup(scale = scale_)
+       transfer = none_setup()
     case default
-       transfer = none_setup(scale = scale_)
+       transfer = none_setup()
     end select
 
   end function activation_setup

@@ -30,136 +30,27 @@ module athena__misc_types
      !! Abstract type for activation functions
      character(10) :: name
      !! Name of the activation function
-     real(real32) :: scale
+     real(real32) :: scale = 1._real32
      !! Scale of the activation function
      real(real32) :: threshold
      !! Threshold of the activation function
+     logical :: apply_scaling = .false.
+     !! Boolean to apply scaling or not
    contains
-     procedure (activation_function_array), deferred, pass(this) :: activate_array
-     procedure (activation_function_1d), deferred, pass(this) :: activate_1d
-     !! Abstract procedure for 1D activation function
-     procedure (derivative_function_1d), deferred, pass(this) :: &
-          differentiate_1d
-     !! Abstract procedure for 1D derivative of activation function
-     procedure (activation_function_2d), deferred, pass(this) :: activate_2d
-     !! Abstract procedure for 2D activation function
-     procedure (derivative_function_2d), deferred, pass(this) :: &
-          differentiate_2d
-     !! Abstract procedure for 2D derivative of activation function
-     procedure (activation_function_3d), deferred, pass(this) :: activate_3d
-     !! Abstract procedure for 3D activation function
-     procedure (derivative_function_3d), deferred, pass(this) :: &
-          differentiate_3d
-     !! Abstract procedure for 3D derivative of activation function
-     procedure (activation_function_4d), deferred, pass(this) :: activate_4d
-     !! Abstract procedure for 4D activation function
-     procedure (derivative_function_4d), deferred, pass(this) :: &
-          differentiate_4d
-     !! Abstract procedure for 4D derivative of activation function
-     procedure (activation_function_5d), deferred, pass(this) :: activate_5d
-     !! Abstract procedure for 5D activation function
-     procedure (derivative_function_5d), deferred, pass(this) :: &
-          differentiate_5d
+     procedure (activation_function), deferred, pass(this) :: activate
      !! Abstract procedure for 5D derivative of activation function
-     generic :: activate => activate_array, activate_1d, activate_2d, &
-          activate_3d , activate_4d, activate_5d
-     !! Generic for activation function
-     generic :: differentiate => differentiate_1d, differentiate_2d, &
-          differentiate_3d, differentiate_4d, differentiate_5d
-     !! Generic for derivative of activation function
   end type activation_type
 
   ! Interface for activation function
   !-----------------------------------------------------------------------------
   abstract interface
-     function activation_function_array(this, val) result(output)
+     function activation_function(this, val) result(output)
        !! Interface for activation function
        import activation_type, real32, array_type
        class(activation_type), intent(in) :: this
        type(array_type), intent(in) :: val
        type(array_type), pointer :: output
-     end function activation_function_array
-
-     function activation_function_1d(this, val) result(output)
-       !! Interface for activation function
-       import activation_type, real32
-       class(activation_type), intent(in) :: this
-       real(real32), dimension(:), intent(in) :: val
-       real(real32), dimension(size(val,1)) :: output
-     end function activation_function_1d
-
-     function activation_function_2d(this, val) result(output)
-       import activation_type, real32
-       class(activation_type), intent(in) :: this
-       real(real32), dimension(:,:), intent(in) :: val
-       real(real32), dimension(size(val,1),size(val,2)) :: output
-     end function activation_function_2d
-
-     function activation_function_3d(this, val) result(output)
-       import activation_type, real32
-       class(activation_type), intent(in) :: this
-       real(real32), dimension(:,:,:), intent(in) :: val
-       real(real32), dimension(size(val,1),size(val,2),size(val,3)) :: output
-     end function activation_function_3d
-
-     function activation_function_4d(this, val) result(output)
-       import activation_type, real32
-       class(activation_type), intent(in) :: this
-       real(real32), dimension(:,:,:,:), intent(in) :: val
-       real(real32), dimension(&
-            size(val,1),size(val,2),size(val,3),size(val,4)) :: output
-     end function activation_function_4d
-
-     function activation_function_5d(this, val) result(output)
-       import activation_type, real32
-       class(activation_type), intent(in) :: this
-       real(real32), dimension(:,:,:,:,:), intent(in) :: val
-       real(real32), dimension(&
-            size(val,1),size(val,2),size(val,3), &
-            size(val,4),size(val,5)) :: output
-     end function activation_function_5d
-  end interface
-
-  ! Interface for derivative function
-  !-----------------------------------------------------------------------------
-  abstract interface
-     function derivative_function_1d(this, val) result(output)
-       import activation_type, real32
-       class(activation_type), intent(in) :: this
-       real(real32), dimension(:), intent(in) :: val
-       real(real32), dimension(size(val,1)) :: output
-     end function derivative_function_1d
-
-     function derivative_function_2d(this, val) result(output)
-       import activation_type, real32
-       class(activation_type), intent(in) :: this
-       real(real32), dimension(:,:), intent(in) :: val
-       real(real32), dimension(size(val,1),size(val,2)) :: output
-     end function derivative_function_2d
-
-     function derivative_function_3d(this, val) result(output)
-       import activation_type, real32
-       class(activation_type), intent(in) :: this
-       real(real32), dimension(:,:,:), intent(in) :: val
-       real(real32), dimension(size(val,1),size(val,2),size(val,3)) :: output
-     end function derivative_function_3d
-
-     function derivative_function_4d(this, val) result(output)
-       import activation_type, real32
-       class(activation_type), intent(in) :: this
-       real(real32), dimension(:,:,:,:), intent(in) :: val
-       real(real32), dimension(&
-            size(val,1),size(val,2),size(val,3),size(val,4)) :: output
-     end function derivative_function_4d
-
-     function derivative_function_5d(this, val) result(output)
-       import activation_type, real32
-       class(activation_type), intent(in) :: this
-       real(real32), dimension(:,:,:,:,:), intent(in) :: val
-       real(real32), dimension(&
-            size(val,1),size(val,2),size(val,3), &
-            size(val,4),size(val,5)) :: output
-     end function derivative_function_5d
+     end function activation_function
   end interface
 !-------------------------------------------------------------------------------
 

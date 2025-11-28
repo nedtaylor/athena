@@ -75,13 +75,10 @@ module athena__diffstruc_extd
   end interface
 
   interface piecewise
-     module function piecewise_array( &
-          input, min_val, max_val, intercept &
-     ) result( output )
+     module function piecewise_array(input, gradient, limit) result( output )
        class(array_type), intent(in), target :: input
-       real(real32), intent(in) :: min_val
-       real(real32), intent(in) :: max_val
-       real(real32), intent(in) :: intercept
+       real(real32), intent(in) :: gradient
+       real(real32), intent(in) :: limit
        type(array_type), pointer :: output
      end function piecewise_array
   end interface
