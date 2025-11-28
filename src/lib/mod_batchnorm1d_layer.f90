@@ -1,9 +1,11 @@
 module athena__batchnorm1d_layer
   !! Module containing implementation of 0D and 1D batch normalisation layers
-  use athena__io_utils, only: stop_program
-  use athena__constants, only: real32
+  use coreutils, only: real32, stop_program
   use athena__base_layer, only: batch_layer_type, base_layer_type
-  use athena__misc_types, only: initialiser_type, array3d_type
+  use athena__misc_types, only: initialiser_type
+  use diffstruc, only: array_type
+  use athena__diffstruc_extd, only: batchnorm_array_type, &
+       batchnorm, batchnorm_inference
   implicit none
 
 
@@ -25,14 +27,10 @@ module athena__batchnorm1d_layer
      !! Print 1D batch normalisation layer to unit
      procedure, pass(this) :: read => read_batchnorm1d
      !! Read 1D batch normalisation layer from file
-     procedure, pass(this) :: forward  => forward_rank
-     !! Forward propagation handler for 1D batch normalisation layer
-     procedure, pass(this) :: backward => backward_rank
-     !! Backward propagation handler for 1D batch normalisation layer
-     procedure, private, pass(this) :: forward_3d
-     !! Forward propagation for 3D input
-     procedure, private, pass(this) :: backward_3d
-     !! Backward propagation for 3D input
+
+     procedure, pass(this) :: forward => forward_batchnorm1d
+     !! Forward propagation derived type handler
+
      final :: finalise_batchnorm1d
      !! Finalise 1D batch normalisation layer
   end type batchnorm1d_layer_type
@@ -87,74 +85,12 @@ contains
     type(batchnorm1d_layer_type), intent(inout) :: this
     !! Instance of the 1D batch normalisation layer
 
-    if(associated(this%gamma)) nullify(this%gamma)
-    if(associated(this%beta)) nullify(this%beta)
     if(allocated(this%mean)) deallocate(this%mean)
     if(allocated(this%variance)) deallocate(this%variance)
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
-    if(allocated(this%di)) deallocate(this%di)
 
   end subroutine finalise_batchnorm1d
-!###############################################################################
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
-
-!###############################################################################
-  subroutine forward_rank(this, input)
-    !! Forward propagation handler for 1D batch normalisation layer
-    implicit none
-
-    ! Arguments
-    class(batchnorm1d_layer_type), intent(inout) :: this
-    !! Instance of the 1D batch normalisation layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input values
-
-    select rank(input)
-    rank(2)
-       call forward_3d(this, input)
-    rank(3)
-       call forward_3d(this, input)
-    end select
-  end subroutine forward_rank
-!###############################################################################
-
-
-!###############################################################################
-  subroutine backward_rank(this, input, gradient)
-    !! Backward propagation handler for 1D batch normalisation layer
-    implicit none
-
-    ! Arguments
-    class(batchnorm1d_layer_type), intent(inout) :: this
-    !! Instance of the 1D batch normalisation layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input values
-    real(real32), dimension(..), intent(in) :: gradient
-    !! Gradient values
-
-    select rank(input)
-    rank(2)
-       select rank(gradient)
-       rank(2)
-          call backward_3d(this, input, gradient)
-       end select
-    rank(3)
-       select rank(gradient)
-       rank(1)
-          call backward_3d(this, input, gradient)
-       rank(2)
-          call backward_3d(this, input, gradient)
-       rank(3)
-          call backward_3d(this, input, gradient)
-       end select
-    end select
-  end subroutine backward_rank
 !###############################################################################
 
 
@@ -398,14 +334,6 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Initialise gamma and beta parameters
-    !---------------------------------------------------------------------------
-    this%gamma(1:this%num_channels) => this%params(1:this%num_channels)
-    this%beta(1:this%num_channels) => &
-         this%params(this%num_channels+1:this%num_channels*2)
-
-
-    !---------------------------------------------------------------------------
     ! Set norm
     !---------------------------------------------------------------------------
     this%norm = real(this%batch_size, real32)
@@ -422,7 +350,7 @@ contains
           return
        end if
        if(allocated(this%output)) deallocate(this%output)
-       allocate( this%output(1,1), source = array3d_type() )
+       allocate( batchnorm_array_type :: this%output(1,1) )
        call this%output(1,1)%allocate( &
             array_shape = [ &
                  this%num_inputs, &
@@ -430,9 +358,6 @@ contains
                  this%batch_size ], &
             source=0._real32 &
        )
-       if(allocated(this%di)) deallocate(this%di)
-       allocate( this%di(1,1), source = array3d_type() )
-       call this%di(1,1)%allocate( source = this%output(1,1) )
     end if
 
   end subroutine set_batch_size_batchnorm1d
@@ -447,7 +372,7 @@ contains
 !###############################################################################
   subroutine print_to_unit_batchnorm1d(this, unit)
     !! Print 1D batch normalisation layer to unit
-    use athena__misc, only: to_upper
+    use coreutils, only: to_upper
     implicit none
 
     ! Arguments
@@ -469,12 +394,12 @@ contains
     write(unit,'(3X,"NUM_CHANNELS = ",I0)') this%num_channels
     write(unit,'("GAMMA")')
     do m = 1, this%num_channels
-       write(unit,'(5(E16.8E2))') this%gamma(m)
+       write(unit,'(5(E16.8E2))') this%params_array(1)%val(m,1)
     end do
     write(unit,'("END GAMMA")')
     write(unit,'("BETA")')
     do m = 1, this%num_channels
-       write(unit,'(5(E16.8E2))') this%beta(m)
+       write(unit,'(5(E16.8E2))') this%params_array(1)%val(this%num_channels+m,1)
     end do
     write(unit,'("END BETA")')
 
@@ -486,7 +411,7 @@ contains
   subroutine read_batchnorm1d(this, unit, verbose)
     !! Read 1D batch normalisation layer from file
     use athena__tools_infile, only: assign_val, assign_vec, move
-    use athena__misc, only: to_lower, to_upper, icount
+    use coreutils, only: to_lower, to_upper, icount
     implicit none
 
     ! Arguments
@@ -633,7 +558,7 @@ contains
        read(unit,'(A)',iostat=stat) buffer
        select case(i)
        case(1) ! gamma
-          this%params(1:this%num_channels) = data_list
+          this%params_array(1)%val(1:this%num_channels,1) = data_list
           if(trim(adjustl(buffer)).ne."END GAMMA")then
              write(err_msg,'("END GAMMA not where expected: ",A)') &
                   trim(adjustl(buffer))
@@ -641,7 +566,8 @@ contains
              return
           end if
        case(2) ! beta
-          this%params(this%num_channels+1:this%num_channels*2) = data_list
+          this%params_array(1)%val(this%num_channels+1:this%num_channels*2,1) = &
+               data_list
           if(trim(adjustl(buffer)).ne."END BETA")then
              write(err_msg,'("END BETA not where expected: ",A)') &
                   trim(adjustl(buffer))
@@ -699,137 +625,50 @@ contains
 
 
 !###############################################################################
-  subroutine forward_3d(this, input)
-    !! Forward propagation for 3D input
+  subroutine forward_batchnorm1d(this, input)
+    !! Forward propagation
     implicit none
 
     ! Arguments
     class(batchnorm1d_layer_type), intent(inout) :: this
     !! Instance of the 1D batch normalisation layer
-    real(real32), &
-         dimension( &
-              this%num_inputs, &
-              this%num_channels, &
-              this%batch_size), &
-         intent(in) :: input
+    class(array_type), dimension(:,:), intent(in) :: input
     !! Input values
 
     ! Local variables
-    integer :: m
-    !! Loop index
-    real(real32), dimension(this%num_channels) :: t_mean, t_variance
-    !! Temporary mean and variance
+    class(batchnorm_array_type), pointer :: ptr
+    ! Pointer array
 
 
+    select case(this%inference)
+    case(.true.)
+       ! Do not perform the drop operation
+
+       ptr => batchnorm_inference(input(1,1), this%params_array(1), &
+            this%norm, &
+            this%mean(:), this%variance(:), this%epsilon &
+       )
+
+    case default
+       ! Perform the drop operation
+       ptr => batchnorm( &
+            input(1,1), this%params_array(1),&
+            this%norm, this%momentum, &
+            this%mean(:), this%variance(:), this%epsilon &
+       )
+
+    end select
     select type(output => this%output(1,1))
-    type is (array3d_type)
-       select case(this%inference)
-       case(.true.)
-          do concurrent(m=1:this%num_channels)
-             ! Normalise each feature
-             output%val_ptr(:,m,:) = &
-                  this%gamma(m) * (input(:,m,:) - this%mean(m)) / &
-                  sqrt( &
-                       this%batch_size / (this%batch_size - 1) * &
-                       this%variance(m) + &
-                       this%epsilon) + &
-                  this%beta(m)
-          end do
-       case default
-          t_mean = 0._real32
-          t_variance = 0._real32
-          do concurrent(m=1:this%num_channels)
-             ! Calculate current mean and variance
-             t_mean(m) = sum(input(:,m,:)) / this%norm
-             t_variance(m) = &
-                  sum((input(:,m,:) - t_mean(m))**2._real32) / this%norm
-
-             ! Convert to using inverse square root of variance (i.e. inv. std)
-             ! Would also need to include epsilon in the sqrt denominator
-
-             ! Update running averages
-             if(this%momentum.gt.1.E-8_real32)then
-                this%mean(m) = this%momentum * this%mean(m) + &
-                     (1._real32 - this%momentum) * t_mean(m)
-                this%variance(m) = this%momentum * this%variance(m) + &
-                     (1._real32 - this%momentum) * t_variance(m)
-             else
-                this%mean(m) = t_mean(m)
-                this%variance(m) = t_variance(m)
-             end if
-
-             ! Normalise each feature
-             output%val_ptr(:,m,:) = &
-                  this%gamma(m) * (input(:,m,:) - this%mean(m)) / &
-                  sqrt(this%variance(m) + this%epsilon) + this%beta(m)
-
-          end do
-       end select
+    type is(batchnorm_array_type)
+       call output%assign_shallow(ptr)
+       output%epsilon = ptr%epsilon
+       output%mean = ptr%mean
+       output%variance = ptr%variance
     end select
+    deallocate(ptr)
+    this%output(1,1)%is_temporary = .false.
 
-  end subroutine forward_3d
-!###############################################################################
-
-
-!###############################################################################
-  subroutine backward_3d(this, input, gradient)
-    !! Backward propagation for 3D input
-    implicit none
-
-    ! Arguments
-    class(batchnorm1d_layer_type), intent(inout) :: this
-    !! Instance of the 1D batch normalisation layer
-    real(real32), &
-         dimension( &
-              this%num_inputs, &
-              this%num_channels, &
-              this%batch_size), &
-         intent(in) :: input
-    !! Input values
-    real(real32), &
-         dimension( &
-              this%num_inputs, &
-              this%num_channels, &
-              this%batch_size), &
-         intent(in) :: gradient
-    !! Gradient values
-
-    ! Local variables
-    integer :: m
-    !! Loop index
-    real(real32), dimension( &
-         this%num_inputs, &
-         this%num_channels, &
-         this%batch_size) :: x_hat, dx_hat
-    !! Normalised input and gradient of normalised input
-
-
-    select type(di => this%di(1,1))
-    type is (array3d_type)
-       do concurrent(m=1:this%num_channels)
-          ! Recalculate x_hat (i.e. normalised input)
-          x_hat(:,m,:) = (input(:,m,:) - this%mean(m)) / &
-               sqrt(this%variance(m) + this%epsilon)
-
-          ! Calculate gradient of normalised input
-          dx_hat(:,m,:) = gradient(:,m,:) * this%gamma(m)
-
-          ! Calculate gradient of inputs
-          di%val_ptr(:,m,:) = &
-               1._real32 / ( &
-                    this%norm * sqrt(this%variance(m) + this%epsilon) &
-               ) * &
-               ( this%norm * dx_hat(:,m,:) - &
-                    sum(dx_hat(:,m,:)) - x_hat(:,m,:) * &
-                    sum(dx_hat(:,m,:) * x_hat(:,m,:)))
-
-          ! Calculate gradient of gamma and beta
-          this%dp(m,1) = sum(gradient(:,m,:) * x_hat(:,m,:))
-          this%db(m,1) = sum(gradient(:,m,:))
-       end do
-    end select
-
-  end subroutine backward_3d
+  end subroutine forward_batchnorm1d
 !###############################################################################
 
 end module athena__batchnorm1d_layer

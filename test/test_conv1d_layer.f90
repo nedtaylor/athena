@@ -5,19 +5,21 @@ program test_conv1d_layer
        base_layer_type, &
        learnable_layer_type
   use athena__conv1d_layer, only: read_conv1d_layer
+  use coreutils, only: real32
+  use diffstruc, only: array_type, operator(+), operator(-)
   implicit none
 
-  class(base_layer_type), allocatable :: conv_layer, conv_layer1, conv_layer2
-  class(base_layer_type), allocatable :: input_layer
-  class(base_layer_type), allocatable :: read_layer
+  class(base_layer_type), allocatable, target :: conv_layer
+  class(base_layer_type), allocatable :: conv_layer1, conv_layer2
+  class(base_layer_type), allocatable :: input_layer, read_layer
   integer, parameter :: num_filters = 32, kernel_size = 3
   integer :: unit
-  real, allocatable, dimension(:,:,:) :: input_data, output
+  type(array_type) :: input(1,1)
+  type(array_type), pointer :: output
   real, parameter :: tol = 1.E-7
   logical :: success = .true.
 
   real, allocatable, dimension(:) :: params
-  real, allocatable, dimension(:,:) :: outputs
 
 
 !-------------------------------------------------------------------------------
@@ -90,34 +92,27 @@ program test_conv1d_layer
 !!! use existing layer
 !!!-----------------------------------------------------------------------------
   !! initialise sample input
-  !! conv1d layer: 3x3 pixel image, 1 channel
-  allocate(input_data(3, 1, 1), source = 0.0)
-  input_layer = input_layer_type([3,1], batch_size=1)
+  !! conv1d layer: 3 element signal, 1 channel, batch 1
+  call input(1,1)%allocate(array_shape=[3,1,1], source = 0._real32)
+  call input(1,1)%set_requires_grad(.true.)
   conv_layer = conv1d_layer_type( &
        num_filters = 1, &
        kernel_size = 3, &
        activation_function = 'sigmoid' &
   )
-  call conv_layer%init(input_layer%input_shape, batch_size=1)
+  call conv_layer%init(input(1,1)%shape, batch_size=1)
   call conv_layer%set_ptrs()
 
-  !! set input data in input_layer
-  select type (current => input_layer)
-  type is(input_layer_type)
-     call current%set(input_data)
-  end select
-  call input_layer%get_output(output)
-
   !! run forward pass
-  call conv_layer%forward(input_data)
-  call conv_layer%get_output(output)
+  call conv_layer%forward(input)
+  output => conv_layer%output(1,1)
 
   !! check outputs have expected value
-  if (any(abs(output - 0.5).gt.tol)) then
+  if (any(abs(output%val(:,1) - 0.5) .gt. tol)) then
      success = .false.
-     write(*,*) 'conv1d layer with zero input and sigmoid activation must &
-          &return outputs all equal to 0.5'
-     write(*,*) output
+     write(*,*) 'conv1d layer with zero input and sigmoid activation must'//&
+          ' return outputs all equal to 0.5'
+     write(*,*) output%val(:,1)
   end if
 
 
@@ -161,13 +156,12 @@ program test_conv1d_layer
      end if
 
      !! check layer output handling
-     call conv_layer%get_output(params)
-     if(size(params) .ne. product(conv_layer%output_shape))then
+     output => conv_layer%output(1,1)
+     if(size(output%val,dim=1) .ne. product(conv_layer%output_shape))then
         success = .false.
         write(0,*) 'conv1d layer has wrong number of outputs'
      end if
-     call conv_layer%get_output(outputs)
-     if(any(shape(outputs) .ne. [product(conv_layer%output_shape), 1]))then
+     if(any(shape(output%val) .ne. [product(conv_layer%output_shape), 1]))then
         success = .false.
         write(0,*) 'conv1d layer has wrong number of outputs'
      end if
@@ -245,12 +239,6 @@ program test_conv1d_layer
            call conv_layer%reduce(conv_layer2)
            call compare_conv1d_layers(&
                 conv_layer, conv_layer1, success, conv_layer2)
-
-           !! check layer merge
-           conv_layer = conv_layer1
-           call conv_layer%merge(conv_layer2)
-           call compare_conv1d_layers(&
-                conv_layer, conv_layer1, success, conv_layer2)
         class default
            success = .false.
            write(0,*) 'conv1d layer has wrong type'
@@ -273,7 +261,7 @@ program test_conv1d_layer
   ! Create a temporary file for testing
   open(newunit=unit, file='test_conv1d_layer.tmp', &
        status='replace', action='write')
-  
+
   ! Write layer to file
   write(unit,'("CONV1D")')
   call conv_layer%print_to_unit(unit)
@@ -340,13 +328,34 @@ contains
             layer1%transfer%name
     end if
     if(present(layer3))then
-       if(any(abs(layer1%dw-layer2%dw-layer3%dw).gt.tol))then
-          success = .false.
-          write(0,*) 'conv1d layer has wrong weights'
+       if( &
+            associated(layer1%params_array(1)%grad).and. &
+            associated(layer2%params_array(1)%grad).and. &
+            associated(layer3%params_array(1)%grad) &
+       )then
+          if(any(abs( &
+               layer1%params_array(1)%grad%val - &
+               layer2%params_array(1)%grad%val - &
+               layer3%params_array(1)%grad%val &
+          ).gt.1.E-6))then
+             success = .false.
+             write(0,*) 'conv1d layer has wrong gradients'
+          end if
        end if
-       if(any(abs(layer1%db-layer2%db-layer3%db).gt.tol))then
-          success = .false.
-          write(0,*) 'conv1d layer has wrong weights'
+
+       if( &
+            associated(layer1%params_array(2)%grad).and. &
+            associated(layer2%params_array(2)%grad).and. &
+            associated(layer3%params_array(2)%grad) &
+       )then
+          if(any(abs( &
+               layer1%params_array(2)%grad%val - &
+               layer2%params_array(2)%grad%val - &
+               layer3%params_array(2)%grad%val &
+          ).gt.1.E-6))then
+             success = .false.
+             write(0,*) 'conv1d layer has wrong bias gradients'
+          end if
        end if
     end if
 

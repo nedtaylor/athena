@@ -4,7 +4,8 @@
 !!! Code part of the ARTEMIS group
 !!!#############################################################################
 module inputs
-  use constants_mnist, only: real32, ierror
+  use coreutils, only: real32, icount, flagmaker, file_check, to_lower
+  use constants_mnist, only: ierror
   use athena, only: &
        metric_dict_type, &
        base_optimiser_type, &
@@ -13,7 +14,6 @@ module inputs
        l1l2_regulariser_type, &
        l1_regulariser_type, &
        l2_regulariser_type
-  use misc_mnist, only: icount, flagmaker, file_check, to_lower
   implicit none
   integer :: verbosity    ! verbose printing
   integer :: seed         ! random seed
@@ -44,7 +44,7 @@ module inputs
   character(:), allocatable :: cv_bias_initialiser
   real(real32) :: cv_activation_scale
   character(:), allocatable :: cv_activation_function
-  
+
   real(real32) :: bn_gamma, bn_beta  ! batch normalisation learning features
 
   integer :: pool_kernel_size    ! pooling size (assume square)
@@ -57,9 +57,9 @@ module inputs
   character(:), allocatable :: fc_weight_initialiser
 
 
-  real(real32) :: train_size  ! fraction of data to train on (NOT YET USED) 
+  real(real32) :: train_size  ! fraction of data to train on (NOT YET USED)
   logical :: shuffle_dataset  ! shuffle train and test data
-  
+
   type(metric_dict_type), dimension(2) :: metric_dict
 
 
@@ -144,7 +144,7 @@ contains
     cv_num_filters = 32
     cv_block_size = 5
     cv_keep_prob = 1._real32
-    
+
     pool_kernel_size = 2
     pool_stride = 2
     pool_normalisation = "sum"
@@ -275,9 +275,9 @@ contains
     implicit none
     integer :: Reason, unit, i
     character(128) :: message
-    
+
     integer :: num_filters
-    
+
     integer :: block_size
     real(real32) ::  keep_prob
     real(real32) :: activation_scale
@@ -287,7 +287,7 @@ contains
     real(real32) :: momentum, beta1, beta2, epsilon
     character(512) :: hidden_layers
     character(512) :: dataset_dir
-    
+
     integer :: num_metrics
     real(real32), dimension(2) :: threshold
     character(100) :: metrics
@@ -353,7 +353,7 @@ contains
        stop trim(message)
     end if
     data_dir = dataset_dir
-    
+
 
 !-------------------------------------------------------------------------------
 ! read training namelist
@@ -413,7 +413,7 @@ contains
             write(*,'("Metric: ",A,", threshold: ",E10.3E2)') &
             trim(metric_dict(i)%key), metric_dict(i)%threshold
     end do
-    
+
 
 
 !-------------------------------------------------------------------------------
@@ -453,7 +453,7 @@ contains
     !!              ... 1x1 filter, not affecting spatial dimensions
     convolution_method = to_lower(trim(convolution_type))
 !!! NOT SET UP YET
-   
+
     !! handle padding type
     !!---------------------------------------------------------------------------
     !! none = alt. name for 'valid'
@@ -497,7 +497,7 @@ contains
     !! norm
     pool_normalisation = to_lower(trim(normalisation))
 
-    
+
 !-------------------------------------------------------------------------------
 ! read fully connected namelist
 !-------------------------------------------------------------------------------
@@ -712,7 +712,7 @@ contains
     integer, optional, intent(in) :: length
 
     character(1) :: fs
-    
+
     if(scan(trim(string),",").ne.0)then
        fs = ","
     else
@@ -724,10 +724,10 @@ contains
     if(present(length))then
        if(size(output,dim=1).ne.1.and.size(output,dim=1).ne.length)then
           stop "ERROR: LAYER PARAMETER DIMENSION SIZE MUST BE 1 OR &
-               &NUMBER OF LAYERS" 
+               &NUMBER OF LAYERS"
        end if
     end if
- 
+
   end subroutine get_list
 !!!#############################################################################
 

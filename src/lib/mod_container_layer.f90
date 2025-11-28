@@ -3,7 +3,7 @@ module athena__container_layer
   !!
   !! This module contains the container layer type which is a container for an
   !! individual layer.
-  use athena__constants, only: real32
+  use coreutils, only: real32
   use athena__base_layer, only: base_layer_type
   use athena__misc_types, only: onnx_node_type, onnx_initialiser_type
   implicit none

@@ -1,9 +1,9 @@
 module athena__pad1d_layer
   !! Module containing implementation of a 1D padding layer
-  use athena__io_utils, only: stop_program
-  use athena__constants, only: real32
+  use coreutils, only: real32, stop_program
   use athena__base_layer, only: pad_layer_type, base_layer_type
-  use athena__misc_types, only: array3d_type
+  use diffstruc, only: array_type
+  use athena__diffstruc_extd, only: pad1d
   implicit none
 
 
@@ -22,14 +22,10 @@ module athena__pad1d_layer
      !! Set batch size for 1D padding layer
      procedure, pass(this) :: read => read_pad1d
      !! Read 1D padding layer from file
-     procedure, pass(this) :: forward  => forward_rank
-     !! Forward propagation handler for 1D padding layer
-     procedure, pass(this) :: backward => backward_rank
-     !! Backward propagation handler for 1D padding layer
-     procedure, private, pass(this) :: forward_3d
-     !! Forward propagation for 3D input
-     procedure, private, pass(this) :: backward_3d
-     !! Backward propagation for 3D input
+
+     procedure, pass(this) :: forward => forward_pad1d
+     !! Forward propagation derived type handler
+
   end type pad1d_layer_type
 
   interface pad1d_layer_type
@@ -58,61 +54,6 @@ module athena__pad1d_layer
 
 
 contains
-
-!###############################################################################
-  subroutine forward_rank(this, input)
-    !! Forward propagation handler for 1D padding layer
-    implicit none
-
-    ! Arguments
-    class(pad1d_layer_type), intent(inout) :: this
-    !! Instance of the 1D padding layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input values
-
-    select rank(input)
-    rank(2)
-       call forward_3d(this, input)
-    rank(3)
-       call forward_3d(this, input)
-    end select
-  end subroutine forward_rank
-!###############################################################################
-
-
-!###############################################################################
-  subroutine backward_rank(this, input, gradient)
-    !! Backward propagation handler for 1D padding layer
-    implicit none
-
-    ! Arguments
-    class(pad1d_layer_type), intent(inout) :: this
-    !! Instance of the 1D padding layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input values
-    real(real32), dimension(..), intent(in) :: gradient
-    !! Gradient values
-
-    select rank(input)
-    rank(2)
-       select rank(gradient)
-       rank(2)
-          call backward_3d(this, input, gradient)
-       end select
-    rank(3)
-       select rank(gradient)
-       rank(3)
-          call backward_3d(this, input, gradient)
-       end select
-    end select
-  end subroutine backward_rank
-!###############################################################################
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
 
 !###############################################################################
   module function layer_setup( &
@@ -183,7 +124,7 @@ contains
 !###############################################################################
   subroutine set_hyperparams_pad1d(this, padding, method, verbose)
     !! Set hyperparameters for 1D padding layer
-    use athena__misc, only: to_lower
+    use coreutils, only: to_lower
     implicit none
 
     ! Arguments
@@ -262,19 +203,10 @@ contains
           return
        end if
        if(allocated(this%output)) deallocate(this%output)
-       allocate( this%output(1,1), source = array3d_type() )
+       allocate( this%output(1,1) )
        call this%output(1,1)%allocate( &
             array_shape = [ &
                  this%output_shape(1), this%num_channels, &
-                 this%batch_size ], &
-            source=0._real32 &
-       )
-       if(allocated(this%di)) deallocate(this%di)
-       allocate( this%di(1,1), source = array3d_type() )
-       call this%di(1,1)%allocate( &
-            array_shape = [ &
-                 this%input_shape(1), &
-                 this%input_shape(2), &
                  this%batch_size ], &
             source=0._real32 &
        )
@@ -293,7 +225,7 @@ contains
   subroutine read_pad1d(this, unit, verbose)
     !! Read 1D padding layer from file
     use athena__tools_infile, only: assign_val, assign_vec
-    use athena__misc, only: to_lower, to_upper, icount
+    use coreutils, only: to_lower, to_upper, icount
     implicit none
 
     ! Arguments
@@ -427,166 +359,27 @@ contains
 
 
 !###############################################################################
-  subroutine fill_edge_region(this, input, output, orig, dest)
-    !! Fill an edge region based on padding method
-    implicit none
-
-    ! Arguments
-    class(pad1d_layer_type), intent(in) :: this
-    real(real32), dimension(:,:,:), intent(in) :: input
-    real(real32), dimension(:,:,:), intent(inout) :: output
-    integer, dimension(2,1), intent(in) :: orig
-    integer, dimension(2,1), intent(in) :: dest
-
-    ! Local variables
-    integer :: step
-
-    select case(this%imethod)
-    case(3, 4) ! circular or reflection
-       step = merge(1, -1, this%imethod .eq. 3)
-       output(dest(1,1):dest(2,1), :, :) = input(orig(1,1):orig(2,1):step, :, :)
-    case(5) ! replication
-       output(dest(1,1):dest(2,1), :, :) = &
-            spread(input(orig(1,1), :, :), dim=1, ncopies=this%pad(1))
-    end select
-
-  end subroutine fill_edge_region
-!###############################################################################
-
-
-!###############################################################################
-  subroutine accumulate_edge_gradient(this, gradient, di_ptr, orig, dest, s, m)
-    !! Accumulate gradient from an edge region based on padding method
-    implicit none
-
-    ! Arguments
-    class(pad1d_layer_type), intent(in) :: this
-    real(real32), dimension(:,:,:), intent(in) :: gradient
-    real(real32), dimension(:,:,:), intent(inout) :: di_ptr
-    integer, dimension(2,1), intent(in) :: orig
-    integer, dimension(2,1), intent(in) :: dest
-    integer, intent(in) :: s, m
-
-    ! Local variables
-    integer :: step
-
-    select case(this%imethod)
-    case(3, 4) ! circular or reflection
-       step = merge(1, -1, this%imethod .eq. 3)
-       di_ptr(orig(1,1):orig(2,1):step, m, s) = &
-            di_ptr(orig(1,1):orig(2,1):step, m, s) + &
-            gradient(dest(1,1):dest(2,1), m, s)
-    case(5) ! replication
-       di_ptr(orig(1,1), m, s) = &
-            di_ptr(orig(1,1), m, s) + &
-            sum( gradient( dest(1,1):dest(2,1), m, s ), dim=1 )
-    end select
-
-  end subroutine accumulate_edge_gradient
-!###############################################################################
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
-
-!###############################################################################
-  subroutine forward_3d(this, input)
-    !! Forward propagation for 3D input
+  subroutine forward_pad1d(this, input)
+    !! Forward propagation
     implicit none
 
     ! Arguments
     class(pad1d_layer_type), intent(inout) :: this
     !! Instance of the 1D padding layer
-    real(real32), &
-         dimension( &
-              this%input_shape(1), &
-              this%num_channels, &
-              this%batch_size), &
-         intent(in) :: input
+    class(array_type), dimension(:,:), intent(in) :: input
     !! Input values
 
     ! Local variables
-    integer :: f, s, m
-
-    select type(output => this%output(1,1))
-    type is (array3d_type)
-       ! Initialize with zeros for default case
-       output%val_ptr(:,:,:) = 0._real32
-
-       ! Copy main input region to output
-       output%val_ptr( &
-            this%pad(1)+1:this%pad(1)+this%input_shape(1), :, : &
-       ) = input
-
-       ! Handle padding methods that require boundary filling
-       if (this%imethod .ge. 3 .and. this%imethod .le. 5) then
-          do f = 1, this%facets(1)%num
-             call fill_edge_region( this, &
-                  input, output%val_ptr, &
-                  this%facets(1)%orig_bound(:,:,f), &
-                  this%facets(1)%dest_bound(:,:,f) &
-             )
-          end do
-       end if
-    end select
-
-  end subroutine forward_3d
-!###############################################################################
+    type(array_type), pointer :: ptr
+    !! Pointer array
 
 
-!###############################################################################
-  subroutine backward_3d(this, input, gradient)
-    !! Backward propagation for 3D input
-    implicit none
+    call this%output(1,1)%zero_grad()
+    ptr => pad1d(input(1,1), this%facets(1), this%pad(1), this%imethod)
+    call this%output(1,1)%assign_and_deallocate_source(ptr)
+    this%output(1,1)%is_temporary = .false.
 
-    ! Arguments
-    class(pad1d_layer_type), intent(inout) :: this
-    !! Instance of the 1D padding layer
-    real(real32), &
-         dimension( &
-              this%input_shape(1), &
-              this%num_channels, &
-              this%batch_size), &
-         intent(in) :: input
-    !! Input values
-    real(real32), &
-         dimension(&
-              this%output_shape(1), &
-              this%num_channels, &
-              this%batch_size), &
-         intent(in) :: gradient
-    !! Gradient values
-
-    ! Local variables
-    integer :: f, s, m
-
-    select type(di => this%di(1,1))
-    type is (array3d_type)
-       ! Copy main gradient region
-       di%val_ptr(:,:,:) = &
-            gradient( &
-                 this%pad(1)+1:this%pad(1)+this%input_shape(1), :, : &
-            )
-
-       ! Handle padding methods that require boundary accumulation
-       if (this%imethod >= 3 .and. this%imethod <= 5) then
-          do f = 1, this%facets(1)%num
-             do s = 1, this%batch_size
-                do m = 1, this%num_channels
-                   call accumulate_edge_gradient( this, &
-                        gradient, di%val_ptr, &
-                        this%facets(1)%orig_bound(:,:,f), &
-                        this%facets(1)%dest_bound(:,:,f), s, m &
-                   )
-                end do
-             end do
-          end do
-       end if
-    end select
-
-  end subroutine backward_3d
+  end subroutine forward_pad1d
 !###############################################################################
 
 end module athena__pad1d_layer

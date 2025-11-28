@@ -1,4 +1,5 @@
 program test_activations
+  use coreutils, only: real32, pi
   use athena, only: &
        full_layer_type, &
        conv2d_layer_type, &
@@ -11,11 +12,8 @@ program test_activations
   use athena__activation_softmax, only: softmax_setup ! threshold
   use athena__activation_swish, only: swish_setup ! threshold
   use athena__activation_tanh, only: tanh_setup ! threshold
-  use athena__misc_types, only: activation_type, &
-       array2d_type, &
-       array3d_type, &
-       array4d_type, &
-       array5d_type
+  use athena__misc_types, only: activation_type
+  use diffstruc, only: array_type
   implicit none
 
   class(base_layer_type), allocatable :: full_layer, conv2d_layer, conv3d_layer
@@ -40,8 +38,9 @@ program test_activations
   integer :: k, j, l, s
   integer, dimension(2) :: stp_idx, start_idx, end_idx
   real, dimension(10) :: activate, differentiate
-  real, dimension(1) :: value_1d, rtmp1_1d
-  real, dimension(1,1,1) :: value_3d, rtmp1_3d
+  type(array_type) :: input(1,1)
+  type(array_type) :: val_array
+  type(array_type), pointer :: result_array
 
 
 !-------------------------------------------------------------------------------
@@ -60,32 +59,31 @@ program test_activations
 
   !! initialise expected activation values
   value = 0.25E0
-  value_1d = value
-  value_3d = value
+  call val_array%allocate([1], source=value)
+  call val_array%set_requires_grad(.true.)
+  val_array%is_temporary = .false.
+  val_array%fix_pointer = .true.
   scale = 2.E0
-  activate(1) = scale * value
-  activate(2) = scale / (sqrt(8*atan(1.E0))*1.5E0) * &
-       exp(-0.5E0 * (value/1.5E0)**2.E0)
+  activate(1) = value
+  activate(2) = scale / (1.5E0 * sqrt(2.E0 * pi)) * exp(-0.5E0 * (value/1.5E0)**2.E0)
   activate(3) = scale * value
   activate(4) = scale * value
-  activate(5) = scale * value + 1.E0
+  activate(5) = scale * value
   activate(6) = scale * value
   activate(7) = scale / (1.E0 + exp(-value))
-  activate(8) = exp(0.E0)
-  ! activate the swish function
+  activate(8) = scale * exp(0.E0)
   activate(9) = scale * value / (1.E0 + exp(-value))
   activate(10) = scale * tanh(value)
 
   !! initialise expected differentiation values
-  differentiate(1) = scale
-  differentiate(2) = - value/1.5E0**2.E0 * activate(2)
+  differentiate(1) = 1.E0
+  differentiate(2) = - (value / 1.5E0**2) * activate(2)
   differentiate(3) = scale
   differentiate(4) = scale
   differentiate(5) = scale
   differentiate(6) = scale
-  differentiate(7) = scale * activate(7) * (scale - activate(7))
-  differentiate(8) = activate(8) * (1.E0 - activate(8))
-  ! differentiate the swish function
+  differentiate(7) =  activate(7) * (1.E0 - activate(7) / scale)
+  differentiate(8) = activate(8) * (1.E0 - activate(8)/scale)
   differentiate(9) = &
        ( activate(9)  /value + activate(9) * (1.E0 - activate(9) / scale / value) )
   differentiate(10) = scale * (1.E0 - (activate(10)/scale)**2.E0)
@@ -99,7 +97,7 @@ program test_activations
      success = .false.
      write(0,*) 'activation has wrong name for gaussian'
   else
-     if (abs(activation%threshold - 2.E0).gt.1.E-6) then
+     if(abs(activation%threshold - 2.E0).gt.1.E-6)then
         success = .false.
         write(0,*) 'activation has wrong threshold for gaussian'
      end if
@@ -109,7 +107,7 @@ program test_activations
 !-------------------------------------------------------------------------------
 ! check piecewise setup
 !-------------------------------------------------------------------------------
-  activation = piecewise_setup(intercept = 2.E0)
+  activation = piecewise_setup(gradient = 2.E0)
   if(.not. activation%name .eq. 'piecewise')then
      success = .false.
      write(0,*) 'activation has wrong name for piecewise'
@@ -124,7 +122,7 @@ program test_activations
      success = .false.
      write(0,*) 'activation has wrong name for sigmoid'
   else
-     if (abs(activation%threshold - 2.E0).gt.1.E-6) then
+     if(abs(activation%threshold - 2.E0).gt.1.E-6)then
         success = .false.
         write(0,*) 'activation has wrong threshold for sigmoid'
      end if
@@ -139,7 +137,7 @@ program test_activations
      success = .false.
      write(0,*) 'activation has wrong name for softmax'
   else
-     if (abs(activation%threshold - 2.E0).gt.1.E-6) then
+     if(abs(activation%threshold - 2.E0).gt.1.E-6)then
         success = .false.
         write(0,*) 'activation has wrong threshold for softmax'
      end if
@@ -149,16 +147,16 @@ program test_activations
 !-------------------------------------------------------------------------------
 ! check swish setup
 !-------------------------------------------------------------------------------
-   activation = swish_setup(threshold = 2.E0)
-   if(.not. activation%name .eq. 'swish')then
-      success = .false.
-      write(0,*) 'activation has wrong name for swish'
-   else
-      if (abs(activation%threshold - 2.E0).gt.1.E-6) then
-         success = .false.
-         write(0,*) 'activation has wrong threshold for swish'
-      end if
-   end if
+  activation = swish_setup(threshold = 2.E0)
+  if(.not. activation%name .eq. 'swish')then
+     success = .false.
+     write(0,*) 'activation has wrong name for swish'
+  else
+     if(abs(activation%threshold - 2.E0).gt.1.E-6)then
+        success = .false.
+        write(0,*) 'activation has wrong threshold for swish'
+     end if
+  end if
 
 
 !-------------------------------------------------------------------------------
@@ -169,7 +167,7 @@ program test_activations
      success = .false.
      write(0,*) 'activation has wrong name for tanh'
   else
-     if (abs(activation%threshold - 2.E0).gt.1.E-6) then
+     if(abs(activation%threshold - 2.E0).gt.1.E-6)then
         success = .false.
         write(0,*) 'activation has wrong threshold for tanh'
      end if
@@ -188,38 +186,33 @@ program test_activations
         write(0,*) 'activation has wrong name for ', &
              trim(activation_names(i))
      else
-        if (abs(activation%scale - scale).gt.1.E-6) then
+        if(activation%name.eq.'none')then
+           if(abs(activation%scale-1.E0).gt.1.E-6)then
+              success = .false.
+              write(0,*) 'activation has wrong scale for ', &
+                   trim(activation_names(i))
+           end if
+        elseif(abs(activation%scale - scale).gt.1.E-6)then
            success = .false.
            write(0,*) 'activation has wrong scale for ', &
                 trim(activation_names(i))
         end if
-        rtmp1_1d = activation%activate_1d(value_1d)
-        if (any(abs(rtmp1_1d - activate(i)).gt.1.E-6)) then
+        result_array => activation%activate(val_array)
+        if(abs(result_array%val(1,1) - activate(i)).gt.1.E-6)then
            success = .false.
            write(0,*) 'activation has wrong activation for ', &
                 trim(activation_names(i))
-           write(*,*) rtmp1_1d, activate(i)
+           write(*,*) result_array%val(1,1), activate(i)
         end if
-        rtmp1_1d = activation%differentiate_1d(value_1d)
-        if (any(abs(rtmp1_1d - differentiate(i)).gt.1.E-6)) then
+        call result_array%grad_reverse(reset_graph=.true.)
+        if(abs(val_array%grad%val(1,1) - differentiate(i)).gt.1.E-6)then
            success = .false.
            write(0,*) 'activation has wrong differentiation for ', &
                 trim(activation_names(i))
-           write(*,*) rtmp1_1d, differentiate(i)
+           write(*,*) val_array%grad%val(1,1), differentiate(i)
         end if
-
-        rtmp1_3d = activation%activate_3d(value_3d)
-        if (any(abs(rtmp1_3d - activate(i)).gt.1.E-6)) then
-           success = .false.
-           write(0,*) 'activation has wrong activation for ', &
-                trim(activation_names(i))
-        end if
-        rtmp1_3d = activation%differentiate_3d(value_3d)
-        if (any(abs(rtmp1_3d - differentiate(i)).gt.1.E-6)) then
-           success = .false.
-           write(0,*) 'activation has wrong differentiation for ', &
-                trim(activation_names(i))
-        end if
+        call result_array%nullify_graph()
+        nullify(result_array)
      end if
 
      !! check for rank 2 data
@@ -242,16 +235,21 @@ program test_activations
            write(0,*) 'activation has wrong name for ', &
                 trim(activation_names(i))
         else
-           call full_layer%forward(input_data)
+           call input(1,1)%allocate(array_shape=[num_inputs, batch_size], &
+                source=1._real32)
+           call input(1,1)%set_requires_grad(.true.)
+           call full_layer%forward(input)
            call compare_output( &
                 full_layer%output(1,1)%val, &
-                input_data, activation_names(i), "full", success)
+                input(1,1)%val, activation_names(i), "full", success)
 
            full_layer%output(1,1)%val = 1.E0
+           call full_layer%output(1,1)%grad_reverse(reset_graph=.true.)
            call compare_derivative( &
-                full_layer%transfer%differentiate(full_layer%output(1,1)%val), &
+                input(1,1)%grad%val, &
                 full_layer%output(1,1)%val, &
                 activation_names(i), "full", success)
+           call input(1,1)%deallocate()
         end if
      class default
         success = .false.
@@ -282,22 +280,23 @@ program test_activations
            write(0,*) 'activation has wrong name for ', &
                 trim(activation_names(i))
         else
-           call conv2d_layer%forward(input_data_conv2d)
-           select type(output => conv2d_layer%output(1,1))
-           type is(array4d_type)
-              call compare_output( &
-                   output%val_ptr, &
-                   input_data_conv2d, activation_names(i), "conv2d", success)
+           call input(1,1)%allocate( &
+                array_shape = [width, width, num_channels, batch_size], &
+                source = 1._real32 &
+           )
+           call input(1,1)%set_requires_grad(.true.)
+           call conv2d_layer%forward(input)
+           call compare_output( &
+                conv2d_layer%output(1,1)%val, &
+                input(1,1)%val, activation_names(i), "conv2d", success)
 
-              output%val = 1.E0
-              call compare_derivative( &
-                   conv2d_layer%transfer%differentiate(output%val_ptr), &
-                   output%val_ptr, &
-                   activation_names(i), "conv2d", success)
-           class default
-              success = .false.
-              write(0,*) 'conv2d layer output is not of type array4d_type'
-           end select
+           conv2d_layer%output(1,1)%val = 1.E0
+           call conv2d_layer%output(1,1)%grad_reverse(reset_graph=.true.)
+           call compare_derivative( &
+                input(1,1)%grad%val, &
+                conv2d_layer%output(1,1)%val, &
+                activation_names(i), "conv2d", success)
+           call input(1,1)%deallocate()
         end if
      class default
         success = .false.
@@ -328,22 +327,22 @@ program test_activations
            write(0,*) 'activation has wrong name for ', &
                 trim(activation_names(i))
         else
-           call conv3d_layer%forward(input_data_conv3d)
-           select type(output => conv3d_layer%output(1,1))
-           type is(array5d_type)
-              call compare_output( &
-                   output%val_ptr, &
-                   input_data_conv3d, activation_names(i), "conv3d", success)
-
-              output%val = 1.E0
-              call compare_derivative( &
-                   conv3d_layer%transfer%differentiate(output%val_ptr), &
-                   output%val_ptr, &
-                   activation_names(i), "conv3d", success)
-           class default
-              success = .false.
-              write(0,*) 'conv3d layer output is not of type array4d_type'
-           end select
+           call input(1,1)%allocate( &
+                array_shape = [width, width, width, num_channels, batch_size], &
+                source = 1._real32 &
+           )
+           call input(1,1)%set_requires_grad(.true.)
+           call conv3d_layer%forward(input)
+           call compare_output( &
+                conv3d_layer%output(1,1)%val, &
+                input(1,1)%val, activation_names(i), "conv3d", success)
+           conv3d_layer%output(1,1)%val = 1.E0
+           call conv3d_layer%output(1,1)%grad_reverse(reset_graph=.true.)
+           call compare_derivative( &
+                input(1,1)%grad%val, &
+                conv3d_layer%output(1,1)%val, &
+                activation_names(i), "conv3d", success)
+           call input(1,1)%deallocate()
         end if
      class default
         success = .false.
@@ -444,7 +443,7 @@ contains
        expected_output = input
     case('piecewise')
        do i = 1, size(input,1)
-          if(abs(input(i)) .ge. 1.E0) expected_output(i) = 0.E0
+          if(abs(input(i)) .ge. 1.E0) expected_output(i) = 1.E0
        end do
     case('relu')
        expected_output = input
@@ -465,7 +464,7 @@ contains
 
     if(all(abs(derivative - expected_output) .gt. 1.E-6))then
        success = .false.
-       write(0,*) 'activation ', trim(activation_name), ' failed for layer ', &
+       write(0,*) 'derivative of ', trim(activation_name), ' failed for layer ', &
             trim(layer_name)
        write(0,*) 'input: ', input
        write(0,*) 'derivative: ', derivative

@@ -2,7 +2,7 @@ program test_input_layer
   use athena, only: &
        input_layer_type, &
        base_layer_type
-  use athena__misc_types, only: array4d_type, array5d_type
+  use diffstruc, only: array_type
   implicit none
 
   class(input_layer_type), allocatable :: input_layer
@@ -18,6 +18,7 @@ program test_input_layer
   real, allocatable, dimension(:,:,:,:) :: output_4d
   real, dimension(2,1,1,1,1) :: input_5d = 5.E0
   real, allocatable, dimension(:,:,:,:,:) :: output_5d
+  type(array_type) :: output_array
 
   logical :: success = .true.
 
@@ -48,11 +49,10 @@ program test_input_layer
   )
   call input_layer%set_ptrs()
   call input_layer%set(input_2d)
-  call input_layer%forward(input_2d)
-  call input_layer%get_output(output_2d)
-  if(any(abs(output_2d-2.E0).gt.1.E-6))then
+  output_array = input_layer%output(1,1)
+  if(any(abs(output_array%val-2.E0).gt.1.E-6))then
      write(0,*) 'input_layer forward 2d failed'
-     write(*,*) output_2d
+     write(*,*) output_array%val
      success = .false.
   end if
   deallocate(input_layer)
@@ -62,11 +62,10 @@ program test_input_layer
   )
   call input_layer%set_ptrs()
   call input_layer%set(input_3d)
-  call input_layer%forward(input_3d)
-  call input_layer%get_output(output_3d)
-  if(any(abs(output_3d-3.E0).gt.1.E-6))then
+  output_array = input_layer%output(1,1)
+  if(any(abs(output_array%val-3.E0).gt.1.E-6))then
      write(0,*) 'input_layer forward 3d failed'
-     write(*,*) output_3d
+     write(*,*) output_array%val
      success = .false.
   end if
   deallocate(input_layer)
@@ -76,11 +75,10 @@ program test_input_layer
   )
   call input_layer%set_ptrs()
   call input_layer%set(input_4d)
-  call input_layer%forward(input_4d)
-  call input_layer%get_output(output_4d)
-  if(any(abs(output_4d-4.E0).gt.1.E-6))then
+  output_array = input_layer%output(1,1)
+  if(any(abs(output_array%val-4.E0).gt.1.E-6))then
      write(0,*) 'input_layer forward 4d failed'
-     write(*,*) output_4d
+     write(*,*) output_array%val
      success = .false.
   end if
   deallocate(input_layer)
@@ -90,11 +88,10 @@ program test_input_layer
   )
   call input_layer%set_ptrs()
   call input_layer%set(input_5d)
-  call input_layer%forward(input_5d)
-  call input_layer%get_output(output_5d)
-  if(any(abs(output_5d-5.E0).gt.1.E-6))then
-     write(0,*) 'input_layer forward 4d failed'
-     write(*,*) output_5d
+  output_array = input_layer%output(1,1)
+  if(any(abs(output_array%val-5.E0).gt.1.E-6))then
+     write(0,*) 'input_layer forward 5d failed'
+     write(*,*) output_array%val
      success = .false.
   end if
   !   call input_layer%set(input_6d)
@@ -104,7 +101,7 @@ program test_input_layer
   !      write(*,*) input_layer%output
   !      success = .false.
   !   end if
-  call input_layer%backward([1.E0], [1.E0])
+  call output_array%grad_reverse()
 
 
 !-------------------------------------------------------------------------------

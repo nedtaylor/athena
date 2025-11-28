@@ -3,7 +3,7 @@ module athena__regulariser
   !!
   !! This module contains regularisation methods to prevent overfitting
   !! in neural networks
-  use athena__constants, only: real32
+  use coreutils, only: real32
   implicit none
 
 

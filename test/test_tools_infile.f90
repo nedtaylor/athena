@@ -1,5 +1,5 @@
 program test_infile_tools
-  use athena__constants, only: real32
+  use coreutils, only: real32
   use athena__tools_infile
   implicit none
 
@@ -107,7 +107,7 @@ program test_infile_tools
     integer :: unit, iostat_val
     character(256) :: err_msg_val
     character(100) :: line
-    
+
     ! Create a temporary test file with multiple lines
     open(newunit=unit, file='test_move.tmp', &
          status='replace', action='write')
@@ -117,72 +117,98 @@ program test_infile_tools
     write(unit, '(A)') 'line 4'
     write(unit, '(A)') 'line 5'
     close(unit)
-    
+
     ! Test forward movement
     open(newunit=unit, file='test_move.tmp', &
          status='old', action='read')
-    
+
     ! Read first line
     read(unit, '(A)') line
     if(trim(line) .ne. 'line 1')then
        write(0,*) "move test setup failed - wrong first line"
        success = .false.
     end if
-    
+
     ! Move forward 2 lines
     call move(unit, 2, iostat=iostat_val, err_msg=err_msg_val)
     if(iostat_val .ne. 0)then
        write(0,*) "move forward failed: ", trim(err_msg_val)
        success = .false.
     end if
-    
+
     ! Should now be at line 4
     read(unit, '(A)') line
     if(trim(line) .ne. 'line 4')then
        write(0,*) "move forward test failed - expected 'line 4', got: ", &
-                  trim(line)
+            trim(line)
        success = .false.
     end if
-    
+
     ! Move backward 1 line
     call move(unit, -1, iostat=iostat_val, err_msg=err_msg_val)
     if(iostat_val .ne. 0)then
        write(0,*) "move backward failed: ", trim(err_msg_val)
        success = .false.
     end if
-    
+
     ! After backspace -1, we should be positioned to re-read line 4
     read(unit, '(A)') line
     if(trim(line) .ne. 'line 4')then
        write(0,*) "move backward test failed - expected 'line 4', got: ", &
-                  trim(line)
+            trim(line)
        success = .false.
     end if
-    
+
     ! Test zero movement (should be no-op) - we're now at line 5
     call move(unit, 0, iostat=iostat_val, err_msg=err_msg_val)
     if(iostat_val .ne. 0)then
        write(0,*) "move zero failed: ", trim(err_msg_val)
        success = .false.
     end if
-    
+
     ! Position should be unchanged - next line should be line 5
     read(unit, '(A)') line
     if(trim(line) .ne. 'line 5')then
        write(0,*) "move zero test failed - expected 'line 5', got: ", &
-                  trim(line)
+            trim(line)
        success = .false.
     end if
-    
+
     close(unit)
-    
+
     ! Test error conditions - try to move with invalid unit
-    call move(999, 1, iostat=iostat_val, err_msg=err_msg_val)
-    if(iostat_val .eq. 0)then
-       write(0,*) "move should fail with invalid unit"
-       success = .false.
-    end if
-    
+    ! First find a unit number that doesn't have an associated file
+    block
+      integer :: test_unit
+      logical :: file_exists
+
+      test_unit = 999
+      write(line, '(A,I0)') 'fort.', test_unit
+      inquire(file=trim(line), exist=file_exists)
+      do while(file_exists)
+         write(line, '(A,I0)') 'fort.', test_unit
+         test_unit = test_unit + 1
+         inquire(file=trim(line), exist=file_exists)
+      end do
+
+      call move(test_unit, 1, iostat=iostat_val, err_msg=err_msg_val)
+      if(iostat_val .eq. 0)then
+         write(0,*) "move should fail with invalid unit"
+         success = .false.
+      end if
+
+      ! Check if a fort.UNIT file was created and remove it
+      file_exists = .false.
+      write(line, '(A,I0)') 'fort.', test_unit
+      inquire(file=trim(line), exist=file_exists)
+      if(file_exists)then
+         open(newunit=unit, file=trim(line), status='old')
+         close(unit, status='delete')
+      end if
+    end block
+
+
+
     ! Clean up temporary file
     open(newunit=unit, file='test_move.tmp', status='old')
     close(unit, status='delete')

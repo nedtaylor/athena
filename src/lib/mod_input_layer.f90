@@ -1,15 +1,9 @@
 module athena__input_layer
   !! Module containing procedures for an input layer
-  use athena__io_utils, only: stop_program
-  use athena__constants, only: real32
+  use coreutils, only: real32, stop_program
   use athena__base_layer, only: base_layer_type
-  use athena__misc_types, only: &
-       array1d_type, &
-       array2d_type, &
-       array3d_type, &
-       array4d_type, &
-       array5d_type
   use graphstruc, only: graph_type
+  use diffstruc, only: array_type
   implicit none
 
 
@@ -36,16 +30,16 @@ module athena__input_layer
      !! Print layer to unit
      procedure, pass(this) :: read => read_input
      !! Read layer from file
-     procedure, pass(this) :: forward  => forward_rank
-     !! Forward propagation
-     procedure, pass(this) :: backward => backward_rank
-     !! Backward propagation
      procedure, pass(this) :: set_input_real
      !! Set input values
      procedure, pass(this) :: set_input_graph
      !! Set input values
      generic :: set => set_input_real, set_input_graph
      !! Generic interface for setting input values
+
+     procedure, pass(this) :: forward => forward_input
+     !! Forward propagation derived type handler
+
   end type input_layer_type
 
   interface input_layer_type
@@ -72,50 +66,6 @@ module athena__input_layer
 
 
 contains
-
-!###############################################################################
-  subroutine forward_rank(this, input)
-    !! Forward propagation for an input layer
-    !!
-    !! This is a placeholder to satisfy the deferred procedure
-    !! declaration in the base layer type
-    implicit none
-
-    ! Arguments
-    class(input_layer_type), intent(inout) :: this
-    !! Instance of the input layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input data
-
-    call this%output(1,1)%set( input )
-  end subroutine forward_rank
-!###############################################################################
-
-
-!###############################################################################
-  subroutine backward_rank(this, input, gradient)
-    !! Backward propagation for an input layer
-    !!
-    !! This is a placeholder to satisfy the deferred procedure
-    !! declaration in the base layer type
-    implicit none
-
-    ! Arguments
-    class(input_layer_type), intent(inout) :: this
-    !! Instance of the input layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input data
-    real(real32), dimension(..), intent(in) :: gradient
-    !! Gradient data
-    return
-  end subroutine backward_rank
-!###############################################################################
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
 
 !###############################################################################
   module function layer_setup( &
@@ -292,12 +242,12 @@ contains
     if(allocated(this%input_shape))then
        if(allocated(this%output)) deallocate(this%output)
        if(this%use_graph_input)then
-          allocate(this%output(2,this%batch_size), source=array2d_type())
+          allocate(this%output(2,this%batch_size))
        else
           select case(size(this%input_shape))
           case(1)
              this%input_rank = 1
-             allocate(this%output(1,1), source=array2d_type())
+             allocate(this%output(1,1))
              call this%output(1,1)%allocate( &
                   array_shape = [ &
                        this%input_shape(1), this%batch_size ], &
@@ -305,7 +255,7 @@ contains
              )
           case(2)
              this%input_rank = 2
-             allocate(this%output(1,1), source=array3d_type())
+             allocate(this%output(1,1))
              call this%output(1,1)%allocate( &
                   array_shape = [ &
                        this%input_shape(1), &
@@ -315,7 +265,7 @@ contains
              )
           case(3)
              this%input_rank = 3
-             allocate(this%output(1,1), source=array4d_type())
+             allocate(this%output(1,1))
              call this%output(1,1)%allocate( &
                   array_shape = [ &
                        this%input_shape(1), &
@@ -325,7 +275,7 @@ contains
              )
           case(4)
              this%input_rank = 4
-             allocate(this%output(1,1), source=array5d_type())
+             allocate(this%output(1,1))
              call this%output(1,1)%allocate( &
                   array_shape = [ &
                        this%input_shape(1), &
@@ -384,7 +334,7 @@ contains
   subroutine read_input(this, unit, verbose)
     !! Read an input layer from a file
     use athena__tools_infile, only: assign_val, assign_vec, get_val
-    use athena__misc, only: to_lower, to_upper, icount
+    use coreutils, only: to_lower, to_upper, icount
     implicit none
 
     ! Arguments
@@ -533,6 +483,36 @@ contains
 
 
 !###############################################################################
+  subroutine forward_input(this, input)
+    !! Forward propagation for an input layer
+    implicit none
+
+    ! Arguments
+    class(input_layer_type), intent(inout) :: this
+    !! Instance of the input layer
+    class(array_type), dimension(:,:), intent(in) :: input
+    !! Input data
+
+    ! Local variables
+    integer :: i, j
+    !! Loop indices
+
+    do i = 1, size(input, 1)
+       do j = 1, size(input, 2)
+          if(.not.input(i,j)%allocated)then
+             call stop_program('Input to input layer not allocated')
+             return
+          end if
+          call this%output(i,j)%assign_shallow( input(i,j) )
+          this%output(i,j)%is_temporary = .false.
+       end do
+    end do
+
+  end subroutine forward_input
+!###############################################################################
+
+
+!###############################################################################
   pure subroutine set_input_real(this, input)
     !! Set input values for an input layer
     implicit none
@@ -545,6 +525,7 @@ contains
     !dimension(this%batch_size * this%num_outputs), intent(in) :: input
 
     call this%output(1,1)%set( input )
+    this%output(1,1)%is_temporary = .false.
 
   end subroutine set_input_real
 !-------------------------------------------------------------------------------
@@ -569,13 +550,20 @@ contains
                  input(s)%num_vertex_features, input(s)%num_vertices &
             ] &
        )
+       call this%output(1,s)%zero_grad()
+       call this%output(1,s)%set_requires_grad(.false.)
+       call this%output(1,s)%set( input(s)%vertex_features )
+       this%output(1,s)%is_temporary = .false.
+       if(input(s)%num_edge_features.le.0) cycle
        call this%output(2,s)%allocate( &
             array_shape = [ &
                  input(s)%num_edge_features, input(s)%num_edges &
             ] &
        )
-       call this%output(1,s)%set( input(s)%vertex_features )
+       call this%output(2,s)%zero_grad()
+       call this%output(2,s)%set_requires_grad(.false.)
        call this%output(2,s)%set( input(s)%edge_features )
+       this%output(2,s)%is_temporary = .false.
     end do
 
   end subroutine set_input_graph

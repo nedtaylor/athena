@@ -16,7 +16,9 @@ auto-examples = false
 module-naming = false
 
 [dependencies]
+coreutils = { git = "https://github.com/nedtaylor/coreutils" }
 graphstruc = { git = "https://github.com/nedtaylor/graphstruc", branch = "sparse_adjacency" }
+diffstruc = { git = "https://github.com/nedtaylor/diffstruc", branch = "no_graph_reverse" }
 
 [install]
 library = false
@@ -79,6 +81,7 @@ name = "msgpass_chemical"
 source-dir = "example/msgpass_chemical/src"
 [example.dependencies]
 example_library = { path = "example/example_library"}
+atomstruc = { git = "https://github.com/nedtaylor/atomstruc", branch = "column-major-order" }
 
 [[example]]
 name = "msgpass_euler"
@@ -87,6 +90,24 @@ source-dir = "example/msgpass_euler/src"
 example_library = { path = "example/example_library"}
 
 [[example]]
+name = "pinn_chemical"
+source-dir = "example/pinn_chemical/src"
+[example.dependencies]
+example_library = { path = "example/example_library"}
+atomstruc = { git = "https://github.com/nedtaylor/atomstruc", branch = "column-major-order" }
+
+[[example]]
+name = "pinn_burgers"
+source-dir = "example/pinn_burgers/src"
+[example.dependencies]
+example_library = { path = "example/example_library"}
+
+[[example]]
+name = "custom_forward"
+source-dir = "example/custom_forward/src"
+[example.dependencies]
+example_library = { path = "example/example_library"}
+
+[[example]]
 name = "onnx"
 source-dir = "example/onnx/src"
-main = "main.f90"

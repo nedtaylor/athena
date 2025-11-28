@@ -16,8 +16,7 @@ submodule(athena__base_layer) athena__base_layer_submodule
   !! - set_params*
   !! - get_gradients*
   !! - set_gradients*
-  use athena__io_utils, only: stop_program
-  use athena__misc, only: to_lower, to_upper, icount
+  use coreutils, only: stop_program, print_warning, to_lower, to_upper, icount
   use athena__tools_infile, only: assign_val, assign_vec
   implicit none
 
@@ -26,7 +25,7 @@ contains
 !###############################################################################
   module subroutine print_base(this, file, unit, print_header_footer)
     !! Print the layer and wrapping info to a file
-    use athena__misc, only: to_upper
+    use coreutils, only: to_upper
     implicit none
 
     ! Arguments
@@ -335,7 +334,7 @@ contains
        this%input_shape = input_shape
     else
        write(err_msg,'("Invalid size of input_shape in ",A,&
-            &" expected (",I0,"), got (",I0")")')  &
+            &" expected (",I0,"), got (",I0,")")')  &
             trim(this%name), this%input_rank, size(input_shape,dim=1)
        call stop_program(err_msg)
        return
@@ -346,7 +345,7 @@ contains
 
 
 !###############################################################################
-  pure module subroutine get_output_base(this, output)
+  module subroutine extract_output_base(this, output)
     !! Get the output of the layer
     implicit none
 
@@ -354,10 +353,17 @@ contains
     class(base_layer_type), intent(in) :: this
     !! Instance of the layer
     real(real32), allocatable, dimension(..), intent(out) :: output
-    !! Output of the layer
+    !! Output of the Layer
 
-    call this%output(1,1)%get(output)
-  end subroutine get_output_base
+    if(size(this%output).gt.1)then
+       call print_warning("extract_output_base: output has more than one"&
+            &" sample, cannot extract")
+       return
+    end if
+
+    call this%output(1,1)%extract(output)
+
+  end subroutine extract_output_base
 !###############################################################################
 
 
@@ -374,28 +380,17 @@ contains
     character(256) :: err_msg
     !! Error message
 
-    out_alloc_check: if(allocated(this%output))then
-       if(this%use_graph_input)then
-          exit out_alloc_check
-       elseif(.not.this%output(1,1)%allocated)then
-          write(err_msg,'("output not allocated for layer ",A," ",I0)') &
-               trim(this%name), this%id
-          call stop_program(err_msg)
-          return
-       end if
-       call this%output(1,1)%set_ptr()
-    end if out_alloc_check
-    di_alloc_check: if(allocated(this%di))then
-       if(this%use_graph_input)then
-          exit di_alloc_check
-       elseif(.not.this%di(1,1)%allocated)then
-          write(err_msg,'("di not allocated for layer ",A," ",I0)') &
-               trim(this%name), this%id
-          call stop_program(err_msg)
-          return
-       end if
-       call this%di(1,1)%set_ptr()
-    end if di_alloc_check
+    ! out_alloc_check: if(allocated(this%output))then
+    !    if(this%use_graph_input)then
+    !       exit out_alloc_check
+    !    elseif(.not.this%output(1,1)%allocated)then
+    !       write(err_msg,'("output not allocated for layer ",A," ",I0)') &
+    !            trim(this%name), this%id
+    !       call stop_program(err_msg)
+    !       return
+    !    end if
+    !    call this%output(1,1)%set_ptr()
+    ! end if out_alloc_check
 
     call this%set_ptrs_hyperparams()
 
@@ -467,7 +462,7 @@ contains
 
 
 !###############################################################################
-  module subroutine forward_derived_base(this, input)
+  module subroutine forward_base(this, input)
     !! Forward pass for the layer
     implicit none
 
@@ -477,23 +472,37 @@ contains
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input data
 
-    this%output = input
-  end subroutine forward_derived_base
+    ! Local variables
+    integer :: i, j
+    !! Loop indices
 
-  module subroutine backward_derived_base(this, input, gradient)
-    !! Backward pass for the layer
+    do i = 1, size(input, 1)
+       do j = 1, size(input, 2)
+          if(.not.input(i,j)%allocated)then
+             call stop_program('Input to input layer not allocated')
+             return
+          end if
+          this%output(i,j) = input(i,j)
+       end do
+    end do
+
+  end subroutine forward_base
+
+  module function forward_eval_base(this, input) result(output)
+    !! Forward pass of layer and return output for evaluation
     implicit none
 
     ! Arguments
-    class(base_layer_type), intent(inout) :: this
+    class(base_layer_type), intent(inout), target :: this
     !! Instance of the layer
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input data
-    class(array_type), dimension(:,:), intent(in) :: gradient
-    !! Gradient data
+    type(array_type), pointer :: output(:,:)
+    !! Output data
 
-    this%di = gradient
-  end subroutine backward_derived_base
+    call this%forward(input)
+    output => this%output
+  end function forward_eval_base
 
   module subroutine set_graph_base(this, graph)
     !! Set the graph structure of the input data
@@ -525,57 +534,64 @@ contains
        this%graph(s)%num_vertices = graph(s)%num_vertices
     end do
 
-    if(this%use_graph_input)then
-       if(allocated(this%output))then
-          do s = 1, size(graph)
-             call this%output(1,s)%allocate( &
-                  [ &
-                       this%graph(s)%num_vertex_features, &
-                       this%graph(s)%num_vertices &
-                  ] &
-             )
-             call this%output(2,s)%allocate( &
-                  [ &
-                       this%graph(s)%num_edge_features, &
-                       this%graph(s)%num_vertices &
-                  ] &
-             )
-             call this%di(1,s)%allocate( &
-                  [ &
-                       this%graph(s)%num_vertex_features, &
-                       this%graph(s)%num_vertices &
-                  ] &
-             )
-             call this%di(2,s)%allocate( &
-                  [ &
-                       this%graph(s)%num_edge_features, &
-                       this%graph(s)%num_vertices &
-                  ] &
-             )
-          end do
-       end if
-       call this%set_ptrs()
-    end if
-
   end subroutine set_graph_base
+!-------------------------------------------------------------------------------
+  module subroutine nullify_graph_base(this)
+    !! Nullify the forward pass data of the layer to free memory
+    implicit none
+
+    ! Arguments
+    class(base_layer_type), intent(inout) :: this
+    !! Instance of the layer
+
+    ! Local variables
+    integer :: i, j
+    !! Loop indices
+
+    do i = 1, size(this%output,1)
+       do j = 1, size(this%output,2)
+          call this%output(i,j)%nullify_graph()
+       end do
+    end do
+
+  end subroutine nullify_graph_base
 !###############################################################################
 
 
 !###############################################################################
-  module subroutine reduce_learnable(this, rhs)
-    !! Reduce two learnable layers to a single one via summation
+  module subroutine reduce_learnable(this, input)
+    !! Merge two learnable layers via summation
     implicit none
 
     ! Arguments
     class(learnable_layer_type), intent(inout) :: this
     !! Instance of the layer
-    class(learnable_layer_type), intent(in) :: rhs
+    class(learnable_layer_type), intent(in) :: input
     !! Instance of a layer
 
-    this%dp = this%dp + rhs%dp
-    this%db = this%db + rhs%db
+    ! Local variables
+    integer :: i
+    !! Loop index
 
-  end subroutine  reduce_learnable
+    if(allocated(this%params_array).and.allocated(input%params_array))then
+       if(size(this%params_array).ne.size(input%params_array))then
+          call stop_program("reduce_learnable: incompatible parameter sizes")
+          return
+       end if
+       do i = 1, size(this%params_array,1)
+          this%params_array(i) = this%params_array(i) + input%params_array(i)
+          if(associated(this%params_array(i)%grad).and.&
+               associated(input%params_array(i)%grad))then
+             this%params_array(i)%grad = this%params_array(i)%grad + &
+                  input%params_array(i)%grad
+          end if
+       end do
+    else
+       call stop_program("reduce_learnable: unallocated parameter arrays")
+       return
+    end if
+
+  end subroutine reduce_learnable
 !###############################################################################
 
 
@@ -590,29 +606,32 @@ contains
     class(learnable_layer_type), allocatable :: output
     !! Output layer
 
+    ! Local variables
+    integer :: i
+    !! Loop index
+
     output = a
-    output%dp = output%dp + b%dp
-    output%db = output%db + b%db
+    if(allocated(a%params_array).and.allocated(b%params_array))then
+       if(size(a%params_array).ne.size(b%params_array))then
+          call stop_program("add_learnable: incompatible parameter sizes")
+          return
+       end if
+       do i = 1, size(a%params_array,1)
+          output%params_array(i)%grad => null()
+          output%params_array(i) = a%params_array(i) + b%params_array(i)
+          if(associated(a%params_array(i)%grad).and.&
+               associated(b%params_array(i)%grad))then
+             allocate(output%params_array(i)%grad)
+             output%params_array(i)%grad = a%params_array(i)%grad + &
+                  b%params_array(i)%grad
+          end if
+       end do
+    else
+       call stop_program("add_learnable: unallocated parameter arrays")
+       return
+    end if
 
   end function add_learnable
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine merge_learnable(this, input)
-    !! Merge two learnable layers via summation
-    implicit none
-
-    ! Arguments
-    class(learnable_layer_type), intent(inout) :: this
-    !! Instance of the layer
-    class(learnable_layer_type), intent(in) :: input
-    !! Instance of a layer
-
-    this%dp = this%dp + input%dp
-    this%db = this%db + input%db
-
-  end subroutine merge_learnable
 !###############################################################################
 
 
@@ -631,7 +650,17 @@ contains
     real(real32), dimension(this%num_params) :: params
     !! Learnable parameters
 
-    params = this%params
+    ! Local variables
+    integer :: i, start_idx, end_idx
+    !! Loop indices
+
+    start_idx = 0
+    end_idx = 0
+    do i = 1, size(this%params_array)
+       start_idx = end_idx + 1
+       end_idx = start_idx + size(this%params_array(i)%val,1) - 1
+       params(start_idx:end_idx) = this%params_array(i)%val(:,1)
+    end do
 
   end function get_params
 !###############################################################################
@@ -652,7 +681,21 @@ contains
     real(real32), dimension(this%num_params), intent(in) :: params
     !! Learnable parameters
 
-    this%params = params
+    ! Local variables
+    integer :: i, start_idx, end_idx
+    !! Loop indices
+
+    if(.not.allocated(this%params_array)) then
+       call stop_program("set_params: params not allocated")
+       return
+    end if
+    start_idx = 0
+    end_idx = 0
+    do i = 1, size(this%params_array)
+       start_idx = end_idx + 1
+       end_idx = start_idx + size(this%params_array(i)%val,1) - 1
+       this%params_array(i)%val(:,1) = params(start_idx:end_idx)
+    end do
 
   end subroutine set_params
 !###############################################################################
@@ -675,12 +718,24 @@ contains
     real(real32), dimension(this%num_params) :: gradients
     !! Gradients of the layer
 
-    if(this%has_bias)then
-       gradients = [ sum(this%dp, dim=2) / this%batch_size, &
-            sum(this%db, dim=2) / this%batch_size ]
-    else
-       gradients = [ sum(this%dp, dim=2) / this%batch_size ]
+    ! Local variables
+    integer :: i, start_idx, end_idx
+    !! Loop indices
+
+    if(.not.allocated(this%params_array)) then
+       return
     end if
+    start_idx = 0
+    end_idx = 0
+    do i = 1, size(this%params_array)
+       start_idx = end_idx + 1
+       end_idx = start_idx + size(this%params_array(i)%val,1) - 1
+       if(.not.associated(this%params_array(i)%grad)) then
+          gradients(start_idx:end_idx) = 0._real32
+       else
+          gradients(start_idx:end_idx) = this%params_array(i)%grad%val(:,1)
+       end if
+    end do
 
     if(present(clip_method)) call clip_method%apply(size(gradients),gradients)
 
@@ -702,56 +757,32 @@ contains
     real(real32), dimension(..), intent(in) :: gradients
     !! Gradients of the layer
 
+    ! Local variables
+    integer :: i, start_idx, end_idx
+    !! Loop indices
+
+    start_idx = 0
+    end_idx = 0
     select rank(gradients)
     rank(0)
-       this%dp = gradients
-       if(this%has_bias) this%db = gradients
+       do i = 1, size(this%params_array)
+          if(.not.associated(this%params_array(i)%grad)) then
+             this%params_array(i)%grad => this%params_array(i)%create_result()
+          end if
+          this%params_array(i)%grad%val(:,1) = gradients
+       end do
     rank(1)
-       if(this%has_bias)then
-          this%dp = spread( &
-               gradients(1:this%num_params - size(this%db,1)), &
-               2, &
-               this%batch_size &
-          )
-          this%db = spread( &
-               gradients(this%num_params - size(this%db,1) + 1:), &
-               2, &
-               this%batch_size &
-          )
-       else
-          this%dp = spread(gradients(1:this%num_params), 2, this%batch_size)
-       end if
+       do i = 1, size(this%params_array)
+          if(.not.associated(this%params_array(i)%grad)) then
+             this%params_array(i)%grad => this%params_array(i)%create_result()
+          end if
+          start_idx = end_idx + 1
+          end_idx = start_idx + size(this%params_array(i)%val,1) - 1
+          this%params_array(i)%grad%val(:,1) = gradients(start_idx:end_idx)
+       end do
     end select
 
   end subroutine set_gradients
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine set_gradients_batch(this, gradients)
-    !! Set the gradients of a batch normalisation layer
-    !!
-    !! This function sets the gradients of a batch normalisation layer
-    !! from a single array.
-    !! This has been modified from the neural-fortran library
-    implicit none
-
-    ! Arguments
-    class(batch_layer_type), intent(inout) :: this
-    !! Instance of the layer
-    real(real32), dimension(..), intent(in) :: gradients
-    !! Gradients of the layer
-
-    select rank(gradients)
-    rank(0)
-       this%dp = gradients * this%batch_size
-       this%db = gradients * this%batch_size
-    rank(1)
-       this%dp(:,1) = gradients(:this%num_channels) * this%batch_size
-       this%db(:,1) = gradients(this%num_channels+1:) * this%batch_size
-    end select
-
-  end subroutine set_gradients_batch
 !###############################################################################
 
 
@@ -795,13 +826,11 @@ contains
     do i = 1, this%input_rank - 1
        this%orig_bound(:,i) = [ 1, this%input_shape(i) ]
        this%dest_bound(:,i) = [ 1, this%input_shape(i) + this%pad(i) * 2 ]
-       if (this%imethod .ge. 3)then
-          call this%facets(i)%setup_bounds( &
-               length = this%input_shape(:this%input_rank-1), &
-               pad = this%pad, &
-               imethod = this%imethod &
-          )
-       end if
+       call this%facets(i)%setup_bounds( &
+            length = this%input_shape(:this%input_rank-1), &
+            pad = this%pad, &
+            imethod = this%imethod &
+       )
     end do
 
 
@@ -899,8 +928,9 @@ contains
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
+    ! Local variables
     integer :: verbose_ = 0
-    class(initialiser_type), allocatable :: initialiser_
+    !! Verbosity level
 
 
     !---------------------------------------------------------------------------
@@ -939,32 +969,35 @@ contains
          ) / real(this%stp) &
     ) + 1
     this%num_params = this%get_num_params()
-    if(allocated(this%params)) deallocate(this%params)
-    allocate(this%params(this%num_params), source=0._real32)
     allocate(this%weight_shape(this%input_rank + 1,1))
     this%weight_shape(:,1) = [ this%knl, this%num_channels, this%num_filters ]
     this%bias_shape = [this%num_filters]
+
+    if(allocated(this%params_array)) deallocate(this%params_array)
+    allocate(this%params_array(2))
+    call this%params_array(1)%allocate([this%weight_shape(:,1), 1])
+    call this%params_array(1)%set_requires_grad(.true.)
+    this%params_array(1)%is_sample_dependent = .false.
+    call this%params_array(2)%allocate([this%bias_shape, 1])
+    call this%params_array(2)%set_requires_grad(.true.)
+    this%params_array(2)%is_sample_dependent = .false.
 
 
     !---------------------------------------------------------------------------
     ! initialise weights (kernels)
     !---------------------------------------------------------------------------
-    allocate(initialiser_, source=initialiser_setup(this%kernel_initialiser))
-    call initialiser_%initialise( &
-         this%params(:this%num_params-this%num_filters), &
+    call this%kernel_init%initialise( &
+         this%params_array(1)%val(:,1), &
          fan_in = product(this%knl)+1, fan_out = 1, &
          spacing = [ this%knl, this%num_channels, this%num_filters ] &
     )
-    deallocate(initialiser_)
 
     ! initialise biases
     !---------------------------------------------------------------------------
-    allocate(initialiser_, source=initialiser_setup(this%bias_initialiser))
-    call initialiser_%initialise( &
-         this%params(this%num_params-this%num_filters+1:), &
+    call this%bias_init%initialise( &
+         this%params_array(2)%val(:,1), &
          fan_in = product(this%knl)+1, fan_out = 1 &
     )
-    deallocate(initialiser_)
 
 
     !---------------------------------------------------------------------------
@@ -1023,12 +1056,12 @@ contains
     end if
     this%num_channels = this%input_shape(this%input_rank)
     this%num_params = this%get_num_params()
-    allocate(this%params(2 * this%num_channels), source=0._real32)
+    allocate(this%params_array(1))
+    call this%params_array(1)%allocate([2 * this%num_channels, 1])
+    call this%params_array(1)%set_requires_grad(.true.)
     allocate(this%weight_shape(1,1))
     this%weight_shape(:,1) = [ this%num_channels ]
     this%bias_shape = [this%num_channels]
-    allocate(this%dp(this%num_channels,1), source=0._real32)
-    allocate(this%db(this%num_channels,1), source=0._real32)
 
 
     !---------------------------------------------------------------------------
@@ -1044,7 +1077,7 @@ contains
     allocate(t_initialiser, source=initialiser_setup(this%kernel_initialiser))
     t_initialiser%mean = this%gamma_init_mean
     t_initialiser%std  = this%gamma_init_std
-    call t_initialiser%initialise(this%params(1:this%num_channels), &
+    call t_initialiser%initialise(this%params_array(1)%val(1:this%num_channels,1), &
          fan_in =this%num_channels, &
          fan_out=this%num_channels)
     deallocate(t_initialiser)
@@ -1054,7 +1087,7 @@ contains
     allocate(t_initialiser, source=initialiser_setup(this%bias_initialiser))
     t_initialiser%mean = this%beta_init_mean
     t_initialiser%std  = this%beta_init_std
-    call t_initialiser%initialise(this%params(this%num_channels+1:), &
+    call t_initialiser%initialise(this%params_array(1)%val(this%num_channels+1:,1), &
          fan_in =this%num_channels, &
          fan_out=this%num_channels)
     deallocate(t_initialiser)
@@ -1086,25 +1119,6 @@ contains
     if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
 
   end subroutine init_batch
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine set_ptrs_hyperparams_batch(this)
-    !! Set the hyperparameter pointers of a batch normalisation layer
-    implicit none
-
-    ! Arguments
-    class(batch_layer_type), intent(inout), target :: this
-    !! Instance of the layer
-
-    if(allocated(this%params))then
-       this%gamma(1:this%num_channels) => this%params(1:this%num_channels)
-       this%beta(1:this%num_channels) => &
-            this%params(this%num_channels+1:this%num_channels*2)
-    end if
-
-  end subroutine set_ptrs_hyperparams_batch
 !###############################################################################
 
 end submodule athena__base_layer_submodule

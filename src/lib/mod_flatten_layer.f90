@@ -1,15 +1,9 @@
 module athena__flatten_layer
   !! Module containing implementation of a 1D flattening layer
-  use athena__io_utils, only: stop_program
-  use athena__constants, only: real32
+  use coreutils, only: real32, stop_program
   use athena__base_layer, only: base_layer_type
-  use athena__misc_types, only: &
-       onnx_node_type, onnx_initialiser_type, &
-       array1d_type, &
-       array2d_type, &
-       array3d_type, &
-       array4d_type, &
-       array5d_type
+  use diffstruc, only: array_type, pack
+  use athena__misc_types, only: onnx_node_type, onnx_initialiser_type
   implicit none
 
 
@@ -36,10 +30,10 @@ module athena__flatten_layer
      !! Read flattening layer from file
      procedure, pass(this) :: build_from_onnx => build_from_onnx_flatten
      !! Build flattening layer from ONNX node and initialisers
-     procedure, pass(this) :: forward  => forward_rank
-     !! Forward propagation handler for flattening layer
-     procedure, pass(this) :: backward => backward_rank
-     !! Backward propagation handler for flattening layer
+
+     procedure, pass(this) :: forward => forward_flatten
+     !! Forward propagation derived type handler
+
   end type flatten_layer_type
 
   interface flatten_layer_type
@@ -64,90 +58,6 @@ module athena__flatten_layer
 
 
 contains
-
-!###############################################################################
-  subroutine forward_rank(this, input)
-    !! Forward propagation handler for flattening layer
-    implicit none
-
-    ! Arguments
-    class(flatten_layer_type), intent(inout) :: this
-    !! Instance of the flattening layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input values
-
-    !  select type(output => this%output)
-    !  type is (array2d_type)
-    !     !! can make this even easier by just setting output%val_ptr = input, and then output%val is already rank 2
-    !  end select
-    select rank(input)
-    rank(2)
-       this%output(1,1)%val(:this%num_outputs, :this%batch_size) = input
-    rank(3)
-       this%output(1,1)%val(:this%num_outputs, :this%batch_size) = &
-            reshape(input, [this%num_outputs, this%batch_size])
-    rank(4)
-       this%output(1,1)%val(:this%num_outputs, :this%batch_size) = &
-            reshape(input, [this%num_outputs, this%batch_size])
-    rank(5)
-       this%output(1,1)%val(:this%num_outputs, :this%batch_size) = &
-            reshape(input, [this%num_outputs, this%batch_size])
-    rank(6)
-       this%output(1,1)%val(:this%num_outputs, :this%batch_size) = &
-            reshape(input, [this%num_outputs, this%batch_size])
-    end select
-  end subroutine forward_rank
-!###############################################################################
-
-
-!###############################################################################
-  subroutine backward_rank(this, input, gradient)
-    !! Backward propagation handler for flattening layer
-    implicit none
-
-    ! Arguments
-    class(flatten_layer_type), intent(inout) :: this
-    !! Instance of the flattening layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input values
-    real(real32), dimension(..), intent(in) :: gradient
-    !! Gradient values
-
-    select rank(gradient)
-    rank(2)
-       select type(di => this%di(1,1))
-       type is (array1d_type)
-          di%val_ptr = reshape(gradient(:this%num_outputs,:), &
-               [size(di%val_ptr)] )
-       type is (array2d_type)
-          di%val_ptr = reshape(gradient(:this%num_outputs,:), &
-               [this%input_shape(1), this%batch_size] )
-       type is (array3d_type)
-          di%val_ptr = reshape(gradient(:this%num_outputs,:), &
-               [this%input_shape(1), this%input_shape(2), this%batch_size] )
-       type is (array4d_type)
-          di%val_ptr = reshape(gradient(:this%num_outputs,:), [ &
-               this%input_shape(1), &
-               this%input_shape(2), &
-               this%input_shape(3), &
-               this%batch_size ] )
-       type is (array5d_type)
-          di%val_ptr = reshape(gradient(:this%num_outputs,:), [ &
-               this%input_shape(1), &
-               this%input_shape(2), &
-               this%input_shape(3), &
-               this%input_shape(4), &
-               this%batch_size ] )
-       end select
-    end select
-  end subroutine backward_rank
-!###############################################################################
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
 
 !###############################################################################
   module function layer_setup( &
@@ -271,7 +181,7 @@ contains
     if(allocated(this%output))then
        if(this%output(1,1)%allocated) call this%output(1,1)%deallocate()
     end if
-    allocate(this%output(1,1), source=array2d_type())
+    allocate(this%output(1,1))
     this%output_shape = [this%num_outputs]
 
 
@@ -320,57 +230,11 @@ contains
           return
        else
           if(allocated(this%output)) deallocate(this%output)
-          allocate( this%output(1,1), source = array2d_type() )
+          allocate( this%output(1,1) )
           call this%output(1,1)%allocate( &
-               array_shape = [ &
-                    (this%num_outputs), this%batch_size ], &
+               array_shape = [ this%num_outputs, this%batch_size ], &
                source=0._real32 &
           )
-          if(allocated(this%di)) deallocate(this%di)
-          select case(size(this%input_shape))
-          case(1)
-             this%input_rank = 1
-             allocate(this%di(1,1), source=array2d_type())
-             call this%di(1,1)%allocate( &
-                  array_shape = [ &
-                       this%input_shape(1), this%batch_size ], &
-                  source=0._real32 &
-             )
-          case(2)
-             this%input_rank = 2
-             allocate(this%di(1,1), source=array3d_type())
-             call this%di(1,1)%allocate( &
-                  array_shape = [ &
-                       this%input_shape(1), &
-                       this%input_shape(2), &
-                       this%batch_size ], &
-                  source=0._real32 &
-             )
-          case(3)
-             this%input_rank = 3
-             allocate(this%di(1,1), source=array4d_type())
-             call this%di(1,1)%allocate( &
-                  array_shape = [ &
-                       this%input_shape(1), &
-                       this%input_shape(2), &
-                       this%input_shape(3), this%batch_size ], &
-                  source=0._real32 &
-             )
-          case(4)
-             this%input_rank = 4
-             allocate(this%di(1,1), source=array5d_type())
-             call this%di(1,1)%allocate( &
-                  array_shape = [ &
-                       this%input_shape(1), &
-                       this%input_shape(2), &
-                       this%input_shape(3), &
-                       this%input_shape(4), this%batch_size ], &
-                  source=0._real32 &
-             )
-          case default
-             call stop_program('Flatten layer only supports input ranks 1-4')
-             return
-          end select
        end if
     end if
 
@@ -395,8 +259,6 @@ contains
     !! File unit
 
     ! Local variables
-    integer :: t
-    !! Loop index
     character(100) :: fmt
     !! Format string
 
@@ -415,7 +277,7 @@ contains
   subroutine read_flatten(this, unit, verbose)
     !! Read flattening layer from file
     use athena__tools_infile, only: assign_val, assign_vec, get_val
-    use athena__misc, only: to_lower, to_upper, icount
+    use coreutils, only: to_lower, to_upper, icount
     implicit none
 
     ! Arguments
@@ -606,6 +468,36 @@ contains
     call layer%build_from_onnx(node, initialisers, verbose=verbose_)
 
   end function create_from_onnx_flatten_layer
+!###############################################################################
+
+
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
+
+
+!###############################################################################
+  subroutine forward_flatten(this, input)
+    !! Forward propagation
+    implicit none
+
+    ! Arguments
+    class(flatten_layer_type), intent(inout) :: this
+    !! Instance of the fully connected layer
+    class(array_type), dimension(:,:), intent(in) :: input
+    !! Input values
+
+    type(array_type), pointer :: ptr => null()
+
+
+    ! Flatten input
+    !---------------------------------------------------------------------------
+    call this%output(1,1)%zero_grad()
+    ptr => pack(input(1,1), dim = 1)
+    call this%output(1,1)%assign_and_deallocate_source(ptr)
+    this%output(1,1)%is_temporary = .false.
+
+  end subroutine forward_flatten
 !###############################################################################
 
 end module athena__flatten_layer

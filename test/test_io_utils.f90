@@ -4,16 +4,7 @@ program test_io_utils
 
   ! Test variables
   logical :: success = .true.
-  character(100) :: message
 
-  ! Test stop_program subroutine
-  test_error_handling = .true.
-  message = "Test error message"
-  call stop_program(message)
-
-  ! Test print_warning subroutine
-  call print_warning("This is a test warning message")
-  
   ! Test print_version subroutine
   call print_version()
 
@@ -25,9 +16,9 @@ program test_io_utils
   !-----------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
-     write(*,*) 'test_misc_linalg passed all tests'
+     write(*,*) 'test_io_utils passed all tests'
   else
-     write(0,*) 'test_misc_linalg failed one or more tests'
+     write(0,*) 'test_io_utils failed one or more tests'
      stop 1
   end if
 

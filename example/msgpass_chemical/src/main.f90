@@ -5,12 +5,12 @@ program msgpass_chemical_example
   !! and trains a message passing neural network to predict the energy of the
   !! chemical graph.
   use athena
-  use constants_mnist, only: real32
+  use coreutils, only: real32
   use read_chemical_graphs, only: read_extxyz_db
 
   implicit none
 
-  integer :: seed = 1
+  integer :: seed = 42
   type(network_type) :: network
   class(base_layer_type), allocatable :: layer
   type(metric_dict_type), dimension(2) :: metric_dict
@@ -18,7 +18,7 @@ program msgpass_chemical_example
 
   logical :: restart = .false.
 
-  ! data loading and preoprocessing
+  ! data loading and preprocessing
   type(graph_type), allocatable, dimension(:,:) :: graphs_in
   real(real32), allocatable, dimension(:,:) :: labels
   character(1024) :: file, train_file
@@ -32,7 +32,10 @@ program msgpass_chemical_example
   integer :: num_params
   integer, dimension(:), allocatable :: sample_list
   real(real32), dimension(:), allocatable :: feature_in_norm
-  type(array2d_type), dimension(1,1) :: output
+  type(array_type), dimension(1,1) :: output
+  real(real32) :: output_min, output_max
+
+  class(*), allocatable, dimension(:,:) :: data_poly
 
 
 
@@ -44,6 +47,7 @@ program msgpass_chemical_example
   call read_extxyz_db(train_file, graphs_in, output)!labels)
   write(*,*) "Reading finished"
   do s = 1, size(graphs_in)
+     call graphs_in(1,s)%add_self_loops()
      if(.not.graphs_in(1,s)%is_sparse) call graphs_in(1,s)%convert_to_sparse()
   end do
 
@@ -132,7 +136,8 @@ program msgpass_chemical_example
             ! lr_decay = exp_lr_decay_type(1.E-2_real32) &
             ! lr_decay = step_lr_decay_type(0.5_real32, 5) &
        ), &
-       loss_method = "mse", metrics = metric_dict, &
+       loss_method = "mse", &
+       metrics = metric_dict, &
        batch_size = batch_size, verbose = 1, &
        accuracy_method = "mse" &
   )
@@ -152,8 +157,10 @@ program msgpass_chemical_example
   ! training loop
   !-----------------------------------------------------------------------------
   call network%set_batch_size(batch_size)
-  output(1,1)%val = ( output(1,1)%val - minval(output(1,1)%val) ) / &
-       ( maxval(output(1,1)%val) - minval(output(1,1)%val) )
+  output_min = minval(output(1,1)%val)
+  output_max = maxval(output(1,1)%val)
+  output(1,1)%val = ( output(1,1)%val - output_min ) / &
+       ( output_max - output_min )
   call network%train( &
        graphs_in, &
        output, &
@@ -172,9 +179,16 @@ program msgpass_chemical_example
   )
   write(*,*) "Testing finished"
 
+  data_poly = network%predict_generic( graphs_in, output_as_graph = .false.)
+  select type(data_poly)
+  type is(array_type)
+     write(*,*) "Predicted output:"
+     write(*,*) data_poly(1,1)%val * ( output_max - output_min ) + output_min
+     write(*,*) output(1,1)%val * ( output_max - output_min ) + output_min
+  end select
 
-  write(6,'("Overall accuracy=",F0.5)') network%accuracy
-  write(6,'("Overall loss=",F0.5)')     network%loss
+  write(6,'("Overall accuracy=",F0.5)') network%accuracy_val
+  write(6,'("Overall loss=",F0.5)')     network%loss_val
 
   if(.not.restart)then
      call network%print(file="network.txt")

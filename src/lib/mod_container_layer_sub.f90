@@ -86,7 +86,7 @@ contains
          read_procedure_container('dropblock3d', read_dropblock3d_layer), &
          read_procedure_container('dropout', read_dropout_layer), &
          read_procedure_container('duvenaud', read_duvenaud_msgpass_layer), &
-         read_procedure_container('flat', read_flatten_layer), &
+         read_procedure_container('flatten', read_flatten_layer), &
          read_procedure_container('full', read_full_layer), &
          read_procedure_container('input', read_input_layer), &
          read_procedure_container('kipf', read_kipf_msgpass_layer), &

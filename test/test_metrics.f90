@@ -18,13 +18,19 @@ program test_metrics
   a%val = 10
   a%threshold = 5.0
   a%active = .true.
-  a%history = [1, 2, 3, 4, 5]
+  a%window_width = 5
+  do i = 1, 5
+     call a%append(real(i))
+  end do
 
   b%key = "loss"
   b%val = 20
   b%threshold = 10.0
   b%active = .false.
-  b%history = [6, 7, 8, 9, 10]
+  b%window_width = 5
+  do i = 1, 5
+     call b%append(real(i + 5))
+  end do
 
   expected_result%key = "loss"
   expected_result%val = 30
@@ -97,7 +103,7 @@ contains
   subroutine check_metric_dict(actual, expected)
     type(metric_dict_type), intent(in) :: actual
     type(metric_dict_type), intent(in) :: expected
-  
+
     if (actual%key .ne. expected%key .or. &
          actual%val .ne. expected%val .or. &
          actual%threshold .ne. expected%threshold .or. &
@@ -107,5 +113,5 @@ contains
        success = .false.
     end if
   end subroutine check_metric_dict
-  
+
 end program test_metrics

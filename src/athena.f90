@@ -21,7 +21,7 @@ module athena
   use athena__accuracy, only: categorical_score, mae_score, mse_score, r2_score
 
 
-  ! Optimisation and regularisation types
+  ! Optimisation, loss, and regularisation types
   !-----------------------------------------------------------------------------
   use athena__clipper, only: clip_type
   use athena__regulariser, only: &
@@ -40,6 +40,14 @@ module athena
        rmsprop_optimiser_type, &
        adagrad_optimiser_type, &
        adam_optimiser_type
+  use athena__loss, only: &
+       base_loss_type, &
+       bce_loss_type, &
+       cce_loss_type, &
+       mae_loss_type, &
+       mse_loss_type, &
+       nll_loss_type, &
+       huber_loss_type
 
 
   ! Normalisation methods
@@ -50,6 +58,13 @@ module athena
        renormalise_sum
 
 
+  ! Initialisation methods
+  !-----------------------------------------------------------------------------
+  use athena__misc_types, only: initialiser_type
+  use athena__initialiser_he, only: he_uniform_type, he_normal_type
+  ! use athena__initialiser_glorot, only: glorot_uniform_type, glorot_normal_type
+
+
   ! Abstract layer types
   !-----------------------------------------------------------------------------
   use athena__base_layer, only: &
@@ -57,7 +72,8 @@ module athena
        learnable_layer_type, &
        batch_layer_type, &
        conv_layer_type, &
-       pool_layer_type
+       pool_layer_type, &
+       merge_layer_type
 
 
   ! Input layer types
@@ -79,6 +95,7 @@ module athena
   use athena__batchnorm3d_layer, only: &
        batchnorm3d_layer_type, read_batchnorm3d_layer
 
+
   ! Convolution layer types
   !-----------------------------------------------------------------------------
   use athena__conv1d_layer,    only: conv1d_layer_type, read_conv1d_layer
@@ -86,16 +103,9 @@ module athena
   use athena__conv3d_layer,    only: conv3d_layer_type, read_conv3d_layer
 
 
-! !   ! Deep set layer types
-! !   !-----------------------------------------------------------------------------
-! !   use athena__deepset_layer,   only: deepset_layer_type, read_deepset_layer
-
-
-  ! Message passing layer types
-  !-----------------------------------------------------------------------------
-  use athena__msgpass_layer,      only: msgpass_layer_type
-  use athena__kipf_msgpass_layer, only: kipf_msgpass_layer_type
-  use athena__duvenaud_msgpass_layer, only: duvenaud_msgpass_layer_type
+! ! !   ! Deep set layer types
+! ! !   !-----------------------------------------------------------------------------
+! ! !   use athena__deepset_layer,   only: deepset_layer_type, read_deepset_layer
 
 
   ! Dropout layer types
@@ -126,7 +136,7 @@ module athena
 
   ! Flatten layer types
   !-----------------------------------------------------------------------------
-  use athena__flatten_layer, only: flatten_layer_type
+  use athena__flatten_layer, only: flatten_layer_type, read_flatten_layer
 
 
   ! Fully connected (dense) layer types
@@ -134,16 +144,22 @@ module athena
   use athena__full_layer,      only: full_layer_type, read_full_layer
 
 
+  ! Merge layer types
+  !-----------------------------------------------------------------------------
+  use athena__add_layer, only: add_layer_type, read_add_layer
+  use athena__concat_layer, only: concat_layer_type, read_concat_layer
+
+  ! Message passing layer types
+  !-----------------------------------------------------------------------------
+  use athena__msgpass_layer,      only: msgpass_layer_type
+  use athena__kipf_msgpass_layer, only: kipf_msgpass_layer_type
+  use athena__duvenaud_msgpass_layer, only: duvenaud_msgpass_layer_type
+
+
   ! Array types
   !-----------------------------------------------------------------------------
-  use athena__misc_types, only: &
-       array_container_type, &
-       array_type, &
-       array1d_type, &
-       array2d_type, &
-       array3d_type, &
-       array4d_type, &
-       array5d_type
+  use diffstruc
+  use athena__diffstruc_extd, only: array_container_type
 
 
   ! List of layer types

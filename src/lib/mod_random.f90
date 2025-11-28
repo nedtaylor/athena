@@ -1,6 +1,6 @@
 module athena__random
   !! Module containing functions to initialise the random number generator
-  use athena__io_utils, only: stop_program
+  use coreutils, only: stop_program
   implicit none
   logical :: l_random_initialised=.false.
 

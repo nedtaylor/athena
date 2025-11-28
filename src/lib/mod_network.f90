@@ -8,17 +8,15 @@ module athena__network
   !! The network class is also used to define the network structure and
   !! compile the network with an optimiser, loss function, and accuracy
   !! function.
-  use athena__constants, only: real32
+  use coreutils, only: real32
   use graphstruc, only: graph_type
   use athena__metrics, only: metric_dict_type
   use athena__optimiser, only: base_optimiser_type
-  use athena__loss, only: &
-       comp_loss_func => compute_loss_function, &
-       comp_loss_deriv => compute_loss_derivative
+  use athena__loss, only: base_loss_type
   use athena__accuracy, only: comp_acc_func => compute_accuracy_function
   use athena__base_layer, only: base_layer_type
-  use athena__misc_types, only: array_type, array2d_type, &
-       onnx_node_type, onnx_initialiser_type
+  use diffstruc, only: array_type
+  use athena__misc_types, only: onnx_node_type, onnx_initialiser_type
   use athena__container_layer, only: container_layer_type
   implicit none
 
@@ -32,7 +30,7 @@ module athena__network
      !! Type for defining a neural network with overloaded procedures
      character(len=:), allocatable :: name
      !! Name of the network
-     real(real32) :: accuracy, loss
+     real(real32) :: accuracy_val, loss_val
      !! Accuracy and loss of the network
      integer :: batch_size = 0
      !! Batch size
@@ -50,26 +48,31 @@ module athena__network
      !! Boolean flag for graph output
      class(base_optimiser_type), allocatable :: optimiser
      !! Optimiser for the network
+     class(base_loss_type), allocatable :: loss
+     !! Loss method for the network
      type(metric_dict_type), dimension(2) :: metrics
      !! Metrics for the network
      type(container_layer_type), allocatable, dimension(:) :: model
      !! Model layers
      character(len=:), allocatable :: loss_method, accuracy_method
-     !! Loss and accuracy methods
-     procedure(comp_loss_func), nopass, pointer :: get_loss => null()
-     !! Pointer to loss function
-     procedure(comp_loss_deriv), nopass, pointer :: get_loss_deriv => null()
-     !! Pointer to loss derivative function
+     !! Loss and accuracy method names
      procedure(comp_acc_func), nopass, pointer :: get_accuracy => null()
      !! Pointer to accuracy function
      integer, dimension(:), allocatable :: vertex_order
      !! Order of vertices
-     integer, dimension(:), allocatable :: root_vertices, output_vertices
+     integer, dimension(:), allocatable :: root_vertices, leaf_vertices
      !! Root and output vertices
      integer, dimension(:,:,:), allocatable :: io_map
      !! Input-output map
      type(graph_type) :: auto_graph
      !! Graph structure for the network
+
+     type(array_type), dimension(:,:), allocatable :: input_array
+     !! Input array for the network
+     type(graph_type), dimension(:,:), allocatable :: input_graph
+     !! Input graph for the network
+     type(array_type), dimension(:,:), allocatable :: expected_array
+     !! Expected output array for the network
    contains
      procedure, pass(this) :: print
      !! Print the network to file
@@ -95,6 +98,13 @@ module athena__network
      !! Set network loss method
      procedure, pass(this) :: set_accuracy
      !! Set network accuracy method
+
+     procedure, pass(this) :: save_input => save_input_to_network
+     !! Convert and save polymorphic input to array or graph
+
+     procedure, pass(this) :: layer_from_id
+     !! Get the layer of the network from its ID
+
      procedure, pass(this) :: train
      !! Train the network
      procedure, pass(this) :: test
@@ -103,6 +113,10 @@ module athena__network
      !! Return predicted results from supplied inputs using the trained network
      procedure, pass(this) :: predict_graph
      !! Return predicted results from supplied inputs using the trained network (graph input)
+     procedure, pass(this) :: predict_array
+     !! Predict array type output for a generic input
+     procedure, pass(this) :: predict_generic
+     !! Predict generic type output for a generic input
      generic :: predict => predict_1d, predict_graph
      !! Predict function for different input types
      procedure, pass(this) :: update
@@ -113,18 +127,10 @@ module athena__network
      !! Depth first search
      procedure, pass(this), private :: calculate_root_vertices
      !! Calculate root vertices
-     procedure, pass(this), private :: calculate_output_vertices
+     procedure, pass(this), private :: calculate_leaf_vertices
      !! Calculate output vertices
      procedure, pass(this), private :: calculate_io_map
      !! Calculate input-output map
-     procedure, pass(this), private :: get_input_real_autodiff
-     !! Get the input of a layer via autodiff
-     procedure, pass(this), private :: get_gradient_real_autodiff
-     !! Get the gradient of a layer via autodiff
-     procedure, pass(this), private :: get_input_graph_autodiff
-     !! Get the input of a layer via autodiff (graph input)
-     procedure, pass(this), private :: get_gradient_graph_autodiff
-     !! Get the gradient of a layer via autodiff (graph input)
      procedure, pass(this) :: reduce => network_reduction
      !! Reduce two networks down to one (i.e. add two networks - parallel)
      procedure, pass(this) :: copy => network_copy
@@ -141,23 +147,28 @@ module athena__network
      !! Set learnable parameter gradients
      procedure, pass(this) :: reset_gradients
      !! Reset learnable parameter gradients
-     procedure, pass(this) :: forward_real
-     !! Forward pass for real input
-     procedure, pass(this) :: backward_real
-     !! Backward pass for real input
-     procedure, pass(this) :: forward_derived
-     !! Forward pass for derived input
-     procedure, pass(this) :: backward_derived
-     !! Backward pass for derived input
-     procedure, pass(this) :: forward_graph
-     !! Forward pass for graph input
-     procedure, pass(this) :: backward_graph
-     !! Backward pass for graph input
-     procedure, pass(this) :: backward_mixed
-     generic :: forward => forward_real, forward_derived, forward_graph
+     procedure, pass(this) :: get_output
+     !! Get the output of the network
+     procedure, pass(this) :: get_output_shape
+     !! Get the output shape of the network
+
+     procedure, pass(this) :: extract_output => extract_output_real
+
+     procedure, pass(this) :: forward_generic2d
+     !! Forward pass for generic 2D input
+     procedure, pass(this) :: forward_eval
+     !! Forward pass and return pointer to output (only works for single output layer models)
+
+     procedure, pass(this) :: nullify_graph
+     !! Nullify graph data in the network to free memory
+
+     procedure, pass(this) :: calc_output_accuracy
+     !! Get the accuracy for the output
+     procedure, pass(this) :: loss_backward
+     !! Get the loss for the output
+
+     generic :: forward => forward_generic2d
      !! Generic for forward propagation
-     generic :: backward => backward_real, backward_derived, backward_graph
-     !! Generic for backward propagation
   end type network_type
 
   interface network_type
@@ -172,8 +183,10 @@ module athena__network
        !! Layers
        class(base_optimiser_type), optional, intent(in) :: optimiser
        !! Optimiser
-       character(*), optional, intent(in) :: loss_method, accuracy_method
-       !! Loss method and accuracy method
+       class(*), optional, intent(in) :: loss_method
+       !! Loss method
+       character(*), optional, intent(in) :: accuracy_method
+       !! Accuracy method
        class(*), dimension(..), optional, intent(in) :: metrics
        !! Metrics
        integer, optional, intent(in) :: batch_size
@@ -263,8 +276,10 @@ module athena__network
        !! Instance of the network
        class(base_optimiser_type), intent(in) :: optimiser
        !! Optimiser
-       character(*), optional, intent(in) :: loss_method, accuracy_method
-       !! Loss method and accuracy method
+       class(*), optional, intent(in) :: loss_method
+       !! Loss method
+       character(*), optional, intent(in) :: accuracy_method
+       !! Accuracy method
        class(*), dimension(..), optional, intent(in) :: metrics
        !! Metrics
        integer, optional, intent(in) :: batch_size
@@ -296,7 +311,7 @@ module athena__network
        !! Set network loss method
        class(network_type), intent(inout) :: this
        !! Instance of the network
-       character(*), intent(in) :: loss_method
+       class(*), intent(in) :: loss_method
        !! Loss method
        integer, optional, intent(in) :: verbose
        !! Verbosity level
@@ -312,6 +327,28 @@ module athena__network
        integer, optional, intent(in) :: verbose
        !! Verbosity level
      end subroutine set_accuracy
+
+     !! Interface for saving input to network
+     module function save_input_to_network( this, input ) result(num_samples)
+       !! Convert and save polymorphic input to array or graph
+       class(network_type), intent(inout) :: this
+       !! Instance of network
+       class(*), dimension(..), intent(in) :: input
+       !! Input
+       integer :: num_samples
+       !! Number of samples
+     end function save_input_to_network
+
+     module function layer_from_id(this, id) result(layer)
+       !! Get the layer of the network from its ID
+       class(network_type), intent(in), target :: this
+       !! Instance of the network
+       integer, intent(in) :: id
+       !! Layer ID
+       class(base_layer_type), pointer :: layer
+       !! Layer pointer
+     end function layer_from_id
+
 
      !! Interface for training the network
      module subroutine train( &
@@ -376,10 +413,36 @@ module athena__network
        !! Input data
        integer, optional, intent(in) :: verbose
        !! Verbosity level
-       type(graph_type), dimension(size(input,dim=1),size(this%output_vertices)) :: &
+       type(graph_type), dimension(size(input,dim=1),size(this%leaf_vertices)) :: &
             output
        !! Predicted output data
      end function predict_graph
+
+     module function predict_array( this, input, verbose ) &
+          result(output)
+       !! Predict the output for a generic input
+       class(network_type), intent(inout) :: this
+       !! Instance of network
+       class(*), dimension(:,:), intent(in) :: input
+       !! Input graph
+       integer, intent(in), optional :: verbose
+       !! Verbosity level
+       type(array_type), pointer :: output(:,:)
+     end function predict_array
+
+     module function predict_generic( this, input, verbose, output_as_graph ) &
+          result(output)
+       !! Predict the output for a generic input
+       class(network_type), intent(inout) :: this
+       !! Instance of network
+       class(*), dimension(:,:), intent(in) :: input
+       !! Input graph
+       integer, intent(in), optional :: verbose
+       !! Verbosity level
+       logical, intent(in) :: output_as_graph
+       !! Boolean whether to output as graph
+       class(*), dimension(:,:), allocatable :: output
+     end function predict_generic
 
      !! Interface for updating the learnable parameters of the network
      !! based on gradients
@@ -422,11 +485,11 @@ module athena__network
      end subroutine calculate_root_vertices
 
      !! Interface for calculating output vertices
-     module subroutine calculate_output_vertices(this)
+     module subroutine calculate_leaf_vertices(this)
        !! Calculate output vertices
        class(network_type), intent(inout) :: this
        !! Instance of the network
-     end subroutine calculate_output_vertices
+     end subroutine calculate_leaf_vertices
 
      !! Interface for calculating input-output map
      module subroutine calculate_io_map(this)
@@ -434,51 +497,6 @@ module athena__network
        class(network_type), intent(inout) :: this
        !! Instance of the network
      end subroutine calculate_io_map
-
-     !! Interface for getting the input of a layer via autodiff
-     pure module subroutine get_input_real_autodiff(this, idx, input)
-       !! Get the input of a layer via autodiff
-       class(network_type), intent(in) :: this
-       !! Instance of the network
-       integer, intent(in) :: idx
-       !! Index
-       real(real32), allocatable, dimension(:,:), intent(out) :: input
-       !! Input
-     end subroutine get_input_real_autodiff
-
-     !! Interface for getting the input of a layer via autodiff (graph input)
-     module subroutine get_input_graph_autodiff(this, idx, input)
-       !! Get the input of a layer via autodiff
-       class(network_type), intent(in) :: this
-       !! Instance of the network
-       integer, intent(in) :: idx
-       !! Index
-       type(array2d_type), dimension(2,this%batch_size), intent(inout) :: input
-       !! Input
-     end subroutine get_input_graph_autodiff
-
-     !! Interface for getting the gradient of a layer via autodiff
-     pure module subroutine get_gradient_real_autodiff(this, idx, gradient)
-       !! Get the gradient of a layer via autodiff
-       class(network_type), intent(in) :: this
-       !! Instance of the network
-       integer, intent(in) :: idx
-       !! Index
-       real(real32), allocatable, dimension(:,:), intent(out) :: gradient
-       !! Gradient
-     end subroutine get_gradient_real_autodiff
-
-     !! Interface for getting the gradient of a layer via autodiff (graph input)
-     pure module subroutine get_gradient_graph_autodiff(this, idx, gradient)
-       !! Get the gradient of a layer via autodiff
-       class(network_type), intent(in) :: this
-       !! Instance of the network
-       integer, intent(in) :: idx
-       !! Index
-       type(array2d_type), &
-            dimension(2,this%batch_size), intent(inout) :: gradient
-       !! Gradient
-     end subroutine get_gradient_graph_autodiff
 
      !! Interface for reducing two networks down to one
      !! (i.e. add two networks - parallel)
@@ -551,61 +569,75 @@ module athena__network
        !! Instance of the network
      end subroutine reset_gradients
 
-     !! Interface for forward pass
-     module subroutine forward_real(this, input)
-       !! Forward pass for real input
-       class(network_type), intent(inout) :: this
+     module function get_output(this) result(output)
+       class(network_type), intent(in) :: this
        !! Instance of the network
-       real(real32), dimension(..), intent(in) :: input
-       !! Input data
-     end subroutine forward_real
-     module subroutine forward_derived(this, input)
-       !! Forward pass for derived input
-       class(network_type), intent(inout) :: this
-       !! Instance of the network
-       class(array_type), dimension(size(this%root_vertices)), intent(in) :: &
-            input
-       !! Input data
-     end subroutine forward_derived
-     module subroutine forward_graph(this, input)
-       !! Forward pass for derived input
-       class(network_type), intent(inout) :: this
-       !! Instance of the network
-       type(graph_type), dimension(size(this%root_vertices),this%batch_size), &
-            intent(in) :: input
-       !! Input data
-     end subroutine forward_graph
+       type(array_type), dimension(:,:), allocatable :: output
+       !! Output
+     end function get_output
 
-     !! Interface for backward pass
-     module subroutine backward_real(this, output)
-       !! Backward pass
-       class(network_type), intent(inout) :: this
+     module function get_output_shape(this) result(output_shape)
+       class(network_type), intent(in) :: this
        !! Instance of the network
-       real(real32), dimension(:,:), intent(in) :: output
-       !! Output data
-     end subroutine backward_real
-     module subroutine backward_derived(this, output)
-       !! Backward pass
-       class(network_type), intent(inout) :: this
-       !! Instance of the network
-       type(array2d_type), dimension(:), intent(in) :: output
-       !! Output data
-     end subroutine backward_derived
-     module subroutine backward_graph(this, output)
-       !! Forward pass for derived input
-       class(network_type), intent(inout) :: this
+       integer, dimension(2) :: output_shape
+       !! Output shape
+     end function get_output_shape
+
+     module subroutine extract_output_real(this, output)
+       class(network_type), intent(in) :: this
        !! Instance of network
-       class(graph_type), dimension(size(this%output_vertices),this%batch_size), &
-            intent(in) :: output
+       real(real32), dimension(..), allocatable, intent(out) :: output
+       !! Output
+     end subroutine extract_output_real
+
+     module function calc_output_accuracy(this, output, start_index, end_index) &
+          result(accuracy)
+       !! Get the accuracy for the output
+       class(network_type), intent(in) :: this
+       !! Instance of network
+       class(*), dimension(:,:), intent(in) :: output
+       !! Output
+       integer, intent(in) :: start_index, end_index
+       !! Start and end batch indices
+       real(real32) :: accuracy
+       !! Accuracy value
+     end function calc_output_accuracy
+
+     module function loss_backward(this, start_index, end_index) result(loss)
+       !! Get the loss for the output
+       ! Arguments
+       class(network_type), intent(inout), target :: this
+       !! Instance of network
+       integer, intent(in) :: start_index, end_index
+       !! Start and end batch indices
+
+       type(array_type), pointer :: loss
+     end function loss_backward
+
+     !! Interface for forward pass
+     module subroutine forward_generic2d(this, input)
+       !! Forward pass for generic 2D input
+       class(network_type), intent(inout), target :: this
+       !! Instance of the network
+       class(*), dimension(:,:), intent(in) :: input
+       !! Input data
+     end subroutine forward_generic2d
+
+     module function forward_eval(this, input) result(output)
+       !! Forward pass evaluation
+       class(network_type), intent(inout), target :: this
+       !! Instance of the network
+       class(*), dimension(:,:), intent(in) :: input
+       !! Input data
+       type(array_type), pointer :: output(:,:)
        !! Output data
-     end subroutine backward_graph
-     module subroutine backward_mixed(this, output)
-       !! Forward pass for derived input
+     end function forward_eval
+
+     module subroutine nullify_graph(this)
+       !! Nullify graph data in the network to free memory
        class(network_type), intent(inout) :: this
        !! Instance of the network
-       type(array2d_type), dimension(:,:), intent(in) :: output
-       !! Output data
-     end subroutine backward_mixed
+     end subroutine nullify_graph
   end interface
 
   interface get_sample
@@ -625,32 +657,21 @@ module athena__network
        real(real32), pointer :: sample_ptr(:,:)
        !! Pointer to sample
      end function get_sample_ptr
-     module function get_sample_derived( &
-          input, start_index, end_index, batch_size &
-     ) result(sample)
-       !! Get sample for derived input
-       integer, intent(in) :: start_index, end_index
-       !! Start and end indices
-       integer, intent(in) :: batch_size
-       !! Batch size
-       class(array_type), dimension(:), intent(in), target :: input
-       !! Input array
-       type(array2d_type), dimension(size(input,1)) :: sample
-       !! Sample array
-     end function get_sample_derived
-     module function get_sample_mixed( &
-          input, start_index, end_index, batch_size &
+     module function get_sample_array( &
+          input, start_index, end_index, batch_size, as_graph&
      ) result(sample)
        !! Get sample for mixed input
        integer, intent(in) :: start_index, end_index
        !! Start and end indices
        integer, intent(in) :: batch_size
        !! Batch size
-       class(array_type), dimension(:,:), intent(in), target :: input
+       class(array_type), dimension(:,:), intent(in) :: input
        !! Input array
-       type(array2d_type), dimension(size(input,1), batch_size) :: sample
+       logical, intent(in) :: as_graph
+       !! Boolean whether to treat the input as a graph
+       type(array_type), dimension(:,:), allocatable :: sample
        !! Sample array
-     end function get_sample_mixed
+     end function get_sample_array
      module function get_sample_graph( &
           input, start_index, end_index, batch_size &
      ) result(sample)
@@ -659,9 +680,9 @@ module athena__network
        !! Start and end indices
        integer, intent(in) :: batch_size
        !! Batch size
-       class(graph_type), dimension(:,:), intent(in), target :: input
+       class(graph_type), dimension(:,:), intent(in) :: input
        !! Input array
-       type(graph_type), dimension(size(input,dim=1),batch_size) :: sample
+       type(graph_type), dimension(size(input,1), batch_size) :: sample
        !! Sample array
      end function get_sample_graph
   end interface get_sample

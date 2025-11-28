@@ -13,10 +13,12 @@ module athena__base_layer
   !!
   !! The following procedures are based on code from the neural-fortran library
   !! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
-  use athena__constants, only: real32
+  use coreutils, only: real32
   use athena__clipper, only: clip_type
-  use athena__misc_types, only: activation_type, array_type, facets_type, &
+  use athena__misc_types, only: activation_type, initialiser_type, facets_type, &
        onnx_attribute_type, onnx_node_type, onnx_initialiser_type
+  use diffstruc, only: array_type
+  use athena__diffstruc_extd, only: array_ptr_type
   use graphstruc, only: graph_type
   implicit none
 
@@ -29,6 +31,7 @@ module athena__base_layer
   public :: learnable_layer_type
   public :: conv_layer_type
   public :: batch_layer_type
+  public :: merge_layer_type
 
 !-------------------------------------------------------------------------------
 ! layer abstract type
@@ -60,9 +63,6 @@ module athena__base_layer
      !! Boolean whether the layer has a consistent sample shape
      class(array_type), allocatable, dimension(:,:) :: output
      !! Output
-     class(array_type), allocatable, dimension(:,:) :: di
-     !! Gradient of input data
-     !!! HAVE A LOGICAL THAT INDICATES WHETHER input_shape REFERS TO THE DIMENSIONS OF di, OR OF EACH ELEMENT IN di
      integer, allocatable, dimension(:) :: input_shape
      !! Input shape
      integer, allocatable, dimension(:) :: output_shape
@@ -80,24 +80,24 @@ module athena__base_layer
      !! Print the layer to a unit
      procedure, pass(this) :: get_attributes => get_attributes_base
      !! Get the attributes of the layer (for ONNX export)
-     procedure, pass(this) :: get_output => get_output_base
-     !! Get the output of the layer
+     procedure, pass(this) :: extract_output => extract_output_base
+     !! Extract the output of the layer as a standard real array
      procedure(initialise), deferred, pass(this) :: init
      !! Initialise the layer
      procedure(set_batch_size), deferred, pass(this) :: set_batch_size
      !! Set the batch size of the layer
-     procedure(forward), deferred, pass(this) :: forward
-     !! Forward pass of layer
 
-     !! MAKE THESE DEFERRED
-     procedure, pass(this) :: forward_derived => forward_derived_base
-     procedure, pass(this) :: backward_derived => backward_derived_base
+     procedure, pass(this) :: forward => forward_base
+     !! Forward pass of layer
+     procedure, pass(this) :: forward_eval => forward_eval_base
+     !! Forward pass of layer and return output for evaluation
+
+     procedure, pass(this) :: nullify_graph => nullify_graph_base
+     !! Nullify the forward pass data of the layer to free memory
 
 
      !! Forward pass of layer using derived array_type
-     procedure(backward), deferred, pass(this) :: backward
-     !! Backward pass of layer
-     procedure(read_base), deferred, pass(this) :: read
+     procedure(read_layer), deferred, pass(this) :: read
      !! Read layer from file
      procedure, pass(this) :: build_from_onnx => build_from_onnx_base
      !! Build layer from ONNX node and initialiser
@@ -156,13 +156,13 @@ module athena__base_layer
        !! Input shape
      end subroutine set_shape_base
 
-     pure module subroutine get_output_base(this, output)
-       !! Get the output of the layer
+     module subroutine extract_output_base(this, output)
+       !! Extract the output of the layer as a standard real array
        class(base_layer_type), intent(in) :: this
        !! Instance of the layer
-       real(real32), allocatable, dimension(..), intent(out) :: output
+       real(real32), dimension(..), allocatable, intent(out) :: output
        !! Output values
-     end subroutine get_output_base
+     end subroutine extract_output_base
 
      module subroutine set_ptrs(this)
        !! Set pointers to layer data
@@ -210,44 +210,26 @@ module athena__base_layer
        integer :: num_params
        !! Number of parameters
      end function get_num_params
-
-     module subroutine forward(this, input)
-       !! Forward pass of layer
-       class(base_layer_type), intent(inout) :: this
-       !! Instance of the layer
-       real(real32), dimension(..), intent(in) :: input
-       !! Input data
-     end subroutine forward
-
-     module subroutine backward(this, input, gradient)
-       !! Backward pass of layer
-       class(base_layer_type), intent(inout) :: this
-       !! Instance of the layer
-       real(real32), dimension(..), intent(in) :: input
-       !! Input data
-       real(real32), dimension(..), intent(in) :: gradient
-       !! Gradient data
-     end subroutine backward
   end interface
 
   interface
-     module subroutine forward_derived_base(this, input)
+     module subroutine forward_base(this, input)
        !! Forward pass of layer
        class(base_layer_type), intent(inout) :: this
        !! Instance of the layer
        class(array_type), dimension(:,:), intent(in) :: input
        !! Input data
-     end subroutine forward_derived_base
+     end subroutine forward_base
 
-     module subroutine backward_derived_base(this, input, gradient)
-       !! Backward pass of layer
-       class(base_layer_type), intent(inout) :: this
+     module function forward_eval_base(this, input) result(output)
+       !! Forward pass of layer and return output for evaluation
+       class(base_layer_type), intent(inout), target :: this
        !! Instance of the layer
        class(array_type), dimension(:,:), intent(in) :: input
        !! Input data
-       class(array_type), dimension(:,:), intent(in) :: gradient
-       !! Gradient data
-     end subroutine backward_derived_base
+       type(array_type), pointer :: output(:,:)
+       !! Output data
+     end function forward_eval_base
 
      module subroutine set_graph_base(this, graph)
        !! Set the graph structure of the input data
@@ -256,10 +238,16 @@ module athena__base_layer
        type(graph_type), dimension(:), intent(in) :: graph
        !! Graph structure of input data
      end subroutine set_graph_base
+
+     module subroutine nullify_graph_base(this)
+       !! Nullify the forward pass data of the layer to free memory
+       class(base_layer_type), intent(inout) :: this
+       !! Instance of the layer
+     end subroutine nullify_graph_base
   end interface
 
   interface
-     module subroutine read_base(this, unit, verbose)
+     module subroutine read_layer(this, unit, verbose)
        !! Read layer from file
        class(base_layer_type), intent(inout) :: this
        !! Instance of the layer
@@ -267,7 +255,7 @@ module athena__base_layer
        !! File unit
        integer, optional, intent(in) :: verbose
        !! Verbosity level
-     end subroutine read_base
+     end subroutine read_layer
 
      module subroutine build_from_onnx_base(this, node, initialisers, verbose)
        !! Build layer from ONNX node
@@ -382,12 +370,51 @@ module athena__base_layer
   end interface
 
 
+  type, abstract, extends(base_layer_type) :: merge_layer_type
+     !! Type for merge layers (i.e. add, multiply, concatenate)
+     integer :: merge_mode = 1
+     !! Integer code for fundamental merge method
+     !! 1 = pointwise
+     !! 2 = concatenate
+     !! 3 = reduction
+     !! 4 = parametric (NOT IMPLEMENTED)
+     character(len=20) :: method
+     !! Merge method
+     integer :: num_input_layers = 0
+     !! Number of input layers
+     integer, allocatable, dimension(:) :: input_layer_ids
+     !! IDs of input layers
+   contains
+     procedure(combine_merge), deferred, pass(this) :: combine
+     !! Merge two layers (forward)
+     procedure(calc_input_shape), deferred, pass(this) :: calc_input_shape
+     !! Calculate input shape based on shapes of input layers
+  end type merge_layer_type
+
+  interface
+     module subroutine combine_merge(this, input_list)
+       !! Combine two layers (forward)
+       class(merge_layer_type), intent(inout) :: this
+       !! Instance of the layer
+       type(array_ptr_type), dimension(:), intent(in) :: input_list
+       !! Input values
+     end subroutine combine_merge
+
+     module function calc_input_shape(this, input_shapes) result(input_shape)
+       !! Calculate input shape based on shapes of input layers
+       class(merge_layer_type), intent(in) :: this
+       !! Instance of the layer
+       integer, dimension(:,:), intent(in) :: input_shapes
+       !! Input shapes
+       integer, allocatable, dimension(:) :: input_shape
+       !! Calculated input shape
+     end function calc_input_shape
+  end interface
+
   type, abstract, extends(base_layer_type) :: learnable_layer_type
      !! Type for layers with learnable parameters
      integer :: num_params = 0
      !! Number of learnable parameters
-     logical :: calc_input_gradients = .true.
-     !! Calculate input gradients
      logical :: has_bias = .false.
      !! Layer has bias
      integer, allocatable, dimension(:,:) :: weight_shape
@@ -395,10 +422,12 @@ module athena__base_layer
      integer, allocatable, dimension(:) :: bias_shape
      !! Shape of biases
      real(real32), allocatable, dimension(:) :: params
+     type(array_type), allocatable, dimension(:) :: params_array
      !! Learnable parameters
      real(real32), allocatable, dimension(:,:) :: dp, db
      !! Gradients of parameters and biases
      character(len=14) :: kernel_initialiser='', bias_initialiser=''
+     class(initialiser_type), allocatable :: kernel_init, bias_init
      !! Initialisers for kernel and bias
      class(activation_type), allocatable :: transfer
      !! Activation function
@@ -413,9 +442,7 @@ module athena__base_layer
      !! Set learnable parameters of layer
 
      procedure, pass(this) :: reduce => reduce_learnable
-     !! Reduce two layers to a single value
-     procedure, pass(this) :: merge => merge_learnable
-     !! Merge two layers
+     !! Merge another learnable layer into this one
      procedure :: add_t_t => add_learnable
      !! Add two layers
      generic :: operator(+) => add_t_t
@@ -423,21 +450,13 @@ module athena__base_layer
   end type learnable_layer_type
 
   interface
-     module subroutine reduce_learnable(this, rhs)
-       !! Reduce two layers to a single value
-       class(learnable_layer_type), intent(inout) :: this
-       !! Instance of the layer
-       class(learnable_layer_type), intent(in) :: rhs
-       !! Instance of the layer
-     end subroutine reduce_learnable
-
-     module subroutine merge_learnable(this, input)
-       !! Merge two layers
+     module subroutine reduce_learnable(this, input)
+       !! Merge another learnable layer into this one
        class(learnable_layer_type), intent(inout) :: this
        !! Instance of the layer
        class(learnable_layer_type), intent(in) :: input
-       !! Instance of the layer
-     end subroutine merge_learnable
+       !! Other layer to merge
+     end subroutine reduce_learnable
 
      module function add_learnable(a, b) result(output)
        !! Add two layers
@@ -489,7 +508,7 @@ module athena__base_layer
      !! Number of channels
      integer :: num_filters
      !! Number of filters
-     integer, allocatable, dimension(:) :: knl, stp, pad
+     integer, allocatable, dimension(:) :: knl, stp, pad, dil
      !! Kernel, stride, and padding sizes
      integer, allocatable, dimension(:) :: hlf, cen
      !! Half and centre sizes
@@ -530,57 +549,56 @@ module athena__base_layer
      !! Initialisers for moving mean and variance
      real(real32), allocatable, dimension(:) :: mean, variance
      !! Mean and variance (not learnable)
-     real(real32), pointer :: gamma(:) => null(), beta(:) => null()
-     !! Gamma and beta pointers (learnable)
    contains
      procedure, pass(this) :: get_num_params => get_num_params_batch
      !! Get the number of parameters in the layer
-     procedure, pass(this) :: set_gradients => set_gradients_batch
-     !! Set the gradients of the layer
      procedure, pass(this) :: init => init_batch
      !! Initialise the layer
-     procedure, pass(this) :: set_ptrs_hyperparams => set_ptrs_hyperparams_batch
-     !! Set pointers to hyperparameters
+     procedure, pass(this) :: get_attributes => get_attributes_batch
+     !! Get the attributes of the layer (for ONNX export)
   end type batch_layer_type
-
-
 
   interface
      pure module function get_num_params_base(this) result(num_params)
        class(base_layer_type), intent(in) :: this
        integer :: num_params
      end function get_num_params_base
+
      pure module function get_num_params_batch(this) result(num_params)
        class(batch_layer_type), intent(in) :: this
        integer :: num_params
      end function get_num_params_batch
-     module subroutine set_gradients_batch(this, gradients)
-       class(batch_layer_type), intent(inout) :: this
-       real(real32), dimension(..), intent(in) :: gradients
-     end subroutine set_gradients_batch
+
      pure module function get_num_params_conv(this) result(num_params)
        class(conv_layer_type), intent(in) :: this
        integer :: num_params
      end function get_num_params_conv
+
      module subroutine init_conv(this, input_shape, batch_size, verbose)
        class(conv_layer_type), intent(inout) :: this
        integer, dimension(:), intent(in) :: input_shape
        integer, optional, intent(in) :: batch_size
        integer, optional, intent(in) :: verbose
      end subroutine init_conv
+
      module function get_attributes_conv(this) result(attributes)
        class(conv_layer_type), intent(in) :: this
        type(onnx_attribute_type), allocatable, dimension(:) :: attributes
      end function get_attributes_conv
+
      module subroutine init_batch(this, input_shape, batch_size, verbose)
        class(batch_layer_type), intent(inout) :: this
        integer, dimension(:), intent(in) :: input_shape
        integer, optional, intent(in) :: batch_size
        integer, optional, intent(in) :: verbose
      end subroutine init_batch
-     module subroutine set_ptrs_hyperparams_batch(this)
-       class(batch_layer_type), intent(inout), target :: this
-     end subroutine set_ptrs_hyperparams_batch
+
+     module function get_attributes_batch(this) result(attributes)
+       class(batch_layer_type), intent(in) :: this
+       !! Instance of the layer
+       type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+       !! Attributes of the layer
+     end function get_attributes_batch
   end interface
 
 

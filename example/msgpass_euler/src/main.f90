@@ -7,7 +7,7 @@ program msgpass_euler_example
   !! of points and the neural network is trained to predict the steady state
   !! solution of the flow of a fluid over a bump.
   use athena
-  use constants_mnist, only: real32
+  use coreutils, only: real32
   use read_euler, only: read_graph
 
   implicit none
@@ -24,7 +24,7 @@ program msgpass_euler_example
   logical :: normalise = .false.
   !! Boolean whether to normalise the input and output features or not.
 
-  ! data loading and preoprocessing
+  ! data loading and preprocessing
   type(graph_type), allocatable, dimension(:,:) :: &
        graphs_in, graphs_out, &
        graphs_in_expected, graphs_out_expected, &
@@ -235,7 +235,7 @@ program msgpass_euler_example
        loss_method = "mse", & ! mean squared error loss
        accuracy_method = "mse", & ! use mean squared error for accuracy calculation
        metrics = metric_dict, &
-       batch_size = batch_size, &
+       batch_size = min(batch_size, size(graphs_in,2)), &
        verbose = 1 &
   )
 
@@ -252,7 +252,7 @@ program msgpass_euler_example
   !-----------------------------------------------------------------------------
   ! training loop
   !-----------------------------------------------------------------------------
-  call network%set_batch_size(batch_size)
+  call network%set_batch_size(min(batch_size, size(graphs_in,2)))
   call network%train( &
        graphs_in, &
        graphs_out, &
@@ -270,8 +270,8 @@ program msgpass_euler_example
   )
   write(*,*) "Testing finished"
 
-  write(*,'("Overall accuracy=",F0.5)') network%accuracy
-  write(*,'("Overall loss=",F0.5)')     network%loss
+  write(*,'("Overall accuracy=",F0.5)') network%accuracy_val
+  write(*,'("Overall loss=",F0.5)')     network%loss_val
 
   !-----------------------------------------------------------------------------
   ! predicting

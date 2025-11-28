@@ -3,7 +3,7 @@
 [![status](https://joss.theoj.org/papers/7806cc51a998f872034abfe0bb24bc24/status.svg)](https://joss.theoj.org/papers/7806cc51a998f872034abfe0bb24bc24)
 [![FPM](https://img.shields.io/badge/fpm-0.10.1-purple)](https://github.com/fortran-lang/fpm "View Fortran Package Manager")
 [![CMAKE](https://img.shields.io/badge/cmake-3.17.5-red)](https://github.com/Kitware/CMake/releases/tag/v3.17.5 "View cmake")
-[![GCC compatibility](https://img.shields.io/badge/gcc-13.2.0-green)](https://gcc.gnu.org/gcc-13/ "View GCC")
+[![GCC compatibility](https://img.shields.io/badge/gcc-15.2.0-green)](https://gcc.gnu.org/gcc-13/ "View GCC")
 [![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/nedtaylor/fd7c07c046ecc92d92eaf7bdcb78c4b5/raw/test.json)](https://nedtaylor.github.io/athena/ "View coverage report")
 <!-- [![Downloads](https://img.shields.io/github/downloads/nedtaylor/athena/total)](https://github.com/nedtaylor/athena/releases "View on GitHub") -->
 
@@ -82,13 +82,15 @@ The library has the following dependencies:
 - The [graphstruc](https://github.com/nedtaylor/graphstruc) Fortran library (for handing graph structures through derived types)
 
 The library has been developed and tested using the following compilers:
-- gfortran -- gcc 14.1.0
+- gfortran -- gcc 15.2.0
 - ifort -- Intel 2021.10.0.20230609
-- ifx -- IntelLLVM 2023.2.0
+- ifx -- IntelLLVM 2025.2.0
+
+> **_NOTE:_** athena is known to be incompatible with all versions of the gfortran compiler below `14.3.0` due an error with order of calling of overloaded `final` procedures of derived types.
 
 #### Tested compilers
 The library has also been tested with and found to support the following libraries:
-- gfortran -- gcc 12.3, gcc 13.2
+- gfortran -- gcc 14.3
 
 ### Building with fpm
 

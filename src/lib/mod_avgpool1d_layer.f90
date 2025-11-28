@@ -1,9 +1,9 @@
 module athena__avgpool1d_layer
   !! Module containing implementation of a 1D average pooling layer
-  use athena__io_utils, only: stop_program
-  use athena__constants, only: real32
+  use coreutils, only: real32, stop_program
   use athena__base_layer, only: pool_layer_type, base_layer_type
-  use athena__misc_types, only: array3d_type
+  use diffstruc, only: array_type
+  use athena__diffstruc_extd, only: avgpool1d
   implicit none
 
 
@@ -22,14 +22,10 @@ module athena__avgpool1d_layer
      !! Set batch size for 1D average pooling layer
      procedure, pass(this) :: read => read_avgpool1d
      !! Read 1D average pooling layer from file
-     procedure, pass(this) :: forward  => forward_rank
-     !! Forward propagation handler for 1D average pooling layer
-     procedure, pass(this) :: backward => backward_rank
-     !! Backward propagation handler for 1D average pooling layer
-     procedure, private, pass(this) :: forward_3d
-     !! Forward propagation for 3D input
-     procedure, private, pass(this) :: backward_3d
-     !! Backward propagation for 3D input
+
+     procedure, pass(this) :: forward => forward_avgpool1d
+     !! Forward propagation derived type handler
+
   end type avgpool1d_layer_type
 
   interface avgpool1d_layer_type
@@ -56,61 +52,6 @@ module athena__avgpool1d_layer
 
 
 contains
-
-!###############################################################################
-  subroutine forward_rank(this, input)
-    !! Forward propagation handler for 1D average pooling layer
-    implicit none
-
-    ! Arguments
-    class(avgpool1d_layer_type), intent(inout) :: this
-    !! Instance of the 1D average pooling layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input values
-
-    select rank(input)
-    rank(2)
-       call forward_3d(this, input)
-    rank(3)
-       call forward_3d(this, input)
-    end select
-  end subroutine forward_rank
-!###############################################################################
-
-
-!###############################################################################
-  subroutine backward_rank(this, input, gradient)
-    !! Backward propagation handler for 1D average pooling layer
-    implicit none
-
-    ! Arguments
-    class(avgpool1d_layer_type), intent(inout) :: this
-    !! Instance of the 1D average pooling layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input values
-    real(real32), dimension(..), intent(in) :: gradient
-    !! Gradient values
-
-    select rank(input)
-    rank(2)
-       select rank(gradient)
-       rank(2)
-          call backward_3d(this, input, gradient)
-       end select
-    rank(3)
-       select rank(gradient)
-       rank(3)
-          call backward_3d(this, input, gradient)
-       end select
-    end select
-  end subroutine backward_rank
-!###############################################################################
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
 
 !###############################################################################
   module function layer_setup( &
@@ -263,19 +204,10 @@ contains
           return
        end if
        if(allocated(this%output)) deallocate(this%output)
-       allocate( this%output(1,1), source = array3d_type() )
+       allocate( this%output(1,1) )
        call this%output(1,1)%allocate( &
             array_shape = [ &
                  this%output_shape(1), this%num_channels, &
-                 this%batch_size ], &
-            source=0._real32 &
-       )
-       if(allocated(this%di)) deallocate(this%di)
-       allocate( this%di(1,1), source = array3d_type() )
-       call this%di(1,1)%allocate( &
-            array_shape = [ &
-                 this%input_shape(1), &
-                 this%input_shape(2), &
                  this%batch_size ], &
             source=0._real32 &
        )
@@ -294,7 +226,7 @@ contains
   subroutine read_avgpool1d(this, unit, verbose)
     !! Read 1D average pooling layer from file
     use athena__tools_infile, only: assign_val, assign_vec
-    use athena__misc, only: to_lower, to_upper, icount
+    use coreutils, only: to_lower, to_upper, icount
     implicit none
 
     ! Arguments
@@ -427,92 +359,27 @@ contains
 
 
 !###############################################################################
-  subroutine forward_3d(this, input)
+  subroutine forward_avgpool1d(this, input)
     !! Forward propagation
     implicit none
 
     ! Arguments
     class(avgpool1d_layer_type), intent(inout) :: this
     !! Instance of the 1D average pooling layer
-    real(real32), &
-         dimension( &
-              this%input_shape(1), &
-              this%num_channels, &
-              this%batch_size), &
-         intent(in) :: input
+    class(array_type), dimension(:,:), intent(in) :: input
     !! Input values
 
     ! Local variables
-    integer :: i, m, s
-    !! Loop indices
-    integer :: stride_idx
-    !! Stride index
-
-    select type(output => this%output(1,1))
-    type is (array3d_type)
-       ! Perform the pooling operation
-       do concurrent(&
-            s = 1:this%batch_size, &
-            m = 1:this%num_channels, &
-            i = 1:this%output_shape(1))
-          stride_idx = (i - 1) * this%strd(1) + 1
-          output%val_ptr(i, m, s) = sum(&
-               input( &
-                    stride_idx:stride_idx+this%pool(1)-1, m, s)) / this%pool(1)
-       end do
-    end select
-
-  end subroutine forward_3d
-!###############################################################################
+    type(array_type), pointer :: ptr
+    !! Pointer array
 
 
-!###############################################################################
-  subroutine backward_3d(this, input, gradient)
-    !! Backward propagation
-    implicit none
+    call this%output(1,1)%zero_grad()
+    ptr => avgpool1d(input(1,1), this%pool(1), this%strd(1))
+    call this%output(1,1)%assign_and_deallocate_source(ptr)
+    this%output(1,1)%is_temporary = .false.
 
-    ! Arguments
-    class(avgpool1d_layer_type), intent(inout) :: this
-    !! Instance of the 1D average pooling layer
-    real(real32), &
-         dimension( &
-              this%input_shape(1), &
-              this%num_channels, &
-              this%batch_size), &
-         intent(in) :: input
-    !! Input values
-    real(real32), &
-         dimension(&
-              this%output_shape(1), &
-              this%num_channels, &
-              this%batch_size), &
-         intent(in) :: gradient
-    !! Gradient values
-
-    ! Local variables
-    integer :: i, m, s
-    !! Loop indices
-    integer :: stride_idx
-    !! Stride index
-
-    select type(di => this%di(1,1))
-    type is (array3d_type)
-       di%val_ptr = 0._real32
-       ! Compute gradients for input feature map
-       do concurrent( &
-            s = 1:this%batch_size, &
-            m = 1:this%num_channels, &
-            i = 1:this%output_shape(1))
-          stride_idx = (i - 1) * this%strd(1)
-          ! Compute gradients for input feature map
-          di%val_ptr( &
-               stride_idx+1:stride_idx+this%pool(1), m, s) = &
-               di%val_ptr(stride_idx+1:stride_idx+this%pool(1), m, s) + &
-               gradient(i, m, s) / this%pool(1)
-       end do
-    end select
-
-  end subroutine backward_3d
+  end subroutine forward_avgpool1d
 !###############################################################################
 
 end module athena__avgpool1d_layer

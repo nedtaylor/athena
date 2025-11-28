@@ -1,6 +1,6 @@
 program test_onnx
   !! Test program for ONNX export and import functionality
-  use athena__constants, only: real32
+  use coreutils, only: real32
   use athena
 
   implicit none

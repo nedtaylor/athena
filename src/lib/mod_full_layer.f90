@@ -7,12 +7,11 @@ module athena__full_layer
   !! The get_num_params procedure is based on code from the
   !! neural-fortran library
   !! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
-  use athena__io_utils, only: stop_program
-  use athena__constants, only: real32
+  use coreutils, only: real32, stop_program
   use athena__base_layer, only: learnable_layer_type, base_layer_type
-  use athena__misc_types, only: activation_type, initialiser_type, &
-       onnx_node_type, onnx_initialiser_type, &
-       array2d_type
+  use athena__misc_types, only: initialiser_type, &
+       onnx_node_type, onnx_initialiser_type
+  use diffstruc, only: array_type, matmul, operator(+)
   implicit none
 
 
@@ -28,20 +27,13 @@ module athena__full_layer
      !! Number of inputs
      integer :: num_outputs
      !! Number of outputs
-     real(real32), pointer :: weight(:,:) => null()
-     !! Pointer to weights (kernels)
-     real(real32), pointer :: dw(:,:,:) => null()
-     !! Pointer to weight gradients
-     real(real32), allocatable, dimension(:,:) :: z
-     !! Activation values
+     type(array_type), dimension(1) :: z
+     !! Temporary arrays for forward propagation
    contains
      procedure, pass(this) :: get_num_params => get_num_params_full
      !! Get the number of parameters for fully connected layer
      procedure, pass(this) :: set_hyperparams => set_hyperparams_full
      !! Set the hyperparameters for fully connected layer
-     procedure, pass(this), private :: &
-          set_ptrs_hyperparams => set_ptrs_hyperparams_full
-     !! Set the pointers to hyperparameters
      procedure, pass(this) :: init => init_full
      !! Initialise fully connected layer
      procedure, pass(this) :: set_batch_size => set_batch_size_full
@@ -52,14 +44,10 @@ module athena__full_layer
      !! Read the layer from a file
      procedure, pass(this) :: build_from_onnx => build_from_onnx_full
      !! Build fully connected layer from ONNX node and initialiser
-     procedure, pass(this) :: forward  => forward_rank
-     !! Forward propagation for fully connected layer
-     procedure, pass(this) :: backward => backward_rank
-     !! Backward propagation for fully connected layer
-     procedure, private, pass(this) :: forward_2d
-     !! Forward propagation for 2D input
-     procedure, private, pass(this) :: backward_2d
-     !! Backward propagation for 2D input
+
+     procedure, pass(this) :: forward => forward_full
+     !! Forward propagation derived type handler
+
      final :: finalise_full
      !! Finalise fully connected layer
   end type full_layer_type
@@ -80,9 +68,10 @@ module athena__full_layer
        !! Batch size
        real(real32), optional, intent(in) :: activation_scale
        !! Activation scale
-       character(*), optional, intent(in) :: activation_function, &
-            kernel_initialiser, bias_initialiser
+       character(*), optional, intent(in) :: activation_function
        !! Activation function, kernel initialiser, and bias initialiser
+       class(*), optional, intent(in) :: kernel_initialiser, bias_initialiser
+       !! Kernel and bias initialisers
        integer, optional, intent(in) :: verbose
        !! Verbosity level
        type(full_layer_type) :: layer
@@ -103,12 +92,9 @@ contains
     type(full_layer_type), intent(inout) :: this
     !! Instance of the fully connected layer
 
-    if(associated(this%weight)) nullify(this%weight)
-    if(associated(this%dw)) nullify(this%dw)
-    if(allocated(this%z)) deallocate(this%z)
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
-    if(allocated(this%di)) deallocate(this%di)
+    if(this%z(1)%allocated) call this%z(1)%deallocate()
 
   end subroutine finalise_full
 !###############################################################################
@@ -146,52 +132,6 @@ contains
 
 
 !###############################################################################
-  subroutine forward_rank(this, input)
-    !! Forward propagation for fully connected layer
-    implicit none
-
-    ! Arguments
-    class(full_layer_type), intent(inout) :: this
-    !! Instance of the fully connected layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input values
-
-    select rank(input); rank(2)
-       call forward_2d(this, input)
-    end select
-  end subroutine forward_rank
-!###############################################################################
-
-
-!###############################################################################
-  subroutine backward_rank(this, input, gradient)
-    !! Backward propagation for fully connected layer
-    implicit none
-
-    ! Arguments
-    class(full_layer_type), intent(inout) :: this
-    !! Instance of the fully connected layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input values
-    real(real32), dimension(..), intent(in) :: gradient
-    !! Gradient values
-
-    select rank(input)
-    rank(2)
-       select rank(gradient); rank(2)
-          call backward_2d(this, input, gradient)
-       end select
-    end select
-  end subroutine backward_rank
-!###############################################################################
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
-
-!###############################################################################
   module function layer_setup( &
        num_outputs, num_inputs, &
        batch_size, &
@@ -199,6 +139,7 @@ contains
        kernel_initialiser, bias_initialiser, verbose &
   ) result(layer)
     !! Setup a fully connected layer
+    use athena__initialiser, only: initialiser_setup
     implicit none
 
     ! Arguments
@@ -210,8 +151,8 @@ contains
     !! Batch size
     real(real32), optional, intent(in) :: activation_scale
     !! Activation scale
-    character(*), optional, intent(in) :: activation_function, &
-         kernel_initialiser, bias_initialiser
+    character(*), optional, intent(in) :: activation_function
+    class(*), optional, intent(in) :: kernel_initialiser, bias_initialiser
     !! Activation function, kernel initialiser, and bias initialiser
     integer, optional, intent(in) :: verbose
     !! Verbosity level
@@ -226,6 +167,8 @@ contains
     !! Activation scale
     character(len=10) :: activation_function_ = "none"
     !! Activation function
+    class(initialiser_type), allocatable :: kernel_initialiser_, bias_initialiser_
+    !! Kernel and bias initialisers
 
     if(present(verbose)) verbose_ = verbose
 
@@ -240,8 +183,12 @@ contains
     !---------------------------------------------------------------------------
     ! Define weights (kernels) and biases initialisers
     !---------------------------------------------------------------------------
-    if(present(kernel_initialiser)) layer%kernel_initialiser =kernel_initialiser
-    if(present(bias_initialiser)) layer%bias_initialiser = bias_initialiser
+    if(present(kernel_initialiser))then
+       kernel_initialiser_ = initialiser_setup(kernel_initialiser)
+    end if
+    if(present(bias_initialiser))then
+       bias_initialiser_ = initialiser_setup(bias_initialiser)
+    end if
 
 
     !---------------------------------------------------------------------------
@@ -251,8 +198,8 @@ contains
          num_outputs = num_outputs, &
          activation_function = activation_function_, &
          activation_scale = scale, &
-         kernel_initialiser = layer%kernel_initialiser, &
-         bias_initialiser = layer%bias_initialiser, &
+         kernel_initialiser = kernel_initialiser_, &
+         bias_initialiser = bias_initialiser_, &
          verbose = verbose_ &
     )
 
@@ -281,7 +228,7 @@ contains
   )
     !! Set the hyperparameters for fully connected layer
     use athena__activation, only: activation_setup
-    use athena__initialiser, only: get_default_initialiser
+    use athena__initialiser, only: get_default_initialiser, initialiser_setup
     implicit none
 
     ! Arguments
@@ -293,10 +240,14 @@ contains
     !! Activation function
     real(real32), intent(in) :: activation_scale
     !! Activation scale
-    character(*), intent(in) :: kernel_initialiser, bias_initialiser
+    class(initialiser_type), allocatable, intent(in) :: &
+         kernel_initialiser, bias_initialiser
     !! Kernel and bias initialisers
     integer, optional, intent(in) :: verbose
     !! Verbosity level
+
+    ! Local variables
+    character(len=256) :: buffer
 
 
     this%name = "full"
@@ -307,22 +258,31 @@ contains
     this%num_outputs = num_outputs
     if(allocated(this%transfer)) deallocate(this%transfer)
     allocate(this%transfer, &
-         source=activation_setup(activation_function, activation_scale))
-    if(trim(kernel_initialiser).eq.'') &
-         this%kernel_initialiser = get_default_initialiser(activation_function)
-    if(trim(bias_initialiser).eq.'') &
-         this%bias_initialiser = get_default_initialiser( &
-              activation_function, &
-              is_bias=.true. &
-         )
+         source=activation_setup(activation_function, activation_scale) &
+    )
+    if(.not.allocated(kernel_initialiser))then
+       buffer = get_default_initialiser(activation_function)
+       this%kernel_init = initialiser_setup(buffer)
+    else
+       this%kernel_init = kernel_initialiser
+    end if
+    if(.not.allocated(bias_initialiser))then
+       buffer = get_default_initialiser( &
+            activation_function, &
+            is_bias=.true. &
+       )
+       this%bias_init = initialiser_setup(buffer)
+    else
+       this%bias_init = bias_initialiser
+    end if
     if(present(verbose))then
        if(abs(verbose).gt.0)then
           write(*,'("FULL activation function: ",A)') &
                trim(activation_function)
           write(*,'("FULL kernel initialiser: ",A)') &
-               trim(this%kernel_initialiser)
+               trim(this%kernel_init%name)
           write(*,'("FULL bias initialiser: ",A)') &
-               trim(this%bias_initialiser)
+               trim(this%bias_init%name)
        end if
     end if
 
@@ -331,28 +291,8 @@ contains
 
 
 !###############################################################################
-  subroutine set_ptrs_hyperparams_full(this)
-    !! Set the pointers to hyperparameters
-    implicit none
-
-    ! Arguments
-    class(full_layer_type), intent(inout), target :: this
-    !! Instance of the fully connected layer
-
-    if(allocated(this%params)) &
-         this%weight(1:this%num_outputs,1:this%num_inputs+1) => this%params
-    if(allocated(this%dp)) &
-         this%dw(1:this%num_outputs,1:this%num_inputs,1:this%batch_size) => &
-         this%dp
-
-  end subroutine set_ptrs_hyperparams_full
-!###############################################################################
-
-
-!###############################################################################
   subroutine init_full(this, input_shape, batch_size, verbose)
     !! Initialise fully connected layer
-    use athena__initialiser, only: initialiser_setup
     implicit none
 
     ! Arguments
@@ -370,8 +310,6 @@ contains
     !! Loop index
     integer :: verbose_ = 0
     !! Verbosity level
-    class(initialiser_type), allocatable :: initialiser_
-    !! Initialiser
 
 
     !---------------------------------------------------------------------------
@@ -399,26 +337,33 @@ contains
     this%weight_shape(:,1) = [ this%num_outputs, this%num_inputs ]
     this%bias_shape = [ this%num_outputs ]
 
+    allocate(this%params_array(2))
+    call this%params_array(1)%allocate([this%weight_shape(:,1), 1])
+    call this%params_array(1)%set_requires_grad(.true.)
+    this%params_array(1)%fix_pointer = .true.
+    this%params_array(1)%is_sample_dependent = .false.
+    this%params_array(1)%is_temporary = .false.
+    call this%params_array(2)%allocate([this%bias_shape, 1])
+    call this%params_array(2)%set_requires_grad(.true.)
+    this%params_array(2)%fix_pointer = .true.
+    this%params_array(2)%is_sample_dependent = .false.
+    this%params_array(2)%is_temporary = .false.
 
     !---------------------------------------------------------------------------
     ! Initialise weights (kernels)
     !---------------------------------------------------------------------------
-    allocate(initialiser_, source=initialiser_setup(this%kernel_initialiser))
-    call initialiser_%initialise( &
-         this%params(:this%num_params-this%num_outputs), &
+    call this%kernel_init%initialise( &
+         this%params_array(1)%val(:,1), &
          fan_in = this%num_inputs + 1, fan_out = this%num_outputs, &
          spacing = [ this%num_outputs ] &
     )
-    deallocate(initialiser_)
 
     ! Initialise biases
     !---------------------------------------------------------------------------
-    allocate(initialiser_, source=initialiser_setup(this%bias_initialiser))
-    call initialiser_%initialise( &
-         this%params(this%num_params-this%num_outputs+1:), &
+    call this%bias_init%initialise( &
+         this%params_array(2)%val(:,1), &
          fan_in=this%num_inputs+1, fan_out=this%num_outputs &
     )
-    deallocate(initialiser_)
 
 
     !---------------------------------------------------------------------------
@@ -440,6 +385,7 @@ contains
     integer, intent(in) :: batch_size
     integer, optional, intent(in) :: verbose
 
+    integer :: i
     integer :: verbose_ = 0
 
 
@@ -451,41 +397,18 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Set weights and biases pointers to params array
-    !---------------------------------------------------------------------------
-    this%weight(1:this%num_outputs,1:this%num_inputs+1) => this%params
-
-
-    !---------------------------------------------------------------------------
     ! Allocate arrays
     !---------------------------------------------------------------------------
     if(allocated(this%input_shape))then
        if(allocated(this%output)) deallocate(this%output)
-       allocate(this%output(1,1), source=array2d_type())
+       allocate(this%output(1,1))
        call this%output(1,1)%allocate( &
             [this%num_outputs, this%batch_size], &
             source=0._real32 &
        )
-       if(allocated(this%z)) deallocate(this%z)
-       select type(output => this%output(1,1))
-       type is (array2d_type)
-          allocate( this%z, source = output%val )
-       end select
-       if(allocated(this%dp)) deallocate(this%dp)
-       allocate( &
-            this%dp( &
-                 this%num_params - this%num_outputs, &
-                 this%batch_size &
-            ), source=0._real32 &
-       )
-       this%dw(1:this%num_outputs,1:this%num_inputs,1:this%batch_size) => &
-            this%dp
-       if(allocated(this%db)) deallocate(this%db)
-       allocate(this%db(this%num_outputs, this%batch_size), source=0._real32)
-       if(allocated(this%di)) deallocate(this%di)
-       allocate(this%di(1,1), source=array2d_type())
-       call this%di(1,1)%allocate( &
-            [this%num_inputs, this%batch_size], &
+       if(this%z(1)%allocated) call this%z(1)%deallocate()
+       call this%z(1)%allocate( &
+            [this%num_outputs, this%batch_size], &
             source=0._real32 &
        )
     end if
@@ -502,7 +425,7 @@ contains
 !###############################################################################
   subroutine print_to_unit_full(this, unit)
     !! Print fully connected layer to unit
-    use athena__misc, only: to_upper
+    use coreutils, only: to_upper
     implicit none
 
     ! Arguments
@@ -528,9 +451,8 @@ contains
     ! Write fully connected weights and biases
     !---------------------------------------------------------------------------
     write(unit,'("WEIGHTS")')
-    do i=1,this%num_inputs+1
-       write(unit,'(5(E16.8E2))') this%weight(:,i)
-    end do
+    write(unit,'(5(E16.8E2))') this%params_array(1)%val(:,1)
+    write(unit,'(5(E16.8E2))') this%params_array(2)%val(:,1)
     write(unit,'("END WEIGHTS")')
 
   end subroutine print_to_unit_full
@@ -541,7 +463,8 @@ contains
   subroutine read_full(this, unit, verbose)
     !! Read fully connected layer from file
     use athena__tools_infile, only: assign_val, assign_vec, move
-    use athena__misc, only: to_lower, to_upper, icount
+    use coreutils, only: to_lower, to_upper, icount
+    use athena__initialiser, only: initialiser_setup
     implicit none
 
     ! Arguments
@@ -557,16 +480,18 @@ contains
     !! Status of read
     integer :: verbose_ = 0
     !! Verbosity level
-    integer :: i, j, k, c, itmp1, iline, num_params_old
+    integer :: i, j, k, c, itmp1, iline, num_params
     !! Loop variables and temporary integer
     integer :: num_inputs, num_outputs
     !! Number of inputs and outputs
     real(real32) :: activation_scale
     !! Activation scale
-    character(14) :: kernel_initialiser='', bias_initialiser=''
+    character(14) :: kernel_initialiser_name='', bias_initialiser_name=''
     !! Initialisers
     character(20) :: activation_function
     !! Activation function
+    class(initialiser_type), allocatable :: kernel_initialiser, bias_initialiser
+    !! Initialisers
     character(256) :: buffer, tag, err_msg
     !! Buffer, tag, and error message
     integer, dimension(2) :: input_shape
@@ -623,13 +548,13 @@ contains
           call assign_val(buffer, activation_function, itmp1)
        case("ACTIVATION_SCALE")
           call assign_val(buffer, activation_scale, itmp1)
-       case("KERNEL_INITIALISER")
-          call assign_val(buffer, kernel_initialiser, itmp1)
-       case("BIAS_INITIALISER")
-          call assign_val(buffer, bias_initialiser, itmp1)
+       case("KERNEL_INITIALISER", "KERNEL_INIT", "KERNEL_INITIALIZER")
+          call assign_val(buffer, kernel_initialiser_name, itmp1)
+       case("BIAS_INITIALISER", "BIAS_INIT", "BIAS_INITIALIZER")
+          call assign_val(buffer, bias_initialiser_name, itmp1)
        case("WEIGHTS")
-          kernel_initialiser = 'zeros'
-          bias_initialiser   = 'zeros'
+          kernel_initialiser_name = 'zeros'
+          bias_initialiser_name   = 'zeros'
           param_line = iline
        case default
           ! Don't look for "e" due to scientific notation of numbers
@@ -646,6 +571,8 @@ contains
           return
        end select
     end do tag_loop
+    kernel_initialiser = initialiser_setup(kernel_initialiser_name)
+    bias_initialiser = initialiser_setup(bias_initialiser_name)
 
 
     ! Set hyperparameters and initialise layer
@@ -666,25 +593,32 @@ contains
     if(param_line.eq.0)then
        write(0,*) "WARNING: WEIGHTS card in "//to_upper(trim(this%name))//" not found"
     else
-       num_params_old = 0
        call move(unit, param_line - iline, iostat=stat)
-       do i = 1, num_inputs + 1
-          allocate(data_list((num_outputs)), source=0._real32)
-          c = 1
-          k = 1
-          data_concat_loop: do while(c.le.num_outputs)
-             read(unit,'(A)',iostat=stat) buffer
-             if(stat.ne.0) exit data_concat_loop
-             k = icount(buffer)
-             read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
-             c = c + k
-          end do data_concat_loop
-          this%params( &
-               num_params_old + 1:num_params_old + num_outputs &
-          ) = data_list
-          num_params_old = num_params_old + num_outputs
-          deallocate(data_list)
-       end do
+       num_params = this%num_inputs * this%num_outputs
+       allocate(data_list(num_params), source=0._real32)
+       c = 1
+       k = 1
+       data_concat_loop: do while(c.le.num_params)
+          read(unit,'(A)',iostat=stat) buffer
+          if(stat.ne.0) exit data_concat_loop
+          k = icount(buffer)
+          read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
+          c = c + k
+       end do data_concat_loop
+       this%params_array(1)%val(:,1) = data_list
+       deallocate(data_list)
+       allocate(data_list(num_outputs), source=0._real32)
+       c = 1
+       k = 1
+       data_concat_loop2: do while(c.le.num_outputs)
+          read(unit,'(A)',iostat=stat) buffer
+          if(stat.ne.0) exit data_concat_loop2
+          k = icount(buffer)
+          read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
+          c = c + k
+       end do data_concat_loop2
+       this%params_array(2)%val(:,1) = data_list(1:num_outputs)
+       deallocate(data_list)
 
        ! Check for end of weights card
        !------------------------------------------------------------------------
@@ -800,96 +734,38 @@ contains
 
 
 !###############################################################################
-  subroutine forward_2d(this, input)
-    !! Forward propagation for 2D input
+  subroutine forward_full(this, input)
+    !! Forward propagation
     implicit none
 
     ! Arguments
     class(full_layer_type), intent(inout) :: this
     !! Instance of the fully connected layer
-    real(real32), dimension(this%num_inputs, this%batch_size), &
-         intent(in) :: input
+    class(array_type), dimension(:,:), intent(in) :: input
     !! Input values
 
-    ! Local variables
-    integer :: s
-    !! Loop index
+    type(array_type), pointer :: ptr => null()
 
 
     ! Generate outputs from weights, biases, and inputs
     !---------------------------------------------------------------------------
-    do concurrent(s=1:this%batch_size)
-       this%z(:,s) = this%weight(:,this%num_inputs+1) + &
-            matmul(this%weight(:,:this%num_inputs),input(:,s))
-    end do
+    ptr => matmul(this%params_array(1), input(1,1) ) + this%params_array(2)
 
     ! Apply activation function to activation
     !---------------------------------------------------------------------------
-    this%output(1,1)%val(:,:) = this%transfer%activate(this%z)
+    call this%output(1,1)%zero_grad()
+    if(trim(this%transfer%name) .eq. "none") then
+       call this%output(1,1)%assign_and_deallocate_source(ptr)
+    else
+       call this%z(1)%zero_grad()
+       call this%z(1)%assign_and_deallocate_source(ptr)
+       this%z(1)%is_temporary = .false.
+       ptr => this%transfer%activate(this%z(1))
+       call this%output(1,1)%assign_and_deallocate_source(ptr)
+    end if
+    this%output(1,1)%is_temporary = .false.
 
-  end subroutine forward_2d
-!###############################################################################
-
-
-!###############################################################################
-!!! backward propagation
-!!! method : gradient descent
-!###############################################################################
-  subroutine backward_2d(this, input, gradient)
-    !! Backward propagation for 2D input
-    implicit none
-
-    ! Arguments
-    class(full_layer_type), intent(inout) :: this
-    !! Instance of the fully connected layer
-    real(real32), dimension(this%num_inputs, this%batch_size), &
-         intent(in) :: input
-    !! Input values
-    real(real32), dimension(this%num_outputs, this%batch_size), &
-         intent(in) :: gradient
-    !! Gradient values
-
-    ! Local variables
-    real(real32), dimension(this%num_outputs, this%batch_size) :: grad_dz
-    !! Gradient multiplied by differential of Z (aka delta values)
-    real(real32), dimension(1) :: bias_diff
-    !! Differential of bias
-
-    ! Loop variables
-    integer :: s, j
-    !! Loop indices
-
-
-    bias_diff = this%transfer%differentiate([1._real32])
-
-
-    ! Get gradient multiplied by differential of Z
-    !---------------------------------------------------------------------------
-    ! The grad_dz values are the error multipled by the derivative ...
-    ! ... of the transfer function
-    ! grad_dz(l) = g'(a) * dE/dI(l)
-    ! grad_dz(l) = differential of activation * error from next layer
-    grad_dz = gradient * this%transfer%differentiate(this%z)
-    this%db(:,:) = this%db(:,:) + grad_dz * bias_diff(1)
-
-
-    ! Update weights
-    !---------------------------------------------------------------------------
-    do concurrent(s=1:this%batch_size)
-       !! partial derivatives of error wrt weights
-       !! dE/dW = o/p(l-1) * grad_dz
-       do j = 1, this%num_inputs
-          this%dw(:,j,s) = this%dw(:,j,s) + input(j,s) * grad_dz(:,s)
-       end do
-       !! the errors are summed from the grad_dz of the ...
-       !! ... 'child' node * 'child' weight
-       !! dE/dI(l-1) = sum(weight(l) * grad_dz(l))
-       !! this prepares dE/dI for when it is passed into the previous layer
-       this%di(1,1)%val(:,s) = &
-            matmul(grad_dz(:,s), this%weight(:,:this%num_inputs))
-    end do
-
-  end subroutine backward_2d
+  end subroutine forward_full
 !###############################################################################
 
 end module athena__full_layer

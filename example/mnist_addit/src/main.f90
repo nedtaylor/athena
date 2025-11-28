@@ -18,10 +18,9 @@ program mnist_example
 
   ! data loading and preoprocessing
   real(real32), allocatable, dimension(:,:,:,:) :: input_images, test_images
-  class(array_container_type), allocatable, dimension(:) :: &
-       input_container, test_container
+  type(array_type), dimension(3,1) :: input_array, test_array
   integer, allocatable, dimension(:) :: labels, test_labels
-  integer, allocatable, dimension(:,:) :: input_labels
+  real(real32), allocatable, dimension(:,:) :: input_labels
   character(1024) :: train_file, test_file
 
   ! neural network size and shape variables
@@ -56,7 +55,7 @@ program mnist_example
   !-----------------------------------------------------------------------------
   train_file = trim(data_dir)//'/MNIST_train.txt'
   call read_mnist_db(train_file,input_images, labels, &
-       maxval(cv_kernel_size), image_size, padding_method)
+       maxval(cv_kernel_size), image_size, "none") !padding_method)
   input_channels = size(input_images, 3)
   num_samples = size(input_images, 4)
 
@@ -66,7 +65,7 @@ program mnist_example
   !-----------------------------------------------------------------------------
   test_file = trim(data_dir)//'/MNIST_test.txt'
   call read_mnist_db(test_file,test_images, test_labels, &
-       maxval(cv_kernel_size), itmp1, padding_method)
+       maxval(cv_kernel_size), itmp1, "none") !padding_method)
   num_samples_test = size(test_images, 4)
 
 
@@ -108,7 +107,6 @@ program mnist_example
           input_shape = [image_size,image_size,input_channels], &
           num_filters = cv_num_filters, kernel_size = 3, stride = 1, &
           padding=padding_method, &
-          calc_input_gradients = .false., &
           activation_function = "relu" &
      ))
      call network%add(maxpool2d_layer_type(&
@@ -142,24 +140,18 @@ program mnist_example
   ! ... loops over num_epoch number of epochs
   ! ... i.e. it trains on the same datapoints num_epoch times
   !-----------------------------------------------------------------------------
-  allocate(input_labels(num_classes,num_samples))
-  input_labels = 0
+  allocate(input_labels(num_classes,num_samples), source = 0._real32)
   do i=1,num_samples
-     input_labels(labels(i),i) = 1
+     input_labels(labels(i),i) = 1._real32
   end do
 
-  allocate(input_container(3))
-  allocate(input_container(1)%array, source = array4d_type())
-  allocate(input_container(2)%array, source = array2d_type())
-  allocate(input_container(3)%array, source = array2d_type())
-  call input_container(1)%array%allocate(source = input_images)
-  call input_container(2)%array%allocate(array_shape=[2,num_samples], &
-       source = 1._real32)
-  call input_container(3)%array%allocate(array_shape=[100,num_samples], &
-       source = 1._real32)
+  call input_array(1,1)%allocate(array_shape = shape(input_images))
+  call input_array(1,1)%set(input_images)
+  call input_array(2,1)%allocate(array_shape=[2,num_samples], source = 1._real32)
+  call input_array(3,1)%allocate(array_shape=[100,num_samples], source = 1._real32)
 
   write(6,*) "Starting training..."
-  call network%train(input_container, input_labels, num_epochs, batch_size, &
+  call network%train(input_array, input_labels, num_epochs, batch_size, &
        plateau_threshold = plateau_threshold, &
        shuffle_batches = shuffle_dataset, &
        batch_print_step = batch_print_step, verbose = verbosity)
@@ -177,26 +169,20 @@ program mnist_example
   ! testing loop
   !-----------------------------------------------------------------------------
   deallocate(input_labels)
-  allocate(input_labels(num_classes,num_samples_test))
-  input_labels = 0
-  do i=1,num_samples_test
-     input_labels(test_labels(i),i) = 1
+  allocate(input_labels(num_classes,num_samples_test), source = 0._real32)
+  do i=1,num_samples
+     input_labels(labels(i),i) = 1._real32
   end do
-  allocate(test_container(3))
-  allocate(test_container(1)%array, source = array4d_type())
-  allocate(test_container(2)%array, source = array2d_type())
-  allocate(test_container(3)%array, source = array2d_type())
-  call test_container(1)%array%allocate(source = test_images)
-  call test_container(2)%array%allocate(array_shape=[2,num_samples_test], &
-       source = 1._real32)
-  call test_container(3)%array%allocate(array_shape=[100,num_samples_test], &
-       source = 1._real32)
+  call test_array(1,1)%allocate(array_shape = shape(test_images))
+  call test_array(1,1)%set(test_images)
+  call test_array(2,1)%allocate(array_shape=[2,num_samples_test], source = 1._real32)
+  call test_array(3,1)%allocate(array_shape=[100,num_samples_test], source = 1._real32)
 
   write(*,*) "Starting testing..."
-  call network%test(test_container,input_labels)
+  call network%test(test_array,input_labels)
   write(*,*) "Testing finished"
-  write(6,'("Overall accuracy=",F0.5)') network%accuracy
-  write(6,'("Overall loss=",F0.5)')     network%loss
+  write(6,'("Overall accuracy=",F0.5)') network%accuracy_val
+  write(6,'("Overall loss=",F0.5)')     network%loss_val
 
 end program mnist_example
   !#############################################################################

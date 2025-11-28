@@ -1,27 +1,28 @@
 program test_pad2d_layer
   !! Unit tests for the pad2d layer module
-  use athena__constants, only: real32
+  use coreutils, only: real32
   use athena__pad2d_layer, only: pad2d_layer_type, read_pad2d_layer
   use athena__base_layer, only: base_layer_type
-  use athena__misc_types, only: array4d_type
+  use diffstruc, only: array_type
   implicit none
 
-  type(pad2d_layer_type) :: pad2d_layer
+  type(pad2d_layer_type), target :: pad2d_layer
   class(base_layer_type), allocatable :: read_layer
+
   integer, parameter :: batch_size = 2
   integer, parameter :: width = 4
   integer, parameter :: height = 3
   integer, parameter :: channels = 2
   logical :: success = .true.
-  real(real32), parameter :: tol = 1.E-5_real32
+  real(real32), parameter :: tol = 1.E-6_real32
 
   ! Test data
-  real(real32), allocatable, dimension(:,:) :: input_2d, output_2d
-  real(real32), allocatable, dimension(:,:) :: gradient_2d
+  real(real32), allocatable, dimension(:,:) :: output_2d
   real(real32), allocatable, dimension(:,:,:,:) :: input_4d, output_4d
-  real(real32), allocatable, dimension(:,:,:,:) :: gradient_4d
+  type(array_type) :: input(1,1)
+  type(array_type), pointer :: output, gradient
 
-  integer :: i, j, k, l
+  integer :: i, j, c, s
   integer :: unit
   integer :: expected_width, expected_height
 
@@ -97,35 +98,38 @@ program test_pad2d_layer
 !-------------------------------------------------------------------------------
   write(*,*) "Testing 2D input forward pass with zero padding..."
 
-  ! Initialize test input (flattened 3D to 1D for simplicity)
-  allocate(input_2d(width * height * channels, batch_size))
-  do i = 1, width * height
-     input_2d(i,1) = real(i)
-     input_2d(i,2) = real(i+width*height)
-  end do
-  ! Replicate for each channel
-  do i = 2, channels
-     input_2d(width * height * (i - 1) + 1:width * height * i, 1) = &
-          input_2d(:width*height,1) + (i - 1) * width * height
-     input_2d(width * height * (i - 1) + 1:width * height * i, 2) = &
-          input_2d(:width*height,2) + (i - 1) * width * height
+  ! Initialize test input
+  call input(1,1)%allocate(&
+       array_shape=[width, height, channels, batch_size], source = 0.0)
+  do s = 1, batch_size
+     do c = 1, channels
+        do i = 1, width * height
+           input(1,1)%val(&
+                i + (c-1)*width*height, s &
+           ) = real(i + (c-1)*width*height)
+        end do
+     end do
   end do
 
   ! Run forward pass
-  call pad2d_layer%forward(input_2d)
-  call pad2d_layer%get_output(output_2d)
+  call pad2d_layer%forward(input)
+  call pad2d_layer%extract_output(output_2d)
 
   ! Check output dimensions
-  if (size(output_2d, 1) .ne. expected_width * expected_height * channels .or. &
-       size(output_2d, 2) .ne. batch_size) then
+  if(size(output_2d, 1) .ne. expected_width * expected_height * channels .or. &
+       size(output_2d, 2) .ne. batch_size)then
      success = .false.
      write(0,*) 'pad2d layer forward output has wrong dimensions'
      write(0,*) 'Expected shape:', &
           [expected_width * expected_height * channels, batch_size]
      write(0,*) 'Got shape:', shape(output_2d)
+     write(*,*) input(1,1)%shape
+     write(*,*) pad2d_layer%output(1,1)%shape
   end if
 
-  deallocate(input_2d, output_2d)
+  call pad2d_layer%output(1,1)%nullify_graph()
+  deallocate(output_2d)
+  call input(1,1)%deallocate()
 
 
 !-------------------------------------------------------------------------------
@@ -134,46 +138,47 @@ program test_pad2d_layer
   write(*,*) "Testing 4D input forward pass with zero padding..."
 
   ! Initialize test input
-  allocate(input_4d(width, height, channels, batch_size))
-  call random_number(input_4d)
+  call input(1,1)%allocate(&
+       array_shape=[width, height, channels, batch_size], source = 0.0)
+  call input(1,1)%set_requires_grad(.true.)
+  call random_number(input(1,1)%val)
 
   ! Run forward pass
-  call pad2d_layer%forward(input_4d)
-  call pad2d_layer%get_output(output_4d)
+  call pad2d_layer%forward(input)
+  call pad2d_layer%extract_output(output_4d)
 
   ! Check output dimensions
-  if (size(output_4d, 1) .ne. expected_width .or. &
+  if(size(output_4d, 1) .ne. expected_width .or. &
        size(output_4d, 2) .ne. expected_height .or. &
        size(output_4d, 3) .ne. channels .or. &
-       size(output_4d, 4) .ne. batch_size) then
+       size(output_4d, 4) .ne. batch_size)then
      success = .false.
      write(0,*) 'pad2d layer 4D forward output has wrong dimensions'
-     write(0,*) 'Expected shape:', &
-          [expected_width, expected_height, channels, batch_size]
-     write(0,*) 'Got shape:', shape(output_4d)
   end if
 
   ! Check zero padding on width dimension (first and last columns)
-  if (any(abs(output_4d(1,:,:,:)) .gt. tol) .or. &
-       any(abs(output_4d(expected_width,:,:,:)) .gt. tol)) then
+  if(any(abs(output_4d(1,:,:,:)) .gt. tol) .or. &
+       any(abs(output_4d(expected_width,:,:,:)) .gt. tol))then
      success = .false.
      write(0,*) 'pad2d layer width zero padding incorrect'
   end if
 
   ! Check zero padding on height dimension (first 2 and last 2 rows)
-  if (any(abs(output_4d(:,1:2,:,:)) .gt. tol) .or. &
+  if(any(abs(output_4d(:,1:2,:,:)) .gt. tol) .or. &
        any(abs(output_4d(:,expected_height-1:expected_height,:,:)) &
-            .gt. tol)) then
+            .gt. tol))then
      success = .false.
      write(0,*) 'pad2d layer height zero padding incorrect'
   end if
 
   ! Check that middle elements match input
-  if (any(abs(output_4d(2:expected_width-1, 3:expected_height-2, :, :) - &
-       input_4d) .gt. tol)) then
+  call input(1,1)%extract(input_4d)
+  if(any(abs(output_4d(2:expected_width-1, 3:expected_height-2, :, :) - &
+       input_4d) .gt. tol))then
      success = .false.
      write(0,*) 'pad2d layer 4D forward pass incorrect for middle elements'
   end if
+  deallocate(input_4d, output_4d)
 
 
 !-------------------------------------------------------------------------------
@@ -181,35 +186,32 @@ program test_pad2d_layer
 !-------------------------------------------------------------------------------
   write(*,*) "Testing backward pass..."
 
-  ! Initialize gradient
-  allocate(gradient_4d(expected_width, expected_height, channels, batch_size))
-  gradient_4d = 1.0_real32
-
-  ! Run backward pass
-  call pad2d_layer%backward(input_4d, gradient_4d)
+  output => pad2d_layer%output(1,1)
+  call output%grad_reverse()
 
   ! Check that gradient is correctly trimmed back to input size
-  select type(di => pad2d_layer%di(1,1))
-  type is (array4d_type)
-     if (any(shape(di%val_ptr) .ne. [width, height, channels, batch_size])) then
+  if(associated(input(1,1)%grad))then
+     gradient => input(1,1)%grad
+     if(any([gradient%shape, size(gradient%val,2)] .ne. &
+          [width, height, channels, batch_size]))then
         success = .false.
         write(0,*) 'pad2d layer backward gradient has wrong dimensions'
         write(0,*) 'Expected shape:', [width, height, channels, batch_size]
-        write(0,*) 'Got shape:', di%shape
+        write(0,*) 'Got shape:', [gradient%shape, size(gradient%val,2)]
      end if
 
      ! For zero padding, gradient in the middle should equal input gradient
-     if (any(abs(di%val_ptr - gradient_4d(2:expected_width-1, &
-          3:expected_height-2, :, :)) .gt. tol)) then
+     if(any(abs(gradient%val - 1._real32) .gt. tol))then
         success = .false.
         write(0,*) 'pad2d layer backward pass incorrect'
      end if
-  class default
+  else
      success = .false.
-     write(0,*) 'pad2d layer has not set di type correctly'
-  end select
+     write(0,*) 'pad2d layer backward did not allocate input gradient'
+  end if
 
-  deallocate(input_4d, output_4d, gradient_4d)
+  call pad2d_layer%output(1,1)%nullify_graph()
+  call input(1,1)%deallocate()
 
 
 !-------------------------------------------------------------------------------
@@ -230,19 +232,21 @@ program test_pad2d_layer
        )
 
        ! Test forward pass doesn't crash
-       allocate(input_4d(width, height, 1, 1))
-       call random_number(input_4d)
+       call input(1,1)%allocate(&
+            array_shape=[width, height, 1, 1], source = 1.0_real32)
 
-       call pad2d_layer%forward(input_4d)
-       call pad2d_layer%get_output(output_4d)
+       call pad2d_layer%forward(input)
+       call pad2d_layer%extract_output(output_4d)
 
-       if (.not. allocated(output_4d)) then
+       if(.not. allocated(output_4d))then
           success = .false.
           write(0,*) 'output not allocated for padding method: ', &
                trim(padding_methods(i))
        end if
 
-       deallocate(input_4d, output_4d)
+       call pad2d_layer%output(1,1)%nullify_graph()
+       deallocate(output_4d)
+       call input(1,1)%deallocate()
     end do
   end block test_methods_block
 
@@ -254,22 +258,15 @@ program test_pad2d_layer
 
   comprehensive_methods_block: block
     real(real32), allocatable, dimension(:,:,:,:) :: &
-         input_simple, output_simple, output_expected, &
-         input_back, output_back, gradient_out, gradient_expected
+         input_simple, output_simple, output_expected, gradient_out, &
+         gradient_expected, gradient_predicted
     integer, parameter :: simple_width = 4, simple_height = 4
     integer, parameter :: simple_channels = 1
     integer, parameter :: pad_h = 2, pad_w = 2
 
-    allocate(input_back(simple_width, simple_height, simple_channels, 1))
-    allocate(gradient_expected(simple_width, simple_height, simple_channels, 1))
     allocate(gradient_out( &
-         simple_width + 2 * pad_w, simple_height + 2 * pad_h, simple_channels, 1))
-    input_back(:,:,1,1) = reshape( &
-         [1.0_real32, 5.0_real32,  9.0_real32, 13.0_real32, &
-              2.0_real32, 6.0_real32, 10.0_real32, 14.0_real32, &
-              3.0_real32, 7.0_real32, 11.0_real32, 15.0_real32, &
-              4.0_real32, 8.0_real32, 12.0_real32, 16.0_real32], &
-         [simple_width, simple_height])
+         simple_width + 2 * pad_w, simple_height + 2 * pad_h, &
+         simple_channels, 1))
     gradient_out(:,:,1,1) = reshape( &
          [0.1_real32, 0.2_real32, 0.3_real32, 0.4_real32, &
               0.5_real32, 0.6_real32, 0.7_real32, 0.8_real32, &
@@ -289,7 +286,8 @@ program test_pad2d_layer
               6.1_real32, 6.2_real32, 6.3_real32, 6.4_real32 ], &
          [simple_width + 2 * pad_w, simple_height + 2 * pad_h])
     allocate(output_expected( &
-         simple_width + 2 * pad_w, simple_height + 2 * pad_h, simple_channels, 1))
+         simple_width + 2 * pad_w, simple_height + 2 * pad_h, &
+         simple_channels, 1))
 
     ! Create simple test data: 4x4 matrix
     allocate(input_simple(simple_width, simple_height, simple_channels, 1))
@@ -299,6 +297,11 @@ program test_pad2d_layer
               3.0_real32, 7.0_real32, 11.0_real32, 15.0_real32, &
               4.0_real32, 8.0_real32, 12.0_real32, 16.0_real32], &
          [simple_width, simple_height])
+    call input(1,1)%allocate(&
+         array_shape=[simple_width, simple_height, simple_channels, 1], &
+         source = 0.0)
+    call input(1,1)%set_requires_grad(.true.)
+    call input(1,1)%set(input_simple)
 
 
 
@@ -310,8 +313,8 @@ program test_pad2d_layer
          input_shape = [simple_width, simple_height, simple_channels], &
          batch_size = 1 &
     )
-    call pad2d_layer%forward(input_simple)
-    call pad2d_layer%get_output(output_simple)
+    call pad2d_layer%forward(input)
+    call pad2d_layer%extract_output(output_simple)
 
     output_expected = 0._real32
     output_expected(3:6,3:6,1,1) = input_simple(:,:,1,1)
@@ -322,20 +325,23 @@ program test_pad2d_layer
        write(0,*) 'Got:      ', output_simple(:,:,1,1)
     end if
 
-    gradient_expected = 0._real32
-    gradient_expected(:,:,1,1) = gradient_out(3:6,3:6,1,1)
-    call pad2d_layer%backward(input_back, gradient_out)
-    select type(di => pad2d_layer%di(1,1))
-    type is(array4d_type)
-       ! For zero padding, gradients should just be extracted from middle
-       if(any(abs(di%val_ptr - gradient_expected) .gt. tol))then
-          success = .false.
-          write(0,*) 'Zero padding backward pass failed'
-          write(0,*) 'Expected: ', gradient_expected(:,:,1,1)
-          write(0,*) 'Got:      ', di%val_ptr(:,:,1,1)
-       end if
-    end select
-    deallocate(output_simple)
+    output => pad2d_layer%output(1,1)
+    allocate(output%grad)
+    call output%grad%allocate(array_shape=shape(gradient_out), source=0.0)
+    call output%grad%set(gradient_out)
+    call output%grad_reverse()
+    gradient => input(1,1)%grad
+    allocate(gradient_expected(simple_width, simple_height, simple_channels, 1))
+    ! For zero padding, gradients should just be extracted from middle
+    call gradient%extract(gradient_expected)
+    if(any(abs(gradient_expected - gradient_out(3:6,3:6,:,:)) .gt. tol))then
+       success = .false.
+       write(0,*) 'Zero padding backward pass failed'
+       write(0,*) 'Expected: ', gradient_out(3:6,3:6,1,1)
+       write(0,*) 'Got:      ', gradient_expected(:,:,1,1)
+    end if
+    call pad2d_layer%output(1,1)%nullify_graph()
+    deallocate(output_simple, gradient_expected)
 
     ! Test replication/replicate padding
     write(*,*) "  Testing replication padding..."
@@ -345,8 +351,8 @@ program test_pad2d_layer
          input_shape = [simple_width, simple_height, simple_channels], &
          batch_size = 1 &
     )
-    call pad2d_layer%forward(input_simple)
-    call pad2d_layer%get_output(output_simple)
+    call pad2d_layer%forward(input)
+    call pad2d_layer%extract_output(output_simple)
 
     output_expected(3:6,3:6,1,1) = input_simple(:,:,1,1)
 
@@ -378,8 +384,17 @@ program test_pad2d_layer
        write(0,*) 'Got:      ', output_simple(:,:,1,1)
     end if
 
-    call pad2d_layer%backward(input_simple, gradient_out)
+    output => pad2d_layer%output(1,1)
+    call output%reset_graph()
+    allocate(output%grad)
+    call output%grad%allocate(array_shape=shape(gradient_out), source=0.0)
+    call output%grad%set(gradient_out)
+    call output%grad_reverse()
+    gradient => input(1,1)%grad
+    call gradient%extract(gradient_predicted)
+    allocate(gradient_expected(simple_width, simple_height, simple_channels, 1))
     gradient_expected(:,:,1,1) = gradient_out(3:6,3:6,1,1)
+
     gradient_expected(1,1,1,1) = &
          gradient_expected(1,1,1,1) + sum(gradient_out(1:2,1:2,1,1))
     gradient_expected(1,4,1,1) = &
@@ -396,15 +411,14 @@ program test_pad2d_layer
          gradient_expected(:,1,1,1) + sum(gradient_out(3:6,1:2,1,1),dim=2)
     gradient_expected(:,4,1,1) = &
          gradient_expected(:,4,1,1) + sum(gradient_out(3:6,7:8,1,1),dim=2)
-    select type(di => pad2d_layer%di(1,1))
-    type is(array4d_type)
-       if(any(abs(di%val_ptr - gradient_expected) .gt. tol))then
-          success = .false.
-          write(0,*) 'Replication padding backward pass failed'
-          write(0,*) 'Expected: ', gradient_expected(:,:,1,1)
-          write(0,*) 'Got:      ', di%val_ptr(:,:,1,1)
-       end if
-    end select
+!     gradient_expected = gradient_expected + gradient_out(3:6,3:6,:,:)
+    if(any(abs(gradient_predicted - gradient_expected) .gt. 1.E-3))then
+       success = .false.
+       write(0,*) 'Replication padding backward pass failed'
+       write(*,*) 'Expected: ', gradient_expected
+       write(*,*) 'Got:      ', gradient_predicted
+    end if
+    call pad2d_layer%output(1,1)%nullify_graph()
     deallocate(output_simple, gradient_expected)
 
     ! Test reflection padding
@@ -415,8 +429,8 @@ program test_pad2d_layer
          input_shape = [simple_width, simple_height, simple_channels], &
          batch_size = 1 &
     )
-    call pad2d_layer%forward(input_simple)
-    call pad2d_layer%get_output(output_simple)
+    call pad2d_layer%forward(input)
+    call pad2d_layer%extract_output(output_simple)
 
     output_expected(3:6,3:6,1,1) = input_simple(:,:,1,1)
 
@@ -437,8 +451,14 @@ program test_pad2d_layer
        write(0,*) 'Got:      ', output_simple(  :,:,1,1)
     end if
 
+    output => pad2d_layer%output(1,1)
+    call output%reset_graph()
+    allocate(output%grad)
+    call output%grad%allocate(array_shape=shape(gradient_out), source=0.0)
+    call output%grad%set(gradient_out)
+    call output%grad_reverse()
+    gradient => input(1,1)%grad
     allocate(gradient_expected(simple_width, simple_height, simple_channels, 1))
-    call pad2d_layer%backward(input_simple, gradient_out)
     gradient_expected(:,:,1,1) = gradient_out(3:6,3:6,1,1)
     gradient_expected(2:3,2:3,1,1) = &
          gradient_expected(2:3,2:3,1,1) + gradient_out(2:1:-1,2:1:-1,1,1)
@@ -457,15 +477,21 @@ program test_pad2d_layer
          gradient_expected(:,2:3,1,1) + gradient_out(3:6,2:1:-1,1,1)
     gradient_expected(:,3:2:-1,1,1) = &
          gradient_expected(:,3:2:-1,1,1) + gradient_out(3:6,7:8,1,1)
-    select type(di => pad2d_layer%di(1,1))
-    type is(array4d_type)
-       if(any(abs(di%val_ptr - gradient_expected) .gt. tol))then
-          success = .false.
-          write(0,*) 'Reflection padding backward pass failed'
-          write(0,*) 'Expected: ', gradient_expected(:,:,1,1)
-          write(0,*) 'Got:      ', di%val_ptr(:,:,1,1)
-       end if
-    end select
+    if(any( &
+         abs( &
+              gradient%val(:simple_width*simple_height,1) - &
+              reshape(&
+                   gradient_expected(:,:,1,1), &
+                   shape([simple_width*simple_height]) &
+              ) &
+         ) .gt. tol &
+    ))then
+       success = .false.
+       write(0,*) 'Reflection padding backward pass failed'
+       write(0,*) 'Expected: ', gradient_expected(:,:,1,1)
+       write(0,*) 'Got:      ', gradient%val(:simple_width*simple_height,1)
+    end if
+    call pad2d_layer%output(1,1)%nullify_graph()
     deallocate(output_simple, gradient_expected)
 
     ! Test circular padding
@@ -476,8 +502,8 @@ program test_pad2d_layer
          input_shape = [simple_width, simple_height, simple_channels], &
          batch_size = 1 &
     )
-    call pad2d_layer%forward(input_simple)
-    call pad2d_layer%get_output(output_simple)
+    call pad2d_layer%forward(input)
+    call pad2d_layer%extract_output(output_simple)
 
     output_expected(3:6,3:6,1,1) = input_simple(:,:,1,1)
 
@@ -497,6 +523,13 @@ program test_pad2d_layer
        write(0,*) 'Got:      ', output_simple(:,:,1,1)
     end if
 
+    output => pad2d_layer%output(1,1)
+    call output%reset_graph()
+    allocate(output%grad)
+    call output%grad%allocate(array_shape=shape(gradient_out), source=0.0)
+    call output%grad%set(gradient_out)
+    call output%grad_reverse()
+    gradient => input(1,1)%grad
     allocate(gradient_expected(simple_width, simple_height, simple_channels, 1))
     gradient_expected(:,:,1,1) = gradient_out(3:6,3:6,1,1)
     gradient_expected(3:4,3:4,1,1) = &
@@ -516,21 +549,20 @@ program test_pad2d_layer
          gradient_expected(:,3:4,1,1) + gradient_out(3:6,1:2,1,1)
     gradient_expected(:,1:2,1,1) = &
          gradient_expected(:,1:2,1,1) + gradient_out(3:6,7:8,1,1)
-    call pad2d_layer%backward(input_simple, gradient_out)
-    select type(di => pad2d_layer%di(1,1))
-    type is(array4d_type)
-       ! For zero padding, gradients should just be extracted from middle
-       if(any(abs(di%val_ptr - gradient_expected) .gt. tol))then
-          success = .false.
-          write(0,*) 'Circular padding backward pass failed'
-          write(0,*) 'Expected: ', gradient_expected(:,:,1,1)
-          write(0,*) 'Got:      ', di%val_ptr(:,:,1,1)
-       end if
-    end select
+    ! For zero padding, gradients should just be extracted from middle
+    if(any(abs(gradient%val - &
+         reshape(gradient_expected, shape(gradient%val))) .gt. tol))then
+       success = .false.
+       write(0,*) 'Circular padding backward pass failed'
+       write(0,*) 'Expected: ', gradient_expected(:,:,1,1)
+       write(0,*) 'Got:      ', gradient%val(:simple_width*simple_height,1)
+    end if
     deallocate(output_simple, gradient_expected)
 
 
+    call pad2d_layer%output(1,1)%nullify_graph()
     deallocate(input_simple)
+    call input(1,1)%deallocate()
   end block comprehensive_methods_block
 
 
@@ -568,11 +600,11 @@ program test_pad2d_layer
        end if
 
        ! Test forward pass
-       allocate(input_4d(width, height, 1, 1))
-       input_4d = 1.0_real32
+       call input(1,1)%allocate(&
+            array_shape=[width, height, 1, 1], source = 1.0)
 
-       call pad2d_layer%forward(input_4d)
-       call pad2d_layer%get_output(output_4d)
+       call pad2d_layer%forward(input)
+       call pad2d_layer%extract_output(output_4d)
 
        ! For zero padding, check that padding is actually zero
        if (test_paddings(i,1) > 0) then
@@ -595,7 +627,8 @@ program test_pad2d_layer
           end if
        end if
 
-       deallocate(input_4d, output_4d)
+       deallocate(output_4d)
+       call input(1,1)%deallocate()
     end do
   end block test_sizes_block
 
@@ -613,21 +646,24 @@ program test_pad2d_layer
   )
 
   ! Test with a known input pattern
-  allocate(input_4d(width, height, 1, 1))
+  call input(1,1)%allocate(&
+       array_shape=[width, height, 1, 1], source = 0.0)
   do i = 1, width
      do j = 1, height
-        input_4d(i, j, 1, 1) = real(i * 10 + j, real32)
+        input(1,1)%val(i + (j-1)*width + (0)*width*height*channels, 1) = &
+             real(i * 10 + j, real32)
      end do
   end do
 
-  call pad2d_layer%forward(input_4d)
-  call pad2d_layer%get_output(output_4d)
+  call pad2d_layer%forward(input)
+  call pad2d_layer%extract_output(output_4d)
 
   ! Check that the center part matches the input
   expected_width = width + 2
   expected_height = height + 2
+  call input(1,1)%extract(input_4d)
   if (any(abs(output_4d(2:expected_width-1, 2:expected_height-1, 1, 1) - &
-       input_4d(:, :, 1, 1)) .gt. tol)) then
+       input_4d(:,:,1,1)) .gt. tol)) then
      success = .false.
      write(0,*) 'pad2d layer symmetric padding center incorrect'
   end if

@@ -1,7 +1,6 @@
 module athena__activation
   !! Module containing the activation function setup
-  use athena__constants, only: real32
-  use athena__misc, only: to_lower
+  use coreutils, only: real32, to_lower
   use athena__misc_types, only: activation_type
   use athena__activation_gaussian, only: gaussian_setup
   use athena__activation_linear, only: linear_setup
@@ -75,9 +74,9 @@ contains
     case ("tanh")
        transfer = tanh_setup(scale = scale_)
     case ("none")
-       transfer = none_setup(scale = scale_)
+       transfer = none_setup()
     case default
-       transfer = none_setup(scale = scale_)
+       transfer = none_setup()
     end select
 
   end function activation_setup

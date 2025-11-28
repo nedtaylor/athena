@@ -5,12 +5,15 @@ program simple
   !! This file contains a modified version of the "simple" example found in neural fortran:
   !! https://github.com/modern-fortran/neural-fortran/blob/main/example/simple.f90
   use athena
-  use constants_mnist, only: real32, pi
+  use coreutils, only: real32
+  use constants_mnist, only: pi
 
   implicit none
 
   type(network_type) :: network
-  real(real32), allocatable, dimension(:,:) :: x, y
+  real(real32), allocatable, dimension(:,:) :: x, y, prediction
+  type(array_type) :: x_array(1), y_array(1,1)
+  type(array_type), pointer :: loss
 
   integer, parameter :: num_iterations = 500
 
@@ -50,6 +53,8 @@ program simple
   !-----------------------------------------------------------------------------
   x = reshape([0.2, 0.4, 0.6], [3,1])
   y = reshape([0.123456, 0.246802], [2,1])
+  call x_array(1)%allocate(source=x)
+  call y_array(1,1)%allocate(source=y)
 
 
   !-----------------------------------------------------------------------------
@@ -62,10 +67,13 @@ program simple
 
      call network%set_batch_size(1)
      call network%forward(x)
-     call network%backward(y)
+     network%expected_array = y_array
+     loss => network%loss_backward(1, 1)
+     call loss%grad_reverse()
      call network%update()
 
-     if (mod(n, 50) == 0) write(*,'(I7,2(1X,F9.6))') n, network%predict(input=x)
+     prediction = network%predict(input=x)
+     if (mod(n, 50) == 0) write(*,'(I7,2(1X,F9.6))') n, prediction
 
   end do
 

@@ -5,16 +5,15 @@ module athena__initialiser_glorot
   !! for the weights and biases of a layer
   !! The Glorot initialiser is also known as the Xavier initialiser
   !! Reference: https://proceedings.mlr.press/v9/glorot10a.html
-  use athena__constants, only: real32, pi
-  use athena__io_utils, only: stop_program
+  use coreutils, only: real32, pi, stop_program
   use athena__misc_types, only: initialiser_type
   implicit none
 
 
   private
 
-  public :: glorot_uniform
-  public :: glorot_normal
+  public :: glorot_uniform_type
+  public :: glorot_normal_type
 
 
   type, extends(initialiser_type) :: glorot_uniform_type
@@ -31,13 +30,49 @@ module athena__initialiser_glorot
      !! Initialise the weights and biases using the Glorot normal distribution
   end type glorot_normal_type
 
-  type(glorot_uniform_type) :: glorot_uniform
-  !! Glorot initialiser object
-  type(glorot_normal_type) :: glorot_normal
-  !! Glorot initialiser object
+
+  interface glorot_uniform_type
+     module function initialiser_uniform_setup() result(initialiser)
+       !! Interface for the Glorot uniform initialiser
+       type(glorot_uniform_type) :: initialiser
+       !! Glorot uniform initialiser object
+     end function initialiser_uniform_setup
+  end interface glorot_uniform_type
+
+  interface glorot_normal_type
+     module function initialiser_normal_setup() result(initialiser)
+       !! Interface for the Glorot normal initialiser
+       type(glorot_normal_type) :: initialiser
+       !! Glorot normal initialiser object
+     end function initialiser_normal_setup
+  end interface glorot_normal_type
+
 
 
 contains
+
+!###############################################################################
+  module function initialiser_uniform_setup() result(initialiser)
+    implicit none
+    ! Arguments
+    type(glorot_uniform_type) :: initialiser
+    !! Glorot uniform initialiser object
+
+    initialiser%name = "glorot_uniform"
+
+  end function initialiser_uniform_setup
+!-------------------------------------------------------------------------------
+  module function initialiser_normal_setup() result(initialiser)
+    implicit none
+    ! Arguments
+    type(glorot_normal_type) :: initialiser
+    !! Glorot normal initialiser object
+
+    initialiser%name = "glorot_normal"
+
+  end function initialiser_normal_setup
+!###############################################################################
+
 
 !###############################################################################
   subroutine glorot_uniform_initialise(this, input, fan_in, fan_out, spacing)

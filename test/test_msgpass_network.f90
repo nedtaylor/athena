@@ -6,7 +6,7 @@ program test_msgpass_network
        full_layer_type, &
        base_optimiser_type, &
        sgd_optimiser_type
-  use athena__misc_types, only: array2d_type
+  use diffstruc, only: array_type
   use graphstruc, only: graph_type
   implicit none
 
@@ -35,7 +35,7 @@ program test_msgpass_network
 ! Test Kipf msgpass network
 !-------------------------------------------------------------------------------
   kipf_network_test: block
-    type(array2d_type), dimension(1,1) :: target_array
+    type(array_type), dimension(1,1) :: target_array
 
     call kipf_network%add(kipf_msgpass_layer_type( &
          num_vertex_features = [num_vertex_features, num_vertex_features], &
@@ -44,7 +44,7 @@ program test_msgpass_network
     ))
 
     call kipf_network%compile( &
-         optimiser = sgd_optimiser_type(learning_rate=0.1), &
+         optimiser = sgd_optimiser_type(learning_rate=0.01), &
          loss_method = 'mse', &
          accuracy_method = 'mse', &
          metrics = ['loss'], &
@@ -75,14 +75,14 @@ program test_msgpass_network
     call kipf_network%test(graph_data_kipf, graph_data_kipf)
 
     ! Check that network produces reasonable outputs
-    if(kipf_network%accuracy .lt. 0.0 .or. kipf_network%accuracy .gt. 1.0) then
+    if(kipf_network%accuracy_val .lt. 0.0 .or. kipf_network%accuracy_val .gt. 1.0) then
        success = .false.
-       write(0,*) 'Kipf network accuracy out of range:', kipf_network%accuracy
+       write(0,*) 'Kipf network accuracy out of range:', kipf_network%accuracy_val
     end if
 
-    if(kipf_network%loss .lt. 0.0) then
+    if(kipf_network%loss_val .lt. 0.0) then
        success = .false.
-       write(0,*) 'Kipf network loss is negative:', kipf_network%loss
+       write(0,*) 'Kipf network loss is negative:', kipf_network%loss_val
     end if
 
     deallocate(target_array(1,1)%val)
@@ -93,7 +93,7 @@ program test_msgpass_network
 ! Test Duvenaud msgpass network
 !-------------------------------------------------------------------------------
   duvenaud_network_test: block
-    type(array2d_type), dimension(1,1) :: target_array
+    type(array_type), dimension(1,1) :: target_array
 
     call duvenaud_network%add(duvenaud_msgpass_layer_type( &
          num_vertex_features = [num_vertex_features], &
@@ -123,7 +123,7 @@ program test_msgpass_network
     end if
 
     ! Set up target output for testing
-    allocate(target_array(1,1)%val(num_outputs, 1))
+    call target_array(1,1)%allocate(array_shape=[num_outputs, 1])
     target_array(1,1)%val = reshape([0.4, 0.4, 0.2], [num_outputs, 1])
 
     ! Test training for a few epochs
@@ -133,21 +133,22 @@ program test_msgpass_network
          num_epochs = 5, &
          shuffle_batches = .false. &
     )
+    write(*,*) "d"
 
     ! Test prediction
     call duvenaud_network%test(graph_data_duvenaud, target_array)
 
     ! Check that network produces reasonable outputs
-    if(duvenaud_network%accuracy < 0.0 .or. &
-         duvenaud_network%accuracy > 1.0) then
+    if(duvenaud_network%accuracy_val < 0.0 .or. &
+         duvenaud_network%accuracy_val > 1.0) then
        success = .false.
        write(0,*) 'Duvenaud network accuracy out of range:', &
-            duvenaud_network%accuracy
+            duvenaud_network%accuracy_val
     end if
 
-    if(duvenaud_network%loss < 0.0) then
+    if(duvenaud_network%loss_val < 0.0) then
        success = .false.
-       write(0,*) 'Duvenaud network loss is negative:', duvenaud_network%loss
+       write(0,*) 'Duvenaud network loss is negative:', duvenaud_network%loss_val
     end if
 
     deallocate(target_array(1,1)%val)

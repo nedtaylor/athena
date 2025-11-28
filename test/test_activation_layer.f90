@@ -1,14 +1,12 @@
 program test_activation_layer
   !! Unit tests for the activation layer module
-  use athena__constants, only: real32
-  use athena__io_utils, only: test_error_handling
+  use coreutils, only: real32, test_error_handling
   use athena__actv_layer, only: actv_layer_type, read_actv_layer
   use athena__base_layer, only: base_layer_type
-  use athena__misc_types, only: array2d_type, array3d_type, &
-       array4d_type, array5d_type
+  use diffstruc, only: array_type, operator(-)
   implicit none
 
-  type(actv_layer_type) :: actv_layer
+  type(actv_layer_type), target :: actv_layer
   class(base_layer_type), allocatable :: read_layer
   integer, parameter :: batch_size = 2
   integer, parameter :: width = 4
@@ -19,13 +17,8 @@ program test_activation_layer
   real(real32), parameter :: tol = 1.0e-6_real32
 
   ! Test data for different ranks
-  real(real32), allocatable, dimension(:,:) :: input_1d, output_1d, gradient_1d
-  real(real32), allocatable, dimension(:,:,:) :: input_2d, output_2d
-  real(real32), allocatable, dimension(:,:,:) :: gradient_2d
-  real(real32), allocatable, dimension(:,:,:,:) :: input_3d, output_3d
-  real(real32), allocatable, dimension(:,:,:,:) :: gradient_3d
-  real(real32), allocatable, dimension(:,:,:,:,:) :: input_4d, output_4d
-  real(real32), allocatable, dimension(:,:,:,:,:) :: gradient_4d
+  type(array_type) :: input(1,1)
+  type(array_type), pointer :: output, loss
 
   integer :: i, j, k, l, m
   integer :: unit
@@ -36,7 +29,7 @@ program test_activation_layer
 
 
   character(10), dimension(11) :: activation_functions
-  
+
   activation_functions= [ &
        "none      ", "linear    ", "relu      ", "leaky_relu", &
        "sigmoid   ", "tanh      ", "swish     ", "softmax   ", &
@@ -54,7 +47,7 @@ program test_activation_layer
 ! Test 1D activation layer setup and properties
 !-------------------------------------------------------------------------------
   write(*,*) "Testing 1D activation layer..."
-  
+
   ! Test with ReLU activation
   actv_layer = actv_layer_type( &
        activation_function = "relu", &
@@ -104,23 +97,25 @@ program test_activation_layer
 ! Test 1D forward pass with ReLU
 !-------------------------------------------------------------------------------
   ! Initialize test input with some negative and positive values
-  allocate(input_1d(width, batch_size))
-  input_1d(:,1) = [-2.0, -1.0, 1.0, 2.0]
-  input_1d(:,2) = [-1.5, 0.5, 1.5, 2.5]
+  call input(1,1)%allocate(array_shape = [width, batch_size])
+  input(1,1)%val(:,1) = [-2.0, -1.0, 1.0, 2.0]
+  input(1,1)%val(:,2) = [-1.5, 0.5, 1.5, 2.5]
+  call input(1,1)%set_requires_grad(.true.)
+  input%is_temporary = .false.
 
   ! Run forward pass
-  call actv_layer%forward(input_1d)
-  call actv_layer%get_output(output_1d)
+  call actv_layer%forward(input)
+  output => actv_layer%output(1,1)
 
   ! Check ReLU activation (negative values should be zero)
-  if (any(abs(output_1d(:,1) - [0.0, 0.0, 1.0, 2.0]) .gt. tol)) then
+  if (any(abs(output%val(:,1) - [0.0, 0.0, 1.0, 2.0]) .gt. tol)) then
      success = .false.
      write(0,*) 'activation layer (1D) ReLU forward pass incorrect'
      write(0,*) 'Expected: [0.0, 0.0, 1.0, 2.0]'
-     write(0,*) 'Got: ', output_1d(:,1)
+     write(0,*) 'Got: ', output%val(:,1)
   end if
 
-  if (any(abs(output_1d(:,2) - [0.0, 0.5, 1.5, 2.5]) .gt. tol)) then
+  if (any(abs(output%val(:,2) - [0.0, 0.5, 1.5, 2.5]) .gt. tol)) then
      success = .false.
      write(0,*) 'activation layer (1D) ReLU forward pass incorrect for batch 2'
   end if
@@ -130,27 +125,26 @@ program test_activation_layer
 ! Test 1D backward pass with ReLU
 !-------------------------------------------------------------------------------
   ! Initialize gradient
-  allocate(gradient_1d(width, batch_size))
-  gradient_1d = 1.0_real32
+  loss => output - 1._real32
 
   ! Run backward pass
-  call actv_layer%backward(input_1d, gradient_1d)
+  call loss%grad_reverse()
 
   ! Check ReLU derivative (should be 0 for negative inputs, 1 for positive)
-  select type(di => actv_layer%di(1,1))
-  type is (array2d_type)
-     if (any(abs(di%val(:,1) - [0.0, 0.0, 1.0, 1.0]) .gt. tol)) then
+  if(associated(input(1,1)%grad))then
+     if (any(abs(input(1,1)%grad%val(:,1) - [0.0, 0.0, 1.0, 1.0]) .gt. tol)) then
         success = .false.
         write(0,*) 'activation layer (1D) ReLU backward pass incorrect'
         write(0,*) 'Expected: [0.0, 0.0, 1.0, 1.0]'
-        write(0,*) 'Got: ', di%val(:,1)
+        write(0,*) 'Got: ', input(1,1)%grad%val(:,1)
      end if
-  class default
+  else
      success = .false.
      write(0,*) 'activation layer (1D) has not set di type correctly'
-  end select
-
-  deallocate(input_1d, output_1d, gradient_1d)
+  end if
+  call actv_layer%output(1,1)%nullify_graph()
+  call input(1,1)%deallocate()
+  deallocate(loss)
 
 
 !-------------------------------------------------------------------------------
@@ -177,38 +171,40 @@ program test_activation_layer
   end if
 
   ! Test forward pass
-  allocate(input_2d(width, height, batch_size))
-  call random_number(input_2d)
-  input_2d = input_2d * 4.0_real32 - 2.0_real32  ! Scale to [-2, 2]
+  call input(1,1)%allocate(array_shape = [width, height, batch_size])
+  call random_number(input(1,1)%val)
+  input(1,1)%val = input(1,1)%val * 4.0_real32 - 2.0_real32  ! Scale to [-2, 2]
+  call input(1,1)%set_requires_grad(.true.)
+  input%is_temporary = .false.
 
-  call actv_layer%forward(input_2d)
-  call actv_layer%get_output(output_2d)
+  call actv_layer%forward(input)
+  output => actv_layer%output(1,1)
 
   ! Check that sigmoid output is in (0,1)
-  if (any(output_2d .le. 0.0_real32) .or. any(output_2d .ge. 1.0_real32)) then
+  if (any(output%val .le. 0.0_real32) .or. any(output%val .ge. 1.0_real32)) then
      success = .false.
      write(0,*) 'activation layer (2D) sigmoid output not in correct range'
   end if
 
   ! Test backward pass
-  allocate(gradient_2d(width, height, batch_size))
-  gradient_2d = 1.0_real32
-
-  call actv_layer%backward(input_2d, gradient_2d)
+  loss => output - 1._real32
+  call loss%grad_reverse()
 
   ! Check that backward pass produces reasonable values
-  select type(di => actv_layer%di(1,1))
-  type is (array3d_type)
-     if (any(di%val .lt. 0.0_real32) .or. any(di%val .gt. 0.25_real32)) then
+  if(associated(input(1,1)%grad))then
+     if (any(input(1,1)%grad%val .lt. 0.0_real32) .or. &
+          any(input(1,1)%grad%val .gt. 0.25_real32) &
+     ) then
         success = .false.
         write(0,*) 'activation layer (2D) sigmoid backward pass out of range'
      end if
-  class default
+  else
      success = .false.
      write(0,*) 'activation layer (2D) has not set di type correctly'
-  end select
-
-  deallocate(input_2d, output_2d, gradient_2d)
+  end if
+  call actv_layer%output(1,1)%nullify_graph()
+  call input(1,1)%deallocate()
+  deallocate(loss)
 
 
 !-------------------------------------------------------------------------------
@@ -224,20 +220,19 @@ program test_activation_layer
   )
 
   ! Test forward pass
-  allocate(input_3d(width, height, depth, batch_size))
-  call random_number(input_3d)
-  input_3d = input_3d * 2.0_real32 - 1.0_real32  ! Scale to [-1, 1]
+  call input(1,1)%allocate(array_shape=[width, height, depth, batch_size])
+  call random_number(input(1,1)%val)
+  input(1,1)%val = input(1,1)%val * 2.0_real32 - 1.0_real32  ! Scale to [-1, 1]
 
-  call actv_layer%forward(input_3d)
-  call actv_layer%get_output(output_3d)
+  call actv_layer%forward(input)
+  output => actv_layer%output(1,1)
 
   ! Check that tanh output is in (-1,1)
-  if (any(output_3d .le. -1.0_real32) .or. any(output_3d .ge. 1.0_real32)) then
+  if(any(output%val .le. -1.0_real32) .or. any(output%val .ge. 1.0_real32)) then
      success = .false.
      write(0,*) 'activation layer (3D) tanh output not in correct range'
   end if
-
-  deallocate(input_3d, output_3d)
+  call input(1,1)%deallocate()
 
 
 !-------------------------------------------------------------------------------
@@ -253,19 +248,18 @@ program test_activation_layer
   )
 
   ! Test forward pass
-  allocate(input_4d(width, height, depth, channels, batch_size))
-  call random_number(input_4d)
+  call input(1,1)%allocate(array_shape=[width, height, depth, channels, batch_size])
+  call random_number(input(1,1)%val)
 
-  call actv_layer%forward(input_4d)
-  call actv_layer%get_output(output_4d)
+  call actv_layer%forward(input)
+  output => actv_layer%output(1,1)
 
   ! Check that linear activation with scale 2.0 doubles the input
-  if (any(abs(output_4d - 2.0_real32 * input_4d) .gt. tol)) then
+  if(any(abs(output%val - 2.0_real32 * input(1,1)%val) .gt. tol)) then
      success = .false.
      write(0,*) 'activation layer (4D) linear activation incorrect'
   end if
-
-  deallocate(input_4d, output_4d)
+  call input(1,1)%deallocate()
 
 
 !-------------------------------------------------------------------------------
@@ -279,19 +273,18 @@ program test_activation_layer
        batch_size = batch_size &
   )
 
-  allocate(input_1d(width, batch_size))
-  call random_number(input_1d)
+  call input(1,1)%allocate(array_shape=[width, batch_size])
+  call random_number(input(1,1)%val)
 
-  call actv_layer%forward(input_1d)
-  call actv_layer%get_output(output_1d)
+  call actv_layer%forward(input)
+  output => actv_layer%output(1,1)
 
   ! Check that 'none' activation returns input unchanged
-  if (any(abs(output_1d - input_1d) .gt. tol)) then
+  if(any(abs(output%val - input(1,1)%val) .gt. tol)) then
      success = .false.
      write(0,*) 'activation layer none activation incorrect'
   end if
-
-  deallocate(input_1d, output_1d)
+  call input(1,1)%deallocate()
 
 
 !-------------------------------------------------------------------------------
@@ -355,7 +348,7 @@ program test_activation_layer
   ! Create a temporary file for testing
   open(newunit=unit, file='test_actv_layer.tmp', &
        status='replace', action='write')
-  
+
   ! Write layer to file
   write(unit,'("ACTV")')
   call actv_layer%print_to_unit(unit)
@@ -399,26 +392,25 @@ program test_activation_layer
           batch_size = 1 &
      )
 
-     if (.not. allocated(actv_layer%transfer)) then
+     if(.not. allocated(actv_layer%transfer)) then
         success = .false.
         write(0,*) 'activation function not allocated for: ', &
              trim(activation_functions(i))
      end if
 
      ! Test that we can do forward pass without errors
-     allocate(input_1d(width, 1))
-     input_1d(:,1) = [0.1, 0.2, 0.3, 0.4]
-     
-     call actv_layer%forward(input_1d)
-     call actv_layer%get_output(output_1d)
+     call input(1,1)%allocate(array_shape=[width, 1])
+     input(1,1)%val(:,1) = [0.1, 0.2, 0.3, 0.4]
 
-     if (.not. allocated(output_1d)) then
+     call actv_layer%forward(input)
+     output => actv_layer%output(1,1)
+
+     if(.not. allocated(output%val)) then
         success = .false.
         write(0,*) 'output not allocated for activation: ', &
              trim(activation_functions(i))
      end if
-
-     deallocate(input_1d, output_1d)
+     call input(1,1)%deallocate()
   end do
 
 
@@ -432,7 +424,7 @@ program test_activation_layer
   call actv_layer%set_rank(0, 1)
   ! This should trigger a warning but not necessarily fail
 
-  call actv_layer%set_rank(1, 0) 
+  call actv_layer%set_rank(1, 0)
   ! This should trigger a warning but not necessarily fail
   test_error_handling = .false.  ! Enable error handling for tests
 

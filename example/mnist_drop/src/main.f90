@@ -19,7 +19,7 @@ program mnist_example
   ! data loading and preoprocessing
   real(real32), allocatable, dimension(:,:,:,:) :: input_images, test_images
   integer, allocatable, dimension(:) :: labels, test_labels
-  integer, allocatable, dimension(:,:) :: input_labels
+  real(real32), allocatable, dimension(:,:) :: input_labels
   character(1024) :: train_file, test_file
 
   ! neural network size and shape variables
@@ -54,7 +54,7 @@ program mnist_example
   !-----------------------------------------------------------------------------
   train_file = trim(data_dir)//'/MNIST_train.txt'
   call read_mnist_db(train_file,input_images, labels, &
-       maxval(cv_kernel_size), image_size, padding_method)
+       maxval(cv_kernel_size), image_size, "none") !padding_method)
   input_channels = size(input_images, 3)
   num_samples = size(input_images, 4)
 
@@ -64,7 +64,7 @@ program mnist_example
   !-----------------------------------------------------------------------------
   test_file = trim(data_dir)//'/MNIST_test.txt'
   call read_mnist_db(test_file,test_images, test_labels, &
-       maxval(cv_kernel_size), itmp1, padding_method)
+       maxval(cv_kernel_size), itmp1, "none") !padding_method)
   num_samples_test = size(test_images, 4)
 
 
@@ -106,7 +106,6 @@ program mnist_example
           input_shape = [image_size,image_size,input_channels], &
           num_filters = cv_num_filters, kernel_size = 3, stride = 1, &
           padding=padding_method, &
-          calc_input_gradients = .false., &
           activation_function = "relu" &
      ))
      call network%add(dropblock2d_layer_type( &
@@ -128,7 +127,8 @@ program mnist_example
   end if
 
   call network%compile(optimiser=optimiser, &
-       loss_method=loss_method, metrics=metric_dict, &
+       loss_method=loss_method, accuracy_method=accuracy_method, &
+       metrics=metric_dict, &
        batch_size = batch_size, verbose = verbosity)
 
   write(*,*) "NUMBER OF LAYERS",network%num_layers
@@ -139,10 +139,9 @@ program mnist_example
   ! ... loops over num_epoch number of epochs
   ! ... i.e. it trains on the same datapoints num_epoch times
   !-----------------------------------------------------------------------------
-  allocate(input_labels(num_classes,num_samples))
-  input_labels = 0
+  allocate(input_labels(num_classes,num_samples), source = 0._real32)
   do i=1,num_samples
-     input_labels(labels(i),i) = 1
+     input_labels(labels(i),i) = 1._real32
   end do
 
   write(6,*) "Starting training..."
@@ -173,7 +172,7 @@ program mnist_example
   write(*,*) "Starting testing..."
   call network%test(test_images,input_labels)
   write(*,*) "Testing finished"
-  write(6,'("Overall accuracy=",F0.5)') network%accuracy
-  write(6,'("Overall loss=",F0.5)')     network%loss
+  write(6,'("Overall accuracy=",F0.5)') network%accuracy_val
+  write(6,'("Overall loss=",F0.5)')     network%loss_val
 
 end program mnist_example

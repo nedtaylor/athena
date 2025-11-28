@@ -1,20 +1,24 @@
 program test_dropblock2d_layer
+  use coreutils, only: real32
   use athena, only: &
        dropblock2d_layer_type, &
        base_layer_type
-  use athena__misc_types, only: array4d_type
+  use diffstruc, only: array_type
   use athena__dropblock2d_layer, only: read_dropblock2d_layer
   implicit none
 
-  class(base_layer_type), allocatable :: db_layer
+  class(base_layer_type), allocatable, target :: db_layer
   class(base_layer_type), allocatable :: read_layer
   integer, parameter :: num_channels = 3, width = 6
   integer :: unit
-  real, allocatable, dimension(:,:,:,:) :: input_data, output, gradient
+  type(array_type) :: input(1,1)
+  real, allocatable, dimension(:,:,:,:) :: input_4d, output_4d, gradient_4d
   real, allocatable, dimension(:) :: output_1d
   real, allocatable, dimension(:,:) :: output_2d
   real, parameter :: tol = 1.E-7
   logical :: success = .true.
+  class(array_type), pointer :: output => null()
+  class(array_type), pointer :: gradient => null()
 
   integer :: i, j, output_width
   real, parameter :: max_value = 3.0
@@ -85,8 +89,7 @@ program test_dropblock2d_layer
 !!! use existing layer
 !!!-----------------------------------------------------------------------------
   !! initialise sample input
-  allocate(input_data(width, width, num_channels, 1), source = 0.0)
-  input_data = max_value
+  allocate(input_4d(width, width, num_channels, 1), source = max_value)
 
   db_layer = dropblock2d_layer_type( &
        rate = 0.5, &
@@ -95,21 +98,27 @@ program test_dropblock2d_layer
        batch_size = 1 &
   )
   call db_layer%set_ptrs()
+
+  call input(1,1)%allocate(array_shape=[width, width, num_channels, 1])
+  call input(1,1)%set_requires_grad(.true.)
+  call input(1,1)%set(input_4d)
+
   !! run forward pass
-  call db_layer%forward(input_data)
-  call db_layer%get_output(output)
+  call db_layer%forward(input)
+  call db_layer%extract_output(output_4d)
 
   !! check outputs have expected value
   select type(db_layer)
   type is(dropblock2d_layer_type)
      if(any( &
           abs( &
-               merge(input_data(:,:,1,1),0.0,db_layer%mask) - &
-               output(:,:,1,1) &
+               merge(input_4d(:,:,1,1),0.0,db_layer%mask) / &
+               ( 1.E0 - db_layer%rate ) - &
+               output_4d(:,:,1,1) &
           ) .gt. tol) &
      )then
         success = .false.
-        write(*,*) &
+        write(0,*) &
              'dropblock2d layer forward pass failed: mask incorrectly applied'
      end if
   end select
@@ -119,40 +128,49 @@ program test_dropblock2d_layer
 ! test backward pass and check expected output
 !-------------------------------------------------------------------------------
   !! run backward pass
-  allocate(gradient, source = output)
-  call db_layer%backward(input_data, gradient)
+  output => db_layer%output(1,1)
+  allocate(output%grad)
+  call output%grad%allocate(array_shape=[output%shape, size(output%val, 2)])
+  output%grad%val = output%val
+  call output%grad_reverse()
+  gradient => input(1,1)%grad
+  call gradient%extract(gradient_4d)
 
   !! check gradient has expected value
   select type(db_layer)
   type is(dropblock2d_layer_type)
-     select type(di => db_layer%di(1,1))
-     type is(array4d_type)
-        if(any( &
-             abs( &
-                  merge(gradient(:,:,1,1),0.0,db_layer%mask) - &
-                  di%val_ptr(:,:,1,1) &
-             ) .gt. tol ) &
-        )then
-           success = .false.
-           write(*,*) 'dropblock2d layer backward pass failed: mask &
-                &incorrectly applied'
-        end if
-     class default
+     if(any( &
+          abs( &
+               merge(output_4d(:,:,1,1),0.0,db_layer%mask) / &
+               (1.E0 - db_layer%rate) - &
+               gradient_4d(:,:,1,1) &
+          ) .gt. tol ) &
+     )then
         success = .false.
-        write(0,*) 'dropblock2d layer has not set di type correctly'
-     end select
+        write(0,*) 'dropblock2d layer backward pass failed: mask &
+             &incorrectly applied'
+        write(0,*)  merge(output_4d(:,:,1,1),0.0,db_layer%mask) / &
+             (1.E0 - db_layer%rate)
+         write(0,*)  gradient_4d(:,:,1,1)
+     end if
+     deallocate(input_4d)
   end select
 
+  deallocate(output_4d, gradient_4d)
+  call input(1,1)%deallocate()
+  call input(1,1)%reset_graph()
+
 
 !-------------------------------------------------------------------------------
-! check output request using rank 1 and rank 2 arrays is consistent
+! check output request using rank 1 and rank 2 arrays is consistent
 !-------------------------------------------------------------------------------
-  call db_layer%get_output(output_1d)
-  call db_layer%get_output(output_2d)
+  call db_layer%extract_output(output_1d)
+  call db_layer%extract_output(output_2d)
   if(any(abs(output_1d - reshape(output_2d, [size(output_2d)])) .gt. 1.E-6))then
      success = .false.
      write(0,*) 'output_1d and output_2d are not consistent'
   end if
+  deallocate(output_1d, output_2d)
 
 
 !-------------------------------------------------------------------------------
@@ -163,7 +181,7 @@ program test_dropblock2d_layer
   ! Create a temporary file for testing
   open(newunit=unit, file='test_dropblock2d_layer.tmp', &
        status='replace', action='write')
-  
+
   ! Write layer to file
   write(unit,'("DROPBLOCK2D")')
   call db_layer%print_to_unit(unit)

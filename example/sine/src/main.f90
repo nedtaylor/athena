@@ -5,12 +5,15 @@ program sine
   !! ... neural fortran:
   !! https://github.com/modern-fortran/neural-fortran/blob/main/example/sine.f90
   use athena
-  use constants_mnist, only: real32, pi
+  use coreutils, only: real32
+  use constants_mnist, only: pi
 
   implicit none
 
   type(network_type) :: network
   real(real32), dimension(1,1) :: x, y
+  type(array_type) :: x_array(1), y_array(1,1)
+  type(array_type), pointer :: loss
 
   integer, parameter :: num_iterations = 10000
   integer, parameter :: test_size = 30
@@ -57,6 +60,8 @@ program sine
      x_test(1,i) = ( ( i - 1 ) * 2._real32 * pi ) / test_size
      y_test(1,i) = ( sin(x_test(1,i)) + 1._real32 ) / 2._real32
   end do
+  call x_array(1)%allocate(array_shape=[1,1])
+  call y_array(1,1)%allocate(array_shape=[1,1])
 
 
   !-----------------------------------------------------------------------------
@@ -69,10 +74,14 @@ program sine
      call random_number(x)
      x = x * 2._real32 * pi
      y = (sin(x) + 1._real32) / 2._real32
+     x_array(1)%val = x
+     y_array(1,1)%val = y
 
      call network%set_batch_size(1)
      call network%forward(x)
-     call network%backward(y)
+     network%expected_array = y_array
+     loss => network%loss_backward(1, 1)
+     call loss%grad_reverse()
      call network%update()
 
      if (mod(n, 1000) == 0) then

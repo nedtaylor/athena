@@ -10,8 +10,7 @@ module athena__optimiser
   !! ... optimizer_base_type from the neural-fortran library
   !! The same applies to the implementation of the sgd_optimiser_type, ...
   !! ... rmsprop_optimiser_type, adagrad_optimiser_type, and adam_optimiser_type
-  use athena__constants, only: real32
-  use athena__io_utils, only: stop_program
+  use coreutils, only: real32, stop_program
   use athena__clipper, only: clip_type
   use athena__regulariser, only: base_regulariser_type, l2_regulariser_type
   use athena__learning_rate_decay, only: base_lr_decay_type
@@ -417,7 +416,7 @@ contains
   subroutine read_base(this, unit)
     !! Read base optimiser information
     use athena__tools_infile, only: assign_val, assign_vec
-    use athena__misc, only: to_lower, to_upper, icount
+    use coreutils, only: to_lower, to_upper, icount
     implicit none
 
     ! Arguments

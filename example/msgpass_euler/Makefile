@@ -86,7 +86,7 @@ LATHENA = -I$(ATHENAROOT)/include -L$(ATHENAROOT)/lib -lathena
 # COMPILATION SECTION
 ##########################################
 INSTALL_DIR?=$(HOME)/bin
-NAME = euler
+NAME = msgpass_euler
 
 CFLAGS =
 

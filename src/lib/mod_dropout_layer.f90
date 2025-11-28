@@ -4,10 +4,10 @@ module athena__dropout_layer
   !! This module contains the implementation of a dropout layer
   !! for use in neural networks.
   !! Dropout reference: https://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf
-  use athena__io_utils, only: stop_program
-  use athena__constants, only: real32
+  use coreutils, only: real32, stop_program
   use athena__base_layer, only: drop_layer_type, base_layer_type
-  use athena__misc_types, only: array2d_type
+  use diffstruc, only: array_type, operator(*)
+  use athena__diffstruc_extd, only: merge_over_channels
   implicit none
 
 
@@ -36,14 +36,10 @@ module athena__dropout_layer
      !! Print dropout layer to unit
      procedure, pass(this) :: read => read_dropout
      !! Read dropout layer from file
-     procedure, pass(this) :: forward  => forward_rank
-     !! Forward propagation handler for dropout layer
-     procedure, pass(this) :: backward => backward_rank
-     !! Backward propagation handler for dropout layer
-     procedure, private, pass(this) :: forward_2d
-     !! Forward propagation for 2D input
-     procedure, private, pass(this) :: backward_2d
-     !! Backward propagation for 2D input
+
+     procedure, pass(this) :: forward => forward_dropout
+     !! Forward propagation derived type handler
+
      procedure, pass(this) :: generate_mask => generate_dropout_mask
      !! Generate dropout mask
   end type dropout_layer_type
@@ -70,54 +66,6 @@ module athena__dropout_layer
 
 
 contains
-
-!###############################################################################
-  subroutine forward_rank(this, input)
-    !! Forward propagation handler for dropout layer
-    implicit none
-
-    ! Arguments
-    class(dropout_layer_type), intent(inout) :: this
-    !! Instance of the dropout layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input values
-
-    select rank(input)
-    rank(2)
-       call forward_2d(this, input)
-    end select
-  end subroutine forward_rank
-!###############################################################################
-
-
-!###############################################################################
-  subroutine backward_rank(this, input, gradient)
-    !! Backward propagation handler for dropout layer
-    implicit none
-
-    ! Arguments
-    class(dropout_layer_type), intent(inout) :: this
-    !! Instance of the dropout layer
-    real(real32), dimension(..), intent(in) :: input
-    !! Input values
-    real(real32), dimension(..), intent(in) :: gradient
-    !! Gradient values
-
-    select rank(input)
-    rank(2)
-       select rank(gradient)
-       rank(2)
-          call backward_2d(this, input, gradient)
-       end select
-    end select
-  end subroutine backward_rank
-!###############################################################################
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
 
 !###############################################################################
   module function layer_setup( &
@@ -283,16 +231,13 @@ contains
           return
        end if
        if(allocated(this%output)) deallocate(this%output)
-       allocate( this%output(1,1), source = array2d_type() )
+       allocate( this%output(1,1) )
        call this%output(1,1)%allocate( &
             array_shape = [ &
                  this%output_shape(1), &
                  this%batch_size ], &
             source=0._real32 &
        )
-       if(allocated(this%di)) deallocate(this%di)
-       allocate( this%di(1,1), source = array2d_type() )
-       call this%di(1,1)%allocate( source = this%output(1,1) )
     end if
 
   end subroutine set_batch_size_dropout
@@ -332,7 +277,7 @@ contains
 !###############################################################################
   subroutine print_to_unit_dropout(this, unit)
     !! Print dropout layer to unit
-    use athena__misc, only: to_upper
+    use coreutils, only: to_upper
     implicit none
 
     ! Arguments
@@ -356,7 +301,7 @@ contains
   subroutine read_dropout(this, unit, verbose)
     !! Read dropout layer from file
     use athena__tools_infile, only: assign_val, assign_vec
-    use athena__misc, only: to_lower, to_upper, icount
+    use coreutils, only: to_lower, to_upper, icount
     implicit none
 
     ! Arguments
@@ -491,73 +436,39 @@ contains
 
 
 !###############################################################################
-  subroutine forward_2d(this, input)
-    !! Forward propagation for 2D input
+  subroutine forward_dropout(this, input)
+    !! Forward propagation
     implicit none
 
     ! Arguments
     class(dropout_layer_type), intent(inout) :: this
     !! Instance of the dropout layer
-    real(real32), &
-         dimension( &
-              this%input_shape(1), this%batch_size), &
-         intent(in) :: input
+    class(array_type), dimension(:,:), intent(in) :: input
     !! Input values
 
     ! Local variables
-    integer :: s
-    !! Loop index
+    real(real32) :: rtmp1
+    !! Temporary variable
+    type(array_type), pointer :: ptr
+    !! Pointer array
 
 
-    select type(output => this%output(1,1))
-    type is (array2d_type)
-       select case(this%inference)
-       case(.true.)
-          ! Do not perform the drop operation
-          output%val_ptr = input * ( 1._real32 - this%rate )
-       case default
-          ! Perform the drop operation
-          this%idx = this%idx + 1
-          do concurrent(s=1:this%batch_size)
-             output%val_ptr(:,s) = merge( &
-                  input(:,s), 0._real32, &
-                  this%mask(:,this%idx)) / &
-             ( 1._real32 - this%rate )
-          end do
-       end select
+    rtmp1 = 1._real32 - this%rate
+    select case(this%inference)
+    case(.true.)
+       ! Do not perform the drop operation
+       ptr => input(1,1) * rtmp1
+    case default
+       ! Perform the drop operation
+       this%idx = this%idx + 1
+
+       rtmp1 = 1._real32 / rtmp1
+       ptr => merge_over_channels( input(1,1), 0._real32, this%mask) * rtmp1
     end select
+    call this%output(1,1)%assign_and_deallocate_source(ptr)
+    this%output(1,1)%is_temporary = .false.
 
-  end subroutine forward_2d
-!###############################################################################
-
-
-!###############################################################################
-  subroutine backward_2d(this, input, gradient)
-    !! Backward propagation for 2D input
-    implicit none
-
-    ! Arguments
-    class(dropout_layer_type), intent(inout) :: this
-    !! Instance of the dropout layer
-    real(real32), &
-         dimension( &
-              this%input_shape(1), this%batch_size), &
-         intent(in) :: input
-    !! Input values
-    real(real32), &
-         dimension(this%output_shape(1), this%batch_size), &
-         intent(in) :: gradient
-    !! Gradient values
-
-
-    ! Compute gradients for input feature map
-    !---------------------------------------------------------------------------
-    select type(di => this%di(1,1))
-    type is (array2d_type)
-       di%val_ptr(:,:) = gradient(:,:)
-    end select
-
-  end subroutine backward_2d
+  end subroutine forward_dropout
 !###############################################################################
 
 end module athena__dropout_layer
