@@ -739,16 +739,12 @@ contains
     ! Local variables
     integer :: i, j, k, j_out, layer_index
     !! Loop indices
-    integer :: num_initialisers
-    !! Number of initialisers for a specific node
     integer :: verbose_ = 0
     !! Verbosity level
     character(20) :: op_type
     !! Lowercase op_type
     character(256) :: err_msg
     !! Error message
-    class(base_layer_type), allocatable :: layer
-    !! Layer to add to the network
     integer, dimension(:), allocatable :: input_list
     !! List of input layers
     type(onnx_initialiser_type), dimension(:), allocatable :: init_list
@@ -2884,7 +2880,7 @@ contains
     !! Loss and accuracy
 
     ! learning parameters
-    integer :: l, num_samples, s_idx
+    integer :: l, num_samples
     !! Loop index
     integer :: num_batches
     !! Number of batches
@@ -3248,7 +3244,7 @@ contains
     ! Local variables
     integer :: l, sample, num_samples
     !! Loop index
-    integer :: verbose_, unit
+    integer :: verbose_
     !! Verbosity level
     real(real32) :: acc_val, loss_val
     !! Loss and accuracy
