@@ -11,15 +11,15 @@ module athena__activation_none
 
   private
 
-  public :: none_actv_type
+  public :: none_actv_type, create_from_onnx_none_activation
 
 
   type, extends(base_actv_type) :: none_actv_type
    contains
-     procedure, pass(this) :: activate => none_activate
-     procedure, pass(this) :: reset => none_reset
-     procedure, pass(this) :: apply_attributes => none_apply_attributes
-     procedure, pass(this) :: export_attributes => none_export_attributes
+     procedure, pass(this) :: apply => apply_none
+     procedure, pass(this) :: reset => reset_none
+     procedure, pass(this) :: apply_attributes => apply_attributes_none
+     procedure, pass(this) :: export_attributes => export_attributes_none
   end type none_actv_type
 
   interface none_actv_type
@@ -31,20 +31,25 @@ module athena__activation_none
 contains
 
 !###############################################################################
-  pure function initialise() result(activation)
+  function initialise(attributes) result(activation)
     !! Initialise a none (no-op) activation function
     implicit none
 
     ! Arguments
     type(none_actv_type) :: activation
     !! None activation type
+    type(onnx_attribute_type), dimension(:), intent(in), optional :: attributes
+    !! Optional array of ONNX attributes
 
 
     call activation%reset()
+    if(present(attributes)) then
+       call activation%apply_attributes(attributes)
+    end if
 
   end function initialise
 !-------------------------------------------------------------------------------
-  pure subroutine none_reset(this)
+  pure subroutine reset_none(this)
     !! Reset none activation function attributes and variables
     implicit none
 
@@ -57,12 +62,27 @@ contains
     this%threshold = 0._real32
     this%apply_scaling = .false.
 
-  end subroutine none_reset
+  end subroutine reset_none
+!-------------------------------------------------------------------------------
+  function create_from_onnx_none_activation(attributes) result(activation)
+    !! Create none activation function from ONNX attributes
+    implicit none
+
+    ! Arguments
+    type(onnx_attribute_type), dimension(:), intent(in) :: attributes
+    !! Array of ONNX attributes
+
+    class(base_actv_type), allocatable :: activation
+    !! Instance of activation type
+
+    allocate(activation, source = none_actv_type(attributes = attributes))
+
+  end function create_from_onnx_none_activation
 !###############################################################################
 
 
 !###############################################################################
-  subroutine none_apply_attributes(this, attributes)
+  subroutine apply_attributes_none(this, attributes)
     !! Load ONNX attributes into none activation function
     implicit none
 
@@ -87,12 +107,12 @@ contains
        end select
     end do
 
-  end subroutine none_apply_attributes
+  end subroutine apply_attributes_none
 !###############################################################################
 
 
 !###############################################################################
-  pure function none_export_attributes(this) result(attributes)
+  pure function export_attributes_none(this) result(attributes)
     !! Export none activation function attributes as ONNX attributes
     implicit none
 
@@ -102,15 +122,23 @@ contains
     type(onnx_attribute_type), allocatable, dimension(:) :: attributes
     !! Array of ONNX attributes
 
+    ! Local variables
+    character(50) :: buffer
+    !! Temporary string buffer
+
     ! No attributes for none activation
-    allocate(attributes(0))
+    allocate(attributes(1))
 
-  end function none_export_attributes
+    write(buffer, '(A)') this%name
+    attributes(1) = onnx_attribute_type( &
+         "name", "string", trim(adjustl(buffer)) )
+
+  end function export_attributes_none
 !###############################################################################
 
 
 !###############################################################################
-  function none_activate(this, val) result(output)
+  function apply_none(this, val) result(output)
     !! Apply identity activation to 1D array
     !!
     !! Simply returns scaled input: f = scale * x
@@ -125,7 +153,7 @@ contains
     !! Scaled output values
 
     output => val * 1._real32 ! multiplication by 1 to ensure new allocation
-  end function none_activate
+  end function apply_none
 !###############################################################################
 
 end module athena__activation_none

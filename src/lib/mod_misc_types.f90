@@ -88,7 +88,7 @@ module athena__misc_types
 
 
 !-------------------------------------------------------------------------------
-! Activation (transfer) function base type
+! Activation (aka transfer) function base type
 !-------------------------------------------------------------------------------
   type, abstract :: base_actv_type
      !! Abstract type for activation functions
@@ -101,49 +101,61 @@ module athena__misc_types
      logical :: apply_scaling = .false.
      !! Boolean to apply scaling or not
    contains
-     procedure (activation_apply), deferred, pass(this) :: activate
+     procedure (apply_actv), deferred, pass(this) :: apply
      !! Abstract procedure for 5D derivative of activation function
-     procedure(activation_reset), deferred, pass(this) :: reset
+     procedure(reset_actv), deferred, pass(this) :: reset
      !! Reset activation function attributes and variables
-     procedure(activation_apply_attributes), deferred, pass(this) :: apply_attributes
+     procedure(apply_attributes_actv), deferred, pass(this) :: apply_attributes
      !! Set up ONNX attributes
-     procedure(activation_export_attributes), deferred, pass(this) :: export_attributes
+     procedure(export_attributes_actv), deferred, pass(this) :: export_attributes
+     !! Export ONNX attributes
+     procedure, pass(this) :: print => print_actv
   end type base_actv_type
 
   ! Interface for activation function
   !-----------------------------------------------------------------------------
   abstract interface
-     subroutine activation_reset(this)
+     subroutine reset_actv(this)
        !! Interface for resetting activation function attributes and variables
        import base_actv_type
        class(base_actv_type), intent(inout) :: this
        !! Instance of the activation type
-     end subroutine activation_reset
+     end subroutine reset_actv
 
-     function activation_apply(this, val) result(output)
+     function apply_actv(this, val) result(output)
        !! Interface for activation function
        import base_actv_type, real32, array_type
        class(base_actv_type), intent(in) :: this
        type(array_type), intent(in) :: val
        type(array_type), pointer :: output
-     end function activation_apply
+     end function apply_actv
 
-     subroutine activation_apply_attributes(this, attributes)
+     subroutine apply_attributes_actv(this, attributes)
        !! Interface for loading ONNX attributes
        import base_actv_type, onnx_attribute_type
        class(base_actv_type), intent(inout) :: this
        !! Instance of the activation type
        type(onnx_attribute_type), dimension(:), intent(in) :: attributes
        !! ONNX attributes
-     end subroutine activation_apply_attributes
+     end subroutine apply_attributes_actv
 
-     pure function activation_export_attributes(this) result(attributes)
+     pure function export_attributes_actv(this) result(attributes)
        !! Interface for exporting ONNX attributes
        import base_actv_type, onnx_attribute_type
        class(base_actv_type), intent(in) :: this
        !! Instance of the activation type
        type(onnx_attribute_type), allocatable, dimension(:) :: attributes
-     end function activation_export_attributes
+     end function export_attributes_actv
+  end interface
+
+  interface
+     module subroutine print_actv(this, unit)
+       !! Interface for printing activation function details
+       class(base_actv_type), intent(in) :: this
+       !! Instance of the activation type
+       integer, intent(in) :: unit
+       !! Unit number for output
+     end subroutine print_actv
   end interface
 !-------------------------------------------------------------------------------
 

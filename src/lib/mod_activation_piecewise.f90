@@ -12,17 +12,17 @@ module athena__activation_piecewise
 
   private
 
-  public :: piecewise_actv_type
+  public :: piecewise_actv_type, create_from_onnx_piecewise_activation
 
 
   type, extends(base_actv_type) :: piecewise_actv_type
      !! Type for piecewise activation function with overloaded procedures
      real(real32) :: gradient, limit
    contains
-     procedure, pass(this) :: activate => piecewise_activate
-     procedure, pass(this) :: reset => piecewise_reset
-     procedure, pass(this) :: apply_attributes => piecewise_apply_attributes
-     procedure, pass(this) :: export_attributes => piecewise_export_attributes
+     procedure, pass(this) :: apply => apply_piecewise
+     procedure, pass(this) :: reset => reset_piecewise
+     procedure, pass(this) :: apply_attributes => apply_attributes_piecewise
+     procedure, pass(this) :: export_attributes => export_attributes_piecewise
   end type piecewise_actv_type
 
   interface piecewise_actv_type
@@ -68,7 +68,7 @@ contains
 
   end function initialise
 !-------------------------------------------------------------------------------
-  pure subroutine piecewise_reset(this)
+  pure subroutine reset_piecewise(this)
     !! Reset piecewise activation function attributes and variables
     implicit none
 
@@ -83,12 +83,27 @@ contains
     this%gradient = 0.1_real32
     this%limit = 1._real32
 
-  end subroutine piecewise_reset
+  end subroutine reset_piecewise
+!-------------------------------------------------------------------------------
+  function create_from_onnx_piecewise_activation(attributes) result(activation)
+    !! Create piecewise activation function from ONNX attributes
+    implicit none
+
+    ! Arguments
+    type(onnx_attribute_type), dimension(:), intent(in) :: attributes
+    !! Array of ONNX attributes
+
+    class(base_actv_type), allocatable :: activation
+    !! Instance of activation type
+
+    allocate(activation, source = piecewise_actv_type(attributes = attributes))
+
+  end function create_from_onnx_piecewise_activation
 !###############################################################################
 
 
 !###############################################################################
-  subroutine piecewise_apply_attributes(this, attributes)
+  subroutine apply_attributes_piecewise(this, attributes)
     !! Load ONNX attributes into piecewise activation function
     implicit none
 
@@ -124,12 +139,12 @@ contains
        end select
     end do
 
-  end subroutine piecewise_apply_attributes
+  end subroutine apply_attributes_piecewise
 !###############################################################################
 
 
 !###############################################################################
-  pure function piecewise_export_attributes(this) result(attributes)
+  pure function export_attributes_piecewise(this) result(attributes)
     !! Export piecewise activation function attributes as ONNX attributes
     implicit none
 
@@ -140,32 +155,33 @@ contains
     !! Array of ONNX attributes
 
     ! Local variables
-    integer :: n_attributes
-    !! Number of attributes
     character(50) :: buffer
     !! Temporary string buffer
 
-    n_attributes = 3
-    allocate(attributes(n_attributes))
+    allocate(attributes(4))
+
+    write(buffer, '(A)') this%name
+    attributes(1) = onnx_attribute_type( &
+       "name", "string", trim(adjustl(buffer)) )
 
     write(buffer, '(F10.6)') this%scale
-    attributes(1) = onnx_attribute_type( &
+    attributes(2) = onnx_attribute_type( &
          "scale", "float", trim(adjustl(buffer)) )
 
     write(buffer, '(F10.6)') this%gradient
-    attributes(2) = onnx_attribute_type( &
+    attributes(3) = onnx_attribute_type( &
          "gradient", "float", trim(adjustl(buffer)) )
 
     write(buffer, '(F10.6)') this%limit
-    attributes(3) = onnx_attribute_type( &
+    attributes(4) = onnx_attribute_type( &
          "limit", "float", trim(adjustl(buffer)) )
 
-  end function piecewise_export_attributes
+  end function export_attributes_piecewise
 !###############################################################################
 
 
 !###############################################################################
-  function piecewise_activate(this, val) result(output)
+  function apply_piecewise(this, val) result(output)
     !! Apply piecewise activation to 1D array
     !!
     !! Computes piecewise function:
@@ -187,7 +203,7 @@ contains
     else
        output => piecewise(val, this%gradient, this%limit)
     end if
-  end function piecewise_activate
+  end function apply_piecewise
 !###############################################################################
 
 end module athena__activation_piecewise

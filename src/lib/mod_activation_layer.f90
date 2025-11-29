@@ -19,7 +19,7 @@ module athena__actv_layer
 
   type, extends(base_layer_type) :: actv_layer_type
      !! Layer type for activation layers
-     class(base_actv_type), allocatable :: transfer
+     class(base_actv_type), allocatable :: activation
      !! Activation function
    contains
      procedure, pass(this) :: set_rank => set_rank_actv
@@ -161,16 +161,16 @@ contains
     if(present(input_rank)) this%input_rank = input_rank
     this%output_rank = this%input_rank
     if(.not.allocated(activation))then
-       this%transfer = activation_setup("none")
+       this%activation = activation_setup("none")
     else
-       this%transfer = activation
+       this%activation = activation
     end if
-    this%subtype = trim(to_lower(this%transfer%name))
+    this%subtype = trim(to_lower(this%activation%name))
 
     if(present(verbose))then
        if(abs(verbose).gt.0)then
           write(*,'("ACTV activation function: ",A)') &
-               trim(this%transfer%name)
+               trim(this%activation%name)
        end if
     end if
 
@@ -370,7 +370,7 @@ contains
     ! Write initial parameters
     !---------------------------------------------------------------------------
     write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
-    write(unit,'(3X,"ACTIVATION_FUNCTION = ",A)') this%transfer%name
+    write(unit,'(3X,"ACTIVATION_FUNCTION = ",A)') this%activation%name
 
   end subroutine print_to_unit_actv
 !###############################################################################
@@ -581,7 +581,7 @@ contains
 
     type(array_type), pointer :: ptr
 
-    ptr => this%transfer%activate(input(1,1))
+    ptr => this%activation%apply(input(1,1))
     call this%output(1,1)%assign_and_deallocate_source(ptr)
 
   end subroutine forward_actv

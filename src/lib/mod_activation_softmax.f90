@@ -13,16 +13,16 @@ module athena__activation_softmax
 
   private
 
-  public :: softmax_actv_type
+  public :: softmax_actv_type, create_from_onnx_softmax_activation
 
 
   type, extends(base_actv_type) :: softmax_actv_type
      !! Type for softmax activation function with overloaded procedures
    contains
-     procedure, pass(this) :: activate => softmax_activate
-     procedure, pass(this) :: reset => softmax_reset
-     procedure, pass(this) :: apply_attributes => softmax_apply_attributes
-     procedure, pass(this) :: export_attributes => softmax_export_attributes
+     procedure, pass(this) :: apply => apply_softmax
+     procedure, pass(this) :: reset => reset_softmax
+     procedure, pass(this) :: apply_attributes => apply_attributes_softmax
+     procedure, pass(this) :: export_attributes => export_attributes_softmax
   end type softmax_actv_type
 
   interface softmax_actv_type
@@ -59,7 +59,7 @@ contains
 
   end function initialise
 !-------------------------------------------------------------------------------
-  pure subroutine softmax_reset(this)
+  pure subroutine reset_softmax(this)
     !! Reset softmax activation function attributes and variables
     implicit none
 
@@ -72,12 +72,27 @@ contains
     this%threshold = 0._real32
     this%apply_scaling = .false.
 
-  end subroutine softmax_reset
+  end subroutine reset_softmax
+!-------------------------------------------------------------------------------
+  function create_from_onnx_softmax_activation(attributes) result(activation)
+    !! Create softmax activation function from ONNX attributes
+    implicit none
+
+    ! Arguments
+    type(onnx_attribute_type), dimension(:), intent(in) :: attributes
+    !! Array of ONNX attributes
+
+    class(base_actv_type), allocatable :: activation
+    !! Instance of activation type
+
+    allocate(activation, source = softmax_actv_type(attributes = attributes))
+
+  end function create_from_onnx_softmax_activation
 !###############################################################################
 
 
 !###############################################################################
-  subroutine softmax_apply_attributes(this, attributes)
+  subroutine apply_attributes_softmax(this, attributes)
     !! Load ONNX attributes into softmax activation function
     implicit none
 
@@ -109,12 +124,12 @@ contains
        end select
     end do
 
-  end subroutine softmax_apply_attributes
+  end subroutine apply_attributes_softmax
 !###############################################################################
 
 
 !###############################################################################
-  pure function softmax_export_attributes(this) result(attributes)
+  pure function export_attributes_softmax(this) result(attributes)
     !! Export softmax activation function attributes as ONNX attributes
     implicit none
 
@@ -125,24 +140,25 @@ contains
     !! Array of ONNX attributes
 
     ! Local variables
-    integer :: n_attributes
-    !! Number of attributes
     character(50) :: buffer
     !! Temporary string buffer
 
-    n_attributes = 1
-    allocate(attributes(n_attributes))
+    allocate(attributes(2))
+
+    write(buffer, '(A)') this%name
+    attributes(1) = onnx_attribute_type( &
+         "name", "string", trim(adjustl(buffer)) )
 
     write(buffer, '(F10.6)') this%scale
-    attributes(1) = onnx_attribute_type( &
+    attributes(2) = onnx_attribute_type( &
          "scale", "float", trim(adjustl(buffer)) )
 
-  end function softmax_export_attributes
+  end function export_attributes_softmax
 !###############################################################################
 
 
 !###############################################################################
-  function softmax_activate(this, val) result(output)
+  function apply_softmax(this, val) result(output)
     !! Apply softmax activation to 1D array
     !!
     !! Computes: f = exp(x-max)/sum(exp(x-max))
@@ -162,7 +178,7 @@ contains
     else
        output => softmax(val, dim=2)
     end if
-  end function softmax_activate
+  end function apply_softmax
 !###############################################################################
 
 end module athena__activation_softmax

@@ -38,6 +38,37 @@ contains
 
 
 !###############################################################################
+  module subroutine print_actv(this, unit)
+    !! Interface for printing activation function details
+    implicit none
+
+    ! Arguments
+    class(base_actv_type), intent(in) :: this
+    !! Instance of the activation type
+    integer, intent(in) :: unit
+    !! Unit number for output
+
+    ! Local variables
+    integer :: i
+    !! Loop index
+    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+    !! Array of ONNX attributes
+
+
+    attributes = this%export_attributes()
+
+    write(unit,'(3X,"ACTIVATION")')
+    do i = 1, size(attributes)
+       write(unit,'(6X,A," = ",A)') &
+            trim(attributes(i)%name), trim(attributes(i)%val)
+    end do
+    write(unit,'(3X,"END ACTIVATION")')
+
+  end subroutine print_actv
+!###############################################################################
+
+
+!###############################################################################
   module subroutine setup_bounds(this, length, pad, imethod)
     !! Set up replication bounds for facets
     implicit none

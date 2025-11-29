@@ -11,16 +11,16 @@ module athena__activation_tanh
 
   private
 
-  public :: tanh_actv_type
+  public :: tanh_actv_type, create_from_onnx_tanh_activation
 
 
   type, extends(base_actv_type) :: tanh_actv_type
      !! Type for tanh activation function with overloaded procedures
    contains
-     procedure, pass(this) :: activate => tanh_activate
-     procedure, pass(this) :: reset => tanh_reset
-     procedure, pass(this) :: apply_attributes => tanh_apply_attributes
-     procedure, pass(this) :: export_attributes => tanh_export_attributes
+     procedure, pass(this) :: apply => apply_tanh
+     procedure, pass(this) :: reset => reset_tanh
+     procedure, pass(this) :: apply_attributes => apply_attributes_tanh
+     procedure, pass(this) :: export_attributes => export_attributes_tanh
   end type tanh_actv_type
 
   interface tanh_actv_type
@@ -58,7 +58,7 @@ contains
 
   end function initialise
 !-------------------------------------------------------------------------------
-  pure subroutine tanh_reset(this)
+  pure subroutine reset_tanh(this)
     !! Reset tanh activation function attributes and variables
     implicit none
 
@@ -71,12 +71,27 @@ contains
     this%threshold = 0._real32
     this%apply_scaling = .false.
 
-  end subroutine tanh_reset
+  end subroutine reset_tanh
+!-------------------------------------------------------------------------------
+  function create_from_onnx_tanh_activation(attributes) result(activation)
+    !! Create tanh activation function from ONNX attributes
+    implicit none
+
+    ! Arguments
+    type(onnx_attribute_type), dimension(:), intent(in) :: attributes
+    !! Array of ONNX attributes
+
+    class(base_actv_type), allocatable :: activation
+    !! Instance of activation type
+
+    allocate(activation, source = tanh_actv_type(attributes = attributes))
+
+  end function create_from_onnx_tanh_activation
 !###############################################################################
 
 
 !###############################################################################
-  subroutine tanh_apply_attributes(this, attributes)
+  subroutine apply_attributes_tanh(this, attributes)
     !! Load ONNX attributes into tanh activation function
     implicit none
 
@@ -107,12 +122,12 @@ contains
        end select
     end do
 
-  end subroutine tanh_apply_attributes
+  end subroutine apply_attributes_tanh
 !###############################################################################
 
 
 !###############################################################################
-  pure function tanh_export_attributes(this) result(attributes)
+  pure function export_attributes_tanh(this) result(attributes)
     !! Export tanh activation function attributes as ONNX attributes
     implicit none
 
@@ -123,24 +138,25 @@ contains
     !! Array of ONNX attributes
 
     ! Local variables
-    integer :: n_attributes
-    !! Number of attributes
     character(50) :: buffer
     !! Temporary string buffer
 
-    n_attributes = 1
-    allocate(attributes(n_attributes))
+    allocate(attributes(2))
+
+    write(buffer, '(A)') this%name
+    attributes(1) = onnx_attribute_type( &
+         "name", "string", trim(adjustl(buffer)) )
 
     write(buffer, '(F10.6)') this%scale
-    attributes(1) = onnx_attribute_type( &
+    attributes(2) = onnx_attribute_type( &
          "scale", "float", trim(adjustl(buffer)) )
 
-  end function tanh_export_attributes
+  end function export_attributes_tanh
 !###############################################################################
 
 
 !###############################################################################
-  function tanh_activate(this, val) result(output)
+  function apply_tanh(this, val) result(output)
     !! Apply tanh activation to 1D array
     !!
     !! Applies the hyperbolic tangent function element-wise to input array:
@@ -160,7 +176,7 @@ contains
     else
        output => tanh(val)
     end if
-  end function tanh_activate
+  end function apply_tanh
 !###############################################################################
 
 end module athena__activation_tanh

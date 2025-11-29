@@ -12,17 +12,17 @@ module athena__activation_swish
 
   private
 
-  public :: swish_actv_type
+  public :: swish_actv_type, create_from_onnx_swish_activation
 
   type, extends(base_actv_type) :: swish_actv_type
      !! Type for swish activation function with overloaded procedures
      real(real32) :: beta = 1._real32
      !! Beta parameter for swish function
    contains
-     procedure, pass(this) :: activate => swish_activate
-     procedure, pass(this) :: reset => swish_reset
-     procedure, pass(this) :: apply_attributes => swish_apply_attributes
-     procedure, pass(this) :: export_attributes => swish_export_attributes
+     procedure, pass(this) :: apply => apply_swish
+     procedure, pass(this) :: reset => reset_swish
+     procedure, pass(this) :: apply_attributes => apply_attributes_swish
+     procedure, pass(this) :: export_attributes => export_attributes_swish
   end type swish_actv_type
 
   interface swish_actv_type
@@ -63,7 +63,7 @@ contains
 
   end function initialise
 !-------------------------------------------------------------------------------
-  pure subroutine swish_reset(this)
+  pure subroutine reset_swish(this)
     !! Reset swish activation function attributes and variables
     implicit none
 
@@ -77,12 +77,27 @@ contains
     this%apply_scaling = .false.
     this%beta = 1._real32
 
-  end subroutine swish_reset
+  end subroutine reset_swish
+!-------------------------------------------------------------------------------
+  function create_from_onnx_swish_activation(attributes) result(activation)
+    !! Create swish activation function from ONNX attributes
+    implicit none
+
+    ! Arguments
+    type(onnx_attribute_type), dimension(:), intent(in) :: attributes
+    !! Array of ONNX attributes
+
+    class(base_actv_type), allocatable :: activation
+    !! Instance of activation type
+
+    allocate(activation, source = swish_actv_type(attributes = attributes))
+
+  end function create_from_onnx_swish_activation
 !###############################################################################
 
 
 !###############################################################################
-  subroutine swish_apply_attributes(this, attributes)
+  subroutine apply_attributes_swish(this, attributes)
     !! Load ONNX attributes into swish activation function
     implicit none
 
@@ -116,12 +131,12 @@ contains
        end select
     end do
 
-  end subroutine swish_apply_attributes
+  end subroutine apply_attributes_swish
 !###############################################################################
 
 
 !###############################################################################
-  pure function swish_export_attributes(this) result(attributes)
+  pure function export_attributes_swish(this) result(attributes)
     !! Export swish activation function attributes as ONNX attributes
     implicit none
 
@@ -132,28 +147,29 @@ contains
     !! Array of ONNX attributes
 
     ! Local variables
-    integer :: n_attributes
-    !! Number of attributes
     character(50) :: buffer
     !! Temporary string buffer
 
-    n_attributes = 2
-    allocate(attributes(n_attributes))
+    allocate(attributes(3))
+
+    write(buffer, '(A)') this%name
+    attributes(1) = onnx_attribute_type( &
+         "name", "string", trim(adjustl(buffer)) )
 
     write(buffer, '(F10.6)') this%scale
-    attributes(1) = onnx_attribute_type( &
+    attributes(2) = onnx_attribute_type( &
          "scale", "float", trim(adjustl(buffer)) )
 
     write(buffer, '(F10.6)') this%beta
-    attributes(2) = onnx_attribute_type( &
+    attributes(3) = onnx_attribute_type( &
          "beta", "float", trim(adjustl(buffer)) )
 
-  end function swish_export_attributes
+  end function export_attributes_swish
 !###############################################################################
 
 
 !###############################################################################
-  function swish_activate(this, val) result(output)
+  function apply_swish(this, val) result(output)
     !! Apply swish activation to 1D array
     !!
     !! Computes: f(x) = x * sigmoid(β*x) = x / (1 + exp(-β*x))
@@ -174,7 +190,7 @@ contains
     else
        output => swish(val, this%beta)
     end if
-  end function swish_activate
+  end function apply_swish
 !###############################################################################
 
 end module athena__activation_swish

@@ -11,7 +11,7 @@ module athena__activation_gaussian
 
   private
 
-  public :: gaussian_actv_type
+  public :: gaussian_actv_type, create_from_onnx_gaussian_activation
 
 
   type, extends(base_actv_type) :: gaussian_actv_type
@@ -21,10 +21,10 @@ module athena__activation_gaussian
      real(real32) :: mu
      !! Mean parameter for Gaussian function
    contains
-     procedure, pass(this) :: activate => gaussian_activate
-     procedure, pass(this) :: reset => gaussian_reset
-     procedure, pass(this) :: apply_attributes => gaussian_apply_attributes
-     procedure, pass(this) :: export_attributes => gaussian_export_attributes
+     procedure, pass(this) :: apply => apply_gaussian
+     procedure, pass(this) :: reset => reset_gaussian
+     procedure, pass(this) :: apply_attributes => apply_attributes_gaussian
+     procedure, pass(this) :: export_attributes => export_attributes_gaussian
   end type gaussian_actv_type
 
   interface gaussian_actv_type
@@ -69,7 +69,7 @@ contains
 
   end function initialise
 !-------------------------------------------------------------------------------
-  pure subroutine gaussian_reset(this)
+  pure subroutine reset_gaussian(this)
     !! Reset Gaussian activation function attributes and variables
     implicit none
 
@@ -84,12 +84,27 @@ contains
     this%sigma = 1.5_real32
     this%mu = 0._real32
 
-  end subroutine gaussian_reset
+  end subroutine reset_gaussian
+!-------------------------------------------------------------------------------
+  function create_from_onnx_gaussian_activation(attributes) result(activation)
+    !! Create Gaussian activation function from ONNX attributes
+    implicit none
+
+    ! Arguments
+    type(onnx_attribute_type), dimension(:), intent(in) :: attributes
+    !! Array of ONNX attributes
+
+    class(base_actv_type), allocatable :: activation
+    !! Instance of activation type
+
+    allocate(activation, source = gaussian_actv_type(attributes = attributes))
+
+  end function create_from_onnx_gaussian_activation
 !###############################################################################
 
 
 !###############################################################################
-  subroutine gaussian_apply_attributes(this, attributes)
+  subroutine apply_attributes_gaussian(this, attributes)
     !! Load ONNX attributes into Gaussian activation function
     implicit none
 
@@ -125,12 +140,12 @@ contains
        end select
     end do
 
-  end subroutine gaussian_apply_attributes
+  end subroutine apply_attributes_gaussian
 !###############################################################################
 
 
 !###############################################################################
-  pure function gaussian_export_attributes(this) result(attributes)
+  pure function export_attributes_gaussian(this) result(attributes)
     !! Export Gaussian activation function attributes as ONNX attributes
     implicit none
 
@@ -141,32 +156,33 @@ contains
     !! Array of ONNX attributes
 
     ! Local variables
-    integer :: n_attributes
-    !! Number of attributes
     character(50) :: buffer
     !! Temporary string buffer
 
-    n_attributes = 3
-    allocate(attributes(n_attributes))
+    allocate(attributes(4))
+
+    write(buffer, '(A)') this%name
+    attributes(1) = onnx_attribute_type( &
+         "name", "string", trim(adjustl(buffer)) )
 
     write(buffer, '(F10.6)') this%scale
-    attributes(1) = onnx_attribute_type( &
+    attributes(2) = onnx_attribute_type( &
          "scale", "float", trim(adjustl(buffer)) )
 
     write(buffer, '(F10.6)') this%sigma
-    attributes(2) = onnx_attribute_type( &
+    attributes(3) = onnx_attribute_type( &
          "sigma", "float", trim(adjustl(buffer)) )
 
     write(buffer, '(F10.6)') this%mu
-    attributes(3) = onnx_attribute_type( &
+    attributes(4) = onnx_attribute_type( &
          "mu", "float", trim(adjustl(buffer)) )
 
-  end function gaussian_export_attributes
+  end function export_attributes_gaussian
 !###############################################################################
 
 
 !###############################################################################
-  function gaussian_activate(this, val) result(output)
+  function apply_gaussian(this, val) result(output)
     !! Apply Gaussian activation to array
     !!
     !! Applies the Gaussian function element-wise to input array:
@@ -187,7 +203,7 @@ contains
        output => gaussian(val, this%mu, this%sigma)
     end if
 
-  end function gaussian_activate
+  end function apply_gaussian
 !###############################################################################
 
 end module athena__activation_gaussian

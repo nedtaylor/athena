@@ -11,15 +11,15 @@ module athena__activation_linear
 
   private
 
-  public :: linear_actv_type
+  public :: linear_actv_type, create_from_onnx_linear_activation
 
 
   type, extends(base_actv_type) :: linear_actv_type
    contains
-     procedure, pass(this) :: activate => linear_activate
-     procedure, pass(this) :: reset => linear_reset
-     procedure, pass(this) :: apply_attributes => linear_apply_attributes
-     procedure, pass(this) :: export_attributes => linear_export_attributes
+     procedure, pass(this) :: apply => apply_linear
+     procedure, pass(this) :: reset => reset_linear
+     procedure, pass(this) :: apply_attributes => apply_attributes_linear
+     procedure, pass(this) :: export_attributes => export_attributes_linear
   end type linear_actv_type
 
   interface linear_actv_type
@@ -57,7 +57,7 @@ contains
 
   end function initialise
 !-------------------------------------------------------------------------------
-  pure subroutine linear_reset(this)
+  pure subroutine reset_linear(this)
     !! Reset linear activation function attributes and variables
     implicit none
 
@@ -70,12 +70,27 @@ contains
     this%threshold = 0._real32
     this%apply_scaling = .false.
 
-  end subroutine linear_reset
+  end subroutine reset_linear
+!-------------------------------------------------------------------------------
+  function create_from_onnx_linear_activation(attributes) result(activation)
+    !! Create linear activation function from ONNX attributes
+    implicit none
+
+    ! Arguments
+    type(onnx_attribute_type), dimension(:), intent(in) :: attributes
+    !! Array of ONNX attributes
+
+    class(base_actv_type), allocatable :: activation
+    !! Instance of activation type
+
+    allocate(activation, source = linear_actv_type(attributes = attributes))
+
+  end function create_from_onnx_linear_activation
 !###############################################################################
 
 
 !###############################################################################
-  subroutine linear_apply_attributes(this, attributes)
+  subroutine apply_attributes_linear(this, attributes)
     !! Load ONNX attributes into linear activation function
     implicit none
 
@@ -107,12 +122,12 @@ contains
        end select
     end do
 
-  end subroutine linear_apply_attributes
+  end subroutine apply_attributes_linear
 !###############################################################################
 
 
 !###############################################################################
-  pure function linear_export_attributes(this) result(attributes)
+  pure function export_attributes_linear(this) result(attributes)
     !! Export linear activation function attributes as ONNX attributes
     implicit none
 
@@ -123,24 +138,25 @@ contains
     !! Array of ONNX attributes
 
     ! Local variables
-    integer :: n_attributes
-    !! Number of attributes
     character(50) :: buffer
     !! Temporary string buffer
 
-    n_attributes = 1
-    allocate(attributes(n_attributes))
+    allocate(attributes(2))
+
+    write(buffer, '(A)') this%name
+    attributes(1) = onnx_attribute_type( &
+         "name", "string", trim(adjustl(buffer)) )
 
     write(buffer, '(F10.6)') this%scale
-    attributes(1) = onnx_attribute_type( &
+    attributes(2) = onnx_attribute_type( &
          "scale", "float", trim(adjustl(buffer)) )
 
-  end function linear_export_attributes
+  end function export_attributes_linear
 !###############################################################################
 
 
 !###############################################################################
-  function linear_activate(this, val) result(output)
+  function apply_linear(this, val) result(output)
     !! Apply linear activation to 1D array
     !!
     !! Computes: f = scale * x
@@ -159,7 +175,7 @@ contains
     else
        output => val * 1._real32 ! multiplication by 1 to ensure new allocation
     end if
-  end function linear_activate
+  end function apply_linear
 !###############################################################################
 
 end module athena__activation_linear

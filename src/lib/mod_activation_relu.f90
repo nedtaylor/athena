@@ -11,16 +11,16 @@ module athena__activation_relu
 
   private
 
-  public :: relu_actv_type
+  public :: relu_actv_type, create_from_onnx_relu_activation
 
 
   type, extends(base_actv_type) :: relu_actv_type
      !! Type for ReLU activation function with overloaded procedures
    contains
-     procedure, pass(this) :: activate => relu_activate
-     procedure, pass(this) :: reset => relu_reset
-     procedure, pass(this) :: apply_attributes => relu_apply_attributes
-     procedure, pass(this) :: export_attributes => relu_export_attributes
+     procedure, pass(this) :: apply => apply_relu
+     procedure, pass(this) :: reset => reset_relu
+     procedure, pass(this) :: apply_attributes => apply_attributes_relu
+     procedure, pass(this) :: export_attributes => export_attributes_relu
   end type relu_actv_type
 
   interface relu_actv_type
@@ -57,7 +57,7 @@ contains
 
   end function initialise
 !-------------------------------------------------------------------------------
-  pure subroutine relu_reset(this)
+  pure subroutine reset_relu(this)
     !! Reset ReLU activation function attributes and variables
     implicit none
 
@@ -70,12 +70,27 @@ contains
     this%threshold = 0._real32
     this%apply_scaling = .false.
 
-  end subroutine relu_reset
+  end subroutine reset_relu
+!-------------------------------------------------------------------------------
+  function create_from_onnx_relu_activation(attributes) result(activation)
+    !! Create ReLU activation function from ONNX attributes
+    implicit none
+
+    ! Arguments
+    type(onnx_attribute_type), dimension(:), intent(in) :: attributes
+    !! Array of ONNX attributes
+
+    class(base_actv_type), allocatable :: activation
+    !! Instance of activation type
+
+    allocate(activation, source = relu_actv_type(attributes = attributes))
+
+  end function create_from_onnx_relu_activation
 !###############################################################################
 
 
 !###############################################################################
-  subroutine relu_apply_attributes(this, attributes)
+  subroutine apply_attributes_relu(this, attributes)
     !! Load ONNX attributes into ReLU activation function
     implicit none
 
@@ -111,12 +126,12 @@ contains
        end select
     end do
 
-  end subroutine relu_apply_attributes
+  end subroutine apply_attributes_relu
 !###############################################################################
 
 
 !###############################################################################
-  pure function relu_export_attributes(this) result(attributes)
+  pure function export_attributes_relu(this) result(attributes)
     !! Export ReLU activation function attributes as ONNX attributes
     implicit none
 
@@ -127,28 +142,29 @@ contains
     !! Array of ONNX attributes
 
     ! Local variables
-    integer :: n_attributes
-    !! Number of attributes
     character(50) :: buffer
     !! Temporary string buffer
 
-    n_attributes = 2
-    allocate(attributes(n_attributes))
+    allocate(attributes(3))
+
+    write(buffer, '(A)') this%name
+    attributes(1) = onnx_attribute_type( &
+         "name", "string", trim(adjustl(buffer)) )
 
     write(buffer, '(F10.6)') this%scale
-    attributes(1) = onnx_attribute_type( &
+    attributes(2) = onnx_attribute_type( &
          "scale", "float", trim(adjustl(buffer)) )
 
     write(buffer, '(F10.6)') this%threshold
-    attributes(2) = onnx_attribute_type( &
+    attributes(3) = onnx_attribute_type( &
          "threshold", "float", trim(adjustl(buffer)) )
 
-  end function relu_export_attributes
+  end function export_attributes_relu
 !###############################################################################
 
 
 !###############################################################################
-  function relu_activate(this, val) result(output)
+  function apply_relu(this, val) result(output)
     !! Apply ReLU activation to 1D array
     !!
     !! Computes: f = max(0,x)
@@ -167,7 +183,7 @@ contains
     else
        output => max(val, this%threshold)
     end if
-  end function relu_activate
+  end function apply_relu
 !###############################################################################
 
 end module athena__activation_relu
