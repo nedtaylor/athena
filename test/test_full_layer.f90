@@ -37,9 +37,9 @@ program test_full_layer
   select type(full_layer1)
   type is(full_layer_type)
      !! check default layer transfer/activation function
-     if(full_layer1%transfer%name .ne. 'none')then
+     if(full_layer1%activation%name .ne. 'none')then
         success = .false.
-        write(0,*) 'full layer has wrong transfer: '//full_layer1%transfer%name
+        write(0,*) 'full layer has wrong activation: '//full_layer1%activation%name
      end if
   class default
      success = .false.
@@ -164,10 +164,10 @@ contains
        success = .false.
        write(0,*) 'full layer has wrong num_inputs'
     end if
-    if(layer1%transfer%name .ne. 'sigmoid')then
+    if(layer1%activation%name .ne. 'sigmoid')then
        success = .false.
-       write(0,*) 'full layer has wrong transfer: '//&
-            layer1%transfer%name
+       write(0,*) 'full layer has wrong activation: '//&
+            layer1%activation%name
     end if
     if(present(layer3))then
        if( &

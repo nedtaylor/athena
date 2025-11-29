@@ -253,7 +253,7 @@ Files
 |-----------|------------|
 |_src/athena.f90_                      | the module file that imports all necessary user-accessible procedures  |
 |_src/lib/mod_accuracy.f90_            | accuracy calculation procedures |
-|_src/lib/mod_activation.f90_          | generic node activation (transfer) setup  |
+|_src/lib/mod_activation.f90_          | generic node activation (aka transfer) setup  |
 |_src/lib/mod_activation__[_NAME_]_.f90_   | [_NAME_] activation method  |
 |_src/lib/mod_base_layer.f90_          | abstract layer construct type  |
 |_src/lib/mod_base_layer_sub.f90_          | base layer submodule |

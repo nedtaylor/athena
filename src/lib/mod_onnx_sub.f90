@@ -119,7 +119,7 @@ contains
        end if
        select type(layer => network%model(idx)%layer)
        class is(learnable_layer_type)
-          if(layer%transfer%name.ne."none")then
+          if(layer%activation%name.ne."none")then
              suffix = '_pre_function'
           else
              suffix = ''
@@ -155,21 +155,21 @@ contains
        select type(layer => network%model(idx)%layer)
        class is(learnable_layer_type)
           call write_onnx_initialisers(unit, layer, prefix = trim(node_name) )
-          if(layer%transfer%name.ne."none")then
+          if(layer%activation%name.ne."none")then
              if(layer%use_graph_output)then
                 call write_onnx_function( &
-                     unit, layer%transfer%name, &
+                     unit, layer%activation%name, &
                      prefix = trim(node_name)//'_vertex' &
                 )
                 if(network%model(idx)%layer%input_shape(2) .gt. 0)then
                    call write_onnx_function( &
-                        unit, layer%transfer%name, &
+                        unit, layer%activation%name, &
                         prefix = trim(node_name)//'_edge' &
                    )
                 end if
              else
                 call write_onnx_function( &
-                     unit, layer%transfer%name, &
+                     unit, layer%activation%name, &
                      prefix = trim(node_name) &
                 )
              end if

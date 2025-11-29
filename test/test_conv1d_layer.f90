@@ -40,9 +40,9 @@ program test_conv1d_layer
   select type(conv_layer)
   type is(conv1d_layer_type)
      !! check default layer transfer/activation function
-     if(conv_layer%transfer%name .ne. 'none')then
+     if(conv_layer%activation%name .ne. 'none')then
         success = .false.
-        write(0,*) 'conv1d layer has wrong transfer: '//conv_layer%transfer%name
+        write(0,*) 'conv1d layer has wrong activation: '//conv_layer%activation%name
      end if
 
      !! check number of filters
@@ -322,10 +322,10 @@ contains
        success = .false.
        write(0,*) 'conv1d layer has wrong num_filters'
     end if
-    if(layer1%transfer%name .ne. 'sigmoid')then
+    if(layer1%activation%name .ne. 'sigmoid')then
        success = .false.
        write(0,*) 'conv1d layer has wrong transfer: '//&
-            layer1%transfer%name
+            layer1%activation%name
     end if
     if(present(layer3))then
        if( &

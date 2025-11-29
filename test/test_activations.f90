@@ -197,7 +197,7 @@ program test_activations
            write(0,*) 'activation has wrong scale for ', &
                 trim(activation_names(i))
         end if
-        result_array => activation%activate(val_array)
+        result_array => activation%apply(val_array)
         if(abs(result_array%val(1,1) - activate(i)).gt.1.E-6)then
            success = .false.
            write(0,*) 'activation has wrong activation for ', &
@@ -230,7 +230,7 @@ program test_activations
      !! check layer name
      select type(full_layer)
      type is(full_layer_type)
-        if(.not. full_layer%transfer%name .eq. trim(activation_names(i)))then
+        if(.not. full_layer%activation%name .eq. trim(activation_names(i)))then
            success = .false.
            write(0,*) 'activation has wrong name for ', &
                 trim(activation_names(i))
@@ -275,7 +275,7 @@ program test_activations
      !! check layer name
      select type(conv2d_layer)
      type is(conv2d_layer_type)
-        if(.not. conv2d_layer%transfer%name .eq. trim(activation_names(i)))then
+        if(.not. conv2d_layer%activation%name .eq. trim(activation_names(i)))then
            success = .false.
            write(0,*) 'activation has wrong name for ', &
                 trim(activation_names(i))
@@ -322,7 +322,7 @@ program test_activations
      !! check layer name
      select type(conv3d_layer)
      type is(conv3d_layer_type)
-        if(.not. conv3d_layer%transfer%name .eq. trim(activation_names(i)))then
+        if(.not. conv3d_layer%activation%name .eq. trim(activation_names(i)))then
            success = .false.
            write(0,*) 'activation has wrong name for ', &
                 trim(activation_names(i))

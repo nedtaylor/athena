@@ -261,12 +261,12 @@ contains
     allocate( this%num_edge_features(0:this%num_time_steps), source = 0 )
     this%use_graph_input = .true.
     if(.not.allocated(activation))then
-       this%transfer = activation_setup("none")
+       this%activation = activation_setup("none")
     else
-       this%transfer = activation
+       this%activation = activation
     end if
     if(.not.allocated(kernel_initialiser))then
-       buffer = get_default_initialiser(this%transfer%name)
+       buffer = get_default_initialiser(this%activation%name)
        this%kernel_init = initialiser_setup(buffer)
     else
        this%kernel_init = kernel_initialiser
@@ -274,7 +274,7 @@ contains
     if(present(verbose))then
        if(abs(verbose).gt.0)then
           write(*,'("KIPF activation function: ",A)') &
-               trim(this%transfer%name)
+               trim(this%activation%name)
           write(*,'("KIPF kernel initialiser: ",A)') &
                trim(this%kernel_init%name)
        end if
@@ -438,7 +438,7 @@ contains
          this%num_time_steps + 1
     write(unit,fmt) this%num_vertex_features
 
-    write(unit,'(3X,"ACTIVATION = ",A)') trim(this%transfer%name)
+    write(unit,'(3X,"ACTIVATION = ",A)') trim(this%activation%name)
 
 
     ! Write learned parameters
@@ -696,7 +696,7 @@ contains
           !      this%message(t,s), this%params_array(t), this%graph(s)%adj_ia &
           ! )
           ptr3 => matmul( this%params_array(t), ptr2 )
-          ptr1 => this%transfer%activate( ptr3 )
+          ptr1 => this%activation%apply( ptr3 )
        end do
        call this%output(1,s)%zero_grad()
        call this%output(1,s)%assign_and_deallocate_source(ptr1)

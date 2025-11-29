@@ -324,14 +324,14 @@ program test_activation_layer
        verbose = 0 &
   )
 
-  if (.not. allocated(actv_layer%transfer)) then
+  if (.not. allocated(actv_layer%activation)) then
      success = .false.
-     write(0,*) 'activation layer transfer function not allocated'
+     write(0,*) 'activation layer function not allocated'
   end if
 
-  if (abs(actv_layer%transfer%scale - 1.5_real32) .gt. tol) then
+  if (abs(actv_layer%activation%scale - 1.5_real32) .gt. tol) then
      success = .false.
-     write(0,*) 'activation layer transfer scale incorrect'
+     write(0,*) 'activation layer scale incorrect'
   end if
 
 
@@ -387,7 +387,7 @@ program test_activation_layer
           batch_size = 1 &
      )
 
-     if(.not. allocated(actv_layer%transfer)) then
+     if(.not. allocated(actv_layer%activation)) then
         success = .false.
         write(0,*) 'activation function not allocated for: ', &
              trim(activation_functions(i))

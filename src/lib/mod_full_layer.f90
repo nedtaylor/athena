@@ -270,19 +270,19 @@ contains
     this%use_bias = use_bias
     this%num_outputs = num_outputs
     if(.not.allocated(activation))then
-       this%transfer = activation_setup("none")
+       this%activation = activation_setup("none")
     else
-       this%transfer = activation
+       this%activation = activation
     end if
     if(.not.allocated(kernel_initialiser))then
-       buffer = get_default_initialiser(this%transfer%name)
+       buffer = get_default_initialiser(this%activation%name)
        this%kernel_init = initialiser_setup(buffer)
     else
        this%kernel_init = kernel_initialiser
     end if
     if(.not.allocated(bias_initialiser))then
        buffer = get_default_initialiser( &
-            this%transfer%name, &
+            this%activation%name, &
             is_bias=.true. &
        )
        this%bias_init = initialiser_setup(buffer)
@@ -292,7 +292,7 @@ contains
     if(present(verbose))then
        if(abs(verbose).gt.0)then
           write(*,'("FULL activation function: ",A)') &
-               trim(this%transfer%name)
+               trim(this%activation%name)
           write(*,'("FULL kernel initialiser: ",A)') &
                trim(this%kernel_init%name)
           write(*,'("FULL bias initialiser: ",A)') &
@@ -469,7 +469,7 @@ contains
     write(unit,'(3X,"NUM_OUTPUTS = ",I0)') this%num_outputs
 
     write(unit,'(3X,"USE_BIAS = ",L1)') this%use_bias
-    write(unit,'(3X,"ACTIVATION = ",A)') trim(this%transfer%name)
+    write(unit,'(3X,"ACTIVATION = ",A)') trim(this%activation%name)
 
 
     ! Write fully connected weights and biases
@@ -790,13 +790,13 @@ contains
     ! Apply activation function to activation
     !---------------------------------------------------------------------------
     call this%output(1,1)%zero_grad()
-    if(trim(this%transfer%name) .eq. "none") then
+    if(trim(this%activation%name) .eq. "none") then
        call this%output(1,1)%assign_and_deallocate_source(ptr)
     else
        call this%z(1)%zero_grad()
        call this%z(1)%assign_and_deallocate_source(ptr)
        this%z(1)%is_temporary = .false.
-       ptr => this%transfer%activate(this%z(1))
+       ptr => this%activation%apply(this%z(1))
        call this%output(1,1)%assign_and_deallocate_source(ptr)
     end if
     this%output(1,1)%is_temporary = .false.

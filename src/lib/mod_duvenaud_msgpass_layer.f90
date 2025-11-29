@@ -25,7 +25,7 @@ module athena__duvenaud_msgpass_layer
      integer :: max_vertex_degree = 0
      !! Maximum vertex degree
 
-     class(base_actv_type), allocatable :: transfer_readout
+     class(base_actv_type), allocatable :: activation_readout
      !! Activation function
      type(array_type), allocatable, dimension(:,:) :: z
      type(array_type), allocatable, dimension(:,:) :: z_readout
@@ -365,11 +365,11 @@ contains
     end if
     this%use_graph_input = .true.
     this%use_graph_output = .false.
-    if(allocated(this%transfer)) deallocate(this%transfer)
-    if(allocated(this%transfer_readout)) deallocate(this%transfer_readout)
-    allocate(this%transfer, &
+    if(allocated(this%activation)) deallocate(this%activation)
+    if(allocated(this%activation_readout)) deallocate(this%activation_readout)
+    allocate(this%activation, &
          source = activation_setup(message_activation))
-    allocate(this%transfer_readout, &
+    allocate(this%activation_readout, &
          source = activation_setup(readout_activation))
     if(.not.allocated(kernel_initialiser))then
        buffer = get_default_initialiser(message_activation)
@@ -380,9 +380,9 @@ contains
     if(present(verbose))then
        if(abs(verbose).gt.0)then
           write(*,'("DUVENAUD message activation function: ",A)') &
-               trim(this%transfer%name)
+               trim(this%activation%name)
           write(*,'("DUVENAUD readout activation function: ",A)') &
-               trim(this%transfer_readout%name)
+               trim(this%activation_readout%name)
           write(*,'("DUVENAUD kernel initialiser: ",A)') &
                trim(this%kernel_init%name)
        end if
@@ -630,8 +630,8 @@ contains
          this%num_time_steps + 1
     write(unit,fmt) this%num_edge_features
 
-    write(unit,'(3X,"MESSAGE_ACTIVATION = ",A)') trim(this%transfer%name)
-    write(unit,'(3X,"READOUT_ACTIVATION = ",A)') trim(this%transfer_readout%name)
+    write(unit,'(3X,"MESSAGE_ACTIVATION = ",A)') trim(this%activation%name)
+    write(unit,'(3X,"READOUT_ACTIVATION = ",A)') trim(this%activation_readout%name)
 
 
     ! Write learned parameters
@@ -720,10 +720,10 @@ contains
     !! Pointers to arrays
 
 
-    if(.not.allocated(this%transfer))then
+    if(.not.allocated(this%activation))then
        has_activation = .false.
     else
-       if(trim(this%transfer%name).eq."none")then
+       if(trim(this%activation%name).eq."none")then
           has_activation = .true.
        else
           has_activation = .true.
@@ -745,7 +745,7 @@ contains
                this%min_vertex_degree, this%max_vertex_degree &
           )
           if(has_activation)then
-             ptr3 => this%transfer%activate( ptr3 )
+             ptr3 => this%activation%apply( ptr3 )
           end if
           call this%z(t,s)%zero_grad()
           call this%z(t,s)%assign_and_deallocate_source(ptr3)
@@ -782,7 +782,7 @@ contains
                ptr_params, &
                ptr_z &
           )
-          ptr2 => this%transfer_readout%activate( ptr1 )
+          ptr2 => this%activation_readout%apply( ptr1 )
           if(t.eq.1.and.s.eq.1)then
              ptr3 => &
                   sum( ptr2, dim = 2, new_dim_index=s, new_dim_size=this%batch_size )

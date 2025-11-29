@@ -429,7 +429,7 @@ module athena__base_layer
      character(len=14) :: kernel_initialiser='', bias_initialiser=''
      class(base_init_type), allocatable :: kernel_init, bias_init
      !! Initialisers for kernel and bias
-     class(base_actv_type), allocatable :: transfer
+     class(base_actv_type), allocatable :: activation
      !! Activation function
    contains
      procedure, pass(this) :: get_params => get_params
