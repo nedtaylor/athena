@@ -3,61 +3,141 @@ module athena__activation_sigmoid
   !!
   !! This module implements the logistic sigmoid function for normalizing
   !! outputs between 0 and 1
-  use coreutils, only: real32
+  use coreutils, only: real32, print_warning
   use diffstruc, only: array_type, operator(+), operator(-), &
        operator(*), operator(/), exp, merge, operator(.gt.), sigmoid
   use athena__misc_types, only: activation_type
+  use athena__misc_types, only: onnx_attribute_type
   implicit none
 
 
   private
 
-  public :: sigmoid_setup
+  public :: sigmoid_actv_type
 
 
-  type, extends(activation_type) :: sigmoid_type
+  type, extends(activation_type) :: sigmoid_actv_type
      !! Type for sigmoid activation function with overloaded procedures
    contains
      procedure, pass(this) :: activate => sigmoid_activate
-  end type sigmoid_type
+     procedure, pass(this) :: reset => sigmoid_reset
+     procedure, pass(this) :: apply_attributes => sigmoid_apply_attributes
+     procedure, pass(this) :: export_attributes => sigmoid_export_attributes
+  end type sigmoid_actv_type
 
-  interface sigmoid_setup
+  interface sigmoid_actv_type
      procedure initialise
-  end interface sigmoid_setup
+  end interface sigmoid_actv_type
 
 
 
 contains
 
 !###############################################################################
-  pure function initialise(threshold, scale)
+  function initialise(scale, attributes) result(activation)
     !! Initialise a sigmoid activation function
     implicit none
 
     ! Arguments
-    type(sigmoid_type) :: initialise
-    !! Sigmoid activation type
-    real(real32), optional, intent(in) :: threshold
-    !! Optional threshold value for activation cutoff
-    real(real32), optional, intent(in) :: scale
+    real(real32), intent(in), optional :: scale
     !! Optional scale factor for activation output
+    type(onnx_attribute_type), dimension(:), intent(in), optional :: attributes
+    !! Optional array of ONNX attributes
+    type(sigmoid_actv_type) :: activation
+    !! Sigmoid activation type
 
-    initialise%name = "sigmoid"
 
-    if(present(scale))then
-       initialise%scale = scale
-       initialise%apply_scaling = .true.
-    else
-       initialise%scale = 1._real32
+    call activation%reset()
+
+    if(present(scale)) activation%scale = scale
+    if(abs(activation%scale-1._real32) .gt. 1.e-6_real32)then
+       activation%apply_scaling = .true.
     end if
 
-    if(present(threshold))then
-       initialise%threshold = threshold
-    else
-       initialise%threshold = -min(huge(1._real32),32._real32)
+    if(present(attributes)) then
+       call activation%apply_attributes(attributes)
     end if
-    !initialise%scale = 1._real32
+
   end function initialise
+!-------------------------------------------------------------------------------
+  pure subroutine sigmoid_reset(this)
+    !! Reset sigmoid activation function attributes and variables
+    implicit none
+
+    ! Arguments
+    class(sigmoid_actv_type), intent(inout) :: this
+    !! Sigmoid activation type
+
+    this%name = "sigmoid"
+    this%scale = 1._real32
+    this%threshold = 0._real32
+    this%apply_scaling = .false.
+
+  end subroutine sigmoid_reset
+!###############################################################################
+
+
+!###############################################################################
+  subroutine sigmoid_apply_attributes(this, attributes)
+    !! Load ONNX attributes into sigmoid activation function
+    implicit none
+
+    ! Arguments
+    class(sigmoid_actv_type), intent(inout) :: this
+    !! Sigmoid activation type
+    type(onnx_attribute_type), dimension(:), intent(in) :: attributes
+    !! Array of ONNX attributes
+
+    ! Local variables
+    integer :: i
+    !! Loop variable
+
+    ! Load provided attributes
+    do i=1, size(attributes,dim=1)
+       select case(trim(attributes(i)%name))
+       case("scale")
+          read(attributes(i)%val,*) this%scale
+          if(abs(this%scale-1._real32) .gt. 1.e-6_real32)then
+             this%apply_scaling = .true.
+          else
+             this%apply_scaling = .false.
+          end if
+       case default
+          call print_warning( &
+               'Sigmoid activation: unknown attribute '//trim(attributes(i)%name) &
+          )
+       end select
+    end do
+
+  end subroutine sigmoid_apply_attributes
+!###############################################################################
+
+
+!###############################################################################
+  pure function sigmoid_export_attributes(this) result(attributes)
+    !! Export sigmoid activation function attributes as ONNX attributes
+    implicit none
+
+    ! Arguments
+    class(sigmoid_actv_type), intent(in) :: this
+    !! Sigmoid activation type
+    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+    !! Array of ONNX attributes
+
+    ! Local variables
+    integer :: n_attributes
+    !! Number of attributes
+    character(50) :: buffer
+    !! Temporary string buffer
+
+    n_attributes = 1
+    allocate(attributes(n_attributes))
+
+    write(buffer, '(F10.6)') this%scale
+    attributes(1) = onnx_attribute_type( &
+         "scale", "float", trim(adjustl(buffer)) )
+
+  end function sigmoid_export_attributes
 !###############################################################################
 
 
@@ -69,7 +149,7 @@ contains
     implicit none
 
     ! Arguments
-    class(sigmoid_type), intent(in) :: this
+    class(sigmoid_actv_type), intent(in) :: this
     !! Sigmoid activation type
     type(array_type), intent(in) :: val
     !! Input values

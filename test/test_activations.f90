@@ -6,12 +6,12 @@ program test_activations
        conv3d_layer_type, &
        base_layer_type
   use athena__activation, only: activation_setup
-  use athena__activation_gaussian, only: gaussian_setup ! threshold, sigma
-  use athena__activation_piecewise, only: piecewise_setup ! intercept
-  use athena__activation_sigmoid, only: sigmoid_setup ! threshold
-  use athena__activation_softmax, only: softmax_setup ! threshold
-  use athena__activation_swish, only: swish_setup ! threshold
-  use athena__activation_tanh, only: tanh_setup ! threshold
+  use athena__activation_gaussian, only: gaussian_actv_type ! threshold, sigma
+  use athena__activation_piecewise, only: piecewise_actv_type ! intercept
+  use athena__activation_sigmoid, only: sigmoid_actv_type ! threshold
+  use athena__activation_softmax, only: softmax_actv_type ! threshold
+  use athena__activation_swish, only: swish_actv_type ! threshold
+  use athena__activation_tanh, only: tanh_actv_type ! threshold
   use athena__misc_types, only: activation_type
   use diffstruc, only: array_type
   implicit none
@@ -92,7 +92,7 @@ program test_activations
 !-------------------------------------------------------------------------------
 ! check gaussian setup
 !-------------------------------------------------------------------------------
-  activation = gaussian_setup(threshold = 2.E0, sigma = 2.E0)
+  activation = gaussian_actv_type(threshold = 2.E0, sigma = 2.E0)
   if(.not. activation%name .eq. 'gaussian')then
      success = .false.
      write(0,*) 'activation has wrong name for gaussian'
@@ -107,7 +107,7 @@ program test_activations
 !-------------------------------------------------------------------------------
 ! check piecewise setup
 !-------------------------------------------------------------------------------
-  activation = piecewise_setup(gradient = 2.E0)
+  activation = piecewise_actv_type(gradient = 2.E0)
   if(.not. activation%name .eq. 'piecewise')then
      success = .false.
      write(0,*) 'activation has wrong name for piecewise'
@@ -117,7 +117,7 @@ program test_activations
 !-------------------------------------------------------------------------------
 ! check sigmoid setup
 !-------------------------------------------------------------------------------
-  activation = sigmoid_setup(threshold = 2.E0)
+  activation = sigmoid_actv_type(threshold = 2.E0)
   if(.not. activation%name .eq. 'sigmoid')then
      success = .false.
      write(0,*) 'activation has wrong name for sigmoid'
@@ -132,7 +132,7 @@ program test_activations
 !-------------------------------------------------------------------------------
 ! check softmax setup
 !-------------------------------------------------------------------------------
-  activation = softmax_setup(threshold = 2.E0)
+  activation = softmax_actv_type(threshold = 2.E0)
   if(.not. activation%name .eq. 'softmax')then
      success = .false.
      write(0,*) 'activation has wrong name for softmax'
@@ -147,7 +147,7 @@ program test_activations
 !-------------------------------------------------------------------------------
 ! check swish setup
 !-------------------------------------------------------------------------------
-  activation = swish_setup(threshold = 2.E0)
+  activation = swish_actv_type(threshold = 2.E0)
   if(.not. activation%name .eq. 'swish')then
      success = .false.
      write(0,*) 'activation has wrong name for swish'
@@ -162,7 +162,7 @@ program test_activations
 !-------------------------------------------------------------------------------
 ! check tanh setup
 !-------------------------------------------------------------------------------
-  activation = tanh_setup(threshold = 2.E0)
+  activation = tanh_actv_type(threshold = 2.E0)
   if(.not. activation%name .eq. 'tanh')then
      success = .false.
      write(0,*) 'activation has wrong name for tanh'

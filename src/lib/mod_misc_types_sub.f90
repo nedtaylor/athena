@@ -1,10 +1,41 @@
 submodule(athena__misc_types) athena__misc_types_submodule
   !! Submodule containing implementations for derived types
-  use coreutils, only: stop_program
+  use coreutils, only: stop_program, print_warning
 
 
 
 contains
+
+!###############################################################################
+  module function create_attribute(name, type, val) result(attribute)
+    !! Function to create an ONNX attribute
+    implicit none
+
+    ! Arguments
+    character(*), intent(in) :: name
+    !! Name of the attribute
+    character(*), intent(in) :: type
+    !! Type of the attribute
+    character(*), intent(in) :: val
+    !! Value of the attribute as a string
+
+    type(onnx_attribute_type) :: attribute
+    !! Resulting ONNX attribute
+
+    if(len(trim(name)) .gt. 20) then
+       call print_warning("Attribute name too long; truncating to 20 characters")
+    end if
+    attribute%name = trim(name)
+
+    if(len(trim(type)) .gt. 20) then
+       call print_warning("Attribute type too long; truncating to 20 characters")
+    end if
+    attribute%type = trim(type)
+
+    attribute%val = trim(val)
+  end function create_attribute
+!###############################################################################
+
 
 !###############################################################################
   module subroutine setup_bounds(this, length, pad, imethod)

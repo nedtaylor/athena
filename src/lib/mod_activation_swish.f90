@@ -3,68 +3,152 @@ module athena__activation_swish
   !!
   !! This module implements the swish activation function: f(x) = x * sigmoid(β*x)
   !! where β is a learnable parameter (default β=1)
-  use coreutils, only: real32
+  use coreutils, only: real32, print_warning
   use diffstruc, only: array_type, operator(*)
   use athena__misc_types, only: activation_type
+  use athena__misc_types, only: onnx_attribute_type
   use athena__diffstruc_extd, only: swish
   implicit none
 
   private
 
-  public :: swish_setup
+  public :: swish_actv_type
 
-  type, extends(activation_type) :: swish_type
+  type, extends(activation_type) :: swish_actv_type
      !! Type for swish activation function with overloaded procedures
      real(real32) :: beta = 1._real32
      !! Beta parameter for swish function
    contains
      procedure, pass(this) :: activate => swish_activate
-  end type swish_type
+     procedure, pass(this) :: reset => swish_reset
+     procedure, pass(this) :: apply_attributes => swish_apply_attributes
+     procedure, pass(this) :: export_attributes => swish_export_attributes
+  end type swish_actv_type
 
-  interface swish_setup
+  interface swish_actv_type
      !! Interface for setting up swish activation function
      procedure initialise
-  end interface swish_setup
+  end interface swish_actv_type
 
 contains
 
 !###############################################################################
-  pure function initialise(threshold, scale, beta)
+  function initialise(scale, beta, attributes) result(activation)
     !! Initialise a swish activation function
     implicit none
 
     ! Arguments
-    real(real32), optional, intent(in) :: threshold
-    !! Optional threshold value for activation cutoff
-    real(real32), optional, intent(in) :: scale
+    real(real32), intent(in), optional :: scale
     !! Optional scale factor for activation output
-    real(real32), optional, intent(in) :: beta
+    real(real32), intent(in), optional :: beta
     !! Optional beta parameter for swish function
-
-    type(swish_type) :: initialise
+    type(onnx_attribute_type), dimension(:), intent(in), optional :: attributes
+    !! Optional array of ONNX attributes
+    type(swish_actv_type) :: activation
     !! Swish activation type
 
-    initialise%name = "swish"
 
-    if(present(scale))then
-       initialise%scale = scale
-       initialise%apply_scaling = .true.
-    else
-       initialise%scale = 1._real32
+    call activation%reset()
+
+    if(present(scale)) activation%scale = scale
+    if(abs(activation%scale-1._real32) .gt. 1.e-6_real32)then
+       activation%apply_scaling = .true.
     end if
 
-    if(present(threshold))then
-       initialise%threshold = threshold
-    else
-       initialise%threshold = -min(huge(1._real32),32._real32)
+    if(present(beta)) activation%beta = beta
+
+    if(present(attributes)) then
+       call activation%apply_attributes(attributes)
     end if
 
-    if(present(beta))then
-       initialise%beta = beta
-    else
-       initialise%beta = 1._real32
-    end if
   end function initialise
+!-------------------------------------------------------------------------------
+  pure subroutine swish_reset(this)
+    !! Reset swish activation function attributes and variables
+    implicit none
+
+    ! Arguments
+    class(swish_actv_type), intent(inout) :: this
+    !! Swish activation type
+
+    this%name = "swish"
+    this%scale = 1._real32
+    this%threshold = 0._real32
+    this%apply_scaling = .false.
+    this%beta = 1._real32
+
+  end subroutine swish_reset
+!###############################################################################
+
+
+!###############################################################################
+  subroutine swish_apply_attributes(this, attributes)
+    !! Load ONNX attributes into swish activation function
+    implicit none
+
+    ! Arguments
+    class(swish_actv_type), intent(inout) :: this
+    !! Swish activation type
+    type(onnx_attribute_type), dimension(:), intent(in) :: attributes
+    !! Array of ONNX attributes
+
+    ! Local variables
+    integer :: i
+    !! Loop variable
+
+    ! Load provided attributes
+    do i=1, size(attributes,dim=1)
+       select case(trim(attributes(i)%name))
+       case("scale")
+          read(attributes(i)%val,*) this%scale
+          if(abs(this%scale-1._real32) .gt. 1.e-6_real32)then
+             this%apply_scaling = .true.
+          else
+             this%apply_scaling = .false.
+          end if
+       case("beta")
+          read(attributes(i)%val,*) this%beta
+       case default
+          call print_warning( &
+               'Swish activation: unknown attribute '// &
+               trim(attributes(i)%name) &
+          )
+       end select
+    end do
+
+  end subroutine swish_apply_attributes
+!###############################################################################
+
+
+!###############################################################################
+  pure function swish_export_attributes(this) result(attributes)
+    !! Export swish activation function attributes as ONNX attributes
+    implicit none
+
+    ! Arguments
+    class(swish_actv_type), intent(in) :: this
+    !! Swish activation type
+    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+    !! Array of ONNX attributes
+
+    ! Local variables
+    integer :: n_attributes
+    !! Number of attributes
+    character(50) :: buffer
+    !! Temporary string buffer
+
+    n_attributes = 2
+    allocate(attributes(n_attributes))
+
+    write(buffer, '(F10.6)') this%scale
+    attributes(1) = onnx_attribute_type( &
+         "scale", "float", trim(adjustl(buffer)) )
+
+    write(buffer, '(F10.6)') this%beta
+    attributes(2) = onnx_attribute_type( &
+         "beta", "float", trim(adjustl(buffer)) )
+
+  end function swish_export_attributes
 !###############################################################################
 
 
@@ -76,7 +160,7 @@ contains
     implicit none
 
     ! Arguments
-    class(swish_type), intent(in) :: this
+    class(swish_actv_type), intent(in) :: this
     !! Swish activation type
     type(array_type), intent(in) :: val
     !! Input values

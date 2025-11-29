@@ -58,6 +58,19 @@ module athena
        renormalise_sum
 
 
+  ! Activation functions (aka transfer functions)
+  !-----------------------------------------------------------------------------
+  use athena__activation_gaussian, only: gaussian_actv_type
+  use athena__activation_leaky_relu, only: leaky_relu_actv_type
+  use athena__activation_linear, only: linear_actv_type
+  use athena__activation_none,   only: none_actv_type
+  use athena__activation_piecewise, only: piecewise_actv_type
+  use athena__activation_relu,   only: relu_actv_type
+  use athena__activation_sigmoid,only: sigmoid_actv_type
+  use athena__activation_softmax, only: softmax_actv_type
+  use athena__activation_swish,  only: swish_actv_type
+  use athena__activation_tanh,   only: tanh_actv_type
+
   ! Initialisation methods
   !-----------------------------------------------------------------------------
   use athena__misc_types, only: initialiser_type

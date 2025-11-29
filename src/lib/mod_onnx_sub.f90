@@ -576,7 +576,7 @@ contains
     ! Initialise attribute
     attr%name = ""
     attr%type = ""
-    allocate(character(0) :: attr%value)
+    allocate(character(0) :: attr%val)
     value_buffer = ""
 
     ! Read the opening "attribute {" line (already read by caller, so we're inside)
@@ -637,7 +637,7 @@ contains
 
     ! Store accumulated values
     if(len_trim(value_buffer) .gt. 0) then
-       attr%value = trim(value_buffer)
+       attr%val = trim(value_buffer)
     end if
 
   end function read_attribute
@@ -821,18 +821,18 @@ contains
           ! determine whether the attribute is a list or a single value
           type_lw = to_lower(trim(adjustl(attributes(i)%type)))
           type_up = to_upper(trim(adjustl(attributes(i)%type)))
-          itmp1 = icount(attributes(i)%value)
+          itmp1 = icount(attributes(i)%val)
           select case(type_lw)
           case('ints','int')
              allocate(ivar_list(itmp1))
-             read(attributes(i)%value,*) ivar_list
+             read(attributes(i)%val,*) ivar_list
              do j = 1, size(ivar_list)
                 write(unit, '(6X,A,": ",I0)') type_lw, ivar_list(j)
              end do
              deallocate(ivar_list)
           case('floats','float')
              allocate(rvar_list(itmp1))
-             read(attributes(i)%value,*) rvar_list
+             read(attributes(i)%val,*) rvar_list
              do j = 1, size(rvar_list), 1
                 write(unit, '(6X,A,": ",F0.6)') type_lw, rvar_list(j)
              end do
@@ -840,7 +840,7 @@ contains
           case('strings','string')
           case default
              write(unit, '(6X,A,": ",A)') trim(adjustl(attributes(i)%type)), &
-                  trim(adjustl(attributes(i)%value))
+                  trim(adjustl(attributes(i)%val))
           end select
           write(unit,'(6X,"type: ",A)') type_up
           write(unit,'(4X,"}")')
