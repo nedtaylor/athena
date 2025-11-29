@@ -12,10 +12,10 @@ module athena__container_layer
   private
 
   public :: container_layer_type
-  public :: read_procedure_container
+  public :: read_layer_container
   public :: list_of_layer_types
   public :: allocate_list_of_layer_types
-  public :: onnx_create_procedure_container
+  public :: onnx_create_layer_container
   public :: list_of_onnx_layer_creators
   public :: allocate_list_of_onnx_layer_creators
 #if defined(GFORTRAN)
@@ -50,25 +50,25 @@ module athena__container_layer
 #endif
 
 
-  type :: read_procedure_container
+  type :: read_layer_container
      !! Type containing information needed to read a layer
      character(20) :: name
      !! Name of the layer
      procedure(read_layer), nopass, pointer :: read_ptr => null()
      !! Pointer to the specific layer read function
-  end type read_procedure_container
-  type(read_procedure_container), dimension(:), allocatable :: &
+  end type read_layer_container
+  type(read_layer_container), dimension(:), allocatable :: &
        list_of_layer_types
   !! List of layer names and their associated read functions
 
-  type :: onnx_create_procedure_container
+  type :: onnx_create_layer_container
      !! Type containing information needed to create a layer from ONNX
      character(20) :: op_type
      !! Name of the layer
      procedure(create_from_onnx_layer), nopass, pointer :: create_ptr => null()
      !! Pointer to the specific layer creation function from ONNX
-  end type onnx_create_procedure_container
-  type(onnx_create_procedure_container), dimension(:), allocatable :: &
+  end type onnx_create_layer_container
+  type(onnx_create_layer_container), dimension(:), allocatable :: &
        list_of_onnx_layer_creators
   !! List of layer names and their associated ONNX creation functions
 
@@ -99,14 +99,14 @@ module athena__container_layer
   interface
      module subroutine allocate_list_of_layer_types(addit_list)
        !! Allocate the list of layer types
-       type(read_procedure_container), dimension(:), intent(in), optional :: &
+       type(read_layer_container), dimension(:), intent(in), optional :: &
             addit_list
        !! Additional list of layer types
      end subroutine allocate_list_of_layer_types
 
      module subroutine allocate_list_of_onnx_layer_creators(addit_list)
        !! Allocate the list of ONNX layer creation procedures
-       type(onnx_create_procedure_container), dimension(:), intent(in), optional :: &
+       type(onnx_create_layer_container), dimension(:), intent(in), optional :: &
             addit_list
        !! Additional list of ONNX layer creation procedures
      end subroutine allocate_list_of_onnx_layer_creators

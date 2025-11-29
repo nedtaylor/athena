@@ -186,7 +186,9 @@ module athena
   !-----------------------------------------------------------------------------
   use athena__container_layer, only: &
        list_of_layer_types, &
-       allocate_list_of_layer_types
+       allocate_list_of_layer_types, &
+       list_of_onnx_layer_creators, &
+       allocate_list_of_onnx_layer_creators
 
   implicit none
 
