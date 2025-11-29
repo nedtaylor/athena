@@ -7,7 +7,7 @@ module athena__initialiser_he
   !! The He initialiser is also known as the MSRA initialiser
   !! Reference: https://doi.org/10.48550/arXiv.1502.01852
   use coreutils, only: real32, pi, to_lower, stop_program
-  use athena__misc_types, only: initialiser_type
+  use athena__misc_types, only: base_init_type
   implicit none
 
 
@@ -16,7 +16,7 @@ module athena__initialiser_he
   public :: he_uniform_init_type, he_normal_init_type
 
 
-  type, extends(initialiser_type) :: he_uniform_init_type
+  type, extends(base_init_type) :: he_uniform_init_type
      !! Type for the He initialiser (uniform)
      integer, private :: mode = 1
    contains
@@ -24,7 +24,7 @@ module athena__initialiser_he
      !! Initialise the weights and biases using the He uniform distribution
   end type he_uniform_init_type
 
-  type, extends(initialiser_type) :: he_normal_init_type
+  type, extends(base_init_type) :: he_normal_init_type
      !! Type for the He initialiser (normal)
      integer, private :: mode = 1
    contains

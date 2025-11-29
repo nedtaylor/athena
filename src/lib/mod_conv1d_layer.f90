@@ -3,7 +3,7 @@ module athena__conv1d_layer
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: conv_layer_type, base_layer_type
   use athena__pad1d_layer, only: pad1d_layer_type
-  use athena__misc_types, only: activation_type, initialiser_type
+  use athena__misc_types, only: base_actv_type, base_init_type
   use diffstruc, only: array_type
   use athena__diffstruc_extd, only: conv1d, add_bias
   implicit none
@@ -158,9 +158,9 @@ contains
     !! Padding
     integer, dimension(1) :: kernel_size_, stride_, dilation_
     !! Kernel size and stride
-    class(activation_type), allocatable :: activation_
+    class(base_actv_type), allocatable :: activation_
     !! Activation function
-    class(initialiser_type), allocatable :: kernel_initialiser_, bias_initialiser_
+    class(base_init_type), allocatable :: kernel_initialiser_, bias_initialiser_
     !! Kernel and bias initialisers
 
     if(present(verbose)) verbose_ = verbose
@@ -316,9 +316,9 @@ contains
     !! Padding
     logical, intent(in) :: use_bias
     !! Use bias
-    class(activation_type), allocatable, intent(in) :: activation
+    class(base_actv_type), allocatable, intent(in) :: activation
     !! Activation function
-    class(initialiser_type), allocatable, intent(in) :: &
+    class(base_init_type), allocatable, intent(in) :: &
          kernel_initialiser, bias_initialiser
     !! Kernel and bias initialisers
     integer, optional, intent(in) :: verbose
@@ -503,7 +503,6 @@ contains
     write(unit,'(3X,"PADDING = ",A)') padding_type
 
     write(unit,'(3X,"ACTIVATION = ",A)') trim(this%transfer%name)
-    write(unit,'(3X,"ACTIVATION_SCALE = ",F0.9)') this%transfer%scale
 
 
     ! Write weights and biases
@@ -549,9 +548,9 @@ contains
     !! Kernel and bias initialisers
     character(20) :: padding, activation_name=''
     !! Padding and activation function
-    class(activation_type), allocatable :: activation
+    class(base_actv_type), allocatable :: activation
     !! Activation function
-    class(initialiser_type), allocatable :: kernel_initialiser, bias_initialiser
+    class(base_init_type), allocatable :: kernel_initialiser, bias_initialiser
     !! Initialisers
     character(256) :: buffer, tag, err_msg
     !! Buffer, tag, and error message

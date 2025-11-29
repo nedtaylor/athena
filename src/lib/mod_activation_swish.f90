@@ -5,7 +5,7 @@ module athena__activation_swish
   !! where β is a learnable parameter (default β=1)
   use coreutils, only: real32, print_warning
   use diffstruc, only: array_type, operator(*)
-  use athena__misc_types, only: activation_type
+  use athena__misc_types, only: base_actv_type
   use athena__misc_types, only: onnx_attribute_type
   use athena__diffstruc_extd, only: swish
   implicit none
@@ -14,7 +14,7 @@ module athena__activation_swish
 
   public :: swish_actv_type
 
-  type, extends(activation_type) :: swish_actv_type
+  type, extends(base_actv_type) :: swish_actv_type
      !! Type for swish activation function with overloaded procedures
      real(real32) :: beta = 1._real32
      !! Beta parameter for swish function

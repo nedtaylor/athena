@@ -163,7 +163,7 @@ contains
     ! Allocate attributes array
     allocate(attributes(0))
     ! attributes(0)%name = this%name
-    ! attributes(0)%value = this%get_type_name()
+    ! attributes(0)%val = this%get_type_name()
     ! attributes(0)%type = ""
 
   end function get_attributes_base
@@ -187,13 +187,13 @@ contains
     attributes(1)%name = "kernel_shape"
     write(fmt,'("(",I0,"(1X,I0))")') size(this%knl)
     write(buffer,fmt) this%knl
-    attributes(1)%value = trim(adjustl(buffer))
+    attributes(1)%val = trim(adjustl(buffer))
     attributes(1)%type = "ints"
 
     attributes(2)%name = "strides"
     write(fmt,'("(",I0,"(1X,I0))")') size(this%stp)
     write(buffer,fmt) this%stp
-    attributes(2)%value = trim(adjustl(buffer))
+    attributes(2)%val = trim(adjustl(buffer))
     attributes(2)%type = "ints"
 
   end function get_attributes_conv
@@ -217,13 +217,13 @@ contains
     attributes(1)%name = "kernel_shape"
     write(fmt,'("(",I0,"(1X,I0))")') size(this%pool)
     write(buffer,fmt) this%pool
-    attributes(1)%value = trim(adjustl(buffer))
+    attributes(1)%val = trim(adjustl(buffer))
     attributes(1)%type = "ints"
 
     attributes(2)%name = "strides"
     write(fmt,'("(",I0,"(1X,I0))")') size(this%strd)
     write(buffer,fmt) this%strd
-    attributes(2)%value = trim(adjustl(buffer))
+    attributes(2)%val = trim(adjustl(buffer))
     attributes(2)%type = "ints"
 
   end function get_attributes_pool
@@ -246,24 +246,24 @@ contains
     allocate(attributes(4))
     attributes(1)%name = "epsilon"
     write(buffer,'("(",F0.6,")")') this%epsilon
-    attributes(1)%value = trim(adjustl(buffer))
+    attributes(1)%val = trim(adjustl(buffer))
     attributes(1)%type = "float"
 
     attributes(2)%name = "momentum"
     write(buffer,'("(",F0.6,")")') this%momentum
-    attributes(2)%value = trim(adjustl(buffer))
+    attributes(2)%val = trim(adjustl(buffer))
     attributes(2)%type = "float"
 
     attributes(3)%name = "scale"
     write(fmt,'("(",I0,"(1X,I0))")') this%num_channels
     write(buffer,fmt) this%params(1:this%num_channels)
-    attributes(3)%value = trim(adjustl(buffer))
+    attributes(3)%val = trim(adjustl(buffer))
     attributes(3)%type = "float"
 
     attributes(4)%name = "B"
     write(fmt,'("(",I0,"(1X,I0))")') this%num_channels
     write(buffer,fmt) this%params(this%num_channels+1:2*this%num_channels)
-    attributes(4)%value = trim(adjustl(buffer))
+    attributes(4)%val = trim(adjustl(buffer))
     attributes(4)%type = "float"
 
   end function get_attributes_batch
@@ -915,7 +915,7 @@ contains
   module subroutine init_conv(this, input_shape, batch_size, verbose)
     !! Initialise convolutional layer
     use athena__initialiser, only: initialiser_setup
-    use athena__misc_types, only: initialiser_type
+    use athena__misc_types, only: base_init_type
     implicit none
 
     ! Arguments
@@ -1013,7 +1013,7 @@ contains
   module subroutine init_batch(this, input_shape, batch_size, verbose)
     !! Initialise batch normalisation layer
     use athena__initialiser, only: initialiser_setup
-    use athena__misc_types, only: initialiser_type
+    use athena__misc_types, only: base_init_type
     implicit none
 
     ! Arguments
@@ -1027,7 +1027,7 @@ contains
     !! Verbosity level
 
     integer :: verbose_ = 0
-    class(initialiser_type), allocatable :: t_initialiser
+    class(base_init_type), allocatable :: t_initialiser
 
 
     !---------------------------------------------------------------------------

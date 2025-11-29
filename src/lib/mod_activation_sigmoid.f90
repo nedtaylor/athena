@@ -6,7 +6,7 @@ module athena__activation_sigmoid
   use coreutils, only: real32, print_warning
   use diffstruc, only: array_type, operator(+), operator(-), &
        operator(*), operator(/), exp, merge, operator(.gt.), sigmoid
-  use athena__misc_types, only: activation_type
+  use athena__misc_types, only: base_actv_type
   use athena__misc_types, only: onnx_attribute_type
   implicit none
 
@@ -16,7 +16,7 @@ module athena__activation_sigmoid
   public :: sigmoid_actv_type
 
 
-  type, extends(activation_type) :: sigmoid_actv_type
+  type, extends(base_actv_type) :: sigmoid_actv_type
      !! Type for sigmoid activation function with overloaded procedures
    contains
      procedure, pass(this) :: activate => sigmoid_activate

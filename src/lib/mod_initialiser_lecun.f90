@@ -5,7 +5,7 @@ module athena__initialiser_lecun
   !! for the weights and biases of a layer
   !! Reference: https://dl.acm.org/doi/10.5555/645754.668382
   use coreutils, only: real32, pi, stop_program
-  use athena__misc_types, only: initialiser_type
+  use athena__misc_types, only: base_init_type
   implicit none
 
 
@@ -15,13 +15,13 @@ module athena__initialiser_lecun
   public :: lecun_normal_init_type
 
 
-  type, extends(initialiser_type) :: lecun_uniform_init_type
+  type, extends(base_init_type) :: lecun_uniform_init_type
      !! Type for the LeCun initialiser (uniform)
    contains
      procedure, pass(this) :: initialise => lecun_uniform_initialise
      !! Initialise the weights and biases using the LeCun uniform distribution
   end type lecun_uniform_init_type
-  type, extends(initialiser_type) :: lecun_normal_init_type
+  type, extends(base_init_type) :: lecun_normal_init_type
      !! Type for the LeCun initialiser (normal)
    contains
      procedure, pass(this) :: initialise => lecun_normal_initialise

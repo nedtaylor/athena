@@ -5,7 +5,7 @@ module athena__activation_piecewise
   use coreutils, only: real32, print_warning
   use diffstruc, only: array_type, operator(*)
   use athena__diffstruc_extd, only: piecewise
-  use athena__misc_types, only: activation_type
+  use athena__misc_types, only: base_actv_type
   use athena__misc_types, only: onnx_attribute_type
   implicit none
 
@@ -15,7 +15,7 @@ module athena__activation_piecewise
   public :: piecewise_actv_type
 
 
-  type, extends(activation_type) :: piecewise_actv_type
+  type, extends(base_actv_type) :: piecewise_actv_type
      !! Type for piecewise activation function with overloaded procedures
      real(real32) :: gradient, limit
    contains

@@ -50,8 +50,7 @@ program test_activation_layer
 
   ! Test with ReLU activation
   actv_layer = actv_layer_type( &
-       activation_function = "relu", &
-       activation_scale = 1.0_real32, &
+       activation = "relu", &
        input_shape = [width], &
        batch_size = batch_size &
   )
@@ -153,8 +152,7 @@ program test_activation_layer
   write(*,*) "Testing 2D activation layer..."
 
   actv_layer = actv_layer_type( &
-       activation_function = "sigmoid", &
-       activation_scale = 1.0_real32, &
+       activation = "sigmoid", &
        input_shape = [width, height], &
        batch_size = batch_size &
   )
@@ -213,8 +211,7 @@ program test_activation_layer
   write(*,*) "Testing 3D activation layer..."
 
   actv_layer = actv_layer_type( &
-       activation_function = "tanh", &
-       activation_scale = 1.0_real32, &
+       activation = "tanh", &
        input_shape = [width, height, depth], &
        batch_size = batch_size &
   )
@@ -241,8 +238,7 @@ program test_activation_layer
   write(*,*) "Testing 4D activation layer..."
 
   actv_layer = actv_layer_type( &
-       activation_function = "linear", &
-       activation_scale = 2.0_real32, &
+       activation = "linear", &
        input_shape = [width, height, depth, channels], &
        batch_size = batch_size &
   )
@@ -324,8 +320,7 @@ program test_activation_layer
   write(*,*) "Testing hyperparameters setting..."
 
   call actv_layer%set_hyperparams( &
-       activation_function = "swish", &
-       activation_scale = 1.5_real32, &
+       activation = "swish", &
        verbose = 0 &
   )
 

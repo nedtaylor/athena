@@ -15,7 +15,7 @@ module athena__base_layer
   !! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
   use coreutils, only: real32
   use athena__clipper, only: clip_type
-  use athena__misc_types, only: activation_type, initialiser_type, facets_type, &
+  use athena__misc_types, only: base_actv_type, base_init_type, facets_type, &
        onnx_attribute_type, onnx_node_type, onnx_initialiser_type
   use diffstruc, only: array_type
   use athena__diffstruc_extd, only: array_ptr_type
@@ -427,9 +427,9 @@ module athena__base_layer
      real(real32), allocatable, dimension(:,:) :: dp, db
      !! Gradients of parameters and biases
      character(len=14) :: kernel_initialiser='', bias_initialiser=''
-     class(initialiser_type), allocatable :: kernel_init, bias_init
+     class(base_init_type), allocatable :: kernel_init, bias_init
      !! Initialisers for kernel and bias
-     class(activation_type), allocatable :: transfer
+     class(base_actv_type), allocatable :: transfer
      !! Activation function
    contains
      procedure, pass(this) :: get_params => get_params

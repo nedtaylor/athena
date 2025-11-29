@@ -5,7 +5,7 @@ module athena__initialiser
   !! biases of a neural network model
   !! Examples of initialsers in keras: https://keras.io/api/layers/initializers/
   use coreutils, only: stop_program, to_lower
-  use athena__misc_types, only: initialiser_type
+  use athena__misc_types, only: base_init_type
   use athena__initialiser_glorot, only: &
        glorot_uniform_init_type, glorot_normal_init_type
   use athena__initialiser_he, only: he_uniform_init_type, he_normal_init_type
@@ -71,7 +71,7 @@ contains
     implicit none
 
     ! Arguments
-    class(initialiser_type), allocatable :: initialiser
+    class(base_init_type), allocatable :: initialiser
     !! Initialiser function
     class(*) :: input
     !! Name of initialiser or initialiser object
@@ -87,7 +87,7 @@ contains
     ! Set initialiser function
     !---------------------------------------------------------------------------
     select type(input)
-    class is(initialiser_type)
+    class is(base_init_type)
        initialiser = input
     type is(character(*))
        select case(trim(to_lower(input)))

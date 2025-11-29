@@ -4,7 +4,7 @@ module athena__activation_none
   !! This module implements the identity function f(x) = x
   use coreutils, only: real32, print_warning
   use diffstruc, only: array_type
-  use athena__misc_types, only: activation_type
+  use athena__misc_types, only: base_actv_type
   use athena__misc_types, only: onnx_attribute_type
   implicit none
 
@@ -14,7 +14,7 @@ module athena__activation_none
   public :: none_actv_type
 
 
-  type, extends(activation_type) :: none_actv_type
+  type, extends(base_actv_type) :: none_actv_type
    contains
      procedure, pass(this) :: activate => none_activate
      procedure, pass(this) :: reset => none_reset

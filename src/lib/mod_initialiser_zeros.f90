@@ -4,7 +4,7 @@ module athena__initialiser_zeros
   !! This module contains the implementation of the Zeros initialiser
   !! for the weights and biases of a layer
   use coreutils, only: real32
-  use athena__misc_types, only: initialiser_type
+  use athena__misc_types, only: base_init_type
   implicit none
 
 
@@ -13,7 +13,7 @@ module athena__initialiser_zeros
   public :: zeros_init_type
 
 
-  type, extends(initialiser_type) :: zeros_init_type
+  type, extends(base_init_type) :: zeros_init_type
      !! Type for the Zeros initialiser
    contains
      procedure, pass(this) :: initialise => zeros_initialise

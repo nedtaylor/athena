@@ -397,7 +397,7 @@ contains
     !! Attribute value
 
     do i = 1, size(node%attributes)
-       val = node%attributes(i)%value
+       val = node%attributes(i)%val
        select case(trim(adjustl(node%attributes(i)%name)))
        case("kernel_shape")
           read(val,*) pool_size

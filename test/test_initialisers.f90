@@ -4,11 +4,11 @@ program test_initialisers
        conv2d_layer_type, &
        conv3d_layer_type, &
        base_layer_type
-  use athena__misc_types, only: initialiser_type
+  use athena__misc_types, only: base_init_type
   use athena__initialiser, only: initialiser_setup, get_default_initialiser
   implicit none
 
-  class(initialiser_type), allocatable :: initialiser_var
+  class(base_init_type), allocatable :: initialiser_var
   class(base_layer_type), allocatable :: full_layer, conv2d_layer, conv3d_layer
   logical :: success = .true.
 

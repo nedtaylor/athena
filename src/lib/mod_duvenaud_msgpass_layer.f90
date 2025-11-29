@@ -2,7 +2,7 @@ module athena__duvenaud_msgpass_layer
   !! Module containing the types and interfacees of a message passing layer
   use coreutils, only: real32
   use graphstruc, only: graph_type
-  use athena__misc_types, only: activation_type, initialiser_type
+  use athena__misc_types, only: base_actv_type, base_init_type
   use diffstruc, only: array_type, sum, matmul, operator(+)
   use athena__base_layer, only: base_layer_type
   use athena__msgpass_layer, only: msgpass_layer_type
@@ -25,7 +25,7 @@ module athena__duvenaud_msgpass_layer
      integer :: max_vertex_degree = 0
      !! Maximum vertex degree
 
-     class(activation_type), allocatable :: transfer_readout
+     class(base_actv_type), allocatable :: transfer_readout
      !! Activation function
      type(array_type), allocatable, dimension(:,:) :: z
      type(array_type), allocatable, dimension(:,:) :: z_readout
@@ -68,8 +68,8 @@ module athena__duvenaud_msgpass_layer
           num_outputs, &
           min_vertex_degree, &
           batch_size, &
-          message_activation_function, message_activation_scale, &
-          readout_activation_function, readout_activation_scale, &
+          message_activation, &
+          readout_activation, &
           kernel_initialiser, &
           verbose &
      ) result(layer)
@@ -88,11 +88,8 @@ module athena__duvenaud_msgpass_layer
        !! Minimum vertex degree
        integer, optional, intent(in) :: batch_size
        !! Batch size
-       real(real32), optional, intent(in) :: message_activation_scale, &
-            readout_activation_scale
-       !! Message and readout activation scales
-       character(*), optional, intent(in) :: message_activation_function, &
-            readout_activation_function
+       character(*), optional, intent(in) :: message_activation, &
+            readout_activation
        !! Message and readout activation functions
        character(*), optional, intent(in) :: kernel_initialiser
        !!! Kernel initialiser
@@ -166,8 +163,8 @@ contains
        num_outputs, &
        min_vertex_degree, &
        batch_size, &
-       message_activation_function, message_activation_scale, &
-       readout_activation_function, readout_activation_scale, &
+       message_activation, &
+       readout_activation, &
        kernel_initialiser, &
        verbose &
   ) result(layer)
@@ -190,11 +187,8 @@ contains
     !! Minimum vertex degree
     integer, optional, intent(in) :: batch_size
     !! Batch size
-    real(real32), optional, intent(in) :: message_activation_scale, &
-         readout_activation_scale
-    !! Message and readout activation scales
-    character(*), optional, intent(in) :: message_activation_function, &
-         readout_activation_function
+    character(*), optional, intent(in) :: message_activation, &
+         readout_activation
     !! Message and readout activation functions
     character(*), optional, intent(in) :: kernel_initialiser
     !!! Kernel initialiser
@@ -211,10 +205,10 @@ contains
          readout_scale = 1._real32
     !! Activation scale
     character(len=10) :: &
-         message_activation_function_ = "sigmoid", &
-         readout_activation_function_ = "softmax"
+         message_activation_ = "sigmoid", &
+         readout_activation_ = "softmax"
     !! Activation function
-    class(initialiser_type), allocatable :: kernel_initialiser_
+    class(base_init_type), allocatable :: kernel_initialiser_
     !! Kernel and bias initialisers
     integer :: min_vertex_degree_ = 1
     !! Minimum vertex degree
@@ -225,12 +219,10 @@ contains
     !---------------------------------------------------------------------------
     ! Set activation and derivative functions based on input name
     !---------------------------------------------------------------------------
-    if(present(message_activation_function)) &
-         message_activation_function_ = message_activation_function
-    if(present(message_activation_scale)) message_scale = message_activation_scale
-    if(present(readout_activation_function)) &
-         readout_activation_function_ = readout_activation_function
-    if(present(readout_activation_scale)) readout_scale = readout_activation_scale
+    if(present(message_activation)) &
+         message_activation_ = message_activation
+    if(present(readout_activation)) &
+         readout_activation_ = readout_activation
     if(present(min_vertex_degree)) min_vertex_degree_ = min_vertex_degree
     if(max_vertex_degree.lt.min_vertex_degree_)then
        write(0,*) "Error: max_vertex_degree < min_vertex_degree"
@@ -256,10 +248,8 @@ contains
          max_vertex_degree = max_vertex_degree, &
          num_time_steps = num_time_steps, &
          num_outputs = num_outputs, &
-         message_activation_function = message_activation_function_, &
-         message_activation_scale = message_scale, &
-         readout_activation_function = readout_activation_function_, &
-         readout_activation_scale = readout_scale, &
+         message_activation = message_activation_, &
+         readout_activation = readout_activation_, &
          kernel_initialiser = kernel_initialiser_, &
          verbose = verbose_ &
     )
@@ -291,8 +281,8 @@ contains
        max_vertex_degree, &
        num_time_steps, &
        num_outputs, &
-       message_activation_function, message_activation_scale, &
-       readout_activation_function, readout_activation_scale, &
+       message_activation, &
+       readout_activation, &
        kernel_initialiser, &
        verbose &
   )
@@ -317,14 +307,10 @@ contains
     integer, intent(in) :: num_outputs
     !! Number of outputs
     character(*), intent(in) :: &
-         message_activation_function, &
-         readout_activation_function
+         message_activation, &
+         readout_activation
     !! Message and readout activation functions
-    real(real32), optional, intent(in) :: &
-         message_activation_scale, &
-         readout_activation_scale
-    !! Message and readout activation scales
-    class(initialiser_type), allocatable, intent(in) :: kernel_initialiser
+    class(base_init_type), allocatable, intent(in) :: kernel_initialiser
     !! Kernel and bias initialisers
     integer, optional, intent(in) :: verbose
     !! Verbosity level
@@ -382,13 +368,11 @@ contains
     if(allocated(this%transfer)) deallocate(this%transfer)
     if(allocated(this%transfer_readout)) deallocate(this%transfer_readout)
     allocate(this%transfer, &
-         source = activation_setup(message_activation_function, &
-              message_activation_scale))
+         source = activation_setup(message_activation))
     allocate(this%transfer_readout, &
-         source = activation_setup(readout_activation_function, &
-              readout_activation_scale))
+         source = activation_setup(readout_activation))
     if(.not.allocated(kernel_initialiser))then
-       buffer = get_default_initialiser(message_activation_function)
+       buffer = get_default_initialiser(message_activation)
        this%kernel_init = initialiser_setup(buffer)
     else
        this%kernel_init = kernel_initialiser
@@ -396,9 +380,9 @@ contains
     if(present(verbose))then
        if(abs(verbose).gt.0)then
           write(*,'("DUVENAUD message activation function: ",A)') &
-               trim(message_activation_function)
+               trim(this%transfer%name)
           write(*,'("DUVENAUD readout activation function: ",A)') &
-               trim(readout_activation_function)
+               trim(this%transfer_readout%name)
           write(*,'("DUVENAUD kernel initialiser: ",A)') &
                trim(this%kernel_init%name)
        end if
@@ -647,9 +631,7 @@ contains
     write(unit,fmt) this%num_edge_features
 
     write(unit,'(3X,"MESSAGE_ACTIVATION = ",A)') trim(this%transfer%name)
-    write(unit,'(3X,"MESSAGE_ACTIVATION_SCALE = ",F0.9)') this%transfer%scale
     write(unit,'(3X,"READOUT_ACTIVATION = ",A)') trim(this%transfer_readout%name)
-    write(unit,'(3X,"READOUT_ACTIVATION_SCALE = ",F0.9)') this%transfer_readout%scale
 
 
     ! Write learned parameters

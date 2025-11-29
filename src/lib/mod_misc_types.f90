@@ -16,8 +16,8 @@ module athena__misc_types
 
   private
 
-  public :: activation_type
-  public :: initialiser_type
+  public :: base_actv_type
+  public :: base_init_type
   public :: facets_type
   public :: onnx_attribute_type, onnx_node_type, onnx_initialiser_type
 
@@ -90,7 +90,7 @@ module athena__misc_types
 !-------------------------------------------------------------------------------
 ! Activation (transfer) function base type
 !-------------------------------------------------------------------------------
-  type, abstract :: activation_type
+  type, abstract :: base_actv_type
      !! Abstract type for activation functions
      character(10) :: name
      !! Name of the activation function
@@ -108,30 +108,30 @@ module athena__misc_types
      procedure(activation_apply_attributes), deferred, pass(this) :: apply_attributes
      !! Set up ONNX attributes
      procedure(activation_export_attributes), deferred, pass(this) :: export_attributes
-  end type activation_type
+  end type base_actv_type
 
   ! Interface for activation function
   !-----------------------------------------------------------------------------
   abstract interface
      subroutine activation_reset(this)
        !! Interface for resetting activation function attributes and variables
-       import activation_type
-       class(activation_type), intent(inout) :: this
+       import base_actv_type
+       class(base_actv_type), intent(inout) :: this
        !! Instance of the activation type
      end subroutine activation_reset
 
      function activation_apply(this, val) result(output)
        !! Interface for activation function
-       import activation_type, real32, array_type
-       class(activation_type), intent(in) :: this
+       import base_actv_type, real32, array_type
+       class(base_actv_type), intent(in) :: this
        type(array_type), intent(in) :: val
        type(array_type), pointer :: output
      end function activation_apply
 
      subroutine activation_apply_attributes(this, attributes)
        !! Interface for loading ONNX attributes
-       import activation_type, onnx_attribute_type
-       class(activation_type), intent(inout) :: this
+       import base_actv_type, onnx_attribute_type
+       class(base_actv_type), intent(inout) :: this
        !! Instance of the activation type
        type(onnx_attribute_type), dimension(:), intent(in) :: attributes
        !! ONNX attributes
@@ -139,8 +139,8 @@ module athena__misc_types
 
      pure function activation_export_attributes(this) result(attributes)
        !! Interface for exporting ONNX attributes
-       import activation_type, onnx_attribute_type
-       class(activation_type), intent(in) :: this
+       import base_actv_type, onnx_attribute_type
+       class(base_actv_type), intent(in) :: this
        !! Instance of the activation type
        type(onnx_attribute_type), allocatable, dimension(:) :: attributes
      end function activation_export_attributes
@@ -156,7 +156,7 @@ module athena__misc_types
 !-------------------------------------------------------------------------------
 ! Weights and biases initialiser base type
 !-------------------------------------------------------------------------------
-  type, abstract :: initialiser_type
+  type, abstract :: base_init_type
      !! Abstract type for initialising weights and biases
      character(len=20) :: name
      !! Name of the initialiser
@@ -165,7 +165,7 @@ module athena__misc_types
    contains
      procedure (initialiser_subroutine), deferred, pass(this) :: initialise
      !! Abstract procedure for initialising weights and biases
-  end type initialiser_type
+  end type base_init_type
 
   ! Interface for initialiser function
   !-----------------------------------------------------------------------------
@@ -173,8 +173,8 @@ module athena__misc_types
      !! Interface for initialiser function
      subroutine initialiser_subroutine(this, input, fan_in, fan_out, spacing)
        !! Interface for initialiser function
-       import initialiser_type, real32
-       class(initialiser_type), intent(inout) :: this
+       import base_init_type, real32
+       class(base_init_type), intent(inout) :: this
        !! Instance of the initialiser type
        real(real32), dimension(..), intent(out) :: input
        !! Array to initialise

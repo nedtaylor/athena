@@ -4,7 +4,7 @@ module athena__initialiser_ones
   !! This module contains the implementation of the Ones initialiser
   !! for the weights and biases of a layer
   use coreutils, only: real32
-  use athena__misc_types, only: initialiser_type
+  use athena__misc_types, only: base_init_type
   implicit none
 
 
@@ -13,7 +13,7 @@ module athena__initialiser_ones
   public :: ones_init_type
 
 
-  type, extends(initialiser_type) :: ones_init_type
+  type, extends(base_init_type) :: ones_init_type
      !! Type for the Ones initialiser
    contains
      procedure, pass(this) :: initialise => ones_initialise

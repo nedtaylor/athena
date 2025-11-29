@@ -4,7 +4,7 @@ module athena__initialiser_ident
   !! This module contains the implementation of the identity initialiser
   !! for the weights and biases of a layer
   use coreutils, only: real32, stop_program
-  use athena__misc_types, only: initialiser_type
+  use athena__misc_types, only: base_init_type
   implicit none
 
 
@@ -13,7 +13,7 @@ module athena__initialiser_ident
   public :: ident_init_type
 
 
-  type, extends(initialiser_type) :: ident_init_type
+  type, extends(base_init_type) :: ident_init_type
      !! Type for the identity initialiser
    contains
      procedure, pass(this) :: initialise => ident_initialise

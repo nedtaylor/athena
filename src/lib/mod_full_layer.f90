@@ -9,7 +9,7 @@ module athena__full_layer
   !! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: learnable_layer_type, base_layer_type
-  use athena__misc_types, only: activation_type, initialiser_type, &
+  use athena__misc_types, only: base_actv_type, base_init_type, &
        onnx_node_type, onnx_initialiser_type
   use diffstruc, only: array_type, matmul, operator(+)
   implicit none
@@ -168,9 +168,9 @@ contains
     !! Verbosity level
     logical :: use_bias_ = .true.
     !! Whether to use bias
-    class(activation_type), allocatable :: activation_
+    class(base_actv_type), allocatable :: activation_
     !! Activation function
-    class(initialiser_type), allocatable :: kernel_initialiser_, bias_initialiser_
+    class(base_init_type), allocatable :: kernel_initialiser_, bias_initialiser_
     !! Kernel and bias initialisers
 
     if(present(verbose)) verbose_ = verbose
@@ -251,9 +251,9 @@ contains
     !! Number of outputs
     logical, intent(in) :: use_bias
     !! Whether to use bias
-    class(activation_type), allocatable, intent(in) :: activation
+    class(base_actv_type), allocatable, intent(in) :: activation
     !! Activation function
-    class(initialiser_type), allocatable, intent(in) :: &
+    class(base_init_type), allocatable, intent(in) :: &
          kernel_initialiser, bias_initialiser
     !! Kernel and bias initialisers
     integer, optional, intent(in) :: verbose
@@ -470,7 +470,6 @@ contains
 
     write(unit,'(3X,"USE_BIAS = ",L1)') this%use_bias
     write(unit,'(3X,"ACTIVATION = ",A)') trim(this%transfer%name)
-    write(unit,'(3X,"ACTIVATION_SCALE = ",F0.9)') this%transfer%scale
 
 
     ! Write fully connected weights and biases
@@ -518,9 +517,9 @@ contains
     !! Initialisers
     character(20) :: activation_name=''
     !! Activation function
-    class(activation_type), allocatable :: activation
+    class(base_actv_type), allocatable :: activation
     !! Activation function
-    class(initialiser_type), allocatable :: kernel_initialiser, bias_initialiser
+    class(base_init_type), allocatable :: kernel_initialiser, bias_initialiser
     !! Initialisers
     character(256) :: buffer, tag, err_msg
     !! Buffer, tag, and error message

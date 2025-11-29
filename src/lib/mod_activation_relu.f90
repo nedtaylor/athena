@@ -4,7 +4,7 @@ module athena__activation_relu
   !! This module implements the Rectified Linear Unit activation function
   use coreutils, only: real32, print_warning
   use diffstruc, only: array_type, operator(*), max
-  use athena__misc_types, only: activation_type
+  use athena__misc_types, only: base_actv_type
   use athena__misc_types, only: onnx_attribute_type
   implicit none
 
@@ -14,7 +14,7 @@ module athena__activation_relu
   public :: relu_actv_type
 
 
-  type, extends(activation_type) :: relu_actv_type
+  type, extends(base_actv_type) :: relu_actv_type
      !! Type for ReLU activation function with overloaded procedures
    contains
      procedure, pass(this) :: activate => relu_activate

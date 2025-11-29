@@ -31,7 +31,7 @@ contains
     ! Arguments
     class(*), intent(in) :: input
     !! Name of the activation function or activation object
-    class(activation_type), allocatable :: activation
+    class(base_actv_type), allocatable :: activation
     !! Activation function object
     integer, optional, intent(out) :: error
     !! Error code
@@ -45,7 +45,7 @@ contains
     ! select desired activation function
     !---------------------------------------------------------------------------
     select type(input)
-    class is(activation_type)
+    class is(base_actv_type)
        activation = input
     type is(character(*))
        select case(trim(to_lower(input)))

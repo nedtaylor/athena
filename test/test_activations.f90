@@ -12,12 +12,12 @@ program test_activations
   use athena__activation_softmax, only: softmax_actv_type ! threshold
   use athena__activation_swish, only: swish_actv_type ! threshold
   use athena__activation_tanh, only: tanh_actv_type ! threshold
-  use athena__misc_types, only: activation_type
+  use athena__misc_types, only: base_actv_type
   use diffstruc, only: array_type
   implicit none
 
   class(base_layer_type), allocatable :: full_layer, conv2d_layer, conv3d_layer
-  class(activation_type), allocatable :: activation
+  class(base_actv_type), allocatable :: activation
   logical :: success = .true.
 
   integer :: i

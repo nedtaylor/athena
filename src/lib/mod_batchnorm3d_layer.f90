@@ -2,7 +2,7 @@ module athena__batchnorm3d_layer
   !! Module containing implementation of 3D batch normalisation layers
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: batch_layer_type, base_layer_type
-  use athena__misc_types, only: initialiser_type
+  use athena__misc_types, only: base_init_type
   use diffstruc, only: array_type
   use athena__diffstruc_extd, only: batchnorm_array_type, &
        batchnorm, batchnorm_inference

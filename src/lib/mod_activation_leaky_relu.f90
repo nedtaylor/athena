@@ -5,7 +5,7 @@ module athena__activation_leaky_relu
   !! f(x) = x if x > 0, 0.01x otherwise
   use coreutils, only: real32, print_warning
   use diffstruc, only: array_type, operator(*), max
-  use athena__misc_types, only: activation_type
+  use athena__misc_types, only: base_actv_type
   use athena__misc_types, only: onnx_attribute_type
   implicit none
 
@@ -15,7 +15,7 @@ module athena__activation_leaky_relu
   public :: leaky_relu_actv_type
 
 
-  type, extends(activation_type) :: leaky_relu_actv_type
+  type, extends(base_actv_type) :: leaky_relu_actv_type
    contains
      procedure, pass(this) :: activate => leaky_relu_activate
      procedure, pass(this) :: reset => leaky_relu_reset

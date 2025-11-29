@@ -65,37 +65,37 @@ contains
 
   module subroutine allocate_list_of_layer_types(addit_list)
     implicit none
-    type(read_procedure_container), dimension(:), intent(in), optional :: &
+    type(read_layer_container), dimension(:), intent(in), optional :: &
          addit_list
 
 
     if(.not.allocated(list_of_layer_types)) allocate(list_of_layer_types(0))
     list_of_layer_types = [ &
          list_of_layer_types, &
-         read_procedure_container('actv', read_actv_layer), &
-         read_procedure_container('avgpool1d', read_avgpool1d_layer), &
-         read_procedure_container('avgpool2d', read_avgpool2d_layer), &
-         read_procedure_container('avgpool3d', read_avgpool3d_layer), &
-         read_procedure_container('batchnorm1d', read_batchnorm1d_layer), &
-         read_procedure_container('batchnorm2d', read_batchnorm2d_layer), &
-         read_procedure_container('batchnorm3d', read_batchnorm3d_layer), &
-         read_procedure_container('conv1d', read_conv1d_layer), &
-         read_procedure_container('conv2d', read_conv2d_layer), &
-         read_procedure_container('conv3d', read_conv3d_layer), &
-         read_procedure_container('dropblock2d', read_dropblock2d_layer), &
-         read_procedure_container('dropblock3d', read_dropblock3d_layer), &
-         read_procedure_container('dropout', read_dropout_layer), &
-         read_procedure_container('duvenaud', read_duvenaud_msgpass_layer), &
-         read_procedure_container('flatten', read_flatten_layer), &
-         read_procedure_container('full', read_full_layer), &
-         read_procedure_container('input', read_input_layer), &
-         read_procedure_container('kipf', read_kipf_msgpass_layer), &
-         read_procedure_container('maxpool1d', read_maxpool1d_layer), &
-         read_procedure_container('maxpool2d', read_maxpool2d_layer), &
-         read_procedure_container('maxpool3d', read_maxpool3d_layer), &
-         read_procedure_container('pad1d', read_pad1d_layer), &
-         read_procedure_container('pad2d', read_pad2d_layer), &
-         read_procedure_container('pad3d', read_pad3d_layer) &
+         read_layer_container('actv', read_actv_layer), &
+         read_layer_container('avgpool1d', read_avgpool1d_layer), &
+         read_layer_container('avgpool2d', read_avgpool2d_layer), &
+         read_layer_container('avgpool3d', read_avgpool3d_layer), &
+         read_layer_container('batchnorm1d', read_batchnorm1d_layer), &
+         read_layer_container('batchnorm2d', read_batchnorm2d_layer), &
+         read_layer_container('batchnorm3d', read_batchnorm3d_layer), &
+         read_layer_container('conv1d', read_conv1d_layer), &
+         read_layer_container('conv2d', read_conv2d_layer), &
+         read_layer_container('conv3d', read_conv3d_layer), &
+         read_layer_container('dropblock2d', read_dropblock2d_layer), &
+         read_layer_container('dropblock3d', read_dropblock3d_layer), &
+         read_layer_container('dropout', read_dropout_layer), &
+         read_layer_container('duvenaud', read_duvenaud_msgpass_layer), &
+         read_layer_container('flatten', read_flatten_layer), &
+         read_layer_container('full', read_full_layer), &
+         read_layer_container('input', read_input_layer), &
+         read_layer_container('kipf', read_kipf_msgpass_layer), &
+         read_layer_container('maxpool1d', read_maxpool1d_layer), &
+         read_layer_container('maxpool2d', read_maxpool2d_layer), &
+         read_layer_container('maxpool3d', read_maxpool3d_layer), &
+         read_layer_container('pad1d', read_pad1d_layer), &
+         read_layer_container('pad2d', read_pad2d_layer), &
+         read_layer_container('pad3d', read_pad3d_layer) &
     ]
     if(present(addit_list))then
        list_of_layer_types = [list_of_layer_types, addit_list]
@@ -105,7 +105,7 @@ contains
 
   module subroutine allocate_list_of_onnx_layer_creators(addit_list)
     implicit none
-    type(onnx_create_procedure_container), dimension(:), intent(in), optional :: &
+    type(onnx_create_layer_container), dimension(:), intent(in), optional :: &
          addit_list
 
     ! make a global create_from_onnx_conv_layer that allocates depending on the attributes
@@ -113,12 +113,12 @@ contains
          allocate(list_of_onnx_layer_creators(0))
     list_of_onnx_layer_creators = [ &
          list_of_onnx_layer_creators, &
-         onnx_create_procedure_container('Conv', create_from_onnx_conv2d_layer), &
-         onnx_create_procedure_container('Flatten', create_from_onnx_flatten_layer), &
-         onnx_create_procedure_container('MatMul', create_from_onnx_full_layer), &
-         onnx_create_procedure_container('MaxPool', create_from_onnx_maxpool2d_layer), &
-         onnx_create_procedure_container('Relu', create_from_onnx_actv_layer), &
-         onnx_create_procedure_container('Softmax', create_from_onnx_actv_layer) &
+         onnx_create_layer_container('Conv', create_from_onnx_conv2d_layer), &
+         onnx_create_layer_container('Flatten', create_from_onnx_flatten_layer), &
+         onnx_create_layer_container('MatMul', create_from_onnx_full_layer), &
+         onnx_create_layer_container('MaxPool', create_from_onnx_maxpool2d_layer), &
+         onnx_create_layer_container('Relu', create_from_onnx_actv_layer), &
+         onnx_create_layer_container('Softmax', create_from_onnx_actv_layer) &
     ]
     if(present(addit_list))then
        list_of_onnx_layer_creators = [list_of_onnx_layer_creators, addit_list]

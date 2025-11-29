@@ -6,7 +6,7 @@ module athena__initialiser_glorot
   !! The Glorot initialiser is also known as the Xavier initialiser
   !! Reference: https://proceedings.mlr.press/v9/glorot10a.html
   use coreutils, only: real32, pi, stop_program
-  use athena__misc_types, only: initialiser_type
+  use athena__misc_types, only: base_init_type
   implicit none
 
 
@@ -16,14 +16,14 @@ module athena__initialiser_glorot
   public :: glorot_normal_init_type
 
 
-  type, extends(initialiser_type) :: glorot_uniform_init_type
+  type, extends(base_init_type) :: glorot_uniform_init_type
      !! Type for the Glorot initialiser (uniform)
    contains
      procedure, pass(this) :: initialise => glorot_uniform_initialise
      !! Initialise the weights and biases using the Glorot uniform distribution
   end type glorot_uniform_init_type
 
-  type, extends(initialiser_type) :: glorot_normal_init_type
+  type, extends(base_init_type) :: glorot_normal_init_type
      !! Type for the Glorot initialiser (normal)
    contains
      procedure, pass(this) :: initialise => glorot_normal_initialise

@@ -4,7 +4,7 @@ module athena__activation_tanh
   !! This module implements the hyperbolic tangent activation function
   use coreutils, only: real32, print_warning
   use diffstruc, only: array_type, operator(*), tanh
-  use athena__misc_types, only: activation_type
+  use athena__misc_types, only: base_actv_type
   use athena__misc_types, only: onnx_attribute_type
   implicit none
 
@@ -14,7 +14,7 @@ module athena__activation_tanh
   public :: tanh_actv_type
 
 
-  type, extends(activation_type) :: tanh_actv_type
+  type, extends(base_actv_type) :: tanh_actv_type
      !! Type for tanh activation function with overloaded procedures
    contains
      procedure, pass(this) :: activate => tanh_activate
