@@ -13,49 +13,49 @@ module athena__initialiser_he
 
   private
 
-  public :: he_uniform_type, he_normal_type
+  public :: he_uniform_init_type, he_normal_init_type
 
 
-  type, extends(initialiser_type) :: he_uniform_type
+  type, extends(initialiser_type) :: he_uniform_init_type
      !! Type for the He initialiser (uniform)
      integer, private :: mode = 1
    contains
      procedure, pass(this) :: initialise => he_uniform_initialise
      !! Initialise the weights and biases using the He uniform distribution
-  end type he_uniform_type
+  end type he_uniform_init_type
 
-  type, extends(initialiser_type) :: he_normal_type
+  type, extends(initialiser_type) :: he_normal_init_type
      !! Type for the He initialiser (normal)
      integer, private :: mode = 1
    contains
      procedure, pass(this) :: initialise => he_normal_initialise
      !! Initialise the weights and biases using the He normal distribution
-  end type he_normal_type
+  end type he_normal_init_type
 
 
-  interface he_uniform_type
+  interface he_uniform_init_type
      module function initialiser_uniform_setup(scale, mode) result(initialiser)
        !! Interface for the He uniform initialiser
        real(real32), intent(in), optional :: scale
        !! Scaling factor (default: 1.0)
        character(len=*), intent(in), optional :: mode
        !! Mode for calculating the scaling factor (default: "fan_in")
-       type(he_uniform_type) :: initialiser
+       type(he_uniform_init_type) :: initialiser
        !! He uniform initialiser object
      end function initialiser_uniform_setup
-  end interface he_uniform_type
+  end interface he_uniform_init_type
 
-  interface he_normal_type
+  interface he_normal_init_type
      module function initialiser_normal_setup(scale, mode) result(initialiser)
        !! Interface for the He normal initialiser
        real(real32), intent(in), optional :: scale
        !! Scaling factor (default: 1.0)
        character(len=*), intent(in), optional :: mode
        !! Mode for calculating the scaling factor (default: "fan_in")
-       type(he_normal_type) :: initialiser
+       type(he_normal_init_type) :: initialiser
        !! He normal initialiser object
      end function initialiser_normal_setup
-  end interface he_normal_type
+  end interface he_normal_init_type
 
 
 
@@ -69,7 +69,7 @@ contains
     !! Scaling factor (default: 1.0)
     character(len=*), intent(in), optional :: mode
     !! Mode for calculating the scaling factor (default: "fan_in")
-    type(he_uniform_type) :: initialiser
+    type(he_uniform_init_type) :: initialiser
     !! He uniform initialiser object
 
     ! Local variables
@@ -99,7 +99,7 @@ contains
     !! Scaling factor (default: 1.0)
     character(len=*), intent(in), optional :: mode
     !! Mode for calculating the scaling factor (default: "fan_in")
-    type(he_normal_type) :: initialiser
+    type(he_normal_init_type) :: initialiser
     !! He normal initialiser object
 
     ! Local variables
@@ -129,7 +129,7 @@ contains
     implicit none
 
     ! Arguments
-    class(he_uniform_type), intent(inout) :: this
+    class(he_uniform_init_type), intent(inout) :: this
     !! Instance of the Glorot initialiser
     real(real32), dimension(..), intent(out) :: input
     !! Weights and biases to initialise
@@ -191,7 +191,7 @@ contains
     implicit none
 
     ! Arguments
-    class(he_normal_type), intent(inout) :: this
+    class(he_normal_init_type), intent(inout) :: this
     !! Instance of the He initialiser
     real(real32), dimension(..), intent(out) :: input
     !! Weights and biases to initialise

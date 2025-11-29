@@ -74,8 +74,15 @@ module athena
   ! Initialisation methods
   !-----------------------------------------------------------------------------
   use athena__misc_types, only: initialiser_type
-  use athena__initialiser_he, only: he_uniform_type, he_normal_type
-  ! use athena__initialiser_glorot, only: glorot_uniform_type, glorot_normal_type
+  use athena__initialiser_gaussian, only: gaussian_init_type
+  use athena__initialiser_he, only: he_uniform_init_type, he_normal_init_type
+  use athena__initialiser_glorot, only: &
+       glorot_uniform_init_type, glorot_normal_init_type
+  use athena__initialiser_ident, only: ident_init_type
+  use athena__initialiser_lecun, only: l&
+       ecun_uniform_init_type, lecun_normal_init_type
+  use athena__initialiser_ones, only: ones_init_type
+  use athena__initialiser_zeros, only: zeros_init_type
 
 
   ! Abstract layer types

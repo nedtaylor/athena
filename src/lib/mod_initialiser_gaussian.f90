@@ -10,33 +10,33 @@ module athena__initialiser_gaussian
 
   private
 
-  public :: gaussian_type
+  public :: gaussian_init_type
 
 
-  type, extends(initialiser_type) :: gaussian_type
+  type, extends(initialiser_type) :: gaussian_init_type
      !! Type for the Gaussian initialiser
    contains
      procedure, pass(this) :: initialise => gaussian_initialise
      !! Initialise the weights and biases using the Gaussian distribution
-  end type gaussian_type
+  end type gaussian_init_type
 
 
-  interface gaussian_type
-     module function initialiser_gaussian_setup(name) result(initialiser)
+  interface gaussian_init_type
+     module function initialiser_gaussian_type(name) result(initialiser)
        !! Interface for the Gaussian initialiser
-       type(gaussian_type) :: initialiser
+       type(gaussian_init_type) :: initialiser
        !! Gaussian initialiser object
        character(*), optional, intent(in) :: name
        !! Name of the initialiser
-     end function initialiser_gaussian_setup
-  end interface gaussian_type
+     end function initialiser_gaussian_type
+  end interface gaussian_init_type
 
 
 
 contains
 
 !###############################################################################
-  module function initialiser_gaussian_setup(name) result(initialiser)
+  module function initialiser_gaussian_type(name) result(initialiser)
     !! Interface for the Gaussian initialiser
     implicit none
     ! Arguments
@@ -44,7 +44,7 @@ contains
     !! Name of the initialiser
 
 
-    type(gaussian_type) :: initialiser
+    type(gaussian_init_type) :: initialiser
     !! Gaussian initialiser object
 
     if(present(name)) then
@@ -53,7 +53,7 @@ contains
        initialiser%name = "gaussian"
     end if
 
-  end function initialiser_gaussian_setup
+  end function initialiser_gaussian_type
 !###############################################################################
 
 
@@ -63,7 +63,7 @@ contains
     implicit none
 
     ! Arguments
-    class(gaussian_type), intent(inout) :: this
+    class(gaussian_init_type), intent(inout) :: this
     !! Instance of the Gaussian initialiser
     real(real32), dimension(..), intent(out) :: input
     !! Weights and biases to initialise

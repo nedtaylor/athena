@@ -97,8 +97,8 @@ program pinn_burgers_example
   else
      write(6,*) "Initialising PINN..."
      activation_function = "tanh"
-     kernel_initialiser = he_uniform_type(scale = 1._real32/sqrt(6._real32))
-     bias_initialiser = he_uniform_type(scale = 1._real32/sqrt(6._real32))
+     kernel_initialiser = he_uniform_init_type(scale = 1._real32/sqrt(6._real32))
+     bias_initialiser = he_uniform_init_type(scale = 1._real32/sqrt(6._real32))
 
      call network%add(full_layer_type( &
           num_inputs  = 2, &

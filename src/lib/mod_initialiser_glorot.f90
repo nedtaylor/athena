@@ -12,40 +12,40 @@ module athena__initialiser_glorot
 
   private
 
-  public :: glorot_uniform_type
-  public :: glorot_normal_type
+  public :: glorot_uniform_init_type
+  public :: glorot_normal_init_type
 
 
-  type, extends(initialiser_type) :: glorot_uniform_type
+  type, extends(initialiser_type) :: glorot_uniform_init_type
      !! Type for the Glorot initialiser (uniform)
    contains
      procedure, pass(this) :: initialise => glorot_uniform_initialise
      !! Initialise the weights and biases using the Glorot uniform distribution
-  end type glorot_uniform_type
+  end type glorot_uniform_init_type
 
-  type, extends(initialiser_type) :: glorot_normal_type
+  type, extends(initialiser_type) :: glorot_normal_init_type
      !! Type for the Glorot initialiser (normal)
    contains
      procedure, pass(this) :: initialise => glorot_normal_initialise
      !! Initialise the weights and biases using the Glorot normal distribution
-  end type glorot_normal_type
+  end type glorot_normal_init_type
 
 
-  interface glorot_uniform_type
+  interface glorot_uniform_init_type
      module function initialiser_uniform_setup() result(initialiser)
        !! Interface for the Glorot uniform initialiser
-       type(glorot_uniform_type) :: initialiser
+       type(glorot_uniform_init_type) :: initialiser
        !! Glorot uniform initialiser object
      end function initialiser_uniform_setup
-  end interface glorot_uniform_type
+  end interface glorot_uniform_init_type
 
-  interface glorot_normal_type
+  interface glorot_normal_init_type
      module function initialiser_normal_setup() result(initialiser)
        !! Interface for the Glorot normal initialiser
-       type(glorot_normal_type) :: initialiser
+       type(glorot_normal_init_type) :: initialiser
        !! Glorot normal initialiser object
      end function initialiser_normal_setup
-  end interface glorot_normal_type
+  end interface glorot_normal_init_type
 
 
 
@@ -55,7 +55,7 @@ contains
   module function initialiser_uniform_setup() result(initialiser)
     implicit none
     ! Arguments
-    type(glorot_uniform_type) :: initialiser
+    type(glorot_uniform_init_type) :: initialiser
     !! Glorot uniform initialiser object
 
     initialiser%name = "glorot_uniform"
@@ -65,7 +65,7 @@ contains
   module function initialiser_normal_setup() result(initialiser)
     implicit none
     ! Arguments
-    type(glorot_normal_type) :: initialiser
+    type(glorot_normal_init_type) :: initialiser
     !! Glorot normal initialiser object
 
     initialiser%name = "glorot_normal"
@@ -80,7 +80,7 @@ contains
     implicit none
 
     ! Arguments
-    class(glorot_uniform_type), intent(inout) :: this
+    class(glorot_uniform_init_type), intent(inout) :: this
     !! Instance of the Glorot initialiser
     real(real32), dimension(..), intent(out) :: input
     !! Weights and biases to initialise
@@ -138,7 +138,7 @@ contains
     implicit none
 
     ! Arguments
-    class(glorot_normal_type), intent(inout) :: this
+    class(glorot_normal_init_type), intent(inout) :: this
     !! Instance of the Glorot initialiser
     real(real32), dimension(..), intent(out) :: input
     !! Weights to initialise

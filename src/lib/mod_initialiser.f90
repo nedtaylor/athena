@@ -6,13 +6,15 @@ module athena__initialiser
   !! Examples of initialsers in keras: https://keras.io/api/layers/initializers/
   use coreutils, only: stop_program, to_lower
   use athena__misc_types, only: initialiser_type
-  use athena__initialiser_glorot, only: glorot_uniform_type, glorot_normal_type
-  use athena__initialiser_he, only: he_uniform_type, he_normal_type
-  use athena__initialiser_lecun, only: lecun_uniform_type, lecun_normal_type
-  use athena__initialiser_ones, only: ones_type
-  use athena__initialiser_zeros, only: zeros_type
-  use athena__initialiser_ident, only: ident_type
-  use athena__initialiser_gaussian, only: gaussian_type
+  use athena__initialiser_glorot, only: &
+       glorot_uniform_init_type, glorot_normal_init_type
+  use athena__initialiser_he, only: he_uniform_init_type, he_normal_init_type
+  use athena__initialiser_lecun, only: &
+       lecun_uniform_init_type, lecun_normal_init_type
+  use athena__initialiser_ones, only: ones_init_type
+  use athena__initialiser_zeros, only: zeros_init_type
+  use athena__initialiser_ident, only: ident_init_type
+  use athena__initialiser_gaussian, only: gaussian_init_type
   implicit none
 
 
@@ -90,27 +92,27 @@ contains
     type is(character(*))
        select case(trim(to_lower(input)))
        case("glorot_uniform")
-          initialiser = glorot_uniform_type()
+          initialiser = glorot_uniform_init_type()
        case("glorot_normal")
-          initialiser = glorot_normal_type()
+          initialiser = glorot_normal_init_type()
        case("he_uniform")
-          initialiser = he_uniform_type()
+          initialiser = he_uniform_init_type()
        case("he_normal")
-          initialiser = he_normal_type()
+          initialiser = he_normal_init_type()
        case("lecun_uniform")
-          initialiser = lecun_uniform_type()
+          initialiser = lecun_uniform_init_type()
        case("lecun_normal")
-          initialiser = lecun_normal_type()
+          initialiser = lecun_normal_init_type()
        case("ones")
-          initialiser = ones_type()
+          initialiser = ones_init_type()
        case("zeros")
-          initialiser = zeros_type()
+          initialiser = zeros_init_type()
        case("ident")
-          initialiser = ident_type()
+          initialiser = ident_init_type()
        case("gaussian")
-          initialiser = gaussian_type()
+          initialiser = gaussian_init_type()
        case("normal")
-          initialiser = gaussian_type(name="normal")
+          initialiser = gaussian_init_type(name="normal")
        case default
           if(present(error))then
              error = -1
