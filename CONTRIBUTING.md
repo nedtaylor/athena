@@ -168,20 +168,20 @@ An optimiser is either the base type `base_optimiser_type` or an extended type. 
 ### Activation functions
 
 The setup of activation functions is handled in the [mod_activation.f90](src/lib/mod_activation.f90) source file.
-The `activation_type` base activation type is defined in the (mod_types.f90)[src/lib/mod_types.f90] source file.
+The `base_actv_type` base activation type is defined in the (mod_types.f90)[src/lib/mod_types.f90] source file.
 Extended derived types for implementations of specific activation functions are contained within files `mod_activation_<NAME>.f90`, where <NAME> corresponds to the activation function.
 
-If developing a new activation function, the abstract activation type `activation_type` needs to be extended.
+If developing a new activation function, the abstract activation type `base_actv_type` needs to be extended.
 Implementations of the activation and its derivative must be provided for 1-5D.
 All new activation functions must also be imported, and correctly handled in the [mod_activation.f90](src/lib/mod_activation.f90) and [mod_network.f90](src/lib/mod_network.f90) files.
 
 ### Initialisers
 
 The setup of initialisers is handled in the [mod_initialiser.f90](src/lib/mod_initialiser.f90) source file.
-The `initialiser_type` base initialiser type is defined in the (mod_types.f90)[src/lib/mod_types.f90] source file.
+The `base_init_type` base initialiser type is defined in the (mod_types.f90)[src/lib/mod_types.f90] source file.
 Extended derived types for implementations of specific initialisation methods are contained within files `mod_initialiser_<NAME>.f90`, where <NAME> corresponds to the initialisation method.
 
-If developing a new initialiser, the abstract initialiser type `initialiser_type` needs to be extended.
+If developing a new initialiser, the abstract initialiser type `base_init_type` needs to be extended.
 All new initialisers functions must also be imported in the [mod_initialiser.f90](src/lib/mod_activation.f90) file.
 
 
