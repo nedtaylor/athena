@@ -45,8 +45,8 @@ program sine
   !-----------------------------------------------------------------------------
   ! call network%add(input1d_layer_type(input_shape=[1]))
   call network%add(full_layer_type(num_inputs=1,num_outputs=5, &
-       activation_function="tanh"))
-  call network%add(full_layer_type(num_outputs=1, activation_function="sigmoid"))
+       activation="tanh"))
+  call network%add(full_layer_type(num_outputs=1, activation="sigmoid"))
   call network%compile( &
        optimiser = base_optimiser_type(learning_rate=1._real32), &
        loss_method="mse", metrics=["loss"], verbose=1)

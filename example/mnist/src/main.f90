@@ -108,19 +108,19 @@ program mnist_example
      call network%add(conv2d_layer_type( &
           num_filters = cv_num_filters, kernel_size = 3, stride = 1, &
           padding="none", &
-          activation_function = "relu" &
+          activation = "relu" &
      ))
      call network%add(maxpool2d_layer_type(&
           pool_size = 2, stride = 2))
      call network%add(full_layer_type( &
           num_outputs = 100, &
-          activation_function = "relu", &
+          activation = "relu", &
           kernel_initialiser = "he_uniform", &
           bias_initialiser = "he_uniform" &
      ))
      call network%add(full_layer_type( &
           num_outputs = 10,&
-          activation_function = "softmax", &
+          activation = "softmax", &
           kernel_initialiser = "glorot_uniform", &
           bias_initialiser = "glorot_uniform" &
      ))

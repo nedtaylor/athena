@@ -22,7 +22,7 @@ program pinn_burgers_example
 
   ! training loop variables
   integer :: num_tests = 10, num_epochs = 100, batch_size = 1
-  character(32) :: activation_function
+  character(32) :: activation_name
   class(*), allocatable :: kernel_initialiser, bias_initialiser
 
   integer :: i, j, itmp1, num_params
@@ -96,7 +96,7 @@ program pinn_burgers_example
      write(*,*) "Reading finished"
   else
      write(6,*) "Initialising PINN..."
-     activation_function = "tanh"
+     activation_name = "tanh"
      kernel_initialiser = he_uniform_init_type(scale = 1._real32/sqrt(6._real32))
      bias_initialiser = he_uniform_init_type(scale = 1._real32/sqrt(6._real32))
 
@@ -104,35 +104,35 @@ program pinn_burgers_example
           num_inputs  = 2, &
           num_outputs = 50, &
           batch_size  = batch_size, &
-          activation_function = activation_function, &
+          activation = activation_name, &
           kernel_initialiser = kernel_initialiser, &
           bias_initialiser = bias_initialiser &
      ))
      call network%add(full_layer_type( &
           num_outputs = 50, &
           batch_size  = batch_size, &
-          activation_function = activation_function, &
+          activation = activation_name, &
           kernel_initialiser = kernel_initialiser, &
           bias_initialiser = bias_initialiser &
      ))
      call network%add(full_layer_type( &
           num_outputs = 50, &
           batch_size  = batch_size, &
-          activation_function = activation_function, &
+          activation = activation_name, &
           kernel_initialiser = kernel_initialiser, &
           bias_initialiser = bias_initialiser &
      ))
      call network%add(full_layer_type( &
           num_outputs = 50, &
           batch_size  = batch_size, &
-          activation_function = activation_function, &
+          activation = activation_name, &
           kernel_initialiser = kernel_initialiser, &
           bias_initialiser = bias_initialiser &
      ))
      call network%add(full_layer_type( &
           num_outputs = 1, &
           batch_size  = batch_size, &
-          activation_function = "none", &
+          activation = "none", &
           kernel_initialiser = kernel_initialiser, &
           bias_initialiser = bias_initialiser &
      ))
