@@ -370,7 +370,9 @@ contains
     ! Write initial parameters
     !---------------------------------------------------------------------------
     write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
-    write(unit,'(3X,"ACTIVATION_FUNCTION = ",A)') this%activation%name
+    if(this%activation%name .ne. 'none')then
+       call this%activation%print_to_unit(unit)
+    end if
 
   end subroutine print_to_unit_actv
 !###############################################################################
@@ -380,8 +382,8 @@ contains
   subroutine read_actv(this, unit, verbose)
     !! Read activation layer from file
     use athena__tools_infile, only: assign_val, assign_vec
-    use coreutils, only: to_lower, to_upper, icount
-    use athena__activation, only: activation_setup
+    use coreutils, only: to_lower, to_upper
+    use athena__activation, only: read_activation
     implicit none
 
     ! Arguments
@@ -397,8 +399,8 @@ contains
     !! Verbosity level
     integer :: stat
     !! File status
-    integer :: itmp1
-    !! Temporary integer
+    integer :: itmp1, iline
+    !! Temporary integer and line counter
     character(20) :: activation_name
     !! Activation function name
     class(base_actv_type), allocatable :: activation
@@ -416,6 +418,7 @@ contains
 
     ! Loop over tags in layer card
     !---------------------------------------------------------------------------
+    iline = 0
     tag_loop: do
 
        ! Check for end of file
@@ -435,6 +438,7 @@ contains
           backspace(unit)
           exit tag_loop
        end if
+       iline = iline + 1
 
        tag=trim(adjustl(buffer))
        if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
@@ -445,7 +449,9 @@ contains
        case("INPUT_SHAPE")
           call assign_vec(buffer, input_shape, itmp1)
        case("ACTIVATION")
-          call assign_val(buffer, activation_name, itmp1)
+          iline = iline - 1
+          backspace(unit)
+          activation = read_activation(unit, iline)
        case default
           !! don't look for "e" due to scientific notation of numbers
           !! ... i.e. exponent (E+00)
@@ -465,7 +471,6 @@ contains
 
     ! Set hyperparameters and initialise layer
     !---------------------------------------------------------------------------
-    activation = activation_setup(activation_name)
     call this%set_hyperparams( &
          activation = activation &
     )

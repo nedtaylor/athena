@@ -30,7 +30,7 @@ module athena__activation
   public :: activation_setup
   public :: list_of_onnx_activation_creators
   public :: allocate_list_of_onnx_activation_creators
-  public :: read_activation_attributes
+  public :: read_activation
 
 
   type :: onnx_create_actv_container
@@ -164,13 +164,15 @@ contains
 
 
 !###############################################################################
-  function read_activation_attributes(unit) result(attributes)
+  function read_activation_attributes(unit, iline) result(attributes)
     use coreutils, only: stop_program, to_lower
     implicit none
 
     ! Arguments
     integer, intent(in) :: unit
     !! Unit number for input file
+    integer, intent(inout), optional :: iline
+    !! Indicator for inline reading
 
     type(onnx_attribute_type), allocatable, dimension(:) :: attributes
     !! Array of ONNX attributes
@@ -196,11 +198,14 @@ contains
     !! Temporary array for growing attributes
     character(20), dimension(:), allocatable :: names
     !! Array of attribute names
+    integer :: iline_
+    !! Line number
 
 
     ! Initialize empty attributes array
     allocate(attributes(0))
     allocate(names(0))
+    iline_ = 0
 
     ! Read lines until END or END ACTIVATION
     read_loop: do
@@ -210,9 +215,12 @@ contains
           call stop_program(err_msg)
           return
        end if
+       iline_ = iline_ + 1
 
-       ! Skip empty lines
+       ! Skip empty or comment lines
        if(trim(adjustl(buffer)).eq."") cycle read_loop
+       if(index(trim(adjustl(buffer)),"#") .eq. 1) cycle read_loop
+       if(index(trim(adjustl(buffer)),"!") .eq. 1) cycle read_loop
 
        ! Check for end of activation block
        if(trim(adjustl(buffer)).eq."END" .or. &
@@ -222,11 +230,19 @@ contains
 
        ! Look for NAME = VALUE pattern
        eq_pos = scan(buffer, "=")
+
+
        if(eq_pos .gt. 0)then
           ! Extract name (everything before =)
           attr_name = to_lower(adjustl(buffer(:eq_pos-1)))
           ! Extract value (everything after =)
           attr_value = adjustl(buffer(eq_pos+1:))
+
+
+          if(index(trim(adjustl(buffer)),"ACTIVATION") .eq. 1 .and. iline_ .eq. 1)then
+             attributes = [ onnx_attribute_type("name", "string", trim(attr_value)) ]
+             exit read_loop
+          end if
 
           ! Check if attribute already exists
           if(any(names .eq. attr_name))then
@@ -250,7 +266,79 @@ contains
        end if
     end do read_loop
 
+    if(present(iline)) iline = iline + iline_
+
   end function read_activation_attributes
+!###############################################################################
+
+
+!###############################################################################
+  function read_activation(unit, iline) result(activation)
+    !! Read activation function from input file
+    implicit none
+
+    ! Arguments
+    integer, intent(in) :: unit
+    !! Unit number for input file
+    integer, intent(inout), optional :: iline
+    !! Line number
+
+    class(base_actv_type), allocatable :: activation
+    !! Activation function object
+
+    ! Local variables
+    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+    !! Array of ONNX attributes
+    integer :: i
+    !! Loop variable
+    character(20) :: actv_name
+    !! Activation function name
+    logical :: found
+    !! Flag for finding activation creator
+    integer :: creator_index
+    !! Index of activation creator
+    integer :: iline_ = 0
+    !! Line number
+
+    ! initialise list if needed
+    if(.not.allocated(list_of_onnx_activation_creators)) &
+         call allocate_list_of_onnx_activation_creators()
+
+    ! Read activation attributes
+    attributes = read_activation_attributes(unit, iline=iline_)
+    if(present(iline)) iline = iline + iline_
+
+    ! Extract activation name
+    actv_name = ""
+    do i=1, size(attributes,dim=1)
+       if(trim(to_lower(attributes(i)%name)) .eq. "name")then
+          actv_name = trim(to_lower(attributes(i)%val))
+          exit
+       end if
+    end do
+    if(actv_name .eq. "")then
+       call stop_program( &
+            "Activation name '"// actv_name //"' not specified in activation block" &
+       )
+       return
+    end if
+    do i = 1, size(list_of_onnx_activation_creators,dim=1)
+       if(trim(to_lower(list_of_onnx_activation_creators(i)%name)) .eq. actv_name)then
+          found = .true.
+          creator_index = i
+          exit
+       end if
+    end do
+    if(.not.found)then
+       call stop_program( &
+            "Activation name '"// actv_name //"' not recognised" &
+       )
+       return
+    end if
+    allocate(activation, source = list_of_onnx_activation_creators(creator_index)% &
+         create_ptr(attributes))
+
+  end function read_activation
 !###############################################################################
 
 end module athena__activation

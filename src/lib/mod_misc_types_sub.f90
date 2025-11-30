@@ -38,7 +38,7 @@ contains
 
 
 !###############################################################################
-  module subroutine print_actv(this, unit)
+  module subroutine print_to_unit_actv(this, unit, identifier)
     !! Interface for printing activation function details
     implicit none
 
@@ -47,6 +47,8 @@ contains
     !! Instance of the activation type
     integer, intent(in) :: unit
     !! Unit number for output
+    character(*), intent(in), optional :: identifier
+    !! Optional identifier for the activation function
 
     ! Local variables
     integer :: i
@@ -57,14 +59,18 @@ contains
 
     attributes = this%export_attributes()
 
-    write(unit,'(3X,"ACTIVATION")')
+    if(present(identifier)) then
+       write(unit,'(3X,"ACTIVATION: ",A)') trim(identifier)
+    else
+       write(unit,'(3X,"ACTIVATION")')
+    end if
     do i = 1, size(attributes)
        write(unit,'(6X,A," = ",A)') &
             trim(attributes(i)%name), trim(attributes(i)%val)
     end do
     write(unit,'(3X,"END ACTIVATION")')
 
-  end subroutine print_actv
+  end subroutine print_to_unit_actv
 !###############################################################################
 
 

@@ -109,7 +109,7 @@ module athena__misc_types
      !! Set up ONNX attributes
      procedure(export_attributes_actv), deferred, pass(this) :: export_attributes
      !! Export ONNX attributes
-     procedure, pass(this) :: print => print_actv
+     procedure, pass(this) :: print_to_unit => print_to_unit_actv
   end type base_actv_type
 
   ! Interface for activation function
@@ -149,13 +149,15 @@ module athena__misc_types
   end interface
 
   interface
-     module subroutine print_actv(this, unit)
+     module subroutine print_to_unit_actv(this, unit, identifier)
        !! Interface for printing activation function details
        class(base_actv_type), intent(in) :: this
        !! Instance of the activation type
        integer, intent(in) :: unit
        !! Unit number for output
-     end subroutine print_actv
+       character(len=*), intent(in), optional :: identifier
+       !! Optional identifier for the activation function
+     end subroutine print_to_unit_actv
   end interface
 !-------------------------------------------------------------------------------
 

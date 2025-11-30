@@ -66,8 +66,7 @@ module athena__kipf_msgpass_layer
        !! Number of time steps
        integer, optional, intent(in) :: batch_size
        !! Batch size
-       character(*), optional, intent(in) :: activation, &
-            kernel_initialiser
+       class(*), optional, intent(in) :: activation, kernel_initialiser
        !! Activation function and kernel initialiser
        integer, optional, intent(in) :: verbose
        !! Verbosity level
@@ -137,8 +136,7 @@ contains
     !! Number of time steps
     integer, optional, intent(in) :: batch_size
     !! Batch size
-    character(*), optional, intent(in) :: activation, &
-         kernel_initialiser
+    class(*), optional, intent(in) :: activation, kernel_initialiser
     !! Activation function and kernel initialiser
     integer, optional, intent(in) :: verbose
     !! Verbosity level
@@ -157,9 +155,13 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Set activation and derivative functions based on input name
+    ! Set activation functions based on input name
     !---------------------------------------------------------------------------
-    if(present(activation)) activation_ = activation_setup(activation)
+    if(present(activation))then
+       activation_ = activation_setup(activation)
+    else
+       activation_ = activation_setup("none")
+    end if
 
 
     !---------------------------------------------------------------------------
@@ -438,7 +440,9 @@ contains
          this%num_time_steps + 1
     write(unit,fmt) this%num_vertex_features
 
-    write(unit,'(3X,"ACTIVATION = ",A)') trim(this%activation%name)
+    if(this%activation%name .ne. 'none')then
+       call this%activation%print_to_unit(unit)
+    end if
 
 
     ! Write learned parameters
@@ -458,7 +462,7 @@ contains
     !! Read the message passing layer
     use athena__tools_infile, only: assign_val, assign_vec, get_val, move
     use coreutils, only: to_lower, to_upper, icount
-    use athena__activation, only: activation_setup
+    use athena__activation, only: read_activation
     use athena__initialiser, only: initialiser_setup
     implicit none
 
@@ -542,7 +546,9 @@ contains
           allocate(num_vertex_features(itmp1), source=0)
           call assign_vec(buffer, num_vertex_features, itmp1)
        case("ACTIVATION")
-          call assign_val(buffer, activation_name, itmp1)
+          iline = iline - 1
+          backspace(unit)
+          activation = read_activation(unit, iline)
        case("KERNEL_INITIALISER", "KERNEL_INIT", "KERNEL_INITIALIZER")
           call assign_val(buffer, kernel_initialiser_name, itmp1)
        case("WEIGHTS")
@@ -563,7 +569,6 @@ contains
           return
        end select
     end do tag_loop
-    activation = activation_setup(activation_name)
     kernel_initialiser = initialiser_setup(kernel_initialiser_name)
 
 

@@ -88,7 +88,7 @@ module athena__duvenaud_msgpass_layer
        !! Minimum vertex degree
        integer, optional, intent(in) :: batch_size
        !! Batch size
-       character(*), optional, intent(in) :: message_activation, &
+       class(*), optional, intent(in) :: message_activation, &
             readout_activation
        !! Message and readout activation functions
        character(*), optional, intent(in) :: kernel_initialiser
@@ -99,6 +99,9 @@ module athena__duvenaud_msgpass_layer
        !! Instance of the message passing layer
      end function layer_setup
   end interface duvenaud_msgpass_layer_type
+
+  character(len=*), parameter :: default_message_actv_name = "sigmoid"
+  character(len=*), parameter :: default_readout_actv_name = "softmax"
 
 
 
@@ -170,6 +173,7 @@ contains
   ) result(layer)
     !! Set up the message passing layer
     use athena__initialiser, only: initialiser_setup
+    use athena__activation, only: activation_setup
     implicit none
 
     ! Arguments
@@ -187,7 +191,7 @@ contains
     !! Minimum vertex degree
     integer, optional, intent(in) :: batch_size
     !! Batch size
-    character(*), optional, intent(in) :: message_activation, &
+    class(*), optional, intent(in) :: message_activation, &
          readout_activation
     !! Message and readout activation functions
     character(*), optional, intent(in) :: kernel_initialiser
@@ -200,13 +204,7 @@ contains
     ! Local variables
     integer :: verbose_ = 0
     !! Verbosity level
-    real(real32) :: &
-         message_scale = 1._real32, &
-         readout_scale = 1._real32
-    !! Activation scale
-    character(len=10) :: &
-         message_activation_ = "sigmoid", &
-         readout_activation_ = "softmax"
+    class(base_actv_type), allocatable :: message_activation_ , readout_activation_
     !! Activation function
     class(base_init_type), allocatable :: kernel_initialiser_
     !! Kernel and bias initialisers
@@ -217,12 +215,23 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Set activation and derivative functions based on input name
+    ! Set activation functions
     !---------------------------------------------------------------------------
-    if(present(message_activation)) &
-         message_activation_ = message_activation
-    if(present(readout_activation)) &
-         readout_activation_ = readout_activation
+    if(present(message_activation))then
+       message_activation_ = activation_setup(message_activation)
+    else
+       message_activation_ = activation_setup(default_message_actv_name)
+    end if
+    if(present(readout_activation))then
+       readout_activation_ = activation_setup(readout_activation)
+    else
+       readout_activation_ = activation_setup(default_readout_actv_name)
+    end if
+
+
+    !---------------------------------------------------------------------------
+    ! Set minimum vertex degree
+    !---------------------------------------------------------------------------
     if(present(min_vertex_degree)) min_vertex_degree_ = min_vertex_degree
     if(max_vertex_degree.lt.min_vertex_degree_)then
        write(0,*) "Error: max_vertex_degree < min_vertex_degree"
@@ -306,7 +315,7 @@ contains
     !! Number of time steps
     integer, intent(in) :: num_outputs
     !! Number of outputs
-    character(*), intent(in) :: &
+    class(base_actv_type), allocatable, intent(in) :: &
          message_activation, &
          readout_activation
     !! Message and readout activation functions
@@ -367,12 +376,18 @@ contains
     this%use_graph_output = .false.
     if(allocated(this%activation)) deallocate(this%activation)
     if(allocated(this%activation_readout)) deallocate(this%activation_readout)
-    allocate(this%activation, &
-         source = activation_setup(message_activation))
-    allocate(this%activation_readout, &
-         source = activation_setup(readout_activation))
+    if(.not.allocated(message_activation))then
+       this%activation = activation_setup(default_message_actv_name)
+    else
+       this%activation = message_activation
+    end if
+    if(.not.allocated(readout_activation))then
+       this%activation_readout = activation_setup(default_readout_actv_name)
+    else
+       this%activation_readout = readout_activation
+    end if
     if(.not.allocated(kernel_initialiser))then
-       buffer = get_default_initialiser(message_activation)
+       buffer = get_default_initialiser(this%activation%name)
        this%kernel_init = initialiser_setup(buffer)
     else
        this%kernel_init = kernel_initialiser
@@ -630,8 +645,12 @@ contains
          this%num_time_steps + 1
     write(unit,fmt) this%num_edge_features
 
-    write(unit,'(3X,"MESSAGE_ACTIVATION = ",A)') trim(this%activation%name)
-    write(unit,'(3X,"READOUT_ACTIVATION = ",A)') trim(this%activation_readout%name)
+    if(this%activation%name .ne. 'none')then
+       call this%activation%print_to_unit(unit, identifier='MESSAGE')
+    end if
+    if(this%activation_readout%name .ne. 'none')then
+       call this%activation_readout%print_to_unit(unit, identifier='READOUT')
+    end if
 
 
     ! Write learned parameters

@@ -171,7 +171,7 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Set activation and derivative functions based on input name
+    ! Set activation functions based on input name
     !---------------------------------------------------------------------------
     if(present(activation))then
        activation_ = activation_setup(activation)
@@ -538,7 +538,10 @@ contains
     end if
     write(unit,'(3X,"PADDING = ",A)') padding_type
 
-    write(unit,'(3X,"ACTIVATION = ",A)') trim(this%activation%name)
+    write(unit,'(3X,"USE_BIAS = ",L1)') this%use_bias
+    if(this%activation%name .ne. 'none')then
+       call this%activation%print_to_unit(unit)
+    end if
 
 
     ! Write weights and biases
@@ -557,7 +560,7 @@ contains
     !! Read 3D convolutional layer from file
     use athena__tools_infile, only: assign_val, assign_vec, move
     use coreutils, only: to_lower, to_upper, icount
-    use athena__activation, only: activation_setup
+    use athena__activation, only: read_activation
     use athena__initialiser, only: initialiser_setup
     implicit none
 
@@ -654,7 +657,9 @@ contains
           call assign_val(buffer, padding, itmp1)
           padding = to_lower(padding)
        case("ACTIVATION")
-          call assign_val(buffer, activation_name, itmp1)
+          iline = iline - 1
+          backspace(unit)
+          activation = read_activation(unit, iline)
        case("KERNEL_INITIALISER", "KERNEL_INIT", "KERNEL_INITIALIZER")
           call assign_val(buffer, kernel_initialiser_name, itmp1)
        case("BIAS_INITIALISER", "BIAS_INIT", "BIAS_INITIALIZER")
@@ -678,7 +683,6 @@ contains
           return
        end select
     end do tag_loop
-    activation = activation_setup(activation_name)
     kernel_initialiser = initialiser_setup(kernel_initialiser_name)
     bias_initialiser = initialiser_setup(bias_initialiser_name)
 
