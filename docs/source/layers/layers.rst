@@ -1,3 +1,5 @@
+.. _layers:
+
 Layers
 ======
 
@@ -34,4 +36,4 @@ The following types of layers are available in the athena library:
 Creating custom layers
 ----------------------
 
-The athena library is designed with extensibility in mind, allowing users to create custom layers by extending the `base_layer_type`.
+The athena library is designed with extensibility in mind, allowing users to create custom layers by extending the ``base_layer_type``.

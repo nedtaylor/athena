@@ -1,0 +1,10 @@
+/* Reduce spacing between multiple toctrees inside the same container */
+div.tight-toc > .toctree-wrapper {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+div.tight-toc > .toctree-wrapper + .toctree-wrapper {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
