@@ -1,4 +1,4 @@
-project: diffstruc
+project: athena
 summary: A Fortran library for implementing neural networks
 author: Ned Thaddeus Taylor
 src_dir: ../../src
