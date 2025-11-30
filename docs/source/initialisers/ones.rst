@@ -10,7 +10,7 @@ Ones Initialiser
   ones_init_type()
 
 
-Initializes all weights to one.
+Initialises all weights to one.
 
 .. math::
 
@@ -21,4 +21,4 @@ This is rarely used for weight initialization. It may be used for specific layer
 Shape:
 ------
 
-Initializes weights based on the shape provided during layer setup.
+Initialises weights based on the shape provided during layer setup.

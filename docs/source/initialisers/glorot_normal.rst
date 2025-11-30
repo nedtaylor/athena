@@ -23,4 +23,4 @@ This initialisation helps maintain the variance of activations across layers and
 Shape:
 ------
 
-Initializes weights based on the shape provided during layer setup.
+Initialises weights based on the shape provided during layer setup.

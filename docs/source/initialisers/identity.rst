@@ -10,7 +10,7 @@ Identity Initialiser
   ident_init_type()
 
 
-Initializes weights as the identity matrix.
+Initialises weights as the identity matrix.
 
 .. math::
 
@@ -24,4 +24,4 @@ This is useful for certain architectures like residual connections where you wan
 Shape:
 ------
 
-Initializes square weight matrices based on the shape provided during layer setup.
+Initialises square weight matrices based on the shape provided during layer setup.

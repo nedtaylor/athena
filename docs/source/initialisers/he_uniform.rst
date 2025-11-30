@@ -23,4 +23,4 @@ This initialisation is specifically designed for networks using ReLU activations
 Shape:
 ------
 
-Initializes weights based on the shape provided during layer setup.
+Initialises weights based on the shape provided during layer setup.

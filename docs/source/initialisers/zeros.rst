@@ -10,7 +10,7 @@ Zeros Initialiser
   zeros_init_type()
 
 
-Initializes all weights to zero.
+Initialises all weights to zero.
 
 .. math::
 
@@ -21,4 +21,4 @@ This is commonly used for bias initialization but should not be used for weight 
 Shape:
 ------
 
-Initializes weights based on the shape provided during layer setup.
+Initialises weights based on the shape provided during layer setup.

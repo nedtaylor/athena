@@ -26,7 +26,7 @@
 
 
 The ``batchnorm1d_layer_type`` derived type provides a 1D batch normalization layer.
-This layer applies batch normalization, which normalizes the inputs to have mean of 0 and variance of 1, then applies a learned affine transformation.
+This layer applies batch normalization, which normalises the inputs to have mean of 0 and variance of 1, then applies a learned affine transformation.
 
 .. math::
 

@@ -25,7 +25,7 @@ Arguments
 Shape:
 ------
 
-Initializes weights based on the shape provided during layer setup.
+Initialises weights based on the shape provided during layer setup.
 
 Notes:
 ------
