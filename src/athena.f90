@@ -66,6 +66,7 @@ module athena
   use athena__activation_none,   only: none_actv_type
   use athena__activation_piecewise, only: piecewise_actv_type
   use athena__activation_relu,   only: relu_actv_type
+  use athena__activation_selu,   only: selu_actv_type
   use athena__activation_sigmoid,only: sigmoid_actv_type
   use athena__activation_softmax, only: softmax_actv_type
   use athena__activation_swish,  only: swish_actv_type

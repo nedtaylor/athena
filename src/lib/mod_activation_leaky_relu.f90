@@ -6,6 +6,7 @@ module athena__activation_leaky_relu
   use coreutils, only: real32, print_warning
   use diffstruc, only: array_type, operator(*), max
   use athena__misc_types, only: base_actv_type
+  use athena__activation_relu, only: relu_actv_type
   use athena__misc_types, only: onnx_attribute_type
   implicit none
 
@@ -15,7 +16,7 @@ module athena__activation_leaky_relu
   public :: leaky_relu_actv_type, create_from_onnx_leaky_relu_activation
 
 
-  type, extends(base_actv_type) :: leaky_relu_actv_type
+  type, extends(relu_actv_type) :: leaky_relu_actv_type
    contains
      procedure, pass(this) :: apply => leaky_relu_activate
      procedure, pass(this) :: reset => leaky_relu_reset

@@ -22,6 +22,8 @@ module athena__activation
        create_from_onnx_tanh_activation
   use athena__activation_none, only: none_actv_type, &
        create_from_onnx_none_activation
+  use athena__activation_selu, only: selu_actv_type, &
+       create_from_onnx_selu_activation
   implicit none
 
 
@@ -104,6 +106,8 @@ contains
           activation = tanh_actv_type()
        case ("none")
           activation = none_actv_type()
+       case ("selu")
+          activation = selu_actv_type()
        case default
           if(present(error))then
              error = -1
@@ -148,6 +152,7 @@ contains
          onnx_create_actv_container('none', create_from_onnx_none_activation), &
          onnx_create_actv_container('piecewise', create_from_onnx_piecewise_activation), &
          onnx_create_actv_container('relu', create_from_onnx_relu_activation), &
+         onnx_create_actv_container('selu', create_from_onnx_selu_activation), &
          onnx_create_actv_container('sigmoid', create_from_onnx_sigmoid_activation), &
          onnx_create_actv_container('softmax', create_from_onnx_softmax_activation), &
          onnx_create_actv_container('swish', create_from_onnx_swish_activation), &
