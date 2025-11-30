@@ -1,34 +1,55 @@
-Fully Connected Layer
+.. _full-layer:
+
+Fully-Connected Layer
 =====================
 
-`full_layer_type`
+``full_layer_type``
+
 .. code-block:: fortran
 
   full_layer_type(
     num_outputs,
-    num_inputs,
-    num_addit_inputs,
-    batch_size,
-    activation_function="none",
-    activation_scale=1.0,
-    kernel_initialiser=empty,
-    bias_initialiser=empty
+    num_inputs=...,
+    use_bias=.true.,
+    activation="none",
+    kernel_initialiser=...,
+    bias_initialiser=...,
+    batch_size=...
   )
 
 
-The `full_layer_type` derived type provides a fully-connected (aka dense) layer.
-The layer contains `num_inputs` number of input features.
+The ``full_layer_type`` derived type provides a fully-connected (aka dense) layer.
+The operation performed by this layer is given by:
 
-This layer creates a fully- (densely-) connected layer, a standard neural network layer.
+.. math::
+
+   \text{output} = \text{activation}(\text{input} \cdot W + b)
+
+where :math:`W` is the weight matrix, :math:`b` is the bias vector (if used), and :math:`\text{activation}` is the activation function applied element-wise to the output.
 
 Arguments
 ---------
 
-* **num_outputs**: Positive integer. Number of output neurons (dimensionality of output space).
-* **num_inputs**: Integer. Number of input neurons. Defaults to number of outputs of previous layer.
-* **num_addit_inputs**: Positive integer. Number of additional inputs to this layer that have been exempt from entering previous layers.
-* **batch_size**: Integer. The number samples in a batch. This is optional (the enclosing network structure can handle it instead).
-* **activation_function**: Activation function for the layer (see [Activation Functions](activation-functions)).
-* **activation_scale**: Real scalar. Defaults to `1.0`.
-* **kernel_initialiser**: Initialiser for the kernel weights (see [Initialisers](initialisers)).
-* **bias_initialiser**: Initialiser for the biases (see [Initialisers](initialisers)).
+* **num_outputs** (`integer`): Size of each output sample
+* **num_inputs** (`integer`): Size of each input sample
+* **use_bias** (`logical`): If ``.false.``, the layer will not use a bias term. Default: ``.true.``.
+* **activation** (`class(*)`): Activation function for the layer.
+
+  * Accepts `character(*)` or `class(base_actv_type)`.
+  * See :ref:`Activation Functions <activation-functions>` for available options.
+  * Default: ``none_actv_type``.
+
+* **kernel_initialiser** (`class(*)`): Initialiser for the kernel weights (see :ref:`Initialisers <initialisers>`).
+
+  * If ``activation`` is ``selu_actv_type``, default: ``lecun_normal_init_type``.
+  * If ``activation`` is a version of ``relu_actv_type``, default: ``he_normal_init_type``.
+  * For all other activations, default: ``glorot_uniform_init_type``.
+
+* **bias_initialiser** (`class(*)`): Initialiser for the biases (see :ref:`Initialisers <initialisers>`). Default: ``zeros_init_type``.
+* **batch_size** (`integer`): **SOON TO BE DEPRECATED**. Batch size for the layer. Handled automatically during training and inference.
+
+Shape:
+------
+
+* Input: ``(num_inputs, batch_size)``.
+* Output: ``(num_outputs, batch_size)``.

@@ -35,4 +35,6 @@ Contents
    install
    layers/layers
    optimisers/optimisers
+   activations/activations
+   initialisers/initialisers
    Fortran API <api>
