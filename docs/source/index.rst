@@ -22,17 +22,14 @@ An example of how to use the library is shown below:
 .. container:: tight-toc
 
    .. toctree::
-      :maxdepth: 2
+      :maxdepth: 1
       :caption: Contents:
 
       about
       install
       layers/layers
-
-   .. toctree::
-      :maxdepth: 1
-
       optimisers/optimisers
       activations/activations
       initialisers/initialisers
+      loss/loss
       Fortran API <api>

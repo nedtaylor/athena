@@ -8,3 +8,21 @@ div.tight-toc > .toctree-wrapper + .toctree-wrapper {
     margin-top: 0 !important;
     padding-top: 0 !important;
 }
+
+
+/* Make Sphinx rubric look exactly like an H2 header in the RTD theme */
+
+p.rubric {
+    /* match h2 style */
+    font-size: 150% !important;   /* RTD h2 size */
+    font-weight: 700 !important;  /* bold */
+    font-family: Roboto Slab, ff-tisa-web-pro, Georgia, Arial, sans-serif !important;
+    margin-top: 0 !important;
+    margin-bottom: 24px !important;
+    padding: 0 !important;
+    border: none !important;
+
+    /* reset default rubric styling */
+    text-transform: none !important;
+    color: inherit !important;
+}
