@@ -17,6 +17,7 @@ module athena__activation_leaky_relu
 
 
   type, extends(relu_actv_type) :: leaky_relu_actv_type
+     real(real32) :: alpha
    contains
      procedure, pass(this) :: apply => leaky_relu_activate
      procedure, pass(this) :: reset => leaky_relu_reset
@@ -70,6 +71,7 @@ contains
     this%name = "leaky_relu"
     this%scale = 1._real32
     this%threshold = 0._real32
+    this%alpha = 0.01_real32
     this%apply_scaling = .false.
 
   end subroutine leaky_relu_reset
@@ -116,6 +118,8 @@ contains
           else
              this%apply_scaling = .false.
           end if
+       case("alpha")
+          read(attributes(i)%val,*) this%alpha
        case default
           call print_warning( &
                'Leaky ReLU activation: unknown attribute '//trim(attributes(i)%name) &
@@ -142,7 +146,7 @@ contains
     character(50) :: buffer
     !! Temporary string buffer
 
-    allocate(attributes(2))
+    allocate(attributes(3))
 
     write(buffer, '(A)') this%name
     attributes(1) = onnx_attribute_type( &
@@ -151,6 +155,10 @@ contains
     write(buffer, '(F10.6)') this%scale
     attributes(2) = onnx_attribute_type( &
          "scale", "float", trim(adjustl(buffer)) )
+
+    write(buffer, '(F10.6)') this%alpha
+    attributes(3) = onnx_attribute_type( &
+         "alpha", "float", trim(adjustl(buffer)) )
 
   end function export_attributes_leaky_relu
 !###############################################################################
@@ -173,9 +181,9 @@ contains
 
     ! allocate(output)
     if(this%apply_scaling)then
-       output => max(val * 0.01_real32, val) * this%scale
+       output => max(val * this%alpha, val) * this%scale
     else
-       output => max(val * 0.01_real32, val)
+       output => max(val * this%alpha, val)
     end if
   end function leaky_relu_activate
 !###############################################################################
