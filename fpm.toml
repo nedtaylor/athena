@@ -18,7 +18,8 @@ module-naming = false
 [dependencies]
 coreutils = { git = "https://github.com/nedtaylor/coreutils" }
 graphstruc = { git = "https://github.com/nedtaylor/graphstruc", branch = "sparse_adjacency" }
-diffstruc = { git = "https://github.com/nedtaylor/diffstruc", branch = "no_graph_reverse" }
+# diffstruc = { git = "https://github.com/nedtaylor/diffstruc", branch = "no_graph_reverse" }
+diffstruc = { path = "../diffstruc" }
 
 [install]
 library = false
@@ -111,3 +112,7 @@ example_library = { path = "example/example_library"}
 [[example]]
 name = "onnx"
 source-dir = "example/onnx/src"
+
+[[example]]
+name = "resnet"
+source-dir = "example/resnet/src"

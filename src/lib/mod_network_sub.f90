@@ -1324,7 +1324,7 @@ contains
     logical :: l_flatten_child, l_set_input_shape
     !! Booleans whether to flatten child or set input shape
     integer, dimension(:), allocatable :: input_shape, &
-         child_vertices, parent_vertices
+         child_vertices, parent_vertices, output_ranks
     !! Shapes of the input and output of the layers
     integer, dimension(:,:), allocatable :: merge_shape
     !! Shapes of the inputs to merge layers
@@ -1428,25 +1428,25 @@ contains
     do i = 1, size(this%auto_graph%vertex, dim = 1)
        id = this%auto_graph%vertex(i)%id
        if(this%model(id)%layer%input_rank.eq.0)then
-          if(allocated(parent_vertices)) deallocate(parent_vertices)
-          allocate(parent_vertices(0))
-          do j = 1, size(this%auto_graph%adjacency(:,id), dim = 1)
-             if(this%auto_graph%adjacency(j,id).eq.0) cycle
-             parent_id = this%auto_graph%vertex(j)%id
-             parent_vertices = [parent_vertices, j]
-             if( size(parent_vertices,1) .gt. 1 .and. &
-                  this%model(parent_id)%layer%output_rank .ne. &
-                  this%model(id)%layer%output_rank &
-             )then
-                call stop_program( &
-                     "input rank of layer "//trim(this%model(id)%layer%name) // &
-                     " is zero, but multiple parents with different output ranks" &
-                )
-                return
-             else
-                input_rank = this%model(parent_id)%layer%output_rank
-             end if
-          end do
+          parent_vertices = pack( &
+               [ ( &
+                    this%auto_graph%vertex(j)%id, &
+                    j = 1, size(this%auto_graph%adjacency(:,id)) &
+               ) ], &
+               this%auto_graph%adjacency(:,id) .ne. 0 &
+          )
+          if(size(parent_vertices).eq.0) cycle
+          output_ranks = [ ( this%model(parent_vertices(j))%layer%output_rank, &
+               j=1,size(parent_vertices) ) ]
+          if(any(output_ranks.ne.output_ranks(1)))then
+             write(0,*) output_ranks
+             call stop_program( &
+                  "input rank of layer "//trim(this%model(id)%layer%name) // &
+                  " is zero, but multiple parents with different output ranks" &
+             )
+             return
+          end if
+          input_rank = this%model(parent_vertices(1))%layer%output_rank
           call this%model(id)%layer%set_rank( &
                input_rank = input_rank, &
                output_rank = input_rank &

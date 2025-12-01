@@ -17,7 +17,6 @@ Welcome to the athena tutorials! These guides will help you get started with bui
    :maxdepth: 1
    :caption: Advanced Topics
 
-   convolutional_networks
    custom_layers
    custom_activations
    custom_initialisers
@@ -30,6 +29,7 @@ Welcome to the athena tutorials! These guides will help you get started with bui
 
    mnist_example
    regression_example
+   resnet_example
 
 Overview
 --------
@@ -50,7 +50,6 @@ Advanced Topics
 
 Learn how to extend athena with custom components:
 
-* :ref:`Convolutional Networks <convolutional-networks>` - Build CNNs for image processing
 * :ref:`Creating Custom Layers <custom-layers>` - Implement custom layer types
 * :ref:`Creating Custom Activation Functions <custom-activations>` - Add new activations
 * :ref:`Creating Custom Initialisers <custom-initialisers>` - Design initialization strategies
@@ -64,6 +63,9 @@ Complete examples demonstrating real-world applications:
 
 * :ref:`MNIST Classification <mnist-example>` - Classic handwritten digit recognition
 * :ref:`Regression Example <regression-example>` - Function approximation and prediction
+* :ref:`ResNet <resnet-example>` - Building deep residual networks with skip connections
+* :ref:`Message Passing Neural Networks <msgpass-example>` - Graph-based learning with MPNNs
+* :ref:`Physics-Informed Neural Networks <pinn-example>` - Solving differential equations with PINNs
 
 Next Steps
 ----------
