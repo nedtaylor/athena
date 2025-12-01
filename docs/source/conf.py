@@ -58,6 +58,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx_rtd_theme',
     'sphinx.ext.extlinks',
+    'sphinx_copybutton'
 ]
 
 extlinks = {
@@ -74,12 +75,21 @@ templates_path = ['_templates']
 
 exclude_patterns = ['_build', '.DS_Store', 'build']
 
+# -- Search aliases extension
+
+sys.path.append(os.path.abspath('_ext'))
+
+extensions.append('spelling_aliases')
+
 # -- Options for HTML output
 
 html_theme = 'sphinx_rtd_theme'
 
 # Add path for static files (will include FORD output)
 html_static_path = ['_static']
+html_css_files = [
+    "custom.css"
+]
 
 html_theme_options = {
     'logo_only': False,
