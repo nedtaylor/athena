@@ -617,7 +617,7 @@ contains
           ! Ignore this tag, it is only for information
        case("NAME")
           call assign_val(buffer, name_, itmp1)
-          if(len(trim(adjustl(name_))) .gt. 0) then
+          if(len(trim(adjustl(name_))) .gt. 0)then
              this%name = trim(adjustl(name_))
           end if
        case("EPOCH")
@@ -1598,7 +1598,7 @@ contains
        else
           l_set_input_shape = .true.
        end if
-       if(l_set_input_shape) then
+       if(l_set_input_shape)then
           layer_rank = this%model(this%vertex_order(i))%layer%input_rank
           previous_rank = 0
 
@@ -2044,7 +2044,7 @@ contains
        select type(current => this%model(l)%layer)
        class is(learnable_layer_type)
           do i = 1, size(current%params_array)
-             if(associated(current%params_array(i)%grad)) then
+             if(associated(current%params_array(i)%grad))then
                 start_idx = end_idx + 1
                 end_idx = end_idx + size(current%params_array(i)%val, 1)
                 gradients(start_idx:end_idx) = [ &
@@ -2620,7 +2620,7 @@ contains
              start_idx = end_idx + 1
              end_idx = end_idx + size(current%params_array(i)%val, 1)
              params(start_idx:end_idx) = current%params_array(i)%val(:,1)
-             if(.not.associated(current%params_array(i)%grad)) then
+             if(.not.associated(current%params_array(i)%grad))then
                 call stop_program( &
                      "Gradient not allocated for parameters in layer "// &
                      trim(current%name) // &
@@ -3738,6 +3738,95 @@ contains
     end if
 
   end function predict_generic
+!###############################################################################
+
+
+!###############################################################################
+  module subroutine print_summary(this)
+    !! Print a summary of the network architecture
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(in) :: this
+    !! Instance of network
+
+    ! Local variables
+    integer :: i
+    !! Loop index
+    integer :: total_params
+    !! Parameter counts
+    integer :: layer_params
+    !! Parameters in current layer
+    character(len=80) :: line
+    !! Line separator
+    character(len=40) :: layer_name
+    !! Layer name
+    character(len=30) :: output_shape_str
+    !! Output shape string
+    character(len=20) :: param_str
+    !! Parameter count string
+    character(len=100) :: fmt
+    !! Format string
+
+    line = repeat('_', 80)
+
+    ! Print header
+    write(*,*)
+    write(*,'(A)') line
+    write(*,'(A)') 'Model Summary'
+    write(*,'(A)') line
+    write(*,'(A35, A25, A15)') 'Layer (type)', 'Output Shape', 'Param #'
+    write(*,'(A)') repeat('=', 80)
+
+    ! Initialize parameter count
+    total_params = 0
+
+    ! Print each layer
+    do i = 1, this%num_layers
+       associate(layer => this%model(this%vertex_order(i))%layer)
+          ! Get layer name
+          if(allocated(layer%name))then
+             write(layer_name, '(A," (",A,")")') &
+                  trim(layer%name), trim(layer%subtype)
+          else
+             write(layer_name, '(A,I0," (",A,")")') &
+                  'layer_', i, trim(layer%subtype)
+          end if
+
+          ! Get output shape string
+          if(allocated(layer%output_shape))then
+             ! write the general format for output shape
+             write(fmt,'("(""(""",A,"I0,"")"")")') &
+                  repeat('I0,", "', size(layer%output_shape)-1)
+             write(output_shape_str, fmt) layer%output_shape
+          else
+             output_shape_str = '(Not set)'
+          end if
+
+          ! Get parameter count
+          layer_params = layer%get_num_params()
+          total_params = total_params + layer_params
+          if(layer_params > 0)then
+             write(param_str, '(I0)') layer_params
+          else
+             param_str = '0'
+          end if
+
+          ! Print layer information
+          write(*,'(A35, A25, A15)') adjustl(trim(layer_name)), &
+               adjustl(trim(output_shape_str)), adjustl(trim(param_str))
+       end associate
+    end do
+
+    ! Print footer
+    write(*,'(A)') repeat('=', 80)
+    write(*,'(A,I0)') 'Number of input vertices: ', size(this%root_vertices)
+    write(*,'(A,I0)') 'Number of output vertices: ', size(this%leaf_vertices)
+    write(*,'(A,I0)') 'Total trainable params: ', total_params
+    write(*,'(A)') line
+    write(*,*)
+
+  end subroutine print_summary
 !###############################################################################
 
 end submodule athena__network_submodule

@@ -76,6 +76,8 @@ module athena__network
    contains
      procedure, pass(this) :: print
      !! Print the network to file
+     procedure, pass(this) :: print_summary
+     !! Print a summary of the network architecture
      procedure, pass(this) :: read
      !! Read the network from a file
      procedure, pass(this), private :: read_network_settings
@@ -205,6 +207,13 @@ module athena__network
        character(*), intent(in) :: file
        !! File name
      end subroutine print
+
+     !! Interface for printing a summary of the network
+     module subroutine print_summary(this)
+       !! Print a summary of the network architecture
+       class(network_type), intent(in) :: this
+       !! Instance of the network
+     end subroutine print_summary
 
      !! Interface for reading the network from a file
      module subroutine read(this, file)
