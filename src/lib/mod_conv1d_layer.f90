@@ -1,5 +1,20 @@
 module athena__conv1d_layer
   !! Module containing implementation of a 1D convolutional layer
+  !!
+  !! This module implements 1D convolution for processing sequential data
+  !! such as time series or text. Applies learnable filters along sequence.
+  !!
+  !! Mathematical operation:
+  !!   output[i,k] = σ( Σ_{c,m} input[i+m, c] * kernel[m,c,k] + bias[k] )
+  !!
+  !! where:
+  !!   i is the position along the sequence
+  !!   k is the output channel (filter) index
+  !!   m is the kernel offset
+  !!   c is the input channel index
+  !!   σ is the activation function
+  !!
+  !! Shape: input (length, channels) -> output (length', filters)
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: conv_layer_type, base_layer_type
   use athena__pad1d_layer, only: pad1d_layer_type

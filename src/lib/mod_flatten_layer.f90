@@ -1,5 +1,16 @@
 module athena__flatten_layer
-  !! Module containing implementation of a 1D flattening layer
+  !! Module containing implementation of a flattening layer
+  !!
+  !! This module implements a reshape layer that flattens multi-dimensional
+  !! inputs into 1D vectors. Commonly used between convolutional and dense layers.
+  !!
+  !! Mathematical operation:
+  !!   Reshape: (d1, d2, ..., dn) -> (d1 * d2 * ... * dn)
+  !!
+  !! Example: (28, 28, 32) -> (25088)
+  !!
+  !! No parameters, pure reshape operation
+  !! Preserves all information, just changes tensor structure
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: base_layer_type
   use diffstruc, only: array_type, pack

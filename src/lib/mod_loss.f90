@@ -1,8 +1,37 @@
 module athena__loss
-  !! Module containing functions to compute the loss of a model
+  !! Module containing loss function implementations
   !!
-  !! This module contains functions to compute the loss of a model
-  !! The loss functions are used to determine how well a model is performing
+  !! This module implements loss functions that quantify the difference between
+  !! model predictions and target values, guiding the optimization process.
+  !!
+  !! Implemented loss functions:
+  !!
+  !! Mean Squared Error (MSE):
+  !!   L = (1/N) Σ (y_pred - y_true)²
+  !!   For regression, sensitive to outliers
+  !!
+  !! Mean Absolute Error (MAE):
+  !!   L = (1/N) Σ |y_pred - y_true|
+  !!   For regression, robust to outliers
+  !!
+  !! Binary Cross-Entropy:
+  !!   L = -(1/N) Σ [y*log(ŷ) + (1-y)*log(1-ŷ)]
+  !!   For binary classification (outputs in [0,1])
+  !!
+  !! Categorical Cross-Entropy:
+  !!   L = -(1/N) Σ_i Σ_c y_{i,c} * log(ŷ_{i,c})
+  !!   For multi-class classification with one-hot encoded targets
+  !!
+  !! Sparse Categorical Cross-Entropy:
+  !!   L = -(1/N) Σ log(ŷ_{i,c_i})
+  !!   For multi-class with integer class labels
+  !!
+  !! Huber Loss:
+  !!   L = (1/N) Σ { 0.5*(y-ŷ)²           if |y-ŷ| ≤ δ
+  !!               { δ*(|y-ŷ| - 0.5*δ)    otherwise
+  !!   Combines MSE and MAE, robust to outliers while smooth near zero
+  !!
+  !! where N is number of samples, y is true value, ŷ is prediction
   use coreutils, only: real32
   use diffstruc, only: array_type, operator(+), operator(-), &
        operator(*), operator(/), operator(**), mean, sum, log, abs, merge

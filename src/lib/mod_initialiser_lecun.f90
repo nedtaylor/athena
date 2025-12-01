@@ -1,9 +1,23 @@
 module athena__initialiser_lecun
   !! Module containing the implementation of the LeCun initialiser
   !!
-  !! This module contains the implementation of the LeCun initialiser
-  !! for the weights and biases of a layer
-  !! Reference: https://dl.acm.org/doi/10.5555/645754.668382
+  !! This module implements LeCun initialization, the precursor to modern
+  !! initialization schemes, designed for efficient backpropagation.
+  !!
+  !! Mathematical operation:
+  !!   Uniform variant:  W ~ U(-limit, limit)
+  !!                     where limit = sqrt(3 / fan_in)
+  !!   Normal variant:   W ~ N(0, σ²)
+  !!                     where σ = sqrt(1 / fan_in)
+  !!
+  !! fan_in is the number of input units to the layer.
+  !!
+  !! Rationale: Maintains variance of inputs through layers
+  !! Helps prevent saturation of activation functions
+  !!
+  !! Best for: SELU activation (with lecun_normal variant)
+  !! Also works with: Tanh, Sigmoid
+  !! Reference: LeCun et al. (1998), Neural Networks: Tricks of the Trade
   use coreutils, only: real32, pi, stop_program
   use athena__misc_types, only: base_init_type
   implicit none

@@ -1,7 +1,17 @@
 module athena__activation_relu
   !! Module containing implementation of the ReLU activation function
   !!
-  !! This module implements the Rectified Linear Unit activation function
+  !! This module implements the Rectified Linear Unit (ReLU) activation,
+  !! which zeroes negative values while preserving positive values.
+  !!
+  !! Mathematical operation:
+  !! \[ f(x) = \max(0, x) = \begin{cases} x & \text{if } x > 0 \\\\ 0 & \text{if } x \leq 0 \end{cases} \]
+  !!
+  !! Derivative:
+  !! \[ f'(x) = \begin{cases} 1 & \text{if } x > 0 \\\\ 0 & \text{if } x \leq 0 \end{cases} \]
+  !!
+  !! Properties: Non-saturating, sparse activation, mitigates vanishing gradients
+  !! Reference: Nair & Hinton (2010), ICML
   use coreutils, only: real32, print_warning
   use diffstruc, only: array_type, operator(*), max
   use athena__misc_types, only: base_actv_type

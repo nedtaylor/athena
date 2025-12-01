@@ -1,5 +1,19 @@
 module athena__maxpool1d_layer
   !! Module containing implementation of a 1D max pooling layer
+  !!
+  !! This module implements 1D max pooling for downsampling sequential data
+  !! by selecting maximum values within pooling windows.
+  !!
+  !! Mathematical operation:
+  !!   output[i,k] = max_{m∈[0,pool_size)} input[i*stride+m, k]
+  !!
+  !! where:
+  !!   i is the output position along sequence
+  !!   k is the channel index
+  !!   pool_size is the pooling window length
+  !!   stride controls the step size
+  !!
+  !! Shape: (length, channels) -> (length//stride, channels)
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: pool_layer_type, base_layer_type
   use diffstruc, only: array_type

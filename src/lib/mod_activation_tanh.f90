@@ -1,7 +1,17 @@
 module athena__activation_tanh
   !! Module containing implementation of the tanh activation function
   !!
-  !! This module implements the hyperbolic tangent activation function
+  !! This module implements the hyperbolic tangent activation that squashes
+  !! inputs to the range (-1, 1), zero-centered unlike sigmoid.
+  !!
+  !! Mathematical operation:
+  !! \[ \tanh(x) = \frac{e^x - e^{-x}}{e^x + e^{-x}} = \frac{e^{2x} - 1}{e^{2x} + 1} \]
+  !!
+  !! Derivative:
+  !! \[ \tanh'(x) = 1 - \tanh^2(x) \]
+  !!
+  !! Properties: Smooth, bounded \([-1,1]\), zero-centered, saturates for large \(|x|\)
+  !! Preferred over sigmoid in many cases due to zero-centering
   use coreutils, only: real32, print_warning
   use diffstruc, only: array_type, operator(*), tanh
   use athena__misc_types, only: base_actv_type

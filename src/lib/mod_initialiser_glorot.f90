@@ -1,10 +1,24 @@
 module athena__initialiser_glorot
   !! Module containing the implementation of the Glorot initialiser
   !!
-  !! This module contains the implementation of the Glorot initialiser
-  !! for the weights and biases of a layer
-  !! The Glorot initialiser is also known as the Xavier initialiser
-  !! Reference: https://proceedings.mlr.press/v9/glorot10a.html
+  !! This module implements Glorot (Xavier) initialization, designed to
+  !! maintain variance of gradients through layers with sigmoid/tanh.
+  !!
+  !! Mathematical operation:
+  !!
+  !! Uniform variant:
+  !! \[ W \sim \mathcal{U}(-\text{limit}, \text{limit}), \quad \text{limit} = \sqrt{\frac{6}{n_{\text{in}} + n_{\text{out}}}} \]
+  !!
+  !! Normal variant:
+  !! \[ W \sim \mathcal{N}(0, \sigma^2), \quad \sigma = \sqrt{\frac{2}{n_{\text{in}} + n_{\text{out}}}} \]
+  !!
+  !! where \(n_{\text{in}}\) is fan-in, \(n_{\text{out}}\) is fan-out.
+  !!
+  !! Rationale: Maintains variance across layers, prevents vanishing/exploding
+  !! gradients in deep networks
+  !!
+  !! Best for: Tanh, Sigmoid, Softmax activations
+  !! Reference: Glorot & Bengio (2010), AISTATS
   use coreutils, only: real32, pi, stop_program
   use athena__misc_types, only: base_init_type
   implicit none

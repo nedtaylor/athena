@@ -1,5 +1,21 @@
 module athena__conv2d_layer
   !! Module containing implementation of a 2D convolutional layer
+  !!
+  !! This module implements 2D convolution for processing image-like data.
+  !! Applies learnable filters to extract spatial features.
+  !!
+  !! Mathematical operation:
+  !! \[ y_{i,j,k} = \sigma\left(\sum_{c=1}^{C_{in}} \sum_{m=0}^{K_h-1} \sum_{n=0}^{K_w-1} x_{i+m,j+n,c} \cdot w_{m,n,c,k} + b_k\right) \]
+  !!
+  !! where:
+  !!   - \((i,j)\) are spatial coordinates in the output
+  !!   - \(k\) is the output channel (filter) index
+  !!   - \((m,n)\) are kernel offsets
+  !!   - \(c\) is the input channel index
+  !!   - \(K_h, K_w\) are kernel dimensions
+  !!   - \(\sigma\) is the activation function
+  !!
+  !! Shape: \((W, H, C_{in}) \rightarrow (W', H', C_{out})\)
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: conv_layer_type, base_layer_type
   use athena__pad2d_layer, only: pad2d_layer_type

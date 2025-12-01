@@ -1,5 +1,19 @@
 module athena__maxpool3d_layer
   !! Module containing implementation of a 3D max pooling layer
+  !!
+  !! This module implements 3D max pooling for downsampling volumetric data
+  !! by selecting maximum values within 3D pooling windows.
+  !!
+  !! Mathematical operation:
+  !!   output[i,j,k,c] = max_{l,m,n} input[i*stride+l, j*stride+m, k*stride+n, c]
+  !!
+  !! where:
+  !!   (i,j,k) are output spatial coordinates
+  !!   c is the channel index
+  !!   (l,m,n) iterate over the 3D pooling window
+  !!   stride controls the step size in each dimension
+  !!
+  !! Shape: (width,height,depth,channels) -> (w//stride,h//stride,d//stride,channels)
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: pool_layer_type, base_layer_type
   use diffstruc, only: array_type

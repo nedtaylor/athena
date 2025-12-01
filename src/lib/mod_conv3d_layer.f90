@@ -1,5 +1,21 @@
 module athena__conv3d_layer
   !! Module containing implementation of a 3D convolutional layer
+  !!
+  !! This module implements 3D convolution for processing volumetric data
+  !! such as video, medical imaging, or 3D point clouds.
+  !!
+  !! Mathematical operation:
+  !!   output[i,j,k,f] = σ( Σ_{c,l,m,n} input[i+l,j+m,k+n,c] *
+  !!                         kernel[l,m,n,c,f] + bias[f] )
+  !!
+  !! where:
+  !!   (i,j,k) are spatial coordinates in the output
+  !!   f is the output channel (filter) index
+  !!   (l,m,n) are kernel offsets in 3D
+  !!   c is the input channel index
+  !!   σ is the activation function
+  !!
+  !! Shape: input (width,height,depth,channels) -> output (w',h',d',filters)
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: conv_layer_type, base_layer_type
   use athena__pad3d_layer, only: pad3d_layer_type

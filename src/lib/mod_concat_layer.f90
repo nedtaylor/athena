@@ -1,5 +1,15 @@
 module athena__concat_layer
-  !! Module containing implementation of a concatenate layer
+  !! Module containing implementation of a concatenation layer
+  !!
+  !! This module implements a merge layer that concatenates multiple input
+  !! tensors along a specified dimension (features for 2D, channels for 3D).
+  !!
+  !! Mathematical operation:
+  !!   output = [input_1 || input_2 || ... || input_N]
+  !!
+  !! where || denotes concatenation along the appropriate dimension.
+  !! Output size along concatenation dimension = sum of input sizes.
+  !! Gradients are split to corresponding input portions during backpropagation.
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: merge_layer_type, base_layer_type
   use diffstruc, only: array_type, operator(+)

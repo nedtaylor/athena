@@ -1,11 +1,24 @@
 module athena__initialiser_he
   !! Module containing the implementation of the He initialiser
   !!
-  !! This module contains the implementation of the He initialiser
-  !! for the weights and biases of a layer
-  !! The He initialiser is also known as the Kaiming initialiser
-  !! The He initialiser is also known as the MSRA initialiser
-  !! Reference: https://doi.org/10.48550/arXiv.1502.01852
+  !! This module implements He (Kaiming/MSRA) initialization, designed for
+  !! layers with ReLU activation to prevent vanishing/exploding gradients.
+  !!
+  !! Mathematical operation:
+  !!
+  !! Uniform variant:
+  !! \[ W \sim \mathcal{U}(-\text{limit}, \text{limit}), \quad \text{limit} = \sqrt{\frac{6}{n_{\text{in}}}} \]
+  !!
+  !! Normal variant:
+  !! \[ W \sim \mathcal{N}(0, \sigma^2), \quad \sigma = \sqrt{\frac{2}{n_{\text{in}}}} \]
+  !!
+  !! where \(n_{\text{in}}\) is the number of input units (fan-in).
+  !!
+  !! Rationale: Maintains variance through ReLU layers
+  !! \(\text{Var}(\text{output}) \approx \text{Var}(\text{input})\)
+  !!
+  !! Best for: ReLU, Leaky ReLU, PReLU activations
+  !! Reference: He et al. (2015), ICCV, arXiv:1502.01852
   use coreutils, only: real32, pi, to_lower, stop_program
   use athena__misc_types, only: base_init_type
   implicit none

@@ -1,7 +1,18 @@
 module athena__activation_gaussian
   !! Module containing implementation of the Gaussian activation function
   !!
-  !! This module implements the Gaussian (bell curve) activation function
+  !! This module implements the Gaussian (bell curve) activation,
+  !! which produces maximum activation at the origin.
+  !!
+  !! Mathematical operation:
+  !! \[ f(x) = \frac{1}{\sqrt{2\pi\sigma^2}} \exp\left(-\frac{(x-\mu)^2}{2\sigma^2}\right) \]
+  !!
+  !! Derivative:
+  !! \[ f'(x) = -\frac{x-\mu}{\sigma^3\sqrt{2\pi}} \exp\left(-\frac{(x-\mu)^2}{2\sigma^2}\right) \]
+  !!
+  !! Properties: Smooth, symmetric, max at \(x=\mu\)
+  !! Used in Radial Basis Function (RBF) networks
+  !! Responds strongly to inputs near \(\mu\)
   use coreutils, only: real32, print_warning
   use diffstruc, only: array_type, gaussian, operator(*)
   use athena__misc_types, only: base_actv_type

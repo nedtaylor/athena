@@ -1,8 +1,21 @@
 module athena__activation_softmax
   !! Module containing implementation of the softmax activation function
   !!
-  !! This module implements the softmax activation function for normalising
-  !! outputs into probability distributions
+  !! This module implements softmax for converting logits into probability
+  !! distributions. Commonly used for multi-class classification.
+  !!
+  !! Mathematical operation:
+  !! \[ \text{softmax}(\mathbf{x})_i = \frac{e^{x_i}}{\sum_{j=1}^{n} e^{x_j}} \]
+  !!
+  !! Properties:
+  !!   - Outputs sum to 1: \(\sum_{i=1}^{n} \text{softmax}(\mathbf{x})_i = 1\)
+  !!   - All outputs in range \((0, 1)\)
+  !!   - Preserves ordering: \(x_i > x_j \Rightarrow f(x_i) > f(x_j)\)
+  !!   - Translation invariant: \(\text{softmax}(\mathbf{x}+c) = \text{softmax}(\mathbf{x})\)
+  !!
+  !! Derivative (Jacobian):
+  !! \[ \frac{\partial f_i}{\partial x_j} = f_i(\delta_{ij} - f_j) \]
+  !! where \(\delta_{ij}\) is the Kronecker delta
   use coreutils, only: real32, print_warning
   use diffstruc, only: array_type, operator(*)
   use athena__diffstruc_extd, only: softmax

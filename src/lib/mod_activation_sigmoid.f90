@@ -1,8 +1,17 @@
 module athena__activation_sigmoid
   !! Module containing implementation of the sigmoid activation function
   !!
-  !! This module implements the logistic sigmoid function for normalizing
-  !! outputs between 0 and 1
+  !! This module implements the logistic sigmoid function that squashes
+  !! inputs to the range (0, 1), commonly used for binary classification.
+  !!
+  !! Mathematical operation:
+  !! \[ \sigma(x) = \frac{1}{1 + e^{-x}} = \frac{e^x}{e^x + 1} \]
+  !!
+  !! Derivative:
+  !! \[ \sigma'(x) = \sigma(x)(1 - \sigma(x)) \]
+  !!
+  !! Properties: Smooth, bounded \([0,1]\), saturates for large \(|x|\)
+  !! Output interpretation: Can be viewed as probability for binary events
   use coreutils, only: real32, print_warning
   use diffstruc, only: array_type, operator(+), operator(-), &
        operator(*), operator(/), exp, merge, operator(.gt.), sigmoid

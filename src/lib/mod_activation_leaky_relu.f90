@@ -1,8 +1,19 @@
 module athena__activation_leaky_relu
   !! Module containing implementation of the leaky ReLU activation function
   !!
-  !! This module implements the Leaky Rectified Linear Unit function:
-  !! f(x) = x if x > 0, 0.01x otherwise
+  !! This module implements Leaky ReLU, a variant of ReLU that allows small
+  !! negative values to prevent "dying ReLU" problem.
+  !!
+  !! Mathematical operation:
+  !! \[ f(x) = \begin{cases} x & \text{if } x > 0 \\\\ \alpha x & \text{if } x \leq 0 \end{cases} \]
+  !!
+  !! where \(\alpha\) is a small positive constant (typically 0.01 or 0.2)
+  !!
+  !! Derivative:
+  !! \[ f'(x) = \begin{cases} 1 & \text{if } x > 0 \\\\ \alpha & \text{if } x \leq 0 \end{cases} \]
+  !!
+  !! Properties: Non-saturating, allows gradient flow for negative inputs
+  !! Reference: Maas et al. (2013), ICML
   use coreutils, only: real32, print_warning
   use diffstruc, only: array_type, operator(*), max
   use athena__misc_types, only: base_actv_type

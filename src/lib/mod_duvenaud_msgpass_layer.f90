@@ -1,5 +1,21 @@
 module athena__duvenaud_msgpass_layer
-  !! Module containing the types and interfacees of a message passing layer
+  !! Module implementing Duvenaud message passing for molecular graphs
+  !!
+  !! This module implements the graph neural network architecture from
+  !! Duvenaud et al. (2015) for learning on molecular graphs with both
+  !! vertex (node) and edge features.
+  !!
+  !! Mathematical operation (per time step t):
+  !!   h_v^(t+1) = σ( h_v^(t) + Σ_{u∈N(v)} M(h_v^(t), h_u^(t), e_vu) )
+  !!
+  !! Graph readout (aggregation to fixed-size vector):
+  !!   h_graph = σ_readout( Σ_{d=1}^D Σ_{v:deg(v)=d} W_d h_v^(T) )
+  !!
+  !! where M is a learned message function, σ is activation function,
+  !! N(v) are neighbors of v, e_vu are edge features, W_d are
+  !! degree-specific weight matrices, and D is max vertex degree.
+  !!
+  !! Reference: Duvenaud et al. (2015), NeurIPS
   use coreutils, only: real32
   use graphstruc, only: graph_type
   use athena__misc_types, only: base_actv_type, base_init_type

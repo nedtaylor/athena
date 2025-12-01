@@ -1,9 +1,21 @@
 module athena__activation_selu
   !! Module containing implementation of the SELU activation function
   !!
-  !! This module implements the Scaled Exponential Linear Unit activation function
-  !! SELU(x) = λ * x if x > 0, λ * α * (exp(x) - 1) if x ≤ 0
-  !! where λ ≈ 1.0507 and α ≈ 1.67326
+  !! This module implements Scaled Exponential Linear Unit (SELU), which has
+  !! self-normalizing properties for deep networks.
+  !!
+  !! Mathematical operation:
+  !! \[ f(x) = \lambda \begin{cases} x & \text{if } x > 0 \\\\ \alpha(e^x - 1) & \text{if } x \leq 0 \end{cases} \]
+  !!
+  !! where \(\lambda \approx 1.0507\) and \(\alpha \approx 1.6733\)
+  !! preserve mean=0, variance=1
+  !!
+  !! Derivative:
+  !! \[ f'(x) = \lambda \begin{cases} 1 & \text{if } x > 0 \\\\ \alpha e^x & \text{if } x \leq 0 \end{cases} \]
+  !!
+  !! Properties: Self-normalizing, enables very deep networks
+  !! Requires: Lecun Normal initialization, alpha dropout
+  !! Reference: Klambauer et al. (2017), NeurIPS
   use coreutils, only: real32, print_warning
   use diffstruc, only: array_type, operator(*), operator(-), operator(.gt.), &
        merge, exp

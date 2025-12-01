@@ -1,8 +1,20 @@
 module athena__activation_swish
   !! Module containing implementation of the swish activation function
   !!
-  !! This module implements the swish activation function: f(x) = x * sigmoid(β*x)
-  !! where β is a learnable parameter (default β=1)
+  !! This module implements Swish (also called SiLU), a smooth, non-monotonic
+  !! activation function discovered by Google researchers.
+  !!
+  !! Mathematical operation:
+  !! \[ f(x) = x \cdot \sigma(\beta x) = \frac{x}{1 + e^{-\beta x}} \]
+  !!
+  !! where \(\beta\) is a parameter (typically \(\beta=1\), making it SiLU)
+  !!
+  !! Derivative:
+  !! \[ f'(x) = \beta f(x) + \sigma(\beta x)(1 - \beta f(x)) \]
+  !!
+  !! Properties: Smooth, self-gated, unbounded above, bounded below at 0
+  !! Often outperforms ReLU in deep networks
+  !! Reference: Ramachandran et al. (2017), arXiv:1710.05941
   use coreutils, only: real32, print_warning
   use diffstruc, only: array_type, operator(*)
   use athena__misc_types, only: base_actv_type

@@ -1,7 +1,18 @@
 module athena__activation_linear
   !! Module containing implementation of the linear activation function
   !!
-  !! This module implements a scaled linear function f(x) = scale * x
+  !! This module implements a scaled linear (affine) activation function.
+  !!
+  !! Mathematical operation:
+  !! \[ f(x) = \alpha x \]
+  !!
+  !! where \(\alpha\) is a scaling factor (typically \(\alpha=1\))
+  !!
+  !! Derivative:
+  !! \[ f'(x) = \alpha \]
+  !!
+  !! Properties: Linear transformation, no non-linearity introduced
+  !! Used for regression outputs or when no activation is desired
   use coreutils, only: real32, print_warning
   use diffstruc, only: array_type, operator(*)
   use athena__misc_types, only: base_actv_type

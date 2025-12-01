@@ -1,12 +1,28 @@
 module athena__full_layer
   !! Module containing implementation of a fully connected layer
   !!
-  !! This module implements a fully connected (aka dense) layer for a
-  !! neural network.
+  !! This module implements a fully connected (dense) layer, the fundamental
+  !! building block of neural networks that connects every input to every output.
+  !!
+  !! Mathematical operation:
+  !! \[ \mathbf{y} = \sigma(\mathbf{W}\mathbf{x} + \mathbf{b}) \]
+  !!
+  !! where:
+  !!   - \(\mathbf{x} \in \mathbb{R}^{n_{in}}\) is the input vector
+  !!   - \(\mathbf{W} \in \mathbb{R}^{n_{out} \times n_{in}}\) is the weight matrix
+  !!   - \(\mathbf{b} \in \mathbb{R}^{n_{out}}\) is the bias vector
+  !!   - \(\sigma\) is the activation function
+  !!   - \(\mathbf{y} \in \mathbb{R}^{n_{out}}\) is the output vector
+  !!
+  !! Number of parameters: \(n_{out} \times n_{in} + n_{out}\) (if bias used)
+  !!
+  !! Properties: Universal function approximator (with sufficient width/depth)
+  !! Learns arbitrary non-linear mappings between input and output spaces
+  !!
   !! Attribution statement:
   !! The get_num_params procedure is based on code from the
   !! neural-fortran library
-  !! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
+  !! https://github.com/modern-fortran/neural-fortran
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: learnable_layer_type, base_layer_type
   use athena__misc_types, only: base_actv_type, base_init_type, &

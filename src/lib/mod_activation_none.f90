@@ -1,7 +1,16 @@
 module athena__activation_none
-  !! Module containing implementation of no activation function (i.e. linear)
+  !! Module containing implementation of no activation function (identity)
   !!
-  !! This module implements the identity function f(x) = x
+  !! This module implements the identity function (no activation).
+  !!
+  !! Mathematical operation:
+  !! \[ f(x) = x \]
+  !!
+  !! Derivative:
+  !! \[ f'(x) = 1 \]
+  !!
+  !! Properties: Preserves input as-is, linear transformation
+  !! Used for regression outputs or when no non-linearity is desired
   use coreutils, only: real32, print_warning
   use diffstruc, only: array_type
   use athena__misc_types, only: base_actv_type

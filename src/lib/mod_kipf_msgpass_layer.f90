@@ -1,5 +1,23 @@
 module athena__kipf_msgpass_layer
-  !! Module containing the types and interfaces of a message passing layer
+  !! Module implementing Kipf & Welling Graph Convolutional Network (GCN)
+  !!
+  !! This module implements the graph convolutional layer from Kipf & Welling
+  !! (2017) with symmetric degree normalization for semi-supervised learning.
+  !!
+  !! Mathematical operation:
+  !!   H^(l+1) = σ( D̃^(-1/2) Ã D̃^(-1/2) H^(l) W^(l) )
+  !!
+  !! where:
+  !!   Ã = A + I (adjacency matrix with added self-loops)
+  !!   D̃ is the degree matrix of Ã
+  !!   H^(l) is the node feature matrix at layer l
+  !!   W^(l) is a learnable weight matrix
+  !!   σ is the activation function
+  !!
+  !! The normalization D̃^(-1/2) Ã D̃^(-1/2) ensures proper scaling by degree.
+  !! Preserves graph structure, producing node-level (not graph-level) outputs.
+  !!
+  !! Reference: Kipf & Welling (2017), ICLR
   use coreutils, only: real32, stop_program
   use graphstruc, only: graph_type
   use athena__misc_types, only: base_actv_type, base_init_type
