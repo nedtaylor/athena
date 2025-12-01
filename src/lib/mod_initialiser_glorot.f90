@@ -1,7 +1,7 @@
 module athena__initialiser_glorot
   !! Module containing the implementation of the Glorot initialiser
   !!
-  !! This module implements Glorot (Xavier) initialization, designed to
+  !! This module implements Glorot (Xavier) initialisation, designed to
   !! maintain variance of gradients through layers with sigmoid/tanh.
   !!
   !! Mathematical operation:

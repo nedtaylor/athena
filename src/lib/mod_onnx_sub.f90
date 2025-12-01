@@ -332,8 +332,8 @@ contains
     ! Node information storage
     type(onnx_node_type), allocatable, dimension(:) :: nodes
 
-    ! Initializer storage
-    type(onnx_initialiser_type), allocatable, dimension(:) :: initializers
+    ! Initialiser storage
+    type(onnx_initialiser_type), allocatable, dimension(:) :: initialisers
     integer :: num_initialisers
 
     ! Tensor info storage (inputs, outputs, value_info)
@@ -387,7 +387,7 @@ contains
 
     ! Allocate storage
     allocate(nodes(node_count))
-    allocate(initializers(num_initialisers))
+    allocate(initialisers(num_initialisers))
     allocate(input_tensors(num_input_tensors))
     allocate(output_tensors(num_output_tensors))
 
@@ -485,7 +485,7 @@ contains
        elseif(in_initialiser)then
           if(index(trimmed_line, 'name:') .gt. 0)then
              call assign_val(buffer1, &
-                  initializers(num_initialisers)%name, itmp1, fs=":")
+                  initialisers(num_initialisers)%name, itmp1, fs=":")
           elseif(index(trimmed_line, 'dims:') .gt. 0)then
              if(.not. reading_dims)then
                 reading_dims = .true.
@@ -494,10 +494,10 @@ contains
              end if
              call assign_val(buffer1, j, itmp1, fs=":")
              dims = [dims, j]
-             initializers(num_initialisers)%dims = dims
+             initialisers(num_initialisers)%dims = dims
           elseif(index(trimmed_line, 'float_data:') .gt. 0)then
              reading_data = .true.
-             allocate(initializers(num_initialisers)%data(0))
+             allocate(initialisers(num_initialisers)%data(0))
              do while(reading_data)
                 read(unit, '(A)', iostat=stat) line
                 if(stat .ne. 0) exit
@@ -509,8 +509,8 @@ contains
                    reading_data = .false.
                 elseif(trim(adjustl(trimmed_line)) .ne. '')then
                    call allocate_and_assign_vec(trimmed_line, float_data, fs=":")
-                   initializers(num_initialisers)%data = &
-                        [initializers(num_initialisers)%data, float_data]
+                   initialisers(num_initialisers)%data = &
+                        [initialisers(num_initialisers)%data, float_data]
                    deallocate(float_data)
                 end if
              end do
@@ -551,7 +551,7 @@ contains
 
     ! Now construct the network from parsed information
     call network%build_from_onnx( &
-         nodes, initializers, &
+         nodes, initialisers, &
          verbose=verbose_ &
     )
 

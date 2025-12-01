@@ -1,7 +1,7 @@
 module athena__initialiser_he
   !! Module containing the implementation of the He initialiser
   !!
-  !! This module implements He (Kaiming/MSRA) initialization, designed for
+  !! This module implements He (Kaiming/MSRA) initialisation, designed for
   !! layers with ReLU activation to prevent vanishing/exploding gradients.
   !!
   !! Mathematical operation:

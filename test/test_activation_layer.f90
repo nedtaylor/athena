@@ -99,7 +99,7 @@ program test_activation_layer
 !-------------------------------------------------------------------------------
 ! Test 1D forward pass with ReLU
 !-------------------------------------------------------------------------------
-  ! Initialize test input with some negative and positive values
+  ! Initialise test input with some negative and positive values
   call input(1,1)%allocate(array_shape = [width, batch_size])
   input(1,1)%val(:,1) = [-2.0, -1.0, 1.0, 2.0]
   input(1,1)%val(:,2) = [-1.5, 0.5, 1.5, 2.5]
@@ -127,7 +127,7 @@ program test_activation_layer
 !-------------------------------------------------------------------------------
 ! Test 1D backward pass with ReLU
 !-------------------------------------------------------------------------------
-  ! Initialize gradient
+  ! Initialise gradient
   loss => output - 1._real32
 
   ! Run backward pass
@@ -290,7 +290,7 @@ program test_activation_layer
 
 
 !-------------------------------------------------------------------------------
-! Test setting batch size after initialization
+! Test setting batch size after initialisation
 !-------------------------------------------------------------------------------
   write(*,*) "Testing batch size modification..."
 

@@ -210,7 +210,7 @@ contains
     !! Line number
 
 
-    ! Initialize empty attributes array
+    ! Initialise empty attributes array
     allocate(attributes(0))
     allocate(names(0))
     iline_ = 0

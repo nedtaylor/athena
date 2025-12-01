@@ -1,8 +1,8 @@
 module athena__initialiser_lecun
   !! Module containing the implementation of the LeCun initialiser
   !!
-  !! This module implements LeCun initialization, the precursor to modern
-  !! initialization schemes, designed for efficient backpropagation.
+  !! This module implements LeCun initialisation, the precursor to modern
+  !! initialisation schemes, designed for efficient backpropagation.
   !!
   !! Mathematical operation:
   !!   Uniform variant:  W ~ U(-limit, limit)

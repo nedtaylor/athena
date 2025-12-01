@@ -6,7 +6,7 @@ program test_misc_types
 
   logical :: success = .true.
   real(real32), parameter :: tol = 1.E-6_real32
-  integer :: i ! Loop index for array initialization
+  integer :: i ! Loop index for array initialisation
 
   ! Test instances
   type(facets_type) :: facets
@@ -40,7 +40,7 @@ program test_misc_types
   block
     type(facets_type) :: facets_test
 
-    ! Test basic facets initialization
+    ! Test basic facets initialisation
     facets_test%num = 5
     facets_test%rank = 3
     facets_test%nfixed_dims = 2

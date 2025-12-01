@@ -2,7 +2,7 @@ module athena__loss
   !! Module containing loss function implementations
   !!
   !! This module implements loss functions that quantify the difference between
-  !! model predictions and target values, guiding the optimization process.
+  !! model predictions and target values, guiding the optimisation process.
   !!
   !! Implemented loss functions:
   !!

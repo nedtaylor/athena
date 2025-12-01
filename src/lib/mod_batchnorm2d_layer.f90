@@ -1,7 +1,7 @@
 module athena__batchnorm2d_layer
   !! Module containing implementation of 2D batch normalisation layer
   !!
-  !! This module implements batch normalization for 2D convolutional layers,
+  !! This module implements batch normalisation for 2D convolutional layers,
   !! normalizing activations across the batch dimension.
   !!
   !! Mathematical operation (training):
@@ -16,7 +16,7 @@ module athena__batchnorm2d_layer
   !! \(\mu_{\text{running}}, \sigma^2_{\text{running}}\) from training
   !!
   !! Benefits: Reduces internal covariate shift, enables higher learning rates,
-  !! acts as regularization, reduces dependence on initialization
+  !! acts as regularisation, reduces dependence on initialisation
   !! Reference: Ioffe & Szegedy (2015), ICML
   use coreutils, only: real32, stop_program, print_warning
   use athena__base_layer, only: batch_layer_type, base_layer_type

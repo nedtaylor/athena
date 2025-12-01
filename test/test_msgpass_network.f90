@@ -241,7 +241,7 @@ contains
     integer, allocatable :: index_list(:,:)
     logical, intent(in) :: allocate_edge_weights
 
-    ! Initialize graph structure
+    ! Initialise graph structure
     graph%is_sparse = .true.
     call graph%set_num_vertices(num_vertices, num_vertex_features_local)
     if(allocate_edge_weights)then

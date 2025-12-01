@@ -28,7 +28,7 @@ submodule(athena__network) athena__network_submodule
 ! #ifdef _OPENMP
 !   !$omp declare reduction( &
 !   !$omp& network_reduction : network_type:omp_out%network_reduction(omp_in)) &
-!   !$omp& initializer(omp_priv = omp_orig)
+!   !$omp& initialiser(omp_priv = omp_orig)
 ! #endif
 
 contains
@@ -3889,7 +3889,7 @@ contains
     write(*,'(A35, A25, A15)') 'Layer (type)', 'Output Shape', 'Param #'
     write(*,'(A)') repeat('=', 80)
 
-    ! Initialize parameter count
+    ! Initialise parameter count
     total_params = 0
 
     ! Print each layer

@@ -1,5 +1,23 @@
 module athena__batchnorm1d_layer
   !! Module containing implementation of 0D and 1D batch normalisation layers
+  !!
+  !! This module implements batch normalisation for 3D convolutional layers,
+  !! normalizing activations across the batch dimension.
+  !!
+  !! Mathematical operation (training):
+  !! \[ \mu_\mathcal{B} = \frac{1}{m}\sum_{i=1}^{m} x_i \]
+  !! \[ \sigma^2_\mathcal{B} = \frac{1}{m}\sum_{i=1}^{m} (x_i - \mu_\mathcal{B})^2 \]
+  !! \[ \hat{x}_i = \frac{x_i - \mu_\mathcal{B}}{\sqrt{\sigma^2_\mathcal{B} + \epsilon}} \]
+  !! \[ y_i = \gamma \hat{x}_i + \beta \]
+  !!
+  !! where \(\gamma, \beta\) are learnable parameters, \(\epsilon\) is stability constant
+  !!
+  !! Inference: uses running statistics
+  !! \(\mu_{\text{running}}, \sigma^2_{\text{running}}\) from training
+  !!
+  !! Benefits: Reduces internal covariate shift, enables higher learning rates,
+  !! acts as regularisation, reduces dependence on initialisation
+  !! Reference: Ioffe & Szegedy (2015), ICML
   use coreutils, only: real32, stop_program, print_warning
   use athena__base_layer, only: batch_layer_type, base_layer_type
   use athena__misc_types, only: base_init_type

@@ -2,7 +2,7 @@ module athena__kipf_msgpass_layer
   !! Module implementing Kipf & Welling Graph Convolutional Network (GCN)
   !!
   !! This module implements the graph convolutional layer from Kipf & Welling
-  !! (2017) with symmetric degree normalization for semi-supervised learning.
+  !! (2017) with symmetric degree normalisation for semi-supervised learning.
   !!
   !! Mathematical operation:
   !!   H^(l+1) = σ( D̃^(-1/2) Ã D̃^(-1/2) H^(l) W^(l) )
@@ -14,7 +14,7 @@ module athena__kipf_msgpass_layer
   !!   W^(l) is a learnable weight matrix
   !!   σ is the activation function
   !!
-  !! The normalization D̃^(-1/2) Ã D̃^(-1/2) ensures proper scaling by degree.
+  !! The normalisation D̃^(-1/2) Ã D̃^(-1/2) ensures proper scaling by degree.
   !! Preserves graph structure, producing node-level (not graph-level) outputs.
   !!
   !! Reference: Kipf & Welling (2017), ICLR
@@ -567,7 +567,7 @@ contains
           iline = iline - 1
           backspace(unit)
           activation = read_activation(unit, iline)
-       case("KERNEL_INITIALISER", "KERNEL_INIT", "KERNEL_INITIALIZER")
+       case("KERNEL_INITIALISER", "KERNEL_INIT", "KERNEL_INITIALisER")
           call assign_val(buffer, kernel_initialiser_name, itmp1)
        case("WEIGHTS")
           kernel_initialiser_name = 'zeros'

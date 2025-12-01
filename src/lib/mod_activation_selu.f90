@@ -14,7 +14,7 @@ module athena__activation_selu
   !! \[ f'(x) = \lambda \begin{cases} 1 & \text{if } x > 0 \\\\ \alpha e^x & \text{if } x \leq 0 \end{cases} \]
   !!
   !! Properties: Self-normalizing, enables very deep networks
-  !! Requires: Lecun Normal initialization, alpha dropout
+  !! Requires: Lecun Normal initialisation, alpha dropout
   !! Reference: Klambauer et al. (2017), NeurIPS
   use coreutils, only: real32, print_warning
   use diffstruc, only: array_type, operator(*), operator(-), operator(.gt.), &
