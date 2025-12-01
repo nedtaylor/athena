@@ -18,7 +18,6 @@ These layers can be stacked and combined to create complex architectures for var
    pooling/pooling_layers
    regularisation/regularisation_layers
    reshaping/reshaping_layers
-   custom_layers
 
 .. rubric:: Available Layers
 
@@ -37,4 +36,4 @@ The following types of layers are available in the athena library:
 
 The athena library is designed with extensibility in mind, allowing users to create custom layers by extending the ``base_layer_type``.
 
-See :ref:`Creating Custom Layers <custom-layers>` for a detailed guide.
+See the tutorial: :ref:`Creating Custom Layers <custom-layers>`

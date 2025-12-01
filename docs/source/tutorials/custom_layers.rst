@@ -131,7 +131,7 @@ For layers with learnable parameters, extend ``learnable_layer_type`` instead:
       ! ... implement required procedures
    end type custom_learnable_layer_type
 
-The learnable parameters wihin the layer are stored in the ``params_array`` attribute inherited from ``learnable_layer_type``.
+The learnable parameters wihin the layer are stored in the ``params`` attribute inherited from ``learnable_layer_type``.
 This is a rank 1 array of ``array_type`` objects, each representing a learnable parameter tensor.
 
 The backpropagation is handled automatically by the athena framework through its use of pointers and the automatic differentiation library `diffstruc <https://github.com/nedtaylor/diffstruc>`_.

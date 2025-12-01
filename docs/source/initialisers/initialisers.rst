@@ -20,7 +20,6 @@ The athena library provides various initialization strategies suited for differe
    ones
    identity
    gaussian
-   custom_initialisers
 
 
 Creating custom initialisers
@@ -28,4 +27,4 @@ Creating custom initialisers
 
 The athena library is designed with extensibility in mind, allowing users to create custom initialisers by extending the ``base_initialiser_type``.
 
-See :ref:`Creating Custom Initialisers <custom-initialisers>` for a detailed guide.
+See the tutorial: :ref:`Creating Custom Initialisers <custom-initialisers>`

@@ -20,11 +20,10 @@ The athena library provides a variety of commonly used activation functions.
    swish
    selu
    none
-   custom_activations
 
 Creating custom activation functions
 ------------------------------------
 
 The athena library is designed with extensibility in mind, allowing users to create custom activation functions by extending the ``base_activation_type``.
 
-See :ref:`Creating Custom Activations <custom-activations>` for a detailed guide.
+See the tutorial: :ref:`Creating Custom Activations <custom-activations>`

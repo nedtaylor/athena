@@ -17,7 +17,6 @@ The athena library provides several commonly used loss functions for different t
    mse
    nll
    huber
-   custom_loss
 
 Overview
 --------
@@ -56,3 +55,10 @@ Usage Example
 
    ! Use in training
    call net%train(train_data, train_labels, loss=loss)
+
+Creating custom loss functions
+-------------------------------
+
+The athena library is designed with extensibility in mind, allowing users to create custom loss functions by extending the ``base_loss_type``.
+
+See the tutorial: :ref:`Creating Custom Loss Functions <custom-loss>`

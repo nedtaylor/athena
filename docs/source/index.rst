@@ -27,6 +27,7 @@ An example of how to use the library is shown below:
 
       about
       install
+      tutorials/tutorials
       layers/layers
       optimisers/optimisers
       activations/activations
