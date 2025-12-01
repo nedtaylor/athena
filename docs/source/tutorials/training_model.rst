@@ -274,7 +274,6 @@ Next Steps
 ----------
 
 * :ref:`Save and load your trained model <saving-loading>`
-* :ref:`Build convolutional networks <convolutional-networks>`
 * :ref:`Try the MNIST example <mnist-example>`
 
 See Also

@@ -163,10 +163,9 @@ program mnist_example
   ! testing loop
   !-----------------------------------------------------------------------------
   deallocate(input_labels)
-  allocate(input_labels(num_classes,num_samples_test))
-  input_labels = 0
+  allocate(input_labels(num_classes,num_samples_test), source = 0._real32)
   do i=1,num_samples_test
-     input_labels(test_labels(i),i) = 1
+     input_labels(test_labels(i),i) = 1._real32
   end do
 
   write(*,*) "Starting testing..."

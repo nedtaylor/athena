@@ -415,7 +415,6 @@ ONNX Version Issues
 Next Steps
 ----------
 
-* :ref:`Explore convolutional networks <convolutional-networks>`
 * :ref:`Try complete examples <mnist-example>`
 * Learn about :ref:`custom components <custom-layers>`
 

@@ -2432,23 +2432,23 @@ contains
     ! Local variables
     integer :: i, s
     !! Loop index
-    type(array_type), pointer :: tmp_output(:,:), predicted(:,:)
+    type(array_type), pointer :: expected(:,:), predicted(:,:)
 
 
     if(this%use_graph_output)then
-       tmp_output(1:2, 1: end_index - start_index + 1) => &
+       expected(1:2, 1: end_index - start_index + 1) => &
             this%expected_array( :, start_index:end_index )
     else
-       allocate(tmp_output(size(this%expected_array,1), size(this%expected_array,2)))
+       allocate(expected(size(this%expected_array,1), size(this%expected_array,2)))
        do s = 1, size(this%expected_array,2)
           do i = 1, size(this%expected_array,1)
-             call tmp_output(i,s)%allocate( &
+             call expected(i,s)%allocate( &
                   array_shape = [ &
                        this%expected_array(i,s)%shape, &
                        size(this%expected_array(i,s)%val,2) &
                   ] &
              )
-             tmp_output(i,s)%val = this%expected_array(i,s)%val(:, &
+             expected(i,s)%val = this%expected_array(i,s)%val(:, &
                   start_index:end_index:1)
           end do
        end do
@@ -2457,7 +2457,7 @@ contains
     predicted => this%model(this%leaf_vertices(1))%layer%output
     loss => this%loss%compute( &
          predicted, &
-         tmp_output &
+         expected &
     )
 
   end function loss_backward
@@ -3321,8 +3321,6 @@ contains
     !! Verbosity level
     real(real32) :: acc_val, loss_val
     !! Loss and accuracy
-    real(real32), allocatable, dimension(:) :: accuracy_list
-    !! Accuracy list
     class(*), allocatable, dimension(:,:) :: data_poly
     !! Polymorphic data array
     type(array_type), pointer :: loss => null()
@@ -3346,7 +3344,6 @@ contains
 
 
     num_samples = this%save_input( input )
-    allocate(accuracy_list(num_samples))
 
 
     !---------------------------------------------------------------------------

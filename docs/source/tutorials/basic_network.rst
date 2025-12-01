@@ -231,7 +231,7 @@ Now that you've created a basic network, learn how to:
 
 * :ref:`Train your model <training-model>`
 * :ref:`Save and load models <saving-loading>`
-* :ref:`Build convolutional networks <convolutional-networks>`
+* :ref:`Follow examples and advanced tutorials <tutorials>`
 
 See Also
 --------
