@@ -224,9 +224,9 @@ program pinn_burgers_example
 ! check compiler, if gfortran, do the following
 #ifdef __GNUC__
   allocate(u_pred(1,1))
-  u_pred = network%predict_array(XT)
+  u_pred = network%predict(XT, output_as_array=.true.)
 #else
-  u_pred(1:1,1:1) => network%predict_array(XT)
+  u_pred(1:1,1:1) => network%predict(XT, output_as_array=.true.)
 #endif
   write(*,*) "Testing finished"
   open(unit=20, file="u_pred.txt", status='replace')

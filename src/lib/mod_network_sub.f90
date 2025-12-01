@@ -2987,7 +2987,7 @@ contains
     !---------------------------------------------------------------------------
     verbose_ = 0
     batch_print_step_ = 20
-    plateau_threshold_ = 1.E-2_real32
+    plateau_threshold_ = 0._real32
     shuffle_batches_ = .true.
     if(present(plateau_threshold)) plateau_threshold_ = plateau_threshold
     if(present(shuffle_batches)) shuffle_batches_ = shuffle_batches
@@ -3389,7 +3389,7 @@ contains
 
 
 !###############################################################################
-  module function predict_1d( &
+  module function predict_real( &
        this, input, verbose &
   ) result(output)
     !! Predict the output for a 1D input
@@ -3458,7 +3458,7 @@ contains
 
     output = this%model(this%leaf_vertices(1))%layer%output(1,1)%val
 
-  end function predict_1d
+  end function predict_real
 !###############################################################################
 
 
@@ -3538,6 +3538,100 @@ contains
 
 
 !###############################################################################
+  module function predict_array_from_real( this, input, output_as_array, verbose ) &
+       result(output)
+    !! Predict the output for a generic input
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    class(*), dimension(..), intent(in) :: input
+    !! Input graph
+    logical, intent(in) :: output_as_array
+    !! Whether to output as array
+    integer, intent(in), optional :: verbose
+    !! Verbosity level
+
+    type(array_type), pointer :: output(:,:)
+    !! Predicted output
+
+    ! Local variables
+    integer :: l, s, i
+    !! Loop index
+    integer :: num_samples
+    !! Number of samples
+    integer :: verbose_
+    !! Verbosity level
+    logical, dimension(:), allocatable :: inference_store
+
+
+    !---------------------------------------------------------------------------
+    ! Initialise optional arguments
+    !---------------------------------------------------------------------------
+    if(present(verbose))then
+       verbose_ = verbose
+    else
+       verbose_ = 0
+    end if
+    if(.not.output_as_array)then
+       call stop_program("predict_array_from_real: output_as_array must be true")
+       return
+    end if
+
+
+    !---------------------------------------------------------------------------
+    ! Set number of samples for predicting
+    !---------------------------------------------------------------------------
+    num_samples = this%save_input( input )
+    ! call this%set_batch_size(num_samples)
+
+
+    !---------------------------------------------------------------------------
+    ! Turn on inference booleans
+    !---------------------------------------------------------------------------
+    allocate(inference_store(this%num_layers))
+    do l = 1, this%num_layers
+       inference_store(l) = this%model(l)%layer%inference
+       this%model(l)%layer%inference = .true.
+    end do
+
+    !---------------------------------------------------------------------------
+    ! Forward pass
+    !---------------------------------------------------------------------------
+    select case(this%use_graph_input)
+    case(.true.)
+       call this%forward(this%input_graph)
+    case default
+       call this%forward(this%input_array)
+    end select
+
+
+    !---------------------------------------------------------------------------
+    ! Allocate output data
+    !---------------------------------------------------------------------------
+    allocate(output( &
+         size(this%model(this%leaf_vertices(1))%layer%output, 1), &
+         size(this%model(this%leaf_vertices(1))%layer%output, 2) &
+    ))
+    do s = 1, size(this%model(this%leaf_vertices(1))%layer%output, 2)
+       do i = 1, size(this%model(this%leaf_vertices(1))%layer%output, 1)
+          output(i,s) = this%model(this%leaf_vertices(1))%layer%output(i,s)
+       end do
+    end do
+
+    !---------------------------------------------------------------------------
+    ! Reset inference booleans
+    !---------------------------------------------------------------------------
+    do l = 1, this%num_layers
+       this%model(l)%layer%inference = inference_store(l)
+    end do
+
+  end function predict_array_from_real
+!###############################################################################
+
+
+!###############################################################################
   module function predict_array( this, input, verbose ) &
        result(output)
     !! Predict the output for a generic input
@@ -3546,7 +3640,7 @@ contains
     ! Arguments
     class(network_type), intent(inout) :: this
     !! Instance of network
-    class(*), dimension(:,:), intent(in) :: input
+    class(array_type), dimension(:,:), intent(in) :: input
     !! Input graph
     integer, intent(in), optional :: verbose
     !! Verbosity level
@@ -3638,7 +3732,7 @@ contains
     !! Input graph
     integer, intent(in), optional :: verbose
     !! Verbosity level
-    logical, intent(in) :: output_as_graph
+    logical, intent(in), optional :: output_as_graph
     !! Boolean whether to output as graph
 
     class(*), dimension(:,:), allocatable :: output
@@ -3651,6 +3745,8 @@ contains
     !! Number of samples
     integer :: verbose_
     !! Verbosity level
+    logical :: output_as_graph_
+    !! Output as graph boolean
 
 
     !---------------------------------------------------------------------------
@@ -3662,7 +3758,12 @@ contains
        verbose_ = 0
     end if
 
-    if(output_as_graph.and..not.this%use_graph_output)then
+    if(present(output_as_graph))then
+       output_as_graph_ = output_as_graph
+    else
+       output_as_graph_ = .false.
+    end if
+    if(output_as_graph_.and..not.this%use_graph_output)then
        call stop_program("output_as_graph is true but network does not use &
             &graph output")
     end if
@@ -3696,7 +3797,7 @@ contains
     !---------------------------------------------------------------------------
     ! Allocate output data
     !---------------------------------------------------------------------------
-    if(output_as_graph)then
+    if(output_as_graph_)then
        allocate(output(num_samples, size(this%leaf_vertices)), source = graph_type())
 
        select type(output)
