@@ -837,6 +837,8 @@ contains
     !! Loop index
     integer :: operator_
     !! Operator to use to connect the layers
+    character(256) :: err_msg
+    !! Error message
     integer, dimension(2) :: vertex_indices
     !! Indices of the vertices to connect
     type(container_layer_type), allocatable, dimension(:) :: model
@@ -896,8 +898,20 @@ contains
        do i = 1, size(input_list), 1
           if(input_list(i).eq.0)then
              vertex_index = 0
-          elseif(input_list(i).eq.-1)then
-             vertex_index = this%auto_graph%num_vertices - 1
+          elseif( &
+               input_list(i).le.-this%auto_graph%num_vertices .or. &
+               input_list(i).gt.this%auto_graph%num_vertices &
+          )then
+             write(err_msg, &
+                  '("input vertex index ",I0," out of range (",I0,":",I0,")")' &
+             ) &
+                  input_list(i), &
+                  -this%auto_graph%num_vertices +1, &
+                  this%auto_graph%num_vertices
+             call stop_program(err_msg)
+             return
+          elseif(input_list(i).lt.0)then
+             vertex_index = this%auto_graph%num_vertices + input_list(i)
           else
              vertex_index = findloc( &
                   [this%auto_graph%vertex(:)%id], &
