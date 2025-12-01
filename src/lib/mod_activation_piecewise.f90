@@ -62,9 +62,9 @@ contains
     if(present(gradient)) activation%gradient = gradient
     if(present(limit)) activation%limit = limit
 
-      if(present(attributes)) then
-         call activation%apply_attributes(attributes)
-      end if
+    if(present(attributes)) then
+       call activation%apply_attributes(attributes)
+    end if
 
   end function initialise
 !-------------------------------------------------------------------------------
@@ -131,6 +131,15 @@ contains
           read(attributes(i)%val,*) this%gradient
        case("limit")
           read(attributes(i)%val,*) this%limit
+       case("name")
+          if(trim(attributes(i)%val) .ne. trim(this%name)) then
+             call print_warning( &
+                  'Piecewise activation: name attribute "' // &
+                  trim(attributes(i)%val) // &
+                  '"" does not match expected "' // trim(this%name)//'"' &
+             )
+
+          end if
        case default
           call print_warning( &
                'Piecewise activation: unknown attribute '// &
@@ -162,7 +171,7 @@ contains
 
     write(buffer, '(A)') this%name
     attributes(1) = onnx_attribute_type( &
-       "name", "string", trim(adjustl(buffer)) )
+         "name", "string", trim(adjustl(buffer)) )
 
     write(buffer, '(F10.6)') this%scale
     attributes(2) = onnx_attribute_type( &

@@ -102,7 +102,7 @@ program test_msgpass_network
          max_vertex_degree = 4, &
          num_outputs = num_outputs, &
          kernel_initialiser = 'ones', &
-         readout_activation_function = 'linear', &
+         readout_activation = 'linear', &
          batch_size = batch_size &
     ))
 

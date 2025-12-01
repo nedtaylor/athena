@@ -6,7 +6,6 @@ module athena__actv_layer
   use athena__base_layer, only: base_layer_type
   use athena__misc_types, only: base_actv_type, &
        onnx_node_type, onnx_initialiser_type
-  use athena__misc_types, only: base_actv_type
   use diffstruc, only: array_type
   implicit none
 
@@ -104,6 +103,7 @@ contains
     ! Set activation function
     !---------------------------------------------------------------------------
     activation_ = activation_setup(activation)
+
 
     !---------------------------------------------------------------------------
     ! set hyperparameters
@@ -261,53 +261,7 @@ contains
           )
           return
        else
-          select case(size(this%input_shape))
-          case(1)
-             this%input_rank = 1
-             allocate(this%output(1,1))
-             call this%output(1,1)%allocate( &
-                  array_shape = [ &
-                       this%input_shape(1), this%batch_size &
-                  ], &
-                  source=0._real32 &
-             )
-          case(2)
-             this%input_rank = 2
-             allocate(this%output(1,1))
-             call this%output(1,1)%allocate( &
-                  array_shape = [ &
-                       this%input_shape(1), &
-                       this%input_shape(2), &
-                       this%batch_size ], &
-                  source=0._real32 &
-             )
-          case(3)
-             this%input_rank = 3
-             allocate(this%output(1,1))
-             call this%output(1,1)%allocate( &
-                  array_shape = [ &
-                       this%input_shape(1), &
-                       this%input_shape(2), &
-                       this%input_shape(3), this%batch_size &
-                  ], &
-                  source=0._real32 &
-             )
-          case(4)
-             this%input_rank = 4
-             allocate(this%output(1,1))
-             call this%output(1,1)%allocate( &
-                  array_shape = [ &
-                       this%input_shape(1), &
-                       this%input_shape(2), &
-                       this%input_shape(3), &
-                       this%input_shape(4), this%batch_size &
-                  ], &
-                  source=0._real32 &
-             )
-          case default
-             call stop_program('Activation layer only supports input ranks 1-4')
-             return
-          end select
+          allocate(this%output(1,1))
        end if
     end if
 
@@ -584,10 +538,18 @@ contains
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input values
 
+    ! Local variables
+    integer :: i, s
+    !! Loop indices
     type(array_type), pointer :: ptr
+    !! Pointer array
 
-    ptr => this%activation%apply(input(1,1))
-    call this%output(1,1)%assign_and_deallocate_source(ptr)
+    do s = 1, size(input, 2)
+       do i = 1, size(input, 1)
+          ptr => this%activation%apply(input(i,s))
+          call this%output(i,s)%assign_and_deallocate_source(ptr)
+       end do
+    end do
 
   end subroutine forward_actv
 !###############################################################################

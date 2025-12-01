@@ -15,7 +15,6 @@ program test_full_layer
 ! set up layer
 !-------------------------------------------------------------------------------
   full_layer1 = full_layer_type(num_inputs=1, num_outputs=10, batch_size=1)
-  call full_layer1%set_ptrs()
 
   !! check layer name
   if(.not. full_layer1%name .eq. 'full')then
@@ -64,11 +63,9 @@ program test_full_layer
 ! check layer operations
 !-------------------------------------------------------------------------------
   full_layer2 = full_layer_type(num_inputs=1, num_outputs=10, &
-       activation_function="sigmoid", batch_size=1)
-  call full_layer2%set_ptrs()
+       activation="sigmoid", batch_size=1)
   full_layer3 = full_layer_type(num_inputs=1, num_outputs=10, &
-       activation_function="sigmoid", batch_size=1)
-  call full_layer3%set_ptrs()
+       activation="sigmoid", batch_size=1)
   select type(full_layer2)
   type is(full_layer_type)
      select type(full_layer3)
@@ -171,14 +168,14 @@ contains
     end if
     if(present(layer3))then
        if( &
-            associated(layer1%params_array(1)%grad).and. &
-            associated(layer2%params_array(1)%grad).and. &
-            associated(layer3%params_array(1)%grad) &
+            associated(layer1%params(1)%grad).and. &
+            associated(layer2%params(1)%grad).and. &
+            associated(layer3%params(1)%grad) &
        )then
           if(any(abs( &
-               layer1%params_array(1)%grad%val - &
-               layer2%params_array(1)%grad%val - &
-               layer3%params_array(1)%grad%val &
+               layer1%params(1)%grad%val - &
+               layer2%params(1)%grad%val - &
+               layer3%params(1)%grad%val &
           ).gt.1.E-6))then
              success = .false.
              write(0,*) 'full layer has wrong gradients'
@@ -186,14 +183,14 @@ contains
        end if
 
        if( &
-            associated(layer1%params_array(2)%grad).and. &
-            associated(layer2%params_array(2)%grad).and. &
-            associated(layer3%params_array(2)%grad) &
+            associated(layer1%params(2)%grad).and. &
+            associated(layer2%params(2)%grad).and. &
+            associated(layer3%params(2)%grad) &
        )then
           if(any(abs( &
-               layer1%params_array(2)%grad%val - &
-               layer2%params_array(2)%grad%val - &
-               layer3%params_array(2)%grad%val &
+               layer1%params(2)%grad%val - &
+               layer2%params(2)%grad%val - &
+               layer3%params(2)%grad%val &
           ).gt.1.E-6))then
              success = .false.
              write(0,*) 'full layer has wrong bias gradients'

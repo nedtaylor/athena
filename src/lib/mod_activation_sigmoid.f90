@@ -117,9 +117,19 @@ contains
           else
              this%apply_scaling = .false.
           end if
+       case("name")
+          if(trim(attributes(i)%val) .ne. trim(this%name)) then
+             call print_warning( &
+                  'Sigmoid activation: name attribute "' // &
+                  trim(attributes(i)%val) // &
+                  '"" does not match expected "' // trim(this%name)//'"' &
+             )
+
+          end if
        case default
           call print_warning( &
-               'Sigmoid activation: unknown attribute '//trim(attributes(i)%name) &
+               'Sigmoid activation: unknown attribute "' // &
+               trim(attributes(i)%name) // '"' &
           )
        end select
     end do

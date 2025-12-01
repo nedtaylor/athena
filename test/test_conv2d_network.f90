@@ -35,13 +35,13 @@ program test_conv2d_network
        num_filters = num_filters1, &
        kernel_size = kernel_size1, &
        kernel_initialiser = "ones", &
-       activation_function = "linear" &
+       activation = "linear" &
   ))
   call network%add(conv2d_layer_type( &
        num_filters = num_filters2, &
        kernel_size = kernel_size2, &
        kernel_initialiser = "ones", &
-       activation_function = "linear" &
+       activation = "linear" &
   ))
 
   call network%compile( &

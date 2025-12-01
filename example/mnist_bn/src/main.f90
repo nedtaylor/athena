@@ -110,8 +110,8 @@ program mnist_example
           activation = "relu" &
      ))
      call network%add(batchnorm2d_layer_type( &
-          kernel_initialiser = "ones", &
-          bias_initialiser = "zeros", &
+          gamma_initialiser = "ones", &
+          beta_initialiser = "zeros", &
           moving_mean_initialiser = "zeros", &
           moving_variance_initialiser = "ones", &
           epsilon = 0.001_real32, &

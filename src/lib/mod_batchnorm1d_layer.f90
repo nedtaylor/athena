@@ -1,6 +1,6 @@
 module athena__batchnorm1d_layer
   !! Module containing implementation of 0D and 1D batch normalisation layers
-  use coreutils, only: real32, stop_program
+  use coreutils, only: real32, stop_program, print_warning
   use athena__base_layer, only: batch_layer_type, base_layer_type
   use athena__misc_types, only: base_init_type
   use diffstruc, only: array_type
@@ -23,8 +23,6 @@ module athena__batchnorm1d_layer
      !! Set hyperparameters for 1D batch normalisation layer
      procedure, pass(this) :: set_batch_size => set_batch_size_batchnorm1d
      !! Set batch size for 1D batch normalisation layer
-     procedure, pass(this) :: print_to_unit => print_to_unit_batchnorm1d
-     !! Print 1D batch normalisation layer to unit
      procedure, pass(this) :: read => read_batchnorm1d
      !! Read 1D batch normalisation layer from file
 
@@ -44,7 +42,7 @@ module athena__batchnorm1d_layer
           momentum, epsilon, &
           gamma_init_mean, gamma_init_std, &
           beta_init_mean, beta_init_std, &
-          kernel_initialiser, bias_initialiser, &
+          gamma_initialiser, beta_initialiser, &
           moving_mean_initialiser, moving_variance_initialiser, &
           verbose &
      ) result(layer)
@@ -61,8 +59,8 @@ module athena__batchnorm1d_layer
        !! Gamma initialisation mean and standard deviation
        real(real32), optional, intent(in) :: beta_init_mean, beta_init_std
        !! Beta initialisation mean and standard deviation
-       character(*), optional, intent(in) :: &
-            kernel_initialiser, bias_initialiser, &
+       class(*), optional, intent(in) :: &
+            gamma_initialiser, beta_initialiser, &
             moving_mean_initialiser, moving_variance_initialiser
        !! Initialisers
        integer, optional, intent(in) :: verbose
@@ -106,12 +104,12 @@ contains
        momentum, epsilon, &
        gamma_init_mean, gamma_init_std, &
        beta_init_mean, beta_init_std, &
-       kernel_initialiser, bias_initialiser, &
+       gamma_initialiser, beta_initialiser, &
        moving_mean_initialiser, moving_variance_initialiser, &
        verbose &
   ) result(layer)
     !! Set up the 1D batch normalisation layer
-    use athena__initialiser, only: get_default_initialiser
+    use athena__initialiser, only: initialiser_setup
     implicit none
 
     ! Arguments
@@ -127,8 +125,8 @@ contains
     !! Gamma initialisation mean and standard deviation
     real(real32), optional, intent(in) :: beta_init_mean, beta_init_std
     !! Beta initialisation mean and standard deviation
-    character(*), optional, intent(in) :: &
-         kernel_initialiser, bias_initialiser, &
+    class(*), optional, intent(in) :: &
+         gamma_initialiser, beta_initialiser, &
          moving_mean_initialiser, moving_variance_initialiser
     !! Initialisers
     integer, optional, intent(in) :: verbose
@@ -142,6 +140,10 @@ contains
     !! Verbosity level
     character(256) :: err_msg
     !! Error message
+    class(base_init_type), allocatable :: &
+         gamma_initialiser_, beta_initialiser_, &
+         moving_mean_initialiser_, moving_variance_initialiser_
+    !! Initialisers
 
 
     if(present(verbose)) verbose_ = verbose
@@ -173,14 +175,18 @@ contains
     !---------------------------------------------------------------------------
     ! Define gamma and beta initialisers
     !---------------------------------------------------------------------------
-    if(present(kernel_initialiser)) &
-         layer%kernel_initialiser = kernel_initialiser
-    if(present(bias_initialiser)) layer%bias_initialiser = bias_initialiser
-
-    if(present(moving_mean_initialiser)) &
-         layer%moving_mean_initialiser = moving_mean_initialiser
-    if(present(moving_variance_initialiser)) &
-         layer%moving_variance_initialiser = moving_variance_initialiser
+    if(present(gamma_initialiser))then
+       gamma_initialiser_ = initialiser_setup(gamma_initialiser)
+    end if
+    if(present(beta_initialiser))then
+       beta_initialiser_ = initialiser_setup(beta_initialiser)
+    end if
+    if(present(moving_mean_initialiser))then
+       moving_mean_initialiser_ = initialiser_setup(moving_mean_initialiser)
+    end if
+    if(present(moving_variance_initialiser))then
+       moving_variance_initialiser_ = initialiser_setup(moving_variance_initialiser)
+    end if
 
 
     !---------------------------------------------------------------------------
@@ -192,10 +198,10 @@ contains
          gamma_init_std = layer%gamma_init_std, &
          beta_init_mean = layer%beta_init_mean, &
          beta_init_std = layer%beta_init_std, &
-         kernel_initialiser = layer%kernel_initialiser, &
-         bias_initialiser = layer%bias_initialiser, &
-         moving_mean_initialiser = layer%moving_mean_initialiser, &
-         moving_variance_initialiser = layer%moving_variance_initialiser, &
+         gamma_initialiser = gamma_initialiser_, &
+         beta_initialiser = beta_initialiser_, &
+         moving_mean_initialiser = moving_mean_initialiser_, &
+         moving_variance_initialiser = moving_variance_initialiser_, &
          verbose = verbose_ &
     )
 
@@ -241,10 +247,11 @@ contains
        momentum, epsilon, &
        gamma_init_mean, gamma_init_std, &
        beta_init_mean, beta_init_std, &
-       kernel_initialiser, bias_initialiser, &
+       gamma_initialiser, beta_initialiser, &
        moving_mean_initialiser, moving_variance_initialiser, &
        verbose )
     !! Set hyperparameters for 1D batch normalisation layer
+    use athena__initialiser, only: initialiser_setup
     implicit none
 
     ! Arguments
@@ -255,9 +262,11 @@ contains
     real(real32), intent(in) :: gamma_init_mean, gamma_init_std
     !! Gamma initialisation mean and standard deviation
     real(real32), intent(in) :: beta_init_mean, beta_init_std
-    character(*), intent(in) :: kernel_initialiser, bias_initialiser
-    !! Kernel and bias initialisers
-    character(*), intent(in) :: &
+    !! Beta initialisation mean and standard deviation
+    class(base_init_type), allocatable, intent(in) :: &
+         gamma_initialiser, beta_initialiser
+    !! Gamma and beta initialisers
+    class(base_init_type), allocatable, intent(in) :: &
          moving_mean_initialiser, moving_variance_initialiser
     !! Moving mean and variance initialisers
     integer, optional, intent(in) :: verbose
@@ -271,30 +280,44 @@ contains
     this%use_bias = .true.
     this%momentum = momentum
     this%epsilon = epsilon
-    if(trim(this%kernel_initialiser).eq.'') &
-         this%kernel_initialiser = 'ones'
-    !get_default_initialiser("batch")
-    if(trim(this%bias_initialiser).eq.'') &
-         this%bias_initialiser = 'zeros'
-    !get_default_initialiser("batch")
-
-    if(trim(this%moving_mean_initialiser).eq.'') &
-         this%moving_mean_initialiser = 'zeros'
-    !get_default_initialiser("batch")
-    if(trim(this%moving_variance_initialiser).eq.'') &
-         this%moving_variance_initialiser = 'ones'
-    !get_default_initialiser("batch")
-
+    if(.not.allocated(gamma_initialiser))then
+       this%kernel_init = initialiser_setup('ones')
+    else
+       this%kernel_init = gamma_initialiser
+    end if
+    if(.not.allocated(beta_initialiser))then
+       this%bias_init = initialiser_setup('zeros')
+    else
+       this%bias_init = beta_initialiser
+    end if
+    if(.not.allocated(moving_mean_initialiser))then
+       this%moving_mean_init = initialiser_setup('zeros')
+    else
+       this%moving_mean_init = moving_mean_initialiser
+    end if
+    if(.not.allocated(moving_variance_initialiser))then
+       this%moving_variance_init = initialiser_setup('ones')
+    else
+       this%moving_variance_init = moving_variance_initialiser
+    end if
+    this%gamma_init_mean = gamma_init_mean
+    this%gamma_init_std  = gamma_init_std
+    this%beta_init_mean  = beta_init_mean
+    this%beta_init_std   = beta_init_std
+    this%kernel_init%mean = this%gamma_init_mean
+    this%kernel_init%std  = this%gamma_init_std
+    this%bias_init%mean = this%beta_init_mean
+    this%bias_init%std  = this%beta_init_std
     if(present(verbose))then
        if(abs(verbose).gt.0)then
-          write(*,'("BATCHNORM1D kernel (gamma) initialiser: ",A)') &
-               trim(this%kernel_initialiser)
-          write(*,'("BATCHNORM1D bias (beta) initialiser: ",A)') &
-               trim(this%bias_initialiser)
+          write(*,'("BATCHNORM1D gamma (kernel) initialiser: ",A)') &
+               trim(this%kernel_init%name)
+          write(*,'("BATCHNORM1D beta (bias) initialiser: ",A)') &
+               trim(this%bias_init%name)
           write(*,'("BATCHNORM1D moving mean initialiser: ",A)') &
-               trim(this%moving_mean_initialiser)
+               trim(this%moving_mean_init%name)
           write(*,'("BATCHNORM1D moving variance initialiser: ",A)') &
-               trim(this%moving_variance_initialiser)
+               trim(this%moving_variance_init%name)
        end if
     end if
 
@@ -370,48 +393,11 @@ contains
 
 
 !###############################################################################
-  subroutine print_to_unit_batchnorm1d(this, unit)
-    !! Print 1D batch normalisation layer to unit
-    use coreutils, only: to_upper
-    implicit none
-
-    ! Arguments
-    class(batchnorm1d_layer_type), intent(in) :: this
-    !! Instance of the 1D batch normalisation layer
-    integer, intent(in) :: unit
-    !! File unit
-
-    ! Local variables
-    integer :: m
-    !! Loop index
-
-
-    ! Write initial parameters
-    !---------------------------------------------------------------------------
-    write(unit,'(3X,"INPUT_SHAPE = ",2(1X,I0))') this%input_shape
-    write(unit,'(3X,"MOMENTUM = ",F0.9)') this%momentum
-    write(unit,'(3X,"EPSILON = ",F0.9)') this%epsilon
-    write(unit,'(3X,"NUM_CHANNELS = ",I0)') this%num_channels
-    write(unit,'("GAMMA")')
-    do m = 1, this%num_channels
-       write(unit,'(5(E16.8E2))') this%params_array(1)%val(m,1)
-    end do
-    write(unit,'("END GAMMA")')
-    write(unit,'("BETA")')
-    do m = 1, this%num_channels
-       write(unit,'(5(E16.8E2))') this%params_array(1)%val(this%num_channels+m,1)
-    end do
-    write(unit,'("END BETA")')
-
-  end subroutine print_to_unit_batchnorm1d
-!###############################################################################
-
-
-!###############################################################################
   subroutine read_batchnorm1d(this, unit, verbose)
     !! Read 1D batch normalisation layer from file
     use athena__tools_infile, only: assign_val, assign_vec, move
     use coreutils, only: to_lower, to_upper, icount
+    use athena__initialiser, only: initialiser_setup
     implicit none
 
     ! Arguments
@@ -431,8 +417,17 @@ contains
     !! Number of channels
     real(real32) :: momentum = 0._real32, epsilon = 1.E-5_real32
     !! Momentum and epsilon
-    character(14) :: kernel_initialiser='', bias_initialiser=''
+    class(base_init_type), allocatable :: gamma_initialiser, beta_initialiser
     !! Initialisers
+    class(base_init_type), allocatable :: &
+         moving_mean_initialiser, moving_variance_initialiser
+    !! Moving mean and variance initialisers
+    character(14) :: gamma_initialiser_name='', beta_initialiser_name=''
+    !! Initialisers
+    character(14) :: &
+         moving_mean_initialiser_name='', &
+         moving_variance_initialiser_name=''
+    !! Moving mean and variance initialisers
     character(256) :: buffer, tag, err_msg
     !! Buffer, tag, and error message
     integer, dimension(2) :: input_shape
@@ -491,15 +486,27 @@ contains
           call assign_val(buffer, num_channels, itmp1)
           write(0,*) "NUM_CHANNELS and INPUT_SHAPE are conflicting parameters"
           write(0,*) "NUM_CHANNELS will be ignored"
-       case("KERNEL_INITIALISER")
-          call assign_val(buffer, kernel_initialiser, itmp1)
-       case("BIAS_INITIALISER")
-          call assign_val(buffer, bias_initialiser, itmp1)
+       case("GAMMA_INITIALISER", "KERNEL_INITIALISER")
+          if(param_lines(1).ne.0)then
+             write(err_msg,'("GAMMA and GAMMA_INITIALISER defined. Using GAMMA only.")')
+             call print_warning(err_msg)
+          end if
+          call assign_val(buffer, gamma_initialiser_name, itmp1)
+       case("BETA_INITIALISER", "BIAS_INITIALISER")
+          if(param_lines(2).ne.0)then
+             write(err_msg,'("BETA and BETA_INITIALISER defined. Using BETA only.")')
+             call print_warning(err_msg)
+          end if
+          call assign_val(buffer, beta_initialiser_name, itmp1)
+       case("MOVING_MEAN_INITIALISER")
+          call assign_val(buffer, moving_mean_initialiser_name, itmp1)
+       case("MOVING_VARIANCE_INITIALISER")
+          call assign_val(buffer, moving_variance_initialiser_name, itmp1)
        case("GAMMA")
-          kernel_initialiser = 'zeros'
+          gamma_initialiser_name = 'zeros'
           param_lines(1) = iline
        case("BETA")
-          bias_initialiser   = 'zeros'
+          beta_initialiser_name   = 'zeros'
           param_lines(2) = iline
        case default
           ! Don't look for "e" due to scientific notation of numbers
@@ -516,6 +523,10 @@ contains
           return
        end select
     end do tag_loop
+    gamma_initialiser = initialiser_setup(gamma_initialiser_name)
+    beta_initialiser = initialiser_setup(beta_initialiser_name)
+    moving_mean_initialiser = initialiser_setup(moving_mean_initialiser_name)
+    moving_variance_initialiser = initialiser_setup(moving_variance_initialiser_name)
 
 
     ! Set hyperparameters and initialise layer
@@ -528,10 +539,10 @@ contains
          gamma_init_std = this%gamma_init_std, &
          beta_init_mean = this%beta_init_mean, &
          beta_init_std = this%beta_init_std, &
-         kernel_initialiser = kernel_initialiser, &
-         bias_initialiser = bias_initialiser, &
-         moving_mean_initialiser = this%moving_mean_initialiser, &
-         moving_variance_initialiser = this%moving_variance_initialiser, &
+         gamma_initialiser = gamma_initialiser, &
+         beta_initialiser = beta_initialiser, &
+         moving_mean_initialiser = moving_mean_initialiser, &
+         moving_variance_initialiser = moving_variance_initialiser, &
          verbose = verbose_ &
     )
     call this%init(input_shape = input_shape)
@@ -558,7 +569,7 @@ contains
        read(unit,'(A)',iostat=stat) buffer
        select case(i)
        case(1) ! gamma
-          this%params_array(1)%val(1:this%num_channels,1) = data_list
+          this%params(1)%val(1:this%num_channels,1) = data_list
           if(trim(adjustl(buffer)).ne."END GAMMA")then
              write(err_msg,'("END GAMMA not where expected: ",A)') &
                   trim(adjustl(buffer))
@@ -566,7 +577,7 @@ contains
              return
           end if
        case(2) ! beta
-          this%params_array(1)%val(this%num_channels+1:this%num_channels*2,1) = &
+          this%params(1)%val(this%num_channels+1:this%num_channels*2,1) = &
                data_list
           if(trim(adjustl(buffer)).ne."END BETA")then
              write(err_msg,'("END BETA not where expected: ",A)') &
@@ -644,7 +655,7 @@ contains
     case(.true.)
        ! Do not perform the drop operation
 
-       ptr => batchnorm_inference(input(1,1), this%params_array(1), &
+       ptr => batchnorm_inference(input(1,1), this%params(1), &
             this%norm, &
             this%mean(:), this%variance(:), this%epsilon &
        )
@@ -652,7 +663,7 @@ contains
     case default
        ! Perform the drop operation
        ptr => batchnorm( &
-            input(1,1), this%params_array(1),&
+            input(1,1), this%params(1),&
             this%norm, this%momentum, &
             this%mean(:), this%variance(:), this%epsilon &
        )

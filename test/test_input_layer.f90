@@ -47,7 +47,6 @@ program test_input_layer
        input_shape=shape(input_2d(:,1)), &
        batch_size=batch_size &
   )
-  call input_layer%set_ptrs()
   call input_layer%set(input_2d)
   output_array = input_layer%output(1,1)
   if(any(abs(output_array%val-2.E0).gt.1.E-6))then
@@ -60,7 +59,6 @@ program test_input_layer
        input_shape=shape(input_3d(:,:,1)), &
        batch_size=batch_size &
   )
-  call input_layer%set_ptrs()
   call input_layer%set(input_3d)
   output_array = input_layer%output(1,1)
   if(any(abs(output_array%val-3.E0).gt.1.E-6))then
@@ -73,7 +71,6 @@ program test_input_layer
        input_shape=shape(input_4d(:,:,:,1)), &
        batch_size=batch_size &
   )
-  call input_layer%set_ptrs()
   call input_layer%set(input_4d)
   output_array = input_layer%output(1,1)
   if(any(abs(output_array%val-4.E0).gt.1.E-6))then
@@ -86,7 +83,6 @@ program test_input_layer
        input_shape=shape(input_5d(:,:,:,:,1)), &
        batch_size=batch_size &
   )
-  call input_layer%set_ptrs()
   call input_layer%set(input_5d)
   output_array = input_layer%output(1,1)
   if(any(abs(output_array%val-5.E0).gt.1.E-6))then

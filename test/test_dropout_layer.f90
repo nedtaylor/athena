@@ -43,7 +43,6 @@ program test_dropout_layer
        input_shape = [num_inputs], &
        batch_size = 1 &
   )
-  call drop_layer%set_ptrs()
 
   !! check layer name
   if(.not. drop_layer%name .eq. 'dropout')then
@@ -97,7 +96,6 @@ program test_dropout_layer
        input_shape = [num_inputs], &
        batch_size = 1 &
   )
-  call drop_layer%set_ptrs()
 
   call input(1,1)%allocate(array_shape=[num_inputs, 1, 1])
   call input(1,1)%set_requires_grad(.true.)

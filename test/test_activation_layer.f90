@@ -3,6 +3,10 @@ program test_activation_layer
   use coreutils, only: real32, test_error_handling
   use athena__actv_layer, only: actv_layer_type, read_actv_layer
   use athena__base_layer, only: base_layer_type
+  use athena__activation,  only: activation_setup
+  use athena__activation_linear, only: linear_actv_type
+  use athena__activation_swish, only: swish_actv_type
+  use athena__misc_types, only: base_actv_type
   use diffstruc, only: array_type, operator(-)
   implicit none
 
@@ -27,13 +31,13 @@ program test_activation_layer
   integer :: seed_size
   integer, allocatable, dimension(:) :: seed
 
-
+  class(base_actv_type), allocatable :: actv
   character(10), dimension(11) :: activation_functions
 
   activation_functions= [ &
        "none      ", "linear    ", "relu      ", "leaky_relu", &
        "sigmoid   ", "tanh      ", "swish     ", "softmax   ", &
-       "gaussian  ", "piecewise ", "invalid   " ]
+       "gaussian  ", "piecewise ", "selu      " ]
 
 !-------------------------------------------------------------------------------
 ! Initialise random number generator with a seed
@@ -56,37 +60,37 @@ program test_activation_layer
   )
 
   ! Check layer properties
-  if (.not. actv_layer%name .eq. 'actv') then
+  if(.not. actv_layer%name .eq. 'actv')then
      success = .false.
      write(0,*) 'activation layer has wrong name'
   end if
 
-  if (.not. actv_layer%type .eq. 'actv') then
+  if(.not. actv_layer%type .eq. 'actv')then
      success = .false.
      write(0,*) 'activation layer has wrong type'
   end if
 
-  if (any(actv_layer%input_shape .ne. [width])) then
+  if(any(actv_layer%input_shape .ne. [width]))then
      success = .false.
      write(0,*) 'activation layer (1D) has wrong input_shape'
   end if
 
-  if (any(actv_layer%output_shape .ne. [width])) then
+  if(any(actv_layer%output_shape .ne. [width]))then
      success = .false.
      write(0,*) 'activation layer (1D) has wrong output_shape'
   end if
 
-  if (actv_layer%input_rank .ne. 1) then
+  if(actv_layer%input_rank .ne. 1)then
      success = .false.
      write(0,*) 'activation layer (1D) has wrong input_rank'
   end if
 
-  if (actv_layer%output_rank .ne. 1) then
+  if(actv_layer%output_rank .ne. 1)then
      success = .false.
      write(0,*) 'activation layer (1D) has wrong output_rank'
   end if
 
-  if (actv_layer%batch_size .ne. batch_size) then
+  if(actv_layer%batch_size .ne. batch_size)then
      success = .false.
      write(0,*) 'activation layer (1D) has wrong batch_size'
   end if
@@ -107,14 +111,14 @@ program test_activation_layer
   output => actv_layer%output(1,1)
 
   ! Check ReLU activation (negative values should be zero)
-  if (any(abs(output%val(:,1) - [0.0, 0.0, 1.0, 2.0]) .gt. tol)) then
+  if(any(abs(output%val(:,1) - [0.0, 0.0, 1.0, 2.0]) .gt. tol))then
      success = .false.
      write(0,*) 'activation layer (1D) ReLU forward pass incorrect'
      write(0,*) 'Expected: [0.0, 0.0, 1.0, 2.0]'
      write(0,*) 'Got: ', output%val(:,1)
   end if
 
-  if (any(abs(output%val(:,2) - [0.0, 0.5, 1.5, 2.5]) .gt. tol)) then
+  if(any(abs(output%val(:,2) - [0.0, 0.5, 1.5, 2.5]) .gt. tol))then
      success = .false.
      write(0,*) 'activation layer (1D) ReLU forward pass incorrect for batch 2'
   end if
@@ -131,7 +135,7 @@ program test_activation_layer
 
   ! Check ReLU derivative (should be 0 for negative inputs, 1 for positive)
   if(associated(input(1,1)%grad))then
-     if (any(abs(input(1,1)%grad%val(:,1) - [0.0, 0.0, 1.0, 1.0]) .gt. tol)) then
+     if(any(abs(input(1,1)%grad%val(:,1) - [0.0, 0.0, 1.0, 1.0]) .gt. tol))then
         success = .false.
         write(0,*) 'activation layer (1D) ReLU backward pass incorrect'
         write(0,*) 'Expected: [0.0, 0.0, 1.0, 1.0]'
@@ -158,12 +162,12 @@ program test_activation_layer
   )
 
   ! Check layer properties
-  if (any(actv_layer%input_shape .ne. [width, height])) then
+  if(any(actv_layer%input_shape .ne. [width, height]))then
      success = .false.
      write(0,*) 'activation layer (2D) has wrong input_shape'
   end if
 
-  if (actv_layer%input_rank .ne. 2) then
+  if(actv_layer%input_rank .ne. 2)then
      success = .false.
      write(0,*) 'activation layer (2D) has wrong input_rank'
   end if
@@ -179,7 +183,7 @@ program test_activation_layer
   output => actv_layer%output(1,1)
 
   ! Check that sigmoid output is in (0,1)
-  if (any(output%val .le. 0.0_real32) .or. any(output%val .ge. 1.0_real32)) then
+  if(any(output%val .le. 0.0_real32) .or. any(output%val .ge. 1.0_real32))then
      success = .false.
      write(0,*) 'activation layer (2D) sigmoid output not in correct range'
   end if
@@ -190,9 +194,9 @@ program test_activation_layer
 
   ! Check that backward pass produces reasonable values
   if(associated(input(1,1)%grad))then
-     if (any(input(1,1)%grad%val .lt. 0.0_real32) .or. &
+     if(any(input(1,1)%grad%val .lt. 0.0_real32) .or. &
           any(input(1,1)%grad%val .gt. 0.25_real32) &
-     ) then
+     )then
         success = .false.
         write(0,*) 'activation layer (2D) sigmoid backward pass out of range'
      end if
@@ -225,7 +229,7 @@ program test_activation_layer
   output => actv_layer%output(1,1)
 
   ! Check that tanh output is in (-1,1)
-  if(any(output%val .le. -1.0_real32) .or. any(output%val .ge. 1.0_real32)) then
+  if(any(output%val .le. -1.0_real32) .or. any(output%val .ge. 1.0_real32))then
      success = .false.
      write(0,*) 'activation layer (3D) tanh output not in correct range'
   end if
@@ -238,7 +242,7 @@ program test_activation_layer
   write(*,*) "Testing 4D activation layer..."
 
   actv_layer = actv_layer_type( &
-       activation = "linear", &
+       activation = linear_actv_type(scale=2.0), &
        input_shape = [width, height, depth, channels], &
        batch_size = batch_size &
   )
@@ -251,9 +255,11 @@ program test_activation_layer
   output => actv_layer%output(1,1)
 
   ! Check that linear activation with scale 2.0 doubles the input
-  if(any(abs(output%val - 2.0_real32 * input(1,1)%val) .gt. tol)) then
+  if(any(abs(output%val - 2.0_real32 * input(1,1)%val) .gt. tol))then
      success = .false.
      write(0,*) 'activation layer (4D) linear activation incorrect'
+     write(0,*) 'Expected: ', 2.0_real32 * input(1,1)%val
+     write(0,*) 'Got: ', output%val
   end if
   call input(1,1)%deallocate()
 
@@ -264,7 +270,7 @@ program test_activation_layer
   write(*,*) "Testing activation layer with 'none' activation..."
 
   actv_layer = actv_layer_type( &
-       activation_function = "none", &
+       activation = "none", &
        input_shape = [width], &
        batch_size = batch_size &
   )
@@ -276,7 +282,7 @@ program test_activation_layer
   output => actv_layer%output(1,1)
 
   ! Check that 'none' activation returns input unchanged
-  if(any(abs(output%val - input(1,1)%val) .gt. tol)) then
+  if(any(abs(output%val - input(1,1)%val) .gt. tol))then
      success = .false.
      write(0,*) 'activation layer none activation incorrect'
   end if
@@ -289,13 +295,13 @@ program test_activation_layer
   write(*,*) "Testing batch size modification..."
 
   actv_layer = actv_layer_type( &
-       activation_function = "relu", &
+       activation = "relu", &
        input_shape = [width] &
   )
 
   call actv_layer%set_batch_size(batch_size)
 
-  if (actv_layer%batch_size .ne. batch_size) then
+  if(actv_layer%batch_size .ne. batch_size)then
      success = .false.
      write(0,*) 'activation layer set_batch_size failed'
   end if
@@ -308,7 +314,7 @@ program test_activation_layer
 
   call actv_layer%set_rank(3, 3)
 
-  if (actv_layer%input_rank .ne. 3 .or. actv_layer%output_rank .ne. 3) then
+  if(actv_layer%input_rank .ne. 3 .or. actv_layer%output_rank .ne. 3)then
      success = .false.
      write(0,*) 'activation layer set_rank failed'
   end if
@@ -320,19 +326,25 @@ program test_activation_layer
   write(*,*) "Testing hyperparameters setting..."
 
   call actv_layer%set_hyperparams( &
-       activation = "swish", &
+       activation = activation_setup("swish"), &
        verbose = 0 &
   )
 
-  if (.not. allocated(actv_layer%activation)) then
+  if(.not. allocated(actv_layer%activation))then
      success = .false.
      write(0,*) 'activation layer function not allocated'
   end if
 
-  if (abs(actv_layer%activation%scale - 1.5_real32) .gt. tol) then
+  select type(actv => actv_layer%activation)
+  type is(swish_actv_type)
+     if(abs(actv%beta - 1._real32) .gt. tol)then
+        success = .false.
+        write(0,*) 'activation layer has wrong swish beta parameter'
+     end if
+  class default
      success = .false.
-     write(0,*) 'activation layer scale incorrect'
-  end if
+     write(0,*) 'activation layer has wrong activation type'
+  end select
 
 
 !-------------------------------------------------------------------------------
@@ -359,7 +371,7 @@ program test_activation_layer
   ! Check that read layer has correct properties
   select type(read_layer)
   type is (actv_layer_type)
-     if (.not. read_layer%name .eq. 'actv') then
+     if(.not. read_layer%name .eq. 'actv')then
         success = .false.
         write(0,*) 'read activation layer has wrong name'
      end if
@@ -382,12 +394,12 @@ program test_activation_layer
 
   do i = 1, size(activation_functions)
      actv_layer = actv_layer_type( &
-          activation_function = trim(activation_functions(i)), &
+          activation = trim(activation_functions(i)), &
           input_shape = [width], &
           batch_size = 1 &
      )
 
-     if(.not. allocated(actv_layer%activation)) then
+     if(.not. allocated(actv_layer%activation))then
         success = .false.
         write(0,*) 'activation function not allocated for: ', &
              trim(activation_functions(i))
@@ -400,7 +412,7 @@ program test_activation_layer
      call actv_layer%forward(input)
      output => actv_layer%output(1,1)
 
-     if(.not. allocated(output%val)) then
+     if(.not. allocated(output%val))then
         success = .false.
         write(0,*) 'output not allocated for activation: ', &
              trim(activation_functions(i))
@@ -428,7 +440,7 @@ program test_activation_layer
 ! Check for any failed tests
 !-------------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
-  if (success) then
+  if(success)then
      write(*,*) 'test_activation_layer passed all tests'
   else
      write(0,*) 'test_activation_layer failed one or more tests'

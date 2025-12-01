@@ -119,6 +119,15 @@ contains
           end if
        case("threshold")
           read(attributes(i)%val,*) this%threshold
+       case("name")
+          if(trim(attributes(i)%val) .ne. trim(this%name)) then
+             call print_warning( &
+                  'ReLU activation: name attribute "' // &
+                  trim(attributes(i)%val) // &
+                  '"" does not match expected "' // trim(this%name)//'"' &
+             )
+
+          end if
        case default
           call print_warning( &
                'ReLU activation: unknown attribute '//trim(attributes(i)%name) &

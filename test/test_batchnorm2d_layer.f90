@@ -51,12 +51,11 @@ program test_batchnorm2d_layer
        gamma_init_std = 0.0, &
        beta_init_mean = beta, &
        beta_init_std = 0.0, &
-       kernel_initialiser = 'gaussian', &
-       bias_initialiser = 'gaussian', &
+       gamma_initialiser = 'gaussian', &
+       beta_initialiser = 'gaussian', &
        moving_mean_initialiser = 'zeros', &
        moving_variance_initialiser = 'zeros' &
   )
-  call bn_layer%set_ptrs()
 
   !! check layer name
   if(.not. bn_layer%name .eq. 'batchnorm2d')then
@@ -169,7 +168,7 @@ program test_batchnorm2d_layer
   !! check gradient has expected value
   select type(current => bn_layer)
   class is(batchnorm2d_layer_type)
-     params_grad => current%params_array(1)%grad
+     params_grad => current%params(1)%grad
      do i = 1, num_channels
         mean = sum(input_4d(:,:,i,:))/(width**2*batch_size)
         std = sqrt( &

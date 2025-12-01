@@ -35,13 +35,13 @@ program test_conv3d_network
        num_filters = num_filters1, &
        kernel_size = kernel_size1, &
        kernel_initialiser = "ones", &
-       activation_function = "linear" &
+       activation = "linear" &
   ))
   call network%add(conv3d_layer_type( &
        num_filters = num_filters2, &
        kernel_size = kernel_size2, &
        kernel_initialiser = "ones", &
-       activation_function = "linear" &
+       activation = "linear" &
   ))
   call network%compile( &
        optimiser = base_optimiser_type(learning_rate=1.0), &

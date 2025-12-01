@@ -123,6 +123,15 @@ contains
           end if
        case("beta")
           read(attributes(i)%val,*) this%beta
+       case("name")
+          if(trim(attributes(i)%val) .ne. trim(this%name)) then
+             call print_warning( &
+                  'Swish activation: name attribute "' // &
+                  trim(attributes(i)%val) // &
+                  '"" does not match expected "' // trim(this%name)//'"' &
+             )
+
+          end if
        case default
           call print_warning( &
                'Swish activation: unknown attribute '// &

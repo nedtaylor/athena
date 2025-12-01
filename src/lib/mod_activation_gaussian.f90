@@ -132,6 +132,15 @@ contains
           read(attributes(i)%val,*) this%sigma
        case("mu")
           read(attributes(i)%val,*) this%mu
+       case("name")
+          if(trim(attributes(i)%val) .ne. trim(this%name)) then
+             call print_warning( &
+                  'Gaussian activation: name attribute "' // &
+                  trim(attributes(i)%val) // &
+                  '"" does not match expected "' // trim(this%name)//'"' &
+             )
+
+          end if
        case default
           call print_warning( &
                'Gaussian activation: unknown attribute '// &

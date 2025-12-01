@@ -120,6 +120,15 @@ contains
           end if
        case("alpha")
           read(attributes(i)%val,*) this%alpha
+       case("name")
+          if(trim(attributes(i)%val) .ne. trim(this%name)) then
+             call print_warning( &
+                  'Leaky ReLU activation: name attribute "' // &
+                  trim(attributes(i)%val) // &
+                  '"" does not match expected "' // trim(this%name)//'"' &
+             )
+
+          end if
        case default
           call print_warning( &
                'Leaky ReLU activation: unknown attribute '//trim(attributes(i)%name) &

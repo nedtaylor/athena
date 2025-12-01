@@ -134,6 +134,15 @@ contains
           read(attributes(i)%val,*) this%alpha
        case("lambda")
           read(attributes(i)%val,*) this%lambda
+       case("name")
+          if(trim(attributes(i)%val) .ne. trim(this%name)) then
+             call print_warning( &
+                  'SELU activation: name attribute "' // &
+                  trim(attributes(i)%val) // &
+                  '"" does not match expected "' // trim(this%name)//'"' &
+             )
+
+          end if
        case default
           call print_warning( &
                'SELU activation: unknown attribute '// &

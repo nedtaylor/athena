@@ -344,30 +344,28 @@ contains
     !---------------------------------------------------------------------------
     ! Allocate weight, weight steps (velocities), output, and activation
     !---------------------------------------------------------------------------
-    if(allocated(this%params)) deallocate(this%params)
-    allocate(this%params(this%num_params), source=0._real32)
     allocate(this%weight_shape(2,1))
     this%weight_shape(:,1) = [ this%num_outputs, this%num_inputs ]
 
     if(this%use_bias)then
        this%bias_shape = [ this%num_outputs ]
-       allocate(this%params_array(2))
+       allocate(this%params(2))
     else
-       allocate(this%params_array(1))
+       allocate(this%params(1))
     end if
-    call this%params_array(1)%allocate([this%weight_shape(:,1), 1])
-    call this%params_array(1)%set_requires_grad(.true.)
-    this%params_array(1)%fix_pointer = .true.
-    this%params_array(1)%is_sample_dependent = .false.
-    this%params_array(1)%is_temporary = .false.
+    call this%params(1)%allocate([this%weight_shape(:,1), 1])
+    call this%params(1)%set_requires_grad(.true.)
+    this%params(1)%fix_pointer = .true.
+    this%params(1)%is_sample_dependent = .false.
+    this%params(1)%is_temporary = .false.
     num_inputs = this%num_inputs
     if(this%use_bias)then
        num_inputs = this%num_inputs + 1
-       call this%params_array(2)%allocate([this%bias_shape, 1])
-       call this%params_array(2)%set_requires_grad(.true.)
-       this%params_array(2)%fix_pointer = .true.
-       this%params_array(2)%is_sample_dependent = .false.
-       this%params_array(2)%is_temporary = .false.
+       call this%params(2)%allocate([this%bias_shape, 1])
+       call this%params(2)%set_requires_grad(.true.)
+       this%params(2)%fix_pointer = .true.
+       this%params(2)%is_sample_dependent = .false.
+       this%params(2)%is_temporary = .false.
     end if
 
 
@@ -375,7 +373,7 @@ contains
     ! Initialise weights (kernels)
     !---------------------------------------------------------------------------
     call this%kernel_init%initialise( &
-         this%params_array(1)%val(:,1), &
+         this%params(1)%val(:,1), &
          fan_in = num_inputs, fan_out = this%num_outputs, &
          spacing = [ this%num_outputs ] &
     )
@@ -384,7 +382,7 @@ contains
     !---------------------------------------------------------------------------
     if(this%use_bias)then
        call this%bias_init%initialise( &
-            this%params_array(2)%val(:,1), &
+            this%params(2)%val(:,1), &
             fan_in = num_inputs, fan_out = this%num_outputs &
        )
     end if
@@ -477,9 +475,9 @@ contains
     ! Write fully connected weights and biases
     !---------------------------------------------------------------------------
     write(unit,'("WEIGHTS")')
-    write(unit,'(5(E16.8E2))') this%params_array(1)%val(:,1)
+    write(unit,'(5(E16.8E2))') this%params(1)%val(:,1)
     if(this%use_bias)then
-       write(unit,'(5(E16.8E2))') this%params_array(2)%val(:,1)
+       write(unit,'(5(E16.8E2))') this%params(2)%val(:,1)
     end if
     write(unit,'("END WEIGHTS")')
 
@@ -638,7 +636,7 @@ contains
           read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
           c = c + k
        end do data_concat_loop
-       this%params_array(1)%val(:,1) = data_list
+       this%params(1)%val(:,1) = data_list
        deallocate(data_list)
        if(use_bias)then
           allocate(data_list(num_outputs), source=0._real32)
@@ -651,7 +649,7 @@ contains
              read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
              c = c + k
           end do data_concat_loop2
-          this%params_array(2)%val(:,1) = data_list(1:num_outputs)
+          this%params(2)%val(:,1) = data_list(1:num_outputs)
           deallocate(data_list)
        end if
 
@@ -785,9 +783,9 @@ contains
     ! Generate outputs from weights, biases, and inputs
     !---------------------------------------------------------------------------
     if(this%use_bias)then
-       ptr => matmul(this%params_array(1), input(1,1) ) + this%params_array(2)
+       ptr => matmul(this%params(1), input(1,1) ) + this%params(2)
     else
-       ptr => matmul(this%params_array(1), input(1,1) )
+       ptr => matmul(this%params(1), input(1,1) )
     end if
 
     ! Apply activation function to activation

@@ -94,13 +94,6 @@ contains
     this%get_accuracy => source%get_accuracy
     this%auto_graph = source%auto_graph
 
-
-    !---------------------------------------------------------------------------
-    ! set pointers
-    !---------------------------------------------------------------------------
-    do i = 1, this%num_layers
-       call this%model(i)%layer%set_ptrs()
-    end do
   end subroutine network_copy
 !###############################################################################
 
@@ -1774,7 +1767,6 @@ contains
     this%batch_size = batch_size
     do l = 1, this%num_layers
        call this%model(l)%layer%set_batch_size(this%batch_size)
-       call this%model(l)%layer%set_ptrs() ! name %compile() or %build()?
     end do
 
   end subroutine set_batch_size
@@ -1948,8 +1940,8 @@ contains
     do l = 1, this%num_layers
        select type(current => this%model(l)%layer)
        class is(learnable_layer_type)
-          do i = 1, size(current%params_array)
-             num_params = num_params + size(current%params_array(i)%val, 1)
+          do i = 1, size(current%params)
+             num_params = num_params + size(current%params(i)%val, 1)
           end do
        end select
     end do
@@ -1978,10 +1970,10 @@ contains
     do l = 1, this%num_layers
        select type(current => this%model(l)%layer)
        class is(learnable_layer_type)
-          do i = 1, size(current%params_array)
+          do i = 1, size(current%params)
              start_idx = end_idx + 1
-             end_idx = end_idx + size(current%params_array(i)%val, 1)
-             params(start_idx:end_idx) = current%params_array(i)%val(:,1)
+             end_idx = end_idx + size(current%params(i)%val, 1)
+             params(start_idx:end_idx) = current%params(i)%val(:,1)
           end do
        end select
     end do
@@ -2010,10 +2002,10 @@ contains
     do l = 1, this%num_layers
        select type(current => this%model(l)%layer)
        class is(learnable_layer_type)
-          do i = 1, size(current%params_array)
+          do i = 1, size(current%params)
              start_idx = end_idx + 1
-             end_idx = end_idx + size(current%params_array(i)%val, 1)
-             current%params_array(i)%val(:,1) = params(start_idx:end_idx)
+             end_idx = end_idx + size(current%params(i)%val, 1)
+             current%params(i)%val(:,1) = params(start_idx:end_idx)
           end do
           !  call current%set_params(params(start_idx:end_idx))
        end select
@@ -2043,13 +2035,13 @@ contains
     do l = 1, this%num_layers
        select type(current => this%model(l)%layer)
        class is(learnable_layer_type)
-          do i = 1, size(current%params_array)
-             if(associated(current%params_array(i)%grad))then
+          do i = 1, size(current%params)
+             if(associated(current%params(i)%grad))then
                 start_idx = end_idx + 1
-                end_idx = end_idx + size(current%params_array(i)%val, 1)
+                end_idx = end_idx + size(current%params(i)%val, 1)
                 gradients(start_idx:end_idx) = [ &
-                     sum(current%params_array(i)%grad%val, dim=2) / &
-                     real(size(current%params_array(i)%grad%val, dim=2), real32) &
+                     sum(current%params(i)%grad%val, dim=2) / &
+                     real(size(current%params(i)%grad%val, dim=2), real32) &
                 ]
              end if
           end do
@@ -2112,8 +2104,8 @@ contains
     do l = 1, this%num_layers
        select type(current => this%model(l)%layer)
        class is(learnable_layer_type)
-          do i = 1, size(current%params_array)
-             call current%params_array(i)%zero_grad()
+          do i = 1, size(current%params)
+             call current%params(i)%zero_grad()
           end do
        end select
     end do
@@ -2616,24 +2608,24 @@ contains
     do l = 1, this%num_layers
        select type(current => this%model(l)%layer)
        class is(learnable_layer_type)
-          do i = 1, size(current%params_array)
+          do i = 1, size(current%params)
              start_idx = end_idx + 1
-             end_idx = end_idx + size(current%params_array(i)%val, 1)
-             params(start_idx:end_idx) = current%params_array(i)%val(:,1)
-             if(.not.associated(current%params_array(i)%grad))then
+             end_idx = end_idx + size(current%params(i)%val, 1)
+             params(start_idx:end_idx) = current%params(i)%val(:,1)
+             if(.not.associated(current%params(i)%grad))then
                 call stop_program( &
                      "Gradient not allocated for parameters in layer "// &
                      trim(current%name) // &
                      "." &
                 )
              end if
-             select case(size(current%params_array(i)%grad%val,2))
+             select case(size(current%params(i)%grad%val,2))
              case(1)
-                gradients(start_idx:end_idx) = current%params_array(i)%grad%val(:,1)
+                gradients(start_idx:end_idx) = current%params(i)%grad%val(:,1)
              case default
                 gradients(start_idx:end_idx) = [ &
-                     sum(current%params_array(i)%grad%val, dim=2) / &
-                     real(size(current%params_array(i)%grad%val, dim=2), real32) &
+                     sum(current%params(i)%grad%val, dim=2) / &
+                     real(size(current%params(i)%grad%val, dim=2), real32) &
                 ]
              end select
           end do

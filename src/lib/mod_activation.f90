@@ -116,6 +116,7 @@ contains
              write(err_msg,'("Incorrect activation name given ''",A,"''")') &
                   trim(to_lower(input))
              call stop_program(trim(err_msg))
+             write(*,*) "BB"
              return
           end if
        end select
@@ -147,10 +148,12 @@ contains
          allocate(list_of_onnx_activation_creators(0))
     list_of_onnx_activation_creators = [ &
          onnx_create_actv_container('gaussian', create_from_onnx_gaussian_activation), &
-         onnx_create_actv_container('leaky_relu', create_from_onnx_leaky_relu_activation), &
+         onnx_create_actv_container('leaky_relu', &
+              create_from_onnx_leaky_relu_activation), &
          onnx_create_actv_container('linear', create_from_onnx_linear_activation), &
          onnx_create_actv_container('none', create_from_onnx_none_activation), &
-         onnx_create_actv_container('piecewise', create_from_onnx_piecewise_activation), &
+         onnx_create_actv_container('piecewise', &
+              create_from_onnx_piecewise_activation), &
          onnx_create_actv_container('relu', create_from_onnx_relu_activation), &
          onnx_create_actv_container('selu', create_from_onnx_selu_activation), &
          onnx_create_actv_container('sigmoid', create_from_onnx_sigmoid_activation), &
@@ -189,9 +192,9 @@ contains
     !! Buffer for reading lines
     character(256) :: err_msg
     !! Error message
-    character(50) :: attr_name
+    character(20) :: attr_name
     !! Attribute name
-    character(50) :: attr_value
+    character(20) :: attr_value
     !! Attribute value as string
     integer :: stat
     !! I/O status

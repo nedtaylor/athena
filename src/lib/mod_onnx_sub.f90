@@ -701,51 +701,29 @@ contains
     !! Optional prefix for weight and bias names
 
     ! Local variables
-    integer :: i, j, num_params, num_params_old
+    integer :: i
     !! Loop indices
+    integer :: num_params
+    !! Number of parameters
     character(20) :: name
-    !! Names for weights and biases
+    !! Names for parameters
 
 
     if(allocated(layer%params))then
-       num_params_old = 0
-       do i = 1, size(layer%weight_shape, 2)
-          write(name, '(A,A,I0)') trim(prefix), '_weight', i
+       do i = 1, size(layer%params)
+          num_params = size(layer%params(i)%val,1)
+          write(name, '(A,A,I0)') trim(prefix), '_param', i
           write(unit, '(2X,A)') 'initializer {'
           write(unit, '(4X,"name: """,A,"""")') trim(name)
           write(unit, '(4X,A)') 'data_type: 1'  ! FLOAT
-          do j = size(layer%weight_shape, 1), 1, -1
-             write(unit, '(4X,A,I0)') 'dims: ', layer%weight_shape(j,i)
-          end do
-          num_params = product(layer%weight_shape(:, i))
+          write(unit, '(4X,A,I0)') 'dims: ', num_params
 
           write(unit, '(4X,"float_data: [ ")')
-          write(unit, '(20(F0.6,", "))') layer%params(num_params_old + 1:num_params-1)
-          write(unit, '(F0.6)') layer%params(num_params + num_params_old)
+          write(unit, '(20(F0.6,", "))') layer%params(i)%val(1:num_params-1,:)
+          write(unit, '(F0.6)') layer%params(i)%val(num_params,:)
           write(unit, '(A)') ' ]'
           write(unit, '(A)') '  }'
           write(unit, '(A)') ''
-
-          num_params_old = num_params_old + num_params
-
-          if(layer%use_bias)then
-             write(name, '(A,A,I0)') trim(prefix), '_bias', i
-             write(unit, '(2X,A)') 'initializer {'
-             write(unit, '(4X,"name: """,A,"""")') trim(name)
-             write(unit, '(4X,A)') 'data_type: 1'  ! FLOAT
-             write(unit, '(4X,A,I0)') 'dims: ', layer%bias_shape(i)
-             num_params = layer%bias_shape(i)
-
-             write(unit, '(4X,"float_data: [ ")')
-             write(unit, '(20(F0.6,", "))') &
-                  layer%params(num_params_old + 1:num_params_old + num_params - 1)
-             write(unit, '(F0.6)') layer%params(num_params_old + num_params)
-             write(unit, '(A)') ' ]'
-             write(unit, '(A)') '  }'
-             write(unit, '(A)') ''
-
-             num_params_old = num_params_old + layer%bias_shape(i)
-          end if
        end do
     end if
 

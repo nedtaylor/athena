@@ -35,13 +35,13 @@ program test_conv1d_network
        num_filters = num_filters1, &
        kernel_size = kernel_size1, &
        kernel_initialiser = "ones", &
-       activation_function = "linear" &
+       activation = "linear" &
   ))
   call network%add(conv1d_layer_type( &
        num_filters = num_filters2, &
        kernel_size = kernel_size2, &
        kernel_initialiser = "ones", &
-       activation_function = "linear" &
+       activation = "linear" &
   ))
 
   call network%compile( &
@@ -61,7 +61,10 @@ program test_conv1d_network
   call network%forward_generic2d(input)
   output = network%get_output()
 
-  if(any([output(1,1)%shape,size(output(1,1)%val,2)].ne.[output_width,num_filters2,1]))then
+  if(any( &
+       [output(1,1)%shape,size(output(1,1)%val,2)] .ne. &
+       [output_width,num_filters2,1] &
+  ))then
      success = .false.
      write(0,*) "conv1d network output shape should be [3,8]"
      write(0,*) "output shape is ", shape(output)

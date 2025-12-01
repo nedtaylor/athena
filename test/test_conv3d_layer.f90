@@ -99,10 +99,9 @@ program test_conv3d_layer
   conv_layer = conv3d_layer_type( &
        num_filters = 1, &
        kernel_size = 3, &
-       activation_function = 'sigmoid' &
+       activation = 'sigmoid' &
   )
   call conv_layer%init(input(1,1)%shape, batch_size=1)
-  call conv_layer%set_ptrs()
 
   !! set input data in input_layer
   call conv_layer%forward(input)
@@ -215,17 +214,15 @@ program test_conv3d_layer
   conv_layer1 = conv3d_layer_type( &
        num_filters = 1, &
        kernel_size = 3, &
-       activation_function = 'sigmoid' &
+       activation = 'sigmoid' &
   )
   call conv_layer1%init(input_layer%input_shape, batch_size=1)
-  call conv_layer1%set_ptrs()
   conv_layer2 = conv3d_layer_type( &
        num_filters = 1, &
        kernel_size = 3, &
-       activation_function = 'sigmoid' &
+       activation = 'sigmoid' &
   )
   call conv_layer2%init(input_layer%input_shape, batch_size=1)
-  call conv_layer2%set_ptrs()
   select type(conv_layer1)
   type is(conv3d_layer_type)
      select type(conv_layer2)
@@ -332,14 +329,14 @@ contains
     end if
     if(present(layer3))then
        if( &
-            associated(layer1%params_array(1)%grad).and. &
-            associated(layer2%params_array(1)%grad).and. &
-            associated(layer3%params_array(1)%grad) &
+            associated(layer1%params(1)%grad).and. &
+            associated(layer2%params(1)%grad).and. &
+            associated(layer3%params(1)%grad) &
        )then
           if(any(abs( &
-               layer1%params_array(1)%grad%val - &
-               layer2%params_array(1)%grad%val - &
-               layer3%params_array(1)%grad%val &
+               layer1%params(1)%grad%val - &
+               layer2%params(1)%grad%val - &
+               layer3%params(1)%grad%val &
           ).gt.1.E-6))then
              success = .false.
              write(0,*) 'conv1d layer has wrong gradients'
@@ -347,14 +344,14 @@ contains
        end if
 
        if( &
-            associated(layer1%params_array(2)%grad).and. &
-            associated(layer2%params_array(2)%grad).and. &
-            associated(layer3%params_array(2)%grad) &
+            associated(layer1%params(2)%grad).and. &
+            associated(layer2%params(2)%grad).and. &
+            associated(layer3%params(2)%grad) &
        )then
           if(any(abs( &
-               layer1%params_array(2)%grad%val - &
-               layer2%params_array(2)%grad%val - &
-               layer3%params_array(2)%grad%val &
+               layer1%params(2)%grad%val - &
+               layer2%params(2)%grad%val - &
+               layer3%params(2)%grad%val &
           ).gt.1.E-6))then
              success = .false.
              write(0,*) 'conv1d layer has wrong bias gradients'

@@ -342,16 +342,16 @@ contains
     !---------------------------------------------------------------------------
     ! Allocate weight, weight steps (velocities), output, and activation
     !---------------------------------------------------------------------------
-    if(allocated(this%params_array)) deallocate(this%params_array)
-    allocate(this%params_array(this%num_time_steps))
+    if(allocated(this%params)) deallocate(this%params)
+    allocate(this%params(this%num_time_steps))
     do t = 1, this%num_time_steps
-       call this%params_array(t)%allocate( &
+       call this%params(t)%allocate( &
             array_shape = [ this%weight_shape(:,t), 1 ] &
        )
-       call this%params_array(t)%set_requires_grad(.true.)
-       this%params_array(t)%is_sample_dependent = .false.
-       this%params_array(t)%is_temporary = .false.
-       this%params_array(t)%fix_pointer = .true.
+       call this%params(t)%set_requires_grad(.true.)
+       this%params(t)%is_sample_dependent = .false.
+       this%params(t)%is_temporary = .false.
+       this%params(t)%fix_pointer = .true.
     end do
 
 
@@ -360,7 +360,7 @@ contains
     !---------------------------------------------------------------------------
     do t = 1, this%num_time_steps
        call this%kernel_init%initialise( &
-            this%params_array(t)%val(:,1), &
+            this%params(t)%val(:,1), &
             fan_in = this%num_vertex_features(t-1), &
             fan_out = this%num_vertex_features(t), &
             spacing = [ this%num_vertex_features(t) ] &
@@ -449,7 +449,7 @@ contains
     !---------------------------------------------------------------------------
     write(unit,'("WEIGHTS")')
     do t = 1, this%num_time_steps, 1
-       write(unit,'(5(E16.8E2))') this%params_array(t)%val
+       write(unit,'(5(E16.8E2))') this%params(t)%val
     end do
     write(unit,'("END WEIGHTS")')
 
@@ -608,7 +608,7 @@ contains
              read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
              c = c + k
           end do data_concat_loop
-          this%params_array(t)%val(:,1) = data_list(1:this%num_params_msg(t))
+          this%params(t)%val(:,1) = data_list(1:this%num_params_msg(t))
           deallocate(data_list)
        end do
 
@@ -698,9 +698,9 @@ contains
           )
 
           ! this%z(t,s) = kipf_update( &
-          !      this%message(t,s), this%params_array(t), this%graph(s)%adj_ia &
+          !      this%message(t,s), this%params(t), this%graph(s)%adj_ia &
           ! )
-          ptr3 => matmul( this%params_array(t), ptr2 )
+          ptr3 => matmul( this%params(t), ptr2 )
           ptr1 => this%activation%apply( ptr3 )
        end do
        call this%output(1,s)%zero_grad()

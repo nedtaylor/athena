@@ -22,7 +22,7 @@ program test_onnx
   call network%add(conv2d_layer_type( &
        kernel_size=[3,3], &
        num_filters=1, &
-       activation_function='swish' &
+       activation='swish' &
   ))
   call network%add( &
        conv2d_layer_type( &

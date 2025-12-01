@@ -146,6 +146,50 @@ contains
     write(unit,'(3X,"METHOD = ",A)') trim(this%method)
 
   end subroutine print_to_unit_pad
+!-------------------------------------------------------------------------------
+  subroutine print_to_unit_batch(this, unit)
+    !! Print 3D batch normalisation layer to unit
+    use coreutils, only: to_upper
+    implicit none
+
+    ! Arguments
+    class(batch_layer_type), intent(in) :: this
+    !! Instance of batch normalisation layer
+    integer, intent(in) :: unit
+    !! File unit
+
+    ! Local variables
+    integer :: m
+    !! Loop index
+    character(100) :: fmt
+    !! Format string
+
+
+    ! Write initial parameters
+    !---------------------------------------------------------------------------
+    write(fmt,'("(3X,""INPUT_SHAPE = "",",I0,"(1X,I0))")') size(this%input_shape)
+    write(unit,fmt) this%input_shape
+    write(unit,'(3X,"MOMENTUM = ",F0.9)') this%momentum
+    write(unit,'(3X,"EPSILON = ",F0.9)') this%epsilon
+    write(unit,'(3X,"NUM_CHANNELS = ",I0)') this%num_channels
+    write(unit,'(3X,"GAMMA_INITIALISER = ",A)') trim(this%kernel_init%name)
+    write(unit,'(3X,"BETA_INITIALISER = ",A)') trim(this%bias_init%name)
+    write(unit,'(3X,"MOVING_MEAN_INITIALISER = ",A)') &
+         trim(this%moving_mean_init%name)
+    write(unit,'(3X,"MOVING_VARIANCE_INITIALISER = ",A)') &
+         trim(this%moving_variance_init%name)
+    write(unit,'("GAMMA")')
+    do m = 1, this%num_channels
+       write(unit,'(5(E16.8E2))') this%params(1)%val(m,1)
+    end do
+    write(unit,'("END GAMMA")')
+    write(unit,'("BETA")')
+    do m = 1, this%num_channels
+       write(unit,'(5(E16.8E2))') this%params(1)%val(this%num_channels+m,1)
+    end do
+    write(unit,'("END BETA")')
+
+  end subroutine print_to_unit_batch
 !###############################################################################
 
 
@@ -256,13 +300,13 @@ contains
 
     attributes(3)%name = "scale"
     write(fmt,'("(",I0,"(1X,I0))")') this%num_channels
-    write(buffer,fmt) this%params(1:this%num_channels)
+    write(buffer,fmt) this%params(1)%val(1:this%num_channels,1)
     attributes(3)%val = trim(adjustl(buffer))
     attributes(3)%type = "float"
 
     attributes(4)%name = "B"
     write(fmt,'("(",I0,"(1X,I0))")') this%num_channels
-    write(buffer,fmt) this%params(this%num_channels+1:2*this%num_channels)
+    write(buffer,fmt) this%params(1)%val(this%num_channels+1:2*this%num_channels,1)
     attributes(4)%val = trim(adjustl(buffer))
     attributes(4)%type = "float"
 
@@ -364,49 +408,6 @@ contains
     call this%output(1,1)%extract(output)
 
   end subroutine extract_output_base
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine set_ptrs(this)
-    !! Set the pointers of the layer
-    implicit none
-
-    ! Arguments
-    class(base_layer_type), intent(inout), target :: this
-    !! Instance of the layer
-
-    ! Local variables
-    character(256) :: err_msg
-    !! Error message
-
-    ! out_alloc_check: if(allocated(this%output))then
-    !    if(this%use_graph_input)then
-    !       exit out_alloc_check
-    !    elseif(.not.this%output(1,1)%allocated)then
-    !       write(err_msg,'("output not allocated for layer ",A," ",I0)') &
-    !            trim(this%name), this%id
-    !       call stop_program(err_msg)
-    !       return
-    !    end if
-    !    call this%output(1,1)%set_ptr()
-    ! end if out_alloc_check
-
-    call this%set_ptrs_hyperparams()
-
-  end subroutine set_ptrs
-!-------------------------------------------------------------------------------
-  module subroutine set_ptrs_hyperparams(this)
-    !! Set the hyperparameter pointers of the layer
-    implicit none
-
-    ! Arguments
-    class(base_layer_type), intent(inout), target :: this
-    !! Instance of the layer
-
-    ! No hyperparameters to set for the base layer
-    return
-  end subroutine set_ptrs_hyperparams
 !###############################################################################
 
 
@@ -573,17 +574,17 @@ contains
     integer :: i
     !! Loop index
 
-    if(allocated(this%params_array).and.allocated(input%params_array))then
-       if(size(this%params_array).ne.size(input%params_array))then
+    if(allocated(this%params).and.allocated(input%params))then
+       if(size(this%params).ne.size(input%params))then
           call stop_program("reduce_learnable: incompatible parameter sizes")
           return
        end if
-       do i = 1, size(this%params_array,1)
-          this%params_array(i) = this%params_array(i) + input%params_array(i)
-          if(associated(this%params_array(i)%grad).and.&
-               associated(input%params_array(i)%grad))then
-             this%params_array(i)%grad = this%params_array(i)%grad + &
-                  input%params_array(i)%grad
+       do i = 1, size(this%params,1)
+          this%params(i) = this%params(i) + input%params(i)
+          if(associated(this%params(i)%grad).and.&
+               associated(input%params(i)%grad))then
+             this%params(i)%grad = this%params(i)%grad + &
+                  input%params(i)%grad
           end if
        end do
     else
@@ -611,19 +612,19 @@ contains
     !! Loop index
 
     output = a
-    if(allocated(a%params_array).and.allocated(b%params_array))then
-       if(size(a%params_array).ne.size(b%params_array))then
+    if(allocated(a%params).and.allocated(b%params))then
+       if(size(a%params).ne.size(b%params))then
           call stop_program("add_learnable: incompatible parameter sizes")
           return
        end if
-       do i = 1, size(a%params_array,1)
-          output%params_array(i)%grad => null()
-          output%params_array(i) = a%params_array(i) + b%params_array(i)
-          if(associated(a%params_array(i)%grad).and.&
-               associated(b%params_array(i)%grad))then
-             allocate(output%params_array(i)%grad)
-             output%params_array(i)%grad = a%params_array(i)%grad + &
-                  b%params_array(i)%grad
+       do i = 1, size(a%params,1)
+          output%params(i)%grad => null()
+          output%params(i) = a%params(i) + b%params(i)
+          if(associated(a%params(i)%grad).and.&
+               associated(b%params(i)%grad))then
+             allocate(output%params(i)%grad)
+             output%params(i)%grad = a%params(i)%grad + &
+                  b%params(i)%grad
           end if
        end do
     else
@@ -656,10 +657,10 @@ contains
 
     start_idx = 0
     end_idx = 0
-    do i = 1, size(this%params_array)
+    do i = 1, size(this%params)
        start_idx = end_idx + 1
-       end_idx = start_idx + size(this%params_array(i)%val,1) - 1
-       params(start_idx:end_idx) = this%params_array(i)%val(:,1)
+       end_idx = start_idx + size(this%params(i)%val,1) - 1
+       params(start_idx:end_idx) = this%params(i)%val(:,1)
     end do
 
   end function get_params
@@ -685,16 +686,16 @@ contains
     integer :: i, start_idx, end_idx
     !! Loop indices
 
-    if(.not.allocated(this%params_array)) then
+    if(.not.allocated(this%params)) then
        call stop_program("set_params: params not allocated")
        return
     end if
     start_idx = 0
     end_idx = 0
-    do i = 1, size(this%params_array)
+    do i = 1, size(this%params)
        start_idx = end_idx + 1
-       end_idx = start_idx + size(this%params_array(i)%val,1) - 1
-       this%params_array(i)%val(:,1) = params(start_idx:end_idx)
+       end_idx = start_idx + size(this%params(i)%val,1) - 1
+       this%params(i)%val(:,1) = params(start_idx:end_idx)
     end do
 
   end subroutine set_params
@@ -722,18 +723,18 @@ contains
     integer :: i, start_idx, end_idx
     !! Loop indices
 
-    if(.not.allocated(this%params_array)) then
+    if(.not.allocated(this%params)) then
        return
     end if
     start_idx = 0
     end_idx = 0
-    do i = 1, size(this%params_array)
+    do i = 1, size(this%params)
        start_idx = end_idx + 1
-       end_idx = start_idx + size(this%params_array(i)%val,1) - 1
-       if(.not.associated(this%params_array(i)%grad)) then
+       end_idx = start_idx + size(this%params(i)%val,1) - 1
+       if(.not.associated(this%params(i)%grad)) then
           gradients(start_idx:end_idx) = 0._real32
        else
-          gradients(start_idx:end_idx) = this%params_array(i)%grad%val(:,1)
+          gradients(start_idx:end_idx) = this%params(i)%grad%val(:,1)
        end if
     end do
 
@@ -765,20 +766,20 @@ contains
     end_idx = 0
     select rank(gradients)
     rank(0)
-       do i = 1, size(this%params_array)
-          if(.not.associated(this%params_array(i)%grad)) then
-             this%params_array(i)%grad => this%params_array(i)%create_result()
+       do i = 1, size(this%params)
+          if(.not.associated(this%params(i)%grad)) then
+             this%params(i)%grad => this%params(i)%create_result()
           end if
-          this%params_array(i)%grad%val(:,1) = gradients
+          this%params(i)%grad%val(:,1) = gradients
        end do
     rank(1)
-       do i = 1, size(this%params_array)
-          if(.not.associated(this%params_array(i)%grad)) then
-             this%params_array(i)%grad => this%params_array(i)%create_result()
+       do i = 1, size(this%params)
+          if(.not.associated(this%params(i)%grad)) then
+             this%params(i)%grad => this%params(i)%create_result()
           end if
           start_idx = end_idx + 1
-          end_idx = start_idx + size(this%params_array(i)%val,1) - 1
-          this%params_array(i)%grad%val(:,1) = gradients(start_idx:end_idx)
+          end_idx = start_idx + size(this%params(i)%val,1) - 1
+          this%params(i)%grad%val(:,1) = gradients(start_idx:end_idx)
        end do
     end select
 
@@ -973,21 +974,21 @@ contains
     this%weight_shape(:,1) = [ this%knl, this%num_channels, this%num_filters ]
     this%bias_shape = [this%num_filters]
 
-    if(allocated(this%params_array)) deallocate(this%params_array)
-    allocate(this%params_array(2))
-    call this%params_array(1)%allocate([this%weight_shape(:,1), 1])
-    call this%params_array(1)%set_requires_grad(.true.)
-    this%params_array(1)%is_sample_dependent = .false.
-    call this%params_array(2)%allocate([this%bias_shape, 1])
-    call this%params_array(2)%set_requires_grad(.true.)
-    this%params_array(2)%is_sample_dependent = .false.
+    if(allocated(this%params)) deallocate(this%params)
+    allocate(this%params(2))
+    call this%params(1)%allocate([this%weight_shape(:,1), 1])
+    call this%params(1)%set_requires_grad(.true.)
+    this%params(1)%is_sample_dependent = .false.
+    call this%params(2)%allocate([this%bias_shape, 1])
+    call this%params(2)%set_requires_grad(.true.)
+    this%params(2)%is_sample_dependent = .false.
 
 
     !---------------------------------------------------------------------------
     ! initialise weights (kernels)
     !---------------------------------------------------------------------------
     call this%kernel_init%initialise( &
-         this%params_array(1)%val(:,1), &
+         this%params(1)%val(:,1), &
          fan_in = product(this%knl)+1, fan_out = 1, &
          spacing = [ this%knl, this%num_channels, this%num_filters ] &
     )
@@ -995,7 +996,7 @@ contains
     ! initialise biases
     !---------------------------------------------------------------------------
     call this%bias_init%initialise( &
-         this%params_array(2)%val(:,1), &
+         this%params(2)%val(:,1), &
          fan_in = product(this%knl)+1, fan_out = 1 &
     )
 
@@ -1027,7 +1028,6 @@ contains
     !! Verbosity level
 
     integer :: verbose_ = 0
-    class(base_init_type), allocatable :: t_initialiser
 
 
     !---------------------------------------------------------------------------
@@ -1056,9 +1056,9 @@ contains
     end if
     this%num_channels = this%input_shape(this%input_rank)
     this%num_params = this%get_num_params()
-    allocate(this%params_array(1))
-    call this%params_array(1)%allocate([2 * this%num_channels, 1])
-    call this%params_array(1)%set_requires_grad(.true.)
+    allocate(this%params(1))
+    call this%params(1)%allocate([2 * this%num_channels, 1])
+    call this%params(1)%set_requires_grad(.true.)
     allocate(this%weight_shape(1,1))
     this%weight_shape(:,1) = [ this%num_channels ]
     this%bias_shape = [this%num_channels]
@@ -1074,43 +1074,29 @@ contains
     !---------------------------------------------------------------------------
     ! initialise gamma
     !---------------------------------------------------------------------------
-    allocate(t_initialiser, source=initialiser_setup(this%kernel_initialiser))
-    t_initialiser%mean = this%gamma_init_mean
-    t_initialiser%std  = this%gamma_init_std
-    call t_initialiser%initialise(this%params_array(1)%val(1:this%num_channels,1), &
+    call this%kernel_init%initialise(this%params(1)%val(1:this%num_channels,1), &
          fan_in =this%num_channels, &
          fan_out=this%num_channels)
-    deallocate(t_initialiser)
 
     ! initialise beta
     !---------------------------------------------------------------------------
-    allocate(t_initialiser, source=initialiser_setup(this%bias_initialiser))
-    t_initialiser%mean = this%beta_init_mean
-    t_initialiser%std  = this%beta_init_std
-    call t_initialiser%initialise(this%params_array(1)%val(this%num_channels+1:,1), &
+    call this%bias_init%initialise(this%params(1)%val(this%num_channels+1:,1), &
          fan_in =this%num_channels, &
          fan_out=this%num_channels)
-    deallocate(t_initialiser)
 
 
     !---------------------------------------------------------------------------
     ! initialise moving mean
     !---------------------------------------------------------------------------
-    allocate(t_initialiser, &
-         source=initialiser_setup(this%moving_mean_initialiser))
-    call t_initialiser%initialise(this%mean, &
+    call this%moving_mean_init%initialise(this%mean, &
          fan_in =this%num_channels, &
          fan_out=this%num_channels)
-    deallocate(t_initialiser)
 
     ! initialise moving variance
     !---------------------------------------------------------------------------
-    allocate(t_initialiser, &
-         source=initialiser_setup(this%moving_variance_initialiser))
-    call t_initialiser%initialise(this%variance, &
+    call this%moving_variance_init%initialise(this%variance, &
          fan_in =this%num_channels, &
          fan_out=this%num_channels)
-    deallocate(t_initialiser)
 
 
     !---------------------------------------------------------------------------

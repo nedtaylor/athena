@@ -169,8 +169,8 @@ program pinn_burgers_example
   do i = 1, network%num_layers
      select type(layer => network%model(i)%layer)
      class is (learnable_layer_type)
-        write(10,*) layer%params_array(1)%val(:,1)
-        write(10,*) layer%params_array(2)%val(:,1)
+        write(10,*) layer%params(1)%val(:,1)
+        write(10,*) layer%params(2)%val(:,1)
      end select
   end do
 

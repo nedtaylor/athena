@@ -240,6 +240,7 @@ contains
        output%is_forward = input%is_forward
        output%operation = 'piecewise'
        output%left_operand => input
+       output%owns_left_operand = input%is_temporary
     end if
     allocate(b_array)
     b_array%is_sample_dependent = .false.
@@ -248,7 +249,7 @@ contains
     b_array%val(1,1) = gradient
     b_array%val(2,1) = limit
     output%right_operand => b_array
-    output%owns_left_operand = .true.
+    output%owns_right_operand = .true.
 
   end function piecewise_array
 !-------------------------------------------------------------------------------
@@ -584,7 +585,7 @@ contains
           output(:, i) = upstream_grad(:, i) - sum_yu(i) * this%left_operand%val(:, i)
        end do
     end if
-   end subroutine get_partial_softmax_reverse_right_val
+  end subroutine get_partial_softmax_reverse_right_val
 !###############################################################################
 
 end submodule athena__diffstruc_extd_submodule

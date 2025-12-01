@@ -556,8 +556,8 @@ contains
     ! Write weights and biases
     !---------------------------------------------------------------------------
     write(unit,'("WEIGHTS")')
-    write(unit,'(5(E16.8E2))') this%params_array(1)%val(:,1)
-    write(unit,'(5(E16.8E2))') this%params_array(2)%val(:,1)
+    write(unit,'(5(E16.8E2))') this%params(1)%val(:,1)
+    write(unit,'(5(E16.8E2))') this%params(2)%val(:,1)
     write(unit,'("END WEIGHTS")')
 
   end subroutine print_to_unit_conv2d
@@ -728,7 +728,7 @@ contains
           read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
           c = c + k
        end do data_concat_loop
-       this%params_array(1)%val(:,1) = data_list
+       this%params(1)%val(:,1) = data_list
        deallocate(data_list)
        allocate(data_list(num_filters), source=0._real32)
        c = 1
@@ -740,7 +740,7 @@ contains
           read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
           c = c + k
        end do data_concat_loop2
-       this%params_array(2)%val(:,1) = data_list
+       this%params(2)%val(:,1) = data_list
        deallocate(data_list)
 
        ! Check for end of weights card
@@ -919,13 +919,13 @@ contains
     select case(allocated(this%pad_layer))
     case(.true.)
        call this%pad_layer%forward(input)
-       ptr => conv2d(this%pad_layer%output(1,1), this%params_array(1), &
+       ptr => conv2d(this%pad_layer%output(1,1), this%params(1), &
             this%stp, this%dil &
        )
     case default
-       ptr => conv2d(input(1,1), this%params_array(1), this%stp, this%dil)
+       ptr => conv2d(input(1,1), this%params(1), this%stp, this%dil)
     end select
-    ptr => add_bias(ptr, this%params_array(2), dim=3, dim_act_on_shape=.true.)
+    ptr => add_bias(ptr, this%params(2), dim=3, dim_act_on_shape=.true.)
 
     ! Apply activation function to activation
     !---------------------------------------------------------------------------

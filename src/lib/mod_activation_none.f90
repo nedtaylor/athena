@@ -99,6 +99,15 @@ contains
     ! Load provided attributes
     do i=1, size(attributes,dim=1)
        select case(trim(attributes(i)%name))
+       case("name")
+          if(trim(attributes(i)%val) .ne. trim(this%name)) then
+             call print_warning( &
+                  'None activation: name attribute "' // &
+                  trim(attributes(i)%val) // &
+                  '"" does not match expected "' // trim(this%name)//'"' &
+             )
+
+          end if
        case default
           call print_warning( &
                'None activation: unknown attribute '// &

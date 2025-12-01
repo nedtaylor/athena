@@ -442,8 +442,6 @@ contains
     !! Loop index
     integer :: verbose_ = 0
     !! Verbosity level
-    real(real32) :: mean, std
-    !! Mean and standard deviation of the parameters
 
 
     !---------------------------------------------------------------------------
@@ -464,10 +462,8 @@ contains
     !---------------------------------------------------------------------------
     ! Allocate weight, weight steps (velocities), output, and activation
     !---------------------------------------------------------------------------
-    if(allocated(this%params)) deallocate(this%params)
-    allocate(this%params(this%num_params), source=0._real32)
     allocate(this%weight_shape(3,2*this%num_time_steps))
-    allocate(this%params_array(this%num_time_steps*2))
+    allocate(this%params(this%num_time_steps*2))
     do t = 1, this%num_time_steps
        this%weight_shape(:,t) = [ &
             this%num_vertex_features(t), &
@@ -476,19 +472,19 @@ contains
        ]
        this%weight_shape(:,t+this%num_time_steps) = &
             [ this%num_outputs, this%num_vertex_features(t), 1 ]
-       call this%params_array(t)%allocate( [ this%weight_shape(:,t), 1 ] )
-       call this%params_array(t+this%num_time_steps)%allocate( &
+       call this%params(t)%allocate( [ this%weight_shape(:,t), 1 ] )
+       call this%params(t+this%num_time_steps)%allocate( &
             [ this%weight_shape(:2,t+this%num_time_steps), 1 ] &
        )
-       call this%params_array(t)%set_requires_grad(.true.)
-       this%params_array(t)%fix_pointer = .true.
-       this%params_array(t)%is_temporary = .false.
-       this%params_array(t)%is_sample_dependent = .false.
-       this%params_array(t)%indices = [ this%min_vertex_degree, this%max_vertex_degree ]
-       call this%params_array(t+this%num_time_steps)%set_requires_grad(.true.)
-       this%params_array(t+this%num_time_steps)%fix_pointer = .true.
-       this%params_array(t+this%num_time_steps)%is_temporary = .false.
-       this%params_array(t+this%num_time_steps)%is_sample_dependent = .false.
+       call this%params(t)%set_requires_grad(.true.)
+       this%params(t)%fix_pointer = .true.
+       this%params(t)%is_temporary = .false.
+       this%params(t)%is_sample_dependent = .false.
+       this%params(t)%indices = [ this%min_vertex_degree, this%max_vertex_degree ]
+       call this%params(t+this%num_time_steps)%set_requires_grad(.true.)
+       this%params(t+this%num_time_steps)%fix_pointer = .true.
+       this%params(t+this%num_time_steps)%is_temporary = .false.
+       this%params(t+this%num_time_steps)%is_sample_dependent = .false.
     end do
 
 
@@ -497,33 +493,18 @@ contains
     !---------------------------------------------------------------------------
     do t = 1, this%num_time_steps, 1
        call this%kernel_init%initialise( &
-            this%params_array(t)%val(:,1), &
+            this%params(t)%val(:,1), &
             fan_in = this%num_vertex_features(t-1) + this%num_edge_features(0), &
             fan_out = this%num_vertex_features(t), &
             spacing = [ this%num_vertex_features(t-1) ] &
        )
        call this%kernel_init%initialise( &
-            this%params_array(t+this%num_time_steps)%val(:,1), &
+            this%params(t+this%num_time_steps)%val(:,1), &
             fan_in = sum(this%num_vertex_features), &
             fan_out = this%num_outputs, &
             spacing = this%num_vertex_features &
        )
     end do
-    ! write the standard deviation of the params values
-    if(verbose_.gt.0)then
-       mean = sum(this%params(:sum(this%num_params_msg))) / &
-            real(sum(this%num_params_msg), kind=real32)
-       std = sqrt(sum((this%params(:sum(this%num_params_msg)) - mean)**2) / &
-            real(sum(this%num_params_msg), kind=real32))
-       write(*,*) "Initialised message parameters with mean = ", mean, &
-            " and std = ", std
-       mean = sum(this%params(sum(this%num_params_msg)+1:)) / &
-            real(this%num_params_readout, kind=real32)
-       std = sqrt(sum((this%params(sum(this%num_params_msg)+1:) - mean)**2) / &
-            real(this%num_params_readout, kind=real32))
-       write(*,*) "Initialised readout parameters with mean = ", mean, &
-            " and std = ", std
-    end if
 
 
     !---------------------------------------------------------------------------
@@ -657,10 +638,10 @@ contains
     !---------------------------------------------------------------------------
     write(unit,'("WEIGHTS")')
     do t = 1, this%num_time_steps, 1
-       write(unit,'(5(E16.8E2))') this%params_array(t)%val(:,1)
+       write(unit,'(5(E16.8E2))') this%params(t)%val(:,1)
     end do
     do t = 1, this%num_time_steps, 1
-       write(unit,'(5(E16.8E2))') this%params_array(t+this%num_time_steps)%val(:,1)
+       write(unit,'(5(E16.8E2))') this%params(t+this%num_time_steps)%val(:,1)
     end do
     write(unit,'("END WEIGHTS")')
 
@@ -757,7 +738,7 @@ contains
                this%graph(s)%adj_ia, this%graph(s)%adj_ja &
           )
 
-          ptr_params => this%params_array(t)
+          ptr_params => this%params(t)
           ptr3 => duvenaud_update( &
                ptr2, ptr_params, &
                this%graph(s)%adj_ia, &
@@ -795,7 +776,7 @@ contains
     call this%output(1,1)%zero_grad()
     do t = 1, this%num_time_steps, 1
        do s = 1, this%batch_size
-          ptr_params => this%params_array(t+this%num_time_steps)
+          ptr_params => this%params(t+this%num_time_steps)
           ptr_z => this%z(t,s)
           ptr1 => matmul( &
                ptr_params, &
