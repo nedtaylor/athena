@@ -55,7 +55,7 @@ program test_full_network
     call network%expected_array(1,1)%allocate(source=y)
     train_loop: do n = 1, num_iterations
        call network%forward(x)
-       loss => network%loss_backward(1, 1)
+       loss => network%loss_eval(1, 1)
        call loss%grad_reverse()
        call network%update()
        if(all(abs(network%predict(x)-y) .lt. tol)) exit train_loop

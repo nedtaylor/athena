@@ -104,7 +104,7 @@ contains
 
 
 !###############################################################################
-  module subroutine generate_vertex_order(this)
+  module subroutine build_vertex_order(this)
     !! Generate the order of the layers in the network
     !!
     !! This module contains the subroutine to generate the order of the layers
@@ -133,7 +133,7 @@ contains
        )
     end do
 
-  end subroutine generate_vertex_order
+  end subroutine build_vertex_order
 !###############################################################################
 
 
@@ -174,7 +174,7 @@ contains
 
 
 !###############################################################################
-  module subroutine calculate_root_vertices(this)
+  module subroutine build_root_vertices(this)
     !! Calculate the root vertices of the network
     implicit none
 
@@ -197,12 +197,12 @@ contains
           ! from = to + 1
        end if
     end do
-  end subroutine calculate_root_vertices
+  end subroutine build_root_vertices
 !###############################################################################
 
 
 !###############################################################################
-  module subroutine calculate_leaf_vertices(this)
+  module subroutine build_leaf_vertices(this)
     !! Calculate the output vertices of the network
     implicit none
 
@@ -221,12 +221,12 @@ contains
           this%leaf_vertices = [this%leaf_vertices, i]
        end if
     end do
-  end subroutine calculate_leaf_vertices
+  end subroutine build_leaf_vertices
 !###############################################################################
 
 
 !###############################################################################
-  module subroutine calculate_io_map(this)
+  module subroutine build_io_map(this)
     !! Calculate the map between layer inputs and outputs (and gradients)
     implicit none
 
@@ -317,7 +317,7 @@ contains
        end do
     end do
 
-  end subroutine calculate_io_map
+  end subroutine build_io_map
 !###############################################################################
 
 
@@ -1357,7 +1357,7 @@ contains
     ! Check for input layers at root vertices
     !---------------------------------------------------------------------------
     this%auto_graph%directed = .true.
-    call this%calculate_root_vertices()
+    call this%build_root_vertices()
     do i = 1, size(this%root_vertices)
        if(.not.allocated( &
             this%model( &
@@ -1527,7 +1527,7 @@ contains
        end do child_loop
        deallocate(child_vertices)
     end do flatten_loop
-    call this%generate_vertex_order()
+    call this%build_vertex_order()
 
 
     !---------------------------------------------------------------------------
@@ -1587,7 +1587,7 @@ contains
        )
        deallocate(t_merge_layer)
     end do merge_loop
-    call this%generate_vertex_order()
+    call this%build_vertex_order()
 
 
     ! Update number of layers
@@ -1662,7 +1662,7 @@ contains
     ! Set number of outputs
     !---------------------------------------------------------------------------
     this%num_outputs = 0
-    call this%calculate_leaf_vertices()
+    call this%build_leaf_vertices()
     do i = 1, size(this%leaf_vertices,1)
        this%num_outputs = this%num_outputs + &
             product( &
@@ -1671,7 +1671,7 @@ contains
                  )%layer%output_shape &
             )
     end do
-    call this%calculate_io_map()
+    call this%build_io_map()
     if( &
          this%model( &
               this%auto_graph%vertex(this%leaf_vertices(1))%id &
@@ -1686,6 +1686,8 @@ contains
     !---------------------------------------------------------------------------
     ! Confirm input_shape of each layer matches data going into it
     !---------------------------------------------------------------------------
+    !!! CAN WE REMOVE THE USE OF %io_map HERE AND JUST USE THE ADJACENCY MATRIX AND DATA SIZES?
+    !!! THEN WE CAN REMOVE THE BUILD_IO_MAP CALL ABOVE AND THE io_map PROCEDURE ENTIRELY, DECLUTTERING THE CODE
     do i = 1, size(this%vertex_order, dim = 1)
        if(this%model(this%vertex_order(i))%layer%type.eq."inpt") cycle
        id = this%auto_graph%vertex(this%vertex_order(i))%id
@@ -2353,7 +2355,7 @@ contains
 
 
 !###############################################################################
-  module function calc_output_accuracy(this, output, start_index, end_index) &
+  module function accuracy_eval(this, output, start_index, end_index) &
        result(accuracy)
     !! Get the loss for the output
     implicit none
@@ -2411,12 +2413,12 @@ contains
             ))
     end select
 
-  end function calc_output_accuracy
+  end function accuracy_eval
 !###############################################################################
 
 
 !###############################################################################
-  module function loss_backward(this, start_index, end_index) result(loss)
+  module function loss_eval(this, start_index, end_index) result(loss)
     !! Get the loss for the output
     implicit none
 
@@ -2460,7 +2462,7 @@ contains
          expected &
     )
 
-  end function loss_backward
+  end function loss_eval
 !###############################################################################
 
 
@@ -2585,7 +2587,7 @@ contains
 
     ! Local variables
 
-    call this%forward_generic2d(input)
+    call this%forward(input)
     output => this%model(this%leaf_vertices(1))%layer%output
 
   end function forward_eval
@@ -3195,7 +3197,7 @@ contains
           ! Backward pass
           !---------------------------------------------------------------------
           !  call system_clock(timer_start)
-          loss => this%loss_backward(start_index, end_index)
+          loss => this%loss_eval(start_index, end_index)
           loss%is_temporary = .false.
           call loss%grad_reverse(reset_graph=.true.)
           !  call system_clock(timer_stop)
@@ -3205,7 +3207,7 @@ contains
           ! Compute loss and accuracy (for monitoring)
           !---------------------------------------------------------------------
           batch_loss = sum(loss%val)
-          batch_accuracy = this%calc_output_accuracy(output, start_index, end_index)
+          batch_accuracy = this%accuracy_eval(output, start_index, end_index)
 
 
           ! Average metric over batch size and store
@@ -3384,12 +3386,12 @@ contains
 
        ! Compute loss and accuracy (for monitoring)
        !------------------------------------------------------------------------
-       loss => this%loss_backward(sample, sample)
+       loss => this%loss_eval(sample, sample)
        loss_val = sum(loss%val)
        call loss%nullify_graph()
        deallocate(loss)
        nullify(loss)
-       acc_val = this%calc_output_accuracy(output, sample, sample)
+       acc_val = this%accuracy_eval(output, sample, sample)
 
        this%metrics(2)%val = this%metrics(2)%val + acc_val
        this%metrics(1)%val = this%metrics(1)%val + loss_val

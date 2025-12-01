@@ -107,7 +107,7 @@ The example uses a low-level training loop for fine control:
        call network%set_batch_size(1)
        call network%forward(x)
        network%expected_array = y_array
-       loss => network%loss_backward(1, 1)
+       loss => network%loss_eval(1, 1)
        call loss%grad_reverse()
        call network%update()
 
@@ -195,7 +195,7 @@ Training on Fixed Data
        ! Training step
        call network%forward(x)
        network%expected_array = y_array
-       loss => network%loss_backward(1, 1)
+       loss => network%loss_eval(1, 1)
        call loss%grad_reverse()
        call network%update()
 
@@ -231,7 +231,7 @@ Both examples use a manual training loop for educational purposes:
    network%expected_array = y_array
 
    ! 3. Backward pass (compute gradients)
-   loss => network%loss_backward(1, 1)
+   loss => network%loss_eval(1, 1)
    call loss%grad_reverse()
 
    ! 4. Update weights

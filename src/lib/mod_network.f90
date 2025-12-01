@@ -111,6 +111,7 @@ module athena__network
      !! Train the network
      procedure, pass(this) :: test
      !! Test the network
+
      procedure, pass(this) :: predict_real
      !! Return predicted results from supplied inputs using the trained network
      procedure, pass(this) :: predict_array_from_real
@@ -123,22 +124,24 @@ module athena__network
      !! Predict generic type output for a generic input
      generic :: predict => predict_real, predict_graph, predict_array, predict_array_from_real
      !! Predict function for different input types
-     procedure, pass(this) :: update
-     !! Update the learnable parameters of the network based on gradients
-     procedure, pass(this), private :: generate_vertex_order
-     !! Generate vertex order
+
+
      procedure, pass(this), private :: dfs
      !! Depth first search
-     procedure, pass(this), private :: calculate_root_vertices
+     procedure, pass(this), private :: build_vertex_order
+     !! Generate vertex order
+     procedure, pass(this), private :: build_root_vertices
      !! Calculate root vertices
-     procedure, pass(this), private :: calculate_leaf_vertices
+     procedure, pass(this), private :: build_leaf_vertices
      !! Calculate output vertices
-     procedure, pass(this), private :: calculate_io_map
+     procedure, pass(this), private :: build_io_map
      !! Calculate input-output map
+
      procedure, pass(this) :: reduce => network_reduction
      !! Reduce two networks down to one (i.e. add two networks - parallel)
      procedure, pass(this) :: copy => network_copy
      !! Copy a network
+
      procedure, pass(this) :: get_num_params
      !! Get number of learnable parameters in the network
      procedure, pass(this) :: get_params
@@ -155,24 +158,22 @@ module athena__network
      !! Get the output of the network
      procedure, pass(this) :: get_output_shape
      !! Get the output shape of the network
-
      procedure, pass(this) :: extract_output => extract_output_real
+     !! Extract network output as real array (only works for single output layer models)
 
-     procedure, pass(this) :: forward_generic2d
+     procedure, pass(this) :: forward => forward_generic2d
      !! Forward pass for generic 2D input
      procedure, pass(this) :: forward_eval
      !! Forward pass and return pointer to output (only works for single output layer models)
+     procedure, pass(this) :: accuracy_eval
+     !! Get the accuracy for the output
+     procedure, pass(this) :: loss_eval
+     !! Get the loss for the output
+     procedure, pass(this) :: update
+     !! Update the learnable parameters of the network based on gradients
 
      procedure, pass(this) :: nullify_graph
      !! Nullify graph data in the network to free memory
-
-     procedure, pass(this) :: calc_output_accuracy
-     !! Get the accuracy for the output
-     procedure, pass(this) :: loss_backward
-     !! Get the loss for the output
-
-     generic :: forward => forward_generic2d
-     !! Generic for forward propagation
   end type network_type
 
   interface network_type
@@ -478,11 +479,11 @@ module athena__network
      end subroutine update
 
      !! Interface for generating vertex order
-     module subroutine generate_vertex_order(this)
+     module subroutine build_vertex_order(this)
        !! Generate vertex order
        class(network_type), intent(inout) :: this
        !! Instance of the network
-     end subroutine generate_vertex_order
+     end subroutine build_vertex_order
 
      !! Interface for depth first search
      module recursive subroutine dfs( &
@@ -503,25 +504,25 @@ module athena__network
      end subroutine dfs
 
      !! Interface for calculating root vertices
-     module subroutine calculate_root_vertices(this)
+     module subroutine build_root_vertices(this)
        !! Calculate root vertices
        class(network_type), intent(inout) :: this
        !! Instance of the network
-     end subroutine calculate_root_vertices
+     end subroutine build_root_vertices
 
      !! Interface for calculating output vertices
-     module subroutine calculate_leaf_vertices(this)
+     module subroutine build_leaf_vertices(this)
        !! Calculate output vertices
        class(network_type), intent(inout) :: this
        !! Instance of the network
-     end subroutine calculate_leaf_vertices
+     end subroutine build_leaf_vertices
 
      !! Interface for calculating input-output map
-     module subroutine calculate_io_map(this)
+     module subroutine build_io_map(this)
        !! Calculate input-output map
        class(network_type), intent(inout) :: this
        !! Instance of the network
-     end subroutine calculate_io_map
+     end subroutine build_io_map
 
      !! Interface for reducing two networks down to one
      !! (i.e. add two networks - parallel)
@@ -615,7 +616,7 @@ module athena__network
        !! Output
      end subroutine extract_output_real
 
-     module function calc_output_accuracy(this, output, start_index, end_index) &
+     module function accuracy_eval(this, output, start_index, end_index) &
           result(accuracy)
        !! Get the accuracy for the output
        class(network_type), intent(in) :: this
@@ -626,9 +627,9 @@ module athena__network
        !! Start and end batch indices
        real(real32) :: accuracy
        !! Accuracy value
-     end function calc_output_accuracy
+     end function accuracy_eval
 
-     module function loss_backward(this, start_index, end_index) result(loss)
+     module function loss_eval(this, start_index, end_index) result(loss)
        !! Get the loss for the output
        ! Arguments
        class(network_type), intent(inout), target :: this
@@ -637,7 +638,7 @@ module athena__network
        !! Start and end batch indices
 
        type(array_type), pointer :: loss
-     end function loss_backward
+     end function loss_eval
 
      !! Interface for forward pass
      module subroutine forward_generic2d(this, input)
