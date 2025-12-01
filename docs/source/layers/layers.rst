@@ -13,6 +13,8 @@ These layers can be stacked and combined to create complex architectures for var
    core/core_layers
    convolutional/convolutional_layers
    input/input_layers
+   merge/merge_layers
+   msgpass/msgpass_layers
    normalisation/normalisation_layers
    padding/padding_layers
    pooling/pooling_layers
@@ -26,6 +28,8 @@ The following types of layers are available in the athena library:
 * :ref:`core-layers`
 * :ref:`convolutional-layers`
 * :ref:`input-layers`
+* :ref:`merge-layers`
+* :ref:`msgpass-layers`
 * :ref:`normalisation-layers`
 * :ref:`padding-layers`
 * :ref:`pooling-layers`

@@ -9,7 +9,7 @@ module athena__diffstruc_extd
   private
 
   public :: array_container_type, array_ptr_type
-  public :: add, concat
+  public :: add_layers, concat_layers
   public :: add_bias
   public :: piecewise, softmax, swish
   public :: huber
@@ -43,7 +43,7 @@ module athena__diffstruc_extd
 
   ! Operator interfaces
   !-----------------------------------------------------------------------------
-  interface add
+  interface add_layers
      module function add_array_ptr(a, idx1, idx2) result(c)
        type(array_ptr_type), dimension(:), intent(in) :: a
        integer, intent(in) :: idx1, idx2
@@ -51,7 +51,7 @@ module athena__diffstruc_extd
      end function add_array_ptr
   end interface
 
-  interface concat
+  interface concat_layers
      module function concat_array_ptr(a, idx1, idx2, dim) result(c)
        type(array_ptr_type), dimension(:), intent(in) :: a
        integer, intent(in) :: idx1, idx2, dim

@@ -2,7 +2,7 @@ submodule (athena__diffstruc_extd) athena__diffstruc_extd_submodule
   !! Submodule containing implementations for extended diffstruc array operations
   use coreutils, only: stop_program
   use diffstruc, only: &
-       operator(+), operator(-), operator(*), operator(.concat.), exp, sum, merge
+       operator(+), operator(-), operator(*), concat, exp, sum, merge
 
 contains
 
@@ -40,9 +40,9 @@ contains
     ! Local variables
     integer :: i
 
-    c => a(1)%array(idx1, idx2) .concat. a(2)%array(idx1, idx2)
+    c => concat(a(1)%array(idx1, idx2), a(2)%array(idx1, idx2), dim)
     do i = 3, size(a), 1
-       c => c .concat. a(i)%array(idx1, idx2)
+       c => concat(c, a(i)%array(idx1, idx2), dim)
     end do
   end function concat_array_ptr
 !###############################################################################
