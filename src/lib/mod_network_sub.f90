@@ -1285,7 +1285,7 @@ contains
     ! Arguments
     class(network_type), intent(inout) :: this
     !! Instance of network
-    class(base_optimiser_type), intent(in) :: optimiser
+    class(base_optimiser_type), optional, intent(in) :: optimiser
     !! Optimiser to use for training
     class(*), optional, intent(in) :: loss_method
     !! Loss method
@@ -1722,9 +1722,16 @@ contains
     !---------------------------------------------------------------------------
     ! Initialise optimiser
     !---------------------------------------------------------------------------
-    this%optimiser = optimiser
     this%num_params = this%get_num_params()
-    call this%optimiser%init(num_params=this%num_params)
+    if(present(optimiser))then
+       this%optimiser = optimiser
+    end if
+    if(.not.allocated(this%optimiser))then
+       call stop_program("No optimiser is defined for the network")
+       return
+    else
+       call this%optimiser%init(num_params=this%num_params)
+    end if
 
 
     !---------------------------------------------------------------------------

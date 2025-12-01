@@ -285,7 +285,7 @@ module athena__network
        !! Compile the network
        class(network_type), intent(inout) :: this
        !! Instance of the network
-       class(base_optimiser_type), intent(in) :: optimiser
+       class(base_optimiser_type), optional, intent(in) :: optimiser
        !! Optimiser
        class(*), optional, intent(in) :: loss_method
        !! Loss method

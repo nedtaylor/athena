@@ -402,11 +402,11 @@ contains
     !! File unit
 
 
-    write(unit,'(3X,"NAME = ",A)') this%name
-    write(unit,'(3X,"LEARNING_RATE = ",F10.5)') this%learning_rate
-    write(unit,'(3X,"ITERATION = ",I10)') this%iter
-    write(unit,'(3X,"EPOCH = ",I10)') this%epoch
-    write(unit,'(3X,"REGULARISATION = ",L1)') this%regularisation
+    write(unit,'(6X,"NAME = ",A)') this%name
+    write(unit,'(6X,"LEARNING_RATE = ",F10.5)') this%learning_rate
+    write(unit,'(6X,"ITERATION = ",I10)') this%iter
+    write(unit,'(6X,"EPOCH = ",I10)') this%epoch
+    write(unit,'(6X,"REGULARISATION = ",L1)') this%regularisation
 
   end subroutine print_to_unit_base
 !###############################################################################

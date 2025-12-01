@@ -1,6 +1,5 @@
-program test_onnx_read
+program onnx_example
   use athena
-  use diffstruc
   implicit none
 
   type(network_type) :: network_write, network_read
@@ -48,4 +47,4 @@ program test_onnx_read
   write(*,*) "Number of layers in original network: ", network_write%num_layers
   write(*,*) "Number of layers in read network: ", network_read%num_layers
 
-end program test_onnx_read
+end program onnx_example
