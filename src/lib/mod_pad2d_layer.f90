@@ -1,5 +1,20 @@
 module athena__pad2d_layer
   !! Module containing implementation of a 2D padding layer
+  !!
+  !! This module implements padding for 2D spatial data (images), adding values
+  !! around borders to control output dimensions or prepare for convolution.
+  !!
+  !! Operation: Extends spatial dimensions at boundaries
+  !!   Adds p_top, p_bottom rows and p_left, p_right columns
+  !!
+  !! Padding modes:
+  !!   - 'constant': pad with fixed value (typically 0)
+  !!   - 'replicate': repeat edge values
+  !!   - 'reflect': mirror values at boundaries
+  !!
+  !! Common use: Preserve spatial dimensions through convolution,
+  !! handle boundary effects in CNNs
+  !! Shape: (W,H,C) -> (W+p_l+p_r, H+p_t+p_b, C)
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: pad_layer_type, base_layer_type
   use diffstruc, only: array_type

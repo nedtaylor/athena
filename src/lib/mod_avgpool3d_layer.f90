@@ -1,5 +1,21 @@
 module athena__avgpool3d_layer
   !! Module containing implementation of a 3D average pooling layer
+  !!
+  !! This module implements 3D average pooling for downsampling volumetric data
+  !! by computing mean values within 3D pooling windows.
+  !!
+  !! Mathematical operation:
+  !!   output[i,j,k,c] = (1/V) * sum_{l,m,n} input[i*s+l, j*s+m, k*s+n, c]
+  !!
+  !! where:
+  !!   (i,j,k) are output spatial coordinates
+  !!   c is the channel index
+  !!   (l,m,n) iterate over the 3D pooling window
+  !!   V = pool_size^3 is the window volume
+  !!   s is stride in each dimension
+  !!
+  !! Smoother downsampling for volumetric/video data than max pooling.
+  !! Shape: (W,H,D,C) -> (W//stride,H//stride,D//stride,C)
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: pool_layer_type, base_layer_type
   use diffstruc, only: array_type

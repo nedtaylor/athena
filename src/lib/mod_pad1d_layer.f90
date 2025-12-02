@@ -1,5 +1,20 @@
 module athena__pad1d_layer
   !! Module containing implementation of a 1D padding layer
+  !!
+  !! This module implements padding for 1D sequential data, adding values
+  !! at the boundaries to control output dimensions or prepare for convolution.
+  !!
+  !! Operation: Extends sequence at boundaries
+  !!   input:  [x1, x2, ..., xn]
+  !!   output: [p_left copies] + [x1, x2, ..., xn] + [p_right copies]
+  !!
+  !! Padding modes:
+  !!   - 'constant': pad with fixed value (typically 0)
+  !!   - 'replicate': repeat edge values
+  !!   - 'reflect': mirror values at boundaries
+  !!
+  !! Common use: Preserve spatial dimensions through convolution
+  !! Shape: (length, channels) -> (length + p_left + p_right, channels)
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: pad_layer_type, base_layer_type
   use diffstruc, only: array_type

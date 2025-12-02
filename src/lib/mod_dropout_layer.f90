@@ -1,7 +1,7 @@
 module athena__dropout_layer
   !! Module containing implementation of a dropout layer
   !!
-  !! This module implements dropout regularization, randomly zeroing elements
+  !! This module implements dropout regularisation, randomly zeroing elements
   !! during training to prevent overfitting and co-adaptation of neurons.
   !!
   !! Mathematical operation (training):

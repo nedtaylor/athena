@@ -1,7 +1,19 @@
 module athena__actv_layer
   !! Module containing implementation of the activation layer
   !!
-  !! This module wraps different activation functions into a layer type
+  !! This module wraps various activation functions into a layer type,
+  !! applying element-wise non-linear transformations to inputs.
+  !!
+  !! Mathematical operation:
+  !!   y = σ(x)
+  !!
+  !! where σ is one of: relu, sigmoid, tanh, softmax, linear, etc.
+  !!
+  !! Properties:
+  !!   - No learnable parameters (fixed non-linearity)
+  !!   - Element-wise operation (preserves shape)
+  !!   - Enables networks to learn non-linear functions
+  !!   - Choice of activation affects gradient flow and convergence
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: base_layer_type
   use athena__misc_types, only: base_actv_type, &

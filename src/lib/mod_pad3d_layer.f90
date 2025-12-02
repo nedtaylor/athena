@@ -1,5 +1,20 @@
 module athena__pad3d_layer
   !! Module containing implementation of a 3D padding layer
+  !!
+  !! This module implements padding for 3D volumetric data, adding values
+  !! around boundaries in all three spatial dimensions.
+  !!
+  !! Operation: Extends volumetric dimensions at boundaries
+  !!   Adds padding in width, height, and depth dimensions
+  !!
+  !! Padding modes:
+  !!   - 'constant': pad with fixed value (typically 0)
+  !!   - 'replicate': repeat edge values
+  !!   - 'reflect': mirror values at boundaries
+  !!
+  !! Common use: Preserve spatial dimensions in 3D convolutions,
+  !! handle boundary effects in video/medical imaging CNNs
+  !! Shape: (W,H,D,C) -> (W+p_w, H+p_h, D+p_d, C)
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: pad_layer_type, base_layer_type
   use diffstruc, only: array_type
