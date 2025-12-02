@@ -250,7 +250,7 @@ Loss Not Decreasing
 ~~~~~~~~~~~~~~~~~~~
 
 * **Check learning rate**: Too high or too low can prevent learning
-* **Verify data**: Ensure proper normalization and correct labels
+* **Verify data**: Ensure proper normalisation and correct labels
 * **Try different optimiser**: Adam often works better than SGD
 * **Check network architecture**: May be too shallow or too deep
 
@@ -279,5 +279,5 @@ Next Steps
 See Also
 --------
 
-* :ref:`Optimisers <optimisers>` - Optimization algorithms
+* :ref:`Optimisers <optimisers>` - Optimisation algorithms
 * :ref:`Loss Functions <loss-functions>` - Available loss functions

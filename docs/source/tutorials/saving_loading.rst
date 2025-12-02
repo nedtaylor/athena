@@ -350,7 +350,7 @@ ONNX Compatibility
 * Convolutional (Conv1D, Conv2D, Conv3D)
 * Pooling (MaxPool, AveragePool)
 * Activation functions (ReLU, Sigmoid, Tanh, Softmax, etc.)
-* Batch normalization
+* Batch normalisation
 * Dropout
 * Flatten, Reshape
 

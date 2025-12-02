@@ -40,7 +40,7 @@ Arguments
 * **beta1** (`real(real32)`): Exponential decay rate for first moment estimates. Default: ``0.9``.
 * **beta2** (`real(real32)`): Exponential decay rate for second moment estimates. Default: ``0.999``.
 * **epsilon** (`real(real32)`): Small constant for numerical stability. Default: ``1.0e-8``.
-* **num_params** (`integer`): Number of parameters to optimize.
+* **num_params** (`integer`): Number of parameters to optimise.
 * **regulariser** (`class(base_regulariser_type)`): Regularisation method (e.g., L2 regularisation).
 * **clip_dict** (`type(clip_type)`): Gradient clipping configuration.
 * **lr_decay** (`class(base_lr_decay_type)`): Learning rate decay schedule.
@@ -48,4 +48,4 @@ Arguments
 Notes:
 ------
 
-Adam is one of the most popular optimization algorithms for deep learning due to its adaptive learning rates and robustness to hyperparameter choices.
+Adam is one of the most popular optimisation algorithms for deep learning due to its adaptive learning rates and robustness to hyperparameter choices.

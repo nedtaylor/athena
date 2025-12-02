@@ -40,7 +40,7 @@ Example
    type(array_type), dimension(:,:) :: predicted, expected
    type(array_type), pointer :: loss_value
 
-   ! Initialize loss function
+   ! Initialise loss function
    loss = mae_loss_type()
 
    ! Compute loss
@@ -55,7 +55,7 @@ Comparison with MSE
 - Constant gradient magnitude
 
 **MSE advantages:**
-- Penalizes large errors more heavily
+- Penalises large errors more heavily
 - Smooth gradients everywhere
 - Often faster convergence
 

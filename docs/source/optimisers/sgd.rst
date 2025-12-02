@@ -48,7 +48,7 @@ Arguments
 * **learning_rate** (`real(real32)`): Step size for parameter updates. Default: ``0.01``.
 * **momentum** (`real(real32)`): Momentum factor. Default: ``0.0`` (no momentum).
 * **nesterov** (`logical`): Whether to use Nesterov momentum. Default: ``.false.``.
-* **num_params** (`integer`): Number of parameters to optimize.
+* **num_params** (`integer`): Number of parameters to optimise.
 * **regulariser** (`class(base_regulariser_type)`): Regularisation method (e.g., L2 regularisation).
 * **clip_dict** (`type(clip_type)`): Gradient clipping configuration.
 * **lr_decay** (`class(base_lr_decay_type)`): Learning rate decay schedule.
@@ -56,4 +56,4 @@ Arguments
 Notes:
 ------
 
-SGD is the fundamental optimization algorithm for neural networks. Adding momentum helps accelerate convergence and reduces oscillation.
+SGD is the fundamental optimisation algorithm for neural networks. Adding momentum helps accelerate convergence and reduces oscillation.

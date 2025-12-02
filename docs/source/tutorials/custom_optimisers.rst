@@ -3,7 +3,7 @@
 Creating Custom Optimisers
 ===========================
 
-You can implement custom optimization algorithms by extending the ``base_optimiser_type``.
+You can implement custom optimisation algorithms by extending the ``base_optimiser_type``.
 
 Base Optimiser Type
 --------------------
@@ -13,8 +13,8 @@ All optimisers inherit from ``base_optimiser_type`` and must implement the ``min
 Required Procedures
 ~~~~~~~~~~~~~~~~~~~
 
-* **minimise**: Apply gradients to parameters to minimize the loss
-* **init_gradients**: Initialize optimizer-specific gradient accumulators
+* **minimise**: Apply gradients to parameters to minimise the loss
+* **init_gradients**: Initialise optimiser-specific gradient accumulators
 
 Essential Structure
 ~~~~~~~~~~~~~~~~~~~
@@ -22,7 +22,7 @@ Essential Structure
 .. code-block:: fortran
 
    type, extends(base_optimiser_type) :: custom_optimiser_type
-      ! Add optimizer state variables here
+      ! Add optimiser state variables here
       real(real32), allocatable, dimension(:) :: state_variables
     contains
       procedure, pass(this) :: init_gradients => init_gradients_custom
@@ -32,7 +32,7 @@ Essential Structure
 Example: Custom Momentum-Based Optimiser
 -----------------------------------------
 
-Here's a complete example of a custom optimizer with adaptive momentum:
+Here's a complete example of a custom optimiser with adaptive momentum:
 
 .. code-block:: fortran
 
@@ -82,7 +82,7 @@ Here's a complete example of a custom optimizer with adaptive momentum:
        class(base_lr_decay_type), optional, intent(in) :: lr_decay
        type(adaptive_momentum_optimiser_type) :: optimiser
 
-       ! Initialize base optimiser
+       ! Initialise base optimiser
        optimiser%base_optimiser_type = base_optimiser_type( &
             learning_rate, num_params, regulariser, clip_dict, lr_decay)
 
@@ -188,7 +188,7 @@ Prevent exploding gradients with clipping:
      gradient = this%clip_dict%clip(gradient)
    end if
 
-Common Optimizer Patterns
+Common Optimiser Patterns
 --------------------------
 
 Momentum Methods
@@ -215,7 +215,7 @@ where :math:`v_t` accumulates squared gradients.
 Bias Correction
 ~~~~~~~~~~~~~~~
 
-Correct for initialization bias in moment estimates:
+Correct for initialisation bias in moment estimates:
 
 .. math::
 
@@ -226,7 +226,7 @@ Best Practices
 
 1. **Hyperparameter Defaults**: Provide sensible defaults based on literature
 2. **Numerical Stability**: Add epsilon terms to prevent division by zero
-3. **State Management**: Properly initialize and manage optimizer state variables
+3. **State Management**: Properly initialise and manage optimiser state variables
 4. **Memory Efficiency**: Only allocate what's necessary
 5. **Testing**: Test on various problem types and network architectures
 6. **Documentation**: Cite original papers and explain the algorithm
@@ -235,9 +235,9 @@ Performance Considerations
 --------------------------
 
 * **In-Place Operations**: Modify parameters in-place when possible
-* **Vectorization**: Use array operations instead of loops where practical
+* **Vectorisation**: Use array operations instead of loops where practical
 * **Memory Allocation**: Allocate state variables once in ``init_gradients``
-* **Conditional Checks**: Minimize checks inside the optimization loop
+* **Conditional Checks**: Minimise checks inside the optimisation loop
 
 See Also
 --------

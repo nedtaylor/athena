@@ -10,7 +10,7 @@ Glorot Uniform Initialiser
   glorot_uniform_init_type()
 
 
-Also known as Xavier uniform initialization. Draws samples from a uniform distribution within bounds that depend on the number of input and output units.
+Also known as Xavier uniform initialisation. Draws samples from a uniform distribution within bounds that depend on the number of input and output units.
 
 .. math::
 

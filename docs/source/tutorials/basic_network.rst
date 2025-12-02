@@ -237,5 +237,5 @@ See Also
 --------
 
 * :ref:`Layers <layers>` - Complete list of available layers
-* :ref:`Optimisers <optimisers>` - Available optimization algorithms
+* :ref:`Optimisers <optimisers>` - Available optimisation algorithms
 * :ref:`Loss Functions <loss-functions>` - Available loss functions

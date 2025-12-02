@@ -40,7 +40,7 @@ Network Architecture
 **Why these choices:**
 
 * **Tanh activation**: Bounded output [-1, 1], good for smooth functions
-* **Sigmoid output**: Maps to [0, 1], matching our normalized sine wave
+* **Sigmoid output**: Maps to [0, 1], matching our normalised sine wave
 * **5 hidden units**: Sufficient capacity for smooth periodic function
 
 Training Loop
@@ -210,7 +210,7 @@ Training on Fixed Data
 
 **Key points:**
 
-* **Memorization task**: Learning one specific input-output mapping
+* **Memorisation task**: Learning one specific input-output mapping
 * **Convergence**: Network should converge to exact outputs
 * **Demonstration**: Shows basic training mechanics without complexity
 

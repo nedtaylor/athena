@@ -15,7 +15,7 @@
   )
 
 
-The ``dropblock2d_layer_type`` derived type provides a 2D DropBlock layer for regularization.
+The ``dropblock2d_layer_type`` derived type provides a 2D DropBlock layer for regularisation.
 Unlike standard dropout which drops individual elements randomly, DropBlock drops contiguous regions (blocks) of feature maps.
 This is particularly effective for convolutional networks as it forces the network to learn more robust spatial features.
 

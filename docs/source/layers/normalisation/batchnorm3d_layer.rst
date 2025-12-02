@@ -1,6 +1,6 @@
 .. _batchnorm3d-layer:
 
-3D Batch Normalization Layer
+3D Batch Normalisation Layer
 =============================
 
 ``batchnorm3d_layer_type``
@@ -24,8 +24,8 @@
   )
 
 
-The ``batchnorm3d_layer_type`` derived type provides a 3D batch normalization layer.
-This layer applies batch normalization over 5D inputs (channels, depth, height, width, batch), normalizing over the spatial dimensions and batch.
+The ``batchnorm3d_layer_type`` derived type provides a 3D batch normalisation layer.
+This layer applies batch normalisation over 5D inputs (channels, depth, height, width, batch), normalizing over the spatial dimensions and batch.
 
 .. math::
 
@@ -39,10 +39,10 @@ Arguments
 * **num_channels** (`integer`): Number of channels in the input.
 * **momentum** (`real(real32)`): Momentum for running mean and variance. Default: ``0.99``.
 * **epsilon** (`real(real32)`): Small value added to variance for numerical stability. Default: ``1.0e-5``.
-* **gamma_init_mean** (`real(real32)`): Mean for gamma (scale) initialization. Default: ``1.0``.
-* **gamma_init_std** (`real(real32)`): Standard deviation for gamma initialization. Default: ``0.02``.
-* **beta_init_mean** (`real(real32)`): Mean for beta (shift) initialization. Default: ``0.0``.
-* **beta_init_std** (`real(real32)`): Standard deviation for beta initialization. Default: ``0.02``.
+* **gamma_init_mean** (`real(real32)`): Mean for gamma (scale) initialisation. Default: ``1.0``.
+* **gamma_init_std** (`real(real32)`): Standard deviation for gamma initialisation. Default: ``0.02``.
+* **beta_init_mean** (`real(real32)`): Mean for beta (shift) initialisation. Default: ``0.0``.
+* **beta_init_std** (`real(real32)`): Standard deviation for beta initialisation. Default: ``0.02``.
 * **kernel_initialiser** (`character(*)`): Initialiser for gamma parameters (see :ref:`Initialisers <initialisers>`).
 * **bias_initialiser** (`character(*)`): Initialiser for beta parameters (see :ref:`Initialisers <initialisers>`).
 * **moving_mean_initialiser** (`character(*)`): Initialiser for running mean (see :ref:`Initialisers <initialisers>`).

@@ -101,22 +101,22 @@ A loss function that combines MSE with a penalty term:
 
 .. code-block:: fortran
 
-   module my_regularized_mse
+   module my_regularised_mse
      use coreutils, only: real32
      use athena__loss, only: base_loss_type
      use diffstruc, only: array_type, operator(-), operator(*), operator(**), &
                           mean, sum, abs
 
-     type, extends(base_loss_type) :: regularized_mse_type
-        real(real32) :: lambda = 0.01_real32  ! Regularization strength
+     type, extends(base_loss_type) :: regularised_mse_type
+        real(real32) :: lambda = 0.01_real32  ! Regularisation strength
       contains
-        procedure, pass(this) :: compute => compute_regularized_mse
-     end type regularized_mse_type
+        procedure, pass(this) :: compute => compute_regularised_mse
+     end type regularised_mse_type
 
    contains
 
-     function compute_regularized_mse(this, predicted, expected) result(output)
-       class(regularized_mse_type), intent(in), target :: this
+     function compute_regularised_mse(this, predicted, expected) result(output)
+       class(regularised_mse_type), intent(in), target :: this
        type(array_type), dimension(:,:), intent(inout), target :: predicted
        type(array_type), dimension(size(predicted,1),size(predicted,2)), &
             intent(in) :: expected
@@ -128,15 +128,15 @@ A loss function that combines MSE with a penalty term:
        diff = predicted - expected
        mse_term = mean((diff)**2)
 
-       ! Add regularization term (e.g., sum of absolute predictions)
+       ! Add regularisation term (e.g., sum of absolute predictions)
        reg_term = this%lambda * mean(abs(predicted))
 
        allocate(output)
        output = mse_term + reg_term
 
-     end function compute_regularized_mse
+     end function compute_regularised_mse
 
-   end module my_regularized_mse
+   end module my_regularised_mse
 
 Working with array_type
 ------------------------

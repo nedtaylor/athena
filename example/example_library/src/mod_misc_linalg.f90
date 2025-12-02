@@ -698,7 +698,7 @@ contains
 !!!#####################################################
 !!! A=LU matrix decomposer
 !!!#####################################################
-!!! Method: Based on Doolittle LU factorization for Ax=b
+!!! Method: Based on Doolittle LU factorisation for Ax=b
 !!! doesn't work if a diagonal element = 0
 !!! L = lower
 !!! U = upper

@@ -16,7 +16,7 @@ Initialises all weights to one.
 
    W = 1
 
-This is rarely used for weight initialization. It may be used for specific layer parameters like batch normalization gamma values.
+This is rarely used for weight initialisation. It may be used for specific layer parameters like batch normalisation gamma values.
 
 Shape:
 ------

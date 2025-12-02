@@ -25,7 +25,7 @@ Use Cases
 ---------
 
 * Regression problems
-* When large errors should be penalized more than small errors
+* When large errors should be penalised more than small errors
 * Forecasting continuous values
 * Function approximation
 
@@ -40,7 +40,7 @@ Example
    type(array_type), dimension(:,:) :: predicted, expected
    type(array_type), pointer :: loss_value
 
-   ! Initialize loss function
+   ! Initialise loss function
    loss = mse_loss_type()
 
    ! Compute loss
@@ -52,7 +52,7 @@ Properties
 **Advantages:**
 - Differentiable everywhere
 - Convex for linear models
-- Penalizes large errors more heavily
+- Penalises large errors more heavily
 - Standard in many regression tasks
 
 **Disadvantages:**

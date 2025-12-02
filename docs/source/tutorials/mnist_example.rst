@@ -64,8 +64,8 @@ The network uses a simple but effective architecture:
 2. **Conv2D**: 32 filters × 3×3 kernels with ReLU activation
 3. **MaxPool2D**: 2×2 pooling reduces spatial dimensions by half
 4. **Flatten**: Converts 2D feature maps to 1D vector
-5. **Dense**: 100 hidden units with ReLU and He initialization
-6. **Output**: 10 classes with softmax and Glorot initialization
+5. **Dense**: 100 hidden units with ReLU and He initialisation
+6. **Output**: 10 classes with softmax and Glorot initialisation
 
 Complete Program Structure
 ---------------------------
@@ -90,7 +90,7 @@ Complete Program Structure
      integer :: num_samples, num_samples_test
      integer :: i
 
-     ! Initialize from configuration file
+     ! Initialise from configuration file
      call set_global_vars(param_file="example/mnist/test_job.in")
 
      ! Load training data
@@ -213,7 +213,7 @@ Convert integer labels (0-9) to one-hot vectors:
    real(real32) :: one_hot(10, num_samples)
    integer :: i
 
-   ! Initialize to zeros
+   ! Initialise to zeros
    one_hot = 0.0_real32
 
    ! Set corresponding class to 1.0
@@ -224,7 +224,7 @@ Convert integer labels (0-9) to one-hot vectors:
 Shuffling Data
 ~~~~~~~~~~~~~~
 
-Shuffle training data each epoch for better generalization:
+Shuffle training data each epoch for better generalisation:
 
 .. code-block:: fortran
 
@@ -274,9 +274,9 @@ Simple but Effective
 * **Single conv layer**: Sufficient for MNIST's simple patterns
 * **100 hidden units**: Good balance between capacity and speed
 * **Padding layer**: Explicit control over spatial dimensions
-* **He/Glorot initialization**: Proper weight initialization for each activation
+* **He/Glorot initialisation**: Proper weight initialisation for each activation
 
-The architecture prioritizes:
+The architecture prioritises:
 
 1. **Clarity**: Easy to understand and modify
 2. **Speed**: Trains quickly on CPU

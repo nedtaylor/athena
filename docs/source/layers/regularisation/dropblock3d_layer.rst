@@ -15,7 +15,7 @@
   )
 
 
-The ``dropblock3d_layer_type`` derived type provides a 3D DropBlock layer for regularization.
+The ``dropblock3d_layer_type`` derived type provides a 3D DropBlock layer for regularisation.
 Unlike standard dropout which drops individual elements randomly, DropBlock drops contiguous regions (blocks) of feature maps.
 This is particularly effective for 3D convolutional networks as it forces the network to learn more robust spatial features.
 

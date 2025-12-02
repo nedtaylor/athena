@@ -1,6 +1,6 @@
 .. _batchnorm1d-layer:
 
-1D Batch Normalization Layer
+1D Batch Normalisation Layer
 =============================
 
 ``batchnorm1d_layer_type``
@@ -25,8 +25,8 @@
   )
 
 
-The ``batchnorm1d_layer_type`` derived type provides a 1D batch normalization layer.
-This layer applies batch normalization, which normalises the inputs to have mean of 0 and variance of 1, then applies a learned affine transformation.
+The ``batchnorm1d_layer_type`` derived type provides a 1D batch normalisation layer.
+This layer applies batch normalisation, which normalises the inputs to have mean of 0 and variance of 1, then applies a learned affine transformation.
 
 .. math::
 
@@ -41,10 +41,10 @@ Arguments
 * **num_inputs** (`integer`): Number of input features. Alternative to ``num_channels``.
 * **momentum** (`real(real32)`): Momentum for running mean and variance. Default: ``0.99``.
 * **epsilon** (`real(real32)`): Small value added to variance for numerical stability. Default: ``1.0e-5``.
-* **gamma_init_mean** (`real(real32)`): Mean for gamma (scale) initialization. Default: ``1.0``.
-* **gamma_init_std** (`real(real32)`): Standard deviation for gamma initialization. Default: ``0.02``.
-* **beta_init_mean** (`real(real32)`): Mean for beta (shift) initialization. Default: ``0.0``.
-* **beta_init_std** (`real(real32)`): Standard deviation for beta initialization. Default: ``0.02``.
+* **gamma_init_mean** (`real(real32)`): Mean for gamma (scale) initialisation. Default: ``1.0``.
+* **gamma_init_std** (`real(real32)`): Standard deviation for gamma initialisation. Default: ``0.02``.
+* **beta_init_mean** (`real(real32)`): Mean for beta (shift) initialisation. Default: ``0.0``.
+* **beta_init_std** (`real(real32)`): Standard deviation for beta initialisation. Default: ``0.02``.
 * **kernel_initialiser** (`character(*)`): Initialiser for gamma parameters (see :ref:`Initialisers <initialisers>`).
 * **bias_initialiser** (`character(*)`): Initialiser for beta parameters (see :ref:`Initialisers <initialisers>`).
 * **moving_mean_initialiser** (`character(*)`): Initialiser for running mean (see :ref:`Initialisers <initialisers>`).

@@ -22,7 +22,7 @@ The Gaussian activation function applies a Gaussian (bell curve) transformation 
    f(x) = s \frac{1}{\sigma \sqrt{2 \pi}} e^{-\frac{(x-\mu)^2}{2\sigma^2}}
 
 where :math:`\sigma` is the standard deviation, :math:`\mu` is the mean, and :math:`s` is a scaling factor.
-This activation is useful for radial basis function networks and certain specialized architectures.
+This activation is useful for radial basis function networks and certain specialised architectures.
 
 Arguments
 ---------

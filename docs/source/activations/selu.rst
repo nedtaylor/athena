@@ -24,7 +24,7 @@ The Scaled Exponential Linear Unit (SELU) activation function is a self-normaliz
    s \alpha (e^x - 1) & \text{if } x \leq 0
    \end{cases}
 
-where :math:`s` is a scaling factor, and the default values :math:`\alpha \approx 1.67326` and :math:`\lambda \approx 1.0507` are derived to enable self-normalization.
+where :math:`s` is a scaling factor, and the default values :math:`\alpha \approx 1.67326` and :math:`\lambda \approx 1.0507` are derived to enable self-normalisation.
 The values of :math:`\alpha` and :math:`\lambda` have been taken directly from the PyTorch implementation to ensure consistency.
 
 Arguments
@@ -44,4 +44,4 @@ Shape:
 Notes:
 ------
 
-SELU enables self-normalizing properties in neural networks. For best results, use with ``lecun_normal`` weight initialization and ensure inputs are normalized.
+SELU enables self-normalizing properties in neural networks. For best results, use with ``lecun_normal`` weight initialisation and ensure inputs are normalised.

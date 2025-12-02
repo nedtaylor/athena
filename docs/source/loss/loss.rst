@@ -3,7 +3,7 @@
 Loss Functions
 ==============
 
-Loss functions measure how well a neural network's predictions match the expected outputs. They guide the optimization process by providing a scalar value to minimize during training.
+Loss functions measure how well a neural network's predictions match the expected outputs. They guide the optimisation process by providing a scalar value to minimise during training.
 
 The athena library provides several commonly used loss functions for different types of problems.
 
@@ -50,7 +50,7 @@ Usage Example
    type(network_type) :: net
    type(mse_loss_type) :: loss
 
-   ! Initialize loss function
+   ! Initialise loss function
    loss = mse_loss_type()
 
    ! Use in training

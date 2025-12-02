@@ -27,7 +27,7 @@ Use Cases
 
 * Multi-class classification (mutually exclusive classes)
 * Image classification
-* Text categorization
+* Text categorisation
 * Any problem where each sample has one true class
 
 Example
@@ -41,7 +41,7 @@ Example
    type(array_type), dimension(:,:) :: predicted, expected
    type(array_type), pointer :: loss_value
 
-   ! Initialize loss function
+   ! Initialise loss function
    loss = cce_loss_type()
 
    ! Compute loss (expected should be one-hot encoded)

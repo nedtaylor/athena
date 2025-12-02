@@ -10,7 +10,7 @@ Glorot Normal Initialiser
   glorot_normal_init_type()
 
 
-Also known as Xavier normal initialization. Draws samples from a normal distribution centered at zero.
+Also known as Xavier normal initialisation. Draws samples from a normal distribution centered at zero.
 
 .. math::
 

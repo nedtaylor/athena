@@ -48,7 +48,7 @@ Example
    type(array_type), dimension(:,:) :: predicted, expected
    type(array_type), pointer :: loss_value
 
-   ! Initialize loss function with custom gamma
+   ! Initialise loss function with custom gamma
    loss = huber_loss_type()
    loss%gamma = 0.5  ! Adjust sensitivity to outliers
 

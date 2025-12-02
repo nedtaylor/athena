@@ -3,8 +3,8 @@
 Initialisers
 ============
 
-Weight initialization is crucial for training neural networks effectively. Proper initialization helps prevent vanishing or exploding gradients and can significantly impact convergence speed.
-The athena library provides various initialization strategies suited for different activation functions and network architectures.
+Weight initialisation is crucial for training neural networks effectively. Proper initialisation helps prevent vanishing or exploding gradients and can significantly impact convergence speed.
+The athena library provides various initialisation strategies suited for different activation functions and network architectures.
 
 .. toctree::
    :maxdepth: 1

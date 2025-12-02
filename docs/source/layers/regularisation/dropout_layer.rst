@@ -15,7 +15,7 @@ Dropout Layer
   )
 
 
-The ``dropout_layer_type`` derived type provides a dropout layer for regularization.
+The ``dropout_layer_type`` derived type provides a dropout layer for regularisation.
 During training, randomly sets a fraction of input units to 0 at each update, which helps prevent overfitting.
 The layer is inactive during inference.
 

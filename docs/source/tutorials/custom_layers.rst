@@ -15,7 +15,7 @@ Key Components
 
 A custom layer must implement the following deferred procedures:
 
-* **init**: Initialize the layer with proper shapes and allocations
+* **init**: Initialise the layer with proper shapes and allocations
 * **set_batch_size**: Handle batch size changes
 * **read**: Read layer configuration from file
 * **forward**: Implement the forward pass computation
@@ -80,7 +80,7 @@ Here's a complete example of a custom layer that scales inputs:
        if(.not.allocated(this%output)) &
          allocate(this%output(this%batch_size, 1))
 
-       ! Initialize output arrays
+       ! Initialise output arrays
        call this%output(1,1)%allocate(this%input_shape)
      end subroutine init_scaling
 

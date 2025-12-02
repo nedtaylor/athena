@@ -3,7 +3,7 @@
 Creating Custom Initialisers
 =============================
 
-You can create custom weight initialization strategies by extending the ``base_init_type``.
+You can create custom weight initialisation strategies by extending the ``base_init_type``.
 
 Base Initialiser Type
 ----------------------
@@ -13,7 +13,7 @@ All initialisers inherit from ``base_init_type`` and must implement the ``initia
 Required Procedures
 ~~~~~~~~~~~~~~~~~~~
 
-* **initialise**: Initialize weights/biases with the desired distribution or strategy
+* **initialise**: Initialise weights/biases with the desired distribution or strategy
 
 Essential Structure
 ~~~~~~~~~~~~~~~~~~~
@@ -88,7 +88,7 @@ Here's a complete example of a custom initialiser:
          n = size(input, 1) * size(input, 2) * size(input, 3) * size(input, 4)
        end select
 
-       ! Initialize with truncated normal distribution
+       ! Initialise with truncated normal distribution
        do i = 1, n
          do
            call normal_dist(value, this%mean, this%std)
@@ -111,7 +111,7 @@ Here's a complete example of a custom initialiser:
 Fan-In and Fan-Out
 ------------------
 
-Many initialization schemes depend on the layer dimensions:
+Many initialisation schemes depend on the layer dimensions:
 
 .. code-block:: fortran
 
@@ -132,7 +132,7 @@ Many initialization schemes depend on the layer dimensions:
        scale_factor = 1.0
      end if
 
-     ! Use scale_factor in initialization
+     ! Use scale_factor in initialisation
      ! ...
    end subroutine initialise_custom
 
@@ -147,19 +147,19 @@ To use your custom initialiser, add it to the initialiser setup:
    case("truncated_normal")
      initialiser = truncated_normal_init_type()
 
-Common Initialization Patterns
+Common Initialisation Patterns
 -------------------------------
 
 Variance Scaling
 ~~~~~~~~~~~~~~~~
 
-Scale initialization based on layer size to maintain activation variance:
+Scale initialisation based on layer size to maintain activation variance:
 
 .. math::
 
    \text{scale} = \sqrt{\frac{2}{n_{in} + n_{out}}}
 
-This is the basis for Glorot (Xavier) initialization.
+This is the basis for Glorot (Xavier) initialisation.
 
 Uniform vs Normal
 ~~~~~~~~~~~~~~~~~
@@ -169,19 +169,19 @@ Choose between uniform and normal distributions:
 * **Uniform**: ``U[-a, a]`` - bounded, good for shallow networks
 * **Normal**: ``N(0, σ²)`` - unbounded, common in modern architectures
 
-Layer-Specific Initialization
+Layer-Specific Initialisation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Different layer types may need different strategies:
 
 * **Convolutional**: Consider kernel size in fan-in/fan-out calculation
-* **Recurrent**: Often use orthogonal initialization for hidden states
-* **Batch Norm**: Typically initialize γ=1, β=0
+* **Recurrent**: Often use orthogonal initialisation for hidden states
+* **Batch Norm**: Typically initialise γ=1, β=0
 
 Best Practices
 --------------
 
-1. **Activation Awareness**: Match initialization to the activation function
+1. **Activation Awareness**: Match initialisation to the activation function
 2. **Scale Appropriately**: Prevent vanishing/exploding gradients
 3. **Reproducibility**: Use seeded random number generation for reproducible results
 4. **Documentation**: Clearly document the mathematical basis and use cases

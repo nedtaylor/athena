@@ -20,7 +20,7 @@ The hyperbolic tangent (tanh) activation function squashes values to a range bet
    f(x) = s \tanh(x) = s \frac{e^x - e^{-x}}{e^x + e^{-x}}
 
 where :math:`s` is a scaling factor (default ``1.0``).
-This activation is zero-centered, which can make optimization easier compared to sigmoid. It's commonly used in recurrent neural networks.
+This activation is zero-centered, which can make optimisation easier compared to sigmoid. It's commonly used in recurrent neural networks.
 
 Arguments
 ---------
