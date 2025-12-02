@@ -176,6 +176,9 @@ module athena
   use athena__kipf_msgpass_layer, only: kipf_msgpass_layer_type
   use athena__duvenaud_msgpass_layer, only: duvenaud_msgpass_layer_type
 
+  ! Recurrent layer types
+  !-----------------------------------------------------------------------------
+  use athena__recurrent_layer, only: recurrent_layer_type
 
   ! Array types
   !-----------------------------------------------------------------------------
