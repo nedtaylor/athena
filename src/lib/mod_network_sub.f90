@@ -2856,7 +2856,7 @@ contains
     !! Output data
     integer, intent(in) :: num_epochs
     !! Number of epochs
-    integer, optional, intent(in) :: batch_size ! deprecated
+    integer, optional, intent(in) :: batch_size
     !! Batch size
     real(real32), optional, intent(in) :: plateau_threshold
     !! Plateau threshold
@@ -3467,7 +3467,7 @@ contains
                this%leaf_vertices(l) &
           )%layer%output(1,s)%val
           if(size(this%model(this%leaf_vertices(l))%layer%output,1).eq.1)then
-              output(l,s)%edge_features = input(1,s)%edge_features
+             output(l,s)%edge_features = input(1,s)%edge_features
           else
              output(l,s)%edge_features = this%model( &
                   this%leaf_vertices(l) &
