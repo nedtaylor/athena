@@ -9,8 +9,7 @@ Flatten Layer
 
   flatten_layer_type(
     input_shape=...,
-    input_rank=...,
-    batch_size=...
+    input_rank=...
   )
 
 
@@ -22,7 +21,6 @@ Arguments
 
 * **input_shape** (`integer, dimension(:)`): Shape of the input data (excluding batch dimension).
 * **input_rank** (`integer`): Rank/number of dimensions of the input (excluding batch dimension).
-* **batch_size** (`integer`): **SOON TO BE DEPRECATED**. Batch size for the layer. Handled automatically during training and inference.
 
 Shape:
 ------

@@ -10,8 +10,7 @@
   dropblock2d_layer_type(
     rate,
     block_size,
-    input_shape=...,
-    batch_size=...
+    input_shape=...
   )
 
 
@@ -25,7 +24,6 @@ Arguments
 * **rate** (`real(real32)`): Fraction of the units to drop. Must be between 0 and 1. Required argument.
 * **block_size** (`integer`): Size of the square blocks to drop. Required argument.
 * **input_shape** (`integer, dimension(:)`): Shape of the input data (width, height, channels).
-* **batch_size** (`integer`): **SOON TO BE DEPRECATED**. Batch size for the layer. Handled automatically during training and inference.
 
 Shape:
 ------

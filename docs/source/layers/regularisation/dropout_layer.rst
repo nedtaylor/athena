@@ -10,8 +10,7 @@ Dropout Layer
   dropout_layer_type(
     rate,
     num_masks,
-    input_shape=...,
-    batch_size=...
+    input_shape=...
   )
 
 
@@ -25,7 +24,6 @@ Arguments
 * **rate** (`real(real32)`): Fraction of the input units to drop. Must be between 0 and 1. Required argument.
 * **num_masks** (`integer`): Number of unique dropout masks to generate and cycle through. Required argument.
 * **input_shape** (`integer, dimension(:)`): Shape of the input data (excluding batch dimension).
-* **batch_size** (`integer`): **SOON TO BE DEPRECATED**. Batch size for the layer. Handled automatically during training and inference.
 
 Shape:
 ------

@@ -10,8 +10,7 @@
   pad1d_layer_type(
     padding,
     method,
-    input_shape=...,
-    batch_size=...
+    input_shape=...
   )
 
 
@@ -31,7 +30,6 @@ Arguments
   * ``"replication"``: Replicate the edge values.
 
 * **input_shape** (`integer, dimension(:)`): Shape of the input data (width, channels).
-* **batch_size** (`integer`): **SOON TO BE DEPRECATED**. Batch size for the layer. Handled automatically during training and inference.
 
 Shape:
 ------

@@ -14,7 +14,6 @@ Duvenaud Message Passing Layer
     max_vertex_degree,
     num_outputs,
     min_vertex_degree=1,
-    batch_size=...,
     message_activation="none",
     readout_activation="none",
     kernel_initialiser=...,
@@ -81,8 +80,6 @@ Arguments
   * Vertices with degree less than this are excluded from readout
   * Useful for ignoring isolated nodes
   * Typically set to 1 (include all connected nodes)
-
-* **batch_size** (`integer`, optional): **SOON TO BE DEPRECATED**. Batch size for the layer.
 
 * **message_activation** (`class(*)`): Activation function for message updates.
 

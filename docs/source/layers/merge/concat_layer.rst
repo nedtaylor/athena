@@ -9,7 +9,6 @@ Concatenate Layer
 
   concat_layer_type(
     input_layer_ids,
-    batch_size=...,
     input_rank=...,
     verbose=0
   )
@@ -35,8 +34,6 @@ Arguments
   * Special value ``-1`` refers to the immediately previous layer
   * Example: ``[0, -1]`` concatenates layer 0 with the previous layer
   * Inputs must have the same shape except along the concatenation dimension
-
-* **batch_size** (`integer`, optional): **SOON TO BE DEPRECATED**. Batch size for the layer.
 
 * **input_rank** (`integer`, optional): Rank (number of dimensions) of input tensors.
 
