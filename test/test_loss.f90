@@ -41,7 +41,7 @@ program test_loss
   loss = cce_loss_type()
   expected_loss = -expected * log(predicted + 1.E-7)
   actual_loss => loss%compute(predicted_array, expected_array)
-  if (any(abs(actual_loss%val(:,1) - sum(expected_loss,2) / 3.0) .gt. 1.E-6)) then
+  if (any(abs(actual_loss%val(:,1) - sum(expected_loss) / 3.0) .gt. 1.E-6)) then
      write(0,*) "Error: compute_loss_cce did not return the expected result."
      write(0,*) "actual_loss: ", actual_loss%val(:,1)
      write(0,*) "expected_loss: ", sum(expected_loss,2) / 3.0
@@ -55,10 +55,10 @@ program test_loss
   loss = mae_loss_type()
   expected_loss = abs(predicted - expected)
   actual_loss => loss%compute(predicted_array, expected_array)
-  if (any(abs(actual_loss%val(:,1) - sum(expected_loss,2) / 6.0) .gt. 1.E-6)) then
+  if (any(abs(actual_loss%val(:,1) - sum(expected_loss) / 18.0) .gt. 1.E-6)) then
      write(0,*) "Error: compute_loss_mae did not return the expected result."
      write(0,*) "actual_loss: ", actual_loss%val(:,1)
-     write(0,*) "expected_loss: ", sum(expected_loss,2) / 6.0
+     write(0,*) "expected_loss: ", sum(expected_loss) / 18.0
      success = .false.
   end if
 
@@ -69,10 +69,10 @@ program test_loss
   loss = mse_loss_type()
   expected_loss = ((predicted - expected)**2.E0) /(2.E0)
   actual_loss => loss%compute(predicted_array, expected_array)
-  if (any(abs(actual_loss%val(:,1) - sum(expected_loss,2) / 3.0) .gt. 1.E-6)) then
+  if (any(abs(actual_loss%val(:,1) - sum(expected_loss) / 9.0) .gt. 1.E-6)) then
      write(0,*) "Error: compute_loss_mse did not return the expected result."
      write(0,*) "actual_loss: ", actual_loss%val(:,1)
-     write(0,*) "expected_loss: ", sum(expected_loss,2) / 3.0
+     write(0,*) "expected_loss: ", sum(expected_loss) / 9.0
      success = .false.
   end if
 
@@ -83,10 +83,10 @@ program test_loss
   loss = nll_loss_type()
   expected_loss = - log(expected - predicted + 1.E-7)
   actual_loss => loss%compute(predicted_array, expected_array)
-  if (any(abs(actual_loss%val(:,1) - sum(expected_loss,2) / 3.0) .gt. 1.E-6)) then
+  if (any(abs(actual_loss%val(:,1) - sum(expected_loss) / 9.0) .gt. 1.E-6)) then
      write(0,*) "Error: compute_loss_nll did not return the expected result."
      write(0,*) "actual_loss: ", actual_loss%val(:,1)
-     write(0,*) "expected_loss: ", sum(expected_loss,2) / 3.0
+     write(0,*) "expected_loss: ", sum(expected_loss) / 9.0
      success = .false.
   end if
 
@@ -101,10 +101,10 @@ program test_loss
      expected_loss = 1.0 * (abs(predicted - expected) - 0.5 * 1.0)
   end where
   actual_loss => loss%compute(predicted_array, expected_array)
-  if (any(abs(actual_loss%val(:,1) - sum(expected_loss,2) / 3.0) .gt. 1.E-6)) then
+  if (any(abs(actual_loss%val(:,1) - sum(expected_loss) / 9.0) .gt. 1.E-6)) then
      write(0,*) "Error: compute_loss_huber did not return the expected result."
      write(0,*) "actual_loss: ", actual_loss%val(:,1)
-     write(0,*) "expected_loss: ", sum(expected_loss,2) / 3.0
+     write(0,*) "expected_loss: ", sum(expected_loss) / 9.0
      success = .false.
   end if
 

@@ -367,14 +367,14 @@ contains
     type(array_type), pointer :: ptr
     !! Temporary pointer for calculations
 
-    output => mean( abs( predicted(1,1) - expected(1,1) ), dim=2 ) / &
+    output => mean( abs( predicted(1,1) - expected(1,1) ) ) / &
          2._real32
     if(any(shape(predicted).gt.1))then
        do s = 1, size(predicted,2)
           do i = 1, size(predicted,1)
              if(.not.predicted(i,s)%allocated .or. &
                   .not.expected(i,s)%allocated) cycle
-             ptr => mean( abs( predicted(i,s) - expected(i,s) ), dim=2 ) / &
+             ptr => mean( abs( predicted(i,s) - expected(i,s) ) ) / &
                   2._real32
 
              output => output + ptr
@@ -449,13 +449,13 @@ contains
     type(array_type), pointer :: ptr
     !! Temporary pointer for calculations
 
-    output => mean(-log(expected(1,1) - predicted(1,1) + this%epsilon), dim=2)
+    output => mean(-log(expected(1,1) - predicted(1,1) + this%epsilon) )
     if(any(shape(predicted).gt.1))then
        do s = 1, size(predicted,2)
           do i = 1, size(predicted,1)
              if(.not.predicted(i,s)%allocated .or. &
                   .not.expected(i,s)%allocated) cycle
-             ptr => mean(-log(expected(i,s) - predicted(i,s) + this%epsilon), dim=2)
+             ptr => mean(-log(expected(i,s) - predicted(i,s) + this%epsilon) )
 
              output => output + ptr
           end do
@@ -489,7 +489,7 @@ contains
     !! Temporary pointer for calculations
 
     ptr => predicted(1,1) - expected(1,1)
-    output => huber(predicted(1,1) - expected(1,1), this%gamma)
+    output => mean( huber(predicted(1,1) - expected(1,1), this%gamma) )
     if(any(shape(predicted).gt.1))then
        do s = 1, size(predicted,2)
           do i = 1, size(predicted,1)
@@ -497,11 +497,10 @@ contains
                   .not.expected(i,s)%allocated) cycle
              ptr => predicted(i,s) - expected(i,s)
 
-             output => output + huber(ptr, this%gamma)
+             output => output + mean( huber(ptr, this%gamma) )
           end do
        end do
     end if
-    output => mean(output, dim=2)
 
     ! output => merge( &
     !      0.5_real32 * (ptr)**2._real32, &
