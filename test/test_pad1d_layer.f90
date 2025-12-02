@@ -46,8 +46,7 @@ program test_pad1d_layer
   pad1d_layer = pad1d_layer_type( &
        padding = [2], &
        method = "zero", &
-       input_shape = [width, channels], &
-       batch_size = batch_size &
+       input_shape = [width, channels] &
   )
 
   ! Check layer properties
@@ -82,11 +81,6 @@ program test_pad1d_layer
   if(pad1d_layer%output_rank .ne. 2)then
      success = .false.
      write(0,*) 'pad1d layer has wrong output_rank'
-  end if
-
-  if(pad1d_layer%batch_size .ne. batch_size)then
-     success = .false.
-     write(0,*) 'pad1d layer has wrong batch_size'
   end if
 
 
@@ -233,8 +227,7 @@ program test_pad1d_layer
        pad1d_layer = pad1d_layer_type( &
             padding = [2], &
             method = trim(padding_methods(i)), &
-            input_shape = [width, channels], &
-            batch_size = 1 &
+            input_shape = [width, channels] &
        )
 
        ! Check output shape for each method
@@ -303,8 +296,7 @@ program test_pad1d_layer
     pad1d_layer = pad1d_layer_type( &
          padding = [pad_size], &
          method = "zero", &
-         input_shape = [simple_width, simple_channels], &
-         batch_size = 1 &
+         input_shape = [simple_width, simple_channels] &
     )
     call pad1d_layer%forward(input)
     call pad1d_layer%extract_output(output_simple)
@@ -341,8 +333,7 @@ program test_pad1d_layer
     pad1d_layer = pad1d_layer_type( &
          padding = [pad_size], &
          method = "replicate", &
-         input_shape = [simple_width, simple_channels], &
-         batch_size = 1 &
+         input_shape = [simple_width, simple_channels] &
     )
     call pad1d_layer%forward(input)
     call pad1d_layer%extract_output(output_simple)
@@ -384,8 +375,7 @@ program test_pad1d_layer
     pad1d_layer = pad1d_layer_type( &
          padding = [pad_size], &
          method = "reflect", &
-         input_shape = [simple_width, simple_channels], &
-         batch_size = 1 &
+         input_shape = [simple_width, simple_channels] &
     )
     call pad1d_layer%forward(input)
     call pad1d_layer%extract_output(output_simple)
@@ -428,8 +418,7 @@ program test_pad1d_layer
     pad1d_layer = pad1d_layer_type( &
          padding = [pad_size], &
          method = "circular", &
-         input_shape = [simple_width, simple_channels], &
-         batch_size = 1 &
+         input_shape = [simple_width, simple_channels] &
     )
     call pad1d_layer%forward(input)
     call pad1d_layer%extract_output(output_simple)
@@ -486,8 +475,7 @@ program test_pad1d_layer
        pad1d_layer = pad1d_layer_type( &
             padding = [test_paddings(i)], &
             method = "zero", &
-            input_shape = [width, channels], &
-            batch_size = 1 &
+            input_shape = [width, channels] &
        )
 
        ! Check output shape
@@ -532,13 +520,6 @@ program test_pad1d_layer
        method = "zero", &
        input_shape = [width, channels] &
   )
-
-  call pad1d_layer%set_batch_size(batch_size)
-
-  if(pad1d_layer%batch_size .ne. batch_size)then
-     success = .false.
-     write(0,*) 'pad1d layer set_batch_size failed'
-  end if
 
 
 !-------------------------------------------------------------------------------

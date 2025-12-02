@@ -33,7 +33,7 @@ contains
 
 !###############################################################################
   module function layer_setup( &
-       num_features, num_time_steps, batch_size, &
+       num_features, num_time_steps, &
        verbose &
   ) result(layer)
     !! Procedure to set up the layer
@@ -44,8 +44,6 @@ contains
     !! Number of features
     integer, intent(in) :: num_time_steps
     !! Number of time steps
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -95,7 +93,7 @@ contains
 
 
 !###############################################################################
-  module subroutine init_msgpass(this, input_shape, batch_size, verbose)
+  module subroutine init_msgpass(this, input_shape, verbose)
     !! Initialise the layer
     implicit none
 
@@ -104,14 +102,14 @@ contains
     !! Instance of the layer type
     integer, dimension(:), intent(in) :: input_shape
     !! Input shape
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
     ! Local variables
     integer :: t
     !! Time step
+    integer :: verbose_ = 0
+    !! Verbosity level
     integer :: num_params_message
     !! Number of parameters in the message
     integer :: num_params_readout
@@ -121,64 +119,24 @@ contains
     !---------------------------------------------------------------------------
     ! Initialise optional arguments
     !---------------------------------------------------------------------------
-    if (present(batch_size)) this%batch_size = batch_size
+    if (present(verbose)) verbose_ = verbose
 
 
     !---------------------------------------------------------------------------
     ! Initialise number of inputs
     !---------------------------------------------------------------------------
     this%input_shape = [ 1 ] !input_shape
-    ! if(allocated(this%output))then
-    !    if(this%output%allocated) call this%output%deallocate()
-    ! end if
-    ! this%output = array2d_type()
     ! this%output_shape = this%num_outputs
     !if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
     this%num_params = this%get_num_params()
 
 
     !---------------------------------------------------------------------------
-    ! Initialise batch size-dependent arrays
-    !---------------------------------------------------------------------------
-    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
-
-  end subroutine init_msgpass
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine set_batch_size_msgpass(this, batch_size, verbose)
-    implicit none
-
-    ! Arguments
-    class(msgpass_layer_type), intent(inout), target :: this
-    !! Instance of the layer type
-    integer, intent(in) :: batch_size
-    !! Batch size
-    integer, optional, intent(in) :: verbose
-    !! Verbosity level
-
-    ! Local variables
-    integer :: verbose_ = 0
-    !! Verbosity level
-
-
-    !---------------------------------------------------------------------------
-    ! Initialise optional arguments
-    !---------------------------------------------------------------------------
-    if(present(verbose)) verbose_ = verbose
-    this%batch_size = batch_size
-
-
-    !---------------------------------------------------------------------------
     ! Allocate arrays
     !---------------------------------------------------------------------------
-    if(allocated(this%input_shape))then
-       if(allocated(this%output)) deallocate(this%output)
-       allocate(this%output(2, this%batch_size))
-    end if
+    if(allocated(this%output)) deallocate(this%output)
 
-  end subroutine set_batch_size_msgpass
+  end subroutine init_msgpass
 !###############################################################################
 
 

@@ -1284,7 +1284,6 @@ contains
        end select
        t_input_layer = input_layer_type(&
             input_shape = input_shape, &
-            batch_size = this%batch_size, &
             index = i, &
             use_graph_input = use_graph_input, &
             verbose=verbose_ &
@@ -1551,7 +1550,6 @@ contains
           end select
           call this%model(layer_id)%layer%init( &
                input_shape = input_shape, &
-               batch_size = this%batch_size, &
                verbose = verbose_ &
           )
           deallocate(input_shape)
@@ -1685,18 +1683,6 @@ contains
     ! Set batch size, if provided
     !---------------------------------------------------------------------------
     if(present(batch_size)) this%batch_size = batch_size
-    if(this%batch_size.ne.0)then
-       if(this%model(1)%layer%batch_size.ne.0.and.&
-            this%model(1)%layer%batch_size.ne.this%batch_size)then
-          write(*,*) "WARNING: &
-               &batch_size in compile differs from batch_size of input layer"
-          write(*,*) "         &
-               &batch_size of input layer will be set to network batch_size"
-       end if
-       call this%set_batch_size(this%batch_size)
-    elseif(this%model(1)%layer%batch_size.ne.0)then
-       call this%set_batch_size(this%model(1)%layer%batch_size)
-    end if
 
   end subroutine compile
 !###############################################################################
@@ -1719,9 +1705,6 @@ contains
 
 
     this%batch_size = batch_size
-    do l = 1, this%num_layers
-       call this%model(l)%layer%set_batch_size(this%batch_size)
-    end do
 
   end subroutine set_batch_size
 !###############################################################################

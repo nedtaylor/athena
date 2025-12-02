@@ -100,7 +100,7 @@ program test_conv1d_layer
        kernel_size = 3, &
        activation = 'sigmoid' &
   )
-  call conv_layer%init(input(1,1)%shape, batch_size=1)
+  call conv_layer%init(input(1,1)%shape)
 
   !! run forward pass
   call conv_layer%forward(input)
@@ -215,13 +215,13 @@ program test_conv1d_layer
        kernel_size = 3, &
        activation = 'sigmoid' &
   )
-  call conv_layer1%init(input_layer%input_shape, batch_size=1)
+  call conv_layer1%init(input_layer%input_shape)
   conv_layer2 = conv1d_layer_type( &
        num_filters = 1, &
        kernel_size = 3, &
        activation = 'sigmoid' &
   )
-  call conv_layer2%init(input_layer%input_shape, batch_size=1)
+  call conv_layer2%init(input_layer%input_shape)
   select type(conv_layer1)
   type is(conv1d_layer_type)
      select type(conv_layer2)

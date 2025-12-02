@@ -39,8 +39,6 @@ module athena__actv_layer
      !! Set hyperparameters
      procedure, pass(this) :: init => init_actv
      !! Initialise layer
-     procedure, pass(this) :: set_batch_size => set_batch_size_actv
-     !! Set batch size
      procedure, pass(this) :: print_to_unit => print_to_unit_actv
      !! Print layer to unit
      procedure, pass(this) :: read => read_actv
@@ -58,7 +56,7 @@ module athena__actv_layer
      !! Interface for the activation layer type
      module function layer_setup( &
           activation, &
-          input_shape, batch_size, &
+          input_shape, &
           verbose &
      ) result(layer)
        !! Set up the activation layer
@@ -66,8 +64,6 @@ module athena__actv_layer
        !! Activation function
        integer, dimension(:), optional, intent(in) :: input_shape
        !! Input shape
-       integer, optional, intent(in) :: batch_size
-       !! Batch size
        integer, optional, intent(in) :: verbose
        !! Verbosity level
        type(actv_layer_type) :: layer
@@ -82,7 +78,7 @@ contains
 !###############################################################################
   module function layer_setup( &
        activation, &
-       input_shape, batch_size, &
+       input_shape, &
        verbose &
   ) result(layer)
     !! Set up the activation layer
@@ -94,8 +90,6 @@ contains
     !! Activation function
     integer, dimension(:), optional, intent(in) :: input_shape
     !! Input shape
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     integer, optional, intent(in) :: verbose
     !! Verbosity level
     type(actv_layer_type) :: layer
@@ -124,12 +118,6 @@ contains
          activation = activation_, &
          verbose = verbose_ &
     )
-
-
-    !---------------------------------------------------------------------------
-    ! initialise batch size
-    !---------------------------------------------------------------------------
-    if(present(batch_size)) layer%batch_size = batch_size
 
 
     !---------------------------------------------------------------------------
@@ -191,7 +179,7 @@ contains
 
 
 !###############################################################################
-  subroutine init_actv(this, input_shape, batch_size, verbose)
+  subroutine init_actv(this, input_shape, verbose)
     !! Initialise activation layer
     implicit none
 
@@ -200,8 +188,6 @@ contains
     !! Instance of the activation layer
     integer, dimension(:), intent(in) :: input_shape
     !! Input shape
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -214,7 +200,6 @@ contains
     ! initialise optional arguments
     !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
-    if(present(batch_size)) this%batch_size = batch_size
 
 
     !---------------------------------------------------------------------------
@@ -227,57 +212,18 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! initialise batch size-dependent arrays
+    ! Allocate arrays
     !---------------------------------------------------------------------------
-    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
+    if(this%use_graph_input)then
+       call stop_program( &
+            "Graph input not supported for activation layer" &
+       )
+       return
+    end if
+    if(allocated(this%output)) deallocate(this%output)
+    allocate(this%output(1,1))
 
   end subroutine init_actv
-!###############################################################################
-
-
-!###############################################################################
-  subroutine set_batch_size_actv(this, batch_size, verbose)
-    !! Set batch size for activation layer
-    implicit none
-
-    ! Arguments
-    class(actv_layer_type), intent(inout), target :: this
-    !! Instance of the activation layer
-    integer, intent(in) :: batch_size
-    !! Batch size
-    integer, optional, intent(in) :: verbose
-    !! Verbosity level
-
-    ! Local variables
-    integer :: verbose_
-    !! Verbosity level
-
-
-    !---------------------------------------------------------------------------
-    ! initialise optional arguments
-    !---------------------------------------------------------------------------
-    verbose_ = 0
-    if(present(verbose)) verbose_ = verbose
-    this%batch_size = batch_size
-
-
-    !---------------------------------------------------------------------------
-    ! allocate arrays
-    !---------------------------------------------------------------------------
-    if(allocated(this%input_shape))then
-       if(allocated(this%output)) deallocate(this%output)
-       if(this%use_graph_input)then
-          allocate(this%output(2,this%batch_size))
-          call stop_program( &
-               "Graph input not supported for activation layer" &
-          )
-          return
-       else
-          allocate(this%output(1,1))
-       end if
-    end if
-
-  end subroutine set_batch_size_actv
 !###############################################################################
 
 

@@ -33,8 +33,6 @@ module athena__flatten_layer
      !! Set hyperparameters for flattening layer
      procedure, pass(this) :: init => init_flatten
      !! Initialise flattening layer
-     procedure, pass(this) :: set_batch_size => set_batch_size_flatten
-     !! Set batch size for flattening layer
      procedure, pass(this) :: print_to_unit => print_to_unit_flatten
      !! Print flatten layer to unit
      procedure, pass(this) :: read => read_flatten
@@ -50,13 +48,11 @@ module athena__flatten_layer
   interface flatten_layer_type
      !! Interface for setting up the flattening layer
      module function layer_setup( &
-          input_shape, batch_size, input_rank, verbose &
+          input_shape, input_rank, verbose &
      ) result(layer)
        !! Set up the flattening layer
        integer, dimension(:), optional, intent(in) :: input_shape
        !! Input shape
-       integer, optional, intent(in) :: batch_size
-       !! Batch size
        integer, optional, intent(in) :: input_rank
        !! Input rank
        integer, optional, intent(in) :: verbose
@@ -72,7 +68,7 @@ contains
 
 !###############################################################################
   module function layer_setup( &
-       input_shape, batch_size, input_rank, verbose &
+       input_shape, input_rank, verbose &
   ) result(layer)
     !! Set up the flattening layer
     implicit none
@@ -80,8 +76,6 @@ contains
     ! Arguments
     integer, dimension(:), optional, intent(in) :: input_shape
     !! Input shape
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     integer, optional, intent(in) :: input_rank
     !! Input rank
     integer, optional, intent(in) :: verbose
@@ -116,12 +110,6 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Initialise batch size
-    !---------------------------------------------------------------------------
-    if(present(batch_size)) layer%batch_size = batch_size
-
-
-    !---------------------------------------------------------------------------
     ! Initialise layer shape
     !---------------------------------------------------------------------------
     if(present(input_shape)) call layer%init(input_shape=input_shape)
@@ -152,7 +140,7 @@ contains
 
 
 !###############################################################################
-  subroutine init_flatten(this, input_shape, batch_size, verbose)
+  subroutine init_flatten(this, input_shape, verbose)
     !! Initialise flattening layer
     implicit none
 
@@ -161,8 +149,6 @@ contains
     !! Instance of the flattening layer
     integer, dimension(:), intent(in) :: input_shape
     !! Input shape
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -175,7 +161,6 @@ contains
     ! Initialise optional arguments
     !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
-    if(present(batch_size)) this%batch_size = batch_size
 
 
     !---------------------------------------------------------------------------
@@ -197,59 +182,19 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Initialise batch size-dependent arrays
-    !---------------------------------------------------------------------------
-    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
-
-  end subroutine init_flatten
-!###############################################################################
-
-
-!###############################################################################
-  subroutine set_batch_size_flatten(this, batch_size, verbose)
-    !! Set batch size for flattening layer
-    implicit none
-
-    ! Arguments
-    class(flatten_layer_type), intent(inout), target :: this
-    !! Instance of the flattening layer
-    integer, intent(in) :: batch_size
-    !! Batch size
-    integer, optional, intent(in) :: verbose
-    !! Verbosity level
-
-    ! Local variables
-    integer :: verbose_ = 0
-    !! Verbosity level
-
-
-    !---------------------------------------------------------------------------
-    ! Initialise optional arguments
-    !---------------------------------------------------------------------------
-    if(present(verbose)) verbose_ = verbose
-    this%batch_size = batch_size
-
-
-    !---------------------------------------------------------------------------
     ! Allocate arrays
     !---------------------------------------------------------------------------
-    if(allocated(this%input_shape))then
-       if(this%use_graph_input)then
-          call stop_program( &
-               "Graph input not supported for flatten layer" &
-          )
-          return
-       else
-          if(allocated(this%output)) deallocate(this%output)
-          allocate( this%output(1,1) )
-          call this%output(1,1)%allocate( &
-               array_shape = [ this%num_outputs, this%batch_size ], &
-               source=0._real32 &
-          )
-       end if
+    if(this%use_graph_input)then
+       call stop_program( &
+            "Graph input not supported for flatten layer" &
+       )
+       return
+    else
+       if(allocated(this%output)) deallocate(this%output)
+       allocate( this%output(1,1) )
     end if
 
-  end subroutine set_batch_size_flatten
+  end subroutine init_flatten
 !###############################################################################
 
 

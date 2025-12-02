@@ -81,7 +81,7 @@ program test_avgpool1d_layer
 !-------------------------------------------------------------------------------
 ! check layer input and output shape based on input layer
 !-------------------------------------------------------------------------------
-  call pool_layer%init(input(1,1)%shape, batch_size=1)
+  call pool_layer%init(input(1,1)%shape)
   select type(pool_layer)
   type is(avgpool1d_layer_type)
      if(any(pool_layer%input_shape .ne. [width,num_channels]))then
@@ -207,7 +207,7 @@ program test_avgpool1d_layer
 ! Test file I/O operations
 !-------------------------------------------------------------------------------
   write(*,*) "Testing file I/O operations..."
-  call pool_layer%init(input(1,1)%shape, batch_size=1)
+  call pool_layer%init(input(1,1)%shape)
 
   ! Create a temporary file for testing
   open(newunit=unit, file='test_avgpool1d_layer.tmp', &

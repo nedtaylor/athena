@@ -33,8 +33,6 @@ module athena__pad2d_layer
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_pad2d
      !! Set hyperparameters for 2D padding layer
-     procedure, pass(this) :: set_batch_size => set_batch_size_pad2d
-     !! Set batch size for 2D padding layer
      procedure, pass(this) :: read => read_pad2d
      !! Read 2D padding layer from file
 
@@ -47,7 +45,7 @@ module athena__pad2d_layer
      !! Interface for setting up the 2D padding layer
      module function layer_setup( &
           padding, method, &
-          input_shape, batch_size, &
+          input_shape, &
           verbose &
      ) result(layer)
        !! Set up the 2D padding layer
@@ -57,8 +55,6 @@ module athena__pad2d_layer
        !! Padding method
        integer, dimension(:), optional, intent(in) :: input_shape
        !! Input shape
-       integer, optional, intent(in) :: batch_size
-       !! Batch size
        integer, optional, intent(in) :: verbose
        !! Verbosity level
        type(pad2d_layer_type) :: layer
@@ -73,7 +69,7 @@ contains
 !###############################################################################
   module function layer_setup( &
        padding, method, &
-       input_shape, batch_size, &
+       input_shape, &
        verbose) result(layer)
     !! Set up the 2D padding layer
     implicit none
@@ -85,8 +81,6 @@ contains
     !! Padding method
     integer, dimension(:), optional, intent(in) :: input_shape
     !! Input shape
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -118,12 +112,6 @@ contains
     ! Set hyperparameters
     !---------------------------------------------------------------------------
     call layer%set_hyperparams(padding=padding_2d, method=method, verbose=verbose_)
-
-
-    !---------------------------------------------------------------------------
-    ! Initialise batch size
-    !---------------------------------------------------------------------------
-    if(present(batch_size)) layer%batch_size = batch_size
 
 
     !---------------------------------------------------------------------------
@@ -182,54 +170,6 @@ contains
     this%method = trim(adjustl(to_lower(method)))
 
   end subroutine set_hyperparams_pad2d
-!###############################################################################
-
-
-!###############################################################################
-  subroutine set_batch_size_pad2d(this, batch_size, verbose)
-    !! Set batch size for 2D padding layer
-    implicit none
-
-    ! Arguments
-    class(pad2d_layer_type), intent(inout), target :: this
-    !! Instance of the 2D padding layer
-    integer, intent(in) :: batch_size
-    !! Batch size
-    integer, optional, intent(in) :: verbose
-    !! Verbosity level
-
-    ! Local variables
-    integer :: verbose_ = 0
-    !! Verbosity level
-
-
-    !---------------------------------------------------------------------------
-    ! Initialise optional arguments
-    !---------------------------------------------------------------------------
-    if(present(verbose)) verbose_ = verbose
-    this%batch_size = batch_size
-
-
-    !---------------------------------------------------------------------------
-    ! Allocate arrays
-    !---------------------------------------------------------------------------
-    if(allocated(this%input_shape))then
-       if(this%use_graph_input)then
-          call stop_program("Graph input not supported for 2D padding layer")
-          return
-       end if
-       if(allocated(this%output)) deallocate(this%output)
-       allocate( this%output(1,1) )
-       call this%output(1,1)%allocate( &
-            array_shape = [ &
-                 this%output_shape(1), &
-                 this%output_shape(2), this%num_channels, &
-                 this%batch_size ], &
-            source=0._real32 &
-       )
-    end if
-
-  end subroutine set_batch_size_pad2d
 !###############################################################################
 
 

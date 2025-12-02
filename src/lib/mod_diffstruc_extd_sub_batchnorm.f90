@@ -5,12 +5,11 @@ contains
 
 !###############################################################################
   module function batchnorm_inference( &
-       input, params, norm, mean, variance, epsilon &
+       input, params, mean, variance, epsilon &
   ) result( output )
     implicit none
     class(array_type), intent(in), target :: input
     class(array_type), intent(in), target :: params
-    real(real32), intent(in) :: norm
     real(real32), dimension(:), intent(in) :: mean
     real(real32), dimension(:), intent(in) :: variance
     real(real32), intent(in) :: epsilon
@@ -40,7 +39,7 @@ contains
   end function batchnorm_inference
 !-------------------------------------------------------------------------------
   module function batchnorm( &
-       input, params, norm, momentum, mean, variance, epsilon &
+       input, params, momentum, mean, variance, epsilon &
   ) result( output )
     !! Batch normalisation operation
     implicit none
@@ -48,7 +47,6 @@ contains
     ! Arguments
     class(array_type), intent(in), target :: input
     class(array_type), intent(in), target :: params
-    real(real32), intent(in) :: norm
     real(real32), intent(in) :: momentum
     real(real32), dimension(:), intent(in) :: mean
     real(real32), dimension(:), intent(in) :: variance
@@ -58,7 +56,7 @@ contains
     ! Local variables
     integer :: i, c, s
     integer :: num_elements, num_dims
-    real(real32) :: mu, var
+    real(real32) :: mu, var, norm
 
     allocate(output)
     if(output%allocated) call output%deallocate()
@@ -68,6 +66,7 @@ contains
     output%variance = variance
     num_dims = size(input%shape)
     num_elements = product(input%shape(1:num_dims - 1))
+    norm = real(num_elements * size(input%val,2), real32)
     do concurrent(c = 1:input%shape(num_dims))
        mu = 0._real32
        var = 0._real32

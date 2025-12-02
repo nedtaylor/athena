@@ -200,11 +200,10 @@ module athena__diffstruc_extd
 
   interface
      module function batchnorm( &
-          input, params, norm, momentum, mean, variance, epsilon &
+          input, params, momentum, mean, variance, epsilon &
      ) result( output )
        class(array_type), intent(in), target :: input
        class(array_type), intent(in), target :: params
-       real(real32), intent(in) :: norm
        real(real32), intent(in) :: momentum
        real(real32), dimension(:), intent(in) :: mean
        real(real32), dimension(:), intent(in) :: variance
@@ -213,11 +212,10 @@ module athena__diffstruc_extd
      end function batchnorm
 
      module function batchnorm_inference( &
-          input, params, norm, mean, variance, epsilon &
+          input, params, mean, variance, epsilon &
      ) result( output )
        class(array_type), intent(in), target :: input
        class(array_type), intent(in), target :: params
-       real(real32), intent(in) :: norm
        real(real32), dimension(:), intent(in) :: mean
        real(real32), dimension(:), intent(in) :: variance
        real(real32), intent(in) :: epsilon

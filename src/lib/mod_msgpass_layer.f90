@@ -51,8 +51,6 @@ module athena__msgpass_layer
      !  !! Set the hyperparameters for message passing layer
      procedure, pass(this) :: init => init_msgpass
      !! Initialise message passing layer
-     procedure, pass(this) :: set_batch_size => set_batch_size_msgpass
-     !! Set the batch size for message passing layer
      ! procedure, pass(this) :: print => print_msgpass
      ! !! Print the message passing layer
      ! procedure, pass(this) :: read => read_msgpass
@@ -82,7 +80,7 @@ module athena__msgpass_layer
   interface msgpass_layer_type
      !! Interface for setting up the MPNN layer
      module function layer_setup( &
-          num_features, num_time_steps, batch_size, &
+          num_features, num_time_steps, &
           verbose &
      ) result(layer)
        !! Set up the MPNN layer
@@ -91,8 +89,6 @@ module athena__msgpass_layer
        !! Number of features
        integer, intent(in) :: num_time_steps
        !! Number of time steps
-       integer, optional, intent(in) :: batch_size
-       !! Batch size
        integer, optional, intent(in) :: verbose
        !! Verbosity level
        class(msgpass_layer_type), allocatable :: layer
@@ -174,26 +170,15 @@ module athena__msgpass_layer
      !   integer, optional, intent(in) :: verbose
      !   !! Verbosity level
      ! end subroutine read_msgpass
-     module subroutine init_msgpass(this, input_shape, batch_size, verbose)
+     module subroutine init_msgpass(this, input_shape, verbose)
        !! Initialise the message passing layer
        class(msgpass_layer_type), intent(inout) :: this
        !! Instance of the message passing layer
        integer, dimension(:), intent(in) :: input_shape
        !! Input shape
-       integer, optional, intent(in) :: batch_size
-       !! Batch size
        integer, optional, intent(in) :: verbose
        !! Verbosity level
      end subroutine init_msgpass
-     module subroutine set_batch_size_msgpass(this, batch_size, verbose)
-       !! Set the batch size for the message passing layer
-       class(msgpass_layer_type), intent(inout), target :: this
-       !! Instance of the message passing layer
-       integer, intent(in) :: batch_size
-       !! Batch size
-       integer, optional, intent(in) :: verbose
-       !! Verbosity level
-     end subroutine set_batch_size_msgpass
      !  module subroutine set_hyperparams_msgpass( &
      !       this, num_features, num_time_steps, num_outputs, verbose &
      !  )

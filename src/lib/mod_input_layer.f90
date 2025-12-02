@@ -37,8 +37,6 @@ module athena__input_layer
      !! Set hyperparameters
      procedure, pass(this) :: init => init_input
      !! Initialise layer
-     procedure, pass(this) :: set_batch_size => set_batch_size_input
-     !! Set batch size
      procedure, pass(this) :: print_to_unit => print_to_unit_input
      !! Print layer to unit
      procedure, pass(this) :: read => read_input
@@ -58,13 +56,11 @@ module athena__input_layer
   interface input_layer_type
      !! Interface for an input layer
      module function layer_setup( &
-          input_shape, batch_size, index, use_graph_input, verbose &
+          input_shape, index, use_graph_input, verbose &
      ) result(layer)
        !! Set up layer
        integer, dimension(:), optional, intent(in) :: input_shape
        !! Shape of the input data
-       integer, optional, intent(in) :: batch_size
-       !! Batch size
        integer, optional, intent(in) :: index
        !! Index of the layer
        logical, optional, intent(in) :: use_graph_input
@@ -82,7 +78,7 @@ contains
 
 !###############################################################################
   module function layer_setup( &
-       input_shape, batch_size, index, use_graph_input, verbose &
+       input_shape, index, use_graph_input, verbose &
   ) result(layer)
     !! Set up layer
     implicit none
@@ -90,8 +86,6 @@ contains
     ! Arguments
     integer, dimension(:), optional, intent(in) :: input_shape
     !! Shape of the input data
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     integer, optional, intent(in) :: index
     !! Index of the layer
     logical, optional, intent(in) :: use_graph_input
@@ -123,12 +117,6 @@ contains
          use_graph_input = use_graph_input_, &
          verbose = verbose_ &
     )
-
-
-    !---------------------------------------------------------------------------
-    ! Initialise batch size
-    !---------------------------------------------------------------------------
-    if(present(batch_size)) layer%batch_size = batch_size
 
 
     !---------------------------------------------------------------------------
@@ -179,7 +167,7 @@ contains
 
 
 !###############################################################################
-  subroutine init_input(this, input_shape, batch_size, verbose)
+  subroutine init_input(this, input_shape, verbose)
     !! Initialise an input layer
     implicit none
 
@@ -188,8 +176,6 @@ contains
     !! Instance of the input layer
     integer, dimension(:), intent(in) :: input_shape
     !! Shape of the input data
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -202,7 +188,6 @@ contains
     ! Initialise optional arguments
     !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
-    if(present(batch_size)) this%batch_size = batch_size
 
 
     !---------------------------------------------------------------------------
@@ -216,96 +201,14 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Initialise batch size-dependent arrays
-    !---------------------------------------------------------------------------
-    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
-
-  end subroutine init_input
-!###############################################################################
-
-
-!###############################################################################
-  subroutine set_batch_size_input(this, batch_size, verbose)
-    !! Set batch size for an input layer
-    implicit none
-
-    ! Arguments
-    class(input_layer_type), intent(inout), target :: this
-    !! Instance of the input layer
-    integer, intent(in) :: batch_size
-    !! Batch size
-    integer, optional, intent(in) :: verbose
-    !! Verbosity level
-
-    ! Local variables
-    integer :: verbose_ = 0
-    !! Verbosity level
-
-
-    !---------------------------------------------------------------------------
-    ! Initialise optional arguments
-    !---------------------------------------------------------------------------
-    if(present(verbose)) verbose_ = verbose
-    this%batch_size = batch_size
-
-
-    !---------------------------------------------------------------------------
     ! Allocate arrays
     !---------------------------------------------------------------------------
-    if(allocated(this%input_shape))then
-       if(allocated(this%output)) deallocate(this%output)
-       if(this%use_graph_input)then
-          allocate(this%output(2,this%batch_size))
-       else
-          select case(size(this%input_shape))
-          case(1)
-             this%input_rank = 1
-             allocate(this%output(1,1))
-             call this%output(1,1)%allocate( &
-                  array_shape = [ &
-                       this%input_shape(1), this%batch_size ], &
-                  source=0._real32 &
-             )
-          case(2)
-             this%input_rank = 2
-             allocate(this%output(1,1))
-             call this%output(1,1)%allocate( &
-                  array_shape = [ &
-                       this%input_shape(1), &
-                       this%input_shape(2), &
-                       this%batch_size ], &
-                  source=0._real32 &
-             )
-          case(3)
-             this%input_rank = 3
-             allocate(this%output(1,1))
-             call this%output(1,1)%allocate( &
-                  array_shape = [ &
-                       this%input_shape(1), &
-                       this%input_shape(2), &
-                       this%input_shape(3), this%batch_size ], &
-                  source=0._real32 &
-             )
-          case(4)
-             this%input_rank = 4
-             allocate(this%output(1,1))
-             call this%output(1,1)%allocate( &
-                  array_shape = [ &
-                       this%input_shape(1), &
-                       this%input_shape(2), &
-                       this%input_shape(3), &
-                       this%input_shape(4), this%batch_size ], &
-                  source=0._real32 &
-             )
-          case default
-             call stop_program('Input layer only supports input ranks 1-4')
-             return
-          end select
-       end if
-    end if
+    this%input_rank = size(this%input_shape)
     this%output_rank = this%input_rank
+    if(allocated(this%output)) deallocate(this%output)
+    allocate(this%output(1,1))
 
-  end subroutine set_batch_size_input
+  end subroutine init_input
 !###############################################################################
 
 
@@ -510,6 +413,15 @@ contains
     integer :: i, j
     !! Loop indices
 
+    if(allocated(this%output))then
+       if(any(shape(this%output).ne.shape(input)))then
+          deallocate(this%output)
+          allocate(this%output(size(input,1),size(input,2)))
+       end if
+    else
+       allocate(this%output(size(input,1),size(input,2)))
+    end if
+
     do i = 1, size(input, 1)
        do j = 1, size(input, 2)
           if(.not.input(i,j)%allocated)then
@@ -535,7 +447,6 @@ contains
     !! Instance of the input layer
     real(real32), dimension(..), intent(in) :: input
     !! Input data
-    !dimension(this%batch_size * this%num_outputs), intent(in) :: input
 
     call this%output(1,1)%set( input )
     this%output(1,1)%is_temporary = .false.
@@ -551,11 +462,19 @@ contains
     !! Instance of the input layer
     type(graph_type), dimension(:), intent(in) :: input
     !! Input data
-    !dimension(this%batch_size * this%num_outputs), intent(in) :: input
 
     integer :: s
 
-    do s = 1, this%batch_size
+    if(allocated(this%output))then
+       if(any(shape(this%output).ne.[2,size(input)]))then
+          deallocate(this%output)
+          allocate(this%output(2,size(input)))
+       end if
+    else
+       allocate(this%output(2,size(input)))
+    end if
+
+    do s = 1, size(input)
        if(this%output(1,s)%allocated) call this%output(1,s)%deallocate()
        if(this%output(2,s)%allocated) call this%output(2,s)%deallocate()
        call this%output(1,s)%allocate( &

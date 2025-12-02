@@ -103,35 +103,30 @@ program pinn_burgers_example
      call network%add(full_layer_type( &
           num_inputs  = 2, &
           num_outputs = 50, &
-          batch_size  = batch_size, &
           activation = activation_name, &
           kernel_initialiser = kernel_initialiser, &
           bias_initialiser = bias_initialiser &
      ))
      call network%add(full_layer_type( &
           num_outputs = 50, &
-          batch_size  = batch_size, &
           activation = activation_name, &
           kernel_initialiser = kernel_initialiser, &
           bias_initialiser = bias_initialiser &
      ))
      call network%add(full_layer_type( &
           num_outputs = 50, &
-          batch_size  = batch_size, &
           activation = activation_name, &
           kernel_initialiser = kernel_initialiser, &
           bias_initialiser = bias_initialiser &
      ))
      call network%add(full_layer_type( &
           num_outputs = 50, &
-          batch_size  = batch_size, &
           activation = activation_name, &
           kernel_initialiser = kernel_initialiser, &
           bias_initialiser = bias_initialiser &
      ))
      call network%add(full_layer_type( &
           num_outputs = 1, &
-          batch_size  = batch_size, &
           activation = "none", &
           kernel_initialiser = kernel_initialiser, &
           bias_initialiser = bias_initialiser &

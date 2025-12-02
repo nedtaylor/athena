@@ -40,8 +40,7 @@ program test_dropout_layer
   drop_layer = dropout_layer_type( &
        rate = 0.0, &
        num_masks = 1, &
-       input_shape = [num_inputs], &
-       batch_size = 1 &
+       input_shape = [num_inputs] &
   )
 
   !! check layer name
@@ -63,12 +62,6 @@ program test_dropout_layer
      if(any(drop_layer%output_shape .ne. [num_inputs]))then
         success = .false.
         write(0,*) 'dropout layer has wrong output shape'
-     end if
-
-     !! check batch size
-     if(drop_layer%batch_size .ne. 1)then
-        success = .false.
-        write(0,*) 'dropout layer has wrong batch size'
      end if
 
      if(any(.not.drop_layer%mask))then
@@ -93,8 +86,7 @@ program test_dropout_layer
   drop_layer = dropout_layer_type( &
        rate = 0.5, &
        num_masks = 1, &
-       input_shape = [num_inputs], &
-       batch_size = 1 &
+       input_shape = [num_inputs] &
   )
 
   call input(1,1)%allocate(array_shape=[num_inputs, 1, 1])

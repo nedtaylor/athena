@@ -39,8 +39,7 @@ program test_msgpass_network
 
     call kipf_network%add(kipf_msgpass_layer_type( &
          num_vertex_features = [num_vertex_features, num_vertex_features], &
-         num_time_steps = num_time_steps, &
-         batch_size = batch_size &
+         num_time_steps = num_time_steps &
     ))
 
     call kipf_network%compile( &
@@ -102,8 +101,7 @@ program test_msgpass_network
          max_vertex_degree = 4, &
          num_outputs = num_outputs, &
          kernel_initialiser = 'ones', &
-         readout_activation = 'linear', &
-         batch_size = batch_size &
+         readout_activation = 'linear' &
     ))
 
     call duvenaud_network%compile( &
@@ -198,8 +196,7 @@ program test_msgpass_network
 
     call test_network%add(kipf_msgpass_layer_type( &
          num_vertex_features = [num_vertex_features, 8], &
-         num_time_steps = 1, &
-         batch_size = batch_size &
+         num_time_steps = 1 &
     ))
     call test_network%compile( &
          optimiser = base_optimiser_type(learning_rate=0.01), &

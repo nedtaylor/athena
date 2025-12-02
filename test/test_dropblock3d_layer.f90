@@ -41,8 +41,7 @@ program test_dropblock3d_layer
   db_layer = dropblock3d_layer_type( &
        rate = 0.0, &
        block_size = 5, &
-       input_shape = [width, width, width, num_channels], &
-       batch_size = 1 &
+       input_shape = [width, width, width, num_channels] &
   )
 
   !! check layer name
@@ -66,12 +65,6 @@ program test_dropblock3d_layer
         write(0,*) 'dropblock3d layer has wrong output shape'
      end if
 
-     !! check batch size
-     if(db_layer%batch_size .ne. 1)then
-        success = .false.
-        write(0,*) 'dropblock3d layer has wrong batch size'
-     end if
-
      if(any(.not.db_layer%mask))then
         success = .false.
         write(0,*) 'dropblock3d layer has wrong mask, &
@@ -93,8 +86,7 @@ program test_dropblock3d_layer
   db_layer = dropblock3d_layer_type( &
        rate = 0.5, &
        block_size = 5, &
-       input_shape = [width, width, width, num_channels], &
-       batch_size = 1 &
+       input_shape = [width, width, width, num_channels] &
   )
 
   call input(1,1)%allocate(array_shape=[width, width, width, num_channels, 1])

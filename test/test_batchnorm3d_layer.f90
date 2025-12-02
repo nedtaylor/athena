@@ -45,7 +45,6 @@ program test_batchnorm3d_layer
 !-------------------------------------------------------------------------------
   bn_layer = batchnorm3d_layer_type( &
        input_shape = [width, width, width, num_channels], &
-       batch_size = batch_size, &
        momentum = 0.0, &
        epsilon = 1e-5, &
        gamma_init_mean = (gamma), &
@@ -77,12 +76,6 @@ program test_batchnorm3d_layer
      if(any(bn_layer%output_shape .ne. [width,width,width,num_channels]))then
         success = .false.
         write(0,*) 'batchnorm3d layer has wrong output shape'
-     end if
-
-     !! check batch size
-     if(bn_layer%batch_size .ne. batch_size)then
-        success = .false.
-        write(0,*) 'batchnorm3d layer has wrong batch size'
      end if
   class default
      success = .false.
@@ -234,8 +227,8 @@ program test_batchnorm3d_layer
 !-------------------------------------------------------------------------------
 ! check layer operations
 !-------------------------------------------------------------------------------
-  bn_layer1 = batchnorm3d_layer_type(input_shape=[2,2,2,1], batch_size=1)
-  bn_layer2 = batchnorm3d_layer_type(input_shape=[2,2,2,1], batch_size=1)
+  bn_layer1 = batchnorm3d_layer_type(input_shape=[2,2,2,1])
+  bn_layer2 = batchnorm3d_layer_type(input_shape=[2,2,2,1])
   select type(bn_layer1)
   type is(batchnorm3d_layer_type)
      call bn_layer1%set_gradients(1.E0)
@@ -265,8 +258,13 @@ program test_batchnorm3d_layer
 !-------------------------------------------------------------------------------
 ! check output request using rank 1 and rank 2 arrays is consistent
 !-------------------------------------------------------------------------------
+  call input(1,1)%allocate(&
+       array_shape=[2, 2, 2, 1, batch_size])
+  call input(1,1)%set_requires_grad(.true.)
+  call random_number(input(1,1)%val)
   allocate(output_1d(width**3*num_channels*batch_size))
   allocate(output_2d(width**3*num_channels, batch_size))
+  call bn_layer%forward(input)
   call bn_layer%extract_output(output_1d)
   call bn_layer%extract_output(output_2d)
   if(any(abs(output_1d - reshape(output_2d, [size(output_2d)])) .gt. 1.E-6))then
@@ -274,6 +272,8 @@ program test_batchnorm3d_layer
      write(0,*) 'output_1d and output_2d are not consistent'
   end if
   deallocate(output_1d, output_2d)
+  call input(1,1)%reset_graph()
+  call input(1,1)%deallocate()
 
 
 !-------------------------------------------------------------------------------

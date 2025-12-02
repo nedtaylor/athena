@@ -38,8 +38,6 @@ module athena__conv3d_layer
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_conv3d
      !! Set hyperparameters for 3D convolutional layer
-     procedure, pass(this) :: set_batch_size => set_batch_size_conv3d
-     !! Set batch size for 3D convolutional layer
      procedure, pass(this) :: print_to_unit => print_to_unit_conv3d
      !! Print 3D convolutional layer to unit
      procedure, pass(this) :: read => read_conv3d
@@ -55,7 +53,7 @@ module athena__conv3d_layer
   interface conv3d_layer_type
      !! Interface for setting up the 3D convolutional layer
      module function layer_setup( &
-          input_shape, batch_size, &
+          input_shape, &
           num_filters, kernel_size, stride, dilation, padding, &
           use_bias, &
           activation, &
@@ -64,8 +62,6 @@ module athena__conv3d_layer
        !! Set up the 3D convolutional layer
        integer, dimension(:), optional, intent(in) :: input_shape
        !! Input shape
-       integer, optional, intent(in) :: batch_size
-       !! Batch size
        integer, optional, intent(in) :: num_filters
        !! Number of filters
        integer, dimension(..), optional, intent(in) :: kernel_size
@@ -123,7 +119,7 @@ contains
 
 !###############################################################################
   module function layer_setup( &
-       input_shape, batch_size, &
+       input_shape, &
        num_filters, kernel_size, stride, dilation, padding, &
        use_bias, &
        activation, &
@@ -137,8 +133,6 @@ contains
     ! Arguments
     integer, dimension(:), optional, intent(in) :: input_shape
     !! Input shape
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     integer, optional, intent(in) :: num_filters
     !! Number of filters
     integer, dimension(..), optional, intent(in) :: kernel_size
@@ -303,12 +297,6 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Initialise batch size
-    !---------------------------------------------------------------------------
-    if(present(batch_size)) layer%batch_size = batch_size
-
-
-    !---------------------------------------------------------------------------
     ! Initialise layer shape
     !---------------------------------------------------------------------------
     if(present(input_shape)) call layer%init(input_shape=input_shape)
@@ -426,63 +414,6 @@ contains
     end if
 
   end subroutine set_hyperparams_conv3d
-!###############################################################################
-
-
-!###############################################################################
-  subroutine set_batch_size_conv3d(this, batch_size, verbose)
-    !! Set batch size for 3D convolutional layer
-    implicit none
-
-    ! Arguments
-    class(conv3d_layer_type), intent(inout), target :: this
-    !! Instance of the 3D convolutional layer
-    integer, intent(in) :: batch_size
-    !! Batch size
-    integer, optional, intent(in) :: verbose
-    !! Verbosity level
-
-    integer :: verbose_ = 0
-    !! Verbosity level
-    integer :: i
-    !! Loop index
-
-    !---------------------------------------------------------------------------
-    ! Initialise optional arguments
-    !---------------------------------------------------------------------------
-    if(present(verbose)) verbose_ = verbose
-    this%batch_size = batch_size
-
-    !---------------------------------------------------------------------------
-    ! Set batch size of padding layer, if allocated
-    !---------------------------------------------------------------------------
-    if(allocated(this%pad_layer)) &
-         call this%pad_layer%set_batch_size(this%batch_size, verbose=verbose_)
-
-    !---------------------------------------------------------------------------
-    ! Allocate arrays
-    !---------------------------------------------------------------------------
-    if(allocated(this%input_shape))then
-       if(this%use_graph_input)then
-          call stop_program( &
-               "Graph input not supported for 3D convolutional layer" &
-          )
-          return
-       end if
-       if(allocated(this%output)) deallocate(this%output)
-       allocate( this%output(1,1) )
-       call this%output(1,1)%allocate( &
-            array_shape = [ &
-                 this%output_shape(1), &
-                 this%output_shape(2), &
-                 this%output_shape(3), &
-                 this%num_filters, &
-                 this%batch_size ], &
-            source=0._real32 &
-       )
-    end if
-
-  end subroutine set_batch_size_conv3d
 !###############################################################################
 
 

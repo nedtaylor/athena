@@ -54,8 +54,6 @@ module athena__duvenaud_msgpass_layer
      !! Set the hyperparameters for the message passing layer
      procedure, pass(this) :: init => init_duvenaud
      !! Initialise the message passing layer
-     procedure, pass(this) :: set_batch_size => set_batch_size_duvenaud
-     !! Set batch size
      procedure, pass(this) :: print_to_unit => print_to_unit_duvenaud
      ! !! Print the message passing layer
      procedure, pass(this) :: read => read_duvenaud
@@ -83,7 +81,6 @@ module athena__duvenaud_msgpass_layer
           max_vertex_degree, &
           num_outputs, &
           min_vertex_degree, &
-          batch_size, &
           message_activation, &
           readout_activation, &
           kernel_initialiser, &
@@ -102,8 +99,6 @@ module athena__duvenaud_msgpass_layer
        !! Number of outputs
        integer, optional, intent(in) :: min_vertex_degree
        !! Minimum vertex degree
-       integer, optional, intent(in) :: batch_size
-       !! Batch size
        class(*), optional, intent(in) :: message_activation, &
             readout_activation
        !! Message and readout activation functions
@@ -181,7 +176,6 @@ contains
        max_vertex_degree, &
        num_outputs, &
        min_vertex_degree, &
-       batch_size, &
        message_activation, &
        readout_activation, &
        kernel_initialiser, &
@@ -205,8 +199,6 @@ contains
     !! Number of outputs
     integer, optional, intent(in) :: min_vertex_degree
     !! Minimum vertex degree
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     class(*), optional, intent(in) :: message_activation, &
          readout_activation
     !! Message and readout activation functions
@@ -278,12 +270,6 @@ contains
          kernel_initialiser = kernel_initialiser_, &
          verbose = verbose_ &
     )
-
-
-    !---------------------------------------------------------------------------
-    ! Initialise batch size
-    !---------------------------------------------------------------------------
-    if(present(batch_size)) layer%batch_size = batch_size
 
 
     !---------------------------------------------------------------------------
@@ -438,7 +424,7 @@ contains
 
 
 !###############################################################################
-  subroutine init_duvenaud(this, input_shape, batch_size, verbose)
+  subroutine init_duvenaud(this, input_shape, verbose)
     !! Initialise the message passing layer
     use athena__initialiser, only: initialiser_setup
     implicit none
@@ -448,8 +434,6 @@ contains
     !! Instance of the fully connected layer
     integer, dimension(:), intent(in) :: input_shape
     !! Input shape
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -464,7 +448,6 @@ contains
     ! Initialise optional arguments
     !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
-    if(present(batch_size)) this%batch_size = batch_size
 
 
     !---------------------------------------------------------------------------
@@ -524,45 +507,13 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Initialise batch size-dependent arrays
-    !---------------------------------------------------------------------------
-    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
-
-  end subroutine init_duvenaud
-!###############################################################################
-
-
-!###############################################################################
-  subroutine set_batch_size_duvenaud(this, batch_size, verbose)
-    !! Set the batch size for message passing layer
-    implicit none
-
-    ! Arguments
-    class(duvenaud_msgpass_layer_type), intent(inout), target :: this
-    integer, intent(in) :: batch_size
-    integer, optional, intent(in) :: verbose
-
-    integer :: verbose_ = 0
-
-
-    !---------------------------------------------------------------------------
-    ! Initialise optional arguments
-    !---------------------------------------------------------------------------
-    if(present(verbose)) verbose_ = verbose
-    this%batch_size = batch_size
-
-
-    !---------------------------------------------------------------------------
     ! Allocate arrays
     !---------------------------------------------------------------------------
-    if(allocated(this%input_shape))then
-       if(allocated(this%output)) deallocate(this%output)
-       allocate(this%output(1,1))
-       if(allocated(this%z)) deallocate(this%z)
-       allocate(this%z(this%num_time_steps,this%batch_size))
-    end if
+    if(allocated(this%output)) deallocate(this%output)
+    allocate(this%output(1,1))
+    if(allocated(this%z)) deallocate(this%z)
 
-  end subroutine set_batch_size_duvenaud
+  end subroutine init_duvenaud
 !###############################################################################
 
 
@@ -736,6 +687,11 @@ contains
     !! Pointers to arrays
 
 
+    if(.not.allocated(this%z))then
+       allocate(this%z(this%num_time_steps,size(input,2)))
+    end if
+
+
     if(.not.allocated(this%activation))then
        has_activation = .false.
     else
@@ -745,7 +701,7 @@ contains
           has_activation = .true.
        end if
     end if
-    do s = 1, this%batch_size
+    do s = 1, size(input,2)
        ptr1 => input(1,s)
        ptr_edge => input(2,s)
        do t = 1, this%num_time_steps
@@ -784,14 +740,15 @@ contains
     !! Instance of the message passing layer
 
     ! Local variables
-    integer :: s, t
+    integer :: s, t, batch_size
     !! Loop indices
     type(array_type), pointer :: ptr1, ptr2, ptr3, ptr_params, ptr_z
 
 
+    batch_size = size(this%z,2)
     call this%output(1,1)%zero_grad()
     do t = 1, this%num_time_steps, 1
-       do s = 1, this%batch_size
+       do s = 1, batch_size, 1
           ptr_params => this%params(t+this%num_time_steps)
           ptr_z => this%z(t,s)
           ptr1 => matmul( &
@@ -801,10 +758,10 @@ contains
           ptr2 => this%activation_readout%apply( ptr1 )
           if(t.eq.1.and.s.eq.1)then
              ptr3 => &
-                  sum( ptr2, dim = 2, new_dim_index=s, new_dim_size=this%batch_size )
+                  sum( ptr2, dim = 2, new_dim_index=s, new_dim_size=batch_size )
           else
              ptr3 => ptr3 + &
-                  sum( ptr2, dim = 2, new_dim_index=s, new_dim_size=this%batch_size )
+                  sum( ptr2, dim = 2, new_dim_index=s, new_dim_size=batch_size )
           end if
        end do
     end do

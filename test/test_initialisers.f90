@@ -79,7 +79,6 @@ program test_initialisers
      full_layer = full_layer_type( &
           num_inputs=1, &
           num_outputs=10, &
-          batch_size = batch_size, &
           kernel_initialiser = initialiser_names(i), verbose = 1 )
 
      !! check layer name
@@ -103,7 +102,6 @@ program test_initialisers
      !! set up full layer
      conv2d_layer = conv2d_layer_type( &
           input_shape = [width, width, num_channels], &
-          batch_size = batch_size, &
           kernel_initialiser = initialiser_names(i), verbose = 1 )
 
      !! check layer name
@@ -126,7 +124,6 @@ program test_initialisers
      !!------------------------------------------------------------------------
      conv3d_layer = conv3d_layer_type( &
           input_shape = [width, width, width, num_channels], &
-          batch_size = batch_size, &
           kernel_initialiser = initialiser_names(i), verbose = 1 )
 
      !! check layer name
