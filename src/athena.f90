@@ -155,7 +155,7 @@ module athena
   use athena__maxpool3d_layer, only: maxpool3d_layer_type, read_maxpool3d_layer
 
 
-  ! Flatten layer types
+  ! Reshape layer types
   !-----------------------------------------------------------------------------
   use athena__flatten_layer, only: flatten_layer_type, read_flatten_layer
 

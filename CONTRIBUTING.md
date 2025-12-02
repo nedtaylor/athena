@@ -125,7 +125,7 @@ The few source files that define the submodule end with `_sub.f90`.
 
 ## Components
 
-Athena defines several components, described here:
+athena defines several components, described here:
 
 * Networks
 * Containers

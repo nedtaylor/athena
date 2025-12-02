@@ -40,3 +40,6 @@ docs/_build/
 example/*/data/*.txt
 docs/html
 docs/ford
+docs/source/_static/ford
+*.html
+*.ttf
