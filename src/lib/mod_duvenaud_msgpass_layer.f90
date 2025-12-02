@@ -687,7 +687,12 @@ contains
     !! Pointers to arrays
 
 
-    if(.not.allocated(this%z))then
+    if(allocated(this%z))then
+       if(size(this%z,2).ne.size(input,2))then
+          deallocate(this%z)
+          allocate(this%z(this%num_time_steps,size(input,2)))
+       end if
+    else
        allocate(this%z(this%num_time_steps,size(input,2)))
     end if
 

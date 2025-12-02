@@ -157,8 +157,6 @@ contains
     !! Verbosity level
 
     ! Local variables
-    integer :: i, s
-    !! Loop indices
     integer :: verbose_ = 0
     !! Verbosity level
 
@@ -180,14 +178,14 @@ contains
     ! Initialise output shape
     !---------------------------------------------------------------------------
     this%output_shape = this%input_shape
-    if(allocated(this%output))then
-       do i = 1, size(this%output,1)
-          do s = 1, size(this%output,2)
-             call this%output(i,s)%deallocate()
-          end do
-       end do
-       deallocate(this%output)
-    end if
+    this%output_rank = size(this%output_shape)
+
+
+    !---------------------------------------------------------------------------
+    ! Allocate arrays
+    !---------------------------------------------------------------------------
+    if(allocated(this%output)) deallocate(this%output)
+    allocate(this%output(1,1))
 
   end subroutine init_concat
 !###############################################################################
@@ -427,15 +425,19 @@ contains
     !! Pointer array
 
 
-    if(.not.allocated(this%output))then
-       if(.not.this%use_graph_input)then
-          allocate(this%output(1,1))
-          this%input_rank = size(this%input_shape)
-          this%output_rank = size(this%output_shape)
-       else
-          allocate(this%output(size(input_list(1)%array,1), &
-               size(input_list(1)%array,2)))
+    if(allocated(this%output))then
+       if(any(shape(this%output).ne.shape(input_list(1)%array)))then
+          deallocate(this%output)
+          allocate(this%output( &
+               size(input_list(1)%array,1), &
+               size(input_list(1)%array,2) &
+          ))
        end if
+    else
+       allocate(this%output( &
+            size(input_list(1)%array,1), &
+            size(input_list(1)%array,2) &
+       ))
     end if
 
     do s = 1, size(input_list(1)%array, 2)

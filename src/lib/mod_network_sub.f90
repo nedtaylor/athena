@@ -3417,7 +3417,7 @@ contains
     ! Local variables
     integer :: l, s
     !! Loop index
-    type(graph_type), dimension(size(input,dim=1),size(this%leaf_vertices)) :: &
+    type(graph_type), dimension(size(this%leaf_vertices),size(input,dim=1)) :: &
          output
     !! Output graph
     integer :: verbose_, batch_size
@@ -3453,21 +3453,27 @@ contains
     !---------------------------------------------------------------------------
     call this%forward(get_sample_graph(input, 1, batch_size, batch_size))
 
-    do s = 1, batch_size
-       output(s,1)%num_vertices = input(s,1)%num_vertices
-       output(s,1)%num_edges = input(s,1)%num_edges
-       output(s,1)%num_vertex_features = this%model( &
-            this%leaf_vertices(1) &
-       )%layer%output_shape(1)
-       output(s,1)%num_edge_features = this%model( &
-            this%leaf_vertices(1) &
-       )%layer%output_shape(2)
-       output(s,1)%vertex_features = this%model( &
-            this%leaf_vertices(1) &
-       )%layer%output(1,s)%val
-       output(s,1)%edge_features = this%model( &
-            this%leaf_vertices(1) &
-       )%layer%output(2,s)%val
+    do l = 1, size(this%leaf_vertices)
+       do s = 1, batch_size
+          output(l,s)%num_vertices = input(1,s)%num_vertices
+          output(l,s)%num_edges = input(1,s)%num_edges
+          output(l,s)%num_vertex_features = this%model( &
+               this%leaf_vertices(l) &
+          )%layer%output_shape(1)
+          output(l,s)%num_edge_features = this%model( &
+               this%leaf_vertices(l) &
+          )%layer%output_shape(2)
+          output(l,s)%vertex_features = this%model( &
+               this%leaf_vertices(l) &
+          )%layer%output(1,s)%val
+          if(size(this%model(this%leaf_vertices(l))%layer%output,1).eq.1)then
+              output(l,s)%edge_features = input(1,s)%edge_features
+          else
+             output(l,s)%edge_features = this%model( &
+                  this%leaf_vertices(l) &
+             )%layer%output(2,s)%val
+          end if
+       end do
     end do
 
   end function predict_graph

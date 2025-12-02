@@ -152,7 +152,7 @@ contains
     !! Graph structure of input data
 
     ! Local variables
-    integer :: s, t
+    integer :: s
     !! Loop indices
 
     if(allocated(this%graph))then
@@ -170,65 +170,6 @@ contains
        this%graph(s)%num_edges = graph(s)%num_edges
        this%graph(s)%num_vertices = graph(s)%num_vertices
     end do
-
-!     if(this%use_graph_input)then
-!        if(allocated(this%output))then
-!           do s = 1, size(graph)
-!              if(this%output(1,s)%allocated) &
-!                   call this%output(1,s)%deallocate()
-!              if(this%output(2,s)%allocated) &
-!                   call this%output(2,s)%deallocate()
-!              call this%output(1,s)%allocate( &
-!                   [ &
-!                        this%num_output_vertex_features, &
-!                        this%graph(s)%num_vertices &
-!                   ] &
-!              )
-!              call this%output(2,s)%allocate( &
-!                   [ &
-!                        this%num_output_edge_features, &
-!                        this%graph(s)%num_vertices &
-!                   ] &
-!              )
-!           end do
-!        end if
-!     end if
-
-!     do s = 1, size(graph)
-!        if(this%vertex_features(0,s)%allocated) &
-!             call this%vertex_features(0,s)%deallocate()
-!        if(this%edge_features(0,s)%allocated) &
-!             call this%edge_features(0,s)%deallocate()
-!        call this%vertex_features(0,s)%allocate( &
-!             [ this%num_vertex_features(0), this%graph(s)%num_vertices ] &
-!        )
-!        call this%edge_features(0,s)%allocate( &
-!             [ this%num_edge_features(0), this%graph(s)%num_edges ] &
-!        )
-!        do t = 1, this%num_time_steps
-!           if(this%vertex_features(t,s)%allocated) &
-!                call this%vertex_features(t,s)%deallocate()
-!           if(this%edge_features(t,s)%allocated) &
-!                call this%edge_features(t,s)%deallocate()
-!           if(this%message(t,s)%allocated) &
-!                call this%message(t,s)%deallocate()
-!           if(this%z(t,s)%allocated) &
-!                call this%z(t,s)%deallocate()
-!           call this%vertex_features(t,s)%allocate( &
-!                [ this%num_vertex_features(t), this%graph(s)%num_vertices ] &
-!           )
-!           call this%edge_features(t,s)%allocate( &
-!                [ this%num_edge_features(t), this%graph(s)%num_edges ] &
-!           )
-!           call this%message(t,s)%allocate( &
-!                [ this%num_vertex_features(t-1), this%graph(s)%num_vertices ] &
-!           )
-!           call this%z(t,s)%allocate( &
-!                [ this%num_vertex_features(t), this%graph(s)%num_vertices ] &
-!           )
-!        end do
-!     end do
-
 
   end subroutine set_graph_msgpass
 !###############################################################################

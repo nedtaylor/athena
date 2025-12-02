@@ -177,6 +177,7 @@ contains
     ! Initialise output shape
     !---------------------------------------------------------------------------
     this%output_shape = this%input_shape
+    this%output_rank = size(this%output_shape)
 
 
     !---------------------------------------------------------------------------
@@ -184,8 +185,6 @@ contains
     !---------------------------------------------------------------------------
     if(allocated(this%output)) deallocate(this%output)
     allocate(this%output(1,1))
-    this%input_rank = size(this%input_shape)
-    this%output_rank = size(this%output_shape)
 
   end subroutine init_add
 !###############################################################################
@@ -437,15 +436,19 @@ contains
     !! Pointer array
 
 
-    if(.not.allocated(this%output))then
-       if(.not.this%use_graph_input)then
-          allocate(this%output(1,1))
-          this%input_rank = size(this%input_shape)
-          this%output_rank = size(this%output_shape)
-       else
-          allocate(this%output(size(input_list(1)%array,1), &
-               size(input_list(1)%array,2)))
+    if(allocated(this%output))then
+       if(any(shape(this%output).ne.shape(input_list(1)%array)))then
+          deallocate(this%output)
+          allocate(this%output( &
+               size(input_list(1)%array,1), &
+               size(input_list(1)%array,2) &
+          ))
        end if
+    else
+       allocate(this%output( &
+            size(input_list(1)%array,1), &
+            size(input_list(1)%array,2) &
+       ))
     end if
 
     do s = 1, size(input_list(1)%array, 2)

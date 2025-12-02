@@ -659,7 +659,7 @@ contains
     !! Pointers to arrays
 
     if(allocated(this%output))then
-       if(any(shape(this%output).ne.shape(input)))then
+       if(size(this%output,2).ne.size(input,2))then
           deallocate(this%output)
           allocate(this%output(1,size(input,2)))
        end if
