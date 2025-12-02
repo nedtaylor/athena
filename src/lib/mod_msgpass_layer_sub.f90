@@ -33,7 +33,7 @@ contains
 
 !###############################################################################
   module function layer_setup( &
-       num_features, num_time_steps, batch_size, &
+       num_features, num_time_steps, &
        verbose &
   ) result(layer)
     !! Procedure to set up the layer
@@ -44,8 +44,6 @@ contains
     !! Number of features
     integer, intent(in) :: num_time_steps
     !! Number of time steps
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -95,7 +93,7 @@ contains
 
 
 !###############################################################################
-  module subroutine init_msgpass(this, input_shape, batch_size, verbose)
+  module subroutine init_msgpass(this, input_shape, verbose)
     !! Initialise the layer
     implicit none
 
@@ -104,14 +102,14 @@ contains
     !! Instance of the layer type
     integer, dimension(:), intent(in) :: input_shape
     !! Input shape
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
     ! Local variables
     integer :: t
     !! Time step
+    integer :: verbose_ = 0
+    !! Verbosity level
     integer :: num_params_message
     !! Number of parameters in the message
     integer :: num_params_readout
@@ -121,64 +119,24 @@ contains
     !---------------------------------------------------------------------------
     ! Initialise optional arguments
     !---------------------------------------------------------------------------
-    if (present(batch_size)) this%batch_size = batch_size
+    if (present(verbose)) verbose_ = verbose
 
 
     !---------------------------------------------------------------------------
     ! Initialise number of inputs
     !---------------------------------------------------------------------------
     this%input_shape = [ 1 ] !input_shape
-    ! if(allocated(this%output))then
-    !    if(this%output%allocated) call this%output%deallocate()
-    ! end if
-    ! this%output = array2d_type()
     ! this%output_shape = this%num_outputs
     !if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
     this%num_params = this%get_num_params()
 
 
     !---------------------------------------------------------------------------
-    ! Initialise batch size-dependent arrays
-    !---------------------------------------------------------------------------
-    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
-
-  end subroutine init_msgpass
-!###############################################################################
-
-
-!###############################################################################
-  module subroutine set_batch_size_msgpass(this, batch_size, verbose)
-    implicit none
-
-    ! Arguments
-    class(msgpass_layer_type), intent(inout), target :: this
-    !! Instance of the layer type
-    integer, intent(in) :: batch_size
-    !! Batch size
-    integer, optional, intent(in) :: verbose
-    !! Verbosity level
-
-    ! Local variables
-    integer :: verbose_ = 0
-    !! Verbosity level
-
-
-    !---------------------------------------------------------------------------
-    ! Initialise optional arguments
-    !---------------------------------------------------------------------------
-    if(present(verbose)) verbose_ = verbose
-    this%batch_size = batch_size
-
-
-    !---------------------------------------------------------------------------
     ! Allocate arrays
     !---------------------------------------------------------------------------
-    if(allocated(this%input_shape))then
-       if(allocated(this%output)) deallocate(this%output)
-       allocate(this%output(2, this%batch_size))
-    end if
+    if(allocated(this%output)) deallocate(this%output)
 
-  end subroutine set_batch_size_msgpass
+  end subroutine init_msgpass
 !###############################################################################
 
 
@@ -194,7 +152,7 @@ contains
     !! Graph structure of input data
 
     ! Local variables
-    integer :: s, t
+    integer :: s
     !! Loop indices
 
     if(allocated(this%graph))then
@@ -212,65 +170,6 @@ contains
        this%graph(s)%num_edges = graph(s)%num_edges
        this%graph(s)%num_vertices = graph(s)%num_vertices
     end do
-
-!     if(this%use_graph_input)then
-!        if(allocated(this%output))then
-!           do s = 1, size(graph)
-!              if(this%output(1,s)%allocated) &
-!                   call this%output(1,s)%deallocate()
-!              if(this%output(2,s)%allocated) &
-!                   call this%output(2,s)%deallocate()
-!              call this%output(1,s)%allocate( &
-!                   [ &
-!                        this%num_output_vertex_features, &
-!                        this%graph(s)%num_vertices &
-!                   ] &
-!              )
-!              call this%output(2,s)%allocate( &
-!                   [ &
-!                        this%num_output_edge_features, &
-!                        this%graph(s)%num_vertices &
-!                   ] &
-!              )
-!           end do
-!        end if
-!     end if
-
-!     do s = 1, size(graph)
-!        if(this%vertex_features(0,s)%allocated) &
-!             call this%vertex_features(0,s)%deallocate()
-!        if(this%edge_features(0,s)%allocated) &
-!             call this%edge_features(0,s)%deallocate()
-!        call this%vertex_features(0,s)%allocate( &
-!             [ this%num_vertex_features(0), this%graph(s)%num_vertices ] &
-!        )
-!        call this%edge_features(0,s)%allocate( &
-!             [ this%num_edge_features(0), this%graph(s)%num_edges ] &
-!        )
-!        do t = 1, this%num_time_steps
-!           if(this%vertex_features(t,s)%allocated) &
-!                call this%vertex_features(t,s)%deallocate()
-!           if(this%edge_features(t,s)%allocated) &
-!                call this%edge_features(t,s)%deallocate()
-!           if(this%message(t,s)%allocated) &
-!                call this%message(t,s)%deallocate()
-!           if(this%z(t,s)%allocated) &
-!                call this%z(t,s)%deallocate()
-!           call this%vertex_features(t,s)%allocate( &
-!                [ this%num_vertex_features(t), this%graph(s)%num_vertices ] &
-!           )
-!           call this%edge_features(t,s)%allocate( &
-!                [ this%num_edge_features(t), this%graph(s)%num_edges ] &
-!           )
-!           call this%message(t,s)%allocate( &
-!                [ this%num_vertex_features(t-1), this%graph(s)%num_vertices ] &
-!           )
-!           call this%z(t,s)%allocate( &
-!                [ this%num_vertex_features(t), this%graph(s)%num_vertices ] &
-!           )
-!        end do
-!     end do
-
 
   end subroutine set_graph_msgpass
 !###############################################################################

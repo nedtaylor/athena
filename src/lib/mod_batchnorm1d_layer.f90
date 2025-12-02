@@ -35,12 +35,9 @@ module athena__batchnorm1d_layer
 
   type, extends(batch_layer_type) :: batchnorm1d_layer_type
      !! Type for 0D or 1D batch normalisation layer with overloaded procedures
-     integer :: num_inputs = 1
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_batchnorm1d
      !! Set hyperparameters for 1D batch normalisation layer
-     procedure, pass(this) :: set_batch_size => set_batch_size_batchnorm1d
-     !! Set batch size for 1D batch normalisation layer
      procedure, pass(this) :: read => read_batchnorm1d
      !! Read 1D batch normalisation layer from file
 
@@ -55,7 +52,7 @@ module athena__batchnorm1d_layer
   interface batchnorm1d_layer_type
      !! Interface for setting up the 1D batch normalisation layer
      module function layer_setup( &
-          input_shape, batch_size, &
+          input_shape, &
           num_channels, num_inputs, &
           momentum, epsilon, &
           gamma_init_mean, gamma_init_std, &
@@ -67,8 +64,6 @@ module athena__batchnorm1d_layer
        !! Set up the 1D batch normalisation layer
        integer, dimension(:), optional, intent(in) :: input_shape
        !! Input shape
-       integer, optional, intent(in) :: batch_size
-       !! Batch size
        integer, optional, intent(in) :: num_channels, num_inputs
        !! Number of channels and inputs
        real(real32), optional, intent(in) :: momentum, epsilon
@@ -117,7 +112,7 @@ contains
 
 !###############################################################################
   module function layer_setup( &
-       input_shape, batch_size, &
+       input_shape, &
        num_channels, num_inputs, &
        momentum, epsilon, &
        gamma_init_mean, gamma_init_std, &
@@ -133,8 +128,6 @@ contains
     ! Arguments
     integer, dimension(:), optional, intent(in) :: input_shape
     !! Input shape
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     integer, optional, intent(in) :: num_channels, num_inputs
     !! Number of channels and inputs
     real(real32), optional, intent(in) :: momentum, epsilon
@@ -222,12 +215,6 @@ contains
          moving_variance_initialiser = moving_variance_initialiser_, &
          verbose = verbose_ &
     )
-
-
-    !---------------------------------------------------------------------------
-    ! Initialise batch size
-    !---------------------------------------------------------------------------
-    if(present(batch_size)) layer%batch_size = batch_size
 
 
     !---------------------------------------------------------------------------
@@ -340,68 +327,6 @@ contains
     end if
 
   end subroutine set_hyperparams_batchnorm1d
-!###############################################################################
-
-
-!###############################################################################
-  subroutine set_batch_size_batchnorm1d(this, batch_size, verbose)
-    !! Set batch size for 1D batch normalisation layer
-    implicit none
-
-    ! Arguments
-    class(batchnorm1d_layer_type), intent(inout), target :: this
-    !! Instance of the 1D batch normalisation layer
-    integer, intent(in) :: batch_size
-    !! Batch size
-    integer, optional, intent(in) :: verbose
-    !! Verbosity level
-
-    ! Local variables
-    integer :: verbose_ = 0
-    !! Verbosity level
-
-
-    !---------------------------------------------------------------------------
-    ! Initialise optional arguments
-    !---------------------------------------------------------------------------
-    if(present(verbose)) verbose_ = verbose
-    this%batch_size = batch_size
-
-
-    !---------------------------------------------------------------------------
-    ! Set number of inputs
-    !---------------------------------------------------------------------------
-    if(size(this%input_shape).eq.2) this%num_inputs = this%input_shape(1)
-
-
-    !---------------------------------------------------------------------------
-    ! Set norm
-    !---------------------------------------------------------------------------
-    this%norm = real(this%batch_size, real32)
-
-
-    !---------------------------------------------------------------------------
-    ! Allocate arrays
-    !---------------------------------------------------------------------------
-    if(allocated(this%input_shape))then
-       if(this%use_graph_input)then
-          call stop_program( &
-               "Graph input not supported for 1D batch normalisation layer" &
-          )
-          return
-       end if
-       if(allocated(this%output)) deallocate(this%output)
-       allocate( batchnorm_array_type :: this%output(1,1) )
-       call this%output(1,1)%allocate( &
-            array_shape = [ &
-                 this%num_inputs, &
-                 this%num_channels, &
-                 this%batch_size ], &
-            source=0._real32 &
-       )
-    end if
-
-  end subroutine set_batch_size_batchnorm1d
 !###############################################################################
 
 
@@ -674,7 +599,6 @@ contains
        ! Do not perform the drop operation
 
        ptr => batchnorm_inference(input(1,1), this%params(1), &
-            this%norm, &
             this%mean(:), this%variance(:), this%epsilon &
        )
 
@@ -682,8 +606,7 @@ contains
        ! Perform the drop operation
        ptr => batchnorm( &
             input(1,1), this%params(1),&
-            this%norm, this%momentum, &
-            this%mean(:), this%variance(:), this%epsilon &
+            this%momentum, this%mean(:), this%variance(:), this%epsilon &
        )
 
     end select

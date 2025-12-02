@@ -51,8 +51,6 @@ module athena__dropblock3d_layer
      !! Set hyperparameters for 3D dropblock layer
      procedure, pass(this) :: init => init_dropblock3d
      !! Initialise 3D dropblock layer
-     procedure, pass(this) :: set_batch_size => set_batch_size_dropblock3d
-     !! Set batch size for 3D dropblock layer
      procedure, pass(this) :: print_to_unit => print_to_unit_dropblock3d
      !! Print 3D dropblock layer to unit
      procedure, pass(this) :: read => read_dropblock3d
@@ -69,7 +67,7 @@ module athena__dropblock3d_layer
      !! Interface for setting up the 3D dropblock layer
      module function layer_setup( &
           rate, block_size, &
-          input_shape, batch_size, &
+          input_shape, &
           verbose ) result(layer)
        !! Set up the 3D dropblock layer
        real(real32), intent(in) :: rate
@@ -78,8 +76,6 @@ module athena__dropblock3d_layer
        !! Block size
        integer, dimension(:), optional, intent(in) :: input_shape
        !! Input shape
-       integer, optional, intent(in) :: batch_size
-       !! Batch size
        integer, optional, intent(in) :: verbose
        !! Verbosity level
        type(dropblock3d_layer_type) :: layer
@@ -94,7 +90,7 @@ contains
 !###############################################################################
   module function layer_setup( &
        rate, block_size, &
-       input_shape, batch_size, &
+       input_shape, &
        verbose ) result(layer)
     !! Set up the 3D dropblock layer
     implicit none
@@ -106,8 +102,6 @@ contains
     !! Block size
     integer, dimension(:), optional, intent(in) :: input_shape
     !! Input shape
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -124,12 +118,6 @@ contains
     ! Initialise hyperparameters
     !---------------------------------------------------------------------------
     call layer%set_hyperparams(rate, block_size, verbose=verbose_)
-
-
-    !---------------------------------------------------------------------------
-    ! Initialise batch size
-    !---------------------------------------------------------------------------
-    if(present(batch_size)) layer%batch_size = batch_size
 
 
     !---------------------------------------------------------------------------
@@ -170,7 +158,7 @@ contains
 
 
 !###############################################################################
-  subroutine init_dropblock3d(this, input_shape, batch_size, verbose)
+  subroutine init_dropblock3d(this, input_shape, verbose)
     !! Initialise 3D dropblock layer
     implicit none
 
@@ -179,8 +167,6 @@ contains
     !! Instance of the 3D dropblock layer
     integer, dimension(:), intent(in) :: input_shape
     !! Input shape
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -192,7 +178,6 @@ contains
     ! initialise optional arguments
     !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
-    if(present(batch_size)) this%batch_size = batch_size
 
 
     !---------------------------------------------------------------------------
@@ -234,62 +219,18 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! initialise batch size-dependent arrays
-    !---------------------------------------------------------------------------
-    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
-
-  end subroutine init_dropblock3d
-!###############################################################################
-
-
-!###############################################################################
-  subroutine set_batch_size_dropblock3d(this, batch_size, verbose)
-    !! Set batch size for 3D dropblock layer
-    implicit none
-
-    ! Arguments
-    class(dropblock3d_layer_type), intent(inout), target :: this
-    !! Instance of the 3D dropblock layer
-    integer, intent(in) :: batch_size
-    !! Batch size
-    integer, optional, intent(in) :: verbose
-    !! Verbosity level
-
-    ! Local variables
-    integer :: verbose_ = 0
-    !! Verbosity level
-
-
-    !---------------------------------------------------------------------------
-    ! Initialise optional arguments
-    !---------------------------------------------------------------------------
-    if(present(verbose)) verbose_ = verbose
-    this%batch_size = batch_size
-
-
-    !---------------------------------------------------------------------------
     ! Allocate arrays
     !---------------------------------------------------------------------------
-    if(allocated(this%input_shape))then
-       if(this%use_graph_input)then
-          call stop_program( &
-               "Graph input not supported for 3D dropblock layer" &
-          )
-          return
-       end if
-       if(allocated(this%output)) deallocate(this%output)
-       allocate( this%output(1,1) )
-       call this%output(1,1)%allocate( &
-            array_shape = [ &
-                 this%output_shape(1), &
-                 this%output_shape(2), &
-                 this%output_shape(3), this%num_channels, &
-                 this%batch_size ], &
-            source=0._real32 &
+    if(this%use_graph_input)then
+       call stop_program( &
+            "Graph input not supported for 3D dropblock layer" &
        )
+       return
     end if
+    if(allocated(this%output)) deallocate(this%output)
+    allocate( this%output(1,1) )
 
-  end subroutine set_batch_size_dropblock3d
+  end subroutine init_dropblock3d
 !###############################################################################
 
 

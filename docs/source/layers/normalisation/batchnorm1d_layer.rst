@@ -20,8 +20,7 @@
     bias_initialiser=...,
     moving_mean_initialiser=...,
     moving_variance_initialiser=...,
-    input_shape=...,
-    batch_size=...
+    input_shape=...
   )
 
 
@@ -50,7 +49,6 @@ Arguments
 * **moving_mean_initialiser** (`character(*)`): Initialiser for running mean (see :ref:`Initialisers <initialisers>`).
 * **moving_variance_initialiser** (`character(*)`): Initialiser for running variance (see :ref:`Initialisers <initialisers>`).
 * **input_shape** (`integer, dimension(:)`): Shape of the input data.
-* **batch_size** (`integer`): **SOON TO BE DEPRECATED**. Batch size for the layer. Handled automatically during training and inference.
 
 Shape:
 ------

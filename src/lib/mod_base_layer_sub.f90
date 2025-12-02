@@ -18,7 +18,7 @@ submodule(athena__base_layer) athena__base_layer_submodule
   !! - set_gradients*
   use coreutils, only: stop_program, print_warning, to_lower, to_upper, icount
   use athena__tools_infile, only: assign_val, assign_vec
-  implicit none
+  use athena__diffstruc_extd, only: batchnorm_array_type
 
 contains
 
@@ -787,8 +787,13 @@ contains
 !###############################################################################
 
 
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
+
+
 !###############################################################################
-  module subroutine init_pad(this, input_shape, batch_size, verbose)
+  module subroutine init_pad(this, input_shape, verbose)
     !! Initialise padding layer
     implicit none
 
@@ -797,8 +802,6 @@ contains
     !! Instance of the padding layer
     integer, dimension(:), intent(in) :: input_shape
     !! Input shape
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -813,7 +816,6 @@ contains
     ! Initialise optional arguments
     !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
-    if(present(batch_size)) this%batch_size = batch_size
 
 
     !---------------------------------------------------------------------------
@@ -847,26 +849,29 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Initialise batch size-dependent arrays
+    ! Allocate arrays
     !---------------------------------------------------------------------------
-    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
+    if(this%use_graph_input)then
+       call stop_program("Graph input not supported for padding layer")
+       return
+    end if
+    if(allocated(this%output)) deallocate(this%output)
+    allocate( this%output(1,1) )
 
   end subroutine init_pad
 !###############################################################################
 
 
 !###############################################################################
-  module subroutine init_pool(this, input_shape, batch_size, verbose)
+  module subroutine init_pool(this, input_shape, verbose)
     !! Initialise pooling layer
     implicit none
 
     ! Arguments
     class(pool_layer_type), intent(inout) :: this
-    !! Instance of the 1D average pooling layer
+    !! Instance of the pooling layer
     integer, dimension(:), intent(in) :: input_shape
     !! Input shape
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -879,7 +884,6 @@ contains
     ! Initialise optional arguments
     !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
-    if(present(batch_size)) this%batch_size = batch_size
 
 
     !---------------------------------------------------------------------------
@@ -904,16 +908,23 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Initialise batch size-dependent arrays
+    ! Allocate arrays
     !---------------------------------------------------------------------------
-    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
+    if(this%use_graph_input)then
+       call stop_program( &
+            "Graph input not supported for pooling layer" &
+       )
+       return
+    end if
+    if(allocated(this%output)) deallocate(this%output)
+    allocate( this%output(1,1) )
 
   end subroutine init_pool
 !###############################################################################
 
 
 !###############################################################################
-  module subroutine init_conv(this, input_shape, batch_size, verbose)
+  module subroutine init_conv(this, input_shape, verbose)
     !! Initialise convolutional layer
     use athena__initialiser, only: initialiser_setup
     use athena__misc_types, only: base_init_type
@@ -924,8 +935,6 @@ contains
     !! Instance of the layer
     integer, dimension(:), intent(in) :: input_shape
     !! Input shape
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -938,7 +947,6 @@ contains
     ! initialise optional arguments
     !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
-    if(present(batch_size)) this%batch_size = batch_size
 
 
     !---------------------------------------------------------------------------
@@ -951,7 +959,7 @@ contains
     ! initialise padding layer, if allocated
     !---------------------------------------------------------------------------
     if(allocated(this%pad_layer)) &
-         call this%pad_layer%init(this%input_shape, this%batch_size, verbose_)
+         call this%pad_layer%init(this%input_shape, verbose_)
 
 
     !---------------------------------------------------------------------------
@@ -1002,16 +1010,23 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! initialise batch size-dependent arrays
+    ! Allocate arrays
     !---------------------------------------------------------------------------
-    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
+    if(this%use_graph_input)then
+       call stop_program( &
+            "Graph input not supported for convolutional layer" &
+       )
+       return
+    end if
+    if(allocated(this%output)) deallocate(this%output)
+    allocate( this%output(1,1) )
 
   end subroutine init_conv
 !###############################################################################
 
 
 !###############################################################################
-  module subroutine init_batch(this, input_shape, batch_size, verbose)
+  module subroutine init_batch(this, input_shape, verbose)
     !! Initialise batch normalisation layer
     use athena__initialiser, only: initialiser_setup
     use athena__misc_types, only: base_init_type
@@ -1022,8 +1037,6 @@ contains
     !! Instance of the layer
     integer, dimension(:), intent(in) :: input_shape
     !! Input shape
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -1034,7 +1047,6 @@ contains
     ! initialise optional arguments
     !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
-    if(present(batch_size)) this%batch_size = batch_size
 
 
     !---------------------------------------------------------------------------
@@ -1100,9 +1112,16 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! initialise batch size-dependent arrays
+    ! Allocate arrays
     !---------------------------------------------------------------------------
-    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
+    if(this%use_graph_input)then
+       call stop_program( &
+            "Graph input not supported for batch normalisation layer" &
+       )
+       return
+    end if
+    if(allocated(this%output)) deallocate(this%output)
+    allocate( batchnorm_array_type :: this%output(1,1) )
 
   end subroutine init_batch
 !###############################################################################

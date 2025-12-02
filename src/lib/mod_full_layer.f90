@@ -52,8 +52,6 @@ module athena__full_layer
      !! Set the hyperparameters for fully connected layer
      procedure, pass(this) :: init => init_full
      !! Initialise fully connected layer
-     procedure, pass(this) :: set_batch_size => set_batch_size_full
-     !! Set the batch size for fully connected layer
      procedure, pass(this) :: print_to_unit => print_to_unit_full
      !! Print the layer to a file
      procedure, pass(this) :: read => read_full
@@ -71,7 +69,7 @@ module athena__full_layer
   interface full_layer_type
      !! Interface for setting up the fully connected layer
      module function layer_setup( &
-          num_outputs, num_inputs, batch_size, use_bias, &
+          num_outputs, num_inputs, use_bias, &
           activation, &
           kernel_initialiser, bias_initialiser, verbose &
      ) result(layer)
@@ -80,8 +78,6 @@ module athena__full_layer
        !! Number of outputs
        integer, optional, intent(in) :: num_inputs
        !! Number of inputs
-       integer, optional, intent(in) :: batch_size
-       !! Batch size
        logical, optional, intent(in) :: use_bias
        !! Whether to use bias
        class(*), optional, intent(in) :: activation
@@ -150,7 +146,6 @@ contains
 !###############################################################################
   module function layer_setup( &
        num_outputs, num_inputs, &
-       batch_size, &
        use_bias, &
        activation, &
        kernel_initialiser, bias_initialiser, verbose &
@@ -165,8 +160,6 @@ contains
     !! Number of outputs
     integer, optional, intent(in) :: num_inputs
     !! Number of inputs
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     logical, optional, intent(in) :: use_bias
     !! Whether to use bias
     class(*), optional, intent(in) :: activation
@@ -230,12 +223,6 @@ contains
          bias_initialiser = bias_initialiser_, &
          verbose = verbose_ &
     )
-
-
-    !---------------------------------------------------------------------------
-    ! Initialise batch size
-    !---------------------------------------------------------------------------
-    if(present(batch_size)) layer%batch_size = batch_size
 
 
     !---------------------------------------------------------------------------
@@ -321,7 +308,7 @@ contains
 
 
 !###############################################################################
-  subroutine init_full(this, input_shape, batch_size, verbose)
+  subroutine init_full(this, input_shape, verbose)
     !! Initialise fully connected layer
     implicit none
 
@@ -330,8 +317,6 @@ contains
     !! Instance of the fully connected layer
     integer, dimension(:), intent(in) :: input_shape
     !! Input shape
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -345,7 +330,6 @@ contains
     ! Initialise optional arguments
     !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
-    if(present(batch_size)) this%batch_size = batch_size
 
 
     !---------------------------------------------------------------------------
@@ -405,53 +389,13 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Initialise batch size-dependent arrays
-    !---------------------------------------------------------------------------
-    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
-
-  end subroutine init_full
-!###############################################################################
-
-
-!###############################################################################
-  subroutine set_batch_size_full(this, batch_size, verbose)
-    !! Set the batch size for fully connected layer
-    implicit none
-
-    ! Arguments
-    class(full_layer_type), intent(inout), target :: this
-    integer, intent(in) :: batch_size
-    integer, optional, intent(in) :: verbose
-
-    integer :: i
-    integer :: verbose_ = 0
-
-
-    !---------------------------------------------------------------------------
-    ! Initialise optional arguments
-    !---------------------------------------------------------------------------
-    if(present(verbose)) verbose_ = verbose
-    this%batch_size = batch_size
-
-
-    !---------------------------------------------------------------------------
     ! Allocate arrays
     !---------------------------------------------------------------------------
-    if(allocated(this%input_shape))then
-       if(allocated(this%output)) deallocate(this%output)
-       allocate(this%output(1,1))
-       call this%output(1,1)%allocate( &
-            [this%num_outputs, this%batch_size], &
-            source=0._real32 &
-       )
-       if(this%z(1)%allocated) call this%z(1)%deallocate()
-       call this%z(1)%allocate( &
-            [this%num_outputs, this%batch_size], &
-            source=0._real32 &
-       )
-    end if
+    if(allocated(this%output)) deallocate(this%output)
+    allocate(this%output(1,1))
+    if(this%z(1)%allocated) call this%z(1)%deallocate()
 
-  end subroutine set_batch_size_full
+  end subroutine init_full
 !###############################################################################
 
 

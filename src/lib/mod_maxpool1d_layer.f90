@@ -32,8 +32,6 @@ module athena__maxpool1d_layer
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_maxpool1d
      !! Set hyperparameters for 1D max pooling layer
-     procedure, pass(this) :: set_batch_size => set_batch_size_maxpool1d
-     !! Set batch size for 1D max pooling layer
      procedure, pass(this) :: read => read_maxpool1d
      !! Read 1D max pooling layer from file
 
@@ -45,13 +43,11 @@ module athena__maxpool1d_layer
   interface maxpool1d_layer_type
      !! Interface for setting up the 1D max pooling layer
      module function layer_setup( &
-          input_shape, batch_size, &
+          input_shape, &
           pool_size, stride, verbose ) result(layer)
        !! Set up the 1D max pooling layer
        integer, dimension(:), optional, intent(in) :: input_shape
        !! Input shape
-       integer, optional, intent(in) :: batch_size
-       !! Batch size
        integer, dimension(..), optional, intent(in) :: pool_size
        !! Pool size
        integer, dimension(..), optional, intent(in) :: stride
@@ -69,7 +65,7 @@ contains
 
 !###############################################################################
   module function layer_setup( &
-       input_shape, batch_size, &
+       input_shape, &
        pool_size, stride, verbose) result(layer)
     !! Set up the 1D max pooling layer
     implicit none
@@ -77,8 +73,6 @@ contains
     ! Arguments
     integer, dimension(:), optional, intent(in) :: input_shape
     !! Input shape
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     integer, dimension(..), optional, intent(in) :: pool_size
     !! Pool size
     integer, dimension(..), optional, intent(in) :: stride
@@ -137,12 +131,6 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Initialise batch size
-    !---------------------------------------------------------------------------
-    if(present(batch_size)) layer%batch_size = batch_size
-
-
-    !---------------------------------------------------------------------------
     ! Initialise layer shape
     !---------------------------------------------------------------------------
     if(present(input_shape)) call layer%init(input_shape=input_shape)
@@ -181,55 +169,6 @@ contains
     this%strd = stride
 
   end subroutine set_hyperparams_maxpool1d
-!###############################################################################
-
-
-!###############################################################################
-  subroutine set_batch_size_maxpool1d(this, batch_size, verbose)
-    !! Set batch size for 1D max pooling layer
-    implicit none
-
-    ! Arguments
-    class(maxpool1d_layer_type), intent(inout), target :: this
-    !! Instance of the 1D max pooling layer
-    integer, intent(in) :: batch_size
-    !! Batch size
-    integer, optional, intent(in) :: verbose
-    !! Verbosity level
-
-    ! Local variables
-    integer :: verbose_ = 0
-    !! Verbosity level
-
-
-    !---------------------------------------------------------------------------
-    ! Initialise optional arguments
-    !---------------------------------------------------------------------------
-    if(present(verbose)) verbose_ = verbose
-    this%batch_size = batch_size
-
-
-    !---------------------------------------------------------------------------
-    ! Allocate arrays
-    !---------------------------------------------------------------------------
-    if(allocated(this%input_shape))then
-       if(this%use_graph_input)then
-          call stop_program( &
-               "Graph input not supported for 1D max pooling layer" &
-          )
-          return
-       end if
-       if(allocated(this%output)) deallocate(this%output)
-       allocate( this%output(1,1) )
-       call this%output(1,1)%allocate( &
-            array_shape = [ &
-                 this%output_shape(1), this%num_channels, &
-                 this%batch_size ], &
-            source=0._real32 &
-       )
-    end if
-
-  end subroutine set_batch_size_maxpool1d
 !###############################################################################
 
 

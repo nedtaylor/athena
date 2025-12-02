@@ -55,8 +55,7 @@ program test_activation_layer
   ! Test with ReLU activation
   actv_layer = actv_layer_type( &
        activation = "relu", &
-       input_shape = [width], &
-       batch_size = batch_size &
+       input_shape = [width] &
   )
 
   ! Check layer properties
@@ -88,11 +87,6 @@ program test_activation_layer
   if(actv_layer%output_rank .ne. 1)then
      success = .false.
      write(0,*) 'activation layer (1D) has wrong output_rank'
-  end if
-
-  if(actv_layer%batch_size .ne. batch_size)then
-     success = .false.
-     write(0,*) 'activation layer (1D) has wrong batch_size'
   end if
 
 
@@ -157,8 +151,7 @@ program test_activation_layer
 
   actv_layer = actv_layer_type( &
        activation = "sigmoid", &
-       input_shape = [width, height], &
-       batch_size = batch_size &
+       input_shape = [width, height] &
   )
 
   ! Check layer properties
@@ -216,8 +209,7 @@ program test_activation_layer
 
   actv_layer = actv_layer_type( &
        activation = "tanh", &
-       input_shape = [width, height, depth], &
-       batch_size = batch_size &
+       input_shape = [width, height, depth] &
   )
 
   ! Test forward pass
@@ -243,8 +235,7 @@ program test_activation_layer
 
   actv_layer = actv_layer_type( &
        activation = linear_actv_type(scale=2.0), &
-       input_shape = [width, height, depth, channels], &
-       batch_size = batch_size &
+       input_shape = [width, height, depth, channels] &
   )
 
   ! Test forward pass
@@ -271,8 +262,7 @@ program test_activation_layer
 
   actv_layer = actv_layer_type( &
        activation = "none", &
-       input_shape = [width], &
-       batch_size = batch_size &
+       input_shape = [width] &
   )
 
   call input(1,1)%allocate(array_shape=[width, batch_size])
@@ -298,13 +288,6 @@ program test_activation_layer
        activation = "relu", &
        input_shape = [width] &
   )
-
-  call actv_layer%set_batch_size(batch_size)
-
-  if(actv_layer%batch_size .ne. batch_size)then
-     success = .false.
-     write(0,*) 'activation layer set_batch_size failed'
-  end if
 
 
 !-------------------------------------------------------------------------------
@@ -395,8 +378,7 @@ program test_activation_layer
   do i = 1, size(activation_functions)
      actv_layer = actv_layer_type( &
           activation = trim(activation_functions(i)), &
-          input_shape = [width], &
-          batch_size = 1 &
+          input_shape = [width] &
      )
 
      if(.not. allocated(actv_layer%activation))then

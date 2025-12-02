@@ -45,8 +45,7 @@ Network Architecture
         kernel_initialiser="glorot_normal", &
         readout_activation="softmax", &
         min_vertex_degree=1, &
-        max_vertex_degree=10, &
-        batch_size=8))
+        max_vertex_degree=10))
 
    ! Dense layers for prediction
    call network%add(full_layer_type( &

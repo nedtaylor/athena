@@ -14,7 +14,7 @@ program test_full_layer
 !-------------------------------------------------------------------------------
 ! set up layer
 !-------------------------------------------------------------------------------
-  full_layer1 = full_layer_type(num_inputs=1, num_outputs=10, batch_size=1)
+  full_layer1 = full_layer_type(num_inputs=1, num_outputs=10)
 
   !! check layer name
   if(.not. full_layer1%name .eq. 'full')then
@@ -63,9 +63,9 @@ program test_full_layer
 ! check layer operations
 !-------------------------------------------------------------------------------
   full_layer2 = full_layer_type(num_inputs=1, num_outputs=10, &
-       activation="sigmoid", batch_size=1)
+       activation="sigmoid")
   full_layer3 = full_layer_type(num_inputs=1, num_outputs=10, &
-       activation="sigmoid", batch_size=1)
+       activation="sigmoid")
   select type(full_layer2)
   type is(full_layer_type)
      select type(full_layer3)

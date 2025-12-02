@@ -16,7 +16,6 @@ Key Components
 A custom layer must implement the following deferred procedures:
 
 * **init**: Initialise the layer with proper shapes and allocations
-* **set_batch_size**: Handle batch size changes
 * **read**: Read layer configuration from file
 * **forward**: Implement the forward pass computation
 
@@ -31,7 +30,6 @@ The essential structure of a custom layer is as follows:
       ! Add custom attributes here
     contains
       procedure, pass(this) :: init => init_custom
-      procedure, pass(this) :: set_batch_size => set_batch_size_custom
       procedure, pass(this) :: read => read_custom
       procedure, pass(this) :: forward => forward_custom
    end type custom_layer_type
@@ -39,12 +37,6 @@ The essential structure of a custom layer is as follows:
 When implementing your custom layer, it is recommended to look at existing implemented layers in the athena source code for guidance.
 For a basic layer (non-learnable), refer to the (:git:`activation layer<src/lib/mod_activation_layer.f90>`.
 For a learnable layer, see the (:git:`fully connected layer<src/lib/mod_full_layer.f90>`.
-
-
-.. note::
-  The ``set_batch_size`` method may soon become deprecated.
-  Please check the documentation for alternative approaches in future releases.
-  It is likely the functionality will be integrated into the ``init`` method or handled automatically, as batch size likely won't need to be explicitly set.
 
 Example: Simple Scaling Layer
 ------------------------------
@@ -63,7 +55,6 @@ Here's a complete example of a custom layer that scales inputs:
         real(real32) :: scale_factor = 1.0_real32
       contains
         procedure, pass(this) :: init => init_scaling
-        procedure, pass(this) :: set_batch_size => set_batch_size_scaling
         procedure, pass(this) :: read => read_scaling
         procedure, pass(this) :: forward => forward_scaling
      end type scaling_layer_type
@@ -77,19 +68,12 @@ Here's a complete example of a custom layer that scales inputs:
        this%name = "scaling"
 
        ! Allocate output
-       if(.not.allocated(this%output)) &
-         allocate(this%output(this%batch_size, 1))
+       if(allocated(this%output)) deallocate(this%output)
+       allocate(this%output(1,1))
 
        ! Initialise output arrays
        call this%output(1,1)%allocate(this%input_shape)
      end subroutine init_scaling
-
-     subroutine set_batch_size_scaling(this, batch_size)
-       class(scaling_layer_type), intent(inout) :: this
-       integer, intent(in) :: batch_size
-
-       this%batch_size = batch_size
-     end subroutine set_batch_size_scaling
 
      subroutine forward_scaling(this, input)
        class(scaling_layer_type), intent(inout) :: this

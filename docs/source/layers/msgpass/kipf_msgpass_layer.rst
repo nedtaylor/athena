@@ -10,7 +10,6 @@ Kipf Message Passing Layer
   kipf_msgpass_layer_type(
     num_vertex_features,
     num_time_steps,
-    batch_size=...,
     activation="none",
     kernel_initialiser=...,
     verbose=0
@@ -51,8 +50,6 @@ Arguments
   * Typically set to ``1`` when stacking multiple Kipf layers
   * Larger values apply the same transformation multiple times
   * For deep architectures, prefer stacking layers over increasing time steps
-
-* **batch_size** (`integer`, optional): **SOON TO BE DEPRECATED**. Batch size for the layer.
 
 * **activation** (`class(*)`): Activation function applied after aggregation.
 

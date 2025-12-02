@@ -29,8 +29,7 @@ program test_kipf_msgpass_layer
 !-------------------------------------------------------------------------------
   msgpass_layer = kipf_msgpass_layer_type( &
        num_vertex_features = [num_features, num_outputs], &
-       num_time_steps = num_time_steps, &
-       batch_size = batch_size &
+       num_time_steps = num_time_steps &
   )
 
   !! check layer name
@@ -105,7 +104,7 @@ program test_kipf_msgpass_layer
   call msgpass_layer%set_graph(graph)
 
   ! ! Initialise the layer
-  ! call msgpass_layer%init([num_features, num_vertices], batch_size=1)
+  ! call msgpass_layer%init([num_features, num_vertices])
 
 !-------------------------------------------------------------------------------
 ! check handling of layer parameters, gradients, and outputs
@@ -146,15 +145,15 @@ program test_kipf_msgpass_layer
         write(0,*) 'kipf layer has wrong gradients'
      end if
 
-     !! check layer output handling
-     if(any(shape(msgpass_layer%output) .ne. [2, batch_size]))then
-        success = .false.
-        write(0,*) 'kipf layer has wrong derived type output shape'
-     end if
      allocate(input(2, batch_size))
      call input(1,1)%allocate(source = graph(1)%vertex_features)
      call input(2,1)%allocate(source = graph(1)%edge_features)
      call msgpass_layer%forward(input)
+     !! check layer output handling
+     if(any(shape(msgpass_layer%output) .ne. [1, batch_size]))then
+        success = .false.
+        write(0,*) 'kipf layer has wrong derived type output shape'
+     end if
      if(size(msgpass_layer%output(1,1)%val,1) .ne. msgpass_layer%output_shape(1))then
         success = .false.
         write(0,*) 'kipf layer has wrong number of outputs'

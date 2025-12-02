@@ -13,8 +13,7 @@ Fully-Connected Layer
     use_bias=.true.,
     activation="none",
     kernel_initialiser=...,
-    bias_initialiser=...,
-    batch_size=...
+    bias_initialiser=...
   )
 
 
@@ -46,7 +45,6 @@ Arguments
   * For all other activations, default: ``glorot_uniform_init_type``.
 
 * **bias_initialiser** (`class(*)`): Initialiser for the biases (see :ref:`Initialisers <initialisers>`). Default: ``zeros_init_type``.
-* **batch_size** (`integer`): **SOON TO BE DEPRECATED**. Batch size for the layer. Handled automatically during training and inference.
 
 Shape:
 ------

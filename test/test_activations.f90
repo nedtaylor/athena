@@ -243,7 +243,6 @@ program test_activations
      full_layer = full_layer_type( &
           num_inputs = num_inputs, &
           num_outputs = num_outputs, &
-          batch_size = batch_size, &
           activation = activation, &
           kernel_initialiser = 'ones', &
           bias_initialiser = 'zeros' )
@@ -285,7 +284,6 @@ program test_activations
      conv2d_layer = conv2d_layer_type( &
           input_shape = [width, width, num_channels], &
           kernel_size = kernel_size, &
-          batch_size = batch_size, &
           stride = stride, &
           padding = "none", &
           num_filters = num_filters, &
@@ -332,7 +330,6 @@ program test_activations
      conv3d_layer = conv3d_layer_type( &
           input_shape = [width, width, width, num_channels], &
           kernel_size = kernel_size, &
-          batch_size = batch_size, &
           stride = stride, &
           padding = "none", &
           num_filters = num_filters, &

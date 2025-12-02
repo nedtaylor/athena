@@ -53,8 +53,6 @@ module athena__kipf_msgpass_layer
      !! Set the hyperparameters for the message passing layer
      procedure, pass(this) :: init => init_kipf
      !! Initialise the message passing layer
-     procedure, pass(this) :: set_batch_size => set_batch_size_kipf
-     !! Set batch size
      procedure, pass(this) :: print_to_unit => print_to_unit_kipf
      !! Print the message passing layer
      procedure, pass(this) :: read => read_kipf
@@ -72,7 +70,7 @@ module athena__kipf_msgpass_layer
   interface kipf_msgpass_layer_type
      !! Interface for setting up the MPNN layer
      module function layer_setup( &
-          num_vertex_features, num_time_steps, batch_size, &
+          num_vertex_features, num_time_steps, &
           activation, &
           kernel_initialiser, &
           verbose &
@@ -82,8 +80,6 @@ module athena__kipf_msgpass_layer
        !! Number of features
        integer, intent(in) :: num_time_steps
        !! Number of time steps
-       integer, optional, intent(in) :: batch_size
-       !! Batch size
        class(*), optional, intent(in) :: activation, kernel_initialiser
        !! Activation function and kernel initialiser
        integer, optional, intent(in) :: verbose
@@ -137,7 +133,7 @@ contains
 
 !###############################################################################
   module function layer_setup( &
-       num_vertex_features, num_time_steps, batch_size, &
+       num_vertex_features, num_time_steps, &
        activation, &
        kernel_initialiser, &
        verbose &
@@ -152,8 +148,6 @@ contains
     !! Number of features
     integer, intent(in) :: num_time_steps
     !! Number of time steps
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     class(*), optional, intent(in) :: activation, kernel_initialiser
     !! Activation function and kernel initialiser
     integer, optional, intent(in) :: verbose
@@ -200,13 +194,6 @@ contains
          kernel_initialiser = kernel_initialiser_, &
          verbose = verbose_ &
     )
-
-
-    !---------------------------------------------------------------------------
-    ! Initialise batch size
-    !---------------------------------------------------------------------------
-    if(present(batch_size)) layer%batch_size = batch_size
-
 
 
     !---------------------------------------------------------------------------
@@ -313,7 +300,7 @@ contains
 
 
 !###############################################################################
-  subroutine init_kipf(this, input_shape, batch_size, verbose)
+  subroutine init_kipf(this, input_shape, verbose)
     !! Initialise the message passing layer
     use athena__initialiser, only: initialiser_setup
     implicit none
@@ -323,8 +310,6 @@ contains
     !! Instance of the fully connected layer
     integer, dimension(:), intent(in) :: input_shape
     !! Input shape
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -339,7 +324,6 @@ contains
     ! Initialise optional arguments
     !---------------------------------------------------------------------------
     if(present(verbose)) verbose_ = verbose
-    if(present(batch_size)) this%batch_size = batch_size
 
 
     !---------------------------------------------------------------------------
@@ -387,43 +371,11 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Initialise batch size-dependent arrays
-    !---------------------------------------------------------------------------
-    if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
-
-  end subroutine init_kipf
-!###############################################################################
-
-
-!###############################################################################
-  subroutine set_batch_size_kipf(this, batch_size, verbose)
-    !! Set the batch size for message passing layer
-    implicit none
-
-    ! Arguments
-    class(kipf_msgpass_layer_type), intent(inout), target :: this
-    integer, intent(in) :: batch_size
-    integer, optional, intent(in) :: verbose
-
-    integer :: verbose_ = 0
-
-
-    !---------------------------------------------------------------------------
-    ! Initialise optional arguments
-    !---------------------------------------------------------------------------
-    if(present(verbose)) verbose_ = verbose
-    this%batch_size = batch_size
-
-
-    !---------------------------------------------------------------------------
     ! Allocate arrays
     !---------------------------------------------------------------------------
-    if(allocated(this%input_shape))then
-       if(allocated(this%output)) deallocate(this%output)
-       allocate(this%output(2,this%batch_size))
-    end if
+    if(allocated(this%output)) deallocate(this%output)
 
-  end subroutine set_batch_size_kipf
+  end subroutine init_kipf
 !###############################################################################
 
 
@@ -706,8 +658,16 @@ contains
     type(array_type), pointer :: ptr1, ptr2, ptr3
     !! Pointers to arrays
 
+    if(allocated(this%output))then
+       if(size(this%output,2).ne.size(input,2))then
+          deallocate(this%output)
+          allocate(this%output(1,size(input,2)))
+       end if
+    else
+       allocate(this%output(1,size(input,2)))
+    end if
 
-    do s = 1, this%batch_size
+    do s = 1, size(input,2)
        ptr1 => input(1,s)
        do t = 1, this%num_time_steps
           ptr2 => kipf_propagate( &
@@ -744,7 +704,7 @@ contains
     !! Loop indices
 
 
-    ! do s = 1, this%batch_size
+    ! do s = 1, size(this%output,2)
     !    this%output(1,s)%val = this%vertex_features(this%num_time_steps,s)%val
     !    this%output(2,s)%val = this%edge_features(this%num_time_steps,s)%val
     ! end do

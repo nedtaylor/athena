@@ -10,8 +10,7 @@ Input Layer
   input_layer_type(
     input_shape=...,
     index=...,
-    use_graph_input=.false.,
-    batch_size=...
+    use_graph_input=.false.
   )
 
 
@@ -24,7 +23,6 @@ Arguments
 * **input_shape** (`integer, dimension(:)`): Shape of the input data (excluding batch dimension).
 * **index** (`integer`): Index of the layer in the network.
 * **use_graph_input** (`logical`): Whether to use graph-structured input data. Default: ``.false.``.
-* **batch_size** (`integer`): **SOON TO BE DEPRECATED**. Batch size for the layer. Handled automatically during training and inference.
 
 Shape:
 ------

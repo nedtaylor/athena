@@ -48,8 +48,7 @@ program test_pad3d_layer
   pad3d_layer = pad3d_layer_type( &
        padding = [1, 2, 1], &
        method = "zero", &
-       input_shape = [width, height, depth, channels], &
-       batch_size = batch_size &
+       input_shape = [width, height, depth, channels] &
   )
 
   ! Check layer properties
@@ -88,11 +87,6 @@ program test_pad3d_layer
   if (pad3d_layer%output_rank .ne. 4) then
      success = .false.
      write(0,*) 'pad3d layer has wrong output_rank'
-  end if
-
-  if (pad3d_layer%batch_size .ne. batch_size) then
-     success = .false.
-     write(0,*) 'pad3d layer has wrong batch_size'
   end if
 
 
@@ -248,8 +242,7 @@ program test_pad3d_layer
        pad3d_layer = pad3d_layer_type( &
             padding = [1, 1, 1], &
             method = trim(padding_methods(i)), &
-            input_shape = [width, height, depth, channels], &
-            batch_size = 1 &
+            input_shape = [width, height, depth, channels] &
        )
 
        ! Test forward pass doesn't crash
@@ -321,8 +314,7 @@ program test_pad3d_layer
          padding = [pad_w, pad_h, pad_d], &
          method = "zero", &
          input_shape = [simple_width, simple_height, simple_depth, &
-              simple_channels], &
-         batch_size = 1 &
+              simple_channels] &
     )
     call pad3d_layer%forward(input)
     call pad3d_layer%extract_output(output_simple)
@@ -361,8 +353,7 @@ program test_pad3d_layer
          padding = [pad_w, pad_h, pad_d], &
          method = "replicate", &
          input_shape = [simple_width, simple_height, simple_depth, &
-              simple_channels], &
-         batch_size = 1 &
+              simple_channels] &
     )
     call pad3d_layer%forward(input)
     call pad3d_layer%extract_output(output_simple)
@@ -473,8 +464,7 @@ program test_pad3d_layer
        pad3d_layer = pad3d_layer_type( &
             padding = test_paddings(i,:), &
             method = "zero", &
-            input_shape = [width, height, depth, channels], &
-            batch_size = 1 &
+            input_shape = [width, height, depth, channels] &
        )
 
        expected_width = width + 2 * test_paddings(i,1)
@@ -545,8 +535,7 @@ program test_pad3d_layer
   pad3d_layer = pad3d_layer_type( &
        padding = [1, 2, 0], &
        method = "zero", &
-       input_shape = [width, height, depth, channels], &
-       batch_size = 1 &
+       input_shape = [width, height, depth, channels] &
   )
 
   ! Test with a known input pattern
@@ -592,13 +581,6 @@ program test_pad3d_layer
        method = "zero", &
        input_shape = [width, height, depth, channels] &
   )
-
-  call pad3d_layer%set_batch_size(batch_size)
-
-  if(pad3d_layer%batch_size .ne. batch_size)then
-     success = .false.
-     write(0,*) 'pad3d layer set_batch_size failed'
-  end if
 
 
 !-------------------------------------------------------------------------------
@@ -649,8 +631,7 @@ program test_pad3d_layer
   pad3d_layer = pad3d_layer_type( &
        padding = [0, 0, 0], &
        method = "zero", &
-       input_shape = [1, 1, 1, 1], &
-       batch_size = 1 &
+       input_shape = [1, 1, 1, 1] &
   )
 
   call input(1,1)%allocate(array_shape=[1, 1, 1, 1, 1], source = 42.0_real32)

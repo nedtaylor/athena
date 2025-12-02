@@ -40,8 +40,6 @@ module athena__base_layer
      !! Type for base layer, from which all other layers are derived
      integer :: id
      !! Unique identifier
-     integer :: batch_size = 0
-     !! Batch size
      integer :: input_rank = 0
      !! Rank of input data
      integer :: output_rank = 0
@@ -82,8 +80,6 @@ module athena__base_layer
      !! Extract the output of the layer as a standard real array
      procedure(initialise), deferred, pass(this) :: init
      !! Initialise the layer
-     procedure(set_batch_size), deferred, pass(this) :: set_batch_size
-     !! Set the batch size of the layer
 
      procedure, pass(this) :: forward => forward_base
      !! Forward pass of layer
@@ -166,27 +162,15 @@ module athena__base_layer
 
 
   interface
-     module subroutine initialise(this, input_shape, batch_size, verbose)
+     module subroutine initialise(this, input_shape, verbose)
        !! Initialise the layer
        class(base_layer_type), intent(inout) :: this
        !! Instance of the layer
        integer, dimension(:), intent(in) :: input_shape
        !! Input shape
-       integer, optional, intent(in) :: batch_size
-       !! Batch size
        integer, optional, intent(in) :: verbose
        !! Verbosity level
      end subroutine initialise
-
-     module subroutine set_batch_size(this, batch_size, verbose)
-       !! Set the batch size of the layer
-       class(base_layer_type), intent(inout), target :: this
-       !! Instance of the layer
-       integer, intent(in) :: batch_size
-       !! Batch size
-       integer, optional, intent(in) :: verbose
-       !! Verbosity level
-     end subroutine set_batch_size
   end interface
 
   interface
@@ -288,10 +272,9 @@ module athena__base_layer
        !! File unit
      end subroutine print_to_unit_pad
 
-     module subroutine init_pad(this, input_shape, batch_size, verbose)
+     module subroutine init_pad(this, input_shape, verbose)
        class(pad_layer_type), intent(inout) :: this
        integer, dimension(:), intent(in) :: input_shape
-       integer, optional, intent(in) :: batch_size
        integer, optional, intent(in) :: verbose
      end subroutine init_pad
   end interface
@@ -321,10 +304,9 @@ module athena__base_layer
        !! File unit
      end subroutine print_to_unit_pool
 
-     module subroutine init_pool(this, input_shape, batch_size, verbose)
+     module subroutine init_pool(this, input_shape, verbose)
        class(pool_layer_type), intent(inout) :: this
        integer, dimension(:), intent(in) :: input_shape
-       integer, optional, intent(in) :: batch_size
        integer, optional, intent(in) :: verbose
      end subroutine init_pool
 
@@ -518,10 +500,9 @@ module athena__base_layer
        integer :: num_params
      end function get_num_params_conv
 
-     module subroutine init_conv(this, input_shape, batch_size, verbose)
+     module subroutine init_conv(this, input_shape, verbose)
        class(conv_layer_type), intent(inout) :: this
        integer, dimension(:), intent(in) :: input_shape
-       integer, optional, intent(in) :: batch_size
        integer, optional, intent(in) :: verbose
      end subroutine init_conv
 
@@ -535,8 +516,6 @@ module athena__base_layer
      !! Type for batch normalisation layers
      integer :: num_channels
      !! Number of channels
-     real(real32) :: norm
-     !! Normalisation factor
      real(real32) :: momentum = 0.99_real32
      !! Momentum factor
      !! NOTE: if momentum = 0, mean and variance batch-dependent values
@@ -569,10 +548,9 @@ module athena__base_layer
        integer :: num_params
      end function get_num_params_batch
 
-     module subroutine init_batch(this, input_shape, batch_size, verbose)
+     module subroutine init_batch(this, input_shape, verbose)
        class(batch_layer_type), intent(inout) :: this
        integer, dimension(:), intent(in) :: input_shape
-       integer, optional, intent(in) :: batch_size
        integer, optional, intent(in) :: verbose
      end subroutine init_batch
 

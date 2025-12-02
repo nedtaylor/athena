@@ -87,27 +87,23 @@ program pinn_chemical_example
           kernel_initialiser = 'glorot_normal', &
           readout_activation = 'softmax', &
           min_vertex_degree = 1, &
-          max_vertex_degree = 10, &
-          batch_size = batch_size &
+          max_vertex_degree = 10 &
      ))
      call network%add(full_layer_type( &
           num_inputs  = num_dense_inputs, &
           num_outputs = 128, &
-          batch_size  = batch_size, &
           activation = 'leaky_relu', &
           kernel_initialiser = 'he_normal', &
           bias_initialiser = 'ones' &
      ))
      call network%add(full_layer_type( &
           num_outputs = 64, &
-          batch_size  = batch_size, &
           activation = 'leaky_relu', &
           kernel_initialiser = 'he_normal', &
           bias_initialiser = 'ones' &
      ))
      call network%add(full_layer_type( &
           num_outputs = num_outputs, &
-          batch_size  = batch_size, &
           activation = 'leaky_relu', &
           kernel_initialiser = 'he_normal', &
           bias_initialiser = 'ones' &

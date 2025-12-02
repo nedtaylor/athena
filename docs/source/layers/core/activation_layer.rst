@@ -9,8 +9,7 @@ Activation Layer
 
   activation_layer_type(
     activation,
-    input_shape=...,
-    batch_size=...
+    input_shape=...
   )
 
 
@@ -26,7 +25,6 @@ Arguments
   * Required argument.
 
 * **input_shape** (`integer, dimension(:)`): Shape of the input data (excluding batch dimension).
-* **batch_size** (`integer`): **SOON TO BE DEPRECATED**. Batch size for the layer. Handled automatically during training and inference.
 
 Shape:
 ------

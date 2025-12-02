@@ -34,8 +34,6 @@ module athena__maxpool2d_layer
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_maxpool2d
      !! Set hyperparameters for 2D max pooling layer
-     procedure, pass(this) :: set_batch_size => set_batch_size_maxpool2d
-     !! Set batch size for 2D max pooling layer
      procedure, pass(this) :: read => read_maxpool2d
      !! Read 2D max pooling layer from file
      procedure, pass(this) :: build_from_onnx => build_from_onnx_maxpool2d
@@ -49,13 +47,11 @@ module athena__maxpool2d_layer
   interface maxpool2d_layer_type
      !! Interface for setting up the 2D max pooling layer
      module function layer_setup( &
-          input_shape, batch_size, &
+          input_shape, &
           pool_size, stride, verbose ) result(layer)
        !! Set up the 2D max pooling layer
        integer, dimension(:), optional, intent(in) :: input_shape
        !! Input shape
-       integer, optional, intent(in) :: batch_size
-       !! Batch size
        integer, dimension(..), optional, intent(in) :: pool_size
        !! Pool size
        integer, dimension(..), optional, intent(in) :: stride
@@ -75,7 +71,7 @@ contains
 !!! set up layer
 !!!#############################################################################
   module function layer_setup( &
-       input_shape, batch_size, &
+       input_shape, &
        pool_size, stride, verbose) result(layer)
     !! Set up the 2D max pooling layer
     implicit none
@@ -83,8 +79,6 @@ contains
     ! Arguments
     integer, dimension(:), optional, intent(in) :: input_shape
     !! Input shape
-    integer, optional, intent(in) :: batch_size
-    !! Batch size
     integer, dimension(..), optional, intent(in) :: pool_size
     !! Pool size
     integer, dimension(..), optional, intent(in) :: stride
@@ -153,12 +147,6 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Initialise batch size
-    !---------------------------------------------------------------------------
-    if(present(batch_size)) layer%batch_size = batch_size
-
-
-    !---------------------------------------------------------------------------
     ! Initialise layer shape
     !---------------------------------------------------------------------------
     if(present(input_shape)) call layer%init(input_shape=input_shape)
@@ -197,56 +185,6 @@ contains
     this%strd = stride
 
   end subroutine set_hyperparams_maxpool2d
-!###############################################################################
-
-
-!###############################################################################
-  subroutine set_batch_size_maxpool2d(this, batch_size, verbose)
-    !! Set batch size for 2D max pooling layer
-    implicit none
-
-    ! Arguments
-    class(maxpool2d_layer_type), intent(inout), target :: this
-    !! Instance of the 2D max pooling layer
-    integer, intent(in) :: batch_size
-    !! Batch size
-    integer, optional, intent(in) :: verbose
-    !! Verbosity level
-
-    ! Local variables
-    integer :: verbose_ = 0
-    !! Verbosity level
-
-
-    !---------------------------------------------------------------------------
-    ! Initialise optional arguments
-    !---------------------------------------------------------------------------
-    if(present(verbose)) verbose_ = verbose
-    this%batch_size = batch_size
-
-
-    !---------------------------------------------------------------------------
-    ! Allocate arrays
-    !---------------------------------------------------------------------------
-    if(allocated(this%input_shape))then
-       if(this%use_graph_input)then
-          call stop_program( &
-               "Graph input not supported for 2D max pooling layer" &
-          )
-          return
-       end if
-       if(allocated(this%output)) deallocate(this%output)
-       allocate( this%output(1,1) )
-       call this%output(1,1)%allocate( &
-            array_shape = [ &
-                 this%output_shape(1), &
-                 this%output_shape(2), this%num_channels, &
-                 this%batch_size ], &
-            source=0._real32 &
-       )
-    end if
-
-  end subroutine set_batch_size_maxpool2d
 !###############################################################################
 
 

@@ -14,7 +14,6 @@ program test_duvenaud_msgpass_layer
   integer, parameter :: num_edge_features = 1
   integer, parameter :: num_vertices = 6, num_edges = 8
   integer :: unit
-  integer, parameter :: batch_size = 1
   real, allocatable, dimension(:,:) :: vertex_features, output
   real, parameter :: tol = 1.E-7
   logical :: success = .true.
@@ -31,8 +30,7 @@ program test_duvenaud_msgpass_layer
        num_edge_features = [ num_edge_features ], &
        num_time_steps = num_time_steps, &
        max_vertex_degree = 6, &
-       num_outputs = num_outputs, &
-       batch_size = batch_size &
+       num_outputs = num_outputs &
   )
 
   !! check layer name
@@ -105,7 +103,7 @@ program test_duvenaud_msgpass_layer
   call msgpass_layer%set_graph(graph)
 
   ! ! Initialise the layer
-  ! call msgpass_layer%init([num_vertex_features, num_vertices], batch_size=1)
+  ! call msgpass_layer%init([num_vertex_features, num_vertices])
 
 !!!-----------------------------------------------------------------------------
 !!! check handling of layer parameters, gradients, and outputs
