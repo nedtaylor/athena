@@ -85,7 +85,7 @@ program pinn_chemical_example
           num_edge_features =   [ graphs_in(1,1)%num_edge_features ], &
           num_outputs = num_dense_inputs, &
           kernel_initialiser = 'glorot_normal', &
-          readout_activation_function = 'softmax', &
+          readout_activation = 'softmax', &
           min_vertex_degree = 1, &
           max_vertex_degree = 10, &
           batch_size = batch_size &
@@ -94,21 +94,21 @@ program pinn_chemical_example
           num_inputs  = num_dense_inputs, &
           num_outputs = 128, &
           batch_size  = batch_size, &
-          activation_function = 'leaky_relu', &
+          activation = 'leaky_relu', &
           kernel_initialiser = 'he_normal', &
           bias_initialiser = 'ones' &
      ))
      call network%add(full_layer_type( &
           num_outputs = 64, &
           batch_size  = batch_size, &
-          activation_function = 'leaky_relu', &
+          activation = 'leaky_relu', &
           kernel_initialiser = 'he_normal', &
           bias_initialiser = 'ones' &
      ))
      call network%add(full_layer_type( &
           num_outputs = num_outputs, &
           batch_size  = batch_size, &
-          activation_function = 'leaky_relu', &
+          activation = 'leaky_relu', &
           kernel_initialiser = 'he_normal', &
           bias_initialiser = 'ones' &
      ))

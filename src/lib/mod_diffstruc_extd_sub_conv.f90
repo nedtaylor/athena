@@ -135,7 +135,7 @@ contains
 
     output = 0._real32
 
-    ! Parallelized over batch, channels, and output positions
+    ! Parallelised over batch, channels, and output positions
     do concurrent(s = 1:size(upstream_grad, dim=2), c_in = 1:num_channels, &
          i = 1:output_h, c_out = 1:num_filters)
        out_idx = i + (c_out-1)*output_h
@@ -186,7 +186,7 @@ contains
 
     output = 0._real32
 
-    ! Parallelized over filters, channels, and kernel positions
+    ! Parallelised over filters, channels, and kernel positions
     do concurrent(c_out = 1:num_filters, c_in = 1:num_channels, k = 1:kernel_h)
        k_idx = k + ( c_in - 1 ) * kernel_h + &
             ( c_out - 1 ) * kernel_h * num_channels

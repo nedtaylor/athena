@@ -1,58 +1,27 @@
-message(STATUS "Building tests")
-foreach(execid
-  input_layer
-  conv1d_layer
-  conv1d_network
-  conv2d_layer
-  conv2d_network
-  conv3d_layer
-  conv3d_network
-  full_layer
-  full_network
-  msgpass_network
-  maxpool1d_layer
-  maxpool2d_layer
-  maxpool3d_layer
-  avgpool1d_layer
-  avgpool2d_layer
-  avgpool3d_layer
-  batchnorm1d_layer
-  batchnorm2d_layer
-  batchnorm3d_layer
-  dropout_layer
-  dropblock2d_layer
-  dropblock3d_layer
-  duvenaud_msgpass_layer
-  flatten_layer
-  pad1d_layer
-  pad2d_layer
-  pad3d_layer
-  activation_layer
-  kipf_msgpass_layer
-  activations
-  initialisers
-  padding
-  shuffle
-  split
-  lr_decay
-  regulariser
-  misc
-  normalisation
-  metrics
-  accuracy
-  network
-  random
-  optimiser
-  clipper
-  loss
-  tools_infile
-  io_utils
-  )
-  add_executable(test_${execid} test_${execid}.f90)
-  # # Specify the include directories
-  target_include_directories(test_${execid} PRIVATE "${CMAKE_BUILD_PREFIX}" "${CMAKE_BUILD_PREFIX}/mod")
+message(STATUS "Building tests for ${PROJECT_NAME}")
 
-  target_link_libraries(test_${execid} PRIVATE athena)
+# Only find test files in THIS project's test directory, not dependencies
+file(GLOB TEST_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/test_*.f90")
 
-  add_test(NAME test_${execid} COMMAND test_${execid})
+# Filter to ensure we only get files from this specific directory
+list(FILTER TEST_SOURCES INCLUDE REGEX "^${CMAKE_CURRENT_SOURCE_DIR}/test_.*\\.f90$")
+
+
+message(STATUS "Test sources found: ${TEST_SOURCES}")
+
+# Build each test
+foreach(test_file ${TEST_SOURCES})
+  # Extract the filename without extension
+  get_filename_component(test_name ${test_file} NAME_WE)
+
+  message(STATUS "Found test: ${test_name}")
+
+  add_executable(${test_name} ${test_file})
+
+  # Specify the include directories
+  target_include_directories(${test_name} PRIVATE "${CMAKE_BUILD_PREFIX}" "${CMAKE_BUILD_PREFIX}/mod")
+
+  target_link_libraries(${test_name} PRIVATE athena)
+
+  add_test(NAME ${test_name} COMMAND ${test_name})
 endforeach()

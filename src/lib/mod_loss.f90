@@ -1,8 +1,37 @@
 module athena__loss
-  !! Module containing functions to compute the loss of a model
+  !! Module containing loss function implementations
   !!
-  !! This module contains functions to compute the loss of a model
-  !! The loss functions are used to determine how well a model is performing
+  !! This module implements loss functions that quantify the difference between
+  !! model predictions and target values, guiding the optimisation process.
+  !!
+  !! Implemented loss functions:
+  !!
+  !! Mean Squared Error (MSE):
+  !!   L = (1/N) Σ (y_pred - y_true)²
+  !!   For regression, sensitive to outliers
+  !!
+  !! Mean Absolute Error (MAE):
+  !!   L = (1/N) Σ |y_pred - y_true|
+  !!   For regression, robust to outliers
+  !!
+  !! Binary Cross-Entropy:
+  !!   L = -(1/N) Σ [y*log(ŷ) + (1-y)*log(1-ŷ)]
+  !!   For binary classification (outputs in [0,1])
+  !!
+  !! Categorical Cross-Entropy:
+  !!   L = -(1/N) Σ_i Σ_c y_{i,c} * log(ŷ_{i,c})
+  !!   For multi-class classification with one-hot encoded targets
+  !!
+  !! Sparse Categorical Cross-Entropy:
+  !!   L = -(1/N) Σ log(ŷ_{i,c_i})
+  !!   For multi-class with integer class labels
+  !!
+  !! Huber Loss:
+  !!   L = (1/N) Σ { 0.5*(y-ŷ)²           if |y-ŷ| ≤ δ
+  !!               { δ*(|y-ŷ| - 0.5*δ)    otherwise
+  !!   Combines MSE and MAE, robust to outliers while smooth near zero
+  !!
+  !! where N is number of samples, y is true value, ŷ is prediction
   use coreutils, only: real32
   use diffstruc, only: array_type, operator(+), operator(-), &
        operator(*), operator(/), operator(**), mean, sum, log, abs, merge
@@ -244,17 +273,18 @@ contains
     class(bce_loss_type), intent(in), target :: this
     !! Instance of the physics-informed neural network loss function
     type(array_type), dimension(:,:), intent(inout), target :: predicted
+    !! Predicted values
     type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
          expected
-    !! Predicted and expected values
+    !! Expected values
     type(array_type), pointer :: output
-    !! Physics-informed neural network loss
-    type(array_type), pointer :: ptr
-    !! Temporary pointer for calculations
+    !! Binary cross entropy loss
 
     ! Local variables
     integer :: s, i
     !! Loop indices
+    type(array_type), pointer :: ptr
+    !! Temporary pointer for calculations
 
     output => mean(-expected(1,1) * log(predicted(1,1) + this%epsilon), dim=2)
     if(any(shape(predicted).gt.1))then
@@ -275,34 +305,39 @@ contains
 
 !###############################################################################
   function compute_cce(this, predicted, expected) result(output)
-    !! Compute the physics-informed neural network loss
+    !! Compute the categorical cross entropy loss of a model
     implicit none
 
     ! Arguments
     class(cce_loss_type), intent(in), target :: this
     !! Instance of the physics-informed neural network loss function
     type(array_type), dimension(:,:), intent(inout), target :: predicted
+    !! Predicted values
     type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
          expected
-    !! Predicted and expected values
+    !! Expected values
     type(array_type), pointer :: output
-    !! Physics-informed neural network loss
-    type(array_type), pointer :: ptr
-    !! Temporary pointer for calculations
+    !! Categorical cross entropy loss
 
     ! Local variables
     integer :: s, i
     !! Loop indices
+    type(array_type), pointer :: ptr
+    !! Temporary pointer for calculations
 
-    output => mean(-expected(1,1) * log(predicted(1,1) + this%epsilon), dim=2)
+    output => -mean( sum( &
+         expected(1,1) * log(predicted(1,1) + this%epsilon), &
+         dim=1 ), dim=2)
     if(any(shape(predicted).gt.1))then
        do s = 1, size(predicted,2)
           do i = 1, size(predicted,1)
              if(.not.predicted(i,s)%allocated .or. &
                   .not.expected(i,s)%allocated) cycle
-             ptr => mean(-expected(i,s) * log(predicted(i,s) + this%epsilon), dim=2)
+             ptr => mean( sum( &
+                  expected(i,s) * log(predicted(i,s) + this%epsilon), &
+                  dim=1 ), dim=2)
 
-             output => output + ptr
+             output => output - ptr
           end do
        end do
     end if
@@ -332,14 +367,14 @@ contains
     type(array_type), pointer :: ptr
     !! Temporary pointer for calculations
 
-    output => mean( abs( predicted(1,1) - expected(1,1) ), dim=2 ) / &
+    output => mean( abs( predicted(1,1) - expected(1,1) ) ) / &
          2._real32
     if(any(shape(predicted).gt.1))then
        do s = 1, size(predicted,2)
           do i = 1, size(predicted,1)
              if(.not.predicted(i,s)%allocated .or. &
                   .not.expected(i,s)%allocated) cycle
-             ptr => mean( abs( predicted(i,s) - expected(i,s) ), dim=2 ) / &
+             ptr => mean( abs( predicted(i,s) - expected(i,s) ) ) / &
                   2._real32
 
              output => output + ptr
@@ -353,19 +388,19 @@ contains
 
 !###############################################################################
   function compute_mse(this, predicted, expected) result(output)
-    !! Compute the physics-informed neural network loss
+    !! Compute the mean squared error of a model
     implicit none
 
     ! Arguments
     class(mse_loss_type), intent(in), target :: this
-    !! Instance of the physics-informed neural network loss function
+    !! Instance of the mean squared error loss function
     type(array_type), dimension(:,:), intent(inout), target :: predicted
     !! Predicted values
     type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
          expected
     !! Expected values
     type(array_type), pointer :: output
-    !! Physics-informed neural network loss
+    !! Mean squared error loss
 
     ! Local variables
     integer :: s, i
@@ -373,14 +408,14 @@ contains
     type(array_type), pointer :: ptr
     !! Temporary pointer for calculations
 
-    output => mean( ( predicted(1,1) - expected(1,1) )  ** 2._real32, dim=2 ) / &
+    output => mean( ( predicted(1,1) - expected(1,1) )  ** 2._real32 ) / &
          2._real32
     if(any(shape(predicted).gt.1))then
        do s = 1, size(predicted,2)
           do i = 1, size(predicted,1)
              if(.not.predicted(i,s)%allocated .or. &
                   .not.expected(i,s)%allocated) cycle
-             ptr => mean( ( predicted(i,s) - expected(i,s) )  ** 2._real32, dim=2 ) / &
+             ptr => mean( ( predicted(i,s) - expected(i,s) )  ** 2._real32 ) / &
                   2._real32
 
              output => output + ptr
@@ -401,25 +436,26 @@ contains
     class(nll_loss_type), intent(in), target :: this
     !! Instance of the physics-informed neural network loss function
     type(array_type), dimension(:,:), intent(inout), target :: predicted
+    !! Predicted values
     type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
          expected
-    !! Predicted and expected values
+    !! Expected values
     type(array_type), pointer :: output
-    !! Physics-informed neural network loss
-    type(array_type), pointer :: ptr
-    !! Temporary pointer for calculations
+    !! Negative log likelihood loss
 
     ! Local variables
     integer :: s, i
     !! Loop indices
+    type(array_type), pointer :: ptr
+    !! Temporary pointer for calculations
 
-    output => mean(-log(expected(1,1) - predicted(1,1) + this%epsilon), dim=2)
+    output => mean(-log(expected(1,1) - predicted(1,1) + this%epsilon) )
     if(any(shape(predicted).gt.1))then
        do s = 1, size(predicted,2)
           do i = 1, size(predicted,1)
              if(.not.predicted(i,s)%allocated .or. &
                   .not.expected(i,s)%allocated) cycle
-             ptr => mean(-log(expected(i,s) - predicted(i,s) + this%epsilon), dim=2)
+             ptr => mean(-log(expected(i,s) - predicted(i,s) + this%epsilon) )
 
              output => output + ptr
           end do
@@ -437,21 +473,23 @@ contains
 
     ! Arguments
     class(huber_loss_type), intent(in), target :: this
-    !! Instance of the physics-informed neural network loss function
+    !! Instance of the huber loss function
     type(array_type), dimension(:,:), intent(inout), target :: predicted
+    !! Predicted values
     type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
          expected
-    !! Predicted and expected values
+    !! Expected values
     type(array_type), pointer :: output
-    !! Physics-informed neural network loss
-    type(array_type), pointer :: ptr
+    !! Huber loss
 
     ! Local variables
     integer :: s, i
     !! Loop indices
+    type(array_type), pointer :: ptr
+    !! Temporary pointer for calculations
 
     ptr => predicted(1,1) - expected(1,1)
-    output => huber(predicted(1,1) - expected(1,1), this%gamma)
+    output => mean( huber(predicted(1,1) - expected(1,1), this%gamma) )
     if(any(shape(predicted).gt.1))then
        do s = 1, size(predicted,2)
           do i = 1, size(predicted,1)
@@ -459,11 +497,10 @@ contains
                   .not.expected(i,s)%allocated) cycle
              ptr => predicted(i,s) - expected(i,s)
 
-             output => output + huber(ptr, this%gamma)
+             output => output + mean( huber(ptr, this%gamma) )
           end do
        end do
     end if
-    output => mean(output, dim=2)
 
     ! output => merge( &
     !      0.5_real32 * (ptr)**2._real32, &
@@ -477,19 +514,19 @@ contains
 
 !###############################################################################
   module function compute_base(this, predicted, expected) result(output)
-    !! Compute the physics-informed neural network loss
+    !! Placeholder for compute function in base_loss_type
     implicit none
 
     ! Arguments
     class(base_loss_type), intent(in), target :: this
-    !! Instance of the physics-informed neural network loss function
+    !! Instance of the base loss function
     type(array_type), dimension(:,:), intent(inout), target :: predicted
     !! Predicted values
     type(array_type), dimension(size(predicted,1),size(predicted,2)), intent(in) :: &
          expected
     !! Expected values
     type(array_type), pointer :: output
-    !! Physics-informed neural network loss
+    !! Loss value
 
   end function compute_base
 !###############################################################################

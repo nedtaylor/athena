@@ -1,61 +1,74 @@
 module athena__initialiser_he
   !! Module containing the implementation of the He initialiser
   !!
-  !! This module contains the implementation of the He initialiser
-  !! for the weights and biases of a layer
-  !! The He initialiser is also known as the Kaiming initialiser
-  !! The He initialiser is also known as the MSRA initialiser
-  !! Reference: https://doi.org/10.48550/arXiv.1502.01852
+  !! This module implements He (Kaiming/MSRA) initialisation, designed for
+  !! layers with ReLU activation to prevent vanishing/exploding gradients.
+  !!
+  !! Mathematical operation:
+  !!
+  !! Uniform variant:
+  !! \[ W \sim \mathcal{U}(-\text{limit}, \text{limit}), \quad \text{limit} = \sqrt{\frac{6}{n_{\text{in}}}} \]
+  !!
+  !! Normal variant:
+  !! \[ W \sim \mathcal{N}(0, \sigma^2), \quad \sigma = \sqrt{\frac{2}{n_{\text{in}}}} \]
+  !!
+  !! where \(n_{\text{in}}\) is the number of input units (fan-in).
+  !!
+  !! Rationale: Maintains variance through ReLU layers
+  !! \(\text{Var}(\text{output}) \approx \text{Var}(\text{input})\)
+  !!
+  !! Best for: ReLU, Leaky ReLU, PReLU activations
+  !! Reference: He et al. (2015), ICCV, arXiv:1502.01852
   use coreutils, only: real32, pi, to_lower, stop_program
-  use athena__misc_types, only: initialiser_type
+  use athena__misc_types, only: base_init_type
   implicit none
 
 
   private
 
-  public :: he_uniform_type, he_normal_type
+  public :: he_uniform_init_type, he_normal_init_type
 
 
-  type, extends(initialiser_type) :: he_uniform_type
+  type, extends(base_init_type) :: he_uniform_init_type
      !! Type for the He initialiser (uniform)
      integer, private :: mode = 1
    contains
      procedure, pass(this) :: initialise => he_uniform_initialise
      !! Initialise the weights and biases using the He uniform distribution
-  end type he_uniform_type
+  end type he_uniform_init_type
 
-  type, extends(initialiser_type) :: he_normal_type
+  type, extends(base_init_type) :: he_normal_init_type
      !! Type for the He initialiser (normal)
      integer, private :: mode = 1
    contains
      procedure, pass(this) :: initialise => he_normal_initialise
      !! Initialise the weights and biases using the He normal distribution
-  end type he_normal_type
+  end type he_normal_init_type
 
 
-  interface he_uniform_type
+  interface he_uniform_init_type
      module function initialiser_uniform_setup(scale, mode) result(initialiser)
        !! Interface for the He uniform initialiser
        real(real32), intent(in), optional :: scale
        !! Scaling factor (default: 1.0)
        character(len=*), intent(in), optional :: mode
        !! Mode for calculating the scaling factor (default: "fan_in")
-       type(he_uniform_type) :: initialiser
+       type(he_uniform_init_type) :: initialiser
        !! He uniform initialiser object
      end function initialiser_uniform_setup
-  end interface he_uniform_type
+  end interface he_uniform_init_type
 
-  interface he_normal_type
+  interface he_normal_init_type
      module function initialiser_normal_setup(scale, mode) result(initialiser)
        !! Interface for the He normal initialiser
        real(real32), intent(in), optional :: scale
        !! Scaling factor (default: 1.0)
        character(len=*), intent(in), optional :: mode
        !! Mode for calculating the scaling factor (default: "fan_in")
-       type(he_normal_type) :: initialiser
+       type(he_normal_init_type) :: initialiser
        !! He normal initialiser object
      end function initialiser_normal_setup
-  end interface he_normal_type
+  end interface he_normal_init_type
 
 
 
@@ -69,7 +82,7 @@ contains
     !! Scaling factor (default: 1.0)
     character(len=*), intent(in), optional :: mode
     !! Mode for calculating the scaling factor (default: "fan_in")
-    type(he_uniform_type) :: initialiser
+    type(he_uniform_init_type) :: initialiser
     !! He uniform initialiser object
 
     ! Local variables
@@ -99,7 +112,7 @@ contains
     !! Scaling factor (default: 1.0)
     character(len=*), intent(in), optional :: mode
     !! Mode for calculating the scaling factor (default: "fan_in")
-    type(he_normal_type) :: initialiser
+    type(he_normal_init_type) :: initialiser
     !! He normal initialiser object
 
     ! Local variables
@@ -129,7 +142,7 @@ contains
     implicit none
 
     ! Arguments
-    class(he_uniform_type), intent(inout) :: this
+    class(he_uniform_init_type), intent(inout) :: this
     !! Instance of the Glorot initialiser
     real(real32), dimension(..), intent(out) :: input
     !! Weights and biases to initialise
@@ -191,7 +204,7 @@ contains
     implicit none
 
     ! Arguments
-    class(he_normal_type), intent(inout) :: this
+    class(he_normal_init_type), intent(inout) :: this
     !! Instance of the He initialiser
     real(real32), dimension(..), intent(out) :: input
     !! Weights and biases to initialise

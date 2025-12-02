@@ -1,9 +1,19 @@
 module athena__concat_layer
-  !! Module containing implementation of a concatenate layer
+  !! Module containing implementation of a concatenation layer
+  !!
+  !! This module implements a merge layer that concatenates multiple input
+  !! tensors along a specified dimension (features for 2D, channels for 3D).
+  !!
+  !! Mathematical operation:
+  !!   output = [input_1 || input_2 || ... || input_N]
+  !!
+  !! where || denotes concatenation along the appropriate dimension.
+  !! Output size along concatenation dimension = sum of input sizes.
+  !! Gradients are split to corresponding input portions during backpropagation.
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: merge_layer_type, base_layer_type
   use diffstruc, only: array_type, operator(+)
-  use athena__diffstruc_extd, only: array_ptr_type, concat
+  use athena__diffstruc_extd, only: array_ptr_type, concat_layers
   implicit none
 
 
@@ -15,8 +25,6 @@ module athena__concat_layer
 
   type, extends(merge_layer_type) :: concat_layer_type
      !! Type for concatenate layer with overloaded procedures
-     integer :: dim
-     !! Dimension along which to concatenate
      integer, dimension(:,:), allocatable :: io_map
      !! I/O mapping for the layer
    contains
@@ -478,7 +486,7 @@ contains
           do j = 1, size(input_list,1)
              if(.not.input_list(j)%array(i,s)%allocated) cycle index_loop
           end do
-          ptr => concat(input_list, i, s, dim = this%dim)
+          ptr => concat_layers(input_list, i, s, dim = 1)
           call this%output(i,s)%zero_grad()
           call this%output(i,s)%assign_and_deallocate_source(ptr)
           this%output(i,s)%is_temporary = .false.

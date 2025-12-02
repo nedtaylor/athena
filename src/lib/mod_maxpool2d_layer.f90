@@ -1,5 +1,20 @@
 module athena__maxpool2d_layer
   !! Module containing implementation of a 2D max pooling layer
+  !!
+  !! This module implements 2D max pooling for downsampling spatial dimensions
+  !! by selecting maximum values within pooling windows.
+  !!
+  !! Mathematical operation:
+  !!   output[i,j,k] = max_{m∈[0,pool_h), n∈[0,pool_w)} input[i*stride+m, j*stride+n, k]
+  !!
+  !! where:
+  !!   (i,j) are output spatial coordinates
+  !!   k is the channel index
+  !!   (pool_h, pool_w) is the pooling window size
+  !!   stride controls the step size
+  !!
+  !! Reduces spatial dimensions while preserving important features.
+  !! Shape: (width, height, channels) -> (width//stride, height//stride, channels)
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: pool_layer_type, base_layer_type
   use athena__misc_types, only: onnx_node_type, onnx_initialiser_type
@@ -397,7 +412,7 @@ contains
     !! Attribute value
 
     do i = 1, size(node%attributes)
-       val = node%attributes(i)%value
+       val = node%attributes(i)%val
        select case(trim(adjustl(node%attributes(i)%name)))
        case("kernel_shape")
           read(val,*) pool_size

@@ -1,9 +1,23 @@
 module athena__dropout_layer
   !! Module containing implementation of a dropout layer
   !!
-  !! This module contains the implementation of a dropout layer
-  !! for use in neural networks.
-  !! Dropout reference: https://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf
+  !! This module implements dropout regularisation, randomly zeroing elements
+  !! during training to prevent overfitting and co-adaptation of neurons.
+  !!
+  !! Mathematical operation (training):
+  !!   y_i = { 0                if r_i < p
+  !!         { x_i / (1-p)      otherwise
+  !!
+  !! where r_i ~ U(0,1) is random, p is dropout probability
+  !!
+  !! Scaling by 1/(1-p) maintains expected value: E[y] = E[x]
+  !!
+  !! Inference: acts as identity (no dropout applied)
+  !!   y = x
+  !!
+  !! Benefits: Prevents overfitting, ensemble effect, forces redundancy
+  !! Typical p values: 0.2-0.5 (higher dropout for larger networks)
+  !! Reference: Srivastava et al. (2014), JMLR
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: drop_layer_type, base_layer_type
   use diffstruc, only: array_type, operator(*)

@@ -44,7 +44,6 @@ program test_dropblock3d_layer
        input_shape = [width, width, width, num_channels], &
        batch_size = 1 &
   )
-  call db_layer%set_ptrs()
 
   !! check layer name
   if(.not. db_layer%name .eq. 'dropblock3d')then
@@ -97,7 +96,6 @@ program test_dropblock3d_layer
        input_shape = [width, width, width, num_channels], &
        batch_size = 1 &
   )
-  call db_layer%set_ptrs()
 
   call input(1,1)%allocate(array_shape=[width, width, width, num_channels, 1])
   call input(1,1)%set_requires_grad(.true.)

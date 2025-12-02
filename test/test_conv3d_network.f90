@@ -35,13 +35,13 @@ program test_conv3d_network
        num_filters = num_filters1, &
        kernel_size = kernel_size1, &
        kernel_initialiser = "ones", &
-       activation_function = "linear" &
+       activation = "linear" &
   ))
   call network%add(conv3d_layer_type( &
        num_filters = num_filters2, &
        kernel_size = kernel_size2, &
        kernel_initialiser = "ones", &
-       activation_function = "linear" &
+       activation = "linear" &
   ))
   call network%compile( &
        optimiser = base_optimiser_type(learning_rate=1.0), &
@@ -57,7 +57,7 @@ program test_conv3d_network
   call input(1,1)%allocate([width, width, width, num_channels, 1], source=0._real32)
   call input(1,1)%set_requires_grad(.true.)
 
-  call network%forward_generic2d(input)
+  call network%forward(input)
   output = network%get_output()
 
 
@@ -80,7 +80,7 @@ program test_conv3d_network
   call input(1,1)%allocate([width, width, width, num_channels, 1], source=0._real32)
   call input(1,1)%set_requires_grad(.true.)
   call input(1,1)%set(data_tmp)
-  call network%forward_generic2d(input)
+  call network%forward(input)
   call network%model(network%leaf_vertices(1))%layer%output(1,1)%grad_reverse()
   select type(current => network%model(network%leaf_vertices(1))%layer)
   type is(conv3d_layer_type)

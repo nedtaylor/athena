@@ -1,3 +1,8 @@
+# # Physics-Informed Neural Network (PINN) for 1D Burgers Equation
+# This script implements a PINN to solve the 1D Burgers equation using PyTorch.
+# This has been adapted from an online tutorial: https://www.marktechpost.com/2025/03/28/a-step-by-step-guide-to-solve-1d-burgers-equation-with-physics-informed-neural-networks-pinns-a-pytorch-approach-using-automatic-differentiation-and-collocation-methods/
+# The code can optionally read initial parameter values and data from athena output files for comparison.
+
 # %%
 import torch
 import torch.nn as nn

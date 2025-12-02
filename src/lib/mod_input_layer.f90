@@ -1,5 +1,18 @@
 module athena__input_layer
   !! Module containing procedures for an input layer
+  !!
+  !! This module implements the input layer which serves as the entry point
+  !! for data into a neural network. It handles data conversion and batching.
+  !!
+  !! Operation: Accepts external data and converts to internal array_type format
+  !!   - Validates input shape matches specified dimensions
+  !!   - Handles both dense arrays and graph-structured data
+  !!   - No learnable parameters (pass-through layer)
+  !!
+  !! Properties:
+  !!   - First layer in any network architecture
+  !!   - Defines expected input shape for subsequent layers
+  !!   - Supports multiple input sources in multi-input networks
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: base_layer_type
   use graphstruc, only: graph_type

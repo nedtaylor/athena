@@ -1,49 +1,63 @@
 module athena__initialiser_lecun
   !! Module containing the implementation of the LeCun initialiser
   !!
-  !! This module contains the implementation of the LeCun initialiser
-  !! for the weights and biases of a layer
-  !! Reference: https://dl.acm.org/doi/10.5555/645754.668382
+  !! This module implements LeCun initialisation, the precursor to modern
+  !! initialisation schemes, designed for efficient backpropagation.
+  !!
+  !! Mathematical operation:
+  !!   Uniform variant:  W ~ U(-limit, limit)
+  !!                     where limit = sqrt(3 / fan_in)
+  !!   Normal variant:   W ~ N(0, σ²)
+  !!                     where σ = sqrt(1 / fan_in)
+  !!
+  !! fan_in is the number of input units to the layer.
+  !!
+  !! Rationale: Maintains variance of inputs through layers
+  !! Helps prevent saturation of activation functions
+  !!
+  !! Best for: SELU activation (with lecun_normal variant)
+  !! Also works with: Tanh, Sigmoid
+  !! Reference: LeCun et al. (1998), Neural Networks: Tricks of the Trade
   use coreutils, only: real32, pi, stop_program
-  use athena__misc_types, only: initialiser_type
+  use athena__misc_types, only: base_init_type
   implicit none
 
 
   private
 
-  public :: lecun_uniform_type
-  public :: lecun_normal_type
+  public :: lecun_uniform_init_type
+  public :: lecun_normal_init_type
 
 
-  type, extends(initialiser_type) :: lecun_uniform_type
+  type, extends(base_init_type) :: lecun_uniform_init_type
      !! Type for the LeCun initialiser (uniform)
    contains
      procedure, pass(this) :: initialise => lecun_uniform_initialise
      !! Initialise the weights and biases using the LeCun uniform distribution
-  end type lecun_uniform_type
-  type, extends(initialiser_type) :: lecun_normal_type
+  end type lecun_uniform_init_type
+  type, extends(base_init_type) :: lecun_normal_init_type
      !! Type for the LeCun initialiser (normal)
    contains
      procedure, pass(this) :: initialise => lecun_normal_initialise
      !! Initialise the weights and biases using the LeCun normal distribution
-  end type lecun_normal_type
+  end type lecun_normal_init_type
 
 
-  interface lecun_uniform_type
+  interface lecun_uniform_init_type
      module function initialiser_lecun_uniform_setup() result(initialiser)
        !! Interface for the LeCun uniform initialiser
-       type(lecun_uniform_type) :: initialiser
+       type(lecun_uniform_init_type) :: initialiser
        !! LeCun uniform initialiser object
      end function initialiser_lecun_uniform_setup
-  end interface lecun_uniform_type
+  end interface lecun_uniform_init_type
 
-  interface lecun_normal_type
+  interface lecun_normal_init_type
      module function initialiser_lecun_normal_setup() result(initialiser)
        !! Interface for the LeCun normal initialiser
-       type(lecun_normal_type) :: initialiser
+       type(lecun_normal_init_type) :: initialiser
        !! LeCun normal initialiser object
      end function initialiser_lecun_normal_setup
-  end interface lecun_normal_type
+  end interface lecun_normal_init_type
 
 
 
@@ -54,7 +68,7 @@ contains
     !! Interface for the LeCun uniform initialiser
     implicit none
 
-    type(lecun_uniform_type) :: initialiser
+    type(lecun_uniform_init_type) :: initialiser
     !! LeCun uniform initialiser object
 
     initialiser%name = "lecun_uniform"
@@ -65,7 +79,7 @@ contains
     !! Interface for the LeCun normal initialiser
     implicit none
 
-    type(lecun_normal_type) :: initialiser
+    type(lecun_normal_init_type) :: initialiser
     !! LeCun normal initialiser object
 
     initialiser%name = "lecun_normal"
@@ -80,7 +94,7 @@ contains
     implicit none
 
     ! Arguments
-    class(lecun_uniform_type), intent(inout) :: this
+    class(lecun_uniform_init_type), intent(inout) :: this
     !! Instance of the Glorot initialiser
     real(real32), dimension(..), intent(out) :: input
     !! Weights and biases to initialise
@@ -135,7 +149,7 @@ contains
     implicit none
 
     ! Arguments
-    class(lecun_normal_type), intent(inout) :: this
+    class(lecun_normal_init_type), intent(inout) :: this
     !! Instance of the LeCun initialiser
     real(real32), dimension(..), intent(out) :: input
     !! Weights and biases to initialise

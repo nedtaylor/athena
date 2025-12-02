@@ -16,17 +16,81 @@ module athena__misc_types
 
   private
 
-  public :: activation_type
-  public :: initialiser_type
+  public :: base_actv_type
+  public :: base_init_type
   public :: facets_type
   public :: onnx_attribute_type, onnx_node_type, onnx_initialiser_type
 
 
 
+
+
+
 !-------------------------------------------------------------------------------
-! Activation (transfer) function base type
+! Attributes type (for ONNX export)
 !-------------------------------------------------------------------------------
-  type, abstract :: activation_type
+  type :: onnx_attribute_type
+     !! Type for storing attributes for ONNX export
+     character(20) :: name
+     !! Name of the attribute
+     character(20) :: type
+     !! Type of the attribute (e.g. 'int', 'float', 'string')
+     character(len=:), allocatable :: val
+     !! Value of the attribute as a string
+     !! This allows for flexible storage of different types
+     !! of attributes without needing to define a specific type
+  end type onnx_attribute_type
+
+  interface onnx_attribute_type
+     module function create_attribute(name, type, val) result(attribute)
+       !! Function to create an ONNX attribute
+       character(20), intent(in) :: name
+       !! Name of the attribute
+       character(20), intent(in) :: type
+       !! Type of the attribute
+       character(len=*), intent(in) :: val
+       !! Value of the attribute as a string
+       type(onnx_attribute_type) :: attribute
+       !! Resulting ONNX attribute
+     end function create_attribute
+  end interface
+!-------------------------------------------------------------------------------
+
+!-------------------------------------------------------------------------------
+! ONNX node type
+!-------------------------------------------------------------------------------
+  type :: onnx_node_type
+     character(256) :: op_type
+     character(20) :: name
+     character(20), allocatable, dimension(:) :: inputs
+     character(20), allocatable, dimension(:) :: outputs
+     type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+     integer :: num_inputs, num_outputs
+  end type onnx_node_type
+!-------------------------------------------------------------------------------
+
+!-------------------------------------------------------------------------------
+! ONNX initialiser type
+!-------------------------------------------------------------------------------
+  type :: onnx_initialiser_type
+     character(20) :: name
+     integer, allocatable, dimension(:) :: dims
+     real(real32), allocatable, dimension(:) :: data
+  end type onnx_initialiser_type
+!-------------------------------------------------------------------------------
+
+
+
+!------------------------------------------------------------------------------!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!------------------------------------------------------------------------------!
+
+
+
+!-------------------------------------------------------------------------------
+! Activation (aka transfer) function base type
+!-------------------------------------------------------------------------------
+  type, abstract :: base_actv_type
      !! Abstract type for activation functions
      character(10) :: name
      !! Name of the activation function
@@ -37,20 +101,63 @@ module athena__misc_types
      logical :: apply_scaling = .false.
      !! Boolean to apply scaling or not
    contains
-     procedure (activation_function), deferred, pass(this) :: activate
+     procedure (apply_actv), deferred, pass(this) :: apply
      !! Abstract procedure for 5D derivative of activation function
-  end type activation_type
+     procedure(reset_actv), deferred, pass(this) :: reset
+     !! Reset activation function attributes and variables
+     procedure(apply_attributes_actv), deferred, pass(this) :: apply_attributes
+     !! Set up ONNX attributes
+     procedure(export_attributes_actv), deferred, pass(this) :: export_attributes
+     !! Export ONNX attributes
+     procedure, pass(this) :: print_to_unit => print_to_unit_actv
+  end type base_actv_type
 
   ! Interface for activation function
   !-----------------------------------------------------------------------------
   abstract interface
-     function activation_function(this, val) result(output)
+     subroutine reset_actv(this)
+       !! Interface for resetting activation function attributes and variables
+       import base_actv_type
+       class(base_actv_type), intent(inout) :: this
+       !! Instance of the activation type
+     end subroutine reset_actv
+
+     function apply_actv(this, val) result(output)
        !! Interface for activation function
-       import activation_type, real32, array_type
-       class(activation_type), intent(in) :: this
+       import base_actv_type, real32, array_type
+       class(base_actv_type), intent(in) :: this
        type(array_type), intent(in) :: val
        type(array_type), pointer :: output
-     end function activation_function
+     end function apply_actv
+
+     subroutine apply_attributes_actv(this, attributes)
+       !! Interface for loading ONNX attributes
+       import base_actv_type, onnx_attribute_type
+       class(base_actv_type), intent(inout) :: this
+       !! Instance of the activation type
+       type(onnx_attribute_type), dimension(:), intent(in) :: attributes
+       !! ONNX attributes
+     end subroutine apply_attributes_actv
+
+     pure function export_attributes_actv(this) result(attributes)
+       !! Interface for exporting ONNX attributes
+       import base_actv_type, onnx_attribute_type
+       class(base_actv_type), intent(in) :: this
+       !! Instance of the activation type
+       type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+     end function export_attributes_actv
+  end interface
+
+  interface
+     module subroutine print_to_unit_actv(this, unit, identifier)
+       !! Interface for printing activation function details
+       class(base_actv_type), intent(in) :: this
+       !! Instance of the activation type
+       integer, intent(in) :: unit
+       !! Unit number for output
+       character(len=*), intent(in), optional :: identifier
+       !! Optional identifier for the activation function
+     end subroutine print_to_unit_actv
   end interface
 !-------------------------------------------------------------------------------
 
@@ -63,7 +170,7 @@ module athena__misc_types
 !-------------------------------------------------------------------------------
 ! Weights and biases initialiser base type
 !-------------------------------------------------------------------------------
-  type, abstract :: initialiser_type
+  type, abstract :: base_init_type
      !! Abstract type for initialising weights and biases
      character(len=20) :: name
      !! Name of the initialiser
@@ -72,7 +179,7 @@ module athena__misc_types
    contains
      procedure (initialiser_subroutine), deferred, pass(this) :: initialise
      !! Abstract procedure for initialising weights and biases
-  end type initialiser_type
+  end type base_init_type
 
   ! Interface for initialiser function
   !-----------------------------------------------------------------------------
@@ -80,8 +187,8 @@ module athena__misc_types
      !! Interface for initialiser function
      subroutine initialiser_subroutine(this, input, fan_in, fan_out, spacing)
        !! Interface for initialiser function
-       import initialiser_type, real32
-       class(initialiser_type), intent(inout) :: this
+       import base_init_type, real32
+       class(base_init_type), intent(inout) :: this
        !! Instance of the initialiser type
        real(real32), dimension(..), intent(out) :: input
        !! Array to initialise
@@ -135,51 +242,6 @@ module athena__misc_types
        !! Method for setting up bounds
      end subroutine setup_bounds
   end interface
-!-------------------------------------------------------------------------------
-
-
-!------------------------------------------------------------------------------!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!------------------------------------------------------------------------------!
-
-
-!-------------------------------------------------------------------------------
-! Attributes type (for ONNX export)
-!-------------------------------------------------------------------------------
-  type :: onnx_attribute_type
-     !! Type for storing attributes for ONNX export
-     character(20) :: name
-     !! Name of the attribute
-     character(20) :: type
-     !! Type of the attribute (e.g. 'int', 'float', 'string')
-     character(len=:), allocatable :: value
-     !! Value of the attribute as a string
-     !! This allows for flexible storage of different types
-     !! of attributes without needing to define a specific type
-  end type onnx_attribute_type
-!-------------------------------------------------------------------------------
-
-!-------------------------------------------------------------------------------
-! ONNX node type
-!-------------------------------------------------------------------------------
-  type :: onnx_node_type
-     character(256) :: op_type
-     character(20) :: name
-     character(20), allocatable, dimension(:) :: inputs
-     character(20), allocatable, dimension(:) :: outputs
-     type(onnx_attribute_type), allocatable, dimension(:) :: attributes
-     integer :: num_inputs, num_outputs
-  end type onnx_node_type
-!-------------------------------------------------------------------------------
-
-!-------------------------------------------------------------------------------
-! ONNX initialiser type
-!-------------------------------------------------------------------------------
-  type :: onnx_initialiser_type
-     character(20) :: name
-     integer, allocatable, dimension(:) :: dims
-     real(real32), allocatable, dimension(:) :: data
-  end type onnx_initialiser_type
 !-------------------------------------------------------------------------------
 
 end module athena__misc_types

@@ -46,7 +46,6 @@ program test_batchnorm1d_layer
        input_shape=[width], &
        batch_size=batch_size &
   )
-  call bn_layer%set_ptrs()
   select type(bn_layer)
   type is(batchnorm1d_layer_type)
      if(bn_layer%num_channels .ne. width)then
@@ -125,12 +124,11 @@ program test_batchnorm1d_layer
        gamma_init_std = 0.0, &
        beta_init_mean = beta, &
        beta_init_std = 0.0, &
-       kernel_initialiser = 'gaussian', &
-       bias_initialiser = 'gaussian', &
+       gamma_initialiser = 'gaussian', &
+       beta_initialiser = 'gaussian', &
        moving_mean_initialiser = 'zeros', &
        moving_variance_initialiser = 'zeros' &
   )
-  call bn_layer%set_ptrs()
 
   !! check layer name
   if(.not. bn_layer%name .eq. 'batchnorm1d')then
@@ -247,7 +245,7 @@ program test_batchnorm1d_layer
   !! check gradient has expected value
   select type(current => bn_layer)
   class is(batchnorm1d_layer_type)
-     params_grad => current%params_array(1)%grad
+     params_grad => current%params(1)%grad
      do i = 1, width
         mean = sum(input_3d(1,i,:))/real(batch_size)
         std = sqrt(sum((input_3d(1,i,:) - mean)**2)/real(batch_size))

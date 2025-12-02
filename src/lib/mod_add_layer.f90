@@ -1,8 +1,17 @@
 module athena__add_layer
-  !! Module containing implementation of a add layer
+  !! Module containing implementation of an element-wise addition layer
+  !!
+  !! This module implements a merge layer that performs element-wise addition
+  !! of multiple input tensors. Commonly used for residual/skip connections.
+  !!
+  !! Mathematical operation:
+  !!   output = sum(input_i) for i=1..N
+  !!
+  !! where N is the number of input layers. All inputs must have identical shapes.
+  !! Gradients are copied (not split) to all inputs during backpropagation.
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: merge_layer_type, base_layer_type
-  use athena__diffstruc_extd, only: array_ptr_type, add
+  use athena__diffstruc_extd, only: array_ptr_type, add_layers
   use diffstruc, only: array_type, operator(+)
   implicit none
 
@@ -486,7 +495,7 @@ contains
           do j = 1, size(input_list,1)
              if(.not.input_list(j)%array(i,s)%allocated) cycle index_loop
           end do
-          ptr => add(input_list, i, s)
+          ptr => add_layers(input_list, i, s)
           call this%output(i,s)%zero_grad()
           call this%output(i,s)%assign_and_deallocate_source(ptr)
           this%output(i,s)%is_temporary = .false.

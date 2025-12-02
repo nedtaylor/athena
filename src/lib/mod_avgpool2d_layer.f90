@@ -1,5 +1,20 @@
 module athena__avgpool2d_layer
   !! Module containing implementation of a 2D average pooling layer
+  !!
+  !! This module implements 2D average pooling for downsampling by computing
+  !! mean values within pooling windows.
+  !!
+  !! Mathematical operation:
+  !!   output[i,j,k] = (1/N) Σ_{m,n} input[i*stride+m, j*stride+n, k]
+  !!
+  !! where:
+  !!   (i,j) are output spatial coordinates
+  !!   k is the channel index
+  !!   N = pool_h * pool_w is the window size
+  !!   (m,n) iterate over the pooling window
+  !!
+  !! Provides smooth downsampling by averaging.
+  !! Shape: (width, height, channels) -> (width//stride, height//stride, channels)
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: pool_layer_type, base_layer_type
   use diffstruc, only: array_type

@@ -138,21 +138,6 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Allocateparameters
-    !---------------------------------------------------------------------------
-    if(allocated(this%params)) deallocate(this%params)
-    allocate(this%params(this%num_params), source=0._real32)
-    if(allocated(this%dp)) deallocate(this%dp)
-    allocate( &
-         this%dp(sum(this%num_params_msg), this%batch_size), source=0._real32 &
-    )
-    if(allocated(this%db)) deallocate(this%db)
-    allocate( &
-         this%db(this%num_params_readout, this%batch_size), source=0._real32 &
-    )
-
-
-    !---------------------------------------------------------------------------
     ! Initialise batch size-dependent arrays
     !---------------------------------------------------------------------------
     if(this%batch_size.gt.0) call this%set_batch_size(this%batch_size)
@@ -249,7 +234,6 @@ contains
 !              )
 !           end do
 !        end if
-!        call this%set_ptrs()
 !     end if
 
 !     do s = 1, size(graph)

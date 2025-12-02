@@ -1,12 +1,23 @@
 module athena__actv_layer
   !! Module containing implementation of the activation layer
   !!
-  !! This module wraps different activation functions into a layer type
+  !! This module wraps various activation functions into a layer type,
+  !! applying element-wise non-linear transformations to inputs.
+  !!
+  !! Mathematical operation:
+  !!   y = σ(x)
+  !!
+  !! where σ is one of: relu, sigmoid, tanh, softmax, linear, etc.
+  !!
+  !! Properties:
+  !!   - No learnable parameters (fixed non-linearity)
+  !!   - Element-wise operation (preserves shape)
+  !!   - Enables networks to learn non-linear functions
+  !!   - Choice of activation affects gradient flow and convergence
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: base_layer_type
-  use athena__misc_types, only: activation_type, &
+  use athena__misc_types, only: base_actv_type, &
        onnx_node_type, onnx_initialiser_type
-  use athena__misc_types, only: activation_type
   use diffstruc, only: array_type
   implicit none
 
@@ -19,7 +30,7 @@ module athena__actv_layer
 
   type, extends(base_layer_type) :: actv_layer_type
      !! Layer type for activation layers
-     class(activation_type), allocatable :: transfer
+     class(base_actv_type), allocatable :: activation
      !! Activation function
    contains
      procedure, pass(this) :: set_rank => set_rank_actv
@@ -46,15 +57,13 @@ module athena__actv_layer
   interface actv_layer_type
      !! Interface for the activation layer type
      module function layer_setup( &
-          activation_function, activation_scale, &
+          activation, &
           input_shape, batch_size, &
           verbose &
      ) result(layer)
        !! Set up the activation layer
-       character(*), intent(in) :: activation_function
-       !! Activation function name
-       real(real32), optional, intent(in) :: activation_scale
-       !! Activation function scale
+       class(*), intent(in) :: activation
+       !! Activation function
        integer, dimension(:), optional, intent(in) :: input_shape
        !! Input shape
        integer, optional, intent(in) :: batch_size
@@ -72,7 +81,7 @@ contains
 
 !###############################################################################
   module function layer_setup( &
-       activation_function, activation_scale, &
+       activation, &
        input_shape, batch_size, &
        verbose &
   ) result(layer)
@@ -81,10 +90,8 @@ contains
     implicit none
 
     ! Arguments
-    character(*), intent(in) :: activation_function
-    !! Activation function name
-    real(real32), optional, intent(in) :: activation_scale
-    !! Activation function scale
+    class(*), intent(in) :: activation
+    !! Activation function
     integer, dimension(:), optional, intent(in) :: input_shape
     !! Input shape
     integer, optional, intent(in) :: batch_size
@@ -95,8 +102,8 @@ contains
     !! Instance of the activation layer
 
     ! Local variables
-    real(real32) :: activation_scale_
-    !! Activation function scale
+    class(base_actv_type), allocatable :: activation_
+    !! Activation function
     integer :: verbose_
     !! Verbosity level
 
@@ -105,13 +112,16 @@ contains
     if(present(verbose)) verbose_ = verbose
 
     !---------------------------------------------------------------------------
+    ! Set activation function
+    !---------------------------------------------------------------------------
+    activation_ = activation_setup(activation)
+
+
+    !---------------------------------------------------------------------------
     ! set hyperparameters
     !---------------------------------------------------------------------------
-    activation_scale_ = 1._real32
-    if(present(activation_scale)) activation_scale_ = activation_scale
     call layer%set_hyperparams( &
-         activation_function = activation_function, &
-         activation_scale = activation_scale_, &
+         activation = activation_, &
          verbose = verbose_ &
     )
 
@@ -137,8 +147,7 @@ contains
 !###############################################################################
   subroutine set_hyperparams_actv( &
        this, &
-       activation_function, &
-       activation_scale, &
+       activation, &
        input_rank, &
        verbose &
   )
@@ -152,10 +161,8 @@ contains
     !! Instance of the activation layer
     integer, optional, intent(in) :: input_rank
     !! Input rank
-    character(*), intent(in) :: activation_function
-    !! Activation function name
-    real(real32), intent(in) :: activation_scale
-    !! Activation function scale
+    class(base_actv_type), allocatable, intent(in) :: activation
+    !! Activation function
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -165,16 +172,17 @@ contains
     this%input_rank = 0
     if(present(input_rank)) this%input_rank = input_rank
     this%output_rank = this%input_rank
-    if(allocated(this%transfer)) deallocate(this%transfer)
-    allocate(this%transfer, &
-         source=activation_setup(activation_function, activation_scale) &
-    )
-    this%subtype = trim(to_lower(activation_function))
+    if(.not.allocated(activation))then
+       this%activation = activation_setup("none")
+    else
+       this%activation = activation
+    end if
+    this%subtype = trim(to_lower(this%activation%name))
 
     if(present(verbose))then
        if(abs(verbose).gt.0)then
           write(*,'("ACTV activation function: ",A)') &
-               trim(activation_function)
+               trim(this%activation%name)
        end if
     end if
 
@@ -265,53 +273,7 @@ contains
           )
           return
        else
-          select case(size(this%input_shape))
-          case(1)
-             this%input_rank = 1
-             allocate(this%output(1,1))
-             call this%output(1,1)%allocate( &
-                  array_shape = [ &
-                       this%input_shape(1), this%batch_size &
-                  ], &
-                  source=0._real32 &
-             )
-          case(2)
-             this%input_rank = 2
-             allocate(this%output(1,1))
-             call this%output(1,1)%allocate( &
-                  array_shape = [ &
-                       this%input_shape(1), &
-                       this%input_shape(2), &
-                       this%batch_size ], &
-                  source=0._real32 &
-             )
-          case(3)
-             this%input_rank = 3
-             allocate(this%output(1,1))
-             call this%output(1,1)%allocate( &
-                  array_shape = [ &
-                       this%input_shape(1), &
-                       this%input_shape(2), &
-                       this%input_shape(3), this%batch_size &
-                  ], &
-                  source=0._real32 &
-             )
-          case(4)
-             this%input_rank = 4
-             allocate(this%output(1,1))
-             call this%output(1,1)%allocate( &
-                  array_shape = [ &
-                       this%input_shape(1), &
-                       this%input_shape(2), &
-                       this%input_shape(3), &
-                       this%input_shape(4), this%batch_size &
-                  ], &
-                  source=0._real32 &
-             )
-          case default
-             call stop_program('Activation layer only supports input ranks 1-4')
-             return
-          end select
+          allocate(this%output(1,1))
        end if
     end if
 
@@ -374,8 +336,9 @@ contains
     ! Write initial parameters
     !---------------------------------------------------------------------------
     write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
-    write(unit,'(3X,"ACTIVATION_FUNCTION = ",A)') this%transfer%name
-    write(unit,'(3X,"ACTIVATION_SCALE = ",1ES20.10)') this%transfer%scale
+    if(this%activation%name .ne. 'none')then
+       call this%activation%print_to_unit(unit)
+    end if
 
   end subroutine print_to_unit_actv
 !###############################################################################
@@ -385,7 +348,8 @@ contains
   subroutine read_actv(this, unit, verbose)
     !! Read activation layer from file
     use athena__tools_infile, only: assign_val, assign_vec
-    use coreutils, only: to_lower, to_upper, icount
+    use coreutils, only: to_lower, to_upper
+    use athena__activation, only: read_activation
     implicit none
 
     ! Arguments
@@ -401,16 +365,16 @@ contains
     !! Verbosity level
     integer :: stat
     !! File status
-    integer :: itmp1
-    !! Temporary integer
-    real(real32) :: activation_scale
-    !! Activation scale
+    integer :: itmp1, iline
+    !! Temporary integer and line counter
+    character(20) :: activation_name
+    !! Activation function name
+    class(base_actv_type), allocatable :: activation
+    !! Activation function
     integer, dimension(3) :: input_shape
     !! Input shape
     character(256) :: buffer, tag, err_msg
     !! Buffer for reading lines, tag for identifying lines, error message
-    character(20) :: activation_function
-    !! Activation function name
 
 
     ! Initialise optional arguments
@@ -420,6 +384,7 @@ contains
 
     ! Loop over tags in layer card
     !---------------------------------------------------------------------------
+    iline = 0
     tag_loop: do
 
        ! Check for end of file
@@ -439,6 +404,7 @@ contains
           backspace(unit)
           exit tag_loop
        end if
+       iline = iline + 1
 
        tag=trim(adjustl(buffer))
        if(scan(buffer,"=").ne.0) tag=trim(tag(:scan(tag,"=")-1))
@@ -448,10 +414,10 @@ contains
        select case(trim(tag))
        case("INPUT_SHAPE")
           call assign_vec(buffer, input_shape, itmp1)
-       case("ACTIVATION_FUNCTION")
-          call assign_val(buffer, activation_function, itmp1)
-       case("ACTIVATION_SCALE")
-          call assign_val(buffer, activation_scale, itmp1)
+       case("ACTIVATION")
+          iline = iline - 1
+          backspace(unit)
+          activation = read_activation(unit, iline)
        case default
           !! don't look for "e" due to scientific notation of numbers
           !! ... i.e. exponent (E+00)
@@ -472,8 +438,7 @@ contains
     ! Set hyperparameters and initialise layer
     !---------------------------------------------------------------------------
     call this%set_hyperparams( &
-         activation_function = activation_function, &
-         activation_scale = activation_scale &
+         activation = activation &
     )
     call this%init(input_shape = input_shape)
 
@@ -585,10 +550,18 @@ contains
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input values
 
+    ! Local variables
+    integer :: i, s
+    !! Loop indices
     type(array_type), pointer :: ptr
+    !! Pointer array
 
-    ptr => this%transfer%activate(input(1,1))
-    call this%output(1,1)%assign_and_deallocate_source(ptr)
+    do s = 1, size(input, 2)
+       do i = 1, size(input, 1)
+          ptr => this%activation%apply(input(i,s))
+          call this%output(i,s)%assign_and_deallocate_source(ptr)
+       end do
+    end do
 
   end subroutine forward_actv
 !###############################################################################

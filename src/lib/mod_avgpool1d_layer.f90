@@ -1,5 +1,20 @@
 module athena__avgpool1d_layer
   !! Module containing implementation of a 1D average pooling layer
+  !!
+  !! This module implements 1D average pooling for downsampling sequential data
+  !! by computing mean values within pooling windows.
+  !!
+  !! Mathematical operation:
+  !!   output[i,k] = (1/pool_size) * sum_{m∈[0,pool_size)} input[i*stride+m, k]
+  !!
+  !! where:
+  !!   i is the output position along sequence
+  !!   k is the channel index
+  !!   pool_size is the pooling window length
+  !!   stride controls the step size
+  !!
+  !! Smoother downsampling than max pooling, preserves more information.
+  !! Shape: (length, channels) -> (length//stride, channels)
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: pool_layer_type, base_layer_type
   use diffstruc, only: array_type

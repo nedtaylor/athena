@@ -58,11 +58,32 @@ module athena
        renormalise_sum
 
 
+  ! Activation functions (aka transfer functions)
+  !-----------------------------------------------------------------------------
+  use athena__activation_gaussian, only: gaussian_actv_type
+  use athena__activation_leaky_relu, only: leaky_relu_actv_type
+  use athena__activation_linear, only: linear_actv_type
+  use athena__activation_none,   only: none_actv_type
+  use athena__activation_piecewise, only: piecewise_actv_type
+  use athena__activation_relu,   only: relu_actv_type
+  use athena__activation_selu,   only: selu_actv_type
+  use athena__activation_sigmoid,only: sigmoid_actv_type
+  use athena__activation_softmax, only: softmax_actv_type
+  use athena__activation_swish,  only: swish_actv_type
+  use athena__activation_tanh,   only: tanh_actv_type
+
   ! Initialisation methods
   !-----------------------------------------------------------------------------
-  use athena__misc_types, only: initialiser_type
-  use athena__initialiser_he, only: he_uniform_type, he_normal_type
-  ! use athena__initialiser_glorot, only: glorot_uniform_type, glorot_normal_type
+  use athena__misc_types, only: base_init_type
+  use athena__initialiser_gaussian, only: gaussian_init_type
+  use athena__initialiser_he, only: he_uniform_init_type, he_normal_init_type
+  use athena__initialiser_glorot, only: &
+       glorot_uniform_init_type, glorot_normal_init_type
+  use athena__initialiser_ident, only: ident_init_type
+  use athena__initialiser_lecun, only: &
+       lecun_uniform_init_type, lecun_normal_init_type
+  use athena__initialiser_ones, only: ones_init_type
+  use athena__initialiser_zeros, only: zeros_init_type
 
 
   ! Abstract layer types
@@ -134,7 +155,7 @@ module athena
   use athena__maxpool3d_layer, only: maxpool3d_layer_type, read_maxpool3d_layer
 
 
-  ! Flatten layer types
+  ! Reshape layer types
   !-----------------------------------------------------------------------------
   use athena__flatten_layer, only: flatten_layer_type, read_flatten_layer
 
@@ -166,7 +187,10 @@ module athena
   !-----------------------------------------------------------------------------
   use athena__container_layer, only: &
        list_of_layer_types, &
-       allocate_list_of_layer_types
+       allocate_list_of_layer_types, &
+       list_of_onnx_layer_creators, &
+       allocate_list_of_onnx_layer_creators, &
+       read_layer_container, onnx_create_layer_container
 
   implicit none
 

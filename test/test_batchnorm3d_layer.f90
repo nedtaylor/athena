@@ -52,12 +52,11 @@ program test_batchnorm3d_layer
        gamma_init_std = 0.0, &
        beta_init_mean = beta, &
        beta_init_std = 0.0, &
-       kernel_initialiser = 'gaussian', &
-       bias_initialiser = 'gaussian', &
+       gamma_initialiser = 'gaussian', &
+       beta_initialiser = 'gaussian', &
        moving_mean_initialiser = 'zeros', &
        moving_variance_initialiser = 'zeros' &
   )
-  call bn_layer%set_ptrs()
 
   !! check layer name
   if(.not. bn_layer%name .eq. 'batchnorm3d')then

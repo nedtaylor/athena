@@ -48,16 +48,42 @@ if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
   endif()
 endif()
 
-# enable testing
-enable_testing()
+# include FetchContent module
+include(FetchContent)
 
-# set options for building tests and examples
-option(BUILD_TESTS "Build the unit tests" ON)
-option(BUILD_EXAMPLES "Build the examples" ON)
+# Disable testing for dependencies - both standard variables
+set(BUILD_TESTING OFF)
+set(BUILD_TESTS OFF)
 
+# set up the coreutils dependency
+FetchContent_Declare(
+    coreutils
+    GIT_REPOSITORY https://github.com/nedtaylor/coreutils.git
+    GIT_TAG        main
+    FIND_PACKAGE_ARGS NAMES coreutils
+)
+FetchContent_MakeAvailable(coreutils)
+find_package(coreutils REQUIRED)
+
+message(STATUS "coreutils home directory: ${coreutils_DIR}")
+message(STATUS "coreutils include directory: ${coreutils_INCLUDE_DIRS}")
+message(STATUS "coreutils source directory: ${coreutils_BUILD_DIRS}")
+
+# set up the diffstruc dependency
+FetchContent_Declare(
+    diffstruc
+    GIT_REPOSITORY https://github.com/nedtaylor/diffstruc.git
+    GIT_TAG        development
+    FIND_PACKAGE_ARGS NAMES diffstruc
+)
+FetchContent_MakeAvailable(diffstruc)
+find_package(diffstruc REQUIRED)
+
+message(STATUS "diffstruc home directory: ${diffstruc_DIR}")
+message(STATUS "diffstruc include directory: ${diffstruc_INCLUDE_DIRS}")
+message(STATUS "diffstruc source directory: ${diffstruc_BUILD_DIRS}")
 
 # set up the graphstruc dependency
-include(FetchContent)
 FetchContent_Declare(
     graphstruc
     GIT_REPOSITORY https://github.com/nedtaylor/graphstruc.git
@@ -73,12 +99,24 @@ message(STATUS "graphstruc home directory: ${graphstruc_DIR}")
 message(STATUS "graphstruc include directory: ${graphstruc_INCLUDE_DIRS}")
 message(STATUS "graphstruc source directory: ${graphstruc_BUILD_DIRS}")
 
+# Re-enable BUILD_TESTS for our project
+set(BUILD_TESTS ON)
+
+# Only enable testing and options when this is the main project
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+  enable_testing()
+
+  # set options for building tests and examples
+  option(BUILD_TESTS "Build the unit tests" ON)
+  option(BUILD_EXAMPLES "Build the examples" ON)
+else()
+  # When used as a dependency, disable tests by default
+  set(BUILD_TESTS OFF)
+  set(BUILD_EXAMPLES OFF)
+endif()
 
 
 # Define the sources
-set(SRC_DIR src)
-set(LIB_DIR ${SRC_DIR}/lib)
-
 set(SRC_DIR src)
 set(LIB_DIR ${SRC_DIR}/lib)
 # Automatically find all Fortran files in lib/
@@ -180,7 +218,11 @@ target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:${DEBUGFLAGS}>"
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel_Dev>:${MPFLAGS}>")
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel_Dev>:${DEVFLAGS}>")
 
-# add the graphstruc dependency
+# add library dependencies
+add_dependencies(${PROJECT_NAME} coreutils)
+target_link_libraries(${PROJECT_NAME} coreutils)
+add_dependencies(${PROJECT_NAME} diffstruc)
+target_link_libraries(${PROJECT_NAME} diffstruc)
 add_dependencies(${PROJECT_NAME} graphstruc)
 target_link_libraries(${PROJECT_NAME} graphstruc)
 

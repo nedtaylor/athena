@@ -144,7 +144,7 @@ program msgpass_euler_example
           kipf_msgpass_layer_type( &
                num_time_steps = 1, & ! number of time steps for the message passing
                num_vertex_features = [ 3, 6 ], & ! input and output vertex feature sizes
-               activation_function = 'softmax', & ! activation function of the layer
+               activation = 'softmax', & ! activation function of the layer
                kernel_initialiser = 'he_normal' & ! initialiser for the weights
           ) &
      )
@@ -154,7 +154,7 @@ program msgpass_euler_example
           kipf_msgpass_layer_type( &
                num_time_steps = 1, &
                num_vertex_features = [ 9, 14 ], &
-               activation_function = 'softmax', &
+               activation = 'softmax', &
                kernel_initialiser = 'he_normal' &
           ), &
           input_list = [ 0, -1 ], & ! input list for the layer
@@ -168,7 +168,7 @@ program msgpass_euler_example
           kipf_msgpass_layer_type( &
                num_time_steps = 1, &
                num_vertex_features = [ 17, 32 ], &
-               activation_function = 'softmax', &
+               activation = 'softmax', &
                kernel_initialiser = 'he_normal' &
           ), &
           input_list = [ 0, -1 ], &
@@ -178,7 +178,7 @@ program msgpass_euler_example
           kipf_msgpass_layer_type( &
                num_time_steps = 1, &
                num_vertex_features = [ 35, 64 ], &
-               activation_function = 'softmax', &
+               activation = 'softmax', &
                kernel_initialiser = 'he_normal' &
           ), &
           input_list = [ 0, -1 ], &
@@ -188,7 +188,7 @@ program msgpass_euler_example
           kipf_msgpass_layer_type( &
                num_time_steps = 1, &
                num_vertex_features = [ 67, 32 ], &
-               activation_function = 'softmax', &
+               activation = 'softmax', &
                kernel_initialiser = 'he_normal' &
           ), &
           input_list = [ 0, -1 ], &
@@ -198,7 +198,7 @@ program msgpass_euler_example
           kipf_msgpass_layer_type( &
                num_time_steps = 1, &
                num_vertex_features = [ 35, 14 ], &
-               activation_function = 'softmax', &
+               activation = 'softmax', &
                kernel_initialiser = 'he_normal' &
           ), &
           input_list = [ 0, -1 ], &
@@ -208,7 +208,7 @@ program msgpass_euler_example
           kipf_msgpass_layer_type( &
                num_time_steps = 1, &
                num_vertex_features = [ 17, 7 ], &
-               activation_function = 'swish', &
+               activation = 'swish', &
                kernel_initialiser = 'he_normal' &
           ), &
           input_list = [ 0, -1 ], &

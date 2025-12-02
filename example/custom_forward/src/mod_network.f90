@@ -5,7 +5,7 @@ module my_network_module
 
   type, extends(network_type) :: my_network_type
    contains
-     procedure, pass(this) :: forward_generic2d => my_forward
+     procedure, pass(this) :: forward => my_forward
   end type my_network_type
 
 contains

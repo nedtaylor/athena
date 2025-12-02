@@ -20,8 +20,8 @@ program test
 
 
   call network%add(full_layer_type(num_inputs=3,num_outputs=5, &
-       activation_function="tanh"))
-  call network%add(full_layer_type(num_outputs=2, activation_function="sigmoid"))
+       activation="tanh"))
+  call network%add(full_layer_type(num_outputs=2, activation="sigmoid"))
   network%model(1)%layer%id = 101
   network%model(2)%layer%id = 102
   call network%compile( &

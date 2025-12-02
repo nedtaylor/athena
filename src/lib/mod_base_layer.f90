@@ -15,7 +15,7 @@ module athena__base_layer
   !! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
   use coreutils, only: real32
   use athena__clipper, only: clip_type
-  use athena__misc_types, only: activation_type, initialiser_type, facets_type, &
+  use athena__misc_types, only: base_actv_type, base_init_type, facets_type, &
        onnx_attribute_type, onnx_node_type, onnx_initialiser_type
   use diffstruc, only: array_type
   use athena__diffstruc_extd, only: array_ptr_type
@@ -59,8 +59,6 @@ module athena__base_layer
      character(20) :: subtype = repeat(" ",20)
      type(graph_type), allocatable, dimension(:) :: graph
      !! Graph structure of input data
-     logical :: consistent_sample_shape = .true. !! ONLY FALSE FOR GRAPHS
-     !! Boolean whether the layer has a consistent sample shape
      class(array_type), allocatable, dimension(:,:) :: output
      !! Output
      integer, allocatable, dimension(:) :: input_shape
@@ -101,10 +99,6 @@ module athena__base_layer
      !! Read layer from file
      procedure, pass(this) :: build_from_onnx => build_from_onnx_base
      !! Build layer from ONNX node and initialiser
-     procedure, pass(this) :: set_ptrs
-     !! Set pointers to layer data
-     procedure, pass(this), private :: set_ptrs_hyperparams
-     !! Set pointers to hyperparameters
      procedure, pass(this) :: set_graph => set_graph_base
      !! Set the graph structure of the input data !! this is adjacency and edge weighting
   end type base_layer_type
@@ -164,17 +158,10 @@ module athena__base_layer
        !! Output values
      end subroutine extract_output_base
 
-     module subroutine set_ptrs(this)
-       !! Set pointers to layer data
-       class(base_layer_type), intent(inout), target :: this
-       !! Instance of the layer
-     end subroutine set_ptrs
-
-     module subroutine set_ptrs_hyperparams(this)
-       !! Set pointers to hyperparameters
-       class(base_layer_type), intent(inout), target :: this
-       !! Instance of the layer
-     end subroutine set_ptrs_hyperparams
+     pure module function get_num_params_base(this) result(num_params)
+       class(base_layer_type), intent(in) :: this
+       integer :: num_params
+     end function get_num_params_base
   end interface
 
 
@@ -415,21 +402,19 @@ module athena__base_layer
      !! Type for layers with learnable parameters
      integer :: num_params = 0
      !! Number of learnable parameters
-     logical :: has_bias = .false.
+     logical :: use_bias = .false.
      !! Layer has bias
      integer, allocatable, dimension(:,:) :: weight_shape
      !! Shape of weights
      integer, allocatable, dimension(:) :: bias_shape
      !! Shape of biases
-     real(real32), allocatable, dimension(:) :: params
-     type(array_type), allocatable, dimension(:) :: params_array
+     type(array_type), allocatable, dimension(:) :: params
      !! Learnable parameters
-     real(real32), allocatable, dimension(:,:) :: dp, db
-     !! Gradients of parameters and biases
      character(len=14) :: kernel_initialiser='', bias_initialiser=''
-     class(initialiser_type), allocatable :: kernel_init, bias_init
      !! Initialisers for kernel and bias
-     class(activation_type), allocatable :: transfer
+     class(base_init_type), allocatable :: kernel_init, bias_init
+     !! Initialisers for kernel and bias
+     class(base_actv_type), allocatable :: activation
      !! Activation function
    contains
      procedure, pass(this) :: get_params => get_params
@@ -527,6 +512,24 @@ module athena__base_layer
      !! Get the attributes of the layer (for ONNX export)
   end type conv_layer_type
 
+  interface
+     pure module function get_num_params_conv(this) result(num_params)
+       class(conv_layer_type), intent(in) :: this
+       integer :: num_params
+     end function get_num_params_conv
+
+     module subroutine init_conv(this, input_shape, batch_size, verbose)
+       class(conv_layer_type), intent(inout) :: this
+       integer, dimension(:), intent(in) :: input_shape
+       integer, optional, intent(in) :: batch_size
+       integer, optional, intent(in) :: verbose
+     end subroutine init_conv
+
+     module function get_attributes_conv(this) result(attributes)
+       class(conv_layer_type), intent(in) :: this
+       type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+     end function get_attributes_conv
+  end interface
 
   type, abstract, extends(learnable_layer_type) :: batch_layer_type
      !! Type for batch normalisation layers
@@ -544,8 +547,7 @@ module athena__base_layer
      !! Initialisation parameters for gamma
      real(real32) :: beta_init_mean  = 0._real32, beta_init_std  = 0.01_real32
      !! Initialisation parameters for beta
-     character(len=14) :: moving_mean_initialiser='', &
-          moving_variance_initialiser=''
+     class(base_init_type), allocatable :: moving_mean_init, moving_variance_init
      !! Initialisers for moving mean and variance
      real(real32), allocatable, dimension(:) :: mean, variance
      !! Mean and variance (not learnable)
@@ -554,37 +556,18 @@ module athena__base_layer
      !! Get the number of parameters in the layer
      procedure, pass(this) :: init => init_batch
      !! Initialise the layer
+     procedure, pass(this) :: print_to_unit => print_to_unit_batch
+     !! Print layer to unit
      procedure, pass(this) :: get_attributes => get_attributes_batch
      !! Get the attributes of the layer (for ONNX export)
   end type batch_layer_type
 
   interface
-     pure module function get_num_params_base(this) result(num_params)
-       class(base_layer_type), intent(in) :: this
-       integer :: num_params
-     end function get_num_params_base
 
      pure module function get_num_params_batch(this) result(num_params)
        class(batch_layer_type), intent(in) :: this
        integer :: num_params
      end function get_num_params_batch
-
-     pure module function get_num_params_conv(this) result(num_params)
-       class(conv_layer_type), intent(in) :: this
-       integer :: num_params
-     end function get_num_params_conv
-
-     module subroutine init_conv(this, input_shape, batch_size, verbose)
-       class(conv_layer_type), intent(inout) :: this
-       integer, dimension(:), intent(in) :: input_shape
-       integer, optional, intent(in) :: batch_size
-       integer, optional, intent(in) :: verbose
-     end subroutine init_conv
-
-     module function get_attributes_conv(this) result(attributes)
-       class(conv_layer_type), intent(in) :: this
-       type(onnx_attribute_type), allocatable, dimension(:) :: attributes
-     end function get_attributes_conv
 
      module subroutine init_batch(this, input_shape, batch_size, verbose)
        class(batch_layer_type), intent(inout) :: this
@@ -592,6 +575,14 @@ module athena__base_layer
        integer, optional, intent(in) :: batch_size
        integer, optional, intent(in) :: verbose
      end subroutine init_batch
+
+     module subroutine print_to_unit_batch(this, unit)
+       !! Print layer to unit
+       class(batch_layer_type), intent(in) :: this
+       !! Instance of the layer
+       integer, intent(in) :: unit
+       !! File unit
+     end subroutine print_to_unit_batch
 
      module function get_attributes_batch(this) result(attributes)
        class(batch_layer_type), intent(in) :: this

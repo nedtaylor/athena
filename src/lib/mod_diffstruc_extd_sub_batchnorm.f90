@@ -42,7 +42,7 @@ contains
   module function batchnorm( &
        input, params, norm, momentum, mean, variance, epsilon &
   ) result( output )
-    !! Batch normalization operation
+    !! Batch normalisation operation
     implicit none
 
     ! Arguments

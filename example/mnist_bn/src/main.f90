@@ -107,11 +107,11 @@ program mnist_example
           input_shape = [image_size,image_size,input_channels], &
           num_filters = cv_num_filters, kernel_size = 3, stride = 1, &
           padding=padding_method, &
-          activation_function = "relu" &
+          activation = "relu" &
      ))
      call network%add(batchnorm2d_layer_type( &
-          kernel_initialiser = "ones", &
-          bias_initialiser = "zeros", &
+          gamma_initialiser = "ones", &
+          beta_initialiser = "zeros", &
           moving_mean_initialiser = "zeros", &
           moving_variance_initialiser = "ones", &
           epsilon = 0.001_real32, &
@@ -121,13 +121,13 @@ program mnist_example
           pool_size = 2, stride = 2))
      call network%add(full_layer_type( &
           num_outputs = 100, &
-          activation_function = "relu", &
+          activation = "relu", &
           kernel_initialiser = "he_uniform", &
           bias_initialiser = "he_uniform" &
      ))
      call network%add(full_layer_type( &
           num_outputs = 10,&
-          activation_function = "softmax", &
+          activation = "softmax", &
           kernel_initialiser = "glorot_uniform", &
           bias_initialiser = "glorot_uniform" &
      ))

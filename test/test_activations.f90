@@ -6,18 +6,18 @@ program test_activations
        conv3d_layer_type, &
        base_layer_type
   use athena__activation, only: activation_setup
-  use athena__activation_gaussian, only: gaussian_setup ! threshold, sigma
-  use athena__activation_piecewise, only: piecewise_setup ! intercept
-  use athena__activation_sigmoid, only: sigmoid_setup ! threshold
-  use athena__activation_softmax, only: softmax_setup ! threshold
-  use athena__activation_swish, only: swish_setup ! threshold
-  use athena__activation_tanh, only: tanh_setup ! threshold
-  use athena__misc_types, only: activation_type
+  use athena__activation_gaussian, only: gaussian_actv_type ! threshold, sigma
+  use athena__activation_piecewise, only: piecewise_actv_type ! intercept
+  use athena__activation_sigmoid, only: sigmoid_actv_type ! threshold
+  use athena__activation_softmax, only: softmax_actv_type ! threshold
+  use athena__activation_swish, only: swish_actv_type ! threshold
+  use athena__activation_tanh, only: tanh_actv_type ! threshold
+  use athena__misc_types, only: base_actv_type, onnx_attribute_type
   use diffstruc, only: array_type
   implicit none
 
   class(base_layer_type), allocatable :: full_layer, conv2d_layer, conv3d_layer
-  class(activation_type), allocatable :: activation
+  class(base_actv_type), allocatable :: activation
   logical :: success = .true.
 
   integer :: i
@@ -41,6 +41,7 @@ program test_activations
   type(array_type) :: input(1,1)
   type(array_type) :: val_array
   type(array_type), pointer :: result_array
+  type(onnx_attribute_type) :: scale_attr1, scale_attr2
 
 
 !-------------------------------------------------------------------------------
@@ -92,22 +93,28 @@ program test_activations
 !-------------------------------------------------------------------------------
 ! check gaussian setup
 !-------------------------------------------------------------------------------
-  activation = gaussian_setup(threshold = 2.E0, sigma = 2.E0)
+  activation = gaussian_actv_type(mu = 2.E0, sigma = 2.E0)
   if(.not. activation%name .eq. 'gaussian')then
      success = .false.
      write(0,*) 'activation has wrong name for gaussian'
   else
-     if(abs(activation%threshold - 2.E0).gt.1.E-6)then
+     select type(activation)
+     type is(gaussian_actv_type)
+        if(abs(activation%mu - 2.E0).gt.1.E-6)then
+           success = .false.
+           write(0,*) 'activation has wrong mu for gaussian'
+        end if
+     class default
         success = .false.
-        write(0,*) 'activation has wrong threshold for gaussian'
-     end if
+        write(0,*) 'activation is not of type gaussian_actv_type'
+     end select
   end if
 
 
 !-------------------------------------------------------------------------------
 ! check piecewise setup
 !-------------------------------------------------------------------------------
-  activation = piecewise_setup(gradient = 2.E0)
+  activation = piecewise_actv_type(gradient = 2.E0)
   if(.not. activation%name .eq. 'piecewise')then
      success = .false.
      write(0,*) 'activation has wrong name for piecewise'
@@ -117,14 +124,14 @@ program test_activations
 !-------------------------------------------------------------------------------
 ! check sigmoid setup
 !-------------------------------------------------------------------------------
-  activation = sigmoid_setup(threshold = 2.E0)
+  activation = sigmoid_actv_type(scale = 2.E0)
   if(.not. activation%name .eq. 'sigmoid')then
      success = .false.
      write(0,*) 'activation has wrong name for sigmoid'
   else
-     if(abs(activation%threshold - 2.E0).gt.1.E-6)then
+     if(abs(activation%scale - 2.E0).gt.1.E-6)then
         success = .false.
-        write(0,*) 'activation has wrong threshold for sigmoid'
+        write(0,*) 'activation has wrong scale for sigmoid'
      end if
   end if
 
@@ -132,14 +139,14 @@ program test_activations
 !-------------------------------------------------------------------------------
 ! check softmax setup
 !-------------------------------------------------------------------------------
-  activation = softmax_setup(threshold = 2.E0)
+  activation = softmax_actv_type(scale = 2.E0)
   if(.not. activation%name .eq. 'softmax')then
      success = .false.
      write(0,*) 'activation has wrong name for softmax'
   else
-     if(abs(activation%threshold - 2.E0).gt.1.E-6)then
+     if(abs(activation%scale - 2.E0).gt.1.E-6)then
         success = .false.
-        write(0,*) 'activation has wrong threshold for softmax'
+        write(0,*) 'activation has wrong scale for softmax'
      end if
   end if
 
@@ -147,29 +154,35 @@ program test_activations
 !-------------------------------------------------------------------------------
 ! check swish setup
 !-------------------------------------------------------------------------------
-  activation = swish_setup(threshold = 2.E0)
+  activation = swish_actv_type(beta = 2.E0)
   if(.not. activation%name .eq. 'swish')then
      success = .false.
      write(0,*) 'activation has wrong name for swish'
   else
-     if(abs(activation%threshold - 2.E0).gt.1.E-6)then
+     select type(activation)
+     type is(swish_actv_type)
+        if(abs(activation%beta - 2.E0).gt.1.E-6)then
+           success = .false.
+           write(0,*) 'activation has wrong beta for swish'
+        end if
+     class default
         success = .false.
-        write(0,*) 'activation has wrong threshold for swish'
-     end if
+        write(0,*) 'activation is not of type swish_actv_type'
+     end select
   end if
 
 
 !-------------------------------------------------------------------------------
 ! check tanh setup
 !-------------------------------------------------------------------------------
-  activation = tanh_setup(threshold = 2.E0)
+  activation = tanh_actv_type(scale = 2.E0)
   if(.not. activation%name .eq. 'tanh')then
      success = .false.
      write(0,*) 'activation has wrong name for tanh'
   else
-     if(abs(activation%threshold - 2.E0).gt.1.E-6)then
+     if(abs(activation%scale - 2.E0).gt.1.E-6)then
         success = .false.
-        write(0,*) 'activation has wrong threshold for tanh'
+        write(0,*) 'activation has wrong scale for tanh'
      end if
   end if
 
@@ -177,27 +190,33 @@ program test_activations
 !!! check activation setups more rigorously
 !!! check for different scales, and ranks
 !!!-----------------------------------------------------------------------------
+  scale_attr1 = onnx_attribute_type( &
+       name = 'scale', &
+       type = 'float', &
+       val = '1.0' &
+  )
+  scale_attr2 = onnx_attribute_type( &
+       name = 'scale', &
+       type = 'float', &
+       val = '2.0' &
+  )
   do i = 1, size(activation_names)
      deallocate(activation)
-     allocate(activation, &
-          source=activation_setup(activation_names(i), scale = scale))
+     allocate(activation, source=activation_setup(activation_names(i)))
+     if(trim(activation_names(i)).ne.'none')then
+        call activation%apply_attributes([scale_attr2])
+     end if
      if(.not. activation%name .eq. trim(activation_names(i)))then
         success = .false.
         write(0,*) 'activation has wrong name for ', &
              trim(activation_names(i))
      else
-        if(activation%name.eq.'none')then
-           if(abs(activation%scale-1.E0).gt.1.E-6)then
-              success = .false.
-              write(0,*) 'activation has wrong scale for ', &
-                   trim(activation_names(i))
-           end if
-        elseif(abs(activation%scale - scale).gt.1.E-6)then
+        if(trim(activation%name).ne.trim(activation_names(i)))then
            success = .false.
-           write(0,*) 'activation has wrong scale for ', &
+           write(0,*) 'activation name mismatch for ', &
                 trim(activation_names(i))
         end if
-        result_array => activation%activate(val_array)
+        result_array => activation%apply(val_array)
         if(abs(result_array%val(1,1) - activate(i)).gt.1.E-6)then
            success = .false.
            write(0,*) 'activation has wrong activation for ', &
@@ -215,6 +234,9 @@ program test_activations
         nullify(result_array)
      end if
 
+     if(trim(activation_names(i)).ne.'none')then
+        call activation%apply_attributes([scale_attr1])
+     end if
      !! check for rank 2 data
      !!-------------------------------------------------------------------------
      !! set up full layer
@@ -222,15 +244,14 @@ program test_activations
           num_inputs = num_inputs, &
           num_outputs = num_outputs, &
           batch_size = batch_size, &
-          activation_function = activation_names(i), &
+          activation = activation, &
           kernel_initialiser = 'ones', &
           bias_initialiser = 'zeros' )
-     call full_layer%set_ptrs()
 
      !! check layer name
      select type(full_layer)
      type is(full_layer_type)
-        if(.not. full_layer%transfer%name .eq. trim(activation_names(i)))then
+        if(.not. full_layer%activation%name .eq. trim(activation_names(i)))then
            success = .false.
            write(0,*) 'activation has wrong name for ', &
                 trim(activation_names(i))
@@ -238,16 +259,16 @@ program test_activations
            call input(1,1)%allocate(array_shape=[num_inputs, batch_size], &
                 source=1._real32)
            call input(1,1)%set_requires_grad(.true.)
+           input(1,1)%is_temporary = .false.
            call full_layer%forward(input)
            call compare_output( &
                 full_layer%output(1,1)%val, &
                 input(1,1)%val, activation_names(i), "full", success)
 
-           full_layer%output(1,1)%val = 1.E0
            call full_layer%output(1,1)%grad_reverse(reset_graph=.true.)
            call compare_derivative( &
                 input(1,1)%grad%val, &
-                full_layer%output(1,1)%val, &
+                input(1,1)%val, &
                 activation_names(i), "full", success)
            call input(1,1)%deallocate()
         end if
@@ -255,6 +276,7 @@ program test_activations
         success = .false.
         write(0,*) 'full layer is not of type full_layer_type'
      end select
+     call full_layer%output(1,1)%nullify_graph()
 
 
      !! check for rank 3 data
@@ -267,15 +289,14 @@ program test_activations
           stride = stride, &
           padding = "none", &
           num_filters = num_filters, &
-          activation_function = activation_names(i), &
+          activation = activation, &
           kernel_initialiser = 'ones', &
           bias_initialiser = 'zeros' )
-     call conv2d_layer%set_ptrs()
 
      !! check layer name
      select type(conv2d_layer)
      type is(conv2d_layer_type)
-        if(.not. conv2d_layer%transfer%name .eq. trim(activation_names(i)))then
+        if(.not. conv2d_layer%activation%name .eq. trim(activation_names(i)))then
            success = .false.
            write(0,*) 'activation has wrong name for ', &
                 trim(activation_names(i))
@@ -285,16 +306,16 @@ program test_activations
                 source = 1._real32 &
            )
            call input(1,1)%set_requires_grad(.true.)
+           input(1,1)%is_temporary = .false.
            call conv2d_layer%forward(input)
            call compare_output( &
                 conv2d_layer%output(1,1)%val, &
                 input(1,1)%val, activation_names(i), "conv2d", success)
 
-           conv2d_layer%output(1,1)%val = 1.E0
            call conv2d_layer%output(1,1)%grad_reverse(reset_graph=.true.)
            call compare_derivative( &
                 input(1,1)%grad%val, &
-                conv2d_layer%output(1,1)%val, &
+                input(1,1)%val, &
                 activation_names(i), "conv2d", success)
            call input(1,1)%deallocate()
         end if
@@ -302,6 +323,7 @@ program test_activations
         success = .false.
         write(0,*) 'conv layer is not of type conv2d_layer_type'
      end select
+     call conv2d_layer%output(1,1)%nullify_graph()
 
 
      !! check for rank 4 data
@@ -314,15 +336,14 @@ program test_activations
           stride = stride, &
           padding = "none", &
           num_filters = num_filters, &
-          activation_function = activation_names(i), &
+          activation = activation, &
           kernel_initialiser = 'ones', &
           bias_initialiser = 'zeros' )
-     call conv3d_layer%set_ptrs()
 
      !! check layer name
      select type(conv3d_layer)
      type is(conv3d_layer_type)
-        if(.not. conv3d_layer%transfer%name .eq. trim(activation_names(i)))then
+        if(.not. conv3d_layer%activation%name .eq. trim(activation_names(i)))then
            success = .false.
            write(0,*) 'activation has wrong name for ', &
                 trim(activation_names(i))
@@ -332,15 +353,15 @@ program test_activations
                 source = 1._real32 &
            )
            call input(1,1)%set_requires_grad(.true.)
+           input(1,1)%is_temporary = .false.
            call conv3d_layer%forward(input)
            call compare_output( &
                 conv3d_layer%output(1,1)%val, &
                 input(1,1)%val, activation_names(i), "conv3d", success)
-           conv3d_layer%output(1,1)%val = 1.E0
            call conv3d_layer%output(1,1)%grad_reverse(reset_graph=.true.)
            call compare_derivative( &
                 input(1,1)%grad%val, &
-                conv3d_layer%output(1,1)%val, &
+                input(1,1)%val, &
                 activation_names(i), "conv3d", success)
            call input(1,1)%deallocate()
         end if
@@ -348,6 +369,7 @@ program test_activations
         success = .false.
         write(0,*) 'conv3d layer is not of type conv3d_layer_type'
      end select
+     call conv3d_layer%output(1,1)%nullify_graph()
 
   end do
 
@@ -434,9 +456,9 @@ contains
     case('none')
        expected_output = reshape(input, shape(derivative))
     case('gaussian')
-       expected_output = 1.E0 / (sqrt(8.E0 * atan(1.E0)) * 1.5E0) * &
+       expected_output = 1.E0 / (sqrt(2.E0 * pi) * 1.5E0) * &
             exp( - 0.5E0 * (input/1.5E0) ** 2.E0 )
-       expected_output = -input/1.5E0**2.E0 * expected_output
+       expected_output = -input / ( 1.5E0**2 ) * expected_output
     case('leaky_relu')
        expected_output = input
     case('linear')
@@ -468,7 +490,7 @@ contains
             trim(layer_name)
        write(0,*) 'input: ', input
        write(0,*) 'derivative: ', derivative
-       write(0,*) 'expected_output: ', expected_output
+       write(0,*) 'expected_derivative: ', expected_output
     end if
 
   end subroutine compare_derivative

@@ -44,7 +44,6 @@ program test_dropblock2d_layer
        input_shape = [width, width, num_channels], &
        batch_size = 1 &
   )
-  call db_layer%set_ptrs()
 
   !! check layer name
   if(.not. db_layer%name .eq. 'dropblock2d')then
@@ -97,7 +96,6 @@ program test_dropblock2d_layer
        input_shape = [width, width, num_channels], &
        batch_size = 1 &
   )
-  call db_layer%set_ptrs()
 
   call input(1,1)%allocate(array_shape=[width, width, num_channels, 1])
   call input(1,1)%set_requires_grad(.true.)
@@ -151,7 +149,7 @@ program test_dropblock2d_layer
              &incorrectly applied'
         write(0,*)  merge(output_4d(:,:,1,1),0.0,db_layer%mask) / &
              (1.E0 - db_layer%rate)
-         write(0,*)  gradient_4d(:,:,1,1)
+        write(0,*)  gradient_4d(:,:,1,1)
      end if
      deallocate(input_4d)
   end select

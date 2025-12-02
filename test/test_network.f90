@@ -67,9 +67,9 @@ program test_network
 !-------------------------------------------------------------------------------
   ! call network%add(input_layer_type(input_shape=[1]))
   call network%add(full_layer_type( &
-       num_inputs=3, num_outputs=5, activation_function="tanh"))
+       num_inputs=3, num_outputs=5, activation="tanh"))
   call network%add(full_layer_type( &
-       num_outputs=2, activation_function="sigmoid"))
+       num_outputs=2, activation="sigmoid"))
   call network%compile( &
        optimiser = base_optimiser_type(learning_rate=learning_rate), &
        loss_method="mse", accuracy_method="mse", metrics=["loss"], verbose=0 &
@@ -294,9 +294,9 @@ program test_network
   call network%reset()
   call network%add(input_layer_type(input_shape=[3]))
   call network%add(full_layer_type(num_outputs=8, &
-       activation_function="tanh"))
+       activation="tanh"))
   call network%add(full_layer_type(num_outputs=4, &
-       activation_function="sigmoid"))
+       activation="sigmoid"))
   call network%compile(optimiser=base_optimiser_type(learning_rate=0.01), &
        loss_method="mse")
   call network%set_batch_size(1)
@@ -339,9 +339,9 @@ program test_network
   network%name = "test network"
   call network%add(input_layer_type(input_shape=[3]))
   call network%add(full_layer_type(num_outputs=8, &
-       activation_function="tanh"))
+       activation="tanh"))
   call network%add(full_layer_type(num_outputs=4, &
-       activation_function="sigmoid"))
+       activation="sigmoid"))
   call network%compile(optimiser=base_optimiser_type(learning_rate=0.01), &
        loss_method="mse")
   call network%set_batch_size(1)

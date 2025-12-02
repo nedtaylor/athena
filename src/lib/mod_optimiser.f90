@@ -1,15 +1,49 @@
 module athena__optimiser
   !! Module containing implementations of optimisation methods
   !!
-  !! This module contains implementations of optimisation methods used to
-  !! minimise the loss function of a neural network.
+  !! This module implements gradient-based optimisers for training neural networks
+  !! by minimizing loss functions through iterative parameter updates.
+  !!
+  !! Implemented optimisers:
+  !!
+  !! SGD (Stochastic Gradient Descent):
+  !!   θ_{t+1} = θ_t - η * ∇L(θ_t)
+  !!   Simple, reliable baseline optimiser
+  !!
+  !! SGD with Momentum:
+  !!   v_{t+1} = μ*v_t + ∇L(θ_t)
+  !!   θ_{t+1} = θ_t - η * v_{t+1}
+  !!   Accelerates convergence, dampens oscillations
+  !!
+  !! RMSProp:
+  !!   s_{t+1} = β*s_t + (1-β)*[∇L(θ_t)]²
+  !!   θ_{t+1} = θ_t - η * ∇L(θ_t) / sqrt(s_{t+1} + ε)
+  !!   Adapts learning rate per parameter, good for non-stationary objectives
+  !!
+  !! Adagrad:
+  !!   s_{t+1} = s_t + [∇L(θ_t)]²
+  !!   θ_{t+1} = θ_t - η * ∇L(θ_t) / sqrt(s_{t+1} + ε)
+  !!   Adapts learning rate based on historical gradients
+  !!
+  !! Adam (Adaptive Moment Estimation):
+  !!   m_{t+1} = β₁*m_t + (1-β₁)*∇L(θ_t)          [first moment]
+  !!   v_{t+1} = β₂*v_t + (1-β₂)*[∇L(θ_t)]²       [second moment]
+  !!   m̂ = m_{t+1}/(1-β₁^t),  v̂ = v_{t+1}/(1-β₂^t)  [bias correction]
+  !!   θ_{t+1} = θ_t - η * m̂ / (sqrt(v̂) + ε)
+  !!   Combines momentum and adaptive learning rates, most popular choice
+  !!
+  !! L-BFGS (Limited-memory BFGS):
+  !!   Quasi-Newton method approximating Hessian inverse
+  !!   Good for small-medium sized problems, smooth objectives
+  !!
+  !! where η is learning rate, μ is momentum, β/β₁/β₂ are decay rates
+  !!
   !! Attribution statement:
   !! The following module is based on code from the neural-fortran library
-  !! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_optimizers.f90
-  !! The implementation of optimiser_base_type is based on the ...
-  !! ... optimizer_base_type from the neural-fortran library
-  !! The same applies to the implementation of the sgd_optimiser_type, ...
-  !! ... rmsprop_optimiser_type, adagrad_optimiser_type, and adam_optimiser_type
+  !! https://github.com/modern-fortran/neural-fortran
+  !! The implementation of optimiser_base_type, sgd_optimiser_type,
+  !! rmsprop_optimiser_type, adagrad_optimiser_type, and adam_optimiser_type
+  !! are based on the corresponding types from neural-fortran
   use coreutils, only: real32, stop_program
   use athena__clipper, only: clip_type
   use athena__regulariser, only: base_regulariser_type, l2_regulariser_type
@@ -402,11 +436,11 @@ contains
     !! File unit
 
 
-    write(unit,'(3X,"NAME = ",A)') this%name
-    write(unit,'(3X,"LEARNING_RATE = ",F10.5)') this%learning_rate
-    write(unit,'(3X,"ITERATION = ",I10)') this%iter
-    write(unit,'(3X,"EPOCH = ",I10)') this%epoch
-    write(unit,'(3X,"REGULARISATION = ",L1)') this%regularisation
+    write(unit,'(6X,"NAME = ",A)') this%name
+    write(unit,'(6X,"LEARNING_RATE = ",F10.5)') this%learning_rate
+    write(unit,'(6X,"ITERATION = ",I10)') this%iter
+    write(unit,'(6X,"EPOCH = ",I10)') this%epoch
+    write(unit,'(6X,"REGULARISATION = ",L1)') this%regularisation
 
   end subroutine print_to_unit_base
 !###############################################################################

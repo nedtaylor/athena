@@ -4,30 +4,30 @@ module athena__initialiser_zeros
   !! This module contains the implementation of the Zeros initialiser
   !! for the weights and biases of a layer
   use coreutils, only: real32
-  use athena__misc_types, only: initialiser_type
+  use athena__misc_types, only: base_init_type
   implicit none
 
 
   private
 
-  public :: zeros_type
+  public :: zeros_init_type
 
 
-  type, extends(initialiser_type) :: zeros_type
+  type, extends(base_init_type) :: zeros_init_type
      !! Type for the Zeros initialiser
    contains
      procedure, pass(this) :: initialise => zeros_initialise
      !! Initialise the weights and biases using the Zeros distribution
-  end type zeros_type
+  end type zeros_init_type
 
 
-  interface zeros_type
+  interface zeros_init_type
      module function initialiser_zeros_setup() result(initialiser)
        !! Interface for the Zeros initialiser
-       type(zeros_type) :: initialiser
+       type(zeros_init_type) :: initialiser
        !! Zeros initialiser object
      end function initialiser_zeros_setup
-  end interface zeros_type
+  end interface zeros_init_type
 
 
 
@@ -38,7 +38,7 @@ contains
     !! Interface for the Zeros initialiser
     implicit none
 
-    type(zeros_type) :: initialiser
+    type(zeros_init_type) :: initialiser
     !! Zeros initialiser object
 
     initialiser%name = "zeros"
@@ -53,7 +53,7 @@ contains
     implicit none
 
     ! Arguments
-    class(zeros_type), intent(inout) :: this
+    class(zeros_init_type), intent(inout) :: this
     !! Instance of the Zeros initialiser
     real(real32), dimension(..), intent(out) :: input
     !! Weights and biases to initialise

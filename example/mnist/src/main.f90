@@ -108,19 +108,19 @@ program mnist_example
      call network%add(conv2d_layer_type( &
           num_filters = cv_num_filters, kernel_size = 3, stride = 1, &
           padding="none", &
-          activation_function = "relu" &
+          activation = "relu" &
      ))
      call network%add(maxpool2d_layer_type(&
           pool_size = 2, stride = 2))
      call network%add(full_layer_type( &
           num_outputs = 100, &
-          activation_function = "relu", &
+          activation = "relu", &
           kernel_initialiser = "he_uniform", &
           bias_initialiser = "he_uniform" &
      ))
      call network%add(full_layer_type( &
           num_outputs = 10,&
-          activation_function = "softmax", &
+          activation = "softmax", &
           kernel_initialiser = "glorot_uniform", &
           bias_initialiser = "glorot_uniform" &
      ))
@@ -163,10 +163,9 @@ program mnist_example
   ! testing loop
   !-----------------------------------------------------------------------------
   deallocate(input_labels)
-  allocate(input_labels(num_classes,num_samples_test))
-  input_labels = 0
+  allocate(input_labels(num_classes,num_samples_test), source = 0._real32)
   do i=1,num_samples_test
-     input_labels(test_labels(i),i) = 1
+     input_labels(test_labels(i),i) = 1._real32
   end do
 
   write(*,*) "Starting testing..."

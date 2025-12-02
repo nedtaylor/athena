@@ -1,9 +1,27 @@
 module athena__dropblock3d_layer
   !! Module containing implementation of a 3D dropblock layer
   !!
-  !! This module contains the implementation of a 3D dropblock layer
-  !! for use in neural networks.
-  !! DropBlock reference: https://arxiv.org/pdf/1810.12890.pdf
+  !! This module implements DropBlock regularization for 3D convolutional layers,
+  !! dropping contiguous 3D regions (blocks) instead of individual elements.
+  !! Extension of 2D DropBlock for volumetric/spatiotemporal data.
+  !!
+  !! Mathematical operation (training):
+  !!   1. Compute drop probability per spatial location:
+  !!      gamma = p * (feature_size^3) / (block_size^3 * valid_positions)
+  !!   2. Sample Bernoulli mask M_i ~ Bernoulli(gamma)
+  !!   3. Expand mask to block_size x block_size x block_size blocks
+  !!   4. Apply and normalize:
+  !!      y = x * M * (count_elements / count_ones)
+  !!
+  !! where block_size is the spatial extent of each dropped block in all 3 dims
+  !!
+  !! Inference: acts as identity (no dropout applied)
+  !!   y = x
+  !!
+  !! Benefits: Spatial/temporal coherence for 3D CNNs, better for video/volumetric,
+  !! removes spatiotemporal semantic information
+  !! Typical: block_size=5-7, keep_prob=0.9 for 3D ResNets
+  !! Reference: Ghiasi et al. (2018), NeurIPS - https://arxiv.org/abs/1810.12890
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: drop_layer_type, base_layer_type
   use diffstruc, only: array_type, operator(*)

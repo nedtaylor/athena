@@ -42,9 +42,9 @@ program test_conv2d_layer
   select type(conv_layer)
   type is(conv2d_layer_type)
      !! check default layer transfer/activation function
-     if(conv_layer%transfer%name .ne. 'none')then
+     if(conv_layer%activation%name .ne. 'none')then
         success = .false.
-        write(0,*) 'conv2d layer has wrong transfer: '//conv_layer%transfer%name
+        write(0,*) 'conv2d layer has wrong activation: '//conv_layer%activation%name
      end if
 
      !! check number of filters
@@ -100,10 +100,9 @@ program test_conv2d_layer
   conv_layer = conv2d_layer_type( &
        num_filters = 1, &
        kernel_size = 3, &
-       activation_function = 'sigmoid' &
+       activation = 'sigmoid' &
   )
   call conv_layer%init(input(1,1)%shape, batch_size=1)
-  call conv_layer%set_ptrs()
 
   !! run forward pass
   call conv_layer%forward(input)
@@ -216,17 +215,15 @@ program test_conv2d_layer
   conv_layer1 = conv2d_layer_type( &
        num_filters = 1, &
        kernel_size = 3, &
-       activation_function = 'sigmoid' &
+       activation = 'sigmoid' &
   )
   call conv_layer1%init(input_layer%input_shape, batch_size=1)
-  call conv_layer1%set_ptrs()
   conv_layer2 = conv2d_layer_type( &
        num_filters = 1, &
        kernel_size = 3, &
-       activation_function = 'sigmoid' &
+       activation = 'sigmoid' &
   )
   call conv_layer2%init(input_layer%input_shape, batch_size=1)
-  call conv_layer2%set_ptrs()
   select type(conv_layer1)
   type is(conv2d_layer_type)
      select type(conv_layer2)
@@ -326,21 +323,21 @@ contains
        success = .false.
        write(0,*) 'conv2d layer has wrong num_filters'
     end if
-    if(layer1%transfer%name .ne. 'sigmoid')then
+    if(layer1%activation%name .ne. 'sigmoid')then
        success = .false.
-       write(0,*) 'conv2d layer has wrong transfer: '//&
-            layer1%transfer%name
+       write(0,*) 'conv2d layer has wrong activation: '//&
+            layer1%activation%name
     end if
     if(present(layer3))then
        if( &
-            associated(layer1%params_array(1)%grad).and. &
-            associated(layer2%params_array(1)%grad).and. &
-            associated(layer3%params_array(1)%grad) &
+            associated(layer1%params(1)%grad).and. &
+            associated(layer2%params(1)%grad).and. &
+            associated(layer3%params(1)%grad) &
        )then
           if(any(abs( &
-               layer1%params_array(1)%grad%val - &
-               layer2%params_array(1)%grad%val - &
-               layer3%params_array(1)%grad%val &
+               layer1%params(1)%grad%val - &
+               layer2%params(1)%grad%val - &
+               layer3%params(1)%grad%val &
           ).gt.1.E-6))then
              success = .false.
              write(0,*) 'conv1d layer has wrong gradients'
@@ -348,14 +345,14 @@ contains
        end if
 
        if( &
-            associated(layer1%params_array(2)%grad).and. &
-            associated(layer2%params_array(2)%grad).and. &
-            associated(layer3%params_array(2)%grad) &
+            associated(layer1%params(2)%grad).and. &
+            associated(layer2%params(2)%grad).and. &
+            associated(layer3%params(2)%grad) &
        )then
           if(any(abs( &
-               layer1%params_array(2)%grad%val - &
-               layer2%params_array(2)%grad%val - &
-               layer3%params_array(2)%grad%val &
+               layer1%params(2)%grad%val - &
+               layer2%params(2)%grad%val - &
+               layer3%params(2)%grad%val &
           ).gt.1.E-6))then
              success = .false.
              write(0,*) 'conv1d layer has wrong bias gradients'

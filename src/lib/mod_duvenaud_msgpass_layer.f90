@@ -1,8 +1,24 @@
 module athena__duvenaud_msgpass_layer
-  !! Module containing the types and interfacees of a message passing layer
+  !! Module implementing Duvenaud message passing for molecular graphs
+  !!
+  !! This module implements the graph neural network architecture from
+  !! Duvenaud et al. (2015) for learning on molecular graphs with both
+  !! vertex (node) and edge features.
+  !!
+  !! Mathematical operation (per time step t):
+  !!   h_v^(t+1) = σ( h_v^(t) + Σ_{u∈N(v)} M(h_v^(t), h_u^(t), e_vu) )
+  !!
+  !! Graph readout (aggregation to fixed-size vector):
+  !!   h_graph = σ_readout( Σ_{d=1}^D Σ_{v:deg(v)=d} W_d h_v^(T) )
+  !!
+  !! where M is a learned message function, σ is activation function,
+  !! N(v) are neighbors of v, e_vu are edge features, W_d are
+  !! degree-specific weight matrices, and D is max vertex degree.
+  !!
+  !! Reference: Duvenaud et al. (2015), NeurIPS
   use coreutils, only: real32
   use graphstruc, only: graph_type
-  use athena__misc_types, only: activation_type, initialiser_type
+  use athena__misc_types, only: base_actv_type, base_init_type
   use diffstruc, only: array_type, sum, matmul, operator(+)
   use athena__base_layer, only: base_layer_type
   use athena__msgpass_layer, only: msgpass_layer_type
@@ -25,7 +41,7 @@ module athena__duvenaud_msgpass_layer
      integer :: max_vertex_degree = 0
      !! Maximum vertex degree
 
-     class(activation_type), allocatable :: transfer_readout
+     class(base_actv_type), allocatable :: activation_readout
      !! Activation function
      type(array_type), allocatable, dimension(:,:) :: z
      type(array_type), allocatable, dimension(:,:) :: z_readout
@@ -68,8 +84,8 @@ module athena__duvenaud_msgpass_layer
           num_outputs, &
           min_vertex_degree, &
           batch_size, &
-          message_activation_function, message_activation_scale, &
-          readout_activation_function, readout_activation_scale, &
+          message_activation, &
+          readout_activation, &
           kernel_initialiser, &
           verbose &
      ) result(layer)
@@ -88,11 +104,8 @@ module athena__duvenaud_msgpass_layer
        !! Minimum vertex degree
        integer, optional, intent(in) :: batch_size
        !! Batch size
-       real(real32), optional, intent(in) :: message_activation_scale, &
-            readout_activation_scale
-       !! Message and readout activation scales
-       character(*), optional, intent(in) :: message_activation_function, &
-            readout_activation_function
+       class(*), optional, intent(in) :: message_activation, &
+            readout_activation
        !! Message and readout activation functions
        character(*), optional, intent(in) :: kernel_initialiser
        !!! Kernel initialiser
@@ -102,6 +115,9 @@ module athena__duvenaud_msgpass_layer
        !! Instance of the message passing layer
      end function layer_setup
   end interface duvenaud_msgpass_layer_type
+
+  character(len=*), parameter :: default_message_actv_name = "sigmoid"
+  character(len=*), parameter :: default_readout_actv_name = "softmax"
 
 
 
@@ -166,13 +182,14 @@ contains
        num_outputs, &
        min_vertex_degree, &
        batch_size, &
-       message_activation_function, message_activation_scale, &
-       readout_activation_function, readout_activation_scale, &
+       message_activation, &
+       readout_activation, &
        kernel_initialiser, &
        verbose &
   ) result(layer)
     !! Set up the message passing layer
     use athena__initialiser, only: initialiser_setup
+    use athena__activation, only: activation_setup
     implicit none
 
     ! Arguments
@@ -190,11 +207,8 @@ contains
     !! Minimum vertex degree
     integer, optional, intent(in) :: batch_size
     !! Batch size
-    real(real32), optional, intent(in) :: message_activation_scale, &
-         readout_activation_scale
-    !! Message and readout activation scales
-    character(*), optional, intent(in) :: message_activation_function, &
-         readout_activation_function
+    class(*), optional, intent(in) :: message_activation, &
+         readout_activation
     !! Message and readout activation functions
     character(*), optional, intent(in) :: kernel_initialiser
     !!! Kernel initialiser
@@ -206,15 +220,9 @@ contains
     ! Local variables
     integer :: verbose_ = 0
     !! Verbosity level
-    real(real32) :: &
-         message_scale = 1._real32, &
-         readout_scale = 1._real32
-    !! Activation scale
-    character(len=10) :: &
-         message_activation_function_ = "sigmoid", &
-         readout_activation_function_ = "softmax"
+    class(base_actv_type), allocatable :: message_activation_ , readout_activation_
     !! Activation function
-    class(initialiser_type), allocatable :: kernel_initialiser_
+    class(base_init_type), allocatable :: kernel_initialiser_
     !! Kernel and bias initialisers
     integer :: min_vertex_degree_ = 1
     !! Minimum vertex degree
@@ -223,14 +231,23 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Set activation and derivative functions based on input name
+    ! Set activation functions
     !---------------------------------------------------------------------------
-    if(present(message_activation_function)) &
-         message_activation_function_ = message_activation_function
-    if(present(message_activation_scale)) message_scale = message_activation_scale
-    if(present(readout_activation_function)) &
-         readout_activation_function_ = readout_activation_function
-    if(present(readout_activation_scale)) readout_scale = readout_activation_scale
+    if(present(message_activation))then
+       message_activation_ = activation_setup(message_activation)
+    else
+       message_activation_ = activation_setup(default_message_actv_name)
+    end if
+    if(present(readout_activation))then
+       readout_activation_ = activation_setup(readout_activation)
+    else
+       readout_activation_ = activation_setup(default_readout_actv_name)
+    end if
+
+
+    !---------------------------------------------------------------------------
+    ! Set minimum vertex degree
+    !---------------------------------------------------------------------------
     if(present(min_vertex_degree)) min_vertex_degree_ = min_vertex_degree
     if(max_vertex_degree.lt.min_vertex_degree_)then
        write(0,*) "Error: max_vertex_degree < min_vertex_degree"
@@ -256,10 +273,8 @@ contains
          max_vertex_degree = max_vertex_degree, &
          num_time_steps = num_time_steps, &
          num_outputs = num_outputs, &
-         message_activation_function = message_activation_function_, &
-         message_activation_scale = message_scale, &
-         readout_activation_function = readout_activation_function_, &
-         readout_activation_scale = readout_scale, &
+         message_activation = message_activation_, &
+         readout_activation = readout_activation_, &
          kernel_initialiser = kernel_initialiser_, &
          verbose = verbose_ &
     )
@@ -291,8 +306,8 @@ contains
        max_vertex_degree, &
        num_time_steps, &
        num_outputs, &
-       message_activation_function, message_activation_scale, &
-       readout_activation_function, readout_activation_scale, &
+       message_activation, &
+       readout_activation, &
        kernel_initialiser, &
        verbose &
   )
@@ -316,15 +331,11 @@ contains
     !! Number of time steps
     integer, intent(in) :: num_outputs
     !! Number of outputs
-    character(*), intent(in) :: &
-         message_activation_function, &
-         readout_activation_function
+    class(base_actv_type), allocatable, intent(in) :: &
+         message_activation, &
+         readout_activation
     !! Message and readout activation functions
-    real(real32), optional, intent(in) :: &
-         message_activation_scale, &
-         readout_activation_scale
-    !! Message and readout activation scales
-    class(initialiser_type), allocatable, intent(in) :: kernel_initialiser
+    class(base_init_type), allocatable, intent(in) :: kernel_initialiser
     !! Kernel and bias initialisers
     integer, optional, intent(in) :: verbose
     !! Verbosity level
@@ -379,16 +390,20 @@ contains
     end if
     this%use_graph_input = .true.
     this%use_graph_output = .false.
-    if(allocated(this%transfer)) deallocate(this%transfer)
-    if(allocated(this%transfer_readout)) deallocate(this%transfer_readout)
-    allocate(this%transfer, &
-         source = activation_setup(message_activation_function, &
-              message_activation_scale))
-    allocate(this%transfer_readout, &
-         source = activation_setup(readout_activation_function, &
-              readout_activation_scale))
+    if(allocated(this%activation)) deallocate(this%activation)
+    if(allocated(this%activation_readout)) deallocate(this%activation_readout)
+    if(.not.allocated(message_activation))then
+       this%activation = activation_setup(default_message_actv_name)
+    else
+       this%activation = message_activation
+    end if
+    if(.not.allocated(readout_activation))then
+       this%activation_readout = activation_setup(default_readout_actv_name)
+    else
+       this%activation_readout = readout_activation
+    end if
     if(.not.allocated(kernel_initialiser))then
-       buffer = get_default_initialiser(message_activation_function)
+       buffer = get_default_initialiser(this%activation%name)
        this%kernel_init = initialiser_setup(buffer)
     else
        this%kernel_init = kernel_initialiser
@@ -396,9 +411,9 @@ contains
     if(present(verbose))then
        if(abs(verbose).gt.0)then
           write(*,'("DUVENAUD message activation function: ",A)') &
-               trim(message_activation_function)
+               trim(this%activation%name)
           write(*,'("DUVENAUD readout activation function: ",A)') &
-               trim(readout_activation_function)
+               trim(this%activation_readout%name)
           write(*,'("DUVENAUD kernel initialiser: ",A)') &
                trim(this%kernel_init%name)
        end if
@@ -443,8 +458,6 @@ contains
     !! Loop index
     integer :: verbose_ = 0
     !! Verbosity level
-    real(real32) :: mean, std
-    !! Mean and standard deviation of the parameters
 
 
     !---------------------------------------------------------------------------
@@ -465,10 +478,8 @@ contains
     !---------------------------------------------------------------------------
     ! Allocate weight, weight steps (velocities), output, and activation
     !---------------------------------------------------------------------------
-    if(allocated(this%params)) deallocate(this%params)
-    allocate(this%params(this%num_params), source=0._real32)
     allocate(this%weight_shape(3,2*this%num_time_steps))
-    allocate(this%params_array(this%num_time_steps*2))
+    allocate(this%params(this%num_time_steps*2))
     do t = 1, this%num_time_steps
        this%weight_shape(:,t) = [ &
             this%num_vertex_features(t), &
@@ -477,19 +488,19 @@ contains
        ]
        this%weight_shape(:,t+this%num_time_steps) = &
             [ this%num_outputs, this%num_vertex_features(t), 1 ]
-       call this%params_array(t)%allocate( [ this%weight_shape(:,t), 1 ] )
-       call this%params_array(t+this%num_time_steps)%allocate( &
+       call this%params(t)%allocate( [ this%weight_shape(:,t), 1 ] )
+       call this%params(t+this%num_time_steps)%allocate( &
             [ this%weight_shape(:2,t+this%num_time_steps), 1 ] &
        )
-       call this%params_array(t)%set_requires_grad(.true.)
-       this%params_array(t)%fix_pointer = .true.
-       this%params_array(t)%is_temporary = .false.
-       this%params_array(t)%is_sample_dependent = .false.
-       this%params_array(t)%indices = [ this%min_vertex_degree, this%max_vertex_degree ]
-       call this%params_array(t+this%num_time_steps)%set_requires_grad(.true.)
-       this%params_array(t+this%num_time_steps)%fix_pointer = .true.
-       this%params_array(t+this%num_time_steps)%is_temporary = .false.
-       this%params_array(t+this%num_time_steps)%is_sample_dependent = .false.
+       call this%params(t)%set_requires_grad(.true.)
+       this%params(t)%fix_pointer = .true.
+       this%params(t)%is_temporary = .false.
+       this%params(t)%is_sample_dependent = .false.
+       this%params(t)%indices = [ this%min_vertex_degree, this%max_vertex_degree ]
+       call this%params(t+this%num_time_steps)%set_requires_grad(.true.)
+       this%params(t+this%num_time_steps)%fix_pointer = .true.
+       this%params(t+this%num_time_steps)%is_temporary = .false.
+       this%params(t+this%num_time_steps)%is_sample_dependent = .false.
     end do
 
 
@@ -498,33 +509,18 @@ contains
     !---------------------------------------------------------------------------
     do t = 1, this%num_time_steps, 1
        call this%kernel_init%initialise( &
-            this%params_array(t)%val(:,1), &
+            this%params(t)%val(:,1), &
             fan_in = this%num_vertex_features(t-1) + this%num_edge_features(0), &
             fan_out = this%num_vertex_features(t), &
             spacing = [ this%num_vertex_features(t-1) ] &
        )
        call this%kernel_init%initialise( &
-            this%params_array(t+this%num_time_steps)%val(:,1), &
+            this%params(t+this%num_time_steps)%val(:,1), &
             fan_in = sum(this%num_vertex_features), &
             fan_out = this%num_outputs, &
             spacing = this%num_vertex_features &
        )
     end do
-    ! write the standard deviation of the params values
-    if(verbose_.gt.0)then
-       mean = sum(this%params(:sum(this%num_params_msg))) / &
-            real(sum(this%num_params_msg), kind=real32)
-       std = sqrt(sum((this%params(:sum(this%num_params_msg)) - mean)**2) / &
-            real(sum(this%num_params_msg), kind=real32))
-       write(*,*) "Initialised message parameters with mean = ", mean, &
-            " and std = ", std
-       mean = sum(this%params(sum(this%num_params_msg)+1:)) / &
-            real(this%num_params_readout, kind=real32)
-       std = sqrt(sum((this%params(sum(this%num_params_msg)+1:) - mean)**2) / &
-            real(this%num_params_readout, kind=real32))
-       write(*,*) "Initialised readout parameters with mean = ", mean, &
-            " and std = ", std
-    end if
 
 
     !---------------------------------------------------------------------------
@@ -646,20 +642,22 @@ contains
          this%num_time_steps + 1
     write(unit,fmt) this%num_edge_features
 
-    write(unit,'(3X,"MESSAGE_ACTIVATION = ",A)') trim(this%transfer%name)
-    write(unit,'(3X,"MESSAGE_ACTIVATION_SCALE = ",F0.9)') this%transfer%scale
-    write(unit,'(3X,"READOUT_ACTIVATION = ",A)') trim(this%transfer_readout%name)
-    write(unit,'(3X,"READOUT_ACTIVATION_SCALE = ",F0.9)') this%transfer_readout%scale
+    if(this%activation%name .ne. 'none')then
+       call this%activation%print_to_unit(unit, identifier='MESSAGE')
+    end if
+    if(this%activation_readout%name .ne. 'none')then
+       call this%activation_readout%print_to_unit(unit, identifier='READOUT')
+    end if
 
 
     ! Write learned parameters
     !---------------------------------------------------------------------------
     write(unit,'("WEIGHTS")')
     do t = 1, this%num_time_steps, 1
-       write(unit,'(5(E16.8E2))') this%params_array(t)%val(:,1)
+       write(unit,'(5(E16.8E2))') this%params(t)%val(:,1)
     end do
     do t = 1, this%num_time_steps, 1
-       write(unit,'(5(E16.8E2))') this%params_array(t+this%num_time_steps)%val(:,1)
+       write(unit,'(5(E16.8E2))') this%params(t+this%num_time_steps)%val(:,1)
     end do
     write(unit,'("END WEIGHTS")')
 
@@ -738,10 +736,10 @@ contains
     !! Pointers to arrays
 
 
-    if(.not.allocated(this%transfer))then
+    if(.not.allocated(this%activation))then
        has_activation = .false.
     else
-       if(trim(this%transfer%name).eq."none")then
+       if(trim(this%activation%name).eq."none")then
           has_activation = .true.
        else
           has_activation = .true.
@@ -756,14 +754,14 @@ contains
                this%graph(s)%adj_ia, this%graph(s)%adj_ja &
           )
 
-          ptr_params => this%params_array(t)
+          ptr_params => this%params(t)
           ptr3 => duvenaud_update( &
                ptr2, ptr_params, &
                this%graph(s)%adj_ia, &
                this%min_vertex_degree, this%max_vertex_degree &
           )
           if(has_activation)then
-             ptr3 => this%transfer%activate( ptr3 )
+             ptr3 => this%activation%apply( ptr3 )
           end if
           call this%z(t,s)%zero_grad()
           call this%z(t,s)%assign_and_deallocate_source(ptr3)
@@ -794,13 +792,13 @@ contains
     call this%output(1,1)%zero_grad()
     do t = 1, this%num_time_steps, 1
        do s = 1, this%batch_size
-          ptr_params => this%params_array(t+this%num_time_steps)
+          ptr_params => this%params(t+this%num_time_steps)
           ptr_z => this%z(t,s)
           ptr1 => matmul( &
                ptr_params, &
                ptr_z &
           )
-          ptr2 => this%transfer_readout%activate( ptr1 )
+          ptr2 => this%activation_readout%apply( ptr1 )
           if(t.eq.1.and.s.eq.1)then
              ptr3 => &
                   sum( ptr2, dim = 2, new_dim_index=s, new_dim_size=this%batch_size )

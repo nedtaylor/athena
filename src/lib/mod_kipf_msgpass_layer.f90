@@ -1,8 +1,26 @@
 module athena__kipf_msgpass_layer
-  !! Module containing the types and interfaces of a message passing layer
+  !! Module implementing Kipf & Welling Graph Convolutional Network (GCN)
+  !!
+  !! This module implements the graph convolutional layer from Kipf & Welling
+  !! (2017) with symmetric degree normalisation for semi-supervised learning.
+  !!
+  !! Mathematical operation:
+  !!   H^(l+1) = σ( D̃^(-1/2) Ã D̃^(-1/2) H^(l) W^(l) )
+  !!
+  !! where:
+  !!   Ã = A + I (adjacency matrix with added self-loops)
+  !!   D̃ is the degree matrix of Ã
+  !!   H^(l) is the node feature matrix at layer l
+  !!   W^(l) is a learnable weight matrix
+  !!   σ is the activation function
+  !!
+  !! The normalisation D̃^(-1/2) Ã D̃^(-1/2) ensures proper scaling by degree.
+  !! Preserves graph structure, producing node-level (not graph-level) outputs.
+  !!
+  !! Reference: Kipf & Welling (2017), ICLR
   use coreutils, only: real32, stop_program
   use graphstruc, only: graph_type
-  use athena__misc_types, only: activation_type, initialiser_type
+  use athena__misc_types, only: base_actv_type, base_init_type
   use diffstruc, only: array_type
   use athena__base_layer, only: base_layer_type
   use athena__msgpass_layer, only: msgpass_layer_type
@@ -55,7 +73,7 @@ module athena__kipf_msgpass_layer
      !! Interface for setting up the MPNN layer
      module function layer_setup( &
           num_vertex_features, num_time_steps, batch_size, &
-          activation_function, activation_scale, &
+          activation, &
           kernel_initialiser, &
           verbose &
      ) result(layer)
@@ -66,10 +84,7 @@ module athena__kipf_msgpass_layer
        !! Number of time steps
        integer, optional, intent(in) :: batch_size
        !! Batch size
-       real(real32), optional, intent(in) :: activation_scale
-       !! Activation scale
-       character(*), optional, intent(in) :: activation_function, &
-            kernel_initialiser
+       class(*), optional, intent(in) :: activation, kernel_initialiser
        !! Activation function and kernel initialiser
        integer, optional, intent(in) :: verbose
        !! Verbosity level
@@ -123,11 +138,12 @@ contains
 !###############################################################################
   module function layer_setup( &
        num_vertex_features, num_time_steps, batch_size, &
-       activation_function, activation_scale, &
+       activation, &
        kernel_initialiser, &
        verbose &
   ) result(layer)
     !! Set up the message passing layer
+    use athena__activation, only: activation_setup
     use athena__initialiser, only: initialiser_setup
     implicit none
 
@@ -138,10 +154,7 @@ contains
     !! Number of time steps
     integer, optional, intent(in) :: batch_size
     !! Batch size
-    real(real32), optional, intent(in) :: activation_scale
-    !! Activation scale
-    character(*), optional, intent(in) :: activation_function, &
-         kernel_initialiser
+    class(*), optional, intent(in) :: activation, kernel_initialiser
     !! Activation function and kernel initialiser
     integer, optional, intent(in) :: verbose
     !! Verbosity level
@@ -151,21 +164,22 @@ contains
     ! Local variables
     integer :: verbose_ = 0
     !! Verbosity level
-    real(real32) :: scale = 1._real32
-    !! Activation scale
-    character(len=10) :: activation_function_ = "none"
-    !! Activation function
-    class(initialiser_type), allocatable :: kernel_initialiser_
+    class(base_actv_type), allocatable :: activation_
+    !! Activation function object
+    class(base_init_type), allocatable :: kernel_initialiser_
     !! Kernel initialisers
 
     if(present(verbose)) verbose_ = verbose
 
 
     !---------------------------------------------------------------------------
-    ! Set activation and derivative functions based on input name
+    ! Set activation functions based on input name
     !---------------------------------------------------------------------------
-    if(present(activation_function)) activation_function_ = activation_function
-    if(present(activation_scale)) scale = activation_scale
+    if(present(activation))then
+       activation_ = activation_setup(activation)
+    else
+       activation_ = activation_setup("none")
+    end if
 
 
     !---------------------------------------------------------------------------
@@ -182,8 +196,7 @@ contains
     call layer%set_hyperparams( &
          num_vertex_features = num_vertex_features, &
          num_time_steps = num_time_steps, &
-         activation_function = activation_function_, &
-         activation_scale = scale, &
+         activation = activation_, &
          kernel_initialiser = kernel_initialiser_, &
          verbose = verbose_ &
     )
@@ -210,7 +223,7 @@ contains
        this, &
        num_vertex_features, &
        num_time_steps, &
-       activation_function, activation_scale, &
+       activation, &
        kernel_initialiser, &
        verbose &
   )
@@ -226,11 +239,9 @@ contains
     !! Number of vertex features
     integer, intent(in) :: num_time_steps
     !! Number of time steps
-    character(*), intent(in) :: activation_function
+    class(base_actv_type), allocatable, intent(in) :: activation
     !! Activation function
-    real(real32), optional, intent(in) :: activation_scale
-    !! Activation scale
-    class(initialiser_type), allocatable, intent(in) :: kernel_initialiser
+    class(base_init_type), allocatable, intent(in) :: kernel_initialiser
     !! Kernel initialiser
     integer, optional, intent(in) :: verbose
     !! Verbosity level
@@ -269,11 +280,13 @@ contains
     end if
     allocate( this%num_edge_features(0:this%num_time_steps), source = 0 )
     this%use_graph_input = .true.
-    if(allocated(this%transfer)) deallocate(this%transfer)
-    allocate(this%transfer, &
-         source=activation_setup(activation_function, activation_scale))
+    if(.not.allocated(activation))then
+       this%activation = activation_setup("none")
+    else
+       this%activation = activation
+    end if
     if(.not.allocated(kernel_initialiser))then
-       buffer = get_default_initialiser(activation_function)
+       buffer = get_default_initialiser(this%activation%name)
        this%kernel_init = initialiser_setup(buffer)
     else
        this%kernel_init = kernel_initialiser
@@ -281,7 +294,7 @@ contains
     if(present(verbose))then
        if(abs(verbose).gt.0)then
           write(*,'("KIPF activation function: ",A)') &
-               trim(activation_function)
+               trim(this%activation%name)
           write(*,'("KIPF kernel initialiser: ",A)') &
                trim(this%kernel_init%name)
        end if
@@ -347,16 +360,16 @@ contains
     !---------------------------------------------------------------------------
     ! Allocate weight, weight steps (velocities), output, and activation
     !---------------------------------------------------------------------------
-    if(allocated(this%params_array)) deallocate(this%params_array)
-    allocate(this%params_array(this%num_time_steps))
+    if(allocated(this%params)) deallocate(this%params)
+    allocate(this%params(this%num_time_steps))
     do t = 1, this%num_time_steps
-       call this%params_array(t)%allocate( &
+       call this%params(t)%allocate( &
             array_shape = [ this%weight_shape(:,t), 1 ] &
        )
-       call this%params_array(t)%set_requires_grad(.true.)
-       this%params_array(t)%is_sample_dependent = .false.
-       this%params_array(t)%is_temporary = .false.
-       this%params_array(t)%fix_pointer = .true.
+       call this%params(t)%set_requires_grad(.true.)
+       this%params(t)%is_sample_dependent = .false.
+       this%params(t)%is_temporary = .false.
+       this%params(t)%fix_pointer = .true.
     end do
 
 
@@ -365,7 +378,7 @@ contains
     !---------------------------------------------------------------------------
     do t = 1, this%num_time_steps
        call this%kernel_init%initialise( &
-            this%params_array(t)%val(:,1), &
+            this%params(t)%val(:,1), &
             fan_in = this%num_vertex_features(t-1), &
             fan_out = this%num_vertex_features(t), &
             spacing = [ this%num_vertex_features(t) ] &
@@ -445,15 +458,16 @@ contains
          this%num_time_steps + 1
     write(unit,fmt) this%num_vertex_features
 
-    write(unit,'(3X,"ACTIVATION = ",A)') trim(this%transfer%name)
-    write(unit,'(3X,"ACTIVATION_SCALE = ",F0.9)') this%transfer%scale
+    if(this%activation%name .ne. 'none')then
+       call this%activation%print_to_unit(unit)
+    end if
 
 
     ! Write learned parameters
     !---------------------------------------------------------------------------
     write(unit,'("WEIGHTS")')
     do t = 1, this%num_time_steps, 1
-       write(unit,'(5(E16.8E2))') this%params_array(t)%val
+       write(unit,'(5(E16.8E2))') this%params(t)%val
     end do
     write(unit,'("END WEIGHTS")')
 
@@ -466,6 +480,7 @@ contains
     !! Read the message passing layer
     use athena__tools_infile, only: assign_val, assign_vec, get_val, move
     use coreutils, only: to_lower, to_upper, icount
+    use athena__activation, only: read_activation
     use athena__initialiser, only: initialiser_setup
     implicit none
 
@@ -486,13 +501,13 @@ contains
     !! Loop variables and temporary integer
     integer :: num_time_steps = 0
     !! Number of time steps
-    real(real32) :: activation_scale
-    !! Activation scale
     character(14) :: kernel_initialiser_name=''
     !! Initialisers
-    character(20) :: activation_function
+    character(20) :: activation_name=''
+    !! Activation function name
+    class(base_actv_type), allocatable :: activation
     !! Activation function
-    class(initialiser_type), allocatable :: kernel_initialiser
+    class(base_init_type), allocatable :: kernel_initialiser
     !! Initialisers
     integer, dimension(:), allocatable :: num_vertex_features
     !! Number of vertex and edge features
@@ -549,10 +564,10 @@ contains
           allocate(num_vertex_features(itmp1), source=0)
           call assign_vec(buffer, num_vertex_features, itmp1)
        case("ACTIVATION")
-          call assign_val(buffer, activation_function, itmp1)
-       case("ACTIVATION_SCALE")
-          call assign_val(buffer, activation_scale, itmp1)
-       case("KERNEL_INITIALISER", "KERNEL_INIT", "KERNEL_INITIALIZER")
+          iline = iline - 1
+          backspace(unit)
+          activation = read_activation(unit, iline)
+       case("KERNEL_INITIALISER", "KERNEL_INIT", "KERNEL_INITIALisER")
           call assign_val(buffer, kernel_initialiser_name, itmp1)
        case("WEIGHTS")
           kernel_initialiser_name = 'zeros'
@@ -587,8 +602,7 @@ contains
     call this%set_hyperparams( &
          num_time_steps = num_time_steps, &
          num_vertex_features = num_vertex_features, &
-         activation_function = activation_function, &
-         activation_scale = activation_scale, &
+         activation = activation, &
          kernel_initialiser = kernel_initialiser, &
          verbose = verbose_ &
     )
@@ -612,7 +626,7 @@ contains
              read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
              c = c + k
           end do data_concat_loop
-          this%params_array(t)%val(:,1) = data_list(1:this%num_params_msg(t))
+          this%params(t)%val(:,1) = data_list(1:this%num_params_msg(t))
           deallocate(data_list)
        end do
 
@@ -702,10 +716,10 @@ contains
           )
 
           ! this%z(t,s) = kipf_update( &
-          !      this%message(t,s), this%params_array(t), this%graph(s)%adj_ia &
+          !      this%message(t,s), this%params(t), this%graph(s)%adj_ia &
           ! )
-          ptr3 => matmul( this%params_array(t), ptr2 )
-          ptr1 => this%transfer%activate( ptr3 )
+          ptr3 => matmul( this%params(t), ptr2 )
+          ptr1 => this%activation%apply( ptr3 )
        end do
        call this%output(1,s)%zero_grad()
        call this%output(1,s)%assign_and_deallocate_source(ptr1)

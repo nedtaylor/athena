@@ -38,3 +38,8 @@ settings.json
 docs/_build/
 .local-pre-commit-config.yaml
 example/*/data/*.txt
+docs/html
+docs/ford
+docs/source/_static/ford
+*.html
+*.ttf

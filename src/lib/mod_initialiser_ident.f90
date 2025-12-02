@@ -4,30 +4,30 @@ module athena__initialiser_ident
   !! This module contains the implementation of the identity initialiser
   !! for the weights and biases of a layer
   use coreutils, only: real32, stop_program
-  use athena__misc_types, only: initialiser_type
+  use athena__misc_types, only: base_init_type
   implicit none
 
 
   private
 
-  public :: ident_type
+  public :: ident_init_type
 
 
-  type, extends(initialiser_type) :: ident_type
+  type, extends(base_init_type) :: ident_init_type
      !! Type for the identity initialiser
    contains
      procedure, pass(this) :: initialise => ident_initialise
      !! Initialise the weights and biases using the identity matrix
-  end type ident_type
+  end type ident_init_type
 
 
-  interface ident_type
+  interface ident_init_type
      module function initialiser_ident_setup() result(initialiser)
        !! Interface for the Identity initialiser
-       type(ident_type) :: initialiser
+       type(ident_init_type) :: initialiser
        !! Identity initialiser object
      end function initialiser_ident_setup
-  end interface ident_type
+  end interface ident_init_type
 
 
 
@@ -38,7 +38,7 @@ contains
     !! Interface for the Identity initialiser
     implicit none
 
-    type(ident_type) :: initialiser
+    type(ident_init_type) :: initialiser
     !! Identity initialiser object
 
     initialiser%name = "ident"
@@ -53,7 +53,7 @@ contains
     implicit none
 
     ! Arguments
-    class(ident_type), intent(inout) :: this
+    class(ident_init_type), intent(inout) :: this
     !! Instance of the identity initialiser
     real(real32), dimension(..), intent(out) :: input
     !! Weights and biases to initialise

@@ -20,7 +20,7 @@ contains
     !! File to export the network to
 
     ! Local variables
-    integer :: unit, i, j, idx
+    integer :: unit, i, j, layer_id
     !! Unit number and loop indices
     character(256) :: layer_name
     !! Layer name for ONNX
@@ -48,10 +48,10 @@ contains
     ! Write nodes (layers)
     write(unit, '(A)') '  # Nodes'
     do i = 1, network%auto_graph%num_vertices
-       idx = network%auto_graph%vertex(network%vertex_order(i))%id
-       write(node_name, '("node_", I0)') network%model(idx)%layer%id
+       layer_id = network%auto_graph%vertex(network%vertex_order(i))%id
+       write(node_name, '("node_", I0)') network%model(layer_id)%layer%id
 
-       select case(trim(network%model(idx)%layer%type))
+       select case(trim(network%model(layer_id)%layer%type))
        case('inpt')
           layer_name = 'Input'
           cycle
@@ -61,13 +61,13 @@ contains
           layer_name = 'Conv'
        case('pool')
           layer_name = to_camel_case( &
-               trim(adjustl(network%model(idx)%layer%subtype))//"_"//&
-               trim(adjustl(network%model(idx)%layer%type)), &
+               trim(adjustl(network%model(layer_id)%layer%subtype))//"_"//&
+               trim(adjustl(network%model(layer_id)%layer%type)), &
                capitalise_first_letter = .true. &
           )
        case('actv')
           layer_name = to_camel_case( &
-               adjustl(network%model(idx)%layer%subtype), &
+               adjustl(network%model(layer_id)%layer%subtype), &
                capitalise_first_letter = .true. &
           )
        case('flat')
@@ -89,7 +89,7 @@ contains
        ! Write input connections
        if(all(network%auto_graph%adjacency(:,network%vertex_order(i)).eq.0))then
           cycle
-          ! write(unit, '(A,I0,A)') '    input: "input_',network%model(idx)%layer%id,'"'
+          ! write(unit, '(A,I0,A)') '    input: "input_',network%model(layer_id)%layer%id,'"'
        else
           do j = 1, network%auto_graph%num_vertices
              if(network%auto_graph%adjacency(j,network%vertex_order(i)).eq.0) cycle
@@ -102,11 +102,11 @@ contains
                      network%model(network%auto_graph%vertex(j)%id)%layer%id
                 suffix = '_output'
              end if
-             if(network%model(idx)%layer%use_graph_input)then
+             if(network%model(layer_id)%layer%use_graph_input)then
                 write(tmp_input_name,'(A,A,A)') &
                      trim(adjustl(input_name)), '_vertex', suffix
                 write(unit,'(4X,"input: """,A,"""")') trim(adjustl(tmp_input_name))
-                if(network%model(idx)%layer%input_shape(2) .gt. 0)then
+                if(network%model(layer_id)%layer%input_shape(2) .gt. 0)then
                    write(tmp_input_name,'(A,A,A)') &
                         trim(adjustl(input_name)), '_edge', suffix
                    write(unit,'(4X,"input: """,A,"""")') trim(adjustl(tmp_input_name))
@@ -117,19 +117,19 @@ contains
              end if
           end do
        end if
-       select type(layer => network%model(idx)%layer)
+       select type(layer => network%model(layer_id)%layer)
        class is(learnable_layer_type)
-          if(layer%transfer%name.ne."none")then
+          if(layer%activation%name.ne."none")then
              suffix = '_pre_function'
           else
              suffix = ''
           end if
           do j = 1, size(layer%weight_shape, dim=2)
              write(unit, '(4X,"input: ""node_",I0,"_weight",I0,"""")') &
-                  network%model(idx)%layer%id, j
-             if(layer%has_bias)then
+                  network%model(layer_id)%layer%id, j
+             if(layer%use_bias)then
                 write(unit, '(4X,"input: ""node_",I0,"_bias",I0,"""")') &
-                     network%model(idx)%layer%id, j
+                     network%model(layer_id)%layer%id, j
              end if
           end do
        class default
@@ -137,39 +137,39 @@ contains
        end select
 
        ! Write output
-       if(network%model(idx)%layer%use_graph_output)then
+       if(network%model(layer_id)%layer%use_graph_output)then
           write(unit, '(4X,"output: ""node_",I0,"_vertex_output",A,"""")') &
-               network%model(idx)%layer%id, trim(adjustl(suffix))
+               network%model(layer_id)%layer%id, trim(adjustl(suffix))
           write(unit, '(4X,"output: ""node_",I0,"_edge_output",A,"""")') &
-               network%model(idx)%layer%id, trim(adjustl(suffix))
+               network%model(layer_id)%layer%id, trim(adjustl(suffix))
        else
           write(unit, '(4X,"output: ""node_",I0,"_output",A,"""")') &
-               network%model(idx)%layer%id, trim(adjustl(suffix))
+               network%model(layer_id)%layer%id, trim(adjustl(suffix))
        end if
 
-       call write_onnx_attributes(unit, network%model(idx)%layer)
+       call write_onnx_attributes(unit, network%model(layer_id)%layer)
 
        write(unit, '(A)') '  }'
        write(unit, '(A)') ''
 
-       select type(layer => network%model(idx)%layer)
+       select type(layer => network%model(layer_id)%layer)
        class is(learnable_layer_type)
           call write_onnx_initialisers(unit, layer, prefix = trim(node_name) )
-          if(layer%transfer%name.ne."none")then
+          if(layer%activation%name.ne."none")then
              if(layer%use_graph_output)then
                 call write_onnx_function( &
-                     unit, layer%transfer%name, &
+                     unit, layer%activation%name, &
                      prefix = trim(node_name)//'_vertex' &
                 )
-                if(network%model(idx)%layer%input_shape(2) .gt. 0)then
+                if(network%model(layer_id)%layer%input_shape(2) .gt. 0)then
                    call write_onnx_function( &
-                        unit, layer%transfer%name, &
+                        unit, layer%activation%name, &
                         prefix = trim(node_name)//'_edge' &
                    )
                 end if
              else
                 call write_onnx_function( &
-                     unit, layer%transfer%name, &
+                     unit, layer%activation%name, &
                      prefix = trim(node_name) &
                 )
              end if
@@ -180,34 +180,36 @@ contains
 
     ! write all layer output shapes
     do i = 1, network%auto_graph%num_vertices
-       idx = network%auto_graph%vertex(network%vertex_order(i))%id
-       if(.not.allocated(network%model(idx)%layer%output_shape)) cycle
-       if(network%model(idx)%layer%use_graph_output)then
-          write(node_name, '("node_",I0,"_vertex_output")') network%model(idx)%layer%id
+       layer_id = network%auto_graph%vertex(network%vertex_order(i))%id
+       if(.not.allocated(network%model(layer_id)%layer%output_shape)) cycle
+       if(network%model(layer_id)%layer%use_graph_output)then
+          write(node_name, '("node_",I0,"_vertex_output")') &
+               network%model(layer_id)%layer%id
           call write_onnx_tensor( &
                unit, &
                "value_info", &
                trim(adjustl(node_name)), &
-               [ network%model(idx)%layer%output_shape(1) ], &
+               [ network%model(layer_id)%layer%output_shape(1) ], &
                network%batch_size &
           )
-          if(network%model(idx)%layer%output_shape(2) .gt. 0)then
-             write(node_name, '("node_",I0,"_edge_output")') network%model(idx)%layer%id
+          if(network%model(layer_id)%layer%output_shape(2) .gt. 0)then
+             write(node_name, '("node_",I0,"_edge_output")') &
+                  network%model(layer_id)%layer%id
              call write_onnx_tensor( &
                   unit, &
                   "value_info", &
                   trim(adjustl(node_name)), &
-                  [ network%model(idx)%layer%output_shape(2) ], &
+                  [ network%model(layer_id)%layer%output_shape(2) ], &
                   network%batch_size &
              )
           end if
        else
-          write(node_name, '("node_",I0,"_output")') network%model(idx)%layer%id
+          write(node_name, '("node_",I0,"_output")') network%model(layer_id)%layer%id
           call write_onnx_tensor( &
                unit, &
                "value_info", &
                trim(adjustl(node_name)), &
-               network%model(idx)%layer%output_shape, &
+               network%model(layer_id)%layer%output_shape, &
                network%batch_size &
           )
        end if
@@ -216,33 +218,33 @@ contains
     ! Write inputs
     write(unit, '(A)') '  # Inputs'
     do i = 1, size(network%root_vertices, dim=1)
-       idx = network%root_vertices(i)
-       if(network%model(idx)%layer%use_graph_output)then
-          write(node_name, '("input_",I0,"_vertex")') network%model(idx)%layer%id
+       layer_id = network%auto_graph%vertex(network%root_vertices(i))%id
+       if(network%model(layer_id)%layer%use_graph_output)then
+          write(node_name, '("input_",I0,"_vertex")') network%model(layer_id)%layer%id
           call write_onnx_tensor( &
                unit, &
                "input", &
                trim(adjustl(node_name)), &
-               [ network%model(idx)%layer%input_shape(1) ], &
+               [ network%model(layer_id)%layer%input_shape(1) ], &
                network%batch_size &
           )
-          if(network%model(idx)%layer%input_shape(2) .gt. 0)then
-             write(node_name, '("input_",I0,"_edge")') network%model(idx)%layer%id
+          if(network%model(layer_id)%layer%input_shape(2) .gt. 0)then
+             write(node_name, '("input_",I0,"_edge")') network%model(layer_id)%layer%id
              call write_onnx_tensor( &
                   unit, &
                   "input", &
                   trim(adjustl(node_name)), &
-                  [ network%model(idx)%layer%input_shape(2) ], &
+                  [ network%model(layer_id)%layer%input_shape(2) ], &
                   network%batch_size &
              )
           end if
        else
-          write(node_name, '("input_",I0)') network%model(idx)%layer%id
+          write(node_name, '("input_",I0)') network%model(layer_id)%layer%id
           call write_onnx_tensor( &
                unit, &
                "input", &
                trim(adjustl(node_name)), &
-               network%model(idx)%layer%input_shape, &
+               network%model(layer_id)%layer%input_shape, &
                network%batch_size &
           )
        end if
@@ -251,33 +253,35 @@ contains
     ! Write outputs
     write(unit, '(A)') '  # Outputs'
     do i = 1, size(network%leaf_vertices, dim=1)
-       idx = network%leaf_vertices(i)
-       if(network%model(idx)%layer%use_graph_output)then
-          write(node_name, '("node_",I0,"_vertex_output")') network%model(idx)%layer%id
+       layer_id = network%auto_graph%vertex(network%leaf_vertices(i))%id
+       if(network%model(layer_id)%layer%use_graph_output)then
+          write(node_name, '("node_",I0,"_vertex_output")') &
+               network%model(layer_id)%layer%id
           call write_onnx_tensor( &
                unit, &
                "output", &
                trim(adjustl(node_name)), &
-               [ network%model(idx)%layer%output_shape(1) ], &
+               [ network%model(layer_id)%layer%output_shape(1) ], &
                network%batch_size &
           )
-          if(network%model(idx)%layer%output_shape(2) .gt. 0)then
-             write(node_name, '("node_",I0,"_edge_output")') network%model(idx)%layer%id
+          if(network%model(layer_id)%layer%output_shape(2) .gt. 0)then
+             write(node_name, '("node_",I0,"_edge_output")') &
+                  network%model(layer_id)%layer%id
              call write_onnx_tensor( &
                   unit, &
                   "output", &
                   trim(adjustl(node_name)), &
-                  [ network%model(idx)%layer%output_shape(2) ], &
+                  [ network%model(layer_id)%layer%output_shape(2) ], &
                   network%batch_size &
              )
           end if
        else
-          write(node_name, '("node_",I0,"_output")') network%model(idx)%layer%id
+          write(node_name, '("node_",I0,"_output")') network%model(layer_id)%layer%id
           call write_onnx_tensor( &
                unit, &
                "output", &
                trim(adjustl(node_name)), &
-               network%model(idx)%layer%output_shape, &
+               network%model(layer_id)%layer%output_shape, &
                network%batch_size &
           )
        end if
@@ -332,8 +336,8 @@ contains
     ! Node information storage
     type(onnx_node_type), allocatable, dimension(:) :: nodes
 
-    ! Initializer storage
-    type(onnx_initialiser_type), allocatable, dimension(:) :: initializers
+    ! Initialiser storage
+    type(onnx_initialiser_type), allocatable, dimension(:) :: initialisers
     integer :: num_initialisers
 
     ! Tensor info storage (inputs, outputs, value_info)
@@ -387,7 +391,7 @@ contains
 
     ! Allocate storage
     allocate(nodes(node_count))
-    allocate(initializers(num_initialisers))
+    allocate(initialisers(num_initialisers))
     allocate(input_tensors(num_input_tensors))
     allocate(output_tensors(num_output_tensors))
 
@@ -485,7 +489,7 @@ contains
        elseif(in_initialiser)then
           if(index(trimmed_line, 'name:') .gt. 0)then
              call assign_val(buffer1, &
-                  initializers(num_initialisers)%name, itmp1, fs=":")
+                  initialisers(num_initialisers)%name, itmp1, fs=":")
           elseif(index(trimmed_line, 'dims:') .gt. 0)then
              if(.not. reading_dims)then
                 reading_dims = .true.
@@ -494,10 +498,10 @@ contains
              end if
              call assign_val(buffer1, j, itmp1, fs=":")
              dims = [dims, j]
-             initializers(num_initialisers)%dims = dims
+             initialisers(num_initialisers)%dims = dims
           elseif(index(trimmed_line, 'float_data:') .gt. 0)then
              reading_data = .true.
-             allocate(initializers(num_initialisers)%data(0))
+             allocate(initialisers(num_initialisers)%data(0))
              do while(reading_data)
                 read(unit, '(A)', iostat=stat) line
                 if(stat .ne. 0) exit
@@ -509,8 +513,8 @@ contains
                    reading_data = .false.
                 elseif(trim(adjustl(trimmed_line)) .ne. '')then
                    call allocate_and_assign_vec(trimmed_line, float_data, fs=":")
-                   initializers(num_initialisers)%data = &
-                        [initializers(num_initialisers)%data, float_data]
+                   initialisers(num_initialisers)%data = &
+                        [initialisers(num_initialisers)%data, float_data]
                    deallocate(float_data)
                 end if
              end do
@@ -551,7 +555,7 @@ contains
 
     ! Now construct the network from parsed information
     call network%build_from_onnx( &
-         nodes, initializers, &
+         nodes, initialisers, &
          verbose=verbose_ &
     )
 
@@ -576,7 +580,7 @@ contains
     ! Initialise attribute
     attr%name = ""
     attr%type = ""
-    allocate(character(0) :: attr%value)
+    allocate(character(0) :: attr%val)
     value_buffer = ""
 
     ! Read the opening "attribute {" line (already read by caller, so we're inside)
@@ -637,7 +641,7 @@ contains
 
     ! Store accumulated values
     if(len_trim(value_buffer) .gt. 0) then
-       attr%value = trim(value_buffer)
+       attr%val = trim(value_buffer)
     end if
 
   end function read_attribute
@@ -701,51 +705,29 @@ contains
     !! Optional prefix for weight and bias names
 
     ! Local variables
-    integer :: i, j, num_params, num_params_old
+    integer :: i
     !! Loop indices
+    integer :: num_params
+    !! Number of parameters
     character(20) :: name
-    !! Names for weights and biases
+    !! Names for parameters
 
 
     if(allocated(layer%params))then
-       num_params_old = 0
-       do i = 1, size(layer%weight_shape, 2)
-          write(name, '(A,A,I0)') trim(prefix), '_weight', i
+       do i = 1, size(layer%params)
+          num_params = size(layer%params(i)%val,1)
+          write(name, '(A,A,I0)') trim(prefix), '_param', i
           write(unit, '(2X,A)') 'initializer {'
           write(unit, '(4X,"name: """,A,"""")') trim(name)
           write(unit, '(4X,A)') 'data_type: 1'  ! FLOAT
-          do j = size(layer%weight_shape, 1), 1, -1
-             write(unit, '(4X,A,I0)') 'dims: ', layer%weight_shape(j,i)
-          end do
-          num_params = product(layer%weight_shape(:, i))
+          write(unit, '(4X,A,I0)') 'dims: ', num_params
 
           write(unit, '(4X,"float_data: [ ")')
-          write(unit, '(20(F0.6,", "))') layer%params(num_params_old + 1:num_params-1)
-          write(unit, '(F0.6)') layer%params(num_params + num_params_old)
+          write(unit, '(20(F0.6,", "))') layer%params(i)%val(1:num_params-1,:)
+          write(unit, '(F0.6)') layer%params(i)%val(num_params,:)
           write(unit, '(A)') ' ]'
           write(unit, '(A)') '  }'
           write(unit, '(A)') ''
-
-          num_params_old = num_params_old + num_params
-
-          if(layer%has_bias)then
-             write(name, '(A,A,I0)') trim(prefix), '_bias', i
-             write(unit, '(2X,A)') 'initializer {'
-             write(unit, '(4X,"name: """,A,"""")') trim(name)
-             write(unit, '(4X,A)') 'data_type: 1'  ! FLOAT
-             write(unit, '(4X,A,I0)') 'dims: ', layer%bias_shape(i)
-             num_params = layer%bias_shape(i)
-
-             write(unit, '(4X,"float_data: [ ")')
-             write(unit, '(20(F0.6,", "))') &
-                  layer%params(num_params_old + 1:num_params_old + num_params - 1)
-             write(unit, '(F0.6)') layer%params(num_params_old + num_params)
-             write(unit, '(A)') ' ]'
-             write(unit, '(A)') '  }'
-             write(unit, '(A)') ''
-
-             num_params_old = num_params_old + layer%bias_shape(i)
-          end if
        end do
     end if
 
@@ -821,18 +803,18 @@ contains
           ! determine whether the attribute is a list or a single value
           type_lw = to_lower(trim(adjustl(attributes(i)%type)))
           type_up = to_upper(trim(adjustl(attributes(i)%type)))
-          itmp1 = icount(attributes(i)%value)
+          itmp1 = icount(attributes(i)%val)
           select case(type_lw)
           case('ints','int')
              allocate(ivar_list(itmp1))
-             read(attributes(i)%value,*) ivar_list
+             read(attributes(i)%val,*) ivar_list
              do j = 1, size(ivar_list)
                 write(unit, '(6X,A,": ",I0)') type_lw, ivar_list(j)
              end do
              deallocate(ivar_list)
           case('floats','float')
              allocate(rvar_list(itmp1))
-             read(attributes(i)%value,*) rvar_list
+             read(attributes(i)%val,*) rvar_list
              do j = 1, size(rvar_list), 1
                 write(unit, '(6X,A,": ",F0.6)') type_lw, rvar_list(j)
              end do
@@ -840,7 +822,7 @@ contains
           case('strings','string')
           case default
              write(unit, '(6X,A,": ",A)') trim(adjustl(attributes(i)%type)), &
-                  trim(adjustl(attributes(i)%value))
+                  trim(adjustl(attributes(i)%val))
           end select
           write(unit,'(6X,"type: ",A)') type_up
           write(unit,'(4X,"}")')

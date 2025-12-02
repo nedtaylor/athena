@@ -101,7 +101,7 @@ program test_pad3d_layer
 !-------------------------------------------------------------------------------
   write(*,*) "Testing 2D input forward pass with zero padding..."
 
-  ! Initialize test input
+  ! Initialise test input
   call input(1,1)%allocate(&
        array_shape=[width, height, depth, channels, batch_size], source = 0.0)
   do s = 1, batch_size
@@ -147,7 +147,7 @@ program test_pad3d_layer
 !-------------------------------------------------------------------------------
   write(*,*) "Testing 5D input forward pass with zero padding..."
 
-  ! Initialize test input
+  ! Initialise test input
   call input(1,1)%allocate(&
        array_shape=[width, height, depth, channels, batch_size], source = 0.0)
   call input(1,1)%set_requires_grad(.true.)

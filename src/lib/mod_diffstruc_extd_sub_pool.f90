@@ -66,7 +66,7 @@ contains
   end function get_partial_avgpool1d
 !-------------------------------------------------------------------------------
   pure subroutine get_partial_avgpool1d_val(this, upstream_grad, output)
-    !! Optimized backward pass for 1D average pooling
+    !! Optimised backward pass for 1D average pooling
     implicit none
 
     ! Arguments
@@ -91,7 +91,7 @@ contains
 
     pool_norm = 1.0_real32 / real(pool_size(1), real32)
 
-    ! Parallelized over batch and spatial/channel dimensions
+    ! Parallelised over batch and spatial/channel dimensions
     do concurrent(s = 1:input_shape(3), m = 1:this%shape(2), &
          i = 1:this%shape(1))
 
@@ -193,7 +193,7 @@ contains
   end function get_partial_avgpool2d
 !-------------------------------------------------------------------------------
   pure subroutine get_partial_avgpool2d_val(this, upstream_grad, output)
-    !! Optimized backward pass for 2D average pooling
+    !! Optimised backward pass for 2D average pooling
     implicit none
 
     ! Arguments
@@ -343,7 +343,7 @@ contains
   end function get_partial_avgpool3d
 !-------------------------------------------------------------------------------
   pure subroutine get_partial_avgpool3d_val(this, upstream_grad, output)
-    !! Optimized backward pass for 3D average pooling
+    !! Optimised backward pass for 3D average pooling
     implicit none
 
     ! Arguments
@@ -472,7 +472,7 @@ contains
   end function get_partial_maxpool1d
 !-------------------------------------------------------------------------------
   pure subroutine get_partial_maxpool1d_val(this, upstream_grad, output)
-    !! Optimized backward pass for 1D max pooling
+    !! Optimised backward pass for 1D max pooling
     implicit none
 
     ! Arguments
@@ -502,7 +502,7 @@ contains
        out_idx = i + (m - 1) * this%shape(1)
        grad_val = upstream_grad(out_idx, s)
 
-       ! Find max value location - initialize with first element
+       ! Find max value location - initialise with first element
        max_idx = base_idx + 1
        pool_max = this%left_operand%val(max_idx, s)
 
@@ -563,7 +563,7 @@ contains
             (m-1) * channel_size_in
        idx = i + (j - 1) * output_shape(1) + (m - 1) * channel_size_out
 
-       ! Find max value - initialize with first element for better performance
+       ! Find max value - initialise with first element for better performance
        stride_idx = base_idx + 1
        pool_max = input%val(stride_idx, s)
 
@@ -638,7 +638,7 @@ contains
 
     output = 0._real32
 
-    ! Parallelized over batch and spatial/channel dimensions
+    ! Parallelised over batch and spatial/channel dimensions
     do concurrent(s = 1:input_shape(4), m = 1:this%shape(3), &
          j = 1:this%shape(2), i = 1:this%shape(1))
 
@@ -648,7 +648,7 @@ contains
        out_idx = i + (j-1) * this%shape(1) + (m-1) * channel_size_out
        grad_val = upstream_grad(out_idx, s)
 
-       ! Find max value location - initialize with first element
+       ! Find max value location - initialise with first element
        max_idx = base_idx + 1
        pool_max = this%left_operand%val(max_idx, s)
 
@@ -723,7 +723,7 @@ contains
             (k-1) * output_shape(1)*output_shape(2) + &
             (m-1) * channel_size_out
 
-       ! Find max value - initialize with first element
+       ! Find max value - initialise with first element
        pool_max = input%val(stride_idx, s)
 
        do k_step = 0, pool_size(3)-1
@@ -780,7 +780,7 @@ contains
   end function get_partial_maxpool3d
 !-------------------------------------------------------------------------------
   pure subroutine get_partial_maxpool3d_val(this, upstream_grad, output)
-    !! Optimized backward pass for 3D max pooling
+    !! Optimised backward pass for 3D max pooling
     implicit none
 
     ! Arguments
@@ -809,7 +809,7 @@ contains
 
     output = 0._real32
 
-    ! Parallelized over batch and spatial/channel dimensions
+    ! Parallelised over batch and spatial/channel dimensions
     do concurrent(s = 1:input_shape(5), m = 1:this%shape(4), &
          k = 1:this%shape(3), j = 1:this%shape(2), i = 1:this%shape(1))
 
@@ -821,7 +821,7 @@ contains
             (m-1) * channel_size_out
        grad_val = upstream_grad(out_idx, s)
 
-       ! Find max value location - initialize with first element
+       ! Find max value location - initialise with first element
        max_idx = base_idx + 1
        pool_max = this%left_operand%val(max_idx, s)
 

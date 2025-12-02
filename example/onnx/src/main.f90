@@ -1,6 +1,5 @@
-program test_onnx_read
+program onnx_example
   use athena
-  use diffstruc
   implicit none
 
   type(network_type) :: network_write, network_read
@@ -13,7 +12,7 @@ program test_onnx_read
        input_shape=[28,28,1], &
        num_filters=6, &
        kernel_size=3, &
-       activation_function="relu"))
+       activation="relu"))
 
   call network_write%add(maxpool2d_layer_type( &
        pool_size=2, &
@@ -21,11 +20,11 @@ program test_onnx_read
 
   call network_write%add(full_layer_type( &
        num_outputs=12, &
-       activation_function="relu"))
+       activation="relu"))
 
   call network_write%add(full_layer_type( &
        num_outputs=10, &
-       activation_function="softmax"))
+       activation="softmax"))
 
   call network_write%compile( &
        optimiser=base_optimiser_type(learning_rate=0.01), &
@@ -48,4 +47,4 @@ program test_onnx_read
   write(*,*) "Number of layers in original network: ", network_write%num_layers
   write(*,*) "Number of layers in read network: ", network_read%num_layers
 
-end program test_onnx_read
+end program onnx_example

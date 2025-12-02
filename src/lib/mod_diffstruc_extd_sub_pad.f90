@@ -1224,7 +1224,7 @@ contains
        output%adj_ja(2,(i-1)*2 + 2) = facets%dest_bound(2,1,i)
     end do
 
-    ! Initialize with pad_value
+    ! Initialise with pad_value
     output%val = 0._real32
 
     ! Copy input into the correct location in output
@@ -1384,7 +1384,7 @@ contains
        output%adj_ja(2,(i-1)*4 + 4 + idx_shift) = facets(2)%dest_bound(2,2,i)
     end do
 
-    ! Initialize with zero
+    ! Initialise with zero
     output%val = 0._real32
 
     ! Copy input into the correct location in output
@@ -1579,7 +1579,7 @@ contains
             facets(3)%dest_bound(1:2,3,i)
     end do
 
-    ! Initialize with zero
+    ! Initialise with zero
     output%val = 0._real32
 
     ! Copy input into the correct location in output

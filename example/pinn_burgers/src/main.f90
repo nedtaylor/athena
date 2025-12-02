@@ -22,7 +22,7 @@ program pinn_burgers_example
 
   ! training loop variables
   integer :: num_tests = 10, num_epochs = 100, batch_size = 1
-  character(32) :: activation_function
+  character(32) :: activation_name
   class(*), allocatable :: kernel_initialiser, bias_initialiser
 
   integer :: i, j, itmp1, num_params
@@ -96,43 +96,43 @@ program pinn_burgers_example
      write(*,*) "Reading finished"
   else
      write(6,*) "Initialising PINN..."
-     activation_function = "tanh"
-     kernel_initialiser = he_uniform_type(scale = 1._real32/sqrt(6._real32))
-     bias_initialiser = he_uniform_type(scale = 1._real32/sqrt(6._real32))
+     activation_name = "tanh"
+     kernel_initialiser = he_uniform_init_type(scale = 1._real32/sqrt(6._real32))
+     bias_initialiser = he_uniform_init_type(scale = 1._real32/sqrt(6._real32))
 
      call network%add(full_layer_type( &
           num_inputs  = 2, &
           num_outputs = 50, &
           batch_size  = batch_size, &
-          activation_function = activation_function, &
+          activation = activation_name, &
           kernel_initialiser = kernel_initialiser, &
           bias_initialiser = bias_initialiser &
      ))
      call network%add(full_layer_type( &
           num_outputs = 50, &
           batch_size  = batch_size, &
-          activation_function = activation_function, &
+          activation = activation_name, &
           kernel_initialiser = kernel_initialiser, &
           bias_initialiser = bias_initialiser &
      ))
      call network%add(full_layer_type( &
           num_outputs = 50, &
           batch_size  = batch_size, &
-          activation_function = activation_function, &
+          activation = activation_name, &
           kernel_initialiser = kernel_initialiser, &
           bias_initialiser = bias_initialiser &
      ))
      call network%add(full_layer_type( &
           num_outputs = 50, &
           batch_size  = batch_size, &
-          activation_function = activation_function, &
+          activation = activation_name, &
           kernel_initialiser = kernel_initialiser, &
           bias_initialiser = bias_initialiser &
      ))
      call network%add(full_layer_type( &
           num_outputs = 1, &
           batch_size  = batch_size, &
-          activation_function = "none", &
+          activation = "none", &
           kernel_initialiser = kernel_initialiser, &
           bias_initialiser = bias_initialiser &
      ))
@@ -169,8 +169,8 @@ program pinn_burgers_example
   do i = 1, network%num_layers
      select type(layer => network%model(i)%layer)
      class is (learnable_layer_type)
-        write(10,*) layer%params_array(1)%val(:,1)
-        write(10,*) layer%params_array(2)%val(:,1)
+        write(10,*) layer%params(1)%val(:,1)
+        write(10,*) layer%params(2)%val(:,1)
      end select
   end do
 
@@ -224,9 +224,9 @@ program pinn_burgers_example
 ! check compiler, if gfortran, do the following
 #ifdef __GNUC__
   allocate(u_pred(1,1))
-  u_pred = network%predict_array(XT)
+  u_pred = network%predict(XT, output_as_array=.true.)
 #else
-  u_pred(1:1,1:1) => network%predict_array(XT)
+  u_pred(1:1,1:1) => network%predict(XT, output_as_array=.true.)
 #endif
   write(*,*) "Testing finished"
   open(unit=20, file="u_pred.txt", status='replace')

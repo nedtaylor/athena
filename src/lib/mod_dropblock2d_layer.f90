@@ -1,9 +1,27 @@
 module athena__dropblock2d_layer
   !! Module containing implementation of a 2D dropblock layer
   !!
-  !! This module contains the implementation of a 2D dropblock layer
-  !! for use in neural networks.
-  !! DropBlock reference: https://arxiv.org/pdf/1810.12890.pdf
+  !! This module implements DropBlock regularization for 2D convolutional layers,
+  !! dropping contiguous regions (blocks) instead of individual elements.
+  !! More effective than dropout for convolutional networks.
+  !!
+  !! Mathematical operation (training):
+  !!   1. Compute drop probability per spatial location:
+  !!      gamma = p * (feature_size^2) / (block_size^2 * valid_positions)
+  !!   2. Sample Bernoulli mask M_i ~ Bernoulli(gamma)
+  !!   3. Expand mask to block_size x block_size blocks
+  !!   4. Apply and normalize:
+  !!      y = x * M * (count_elements / count_ones)
+  !!
+  !! where block_size is the spatial extent of each dropped block
+  !!
+  !! Inference: acts as identity (no dropout applied)
+  !!   y = x
+  !!
+  !! Benefits: Better for convolutions (spatial coherence), removes semantic info,
+  !! forces network to learn from dispersed features
+  !! Typical: block_size=7, keep_prob=0.9 for ResNet
+  !! Reference: Ghiasi et al. (2018), NeurIPS - https://arxiv.org/abs/1810.12890
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: drop_layer_type, base_layer_type
   use diffstruc, only: array_type, operator(*)

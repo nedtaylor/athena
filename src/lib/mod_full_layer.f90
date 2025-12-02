@@ -1,15 +1,31 @@
 module athena__full_layer
   !! Module containing implementation of a fully connected layer
   !!
-  !! This module implements a fully connected (aka dense) layer for a
-  !! neural network.
+  !! This module implements a fully connected (dense) layer, the fundamental
+  !! building block of neural networks that connects every input to every output.
+  !!
+  !! Mathematical operation:
+  !! \[ \mathbf{y} = \sigma(\mathbf{W}\mathbf{x} + \mathbf{b}) \]
+  !!
+  !! where:
+  !!   - \(\mathbf{x} \in \mathbb{R}^{n_{in}}\) is the input vector
+  !!   - \(\mathbf{W} \in \mathbb{R}^{n_{out} \times n_{in}}\) is the weight matrix
+  !!   - \(\mathbf{b} \in \mathbb{R}^{n_{out}}\) is the bias vector
+  !!   - \(\sigma\) is the activation function
+  !!   - \(\mathbf{y} \in \mathbb{R}^{n_{out}}\) is the output vector
+  !!
+  !! Number of parameters: \(n_{out} \times n_{in} + n_{out}\) (if bias used)
+  !!
+  !! Properties: Universal function approximator (with sufficient width/depth)
+  !! Learns arbitrary non-linear mappings between input and output spaces
+  !!
   !! Attribution statement:
   !! The get_num_params procedure is based on code from the
   !! neural-fortran library
-  !! https://github.com/modern-fortran/neural-fortran/blob/main/src/nf/nf_layer.f90
+  !! https://github.com/modern-fortran/neural-fortran
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: learnable_layer_type, base_layer_type
-  use athena__misc_types, only: initialiser_type, &
+  use athena__misc_types, only: base_actv_type, base_init_type, &
        onnx_node_type, onnx_initialiser_type
   use diffstruc, only: array_type, matmul, operator(+)
   implicit none
@@ -55,8 +71,8 @@ module athena__full_layer
   interface full_layer_type
      !! Interface for setting up the fully connected layer
      module function layer_setup( &
-          num_outputs, num_inputs, batch_size, &
-          activation_function, activation_scale, &
+          num_outputs, num_inputs, batch_size, use_bias, &
+          activation, &
           kernel_initialiser, bias_initialiser, verbose &
      ) result(layer)
        !! Setup a fully connected layer
@@ -66,10 +82,10 @@ module athena__full_layer
        !! Number of inputs
        integer, optional, intent(in) :: batch_size
        !! Batch size
-       real(real32), optional, intent(in) :: activation_scale
-       !! Activation scale
-       character(*), optional, intent(in) :: activation_function
-       !! Activation function, kernel initialiser, and bias initialiser
+       logical, optional, intent(in) :: use_bias
+       !! Whether to use bias
+       class(*), optional, intent(in) :: activation
+       !! Activation function
        class(*), optional, intent(in) :: kernel_initialiser, bias_initialiser
        !! Kernel and bias initialisers
        integer, optional, intent(in) :: verbose
@@ -135,10 +151,12 @@ contains
   module function layer_setup( &
        num_outputs, num_inputs, &
        batch_size, &
-       activation_function, activation_scale, &
+       use_bias, &
+       activation, &
        kernel_initialiser, bias_initialiser, verbose &
   ) result(layer)
     !! Setup a fully connected layer
+    use athena__activation, only: activation_setup
     use athena__initialiser, only: initialiser_setup
     implicit none
 
@@ -149,9 +167,10 @@ contains
     !! Number of inputs
     integer, optional, intent(in) :: batch_size
     !! Batch size
-    real(real32), optional, intent(in) :: activation_scale
-    !! Activation scale
-    character(*), optional, intent(in) :: activation_function
+    logical, optional, intent(in) :: use_bias
+    !! Whether to use bias
+    class(*), optional, intent(in) :: activation
+    !! Activation function
     class(*), optional, intent(in) :: kernel_initialiser, bias_initialiser
     !! Activation function, kernel initialiser, and bias initialiser
     integer, optional, intent(in) :: verbose
@@ -163,21 +182,30 @@ contains
     ! Local variables
     integer :: verbose_ = 0
     !! Verbosity level
-    real(real32) :: scale = 1._real32
-    !! Activation scale
-    character(len=10) :: activation_function_ = "none"
+    logical :: use_bias_ = .true.
+    !! Whether to use bias
+    class(base_actv_type), allocatable :: activation_
     !! Activation function
-    class(initialiser_type), allocatable :: kernel_initialiser_, bias_initialiser_
+    class(base_init_type), allocatable :: kernel_initialiser_, bias_initialiser_
     !! Kernel and bias initialisers
 
     if(present(verbose)) verbose_ = verbose
 
 
     !---------------------------------------------------------------------------
-    ! Set activation and derivative functions based on input name
+    ! Set use_bias
     !---------------------------------------------------------------------------
-    if(present(activation_function)) activation_function_ = activation_function
-    if(present(activation_scale)) scale = activation_scale
+    if(present(use_bias)) use_bias_ = use_bias
+
+
+    !---------------------------------------------------------------------------
+    ! Set activation functions based on input name
+    !---------------------------------------------------------------------------
+    if(present(activation))then
+       activation_ = activation_setup(activation)
+    else
+       activation_ = activation_setup("none")
+    end if
 
 
     !---------------------------------------------------------------------------
@@ -196,8 +224,8 @@ contains
     !---------------------------------------------------------------------------
     call layer%set_hyperparams( &
          num_outputs = num_outputs, &
-         activation_function = activation_function_, &
-         activation_scale = scale, &
+         use_bias = use_bias_, &
+         activation = activation_, &
          kernel_initialiser = kernel_initialiser_, &
          bias_initialiser = bias_initialiser_, &
          verbose = verbose_ &
@@ -222,7 +250,8 @@ contains
 !###############################################################################
   subroutine set_hyperparams_full( &
        this, num_outputs, &
-       activation_function, activation_scale, &
+       use_bias, &
+       activation, &
        kernel_initialiser, bias_initialiser, &
        verbose &
   )
@@ -236,11 +265,11 @@ contains
     !! Instance of the fully connected layer
     integer, intent(in) :: num_outputs
     !! Number of outputs
-    character(*), intent(in) :: activation_function
+    logical, intent(in) :: use_bias
+    !! Whether to use bias
+    class(base_actv_type), allocatable, intent(in) :: activation
     !! Activation function
-    real(real32), intent(in) :: activation_scale
-    !! Activation scale
-    class(initialiser_type), allocatable, intent(in) :: &
+    class(base_init_type), allocatable, intent(in) :: &
          kernel_initialiser, bias_initialiser
     !! Kernel and bias initialisers
     integer, optional, intent(in) :: verbose
@@ -254,21 +283,22 @@ contains
     this%type = "full"
     this%input_rank = 1
     this%output_rank = 1
-    this%has_bias = .true.
+    this%use_bias = use_bias
     this%num_outputs = num_outputs
-    if(allocated(this%transfer)) deallocate(this%transfer)
-    allocate(this%transfer, &
-         source=activation_setup(activation_function, activation_scale) &
-    )
+    if(.not.allocated(activation))then
+       this%activation = activation_setup("none")
+    else
+       this%activation = activation
+    end if
     if(.not.allocated(kernel_initialiser))then
-       buffer = get_default_initialiser(activation_function)
+       buffer = get_default_initialiser(this%activation%name)
        this%kernel_init = initialiser_setup(buffer)
     else
        this%kernel_init = kernel_initialiser
     end if
     if(.not.allocated(bias_initialiser))then
        buffer = get_default_initialiser( &
-            activation_function, &
+            this%activation%name, &
             is_bias=.true. &
        )
        this%bias_init = initialiser_setup(buffer)
@@ -278,7 +308,7 @@ contains
     if(present(verbose))then
        if(abs(verbose).gt.0)then
           write(*,'("FULL activation function: ",A)') &
-               trim(activation_function)
+               trim(this%activation%name)
           write(*,'("FULL kernel initialiser: ",A)') &
                trim(this%kernel_init%name)
           write(*,'("FULL bias initialiser: ",A)') &
@@ -306,10 +336,9 @@ contains
     !! Verbosity level
 
     ! Local variables
-    integer :: i
+    integer :: i, num_inputs
     !! Loop index
     integer :: verbose_ = 0
-    !! Verbosity level
 
 
     !---------------------------------------------------------------------------
@@ -331,39 +360,48 @@ contains
     !---------------------------------------------------------------------------
     ! Allocate weight, weight steps (velocities), output, and activation
     !---------------------------------------------------------------------------
-    if(allocated(this%params)) deallocate(this%params)
-    allocate(this%params(this%num_params), source=0._real32)
     allocate(this%weight_shape(2,1))
     this%weight_shape(:,1) = [ this%num_outputs, this%num_inputs ]
-    this%bias_shape = [ this%num_outputs ]
 
-    allocate(this%params_array(2))
-    call this%params_array(1)%allocate([this%weight_shape(:,1), 1])
-    call this%params_array(1)%set_requires_grad(.true.)
-    this%params_array(1)%fix_pointer = .true.
-    this%params_array(1)%is_sample_dependent = .false.
-    this%params_array(1)%is_temporary = .false.
-    call this%params_array(2)%allocate([this%bias_shape, 1])
-    call this%params_array(2)%set_requires_grad(.true.)
-    this%params_array(2)%fix_pointer = .true.
-    this%params_array(2)%is_sample_dependent = .false.
-    this%params_array(2)%is_temporary = .false.
+    if(this%use_bias)then
+       this%bias_shape = [ this%num_outputs ]
+       allocate(this%params(2))
+    else
+       allocate(this%params(1))
+    end if
+    call this%params(1)%allocate([this%weight_shape(:,1), 1])
+    call this%params(1)%set_requires_grad(.true.)
+    this%params(1)%fix_pointer = .true.
+    this%params(1)%is_sample_dependent = .false.
+    this%params(1)%is_temporary = .false.
+    num_inputs = this%num_inputs
+    if(this%use_bias)then
+       num_inputs = this%num_inputs + 1
+       call this%params(2)%allocate([this%bias_shape, 1])
+       call this%params(2)%set_requires_grad(.true.)
+       this%params(2)%fix_pointer = .true.
+       this%params(2)%is_sample_dependent = .false.
+       this%params(2)%is_temporary = .false.
+    end if
+
 
     !---------------------------------------------------------------------------
     ! Initialise weights (kernels)
     !---------------------------------------------------------------------------
     call this%kernel_init%initialise( &
-         this%params_array(1)%val(:,1), &
-         fan_in = this%num_inputs + 1, fan_out = this%num_outputs, &
+         this%params(1)%val(:,1), &
+         fan_in = num_inputs, fan_out = this%num_outputs, &
          spacing = [ this%num_outputs ] &
     )
 
     ! Initialise biases
     !---------------------------------------------------------------------------
-    call this%bias_init%initialise( &
-         this%params_array(2)%val(:,1), &
-         fan_in=this%num_inputs+1, fan_out=this%num_outputs &
-    )
+    if(this%use_bias)then
+       call this%bias_init%initialise( &
+            this%params(2)%val(:,1), &
+            fan_in = num_inputs, fan_out = this%num_outputs &
+       )
+    end if
 
 
     !---------------------------------------------------------------------------
@@ -444,15 +482,19 @@ contains
     write(unit,'(3X,"NUM_INPUTS = ",I0)') this%num_inputs
     write(unit,'(3X,"NUM_OUTPUTS = ",I0)') this%num_outputs
 
-    write(unit,'(3X,"ACTIVATION = ",A)') trim(this%transfer%name)
-    write(unit,'(3X,"ACTIVATION_SCALE = ",F0.9)') this%transfer%scale
+    write(unit,'(3X,"USE_BIAS = ",L1)') this%use_bias
+    if(this%activation%name .ne. 'none')then
+       call this%activation%print_to_unit(unit)
+    end if
 
 
     ! Write fully connected weights and biases
     !---------------------------------------------------------------------------
     write(unit,'("WEIGHTS")')
-    write(unit,'(5(E16.8E2))') this%params_array(1)%val(:,1)
-    write(unit,'(5(E16.8E2))') this%params_array(2)%val(:,1)
+    write(unit,'(5(E16.8E2))') this%params(1)%val(:,1)
+    if(this%use_bias)then
+       write(unit,'(5(E16.8E2))') this%params(2)%val(:,1)
+    end if
     write(unit,'("END WEIGHTS")')
 
   end subroutine print_to_unit_full
@@ -464,6 +506,7 @@ contains
     !! Read fully connected layer from file
     use athena__tools_infile, only: assign_val, assign_vec, move
     use coreutils, only: to_lower, to_upper, icount
+    use athena__activation, only: read_activation
     use athena__initialiser, only: initialiser_setup
     implicit none
 
@@ -484,13 +527,15 @@ contains
     !! Loop variables and temporary integer
     integer :: num_inputs, num_outputs
     !! Number of inputs and outputs
-    real(real32) :: activation_scale
-    !! Activation scale
+    logical :: use_bias = .true.
+    !! Whether to use bias
     character(14) :: kernel_initialiser_name='', bias_initialiser_name=''
     !! Initialisers
-    character(20) :: activation_function
+    character(20) :: activation_name=''
     !! Activation function
-    class(initialiser_type), allocatable :: kernel_initialiser, bias_initialiser
+    class(base_actv_type), allocatable :: activation
+    !! Activation function
+    class(base_init_type), allocatable :: kernel_initialiser, bias_initialiser
     !! Initialisers
     character(256) :: buffer, tag, err_msg
     !! Buffer, tag, and error message
@@ -544,10 +589,12 @@ contains
           call assign_val(buffer, num_inputs, itmp1)
        case("NUM_OUTPUTS")
           call assign_val(buffer, num_outputs, itmp1)
+       case("USE_BIAS")
+          call assign_val(buffer, use_bias, itmp1)
        case("ACTIVATION")
-          call assign_val(buffer, activation_function, itmp1)
-       case("ACTIVATION_SCALE")
-          call assign_val(buffer, activation_scale, itmp1)
+          iline = iline - 1
+          backspace(unit)
+          activation = read_activation(unit, iline)
        case("KERNEL_INITIALISER", "KERNEL_INIT", "KERNEL_INITIALIZER")
           call assign_val(buffer, kernel_initialiser_name, itmp1)
        case("BIAS_INITIALISER", "BIAS_INIT", "BIAS_INITIALIZER")
@@ -579,8 +626,8 @@ contains
     !---------------------------------------------------------------------------
     call this%set_hyperparams( &
          num_outputs = num_outputs, &
-         activation_function = activation_function, &
-         activation_scale = activation_scale, &
+         use_bias = use_bias, &
+         activation = activation, &
          kernel_initialiser = kernel_initialiser, &
          bias_initialiser = bias_initialiser, &
          verbose = verbose_ &
@@ -605,20 +652,22 @@ contains
           read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
           c = c + k
        end do data_concat_loop
-       this%params_array(1)%val(:,1) = data_list
+       this%params(1)%val(:,1) = data_list
        deallocate(data_list)
-       allocate(data_list(num_outputs), source=0._real32)
-       c = 1
-       k = 1
-       data_concat_loop2: do while(c.le.num_outputs)
-          read(unit,'(A)',iostat=stat) buffer
-          if(stat.ne.0) exit data_concat_loop2
-          k = icount(buffer)
-          read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
-          c = c + k
-       end do data_concat_loop2
-       this%params_array(2)%val(:,1) = data_list(1:num_outputs)
-       deallocate(data_list)
+       if(use_bias)then
+          allocate(data_list(num_outputs), source=0._real32)
+          c = 1
+          k = 1
+          data_concat_loop2: do while(c.le.num_outputs)
+             read(unit,'(A)',iostat=stat) buffer
+             if(stat.ne.0) exit data_concat_loop2
+             k = icount(buffer)
+             read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
+             c = c + k
+          end do data_concat_loop2
+          this%params(2)%val(:,1) = data_list(1:num_outputs)
+          deallocate(data_list)
+       end if
 
        ! Check for end of weights card
        !------------------------------------------------------------------------
@@ -749,18 +798,22 @@ contains
 
     ! Generate outputs from weights, biases, and inputs
     !---------------------------------------------------------------------------
-    ptr => matmul(this%params_array(1), input(1,1) ) + this%params_array(2)
+    if(this%use_bias)then
+       ptr => matmul(this%params(1), input(1,1) ) + this%params(2)
+    else
+       ptr => matmul(this%params(1), input(1,1) )
+    end if
 
     ! Apply activation function to activation
     !---------------------------------------------------------------------------
     call this%output(1,1)%zero_grad()
-    if(trim(this%transfer%name) .eq. "none") then
+    if(trim(this%activation%name) .eq. "none") then
        call this%output(1,1)%assign_and_deallocate_source(ptr)
     else
        call this%z(1)%zero_grad()
        call this%z(1)%assign_and_deallocate_source(ptr)
        this%z(1)%is_temporary = .false.
-       ptr => this%transfer%activate(this%z(1))
+       ptr => this%activation%apply(this%z(1))
        call this%output(1,1)%assign_and_deallocate_source(ptr)
     end if
     this%output(1,1)%is_temporary = .false.
