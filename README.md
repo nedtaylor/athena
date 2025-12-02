@@ -1,7 +1,7 @@
 [![MIT workflow](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/license/mit/ "View MIT license")
 [![Latest Release](https://img.shields.io/github/v/release/nedtaylor/athena?sort=semver)](https://github.com/nedtaylor/athena/releases "View on GitHub")
 [![status](https://joss.theoj.org/papers/7806cc51a998f872034abfe0bb24bc24/status.svg)](https://joss.theoj.org/papers/7806cc51a998f872034abfe0bb24bc24)
-[![Documentation Status](https://readthedocs.org/projects/diffstruc/badge/?version=latest)](https://diffstruc.readthedocs.io/en/latest/?badge=latest "diffstruc ReadTheDocs")
+[![Documentation Status](https://readthedocs.org/projects/athena/badge/?version=latest)](https://athena-fortran.readthedocs.io/en/latest/?badge=latest "athena ReadTheDocs")
 [![FPM](https://img.shields.io/badge/fpm-0.12.0-purple)](https://github.com/fortran-lang/fpm "View Fortran Package Manager")
 [![CMAKE](https://img.shields.io/badge/cmake-3.17.5-red)](https://github.com/Kitware/CMake/releases/tag/v3.17.5 "View cmake")
 [![GCC compatibility](https://img.shields.io/badge/gcc-15.2.0-green)](https://gcc.gnu.org/gcc-13/ "View GCC")

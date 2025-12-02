@@ -189,7 +189,8 @@ module athena
        list_of_layer_types, &
        allocate_list_of_layer_types, &
        list_of_onnx_layer_creators, &
-       allocate_list_of_onnx_layer_creators
+       allocate_list_of_onnx_layer_creators, &
+       read_layer_container, onnx_create_layer_container
 
   implicit none
 
