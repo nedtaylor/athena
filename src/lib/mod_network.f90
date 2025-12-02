@@ -62,8 +62,6 @@ module athena__network
      !! Order of vertices
      integer, dimension(:), allocatable :: root_vertices, leaf_vertices
      !! Root and output vertices
-     integer, dimension(:,:,:), allocatable :: io_map
-     !! Input-output map
      type(graph_type) :: auto_graph
      !! Graph structure for the network
 
@@ -122,7 +120,8 @@ module athena__network
      !! Predict array type output for a generic input
      procedure, pass(this) :: predict_generic
      !! Predict generic type output for a generic input
-     generic :: predict => predict_real, predict_graph, predict_array, predict_array_from_real
+     generic :: predict => &
+          predict_real, predict_graph, predict_array, predict_array_from_real
      !! Predict function for different input types
 
 
@@ -134,8 +133,6 @@ module athena__network
      !! Calculate root vertices
      procedure, pass(this), private :: build_leaf_vertices
      !! Calculate output vertices
-     procedure, pass(this), private :: build_io_map
-     !! Calculate input-output map
 
      procedure, pass(this) :: reduce => network_reduction
      !! Reduce two networks down to one (i.e. add two networks - parallel)
@@ -415,7 +412,9 @@ module athena__network
        !! Predicted output data
      end function predict_real
 
-     module function predict_array_from_real(this, input, output_as_array, verbose) result(output)
+     module function predict_array_from_real( &
+          this, input, output_as_array, verbose &
+     ) result(output)
        !! Get predicted results as array from supplied inputs using the trained network
        class(network_type), intent(inout) :: this
        !! Instance of the network
@@ -516,13 +515,6 @@ module athena__network
        class(network_type), intent(inout) :: this
        !! Instance of the network
      end subroutine build_leaf_vertices
-
-     !! Interface for calculating input-output map
-     module subroutine build_io_map(this)
-       !! Calculate input-output map
-       class(network_type), intent(inout) :: this
-       !! Instance of the network
-     end subroutine build_io_map
 
      !! Interface for reducing two networks down to one
      !! (i.e. add two networks - parallel)

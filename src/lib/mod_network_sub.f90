@@ -225,100 +225,7 @@ contains
 !###############################################################################
 
 
-!###############################################################################
-  module subroutine build_io_map(this)
-    !! Calculate the map between layer inputs and outputs (and gradients)
-    implicit none
 
-    ! Arguments
-    class(network_type), intent(inout) :: this
-    !! Instance of network
-
-    ! Local variables
-    integer :: i, j, iv, jv
-    !! Loop index
-    integer :: num_inputs, num_inputs_edge, num_outputs, num_outputs_edge
-    !! Number of inputs and outputs for the layer
-
-
-    if(allocated(this%io_map)) deallocate(this%io_map)
-    if(this%use_graph_input)then
-       allocate(this%io_map(this%num_layers, this%num_layers, 8), source=0)
-    else
-       allocate(this%io_map(this%num_layers, this%num_layers, 4), source=0)
-    end if
-    do i = 1, this%auto_graph%num_vertices
-       iv = this%vertex_order(i)
-       num_inputs = 0
-       num_inputs_edge = 0
-       do j = 1, this%auto_graph%num_vertices
-          jv = this%vertex_order(j)
-          associate( &
-               id_in => this%auto_graph%vertex(iv)%id, &
-               id_out => this%auto_graph%vertex(jv)%id, &
-               layer_from => this%model(this%auto_graph%vertex(iv)%id)%layer, &
-               layer_to => this%model(this%auto_graph%vertex(jv)%id)%layer &
-          )
-             if(this%auto_graph%adjacency(iv,jv).ne.0)then
-                select case( &
-                     this%auto_graph%edge(this%auto_graph%adjacency(iv,jv))%id &
-                )
-                case(1) ! concatenate
-                   num_inputs = num_inputs + 1
-                   this%io_map( id_in, id_out, 1 ) = num_inputs
-                   if(layer_to%use_graph_output)then
-                      num_inputs = num_inputs + layer_from%output_shape(1) - 1
-                      num_inputs_edge = num_inputs_edge + 1
-                      this%io_map( id_in, id_out, 5 ) = num_inputs_edge
-                      num_inputs_edge = num_inputs_edge + layer_from%output_shape(2) - 1
-                      this%io_map( id_in, id_out, 6 ) = num_inputs_edge
-                   else
-                      num_inputs = num_inputs + product(layer_from%output_shape) - 1
-                   end if
-                   this%io_map( id_in, id_out, 2 ) = num_inputs
-                case(2) ! add
-                   this%io_map( id_in, id_out, 1 ) = 1
-                   if(layer_to%use_graph_input)then
-                      this%io_map( id_in, id_out, 2 ) = layer_from%output_shape(1)
-                      this%io_map( id_in, id_out, 5 ) = layer_from%output_shape(2)
-                   else
-                      this%io_map( id_in, id_out, 2 ) = product(layer_from%output_shape)
-                   end if
-                end select
-             end if
-             if(this%auto_graph%adjacency(jv,iv).ne.0)then
-                select case( &
-                     this%auto_graph%edge(this%auto_graph%adjacency(jv,iv))%id &
-                )
-                case(1) ! concatenate
-                   num_outputs = maxval(this%io_map(:,id_in,4)) + 1
-                   this%io_map( id_out, id_in, 3 ) = num_outputs
-                   if(layer_to%use_graph_output)then
-                      num_outputs_edge = maxval(this%io_map(:,id_in,8)) + 1
-                      this%io_map( id_out, id_in, 7 ) = num_outputs_edge
-                      num_outputs = num_outputs + layer_to%output_shape(1) - 1
-                      num_outputs_edge = num_outputs_edge + layer_to%output_shape(2) - 1
-                      this%io_map( id_out, id_in, 8 ) = num_outputs_edge
-                   else
-                      num_outputs = num_outputs + product(layer_to%output_shape) - 1
-                   end if
-                   this%io_map( id_out, id_in, 4 ) = num_outputs
-                case(2) ! add
-                   this%io_map( id_out, id_in, 3 ) = 1
-                   if(layer_to%use_graph_output)then
-                      this%io_map( id_out, id_in, 4 ) = layer_to%output_shape(1)
-                      this%io_map( id_out, id_in, 7 ) = layer_to%output_shape(2)
-                   else
-                      this%io_map( id_out, id_in, 4 ) = product(layer_to%output_shape)
-                   end if
-                end select
-             end if
-          end associate
-       end do
-    end do
-
-  end subroutine build_io_map
-!###############################################################################
 
 
 !##############################################################################!
@@ -1278,7 +1185,6 @@ contains
     if(allocated(this%loss)) deallocate(this%loss)
     this%get_accuracy => null()
 
-    if(allocated(this%io_map)) deallocate(this%io_map)
     if(allocated(this%vertex_order)) deallocate(this%vertex_order)
     if(allocated(this%leaf_vertices)) deallocate(this%leaf_vertices)
     if(allocated(this%root_vertices)) deallocate(this%root_vertices)
@@ -1313,9 +1219,11 @@ contains
     !! Verbosity level
 
     ! Local variables
-    integer :: i, j, k, id, child_id, parent_id, num_inputs, input_rank
+    integer :: i, j, k, child_id, parent_id, layer_id, num_inputs, input_rank
     !! Loop index
-    integer :: layer_rank, previous_rank, operator
+    integer :: parent_vertex, vertex_idx
+    !! Vertex indices
+    integer :: layer_rank, parent_rank, operator
     !! Ranks of layers
     integer :: verbose_ = 0
     !! Verbosity level
@@ -1324,7 +1232,7 @@ contains
     logical :: l_flatten_child, l_set_input_shape
     !! Booleans whether to flatten child or set input shape
     integer, dimension(:), allocatable :: input_shape, &
-         child_vertices, parent_vertices, output_ranks
+         child_vertices, parent_vertices, output_ranks, parent_ids
     !! Shapes of the input and output of the layers
     integer, dimension(:,:), allocatable :: merge_shape
     !! Shapes of the inputs to merge layers
@@ -1359,18 +1267,13 @@ contains
     this%auto_graph%directed = .true.
     call this%build_root_vertices()
     do i = 1, size(this%root_vertices)
-       if(.not.allocated( &
-            this%model( &
-                 this%auto_graph%vertex(this%root_vertices(i))%id &
-            )%layer%input_shape &
-       ))then
+       layer_id = this%auto_graph%vertex(this%root_vertices(i))%id
+       if(.not.allocated(this%model(layer_id)%layer%input_shape))then
           call stop_program("input_shape of first layer not defined")
           return
        end if
        use_graph_input = .false.
-       select type( root => this%model(this%auto_graph%vertex( &
-            this%root_vertices(i) &
-       )%id)%layer)
+       select type( root => this%model(layer_id)%layer)
        class is(input_layer_type)
           cycle
        class is(learnable_layer_type)
@@ -1387,12 +1290,7 @@ contains
             verbose=verbose_ &
        )
        call this%add( &
-            t_input_layer,  &
-            output_list = [ &
-                 this%model( &
-                      this%auto_graph%vertex(this%root_vertices(i))%id &
-                 )%layer%id &
-            ] &
+            t_input_layer, output_list = [ this%model(layer_id)%layer%id ] &
        )
        ! NEED TO CALL layer%init?
        deallocate(input_shape)
@@ -1426,28 +1324,28 @@ contains
     ! Check for zero input rank layers
     !---------------------------------------------------------------------------
     do i = 1, size(this%auto_graph%vertex, dim = 1)
-       id = this%auto_graph%vertex(i)%id
-       if(this%model(id)%layer%input_rank.eq.0)then
-          parent_vertices = pack( &
+       layer_id = this%auto_graph%vertex(i)%id
+       if(this%model(layer_id)%layer%input_rank.eq.0)then
+          parent_ids = pack( &
                [ ( &
                     this%auto_graph%vertex(j)%id, &
-                    j = 1, size(this%auto_graph%adjacency(:,id)) &
+                    j = 1, size(this%auto_graph%adjacency(:,i)) &
                ) ], &
-               this%auto_graph%adjacency(:,id) .ne. 0 &
+               this%auto_graph%adjacency(:,i) .ne. 0 &
           )
-          if(size(parent_vertices).eq.0) cycle
-          output_ranks = [ ( this%model(parent_vertices(j))%layer%output_rank, &
-               j=1,size(parent_vertices) ) ]
+          if(size(parent_ids).eq.0) cycle
+          output_ranks = [ ( this%model(parent_ids(j))%layer%output_rank, &
+               j=1,size(parent_ids) ) ]
           if(any(output_ranks.ne.output_ranks(1)))then
              write(0,*) output_ranks
              call stop_program( &
-                  "input rank of layer "//trim(this%model(id)%layer%name) // &
+                  "input rank of layer "//trim(this%model(layer_id)%layer%name) // &
                   " is zero, but multiple parents with different output ranks" &
              )
              return
           end if
-          input_rank = this%model(parent_vertices(1))%layer%output_rank
-          call this%model(id)%layer%set_rank( &
+          input_rank = this%model(parent_ids(1))%layer%output_rank
+          call this%model(layer_id)%layer%set_rank( &
                input_rank = input_rank, &
                output_rank = input_rank &
           )
@@ -1462,36 +1360,36 @@ contains
     flatten_loop: do
        i = i + 1
        if(i.gt.this%auto_graph%num_vertices) exit flatten_loop
-       id = this%auto_graph%vertex(i)%id
+       layer_id = this%auto_graph%vertex(i)%id
 
        ! get all child vertices
-       allocate(child_vertices(0))
        child_vertices = pack( &
             [(j, j=1,size(this%auto_graph%adjacency(i,:)))], &
             this%auto_graph%adjacency(i,:) .ne. 0 &
        )
        child_loop: do j = 1, size(child_vertices)
+          ! Get layer ID (needed for add() function's output_list parameter)
           child_id = this%auto_graph%vertex(child_vertices(j))%id
-          if(trim(this%model(id)%layer%type).eq."flat") cycle child_loop
-          if( this%model(id)%layer%output_rank .eq. &
+          if(trim(this%model(layer_id)%layer%type).eq."flat") cycle child_loop
+          if( this%model(layer_id)%layer%output_rank .eq. &
                this%model(child_id)%layer%input_rank ) cycle child_loop
-          if(this%model(id)%layer%output_rank.eq.0) cycle child_loop
+          if(this%model(layer_id)%layer%output_rank.eq.0) cycle child_loop
 
           ! get all parent vertices of the child vertex
-          if(allocated(parent_vertices)) deallocate(parent_vertices)
-          allocate(parent_vertices(0))
+          parent_vertices = pack( &
+               [(k, k=1,size(this%auto_graph%adjacency(:,child_vertices(j))))], &
+               this%auto_graph%adjacency(:,child_vertices(j)) .ne. 0 &
+          )
           l_flatten_child = .true.
-          do k = 1, size(this%auto_graph%adjacency(:,child_vertices(j)))
-             if(this%auto_graph%adjacency(k,child_vertices(j)).eq.0) cycle
-             parent_id = this%auto_graph%vertex(k)%id
-             parent_vertices = [parent_vertices, k]
+          do k = 1, size(parent_vertices)
+             parent_id = this%auto_graph%vertex(parent_vertices(k))%id
              !check if ranks match, rather than input and output shapes
-             if( this%model(id)%layer%output_rank .ne. &
+             if( this%model(layer_id)%layer%output_rank .ne. &
                   this%model(parent_id)%layer%input_rank &
              ) l_flatten_child = .false.
           end do
           t_flatten_layer = flatten_layer_type( &
-               input_rank = this%model(id)%layer%output_rank &
+               input_rank = this%model(layer_id)%layer%output_rank &
           )
 
           if(l_flatten_child)then
@@ -1537,8 +1435,8 @@ contains
     merge_loop: do
        i = i + 1
        if(i.gt.this%auto_graph%num_vertices) exit merge_loop
-       id = this%auto_graph%vertex(i)%id
-       if(this%model(id)%layer%type.eq."merg") cycle merge_loop
+       layer_id = this%auto_graph%vertex(i)%id
+       if(this%model(layer_id)%layer%type.eq."merg") cycle merge_loop
 
        ! get all child vertices
        parent_vertices = pack( &
@@ -1558,16 +1456,21 @@ contains
                indices = [this%auto_graph%adjacency(parent_vertices(j),i)] &
           )
        end do
+       parent_ids = &
+            [ ( &
+                 this%auto_graph%vertex(parent_vertices(k))%id, &
+                 k = 1, size(parent_vertices) &
+            ) ]
        select case(operator)
        case(1) ! concatenate
           t_merge_layer = concat_layer_type( &
-               input_layer_ids = parent_vertices, &
-               input_rank = this%model(id)%layer%input_rank &
+               input_layer_ids = parent_ids, &
+               input_rank = this%model(layer_id)%layer%input_rank &
           )
        case(2) ! add
           t_merge_layer = add_layer_type( &
-               input_layer_ids = parent_vertices, &
-               input_rank = this%model(id)%layer%input_rank &
+               input_layer_ids = parent_ids, &
+               input_rank = this%model(layer_id)%layer%input_rank &
           )
           ! case(3) ! multiply
           !    t_merge_layer = multiply_layer_type( &
@@ -1578,12 +1481,12 @@ contains
           call stop_program("invalid merge operator")
           return
        end select
-       t_merge_layer%use_graph_input = this%model(id)%layer%use_graph_input
+       t_merge_layer%use_graph_input = this%model(layer_id)%layer%use_graph_input
        t_merge_layer%use_graph_output = t_merge_layer%use_graph_input
        call this%add( &
             t_merge_layer, &
-            input_list = parent_vertices, &
-            output_list = [id] &
+            input_list = parent_ids, &
+            output_list = [layer_id] &
        )
        deallocate(t_merge_layer)
     end do merge_loop
@@ -1600,21 +1503,23 @@ contains
     ! Initialise layers
     !---------------------------------------------------------------------------
     do i = 1, size(this%vertex_order, dim = 1)
-       if(allocated(this%model(this%vertex_order(i))%layer%input_shape))then
+       vertex_idx = this%vertex_order(i)
+       layer_id = this%auto_graph%vertex(vertex_idx)%id
+       if(allocated(this%model(layer_id)%layer%input_shape))then
           l_set_input_shape = .false.
        else
           l_set_input_shape = .true.
        end if
        if(l_set_input_shape)then
-          layer_rank = this%model(this%vertex_order(i))%layer%input_rank
-          previous_rank = 0
+          layer_rank = this%model(layer_id)%layer%input_rank
+          parent_rank = 0
 
-          select type( layer => this%model(this%vertex_order(i))%layer )
+          select type( layer => this%model(layer_id)%layer )
           class is(merge_layer_type)
              ! loop over all parent layers
              allocate( &
                   merge_shape( &
-                       this%model(this%vertex_order(i))%layer%input_rank, &
+                       this%model(layer_id)%layer%input_rank, &
                        size(layer%input_layer_ids) &
                   ) &
              )
@@ -1627,23 +1532,24 @@ contains
           class default
 
              allocate( &
-                  input_shape(this%model(this%vertex_order(i))%layer%input_rank), &
+                  input_shape(this%model(layer_id)%layer%input_rank), &
                   source = 0 &
              )
              do j = 1, this%auto_graph%num_vertices
-                if(this%auto_graph%adjacency(j,this%vertex_order(i)).eq.0) cycle
-                previous_rank = this%model(j)%layer%output_rank
+                if(this%auto_graph%adjacency(j,vertex_idx).eq.0) cycle
+                parent_id = this%auto_graph%vertex(j)%id
+                parent_rank = this%model(parent_id)%layer%output_rank
 
-                if(layer_rank .eq. previous_rank)then
-                   input_shape(:) = input_shape(:) + this%model(j)%layer%output_shape
+                if(layer_rank .eq. parent_rank)then
+                   input_shape(:) = input_shape(:) + &
+                        this%model(parent_id)%layer%output_shape
                 elseif(layer_rank .eq. 1)then
-                   input_shape(1) = input_shape(1) + product( &
-                        this%model(j)%layer%output_shape &
-                   )
+                   input_shape(1) = input_shape(1) + &
+                        product( this%model(parent_id)%layer%output_shape )
                 end if
              end do
           end select
-          call this%model(this%vertex_order(i))%layer%init( &
+          call this%model(layer_id)%layer%init( &
                input_shape = input_shape, &
                batch_size = this%batch_size, &
                verbose = verbose_ &
@@ -1651,10 +1557,9 @@ contains
           deallocate(input_shape)
        end if
        if(verbose_.gt.0)then
-          write(*,*) "layer: ", &
-               this%vertex_order(i), this%model(this%vertex_order(i))%layer%type
-          write(*,*) this%model(this%vertex_order(i))%layer%input_shape
-          write(*,*) this%model(this%vertex_order(i))%layer%output_shape
+          write(*,*) "layer: ", layer_id, this%model(layer_id)%layer%type
+          write(*,*) this%model(layer_id)%layer%input_shape
+          write(*,*) this%model(layer_id)%layer%output_shape
        end if
     end do
 
@@ -1671,7 +1576,6 @@ contains
                  )%layer%output_shape &
             )
     end do
-    call this%build_io_map()
     if( &
          this%model( &
               this%auto_graph%vertex(this%leaf_vertices(1))%id &
@@ -1686,53 +1590,80 @@ contains
     !---------------------------------------------------------------------------
     ! Confirm input_shape of each layer matches data going into it
     !---------------------------------------------------------------------------
-    !!! CAN WE REMOVE THE USE OF %io_map HERE AND JUST USE THE ADJACENCY MATRIX AND DATA SIZES?
-    !!! THEN WE CAN REMOVE THE BUILD_IO_MAP CALL ABOVE AND THE io_map PROCEDURE ENTIRELY, DECLUTTERING THE CODE
     do i = 1, size(this%vertex_order, dim = 1)
-       if(this%model(this%vertex_order(i))%layer%type.eq."inpt") cycle
-       id = this%auto_graph%vertex(this%vertex_order(i))%id
-       if(this%model(this%vertex_order(i))%layer%use_graph_input)then
-          num_inputs = this%model(this%vertex_order(i))%layer%input_shape(2)
-          j = minval( &
-               this%io_map( :, id, 7 ), &
-               mask = this%auto_graph%adjacency(:,id).ne.0 &
-          )
-          k = maxval( &
-               this%io_map( :, id, 8 ), &
-               mask = this%auto_graph%adjacency(:,id).ne.0 &
-          )
-          if( j .eq. 0 .and. k .eq. 0 .and. &
-               this%model(this%vertex_order(i))%layer%input_shape(2) .eq. 0 &
-          )then
-          elseif( j .ne. 1 .or. k .ne. num_inputs )then
+       vertex_idx = this%vertex_order(i)
+       layer_id = this%auto_graph%vertex(vertex_idx)%id
+       if(this%model(layer_id)%layer%type.eq."inpt") cycle
+
+       ! Get all parent vertices that feed into this layer
+       parent_vertices = pack( &
+            [(j, j=1,size(this%auto_graph%adjacency(:,vertex_idx)))], &
+            this%auto_graph%adjacency(:,vertex_idx) .ne. 0 &
+       )
+       if(size(parent_vertices).eq.0) cycle
+       select type( layer => this%model(layer_id)%layer )
+       class is(merge_layer_type)
+          operator = layer%merge_mode
+       class default
+          if(size(parent_vertices).gt.1)then
              call stop_program( &
-                  "input_shape of layer edges "//&
-                  trim(this%model(this%vertex_order(i))%layer%name)// &
+                  "layer "//trim(layer%name)// &
+                  " is not a merge layer but has multiple inputs" &
+             )
+             return
+          end if
+       end select
+
+       ! Calculate expected input size from parent layers
+       num_inputs = 0
+       do j = 1, size(parent_vertices)
+          parent_vertex = parent_vertices(j)
+
+          select case(operator)
+          case(1) ! pointwise - all inputs should have same size
+             if(num_inputs.eq.0)then
+                if(this%model(layer_id)%layer%use_graph_input)then
+                   num_inputs = this%model(parent_vertex)%layer%output_shape(1)
+                else
+                   num_inputs = product(this%model(parent_vertex)%layer%output_shape)
+                end if
+             end if
+          case(2) ! concatenate
+             if(this%model(layer_id)%layer%use_graph_input)then
+                num_inputs = num_inputs + &
+                     this%model(parent_vertex)%layer%output_shape(1)
+             else
+                num_inputs = num_inputs + &
+                     product(this%model(parent_vertex)%layer%output_shape)
+             end if
+          end select
+       end do
+
+       ! Verify calculated input size matches layer's expected input size
+       if(this%model(layer_id)%layer%use_graph_input)then
+          if(num_inputs.ne.this%model(layer_id)%layer%input_shape(1) .and. &
+               num_inputs.ne.0)then
+             write(*,*) "Expected:", num_inputs, "Got:", &
+                  this%model(layer_id)%layer%input_shape(1)
+             call stop_program( &
+                  "input_shape of layer "//&
+                  trim(this%model(layer_id)%layer%name)// &
+                  " does not match data going into it" &
+             )
+          end if
+       else
+          if(num_inputs.ne.product(this%model(layer_id)%layer%input_shape) .and. &
+               num_inputs.ne.0)then
+             write(*,*) "Expected:", num_inputs, "Got:", &
+                  product(this%model(layer_id)%layer%input_shape)
+             call stop_program( &
+                  "input_shape of layer "//&
+                  trim(this%model(layer_id)%layer%name)// &
                   " does not match data going into it" &
              )
           end if
        end if
-       j = minval( &
-            this%io_map( :, id, 3 ), &
-            mask = this%auto_graph%adjacency(:,id).ne.0 &
-       )
-       k = maxval( &
-            this%io_map( :, id, 4 ), &
-            mask = this%auto_graph%adjacency(:,id).ne.0 &
-       )
-       if(this%model(this%vertex_order(i))%layer%use_graph_input)then
-          num_inputs = this%model(this%vertex_order(i))%layer%input_shape(1)
-       else
-          num_inputs = product(this%model(this%vertex_order(i))%layer%input_shape)
-       end if
-       ! if(j.ne.1.or.k.ne.num_inputs)then
-       !    write(*,*) j, k, num_inputs
-       !    call stop_program( &
-       !         "input_shape of layer "//&
-       !         trim(this%model(this%vertex_order(i))%layer%name)// &
-       !         " does not match data going into it" &
-       !    )
-       ! end if
+
     end do
 
     !---------------------------------------------------------------------------
@@ -2483,8 +2414,8 @@ contains
     !! Input
 
     ! Local variables
-    integer :: l, i, j
-    !! Loop index
+    integer :: l, i, j, vertex_idx, layer_id, parent_id
+    !! Loop index and vertex index
     integer :: input_idx
     !! Index of input layer
     integer :: num_input_layers
@@ -2506,9 +2437,11 @@ contains
     ! Forward pass
     !---------------------------------------------------------------------------
     do l = 1, size(this%vertex_order,1)
-       num_input_layers = count(this%auto_graph%adjacency(:,this%vertex_order(l)).gt.0)
+       vertex_idx = this%vertex_order(l)
+       layer_id = this%auto_graph%vertex(vertex_idx)%id
+       num_input_layers = count(this%auto_graph%adjacency(:,vertex_idx).gt.0)
        if(num_input_layers.eq.0)then
-          select type(layer => this%model(this%vertex_order(l))%layer)
+          select type(layer => this%model(layer_id)%layer)
           class is(input_layer_type)
              select type(input)
              type is(graph_type)
@@ -2540,26 +2473,27 @@ contains
              return
           end select
        elseif(num_input_layers.eq.1)then
-          j = maxloc(this%auto_graph%adjacency(:,this%vertex_order(l)),dim=1)
+          j = maxloc(this%auto_graph%adjacency(:,vertex_idx),dim=1)
           input_idx = findloc(this%root_vertices, j, dim=1)
-          j = this%auto_graph%vertex(j)%id
-          input_ptr => this%model(j)%layer%output
+          parent_id = this%auto_graph%vertex(j)%id
+          input_ptr => this%model(parent_id)%layer%output
           select type(input)
           type is(graph_type)
-             call this%model(this%vertex_order(l))%layer%set_graph( [ input(1,:) ] )
+             call this%model(layer_id)%layer%set_graph( [ input(1,:) ] )
           end select
        else
           allocate(input_list(num_input_layers))
           i = 0
           do j = 1, size(this%vertex_order,1)
-             if(this%auto_graph%adjacency(j,this%vertex_order(l)).gt.0)then
+             if(this%auto_graph%adjacency(j,vertex_idx).gt.0)then
                 i = i + 1
-                input_list(i)%array => this%model(j)%layer%output
+                parent_id = this%auto_graph%vertex(j)%id
+                input_list(i)%array => this%model(parent_id)%layer%output
              end if
           end do
        end if
 
-       select type(layer => this%model(this%vertex_order(l))%layer)
+       select type(layer => this%model(layer_id)%layer)
        class is(merge_layer_type)
           call layer%combine(input_list)
           deallocate(input_list)
@@ -3864,8 +3798,8 @@ contains
     !! Instance of network
 
     ! Local variables
-    integer :: i
-    !! Loop index
+    integer :: i, vertex_idx
+    !! Loop index and vertex index
     integer :: total_params
     !! Parameter counts
     integer :: layer_params
@@ -3896,7 +3830,8 @@ contains
 
     ! Print each layer
     do i = 1, this%num_layers
-       associate(layer => this%model(this%vertex_order(i))%layer)
+       vertex_idx = this%vertex_order(i)
+       associate(layer => this%model(vertex_idx)%layer)
           ! Get layer name
           if(allocated(layer%name))then
              write(layer_name, '(A," (",A,")")') &

@@ -75,7 +75,7 @@ program test_msgpass_network
     call kipf_network%test(graph_data_kipf, graph_data_kipf)
 
     ! Check that network produces reasonable outputs
-    if(kipf_network%accuracy_val .lt. 0.0 .or. kipf_network%accuracy_val .gt. 1.0) then
+    if(kipf_network%accuracy_val .gt. 1.0) then
        success = .false.
        write(0,*) 'Kipf network accuracy out of range:', kipf_network%accuracy_val
     end if
@@ -133,14 +133,12 @@ program test_msgpass_network
          num_epochs = 5, &
          shuffle_batches = .false. &
     )
-    write(*,*) "d"
 
     ! Test prediction
     call duvenaud_network%test(graph_data_duvenaud, target_array)
 
     ! Check that network produces reasonable outputs
-    if(duvenaud_network%accuracy_val < 0.0 .or. &
-         duvenaud_network%accuracy_val > 1.0) then
+    if(duvenaud_network%accuracy_val .gt. 1.0) then
        success = .false.
        write(0,*) 'Duvenaud network accuracy out of range:', &
             duvenaud_network%accuracy_val

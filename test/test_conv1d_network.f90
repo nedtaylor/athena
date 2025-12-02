@@ -58,7 +58,7 @@ program test_conv1d_network
   call input(1,1)%allocate([width, num_channels, 1], source=0._real32)
   call input(1,1)%set_requires_grad(.true.)
 
-  call network%forward_generic2d(input)
+  call network%forward(input)
   output = network%get_output()
 
   if(any( &
@@ -81,7 +81,7 @@ program test_conv1d_network
   call input(1,1)%allocate([width, num_channels, 1], source=0._real32)
   call input(1,1)%set_requires_grad(.true.)
   call input(1,1)%set(data_tmp)
-  call network%forward_generic2d(input)
+  call network%forward(input)
   call network%model(network%leaf_vertices(1))%layer%output(1,1)%grad_reverse()
   select type(current => network%model(network%leaf_vertices(1))%layer)
   type is(conv1d_layer_type)
