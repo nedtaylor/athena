@@ -26,3 +26,17 @@ p.rubric {
     text-transform: none !important;
     color: inherit !important;
 }
+
+p.rubric > .h3 {
+    font-size: 120% !important;   /* RTD h2 size */
+    font-weight: 700 !important;  /* bold */
+    font-family: Roboto Slab, ff-tisa-web-pro, Georgia, Arial, sans-serif !important;
+    margin-top: 0 !important;
+    margin-bottom: 20px !important;
+    padding: 0 !important;
+    border: none !important;
+
+    /* reset default rubric styling */
+    text-transform: none !important;
+    color: inherit !important;
+}

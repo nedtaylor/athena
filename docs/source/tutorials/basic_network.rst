@@ -74,7 +74,11 @@ And build the network layer by layer:
 Step 4: Compile the Network
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Initialise the network with an optimiser and loss function:
+Initialise the network with an optimiser and loss function.
+The loss function can either be specified as a string or as a loss object (the currently supported loss functions are listed in :ref:`Loss Functions <loss-functions>`).
+The optimiser must be specified as an optimiser object (the currently supported optimisers are listed in :ref:`Optimisers <optimisers>`).
+
+An example using the Adam optimiser and categorical cross-entropy loss is shown below:
 
 .. code-block:: fortran
 

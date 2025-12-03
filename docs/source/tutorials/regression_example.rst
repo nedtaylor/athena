@@ -20,10 +20,9 @@ These examples demonstrate:
 Sine Wave Approximation
 ------------------------
 
-The ``example/sine`` demonstrates approximating ``y = (sin(x) + 1) / 2`` over the range ``[0, 2π]``.
+The ``example/sine`` demonstrates approximating :math:`y = \frac{\sin(x) + 1}{2}` over the range :math:`x \in [0, 2\pi]`.
 
-Network Architecture
-~~~~~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`Network Architecture`
 
 .. code-block:: fortran
 
@@ -43,8 +42,7 @@ Network Architecture
 * **Sigmoid output**: Maps to [0, 1], matching our normalised sine wave
 * **5 hidden units**: Sufficient capacity for smooth periodic function
 
-Training Loop
-~~~~~~~~~~~~~
+.. rubric:: :h3style:`Training Loop`
 
 The example uses a low-level training loop for fine control:
 
@@ -132,8 +130,7 @@ Simple Function Example
 
 The ``example/simple`` demonstrates learning a fixed mapping from 3 inputs to 2 outputs.
 
-Network Architecture
-~~~~~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`Network Architecture`
 
 .. code-block:: fortran
 
@@ -147,8 +144,8 @@ Network Architecture
         num_outputs=2, &
         activation="sigmoid"))
 
-Training on Fixed Data
-~~~~~~~~~~~~~~~~~~~~~~
+
+.. rubric:: :h3style:`Training on Fixed Data`
 
 .. code-block:: fortran
 
@@ -217,8 +214,7 @@ Training on Fixed Data
 Understanding the Training Process
 ----------------------------------
 
-Low-Level Training Loop
-~~~~~~~~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`Low-Level Training Loop`
 
 Both examples use a manual training loop for educational purposes:
 
@@ -239,10 +235,11 @@ Both examples use a manual training loop for educational purposes:
 
 This gives you full control over each training step.
 
-Using array_type
-~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`Using array_type`
 
-Athena uses ``array_type`` for internal computations:
+Athena uses ``array_type`` for internal computations.
+For simple networks, this never needs to be exposed.
+However, if you need to prepare data in ``array_type``, here's how:
 
 .. code-block:: fortran
 
@@ -258,8 +255,7 @@ Athena uses ``array_type`` for internal computations:
    ! Or allocate from source
    call x_array(1)%allocate(source=x)
 
-Making Predictions
-~~~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`Making Predictions`
 
 Use the ``predict()`` method for inference:
 
@@ -270,110 +266,6 @@ Use the ``predict()`` method for inference:
 
    predictions = network%predict(input=test_x)
    ! Returns: [num_outputs, num_samples]
-
-Loss Method Options
--------------------
-
-Specify loss as string when compiling:
-
-.. code-block:: fortran
-
-   ! Mean Squared Error (regression)
-   call network%compile(loss_method="mse", ...)
-
-   ! Mean Absolute Error (robust regression)
-   call network%compile(loss_method="mae", ...)
-
-   ! Categorical Crossentropy (classification)
-   call network%compile(loss_method="categorical_crossentropy", ...)
-
-Expected Results
-----------------
-
-Sine Example Output
-~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   Sine function approximation using a neural network
-   Training network
-   Iteration, Loss
-         0  0.083542
-      1000  0.002134
-      2000  0.000876
-      3000  0.000543
-      ...
-     10000  0.000089
-
-The network successfully learns the sine function with very low error.
-
-Simple Example Output
-~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   Simple function approximation using a fully-connected neural network
-   Training network
-   Iteration, Predictions
-         0  0.498234  0.512345
-        50  0.234521  0.389012
-       100  0.156723  0.289456
-       150  0.134512  0.256789
-       ...
-       500  0.123456  0.246802
-
-The network converges to the exact target values.
-
-Key Takeaways
--------------
-
-From These Examples
-~~~~~~~~~~~~~~~~~~~
-
-1. **Simple is effective**: Small networks (5 hidden units) can learn smooth functions
-2. **Activation matters**: Tanh/sigmoid work well for bounded regression tasks
-3. **Learning rate**: Higher rates (1.0) acceptable for simple problems
-4. **Online learning**: Batch size of 1 can work for small datasets
-5. **MSE loss**: Standard choice for regression tasks
-
-When to Use Each Approach
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-**Low-level loop** (like these examples):
-
-* Learning how training works
-* Custom training logic
-* Research and experimentation
-* Fine-grained control needed
-
-**High-level ``train()``** (like MNIST example):
-
-* Production code
-* Standard training workflows
-* Batch processing
-* Built-in metrics and logging
-
-Comparison with MNIST Example
-------------------------------
-
-Different Training Approaches
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-+------------------------+----------------------------------+--------------------------------+
-| Feature                | Sine/Simple Examples             | MNIST Example                  |
-+========================+==================================+================================+
-| **Training method**    | Manual loop                      | High-level ``train()``         |
-+------------------------+----------------------------------+--------------------------------+
-| **Batch size**         | 1 (online)                       | 128 (mini-batch)               |
-+------------------------+----------------------------------+--------------------------------+
-| **Data**               | Generated on-the-fly             | Loaded from files              |
-+------------------------+----------------------------------+--------------------------------+
-| **Optimiser**          | Base SGD                         | Adam                           |
-+------------------------+----------------------------------+--------------------------------+
-| **Loss**               | MSE                              | Categorical crossentropy       |
-+------------------------+----------------------------------+--------------------------------+
-| **Complexity**         | Simple (for learning)            | Production-ready               |
-+------------------------+----------------------------------+--------------------------------+
 
 See Also
 --------

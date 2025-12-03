@@ -15,10 +15,10 @@ Preparing Training Data
 
 Currently, the ``train`` and ``test`` functions accept the following data types:
 
-* 1D, 2D, 3D, 4D, or 5D real arrays
-* scalar or 2D array of type ``array_type`` from the diffstruc library (alos imported with athena)
-* ``array_container_type`` derived type from the diffstruc library
-* scalar or 2D array of type ``array_container_type`` from the athena library (i.e. a container containg mutliple ``array_type`` instances)
+* 1D, 2D, 3D, 4D, or 5D ``real`` arrays
+* scalar or 2D array of type ``array_type`` from the diffstruc library (also imported with athena)
+* ``array_ptr_type`` a container containing pointers to multiple ``array_type`` instances (NOT FULLY SUPPORTED YET)
+* scalar or 1D array of type ``array_ptr_type`` from the athena library (i.e. a container containg pointers to ``array_type`` instances)
 * 1D or 2D array of type ``graph_type`` from the graphstruc library (also imported with athena)
 
 Real arrays and ``array_type`` arrays are the most likely to be used for typical training scenarios.
@@ -107,6 +107,52 @@ The ``train()`` function handles the training loop internally.
         batch_size=batch_size, &
         num_epochs=num_epochs)
 
+The above is the high-level training interface.
+
+For more custom training logic, a low-level training loop can be implemented manually.
+This will take the form:
+
+.. code-block:: fortran
+
+   integer :: n
+   type(array_type), pointer :: output(:,:), loss(:,:)
+   type(loss_type), pointer :: loss
+
+   do n = 1, num_epochs
+     ! 1. Forward pass
+     call network%forward(x)
+
+     ! 2. Set expected output
+     network%expected_array = y_array
+
+     ! 3. Backward pass (compute gradients)
+     loss => network%loss_eval(1, 1)
+     call loss%grad_reverse()
+
+     ! 4. Update weights
+     call network%update()
+     call loss%nullify_graph()
+     nullify(loss)
+   end do
+
+There are many ways that this can be modified beyond this basic structure, depending on your needs, but this works as a starting point.
+When deciding between using the built-in ``train()`` function or implementing a custom training loop, consider the following:
+
+**High-level ``train()``**
+
+* Production code
+* Standard training workflows
+* Batch processing
+* Built-in metrics and logging
+
+**Low-level loop**
+
+* Learning how training works
+* Custom training logic
+* Research and experimentation
+* Fine-grained control needed
+
+
 Evaluating the Model
 --------------------
 
@@ -124,11 +170,17 @@ Predictions can be made using the ``predict()`` function.
    ! Get predictions for test data
    predictions = net%predict(test_data)
 
-This can take in ``real``, ``array_type``, ``array_container_type``, or ``graph_type`` input data.
-The output will be the same type as the input data, but two-dimensional (except for ``array_container_type``, which will output ``array_type``).
-For ``real`` data, therefore, the output will be a 2D real array, where the first dimension corresponds to the output features (e.g., classes), and the second dimension corresponds to the samples.
-For more control over output format, the argument ``output_as_array`` can be set to ``.true.`` to enforce output as ``array_type`` output, regardless of input type.
-Finally, a polymorphic version of ``predict()`` is available called ``predict_generic()`` that can handle any of the above input types and outputs either an ``array_type`` or ``graph_type`` output, depending on the value of the input argument ``output_as_graph``.
+This can take in ``real``, ``array_type``, or ``graph_type`` input data.
+Unless you are using advanced network architectures (such as multi-input networks or graph neural networks), the input data will either be a ``real`` array of rank 1-5, or a scalar ``array_type`` array.
+The graph input will typically be of rank 1, representing a list of graphs.
+For all input types using simple network architectures, the output will be a 2D array with shape:
+
+* ``real``: :math:`(O, N)`, where :math:`O` is the number of output features (e.g., classes) and :math:`N` is the number of samples.
+* ``array_type``: :math:`(1, 1)` (for compatibility reasons it is returned as a 2D array, even for single-output networks)
+* ``graph_type``: :math:`(1, N)`, where :math:`N` is the number of graphs.
+
+For more advanced architectures, please refer to :ref:`Network Outputs <network-outputs>`.
+
 
 Computing Convergence Metrics (e.g., Accuracy and Loss)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -238,7 +290,6 @@ This option can be specified during ``train()`` by setting the ``plateau_thresho
         plateau_threshold=1.0e-4)
 
 The default value is ``0.0``, which disables plateau detection.
-
 
 Troubleshooting
 ---------------

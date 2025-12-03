@@ -25,14 +25,12 @@ These examples demonstrate two different applications:
 Chemical Graph Example
 ----------------------
 
-Predicting Molecular Energy
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`Predicting Molecular Energy`
 
 The ``example/msgpass_chemical`` uses Duvenaud message passing [#f1]_ to predict total energy from molecular graphs.
 Note that this is an illustrative example; for production use, consider more advanced architectures.
 
-Network Architecture
-~~~~~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`Network Architecture`
 
 .. code-block:: fortran
 
@@ -68,8 +66,7 @@ Network Architecture
 2. **Graph readout**: Reduces graph to fixed-size vector using softmax aggregation
 3. **Dense layers**: Learn from aggregated graph representation to scalar energy prediction
 
-Complete Program Structure
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`Complete Program Structure`
 
 .. code-block:: fortran
 
@@ -142,8 +139,7 @@ Complete Program Structure
 
    end program msgpass_chemical_example
 
-Graph Data Format
-~~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`Graph Data Format`
 
 Chemical graphs contain:
 
@@ -168,15 +164,13 @@ Chemical graphs contain:
 Euler Flow Example
 ------------------
 
-Predicting Steady-State Flow
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`Predicting Steady-State Flow`
 
 The ``example/msgpass_euler`` uses Kipf message passing (Graph Convolutional Network) [#f2]_ to predict steady-state fluid flow from initial conditions.
 Unlike the chemical example, the Kipf layer outputs node-level features, preserving graph structure.
 This example utilises skip connections via concatenation to improve information flow.
 
-Network Architecture
-~~~~~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`Network Architecture`
 
 .. code-block:: fortran
 
@@ -220,8 +214,7 @@ Network Architecture
 3. **Kipf message passing**: Graph convolution normalises by node degree
 4. **Multiple aggregations**: Information propagates through graph structure
 
-Complete Program
-~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`Training on Graphs`
 
 .. code-block:: fortran
 
@@ -290,8 +283,10 @@ Complete Program
 Message Passing Types
 ---------------------
 
-Duvenaud Message Passing
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Currently, athena supports two message passing layer types: the Duvenaud layer and the Kipf layer.
+However, the framework is extensible to implement custom message passing schemes by extending the ``msgpass_layer_type``.
+
+.. rubric:: :h3style:`Duvenaud Message Passing`
 
 Designed for molecular graphs:
 
@@ -311,8 +306,7 @@ Designed for molecular graphs:
 * Performs graph-level readout (reduces entire graph to vector)
 * Suitable for graph-level prediction tasks
 
-Kipf Message Passing (GCN)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`Graph Convolutional Network (Kipf)`
 
 Graph Convolutional Network:
 
@@ -334,8 +328,7 @@ Graph Convolutional Network:
 Training on Graphs
 ------------------
 
-Key Differences from Standard Networks
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`Key Differences from Standard Networks`
 
 **Graph batching:**
 
@@ -368,44 +361,16 @@ Key Differences from Standard Networks
    type(graph_type) :: output_graphs(:,:)
    output_graphs(1,s)%vertex_features  ! [num_features, num_nodes]
 
-Gradient Clipping
-~~~~~~~~~~~~~~~~~
+Other important considerations when training message passing networks include:
 
-Essential for stable training on graphs:
-
-.. code-block:: fortran
-
-   ! Clip by norm (recommended)
-   allocate(clip, source=clip_type(clip_norm=0.1_real32))
-
-   ! Or clip by value
-   allocate(clip, source=clip_type(-1.0_real32, 1.0_real32))
-
-   call network%compile( &
-        optimiser=adam_optimiser_type(clip_dict=clip, ...), &
-        ...)
-
-Learning Rate Decay
-~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: fortran
-
-   ! Exponential decay
-   lr_decay = exp_lr_decay_type(decay_rate=0.001_real32)
-
-   ! Step decay
-   lr_decay = step_lr_decay_type(decay_factor=0.5_real32, decay_steps=5)
-
-   optimiser = adam_optimiser_type( &
-        learning_rate=0.02_real32, &
-        lr_decay=lr_decay)
-
+* Gradient clipping - to stabilise training on graphs
+* Learning rate decay - to improve convergence
 
 Key Takeaways
 -------------
 
-From These Examples
-~~~~~~~~~~~~~~~~~~~
+The message passing examples illustrate how to build and train graph neural networks using athena.
+The main points to consider when working with message passing NNs are:
 
 1. **Graph structure matters**: Message passing leverages connectivity information
 2. **Sparse is faster**: Use sparse representation for large graphs
@@ -413,8 +378,7 @@ From These Examples
 4. **Skip connections help**: Concatenating early features improves information flow
 5. **Layer choice matters**: Duvenaud for graph-level, Kipf for node-level predictions
 
-When to Use Message Passing NNs
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`When to Use Message Passing NNs`
 
 **Good for:**
 

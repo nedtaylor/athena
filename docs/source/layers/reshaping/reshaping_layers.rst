@@ -1,7 +1,7 @@
 .. _reshaping-layers:
 
-Reshaping Layer
-===============
+Reshaping Layers
+================
 
 * :ref:`flatten_layer_type <flatten-layer>` - Flattens the input data to a 1D array (can be automated)
 

@@ -34,6 +34,16 @@ def run_ford(app):
 def setup(app):
     app.connect("builder-inited", run_ford)
 
+from docutils.parsers.rst import roles
+from docutils import nodes
+
+def h3style_role(name, rawtext, text, lineno, inliner, options={}, content=[]):
+    node = nodes.inline(text, text, classes=["h3style"])
+    return [node], []
+
+def setup(app):
+    roles.register_local_role('h3style', h3style_role)
+
 # -- Project information
 
 project = 'athena'

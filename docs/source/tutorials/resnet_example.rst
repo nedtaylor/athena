@@ -5,12 +5,10 @@ Residual Networks (ResNet)
 
 This tutorial covers building Residual Networks (ResNets) for image processing and computer vision tasks using skip connections.
 
-What are ResNets?
------------------
+.. rubric:: :h3style:`What are ResNets?`
 
 Residual Networks solve the degradation problem in very deep neural networks by introducing skip connections (residual connections).
-
-Key concepts:
+The key concepts of ResNets include:
 
 * **Residual blocks**: Add input directly to output via skip connections [#f1]_
 * **Skip connections**: Allow gradients to flow directly through the network
@@ -21,9 +19,6 @@ Key concepts:
 Building a Basic ResNet
 -----------------------
 
-Residual Block Concept
-~~~~~~~~~~~~~~~~~~~~~~
-
 A residual block performs: ``output = F(x) + x``
 
 Where:
@@ -31,14 +26,11 @@ Where:
 * ``x`` is the identity (skip connection)
 * ``+`` is element-wise addition
 
-Simple ResNet Example
-~~~~~~~~~~~~~~~~~~~~~
-
 .. note::
    The examples in this tutorial use simplified ResNet architectures without batch normalisation for clarity.
    The example found in :git:`example/resnet/src/main.f90` contains a more complete implementation.
 
-For image classification:
+For image classification, we can build a simple ResNet as follows:
 
 .. code-block:: fortran
 
@@ -96,8 +88,10 @@ Direct use of ``add_layer_type`` requires specification of the ``input_rank`` pa
 Building Residual Blocks
 ------------------------
 
-Helper Subroutine for Residual Blocks
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+For building deeper ResNets, we can create a subroutine to add residual blocks.
+This enables us to easily define repeatable stacks and add them to the network multiple times.
+
+.. rubric:: :h3style:`Helper Subroutine for Residual Blocks`
 
 Create a reusable subroutine for adding residual blocks:
 
@@ -134,8 +128,7 @@ Create a reusable subroutine for adding residual blocks:
 
    end subroutine add_residual_block
 
-Deeper ResNet Architecture
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`Deeper ResNet Architecture`
 
 ResNet-18 style network:
 
@@ -186,8 +179,7 @@ ResNet-18 style network:
      ! Include add_residual_block subroutine here
    end program resnet18_style
 
-Projection Shortcuts
-~~~~~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`Projection Shortcuts`
 
 When dimensions change, use 1x1 convolutions for the skip connection:
 
@@ -221,8 +213,7 @@ When dimensions change, use 1x1 convolutions for the skip connection:
 
    end subroutine add_residual_block_projection
 
-ResNet for Small Images (CIFAR-10)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`ResNet for Small Images (CIFAR-10)`
 
 Adapted architecture for 32x32 images:
 
@@ -272,8 +263,7 @@ These rely on the ``merge_layer_type`` derived type and the ``input_list`` argum
 There are currently two options of ``merge_layer_type`` that can be used for skip connections: addition (``add_layer_type``) and concatenation (``concat_layer_type``).
 Additionally, the output of any layer can be easily broadcast to multiple subsequent layers using the ``input_list`` argument.
 
-How Skip Connections Work
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`How Skip Connections Work`
 
 In athena, there are two ways we can implement the ResNet skip connections.
 
@@ -311,16 +301,14 @@ Negative indices count backwards from the most recently added layer (``-1`` refe
 Positive indices refer to absolute layer IDs (i.e. the order in which layers have been added to the network via the ``add()`` method).
 ``0`` refers to the input layer of the network (i.e. the data input); if multiple input layers exist, this refers to the input to the first layer added.
 
-Key Points
-~~~~~~~~~~
+.. rubric:: :h3style:`Key Points`
 
 * **Layer IDs**: Track ``net%num_layers`` to reference previous layers
 * **Add layer**: Combines outputs element-wise from specified layers
 * **Input list**: Specifies which layers to merge (typically start and end of block)
 * **Operator**: Use ``"+"`` for addition (residual connections) and ``"||"`` for concatenation
 
-Dimension Matching
-~~~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`Dimension Matching`
 
 Skip connections require matching dimensions:
 
@@ -368,9 +356,6 @@ See Also
 * :ref:`Activation layers <activation-layer>` - Activation functions
 * :ref:`Basic Network Tutorial <basic-network>` - Foundation concepts
 * :ref:`Training Guide <training-model>` - Training deep networks
-
-Further Reading
----------------
 
 .. rubric:: Footnotes
 

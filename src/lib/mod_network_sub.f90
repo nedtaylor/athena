@@ -12,7 +12,6 @@ submodule(athena__network) athena__network_submodule
   use athena__container_layer, only: container_reduction
 #endif
 
-  use athena__diffstruc_extd, only: array_container_type, array_ptr_type
   use athena__misc_types, only: onnx_node_type, onnx_initialiser_type
   use athena__container_layer, only: &
        list_of_layer_types, allocate_list_of_layer_types, &
@@ -1860,7 +1859,28 @@ contains
 
   end function get_sample_array
 !-------------------------------------------------------------------------------
-  module function get_sample_graph( &
+  module function get_sample_graph1d( &
+       input, start_index, end_index, batch_size &
+  ) result(sample)
+    !! Get samples of batch size from a graph
+    implicit none
+
+    ! Arguments
+    integer, intent(in) :: start_index, end_index
+    !! Start and end indices
+    integer, intent(in) :: batch_size
+    !! Batch size
+    class(graph_type), dimension(:), intent(in) :: input
+    !! Input array
+
+    type(graph_type), dimension(1, batch_size) :: sample
+    !! Sample array
+
+    sample(1,1:batch_size) = input(start_index:end_index)
+
+  end function get_sample_graph1d
+!-------------------------------------------------------------------------------
+  module function get_sample_graph2d( &
        input, start_index, end_index, batch_size &
   ) result(sample)
     !! Get samples of batch size from a graph
@@ -1879,7 +1899,7 @@ contains
 
     sample(1:size(input,1),1:batch_size) = input(:,start_index:end_index)
 
-  end function get_sample_graph
+  end function get_sample_graph2d
 !###############################################################################
 
 
@@ -2527,12 +2547,35 @@ contains
     type(array_type), pointer :: output(:,:)
     !! Output
 
-    ! Local variables
-
     call this%forward(input)
     output => this%model(this%leaf_vertices(1))%layer%output
 
   end function forward_eval
+!-------------------------------------------------------------------------------
+  module function forward_eval_multi(this, input) result(output)
+    !! Forward pass for evaluation
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout), target :: this
+    !! Instance of network
+    class(*), dimension(:,:), intent(in) :: input
+    !! Input
+
+    type(array_ptr_type), pointer :: output(:)
+    !! Output
+
+    ! Local variables
+    integer :: l
+    !! Loop index
+
+    call this%forward(input)
+    allocate(output(size(this%leaf_vertices,1)))
+    do l = 1, size(this%leaf_vertices,1)
+       output(l)%array => this%model(this%leaf_vertices(l))%layer%output
+    end do
+
+  end function forward_eval_multi
 !###############################################################################
 
 
@@ -2656,7 +2699,7 @@ contains
     !! Number of samples
 
     ! Local variables
-    integer :: i, j, input_rank, num_inputs
+    integer :: i, j, l, ip, input_rank, num_inputs
     !! Loop index
     integer :: num_input_layers
     !! Number of input layers
@@ -2665,6 +2708,7 @@ contains
     character(256) :: err_msg
     !! Error message
 
+    num_samples = get_num_samples(this, input)
     num_input_layers = size(this%root_vertices, 1)
     if(allocated(this%input_array))then
        do i = 1, size(this%input_array, 1)
@@ -2684,7 +2728,6 @@ contains
     rank(2)
        select type(input)
        class is(array_type)
-          num_samples = size(input(1,1)%val, 2)
           num_inputs = size(input(1,1)%val, 1)
           allocate(this%input_array(size(input,1), size(input,2)))
           do i = 1, size(input,1)
@@ -2695,14 +2738,12 @@ contains
           return
        class default
           input_rank = rank(input)
-          num_samples = size(input, input_rank)
           num_inputs = size(input) / num_samples
           allocate(this%input_array(1,1))
           call this%input_array(1,1)%allocate(array_shape=[num_inputs, num_samples])
        end select
     rank default
        input_rank = rank(input)
-       num_samples = size(input, input_rank)
        num_inputs = size(input) / num_samples
        allocate(this%input_array(1,1))
        call this%input_array(1,1)%allocate(array_shape=shape(input))
@@ -2725,22 +2766,27 @@ contains
           )
           return
        end if
-       allocate(this%input_array(1,1))
-       num_samples = get_num_samples(input)
        select type(input)
        class is(array_type)
+          allocate(this%input_array(1,1))
           call handle_array_type(input, this%input_array(1,1), num_samples)
-       type is(array_container_type)
-          call handle_array_type(input%array, this%input_array(1,1), num_samples)
+       type is(array_ptr_type)
+          allocate(this%input_array(size(input%array,1), size(input%array,2)))
+          do i = 1, size(input%array,1)
+             do j = 1, size(input%array,2)
+                call handle_array_type( &
+                     input%array(i,j), this%input_array(i,j), num_samples &
+                )
+             end do
+          end do
        end select
     rank(1)
        select type(input)
        type is(real(real32))
           exit rank_select
        type is(graph_type)
-          num_samples = size(input, dim=1)
-          allocate(this%input_graph(num_samples, num_input_layers))
-          this%input_graph(:,1) = input(:)
+          allocate(this%input_graph(num_input_layers, num_samples))
+          this%input_graph(1,:) = input(:)
           return
        class default
           l_valid_rank_type = .true.
@@ -2752,18 +2798,27 @@ contains
           )
           return
        end if
-       allocate(this%input_array(1,size(input,1)))
-       num_samples = get_num_samples(input(1))
-       do i = 1, size(input,1)
-          select type(input)
-          class is(array_type)
-             call handle_array_type(input(i), this%input_array(1,i), num_samples)
-          type is(array_container_type)
-             call handle_array_type( &
-                  input(i)%array, this%input_array(1,i), num_samples &
-             )
-          end select
-       end do
+       select type(input)
+       class is(array_type)
+          allocate(this%input_array(1,size(input,1)))
+          do l = 1, size(input,1)
+             call handle_array_type(input(l), this%input_array(1,l), num_samples)
+          end do
+       type is(array_ptr_type)
+          call stop_program("Use of array_ptr_type with rank 1 input not yet supported")
+          return
+          ! ip = 0
+          ! do l = 1, size(input,1)
+          !       do i = 1, size(input%array,1)
+          !          ip = ip + 1
+          !          do j = 1, size(input%array,2)
+          !             call handle_array_type( &
+          !                  input(l)%array(i,j), this%input_array(ip,j), num_samples &
+          !             )
+          !          end do
+          !       end do
+          ! end do
+       end select
     rank(2)
        select type(input)
        type is(real(real32))
@@ -2807,24 +2862,105 @@ contains
 
   contains
 
-    function get_num_samples(input) result(num_samples)
+    function get_num_samples(network, input) result(num_samples)
+      implicit none
       !! Get the number of samples in the input
 
       ! Arguments
-      class(*), intent(in) :: input
+      type(network_type), intent(in) :: network
+      !! Instance of network
+      class(*), dimension(..), intent(in) :: input
       !! Input
       integer :: num_samples
       !! Number of samples
 
-      select type(input)
-      class is(array_type)
-         num_samples = size(input%val, 2)
-      class is(array_container_type)
-         num_samples = size(input%array%val, 2)
-      class default
-         call stop_program("Unknown input type in get_num_samples")
+      ! Local variables
+      integer :: layer_id
+      !! Layer ID
+      logical :: use_graph_input
+      !! Whether to use graph input
+
+      num_samples = 0
+      layer_id = network%auto_graph%vertex(network%root_vertices(1))%id
+      use_graph_input = network%model(layer_id)%layer%use_graph_input
+      select rank(input)
+      rank(0)
+         select type(input)
+         class is(array_type)
+            num_samples = size(input%val, 2)
+         class is(array_ptr_type)
+            num_samples = size(input%array(1,1)%val, 2)
+         class default
+            call stop_program("Unknown input type in get_num_samples for rank 0")
+            return
+         end select
+      rank(1)
+         select type(input)
+         class is(array_type)
+            if(use_graph_input)then
+               num_samples = size(input)
+            else
+               num_samples = size(input(1)%val, 2)
+            end if
+         class is(array_ptr_type)
+            if(use_graph_input)then
+               num_samples = size(input(1)%array, 2)
+            else
+               num_samples = size(input(1)%array(1,1)%val, 2)
+            end if
+         class is(graph_type)
+            num_samples = size(input, dim=1)
+         type is(real)
+            num_samples = size(input, rank(input))
+         class default
+            call stop_program("Unknown input type in get_num_samples for rank 1")
+            return
+         end select
+      rank(2)
+         select type(input)
+         class is(array_type)
+            if(use_graph_input)then
+               num_samples = size(input, 2)
+            else
+               num_samples = size(input(1,1)%val, 2)
+            end if
+         class is(graph_type)
+            num_samples = size(input, dim=2)
+         type is(real)
+            num_samples = size(input, rank(input))
+         class default
+            call stop_program("Unknown input type in get_num_samples for rank 2")
+            return
+         end select
+      rank(3)
+         select type(input)
+         type is(real)
+            num_samples = size(input, rank(input))
+         class default
+            call stop_program("Unknown input type in get_num_samples for rank 3")
+            return
+         end select
+      rank(4)
+         select type(input)
+         type is(real)
+            num_samples = size(input, rank(input))
+         class default
+            call stop_program("Unknown input type in get_num_samples for rank 4")
+            return
+         end select
+      rank(5)
+         select type(input)
+         type is(real)
+            num_samples = size(input, rank(input))
+         class default
+            call stop_program("Unknown input type in get_num_samples for rank 5")
+            return
+         end select
+      rank default
+         call stop_program("Unknown input rank in get_num_samples")
          return
       end select
+
     end function get_num_samples
 
 
@@ -2850,6 +2986,98 @@ contains
     end subroutine handle_array_type
 
   end function save_input_to_network
+!-------------------------------------------------------------------------------
+  module subroutine save_output_to_network( this, output )
+    !! Save output to network
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    class(*), dimension(:,:), intent(in) :: output
+    !! Output
+
+    ! Local variables
+    integer :: i, j, s
+    !! Loop indices
+
+    if(allocated(this%expected_array))then
+       do i = 1, size(this%expected_array, 1)
+          do j = 1, size(this%expected_array, 2)
+             call this%expected_array(i,j)%deallocate()
+          end do
+       end do
+       deallocate(this%expected_array)
+    end if
+
+    select type(output)
+    type is(graph_type)
+       allocate(this%expected_array(2,size(output,2)))
+       do s = 1, size(output,2)
+          if(this%expected_array(1,s)%allocated) &
+               call this%expected_array(1,s)%deallocate()
+          if(this%expected_array(2,s)%allocated) &
+               call this%expected_array(2,s)%deallocate()
+          call this%expected_array(1,s)%allocate( &
+               array_shape = [ &
+                    output(1,s)%num_vertex_features, output(1,s)%num_vertices &
+               ] &
+          )
+          call this%expected_array(1,s)%zero_grad()
+          call this%expected_array(1,s)%set_requires_grad(.false.)
+          call this%expected_array(1,s)%set( output(1,s)%vertex_features )
+          this%expected_array(1,s)%is_temporary = .false.
+          if(output(1,s)%num_edge_features.le.0) cycle
+          call this%expected_array(2,s)%allocate( &
+               array_shape = [ &
+                    output(1,s)%num_edge_features, output(1,s)%num_edges &
+               ] &
+          )
+          call this%expected_array(2,s)%set_requires_grad(.false.)
+          call this%expected_array(2,s)%set( output(1,s)%edge_features )
+          this%expected_array(2,s)%is_temporary = .false.
+       end do
+    class is(array_type)
+       allocate(this%expected_array(size(output,1),size(output,2)))
+       do s = 1, size(output,2)
+          do i = 1, size(output,1)
+             if(this%expected_array(i,s)%allocated) &
+                  call this%expected_array(i,s)%deallocate()
+             call this%expected_array(i,s)%allocate( &
+                  array_shape = [ &
+                       output(i,s)%shape, size(output(i,s)%val,2) &
+                  ] &
+             )
+             call this%expected_array(i,s)%set_requires_grad(.false.)
+             call this%expected_array(i,s)%set( output(i,s)%val )
+             this%expected_array(i,s)%is_temporary = .false.
+          end do
+       end do
+    type is(real)
+       allocate(this%expected_array(1,1))
+       if(this%expected_array(1,1)%allocated) &
+            call this%expected_array(1,1)%deallocate()
+       call this%expected_array(1,1)%allocate( &
+            array_shape = [ size(output,1), size(output,2) ] &
+       )
+       call this%expected_array(1,1)%set_requires_grad(.false.)
+       call this%expected_array(1,1)%set( output )
+       this%expected_array(1,1)%is_temporary = .false.
+    type is(integer)
+       allocate(this%expected_array(1,1))
+       if(this%expected_array(1,1)%allocated) &
+            call this%expected_array(1,1)%deallocate()
+       call this%expected_array(1,1)%allocate( &
+            array_shape = [ size(output,1), size(output,2) ] &
+       )
+       call this%expected_array(1,1)%set_requires_grad(.false.)
+       this%expected_array(1,1)%val = real(output, real32)
+       this%expected_array(1,1)%is_temporary = .false.
+    class default
+       call stop_program("output type not supported in training")
+    end select
+
+  end subroutine save_output_to_network
 !###############################################################################
 
 
@@ -2971,6 +3199,17 @@ contains
 
 
     !---------------------------------------------------------------------------
+    ! Save input and output to network
+    !---------------------------------------------------------------------------
+    num_samples = this%save_input( input )
+    call this%save_output( output )
+    if(size(output,2).ne.num_samples.and.this%use_graph_output)then
+       call stop_program("number of samples in input and output do not match")
+       return
+    end if
+
+
+    !---------------------------------------------------------------------------
     ! If parallel, initialise slices
     !---------------------------------------------------------------------------
     select type(output)
@@ -2989,86 +3228,6 @@ contains
     do batch = 1, num_batches
        batch_order(batch) = batch
     end do
-
-
-    !---------------------------------------------------------------------------
-    ! Get number of samples
-    !---------------------------------------------------------------------------
-    num_samples = this%save_input( input )
-    if(size(output,2).ne.num_samples.and.this%use_graph_output)then
-       call stop_program("number of samples in input and output do not match")
-       return
-    end if
-    ! elseif(size(output,1).ne.this%num_outputs.and..not.this%use_graph_input)then
-    !    call stop_program("number of outputs in output does not match network")
-    !    return
-    if(allocated(this%expected_array)) deallocate(this%expected_array)
-    select type(output)
-    type is(graph_type)
-       allocate(this%expected_array(2,size(output,2)))
-       do s = 1, size(output,2)
-          if(this%expected_array(1,s)%allocated) &
-               call this%expected_array(1,s)%deallocate()
-          if(this%expected_array(2,s)%allocated) &
-               call this%expected_array(2,s)%deallocate()
-          call this%expected_array(1,s)%allocate( &
-               array_shape = [ &
-                    output(1,s)%num_vertex_features, output(1,s)%num_vertices &
-               ] &
-          )
-          call this%expected_array(1,s)%zero_grad()
-          call this%expected_array(1,s)%set_requires_grad(.false.)
-          call this%expected_array(1,s)%set( output(1,s)%vertex_features )
-          this%expected_array(1,s)%is_temporary = .false.
-          if(output(1,s)%num_edge_features.le.0) cycle
-          call this%expected_array(2,s)%allocate( &
-               array_shape = [ &
-                    output(1,s)%num_edge_features, output(1,s)%num_edges &
-               ] &
-          )
-          call this%expected_array(2,s)%set_requires_grad(.false.)
-          call this%expected_array(2,s)%set( output(1,s)%edge_features )
-          this%expected_array(2,s)%is_temporary = .false.
-       end do
-    class is(array_type)
-       allocate(this%expected_array(size(output,1),size(output,2)))
-       do s = 1, size(output,2)
-          do i = 1, size(output,1)
-             if(this%expected_array(i,s)%allocated) &
-                  call this%expected_array(i,s)%deallocate()
-             call this%expected_array(i,s)%allocate( &
-                  array_shape = [ &
-                       output(i,s)%shape, size(output(i,s)%val,2) &
-                  ] &
-             )
-             call this%expected_array(i,s)%set_requires_grad(.false.)
-             call this%expected_array(i,s)%set( output(i,s)%val )
-             this%expected_array(i,s)%is_temporary = .false.
-          end do
-       end do
-    type is(real)
-       allocate(this%expected_array(1,1))
-       if(this%expected_array(1,1)%allocated) &
-            call this%expected_array(1,1)%deallocate()
-       call this%expected_array(1,1)%allocate( &
-            array_shape = [ size(output,1), size(output,2) ] &
-       )
-       call this%expected_array(1,1)%set_requires_grad(.false.)
-       call this%expected_array(1,1)%set( output )
-       this%expected_array(1,1)%is_temporary = .false.
-    type is(integer)
-       allocate(this%expected_array(1,1))
-       if(this%expected_array(1,1)%allocated) &
-            call this%expected_array(1,1)%deallocate()
-       call this%expected_array(1,1)%allocate( &
-            array_shape = [ size(output,1), size(output,2) ] &
-       )
-       call this%expected_array(1,1)%set_requires_grad(.false.)
-       this%expected_array(1,1)%val = real(output, real32)
-       this%expected_array(1,1)%is_temporary = .false.
-    class default
-       call stop_program("output type not supported in training")
-    end select
 
 
     !---------------------------------------------------------------------------
@@ -3121,11 +3280,11 @@ contains
           !  call system_clock(timer_start)
           select case(this%use_graph_input)
           case(.true.)
-             data_poly = get_sample_graph( &
+             data_poly = get_sample( &
                   this%input_graph, start_index, end_index, this%batch_size &
              )
           case default
-             data_poly = get_sample_array( &
+             data_poly = get_sample( &
                   this%input_array, start_index, end_index, this%batch_size, &
                   as_graph = .false. &
              )
@@ -3313,7 +3472,7 @@ contains
        !------------------------------------------------------------------------
        select case(this%use_graph_input)
        case(.true.)
-          data_poly = get_sample_graph( &
+          data_poly = get_sample( &
                this%input_graph, sample, sample, 1 &
           )
        case default
@@ -3425,16 +3584,14 @@ contains
 
 
 !###############################################################################
-  module function predict_graph( &
-       this, input, verbose &
-  ) result(output)
+  module function predict_graph1d( this, input, verbose ) result(output)
     !! Predict the output for a graph input
     implicit none
 
     ! Arguments
     class(network_type), intent(inout) :: this
     !! Instance of network
-    type(graph_type), dimension(:,:), intent(in) :: input
+    type(graph_type), dimension(:), intent(in) :: input
     !! Input graph
     integer, optional, intent(in) :: verbose
     !! Verbosity level
@@ -3442,26 +3599,21 @@ contains
     ! Local variables
     integer :: l, s
     !! Loop index
-    type(graph_type), dimension(size(this%leaf_vertices),size(input,dim=1)) :: &
-         output
+    type(graph_type), dimension(size(this%leaf_vertices),size(input)) :: output
     !! Output graph
-    integer :: verbose_, batch_size
+    integer :: verbose_ = 0, batch_size
     !! Verbosity level
 
 
     !---------------------------------------------------------------------------
     ! Initialise optional arguments
     !---------------------------------------------------------------------------
-    if(present(verbose))then
-       verbose_ = verbose
-    else
-       verbose_ = 0
-    end if
+    if(present(verbose)) verbose_ = verbose
 
     !---------------------------------------------------------------------------
     ! Reset batch size for testing
     !---------------------------------------------------------------------------
-    batch_size = size(input, dim=1)
+    batch_size = size(input)
     call this%set_batch_size(batch_size)
 
 
@@ -3476,7 +3628,79 @@ contains
     !---------------------------------------------------------------------------
     ! Predict
     !---------------------------------------------------------------------------
-    call this%forward(get_sample_graph(input, 1, batch_size, batch_size))
+    call this%forward(get_sample(input, 1, batch_size, batch_size))
+
+    do l = 1, size(this%leaf_vertices)
+       do s = 1, batch_size
+          output(l,s)%num_vertices = input(s)%num_vertices
+          output(l,s)%num_edges = input(s)%num_edges
+          output(l,s)%num_vertex_features = this%model( &
+               this%leaf_vertices(l) &
+          )%layer%output_shape(1)
+          output(l,s)%num_edge_features = this%model( &
+               this%leaf_vertices(l) &
+          )%layer%output_shape(2)
+          output(l,s)%vertex_features = this%model( &
+               this%leaf_vertices(l) &
+          )%layer%output(1,s)%val
+          if(size(this%model(this%leaf_vertices(l))%layer%output,1).eq.1)then
+             output(l,s)%edge_features = input(s)%edge_features
+          else
+             output(l,s)%edge_features = this%model( &
+                  this%leaf_vertices(l) &
+             )%layer%output(2,s)%val
+          end if
+       end do
+    end do
+
+  end function predict_graph1d
+!-------------------------------------------------------------------------------
+  module function predict_graph2d( this, input, verbose ) result(output)
+    !! Predict the output for a graph input
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    type(graph_type), dimension(:,:), intent(in) :: input
+    !! Input graph
+    integer, optional, intent(in) :: verbose
+    !! Verbosity level
+
+    ! Local variables
+    integer :: l, s
+    !! Loop index
+    type(graph_type), dimension(size(this%leaf_vertices),size(input,dim=2)) :: &
+         output
+    !! Output graph
+    integer :: verbose_ = 0, batch_size
+    !! Verbosity level
+
+
+    !---------------------------------------------------------------------------
+    ! Initialise optional arguments
+    !---------------------------------------------------------------------------
+    if(present(verbose)) verbose_ = verbose
+
+    !---------------------------------------------------------------------------
+    ! Reset batch size for testing
+    !---------------------------------------------------------------------------
+    batch_size = size(input, 2)
+    call this%set_batch_size(batch_size)
+
+
+    !---------------------------------------------------------------------------
+    ! Turn on inference booleans
+    !---------------------------------------------------------------------------
+    do l = 1, this%num_layers
+       this%model(l)%layer%inference = .true.
+    end do
+
+
+    !---------------------------------------------------------------------------
+    ! Predict
+    !---------------------------------------------------------------------------
+    call this%forward(get_sample(input, 1, batch_size, batch_size))
 
     do l = 1, size(this%leaf_vertices)
        do s = 1, batch_size
@@ -3501,7 +3725,7 @@ contains
        end do
     end do
 
-  end function predict_graph
+  end function predict_graph2d
 !###############################################################################
 
 
@@ -3521,7 +3745,7 @@ contains
     integer, intent(in), optional :: verbose
     !! Verbosity level
 
-    type(array_type), pointer :: output(:,:)
+    type(array_type), dimension(:,:), allocatable :: output
     !! Predicted output
 
     ! Local variables
@@ -3608,22 +3832,25 @@ contains
     ! Arguments
     class(network_type), intent(inout) :: this
     !! Instance of network
-    class(array_type), dimension(:,:), intent(in) :: input
+    class(array_type), dimension(..), intent(in) :: input
     !! Input graph
     integer, intent(in), optional :: verbose
     !! Verbosity level
 
-    type(array_type), pointer :: output(:,:)
+    type(array_type), dimension(:,:), allocatable :: output
     !! Predicted output
 
     ! Local variables
-    integer :: l, s, i
+    integer :: l, s, i, j, layer_id
     !! Loop index
     integer :: num_samples
     !! Number of samples
     integer :: verbose_
     !! Verbosity level
+    integer, dimension(2) :: output_shape
+    !! Output shape
     logical, dimension(:), allocatable :: inference_store
+    !! Inference store
 
 
     !---------------------------------------------------------------------------
@@ -3666,13 +3893,16 @@ contains
     !---------------------------------------------------------------------------
     ! Allocate output data
     !---------------------------------------------------------------------------
-    allocate(output( &
-         size(this%model(this%leaf_vertices(1))%layer%output, 1), &
-         size(this%model(this%leaf_vertices(1))%layer%output, 2) &
-    ))
-    do s = 1, size(this%model(this%leaf_vertices(1))%layer%output, 2)
-       do i = 1, size(this%model(this%leaf_vertices(1))%layer%output, 1)
-          output(i,s) = this%model(this%leaf_vertices(1))%layer%output(i,s)
+    output_shape = this%get_output_shape()
+    allocate(output(output_shape(1), output_shape(2)))
+    do l = 1, size(this%leaf_vertices)
+       layer_id = this%auto_graph%vertex(this%leaf_vertices(l))%id
+       j = 0
+       do i = 1, size(this%model(layer_id)%layer%output, 1)
+          j = j + 1
+          do s = 1, size(this%model(layer_id)%layer%output, 2)
+             output(j,s) = this%model(layer_id)%layer%output(i,s)
+          end do
        end do
     end do
 
@@ -3707,7 +3937,7 @@ contains
     !! Predicted output
 
     ! Local variables
-    integer :: l, s
+    integer :: l, s, i, j, layer_id
     !! Loop index
     integer :: num_samples
     !! Number of samples
@@ -3715,6 +3945,8 @@ contains
     !! Verbosity level
     logical :: output_as_graph_
     !! Output as graph boolean
+    integer, dimension(2) :: output_shape
+    !! Output shape
 
 
     !---------------------------------------------------------------------------
@@ -3765,28 +3997,34 @@ contains
     !---------------------------------------------------------------------------
     ! Allocate output data
     !---------------------------------------------------------------------------
+    output_shape = this%get_output_shape()
     if(output_as_graph_)then
-       allocate(output(num_samples, size(this%leaf_vertices)), source = graph_type())
-
+       allocate(output(output_shape(1), output_shape(2)), source = graph_type())
        select type(output)
        type is(graph_type)
           select type(input)
           type is(graph_type)
-             do s = 1, num_samples
-                output(s,1)%num_vertices = input(s,1)%num_vertices
-                output(s,1)%num_edges = input(s,1)%num_edges
-                output(s,1)%num_vertex_features = this%model( &
-                     this%leaf_vertices(1) &
-                )%layer%output_shape(1)
-                output(s,1)%num_edge_features = this%model( &
-                     this%leaf_vertices(1) &
-                )%layer%output_shape(2)
-                output(s,1)%vertex_features = this%model( &
-                     this%leaf_vertices(1) &
-                )%layer%output(1,s)%val
-                output(s,1)%edge_features = this%model( &
-                     this%leaf_vertices(1) &
-                )%layer%output(2,s)%val
+             do l = 1, size(this%leaf_vertices)
+                do s = 1, num_samples
+                   output(l,s)%num_vertices = input(1,s)%num_vertices
+                   output(l,s)%num_edges = input(1,s)%num_edges
+                   output(l,s)%num_vertex_features = this%model( &
+                        this%leaf_vertices(l) &
+                   )%layer%output_shape(1)
+                   output(l,s)%num_edge_features = this%model( &
+                        this%leaf_vertices(l) &
+                   )%layer%output_shape(2)
+                   output(l,s)%vertex_features = this%model( &
+                        this%leaf_vertices(l) &
+                   )%layer%output(1,s)%val
+                   if(size(this%model(this%leaf_vertices(l))%layer%output,1).eq.1)then
+                      output(l,s)%edge_features = input(1,s)%edge_features
+                   else
+                      output(l,s)%edge_features = this%model( &
+                           this%leaf_vertices(l) &
+                      )%layer%output(2,s)%val
+                   end if
+                end do
              end do
           class default
              call stop_program("input is not of type graph_type")
@@ -3795,7 +4033,21 @@ contains
           call stop_program("allocation of output as graph_type failed")
        end select
     else
-       output = this%model(this%leaf_vertices(1))%layer%output
+       output_shape = this%get_output_shape()
+       allocate(output(output_shape(1), output_shape(2)), source = array_type())
+       select type(output)
+       type is(array_type)
+          do l = 1, size(this%leaf_vertices)
+             layer_id = this%auto_graph%vertex(this%leaf_vertices(l))%id
+             j = 0
+             do i = 1, size(this%model(layer_id)%layer%output, 1)
+                j = j + 1
+                do s = 1, size(this%model(layer_id)%layer%output, 2)
+                   output(j,s) = this%model(layer_id)%layer%output(i,s)
+                end do
+             end do
+          end do
+       end select
     end if
 
   end function predict_generic

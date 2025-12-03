@@ -33,7 +33,8 @@ program pinn_burgers_example
   real(real32) :: nu
   real(real32), dimension(:,:), allocatable :: u0
   real(real32), dimension(:,:), allocatable :: X_f, X_0, X_b_left, X_b_right, XT
-  type(array_type), pointer :: u_pred(:,:), loss
+  type(array_type), pointer :: loss
+  real(real32), dimension(:,:), allocatable ::  u_pred
 
 
   !-----------------------------------------------------------------------------
@@ -216,20 +217,15 @@ program pinn_burgers_example
      end do
   end do
   write(*,*) "Starting testing..."
-! check compiler, if gfortran, do the following
-#ifdef __GNUC__
-  allocate(u_pred(1,1))
-  u_pred = network%predict(XT, output_as_array=.true.)
-#else
-  u_pred(1:1,1:1) => network%predict(XT, output_as_array=.true.)
-#endif
+
+  u_pred = network%predict(XT)
   write(*,*) "Testing finished"
   open(unit=20, file="u_pred.txt", status='replace')
   itmp1 = 0
   do i = 1, N_t
      do j = 1, N_x
         itmp1 = itmp1 + 1
-        write(20,'(3F12.5)') XT(1,itmp1), XT(2,itmp1), u_pred(1,1)%val(1,itmp1)
+        write(20,'(3F12.5)') XT(1,itmp1), XT(2,itmp1), u_pred(1,itmp1)
      end do
   end do
   close(20)
@@ -248,15 +244,15 @@ contains
 
     type(array_type), pointer :: loss
 
-    type(array_type), pointer :: u_i, u_xx, u_t, u_x
+    type(array_type), pointer :: u_i, u_xx, u_t, u_x, u_tmp(:,:)
 
     type(array_type), pointer :: input, u0_pred, f_pred, u_left_pred, u_right_pred, u
     type(array_type), pointer :: loss_f, loss_0, loss_b
 
-    call this%forward(X_f)
-    this%model(this%root_vertices(1))%layer%output(1,1)%id = 1
     ! find what the new input loc is now
-    u => this%model(this%leaf_vertices(1))%layer%output(1,1)%duplicate_graph()
+    u_tmp => this%forward_eval(X_f)
+    this%model(this%root_vertices(1))%layer%output(1,1)%id = 1
+    u => u_tmp(1,1)%duplicate_graph()
     input => u%get_ptr_from_id(1)
 
     ! set direction (t,x) to compute u_t, u_x, u_xx
@@ -271,20 +267,18 @@ contains
     loss_f => mean( f_pred ** 2._real32, 2 )
 
     ! boundary conditions
-    call this%forward(X_b_left)
-    u_left_pred => &
-         this%model(this%leaf_vertices(1))%layer%output(1,1)%duplicate_graph()
+    u_tmp => this%forward_eval(X_b_left)
+    u_left_pred => u_tmp(1,1)%duplicate_graph()
 
-    call this%forward(X_b_right)
-    u_right_pred => &
-         this%model(this%leaf_vertices(1))%layer%output(1,1)%duplicate_graph()
+    u_tmp => this%forward_eval(X_b_right)
+    u_right_pred => u_tmp(1,1)%duplicate_graph()
     loss_b => &
          mean( u_left_pred ** 2._real32, 2 ) + &
          mean( u_right_pred ** 2._real32, 2 )
 
     ! zero time condition
-    call this%forward(X_0)
-    u0_pred => this%model(this%leaf_vertices(1))%layer%output(1,1)
+    u_tmp => this%forward_eval(X_0)
+    u0_pred => u_tmp(1,1)
     loss_0 => mean( ( u0_pred - u0 ) ** 2._real32, 2)
 
     loss => loss_f + loss_0 + loss_b

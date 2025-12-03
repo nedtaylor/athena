@@ -12,6 +12,7 @@ Welcome to the athena tutorials! These guides will help you get started with bui
 
    basic_network
    training_model
+   network_outputs
    saving_loading
 
 .. toctree::
@@ -35,8 +36,7 @@ Welcome to the athena tutorials! These guides will help you get started with bui
    custom_loss
 
 
-Next Steps
-----------
+.. rubric:: Next Steps
 
 For specific information about layers, activations, and other components, see:
 

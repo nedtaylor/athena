@@ -19,7 +19,7 @@ Physics-informed neural networks combine:
 
 These examples demonstrate two approaches:
 
-1. **Burgers equation** (``pinn_burgers``): Solving PDE with custom loss function
+1. **Burgers equation** (``pinn_burgers``): Solving partial differential equations (PDEs) with custom loss function
 2. **Chemical forces** (``pinn_chemical``): Predicting forces via automatic differentiation
 
 Burgers Equation Example
@@ -30,8 +30,7 @@ and ported to Fortran using the athena library.
 The Python version is available :git:`here <example/pinn_burgers/pytorch_comparison.py>`, which can optionally read initial parameter values and data from athena output files for comparison.
 If loading in athena initialised parameters, the outputs should match closely.
 
-Solving PDEs with Neural Networks
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`Solving PDEs with PINNs`
 
 The ``example/pinn_burgers`` solves the 1D Burgers equation:
 
@@ -41,8 +40,7 @@ The ``example/pinn_burgers`` solves the 1D Burgers equation:
 
 where :math:`u(x,t)` is velocity, :math:`\nu` is viscosity.
 
-Network Architecture
-~~~~~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`Network Architecture`
 
 .. code-block:: fortran
 
@@ -79,8 +77,7 @@ Network Architecture
 * **Multiple hidden layers**: Capacity to approximate complex solutions
 * **Linear output**: No activation on final layer for physical quantities
 
-Custom Loss Function
-~~~~~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`Custom Loss Function`
 
 The key to PINNs is encoding the PDE in the loss:
 
@@ -92,15 +89,15 @@ The key to PINNs is encoding the PDE in the loss:
 
       type(array_type), pointer :: loss
 
-      type(array_type), pointer :: u_i, u_xx, u_t, u_x
+      type(array_type), pointer :: u_i, u_xx, u_t, u_x, u_tmp(:,:)
 
       type(array_type), pointer :: input, u0_pred, f_pred, u_left_pred, u_right_pred, u
       type(array_type), pointer :: loss_f, loss_0, loss_b
 
-      call this%forward(X_f)
-      this%model(this%root_vertices(1))%layer%output(1,1)%id = 1
       ! find what the new input loc is now
-      u => this%model(this%leaf_vertices(1))%layer%output(1,1)%duplicate_graph()
+      u_tmp => this%forward_eval(X_f)
+      this%model(this%root_vertices(1))%layer%output(1,1)%id = 1
+      u => u_tmp(1,1)%duplicate_graph()
       input => u%get_ptr_from_id(1)
 
       ! set direction (t,x) to compute u_t, u_x, u_xx
@@ -115,20 +112,18 @@ The key to PINNs is encoding the PDE in the loss:
       loss_f => mean( f_pred ** 2._real32, 2 )
 
       ! boundary conditions
-      call this%forward(X_b_left)
-      u_left_pred => &
-          this%model(this%leaf_vertices(1))%layer%output(1,1)%duplicate_graph()
+      u_tmp => this%forward_eval(X_b_left)
+      u_left_pred => u_tmp(1,1)%duplicate_graph()
 
-      call this%forward(X_b_right)
-      u_right_pred => &
-          this%model(this%leaf_vertices(1))%layer%output(1,1)%duplicate_graph()
+      u_tmp => this%forward_eval(X_b_right)
+      u_right_pred => u_tmp(1,1)%duplicate_graph()
       loss_b => &
           mean( u_left_pred ** 2._real32, 2 ) + &
           mean( u_right_pred ** 2._real32, 2 )
 
       ! zero time condition
-      call this%forward(X_0)
-      u0_pred => this%model(this%leaf_vertices(1))%layer%output(1,1)
+      u_tmp => this%forward_eval(X_0)
+      u0_pred => u_tmp(1,1)
       loss_0 => mean( ( u0_pred - u0 ) ** 2._real32, 2)
 
       loss => loss_f + loss_0 + loss_b
@@ -148,10 +143,9 @@ The loss function computes the PDE residual using automatic differentiation to o
 This relies heavily on the `diffstruc <https://github.com/nedtaylor/diffstruc>`_ library integrated into athena, which requires use of pointers for correct and memory-efficient operation.
 
 Chemical Forces Example
-------------------------
+-----------------------
 
-Predicting Forces from Energy
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`Predicting Forces from Energy`
 
 The ``example/pinn_chemical`` predicts molecular forces using physics: forces are negative gradients of energy.
 
@@ -161,8 +155,7 @@ The ``example/pinn_chemical`` predicts molecular forces using physics: forces ar
 
 where :math:`E` is energy, :math:`\mathbf{R}` are atomic positions, :math:`\mathbf{F}_i` is force on atom :math:`i`.
 
-Network Architecture
-~~~~~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`Network Architecture`
 
 Similar to msgpass_chemical.
 
@@ -198,8 +191,7 @@ Similar to msgpass_chemical.
         bias_initialiser = 'ones' &
     ))
 
-Custom Forces Loss
-~~~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`Custom Forces Loss`
 
 This example uses a custom loss function combining energy and force losses.
 Whilst the example still performs its own training loop, this is an example of how the ``base_loss_type`` can be extended to create custom loss functions and integrate them into the athena training framework.
@@ -262,8 +254,7 @@ Key Takeaways
 3. **Automatic differentiation is powerful**: Compute exact derivatives efficiently
 4. **Balance is crucial**: Tune weights between data and physics losses
 
-When to Use PINNs
-~~~~~~~~~~~~~~~~~
+.. rubric:: :h3style:`When to Use Physics-Informed NNs`
 
 **Good for:**
 

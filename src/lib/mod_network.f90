@@ -18,6 +18,7 @@ module athena__network
   use diffstruc, only: array_type
   use athena__misc_types, only: onnx_node_type, onnx_initialiser_type
   use athena__container_layer, only: container_layer_type
+  use athena__diffstruc_extd, only: array_ptr_type
   implicit none
 
 
@@ -103,6 +104,8 @@ module athena__network
 
      procedure, pass(this) :: save_input => save_input_to_network
      !! Convert and save polymorphic input to array or graph
+     procedure, pass(this) :: save_output => save_output_to_network
+     !! Convert and save polymorphic output to array or graph
 
      procedure, pass(this) :: layer_from_id
      !! Get the layer of the network from its ID
@@ -116,14 +119,15 @@ module athena__network
      !! Return predicted results from supplied inputs using the trained network
      procedure, pass(this) :: predict_array_from_real
      !! Return predicted results as array from supplied inputs using the trained network
-     procedure, pass(this) :: predict_graph
+     procedure, pass(this) :: predict_graph1d, predict_graph2d
      !! Return predicted results from supplied inputs using the trained network (graph input)
      procedure, pass(this) :: predict_array
      !! Predict array type output for a generic input
      procedure, pass(this) :: predict_generic
      !! Predict generic type output for a generic input
      generic :: predict => &
-          predict_real, predict_graph, predict_array, predict_array_from_real
+          predict_real, predict_graph1d, predict_graph2d, &
+          predict_array, predict_array_from_real
      !! Predict function for different input types
 
 
@@ -357,6 +361,15 @@ module athena__network
        !! Number of samples
      end function save_input_to_network
 
+     !! Interface for saving output to network
+     module subroutine save_output_to_network( this, output )
+       !! Convert and save polymorphic output to array or graph
+       class(network_type), intent(inout) :: this
+       !! Instance of network
+       class(*), dimension(:,:), intent(in) :: output
+       !! Output
+     end subroutine save_output_to_network
+
      module function layer_from_id(this, id) result(layer)
        !! Get the layer of the network from its ID
        class(network_type), intent(in), target :: this
@@ -433,13 +446,25 @@ module athena__network
        !! Whether to output as array
        integer, optional, intent(in) :: verbose
        !! Verbosity level
-       type(array_type), pointer :: output(:,:)
+       type(array_type), dimension(:,:), allocatable :: output
        !! Predicted output data as array
      end function predict_array_from_real
 
      !! Interface for returning predicted results from supplied inputs
      !! using the trained network (graph input)
-     module function predict_graph(this, input, verbose) result(output)
+     module function predict_graph1d(this, input, verbose) result(output)
+       !! Get predicted results from supplied inputs using the trained network
+       class(network_type), intent(inout) :: this
+       !! Instance of the network
+       type(graph_type), dimension(:), intent(in) :: input
+       !! Input data
+       integer, optional, intent(in) :: verbose
+       !! Verbosity level
+       type(graph_type), dimension(size(this%leaf_vertices),size(input)) :: &
+            output
+       !! Predicted output data
+     end function predict_graph1d
+     module function predict_graph2d(this, input, verbose) result(output)
        !! Get predicted results from supplied inputs using the trained network
        class(network_type), intent(inout) :: this
        !! Instance of the network
@@ -447,21 +472,21 @@ module athena__network
        !! Input data
        integer, optional, intent(in) :: verbose
        !! Verbosity level
-       type(graph_type), dimension(size(input,dim=1),size(this%leaf_vertices)) :: &
+       type(graph_type), dimension(size(this%leaf_vertices),size(input, 2)) :: &
             output
        !! Predicted output data
-     end function predict_graph
+     end function predict_graph2d
 
      module function predict_array( this, input, verbose ) &
           result(output)
        !! Predict the output for a generic input
        class(network_type), intent(inout) :: this
        !! Instance of network
-       class(array_type), dimension(:,:), intent(in) :: input
+       class(array_type), dimension(..), intent(in) :: input
        !! Input graph
        integer, intent(in), optional :: verbose
        !! Verbosity level
-       type(array_type), pointer :: output(:,:)
+       type(array_type), dimension(:,:), allocatable :: output
      end function predict_array
 
      module function predict_generic( this, input, verbose, output_as_graph ) &
@@ -660,6 +685,16 @@ module athena__network
        !! Output data
      end function forward_eval
 
+     module function forward_eval_multi(this, input) result(output)
+       !! Forward pass evaluation for multiple outputs
+       class(network_type), intent(inout), target :: this
+       !! Instance of the network
+       class(*), dimension(:,:), intent(in) :: input
+       !! Input data
+       type(array_ptr_type), pointer :: output(:)
+       !! Output data
+     end function forward_eval_multi
+
      module subroutine nullify_graph(this)
        !! Nullify graph data in the network to free memory
        class(network_type), intent(inout) :: this
@@ -699,7 +734,20 @@ module athena__network
        type(array_type), dimension(:,:), allocatable :: sample
        !! Sample array
      end function get_sample_array
-     module function get_sample_graph( &
+     module function get_sample_graph1d( &
+          input, start_index, end_index, batch_size &
+     ) result(sample)
+       !! Get sample for graph input
+       integer, intent(in) :: start_index, end_index
+       !! Start and end indices
+       integer, intent(in) :: batch_size
+       !! Batch size
+       class(graph_type), dimension(:), intent(in) :: input
+       !! Input array
+       type(graph_type), dimension(size(input,1), batch_size) :: sample
+       !! Sample array
+     end function get_sample_graph1d
+     module function get_sample_graph2d( &
           input, start_index, end_index, batch_size &
      ) result(sample)
        !! Get sample for graph input
@@ -711,7 +759,7 @@ module athena__network
        !! Input array
        type(graph_type), dimension(size(input,1), batch_size) :: sample
        !! Sample array
-     end function get_sample_graph
+     end function get_sample_graph2d
   end interface get_sample
 
 end module athena__network

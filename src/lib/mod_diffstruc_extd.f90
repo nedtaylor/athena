@@ -8,7 +8,7 @@ module athena__diffstruc_extd
 
   private
 
-  public :: array_container_type, array_ptr_type
+  public :: array_ptr_type
   public :: add_layers, concat_layers
   public :: add_bias
   public :: piecewise, softmax, swish
@@ -33,10 +33,6 @@ module athena__diffstruc_extd
 !-------------------------------------------------------------------------------
 ! Array container types
 !-------------------------------------------------------------------------------
-  type :: array_container_type
-     class(array_type), allocatable :: array
-  end type array_container_type
-
   type :: array_ptr_type
      type(array_type), pointer :: array(:,:)
   end type array_ptr_type
