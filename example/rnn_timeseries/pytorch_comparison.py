@@ -1,3 +1,23 @@
+"""
+PyTorch RNN Comparison Example
+
+This script demonstrates a simple recurrent neural network in PyTorch for
+comparison with the Fortran athena implementation. The task is to learn a
+sequence where the output at each time step is the previous input value.
+
+Network:
+    RNN(1 → 4 hidden units, tanh) → Linear(4 → 1) → Sigmoid
+
+Training:
+    - Optimiser: SGD with learning rate 0.05
+    - Loss: Mean Squared Error (MSE)
+    - Iterations: 3000
+    - Sequence length: 10 time steps
+
+This serves as a reference implementation to validate the athena RNN layer
+behavior and compare training dynamics.
+"""
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
