@@ -98,6 +98,8 @@ module athena__network
      !! Set network loss method
      procedure, pass(this) :: set_accuracy
      !! Set network accuracy method
+     procedure, pass(this) :: reset_state
+     !! Reset hidden state of recurrent layers
 
      procedure, pass(this) :: save_input => save_input_to_network
      !! Convert and save polymorphic input to array or graph
@@ -336,6 +338,13 @@ module athena__network
        integer, optional, intent(in) :: verbose
        !! Verbosity level
      end subroutine set_accuracy
+
+     !! Interface for resetting state of recurrent layers
+     module subroutine reset_state(this)
+       !! Reset hidden state of recurrent layers
+       class(network_type), intent(inout) :: this
+       !! Instance of the network
+     end subroutine reset_state
 
      !! Interface for saving input to network
      module function save_input_to_network( this, input ) result(num_samples)

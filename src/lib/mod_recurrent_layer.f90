@@ -1,140 +1,114 @@
-module athena__full_layer
-  !! Module containing implementation of a fully connected layer
+module athena__recurrent_layer
+  !! Module containing implementation of recurrent neural network layers
   !!
-  !! This module implements a fully connected (dense) layer, the fundamental
-  !! building block of neural networks that connects every input to every output.
+  !! This module implements the simple recurrent neural network (RNN) layer,
+  !! which is designed to handle sequential data by maintaining a hidden state.
   !!
-  !! Mathematical operation:
-  !! \[ \mathbf{y} = \sigma(\mathbf{W}\mathbf{x} + \mathbf{b}) \]
+  !! **Simple RNN layer (equivalent to RNNCell of PyTorch):**
+  !! \[
+  !! \begin{align}
+  !! \mathbf{h}_t &= \sigma(\mathbf{W}_{ih}\mathbf{x}_t + \mathbf{W}_{hh}\mathbf{h}_{t-1} + \mathbf{b}_h) \\
+  !! \mathbf{y}_t &= \mathbf{W}_{ho}\mathbf{h}_t + \mathbf{b}_o
+  !! \end{align}
+  !! \]
   !!
   !! where:
-  !!   - \(\mathbf{x} \in \mathbb{R}^{n_{in}}\) is the input vector
-  !!   - \(\mathbf{W} \in \mathbb{R}^{n_{out} \times n_{in}}\) is the weight matrix
-  !!   - \(\mathbf{b} \in \mathbb{R}^{n_{out}}\) is the bias vector
-  !!   - \(\sigma\) is the activation function
-  !!   - \(\mathbf{y} \in \mathbb{R}^{n_{out}}\) is the output vector
+  !!   - \(\mathbf{x}_t\) is input at time t
+  !!   - \(\mathbf{h}_t\) is hidden state at time t
+  !!   - \(\sigma\) is the activation function (e.g., tanh, relu)
+  !!   - \(\mathbf{W}\) matrices are learnable weights
+  !!   - \(\mathbf{b}\) vectors are learnable biases
   !!
-  !! Number of parameters: \(n_{out} \times n_{in} + n_{out}\) (if bias used)
-  !!
-  !! Properties: Universal function approximator (with sufficient width/depth)
-  !! Learns arbitrary non-linear mappings between input and output spaces
-  !!
-  !! Attribution statement:
-  !! The get_num_params procedure is based on code from the
-  !! neural-fortran library
-  !! https://github.com/modern-fortran/neural-fortran
+  !! Properties:
+  !!   - Processes sequential data with temporal dependencies
+  !!   - Maintains hidden state across time steps
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: learnable_layer_type, base_layer_type
   use athena__misc_types, only: base_actv_type, base_init_type, &
        onnx_node_type, onnx_initialiser_type
-  use diffstruc, only: array_type, matmul, operator(+)
+  use diffstruc, only: array_type, matmul, operator(+), operator(*)
   implicit none
 
 
   private
 
-  public :: full_layer_type
-  public :: read_full_layer, create_from_onnx_full_layer
+  public :: recurrent_layer_type
+  public :: read_recurrent_layer
 
 
-  type, extends(learnable_layer_type) :: full_layer_type
-     !! Type for fully connected (aka dense) layer with overloaded procedures
-     integer :: num_inputs
-     !! Number of inputs
-     integer :: num_outputs
-     !! Number of outputs
-     type(array_type), dimension(1) :: z
-     !! Temporary arrays for forward propagation
+  type, extends(learnable_layer_type) :: recurrent_layer_type
+     !! Type for simple RNN layer
+     integer :: hidden_size
+     !! Size of hidden state
+     integer :: input_size
+     !! Size of input
+     integer :: time_step
+     !! Current time step
+     type(array_type), pointer :: hidden_state => null()
+     !! Hidden state
    contains
-     procedure, pass(this) :: get_num_params => get_num_params_full
-     !! Get the number of parameters for fully connected layer
-     procedure, pass(this) :: set_hyperparams => set_hyperparams_full
-     !! Set the hyperparameters for fully connected layer
-     procedure, pass(this) :: init => init_full
-     !! Initialise fully connected layer
-     procedure, pass(this) :: print_to_unit => print_to_unit_full
-     !! Print the layer to a file
-     procedure, pass(this) :: read => read_full
-     !! Read the layer from a file
-     procedure, pass(this) :: build_from_onnx => build_from_onnx_full
-     !! Build fully connected layer from ONNX node and initialiser
+     procedure, pass(this) :: get_num_params => get_num_params_recurrent
+     procedure, pass(this) :: set_hyperparams => set_hyperparams_recurrent
+     procedure, pass(this) :: init => init_recurrent
+     procedure, pass(this) :: print_to_unit => print_to_unit_recurrent
+     procedure, pass(this) :: read => read_recurrent
+     procedure, pass(this) :: forward => forward_recurrent
+     procedure, pass(this) :: reset_state => reset_state_recurrent
+  end type recurrent_layer_type
 
-     procedure, pass(this) :: forward => forward_full
-     !! Forward propagation derived type handler
-
-     final :: finalise_full
-     !! Finalise fully connected layer
-  end type full_layer_type
-
-  interface full_layer_type
-     !! Interface for setting up the fully connected layer
+  interface recurrent_layer_type
      module function layer_setup( &
-          num_outputs, num_inputs, use_bias, &
+          hidden_size, input_size, use_bias, &
           activation, &
           kernel_initialiser, bias_initialiser, verbose &
      ) result(layer)
-       !! Setup a fully connected layer
-       integer, intent(in) :: num_outputs
-       !! Number of outputs
-       integer, optional, intent(in) :: num_inputs
-       !! Number of inputs
+       integer, intent(in) :: hidden_size
+       integer, optional, intent(in) :: input_size
        logical, optional, intent(in) :: use_bias
-       !! Whether to use bias
        class(*), optional, intent(in) :: activation
-       !! Activation function
        class(*), optional, intent(in) :: kernel_initialiser, bias_initialiser
-       !! Kernel and bias initialisers
        integer, optional, intent(in) :: verbose
-       !! Verbosity level
-       type(full_layer_type) :: layer
-       !! Instance of the fully connected layer
+       type(recurrent_layer_type) :: layer
      end function layer_setup
-  end interface full_layer_type
+  end interface recurrent_layer_type
 
 
 
 contains
 
 !###############################################################################
-  subroutine finalise_full(this)
-    !! Finalise fully connected layer
+  pure function get_num_params_recurrent(this) result(num_params)
     implicit none
-
-    ! Arguments
-    type(full_layer_type), intent(inout) :: this
-    !! Instance of the fully connected layer
-
-    if(allocated(this%input_shape)) deallocate(this%input_shape)
-    if(allocated(this%output)) deallocate(this%output)
-    if(this%z(1)%allocated) call this%z(1)%deallocate()
-
-  end subroutine finalise_full
-!###############################################################################
-
-
-!##############################################################################!
-! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
-!##############################################################################!
-
-
-!###############################################################################
-  pure function get_num_params_full(this) result(num_params)
-    !! Get the number of parameters for fully connected layer
-    !!
-    !! This function calculates the number of parameters for a fully connected
-    !! layer.
-    !! This procedure is based on code from the neural-fortran library
-    implicit none
-
-    ! Arguments
-    class(full_layer_type), intent(in) :: this
-    !! Instance of the fully connected layer
+    class(recurrent_layer_type), intent(in) :: this
     integer :: num_params
-    !! Number of parameters
 
-    num_params = ( this%num_inputs + 1 )* this%num_outputs
+    num_params = &
+         this%hidden_size * this%input_size + &  ! W_ih
+         this%hidden_size * this%hidden_size     ! W_hh
+    if(this%use_bias) then
+       num_params = num_params + 2 * this%hidden_size    ! b_h + b_o
+    end if
 
-  end function get_num_params_full
+  end function get_num_params_recurrent
+!###############################################################################
+
+
+!###############################################################################
+  subroutine reset_state_recurrent(this)
+    !! Reset the hidden state of the recurrent layer
+    implicit none
+
+    ! Arguments
+    class(recurrent_layer_type), intent(inout) :: this
+    !! Instance of the recurrent layer
+
+    this%time_step = 0
+    if(associated(this%hidden_state))then
+       call this%hidden_state%deallocate()
+       nullify(this%hidden_state)
+    end if
+
+  end subroutine reset_state_recurrent
 !###############################################################################
 
 
@@ -145,21 +119,20 @@ contains
 
 !###############################################################################
   module function layer_setup( &
-       num_outputs, num_inputs, &
-       use_bias, &
+       hidden_size, input_size, use_bias, &
        activation, &
        kernel_initialiser, bias_initialiser, verbose &
   ) result(layer)
-    !! Setup a fully connected layer
+    !! Setup a recurrent layer
     use athena__activation, only: activation_setup
     use athena__initialiser, only: initialiser_setup
     implicit none
 
     ! Arguments
-    integer, intent(in) :: num_outputs
-    !! Number of outputs
-    integer, optional, intent(in) :: num_inputs
-    !! Number of inputs
+    integer, intent(in) :: hidden_size
+    !! Size of hidden state
+    integer, optional, intent(in) :: input_size
+    !! Size of input
     logical, optional, intent(in) :: use_bias
     !! Whether to use bias
     class(*), optional, intent(in) :: activation
@@ -169,8 +142,8 @@ contains
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
-    type(full_layer_type) :: layer
-    !! Instance of the fully connected layer
+    type(recurrent_layer_type) :: layer
+    !! Instance of the recurrent layer
 
     ! Local variables
     integer :: verbose_ = 0
@@ -197,7 +170,7 @@ contains
     if(present(activation))then
        activation_ = activation_setup(activation)
     else
-       activation_ = activation_setup("none")
+       activation_ = activation_setup("tanh")
     end if
 
 
@@ -216,7 +189,7 @@ contains
     ! Set hyperparameters
     !---------------------------------------------------------------------------
     call layer%set_hyperparams( &
-         num_outputs = num_outputs, &
+         hidden_size = hidden_size, &
          use_bias = use_bias_, &
          activation = activation_, &
          kernel_initialiser = kernel_initialiser_, &
@@ -228,15 +201,15 @@ contains
     !---------------------------------------------------------------------------
     ! Initialise layer shape
     !---------------------------------------------------------------------------
-    if(present(num_inputs)) call layer%init(input_shape=[num_inputs])
+    if(present(input_size)) call layer%init(input_shape=[input_size])
 
   end function layer_setup
 !###############################################################################
 
 
 !###############################################################################
-  subroutine set_hyperparams_full( &
-       this, num_outputs, &
+  subroutine set_hyperparams_recurrent( &
+       this, hidden_size, &
        use_bias, &
        activation, &
        kernel_initialiser, bias_initialiser, &
@@ -248,10 +221,10 @@ contains
     implicit none
 
     ! Arguments
-    class(full_layer_type), intent(inout) :: this
-    !! Instance of the fully connected layer
-    integer, intent(in) :: num_outputs
-    !! Number of outputs
+    class(recurrent_layer_type), intent(inout) :: this
+    !! Instance of the recurrent layer
+    integer, intent(in) :: hidden_size
+    !! Number of hidden units
     logical, intent(in) :: use_bias
     !! Whether to use bias
     class(base_actv_type), allocatable, intent(in) :: activation
@@ -266,12 +239,12 @@ contains
     character(len=256) :: buffer
 
 
-    this%name = "full"
-    this%type = "full"
+    this%name = "recu"
+    this%type = "recurrent"
     this%input_rank = 1
     this%output_rank = 1
     this%use_bias = use_bias
-    this%num_outputs = num_outputs
+    this%hidden_size = hidden_size
     if(.not.allocated(activation))then
        this%activation = activation_setup("none")
     else
@@ -294,29 +267,29 @@ contains
     end if
     if(present(verbose))then
        if(abs(verbose).gt.0)then
-          write(*,'("FULL activation function: ",A)') &
+          write(*,'("RECU activation function: ",A)') &
                trim(this%activation%name)
-          write(*,'("FULL kernel initialiser: ",A)') &
+          write(*,'("RECU kernel initialiser: ",A)') &
                trim(this%kernel_init%name)
-          write(*,'("FULL bias initialiser: ",A)') &
+          write(*,'("RECU bias initialiser: ",A)') &
                trim(this%bias_init%name)
        end if
     end if
 
-  end subroutine set_hyperparams_full
+  end subroutine set_hyperparams_recurrent
 !###############################################################################
 
 
 !###############################################################################
-  subroutine init_full(this, input_shape, verbose)
-    !! Initialise fully connected layer
+  subroutine init_recurrent(this, input_shape, verbose)
+    !! Initialise the recurrent layer
     implicit none
 
     ! Arguments
-    class(full_layer_type), intent(inout) :: this
-    !! Instance of the fully connected layer
+    class(recurrent_layer_type), intent(inout) :: this
+    !! Instance of the recurrent layer
     integer, dimension(:), intent(in) :: input_shape
-    !! Input shape
+    !! Shape of the input
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -336,36 +309,48 @@ contains
     ! Initialise number of inputs
     !---------------------------------------------------------------------------
     if(.not.allocated(this%input_shape)) call this%set_shape(input_shape)
-    this%num_inputs = this%input_shape(1)
-    this%output_shape = [this%num_outputs]
+    this%input_size = this%input_shape(1)
+    this%output_shape = [this%hidden_size]
     this%num_params = this%get_num_params()
 
 
     !---------------------------------------------------------------------------
     ! Allocate weight, weight steps (velocities), output, and activation
     !---------------------------------------------------------------------------
-    allocate(this%weight_shape(2,1))
-    this%weight_shape(:,1) = [ this%num_outputs, this%num_inputs ]
+    allocate(this%weight_shape(2,2))
+    this%weight_shape(:,1) = [ this%hidden_size, this%input_size ]
+    this%weight_shape(:,2) = [ this%hidden_size, this%hidden_size ]
 
     if(this%use_bias)then
-       this%bias_shape = [ this%num_outputs ]
-       allocate(this%params(2))
+       this%bias_shape = [ this%hidden_size, this%hidden_size ]
+       allocate(this%params(4))
     else
-       allocate(this%params(1))
+       allocate(this%params(2))
     end if
     call this%params(1)%allocate([this%weight_shape(:,1), 1])
     call this%params(1)%set_requires_grad(.true.)
     this%params(1)%fix_pointer = .true.
     this%params(1)%is_sample_dependent = .false.
     this%params(1)%is_temporary = .false.
-    num_inputs = this%num_inputs
+    call this%params(2)%allocate([this%weight_shape(:,2), 1])
+    call this%params(2)%set_requires_grad(.true.)
+    this%params(2)%fix_pointer = .true.
+    this%params(2)%is_sample_dependent = .false.
+    this%params(2)%is_temporary = .false.
+
+    num_inputs = this%input_size + this%hidden_size
     if(this%use_bias)then
-       num_inputs = this%num_inputs + 1
-       call this%params(2)%allocate([this%bias_shape, 1])
-       call this%params(2)%set_requires_grad(.true.)
-       this%params(2)%fix_pointer = .true.
-       this%params(2)%is_sample_dependent = .false.
-       this%params(2)%is_temporary = .false.
+       num_inputs = num_inputs + 2 * this%hidden_size
+       call this%params(3)%allocate([this%bias_shape(1), 1])
+       call this%params(3)%set_requires_grad(.true.)
+       this%params(3)%fix_pointer = .true.
+       this%params(3)%is_sample_dependent = .false.
+       this%params(3)%is_temporary = .false.
+       call this%params(4)%allocate([this%bias_shape(2), 1])
+       call this%params(4)%set_requires_grad(.true.)
+       this%params(4)%fix_pointer = .true.
+       this%params(4)%is_sample_dependent = .false.
+       this%params(4)%is_temporary = .false.
     end if
 
 
@@ -374,28 +359,37 @@ contains
     !---------------------------------------------------------------------------
     call this%kernel_init%initialise( &
          this%params(1)%val(:,1), &
-         fan_in = num_inputs, fan_out = this%num_outputs, &
-         spacing = [ this%num_outputs ] &
+         fan_in = num_inputs, fan_out = this%hidden_size, &
+         spacing = [ this%hidden_size ] &
+    )
+    call this%kernel_init%initialise( &
+         this%params(2)%val(:,1), &
+         fan_in = num_inputs, fan_out = this%hidden_size, &
+         spacing = [ this%hidden_size ] &
     )
 
     ! Initialise biases
     !---------------------------------------------------------------------------
     if(this%use_bias)then
        call this%bias_init%initialise( &
-            this%params(2)%val(:,1), &
-            fan_in = num_inputs, fan_out = this%num_outputs &
+            this%params(3)%val(:,1), &
+            fan_in = num_inputs, fan_out = this%hidden_size &
+       )
+       call this%bias_init%initialise( &
+            this%params(4)%val(:,1), &
+            fan_in = num_inputs, fan_out = this%hidden_size &
        )
     end if
 
 
     !---------------------------------------------------------------------------
-    ! Allocate arrays
+    ! Allocate arrays and initialise time_step
     !---------------------------------------------------------------------------
     if(allocated(this%output)) deallocate(this%output)
     allocate(this%output(1,1))
-    if(this%z(1)%allocated) call this%z(1)%deallocate()
+    this%time_step = 0
 
-  end subroutine init_full
+  end subroutine init_recurrent
 !###############################################################################
 
 
@@ -405,13 +399,13 @@ contains
 
 
 !###############################################################################
-  subroutine print_to_unit_full(this, unit)
-    !! Print fully connected layer to unit
+  subroutine print_to_unit_recurrent(this, unit)
+    !! Print recurrent layer to unit
     use coreutils, only: to_upper
     implicit none
 
     ! Arguments
-    class(full_layer_type), intent(in) :: this
+    class(recurrent_layer_type), intent(in) :: this
     !! Instance of the fully connected layer
     integer, intent(in) :: unit
     !! File unit
@@ -419,8 +413,8 @@ contains
 
     ! Write initial parameters
     !---------------------------------------------------------------------------
-    write(unit,'(3X,"NUM_INPUTS = ",I0)') this%num_inputs
-    write(unit,'(3X,"NUM_OUTPUTS = ",I0)') this%num_outputs
+    write(unit,'(3X,"INPUT_SIZE = ",I0)') this%input_size
+    write(unit,'(3X,"HIDDEN_SIZE = ",I0)') this%hidden_size
 
     write(unit,'(3X,"USE_BIAS = ",L1)') this%use_bias
     if(this%activation%name .ne. 'none')then
@@ -432,18 +426,20 @@ contains
     !---------------------------------------------------------------------------
     write(unit,'("WEIGHTS")')
     write(unit,'(5(E16.8E2))') this%params(1)%val(:,1)
+    write(unit,'(5(E16.8E2))') this%params(2)%val(:,1)
     if(this%use_bias)then
-       write(unit,'(5(E16.8E2))') this%params(2)%val(:,1)
+       write(unit,'(5(E16.8E2))') this%params(3)%val(:,1)
+       write(unit,'(5(E16.8E2))') this%params(4)%val(:,1)
     end if
     write(unit,'("END WEIGHTS")')
 
-  end subroutine print_to_unit_full
+  end subroutine print_to_unit_recurrent
 !###############################################################################
 
 
 !###############################################################################
-  subroutine read_full(this, unit, verbose)
-    !! Read fully connected layer from file
+  subroutine read_recurrent(this, unit, verbose)
+    !! Read recurrent layer from file
     use athena__tools_infile, only: assign_val, assign_vec, move
     use coreutils, only: to_lower, to_upper, icount
     use athena__activation, only: read_activation
@@ -451,8 +447,8 @@ contains
     implicit none
 
     ! Arguments
-    class(full_layer_type), intent(inout) :: this
-    !! Instance of the fully connected layer
+    class(recurrent_layer_type), intent(inout) :: this
+    !! Instance of the recurrent layer
     integer, intent(in) :: unit
     !! Unit number
     integer, optional, intent(in) :: verbose
@@ -465,8 +461,8 @@ contains
     !! Verbosity level
     integer :: i, j, k, c, itmp1, iline, num_params
     !! Loop variables and temporary integer
-    integer :: num_inputs, num_outputs
-    !! Number of inputs and outputs
+    integer :: input_size, hidden_size
+    !! Input and hidden sizes
     logical :: use_bias = .true.
     !! Whether to use bias
     character(14) :: kernel_initialiser_name='', bias_initialiser_name=''
@@ -525,10 +521,10 @@ contains
        ! Read parameters from file
        !------------------------------------------------------------------------
        select case(trim(tag))
-       case("NUM_INPUTS")
-          call assign_val(buffer, num_inputs, itmp1)
-       case("NUM_OUTPUTS")
-          call assign_val(buffer, num_outputs, itmp1)
+       case("INPUT_SIZE", "NUM_INPUTS")
+          call assign_val(buffer, input_size, itmp1)
+       case("HIDDEN_SIZE", "NUM_OUTPUTS")
+          call assign_val(buffer, hidden_size, itmp1)
        case("USE_BIAS")
           call assign_val(buffer, use_bias, itmp1)
        case("ACTIVATION")
@@ -565,14 +561,14 @@ contains
     ! Set hyperparameters and initialise layer
     !---------------------------------------------------------------------------
     call this%set_hyperparams( &
-         num_outputs = num_outputs, &
+         hidden_size = hidden_size, &
          use_bias = use_bias, &
          activation = activation, &
          kernel_initialiser = kernel_initialiser, &
          bias_initialiser = bias_initialiser, &
          verbose = verbose_ &
     )
-    call this%init(input_shape=[num_inputs])
+    call this%init(input_shape=[input_size])
 
 
     ! Check if WEIGHTS card was found
@@ -581,7 +577,7 @@ contains
        write(0,*) "WARNING: WEIGHTS card in "//to_upper(trim(this%name))//" not found"
     else
        call move(unit, param_line - iline, iostat=stat)
-       num_params = this%num_inputs * this%num_outputs
+       num_params = this%input_size * this%hidden_size
        allocate(data_list(num_params), source=0._real32)
        c = 1
        k = 1
@@ -594,19 +590,35 @@ contains
        end do data_concat_loop
        this%params(1)%val(:,1) = data_list
        deallocate(data_list)
+       num_params = this%hidden_size * this%hidden_size
+       allocate(data_list(num_params), source=0._real32)
+       c = 1
+       k = 1
+       data_concat_loop1: do while(c.le.num_params)
+          read(unit,'(A)',iostat=stat) buffer
+          if(stat.ne.0) exit data_concat_loop1
+          k = icount(buffer)
+          read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
+          c = c + k
+       end do data_concat_loop1
+       this%params(2)%val(:,1) = data_list
+       deallocate(data_list)
        if(use_bias)then
-          allocate(data_list(num_outputs), source=0._real32)
-          c = 1
-          k = 1
-          data_concat_loop2: do while(c.le.num_outputs)
-             read(unit,'(A)',iostat=stat) buffer
-             if(stat.ne.0) exit data_concat_loop2
-             k = icount(buffer)
-             read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
-             c = c + k
-          end do data_concat_loop2
-          this%params(2)%val(:,1) = data_list(1:num_outputs)
-          deallocate(data_list)
+          do i = 1, 2
+             hidden_size = this%hidden_size
+             allocate(data_list(hidden_size), source=0._real32)
+             c = 1
+             k = 1
+             data_concat_loop_bias: do while(c.le.hidden_size)
+                read(unit,'(A)',iostat=stat) buffer
+                if(stat.ne.0) exit data_concat_loop_bias
+                k = icount(buffer)
+                read(buffer,*,iostat=stat) (data_list(j),j=c,c+k-1)
+                c = c + k
+             end do data_concat_loop_bias
+             this%params(i+2)%val(:,1) = data_list(1:hidden_size)
+             deallocate(data_list)
+          end do
        end if
 
        ! Check for end of weights card
@@ -632,13 +644,13 @@ contains
        return
     end if
 
-  end subroutine read_full
+  end subroutine read_recurrent
 !###############################################################################
 
 
 !###############################################################################
-  function read_full_layer(unit, verbose) result(layer)
-    !! Read fully connected layer from file and return layer
+  function read_recurrent_layer(unit, verbose) result(layer)
+    !! Read recurrent layer from file and return layer
     implicit none
 
     ! Arguments
@@ -654,66 +666,10 @@ contains
     !! Verbosity level
 
     if(present(verbose)) verbose_ = verbose
-    allocate(layer, source=full_layer_type(num_outputs=0))
+    allocate(layer, source=recurrent_layer_type(hidden_size=0))
     call layer%read(unit, verbose=verbose_)
 
-  end function read_full_layer
-!###############################################################################
-
-
-!###############################################################################
-  subroutine build_from_onnx_full(this, node, initialisers, verbose )
-    !! Read ONNX attributes for fully connected layer
-    implicit none
-
-    ! Arguments
-    class(full_layer_type), intent(inout) :: this
-    !! Instance of the fully connected layer
-    type(onnx_node_type), intent(in) :: node
-    !! Instance of ONNX node information
-    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
-    !! Instance of ONNX initialiser information
-    integer, intent(in) :: verbose
-    !! Verbosity level
-
-    ! Local variables
-    integer :: verbose_ = 0
-    !! Verbosity level
-
-    ! Initialise parameters from initialisers
-    write(0,*) "WARNING: Weights initialisation from ONNX not yet implemented &
-         &for fully connected layer"
-
-    ! call this%set_hyperparams(num_outputs=...)
-
-  end subroutine build_from_onnx_full
-!###############################################################################
-
-
-!###############################################################################
-  function create_from_onnx_full_layer(node, initialisers, verbose) result(layer)
-    !! Build fully connected layer from attributes and return layer
-    implicit none
-
-    ! Arguments
-    type(onnx_node_type), intent(in) :: node
-    !! Instance of ONNX node information
-    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
-    !! Instance of ONNX initialiser information
-    integer, optional, intent(in) :: verbose
-    !! Verbosity level
-    class(base_layer_type), allocatable :: layer
-    !! Instance of the 2D convolutional layer
-
-    ! Local variables
-    integer :: verbose_ = 0
-    !! Verbosity level
-
-    if(present(verbose)) verbose_ = verbose
-    allocate(layer, source=full_layer_type(num_outputs=0))
-    call layer%build_from_onnx(node, initialisers, verbose=verbose_)
-
-  end function create_from_onnx_full_layer
+  end function read_recurrent_layer
 !###############################################################################
 
 
@@ -723,42 +679,52 @@ contains
 
 
 !###############################################################################
-  subroutine forward_full(this, input)
+  subroutine forward_recurrent(this, input)
     !! Forward propagation
     implicit none
 
     ! Arguments
-    class(full_layer_type), intent(inout) :: this
-    !! Instance of the fully connected layer
+    class(recurrent_layer_type), intent(inout) :: this
+    !! Instance of the recurrent layer
     class(array_type), dimension(:,:), intent(in) :: input
     !! Input values
 
-    type(array_type), pointer :: ptr => null()
+    type(array_type), pointer :: ptr1, ptr2, ptr
+
+    if(.not.associated(this%hidden_state))then
+       call this%reset_state()
+       allocate(this%hidden_state)
+       call this%hidden_state%allocate( &
+            [this%hidden_size, size(input(1,1)%val,2)], &
+            source = 0._real32 &
+       )
+       this%hidden_state%is_temporary = .false.
+    end if
 
 
     ! Generate outputs from weights, biases, and inputs
     !---------------------------------------------------------------------------
     if(this%use_bias)then
-       ptr => matmul(this%params(1), input(1,1) ) + this%params(2)
+       ptr1 => matmul(this%params(1), input(1,1) ) + this%params(3)
+       ptr2 => matmul(this%params(2), this%hidden_state ) + this%params(4)
     else
-       ptr => matmul(this%params(1), input(1,1) )
+       ptr1 => matmul(this%params(1), input(1,1) )
+       ptr2 => matmul(this%params(2), this%hidden_state )
     end if
+    ptr => ptr1 + ptr2
 
     ! Apply activation function to activation
     !---------------------------------------------------------------------------
     call this%output(1,1)%zero_grad()
-    if(trim(this%activation%name) .eq. "none") then
-       call this%output(1,1)%assign_and_deallocate_source(ptr)
-    else
-       call this%z(1)%zero_grad()
-       call this%z(1)%assign_and_deallocate_source(ptr)
-       this%z(1)%is_temporary = .false.
-       ptr => this%activation%apply(this%z(1))
-       call this%output(1,1)%assign_and_deallocate_source(ptr)
+    if(trim(this%activation%name) .ne. "none") then
+       ptr => this%activation%apply(ptr)
     end if
+    this%hidden_state => ptr
+    call this%output(1,1)%assign_shallow(ptr)
     this%output(1,1)%is_temporary = .false.
+    this%time_step = this%time_step + 1
 
-  end subroutine forward_full
+  end subroutine forward_recurrent
 !###############################################################################
 
-end module athena__full_layer
+end module athena__recurrent_layer

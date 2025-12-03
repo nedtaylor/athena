@@ -24,6 +24,7 @@ submodule(athena__network) athena__network_submodule
   use athena__concat_layer, only: concat_layer_type
   use athena__input_layer,   only: input_layer_type
   use athena__msgpass_layer, only: msgpass_layer_type
+  use athena__recurrent_layer, only: recurrent_layer_type
 
 ! #ifdef _OPENMP
 !   !$omp declare reduction( &
@@ -1707,6 +1708,30 @@ contains
     this%batch_size = batch_size
 
   end subroutine set_batch_size
+!###############################################################################
+
+
+!###############################################################################
+  module subroutine reset_state(this)
+    !! Reset the hidden state of all layers in the network
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+
+    ! Local variables
+    integer :: l
+    !! Loop index
+
+    do l = 1, size(this%model, dim = 1)
+       select type( layer => this%model(l)%layer )
+       class is(recurrent_layer_type)
+          call layer%reset_state()
+       end select
+    end do
+
+  end subroutine reset_state
 !###############################################################################
 
 
