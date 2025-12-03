@@ -48,6 +48,8 @@ module athena__recurrent_layer
      !! Size of input
      integer :: time_step
      !! Current time step
+     type(array_type), pointer :: hidden_state => null()
+     !! Hidden state
    contains
      procedure, pass(this) :: get_num_params => get_num_params_recurrent
      procedure, pass(this) :: set_hyperparams => set_hyperparams_recurrent
@@ -55,7 +57,7 @@ module athena__recurrent_layer
      procedure, pass(this) :: print_to_unit => print_to_unit_recurrent
      procedure, pass(this) :: read => read_recurrent
      procedure, pass(this) :: forward => forward_recurrent
-     !procedure, pass(this) :: reset_state => reset_state_recurrent
+     procedure, pass(this) :: reset_state => reset_state_recurrent
   end type recurrent_layer_type
 
   interface recurrent_layer_type
@@ -84,18 +86,43 @@ contains
     class(recurrent_layer_type), intent(in) :: this
     integer :: num_params
 
-    ! ! W_ih: (hidden_size, input_size)
-    ! ! W_hh: (hidden_size, hidden_size)
-    ! ! W_ho: (output_size, hidden_size) - assuming output_size = hidden_size
-    ! ! b_h: (hidden_size)
-    ! ! b_o: (hidden_size)
-    ! num_params = this%hidden_size * this%input_size + &  ! W_ih
-    !              this%hidden_size * this%hidden_size + &  ! W_hh
-    !              this%hidden_size * this%hidden_size + &  ! W_ho
-    !              this%hidden_size + &                     ! b_h
-    !              this%hidden_size                         ! b_o
+    num_params = &
+         this%hidden_size * this%input_size + &  ! W_ih
+         this%hidden_size * this%hidden_size     ! W_hh
+    if(this%use_bias) then
+       num_params = num_params + 2 * this%hidden_size    ! b_h + b_o
+    end if
 
   end function get_num_params_recurrent
+!###############################################################################
+
+
+!###############################################################################
+  subroutine reset_state_recurrent(this)
+    !! Reset the hidden state of the recurrent layer
+    implicit none
+
+    ! Arguments
+    class(recurrent_layer_type), intent(inout) :: this
+    !! Instance of the recurrent layer
+
+    ! Local variables
+    integer :: i, j
+    !! Loop variables
+
+    this%time_step = 0
+    if(associated(this%hidden_state))then
+       call this%hidden_state%deallocate()
+       nullify(this%hidden_state)
+    end if
+    ! do i = 1, size(this%hidden_state,1)
+    !    do j = 1, size(this%hidden_state,2)
+    !       call this%hidden_state(i,j)%deallocate()
+    !       call this%hidden_state(i,j)%detach()
+    !    end do
+    ! end do
+
+  end subroutine reset_state_recurrent
 !###############################################################################
 
 
@@ -157,7 +184,7 @@ contains
     if(present(activation))then
        activation_ = activation_setup(activation)
     else
-       activation_ = activation_setup("none")
+       activation_ = activation_setup("tanh")
     end if
 
 
@@ -370,10 +397,11 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Allocate arrays
+    ! Allocate arrays and initialise time_step
     !---------------------------------------------------------------------------
     if(allocated(this%output)) deallocate(this%output)
     allocate(this%output(1,1))
+    this%time_step = 0
 
   end subroutine init_recurrent
 !###############################################################################
@@ -677,14 +705,14 @@ contains
 
     type(array_type), pointer :: ptr1, ptr2, ptr
 
-    if(.not.this%output(1,1)%allocated)then
-       !call this%reset_state()
-       !if(this%time_step.ne.0)then
-       !end if
-       call this%output(1,1)%allocate( &
+    if(.not.associated(this%hidden_state))then
+       call this%reset_state()
+       allocate(this%hidden_state)
+       call this%hidden_state%allocate( &
             [this%hidden_size, size(input(1,1)%val,2)], &
             source = 0._real32 &
        )
+       this%hidden_state%is_temporary = .false.
     end if
 
 
@@ -692,22 +720,21 @@ contains
     !---------------------------------------------------------------------------
     if(this%use_bias)then
        ptr1 => matmul(this%params(1), input(1,1) ) + this%params(3)
-       ptr2 => matmul(this%params(2), this%output(1,1) ) + this%params(4)
+       ptr2 => matmul(this%params(2), this%hidden_state ) + this%params(4)
     else
        ptr1 => matmul(this%params(1), input(1,1) )
-       ptr2 => matmul(this%params(2), this%output(1,1) )
+       ptr2 => matmul(this%params(2), this%hidden_state )
     end if
     ptr => ptr1 + ptr2
 
     ! Apply activation function to activation
     !---------------------------------------------------------------------------
     call this%output(1,1)%zero_grad()
-    if(trim(this%activation%name) .eq. "none") then
-       call this%output(1,1)%assign_and_deallocate_source(ptr)
-    else
+    if(trim(this%activation%name) .ne. "none") then
        ptr => this%activation%apply(ptr)
-       call this%output(1,1)%assign_and_deallocate_source(ptr)
     end if
+    this%hidden_state => ptr
+    call this%output(1,1)%assign_shallow(ptr)
     this%output(1,1)%is_temporary = .false.
     this%time_step = this%time_step + 1
 

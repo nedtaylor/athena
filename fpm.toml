@@ -115,3 +115,10 @@ source-dir = "example/onnx/src"
 [[example]]
 name = "resnet"
 source-dir = "example/resnet/src"
+
+[[example]]
+name = "rnn_timeseries"
+source-dir = "example/rnn_timeseries/src"
+main = "main.f90"
+[example.dependencies]
+example_library = { path = "example/example_library"}
