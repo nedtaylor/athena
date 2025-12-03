@@ -106,21 +106,11 @@ contains
     class(recurrent_layer_type), intent(inout) :: this
     !! Instance of the recurrent layer
 
-    ! Local variables
-    integer :: i, j
-    !! Loop variables
-
     this%time_step = 0
     if(associated(this%hidden_state))then
        call this%hidden_state%deallocate()
        nullify(this%hidden_state)
     end if
-    ! do i = 1, size(this%hidden_state,1)
-    !    do j = 1, size(this%hidden_state,2)
-    !       call this%hidden_state(i,j)%deallocate()
-    !       call this%hidden_state(i,j)%detach()
-    !    end do
-    ! end do
 
   end subroutine reset_state_recurrent
 !###############################################################################
