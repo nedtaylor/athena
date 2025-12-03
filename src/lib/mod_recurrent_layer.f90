@@ -1,12 +1,10 @@
 module athena__recurrent_layer
   !! Module containing implementation of recurrent neural network layers
   !!
-  !! This module implements various recurrent neural network (RNN) architectures
-  !! including Simple RNN, LSTM (Long Short-Term Memory), and GRU (Gated
-  !! Recurrent Unit). These layers process sequential data by maintaining hidden
-  !! states across time steps.
+  !! This module implements the simple recurrent neural network (RNN) layer,
+  !! which is designed to handle sequential data by maintaining a hidden state.
   !!
-  !! **Simple RNN:**
+  !! **Simple RNN layer (equivalent to RNNCell of PyTorch):**
   !! \[
   !! \begin{align}
   !! \mathbf{h}_t &= \sigma(\mathbf{W}_{ih}\mathbf{x}_t + \mathbf{W}_{hh}\mathbf{h}_{t-1} + \mathbf{b}_h) \\
@@ -17,9 +15,7 @@ module athena__recurrent_layer
   !! where:
   !!   - \(\mathbf{x}_t\) is input at time t
   !!   - \(\mathbf{h}_t\) is hidden state at time t
-  !!   - \(\mathbf{c}_t\) is cell state at time t (LSTM only)
-  !!   - \(\sigma\) is sigmoid activation
-  !!   - \(\odot\) is element-wise (Hadamard) product
+  !!   - \(\sigma\) is the activation function (e.g., tanh, relu)
   !!   - \(\mathbf{W}\) matrices are learnable weights
   !!   - \(\mathbf{b}\) vectors are learnable biases
   !!
