@@ -33,4 +33,5 @@ An example of how to use the library is shown below:
       activations/activations
       initialisers/initialisers
       loss/loss
+      training/training
       Fortran API <api>

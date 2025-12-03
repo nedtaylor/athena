@@ -36,10 +36,10 @@ where :math:`\eta` is the learning rate, :math:`\beta_1` and :math:`\beta_2` are
 Arguments
 ---------
 
-* **learning_rate** (`real(real32)`): Step size for parameter updates. Default: ``0.01``.
-* **beta1** (`real(real32)`): Exponential decay rate for first moment estimates. Default: ``0.9``.
-* **beta2** (`real(real32)`): Exponential decay rate for second moment estimates. Default: ``0.999``.
-* **epsilon** (`real(real32)`): Small constant for numerical stability. Default: ``1.0e-8``.
+* **learning_rate** (`real`): Step size for parameter updates. Default: ``0.01``.
+* **beta1** (`real`): Exponential decay rate for first moment estimates. Default: ``0.9``.
+* **beta2** (`real`): Exponential decay rate for second moment estimates. Default: ``0.999``.
+* **epsilon** (`real`): Small constant for numerical stability. Default: ``1.0e-8``.
 * **num_params** (`integer`): Number of parameters to optimise.
 * **regulariser** (`class(base_regulariser_type)`): Regularisation method (e.g., L2 regularisation).
 * **clip_dict** (`type(clip_type)`): Gradient clipping configuration.

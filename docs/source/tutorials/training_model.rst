@@ -272,7 +272,7 @@ The learning rate can be adjusted during training using learning rate schedules.
         learning_rate=0.001, &
         lr_decay=lr_schedule)
 
-Other learning rate schedules are available; see :ref:`Learning Rate Decay <learning-rate-decay>`.
+Other learning rate schedules are available; see :ref:`Learning Rate Decay <lr-decay>`.
 
 Plateau Detection
 ~~~~~~~~~~~~~~~~~

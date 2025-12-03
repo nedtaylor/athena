@@ -24,7 +24,7 @@ where :math:`\gamma` is the threshold parameter that determines the transition p
 Arguments
 ---------
 
-* **gamma** (`real(real32)`): Threshold parameter. Default: ``1.0``.
+* **gamma** (`real`): Threshold parameter. Default: ``1.0``.
 
   * Smaller values make the loss more similar to MAE
   * Larger values make it more similar to MSE

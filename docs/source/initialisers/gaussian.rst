@@ -19,8 +19,8 @@ Draws samples from a normal (Gaussian) distribution with specified mean and stan
 Arguments
 ---------
 
-* **mean** (`real(real32)`): Mean of the distribution. Default: ``0.0``.
-* **std** (`real(real32)`): Standard deviation of the distribution. Default: ``1.0``.
+* **mean** (`real`): Mean of the distribution. Default: ``0.0``.
+* **std** (`real`): Standard deviation of the distribution. Default: ``1.0``.
 
 Shape:
 ------
