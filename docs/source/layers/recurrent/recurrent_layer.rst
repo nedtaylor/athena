@@ -136,5 +136,3 @@ See Also
 --------
 
 * :ref:`full_layer_type <full-layer>` - Fully-connected layer
-* :ref:`lstm_layer_type <lstm-layer>` - Long Short-Term Memory layer (future)
-* :ref:`gru_layer_type <gru-layer>` - Gated Recurrent Unit layer (future)
