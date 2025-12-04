@@ -31,6 +31,8 @@ submodule(athena__container_layer) athena__container_layer_submodule
   use athena__pad1d_layer, only: read_pad1d_layer
   use athena__pad2d_layer, only: read_pad2d_layer
   use athena__pad3d_layer, only: read_pad3d_layer
+  use athena__recurrent_layer, only: read_recurrent_layer
+  use athena__reshape_layer, only: read_reshape_layer
 
 contains
 
@@ -95,7 +97,9 @@ contains
          read_layer_container('maxpool3d', read_maxpool3d_layer), &
          read_layer_container('pad1d', read_pad1d_layer), &
          read_layer_container('pad2d', read_pad2d_layer), &
-         read_layer_container('pad3d', read_pad3d_layer) &
+         read_layer_container('pad3d', read_pad3d_layer), &
+         read_layer_container('recurrent', read_recurrent_layer), &
+         read_layer_container('reshape', read_reshape_layer) &
     ]
     if(present(addit_list))then
        list_of_layer_types = [list_of_layer_types, addit_list]

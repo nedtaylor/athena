@@ -2,7 +2,6 @@ module athena__io_utils
   !! Module for handling errors and io calls in the program.
   !!
   !! This module provides the expected procedure for stopping a program.
-  !! If in testing mode, the stop can be suppressed.
   implicit none
 
   character(len=*), parameter :: athena__version__ = "2.0-alpha"
