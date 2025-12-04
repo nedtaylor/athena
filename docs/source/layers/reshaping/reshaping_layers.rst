@@ -11,3 +11,4 @@ Reshaping Layers
     :maxdepth: 2
 
     flatten_layer
+    reshape_layer
