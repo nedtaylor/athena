@@ -16,7 +16,8 @@ module athena__network
   use athena__accuracy, only: comp_acc_func => compute_accuracy_function
   use athena__base_layer, only: base_layer_type
   use diffstruc, only: array_type
-  use athena__misc_types, only: onnx_node_type, onnx_initialiser_type
+  use athena__misc_types, only: &
+       onnx_node_type, onnx_initialiser_type, onnx_tensor_type
   use athena__container_layer, only: container_layer_type
   use athena__diffstruc_extd, only: array_ptr_type
   implicit none
@@ -249,7 +250,9 @@ module athena__network
      end subroutine read_optimiser_settings
 
      !! Interface for building network from ONNX nodes and initialisers
-     module subroutine build_from_onnx(this, nodes, initialisers, verbose)
+     module subroutine build_from_onnx( &
+          this, nodes, initialisers, inputs, value_info, verbose &
+     )
        !! Build network from ONNX nodes and initialisers
        class(network_type), intent(inout) :: this
        !! Instance of the network
@@ -257,6 +260,10 @@ module athena__network
        !! Array of ONNX nodes
        type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
        !! Array of ONNX initialisers
+       type(onnx_tensor_type), dimension(:), intent(in) :: inputs
+       !! Array of ONNX input tensors
+       type(onnx_tensor_type), dimension(:), intent(in) :: value_info
+       !! Array of ONNX value info tensors
        integer, optional, intent(in) :: verbose
        !! Verbosity level
      end subroutine build_from_onnx

@@ -16,6 +16,8 @@ module athena__input_layer
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: base_layer_type
   use graphstruc, only: graph_type
+  use athena__misc_types, only: &
+       onnx_node_type, onnx_initialiser_type, onnx_tensor_type
   use diffstruc, only: array_type
   implicit none
 
@@ -23,7 +25,7 @@ module athena__input_layer
   private
 
   public :: input_layer_type
-  public :: read_input_layer
+  public :: read_input_layer, create_from_onnx_input_layer
 
 
   type, extends(base_layer_type) :: input_layer_type
@@ -47,6 +49,8 @@ module athena__input_layer
      !! Set input values
      generic :: set => set_input_real, set_input_graph
      !! Generic interface for setting input values
+     procedure, pass(this) :: build_from_onnx => build_from_onnx_input
+     !! Build fully connected layer from ONNX node and initialiser
 
      procedure, pass(this) :: forward => forward_input
      !! Forward propagation derived type handler
@@ -390,6 +394,57 @@ contains
     call layer%read(unit, verbose=verbose_)
 
   end function read_input_layer
+!###############################################################################
+
+
+!###############################################################################
+  subroutine build_from_onnx_input(this, node, initialisers, value_info, verbose )
+    !! Read ONNX attributes for fully connected layer
+    implicit none
+
+    ! Arguments
+    class(input_layer_type), intent(inout) :: this
+    !! Instance of the fully connected layer
+    type(onnx_node_type), intent(in) :: node
+    !! ONNX node information
+    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
+    !! ONNX initialiser information
+    type(onnx_tensor_type), dimension(:), intent(in) :: value_info
+    !! ONNX value info
+    integer, intent(in) :: verbose
+    !! Verbosity level
+
+  end subroutine build_from_onnx_input
+!###############################################################################
+
+
+!###############################################################################
+  function create_from_onnx_input_layer(node, initialisers, value_info, verbose) &
+       result(layer)
+    !! Build fully connected layer from attributes and return layer
+    implicit none
+
+    ! Arguments
+    type(onnx_node_type), intent(in) :: node
+    !! ONNX node information
+    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
+    !! ONNX initialiser information
+    type(onnx_tensor_type), dimension(:), intent(in) :: value_info
+    !! ONNX value info
+    integer, optional, intent(in) :: verbose
+    !! Verbosity level
+    class(base_layer_type), allocatable :: layer
+    !! Instance of the 2D convolutional layer
+
+    ! Local variables
+    integer :: verbose_ = 0
+    !! Verbosity level
+
+    if(present(verbose)) verbose_ = verbose
+    allocate(layer, source=input_layer_type())
+    call layer%build_from_onnx(node, initialisers, value_info, verbose=verbose_)
+
+  end function create_from_onnx_input_layer
 !###############################################################################
 
 

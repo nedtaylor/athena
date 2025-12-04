@@ -16,7 +16,7 @@ module athena__base_layer
   use coreutils, only: real32
   use athena__clipper, only: clip_type
   use athena__misc_types, only: base_actv_type, base_init_type, facets_type, &
-       onnx_attribute_type, onnx_node_type, onnx_initialiser_type
+       onnx_attribute_type, onnx_node_type, onnx_initialiser_type, onnx_tensor_type
   use diffstruc, only: array_type
   use athena__diffstruc_extd, only: array_ptr_type
   use graphstruc, only: graph_type
@@ -228,7 +228,9 @@ module athena__base_layer
        !! Verbosity level
      end subroutine read_layer
 
-     module subroutine build_from_onnx_base(this, node, initialisers, verbose)
+     module subroutine build_from_onnx_base( &
+          this, node, initialisers, value_info, verbose &
+     )
        !! Build layer from ONNX node
        class(base_layer_type), intent(inout) :: this
        !! Instance of the layer
@@ -236,6 +238,8 @@ module athena__base_layer
        !! ONNX node
        type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
        !! ONNX initialisers
+       type(onnx_tensor_type), dimension(:), intent(in) :: value_info
+       !! ONNX value info
        integer, intent(in) :: verbose
        !! Verbosity level
      end subroutine build_from_onnx_base

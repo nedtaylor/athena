@@ -14,7 +14,8 @@ module athena__flatten_layer
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: base_layer_type
   use diffstruc, only: array_type, pack
-  use athena__misc_types, only: onnx_node_type, onnx_initialiser_type
+  use athena__misc_types, only: &
+       onnx_node_type, onnx_initialiser_type, onnx_tensor_type
   implicit none
 
 
@@ -29,6 +30,8 @@ module athena__flatten_layer
      integer :: num_outputs
      !! Number of outputs
    contains
+     procedure, pass(this) :: set_rank => set_rank_flatten
+     !! Set input and output rank for flattening layer
      procedure, pass(this) :: set_hyperparams => set_hyperparams_flatten
      !! Set hyperparameters for flattening layer
      procedure, pass(this) :: init => init_flatten
@@ -65,6 +68,29 @@ module athena__flatten_layer
 
 
 contains
+
+!###############################################################################
+  module subroutine set_rank_flatten(this, input_rank, output_rank)
+    !! Set the input and output ranks of the layer
+    implicit none
+
+    ! Arguments
+    class(flatten_layer_type), intent(inout) :: this
+    !! Instance of the layer
+    integer, intent(in) :: input_rank
+    !! Input rank
+    integer, intent(in) :: output_rank
+    !! Output rank
+
+    !---------------------------------------------------------------------------
+    ! Set input and output ranks
+    !---------------------------------------------------------------------------
+    this%input_rank = input_rank
+    this%output_rank = output_rank
+
+  end subroutine set_rank_flatten
+!###############################################################################
+
 
 !###############################################################################
   module function layer_setup( &
@@ -378,7 +404,7 @@ contains
 
 
 !###############################################################################
-  subroutine build_from_onnx_flatten(this, node, initialisers, verbose )
+  subroutine build_from_onnx_flatten(this, node, initialisers, value_info, verbose )
     !! Read ONNX attributes for flattening layer
     implicit none
 
@@ -386,9 +412,11 @@ contains
     class(flatten_layer_type), intent(inout) :: this
     !! Instance of the flattening layer
     type(onnx_node_type), intent(in) :: node
-    !! Instance of ONNX node information
+    !! ONNX node information
     type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
-    !! Instance of ONNX initialiser information
+    !! ONNX initialiser information
+    type(onnx_tensor_type), dimension(:), intent(in) :: value_info
+    !! ONNX value info
     integer, intent(in) :: verbose
     !! Verbosity level
 
@@ -401,15 +429,19 @@ contains
 
 
 !###############################################################################
-  function create_from_onnx_flatten_layer(node, initialisers, verbose) result(layer)
+  function create_from_onnx_flatten_layer( &
+       node, initialisers, value_info, verbose &
+  ) result(layer)
     !! Build flattening layer from attributes and return layer
     implicit none
 
     ! Arguments
     type(onnx_node_type), intent(in) :: node
-    !! Instance of ONNX node information
+    !! ONNX node information
     type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
-    !! Instance of ONNX initialiser information
+    !! ONNX initialiser information
+    type(onnx_tensor_type), dimension(:), intent(in) :: value_info
+    !! ONNX value info
     integer, optional, intent(in) :: verbose
     !! Verbosity level
     class(base_layer_type), allocatable :: layer
@@ -421,7 +453,7 @@ contains
 
     if(present(verbose)) verbose_ = verbose
     allocate(layer, source=flatten_layer_type(input_rank=0))
-    call layer%build_from_onnx(node, initialisers, verbose=verbose_)
+    call layer%build_from_onnx(node, initialisers, value_info, verbose=verbose_)
 
   end function create_from_onnx_flatten_layer
 !###############################################################################

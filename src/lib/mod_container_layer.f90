@@ -5,7 +5,8 @@ module athena__container_layer
   !! individual layer.
   use coreutils, only: real32
   use athena__base_layer, only: base_layer_type
-  use athena__misc_types, only: onnx_node_type, onnx_initialiser_type
+  use athena__misc_types, only: &
+       onnx_node_type, onnx_initialiser_type, onnx_tensor_type
   implicit none
 
 
@@ -83,12 +84,16 @@ module athena__container_layer
        !! Instance of a layer
      end function read_layer
 
-     module function create_from_onnx_layer(nodes, initialisers, verbose) result(layer)
+     module function create_from_onnx_layer( &
+          nodes, initialisers, value_info, verbose &
+     ) result(layer)
        !! Create a layer from ONNX nodes and initialisers
        type(onnx_node_type), intent(in) :: nodes
        !! ONNX nodes
        type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
        !! ONNX initialisers
+       type(onnx_tensor_type), dimension(:), intent(in) :: value_info
+       !! ONNX value info
        integer, intent(in), optional :: verbose
        !! Verbosity level
        class(base_layer_type), allocatable :: layer

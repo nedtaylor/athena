@@ -20,10 +20,11 @@ module athena__conv2d_layer
   use athena__base_layer, only: conv_layer_type, base_layer_type
   use athena__pad2d_layer, only: pad2d_layer_type
   use athena__misc_types, only: base_init_type, &
-       onnx_node_type, onnx_initialiser_type
+       onnx_node_type, onnx_initialiser_type, onnx_tensor_type
   use athena__misc_types, only: base_actv_type, base_init_type
   use diffstruc, only: array_type
   use athena__diffstruc_extd, only: conv2d, add_bias
+  use athena__initialiser_data, only: data_init_type
   implicit none
 
 
@@ -397,7 +398,8 @@ contains
        buffer = get_default_initialiser(this%activation%name)
        this%kernel_init = initialiser_setup(buffer)
     else
-       this%kernel_init = kernel_initialiser
+       if(allocated(this%kernel_init)) deallocate(this%kernel_init)
+       allocate(this%kernel_init, source=kernel_initialiser)
     end if
     if(.not.allocated(bias_initialiser))then
        buffer = get_default_initialiser( &
@@ -406,7 +408,8 @@ contains
        )
        this%bias_init = initialiser_setup(buffer)
     else
-       this%bias_init = bias_initialiser
+       if(allocated(this%bias_init)) deallocate(this%bias_init)
+       allocate(this%bias_init, source=bias_initialiser)
     end if
     if(present(verbose))then
        if(abs(verbose).gt.0)then
@@ -739,31 +742,36 @@ contains
 
 
 !###############################################################################
-  subroutine build_from_onnx_conv2d(this, node, initialisers, verbose )
+  subroutine build_from_onnx_conv2d( &
+       this, node, initialisers, value_info, verbose &
+  )
     !! Read ONNX attributes for 2D convolutional layer
     use athena__activation, only: activation_setup
-    use athena__initialiser, only: initialiser_setup
     implicit none
 
     ! Arguments
     class(conv2d_layer_type), intent(inout) :: this
     !! Instance of the 2D convolutional layer
     type(onnx_node_type), intent(in) :: node
-    !! Instance of ONNX node information
+    !! ONNX node information
     type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
-    !! Instance of ONNX initialiser information
+    !! ONNX initialiser information
+    type(onnx_tensor_type), dimension(:), intent(in) :: value_info
+    !! ONNX value info information
     integer, intent(in) :: verbose
     !! Verbosity level
 
     ! Local variables
-    integer :: verbose_ = 0
-    !! Verbosity level
-    integer :: i
+    integer :: i, weight_idx, bias_idx
     !! Loop index and temporary integer
     integer :: num_filters
     !! Number of filters
+    logical :: use_bias = .true.
+    !! Whether to use bias
     integer, dimension(2) :: padding, stride, kernel_size, dilation
     !! Padding, stride, kernel size, and dilation
+    integer, dimension(:), allocatable :: dims
+    !! Dimensions
     character(256) :: val
     !! Attribute value
     class(base_actv_type), allocatable :: activation
@@ -788,10 +796,64 @@ contains
        end select
     end do
 
+    weight_idx = -1
+    bias_idx = -1
+    allocate(dims(0))
+    if(size(initialisers).lt.1)then
+       call stop_program("ONNX CONV2D layer requires at least 1 initialiser")
+       return
+    else
+       ! check which initialiser has weights and which has biases,
+       ! look for dimensions
+       do i = 1, size(initialisers)
+          if(allocated(initialisers(i)%dims))then
+             dims = [ dims, product(initialisers(i)%dims) ]
+          end if
+       end do
+    end if
+    ! if both weight and bias have dimension 1, check which is larger and that
+    ! the division of it by the kernel size is equal to the length of the other
+    select case(size(dims))
+    case(1)
+       ! check if the division of dims by the kernel size is integer
+       if(mod(dims(1), product(kernel_size)).eq.0)then
+          weight_idx = 1
+       else
+          call stop_program("ONNX CONV2D layer initialiser dimensions do not &
+               &match kernel size")
+          return
+       end if
+       use_bias = .false.
+    case(2)
+       ! check which is weight and which is bias
+       if(mod(dims(1), product(kernel_size)).eq.0 .and. &
+            dims(1)/product(kernel_size).eq.dims(2))then
+          weight_idx = 1
+          bias_idx = 2
+       elseif(mod(dims(2), product(kernel_size)).eq.0 .and. &
+            dims(2)/product(kernel_size).eq.dims(1))then
+          weight_idx = 2
+          bias_idx = 1
+       else
+          call stop_program("ONNX CONV2D layer initialiser dimensions do not &
+               &match kernel size")
+          return
+       end if
+    case default
+       call stop_program("ONNX CONV2D layer number of initialisers not supported")
+       return
+    end select
+    num_filters = dims(weight_idx) / product(kernel_size)
+    if(num_filters .ne. value_info(1)%dims(2))then
+       call stop_program("ONNX CONV2D layer number of filters does not match &
+            &value info")
+       return
+    end if
 
-    ! Initialise parameters from initialisers
-    write(0,*) "WARNING: Weights initialisation from ONNX not yet implemented &
-         &for conv2d layer"
+    kernel_initialiser = data_init_type( data = initialisers(weight_idx)%data )
+    if(use_bias)then
+       bias_initialiser = data_init_type( data = initialisers(bias_idx)%data )
+    end if
 
     activation = activation_setup("none")
     call this%set_hyperparams( &
@@ -801,7 +863,7 @@ contains
          padding = "valid", &
          use_bias = .true., &
          activation = activation, &
-         verbose = verbose_, &
+         verbose = verbose, &
          kernel_initialiser = kernel_initialiser, &
          bias_initialiser = bias_initialiser &
     )
@@ -811,15 +873,19 @@ contains
 
 
 !###############################################################################
-  function create_from_onnx_conv2d_layer(node, initialisers, verbose) result(layer)
+  function create_from_onnx_conv2d_layer( &
+       node, initialisers, value_info, verbose &
+  ) result(layer)
     !! Build 2D convolutional layer from attributes and return layer
     implicit none
 
     ! Arguments
     type(onnx_node_type), intent(in) :: node
-    !! Instance of ONNX node information
+    !! ONNX node information
     type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
-    !! Instance of ONNX initialiser information
+    !! ONNX initialiser information
+    type(onnx_tensor_type), dimension(:), intent(in) :: value_info
+    !! ONNX value info information
     integer, optional, intent(in) :: verbose
     !! Verbosity level
     class(base_layer_type), allocatable :: layer
@@ -831,7 +897,7 @@ contains
 
     if(present(verbose)) verbose_ = verbose
     allocate(layer, source=conv2d_layer_type())
-    call layer%build_from_onnx(node, initialisers, verbose=verbose_)
+    call layer%build_from_onnx(node, initialisers, value_info, verbose=verbose_)
 
   end function create_from_onnx_conv2d_layer
 !###############################################################################

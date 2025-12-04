@@ -12,7 +12,6 @@ submodule(athena__network) athena__network_submodule
   use athena__container_layer, only: container_reduction
 #endif
 
-  use athena__misc_types, only: onnx_node_type, onnx_initialiser_type
   use athena__container_layer, only: &
        list_of_layer_types, allocate_list_of_layer_types, &
        list_of_onnx_layer_creators, allocate_list_of_onnx_layer_creators
@@ -621,7 +620,9 @@ contains
 
 
 !###############################################################################
-  module subroutine build_from_onnx(this, nodes, initialisers, verbose)
+  module subroutine build_from_onnx( &
+       this, nodes, initialisers, inputs, value_info, verbose &
+  )
     !! Build network from ONNX nodes and initialisers
     use coreutils, only: to_lower
     implicit none
@@ -633,6 +634,10 @@ contains
     !! Array of ONNX nodes
     type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
     !! Array of ONNX initialisers
+    type(onnx_tensor_type), dimension(:), intent(in) :: inputs
+    !! Array of ONNX inputs
+    type(onnx_tensor_type), dimension(:), intent(in) :: value_info
+    !! Array of ONNX value infos
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -643,12 +648,18 @@ contains
     !! Verbosity level
     character(20) :: op_type
     !! Lowercase op_type
+    character(64) :: tmp_name
+    !! Temporary name for matching
     character(256) :: err_msg
     !! Error message
+    integer, dimension(:), allocatable :: input_shape
+    !! Shape of input layer
     integer, dimension(:), allocatable :: input_list
     !! List of input layers
     type(onnx_initialiser_type), dimension(:), allocatable :: init_list
     !! List of initialisers for a specific node
+    type(onnx_tensor_type), dimension(:), allocatable :: value_info_list
+    !! List of value info tensors
 
     verbose_ = 0
     if(present(verbose)) verbose_ = verbose
@@ -658,9 +669,18 @@ contains
        call allocate_list_of_onnx_layer_creators()
     end if
 
+    do i = 1, size(inputs)
+       write(*,*) "Processing ONNX input: ", trim(inputs(i)%name)
+       input_shape = inputs(i)%dims(size(inputs(i)%dims):2:-1)
+
+       call this%add( &
+            input_layer_type(input_shape, index=i) &
+       )
+    end do
+
     ! Loop through nodes and create layers
     do i = 1, size(nodes)
-       write(*,*) "Processing ONNX node: ", trim(nodes(i)%name), &
+       if(verbose_.gt.0) write(*,*) "Processing ONNX node: ", trim(nodes(i)%name), &
             " (", trim(nodes(i)%op_type), ")"
        op_type = trim(adjustl(nodes(i)%op_type))
 
@@ -681,15 +701,31 @@ contains
        j_out = 0
        allocate(init_list(0))
        allocate(input_list(0))
+       allocate(value_info_list(0))
        do j = 1, size(nodes(i)%inputs)
           do k = 1, size(initialisers)
              if(trim(nodes(i)%inputs(j)) .eq. trim(initialisers(k)%name))then
                 init_list = [ init_list, initialisers(k) ]
              end if
           end do
-          do k = 1, size(nodes)
-             if(trim(nodes(i)%inputs(j)) .eq. trim(nodes(k)%name))then
+          do k = 1, size(inputs)
+             if(trim(nodes(i)%inputs(j)) .eq. trim(inputs(k)%name))then
                 input_list = [ input_list, k ]
+             end if
+          end do
+          tmp_name = trim(nodes(i)%inputs(j))
+          if(index(tmp_name, "_output").gt.0) &
+               tmp_name = trim(tmp_name(:index(tmp_name, "_output")-1))
+          do k = 1, size(nodes)
+             if(trim(tmp_name) .eq. trim(nodes(k)%name))then
+                input_list = [ input_list, k + size(inputs) ]
+             end if
+          end do
+       end do
+       do j = 1, size(nodes(i)%outputs)
+          do k = 1, size(value_info)
+             if(trim(nodes(i)%outputs(j)) .eq. trim(value_info(k)%name))then
+                value_info_list = [ value_info_list, value_info(k) ]
              end if
           end do
        end do
@@ -704,14 +740,17 @@ contains
 
        call this%add( &
             list_of_onnx_layer_creators(layer_index)%create_ptr( &
-                 nodes(i), init_list &
+                 nodes(i), init_list, value_info_list &
             ), &
             input_list = input_list &
             ! operator = operator_in &
        )
        deallocate(input_list)
        deallocate(init_list)
+       deallocate(value_info_list)
     end do
+
+    if(verbose_.gt.0) write(*,*) "ONNX model built with ", this%num_layers, " layers."
 
   end subroutine build_from_onnx
 !###############################################################################

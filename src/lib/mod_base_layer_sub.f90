@@ -315,7 +315,9 @@ contains
 
 
 !###############################################################################
-  module subroutine build_from_onnx_base(this, node, initialisers, verbose)
+  module subroutine build_from_onnx_base( &
+       this, node, initialisers, value_info, verbose &
+  )
     !! Build layer from ONNX node and initialiser
     implicit none
 
@@ -326,6 +328,8 @@ contains
     !! ONNX node
     type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
     !! ONNX initialisers
+    type(onnx_tensor_type), dimension(:), intent(in) :: value_info
+    !! ONNX value info
     integer, intent(in) :: verbose
     !! Verbosity level
 

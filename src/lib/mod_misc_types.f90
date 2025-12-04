@@ -19,7 +19,8 @@ module athena__misc_types
   public :: base_actv_type
   public :: base_init_type
   public :: facets_type
-  public :: onnx_attribute_type, onnx_node_type, onnx_initialiser_type
+  public :: onnx_attribute_type, onnx_node_type, onnx_initialiser_type, &
+       onnx_tensor_type
 
 
 
@@ -61,9 +62,9 @@ module athena__misc_types
 !-------------------------------------------------------------------------------
   type :: onnx_node_type
      character(256) :: op_type
-     character(20) :: name
-     character(20), allocatable, dimension(:) :: inputs
-     character(20), allocatable, dimension(:) :: outputs
+     character(64) :: name
+     character(64), allocatable, dimension(:) :: inputs
+     character(64), allocatable, dimension(:) :: outputs
      type(onnx_attribute_type), allocatable, dimension(:) :: attributes
      integer :: num_inputs, num_outputs
   end type onnx_node_type
@@ -73,10 +74,20 @@ module athena__misc_types
 ! ONNX initialiser type
 !-------------------------------------------------------------------------------
   type :: onnx_initialiser_type
-     character(20) :: name
+     character(64) :: name
      integer, allocatable, dimension(:) :: dims
      real(real32), allocatable, dimension(:) :: data
   end type onnx_initialiser_type
+!-------------------------------------------------------------------------------
+
+!-------------------------------------------------------------------------------
+! ONNX tensor type
+!-------------------------------------------------------------------------------
+  type :: onnx_tensor_type
+     character(64) :: name
+     integer :: elem_type
+     integer, allocatable, dimension(:) :: dims
+  end type onnx_tensor_type
 !-------------------------------------------------------------------------------
 
 

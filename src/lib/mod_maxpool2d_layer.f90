@@ -17,7 +17,8 @@ module athena__maxpool2d_layer
   !! Shape: (width, height, channels) -> (width//stride, height//stride, channels)
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: pool_layer_type, base_layer_type
-  use athena__misc_types, only: onnx_node_type, onnx_initialiser_type
+  use athena__misc_types, only: &
+       onnx_node_type, onnx_initialiser_type, onnx_tensor_type
   use diffstruc, only: array_type
   use athena__diffstruc_extd, only: maxpool2d
   implicit none
@@ -325,7 +326,9 @@ contains
 
 
 !###############################################################################
-  subroutine build_from_onnx_maxpool2d(this, node, initialisers, verbose )
+  subroutine build_from_onnx_maxpool2d( &
+       this, node, initialisers, value_info, verbose &
+  )
     !! Read ONNX attributes for 2D max pooling layer
     implicit none
 
@@ -333,9 +336,11 @@ contains
     class(maxpool2d_layer_type), intent(inout) :: this
     !! Instance of the 2D max pooling layer
     type(onnx_node_type), intent(in) :: node
-    !! Instance of ONNX node information
+    !! ONNX node information
     type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
-    !! Instance of ONNX initialiser information
+    !! ONNX initialiser information
+    type(onnx_tensor_type), dimension(:), intent(in) :: value_info
+    !! ONNX value info
     integer, intent(in) :: verbose
     !! Verbosity level
 
@@ -381,15 +386,19 @@ contains
 
 
 !###############################################################################
-  function create_from_onnx_maxpool2d_layer(node, initialisers, verbose) result(layer)
+  function create_from_onnx_maxpool2d_layer( &
+       node, initialisers, value_info, verbose &
+  ) result(layer)
     !! Build 2D max pooling layer from attributes and return layer
     implicit none
 
     ! Arguments
     type(onnx_node_type), intent(in) :: node
-    !! Instance of ONNX node information
+    !! ONNX node information
     type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
-    !! Instance of ONNX initialiser information
+    !! ONNX initialiser information
+    type(onnx_tensor_type), dimension(:), intent(in) :: value_info
+    !! ONNX value info
     integer, optional, intent(in) :: verbose
     !! Verbosity level
     class(base_layer_type), allocatable :: layer
@@ -401,7 +410,7 @@ contains
 
     if(present(verbose)) verbose_ = verbose
     allocate(layer, source=maxpool2d_layer_type())
-    call layer%build_from_onnx(node, initialisers, verbose=verbose_)
+    call layer%build_from_onnx(node, initialisers, value_info, verbose=verbose_)
 
   end function create_from_onnx_maxpool2d_layer
 !###############################################################################

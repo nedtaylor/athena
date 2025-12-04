@@ -75,6 +75,7 @@ module athena
   ! Initialisation methods
   !-----------------------------------------------------------------------------
   use athena__misc_types, only: base_init_type
+  use athena__initialiser_data, only: data_init_type
   use athena__initialiser_gaussian, only: gaussian_init_type
   use athena__initialiser_he, only: he_uniform_init_type, he_normal_init_type
   use athena__initialiser_glorot, only: &

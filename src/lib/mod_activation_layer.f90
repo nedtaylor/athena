@@ -17,7 +17,7 @@ module athena__actv_layer
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: base_layer_type
   use athena__misc_types, only: base_actv_type, &
-       onnx_node_type, onnx_initialiser_type
+       onnx_node_type, onnx_initialiser_type, onnx_tensor_type
   use diffstruc, only: array_type
   implicit none
 
@@ -430,7 +430,7 @@ contains
 
 
 !###############################################################################
-  subroutine build_from_onnx_actv(this, node, initialisers, verbose )
+  subroutine build_from_onnx_actv(this, node, initialisers, value_info, verbose )
     !! Read ONNX attributes for activation layer
     implicit none
 
@@ -438,9 +438,11 @@ contains
     class(actv_layer_type), intent(inout) :: this
     !! Instance of the activation layer
     type(onnx_node_type), intent(in) :: node
-    !! Instance of ONNX node information
+    !! ONNX node information
     type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
-    !! Instance of ONNX initialiser information
+    !! ONNX initialiser information
+    type(onnx_tensor_type), dimension(:), intent(in) :: value_info
+    !! ONNX value info
     integer, intent(in) :: verbose
     !! Verbosity level
 
@@ -453,16 +455,19 @@ contains
 
 
 !###############################################################################
-  function create_from_onnx_actv_layer(node, initialisers, verbose) result(layer)
+  function create_from_onnx_actv_layer(node, initialisers, value_info, verbose) &
+       result(layer)
     !! Build activation layer from attributes and return layer
     use coreutils, only: to_lower
     implicit none
 
     ! Arguments
     type(onnx_node_type), intent(in) :: node
-    !! Instance of ONNX node information
+    !! ONNX node information
     type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
-    !! Instance of ONNX initialiser information
+    !! ONNX initialiser information
+    type(onnx_tensor_type), dimension(:), intent(in) :: value_info
+    !! ONNX value info
     integer, optional, intent(in) :: verbose
     !! Verbosity level
     class(base_layer_type), allocatable :: layer
@@ -474,7 +479,7 @@ contains
 
     if(present(verbose)) verbose_ = verbose
     allocate(layer, source=actv_layer_type(to_lower(trim(node%op_type))))
-    call layer%build_from_onnx(node, initialisers, verbose=verbose_)
+    call layer%build_from_onnx(node, initialisers, value_info, verbose=verbose_)
 
   end function create_from_onnx_actv_layer
 !###############################################################################

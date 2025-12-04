@@ -2,7 +2,7 @@ submodule(athena__onnx) athena__onnx_submodule
   !! Submodule containing implementations for ONNX operations
   use athena__base_layer, only: base_layer_type, learnable_layer_type
   use athena__misc_types, only: &
-       onnx_attribute_type, onnx_node_type, onnx_initialiser_type
+       onnx_attribute_type, onnx_node_type, onnx_initialiser_type, onnx_tensor_type
   use coreutils, only: real32, to_lower, to_upper, to_camel_case, icount
   use athena__tools_infile, only: assign_val, assign_vec, allocate_and_assign_vec
 
@@ -20,11 +20,11 @@ contains
     !! File to export the network to
 
     ! Local variables
-    integer :: unit, i, j, layer_id
+    integer :: unit, i, j, layer_id, input_layer_id
     !! Unit number and loop indices
     character(256) :: layer_name
     !! Layer name for ONNX
-    character(20) :: node_name, input_name, tmp_input_name
+    character(64) :: node_name, input_name, tmp_input_name
     !! Node name
     character(:), allocatable :: suffix
     !!! Suffix for input names
@@ -92,15 +92,24 @@ contains
           ! write(unit, '(A,I0,A)') '    input: "input_',network%model(layer_id)%layer%id,'"'
        else
           do j = 1, network%auto_graph%num_vertices
+             input_layer_id = network%auto_graph%vertex(j)%id
              if(network%auto_graph%adjacency(j,network%vertex_order(i)).eq.0) cycle
              if(all(network%auto_graph%adjacency(:,j).eq.0))then
                 write(input_name,'("input_",I0)') &
-                     network%model(network%auto_graph%vertex(j)%id)%layer%id
+                     network%model(input_layer_id)%layer%id
                 suffix = ''
              else
                 write(input_name,'("node_",I0)') &
-                     network%model(network%auto_graph%vertex(j)%id)%layer%id
+                     network%model(input_layer_id)%layer%id
                 suffix = '_output'
+                ! check if activation function is used, if so adjust suffix
+                select type(prev_layer => network%model(input_layer_id)%layer)
+                class is(learnable_layer_type)
+                   if(prev_layer%activation%name.ne."none")then
+                      suffix = '_' // trim(adjustl(prev_layer%activation%name)) &
+                           // '_output'
+                   end if
+                end select
              end if
              if(network%model(layer_id)%layer%use_graph_input)then
                 write(tmp_input_name,'(A,A,A)') &
@@ -119,22 +128,12 @@ contains
        end if
        select type(layer => network%model(layer_id)%layer)
        class is(learnable_layer_type)
-          if(layer%activation%name.ne."none")then
-             suffix = '_pre_function'
-          else
-             suffix = ''
-          end if
-          do j = 1, size(layer%weight_shape, dim=2)
-             write(unit, '(4X,"input: ""node_",I0,"_weight",I0,"""")') &
+          do j = 1, size(layer%params)
+             write(unit, '(4X,"input: ""node_",I0,"_param",I0,"""")') &
                   network%model(layer_id)%layer%id, j
-             if(layer%use_bias)then
-                write(unit, '(4X,"input: ""node_",I0,"_bias",I0,"""")') &
-                     network%model(layer_id)%layer%id, j
-             end if
           end do
-       class default
-          suffix = ''
        end select
+       suffix = ''
 
        ! Write output
        if(network%model(layer_id)%layer%use_graph_output)then
@@ -276,7 +275,18 @@ contains
              )
           end if
        else
-          write(node_name, '("node_",I0,"_output")') network%model(layer_id)%layer%id
+          select type(layer => network%model(layer_id)%layer)
+          class is(learnable_layer_type)
+             if(layer%activation%name.eq."none")then
+                suffix = ''
+             else
+                suffix = '_' // trim(adjustl(layer%activation%name))
+             end if
+          class default
+             suffix = ''
+          end select
+          write(node_name, '("node_",I0,A,"_output")') &
+               network%model(layer_id)%layer%id, trim(adjustl(suffix))
           call write_onnx_tensor( &
                unit, &
                "output", &
@@ -317,21 +327,20 @@ contains
     !! Network instance
 
     ! Local variables
-    integer :: unit, stat, i, j, k, node_count, itmp1
+    integer :: unit, stat, i, j, k, itmp1
+    integer :: num_nodes, num_inputs, num_outputs, num_value_infos
     character(1024) :: trimmed_line, line
     character(256) :: op_type, node_name, temp_str
-    character(20), allocatable, dimension(:) :: input_names, output_names
     integer, allocatable, dimension(:) :: dims
-    integer :: num_inputs, num_outputs, batch_size
     real(real32), allocatable, dimension(:) :: float_data
-    logical :: in_node, in_initialiser, reading_dims, reading_data
+    logical :: in_node, in_initialiser, reading_dims, reading_data, in_input, in_output
     integer :: node_id
     type(onnx_attribute_type), allocatable, dimension(:) :: attributes
 
     integer :: verbose_
     character(1024) :: buffer1
-    character(20) :: buffer2
-    character(20), allocatable :: inputs(:), outputs(:)
+    character(64) :: buffer2
+    character(64), allocatable :: inputs(:), outputs(:)
 
     ! Node information storage
     type(onnx_node_type), allocatable, dimension(:) :: nodes
@@ -340,15 +349,9 @@ contains
     type(onnx_initialiser_type), allocatable, dimension(:) :: initialisers
     integer :: num_initialisers
 
-    ! Tensor info storage (inputs, outputs, value_info)
-    type :: tensor_info_type
-       character(20) :: name
-       integer, allocatable, dimension(:) :: dims
-    end type tensor_info_type
-
-    type(tensor_info_type), allocatable, dimension(:) :: input_tensors, &
-         output_tensors
-    integer :: num_input_tensors, num_output_tensors
+    ! Tensor info storage (inputs, outputs)
+    type(onnx_tensor_type), allocatable, dimension(:) :: input_tensors, &
+         output_tensors, value_infos
 
     verbose_ = 0
     if(present(verbose)) verbose_ = verbose
@@ -360,15 +363,17 @@ contains
     end if
 
     ! Initialise counters
-    node_count = 0
+    num_nodes = 0
     num_initialisers = 0
-    num_input_tensors = 0
-    num_output_tensors = 0
+    num_inputs = 0
+    num_outputs = 0
+    num_value_infos = 0
     in_node = .false.
     in_initialiser = .false.
+    in_input = .false.
+    in_output = .false.
     reading_dims = .false.
     reading_data = .false.
-    batch_size = 1
 
     ! First pass: count nodes, initialisers, and tensors
     do
@@ -379,32 +384,36 @@ contains
        trimmed_line = adjustl(trim(line))
 
        if(index(trimmed_line, 'node {') .gt. 0)then
-          node_count = node_count + 1
+          num_nodes = num_nodes + 1
        elseif(index(trimmed_line, 'initializer {') .gt. 0)then
           num_initialisers = num_initialisers + 1
        elseif(index(trimmed_line, 'input {') .gt. 0)then
-          num_input_tensors = num_input_tensors + 1
+          num_inputs = num_inputs + 1
        elseif(index(trimmed_line, 'output {') .gt. 0)then
-          num_output_tensors = num_output_tensors + 1
+          num_outputs = num_outputs + 1
+       elseif(index(trimmed_line, 'value_info {') .gt. 0)then
+          num_value_infos = num_value_infos + 1
        end if
     end do
 
     ! Allocate storage
-    allocate(nodes(node_count))
+    allocate(nodes(num_nodes))
     allocate(initialisers(num_initialisers))
-    allocate(input_tensors(num_input_tensors))
-    allocate(output_tensors(num_output_tensors))
+    allocate(input_tensors(num_inputs))
+    allocate(output_tensors(num_outputs))
+    allocate(value_infos(num_value_infos))
 
     ! Reset file for second pass
     rewind(unit)
 
-    node_count = 0
+    num_nodes = 0
     num_initialisers = 0
-    num_input_tensors = 0
-    num_output_tensors = 0
+    num_inputs = 0
+    num_outputs = 0
+    num_value_infos = 0
 
     ! Initialise node structures
-    do i = 1, node_count
+    do i = 1, num_nodes
        nodes(i)%num_inputs = 0
        nodes(i)%num_outputs = 0
        nodes(i)%op_type = ""
@@ -422,9 +431,9 @@ contains
        ! Parse nodes
        if(index(trimmed_line, 'node {') .gt. 0)then
           in_node = .true.
-          node_count = node_count + 1
-          nodes(node_count)%num_inputs = 0
-          nodes(node_count)%num_outputs = 0
+          num_nodes = num_nodes + 1
+          nodes(num_nodes)%num_inputs = 0
+          nodes(num_nodes)%num_outputs = 0
           allocate(inputs(0))
           allocate(outputs(0))
           allocate(attributes(0))
@@ -432,21 +441,21 @@ contains
        elseif(in_node .and. index(trimmed_line, '}') .gt. 0)then
           in_node = .false.
           if(size(attributes) .gt. 0)then
-             allocate(nodes(node_count)%attributes(size(attributes)))
+             allocate(nodes(num_nodes)%attributes(size(attributes)))
              do i = 1, size(attributes)
-                nodes(node_count)%attributes(i) = attributes(i)
+                nodes(num_nodes)%attributes(i) = attributes(i)
              end do
           end if
           if(size(inputs) .gt. 0)then
-             allocate(nodes(node_count)%inputs(size(inputs)))
+             allocate(nodes(num_nodes)%inputs(size(inputs)))
              do i = 1, size(inputs)
-                nodes(node_count)%inputs(i) = inputs(i)
+                nodes(num_nodes)%inputs(i) = inputs(i)
              end do
           end if
           if(size(outputs) .gt. 0)then
-             allocate(nodes(node_count)%outputs(size(outputs)))
+             allocate(nodes(num_nodes)%outputs(size(outputs)))
              do i = 1, size(outputs)
-                nodes(node_count)%outputs(i) = outputs(i)
+                nodes(num_nodes)%outputs(i) = outputs(i)
              end do
           end if
           deallocate(attributes)
@@ -455,19 +464,21 @@ contains
 
        elseif(in_node)then
           if(index(trimmed_line, 'name:') .gt. 0)then
-             call assign_val(buffer1, nodes(node_count)%name, itmp1, fs=":")
+             call assign_val(buffer1, nodes(num_nodes)%name, itmp1, fs=":")
           elseif(index(trimmed_line, 'op_type:') .gt. 0)then
              call assign_val(buffer1, &
-                  nodes(node_count)%op_type, itmp1, fs=":")
+                  nodes(num_nodes)%op_type, itmp1, fs=":")
           elseif(index(trimmed_line, 'input:') .gt. 0)then
-             nodes(node_count)%num_inputs = &
-                  nodes(node_count)%num_inputs + 1
-             buffer2 = trim(adjustl(trimmed_line(index(trimmed_line, 'input:') + 6:)))
+             nodes(num_nodes)%num_inputs = &
+                  nodes(num_nodes)%num_inputs + 1
+             call assign_val(buffer1, buffer2, itmp1, fs=":")
+             !buffer2 = trim(adjustl(trimmed_line(index(trimmed_line, 'input:') + 6:)))
              inputs = [ inputs, buffer2 ]
           elseif(index(trimmed_line, 'output:') .gt. 0)then
-             nodes(node_count)%num_outputs = &
-                  nodes(node_count)%num_outputs + 1
-             buffer2 = trim(adjustl(trimmed_line(index(trimmed_line, 'output:') + 7:)))
+             nodes(num_nodes)%num_outputs = &
+                  nodes(num_nodes)%num_outputs + 1
+             call assign_val(buffer1, buffer2, itmp1, fs=":")
+             !buffer2 = trim(adjustl(trimmed_line(index(trimmed_line, 'output:') + 7:)))
              outputs = [ outputs, buffer2 ]
           elseif(index(trimmed_line, 'attribute {') .gt. 0)then
              attributes = [attributes, read_attribute(unit)]
@@ -524,30 +535,30 @@ contains
 
        ! Parse input tensors
        if(index(trimmed_line, 'input {') .gt. 0 .and. &
-            .not. in_node .and. .not. in_initialiser)then
-          num_input_tensors = num_input_tensors + 1
-       elseif(num_input_tensors > 0 .and. &
-            index(trimmed_line, 'name:') .gt. 0)then
-          call assign_val(buffer1, &
-               input_tensors(num_input_tensors)%name, itmp1, fs=":")
-       elseif(num_input_tensors > 0 .and. &
-            index(trimmed_line, 'dim_value:') .gt. 0)then
-          if(.not. allocated(input_tensors(num_input_tensors)%dims))then
-             allocate(input_tensors(num_input_tensors)%dims(0))
-          end if
-          call assign_val(buffer1, j, itmp1, fs=":")
-          input_tensors(num_input_tensors)%dims = &
-               [input_tensors(num_input_tensors)%dims, j]
+            .not. in_node .and. .not. in_initialiser &
+       )then
+          in_input = .true.
+          num_inputs = num_inputs + 1
+          input_tensors(num_inputs) = read_input_output(unit)
+          in_input = .false.
        end if
 
        ! Parse output tensors
        if(index(trimmed_line, 'output {') .gt. 0 .and. &
-            .not. in_node .and. .not. in_initialiser)then
-          num_output_tensors = num_output_tensors + 1
-       elseif(num_output_tensors > 0 .and. &
-            index(trimmed_line, 'name:') .gt. 0)then
-          call assign_val(buffer1, &
-               output_tensors(num_output_tensors)%name, itmp1, fs=":")
+            .not. in_node .and. .not. in_initialiser &
+       )then
+          in_output = .true.
+          num_outputs = num_outputs + 1
+          output_tensors(num_outputs) = read_input_output(unit)
+          in_output = .false.
+       end if
+
+       ! Parse value_info tensors
+       if(index(trimmed_line, 'value_info {') .gt. 0 .and. &
+            .not. in_node .and. .not. in_initialiser &
+       )then
+          num_value_infos = num_value_infos + 1
+          value_infos(num_value_infos) = read_input_output(unit)
        end if
     end do
 
@@ -555,7 +566,7 @@ contains
 
     ! Now construct the network from parsed information
     call network%build_from_onnx( &
-         nodes, initialisers, &
+         nodes, initialisers, input_tensors, value_infos, &
          verbose=verbose_ &
     )
 
@@ -572,7 +583,7 @@ contains
     type(onnx_attribute_type) :: attr
     character(1024) :: line, trimmed_line
     character(1024) :: value_buffer
-    character(20) :: key, attr_type_key
+    character(64) :: key, attr_type_key
     character(256) :: value_str
     integer :: stat, colon_pos
     logical :: done
@@ -645,6 +656,119 @@ contains
     end if
 
   end function read_attribute
+!-------------------------------------------------------------------------------
+  function read_input_output(unit) result(tensor)
+    !! Reads an input or output block from an ONNX file
+    implicit none
+    integer, intent(in) :: unit
+    type(onnx_tensor_type) :: tensor
+
+    integer :: i
+    character(1024) :: line, trimmed_line
+    character(256) :: name
+    integer :: stat
+    integer :: num_open_braces, num_close_braces
+
+    ! Initialise tensor
+    tensor%elem_type = 0
+    allocate(tensor%dims(0))
+    num_open_braces = 0
+    num_close_braces = 0
+
+    do
+       read(unit, '(A)', iostat=stat) line
+       ! remove comments
+       if(index(trimmed_line, '#') .gt. 0) then
+          trimmed_line = trim(adjustl(trimmed_line(1:index(trimmed_line, '#')-1)))
+       end if
+       if(stat .ne. 0) exit
+
+       trimmed_line = adjustl(trim(line))
+       if(index(trimmed_line, 'name:') .gt. 0)then
+          call assign_val(trimmed_line, name, stat, fs=":")
+       elseif(index(trimmed_line, 'tensor_type {') .gt. 0)then
+          tensor = read_tensor_type(unit)
+       end if
+
+       ! count number of open { and close } to determine when shape block ends
+       do i = 1, len_trim(trimmed_line)
+          if (trimmed_line(i:i) .eq. '{') num_open_braces = num_open_braces + 1
+          if (trimmed_line(i:i) .eq. '}') num_close_braces = num_close_braces + 1
+       end do
+
+       ! Check for closing brace
+       if(num_close_braces .ge. num_open_braces .and. num_open_braces.gt.0)then
+          exit
+       end if
+
+    end do
+    tensor%name = trim(name)
+
+  end function read_input_output
+!-------------------------------------------------------------------------------
+  function read_tensor_type(unit) result(tensor)
+    !! Reads the tensor type block from an ONNX file to extract dimensions
+    implicit none
+    integer, intent(in) :: unit
+    type(onnx_tensor_type) :: tensor
+
+    integer :: i
+    character(1024) :: line, trimmed_line, buffer
+    integer :: stat, dim_value
+    logical :: done, in_shape
+    integer :: num_open_braces, num_close_braces, shape_brace_idx
+
+    ! Initialise tensor
+    tensor%elem_type = 0
+    allocate(tensor%dims(0))
+
+    done = .false.
+    in_shape = .false.
+    num_open_braces = 0
+    num_close_braces = 0
+
+    do while(.not. done)
+       read(unit, '(A)', iostat=stat) line
+       if(stat .ne. 0) exit
+
+       trimmed_line = adjustl(trim(line))
+       ! remove comments
+       if(index(trimmed_line, '#') .gt. 0) then
+          trimmed_line = trim(adjustl(trimmed_line(1:index(trimmed_line, '#')-1)))
+       end if
+
+       if(index(trimmed_line, 'elem_type:') .gt. 0)then
+          call assign_val(trimmed_line, tensor%elem_type, stat, fs=":")
+       elseif(index(trimmed_line, 'shape {') .gt. 0)then
+          in_shape = .true.
+          shape_brace_idx = num_open_braces
+          buffer = trimmed_line(:index(trimmed_line, 'shape {') + 6)
+          do i = 1, len_trim(buffer)
+             if (buffer(i:i) .eq. '{') shape_brace_idx = shape_brace_idx + 1
+          end do
+       elseif(in_shape .and. index(trimmed_line, 'dim_value:') .gt. 0)then
+          call assign_val(trimmed_line, dim_value, stat, fs=":")
+          tensor%dims = [tensor%dims, dim_value]
+       end if
+
+       ! count number of open { and close } to determine when shape block ends
+       do i = 1, len_trim(trimmed_line)
+          if (trimmed_line(i:i) .eq. '{') num_open_braces = num_open_braces + 1
+          if (trimmed_line(i:i) .eq. '}') num_close_braces = num_close_braces + 1
+       end do
+
+       ! Check if we are still in shape block
+       if(in_shape .and. num_open_braces - num_close_braces .lt. shape_brace_idx) then
+          in_shape = .false.
+       end if
+
+       ! Check for closing brace
+       if(num_close_braces .ge. num_open_braces .and. num_open_braces.gt.0) then
+          done = .true.
+       end if
+    end do
+
+  end function read_tensor_type
 !###############################################################################
 
 
@@ -709,7 +833,7 @@ contains
     !! Loop indices
     integer :: num_params
     !! Number of parameters
-    character(20) :: name
+    character(64) :: name
     !! Names for parameters
 
 
@@ -766,8 +890,8 @@ contains
     write(unit, '(A)') '  node {'
     write(unit, '(A,A,A)') '    name: "', trim(full_name), '"'
     write(unit, '(A,A,A)') '    op_type: "', trim(function_name_camel_case), '"'
-    write(unit, '(A,A,A)') '    input: "', trim(prefix), '_output_pre_function"'
-    write(unit, '(A,A,A)') '    output: "', trim(prefix), '_output"'
+    write(unit, '(A,A,A)') '    input: "', trim(prefix), '_output"'
+    write(unit, '(A,A,A)') '    output: "', trim(full_name), '_output"'
     write(unit, '(A)') '  }'
     write(unit, '(A)') ''
 

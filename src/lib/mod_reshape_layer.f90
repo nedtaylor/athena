@@ -23,7 +23,8 @@ module athena__reshape_layer
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: base_layer_type
   use diffstruc, only: array_type, reshape
-  use athena__misc_types, only: onnx_node_type, onnx_initialiser_type
+  use athena__misc_types, only: &
+       onnx_node_type, onnx_initialiser_type, onnx_tensor_type
   implicit none
 
 
@@ -378,7 +379,7 @@ contains
 
 
 !###############################################################################
-  subroutine build_from_onnx_reshape(this, node, initialisers, verbose)
+  subroutine build_from_onnx_reshape(this, node, initialisers, value_info, verbose)
     !! Build reshape layer from ONNX node and initialiser
     implicit none
 
@@ -389,6 +390,8 @@ contains
     !! ONNX node
     type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
     !! ONNX initialisers
+    type(onnx_tensor_type), dimension(:), intent(in) :: value_info
+    !! ONNX value infos
     integer, intent(in) :: verbose
     !! Verbosity level
 
@@ -397,7 +400,9 @@ contains
 
 
 !###############################################################################
-  function create_from_onnx_reshape_layer(node, initialisers, verbose) result(layer)
+  function create_from_onnx_reshape_layer( &
+       node, initialisers, value_info, verbose &
+  ) result(layer)
     !! Build reshape layer from ONNX node and initialiser
     implicit none
 
@@ -406,6 +411,8 @@ contains
     !! ONNX node
     type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
     !! ONNX initialisers
+    type(onnx_tensor_type), dimension(:), intent(in) :: value_info
+    !! ONNX value infos
     integer, intent(in), optional :: verbose
     !! Verbosity level
     class(base_layer_type), allocatable :: layer
@@ -417,7 +424,7 @@ contains
 
     if(present(verbose)) verbose_ = verbose
     allocate(layer, source=reshape_layer_type(output_shape=[0]))
-    call layer%build_from_onnx(node, initialisers, verbose=verbose_)
+    call layer%build_from_onnx(node, initialisers, value_info, verbose=verbose_)
 
   end function create_from_onnx_reshape_layer
 !###############################################################################

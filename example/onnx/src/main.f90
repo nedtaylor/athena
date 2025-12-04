@@ -42,6 +42,15 @@ program onnx_example
   write(*,*) "Reading network from ONNX file..."
   network_read = read_onnx(onnx_file)
 
+
+  call network_read%compile( &
+       optimiser=base_optimiser_type(learning_rate=0.01), &
+       loss_method="categorical_crossentropy", &
+       batch_size=1)
+  write(*,*) size(network_read%model)
+  call network_read%print_summary()
+  call write_onnx("test_network_second_pass.onnx", network_read)
+
   write(*,*) ""
   write(*,*) "Network read completed"
   write(*,*) "Number of layers in original network: ", network_write%num_layers
