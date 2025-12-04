@@ -143,8 +143,9 @@ Below an example of accessing the output values of a 3D array stored in an ``arr
 
 The ``graph_type`` is another core data structure in the athena library that represents computational graphs for graph neural networks (GNNs) and message-passing architectures.
 It encapsulates nodes, edges, and their features, allowing for efficient representation and processing of graph-structured data.
-Unfortunately, Ned has not had time to write documentation for the ``graph_type`` yet, but examples of its usage be found in the ``example/example_library``, ``example/msgpass_chemical`` and ``example/msgpass_euler`` directories.
-The source code for the ``graph_type`` can be found in the `graphstruc GitHub repository <https://github.com/nedtaylor/graphstruc>`_ (the current branch being utilised is the ``sparse_adjacency`` branch).
+Documentation for `graphstruc <https://graphstruc.readthedocs.io/en/latest/>`_ is available, but is currently limited.
+Examples of its usage be found in the ``example/example_library``, ``example/msgpass_chemical`` and ``example/msgpass_euler`` directories.
+The source code for the ``graph_type`` can be found in the `graphstruc GitHub repository <https://github.com/nedtaylor/graphstruc>`_ (the current branch being utilised is the ``main`` branch).
 
 A brief outline of the data type and its components is provided here:
 

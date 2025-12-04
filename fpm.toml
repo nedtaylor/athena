@@ -17,7 +17,7 @@ module-naming = false
 
 [dependencies]
 coreutils = { git = "https://github.com/nedtaylor/coreutils" }
-graphstruc = { git = "https://github.com/nedtaylor/graphstruc", branch = "sparse_adjacency" }
+graphstruc = { git = "https://github.com/nedtaylor/graphstruc", branch = "main" }
 diffstruc = { git = "https://github.com/nedtaylor/diffstruc", branch = "development" }
 
 [install]
