@@ -70,7 +70,7 @@ module athena__flatten_layer
 contains
 
 !###############################################################################
-  module subroutine set_rank_flatten(this, input_rank, output_rank)
+  subroutine set_rank_flatten(this, input_rank, output_rank)
     !! Set the input and output ranks of the layer
     implicit none
 

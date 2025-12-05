@@ -31,6 +31,7 @@ program test_activation_layer
   integer :: seed_size
   integer, allocatable, dimension(:) :: seed
 
+  class(base_actv_type), allocatable :: activation
   class(base_actv_type), allocatable :: actv
   character(10), dimension(11) :: activation_functions
 
@@ -308,10 +309,12 @@ program test_activation_layer
 !-------------------------------------------------------------------------------
   write(*,*) "Testing hyperparameters setting..."
 
+  allocate(activation, source = activation_setup("swish"))
   call actv_layer%set_hyperparams( &
-       activation = activation_setup("swish"), &
+       activation = activation, &
        verbose = 0 &
   )
+  deallocate(activation)
 
   if(.not. allocated(actv_layer%activation))then
      success = .false.

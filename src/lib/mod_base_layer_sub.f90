@@ -147,7 +147,7 @@ contains
 
   end subroutine print_to_unit_pad
 !-------------------------------------------------------------------------------
-  subroutine print_to_unit_batch(this, unit)
+  module subroutine print_to_unit_batch(this, unit)
     !! Print 3D batch normalisation layer to unit
     use coreutils, only: to_upper
     implicit none

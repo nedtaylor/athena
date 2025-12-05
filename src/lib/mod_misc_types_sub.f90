@@ -7,7 +7,7 @@ submodule(athena__misc_types) athena__misc_types_submodule
 contains
 
 !###############################################################################
-  module function create_attribute(name, type, val) result(attribute)
+  pure module function create_attribute(name, type, val) result(attribute)
     !! Function to create an ONNX attribute
     implicit none
 
@@ -22,15 +22,17 @@ contains
     type(onnx_attribute_type) :: attribute
     !! Resulting ONNX attribute
 
-    if(len(trim(name)) .gt. 20) then
-       call print_warning("Attribute name too long; truncating to 20 characters")
+    if(len_trim(name) .gt. 64)then
+        attribute%name = name(1:64)
+    else
+       attribute%name = trim(name)
     end if
-    attribute%name = trim(name)
 
-    if(len(trim(type)) .gt. 20) then
-       call print_warning("Attribute type too long; truncating to 20 characters")
+    if(len_trim(type) .gt. 10)then
+        attribute%type = type(1:10)
+    else
+       attribute%type = trim(type)
     end if
-    attribute%type = trim(type)
 
     attribute%val = trim(val)
   end function create_attribute

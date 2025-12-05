@@ -32,9 +32,9 @@ module athena__misc_types
 !-------------------------------------------------------------------------------
   type :: onnx_attribute_type
      !! Type for storing attributes for ONNX export
-     character(20) :: name
+     character(64), allocatable :: name
      !! Name of the attribute
-     character(20) :: type
+     character(10), allocatable :: type
      !! Type of the attribute (e.g. 'int', 'float', 'string')
      character(len=:), allocatable :: val
      !! Value of the attribute as a string
@@ -43,11 +43,11 @@ module athena__misc_types
   end type onnx_attribute_type
 
   interface onnx_attribute_type
-     module function create_attribute(name, type, val) result(attribute)
+     pure module function create_attribute(name, type, val) result(attribute)
        !! Function to create an ONNX attribute
-       character(20), intent(in) :: name
+       character(*), intent(in) :: name
        !! Name of the attribute
-       character(20), intent(in) :: type
+       character(*), intent(in) :: type
        !! Type of the attribute
        character(len=*), intent(in) :: val
        !! Value of the attribute as a string

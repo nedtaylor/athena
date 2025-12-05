@@ -472,7 +472,7 @@ program test_pad2d_layer
               gradient%val(:simple_width*simple_height,1) - &
               reshape(&
                    gradient_expected(:,:,1,1), &
-                   shape([simple_width*simple_height]) &
+                   shape=[simple_width*simple_height] &
               ) &
          ) .gt. tol &
     ))then
