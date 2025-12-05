@@ -290,6 +290,8 @@ module athena__base_layer
      !! Pooling and stride sizes
      integer :: num_channels
      !! Number of channels
+     class(pad_layer_type), allocatable :: pad_layer
+     !! Padding layer
    contains
      procedure, pass(this) :: init => init_pool
      !! Initialise the layer
