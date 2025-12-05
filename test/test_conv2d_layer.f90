@@ -212,22 +212,23 @@ program test_conv2d_layer
 !-------------------------------------------------------------------------------
 ! check layer operations
 !-------------------------------------------------------------------------------
-  conv_layer1 = conv2d_layer_type( &
+  allocate(conv_layer1, source = conv2d_layer_type( &
        num_filters = 1, &
        kernel_size = 3, &
        activation = 'sigmoid' &
-  )
+  ))
   call conv_layer1%init(input_layer%input_shape)
-  conv_layer2 = conv2d_layer_type( &
+  allocate(conv_layer2, source = conv2d_layer_type( &
        num_filters = 1, &
        kernel_size = 3, &
        activation = 'sigmoid' &
-  )
+  ))
   call conv_layer2%init(input_layer%input_shape)
   select type(conv_layer1)
   type is(conv2d_layer_type)
      select type(conv_layer2)
      type is(conv2d_layer_type)
+        if(allocated(conv_layer)) deallocate(conv_layer)
         conv_layer = conv_layer1 + conv_layer2
         select type(conv_layer)
         type is(conv2d_layer_type)

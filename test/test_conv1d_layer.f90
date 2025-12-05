@@ -226,6 +226,7 @@ program test_conv1d_layer
   type is(conv1d_layer_type)
      select type(conv_layer2)
      type is(conv1d_layer_type)
+        if(allocated(conv_layer)) deallocate(conv_layer)
         conv_layer = conv_layer1 + conv_layer2
         select type(conv_layer)
         type is(conv1d_layer_type)

@@ -59,7 +59,7 @@ program test_conv1d_network
   call input(1,1)%set_requires_grad(.true.)
 
   call network%forward(input)
-  output = network%get_output()
+  allocate(output, source = network%get_output())
 
   if(any( &
        [output(1,1)%shape,size(output(1,1)%val,2)] .ne. &

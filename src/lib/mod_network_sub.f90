@@ -2269,79 +2269,21 @@ contains
     !! Output
 
     ! Local variables
+    integer :: layer_id
+    !! Layer ID
     character(len=10) :: rank_str
     !! String for rank
-! if intel compiler, do this
-#if defined(__INTEL_COMPILER)
-    integer, dimension(2) :: output_shape
-    type(array_type), pointer :: output_array(:,:)
-#else
-    type(array_type), dimension(:,:), allocatable :: output_array
-#endif
-    !! Temporary output array
 
-
-#if defined(__INTEL_COMPILER)
-    output_shape = this%get_output_shape()
-    allocate(output_array(output_shape(1), output_shape(2)))
-#endif
-    output_array = this%get_output()
-    if(any(shape(output_array).ne.1))then
-       call print_warning("Output is not compatible with real array")
-       write(0,*) "shape(output_array): ", shape(output_array)
+    ! check if number of leaf vertices is 1
+    if(size(this%leaf_vertices,1).gt.1)then
+       call print_warning("Output extraction to real array only works for single &
+            &output networks")
        return
     end if
-    select rank(output)
-    rank(1)
-       output = reshape( output_array(1,1)%val, [ &
-            product( output_array(1,1)%shape ) * size(output_array,2) &
-       ] )
-    rank(2)
-       output = output_array(1,1)%val
-    rank default
-       if(size(output_array(1,1)%shape,1) + 1 .ne. rank(output))then
-          write(rank_str,*) rank(output)
-          call print_warning( &
-               "Output data rank mismatch, expected rank "//trim(adjustl(rank_str)) &
-          )
-          return
-       end if
-       select rank(output)
-       rank(3)
-          output = reshape( &
-               output_array(1,1)%val, &
-               [ &
-                    output_array(1,1)%shape(1), &
-                    output_array(1,1)%shape(2), &
-                    size(output_array,2) &
-               ] &
-          )
-       rank(4)
-          output = reshape( &
-               output_array(1,1)%val, &
-               [ &
-                    output_array(1,1)%shape(1), &
-                    output_array(1,1)%shape(2), &
-                    output_array(1,1)%shape(3), &
-                    size(output_array,2) &
-               ] &
-          )
-       rank(5)
-          output = reshape( &
-               output_array(1,1)%val, &
-               [ &
-                    output_array(1,1)%shape(1), &
-                    output_array(1,1)%shape(2), &
-                    output_array(1,1)%shape(3), &
-                    output_array(1,1)%shape(4), &
-                    size(output_array,2) &
-               ] &
-          )
-       end select
-    end select
-#if defined(__INTEL_COMPILER)
-    deallocate(output_array)
-#endif
+
+    ! Get output from the first (and only) leaf vertex
+    layer_id = this%auto_graph%vertex(this%leaf_vertices(1))%id
+    call this%model(layer_id)%layer%output(1,1)%extract(output)
 
   end subroutine extract_output_real
 !###############################################################################

@@ -58,7 +58,7 @@ program test_conv3d_network
   call input(1,1)%set_requires_grad(.true.)
 
   call network%forward(input)
-  output = network%get_output()
+  allocate(output, source = network%get_output())
 
 
   if( any( &

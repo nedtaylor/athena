@@ -377,7 +377,8 @@ contains
        buffer = get_default_initialiser(this%activation%name)
        this%kernel_init = initialiser_setup(buffer)
     else
-       this%kernel_init = kernel_initialiser
+       if(allocated(this%kernel_init)) deallocate(this%kernel_init)
+       allocate(this%kernel_init, source=kernel_initialiser)
     end if
     if(.not.allocated(bias_initialiser))then
        buffer = get_default_initialiser( &
@@ -386,7 +387,8 @@ contains
        )
        this%bias_init = initialiser_setup(buffer)
     else
-       this%bias_init = bias_initialiser
+       if(allocated(this%bias_init)) deallocate(this%bias_init)
+       allocate(this%bias_init, source=bias_initialiser)
     end if
     if(present(verbose))then
        if(abs(verbose).gt.0)then
