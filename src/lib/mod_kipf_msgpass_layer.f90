@@ -267,16 +267,18 @@ contains
     end if
     allocate( this%num_edge_features(0:this%num_time_steps), source = 0 )
     this%use_graph_input = .true.
+    if(allocated(this%activation)) deallocate(this%activation)
     if(.not.allocated(activation))then
        this%activation = activation_setup("none")
     else
-       this%activation = activation
+       allocate(this%activation, source=activation)
     end if
+    if(allocated(this%kernel_init)) deallocate(this%kernel_init)
     if(.not.allocated(kernel_initialiser))then
        buffer = get_default_initialiser(this%activation%name)
        this%kernel_init = initialiser_setup(buffer)
     else
-       this%kernel_init = kernel_initialiser
+       allocate(this%kernel_init, source=kernel_initialiser)
     end if
     if(present(verbose))then
        if(abs(verbose).gt.0)then

@@ -273,18 +273,20 @@ contains
     this%output_rank = 1
     this%use_bias = use_bias
     this%num_outputs = num_outputs
+    if(allocated(this%activation)) deallocate(this%activation)
     if(.not.allocated(activation))then
        this%activation = activation_setup("none")
     else
-       this%activation = activation
+       allocate(this%activation, source=activation)
     end if
+    if(allocated(this%kernel_init)) deallocate(this%kernel_init)
     if(.not.allocated(kernel_initialiser))then
        buffer = get_default_initialiser(this%activation%name)
        this%kernel_init = initialiser_setup(buffer)
     else
-       if(allocated(this%kernel_init)) deallocate(this%kernel_init)
        allocate(this%kernel_init, source=kernel_initialiser)
     end if
+    if(allocated(this%bias_init)) deallocate(this%bias_init)
     if(.not.allocated(bias_initialiser))then
        buffer = get_default_initialiser( &
             this%activation%name, &

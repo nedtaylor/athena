@@ -28,7 +28,7 @@ program pinn_chemical_example
   ! training loop variables
   integer :: num_tests = 10, num_epochs = 100, batch_size = 8
   integer :: num_time_steps = 2
-  integer :: i, n, s
+  integer :: i, j, n, s
 
   integer :: num_dense_inputs = 10, num_outputs = 1
   integer :: num_params
@@ -185,7 +185,12 @@ program pinn_chemical_example
         n = min(batch_size, size(graphs_in,2) - s + 1)
         if(n .lt. batch_size) cycle
         predicted => network%forward_eval(graphs_in(1:1,s:s+batch_size-1))
-        loss_method%expected_forces = forces(1:size(predicted,2))
+        if(allocated(loss_method%expected_forces)) &
+             deallocate(loss_method%expected_forces)
+        allocate(loss_method%expected_forces(batch_size))
+        do j = 1, batch_size
+           loss_method%expected_forces(j) = forces(s + j - 1)
+        end do
         loss_method%expected_forces(:)%is_temporary = .false.
         loss_method%expected_forces(:)%fix_pointer = .true.
         expected(1,1)%val = output(1,1)%val(:,s:s+batch_size-1)

@@ -382,17 +382,20 @@ contains
        )
        this%pad = this%hlf
     end select
+    if(allocated(this%activation)) deallocate(this%activation)
     if(.not.allocated(activation))then
        this%activation = activation_setup("none")
     else
-       this%activation = activation
+       allocate(this%activation, source=activation)
     end if
+    if(allocated(this%kernel_init)) deallocate(this%kernel_init)
     if(.not.allocated(kernel_initialiser))then
        buffer = get_default_initialiser(this%activation%name)
        this%kernel_init = initialiser_setup(buffer)
     else
-       this%kernel_init = kernel_initialiser
+       allocate(this%kernel_init, source=kernel_initialiser)
     end if
+    if(allocated(this%bias_init)) deallocate(this%bias_init)
     if(.not.allocated(bias_initialiser))then
        buffer = get_default_initialiser( &
             this%activation%name, &
@@ -400,7 +403,7 @@ contains
        )
        this%bias_init = initialiser_setup(buffer)
     else
-       this%bias_init = bias_initialiser
+       allocate(this%bias_init, source=bias_initialiser)
     end if
     if(present(verbose))then
        if(abs(verbose).gt.0)then

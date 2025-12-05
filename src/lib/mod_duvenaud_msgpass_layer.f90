@@ -381,18 +381,19 @@ contains
     if(.not.allocated(message_activation))then
        this%activation = activation_setup(default_message_actv_name)
     else
-       this%activation = message_activation
+       allocate( this%activation, source=message_activation )
     end if
     if(.not.allocated(readout_activation))then
        this%activation_readout = activation_setup(default_readout_actv_name)
     else
-       this%activation_readout = readout_activation
+       allocate(this%activation_readout, source=readout_activation)
     end if
+    if(allocated(this%kernel_init)) deallocate(this%kernel_init)
     if(.not.allocated(kernel_initialiser))then
        buffer = get_default_initialiser(this%activation%name)
        this%kernel_init = initialiser_setup(buffer)
     else
-       this%kernel_init = kernel_initialiser
+       allocate(this%kernel_init, source=kernel_initialiser)
     end if
     if(present(verbose))then
        if(abs(verbose).gt.0)then

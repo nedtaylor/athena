@@ -285,15 +285,17 @@ contains
     this%use_bias = .true.
     this%momentum = momentum
     this%epsilon = epsilon
+    if(allocated(this%kernel_init)) deallocate(this%kernel_init)
     if(.not.allocated(gamma_initialiser))then
        this%kernel_init = initialiser_setup('ones')
     else
-       this%kernel_init = gamma_initialiser
+       allocate(this%kernel_init, source=gamma_initialiser)
     end if
+    if(allocated(this%bias_init)) deallocate(this%bias_init)
     if(.not.allocated(beta_initialiser))then
        this%bias_init = initialiser_setup('zeros')
     else
-       this%bias_init = beta_initialiser
+       allocate(this%bias_init, source=beta_initialiser)
     end if
     if(.not.allocated(moving_mean_initialiser))then
        this%moving_mean_init = initialiser_setup('zeros')
