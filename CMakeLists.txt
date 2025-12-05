@@ -118,8 +118,8 @@ endif()
 
 # Define the sources
 set(SRC_DIR src)
-set(LIB_DIR ${SRC_DIR}/lib)
-# Automatically find all Fortran files in lib/
+set(LIB_DIR ${SRC_DIR}/athena)
+# Automatically find all Fortran files in athena/
 file(GLOB LIB_FILES "${LIB_DIR}/*.f90")
 
 # Collect the main source file
