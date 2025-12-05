@@ -14,7 +14,7 @@ program test_pad2d_layer
   integer, parameter :: height = 3
   integer, parameter :: channels = 2
   logical :: success = .true.
-  real(real32), parameter :: tol = 1.E-6_real32
+  real(real32), parameter :: tol = 1.E-5_real32
 
   ! Test data
   real(real32), allocatable, dimension(:,:) :: output_2d

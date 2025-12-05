@@ -298,19 +298,19 @@ contains
           do concurrent( &
                s = 1:input_shape(4), &
                m = 1:input_shape(3), &
-               j = adj_ja(1,(f-1)*4 + 3 + adj_ja_offset) : &
-                    adj_ja(1,(f-1)*4 + 4 + adj_ja_offset), &
-               i = adj_ja(1,(f-1)*4 + 1 + adj_ja_offset) : &
-                    adj_ja(1,(f-1)*4 + 2 + adj_ja_offset) &
+               j = adj_ja(1,(f-1)*4 + 4 + adj_ja_offset) : &
+                    adj_ja(1,(f-1)*4 + 3 + adj_ja_offset), &
+               i = adj_ja(1,(f-1)*4 + 2 + adj_ja_offset) : &
+                    adj_ja(1,(f-1)*4 + 1 + adj_ja_offset) &
           )
              idx_in = i + (j-1) * input_size_h + &
                   (m-1) * input_size_h * input_size_w
              idx_out = ( &
-                  adj_ja(2,(f-1)*4 + 2 + adj_ja_offset) - &
+                  adj_ja(2,(f-1)*4 + 1 + adj_ja_offset) - &
                   (i - adj_ja(1,(f-1)*4 + 1 + adj_ja_offset)) &
              ) + ( &
                   adj_ja(2,(f-1)*4 + 4 + adj_ja_offset) - &
-                  (j - adj_ja(1,(f-1)*4 + 3 + adj_ja_offset)) - 1 &
+                  (j - adj_ja(1,(f-1)*4 + 4 + adj_ja_offset)) - 1 &
              ) * output_size_h + (m-1) * output_size_h * output_size_w
              output(idx_in, s) = output(idx_in, s) + upstream_grad(idx_out, s)
           end do
@@ -421,12 +421,12 @@ contains
                   s = 1:input_shape(4), &
                   m = 1:input_shape(3), &
                   j = adj_ja(1,(f-1)*4 + 3):adj_ja(1,(f-1)*4 + 4), &
-                  i = adj_ja(1,(f-1)*4 + 1):adj_ja(1,(f-1)*4 + 2))
+                  i = adj_ja(1,(f-1)*4 + 2):adj_ja(1,(f-1)*4 + 1))
                 idx_in = i + (j-1) * input_size_h + &
                      (m-1) * input_size_h * input_size_w
                 idx_out = &
                      ( &
-                          adj_ja(2,(f-1)*4 + 2) - &
+                          adj_ja(2,(f-1)*4 + 1) - &
                           (i - adj_ja(1,(f-1)*4 + 1)) &
                      ) + &
                      (j + adj_ja(2,(f-1)*4 + 3) - adj_ja(1,(f-1)*4 + 3) - 1) * &
@@ -438,7 +438,7 @@ contains
              do concurrent( &
                   s = 1:input_shape(4), &
                   m = 1:input_shape(3), &
-                  j = adj_ja(1,(f-1)*4 + 3):adj_ja(1,(f-1)*4 + 4), &
+                  j = adj_ja(1,(f-1)*4 + 4):adj_ja(1,(f-1)*4 + 3), &
                   i = adj_ja(1,(f-1)*4 + 1):adj_ja(1,(f-1)*4 + 2))
                 idx_in = i + (j-1) * input_size_h + &
                      (m-1) * input_size_h * input_size_w
@@ -448,7 +448,7 @@ contains
                           adj_ja(1,(f-1)*4 + 1) &
                      ) + ( &
                           adj_ja(2,(f-1)*4 + 4) - &
-                          (j - adj_ja(1,(f-1)*4 + 3)) - 1 &
+                          (j - adj_ja(1,(f-1)*4 + 4)) - 1 &
                      ) * output_size_h + &
                      (m-1) * output_size_h * output_size_w
                 output(idx_in, s) = output(idx_in, s) + &
