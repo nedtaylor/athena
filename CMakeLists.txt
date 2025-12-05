@@ -73,7 +73,7 @@ message(STATUS "coreutils source directory: ${coreutils_BUILD_DIRS}")
 FetchContent_Declare(
     diffstruc
     GIT_REPOSITORY https://github.com/nedtaylor/diffstruc.git
-    GIT_TAG        development
+    GIT_TAG        v1.1.0
     FIND_PACKAGE_ARGS NAMES diffstruc
 )
 FetchContent_MakeAvailable(diffstruc)
@@ -87,7 +87,7 @@ message(STATUS "diffstruc source directory: ${diffstruc_BUILD_DIRS}")
 FetchContent_Declare(
     graphstruc
     GIT_REPOSITORY https://github.com/nedtaylor/graphstruc.git
-    GIT_TAG        sparse_adjacency # v0.1.1
+    GIT_TAG        v0.2.0
     FIND_PACKAGE_ARGS NAMES graphstruc
 )
 FetchContent_MakeAvailable(graphstruc)
