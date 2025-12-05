@@ -138,6 +138,7 @@ contains
          onnx_create_layer_container('Selu', create_from_onnx_actv_layer), &
          onnx_create_layer_container('Sigmoid', create_from_onnx_actv_layer), &
          onnx_create_layer_container('Softmax', create_from_onnx_actv_layer), &
+         onnx_create_layer_container('Swish', create_from_onnx_actv_layer), &
          onnx_create_layer_container('Tanh', create_from_onnx_actv_layer) &
     ]
     if(present(addit_list))then
