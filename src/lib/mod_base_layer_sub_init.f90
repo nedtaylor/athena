@@ -153,6 +153,7 @@ contains
     !! Instance of the layer
     integer, dimension(:), intent(in) :: input_shape
     !! Input shape
+    integer, dimension(this%input_rank-1) :: pad_shape
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
@@ -176,8 +177,12 @@ contains
     !---------------------------------------------------------------------------
     ! initialise padding layer, if allocated
     !---------------------------------------------------------------------------
-    if(allocated(this%pad_layer)) &
-         call this%pad_layer%init(this%input_shape, verbose_)
+    if(allocated(this%pad_layer))then
+       call this%pad_layer%init(this%input_shape, verbose_)
+       pad_shape = pad_shape + 2 * this%pad_layer%pad
+    else
+       pad_shape = 0
+    end if
 
 
     !---------------------------------------------------------------------------
@@ -192,7 +197,7 @@ contains
     this%output_shape(this%input_rank) = this%num_filters
     this%output_shape(:this%input_rank-1) = floor( &
          ( &
-              this%input_shape(:this%input_rank-1) + 2 * this%pad - this%knl &
+              this%input_shape(:this%input_rank-1) + 2 * pad_shape - this%knl &
          ) / real(this%stp) &
     ) + 1
     this%num_params = this%get_num_params()

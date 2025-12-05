@@ -38,7 +38,7 @@ module athena__conv2d_layer
   private
 
   public :: conv2d_layer_type
-  public :: read_conv2d_layer, create_from_onnx_conv2d_layer
+  public :: read_conv2d_layer
 
 
   type, extends(conv_layer_type) :: conv2d_layer_type
@@ -112,9 +112,6 @@ contains
     if(allocated(this%dil)) deallocate(this%dil)
     if(allocated(this%knl)) deallocate(this%knl)
     if(allocated(this%stp)) deallocate(this%stp)
-    if(allocated(this%hlf)) deallocate(this%hlf)
-    if(allocated(this%pad)) deallocate(this%pad)
-    if(allocated(this%cen)) deallocate(this%cen)
 
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
@@ -365,34 +362,24 @@ contains
     if(allocated(this%dil)) deallocate(this%dil)
     if(allocated(this%knl)) deallocate(this%knl)
     if(allocated(this%stp)) deallocate(this%stp)
-    if(allocated(this%hlf)) deallocate(this%hlf)
-    if(allocated(this%pad)) deallocate(this%pad)
-    if(allocated(this%cen)) deallocate(this%cen)
     allocate( &
          this%dil(this%input_rank-1), &
          this%knl(this%input_rank-1), &
-         this%stp(this%input_rank-1), &
-         this%hlf(this%input_rank-1), &
-         this%pad(this%input_rank-1), &
-         this%cen(this%input_rank-1) &
+         this%stp(this%input_rank-1) &
     )
     this%dil = dilation
     this%knl = kernel_size
     this%stp = stride
-    this%cen = 2 - mod(this%knl, 2)
-    this%hlf   = (this%knl-1)/2
     this%num_filters = num_filters
     padding_ = trim(adjustl(padding))
 
     select case(trim(adjustl(to_lower(padding_))))
     case("valid", "none", "")
-       this%pad = 0
     case default
        this%pad_layer = pad2d_layer_type( &
-            padding = [ this%hlf ], &
+            padding = [ (this%knl-1)/2 ], &
             method = padding_ &
        )
-       this%pad = this%hlf
     end select
     if(allocated(this%activation)) deallocate(this%activation)
     if(.not.allocated(activation))then
@@ -467,7 +454,7 @@ contains
     !! Whether to use bias
     character(14) :: kernel_initialiser_name='', bias_initialiser_name=''
     !! Kernel and bias initialisers
-    character(20) :: padding, activation_name=''
+    character(20) :: padding='', activation_name=''
     !! Padding and activation function
     class(base_actv_type), allocatable :: activation
     !! Activation function
@@ -795,37 +782,6 @@ contains
     )
 
   end subroutine build_from_onnx_conv2d
-!###############################################################################
-
-
-!###############################################################################
-  function create_from_onnx_conv2d_layer( &
-       node, initialisers, value_info, verbose &
-  ) result(layer)
-    !! Build 2D convolutional layer from attributes and return layer
-    implicit none
-
-    ! Arguments
-    type(onnx_node_type), intent(in) :: node
-    !! ONNX node information
-    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
-    !! ONNX initialiser information
-    type(onnx_tensor_type), dimension(:), intent(in) :: value_info
-    !! ONNX value info information
-    integer, optional, intent(in) :: verbose
-    !! Verbosity level
-    class(base_layer_type), allocatable :: layer
-    !! Instance of the 2D convolutional layer
-
-    ! Local variables
-    integer :: verbose_ = 0
-    !! Verbosity level
-
-    if(present(verbose)) verbose_ = verbose
-    allocate(layer, source=conv2d_layer_type())
-    call layer%build_from_onnx(node, initialisers, value_info, verbose=verbose_)
-
-  end function create_from_onnx_conv2d_layer
 !###############################################################################
 
 

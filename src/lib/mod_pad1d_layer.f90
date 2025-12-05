@@ -19,6 +19,8 @@ module athena__pad1d_layer
   use athena__base_layer, only: pad_layer_type, base_layer_type
   use diffstruc, only: array_type
   use athena__diffstruc_extd, only: pad1d
+  use athena__misc_types, only: &
+       onnx_node_type, onnx_initialiser_type, onnx_tensor_type
   implicit none
 
 
@@ -306,6 +308,67 @@ contains
     call layer%read(unit, verbose=verbose_)
 
   end function read_pad1d_layer
+!###############################################################################
+
+
+!###############################################################################
+  subroutine build_from_onnx_pad1d( &
+       this, node, initialisers, value_info, verbose &
+  )
+    !! Read ONNX attributes for 1D padding layer
+    implicit none
+
+    ! Arguments
+    class(pad1d_layer_type), intent(inout) :: this
+    !! Instance of the 1D padding layer
+    type(onnx_node_type), intent(in) :: node
+    !! ONNX node information
+    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
+    !! ONNX initialiser information
+    type(onnx_tensor_type), dimension(:), intent(in) :: value_info
+    !! ONNX value info
+    integer, intent(in) :: verbose
+    !! Verbosity level
+
+    ! Local variables
+    integer :: i
+    !! Loop index
+    integer, dimension(1) :: padding
+    !! Padding sizes
+    character(256) :: val, mode
+    !! Attribute value and mode
+
+    ! Set default values
+    padding = 0
+    mode = "constant"
+
+    ! Parse ONNX attributes
+    do i = 1, size(node%attributes)
+       val = node%attributes(i)%val
+       select case(trim(adjustl(node%attributes(i)%name)))
+       case("pads")
+          read(val,*) padding
+       case("mode")
+          mode = trim(adjustl(val))
+       case default
+          ! Do nothing
+          write(0,*) "WARNING: Unrecognised attribute in ONNX PAD1D &
+               &layer: ", trim(adjustl(node%attributes(i)%name))
+       end select
+    end do
+
+    ! Check size of initialisers
+    if(size(initialisers).gt.0)then
+       write(0,*) "WARNING: initialisers found for ONNX PAD1D layer"
+    end if
+
+    call this%set_hyperparams( &
+         padding = padding, &
+         method = mode, &
+         verbose = verbose &
+    )
+
+  end subroutine build_from_onnx_pad1d
 !###############################################################################
 
 

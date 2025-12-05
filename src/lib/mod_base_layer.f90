@@ -479,10 +479,8 @@ module athena__base_layer
      !! Number of channels
      integer :: num_filters
      !! Number of filters
-     integer, allocatable, dimension(:) :: knl, stp, pad, dil
-     !! Kernel, stride, and padding sizes
-     integer, allocatable, dimension(:) :: hlf, cen
-     !! Half and centre sizes
+     integer, allocatable, dimension(:) :: knl, stp, dil
+     !! Kernel, stride, and dilation sizes
      real(real32), pointer :: bias(:) => null()
      !! Bias pointer
      class(pad_layer_type), allocatable :: pad_layer

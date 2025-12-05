@@ -18,6 +18,8 @@ module athena__avgpool1d_layer
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: pool_layer_type, base_layer_type
   use diffstruc, only: array_type
+  use athena__misc_types, only: &
+       onnx_node_type, onnx_initialiser_type, onnx_tensor_type
   use athena__diffstruc_extd, only: avgpool1d
   implicit none
 
@@ -305,6 +307,65 @@ contains
     call layer%read(unit, verbose=verbose_)
 
   end function read_avgpool1d_layer
+!###############################################################################
+
+
+!###############################################################################
+  subroutine build_from_onnx_avgpool1d( &
+       this, node, initialisers, value_info, verbose &
+  )
+    !! Read ONNX attributes for 1D average pooling layer
+    implicit none
+
+    ! Arguments
+    class(avgpool1d_layer_type), intent(inout) :: this
+    !! Instance of the 1D average pooling layer
+    type(onnx_node_type), intent(in) :: node
+    !! ONNX node information
+    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
+    !! ONNX initialiser information
+    type(onnx_tensor_type), dimension(:), intent(in) :: value_info
+    !! ONNX value info
+    integer, intent(in) :: verbose
+    !! Verbosity level
+
+    ! Local variables
+    integer :: i
+    !! Loop index
+    integer, dimension(1) :: stride, pool_size
+    !! Stride and kernel size
+    character(256) :: val
+    !! Attribute value
+
+    ! Set default values
+    stride = 1
+    pool_size = 2
+
+    do i = 1, size(node%attributes)
+       val = node%attributes(i)%val
+       select case(trim(adjustl(node%attributes(i)%name)))
+       case("kernel_shape")
+          read(val,*) pool_size
+       case("strides")
+          read(val,*) stride
+       case default
+          ! Do nothing
+          write(0,*) "WARNING: Unrecognised attribute in ONNX AVGPOOL1D layer: ", &
+               trim(adjustl(node%attributes(i)%name))
+       end select
+    end do
+
+    ! Check size of initialisers is zero
+    if(size(initialisers).ne.0)then
+       write(0,*) "WARNING: initialisers not used for ONNX AVGPOOL1D layer"
+    end if
+
+    call this%set_hyperparams( &
+         stride = stride, &
+         pool_size = pool_size &
+    )
+
+  end subroutine build_from_onnx_avgpool1d
 !###############################################################################
 
 

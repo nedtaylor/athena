@@ -14,25 +14,31 @@ submodule(athena__container_layer) athena__container_layer_submodule
   use athena__batchnorm2d_layer, only: read_batchnorm2d_layer
   use athena__batchnorm3d_layer, only: read_batchnorm3d_layer
   use athena__conv1d_layer, only: read_conv1d_layer
-  use athena__conv2d_layer, only: read_conv2d_layer, create_from_onnx_conv2d_layer
+  use athena__conv2d_layer, only: read_conv2d_layer
   use athena__conv3d_layer, only: read_conv3d_layer
   use athena__dropblock2d_layer, only: read_dropblock2d_layer
   use athena__dropblock3d_layer, only: read_dropblock3d_layer
-  use athena__dropout_layer, only: read_dropout_layer
+  use athena__dropout_layer, only: read_dropout_layer, create_from_onnx_dropout_layer
   use athena__duvenaud_msgpass_layer, only: read_duvenaud_msgpass_layer
   use athena__flatten_layer, only: read_flatten_layer, create_from_onnx_flatten_layer
   use athena__full_layer, only: read_full_layer, create_from_onnx_full_layer
-  use athena__input_layer, only: read_input_layer
+  use athena__input_layer, only: read_input_layer, create_from_onnx_input_layer
   use athena__kipf_msgpass_layer, only: read_kipf_msgpass_layer
   use athena__maxpool1d_layer, only: read_maxpool1d_layer
-  use athena__maxpool2d_layer, only: &
-       read_maxpool2d_layer, create_from_onnx_maxpool2d_layer
+  use athena__maxpool2d_layer, only: read_maxpool2d_layer
   use athena__maxpool3d_layer, only: read_maxpool3d_layer
   use athena__pad1d_layer, only: read_pad1d_layer
   use athena__pad2d_layer, only: read_pad2d_layer
   use athena__pad3d_layer, only: read_pad3d_layer
   use athena__recurrent_layer, only: read_recurrent_layer
-  use athena__reshape_layer, only: read_reshape_layer
+  use athena__reshape_layer, only: read_reshape_layer, create_from_onnx_reshape_layer
+
+  use athena__onnx_creators, only: &
+       create_from_onnx_avgpool_layer, &
+       create_from_onnx_batchnorm_layer, &
+       create_from_onnx_conv_layer, &
+       create_from_onnx_maxpool_layer, &
+       create_from_onnx_pad_layer
 
 contains
 
@@ -117,12 +123,22 @@ contains
          allocate(list_of_onnx_layer_creators(0))
     list_of_onnx_layer_creators = [ &
          list_of_onnx_layer_creators, &
-         onnx_create_layer_container('Conv', create_from_onnx_conv2d_layer), &
+         onnx_create_layer_container('AvgPool', create_from_onnx_avgpool_layer), &
+         onnx_create_layer_container('BatchNormalization', &
+              create_from_onnx_batchnorm_layer &
+         ), &
+         onnx_create_layer_container('Conv', create_from_onnx_conv_layer), &
+         onnx_create_layer_container('Dropout', create_from_onnx_dropout_layer), &
          onnx_create_layer_container('Flatten', create_from_onnx_flatten_layer), &
          onnx_create_layer_container('MatMul', create_from_onnx_full_layer), &
-         onnx_create_layer_container('MaxPool', create_from_onnx_maxpool2d_layer), &
+         onnx_create_layer_container('MaxPool', create_from_onnx_maxpool_layer), &
+         onnx_create_layer_container('Pad', create_from_onnx_pad_layer), &
          onnx_create_layer_container('Relu', create_from_onnx_actv_layer), &
-         onnx_create_layer_container('Softmax', create_from_onnx_actv_layer) &
+         onnx_create_layer_container('Reshape', create_from_onnx_reshape_layer), &
+         onnx_create_layer_container('Selu', create_from_onnx_actv_layer), &
+         onnx_create_layer_container('Sigmoid', create_from_onnx_actv_layer), &
+         onnx_create_layer_container('Softmax', create_from_onnx_actv_layer), &
+         onnx_create_layer_container('Tanh', create_from_onnx_actv_layer) &
     ]
     if(present(addit_list))then
        list_of_onnx_layer_creators = [list_of_onnx_layer_creators, addit_list]

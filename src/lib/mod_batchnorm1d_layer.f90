@@ -20,7 +20,8 @@ module athena__batchnorm1d_layer
   !! Reference: Ioffe & Szegedy (2015), ICML
   use coreutils, only: real32, stop_program, print_warning
   use athena__base_layer, only: batch_layer_type, base_layer_type
-  use athena__misc_types, only: base_init_type
+  use athena__misc_types, only: base_init_type, &
+       onnx_node_type, onnx_initialiser_type, onnx_tensor_type
   use diffstruc, only: array_type
   use athena__diffstruc_extd, only: batchnorm_array_type, &
        batchnorm, batchnorm_inference
@@ -572,6 +573,87 @@ contains
     call layer%read(unit, verbose=verbose_)
 
   end function read_batchnorm1d_layer
+!###############################################################################
+
+
+!###############################################################################
+  subroutine build_from_onnx_batchnorm1d( &
+       this, node, initialisers, value_info, verbose &
+  )
+    !! Read ONNX attributes for 1D batch normalisation layer
+    use athena__initialiser_data, only: data_init_type
+    implicit none
+
+    ! Arguments
+    class(batchnorm1d_layer_type), intent(inout) :: this
+    !! Instance of the 1D batch normalisation layer
+    type(onnx_node_type), intent(in) :: node
+    !! ONNX node information
+    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
+    !! ONNX initialiser information
+    type(onnx_tensor_type), dimension(:), intent(in) :: value_info
+    !! ONNX value info
+    integer, intent(in) :: verbose
+    !! Verbosity level
+
+    ! Local variables
+    integer :: i
+    !! Loop index
+    real(real32) :: epsilon, momentum
+    !! Epsilon and momentum values
+    character(256) :: val
+    !! Attribute value
+    class(base_init_type), allocatable :: gamma_initialiser, beta_initialiser
+    class(base_init_type), allocatable :: &
+         moving_mean_initialiser, moving_variance_initialiser
+
+    ! Set default values
+    epsilon = 1.E-5_real32
+    momentum = 0.9_real32
+
+    ! Parse ONNX attributes
+    do i = 1, size(node%attributes)
+       val = node%attributes(i)%val
+       select case(trim(adjustl(node%attributes(i)%name)))
+       case("epsilon")
+          read(val,*) epsilon
+       case("momentum")
+          read(val,*) momentum
+       case default
+          ! Do nothing
+          write(0,*) "WARNING: Unrecognised attribute in ONNX BATCHNORM1D &
+               &layer: ", trim(adjustl(node%attributes(i)%name))
+       end select
+    end do
+
+    ! Check for 4 initialisers: gamma, beta, mean, variance
+    if(size(initialisers).ne.4)then
+       call stop_program("ONNX BATCHNORM1D layer requires 4 initialisers &
+            &(gamma, beta, mean, variance)")
+       return
+    end if
+
+    ! ONNX BatchNormalization order: gamma, beta, mean, variance
+    gamma_initialiser = data_init_type( data = initialisers(1)%data )
+    beta_initialiser = data_init_type( data = initialisers(2)%data )
+    moving_mean_initialiser = data_init_type( data = initialisers(3)%data )
+    moving_variance_initialiser = data_init_type( data = initialisers(4)%data )
+
+    call this%set_hyperparams( &
+         momentum = momentum, &
+         epsilon = epsilon, &
+         gamma_init_mean = 1.0_real32, &
+         gamma_init_std = 0.0_real32, &
+         beta_init_mean = 0.0_real32, &
+         beta_init_std = 0.0_real32, &
+         gamma_initialiser = gamma_initialiser, &
+         beta_initialiser = beta_initialiser, &
+         moving_mean_initialiser = moving_mean_initialiser, &
+         moving_variance_initialiser = moving_variance_initialiser, &
+         verbose = verbose &
+    )
+
+  end subroutine build_from_onnx_batchnorm1d
 !###############################################################################
 
 

@@ -27,7 +27,7 @@ module athena__maxpool2d_layer
   private
 
   public :: maxpool2d_layer_type
-  public :: read_maxpool2d_layer, create_from_onnx_maxpool2d_layer
+  public :: read_maxpool2d_layer
 
 
   type, extends(pool_layer_type) :: maxpool2d_layer_type
@@ -378,41 +378,10 @@ contains
 
     call this%set_hyperparams( &
          stride = stride, &
-         pool_size=pool_size &
+         pool_size = pool_size &
     )
 
   end subroutine build_from_onnx_maxpool2d
-!###############################################################################
-
-
-!###############################################################################
-  function create_from_onnx_maxpool2d_layer( &
-       node, initialisers, value_info, verbose &
-  ) result(layer)
-    !! Build 2D max pooling layer from attributes and return layer
-    implicit none
-
-    ! Arguments
-    type(onnx_node_type), intent(in) :: node
-    !! ONNX node information
-    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
-    !! ONNX initialiser information
-    type(onnx_tensor_type), dimension(:), intent(in) :: value_info
-    !! ONNX value info
-    integer, optional, intent(in) :: verbose
-    !! Verbosity level
-    class(base_layer_type), allocatable :: layer
-    !! Instance of the 2D max pooling layer
-
-    ! Local variables
-    integer :: verbose_ = 0
-    !! Verbosity level
-
-    if(present(verbose)) verbose_ = verbose
-    allocate(layer, source=maxpool2d_layer_type())
-    call layer%build_from_onnx(node, initialisers, value_info, verbose=verbose_)
-
-  end function create_from_onnx_maxpool2d_layer
 !###############################################################################
 
 

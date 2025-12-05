@@ -31,7 +31,8 @@ module athena__conv3d_layer
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: conv_layer_type, base_layer_type
   use athena__pad3d_layer, only: pad3d_layer_type
-  use athena__misc_types, only: base_actv_type, base_init_type
+  use athena__misc_types, only: base_actv_type, base_init_type, &
+       onnx_node_type, onnx_initialiser_type, onnx_tensor_type
   use diffstruc, only: array_type
   use athena__diffstruc_extd, only: conv3d, add_bias
   implicit none
@@ -110,9 +111,6 @@ contains
     if(allocated(this%dil)) deallocate(this%dil)
     if(allocated(this%knl)) deallocate(this%knl)
     if(allocated(this%stp)) deallocate(this%stp)
-    if(allocated(this%hlf)) deallocate(this%hlf)
-    if(allocated(this%pad)) deallocate(this%pad)
-    if(allocated(this%cen)) deallocate(this%cen)
 
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
@@ -363,34 +361,24 @@ contains
     if(allocated(this%dil)) deallocate(this%dil)
     if(allocated(this%knl)) deallocate(this%knl)
     if(allocated(this%stp)) deallocate(this%stp)
-    if(allocated(this%hlf)) deallocate(this%hlf)
-    if(allocated(this%pad)) deallocate(this%pad)
-    if(allocated(this%cen)) deallocate(this%cen)
     allocate( &
          this%dil(this%input_rank-1), &
          this%knl(this%input_rank-1), &
-         this%stp(this%input_rank-1), &
-         this%hlf(this%input_rank-1), &
-         this%pad(this%input_rank-1), &
-         this%cen(this%input_rank-1) &
+         this%stp(this%input_rank-1) &
     )
     this%dil = dilation
     this%knl = kernel_size
     this%stp = stride
-    this%cen = 2 - mod(this%knl, 2)
-    this%hlf   = (this%knl-1)/2
     this%num_filters = num_filters
     padding_ = trim(adjustl(padding))
 
     select case(trim(adjustl(to_lower(padding_))))
     case("valid", "none", "")
-       this%pad = 0
     case default
        this%pad_layer = pad3d_layer_type( &
-            padding = [ this%hlf ], &
+            padding = [ (this%knl-1)/2 ], &
             method = padding_ &
        )
-       this%pad = this%hlf
     end select
     if(allocated(this%activation)) deallocate(this%activation)
     if(.not.allocated(activation))then
@@ -465,7 +453,7 @@ contains
     !! Whether to use bias
     character(14) :: kernel_initialiser_name='', bias_initialiser_name=''
     !! Kernel and bias initialisers
-    character(20) :: padding, activation_name=''
+    character(20) :: padding='', activation_name=''
     !! Padding and activation function
     class(base_actv_type), allocatable :: activation
     !! Activation function
@@ -661,6 +649,148 @@ contains
     call layer%read(unit, verbose=verbose_)
 
   end function read_conv3d_layer
+!###############################################################################
+
+
+!##############################################################################!
+! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
+!##############################################################################!
+
+
+!###############################################################################
+  subroutine build_from_onnx_conv3d( &
+       this, node, initialisers, value_info, verbose &
+  )
+    !! Read ONNX attributes for 3D convolutional layer
+    use athena__activation, only: activation_setup
+    use athena__initialiser_data, only: data_init_type
+    implicit none
+
+    ! Arguments
+    class(conv3d_layer_type), intent(inout) :: this
+    !! Instance of the 3D convolutional layer
+    type(onnx_node_type), intent(in) :: node
+    !! ONNX node information
+    type(onnx_initialiser_type), dimension(:), intent(in) :: initialisers
+    !! ONNX initialiser information
+    type(onnx_tensor_type), dimension(:), intent(in) :: value_info
+    !! ONNX value info information
+    integer, intent(in) :: verbose
+    !! Verbosity level
+
+    ! Local variables
+    integer :: i, weight_idx, bias_idx
+    !! Loop index and temporary integer
+    integer :: num_filters
+    !! Number of filters
+    logical :: use_bias = .true.
+    !! Whether to use bias
+    integer, dimension(3) :: padding, stride, kernel_size, dilation
+    !! Padding, stride, kernel size, and dilation
+    integer, dimension(:), allocatable :: dims
+    !! Dimensions
+    character(256) :: val
+    !! Attribute value
+    class(base_actv_type), allocatable :: activation
+    !! Activation function
+    class(base_init_type), allocatable :: kernel_initialiser, bias_initialiser
+
+    ! Set default values
+    padding = 0
+    stride = 1
+    kernel_size = 3
+    dilation = 1
+
+    do i = 1, size(node%attributes)
+       val = node%attributes(i)%val
+       select case(trim(adjustl(node%attributes(i)%name)))
+       case("pads")
+          read(val,*) padding
+       case("strides")
+          read(val,*) stride
+       case("kernel_shape")
+          read(val,*) kernel_size
+       case("dilations")
+          read(val,*) dilation
+       case default
+          ! Do nothing
+          write(0,*) "WARNING: Unrecognised attribute in ONNX CONV3D layer: ", &
+               trim(adjustl(node%attributes(i)%name))
+       end select
+    end do
+
+    weight_idx = -1
+    bias_idx = -1
+    allocate(dims(0))
+    if(size(initialisers).lt.1)then
+       call stop_program("ONNX CONV3D layer requires at least 1 initialiser")
+       return
+    else
+       ! check which initialiser has weights and which has biases
+       do i = 1, size(initialisers)
+          if(allocated(initialisers(i)%dims))then
+             dims = [ dims, product(initialisers(i)%dims) ]
+          end if
+       end do
+    end if
+
+    select case(size(dims))
+    case(1)
+       if(mod(dims(1), product(kernel_size)).eq.0)then
+          weight_idx = 1
+       else
+          call stop_program("ONNX CONV3D layer initialiser dimensions do not &
+               &match kernel size")
+          return
+       end if
+       use_bias = .false.
+    case(2)
+       ! check which is weight and which is bias
+       if(mod(dims(1), product(kernel_size)).eq.0 .and. &
+            dims(1)/product(kernel_size).eq.dims(2))then
+          weight_idx = 1
+          bias_idx = 2
+       elseif(mod(dims(2), product(kernel_size)).eq.0 .and. &
+            dims(2)/product(kernel_size).eq.dims(1))then
+          weight_idx = 2
+          bias_idx = 1
+       else
+          call stop_program("ONNX CONV3D layer initialiser dimensions do not &
+               &match kernel size")
+          return
+       end if
+    case default
+       call stop_program("ONNX CONV3D layer number of initialisers not &
+            &supported")
+       return
+    end select
+
+    num_filters = dims(weight_idx) / product(kernel_size)
+    if(num_filters .ne. value_info(1)%dims(2))then
+       call stop_program("ONNX CONV3D layer number of filters does not match &
+            &value info")
+       return
+    end if
+
+    kernel_initialiser = data_init_type( data = initialisers(weight_idx)%data )
+    if(use_bias)then
+       bias_initialiser = data_init_type( data = initialisers(bias_idx)%data )
+    end if
+
+    activation = activation_setup("none")
+    call this%set_hyperparams( &
+         num_filters = num_filters, &
+         kernel_size = kernel_size, stride = stride, &
+         dilation = dilation, &
+         padding = "valid", &
+         use_bias = use_bias, &
+         activation = activation, &
+         verbose = verbose, &
+         kernel_initialiser = kernel_initialiser, &
+         bias_initialiser = bias_initialiser &
+    )
+
+  end subroutine build_from_onnx_conv3d
 !###############################################################################
 
 

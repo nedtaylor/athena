@@ -395,6 +395,33 @@ contains
     integer, intent(in) :: verbose
     !! Verbosity level
 
+    ! Local variables
+    integer, dimension(:), allocatable :: output_shape
+    !! Output shape
+
+    ! Check size of initialisers is zero or one (shape can be an initialiser)
+    if(size(initialisers).gt.1)then
+       write(0,*) "WARNING: Multiple initialisers found for ONNX RESHAPE layer"
+    end if
+
+    ! Extract output shape from value_info (excluding batch dimension)
+    if(allocated(value_info(1)%dims))then
+       if(size(value_info(1)%dims).gt.1)then
+          output_shape = value_info(1)%dims(2:)
+       else
+          allocate(output_shape(1))
+          output_shape(1) = value_info(1)%dims(1)
+       end if
+    else
+       call stop_program("ONNX RESHAPE layer requires output shape in value_info")
+       return
+    end if
+
+    call this%set_hyperparams( &
+         output_shape = output_shape, &
+         verbose = verbose &
+    )
+
   end subroutine build_from_onnx_reshape
 !###############################################################################
 

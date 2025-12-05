@@ -54,7 +54,7 @@ contains
     !! Buffer for formatting
 
     ! Allocate attributes array
-    allocate(attributes(2))
+    allocate(attributes(3))
     attributes(1)%name = "kernel_shape"
     write(fmt,'("(",I0,"(1X,I0))")') size(this%knl)
     write(buffer,fmt) this%knl
@@ -66,6 +66,12 @@ contains
     write(buffer,fmt) this%stp
     attributes(2)%val = trim(adjustl(buffer))
     attributes(2)%type = "ints"
+
+    attributes(3)%name = "dilations"
+    write(fmt,'("(",I0,"(1X,I0))")') size(this%dil)
+    write(buffer,fmt) this%dil
+    attributes(3)%val = trim(adjustl(buffer))
+    attributes(3)%type = "ints"
 
   end function get_attributes_conv
 !-------------------------------------------------------------------------------
