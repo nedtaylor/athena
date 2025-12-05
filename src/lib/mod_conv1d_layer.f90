@@ -5,16 +5,26 @@ module athena__conv1d_layer
   !! such as time series or text. Applies learnable filters along sequence.
   !!
   !! Mathematical operation:
-  !!   output[i,k] = σ( Σ_{c,m} input[i+m, c] * kernel[m,c,k] + bias[k] )
+  !! \[
+  !!   y_{i,k}
+  !!   =
+  !!   \sigma\left(
+  !!     \sum_{c=1}^{C_{in}}
+  !!     \sum_{m=0}^{K_w-1}
+  !!       x_{i+m,\,c}\; w_{m,\,c,\,k}
+  !!     + b_k
+  !!   \right)
+  !! \]
   !!
   !! where:
-  !!   i is the position along the sequence
-  !!   k is the output channel (filter) index
-  !!   m is the kernel offset
-  !!   c is the input channel index
-  !!   σ is the activation function
+  !!   - \(i\) is the spatial coordinate in the output
+  !!   - \(k\) is the output channel (filter) index
+  !!   - \(m\) is the kernel offset
+  !!   - \(c\) is the input channel index
+  !!   - \(K_w\) is the kernel width
+  !!   - \(\sigma\) is the activation function
   !!
-  !! Shape: input (length, channels) -> output (length', filters)
+  !! Shape: \((W, C_{in}) \rightarrow (W', C_{out})\)
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: conv_layer_type, base_layer_type
   use athena__pad1d_layer, only: pad1d_layer_type
@@ -37,8 +47,6 @@ module athena__conv1d_layer
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_conv1d
      !! Set hyperparameters for 1D convolutional layer
-     procedure, pass(this) :: print_to_unit => print_to_unit_conv1d
-     !! Print 1D convolutional layer to unit
      procedure, pass(this) :: read => read_conv1d
      !! Read 1D convolutional layer from file
 
@@ -409,61 +417,6 @@ contains
 !##############################################################################!
 ! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
 !##############################################################################!
-
-
-!###############################################################################
-  subroutine print_to_unit_conv1d(this, unit)
-    !! Print 1D convolutional layer to unit
-    use coreutils, only: to_upper
-    implicit none
-
-    ! Arguments
-    class(conv1d_layer_type), intent(in) :: this
-    !! Instance of the 1D convolutional layer
-    integer, intent(in) :: unit
-    !! File unit
-
-    ! Local variables
-    integer :: l, num_elements
-    !! Loop index
-    character(:), allocatable :: padding_type
-    !! Padding type
-
-    ! Determine padding method
-    padding_type = ""
-    if(this%pad(1).eq.this%knl(1)-1)then
-       padding_type = "full"
-    elseif(this%pad(1).eq.0)then
-       padding_type = "valid"
-    else
-       padding_type = "same"
-    end if
-
-
-    ! Write initial parameters
-    !---------------------------------------------------------------------------
-    write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
-    write(unit,'(3X,"NUM_FILTERS = ",I0)') this%num_filters
-    write(unit,'(3X,"KERNEL_SIZE =",1X,I0)') this%knl(1)
-    write(unit,'(3X,"STRIDE =",1X,I0)') this%stp(1)
-    write(unit,'(3X,"DILATION =",1X,I0)') this%dil(1)
-    write(unit,'(3X,"PADDING = ",A)') padding_type
-
-    write(unit,'(3X,"USE_BIAS = ",L1)') this%use_bias
-    if(this%activation%name .ne. 'none')then
-       call this%activation%print_to_unit(unit)
-    end if
-
-
-    ! Write weights and biases
-    !---------------------------------------------------------------------------
-    write(unit,'("WEIGHTS")')
-    write(unit,'(5(E16.8E2))') this%params(1)%val(:,1)
-    write(unit,'(5(E16.8E2))') this%params(2)%val(:,1)
-    write(unit,'("END WEIGHTS")')
-
-  end subroutine print_to_unit_conv1d
-!###############################################################################
 
 
 !###############################################################################

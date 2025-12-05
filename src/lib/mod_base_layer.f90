@@ -496,6 +496,8 @@ module athena__base_layer
      !! Initialise the layer
      procedure, pass(this) :: get_attributes => get_attributes_conv
      !! Get the attributes of the layer (for ONNX export)
+     procedure, pass(this) :: print_to_unit => print_to_unit_conv
+     !! Print layer to unit
   end type conv_layer_type
 
   interface
@@ -514,6 +516,14 @@ module athena__base_layer
        class(conv_layer_type), intent(in) :: this
        type(onnx_attribute_type), allocatable, dimension(:) :: attributes
      end function get_attributes_conv
+
+     module subroutine print_to_unit_conv(this, unit)
+       !! Print layer to unit
+       class(conv_layer_type), intent(in) :: this
+       !! Instance of the layer
+       integer, intent(in) :: unit
+       !! File unit
+     end subroutine print_to_unit_conv
   end interface
 
   type, abstract, extends(learnable_layer_type) :: batch_layer_type

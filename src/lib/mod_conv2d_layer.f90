@@ -5,7 +5,14 @@ module athena__conv2d_layer
   !! Applies learnable filters to extract spatial features.
   !!
   !! Mathematical operation:
-  !! \[ y_{i,j,k} = \sigma\left(\sum_{c=1}^{C_{in}} \sum_{m=0}^{K_h-1} \sum_{n=0}^{K_w-1} x_{i+m,j+n,c} \cdot w_{m,n,c,k} + b_k\right) \]
+  !! \[ y_{i,j,k} =
+  !!    \sigma\left(
+  !!       \sum_{c=1}^{C_{in}}
+  !!       \sum_{m=0}^{K_h-1}
+  !!       \sum_{n=0}^{K_w-1}
+  !!           x_{i+m,j+n,c} \cdot w_{m,n,c,k} + b_k
+  !!    \right)
+  !! \]
   !!
   !! where:
   !!   - \((i,j)\) are spatial coordinates in the output
@@ -41,8 +48,6 @@ module athena__conv2d_layer
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_conv2d
      !! Set hyperparameters for 2D convolutional layer
-     procedure, pass(this) :: print_to_unit => print_to_unit_conv2d
-     !! Print 2D convolutional layer to unit
      procedure, pass(this) :: read => read_conv2d
      !! Read 2D convolutional layer from file
      procedure, pass(this) :: build_from_onnx => build_from_onnx_conv2d
@@ -430,86 +435,6 @@ contains
 !##############################################################################!
 ! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
 !##############################################################################!
-
-
-!###############################################################################
-  subroutine print_to_unit_conv2d(this, unit)
-    !! Print 2D convolutional layer to unit
-    use coreutils, only: to_upper
-    implicit none
-
-    ! Arguments
-    class(conv2d_layer_type), intent(in) :: this
-    !! Instance of the 2D convolutional layer
-    integer, intent(in) :: unit
-    !! File unit
-
-    ! Local variables
-    integer :: l, i, itmp1, idx
-    !! Loop indices
-    character(:), allocatable :: padding_type
-    !! Padding type
-
-
-    ! Handle different width kernels for x, y, z
-    !---------------------------------------------------------------------------
-    itmp1 = -1
-    do i=1,2
-       if(this%pad(i).gt.itmp1)then
-          itmp1 = this%pad(i)
-          idx = i
-       end if
-    end do
-
-
-    ! Determine padding method
-    !---------------------------------------------------------------------------
-    padding_type = ""
-    if(this%pad(idx).eq.this%knl(idx)-1)then
-       padding_type = "full"
-    elseif(this%pad(idx).eq.0)then
-       padding_type = "valid"
-    else
-       padding_type = "same"
-    end if
-
-
-    ! Write initial parameters
-    !---------------------------------------------------------------------------
-    write(unit,'(3X,"INPUT_SHAPE = ",3(1X,I0))') this%input_shape
-    write(unit,'(3X,"NUM_FILTERS = ",I0)') this%num_filters
-    if(all(this%knl.eq.this%knl(1)))then
-       write(unit,'(3X,"KERNEL_SIZE =",1X,I0)') this%knl(1)
-    else
-       write(unit,'(3X,"KERNEL_SIZE =",2(1X,I0))') this%knl
-    end if
-    if(all(this%stp.eq.this%stp(1)))then
-       write(unit,'(3X,"STRIDE =",1X,I0)') this%stp(1)
-    else
-       write(unit,'(3X,"STRIDE =",2(1X,I0))') this%stp
-    end if
-    if(all(this%dil.eq.this%dil(1)))then
-       write(unit,'(3X,"DILATION =",1X,I0)') this%dil(1)
-    else
-       write(unit,'(3X,"DILATION =",2(1X,I0))') this%dil
-    end if
-    write(unit,'(3X,"PADDING = ",A)') padding_type
-
-    write(unit,'(3X,"USE_BIAS = ",L1)') this%use_bias
-    if(this%activation%name .ne. 'none')then
-       call this%activation%print_to_unit(unit)
-    end if
-
-
-    ! Write weights and biases
-    !---------------------------------------------------------------------------
-    write(unit,'("WEIGHTS")')
-    write(unit,'(5(E16.8E2))') this%params(1)%val(:,1)
-    write(unit,'(5(E16.8E2))') this%params(2)%val(:,1)
-    write(unit,'("END WEIGHTS")')
-
-  end subroutine print_to_unit_conv2d
-!###############################################################################
 
 
 !###############################################################################

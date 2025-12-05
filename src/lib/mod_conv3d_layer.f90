@@ -5,17 +5,29 @@ module athena__conv3d_layer
   !! such as video, medical imaging, or 3D point clouds.
   !!
   !! Mathematical operation:
-  !!   output[i,j,k,f] = σ( Σ_{c,l,m,n} input[i+l,j+m,k+n,c] *
-  !!                         kernel[l,m,n,c,f] + bias[f] )
+  !! \[
+  !!   y_{i,j,k,\,q}
+  !!   =
+  !!   \sigma\left(
+  !!     \sum_{c=1}^{C_{in}}
+  !!     \sum_{a=0}^{K_d-1}
+  !!     \sum_{b=0}^{K_h-1}
+  !!     \sum_{d=0}^{K_w-1}
+  !!       x_{i+a,\,j+b,\,k+d,\,c}\;
+  !!       w_{a,\,b,\,d,\,c,\,q}
+  !!     + b_q
+  !!   \right)
+  !! \]
   !!
   !! where:
-  !!   (i,j,k) are spatial coordinates in the output
-  !!   f is the output channel (filter) index
-  !!   (l,m,n) are kernel offsets in 3D
-  !!   c is the input channel index
-  !!   σ is the activation function
+  !!   - \((i,j,k)\) are spatial coordinates in the output
+  !!   - \(q\) is the output channel (filter) index
+  !!   - \((a,b,d)\) are kernel offsets: depth, height, width
+  !!   - \(c\) is the input channel index
+  !!   - \(K_d, K_h, K_w\) are kernel dimensions
+  !!   - \(\sigma\) is the activation function
   !!
-  !! Shape: input (width,height,depth,channels) -> output (w',h',d',filters)
+  !! Shape: \((D, H, W, C_{in}) \rightarrow (D', H', W', C_{out})\)
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: conv_layer_type, base_layer_type
   use athena__pad3d_layer, only: pad3d_layer_type
@@ -38,8 +50,6 @@ module athena__conv3d_layer
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_conv3d
      !! Set hyperparameters for 3D convolutional layer
-     procedure, pass(this) :: print_to_unit => print_to_unit_conv3d
-     !! Print 3D convolutional layer to unit
      procedure, pass(this) :: read => read_conv3d
      !! Read 3D convolutional layer from file
 
@@ -423,86 +433,6 @@ contains
 !##############################################################################!
 ! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
 !##############################################################################!
-
-
-!###############################################################################
-  subroutine print_to_unit_conv3d(this, unit)
-    !! Print 3D convolutional layer to unit
-    use coreutils, only: to_upper
-    implicit none
-
-    ! Arguments
-    class(conv3d_layer_type), intent(in) :: this
-    !! Instance of the 3D convolutional layer
-    integer, intent(in) :: unit
-    !! File unit
-
-    ! Local variables
-    integer :: l, i, itmp1, idx
-    !! Loop indices
-    character(:), allocatable :: padding_type
-    !! Padding type
-
-
-    ! Handle different width kernels for x, y, z
-    !---------------------------------------------------------------------------
-    itmp1 = -1
-    do i=1,3
-       if(this%pad(i).gt.itmp1)then
-          itmp1 = this%pad(i)
-          idx = i
-       end if
-    end do
-
-
-    ! Determine padding method
-    !---------------------------------------------------------------------------
-    padding_type = ""
-    if(this%pad(idx).eq.this%knl(idx)-1)then
-       padding_type = "full"
-    elseif(this%pad(idx).eq.0)then
-       padding_type = "valid"
-    else
-       padding_type = "same"
-    end if
-
-
-    ! Write initial parameters
-    !---------------------------------------------------------------------------
-    write(unit,'(3X,"INPUT_SHAPE = ",4(1X,I0))') this%input_shape
-    write(unit,'(3X,"NUM_FILTERS = ",I0)') this%num_filters
-    if(all(this%knl.eq.this%knl(1)))then
-       write(unit,'(3X,"KERNEL_SIZE =",1X,I0)') this%knl(1)
-    else
-       write(unit,'(3X,"KERNEL_SIZE =",3(1X,I0))') this%knl
-    end if
-    if(all(this%stp.eq.this%stp(1)))then
-       write(unit,'(3X,"STRIDE =",1X,I0)') this%stp(1)
-    else
-       write(unit,'(3X,"STRIDE =",3(1X,I0))') this%stp
-    end if
-    if(all(this%dil.eq.this%dil(1)))then
-       write(unit,'(3X,"DILATION =",1X,I0)') this%dil(1)
-    else
-       write(unit,'(3X,"DILATION =",3(1X,I0))') this%dil
-    end if
-    write(unit,'(3X,"PADDING = ",A)') padding_type
-
-    write(unit,'(3X,"USE_BIAS = ",L1)') this%use_bias
-    if(this%activation%name .ne. 'none')then
-       call this%activation%print_to_unit(unit)
-    end if
-
-
-    ! Write weights and biases
-    !---------------------------------------------------------------------------
-    write(unit,'("WEIGHTS")')
-    write(unit,'(5(E16.8E2))') this%params(1)%val(:,1)
-    write(unit,'(5(E16.8E2))') this%params(2)%val(:,1)
-    write(unit,'("END WEIGHTS")')
-
-  end subroutine print_to_unit_conv3d
-!###############################################################################
 
 
 !###############################################################################
