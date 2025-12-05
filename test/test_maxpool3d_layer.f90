@@ -238,6 +238,46 @@ program test_maxpool3d_layer
 
 
 !-------------------------------------------------------------------------------
+! Test padding functionality
+!-------------------------------------------------------------------------------
+  write(*,*) "Testing padding functionality..."
+
+  ! Test with "constant" padding
+  pool_layer = maxpool3d_layer_type( &
+       pool_size = [3, 3, 3], &
+       stride = [1, 1, 1], &
+       padding = "constant" &
+  )
+
+  select type(pool_layer)
+  type is(maxpool3d_layer_type)
+     ! Check that pad_layer is allocated
+     if(.not. allocated(pool_layer%pad_layer))then
+        success = .false.
+        write(0,*) 'maxpool3d layer pad_layer should be allocated ', &
+             'with padding'
+     end if
+  end select
+
+  ! Test with "valid" padding (no padding)
+  pool_layer = maxpool3d_layer_type( &
+       pool_size = [3, 3, 3], &
+       stride = [1, 1, 1], &
+       padding = "valid" &
+  )
+
+  select type(pool_layer)
+  type is(maxpool3d_layer_type)
+     ! Check that pad_layer is not allocated
+     if(allocated(pool_layer%pad_layer))then
+        success = .false.
+        write(0,*) 'maxpool3d layer pad_layer should not be allocated ', &
+             'with valid padding'
+     end if
+  end select
+
+
+!-------------------------------------------------------------------------------
 ! Test file I/O operations
 !-------------------------------------------------------------------------------
   write(*,*) "Testing file I/O operations..."

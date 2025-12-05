@@ -17,6 +17,7 @@ module athena__avgpool1d_layer
   !! Shape: (length, channels) -> (length//stride, channels)
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: pool_layer_type, base_layer_type
+  use athena__pad1d_layer, only: pad1d_layer_type
   use diffstruc, only: array_type
   use athena__misc_types, only: &
        onnx_node_type, onnx_initialiser_type, onnx_tensor_type
@@ -45,9 +46,8 @@ module athena__avgpool1d_layer
 
   interface avgpool1d_layer_type
      !! Interface for setting up the 1D average pooling layer
-     module function layer_setup( &
-          input_shape, &
-          pool_size, stride, verbose ) result(layer)
+     module function layer_setup( input_shape, &
+          pool_size, stride, padding, verbose ) result(layer)
        !! Set up the 1D average pooling layer
        integer, dimension(:), optional, intent(in) :: input_shape
        !! Input shape
@@ -55,6 +55,8 @@ module athena__avgpool1d_layer
        !! Pool size
        integer, dimension(..), optional, intent(in) :: stride
        !! Stride
+       character(*), optional, intent(in) :: padding
+       !! Padding
        integer, optional, intent(in) :: verbose
        !! Verbosity level
        type(avgpool1d_layer_type) :: layer
@@ -69,7 +71,7 @@ contains
 !###############################################################################
   module function layer_setup( &
        input_shape, &
-       pool_size, stride, verbose) result(layer)
+       pool_size, stride, padding, verbose) result(layer)
     !! Set up the 1D average pooling layer
     implicit none
 
@@ -80,17 +82,21 @@ contains
     !! Pool size
     integer, dimension(..), optional, intent(in) :: stride
     !! Stride
+    character(*), optional, intent(in) :: padding
+    !! Padding
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
     type(avgpool1d_layer_type) :: layer
     !! Instance of the 1D average pooling layer
 
-    !! Local variables
+    ! Local variables
     integer :: verbose_ = 0
     !! Verbosity level
     integer, dimension(1) :: pool_size_, stride_
     !! Pool size and stride
+    character(len=20) :: padding_
+    !! Padding
 
     if(present(verbose)) verbose_ = verbose
 
@@ -125,10 +131,21 @@ contains
 
 
     !---------------------------------------------------------------------------
+    ! Set up padding
+    !---------------------------------------------------------------------------
+    if(present(padding))then
+       padding_ = padding
+    else
+       padding_ = "valid"
+    end if
+
+
+    !---------------------------------------------------------------------------
     ! Set hyperparameters
     !---------------------------------------------------------------------------
     call layer%set_hyperparams( &
-         pool_size=pool_size_, stride=stride_, verbose=verbose_ &
+         pool_size=pool_size_, stride=stride_, &
+         padding=padding_, verbose=verbose_ &
     )
 
 
@@ -142,8 +159,11 @@ contains
 
 
 !###############################################################################
-  subroutine set_hyperparams_avgpool1d(this, pool_size, stride, verbose)
+  subroutine set_hyperparams_avgpool1d( &
+       this, pool_size, stride, padding, verbose &
+  )
     !! Set hyperparameters for 1D average pooling layer
+    use coreutils, only: to_lower
     implicit none
 
     ! Arguments
@@ -153,12 +173,17 @@ contains
     !! Pool size
     integer, dimension(1), intent(in) :: stride
     !! Stride
+    character(*), optional, intent(in) :: padding
+    !! Padding
     integer, optional, intent(in) :: verbose
     !! Verbosity level
 
+    ! Local variables
+    character(len=20) :: padding_
+
     this%name = "avgpool1d"
     this%type = "pool"
-    this%subtype = "average"
+    this%subtype = "avg"
     this%input_rank = 2
     this%output_rank = 2
     if(allocated(this%pool)) deallocate(this%pool)
@@ -169,6 +194,22 @@ contains
     )
     this%pool = pool_size
     this%strd = stride
+
+    ! Handle padding
+    if(present(padding))then
+       padding_ = trim(adjustl(padding))
+    else
+       padding_ = "valid"
+    end if
+
+    select case(trim(adjustl(to_lower(padding_))))
+    case("valid", "none", "")
+    case default
+       this%pad_layer = pad1d_layer_type( &
+            padding = [ (this%pool-1)/2 ], &
+            method = padding_ &
+       )
+    end select
 
   end subroutine set_hyperparams_avgpool1d
 !###############################################################################
@@ -332,14 +373,17 @@ contains
     ! Local variables
     integer :: i
     !! Loop index
-    integer, dimension(1) :: stride, pool_size
-    !! Stride and kernel size
+    integer, dimension(1) :: stride, pool_size, padding
+    !! Stride, kernel size, and padding
     character(256) :: val
     !! Attribute value
+    character(20) :: padding_method
+    !! Padding method
 
     ! Set default values
     stride = 1
     pool_size = 2
+    padding = 0
 
     do i = 1, size(node%attributes)
        val = node%attributes(i)%val
@@ -348,10 +392,12 @@ contains
           read(val,*) pool_size
        case("strides")
           read(val,*) stride
+       case("pads")
+          read(val,*) padding
        case default
           ! Do nothing
-          write(0,*) "WARNING: Unrecognised attribute in ONNX AVGPOOL1D layer: ", &
-               trim(adjustl(node%attributes(i)%name))
+          write(0,*) "WARNING: Unrecognised attribute in ONNX AVGPOOL1D ", &
+               "layer: ", trim(adjustl(node%attributes(i)%name))
        end select
     end do
 
@@ -360,9 +406,17 @@ contains
        write(0,*) "WARNING: initialisers not used for ONNX AVGPOOL1D layer"
     end if
 
+    ! Convert integer padding to character method
+    if(any(padding.gt.0))then
+       padding_method = "constant"
+    else
+       padding_method = "valid"
+    end if
+
     call this%set_hyperparams( &
          stride = stride, &
-         pool_size = pool_size &
+         pool_size = pool_size, &
+         padding = padding_method &
     )
 
   end subroutine build_from_onnx_avgpool1d
@@ -391,7 +445,13 @@ contains
 
 
     call this%output(1,1)%zero_grad()
-    ptr => avgpool1d(input(1,1), this%pool(1), this%strd(1))
+    select case(allocated(this%pad_layer))
+    case(.true.)
+       call this%pad_layer%forward(input)
+       ptr => avgpool1d(this%pad_layer%output(1,1), this%pool(1), this%strd(1))
+    case default
+       ptr => avgpool1d(input(1,1), this%pool(1), this%strd(1))
+    end select
     call this%output(1,1)%assign_and_deallocate_source(ptr)
     this%output(1,1)%is_temporary = .false.
 
