@@ -376,24 +376,29 @@ program test_activation_layer
   ! Test each activation function type
 
   do i = 1, size(activation_functions)
+     write(*,*) "  Testing activation: ", trim(activation_functions(i))
      actv_layer = actv_layer_type( &
           activation = trim(activation_functions(i)), &
           input_shape = [width] &
      )
 
+     write(*,*) "tet0"
      if(.not. allocated(actv_layer%activation))then
         success = .false.
         write(0,*) 'activation function not allocated for: ', &
              trim(activation_functions(i))
      end if
 
+     write(*,*) "tet1"
      ! Test that we can do forward pass without errors
      call input(1,1)%allocate(array_shape=[width, 1])
      input(1,1)%val(:,1) = [0.1, 0.2, 0.3, 0.4]
 
+     write(*,*) "tet2"
      call actv_layer%forward(input)
      output => actv_layer%output(1,1)
 
+     write(*,*) "tet3"
      if(.not. allocated(output%val))then
         success = .false.
         write(0,*) 'output not allocated for activation: ', &

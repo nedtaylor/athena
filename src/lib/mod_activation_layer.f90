@@ -163,7 +163,8 @@ contains
     if(.not.allocated(activation))then
        this%activation = activation_setup("none")
     else
-       this%activation = activation
+       if(allocated(this%activation)) deallocate(this%activation)
+       allocate(this%activation, source=activation)
     end if
     this%subtype = trim(to_lower(this%activation%name))
 
