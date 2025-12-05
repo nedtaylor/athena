@@ -751,7 +751,7 @@ module athena__network
        !! Batch size
        class(graph_type), dimension(:), intent(in) :: input
        !! Input array
-       type(graph_type), dimension(size(input,1), batch_size) :: sample
+       type(graph_type), dimension(1, batch_size) :: sample
        !! Sample array
      end function get_sample_graph1d
      module function get_sample_graph2d( &
