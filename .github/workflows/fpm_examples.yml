@@ -28,8 +28,6 @@ concurrency:
 
 jobs:
   build-and-test-fpm-debug:
-    environment:
-      name: github-pages
     name: Run examples in debug mode
     runs-on: ubuntu-latest
     strategy:

@@ -30,7 +30,6 @@ jobs:
   build-and-test:
     name: Build and test (${{ matrix.build_type }})
     runs-on: ${{ matrix.os }}
-
     strategy:
       fail-fast: false
       matrix:
@@ -38,9 +37,9 @@ jobs:
         compiler: [gcc]
         version: [15]
         build_type: [Release, Debug]
-
     steps:
-      - uses: actions/checkout@v4
+      - name: checkout repo
+        uses: actions/checkout@v4
 
       - name: Setup CMake
         uses: jwlawson/actions-setup-cmake@v2.0.1

@@ -28,8 +28,6 @@ concurrency:
 
 jobs:
   build-and-test-fpm-debug:
-    environment:
-      name: github-pages
     name: Build and test in debug mode
     runs-on: ${{ matrix.os }}
     strategy:
