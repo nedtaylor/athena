@@ -14,17 +14,9 @@ by Ned Thaddeus Taylor
 
 ATHENA (Adaptive Training for High Efficiency Neural network Applications) is a Fortran library for developing and handling neural networks (with a focus on convolutional neural networks).
 
-## New Repository Location
-
-This repository has been migrated from the University of Exeter GitLab to GitHub to facilitate community interaction and support. The latest version, updates, and collaboration now take place on this GitHub repository.
-
-**GitLab Repository (Archived):** https://git.exeter.ac.uk/hepplestone/athena
-
-## Why the Migration?
-
-It was decided that this project should be migrated to allow for better community support (i.e. allowing community users to raise issues). All information has been ported over where possible. Issues have not been migrated over, these can be found in the old repository. Releases prior to 1.2.0 have not been migrated over, but they can still be found as tags in this repository.
-
----
+> **_NOTE:_**
+Starting with version 2.0.0, release tags follow the `vX.Y.Z` convention for consistency across projects such as diffstruc and graphstruc.
+Internal version numbers remain `X.Y.Z`.
 
 ## Statement of need
 
@@ -64,7 +56,8 @@ Tutorials and documentation are provided on the [docs](http://athena-fortran.rea
 
 Refer to the [API Documentation section](#api-documentation) later in this document to see how to access the API-specific documentation.
 
-**NOTE:** The [wiki](https://github.com/nedtaylor/athena/wiki) still exists, but is outdated, no longer being updated, and will be deprecated in the future.
+> **_NOTE:_**
+The [wiki](https://github.com/nedtaylor/athena/wiki) still exists, but is outdated, no longer being updated, and will be deprecated in the future.
 
 Setup
 -----
@@ -87,7 +80,8 @@ The library has been developed and tested using the following compilers:
 - ifort -- Intel 2021.10.0.20230609
 - ifx -- IntelLLVM 2025.2.0
 
-> **_NOTE:_** athena is known to be incompatible with all versions of the gfortran compiler below `14.3.0` due an error with order of calling of overloaded `final` procedures of derived types.
+> **_NOTE:_**
+athena is known to be incompatible with all versions of the gfortran compiler below `14.3.0` due an error with order of calling of overloaded `final` procedures of derived types.
 
 #### Tested compilers
 The library has also been tested with and found to support the following libraries:
@@ -117,7 +111,7 @@ Run the following commands in the directory containing _CMakeLists.txt_:
 ```
   mkdir build
   cd build
-  cmake [-DCMAKE_BUILD_TYPE="optim;mp"] ..
+  cmake [-DCMAKE_BUILD_TYPE="Release"] ..
   make install
 ```
 This will build the library in the build/ directory. All library files will then be found in:
@@ -149,7 +143,9 @@ spack install athena
 ```
 
 Currently, Spack compilation requires manual download of athena.
-**NOTE:** There already exists an `athena` package directly on Spack, be aware that these are not related.
+
+> **_NOTE:_**
+There already exists an `athena` package directly on Spack, be aware that these are not related.
 
 
 
@@ -160,7 +156,8 @@ https://github.com/halimb/MNIST-txt/tree/master
 
 The link to the original MNIST database is: http://yann.lecun.com/exdb/mnist/
 
-__NOTE:__ For the mnist examples, the MNIST dataset must be downloaded. By default, the database is expected to be found in the directory path ``../../DMNIST``. However, this can be chaned by editing the following line in the ``example/mnist[_VAR]/test_job.in`` file to point to the desired path:
+> **_NOTE:_**
+For the mnist examples, the MNIST dataset must be downloaded. By default, the database is expected to be found in the directory path ``../../DMNIST``. However, this can be chaned by editing the following line in the ``example/mnist[_VAR]/test_job.in`` file to point to the desired path:
 
 ```
   dataset_dir = "../../DMNIST"
@@ -246,6 +243,18 @@ Code Coverage
 
 Automated reporting on unit test code coverage in the README is achieved through utilising the [cmake-modules](https://github.com/rpavlik/cmake-modules) and [dynamic-badges-action](https://github.com/Schneegans/dynamic-badges-action?tab=readme-ov-file) projects.
 
+## New Repository Location
+
+This repository has been migrated from the University of Exeter GitLab to GitHub to facilitate community interaction and support.
+The latest version, updates, and collaboration now take place on this GitHub repository.
+
+**GitLab Repository (Archived):** https://git.exeter.ac.uk/hepplestone/athena
+
+## Why the Migration?
+
+It was decided that this project should be migrated to allow for better community support (i.e. allowing community users to raise issues). All information has been ported over where possible. Issues have not been migrated over, these can be found in the old repository. Releases prior to 1.2.0 have not been migrated over, but they can still be found as tags in this repository.
+
+---
 
 Files
 -----
