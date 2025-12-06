@@ -48,11 +48,11 @@ jobs:
       if: matrix.toolchain.compiler == 'gcc'
       uses: conda-incubator/setup-miniconda@v3
       with:
-        auto-update-conda: true
         python-version: 3.11
 
     - name: Install gfortran via conda
       if: matrix.toolchain.compiler == 'gcc'
+      shell: bash -l {0}
       run: |
         conda install -y -c conda-forge "gfortran=${{ matrix.toolchain.version }}"
         echo "FC=$(which gfortran)" >> $GITHUB_ENV
@@ -85,6 +85,7 @@ jobs:
         find example/mnist*/test_job.in -type f -exec sed -i 's|dataset_dir = "../../DMNIST"|dataset_dir = "../MNIST-txt"|' {} \;
 
     - name: Run examples
+      shell: bash -l {0}
       run: |
         ${{ env.FC }} --version
         fpm run --example mnist --profile debug --compiler ${{ env.FC }}

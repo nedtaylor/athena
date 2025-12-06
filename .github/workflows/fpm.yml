@@ -50,11 +50,11 @@ jobs:
       if: matrix.os == 'ubuntu-latest' && matrix.toolchain.compiler == 'gcc'
       uses: conda-incubator/setup-miniconda@v3
       with:
-        auto-update-conda: true
         python-version: 3.11
 
     - name: Install gfortran via conda
       if: matrix.os == 'ubuntu-latest' && matrix.toolchain.compiler == 'gcc'
+      shell: bash -l {0}
       run: |
         conda install -y -c conda-forge "gfortran=${{ matrix.toolchain.version }}"
         echo "FC=$(which gfortran)" >> $GITHUB_ENV
@@ -75,11 +75,13 @@ jobs:
         fpm-version: "v0.11.0"
 
     - name: Compile
+      shell: bash -l {0}
       run: |
         ${{ env.FC }} --version
         fpm build --profile ${{ matrix.build_type }} --compiler ${{ env.FC }}
 
     - name: Test
+      shell: bash -l {0}
       run: |
         ${{ env.FC }} --version
         fpm test --profile ${{ matrix.build_type }} --compiler ${{ env.FC }}
