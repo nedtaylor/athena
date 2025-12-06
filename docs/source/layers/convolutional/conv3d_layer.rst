@@ -58,6 +58,6 @@ where:
 
 .. math::
 
-   \text{width_out} &= \left\lfloor \frac{\text{width} + 2 \times \text{padding}[1] - \text{dilation}[1] \times (\text{kernel_size}[1] - 1) - 1}{\text{stride}[3]} + 1 \right\rfloor \\
+   \text{width_out} &= \left\lfloor \frac{\text{width} + 2 \times \text{padding}[1] - \text{dilation}[1] \times (\text{kernel_size}[1] - 1) - 1}{\text{stride}[1]} + 1 \right\rfloor \\
    \text{height_out} &= \left\lfloor \frac{\text{height} + 2 \times \text{padding}[2] - \text{dilation}[2] \times (\text{kernel_size}[2] - 1) - 1}{\text{stride}[2]} + 1 \right\rfloor \\
-   \text{depth_out} &= \left\lfloor \frac{\text{depth} + 2 \times \text{padding}[3] - \text{dilation}[3] \times (\text{kernel_size}[3] - 1) - 1}{\text{stride}[1]} + 1 \right\rfloor \\
+   \text{depth_out} &= \left\lfloor \frac{\text{depth} + 2 \times \text{padding}[3] - \text{dilation}[3] \times (\text{kernel_size}[3] - 1) - 1}{\text{stride}[3]} + 1 \right\rfloor \\
