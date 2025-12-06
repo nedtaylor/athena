@@ -526,7 +526,7 @@ module athena__network
      end subroutine build_vertex_order
 
      !! Interface for depth first search
-     module recursive subroutine dfs( &
+     recursive module subroutine dfs( &
           this, vertex_index, visited, order, order_index &
      )
        !! Depth first search

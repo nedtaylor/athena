@@ -51,8 +51,7 @@ enable_language(Fortran)
 
 # set coverage compiler flags
 if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
-  list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
-  set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+  list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
   if(CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
       include(CodeCoverage)
       setup_target_for_coverage_gcovr_html(
@@ -62,56 +61,50 @@ if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
   endif()
 endif()
 
-# include FetchContent module
-include(FetchContent)
 
 # Disable testing for dependencies - both standard variables
 set(BUILD_TESTING OFF)
 set(BUILD_TESTS OFF)
 
-# set up the coreutils dependency
-FetchContent_Declare(
-    coreutils
-    GIT_REPOSITORY https://github.com/nedtaylor/coreutils.git
-    GIT_TAG        main
-    FIND_PACKAGE_ARGS NAMES coreutils
+# include CPM module
+include(cmake/CPM.cmake)
+
+# add dependencies
+CPMAddPackage(
+  NAME coreutils
+  VERSION 0.1.0
+  GITHUB_REPOSITORY nedtaylor/coreutils
 )
-FetchContent_MakeAvailable(coreutils)
-find_package(coreutils REQUIRED)
-
-message(STATUS "coreutils home directory: ${coreutils_DIR}")
-message(STATUS "coreutils include directory: ${coreutils_INCLUDE_DIRS}")
-message(STATUS "coreutils source directory: ${coreutils_BUILD_DIRS}")
-
-# set up the diffstruc dependency
-FetchContent_Declare(
-    diffstruc
-    GIT_REPOSITORY https://github.com/nedtaylor/diffstruc.git
-    GIT_TAG        v1.1.0
-    FIND_PACKAGE_ARGS NAMES diffstruc
+CPMAddPackage(
+  NAME diffstruc
+  VERSION 1.1.1
+  GITHUB_REPOSITORY nedtaylor/diffstruc
 )
-FetchContent_MakeAvailable(diffstruc)
-find_package(diffstruc REQUIRED)
-
-message(STATUS "diffstruc home directory: ${diffstruc_DIR}")
-message(STATUS "diffstruc include directory: ${diffstruc_INCLUDE_DIRS}")
-message(STATUS "diffstruc source directory: ${diffstruc_BUILD_DIRS}")
-
-# set up the graphstruc dependency
-FetchContent_Declare(
-    graphstruc
-    GIT_REPOSITORY https://github.com/nedtaylor/graphstruc.git
-    GIT_TAG        v0.2.0
-    FIND_PACKAGE_ARGS NAMES graphstruc
+CPMAddPackage(
+  NAME graphstruc
+  VERSION 0.2.1
+  GITHUB_REPOSITORY nedtaylor/graphstruc
 )
-FetchContent_MakeAvailable(graphstruc)
-# find_library(ATHENA_LIBRARY NAMES athena)
-find_package(graphstruc REQUIRED)
-# include_directories(${GRAPHSTRUC_INCLUDE_DIR})
 
-message(STATUS "graphstruc home directory: ${graphstruc_DIR}")
-message(STATUS "graphstruc include directory: ${graphstruc_INCLUDE_DIRS}")
-message(STATUS "graphstruc source directory: ${graphstruc_BUILD_DIRS}")
+# Set up inter-dependency module paths after targets are created
+# The .mod files are generated in the build directory, not in a module directory
+set(COREUTILS_MOD_DIR "${CMAKE_BINARY_DIR}/_deps/coreutils-build")
+set(DIFFSTRUC_MOD_DIR "${CMAKE_BINARY_DIR}/_deps/diffstruc-build")
+set(GRAPHSTRUC_MOD_DIR "${CMAKE_BINARY_DIR}/_deps/graphstruc-build")
+
+if(TARGET diffstruc AND TARGET coreutils)
+  # Make diffstruc wait for coreutils to be built first
+  add_dependencies(diffstruc coreutils)
+  # Add coreutils build directory where .mod files are actually generated
+  target_include_directories(diffstruc BEFORE PUBLIC ${COREUTILS_MOD_DIR})
+endif()
+
+if(TARGET graphstruc AND TARGET coreutils)
+  # Make graphstruc wait for coreutils to be built first
+  add_dependencies(graphstruc coreutils)
+  # Add coreutils build directory where .mod files are actually generated
+  target_include_directories(graphstruc BEFORE PUBLIC ${COREUTILS_MOD_DIR})
+endif()
 
 # Re-enable BUILD_TESTS for our project
 set(BUILD_TESTS ON)
@@ -134,7 +127,7 @@ endif()
 set(SRC_DIR src)
 set(LIB_DIR ${SRC_DIR}/athena)
 # Automatically find all Fortran files in athena/
-file(GLOB LIB_FILES "${LIB_DIR}/*.f90")
+file(GLOB LIB_FILES "${LIB_DIR}/*.f90" "${LIB_DIR}/*.F90")
 
 # Collect the main source file
 file(GLOB SRC_FILES "${SRC_DIR}/*.f90")
@@ -212,12 +205,26 @@ set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${PPFLAGS}")
 add_library(${PROJECT_NAME} STATIC ${ALL_SOURCES})
 set(MODULE_DIR ${CMAKE_BUILD_PREFIX}/mod)
 set_target_properties(${PROJECT_NAME} PROPERTIES Fortran_MODULE_DIRECTORY ${MODULE_DIR})
+
+# Add dependency module directories
+target_include_directories(${PROJECT_NAME} PUBLIC
+  ${MODULE_DIR}
+  ${COREUTILS_MOD_DIR}
+  ${DIFFSTRUC_MOD_DIR}
+  ${GRAPHSTRUC_MOD_DIR}
+)
 target_link_libraries(${PROJECT_NAME} PUBLIC)
 
 
 
 # replace ".f90" with ".mod"
 string(REGEX REPLACE "\\.[^.]*$" ".mod" MODULE_FILES "${SRC_FILES}")
+# remove directory path from module files
+foreach(i ${MODULE_FILES})
+    get_filename_component(fname ${i} NAME)
+    list(APPEND MODULE_FILES_CLEAN ${fname})
+endforeach()
+set(MODULE_FILES ${MODULE_FILES_CLEAN})
 
 # installation
 install(FILES ${MODULE_DIR}/${MODULE_FILES} DESTINATION include)
@@ -233,12 +240,8 @@ target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel_Dev>:${MPFLAG
 target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Parallel_Dev>:${DEVFLAGS}>")
 
 # add library dependencies
-add_dependencies(${PROJECT_NAME} coreutils)
-target_link_libraries(${PROJECT_NAME} coreutils)
-add_dependencies(${PROJECT_NAME} diffstruc)
-target_link_libraries(${PROJECT_NAME} diffstruc)
-add_dependencies(${PROJECT_NAME} graphstruc)
-target_link_libraries(${PROJECT_NAME} graphstruc)
+add_dependencies(${PROJECT_NAME} coreutils diffstruc graphstruc)
+target_link_libraries(${PROJECT_NAME} coreutils diffstruc graphstruc)
 
 # include the build test directory
 if(BUILD_TESTS)

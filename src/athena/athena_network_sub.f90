@@ -137,7 +137,7 @@ contains
 
 
 !###############################################################################
-  module recursive subroutine dfs( &
+  recursive module subroutine dfs( &
        this, vertex_index, visited, order, order_index &
   )
     !! Depth first search algorithm
