@@ -35,7 +35,7 @@ jobs:
       fail-fast: false
       matrix:
         compiler: [gcc]
-        version: [13]
+        version: [15]
     steps:
       - name: checkout repo
         uses: actions/checkout@v4
@@ -45,33 +45,46 @@ jobs:
         with:
           cmake-version: '3.24.x'
 
-      - uses: fortran-lang/setup-fortran@v1
-        id: setup-fortran
+      - name: Setup conda
+        uses: conda-incubator/setup-miniconda@v3
         with:
-          compiler: ${{ matrix.compiler }}
-          version: ${{ matrix.version }}
+          python-version: 3.11
 
-      - name: Install gcovr
+      - name: Install compiler + tools (conda)
+        shell: bash -l {0}
         run: |
-          pip --version
-          pip install gcovr
+          conda install -y -c conda-forge \
+            "gfortran=${{ matrix.version }}" \
+            "gcc_linux-64=${{ matrix.version }}" \
+            gcovr
+
+          echo "FC=$(which gfortran)" >> $GITHUB_ENV
+          echo "GCOV=$(which gcov)" >> $GITHUB_ENV
 
       - name: Build project
+        shell: bash -l {0}
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake make
+          which gfortran
+          gfortran --version
           cmake --version
           mkdir -p build
           cd build
-          cmake -DCMAKE_BUILD_TYPE=Debug ..
+          export GCOV_PATH=$(which gcov)
+          cmake \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_Fortran_COMPILER=${FC:-gfortran} \
+            -DGCOV_PATH=${GCOV_PATH} \
+            ..
           make
 
       - name: Run coverage tests
+        shell: bash -l {0}
         run: |
           cd build
           env CTEST_OUTPUT_ON_FAILURE=1 make coverage
 
       - name: Get coverage percentage
+        shell: bash -l {0}
         run: |
           pip install bs4
           echo "COVERAGE_PERCENTAGE="$(python ./tools/coverage_badge.py) >> $GITHUB_ENV

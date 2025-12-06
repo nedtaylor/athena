@@ -36,14 +36,34 @@ jobs:
       fail-fast: false
       matrix:
         toolchain:
-        - {compiler: gcc, version: 14}
+        - {compiler: gcc, version: 15}
         - {compiler: intel, version: '2025.2'}
         # - {compiler: lfortran, version: '0.45.0'}
     steps:
     - name: checkout repo
       uses: actions/checkout@v4
 
-    - uses: fortran-lang/setup-fortran@v1
+    # ----------------------------------------------------
+    # Conda path (GCC)
+    # ----------------------------------------------------
+    - name: Setup conda (for gfortran)
+      if: matrix.toolchain.compiler == 'gcc'
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        auto-update-conda: true
+        python-version: 3.11
+
+    - name: Install gfortran via conda
+      if: matrix.toolchain.compiler == 'gcc'
+      run: |
+        conda install -y -c conda-forge "gfortran=${{ matrix.toolchain.version }}"
+        echo "FC=$(which gfortran)" >> $GITHUB_ENV
+
+    # ----------------------------------------------------
+    # Non-conda compilers (future-proof)
+    # ----------------------------------------------------
+    - if: ${{ !(matrix.toolchain.compiler == 'gcc') }}
+      uses: fortran-lang/setup-fortran@v1
       id: setup-fortran
       with:
         compiler: ${{ matrix.toolchain.compiler }}

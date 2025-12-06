@@ -31,31 +31,40 @@ jobs:
     environment:
       name: github-pages
     name: Build and test in debug mode
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, macos-latest]
+        build_type: [release, debug]
         toolchain:
+        - {compiler: gcc, version: 14}
         - {compiler: gcc, version: 15}
         - {compiler: intel, version: '2025.2'}
     steps:
     - name: checkout repo
       uses: actions/checkout@v4
 
+    # ----------------------------------------------------
+    # Conda path (Linux + GCC 15)
+    # ----------------------------------------------------
     - name: Setup conda (for gfortran on Linux)
-      if: runner.os == 'Linux' && matrix.toolchain.compiler == 'gcc'
+      if: matrix.os == 'ubuntu-latest' && matrix.toolchain.compiler == 'gcc'
       uses: conda-incubator/setup-miniconda@v3
       with:
         auto-update-conda: true
         python-version: 3.11
 
     - name: Install gfortran via conda
-      if: runner.os == 'Linux' && matrix.toolchain.compiler == 'gcc'
+      if: matrix.os == 'ubuntu-latest' && matrix.toolchain.compiler == 'gcc'
       run: |
         conda install -y -c conda-forge "gfortran=${{ matrix.toolchain.version }}"
         echo "FC=$(which gfortran)" >> $GITHUB_ENV
 
-    - if: ${{ !(runner.os == 'Linux' && matrix.toolchain.compiler == 'gcc') }}
+    # ----------------------------------------------------
+    # Non-conda compilers (future-proof)
+    # ----------------------------------------------------
+    - if: ${{ !(matrix.os == 'ubuntu-latest' && matrix.toolchain.compiler == 'gcc') }}
       uses: fortran-lang/setup-fortran@v1
       id: setup-fortran
       with:
@@ -70,60 +79,9 @@ jobs:
     - name: Compile
       run: |
         ${{ env.FC }} --version
-        fpm build --profile debug --compiler ${{ env.FC }}
+        fpm build --profile ${{ matrix.build_type }} --compiler ${{ env.FC }}
 
     - name: Test
       run: |
         ${{ env.FC }} --version
-        fpm test --profile debug --compiler ${{ env.FC }}
-
-  build-and-test-fpm-release:
-    name: Build and test in release mode
-    environment:
-      name: github-pages
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        toolchain:
-        - {compiler: gcc, version: 15}
-        - {compiler: intel, version: '2025.2'}
-
-    steps:
-    - name: checkout repo
-      uses: actions/checkout@v4
-
-    - name: Setup conda (for gfortran on Linux)
-      if: runner.os == 'Linux' && matrix.toolchain.compiler == 'gcc'
-      uses: conda-incubator/setup-miniconda@v3
-      with:
-        auto-update-conda: true
-        python-version: 3.11
-
-    - name: Install gfortran via conda
-      if: runner.os == 'Linux' && matrix.toolchain.compiler == 'gcc'
-      run: |
-        conda install -y -c conda-forge "gfortran=${{ matrix.toolchain.version }}"
-        echo "FC=$(which gfortran)" >> $GITHUB_ENV
-
-    - if: ${{ !(runner.os == 'Linux' && matrix.toolchain.compiler == 'gcc') }}
-      uses: fortran-lang/setup-fortran@v1
-      id: setup-fortran
-      with:
-        compiler: ${{ matrix.toolchain.compiler }}
-        version: ${{ matrix.toolchain.version }}
-
-    - uses: fortran-lang/setup-fpm@v7
-      id: setup-fpm
-      with:
-        fpm-version: "v0.10.0"
-
-    - name: Compile
-      run: |
-        ${{ env.FC }} --version
-        fpm build --profile release --compiler ${{ env.FC }}
-
-    - name: Test
-      run: |
-        ${{ env.FC }} --version
-        fpm test --profile release --compiler ${{ env.FC }}
+        fpm test --profile ${{ matrix.build_type }} --compiler ${{ env.FC }}
