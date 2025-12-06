@@ -19,11 +19,10 @@ on:
 
 permissions:
   contents: read
-  pages: write
   id-token: write
 
 concurrency:
-  group: pages
+  group: fpm
   cancel-in-progress: false
 
 jobs:
