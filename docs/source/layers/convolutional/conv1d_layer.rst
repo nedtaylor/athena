@@ -32,11 +32,7 @@ Arguments
 * **input_shape** (`integer, dimension(:)`): Shape of the input data (channels, width).
 * **stride** (`integer` or `integer, dimension(1)`): Stride of the convolution. Default: ``1``.
 * **dilation** (`integer` or `integer, dimension(1)`): Spacing between kernel elements. Default: ``1``.
-* **padding** (`character(*)`): Padding method.
-
-  * ``"valid"``: No padding (default).
-  * ``"same"``: Padding to maintain spatial dimensions.
-
+* **padding** (`character(*)`): Padding method, if any, to be applied to the input data prior to convolution. Refer to :ref:`1D padding layer <pad1d-layer>` for options. Default: ``"valid"``, i.e. no padding.
 * **use_bias** (`logical`): If ``.false.``, the layer will not use a bias term. Default: ``.true.``.
 * **activation** (`class(*)`): Activation function for the layer.
 

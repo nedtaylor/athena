@@ -32,11 +32,7 @@ Arguments
 * **input_shape** (`integer, dimension(:)`): Shape of the input data (width, height, channels).
 * **stride** (`integer` or `integer, dimension(2)`): Stride of the convolution. Default: ``1``.
 * **dilation** (`integer` or `integer, dimension(2)`): Spacing between kernel elements. Default: ``1``.
-* **padding** (`character(*)`): Padding method.
-
-  * ``"valid"``: No padding (default).
-  * ``"same"``: Padding to maintain spatial dimensions.
-
+* **padding** (`character(*)`): Padding method, if any, to be applied to the input data prior to convolution. Refer to :ref:`2D padding layer <pad2d-layer>` for options. Default: ``"valid"``, i.e. no padding.
 * **use_bias** (`logical`): If ``.false.``, the layer will not use a bias term. Default: ``.true.``.
 * **activation** (`class(*)`): Activation function for the layer.
 
@@ -62,5 +58,5 @@ where:
 
 .. math::
 
-   \text{width_out} &= \left\lfloor \frac{\text{width} + 2 \times \text{padding} - \text{dilation} \times (\text{kernel_size}[1] - 1) - 1}{\text{stride}[1]} + 1 \right\rfloor
-   \text{height_out} &= \left\lfloor \frac{\text{height} + 2 \times \text{padding} - \text{dilation} \times (\text{kernel_size}[0] - 1) - 1}{\text{stride}[0]} + 1 \right\rfloor \\
+   \text{width_out} &= \left\lfloor \frac{\text{width} + 2 \times \text{padding}[1] - \text{dilation}[1] \times (\text{kernel_size}[1] - 1) - 1}{\text{stride}[1]} + 1 \right\rfloor \\
+   \text{height_out} &= \left\lfloor \frac{\text{height} + 2 \times \text{padding}[2] - \text{dilation}[2] \times (\text{kernel_size}[2] - 1) - 1}{\text{stride}[2]} + 1 \right\rfloor \\

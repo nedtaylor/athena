@@ -10,7 +10,8 @@
   maxpool1d_layer_type(
     pool_size=2,
     stride=...,
-    input_shape=...
+    input_shape=...,
+    padding="valid"
   )
 
 
@@ -23,6 +24,7 @@ Arguments
 * **pool_size** (`integer` or `integer, dimension(1)`): Size of the pooling window. Default: ``2``.
 * **stride** (`integer` or `integer, dimension(1)`): Stride of the pooling operation. Default: ``pool_size``.
 * **input_shape** (`integer, dimension(:)`): Shape of the input data (width, channels).
+* **padding** (`character(*)`): Padding method, if any, to be applied to the input data prior to pooling. Refer to :ref:`1D padding layer <pad1d-layer>` for options. Default: ``"valid"``, i.e. no padding.
 
 Shape:
 ------

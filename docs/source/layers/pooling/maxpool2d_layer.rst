@@ -10,7 +10,8 @@
   maxpool2d_layer_type(
     pool_size=2,
     stride=...,
-    input_shape=...
+    input_shape=...,
+    padding="valid"
   )
 
 
@@ -23,6 +24,7 @@ Arguments
 * **pool_size** (`integer` or `integer, dimension(2)`): Size of the pooling window. If a single integer is provided, the same value is used for height and width. Default: ``2``.
 * **stride** (`integer` or `integer, dimension(2)`): Stride of the pooling operation. Default: ``pool_size``.
 * **input_shape** (`integer, dimension(:)`): Shape of the input data (width, height, channels).
+* **padding** (`character(*)`): Padding method, if any, to be applied to the input data prior to pooling. Refer to :ref:`2D padding layer <pad2d-layer>` for options. Default: ``"valid"``, i.e. no padding.
 
 Shape:
 ------
@@ -34,5 +36,5 @@ where:
 
 .. math::
 
-   \text{height_out} &= \left\lfloor \frac{\text{height} - \text{pool_size}[0]}{\text{stride}[0]} + 1 \right\rfloor \\
-   \text{width_out} &= \left\lfloor \frac{\text{width} - \text{pool_size}[1]}{\text{stride}[1]} + 1 \right\rfloor
+   \text{width_out} &= \left\lfloor \frac{\text{width} - \text{pool_size}[1]}{\text{stride}[1]} + 1 \right\rfloor \\
+   \text{height_out} &= \left\lfloor \frac{\text{height} - \text{pool_size}[2]}{\text{stride}[2]} + 1 \right\rfloor \\
