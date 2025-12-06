@@ -16,9 +16,9 @@ auto-examples = false
 module-naming = false
 
 [dependencies]
-coreutils = { git = "https://github.com/nedtaylor/coreutils" }
-graphstruc = { git = "https://github.com/nedtaylor/graphstruc", rev = "v0.2.0" }
-diffstruc = { git = "https://github.com/nedtaylor/diffstruc", rev = "v1.1.0" }
+coreutils = { git = "https://github.com/nedtaylor/coreutils", tag = "v0.1.0" }
+diffstruc = { git = "https://github.com/nedtaylor/diffstruc", tag = "v1.1.1" }
+graphstruc = { git = "https://github.com/nedtaylor/graphstruc", tag = "v0.2.1" }
 
 [install]
 library = false
