@@ -24,6 +24,6 @@ The athena library provides a variety of commonly used activation functions.
 Creating custom activation functions
 ------------------------------------
 
-The athena library is designed with extensibility in mind, allowing users to create custom activation functions by extending the ``base_activation_type``.
+The athena library is designed with extensibility in mind, allowing users to create custom activation functions by extending the ``base_actv_type``.
 
 See the tutorial: :ref:`Creating Custom Activations <custom-activations>`
