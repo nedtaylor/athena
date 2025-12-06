@@ -7,7 +7,7 @@ module athena
 
   !! Libraries
   !!----------------------------------------------------------------------------
-  use athena__io_utils, only: print_version, print_build_info
+  use athena__io_utils, only: print_version, print_build_info, athena__version__
   use athena__misc_ml, only: shuffle, split, pad_data
   use athena__random, only: random_setup
   use athena__network, only: network_type

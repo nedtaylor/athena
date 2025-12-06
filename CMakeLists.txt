@@ -11,6 +11,20 @@ set( CMAKE_BUILD_PREFIX ${CURRENT_WORKING_DIR}
 # set the project name
 project(athena NONE)
 
+# extract version from fpm.toml
+file(READ "${CMAKE_SOURCE_DIR}/fpm.toml" FPM_TOML)
+string(REGEX MATCH
+    "version[ \t]*=[ \t]*\"([^\"]+)\""
+    _match
+    "${FPM_TOML}"
+)
+if(NOT CMAKE_MATCH_1)
+    message(FATAL_ERROR "Could not extract version from fpm.toml")
+endif()
+set(ATHENA_VERSION "${CMAKE_MATCH_1}")
+message(STATUS "athena version: ${ATHENA_VERSION}")
+
+
 # set the library name
 set( LIB_NAME ${PROJECT_NAME} )
 set( PROJECT_DESCRIPTION
