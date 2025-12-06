@@ -1,5 +1,5 @@
 program test_lr_decay
-  use learning_rate_decay
+  use athena__learning_rate_decay
   implicit none
 
   real :: learning_rate
@@ -19,9 +19,9 @@ program test_lr_decay
   class(base_lr_decay_type), allocatable :: lr_decay
 
 
-!!!-----------------------------------------------------------------------------
-!!! test base learning rate decay
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! test base learning rate decay
+!-------------------------------------------------------------------------------
   lr_decay = base_lr_decay_type()
   select type(lr_decay)
   type is (base_lr_decay_type)
@@ -40,9 +40,9 @@ program test_lr_decay
   end if
 
 
-!!!-----------------------------------------------------------------------------
-!!! test exponential learning rate decay
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! test exponential learning rate decay
+!-------------------------------------------------------------------------------
   lr_decay = exp_lr_decay_type()
   if(abs(lr_decay%decay_rate-0.9E0).gt.1.E-6)then
      write(0,*) "step decay rate failed to initialise"
@@ -65,9 +65,9 @@ program test_lr_decay
      success = .false.
   end if
 
-!!!-----------------------------------------------------------------------------
-!!! test step learning rate decay
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! test step learning rate decay
+!-------------------------------------------------------------------------------
   lr_decay = step_lr_decay_type()
   if(abs(lr_decay%decay_rate-0.1E0).gt.1.E-6)then
      write(0,*) "step decay rate failed to initialise"
@@ -94,9 +94,9 @@ program test_lr_decay
      success = .false.
   end if
 
-!!!-----------------------------------------------------------------------------
-!!! test inverse learning rate decay
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! test inverse learning rate decay
+!-------------------------------------------------------------------------------
   lr_decay = inv_lr_decay_type()
   if(abs(lr_decay%decay_rate-0.001E0).gt.1.E-6)then
      write(0,*) "inv decay rate failed to initialise"
@@ -124,9 +124,9 @@ program test_lr_decay
   end if
 
 
-!!!-----------------------------------------------------------------------------
-!!! check for any failed tests
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! check for any failed tests
+!-------------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_lr_decay passed all tests'

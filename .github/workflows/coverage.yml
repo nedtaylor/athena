@@ -2,7 +2,9 @@ name: run-code-coverage
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
+      - development
     paths:
       - ".github/workflows/coverage.yml"
       - "CMakeLists.txt"
@@ -27,54 +29,72 @@ jobs:
   run-code-coverage:
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }} 
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         compiler: [gcc]
-        version: [13]
+        version: [15]
     steps:
       - name: checkout repo
         uses: actions/checkout@v4
-      
+
       - name: actions-setup-cmake
-        uses: jwlawson/actions-setup-cmake@v2.0.1
+        uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: '3.24.x'
-            
-      - uses: fortran-lang/setup-fortran@v1
-        id: setup-fortran
-        with:
-          compiler: ${{ matrix.compiler }}
-          version: ${{ matrix.version }}
 
-      - name: Install gcovr
+      - name: Setup conda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          python-version: 3.11
+
+      - name: Install compiler + tools (conda)
+        shell: bash -l {0}
         run: |
-          pip --version
-          pip install gcovr
-      
-      - run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake make
+          conda install -y -c conda-forge \
+            "gfortran=${{ matrix.version }}" \
+            "gcc_linux-64=${{ matrix.version }}" \
+            gcovr
+
+          echo "FC=$(which gfortran)" >> $GITHUB_ENV
+          echo "GCOV=$(which gcov)" >> $GITHUB_ENV
+
+      - name: Build project
+        shell: bash -l {0}
+        run: |
+          which gfortran
+          gfortran --version
           cmake --version
           mkdir -p build
           cd build
-          cmake -DCMAKE_BUILD_TYPE=Debug ..
+          export GCOV_PATH=$(which gcov)
+          cmake \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_Fortran_COMPILER=${FC:-gfortran} \
+            -DGCOV_PATH=${GCOV_PATH} \
+            ..
           make
-          make coverage
+
+      - name: Run coverage tests
+        shell: bash -l {0}
+        run: |
+          cd build
+          env CTEST_OUTPUT_ON_FAILURE=1 make coverage
 
       - name: Get coverage percentage
+        shell: bash -l {0}
         run: |
           pip install bs4
           echo "COVERAGE_PERCENTAGE="$(python ./tools/coverage_badge.py) >> $GITHUB_ENV
-  
+
       - name: Create coverage badge
         uses: schneegans/dynamic-badges-action@v1.7.0
         with:
           auth: ${{ secrets.GIST_SECRET }}
           gistID: fd7c07c046ecc92d92eaf7bdcb78c4b5
-          filename: test.json # Use test.svg if you want to use the SVG mode.
+          filename: athena_coverage_${{ github.head_ref || github.ref_name }}.json  # Use branch-specific file
           label: Coverage
           message: ${{ env.COVERAGE_PERCENTAGE }}%
           valColorRange: ${{ env.COVERAGE_PERCENTAGE }}
@@ -82,11 +102,18 @@ jobs:
           minColorRange: 0
 
       - name: upload artifact
-        uses: actions/upload-pages-artifact@v1
-        with: 
+        uses: actions/upload-pages-artifact@v4
+        with:
           path: './build/coverage/'
-      
-      - name: deploy to Github Pages
-        uses: actions/deploy-pages@v2
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: run-code-coverage
+    if: ${{ github.ref == 'refs/heads/main' }}
+    steps:
+      - name: deploy to Github Pages (main branch)
         id: deployment
-        
+        uses: actions/deploy-pages@v4

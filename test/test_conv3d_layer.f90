@@ -1,29 +1,35 @@
 program test_conv3d_layer
   use athena, only: &
        conv3d_layer_type, &
-       input4d_layer_type, &
+       input_layer_type, &
        base_layer_type, &
        learnable_layer_type
+  use athena__conv3d_layer, only: read_conv3d_layer
+  use coreutils, only: real32
+  use diffstruc, only: array_type, operator(+), operator(-)
   implicit none
 
-  class(base_layer_type), allocatable :: conv_layer, conv_layer1, conv_layer2
+  class(base_layer_type), allocatable, target :: conv_layer
+  class(base_layer_type), allocatable :: conv_layer1, conv_layer2
   class(base_layer_type), allocatable :: input_layer
+  class(base_layer_type), allocatable :: read_layer
   integer, parameter :: num_filters = 32, kernel_size = 3
-  real, allocatable, dimension(:,:,:,:,:) :: input_data, output
+  integer :: unit
+  type(array_type) :: input(1,1)
+  type(array_type), pointer :: output
   real, parameter :: tol = 1.E-7
   logical :: success = .true.
 
   real, allocatable, dimension(:) :: params
-  real, allocatable, dimension(:,:) :: outputs
 
 
-!!!-----------------------------------------------------------------------------
-!!! set up layer
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! set up layer
+!-------------------------------------------------------------------------------
   conv_layer = conv3d_layer_type( &
        num_filters = num_filters, &
        kernel_size = kernel_size &
-       )
+  )
 
   !! check layer name
   if(.not. conv_layer%name .eq. 'conv3d')then
@@ -35,9 +41,9 @@ program test_conv3d_layer
   select type(conv_layer)
   type is(conv3d_layer_type)
      !! check default layer transfer/activation function
-     if(conv_layer%transfer%name .ne. 'none')then
+     if(conv_layer%activation%name .ne. 'none')then
         success = .false.
-        write(0,*) 'conv3d layer has wrong transfer: '//conv_layer%transfer%name
+        write(0,*) 'conv3d layer has wrong activation: '//conv_layer%activation%name
      end if
 
      !! check number of filters
@@ -67,18 +73,18 @@ program test_conv3d_layer
 !!! check layer input and output shape based on input layer
 !!! conv3d layer: 32 x 32 x32 pixel image, 3 channels
 !!!-----------------------------------------------------------------------------
-  input_layer = input4d_layer_type([32,32,32,3])
+  input_layer = input_layer_type([32,32,32,3])
   call conv_layer%init(input_layer%input_shape)
   select type(conv_layer)
   type is(conv3d_layer_type)
-    if(any(conv_layer%input_shape .ne. [32,32,32,3]))then
-       success = .false.
-       write(0,*) 'conv3d layer has wrong input_shape'
-    end if
-    if(any(conv_layer%output_shape .ne. [30,30,30,num_filters]))then
-       success = .false.
-       write(0,*) 'conv3d layer has wrong output_shape'
-    end if
+     if(any(conv_layer%input_shape .ne. [32,32,32,3]))then
+        success = .false.
+        write(0,*) 'conv3d layer has wrong input_shape'
+     end if
+     if(any(conv_layer%output_shape .ne. [30,30,30,num_filters]))then
+        success = .false.
+        write(0,*) 'conv3d layer has wrong output shape'
+     end if
   end select
 
 
@@ -88,38 +94,31 @@ program test_conv3d_layer
 !!!-----------------------------------------------------------------------------
   !! initialise sample input
   !! conv3d layer: 3x3 pixel image, 1 channel
-  allocate(input_data(3, 3, 3, 1, 1), source = 0.0)
-  input_layer = input4d_layer_type([3,3,3,1], batch_size=1)
+  call input(1,1)%allocate(array_shape=[3,3,3,1,1], source = 0._real32)
+  call input(1,1)%set_requires_grad(.true.)
   conv_layer = conv3d_layer_type( &
        num_filters = 1, &
        kernel_size = 3, &
-       activation_function = 'sigmoid' &
-       )
-  call conv_layer%init(input_layer%input_shape, batch_size=1)
+       activation = 'sigmoid' &
+  )
+  call conv_layer%init(input(1,1)%shape)
 
   !! set input data in input_layer
-  select type (current => input_layer)
-  type is(input4d_layer_type)
-     call current%set(input_data)
-  end select
-  call input_layer%get_output(output)
-
-  !! run forward pass
-  call conv_layer%forward(input_data)
-  call conv_layer%get_output(output)
+  call conv_layer%forward(input)
+  output => conv_layer%output(1,1)
 
   !! check outputs have expected value
-  if (any(abs(output - 0.5).gt.tol)) then
-    success = .false.
-    write(*,*) 'conv3d layer with zero input and sigmoid activation must &
-         &return outputs all equal to 0.5'
-    write(*,*) output
+  if (any(abs(output%val(:,1) - 0.5) .gt. tol)) then
+     success = .false.
+     write(*,*) 'conv3d layer with zero input and sigmoid activation must &
+          &return outputs all equal to 0.5'
+     write(*,*) output%val(:,1)
   end if
 
 
-!!!-----------------------------------------------------------------------------
-!!! check handling of layer parameters, gradients, and outputs
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! check handling of layer parameters, gradients, and outputs
+!-------------------------------------------------------------------------------
   select type(conv_layer)
   class is(learnable_layer_type)
      !! check layer parameter handling
@@ -137,7 +136,7 @@ program test_conv3d_layer
      end if
 
      !! check layer gradient handling
-     params = conv_layer%get_gradients() 
+     params = conv_layer%get_gradients()
      if(size(params) .eq. 0)then
         success = .false.
         write(0,*) 'conv3d layer has wrong number of gradients'
@@ -157,26 +156,25 @@ program test_conv3d_layer
      end if
 
      !! check layer output handling
-     call conv_layer%get_output(params)
-     if(size(params) .ne. product(conv_layer%output_shape))then
+     output => conv_layer%output(1,1)
+     if(size(output%val,dim=1) .ne. product(conv_layer%output_shape))then
         success = .false.
         write(0,*) 'conv3d layer has wrong number of outputs'
      end if
-     call conv_layer%get_output(outputs)
-     if(any(shape(outputs) .ne. [product(conv_layer%output_shape), 1]))then
+     if(any(shape(output%val) .ne. [product(conv_layer%output_shape), 1]))then
         success = .false.
         write(0,*) 'conv3d layer has wrong number of outputs'
      end if
   end select
 
 
-!!!-----------------------------------------------------------------------------
-!!! check expected initialisation of kernel size and stride
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! check expected initialisation of kernel size and stride
+!-------------------------------------------------------------------------------
   conv_layer = conv3d_layer_type( &
        kernel_size = [2, 2, 2], &
        stride = [2, 2, 2] &
-       )
+  )
   select type(conv_layer)
   type is (conv3d_layer_type)
      if(any(conv_layer%knl .ne. 2))then
@@ -190,13 +188,13 @@ program test_conv3d_layer
   end select
 
 
-!!!-----------------------------------------------------------------------------
-!!! check expected initialisation of kernel size and stride
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! check expected initialisation of kernel size and stride
+!-------------------------------------------------------------------------------
   conv_layer = conv3d_layer_type( &
        kernel_size = [4], &
        stride = [4] &
-       )
+  )
   select type(conv_layer)
   type is (conv3d_layer_type)
      if(any(conv_layer%knl .ne. 4))then
@@ -210,25 +208,26 @@ program test_conv3d_layer
   end select
 
 
-!!!-----------------------------------------------------------------------------
-!!! check layer operations
-!!!-----------------------------------------------------------------------------
-  conv_layer1 = conv3d_layer_type( &
+!-------------------------------------------------------------------------------
+! check layer operations
+!-------------------------------------------------------------------------------
+  allocate(conv_layer1, source = conv3d_layer_type( &
        num_filters = 1, &
        kernel_size = 3, &
-       activation_function = 'sigmoid' &
-       )
-  call conv_layer1%init(input_layer%input_shape, batch_size=1)
-  conv_layer2 = conv3d_layer_type( &
+       activation = 'sigmoid' &
+  ))
+  call conv_layer1%init(input_layer%input_shape)
+  allocate(conv_layer2, source = conv3d_layer_type( &
        num_filters = 1, &
        kernel_size = 3, &
-       activation_function = 'sigmoid' &
-       )
-  call conv_layer2%init(input_layer%input_shape, batch_size=1)
+       activation = 'sigmoid' &
+  ))
+  call conv_layer2%init(input_layer%input_shape)
   select type(conv_layer1)
   type is(conv3d_layer_type)
      select type(conv_layer2)
      type is(conv3d_layer_type)
+        if(allocated(conv_layer)) deallocate(conv_layer)
         conv_layer = conv_layer1 + conv_layer2
         select type(conv_layer)
         type is(conv3d_layer_type)
@@ -241,15 +240,9 @@ program test_conv3d_layer
            call conv_layer%reduce(conv_layer2)
            call compare_conv3d_layers(&
                 conv_layer, conv_layer1, success, conv_layer2)
-
-           !! check layer merge
-           conv_layer = conv_layer1
-           call conv_layer%merge(conv_layer2)
-           call compare_conv3d_layers(&
-                conv_layer, conv_layer1, success, conv_layer2)
         class default
-            success = .false.
-            write(0,*) 'conv3d layer has wrong type'
+           success = .false.
+           write(0,*) 'conv3d layer has wrong type'
         end select
      class default
         success = .false.
@@ -261,9 +254,48 @@ program test_conv3d_layer
   end select
 
 
-!!!-----------------------------------------------------------------------------
-!!! check for any failed tests
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Test file I/O operations
+!-------------------------------------------------------------------------------
+  write(*,*) "Testing file I/O operations..."
+
+  ! Create a temporary file for testing
+  open(newunit=unit, file='test_conv3d_layer.tmp', &
+       status='replace', action='write')
+
+  ! Write layer to file
+  write(unit,'("CONV3D")')
+  call conv_layer%print_to_unit(unit)
+  write(unit,'("END CONV3D")')
+  close(unit)
+
+  ! Read layer from file
+  open(newunit=unit, file='test_conv3d_layer.tmp', &
+       status='old', action='read')
+  read(unit,*) ! Skip first line
+  read_layer = read_conv3d_layer(unit)
+  close(unit)
+
+  ! Check that read layer has correct properties
+  select type(read_layer)
+  type is (conv3d_layer_type)
+     if (.not. read_layer%name .eq. 'conv3d') then
+        success = .false.
+        write(0,*) 'read conv3d layer has wrong name'
+     end if
+  class default
+     success = .false.
+     write(0,*) 'read layer is not conv3d_layer_type'
+  end select
+
+  ! Clean up temporary file
+  open(newunit=unit, file='test_conv3d_layer.tmp', status='old')
+  close(unit, status='delete')
+
+
+!-------------------------------------------------------------------------------
+! check for any failed tests
+!-------------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_conv3d_layer passed all tests'
@@ -275,37 +307,58 @@ program test_conv3d_layer
 
 contains
 
-!!!-----------------------------------------------------------------------------
-!!! compare two or three layers
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! compare two or three layers
+!-------------------------------------------------------------------------------
   subroutine compare_conv3d_layers(layer1, layer2, success, layer3)
-     type(conv3d_layer_type), intent(in) :: layer1, layer2
-     logical, intent(inout) :: success
-     type(conv3d_layer_type), optional, intent(in) :: layer3
+    type(conv3d_layer_type), intent(in) :: layer1, layer2
+    logical, intent(inout) :: success
+    type(conv3d_layer_type), optional, intent(in) :: layer3
 
-     if(all(layer1%knl .ne. layer2%knl))then
-        success = .false.
-        write(0,*) 'conv3d layer has wrong kernel_size'
-     end if
-     if(layer1%num_filters .ne. layer2%num_filters)then
-        success = .false.
-        write(0,*) 'conv3d layer has wrong num_filters'
-     end if
-     if(layer1%transfer%name .ne. 'sigmoid')then
-        success = .false.
-        write(0,*) 'conv3d layer has wrong transfer: '//&
-             layer1%transfer%name
-     end if
-     if(present(layer3))then
-        if(any(abs(layer1%dw-layer2%dw-layer3%dw).gt.tol))then
-           success = .false.
-           write(0,*) 'conv3d layer has wrong weights'
-        end if
-        if(any(abs(layer1%db-layer2%db-layer3%db).gt.tol))then
-           success = .false.
-           write(0,*) 'conv3d layer has wrong weights'
-        end if
-     end if
+    if(all(layer1%knl .ne. layer2%knl))then
+       success = .false.
+       write(0,*) 'conv3d layer has wrong kernel_size'
+    end if
+    if(layer1%num_filters .ne. layer2%num_filters)then
+       success = .false.
+       write(0,*) 'conv3d layer has wrong num_filters'
+    end if
+    if(layer1%activation%name .ne. 'sigmoid')then
+       success = .false.
+       write(0,*) 'conv3d layer has wrong activation: '//&
+            layer1%activation%name
+    end if
+    if(present(layer3))then
+       if( &
+            associated(layer1%params(1)%grad).and. &
+            associated(layer2%params(1)%grad).and. &
+            associated(layer3%params(1)%grad) &
+       )then
+          if(any(abs( &
+               layer1%params(1)%grad%val - &
+               layer2%params(1)%grad%val - &
+               layer3%params(1)%grad%val &
+          ).gt.1.E-6))then
+             success = .false.
+             write(0,*) 'conv1d layer has wrong gradients'
+          end if
+       end if
+
+       if( &
+            associated(layer1%params(2)%grad).and. &
+            associated(layer2%params(2)%grad).and. &
+            associated(layer3%params(2)%grad) &
+       )then
+          if(any(abs( &
+               layer1%params(2)%grad%val - &
+               layer2%params(2)%grad%val - &
+               layer3%params(2)%grad%val &
+          ).gt.1.E-6))then
+             success = .false.
+             write(0,*) 'conv1d layer has wrong bias gradients'
+          end if
+       end if
+    end if
 
   end subroutine compare_conv3d_layers
 

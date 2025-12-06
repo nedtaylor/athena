@@ -3,22 +3,35 @@ Welcome to athena's documentation!
 
 **athena** is a Fortran library for implementing neural networks.
 
-.. note::
-    
-    THE DOCUMENTATION IS CURRENTLY UNDER DEVELOPMENT. Please refer to the [wiki](https://github.com/nedtaylor/athena/wiki) for now: 
+The code is provided freely available under the `MIT License <https://opensource.org/licenses/MIT>`_.
+
+The library is aimed at providing tools for building and training neural networks in Fortran;
+the focus is on convolutional layers, message passing layers, and physics informed neural networks, but other layers are also provided.
+
+The athena library, once installed, can be imported into a Fortran program with the statement:
+
+.. code-block:: fortran
+
+   use athena
+
+The list of supported layers can be found :ref:`here <layers>`.
+
+An example of how to use the library is shown below:
 
 
-Check out the :doc:`usage` section for further information, including
-how to :ref:`installation` the project.
+.. container:: tight-toc
 
-.. note::
+   .. toctree::
+      :maxdepth: 1
+      :caption: Contents:
 
-   This project is under active development.
-
-Contents
---------
-
-.. toctree::
-
-   usage
-   api
+      about
+      install
+      tutorials/tutorials
+      layers/layers
+      optimisers/optimisers
+      activations/activations
+      initialisers/initialisers
+      loss/loss
+      training/training
+      Fortran API <api>

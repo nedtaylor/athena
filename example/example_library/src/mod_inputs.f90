@@ -4,7 +4,8 @@
 !!! Code part of the ARTEMIS group
 !!!#############################################################################
 module inputs
-  use constants_mnist, only: real12, ierror
+  use coreutils, only: real32, icount, flagmaker, file_check, to_lower
+  use constants_mnist, only: ierror
   use athena, only: &
        metric_dict_type, &
        base_optimiser_type, &
@@ -13,16 +14,16 @@ module inputs
        l1l2_regulariser_type, &
        l1_regulariser_type, &
        l2_regulariser_type
-  use misc_mnist, only: icount, flagmaker, file_check, to_lower
   implicit none
   integer :: verbosity    ! verbose printing
   integer :: seed         ! random seed
   integer :: num_threads  ! number of threads (FOR OPENMP PARALLEL ONLY!)
   integer :: batch_print_step
-  real(real12) :: loss_threshold     ! threshold for loss convergence
-  real(real12) :: plateau_threshold  ! threshold for plateau checking
+  real(real32) :: loss_threshold     ! threshold for loss convergence
+  real(real32) :: plateau_threshold  ! threshold for plateau checking
   class(base_optimiser_type), allocatable :: optimiser
   logical :: batch_learning
+  character(:), allocatable :: accuracy_method
   character(:), allocatable :: loss_method
   character(1024) :: input_file, output_file
   logical :: restart
@@ -38,13 +39,13 @@ module inputs
   integer, allocatable, dimension(:) :: cv_stride       ! stride of kernels for convolution
   character(:), allocatable :: cv_dropout_method
   integer :: cv_block_size
-  real(real12) :: cv_keep_prob
+  real(real32) :: cv_keep_prob
   character(:), allocatable :: cv_kernel_initialiser
   character(:), allocatable :: cv_bias_initialiser
-  real(real12) :: cv_activation_scale
+  real(real32) :: cv_activation_scale
   character(:), allocatable :: cv_activation_function
-  
-  real(real12) :: bn_gamma, bn_beta  ! batch normalisation learning features
+
+  real(real32) :: bn_gamma, bn_beta  ! batch normalisation learning features
 
   integer :: pool_kernel_size    ! pooling size (assume square)
   integer :: pool_stride         ! pooling stride
@@ -52,13 +53,13 @@ module inputs
 
   integer, allocatable, dimension(:) :: fc_num_hidden  ! number of fully connected hidden layers
   character(len=10) :: fc_activation_function
-  real(real12) :: fc_activation_scale
+  real(real32) :: fc_activation_scale
   character(:), allocatable :: fc_weight_initialiser
 
 
-  real(real12) :: train_size  ! fraction of data to train on (NOT YET USED) 
+  real(real32) :: train_size  ! fraction of data to train on (NOT YET USED)
   logical :: shuffle_dataset  ! shuffle train and test data
-  
+
   type(metric_dict_type), dimension(2) :: metric_dict
 
 
@@ -73,7 +74,7 @@ module inputs
 
   public :: batch_learning
   public :: plateau_threshold
-  public :: loss_method
+  public :: accuracy_method, loss_method
   public :: metric_dict, metric_dict_type
 
   public :: num_epochs, batch_size
@@ -115,9 +116,9 @@ contains
     character(*), optional, intent(in) :: param_file
 
 
-!!!-----------------------------------------------------------------------------
-!!! initialises variables
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! initialises variables
+!-------------------------------------------------------------------------------
     skip = .false.
     param_file_ = ""
     input_file = ""
@@ -132,9 +133,9 @@ contains
     metric_dict%active = .false.
     metric_dict(1)%key = "loss"
     metric_dict(2)%key = "accuracy"
-    metric_dict%threshold = 1.E-1_real12
+    metric_dict%threshold = 1.E-1_real32
 
-    plateau_threshold = 1.E-3_real12
+    plateau_threshold = 1.E-3_real32
     shuffle_dataset = .false.
     batch_learning = .true.
 
@@ -142,23 +143,23 @@ contains
     batch_size = 20
     cv_num_filters = 32
     cv_block_size = 5
-    cv_keep_prob = 1._real12
-    
+    cv_keep_prob = 1._real32
+
     pool_kernel_size = 2
     pool_stride = 2
     pool_normalisation = "sum"
 
     fc_activation_function = "relu"
-    fc_activation_scale = 1._real12
+    fc_activation_scale = 1._real32
     !! gaussian, relu, piecewise, leaky_relu, sigmoid, tanh
 
 
     if(present(param_file)) param_file_ = param_file
 
 
-!!!-----------------------------------------------------------------------------
-!!! Reads flags and assigns to variables
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Reads flags and assigns to variables
+!-------------------------------------------------------------------------------
     flagloop: do i=1,command_argument_count()
        empty=.false.
        if (skip) then
@@ -233,9 +234,9 @@ contains
     end do flagloop
 
 
-!!!-----------------------------------------------------------------------------
-!!! check if input file was specified and read if true
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! check if input file was specified and read if true
+!-------------------------------------------------------------------------------
     if(trim(param_file_).ne."")then
        call read_input_file(param_file_)
     else
@@ -243,9 +244,9 @@ contains
     end if
 
 
-!!!-----------------------------------------------------------------------------
-!!! read in dataset
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! read in dataset
+!-------------------------------------------------------------------------------
     !! FOR LATER
 
 
@@ -274,25 +275,25 @@ contains
     implicit none
     integer :: Reason, unit, i
     character(128) :: message
-    
-    integer :: num_filters
-    
-    integer :: block_size
-    real(real12) ::  keep_prob
-    real(real12) :: activation_scale
 
-    real(real12) :: learning_rate      ! rate of learning (larger = faster)
-    real(real12) :: l1_lambda, l2_lambda  ! l1 and l2 regularisation parameters
-    real(real12) :: momentum, beta1, beta2, epsilon
+    integer :: num_filters
+
+    integer :: block_size
+    real(real32) ::  keep_prob
+    real(real32) :: activation_scale
+
+    real(real32) :: learning_rate      ! rate of learning (larger = faster)
+    real(real32) :: l1_lambda, l2_lambda  ! l1 and l2 regularisation parameters
+    real(real32) :: momentum, beta1, beta2, epsilon
     character(512) :: hidden_layers
     character(512) :: dataset_dir
-    
+
     integer :: num_metrics
-    real(real12), dimension(2) :: threshold
+    real(real32), dimension(2) :: threshold
     character(100) :: metrics
     character(10), allocatable, dimension(:) :: metric_list
 
-    character(4)  :: loss
+    character(4)  :: accuracy, loss
     character(9)  :: dropout
     character(6)  :: regularisation
     character(6)  :: normalisation
@@ -308,9 +309,9 @@ contains
     character(*), intent(inout) :: file_name
 
 
-!!!-----------------------------------------------------------------------------
-!!! set up namelists for input file
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! set up namelists for input file
+!-------------------------------------------------------------------------------
     namelist /setup/ seed, verbosity, num_threads, &
          input_file, output_file, restart, &
          batch_print_step, dataset_dir
@@ -318,7 +319,7 @@ contains
          plateau_threshold, threshold, &
          learning_rate, momentum, l1_lambda, l2_lambda, &
          shuffle_dataset, batch_learning, adaptive_learning, &
-         beta1, beta2, epsilon, loss, &
+         beta1, beta2, epsilon, loss, accuracy, &
          clip_min, clip_max, clip_norm, &
          regularisation, metrics
     namelist /convolution/ num_filters, kernel_size, stride, &
@@ -331,9 +332,9 @@ contains
          weight_initialiser
 
 
-!!!-----------------------------------------------------------------------------
-!!! check input file exists and open
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! check input file exists and open
+!-------------------------------------------------------------------------------
     unit=20
     call file_check(unit,file_name)
 
@@ -342,9 +343,9 @@ contains
 !!!                       read namelists from input file                     !!!
 !!!==========================================================================!!!
 
-!!!-----------------------------------------------------------------------------
-!!! read setup namelist
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! read setup namelist
+!-------------------------------------------------------------------------------
     data_dir = "/home/links/ntt203/DCoding/DTest_dir/DMNIST"
     read(unit,NML=setup,iostat=Reason,iomsg=message)
     if(Reason.ne.0)then
@@ -352,26 +353,26 @@ contains
        stop trim(message)
     end if
     data_dir = dataset_dir
-    
 
-!!!-----------------------------------------------------------------------------
-!!! read training namelist
-!!!-----------------------------------------------------------------------------
+
+!-------------------------------------------------------------------------------
+! read training namelist
+!-------------------------------------------------------------------------------
     loss="mse"
     dropout="none"
     block_size = 5
-    keep_prob = 0.75_real12
+    keep_prob = 0.75_real32
 
-    learning_rate = 0.025_real12
+    learning_rate = 0.025_real32
     regularisation="" !! none, l1, l2, l1l2
-    l1_lambda = 0._real12
-    l2_lambda = 0._real12
+    l1_lambda = 0._real32
+    l2_lambda = 0._real32
 
     adaptive_learning = ""
-    momentum = 0._real12
-    beta1 = 0.9_real12
-    beta2 = 0.999_real12
-    epsilon = 1.E-8_real12
+    momentum = 0._real32
+    beta1 = 0.9_real32
+    beta2 = 0.999_real32
+    epsilon = 1.E-8_real32
     metrics = 'accuracy'
 !!! ADD weight_decay (L2 penalty for AdamW)
 
@@ -392,6 +393,7 @@ contains
     !! cce = categorical cross entropy
     !! mse = mean square error
     !! nll = negative log likelihood
+    accuracy_method = to_lower(trim(accuracy))
     loss_method = to_lower(trim(loss))
     num_metrics = icount(metrics)
     if(num_metrics.le.0)then
@@ -411,19 +413,19 @@ contains
             write(*,'("Metric: ",A,", threshold: ",E10.3E2)') &
             trim(metric_dict(i)%key), metric_dict(i)%threshold
     end do
-    
 
 
-!!!-----------------------------------------------------------------------------
-!!! read convolution namelist
-!!!-----------------------------------------------------------------------------
+
+!-------------------------------------------------------------------------------
+! read convolution namelist
+!-------------------------------------------------------------------------------
     num_filters = 32
     convolution_type    = "standard"
     padding_type        = "same"
     kernel_initialiser  = "he_uniform"
     bias_initialiser    = "zeros"
     activation_function = "none"
-    activation_scale = 1._real12
+    activation_scale = 1._real32
     kernel_size = ""; stride = ""
     read(unit,NML=convolution,iostat=Reason,iomsg=message)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
@@ -451,7 +453,7 @@ contains
     !!              ... 1x1 filter, not affecting spatial dimensions
     convolution_method = to_lower(trim(convolution_type))
 !!! NOT SET UP YET
-   
+
     !! handle padding type
     !!---------------------------------------------------------------------------
     !! none = alt. name for 'valid'
@@ -474,9 +476,9 @@ contains
     padding_method = to_lower(trim(padding_type))
 
 
-!!!-----------------------------------------------------------------------------
-!!! read pooling namelist
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! read pooling namelist
+!-------------------------------------------------------------------------------
     normalisation="none"
     kernel_size = ""; stride = ""
     read(unit,NML=pooling,iostat=Reason,iomsg=message)
@@ -495,13 +497,13 @@ contains
     !! norm
     pool_normalisation = to_lower(trim(normalisation))
 
-    
-!!!-----------------------------------------------------------------------------
-!!! read fully connected namelist
-!!!-----------------------------------------------------------------------------
+
+!-------------------------------------------------------------------------------
+! read fully connected namelist
+!-------------------------------------------------------------------------------
     weight_initialiser = ""
     hidden_layers=""
-    activation_scale = 1._real12
+    activation_scale = 1._real32
     activation_function = "relu"
     read(unit,NML=fully_connected,iostat=Reason,iomsg=message)
     if(.not.is_iostat_end(Reason).and.Reason.ne.0)then
@@ -517,15 +519,15 @@ contains
     call get_list(hidden_layers, fc_num_hidden)
 
 
-!!!-----------------------------------------------------------------------------
-!!! close input file
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! close input file
+!-------------------------------------------------------------------------------
     close(unit)
 
 
-!!!-----------------------------------------------------------------------------
-!!! handle adaptive learning method
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! handle adaptive learning method
+!-------------------------------------------------------------------------------
     !! none  = normal (stochastic) gradient descent
     !! adam  = adaptive moment estimation (adam) adaptive learning
     !! momentum   = momentum-based learning
@@ -533,7 +535,7 @@ contains
     !! step_decay = step decay
     !! reduce_lr_on_plateau = reduce learning rate when output metric plateaus
     if(trim(adaptive_learning).eq."")then
-       if(momentum.gt.0._real12)then
+       if(momentum.gt.0._real32)then
           adaptive_learning = "momentum"
           write(*,*) "Momentum was set, but not adaptive_learning"
           write(*,*) 'Setting adaptive_learning = "momentum"'
@@ -552,7 +554,7 @@ contains
        write(*,*) "No adaptive learning method"
     case("sgd")
        write(*,*) "Stocastic Gradient Descent momentum-based adaptive learning method"
-       if(abs(momentum).le.1.E-6_real12)then
+       if(abs(momentum).le.1.E-6_real32)then
           write(*,*) "ERROR: momentum adaptive learning set with momentum = 0"
           write(*,*) "Please rerun with either a different adaptive method or &
                &a larger momentum value"
@@ -562,7 +564,7 @@ contains
        optimiser = sgd_optimiser_type(momentum = momentum)
     case("nesterov")
        write(*,*) "Nesterov momentum-based adaptive learning method"
-       if(abs(momentum).le.1.E-6_real12)then
+       if(abs(momentum).le.1.E-6_real32)then
           write(*,*) "ERROR: nesterov adaptive learning set with momentum = 0"
           write(*,*) "Please rerun with either a different adaptive method or &
                &a larger momentum value"
@@ -590,15 +592,15 @@ contains
     end select
 
 
-!!!-----------------------------------------------------------------------------
-!!! handle regularisation method
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! handle regularisation method
+!-------------------------------------------------------------------------------
     !! none  = no regularisation
     !! l1    = l1 regularisation
     !! l2    = l2 regularisation
     !! l1l2  = l1 and l2 regularisation
     if(trim(regularisation).eq."")then
-       if(l1_lambda.gt.0._real12.and.l2_lambda.gt.0._real12)then
+       if(l1_lambda.gt.0._real32.and.l2_lambda.gt.0._real32)then
           optimiser%regularisation = .true.
           regularisation = "l1l2"
           write(*,*) "l1_lambda and l2_lambda were set, but not regularisation"
@@ -606,7 +608,7 @@ contains
           write(*,*) 'If this is not desired, rerun with either:'
           write(*,*) '   regularisation = "none"'
           write(*,*) '   l1_lambda = 0.0, l2_lambda = 0.0'
-       elseif(l1_lambda.gt.0._real12)then
+       elseif(l1_lambda.gt.0._real32)then
           optimiser%regularisation = .true.
           regularisation = "l1"
           write(*,*) "l1_lambda was set, but not regularisation"
@@ -614,7 +616,7 @@ contains
           write(*,*) 'If this is not desired, rerun with either:'
           write(*,*) '   regularisation = "none"'
           write(*,*) '   l1_lambda = 0.0'
-       elseif(l2_lambda.gt.0._real12)then
+       elseif(l2_lambda.gt.0._real32)then
           optimiser%regularisation = .true.
           regularisation = "l2"
           write(*,*) "l2_lambda was set, but not regularisation"
@@ -635,7 +637,7 @@ contains
        write(*,*) "No regularisation set"
     case("l1l2")
        write(*,*) "L1L2 regularisation"
-       if(abs(l1_lambda).le.1.E-8_real12.and.abs(l2_lambda).le.1.E-8_real12)then
+       if(abs(l1_lambda).le.1.E-8_real32.and.abs(l2_lambda).le.1.E-8_real32)then
           write(*,*) "ERROR: l1_lambda and l2_lambda set to = 0.0"
           write(*,*) "Please rerun with either a different regularisation or &
                 &a larger values"
@@ -647,7 +649,7 @@ contains
              source = l1l2_regulariser_type(l1 = l1_lambda, l2 = l2_lambda) )
     case("l1")
        write(*,*) "L1 regularisation"
-       if(abs(l1_lambda).le.1.E-8_real12)then
+       if(abs(l1_lambda).le.1.E-8_real32)then
           write(*,*) "ERROR: l1_lambda set to = 0.0"
           write(*,*) "Please rerun with either a different regularisation or &
                 &a larger values"
@@ -658,7 +660,7 @@ contains
              source = l1l2_regulariser_type(l1 = l1_lambda) )
     case("l2")
        write(*,*) "L2 regularisation"
-       if(abs(l2_lambda).le.1.E-8_real12)then
+       if(abs(l2_lambda).le.1.E-8_real32)then
           write(*,*) "ERROR: l2_lambda set to = 0.0"
           write(*,*) "Please rerun with either a different regularisation or &
                 &a larger values"
@@ -676,9 +678,9 @@ contains
     call optimiser%clip_dict%read(clip_min, clip_max, clip_norm)
 
 
-!!!-----------------------------------------------------------------------------
-!!! handle dropout method
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! handle dropout method
+!-------------------------------------------------------------------------------
     !! none
     !! dropblock
     if(trim(dropout).eq."")then
@@ -710,7 +712,7 @@ contains
     integer, optional, intent(in) :: length
 
     character(1) :: fs
-    
+
     if(scan(trim(string),",").ne.0)then
        fs = ","
     else
@@ -722,10 +724,10 @@ contains
     if(present(length))then
        if(size(output,dim=1).ne.1.and.size(output,dim=1).ne.length)then
           stop "ERROR: LAYER PARAMETER DIMENSION SIZE MUST BE 1 OR &
-               &NUMBER OF LAYERS" 
+               &NUMBER OF LAYERS"
        end if
     end if
- 
+
   end subroutine get_list
 !!!#############################################################################
 

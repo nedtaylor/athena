@@ -1,11 +1,12 @@
 [![MIT workflow](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/license/mit/ "View MIT license")
 [![Latest Release](https://img.shields.io/github/v/release/nedtaylor/athena?sort=semver)](https://github.com/nedtaylor/athena/releases "View on GitHub")
-[![Downloads](https://img.shields.io/github/downloads/nedtaylor/athena/total)](https://github.com/nedtaylor/athena/releases "View on GitHub")
 [![status](https://joss.theoj.org/papers/7806cc51a998f872034abfe0bb24bc24/status.svg)](https://joss.theoj.org/papers/7806cc51a998f872034abfe0bb24bc24)
-[![FPM](https://img.shields.io/badge/fpm-0.10.1-purple)](https://github.com/fortran-lang/fpm "View Fortran Package Manager")
+[![Documentation Status](https://readthedocs.org/projects/athena/badge/?version=latest)](https://athena-fortran.readthedocs.io/en/latest/?badge=latest "athena ReadTheDocs")
+[![FPM](https://img.shields.io/badge/fpm-0.12.0-purple)](https://github.com/fortran-lang/fpm "View Fortran Package Manager")
 [![CMAKE](https://img.shields.io/badge/cmake-3.17.5-red)](https://github.com/Kitware/CMake/releases/tag/v3.17.5 "View cmake")
-[![GCC compatibility](https://img.shields.io/badge/gcc-13.2.0-green)](https://gcc.gnu.org/gcc-13/ "View GCC")
+[![GCC compatibility](https://img.shields.io/badge/gcc-15.2.0-green)](https://gcc.gnu.org/gcc-13/ "View GCC")
 [![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/nedtaylor/fd7c07c046ecc92d92eaf7bdcb78c4b5/raw/test.json)](https://nedtaylor.github.io/athena/ "View coverage report")
+<!-- [![Downloads](https://img.shields.io/github/downloads/nedtaylor/athena/total)](https://github.com/nedtaylor/athena/releases "View on GitHub") -->
 
 # athena
 
@@ -27,16 +28,17 @@ It was decided that this project should be migrated to allow for better communit
 
 ## Statement of need
 
-The ATHENA library leverages Fortran's strong support of array arithmatics, and its compatibility with parallel and high-performance computing resources.
-Additionally, there exist many improvements made available since Fortran 95, specifically in Fortran 2018 (Reid 2018) (and upcoming ones in Fortran 2023), as well as continued development by the Fortran Standards committee.
+The athena library leverages Fortran's strong support of array arithmatics, and its compatibility with parallel and high-performance computing resources.
+Additionally, there exist many improvements made available since Fortran 95, specifically in Fortran 2018 (Reid 2018) (and ones in Fortran 2023), as well as continued development by the Fortran Standards committee.
 All of this provides a clear incentive to develop further libraries and frameworks focused on providing machine learning capabilities to the Fortran community.
 
 While existing Fortran-based libraries, such as neural-fortran (Curcic 2019), address many aspects of neural networks,
-ATHENA provides implementation of some well-known features not currently available within other libraries; these features include batchnormalisation, regularisation layers (such as dropout and dropblock), and average pooling layers.
+athena provides implementation of some well-known features not currently available within other libraries; these features include batchnormalisation, regularisation layers (such as dropout and dropblock), and average pooling layers.
 Additionally, the library provides support for 1, 2, and 3D input data for most features currently implemented; this includes 1, 2, and 3D data for convolutional layers.
-Finally, the ATHENA library supports many convolutional techniques, including various data padding types, and stride.
+The athena library also supports many convolutional techniques, including various data padding types, and stride.
+Building on this, the library also supports strongly physics-focused architectures through providing capabilties of graph neural networks through the inclusion of message passing layers and physics informed neural networks through its use of automatic differentiation.
 
-One of the primary intended applications of ATHENA is in materials science, which heavily utilises convolutional and graph neural networks for learning based on charge densities and atomic structures.
+One of the primary intended applications of athena is in materials science, which heavily utilises convolutional and graph neural networks for learning based on charge densities and atomic structures.
 Given the unique data structure of atomic configurations, specifically their graph-based nature, a specialised API must be developed to accommodate these needs.
 
 ### References
@@ -47,25 +49,27 @@ Given the unique data structure of atomic configurations, specifically their gra
 Documentation
 -----
 
-ATHENA is distributed with the following directories:
+athena is distributed with the following directories:
 
 | Directory | Description |
 |---|---|
-|  _example/_  |    A set of example programs utilising the ATHENA library |
+|  _docs/_    |  Compilable documentation |
+|  _example/_ |  A set of example programs utilising the athena library |
 |  _src/_ |      Source code  |
 |  _tools/_ |    Additional shell script tools for automating learning  |
 |  _test/_  |    A set of test programs to check functionality of the library works after compilation |
 
 
-For extended details on the functionality of this library, please check out the [wiki](https://github.com/nedtaylor/athena/wiki)
+Tutorials and documentation are provided on the [docs](http://athena-fortran.readthedocs.io/) website.
 
-**NOTE: There currently exists no manual document. This will be included at a later date**
+Refer to the [API Documentation section](#api-documentation) later in this document to see how to access the API-specific documentation.
 
+**NOTE:** The [wiki](https://github.com/nedtaylor/athena/wiki) still exists, but is outdated, no longer being updated, and will be deprecated in the future.
 
 Setup
 -----
 
-The ATHENA library can be obtained from the git repository. Use the following commands to get started:
+The athena library can be obtained from the git repository. Use the following commands to get started:
 ```
   git clone https://github.com/nedtaylor/athena.git
   cd athena
@@ -76,16 +80,18 @@ The ATHENA library can be obtained from the git repository. Use the following co
 The library has the following dependencies:
 - A Fortran compiler (compatible with Fortran 2018 or later)
 - [fpm](https://github.com/fortran-lang/fpm), [CMake](https://cmake.org), or [Spack](https://github.com/spack/spack) for building the library
-
+- The [graphstruc](https://github.com/nedtaylor/graphstruc) Fortran library (for handing graph structures through derived types)
 
 The library has been developed and tested using the following compilers:
-- gfortran -- gcc 14.1.0
+- gfortran -- gcc 15.2.0
 - ifort -- Intel 2021.10.0.20230609
-- ifx -- IntelLLVM 2023.2.0
+- ifx -- IntelLLVM 2025.2.0
+
+> **_NOTE:_** athena is known to be incompatible with all versions of the gfortran compiler below `14.3.0` due an error with order of calling of overloaded `final` procedures of derived types.
 
 #### Tested compilers
 The library has also been tested with and found to support the following libraries:
-- gfortran -- gcc 12.3, gcc 13.2
+- gfortran -- gcc 14.3
 
 ### Building with fpm
 
@@ -109,10 +115,10 @@ This runs a set of test programs (found within the test/ directory) to ensure th
 
 Run the following commands in the directory containing _CMakeLists.txt_:
 ```
-  mkdir build  
-  cd build  
-  cmake [-DCMAKE_BUILD_TYPE="optim;mp"] ..  
-  make install  
+  mkdir build
+  cd build
+  cmake [-DCMAKE_BUILD_TYPE="optim;mp"] ..
+  make install
 ```
 This will build the library in the build/ directory. All library files will then be found in:
 ```
@@ -142,14 +148,14 @@ spack repo add .spack
 spack install athena
 ```
 
-Currently, Spack compilation requires manual download of ATHENA.
+Currently, Spack compilation requires manual download of athena.
 **NOTE:** There already exists an `athena` package directly on Spack, be aware that these are not related.
 
 
 
 Examples
 -------
-After the library has been installed, a set of example programs can be compiled and run to test the capabilities of ATHENA on the MNIST dataset. Some of the examples can be run as-is, and do not require external databases. For those that require the MNIST (a set of 60,000 hand-written numbers for training and 10,000 for testing, 0-9) dataset (i.e. 'example/mnist_' directories ), the dataset must first be downloaded. The example program has been developed to accept a text-based format of the MNIST dataset. The .txt database that these examples have been developed for can be found here:
+After the library has been installed, a set of example programs can be compiled and run to test the capabilities of athena on the MNIST dataset. Some of the examples can be run as-is, and do not require external databases. For those that require the MNIST (a set of 60,000 hand-written numbers for training and 10,000 for testing, 0-9) dataset (i.e. 'example/mnist_' directories ), the dataset must first be downloaded. The example program has been developed to accept a text-based format of the MNIST dataset. The .txt database that these examples have been developed for can be found here:
 https://github.com/halimb/MNIST-txt/tree/master
 
 The link to the original MNIST database is: http://yann.lecun.com/exdb/mnist/
@@ -188,7 +194,7 @@ After the example program is compiled, the following directories will also exist
 
 | Directory | Description |
 |---|---|
-|  _example/mnist/bin/_  |     Contains binary executable | 
+|  _example/mnist/bin/_  |     Contains binary executable |
 |  _example/mnist/obj/_  |     Contains module/object files (non-linked binary files)|
 
 The example will perform a train over the MNIST dataset. Once complete, it will print its weights and biases to file, and test the trained network on the training set. The output from this can then be compared to the file _expected_output_COMPILER.txt_.
@@ -198,10 +204,21 @@ In the tools/ directory, there exist scripts that take utilise the wandb python 
 Example wandb project link: https://wandb.ai/ntaylor/cnn_mnist_test/overview?workspace=user-ntaylor
 
 
+API documentation
+-----------------
+
+API documentation can be generated using FORD (Fortran Documenter).
+To do so, follow the installation guide on the [FORD website](https://forddocs.readthedocs.io/en/stable/) to ensure FORD is installed.
+Once FORD is installed, run the following command in the root directory of the git repository:
+
+```
+  ford ford.md
+```
 
 How-to
 -------
-To call/reference the ATHENA library in a program, include the following use statement at the beginning of the necessary Fortran file:
+To call/reference the athena library in a program, include the following use statement at the beginning of the necessary Fortran file:
+
   use athena
 
 During compilation, include the following flags in the compilation (gfortran) command:
@@ -233,34 +250,34 @@ Automated reporting on unit test code coverage in the README is achieved through
 Files
 -----
 
+All files with the __sub_ suffix are the implementations of interfaces defined within the corresponding filename without the suffix.
 
 |Source file | Description|
 |-----------|------------|
 |_src/athena.f90_                      | the module file that imports all necessary user-accessible procedures  |
 |_src/lib/mod_accuracy.f90_            | accuracy calculation procedures |
-|_src/lib/mod_activation.f90_          | generic node activation (transfer) setup  |
+|_src/lib/mod_activation.f90_          | generic node activation (aka transfer) setup  |
 |_src/lib/mod_activation__[_NAME_]_.f90_   | [_NAME_] activation method  |
 |_src/lib/mod_base_layer.f90_          | abstract layer construct type  |
-|_src/lib/mod_base_layer_sub.f90_          | base layer submodule |
 |_src/lib/mod_clipper.f90_             | gradient clipping procedures |
-|_src/lib/mod_constants.f90_           | a set of global constants used in this code  |
 |_src/lib/mod_container.f90_           | layer container construct for handling multiple layers in a network  |
-|_src/lib/mod_container_sub.f90_       | layer container submodule  |
-|_src/lib/mod__[_NAME_]__layer.f90_        | [_NAME_] layer-type  |
+|_src/lib/mod_diffstruc_extd.f90       | extensions of [diffstruc](https://github.com/nedtaylor/diffstruc) providing more automatic differentiation operations |
+|_src/lib/mod__[_NAME_]__layer.f90_    | [_NAME_] layer-type  |
 |_src/lib/mod_initialiser.f90_         | generic kernel (and bias) initialiser setup  |
 |_src/lib/mod_initialiser__[_NAME_]_.f90_  | [_NAME_] kernel initialisation method  |
+|_src/lib/mod_io_utils.f90_            | input/output printing procedures |
 |_src/lib/mod_loss.f90_                | loss and corresponding derivatives calculation procedures |
 |_src/lib/mod_lr_decay.f90_            | learning rate decay procedures |
 |_src/lib/mod_metrics.f90_             | training convergence metric derived type and procedures  |
-|_src/lib/mod_misc.f90_                | miscellaneous procedures  |
 |_src/lib/mod_misc_ml.f90_             | miscellaneous machine learning procedures  |
+|_src/lib/mod_misc_types.f90_          | neural network-associated derived types  |
 |_srcs/lib/mod_network.f90_            | neural network derived type and procedures  |
-|_srcs/lib/mod_network_sub.f90_        | network submodule  |
 |_src/lib/mod_normalisation.f90_       | data normalisation procedures  |
+|_src/lib/mod_onnx.f90_                | procedures for interoperability with other neural network libraries |
 |_src/lib/mod_optimiser.f90_           | learning optimisation derived type and procedures  |
 |_src/lib/mod_random.f90_              | random number procedures  |
+|_src/lib/mod_regulariser.f90_         | regularisation procedures  |
 |_src/lib/mod_tools_infile.f90_        | tools to read input files  |
-|_src/lib/mod_types.f90_               | neural network-associated derived types  |
 
 
 
@@ -269,11 +286,12 @@ Files
 |_CHANGELOG_                        | human-readable athena codebase version history |
 |_CMakeLists.txt_                   | the makefile used for compiling the library  |
 |_CONTRIBUTING.md_                  | Guidelines for organisation of athena codebase |
+|_ford.md_                          | [FORD](https://forddocs.readthedocs.io/en/stable/) compilation file |
 |_fpm.toml_                         | [Fortran Package Manager (fpm)](https://github.com/fortran-lang/fpm) compilation file |
-|_LICENSE_                          | licence of ATHENA code |
+|_LICENSE_                          | licence of athena code |
 |_README.md_                        | a readme file with a brief description of the code and files  |
 |_TODO_                             | todo-list in addition to useful machine learning and fortran references |
-|_cmake/CodeCoverage.cmake_         | [cmake-modules](https://github.com/rpavlik/cmake-modules) file to automate unit test coverage reporting| 
+|_cmake/CodeCoverage.cmake_         | [cmake-modules](https://github.com/rpavlik/cmake-modules) file to automate unit test coverage reporting|
 |_example/example_library_          | Utility library shared between the examples |
 |_example/__[_NAME_]__/expected_output.txt_   | expected output from executing [_NAME_] example program  |
 |_example/__[_NAME_]__/test_job.in_           | input file for [_NAME_] example program  |

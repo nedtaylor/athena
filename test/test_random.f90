@@ -1,5 +1,5 @@
 program test_random
-  use random, only: random_setup
+  use athena__random, only: random_setup
   implicit none
 
   integer :: i
@@ -43,9 +43,9 @@ program test_random
   call random_setup(restart = .true., already_initialised = already_initialised)
 
 
-!!!-----------------------------------------------------------------------------
-!!! check for any failed tests
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! check for any failed tests
+!-------------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_random passed all tests'

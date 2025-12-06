@@ -1,5 +1,5 @@
 program test_metrics
-  use metrics
+  use athena__metrics
   implicit none
 
   type(metric_dict_type) :: a, b, result, expected_result
@@ -11,20 +11,26 @@ program test_metrics
   logical :: success = .true.
 
 
-!!!-----------------------------------------------------------------------------
-!!! Initialise the metric_dict_types
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Initialise the metric_dict_types
+!-------------------------------------------------------------------------------
   a%key = "loss"
   a%val = 10
   a%threshold = 5.0
   a%active = .true.
-  a%history = [1, 2, 3, 4, 5]
+  a%window_width = 5
+  do i = 1, 5
+     call a%append(real(i))
+  end do
 
   b%key = "loss"
   b%val = 20
   b%threshold = 10.0
   b%active = .false.
-  b%history = [6, 7, 8, 9, 10]
+  b%window_width = 5
+  do i = 1, 5
+     call b%append(real(i + 5))
+  end do
 
   expected_result%key = "loss"
   expected_result%val = 30
@@ -32,16 +38,16 @@ program test_metrics
   expected_result%active = .true.
   expected_result%history = a%history
 
-!!!-----------------------------------------------------------------------------
-!!! Test metric summation
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Test metric summation
+!-------------------------------------------------------------------------------
   result = a + b
   call check_metric_dict(result, expected_result)
 
 
-!!!-----------------------------------------------------------------------------
-!!! Test metric allocation
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Test metric allocation
+!-------------------------------------------------------------------------------
   call metric_dict_alloc(dict, length=10)
   do i = 1, size(dict)
      if(size(dict(i)%history) .ne. 10) then
@@ -60,9 +66,9 @@ program test_metrics
   end do
 
 
-!!!-----------------------------------------------------------------------------
-!!! Test metric convergence checks
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! Test metric convergence checks
+!-------------------------------------------------------------------------------
   a%history = [1, 1, 1, 1, 1]
   call a%check(plateau_threshold=10.E0, converged = converged)
   if (converged .ne. 1) then
@@ -78,9 +84,9 @@ program test_metrics
   end if
 
 
-!!!-----------------------------------------------------------------------------
-!!! check for any failed tests
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! check for any failed tests
+!-------------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_shuffle passed all tests'
@@ -91,13 +97,13 @@ program test_metrics
 
 contains
 
-!!!-----------------------------------------------------------------------------
-!!! compare two metric dictionaries to see if they are equal
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! compare two metric dictionaries to see if they are equal
+!-------------------------------------------------------------------------------
   subroutine check_metric_dict(actual, expected)
     type(metric_dict_type), intent(in) :: actual
     type(metric_dict_type), intent(in) :: expected
-  
+
     if (actual%key .ne. expected%key .or. &
          actual%val .ne. expected%val .or. &
          actual%threshold .ne. expected%threshold .or. &
@@ -107,5 +113,5 @@ contains
        success = .false.
     end if
   end subroutine check_metric_dict
-  
+
 end program test_metrics

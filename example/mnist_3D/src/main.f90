@@ -1,14 +1,16 @@
-!!!#############################################################################
-!!! Code written by Ned Thaddeus Taylor
-!!! Code part of the ARTEMIS group (Hepplestone research group)
-!!! Think Hepplestone, think HRG
-!!!#############################################################################
-program mnist_test
+program mnist_example
+  !! Program to demonstrate the use of a convolutional neural network
+  !!
+  !! This program reads the MNIST dataset of handwritten digits and trains a 3D
+  !! convolutional neural network to classify the digits.
+  !! The dataset is, naturally, 2D, but we can treat it as a 3D dataset by
+  !! adding a third dimension of size 1, which enables us to show how to use
+  !! 3D convolutional layers in athena.
 #ifdef _OPENMP
   use omp_lib
 #endif
   use athena
-  use constants_mnist, only: real12
+  use constants_mnist, only: real32
   use read_mnist, only: read_mnist_db
   use inputs
 
@@ -16,33 +18,32 @@ program mnist_test
 
   type(network_type) :: network
 
-  !! data loading and preoprocessing
-  real(real12), allocatable, dimension(:,:,:,:) :: input_images, test_images
-  real(real12), allocatable, dimension(:,:,:,:,:) :: input_spread, test_spread
+  ! data loading and preoprocessing
+  real(real32), allocatable, dimension(:,:,:,:) :: input_images, test_images
+  real(real32), allocatable, dimension(:,:,:,:,:) :: input_spread, test_spread
   integer, allocatable, dimension(:) :: labels, test_labels
-  integer, allocatable, dimension(:,:) :: input_labels
+  real(real32), allocatable, dimension(:,:) :: input_labels
   character(1024) :: train_file, test_file
 
-  !! neural network size and shape variables
+  ! neural network size and shape variables
   integer, parameter :: num_classes = 10    ! Number of output classes
   integer :: image_size
   integer :: input_channels
 
-  !! training loop variables
+  ! training loop variables
   integer :: num_samples, num_samples_test
-
 
   integer :: i, itmp1
 
 #ifdef _OPENMP
   integer, allocatable, dimension(:) :: label_slice
-  real(real12), allocatable, dimension(:,:,:,:) :: image_slice
+  real(real32), allocatable, dimension(:,:,:,:) :: image_slice
 #endif
 
 
-!!!-----------------------------------------------------------------------------
-!!! initialise global variables
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! initialise global variables
+  !-----------------------------------------------------------------------------
   call set_global_vars(param_file="example/mnist_3D/test_job.in")
 #ifdef _OPENMP
   write(*,*) "number of threads:", num_threads
@@ -50,34 +51,34 @@ program mnist_test
 #endif
 
 
-!!!-----------------------------------------------------------------------------
-!!! read training dataset
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! read training dataset
+  !-----------------------------------------------------------------------------
   train_file = trim(data_dir)//'/MNIST_train.txt'
   call read_mnist_db(train_file,input_images, labels, &
-       maxval(cv_kernel_size), image_size, padding_method)
+       maxval(cv_kernel_size), image_size, "none")!padding_method)
   input_channels = size(input_images, 3)
   num_samples = size(input_images, 4)
 
 
-!!!-----------------------------------------------------------------------------
-!!! read testing dataset
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! read testing dataset
+  !-----------------------------------------------------------------------------
   test_file = trim(data_dir)//'/MNIST_test.txt'
   call read_mnist_db(test_file,test_images, test_labels, &
-       maxval(cv_kernel_size), itmp1, padding_method)
+       maxval(cv_kernel_size), itmp1, "none")!padding_method)
   num_samples_test = size(test_images, 4)
 
 
-!!!-----------------------------------------------------------------------------
-!!! initialise random seed
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! initialise random seed
+  !-----------------------------------------------------------------------------
   call random_setup(seed, restart=.false.)
 
 
-!!!-----------------------------------------------------------------------------
-!!! shuffle dataset
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! shuffle dataset
+  !-----------------------------------------------------------------------------
   if(shuffle_dataset)then
      write(6,*) "Shuffling training dataset..."
      call shuffle(input_images, labels, 4, seed)
@@ -86,63 +87,67 @@ program mnist_test
         write(6,*) "Check fort.11 and fort.12 to ensure data shuffling &
              &executed properly"
         do i=1,batch_size*2
-           write(11,*) input_images(:,:,:,i) 
+           write(11,*) input_images(:,:,:,i)
         end do
         write(12,*) labels
      end if
   end if
 
 
-!!!-----------------------------------------------------------------------------
-!!! initialise convolutional and pooling layers
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! initialise convolutional and pooling layers
+  !-----------------------------------------------------------------------------
   if(restart)then
-   write(*,*) "Reading network from file..."
+     write(*,*) "Reading network from file..."
      call network%read(file=input_file)
      write(*,*) "Reading finished"
   else
      write(6,*) "Initialising CNN..."
 
+     call network%add(pad3d_layer_type( &
+          input_shape = [image_size,image_size,1,input_channels], &
+          padding = [1, 1, 0], &
+          method = padding_method &
+     ))
      call network%add(conv3d_layer_type( &
-         input_shape = [image_size,image_size,1,input_channels], &
-         num_filters = cv_num_filters, kernel_size = [3,3,1], stride = 1, &
-         padding = padding_method, &
-         calc_input_gradients = .false., &
-         activation_function = "relu" &
-         ))
+          !input_shape = [image_size,image_size,1,input_channels], &
+          num_filters = cv_num_filters, kernel_size = [3,3,1], stride = 1, &
+          padding = "none", &
+          activation = "relu" &
+     ))
      call network%add(maxpool3d_layer_type(&
-         pool_size = [2,2,1], stride = [2,2,1]))
+          pool_size = [2,2,1], stride = [2,2,1]))
      call network%add(full_layer_type( &
-         num_outputs = 100, &
-         activation_function = "relu", &
-         kernel_initialiser = "he_uniform", &
-         bias_initialiser = "he_uniform" &
-         ))
+          num_outputs = 100, &
+          activation = "relu", &
+          kernel_initialiser = "he_uniform", &
+          bias_initialiser = "he_uniform" &
+     ))
      call network%add(full_layer_type( &
-         num_outputs = 10,&
-         activation_function = "softmax", &
-         kernel_initialiser = "glorot_uniform", &
-         bias_initialiser = "glorot_uniform" &
-         ))
+          num_outputs = 10,&
+          activation = "softmax", &
+          kernel_initialiser = "glorot_uniform", &
+          bias_initialiser = "glorot_uniform" &
+     ))
   end if
 
   call network%compile(optimiser=optimiser, &
-       loss_method=loss_method, metrics=metric_dict, &
+       loss_method=loss_method, accuracy_method=accuracy_method, &
+       metrics=metric_dict, &
        batch_size = batch_size, verbose = verbosity)
   input_spread = spread(input_images,3,1)
 
   write(*,*) "NUMBER OF LAYERS",network%num_layers
 
 
-!!!-----------------------------------------------------------------------------
-!!! training loop
-!!! ... loops over num_epoch number of epochs
-!!! ... i.e. it trains on the same datapoints num_epoch times
-!!!-----------------------------------------------------------------------------
-  allocate(input_labels(num_classes,num_samples))
-  input_labels = 0
+  !-----------------------------------------------------------------------------
+  ! training loop
+  ! ... loops over num_epoch number of epochs
+  ! ... i.e. it trains on the same datapoints num_epoch times
+  !-----------------------------------------------------------------------------
+  allocate(input_labels(num_classes,num_samples), source = 0._real32)
   do i=1,num_samples
-     input_labels(labels(i),i) = 1
+     input_labels(labels(i),i) = 1._real32
   end do
 
   write(6,*) "Starting training..."
@@ -152,17 +157,17 @@ program mnist_test
        batch_print_step = batch_print_step, verbose = verbosity)
 
 
-!!!-----------------------------------------------------------------------------
-!!! print weights and biases of CNN to file
-!!!-----------------------------------------------------------------------------
-    write(*,*) "Writing network to file..."
-    call network%print(file=output_file)
-    write(*,*) "Writing finished"
+  !-----------------------------------------------------------------------------
+  ! print weights and biases of CNN to file
+  !-----------------------------------------------------------------------------
+  write(*,*) "Writing network to file..."
+  call network%print(file=output_file)
+  write(*,*) "Writing finished"
 
 
-!!!-----------------------------------------------------------------------------
-!!! testing loop
-!!!-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! testing loop
+  !-----------------------------------------------------------------------------
   deallocate(input_labels)
   allocate(input_labels(num_classes,num_samples_test))
   input_labels = 0
@@ -174,8 +179,7 @@ program mnist_test
   write(*,*) "Starting testing..."
   call network%test(test_spread,input_labels)
   write(*,*) "Testing finished"
-  write(6,'("Overall accuracy=",F0.5)') network%accuracy
-  write(6,'("Overall loss=",F0.5)')     network%loss
+  write(6,'("Overall accuracy=",F0.5)') network%accuracy_val
+  write(6,'("Overall loss=",F0.5)')     network%loss_val
 
-end program mnist_test
-!!!#############################################################################
+end program mnist_example

@@ -2,6 +2,10 @@ name: run-cmake-build
 
 on:
   push:
+    branches:
+      - main
+      - development
+      - 'releases/**'
     paths:
       - ".github/workflows/cmake.yml"
       - "CMakeLists.txt"
@@ -15,99 +19,84 @@ on:
 
 permissions:
   contents: read
-  pages: write
   id-token: write
 
 concurrency:
-  group: pages
+  group: cmake
   cancel-in-progress: false
 
 jobs:
-  build-and-test-cmake-debug:
-    environment:
-      name: github-pages
-    name: Build and test in debug mode
+  build-and-test:
+    name: Build and test (${{ matrix.build_type }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest]
         compiler: [gcc]
-        version: [13]
+        version: [15]
+        build_type: [Release, Debug]
     steps:
       - name: checkout repo
         uses: actions/checkout@v4
-      
-      - name: actions-setup-cmake
+
+      - name: Setup CMake
         uses: jwlawson/actions-setup-cmake@v2.0.1
         with:
           cmake-version: '3.24.x'
-            
-      - uses: fortran-lang/setup-fortran@v1
-        id: setup-fortran
+
+      # ----------------------------------------------------
+      # Conda path (Linux + GCC 15)
+      # ----------------------------------------------------
+      - name: Setup conda
+        if: matrix.os == 'ubuntu-latest' && matrix.compiler == 'gcc' && matrix.version == '15'
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          python-version: 3.11
+
+      - name: Install compiler + tools (conda)
+        if: matrix.os == 'ubuntu-latest' && matrix.compiler == 'gcc' && matrix.version == '15'
+        shell: bash -l {0}
+        run: |
+          conda install -y -c conda-forge \
+            "gfortran=${{ matrix.version }}" \
+            "gcc_linux-64=${{ matrix.version }}" \
+            gcovr
+
+          echo "FC=$(which gfortran)" >> $GITHUB_ENV
+          echo "GCOV=$(which gcov)" >> $GITHUB_ENV
+
+      # ----------------------------------------------------
+      # Non-conda compilers (future-proof)
+      # ----------------------------------------------------
+      - name: Setup Fortran compiler
+        if: ${{ !(matrix.os == 'ubuntu-latest' && matrix.compiler == 'gcc' && matrix.version == '15') }}
+        uses: fortran-lang/setup-fortran@v1
         with:
           compiler: ${{ matrix.compiler }}
           version: ${{ matrix.version }}
-          
-      - name: Install gcovr
+
+      # ----------------------------------------------------
+      # Build + test (single implementation)
+      # ----------------------------------------------------
+      - name: Build and test
+        shell: bash -l {0}
         run: |
-          pip --version
-          pip install gcovr
-          
-      - name: Compile
-        run: |
-          cmake --version
+          echo "Build type: ${{ matrix.build_type }}"
+          which gfortran
           gfortran --version
+          cmake --version
+
           mkdir -p build
           cd build
-          cmake -DCMAKE_BUILD_TYPE=Debug ..
-          make
-          make install
+          export GCOV_PATH=$(which gcov)
 
-      - name: Test
-        run: |
-          gfortran --version
-          ctest
-          
-  build-and-test-cmake-release:
-    environment:
-      name: github-pages
-    name: Build and test in release mode
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        compiler: [gcc]
-        version: [13]
-    steps:
-      - name: checkout repo
-        uses: actions/checkout@v4
-      
-      - name: actions-setup-cmake
-        uses: jwlawson/actions-setup-cmake@v2.0.1
-        with:
-          cmake-version: '3.24.x'
-            
-      - uses: fortran-lang/setup-fortran@v1
-        id: setup-fortran
-        with:
-          compiler: ${{ matrix.compiler }}
-          version: ${{ matrix.version }}
-          
-      - name: Compile
-        run: |
-          cmake --version
-          gfortran --version
-          mkdir -p build
-          cd build
-          cmake -DCMAKE_BUILD_TYPE=Release ..
-          make
-          make install
+          cmake \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_Fortran_COMPILER=${FC:-gfortran} \
+            -DGCOV_PATH=${GCOV_PATH} \
+            ..
 
-      - name: Test
-        run: |
-          gfortran --version
-          ctest
-  
-        
+          make -j$(nproc)
+          make install
+          ctest --output-on-failure

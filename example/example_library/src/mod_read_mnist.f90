@@ -1,5 +1,5 @@
 module read_mnist
-  use constants_mnist, only: real12
+  use coreutils, only: real32
   use athena, only: pad_data
   implicit none
 
@@ -13,25 +13,25 @@ contains
 !!! read mnist dataset
 !!!#############################################################################
   subroutine read_mnist_db(file,images,labels,kernel_size,image_size,padding_method)
-    use misc_mnist, only: icount
+    use coreutils, only: icount
     implicit none
     integer :: i, j, k, Reason, unit
     integer :: num_samples, num_pixels, t_kernel_size = 1
     character(2048) :: buffer
     character(:), allocatable :: t_padding_method
-    real(real12), allocatable, dimension(:,:,:,:) :: images_padded
+    real(real32), allocatable, dimension(:,:,:,:) :: images_padded
 
     integer, intent(out) :: image_size
     integer, optional, intent(in) :: kernel_size
     character(*), optional, intent(in) :: padding_method
     character(1024), intent(in) :: file
-    real(real12), allocatable, dimension(:,:,:,:), intent(out) :: images
+    real(real32), allocatable, dimension(:,:,:,:), intent(out) :: images
     integer, allocatable, dimension(:), intent(out) :: labels
 
 
-!!!-----------------------------------------------------------------------------
-!!! initialise optional arguments
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! initialise optional arguments
+!-------------------------------------------------------------------------------
     if(present(padding_method))then
        t_padding_method = padding_method
     else
@@ -39,15 +39,15 @@ contains
     end if
 
 
-!!!-----------------------------------------------------------------------------
-!!! open file
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! open file
+!-------------------------------------------------------------------------------
     open(newunit=unit,file=file)
 
 
-!!!-----------------------------------------------------------------------------
-!!! count number of samples
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! count number of samples
+!-------------------------------------------------------------------------------
     i = 0
     num_pixels = 0
     line_count: do
@@ -69,15 +69,15 @@ contains
     end if
 
 
-!!!-----------------------------------------------------------------------------
-!!! calculate size of image
-!!!-----------------------------------------------------------------------------
-    image_size = nint(sqrt(real(num_pixels,real12)))
+!-------------------------------------------------------------------------------
+! calculate size of image
+!-------------------------------------------------------------------------------
+    image_size = nint(sqrt(real(num_pixels,real32)))
 
 
-!!!-----------------------------------------------------------------------------
-!!! rewind file and allocate labels
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! rewind file and allocate labels
+!-------------------------------------------------------------------------------
     rewind(unit)
     if(allocated(labels)) deallocate(labels)
     allocate(labels(num_samples), source=0)
@@ -97,14 +97,14 @@ contains
     else
        t_kernel_size = kernel_size
     end if
-    
+
     if(allocated(images)) deallocate(images)
     allocate(images(image_size, image_size, 1, num_samples))
 
 
-!!!-----------------------------------------------------------------------------
-!!! read in dataset
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! read in dataset
+!-------------------------------------------------------------------------------
     do i=1,num_samples
        read(unit,*) labels(i), ((images(j,k,1,i),k=1,image_size),j=1,image_size)
     end do
@@ -112,18 +112,18 @@ contains
     close(unit)
 
 
-!!!-----------------------------------------------------------------------------
-!!! populate padding
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! populate padding
+!-------------------------------------------------------------------------------
     call pad_data(images, images_padded, &
          t_kernel_size, t_padding_method, 4, 3)
     images = images_padded
-    
 
-!!!-----------------------------------------------------------------------------
-!!! increase label values to match fortran indices
-!!!-----------------------------------------------------------------------------
-    images = images/255._real12
+
+!-------------------------------------------------------------------------------
+! increase label values to match fortran indices
+!-------------------------------------------------------------------------------
+    images = images/255._real32
     labels = labels + 1
     write(6,*) "Data read"
 

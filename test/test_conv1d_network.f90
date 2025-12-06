@@ -1,89 +1,102 @@
 program test_conv1d_network
+  use coreutils, only: real32
   use athena, only: &
        network_type, &
        conv1d_layer_type, &
        base_optimiser_type
+  use diffstruc, only: array_type
   implicit none
 
   type(network_type) :: network
 
   integer :: i
   integer, parameter :: num_channels = 3
-  integer, parameter :: kernel_size = 3
+  integer, parameter :: kernel_size1 = 3
+  integer, parameter :: kernel_size2 = 4
   integer, parameter :: num_filters1 = 4
   integer, parameter :: num_filters2 = 8
-  integer, parameter :: width = 7
+  integer, parameter :: width = 8
+  integer :: output_width
 
-  real, allocatable, dimension(:,:) :: output_reshaped
-  real, allocatable, dimension(:,:,:) :: input_data, output, gradients_weight
+  real, allocatable, dimension(:,:,:) :: data_tmp, gradients_weight
   real, allocatable, dimension(:) :: gradients, gradients_bias
   logical :: success = .true.
+  type(array_type) :: input(1,1)
+  type(array_type), dimension(:,:), allocatable :: output
 
 
-!!!-----------------------------------------------------------------------------
-!!! set up network
-!!!-----------------------------------------------------------------------------
+  output_width = width - kernel_size1 + 1 - kernel_size2 + 1
+
+!-------------------------------------------------------------------------------
+! set up network
+!-------------------------------------------------------------------------------
   call network%add(conv1d_layer_type( &
-       input_shape=[width, width, num_channels], &
+       input_shape=[width, num_channels], &
        num_filters = num_filters1, &
-       kernel_size = kernel_size, &
+       kernel_size = kernel_size1, &
        kernel_initialiser = "ones", &
-       activation_function = "linear" &
-       ))
+       activation = "linear" &
+  ))
   call network%add(conv1d_layer_type( &
        num_filters = num_filters2, &
-       kernel_size = kernel_size, &
+       kernel_size = kernel_size2, &
        kernel_initialiser = "ones", &
-       activation_function = "linear" &
-       ))
-    
+       activation = "linear" &
+  ))
+
   call network%compile( &
        optimiser = base_optimiser_type(learning_rate=1.0), &
        loss_method="mse", metrics=["loss"], verbose=1, &
        batch_size=1)
 
   if(network%num_layers.ne.3)then
-    success = .false.
-    write(*,*) "conv1d network should have 3 layers"
+     success = .false.
+     write(*,*) "conv1d network should have 3 layers"
   end if
 
   call network%set_batch_size(1)
-  allocate(input_data(width, num_channels, 1))
-  input_data = 0.0
+  call input(1,1)%allocate([width, num_channels, 1], source=0._real32)
+  call input(1,1)%set_requires_grad(.true.)
 
-  call network%forward(input_data)
-  call network%model(3)%layer%get_output(output)
+  call network%forward(input)
+  allocate(output, source = network%get_output())
 
-  if(any(shape(output).ne.[width-4,num_filters2,1]))then
+  if(any( &
+       [output(1,1)%shape,size(output(1,1)%val,2)] .ne. &
+       [output_width,num_filters2,1] &
+  ))then
      success = .false.
-     write(*,*) "conv1d network output shape should be [28,28,32]"
+     write(0,*) "conv1d network output shape should be [3,8]"
+     write(0,*) "output shape is ", shape(output)
   end if
+  call input(1,1)%deallocate()
 
 
-!!!-----------------------------------------------------------------------------
-!!! check gradients
-!!!-----------------------------------------------------------------------------
-  output = 0.E0
-  output(:(width-4)/2,:,:) = 1.E0
-  input_data = 0.E0
-  input_data(:(width)/2,:,:) = 1.E0
-  call network%forward(input_data)
-  output_reshaped = reshape(output, [(width-4)*num_filters2,1])
-  call network%backward(output_reshaped)
-  select type(current => network%model(3)%layer)
+!-------------------------------------------------------------------------------
+! check gradients
+!-------------------------------------------------------------------------------
+  allocate(data_tmp(width, num_channels, 1))
+  data_tmp = 0.E0
+  data_tmp(:(width)/2,:,:) = 1.E0
+  call input(1,1)%allocate([width, num_channels, 1], source=0._real32)
+  call input(1,1)%set_requires_grad(.true.)
+  call input(1,1)%set(data_tmp)
+  call network%forward(input)
+  call network%model(network%leaf_vertices(1))%layer%output(1,1)%grad_reverse()
+  select type(current => network%model(network%leaf_vertices(1))%layer)
   type is(conv1d_layer_type)
      gradients = current%get_gradients()
      gradients_weight = &
           reshape(&
-          gradients(:kernel_size*num_filters1*num_filters2), &
-          [kernel_size,num_filters1,num_filters2])
+               gradients(:kernel_size2*num_filters1*num_filters2), &
+               [kernel_size2,num_filters1,num_filters2])
      gradients_bias = &
-          gradients(kernel_size*num_filters1*num_filters2+1:)
+          gradients(kernel_size2*num_filters1*num_filters2+1:)
      if(size(gradients).ne.&
-          (kernel_size*num_filters1 + 1) * num_filters2)then
+          (kernel_size2*num_filters1 + 1) * num_filters2)then
         success = .false.
         write(*,*) "conv1d network gradients size should be ", &
-             ( kernel_size * num_filters1 + 1 ) * num_filters2
+             ( kernel_size2 * num_filters1 + 1 ) * num_filters2
      end if
      if(any(abs(gradients).lt.1.E-6))then
         success = .false.
@@ -113,9 +126,9 @@ program test_conv1d_network
      write(*,*) "conv1d network layer should be conv1d_layer_type"
   end select
 
-!!!-----------------------------------------------------------------------------
-!!! check for any failed tests
-!!!-----------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+! check for any failed tests
+!-------------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
      write(*,*) 'test_conv1d_network passed all tests'

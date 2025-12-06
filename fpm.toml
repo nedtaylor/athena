@@ -1,5 +1,5 @@
 name = "athena"
-version = "1.3.3"
+version = "2.0.0"
 license = "MIT"
 author = "Ned Thaddeus Taylor"
 maintainer = "n.t.taylor@exeter.ac.uk"
@@ -14,6 +14,11 @@ auto-executables = true
 auto-tests = true
 auto-examples = false
 module-naming = false
+
+[dependencies]
+coreutils = { git = "https://github.com/nedtaylor/coreutils", tag = "v0.1.0" }
+diffstruc = { git = "https://github.com/nedtaylor/diffstruc", tag = "v1.1.1" }
+graphstruc = { git = "https://github.com/nedtaylor/graphstruc", tag = "v0.2.1" }
 
 [install]
 library = false
@@ -48,6 +53,12 @@ source-dir = "example/mnist/src"
 example_library = { path = "example/example_library"}
 
 [[example]]
+name = "mnist_addit"
+source-dir = "example/mnist_addit/src"
+[example.dependencies]
+example_library = { path = "example/example_library"}
+
+[[example]]
 name = "mnist_3D"
 source-dir = "example/mnist_3D/src"
 [example.dependencies]
@@ -62,5 +73,52 @@ example_library = { path = "example/example_library"}
 [[example]]
 name = "mnist_drop"
 source-dir = "example/mnist_drop/src"
+[example.dependencies]
+example_library = { path = "example/example_library"}
+
+[[example]]
+name = "msgpass_chemical"
+source-dir = "example/msgpass_chemical/src"
+[example.dependencies]
+example_library = { path = "example/example_library"}
+atomstruc = { git = "https://github.com/nedtaylor/atomstruc", branch = "column-major-order" }
+
+[[example]]
+name = "msgpass_euler"
+source-dir = "example/msgpass_euler/src"
+[example.dependencies]
+example_library = { path = "example/example_library"}
+
+[[example]]
+name = "pinn_chemical"
+source-dir = "example/pinn_chemical/src"
+[example.dependencies]
+example_library = { path = "example/example_library"}
+atomstruc = { git = "https://github.com/nedtaylor/atomstruc", branch = "column-major-order" }
+
+[[example]]
+name = "pinn_burgers"
+source-dir = "example/pinn_burgers/src"
+[example.dependencies]
+example_library = { path = "example/example_library"}
+
+[[example]]
+name = "custom_forward"
+source-dir = "example/custom_forward/src"
+[example.dependencies]
+example_library = { path = "example/example_library"}
+
+[[example]]
+name = "onnx"
+source-dir = "example/onnx/src"
+
+[[example]]
+name = "resnet"
+source-dir = "example/resnet/src"
+
+[[example]]
+name = "rnn_timeseries"
+source-dir = "example/rnn_timeseries/src"
+main = "main.f90"
 [example.dependencies]
 example_library = { path = "example/example_library"}
