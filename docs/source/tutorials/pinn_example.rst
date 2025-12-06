@@ -246,6 +246,26 @@ Implementation:
 
     end function compute_forces
 
+Supported Layers
+----------------
+
+As of yet, only some of the athena layers support automatic differentiation required for PINNs.
+Whilst all layers support reverse-mode AD for backpropagation during training, only layers that implement forward-mode AD can be used in PINNs to compute derivatives with respect to inputs.
+The following layers currently support forward-mode AD:
+
+* :ref:`Activation Layer <activation-layer>`
+* :ref:`Add Layer <add-layer>`
+* :ref:`Batchnormalisation Layers <normalisation-layers>` (not yet tested, use with caution)
+* :ref:`Concatenate Layer <concat-layer>`
+* :ref:`Dense/fully connected Layer <full-layer>`
+* :ref:`Duvenaud Message Passing Layer <duvenaud-msgpass-layer>`
+* :ref:`Flatten Layer <flatten-layer>`
+* :ref:`Input Layer <input-layer>`
+* :ref:`Kipf Message Passing Layer <kipf-msgpass-layer>`
+* :ref:`Recurrent Layer <recurrent-layer>` (not yet tested, use with caution)
+* :ref:`Reshape Layer <reshape-layer>`
+
+
 Key Takeaways
 -------------
 
