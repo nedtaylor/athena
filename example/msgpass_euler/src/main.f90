@@ -1,11 +1,50 @@
 program msgpass_euler_example
-  !! Program to demonstrate the use of a message passing neural network
+  !! Graph Neural Network for solving the Euler equations of fluid dynamics
   !!
-  !! This program reads a dataset of graphs and trains a message passing neural
-  !! network to predict the output features of the graphs.
-  !! The dataset is read from text files that give the initial setup of a graph
-  !! of points and the neural network is trained to predict the steady state
-  !! solution of the flow of a fluid over a bump.
+  !! This example demonstrates using message passing neural networks to predict
+  !! steady-state solutions of compressible inviscid flow over a 2D bump.
+  !! This example has been developed with the help of Artan Qerushi, with them
+  !! providing the dataset and physical problem description.
+  !!
+  !! ## Problem Description
+  !!
+  !! Solve the 2D Euler equations for compressible inviscid flow:
+  !!
+  !! $$\frac{\partial \mathbf{U}}{\partial t} + \frac{\partial \mathbf{F}}{\partial x} + \frac{\partial \mathbf{G}}{\partial y} = 0$$
+  !!
+  !! where the conserved variables are:
+  !! $$\mathbf{U} = \begin{bmatrix} \rho \\ \rho u \\ \rho v \\ \rho E \end{bmatrix}$$
+  !!
+  !! and the flux terms are:
+  !! $$\mathbf{F} = \begin{bmatrix} \rho u \\ \rho u^2 + p \\ \rho u v \\ (\rho E + p)u \end{bmatrix}, \quad
+  !!   \mathbf{G} = \begin{bmatrix} \rho v \\ \rho u v \\ \rho v^2 + p \\ (\rho E + p)v \end{bmatrix}$$
+  !!
+  !! Here:
+  !! - \( \rho \) is density
+  !! - \( u, v \) are velocity components
+  !! - \( p \) is pressure
+  !! - \( E \) is total energy per unit mass
+  !!
+  !! The equation of state for an ideal gas relates these quantities:
+  !! $$p = (\gamma - 1)\rho\left(E - \frac{1}{2}(u^2 + v^2)\right)$$
+  !!
+  !! where \( \gamma \) is the ratio of specific heats (typically 1.4 for air).
+  !!
+  !! ## Graph Neural Network Approach
+  !!
+  !! The computational domain is represented as a graph where:
+  !! - **Nodes**: Spatial points in the flow field with features \( [x, y, \rho, u, v, p] \)
+  !! - **Edges**: Connect neighboring points in the mesh
+  !!
+  !! The Kipf message passing layer aggregates information:
+  !! $$\mathbf{h}_i^{(t+1)} = \sigma\left(\mathbf{W}\left(\mathbf{h}_i^{(t)} + \sum_{j \in \mathcal{N}(i)} \frac{\mathbf{h}_j^{(t)}}{\sqrt{|\mathcal{N}(i)||\mathcal{N}(j)|}}\right)\right)$$
+  !!
+  !! ## Training Objective
+  !!
+  !! Learn the mapping from initial flow conditions to steady-state solution:
+  !! $$\mathbf{U}_{\text{steady}} = f_{\theta}(\mathbf{U}_{\text{init}}, \text{geometry})$$
+  !!
+  !! This bypasses expensive iterative CFD solvers for prediction.
   use athena
   use coreutils, only: real32
   use read_euler, only: read_graph

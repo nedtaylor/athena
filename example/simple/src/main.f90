@@ -2,7 +2,28 @@
 program simple
   !! Simple function approximation using a fully-connected neural network
   !!
-  !! This file contains a modified version of the "simple" example found in neural fortran:
+  !! This example demonstrates basic neural network usage for approximating
+  !! a simple mathematical function. It serves as an introductory example
+  !! showing the fundamental workflow of:
+  !! - Creating a network architecture
+  !! - Compiling with an optimizer and loss function
+  !! - Training on data
+  !! - Making predictions
+  !!
+  !! ## Network Architecture
+  !!
+  !! - Input layer: 3 features
+  !! - Hidden layer: 5 neurons with tanh activation
+  !! - Output layer: 2 neurons with sigmoid activation
+  !!
+  !! ## Training
+  !!
+  !! Uses mean squared error (MSE) loss and stochastic gradient descent (SGD):
+  !! $$\mathcal{L} = \frac{1}{N}\sum_{i=1}^{N} \|\mathbf{y}_i - \hat{\mathbf{y}}_i\|^2$$
+  !!
+  !! ## Reference
+  !!
+  !! Modified version of the "simple" example from neural-fortran:
   !! https://github.com/modern-fortran/neural-fortran/blob/main/example/simple.f90
   use athena
   use coreutils, only: real32

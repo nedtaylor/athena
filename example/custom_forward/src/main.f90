@@ -1,4 +1,36 @@
-program test
+program custom_train_example
+  !! Custom forward pass and loss function demonstration
+  !!
+  !! This example demonstrates how to extend athena with custom components:
+  !! - Custom network types with specialised forward passes
+  !! - Custom loss functions beyond built-in options
+  !! - Direct access to network layers by ID
+  !!
+  !! ## Customisation Points
+  !!
+  !! **Custom Network**: Extend `network_type` to override:
+  !! - `forward()`: Custom forward propagation logic
+  !! - `backward()`: Custom gradient computation
+  !! - Additional methods for specialised behavior
+  !!
+  !! **Custom Loss**: Extend `base_loss_type` to implement:
+  !! - `compute()`: Calculate loss value
+  !! - Automatic differentiation integration
+  !!
+  !! ## Use Cases
+  !!
+  !! - Research: Implementing novel architectures or training methods
+  !! - Specialised domains: Physics-informed networks, custom constraints
+  !! - Performance: Optimised forward/backward passes for specific tasks
+  !! - Debugging: Instrumenting network behavior
+  !!
+  !! ## Layer Access
+  !!
+  !! Demonstrates accessing specific layers by ID:
+  !! ```fortran
+  !! layer => network%layer_from_id(101)
+  !! ```
+  !! This enables fine-grained control and introspection.
   use my_loss_module
   use my_network_module
   implicit none
@@ -55,4 +87,4 @@ program test
      write(*,*) "Did not converge within the maximum number of epochs."
   end if
 
-end program test
+end program custom_train_example

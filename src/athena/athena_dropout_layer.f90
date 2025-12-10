@@ -5,15 +5,22 @@ module athena__dropout_layer
   !! during training to prevent overfitting and co-adaptation of neurons.
   !!
   !! Mathematical operation (training):
+  !! \[
   !!   y_i = { 0                if r_i < p
   !!         { x_i / (1-p)      otherwise
+  !! \]
+  !! where:
+  !! - \( y_i \) is the output
+  !! - \( x_i \) is the input
+  !! - \( p \) is the dropout probability (rate)
+  !! - \( r_i \) is a random variable uniformly distributed in [0,1]
   !!
-  !! where r_i ~ U(0,1) is random, p is dropout probability
-  !!
-  !! Scaling by 1/(1-p) maintains expected value: E[y] = E[x]
+  !! Scaling by $$1/(1-p)$$ maintains expected value: $$E[y_i] = x_i$$
   !!
   !! Inference: acts as identity (no dropout applied)
-  !!   y = x
+  !! \[
+  !!   y_i = x_i
+  !! \]
   !!
   !! Benefits: Prevents overfitting, ensemble effect, forces redundancy
   !! Typical p values: 0.2-0.5 (higher dropout for larger networks)

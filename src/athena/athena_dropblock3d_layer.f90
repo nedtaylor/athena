@@ -16,7 +16,9 @@ module athena__dropblock3d_layer
   !! where block_size is the spatial extent of each dropped block in all 3 dims
   !!
   !! Inference: acts as identity (no dropout applied)
-  !!   y = x
+  !! \[
+  !!   y_i = x_i
+  !! \]
   !!
   !! Benefits: Spatial/temporal coherence for 3D CNNs, better for video/volumetric,
   !! removes spatiotemporal semantic information

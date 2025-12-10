@@ -1,9 +1,44 @@
 program msgpass_chemical_example
-  !! Program to demonstrate the use of a message passing neural network
+  !! Message Passing Neural Network for molecular property prediction
   !!
-  !! This program reads a dataset of chemical graphs in the XYZ format
-  !! and trains a message passing neural network to predict the energy of the
-  !! chemical graph.
+  !! This example demonstrates using graph neural networks (GNNs) to predict
+  !! molecular properties from chemical structure graphs.
+  !!
+  !! ## Problem Description
+  !!
+  !! Given a molecular graph \( G = (V, E) \) where:
+  !! - \( V \) represents atoms with features (element type, coordinates, etc.)
+  !! - \( E \) represents chemical bonds
+  !!
+  !! Predict scalar molecular properties (e.g., energy, formation enthalpy).
+  !!
+  !! ## Message Passing Framework
+  !!
+  !! The network iteratively updates node (atom) representations by aggregating
+  !! information from neighboring nodes:
+  !!
+  !! 1. **Message function**: Compute messages from neighbors
+  !!    $$\mathbf{m}_{ij}^{(t)} = M(\mathbf{h}_i^{(t)}, \mathbf{h}_j^{(t)}, \mathbf{e}_{ij})$$
+  !!
+  !! 2. **Aggregation**: Combine messages from all neighbors
+  !!    $$\mathbf{a}_i^{(t)} = \sum_{j \in \mathcal{N}(i)} \mathbf{m}_{ij}^{(t)}$$
+  !!
+  !! 3. **Update**: Compute new node representation
+  !!    $$\mathbf{h}_i^{(t+1)} = U(\mathbf{h}_i^{(t)}, \mathbf{a}_i^{(t)})$$
+  !!
+  !! 4. **Readout**: Aggregate node features to graph-level prediction
+  !!    $$\mathbf{y} = R\left(\{\mathbf{h}_i^{(T)} | i \in V\}\right)$$
+  !!
+  !! ## Duvenaud Message Passing
+  !!
+  !! This example uses the Duvenaud et al. architecture, which computes:
+  !! $$\mathbf{h}_i^{(t+1)} = \sigma\left(\mathbf{W}^{(t)}_{|\mathcal{N}(i)|} \sum_{j \in \mathcal{N}(i)} \mathbf{h}_j^{(t)} + \mathbf{b}^{(t)}\right)$$
+  !!
+  !! where different weight matrices are learned for different vertex degrees.
+  !!
+  !! ## Data Format
+  !!
+  !! Input: Extended XYZ files containing molecular structures and energies
   use athena
   use coreutils, only: real32
   use read_chemical_graphs, only: read_extxyz_db
