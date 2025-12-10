@@ -1,9 +1,38 @@
 program mnist_example
-  !! Program to demonstrate the use of multi-input convolutional neural networks
+  !! Multi-input Neural Network demonstration using MNIST dataset
   !!
-  !! This program reads the MNIST dataset of handwritten digits and trains a
-  !! convolutional neural network to classify the digits. An additional set of
-  !! inputs is used to demonstrate how to use multiple inputs in a neural network.
+  !! This example demonstrates how to build networks with multiple input sources,
+  !! a common pattern in real-world applications where models must combine
+  !! different types of data (e.g., images + metadata, multiple sensors).
+  !!
+  !! ## Multi-Input Architecture
+  !!
+  !! The network has multiple input branches that are processed separately
+  !! before being combined:
+  !!
+  !! $$\mathbf{z}_1 = f_1(\mathbf{x}_1; \theta_1) \quad \text{(e.g., CNN for images)}$$
+  !! $$\mathbf{z}_2 = f_2(\mathbf{x}_2; \theta_2) \quad \text{(e.g., MLP for metadata)}$$
+  !! $$\mathbf{z}_3 = f_3(\mathbf{x}_3; \theta_3) \quad \text{(additional features)}$$
+  !!
+  !! These are then combined (concatenated or merged):
+  !! $$\mathbf{z} = [\mathbf{z}_1; \mathbf{z}_2; \mathbf{z}_3]$$
+  !!
+  !! And passed through additional layers for final prediction:
+  !! $$\mathbf{y} = g(\mathbf{z}; \theta_g)$$
+  !!
+  !! ## Use Cases
+  !!
+  !! - **Multimodal learning**: Combining images, text, audio
+  !! - **Feature fusion**: Merging different feature representations
+  !! - **Sensor fusion**: Integrating multiple sensor data
+  !! - **Auxiliary inputs**: Adding metadata to improve predictions
+  !!
+  !! ## Example Structure
+  !!
+  !! - Input 1: MNIST digit image (28×28)
+  !! - Input 2: Additional scalar features
+  !! - Input 3: Another feature vector
+  !! - Outputs combined after separate processing
 #ifdef _OPENMP
   use omp_lib
 #endif

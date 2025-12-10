@@ -9,30 +9,18 @@ import shutil
 
 def run_ford(app):
     """Run FORD to generate Fortran API documentation"""
-    ford_dir = os.path.abspath(os.path.join(app.confdir, "..", "ford"))
-    project_file = os.path.join(ford_dir, "ford_project.yml")
+    ford_dir = os.path.abspath(os.path.join(app.confdir, "..", ".."))
+    ford_otuput = os.path.join(app.confdir, "_static", "ford")
+    project_file = os.path.join(ford_dir, "ford.md")
 
     print(f"Running FORD with config: {project_file}")
-    result = subprocess.run(["ford", project_file], cwd=ford_dir, capture_output=True, text=True)
+    result = subprocess.run(["ford", project_file, "-o", ford_otuput], cwd=ford_dir, capture_output=True, text=True)
 
     if result.returncode != 0:
         print(f"FORD output:\n{result.stdout}")
         print(f"FORD errors:\n{result.stderr}")
     else:
         print("FORD documentation generated successfully")
-
-    # Copy FORD output to Sphinx static directory so it's included in the build
-    ford_output = os.path.join(ford_dir, "output")
-    sphinx_static = os.path.join(app.confdir, "_static", "ford")
-
-    if os.path.exists(ford_output):
-        if os.path.exists(sphinx_static):
-            shutil.rmtree(sphinx_static)
-        shutil.copytree(ford_output, sphinx_static)
-        print(f"Copied FORD output to {sphinx_static}")
-
-def setup(app):
-    app.connect("builder-inited", run_ford)
 
 from docutils.parsers.rst import roles
 from docutils import nodes
@@ -43,6 +31,7 @@ def h3style_role(name, rawtext, text, lineno, inliner, options={}, content=[]):
 
 def setup(app):
     roles.register_local_role('h3style', h3style_role)
+    app.connect("builder-inited", run_ford)
 
 # -- Project information
 
@@ -93,7 +82,7 @@ extensions.append('spelling_aliases')
 
 # -- Options for HTML output
 
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'sphinx_rtd_theme' # 'sphinx_book_theme'
 
 # Add path for static files (will include FORD output)
 html_static_path = ['_static']
@@ -116,6 +105,8 @@ html_theme_options = {
     'navigation_depth': 4,
     'includehidden': True,
     'titles_only': False,
+    'use_edit_page_button': True,
+    'use_repository_button': True,
 }
 
 

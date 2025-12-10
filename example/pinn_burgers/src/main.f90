@@ -1,7 +1,41 @@
 program pinn_burgers_example
-  !! Program to demonstrate the use of PINN architecture
+  !! Physics-Informed Neural Network (PINN) for solving the 1D Burgers' equation
   !!
-  !! Example is a port of the following python example:
+  !! This example demonstrates solving a partial differential equation using a PINN,
+  !! which embeds the physics of the problem directly into the loss function.
+  !!
+  !! ## Problem Description
+  !!
+  !! The 1D Burgers' equation is a fundamental PDE in fluid mechanics:
+  !!
+  !! $$\frac{\partial u}{\partial t} + u \frac{\partial u}{\partial x} = \nu \frac{\partial^2 u}{\partial x^2}$$
+  !!
+  !! where:
+  !! - \( u(x,t) \) is the velocity field
+  !! - \( \nu \) is the kinematic viscosity coefficient
+  !! - \( x \in [-1, 1] \) is the spatial coordinate
+  !! - \( t \in [0, 1] \) is time
+  !!
+  !! ## Boundary and Initial Conditions
+  !!
+  !! - Initial condition: \( u(x, 0) = -\sin(\pi x) \)
+  !! - Boundary conditions: Periodic at \( x = -1 \) and \( x = 1 \)
+  !!
+  !! ## PINN Architecture
+  !!
+  !! The neural network \( u_{\theta}(x,t) \) approximates the solution with:
+  !! - Input: \( (x, t) \)
+  !! - Hidden layers: 4 layers with 50 neurons each, tanh activation
+  !! - Output: \( u(x,t) \)
+  !!
+  !! The loss function combines:
+  !! 1. PDE residual at collocation points \( (x_f, t_f) \)
+  !! 2. Initial condition at \( t = 0 \)
+  !! 3. Boundary conditions at \( x = \pm 1 \)
+  !!
+  !! ## Reference
+  !!
+  !! Port of the Python example from:
   !! https://www.marktechpost.com/2025/03/28/a-step-by-step-guide-to-solve-1d-burgers-equation-with-physics-informed-neural-networks-pinns-a-pytorch-approach-using-automatic-differentiation-and-collocation-methods/
   use athena
   use coreutils, only: real32

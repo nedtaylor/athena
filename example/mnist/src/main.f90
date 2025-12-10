@@ -1,8 +1,39 @@
 program mnist_example
-  !! Program to demonstrate the use of a convolutional neural network
+  !! Convolutional Neural Network for MNIST handwritten digit classification
   !!
-  !! This program reads the MNIST dataset of handwritten digits and trains a
-  !! convolutional neural network to classify the digits.
+  !! This example demonstrates image classification using a CNN architecture.
+  !! The MNIST dataset contains 70,000 grayscale images of handwritten digits
+  !! (0-9), each 28×28 pixels.
+  !!
+  !! ## Problem
+  !!
+  !! Multi-class classification:
+  !! $$P(y = k | \mathbf{x}) \text{ for } k \in \{0, 1, ..., 9\}$$
+  !!
+  !! where \( \mathbf{x} \) is a 28×28 input image and \( y \) is the digit label.
+  !!
+  !! ## CNN Architecture
+  !!
+  !! Typical architecture includes:
+  !! - **Convolutional layers**: Extract spatial features
+  !!   $$\mathbf{h}_{i,j,k} = \sigma\left(\sum_c \sum_{m,n} \mathbf{W}_{k,c,m,n} \mathbf{x}_{i+m,j+n,c} + b_k\right)$$
+  !! - **Pooling layers**: Reduce spatial dimensions
+  !! - **Fully connected layers**: Final classification
+  !! - **Softmax output**: Probability distribution over 10 classes
+  !!   $$P(y=k|\mathbf{x}) = \frac{e^{z_k}}{\sum_{j=0}^{9} e^{z_j}}$$
+  !!
+  !! ## Training
+  !!
+  !! Minimizes categorical cross-entropy loss:
+  !! $$\mathcal{L} = -\sum_{k=0}^{9} y_k \log(\hat{y}_k)$$
+  !!
+  !! where \( y_k \) is the one-hot encoded label and \( \hat{y}_k \) is the predicted probability.
+  !!
+  !! ## Dataset
+  !!
+  !! - Training: 60,000 images
+  !! - Testing: 10,000 images
+  !! - Format: 28×28 grayscale, normalized to [0,1]
 #ifdef _OPENMP
   use omp_lib
 #endif

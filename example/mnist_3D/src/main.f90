@@ -1,11 +1,33 @@
 program mnist_example
-  !! Program to demonstrate the use of a convolutional neural network
+  !! 3D Convolutional Neural Network demonstration using MNIST dataset
   !!
-  !! This program reads the MNIST dataset of handwritten digits and trains a 3D
-  !! convolutional neural network to classify the digits.
-  !! The dataset is, naturally, 2D, but we can treat it as a 3D dataset by
-  !! adding a third dimension of size 1, which enables us to show how to use
-  !! 3D convolutional layers in athena.
+  !! This example demonstrates the use of 3D convolutional layers by treating
+  !! the 2D MNIST dataset as 3D data with a third dimension of size 1.
+  !! While not necessary for this dataset, it illustrates how to work with
+  !! volumetric/3D image data in athena.
+  !!
+  !! ## 3D Convolution Operation
+  !!
+  !! For a 3D input volume \( \mathbf{X} \in \mathbb{R}^{H \times W \times D \times C} \):
+  !! $$\mathbf{h}_{i,j,k,f} = \sigma\left(\sum_c \sum_{m,n,p} \mathbf{W}_{f,c,m,n,p} \mathbf{X}_{i+m,j+n,k+p,c} + b_f\right)$$
+  !!
+  !! where:
+  !! - \( H, W, D \) are spatial dimensions (height, width, depth)
+  !! - \( C \) is number of channels
+  !! - \( f \) indexes output feature maps
+  !! - \( m, n, p \) iterate over the 3D kernel
+  !!
+  !! ## Dataset Transformation
+  !!
+  !! MNIST images (28×28) are reshaped to 28×28×1 volumes to enable 3D convolutions.
+  !!
+  !! ## Applications of 3D CNNs
+  !!
+  !! While demonstrated here on 2D data, 3D CNNs are typically used for:
+  !! - Medical imaging (CT scans, MRI volumes)
+  !! - Video analysis (treating time as third dimension)
+  !! - 3D shape recognition
+  !! - Molecular structure analysis
 #ifdef _OPENMP
   use omp_lib
 #endif
