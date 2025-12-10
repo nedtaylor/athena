@@ -23,8 +23,8 @@ creation_date: %Y-%m-%d %H:%M %z
 project_github: https://github.com/nedtaylor/athena
 project_download: https://github.com/nedtaylor/athena/releases
 github: https://github.com/nedtaylor
-externalize: True
-external: diffstruc: https://diffstruc.readthedocs.io/en/latest/_static/ford/
-            graphstruc: https://graphstruc.readthedocs.io/en/latest/_static/ford/
+externalize: true
+external: diffstruc=https://diffstruc.readthedocs.io/en/latest/_static/ford/
+            graphstruc-=https://graphstruc.readthedocs.io/en/latest/_static/ford/
 
 {!README.md!}
