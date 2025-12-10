@@ -82,7 +82,7 @@ extensions.append('spelling_aliases')
 
 # -- Options for HTML output
 
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'sphinx_rtd_theme' # 'sphinx_book_theme'
 
 # Add path for static files (will include FORD output)
 html_static_path = ['_static']
@@ -105,6 +105,8 @@ html_theme_options = {
     'navigation_depth': 4,
     'includehidden': True,
     'titles_only': False,
+    'use_edit_page_button': True,
+    'use_repository_button': True,
 }
 
 
