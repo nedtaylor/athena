@@ -25,6 +25,6 @@ project_download: https://github.com/nedtaylor/athena/releases
 github: https://github.com/nedtaylor
 externalize: true
 external: diffstruc=https://diffstruc.readthedocs.io/en/latest/_static/ford/
-            graphstruc-=https://graphstruc.readthedocs.io/en/latest/_static/ford/
+          graphstruc=https://graphstruc.readthedocs.io/en/latest/_static/ford/
 
 {!README.md!}
