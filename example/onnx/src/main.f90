@@ -1,4 +1,43 @@
 program onnx_example
+  !! ONNX (Open Neural Network Exchange) format interoperability
+  !!
+  !! This example demonstrates reading and writing neural networks in ONNX format,
+  !! enabling model exchange between different frameworks (PyTorch, TensorFlow, etc.)
+  !!
+  !! ## ONNX Format
+  !!
+  !! ONNX is an open standard for representing machine learning models:
+  !! - **Portability**: Train in one framework, deploy in another
+  !! - **Optimisation**: Use specialised inference engines
+  !! - **Interoperability**: Share models across teams/organisations
+  !!
+  !! ## Workflow
+  !!
+  !! 1. **Export**: Write athena network to ONNX file
+  !!    - Saves architecture (layer types, shapes, connections)
+  !!    - Saves parameters (weights, biases)
+  !!    - Saves metadata (input/output specs)
+  !!
+  !! 2. **Import**: Read ONNX file into athena network
+  !!    - Reconstructs network architecture
+  !!    - Loads trained parameters
+  !!    - Validates compatibility
+  !!
+  !! ## Supported Operations
+  !!
+  !! athena supports ONNX conversion for:
+  !! - Convolutional layers (Conv1D, Conv2D, Conv3D)
+  !! - Pooling layers (MaxPool, AveragePool)
+  !! - Fully connected layers
+  !! - Activation functions
+  !! - Batch normalisation
+  !! - Reshape operations
+  !!
+  !! ## Use Cases
+  !!
+  !! - **Model deployment**: Export trained models for production
+  !! - **Transfer learning**: Import pre-trained models
+  !! - **Cross-framework workflows**: Combine strengths of different tools
   use athena
   implicit none
 

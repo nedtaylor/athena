@@ -6,14 +6,14 @@ module athena__duvenaud_msgpass_layer
   !! vertex (node) and edge features.
   !!
   !! Mathematical operation (per time step t):
-  !!   h_v^(t+1) = σ( h_v^(t) + Σ_{u∈N(v)} M(h_v^(t), h_u^(t), e_vu) )
+  !! \[ h_v^{(t+1)} = \sigma\left( h_v^{(t)} + \sum_{u \in \mathcal{N}(v)} M(h_v^{(t)}, h_u^{(t)}, e_{vu}) \right) \]
   !!
   !! Graph readout (aggregation to fixed-size vector):
-  !!   h_graph = σ_readout( Σ_{d=1}^D Σ_{v:deg(v)=d} W_d h_v^(T) )
+  !! \[ h_{\text{graph}} = \sigma_{\text{readout}}\left( \sum_{d=1}^D \sum_{v:\deg(v)=d} W_d h_v^{(T)} \right) \]
   !!
-  !! where M is a learned message function, σ is activation function,
-  !! N(v) are neighbors of v, e_vu are edge features, W_d are
-  !! degree-specific weight matrices, and D is max vertex degree.
+  !! where \( M \) is a learned message function, \( \sigma \) is activation function,
+  !! \( \mathcal{N}(v) \) are neighbors of \( v \), \( e_{vu} \) are edge features, \( W_d \) are
+  !! degree-specific weight matrices, and \( D \) is max vertex degree.
   !!
   !! Reference: Duvenaud et al. (2015), NeurIPS
   use coreutils, only: real32

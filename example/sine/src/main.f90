@@ -1,8 +1,34 @@
 program sine
   !! Sine function approximation using a fully-connected neural network
   !!
-  !! This file contains a modified version of the "sine" example found in ...
-  !! ... neural fortran:
+  !! This example demonstrates universal approximation capabilities of neural
+  !! networks by learning to approximate the sine function \( y = \sin(x) \)
+  !! over the domain \( x \in [0, 2\pi] \).
+  !!
+  !! ## Objective
+  !!
+  !! Learn the mapping:
+  !! $$f_{\theta}: x \mapsto \sin(x)$$
+  !!
+  !! where \( \theta \) represents the network parameters (weights and biases).
+  !!
+  !! ## Network Architecture
+  !!
+  !! - Input layer: 1 feature (\( x \))
+  !! - Hidden layer: 5 neurons with tanh activation
+  !! - Output layer: 1 neuron with sigmoid activation
+  !!
+  !! The network approximates the sine function through:
+  !! $$\hat{y} = \sigma\left(\mathbf{w}_2^T \tanh(\mathbf{W}_1 x + \mathbf{b}_1) + b_2\right)$$
+  !!
+  !! ## Training
+  !!
+  !! Minimizes mean squared error over 10,000 iterations with random sampling:
+  !! $$\mathcal{L} = (y - \hat{y})^2 = (\sin(x) - f_{\theta}(x))^2$$
+  !!
+  !! ## Reference
+  !!
+  !! Modified version of the "sine" example from neural-fortran:
   !! https://github.com/modern-fortran/neural-fortran/blob/main/example/sine.f90
   use athena
   use coreutils, only: real32

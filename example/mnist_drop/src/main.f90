@@ -1,9 +1,36 @@
 program mnist_example
-  !! Program to demonstrate the use of a convolutional neural network
+  !! DropBlock regularization demonstration on MNIST digit classification
   !!
-  !! This program reads the MNIST dataset of handwritten digits and trains a
-  !! convolutional neural network to classify the digits. The network
-  !! includes a DropBlock layer to improve generalisation and reduce overfitting.
+  !! This example demonstrates DropBlock, a structured form of dropout designed
+  !! for convolutional neural networks. Unlike standard dropout which drops
+  !! individual activations, DropBlock drops contiguous regions, which is more
+  !! effective for CNNs where nearby activations are correlated.
+  !!
+  !! ## DropBlock Algorithm
+  !!
+  !! For a feature map \( \mathbf{X} \in \mathbb{R}^{H \times W \times C} \):
+  !!
+  !! 1. **Sample drop mask**: For each spatial location, randomly decide whether
+  !!    to be a block center with probability related to drop rate
+  !!
+  !! 2. **Create blocks**: Expand each drop center to a block of size \( b \times b \)
+  !!    $$M_{i,j,c} = 0 \text{ if } (i,j) \text{ is within any block}$$
+  !!
+  !! 3. **Apply mask**: Zero out blocked regions
+  !!    $$\mathbf{Y} = \frac{\mathbf{X} \odot M}{\text{keep_prob}}$$
+  !!
+  !! The normalization factor ensures the expected sum is preserved.
+  !!
+  !! ## Advantages over Dropout
+  !!
+  !! - **Spatial correlation**: Drops connected regions, forcing the network
+  !!   to learn from less spatially complete information
+  !! - **Better for CNNs**: More effective than random dropout for convolutional layers
+  !! - **Improved generalization**: Reduces overfitting in image classification
+  !!
+  !! ## Reference
+  !!
+  !! Ghiasi et al., "DropBlock: A regularization method for convolutional networks," NeurIPS 2018
 #ifdef _OPENMP
   use omp_lib
 #endif

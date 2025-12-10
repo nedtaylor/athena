@@ -5,16 +5,17 @@ module athena__kipf_msgpass_layer
   !! (2017) with symmetric degree normalisation for semi-supervised learning.
   !!
   !! Mathematical operation:
-  !!   H^(l+1) = σ( D̃^(-1/2) Ã D̃^(-1/2) H^(l) W^(l) )
+  !! \[ H^{(l+1)} = \sigma\left( \tilde{D}^{-1/2} \tilde{A} \tilde{D}^{-1/2} H^{(l)} W^{(l)} \right) \]
   !!
   !! where:
-  !!   Ã = A + I (adjacency matrix with added self-loops)
-  !!   D̃ is the degree matrix of Ã
-  !!   H^(l) is the node feature matrix at layer l
-  !!   W^(l) is a learnable weight matrix
-  !!   σ is the activation function
+  !! * \( \tilde{A} = A + I \) (adjacency matrix with added self-loops)
+  !! * \( \tilde{D} \) is the degree matrix of \( \tilde{A} \)
+  !! * \( H^{(l)} \) is the node feature matrix at layer l
+  !! * \( W^{(l)} \) is a learnable weight matrix
+  !! * \( \sigma \) is the activation function
   !!
-  !! The normalisation D̃^(-1/2) Ã D̃^(-1/2) ensures proper scaling by degree.
+  !! The normalisation \( \tilde{D}^{-1/2} \tilde{A} \tilde{D}^{-1/2} \) ensures
+  !! proper scaling by degree.
   !! Preserves graph structure, producing node-level (not graph-level) outputs.
   !!
   !! Reference: Kipf & Welling (2017), ICLR

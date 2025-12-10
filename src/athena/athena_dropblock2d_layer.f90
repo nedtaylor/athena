@@ -16,7 +16,9 @@ module athena__dropblock2d_layer
   !! where block_size is the spatial extent of each dropped block
   !!
   !! Inference: acts as identity (no dropout applied)
-  !!   y = x
+  !! \[
+  !!   y_i = x_i
+  !! \]
   !!
   !! Benefits: Better for convolutions (spatial coherence), removes semantic info,
   !! forces network to learn from dispersed features

@@ -1,10 +1,36 @@
 program mnist_example
-  !! Program to demonstrate the use of batch normalisation
+  !! Batch Normalisation demonstration on MNIST digit classification
   !!
-  !! This program reads the MNIST dataset of handwritten digits and trains a
-  !! convolutional neural network to classify the digits. The network
-  !! includes batch normalisation layers to improve training stability and
-  !! performance.
+  !! This example demonstrates the benefits of batch normalisation in deep
+  !! convolutional networks. Batch normalisation accelerates training and
+  !! improves generalisation by normalising layer inputs.
+  !!
+  !! ## Batch Normalisation
+  !!
+  !! For each mini-batch, normalises activations \( \mathbf{x} \) to have zero mean
+  !! and unit variance, then applies learned affine transformation:
+  !!
+  !! 1. **Compute batch statistics**:
+  !!    $$\mu_B = \frac{1}{m}\sum_{i=1}^{m} \mathbf{x}_i$$
+  !!    $$\sigma_B^2 = \frac{1}{m}\sum_{i=1}^{m} (\mathbf{x}_i - \mu_B)^2$$
+  !!
+  !! 2. **Normalise**:
+  !!    $$\hat{\mathbf{x}}_i = \frac{\mathbf{x}_i - \mu_B}{\sqrt{\sigma_B^2 + \epsilon}}$$
+  !!
+  !! 3. **Scale and shift** (learnable parameters \( \gamma, \beta \)):
+  !!    $$\mathbf{y}_i = \gamma \hat{\mathbf{x}}_i + \beta$$
+  !!
+  !! ## Benefits
+  !!
+  !! - Reduces internal covariate shift
+  !! - Allows higher learning rates
+  !! - Provides regularisation effect
+  !! - Reduces sensitivity to initialisation
+  !!
+  !! ## Network Architecture
+  !!
+  !! CNN with batch normalisation layers after convolutions, before activation:
+  !! Conv → BatchNorm → Activation → Pool → ...
 #ifdef _OPENMP
   use omp_lib
 #endif

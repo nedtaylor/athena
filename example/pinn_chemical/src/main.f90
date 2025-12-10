@@ -1,9 +1,44 @@
 program pinn_chemical_example
-  !! Program to demonstrate the use of a message passing neural network
+  !! Physics-Informed Neural Network for molecular energy and force prediction
   !!
-  !! This program reads a dataset of chemical graphs in the XYZ format
-  !! and trains a message passing neural network to predict the energy of the
-  !! chemical graph.
+  !! This example combines message passing neural networks with physics-informed
+  !! learning to predict molecular energies and atomic forces from chemical structures.
+  !!
+  !! ## Problem Description
+  !!
+  !! Given a molecular structure represented as a graph \( G = (V, E) \), predict:
+  !! - Total energy: \( E_{\text{total}} \)
+  !! - Atomic forces: \( \mathbf{F}_i = -\nabla_{\mathbf{r}_i} E_{\text{total}} \)
+  !!
+  !! ## Physical Constraints
+  !!
+  !! The network respects fundamental physical principles:
+  !!
+  !! 1. **Energy conservation**: The total energy is a scalar property
+  !! 2. **Force-energy relationship**: Forces are derivatives of energy
+  !!    $$\mathbf{F}_i = -\frac{\partial E}{\partial \mathbf{r}_i}$$
+  !! 3. **Translational invariance**: Energy unchanged by rigid translations
+  !! 4. **Rotational invariance**: Energy unchanged by rigid rotations
+  !!
+  !! ## Network Architecture
+  !!
+  !! - **Message passing layers**: Aggregate information from neighboring atoms
+  !!   $$\mathbf{h}_i^{(t+1)} = \sigma\left(\sum_{j \in \mathcal{N}(i)} \mathbf{W} \mathbf{h}_j^{(t)}\right)$$
+  !! - **Readout**: Sum atomic contributions to get total energy
+  !!   $$E = \sum_i f(\mathbf{h}_i)$$
+  !! - **Force prediction**: Automatic differentiation of energy w.r.t. positions
+  !!
+  !! ## Loss Function
+  !!
+  !! Combined loss for energy and forces:
+  !! $$\mathcal{L} = \lambda_E \|E_{\text{pred}} - E_{\text{true}}\|^2 + \lambda_F \sum_i \|\mathbf{F}_{i,\text{pred}} - \mathbf{F}_{i,\text{true}}\|^2$$
+  !!
+  !! ## Input Data
+  !!
+  !! Reads extended XYZ format containing:
+  !! - Atomic positions and elements
+  !! - Total energy (target)
+  !! - Atomic forces (target)
   use athena
   use coreutils, only: real32
   use forces_loss, only: forces_loss_type

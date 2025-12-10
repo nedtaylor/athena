@@ -1,5 +1,41 @@
-program test_resnet
-  !! Test program for ResNet architectures
+program resnet_example
+  !! Residual Network (ResNet) architecture demonstration
+  !!
+  !! This example demonstrates building and testing ResNet architectures,
+  !! which use skip connections to enable training of very deep networks.
+  !!
+  !! ## Residual Learning
+  !!
+  !! Instead of learning a direct mapping \( \mathcal{H}(\mathbf{x}) \), ResNets
+  !! learn a residual function:
+  !! $$\mathcal{F}(\mathbf{x}) = \mathcal{H}(\mathbf{x}) - \mathbf{x}$$
+  !!
+  !! The output of a residual block is:
+  !! $$\mathbf{y} = \mathcal{F}(\mathbf{x}, \{W_i\}) + \mathbf{x}$$
+  !!
+  !! where \( \mathcal{F}(\mathbf{x}, \{W_i\}) \) represents the layers in the block.
+  !!
+  !! ## Residual Block Structure
+  !!
+  !! A typical residual block consists of:
+  !! 1. Conv layer → BatchNorm → ReLU
+  !! 2. Conv layer → BatchNorm
+  !! 3. Add skip connection: output = block_output + input
+  !! 4. ReLU activation
+  !!
+  !! Mathematically:
+  !! $$\mathbf{y} = \text{ReLU}\left(\text{BN}(W_2 * \text{ReLU}(\text{BN}(W_1 * \mathbf{x}))) + \mathbf{x}\right)$$
+  !!
+  !! ## Advantages
+  !!
+  !! - **Addresses vanishing gradients**: Skip connections provide direct gradient flow
+  !! - **Enables deep networks**: Can train networks with 50+ layers
+  !! - **Identity mapping**: Network can learn identity if needed (\( \mathcal{F} = 0 \))
+  !! - **Better optimisation**: Easier to optimise than plain deep networks
+  !!
+  !! ## Reference
+  !!
+  !! He et al., "Deep Residual Learning for Image Recognition," CVPR 2016
   use athena
   implicit none
 
@@ -223,4 +259,4 @@ contains
 
   end subroutine add_residual_block_with_projection
 
-end program test_resnet
+end program resnet_example

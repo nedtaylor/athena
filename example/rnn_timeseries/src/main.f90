@@ -1,8 +1,50 @@
-program rnn_timeseries
-  !! Time series prediction using a recurrent neural network
+program rnn_timeseries_example
+  !! Recurrent Neural Network for time series prediction
   !!
-  !! This example demonstrates using an RNN layer in a network for pattern
-  !! recognition in sequential data (sine wave).
+  !! This example demonstrates using RNNs to learn temporal patterns and
+  !! make predictions on sequential data, specifically learning to predict
+  !! sine wave patterns.
+  !!
+  !! ## Recurrent Neural Networks
+  !!
+  !! RNNs process sequences by maintaining a hidden state that captures
+  !! information about previous inputs:
+  !!
+  !! $$\mathbf{h}_t = \tanh(\mathbf{W}_{hh}\mathbf{h}_{t-1} + \mathbf{W}_{xh}\mathbf{x}_t + \mathbf{b}_h)$$
+  !! $$\mathbf{y}_t = \mathbf{W}_{hy}\mathbf{h}_t + \mathbf{b}_y$$
+  !!
+  !! where:
+  !! - \( \mathbf{x}_t \) is the input at time \( t \)
+  !! - \( \mathbf{h}_t \) is the hidden state at time \( t \)
+  !! - \( \mathbf{y}_t \) is the output at time \( t \)
+  !! - \( \mathbf{W}_{xh}, \mathbf{W}_{hh}, \mathbf{W}_{hy} \) are weight matrices
+  !!
+  !! ## Time Series Prediction
+  !!
+  !! Given a sequence \( [x_1, x_2, ..., x_t] \), predict \( x_{t+1} \):
+  !! $$\hat{x}_{t+1} = f_{\theta}(x_t, x_{t-1}, ..., x_{t-k+1})$$
+  !!
+  !! The RNN learns to capture temporal dependencies and patterns.
+  !!
+  !! ## Sine Wave Task
+  !!
+  !! Learn the pattern: \( x_t = \sin(\omega t + \phi) \)
+  !! - Input: Sequence of past values \( [x_{t-k}, ..., x_{t-1}, x_t] \)
+  !! - Output: Next value \( x_{t+1} \)
+  !!
+  !! ## Training
+  !!
+  !! Uses backpropagation through time (BPTT) to compute gradients:
+  !! - Unroll the network across time steps
+  !! - Compute loss at each step or final step
+  !! - Backpropagate gradients through the temporal chain
+  !!
+  !! ## Applications
+  !!
+  !! - Stock price prediction
+  !! - Weather forecasting
+  !! - Signal processing
+  !! - Natural language modeling
   use athena
   use coreutils, only: real32
   use constants_mnist, only: pi
@@ -143,4 +185,4 @@ program rnn_timeseries
   write(*,*)
   write(*,*) "RNN example complete - network learned sine wave pattern!"
 
-end program rnn_timeseries
+end program rnn_timeseries_example
