@@ -1,0 +1,12 @@
+name = "wandb_fortran"
+version = "0.1.0"
+license = "MIT"
+description = "Fortran interface to Weights & Biases (wandb) via the Python C API"
+
+[library]
+source-dir = "."
+
+[fortran]
+implicit-typing = false
+implicit-external = false
+source-form = "free"

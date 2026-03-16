@@ -122,3 +122,10 @@ source-dir = "example/rnn_timeseries/src"
 main = "main.f90"
 [example.dependencies]
 example_library = { path = "example/example_library"}
+
+[[example]]
+name = "wandb_sine"
+source-dir = "example/wandb_sine/src"
+main = "main.f90"
+[example.dependencies]
+wandb_fortran = { path = "ext/wandb" }
