@@ -167,6 +167,16 @@ module athena
   use athena__full_layer,      only: full_layer_type, read_full_layer
 
 
+  ! Neural operator layer types
+  !-----------------------------------------------------------------------------
+  use athena__neural_operator_layer, only: &
+       neural_operator_layer_type, read_neural_operator_layer
+  use athena__nop_laplace_layer, only: &
+       nop_laplace_layer_type, read_nop_laplace_layer
+  use athena__spectral_filter_layer, only: &
+       spectral_filter_layer_type, read_spectral_filter_layer
+
+
   ! Merge layer types
   !-----------------------------------------------------------------------------
   use athena__add_layer, only: add_layer_type, read_add_layer
