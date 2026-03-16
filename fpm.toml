@@ -101,6 +101,7 @@ name = "pinn_burgers"
 source-dir = "example/pinn_burgers/src"
 [example.dependencies]
 example_library = { path = "example/example_library"}
+wandb_fortran = { path = "ext/wandb" }
 
 [[example]]
 name = "custom_forward"
