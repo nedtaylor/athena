@@ -147,6 +147,7 @@ program wandb_sine
   ! finish wandb run
   !-----------------------------------------------------------------------------
   call wandb_finish()
+  call wandb_shutdown()
 
   write(*,*) "Done. Check your wandb dashboard for results."
 

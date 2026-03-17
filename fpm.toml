@@ -130,3 +130,10 @@ source-dir = "example/wandb_sine/src"
 main = "main.f90"
 [example.dependencies]
 wandb_fortran = { path = "ext/wandb" }
+
+[[example]]
+name = "wandb_sweep"
+source-dir = "example/wandb_sweep/src"
+main = "main.f90"
+[example.dependencies]
+wandb_fortran = { path = "ext/wandb" }
