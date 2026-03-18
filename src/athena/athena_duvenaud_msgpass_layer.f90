@@ -18,7 +18,7 @@ module athena__duvenaud_msgpass_layer
   !! Reference: Duvenaud et al. (2015), NeurIPS
   use coreutils, only: real32
   use graphstruc, only: graph_type
-  use athena__misc_types, only: base_actv_type, base_init_type
+  use athena__misc_types, only: base_actv_type, base_init_type, onnx_attribute_type
   use diffstruc, only: array_type, sum, matmul, operator(+)
   use athena__base_layer, only: base_layer_type
   use athena__msgpass_layer, only: msgpass_layer_type
@@ -50,6 +50,8 @@ module athena__duvenaud_msgpass_layer
    contains
      procedure, pass(this) :: get_num_params => get_num_params_duvenaud
      !! Get the number of parameters for the message passing layer
+     procedure, pass(this) :: get_attributes => get_attributes_duvenaud
+     !! Get the attributes of the layer (for ONNX export)
      procedure, pass(this) :: set_hyperparams => set_hyperparams_duvenaud
      !! Set the hyperparameters for the message passing layer
      procedure, pass(this) :: init => init_duvenaud
@@ -117,6 +119,77 @@ module athena__duvenaud_msgpass_layer
 
 
 contains
+
+!###############################################################################
+  function get_attributes_duvenaud(this) result(attributes)
+    !! Get the attributes of the Duvenaud message passing layer (for ONNX export)
+    !!
+    !! Exports hyperparameters needed to reconstruct the layer architecture:
+    !!   - num_time_steps: number of message passing iterations
+    !!   - min_vertex_degree, max_vertex_degree: degree bucket range
+    !!   - num_vertex_features: vertex feature dimensions per time step
+    !!   - num_edge_features: edge feature dimensions per time step
+    !!   - num_outputs: readout output dimension
+    !!   - message_activation, readout_activation: activation function names
+    implicit none
+
+    ! Arguments
+    class(duvenaud_msgpass_layer_type), intent(in) :: this
+    !! Instance of the layer
+    type(onnx_attribute_type), allocatable, dimension(:) :: attributes
+    !! Attributes of the layer
+
+    ! Local variables
+    integer :: t
+    character(256) :: buf
+
+    allocate(attributes(7))
+
+    write(buf, '(I0)') this%num_time_steps
+    attributes(1) = onnx_attribute_type( &
+         name='num_time_steps', type='int', val=trim(buf))
+
+    write(buf, '(I0)') this%min_vertex_degree
+    attributes(2) = onnx_attribute_type( &
+         name='min_vertex_degree', type='int', val=trim(buf))
+
+    write(buf, '(I0)') this%max_vertex_degree
+    attributes(3) = onnx_attribute_type( &
+         name='max_vertex_degree', type='int', val=trim(buf))
+
+    buf = ''
+    do t = 0, this%num_time_steps
+       if(t .eq. 0)then
+          write(buf, '(I0)') this%num_vertex_features(t)
+       else
+          write(buf, '(A," ",I0)') trim(buf), this%num_vertex_features(t)
+       end if
+    end do
+    attributes(4) = onnx_attribute_type( &
+         name='num_vertex_features', type='ints', val=trim(buf))
+
+    buf = ''
+    do t = 0, this%num_time_steps
+       if(t .eq. 0)then
+          write(buf, '(I0)') this%num_edge_features(t)
+       else
+          write(buf, '(A," ",I0)') trim(buf), this%num_edge_features(t)
+       end if
+    end do
+    attributes(5) = onnx_attribute_type( &
+         name='num_edge_features', type='ints', val=trim(buf))
+
+    write(buf, '(I0)') this%num_outputs
+    attributes(6) = onnx_attribute_type( &
+         name='num_outputs', type='int', val=trim(buf))
+
+    attributes(7) = onnx_attribute_type( &
+         name='message_activation', type='string', &
+         val=trim(this%activation%name))
+
+  end function get_attributes_duvenaud
+!###############################################################################
+
 
 !###############################################################################
   subroutine finalise_duvenaud(this)

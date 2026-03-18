@@ -818,6 +818,18 @@ contains
 !###############################################################################
   subroutine write_onnx_initialisers(unit, layer, prefix)
     !! Write ONNX initialisers (weights and biases)
+    !!
+    !! Writes learnable parameters as ONNX initializer blocks.
+    !! When weight_shape is available, writes multi-dimensional tensor shapes
+    !! to enable cross-framework interoperability (e.g. Fortran <-> PyTorch).
+    !!
+    !! Tensor layout convention:
+    !!   Fortran stores parameters in column-major (flattened) order.
+    !!   The dims written here reflect the logical tensor shape.
+    !!   For a weight matrix W[out, in], the flat storage is column-major:
+    !!     W(1,1), W(2,1), ..., W(out,1), W(1,2), ..., W(out,in)
+    !!   Consumers (e.g. Python/PyTorch) must reshape accordingly,
+    !!   noting that Fortran column-major == C row-major with reversed dims.
     implicit none
 
     ! Arguments
@@ -829,7 +841,7 @@ contains
     !! Optional prefix for weight and bias names
 
     ! Local variables
-    integer :: i
+    integer :: i, j
     !! Loop indices
     integer :: num_params
     !! Number of parameters
@@ -844,7 +856,22 @@ contains
           write(unit, '(2X,A)') 'initializer {'
           write(unit, '(4X,"name: """,A,"""")') trim(name)
           write(unit, '(4X,A)') 'data_type: 1'  ! FLOAT
-          write(unit, '(4X,A,I0)') 'dims: ', num_params
+
+          ! Write tensor shape dimensions
+          ! Use weight_shape if available and valid for this parameter index
+          if(allocated(layer%weight_shape))then
+             if(i .le. size(layer%weight_shape, 2))then
+                do j = 1, size(layer%weight_shape, 1)
+                   if(layer%weight_shape(j,i) .gt. 0)then
+                      write(unit, '(4X,A,I0)') 'dims: ', layer%weight_shape(j,i)
+                   end if
+                end do
+             else
+                write(unit, '(4X,A,I0)') 'dims: ', num_params
+             end if
+          else
+             write(unit, '(4X,A,I0)') 'dims: ', num_params
+          end if
 
           write(unit, '(4X,"float_data: [ ")')
           write(unit, '(20(F0.6,", "))') layer%params(i)%val(1:num_params-1,:)
