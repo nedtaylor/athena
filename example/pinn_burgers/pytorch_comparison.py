@@ -11,6 +11,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # %%
+single_thread_cpu = True
+
+if single_thread_cpu:
+    torch.set_num_threads(1)
+    torch.set_num_interop_threads(1)
+
+# %%
 input_from_athena = True # set to True to read parameter initial values and data from athena output files
 output_from_athena = False # set to True to plot the results from athena output files
 
@@ -96,7 +103,10 @@ layers = [2, 50, 50, 50, 50, 1]
 model = PINN(layers)
 print(model)
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+if single_thread_cpu:
+    torch.cuda.is_available = lambda : False
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model.to(device)
 
 
