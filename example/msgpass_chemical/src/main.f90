@@ -52,6 +52,7 @@ program msgpass_chemical_example
   class(clip_type), allocatable :: clip
 
   logical :: restart = .false.
+  logical :: do_training = .true.
 
   ! data loading and preprocessing
   type(graph_type), allocatable, dimension(:,:) :: graphs_in
@@ -59,9 +60,9 @@ program msgpass_chemical_example
   character(1024) :: file, train_file
 
   ! training loop variables
-  integer :: num_tests = 10, num_epochs = 100, batch_size = 8
+  integer :: num_tests = 10, num_epochs = 20, batch_size = 8
   integer :: num_time_steps = 4
-  integer :: i, n, s
+  integer :: i, j, n, s
 
   integer :: num_dense_inputs = 10, num_outputs = 1
   integer :: num_params
@@ -71,6 +72,10 @@ program msgpass_chemical_example
   real(real32) :: output_min, output_max
 
   class(*), allocatable, dimension(:,:) :: data_poly
+
+  ! ONNX export path (relative to run directory)
+  character(*), parameter :: onnx_file = &
+       "example/msgpass_chemical/athena_gnn_init.onnx"
 
 
 
@@ -143,11 +148,6 @@ program msgpass_chemical_example
              max(feature_in_norm(i),maxval(graphs_in(1,s)%vertex_features(i,:))) - &
              min(feature_in_norm(i),minval(graphs_in(1,s)%vertex_features(i,:)))
      end do
-     do s = 1, size(graphs_in,2)
-        ! graphs_in(1,s)%vertex_features(i,:) = &
-        !      graphs_in(1,s)%vertex_features(i,:) / feature_in_norm(i)
-        write(14,*) graphs_in(1,s)%edge_features(:,:)
-     end do
   end do
 
 
@@ -185,41 +185,185 @@ program msgpass_chemical_example
 
 
   !-----------------------------------------------------------------------------
-  ! training loop
+  ! export initialised network parameters to ONNX for cross-language validation
   !-----------------------------------------------------------------------------
-  call network%set_batch_size(batch_size)
+  write(*,*) "Writing ONNX file: ", trim(onnx_file)
+  call write_onnx(onnx_file, network)
+  write(*,*) "ONNX export complete"
+
+  !-----------------------------------------------------------------------------
+  ! export ALL graphs for Python cross-validation
+  ! Format: one file per graph property, samples separated by blank lines
+  !-----------------------------------------------------------------------------
+  write(*,*) "Exporting all graph data for cross-validation..."
+  open(newunit=n, file="example/msgpass_chemical/all_graphs.txt", &
+       status='replace')
+  write(n, '(I0)') size(graphs_in,2)
+  do s = 1, size(graphs_in,2)
+     ! Header: num_vertices num_edges num_csr_entries num_vertex_features num_edge_features
+     write(n, '(I0,1X,I0,1X,I0,1X,I0,1X,I0)') &
+          graphs_in(1,s)%num_vertices, &
+          graphs_in(1,s)%num_edges, &
+          size(graphs_in(1,s)%adj_ja, 2), &
+          graphs_in(1,s)%num_vertex_features, &
+          graphs_in(1,s)%num_edge_features
+     ! Vertex features: one row per vertex
+     do j = 1, graphs_in(1,s)%num_vertices
+        write(n, '(*(ES16.8E2,1X))') graphs_in(1,s)%vertex_features(:,j)
+     end do
+     ! Edge features: one row per edge
+     do j = 1, graphs_in(1,s)%num_edges
+        write(n, '(*(ES16.8E2,1X))') graphs_in(1,s)%edge_features(:,j)
+     end do
+     ! CSR adj_ia (num_vertices + 1 values)
+     write(n, '(*(I0,1X))') graphs_in(1,s)%adj_ia
+     ! CSR adj_ja (2 x num_csr_entries)
+     do j = 1, size(graphs_in(1,s)%adj_ja, 2)
+        write(n, '(I0,1X,I0)') graphs_in(1,s)%adj_ja(1,j), &
+             graphs_in(1,s)%adj_ja(2,j)
+     end do
+  end do
+  close(n)
+  write(*,*) "Graph export complete"
+
+
+  !-----------------------------------------------------------------------------
+  ! export first graph's data for Python cross-validation
+  ! Write vertex features, edge features, adjacency, and target
+  !-----------------------------------------------------------------------------
+  write(*,*) "Writing first-sample data for cross-validation..."
+
+  ! Vertex features: column-major, shape [num_vertex_features, num_vertices]
+  open(newunit=n, file="example/msgpass_chemical/first_sample_vertex.txt", &
+       status='replace')
+  write(n, '(I0,1X,I0)') graphs_in(1,1)%num_vertex_features, &
+       graphs_in(1,1)%num_vertices
+  do j = 1, graphs_in(1,1)%num_vertices
+     write(n, '(*(ES16.8E2,1X))') graphs_in(1,1)%vertex_features(:,j)
+  end do
+  close(n)
+
+  ! Edge features: shape [num_edge_features, num_edges]
+  open(newunit=n, file="example/msgpass_chemical/first_sample_edge.txt", &
+       status='replace')
+  write(n, '(I0,1X,I0)') graphs_in(1,1)%num_edge_features, &
+       graphs_in(1,1)%num_edges
+  do j = 1, graphs_in(1,1)%num_edges
+     write(n, '(*(ES16.8E2,1X))') graphs_in(1,1)%edge_features(:,j)
+  end do
+  close(n)
+
+  ! Adjacency: CSR format (adj_ia, adj_ja)
+  ! Note: adj_ja has more entries than num_edges (bidirectional + self-loops)
+  open(newunit=n, file="example/msgpass_chemical/first_sample_adj.txt", &
+       status='replace')
+  write(n, '(I0,1X,I0)') graphs_in(1,1)%num_vertices, &
+       size(graphs_in(1,1)%adj_ja, 2)
+  ! adj_ia: row pointers (size = num_vertices + 1)
+  write(n, '(*(I0,1X))') graphs_in(1,1)%adj_ia
+  ! adj_ja: column indices and edge indices (2 x num_csr_entries)
+  do j = 1, size(graphs_in(1,1)%adj_ja, 2)
+     write(n, '(I0,1X,I0)') graphs_in(1,1)%adj_ja(1,j), graphs_in(1,1)%adj_ja(2,j)
+  end do
+  close(n)
+
+  ! Target value
+  open(newunit=n, file="example/msgpass_chemical/first_sample_target.txt", &
+       status='replace')
+  write(n, '(ES16.8E2)') output(1,1)%val(1,1)
+  close(n)
+
+  write(*,*) "First-sample data export complete"
+
+
+  !-----------------------------------------------------------------------------
+  ! forward pass on first sample for cross-language comparison
+  !-----------------------------------------------------------------------------
+  call network%set_batch_size(1)
   output_min = minval(output(1,1)%val)
   output_max = maxval(output(1,1)%val)
+  write(*,'(A,ES20.12)') "output_min = ", output_min
+  write(*,'(A,ES20.12)') "output_max = ", output_max
+  write(*,'(A,ES20.12)') "output_range = ", output_max - output_min
   output(1,1)%val = ( output(1,1)%val - output_min ) / &
        ( output_max - output_min )
-  call network%train( &
-       graphs_in, &
-       output, &
-       num_epochs = num_epochs, &
-       shuffle_batches = .true. &
-  )
 
+  data_poly = network%predict_generic( &
+       graphs_in(:,1:1), output_as_graph = .false.)
 
-  !-----------------------------------------------------------------------------
-  ! testing loop
-  !-----------------------------------------------------------------------------
-  write(*,*) "Starting testing..."
-  call network%test( &
-       graphs_in, &
-       output &
-  )
-  write(*,*) "Testing finished"
+  ! Write intermediate layer outputs for debugging
+  open(newunit=n, file="example/msgpass_chemical/fortran_layer_outputs.txt", &
+       status='replace')
+  do i = 1, network%num_layers
+     write(n, '(A,I0,A,I0,A,I0)') "layer ", i, " output shape: ", &
+          size(network%model(i)%layer%output(1,1)%val,1), " x ", &
+          size(network%model(i)%layer%output(1,1)%val,2)
+     do j = 1, size(network%model(i)%layer%output(1,1)%val,1)
+        write(n, '(*(ES16.8E2,1X))') network%model(i)%layer%output(1,1)%val(j,:)
+     end do
+  end do
+  close(n)
 
-  data_poly = network%predict_generic( graphs_in, output_as_graph = .false.)
   select type(data_poly)
   type is(array_type)
-     write(*,*) "Predicted output:"
-     write(*,*) data_poly(1,1)%val * ( output_max - output_min ) + output_min
-     write(*,*) output(1,1)%val * ( output_max - output_min ) + output_min
+     write(*,*) "=== CROSS-VALIDATION OUTPUT (first sample) ==="
+     write(*,'(A,ES16.8E2)') " Fortran prediction (normalised): ", &
+          data_poly(1,1)%val(1,1)
+     write(*,'(A,ES16.8E2)') " Fortran prediction (original):   ", &
+          data_poly(1,1)%val(1,1) * (output_max - output_min) + output_min
+     write(*,'(A,ES16.8E2)') " Target (normalised):             ", &
+          output(1,1)%val(1,1)
+     write(*,'(A,ES16.8E2)') " Target (original):               ", &
+          output(1,1)%val(1,1) * (output_max - output_min) + output_min
+
+     ! Write prediction to file for Python comparison
+     open(newunit=n, file="example/msgpass_chemical/fortran_prediction.txt", &
+          status='replace')
+     write(n, '(ES16.8E2)') data_poly(1,1)%val(1,1)
+     close(n)
   end select
 
-  write(6,'("Overall accuracy=",F0.5)') network%accuracy_val
-  write(6,'("Overall loss=",F0.5)')     network%loss_val
+
+  !-----------------------------------------------------------------------------
+  ! training loop (optional)
+  !-----------------------------------------------------------------------------
+  if(do_training)then
+     call network%set_batch_size(batch_size)
+
+     ! Write path hint for batch ordering export
+     open(newunit=n, file='batch_ordering_path.txt', status='replace')
+     write(n, '(A)') 'example/msgpass_chemical/batch_ordering.txt'
+     close(n)
+
+     call network%train( &
+          graphs_in, &
+          output, &
+          num_epochs = num_epochs, &
+          shuffle_batches = .true. &
+     )
+
+
+     !--------------------------------------------------------------------------
+     ! testing loop
+     !--------------------------------------------------------------------------
+     write(*,*) "Starting testing..."
+     call network%test( &
+          graphs_in, &
+          output &
+     )
+     write(*,*) "Testing finished"
+
+     ! data_poly = network%predict_generic( graphs_in, output_as_graph = .false.)
+     ! select type(data_poly)
+     ! type is(array_type)
+     !    write(*,*) "Predicted output:"
+     !    write(*,*) data_poly(1,1)%val * ( output_max - output_min ) + output_min
+     !    write(*,*) output(1,1)%val * ( output_max - output_min ) + output_min
+     ! end select
+
+     write(6,'("Overall accuracy=",F0.5)') network%accuracy_val
+     write(6,'("Overall loss=",F0.5)')     network%loss_val
+  end if
 
   if(.not.restart)then
      call network%print(file="network.txt")
