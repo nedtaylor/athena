@@ -19,6 +19,7 @@ module-naming = false
 coreutils = { git = "https://github.com/nedtaylor/coreutils", tag = "v0.1.0" }
 diffstruc = { git = "https://github.com/nedtaylor/diffstruc", tag = "v1.1.1" }
 graphstruc = { git = "https://github.com/nedtaylor/graphstruc", tag = "v0.2.1" }
+wandb-fortran = { git = "https://github.com/nedtaylor/wandb-fortran" }
 
 [install]
 library = false
