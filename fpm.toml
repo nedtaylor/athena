@@ -30,7 +30,7 @@ source-form = "free"
 
 [preprocess]
 [preprocess.cpp]
-
+macros = ["_WANDB"]
 
 [[example]]
 name = "sine"
@@ -101,7 +101,6 @@ name = "pinn_burgers"
 source-dir = "example/pinn_burgers/src"
 [example.dependencies]
 example_library = { path = "example/example_library"}
-wandb_fortran = { path = "ext/wandb" }
 
 [[example]]
 name = "custom_forward"
@@ -129,11 +128,23 @@ name = "wandb_sine"
 source-dir = "example/wandb_sine/src"
 main = "main.f90"
 [example.dependencies]
-wandb_fortran = { path = "ext/wandb" }
+wandb-fortran = { git = "https://github.com/nedtaylor/wandb-fortran" }
+
+[[example]]
+name = "wanbd_pinn_burgers"
+source-dir = "example/wandb_pinn_burgers/src"
+[example.dependencies]
+example_library = { path = "example/example_library"}
+wandb-fortran = { git = "https://github.com/nedtaylor/wandb-fortran" }
 
 [[example]]
 name = "wandb_sweep"
 source-dir = "example/wandb_sweep/src"
 main = "main.f90"
 [example.dependencies]
-wandb_fortran = { path = "ext/wandb" }
+wandb-fortran = { git = "https://github.com/nedtaylor/wandb-fortran" }
+
+[[example]]
+name = "wandb_network_sine"
+source-dir = "example/wandb_network_sine/src"
+main = "main.F90"

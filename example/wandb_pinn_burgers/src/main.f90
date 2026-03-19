@@ -38,6 +38,7 @@ program pinn_burgers_example
   !! Port of the Python example from:
   !! https://www.marktechpost.com/2025/03/28/a-step-by-step-guide-to-solve-1d-burgers-equation-with-physics-informed-neural-networks-pinns-a-pytorch-approach-using-automatic-differentiation-and-collocation-methods/
   use athena
+  use athena_wandb
   use coreutils, only: real32
   use constants_mnist, only: pi
 
@@ -56,6 +57,7 @@ program pinn_burgers_example
 
   ! training loop variables
   integer :: num_tests = 10, num_epochs = 100, batch_size = 1
+  real(real32) :: learning_rate = 1.E-3_real32
   character(32) :: activation_name
   class(*), allocatable :: kernel_initialiser, bias_initialiser
 
@@ -75,6 +77,20 @@ program pinn_burgers_example
   ! initialise random seed
   !-----------------------------------------------------------------------------
   call random_setup(seed, restart=.false.)
+
+
+  !-----------------------------------------------------------------------------
+  ! initialise wandb
+  !-----------------------------------------------------------------------------
+  write(*,*) "Initializing wandb run..."
+  call wandb_init(project="athena-examples", name="pinn-burgers")
+  write(*,*) "wandb run initialized. Logging hyper-parameters and training metrics..."
+
+  ! log hyper-parameters
+  activation_name = "tanh"
+  call wandb_config_set("num_epochs",     num_epochs)
+  call wandb_config_set("learning_rate",  learning_rate)
+  call wandb_config_set("activation",     activation_name)
 
 
   !-----------------------------------------------------------------------------
@@ -131,7 +147,6 @@ program pinn_burgers_example
      write(*,*) "Reading finished"
   else
      write(6,*) "Initialising PINN..."
-     activation_name = "tanh"
      kernel_initialiser = he_uniform_init_type(scale = 1._real32/sqrt(6._real32))
      bias_initialiser = he_uniform_init_type(scale = 1._real32/sqrt(6._real32))
 
@@ -184,7 +199,7 @@ program pinn_burgers_example
             beta1 = 0.9_real32, &
             beta2 = 0.999_real32, &
             epsilon = 1.E-8_real32, &
-            learning_rate = 1.E-3_real32 &
+            learning_rate = learning_rate &
             ! lr_decay = exp_lr_decay_type(1.E-2_real32) &
             ! lr_decay = step_lr_decay_type(0.5_real32, 5) &
        ), &
@@ -229,12 +244,14 @@ program pinn_burgers_example
 
      write(*,'("epoch: ",I0,"/",I0," loss: ",F0.5)') i, num_epochs, loss%val(1,1)
 
+     call wandb_log("loss", loss%val(1,1), step=i)
+     call wandb_log("epoch", i, step=i)
      ! clean memory
      call loss%nullify_graph()
      deallocate(loss)
      nullify(loss)
   end do
-
+  call wandb_finish()
 
   !-----------------------------------------------------------------------------
   ! testing loop

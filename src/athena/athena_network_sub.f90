@@ -2660,6 +2660,26 @@ contains
 !###############################################################################
 
 
+!###############################################################################
+  module subroutine post_epoch_hook(this, epoch, loss, accuracy)
+    !! Default epoch hook — no-op.
+    !! Override in a derived type to add custom per-epoch behaviour.
+    implicit none
+
+    ! Arguments
+    class(network_type), intent(inout) :: this
+    !! Instance of network
+    integer, intent(in) :: epoch
+    !! Current epoch number
+    real(real32), intent(in) :: loss
+    !! Mean loss over the epoch
+    real(real32), intent(in) :: accuracy
+    !! Mean accuracy over the epoch
+
+  end subroutine post_epoch_hook
+!###############################################################################
+
+
 !##############################################################################!
 ! * * * * * * * * * * * * * * * * * * *  * * * * * * * * * * * * * * * * * * * !
 !##############################################################################!
@@ -3370,6 +3390,15 @@ contains
                this%metrics(1)%val, this%metrics(2)%val
        end if
 
+
+       !------------------------------------------------------------------------
+       ! Per-epoch callback (e.g. W&B logging via wandb_network_type)
+       !------------------------------------------------------------------------
+       call this%post_epoch_hook( &
+            this%epoch, &
+            avg_loss / real(num_batches, real32), &
+            avg_accuracy / real(num_batches * this%batch_size, real32) &
+       )
 
     end do epoch_loop
 
