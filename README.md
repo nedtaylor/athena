@@ -196,9 +196,27 @@ After the example program is compiled, the following directories will also exist
 
 The example will perform a train over the MNIST dataset. Once complete, it will print its weights and biases to file, and test the trained network on the training set. The output from this can then be compared to the file _expected_output_COMPILER.txt_.
 
-In the tools/ directory, there exist scripts that take utilise the wandb python package (Weights and Biases, a machine learning data tracker). Wandb is a Python module and, as such, a Python interface has been provided to call and run the Fortran example. The Python interface then reads the Fortran output files and logs the results to the wandb project.
+### Weights and Biases (wandb) integration
 
-Example wandb project link: https://wandb.ai/ntaylor/cnn_mnist_test/overview?workspace=user-ntaylor
+athena provides optional integration with the Weights and Biases (wandb) machine learning platform through a separate library called [wandb-fortran](https://github.com/nedtaylor/wandb-fortran).
+
+By default, the library is set to compile with the wandb-fortran dependency, but this can be turned off by:
+
+- fpm: commenting out the _WANDB macro in the fpm.toml file
+- cmake: use the flag -DATHENA_WANDB_SUPPORT=OFF when running cmake
+
+The `network_type` derived type in athena has an extended type called `wandb_network_type` that provides additional procedures for logging to wandb by default inside the `train` procedure. To use this, simply declare a `wandb_network_type` variable instead of a `network_type` variable, and the library will handle the rest.
+
+For more control over the logging, and access to sweeps for hyperparameter optimisation, the `wandb-fortran` library can be used directly.
+This library provides a Fortran API for logging to wandb, and can be used in conjunction with the athena library (or any other Fortran library) to log custom metrics, hyperparameters, and more.
+
+Examples of how to use the `wandb-fortran` library for athena can be found in the following examples:
+
+- [example/wandb_network_sine](example/wandb_network_sine)
+- [example/wandb_sweep](example/wandb_sweep)
+- [example/wandb_pinn_burgers](example/wandb_pinn_burgers)
+
+Documentation for the `wandb-fortran` library can be found on the [docs](https://wandb-fortran.readthedocs.io/) website.
 
 
 API documentation
@@ -307,7 +325,3 @@ All files with the __sub_ suffix are the implementations of interfaces defined w
 |_example/__[_NAME_]__/src_                   | source directory for [_NAME_] example program  |
 |_test/test__[_NAME_]__.f90_           | [_NAME_] test program to check library expected functionality |
 |_tools/coverage_badge.py_          | script to extract code coverage percentage from GitHub Action |
-|_tools/sweep_init.py_              | script to initialise wandb sweep  |
-|_tools/sweep_train.py_             | script to perform training and log learning to wandb  |
-|_tools/template.in_                | input file for program in test/bin/ (once compiled)  |
-|_tools/wandb-metadata.json_        | metadata defining default plots on wandb website  |
