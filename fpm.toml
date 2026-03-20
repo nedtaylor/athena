@@ -152,4 +152,8 @@ main = "main.f90"
 [[example]]
 name = "inverse_design"
 source-dir = "example/inverse_design/src"
+
+[[example]]
+name = "kan_sine"
+source-dir = "example/kan_sine/src"
 main = "main.f90"

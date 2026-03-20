@@ -183,6 +183,11 @@ module athena
        orthogonal_nop_block_type, read_orthogonal_nop_block
 
 
+  ! KAN layer types
+  !-----------------------------------------------------------------------------
+  use athena__kan_layer,       only: kan_layer_type, read_kan_layer
+
+
   ! Merge layer types
   !-----------------------------------------------------------------------------
   use athena__add_layer, only: add_layer_type, read_add_layer
