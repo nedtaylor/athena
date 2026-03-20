@@ -186,6 +186,7 @@ module athena
   ! KAN layer types
   !-----------------------------------------------------------------------------
   use athena__kan_layer,       only: kan_layer_type, read_kan_layer
+  use athena__fastkan_layer,   only: fastkan_layer_type, read_fastkan_layer
 
 
   ! Merge layer types

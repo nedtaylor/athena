@@ -1,15 +1,15 @@
-program test_kan_layer
+program test_fastkan_layer
   use coreutils, only: real32
   use athena, only: &
-       kan_layer_type, &
+       fastkan_layer_type, &
        base_layer_type, &
        network_type, &
        sgd_optimiser_type
-  use athena__kan_layer, only: read_kan_layer
+  use athena__fastkan_layer, only: read_fastkan_layer
   use diffstruc, only: array_type
   implicit none
 
-  class(base_layer_type), allocatable :: kan_layer1, kan_layer2
+  class(base_layer_type), allocatable :: fastkan_layer1, fastkan_layer2
   class(base_layer_type), allocatable :: read_layer
   integer :: unit
   logical :: success = .true.
@@ -19,41 +19,36 @@ program test_kan_layer
 ! Test 1: Basic construction with num_inputs specified
 !-------------------------------------------------------------------------------
   write(*,*) "Test 1: Basic construction"
-  kan_layer1 = kan_layer_type( &
-       num_inputs=3, num_outputs=5, n_basis=4, spline_degree=3)
+  fastkan_layer1 = fastkan_layer_type(num_inputs=3, num_outputs=5, n_basis=4)
 
-  if(.not. kan_layer1%name .eq. 'kan')then
+  if(.not. fastkan_layer1%name .eq. 'fastkan')then
      success = .false.
-     write(0,*) 'KAN layer has wrong name: '//kan_layer1%name
+     write(0,*) 'KAN layer has wrong name: '//fastkan_layer1%name
   end if
 
-  if(any(kan_layer1%input_shape .ne. [3]))then
+  if(any(fastkan_layer1%input_shape .ne. [3]))then
      success = .false.
      write(0,*) 'KAN layer has wrong input_shape'
   end if
 
-  if(any(kan_layer1%output_shape .ne. [5]))then
+  if(any(fastkan_layer1%output_shape .ne. [5]))then
      success = .false.
      write(0,*) 'KAN layer has wrong output_shape'
   end if
 
-  select type(kan_layer1)
-  type is(kan_layer_type)
-     if(kan_layer1%num_inputs .ne. 3)then
+  select type(fastkan_layer1)
+  type is(fastkan_layer_type)
+     if(fastkan_layer1%num_inputs .ne. 3)then
         success = .false.
         write(0,*) 'KAN layer has wrong num_inputs'
      end if
-     if(kan_layer1%num_outputs .ne. 5)then
+     if(fastkan_layer1%num_outputs .ne. 5)then
         success = .false.
         write(0,*) 'KAN layer has wrong num_outputs'
      end if
-     if(kan_layer1%n_basis .ne. 4)then
+     if(fastkan_layer1%n_basis .ne. 4)then
         success = .false.
         write(0,*) 'KAN layer has wrong n_basis'
-     end if
-     if(kan_layer1%spline_degree .ne. 3)then
-        success = .false.
-        write(0,*) 'KAN layer has wrong spline_degree'
      end if
   class default
      success = .false.
@@ -65,17 +60,17 @@ program test_kan_layer
 ! Test 2: Deferred initialisation
 !-------------------------------------------------------------------------------
   write(*,*) "Test 2: Deferred initialisation"
-  kan_layer2 = kan_layer_type(num_outputs=10, n_basis=6)
-  call kan_layer2%init([4])
+  fastkan_layer2 = fastkan_layer_type(num_outputs=10, n_basis=6)
+  call fastkan_layer2%init([4])
 
-  if(any(kan_layer2%input_shape .ne. [4]))then
+  if(any(fastkan_layer2%input_shape .ne. [4]))then
      success = .false.
-     write(0,*) 'B-spline KAN layer (deferred) has wrong input_shape'
+     write(0,*) 'KAN layer (deferred) has wrong input_shape'
   end if
 
-  if(any(kan_layer2%output_shape .ne. [10]))then
+  if(any(fastkan_layer2%output_shape .ne. [10]))then
      success = .false.
-     write(0,*) 'B-spline KAN layer (deferred) has wrong output_shape'
+     write(0,*) 'KAN layer (deferred) has wrong output_shape'
   end if
 
 
@@ -88,8 +83,7 @@ program test_kan_layer
     real(real32), dimension(2,1) :: x_fwd
     real(real32), allocatable, dimension(:,:) :: y_out
 
-    call network%add(kan_layer_type( &
-         num_inputs=2, num_outputs=3, n_basis=5, spline_degree=3))
+    call network%add(fastkan_layer_type(num_inputs=2, num_outputs=3, n_basis=5))
     call network%compile( &
          optimiser=sgd_optimiser_type(learning_rate=0.01), &
          loss_method='mse', &
@@ -104,12 +98,12 @@ program test_kan_layer
     y_out = network%predict(input=x_fwd)
     if(size(y_out, 1) .ne. 3)then
        success = .false.
-       write(0,*) 'B-spline KAN forward output has wrong first dimension:', &
+       write(0,*) 'KAN forward output has wrong first dimension:', &
             size(y_out, 1)
     end if
     if(size(y_out, 2) .ne. 1)then
        success = .false.
-       write(0,*) 'B-spline KAN forward output has wrong second dimension:', &
+       write(0,*) 'KAN forward output has wrong second dimension:', &
             size(y_out, 2)
     end if
 
@@ -126,8 +120,8 @@ program test_kan_layer
     real(real32), dimension(2,1) :: x_grad
     real(real32), dimension(3,1) :: y_grad
 
-    call network%add(kan_layer_type( &
-         num_inputs=2, num_outputs=3, n_basis=4, spline_degree=3))
+    call network%add(fastkan_layer_type( &
+         num_inputs=2, num_outputs=3, n_basis=4))
     call network%compile( &
          optimiser=sgd_optimiser_type(learning_rate=0.01), &
          loss_method='mse', &
@@ -146,23 +140,35 @@ program test_kan_layer
     loss => network%loss_eval(1, 1)
     call loss%grad_reverse()
 
-    ! Check that gradients exist on weight and bias parameters
+    ! Check that gradients exist on all parameters via the network
     select type(layer => network%model(1)%layer)
-    type is(kan_layer_type)
-       ! Check weights gradients (params(1))
-       if(.not.associated(layer%params(1)%grad))then
+    type is(fastkan_layer_type)
+       ! Check weights gradients (params(3))
+       if(.not.associated(layer%params(3)%grad))then
           success = .false.
-          write(0,*) 'B-spline KAN weight gradients not computed'
+          write(0,*) 'KAN weight gradients not computed'
        end if
 
-       ! Check bias gradients (params(2))
+       ! Check centres gradients (params(1))
+       if(.not.associated(layer%params(1)%grad))then
+          success = .false.
+          write(0,*) 'KAN centre gradients not computed'
+       end if
+
+       ! Check bandwidths gradients (params(2))
        if(.not.associated(layer%params(2)%grad))then
           success = .false.
-          write(0,*) 'B-spline KAN bias gradients not computed'
+          write(0,*) 'KAN bandwidth gradients not computed'
+       end if
+
+       ! Check bias gradients (params(4))
+       if(.not.associated(layer%params(4)%grad))then
+          success = .false.
+          write(0,*) 'KAN bias gradients not computed'
        end if
     class default
        success = .false.
-       write(0,*) 'model(1) is not kan_layer_type'
+       write(0,*) 'model(1) is not fastkan_layer_type'
     end select
 
     call loss%nullify_graph()
@@ -172,7 +178,7 @@ program test_kan_layer
 
 
 !-------------------------------------------------------------------------------
-! Test 5: Parameters update during optimisation
+! Test 5: Parameters update during optimisation (network training)
 !-------------------------------------------------------------------------------
   write(*,*) "Test 5: Parameter update in network"
   training: block
@@ -180,9 +186,10 @@ program test_kan_layer
     type(array_type), pointer :: loss
     real(real32), dimension(1,1) :: x, y
     real(real32), allocatable :: params_before(:), params_after(:)
+    integer :: n
 
-    call network%add(kan_layer_type( &
-         num_inputs=1, num_outputs=1, n_basis=5, spline_degree=3))
+    call network%add(fastkan_layer_type( &
+         num_inputs=1, num_outputs=1, n_basis=5))
     call network%compile( &
          optimiser=sgd_optimiser_type(learning_rate=0.01), &
          loss_method='mse', &
@@ -199,12 +206,12 @@ program test_kan_layer
 
     ! Get parameters before training
     select type(layer => network%model(1)%layer)
-    type is(kan_layer_type)
-       allocate(params_before(size(layer%params(1)%val(:,1))))
-       params_before = layer%params(1)%val(:,1)
+    type is(fastkan_layer_type)
+       allocate(params_before(size(layer%params(3)%val(:,1))))
+       params_before = layer%params(3)%val(:,1)
     class default
        success = .false.
-       write(0,*) 'model(1) is not kan_layer_type in training test'
+       write(0,*) 'model(1) is not fastkan_layer_type in training test'
     end select
 
     ! Run one training step
@@ -215,18 +222,18 @@ program test_kan_layer
 
     ! Get parameters after training
     select type(layer => network%model(1)%layer)
-    type is(kan_layer_type)
-       allocate(params_after(size(layer%params(1)%val(:,1))))
-       params_after = layer%params(1)%val(:,1)
+    type is(fastkan_layer_type)
+       allocate(params_after(size(layer%params(3)%val(:,1))))
+       params_after = layer%params(3)%val(:,1)
     class default
        success = .false.
-       write(0,*) 'model(1) is not kan_layer_type after training'
+       write(0,*) 'model(1) is not fastkan_layer_type after training'
     end select
 
     ! Check that weights changed
     if(all(abs(params_before - params_after) .lt. 1.E-12))then
        success = .false.
-       write(0,*) 'B-spline KAN weights did not update during training'
+       write(0,*) 'KAN weights did not update during training'
     end if
 
     call loss%nullify_graph()
@@ -238,52 +245,9 @@ program test_kan_layer
 
 
 !-------------------------------------------------------------------------------
-! Test 6: B-spline basis partition of unity
-!   B-spline basis functions should sum to 1 within the interior knot range
+! Test 6: Learn sin(x) regression
 !-------------------------------------------------------------------------------
-  write(*,*) "Test 6: B-spline basis partition of unity"
-  partition_unity: block
-    type(kan_layer_type) :: layer
-    real(real32), allocatable :: x_exp(:,:), bvals(:,:)
-    real(real32) :: bsum
-    integer :: i, K, p
-    integer, parameter :: n_test = 20
-    real(real32) :: x_val
-
-    K = 8
-    p = 3
-    layer = kan_layer_type( &
-         num_inputs=1, num_outputs=1, n_basis=K, spline_degree=p)
-
-    allocate(x_exp(K, 1))
-    allocate(bvals(K, 1))
-
-    do i = 1, n_test
-       ! Sample points inside [-1, 1]
-       x_val = -1.0_real32 + 2.0_real32 * real(i - 1, real32) / &
-            real(n_test - 1, real32)
-       x_exp(:, 1) = x_val
-
-       call layer%evaluate_bspline_basis(x_exp, 1, bvals)
-       bsum = sum(bvals(:, 1))
-
-       if(abs(bsum - 1.0_real32) .gt. 1.0E-5_real32)then
-          success = .false.
-          write(0,'(A,F8.4,A,F10.6)') &
-               '  B-spline basis sum /= 1 at x=', x_val, &
-               ', sum=', bsum
-       end if
-    end do
-
-    deallocate(x_exp, bvals)
-
-  end block partition_unity
-
-
-!-------------------------------------------------------------------------------
-! Test 7: Learn sin(x) regression
-!-------------------------------------------------------------------------------
-  write(*,*) "Test 7: Learning sin(x)"
+  write(*,*) "Test 6: Learning sin(x)"
   learn_sin: block
     type(network_type) :: network
     type(array_type), pointer :: loss
@@ -299,8 +263,8 @@ program test_kan_layer
     seed = 42
     call random_seed(put=seed)
 
-    call network%add(kan_layer_type( &
-         num_inputs=1, num_outputs=1, n_basis=10, spline_degree=3))
+    call network%add(fastkan_layer_type( &
+         num_inputs=1, num_outputs=1, n_basis=10))
     call network%compile( &
          optimiser=sgd_optimiser_type(learning_rate=0.01), &
          loss_method='mse', &
@@ -329,8 +293,7 @@ program test_kan_layer
 
        ! Record loss at start and end
        if(n .le. 10) loss_start = loss_start + loss_val / 10.0_real32
-       if(n .gt. num_iterations - 10) &
-            loss_end = loss_end + loss_val / 10.0_real32
+       if(n .gt. num_iterations - 10) loss_end = loss_end + loss_val / 10.0_real32
 
        call loss%grad_reverse()
        call network%update()
@@ -343,7 +306,7 @@ program test_kan_layer
 
     if(loss_end .ge. loss_start)then
        success = .false.
-       write(0,*) 'B-spline KAN layer failed to decrease loss on sin(x) task'
+       write(0,*) 'KAN layer failed to decrease loss on sin(x) task'
     end if
 
     deallocate(seed)
@@ -352,28 +315,27 @@ program test_kan_layer
 
 
 !-------------------------------------------------------------------------------
-! Test 8: File I/O
+! Test 7: File I/O
 !-------------------------------------------------------------------------------
-  write(*,*) "Test 8: File I/O"
-  kan_layer1 = kan_layer_type( &
-       num_inputs=2, num_outputs=3, n_basis=4, spline_degree=3)
+  write(*,*) "Test 7: File I/O"
+  fastkan_layer1 = fastkan_layer_type(num_inputs=2, num_outputs=3, n_basis=4)
 
-  open(newunit=unit, file='test_kan_layer.tmp', &
+  open(newunit=unit, file='test_fastkan_layer.tmp', &
        status='replace', action='write')
-  write(unit,'("KAN")')
-  call kan_layer1%print_to_unit(unit)
-  write(unit,'("END KAN")')
+  write(unit,'("FASTKAN")')
+  call fastkan_layer1%print_to_unit(unit)
+  write(unit,'("END FASTKAN")')
   close(unit)
 
-  open(newunit=unit, file='test_kan_layer.tmp', &
+  open(newunit=unit, file='test_fastkan_layer.tmp', &
        status='old', action='read')
   read(unit,*) ! Skip first line
-  read_layer = read_kan_layer(unit)
+  read_layer = read_fastkan_layer(unit)
   close(unit)
 
   select type(read_layer)
-  type is (kan_layer_type)
-     if (.not. read_layer%name .eq. 'kan') then
+  type is (fastkan_layer_type)
+     if (.not. read_layer%name .eq. 'fastkan') then
         success = .false.
         write(0,*) 'read KAN layer has wrong name'
      end if
@@ -381,16 +343,12 @@ program test_kan_layer
         success = .false.
         write(0,*) 'read KAN layer has wrong n_basis'
      end if
-     if (read_layer%spline_degree .ne. 3) then
-        success = .false.
-        write(0,*) 'read KAN layer has wrong spline_degree'
-     end if
   class default
      success = .false.
-     write(0,*) 'read layer is not kan_layer_type'
+     write(0,*) 'read layer is not fastkan_layer_type'
   end select
 
-  open(newunit=unit, file='test_kan_layer.tmp', status='old')
+  open(newunit=unit, file='test_fastkan_layer.tmp', status='old')
   close(unit, status='delete')
 
 
@@ -399,10 +357,10 @@ program test_kan_layer
 !-------------------------------------------------------------------------------
   write(*,*) "----------------------------------------"
   if(success)then
-     write(*,*) 'test_kan_layer passed all tests'
+     write(*,*) 'test_fastkan_layer passed all tests'
   else
-     write(0,*) 'test_kan_layer failed one or more tests'
+     write(0,*) 'test_fastkan_layer failed one or more tests'
      stop 1
   end if
 
-end program test_kan_layer
+end program test_fastkan_layer

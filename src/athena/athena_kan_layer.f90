@@ -1,34 +1,40 @@
 module athena__kan_layer
-  !! Module containing implementation of a Kolmogorov-Arnold Network (KAN) layer
+  !! Module containing implementation of a B-spline KAN layer
   !!
-  !! This module implements a KAN layer using radial basis function (RBF)
-  !! expansions in the style of FastKAN. Each input dimension is expanded
-  !! into a set of RBF activations, which are then linearly combined to
-  !! produce the output.
+  !! This module implements a KAN layer using B-spline basis functions in the
+  !! style of the original Kolmogorov-Arnold Network (KAN) paper.
+  !! Each input dimension is expanded into a set of B-spline basis activations,
+  !! which are then linearly combined to produce the output.
   !!
   !! Mathematical operation:
-  !! \[ \phi_{i,k}(x_i) = \exp\left(-\frac{(x_i - c_{i,k})^2}
-  !!    {2\sigma_{i,k}^2}\right) \]
+  !! \[ \phi_{i,k}(x_i) = B_k(x_i) \]
   !! \[ y_j = \sum_{i,k} W_{j,i,k}\,\phi_{i,k}(x_i) + b_j \]
   !!
   !! where:
   !!   - \( x_i \) is the \(i\)-th input component
-  !!   - \( c_{i,k} \), \( \sigma_{i,k} \) are trainable RBF centres and
-  !!     bandwidths
+  !!   - \( B_k(x) \) are B-spline basis functions of degree \( p \)
+  !!     on a fixed uniform knot grid
   !!   - \( W_{j,i,k} \) are trainable output weights
   !!   - \( b_j \) is the bias
   !!
+  !! B-spline basis functions are evaluated using the Cox-de Boor recursion:
+  !! \[ B_{i,0}(x) = \begin{cases} 1 & t_i \le x < t_{i+1} \\ 0 &
+  !!    \text{otherwise} \end{cases} \]
+  !! \[ B_{i,p}(x) = \frac{x - t_i}{t_{i+p} - t_i} B_{i,p-1}(x) +
+  !!    \frac{t_{i+p+1} - x}{t_{i+p+1} - t_{i+1}} B_{i+1,p-1}(x) \]
+  !!
   !! Trainable parameters:
-  !!   - centres: (input_dim * n_basis)
-  !!   - bandwidths: (input_dim * n_basis)
   !!   - weights: (output_dim * input_dim * n_basis)
   !!   - bias: (output_dim)
+  !!
+  !! Fixed storage:
+  !!   - knots: uniform grid with augmented boundary knots
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: learnable_layer_type, base_layer_type
   use athena__misc_types, only: base_actv_type, base_init_type, &
        onnx_node_type, onnx_initialiser_type, onnx_tensor_type
   use diffstruc, only: array_type, matmul, &
-       operator(+), operator(-), operator(*), operator(/), exp
+       operator(+), operator(-), operator(*), operator(/)
   implicit none
 
 
@@ -39,44 +45,55 @@ module athena__kan_layer
 
 
   type, extends(learnable_layer_type) :: kan_layer_type
-     !! Type for KAN layer with RBF-based learnable activation functions
+     !! Type for KAN layer with B-spline basis functions
      integer :: num_inputs
      !! Number of inputs
      integer :: num_outputs
      !! Number of outputs
      integer :: n_basis
-     !! Number of radial basis functions per input dimension
-     type(array_type) :: expand_matrix
-     !! Selection matrix to expand input [input_dim*n_basis, input_dim]
+     !! Number of B-spline basis functions per input dimension
+     integer :: spline_degree
+     !! Degree of the B-spline basis functions
+     integer :: n_knots
+     !! Total number of knots (n_basis + spline_degree + 1)
+     real(real32), allocatable :: knots(:)
+     !! Knot vector (n_knots)
+     type(array_type) :: basis_matrix
+     !! B-spline basis values [d*K, batch] (recomputed each forward)
    contains
-     procedure, pass(this) :: get_num_params => get_num_params_kan
-     !! Get the number of parameters for KAN layer
-     procedure, pass(this) :: set_hyperparams => set_hyperparams_kan
-     !! Set the hyperparameters for KAN layer
-     procedure, pass(this) :: init => init_kan
-     !! Initialise KAN layer
-     procedure, pass(this) :: print_to_unit => print_to_unit_kan
+     procedure, pass(this) :: get_num_params => get_num_params_bspline_kan
+     !! Get the number of parameters
+     procedure, pass(this) :: set_hyperparams => set_hyperparams_bspline_kan
+     !! Set the hyperparameters
+     procedure, pass(this) :: init => init_bspline_kan
+     !! Initialise layer
+     procedure, pass(this) :: print_to_unit => print_to_unit_bspline_kan
      !! Print the layer to a file
-     procedure, pass(this) :: read => read_kan
+     procedure, pass(this) :: read => read_bspline_kan
      !! Read the layer from a file
-     procedure, pass(this) :: forward => forward_kan
+     procedure, pass(this) :: forward => forward_bspline_kan
      !! Forward propagation
+     procedure, pass(this) :: evaluate_bspline_basis
+     !! Evaluate B-spline basis functions for a batch of inputs
 
-     final :: finalise_kan
-     !! Finalise KAN layer
+     final :: finalise_bspline_kan
+     !! Finalise layer
   end type kan_layer_type
 
   interface kan_layer_type
-     !! Interface for setting up the KAN layer
+     !! Interface for setting up the B-spline KAN layer
      module function layer_setup( &
-          num_outputs, n_basis, num_inputs, use_bias, &
+          num_outputs, n_basis, spline_degree, &
+          num_inputs, use_bias, &
           kernel_initialiser, bias_initialiser, verbose &
      ) result(layer)
-       !! Setup a KAN layer
+       !! Setup a B-spline KAN layer
        integer, intent(in) :: num_outputs
        !! Number of outputs
        integer, optional, intent(in) :: n_basis
-       !! Number of radial basis functions per input dimension
+       !! Number of B-spline basis functions per input dimension
+       integer, optional, intent(in) :: spline_degree
+       !! Degree of B-spline (default: 3)
        integer, optional, intent(in) :: num_inputs
        !! Number of inputs
        logical, optional, intent(in) :: use_bias
@@ -86,7 +103,7 @@ module athena__kan_layer
        integer, optional, intent(in) :: verbose
        !! Verbosity level
        type(kan_layer_type) :: layer
-       !! Instance of the KAN layer
+       !! Instance of the B-spline KAN layer
      end function layer_setup
   end interface kan_layer_type
 
@@ -95,50 +112,50 @@ module athena__kan_layer
 contains
 
 !###############################################################################
-  subroutine finalise_kan(this)
-    !! Finalise KAN layer
+  subroutine finalise_bspline_kan(this)
+    !! Finalise B-spline KAN layer
     implicit none
 
     ! Arguments
     type(kan_layer_type), intent(inout) :: this
-    !! Instance of the KAN layer
+    !! Instance of the B-spline KAN layer
 
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
-    if(this%expand_matrix%allocated) call this%expand_matrix%deallocate()
+    if(allocated(this%knots)) deallocate(this%knots)
+    if(this%basis_matrix%allocated) call this%basis_matrix%deallocate()
 
-  end subroutine finalise_kan
+  end subroutine finalise_bspline_kan
 !###############################################################################
 
 
 !###############################################################################
-  pure function get_num_params_kan(this) result(num_params)
-    !! Get the number of parameters for KAN layer
+  pure function get_num_params_bspline_kan(this) result(num_params)
+    !! Get the number of parameters for B-spline KAN layer
     implicit none
 
     ! Arguments
     class(kan_layer_type), intent(in) :: this
-    !! Instance of the KAN layer
+    !! Instance of the B-spline KAN layer
     integer :: num_params
     !! Number of parameters
 
-    ! centres + bandwidths + weights + bias
-    num_params = this%num_inputs * this%n_basis + &
-         this%num_inputs * this%n_basis + &
-         this%num_outputs * this%num_inputs * this%n_basis + &
+    ! weights + bias
+    num_params = this%num_outputs * this%num_inputs * this%n_basis + &
          this%num_outputs
 
-  end function get_num_params_kan
+  end function get_num_params_bspline_kan
 !###############################################################################
 
 
 !###############################################################################
   module function layer_setup( &
-       num_outputs, n_basis, num_inputs, &
+       num_outputs, n_basis, spline_degree, &
+       num_inputs, &
        use_bias, &
        kernel_initialiser, bias_initialiser, verbose &
   ) result(layer)
-    !! Setup a KAN layer
+    !! Setup a B-spline KAN layer
     use athena__initialiser, only: initialiser_setup
     implicit none
 
@@ -146,7 +163,9 @@ contains
     integer, intent(in) :: num_outputs
     !! Number of outputs
     integer, optional, intent(in) :: n_basis
-    !! Number of radial basis functions per input dimension
+    !! Number of B-spline basis functions per input dimension
+    integer, optional, intent(in) :: spline_degree
+    !! Degree of B-spline (default: 3)
     integer, optional, intent(in) :: num_inputs
     !! Number of inputs
     logical, optional, intent(in) :: use_bias
@@ -157,13 +176,15 @@ contains
     !! Verbosity level
 
     type(kan_layer_type) :: layer
-    !! Instance of the KAN layer
+    !! Instance of the B-spline KAN layer
 
     ! Local variables
     integer :: verbose_ = 0
     !! Verbosity level
     integer :: n_basis_ = 8
     !! Default number of basis functions
+    integer :: spline_degree_ = 3
+    !! Default spline degree
     logical :: use_bias_ = .true.
     !! Whether to use bias
     class(base_init_type), allocatable :: kernel_initialiser_, bias_initialiser_
@@ -171,6 +192,7 @@ contains
 
     if(present(verbose)) verbose_ = verbose
     if(present(n_basis)) n_basis_ = n_basis
+    if(present(spline_degree)) spline_degree_ = spline_degree
     if(present(use_bias)) use_bias_ = use_bias
 
     if(present(kernel_initialiser))then
@@ -183,6 +205,7 @@ contains
     call layer%set_hyperparams( &
          num_outputs = num_outputs, &
          n_basis = n_basis_, &
+         spline_degree = spline_degree_, &
          use_bias = use_bias_, &
          kernel_initialiser = kernel_initialiser_, &
          bias_initialiser = bias_initialiser_, &
@@ -196,23 +219,25 @@ contains
 
 
 !###############################################################################
-  subroutine set_hyperparams_kan( &
-       this, num_outputs, n_basis, &
+  subroutine set_hyperparams_bspline_kan( &
+       this, num_outputs, n_basis, spline_degree, &
        use_bias, &
        kernel_initialiser, bias_initialiser, &
        verbose &
   )
-    !! Set the hyperparameters for KAN layer
+    !! Set the hyperparameters for B-spline KAN layer
     use athena__initialiser, only: get_default_initialiser, initialiser_setup
     implicit none
 
     ! Arguments
     class(kan_layer_type), intent(inout) :: this
-    !! Instance of the KAN layer
+    !! Instance of the B-spline KAN layer
     integer, intent(in) :: num_outputs
     !! Number of outputs
     integer, intent(in) :: n_basis
-    !! Number of radial basis functions per input dimension
+    !! Number of B-spline basis functions per input dimension
+    integer, intent(in) :: spline_degree
+    !! Degree of B-spline
     logical, intent(in) :: use_bias
     !! Whether to use bias
     class(base_init_type), allocatable, intent(in) :: &
@@ -232,8 +257,9 @@ contains
     this%use_bias = use_bias
     this%num_outputs = num_outputs
     this%n_basis = n_basis
+    this%spline_degree = spline_degree
 
-    ! KAN doesn't use a traditional activation function
+    ! B-spline KAN doesn't use a traditional activation function
     if(allocated(this%activation)) deallocate(this%activation)
 
     if(allocated(this%kernel_init)) deallocate(this%kernel_init)
@@ -253,25 +279,25 @@ contains
 
     if(present(verbose))then
        if(abs(verbose).gt.0)then
-          write(*,'("KAN kernel initialiser: ",A)') &
+          write(*,'("B-spline KAN kernel initialiser: ",A)') &
                trim(this%kernel_init%name)
-          write(*,'("KAN bias initialiser: ",A)') &
+          write(*,'("B-spline KAN bias initialiser: ",A)') &
                trim(this%bias_init%name)
        end if
     end if
 
-  end subroutine set_hyperparams_kan
+  end subroutine set_hyperparams_bspline_kan
 !###############################################################################
 
 
 !###############################################################################
-  subroutine init_kan(this, input_shape, verbose)
-    !! Initialise KAN layer
+  subroutine init_bspline_kan(this, input_shape, verbose)
+    !! Initialise B-spline KAN layer
     implicit none
 
     ! Arguments
     class(kan_layer_type), intent(inout) :: this
-    !! Instance of the KAN layer
+    !! Instance of the B-spline KAN layer
     integer, dimension(:), intent(in) :: input_shape
     !! Input shape
     integer, optional, intent(in) :: verbose
@@ -280,11 +306,11 @@ contains
     ! Local variables
     integer :: verbose_ = 0
     !! Verbosity level
-    integer :: d, K, m, dK
+    integer :: d, K, m, dK, p
     !! Dimension shortcuts
-    integer :: i, k_idx
-    !! Loop variables
-    real(real32) :: centre_min, centre_max
+    integer :: i
+    !! Loop variable
+    real(real32) :: grid_min, grid_max, h
 
 
     if(present(verbose)) verbose_ = verbose
@@ -301,83 +327,65 @@ contains
     d = this%num_inputs
     K = this%n_basis
     m = this%num_outputs
+    p = this%spline_degree
     dK = d * K
 
 
     !---------------------------------------------------------------------------
+    ! Compute knot vector
+    ! For K basis functions of degree p, we need K + p + 1 knots
+    ! Use uniform spacing over [-1, 1] with augmented boundary knots
+    !---------------------------------------------------------------------------
+    this%n_knots = K + p + 1
+    if(allocated(this%knots)) deallocate(this%knots)
+    allocate(this%knots(this%n_knots))
+
+    grid_min = -1.0_real32
+    grid_max =  1.0_real32
+    h = (grid_max - grid_min) / real(K - p, real32)
+
+    do i = 1, this%n_knots
+       this%knots(i) = grid_min + real(i - 1 - p, real32) * h
+    end do
+
+    ! Clamp boundary knots
+    do i = 1, p + 1
+       this%knots(i) = grid_min
+    end do
+    do i = this%n_knots - p, this%n_knots
+       this%knots(i) = grid_max
+    end do
+
+
+    !---------------------------------------------------------------------------
     ! Allocate parameter arrays
-    ! params(1): centres      [d*K, 1]
-    ! params(2): bandwidths   [d*K, 1]
-    ! params(3): weights      [m*d*K, 1]  with shape [m, d*K]
-    ! params(4): bias         [m, 1]      (if use_bias)
+    ! params(1): weights      [m*d*K, 1]  with shape [m, d*K]
+    ! params(2): bias         [m, 1]      (if use_bias)
     !---------------------------------------------------------------------------
     allocate(this%weight_shape(2,1))
     this%weight_shape(:,1) = [ m, dK ]
 
     if(this%use_bias)then
        this%bias_shape = [ m ]
-       allocate(this%params(4))
+       allocate(this%params(2))
     else
-       allocate(this%params(3))
+       allocate(this%params(1))
     end if
 
-    ! Centres
-    call this%params(1)%allocate([dK, 1])
+    ! Weights
+    call this%params(1)%allocate([this%weight_shape(:,1), 1])
     call this%params(1)%set_requires_grad(.true.)
     this%params(1)%fix_pointer = .true.
     this%params(1)%is_sample_dependent = .false.
     this%params(1)%is_temporary = .false.
 
-    ! Bandwidths
-    call this%params(2)%allocate([dK, 1])
-    call this%params(2)%set_requires_grad(.true.)
-    this%params(2)%fix_pointer = .true.
-    this%params(2)%is_sample_dependent = .false.
-    this%params(2)%is_temporary = .false.
-
-    ! Weights
-    call this%params(3)%allocate([this%weight_shape(:,1), 1])
-    call this%params(3)%set_requires_grad(.true.)
-    this%params(3)%fix_pointer = .true.
-    this%params(3)%is_sample_dependent = .false.
-    this%params(3)%is_temporary = .false.
-
     ! Bias
     if(this%use_bias)then
-       call this%params(4)%allocate([this%bias_shape, 1])
-       call this%params(4)%set_requires_grad(.true.)
-       this%params(4)%fix_pointer = .true.
-       this%params(4)%is_sample_dependent = .false.
-       this%params(4)%is_temporary = .false.
-    end if
-
-
-    !---------------------------------------------------------------------------
-    ! Initialise centres: uniformly spaced over [-1, 1]
-    !---------------------------------------------------------------------------
-    centre_min = -1.0_real32
-    centre_max =  1.0_real32
-    do i = 1, d
-       do k_idx = 1, K
-          if(K > 1)then
-             this%params(1)%val((i-1)*K + k_idx, 1) = &
-                  centre_min + (centre_max - centre_min) * &
-                  real(k_idx - 1, real32) / real(K - 1, real32)
-          else
-             this%params(1)%val((i-1)*K + k_idx, 1) = 0.0_real32
-          end if
-       end do
-    end do
-
-
-    !---------------------------------------------------------------------------
-    ! Initialise bandwidths: set to spacing between centres
-    !---------------------------------------------------------------------------
-    if(K > 1)then
-       this%params(2)%val(:, 1) = &
-            (centre_max - centre_min) / real(K - 1, real32)
-    else
-       this%params(2)%val(:, 1) = 1.0_real32
+       call this%params(2)%allocate([this%bias_shape, 1])
+       call this%params(2)%set_requires_grad(.true.)
+       this%params(2)%fix_pointer = .true.
+       this%params(2)%is_sample_dependent = .false.
+       this%params(2)%is_temporary = .false.
     end if
 
 
@@ -385,7 +393,7 @@ contains
     ! Initialise weights using kernel initialiser
     !---------------------------------------------------------------------------
     call this%kernel_init%initialise( &
-         this%params(3)%val(:,1), &
+         this%params(1)%val(:,1), &
          fan_in = dK, fan_out = m, &
          spacing = [ m ] &
     )
@@ -395,27 +403,8 @@ contains
     ! Initialise biases to zero
     !---------------------------------------------------------------------------
     if(this%use_bias)then
-       this%params(4)%val(:, 1) = 0.0_real32
+       this%params(2)%val(:, 1) = 0.0_real32
     end if
-
-
-    !---------------------------------------------------------------------------
-    ! Build expansion matrix S: shape [d*K, d]
-    ! S[(i-1)*K + k, i] = 1 for all i=1..d, k=1..K
-    ! This repeats each x_i across K basis functions
-    !---------------------------------------------------------------------------
-    call this%expand_matrix%allocate([dK, d, 1])
-    this%expand_matrix%val(:, 1) = 0.0_real32
-    this%expand_matrix%is_sample_dependent = .false.
-    this%expand_matrix%is_temporary = .false.
-    this%expand_matrix%fix_pointer = .true.
-    call this%expand_matrix%set_requires_grad(.false.)
-    do i = 1, d
-       do k_idx = 1, K
-          ! Column-major: element (row, col) at index (col-1)*dK + row
-          this%expand_matrix%val((i-1)*dK + (i-1)*K + k_idx, 1) = 1.0_real32
-       end do
-    end do
 
 
     !---------------------------------------------------------------------------
@@ -424,18 +413,130 @@ contains
     if(allocated(this%output)) deallocate(this%output)
     allocate(this%output(1,1))
 
-  end subroutine init_kan
+  end subroutine init_bspline_kan
 !###############################################################################
 
 
 !###############################################################################
-  subroutine print_to_unit_kan(this, unit)
-    !! Print KAN layer to unit
+  subroutine evaluate_bspline_basis(this, x_flat, n_samples, basis_vals)
+    !! Evaluate B-spline basis functions using Cox-de Boor recursion
+    !!
+    !! For each input sample and each input dimension, computes K basis
+    !! function values. Output is stored column-major: basis_vals(d*K, n_samples)
+    !!
+    !! The Cox-de Boor recursion:
+    !! B_{i,0}(x) = 1 if t_i <= x < t_{i+1}, else 0
+    !! B_{i,p}(x) = w1 * B_{i,p-1}(x) + w2 * B_{i+1,p-1}(x)
+    !! where w1 = (x - t_i) / (t_{i+p} - t_i)
+    !!       w2 = (t_{i+p+1} - x) / (t_{i+p+1} - t_{i+1})
     implicit none
 
     ! Arguments
     class(kan_layer_type), intent(in) :: this
-    !! Instance of the KAN layer
+    !! Instance of the B-spline KAN layer
+    real(real32), dimension(:,:), intent(in) :: x_flat
+    !! Expanded input values [d*K, n_samples] (only d unique values per sample)
+    integer, intent(in) :: n_samples
+    !! Number of samples in batch
+    real(real32), dimension(:,:), intent(out) :: basis_vals
+    !! Output basis values [d*K, n_samples]
+
+    ! Local variables
+    integer :: d, K, p, n_knots_single
+    integer :: i_dim, i_basis, i_order, s
+    real(real32) :: x_val, denom1, denom2, w1, w2
+    real(real32), allocatable :: B_prev(:), B_curr(:)
+    !! Temporary storage for recursion over one input dimension
+
+
+    d = this%num_inputs
+    K = this%n_basis
+    p = this%spline_degree
+    n_knots_single = this%n_knots
+
+    ! For each input dimension, there are K basis functions
+    allocate(B_prev(K + p))
+    allocate(B_curr(K + p))
+
+    basis_vals = 0.0_real32
+
+    do s = 1, n_samples
+       do i_dim = 1, d
+          ! Get the input value (same for all K basis functions of this dim)
+          x_val = x_flat((i_dim - 1) * K + 1, s)
+
+          ! Clamp to knot range
+          x_val = max(this%knots(1), min(x_val, &
+               this%knots(n_knots_single) - 1.0E-7_real32))
+
+          !--------------------------------------------------------------------
+          ! Degree 0: B_{i,0}(x) = 1 if t_i <= x < t_{i+1}, else 0
+          !--------------------------------------------------------------------
+          B_prev = 0.0_real32
+          do i_basis = 1, n_knots_single - 1
+             if(x_val .ge. this%knots(i_basis) .and. &
+                  x_val .lt. this%knots(i_basis + 1))then
+                B_prev(i_basis) = 1.0_real32
+             end if
+          end do
+          ! Handle right boundary: include x == t_{n_knots} in last interval
+          if(x_val .ge. this%knots(n_knots_single - 1))then
+             B_prev(n_knots_single - 1) = 1.0_real32
+          end if
+
+          !--------------------------------------------------------------------
+          ! Recursive degrees 1..p
+          !--------------------------------------------------------------------
+          do i_order = 1, p
+             B_curr = 0.0_real32
+             do i_basis = 1, n_knots_single - 1 - i_order
+                ! Left term: (x - t_i) / (t_{i+p} - t_i) * B_{i,p-1}
+                denom1 = this%knots(i_basis + i_order) - this%knots(i_basis)
+                if(abs(denom1) .gt. 1.0E-10_real32)then
+                   w1 = (x_val - this%knots(i_basis)) / denom1
+                else
+                   w1 = 0.0_real32
+                end if
+
+                ! Right term: (t_{i+p+1} - x) / (t_{i+p+1} - t_{i+1}) * B_{i+1,p-1}
+                denom2 = this%knots(i_basis + i_order + 1) - &
+                     this%knots(i_basis + 1)
+                if(abs(denom2) .gt. 1.0E-10_real32)then
+                   w2 = (this%knots(i_basis + i_order + 1) - x_val) / denom2
+                else
+                   w2 = 0.0_real32
+                end if
+
+                B_curr(i_basis) = w1 * B_prev(i_basis) + &
+                     w2 * B_prev(i_basis + 1)
+             end do
+             B_prev = B_curr
+          end do
+
+          !--------------------------------------------------------------------
+          ! Store K basis values for this dimension
+          !--------------------------------------------------------------------
+          do i_basis = 1, K
+             basis_vals((i_dim - 1) * K + i_basis, s) = B_prev(i_basis)
+          end do
+
+       end do
+    end do
+
+    deallocate(B_prev, B_curr)
+
+  end subroutine evaluate_bspline_basis
+!###############################################################################
+
+
+!###############################################################################
+  subroutine print_to_unit_bspline_kan(this, unit)
+    !! Print B-spline KAN layer to unit
+    implicit none
+
+    ! Arguments
+    class(kan_layer_type), intent(in) :: this
+    !! Instance of the B-spline KAN layer
     integer, intent(in) :: unit
     !! File unit
 
@@ -443,25 +544,24 @@ contains
     write(unit,'(3X,"NUM_INPUTS = ",I0)') this%num_inputs
     write(unit,'(3X,"NUM_OUTPUTS = ",I0)') this%num_outputs
     write(unit,'(3X,"N_BASIS = ",I0)') this%n_basis
+    write(unit,'(3X,"SPLINE_DEGREE = ",I0)') this%spline_degree
     write(unit,'(3X,"USE_BIAS = ",L1)') this%use_bias
 
     ! Write parameters
     write(unit,'("WEIGHTS")')
-    write(unit,'(5(E16.8E2))') this%params(1)%val(:,1)  ! centres
-    write(unit,'(5(E16.8E2))') this%params(2)%val(:,1)  ! bandwidths
-    write(unit,'(5(E16.8E2))') this%params(3)%val(:,1)  ! weights
+    write(unit,'(5(E16.8E2))') this%params(1)%val(:,1)  ! weights
     if(this%use_bias)then
-       write(unit,'(5(E16.8E2))') this%params(4)%val(:,1)  ! bias
+       write(unit,'(5(E16.8E2))') this%params(2)%val(:,1)  ! bias
     end if
     write(unit,'("END WEIGHTS")')
 
-  end subroutine print_to_unit_kan
+  end subroutine print_to_unit_bspline_kan
 !###############################################################################
 
 
 !###############################################################################
-  subroutine read_kan(this, unit, verbose)
-    !! Read KAN layer from file
+  subroutine read_bspline_kan(this, unit, verbose)
+    !! Read B-spline KAN layer from file
     use athena__tools_infile, only: assign_val, assign_vec, move
     use coreutils, only: to_lower, to_upper, icount
     use athena__initialiser, only: initialiser_setup
@@ -469,7 +569,7 @@ contains
 
     ! Arguments
     class(kan_layer_type), intent(inout) :: this
-    !! Instance of the KAN layer
+    !! Instance of the B-spline KAN layer
     integer, intent(in) :: unit
     !! Unit number
     integer, optional, intent(in) :: verbose
@@ -479,7 +579,7 @@ contains
     integer :: stat
     integer :: verbose_ = 0
     integer :: j, k, c, itmp1, iline, total_param_count
-    integer :: num_inputs, num_outputs, n_basis
+    integer :: num_inputs, num_outputs, n_basis, spline_degree
     logical :: use_bias = .true.
     character(14) :: kernel_initialiser_name='', bias_initialiser_name=''
     class(base_init_type), allocatable :: kernel_initialiser, bias_initialiser
@@ -489,6 +589,8 @@ contains
 
 
     if(present(verbose)) verbose_ = verbose
+
+    spline_degree = 3  ! default
 
     iline = 0
     param_line = 0
@@ -504,7 +606,8 @@ contains
        end if
        if(trim(adjustl(buffer)).eq."") cycle tag_loop
 
-       if(trim(adjustl(buffer)).eq."END "//to_upper(trim(this%name)))then
+       if(trim(adjustl(buffer)).eq."END "// &
+            to_upper(trim(this%name)))then
           final_line = iline
           backspace(unit)
           exit tag_loop
@@ -521,6 +624,8 @@ contains
           call assign_val(buffer, num_outputs, itmp1)
        case("N_BASIS")
           call assign_val(buffer, n_basis, itmp1)
+       case("SPLINE_DEGREE")
+          call assign_val(buffer, spline_degree, itmp1)
        case("USE_BIAS")
           call assign_val(buffer, use_bias, itmp1)
        case("KERNEL_INITIALISER", "KERNEL_INIT", "KERNEL_INITIALIZER")
@@ -550,6 +655,7 @@ contains
     call this%set_hyperparams( &
          num_outputs = num_outputs, &
          n_basis = n_basis, &
+         spline_degree = spline_degree, &
          use_bias = use_bias, &
          kernel_initialiser = kernel_initialiser, &
          bias_initialiser = bias_initialiser, &
@@ -563,10 +669,8 @@ contains
     else
        call move(unit, param_line - iline, iostat=stat)
 
-       ! Read all parameters: centres + bandwidths + weights [+ bias]
-       total_param_count = num_inputs * n_basis + &          ! centres
-            num_inputs * n_basis + &          ! bandwidths
-            num_outputs * num_inputs * n_basis  ! weights
+       ! Read all parameters: weights [+ bias]
+       total_param_count = num_outputs * num_inputs * n_basis  ! weights
        if(use_bias) total_param_count = total_param_count + num_outputs
 
        allocate(data_list(total_param_count), source=0._real32)
@@ -582,18 +686,13 @@ contains
 
        ! Assign parameters from data_list
        c = 1
-       ! centres
-       this%params(1)%val(:,1) = data_list(c:c + num_inputs*n_basis - 1)
-       c = c + num_inputs * n_basis
-       ! bandwidths
-       this%params(2)%val(:,1) = data_list(c:c + num_inputs*n_basis - 1)
-       c = c + num_inputs * n_basis
        ! weights
-       this%params(3)%val(:,1) = data_list(c:c + num_outputs*num_inputs*n_basis - 1)
+       this%params(1)%val(:,1) = data_list(c:c + &
+            num_outputs*num_inputs*n_basis - 1)
        c = c + num_outputs * num_inputs * n_basis
        ! bias
        if(use_bias)then
-          this%params(4)%val(:,1) = data_list(c:c + num_outputs - 1)
+          this%params(2)%val(:,1) = data_list(c:c + num_outputs - 1)
        end if
        deallocate(data_list)
 
@@ -606,19 +705,21 @@ contains
 
     call move(unit, final_line - iline, iostat=stat)
     read(unit,'(A)') buffer
-    if(trim(adjustl(buffer)).ne."END "//to_upper(trim(this%name)))then
-       write(err_msg,'("END ",A," not where expected")') to_upper(this%name)
+    if(trim(adjustl(buffer)).ne."END "// &
+         to_upper(trim(this%name)))then
+       write(err_msg,'("END ",A," not where expected")') &
+            to_upper(this%name)
        call stop_program(err_msg)
        return
     end if
 
-  end subroutine read_kan
+  end subroutine read_bspline_kan
 !###############################################################################
 
 
 !###############################################################################
   function read_kan_layer(unit, verbose) result(layer)
-    !! Read KAN layer from file and return layer
+    !! Read B-spline KAN layer from file and return layer
     implicit none
 
     ! Arguments
@@ -627,13 +728,14 @@ contains
     integer, optional, intent(in) :: verbose
     !! Verbosity level
     class(base_layer_type), allocatable :: layer
-    !! Instance of the KAN layer
+    !! Instance of the B-spline KAN layer
 
     ! Local variables
     integer :: verbose_ = 0
 
     if(present(verbose)) verbose_ = verbose
-    allocate(layer, source=kan_layer_type(num_outputs=0, n_basis=1))
+    allocate(layer, source=kan_layer_type( &
+         num_outputs=0, n_basis=1, spline_degree=3))
     call layer%read(unit, verbose=verbose_)
 
   end function read_kan_layer
@@ -641,44 +743,78 @@ contains
 
 
 !###############################################################################
-  subroutine forward_kan(this, input)
-    !! Forward propagation for KAN layer
+  subroutine forward_bspline_kan(this, input)
+    !! Forward propagation for B-spline KAN layer
     !!
-    !! Computes RBF activations and linear output:
-    !! phi_{i,k} = exp(-0.5 * (x_i - c_{i,k})^2 / sigma_{i,k}^2)
+    !! Computes B-spline basis activations and linear output:
+    !! phi_{i,k} = B_k(x_i)
     !! y_j = sum_{i,k} W_{j,i,k} * phi_{i,k} + b_j
     implicit none
 
     ! Arguments
     class(kan_layer_type), intent(inout) :: this
-    !! Instance of the KAN layer
+    !! Instance of the B-spline KAN layer
     class(array_type), dimension(:,:), intent(in) :: input
-    !! Input values
+    !! Input values [d, batch]
 
-    type(array_type), pointer :: ptr_exp => null()
-    type(array_type), pointer :: ptr_diff => null()
-    type(array_type), pointer :: ptr_phi => null()
+    ! Local variables
     type(array_type), pointer :: ptr => null()
+    integer :: d, K, dK, n_samples, i_dim, i_basis, s
+    real(real32) :: x_val
+    real(real32), allocatable :: x_expanded(:,:), bvals(:,:)
 
 
-    ! Expand input: x_expanded = S * x  [d*K, batch]
+    d = this%num_inputs
+    K = this%n_basis
+    dK = d * K
+
+    ! Get batch size from input
+    n_samples = size(input(1,1)%val, 2)
+
+
     !---------------------------------------------------------------------------
-    ptr_exp => matmul(this%expand_matrix, input(1,1))
-
-    ! Compute difference: (x_expanded - centres)  [d*K, batch]
+    ! Expand input: replicate each x_i K times → [d*K, batch]
     !---------------------------------------------------------------------------
-    ptr_diff => ptr_exp - this%params(1)
+    allocate(x_expanded(dK, n_samples))
+    do s = 1, n_samples
+       do i_dim = 1, d
+          do i_basis = 1, K
+             x_expanded((i_dim - 1) * K + i_basis, s) = &
+                  input(1,1)%val(i_dim, s)
+          end do
+       end do
+    end do
 
-    ! Compute RBF activations: exp(-0.5 * (diff/sigma)^2)  [d*K, batch]
+
     !---------------------------------------------------------------------------
-    ptr_phi => exp( (-0.5_real32) * ((ptr_diff / this%params(2)) ** 2) )
+    ! Evaluate B-spline basis functions: [d*K, batch]
+    !---------------------------------------------------------------------------
+    allocate(bvals(dK, n_samples))
+    call this%evaluate_bspline_basis(x_expanded, n_samples, bvals)
+    deallocate(x_expanded)
 
-    ! Compute output: W * phi [+ bias]  [m, batch]
+
+    !---------------------------------------------------------------------------
+    ! Store basis values in array_type for matmul with weights
+    ! The basis matrix is sample-dependent and recomputed every forward pass
+    !---------------------------------------------------------------------------
+    if(this%basis_matrix%allocated) call this%basis_matrix%deallocate()
+    call this%basis_matrix%allocate([dK, n_samples])
+    this%basis_matrix%val(:,:) = bvals
+    this%basis_matrix%is_sample_dependent = .true.
+    this%basis_matrix%is_temporary = .false.
+    this%basis_matrix%fix_pointer = .true.
+    call this%basis_matrix%set_requires_grad(.false.)
+    deallocate(bvals)
+
+
+    !---------------------------------------------------------------------------
+    ! Compute output: W * basis [+ bias]  [m, batch]
     !---------------------------------------------------------------------------
     if(this%use_bias)then
-       ptr => matmul(this%params(3), ptr_phi) + this%params(4)
+       ptr => matmul(this%params(1), this%basis_matrix) + this%params(2)
     else
-       ptr => matmul(this%params(3), ptr_phi)
+       ptr => matmul(this%params(1), this%basis_matrix)
     end if
 
     ! Store output
@@ -687,7 +823,7 @@ contains
     call this%output(1,1)%assign_and_deallocate_source(ptr)
     this%output(1,1)%is_temporary = .false.
 
-  end subroutine forward_kan
+  end subroutine forward_bspline_kan
 !###############################################################################
 
 end module athena__kan_layer

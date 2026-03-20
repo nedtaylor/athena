@@ -157,3 +157,8 @@ source-dir = "example/inverse_design/src"
 name = "kan_sine"
 source-dir = "example/kan_sine/src"
 main = "main.f90"
+
+[[example]]
+name = "fastkan_sine"
+source-dir = "example/fastkan_sine/src"
+main = "main.f90"
