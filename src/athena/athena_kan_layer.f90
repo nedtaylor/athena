@@ -35,6 +35,7 @@ module athena__kan_layer
        onnx_node_type, onnx_initialiser_type, onnx_tensor_type
   use diffstruc, only: array_type, matmul, &
        operator(+), operator(-), operator(*), operator(/)
+  use athena__diffstruc_extd, only: swish
   implicit none
 
 
@@ -56,6 +57,8 @@ module athena__kan_layer
      !! Degree of the B-spline basis functions
      integer :: n_knots
      !! Total number of knots (n_basis + spline_degree + 1)
+     logical :: use_base_activation = .false.
+     !! Whether to use PyKAN-style base activation (silu + spline)
      real(real32), allocatable :: knots(:)
      !! Knot vector (n_knots)
      type(array_type) :: basis_matrix
@@ -84,7 +87,7 @@ module athena__kan_layer
      !! Interface for setting up the B-spline KAN layer
      module function layer_setup( &
           num_outputs, n_basis, spline_degree, &
-          num_inputs, use_bias, &
+          num_inputs, use_bias, use_base_activation, &
           kernel_initialiser, bias_initialiser, verbose &
      ) result(layer)
        !! Setup a B-spline KAN layer
@@ -98,6 +101,8 @@ module athena__kan_layer
        !! Number of inputs
        logical, optional, intent(in) :: use_bias
        !! Whether to use bias
+       logical, optional, intent(in) :: use_base_activation
+       !! Whether to use PyKAN-style base activation (silu + spline)
        class(*), optional, intent(in) :: kernel_initialiser, bias_initialiser
        !! Kernel and bias initialisers
        integer, optional, intent(in) :: verbose
@@ -144,6 +149,12 @@ contains
     num_params = this%num_outputs * this%num_inputs * this%n_basis + &
          this%num_outputs
 
+    ! scale_base [m, d] + scale_sp [m, 1]
+    if(this%use_base_activation)then
+       num_params = num_params + &
+            this%num_outputs * this%num_inputs + this%num_outputs
+    end if
+
   end function get_num_params_bspline_kan
 !###############################################################################
 
@@ -152,7 +163,7 @@ contains
   module function layer_setup( &
        num_outputs, n_basis, spline_degree, &
        num_inputs, &
-       use_bias, &
+       use_bias, use_base_activation, &
        kernel_initialiser, bias_initialiser, verbose &
   ) result(layer)
     !! Setup a B-spline KAN layer
@@ -170,6 +181,8 @@ contains
     !! Number of inputs
     logical, optional, intent(in) :: use_bias
     !! Whether to use bias
+    logical, optional, intent(in) :: use_base_activation
+    !! Whether to use PyKAN-style base activation (silu + spline)
     class(*), optional, intent(in) :: kernel_initialiser, bias_initialiser
     !! Kernel and bias initialisers
     integer, optional, intent(in) :: verbose
@@ -179,21 +192,31 @@ contains
     !! Instance of the B-spline KAN layer
 
     ! Local variables
-    integer :: verbose_ = 0
+    integer :: verbose_
     !! Verbosity level
-    integer :: n_basis_ = 8
+    integer :: n_basis_
     !! Default number of basis functions
-    integer :: spline_degree_ = 3
+    integer :: spline_degree_
     !! Default spline degree
-    logical :: use_bias_ = .true.
+    logical :: use_bias_
     !! Whether to use bias
+    logical :: use_base_activation_
+    !! Whether to use base activation
     class(base_init_type), allocatable :: kernel_initialiser_, bias_initialiser_
     !! Kernel and bias initialisers
+
+    verbose_ = 0
+    n_basis_ = 8
+    spline_degree_ = 3
+    use_bias_ = .true.
+    use_base_activation_ = .false.
 
     if(present(verbose)) verbose_ = verbose
     if(present(n_basis)) n_basis_ = n_basis
     if(present(spline_degree)) spline_degree_ = spline_degree
     if(present(use_bias)) use_bias_ = use_bias
+    if(present(use_base_activation)) &
+         use_base_activation_ = use_base_activation
 
     if(present(kernel_initialiser))then
        kernel_initialiser_ = initialiser_setup(kernel_initialiser)
@@ -207,6 +230,7 @@ contains
          n_basis = n_basis_, &
          spline_degree = spline_degree_, &
          use_bias = use_bias_, &
+         use_base_activation = use_base_activation_, &
          kernel_initialiser = kernel_initialiser_, &
          bias_initialiser = bias_initialiser_, &
          verbose = verbose_ &
@@ -221,7 +245,7 @@ contains
 !###############################################################################
   subroutine set_hyperparams_bspline_kan( &
        this, num_outputs, n_basis, spline_degree, &
-       use_bias, &
+       use_bias, use_base_activation, &
        kernel_initialiser, bias_initialiser, &
        verbose &
   )
@@ -240,6 +264,8 @@ contains
     !! Degree of B-spline
     logical, intent(in) :: use_bias
     !! Whether to use bias
+    logical, intent(in) :: use_base_activation
+    !! Whether to use PyKAN-style base activation
     class(base_init_type), allocatable, intent(in) :: &
          kernel_initialiser, bias_initialiser
     !! Kernel and bias initialisers
@@ -255,6 +281,7 @@ contains
     this%input_rank = 1
     this%output_rank = 1
     this%use_bias = use_bias
+    this%use_base_activation = use_base_activation
     this%num_outputs = num_outputs
     this%n_basis = n_basis
     this%spline_degree = spline_degree
@@ -304,7 +331,7 @@ contains
     !! Verbosity level
 
     ! Local variables
-    integer :: verbose_ = 0
+    integer :: verbose_
     !! Verbosity level
     integer :: d, K, m, dK, p
     !! Dimension shortcuts
@@ -313,6 +340,7 @@ contains
     real(real32) :: grid_min, grid_max, h
 
 
+    verbose_ = 0
     if(present(verbose)) verbose_ = verbose
 
 
@@ -359,17 +387,26 @@ contains
 
     !---------------------------------------------------------------------------
     ! Allocate parameter arrays
-    ! params(1): weights      [m*d*K, 1]  with shape [m, d*K]
+    ! params(1): weights      [m, d*K]    (spline coefficients)
     ! params(2): bias         [m, 1]      (if use_bias)
+    ! params(3): scale_base   [m, d]      (if use_base_activation)
+    ! params(4): scale_sp     [m, 1]      (if use_base_activation)
     !---------------------------------------------------------------------------
     allocate(this%weight_shape(2,1))
     this%weight_shape(:,1) = [ m, dK ]
 
-    if(this%use_bias)then
-       this%bias_shape = [ m ]
-       allocate(this%params(2))
+    if(this%use_base_activation)then
+       if(this%use_bias)then
+          allocate(this%params(4))
+       else
+          allocate(this%params(4))
+       end if
     else
-       allocate(this%params(1))
+       if(this%use_bias)then
+          allocate(this%params(2))
+       else
+          allocate(this%params(1))
+       end if
     end if
 
     ! Weights
@@ -380,12 +417,31 @@ contains
     this%params(1)%is_temporary = .false.
 
     ! Bias
-    if(this%use_bias)then
-       call this%params(2)%allocate([this%bias_shape, 1])
+    if(this%use_bias .or. this%use_base_activation)then
+       this%bias_shape = [ m ]
+       call this%params(2)%allocate([m, 1])
        call this%params(2)%set_requires_grad(.true.)
        this%params(2)%fix_pointer = .true.
        this%params(2)%is_sample_dependent = .false.
        this%params(2)%is_temporary = .false.
+    end if
+
+    ! Scale base: weight matrix for base activation [m, d]
+    if(this%use_base_activation)then
+       call this%params(3)%allocate([m, d, 1])
+       call this%params(3)%set_requires_grad(.true.)
+       this%params(3)%fix_pointer = .true.
+       this%params(3)%is_sample_dependent = .false.
+       this%params(3)%is_temporary = .false.
+    end if
+
+    ! Scale sp: per-output spline scaling [m, 1]
+    if(this%use_base_activation)then
+       call this%params(4)%allocate([m, 1])
+       call this%params(4)%set_requires_grad(.true.)
+       this%params(4)%fix_pointer = .true.
+       this%params(4)%is_sample_dependent = .false.
+       this%params(4)%is_temporary = .false.
     end if
 
 
@@ -402,8 +458,17 @@ contains
     !---------------------------------------------------------------------------
     ! Initialise biases to zero
     !---------------------------------------------------------------------------
-    if(this%use_bias)then
+    if(this%use_bias .or. this%use_base_activation)then
        this%params(2)%val(:, 1) = 0.0_real32
+    end if
+
+
+    !---------------------------------------------------------------------------
+    ! Initialise scale_base (zeros) and scale_sp (ones)
+    !---------------------------------------------------------------------------
+    if(this%use_base_activation)then
+       this%params(3)%val(:, 1) = 0.0_real32
+       this%params(4)%val(:, 1) = 1.0_real32
     end if
 
 
@@ -546,12 +611,17 @@ contains
     write(unit,'(3X,"N_BASIS = ",I0)') this%n_basis
     write(unit,'(3X,"SPLINE_DEGREE = ",I0)') this%spline_degree
     write(unit,'(3X,"USE_BIAS = ",L1)') this%use_bias
+    write(unit,'(3X,"USE_BASE_ACTIVATION = ",L1)') this%use_base_activation
 
     ! Write parameters
     write(unit,'("WEIGHTS")')
     write(unit,'(5(E16.8E2))') this%params(1)%val(:,1)  ! weights
-    if(this%use_bias)then
+    if(this%use_bias .or. this%use_base_activation)then
        write(unit,'(5(E16.8E2))') this%params(2)%val(:,1)  ! bias
+    end if
+    if(this%use_base_activation)then
+       write(unit,'(5(E16.8E2))') this%params(3)%val(:,1)  ! scale_base
+       write(unit,'(5(E16.8E2))') this%params(4)%val(:,1)  ! scale_sp
     end if
     write(unit,'("END WEIGHTS")')
 
@@ -577,11 +647,12 @@ contains
 
     ! Local variables
     integer :: stat
-    integer :: verbose_ = 0
+    integer :: verbose_
     integer :: j, k, c, itmp1, iline, total_param_count
     integer :: num_inputs, num_outputs, n_basis, spline_degree
-    logical :: use_bias = .true.
-    character(14) :: kernel_initialiser_name='', bias_initialiser_name=''
+    logical :: use_bias
+    logical :: use_base_activation
+    character(14) :: kernel_initialiser_name, bias_initialiser_name
     class(base_init_type), allocatable :: kernel_initialiser, bias_initialiser
     character(256) :: buffer, tag, err_msg
     real(real32), allocatable, dimension(:) :: data_list
@@ -590,7 +661,12 @@ contains
 
     if(present(verbose)) verbose_ = verbose
 
-    spline_degree = 3  ! default
+    verbose_ = 0
+    spline_degree = 3
+    use_bias = .true.
+    use_base_activation = .false.
+    kernel_initialiser_name = ''
+    bias_initialiser_name = ''
 
     iline = 0
     param_line = 0
@@ -628,6 +704,8 @@ contains
           call assign_val(buffer, spline_degree, itmp1)
        case("USE_BIAS")
           call assign_val(buffer, use_bias, itmp1)
+       case("USE_BASE_ACTIVATION")
+          call assign_val(buffer, use_base_activation, itmp1)
        case("KERNEL_INITIALISER", "KERNEL_INIT", "KERNEL_INITIALIZER")
           call assign_val(buffer, kernel_initialiser_name, itmp1)
        case("BIAS_INITIALISER", "BIAS_INIT", "BIAS_INITIALIZER")
@@ -657,6 +735,7 @@ contains
          n_basis = n_basis, &
          spline_degree = spline_degree, &
          use_bias = use_bias, &
+         use_base_activation = use_base_activation, &
          kernel_initialiser = kernel_initialiser, &
          bias_initialiser = bias_initialiser, &
          verbose = verbose_ &
@@ -669,9 +748,13 @@ contains
     else
        call move(unit, param_line - iline, iostat=stat)
 
-       ! Read all parameters: weights [+ bias]
+       ! Read all parameters: weights [+ bias] [+ scale_base + scale_sp]
        total_param_count = num_outputs * num_inputs * n_basis  ! weights
-       if(use_bias) total_param_count = total_param_count + num_outputs
+       if(use_bias .or. use_base_activation) &
+            total_param_count = total_param_count + num_outputs  ! bias
+       if(use_base_activation) &
+            total_param_count = total_param_count + &
+            num_outputs * num_inputs + num_outputs  ! scale_base + scale_sp
 
        allocate(data_list(total_param_count), source=0._real32)
        c = 1
@@ -691,8 +774,19 @@ contains
             num_outputs*num_inputs*n_basis - 1)
        c = c + num_outputs * num_inputs * n_basis
        ! bias
-       if(use_bias)then
+       if(use_bias .or. use_base_activation)then
           this%params(2)%val(:,1) = data_list(c:c + num_outputs - 1)
+          c = c + num_outputs
+       end if
+       ! scale_base
+       if(use_base_activation)then
+          this%params(3)%val(:,1) = data_list(c:c + &
+               num_outputs*num_inputs - 1)
+          c = c + num_outputs * num_inputs
+       end if
+       ! scale_sp
+       if(use_base_activation)then
+          this%params(4)%val(:,1) = data_list(c:c + num_outputs - 1)
        end if
        deallocate(data_list)
 
@@ -731,8 +825,9 @@ contains
     !! Instance of the B-spline KAN layer
 
     ! Local variables
-    integer :: verbose_ = 0
+    integer :: verbose_
 
+    verbose_ = 0
     if(present(verbose)) verbose_ = verbose
     allocate(layer, source=kan_layer_type( &
          num_outputs=0, n_basis=1, spline_degree=3))
@@ -746,9 +841,12 @@ contains
   subroutine forward_bspline_kan(this, input)
     !! Forward propagation for B-spline KAN layer
     !!
-    !! Computes B-spline basis activations and linear output:
-    !! phi_{i,k} = B_k(x_i)
-    !! y_j = sum_{i,k} W_{j,i,k} * phi_{i,k} + b_j
+    !! When use_base_activation is false (default):
+    !!   y_j = sum_{i,k} W_{j,i,k} * B_k(x_i) + b_j
+    !!
+    !! When use_base_activation is true (PyKAN-style):
+    !!   y_j = scale_sp_j * sum_{i,k} W_{j,i,k} * B_k(x_i)
+    !!       + sum_i scale_base_{j,i} * silu(x_i) + b_j
     implicit none
 
     ! Arguments
@@ -759,6 +857,10 @@ contains
 
     ! Local variables
     type(array_type), pointer :: ptr => null()
+    type(array_type), pointer :: spline_ptr => null()
+    type(array_type), pointer :: silu_ptr => null()
+    type(array_type), pointer :: base_ptr => null()
+    type(array_type), pointer :: scaled_spline_ptr => null()
     integer :: d, K, dK, n_samples, i_dim, i_basis, s
     real(real32) :: x_val
     real(real32), allocatable :: x_expanded(:,:), bvals(:,:)
@@ -809,12 +911,36 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Compute output: W * basis [+ bias]  [m, batch]
+    ! Compute output
     !---------------------------------------------------------------------------
-    if(this%use_bias)then
-       ptr => matmul(this%params(1), this%basis_matrix) + this%params(2)
+    if(this%use_base_activation)then
+
+       ! Spline term: W * basis → [m, batch]
+       spline_ptr => matmul(this%params(1), this%basis_matrix)
+
+       ! Scaled spline: spline [m,batch] * scale_sp [m,1] → [m,batch]
+       scaled_spline_ptr => spline_ptr * this%params(4)
+
+       ! Base term: silu(input) → [d, batch], then scale_base[m,d] * silu → [m,batch]
+       silu_ptr => swish(input(1,1), 1.0_real32)
+       base_ptr => matmul(this%params(3), silu_ptr)
+
+       ! Combine: scaled_spline + base + bias
+       if(this%use_bias)then
+          ptr => scaled_spline_ptr + base_ptr + this%params(2)
+       else
+          ptr => scaled_spline_ptr + base_ptr
+       end if
+
     else
-       ptr => matmul(this%params(1), this%basis_matrix)
+
+       ! Original behaviour: W * basis [+ bias]  [m, batch]
+       if(this%use_bias)then
+          ptr => matmul(this%params(1), this%basis_matrix) + this%params(2)
+       else
+          ptr => matmul(this%params(1), this%basis_matrix)
+       end if
+
     end if
 
     ! Store output

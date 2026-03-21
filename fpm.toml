@@ -162,3 +162,8 @@ main = "main.f90"
 name = "fastkan_sine"
 source-dir = "example/fastkan_sine/src"
 main = "main.f90"
+
+[[example]]
+name = "kan_comparison"
+source-dir = "example/kan_comparison/src"
+main = "main.f90"
