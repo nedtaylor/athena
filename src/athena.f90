@@ -204,6 +204,25 @@ module athena
   !-----------------------------------------------------------------------------
   use athena__recurrent_layer, only: recurrent_layer_type
 
+  ! Post-training analysis utilities
+  !-----------------------------------------------------------------------------
+  use athena__pruning, only: &
+       sparsity_info_type, &
+       prune_threshold, &
+       prune_fraction, &
+       get_sparsity_info, &
+       print_sparsity_info, &
+       compact_network
+  use athena__symbolic, only: &
+       symbolic_term_type, &
+       symbolic_expr_type, &
+       extract_symbolic, &
+       extract_symbolic_kan, &
+       print_symbolic_expr, &
+       simplify_expression, &
+       match_known_functions
+
+
   ! Array types
   !-----------------------------------------------------------------------------
   use diffstruc

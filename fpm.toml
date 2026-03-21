@@ -167,3 +167,13 @@ main = "main.f90"
 name = "kan_comparison"
 source-dir = "example/kan_comparison/src"
 main = "main.f90"
+
+[[example]]
+name = "pruning"
+source-dir = "example/pruning/src"
+main = "main.f90"
+
+[[example]]
+name = "symbolic"
+source-dir = "example/symbolic/src"
+main = "main.f90"
