@@ -80,7 +80,7 @@ contains
     integer :: i, n, epoch
 
     write(*,*) "------------------------------------------------------------"
-    write(*,*) "  KAN (B-spline) — sin(pi*x) approximation"
+    write(*,*) "  KAN (B-spline, standard) — sin(pi*x) approximation"
     write(*,*) "------------------------------------------------------------"
 
     call network%add(kan_layer_type( &

@@ -420,14 +420,13 @@ program test_kan_layer
          verbose=0 &
     )
 
-    ! Set scale_base=1, scale_sp=0, weights=0, bias=0
-    ! So output = 1 * silu(x) + 0 * spline(x) + 0
+    ! Set scale_base=1, scale_sp=0, weights=0
+    ! So output = 1 * silu(x) + 0 * spline(x) + 0 * sym
     select type(layer => network%model(1)%layer)
     type is(kan_layer_type)
        layer%params(1)%val(:,1) = 0.0_real32  ! weights=0
-       layer%params(2)%val(:,1) = 0.0_real32  ! bias=0
-       layer%params(3)%val(:,1) = 1.0_real32  ! scale_base=1
-       layer%params(4)%val(:,1) = 0.0_real32  ! scale_sp=0
+       layer%params(2)%val(:,1) = 1.0_real32  ! scale_base=1
+       layer%params(3)%val(:,1) = 0.0_real32  ! scale_sp=0
     end select
 
     x_in(1,1) = 0.0_real32
@@ -484,14 +483,16 @@ program test_kan_layer
          optimiser=sgd_optimiser_type(learning_rate=0.01), &
          loss_method='mse', metrics=['loss'], batch_size=1, verbose=0)
 
-    ! Copy weights from plain to base (so spline part is identical)
+    ! Copy spline coef from plain to base (so spline part is identical)
+    ! Note: plain has params(1)=weights, params(2)=bias
+    ! Base/PyKAN has params(1)=weights, params(2)=scale_base(=0),
+    ! params(3)=scale_sp(=1), no trainable bias
     select type(lp => net_plain%model(1)%layer)
     type is(kan_layer_type)
        select type(lb => net_base%model(1)%layer)
        type is(kan_layer_type)
-          lb%params(1)%val = lp%params(1)%val  ! copy weights
-          lb%params(2)%val = lp%params(2)%val  ! copy bias
-          ! scale_base already 0, scale_sp already 1
+          lb%params(1)%val = lp%params(1)%val  ! copy spline coef
+          ! scale_base already 0, scale_sp already 1, sym_mask=0
        end select
     end select
 
@@ -542,13 +543,13 @@ program test_kan_layer
 
     select type(layer => network%model(1)%layer)
     type is(kan_layer_type)
-       ! Check scale_base gradients (params(3))
-       if(.not.associated(layer%params(3)%grad))then
+       ! Check scale_base gradients (params(2))
+       if(.not.associated(layer%params(2)%grad))then
           success = .false.
           write(0,*) 'scale_base gradients not computed'
        end if
-       ! Check scale_sp gradients (params(4))
-       if(.not.associated(layer%params(4)%grad))then
+       ! Check scale_sp gradients (params(3))
+       if(.not.associated(layer%params(3)%grad))then
           success = .false.
           write(0,*) 'scale_sp gradients not computed'
        end if
@@ -743,10 +744,11 @@ program test_kan_layer
           success = .false.
           write(0,*) 'read KAN layer (base) has wrong n_basis'
        end if
-       ! Verify scale_base and scale_sp were read
-       if(size(read_ba%params) .lt. 4)then
+       ! Verify all PyKAN-style params were read (7 total)
+       if(size(read_ba%params) .lt. 7)then
           success = .false.
-          write(0,*) 'read KAN layer (base) missing params 3/4'
+          write(0,*) 'read KAN layer (base) missing params, got:', &
+               size(read_ba%params), 'expected: 7'
        end if
     class default
        success = .false.
@@ -781,8 +783,8 @@ program test_kan_layer
             layer_plain%get_num_params(), 'expected:', expected_plain
     end if
 
-    ! Base: weights(5*3*4) + bias(5) + scale_base(5*3) + scale_sp(5) = 85
-    expected_base = 5 * 3 * 4 + 5 + 5 * 3 + 5
+    ! Base (PyKAN-style): m*d*(K+2) + 4*m = 5*3*(4+2) + 4*5 = 90 + 20 = 110
+    expected_base = 5 * 3 * (4 + 2) + 4 * 5
     if(layer_base%get_num_params() .ne. expected_base)then
        success = .false.
        write(0,*) 'Base KAN wrong param count:', &

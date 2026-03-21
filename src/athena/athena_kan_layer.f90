@@ -63,6 +63,8 @@ module athena__kan_layer
      !! Knot vector (n_knots)
      type(array_type) :: basis_matrix
      !! B-spline basis values [d*K, batch] (recomputed each forward)
+     type(array_type) :: sym_mask
+     !! Symbolic regression mask [m*d, 1] (0 = inactive, like PyKAN default)
    contains
      procedure, pass(this) :: get_num_params => get_num_params_bspline_kan
      !! Get the number of parameters
@@ -129,6 +131,7 @@ contains
     if(allocated(this%output)) deallocate(this%output)
     if(allocated(this%knots)) deallocate(this%knots)
     if(this%basis_matrix%allocated) call this%basis_matrix%deallocate()
+    if(this%sym_mask%allocated) call this%sym_mask%deallocate()
 
   end subroutine finalise_bspline_kan
 !###############################################################################
@@ -145,14 +148,23 @@ contains
     integer :: num_params
     !! Number of parameters
 
-    ! weights + bias
-    num_params = this%num_outputs * this%num_inputs * this%n_basis + &
-         this%num_outputs
-
-    ! scale_base [m, d] + scale_sp [m, 1]
     if(this%use_base_activation)then
-       num_params = num_params + &
-            this%num_outputs * this%num_inputs + this%num_outputs
+       ! PyKAN-style: coef + scale_base + scale_sp + symbolic_affine (a,b,c,d)
+       ! No trainable bias (matches PyKAN)
+       ! coef [m*d*K] + scale_base [m*d] + scale_sp [m]
+       !   + sym_a [m*d] + sym_b [m] + sym_c [m] + sym_d [m]
+       ! = m*d*(K+2) + 4*m  (= m*(K+6) when d=1, matching PyKAN)
+       num_params = this%num_outputs * this%num_inputs * this%n_basis + &  ! coef
+            this%num_outputs * this%num_inputs + &                         ! scale_base
+            this%num_outputs + &                                           ! scale_sp
+            this%num_outputs * this%num_inputs + &                         ! sym_a
+            this%num_outputs + &                                           ! sym_b
+            this%num_outputs + &                                           ! sym_c
+            this%num_outputs                                               ! sym_d
+    else
+       ! Standard: weights [+ bias]
+       num_params = this%num_outputs * this%num_inputs * this%n_basis
+       if(this%use_bias) num_params = num_params + this%num_outputs
     end if
 
   end function get_num_params_bspline_kan
@@ -387,20 +399,26 @@ contains
 
     !---------------------------------------------------------------------------
     ! Allocate parameter arrays
-    ! params(1): weights      [m, d*K]    (spline coefficients)
-    ! params(2): bias         [m, 1]      (if use_bias)
-    ! params(3): scale_base   [m, d]      (if use_base_activation)
-    ! params(4): scale_sp     [m, 1]      (if use_base_activation)
+    !
+    ! PyKAN-style (use_base_activation = .true.):
+    !   params(1): coef         [m, d*K]   spline coefficients
+    !   params(2): scale_base   [m, d]     base activation weight
+    !   params(3): scale_sp     [m, d]     spline scaling
+    !   params(4): sym_a        [m, d]     symbolic affine: a
+    !   params(5): sym_b        [m, d]     symbolic affine: b
+    !   params(6): sym_c        [m, d]     symbolic affine: c
+    !   params(7): sym_d        [m, d]     symbolic affine: d
+    !   No trainable bias (matches PyKAN)
+    !
+    ! Standard (use_base_activation = .false.):
+    !   params(1): weights      [m, d*K]
+    !   params(2): bias         [m, 1]     (if use_bias)
     !---------------------------------------------------------------------------
     allocate(this%weight_shape(2,1))
     this%weight_shape(:,1) = [ m, dK ]
 
     if(this%use_base_activation)then
-       if(this%use_bias)then
-          allocate(this%params(4))
-       else
-          allocate(this%params(4))
-       end if
+       allocate(this%params(7))
     else
        if(this%use_bias)then
           allocate(this%params(2))
@@ -409,39 +427,76 @@ contains
        end if
     end if
 
-    ! Weights
+    ! params(1): Spline coefficients [m, d*K]
     call this%params(1)%allocate([this%weight_shape(:,1), 1])
     call this%params(1)%set_requires_grad(.true.)
     this%params(1)%fix_pointer = .true.
     this%params(1)%is_sample_dependent = .false.
     this%params(1)%is_temporary = .false.
 
-    ! Bias
-    if(this%use_bias .or. this%use_base_activation)then
-       this%bias_shape = [ m ]
-       call this%params(2)%allocate([m, 1])
+    if(this%use_base_activation)then
+
+       ! params(2): scale_base [m, d] — matmul-ready for silu
+       call this%params(2)%allocate([m, d, 1])
        call this%params(2)%set_requires_grad(.true.)
        this%params(2)%fix_pointer = .true.
        this%params(2)%is_sample_dependent = .false.
        this%params(2)%is_temporary = .false.
-    end if
 
-    ! Scale base: weight matrix for base activation [m, d]
-    if(this%use_base_activation)then
-       call this%params(3)%allocate([m, d, 1])
+       ! params(3): scale_sp [m, 1] — per-output spline scaling (broadcast)
+       call this%params(3)%allocate([m, 1])
        call this%params(3)%set_requires_grad(.true.)
        this%params(3)%fix_pointer = .true.
        this%params(3)%is_sample_dependent = .false.
        this%params(3)%is_temporary = .false.
-    end if
 
-    ! Scale sp: per-output spline scaling [m, 1]
-    if(this%use_base_activation)then
-       call this%params(4)%allocate([m, 1])
+       ! params(4): sym_a [m, d] — matmul-ready for x
+       call this%params(4)%allocate([m, d, 1])
        call this%params(4)%set_requires_grad(.true.)
        this%params(4)%fix_pointer = .true.
        this%params(4)%is_sample_dependent = .false.
        this%params(4)%is_temporary = .false.
+
+       ! params(5): sym_b [m, 1] — per-output (broadcast)
+       call this%params(5)%allocate([m, 1])
+       call this%params(5)%set_requires_grad(.true.)
+       this%params(5)%fix_pointer = .true.
+       this%params(5)%is_sample_dependent = .false.
+       this%params(5)%is_temporary = .false.
+
+       ! params(6): sym_c [m, 1] — per-output (broadcast)
+       call this%params(6)%allocate([m, 1])
+       call this%params(6)%set_requires_grad(.true.)
+       this%params(6)%fix_pointer = .true.
+       this%params(6)%is_sample_dependent = .false.
+       this%params(6)%is_temporary = .false.
+
+       ! params(7): sym_d [m, 1] — per-output (broadcast)
+       call this%params(7)%allocate([m, 1])
+       call this%params(7)%set_requires_grad(.true.)
+       this%params(7)%fix_pointer = .true.
+       this%params(7)%is_sample_dependent = .false.
+       this%params(7)%is_temporary = .false.
+
+       ! Symbolic mask [m, 1] — non-trainable, 0 = inactive (PyKAN default)
+       if(this%sym_mask%allocated) call this%sym_mask%deallocate()
+       call this%sym_mask%allocate([m, 1])
+       this%sym_mask%val(:, 1) = 0.0_real32
+       call this%sym_mask%set_requires_grad(.false.)
+       this%sym_mask%fix_pointer = .true.
+       this%sym_mask%is_sample_dependent = .false.
+       this%sym_mask%is_temporary = .false.
+
+    else
+       ! Bias (standard mode only)
+       if(this%use_bias)then
+          this%bias_shape = [ m ]
+          call this%params(2)%allocate([m, 1])
+          call this%params(2)%set_requires_grad(.true.)
+          this%params(2)%fix_pointer = .true.
+          this%params(2)%is_sample_dependent = .false.
+          this%params(2)%is_temporary = .false.
+       end if
     end if
 
 
@@ -456,19 +511,26 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Initialise biases to zero
+    ! Initialise biases to zero (standard mode)
     !---------------------------------------------------------------------------
-    if(this%use_bias .or. this%use_base_activation)then
+    if(.not.this%use_base_activation .and. this%use_bias)then
        this%params(2)%val(:, 1) = 0.0_real32
     end if
 
 
     !---------------------------------------------------------------------------
-    ! Initialise scale_base (zeros) and scale_sp (ones)
+    ! Initialise PyKAN-style parameters
     !---------------------------------------------------------------------------
     if(this%use_base_activation)then
-       this%params(3)%val(:, 1) = 0.0_real32
-       this%params(4)%val(:, 1) = 1.0_real32
+       ! scale_base: zero (no base contribution initially)
+       this%params(2)%val(:, 1) = 0.0_real32
+       ! scale_sp: one (full spline contribution)
+       this%params(3)%val(:, 1) = 1.0_real32
+       ! Symbolic affine: identity mapping (a=1, b=0, c=1, d=0)
+       this%params(4)%val(:, 1) = 1.0_real32   ! a
+       this%params(5)%val(:, 1) = 0.0_real32   ! b
+       this%params(6)%val(:, 1) = 1.0_real32   ! c
+       this%params(7)%val(:, 1) = 0.0_real32   ! d
     end if
 
 
@@ -615,13 +677,16 @@ contains
 
     ! Write parameters
     write(unit,'("WEIGHTS")')
-    write(unit,'(5(E16.8E2))') this%params(1)%val(:,1)  ! weights
-    if(this%use_bias .or. this%use_base_activation)then
-       write(unit,'(5(E16.8E2))') this%params(2)%val(:,1)  ! bias
-    end if
+    write(unit,'(5(E16.8E2))') this%params(1)%val(:,1)  ! coef/weights
     if(this%use_base_activation)then
-       write(unit,'(5(E16.8E2))') this%params(3)%val(:,1)  ! scale_base
-       write(unit,'(5(E16.8E2))') this%params(4)%val(:,1)  ! scale_sp
+       write(unit,'(5(E16.8E2))') this%params(2)%val(:,1)  ! scale_base
+       write(unit,'(5(E16.8E2))') this%params(3)%val(:,1)  ! scale_sp
+       write(unit,'(5(E16.8E2))') this%params(4)%val(:,1)  ! sym_a
+       write(unit,'(5(E16.8E2))') this%params(5)%val(:,1)  ! sym_b
+       write(unit,'(5(E16.8E2))') this%params(6)%val(:,1)  ! sym_c
+       write(unit,'(5(E16.8E2))') this%params(7)%val(:,1)  ! sym_d
+    else if(this%use_bias)then
+       write(unit,'(5(E16.8E2))') this%params(2)%val(:,1)  ! bias
     end if
     write(unit,'("END WEIGHTS")')
 
@@ -748,13 +813,16 @@ contains
     else
        call move(unit, param_line - iline, iostat=stat)
 
-       ! Read all parameters: weights [+ bias] [+ scale_base + scale_sp]
-       total_param_count = num_outputs * num_inputs * n_basis  ! weights
-       if(use_bias .or. use_base_activation) &
-            total_param_count = total_param_count + num_outputs  ! bias
-       if(use_base_activation) &
-            total_param_count = total_param_count + &
-            num_outputs * num_inputs + num_outputs  ! scale_base + scale_sp
+       ! Read all parameters
+       total_param_count = num_outputs * num_inputs * n_basis  ! coef/weights
+       if(use_base_activation)then
+          ! PyKAN-style: scale_base[m*d] + scale_sp[m]
+          !   + sym_a[m*d] + sym_b[m] + sym_c[m] + sym_d[m]
+          total_param_count = total_param_count + &
+               2 * num_outputs * num_inputs + 4 * num_outputs
+       else if(use_bias)then
+          total_param_count = total_param_count + num_outputs  ! bias
+       end if
 
        allocate(data_list(total_param_count), source=0._real32)
        c = 1
@@ -769,24 +837,33 @@ contains
 
        ! Assign parameters from data_list
        c = 1
-       ! weights
+       ! coef/weights
        this%params(1)%val(:,1) = data_list(c:c + &
             num_outputs*num_inputs*n_basis - 1)
        c = c + num_outputs * num_inputs * n_basis
-       ! bias
-       if(use_bias .or. use_base_activation)then
-          this%params(2)%val(:,1) = data_list(c:c + num_outputs - 1)
-          c = c + num_outputs
-       end if
-       ! scale_base
        if(use_base_activation)then
-          this%params(3)%val(:,1) = data_list(c:c + &
+          ! scale_base [m*d]
+          this%params(2)%val(:,1) = data_list(c:c + &
                num_outputs*num_inputs - 1)
           c = c + num_outputs * num_inputs
-       end if
-       ! scale_sp
-       if(use_base_activation)then
-          this%params(4)%val(:,1) = data_list(c:c + num_outputs - 1)
+          ! scale_sp [m]
+          this%params(3)%val(:,1) = data_list(c:c + num_outputs - 1)
+          c = c + num_outputs
+          ! sym_a [m*d]
+          this%params(4)%val(:,1) = data_list(c:c + &
+               num_outputs*num_inputs - 1)
+          c = c + num_outputs * num_inputs
+          ! sym_b [m]
+          this%params(5)%val(:,1) = data_list(c:c + num_outputs - 1)
+          c = c + num_outputs
+          ! sym_c [m]
+          this%params(6)%val(:,1) = data_list(c:c + num_outputs - 1)
+          c = c + num_outputs
+          ! sym_d [m]
+          this%params(7)%val(:,1) = data_list(c:c + num_outputs - 1)
+       else if(use_bias)then
+          ! bias [m]
+          this%params(2)%val(:,1) = data_list(c:c + num_outputs - 1)
        end if
        deallocate(data_list)
 
@@ -861,6 +938,12 @@ contains
     type(array_type), pointer :: silu_ptr => null()
     type(array_type), pointer :: base_ptr => null()
     type(array_type), pointer :: scaled_spline_ptr => null()
+    type(array_type), pointer :: spline_base_ptr => null()
+    type(array_type), pointer :: ax_ptr => null()
+    type(array_type), pointer :: axb_ptr => null()
+    type(array_type), pointer :: caxb_ptr => null()
+    type(array_type), pointer :: sym_ptr => null()
+    type(array_type), pointer :: masked_sym_ptr => null()
     integer :: d, K, dK, n_samples, i_dim, i_basis, s
     real(real32) :: x_val
     real(real32), allocatable :: x_expanded(:,:), bvals(:,:)
@@ -918,19 +1001,24 @@ contains
        ! Spline term: W * basis → [m, batch]
        spline_ptr => matmul(this%params(1), this%basis_matrix)
 
-       ! Scaled spline: spline [m,batch] * scale_sp [m,1] → [m,batch]
-       scaled_spline_ptr => spline_ptr * this%params(4)
+       ! Scaled spline: spline [m,batch] * scale_sp [m,d] → [m,batch]
+       scaled_spline_ptr => spline_ptr * this%params(3)
 
        ! Base term: silu(input) → [d, batch], then scale_base[m,d] * silu → [m,batch]
        silu_ptr => swish(input(1,1), 1.0_real32)
-       base_ptr => matmul(this%params(3), silu_ptr)
+       base_ptr => matmul(this%params(2), silu_ptr)
 
-       ! Combine: scaled_spline + base + bias
-       if(this%use_bias)then
-          ptr => scaled_spline_ptr + base_ptr + this%params(2)
-       else
-          ptr => scaled_spline_ptr + base_ptr
-       end if
+       ! Symbolic pathway: c * (a*x + b) + d, masked by sym_mask (=0)
+       ! This keeps sym params in the computational graph (zero gradient)
+       ax_ptr => matmul(this%params(4), input(1,1))  ! sym_a @ x → [m, batch]
+       axb_ptr => ax_ptr + this%params(5)             ! + sym_b   → [m, batch]
+       caxb_ptr => axb_ptr * this%params(6)           ! * sym_c   → [m, batch]
+       sym_ptr => caxb_ptr + this%params(7)           ! + sym_d   → [m, batch]
+       masked_sym_ptr => sym_ptr * this%sym_mask      ! * 0       → [m, batch]
+
+       ! Combine: scaled_spline + base + masked_symbolic (no bias)
+       spline_base_ptr => scaled_spline_ptr + base_ptr
+       ptr => spline_base_ptr + masked_sym_ptr
 
     else
 

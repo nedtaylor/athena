@@ -16,8 +16,13 @@ edge, so set G = N - K to match the Athena basis count.
 
 Architectural differences
 -------------------------
-* Athena KAN: pure linear combination of B-spline bases plus a bias term.
-  Parameters: weights [n_basis] + bias [1] = N + 1.
+* Athena KAN (use_base_activation=True, PyKAN-style):
+  ``output = scale_sp * spline(x) + scale_base * silu(x)``
+  plus masked symbolic pathway ``mask * (c * (a*x + b) + d)`` (inactive by
+  default, matching PyKAN).
+  Learnable per-edge: spline coef [N], scale_sp [1], scale_base [1],
+  symbolic affine [4].
+  Parameters: N + 6.
 
 * PyKAN: ``output = scale_base * silu(x) + scale_sp * spline(x)``
   Learnable per-edge: spline coef [N], scale_sp [1], scale_base [1],
@@ -36,7 +41,7 @@ framework's natural mode of operation:
 
   Athena KAN (kan_sine binary):
     Stochastic Adam — one gradient update per step using a single sample.
-    Default: 10 epochs × 1 000 samples = 10 000 steps.  Converges to < 0.001 MSE.
+    Default: 200 epochs × 1 000 samples = 200 000 steps.  Converges to < 0.001 MSE.
 
 Both reach comparable accuracy on the test set; the comparison illustrates the
 trade-off between full-batch efficiency and stochastic simplicity.
@@ -312,6 +317,8 @@ def _run_athena(exe: str) -> dict | None:
         low = s.lower()
         if "fastkan (rbf)" in low or "fastkan" in low and "benchmark" not in low:
             current_section = "fastkan"
+        elif "pykan-style" in low or "base+spline" in low:
+            current_section = "pykan"
         elif "b-spline" in low or "bspline" in low or ("kan (b" in low):
             current_section = "kan"
         elif "polynomial" in low:
@@ -342,26 +349,68 @@ def _run_athena(exe: str) -> dict | None:
 # Comparison table
 # ---------------------------------------------------------------------------
 
-def _print_summary(pykan_res: dict, athena_res: dict | None, athena_n_params: int) -> None:
+def _print_summary(pykan_res: dict, athena_res: dict | None, args) -> None:
+    n_basis = args.n_basis
+    degree = args.degree
+    grid = n_basis - degree
+    d_in, d_out = 1, 1
+    n_edges = d_in * d_out
+
     W = 62
     sep = "=" * W
     print()
     print(sep)
-    print("  Comparison Summary")
+    print("  Architecture & Parameter Comparison")
     print(sep)
     print()
 
+    # -- Architecture summary --
+    print("  Architecture:")
+    print(f"    Layer widths     : [{d_in}, {d_out}]")
+    print(f"    Edges            : {n_edges}")
+    print(f"    Spline degree    : {degree}")
+    print(f"    Grid size        : {grid}")
+    print(f"    Basis functions  : {n_basis}  (grid + k = {grid} + {degree})")
+    print()
+
+    # -- Parameter breakdown --
+    print("  Parameter breakdown per edge:")
+    print(f"    {'Component':30s}  {'PyKAN':>8}  {'Athena':>8}")
+    print(f"    {'-'*30}  {'-'*8}  {'-'*8}")
+    print(f"    {'Spline coefficients':30s}  {n_basis:>8}  {n_basis:>8}")
+    print(f"    {'scale_base (SiLU weight)':30s}  {1:>8}  {1:>8}")
+    print(f"    {'scale_sp (spline scale)':30s}  {1:>8}  {1:>8}")
+    print(f"    {'Symbolic affine (a,b,c,d)':30s}  {4:>8}  {4:>8}")
+    print(f"    {'Bias (trainable)':30s}  {'0':>8}  {'0':>8}")
+    pykan_per_edge = n_basis + 6
+    athena_per_edge = n_basis + 6
+    print(f"    {'─'*30}  {'─'*8}  {'─'*8}")
+    print(f"    {'Total per edge':30s}  {pykan_per_edge:>8}  {athena_per_edge:>8}")
+    print()
+
+    # -- Total parameters --
+    pykan_total = pykan_res["n_params"]
+    # Athena PyKAN-style: m * d * (K + 6) per layer
+    athena_total = n_edges * (n_basis + 6)
     print(f"  {'':30s}  {'PyKAN':>10}  {'Athena KAN':>10}")
     print(f"  {'-'*30}  {'-'*10}  {'-'*10}")
-    print(f"  {'Parameters':30s}  {pykan_res['n_params']:>10}  {athena_n_params:>10}")
+    print(f"  {'Total parameters':30s}  {pykan_total:>10}  {athena_total:>10}")
+
+    match_str = "MATCH ✓" if pykan_total == athena_total else f"MISMATCH (Δ={pykan_total - athena_total})"
+    print(f"  Parameter parity: {match_str}")
+    print()
 
     # Athena KAN MSE / time from parsed output
     a_mse: float | None = None
     a_time: float | None = None
     if athena_res is not None:
-        kan_sec = athena_res.get("sections", {}).get("kan", {})
-        a_mse = kan_sec.get("final_mse")
-        a_time = kan_sec.get("train_time")
+        # Check PyKAN-style section first, then generic kan section
+        for sec_name in ["pykan", "kan"]:
+            sec = athena_res.get("sections", {}).get(sec_name, {})
+            if "final_mse" in sec:
+                a_mse = sec["final_mse"]
+                a_time = sec.get("train_time")
+                break
 
     mse_str = f"{a_mse:.6f}" if a_mse is not None else "   n/a"
     time_str = f"{a_time:.4f} s" if a_time is not None else "    n/a"
@@ -372,10 +421,9 @@ def _print_summary(pykan_res: dict, athena_res: dict | None, athena_n_params: in
     print("  Notes:")
     print("  - Both: Adam (lr=0.01), same 1000-sample training set, same test set")
     print("  - PyKAN: full-batch Adam (efficient per step, fewer steps needed)")
-    print("  - Athena KAN: stochastic Adam (1 sample/step, 10 000 steps total)")
-    print("  - PyKAN activation: scale_base * silu(x) + scale_sp * spline(x)")
-    print("    (extra SiLU base term per edge — not present in Athena KAN)")
-    print("  - Athena KAN: pure B-spline basis, no base function")
+    print("  - Athena KAN: stochastic Adam (1 sample/step, many steps total)")
+    print("  - Both: output = scale_sp * spline(x) + scale_base * silu(x)")
+    print("  - Both: 4 symbolic affine params per edge (masked off by default)")
     print()
     print(sep)
     print()
@@ -436,9 +484,7 @@ def main() -> None:
         athena_res = _run_athena(exe)
 
     # --- Summary ---
-    # Athena KAN (1→1): n_basis weights + 1 bias
-    athena_n_params = args.n_basis + 1
-    _print_summary(pykan_res, athena_res, athena_n_params)
+    _print_summary(pykan_res, athena_res, args)
 
 
 if __name__ == "__main__":
