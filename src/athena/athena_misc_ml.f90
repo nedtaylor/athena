@@ -2052,7 +2052,7 @@ contains
     !              ... reflect data (about boundary index)
     ! replication = maintains spatial dimensions
     !               ... reflect data (boundary included)
-    select case(to_lower(trim(padding_method)))
+100 select case(to_lower(trim(padding_method)))
     case("none")
        padding_method = "valid"
        goto 100
