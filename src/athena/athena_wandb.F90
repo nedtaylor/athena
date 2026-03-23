@@ -25,8 +25,8 @@ module athena_wandb
   !!
   !! ## Usage (automatic logging via wandb_network_type)
   !!
-  !! Requires `-D_WANDB` at compile time (set `macros = ["_WANDB"]` in
-  !! `[preprocess.cpp]` of `fpm.toml`).
+  !! Requires `-D_WANDB` at compile time (for fpm >= 0.13.0, build with
+  !! `--features wandb`).
   !!
   !! ```fortran
   !! use athena

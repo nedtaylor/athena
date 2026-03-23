@@ -25,7 +25,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Source setup_env.sh to export FPM_CFLAGS / FPM_LDFLAGS / DYLD_LIBRARY_PATH.
 # shellcheck source=setup_env.sh
 # PYTHON is forwarded from the environment if set.
-source "${SCRIPT_DIR}/../../tools/setup_wandb_python_env.sh"
+source "${SCRIPT_DIR}/../../tools/setup_wf_env.sh"
 
 echo ""
 echo "Building and running wandb_sine..."

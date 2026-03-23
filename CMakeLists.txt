@@ -67,6 +67,8 @@ set(BUILD_TESTING OFF)
 set(BUILD_TESTS OFF)
 
 # include CPM module
+find_package(Git REQUIRED)
+set(GIT_EXECUTABLE "${GIT_EXECUTABLE}" CACHE FILEPATH "Path to git executable" FORCE)
 include(cmake/CPM.cmake)
 
 # add dependencies
@@ -116,11 +118,18 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   # set options for building tests and examples
   option(BUILD_TESTS "Build the unit tests" ON)
   option(BUILD_EXAMPLES "Build the examples" ON)
-  option(ATHENA_WANDB_SUPPORT "Enable Weights & Biases logging support via wandb_network_type (_WANDB macro)" OFF)
+  option(BUILD_WANDB_EXAMPLES "Build W&B examples (requires ATHENA_ENABLE_WANDB=ON)" OFF)
+  option(ATHENA_ENABLE_WANDB "Enable Weights & Biases logging support via wandb_network_type (_WANDB macro)" OFF)
 else()
   # When used as a dependency, disable tests by default
   set(BUILD_TESTS OFF)
   set(BUILD_EXAMPLES OFF)
+  set(BUILD_WANDB_EXAMPLES OFF)
+endif()
+
+# Backward/forward-compatible alias for W&B support
+if(BUILD_WANDB_EXAMPLES AND NOT BUILD_EXAMPLES)
+  message(FATAL_ERROR "BUILD_WANDB_EXAMPLES requires BUILD_EXAMPLES=ON")
 endif()
 
 
@@ -245,58 +254,21 @@ add_dependencies(${PROJECT_NAME} coreutils diffstruc graphstruc)
 target_link_libraries(${PROJECT_NAME} coreutils diffstruc graphstruc)
 
 # --------------------------------------------------------------------------- #
-#  Optional: Weights & Biases support  (-DATHENA_WANDB_SUPPORT=ON)             #
+#  Optional: Weights & Biases support  (-DATHENA_ENABLE_WANDB=ON)             #
 # --------------------------------------------------------------------------- #
-if(ATHENA_WANDB_SUPPORT)
+if(ATHENA_ENABLE_WANDB)
   message(STATUS "W&B support enabled (-D_WANDB will be set)")
 
-  # Python is required by the wandb C extension
-  find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
-
-  # Locate wandb-fortran sources.  Try the fpm build dependency cache first,
-  # then fall back to a user-supplied WANDB_FORTRAN_ROOT.
-  set(WANDB_FORTRAN_ROOT
-      "${CMAKE_SOURCE_DIR}/build/dependencies/wandb-fortran"
-      CACHE PATH
-      "Path to the wandb-fortran source tree (containing src/wf.f90)")
-
-  if(NOT EXISTS "${WANDB_FORTRAN_ROOT}/src/wf.f90")
-    message(FATAL_ERROR
-      "Could not find wandb-fortran sources at WANDB_FORTRAN_ROOT='${WANDB_FORTRAN_ROOT}'.\n"
-      "Run 'fpm build' once so fpm downloads the dependency, or set "
-      "-DWANDB_FORTRAN_ROOT=/path/to/wandb-fortran.")
-  endif()
-
-  set(WF_SRC_DIR "${WANDB_FORTRAN_ROOT}/src")
-  set(WF_MOD_DIR "${CMAKE_BINARY_DIR}/wandb_fortran_mod")
-
-  # Build wandb-fortran as a separate static library
-  add_library(wandb_fortran STATIC
-    ${WF_SRC_DIR}/wf_c.c
-    ${WF_SRC_DIR}/wf/wf_c_bindings.f90
-    ${WF_SRC_DIR}/wf/wf_run.f90
-    ${WF_SRC_DIR}/wf/wf_config.f90
-    ${WF_SRC_DIR}/wf/wf_sweep.f90
-    ${WF_SRC_DIR}/wf.f90
+  CPMAddPackage(
+    NAME wandb_fortran_dep
+    GITHUB_REPOSITORY nedtaylor/wandb-fortran
+    GIT_TAG development
+    OPTIONS
+      "BUILD_TESTING OFF"
   )
-  set_target_properties(wandb_fortran PROPERTIES
-    Fortran_MODULE_DIRECTORY ${WF_MOD_DIR}
-  )
-  target_include_directories(wandb_fortran
-    PUBLIC  ${WF_MOD_DIR}
-    PRIVATE ${Python3_INCLUDE_DIRS}
-            ${WF_SRC_DIR}
-  )
-  target_link_libraries(wandb_fortran PUBLIC
-    Python3::Python
-  )
-  if(APPLE)
-    # Ensure the Python dylib is found at runtime without DYLD_LIBRARY_PATH
-    get_target_property(_py_lib Python3::Python LOCATION)
-    get_filename_component(_py_libdir "${_py_lib}" DIRECTORY)
-    target_link_options(wandb_fortran PUBLIC
-      "-Wl,-rpath,${_py_libdir}"
-    )
+
+  if(NOT TARGET wandb_fortran)
+    message(FATAL_ERROR "CPM failed to provide target 'wandb_fortran' from nedtaylor/wandb-fortran@development")
   endif()
 
   # Activate the _WANDB code-paths in athena
@@ -304,12 +276,38 @@ if(ATHENA_WANDB_SUPPORT)
 
   # The athena library now needs the wf module
   add_dependencies(${PROJECT_NAME} wandb_fortran)
-  target_include_directories(${PROJECT_NAME} PUBLIC ${WF_MOD_DIR})
   target_link_libraries(${PROJECT_NAME} wandb_fortran)
 
-  message(STATUS "WANDB_FORTRAN_ROOT = ${WANDB_FORTRAN_ROOT}")
-  message(STATUS "Python3_INCLUDE_DIRS = ${Python3_INCLUDE_DIRS}")
-  message(STATUS "Python3_LIBRARIES    = ${Python3_LIBRARIES}")
+  get_target_property(WF_MOD_DIR wandb_fortran Fortran_MODULE_DIRECTORY)
+  if(WF_MOD_DIR)
+    target_include_directories(${PROJECT_NAME} PUBLIC ${WF_MOD_DIR})
+  endif()
+
+  if(BUILD_EXAMPLES AND BUILD_WANDB_EXAMPLES)
+    file(GLOB EXAMPLE_LIBRARY_SOURCES "${CMAKE_SOURCE_DIR}/example/example_library/src/*.f90")
+
+    add_executable(wandb_sine "${CMAKE_SOURCE_DIR}/example/wandb_sine/src/main.f90")
+    target_include_directories(wandb_sine PRIVATE ${MODULE_DIR} ${WF_MOD_DIR})
+    target_link_libraries(wandb_sine PRIVATE ${PROJECT_NAME} wandb_fortran)
+
+    add_executable(wandb_sweep "${CMAKE_SOURCE_DIR}/example/wandb_sweep/src/main.f90")
+    target_include_directories(wandb_sweep PRIVATE ${MODULE_DIR} ${WF_MOD_DIR})
+    target_link_libraries(wandb_sweep PRIVATE ${PROJECT_NAME} wandb_fortran)
+
+    add_executable(wandb_network_sine "${CMAKE_SOURCE_DIR}/example/wandb_network_sine/src/main.F90")
+    target_compile_definitions(wandb_network_sine PRIVATE _WANDB)
+    target_include_directories(wandb_network_sine PRIVATE ${MODULE_DIR} ${WF_MOD_DIR})
+    target_link_libraries(wandb_network_sine PRIVATE ${PROJECT_NAME} wandb_fortran)
+
+    add_executable(wandb_pinn_burgers
+      "${CMAKE_SOURCE_DIR}/example/wandb_pinn_burgers/src/main.f90"
+      ${EXAMPLE_LIBRARY_SOURCES}
+    )
+    target_include_directories(wandb_pinn_burgers PRIVATE ${MODULE_DIR} ${WF_MOD_DIR})
+    target_link_libraries(wandb_pinn_burgers PRIVATE ${PROJECT_NAME} wandb_fortran)
+  endif()
+elseif(BUILD_WANDB_EXAMPLES)
+  message(FATAL_ERROR "BUILD_WANDB_EXAMPLES requires ATHENA_ENABLE_WANDB=ON")
 endif()
 
 # include the build test directory

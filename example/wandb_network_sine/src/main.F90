@@ -18,10 +18,10 @@ program wandb_network_sine
   !!     pip install wandb && wandb login
   !!     ```
   !!
-  !! 2.  Build with the `_WANDB` macro (already set in fpm.toml):
+  !! 2.  Build with the `wandb` feature:
   !!     ```bash
-  !!     source /path/to/wandb-fortran/tools/setup_env.sh
-  !!     fpm run wandb_network_sine --example
+  !!     source tools/setup_wf_env.sh
+  !!     fpm run --example wandb_network_sine --features wandb
   !!     ```
   !!
   !! 3.  Open the printed wandb URL to see the loss / accuracy curves.
@@ -153,7 +153,7 @@ program wandb_network_sine
 #else
   implicit none
   write(*, '(A)') "wandb_network_sine: built without _WANDB — W&B support disabled."
-  write(*, '(A)') "Recompile with the _WANDB macro to enable this example."
+  write(*, '(A)') "Recompile with `--features wandb` to enable this example."
 #endif
 
 end program wandb_network_sine

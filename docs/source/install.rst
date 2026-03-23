@@ -52,7 +52,7 @@ To build and use athena, you need:
 1. **A Fortran Compiler** (compatible with Fortran 2018 or later)
 2. A Fortran build system; we recommend using:
 
-   a. **Fortran Package Manager (fpm)** - https://github.com/fortran-lang/fpm
+   a. **Fortran Package Manager (fpm >= 0.13.0)** - https://github.com/fortran-lang/fpm
    b. Alt. **CMake** - https://cmake.org
    c. Alt. **Spack** - https://spack.io
 
@@ -166,6 +166,30 @@ For development and debugging, you can build without the release profile:
 
 This compiles faster but without optimisations.
 If you do not specify a profile, fpm defaults to the debug profile.
+
+With built-in W&B support
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The W&B integration in athena is provided through an ``fpm`` feature (available in ``fpm >= 0.13.0``).
+
+.. code-block:: bash
+
+   source tools/setup_wf_env.sh
+   fpm build --features wandb
+
+To run the built-in W&B examples:
+
+.. code-block:: bash
+
+   source tools/setup_wf_env.sh
+   fpm run --example wandb_sine --features wandb
+
+Available W&B examples are:
+
+* ``wandb_sine``
+* ``wandb_network_sine``
+* ``wandb_sweep``
+* ``wandb_pinn_burgers``
 
 
 With CMake

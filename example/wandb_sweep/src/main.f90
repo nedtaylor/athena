@@ -20,7 +20,7 @@ program wandb_sweep_example
   !!
   !! ## Usage
   !!
-  !!   source tools/setup_wandb_python_env.sh   # or set FPM_CFLAGS/LDFLAGS
+  !!   source tools/setup_wf_env.sh             # or set FPM_CFLAGS/LDFLAGS
   !!   fpm run wandb_sweep --example
   !!
   use athena
