@@ -2267,7 +2267,8 @@ contains
                   achar(13) // achar(10), ndim-2
              call stop_program(err_msg)
              return
-          elseif(xor(sample_dim_.gt.0,channel_dim_.gt.0).and.&
+          elseif((sample_dim_.gt.0.or.channel_dim_.gt.0).and.&
+               .not.(sample_dim_.gt.0.and.channel_dim_.gt.0).and.&
                size(kernel_size).ne.ndim-1)then
              write(err_msg,'("&
                   &kernel_size length not equal to rank of data-1",A,"&

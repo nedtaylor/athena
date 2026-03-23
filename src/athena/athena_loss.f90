@@ -34,7 +34,7 @@ module athena__loss
   !! where N is number of samples, y is true value, ŷ is prediction
   use coreutils, only: real32
   use diffstruc, only: array_type, operator(+), operator(-), &
-       operator(*), operator(/), operator(**), mean, sum, log, abs, merge
+       operator(*), operator(/), mean, sum, log, abs, merge, squared
   use athena__diffstruc_extd, only: huber
   implicit none
 
@@ -408,14 +408,14 @@ contains
     type(array_type), pointer :: ptr
     !! Temporary pointer for calculations
 
-    output => mean( ( predicted(1,1) - expected(1,1) )  ** 2._real32 ) / &
+    output => mean( squared( predicted(1,1) - expected(1,1) ) ) / &
          2._real32
     if(any(shape(predicted).gt.1))then
        do s = 1, size(predicted,2)
           do i = 1, size(predicted,1)
              if(.not.predicted(i,s)%allocated .or. &
                   .not.expected(i,s)%allocated) cycle
-             ptr => mean( ( predicted(i,s) - expected(i,s) )  ** 2._real32 ) / &
+             ptr => mean( squared( predicted(i,s) - expected(i,s) ) ) / &
                   2._real32
 
              output => output + ptr

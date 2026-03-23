@@ -19,7 +19,7 @@ module athena__accuracy
        import real32
        real(real32), dimension(:,:), intent(in) :: predicted, expected
        !! Predicted and expected values
-       real(real32), dimension(size(predicted,2)) :: output
+       real(real32), dimension(size(expected,2)) :: output
        !! Accuracy of the model
      end function compute_accuracy_function
   end interface
@@ -148,11 +148,11 @@ contains
 
        ! compute accuracy (R^2 score)
        if(abs(rss(s)).lt.epsilon)then
-         output(s) = 1._real32
+          output(s) = 1._real32
        elseif(abs(tss(s)).lt.epsilon.or.rss(s)/tss(s).gt.1._real32)then
-         output(s) = 0._real32
+          output(s) = 0._real32
        else
-         output(s) = 1._real32 - rss(s)/tss(s)
+          output(s) = 1._real32 - rss(s)/tss(s)
        end if
     end do
 
