@@ -1813,6 +1813,51 @@ contains
 
 
 !###############################################################################
+#ifdef __flang__
+    module function get_sample_flang( &
+       input, start_index, end_index, batch_size &
+  ) result(sample)
+    !! Get samples of batch size from a real array
+    implicit none
+
+    ! Arguments
+    integer, intent(in) :: start_index, end_index
+    !! Start and end indices
+    integer, intent(in) :: batch_size
+    !! Batch size
+    real(real32), dimension(..), intent(in) :: input
+    !! Input array
+
+    real(real32), allocatable :: sample(:,:)
+    !! Sample array
+
+    integer :: num_samples
+
+    num_samples = end_index - start_index + 1
+
+    select rank(input)
+    rank(2)
+       sample = input(:, start_index:end_index)
+    rank(3)
+       sample = reshape(input(:, :, start_index:end_index), &
+            [size(input,1) * size(input,2), num_samples])
+    rank(4)
+       sample = reshape(input(:, :, :, start_index:end_index), &
+            [size(input,1) * size(input,2) * size(input,3), num_samples])
+    rank(5)
+       sample = reshape(input(:, :, :, :, start_index:end_index), &
+            [size(input,1) * size(input,2) * size(input,3) * size(input,4), &
+             num_samples])
+    rank(6)
+       sample = reshape(input(:, :, :, :, :, start_index:end_index), &
+            [size(input,1) * size(input,2) * size(input,3) * size(input,4) &
+             * size(input,5), num_samples])
+    rank default
+       allocate(sample(0, 0))
+    end select
+
+  end function get_sample_flang
+#else
   module function get_sample_ptr( &
        input, start_index, end_index, batch_size &
   ) result(sample_ptr)
@@ -1852,6 +1897,7 @@ contains
     end select
 
   end function get_sample_ptr
+#endif
 !-------------------------------------------------------------------------------
   module function get_sample_array( &
        input, start_index, end_index, batch_size, as_graph &
@@ -1889,9 +1935,7 @@ contains
           do j = 1, size(input,2)
              call sample(i,j)%allocate(array_shape=[input(i,j)%shape, &
                   end_index - start_index + 1])
-             sample(i,j)%val = get_sample_ptr( &
-                  input(i,j)%val, start_index, end_index, batch_size &
-             )
+             sample(i,j)%val = input(i,j)%val(:,start_index:end_index)
           end do
        end do
     end if

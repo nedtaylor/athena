@@ -298,7 +298,7 @@ contains
     u_xx => u_x%grad_forward(input)
 
     f_pred => u_t + u * u_x - nu * u_xx
-    loss_f => mean( f_pred ** 2._real32, 2 )
+    loss_f => mean( squared(f_pred), 2 )
 
     ! boundary conditions
     u_tmp => this%forward_eval(X_b_left)
@@ -307,13 +307,13 @@ contains
     u_tmp => this%forward_eval(X_b_right)
     u_right_pred => u_tmp(1,1)%duplicate_graph()
     loss_b => &
-         mean( u_left_pred ** 2._real32, 2 ) + &
-         mean( u_right_pred ** 2._real32, 2 )
+         mean( squared(u_left_pred), 2 ) + &
+         mean( squared(u_right_pred), 2 )
 
     ! zero time condition
     u_tmp => this%forward_eval(X_0)
     u0_pred => u_tmp(1,1)
-    loss_0 => mean( ( u0_pred - u0 ) ** 2._real32, 2)
+    loss_0 => mean( squared(u0_pred - u0), 2)
 
     loss => loss_f + loss_0 + loss_b
     loss%is_temporary = .false.
