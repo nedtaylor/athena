@@ -197,6 +197,14 @@ module athena
        allocate_list_of_onnx_layer_creators, &
        read_layer_container, onnx_create_layer_container
 
+
+  ! wandb logging (optional)
+  !-----------------------------------------------------------------------------
+#ifdef _WANDB
+  use athena_wandb, only: wandb_network_type
+#endif
+
+
   implicit none
 
 

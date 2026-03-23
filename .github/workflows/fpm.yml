@@ -71,7 +71,7 @@ jobs:
     - uses: fortran-lang/setup-fpm@v7
       id: setup-fpm
       with:
-        fpm-version: "v0.11.0"
+        fpm-version: "v0.13.0"
 
     - name: Compile
       shell: bash -l {0}
