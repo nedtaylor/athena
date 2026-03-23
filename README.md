@@ -2,7 +2,7 @@
 [![Latest Release](https://img.shields.io/github/v/release/nedtaylor/athena?sort=semver)](https://github.com/nedtaylor/athena/releases "View on GitHub")
 [![status](https://joss.theoj.org/papers/7806cc51a998f872034abfe0bb24bc24/status.svg)](https://joss.theoj.org/papers/7806cc51a998f872034abfe0bb24bc24)
 [![Documentation Status](https://readthedocs.org/projects/athena/badge/?version=latest)](https://athena-fortran.readthedocs.io/en/latest/?badge=latest "athena ReadTheDocs")
-[![FPM](https://img.shields.io/badge/fpm-0.12.0-purple)](https://github.com/fortran-lang/fpm "View Fortran Package Manager")
+[![FPM](https://img.shields.io/badge/fpm-0.13.0-purple)](https://github.com/fortran-lang/fpm "View Fortran Package Manager")
 [![CMAKE](https://img.shields.io/badge/cmake-3.17.5-red)](https://github.com/Kitware/CMake/releases/tag/v3.17.5 "View cmake")
 [![GCC compatibility](https://img.shields.io/badge/gcc-15.2.0-green)](https://gcc.gnu.org/gcc-13/ "View GCC")
 [![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/nedtaylor/fd7c07c046ecc92d92eaf7bdcb78c4b5/raw/test.json)](https://nedtaylor.github.io/athena/ "View coverage report")
@@ -72,7 +72,7 @@ The athena library can be obtained from the git repository. Use the following co
 
 The library has the following dependencies:
 - A Fortran compiler (compatible with Fortran 2018 or later)
-- [fpm](https://github.com/fortran-lang/fpm), [CMake](https://cmake.org), or [Spack](https://github.com/spack/spack) for building the library
+- [fpm](https://github.com/fortran-lang/fpm) (>= 0.13.0), [CMake](https://cmake.org), or [Spack](https://github.com/spack/spack) for building the library
 - The [graphstruc](https://github.com/nedtaylor/graphstruc) Fortran library (for handing graph structures through derived types)
 
 The library has been developed and tested using the following compilers:
@@ -95,6 +95,12 @@ The library is set up to work with the Fortran Package Manager (fpm).
 Run the following command in the repository main directory:
 ```
   fpm build --profile release
+```
+
+To build with the built-in Weights & Biases integration enabled, use the `wandb` feature:
+```
+  source tools/setup_wf_env.sh
+  fpm build --features wandb
 ```
 
 #### Testing with fpm
@@ -179,6 +185,12 @@ To run a particular example, execute the following command:
 
 where [_NAME_] is the name of the example found in the list.
 
+For built-in W&B examples (`wandb_sine`, `wandb_network_sine`, `wandb_sweep`, `wandb_pinn_burgers`), enable the `wandb` feature:
+```
+  source tools/setup_wf_env.sh
+  fpm run --example wandb_sine --features wandb
+```
+
 
 #### Running examples manually
 
@@ -197,9 +209,27 @@ After the example program is compiled, the following directories will also exist
 
 The example will perform a train over the MNIST dataset. Once complete, it will print its weights and biases to file, and test the trained network on the training set. The output from this can then be compared to the file _expected_output_COMPILER.txt_.
 
-In the tools/ directory, there exist scripts that take utilise the wandb python package (Weights and Biases, a machine learning data tracker). Wandb is a Python module and, as such, a Python interface has been provided to call and run the Fortran example. The Python interface then reads the Fortran output files and logs the results to the wandb project.
+### Weights and Biases (wandb) integration
 
-Example wandb project link: https://wandb.ai/ntaylor/cnn_mnist_test/overview?workspace=user-ntaylor
+athena provides optional integration with the Weights and Biases (wandb) machine learning platform through a separate library called [wandb-fortran](https://github.com/nedtaylor/wandb-fortran).
+
+This integration is opt-in:
+
+- fpm (>=0.13.0): build/run with `--features wandb`
+- cmake: use `-DATHENA_WANDB_SUPPORT=ON` (or `-DATHENA_ENABLE_WANDB=ON`)
+
+The `network_type` derived type in athena has an extended type called `wandb_network_type` that provides additional procedures for logging to wandb by default inside the `train` procedure. To use this, simply declare a `wandb_network_type` variable instead of a `network_type` variable, and the library will handle the rest.
+
+For more control over the logging, and access to sweeps for hyperparameter optimisation, the `wandb-fortran` library can be used directly.
+This library provides a Fortran API for logging to wandb, and can be used in conjunction with the athena library (or any other Fortran library) to log custom metrics, hyperparameters, and more.
+
+Examples of how to use the `wandb-fortran` library for athena can be found in the following examples:
+
+- [example/wandb_network_sine](example/wandb_network_sine)
+- [example/wandb_sweep](example/wandb_sweep)
+- [example/wandb_pinn_burgers](example/wandb_pinn_burgers)
+
+Documentation for the `wandb-fortran` library can be found on the [docs](https://wandb-fortran.readthedocs.io/) website.
 
 
 API documentation
@@ -308,7 +338,3 @@ All files with the __sub_ suffix are the implementations of interfaces defined w
 |_example/__[_NAME_]__/src_                   | source directory for [_NAME_] example program  |
 |_test/test__[_NAME_]__.f90_           | [_NAME_] test program to check library expected functionality |
 |_tools/coverage_badge.py_          | script to extract code coverage percentage from GitHub Action |
-|_tools/sweep_init.py_              | script to initialise wandb sweep  |
-|_tools/sweep_train.py_             | script to perform training and log learning to wandb  |
-|_tools/template.in_                | input file for program in test/bin/ (once compiled)  |
-|_tools/wandb-metadata.json_        | metadata defining default plots on wandb website  |

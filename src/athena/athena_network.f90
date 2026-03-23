@@ -178,6 +178,10 @@ module athena__network
 
      procedure, pass(this) :: nullify_graph
      !! Nullify graph data in the network to free memory
+
+     procedure, pass(this) :: post_epoch_hook
+     !! Called after each training epoch; override in derived types for custom
+     !! per-epoch callbacks (e.g. logging to Weights & Biases).
   end type network_type
 
   interface network_type
@@ -707,6 +711,20 @@ module athena__network
        class(network_type), intent(inout) :: this
        !! Instance of the network
      end subroutine nullify_graph
+
+     module subroutine post_epoch_hook(this, epoch, loss, accuracy)
+       !! Hook called after each training epoch.
+       !! The default implementation is a no-op; override in a derived type to
+       !! add custom per-epoch behaviour (e.g. W&B metric logging).
+       class(network_type), intent(inout) :: this
+       !! Instance of the network
+       integer, intent(in) :: epoch
+       !! Current epoch number (1-based)
+       real(real32), intent(in) :: loss
+       !! Mean loss over the epoch
+       real(real32), intent(in) :: accuracy
+       !! Mean accuracy over the epoch
+     end subroutine post_epoch_hook
   end interface
 
   interface get_sample

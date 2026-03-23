@@ -20,6 +20,17 @@ coreutils = { git = "https://github.com/nedtaylor/coreutils", tag = "v0.1.0" }
 diffstruc = { git = "https://github.com/nedtaylor/diffstruc", branch = "optimise" }
 graphstruc = { git = "https://github.com/nedtaylor/graphstruc", tag = "v0.2.1" }
 
+[features]
+wandb.dependencies.wandb-fortran = { git = "https://github.com/nedtaylor/wandb-fortran" }
+wandb.dependencies.example_library = { path = "example/example_library" }
+wandb.preprocess.cpp.macros = ["_WANDB"]
+wandb.example = [
+	{ name = "wandb_sine", source-dir = "example/wandb_sine/src", main = "main.f90" },
+	{ name = "wandb_pinn_burgers", source-dir = "example/wandb_pinn_burgers/src", main = "main.f90" },
+	{ name = "wandb_sweep", source-dir = "example/wandb_sweep/src", main = "main.f90" },
+	{ name = "wandb_network_sine", source-dir = "example/wandb_network_sine/src", main = "main.F90" }
+]
+
 [install]
 library = false
 
@@ -30,7 +41,7 @@ source-form = "free"
 
 [preprocess]
 [preprocess.cpp]
-
+suffixes = ["F90", "f90"]
 
 [[example]]
 name = "sine"
