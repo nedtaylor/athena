@@ -710,6 +710,24 @@ module athena__network
   end interface
 
   interface get_sample
+#ifdef __flang__
+     module function get_sample_flang( &
+          input, start_index, end_index, batch_size &
+     ) result(sample)
+       !! Get a sample from a rank
+       implicit none
+       ! Arguments
+       integer, intent(in) :: start_index, end_index
+       !! Start and end indices
+       integer, intent(in) :: batch_size
+       !! Batch size
+       real(real32), dimension(..), intent(in) :: input
+       !! Input array
+       ! Local variables
+       real(real32), allocatable :: sample(:,:)
+       !! Sample array
+     end function get_sample_flang
+#else
      module function get_sample_ptr( &
           input, start_index, end_index, batch_size &
      ) result(sample_ptr)
@@ -726,6 +744,7 @@ module athena__network
        real(real32), pointer :: sample_ptr(:,:)
        !! Pointer to sample
      end function get_sample_ptr
+#endif
      module function get_sample_array( &
           input, start_index, end_index, batch_size, as_graph&
      ) result(sample)

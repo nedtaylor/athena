@@ -209,10 +209,14 @@ contains
     allocate(this%params(2))
     call this%params(1)%allocate([this%weight_shape(:,1), 1])
     call this%params(1)%set_requires_grad(.true.)
+    this%params(1)%fix_pointer = .true.
     this%params(1)%is_sample_dependent = .false.
+    this%params(1)%is_temporary = .false.
     call this%params(2)%allocate([this%bias_shape, 1])
     call this%params(2)%set_requires_grad(.true.)
+    this%params(2)%fix_pointer = .true.
     this%params(2)%is_sample_dependent = .false.
+    this%params(2)%is_temporary = .false.
 
 
     !---------------------------------------------------------------------------
