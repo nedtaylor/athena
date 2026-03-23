@@ -79,6 +79,7 @@ The library has been developed and tested using the following compilers:
 - gfortran -- gcc 15.2.0
 - ifort -- Intel 2021.10.0.20230609
 - ifx -- IntelLLVM 2025.2.0
+- flang -- Flang 22.1.1
 
 > **_NOTE:_**
 athena is known to be incompatible with all versions of the gfortran compiler below `14.3.0` due an error with order of calling of overloaded `final` procedures of derived types.
