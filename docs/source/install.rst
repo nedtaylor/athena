@@ -81,6 +81,7 @@ The library has been developed and tested with:
 
 * **gfortran** -- gcc 14.3.0, 15.2.0
 * **ifx** -- Intel Fortran Compiler 2025.2.0
+* **flang** -- Flang 22.1.1
 
 Installing Dependencies
 -----------------------
@@ -310,6 +311,15 @@ If you encounter errors related to ``final`` or ``finalise_array``, this will li
    gfortran --version
 
 If your version is older, upgrade your compiler.
+
+
+Flang compiler issues
+~~~~~~~~~~~~~~~~~~~~~
+
+diffstruc and athena have been tested with Flang 22.1.1 and work correctly with this version.
+However, diffstruc is known to have issues with Flang when chaining overloaded operators on ``array_type`` objects, which may lead to compilation errors or incorrect results..
+See the `diffstruc documentation <https:https://diffstruc.readthedocs.io/en/development/tutorials/operations.html#chaining-operations-issues>`_ for more details and workarounds.
+This is only important for users intending on writing their own loss functions, custom layers, or ``array_type`` operations, and does not affect the use of pre-defined layers and loss functions provided by athena.
 
 fpm Not Found
 ~~~~~~~~~~~~~
