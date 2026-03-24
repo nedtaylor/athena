@@ -1719,6 +1719,88 @@ contains
 
 
     !---------------------------------------------------------------------------
+    ! Pre-compute forward pass navigation
+    !---------------------------------------------------------------------------
+    block
+      integer :: nv, l_idx, v_idx, lid, parent_v
+      nv = size(this%vertex_order, 1)
+      if(allocated(this%fwd_layer_id))   deallocate(this%fwd_layer_id)
+      if(allocated(this%fwd_num_inputs)) deallocate(this%fwd_num_inputs)
+      if(allocated(this%fwd_parent_id))  deallocate(this%fwd_parent_id)
+      if(allocated(this%fwd_layer_type)) deallocate(this%fwd_layer_type)
+      allocate(this%fwd_layer_id(nv))
+      allocate(this%fwd_num_inputs(nv))
+      allocate(this%fwd_parent_id(nv))
+      allocate(this%fwd_layer_type(nv))
+      this%fwd_parent_id = 0
+      do l_idx = 1, nv
+         v_idx = this%vertex_order(l_idx)
+         lid = this%auto_graph%vertex(v_idx)%id
+         this%fwd_layer_id(l_idx) = lid
+         this%fwd_num_inputs(l_idx) = &
+              count(this%auto_graph%adjacency(:,v_idx).gt.0)
+         if(this%fwd_num_inputs(l_idx).eq.1)then
+            parent_v = maxloc( &
+                 this%auto_graph%adjacency(:,v_idx), dim=1)
+            this%fwd_parent_id(l_idx) = &
+                 this%auto_graph%vertex(parent_v)%id
+         end if
+         ! Determine layer type: 0=input, 1=merge, 2=default
+         select type(layer => this%model(lid)%layer)
+         class is(input_layer_type)
+            this%fwd_layer_type(l_idx) = 0
+         class is(merge_layer_type)
+            this%fwd_layer_type(l_idx) = 1
+         class default
+            this%fwd_layer_type(l_idx) = 2
+         end select
+      end do
+    end block
+
+
+    !---------------------------------------------------------------------------
+    ! Pre-compute parameter segment layout
+    !---------------------------------------------------------------------------
+    block
+      integer :: l_idx, p_idx, seg_count, s_idx, e_idx
+      ! First pass: count segments
+      seg_count = 0
+      do l_idx = 1, this%num_layers
+         select type(current => this%model(l_idx)%layer)
+         class is(learnable_layer_type)
+            seg_count = seg_count + size(current%params)
+         end select
+      end do
+      this%param_num_segments = seg_count
+      if(allocated(this%param_seg_layer)) deallocate(this%param_seg_layer)
+      if(allocated(this%param_seg_pidx))  deallocate(this%param_seg_pidx)
+      if(allocated(this%param_seg_start)) deallocate(this%param_seg_start)
+      if(allocated(this%param_seg_end))   deallocate(this%param_seg_end)
+      allocate(this%param_seg_layer(seg_count))
+      allocate(this%param_seg_pidx(seg_count))
+      allocate(this%param_seg_start(seg_count))
+      allocate(this%param_seg_end(seg_count))
+      ! Second pass: fill layout
+      seg_count = 0
+      e_idx = 0
+      do l_idx = 1, this%num_layers
+         select type(current => this%model(l_idx)%layer)
+         class is(learnable_layer_type)
+            do p_idx = 1, size(current%params)
+               seg_count = seg_count + 1
+               s_idx = e_idx + 1
+               e_idx = e_idx + size(current%params(p_idx)%val, 1)
+               this%param_seg_layer(seg_count) = l_idx
+               this%param_seg_pidx(seg_count) = p_idx
+               this%param_seg_start(seg_count) = s_idx
+               this%param_seg_end(seg_count) = e_idx
+            end do
+         end select
+      end do
+    end block
+
+
+    !---------------------------------------------------------------------------
     ! Set batch size, if provided
     !---------------------------------------------------------------------------
     if(present(batch_size)) this%batch_size = batch_size
@@ -1814,7 +1896,7 @@ contains
 
 !###############################################################################
 #ifdef __flang__
-    module function get_sample_flang( &
+  module function get_sample_flang( &
        input, start_index, end_index, batch_size &
   ) result(sample)
     !! Get samples of batch size from a real array
@@ -1847,11 +1929,11 @@ contains
     rank(5)
        sample = reshape(input(:, :, :, :, start_index:end_index), &
             [size(input,1) * size(input,2) * size(input,3) * size(input,4), &
-             num_samples])
+                 num_samples])
     rank(6)
        sample = reshape(input(:, :, :, :, :, start_index:end_index), &
-            [size(input,1) * size(input,2) * size(input,3) * size(input,4) &
-             * size(input,5), num_samples])
+            [size(input,1) * size(input,2) * size(input,3) * size(input,4) * &
+                 size(input,5), num_samples])
     rank default
        allocate(sample(0, 0))
     end select
@@ -2469,12 +2551,11 @@ contains
     ! Local variables
     integer :: l, i, j, vertex_idx, layer_id, parent_id
     !! Loop index and vertex index
-    integer :: input_idx
-    !! Index of input layer
     integer :: num_input_layers
     !! Number of input layers
     type(array_type), pointer :: input_ptr(:,:) => null()
     type(array_ptr_type), dimension(:), allocatable :: input_list
+    logical :: use_precomp
 
 
     select type(input)
@@ -2487,12 +2568,22 @@ contains
           end if
        end do
     end select
+
+    ! Use pre-computed navigation if available
+    use_precomp = allocated(this%fwd_layer_id)
+
     ! Forward pass
     !---------------------------------------------------------------------------
     do l = 1, size(this%vertex_order,1)
-       vertex_idx = this%vertex_order(l)
-       layer_id = this%auto_graph%vertex(vertex_idx)%id
-       num_input_layers = count(this%auto_graph%adjacency(:,vertex_idx).gt.0)
+       if(use_precomp)then
+          layer_id = this%fwd_layer_id(l)
+          num_input_layers = this%fwd_num_inputs(l)
+       else
+          vertex_idx = this%vertex_order(l)
+          layer_id = this%auto_graph%vertex(vertex_idx)%id
+          num_input_layers = count(this%auto_graph%adjacency(:,vertex_idx).gt.0)
+       end if
+
        if(num_input_layers.eq.0)then
           select type(layer => this%model(layer_id)%layer)
           class is(input_layer_type)
@@ -2526,15 +2617,21 @@ contains
              return
           end select
        elseif(num_input_layers.eq.1)then
-          j = maxloc(this%auto_graph%adjacency(:,vertex_idx),dim=1)
-          input_idx = findloc(this%root_vertices, j, dim=1)
-          parent_id = this%auto_graph%vertex(j)%id
+          if(use_precomp)then
+             parent_id = this%fwd_parent_id(l)
+          else
+             vertex_idx = this%vertex_order(l)
+             j = maxloc( &
+                  this%auto_graph%adjacency(:,vertex_idx), dim=1)
+             parent_id = this%auto_graph%vertex(j)%id
+          end if
           input_ptr => this%model(parent_id)%layer%output
           select type(input)
           type is(graph_type)
              call this%model(layer_id)%layer%set_graph( [ input(1,:) ] )
           end select
        else
+          vertex_idx = this%vertex_order(l)
           allocate(input_list(num_input_layers))
           i = 0
           do j = 1, size(this%vertex_order,1)
@@ -2546,14 +2643,27 @@ contains
           end do
        end if
 
-       select type(layer => this%model(layer_id)%layer)
-       class is(merge_layer_type)
-          call layer%combine(input_list)
-          deallocate(input_list)
-       class default
-          call layer%forward(input_ptr)
-          input_ptr => null()
-       end select
+       if(use_precomp)then
+          if(this%fwd_layer_type(l).eq.1)then
+             select type(layer => this%model(layer_id)%layer)
+             class is(merge_layer_type)
+                call layer%combine(input_list)
+             end select
+             deallocate(input_list)
+          else
+             call this%model(layer_id)%layer%forward(input_ptr)
+             input_ptr => null()
+          end if
+       else
+          select type(layer => this%model(layer_id)%layer)
+          class is(merge_layer_type)
+             call layer%combine(input_list)
+             deallocate(input_list)
+          class default
+             call layer%forward(input_ptr)
+             input_ptr => null()
+          end select
+       end if
 
     end do
 
@@ -2616,7 +2726,7 @@ contains
     !! Parameters and gradients
 
     ! Local variables
-    integer :: l, i, start_idx, end_idx
+    integer :: l, i, s, start_idx, end_idx, seg
     !! Loop index
 
 
@@ -2634,45 +2744,88 @@ contains
 
 
     !---------------------------------------------------------------------------
-    ! Get learnable parameters and gradients
+    ! Get learnable parameters and gradients (using pre-computed layout)
     !---------------------------------------------------------------------------
-    start_idx = 0
-    end_idx   = 0
-    do l = 1, this%num_layers
-       select type(current => this%model(l)%layer)
-       class is(learnable_layer_type)
-          do i = 1, size(current%params)
-             start_idx = end_idx + 1
-             end_idx = end_idx + size(current%params(i)%val, 1)
+    if(this%param_num_segments.gt.0 .and. &
+         allocated(this%param_seg_layer))then
+       do seg = 1, this%param_num_segments
+          l = this%param_seg_layer(seg)
+          i = this%param_seg_pidx(seg)
+          start_idx = this%param_seg_start(seg)
+          end_idx = this%param_seg_end(seg)
+          select type(current => this%model(l)%layer)
+          class is(learnable_layer_type)
              params(start_idx:end_idx) = current%params(i)%val(:,1)
              if(.not.associated(current%params(i)%grad))then
                 call stop_program( &
-                     "Gradient not allocated for parameters in layer "// &
-                     trim(current%name) // &
-                     "." &
+                     "Gradient not allocated for parameters" &
                 )
              end if
-             select case(size(current%params(i)%grad%val,2))
-             case(1)
-                gradients(start_idx:end_idx) = current%params(i)%grad%val(:,1)
-             case default
-                gradients(start_idx:end_idx) = [ &
+             s = size(current%params(i)%grad%val,2)
+             if(s.eq.1)then
+                gradients(start_idx:end_idx) = &
+                     current%params(i)%grad%val(:,1)
+             else
+                gradients(start_idx:end_idx) = &
                      sum(current%params(i)%grad%val, dim=2) / &
-                     real(size(current%params(i)%grad%val, dim=2), real32) &
-                ]
-             end select
-          end do
-       end select
-    end do
-    ! have an if statement of whether to apply clipping to to gradients of
-    ! each layer individually or collectively to the all gradients at once
+                     real(s, real32)
+             end if
+          end select
+       end do
+    else
+       start_idx = 0
+       end_idx   = 0
+       do l = 1, this%num_layers
+          select type(current => this%model(l)%layer)
+          class is(learnable_layer_type)
+             do i = 1, size(current%params)
+                start_idx = end_idx + 1
+                end_idx = end_idx + size(current%params(i)%val, 1)
+                params(start_idx:end_idx) = current%params(i)%val(:,1)
+                if(.not.associated(current%params(i)%grad))then
+                   call stop_program( &
+                        "Gradient not allocated for parameters" &
+                   )
+                end if
+                select case(size(current%params(i)%grad%val,2))
+                case(1)
+                   gradients(start_idx:end_idx) = &
+                        current%params(i)%grad%val(:,1)
+                case default
+                   gradients(start_idx:end_idx) = [ &
+                        sum(current%params(i)%grad%val, dim=2) / &
+                        real( &
+                             size(current%params(i)%grad%val, dim=2), &
+                             real32) &
+                   ]
+                end select
+             end do
+          end select
+       end do
+    end if
     call this%optimiser%clip_dict%apply(size(gradients),gradients)
 
     !---------------------------------------------------------------------------
     ! Update layers of learnable layer types
     !---------------------------------------------------------------------------
     call this%optimiser%minimise(params, gradients)
-    call this%set_params(params)
+
+    ! Set params back using pre-computed layout
+    if(this%param_num_segments.gt.0 .and. &
+         allocated(this%param_seg_layer))then
+       do seg = 1, this%param_num_segments
+          l = this%param_seg_layer(seg)
+          i = this%param_seg_pidx(seg)
+          start_idx = this%param_seg_start(seg)
+          end_idx = this%param_seg_end(seg)
+          select type(current => this%model(l)%layer)
+          class is(learnable_layer_type)
+             current%params(i)%val(:,1) = params(start_idx:end_idx)
+          end select
+       end do
+    else
+       call this%set_params(params)
+    end if
     call this%reset_gradients()
 
   end subroutine update
