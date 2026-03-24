@@ -48,6 +48,7 @@ set(CMAKE_Fortran_STANDARD 2018)
 
 # set language
 enable_language(Fortran)
+enable_language(C)
 
 # set coverage compiler flags
 if (CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*")
@@ -139,11 +140,14 @@ set(LIB_DIR ${SRC_DIR}/athena)
 # Automatically find all Fortran files in athena/
 file(GLOB LIB_FILES "${LIB_DIR}/*.f90" "${LIB_DIR}/*.F90")
 
+# Collect C source files for binary ONNX support
+file(GLOB C_FILES "${LIB_DIR}/c/*.c")
+
 # Collect the main source file
 file(GLOB SRC_FILES "${SRC_DIR}/*.f90")
 
 # Combine all source files
-set(ALL_SOURCES ${SRC_FILES} ${LIB_FILES})
+set(ALL_SOURCES ${SRC_FILES} ${LIB_FILES} ${C_FILES})
 
 # Optional: print for debugging
 message(STATUS "LIB_FILES: ${LIB_FILES}")
@@ -222,6 +226,10 @@ target_include_directories(${PROJECT_NAME} PUBLIC
   ${COREUTILS_MOD_DIR}
   ${DIFFSTRUC_MOD_DIR}
   ${GRAPHSTRUC_MOD_DIR}
+)
+# Add C include directory for onnx_binary.h
+target_include_directories(${PROJECT_NAME} PRIVATE
+  ${CMAKE_SOURCE_DIR}/${LIB_DIR}/c
 )
 target_link_libraries(${PROJECT_NAME} PUBLIC)
 
@@ -319,4 +327,6 @@ endif()
 if ( ( CMAKE_Fortran_COMPILER MATCHES ".*gfortran.*" OR CMAKE_Fortran_COMPILER MATCHES ".*gcc.*" ) AND
      ( CMAKE_BUILD_TYPE MATCHES "Debug*" OR CMAKE_BUILD_TYPE MATCHES "Dev*" ) )
   append_coverage_compiler_flags()
+  # Remove coverage flags from C compiler to avoid clang/gfortran gcov incompatibility
+  string(REPLACE "${COVERAGE_COMPILER_FLAGS}" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 endif()

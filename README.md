@@ -233,6 +233,53 @@ Examples of how to use the `wandb-fortran` library for athena can be found in th
 Documentation for the `wandb-fortran` library can be found on the [docs](https://wandb-fortran.readthedocs.io/) website.
 
 
+### ONNX interoperability
+
+athena supports exporting and importing networks in the [ONNX](https://onnx.ai/) (Open Neural Network Exchange) format.
+Two formats are supported:
+
+- **Binary (protobuf)**: Standard `.onnx` format, compatible with other ONNX-compatible frameworks (e.g. PyTorch, TensorFlow, ONNX Runtime). Uses a built-in C protobuf serialiser — no external protobuf library is required.
+- **Text**: A human-readable text representation (`.onnx.txt`) for inspection and debugging.
+
+#### Unified API
+
+The simplest way to save and load ONNX models is through the unified API, which auto-detects the format based on file extension:
+
+```fortran
+use athena
+
+type(network_type) :: network, reimported
+
+! ... build and compile the network ...
+
+! Save to binary protobuf format (.onnx extension)
+call save_onnx('model.onnx', network)
+
+! Save to text format (any other extension)
+call save_onnx('model.onnx.txt', network)
+
+! Load from binary format
+reimported = load_onnx('model.onnx')
+
+! Load from text format
+reimported = load_onnx('model.onnx.txt')
+```
+
+#### Format-specific procedures
+
+For explicit control over the format, use the format-specific procedures:
+
+```fortran
+! Binary protobuf format
+call write_onnx_binary('model.onnx', network)
+reimported = read_onnx_binary('model.onnx', verbose=1)
+
+! Text format
+call write_onnx('model.onnx.txt', network)
+reimported = read_onnx('model.onnx.txt', verbose=1)
+```
+
+
 API documentation
 -----------------
 

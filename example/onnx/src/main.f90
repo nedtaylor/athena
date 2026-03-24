@@ -11,6 +11,15 @@ program onnx_example
   !! - **Optimisation**: Use specialised inference engines
   !! - **Interoperability**: Share models across teams/organisations
   !!
+  !! ## Formats
+  !!
+  !! athena supports two ONNX formats:
+  !! - **Binary (protobuf)**: Standard `.onnx` files compatible with other frameworks
+  !! - **Text**: Human-readable `.onnx.txt` files for inspection and debugging
+  !!
+  !! The unified `save_onnx` / `load_onnx` API auto-detects the format from
+  !! the file extension.
+  !!
   !! ## Workflow
   !!
   !! 1. **Export**: Write athena network to ONNX file
@@ -93,8 +102,25 @@ program onnx_example
   call write_onnx("test_network_second_pass.json", network_read)
 
   write(*,*) ""
-  write(*,*) "Network read completed"
-  write(*,*) "Number of layers in original network: ", network_write%num_layers
-  write(*,*) "Number of layers in read network: ", network_read%num_layers
+  write(*,*) "Reading network from text ONNX file..."
+  network_read_text = load_onnx("test_network.json")
+  write(*,*) "Text reimport layers: ", network_read_text%num_layers
+
+  ! --- Binary (protobuf) format ---
+  write(*,*) ""
+  write(*,*) "Writing network to binary ONNX file: test_network.onnx"
+  call save_onnx("test_network.onnx", network_write)
+  write(*,*) "Binary ONNX file written successfully"
+
+  write(*,*) ""
+  write(*,*) "Reading network from binary ONNX file..."
+  network_read_binary = load_onnx("test_network.onnx")
+  write(*,*) "Binary reimport layers: ", network_read_binary%num_layers
+
+  ! --- Summary ---
+  write(*,*) ""
+  write(*,*) "Original network layers:       ", network_write%num_layers
+  write(*,*) "Text reimport layers:          ", network_read_text%num_layers
+  write(*,*) "Binary reimport layers:        ", network_read_binary%num_layers
 
 end program onnx_example
