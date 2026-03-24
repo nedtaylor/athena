@@ -67,6 +67,28 @@ module athena__network
      type(graph_type) :: auto_graph
      !! Graph structure for the network
 
+     ! Pre-computed forward pass navigation (populated during compile)
+     integer, dimension(:), allocatable :: fwd_layer_id
+     !! Layer ID for each vertex in forward order
+     integer, dimension(:), allocatable :: fwd_num_inputs
+     !! Number of input layers for each vertex in forward order
+     integer, dimension(:), allocatable :: fwd_parent_id
+     !! Parent layer ID for single-input vertices
+     integer, dimension(:), allocatable :: fwd_layer_type
+     !! Layer type: 0=input, 1=merge, 2=default
+
+     ! Pre-computed parameter segment layout (populated during compile)
+     integer :: param_num_segments = 0
+     !! Number of parameter segments
+     integer, dimension(:), allocatable :: param_seg_layer
+     !! Layer index for each parameter segment
+     integer, dimension(:), allocatable :: param_seg_pidx
+     !! Param index within that layer for each segment
+     integer, dimension(:), allocatable :: param_seg_start
+     !! Start offset in flat parameter array
+     integer, dimension(:), allocatable :: param_seg_end
+     !! End offset in flat parameter array
+
      type(array_type), dimension(:,:), allocatable :: input_array
      !! Input array for the network
      type(graph_type), dimension(:,:), allocatable :: input_graph
