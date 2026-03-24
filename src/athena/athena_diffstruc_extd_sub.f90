@@ -319,6 +319,7 @@ contains
 
     output%get_partial_left => get_partial_softmax
     output%get_partial_left_val => get_partial_softmax_val
+    output%get_partial_left_val_sum => get_partial_softmax_val_sum
     if(input%requires_grad)then
        output%requires_grad = .true.
        output%is_forward = input%is_forward
@@ -376,6 +377,40 @@ contains
        end do
     end if
   end subroutine get_partial_softmax_val
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_softmax_val_sum(this, upstream_grad, output)
+    !! Get partial derivative of softmax activation (in-place version, summed over samples)
+    implicit none
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:), intent(out) :: output
+
+    integer :: s, dim
+    real(real32) :: dot
+    real(real32), allocatable :: tmp(:,:)
+
+    if (this%indices(1) .eq. 1) then
+       dim = 2
+    else
+       dim = 1
+    end if
+
+    tmp = this%val * upstream_grad
+
+    if (dim == 1) then
+       do s = 1, size(tmp,2)
+          dot = sum(tmp(:,s))
+          tmp(:,s) = tmp(:,s) - this%val(:,s) * dot
+       end do
+       output = sum(tmp, dim=2)
+    else
+       do s = 1, size(tmp,1)
+          dot = sum(tmp(s,:))
+          tmp(s,:) = tmp(s,:) - this%val(s,:) * dot
+       end do
+       output = sum(tmp, dim=1)
+    end if
+  end subroutine get_partial_softmax_val_sum
 !###############################################################################
 
 
