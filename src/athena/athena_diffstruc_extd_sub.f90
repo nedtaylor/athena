@@ -385,30 +385,36 @@ contains
     real(real32), dimension(:,:), intent(in) :: upstream_grad
     real(real32), dimension(:), intent(out) :: output
 
-    integer :: s, dim
+    integer :: s, i, nfeat, nsamp
     real(real32) :: dot
-    real(real32), allocatable :: tmp(:,:)
 
+    output = 0.0_real32
     if (this%indices(1) .eq. 1) then
-       dim = 2
-    else
-       dim = 1
-    end if
-
-    tmp = this%val * upstream_grad
-
-    if (dim == 1) then
-       do s = 1, size(tmp,2)
-          dot = sum(tmp(:,s))
-          tmp(:,s) = tmp(:,s) - this%val(:,s) * dot
+       nsamp = size(this%val,1)
+       nfeat = size(this%val,2)
+       do s = 1, nsamp
+          ! compute g·y
+          dot = 0.0_real32
+          do i = 1, nfeat
+             dot = dot + upstream_grad(s,i) * this%val(s,i)
+          end do
+          ! accumulate reduced gradient
+          do concurrent( i = 1 : nfeat )
+             output(i) = output(i) + this%val(s,i) * (upstream_grad(s,i) - dot)
+          end do
        end do
-       output = sum(tmp, dim=2)
     else
-       do s = 1, size(tmp,1)
-          dot = sum(tmp(s,:))
-          tmp(s,:) = tmp(s,:) - this%val(s,:) * dot
+       nsamp = size(this%val,2)
+       nfeat = size(this%val,1)
+       do s = 1, nsamp
+          dot = 0.0_real32
+          do i = 1, nfeat
+             dot = dot + upstream_grad(i,s) * this%val(i,s)
+          end do
+          do concurrent( i = 1 : nfeat )
+             output(i) = output(i) + this%val(i,s) * (upstream_grad(i,s) - dot)
+          end do
        end do
-       output = sum(tmp, dim=1)
     end if
   end subroutine get_partial_softmax_val_sum
 !###############################################################################
