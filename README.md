@@ -295,29 +295,30 @@ All files with the __sub_ suffix are the implementations of interfaces defined w
 |Source file | Description|
 |-----------|------------|
 |_src/athena.f90_                      | the module file that imports all necessary user-accessible procedures  |
-|_src/lib/mod_accuracy.f90_            | accuracy calculation procedures |
-|_src/lib/mod_activation.f90_          | generic node activation (aka transfer) setup  |
-|_src/lib/mod_activation__[_NAME_]_.f90_   | [_NAME_] activation method  |
-|_src/lib/mod_base_layer.f90_          | abstract layer construct type  |
-|_src/lib/mod_clipper.f90_             | gradient clipping procedures |
-|_src/lib/mod_container.f90_           | layer container construct for handling multiple layers in a network  |
-|_src/lib/mod_diffstruc_extd.f90       | extensions of [diffstruc](https://github.com/nedtaylor/diffstruc) providing more automatic differentiation operations |
-|_src/lib/mod__[_NAME_]__layer.f90_    | [_NAME_] layer-type  |
-|_src/lib/mod_initialiser.f90_         | generic kernel (and bias) initialiser setup  |
-|_src/lib/mod_initialiser__[_NAME_]_.f90_  | [_NAME_] kernel initialisation method  |
-|_src/lib/mod_io_utils.f90_            | input/output printing procedures |
-|_src/lib/mod_loss.f90_                | loss and corresponding derivatives calculation procedures |
-|_src/lib/mod_lr_decay.f90_            | learning rate decay procedures |
-|_src/lib/mod_metrics.f90_             | training convergence metric derived type and procedures  |
-|_src/lib/mod_misc_ml.f90_             | miscellaneous machine learning procedures  |
-|_src/lib/mod_misc_types.f90_          | neural network-associated derived types  |
-|_srcs/lib/mod_network.f90_            | neural network derived type and procedures  |
-|_src/lib/mod_normalisation.f90_       | data normalisation procedures  |
-|_src/lib/mod_onnx.f90_                | procedures for interoperability with other neural network libraries |
-|_src/lib/mod_optimiser.f90_           | learning optimisation derived type and procedures  |
-|_src/lib/mod_random.f90_              | random number procedures  |
-|_src/lib/mod_regulariser.f90_         | regularisation procedures  |
-|_src/lib/mod_tools_infile.f90_        | tools to read input files  |
+|_src/lib/athena_accuracy.f90_            | accuracy calculation procedures |
+|_src/lib/athena_activation.f90_          | generic node activation (aka transfer) setup  |
+|_src/lib/athena_activation__[_NAME_]_.f90_   | [_NAME_] activation method  |
+|_src/lib/athena_base_layer.f90_          | abstract layer construct type  |
+|_src/lib/athena_clipper.f90_             | gradient clipping procedures |
+|_src/lib/athena_container.f90_           | layer container construct for handling multiple layers in a network  |
+|_src/lib/athena_diffstruc_extd.f90       | extensions of [diffstruc](https://github.com/nedtaylor/diffstruc) providing more automatic differentiation operations |
+|_src/lib/athena__[_NAME_]__layer.f90_    | [_NAME_] layer-type  |
+|_src/lib/athena_initialiser.f90_         | generic kernel (and bias) initialiser setup  |
+|_src/lib/athena_initialiser__[_NAME_]_.f90_  | [_NAME_] kernel initialisation method  |
+|_src/lib/athena_io_utils.f90_            | input/output printing procedures |
+|_src/lib/athena_loss.f90_                | loss and corresponding derivatives calculation procedures |
+|_src/lib/athena_lr_decay.f90_            | learning rate decay procedures |
+|_src/lib/athena_metrics.f90_             | training convergence metric derived type and procedures  |
+|_src/lib/athena_misc_ml.f90_             | miscellaneous machine learning procedures  |
+|_src/lib/athena_misc_types.f90_          | neural network-associated derived types  |
+|_srcs/lib/athena_network.f90_            | neural network derived type and procedures  |
+|_src/lib/athena_normalisation.f90_       | data normalisation procedures  |
+|_src/lib/athena_onnx.f90_                | procedures for interoperability with other neural network libraries |
+|_src/lib/athena_optimiser.f90_           | learning optimisation derived type and procedures  |
+|_src/lib/athena_random.f90_              | random number procedures  |
+|_src/lib/athena_regulariser.f90_         | regularisation procedures  |
+|_src/lib/athena_tools_infile.f90_        | tools to read input files  |
+|_src/lib/athena_wandb.F90_               | optional integration with the Weights and Biases machine learning platform  |
 
 
 
