@@ -24,6 +24,7 @@ module athena__diffstruc_extd
   public :: gno_kernel_eval, gno_aggregate
   public :: lno_encode, lno_decode, elem_scale
   public :: ono_encode, ono_decode
+  public :: gat_propagate
 
 
   type, extends(array_type) :: batchnorm_array_type
@@ -369,6 +370,26 @@ module athena__diffstruc_extd
        integer, intent(in) :: num_inputs, num_basis
        type(array_type), pointer :: c
      end function ono_decode
+  end interface
+
+  interface
+     module function gat_propagate( &
+          projected_features, attn_params, &
+          adj_ia, adj_ja, negative_slope, &
+          num_heads, concat_heads &
+     ) result(c)
+       !! GAT multi-head attention-weighted propagation
+       class(array_type), intent(in), target :: projected_features
+       class(array_type), intent(in), target :: attn_params
+       !! Attention params flattened: val(f_per_head * 2 * num_heads, 1)
+       !! Layout: [a_l^1, ..., a_l^K, a_r^1, ..., a_r^K]
+       integer, dimension(:), intent(in) :: adj_ia
+       integer, dimension(:,:), intent(in) :: adj_ja
+       real(real32), intent(in) :: negative_slope
+       integer, intent(in) :: num_heads
+       logical, intent(in) :: concat_heads
+       type(array_type), pointer :: c
+     end function gat_propagate
   end interface
 !-------------------------------------------------------------------------------
 

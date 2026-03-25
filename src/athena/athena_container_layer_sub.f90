@@ -22,6 +22,7 @@ submodule(athena__container_layer) athena__container_layer_submodule
   use athena__duvenaud_msgpass_layer, only: read_duvenaud_msgpass_layer
   use athena__flatten_layer, only: read_flatten_layer, create_from_onnx_flatten_layer
   use athena__full_layer, only: read_full_layer, create_from_onnx_full_layer
+  use athena__gat_msgpass_layer, only: read_gat_msgpass_layer
   use athena__input_layer, only: read_input_layer, create_from_onnx_input_layer
   use athena__kipf_msgpass_layer, only: read_kipf_msgpass_layer
   use athena__maxpool1d_layer, only: read_maxpool1d_layer
@@ -123,6 +124,7 @@ contains
          read_layer_container('duvenaud', read_duvenaud_msgpass_layer), &
          read_layer_container('flatten', read_flatten_layer), &
          read_layer_container('full', read_full_layer), &
+         read_layer_container('gat', read_gat_msgpass_layer), &
          read_layer_container('input', read_input_layer), &
          read_layer_container('kipf', read_kipf_msgpass_layer), &
          read_layer_container('maxpool1d', read_maxpool1d_layer), &
