@@ -2,7 +2,8 @@ submodule (athena__diffstruc_extd) athena__diffstruc_extd_submodule
   !! Submodule containing implementations for extended diffstruc array operations
   use coreutils, only: stop_program
   use diffstruc, only: &
-       operator(+), operator(-), operator(*), concat, exp, sum, merge
+       operator(+), operator(-), operator(*), concat, exp, matmul, sum, tanh, &
+       merge
 
 contains
 
@@ -119,6 +120,7 @@ contains
     output%get_partial_right => get_partial_add_bias
     output%get_partial_left_val => get_partial_add_val
     output%get_partial_right_val => get_partial_add_bias_val
+    output%get_partial_right_val_sum => get_partial_add_bias_val_sum
     if(input%requires_grad .or. bias%requires_grad)then
        output%requires_grad = .true.
        output%is_forward = input%is_forward .or. bias%is_forward
@@ -209,6 +211,43 @@ contains
     end do
 
   end subroutine get_partial_add_bias_val
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_add_bias_val_sum(this, upstream_grad, output)
+    !! Sum-reduced partial derivative with respect to bias operand
+    implicit none
+
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:), intent(out) :: output
+
+    integer :: i, j, k, s, idx, itmp1
+    integer :: num_elements_pre, num_elements_post, num_dims
+
+    num_dims = size(this%left_operand%shape)
+    num_elements_pre = 1
+    num_elements_post = 1
+    do i = 1, num_dims
+       if(i .lt. this%indices(1))then
+          num_elements_pre = num_elements_pre * this%left_operand%shape(i)
+       elseif(i .gt. this%indices(1))then
+          num_elements_post = num_elements_post * this%left_operand%shape(i)
+       end if
+    end do
+
+    itmp1 = num_elements_pre * this%left_operand%shape(this%indices(1))
+    output = 0._real32
+    do s = 1, size(upstream_grad, 2)
+       do k = 1, num_elements_post
+          do j = 1, this%right_operand%shape(1)
+             idx = (j - 1) * num_elements_pre + (k - 1) * itmp1
+             do i = 1, num_elements_pre
+                output(j) = output(j) + upstream_grad(idx + i, s)
+             end do
+          end do
+       end do
+    end do
+
+  end subroutine get_partial_add_bias_val_sum
 !###############################################################################
 
 
@@ -421,6 +460,759 @@ contains
 
 
 !###############################################################################
+  module function full_relu(input, kernel, bias) result(output)
+    implicit none
+
+    type(array_type), intent(in), target :: input
+    type(array_type), intent(in), target :: kernel
+    type(array_type), intent(in), target :: bias
+    type(array_type), pointer :: output
+
+    integer :: num_inputs, num_outputs, num_samples, s
+    logical :: requires_grad
+    type(array_type), pointer :: packed_params
+    real(real32), pointer :: weights(:,:)
+
+    num_inputs = kernel%shape(2)
+    num_outputs = kernel%shape(1)
+    num_samples = size(input%val, 2)
+
+    output => input%create_result(array_shape = [num_outputs, num_samples])
+    weights(1:num_outputs, 1:num_inputs) => kernel%val(:,1)
+    output%val = matmul(weights, input%val)
+    do s = 1, num_samples
+       output%val(:,s) = output%val(:,s) + bias%val(:,1)
+    end do
+    where(output%val .lt. 0._real32)
+       output%val = 0._real32
+    end where
+
+    requires_grad = input%requires_grad .or. kernel%requires_grad .or. &
+         bias%requires_grad
+    if(requires_grad)then
+       packed_params => pack_params_array(kernel, bias)
+       output%get_partial_left => get_partial_full_relu_input
+       output%get_partial_right => get_partial_full_relu_params
+       output%get_partial_left_val => get_partial_full_relu_input_val
+       output%get_partial_right_val => get_partial_full_relu_params_val
+       output%get_partial_right_val_sum => get_partial_full_relu_params_val_sum
+       output%get_partial_both_val => get_partial_full_relu_both_val
+       output%requires_grad = .true.
+       output%is_forward = input%is_forward .or. kernel%is_forward .or. &
+            bias%is_forward
+       output%operation = 'full_relu'
+       output%left_operand => input
+       output%right_operand => packed_params
+       output%owns_left_operand = input%is_temporary
+       output%owns_right_operand = .true.
+    end if
+
+  end function full_relu
+!-------------------------------------------------------------------------------
+  module function full_tanh(input, kernel, bias) result(output)
+    implicit none
+
+    type(array_type), intent(in), target :: input
+    type(array_type), intent(in), target :: kernel
+    type(array_type), intent(in), target :: bias
+    type(array_type), pointer :: output
+
+    integer :: num_inputs, num_outputs, num_samples, s
+    logical :: requires_grad
+    type(array_type), pointer :: packed_params
+    real(real32), pointer :: weights(:,:)
+
+    num_inputs = kernel%shape(2)
+    num_outputs = kernel%shape(1)
+    num_samples = size(input%val, 2)
+
+    output => input%create_result(array_shape = [num_outputs, num_samples])
+    weights(1:num_outputs, 1:num_inputs) => kernel%val(:,1)
+    output%val = matmul(weights, input%val)
+    do s = 1, num_samples
+       output%val(:,s) = output%val(:,s) + bias%val(:,1)
+    end do
+    output%val = tanh(output%val)
+
+    requires_grad = input%requires_grad .or. kernel%requires_grad .or. &
+         bias%requires_grad
+    if(requires_grad)then
+       packed_params => pack_params_array(kernel, bias)
+       output%get_partial_left => get_partial_full_tanh_input
+       output%get_partial_right => get_partial_full_tanh_params
+       output%get_partial_left_val => get_partial_full_tanh_input_val
+       output%get_partial_right_val => get_partial_full_tanh_params_val
+       output%get_partial_right_val_sum => get_partial_full_tanh_params_val_sum
+       output%get_partial_both_val => get_partial_full_tanh_both_val
+       output%requires_grad = .true.
+       output%is_forward = input%is_forward .or. kernel%is_forward .or. &
+            bias%is_forward
+       output%operation = 'full_tanh'
+       output%left_operand => input
+       output%right_operand => packed_params
+       output%owns_left_operand = input%is_temporary
+       output%owns_right_operand = .true.
+    end if
+
+  end function full_tanh
+!-------------------------------------------------------------------------------
+  module function full_softmax(input, kernel, bias) result(output)
+    implicit none
+
+    type(array_type), intent(in), target :: input
+    type(array_type), intent(in), target :: kernel
+    type(array_type), intent(in), target :: bias
+    type(array_type), pointer :: output
+
+    integer :: num_inputs, num_outputs, num_samples, i, s
+    logical :: requires_grad
+    type(array_type), pointer :: packed_params
+    real(real32), pointer :: weights(:,:)
+    real(real32) :: sample_max, sample_sum
+
+    num_inputs = kernel%shape(2)
+    num_outputs = kernel%shape(1)
+    num_samples = size(input%val, 2)
+
+    output => input%create_result(array_shape = [num_outputs, num_samples])
+    weights(1:num_outputs, 1:num_inputs) => kernel%val(:,1)
+    output%val = matmul(weights, input%val)
+    do s = 1, num_samples
+       output%val(:,s) = output%val(:,s) + bias%val(:,1)
+       sample_max = maxval(output%val(:,s))
+       output%val(:,s) = exp(output%val(:,s) - sample_max)
+       sample_sum = 0._real32
+       do i = 1, num_outputs
+          sample_sum = sample_sum + output%val(i,s)
+       end do
+       output%val(:,s) = output%val(:,s) / sample_sum
+    end do
+
+    requires_grad = input%requires_grad .or. kernel%requires_grad .or. &
+         bias%requires_grad
+    if(requires_grad)then
+       packed_params => pack_params_array(kernel, bias)
+       output%get_partial_left_val => get_partial_full_softmax_input_val
+       output%get_partial_right_val => get_partial_full_softmax_params_val
+       output%get_partial_right_val_sum => get_partial_full_softmax_params_val_sum
+       output%get_partial_both_val => get_partial_full_softmax_both_val
+       output%requires_grad = .true.
+       output%is_forward = input%is_forward .or. kernel%is_forward .or. &
+            bias%is_forward
+       output%operation = 'full_softmax'
+       output%left_operand => input
+       output%right_operand => packed_params
+       output%owns_left_operand = input%is_temporary
+       output%owns_right_operand = .true.
+    end if
+
+  end function full_softmax
+!-------------------------------------------------------------------------------
+  function pack_params_array(kernel, bias) result(output)
+    implicit none
+
+    class(array_type), intent(in), target :: kernel
+    class(array_type), intent(in), target :: bias
+    type(array_type), pointer :: output
+
+    integer :: split_idx, total_size
+
+    split_idx = size(kernel%val, 1)
+    total_size = split_idx + size(bias%val, 1)
+    output => kernel%create_result(array_shape = [total_size, 1])
+    output%is_sample_dependent = .false.
+    output%val(1:split_idx,1) = kernel%val(:,1)
+    output%val(split_idx+1:total_size,1) = bias%val(:,1)
+    allocate(output%indices(1))
+    output%indices(1) = split_idx
+    output%get_partial_left => get_partial_packed_params_left
+    output%get_partial_right => get_partial_packed_params_right
+    output%get_partial_left_val => get_partial_packed_params_left_val
+    output%get_partial_right_val => get_partial_packed_params_right_val
+    if(kernel%requires_grad .or. bias%requires_grad)then
+       output%requires_grad = .true.
+       output%is_forward = kernel%is_forward .or. bias%is_forward
+       output%operation = 'pack_params'
+       output%left_operand => kernel
+       output%right_operand => bias
+       output%owns_left_operand = kernel%is_temporary
+       output%owns_right_operand = bias%is_temporary
+    end if
+
+  end function pack_params_array
+!-------------------------------------------------------------------------------
+  function get_partial_packed_params_left(this, upstream_grad) result(output)
+    implicit none
+
+    class(array_type), intent(inout) :: this
+    type(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    call output%allocate(array_shape = [this%shape, 1])
+    output%is_sample_dependent = .false.
+    output%val = 0._real32
+    call this%get_partial_left_val(upstream_grad%val, output%val)
+
+  end function get_partial_packed_params_left
+!-------------------------------------------------------------------------------
+  function get_partial_packed_params_right(this, upstream_grad) result(output)
+    implicit none
+
+    class(array_type), intent(inout) :: this
+    type(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    call output%allocate(array_shape = [this%shape, 1])
+    output%is_sample_dependent = .false.
+    output%val = 0._real32
+    call this%get_partial_right_val(upstream_grad%val, output%val)
+
+  end function get_partial_packed_params_right
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_packed_params_left_val(this, upstream_grad, output)
+    implicit none
+
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    output(1:this%indices(1),1) = upstream_grad(:,1)
+
+  end subroutine get_partial_packed_params_left_val
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_packed_params_right_val(this, upstream_grad, output)
+    implicit none
+
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    output(this%indices(1)+1:,1) = upstream_grad(:,1)
+
+  end subroutine get_partial_packed_params_right_val
+!-------------------------------------------------------------------------------
+  function unpack_full_kernel_tangent(this, upstream_grad) result(output)
+    implicit none
+
+    class(array_type), intent(in) :: this
+    type(array_type), intent(in) :: upstream_grad
+    type(array_type), pointer :: output
+
+    integer :: split_idx, num_inputs, num_outputs
+
+    split_idx = this%right_operand%indices(1)
+    num_outputs = this%shape(1)
+    num_inputs = this%left_operand%shape(1)
+    output => this%create_result(array_shape = [num_outputs, num_inputs, 1])
+    output%is_sample_dependent = .false.
+    output%requires_grad = .false.
+    output%val(:,1) = upstream_grad%val(1:split_idx,1)
+
+  end function unpack_full_kernel_tangent
+!-------------------------------------------------------------------------------
+  function unpack_full_bias_tangent(this, upstream_grad) result(output)
+    implicit none
+
+    class(array_type), intent(in) :: this
+    type(array_type), intent(in) :: upstream_grad
+    type(array_type), pointer :: output
+
+    integer :: split_idx
+
+    split_idx = this%right_operand%indices(1)
+    output => this%create_result(array_shape = [this%shape(1), 1])
+    output%is_sample_dependent = .false.
+    output%requires_grad = .false.
+    output%val(:,1) = upstream_grad%val(split_idx+1:,1)
+
+  end function unpack_full_bias_tangent
+!-------------------------------------------------------------------------------
+  pure subroutine compute_full_relu_delta(this, upstream_grad, delta)
+    implicit none
+
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: delta
+
+    delta = 0._real32
+    where(this%val .gt. 0._real32)
+       delta = upstream_grad
+    end where
+
+  end subroutine compute_full_relu_delta
+!-------------------------------------------------------------------------------
+  pure subroutine compute_full_tanh_delta(this, upstream_grad, delta)
+    implicit none
+
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: delta
+
+    delta = upstream_grad * (1._real32 - this%val * this%val)
+
+  end subroutine compute_full_tanh_delta
+!-------------------------------------------------------------------------------
+  function full_tanh_reverse_array(input) result(output)
+    implicit none
+
+    class(array_type), intent(in), target :: input
+    type(array_type), pointer :: output
+
+    output => input%create_result()
+    output%val = 1._real32 - input%val * input%val
+    output%get_partial_left => get_partial_full_tanh_reverse
+    output%get_partial_left_val => get_partial_full_tanh_reverse_val
+    if(input%requires_grad)then
+       output%requires_grad = .true.
+       output%is_forward = input%is_forward
+       output%operation = 'full_tanh_reverse'
+       output%left_operand => input
+       output%owns_left_operand = input%is_temporary
+    end if
+
+  end function full_tanh_reverse_array
+!-------------------------------------------------------------------------------
+  function get_partial_full_tanh_reverse(this, upstream_grad) result(output)
+    implicit none
+
+    class(array_type), intent(inout) :: this
+    type(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    logical :: left_is_temporary_local
+    type(array_type), pointer :: ptr
+
+    left_is_temporary_local = this%left_operand%is_temporary
+    this%left_operand%is_temporary = .false.
+    ptr => (-2._real32) * upstream_grad * this%left_operand
+    this%left_operand%is_temporary = left_is_temporary_local
+    call output%assign_and_deallocate_source(ptr)
+
+  end function get_partial_full_tanh_reverse
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_full_tanh_reverse_val(this, upstream_grad, output)
+    implicit none
+
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    output = (-2._real32) * upstream_grad * this%left_operand%val
+
+  end subroutine get_partial_full_tanh_reverse_val
+!-------------------------------------------------------------------------------
+  pure subroutine compute_full_softmax_delta(this, upstream_grad, delta)
+    implicit none
+
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: delta
+
+    integer :: i, s
+    real(real32) :: dot_product_val
+
+    do s = 1, size(this%val, 2)
+       dot_product_val = 0._real32
+       do i = 1, size(this%val, 1)
+          dot_product_val = dot_product_val + &
+               upstream_grad(i,s) * this%val(i,s)
+       end do
+       do i = 1, size(this%val, 1)
+          delta(i,s) = this%val(i,s) * (upstream_grad(i,s) - dot_product_val)
+       end do
+    end do
+
+  end subroutine compute_full_softmax_delta
+!-------------------------------------------------------------------------------
+  pure subroutine compute_full_input_grad(this, delta, output)
+    implicit none
+
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: delta
+    real(real32), dimension(:,:), intent(out) :: output
+
+    integer :: split_idx, num_inputs, num_outputs
+    real(real32), dimension(this%shape(1), this%left_operand%shape(1)) :: weights
+
+    split_idx = this%right_operand%indices(1)
+    num_outputs = this%shape(1)
+    num_inputs = this%left_operand%shape(1)
+    weights = reshape(this%right_operand%val(1:split_idx,1), [num_outputs, num_inputs])
+    output = matmul(transpose(weights), delta)
+
+  end subroutine compute_full_input_grad
+!-------------------------------------------------------------------------------
+  pure subroutine compute_full_param_grad(this, delta, output)
+    implicit none
+
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: delta
+    real(real32), dimension(:), intent(out) :: output
+
+    integer :: split_idx, num_inputs, num_outputs
+    real(real32), dimension(this%shape(1), this%left_operand%shape(1)) :: kernel_grad
+
+    split_idx = this%right_operand%indices(1)
+    num_outputs = this%shape(1)
+    num_inputs = this%left_operand%shape(1)
+    kernel_grad = matmul(delta, transpose(this%left_operand%val))
+    output(1:split_idx) = reshape(kernel_grad, [num_outputs * num_inputs])
+    output(split_idx+1:) = sum(delta, dim = 2)
+
+  end subroutine compute_full_param_grad
+!-------------------------------------------------------------------------------
+  function get_partial_full_relu_input(this, upstream_grad) result(output)
+    implicit none
+
+    class(array_type), intent(inout) :: this
+    type(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    type(array_type), pointer :: kernel
+    type(array_type), pointer :: kernel_const
+    type(array_type), pointer :: z_dir
+    type(array_type), pointer :: ptr
+    integer :: split_idx, num_inputs, num_outputs
+
+    if(associated(this%right_operand%left_operand))then
+       kernel => this%right_operand%left_operand
+    else
+       split_idx = this%right_operand%indices(1)
+       num_outputs = this%shape(1)
+       num_inputs = this%left_operand%shape(1)
+       allocate(kernel_const)
+       call kernel_const%allocate(array_shape = [num_outputs, num_inputs, 1], &
+            source = 0._real32)
+       kernel_const%is_sample_dependent = .false.
+       kernel_const%requires_grad = .false.
+       kernel_const%val(:,1) = this%right_operand%val(1:split_idx,1)
+       kernel => kernel_const
+    end if
+
+    z_dir => matmul(kernel, upstream_grad)
+    ptr => z_dir * (this%val .gt. 0._real32)
+    call output%assign_and_deallocate_source(ptr)
+
+  end function get_partial_full_relu_input
+!-------------------------------------------------------------------------------
+  function get_partial_full_relu_params(this, upstream_grad) result(output)
+    implicit none
+
+    class(array_type), intent(inout) :: this
+    type(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    type(array_type), pointer :: kernel_dir
+    type(array_type), pointer :: bias_dir
+    type(array_type), pointer :: z_dir
+    type(array_type), pointer :: ptr
+
+    if((.not.upstream_grad%requires_grad) .and. &
+         maxval(abs(upstream_grad%val)) .eq. 0._real32)then
+       call output%allocate(array_shape = [this%shape, size(this%val, 2)])
+       output%val = 0._real32
+       return
+    end if
+
+    kernel_dir => unpack_full_kernel_tangent(this, upstream_grad)
+    bias_dir => unpack_full_bias_tangent(this, upstream_grad)
+
+    z_dir => matmul(kernel_dir, this%left_operand) + bias_dir
+    ptr => z_dir * (this%val .gt. 0._real32)
+    call output%assign_and_deallocate_source(ptr)
+
+  end function get_partial_full_relu_params
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_full_relu_input_val(this, upstream_grad, output)
+    implicit none
+
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    real(real32), dimension(size(upstream_grad,1), size(upstream_grad,2)) :: delta
+
+    call compute_full_relu_delta(this, upstream_grad, delta)
+    call compute_full_input_grad(this, delta, output)
+
+  end subroutine get_partial_full_relu_input_val
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_full_relu_params_val(this, upstream_grad, output)
+    implicit none
+
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    output(:,1) = 0._real32
+    call get_partial_full_relu_params_val_sum(this, upstream_grad, output(:,1))
+
+  end subroutine get_partial_full_relu_params_val
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_full_relu_params_val_sum(this, upstream_grad, output)
+    implicit none
+
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:), intent(out) :: output
+
+    real(real32), dimension(size(upstream_grad,1), size(upstream_grad,2)) :: delta
+
+    call compute_full_relu_delta(this, upstream_grad, delta)
+    call compute_full_param_grad(this, delta, output)
+
+  end subroutine get_partial_full_relu_params_val_sum
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_full_relu_both_val(this, upstream_grad, left_output, right_output)
+    implicit none
+
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: left_output
+    real(real32), dimension(:), intent(out) :: right_output
+
+    real(real32), dimension(size(upstream_grad,1), size(upstream_grad,2)) :: delta
+
+    call compute_full_relu_delta(this, upstream_grad, delta)
+    call compute_full_input_grad(this, delta, left_output)
+    call compute_full_param_grad(this, delta, right_output)
+
+  end subroutine get_partial_full_relu_both_val
+!-------------------------------------------------------------------------------
+  function get_partial_full_tanh_input(this, upstream_grad) result(output)
+    implicit none
+
+    class(array_type), intent(inout) :: this
+    type(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    type(array_type), pointer :: kernel
+    type(array_type), pointer :: kernel_const
+    type(array_type), pointer :: bias
+    type(array_type), pointer :: bias_const
+    type(array_type), pointer :: z_dir
+    type(array_type), pointer :: z_split
+    type(array_type), pointer :: output_split
+    type(array_type), pointer :: ptr
+    integer :: split_idx, num_inputs, num_outputs
+
+    if(associated(this%right_operand%left_operand))then
+       kernel => this%right_operand%left_operand
+    else
+       split_idx = this%right_operand%indices(1)
+       num_outputs = this%shape(1)
+       num_inputs = this%left_operand%shape(1)
+       allocate(kernel_const)
+       call kernel_const%allocate(array_shape = [num_outputs, num_inputs, 1], &
+            source = 0._real32)
+       kernel_const%is_sample_dependent = .false.
+       kernel_const%requires_grad = .false.
+       kernel_const%val(:,1) = this%right_operand%val(1:split_idx,1)
+       kernel => kernel_const
+    end if
+
+    if(associated(this%right_operand%right_operand))then
+       bias => this%right_operand%right_operand
+    else
+       split_idx = this%right_operand%indices(1)
+       allocate(bias_const)
+       call bias_const%allocate(array_shape = [this%shape(1), 1], source = 0._real32)
+       bias_const%is_sample_dependent = .false.
+       bias_const%requires_grad = .false.
+       bias_const%val(:,1) = this%right_operand%val(split_idx+1:,1)
+       bias => bias_const
+    end if
+
+    z_dir => matmul(kernel, upstream_grad)
+    z_split => matmul(kernel, this%left_operand) + bias
+    output_split => tanh(z_split)
+    z_split%is_temporary = .false.
+    output_split%is_temporary = .false.
+    allocate(ptr)
+    ptr = output_split%get_partial_left(z_dir)
+    call output%assign_and_deallocate_source(ptr)
+
+  end function get_partial_full_tanh_input
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_full_tanh_input_val(this, upstream_grad, output)
+    implicit none
+
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    real(real32), dimension(size(upstream_grad,1), size(upstream_grad,2)) :: delta
+
+    call compute_full_tanh_delta(this, upstream_grad, delta)
+    call compute_full_input_grad(this, delta, output)
+
+  end subroutine get_partial_full_tanh_input_val
+!-------------------------------------------------------------------------------
+  function get_partial_full_tanh_params(this, upstream_grad) result(output)
+    implicit none
+
+    class(array_type), intent(inout) :: this
+    type(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    type(array_type), pointer :: kernel
+    type(array_type), pointer :: kernel_const
+    type(array_type), pointer :: bias
+    type(array_type), pointer :: bias_const
+    type(array_type), pointer :: kernel_dir
+    type(array_type), pointer :: bias_dir
+    type(array_type), pointer :: z_dir
+    type(array_type), pointer :: z_split
+    type(array_type), pointer :: output_split
+    type(array_type), pointer :: ptr
+    integer :: split_idx, num_inputs, num_outputs
+
+    if((.not.upstream_grad%requires_grad) .and. &
+         maxval(abs(upstream_grad%val)) .eq. 0._real32)then
+       call output%allocate(array_shape = [this%shape, size(this%val, 2)])
+       output%val = 0._real32
+       return
+    end if
+
+    if(associated(this%right_operand%left_operand))then
+       kernel => this%right_operand%left_operand
+    else
+       split_idx = this%right_operand%indices(1)
+       num_outputs = this%shape(1)
+       num_inputs = this%left_operand%shape(1)
+       allocate(kernel_const)
+       call kernel_const%allocate(array_shape = [num_outputs, num_inputs, 1], &
+            source = 0._real32)
+       kernel_const%is_sample_dependent = .false.
+       kernel_const%requires_grad = .false.
+       kernel_const%val(:,1) = this%right_operand%val(1:split_idx,1)
+       kernel => kernel_const
+    end if
+
+    if(associated(this%right_operand%right_operand))then
+       bias => this%right_operand%right_operand
+    else
+       split_idx = this%right_operand%indices(1)
+       allocate(bias_const)
+       call bias_const%allocate(array_shape = [this%shape(1), 1], source = 0._real32)
+       bias_const%is_sample_dependent = .false.
+       bias_const%requires_grad = .false.
+       bias_const%val(:,1) = this%right_operand%val(split_idx+1:,1)
+       bias => bias_const
+    end if
+
+    kernel_dir => unpack_full_kernel_tangent(this, upstream_grad)
+    bias_dir => unpack_full_bias_tangent(this, upstream_grad)
+
+    z_dir => matmul(kernel_dir, this%left_operand) + bias_dir
+    z_split => matmul(kernel, this%left_operand) + bias
+    output_split => tanh(z_split)
+    z_split%is_temporary = .false.
+    output_split%is_temporary = .false.
+    allocate(ptr)
+    ptr = output_split%get_partial_left(z_dir)
+    call output%assign_and_deallocate_source(ptr)
+
+  end function get_partial_full_tanh_params
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_full_tanh_params_val(this, upstream_grad, output)
+    implicit none
+
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    output(:,1) = 0._real32
+    call get_partial_full_tanh_params_val_sum(this, upstream_grad, output(:,1))
+
+  end subroutine get_partial_full_tanh_params_val
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_full_tanh_params_val_sum(this, upstream_grad, output)
+    implicit none
+
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:), intent(out) :: output
+
+    real(real32), dimension(size(upstream_grad,1), size(upstream_grad,2)) :: delta
+
+    call compute_full_tanh_delta(this, upstream_grad, delta)
+    call compute_full_param_grad(this, delta, output)
+
+  end subroutine get_partial_full_tanh_params_val_sum
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_full_tanh_both_val(this, upstream_grad, left_output, right_output)
+    implicit none
+
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: left_output
+    real(real32), dimension(:), intent(out) :: right_output
+
+    real(real32), dimension(size(upstream_grad,1), size(upstream_grad,2)) :: delta
+
+    call compute_full_tanh_delta(this, upstream_grad, delta)
+    call compute_full_input_grad(this, delta, left_output)
+    call compute_full_param_grad(this, delta, right_output)
+
+  end subroutine get_partial_full_tanh_both_val
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_full_softmax_input_val(this, upstream_grad, output)
+    implicit none
+
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    real(real32), dimension(size(upstream_grad,1), size(upstream_grad,2)) :: delta
+
+    call compute_full_softmax_delta(this, upstream_grad, delta)
+    call compute_full_input_grad(this, delta, output)
+
+  end subroutine get_partial_full_softmax_input_val
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_full_softmax_params_val(this, upstream_grad, output)
+    implicit none
+
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    output(:,1) = 0._real32
+    call get_partial_full_softmax_params_val_sum(this, upstream_grad, output(:,1))
+
+  end subroutine get_partial_full_softmax_params_val
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_full_softmax_params_val_sum(this, upstream_grad, output)
+    implicit none
+
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:), intent(out) :: output
+
+    real(real32), dimension(size(upstream_grad,1), size(upstream_grad,2)) :: delta
+
+    call compute_full_softmax_delta(this, upstream_grad, delta)
+    call compute_full_param_grad(this, delta, output)
+
+  end subroutine get_partial_full_softmax_params_val_sum
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_full_softmax_both_val(this, upstream_grad, left_output, right_output)
+    implicit none
+
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in) :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: left_output
+    real(real32), dimension(:), intent(out) :: right_output
+
+    real(real32), dimension(size(upstream_grad,1), size(upstream_grad,2)) :: delta
+
+    call compute_full_softmax_delta(this, upstream_grad, delta)
+    call compute_full_input_grad(this, delta, left_output)
+    call compute_full_param_grad(this, delta, right_output)
+
+  end subroutine get_partial_full_softmax_both_val
+
   module function swish_array(input, beta) result(output)
     !! Swish activation function
     implicit none

@@ -11,6 +11,7 @@ module athena__diffstruc_extd
   public :: array_ptr_type
   public :: add_layers, concat_layers
   public :: add_bias
+  public :: full_relu, full_tanh, full_softmax
   public :: piecewise, softmax, swish
   public :: huber
   public :: avgpool1d, avgpool2d, avgpool3d
@@ -18,7 +19,7 @@ module athena__diffstruc_extd
   public :: pad1d, pad2d, pad3d
   public :: merge_over_channels
   public :: batchnorm_array_type, batchnorm, batchnorm_inference
-  public :: conv1d, conv2d, conv3d
+  public :: conv1d, conv2d, conv2d_relu, conv3d
   public :: kipf_propagate, kipf_update
   public :: duvenaud_propagate, duvenaud_update
   public :: gno_kernel_eval, gno_aggregate
@@ -71,6 +72,27 @@ module athena__diffstruc_extd
        logical, intent(in), optional :: dim_act_on_shape
        type(array_type), pointer :: output
      end function add_bias
+
+     module function full_relu(input, kernel, bias) result(output)
+       type(array_type), intent(in), target :: input
+       type(array_type), intent(in), target :: kernel
+       type(array_type), intent(in), target :: bias
+       type(array_type), pointer :: output
+     end function full_relu
+
+     module function full_tanh(input, kernel, bias) result(output)
+       type(array_type), intent(in), target :: input
+       type(array_type), intent(in), target :: kernel
+       type(array_type), intent(in), target :: bias
+       type(array_type), pointer :: output
+     end function full_tanh
+
+     module function full_softmax(input, kernel, bias) result(output)
+       type(array_type), intent(in), target :: input
+       type(array_type), intent(in), target :: kernel
+       type(array_type), intent(in), target :: bias
+       type(array_type), pointer :: output
+     end function full_softmax
   end interface
 
   interface piecewise
@@ -238,6 +260,15 @@ module athena__diffstruc_extd
        integer, dimension(2), intent(in) :: dilation
        type(array_type), pointer :: output
      end function conv2d
+
+     module function conv2d_relu(input, kernel, bias, stride, dilation) result(output)
+       type(array_type), intent(in), target :: input
+       type(array_type), intent(in), target :: kernel
+       type(array_type), intent(in), target :: bias
+       integer, dimension(2), intent(in) :: stride
+       integer, dimension(2), intent(in) :: dilation
+       type(array_type), pointer :: output
+     end function conv2d_relu
 
      module function conv3d(input, kernel, stride, dilation) result(output)
        type(array_type), intent(in), target :: input

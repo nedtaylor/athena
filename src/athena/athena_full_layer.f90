@@ -28,6 +28,7 @@ module athena__full_layer
   use athena__misc_types, only: base_actv_type, base_init_type, &
        onnx_node_type, onnx_initialiser_type, onnx_tensor_type
   use diffstruc, only: array_type, matmul, operator(+)
+  use athena__diffstruc_extd, only: full_relu, full_tanh, full_softmax
   use athena__initialiser_data, only: data_init_type
   implicit none
 
@@ -852,7 +853,29 @@ contains
     ! Generate outputs from weights, biases, and inputs
     !---------------------------------------------------------------------------
     if(this%use_bias)then
-       ptr => matmul(this%params(1), input(1,1) ) + this%params(2)
+       select case(trim(this%activation%name))
+       case('relu')
+          if((.not.this%activation%apply_scaling) .and. &
+               abs(this%activation%threshold) .lt. 1.e-6_real32)then
+             ptr => full_relu(input(1,1), this%params(1), this%params(2))
+          else
+             ptr => matmul(this%params(1), input(1,1) ) + this%params(2)
+          end if
+       case('tanh')
+          if(.not.this%activation%apply_scaling)then
+             ptr => full_tanh(input(1,1), this%params(1), this%params(2))
+          else
+             ptr => matmul(this%params(1), input(1,1) ) + this%params(2)
+          end if
+       case('softmax')
+          if(.not.this%activation%apply_scaling)then
+             ptr => full_softmax(input(1,1), this%params(1), this%params(2))
+          else
+             ptr => matmul(this%params(1), input(1,1) ) + this%params(2)
+          end if
+       case default
+          ptr => matmul(this%params(1), input(1,1) ) + this%params(2)
+       end select
     else
        ptr => matmul(this%params(1), input(1,1) )
     end if
@@ -860,7 +883,14 @@ contains
     ! Apply activation function to activation
     !---------------------------------------------------------------------------
     call this%output(1,1)%zero_grad()
-    if(trim(this%activation%name) .eq. "none")then
+    if(trim(this%activation%name) .eq. "none" .or. &
+         (this%use_bias .and. trim(this%activation%name) .eq. 'relu' .and. &
+              (.not.this%activation%apply_scaling) .and. &
+              abs(this%activation%threshold) .lt. 1.e-6_real32) .or. &
+         (this%use_bias .and. trim(this%activation%name) .eq. 'tanh' .and. &
+              (.not.this%activation%apply_scaling)) .or. &
+         (this%use_bias .and. trim(this%activation%name) .eq. 'softmax' .and. &
+              (.not.this%activation%apply_scaling)))then
        call this%output(1,1)%assign_and_deallocate_source(ptr)
     else
        call this%z(1)%zero_grad()

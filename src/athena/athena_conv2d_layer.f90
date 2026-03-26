@@ -30,7 +30,7 @@ module athena__conv2d_layer
        onnx_node_type, onnx_initialiser_type, onnx_tensor_type
   use athena__misc_types, only: base_actv_type, base_init_type
   use diffstruc, only: array_type
-  use athena__diffstruc_extd, only: conv2d, add_bias
+  use athena__diffstruc_extd, only: conv2d, conv2d_relu, add_bias
   use athena__initialiser_data, only: data_init_type
   implicit none
 
@@ -808,24 +808,41 @@ contains
 
     ! Generate outputs from weights, biases, and inputs
     !---------------------------------------------------------------------------
-    select case(allocated(this%pad_layer))
-    case(.true.)
-       call this%pad_layer%forward(input)
-       ptr => conv2d(this%pad_layer%output(1,1), this%params(1), &
-            this%stp, this%dil &
-       )
-    case default
-       ptr => conv2d(input(1,1), this%params(1), this%stp, this%dil)
-    end select
-    call this%z(1)%zero_grad()
-    call this%z(1)%assign_and_deallocate_source(ptr)
-    this%z(1)%is_temporary = .false.
-    ptr => add_bias(this%z(1), this%params(2), dim=3, dim_act_on_shape=.true.)
+    if(trim(this%activation%name) .eq. 'relu' .and. this%use_bias .and. &
+         (.not.this%activation%apply_scaling) .and. &
+         abs(this%activation%threshold) .lt. 1.e-6_real32)then
+       select case(allocated(this%pad_layer))
+       case(.true.)
+          call this%pad_layer%forward(input)
+          ptr => conv2d_relu(this%pad_layer%output(1,1), this%params(1), &
+               this%params(2), this%stp, this%dil)
+       case default
+          ptr => conv2d_relu(input(1,1), this%params(1), this%params(2), &
+               this%stp, this%dil)
+       end select
+    else
+       select case(allocated(this%pad_layer))
+       case(.true.)
+          call this%pad_layer%forward(input)
+          ptr => conv2d(this%pad_layer%output(1,1), this%params(1), &
+               this%stp, this%dil &
+          )
+       case default
+          ptr => conv2d(input(1,1), this%params(1), this%stp, this%dil)
+       end select
+       call this%z(1)%zero_grad()
+       call this%z(1)%assign_and_deallocate_source(ptr)
+       this%z(1)%is_temporary = .false.
+       ptr => add_bias(this%z(1), this%params(2), dim=3, dim_act_on_shape=.true.)
+    end if
 
     ! Apply activation function to activation
     !---------------------------------------------------------------------------
     call this%output(1,1)%zero_grad()
-    if(trim(this%activation%name) .eq. "none")then
+    if(trim(this%activation%name) .eq. "none" .or. &
+         (trim(this%activation%name) .eq. 'relu' .and. this%use_bias .and. &
+              (.not.this%activation%apply_scaling) .and. &
+              abs(this%activation%threshold) .lt. 1.e-6_real32))then
        call this%output(1,1)%assign_and_deallocate_source(ptr)
     else
        call this%z(2)%zero_grad()

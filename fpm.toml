@@ -152,4 +152,13 @@ main = "main.f90"
 [[example]]
 name = "inverse_design"
 source-dir = "example/inverse_design/src"
+
+[[example]]
+name = "conv_autodiff_benchmark"
+source-dir = "example/conv_autodiff_benchmark/src"
+main = "main.f90"
+
+[[example]]
+name = "fused_autodiff_benchmark"
+source-dir = "example/fused_autodiff_benchmark/src"
 main = "main.f90"
