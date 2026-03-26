@@ -152,4 +152,8 @@ main = "main.f90"
 [[example]]
 name = "inverse_design"
 source-dir = "example/inverse_design/src"
+
+[[example]]
+name = "gat_node_classification"
+source-dir = "example/gat_node_classification/src"
 main = "main.f90"
