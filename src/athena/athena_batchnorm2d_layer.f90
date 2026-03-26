@@ -597,7 +597,7 @@ contains
        return
     end if
 
-    ! ONNX BatchNormalization order: gamma, beta, mean, variance
+    ! ONNX BatchNormalisation order: gamma, beta, mean, variance
     gamma_initialiser = data_init_type( data = initialisers(1)%data )
     beta_initialiser = data_init_type( data = initialisers(2)%data )
     moving_mean_initialiser = data_init_type( data = initialisers(3)%data )

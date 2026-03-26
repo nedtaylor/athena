@@ -18,7 +18,7 @@ module athena__reshape_layer
   !! Properties:
   !!   - No learnable parameters (pure reshape operation)
   !!   - Preserves all information (bijective mapping)
-  !!   - No computation beyond memory reorganization
+  !!   - No computation beyond memory reorganisation
   !!   - Gradients flow unchanged (chain rule applies directly)
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: base_layer_type
