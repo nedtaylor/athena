@@ -17,7 +17,7 @@ module-naming = false
 
 [dependencies]
 coreutils = { git = "https://github.com/nedtaylor/coreutils", tag = "v0.1.0" }
-diffstruc = { git = "https://github.com/nedtaylor/diffstruc", branch = "optimise" }
+diffstruc = { git = "https://github.com/nedtaylor/diffstruc", branch = "development" }
 graphstruc = { git = "https://github.com/nedtaylor/graphstruc", tag = "v0.2.1" }
 
 [features]
