@@ -1,7 +1,7 @@
 module athena__dropblock3d_layer
   !! Module containing implementation of a 3D dropblock layer
   !!
-  !! This module implements DropBlock regularization for 3D convolutional layers,
+  !! This module implements DropBlock regularisation for 3D convolutional layers,
   !! dropping contiguous 3D regions (blocks) instead of individual elements.
   !! Extension of 2D DropBlock for volumetric/spatiotemporal data.
   !!
@@ -10,7 +10,7 @@ module athena__dropblock3d_layer
   !!      gamma = p * (feature_size^3) / (block_size^3 * valid_positions)
   !!   2. Sample Bernoulli mask M_i ~ Bernoulli(gamma)
   !!   3. Expand mask to block_size x block_size x block_size blocks
-  !!   4. Apply and normalize:
+  !!   4. Apply and normalise:
   !!      y = x * M * (count_elements / count_ones)
   !!
   !! where block_size is the spatial extent of each dropped block in all 3 dims

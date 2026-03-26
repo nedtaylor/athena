@@ -97,7 +97,7 @@ contains
     integer, optional, intent(in) :: verbose
     !! Verbosity level
     class(base_layer_type), allocatable :: layer
-    !! Instance of the batch normalization layer
+    !! Instance of the batch normalisation layer
 
     ! Local variables
     integer :: i, dim
