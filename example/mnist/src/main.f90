@@ -163,6 +163,7 @@ program mnist_example
        batch_size = batch_size, verbose = verbosity)
 
   write(*,*) "NUMBER OF LAYERS",network%num_layers
+  write(*,*) "NUMBER OF TRAINABLE PARAMETERS",network%num_params
 
 
   !-----------------------------------------------------------------------------
