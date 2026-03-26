@@ -119,5 +119,5 @@ Notes
 See Also
 --------
 
-* :ref:`nop_laplace_layer_type <nop-laplace-layer>` - Laplace neural operator layer with spectral mixing
+* :ref:`laplace_nop_layer_type <nop-laplace-layer>` - Laplace neural operator layer with spectral mixing
 * :ref:`full_layer_type <full-layer>` - Standard dense layer

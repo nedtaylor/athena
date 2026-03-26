@@ -1,4 +1,4 @@
-module athena__nop_laplace_layer
+module athena__laplace_nop_layer
   !! Module containing implementation of a Laplace Neural Operator layer
   !!
   !! This module implements a Laplace Neural Operator (LNO) layer that
@@ -40,11 +40,11 @@ module athena__nop_laplace_layer
 
   private
 
-  public :: nop_laplace_layer_type
-  public :: read_nop_laplace_layer
+  public :: laplace_nop_layer_type
+  public :: read_laplace_nop_layer
 
 
-  type, extends(learnable_layer_type) :: nop_laplace_layer_type
+  type, extends(learnable_layer_type) :: laplace_nop_layer_type
      !! Type for a Laplace Neural Operator layer
      integer :: num_inputs
      !! Number of inputs (discretisation points)
@@ -68,9 +68,9 @@ module athena__nop_laplace_layer
      procedure, pass(this) :: forward => forward_nop_laplace
 
      final :: finalise_nop_laplace
-  end type nop_laplace_layer_type
+  end type laplace_nop_layer_type
 
-  interface nop_laplace_layer_type
+  interface laplace_nop_layer_type
      module function layer_setup( &
           num_outputs, num_modes, num_inputs, use_bias, &
           activation, &
@@ -83,9 +83,9 @@ module athena__nop_laplace_layer
        class(*), optional, intent(in) :: activation
        class(*), optional, intent(in) :: kernel_initialiser, bias_initialiser
        integer, optional, intent(in) :: verbose
-       type(nop_laplace_layer_type) :: layer
+       type(laplace_nop_layer_type) :: layer
      end function layer_setup
-  end interface nop_laplace_layer_type
+  end interface laplace_nop_layer_type
 
 
 
@@ -94,7 +94,7 @@ contains
 !###############################################################################
   subroutine finalise_nop_laplace(this)
     implicit none
-    type(nop_laplace_layer_type), intent(inout) :: this
+    type(laplace_nop_layer_type), intent(inout) :: this
 
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
@@ -109,7 +109,7 @@ contains
 !###############################################################################
   pure function get_num_params_nop_laplace(this) result(num_params)
     implicit none
-    class(nop_laplace_layer_type), intent(in) :: this
+    class(laplace_nop_layer_type), intent(in) :: this
     integer :: num_params
 
     ! R: num_modes^2, W: n_out * n_in, b: n_out (optional)
@@ -140,7 +140,7 @@ contains
     class(*), optional, intent(in) :: kernel_initialiser, bias_initialiser
     integer, optional, intent(in) :: verbose
 
-    type(nop_laplace_layer_type) :: layer
+    type(laplace_nop_layer_type) :: layer
 
     integer :: verbose_ = 0
     logical :: use_bias_ = .true.
@@ -191,7 +191,7 @@ contains
     use athena__initialiser, only: get_default_initialiser, initialiser_setup
     implicit none
 
-    class(nop_laplace_layer_type), intent(inout) :: this
+    class(laplace_nop_layer_type), intent(inout) :: this
     integer, intent(in) :: num_outputs
     integer, intent(in) :: num_modes
     logical, intent(in) :: use_bias
@@ -250,7 +250,7 @@ contains
   subroutine init_nop_laplace(this, input_shape, verbose)
     implicit none
 
-    class(nop_laplace_layer_type), intent(inout) :: this
+    class(laplace_nop_layer_type), intent(inout) :: this
     integer, dimension(:), intent(in) :: input_shape
     integer, optional, intent(in) :: verbose
 
@@ -405,7 +405,7 @@ contains
     use coreutils, only: to_upper
     implicit none
 
-    class(nop_laplace_layer_type), intent(in) :: this
+    class(laplace_nop_layer_type), intent(in) :: this
     integer, intent(in) :: unit
 
     write(unit,'(3X,"NUM_INPUTS = ",I0)') this%num_inputs
@@ -436,7 +436,7 @@ contains
     use athena__initialiser, only: initialiser_setup
     implicit none
 
-    class(nop_laplace_layer_type), intent(inout) :: this
+    class(laplace_nop_layer_type), intent(inout) :: this
     integer, intent(in) :: unit
     integer, optional, intent(in) :: verbose
 
@@ -595,7 +595,7 @@ contains
 
 
 !###############################################################################
-  function read_nop_laplace_layer(unit, verbose) result(layer)
+  function read_laplace_nop_layer(unit, verbose) result(layer)
     implicit none
     integer, intent(in) :: unit
     integer, optional, intent(in) :: verbose
@@ -603,11 +603,11 @@ contains
     integer :: verbose_ = 0
 
     if(present(verbose)) verbose_ = verbose
-    allocate(layer, source=nop_laplace_layer_type( &
+    allocate(layer, source=laplace_nop_layer_type( &
          num_outputs=0, num_modes=1))
     call layer%read(unit, verbose=verbose_)
 
-  end function read_nop_laplace_layer
+  end function read_laplace_nop_layer
 !###############################################################################
 
 
@@ -619,7 +619,7 @@ contains
     !!   v = sigma( D @ R @ E @ u  +  W @ u  +  b )
     implicit none
 
-    class(nop_laplace_layer_type), intent(inout) :: this
+    class(laplace_nop_layer_type), intent(inout) :: this
     class(array_type), dimension(:,:), intent(in) :: input
 
     type(array_type), pointer :: ptr, ptr_spec, ptr_local
@@ -662,4 +662,4 @@ contains
   end subroutine forward_nop_laplace
 !###############################################################################
 
-end module athena__nop_laplace_layer
+end module athena__laplace_nop_layer

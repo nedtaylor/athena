@@ -1,13 +1,13 @@
-.. _nop-laplace-layer:
+.. _laplace-nop-layer:
 
 Laplace Neural Operator Layer
 =============================
 
-``nop_laplace_layer_type``
+``laplace_nop_layer_type``
 
 .. code-block:: fortran
 
-  nop_laplace_layer_type(
+  laplace_nop_layer_type(
     num_outputs,
     num_modes,
     num_inputs=...,
@@ -18,7 +18,7 @@ Laplace Neural Operator Layer
   )
 
 
-The ``nop_laplace_layer_type`` derived type provides a Laplace neural operator layer.
+The ``laplace_nop_layer_type`` derived type provides a Laplace neural operator layer.
 It combines a local bypass with a spectral pathway defined on fixed Laplace bases:
 
 .. math::
@@ -94,7 +94,7 @@ Examples
    use athena
    type(network_type) :: network
 
-   call network%add(nop_laplace_layer_type( &
+   call network%add(laplace_nop_layer_type( &
         num_inputs=128, &
         num_outputs=128, &
         num_modes=16, &
@@ -105,13 +105,13 @@ Examples
 
 .. code-block:: fortran
 
-   call network%add(nop_laplace_layer_type( &
+   call network%add(laplace_nop_layer_type( &
         num_inputs=256, &
         num_outputs=256, &
         num_modes=32, &
         activation="swish" &
    ))
-   call network%add(nop_laplace_layer_type( &
+   call network%add(laplace_nop_layer_type( &
         num_outputs=128, &
         num_modes=16, &
         activation="swish" &

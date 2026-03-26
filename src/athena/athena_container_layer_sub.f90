@@ -31,7 +31,7 @@ submodule(athena__container_layer) athena__container_layer_submodule
   use athena__pad2d_layer, only: read_pad2d_layer
   use athena__pad3d_layer, only: read_pad3d_layer
   use athena__neural_operator_layer, only: read_neural_operator_layer
-  use athena__nop_laplace_layer, only: read_nop_laplace_layer
+  use athena__laplace_nop_layer, only: read_laplace_nop_layer
   use athena__spectral_filter_layer, only: read_spectral_filter_layer
   use athena__recurrent_layer, only: read_recurrent_layer
   use athena__reshape_layer, only: read_reshape_layer, create_from_onnx_reshape_layer
@@ -105,7 +105,7 @@ contains
          read_layer_container('maxpool2d', read_maxpool2d_layer), &
          read_layer_container('maxpool3d', read_maxpool3d_layer), &
          read_layer_container('neural_operator', read_neural_operator_layer), &
-         read_layer_container('nop_laplace', read_nop_laplace_layer), &
+         read_layer_container('laplace_nop', read_laplace_nop_layer), &
          read_layer_container('spectral_filter', read_spectral_filter_layer), &
          read_layer_container('pad1d', read_pad1d_layer), &
          read_layer_container('pad2d', read_pad2d_layer), &
