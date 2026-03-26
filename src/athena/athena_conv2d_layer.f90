@@ -43,8 +43,6 @@ module athena__conv2d_layer
 
   type, extends(conv_layer_type) :: conv2d_layer_type
      !! Type for 2D convolutional layer with overloaded procedures
-     type(array_type), dimension(2) :: z
-     !! Temporary arrays for forward propagation
    contains
      procedure, pass(this) :: set_hyperparams => set_hyperparams_conv2d
      !! Set hyperparameters for 2D convolutional layer
@@ -116,6 +114,8 @@ contains
     if(allocated(this%input_shape)) deallocate(this%input_shape)
     if(allocated(this%output)) deallocate(this%output)
     if(allocated(this%pad_layer)) deallocate(this%pad_layer)
+    if(this%z(1)%allocated) call this%z(1)%deallocate()
+    if(this%z(2)%allocated) call this%z(2)%deallocate()
 
   end subroutine finalise_conv2d
 !###############################################################################
@@ -817,7 +817,10 @@ contains
     case default
        ptr => conv2d(input(1,1), this%params(1), this%stp, this%dil)
     end select
-    ptr => add_bias(ptr, this%params(2), dim=3, dim_act_on_shape=.true.)
+    call this%z(1)%zero_grad()
+    call this%z(1)%assign_and_deallocate_source(ptr)
+    this%z(1)%is_temporary = .false.
+    ptr => add_bias(this%z(1), this%params(2), dim=3, dim_act_on_shape=.true.)
 
     ! Apply activation function to activation
     !---------------------------------------------------------------------------
@@ -825,7 +828,10 @@ contains
     if(trim(this%activation%name) .eq. "none") then
        call this%output(1,1)%assign_and_deallocate_source(ptr)
     else
-       ptr => this%activation%apply(ptr)
+       call this%z(2)%zero_grad()
+       call this%z(2)%assign_and_deallocate_source(ptr)
+       this%z(2)%is_temporary = .false.
+       ptr => this%activation%apply(this%z(2))
        call this%output(1,1)%assign_and_deallocate_source(ptr)
     end if
     this%output(1,1)%is_temporary = .false.
