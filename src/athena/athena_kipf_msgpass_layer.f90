@@ -695,23 +695,11 @@ contains
 
 !###############################################################################
   subroutine update_readout_kipf(this)
-    !! Update the readout
+    !! Update the readout (empty for node-level output)
     implicit none
-
     ! Arguments
     class(kipf_msgpass_layer_type), intent(inout), target :: this
     !! Instance of the message passing layer
-
-    ! Local variables
-    integer :: s, v
-    !! Loop indices
-
-
-    ! do s = 1, size(this%output,2)
-    !    this%output(1,s)%val = this%vertex_features(this%num_time_steps,s)%val
-    !    this%output(2,s)%val = this%edge_features(this%num_time_steps,s)%val
-    ! end do
-
   end subroutine update_readout_kipf
 !###############################################################################
 
