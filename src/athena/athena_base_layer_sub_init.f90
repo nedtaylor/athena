@@ -247,6 +247,8 @@ contains
     end if
     if(allocated(this%output)) deallocate(this%output)
     allocate( this%output(1,1) )
+    if(this%z(1)%allocated) call this%z(1)%deallocate()
+    if(this%z(2)%allocated) call this%z(2)%deallocate()
 
   end subroutine init_conv
 !###############################################################################
