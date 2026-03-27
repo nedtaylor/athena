@@ -3375,6 +3375,8 @@ contains
 
     integer :: i, j, s
     !! Loop index
+    integer :: tmp_batch_size
+    !! Temporary integer to store batch size during validation
 
     class(*), allocatable :: data_poly(:,:)
     type(array_type), pointer :: loss => null()
@@ -3615,6 +3617,7 @@ contains
        !------------------------------------------------------------------------
        val_str = ""
        if(use_validation)then
+          tmp_batch_size = this%batch_size
 
           ! Save training expected output
           call move_alloc(this%expected_array, saved_expected_array)
@@ -3690,7 +3693,7 @@ contains
           num_samples = this%save_input( input )
 
           ! Restore training batch size and inference mode
-          call this%set_batch_size(this%batch_size)
+          call this%set_batch_size(tmp_batch_size)
           do l = 1, this%num_layers
              this%model(l)%layer%inference = .false.
           end do
