@@ -286,8 +286,8 @@ def main() -> None:
         )
         train_time += epoch_time
         print(
-            f"epoch={epoch:02d} train_loss={epoch_loss:.5f} "
-            f"train_accuracy={epoch_accuracy:.5f} epoch_time_s={epoch_time:.6f}"
+            f"epoch={epoch:02d} loss={epoch_loss:.5f} "
+            f"accuracy={epoch_accuracy:.5f} epoch_time_s={epoch_time:.6f}"
         )
 
     test_loss, test_accuracy, test_time = evaluate(model, test_loader, criterion, device)

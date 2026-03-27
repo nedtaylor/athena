@@ -3553,14 +3553,14 @@ contains
                   scientific_print_ &
              )
              if(use_accuracy)then
-                accuracy_str = ", train_acc=" // trim(format_training_real( &
+                accuracy_str = ", accuracy=" // trim(format_training_real( &
                      avg_accuracy / real(batch * this%batch_size, real32), &
                      print_precision_, scientific_print_ &
                 ))
              end if
 
              write(6,'("epoch=",I0,", batch=",I0,&
-                  &", lr=",ES0.2,", train_loss=",A,A)' &
+                  &", lr=",ES0.2,", loss=",A,A)' &
              ) &
                   this%epoch, batch, &
                   this%optimiser%lr_decay%get_lr( &
@@ -3588,12 +3588,12 @@ contains
                this%metrics(1)%val, print_precision_, scientific_print_ &
           )
           if(use_accuracy)then
-             accuracy_str = ", train_acc=" // trim(format_training_real( &
+             accuracy_str = ", accuracy=" // trim(format_training_real( &
                   this%metrics(2)%val, print_precision_, scientific_print_ &
              ))
           end if
           write(6,'("epoch=",I0,&
-               &", lr=",ES0.2,", train_loss=",A,A)' &
+               &", lr=",ES0.2,", loss=",A,A)' &
           ) &
                this%epoch, &
                this%optimiser%lr_decay%get_lr( &
