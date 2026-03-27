@@ -36,8 +36,8 @@ Print Options
 ``train()`` prints loss and (optionally) accuracy using one shared formatting
 path:
 
-* ``print_precision`` controls precision for both ``train_loss`` and
-  ``train_acc``.
+* ``print_precision`` controls precision for both ``loss`` and
+  ``accuracy``.
 * ``scientific_print=.true.`` prints metrics using exponential notation.
 * ``scientific_print=.false.`` prints metrics using fixed-point notation.
 
@@ -53,7 +53,7 @@ Accuracy Printing Behavior
 Accuracy is optional.
 
 * If an accuracy method is configured (for example via
-  ``compile(..., accuracy_method=...)``), ``train_acc`` is printed.
+  ``compile(..., accuracy_method=...)``), ``accuracy`` is printed.
 * If no accuracy method is configured, accuracy is not computed or printed, and
   output lines contain only loss.
 
