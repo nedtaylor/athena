@@ -2478,6 +2478,7 @@ contains
                  output(1,1)%val(:,start_index:end_index:1) &
             ))
     end select
+    accuracy = accuracy / real(end_index - start_index + 1, real32)
 
   end function accuracy_eval
 !###############################################################################
