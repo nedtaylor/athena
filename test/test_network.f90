@@ -124,6 +124,76 @@ program test_network
      success = .false.
   end if
 
+
+!-------------------------------------------------------------------------------
+! Train network with validation data
+!-------------------------------------------------------------------------------
+  write(*,*)
+  write(*,*) "Training network with validation"
+
+  call network%reset()
+  call network%add(full_layer_type( &
+       num_inputs=3, num_outputs=5, activation="tanh"))
+  call network%add(full_layer_type( &
+       num_outputs=2, activation="sigmoid"))
+  call network%compile( &
+       optimiser = base_optimiser_type(learning_rate=learning_rate), &
+       loss_method="mse", accuracy_method="mse", metrics=["loss"], verbose=0 &
+  )
+  call network%set_batch_size(1)
+
+  !! create training data
+  call input_data(1,1)%deallocate()
+  call output_data(1,1)%deallocate()
+  x = reshape([0.2, 0.4, 0.6], [3,1])
+  y = reshape([0.123456, 0.246802], [2,1])
+  call input_data(1,1)%allocate(array_shape=[3,1])
+  call input_data(1,1)%set(x)
+  call output_data(1,1)%allocate(array_shape=[2,1])
+  call output_data(1,1)%set(y)
+
+  !! create validation data
+  validation: block
+    type(array_type) :: val_input_data(1,1), val_output_data(1,1)
+    real, allocatable, dimension(:,:) :: val_x, val_y
+
+    val_x = reshape([0.3, 0.5, 0.7], [3,1])
+    val_y = reshape([0.185184, 0.370368], [2,1])
+    call val_input_data(1,1)%allocate(array_shape=[3,1])
+    call val_input_data(1,1)%set(val_x)
+    call val_output_data(1,1)%allocate(array_shape=[2,1])
+    call val_output_data(1,1)%set(val_y)
+
+    !! train with validation
+    call network%train( &
+         input_data, output_data, num_epochs=600, batch_size=1, verbose=0, &
+         val_input=val_input_data, val_output=val_output_data &
+    )
+    write(*,*) "Network trained with validation"
+
+    !! check training loss is reasonable
+    if(abs(network%metrics(1)%val).gt.1.E-3)then
+       write(0,*) "Training loss (with validation) higher than expected"
+       write(0,*) "Loss: ", network%metrics(1)%val
+       success = .false.
+    end if
+
+    !! check training accuracy is reasonable
+    if(abs(network%metrics(2)%val).lt.0.95)then
+       write(0,*) "Training accuracy (with validation) lower than expected"
+       write(0,*) "Accuracy: ", network%accuracy_val
+       success = .false.
+    end if
+
+    !! verify that we can still test after training with validation
+    call network%test(val_x, val_y)
+    if(network%loss_val.gt.1.E-1)then
+       write(0,*) "Test loss after validation training higher than expected"
+       write(0,*) "Loss: ", network%loss_val
+       success = .false.
+    end if
+  end block validation
+
 !!! DOES NOT WORK DUE TO THE ORDER OF THE LAYERS NOT BEING UNDERSTOOD
 !!! This results in there being multiple input layers being created
 !!! Should we also enforce passing of an adjacency matrix?
