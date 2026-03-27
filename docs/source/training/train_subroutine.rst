@@ -29,6 +29,7 @@ Arguments
 * ``verbose`` (optional): Controls print cadence.
 * ``print_precision`` (optional): Decimal precision for printed metrics.
 * ``scientific_print`` (optional): Print metrics in scientific notation.
+* ``early_stopping`` (optional): Whether to check for early stopping conditions.
 
 Print Options
 -------------
@@ -56,6 +57,13 @@ Accuracy is optional.
   ``compile(..., accuracy_method=...)``), ``accuracy`` is printed.
 * If no accuracy method is configured, accuracy is not computed or printed, and
   output lines contain only loss.
+
+Convergence and Early Stopping
+------------------------------
+
+The ``train()`` method checks for convergence at the end of each epoch using the training loss metric.
+If the optional argument ``early_stopping`` is set to ``.false.``, training continues for the full number of epochs regardless of convergence.
+The default behavior is to check for convergence and stop training early if a plateau is detected (i.e. ``early_stopping`` is ``.true.``).
 
 Examples
 --------

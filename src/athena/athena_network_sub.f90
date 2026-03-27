@@ -3288,7 +3288,7 @@ contains
   module subroutine train( &
        this, input, output, num_epochs, batch_size, &
        plateau_threshold, shuffle_batches, batch_print_step, verbose, &
-       print_precision, scientific_print &
+       print_precision, scientific_print, early_stopping &
   )
     !! Train the network
     !!
@@ -3322,6 +3322,8 @@ contains
     !! Number of decimal places to print for training metrics
     logical, optional, intent(in) :: scientific_print
     !! Whether to print training metrics in scientific notation
+    logical, optional, intent(in) :: early_stopping
+    !! Whether to stop training early if convergence is detected
 
     ! Training parameters
     real(real32) :: batch_loss, batch_accuracy, avg_loss, avg_accuracy
@@ -3344,6 +3346,8 @@ contains
     !! Shuffle batches
     logical :: use_accuracy
     !! Whether accuracy evaluation is available
+    logical :: early_stopping_
+    !! Whether to stop training early if convergence is detected
 
     ! Printing parameters
     integer :: batch_print_step_
@@ -3393,6 +3397,7 @@ contains
     shuffle_batches_ = .true.
     scientific_print_ = .false.
     print_precision_ = 3
+    early_stopping_ = .true.
     if(present(plateau_threshold)) plateau_threshold_ = plateau_threshold
     if(present(shuffle_batches)) shuffle_batches_ = shuffle_batches
     if(present(batch_print_step)) batch_print_step_ = batch_print_step
@@ -3400,6 +3405,7 @@ contains
     if(present(print_precision)) print_precision_ = max(print_precision, 0)
     if(present(scientific_print)) scientific_print_ = scientific_print
     if(present(batch_size)) this%batch_size = batch_size
+    if(present(early_stopping)) early_stopping_ = early_stopping
 
 
     !---------------------------------------------------------------------------
@@ -3516,23 +3522,10 @@ contains
 
 
           ! Average metric over batch size and store
-          ! Check metric convergence
           !---------------------------------------------------------------------
           avg_loss = avg_loss + batch_loss
-          call this%metrics(1)%append(batch_loss)
-          do i = 1, 1
-             call this%metrics(i)%check(plateau_threshold_, converged)
-             if(converged.ne.0)then
-                exit epoch_loop
-             end if
-          end do
           if(use_accuracy)then
              avg_accuracy = avg_accuracy + batch_accuracy
-             call this%metrics(2)%append(batch_accuracy / this%batch_size)
-             call this%metrics(2)%check(plateau_threshold_, converged)
-             if(converged.ne.0)then
-                exit epoch_loop
-             end if
           end if
 
 
@@ -3554,7 +3547,7 @@ contains
              )
              if(use_accuracy)then
                 accuracy_str = ", accuracy=" // trim(format_training_real( &
-                     avg_accuracy / real(batch * this%batch_size, real32), &
+                     avg_accuracy / real(batch, real32), &
                      print_precision_, scientific_print_ &
                 ))
              end if
@@ -3579,6 +3572,10 @@ contains
           end if
 
        end do batch_loop
+       call this%metrics(1)%append(avg_loss / real(num_batches, real32))
+       if(use_accuracy)then
+          call this%metrics(2)%append(avg_accuracy / real(num_batches, real32))
+       end if
 
 
        ! Print epoch summary results
@@ -3608,10 +3605,21 @@ contains
        !------------------------------------------------------------------------
        call this%post_epoch_hook( &
             this%epoch, &
-            avg_loss / real(num_batches, real32), &
-            avg_accuracy / max(real(num_batches * this%batch_size, real32), &
-                 1._real32) &
+            this%metrics(1)%val, &
+            this%metrics(2)%val &
        )
+
+       !------------------------------------------------------------------------
+       ! Check for convergence and stop early if enabled
+       !------------------------------------------------------------------------
+       if(early_stopping_)then
+          call this%metrics(1)%check(plateau_threshold_, converged)
+          if(converged.ne.0) exit epoch_loop
+          if(use_accuracy)then
+             call this%metrics(2)%check(plateau_threshold_, converged)
+             if(converged.ne.0) exit epoch_loop
+          end if
+       end if
 
     end do epoch_loop
 
