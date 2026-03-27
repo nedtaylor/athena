@@ -3287,7 +3287,8 @@ contains
 !###############################################################################
   module subroutine train( &
        this, input, output, num_epochs, batch_size, &
-       plateau_threshold, shuffle_batches, batch_print_step, verbose &
+       plateau_threshold, shuffle_batches, batch_print_step, verbose, &
+       print_precision, scientific_print &
   )
     !! Train the network
     !!
@@ -3317,6 +3318,10 @@ contains
     !! Batch print step
     integer, optional, intent(in) :: verbose
     !! Verbosity level
+    integer, optional, intent(in) :: print_precision
+    !! Number of decimal places to print for training metrics
+    logical, optional, intent(in) :: scientific_print
+    !! Whether to print training metrics in scientific notation
 
     ! Training parameters
     real(real32) :: batch_loss, batch_accuracy, avg_loss, avg_accuracy
@@ -3333,12 +3338,22 @@ contains
     !! Length of convergence check window
     integer :: verbose_
     !! Verbosity level
-    integer :: batch_print_step_
-    !! Batch print step
     real(real32) :: plateau_threshold_
     !! Plateau threshold
     logical :: shuffle_batches_
     !! Shuffle batches
+    logical :: use_accuracy
+    !! Whether accuracy evaluation is available
+
+    ! Printing parameters
+    integer :: batch_print_step_
+    !! Batch print step
+    integer :: print_precision_
+    !! Number of decimal places for metric output
+    logical :: scientific_print_
+    !! Whether to print metrics in scientific notation
+    character(len=64) :: loss_str, accuracy_str
+    !! Formatted metrics for printing
 
     ! Training loop variables
     integer :: epoch, batch, start_index, end_index
@@ -3346,7 +3361,7 @@ contains
     integer, allocatable, dimension(:) :: batch_order
     !! Batch order
 
-    integer :: i, j, s, time, time_old, clock_rate
+    integer :: i, j, s
     !! Loop index
 
     class(*), allocatable :: data_poly(:,:)
@@ -3356,8 +3371,6 @@ contains
     type(network_type) :: this_copy
     !! Copy of network
 #endif
-    !  integer :: timer_start = 0, timer_stop = 0, timer_sum = 0, timer_tot = 0
-    !  integer :: forward_timer = 0, backward_timer = 0, update_timer = 0
 
 
     !---------------------------------------------------------------------------
@@ -3367,10 +3380,8 @@ contains
        call stop_program("loss method not set")
        return
     end if
-    if(.not.associated(this%get_accuracy))then
-       call stop_program("accuracy method not set")
-       return
-    end if
+    use_accuracy = associated(this%get_accuracy)
+    accuracy_str = ""
 
 
     !---------------------------------------------------------------------------
@@ -3380,10 +3391,14 @@ contains
     batch_print_step_ = 20
     plateau_threshold_ = 0._real32
     shuffle_batches_ = .true.
+    scientific_print_ = .false.
+    print_precision_ = 3
     if(present(plateau_threshold)) plateau_threshold_ = plateau_threshold
     if(present(shuffle_batches)) shuffle_batches_ = shuffle_batches
     if(present(batch_print_step)) batch_print_step_ = batch_print_step
     if(present(verbose)) verbose_ = verbose
+    if(present(print_precision)) print_precision_ = max(print_precision, 0)
+    if(present(scientific_print)) scientific_print_ = scientific_print
     if(present(batch_size)) this%batch_size = batch_size
 
 
@@ -3442,12 +3457,6 @@ contains
     end do
 
 
-    !---------------------------------------------------------------------------
-    ! Query system clock
-    !---------------------------------------------------------------------------
-    call system_clock(time, count_rate = clock_rate)
-
-
     epoch_loop: do epoch = 1, num_epochs
        this%epoch = epoch
        !------------------------------------------------------------------------
@@ -3475,7 +3484,6 @@ contains
 
           ! Forward pass
           !---------------------------------------------------------------------
-          !  call system_clock(timer_start)
           select case(this%use_graph_input)
           case(.true.)
              data_poly = get_sample( &
@@ -3489,47 +3497,48 @@ contains
           end select
           call this%forward(data_poly)
           deallocate(data_poly)
-          !  call system_clock(timer_stop)
-          !  forward_timer = forward_timer + timer_stop - timer_start
 
 
           ! Backward pass
           !---------------------------------------------------------------------
-          !  call system_clock(timer_start)
           loss => this%loss_eval(start_index, end_index)
           loss%is_temporary = .false.
           call loss%grad_reverse(reset_graph=.true.)
-          !  call system_clock(timer_stop)
-          !  backward_timer = backward_timer + timer_stop - timer_start
 
 
           ! Compute loss and accuracy (for monitoring)
           !---------------------------------------------------------------------
           batch_loss = sum(loss%val)
-          batch_accuracy = this%accuracy_eval(output, start_index, end_index)
+          batch_accuracy = 0._real32
+          if(use_accuracy)then
+             batch_accuracy = this%accuracy_eval(output, start_index, end_index)
+          end if
 
 
           ! Average metric over batch size and store
           ! Check metric convergence
           !---------------------------------------------------------------------
           avg_loss = avg_loss + batch_loss
-          avg_accuracy = avg_accuracy + batch_accuracy
           call this%metrics(1)%append(batch_loss)
-          call this%metrics(2)%append(batch_accuracy / this%batch_size)
-          do i = 1, size(this%metrics,dim=1)
+          do i = 1, 1
              call this%metrics(i)%check(plateau_threshold_, converged)
              if(converged.ne.0)then
                 exit epoch_loop
              end if
           end do
+          if(use_accuracy)then
+             avg_accuracy = avg_accuracy + batch_accuracy
+             call this%metrics(2)%append(batch_accuracy / this%batch_size)
+             call this%metrics(2)%check(plateau_threshold_, converged)
+             if(converged.ne.0)then
+                exit epoch_loop
+             end if
+          end if
 
 
           ! Update weights and biases using optimisation algorithm
           !---------------------------------------------------------------------
-          ! call system_clock(timer_start)
           call this%update()
-          ! call system_clock(timer_stop)
-          ! update_timer = update_timer + timer_stop - timer_start
           call loss%nullify_graph()
           deallocate(loss)
           nullify(loss)
@@ -3539,26 +3548,25 @@ contains
           !---------------------------------------------------------------------
           if(abs(verbose_).gt.0.and.&
                (batch.eq.1.or.abs(mod(batch,batch_print_step_)).lt.1.E-6))then
+             loss_str = format_training_real( &
+                  avg_loss / real(batch, real32), print_precision_, &
+                  scientific_print_ &
+             )
+             if(use_accuracy)then
+                accuracy_str = ", train_acc=" // trim(format_training_real( &
+                     avg_accuracy / real(batch * this%batch_size, real32), &
+                     print_precision_, scientific_print_ &
+                ))
+             end if
+
              write(6,'("epoch=",I0,", batch=",I0,&
-                  &", learning_rate=",F0.3,", loss=",F0.3,", accuracy=",F0.3)' &
+                  &", lr=",ES0.2,", train_loss=",A,A)' &
              ) &
                   this%epoch, batch, &
                   this%optimiser%lr_decay%get_lr( &
                        this%optimiser%learning_rate, this%optimiser%iter &
                   ), &
-                  avg_loss/batch, &
-                  avg_accuracy/(batch*this%batch_size)
-          end if
-
-
-          ! Time check
-          !---------------------------------------------------------------------
-          if(verbose_.eq.-2)then
-             time_old = time
-             call system_clock(time)
-             write(*,'("time check: ",F5.3," seconds")') &
-                  real(time-time_old)/clock_rate
-             time_old = time
+                  trim(loss_str), trim(accuracy_str)
           end if
 
 
@@ -3576,15 +3584,22 @@ contains
        ! Print epoch summary results
        !------------------------------------------------------------------------
        if(verbose_.eq.0)then
+          loss_str = format_training_real( &
+               this%metrics(1)%val, print_precision_, scientific_print_ &
+          )
+          if(use_accuracy)then
+             accuracy_str = ", train_acc=" // trim(format_training_real( &
+                  this%metrics(2)%val, print_precision_, scientific_print_ &
+             ))
+          end if
           write(6,'("epoch=",I0,&
-               &", learning_rate=",F0.3,", val_loss=",F0.3,&
-               &", val_accuracy=",F0.3)' &
+               &", lr=",ES0.2,", train_loss=",A,A)' &
           ) &
                this%epoch, &
                this%optimiser%lr_decay%get_lr( &
                     this%optimiser%learning_rate, this%optimiser%iter &
                ), &
-               this%metrics(1)%val, this%metrics(2)%val
+               trim(loss_str), trim(accuracy_str)
        end if
 
 
@@ -3594,16 +3609,59 @@ contains
        call this%post_epoch_hook( &
             this%epoch, &
             avg_loss / real(num_batches, real32), &
-            avg_accuracy / real(num_batches * this%batch_size, real32) &
+            avg_accuracy / max(real(num_batches * this%batch_size, real32), &
+                 1._real32) &
        )
 
     end do epoch_loop
 
-    ! write(*,*) "forward timer: ", real(forward_timer)/clock_rate
-    ! write(*,*) "backward timer: ", real(backward_timer)/clock_rate
-    ! write(*,*) "update timer: ", real(update_timer)/clock_rate
+    ! Final epoch metrics
+    if(use_accuracy)then
+       this%accuracy_val = this%metrics(2)%val
+    else
+       this%accuracy_val = 0._real32
+    end if
+    this%loss_val     = this%metrics(1)%val
 
   end subroutine train
+!###############################################################################
+
+
+!###############################################################################
+  function format_training_real(value, decimals, scientific) result(formatted)
+    !! Format a training metric with a configurable number of decimal places.
+    implicit none
+
+    ! Arguments
+    real(real32), intent(in) :: value
+    !! Value to format
+    integer, intent(in) :: decimals
+    !! Number of decimal places
+    logical, intent(in) :: scientific
+    !! Whether to use scientific notation
+
+    character(len=64) :: formatted
+    !! Formatted string
+
+    ! Local variables
+    character(len=16) :: fmt
+    !! Internal write format
+    integer :: width_
+    !! Field width for scientific formatting
+    integer :: decimals_
+    !! Clamped decimal count
+
+    decimals_ = min(max(decimals, 0), 30)
+    if(scientific)then
+       width_ = max(decimals_ + 8, 14)
+       write(fmt,'("(ES",I0,".",I0,"E2)")') width_, decimals_
+    else
+       write(fmt,'("(F0.",I0,")")') decimals_
+    end if
+    write(formatted, fmt) value
+    formatted = adjustl(formatted)
+
+  end function format_training_real
 !###############################################################################
 
 
@@ -3629,6 +3687,8 @@ contains
     !! Loop index
     integer :: verbose_
     !! Verbosity level
+    logical :: use_accuracy
+    !! Whether accuracy evaluation is available
     real(real32) :: acc_val, loss_val
     !! Loss and accuracy
     class(*), allocatable, dimension(:,:) :: data_poly
@@ -3645,6 +3705,7 @@ contains
     else
        verbose_ = 0
     end if
+    use_accuracy = associated(this%get_accuracy)
 
     do l = 1, size(this%metrics,dim=1)
        this%metrics(l)%val = 0._real32
@@ -3699,9 +3760,10 @@ contains
        call loss%nullify_graph()
        deallocate(loss)
        nullify(loss)
-       acc_val = this%accuracy_eval(output, sample, sample)
-
-       this%metrics(2)%val = this%metrics(2)%val + acc_val
+       if(use_accuracy)then
+          acc_val = this%accuracy_eval(output, sample, sample)
+          this%metrics(2)%val = this%metrics(2)%val + acc_val
+       end if
        this%metrics(1)%val = this%metrics(1)%val + loss_val
 
     end do test_loop1
@@ -3709,7 +3771,11 @@ contains
 
     ! Normalise metrics by number of samples
     !---------------------------------------------------------------------------
-    this%accuracy_val = this%metrics(2)%val / real(num_samples, real32)
+    if(use_accuracy)then
+       this%accuracy_val = this%metrics(2)%val / real(num_samples, real32)
+    else
+       this%accuracy_val = 0._real32
+    end if
     this%loss_val     = this%metrics(1)%val / real(num_samples, real32)
 
   end subroutine test

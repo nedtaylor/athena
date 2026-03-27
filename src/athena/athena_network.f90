@@ -417,7 +417,8 @@ module athena__network
      !! Interface for training the network
      module subroutine train( &
           this, input, output, num_epochs, batch_size, &
-          plateau_threshold, shuffle_batches, batch_print_step, verbose &
+          plateau_threshold, shuffle_batches, batch_print_step, verbose, &
+          print_precision, scientific_print &
      )
        !! Train the network
        class(network_type), intent(inout) :: this
@@ -438,6 +439,10 @@ module athena__network
        !! Print step for batch
        integer, optional, intent(in) :: verbose
        !! Verbosity level
+       integer, optional, intent(in) :: print_precision
+       !! Number of decimal places to print for training metrics
+       logical, optional, intent(in) :: scientific_print
+       !! Whether to print training metrics in scientific notation
      end subroutine train
 
      !! Interface for testing the network
