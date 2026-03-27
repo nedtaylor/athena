@@ -94,13 +94,14 @@ An example using the Adam optimiser and categorical cross-entropy loss is shown 
    ! Compile network
    call net%compile(optimiser=optimiser, loss_method=loss, accuracy_method="mse")
 
-Currently, the accuracy method needs to be specified for ``train()`` and ``test()`` functions to work correctly.
-This may be updated in future releases.
-If it is not set, the following error will occur when calling ``train()`` or ``test()`` and the program will terminate:
+The accuracy method is optional for ``train()`` and ``test()``.
 
-.. code-block:: fortran
+If ``accuracy_method`` is provided during compilation, athena computes and
+prints accuracy alongside loss. If it is not provided, training and testing run
+in loss-only mode.
 
-  ERROR: accuracy method not set
+See :ref:`train() Subroutine <train-subroutine>` for full logging and print
+options.
 
 
 Complete Example

@@ -185,9 +185,13 @@ For more advanced architectures, please refer to :ref:`Network Outputs <network-
 Computing Convergence Metrics (e.g., Accuracy and Loss)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The accuracy is computed during the ``train()`` and ``test()`` functions.
-The accuracy method must be specified during compilation of the network using the ``compile()`` function.
-The accuracy value after a training or testing run can be accessed via the ``accuracy_val`` attribute of the network.
+The loss is always computed during ``train()`` and ``test()``.
+
+Accuracy is optional and is only computed when an accuracy method is configured
+(for example with ``compile(..., accuracy_method=...)``).
+
+When accuracy is enabled, the final value after training or testing is available
+via ``accuracy_val``.
 
 .. code-block:: fortran
 
@@ -200,6 +204,10 @@ The loss value after a training or testing run can be accessed via the ``loss_va
 
    call net%train(test_data, test_labels)
    write(*,*), "Test Loss:", net%loss_val
+
+For detailed ``train()`` argument documentation, including ``print_precision``,
+``scientific_print``, and when ``train_acc`` is printed, see
+:ref:`train() Subroutine <train-subroutine>`.
 
 Complete Training Example
 --------------------------

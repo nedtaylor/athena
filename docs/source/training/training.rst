@@ -10,6 +10,7 @@ All components are configured through the optimiser.
    :maxdepth: 1
    :caption: Training Components
 
+   train_subroutine
    gradient_clipping
    lr_decay
    regularisation
