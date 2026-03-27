@@ -21,6 +21,7 @@ module athena__diffstruc_extd
   public :: conv1d, conv2d, conv3d
   public :: kipf_propagate, kipf_update
   public :: duvenaud_propagate, duvenaud_update
+  public :: gno_kernel_eval, gno_aggregate
 
 
   type, extends(array_type) :: batchnorm_array_type
@@ -285,6 +286,33 @@ module athena__diffstruc_extd
        integer, intent(in) :: min_degree, max_degree
        type(array_type), pointer :: c
      end function duvenaud_update
+  end interface
+
+  interface
+     module function gno_kernel_eval( &
+          coords, kernel_params, adj_ia, adj_ja, &
+          coord_dim, kernel_hidden, F_in, F_out &
+     ) result(c)
+       !! Evaluate GNO kernel MLP on every edge
+       class(array_type), intent(in), target :: coords
+       class(array_type), intent(in), target :: kernel_params
+       integer, dimension(:), intent(in) :: adj_ia
+       integer, dimension(:,:), intent(in) :: adj_ja
+       integer, intent(in) :: coord_dim, kernel_hidden, F_in, F_out
+       type(array_type), pointer :: c
+     end function gno_kernel_eval
+
+     module function gno_aggregate( &
+          features, edge_kernels, adj_ia, adj_ja, F_in, F_out &
+     ) result(c)
+       !! Aggregate neighbour messages using per-edge kernels
+       class(array_type), intent(in), target :: features
+       class(array_type), intent(in), target :: edge_kernels
+       integer, dimension(:), intent(in) :: adj_ia
+       integer, dimension(:,:), intent(in) :: adj_ja
+       integer, intent(in) :: F_in, F_out
+       type(array_type), pointer :: c
+     end function gno_aggregate
   end interface
 !-------------------------------------------------------------------------------
 
