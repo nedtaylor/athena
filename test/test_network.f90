@@ -49,6 +49,7 @@ program test_network
 
   integer :: unit
   integer :: i, n
+  integer :: iter_before
   real :: rtmp1
   logical :: success = .true.
   procedure(compute_accuracy_function), pointer :: get_accuracy => null()
@@ -101,6 +102,50 @@ program test_network
   if(abs(network%metrics(2)%val).lt.0.95)then
      write(0,*) "Training accuracy higher than expected"
      write(0,*) "Accuracy: ", network%accuracy_val
+     success = .false.
+  end if
+
+
+!-------------------------------------------------------------------------------
+! Train with non-divisible batch size (remainder batch)
+!-------------------------------------------------------------------------------
+  call network%reset()
+  call network%add(full_layer_type( &
+       num_inputs=3, num_outputs=5, activation="tanh"))
+  call network%add(full_layer_type( &
+       num_outputs=2, activation="sigmoid"))
+  call network%compile( &
+       optimiser = base_optimiser_type(learning_rate=learning_rate), &
+       loss_method="mse", accuracy_method="mse", metrics=["loss"], verbose=0 &
+  )
+
+  call input_data(1,1)%deallocate()
+  call output_data(1,1)%deallocate()
+  x = reshape([ &
+       0.1, 0.2, 0.3, &
+       0.4, 0.5, 0.6, &
+       0.7, 0.8, 0.9 &
+  ], [3,3])
+  y = reshape([ &
+       0.11, 0.22, &
+       0.33, 0.44, &
+       0.55, 0.66 &
+  ], [2,3])
+  call input_data(1,1)%allocate(array_shape=[3,3])
+  call input_data(1,1)%set(x)
+  call output_data(1,1)%allocate(array_shape=[2,3])
+  call output_data(1,1)%set(y)
+
+  iter_before = network%optimiser%iter
+  call network%train( &
+       input_data, output_data, num_epochs=1, batch_size=2, verbose=0, &
+       early_stopping=.false. &
+  )
+  if(network%optimiser%iter-iter_before.ne.2)then
+     write(0,*) "Remainder batch was not processed as expected"
+     write(0,*) "Expected optimiser iterations: 2"
+     write(0,*) "Actual optimiser iterations: ", &
+          network%optimiser%iter-iter_before
      success = .false.
   end if
 

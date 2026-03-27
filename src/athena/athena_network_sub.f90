@@ -3377,6 +3377,8 @@ contains
     !! Loop index
     integer :: tmp_batch_size
     !! Temporary integer to store batch size during validation
+    integer :: current_batch_size, target_batch_size
+    !! Actual batch size for the current batch and the target batch size
 
     class(*), allocatable :: data_poly(:,:)
     type(array_type), pointer :: loss => null()
@@ -3465,18 +3467,7 @@ contains
     !---------------------------------------------------------------------------
     ! If parallel, initialise slices
     !---------------------------------------------------------------------------
-    select type(output)
-    type is(graph_type)
-       num_batches = size(output,dim=2) / this%batch_size
-    class is(array_type)
-       if(this%use_graph_output)then
-          num_batches = size(output,dim=2) / this%batch_size
-       else
-          num_batches = size(output(1,1)%val,dim=2) / this%batch_size
-       end if
-    class default
-       num_batches = size(output,dim=2) / this%batch_size
-    end select
+    num_batches = (num_samples + this%batch_size - 1) / this%batch_size
     allocate(batch_order(num_batches))
     do batch = 1, num_batches
        batch_order(batch) = batch
@@ -3487,6 +3478,7 @@ contains
     ! Set/reset batch size for training
     !---------------------------------------------------------------------------
     call this%set_batch_size(this%batch_size)
+    target_batch_size = this%batch_size
 
 
     !---------------------------------------------------------------------------
@@ -3519,7 +3511,11 @@ contains
           ! Set batch start and end index
           !---------------------------------------------------------------------
           start_index = (batch_order(batch) - 1) * this%batch_size + 1
-          end_index = batch_order(batch) * this%batch_size
+          end_index = min(batch_order(batch) * this%batch_size, num_samples)
+          current_batch_size = end_index - start_index + 1
+          if(current_batch_size.ne.target_batch_size)then
+             call this%set_batch_size(current_batch_size)
+          end if
 
 
           ! Forward pass
@@ -3527,11 +3523,11 @@ contains
           select case(this%use_graph_input)
           case(.true.)
              data_poly = get_sample( &
-                  this%input_graph, start_index, end_index, this%batch_size &
+                  this%input_graph, start_index, end_index, current_batch_size &
              )
           case default
              data_poly = get_sample( &
-                  this%input_array, start_index, end_index, this%batch_size, &
+                  this%input_array, start_index, end_index, current_batch_size, &
                   as_graph = .false. &
              )
           end select
@@ -3617,7 +3613,6 @@ contains
        !------------------------------------------------------------------------
        val_str = ""
        if(use_validation)then
-          tmp_batch_size = this%batch_size
 
           ! Save training expected output
           call move_alloc(this%expected_array, saved_expected_array)
@@ -3693,7 +3688,7 @@ contains
           num_samples = this%save_input( input )
 
           ! Restore training batch size and inference mode
-          call this%set_batch_size(tmp_batch_size)
+          call this%set_batch_size(target_batch_size)
           do l = 1, this%num_layers
              this%model(l)%layer%inference = .false.
           end do
