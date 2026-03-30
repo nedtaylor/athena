@@ -137,3 +137,10 @@ example_library = { path = "example/example_library"}
 [[example]]
 name = "gno_regression"
 source-dir = "example/gno_regression/src"
+
+[[example]]
+name = "ono_heat"
+source-dir = "example/ono_heat/src"
+main = "main.f90"
+[example.dependencies]
+example_library = { path = "example/example_library"}

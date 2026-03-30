@@ -36,6 +36,7 @@ submodule(athena__container_layer) athena__container_layer_submodule
   use athena__spectral_filter_layer, only: read_spectral_filter_layer
   use athena__orthogonal_attention_layer, only: &
        read_orthogonal_attention_layer
+  use athena__orthogonal_nop_block, only: read_orthogonal_nop_block
   use athena__recurrent_layer, only: read_recurrent_layer
   use athena__reshape_layer, only: read_reshape_layer, create_from_onnx_reshape_layer
 
@@ -113,6 +114,7 @@ contains
          read_layer_container('spectral_filter', read_spectral_filter_layer), &
          read_layer_container('orthogonal_attention', &
               read_orthogonal_attention_layer), &
+         read_layer_container('orthogonal_nop', read_orthogonal_nop_block), &
          read_layer_container('pad1d', read_pad1d_layer), &
          read_layer_container('pad2d', read_pad2d_layer), &
          read_layer_container('pad3d', read_pad3d_layer), &

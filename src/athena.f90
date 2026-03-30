@@ -179,6 +179,8 @@ module athena
        spectral_filter_layer_type, read_spectral_filter_layer
   use athena__orthogonal_attention_layer, only: &
        orthogonal_attention_layer_type, read_orthogonal_attention_layer
+  use athena__orthogonal_nop_block, only: &
+       orthogonal_nop_block_type, read_orthogonal_nop_block
 
 
   ! Merge layer types
