@@ -177,6 +177,8 @@ module athena
        graph_nop_layer_type, read_graph_nop_layer
   use athena__spectral_filter_layer, only: &
        spectral_filter_layer_type, read_spectral_filter_layer
+  use athena__orthogonal_attention_layer, only: &
+       orthogonal_attention_layer_type, read_orthogonal_attention_layer
 
 
   ! Merge layer types
