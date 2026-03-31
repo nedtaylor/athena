@@ -39,12 +39,8 @@ module athena__orthogonal_nop_block
   use athena__base_layer, only: learnable_layer_type, base_layer_type
   use athena__misc_types, only: base_actv_type, base_init_type
   use diffstruc, only: array_type, matmul, operator(+)
+  use athena__diffstruc_extd, only: ono_encode, ono_decode
   implicit none
-
-
-  private
-
-  public :: orthogonal_nop_block_type
   public :: read_orthogonal_nop_block
 
 
@@ -737,20 +733,23 @@ contains
     type(array_type), pointer :: ptr, ptr_spec, ptr_bypass
     type(array_type), pointer :: ptr_encoded, ptr_mixed, ptr_decoded
 
-    ! Rebuild orthogonal basis from current B weights
+    ! Rebuild orthogonal basis from current B weights (for diagnostics)
     call this%orthogonalise_basis()
 
     ! Spectral pathway: Phi @ R @ Phi^T @ u
+    ! Uses autodiff-tracked ono_encode/ono_decode for basis gradients
     !---------------------------------------------------------------------------
 
-    ! Encode: Phi^T @ u  -> [k, batch]
-    ptr_encoded => matmul(this%phi_T, input(1,1))
+    ! Encode: Q(B)^T @ u  -> [k, batch]
+    ptr_encoded => ono_encode(input(1,1), this%params(2), &
+         this%num_inputs, this%num_basis)
 
     ! Mix: R @ encoded   -> [k, batch]
     ptr_mixed => matmul(this%params(1), ptr_encoded)
 
-    ! Decode: Phi @ mixed -> [n_in, batch]
-    ptr_decoded => matmul(this%phi, ptr_mixed)
+    ! Decode: Q(B) @ mixed -> [n_in, batch]
+    ptr_decoded => ono_decode(ptr_mixed, this%params(2), &
+         this%num_inputs, this%num_basis)
 
     ! Spectral projection: W @ decoded -> [n_out, batch]
     ptr_spec => matmul(this%params(3), ptr_decoded)

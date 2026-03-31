@@ -144,3 +144,17 @@ source-dir = "example/ono_heat/src"
 main = "main.f90"
 [example.dependencies]
 example_library = { path = "example/example_library"}
+
+[[example]]
+name = "lno_heat"
+source-dir = "example/lno_heat/src"
+main = "main.f90"
+[example.dependencies]
+example_library = { path = "example/example_library"}
+
+[[example]]
+name = "ono_attention_heat"
+source-dir = "example/ono_attention_heat/src"
+main = "main.f90"
+[example.dependencies]
+example_library = { path = "example/example_library"}

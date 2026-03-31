@@ -458,4 +458,867 @@ contains
   end subroutine get_partial_gno_agg_kernels_val
 !###############################################################################
 
+
+!###############################################################################
+! Laplace Neural Operator — encode and decode with differentiable poles
+!###############################################################################
+
+!###############################################################################
+  module function lno_encode( &
+       input, poles, num_inputs, num_modes &
+  ) result(c)
+    !! Encode input through the Laplace basis built from learnable poles.
+    !!
+    !! Forward:  y = E(mu) @ u   [M, batch]
+    !!   E[m,j] = exp(-mu_m * t_j),  t_j = (j-1)/(n_in-1)
+    !!
+    !! left_operand  → input u  [n_in, batch]
+    !! right_operand → poles mu [M, 1]
+    !! output        → encoded  [M, batch]
+    implicit none
+
+    class(array_type), intent(in), target :: input
+    class(array_type), intent(in), target :: poles
+    integer, intent(in) :: num_inputs, num_modes
+    type(array_type), pointer :: c
+
+    integer :: num_samples, m, j
+    real(real32) :: t, s
+    real(real32), allocatable :: E(:,:)  ! [M, n_in]
+
+    num_samples = size(input%val, 2)
+
+    ! Build encoder basis E [M x n_in]
+    allocate(E(num_modes, num_inputs))
+    do j = 1, num_inputs
+       if(num_inputs .gt. 1) then
+          t = real(j-1, real32) / real(num_inputs-1, real32)
+       else
+          t = 0.0_real32
+       end if
+       do m = 1, num_modes
+          s = poles%val(m, 1)
+          E(m, j) = exp(-s * t)
+       end do
+    end do
+
+    ! Forward: y = E @ u
+    c => input%create_result(array_shape=[num_modes, num_samples])
+    c%val = matmul(E, input%val)
+
+    deallocate(E)
+
+    ! Store metadata for backward
+    allocate(c%indices(2))
+    c%indices = [num_inputs, num_modes]
+
+    c%get_partial_left     => get_partial_lno_encode_input
+    c%get_partial_right    => get_partial_lno_encode_poles
+    c%get_partial_left_val => get_partial_lno_encode_input_val
+    c%get_partial_right_val => get_partial_lno_encode_poles_val
+    if(input%requires_grad .or. poles%requires_grad) then
+       c%requires_grad    = .true.
+       c%is_forward       = input%is_forward .or. poles%is_forward
+       c%operation        = 'lno_encode'
+       c%left_operand     => input
+       c%right_operand    => poles
+       c%owns_left_operand  = input%is_temporary
+       c%owns_right_operand = poles%is_temporary
+    end if
+
+  end function lno_encode
+!-------------------------------------------------------------------------------
+  function get_partial_lno_encode_input(this, upstream_grad) result(output)
+    implicit none
+    class(array_type), intent(inout) :: this
+    type(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    call output%allocate(array_shape=shape(this%left_operand%val))
+    call this%get_partial_left_val(upstream_grad%val, output%val)
+
+  end function get_partial_lno_encode_input
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_lno_encode_input_val( &
+       this, upstream_grad, output)
+    !! dL/du = E^T @ upstream  [n_in, batch]
+    implicit none
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in)  :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    integer :: n_in, M, m, j, s, num_samples
+    real(real32) :: t, mu_m
+    real(real32), allocatable :: ET(:,:)  ! [n_in, M]
+
+    n_in = this%indices(1)
+    M    = this%indices(2)
+    num_samples = size(upstream_grad, 2)
+
+    allocate(ET(n_in, M))
+    do m = 1, M
+       mu_m = this%right_operand%val(m, 1)
+       do j = 1, n_in
+          if(n_in .gt. 1) then
+             t = real(j-1, real32) / real(n_in-1, real32)
+          else
+             t = 0.0_real32
+          end if
+          ET(j, m) = exp(-mu_m * t)
+       end do
+    end do
+
+    output = matmul(ET, upstream_grad)
+
+    deallocate(ET)
+
+  end subroutine get_partial_lno_encode_input_val
+!-------------------------------------------------------------------------------
+  function get_partial_lno_encode_poles(this, upstream_grad) result(output)
+    implicit none
+    class(array_type), intent(inout) :: this
+    type(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    call output%allocate(array_shape=shape(this%right_operand%val))
+    call this%get_partial_right_val(upstream_grad%val, output%val)
+
+  end function get_partial_lno_encode_poles
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_lno_encode_poles_val( &
+       this, upstream_grad, output)
+    !! dL/dmu_m per sample:
+    !!   output[m,s] = upstream[m,s] * sum_j (-t_j) * exp(-mu_m*t_j) * u[j,s]
+    implicit none
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in)  :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    integer :: n_in, M, m, j, s, num_samples
+    real(real32) :: t, mu_m, accum
+
+    n_in = this%indices(1)
+    M    = this%indices(2)
+    num_samples = size(upstream_grad, 2)
+
+    output = 0.0_real32
+    do s = 1, num_samples
+       do m = 1, M
+          mu_m = this%right_operand%val(m, 1)
+          accum = 0.0_real32
+          do j = 1, n_in
+             if(n_in .gt. 1) then
+                t = real(j-1, real32) / real(n_in-1, real32)
+             else
+                t = 0.0_real32
+             end if
+             accum = accum + (-t) * exp(-mu_m * t) * &
+                  this%left_operand%val(j, s)
+          end do
+          output(m, s) = upstream_grad(m, s) * accum
+       end do
+    end do
+
+  end subroutine get_partial_lno_encode_poles_val
+!###############################################################################
+
+
+!###############################################################################
+  module function lno_decode( &
+       spectral, poles, num_outputs, num_modes &
+  ) result(c)
+    !! Decode through the Laplace basis built from learnable poles.
+    !!
+    !! Forward:  y = D(mu) @ x   [n_out, batch]
+    !!   D[i,m] = exp(-mu_m * tau_i),  tau_i = (i-1)/(n_out-1)
+    !!
+    !! left_operand  → spectral x  [M, batch]
+    !! right_operand → poles mu    [M, 1]
+    !! output        → decoded     [n_out, batch]
+    implicit none
+
+    class(array_type), intent(in), target :: spectral
+    class(array_type), intent(in), target :: poles
+    integer, intent(in) :: num_outputs, num_modes
+    type(array_type), pointer :: c
+
+    integer :: num_samples, m, i
+    real(real32) :: t, s
+    real(real32), allocatable :: D(:,:)  ! [n_out, M]
+
+    num_samples = size(spectral%val, 2)
+
+    ! Build decoder basis D [n_out x M]
+    allocate(D(num_outputs, num_modes))
+    do m = 1, num_modes
+       s = poles%val(m, 1)
+       do i = 1, num_outputs
+          if(num_outputs .gt. 1) then
+             t = real(i-1, real32) / real(num_outputs-1, real32)
+          else
+             t = 0.0_real32
+          end if
+          D(i, m) = exp(-s * t)
+       end do
+    end do
+
+    ! Forward: y = D @ x
+    c => spectral%create_result(array_shape=[num_outputs, num_samples])
+    c%val = matmul(D, spectral%val)
+
+    deallocate(D)
+
+    ! Store metadata for backward
+    allocate(c%indices(2))
+    c%indices = [num_outputs, num_modes]
+
+    c%get_partial_left     => get_partial_lno_decode_spectral
+    c%get_partial_right    => get_partial_lno_decode_poles
+    c%get_partial_left_val => get_partial_lno_decode_spectral_val
+    c%get_partial_right_val => get_partial_lno_decode_poles_val
+    if(spectral%requires_grad .or. poles%requires_grad) then
+       c%requires_grad    = .true.
+       c%is_forward       = spectral%is_forward .or. poles%is_forward
+       c%operation        = 'lno_decode'
+       c%left_operand     => spectral
+       c%right_operand    => poles
+       c%owns_left_operand  = spectral%is_temporary
+       c%owns_right_operand = poles%is_temporary
+    end if
+
+  end function lno_decode
+!-------------------------------------------------------------------------------
+  function get_partial_lno_decode_spectral(this, upstream_grad) result(output)
+    implicit none
+    class(array_type), intent(inout) :: this
+    type(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    call output%allocate(array_shape=shape(this%left_operand%val))
+    call this%get_partial_left_val(upstream_grad%val, output%val)
+
+  end function get_partial_lno_decode_spectral
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_lno_decode_spectral_val( &
+       this, upstream_grad, output)
+    !! dL/dx = D^T @ upstream  [M, batch]
+    implicit none
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in)  :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    integer :: n_out, M, m, i, num_samples
+    real(real32) :: t, mu_m
+    real(real32), allocatable :: DT(:,:)  ! [M, n_out]
+
+    n_out = this%indices(1)
+    M     = this%indices(2)
+    num_samples = size(upstream_grad, 2)
+
+    allocate(DT(M, n_out))
+    do m = 1, M
+       mu_m = this%right_operand%val(m, 1)
+       do i = 1, n_out
+          if(n_out .gt. 1) then
+             t = real(i-1, real32) / real(n_out-1, real32)
+          else
+             t = 0.0_real32
+          end if
+          DT(m, i) = exp(-mu_m * t)
+       end do
+    end do
+
+    output = matmul(DT, upstream_grad)
+
+    deallocate(DT)
+
+  end subroutine get_partial_lno_decode_spectral_val
+!-------------------------------------------------------------------------------
+  function get_partial_lno_decode_poles(this, upstream_grad) result(output)
+    implicit none
+    class(array_type), intent(inout) :: this
+    type(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    call output%allocate(array_shape=shape(this%right_operand%val))
+    call this%get_partial_right_val(upstream_grad%val, output%val)
+
+  end function get_partial_lno_decode_poles
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_lno_decode_poles_val( &
+       this, upstream_grad, output)
+    !! dL/dmu_m per sample:
+    !!   output[m,s] = sum_i upstream[i,s]*(-tau_i)*exp(-mu_m*tau_i)*x[m,s]
+    implicit none
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in)  :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    integer :: n_out, M, m, i, s, num_samples
+    real(real32) :: t, mu_m, accum
+
+    n_out = this%indices(1)
+    M     = this%indices(2)
+    num_samples = size(upstream_grad, 2)
+
+    output = 0.0_real32
+    do s = 1, num_samples
+       do m = 1, M
+          mu_m = this%right_operand%val(m, 1)
+          accum = 0.0_real32
+          do i = 1, n_out
+             if(n_out .gt. 1) then
+                t = real(i-1, real32) / real(n_out-1, real32)
+             else
+                t = 0.0_real32
+             end if
+             accum = accum + upstream_grad(i, s) * (-t) * exp(-mu_m * t)
+          end do
+          output(m, s) = accum * this%left_operand%val(m, s)
+       end do
+    end do
+
+  end subroutine get_partial_lno_decode_poles_val
+!###############################################################################
+
+
+!###############################################################################
+! Element-wise scale: out[i,s] = input[i,s] * scale[i,1]
+! Handles non-sample-dependent scale vectors correctly (unlike built-in *)
+!###############################################################################
+
+!###############################################################################
+  module function elem_scale(input, scale) result(c)
+    implicit none
+
+    class(array_type), intent(in), target :: input
+    class(array_type), intent(in), target :: scale
+    type(array_type), pointer :: c
+
+    integer :: i, s, n, ns
+
+    n  = size(input%val, 1)
+    ns = size(input%val, 2)
+
+    c => input%create_result(array_shape=[n, ns])
+    do concurrent(s = 1:ns, i = 1:n)
+       c%val(i, s) = input%val(i, s) * scale%val(i, 1)
+    end do
+
+    c%get_partial_left     => null()
+    c%get_partial_right    => null()
+    c%get_partial_left_val  => get_partial_elem_scale_input_val
+    c%get_partial_right_val => get_partial_elem_scale_scale_val
+    if(input%requires_grad .or. scale%requires_grad) then
+       c%requires_grad    = .true.
+       c%is_forward       = input%is_forward .or. scale%is_forward
+       c%operation        = 'elem_scale'
+       c%left_operand     => input
+       c%right_operand    => scale
+       c%owns_left_operand  = input%is_temporary
+       c%owns_right_operand = scale%is_temporary
+    end if
+
+  end function elem_scale
+!-------------------------------------------------------------------------------
+
+
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_elem_scale_input_val(this, upstream_grad, output)
+    !! d(out)/d(input): upstream * scale (broadcast scale along samples)
+    implicit none
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in)  :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+    integer :: i, s
+
+    do concurrent(s = 1:size(output,2), i = 1:size(output,1))
+       output(i, s) = upstream_grad(i, s) * this%right_operand%val(i, 1)
+    end do
+
+  end subroutine get_partial_elem_scale_input_val
+!-------------------------------------------------------------------------------
+
+
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_elem_scale_scale_val(this, upstream_grad, output)
+    !! d(out)/d(scale): upstream * input (element-wise, per sample)
+    implicit none
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in)  :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+    integer :: i, s
+
+    do concurrent(s = 1:size(output,2), i = 1:size(output,1))
+       output(i, s) = upstream_grad(i, s) * this%left_operand%val(i, s)
+    end do
+
+  end subroutine get_partial_elem_scale_scale_val
+!###############################################################################
+
+
+!###############################################################################
+! Orthogonal Neural Operator — encode and decode with differentiable basis
+!###############################################################################
+
+!###############################################################################
+  module function ono_encode( &
+       input, basis_weights, num_inputs, num_basis &
+  ) result(c)
+    !! Encode input through an orthogonalised basis.
+    !!
+    !! Forward: y = Q(B)^T @ u   [k, batch]
+    !!   Q = modified_gram_schmidt(B), B [n x k] from basis_weights
+    !!
+    !! left_operand  → input u         [n, batch]
+    !! right_operand → basis weights B  [n*k, 1]
+    !! output        → encoded          [k, batch]
+    implicit none
+
+    class(array_type), intent(in), target :: input
+    class(array_type), intent(in), target :: basis_weights
+    integer, intent(in) :: num_inputs, num_basis
+    type(array_type), pointer :: c
+
+    integer :: num_samples, n, k, i, j, s
+    real(real32), allocatable :: B(:,:), Q(:,:), QT(:,:)
+    real(real32) :: norm_val, proj
+
+    n = num_inputs
+    k = num_basis
+    num_samples = size(input%val, 2)
+
+    ! Modified Gram-Schmidt: B -> Q
+    allocate(B(n, k), Q(n, k), QT(k, n))
+    B = reshape(basis_weights%val(:, 1), [n, k])
+    Q = B
+    do j = 1, k
+       do i = 1, j - 1
+          proj = dot_product(Q(:,i), Q(:,j))
+          Q(:,j) = Q(:,j) - proj * Q(:,i)
+       end do
+       norm_val = sqrt(dot_product(Q(:,j), Q(:,j)))
+       if(norm_val .gt. 1.0e-12_real32)then
+          Q(:,j) = Q(:,j) / norm_val
+       else
+          Q(:,j) = 0.0_real32
+       end if
+    end do
+
+    ! Transpose
+    do j = 1, n
+       do i = 1, k
+          QT(i, j) = Q(j, i)
+       end do
+    end do
+
+    ! Forward: y = Q^T @ u
+    c => input%create_result(array_shape=[k, num_samples])
+    c%val = matmul(QT, input%val)
+
+    deallocate(B, Q, QT)
+
+    ! Store metadata
+    allocate(c%indices(2))
+    c%indices = [n, k]
+
+    c%get_partial_left     => get_partial_ono_encode_input
+    c%get_partial_right    => get_partial_ono_encode_basis
+    c%get_partial_left_val => get_partial_ono_encode_input_val
+    c%get_partial_right_val => get_partial_ono_encode_basis_val
+    if(input%requires_grad .or. basis_weights%requires_grad) then
+       c%requires_grad    = .true.
+       c%is_forward       = input%is_forward .or. basis_weights%is_forward
+       c%operation        = 'ono_encode'
+       c%left_operand     => input
+       c%right_operand    => basis_weights
+       c%owns_left_operand  = input%is_temporary
+       c%owns_right_operand = basis_weights%is_temporary
+    end if
+
+  end function ono_encode
+!-------------------------------------------------------------------------------
+  function get_partial_ono_encode_input(this, upstream_grad) result(output)
+    implicit none
+    class(array_type), intent(inout) :: this
+    type(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    call output%allocate(array_shape=shape(this%left_operand%val))
+    call this%get_partial_left_val(upstream_grad%val, output%val)
+
+  end function get_partial_ono_encode_input
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_ono_encode_input_val( &
+       this, upstream_grad, output)
+    !! dL/du = Q @ upstream [n, batch]
+    implicit none
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in)  :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    integer :: n, k, i, j
+    real(real32), allocatable :: B(:,:), Q(:,:)
+    real(real32) :: norm_val, proj
+
+    n = this%indices(1)
+    k = this%indices(2)
+
+    ! Recompute Q from B
+    allocate(B(n, k), Q(n, k))
+    B = reshape(this%right_operand%val(:,1), [n, k])
+    Q = B
+    do j = 1, k
+       do i = 1, j - 1
+          proj = dot_product(Q(:,i), Q(:,j))
+          Q(:,j) = Q(:,j) - proj * Q(:,i)
+       end do
+       norm_val = sqrt(dot_product(Q(:,j), Q(:,j)))
+       if(norm_val .gt. 1.0e-12_real32) then
+          Q(:,j) = Q(:,j) / norm_val
+       else
+          Q(:,j) = 0.0_real32
+       end if
+    end do
+
+    ! dL/du = Q @ upstream
+    output = matmul(Q, upstream_grad)
+
+    deallocate(B, Q)
+
+  end subroutine get_partial_ono_encode_input_val
+!-------------------------------------------------------------------------------
+  function get_partial_ono_encode_basis(this, upstream_grad) result(output)
+    implicit none
+    class(array_type), intent(inout) :: this
+    type(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    call output%allocate(array_shape=shape(this%right_operand%val))
+    call this%get_partial_right_val(upstream_grad%val, output%val)
+
+  end function get_partial_ono_encode_basis
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_ono_encode_basis_val( &
+       this, upstream_grad, output)
+    !! dL/dB per sample through Gram-Schmidt backward.
+    !!
+    !! For encode y = Q^T @ u:
+    !!   dL/dQ from sample s: u(:,s) @ upstream(:,s)^T  → [n, k]
+    !!   dL/dB from sample s: gs_backward(B, dL/dQ_s)   → [n, k]
+    implicit none
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in)  :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    integer :: n, k, s, i, j, num_samples
+    real(real32), allocatable :: B(:,:), Q(:,:), R(:,:)
+    real(real32), allocatable :: dQ(:,:), dQ_work(:,:), dB(:,:)
+    real(real32), allocatable :: dv(:), v_recon(:)
+    real(real32) :: norm_j, dprod, dR_ij, proj
+
+    n = this%indices(1)
+    k = this%indices(2)
+    num_samples = size(upstream_grad, 2)
+
+    ! Recompute Q and R from B via modified Gram-Schmidt
+    allocate(B(n, k), Q(n, k), R(k, k))
+    B = reshape(this%right_operand%val(:,1), [n, k])
+    Q = B
+    R = 0.0_real32
+    do j = 1, k
+       do i = 1, j - 1
+          R(i,j) = dot_product(Q(:,i), Q(:,j))
+          Q(:,j) = Q(:,j) - R(i,j) * Q(:,i)
+       end do
+       R(j,j) = sqrt(dot_product(Q(:,j), Q(:,j)))
+       if(R(j,j) .gt. 1.0e-12_real32) then
+          Q(:,j) = Q(:,j) / R(j,j)
+       else
+          Q(:,j) = 0.0_real32
+       end if
+    end do
+
+    allocate(dQ(n, k), dQ_work(n, k), dB(n, k))
+    allocate(dv(n), v_recon(n))
+
+    output = 0.0_real32
+
+    do s = 1, num_samples
+       ! dL/dQ for this sample: u(:,s) outer upstream(:,s)
+       ! dQ[j_n, i_k] = u(j_n, s) * upstream(i_k, s)
+       do j = 1, k
+          do i = 1, n
+             dQ(i, j) = this%left_operand%val(i, s) * upstream_grad(j, s)
+          end do
+       end do
+
+       ! Gram-Schmidt backward: dQ -> dB
+       dQ_work = dQ
+       dB = 0.0_real32
+
+       do j = k, 1, -1
+          norm_j = R(j, j)
+          if(norm_j .le. 1.0e-12_real32) then
+             dB(:,j) = 0.0_real32
+             cycle
+          end if
+
+          ! Backward through normalization
+          dprod = dot_product(dQ_work(:,j), Q(:,j))
+          dv = (dQ_work(:,j) - dprod * Q(:,j)) / norm_j
+
+          ! Reconstruct v before normalization
+          v_recon = norm_j * Q(:,j)
+
+          ! Backward through projections (reverse order)
+          do i = j-1, 1, -1
+             v_recon = v_recon + R(i,j) * Q(:,i)
+             dR_ij = -dot_product(dv, Q(:,i))
+             dQ_work(:,i) = dQ_work(:,i) - R(i,j) * dv
+             dQ_work(:,i) = dQ_work(:,i) + dR_ij * v_recon
+             dv = dv + dR_ij * Q(:,i)
+          end do
+
+          dB(:,j) = dv
+       end do
+
+       output(:, s) = reshape(dB, [n*k])
+    end do
+
+    deallocate(B, Q, R, dQ, dQ_work, dB, dv, v_recon)
+
+  end subroutine get_partial_ono_encode_basis_val
+!###############################################################################
+
+
+!###############################################################################
+  module function ono_decode( &
+       mixed, basis_weights, num_inputs, num_basis &
+  ) result(c)
+    !! Decode through an orthogonalised basis.
+    !!
+    !! Forward: y = Q(B) @ x   [n, batch]
+    !!   Q = modified_gram_schmidt(B), B [n x k] from basis_weights
+    !!
+    !! left_operand  → mixed x          [k, batch]
+    !! right_operand → basis weights B   [n*k, 1]
+    !! output        → decoded           [n, batch]
+    implicit none
+
+    class(array_type), intent(in), target :: mixed
+    class(array_type), intent(in), target :: basis_weights
+    integer, intent(in) :: num_inputs, num_basis
+    type(array_type), pointer :: c
+
+    integer :: num_samples, n, k, i, j
+    real(real32), allocatable :: B(:,:), Q(:,:)
+    real(real32) :: norm_val, proj
+
+    n = num_inputs
+    k = num_basis
+    num_samples = size(mixed%val, 2)
+
+    ! Modified Gram-Schmidt: B -> Q
+    allocate(B(n, k), Q(n, k))
+    B = reshape(basis_weights%val(:, 1), [n, k])
+    Q = B
+    do j = 1, k
+       do i = 1, j - 1
+          proj = dot_product(Q(:,i), Q(:,j))
+          Q(:,j) = Q(:,j) - proj * Q(:,i)
+       end do
+       norm_val = sqrt(dot_product(Q(:,j), Q(:,j)))
+       if(norm_val .gt. 1.0e-12_real32)then
+          Q(:,j) = Q(:,j) / norm_val
+       else
+          Q(:,j) = 0.0_real32
+       end if
+    end do
+
+    ! Forward: y = Q @ x
+    c => mixed%create_result(array_shape=[n, num_samples])
+    c%val = matmul(Q, mixed%val)
+
+    deallocate(B, Q)
+
+    ! Store metadata
+    allocate(c%indices(2))
+    c%indices = [n, k]
+
+    c%get_partial_left     => get_partial_ono_decode_mixed
+    c%get_partial_right    => get_partial_ono_decode_basis
+    c%get_partial_left_val => get_partial_ono_decode_mixed_val
+    c%get_partial_right_val => get_partial_ono_decode_basis_val
+    if(mixed%requires_grad .or. basis_weights%requires_grad) then
+       c%requires_grad    = .true.
+       c%is_forward       = mixed%is_forward .or. basis_weights%is_forward
+       c%operation        = 'ono_decode'
+       c%left_operand     => mixed
+       c%right_operand    => basis_weights
+       c%owns_left_operand  = mixed%is_temporary
+       c%owns_right_operand = basis_weights%is_temporary
+    end if
+
+  end function ono_decode
+!-------------------------------------------------------------------------------
+  function get_partial_ono_decode_mixed(this, upstream_grad) result(output)
+    implicit none
+    class(array_type), intent(inout) :: this
+    type(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    call output%allocate(array_shape=shape(this%left_operand%val))
+    call this%get_partial_left_val(upstream_grad%val, output%val)
+
+  end function get_partial_ono_decode_mixed
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_ono_decode_mixed_val( &
+       this, upstream_grad, output)
+    !! dL/dx = Q^T @ upstream  [k, batch]
+    implicit none
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in)  :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    integer :: n, k, i, j
+    real(real32), allocatable :: B(:,:), Q(:,:), QT(:,:)
+    real(real32) :: norm_val, proj
+
+    n = this%indices(1)
+    k = this%indices(2)
+
+    ! Recompute Q from B
+    allocate(B(n, k), Q(n, k), QT(k, n))
+    B = reshape(this%right_operand%val(:,1), [n, k])
+    Q = B
+    do j = 1, k
+       do i = 1, j - 1
+          proj = dot_product(Q(:,i), Q(:,j))
+          Q(:,j) = Q(:,j) - proj * Q(:,i)
+       end do
+       norm_val = sqrt(dot_product(Q(:,j), Q(:,j)))
+       if(norm_val .gt. 1.0e-12_real32) then
+          Q(:,j) = Q(:,j) / norm_val
+       else
+          Q(:,j) = 0.0_real32
+       end if
+    end do
+
+    ! Transpose
+    do j = 1, n
+       do i = 1, k
+          QT(i, j) = Q(j, i)
+       end do
+    end do
+
+    output = matmul(QT, upstream_grad)
+
+    deallocate(B, Q, QT)
+
+  end subroutine get_partial_ono_decode_mixed_val
+!-------------------------------------------------------------------------------
+  function get_partial_ono_decode_basis(this, upstream_grad) result(output)
+    implicit none
+    class(array_type), intent(inout) :: this
+    type(array_type), intent(in) :: upstream_grad
+    type(array_type) :: output
+
+    call output%allocate(array_shape=shape(this%right_operand%val))
+    call this%get_partial_right_val(upstream_grad%val, output%val)
+
+  end function get_partial_ono_decode_basis
+!-------------------------------------------------------------------------------
+  pure subroutine get_partial_ono_decode_basis_val( &
+       this, upstream_grad, output)
+    !! dL/dB per sample through Gram-Schmidt backward.
+    !!
+    !! For decode y = Q @ x:
+    !!   dL/dQ from sample s: upstream(:,s) @ x(:,s)^T  → [n, k]
+    !!   dL/dB from sample s: gs_backward(B, dL/dQ_s)   → [n, k]
+    implicit none
+    class(array_type), intent(in) :: this
+    real(real32), dimension(:,:), intent(in)  :: upstream_grad
+    real(real32), dimension(:,:), intent(out) :: output
+
+    integer :: n, k, s, i, j, num_samples
+    real(real32), allocatable :: B(:,:), Q(:,:), R(:,:)
+    real(real32), allocatable :: dQ(:,:), dQ_work(:,:), dB(:,:)
+    real(real32), allocatable :: dv(:), v_recon(:)
+    real(real32) :: norm_j, dprod, dR_ij, proj
+
+    n = this%indices(1)
+    k = this%indices(2)
+    num_samples = size(upstream_grad, 2)
+
+    ! Recompute Q and R from B
+    allocate(B(n, k), Q(n, k), R(k, k))
+    B = reshape(this%right_operand%val(:,1), [n, k])
+    Q = B
+    R = 0.0_real32
+    do j = 1, k
+       do i = 1, j - 1
+          R(i,j) = dot_product(Q(:,i), Q(:,j))
+          Q(:,j) = Q(:,j) - R(i,j) * Q(:,i)
+       end do
+       R(j,j) = sqrt(dot_product(Q(:,j), Q(:,j)))
+       if(R(j,j) .gt. 1.0e-12_real32) then
+          Q(:,j) = Q(:,j) / R(j,j)
+       else
+          Q(:,j) = 0.0_real32
+       end if
+    end do
+
+    allocate(dQ(n, k), dQ_work(n, k), dB(n, k))
+    allocate(dv(n), v_recon(n))
+
+    output = 0.0_real32
+
+    do s = 1, num_samples
+       ! dL/dQ for this sample: upstream(:,s) outer x(:,s)
+       ! dQ[i_n, j_k] = upstream(i_n, s) * x(j_k, s)
+       do j = 1, k
+          do i = 1, n
+             dQ(i, j) = upstream_grad(i, s) * this%left_operand%val(j, s)
+          end do
+       end do
+
+       ! Gram-Schmidt backward: dQ -> dB
+       dQ_work = dQ
+       dB = 0.0_real32
+
+       do j = k, 1, -1
+          norm_j = R(j, j)
+          if(norm_j .le. 1.0e-12_real32) then
+             dB(:,j) = 0.0_real32
+             cycle
+          end if
+
+          ! Backward through normalization
+          dprod = dot_product(dQ_work(:,j), Q(:,j))
+          dv = (dQ_work(:,j) - dprod * Q(:,j)) / norm_j
+
+          ! Reconstruct v before normalization
+          v_recon = norm_j * Q(:,j)
+
+          ! Backward through projections (reverse order)
+          do i = j-1, 1, -1
+             v_recon = v_recon + R(i,j) * Q(:,i)
+             dR_ij = -dot_product(dv, Q(:,i))
+             dQ_work(:,i) = dQ_work(:,i) - R(i,j) * dv
+             dQ_work(:,i) = dQ_work(:,i) + dR_ij * v_recon
+             dv = dv + dR_ij * Q(:,i)
+          end do
+
+          dB(:,j) = dv
+       end do
+
+       output(:, s) = reshape(dB, [n*k])
+    end do
+
+    deallocate(B, Q, R, dQ, dQ_work, dB, dv, v_recon)
+
+  end subroutine get_partial_ono_decode_basis_val
+!###############################################################################
+
 end submodule athena__diffstruc_extd_submodule_nop

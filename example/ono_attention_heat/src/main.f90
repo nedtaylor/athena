@@ -1,26 +1,18 @@
-program orthogonal_neural_operator_heat
-  !! Orthogonal Neural Operator for the 1D heat equation
+program orthogonal_attention_heat
+  !! Orthogonal Attention layer for the 1D heat equation
   !!
-  !! Demonstrates the Orthogonal Neural Operator (ONO) by learning
+  !! Demonstrates the Orthogonal Attention layer by learning
   !! the solution operator for the 1D heat equation:
   !!
   !! $$\frac{\partial u}{\partial t} = \nu \frac{\partial^2 u}{\partial x^2}$$
   !!
-  !! The ONO learns the mapping from an initial condition \(u_0(x)\)
+  !! The network learns the mapping from an initial condition \(u_0(x)\)
   !! to the solution at a later time: \( u_0 \mapsto u(t^*, x) \).
   !!
   !! ## Architecture
   !!
-  !! - ONO layer: N_grid -> 32 (relu), orthogonal basis k=8
-  !! - ONO layer: 32 -> N_grid (none), orthogonal basis k=8
-  !!
-  !! ## Data generation
-  !!
-  !! Initial conditions are random superpositions of low-frequency sines:
-  !! $$u_0(x) = \sum_{m=1}^{M} a_m \sin(m \pi x)$$
-  !!
-  !! The exact solution at time \(t^*\) is:
-  !! $$u(t^*, x) = \sum_{m=1}^{M} a_m e^{-\nu m^2 \pi^2 t^*} \sin(m\pi x)$$
+  !! - Orthogonal Attention: N_grid -> N_hidden (relu), basis k=8
+  !! - Orthogonal Attention: N_hidden -> N_grid (none), basis k=8
   !!
   !! ## Reference
   !!
@@ -41,7 +33,6 @@ program orthogonal_neural_operator_heat
   integer, parameter :: N_hidden = 32     !! hidden dimension
   integer, parameter :: k_basis = 8       !! orthogonal basis size
   integer, parameter :: num_epochs = 100  !! training epochs
-  integer, parameter :: batch_size = 20   !! batch size
   real(real32), parameter :: nu = 0.01_real32    !! diffusivity
   real(real32), parameter :: t_star = 1.0_real32 !! target time
   real(real32), parameter :: lr = 0.001_real32   !! learning rate
@@ -92,7 +83,7 @@ program orthogonal_neural_operator_heat
   ! Training samples
   do n = 1, N_train
      call random_number(coeffs)
-     coeffs = 2.0_real32 * coeffs - 1.0_real32   ! in [-1, 1]
+     coeffs = 2.0_real32 * coeffs - 1.0_real32
 
      do i = 1, N_grid
         x_train(i, n) = 0.0_real32
@@ -125,8 +116,8 @@ program orthogonal_neural_operator_heat
      end do
   end do
 
-  write(*,'(A)') "Orthogonal Neural Operator — 1D Heat Equation"
-  write(*,'(A)') "=============================================="
+  write(*,'(A)') "Orthogonal Attention — 1D Heat Equation"
+  write(*,'(A)') "========================================"
   write(*,'(A,I0,A,I0)') "Grid: ", N_grid, ", Basis: ", k_basis
   write(*,'(A,I0,A,I0)') "Train samples: ", N_train, ", Test samples: ", N_test
   write(*,'(A,F6.4,A,F6.4)') "Diffusivity: ", nu, ", Target time: ", t_star
@@ -134,12 +125,14 @@ program orthogonal_neural_operator_heat
 
 
   !-----------------------------------------------------------------------------
-  ! Build network:  ONO(N_grid -> N_hidden, relu)  ->  ONO(N_hidden -> N_grid)
+  ! Build network:
+  !   OrthoAttn(N_grid -> N_hidden, relu, k=8)
+  !   OrthoAttn(N_hidden -> N_grid, none, k=8)
   !-----------------------------------------------------------------------------
-  call network%add(orthogonal_nop_block_type( &
+  call network%add(orthogonal_attention_layer_type( &
        num_inputs = N_grid, num_outputs = N_hidden, &
        num_basis = k_basis, activation = "relu"))
-  call network%add(orthogonal_nop_block_type( &
+  call network%add(orthogonal_attention_layer_type( &
        num_outputs = N_grid, &
        num_basis = k_basis))
   call network%compile( &
@@ -154,29 +147,13 @@ program orthogonal_neural_operator_heat
 
 
   !-----------------------------------------------------------------------------
-  ! Print initial orthogonality metric
-  !-----------------------------------------------------------------------------
-  select type(layer => network%model(1)%layer)
-  type is(orthogonal_nop_block_type)
-     write(*,'(A,ES10.3)') "Layer 1 orthogonality metric: ", &
-          layer%get_orthogonality_metric()
-  end select
-  select type(layer => network%model(2)%layer)
-  type is(orthogonal_nop_block_type)
-     write(*,'(A,ES10.3)') "Layer 2 orthogonality metric: ", &
-          layer%get_orthogonality_metric()
-  end select
-  write(*,*)
-
-
-  !-----------------------------------------------------------------------------
   ! Training loop (manual mini-batch)
   !-----------------------------------------------------------------------------
   call inp(1,1)%allocate([N_grid, 1])
   call tgt(1,1)%allocate([N_grid, 1])
 
-  write(*,'(A)') "Epoch   Train MSE   Test MSE   Orth1       Orth2"
-  write(*,'(A)') "-----   ---------   --------   -----       -----"
+  write(*,'(A)') "Epoch   Train MSE   Test MSE"
+  write(*,'(A)') "-----   ---------   --------"
 
   do epoch = 1, num_epochs
      ! -- Train on all samples one by one --
@@ -202,17 +179,7 @@ program orthogonal_neural_operator_heat
         end do
         mse = mse / real(N_test, real32)
 
-        ! Print with orthogonality metrics
-        select type(l1 => network%model(1)%layer)
-        type is(orthogonal_nop_block_type)
-           select type(l2 => network%model(2)%layer)
-           type is(orthogonal_nop_block_type)
-              write(*,'(I5,3X,ES10.3,3X,ES10.3,3X,ES10.3,3X,ES10.3)') &
-                   epoch, 0.0_real32, mse, &
-                   l1%get_orthogonality_metric(), &
-                   l2%get_orthogonality_metric()
-           end select
-        end select
+        write(*,'(I5,3X,ES10.3,3X,ES10.3)') epoch, 0.0_real32, mse
      end if
   end do
 
@@ -231,21 +198,8 @@ program orthogonal_neural_operator_heat
           abs(y_test(i,1) - y_pred(i,1))
   end do
 
-  ! Final orthogonality
-  write(*,*)
-  select type(layer => network%model(1)%layer)
-  type is(orthogonal_nop_block_type)
-     write(*,'(A,ES10.3)') "Final layer 1 max(|Q^T Q - I|) = ", &
-          layer%get_orthogonality_metric()
-  end select
-  select type(layer => network%model(2)%layer)
-  type is(orthogonal_nop_block_type)
-     write(*,'(A,ES10.3)') "Final layer 2 max(|Q^T Q - I|) = ", &
-          layer%get_orthogonality_metric()
-  end select
-
   call inp(1,1)%deallocate()
   call tgt(1,1)%deallocate()
   deallocate(x_train, y_train, x_test, y_test)
 
-end program orthogonal_neural_operator_heat
+end program orthogonal_attention_heat

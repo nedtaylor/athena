@@ -40,6 +40,7 @@ module athena__dynamic_lno_layer
   use athena__misc_types, only: base_actv_type, base_init_type, &
        onnx_node_type, onnx_initialiser_type, onnx_tensor_type
   use diffstruc, only: array_type, matmul, operator(+), operator(*)
+  use athena__diffstruc_extd, only: lno_encode, lno_decode, elem_scale
   implicit none
 
 
@@ -695,15 +696,18 @@ contains
     type(array_type), pointer :: ptr, ptr_spec, ptr_local
 
 
-    ! Rebuild E(mu) and D(mu) from current poles
+    ! Rebuild bases for diagnostics (phi inspection)
     !---------------------------------------------------------------------------
     call this%rebuild_bases()
 
     ! Spectral pathway:  D(mu) @ diag(beta) @ E(mu) @ u
+    ! Uses autodiff-tracked lno_encode/lno_decode for pole gradients
     !---------------------------------------------------------------------------
-    ptr_spec => matmul(this%encoder_basis, input(1,1))  ! [M, batch]
-    ptr_spec => this%params(2) * ptr_spec               ! [M, batch] residue scaling
-    ptr_spec => matmul(this%decoder_basis, ptr_spec)    ! [n_out, batch]
+    ptr_spec => lno_encode(input(1,1), this%params(1), &
+         this%num_inputs, this%num_modes)                ! [M, batch]
+    ptr_spec => elem_scale(ptr_spec, this%params(2))    ! [M, batch] residue scaling
+    ptr_spec => lno_decode(ptr_spec, this%params(1), &
+         this%num_outputs, this%num_modes)               ! [n_out, batch]
 
     ! Local bypass:  W @ u
     !---------------------------------------------------------------------------

@@ -22,6 +22,8 @@ module athena__diffstruc_extd
   public :: kipf_propagate, kipf_update
   public :: duvenaud_propagate, duvenaud_update
   public :: gno_kernel_eval, gno_aggregate
+  public :: lno_encode, lno_decode, elem_scale
+  public :: ono_encode, ono_decode
 
 
   type, extends(array_type) :: batchnorm_array_type
@@ -313,6 +315,60 @@ module athena__diffstruc_extd
        integer, intent(in) :: F_in, F_out
        type(array_type), pointer :: c
      end function gno_aggregate
+  end interface
+
+  interface
+     module function lno_encode( &
+          input, poles, num_inputs, num_modes &
+     ) result(c)
+       !! Encode input via Laplace basis: E(mu) @ u
+       class(array_type), intent(in), target :: input
+       class(array_type), intent(in), target :: poles
+       integer, intent(in) :: num_inputs, num_modes
+       type(array_type), pointer :: c
+     end function lno_encode
+
+     module function lno_decode( &
+          spectral, poles, num_outputs, num_modes &
+     ) result(c)
+       !! Decode via Laplace basis: D(mu) @ spectral
+       class(array_type), intent(in), target :: spectral
+       class(array_type), intent(in), target :: poles
+       integer, intent(in) :: num_outputs, num_modes
+       type(array_type), pointer :: c
+     end function lno_decode
+  end interface
+
+  interface
+     module function elem_scale(input, scale) result(c)
+       !! Element-wise multiply: out[i,s] = input[i,s] * scale[i,1]
+       !! Correctly handles non-sample-dependent scale vectors.
+       class(array_type), intent(in), target :: input
+       class(array_type), intent(in), target :: scale
+       type(array_type), pointer :: c
+     end function elem_scale
+  end interface
+
+  interface
+     module function ono_encode( &
+          input, basis_weights, num_inputs, num_basis &
+     ) result(c)
+       !! Encode via orthogonal basis: Q(B)^T @ u
+       class(array_type), intent(in), target :: input
+       class(array_type), intent(in), target :: basis_weights
+       integer, intent(in) :: num_inputs, num_basis
+       type(array_type), pointer :: c
+     end function ono_encode
+
+     module function ono_decode( &
+          mixed, basis_weights, num_inputs, num_basis &
+     ) result(c)
+       !! Decode via orthogonal basis: Q(B) @ mixed
+       class(array_type), intent(in), target :: mixed
+       class(array_type), intent(in), target :: basis_weights
+       integer, intent(in) :: num_inputs, num_basis
+       type(array_type), pointer :: c
+     end function ono_decode
   end interface
 !-------------------------------------------------------------------------------
 

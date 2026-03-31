@@ -45,7 +45,8 @@ module athena__orthogonal_attention_layer
   use coreutils, only: real32, stop_program
   use athena__base_layer, only: learnable_layer_type, base_layer_type
   use athena__misc_types, only: base_actv_type, base_init_type
-  use diffstruc, only: array_type, matmul, operator(+)
+  use diffstruc, only: array_type, matmul, operator(+), operator(*)
+  use athena__diffstruc_extd, only: ono_encode, ono_decode
   implicit none
 
 
@@ -741,66 +742,52 @@ contains
     !! Forward propagation for the Orthogonal Attention layer
     !!
     !! Computes:
-    !!   Q = W_Q @ u                     [key_dim, batch]
-    !!   K = W_K @ u                     [key_dim, batch]
-    !!   V = W_V @ u                     [num_outputs, batch]
+    !!   Q = W_Q @ u                     [k, batch]
+    !!   K = W_K @ u                     [k, batch]
+    !!   attn = Q * K                    [k, batch]  (per-basis attention scores)
     !!
-    !!   Orthogonal attention (efficient O(N*k) path):
-    !!   PhiT_Q = Phi^T @ Q             [k, batch]  (project Q into basis)
-    !!   PhiT_K = Phi^T @ K             [k, batch]  (project K into basis)
-    !!   attn_coeff = PhiT_Q * PhiT_K   [k, batch]  (element-wise in basis)
-    !!   attn_weights = Phi @ attn_coeff [num_inputs, batch]
-    !!   attn_out = W_V @ (attn_weights * u)  ... replaced by matmul chain
+    !!   spectral = Q(B)^T @ u           [k, batch]  (project to spectral, B-tracked)
+    !!   modulated = attn * spectral     [k, batch]  (modulate spectral coefficients)
+    !!   decoded = Q(B) @ modulated      [n_in, batch]  (decode, B-tracked)
     !!
-    !!   Simplified linear attention via basis projection:
-    !!   attn_out = Phi @ diag(PhiT_Q .* PhiT_K) @ Phi^T @ V
+    !!   attn_out = W_V @ decoded        [n_out, batch]
+    !!   bypass   = W @ u               [n_out, batch]
     !!
-    !!   v = sigma( attn_out + W @ u + b )
+    !!   v = sigma( attn_out + bypass + b )
     implicit none
 
     class(orthogonal_attention_layer_type), intent(inout) :: this
     class(array_type), dimension(:,:), intent(in) :: input
 
     type(array_type), pointer :: ptr, ptr_attn, ptr_bypass
-    type(array_type), pointer :: ptr_PhiTQ, ptr_attn_proj
-    type(array_type) :: Phi_T
+    type(array_type), pointer :: ptr_Q, ptr_K, ptr_coeff
+    type(array_type), pointer :: ptr_spec, ptr_mod, ptr_decoded
 
-    integer :: n, nb, i, j
+    integer :: n, nb
 
 
     n = this%num_inputs
     nb = this%num_basis
 
-    ! Rebuild orthogonal basis from current B weights (keeps phi fresh during training)
+    ! Rebuild orthogonal basis from current B weights (for diagnostics)
     call this%orthogonalise_basis()
 
-    ! We need Phi^T [num_basis x num_inputs]
-    call Phi_T%allocate([nb, n, 1])
-    Phi_T%requires_grad = .false.
-    Phi_T%fix_pointer = .true.
-    Phi_T%is_sample_dependent = .false.
-    Phi_T%is_temporary = .false.
-
-    ! Transpose phi [n x k] -> Phi_T [k x n]
-    do j = 1, n
-       do i = 1, nb
-          Phi_T%val(i + (j-1)*nb, 1) = this%phi%val(j + (i-1)*n, 1)
-       end do
-    end do
+    !---------------------------------------------------------------------------
+    ! Attention scores from Q and K projections
+    !---------------------------------------------------------------------------
+    ptr_Q => matmul(this%params(1), input(1,1))    ! W_Q @ u: [k, batch]
+    ptr_K => matmul(this%params(2), input(1,1))    ! W_K @ u: [k, batch]
+    ptr_coeff => ptr_Q * ptr_K                     ! element-wise: [k, batch]
 
     !---------------------------------------------------------------------------
-    ! Orthogonal attention via basis projection:
-    !   proj_u = Phi^T @ u          [k, batch]
-    !   reconstructed = Phi @ proj_u  [n, batch]
-    !   attn_out = W_V @ reconstructed  [n_out, batch]
+    ! Spectral pathway: modulate spectral coefficients by attention scores
     !---------------------------------------------------------------------------
+    ptr_spec => ono_encode(input(1,1), this%params(4), n, nb)  ! [k, batch]
+    ptr_mod  => ptr_coeff * ptr_spec                           ! [k, batch]
+    ptr_decoded => ono_decode(ptr_mod, this%params(4), n, nb)  ! [n, batch]
 
-    ! Project input into orthogonal basis and back
-    ptr_PhiTQ => matmul(Phi_T, input(1,1))      ! [k, batch]
-    ptr_attn_proj => matmul(this%phi, ptr_PhiTQ) ! [n, batch]
-
-    ! Value projection: W_V @ reconstructed
-    ptr_attn => matmul(this%params(3), ptr_attn_proj)  ! [n_out, batch]
+    ! Value projection
+    ptr_attn => matmul(this%params(3), ptr_decoded)  ! [n_out, batch]
 
     ! Bypass: W @ u
     ptr_bypass => matmul(this%params(5), input(1,1))   ! [n_out, batch]
@@ -825,9 +812,6 @@ contains
        call this%output(1,1)%assign_and_deallocate_source(ptr)
     end if
     this%output(1,1)%is_temporary = .false.
-
-    ! Deallocate temporary Phi_T matrix
-    call Phi_T%deallocate()
 
   end subroutine forward_ono_attn
 !###############################################################################
