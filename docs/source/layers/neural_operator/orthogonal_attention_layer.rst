@@ -24,9 +24,20 @@ It uses a learned low-rank orthonormal basis to build an efficient global projec
 
 .. math::
 
-   \mathbf{v} = \sigma\left(\mathbf{W}_V\,\mathbf{\Phi}\,\mathbf{\Phi}^T\,\mathbf{u} + \mathbf{W}\,\mathbf{u} + \mathbf{b}\right)
+   \mathbf{v} = \sigma\left(\text{Attn}(\mathbf{u}) + \mathbf{W}\,\mathbf{u} + \mathbf{b}\right)
 
-where:
+where the attention operation is defined as:
+
+.. math::
+
+   \mathrm{Attn}(\mathbf{u})
+   =
+   \mathbf{\Phi}
+   \left(\mathbf{\Phi}^T \mathbf{W}_Q \mathbf{u}\right)
+   \left(\mathbf{\Phi}^T \mathbf{W}_K \mathbf{u}\right)^T
+   \mathbf{W}_V \mathbf{u}.
+
+and:
 
 * :math:`\mathbf{u} \in \mathbb{R}^{n_{in}}` is the input sampled on a grid
 * :math:`\mathbf{\Phi} \in \mathbb{R}^{n_{in} \times k}` is the learned orthonormal basis obtained from basis weights :math:`\mathbf{B}`
@@ -138,7 +149,7 @@ Notes
 See Also
 --------
 
-* :ref:`orthogonal_nop_block_type <orthogonal-nop-layer>` - Orthogonal neural operator layer with spectral mixing on the same learned basis
+* :ref:`orthogonal_nop_block_type <orthogonal-nop-block>` - Orthogonal neural operator block with spectral mixing on the same learned basis
 * :ref:`neural_operator_layer_type <neural-operator-layer>` - Simpler mean-field neural operator layer
 * :ref:`laplace_nop_layer_type <laplace-nop-layer>` - Spectral neural operator layer with fixed bases
 * :ref:`full_layer_type <full-layer>` - Standard dense layer
