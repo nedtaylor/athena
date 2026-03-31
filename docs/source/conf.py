@@ -31,7 +31,7 @@ def h3style_role(name, rawtext, text, lineno, inliner, options={}, content=[]):
 
 def setup(app):
     roles.register_local_role('h3style', h3style_role)
-    app.connect("builder-inited", run_ford)
+    #app.connect("builder-inited", run_ford)
 
 # -- Project information
 
@@ -82,7 +82,7 @@ extensions.append('spelling_aliases')
 
 # -- Options for HTML output
 
-html_theme = 'sphinx_rtd_theme' # 'sphinx_book_theme'
+html_theme = 'sphinx_book_theme'
 
 # Add path for static files (will include FORD output)
 html_static_path = ['_static']
@@ -91,24 +91,17 @@ html_css_files = [
 ]
 
 html_theme_options = {
-    'logo_only': False,
-    'prev_next_buttons_location': 'bottom',
-    'style_external_links': False,
-    'vcs_pageview_mode': '',
-    # 'style_nav_header_background': 'white',
-    'flyout_display': 'hidden',
-    'version_selector': True,
-    'language_selector': True,
     # Toc options
-    'collapse_navigation': True,
-    'sticky_navigation': True,
+    'home_page_in_toc': True,
+    'show_toc_level': 2,  # Sidebar shows subsections down to level 2
     'navigation_depth': 4,
-    'includehidden': True,
-    'titles_only': False,
-    'use_edit_page_button': True,
-    'use_repository_button': True,
+    'collapse_navigation': True,
+    'repository_provider': 'github',
+    'repository_url': "https://github.com/nedtaylor/athena",
+    "use_source_button": True,
+    "use_repository_button": True,
+    "use_issues_button": True,
 }
-
 
 html_context = {
     "display_github": True,

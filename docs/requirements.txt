@@ -1,4 +1,4 @@
 sphinx>=7.0
-sphinx-rtd-theme==2.0
+sphinx-book-theme>=1.2.0
 ford>=7.0
 sphinx-copybutton

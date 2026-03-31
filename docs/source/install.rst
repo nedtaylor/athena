@@ -5,10 +5,6 @@ Installation
 
 This guide will help you install and set up the **athena** library for automatic differentiation in Fortran.
 
-.. contents::
-   :local:
-   :depth: 2
-
 Using athena in your Fortran Projects
 -------------------------------------
 

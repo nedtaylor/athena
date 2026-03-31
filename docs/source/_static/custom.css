@@ -10,33 +10,30 @@ div.tight-toc > .toctree-wrapper + .toctree-wrapper {
 }
 
 
-/* Make Sphinx rubric look exactly like an H2 header in the RTD theme */
+/* Make Sphinx rubric look like an H2 header in the Sphinx Book Theme */
 
 p.rubric {
-    /* match h2 style */
-    font-size: 150% !important;   /* RTD h2 size */
-    font-weight: 700 !important;  /* bold */
-    font-family: Roboto Slab, ff-tisa-web-pro, Georgia, Arial, sans-serif !important;
+    font-size: 215% !important;   /* match H2 size */
+    font-weight: 500 !important;
     margin-top: 0 !important;
     margin-bottom: 24px !important;
     padding: 0 !important;
     border: none !important;
 
-    /* reset default rubric styling */
     text-transform: none !important;
-    color: inherit !important;
+    color: inherit !important;    /* use theme text colour */
+    font-family: inherit !important; /* use theme default font */
 }
 
 p.rubric > .h3 {
-    font-size: 120% !important;   /* RTD h2 size */
-    font-weight: 700 !important;  /* bold */
-    font-family: Roboto Slab, ff-tisa-web-pro, Georgia, Arial, sans-serif !important;
+    font-size: 120% !important;   /* slightly smaller for subheadings */
+    font-weight: 400 !important;
     margin-top: 0 !important;
     margin-bottom: 20px !important;
     padding: 0 !important;
     border: none !important;
 
-    /* reset default rubric styling */
     text-transform: none !important;
     color: inherit !important;
+    font-family: inherit !important;
 }
