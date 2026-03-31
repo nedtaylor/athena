@@ -44,4 +44,9 @@ The following types of layers are available in the athena library:
 
 The athena library is designed with extensibility in mind, allowing users to create custom layers by extending the ``base_layer_type``.
 
+.. rubric:: Blocks
+
+Blocks are a convenient way to group multiple layers together into a single unit that can be added to a network.
+An example of a custom block is the :ref:`orthogonal_nop_block_type <orthogonal-nop-block>`, which combines an orthogonal basis projection with a spectral mixing path and a local bypass.
+
 See the tutorial: :ref:`Creating Custom Layers <custom-layers>`
